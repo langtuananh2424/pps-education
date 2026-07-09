@@ -6,6 +6,23 @@ Backend (Spring Boot, Controller-Service-Repository) + Frontend (React) tách
 biệt. Toàn bộ chi tiết nghiệp vụ nằm trong `docs/` — đọc file cụ thể theo
 việc đang làm, KHÔNG cần đọc hết mọi file mỗi phiên.
 
+## Quy tắc code — `.claude/rules/`
+- `architecture.md` — kiến trúc phân lớp Controller→Service→Repository,
+  ranh giới DTO/Entity, vị trí business logic, transaction boundary. Luôn
+  nạp (không path-scoped) vì là bất biến áp dụng mọi lúc.
+- `solid.md` — 5 nguyên tắc SOLID kèm ví dụ cụ thể theo domain PPS
+  Education (chỉ nạp khi đọc/sửa file `.java`).
+- `business-fidelity.md` — quy trình bắt buộc để code không sai lệch so
+  với SRS/SDD/UC (chỉ nạp khi đọc/sửa `service/`, `domain/`, hoặc
+  migration `.sql`).
+- `testing.md` — mỗi Alternate Flow trong UC phải có 1 test case riêng
+  (chỉ nạp khi đọc/sửa file test).
+
+> ⚠️ Rule có `paths:` frontmatter đôi khi không tự nạp đúng như tài liệu mô
+> tả (vấn đề đã biết của Claude Code, tùy phiên bản). Nếu nghi ngờ 1 rule
+> không được áp dụng, chạy `/context` để kiểm tra danh sách file đã nạp;
+> nếu thiếu, chủ động yêu cầu Claude đọc file rule đó trước khi làm việc.
+
 ## Tài liệu — đọc theo nhu cầu, đừng đọc hết
 - `docs/srs.md` — yêu cầu chức năng (FR) theo 10 phân hệ, 11 tác nhân, ma
   trận Actor × Phân hệ.
