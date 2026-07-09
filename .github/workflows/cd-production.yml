@@ -1,0 +1,60 @@
+# Deploy tự động lên Production (Railway) khi merge vào `main`.
+# Dùng GitHub Environment "production" với required reviewer để có bước
+# duyệt thủ công trước khi deploy thật (Settings → Environments → production).
+# Cần secret: RAILWAY_TOKEN, RAILWAY_PROJECT_ID (project Railway production —
+# KHÁC với project staging).
+name: CD - Production
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "pps-education-backend/**"
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+      version: ${{ steps.meta.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set image tag (short SHA làm version tạm — đổi sang git tag semver khi release chính thức)
+        id: meta
+        run: |
+          VERSION=$(echo "${{ github.sha }}" | cut -c1-7)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "image=ghcr.io/${{ github.repository }}/backend:prod-$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Build & push image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./pps-education-backend
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.image }}
+            ghcr.io/${{ github.repository }}/backend:prod-latest
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment: production # yêu cầu approval thủ công nếu đã cấu hình required reviewer
+    steps:
+      - name: Deploy to Railway (production)
+        run: |
+          npm install -g @railway/cli
+          railway up --service backend --environment production
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}

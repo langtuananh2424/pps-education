@@ -1,0 +1,77 @@
+# NFR-TECH-05: nhánh main (production) + develop (tích hợp) + feature/*, qua
+# Pull Request trước khi merge (xem CONTRIBUTING.md). Workflow này:
+#  1. Kiểm tra không có migration Flyway cũ nào bị sửa nội dung (so với develop)
+#  2. Build + test toàn bộ (Postgres/PostGIS thật, không dùng H2)
+name: Backend CI
+
+on:
+  pull_request:
+    branches: [develop, main]
+    paths:
+      - "pps-education-backend/**"
+      - ".github/workflows/backend-ci.yml"
+  push:
+    branches: [develop, main]
+    paths:
+      - "pps-education-backend/**"
+
+jobs:
+  check-migrations:
+    # Chỉ chạy trên PR (có base để so sánh); bỏ qua trên push trực tiếp (merge commit)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Không cho sửa migration Flyway đã tồn tại trên base branch
+        run: |
+          MIGRATION_DIR="pps-education-backend/src/main/resources/db/migration"
+          BASE="origin/${{ github.base_ref }}"
+          git fetch origin ${{ github.base_ref }} --depth=1
+
+          CHANGED=$(git diff --name-status "$BASE"...HEAD -- "$MIGRATION_DIR" | awk '$1=="M"{print $2}')
+          if [ -n "$CHANGED" ]; then
+            echo "::error::Phát hiện migration Flyway đã tồn tại bị sửa nội dung — checksum sẽ vỡ với DB của người khác đã chạy migration này. Hãy tạo migration MỚI thay vì sửa file cũ:"
+            echo "$CHANGED"
+            exit 1
+          fi
+          echo "OK — không có migration cũ nào bị sửa."
+
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_DB: pps_education_test
+          POSTGRES_USER: pps_app
+          POSTGRES_PASSWORD: changeme
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pps_app -d pps_education_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: "temurin"
+          cache: maven
+
+      - name: Build & test
+        working-directory: ./pps-education-backend
+        env:
+          DB_URL: jdbc:postgresql://localhost:5432/pps_education_test
+          DB_USERNAME: pps_app
+          DB_PASSWORD: changeme
+          JWT_SECRET: ci_test_secret_min_256_bits_xxxxxxxxxxxxxxxxxxxxxxxxx
+        run: mvn -B clean verify

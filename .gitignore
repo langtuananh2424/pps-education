@@ -1,0 +1,22 @@
+# Java / Maven
+target/
+*.class
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+
+# Env / secrets
+.env
+*.local.yml
+
+# Frontend (thêm khi bắt đầu Frontend Phase 1)
+node_modules/
+dist/
+build/

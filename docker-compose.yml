@@ -1,0 +1,56 @@
+# Môi trường phát triển cục bộ (NFR-TECH-06) — đảm bảo đồng nhất giữa các thành viên trong nhóm.
+# Chạy: docker compose up -d --build
+# Frontend (React) sẽ được thêm vào file này khi bắt đầu Frontend Phase 1.
+
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: pps-education-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: pps_education
+      POSTGRES_USER: pps_app
+      POSTGRES_PASSWORD: changeme
+    ports:
+      - "5432:5432"
+    volumes:
+      - pps_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pps_app -d pps_education"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./pps-education-backend
+      dockerfile: Dockerfile
+    container_name: pps-education-backend
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      DB_URL: jdbc:postgresql://postgres:5432/pps_education
+      DB_USERNAME: pps_app
+      DB_PASSWORD: changeme
+      JWT_SECRET: local_dev_secret_change_in_prod_min_256_bits_xxxxxxxxxxxxxxxxx
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  pgadmin:
+    image: dpage/pgadmin4:8
+    container_name: pps-education-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@pps.local
+      PGADMIN_DEFAULT_PASSWORD: changeme
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    profiles: ["tools"] # chỉ chạy khi: docker compose --profile tools up
+
+volumes:
+  pps_pg_data:

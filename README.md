@@ -1,0 +1,95 @@
+# PPS Education — Monorepo
+
+Hệ thống quản lý trung tâm Anh ngữ PPS English. Tài liệu nghiệp vụ đầy đủ: SRS,
+SDD, Đặc tả Use Case IEEE (43 UC) — xem thư mục `docs/` (nếu đã đồng bộ) hoặc
+kho tài liệu dự án.
+
+## Cấu trúc repo
+
+```
+.
+├── pps-education-backend/    # Spring Boot (Controller-Service-Repository, NFR-TECH-02)
+├── docker-compose.yml        # Môi trường dev cục bộ (NFR-TECH-06)
+└── .github/workflows/        # CI (NFR-TECH-05)
+```
+
+Frontend (React, NFR-TECH-03) sẽ được thêm vào dưới dạng thư mục
+`pps-education-frontend/` khi bắt đầu **Frontend Phase 1** (xem kế hoạch phân kỳ).
+
+## Chạy môi trường dev
+
+```bash
+docker compose up -d --build          # postgres + backend
+docker compose --profile tools up -d  # thêm pgadmin (http://localhost:5050)
+```
+
+Backend: http://localhost:8080
+Swagger UI: http://localhost:8080/swagger-ui.html
+
+Chạy backend trực tiếp bằng Maven (không qua Docker) khi dev:
+```bash
+cd pps-education-backend
+mvn spring-boot:run
+```
+Yêu cầu Postgres (có extension `postgis`, `pgcrypto`) đang chạy và biến môi trường
+`DB_URL/DB_USERNAME/DB_PASSWORD/JWT_SECRET` — xem `application.yml`.
+
+## Trạng thái Phase A (Nền tảng) — đã setup trong khung này
+
+- [x] Cấu trúc project Spring Boot (Controller-Service-Repository)
+- [x] Docker Compose (Postgres + PostGIS + Backend + pgadmin tùy chọn)
+- [x] CI GitHub Actions (build + test trên PR vào `main`)
+- [x] Flyway migration V1: bảng nền (`users`, `roles`, `permissions`,
+      `user_roles`, `role_permissions`, `user_permission_overrides`,
+      `permission_audit_log`, `refresh_tokens`, `login_attempts`,
+      `system_settings`, `import_jobs`, `approval_flows`)
+- [x] Flyway migration V2: `sites`, `rooms`, `equipment`, `partner_contracts`,
+      `partner_school_info`, `site_managers`, `partner_feedbacks` (dữ liệu nền
+      Phân hệ 10, kéo sớm vì Phân hệ 6 phụ thuộc)
+- [x] Flyway migration V3: `employees`, `employment_contracts`,
+      `qualifications`, `commendations` (dữ liệu nền Phân hệ 4, kéo sớm vì
+      Phân hệ 6 cần gán Giáo viên vào lớp)
+- [x] Flyway migration V4: seed 11 role hệ thống + permission catalog khởi điểm
+- [x] Entity + Repository cho nhóm Auth/Permission
+- [x] `POST /api/auth/login` — khung UC-01 (Main Flow + A1 sai mật khẩu + A2
+      khóa tài khoản sau 5 lần sai + A3 tài khoản INACTIVE)
+- [x] Spring Security: JWT stateless filter, BCrypt password encoder
+
+## Việc còn lại của Sprint 1 (UC-01 hoàn chỉnh)
+
+- [ ] `login_attempts` entity + ghi log mỗi lần đăng nhập (thành công/thất bại)
+- [ ] `POST /api/auth/login/google` — nhánh Google OAuth (Main Flow bước 4, A4)
+- [ ] `POST /api/auth/refresh`, `POST /api/auth/logout` (thu hồi refresh token)
+- [ ] Gửi cảnh báo cho Quản trị viên khi tài khoản bị khóa (FR-AUT-02) — phụ
+      thuộc module Notification (Backend Phase B, Phân hệ 3)
+- [ ] Unit test + integration test (Testcontainers) cho AuthService
+
+## Sprint 2 (UC-02 → UC-05 — Quản trị người dùng & Phân quyền)
+
+- [ ] `PermissionEvaluator` triển khai công thức `effective_permissions`
+      (role_permissions hợp user_permission_overrides, ưu tiên override)
+- [ ] CRUD danh mục quyền (UC-02), cấu hình nhóm quyền theo role (UC-03)
+- [ ] API tùy chỉnh quyền riêng theo tài khoản + ghi `permission_audit_log`
+      (UC-04, UC-05)
+
+Chi tiết đầy đủ backlog theo từng Sprint/Phase: xem tài liệu
+**"Kế hoạch phân kỳ & Backlog theo FR"**.
+
+## Quy trình Git & CI/CD
+
+Xem chi tiết đầy đủ trong [`CONTRIBUTING.md`](./CONTRIBUTING.md): chiến lược
+nhánh (`main` / `develop` / `feature/*` / `hotfix/*`), pipeline CI/CD
+(`backend-ci.yml`, `cd-staging.yml`, `cd-production.yml`), và quy trình từng
+bước cho 1 dev xử lý 1 task.
+
+## Quy ước code
+
+- Package layout: `config / controller / service / repository / domain / dto /
+  security / exception / common` — 1 package dùng chung cho toàn bộ phân hệ,
+  KHÔNG tách package theo module ở giai đoạn này (repo còn nhỏ); sẽ đánh giá
+  lại việc tách package-by-feature khi bắt đầu Backend Phase B.
+- Toàn bộ bảng có `created_at/updated_at` kế thừa `BaseAuditEntity`.
+- Không tự sinh DDL từ Hibernate (`ddl-auto: validate`) — Flyway là nguồn chân
+  lý duy nhất cho schema.
+- Nhánh Git: `main` (production) + `develop` + nhánh tính năng
+  `feature/UC-xx-mo-ta`, merge qua Pull Request (NFR-TECH-05).
