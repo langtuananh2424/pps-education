@@ -29,10 +29,11 @@ INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r, permissions p
 WHERE r.code = 'SYS_ADMIN' AND p.module IN ('AUTH', 'USER');
 
--- Mọi role đều có quyền đăng nhập
+-- Mọi role đều có quyền đăng nhập (SYS_ADMIN đã được gán ở câu trên qua module AUTH)
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r, permissions p
-WHERE p.code = 'auth.login';
+WHERE p.code = 'auth.login'
+ON CONFLICT (role_id, permission_id) DO NOTHING;
 
 -- system_settings mặc định liên quan tới UC-01/UC-09 (đầy đủ hơn sẽ bổ sung ở Phase B khi làm Chấm công)
 INSERT INTO system_settings (setting_key, setting_value, description, category) VALUES

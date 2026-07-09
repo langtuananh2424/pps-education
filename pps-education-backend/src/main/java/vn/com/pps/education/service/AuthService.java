@@ -102,7 +102,7 @@ public class AuthService {
         String accessToken = jwtService.generateAccessToken(user.getId(), user.getUsername(), roles);
         String refreshToken = issueRefreshToken(user, httpRequest);
 
-        return new LoginResponse(accessToken, refreshToken, 15 * 60);
+        return new LoginResponse(accessToken, refreshToken, jwtService.getAccessTokenTtlSeconds());
     }
 
     private void registerFailedAttempt(User user) {
