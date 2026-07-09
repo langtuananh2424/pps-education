@@ -1,0 +1,57 @@
+erDiagram
+    users ||--o{ tasks : "giao viec"
+    tasks ||--o{ task_assignments : "gan cho nhieu nguoi"
+    tasks ||--o{ task_attachments : "file dinh kem"
+    tasks ||--o{ task_comments : "trao doi"
+    tasks ||--o{ tasks_history : ""
+    tasks }o--o| tasks : "task cha"
+    departments ||--o{ tasks : "phong ban lien quan"
+
+    users ||--o{ task_assignments : "nguoi thuc hien"
+    task_assignments ||--o{ task_assignments_history : ""
+
+    tasks {
+        BIGSERIAL id PK
+        UUID uuid UK
+        VARCHAR task_code UK
+        VARCHAR title
+        TEXT description
+        BIGINT created_by FK
+        BIGINT department_id FK
+        VARCHAR task_type
+        VARCHAR priority
+        VARCHAR status
+        TIMESTAMPTZ due_at
+        TIMESTAMPTZ completed_at
+        BIGINT parent_task_id FK
+        JSONB tags
+    }
+
+    task_assignments {
+        BIGSERIAL id PK
+        BIGINT task_id FK
+        BIGINT assignee_user_id FK
+        TIMESTAMPTZ assigned_at
+        VARCHAR assignment_status
+        DECIMAL progress_percent
+        TIMESTAMPTZ started_at
+        TIMESTAMPTZ completed_at
+        TEXT decline_reason
+    }
+
+    task_attachments {
+        BIGSERIAL id PK
+        BIGINT task_id FK
+        VARCHAR file_url
+        VARCHAR file_name
+        BIGINT uploaded_by FK
+    }
+
+    task_comments {
+        BIGSERIAL id PK
+        BIGINT task_id FK
+        BIGINT commenter_user_id FK
+        TEXT content
+        VARCHAR attachment_url
+        TIMESTAMPTZ created_at
+    }

@@ -1,0 +1,58 @@
+flowchart TD
+    Start([Bắt đầu]) --> B1
+
+    subgraph GV["Giáo viên"]
+        B1[Mở Sổ điểm của lớp, chọn Kỳ đánh giá]
+        B2[Nhập điểm cho từng học sinh / từng thành phần điểm]
+        B3{Điểm hợp lệ?<br/>0 ≤ score ≤ max_score}
+        B4[Hệ thống báo lỗi, yêu cầu nhập lại]
+        B5[Lưu nháp - status = DRAFT]
+        B6{Nhập xong toàn bộ lớp?}
+        B7[Nhấn Submit]
+        B8{Submit từng học sinh<br/>hay theo lô cả lớp?}
+        B9[Submit từng bản ghi<br/>- status = PENDING]
+        B10[Submit theo lô<br/>- tạo batch_id chung<br/>- status = PENDING cho cả lô]
+        B14[Xem lý do từ chối, sửa lại điểm]
+    end
+
+    subgraph HT["Hệ thống"]
+        C1[Tạo record approval_flows<br/>entity_type = GRADE_ENTRY]
+        C2[Gửi thông báo cho Quản lý điểm trường]
+        C5{Kết quả duyệt?}
+        C6[Cập nhật status = APPROVED<br/>ghi approved_by, approved_at]
+        C7[Hiển thị điểm cho Phụ huynh]
+        C8[Cập nhật status = REJECTED<br/>ghi rejection_reason]
+        C9[Gửi thông báo cho Giáo viên]
+    end
+
+    subgraph QLDT["Quản lý điểm trường"]
+        D1[Xem danh sách điểm chờ duyệt]
+        D2{Duyệt từng bản ghi<br/>hay theo batch_id?}
+        D3[Xem chi tiết từng học sinh]
+        D4[Xem tóm tắt cả lô]
+        D5{Quyết định}
+    end
+
+    End1([Kết thúc - Điểm đã công khai])
+    End2([Kết thúc - Chờ Giáo viên sửa])
+
+    B1 --> B2 --> B3
+    B3 -- Không hợp lệ --> B4 --> B2
+    B3 -- Hợp lệ --> B5 --> B6
+    B6 -- Chưa --> B2
+    B6 -- Đã xong --> B7 --> B8
+    B8 -- Từng cái --> B9
+    B8 -- Theo lô --> B10
+    B9 --> C1
+    B10 --> C1
+    C1 --> C2 --> D1
+    D1 --> D2
+    D2 -- Từng bản ghi --> D3
+    D2 -- Theo lô --> D4
+    D3 --> D5
+    D4 --> D5
+    D5 --> C5
+    C5 -- Duyệt - APPROVED --> C6 --> C7 --> End1
+    C5 -- Từ chối - REJECTED --> C8 --> C9 --> B14
+    B14 --> End2
+    End2 -.Sửa & submit lại.-> B7

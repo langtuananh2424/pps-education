@@ -1,0 +1,35 @@
+erDiagram
+    curriculums ||--o{ lessons : "bai chung"
+    classes ||--o{ lessons : "bai rieng lop"
+    lessons ||--o{ lesson_materials : "tep dinh kem"
+    lessons ||--o{ lessons_history : ""
+    curriculum_subjects ||--o{ lessons : ""
+    users ||--o{ lessons : "GV tao"
+
+    lessons {
+        BIGSERIAL id PK
+        UUID uuid UK
+        VARCHAR code
+        VARCHAR title
+        BIGINT curriculum_id FK
+        BIGINT class_id FK
+        BIGINT subject_id FK
+        INT lesson_order
+        VARCHAR lesson_type
+        INT duration_minutes
+        VARCHAR status
+        TIMESTAMPTZ published_at
+        BIGINT created_by FK
+    }
+
+    lesson_materials {
+        BIGSERIAL id PK
+        BIGINT lesson_id FK
+        VARCHAR material_type
+        VARCHAR title
+        VARCHAR file_url
+        BIGINT file_size_bytes
+        INT duration_seconds
+        INT display_order
+        BOOLEAN is_downloadable
+    }

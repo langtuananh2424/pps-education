@@ -1,0 +1,89 @@
+erDiagram
+    curriculums ||--o{ curriculum_subjects : "gom mon hoc"
+    curriculums ||--o{ classes : "ap dung cho lop"
+    curriculums ||--o{ curriculums_history : ""
+    curriculums }o--o| sites : "tuy bien cho (null=chuan)"
+    curriculums }o--o| curriculums : "ban goc (parent)"
+
+    curriculum_subjects ||--o{ curriculum_subjects_history : ""
+
+    classes ||--o{ class_teachers : "gan GV"
+    classes ||--o{ class_enrollments : "hoc sinh"
+    classes }o--|| sites : "tai diem truong"
+    classes }o--|| curriculums : ""
+    classes ||--o{ classes_history : ""
+
+    users ||--o{ class_teachers : "day"
+    students ||--o{ class_enrollments : "dang ky hoc"
+    class_teachers ||--o{ class_teachers_history : ""
+    class_enrollments ||--o{ class_enrollments_history : ""
+
+    users ||--o{ approval_flows : "duyet curriculum"
+
+    curriculums {
+        BIGSERIAL id PK
+        UUID uuid UK
+        VARCHAR code UK
+        VARCHAR name
+        BIGINT site_id FK
+        BIGINT parent_curriculum_id FK
+        VARCHAR class_category
+        VARCHAR level
+        INT total_periods
+        DECIMAL default_grade_pass_threshold
+        VARCHAR status
+        BIGINT created_by FK
+        BIGINT approved_by FK
+        TIMESTAMPTZ approved_at
+        TIMESTAMPTZ deleted_at
+    }
+
+    curriculum_subjects {
+        BIGSERIAL id PK
+        BIGINT curriculum_id FK
+        VARCHAR subject_code
+        VARCHAR name
+        INT period_count
+        INT display_order
+    }
+
+    classes {
+        BIGSERIAL id PK
+        UUID uuid UK
+        VARCHAR class_code UK
+        VARCHAR name
+        BIGINT site_id FK
+        BIGINT curriculum_id FK
+        VARCHAR class_type
+        VARCHAR class_category
+        INT max_students
+        INT min_students
+        DATE start_date
+        DATE end_date
+        VARCHAR academic_year
+        VARCHAR status
+        BIGINT created_by FK
+        TIMESTAMPTZ deleted_at
+    }
+
+    class_teachers {
+        BIGSERIAL id PK
+        BIGINT class_id FK
+        BIGINT teacher_user_id FK
+        VARCHAR teacher_role
+        BIGINT subject_id FK
+        DATE assigned_from
+        DATE assigned_to
+        BIGINT assigned_by FK
+    }
+
+    class_enrollments {
+        BIGSERIAL id PK
+        BIGINT class_id FK
+        BIGINT student_id FK
+        DATE enrolled_date
+        DATE withdrawn_date
+        VARCHAR status
+        BIGINT enrolled_by FK
+        BIGINT import_job_id FK
+    }

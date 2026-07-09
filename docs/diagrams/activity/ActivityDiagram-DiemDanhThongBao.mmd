@@ -1,0 +1,56 @@
+flowchart TD
+    Start([Bắt đầu - Đến giờ buổi học]) --> A1
+
+    subgraph GV["Giáo viên"]
+        A1[Mở màn hình điểm danh<br/>của class_session]
+        A2{Chọn chế độ<br/>điểm danh?}
+        A3[SESSION_LEVEL:<br/>điểm danh 1 lần cho cả buổi]
+        A4[Đánh dấu trạng thái<br/>từng học sinh:<br/>PRESENT / ABSENT /<br/>EXCUSED / LATE / EARLY_LEAVE]
+        A9{Cần sửa chi tiết<br/>theo từng tiết?}
+        A10[Mở PERIOD_LEVEL<br/>cho học sinh cụ thể]
+        A11[Sửa trạng thái riêng<br/>từng session_period]
+        A13[Nhấn Submit điểm danh]
+    end
+
+    subgraph HT["Hệ thống"]
+        B1[Tạo attendance_sessions<br/>status = DRAFT]
+        B5[Tự động tạo<br/>attendance_period_marks<br/>cho từng tiết<br/>- cùng status với cấp buổi]
+        B12[Cập nhật attendance_marks<br/>tương ứng]
+        B14[attendance_sessions.status<br/>= SUBMITTED]
+        B15{Có học sinh<br/>ABSENT hoặc LATE?}
+        B16[Với mỗi học sinh đó:<br/>lấy toàn bộ Phụ huynh<br/>qua parent_student]
+        B17[Tạo notifications<br/>type = ATTENDANCE_ABSENT<br/>cho từng Phụ huynh]
+        B18[Tạo notification_deliveries<br/>theo kênh: IN_APP + EMAIL]
+        B19[Cập nhật<br/>notified_parent_at]
+        B20([Kết thúc - Không có<br/>vắng/muộn, không gửi thông báo])
+    end
+
+    subgraph HeThongGui["Hệ thống gửi (background job)"]
+        C1[Gửi IN_APP<br/>- đánh dấu SENT ngay]
+        C2[Gửi EMAIL qua SMTP]
+        C3{Gửi thành công?}
+        C4[delivery_status = DELIVERED]
+        C5[delivery_status = FAILED<br/>retry_count += 1]
+        C6{retry_count<br/>< max?}
+        C7[Lên lịch next_retry_at]
+        C8([Kết thúc - Gửi thất bại<br/>sau khi hết số lần thử])
+    end
+
+    A1 --> A2
+    A2 -- SESSION_LEVEL --> A3 --> B1
+    A2 -- PERIOD_LEVEL --> B1
+    B1 --> A4 --> B5 --> A9
+    A9 -- Không --> A13
+    A9 -- Có --> A10 --> A11 --> B12 --> A13
+    A13 --> B14 --> B15
+    B15 -- Không --> B20
+    B15 -- Có --> B16 --> B17 --> B18
+    B18 --> C1
+    B18 --> C2
+    C1 --> B19
+    C2 --> C3
+    C3 -- Có --> C4 --> B19
+    C3 -- Không --> C5 --> C6
+    C6 -- Còn --> C7 -.chờ rồi thử lại.-> C2
+    C6 -- Hết --> C8
+    B19 --> End([Kết thúc - Phụ huynh<br/>đã nhận thông báo])

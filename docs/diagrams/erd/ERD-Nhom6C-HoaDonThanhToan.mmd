@@ -1,0 +1,67 @@
+erDiagram
+    class_enrollments ||--o{ invoices : "phat sinh hoa don"
+    students ||--o{ invoices : "cua HS"
+    invoices ||--o{ invoice_items : "chi tiet"
+    invoices ||--o{ invoice_scholarship_applications : "tru hoc bong"
+    scholarships ||--o{ invoice_scholarship_applications : "duoc ap"
+    invoices ||--o{ payments : "duoc thanh toan"
+    invoices ||--o{ invoices_history : ""
+    payments ||--o{ payments_history : ""
+    tuition_plans ||--o{ invoice_items : ""
+
+    invoices {
+        BIGSERIAL id PK
+        UUID uuid UK
+        VARCHAR invoice_number UK
+        BIGINT student_id FK
+        BIGINT class_enrollment_id FK
+        BIGINT payer_parent_id FK
+        DATE billing_period_from
+        DATE billing_period_to
+        DATE issue_date
+        DATE due_date
+        DECIMAL subtotal
+        DECIMAL discount_total
+        DECIMAL tax_amount
+        DECIMAL total_amount
+        DECIMAL paid_amount
+        DECIMAL outstanding_amount
+        VARCHAR status
+        TEXT qr_code_data
+        TIMESTAMPTZ deleted_at
+    }
+
+    invoice_items {
+        BIGSERIAL id PK
+        BIGINT invoice_id FK
+        VARCHAR item_type
+        VARCHAR description
+        BIGINT tuition_plan_id FK
+        DECIMAL quantity
+        DECIMAL unit_price
+        DECIMAL amount
+        JSONB calculation_snapshot
+    }
+
+    invoice_scholarship_applications {
+        BIGSERIAL id PK
+        BIGINT invoice_id FK
+        BIGINT scholarship_id FK
+        DECIMAL discount_amount
+        BIGINT applied_by FK
+    }
+
+    payments {
+        BIGSERIAL id PK
+        UUID uuid UK
+        VARCHAR payment_reference UK
+        BIGINT invoice_id FK
+        DECIMAL amount
+        VARCHAR payment_method
+        TIMESTAMPTZ paid_at
+        VARCHAR bank_transaction_id
+        VARCHAR receipt_number
+        VARCHAR status
+        BIGINT confirmed_by FK
+        TIMESTAMPTZ confirmed_at
+    }

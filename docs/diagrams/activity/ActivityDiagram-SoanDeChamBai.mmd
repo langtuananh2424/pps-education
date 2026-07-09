@@ -1,0 +1,69 @@
+flowchart TD
+    Start([Bắt đầu]) --> A1
+
+    subgraph GV["Giáo viên"]
+        A1[Tạo exercise mới<br/>- title, curriculum_id, subject_id]
+        A2{Chọn nguồn câu hỏi?}
+        A3[Chọn từ question_banks<br/>có sẵn]
+        A4[Soạn câu hỏi mới<br/>- questions + question_choices<br/>nếu trắc nghiệm]
+        A5[Thêm vào exercise_questions<br/>gán points từng câu]
+        A6[Cấu hình đề:<br/>total_points, time_limit_minutes,<br/>allow_retake, max_attempts,<br/>show_correct_answers]
+        A7{Loại đề?}
+        A8[exercise_type = SELF_PRACTICE<br/>publish theo curriculum<br/>- mọi lớp dùng chung tự truy cập]
+        A9[exercise_type = ASSIGNED<br/>tạo exercise_assignments<br/>cho lớp cụ thể<br/>- due_at, late_submission_allowed]
+        A18{Đề có câu<br/>tự luận / nói?}
+        A19[Mở danh sách bài<br/>chờ chấm thủ công]
+        A20[Chấm điểm + ghi feedback<br/>cho từng câu trả lời<br/>student_answer_grading]
+        A21{Chấm xong<br/>toàn bộ câu?}
+    end
+
+    subgraph HS["Học sinh"]
+        B1[Mở đề - tạo exercise_attempts<br/>started_at = NOW]
+        B2[Trả lời từng câu -<br/>student_answers]
+        B3[Nhấn Nộp bài]
+        B10[Xem điểm các kỹ năng đã có đáp án<br/>tự động - VD Reading/Listening -<br/>ngay sau khi nộp<br/>+ đáp án nếu show_correct_answers]
+        B14[Xem total_score đầy đủ<br/>- khi mọi kỹ năng đã có điểm]
+        B15{Muốn làm lại?}
+        B16{allow_retake = TRUE<br/>và attempt_number<br/>< max_attempts?}
+    end
+
+    subgraph HT["Hệ thống"]
+        C1{submitted_at<br/>> due_at?}
+        C2{late_submission_allowed<br/>= TRUE?}
+        C3[is_late_submission = TRUE<br/>áp dụng late_penalty_percent]
+        C4([Kết thúc - Từ chối nộp,<br/>đã quá hạn])
+        C5[Tự động chấm các câu<br/>trắc nghiệm - is_auto_gradable<br/>tính auto_grade_score]
+        C6{Còn câu cần<br/>GV chấm thủ công?}
+        C7[status = AUTO_GRADED<br/>- các kỹ năng tự động có điểm ngay,<br/>kỹ năng thủ công còn để trống]
+        C8[status = FULLY_GRADED<br/>- toàn bộ là trắc nghiệm,<br/>total_score có ngay]
+        C9[status = FULLY_GRADED<br/>total_score = auto + manual]
+    end
+
+    A1 --> A2
+    A2 -- Có sẵn --> A3 --> A5
+    A2 -- Tạo mới --> A4 --> A5
+    A5 --> A6 --> A7
+    A7 -- Tự luyện --> A8
+    A7 -- Bài tập giao --> A9
+    A8 --> A18
+    A9 --> A18
+    A18 --> B1
+    B1 --> B2 --> B3 --> C1
+    C1 -- Có, quá hạn --> C2
+    C2 -- Không --> C4
+    C2 -- Có --> C3 --> C5
+    C1 -- Không, đúng hạn --> C5
+    C5 --> C6
+    C6 -- Không --> C8 --> B14
+    C6 -- Có --> C7
+    C7 --> B10
+    C7 --> A19
+    A19 --> A20 --> A21
+    A21 -- Chưa --> A20
+    A21 -- Xong --> C9 --> B14
+    B10 -.chờ Giáo viên chấm xong.-> B14
+    B14 --> B15
+    B15 -- Không --> End1([Kết thúc -<br/>Hoàn tất bài làm])
+    B15 -- Có --> B16
+    B16 -- Không --> End2([Kết thúc -<br/>Không được làm lại])
+    B16 -- Có --> B1

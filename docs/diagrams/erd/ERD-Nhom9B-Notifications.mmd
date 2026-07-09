@@ -1,0 +1,48 @@
+erDiagram
+    users ||--o{ notifications : "nhan"
+    notifications ||--o{ notification_deliveries : "gui qua kenh"
+    users ||--o{ notification_preferences : "cau hinh"
+    users ||--o{ notifications : "trigger"
+
+    notifications {
+        BIGSERIAL id PK
+        UUID uuid UK
+        BIGINT recipient_user_id FK
+        VARCHAR notification_type
+        VARCHAR title
+        TEXT content
+        JSONB metadata
+        VARCHAR entity_type
+        BIGINT entity_id
+        VARCHAR priority
+        BIGINT triggered_by FK
+        TIMESTAMPTZ read_at
+        TIMESTAMPTZ dismissed_at
+        TIMESTAMPTZ expires_at
+    }
+
+    notification_deliveries {
+        BIGSERIAL id PK
+        BIGINT notification_id FK
+        VARCHAR channel
+        VARCHAR recipient_address
+        VARCHAR delivery_status
+        TIMESTAMPTZ sent_at
+        TIMESTAMPTZ delivered_at
+        TEXT error_message
+        INT retry_count
+        TIMESTAMPTZ next_retry_at
+        VARCHAR provider
+        VARCHAR provider_message_id
+    }
+
+    notification_preferences {
+        BIGSERIAL id PK
+        BIGINT user_id FK
+        VARCHAR notification_type
+        BOOLEAN in_app_enabled
+        BOOLEAN email_enabled
+        BOOLEAN sms_enabled
+        BOOLEAN zalo_enabled
+        BOOLEAN push_enabled
+    }

@@ -1,0 +1,128 @@
+erDiagram
+    question_banks ||--o{ questions : ""
+    curriculums ||--o{ question_banks : ""
+    questions ||--o{ question_choices : "dap an (trac nghiem)"
+    questions ||--o{ questions_history : ""
+
+    exercises ||--o{ exercise_questions : "cau hoi thuoc de"
+    questions ||--o{ exercise_questions : ""
+    curriculums ||--o{ exercises : ""
+    classes ||--o{ exercise_assignments : "giao cho lop"
+    exercises ||--o{ exercise_assignments : ""
+    exercise_assignments ||--o{ exercise_attempts : "luot lam"
+    students ||--o{ exercise_attempts : ""
+    exercise_attempts ||--o{ student_answers : "cau tra loi"
+    questions ||--o{ student_answers : ""
+    student_answers ||--o{ student_answer_grading : "GV cham"
+    exercise_attempts ||--o{ exercise_attempts_history : ""
+
+    question_banks {
+        BIGSERIAL id PK
+        UUID uuid UK
+        VARCHAR code UK
+        VARCHAR name
+        BIGINT curriculum_id FK
+        VARCHAR level
+        BOOLEAN is_active
+    }
+
+    questions {
+        BIGSERIAL id PK
+        UUID uuid UK
+        BIGINT question_bank_id FK
+        VARCHAR question_type
+        VARCHAR skill
+        VARCHAR difficulty
+        TEXT content
+        VARCHAR audio_url
+        TEXT reference_passage
+        TEXT explanation
+        DECIMAL default_points
+        JSONB tags
+        VARCHAR status
+    }
+
+    question_choices {
+        BIGSERIAL id PK
+        BIGINT question_id FK
+        VARCHAR choice_label
+        TEXT content
+        BOOLEAN is_correct
+        INT display_order
+    }
+
+    exercises {
+        BIGSERIAL id PK
+        UUID uuid UK
+        VARCHAR code UK
+        VARCHAR title
+        BIGINT curriculum_id FK
+        VARCHAR exercise_type
+        DECIMAL total_points
+        INT time_limit_minutes
+        BOOLEAN allow_retake
+        INT max_attempts
+        BOOLEAN show_correct_answers
+        VARCHAR status
+    }
+
+    exercise_questions {
+        BIGSERIAL id PK
+        BIGINT exercise_id FK
+        BIGINT question_id FK
+        INT display_order
+        DECIMAL points
+    }
+
+    exercise_assignments {
+        BIGSERIAL id PK
+        UUID uuid UK
+        BIGINT exercise_id FK
+        BIGINT class_id FK
+        BIGINT assigned_by FK
+        TIMESTAMPTZ available_from
+        TIMESTAMPTZ due_at
+        BOOLEAN late_submission_allowed
+        DECIMAL late_penalty_percent
+        JSONB target_student_ids
+        VARCHAR status
+    }
+
+    exercise_attempts {
+        BIGSERIAL id PK
+        UUID uuid UK
+        BIGINT exercise_id FK
+        BIGINT exercise_assignment_id FK
+        BIGINT student_id FK
+        INT attempt_number
+        TIMESTAMPTZ started_at
+        TIMESTAMPTZ submitted_at
+        DECIMAL auto_grade_score
+        DECIMAL manual_grade_score
+        DECIMAL total_score
+        VARCHAR status
+        BOOLEAN is_late_submission
+    }
+
+    student_answers {
+        BIGSERIAL id PK
+        BIGINT exercise_attempt_id FK
+        BIGINT question_id FK
+        TEXT answer_text
+        JSONB selected_choice_ids
+        VARCHAR audio_answer_url
+        BOOLEAN is_auto_gradable
+        DECIMAL auto_score
+        BOOLEAN is_correct
+    }
+
+    student_answer_grading {
+        BIGSERIAL id PK
+        BIGINT student_answer_id FK
+        BIGINT grader_user_id FK
+        DECIMAL score
+        DECIMAL max_score
+        TEXT feedback
+        TIMESTAMPTZ graded_at
+        BOOLEAN is_final
+    }

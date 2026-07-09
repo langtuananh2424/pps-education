@@ -27,7 +27,12 @@ dễ trace: `feature/UC-15-diem-danh-hoc-sinh`.
 5. Code theo layer `controller/service/repository/domain`. Nếu đổi schema:
    thêm file Flyway **mới** `Vn__mo_ta.sql` — không sửa migration cũ (checksum
    sẽ vỡ với DB của người khác đã chạy migration đó).
-6. Viết unit test (Service) + integration test (Testcontainers) nếu chạm DB.
+6. Viết unit test (Service) + integration test (Testcontainers) nếu chạm DB
+   — mỗi Alternate Flow của UC là 1 test case riêng (xem
+   `.claude/rules/testing.md`).
+6b. Đối chiếu code với `.claude/rules/architecture.md`, `solid.md`,
+    `business-fidelity.md` — đặc biệt: không lộ Entity qua Controller,
+    business logic đúng 100% Main Flow/Alternate Flow/Postcondition của UC.
 7. `mvn clean verify` local phải xanh trước khi push.
 8. Commit theo [Conventional Commits](https://www.conventionalcommits.org/):
    `feat(auth): ...`, `fix(permission): ...`, `test(student): ...`, `chore: ...`.

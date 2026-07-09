@@ -1,0 +1,46 @@
+flowchart TD
+    Start([Bắt đầu - Nhân sự tạo leave_request]) --> B1
+
+    subgraph NS["Nhân sự"]
+        B1{is_management = TRUE?}
+        B2([Kết thúc - Từ chối:<br/>Ban giám đốc miễn trừ,<br/>không tạo đơn])
+        B3[Điền thông tin đơn:<br/>loại nghỉ, ngày, lý do]
+        B12[Nhận kết quả duyệt]
+    end
+
+    subgraph HT["Hệ thống"]
+        C1{Nhân sự thuộc<br/>cấp quản lý?<br/>QLĐT/TPĐT/QLVH/QLNS}
+        C2[Tạo 1 bước duyệt:<br/>approver_role = EXECUTIVE]
+        C4[Xác định department_id<br/>của nhân sự]
+        C5{Phòng ban có<br/>Trưởng phòng<br/>- head_user_id?}
+        C6[Tạo bước 1:<br/>approver_role = DEPARTMENT_HEAD<br/>Tạo bước 2:<br/>approver_role = OPERATIONS_MANAGER]
+        C7[Tạo 1 bước duyệt:<br/>approver_role = OPERATIONS_MANAGER<br/>- bỏ qua bước Trưởng phòng]
+        C8[current_step = 1<br/>status = PENDING]
+        C9[Thông báo cho người<br/>duyệt ở bước hiện tại]
+        C13{Còn bước<br/>tiếp theo?}
+        C14[current_step += 1<br/>Thông báo người duyệt bước kế]
+        C15[status = APPROVED<br/>finalized_at = NOW]
+        C16[status = REJECTED<br/>finalized_at = NOW]
+    end
+
+    subgraph NguoiDuyet["Người duyệt (Trưởng phòng ban / QLVH / Ban giám đốc)"]
+        D1[Xem đơn chờ duyệt]
+        D2{Quyết định}
+    end
+
+    B1 -- Có --> B2
+    B1 -- Không --> B3 --> C1
+    C1 -- Có --> C2 --> C8
+    C1 -- Không --> C4 --> C5
+    C5 -- Có --> C6 --> C8
+    C5 -- Không --> C7 --> C8
+    C8 --> C9 --> D1 --> D2
+    D2 -- Từ chối --> C16 --> B12
+    D2 -- Duyệt --> C13
+    C13 -- Còn --> C14 --> D1
+    C13 -- Hết --> C15 --> B12
+
+    End1([Kết thúc - Đơn được duyệt])
+    End2([Kết thúc - Đơn bị từ chối])
+    B12 --> End1
+    B12 --> End2

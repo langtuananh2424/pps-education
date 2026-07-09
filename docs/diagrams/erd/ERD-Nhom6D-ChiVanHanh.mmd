@@ -1,0 +1,30 @@
+erDiagram
+    expense_categories ||--o{ operating_expenses : "loai chi"
+    sites ||--o{ operating_expenses : "chi cho site"
+    operating_expenses ||--o{ operating_expenses_history : ""
+
+    expense_categories {
+        BIGSERIAL id PK
+        VARCHAR code UK
+        VARCHAR name
+        VARCHAR category_group
+        BOOLEAN is_active
+    }
+
+    operating_expenses {
+        BIGSERIAL id PK
+        UUID uuid UK
+        VARCHAR expense_number UK
+        BIGINT expense_category_id FK
+        BIGINT site_id FK
+        DATE expense_date
+        DECIMAL amount
+        TEXT description
+        VARCHAR payment_method
+        VARCHAR supplier_name
+        VARCHAR receipt_number
+        VARCHAR file_url
+        VARCHAR status
+        BIGINT approved_by FK
+        BIGINT recorded_by FK
+    }

@@ -1,0 +1,105 @@
+graph LR
+    HocSinh([Học sinh])
+    PhuHuynh([Phụ huynh])
+    GiaoVien([Giáo viên])
+    TPDT([Trưởng phòng đào tạo])
+    QLDT([Quản lý điểm trường])
+    QLNS([Quản lý nhân sự])
+    NhanVien([Nhân viên])
+    QTV([Quản trị viên])
+    DaiDienTruong([Đại diện trường liên kết])
+    QLVH([Quản lý vận hành])
+    BGD([Ban giám đốc])
+
+    subgraph PH1["Phân hệ 1: Đăng nhập & Xác thực"]
+        UC01[Đăng nhập hệ thống]
+    end
+
+    subgraph PH2["Phân hệ 2: Quản trị người dùng & Phân quyền"]
+        UC0205[Quản lý phân quyền hệ thống]
+    end
+
+    subgraph PH3["Phân hệ 3: Quản lý công việc"]
+        UC0607[Giao việc & theo dõi tiến độ]
+    end
+
+    subgraph PH4["Phân hệ 4: Quản lý nhân sự"]
+        UC0812[Hồ sơ, chấm công, đơn từ, lương]
+    end
+
+    subgraph PH5["Phân hệ 5: Quản lý học sinh"]
+        UC1315[Hồ sơ, trạng thái, điểm danh]
+    end
+
+    subgraph PH6["Phân hệ 6: Học thuật & Đào tạo"]
+        UC1622[Khung CT, xếp lớp, sổ điểm, nhận xét]
+    end
+
+    subgraph PH7["Phân hệ 7: Portal & E-Learning"]
+        UC2329[Bài giảng, bài tập, Portal PH, KHGD]
+    end
+
+    subgraph PH8["Phân hệ 8: Tài chính & Học phí"]
+        UC3032[Hóa đơn, thanh toán, báo cáo]
+    end
+
+    subgraph PH9["Phân hệ 9: CRM & Tuyển sinh"]
+        UC3335[Lead, chuyển đổi, nhập học lô]
+    end
+
+    subgraph PH10["Phân hệ 10: Điểm trường & CSVC"]
+        UC3639[Quản lý điểm trường, phản hồi]
+    end
+
+    HocSinh --- UC01
+    HocSinh --- UC1315
+    HocSinh --- UC2329
+
+    PhuHuynh --- UC01
+    PhuHuynh --- UC2329
+    PhuHuynh --- UC3032
+
+    GiaoVien --- UC01
+    GiaoVien --- UC0812
+    GiaoVien --- UC1315
+    GiaoVien --- UC1622
+    GiaoVien --- UC2329
+
+    TPDT --- UC01
+    TPDT --- UC1622
+
+    QLDT --- UC01
+    QLDT --- UC0812
+    QLDT --- UC1315
+    QLDT --- UC1622
+    QLDT --- UC2329
+    QLDT --- UC3032
+    QLDT --- UC3335
+    QLDT --- UC3639
+
+    QLNS --- UC01
+    QLNS --- UC0812
+
+    NhanVien --- UC01
+    NhanVien --- UC0607
+    NhanVien --- UC0812
+    NhanVien --- UC1315
+    NhanVien --- UC1622
+    NhanVien --- UC3032
+    NhanVien --- UC3335
+
+    QTV --- UC01
+    QTV --- UC0205
+
+    DaiDienTruong --- UC01
+    DaiDienTruong --- UC2329
+    DaiDienTruong --- UC3639
+
+    QLVH --- UC01
+    QLVH --- UC0607
+    QLVH --- UC0812
+    QLVH --- UC3639
+
+    BGD --- UC01
+    BGD --- UC0812
+    BGD --- UC3032

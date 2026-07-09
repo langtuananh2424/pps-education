@@ -1,0 +1,56 @@
+erDiagram
+    employees ||--o{ employee_shifts : "gan ca"
+    shifts ||--o{ employee_shifts : ""
+    shifts ||--o{ shifts_history : ""
+    shifts ||--o{ work_calendar : "override theo shift"
+    employees ||--o{ work_calendar : "override theo nhan su"
+
+    employees ||--o{ attendance_records : "cham cong"
+    sites ||--o{ attendance_records : "tai diem truong"
+    attendance_records ||--o{ attendance_records_history : ""
+
+    shifts {
+        BIGSERIAL id PK
+        VARCHAR code UK
+        VARCHAR name
+        TIME check_in_time
+        TIME check_out_time
+        INT check_in_window_before_minutes
+        INT check_in_window_after_minutes
+        VARCHAR applies_to_weekdays
+        VARCHAR week_parity
+        BOOLEAN is_active
+    }
+
+    employee_shifts {
+        BIGSERIAL id PK
+        BIGINT employee_id FK
+        BIGINT shift_id FK
+        DATE effective_from
+        DATE effective_to
+    }
+
+    work_calendar {
+        BIGSERIAL id PK
+        DATE calendar_date
+        VARCHAR day_type
+        VARCHAR applies_to_scope
+        BIGINT shift_id FK
+        BIGINT employee_id FK
+        VARCHAR description
+        BIGINT created_by FK
+    }
+
+    attendance_records {
+        BIGSERIAL id PK
+        BIGINT employee_id FK
+        DATE work_date
+        TIMESTAMPTZ check_in_at
+        TIMESTAMPTZ check_out_at
+        VARCHAR check_in_method
+        BIGINT site_id FK
+        GEOGRAPHY gps_location
+        VARCHAR check_in_matched_source
+        BIGINT check_in_matched_reference_id
+        VARCHAR status
+    }

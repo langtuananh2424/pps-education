@@ -1,0 +1,34 @@
+erDiagram
+    employees ||--o{ leave_requests : "xin nghi"
+    leave_requests ||--o{ leave_request_approvals : "cac buoc duyet"
+    leave_requests ||--o{ leave_requests_history : ""
+    users ||--o{ leave_request_approvals : "nguoi duyet"
+
+    leave_requests {
+        BIGSERIAL id PK
+        UUID uuid UK
+        BIGINT employee_id FK
+        VARCHAR leave_type
+        DATE start_date
+        DATE end_date
+        TIME start_time
+        TIME end_time
+        DECIMAL total_days
+        TEXT reason
+        VARCHAR status
+        INT current_step
+        BIGINT current_approver_id FK
+        TIMESTAMPTZ submitted_at
+        TIMESTAMPTZ finalized_at
+    }
+
+    leave_request_approvals {
+        BIGSERIAL id PK
+        BIGINT leave_request_id FK
+        INT step_order
+        VARCHAR approver_role
+        BIGINT approver_user_id FK
+        VARCHAR decision
+        TEXT comment
+        TIMESTAMPTZ decided_at
+    }

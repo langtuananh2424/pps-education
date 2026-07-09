@@ -60,6 +60,11 @@ public class AuthService {
         this.refreshTokenTtlDays = refreshTokenTtlDays;
     }
 
+    /**
+     * UC-01: Đăng nhập hệ thống (FR-AUT-01), luồng Tài khoản/Mật khẩu.
+     * Xem docs/uc/phan-he-01-dang-nhap.md — Main Flow bước 1-7, A1 (sai mật
+     * khẩu), A2 (khóa 5 lần sai, FR-AUT-02), A3 (tài khoản INACTIVE).
+     */
     @Transactional
     public LoginResponse login(LoginRequest request, HttpServletRequest httpRequest) {
         Optional<User> maybeUser = userRepository.findByUsername(request.usernameOrEmail())
@@ -97,7 +102,7 @@ public class AuthService {
         String accessToken = jwtService.generateAccessToken(user.getId(), user.getUsername(), roles);
         String refreshToken = issueRefreshToken(user, httpRequest);
 
-        return new LoginResponse(accessToken, refreshToken, 15 * 60);
+        return new LoginResponse(accessToken, refreshToken, jwtService.getAccessTokenTtlSeconds());
     }
 
     private void registerFailedAttempt(User user) {

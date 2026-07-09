@@ -29,6 +29,10 @@ public class JwtService {
         this.accessTokenTtlMinutes = accessTokenTtlMinutes;
     }
 
+    public long getAccessTokenTtlSeconds() {
+        return accessTokenTtlMinutes * 60;
+    }
+
     public String generateAccessToken(Long userId, String username, List<String> roles) {
         Instant now = Instant.now();
         return Jwts.builder()

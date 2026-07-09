@@ -10,7 +10,7 @@ services:
     environment:
       POSTGRES_DB: pps_education
       POSTGRES_USER: pps_app
-      POSTGRES_PASSWORD: changeme
+      POSTGRES_PASSWORD: root123456
     ports:
       - "5432:5432"
     volumes:
@@ -31,7 +31,7 @@ services:
       SPRING_PROFILES_ACTIVE: dev
       DB_URL: jdbc:postgresql://postgres:5432/pps_education
       DB_USERNAME: pps_app
-      DB_PASSWORD: changeme
+      DB_PASSWORD: root123456
       JWT_SECRET: local_dev_secret_change_in_prod_min_256_bits_xxxxxxxxxxxxxxxxx
     ports:
       - "8080:8080"
