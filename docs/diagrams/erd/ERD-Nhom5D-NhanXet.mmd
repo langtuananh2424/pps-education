@@ -1,0 +1,30 @@
+erDiagram
+    students ||--o{ student_comments : "duoc nhan xet"
+    users ||--o{ student_comments : "GV viet"
+    classes ||--o{ student_comments : "trong lop"
+    class_sessions ||--o{ student_comments : "buoi cu the (neu Hang ngay)"
+    grade_periods ||--o{ student_comments : "ky cu the (neu Giua/Cuoi ky)"
+
+    student_comments ||--o{ student_comments_history : ""
+    approval_flows ||--o{ student_comments : "duyet (entity_type=STUDENT_COMMENT)"
+
+    student_comments {
+        BIGSERIAL id PK
+        UUID uuid UK
+        BIGINT student_id FK
+        BIGINT class_id FK
+        BIGINT teacher_user_id FK
+        VARCHAR comment_type
+        BIGINT class_session_id FK
+        BIGINT grade_period_id FK
+        DATE comment_date
+        TEXT content
+        JSONB structured_content
+        VARCHAR severity
+        BOOLEAN is_warning
+        VARCHAR status
+        BIGINT approval_flow_id FK
+        BIGINT approved_by FK
+        TIMESTAMPTZ visible_to_parent_at
+        TEXT rejection_reason
+    }

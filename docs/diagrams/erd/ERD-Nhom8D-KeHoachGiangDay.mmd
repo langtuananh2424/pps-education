@@ -1,0 +1,36 @@
+erDiagram
+    classes ||--o{ teaching_plans : ""
+    users ||--o{ teaching_plans : "GV lap"
+    teaching_plans ||--o{ teaching_plan_items : "chi tiet tuan/nam"
+    teaching_plans ||--o{ teaching_plans_history : ""
+    class_sessions ||--o{ teaching_plan_items : "lien ket buoi cu the"
+
+    teaching_plans {
+        BIGSERIAL id PK
+        UUID uuid UK
+        BIGINT class_id FK
+        BIGINT teacher_user_id FK
+        VARCHAR plan_type
+        VARCHAR academic_year
+        INT week_number
+        DATE week_start_date
+        DATE week_end_date
+        TEXT summary
+        TEXT objectives
+        VARCHAR status
+        BOOLEAN visible_to_partner
+        TIMESTAMPTZ published_at
+    }
+
+    teaching_plan_items {
+        BIGSERIAL id PK
+        BIGINT teaching_plan_id FK
+        INT item_order
+        DATE planned_date
+        VARCHAR topic
+        TEXT objectives
+        TEXT content_outline
+        VARCHAR skills_focus
+        TEXT homework_note
+        BIGINT class_session_id FK
+    }

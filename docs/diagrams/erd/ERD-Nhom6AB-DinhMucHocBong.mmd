@@ -1,0 +1,51 @@
+erDiagram
+    curriculums ||--o{ tuition_plans : "co dinh muc phi"
+    classes ||--o{ tuition_plan_assignments : "ap dung plan"
+    tuition_plans ||--o{ tuition_plan_assignments : ""
+
+    students ||--o{ scholarships : "co hoc bong"
+
+    tuition_plans {
+        BIGSERIAL id PK
+        UUID uuid UK
+        BIGINT curriculum_id FK
+        VARCHAR code UK
+        VARCHAR name
+        VARCHAR pricing_model
+        VARCHAR class_type_filter
+        DECIMAL base_price
+        DECIMAL price_per_unit
+        INT unit_count
+        DATE effective_from
+        DATE effective_to
+        VARCHAR status
+        BIGINT created_by FK
+    }
+
+    tuition_plan_assignments {
+        BIGSERIAL id PK
+        BIGINT class_id FK
+        BIGINT tuition_plan_id FK
+        DECIMAL price_override
+        TEXT override_reason
+        DATE effective_from
+        DATE effective_to
+        BIGINT assigned_by FK
+    }
+
+    scholarships {
+        BIGSERIAL id PK
+        UUID uuid UK
+        BIGINT student_id FK
+        VARCHAR code UK
+        VARCHAR name
+        VARCHAR discount_type
+        DECIMAL discount_value
+        VARCHAR applicable_scope
+        DATE valid_from
+        DATE valid_to
+        DECIMAL max_amount
+        VARCHAR status
+        BIGINT approved_by FK
+        TIMESTAMPTZ approved_at
+    }

@@ -1,0 +1,104 @@
+erDiagram
+    users ||--o{ user_roles : "duoc gan"
+    users ||--o{ user_permission_overrides : "quyen ngoai le"
+    users }o--|| departments : "thuoc"
+    users ||--o{ refresh_tokens : "phien"
+    users ||--o{ login_attempts : "log dang nhap"
+    users ||--o{ users_history : ""
+    users ||--o{ permission_audit_log : "thuc hien"
+
+    roles ||--o{ user_roles : ""
+    roles ||--o{ role_permissions : ""
+    roles ||--o{ roles_history : ""
+
+    permissions ||--o{ role_permissions : ""
+    permissions ||--o{ user_permission_overrides : ""
+
+    departments ||--o| users : "truong phong"
+    departments ||--o{ departments_history : ""
+
+    users {
+        BIGSERIAL id PK
+        UUID uuid UK
+        VARCHAR username UK
+        VARCHAR email UK
+        VARCHAR password_hash
+        VARCHAR full_name
+        BIGINT department_id FK
+        VARCHAR status
+        BOOLEAN is_management
+        VARCHAR google_id UK
+        TIMESTAMPTZ last_login_at
+        INT failed_login_count
+        TIMESTAMPTZ locked_until
+    }
+
+    roles {
+        BIGSERIAL id PK
+        UUID uuid UK
+        VARCHAR code UK
+        VARCHAR name
+        BOOLEAN is_system
+    }
+
+    permissions {
+        BIGSERIAL id PK
+        VARCHAR code UK
+        VARCHAR name
+        VARCHAR module
+    }
+
+    departments {
+        BIGSERIAL id PK
+        UUID uuid UK
+        VARCHAR code UK
+        VARCHAR name
+        BIGINT head_user_id FK
+        BIGINT parent_department_id FK
+    }
+
+    user_roles {
+        BIGSERIAL id PK
+        BIGINT user_id FK
+        BIGINT role_id FK
+        BIGINT assigned_by FK
+    }
+
+    role_permissions {
+        BIGSERIAL id PK
+        BIGINT role_id FK
+        BIGINT permission_id FK
+    }
+
+    user_permission_overrides {
+        BIGSERIAL id PK
+        BIGINT user_id FK
+        BIGINT permission_id FK
+        VARCHAR override_type
+        BIGINT granted_by FK
+        TIMESTAMPTZ expires_at
+    }
+
+    refresh_tokens {
+        BIGSERIAL id PK
+        BIGINT user_id FK
+        VARCHAR token_hash UK
+        TIMESTAMPTZ expires_at
+        TIMESTAMPTZ revoked_at
+    }
+
+    login_attempts {
+        BIGSERIAL id PK
+        BIGINT user_id FK
+        VARCHAR username_or_email
+        INET ip_address
+        BOOLEAN success
+    }
+
+    permission_audit_log {
+        BIGSERIAL id PK
+        BIGINT actor_user_id FK
+        BIGINT target_user_id FK
+        VARCHAR action
+        JSONB details
+    }

@@ -1,0 +1,26 @@
+graph TB
+    subgraph Client["Lớp Client"]
+        A1[React Web App - Admin/GV/QLĐT/TPĐT/BGĐ]
+        A2[React Web App - Portal PH/Trường liên kết]
+    end
+
+    subgraph Backend["Lớp Backend - Spring Boot"]
+        B1[Controller Layer - REST API]
+        B2[Service Layer - Business Logic]
+        B3[Repository Layer - Spring Data JPA]
+        B4[Security Layer - Spring Security + JWT]
+    end
+
+    subgraph Storage["Lớp Lưu trữ"]
+        C1[(PostgreSQL - Dữ liệu chính)]
+        C2[CDN/Object Storage - Video/Audio/PDF]
+        C3[(Redis - Cache, tùy chọn mở rộng)]
+    end
+
+    A1 -->|HTTPS/JSON| B1
+    A2 -->|HTTPS/JSON| B1
+    B1 --> B4
+    B4 --> B2
+    B2 --> B3
+    B3 --> C1
+    B2 --> C2

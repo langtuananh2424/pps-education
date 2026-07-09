@@ -1,0 +1,48 @@
+flowchart TD
+    Start([Bắt đầu - Lead mới từ 1 trong 4 kênh]) --> A1
+
+    subgraph HT["Hệ thống"]
+        A1[Ghi nhận thông tin lead:<br/>full_name, phone, email...]
+        A2{Số điện thoại<br/>đã tồn tại ở<br/>lead active khác?}
+        A3[status = DUPLICATE<br/>gợi ý merge vào lead cũ]
+        A4[Tạo leads mới<br/>status = NEW]
+        A9{Kết quả xử lý?}
+        A11[Transaction:<br/>tạo users+parents nếu chưa có<br/>tạo users+students<br/>tạo parent_student]
+        A12[Cập nhật leads:<br/>converted_student_id<br/>outcome = WON_ENROLLED]
+        A13[Ghi nhận outcome cụ thể:<br/>LOST_PRICE / LOST_LOCATION /<br/>LOST_TIMING / LOST_NO_INTEREST /<br/>LOST_OTHER + final_note]
+    end
+
+    subgraph TVV["Nhân viên tư vấn"]
+        B1{Lead trùng?}
+        B2[Xem lead cũ, merge thông tin]
+        B3[Liên hệ tư vấn]
+        B4{Liên hệ<br/>thành công?}
+        B5[status = CONTACTED]
+        B6[Giữ nguyên NEW,<br/>thử liên hệ lại sau]
+        B7{Khách có<br/>phù hợp?}
+        B8[status = QUALIFIED]
+        B9[status = LOST<br/>chọn lý do]
+        B10{Chốt được<br/>đăng ký?}
+        B11[status = WON]
+        B14[Giáo vụ tạo<br/>class_enrollment]
+    end
+
+    A1 --> A2
+    A2 -- Có --> A3 --> B1
+    A2 -- Không --> A4 --> B1
+    B1 -- Có --> B2 --> B3
+    B1 -- Không --> B3
+    B3 --> B4
+    B4 -- Không --> B6 --> B3
+    B4 -- Có --> B5 --> B7
+    B7 -- Không --> B9 --> A13
+    B7 -- Có --> B8 --> B10
+    B10 -- Không --> B9
+    B10 -- Có --> B11 --> A9
+    A9 -- WON --> A11 --> A12 --> B14
+    A9 -- LOST --> A13
+
+    End1([Kết thúc - Học sinh chính thức])
+    End2([Kết thúc - Lưu lại để phân tích])
+    B14 --> End1
+    A13 --> End2

@@ -1,0 +1,58 @@
+erDiagram
+    users ||--o| employees : "extends"
+    employees ||--o{ employment_contracts : "hop dong LD"
+    employees ||--o{ qualifications : "bang cap/chung chi"
+    employees ||--o{ commendations : "khen thuong/ky luat"
+
+    employees ||--o{ employees_history : ""
+    employment_contracts ||--o{ employment_contracts_history : ""
+
+    employees {
+        BIGSERIAL id PK
+        BIGINT user_id FK
+        VARCHAR employee_code UK
+        DATE date_of_birth
+        VARCHAR id_card_number UK
+        VARCHAR employee_type
+        VARCHAR position_title
+        BOOLEAN is_default_shift_required
+        DATE hire_date
+        DATE termination_date
+        VARCHAR status
+        TIMESTAMPTZ deleted_at
+    }
+
+    employment_contracts {
+        BIGSERIAL id PK
+        UUID uuid UK
+        BIGINT employee_id FK
+        VARCHAR contract_number UK
+        VARCHAR contract_type
+        DATE start_date
+        DATE end_date
+        DECIMAL base_salary
+        VARCHAR salary_type
+        VARCHAR status
+        VARCHAR file_url
+        TIMESTAMPTZ deleted_at
+    }
+
+    qualifications {
+        BIGSERIAL id PK
+        BIGINT employee_id FK
+        VARCHAR qualification_type
+        VARCHAR title
+        VARCHAR issuer
+        DATE issued_date
+        DATE expiry_date
+    }
+
+    commendations {
+        BIGSERIAL id PK
+        BIGINT employee_id FK
+        VARCHAR record_type
+        DATE record_date
+        VARCHAR title
+        DECIMAL amount
+        BIGINT decided_by FK
+    }

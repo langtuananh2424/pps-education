@@ -1,0 +1,43 @@
+erDiagram
+    lead_sources ||--o{ leads : "den tu"
+    sites ||--o{ lead_sources : "form nhung tai (neu PARTNER_FORM)"
+    sites ||--o{ leads : "quan tam diem truong"
+    curriculums ||--o{ leads : "quan tam khoa"
+    users ||--o{ leads : "tu van vien phu trach"
+    students ||--o{ leads : "chuyen doi thanh (neu WON)"
+    leads ||--o{ leads_history : ""
+
+    lead_sources {
+        BIGSERIAL id PK
+        VARCHAR code UK
+        VARCHAR name
+        VARCHAR channel_type
+        BIGINT referrer_site_id FK
+        BOOLEAN is_active
+    }
+
+    leads {
+        BIGSERIAL id PK
+        UUID uuid UK
+        VARCHAR lead_code UK
+        VARCHAR full_name
+        VARCHAR phone
+        VARCHAR email
+        VARCHAR contact_relationship
+        VARCHAR student_name
+        DATE student_dob
+        VARCHAR student_grade
+        VARCHAR student_current_school
+        BIGINT lead_source_id FK
+        BIGINT interested_site_id FK
+        BIGINT interested_curriculum_id FK
+        TEXT initial_message
+        VARCHAR status
+        VARCHAR outcome
+        TEXT final_note
+        BIGINT assigned_to FK
+        BIGINT converted_student_id FK
+        TIMESTAMPTZ converted_at
+        BIGINT converted_by FK
+        TIMESTAMPTZ deleted_at
+    }

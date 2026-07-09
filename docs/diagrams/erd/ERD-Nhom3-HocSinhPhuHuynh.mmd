@@ -1,0 +1,71 @@
+erDiagram
+    users ||--o| students : "extends"
+    users ||--o| parents : "extends"
+
+    students ||--o{ parent_student : "co phu huynh"
+    parents ||--o{ parent_student : "co con"
+
+    students ||--o{ student_status_history : "lich su trang thai"
+    students ||--o{ student_transfer_history : "lich su chuyen"
+
+    sites ||--o{ students : "hoc tai (diem truong chinh)"
+
+    students ||--o{ students_history : ""
+    parents ||--o{ parents_history : ""
+
+    students {
+        BIGSERIAL id PK
+        BIGINT user_id FK
+        VARCHAR student_code UK
+        DATE date_of_birth
+        VARCHAR gender
+        VARCHAR portrait_url
+        BIGINT primary_site_id FK
+        VARCHAR original_school
+        VARCHAR original_class
+        VARCHAR status
+        DATE enrollment_date
+        DATE graduation_date
+        TIMESTAMPTZ deleted_at
+    }
+
+    parents {
+        BIGSERIAL id PK
+        BIGINT user_id FK
+        VARCHAR occupation
+        VARCHAR workplace
+        VARCHAR address
+    }
+
+    parent_student {
+        BIGSERIAL id PK
+        BIGINT parent_id FK
+        BIGINT student_id FK
+        VARCHAR relationship
+        BOOLEAN is_primary_contact
+        BOOLEAN is_financial_responsible
+    }
+
+    student_status_history {
+        BIGSERIAL id PK
+        BIGINT student_id FK
+        VARCHAR old_status
+        VARCHAR new_status
+        TEXT reason
+        DATE effective_date
+        BIGINT changed_by FK
+        TIMESTAMPTZ changed_at
+    }
+
+    student_transfer_history {
+        BIGSERIAL id PK
+        BIGINT student_id FK
+        VARCHAR transfer_type
+        BIGINT from_class_id FK
+        BIGINT to_class_id FK
+        BIGINT from_site_id FK
+        BIGINT to_site_id FK
+        DATE effective_date
+        TEXT reason
+        BIGINT approved_by FK
+    }

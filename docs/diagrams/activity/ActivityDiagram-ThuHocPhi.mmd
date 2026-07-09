@@ -1,0 +1,57 @@
+flowchart TD
+    Start([Bắt đầu - Đến kỳ thu học phí]) --> A1
+
+    subgraph HT["Hệ thống"]
+        A1[Xác định tuition_plan áp dụng<br/>cho class_enrollment<br/>- theo tuition_plan_assignments]
+        A2[Sinh invoices + invoice_items<br/>theo pricing_model:<br/>COURSE / PER_SESSION / MONTHLY]
+        A3{Học sinh có<br/>scholarship active?}
+        A4[Áp dụng giảm giá:<br/>invoice_scholarship_applications<br/>- cập nhật discount_total]
+        A5[Tính total_amount<br/>= subtotal - discount_total + tax]
+        A6[Sinh mã QR ngân hàng<br/>- lưu qr_code_data]
+        A7[Gửi thông báo hóa đơn<br/>cho payer_parent_id]
+        A9{Phương thức<br/>thanh toán?}
+        A10[Chờ webhook<br/>từ ngân hàng]
+        A11{Webhook xác nhận<br/>giao dịch thành công?}
+        A13[Tạo payments<br/>status = CONFIRMED<br/>- tự động]
+        A14[Kế toán ghi nhận<br/>payments thủ công]
+        A15[Kế toán xác nhận<br/>status = CONFIRMED]
+        A16[Cập nhật invoices:<br/>paid_amount += amount]
+        A17{paid_amount<br/>>= total_amount?}
+        A18[status = PAID]
+        A19[status = PARTIAL_PAID]
+    end
+
+    subgraph PH["Phụ huynh"]
+        B1[Xem hóa đơn trên Portal]
+        B2[Chọn phương thức thanh toán]
+    end
+
+    subgraph KT["Kế toán"]
+        C1[Nhận tiền mặt / chuyển khoản thủ công]
+    end
+
+    subgraph Cron["Cron job hằng đêm"]
+        D1{invoices có<br/>due_date < NOW<br/>và chưa PAID?}
+        D2[Chuyển status = OVERDUE<br/>- ghi nợ]
+        D3([Kết thúc chu kỳ kiểm tra])
+    end
+
+    A1 --> A2 --> A3
+    A3 -- Có --> A4 --> A5
+    A3 -- Không --> A5
+    A5 --> A6 --> A7 --> B1
+    B1 --> B2 --> A9
+    A9 -- QR ngân hàng --> A10 --> A11
+    A11 -- Có --> A13
+    A11 -- Chưa/Timeout --> D1
+    A9 -- Tiền mặt / Chuyển khoản thủ công --> C1 --> A14 --> A15
+    A13 --> A16
+    A15 --> A16
+    A16 --> A17
+    A17 -- Đủ --> A18
+    A17 -- Chưa đủ --> A19
+    A18 --> End1([Kết thúc - Hoàn tất thanh toán])
+    A19 --> End2([Kết thúc - Chờ thanh toán tiếp])
+
+    D1 -- Có --> D2 --> End3([Kết thúc - Ghi nợ OVERDUE])
+    D1 -- Không --> D3

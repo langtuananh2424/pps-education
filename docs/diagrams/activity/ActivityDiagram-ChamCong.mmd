@@ -1,0 +1,63 @@
+flowchart TD
+    Start([Bắt đầu - Nhân sự nhấn Chấm công lúc thời điểm T]) --> A1
+
+    subgraph HT["Hệ thống"]
+        A1{is_management = TRUE?<br/>Cấp quản lý}
+        A2([Kết thúc - Miễn trừ,<br/>không cần chấm công])
+        A3[Đọc system_settings:<br/>GPS / Vân tay / Khuôn mặt đang bật?]
+        A4{Cả 3 phương thức<br/>đều tắt?}
+        A5{manual_when_all_disabled<br/>= true?}
+        A6[Chỉ cho phép chấm thủ công<br/>- bỏ qua bước xác thực vị trí/sinh trắc]
+        A7[Từ chối - không có<br/>phương thức nào khả dụng]
+        A8[Xác định ngày D có phải<br/>ngày làm việc?<br/>- ưu tiên work_calendar override<br/>- fallback theo pattern shift]
+        A9{D là ngày làm việc?}
+        A10([Kết thúc - Từ chối,<br/>D là ngày nghỉ])
+        A11[Xác định các cửa sổ hợp lệ cho D]
+        A12{Nhân sự là Giáo viên<br/>và có tiết dạy hôm nay?}
+        A13[Tính cửa sổ theo lịch dạy<br/>từ class_sessions<br/>- tiết sớm/muộn nhất trong ngày]
+        A14{is_default_shift_required<br/>= TRUE?}
+        A15[Tính cửa sổ theo ca cố định<br/>từ employee_shifts đang active]
+        A16[Gộp tất cả cửa sổ hợp lệ]
+        A17{T thuộc<br/>bất kỳ cửa sổ nào?}
+        A18([Kết thúc - Từ chối:<br/>Ngoài giờ chấm công cho phép])
+        A19[Nhân sự chọn phương thức<br/>chấm công cụ thể]
+        A20{Phương thức là GPS?}
+        A21[Kiểm tra ST_DWithin<br/>với sites.geo_location<br/>trong bán kính cho phép]
+        A22{Trong bán kính?}
+        A23([Kết thúc - Từ chối:<br/>Ngoài phạm vi cho phép])
+        A24{Phương thức là<br/>vân tay/khuôn mặt?}
+        A25[Xác thực sinh trắc học<br/>tại thiết bị điểm trường]
+        A26{Xác thực thành công?}
+        A27([Kết thúc - Từ chối:<br/>Xác thực thất bại])
+        A28[Ghi nhận attendance_records<br/>- matched_source, reference_id<br/>- tính status: NORMAL/LATE/EARLY_LEAVE]
+    end
+
+    End([Kết thúc - Chấm công thành công])
+
+    A1 -- Có --> A2
+    A1 -- Không --> A3 --> A4
+    A4 -- Có --> A5
+    A5 -- Có --> A6 --> A11
+    A5 -- Không --> A7
+    A4 -- Không --> A8
+    A8 --> A9
+    A9 -- Không --> A10
+    A9 -- Có --> A11
+    A11 --> A12
+    A12 -- Có --> A13 --> A16
+    A12 -- Không --> A14
+    A14 -- Có --> A15 --> A16
+    A14 -- Không --> A16
+    A16 --> A17
+    A17 -- Không --> A18
+    A17 -- Có --> A19
+    A19 --> A20
+    A20 -- Có --> A21 --> A22
+    A22 -- Không --> A23
+    A22 -- Có --> A28
+    A20 -- Không --> A24
+    A24 -- Có --> A25 --> A26
+    A26 -- Không --> A27
+    A26 -- Có --> A28
+    A24 -- Không --> A28
+    A28 --> End

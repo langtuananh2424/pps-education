@@ -1,0 +1,98 @@
+erDiagram
+    sites ||--o| partner_school_info : "1-1 neu PARTNER"
+    sites ||--o{ partner_contracts : "nhieu hop dong"
+    sites ||--o{ site_managers : "phu trach"
+    sites ||--o{ rooms : "chua"
+    sites ||--o{ partner_feedbacks : "phan hoi ve"
+    sites ||--o{ sites_history : ""
+
+    rooms ||--o{ equipment : "trong phong"
+    rooms ||--o{ rooms_history : ""
+
+    users ||--o{ site_managers : ""
+    users ||--o{ partner_feedbacks : "gui/xu ly"
+    users ||--o{ partner_contracts : "khoi tao"
+
+    partner_contracts ||--o{ partner_contracts : "renewal cua"
+    partner_contracts ||--o{ partner_contracts_history : ""
+    partner_school_info ||--o{ partner_school_info_history : ""
+    partner_feedbacks ||--o{ partner_feedbacks_history : ""
+
+    sites {
+        BIGSERIAL id PK
+        UUID uuid UK
+        VARCHAR code UK
+        VARCHAR name
+        VARCHAR site_type
+        VARCHAR district
+        GEOGRAPHY geo_location
+        VARCHAR status
+    }
+
+    partner_school_info {
+        BIGSERIAL id PK
+        BIGINT site_id FK
+        VARCHAR contact_person_name
+        VARCHAR contact_person_title
+        VARCHAR contact_phone
+        VARCHAR contact_email
+    }
+
+    partner_contracts {
+        BIGSERIAL id PK
+        UUID uuid UK
+        BIGINT site_id FK
+        VARCHAR contract_number UK
+        VARCHAR contract_type
+        BIGINT parent_contract_id FK
+        DATE start_date
+        DATE end_date
+        VARCHAR status
+        VARCHAR file_url
+        DECIMAL revenue_share_notes
+        BIGINT created_by FK
+        TIMESTAMPTZ deleted_at
+    }
+
+    site_managers {
+        BIGSERIAL id PK
+        BIGINT site_id FK
+        BIGINT user_id FK
+        DATE assigned_from
+        DATE assigned_to
+        BIGINT assigned_by FK
+    }
+
+    rooms {
+        BIGSERIAL id PK
+        UUID uuid UK
+        BIGINT site_id FK
+        VARCHAR code
+        VARCHAR room_type
+        INT capacity
+        BOOLEAN is_flexible
+        BOOLEAN managed_by_center
+        VARCHAR status
+    }
+
+    equipment {
+        BIGSERIAL id PK
+        UUID uuid UK
+        BIGINT room_id FK
+        VARCHAR code UK
+        VARCHAR equipment_type
+        VARCHAR status
+    }
+
+    partner_feedbacks {
+        BIGSERIAL id PK
+        UUID uuid UK
+        BIGINT site_id FK
+        BIGINT submitted_by FK
+        TEXT content
+        VARCHAR feedback_type
+        VARCHAR priority
+        VARCHAR status
+        BIGINT assigned_to FK
+        TIMESTAMPTZ resolved_at
+    }

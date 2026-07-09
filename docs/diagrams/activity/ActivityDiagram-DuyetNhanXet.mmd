@@ -1,0 +1,54 @@
+flowchart TD
+    Start([Bắt đầu]) --> A1
+
+    subgraph GV["Giáo viên"]
+        A1[Viết nhận xét cho học sinh<br/>chọn comment_type:<br/>DAILY / MID_TERM / END_TERM]
+        A2[Điền content<br/>+ structured_content nếu có]
+        A3{Đây là nhận xét<br/>cần cảnh báo đặc biệt?}
+        A4[Đánh dấu is_warning = TRUE]
+        A5[Lưu nháp - status = DRAFT]
+        A6{Viết xong cho<br/>toàn bộ HS cần thiết?}
+        A8{Submit từng cái<br/>hay theo lô?}
+        A9[Submit 1 nhận xét<br/>status = PENDING<br/>batch_id = NULL]
+        A10[Submit nhiều nhận xét cùng lúc<br/>VD cả lớp sau 1 buổi học<br/>sinh 1 batch_id chung<br/>status = PENDING cho cả lô]
+        A15[Xem lý do bị từ chối,<br/>sửa lại nội dung]
+    end
+
+    subgraph HT["Hệ thống"]
+        B1[Tạo record approval_flows<br/>entity_type = STUDENT_COMMENT]
+        B2[Thông báo cho<br/>Quản lý điểm trường]
+        B6{Kết quả duyệt?}
+        B7[status = APPROVED<br/>visible_to_parent_at = NOW]
+        B8[Hiển thị trên Portal<br/>Phụ huynh /<br/>Portal trường liên kết<br/>nếu is_warning]
+        B9[status = REJECTED<br/>ghi rejection_reason]
+        B10[Thông báo cho Giáo viên]
+    end
+
+    subgraph QLDT["Quản lý điểm trường"]
+        C1[Xem danh sách<br/>nhận xét chờ duyệt]
+        C2{Duyệt từng cái<br/>hay theo batch_id?}
+        C3[Mở từng nhận xét,<br/>đọc kỹ nội dung]
+        C4[Mở tóm tắt cả lô<br/>VD: Buổi 15/09 - GV Lan<br/>- Lớp 8A2 - 30 nhận xét]
+        C5{Quyết định}
+    end
+
+    A1 --> A2 --> A3
+    A3 -- Có --> A4 --> A5
+    A3 -- Không --> A5
+    A5 --> A6
+    A6 -- Chưa --> A1
+    A6 -- Đã xong --> A8
+    A8 -- Từng cái --> A9
+    A8 -- Theo lô --> A10
+    A9 --> B1
+    A10 --> B1
+    B1 --> B2 --> C1 --> C2
+    C2 -- Từng cái --> C3
+    C2 -- Theo batch_id --> C4
+    C3 --> C5
+    C4 --> C5
+    C5 --> B6
+    B6 -- Duyệt --> B7 --> B8 --> End1([Kết thúc -<br/>Nhận xét công khai])
+    B6 -- Từ chối --> B9 --> B10 --> A15
+    A15 --> End2([Kết thúc -<br/>Chờ Giáo viên sửa])
+    End2 -.Sửa & submit lại.-> A8

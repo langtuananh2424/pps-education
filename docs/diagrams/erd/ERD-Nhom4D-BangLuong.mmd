@@ -1,0 +1,32 @@
+erDiagram
+    payroll_periods ||--o{ payroll_entries : "ky luong"
+    employees ||--o{ payroll_entries : ""
+    payroll_entries ||--o{ payroll_entries_history : ""
+
+    payroll_periods {
+        BIGSERIAL id PK
+        VARCHAR period_code UK
+        DATE start_date
+        DATE end_date
+        VARCHAR status
+        TIMESTAMPTZ locked_at
+        BIGINT locked_by FK
+    }
+
+    payroll_entries {
+        BIGSERIAL id PK
+        UUID uuid UK
+        BIGINT payroll_period_id FK
+        BIGINT employee_id FK
+        DECIMAL base_salary
+        DECIMAL teaching_hours
+        DECIMAL work_days
+        DECIMAL bonuses
+        DECIMAL penalties
+        DECIMAL tax
+        DECIMAL social_insurance
+        DECIMAL gross_salary
+        DECIMAL net_salary
+        JSONB calculation_details
+        VARCHAR status
+    }

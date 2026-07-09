@@ -75,6 +75,16 @@ Yêu cầu Postgres (có extension `postgis`, `pgcrypto`) đang chạy và biế
 Chi tiết đầy đủ backlog theo từng Sprint/Phase: xem tài liệu
 **"Kế hoạch phân kỳ & Backlog theo FR"**.
 
+## Tài liệu nghiệp vụ & Claude Code
+
+- `docs/srs.md`, `docs/sdd-groups/`, `docs/uc/` — SRS, SDD (tách theo 9 nhóm
+  bảng), Đặc tả Use Case IEEE (tách theo 10 phân hệ). Đây là nguồn chân lý
+  nghiệp vụ, dùng khi implement hoặc review bất kỳ tính năng nào.
+- `CLAUDE.md` — ngữ cảnh dự án cho Claude Code (trỏ tới đúng file cần đọc
+  theo từng loại việc, không nạp toàn bộ `docs/` mỗi phiên).
+- `.claude/skills/` — skill riêng cho dự án: `pps-uc-lookup` (tra cứu 1 UC
+  theo mã), `pps-add-migration` (tạo Flyway migration đúng quy ước).
+
 ## Quy trình Git & CI/CD
 
 Xem chi tiết đầy đủ trong [`CONTRIBUTING.md`](./CONTRIBUTING.md): chiến lược

@@ -1,0 +1,73 @@
+erDiagram
+    classes ||--o{ class_sessions : "co buoi hoc"
+    class_sessions ||--o{ session_periods : "gom tiet"
+    class_sessions }o--o| rooms : "tai phong (co the null)"
+    class_sessions }o--|| users : "GV day"
+    class_sessions }o--o| class_sessions : "doi lich toi"
+    class_sessions ||--o{ class_sessions_history : ""
+
+    session_periods ||--o{ session_periods_history : ""
+
+    class_sessions ||--o{ attendance_sessions : "buoi diem danh"
+    attendance_sessions ||--o{ attendance_marks : "chi tiet HS"
+    attendance_marks ||--o{ attendance_marks_history : ""
+    attendance_marks }o--|| students : ""
+
+    session_periods ||--o{ attendance_period_marks : "diem danh theo tiet"
+    attendance_marks ||--o{ attendance_period_marks : ""
+
+    class_sessions {
+        BIGSERIAL id PK
+        UUID uuid UK
+        BIGINT class_id FK
+        DATE session_date
+        TIME start_time
+        TIME end_time
+        BIGINT room_id FK
+        BIGINT primary_teacher_id FK
+        VARCHAR session_type
+        VARCHAR status
+        TEXT cancellation_reason
+        BIGINT rescheduled_to_session_id FK
+        BIGINT created_by FK
+    }
+
+    session_periods {
+        BIGSERIAL id PK
+        BIGINT class_session_id FK
+        INT period_number
+        TIME start_time
+        TIME end_time
+        BIGINT teacher_id FK
+        BIGINT subject_id FK
+        TEXT content_note
+    }
+
+    attendance_sessions {
+        BIGSERIAL id PK
+        BIGINT class_session_id FK
+        VARCHAR mode
+        BIGINT marked_by FK
+        TIMESTAMPTZ marked_at
+        VARCHAR status
+        TIMESTAMPTZ submitted_at
+    }
+
+    attendance_marks {
+        BIGSERIAL id PK
+        BIGINT attendance_session_id FK
+        BIGINT student_id FK
+        VARCHAR status
+        TIMESTAMPTZ check_in_time
+        INT minutes_late
+        TEXT absence_reason
+        TIMESTAMPTZ notified_parent_at
+    }
+
+    attendance_period_marks {
+        BIGSERIAL id PK
+        BIGINT attendance_mark_id FK
+        BIGINT session_period_id FK
+        VARCHAR status
+        TEXT note
+    }
