@@ -7,24 +7,27 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
+import vn.com.pps.education.domain.LoginAttempt;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.dto.LoginRequest;
 import vn.com.pps.education.dto.LoginResponse;
 import vn.com.pps.education.exception.AccountInactiveException;
 import vn.com.pps.education.exception.AccountLockedException;
 import vn.com.pps.education.exception.InvalidCredentialsException;
+import vn.com.pps.education.repository.LoginAttemptRepository;
 import vn.com.pps.education.repository.UserRepository;
 import vn.com.pps.education.security.JwtService;
 import vn.com.pps.education.support.AbstractIntegrationTest;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * UC-01: Đăng nhập hệ thống — luồng Tài khoản/Mật khẩu (Main Flow + A1/A2/A3).
- * Xem docs/uc/phan-he-01-dang-nhap.md. A4 (Google OAuth) chưa implement — không test.
+ * Xem docs/uc/phan-he-01-dang-nhap.md. Luồng Google (A4) xem AuthServiceGoogleLoginTest.
  */
 @Transactional
 class AuthServiceTest extends AbstractIntegrationTest {
@@ -38,12 +41,21 @@ class AuthServiceTest extends AbstractIntegrationTest {
     private UserRepository userRepository;
 
     @Autowired
+    private LoginAttemptRepository loginAttemptRepository;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     @Autowired
     private JwtService jwtService;
 
     private User activeUser;
+
+    private List<LoginAttempt> attemptsFor(User user) {
+        return loginAttemptRepository.findAll().stream()
+                .filter(a -> a.getUser() != null && a.getUser().getId().equals(user.getId()))
+                .toList();
+    }
 
     @BeforeEach
     void setUp() {
@@ -76,6 +88,11 @@ class AuthServiceTest extends AbstractIntegrationTest {
         assertThat(reloaded.getFailedLoginCount()).isZero();
         assertThat(reloaded.getLastLoginAt()).isNotNull();
         assertThat(reloaded.getLockedUntil()).isNull();
+
+        List<LoginAttempt> attempts = attemptsFor(activeUser);
+        assertThat(attempts).hasSize(1);
+        assertThat(attempts.get(0).isSuccess()).isTrue();
+        assertThat(attempts.get(0).getFailureReason()).isNull();
     }
 
     @Test
@@ -87,6 +104,11 @@ class AuthServiceTest extends AbstractIntegrationTest {
         User reloaded = userRepository.findById(activeUser.getId()).orElseThrow();
         assertThat(reloaded.getFailedLoginCount()).isEqualTo(1);
         assertThat(reloaded.getLockedUntil()).isNull();
+
+        List<LoginAttempt> attempts = attemptsFor(activeUser);
+        assertThat(attempts).hasSize(1);
+        assertThat(attempts.get(0).isSuccess()).isFalse();
+        assertThat(attempts.get(0).getFailureReason()).isEqualTo(LoginAttempt.FailureReason.WRONG_PASSWORD);
     }
 
     @Test
@@ -94,6 +116,14 @@ class AuthServiceTest extends AbstractIntegrationTest {
         assertThatThrownBy(() -> authService.login(
                 new LoginRequest("khong-ton-tai", RAW_PASSWORD), request()))
                 .isInstanceOf(InvalidCredentialsException.class);
+
+        List<LoginAttempt> attempts = loginAttemptRepository.findAll().stream()
+                .filter(a -> "khong-ton-tai".equals(a.getUsernameOrEmail()))
+                .toList();
+        assertThat(attempts).hasSize(1);
+        assertThat(attempts.get(0).getUser()).isNull();
+        assertThat(attempts.get(0).isSuccess()).isFalse();
+        assertThat(attempts.get(0).getFailureReason()).isEqualTo(LoginAttempt.FailureReason.USER_NOT_FOUND);
     }
 
     @Test
@@ -112,6 +142,10 @@ class AuthServiceTest extends AbstractIntegrationTest {
         assertThatThrownBy(() -> authService.login(
                 new LoginRequest(activeUser.getUsername(), RAW_PASSWORD), request()))
                 .isInstanceOf(AccountLockedException.class);
+
+        List<LoginAttempt> attempts = attemptsFor(activeUser);
+        assertThat(attempts).hasSize(6);
+        assertThat(attempts.get(5).getFailureReason()).isEqualTo(LoginAttempt.FailureReason.USER_LOCKED);
     }
 
     @Test
@@ -122,5 +156,9 @@ class AuthServiceTest extends AbstractIntegrationTest {
         assertThatThrownBy(() -> authService.login(
                 new LoginRequest(activeUser.getUsername(), RAW_PASSWORD), request()))
                 .isInstanceOf(AccountInactiveException.class);
+
+        List<LoginAttempt> attempts = attemptsFor(activeUser);
+        assertThat(attempts).hasSize(1);
+        assertThat(attempts.get(0).getFailureReason()).isEqualTo(LoginAttempt.FailureReason.USER_INACTIVE);
     }
 }
