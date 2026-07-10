@@ -173,6 +173,12 @@ UC-25: Xem Portal Phụ huynh
 |                 |     lựa chọn để tách riêng dữ liệu theo từng học   |
 |                 |     sinh.                                          |
 |                 |                                                    |
+|                 | 2b. Hệ thống thực hiện UC-42 để xác định "lớp đang  |
+|                 |     xem" của con vừa chọn (tự động bỏ qua nếu con   |
+|                 |     chỉ có 1 lớp; nếu con đã từng chuyển lớp, Phụ   |
+|                 |     huynh chọn được lớp/giai đoạn muốn xem, kể cả   |
+|                 |     lớp đã kết thúc).                               |
+|                 |                                                    |
 |                 | 3.  Phụ huynh xem lịch học của con, bảng điểm đã   |
 |                 |     duyệt (UC-20), nhận xét giáo viên đã duyệt     |
 |                 |     (UC-22).                                       |
@@ -196,6 +202,10 @@ UC-25: Xem Portal Phụ huynh
 | (P              |     học tập của con trong phạm vi quyền hạn (kiểm  |
 | ostcondition)** |     soát ở tầng Service --- NFR-SEC-03), không làm |
 |                 |     thay đổi dữ liệu.                              |
+|                 |                                                    |
+|                 | -   Bao gồm cả dữ liệu của lớp cũ nếu con đã từng   |
+|                 |     chuyển lớp (UC-42) --- không chỉ lớp đang học   |
+|                 |     hiện tại.                                       |
 +-----------------+----------------------------------------------------+
 
 ---
@@ -557,6 +567,104 @@ UC-41: Chấm bài thủ công
 |                 | -   Điểm tổng kết của đề được hiển thị đầy đủ cho  |
 |                 |     Học sinh khi tất cả các kỹ năng đã có điểm;    |
 |                 |     kết quả được đồng bộ vào sổ điểm liên quan.    |
++-----------------+----------------------------------------------------+
+
+---
+
+UC-42: Chọn lớp đang xem (Portal Học sinh/Phụ huynh)
+
++-----------------+----------------------------------------------------+
+| **Mã Use Case** | UC-42                                              |
++-----------------+----------------------------------------------------+
+| **Tên Use       | Chọn lớp đang xem (Portal Học sinh/Phụ huynh)      |
+| Case**          |                                                    |
++-----------------+----------------------------------------------------+
+| **Phân hệ**     | Phân hệ 7                                          |
++-----------------+----------------------------------------------------+
+| **Yêu cầu chức  | FR-LMS-12                                          |
+| năng gốc**      |                                                    |
++-----------------+----------------------------------------------------+
+| **Tác nhân**    | Học sinh, Phụ huynh                                |
++-----------------+----------------------------------------------------+
+| **Mô tả tóm     | Học sinh có thể học qua nhiều lớp theo thời gian   |
+| tắt**           | (chuyển lớp để phù hợp trình độ --- UC-13). Use    |
+|                 | case này xác định "lớp đang xem" mỗi khi Học sinh  |
+|                 | đăng nhập hoặc Phụ huynh chọn xem 1 con, để toàn    |
+|                 | bộ dữ liệu Portal (bài giảng, kiểm tra, điểm,      |
+|                 | chuyên cần...) hiển thị đúng theo lớp đã chọn ---   |
+|                 | kể cả lớp đã kết thúc do chuyển lớp, dữ liệu không  |
+|                 | bị mất hay ẩn vĩnh viễn.                            |
++-----------------+----------------------------------------------------+
+| **Sự kiện kích  | Học sinh vừa đăng nhập thành công (UC-01); hoặc     |
+| hoạt**          | Phụ huynh vừa chọn xong 1 con muốn xem (UC-25 bước |
+|                 | 2).                                                 |
++-----------------+----------------------------------------------------+
+| **Điều kiện     | -   Đã đăng nhập thành công (UC-01).               |
+| tiên quyết      |                                                    |
+| (               | -   Đối với Phụ huynh: đã chọn con muốn xem (UC-25 |
+| Precondition)** |     bước 2, nếu có nhiều con).                     |
++-----------------+----------------------------------------------------+
+| **Luồng sự kiện | 1.  Hệ thống truy vấn toàn bộ bản ghi              |
+| chính (Main     |     class_enrollments của học sinh (mọi trạng     |
+| Flow)**         |     thái: ACTIVE/WITHDRAWN/TRANSFERRED/COMPLETED), |
+|                 |     sắp xếp theo enrolled_date giảm dần.           |
+|                 |                                                    |
+|                 | 2.  Nếu học sinh chỉ có đúng 1 lớp (1 bản ghi       |
+|                 |     enrollment duy nhất), hệ thống tự động chọn    |
+|                 |     lớp đó làm "lớp đang xem", bỏ qua bước 3-4.     |
+|                 |                                                    |
+|                 | 3.  Nếu có từ 2 lớp trở lên, hệ thống hiển thị      |
+|                 |     danh sách lớp để chọn --- mỗi mục gồm tên lớp,  |
+|                 |     khoảng thời gian học (enrolled_date đến         |
+|                 |     withdrawn_date, hoặc "Đang học" nếu status =    |
+|                 |     ACTIVE), trạng thái. Mặc định pre-select lớp   |
+|                 |     có status = ACTIVE (nếu có).                    |
+|                 |                                                    |
+|                 | 4.  Học sinh/Phụ huynh chọn 1 lớp trong danh sách.  |
+|                 |                                                    |
+|                 | 5.  Hệ thống lưu lựa chọn làm ngữ cảnh "lớp đang    |
+|                 |     xem" cho phiên hiện tại; các use case Portal    |
+|                 |     liên quan (UC-23a, UC-24, UC-26, UC-27, UC-25a, |
+|                 |     UC-25b) lọc dữ liệu hiển thị theo đúng lớp này. |
+|                 |                                                    |
+|                 | 6.  Học sinh/Phụ huynh có thể đổi "lớp đang xem"    |
+|                 |     bất kỳ lúc nào trong phiên (quay lại bước 3),   |
+|                 |     không cần đăng nhập lại.                        |
++-----------------+----------------------------------------------------+
+| **Luồng thay    | ***A1 --- Học sinh chưa từng được xếp lớp***       |
+| thế / ngoại lệ  |                                                    |
+| (Alternate      | 1.  Nếu không có bản ghi class_enrollments nào (hồ  |
+| Flow)**         |     sơ mới tạo, chưa qua UC-18), hệ thống hiển thị  |
+|                 |     thông báo "Chưa được xếp lớp"; không có dữ liệu |
+|                 |     Portal nào được hiển thị. Luồng chính dừng ở    |
+|                 |     bước 1.                                         |
+|                 |                                                    |
+|                 | ***A2 --- Không còn lớp nào đang ACTIVE***          |
+|                 |                                                    |
+|                 | 1.  Nếu toàn bộ lớp của học sinh đã kết thúc (đã    |
+|                 |     tốt nghiệp/nghỉ học/chuyển hết), hệ thống vẫn   |
+|                 |     hiển thị đầy đủ danh sách lớp cũ ở bước 3 (không |
+|                 |     ẩn); mặc định pre-select lớp có enrolled_date   |
+|                 |     gần nhất thay vì lớp ACTIVE.                    |
+|                 |                                                    |
+|                 | ***A3 --- Phụ huynh đổi sang xem con khác***        |
+|                 |                                                    |
+|                 | 1.  Nếu Phụ huynh quay lại chọn 1 con khác (UC-25   |
+|                 |     bước 2), hệ thống thực hiện lại UC này từ đầu   |
+|                 |     cho con vừa chọn --- ngữ cảnh "lớp đang xem"    |
+|                 |     trước đó không áp dụng cho con mới.             |
++-----------------+----------------------------------------------------+
+| **Hậu điều kiện | -   "Lớp đang xem" được xác định và lưu trong ngữ  |
+| (P              |     cảnh phiên; toàn bộ dữ liệu Portal hiển thị sau |
+| ostcondition)** |     đó (bài giảng, kiểm tra, điểm, chuyên cần, nhận |
+|                 |     xét...) được lọc đúng theo lớp này.             |
+|                 |                                                    |
+|                 | -   Dữ liệu của các lớp khác (kể cả lớp đã kết thúc |
+|                 |     do chuyển lớp) không bị xóa hay ẩn vĩnh viễn ---|
+|                 |     có thể chọn lại để xem bất kỳ lúc nào            |
+|                 |     (class_enrollments + class_enrollments_history  |
+|                 |     là nguồn dữ liệu, xem docs/sdd-groups/           |
+|                 |     06-hoc-thuat.md).                               |
 +-----------------+----------------------------------------------------+
 
 Phân hệ 8 --- Quản lý tài chính và học phí

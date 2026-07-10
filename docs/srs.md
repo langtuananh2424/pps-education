@@ -412,6 +412,14 @@ CDN)**
         chấm và điểm tổng kết (total score) của cả đề tạm thời để trống
         cho đến khi toàn bộ các kỹ năng trong đề đã có điểm.
 
+    -   **FR-LMS-12: Xem dữ liệu theo lớp đã/đang học -** Học sinh có
+        thể học qua nhiều lớp theo thời gian (chuyển lớp để phù hợp
+        trình độ). Khi đăng nhập (hoặc khi Phụ huynh chọn xem 1 con), hệ
+        thống xác định "lớp đang xem" dựa trên lịch sử class_enrollments
+        --- tự động chọn nếu chỉ có 1 lớp, cho chọn nếu có nhiều lớp (kể
+        cả lớp đã kết thúc). Dữ liệu của lớp cũ không bị xóa hay ẩn vĩnh
+        viễn.
+
 **PHÂN HỆ 8: QUẢN LÝ TÀI CHÍNH VÀ HỌC PHÍ**
 
 -   **Mô tả tổng quan:** Quản lý toàn bộ các giao dịch thu/chi, công nợ
@@ -639,6 +647,10 @@ CDN)**
                     kiểm tra                            
 
   UC-41             Chấm bài thủ công FR-LMS-11         7
+
+  UC-42             Chọn lớp đang     FR-LMS-12         7
+                    xem (Portal Học                     
+                    sinh/Phụ huynh)                     
   -----------------------------------------------------------------------
 
 ## Ma trận Actor × Phân hệ
@@ -679,6 +691,7 @@ graph LR
     HocSinh[Học sinh]
 
     UC01(["UC-01: Đăng nhập hệ thống"])
+    UC42(["UC-42: Chọn lớp đang xem"])
     UC13a(["UC-13a: Xem hồ sơ cá nhân"])
     UC23a(["UC-23a: Xem bài giảng"])
     UC24(["UC-24: Làm bài kiểm tra trực tuyến"])
@@ -686,6 +699,7 @@ graph LR
     UC27(["UC-27: Làm bài tập / đề ôn tập"])
 
     HocSinh --> UC01
+    HocSinh --> UC42
     HocSinh --> UC13a
     HocSinh --> UC23a
     HocSinh --> UC24
@@ -702,12 +716,14 @@ graph TD
 
     UC01(["UC-01: Đăng nhập hệ thống"])
     UC15a(["UC-15a: Nhận thông báo vắng học"])
+    UC42(["UC-42: Chọn lớp đang xem"])
     UC25a(["UC-25a: Xem bảng tin Portal"])
     UC25b(["UC-25b: Xem hồ sơ tổng thể từng con"])
     UC30(["UC-30: Xem hóa đơn & thanh toán học phí"])
 
     PhuHuynh --> UC01
     PhuHuynh --> UC15a
+    PhuHuynh --> UC42
     PhuHuynh --> UC25a
     PhuHuynh --> UC25b
     PhuHuynh --> UC30
