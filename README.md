@@ -33,9 +33,11 @@ cd pps-education-backend
 mvn spring-boot:run
 ```
 Không cần set biến môi trường gì thêm — default trong `application.yml` đã
-khớp sẵn với `docker-compose.yml`. Xem `.env.example` (root repo) để biết đầy
-đủ các biến có thể override (`DB_URL/DB_USERNAME/DB_PASSWORD/JWT_SECRET/
-GOOGLE_OAUTH_CLIENT_IDS/...`) và cách dùng khi chạy Maven trực tiếp.
+khớp sẵn với `docker-compose.yml`. Muốn override (VD đổi port DB, bật Google
+OAuth test) thì copy `pps-education-backend/.env.example` thành
+`pps-education-backend/.env` (Spring Boot tự nạp file này mỗi lần khởi động
+nhờ `spring-dotenv` — xem `pom.xml` — không cần export biến môi trường thủ
+công, không commit `.env`).
 
 **Máy đã có PostgreSQL native chiếm port 5432?** Docker sẽ báo container chạy
 bình thường nhưng app kết nối nhầm sang Postgres native (lỗi `password
