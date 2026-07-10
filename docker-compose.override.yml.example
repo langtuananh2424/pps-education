@@ -1,0 +1,9 @@
+# Mẫu override cục bộ khi port 5432 trên máy bạn đã bị PostgreSQL native khác
+# chiếm dụng (không phải lỗi hiếm — đã gặp thực tế khi dev). Copy file này
+# thành `docker-compose.override.yml` (đã có trong .gitignore, không commit),
+# đổi port publish sang port trống bất kỳ, rồi cập nhật DB_URL trong `.env`
+# (hoặc biến môi trường khi chạy `mvn spring-boot:run`) cho khớp port mới.
+services:
+  postgres:
+    ports:
+      - "15432:5432"

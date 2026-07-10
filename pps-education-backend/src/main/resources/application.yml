@@ -5,9 +5,13 @@ spring:
     active: ${SPRING_PROFILES_ACTIVE:dev}
 
   datasource:
+    # Default khớp docker-compose.yml (postgres.environment.POSTGRES_PASSWORD)
+    # để `docker compose up -d postgres` + `mvn spring-boot:run` chạy được ngay
+    # không cần set biến môi trường thủ công. Đổi qua DB_PASSWORD env var ở
+    # môi trường thật (staging/prod), không sửa default này thành secret thật.
     url: ${DB_URL:jdbc:postgresql://localhost:5432/pps_education}
     username: ${DB_USERNAME:pps_app}
-    password: ${DB_PASSWORD:changeme}
+    password: ${DB_PASSWORD:root123456}
     driver-class-name: org.postgresql.Driver
 
   jpa:
