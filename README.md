@@ -50,19 +50,26 @@ Yêu cầu Postgres (có extension `postgis`, `pgcrypto`) đang chạy và biế
       `qualifications`, `commendations` (dữ liệu nền Phân hệ 4, kéo sớm vì
       Phân hệ 6 cần gán Giáo viên vào lớp)
 - [x] Flyway migration V4: seed 11 role hệ thống + permission catalog khởi điểm
+- [x] Flyway migration V5: bổ sung cột `updated_at` cho bảng `permissions`
+      (entity `Permission` kế thừa `BaseAuditEntity`, thiếu sót từ V1)
 - [x] Entity + Repository cho nhóm Auth/Permission
 - [x] `POST /api/auth/login` — khung UC-01 (Main Flow + A1 sai mật khẩu + A2
       khóa tài khoản sau 5 lần sai + A3 tài khoản INACTIVE)
 - [x] Spring Security: JWT stateless filter, BCrypt password encoder
+- [x] Unit test + integration test (Testcontainers) cho AuthService — Main
+      Flow + A1 + A2 + A3 (xem `AuthServiceTest`, PR #3)
 
 ## Việc còn lại của Sprint 1 (UC-01 hoàn chỉnh)
 
 - [ ] `login_attempts` entity + ghi log mỗi lần đăng nhập (thành công/thất bại)
 - [ ] `POST /api/auth/login/google` — nhánh Google OAuth (Main Flow bước 4, A4)
+      — lưu ý: block cấu hình `spring.security.oauth2.client.registration.google`
+      đã bị gỡ khỏi `application.yml` (gây fail cứng lúc khởi động khi chưa có
+      credentials thật) — thêm lại cùng lúc implement nhánh này, kèm credentials
+      thật qua biến môi trường.
 - [ ] `POST /api/auth/refresh`, `POST /api/auth/logout` (thu hồi refresh token)
 - [ ] Gửi cảnh báo cho Quản trị viên khi tài khoản bị khóa (FR-AUT-02) — phụ
       thuộc module Notification (Backend Phase B, Phân hệ 3)
-- [ ] Unit test + integration test (Testcontainers) cho AuthService
 
 ## Sprint 2 (UC-02 → UC-05 — Quản trị người dùng & Phân quyền)
 
