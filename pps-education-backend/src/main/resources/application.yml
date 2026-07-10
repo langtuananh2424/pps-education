@@ -25,10 +25,14 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: true
 
-# spring.security.oauth2.client.registration.google: thêm lại khi implement nhánh
-# Google OAuth (UC-01 Main Flow bước 4/A4, xem README "Việc còn lại của Sprint 1").
-# Khai báo với client-id/secret rỗng khiến Spring Boot OAuth2ClientAutoConfiguration
-# validate fail cứng lúc khởi động ở mọi môi trường chưa có Google credentials thật.
+# UC-01 Main Flow bước 4/A4 (đăng nhập Google) dùng flow xác thực id_token
+# (Frontend tự làm Google Sign-In, gửi id_token lên backend verify qua JWKS
+# - xem app.security.google bên dưới), KHÔNG dùng
+# spring.security.oauth2.client.registration.google (đó là flow
+# authorization-code/redirect phía server, không khớp UC-01). Cố tình
+# không khai báo block này - đừng "thêm lại" nhầm, sẽ làm
+# OAuth2ClientAutoConfiguration validate fail cứng lúc khởi động khi chưa
+# có client-secret thật.
 
 server:
   port: ${SERVER_PORT:8080}
@@ -43,6 +47,10 @@ app:
     brute-force:
       max-failed-attempts: 5
       lock-duration-minutes: 15
+    google:
+      # CSV client-id (Web/Mobile) dùng làm audience khi verify id_token (UC-01 A4).
+      client-ids: ${GOOGLE_OAUTH_CLIENT_IDS:}
+      jwks-uri: https://www.googleapis.com/oauth2/v3/certs
 
 springdoc:
   swagger-ui:

@@ -26,6 +26,21 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.FORBIDDEN, ex.getMessage());
     }
 
+    @ExceptionHandler(InvalidGoogleTokenException.class)
+    public ResponseEntity<Object> handleInvalidGoogleToken(InvalidGoogleTokenException ex) {
+        return error(HttpStatus.UNAUTHORIZED, ex.getMessage());
+    }
+
+    @ExceptionHandler(GoogleAccountNotProvisionedException.class)
+    public ResponseEntity<Object> handleGoogleAccountNotProvisioned(GoogleAccountNotProvisionedException ex) {
+        return error(HttpStatus.FORBIDDEN, ex.getMessage());
+    }
+
+    @ExceptionHandler(InvalidRefreshTokenException.class)
+    public ResponseEntity<Object> handleInvalidRefreshToken(InvalidRefreshTokenException ex) {
+        return error(HttpStatus.UNAUTHORIZED, ex.getMessage());
+    }
+
     private ResponseEntity<Object> error(HttpStatus status, String message) {
         return ResponseEntity.status(status).body(Map.of(
                 "timestamp", OffsetDateTime.now().toString(),
