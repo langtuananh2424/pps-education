@@ -66,7 +66,8 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
     }
 
-    @ExceptionHandler({NotHeadAcademicException.class, NotAuthorizedForClassManagementException.class})
+    @ExceptionHandler({NotHeadAcademicException.class, NotAuthorizedForClassManagementException.class,
+            NotAuthorizedForPortalAccessException.class})
     public ResponseEntity<Object> handleAcademicAuthorization(RuntimeException ex) {
         return error(HttpStatus.FORBIDDEN, ex.getMessage());
     }
