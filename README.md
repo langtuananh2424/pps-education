@@ -109,8 +109,16 @@ không thì đúng là bị native Postgres chặn port. Xử lý: copy
       thuộc `class_sessions` — Phân hệ 6 Học thuật chưa có migration/entity
       nào) — hiện mọi nhân sự chỉ được đánh giá theo ca cố định, xem TODO
       trong `AttendanceService`.
-- [ ] UC-10/11 (Đơn từ), UC-12 (Bảng lương) — phần còn lại của Phân hệ 4,
-      chưa triển khai
+- [x] UC-10/11 (Đơn từ): migration V8 (`leave_requests`,
+      `leave_request_approvals` + history), `LeaveRequestService` +
+      `LeaveRequestController` (`POST /api/leave-requests`,
+      `GET /api/leave-requests/pending-for-me`,
+      `POST /api/leave-requests/{id}/decision`) — workflow duyệt 1-2 bước
+      theo nhóm nhân sự (nhân viên thường qua Trưởng phòng ban + Quản lý vận
+      hành, cấp quản lý qua Ban giám đốc), miễn trừ Ban giám đốc, dừng ngay
+      khi bị từ chối giữa chừng. `total_days` đếm ngày lịch (đã xác nhận với
+      PM — SDD không có công thức), LATE/EARLY_LEAVE cố định 0.5 ngày.
+- [ ] UC-12 (Bảng lương) — phần còn lại của Phân hệ 4, chưa triển khai
 
 Chi tiết đầy đủ backlog theo từng Sprint/Phase: xem tài liệu
 **"Kế hoạch phân kỳ & Backlog theo FR"**.
