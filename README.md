@@ -132,6 +132,37 @@ không thì đúng là bị native Postgres chặn port. Xử lý: copy
 
 Phân hệ 4 (Nhân sự) đã triển khai đầy đủ theo phạm vi UC hiện có (UC-08→12).
 
+## Module Notification (dùng chung mọi phân hệ)
+
+- [x] Migration V10: `notifications`, `notification_deliveries`,
+      `notification_preferences` (channel-agnostic, theo SDD > Task
+      Management & Thông báo > Notifications)
+- [x] `NotificationService` (tạo + fan-out theo preferences, mặc định
+      in-app+email=enabled khi chưa cấu hình riêng) + `NotificationController`
+      (`GET /api/notifications`, `POST /api/notifications/{id}/read`,
+      `GET|PUT /api/notifications/preferences/{type}`)
+- [x] `NotificationDispatchService` — job `@Scheduled` xử lý delivery hàng
+      chờ (IN_APP đánh dấu SENT ngay lúc tạo, không qua job); kênh
+      EMAIL/SMS/Zalo/Push theo pattern Open/Closed
+      (`NotificationChannelSender`, xem `service/notification/`) — hiện có
+      `EmailNotificationSender` (SMTP qua `spring.mail.*`, cấu hình qua
+      `MAIL_HOST`/`MAIL_USERNAME`/`MAIL_PASSWORD`); retry tối đa 3 lần / 5
+      phút (SDD không quy định số cụ thể, mặc định có thể chỉnh qua
+      `NOTIFICATION_MAX_RETRY`/`NOTIFICATION_RETRY_INTERVAL_MINUTES`)
+- [x] Đã nối vào UC-01 A2 (cảnh báo SYS_ADMIN khi khóa tài khoản, FR-AUT-02)
+      và các TODO còn lại ở UC-10/11 (thông báo người duyệt bước kế/người
+      nộp đơn)
+- **Fix nghiêm trọng phát hiện qua verify runtime thật (không lộ ra khi
+  chạy test vì test dùng chung transaction bao ngoài che mất)**:
+  `AuthService.login/loginWithGoogle/refresh` thiếu `noRollbackFor` — mọi
+  nhánh A1/A2/A3 ghi `login_attempts` + `failed_login_count`/`locked_until`
+  TRƯỚC KHI throw exception nghiệp vụ, bị Spring rollback toàn bộ transaction
+  trong runtime thật (không phải trong test). Hậu quả trước khi fix: cơ chế
+  khóa tài khoản sau 5 lần sai (FR-AUT-02) **không hoạt động thật** trong
+  production, và cơ chế thu hồi session khi phát hiện refresh token bị đánh
+  cắp cũng vậy. Đã thêm `noRollbackFor` cho đúng các exception nghiệp vụ ở
+  cả 3 method.
+
 Chi tiết đầy đủ backlog theo từng Sprint/Phase: xem tài liệu
 **"Kế hoạch phân kỳ & Backlog theo FR"**.
 
