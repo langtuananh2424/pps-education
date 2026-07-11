@@ -52,6 +52,18 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.CONFLICT, ex.getMessage());
     }
 
+    @ExceptionHandler(ManagementExemptFromAttendanceException.class)
+    public ResponseEntity<Object> handleManagementExempt(ManagementExemptFromAttendanceException ex) {
+        return error(HttpStatus.FORBIDDEN, ex.getMessage());
+    }
+
+    @ExceptionHandler({OutsideAttendanceWindowException.class, OutsideGpsRadiusException.class,
+            BiometricVerificationFailedException.class, NotAWorkingDayException.class,
+            AttendanceMethodNotAvailableException.class})
+    public ResponseEntity<Object> handleAttendanceRejected(RuntimeException ex) {
+        return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
+    }
+
     private ResponseEntity<Object> error(HttpStatus status, String message) {
         return ResponseEntity.status(status).body(Map.of(
                 "timestamp", OffsetDateTime.now().toString(),
