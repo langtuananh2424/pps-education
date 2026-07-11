@@ -128,7 +128,8 @@ chung.
                                      \'ACTIVE\'          SUSPENDED /
                                                          EXPELLED /
                                                          GRADUATED /
-                                                         WITHDRAWN
+                                                         WITHDRAWN /
+                                                         DEFERRAL
 
   enrollment_date    DATE            NOT NULL            Ngày nhập học
                                                          chính thức
@@ -162,6 +163,12 @@ Ghi chú thiết kế:
 
 -   Không có cột full_name, email, phone --- các trường này đã ở users,
     tránh trùng lặp.
+
+-   **DEFERRAL** (bổ sung ngoài 5 giá trị gốc, xác nhận với PM khi
+    implement UC-14): UC-14/FR-STU-02 mô tả trạng thái "Bảo lưu" (tạm
+    ngừng học, có thể quay lại) không trùng nghĩa với WITHDRAWN (rút
+    hẳn). Map "Bảo lưu" → DEFERRAL, giữ nguyên WITHDRAWN cho trường hợp
+    rút khỏi chương trình hẳn.
 
 -   Bảng parents --- Hồ sơ phụ huynh
 
