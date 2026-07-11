@@ -72,25 +72,35 @@ không thì đúng là bị native Postgres chặn port. Xử lý: copy
 - [x] Unit test + integration test (Testcontainers) cho AuthService — Main
       Flow + A1 + A2 + A3 (xem `AuthServiceTest`, PR #3)
 
-## Việc còn lại của Sprint 1 (UC-01 hoàn chỉnh)
+## Sprint 1 (UC-01 hoàn chỉnh) — Đã xong, PR #4
 
-- [ ] `login_attempts` entity + ghi log mỗi lần đăng nhập (thành công/thất bại)
-- [ ] `POST /api/auth/login/google` — nhánh Google OAuth (Main Flow bước 4, A4)
-      — lưu ý: block cấu hình `spring.security.oauth2.client.registration.google`
-      đã bị gỡ khỏi `application.yml` (gây fail cứng lúc khởi động khi chưa có
-      credentials thật) — thêm lại cùng lúc implement nhánh này, kèm credentials
-      thật qua biến môi trường.
-- [ ] `POST /api/auth/refresh`, `POST /api/auth/logout` (thu hồi refresh token)
+- [x] `login_attempts` entity + ghi log mỗi lần đăng nhập (thành công/thất bại)
+- [x] `POST /api/auth/login/google` — nhánh Google OAuth (verify id_token qua
+      NimbusJwtDecoder + JWKS, không dùng authorization-code flow)
+- [x] `POST /api/auth/refresh` (rotate + phát hiện reuse token đã revoke),
+      `POST /api/auth/logout` (idempotent)
 - [ ] Gửi cảnh báo cho Quản trị viên khi tài khoản bị khóa (FR-AUT-02) — phụ
       thuộc module Notification (Backend Phase B, Phân hệ 3)
 
-## Sprint 2 (UC-02 → UC-05 — Quản trị người dùng & Phân quyền)
+## Sprint 2 (UC-02 → UC-05 — Quản trị người dùng & Phân quyền) — Đã xong, PR #5
 
-- [ ] `PermissionEvaluator` triển khai công thức `effective_permissions`
+- [x] `PermissionEvaluationService` triển khai công thức `effective_permissions`
       (role_permissions hợp user_permission_overrides, ưu tiên override)
-- [ ] CRUD danh mục quyền (UC-02), cấu hình nhóm quyền theo role (UC-03)
-- [ ] API tùy chỉnh quyền riêng theo tài khoản + ghi `permission_audit_log`
+- [x] CRUD danh mục quyền (UC-02), cấu hình nhóm quyền theo role (UC-03)
+- [x] API tùy chỉnh quyền riêng theo tài khoản + ghi `permission_audit_log`
       (UC-04, UC-05)
+
+## Sprint 3 (UC-08 — Quản lý hồ sơ nhân sự, Phân hệ 4)
+
+- [x] Migration V6: `employees_history`/`employment_contracts_history` (JSONB
+      diff-log, cùng pattern `permission_audit_log`) + quyền `hrm.manage`
+- [x] `Employee`/`EmploymentContract`/`Qualification`/`Commendation` — CRUD đầy
+      đủ (`EmployeeController`/`EmployeeService`), ràng buộc 1 hợp đồng ACTIVE/
+      nhân sự, lưu lịch sử phiên bản mỗi lần tạo/sửa hồ sơ hoặc hợp đồng
+- [x] A2 — `GET /api/employees/contracts/expiring?withinDays=N` (danh sách hợp
+      đồng ACTIVE sắp/đã hết hạn cho Quản lý nhân sự xử lý gia hạn/chấm dứt)
+- [ ] UC-09 (Chấm công), UC-10/11 (Đơn từ), UC-12 (Bảng lương) — phần còn lại
+      của Phân hệ 4, chưa triển khai
 
 Chi tiết đầy đủ backlog theo từng Sprint/Phase: xem tài liệu
 **"Kế hoạch phân kỳ & Backlog theo FR"**.

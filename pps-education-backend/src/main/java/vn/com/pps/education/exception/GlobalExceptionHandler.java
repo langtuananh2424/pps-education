@@ -41,6 +41,17 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.UNAUTHORIZED, ex.getMessage());
     }
 
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<Object> handleResourceNotFound(ResourceNotFoundException ex) {
+        return error(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler({DuplicateEmployeeCodeException.class, DuplicateContractNumberException.class,
+            ActiveContractAlreadyExistsException.class, EmployeeAlreadyExistsException.class})
+    public ResponseEntity<Object> handleConflict(RuntimeException ex) {
+        return error(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
     private ResponseEntity<Object> error(HttpStatus status, String message) {
         return ResponseEntity.status(status).body(Map.of(
                 "timestamp", OffsetDateTime.now().toString(),
