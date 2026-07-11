@@ -51,7 +51,7 @@ public class GlobalExceptionHandler {
             StudentAlreadyExistsException.class, ParentAlreadyExistsException.class,
             ParentStudentLinkAlreadyExistsException.class, StudentContactRoleConflictException.class,
             DuplicateCurriculumCodeException.class, DuplicateClassCodeException.class,
-            ClassEnrollmentAlreadyActiveException.class})
+            ClassEnrollmentAlreadyActiveException.class, RoomConflictException.class})
     public ResponseEntity<Object> handleConflict(RuntimeException ex) {
         return error(HttpStatus.CONFLICT, ex.getMessage());
     }
@@ -64,14 +64,15 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler({CurriculumNotActiveException.class, LinkedClassRequiresPartnerSiteException.class,
             CurriculumNotEditableException.class, CurriculumNotAvailableForSiteException.class,
-            InvalidGradeScoreException.class, GradeEntryNotEditableException.class})
+            InvalidGradeScoreException.class, GradeEntryNotEditableException.class,
+            AttendanceSessionNotEditableException.class})
     public ResponseEntity<Object> handleClassSetupRejected(RuntimeException ex) {
         return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
     }
 
     @ExceptionHandler({NotHeadAcademicException.class, NotAuthorizedForClassManagementException.class,
             NotAuthorizedForPortalAccessException.class, NotSiteManagerForSiteException.class,
-            NotAssignedTeacherForClassException.class})
+            NotAssignedTeacherForClassException.class, NotAssignedTeacherForSessionException.class})
     public ResponseEntity<Object> handleAcademicAuthorization(RuntimeException ex) {
         return error(HttpStatus.FORBIDDEN, ex.getMessage());
     }
