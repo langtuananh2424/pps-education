@@ -99,8 +99,18 @@ không thì đúng là bị native Postgres chặn port. Xử lý: copy
       nhân sự, lưu lịch sử phiên bản mỗi lần tạo/sửa hồ sơ hoặc hợp đồng
 - [x] A2 — `GET /api/employees/contracts/expiring?withinDays=N` (danh sách hợp
       đồng ACTIVE sắp/đã hết hạn cho Quản lý nhân sự xử lý gia hạn/chấm dứt)
-- [ ] UC-09 (Chấm công), UC-10/11 (Đơn từ), UC-12 (Bảng lương) — phần còn lại
-      của Phân hệ 4, chưa triển khai
+- [x] UC-09 (Chấm công): migration V7 (`shifts`, `employee_shifts`,
+      `work_calendar`, `attendance_records` + history), `AttendanceService` +
+      `AttendanceController` (`POST /api/attendance/check-in|check-out`),
+      3 phương thức GPS/vân tay/khuôn mặt + thủ công theo pattern Open/Closed
+      (`AttendanceMethodValidator`, xem `service/attendance/`), miễn trừ cấp
+      quản lý, xác định ngày làm việc qua `work_calendar`/pattern ca cố định.
+      **Chưa làm**: cửa sổ theo lịch dạy cho Giáo viên (Main Flow bước 4, phụ
+      thuộc `class_sessions` — Phân hệ 6 Học thuật chưa có migration/entity
+      nào) — hiện mọi nhân sự chỉ được đánh giá theo ca cố định, xem TODO
+      trong `AttendanceService`.
+- [ ] UC-10/11 (Đơn từ), UC-12 (Bảng lương) — phần còn lại của Phân hệ 4,
+      chưa triển khai
 
 Chi tiết đầy đủ backlog theo từng Sprint/Phase: xem tài liệu
 **"Kế hoạch phân kỳ & Backlog theo FR"**.
