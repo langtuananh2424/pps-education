@@ -84,6 +84,11 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
+    @ExceptionHandler(NotHrManagerException.class)
+    public ResponseEntity<Object> handleNotHrManager(NotHrManagerException ex) {
+        return error(HttpStatus.FORBIDDEN, ex.getMessage());
+    }
+
     private ResponseEntity<Object> error(HttpStatus status, String message) {
         return ResponseEntity.status(status).body(Map.of(
                 "timestamp", OffsetDateTime.now().toString(),
