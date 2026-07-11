@@ -41,6 +41,14 @@ spring:
 server:
   port: ${SERVER_PORT:8080}
 
+# Health check cho Docker/Railway (NFR-TECH-06) - chỉ expose "health", không lộ
+# /actuator/env, /actuator/beans... ra ngoài (NFR-SEC-03)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
 # NFR-AUT / FR-AUT-01, FR-AUT-02
 app:
   jwt:

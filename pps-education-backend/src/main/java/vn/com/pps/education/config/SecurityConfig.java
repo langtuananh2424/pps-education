@@ -46,8 +46,9 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(
                     "/api/auth/**",
-                    "/swagger-ui/**", "/v3/api-docs/**",
-                    "/actuator/health"
+                    "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**",
+                    "/actuator/health",
+                    "/error" // không permitAll -> path lạ/404 bị forward sang /error rồi bật 403 thay vì 404 thật
                 ).permitAll()
                 .anyRequest().authenticated()
             )
