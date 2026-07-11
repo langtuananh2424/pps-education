@@ -47,9 +47,34 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler({DuplicateEmployeeCodeException.class, DuplicateContractNumberException.class,
-            ActiveContractAlreadyExistsException.class, EmployeeAlreadyExistsException.class})
+            ActiveContractAlreadyExistsException.class, EmployeeAlreadyExistsException.class,
+            StudentAlreadyExistsException.class, ParentAlreadyExistsException.class,
+            ParentStudentLinkAlreadyExistsException.class, StudentContactRoleConflictException.class,
+            DuplicateCurriculumCodeException.class, DuplicateClassCodeException.class,
+            ClassEnrollmentAlreadyActiveException.class})
     public ResponseEntity<Object> handleConflict(RuntimeException ex) {
         return error(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
+    @ExceptionHandler({CurriculumUpdateConfirmationRequiredException.class})
+    public ResponseEntity<Object> handleConfirmationRequired(RuntimeException ex) {
+        return error(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
+    @ExceptionHandler({CurriculumNotActiveException.class, LinkedClassRequiresPartnerSiteException.class})
+    public ResponseEntity<Object> handleClassSetupRejected(RuntimeException ex) {
+        return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
+    }
+
+    @ExceptionHandler({NotHeadAcademicException.class, NotAuthorizedForClassManagementException.class,
+            NotAuthorizedForPortalAccessException.class})
+    public ResponseEntity<Object> handleAcademicAuthorization(RuntimeException ex) {
+        return error(HttpStatus.FORBIDDEN, ex.getMessage());
+    }
+
+    @ExceptionHandler(InvalidStudentStatusTransitionException.class)
+    public ResponseEntity<Object> handleInvalidStudentStatusTransition(InvalidStudentStatusTransitionException ex) {
+        return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
     }
 
     @ExceptionHandler(ManagementExemptFromAttendanceException.class)
@@ -86,6 +111,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(NotHrManagerException.class)
     public ResponseEntity<Object> handleNotHrManager(NotHrManagerException ex) {
+        return error(HttpStatus.FORBIDDEN, ex.getMessage());
+    }
+
+    @ExceptionHandler(NotAuthorizedForStudentStatusException.class)
+    public ResponseEntity<Object> handleNotAuthorizedForStudentStatus(NotAuthorizedForStudentStatusException ex) {
         return error(HttpStatus.FORBIDDEN, ex.getMessage());
     }
 
