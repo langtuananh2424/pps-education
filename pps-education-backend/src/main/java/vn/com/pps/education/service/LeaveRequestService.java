@@ -7,6 +7,7 @@ import vn.com.pps.education.domain.Employee;
 import vn.com.pps.education.domain.LeaveRequest;
 import vn.com.pps.education.domain.LeaveRequestApproval;
 import vn.com.pps.education.domain.LeaveRequestHistory;
+import vn.com.pps.education.domain.Notification;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.dto.CreateLeaveRequestRequest;
 import vn.com.pps.education.dto.DecideLeaveRequestRequest;
@@ -19,6 +20,7 @@ import vn.com.pps.education.repository.EmployeeRepository;
 import vn.com.pps.education.repository.LeaveRequestApprovalRepository;
 import vn.com.pps.education.repository.LeaveRequestHistoryRepository;
 import vn.com.pps.education.repository.LeaveRequestRepository;
+import vn.com.pps.education.repository.RoleRepository;
 import vn.com.pps.education.repository.UserRepository;
 import vn.com.pps.education.repository.UserRoleRepository;
 
@@ -53,22 +55,28 @@ public class LeaveRequestService {
     private final EmployeeRepository employeeRepository;
     private final UserRepository userRepository;
     private final UserRoleRepository userRoleRepository;
+    private final RoleRepository roleRepository;
     private final LeaveRequestRepository leaveRequestRepository;
     private final LeaveRequestApprovalRepository leaveRequestApprovalRepository;
     private final LeaveRequestHistoryRepository leaveRequestHistoryRepository;
+    private final NotificationService notificationService;
 
     public LeaveRequestService(EmployeeRepository employeeRepository,
                                 UserRepository userRepository,
                                 UserRoleRepository userRoleRepository,
+                                RoleRepository roleRepository,
                                 LeaveRequestRepository leaveRequestRepository,
                                 LeaveRequestApprovalRepository leaveRequestApprovalRepository,
-                                LeaveRequestHistoryRepository leaveRequestHistoryRepository) {
+                                LeaveRequestHistoryRepository leaveRequestHistoryRepository,
+                                NotificationService notificationService) {
         this.employeeRepository = employeeRepository;
         this.userRepository = userRepository;
         this.userRoleRepository = userRoleRepository;
+        this.roleRepository = roleRepository;
         this.leaveRequestRepository = leaveRequestRepository;
         this.leaveRequestApprovalRepository = leaveRequestApprovalRepository;
         this.leaveRequestHistoryRepository = leaveRequestHistoryRepository;
+        this.notificationService = notificationService;
     }
 
     /** UC-10 Main Flow bước 1-4, A1 (Ban giám đốc), A2 (phòng ban không có trưởng phòng). */
@@ -135,7 +143,7 @@ public class LeaveRequestService {
         }
 
         writeHistory(lr, actor, LeaveRequestHistory.Action.CREATED);
-        // TODO(module Notification, Backend Phase B): thông báo người duyệt bước đầu tiên (Postcondition).
+        notifyStepApprovers(lr, steps.get(0), lr.getCurrentApprover()); // Postcondition: người duyệt bước đầu nhận thông báo
         return toResponse(lr);
     }
 
@@ -189,13 +197,14 @@ public class LeaveRequestService {
         currentApproval.setDecidedAt(OffsetDateTime.now());
         leaveRequestApprovalRepository.save(currentApproval);
 
+        Optional<LeaveRequestApproval> nextStep = Optional.empty();
         if (decision == LeaveRequestApproval.Decision.REJECTED) {
             // A1 -- từ chối giữa chừng, kết thúc ngay, không đi tiếp các bước còn lại.
             lr.setStatus(LeaveRequest.Status.REJECTED);
             lr.setFinalizedAt(OffsetDateTime.now());
             lr.setCurrentApprover(null);
         } else {
-            Optional<LeaveRequestApproval> nextStep = leaveRequestApprovalRepository
+            nextStep = leaveRequestApprovalRepository
                     .findByLeaveRequestIdAndStepOrder(lr.getId(), lr.getCurrentStep() + 1);
             if (nextStep.isPresent()) {
                 lr.setCurrentStep(lr.getCurrentStep() + 1);
@@ -209,8 +218,38 @@ public class LeaveRequestService {
         lr = leaveRequestRepository.save(lr);
 
         writeHistory(lr, actor, LeaveRequestHistory.Action.UPDATED);
-        // TODO(module Notification, Backend Phase B): thông báo người duyệt bước kế/người nộp đơn (Postcondition).
+        // Postcondition: người duyệt bước kế (nếu còn) hoặc người nộp đơn (nếu đã kết thúc) nhận thông báo.
+        if (nextStep.isPresent()) {
+            notifyStepApprovers(lr, nextStep.get().getApproverRole(), null);
+        } else {
+            notifySubmitterFinalized(lr);
+        }
         return toResponse(lr);
+    }
+
+    private void notifyStepApprovers(LeaveRequest lr, LeaveRequestApproval.ApproverRole role, User specificApprover) {
+        String title = "Có đơn từ chờ duyệt";
+        String content = "Đơn từ #%d (%s) của %s đang chờ bạn duyệt."
+                .formatted(lr.getId(), lr.getLeaveType(), lr.getEmployee().getUser().getFullName());
+        if (specificApprover != null) {
+            notificationService.notify(specificApprover.getId(), Notification.NotificationType.LEAVE_REQUEST_STATUS, title, content);
+            return;
+        }
+        String roleCode = role == LeaveRequestApproval.ApproverRole.EXECUTIVE ? "EXECUTIVE" : "OPS_MANAGER";
+        roleRepository.findByCode(roleCode).ifPresent(r ->
+                userRoleRepository.findByRoleId(r.getId()).forEach(ur ->
+                        notificationService.notify(ur.getUser().getId(),
+                                Notification.NotificationType.LEAVE_REQUEST_STATUS, title, content)));
+    }
+
+    private void notifySubmitterFinalized(LeaveRequest lr) {
+        boolean approved = lr.getStatus() == LeaveRequest.Status.APPROVED;
+        String title = approved ? "Đơn từ đã được duyệt" : "Đơn từ bị từ chối";
+        String content = "Đơn từ #%d (%s, %s → %s) đã %s.".formatted(
+                lr.getId(), lr.getLeaveType(), lr.getStartDate(), lr.getEndDate(),
+                approved ? "được duyệt" : "bị từ chối");
+        notificationService.notify(lr.getEmployee().getUser().getId(),
+                Notification.NotificationType.LEAVE_REQUEST_STATUS, title, content);
     }
 
     private boolean currentApproverRoleMatches(LeaveRequest lr, Set<String> roleCodes) {
