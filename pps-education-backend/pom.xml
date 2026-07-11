@@ -94,6 +94,13 @@
             <artifactId>flyway-database-postgresql</artifactId>
         </dependency>
 
+        <!-- Tự nạp file .env ở root khi dev local (mvn spring-boot:run) - xem .env.example -->
+        <dependency>
+            <groupId>me.paulschwarz</groupId>
+            <artifactId>spring-dotenv</artifactId>
+            <version>4.0.0</version>
+        </dependency>
+
         <!-- Boilerplate reduction -->
         <dependency>
             <groupId>org.projectlombok</groupId>

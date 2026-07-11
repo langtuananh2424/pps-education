@@ -28,11 +28,24 @@ Swagger UI: http://localhost:8080/swagger-ui.html
 
 Chạy backend trực tiếp bằng Maven (không qua Docker) khi dev:
 ```bash
+docker compose up -d postgres   # chỉ cần Postgres, chạy app trong IDE
 cd pps-education-backend
 mvn spring-boot:run
 ```
-Yêu cầu Postgres (có extension `postgis`, `pgcrypto`) đang chạy và biến môi trường
-`DB_URL/DB_USERNAME/DB_PASSWORD/JWT_SECRET` — xem `application.yml`.
+Không cần set biến môi trường gì thêm — default trong `application.yml` đã
+khớp sẵn với `docker-compose.yml`. Muốn override (VD đổi port DB, bật Google
+OAuth test) thì copy `pps-education-backend/.env.example` thành
+`pps-education-backend/.env` (Spring Boot tự nạp file này mỗi lần khởi động
+nhờ `spring-dotenv` — xem `pom.xml` — không cần export biến môi trường thủ
+công, không commit `.env`).
+
+**Máy đã có PostgreSQL native chiếm port 5432?** Docker sẽ báo container chạy
+bình thường nhưng app kết nối nhầm sang Postgres native (lỗi `password
+authentication failed` dù password đúng) — kiểm tra bằng cách xem log
+`docker logs pps-education-db` có ghi nhận lần kết nối vừa thử không, nếu
+không thì đúng là bị native Postgres chặn port. Xử lý: copy
+`docker-compose.override.yml.example` thành `docker-compose.override.yml`
+(đã gitignore), đổi port publish, cập nhật `DB_URL` cho khớp.
 
 ## Trạng thái Phase A (Nền tảng) — đã setup trong khung này
 
