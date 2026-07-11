@@ -118,7 +118,19 @@ không thì đúng là bị native Postgres chặn port. Xử lý: copy
       hành, cấp quản lý qua Ban giám đốc), miễn trừ Ban giám đốc, dừng ngay
       khi bị từ chối giữa chừng. `total_days` đếm ngày lịch (đã xác nhận với
       PM — SDD không có công thức), LATE/EARLY_LEAVE cố định 0.5 ngày.
-- [ ] UC-12 (Bảng lương) — phần còn lại của Phân hệ 4, chưa triển khai
+- [x] UC-12 (Xem bảng lương): migration V9 (`payroll_periods`,
+      `payroll_entries` + history), `PayrollService` + `PayrollController`
+      (`GET /api/payroll/mine`, `GET /api/payroll/entries` cho Quản lý nhân
+      sự lọc theo phòng ban/nhân sự) — UC chỉ đọc (Postcondition: "dữ liệu
+      không bị thay đổi"), A1 tự động fallback về kỳ gần nhất đã có dữ liệu.
+      **Chưa làm**: engine tính lương ghi `payroll_entries` — không UC/
+      activity-diagram nào đặc tả công thức thuế/BHXH/BHYT/BHTN/đơn giá tiết
+      dạy, đã xác nhận với PM chỉ làm phần đọc; `payroll_entries` cần được
+      tạo qua cơ chế khác (import/nhập tay/Backend Phase C) trước khi UC-12
+      có dữ liệu để xem. Lọc theo điểm trường cũng chưa hỗ trợ (chưa có cơ
+      chế gán điểm trường cho nhân sự — cùng gap đã nêu ở UC-08 A1).
+
+Phân hệ 4 (Nhân sự) đã triển khai đầy đủ theo phạm vi UC hiện có (UC-08→12).
 
 Chi tiết đầy đủ backlog theo từng Sprint/Phase: xem tài liệu
 **"Kế hoạch phân kỳ & Backlog theo FR"**.
