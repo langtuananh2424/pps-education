@@ -64,6 +64,26 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
     }
 
+    @ExceptionHandler(ExecutiveExemptFromLeaveRequestException.class)
+    public ResponseEntity<Object> handleExecutiveExempt(ExecutiveExemptFromLeaveRequestException ex) {
+        return error(HttpStatus.FORBIDDEN, ex.getMessage());
+    }
+
+    @ExceptionHandler(NotCurrentApproverException.class)
+    public ResponseEntity<Object> handleNotCurrentApprover(NotCurrentApproverException ex) {
+        return error(HttpStatus.FORBIDDEN, ex.getMessage());
+    }
+
+    @ExceptionHandler(LeaveRequestAlreadyFinalizedException.class)
+    public ResponseEntity<Object> handleLeaveRequestFinalized(LeaveRequestAlreadyFinalizedException ex) {
+        return error(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Object> handleIllegalArgument(IllegalArgumentException ex) {
+        return error(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
     private ResponseEntity<Object> error(HttpStatus status, String message) {
         return ResponseEntity.status(status).body(Map.of(
                 "timestamp", OffsetDateTime.now().toString(),
