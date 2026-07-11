@@ -56,18 +56,19 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.CONFLICT, ex.getMessage());
     }
 
-    @ExceptionHandler({CurriculumUpdateConfirmationRequiredException.class})
+    @ExceptionHandler({CurriculumUpdateConfirmationRequiredException.class, ApprovalAlreadyDecidedException.class})
     public ResponseEntity<Object> handleConfirmationRequired(RuntimeException ex) {
         return error(HttpStatus.CONFLICT, ex.getMessage());
     }
 
-    @ExceptionHandler({CurriculumNotActiveException.class, LinkedClassRequiresPartnerSiteException.class})
+    @ExceptionHandler({CurriculumNotActiveException.class, LinkedClassRequiresPartnerSiteException.class,
+            CurriculumNotEditableException.class, CurriculumNotAvailableForSiteException.class})
     public ResponseEntity<Object> handleClassSetupRejected(RuntimeException ex) {
         return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
     }
 
     @ExceptionHandler({NotHeadAcademicException.class, NotAuthorizedForClassManagementException.class,
-            NotAuthorizedForPortalAccessException.class})
+            NotAuthorizedForPortalAccessException.class, NotSiteManagerForSiteException.class})
     public ResponseEntity<Object> handleAcademicAuthorization(RuntimeException ex) {
         return error(HttpStatus.FORBIDDEN, ex.getMessage());
     }

@@ -2,29 +2,42 @@ package vn.com.pps.education.service;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.com.pps.education.domain.ApprovalFlow;
 import vn.com.pps.education.domain.Curriculum;
 import vn.com.pps.education.domain.CurriculumHistory;
 import vn.com.pps.education.domain.CurriculumSubject;
 import vn.com.pps.education.domain.CurriculumSubjectHistory;
 import vn.com.pps.education.domain.SchoolClass;
+import vn.com.pps.education.domain.Site;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.dto.CreateCurriculumRequest;
 import vn.com.pps.education.dto.CreateCurriculumSubjectRequest;
+import vn.com.pps.education.dto.CreateCustomCurriculumRequest;
+import vn.com.pps.education.dto.CurriculumApprovalResponse;
 import vn.com.pps.education.dto.CurriculumResponse;
 import vn.com.pps.education.dto.CurriculumSubjectResponse;
+import vn.com.pps.education.dto.DecideCurriculumApprovalRequest;
 import vn.com.pps.education.dto.UpdateCurriculumRequest;
+import vn.com.pps.education.dto.UpdateCustomCurriculumRequest;
+import vn.com.pps.education.exception.ApprovalAlreadyDecidedException;
+import vn.com.pps.education.exception.CurriculumNotEditableException;
 import vn.com.pps.education.exception.CurriculumUpdateConfirmationRequiredException;
 import vn.com.pps.education.exception.DuplicateCurriculumCodeException;
 import vn.com.pps.education.exception.NotHeadAcademicException;
+import vn.com.pps.education.exception.NotSiteManagerForSiteException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
+import vn.com.pps.education.repository.ApprovalFlowRepository;
 import vn.com.pps.education.repository.CurriculumHistoryRepository;
 import vn.com.pps.education.repository.CurriculumRepository;
 import vn.com.pps.education.repository.CurriculumSubjectHistoryRepository;
 import vn.com.pps.education.repository.CurriculumSubjectRepository;
 import vn.com.pps.education.repository.SchoolClassRepository;
+import vn.com.pps.education.repository.SiteManagerRepository;
+import vn.com.pps.education.repository.SiteRepository;
 import vn.com.pps.education.repository.UserRepository;
 import vn.com.pps.education.repository.UserRoleRepository;
 
+import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,18 +45,24 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * UC-16: Quản lý khung chương trình (FR-ACA-01).
- * Xem docs/uc/phan-he-06-hoc-thuat.md — Main Flow bước 1-4, A1 (khung đang
- * dùng bởi lớp IN_PROGRESS).
+ * UC-16: Quản lý khung chương trình (FR-ACA-01) + UC-16b: Đề xuất khung
+ * chương trình tùy biến + UC-17: Phê duyệt khung chương trình tùy biến.
+ * Xem docs/uc/phan-he-06-hoc-thuat.md.
  *
- * Phạm vi phiên này: CHỈ khung chuẩn (site_id luôn NULL). UC-16b (Quản lý
- * điểm trường tạo bản sao tùy biến) + UC-17 (phê duyệt) CHƯA code — để lại
- * cho phiên sau khi có nhu cầu thật.
+ * Gộp cả 3 UC vào 1 Service — cùng 1 entity (curriculums) + 1 luồng trạng
+ * thái DRAFT→PENDING_APPROVAL→ACTIVE (hoặc quay lại DRAFT nếu bị từ chối),
+ * chỉ khác actor theo từng bước (HEAD_ACADEMIC tạo khung chuẩn + duyệt,
+ * SITE_MANAGER đề xuất tùy biến) — giống cách LeaveRequestService gộp
+ * UC-10 (nộp) + UC-11 (duyệt) vì "2 UC cùng 1 workflow trạng thái".
  *
- * Không dùng @PreAuthorize hasPermission — Precondition UC-16 chỉ nêu
- * "role HEAD_ACADEMIC" (không có permission code cụ thể), theo đúng
- * pattern LeaveRequestService/StudentStatusService (role-based check
- * trong Service).
+ * UC-17 dùng lại bảng approval_flows dùng chung (entity_type=CURRICULUM)
+ * thay vì tự thêm cột riêng vào curriculums — đúng theo SDD (ERD-Nhom5A:
+ * "approval_flows đã thiết kế ở Nhóm 1, không tạo bảng riêng"). Khi bị
+ * REJECTED, curriculum quay về DRAFT (không có giá trị "REJECTED" riêng
+ * trong curriculums.status — lý do từ chối lưu ở approval_flows.comment).
+ *
+ * Không dùng @PreAuthorize hasPermission — Precondition các UC này chỉ
+ * nêu role (HEAD_ACADEMIC/SITE_MANAGER), không có permission code cụ thể.
  */
 @Service
 public class CurriculumService {
@@ -53,6 +72,9 @@ public class CurriculumService {
     private final CurriculumHistoryRepository curriculumHistoryRepository;
     private final CurriculumSubjectHistoryRepository curriculumSubjectHistoryRepository;
     private final SchoolClassRepository schoolClassRepository;
+    private final SiteRepository siteRepository;
+    private final SiteManagerRepository siteManagerRepository;
+    private final ApprovalFlowRepository approvalFlowRepository;
     private final UserRepository userRepository;
     private final UserRoleRepository userRoleRepository;
 
@@ -61,6 +83,9 @@ public class CurriculumService {
                               CurriculumHistoryRepository curriculumHistoryRepository,
                               CurriculumSubjectHistoryRepository curriculumSubjectHistoryRepository,
                               SchoolClassRepository schoolClassRepository,
+                              SiteRepository siteRepository,
+                              SiteManagerRepository siteManagerRepository,
+                              ApprovalFlowRepository approvalFlowRepository,
                               UserRepository userRepository,
                               UserRoleRepository userRoleRepository) {
         this.curriculumRepository = curriculumRepository;
@@ -68,6 +93,9 @@ public class CurriculumService {
         this.curriculumHistoryRepository = curriculumHistoryRepository;
         this.curriculumSubjectHistoryRepository = curriculumSubjectHistoryRepository;
         this.schoolClassRepository = schoolClassRepository;
+        this.siteRepository = siteRepository;
+        this.siteManagerRepository = siteManagerRepository;
+        this.approvalFlowRepository = approvalFlowRepository;
         this.userRepository = userRepository;
         this.userRoleRepository = userRoleRepository;
     }
@@ -181,6 +209,170 @@ public class CurriculumService {
                 .toList();
     }
 
+    /** UC-16b Main Flow bước 1-2: tạo bản sao tùy biến gắn với 1 điểm trường. */
+    @Transactional
+    public CurriculumResponse createCustomCopy(CreateCustomCurriculumRequest request, Long actorUserId) {
+        Site site = siteRepository.findById(request.siteId())
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy điểm trường id=" + request.siteId()));
+        requireSiteManagerForSite(site.getId(), actorUserId);
+        Curriculum parent = getCurriculumOrThrow(request.parentCurriculumId());
+        if (parent.getSite() != null) {
+            throw new CurriculumNotEditableException(
+                    "Khung chương trình id=" + parent.getId() + " không phải khung chuẩn (đã là bản tùy biến), không thể làm gốc.");
+        }
+        if (curriculumRepository.findByCode(request.code()).isPresent()) {
+            throw new DuplicateCurriculumCodeException("Mã khung chương trình đã tồn tại: " + request.code());
+        }
+        User actor = userRepository.findById(actorUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
+
+        // Main Flow bước 2 -- tạo bản sao, sao chép nội dung từ bản gốc.
+        Curriculum copy = new Curriculum();
+        copy.setCode(request.code());
+        copy.setName(request.name() == null || request.name().isBlank() ? parent.getName() : request.name());
+        copy.setSite(site);
+        copy.setParentCurriculum(parent);
+        copy.setClassCategory(parent.getClassCategory());
+        copy.setLevel(parent.getLevel());
+        copy.setTotalPeriods(parent.getTotalPeriods());
+        copy.setDefaultGradePassThreshold(parent.getDefaultGradePassThreshold());
+        copy.setCreatedBy(actor);
+        copy = curriculumRepository.save(copy);
+
+        writeCurriculumHistory(copy, actor, CurriculumHistory.Action.CREATED);
+        return toResponse(copy);
+    }
+
+    /** Main Flow bước 3, A1 (lưu nháp): chỉnh sửa nội dung bản tùy biến — chỉ khi đang DRAFT. */
+    @Transactional
+    public CurriculumResponse updateCustomCopy(Long id, UpdateCustomCurriculumRequest request, Long actorUserId) {
+        Curriculum curriculum = getCurriculumOrThrow(id);
+        requireCustomCopy(curriculum);
+        requireSiteManagerForSite(curriculum.getSite().getId(), actorUserId);
+        if (curriculum.getStatus() != Curriculum.Status.DRAFT) {
+            throw new CurriculumNotEditableException(
+                    "Khung chương trình tùy biến id=" + id + " đang ở trạng thái " + curriculum.getStatus()
+                            + " — chỉ chỉnh sửa được khi DRAFT.");
+        }
+        User actor = userRepository.findById(actorUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
+
+        curriculum.setName(request.name());
+        curriculum.setLevel(request.level());
+        curriculum.setTotalPeriods(request.totalPeriods());
+        if (request.defaultGradePassThreshold() != null) {
+            curriculum.setDefaultGradePassThreshold(request.defaultGradePassThreshold());
+        }
+        curriculum = curriculumRepository.save(curriculum);
+
+        writeCurriculumHistory(curriculum, actor, CurriculumHistory.Action.UPDATED);
+        return toResponse(curriculum);
+    }
+
+    /**
+     * Main Flow bước 4-5: gửi đề xuất tùy biến để Trưởng phòng đào tạo phê
+     * duyệt. Cũng dùng lại cho A1 của UC-17 (đề xuất lại sau khi bị từ chối
+     * — curriculum đã quay về DRAFT nên gọi lại y hệt bước này).
+     */
+    @Transactional
+    public CurriculumApprovalResponse submitForApproval(Long id, Long actorUserId) {
+        Curriculum curriculum = getCurriculumOrThrow(id);
+        requireCustomCopy(curriculum);
+        requireSiteManagerForSite(curriculum.getSite().getId(), actorUserId);
+        if (curriculum.getStatus() != Curriculum.Status.DRAFT) {
+            throw new CurriculumNotEditableException(
+                    "Khung chương trình tùy biến id=" + id + " đang ở trạng thái " + curriculum.getStatus()
+                            + " — chỉ submit được khi DRAFT.");
+        }
+        User actor = userRepository.findById(actorUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
+
+        curriculum.setStatus(Curriculum.Status.PENDING_APPROVAL);
+        curriculum = curriculumRepository.save(curriculum);
+        writeCurriculumHistory(curriculum, actor, CurriculumHistory.Action.UPDATED);
+
+        ApprovalFlow flow = new ApprovalFlow();
+        flow.setEntityType(ApprovalFlow.EntityType.CURRICULUM);
+        flow.setEntityId(curriculum.getId());
+        flow.setStatus(ApprovalFlow.Status.PENDING);
+        flow.setSubmittedBy(actor);
+        flow = approvalFlowRepository.save(flow);
+
+        return toResponse(flow, curriculum);
+    }
+
+    /** UC-17 Main Flow bước 1: danh sách đề xuất tùy biến đang Chờ duyệt. */
+    @Transactional(readOnly = true)
+    public List<CurriculumApprovalResponse> listPendingApprovals(Long actorUserId) {
+        requireHeadAcademic(actorUserId);
+        return approvalFlowRepository
+                .findByEntityTypeAndStatusOrderBySubmittedAtAsc(ApprovalFlow.EntityType.CURRICULUM, ApprovalFlow.Status.PENDING)
+                .stream()
+                .map(flow -> toResponse(flow, getCurriculumOrThrow(flow.getEntityId())))
+                .toList();
+    }
+
+    /**
+     * Main Flow bước 3-5: Trưởng phòng đào tạo Phê duyệt (-> ACTIVE, có hiệu
+     * lực) hoặc Từ chối kèm lý do (-> quay về DRAFT để Quản lý điểm trường
+     * sửa và đề xuất lại — A1).
+     */
+    @Transactional
+    public CurriculumApprovalResponse decideApproval(Long approvalFlowId, DecideCurriculumApprovalRequest request, Long actorUserId) {
+        requireHeadAcademic(actorUserId);
+        ApprovalFlow flow = approvalFlowRepository.findById(approvalFlowId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đề xuất id=" + approvalFlowId));
+        if (flow.getEntityType() != ApprovalFlow.EntityType.CURRICULUM) {
+            throw new ResourceNotFoundException("Không tìm thấy đề xuất khung chương trình id=" + approvalFlowId);
+        }
+        if (flow.getStatus() != ApprovalFlow.Status.PENDING) {
+            throw new ApprovalAlreadyDecidedException("Đề xuất id=" + approvalFlowId + " đã được quyết định (" + flow.getStatus() + ").");
+        }
+        Curriculum curriculum = getCurriculumOrThrow(flow.getEntityId());
+        User actor = userRepository.findById(actorUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
+        ApprovalFlow.Decision decision = ApprovalFlow.Decision.valueOf(request.decision());
+
+        flow.setDecision(decision);
+        flow.setApprover(actor);
+        flow.setComment(request.comment());
+        flow.setDecidedAt(OffsetDateTime.now());
+
+        if (decision == ApprovalFlow.Decision.APPROVED) {
+            flow.setStatus(ApprovalFlow.Status.APPROVED);
+            curriculum.setStatus(Curriculum.Status.ACTIVE);
+            curriculum.setApprovedBy(actor);
+            curriculum.setApprovedAt(OffsetDateTime.now());
+        } else {
+            if (request.comment() == null || request.comment().isBlank()) {
+                throw new IllegalArgumentException("Từ chối đề xuất bắt buộc phải kèm lý do (comment).");
+            }
+            flow.setStatus(ApprovalFlow.Status.REJECTED);
+            // Không có trạng thái REJECTED riêng trong curriculums.status (SDD) --
+            // quay về DRAFT để Quản lý điểm trường sửa và đề xuất lại (A1).
+            curriculum.setStatus(Curriculum.Status.DRAFT);
+        }
+        flow = approvalFlowRepository.save(flow);
+        curriculum = curriculumRepository.save(curriculum);
+        writeCurriculumHistory(curriculum, actor, CurriculumHistory.Action.UPDATED);
+
+        return toResponse(flow, curriculum);
+    }
+
+    private void requireCustomCopy(Curriculum curriculum) {
+        if (curriculum.getSite() == null) {
+            throw new CurriculumNotEditableException(
+                    "Khung chương trình id=" + curriculum.getId() + " là khung chuẩn, không phải bản tùy biến.");
+        }
+    }
+
+    private void requireSiteManagerForSite(Long siteId, Long actorUserId) {
+        if (!siteManagerRepository.existsBySiteIdAndUserIdAndAssignedToIsNull(siteId, actorUserId)) {
+            throw new NotSiteManagerForSiteException(
+                    "Tài khoản id=" + actorUserId + " không được gán phụ trách điểm trường id=" + siteId + ".");
+        }
+    }
+
     private void requireHeadAcademic(Long actorUserId) {
         Set<String> roleCodes = roleCodesOf(actorUserId);
         if (!roleCodes.contains("HEAD_ACADEMIC")) {
@@ -202,6 +394,15 @@ public class CurriculumService {
         history.setAction(action);
         history.setDetails(curriculumSnapshot(curriculum));
         curriculumHistoryRepository.save(history);
+    }
+
+    private CurriculumApprovalResponse toResponse(ApprovalFlow flow, Curriculum curriculum) {
+        return new CurriculumApprovalResponse(
+                flow.getId(), curriculum.getId(), curriculum.getCode(), curriculum.getName(),
+                flow.getStatus().name(), flow.getSubmittedBy().getId(), flow.getSubmittedAt(),
+                flow.getApprover() == null ? null : flow.getApprover().getId(),
+                flow.getDecision() == null ? null : flow.getDecision().name(),
+                flow.getComment(), flow.getDecidedAt());
     }
 
     private Map<String, Object> curriculumSnapshot(Curriculum c) {

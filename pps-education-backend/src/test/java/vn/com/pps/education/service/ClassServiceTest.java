@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.Role;
 import vn.com.pps.education.domain.Site;
+import vn.com.pps.education.domain.SiteManager;
 import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.domain.UserRole;
@@ -13,14 +14,18 @@ import vn.com.pps.education.dto.AssignTeacherRequest;
 import vn.com.pps.education.dto.ClassResponse;
 import vn.com.pps.education.dto.CreateClassRequest;
 import vn.com.pps.education.dto.CreateCurriculumRequest;
+import vn.com.pps.education.dto.CreateCustomCurriculumRequest;
 import vn.com.pps.education.dto.CurriculumResponse;
+import vn.com.pps.education.dto.DecideCurriculumApprovalRequest;
 import vn.com.pps.education.dto.EnrollStudentRequest;
 import vn.com.pps.education.dto.UpdateCurriculumRequest;
 import vn.com.pps.education.dto.WithdrawEnrollmentRequest;
 import vn.com.pps.education.exception.ClassEnrollmentAlreadyActiveException;
 import vn.com.pps.education.exception.CurriculumNotActiveException;
+import vn.com.pps.education.exception.CurriculumNotAvailableForSiteException;
 import vn.com.pps.education.exception.LinkedClassRequiresPartnerSiteException;
 import vn.com.pps.education.repository.RoleRepository;
+import vn.com.pps.education.repository.SiteManagerRepository;
 import vn.com.pps.education.repository.SiteRepository;
 import vn.com.pps.education.repository.StudentRepository;
 import vn.com.pps.education.repository.UserRepository;
@@ -63,6 +68,9 @@ class ClassServiceTest extends AbstractIntegrationTest {
 
     @Autowired
     private StudentRepository studentRepository;
+
+    @Autowired
+    private SiteManagerRepository siteManagerRepository;
 
     private User headAcademic;
     private CurriculumResponse activeCurriculum;
@@ -123,6 +131,32 @@ class ClassServiceTest extends AbstractIntegrationTest {
                 headAcademic.getId());
 
         assertThat(response.classType()).isEqualTo("LINKED");
+    }
+
+    @Test
+    void create_rejectsCustomCurriculumUsedAtWrongSite() {
+        Site customSite = newSite(Site.SiteType.OWNED);
+        User siteManagerUser = newUser("site.manager.forclass");
+        assignRole(siteManagerUser, "SITE_MANAGER");
+        SiteManager siteManager = new SiteManager();
+        siteManager.setSite(customSite);
+        siteManager.setUser(siteManagerUser);
+        siteManager.setAssignedFrom(LocalDate.now().minusMonths(1));
+        siteManager.setAssignedBy(siteManagerUser);
+        siteManagerRepository.save(siteManager);
+        CurriculumResponse customCurriculum = curriculumService.createCustomCopy(
+                new CreateCustomCurriculumRequest(curriculumCode(), activeCurriculum.id(), customSite.getId(), null),
+                siteManagerUser.getId());
+        var submitted = curriculumService.submitForApproval(customCurriculum.id(), siteManagerUser.getId());
+        curriculumService.decideApproval(submitted.id(),
+                new DecideCurriculumApprovalRequest("APPROVED", null), headAcademic.getId());
+
+        Site otherSite = newSite(Site.SiteType.OWNED);
+
+        assertThatThrownBy(() -> classService.create(
+                new CreateClassRequest(classCode(), "Sai site", otherSite.getId(), customCurriculum.id(), "OPEN",
+                        20, null, LocalDate.now(), null, null, null), headAcademic.getId()))
+                .isInstanceOf(CurriculumNotAvailableForSiteException.class);
     }
 
     @Test
