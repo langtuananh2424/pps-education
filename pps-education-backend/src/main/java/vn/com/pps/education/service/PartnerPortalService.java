@@ -86,6 +86,7 @@ public class PartnerPortalService {
                 .flatMap(schoolClass -> classEnrollmentRepository
                         .findBySchoolClassIdAndStatus(schoolClass.getId(), ClassEnrollment.Status.ACTIVE).stream()
                         .map(enrollment -> summarize(schoolClass, enrollment)))
+                .filter(summary -> summary.totalMarks() > 0)
                 .toList();
     }
 

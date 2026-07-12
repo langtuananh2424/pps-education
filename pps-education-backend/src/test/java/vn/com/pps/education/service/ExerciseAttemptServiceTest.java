@@ -270,7 +270,7 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
                 new CreateExerciseRequest(exerciseCode(), "Ôn tập", activeCurriculum.id(), null, "SELF_PRACTICE",
                         new BigDecimal("1"), null, allowRetake, maxAttempts, true), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("1.0")), teacher.getId());
-        return exercise;
+        return exerciseService.publishExercise(exercise.id(), teacher.getId());
     }
 
     private ExerciseResponse assignedExerciseWithQuestions(List<QuestionResponse> questions, OffsetDateTime dueAt,
