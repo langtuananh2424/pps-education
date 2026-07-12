@@ -8,13 +8,11 @@ import vn.com.pps.education.common.BaseAuditEntity;
 import java.util.UUID;
 
 /**
- * Bảng sites (SDD > Cơ sở vật chất > a, migration V2). Entity tối thiểu —
- * chỉ đủ cho quan hệ FK từ attendance_records (UC-09). Chưa có CRUD/UC nào
- * được giao cho Phân hệ 10 (Cơ sở vật chất) trong phạm vi hiện tại, nên
- * không thêm Controller/Service ở đây. Cột geo_location (PostGIS
- * GEOGRAPHY) không map qua JPA để tránh thêm dependency hibernate-spatial —
- * kiểm tra bán kính GPS thực hiện bằng native query trong
- * SiteRepository (xem AttendanceMethodValidator GPS).
+ * Bảng sites (SDD > Cơ sở vật chất > a, migration V2). CRUD chính thức ở
+ * UC-36 (SiteService/SiteController), xem docs/uc/phan-he-10-co-so-vat-chat.md.
+ * Cột geo_location (PostGIS GEOGRAPHY) không map qua JPA để tránh thêm
+ * dependency hibernate-spatial — kiểm tra bán kính GPS thực hiện bằng
+ * native query trong SiteRepository (xem AttendanceMethodValidator GPS).
  */
 @Getter
 @Setter

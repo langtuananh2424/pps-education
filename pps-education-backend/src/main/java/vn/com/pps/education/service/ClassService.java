@@ -23,6 +23,7 @@ import vn.com.pps.education.dto.UpdateClassRequest;
 import vn.com.pps.education.dto.WithdrawEnrollmentRequest;
 import vn.com.pps.education.exception.ClassEnrollmentAlreadyActiveException;
 import vn.com.pps.education.exception.CurriculumNotActiveException;
+import vn.com.pps.education.exception.CurriculumNotAvailableForSiteException;
 import vn.com.pps.education.exception.DuplicateClassCodeException;
 import vn.com.pps.education.exception.LinkedClassRequiresPartnerSiteException;
 import vn.com.pps.education.exception.NotAuthorizedForClassManagementException;
@@ -136,6 +137,12 @@ public class ClassService {
         }
         Site site = siteRepository.findById(request.siteId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy điểm trường id=" + request.siteId()));
+        // UC-17 Postcondition -- khung tùy biến (site_id NOT NULL) chỉ dùng được cho đúng điểm trường đó.
+        if (curriculum.getSite() != null && !curriculum.getSite().getId().equals(site.getId())) {
+            throw new CurriculumNotAvailableForSiteException(
+                    "Khung chương trình id=" + curriculum.getId() + " chỉ áp dụng cho điểm trường id="
+                            + curriculum.getSite().getId() + ", không dùng được cho điểm trường id=" + site.getId() + ".");
+        }
         SchoolClass.ClassType classType = SchoolClass.ClassType.valueOf(request.classType());
 
         // A2 -- Lớp liên kết bắt buộc gán Điểm trường loại Trường liên kết (PARTNER).

@@ -1,0 +1,76 @@
+package vn.com.pps.education.domain;
+
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+import vn.com.pps.education.common.BaseAuditEntity;
+
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.UUID;
+
+/**
+ * Bảng class_sessions (SDD > Học thuật > Lịch dạy & Điểm danh > a) —
+ * 1 buổi học vật lý tại 1 thời điểm cụ thể. Không có UC nào mô tả Main
+ * Flow tạo class_sessions (UC-15/UC-37 đều trỏ nhầm về UC-18, đã xác
+ * nhận với user) — coi là phần mở rộng ngầm của Phân hệ 6, xem Javadoc
+ * ClassSessionService.
+ */
+@Getter
+@Setter
+@Entity
+@Table(name = "class_sessions")
+public class ClassSession extends BaseAuditEntity {
+
+    public enum SessionType { REGULAR, MAKEUP, EXAM, SPECIAL }
+
+    public enum Status { SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED, RESCHEDULED }
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false, unique = true, updatable = false)
+    private UUID uuid = UUID.randomUUID();
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "class_id", nullable = false)
+    private SchoolClass schoolClass;
+
+    @Column(name = "session_date", nullable = false)
+    private LocalDate sessionDate;
+
+    @Column(name = "start_time", nullable = false)
+    private LocalTime startTime;
+
+    @Column(name = "end_time", nullable = false)
+    private LocalTime endTime;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "room_id")
+    private Room room;
+
+    /** Có thể khác GV chính của lớp (VD dạy thay) — SDD. */
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "primary_teacher_id", nullable = false)
+    private User primaryTeacher;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "session_type", nullable = false, length = 20)
+    private SessionType sessionType = SessionType.REGULAR;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private Status status = Status.SCHEDULED;
+
+    @Column(name = "cancellation_reason", columnDefinition = "TEXT")
+    private String cancellationReason;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "rescheduled_to_session_id")
+    private ClassSession rescheduledToSession;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "created_by", nullable = false)
+    private User createdBy;
+}

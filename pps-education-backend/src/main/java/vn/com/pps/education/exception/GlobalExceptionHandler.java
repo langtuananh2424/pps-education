@@ -51,23 +51,36 @@ public class GlobalExceptionHandler {
             StudentAlreadyExistsException.class, ParentAlreadyExistsException.class,
             ParentStudentLinkAlreadyExistsException.class, StudentContactRoleConflictException.class,
             DuplicateCurriculumCodeException.class, DuplicateClassCodeException.class,
-            ClassEnrollmentAlreadyActiveException.class})
+            ClassEnrollmentAlreadyActiveException.class, RoomConflictException.class,
+            DuplicateSiteCodeException.class})
     public ResponseEntity<Object> handleConflict(RuntimeException ex) {
         return error(HttpStatus.CONFLICT, ex.getMessage());
     }
 
-    @ExceptionHandler({CurriculumUpdateConfirmationRequiredException.class})
+    @ExceptionHandler({CurriculumUpdateConfirmationRequiredException.class, ApprovalAlreadyDecidedException.class,
+            GradePeriodWeightExceededException.class, GradeComponentLockedException.class})
     public ResponseEntity<Object> handleConfirmationRequired(RuntimeException ex) {
         return error(HttpStatus.CONFLICT, ex.getMessage());
     }
 
-    @ExceptionHandler({CurriculumNotActiveException.class, LinkedClassRequiresPartnerSiteException.class})
+    @ExceptionHandler({CurriculumNotActiveException.class, LinkedClassRequiresPartnerSiteException.class,
+            CurriculumNotEditableException.class, CurriculumNotAvailableForSiteException.class,
+            InvalidGradeScoreException.class, GradeEntryNotEditableException.class,
+            AttendanceSessionNotEditableException.class, StudentCommentNotEditableException.class,
+            InvalidCommentContextException.class, InvalidLessonScopeException.class, QuestionLockedException.class,
+            ExerciseNotAvailableException.class, RetakeNotAllowedException.class,
+            SubmissionPastDeadlineException.class, AttemptNotEditableException.class,
+            AnswerNotManuallyGradableException.class, InvalidTeachingPlanPeriodException.class,
+            InvalidTaskStatusTransitionException.class})
     public ResponseEntity<Object> handleClassSetupRejected(RuntimeException ex) {
         return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
     }
 
     @ExceptionHandler({NotHeadAcademicException.class, NotAuthorizedForClassManagementException.class,
-            NotAuthorizedForPortalAccessException.class})
+            NotAuthorizedForPortalAccessException.class, NotSiteManagerForSiteException.class,
+            NotAssignedTeacherForClassException.class, NotAssignedTeacherForSessionException.class,
+            NotTeacherRoleException.class, AssigneeOutsideDepartmentException.class,
+            NotTaskParticipantException.class})
     public ResponseEntity<Object> handleAcademicAuthorization(RuntimeException ex) {
         return error(HttpStatus.FORBIDDEN, ex.getMessage());
     }
