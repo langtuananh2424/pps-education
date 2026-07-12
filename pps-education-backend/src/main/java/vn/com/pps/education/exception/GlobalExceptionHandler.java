@@ -69,7 +69,8 @@ public class GlobalExceptionHandler {
             InvalidCommentContextException.class, InvalidLessonScopeException.class, QuestionLockedException.class,
             ExerciseNotAvailableException.class, RetakeNotAllowedException.class,
             SubmissionPastDeadlineException.class, AttemptNotEditableException.class,
-            AnswerNotManuallyGradableException.class, InvalidTeachingPlanPeriodException.class})
+            AnswerNotManuallyGradableException.class, InvalidTeachingPlanPeriodException.class,
+            InvalidTaskStatusTransitionException.class})
     public ResponseEntity<Object> handleClassSetupRejected(RuntimeException ex) {
         return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
     }
@@ -77,7 +78,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({NotHeadAcademicException.class, NotAuthorizedForClassManagementException.class,
             NotAuthorizedForPortalAccessException.class, NotSiteManagerForSiteException.class,
             NotAssignedTeacherForClassException.class, NotAssignedTeacherForSessionException.class,
-            NotTeacherRoleException.class})
+            NotTeacherRoleException.class, AssigneeOutsideDepartmentException.class,
+            NotTaskParticipantException.class})
     public ResponseEntity<Object> handleAcademicAuthorization(RuntimeException ex) {
         return error(HttpStatus.FORBIDDEN, ex.getMessage());
     }
