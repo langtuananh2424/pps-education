@@ -52,7 +52,9 @@ public class GlobalExceptionHandler {
             ParentStudentLinkAlreadyExistsException.class, StudentContactRoleConflictException.class,
             DuplicateCurriculumCodeException.class, DuplicateClassCodeException.class,
             ClassEnrollmentAlreadyActiveException.class, RoomConflictException.class,
-            DuplicateSiteCodeException.class, DuplicateLeadPhoneException.class})
+            DuplicateSiteCodeException.class, DuplicateLeadPhoneException.class,
+            DuplicatePartnerContractNumberException.class, ActivePartnerContractAlreadyExistsException.class,
+            DuplicateRoomCodeException.class, DuplicateEquipmentCodeException.class})
     public ResponseEntity<Object> handleConflict(RuntimeException ex) {
         return error(HttpStatus.CONFLICT, ex.getMessage());
     }
@@ -72,7 +74,8 @@ public class GlobalExceptionHandler {
             SubmissionPastDeadlineException.class, AttemptNotEditableException.class,
             AnswerNotManuallyGradableException.class, InvalidTeachingPlanPeriodException.class,
             InvalidTaskStatusTransitionException.class, IncompleteLeadDataException.class,
-            LeadNotQualifiedException.class, InvalidLeadStatusTransitionException.class})
+            LeadNotQualifiedException.class, InvalidLeadStatusTransitionException.class,
+            InvalidFeedbackStatusTransitionException.class})
     public ResponseEntity<Object> handleClassSetupRejected(RuntimeException ex) {
         return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
     }
@@ -81,7 +84,8 @@ public class GlobalExceptionHandler {
             NotAuthorizedForPortalAccessException.class, NotSiteManagerForSiteException.class,
             NotAssignedTeacherForClassException.class, NotAssignedTeacherForSessionException.class,
             NotTeacherRoleException.class, AssigneeOutsideDepartmentException.class,
-            NotTaskParticipantException.class, NotAuthorizedForLeadManagementException.class})
+            NotTaskParticipantException.class, NotAuthorizedForLeadManagementException.class,
+            NotAuthorizedForFacilityManagementException.class, NotAuthorizedForFeedbackException.class})
     public ResponseEntity<Object> handleAcademicAuthorization(RuntimeException ex) {
         return error(HttpStatus.FORBIDDEN, ex.getMessage());
     }

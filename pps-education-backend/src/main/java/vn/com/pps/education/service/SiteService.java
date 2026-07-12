@@ -3,6 +3,7 @@ package vn.com.pps.education.service;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.PartnerSchoolInfo;
+import vn.com.pps.education.domain.PartnerSchoolInfoHistory;
 import vn.com.pps.education.domain.Site;
 import vn.com.pps.education.domain.SiteHistory;
 import vn.com.pps.education.domain.SiteManager;
@@ -15,6 +16,7 @@ import vn.com.pps.education.dto.SiteResponse;
 import vn.com.pps.education.dto.UpdateSiteRequest;
 import vn.com.pps.education.exception.DuplicateSiteCodeException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
+import vn.com.pps.education.repository.PartnerSchoolInfoHistoryRepository;
 import vn.com.pps.education.repository.PartnerSchoolInfoRepository;
 import vn.com.pps.education.repository.SiteHistoryRepository;
 import vn.com.pps.education.repository.SiteManagerRepository;
@@ -39,17 +41,20 @@ public class SiteService {
 
     private final SiteRepository siteRepository;
     private final PartnerSchoolInfoRepository partnerSchoolInfoRepository;
+    private final PartnerSchoolInfoHistoryRepository partnerSchoolInfoHistoryRepository;
     private final SiteManagerRepository siteManagerRepository;
     private final SiteHistoryRepository siteHistoryRepository;
     private final UserRepository userRepository;
 
     public SiteService(SiteRepository siteRepository,
                         PartnerSchoolInfoRepository partnerSchoolInfoRepository,
+                        PartnerSchoolInfoHistoryRepository partnerSchoolInfoHistoryRepository,
                         SiteManagerRepository siteManagerRepository,
                         SiteHistoryRepository siteHistoryRepository,
                         UserRepository userRepository) {
         this.siteRepository = siteRepository;
         this.partnerSchoolInfoRepository = partnerSchoolInfoRepository;
+        this.partnerSchoolInfoHistoryRepository = partnerSchoolInfoHistoryRepository;
         this.siteManagerRepository = siteManagerRepository;
         this.siteHistoryRepository = siteHistoryRepository;
         this.userRepository = userRepository;
@@ -72,12 +77,12 @@ public class SiteService {
         site.setDistrict(request.district());
         site.setPhone(request.phone());
         site = siteRepository.save(site);
+        User actor = getUserOrThrow(actorUserId);
 
         if (siteType == Site.SiteType.PARTNER && request.partnerInfo() != null) {
-            savePartnerInfo(site, request.partnerInfo());
+            savePartnerInfo(site, request.partnerInfo(), actor);
         }
 
-        User actor = getUserOrThrow(actorUserId);
         writeSiteHistory(site, actor, SiteHistory.Action.CREATED, Map.of(
                 "code", site.getCode(), "name", site.getName(), "siteType", site.getSiteType().name()));
 
@@ -104,16 +109,16 @@ public class SiteService {
             site.setStatus(parseStatus(request.status()));
         }
         site = siteRepository.save(site);
+        User actor = getUserOrThrow(actorUserId);
 
         if (siteType == Site.SiteType.PARTNER) {
             if (request.partnerInfo() != null) {
-                savePartnerInfo(site, request.partnerInfo());
+                savePartnerInfo(site, request.partnerInfo(), actor);
             }
         } else {
             partnerSchoolInfoRepository.findBySiteId(site.getId()).ifPresent(partnerSchoolInfoRepository::delete);
         }
 
-        User actor = getUserOrThrow(actorUserId);
         writeSiteHistory(site, actor, SiteHistory.Action.UPDATED, Map.of(
                 "name", site.getName(), "siteType", site.getSiteType().name(), "status", site.getStatus().name()));
 
@@ -172,7 +177,8 @@ public class SiteService {
         writeSiteHistory(site, actor, SiteHistory.Action.MANAGER_CHANGED, details);
     }
 
-    private void savePartnerInfo(Site site, PartnerSchoolInfoRequest request) {
+    private void savePartnerInfo(Site site, PartnerSchoolInfoRequest request, User actor) {
+        boolean isNew = partnerSchoolInfoRepository.findBySiteId(site.getId()).isEmpty();
         PartnerSchoolInfo info = partnerSchoolInfoRepository.findBySiteId(site.getId()).orElseGet(() -> {
             PartnerSchoolInfo created = new PartnerSchoolInfo();
             created.setSite(site);
@@ -183,7 +189,14 @@ public class SiteService {
         info.setContactPhone(request.contactPhone());
         info.setContactEmail(request.contactEmail());
         info.setAdditionalInfo(request.additionalInfo());
-        partnerSchoolInfoRepository.save(info);
+        info = partnerSchoolInfoRepository.save(info);
+
+        PartnerSchoolInfoHistory history = new PartnerSchoolInfoHistory();
+        history.setPartnerSchoolInfo(info);
+        history.setChangedBy(actor);
+        history.setAction(isNew ? PartnerSchoolInfoHistory.Action.CREATED : PartnerSchoolInfoHistory.Action.UPDATED);
+        history.setDetails(Map.of("contactPersonName", String.valueOf(info.getContactPersonName())));
+        partnerSchoolInfoHistoryRepository.save(history);
     }
 
     private void requirePartnerInfoOnlyForPartner(Site.SiteType siteType, PartnerSchoolInfoRequest partnerInfo) {
