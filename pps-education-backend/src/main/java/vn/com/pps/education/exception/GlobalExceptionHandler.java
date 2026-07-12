@@ -51,7 +51,8 @@ public class GlobalExceptionHandler {
             StudentAlreadyExistsException.class, ParentAlreadyExistsException.class,
             ParentStudentLinkAlreadyExistsException.class, StudentContactRoleConflictException.class,
             DuplicateCurriculumCodeException.class, DuplicateClassCodeException.class,
-            ClassEnrollmentAlreadyActiveException.class, RoomConflictException.class})
+            ClassEnrollmentAlreadyActiveException.class, RoomConflictException.class,
+            DuplicateSiteCodeException.class})
     public ResponseEntity<Object> handleConflict(RuntimeException ex) {
         return error(HttpStatus.CONFLICT, ex.getMessage());
     }
