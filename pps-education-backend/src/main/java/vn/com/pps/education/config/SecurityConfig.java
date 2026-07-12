@@ -48,7 +48,8 @@ public class SecurityConfig {
                     "/api/auth/**",
                     "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**",
                     "/actuator/health",
-                    "/error" // không permitAll -> path lạ/404 bị forward sang /error rồi bật 403 thay vì 404 thật
+                    "/error", // không permitAll -> path lạ/404 bị forward sang /error rồi bật 403 thay vì 404 thật
+                    "/api/webhooks/**" // UC-30 Main Flow bước 5-6: hệ thống ngân hàng ngoài gọi vào, không có JWT — tự xác thực qua shared secret riêng (InvoiceController)
                 ).permitAll()
                 .anyRequest().authenticated()
             )

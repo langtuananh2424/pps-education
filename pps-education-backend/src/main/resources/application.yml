@@ -95,6 +95,14 @@ app:
     # thể, mặc định hợp lý có thể chỉnh qua env var khi cần.
     max-retry-count: ${NOTIFICATION_MAX_RETRY:3}
     retry-interval-minutes: ${NOTIFICATION_RETRY_INTERVAL_MINUTES:5}
+  finance:
+    # UC-30 Main Flow bước 5-6: webhook /api/webhooks/bank-payment không
+    # xác thực qua JWT (permitAll, SecurityConfig) vì gọi từ hệ thống ngân
+    # hàng ngoài - SDD không đặc tả cơ chế xác thực, bổ sung shared-secret
+    # tối thiểu (header X-Webhook-Secret) để không mở endpoint ghi dữ liệu
+    # tài chính hoàn toàn công khai. Đổi sang secret thật khi tích hợp
+    # ngân hàng thật.
+    bank-webhook-secret: ${BANK_WEBHOOK_SECRET:CHANGE_THIS_SECRET_IN_ENV}
 
 springdoc:
   swagger-ui:
