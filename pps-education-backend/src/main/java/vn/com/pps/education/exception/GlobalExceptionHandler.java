@@ -127,6 +127,16 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.FORBIDDEN, ex.getMessage());
     }
 
+    @ExceptionHandler(NotExecutiveException.class)
+    public ResponseEntity<Object> handleNotExecutive(NotExecutiveException ex) {
+        return error(HttpStatus.FORBIDDEN, ex.getMessage());
+    }
+
+    @ExceptionHandler(InvalidWebhookSecretException.class)
+    public ResponseEntity<Object> handleInvalidWebhookSecret(InvalidWebhookSecretException ex) {
+        return error(HttpStatus.UNAUTHORIZED, ex.getMessage());
+    }
+
     @ExceptionHandler(NotAuthorizedForStudentStatusException.class)
     public ResponseEntity<Object> handleNotAuthorizedForStudentStatus(NotAuthorizedForStudentStatusException ex) {
         return error(HttpStatus.FORBIDDEN, ex.getMessage());
