@@ -69,7 +69,7 @@ public class GlobalExceptionHandler {
             InvalidCommentContextException.class, InvalidLessonScopeException.class, QuestionLockedException.class,
             ExerciseNotAvailableException.class, RetakeNotAllowedException.class,
             SubmissionPastDeadlineException.class, AttemptNotEditableException.class,
-            AnswerNotManuallyGradableException.class})
+            AnswerNotManuallyGradableException.class, InvalidTeachingPlanPeriodException.class})
     public ResponseEntity<Object> handleClassSetupRejected(RuntimeException ex) {
         return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
     }
