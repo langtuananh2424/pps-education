@@ -7,4 +7,7 @@ import java.util.List;
 
 public interface ExerciseAssignmentRepository extends JpaRepository<ExerciseAssignment, Long> {
     List<ExerciseAssignment> findBySchoolClassIdAndStatus(Long classId, ExerciseAssignment.Status status);
+
+    List<ExerciseAssignment> findByExerciseIdAndSchoolClassIdAndStatus(
+            Long exerciseId, Long classId, ExerciseAssignment.Status status);
 }
