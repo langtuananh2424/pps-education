@@ -16,6 +16,9 @@ public interface SchoolClassRepository extends JpaRepository<SchoolClass, Long> 
 
     List<SchoolClass> findByDeletedAtIsNullOrderByStartDateDesc();
 
+    /** UC-29 Portal trường liên kết: phạm vi lớp thuộc điểm trường phụ trách. */
+    List<SchoolClass> findBySiteIdAndDeletedAtIsNull(Long siteId);
+
     @Query("""
             SELECT c FROM SchoolClass c
             WHERE c.deletedAt IS NULL

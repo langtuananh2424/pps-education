@@ -379,7 +379,8 @@ public class GradeService {
     /** Main Flow bước 1: danh sách điểm Chờ duyệt của các điểm trường actor phụ trách. */
     @Transactional(readOnly = true)
     public List<GradeEntryResponse> listPendingForSite(Long actorUserId) {
-        List<Long> siteIds = siteManagerRepository.findByUserIdAndAssignedToIsNull(actorUserId).stream()
+        List<Long> siteIds = siteManagerRepository
+                .findByUserIdAndRoleTypeAndAssignedToIsNull(actorUserId, SiteManager.RoleType.SITE_MANAGER).stream()
                 .map(sm -> sm.getSite().getId()).toList();
         return siteIds.stream()
                 .flatMap(siteId -> gradeEntryRepository.findByStatusAndSiteId(GradeEntry.Status.PENDING, siteId).stream())
@@ -446,7 +447,8 @@ public class GradeService {
     }
 
     private void requireSiteManagerForSite(Long siteId, Long actorUserId) {
-        if (!siteManagerRepository.existsBySiteIdAndUserIdAndAssignedToIsNull(siteId, actorUserId)) {
+        if (!siteManagerRepository.existsBySiteIdAndUserIdAndRoleTypeAndAssignedToIsNull(
+                siteId, actorUserId, SiteManager.RoleType.SITE_MANAGER)) {
             throw new NotSiteManagerForSiteException(
                     "Tài khoản id=" + actorUserId + " không được gán phụ trách điểm trường id=" + siteId + ".");
         }

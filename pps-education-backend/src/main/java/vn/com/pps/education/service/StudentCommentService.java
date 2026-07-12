@@ -7,6 +7,7 @@ import vn.com.pps.education.domain.ClassSession;
 import vn.com.pps.education.domain.GradePeriod;
 import vn.com.pps.education.domain.Notification;
 import vn.com.pps.education.domain.SchoolClass;
+import vn.com.pps.education.domain.SiteManager;
 import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.StudentComment;
 import vn.com.pps.education.domain.StudentCommentHistory;
@@ -200,7 +201,8 @@ public class StudentCommentService {
     /** Main Flow bước 1: danh sách nhận xét Chờ duyệt của các điểm trường actor phụ trách. */
     @Transactional(readOnly = true)
     public List<StudentCommentResponse> listPendingForSite(Long actorUserId) {
-        List<Long> siteIds = siteManagerRepository.findByUserIdAndAssignedToIsNull(actorUserId).stream()
+        List<Long> siteIds = siteManagerRepository
+                .findByUserIdAndRoleTypeAndAssignedToIsNull(actorUserId, SiteManager.RoleType.SITE_MANAGER).stream()
                 .map(sm -> sm.getSite().getId()).toList();
         return siteIds.stream()
                 .flatMap(siteId -> studentCommentRepository.findByStatusAndSiteId(StudentComment.Status.PENDING, siteId).stream())
@@ -275,7 +277,8 @@ public class StudentCommentService {
     }
 
     private void requireSiteManagerForSite(Long siteId, Long actorUserId) {
-        if (!siteManagerRepository.existsBySiteIdAndUserIdAndAssignedToIsNull(siteId, actorUserId)) {
+        if (!siteManagerRepository.existsBySiteIdAndUserIdAndRoleTypeAndAssignedToIsNull(
+                siteId, actorUserId, SiteManager.RoleType.SITE_MANAGER)) {
             throw new NotSiteManagerForSiteException(
                     "Tài khoản id=" + actorUserId + " không được gán phụ trách điểm trường id=" + siteId + ".");
         }
@@ -289,7 +292,7 @@ public class StudentCommentService {
                     String title = "Nhận xét học sinh chờ duyệt";
                     String content = "Có %d nhận xét học sinh mới (lớp %s) đang chờ bạn duyệt."
                             .formatted(comments.size(), schoolClass.getName());
-                    siteManagerRepository.findBySiteIdAndAssignedToIsNull(siteId).forEach(sm ->
+                    siteManagerRepository.findBySiteIdAndRoleTypeAndAssignedToIsNull(siteId, SiteManager.RoleType.SITE_MANAGER).forEach(sm ->
                             notificationService.notify(sm.getUser().getId(), Notification.NotificationType.COMMENT_APPROVED, title, content));
                 });
     }

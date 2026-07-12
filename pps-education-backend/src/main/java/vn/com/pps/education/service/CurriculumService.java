@@ -9,6 +9,7 @@ import vn.com.pps.education.domain.CurriculumSubject;
 import vn.com.pps.education.domain.CurriculumSubjectHistory;
 import vn.com.pps.education.domain.SchoolClass;
 import vn.com.pps.education.domain.Site;
+import vn.com.pps.education.domain.SiteManager;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.dto.CreateCurriculumRequest;
 import vn.com.pps.education.dto.CreateCurriculumSubjectRequest;
@@ -367,7 +368,8 @@ public class CurriculumService {
     }
 
     private void requireSiteManagerForSite(Long siteId, Long actorUserId) {
-        if (!siteManagerRepository.existsBySiteIdAndUserIdAndAssignedToIsNull(siteId, actorUserId)) {
+        if (!siteManagerRepository.existsBySiteIdAndUserIdAndRoleTypeAndAssignedToIsNull(
+                siteId, actorUserId, SiteManager.RoleType.SITE_MANAGER)) {
             throw new NotSiteManagerForSiteException(
                     "Tài khoản id=" + actorUserId + " không được gán phụ trách điểm trường id=" + siteId + ".");
         }
