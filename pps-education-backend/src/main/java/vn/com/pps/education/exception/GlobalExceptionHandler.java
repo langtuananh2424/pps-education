@@ -52,7 +52,7 @@ public class GlobalExceptionHandler {
             ParentStudentLinkAlreadyExistsException.class, StudentContactRoleConflictException.class,
             DuplicateCurriculumCodeException.class, DuplicateClassCodeException.class,
             ClassEnrollmentAlreadyActiveException.class, RoomConflictException.class,
-            DuplicateSiteCodeException.class})
+            DuplicateSiteCodeException.class, DuplicateLeadPhoneException.class})
     public ResponseEntity<Object> handleConflict(RuntimeException ex) {
         return error(HttpStatus.CONFLICT, ex.getMessage());
     }
@@ -71,7 +71,8 @@ public class GlobalExceptionHandler {
             ExerciseNotAvailableException.class, RetakeNotAllowedException.class,
             SubmissionPastDeadlineException.class, AttemptNotEditableException.class,
             AnswerNotManuallyGradableException.class, InvalidTeachingPlanPeriodException.class,
-            InvalidTaskStatusTransitionException.class})
+            InvalidTaskStatusTransitionException.class, IncompleteLeadDataException.class,
+            LeadNotQualifiedException.class, InvalidLeadStatusTransitionException.class})
     public ResponseEntity<Object> handleClassSetupRejected(RuntimeException ex) {
         return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
     }
@@ -80,7 +81,7 @@ public class GlobalExceptionHandler {
             NotAuthorizedForPortalAccessException.class, NotSiteManagerForSiteException.class,
             NotAssignedTeacherForClassException.class, NotAssignedTeacherForSessionException.class,
             NotTeacherRoleException.class, AssigneeOutsideDepartmentException.class,
-            NotTaskParticipantException.class})
+            NotTaskParticipantException.class, NotAuthorizedForLeadManagementException.class})
     public ResponseEntity<Object> handleAcademicAuthorization(RuntimeException ex) {
         return error(HttpStatus.FORBIDDEN, ex.getMessage());
     }

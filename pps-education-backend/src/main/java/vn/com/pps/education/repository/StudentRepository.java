@@ -33,4 +33,12 @@ public interface StudentRepository extends JpaRepository<Student, Long> {
             ORDER BY u.fullName
             """)
     List<Student> searchByQuery(@Param("query") String query);
+
+    /** UC-35 Main Flow bước 3: kiểm tra trùng lặp theo họ tên + ngày sinh (không có CCCD trong schema). */
+    @Query("""
+            SELECT s FROM Student s JOIN s.user u
+            WHERE s.deletedAt IS NULL AND s.dateOfBirth = :dateOfBirth
+            AND LOWER(u.fullName) = LOWER(:fullName)
+            """)
+    List<Student> findByFullNameAndDateOfBirth(@Param("fullName") String fullName, @Param("dateOfBirth") java.time.LocalDate dateOfBirth);
 }
