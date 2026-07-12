@@ -11,6 +11,10 @@ public interface StudentCommentRepository extends JpaRepository<StudentComment, 
 
     List<StudentComment> findBySchoolClassIdAndStudentIdOrderByCommentDateDesc(Long classId, Long studentId);
 
+    /** UC-25 Portal Phụ huynh — nhận xét/cảnh báo: student_comments WHERE status=APPROVED (SDD). */
+    List<StudentComment> findBySchoolClassIdAndStudentIdAndStatusOrderByCommentDateDesc(
+            Long classId, Long studentId, StudentComment.Status status);
+
     @Query("""
             SELECT c FROM StudentComment c
             WHERE c.status = :status
