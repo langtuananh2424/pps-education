@@ -8,4 +8,5 @@ import java.util.List;
 public interface SiteManagerRepository extends JpaRepository<SiteManager, Long> {
     boolean existsBySiteIdAndUserIdAndAssignedToIsNull(Long siteId, Long userId);
     List<SiteManager> findByUserIdAndAssignedToIsNull(Long userId);
+    List<SiteManager> findBySiteIdAndAssignedToIsNull(Long siteId);
 }

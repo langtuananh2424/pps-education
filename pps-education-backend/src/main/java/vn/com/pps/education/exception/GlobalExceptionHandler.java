@@ -65,7 +65,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({CurriculumNotActiveException.class, LinkedClassRequiresPartnerSiteException.class,
             CurriculumNotEditableException.class, CurriculumNotAvailableForSiteException.class,
             InvalidGradeScoreException.class, GradeEntryNotEditableException.class,
-            AttendanceSessionNotEditableException.class})
+            AttendanceSessionNotEditableException.class, StudentCommentNotEditableException.class,
+            InvalidCommentContextException.class})
     public ResponseEntity<Object> handleClassSetupRejected(RuntimeException ex) {
         return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
     }
