@@ -10,6 +10,8 @@ public interface ClassEnrollmentRepository extends JpaRepository<ClassEnrollment
 
     List<ClassEnrollment> findBySchoolClassId(Long classId);
 
+    List<ClassEnrollment> findBySchoolClassIdAndStatus(Long classId, ClassEnrollment.Status status);
+
     List<ClassEnrollment> findByStudentId(Long studentId);
 
     Optional<ClassEnrollment> findBySchoolClassIdAndStudentIdAndStatus(

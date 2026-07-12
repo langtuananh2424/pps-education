@@ -66,14 +66,15 @@ public class GlobalExceptionHandler {
             CurriculumNotEditableException.class, CurriculumNotAvailableForSiteException.class,
             InvalidGradeScoreException.class, GradeEntryNotEditableException.class,
             AttendanceSessionNotEditableException.class, StudentCommentNotEditableException.class,
-            InvalidCommentContextException.class, InvalidLessonScopeException.class})
+            InvalidCommentContextException.class, InvalidLessonScopeException.class, QuestionLockedException.class})
     public ResponseEntity<Object> handleClassSetupRejected(RuntimeException ex) {
         return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
     }
 
     @ExceptionHandler({NotHeadAcademicException.class, NotAuthorizedForClassManagementException.class,
             NotAuthorizedForPortalAccessException.class, NotSiteManagerForSiteException.class,
-            NotAssignedTeacherForClassException.class, NotAssignedTeacherForSessionException.class})
+            NotAssignedTeacherForClassException.class, NotAssignedTeacherForSessionException.class,
+            NotTeacherRoleException.class})
     public ResponseEntity<Object> handleAcademicAuthorization(RuntimeException ex) {
         return error(HttpStatus.FORBIDDEN, ex.getMessage());
     }
