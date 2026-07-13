@@ -103,6 +103,14 @@ app:
     # tài chính hoàn toàn công khai. Đổi sang secret thật khi tích hợp
     # ngân hàng thật.
     bank-webhook-secret: ${BANK_WEBHOOK_SECRET:CHANGE_THIS_SECRET_IN_ENV}
+  seed:
+    # DevUserSeeder - tạo 11 tài khoản demo (1/role) lúc khởi động app. Mặc định
+    # false: KHÔNG gắn theo Spring profile "dev" vì Testcontainers cũng chạy
+    # context ở profile mặc định "dev" (xem AbstractIntegrationTest, không có
+    # @ActiveProfiles) - gắn theo profile sẽ lọt seed data vào DB test. Chỉ bật
+    # qua env var SEED_DEV_USERS=true (docker-compose.yml/.env.example local dev
+    # đã bật sẵn) để test/CI/staging/production không bao giờ dính.
+    dev-users: ${SEED_DEV_USERS:false}
 
 springdoc:
   swagger-ui:
