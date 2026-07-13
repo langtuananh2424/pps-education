@@ -135,6 +135,7 @@ for my $path (keys %{$d->{paths}}) {
 # ---------- 4. Ten hien thi + thu tu nhom ----------
 my @order = (
     ['auth-controller',                 'Xác thực (UC-01)'],
+    ['user-controller',                 'Khởi tạo tài khoản người dùng (UC-43)'],
     ['permission-controller',           'Danh mục quyền (UC-02)'],
     ['role-controller',                 'Nhóm quyền mặc định (UC-03)'],
     ['user-permission-override-controller', 'Quyền ngoại lệ theo tài khoản (UC-04)'],

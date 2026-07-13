@@ -265,4 +265,72 @@ UC-05: Xem nhật ký thay đổi quyền
 | ostcondition)** |     (use case chỉ đọc).                            |
 +-----------------+----------------------------------------------------+
 
+---
+
+UC-43: Khởi tạo tài khoản người dùng
+
++-----------------+----------------------------------------------------+
+| **Mã Use Case** | UC-43                                              |
++-----------------+----------------------------------------------------+
+| **Tên Use       | Khởi tạo tài khoản người dùng                      |
+| Case**          |                                                    |
++-----------------+----------------------------------------------------+
+| **Phân hệ**     | Phân hệ 2                                          |
++-----------------+----------------------------------------------------+
+| **Yêu cầu chức  | FR-USR-01                                          |
+| năng gốc**      |                                                    |
++-----------------+----------------------------------------------------+
+| **Tác nhân**    | Quản trị viên                                      |
+|                 |                                                    |
+|                 | (Liên quan: Quản lý nhân sự — qua luồng UC-08 tạo  |
+|                 | hồ sơ nhân sự kèm tài khoản)                       |
++-----------------+----------------------------------------------------+
+| **Mô tả tóm     | Cấp phát tài khoản đăng nhập cho người dùng mới    |
+| tắt**           | (nhân sự, đối tác...). Hệ thống không có tự đăng   |
+|                 | ký — mọi tài khoản đều do Quản trị viên khởi tạo   |
+|                 | (xem UC-01 A4).                                    |
++-----------------+----------------------------------------------------+
+| **Sự kiện kích  | Có người dùng mới cần truy cập hệ thống nhưng chưa |
+| hoạt**          | được cấp tài khoản.                                |
++-----------------+----------------------------------------------------+
+| **Điều kiện     | -   Người thao tác có quyền user.manage.           |
+| tiên quyết      |                                                    |
+| (               |                                                    |
+| Precondition)** |                                                    |
++-----------------+----------------------------------------------------+
+| **Luồng sự kiện | 1.  Quản trị viên mở màn hình Quản trị tài khoản,  |
+| chính (Main     |     chọn Thêm mới; nhập username, email, họ tên,   |
+| Flow)**         |     SĐT (tùy chọn), phòng ban (tùy chọn), cờ miễn  |
+|                 |     trừ chấm công is_management (tùy chọn).        |
+|                 |                                                    |
+|                 | 2.  Tùy chọn nhập mật khẩu ban đầu (tối thiểu 8 ký |
+|                 |     tự). Bỏ trống nếu tài khoản chỉ đăng nhập bằng |
+|                 |     Google — hệ thống lưu password_hash = NULL,    |
+|                 |     đăng nhập Google khớp theo email (UC-01 A4).   |
+|                 |                                                    |
+|                 | 3.  Hệ thống kiểm tra username và email chưa tồn   |
+|                 |     tại, lưu tài khoản với trạng thái ACTIVE (mật  |
+|                 |     khẩu — nếu có — băm BCrypt, NFR-SEC-01).       |
+|                 |                                                    |
+|                 | 4.  Tài khoản đăng nhập được ngay (mật khẩu hoặc   |
+|                 |     Google). Việc gán vai trò/quyền KHÔNG thuộc    |
+|                 |     use case này — thực hiện sau qua UC-03/UC-04;  |
+|                 |     tài khoản chưa gán role chỉ đăng nhập được,    |
+|                 |     không thao tác được chức năng nào.             |
++-----------------+----------------------------------------------------+
+| **Luồng thay    | ***A1 --- Username hoặc email đã tồn tại***        |
+| thế / ngoại lệ  |                                                    |
+| (Alternate      | 1.  Hệ thống từ chối tạo, báo rõ trường bị trùng   |
+| Flow)**         |     để Quản trị viên sửa lại.                      |
+|                 |                                                    |
+|                 | ***A2 --- Mật khẩu ban đầu quá ngắn***             |
+|                 |                                                    |
+|                 | 1.  Mật khẩu được nhập nhưng dưới 8 ký tự: hệ      |
+|                 |     thống từ chối với lỗi định dạng dữ liệu.       |
++-----------------+----------------------------------------------------+
+| **Hậu điều kiện | -   Bảng users có bản ghi mới trạng thái ACTIVE,   |
+| (P              |     chưa có role nào (danh sách quyền hiệu lực     |
+| ostcondition)** |     rỗng cho tới khi được gán qua UC-03/UC-04).    |
++-----------------+----------------------------------------------------+
+
 Phân hệ 3 --- Quản lý công việc và quy trình

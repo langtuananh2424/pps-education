@@ -54,6 +54,7 @@ public class EmployeeService {
     private final EmployeeHistoryRepository employeeHistoryRepository;
     private final EmploymentContractHistoryRepository employmentContractHistoryRepository;
     private final UserRepository userRepository;
+    private final UserAccountService userAccountService;
 
     public EmployeeService(EmployeeRepository employeeRepository,
                             EmploymentContractRepository employmentContractRepository,
@@ -61,7 +62,8 @@ public class EmployeeService {
                             CommendationRepository commendationRepository,
                             EmployeeHistoryRepository employeeHistoryRepository,
                             EmploymentContractHistoryRepository employmentContractHistoryRepository,
-                            UserRepository userRepository) {
+                            UserRepository userRepository,
+                            UserAccountService userAccountService) {
         this.employeeRepository = employeeRepository;
         this.employmentContractRepository = employmentContractRepository;
         this.qualificationRepository = qualificationRepository;
@@ -69,6 +71,7 @@ public class EmployeeService {
         this.employeeHistoryRepository = employeeHistoryRepository;
         this.employmentContractHistoryRepository = employmentContractHistoryRepository;
         this.userRepository = userRepository;
+        this.userAccountService = userAccountService;
     }
 
     @Transactional(readOnly = true)
@@ -84,13 +87,22 @@ public class EmployeeService {
         return toResponse(getEmployeeOrThrow(id));
     }
 
-    /** Main Flow bước 1-2: khởi tạo hồ sơ nhân sự mới. */
+    /**
+     * Main Flow bước 1-2: khởi tạo hồ sơ nhân sự mới. Nhận ĐÚNG 1 trong 2:
+     * userId (tài khoản có sẵn) hoặc newAccount (tạo tài khoản kèm hồ sơ
+     * trong cùng transaction — cơ chế UC-43/FR-USR-01, xem ghi chú UC-08).
+     */
     @Transactional
     public EmployeeResponse create(CreateEmployeeRequest request, Long actorUserId) {
-        User user = userRepository.findById(request.userId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + request.userId()));
-        if (employeeRepository.findByUserId(request.userId()).isPresent()) {
-            throw new EmployeeAlreadyExistsException("Tài khoản id=" + request.userId() + " đã có hồ sơ nhân sự.");
+        if ((request.userId() == null) == (request.newAccount() == null)) {
+            throw new IllegalArgumentException("Cung cấp đúng 1 trong 2: userId (tài khoản có sẵn) hoặc newAccount (tạo tài khoản mới).");
+        }
+        User user = request.userId() != null
+                ? userRepository.findById(request.userId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + request.userId()))
+                : userAccountService.createAccount(request.newAccount());
+        if (employeeRepository.findByUserId(user.getId()).isPresent()) {
+            throw new EmployeeAlreadyExistsException("Tài khoản id=" + user.getId() + " đã có hồ sơ nhân sự.");
         }
         if (employeeRepository.findByEmployeeCode(request.employeeCode()).isPresent()) {
             throw new DuplicateEmployeeCodeException("Mã nhân sự đã tồn tại: " + request.employeeCode());

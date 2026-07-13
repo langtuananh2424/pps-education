@@ -24,6 +24,7 @@
 ## Mục lục
 
 - [Xác thực (UC-01)](#xác-thực-uc-01)
+- [Khởi tạo tài khoản người dùng (UC-43)](#khởi-tạo-tài-khoản-người-dùng-uc-43)
 - [Danh mục quyền (UC-02)](#danh-mục-quyền-uc-02)
 - [Nhóm quyền mặc định (UC-03)](#nhóm-quyền-mặc-định-uc-03)
 - [Quyền ngoại lệ theo tài khoản (UC-04)](#quyền-ngoại-lệ-theo-tài-khoản-uc-04)
@@ -74,6 +75,12 @@
 | POST | `/api/auth/login/google` | Công khai | Body: [GoogleLoginRequest](#googleloginrequest) | [LoginResponse](#loginresponse) |
 | POST | `/api/auth/logout` | Công khai | Body: [LogoutRequest](#logoutrequest) | 200 (không có body) |
 | POST | `/api/auth/refresh` | Công khai | Body: [RefreshTokenRequest](#refreshtokenrequest) | [RefreshTokenResponse](#refreshtokenresponse) |
+
+## Khởi tạo tài khoản người dùng (UC-43)
+
+| Method | Path | Auth | Input | Output |
+|---|---|---|---|---|
+| POST | `/api/users` | JWT + `user.manage` | Body: [CreateUserRequest](#createuserrequest) | [UserResponse](#userresponse) |
 
 ## Danh mục quyền (UC-02)
 
@@ -791,11 +798,12 @@
 | `idCardIssuedPlace` | string |  |
 | `idCardNumber` | string |  |
 | `isDefaultShiftRequired` | boolean |  |
+| `newAccount` | [CreateUserRequest](#createuserrequest) |  |
 | `permanentAddress` | string |  |
 | `positionTitle` | string |  |
 | `socialInsuranceNumber` | string |  |
 | `taxCode` | string |  |
-| `userId` | integer (int64) | ✔ |
+| `userId` | integer (int64) |  |
 
 ### CreateEmploymentContractRequest
 
@@ -1093,6 +1101,18 @@
 | `pricePerUnit` | number |  |
 | `pricingModel` | string | ✔ |
 | `unitCount` | integer |  |
+
+### CreateUserRequest
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `departmentId` | integer (int64) |  |
+| `email` | string | ✔ |
+| `fullName` | string | ✔ |
+| `isManagement` | boolean |  |
+| `password` | string |  |
+| `phone` | string |  |
+| `username` | string | ✔ |
 
 ### CurriculumApprovalResponse
 
@@ -2600,6 +2620,21 @@
 | `expiresAt` | string (date-time) |  |
 | `overrideType` | string | ✔ |
 | `reason` | string | ✔ |
+
+### UserResponse
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `departmentId` | integer (int64) |  |
+| `email` | string |  |
+| `fullName` | string |  |
+| `googleLinked` | boolean |  |
+| `id` | integer (int64) |  |
+| `isManagement` | boolean |  |
+| `passwordSet` | boolean |  |
+| `phone` | string |  |
+| `status` | string |  |
+| `username` | string |  |
 
 ### WithdrawEnrollmentRequest
 
