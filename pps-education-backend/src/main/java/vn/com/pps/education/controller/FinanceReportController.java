@@ -1,6 +1,7 @@
 package vn.com.pps.education.controller;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -30,6 +31,7 @@ public class FinanceReportController {
         return ResponseEntity.ok(financeReportService.getMySiteReports(from, to, actor.userId()));
     }
 
+    @PreAuthorize("hasPermission(null, 'finance.report.view')")
     @GetMapping("/api/finance/reports/chain")
     public ResponseEntity<ChainFinancialReportResponse> getChainReport(
             @RequestParam LocalDate from, @RequestParam LocalDate to,

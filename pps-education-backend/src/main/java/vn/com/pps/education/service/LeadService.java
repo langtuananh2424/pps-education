@@ -21,7 +21,6 @@ import vn.com.pps.education.exception.DuplicateLeadPhoneException;
 import vn.com.pps.education.exception.IncompleteLeadDataException;
 import vn.com.pps.education.exception.InvalidLeadStatusTransitionException;
 import vn.com.pps.education.exception.LeadNotQualifiedException;
-import vn.com.pps.education.exception.NotAuthorizedForLeadManagementException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.repository.CurriculumRepository;
 import vn.com.pps.education.repository.LeadHistoryRepository;
@@ -41,8 +40,6 @@ import java.time.Year;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * UC-33: Quản lý lead & tư vấn tuyển sinh (FR-CRM-01, FR-CRM-02) + UC-34:
@@ -61,12 +58,16 @@ import java.util.stream.Collectors;
  * plan nào được xác định tại thời điểm này. Coi đây là gap giống cách đã
  * note UC-29 (xuất PDF/Excel)/UC-31 (duyệt chi) — không tự bịa cơ chế ghi
  * nhận phí khi 2 nguồn tài liệu chi tiết hơn đều không mô tả.
+ *
+ * createLead/updateStatus/convertToStudent (STAFF) qua
+ * @PreAuthorize("hasPermission(null,'crm.lead.manage')"); assignLead
+ * (STAFF+SITE_MANAGER, khớp UC-33 Main Flow bước 2) qua permission riêng
+ * 'crm.lead.assign' — 2 permission khác nhau vì tập role khác nhau (Hybrid
+ * PBAC — V28), không dùng chung 1 permission để tránh cấp nhầm quyền.
  */
 @Service
 public class LeadService {
 
-    private static final Set<String> STAFF_ROLE_CODES = Set.of("STAFF");
-    private static final Set<String> ASSIGN_ROLE_CODES = Set.of("STAFF", "SITE_MANAGER");
     private static final String LEAD_CODE_PREFIX = "LEAD-";
 
     private final LeadRepository leadRepository;
@@ -113,7 +114,6 @@ public class LeadService {
      */
     @Transactional
     public LeadResponse createLead(CreateLeadRequest request, Long actorUserId) {
-        requireStaff(actorUserId);
         leadRepository.findByPhoneAndDeletedAtIsNull(request.phone()).ifPresent(existing -> {
             throw new DuplicateLeadPhoneException(
                     "Số điện thoại " + request.phone() + " đã tồn tại ở lead id=" + existing.getId()
@@ -155,7 +155,6 @@ public class LeadService {
     /** Main Flow bước 2: phân phối lead cho Nhân viên tư vấn phụ trách (Hệ thống/Quản lý điểm trường). */
     @Transactional
     public LeadResponse assignLead(Long leadId, AssignLeadRequest request, Long actorUserId) {
-        requireRole(actorUserId, ASSIGN_ROLE_CODES);
         Lead lead = getLeadOrThrow(leadId);
         User assignee = getUserOrThrow(request.assignToUserId());
         User actor = getUserOrThrow(actorUserId);
@@ -176,7 +175,6 @@ public class LeadService {
      */
     @Transactional
     public LeadResponse updateStatus(Long leadId, UpdateLeadStatusRequest request, Long actorUserId) {
-        requireStaff(actorUserId);
         Lead lead = getLeadOrThrow(leadId);
         if (isFinalStatus(lead.getStatus())) {
             throw new InvalidLeadStatusTransitionException(
@@ -213,7 +211,6 @@ public class LeadService {
      */
     @Transactional
     public LeadResponse convertToStudent(Long leadId, Long actorUserId) {
-        requireStaff(actorUserId);
         Lead lead = getLeadOrThrow(leadId);
         if (lead.getStatus() != Lead.Status.QUALIFIED) {
             throw new LeadNotQualifiedException(
@@ -328,23 +325,6 @@ public class LeadService {
         return status == Lead.Status.WON || status == Lead.Status.LOST || status == Lead.Status.DUPLICATE;
     }
 
-    private void requireStaff(Long actorUserId) {
-        requireRole(actorUserId, STAFF_ROLE_CODES);
-    }
-
-    private void requireRole(Long actorUserId, Set<String> allowedRoleCodes) {
-        Set<String> roleCodes = roleCodesOf(actorUserId);
-        if (roleCodes.stream().noneMatch(allowedRoleCodes::contains)) {
-            throw new NotAuthorizedForLeadManagementException(
-                    "Tài khoản id=" + actorUserId + " không có role phù hợp (" + allowedRoleCodes + ") để thao tác lead.");
-        }
-    }
-
-    private Set<String> roleCodesOf(Long userId) {
-        return userRoleRepository.findByUserId(userId).stream()
-                .map(ur -> ur.getRole().getCode())
-                .collect(Collectors.toSet());
-    }
 
     private String generateUsername(String phone) {
         String base = "lead" + phone.replaceAll("[^0-9]", "");

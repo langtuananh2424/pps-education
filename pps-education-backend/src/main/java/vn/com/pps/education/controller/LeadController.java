@@ -2,6 +2,7 @@ package vn.com.pps.education.controller;
 
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -28,6 +29,7 @@ public class LeadController {
         this.leadService = leadService;
     }
 
+    @PreAuthorize("hasPermission(null, 'crm.lead.manage')")
     @PostMapping("/api/leads")
     public ResponseEntity<LeadResponse> createLead(@Valid @RequestBody CreateLeadRequest request,
                                                       @AuthenticationPrincipal AuthenticatedUser actor) {
@@ -49,18 +51,21 @@ public class LeadController {
         return ResponseEntity.ok(leadService.listOpenLeads());
     }
 
+    @PreAuthorize("hasPermission(null, 'crm.lead.assign')")
     @PutMapping("/api/leads/{id}/assign")
     public ResponseEntity<LeadResponse> assignLead(@PathVariable Long id, @Valid @RequestBody AssignLeadRequest request,
                                                       @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(leadService.assignLead(id, request, actor.userId()));
     }
 
+    @PreAuthorize("hasPermission(null, 'crm.lead.manage')")
     @PutMapping("/api/leads/{id}/status")
     public ResponseEntity<LeadResponse> updateStatus(@PathVariable Long id, @Valid @RequestBody UpdateLeadStatusRequest request,
                                                         @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(leadService.updateStatus(id, request, actor.userId()));
     }
 
+    @PreAuthorize("hasPermission(null, 'crm.lead.manage')")
     @PostMapping("/api/leads/{id}/convert")
     public ResponseEntity<LeadResponse> convertToStudent(@PathVariable Long id, @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(leadService.convertToStudent(id, actor.userId()));

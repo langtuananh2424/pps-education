@@ -33,9 +33,9 @@ import java.util.List;
 
 /**
  * UC-13: Quản lý hồ sơ học sinh (FR-STU-01) + UC-14: Cập nhật trạng thái
- * học tập (FR-STU-02). Cùng resource /api/students nhưng khác quyền — xem
- * @PreAuthorize riêng ở endpoint status (UC-14 không yêu cầu student.manage,
- * chỉ role SITE_MANAGER/STAFF, kiểm tra trong StudentStatusService).
+ * học tập (FR-STU-02). Cùng resource /api/students nhưng khác permission —
+ * UC-14 dùng student.status.manage riêng (Hybrid PBAC — V28), không dùng
+ * student.manage.
  */
 @RestController
 @RequestMapping("/api/students")
@@ -125,13 +125,14 @@ public class StudentController {
         return ResponseEntity.ok(studentService.recordTransfer(id, request, actor.userId()));
     }
 
-    /** UC-14 — không dùng hasPermission('student.manage'), xem Javadoc lớp. */
+    /** UC-14 — dùng student.status.manage riêng, xem Javadoc lớp. */
     @GetMapping("/{id}/status-history")
     public ResponseEntity<List<StudentStatusHistoryResponse>> listStatusHistory(@PathVariable Long id) {
         return ResponseEntity.ok(studentStatusService.listStatusHistory(id));
     }
 
-    /** UC-14 — không dùng hasPermission('student.manage'), xem Javadoc lớp. */
+    /** UC-14 — dùng student.status.manage riêng, xem Javadoc lớp. */
+    @PreAuthorize("hasPermission(null, 'student.status.manage')")
     @PostMapping("/{id}/status")
     public ResponseEntity<StudentStatusHistoryResponse> updateStatus(@PathVariable Long id,
                                                                         @Valid @RequestBody UpdateStudentStatusRequest request,

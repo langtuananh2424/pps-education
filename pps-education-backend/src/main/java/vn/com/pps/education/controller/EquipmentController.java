@@ -2,6 +2,7 @@ package vn.com.pps.education.controller;
 
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -27,6 +28,7 @@ public class EquipmentController {
         this.roomService = roomService;
     }
 
+    @PreAuthorize("hasPermission(null, 'facility.room.manage')")
     @PostMapping("/api/equipment")
     public ResponseEntity<EquipmentResponse> createEquipment(@Valid @RequestBody CreateEquipmentRequest request,
                                                                 @AuthenticationPrincipal AuthenticatedUser actor) {
@@ -34,6 +36,7 @@ public class EquipmentController {
     }
 
     /** A1: Thiết bị hỏng/bảo trì. */
+    @PreAuthorize("hasPermission(null, 'facility.room.manage')")
     @PutMapping("/api/equipment/{id}/status")
     public ResponseEntity<EquipmentResponse> updateStatus(@PathVariable Long id,
                                                              @Valid @RequestBody UpdateEquipmentStatusRequest request,

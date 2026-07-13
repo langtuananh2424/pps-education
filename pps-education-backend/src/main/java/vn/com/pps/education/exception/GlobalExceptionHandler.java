@@ -2,6 +2,7 @@ package vn.com.pps.education.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -10,6 +11,12 @@ import java.util.Map;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    /** @PreAuthorize("hasPermission(...)") từ chối — Hybrid PBAC (UC-02..05), giữ format lỗi nhất quán với các Not*Exception khác. */
+    @ExceptionHandler(AuthorizationDeniedException.class)
+    public ResponseEntity<Object> handleAuthorizationDenied(AuthorizationDeniedException ex) {
+        return error(HttpStatus.FORBIDDEN, "Tài khoản không có quyền thực hiện thao tác này.");
+    }
 
     @ExceptionHandler(InvalidCredentialsException.class)
     public ResponseEntity<Object> handleInvalidCredentials(InvalidCredentialsException ex) {
@@ -80,12 +87,10 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
     }
 
-    @ExceptionHandler({NotHeadAcademicException.class, NotAuthorizedForClassManagementException.class,
-            NotAuthorizedForPortalAccessException.class, NotSiteManagerForSiteException.class,
+    @ExceptionHandler({NotAuthorizedForPortalAccessException.class, NotSiteManagerForSiteException.class,
             NotAssignedTeacherForClassException.class, NotAssignedTeacherForSessionException.class,
-            NotTeacherRoleException.class, AssigneeOutsideDepartmentException.class,
-            NotTaskParticipantException.class, NotAuthorizedForLeadManagementException.class,
-            NotAuthorizedForFacilityManagementException.class, NotAuthorizedForFeedbackException.class})
+            AssigneeOutsideDepartmentException.class,
+            NotTaskParticipantException.class, NotAuthorizedForFeedbackException.class})
     public ResponseEntity<Object> handleAcademicAuthorization(RuntimeException ex) {
         return error(HttpStatus.FORBIDDEN, ex.getMessage());
     }
@@ -132,19 +137,9 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.FORBIDDEN, ex.getMessage());
     }
 
-    @ExceptionHandler(NotExecutiveException.class)
-    public ResponseEntity<Object> handleNotExecutive(NotExecutiveException ex) {
-        return error(HttpStatus.FORBIDDEN, ex.getMessage());
-    }
-
     @ExceptionHandler(InvalidWebhookSecretException.class)
     public ResponseEntity<Object> handleInvalidWebhookSecret(InvalidWebhookSecretException ex) {
         return error(HttpStatus.UNAUTHORIZED, ex.getMessage());
-    }
-
-    @ExceptionHandler(NotAuthorizedForStudentStatusException.class)
-    public ResponseEntity<Object> handleNotAuthorizedForStudentStatus(NotAuthorizedForStudentStatusException ex) {
-        return error(HttpStatus.FORBIDDEN, ex.getMessage());
     }
 
     private ResponseEntity<Object> error(HttpStatus status, String message) {

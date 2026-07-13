@@ -2,6 +2,7 @@ package vn.com.pps.education.controller;
 
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -33,6 +34,7 @@ public class ClassSessionController {
         return ResponseEntity.ok(classSessionService.listSessions(classId));
     }
 
+    @PreAuthorize("hasPermission(null, 'academic.class.manage')")
     @PostMapping
     public ResponseEntity<ClassSessionResponse> createSession(@PathVariable Long classId,
                                                                   @Valid @RequestBody CreateClassSessionRequest request,

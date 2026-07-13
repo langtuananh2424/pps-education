@@ -19,7 +19,6 @@ import vn.com.pps.education.dto.ExerciseAssignmentResponse;
 import vn.com.pps.education.dto.ExerciseQuestionResponse;
 import vn.com.pps.education.dto.ExerciseResponse;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
-import vn.com.pps.education.exception.NotTeacherRoleException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.repository.ClassEnrollmentRepository;
 import vn.com.pps.education.repository.ClassTeacherRepository;
@@ -31,16 +30,18 @@ import vn.com.pps.education.repository.ExerciseRepository;
 import vn.com.pps.education.repository.QuestionRepository;
 import vn.com.pps.education.repository.SchoolClassRepository;
 import vn.com.pps.education.repository.UserRepository;
-import vn.com.pps.education.repository.UserRoleRepository;
 
 import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * UC-40: Soạn & giao đề kiểm tra (FR-LMS-10) — phần lắp đề + giao đề.
  * Xem docs/uc/phan-he-07-lms-portal.md. Dùng chung Question (ngân hàng)
  * từ QuestionBankService, không gộp 2 Service (xem Javadoc đó).
+ *
+ * createExercise/addQuestion/publishExercise (TEACHER) qua
+ * @PreAuthorize("hasPermission(null,'lms.exercise.manage')") ở
+ * ExerciseController (Hybrid PBAC — V28). assignExercise vẫn dùng
+ * requireAssignedTeacher — row-level scope check (đúng lớp cụ thể).
  */
 @Service
 public class ExerciseService {
@@ -55,7 +56,6 @@ public class ExerciseService {
     private final ClassTeacherRepository classTeacherRepository;
     private final ClassEnrollmentRepository classEnrollmentRepository;
     private final UserRepository userRepository;
-    private final UserRoleRepository userRoleRepository;
     private final NotificationService notificationService;
 
     public ExerciseService(ExerciseRepository exerciseRepository,
@@ -68,7 +68,6 @@ public class ExerciseService {
                             ClassTeacherRepository classTeacherRepository,
                             ClassEnrollmentRepository classEnrollmentRepository,
                             UserRepository userRepository,
-                            UserRoleRepository userRoleRepository,
                             NotificationService notificationService) {
         this.exerciseRepository = exerciseRepository;
         this.exerciseQuestionRepository = exerciseQuestionRepository;
@@ -80,14 +79,12 @@ public class ExerciseService {
         this.classTeacherRepository = classTeacherRepository;
         this.classEnrollmentRepository = classEnrollmentRepository;
         this.userRepository = userRepository;
-        this.userRoleRepository = userRoleRepository;
         this.notificationService = notificationService;
     }
 
     /** Main Flow bước 2: soạn đề (DRAFT), chọn loại SELF_PRACTICE/ASSIGNED/... */
     @Transactional
     public ExerciseResponse createExercise(CreateExerciseRequest request, Long actorUserId) {
-        requireTeacher(actorUserId);
         User actor = getUserOrThrow(actorUserId);
 
         Exercise exercise = new Exercise();
@@ -113,7 +110,6 @@ public class ExerciseService {
     /** Main Flow bước 1: gắn câu hỏi (từ ngân hàng hoặc vừa soạn) vào đề. */
     @Transactional
     public ExerciseQuestionResponse addQuestion(Long exerciseId, AddExerciseQuestionRequest request, Long actorUserId) {
-        requireTeacher(actorUserId);
         Exercise exercise = getExerciseOrThrow(exerciseId);
         Question question = questionRepository.findById(request.questionId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy câu hỏi id=" + request.questionId()));
@@ -146,7 +142,6 @@ public class ExerciseService {
     /** Main Flow bước 4 (SELF_PRACTICE): xác nhận lưu đề, không cần giao lớp. */
     @Transactional
     public ExerciseResponse publishExercise(Long id, Long actorUserId) {
-        requireTeacher(actorUserId);
         Exercise exercise = getExerciseOrThrow(id);
         exercise.setStatus(Exercise.Status.PUBLISHED);
         exercise = exerciseRepository.save(exercise);
@@ -201,24 +196,11 @@ public class ExerciseService {
         }
     }
 
-    private void requireTeacher(Long actorUserId) {
-        if (!roleCodesOf(actorUserId).contains("TEACHER")) {
-            throw new NotTeacherRoleException(
-                    "Tài khoản id=" + actorUserId + " không có role TEACHER để soạn đề.");
-        }
-    }
-
     private void requireAssignedTeacher(Long classId, Long actorUserId) {
         if (!classTeacherRepository.existsBySchoolClassIdAndTeacherIdAndAssignedToIsNull(classId, actorUserId)) {
             throw new NotAssignedTeacherForClassException(
                     "Tài khoản id=" + actorUserId + " không được phân công giảng dạy lớp id=" + classId + ".");
         }
-    }
-
-    private Set<String> roleCodesOf(Long userId) {
-        return userRoleRepository.findByUserId(userId).stream()
-                .map(ur -> ur.getRole().getCode())
-                .collect(Collectors.toSet());
     }
 
     private User getUserOrThrow(Long id) {

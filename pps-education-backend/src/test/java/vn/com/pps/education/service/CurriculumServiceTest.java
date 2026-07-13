@@ -16,7 +16,6 @@ import vn.com.pps.education.dto.UpdateClassRequest;
 import vn.com.pps.education.dto.UpdateCurriculumRequest;
 import vn.com.pps.education.exception.CurriculumUpdateConfirmationRequiredException;
 import vn.com.pps.education.exception.DuplicateCurriculumCodeException;
-import vn.com.pps.education.exception.NotHeadAcademicException;
 import vn.com.pps.education.repository.RoleRepository;
 import vn.com.pps.education.repository.SiteRepository;
 import vn.com.pps.education.repository.UserRepository;
@@ -73,16 +72,6 @@ class CurriculumServiceTest extends AbstractIntegrationTest {
         assertThat(response.id()).isNotNull();
         assertThat(response.status()).isEqualTo("DRAFT");
         assertThat(response.siteId()).isNull();
-    }
-
-    @Test
-    void create_rejectsWhenActorNotHeadAcademic() {
-        User staff = newUser("not.head.academic");
-        assignRole(staff, "STAFF");
-
-        assertThatThrownBy(() -> curriculumService.create(
-                new CreateCurriculumRequest(curriculumCode(), "X", "MAIN", null, null, null), staff.getId()))
-                .isInstanceOf(NotHeadAcademicException.class);
     }
 
     @Test

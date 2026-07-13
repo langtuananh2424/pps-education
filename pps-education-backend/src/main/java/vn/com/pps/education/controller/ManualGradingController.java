@@ -2,6 +2,7 @@ package vn.com.pps.education.controller;
 
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -18,6 +19,7 @@ import java.util.List;
 
 /** UC-41: Chấm bài thủ công (FR-LMS-11) — xem Javadoc ManualGradingService. */
 @RestController
+@PreAuthorize("hasPermission(null, 'lms.grading.manage')")
 public class ManualGradingController {
 
     private final ManualGradingService manualGradingService;

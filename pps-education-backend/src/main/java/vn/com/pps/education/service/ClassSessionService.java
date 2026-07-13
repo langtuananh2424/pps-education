@@ -12,7 +12,6 @@ import vn.com.pps.education.domain.User;
 import vn.com.pps.education.dto.ClassSessionResponse;
 import vn.com.pps.education.dto.CreateClassSessionRequest;
 import vn.com.pps.education.dto.SessionPeriodResponse;
-import vn.com.pps.education.exception.NotAuthorizedForClassManagementException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.exception.RoomConflictException;
 import vn.com.pps.education.repository.ClassSessionHistoryRepository;
@@ -23,15 +22,12 @@ import vn.com.pps.education.repository.SessionPeriodHistoryRepository;
 import vn.com.pps.education.repository.SessionPeriodRepository;
 import vn.com.pps.education.repository.SystemSettingRepository;
 import vn.com.pps.education.repository.UserRepository;
-import vn.com.pps.education.repository.UserRoleRepository;
 
 import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * Xếp lịch buổi học (class_sessions/session_periods) — nền tảng bắt buộc
@@ -49,12 +45,15 @@ import java.util.stream.Collectors;
  * session_periods tự sinh theo system_settings.academic.default_periods_per_session
  * (key mới, xác nhận với user — SDD chỉ nói "mặc định 2 tiết/buổi theo
  * system_settings" không nêu setting_key cụ thể).
+ *
+ * Authorization qua @PreAuthorize("hasPermission(null,'academic.class.manage')")
+ * ở ClassSessionController (Hybrid PBAC — V28, dùng chung permission với
+ * UC-18 vì cùng tập role HEAD_ACADEMIC/STAFF).
  */
 @Service
 public class ClassSessionService {
 
     private static final String DEFAULT_PERIODS_SETTING_KEY = "academic.default_periods_per_session";
-    private static final Set<String> AUTHORIZED_ROLE_CODES = Set.of("HEAD_ACADEMIC", "STAFF");
 
     private final ClassSessionRepository classSessionRepository;
     private final SessionPeriodRepository sessionPeriodRepository;
@@ -64,7 +63,6 @@ public class ClassSessionService {
     private final RoomRepository roomRepository;
     private final SystemSettingRepository systemSettingRepository;
     private final UserRepository userRepository;
-    private final UserRoleRepository userRoleRepository;
 
     public ClassSessionService(ClassSessionRepository classSessionRepository,
                                 SessionPeriodRepository sessionPeriodRepository,
@@ -73,8 +71,7 @@ public class ClassSessionService {
                                 SchoolClassRepository schoolClassRepository,
                                 RoomRepository roomRepository,
                                 SystemSettingRepository systemSettingRepository,
-                                UserRepository userRepository,
-                                UserRoleRepository userRoleRepository) {
+                                UserRepository userRepository) {
         this.classSessionRepository = classSessionRepository;
         this.sessionPeriodRepository = sessionPeriodRepository;
         this.classSessionHistoryRepository = classSessionHistoryRepository;
@@ -83,7 +80,6 @@ public class ClassSessionService {
         this.roomRepository = roomRepository;
         this.systemSettingRepository = systemSettingRepository;
         this.userRepository = userRepository;
-        this.userRoleRepository = userRoleRepository;
     }
 
     @Transactional(readOnly = true)
@@ -101,7 +97,6 @@ public class ClassSessionService {
     /** Tạo 1 buổi học + tự sinh session_periods. FR-FAC-03: kiểm tra trùng phòng (chỉ phòng is_flexible=FALSE). */
     @Transactional
     public ClassSessionResponse createSession(Long classId, CreateClassSessionRequest request, Long actorUserId) {
-        requireAuthorized(actorUserId);
         SchoolClass schoolClass = schoolClassRepository.findByIdAndDeletedAtIsNull(classId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học id=" + classId));
         if (!request.endTime().isAfter(request.startTime())) {
@@ -163,20 +158,6 @@ public class ClassSessionService {
             writeSessionPeriodHistory(period, actor, SessionPeriodHistory.Action.CREATED);
             cursor = periodEnd;
         }
-    }
-
-    private void requireAuthorized(Long actorUserId) {
-        Set<String> roleCodes = roleCodesOf(actorUserId);
-        if (roleCodes.stream().noneMatch(AUTHORIZED_ROLE_CODES::contains)) {
-            throw new NotAuthorizedForClassManagementException(
-                    "Tài khoản id=" + actorUserId + " không có role HEAD_ACADEMIC/STAFF để xếp lịch buổi học.");
-        }
-    }
-
-    private Set<String> roleCodesOf(Long userId) {
-        return userRoleRepository.findByUserId(userId).stream()
-                .map(ur -> ur.getRole().getCode())
-                .collect(Collectors.toSet());
     }
 
     private void writeClassSessionHistory(ClassSession session, User actor, ClassSessionHistory.Action action) {

@@ -17,7 +17,6 @@ import vn.com.pps.education.dto.CreateCurriculumRequest;
 import vn.com.pps.education.dto.CurriculumResponse;
 import vn.com.pps.education.dto.SessionPeriodResponse;
 import vn.com.pps.education.dto.UpdateCurriculumRequest;
-import vn.com.pps.education.exception.NotAuthorizedForClassManagementException;
 import vn.com.pps.education.exception.RoomConflictException;
 import vn.com.pps.education.repository.RoleRepository;
 import vn.com.pps.education.repository.RoomRepository;
@@ -103,18 +102,6 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
         assertThat(periods.get(0).periodNumber()).isEqualTo(1);
         assertThat(periods.get(0).startTime()).isEqualTo(LocalTime.of(8, 0));
         assertThat(periods.get(1).endTime()).isEqualTo(LocalTime.of(9, 40));
-    }
-
-    @Test
-    void createSession_rejectsWhenActorNotAuthorized() {
-        User outsider = newUser("outsider");
-        assignRole(outsider, "TEACHER");
-
-        assertThatThrownBy(() -> classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(LocalDate.now().plusDays(1), LocalTime.of(8, 0), LocalTime.of(9, 40),
-                        room.getId(), teacher.getId(), "REGULAR"),
-                outsider.getId()))
-                .isInstanceOf(NotAuthorizedForClassManagementException.class);
     }
 
     @Test

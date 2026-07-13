@@ -2,6 +2,7 @@ package vn.com.pps.education.controller;
 
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -29,6 +30,7 @@ public class ExerciseController {
         this.exerciseService = exerciseService;
     }
 
+    @PreAuthorize("hasPermission(null, 'lms.exercise.manage')")
     @PostMapping("/api/exercises")
     public ResponseEntity<ExerciseResponse> createExercise(@Valid @RequestBody CreateExerciseRequest request,
                                                              @AuthenticationPrincipal AuthenticatedUser actor) {
@@ -40,6 +42,7 @@ public class ExerciseController {
         return ResponseEntity.ok(exerciseService.getExercise(id));
     }
 
+    @PreAuthorize("hasPermission(null, 'lms.exercise.manage')")
     @PostMapping("/api/exercises/{id}/questions")
     public ResponseEntity<ExerciseQuestionResponse> addQuestion(@PathVariable Long id,
                                                                   @Valid @RequestBody AddExerciseQuestionRequest request,
@@ -52,6 +55,7 @@ public class ExerciseController {
         return ResponseEntity.ok(exerciseService.listQuestions(id));
     }
 
+    @PreAuthorize("hasPermission(null, 'lms.exercise.manage')")
     @PostMapping("/api/exercises/{id}/publish")
     public ResponseEntity<ExerciseResponse> publishExercise(@PathVariable Long id,
                                                               @AuthenticationPrincipal AuthenticatedUser actor) {

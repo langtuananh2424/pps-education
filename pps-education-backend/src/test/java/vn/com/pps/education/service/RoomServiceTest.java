@@ -15,7 +15,6 @@ import vn.com.pps.education.dto.RoomResponse;
 import vn.com.pps.education.dto.UpdateEquipmentStatusRequest;
 import vn.com.pps.education.dto.UpdateRoomRequest;
 import vn.com.pps.education.exception.DuplicateRoomCodeException;
-import vn.com.pps.education.exception.NotAuthorizedForFacilityManagementException;
 import vn.com.pps.education.repository.RoleRepository;
 import vn.com.pps.education.repository.SiteRepository;
 import vn.com.pps.education.repository.UserRepository;
@@ -78,16 +77,6 @@ class RoomServiceTest extends AbstractIntegrationTest {
         assertThatThrownBy(() -> roomService.createRoom(
                 new CreateRoomRequest(site.getId(), "P101", "Phòng khác", "LAB", 20, false, true), staff.getId()))
                 .isInstanceOf(DuplicateRoomCodeException.class);
-    }
-
-    @Test
-    void createRoom_rejectsWhenActorNotAuthorized() {
-        User parent = newUser("parent");
-        assignRole(parent, "PARENT");
-
-        assertThatThrownBy(() -> roomService.createRoom(
-                new CreateRoomRequest(site.getId(), "P101", "Phòng 101", "THEORY", 30, false, true), parent.getId()))
-                .isInstanceOf(NotAuthorizedForFacilityManagementException.class);
     }
 
     @Test

@@ -24,7 +24,6 @@ import vn.com.pps.education.dto.GenerateInvoicesRequest;
 import vn.com.pps.education.dto.InvoiceResponse;
 import vn.com.pps.education.dto.RecordManualPaymentRequest;
 import vn.com.pps.education.dto.UpdateCurriculumRequest;
-import vn.com.pps.education.exception.NotExecutiveException;
 import vn.com.pps.education.exception.NotSiteManagerForSiteException;
 import vn.com.pps.education.repository.RoleRepository;
 import vn.com.pps.education.repository.SiteManagerRepository;
@@ -186,12 +185,6 @@ class FinanceReportServiceTest extends AbstractIntegrationTest {
         assertThat(report.totalRevenue()).isEqualByComparingTo("2000000");
         assertThat(report.totalExpense()).isEqualByComparingTo("500000");
         assertThat(report.bySite()).anyMatch(s -> s.siteId().equals(site.getId()));
-    }
-
-    @Test
-    void getChainReport_rejectsWhenActorNotExecutive() {
-        assertThatThrownBy(() -> financeReportService.getChainReport(periodFrom, periodTo, siteManagerUser.getId()))
-                .isInstanceOf(NotExecutiveException.class);
     }
 
     private String curriculumCode() {

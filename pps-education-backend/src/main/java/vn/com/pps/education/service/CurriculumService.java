@@ -24,7 +24,6 @@ import vn.com.pps.education.exception.ApprovalAlreadyDecidedException;
 import vn.com.pps.education.exception.CurriculumNotEditableException;
 import vn.com.pps.education.exception.CurriculumUpdateConfirmationRequiredException;
 import vn.com.pps.education.exception.DuplicateCurriculumCodeException;
-import vn.com.pps.education.exception.NotHeadAcademicException;
 import vn.com.pps.education.exception.NotSiteManagerForSiteException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.repository.ApprovalFlowRepository;
@@ -36,14 +35,11 @@ import vn.com.pps.education.repository.SchoolClassRepository;
 import vn.com.pps.education.repository.SiteManagerRepository;
 import vn.com.pps.education.repository.SiteRepository;
 import vn.com.pps.education.repository.UserRepository;
-import vn.com.pps.education.repository.UserRoleRepository;
 
 import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * UC-16: Quản lý khung chương trình (FR-ACA-01) + UC-16b: Đề xuất khung
@@ -62,8 +58,12 @@ import java.util.stream.Collectors;
  * REJECTED, curriculum quay về DRAFT (không có giá trị "REJECTED" riêng
  * trong curriculums.status — lý do từ chối lưu ở approval_flows.comment).
  *
- * Không dùng @PreAuthorize hasPermission — Precondition các UC này chỉ
- * nêu role (HEAD_ACADEMIC/SITE_MANAGER), không có permission code cụ thể.
+ * HEAD_ACADEMIC (create/update/addSubject/listPendingApprovals/decideApproval)
+ * qua @PreAuthorize("hasPermission(null,'academic.curriculum.manage')") ở
+ * CurriculumController (Hybrid PBAC — V28). SITE_MANAGER (createCustomCopy/
+ * updateCustomCopy/submitForApproval) vẫn giữ requireSiteManagerForSite —
+ * đây là row-level scope check (site cụ thể), không phải role-hardcode nên
+ * hasPermission(null,...) không thay thế được (tham số object luôn null).
  */
 @Service
 public class CurriculumService {
@@ -77,7 +77,6 @@ public class CurriculumService {
     private final SiteManagerRepository siteManagerRepository;
     private final ApprovalFlowRepository approvalFlowRepository;
     private final UserRepository userRepository;
-    private final UserRoleRepository userRoleRepository;
 
     public CurriculumService(CurriculumRepository curriculumRepository,
                               CurriculumSubjectRepository curriculumSubjectRepository,
@@ -87,8 +86,7 @@ public class CurriculumService {
                               SiteRepository siteRepository,
                               SiteManagerRepository siteManagerRepository,
                               ApprovalFlowRepository approvalFlowRepository,
-                              UserRepository userRepository,
-                              UserRoleRepository userRoleRepository) {
+                              UserRepository userRepository) {
         this.curriculumRepository = curriculumRepository;
         this.curriculumSubjectRepository = curriculumSubjectRepository;
         this.curriculumHistoryRepository = curriculumHistoryRepository;
@@ -98,7 +96,6 @@ public class CurriculumService {
         this.siteManagerRepository = siteManagerRepository;
         this.approvalFlowRepository = approvalFlowRepository;
         this.userRepository = userRepository;
-        this.userRoleRepository = userRoleRepository;
     }
 
     @Transactional(readOnly = true)
@@ -114,7 +111,6 @@ public class CurriculumService {
     /** Main Flow bước 1-3: khởi tạo khung chương trình chuẩn mới (status DRAFT). */
     @Transactional
     public CurriculumResponse create(CreateCurriculumRequest request, Long actorUserId) {
-        requireHeadAcademic(actorUserId);
         if (curriculumRepository.findByCode(request.code()).isPresent()) {
             throw new DuplicateCurriculumCodeException("Mã khung chương trình đã tồn tại: " + request.code());
         }
@@ -140,7 +136,6 @@ public class CurriculumService {
     /** Main Flow bước 2, A1: cập nhật khung chương trình đã có. */
     @Transactional
     public CurriculumResponse update(Long id, UpdateCurriculumRequest request, Long actorUserId) {
-        requireHeadAcademic(actorUserId);
         Curriculum curriculum = getCurriculumOrThrow(id);
         User actor = userRepository.findById(actorUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
@@ -175,7 +170,6 @@ public class CurriculumService {
     /** Main Flow bước 2: thêm 1 học phần vào khung chương trình. */
     @Transactional
     public CurriculumSubjectResponse addSubject(Long curriculumId, CreateCurriculumSubjectRequest request, Long actorUserId) {
-        requireHeadAcademic(actorUserId);
         Curriculum curriculum = getCurriculumOrThrow(curriculumId);
         User actor = userRepository.findById(actorUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
@@ -305,7 +299,6 @@ public class CurriculumService {
     /** UC-17 Main Flow bước 1: danh sách đề xuất tùy biến đang Chờ duyệt. */
     @Transactional(readOnly = true)
     public List<CurriculumApprovalResponse> listPendingApprovals(Long actorUserId) {
-        requireHeadAcademic(actorUserId);
         return approvalFlowRepository
                 .findByEntityTypeAndStatusOrderBySubmittedAtAsc(ApprovalFlow.EntityType.CURRICULUM, ApprovalFlow.Status.PENDING)
                 .stream()
@@ -320,7 +313,6 @@ public class CurriculumService {
      */
     @Transactional
     public CurriculumApprovalResponse decideApproval(Long approvalFlowId, DecideCurriculumApprovalRequest request, Long actorUserId) {
-        requireHeadAcademic(actorUserId);
         ApprovalFlow flow = approvalFlowRepository.findById(approvalFlowId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đề xuất id=" + approvalFlowId));
         if (flow.getEntityType() != ApprovalFlow.EntityType.CURRICULUM) {
@@ -375,19 +367,6 @@ public class CurriculumService {
         }
     }
 
-    private void requireHeadAcademic(Long actorUserId) {
-        Set<String> roleCodes = roleCodesOf(actorUserId);
-        if (!roleCodes.contains("HEAD_ACADEMIC")) {
-            throw new NotHeadAcademicException(
-                    "Tài khoản id=" + actorUserId + " không có role HEAD_ACADEMIC để quản lý khung chương trình.");
-        }
-    }
-
-    private Set<String> roleCodesOf(Long userId) {
-        return userRoleRepository.findByUserId(userId).stream()
-                .map(ur -> ur.getRole().getCode())
-                .collect(Collectors.toSet());
-    }
 
     private void writeCurriculumHistory(Curriculum curriculum, User actor, CurriculumHistory.Action action) {
         CurriculumHistory history = new CurriculumHistory();
