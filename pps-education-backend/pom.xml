@@ -26,7 +26,14 @@
         <java.version>21</java.version>
         <jjwt.version>0.12.6</jjwt.version>
         <mapstruct.version>1.6.0</mapstruct.version>
-        <testcontainers.version>1.20.4</testcontainers.version>
+        <!-- LƯU Ý máy dev Docker Desktop >= 29.x (engine MinAPIVersion 1.40):
+             Testcontainers probe Docker bằng GET /v1.32/info (ghim cứng) -> engine
+             trả 400 -> "Could not find a valid Docker environment" dù daemon chạy
+             bình thường. Fix ở MỨC MÁY (không phải trong repo): tạo file
+             %USERPROFILE%\.docker-java.properties với nội dung `api.version=1.44`.
+             Version 1.21.3 dưới đây chỉ là cập nhật lên bản mới nhất, tự nó
+             KHÔNG sửa được lỗi trên. -->
+        <testcontainers.version>1.21.3</testcontainers.version>
     </properties>
 
     <dependencies>
