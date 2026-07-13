@@ -3,16 +3,20 @@ package vn.com.pps.education.controller;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import vn.com.pps.education.dto.CurrentUserResponse;
 import vn.com.pps.education.dto.GoogleLoginRequest;
 import vn.com.pps.education.dto.LoginRequest;
 import vn.com.pps.education.dto.LoginResponse;
 import vn.com.pps.education.dto.LogoutRequest;
 import vn.com.pps.education.dto.RefreshTokenRequest;
 import vn.com.pps.education.dto.RefreshTokenResponse;
+import vn.com.pps.education.security.AuthenticatedUser;
 import vn.com.pps.education.service.AuthService;
 
 /** UC-01: Đăng nhập hệ thống (FR-AUT-01, FR-AUT-02). */
@@ -48,5 +52,11 @@ public class AuthController {
     public ResponseEntity<Void> logout(@Valid @RequestBody LogoutRequest request) {
         authService.logout(request);
         return ResponseEntity.noContent().build();
+    }
+
+    /** Hồ sơ tài khoản đang đăng nhập — phục vụ sidebar/header phía frontend. Yêu cầu JWT (xem SecurityConfig). */
+    @GetMapping("/me")
+    public ResponseEntity<CurrentUserResponse> me(@AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(authService.getCurrentUser(actor.userId()));
     }
 }

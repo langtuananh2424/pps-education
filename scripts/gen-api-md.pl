@@ -115,6 +115,10 @@ sub inputcell {
 }
 sub authcell {
     my ($path, $tagclass, $method) = @_;
+    # /api/auth/me yêu cầu JWT (rule riêng trong SecurityConfig, khai báo
+    # TRƯỚC "/api/auth/**" permitAll) -- không thuộc nhóm Công khai như các
+    # endpoint /api/auth/* còn lại (login/refresh/logout).
+    return 'JWT' if $path eq '/api/auth/me';
     return 'Công khai' if $path =~ m{^/api/auth/};
     return 'Header `X-Webhook-Secret`' if $path =~ m{^/api/webhooks/};
     $method =~ s/_\d+$//;
