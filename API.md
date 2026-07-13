@@ -74,6 +74,7 @@
 | POST | `/api/auth/login` | Công khai | Body: [LoginRequest](#loginrequest) | [LoginResponse](#loginresponse) |
 | POST | `/api/auth/login/google` | Công khai | Body: [GoogleLoginRequest](#googleloginrequest) | [LoginResponse](#loginresponse) |
 | POST | `/api/auth/logout` | Công khai | Body: [LogoutRequest](#logoutrequest) | 200 (không có body) |
+| GET | `/api/auth/me` | JWT | — | [CurrentUserResponse](#currentuserresponse) |
 | POST | `/api/auth/refresh` | Công khai | Body: [RefreshTokenRequest](#refreshtokenrequest) | [RefreshTokenResponse](#refreshtokenresponse) |
 
 ## Khởi tạo tài khoản người dùng (UC-43)

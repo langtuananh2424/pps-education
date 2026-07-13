@@ -8,14 +8,19 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.LoginAttempt;
+import vn.com.pps.education.domain.Role;
 import vn.com.pps.education.domain.User;
+import vn.com.pps.education.domain.UserRole;
+import vn.com.pps.education.dto.CurrentUserResponse;
 import vn.com.pps.education.dto.LoginRequest;
 import vn.com.pps.education.dto.LoginResponse;
 import vn.com.pps.education.exception.AccountInactiveException;
 import vn.com.pps.education.exception.AccountLockedException;
 import vn.com.pps.education.exception.InvalidCredentialsException;
 import vn.com.pps.education.repository.LoginAttemptRepository;
+import vn.com.pps.education.repository.RoleRepository;
 import vn.com.pps.education.repository.UserRepository;
+import vn.com.pps.education.repository.UserRoleRepository;
 import vn.com.pps.education.security.JwtService;
 import vn.com.pps.education.support.AbstractIntegrationTest;
 
@@ -42,6 +47,12 @@ class AuthServiceTest extends AbstractIntegrationTest {
 
     @Autowired
     private LoginAttemptRepository loginAttemptRepository;
+
+    @Autowired
+    private RoleRepository roleRepository;
+
+    @Autowired
+    private UserRoleRepository userRoleRepository;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -160,5 +171,31 @@ class AuthServiceTest extends AbstractIntegrationTest {
         List<LoginAttempt> attempts = attemptsFor(activeUser);
         assertThat(attempts).hasSize(1);
         assertThat(attempts.get(0).getFailureReason()).isEqualTo(LoginAttempt.FailureReason.USER_INACTIVE);
+    }
+
+    @Test
+    void getCurrentUser_returnsProfileWithRoleCodes() {
+        Role teacherRole = roleRepository.findByCode("TEACHER").orElseThrow();
+        UserRole userRole = new UserRole();
+        userRole.setUser(activeUser);
+        userRole.setRole(teacherRole);
+        userRole.setAssignedBy(activeUser);
+        userRoleRepository.save(userRole);
+
+        CurrentUserResponse response = authService.getCurrentUser(activeUser.getId());
+
+        assertThat(response.id()).isEqualTo(activeUser.getId());
+        assertThat(response.username()).isEqualTo(activeUser.getUsername());
+        assertThat(response.email()).isEqualTo(activeUser.getEmail());
+        assertThat(response.fullName()).isEqualTo(activeUser.getFullName());
+        assertThat(response.departmentName()).isNull(); // chưa gán phòng ban trong setUp()
+        assertThat(response.roleCodes()).containsExactly("TEACHER");
+    }
+
+    @Test
+    void getCurrentUser_returnsEmptyRoleCodesWhenNoRoleAssigned() {
+        CurrentUserResponse response = authService.getCurrentUser(activeUser.getId());
+
+        assertThat(response.roleCodes()).isEmpty();
     }
 }
