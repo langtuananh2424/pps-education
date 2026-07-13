@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.LoginAttempt;
 import vn.com.pps.education.domain.RefreshToken;
 import vn.com.pps.education.domain.User;
+import vn.com.pps.education.dto.CurrentUserResponse;
 import vn.com.pps.education.dto.GoogleLoginRequest;
 import vn.com.pps.education.dto.LoginRequest;
 import vn.com.pps.education.dto.LoginResponse;
@@ -19,6 +20,7 @@ import vn.com.pps.education.exception.AccountLockedException;
 import vn.com.pps.education.exception.GoogleAccountNotProvisionedException;
 import vn.com.pps.education.exception.InvalidCredentialsException;
 import vn.com.pps.education.exception.InvalidRefreshTokenException;
+import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.domain.Notification;
 import vn.com.pps.education.repository.LoginAttemptRepository;
 import vn.com.pps.education.repository.RefreshTokenRepository;
@@ -195,6 +197,23 @@ public class AuthService {
                 refreshTokenRepository.save(token);
             }
         });
+    }
+
+    /**
+     * GET /api/auth/me — hồ sơ tài khoản đang đăng nhập, phục vụ hiển thị
+     * sidebar/header phía frontend. Không thuộc UC-01 (không phải luồng đăng
+     * nhập) nhưng đặt cùng AuthService/AuthController vì cùng thao tác trên
+     * chính tài khoản đang giữ JWT — không cần permission code riêng, chỉ
+     * cần đã xác thực.
+     */
+    @Transactional(readOnly = true)
+    public CurrentUserResponse getCurrentUser(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + userId));
+        return new CurrentUserResponse(
+                user.getId(), user.getUsername(), user.getEmail(), user.getFullName(), user.getPhone(),
+                user.getDepartment() == null ? null : user.getDepartment().getName(),
+                rolesOf(user));
     }
 
     /** A2 (khóa 5 lần sai) + A3 (INACTIVE/SUSPENDED) — áp dụng cho cả luồng mật khẩu và Google. */
