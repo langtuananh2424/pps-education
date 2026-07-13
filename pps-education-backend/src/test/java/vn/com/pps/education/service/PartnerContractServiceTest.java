@@ -62,6 +62,7 @@ class PartnerContractServiceTest extends AbstractIntegrationTest {
     private SiteManagerRepository siteManagerRepository;
 
     private User opsManager;
+    private User headAcademic;
     private User siteManagerUser;
     private Site partnerSite;
 
@@ -69,6 +70,8 @@ class PartnerContractServiceTest extends AbstractIntegrationTest {
     void setUp() {
         opsManager = newUser("opsmanager");
         assignRole(opsManager, "OPS_MANAGER");
+        headAcademic = newUser("headacademic");
+        assignRole(headAcademic, "HEAD_ACADEMIC");
         siteManagerUser = newUser("sitemanager");
         assignRole(siteManagerUser, "SITE_MANAGER");
 
@@ -142,7 +145,7 @@ class PartnerContractServiceTest extends AbstractIntegrationTest {
     void terminateContract_UC36b_A2_marksTerminatedAndNotifiesSiteManagerWithActiveClasses() {
         Long curriculumId = createActiveCurriculumId();
         classService.create(new CreateClassRequest(classCode(), "Lop lien ket", partnerSite.getId(), curriculumId,
-                "LINKED", 20, null, LocalDate.now(), null, null, null), opsManager.getId());
+                "LINKED", 20, null, LocalDate.now(), null, null, null), headAcademic.getId());
 
         PartnerContractResponse contract = partnerContractService.createContract(baseRequest(), opsManager.getId());
         partnerContractService.updateContract(contract.id(),
@@ -157,10 +160,10 @@ class PartnerContractServiceTest extends AbstractIntegrationTest {
     private Long createActiveCurriculumId() {
         var curriculum = curriculumService.create(
                 new vn.com.pps.education.dto.CreateCurriculumRequest(curriculumCode(), "Chuẩn", "MAIN", null, null, null),
-                opsManager.getId());
+                headAcademic.getId());
         var active = curriculumService.update(curriculum.id(),
                 new vn.com.pps.education.dto.UpdateCurriculumRequest("Chuẩn", null, null, null, "ACTIVE", false),
-                opsManager.getId());
+                headAcademic.getId());
         return active.id();
     }
 

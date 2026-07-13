@@ -116,7 +116,13 @@ public class SiteService {
                 savePartnerInfo(site, request.partnerInfo(), actor);
             }
         } else {
-            partnerSchoolInfoRepository.findBySiteId(site.getId()).ifPresent(partnerSchoolInfoRepository::delete);
+            partnerSchoolInfoRepository.findBySiteId(site.getId()).ifPresent(info -> {
+                // Xóa history trước - FK partner_school_info_history -> partner_school_info
+                // chặn xóa cha nếu còn history con tham chiếu (V27, thêm sau khi bảng này
+                // đã có sẵn hành vi hard-delete từ UC-36 gốc).
+                partnerSchoolInfoHistoryRepository.deleteByPartnerSchoolInfoId(info.getId());
+                partnerSchoolInfoRepository.delete(info);
+            });
         }
 
         writeSiteHistory(site, actor, SiteHistory.Action.UPDATED, Map.of(
