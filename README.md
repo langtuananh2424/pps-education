@@ -102,6 +102,25 @@ mvn test        # unit + integration test (Testcontainers — cần Docker chạ
 mvn clean verify
 ```
 
+### Tài liệu API
+
+- **Nguồn sống** (luôn mới nhất): chạy app rồi mở Swagger UI —
+  http://localhost:8080/swagger-ui.html
+- **Bản chụp đọc offline**: [`API.md`](./API.md) — toàn bộ endpoint (method,
+  path, quyền yêu cầu, input/output) + phụ lục schema. File này được SINH TỰ
+  ĐỘNG, không sửa tay. Khi API thay đổi, sinh lại bằng:
+
+```bash
+# 1. Chạy app trước (docker compose up -d --build  HOẶC  mvn spring-boot:run)
+# 2. Từ gốc repo (Windows: chạy trong Git Bash — có sẵn perl + curl):
+perl scripts/gen-api-md.pl
+```
+
+Script tự tải đặc tả từ `http://localhost:8080/v3/api-docs` và quét
+`@PreAuthorize` trong source Controller để điền cột quyền (thông tin này
+không có trong OpenAPI). Nếu đã có sẵn file spec thì truyền làm tham số:
+`perl scripts/gen-api-md.pl duong-dan/openapi.json`.
+
 ## Trạng thái hiện tại
 
 Toàn bộ 10 Phân hệ nghiệp vụ trong [`docs/uc/`](./docs/uc) đã được triển khai
