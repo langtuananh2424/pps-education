@@ -26,7 +26,6 @@ import vn.com.pps.education.exception.CurriculumNotActiveException;
 import vn.com.pps.education.exception.CurriculumNotAvailableForSiteException;
 import vn.com.pps.education.exception.DuplicateClassCodeException;
 import vn.com.pps.education.exception.LinkedClassRequiresPartnerSiteException;
-import vn.com.pps.education.exception.NotAuthorizedForClassManagementException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.repository.ClassEnrollmentHistoryRepository;
 import vn.com.pps.education.repository.ClassEnrollmentRepository;
@@ -39,13 +38,10 @@ import vn.com.pps.education.repository.SchoolClassRepository;
 import vn.com.pps.education.repository.SiteRepository;
 import vn.com.pps.education.repository.StudentRepository;
 import vn.com.pps.education.repository.UserRepository;
-import vn.com.pps.education.repository.UserRoleRepository;
 
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * UC-18: Xếp lớp & gán khóa học (FR-ACA-02).
@@ -60,15 +56,11 @@ import java.util.stream.Collectors;
  * (giống cách EmployeeService gộp Employee+Contract+Qualification —
  * cùng 1 UC-18, các bảng phụ trợ trực tiếp).
  *
- * Không dùng @PreAuthorize hasPermission — Precondition UC-18 không nêu
- * permission code cụ thể, chỉ nêu actor (HEAD_ACADEMIC quyết định, STAFF
- * nhập liệu) — role-based check trong Service (cùng pattern
- * CurriculumService/StudentStatusService).
+ * Authorization qua @PreAuthorize("hasPermission(null,'academic.class.manage')")
+ * ở ClassController (Hybrid PBAC — V28), không còn role-check trong Service.
  */
 @Service
 public class ClassService {
-
-    private static final Set<String> AUTHORIZED_ROLE_CODES = Set.of("HEAD_ACADEMIC", "STAFF");
 
     private final SchoolClassRepository schoolClassRepository;
     private final ClassTeacherRepository classTeacherRepository;
@@ -81,7 +73,6 @@ public class ClassService {
     private final SiteRepository siteRepository;
     private final StudentRepository studentRepository;
     private final UserRepository userRepository;
-    private final UserRoleRepository userRoleRepository;
 
     public ClassService(SchoolClassRepository schoolClassRepository,
                          ClassTeacherRepository classTeacherRepository,
@@ -93,8 +84,7 @@ public class ClassService {
                          CurriculumSubjectRepository curriculumSubjectRepository,
                          SiteRepository siteRepository,
                          StudentRepository studentRepository,
-                         UserRepository userRepository,
-                         UserRoleRepository userRoleRepository) {
+                         UserRepository userRepository) {
         this.schoolClassRepository = schoolClassRepository;
         this.classTeacherRepository = classTeacherRepository;
         this.classEnrollmentRepository = classEnrollmentRepository;
@@ -106,7 +96,6 @@ public class ClassService {
         this.siteRepository = siteRepository;
         this.studentRepository = studentRepository;
         this.userRepository = userRepository;
-        this.userRoleRepository = userRoleRepository;
     }
 
     @Transactional(readOnly = true)
@@ -125,7 +114,6 @@ public class ClassService {
     /** Main Flow bước 3-6, A2: khởi tạo record lớp học thực tế. */
     @Transactional
     public ClassResponse create(CreateClassRequest request, Long actorUserId) {
-        requireAuthorized(actorUserId);
         if (schoolClassRepository.findByClassCode(request.classCode()).isPresent()) {
             throw new DuplicateClassCodeException("Mã lớp đã tồn tại: " + request.classCode());
         }
@@ -178,7 +166,6 @@ public class ClassService {
     /** Cập nhật thông tin hành chính của lớp học đã có. */
     @Transactional
     public ClassResponse update(Long id, UpdateClassRequest request, Long actorUserId) {
-        requireAuthorized(actorUserId);
         SchoolClass schoolClass = getClassOrThrow(id);
         User actor = userRepository.findById(actorUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
@@ -200,7 +187,6 @@ public class ClassService {
     /** Main Flow bước 1-2: điều phối giáo viên phụ trách lớp. */
     @Transactional
     public ClassTeacherResponse assignTeacher(Long classId, AssignTeacherRequest request, Long actorUserId) {
-        requireAuthorized(actorUserId);
         SchoolClass schoolClass = getClassOrThrow(classId);
         User teacher = userRepository.findById(request.teacherUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + request.teacherUserId()));
@@ -242,7 +228,6 @@ public class ClassService {
     /** Ghi danh 1 học sinh vào lớp — nền tảng cho UC-42 (chọn lớp đang xem). */
     @Transactional
     public ClassEnrollmentResponse enroll(Long classId, EnrollStudentRequest request, Long actorUserId) {
-        requireAuthorized(actorUserId);
         SchoolClass schoolClass = getClassOrThrow(classId);
         Student student = studentRepository.findByIdAndDeletedAtIsNull(request.studentId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy học sinh id=" + request.studentId()));
@@ -269,7 +254,6 @@ public class ClassService {
     /** Rút học sinh khỏi lớp (status ACTIVE -> WITHDRAWN). */
     @Transactional
     public ClassEnrollmentResponse withdraw(Long classId, Long enrollmentId, WithdrawEnrollmentRequest request, Long actorUserId) {
-        requireAuthorized(actorUserId);
         ClassEnrollment enrollment = classEnrollmentRepository.findById(enrollmentId)
                 .filter(e -> e.getSchoolClass().getId().equals(classId))
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ghi danh id=" + enrollmentId));
@@ -289,20 +273,6 @@ public class ClassService {
     public List<ClassEnrollmentResponse> listEnrollments(Long classId) {
         getClassOrThrow(classId);
         return classEnrollmentRepository.findBySchoolClassId(classId).stream().map(this::toResponse).toList();
-    }
-
-    private void requireAuthorized(Long actorUserId) {
-        Set<String> roleCodes = roleCodesOf(actorUserId);
-        if (roleCodes.stream().noneMatch(AUTHORIZED_ROLE_CODES::contains)) {
-            throw new NotAuthorizedForClassManagementException(
-                    "Tài khoản id=" + actorUserId + " không có role HEAD_ACADEMIC/STAFF để quản lý lớp học.");
-        }
-    }
-
-    private Set<String> roleCodesOf(Long userId) {
-        return userRoleRepository.findByUserId(userId).stream()
-                .map(ur -> ur.getRole().getCode())
-                .collect(Collectors.toSet());
     }
 
     private void writeClassHistory(SchoolClass schoolClass, User actor, ClassHistory.Action action) {

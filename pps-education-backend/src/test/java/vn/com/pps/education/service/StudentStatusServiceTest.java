@@ -11,7 +11,6 @@ import vn.com.pps.education.dto.CreateStudentRequest;
 import vn.com.pps.education.dto.StudentResponse;
 import vn.com.pps.education.dto.UpdateStudentStatusRequest;
 import vn.com.pps.education.exception.InvalidStudentStatusTransitionException;
-import vn.com.pps.education.exception.NotAuthorizedForStudentStatusException;
 import vn.com.pps.education.repository.RoleRepository;
 import vn.com.pps.education.repository.UserRepository;
 import vn.com.pps.education.repository.UserRoleRepository;
@@ -99,17 +98,6 @@ class StudentStatusServiceTest extends AbstractIntegrationTest {
                 new UpdateStudentStatusRequest("ACTIVE", "Không đổi gì", LocalDate.now()),
                 siteManager.getId()))
                 .isInstanceOf(InvalidStudentStatusTransitionException.class);
-    }
-
-    @Test
-    void updateStatus_rejectsActorWithoutAuthorizedRole() {
-        StudentResponse student = createStudent();
-        User unauthorized = newUser("no.role.user");
-
-        assertThatThrownBy(() -> studentStatusService.updateStatus(student.id(),
-                new UpdateStudentStatusRequest("SUSPENDED", "x", LocalDate.now()),
-                unauthorized.getId()))
-                .isInstanceOf(NotAuthorizedForStudentStatusException.class);
     }
 
     private StudentResponse createStudent() {

@@ -2,6 +2,7 @@ package vn.com.pps.education.controller;
 
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -27,12 +28,14 @@ public class RoomController {
         this.roomService = roomService;
     }
 
+    @PreAuthorize("hasPermission(null, 'facility.room.manage')")
     @PostMapping("/api/rooms")
     public ResponseEntity<RoomResponse> createRoom(@Valid @RequestBody CreateRoomRequest request,
                                                       @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(roomService.createRoom(request, actor.userId()));
     }
 
+    @PreAuthorize("hasPermission(null, 'facility.room.manage')")
     @PutMapping("/api/rooms/{id}")
     public ResponseEntity<RoomResponse> updateRoom(@PathVariable Long id, @Valid @RequestBody UpdateRoomRequest request,
                                                       @AuthenticationPrincipal AuthenticatedUser actor) {

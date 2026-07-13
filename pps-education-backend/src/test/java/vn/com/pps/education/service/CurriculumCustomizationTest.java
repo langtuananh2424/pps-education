@@ -17,7 +17,6 @@ import vn.com.pps.education.dto.DecideCurriculumApprovalRequest;
 import vn.com.pps.education.dto.UpdateCustomCurriculumRequest;
 import vn.com.pps.education.exception.ApprovalAlreadyDecidedException;
 import vn.com.pps.education.exception.CurriculumNotEditableException;
-import vn.com.pps.education.exception.NotHeadAcademicException;
 import vn.com.pps.education.exception.NotSiteManagerForSiteException;
 import vn.com.pps.education.repository.RoleRepository;
 import vn.com.pps.education.repository.SiteManagerRepository;
@@ -202,18 +201,6 @@ class CurriculumCustomizationTest extends AbstractIntegrationTest {
 
         assertThat(resubmit.id()).isNotEqualTo(firstSubmit.id());
         assertThat(curriculumService.getById(copy.id()).status()).isEqualTo("PENDING_APPROVAL");
-    }
-
-    @Test
-    void decideApproval_rejectsWhenActorNotHeadAcademic() {
-        CurriculumResponse copy = curriculumService.createCustomCopy(
-                new CreateCustomCurriculumRequest(curriculumCode(), standardCurriculum.id(), site.getId(), null),
-                siteManagerUser.getId());
-        CurriculumApprovalResponse submitted = curriculumService.submitForApproval(copy.id(), siteManagerUser.getId());
-
-        assertThatThrownBy(() -> curriculumService.decideApproval(submitted.id(),
-                new DecideCurriculumApprovalRequest("APPROVED", null), siteManagerUser.getId()))
-                .isInstanceOf(NotHeadAcademicException.class);
     }
 
     @Test

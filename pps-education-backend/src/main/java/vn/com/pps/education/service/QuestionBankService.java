@@ -16,7 +16,6 @@ import vn.com.pps.education.dto.QuestionChoiceRequest;
 import vn.com.pps.education.dto.QuestionChoiceResponse;
 import vn.com.pps.education.dto.QuestionResponse;
 import vn.com.pps.education.dto.UpdateQuestionRequest;
-import vn.com.pps.education.exception.NotTeacherRoleException;
 import vn.com.pps.education.exception.QuestionLockedException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.repository.CurriculumRepository;
@@ -27,14 +26,11 @@ import vn.com.pps.education.repository.QuestionHistoryRepository;
 import vn.com.pps.education.repository.QuestionRepository;
 import vn.com.pps.education.repository.StudentAnswerRepository;
 import vn.com.pps.education.repository.UserRepository;
-import vn.com.pps.education.repository.UserRoleRepository;
 
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * UC-40: Soạn & giao đề kiểm tra (FR-LMS-10) — phần Ngân hàng câu hỏi.
@@ -46,6 +42,10 @@ import java.util.stream.Collectors;
  * content/đáp án đúng — chỉ còn sửa được các trường không ảnh hưởng bài
  * đã làm (status...). Muốn đổi nội dung phải tạo câu hỏi mới (createQuestion)
  * rồi tự archive câu cũ.
+ *
+ * Authorization qua @PreAuthorize("hasPermission(null,'lms.exercise.manage')")
+ * ở QuestionBankController (Hybrid PBAC — V28, dùng chung permission với
+ * ExerciseService vì cùng UC-40 + cùng role TEACHER).
  */
 @Service
 public class QuestionBankService {
@@ -58,7 +58,6 @@ public class QuestionBankService {
     private final CurriculumRepository curriculumRepository;
     private final CurriculumSubjectRepository curriculumSubjectRepository;
     private final UserRepository userRepository;
-    private final UserRoleRepository userRoleRepository;
 
     public QuestionBankService(QuestionBankRepository questionBankRepository,
                                 QuestionRepository questionRepository,
@@ -67,8 +66,7 @@ public class QuestionBankService {
                                 StudentAnswerRepository studentAnswerRepository,
                                 CurriculumRepository curriculumRepository,
                                 CurriculumSubjectRepository curriculumSubjectRepository,
-                                UserRepository userRepository,
-                                UserRoleRepository userRoleRepository) {
+                                UserRepository userRepository) {
         this.questionBankRepository = questionBankRepository;
         this.questionRepository = questionRepository;
         this.questionChoiceRepository = questionChoiceRepository;
@@ -77,12 +75,10 @@ public class QuestionBankService {
         this.curriculumRepository = curriculumRepository;
         this.curriculumSubjectRepository = curriculumSubjectRepository;
         this.userRepository = userRepository;
-        this.userRoleRepository = userRoleRepository;
     }
 
     @Transactional
     public QuestionBankResponse createBank(CreateQuestionBankRequest request, Long actorUserId) {
-        requireTeacher(actorUserId);
         QuestionBank bank = new QuestionBank();
         bank.setCode(request.code());
         bank.setName(request.name());
@@ -105,7 +101,6 @@ public class QuestionBankService {
     /** Main Flow bước 1: soạn câu hỏi mới, lưu vào ngân hàng. */
     @Transactional
     public QuestionResponse createQuestion(CreateQuestionRequest request, Long actorUserId) {
-        requireTeacher(actorUserId);
         User actor = getUserOrThrow(actorUserId);
         QuestionBank bank = questionBankRepository.findById(request.questionBankId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ngân hàng câu hỏi id=" + request.questionBankId()));
@@ -143,7 +138,6 @@ public class QuestionBankService {
      */
     @Transactional
     public QuestionResponse updateQuestion(Long id, UpdateQuestionRequest request, Long actorUserId) {
-        requireTeacher(actorUserId);
         Question question = questionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy câu hỏi id=" + id));
         User actor = getUserOrThrow(actorUserId);
@@ -203,19 +197,6 @@ public class QuestionBankService {
             choice.setDisplayOrder(c.displayOrder());
             questionChoiceRepository.save(choice);
         }
-    }
-
-    private void requireTeacher(Long actorUserId) {
-        if (!roleCodesOf(actorUserId).contains("TEACHER")) {
-            throw new NotTeacherRoleException(
-                    "Tài khoản id=" + actorUserId + " không có role TEACHER để soạn ngân hàng câu hỏi.");
-        }
-    }
-
-    private Set<String> roleCodesOf(Long userId) {
-        return userRoleRepository.findByUserId(userId).stream()
-                .map(ur -> ur.getRole().getCode())
-                .collect(Collectors.toSet());
     }
 
     private User getUserOrThrow(Long id) {

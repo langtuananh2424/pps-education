@@ -33,6 +33,7 @@ services:
       DB_USERNAME: pps_app
       DB_PASSWORD: root123456
       JWT_SECRET: local_dev_secret_change_in_prod_min_256_bits_xxxxxxxxxxxxxxxxx
+      SEED_DEV_USERS: "true" # tạo sẵn 11 tài khoản demo (1/role) - xem DevUserSeeder
     ports:
       - "8080:8080"
     depends_on:

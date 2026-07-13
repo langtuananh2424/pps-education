@@ -8,16 +8,12 @@ import vn.com.pps.education.domain.User;
 import vn.com.pps.education.dto.StudentStatusHistoryResponse;
 import vn.com.pps.education.dto.UpdateStudentStatusRequest;
 import vn.com.pps.education.exception.InvalidStudentStatusTransitionException;
-import vn.com.pps.education.exception.NotAuthorizedForStudentStatusException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.repository.StudentRepository;
 import vn.com.pps.education.repository.StudentStatusHistoryRepository;
 import vn.com.pps.education.repository.UserRepository;
-import vn.com.pps.education.repository.UserRoleRepository;
 
 import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * UC-14: Cập nhật trạng thái học tập (FR-STU-02).
@@ -29,29 +25,22 @@ import java.util.stream.Collectors;
  * .claude/rules/solid.md, giống cách AuthService/PermissionService tách
  * theo UC dù cùng Phân hệ).
  *
- * Không có @PreAuthorize permission code riêng — Precondition UC-14 không
- * nêu permission code (chỉ nêu actor "Quản lý điểm trường"), theo đúng
- * pattern LeaveRequestService (role-based check trong Service, không dùng
- * hasPermission()).
+ * Authorization qua @PreAuthorize("hasPermission(null,'student.status.manage')")
+ * ở StudentController (Hybrid PBAC — V28), không còn role-check trong Service.
  */
 @Service
 public class StudentStatusService {
 
-    private static final Set<String> AUTHORIZED_ROLE_CODES = Set.of("SITE_MANAGER", "STAFF");
-
     private final StudentRepository studentRepository;
     private final StudentStatusHistoryRepository statusHistoryRepository;
     private final UserRepository userRepository;
-    private final UserRoleRepository userRoleRepository;
 
     public StudentStatusService(StudentRepository studentRepository,
                                  StudentStatusHistoryRepository statusHistoryRepository,
-                                 UserRepository userRepository,
-                                 UserRoleRepository userRoleRepository) {
+                                 UserRepository userRepository) {
         this.studentRepository = studentRepository;
         this.statusHistoryRepository = statusHistoryRepository;
         this.userRepository = userRepository;
-        this.userRoleRepository = userRoleRepository;
     }
 
     /**
@@ -61,12 +50,6 @@ public class StudentStatusService {
      */
     @Transactional
     public StudentStatusHistoryResponse updateStatus(Long studentId, UpdateStudentStatusRequest request, Long actorUserId) {
-        Set<String> roleCodes = roleCodesOf(actorUserId);
-        if (roleCodes.stream().noneMatch(AUTHORIZED_ROLE_CODES::contains)) {
-            throw new NotAuthorizedForStudentStatusException(
-                    "Tài khoản id=" + actorUserId + " không có vai trò SITE_MANAGER/STAFF để cập nhật trạng thái học tập.");
-        }
-
         Student student = studentRepository.findByIdAndDeletedAtIsNull(studentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy học sinh id=" + studentId));
         User actor = userRepository.findById(actorUserId)
@@ -111,12 +94,6 @@ public class StudentStatusService {
         return statusHistoryRepository.findByStudentIdOrderByChangedAtDesc(studentId).stream()
                 .map(this::toResponse)
                 .toList();
-    }
-
-    private Set<String> roleCodesOf(Long userId) {
-        return userRoleRepository.findByUserId(userId).stream()
-                .map(ur -> ur.getRole().getCode())
-                .collect(Collectors.toSet());
     }
 
     private StudentStatusHistoryResponse toResponse(StudentStatusHistory h) {

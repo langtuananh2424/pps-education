@@ -9,28 +9,27 @@ import vn.com.pps.education.domain.Site;
 import vn.com.pps.education.domain.SiteManager;
 import vn.com.pps.education.dto.ChainFinancialReportResponse;
 import vn.com.pps.education.dto.FinancialReportResponse;
-import vn.com.pps.education.exception.NotExecutiveException;
 import vn.com.pps.education.exception.NotSiteManagerForSiteException;
 import vn.com.pps.education.repository.InvoiceRepository;
 import vn.com.pps.education.repository.OperatingExpenseRepository;
 import vn.com.pps.education.repository.PaymentRepository;
 import vn.com.pps.education.repository.SiteManagerRepository;
 import vn.com.pps.education.repository.SiteRepository;
-import vn.com.pps.education.repository.UserRoleRepository;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * UC-32: Xem báo cáo tài chính (FR-FIN-04). Xem
- * docs/uc/phan-he-08-tai-chinh.md. Precondition chỉ nêu actor
- * (Quản lý điểm trường / Ban giám đốc), không nêu tên quyền cụ thể — dùng
- * role-check trong Service như GradeService (UC-20), không permission-based
- * @PreAuthorize.
+ * docs/uc/phan-he-08-tai-chinh.md.
+ *
+ * getMySiteReports (SITE_MANAGER) tự scope theo site_managers, không cần
+ * permission riêng (row-level, giống PartnerFeedbackService). getChainReport
+ * (EXECUTIVE) qua @PreAuthorize("hasPermission(null,'finance.report.view')")
+ * ở FinanceReportController (Hybrid PBAC — V28).
  */
 @Service
 public class FinanceReportService {
@@ -40,20 +39,17 @@ public class FinanceReportService {
     private final OperatingExpenseRepository operatingExpenseRepository;
     private final SiteRepository siteRepository;
     private final SiteManagerRepository siteManagerRepository;
-    private final UserRoleRepository userRoleRepository;
 
     public FinanceReportService(InvoiceRepository invoiceRepository,
                                  PaymentRepository paymentRepository,
                                  OperatingExpenseRepository operatingExpenseRepository,
                                  SiteRepository siteRepository,
-                                 SiteManagerRepository siteManagerRepository,
-                                 UserRoleRepository userRoleRepository) {
+                                 SiteManagerRepository siteManagerRepository) {
         this.invoiceRepository = invoiceRepository;
         this.paymentRepository = paymentRepository;
         this.operatingExpenseRepository = operatingExpenseRepository;
         this.siteRepository = siteRepository;
         this.siteManagerRepository = siteManagerRepository;
-        this.userRoleRepository = userRoleRepository;
     }
 
     /** Main Flow bước 2: Quản lý điểm trường chỉ xem (các) điểm trường mình phụ trách. */
@@ -72,7 +68,6 @@ public class FinanceReportService {
     /** Main Flow bước 3: Ban giám đốc xem báo cáo tổng hợp toàn chuỗi, chi tiết theo từng điểm trường. */
     @Transactional(readOnly = true)
     public ChainFinancialReportResponse getChainReport(LocalDate from, LocalDate to, Long actorUserId) {
-        requireExecutive(actorUserId);
         List<FinancialReportResponse> bySite = siteRepository.findAll().stream()
                 .map(site -> buildSiteReport(site.getId(), from, to))
                 .toList();
@@ -101,13 +96,4 @@ public class FinanceReportService {
         return new FinancialReportResponse(siteId, site.getName(), from, to, revenue, expense, outstanding);
     }
 
-    private void requireExecutive(Long actorUserId) {
-        boolean isExecutive = userRoleRepository.findByUserId(actorUserId).stream()
-                .map(ur -> ur.getRole().getCode())
-                .collect(Collectors.toSet())
-                .contains("EXECUTIVE");
-        if (!isExecutive) {
-            throw new NotExecutiveException("Tài khoản id=" + actorUserId + " không có role EXECUTIVE để xem báo cáo tổng hợp toàn chuỗi.");
-        }
-    }
 }

@@ -31,7 +31,6 @@ import vn.com.pps.education.exception.GradeEntryNotEditableException;
 import vn.com.pps.education.exception.GradePeriodWeightExceededException;
 import vn.com.pps.education.exception.InvalidGradeScoreException;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
-import vn.com.pps.education.exception.NotHeadAcademicException;
 import vn.com.pps.education.exception.NotSiteManagerForSiteException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.domain.CurriculumSubject;
@@ -49,7 +48,6 @@ import vn.com.pps.education.repository.SchoolClassRepository;
 import vn.com.pps.education.repository.SiteManagerRepository;
 import vn.com.pps.education.repository.StudentRepository;
 import vn.com.pps.education.repository.UserRepository;
-import vn.com.pps.education.repository.UserRoleRepository;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -57,7 +55,6 @@ import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -76,6 +73,12 @@ import java.util.stream.Collectors;
  * Dùng lại ApprovalFlow (entity_type=GRADE_ENTRY) — mỗi grade_entry có 1
  * approval_flow riêng, nhiều entry submit cùng lúc (theo lô) chia sẻ 1
  * batchId, giống pattern student_comments mô tả trong SDD.
+ *
+ * Cấu hình sổ điểm (HEAD_ACADEMIC) qua
+ * @PreAuthorize("hasPermission(null,'academic.grade.manage')") ở
+ * GradeController (Hybrid PBAC — V28). Nhập điểm (TEACHER)/duyệt điểm
+ * (SITE_MANAGER) vẫn dùng requireAssignedTeacher/requireSiteManagerForSite —
+ * row-level scope check (đúng lớp/site cụ thể), không phải role-hardcode.
  */
 @Service
 public class GradeService {
@@ -94,7 +97,6 @@ public class GradeService {
     private final ClassTeacherRepository classTeacherRepository;
     private final SiteManagerRepository siteManagerRepository;
     private final UserRepository userRepository;
-    private final UserRoleRepository userRoleRepository;
 
     public GradeService(GradePeriodRepository gradePeriodRepository,
                          GradeComponentRepository gradeComponentRepository,
@@ -109,8 +111,7 @@ public class GradeService {
                          StudentRepository studentRepository,
                          ClassTeacherRepository classTeacherRepository,
                          SiteManagerRepository siteManagerRepository,
-                         UserRepository userRepository,
-                         UserRoleRepository userRoleRepository) {
+                         UserRepository userRepository) {
         this.gradePeriodRepository = gradePeriodRepository;
         this.gradeComponentRepository = gradeComponentRepository;
         this.gradeEntryRepository = gradeEntryRepository;
@@ -125,7 +126,6 @@ public class GradeService {
         this.classTeacherRepository = classTeacherRepository;
         this.siteManagerRepository = siteManagerRepository;
         this.userRepository = userRepository;
-        this.userRoleRepository = userRoleRepository;
     }
 
     // ===================== Cấu hình sổ điểm (HEAD_ACADEMIC) =====================
@@ -139,7 +139,6 @@ public class GradeService {
     /** Cấu hình kỳ đánh giá cho khung chương trình. Tổng weightInFinal của các kỳ ACTIVE không được vượt 100 (SDD). */
     @Transactional
     public GradePeriodResponse createGradePeriod(Long curriculumId, CreateGradePeriodRequest request, Long actorUserId) {
-        requireHeadAcademic(actorUserId);
         Curriculum curriculum = curriculumRepository.findByIdAndDeletedAtIsNull(curriculumId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy khung chương trình id=" + curriculumId));
         User actor = getUserOrThrow(actorUserId);
@@ -167,7 +166,6 @@ public class GradeService {
 
     @Transactional
     public GradePeriodResponse updateGradePeriod(Long id, UpdateGradePeriodRequest request, Long actorUserId) {
-        requireHeadAcademic(actorUserId);
         GradePeriod period = gradePeriodRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy kỳ đánh giá id=" + id));
         User actor = getUserOrThrow(actorUserId);
@@ -204,7 +202,6 @@ public class GradeService {
 
     @Transactional
     public GradeComponentResponse addGradeComponent(Long gradePeriodId, CreateGradeComponentRequest request, Long actorUserId) {
-        requireHeadAcademic(actorUserId);
         GradePeriod period = gradePeriodRepository.findById(gradePeriodId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy kỳ đánh giá id=" + gradePeriodId));
         User actor = getUserOrThrow(actorUserId);
@@ -231,7 +228,6 @@ public class GradeService {
     /** SDD: nếu đã có grade_entries cho component này, cấm sửa weightInPeriod/maxScore. */
     @Transactional
     public GradeComponentResponse updateGradeComponent(Long id, UpdateGradeComponentRequest request, Long actorUserId) {
-        requireHeadAcademic(actorUserId);
         GradeComponent component = gradeComponentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thành phần điểm id=" + id));
         User actor = getUserOrThrow(actorUserId);
@@ -432,13 +428,6 @@ public class GradeService {
 
     // ===================== Helpers =====================
 
-    private void requireHeadAcademic(Long actorUserId) {
-        if (!roleCodesOf(actorUserId).contains("HEAD_ACADEMIC")) {
-            throw new NotHeadAcademicException(
-                    "Tài khoản id=" + actorUserId + " không có role HEAD_ACADEMIC để cấu hình sổ điểm.");
-        }
-    }
-
     private void requireAssignedTeacher(Long classId, Long actorUserId) {
         if (!classTeacherRepository.existsBySchoolClassIdAndTeacherIdAndAssignedToIsNull(classId, actorUserId)) {
             throw new NotAssignedTeacherForClassException(
@@ -452,12 +441,6 @@ public class GradeService {
             throw new NotSiteManagerForSiteException(
                     "Tài khoản id=" + actorUserId + " không được gán phụ trách điểm trường id=" + siteId + ".");
         }
-    }
-
-    private Set<String> roleCodesOf(Long userId) {
-        return userRoleRepository.findByUserId(userId).stream()
-                .map(ur -> ur.getRole().getCode())
-                .collect(Collectors.toSet());
     }
 
     private User getUserOrThrow(Long id) {

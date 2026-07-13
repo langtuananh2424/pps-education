@@ -15,62 +15,53 @@ import vn.com.pps.education.dto.UpdateEquipmentStatusRequest;
 import vn.com.pps.education.dto.UpdateRoomRequest;
 import vn.com.pps.education.exception.DuplicateEquipmentCodeException;
 import vn.com.pps.education.exception.DuplicateRoomCodeException;
-import vn.com.pps.education.exception.NotAuthorizedForFacilityManagementException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.repository.EquipmentRepository;
 import vn.com.pps.education.repository.RoomHistoryRepository;
 import vn.com.pps.education.repository.RoomRepository;
 import vn.com.pps.education.repository.SiteRepository;
 import vn.com.pps.education.repository.UserRepository;
-import vn.com.pps.education.repository.UserRoleRepository;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * UC-37: Quản lý phòng học & thiết bị (FR-FAC-02, FR-FAC-04). Xem
- * docs/uc/phan-he-10-co-so-vat-chat.md. Precondition chỉ nêu actor
- * (Nhân viên Giáo vụ/Hành chính = role STAFF), không nêu tên quyền cụ thể
- * — dùng role-check trong Service, không permission-based @PreAuthorize
- * (giống UC-33/34/35).
+ * docs/uc/phan-he-10-co-so-vat-chat.md.
  *
  * Room đã có entity/bảng từ V2 (dùng tối thiểu qua FK từ class_sessions,
  * FR-FAC-03 kiểm tra trùng phòng) nhưng chưa có CRUD Service/Controller —
  * bổ sung ở đây. Equipment hoàn toàn mới (bảng có sẵn từ V2, chưa có code).
+ *
+ * Authorization qua @PreAuthorize("hasPermission(null,'facility.room.manage')")
+ * ở RoomController/EquipmentController (Hybrid PBAC — V28), không còn
+ * role-check trong Service.
  */
 @Service
 public class RoomService {
-
-    private static final Set<String> AUTHORIZED_ROLE_CODES = Set.of("STAFF", "HEAD_ACADEMIC");
 
     private final RoomRepository roomRepository;
     private final RoomHistoryRepository roomHistoryRepository;
     private final EquipmentRepository equipmentRepository;
     private final SiteRepository siteRepository;
     private final UserRepository userRepository;
-    private final UserRoleRepository userRoleRepository;
 
     public RoomService(RoomRepository roomRepository,
                         RoomHistoryRepository roomHistoryRepository,
                         EquipmentRepository equipmentRepository,
                         SiteRepository siteRepository,
-                        UserRepository userRepository,
-                        UserRoleRepository userRoleRepository) {
+                        UserRepository userRepository) {
         this.roomRepository = roomRepository;
         this.roomHistoryRepository = roomHistoryRepository;
         this.equipmentRepository = equipmentRepository;
         this.siteRepository = siteRepository;
         this.userRepository = userRepository;
-        this.userRoleRepository = userRoleRepository;
     }
 
     /** Main Flow bước 1-2: khai báo phòng học mới, tùy chọn đánh dấu 'linh hoạt' (loại trừ khỏi FR-FAC-03). */
     @Transactional
     public RoomResponse createRoom(CreateRoomRequest request, Long actorUserId) {
-        requireAuthorized(actorUserId);
         Site site = getSiteOrThrow(request.siteId());
         if (roomRepository.existsBySiteIdAndCode(request.siteId(), request.code())) {
             throw new DuplicateRoomCodeException("Mã phòng " + request.code() + " đã tồn tại tại điểm trường id=" + request.siteId());
@@ -94,7 +85,6 @@ public class RoomService {
     /** Main Flow bước 4 (cập nhật) + A1 (thiết bị hỏng/bảo trì áp dụng tương tự cho phòng qua status). */
     @Transactional
     public RoomResponse updateRoom(Long roomId, UpdateRoomRequest request, Long actorUserId) {
-        requireAuthorized(actorUserId);
         Room room = getRoomOrThrow(roomId);
         User actor = getUserOrThrow(actorUserId);
 
@@ -118,7 +108,6 @@ public class RoomService {
     /** Main Flow bước 3: khai báo thiết bị dạy học gắn với phòng. */
     @Transactional
     public EquipmentResponse createEquipment(CreateEquipmentRequest request, Long actorUserId) {
-        requireAuthorized(actorUserId);
         if (equipmentRepository.existsByCode(request.code())) {
             throw new DuplicateEquipmentCodeException("Mã thiết bị đã tồn tại: " + request.code());
         }
@@ -136,7 +125,6 @@ public class RoomService {
     /** A1: Thiết bị hỏng/bảo trì — chuyển trạng thái, loại khỏi danh sách khả dụng cho tới khi cập nhật lại. */
     @Transactional
     public EquipmentResponse updateEquipmentStatus(Long equipmentId, UpdateEquipmentStatusRequest request, Long actorUserId) {
-        requireAuthorized(actorUserId);
         Equipment equipment = equipmentRepository.findById(equipmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thiết bị id=" + equipmentId));
         equipment.setStatus(Equipment.Status.valueOf(request.status()));
@@ -158,19 +146,6 @@ public class RoomService {
     }
 
     // ===================== Helpers =====================
-
-    private void requireAuthorized(Long actorUserId) {
-        if (roleCodesOf(actorUserId).stream().noneMatch(AUTHORIZED_ROLE_CODES::contains)) {
-            throw new NotAuthorizedForFacilityManagementException(
-                    "Tài khoản id=" + actorUserId + " không có role phù hợp để quản lý phòng học/thiết bị.");
-        }
-    }
-
-    private Set<String> roleCodesOf(Long userId) {
-        return userRoleRepository.findByUserId(userId).stream()
-                .map(ur -> ur.getRole().getCode())
-                .collect(Collectors.toSet());
-    }
 
     private void writeRoomHistory(Room room, User actor, RoomHistory.Action action) {
         RoomHistory history = new RoomHistory();

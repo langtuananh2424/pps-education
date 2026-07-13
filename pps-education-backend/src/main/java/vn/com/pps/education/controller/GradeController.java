@@ -2,6 +2,7 @@ package vn.com.pps.education.controller;
 
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -42,6 +43,7 @@ public class GradeController {
         return ResponseEntity.ok(gradeService.listGradePeriods(curriculumId));
     }
 
+    @PreAuthorize("hasPermission(null, 'academic.grade.manage')")
     @PostMapping("/api/curriculums/{curriculumId}/grade-periods")
     public ResponseEntity<GradePeriodResponse> createGradePeriod(@PathVariable Long curriculumId,
                                                                      @Valid @RequestBody CreateGradePeriodRequest request,
@@ -49,6 +51,7 @@ public class GradeController {
         return ResponseEntity.ok(gradeService.createGradePeriod(curriculumId, request, actor.userId()));
     }
 
+    @PreAuthorize("hasPermission(null, 'academic.grade.manage')")
     @PutMapping("/api/grade-periods/{id}")
     public ResponseEntity<GradePeriodResponse> updateGradePeriod(@PathVariable Long id,
                                                                      @Valid @RequestBody UpdateGradePeriodRequest request,
@@ -61,6 +64,7 @@ public class GradeController {
         return ResponseEntity.ok(gradeService.listGradeComponents(gradePeriodId));
     }
 
+    @PreAuthorize("hasPermission(null, 'academic.grade.manage')")
     @PostMapping("/api/grade-periods/{gradePeriodId}/components")
     public ResponseEntity<GradeComponentResponse> addGradeComponent(@PathVariable Long gradePeriodId,
                                                                         @Valid @RequestBody CreateGradeComponentRequest request,
@@ -68,6 +72,7 @@ public class GradeController {
         return ResponseEntity.ok(gradeService.addGradeComponent(gradePeriodId, request, actor.userId()));
     }
 
+    @PreAuthorize("hasPermission(null, 'academic.grade.manage')")
     @PutMapping("/api/grade-components/{id}")
     public ResponseEntity<GradeComponentResponse> updateGradeComponent(@PathVariable Long id,
                                                                            @Valid @RequestBody UpdateGradeComponentRequest request,

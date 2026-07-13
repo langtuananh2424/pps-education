@@ -11,10 +11,20 @@ target/
 
 # OS
 .DS_Store
+Thumbs.db
+
+# Log output từ chạy app cục bộ (mvn spring-boot:run > *.log) để verify runtime
+*.log
 
 # Env / secrets
 .env
+.env.*
 *.local.yml
+application-local.yml
+*.pem
+*.key
+*.p12
+*.pfx
 
 # Frontend (thêm khi bắt đầu Frontend Phase 1)
 node_modules/

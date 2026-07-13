@@ -2,6 +2,7 @@ package vn.com.pps.education.controller;
 
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -29,6 +30,7 @@ public class QuestionBankController {
         this.questionBankService = questionBankService;
     }
 
+    @PreAuthorize("hasPermission(null, 'lms.exercise.manage')")
     @PostMapping("/api/question-banks")
     public ResponseEntity<QuestionBankResponse> createBank(@Valid @RequestBody CreateQuestionBankRequest request,
                                                              @AuthenticationPrincipal AuthenticatedUser actor) {
@@ -40,12 +42,14 @@ public class QuestionBankController {
         return ResponseEntity.ok(questionBankService.listBanksByCurriculum(curriculumId));
     }
 
+    @PreAuthorize("hasPermission(null, 'lms.exercise.manage')")
     @PostMapping("/api/questions")
     public ResponseEntity<QuestionResponse> createQuestion(@Valid @RequestBody CreateQuestionRequest request,
                                                              @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(questionBankService.createQuestion(request, actor.userId()));
     }
 
+    @PreAuthorize("hasPermission(null, 'lms.exercise.manage')")
     @PutMapping("/api/questions/{id}")
     public ResponseEntity<QuestionResponse> updateQuestion(@PathVariable Long id,
                                                              @Valid @RequestBody UpdateQuestionRequest request,

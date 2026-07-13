@@ -2,6 +2,7 @@ package vn.com.pps.education.controller;
 
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -45,12 +46,14 @@ public class ClassController {
         return ResponseEntity.ok(classService.getById(id));
     }
 
+    @PreAuthorize("hasPermission(null, 'academic.class.manage')")
     @PostMapping
     public ResponseEntity<ClassResponse> create(@Valid @RequestBody CreateClassRequest request,
                                                    @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(classService.create(request, actor.userId()));
     }
 
+    @PreAuthorize("hasPermission(null, 'academic.class.manage')")
     @PutMapping("/{id}")
     public ResponseEntity<ClassResponse> update(@PathVariable Long id,
                                                    @Valid @RequestBody UpdateClassRequest request,
@@ -63,6 +66,7 @@ public class ClassController {
         return ResponseEntity.ok(classService.listTeachers(id));
     }
 
+    @PreAuthorize("hasPermission(null, 'academic.class.manage')")
     @PostMapping("/{id}/teachers")
     public ResponseEntity<ClassTeacherResponse> assignTeacher(@PathVariable Long id,
                                                                   @Valid @RequestBody AssignTeacherRequest request,
@@ -75,6 +79,7 @@ public class ClassController {
         return ResponseEntity.ok(classService.listEnrollments(id));
     }
 
+    @PreAuthorize("hasPermission(null, 'academic.class.manage')")
     @PostMapping("/{id}/enrollments")
     public ResponseEntity<ClassEnrollmentResponse> enroll(@PathVariable Long id,
                                                               @Valid @RequestBody EnrollStudentRequest request,
@@ -82,6 +87,7 @@ public class ClassController {
         return ResponseEntity.ok(classService.enroll(id, request, actor.userId()));
     }
 
+    @PreAuthorize("hasPermission(null, 'academic.class.manage')")
     @PostMapping("/{id}/enrollments/{enrollmentId}/withdraw")
     public ResponseEntity<ClassEnrollmentResponse> withdraw(@PathVariable Long id,
                                                                 @PathVariable Long enrollmentId,
