@@ -30,7 +30,13 @@ UC-08: Quản lý hồ sơ nhân sự
 +-----------------+----------------------------------------------------+
 | **Luồng sự kiện | 1.  Quản lý nhân sự mở màn hình Hồ sơ nhân sự,     |
 | chính (Main     |     chọn Thêm mới hoặc tìm một nhân sự hiện có.    |
-| Flow)**         |                                                    |
+| Flow)**         |     Khi Thêm mới cho nhân sự CHƯA có tài khoản     |
+|                 |     đăng nhập, hệ thống cho phép khởi tạo tài      |
+|                 |     khoản người dùng kèm hồ sơ trong cùng một      |
+|                 |     giao dịch (cơ chế khởi tạo tài khoản theo      |
+|                 |     UC-43/FR-USR-01, dưới thẩm quyền hrm.manage    |
+|                 |     của luồng này).                                |
+|                 |                                                    |
 |                 | 2.  Nhập/cập nhật thông tin cá nhân, bằng cấp,     |
 |                 |     chứng chỉ sư phạm.                             |
 |                 |                                                    |

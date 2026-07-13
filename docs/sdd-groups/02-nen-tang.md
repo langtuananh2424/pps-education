@@ -215,6 +215,17 @@ tin đặc thù từng loại tác nhân được lưu ở bảng mở rộng ri
 parents, employees --- chi tiết ở các nhóm sau) liên kết 1-1 qua
 user_id.
 
+*Cơ chế khởi tạo tài khoản (UC-43/FR-USR-01):* hệ thống không có tự đăng
+ký --- tài khoản do người có quyền user.manage khởi tạo. Mật khẩu ban đầu
+tùy chọn: nhập (tối thiểu 8 ký tự, băm BCrypt --- NFR-SEC-01) hoặc bỏ
+trống để tạo tài khoản chỉ đăng nhập Google (password_hash = NULL, đăng
+nhập Google khớp theo email --- UC-01 A4). Tài khoản mới KHÔNG kèm role
+--- gán sau qua UC-03/UC-04. Không có cơ chế "bắt đổi mật khẩu lần đầu"
+(bảng users không có cột tương ứng --- ngoài phạm vi thiết kế hiện tại).
+Ngoại lệ duy nhất về thẩm quyền: luồng khởi tạo hồ sơ nhân sự (UC-08,
+quyền hrm.manage) được tạo tài khoản kèm hồ sơ trong cùng 1 transaction
+cho nhân sự chưa có tài khoản --- dùng chung cơ chế/ràng buộc ở trên.
+
 c)  Bảng roles -- Vai trò
 
   ------------------------------------------------------------------------

@@ -205,6 +205,15 @@ nhân đó mới được thao tác.*
         lại lịch sử: Ai đã sửa quyền, sửa của ai, vào thời gian nào để
         phục vụ tra soát.
 
+    -   **FR-USR-01: Khởi tạo tài khoản người dùng -** Quản trị viên
+        khởi tạo tài khoản (username, email, họ tên, SĐT, phòng ban).
+        Mật khẩu ban đầu là tùy chọn: bỏ trống nếu tài khoản chỉ đăng
+        nhập bằng Google (FR-AUT-01 — hệ thống khớp theo email). Việc
+        gán vai trò/quyền KHÔNG thuộc bước khởi tạo — thực hiện sau qua
+        FR-PER-02/FR-PER-03. Ngoài ra, luồng khởi tạo hồ sơ nhân sự
+        (FR-HRM-01) được phép tạo tài khoản kèm hồ sơ trong cùng một
+        giao dịch cho nhân sự chưa có tài khoản.
+
 **PHÂN HỆ 3: QUẢN LÝ CÔNG VIỆC VÀ QUY TRÌNH**
 
 -   **Mô tả tổng quan:** Số hóa luồng giao việc, theo dõi tiến độ phối
@@ -651,6 +660,9 @@ CDN)**
   UC-42             Chọn lớp đang     FR-LMS-12         7
                     xem (Portal Học                     
                     sinh/Phụ huynh)                     
+
+  UC-43             Khởi tạo tài      FR-USR-01         2
+                    khoản người dùng                    
   -----------------------------------------------------------------------
 
 ## Ma trận Actor × Phân hệ

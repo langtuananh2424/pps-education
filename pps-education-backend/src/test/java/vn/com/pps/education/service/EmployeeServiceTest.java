@@ -8,6 +8,7 @@ import vn.com.pps.education.domain.User;
 import vn.com.pps.education.dto.CreateCommendationRequest;
 import vn.com.pps.education.dto.CreateEmployeeRequest;
 import vn.com.pps.education.dto.CreateEmploymentContractRequest;
+import vn.com.pps.education.dto.CreateUserRequest;
 import vn.com.pps.education.dto.CreateQualificationRequest;
 import vn.com.pps.education.dto.EmployeeResponse;
 import vn.com.pps.education.dto.EmploymentContractResponse;
@@ -64,7 +65,7 @@ class EmployeeServiceTest extends AbstractIntegrationTest {
         User target = newUser("employee.new");
 
         EmployeeResponse response = employeeService.create(
-                new CreateEmployeeRequest(target.getId(), employeeCode(),
+                new CreateEmployeeRequest(target.getId(), null, employeeCode(),
                         LocalDate.of(1995, 1, 1), "001095000123", null, null, null, null, null, null, null, null,
                         "TEACHER", "Giáo viên tiếng Anh", true, LocalDate.of(2024, 1, 1)),
                 hrManager.getId());
@@ -75,6 +76,50 @@ class EmployeeServiceTest extends AbstractIntegrationTest {
         assertThat(employeeHistoryRepository.findByEmployeeIdOrderByCreatedAtDesc(response.id()))
                 .hasSize(1)
                 .allMatch(h -> h.getAction() == vn.com.pps.education.domain.EmployeeHistory.Action.CREATED);
+    }
+
+    @Test
+    void create_UC08_MainFlow_withNewAccount_createsUserAndEmployeeInOneTransaction() {
+        CreateUserRequest newAccount = new CreateUserRequest(
+                "nv.moi." + CODE_SEQ.incrementAndGet(), "nv.moi." + CODE_SEQ.get() + "@pps.edu.vn",
+                "Nhân Viên Mới", null, "MatKhau@8kytu", null, null);
+
+        EmployeeResponse response = employeeService.create(
+                new CreateEmployeeRequest(null, newAccount, employeeCode(),
+                        LocalDate.of(1995, 1, 1), null, null, null, null, null, null, null, null, null,
+                        "TEACHER", "Giáo viên tiếng Anh", true, LocalDate.of(2024, 1, 1)),
+                hrManager.getId());
+
+        assertThat(response.id()).isNotNull();
+        User created = userRepository.findByUsername(newAccount.username()).orElseThrow();
+        assertThat(created.getEmail()).isEqualTo(newAccount.email());
+        assertThat(created.getPasswordHash()).startsWith("$2"); // BCrypt (NFR-SEC-01)
+        assertThat(response.userId()).isEqualTo(created.getId());
+    }
+
+    @Test
+    void create_UC08_rejectsWhenBothUserIdAndNewAccountProvided() {
+        User target = newUser("employee.both");
+        CreateUserRequest newAccount = new CreateUserRequest(
+                "nv.both." + CODE_SEQ.incrementAndGet(), "nv.both." + CODE_SEQ.get() + "@pps.edu.vn",
+                "Nhân Viên Both", null, null, null, null);
+
+        assertThatThrownBy(() -> employeeService.create(
+                new CreateEmployeeRequest(target.getId(), newAccount, employeeCode(),
+                        LocalDate.of(1995, 1, 1), null, null, null, null, null, null, null, null, null,
+                        "STAFF", null, true, LocalDate.of(2024, 1, 1)),
+                hrManager.getId()))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void create_UC08_rejectsWhenNeitherUserIdNorNewAccountProvided() {
+        assertThatThrownBy(() -> employeeService.create(
+                new CreateEmployeeRequest(null, null, employeeCode(),
+                        LocalDate.of(1995, 1, 1), null, null, null, null, null, null, null, null, null,
+                        "STAFF", null, true, LocalDate.of(2024, 1, 1)),
+                hrManager.getId()))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
@@ -184,7 +229,7 @@ class EmployeeServiceTest extends AbstractIntegrationTest {
     }
 
     private CreateEmployeeRequest baseEmployeeRequest(Long userId, String employeeCode) {
-        return new CreateEmployeeRequest(userId, employeeCode, LocalDate.of(1995, 1, 1), null, null, null, null,
+        return new CreateEmployeeRequest(userId, null, employeeCode, LocalDate.of(1995, 1, 1), null, null, null, null,
                 null, null, null, null, null, "STAFF", "Nhân viên", true, LocalDate.of(2024, 1, 1));
     }
 
