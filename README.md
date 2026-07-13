@@ -59,14 +59,40 @@ không thì đúng là bị native Postgres chặn port. Xử lý: copy
 
 ### Tài khoản demo
 
-Local dev (docker-compose hoặc `mvn spring-boot:run` với `.env` copy từ
-`.env.example`) tự seed sẵn 11 tài khoản demo (1 tài khoản/role hệ thống) lúc
-khởi động app — xem `DevUserSeeder`. Đăng nhập qua `POST /api/auth/login` với
-`usernameOrEmail` = mã role viết thường (`sysadmin`, `headacademic`,
-`sitemanager`, `hrmanager`, `staff`, `opsmanager`, `executive`, `partnerrep`,
-`teacher`, `parent`, `student`), mật khẩu chung `Dev@123456`. Cơ chế này tắt
-mặc định (`SEED_DEV_USERS=false`) — không lọt vào test suite/staging/production
-trừ khi chủ động bật.
+Khi bật cờ `SEED_DEV_USERS` (xem bên dưới), app tự tạo 11 tài khoản demo —
+1 tài khoản cho mỗi role hệ thống — lúc khởi động (code:
+`vn.com.pps.education.config.DevUserSeeder`, idempotent nên restart bao
+nhiêu lần cũng không tạo trùng). Đăng nhập qua `POST /api/auth/login` với
+`usernameOrEmail` là username hoặc email bên dưới, **mật khẩu chung cho tất
+cả: `Dev@123456`**.
+
+| Username       | Email                     | Role hệ thống  | Vai trò                    |
+|----------------|---------------------------|----------------|----------------------------|
+| `sysadmin`     | sysadmin@pps.edu.vn       | SYS_ADMIN      | Quản trị viên              |
+| `headacademic` | headacademic@pps.edu.vn   | HEAD_ACADEMIC  | Trưởng phòng đào tạo       |
+| `sitemanager`  | sitemanager@pps.edu.vn    | SITE_MANAGER   | Quản lý điểm trường        |
+| `hrmanager`    | hrmanager@pps.edu.vn      | HR_MANAGER     | Quản lý nhân sự            |
+| `staff`        | staff@pps.edu.vn          | STAFF          | Nhân viên                  |
+| `opsmanager`   | opsmanager@pps.edu.vn     | OPS_MANAGER    | Quản lý vận hành           |
+| `executive`    | executive@pps.edu.vn      | EXECUTIVE      | Ban giám đốc               |
+| `partnerrep`   | partnerrep@pps.edu.vn     | PARTNER_REP    | Đại diện trường liên kết   |
+| `teacher`      | teacher@pps.edu.vn        | TEACHER        | Giáo viên                  |
+| `parent`       | parent@pps.edu.vn         | PARENT         | Phụ huynh                  |
+| `student`      | student@pps.edu.vn        | STUDENT        | Học sinh                   |
+
+**Bật/tắt cơ chế seed** — điều khiển bằng biến môi trường `SEED_DEV_USERS`
+(map vào property `app.seed.dev-users` trong `application.yml`, mặc định
+`false` — cố tình không gắn theo Spring profile `dev` để seed data không
+lọt vào test suite/staging/production):
+
+- **Chạy qua docker compose**: đã bật sẵn dòng `SEED_DEV_USERS: "true"`
+  trong `docker-compose.yml` (service `backend`) — muốn tắt thì đổi thành
+  `"false"` hoặc xóa dòng đó rồi `docker compose up -d --build` lại.
+- **Chạy qua `mvn spring-boot:run`**: bật sẵn dòng `SEED_DEV_USERS=true`
+  trong `.env.example` — copy thành `.env` là có; muốn tắt thì đổi thành
+  `false` hoặc xóa dòng đó trong `.env`.
+- Tắt cờ **không xóa** các tài khoản đã seed trước đó — chỉ ngừng tạo mới;
+  muốn xóa hẳn thì xóa thủ công trong DB (hoặc xóa volume Postgres tạo lại).
 
 ### Chạy test
 
