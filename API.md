@@ -28,6 +28,7 @@
 - [Danh mục quyền (UC-02)](#danh-mục-quyền-uc-02)
 - [Nhóm quyền mặc định (UC-03)](#nhóm-quyền-mặc-định-uc-03)
 - [Quyền ngoại lệ theo tài khoản (UC-04)](#quyền-ngoại-lệ-theo-tài-khoản-uc-04)
+- [Gán/Thu hồi vai trò cho tài khoản (UC-46)](#gánthu-hồi-vai-trò-cho-tài-khoản-uc-46)
 - [Nhật ký phân quyền (UC-05)](#nhật-ký-phân-quyền-uc-05)
 - [Quản lý công việc (UC-06/07)](#quản-lý-công-việc-uc-0607)
 - [Hồ sơ nhân sự, hợp đồng, bằng cấp (UC-08)](#hồ-sơ-nhân-sự-hợp-đồng-bằng-cấp-uc-08)
@@ -109,6 +110,14 @@
 | GET | `/api/users/{userId}/effective-permissions` | JWT + `permission.override.manage` | — | [EffectivePermissionsResponse](#effectivepermissionsresponse) |
 | DELETE | `/api/users/{userId}/permission-overrides/{permissionId}` | JWT + `permission.override.manage` | — | 200 (không có body) |
 | PUT | `/api/users/{userId}/permission-overrides/{permissionId}` | JWT + `permission.override.manage` | Body: [UserPermissionOverrideRequest](#userpermissionoverriderequest) | 200 (không có body) |
+
+## Gán/Thu hồi vai trò cho tài khoản (UC-46)
+
+| Method | Path | Auth | Input | Output |
+|---|---|---|---|---|
+| GET | `/api/users/{userId}/roles` | JWT + `user.role.manage` | — | mảng [RoleResponse](#roleresponse) |
+| DELETE | `/api/users/{userId}/roles/{roleId}` | JWT + `user.role.manage` | — | 200 (không có body) |
+| PUT | `/api/users/{userId}/roles/{roleId}` | JWT + `user.role.manage` | — | 200 (không có body) |
 
 ## Nhật ký phân quyền (UC-05)
 

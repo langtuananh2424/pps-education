@@ -330,7 +330,8 @@ UC-43: Khởi tạo tài khoản người dùng
 +-----------------+----------------------------------------------------+
 | **Hậu điều kiện | -   Bảng users có bản ghi mới trạng thái ACTIVE,   |
 | (P              |     chưa có role nào (danh sách quyền hiệu lực     |
-| ostcondition)** |     rỗng cho tới khi được gán qua UC-03/UC-04).    |
+| ostcondition)** |     rỗng cho tới khi được gán qua UC-46, tùy chỉnh |
+|                 |     thêm qua UC-04 nếu cần).                       |
 +-----------------+----------------------------------------------------+
 
 ---
@@ -411,6 +412,83 @@ UC-45: Đổi mật khẩu
 | (P              | -   Toàn bộ refresh_tokens của tài khoản đó có     |
 | ostcondition)** |     revoked_at được set (nếu đang NULL) — mọi      |
 |                 |     phiên đăng nhập cũ không dùng lại được nữa.    |
++-----------------+----------------------------------------------------+
+
+---
+
+UC-46: Gán/Thu hồi vai trò cho tài khoản
+
++-----------------+----------------------------------------------------+
+| **Mã Use Case** | UC-46                                              |
++-----------------+----------------------------------------------------+
+| **Tên Use       | Gán/Thu hồi vai trò cho tài khoản                  |
+| Case**          |                                                    |
++-----------------+----------------------------------------------------+
+| **Phân hệ**     | Phân hệ 2                                          |
++-----------------+----------------------------------------------------+
+| **Yêu cầu chức  | FR-PER-05                                          |
+| năng gốc**      |                                                    |
++-----------------+----------------------------------------------------+
+| **Tác nhân**    | Quản trị viên                                      |
++-----------------+----------------------------------------------------+
+| **Mô tả tóm     | Liên kết 1 tài khoản với 1 vai trò (role) đang có  |
+| tắt**           | sẵn trong hệ thống, hoặc gỡ liên kết đó — bước     |
+|                 | trung gian bắt buộc để tài khoản mới tạo (UC-43)   |
+|                 | có được effective_permissions từ role_permissions  |
+|                 | (UC-03). Khác UC-04 (chỉ thêm/bớt 1 permission lẻ, |
+|                 | không gán cả 1 role).                              |
++-----------------+----------------------------------------------------+
+| **Sự kiện kích  | Tài khoản mới tạo (UC-43) chưa có role nào, hoặc   |
+| hoạt**          | cần mở rộng/thu hẹp phạm vi vai trò của 1 tài       |
+|                 | khoản đang hoạt động (ví dụ: kiêm nhiệm thêm vai   |
+|                 | trò Quản lý nhân sự).                              |
++-----------------+----------------------------------------------------+
+| **Điều kiện     | -   Người thao tác có quyền user.role.manage.      |
+| tiên quyết      | -   Vai trò cần gán đã tồn tại trong bảng roles    |
+| (               |     (11 role hệ thống — UC-03).                    |
+| Precondition)** | -   Gán role: tài khoản đích tồn tại và đang        |
+|                 |     ACTIVE (giống UC-04).                          |
++-----------------+----------------------------------------------------+
+| **Luồng sự kiện | 1.  Quản trị viên tìm và chọn đích danh 1 tài       |
+| chính (Main     |     khoản, hệ thống hiển thị danh sách role hiện   |
+| Flow)**         |     tại của tài khoản đó (bảng user_roles).        |
+|                 |                                                    |
+|                 | 2.  Quản trị viên chọn 1 role cần gán thêm.        |
+|                 |                                                    |
+|                 | 3.  Hệ thống thêm 1 bản ghi vào user_roles          |
+|                 |     (user_id, role_id, assigned_by, assigned_at) — |
+|                 |     UNIQUE(user_id, role_id); nếu đã gán rồi thì   |
+|                 |     không tạo trùng (idempotent, coi như thành     |
+|                 |     công).                                         |
+|                 |                                                    |
+|                 | 4.  Hệ thống ghi log vào permission_audit_log       |
+|                 |     (action = ROLE_GRANTED, actor_user_id,         |
+|                 |     target_user_id, target_role_id).               |
+|                 |                                                    |
+|                 | 5.  effective_permissions của tài khoản được áp    |
+|                 |     dụng ngay ở lần truy vấn tiếp theo (không cần  |
+|                 |     đăng nhập lại — tính theo thời gian thực,      |
+|                 |     giống UC-04).                                  |
++-----------------+----------------------------------------------------+
+| **Luồng thay    | ***A1 --- Thu hồi 1 role đã gán***                 |
+| thế / ngoại lệ  |                                                    |
+| (Alternate      | 1.  Quản trị viên chọn Thu hồi 1 role hiện có của  |
+| Flow)**         |     tài khoản; hệ thống xóa bản ghi user_roles     |
+|                 |     tương ứng và ghi log ROLE_REVOKED. Không yêu   |
+|                 |     cầu tài khoản đang ACTIVE (giống UC-04 A2 —    |
+|                 |     vẫn thu hồi được role của tài khoản đã bị vô   |
+|                 |     hiệu hóa).                                     |
+|                 |                                                    |
+|                 | ***A2 --- Thu hồi 1 role chưa từng được gán***     |
+|                 |                                                    |
+|                 | 1.  Hệ thống báo không tìm thấy liên kết            |
+|                 |     user_id/role_id tương ứng, không có gì để thu  |
+|                 |     hồi.                                           |
++-----------------+----------------------------------------------------+
+| **Hậu điều kiện | -   Bảng user_roles phản ánh đúng tập role hiện    |
+| (P              |     hành của tài khoản.                            |
+| ostcondition)** | -   permission_audit_log có đầy đủ lịch sử ai gán/ |
+|                 |     thu hồi role nào, cho ai, khi nào.             |
 +-----------------+----------------------------------------------------+
 
 Phân hệ 3 --- Quản lý công việc và quy trình
