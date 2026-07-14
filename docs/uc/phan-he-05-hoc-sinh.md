@@ -149,7 +149,7 @@ UC-15: Điểm danh học sinh
 | **Sự kiện kích  | Đến giờ bắt đầu tiết học, Giáo viên thực hiện điểm |
 | hoạt**          | danh.                                              |
 +-----------------+----------------------------------------------------+
-| **Điều kiện     | -   Buổi học/tiết học đã được xếp lịch (UC-18) và  |
+| **Điều kiện     | -   Buổi học/tiết học đã được xếp lịch (UC-48) và  |
 | tiên quyết      |     Giáo viên được phân công giảng dạy tiết đó.    |
 | (               |                                                    |
 | Precondition)** |                                                    |

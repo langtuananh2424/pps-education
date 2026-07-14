@@ -173,6 +173,7 @@ public class ParentPortalService {
         return new ClassSessionResponse(
                 s.getId(), s.getSchoolClass().getId(), s.getSessionDate(), s.getStartTime(), s.getEndTime(),
                 s.getRoom() == null ? null : s.getRoom().getId(), s.getRoom() == null ? null : s.getRoom().getName(),
-                s.getPrimaryTeacher().getId(), s.getPrimaryTeacher().getFullName(), s.getSessionType().name(), s.getStatus().name());
+                s.getPrimaryTeacher().getId(), s.getPrimaryTeacher().getFullName(), s.getSessionType().name(), s.getStatus().name(),
+                s.getCancellationReason(), s.getRescheduledToSession() == null ? null : s.getRescheduledToSession().getId());
     }
 }

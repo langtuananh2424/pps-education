@@ -15,6 +15,7 @@ import vn.com.pps.education.dto.QuestionBankResponse;
 import vn.com.pps.education.dto.QuestionChoiceRequest;
 import vn.com.pps.education.dto.QuestionChoiceResponse;
 import vn.com.pps.education.dto.QuestionResponse;
+import vn.com.pps.education.dto.UpdateQuestionBankStatusRequest;
 import vn.com.pps.education.dto.UpdateQuestionRequest;
 import vn.com.pps.education.exception.QuestionLockedException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
@@ -96,6 +97,22 @@ public class QuestionBankService {
     @Transactional(readOnly = true)
     public List<QuestionBankResponse> listBanksByCurriculum(Long curriculumId) {
         return questionBankRepository.findByCurriculumId(curriculumId).stream().map(this::toResponse).toList();
+    }
+
+    /**
+     * Bổ sung — is_active tồn tại sẵn trong SDD nhưng trước đây không
+     * endpoint nào set được. Không có UC nào yêu cầu ẩn bank INACTIVE
+     * khỏi listBanksByCurriculum/tạo câu hỏi, nên chỉ bổ sung khả năng
+     * bật/tắt — không tự thêm ràng buộc chặn khác ngoài phạm vi đã xác
+     * nhận.
+     */
+    @Transactional
+    public QuestionBankResponse updateBankStatus(Long id, UpdateQuestionBankStatusRequest request, Long actorUserId) {
+        QuestionBank bank = questionBankRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ngân hàng câu hỏi id=" + id));
+        bank.setActive(request.isActive());
+        bank = questionBankRepository.save(bank);
+        return toResponse(bank);
     }
 
     /** Main Flow bước 1: soạn câu hỏi mới, lưu vào ngân hàng. */

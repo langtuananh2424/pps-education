@@ -15,6 +15,7 @@ import vn.com.pps.education.dto.PartnerContractResponse;
 import vn.com.pps.education.dto.UpdatePartnerContractRequest;
 import vn.com.pps.education.exception.ActivePartnerContractAlreadyExistsException;
 import vn.com.pps.education.exception.DuplicatePartnerContractNumberException;
+import vn.com.pps.education.exception.PartnerContractNotDeletableException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.repository.PartnerContractHistoryRepository;
 import vn.com.pps.education.repository.PartnerContractRepository;
@@ -24,6 +25,7 @@ import vn.com.pps.education.repository.SiteRepository;
 import vn.com.pps.education.repository.UserRepository;
 
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.time.Year;
 import java.util.HashMap;
 import java.util.List;
@@ -39,6 +41,12 @@ import java.util.Map;
  * gọi chỉ định), không phải push-notification/cron — đúng pattern đã
  * dùng cho UC-08 A2 (EmployeeService.listExpiringContracts), không có
  * ngưỡng cố định nào được UC quy định.
+ *
+ * A3 (bổ sung — xóa hợp đồng nhập nhầm): UC-36b không mô tả bằng chữ
+ * nhưng SDD ghi rõ deleted_at "Có soft-delete" và unique partial index
+ * idx_partner_contracts_active có điều kiện {@code deleted_at IS NULL} —
+ * bằng chứng kỹ thuật rõ ràng cho cơ chế này, khác terminate (chấm dứt
+ * hợp lệ, giữ nguyên trong partner_contracts_history).
  */
 @Service
 public class PartnerContractService {
@@ -161,6 +169,30 @@ public class PartnerContractService {
         return toResponse(contract);
     }
 
+    /**
+     * A3: xóa mềm 1 hợp đồng nhập nhầm — chỉ áp dụng khi đang DRAFT (chưa
+     * từng có hiệu lực pháp lý). Hợp đồng đã ACTIVE/EXPIRED/TERMINATED
+     * dùng terminateContract thay thế để giữ đúng
+     * partner_contracts_history (chứng cứ pháp lý, bắt buộc truy vết —
+     * SDD). Khớp unique partial index idx_partner_contracts_active
+     * (WHERE status='ACTIVE' AND deleted_at IS NULL) đã thiết kế sẵn cho
+     * cơ chế soft-delete này.
+     */
+    @Transactional
+    public void deleteContract(Long contractId, Long actorUserId) {
+        PartnerContract contract = getContractOrThrow(contractId);
+        if (contract.getStatus() != PartnerContract.Status.DRAFT) {
+            throw new PartnerContractNotDeletableException(
+                    "Chỉ xóa được hợp đồng đang DRAFT; hợp đồng id=" + contractId + " đang " + contract.getStatus()
+                            + " — dùng chức năng chấm dứt (terminate) thay thế.");
+        }
+        User actor = getUserOrThrow(actorUserId);
+
+        contract.setDeletedAt(OffsetDateTime.now());
+        contract = partnerContractRepository.save(contract);
+        writeHistory(contract, actor, PartnerContractHistory.Action.UPDATED);
+    }
+
     /** A1: hợp đồng ACTIVE sắp/đã hết hạn trong vòng withinDays ngày kể từ hôm nay. */
     @Transactional(readOnly = true)
     public List<ExpiringPartnerContractResponse> listExpiringContracts(int withinDays) {
@@ -199,6 +231,9 @@ public class PartnerContractService {
         Map<String, Object> details = new HashMap<>();
         details.put("status", contract.getStatus().name());
         details.put("endDate", contract.getEndDate().toString());
+        if (contract.getDeletedAt() != null) {
+            details.put("deletedAt", contract.getDeletedAt().toString());
+        }
         history.setDetails(details);
         partnerContractHistoryRepository.save(history);
     }

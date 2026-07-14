@@ -15,6 +15,7 @@ import vn.com.pps.education.dto.ExpiringPartnerContractResponse;
 import vn.com.pps.education.dto.PartnerContractResponse;
 import vn.com.pps.education.dto.UpdatePartnerContractRequest;
 import vn.com.pps.education.exception.ActivePartnerContractAlreadyExistsException;
+import vn.com.pps.education.exception.PartnerContractNotDeletableException;
 import vn.com.pps.education.repository.RoleRepository;
 import vn.com.pps.education.repository.SiteManagerRepository;
 import vn.com.pps.education.repository.SiteRepository;
@@ -30,7 +31,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * UC-36b: Quản lý hợp đồng liên kết trường — Main Flow, A1 (cảnh báo sắp
- * hết hạn), A2 (chấm dứt hợp đồng). Xem docs/uc/phan-he-10-co-so-vat-chat.md.
+ * hết hạn), A2 (chấm dứt hợp đồng), A3 (xóa hợp đồng nhập nhầm, bổ
+ * sung). Xem docs/uc/phan-he-10-co-so-vat-chat.md.
  */
 @Transactional
 class PartnerContractServiceTest extends AbstractIntegrationTest {
@@ -155,6 +157,28 @@ class PartnerContractServiceTest extends AbstractIntegrationTest {
         PartnerContractResponse terminated = partnerContractService.terminateContract(contract.id(), opsManager.getId());
 
         assertThat(terminated.status()).isEqualTo("TERMINATED");
+    }
+
+    @Test
+    void deleteContract_UC36b_A3_softDeletesDraftAndRemovesFromListing() {
+        PartnerContractResponse contract = partnerContractService.createContract(baseRequest(), opsManager.getId());
+
+        partnerContractService.deleteContract(contract.id(), opsManager.getId());
+
+        assertThat(partnerContractService.listBySite(partnerSite.getId()))
+                .extracting(PartnerContractResponse::id)
+                .doesNotContain(contract.id());
+    }
+
+    @Test
+    void deleteContract_UC36b_A3_rejectsWhenNotDraft() {
+        PartnerContractResponse contract = partnerContractService.createContract(baseRequest(), opsManager.getId());
+        partnerContractService.updateContract(contract.id(),
+                new UpdatePartnerContractRequest(LocalDate.now().plusYears(1), "ACTIVE", null, null, null, null, null, null),
+                opsManager.getId());
+
+        assertThatThrownBy(() -> partnerContractService.deleteContract(contract.id(), opsManager.getId()))
+                .isInstanceOf(PartnerContractNotDeletableException.class);
     }
 
     private Long createActiveCurriculumId() {

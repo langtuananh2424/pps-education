@@ -83,7 +83,9 @@ public class GlobalExceptionHandler {
             AnswerNotManuallyGradableException.class, InvalidTeachingPlanPeriodException.class,
             InvalidTaskStatusTransitionException.class, IncompleteLeadDataException.class,
             LeadNotQualifiedException.class, InvalidLeadStatusTransitionException.class,
-            InvalidFeedbackStatusTransitionException.class})
+            InvalidFeedbackStatusTransitionException.class, InvalidClassSessionStatusTransitionException.class,
+            OperatingExpenseAlreadyDecidedException.class, PartnerContractNotDeletableException.class,
+            TuitionPlanNotActiveException.class})
     public ResponseEntity<Object> handleClassSetupRejected(RuntimeException ex) {
         return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
     }

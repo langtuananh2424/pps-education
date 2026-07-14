@@ -336,6 +336,66 @@ UC-43: Khởi tạo tài khoản người dùng
 
 ---
 
+UC-44: Xem/tra cứu danh sách tài khoản
+
++-----------------+----------------------------------------------------+
+| **Mã Use Case** | UC-44                                              |
++-----------------+----------------------------------------------------+
+| **Tên Use       | Xem/tra cứu danh sách tài khoản                    |
+| Case**          |                                                    |
++-----------------+----------------------------------------------------+
+| **Phân hệ**     | Phân hệ 2                                          |
++-----------------+----------------------------------------------------+
+| **Yêu cầu chức  | FR-USR-03                                          |
+| năng gốc**      |                                                    |
++-----------------+----------------------------------------------------+
+| **Tác nhân**    | Quản trị viên                                      |
++-----------------+----------------------------------------------------+
+| **Mô tả tóm     | Xem danh sách toàn bộ tài khoản, tìm kiếm/lọc theo |
+| tắt**           | tiêu chí, xem chi tiết 1 tài khoản — hạ tầng tra   |
+|                 | cứu bắt buộc cho UC-45 (đổi mật khẩu tài khoản     |
+|                 | khác), UC-04 (tùy chỉnh quyền riêng), UC-46        |
+|                 | (gán/thu hồi vai trò), UC-47 (khóa/mở khóa tài     |
+|                 | khoản).                                            |
++-----------------+----------------------------------------------------+
+| **Sự kiện kích  | Quản trị viên cần tìm 1 hoặc nhiều tài khoản để    |
+| hoạt**          | xem thông tin hoặc làm căn cứ thao tác tiếp (đổi   |
+|                 | mật khẩu, gán vai trò, tùy chỉnh quyền, khóa/mở    |
+|                 | khóa).                                             |
++-----------------+----------------------------------------------------+
+| **Điều kiện     | Người thao tác có quyền user.manage.               |
+| tiên quyết      |                                                    |
+| (               |                                                    |
+| Precondition)** |                                                    |
++-----------------+----------------------------------------------------+
+| **Luồng sự kiện | 1. Quản trị viên mở màn hình Quản trị tài khoản;   |
+| chính (Main     | hệ thống hiển thị danh sách tài khoản (username,   |
+| Flow)**         | họ tên, email, phòng ban, trạng thái, danh sách    |
+|                 | role hiện tại) — không hiển thị password_hash.     |
+|                 |                                                    |
+|                 | 2. Quản trị viên nhập từ khóa tìm kiếm             |
+|                 | (username/email/họ tên) và/hoặc chọn bộ lọc (phòng |
+|                 | ban, trạng thái ACTIVE/INACTIVE/SUSPENDED); hệ     |
+|                 | thống trả về danh sách phù hợp.                    |
+|                 |                                                    |
+|                 | 3. Quản trị viên chọn 1 tài khoản để xem chi tiết  |
+|                 | đầy đủ (bao gồm last_login_at, failed_login_count, |
+|                 | locked_until, danh sách role, danh sách permission |
+|                 | override — nếu có).                                |
++-----------------+----------------------------------------------------+
+| **Luồng thay    | ***A1 --- Không tìm thấy tài khoản phù hợp***      |
+| thế / ngoại lệ  |                                                    |
+| (Alternate      | 1. Hệ thống trả về danh sách rỗng, không báo lỗi.  |
+| Flow)**         |                                                    |
++-----------------+----------------------------------------------------+
+| **Hậu điều kiện | Quản trị viên có đủ thông tin (đặc biệt userId) để |
+| (P              | tiếp tục các use case khác (UC-45, UC-04, UC-46,   |
+| ostcondition)** | UC-47) — use case này chỉ đọc, không thay đổi dữ   |
+|                 | liệu.                                              |
++-----------------+----------------------------------------------------+
+
+---
+
 UC-45: Đổi mật khẩu
 
 +-----------------+----------------------------------------------------+
@@ -489,6 +549,79 @@ UC-46: Gán/Thu hồi vai trò cho tài khoản
 | (P              |     hành của tài khoản.                            |
 | ostcondition)** | -   permission_audit_log có đầy đủ lịch sử ai gán/ |
 |                 |     thu hồi role nào, cho ai, khi nào.             |
++-----------------+----------------------------------------------------+
+
+---
+
+UC-47: Khóa/Mở khóa tài khoản
+
++-----------------+----------------------------------------------------+
+| **Mã Use Case** | UC-47                                              |
++-----------------+----------------------------------------------------+
+| **Tên Use       | Khóa/Mở khóa tài khoản                             |
+| Case**          |                                                    |
++-----------------+----------------------------------------------------+
+| **Phân hệ**     | Phân hệ 2                                          |
++-----------------+----------------------------------------------------+
+| **Yêu cầu chức  | FR-USR-04                                          |
+| năng gốc**      |                                                    |
++-----------------+----------------------------------------------------+
+| **Tác nhân**    | Quản trị viên                                      |
++-----------------+----------------------------------------------------+
+| **Mô tả tóm     | Quản trị viên chuyển trạng thái 1 tài khoản giữa   |
+| tắt**           | ACTIVE và INACTIVE/SUSPENDED để kiểm soát quyền    |
+|                 | đăng nhập — không xóa dữ liệu tài khoản (đúng      |
+|                 | nguyên tắc không hard-delete của bảng users).      |
++-----------------+----------------------------------------------------+
+| **Sự kiện kích  | Nhân sự nghỉ việc/học sinh rời trung tâm cần ngừng |
+| hoạt**          | truy cập dài hạn; hoặc phát hiện vi phạm/nghi vấn  |
+|                 | bảo mật cần tạm khóa ngay; hoặc cần khôi phục 1    |
+|                 | tài khoản đã khóa.                                 |
++-----------------+----------------------------------------------------+
+| **Điều kiện     | - Người thao tác có quyền user.manage.             |
+| tiên quyết      |                                                    |
+| (               | - Tài khoản đích tồn tại trong bảng users (tra cứu |
+| Precondition)** | qua UC-44).                                        |
++-----------------+----------------------------------------------------+
+| **Luồng sự kiện | 1. Quản trị viên tìm và chọn đích danh 1 tài khoản |
+| chính (Main     | (UC-44).                                           |
+| Flow)**         |                                                    |
+|                 | 2. Quản trị viên chọn chuyển trạng thái sang       |
+|                 | INACTIVE (ngừng hoạt động dài hạn) hoặc SUSPENDED  |
+|                 | (tạm khóa có chủ đích).                            |
+|                 |                                                    |
+|                 | 3. Hệ thống cập nhật users.status, ghi lại bản ghi |
+|                 | vào users_history (JSONB diff-log — trạng thái     |
+|                 | cũ/mới, actor, thời điểm — cùng cơ chế với         |
+|                 | permission_audit_log).                             |
+|                 |                                                    |
+|                 | 4. Toàn bộ refresh token đang hoạt động của tài    |
+|                 | khoản bị thu hồi ngay (giống hậu điều kiện UC-45)  |
+|                 | — buộc đăng xuất khỏi mọi thiết bị; các lần đăng   |
+|                 | nhập tiếp theo bị từ chối với failure_reason =     |
+|                 | USER_INACTIVE (UC-01 A3).                          |
++-----------------+----------------------------------------------------+
+| **Luồng thay    | ***A1 --- Khôi phục tài khoản (INACTIVE/SUSPENDED  |
+| thế / ngoại lệ  | sang ACTIVE)***                                    |
+| (Alternate      |                                                    |
+| Flow)**         | 1. Quản trị viên chọn Kích hoạt lại; hệ thống set  |
+|                 | status = ACTIVE, reset failed_login_count = 0 và   |
+|                 | locked_until = NULL, ghi log users_history. Tài    |
+|                 | khoản đăng nhập lại được ngay, giữ nguyên toàn bộ  |
+|                 | role/permission override đã có trước đó.           |
+|                 |                                                    |
+|                 | ***A2 --- Tự khóa chính tài khoản đang đăng        |
+|                 | nhập***                                            |
+|                 |                                                    |
+|                 | 1. Hệ thống từ chối, báo lỗi không thể tự khóa tài |
+|                 | khoản của chính mình — tránh trường hợp không còn  |
+|                 | Quản trị viên nào thao tác được.                   |
++-----------------+----------------------------------------------------+
+| **Hậu điều kiện | - users.status phản ánh đúng trạng thái mới.       |
+| (P              |                                                    |
+| ostcondition)** | - users_history có đầy đủ lịch sử ai đổi trạng     |
+|                 | thái tài khoản nào, khi nào, từ giá trị gì sang    |
+|                 | giá trị gì.                                        |
 +-----------------+----------------------------------------------------+
 
 Phân hệ 3 --- Quản lý công việc và quy trình

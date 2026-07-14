@@ -12,6 +12,7 @@ import vn.com.pps.education.dto.AddTeachingPlanItemRequest;
 import vn.com.pps.education.dto.CreateTeachingPlanRequest;
 import vn.com.pps.education.dto.TeachingPlanItemResponse;
 import vn.com.pps.education.dto.TeachingPlanResponse;
+import vn.com.pps.education.dto.UpdateTeachingPlanItemRequest;
 import vn.com.pps.education.dto.UpdateTeachingPlanRequest;
 import vn.com.pps.education.exception.InvalidTeachingPlanPeriodException;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
@@ -155,6 +156,31 @@ public class TeachingPlanService {
         return teachingPlanItemRepository.findByTeachingPlanIdOrderByItemOrder(planId).stream().map(this::toResponse).toList();
     }
 
+    /** UC-28 A1: chỉnh sửa 1 mục chi tiết đã lập trong kế hoạch. */
+    @Transactional
+    public TeachingPlanItemResponse updateItem(Long planId, Long itemId, UpdateTeachingPlanItemRequest request, Long actorUserId) {
+        TeachingPlan plan = getPlanOrThrow(planId);
+        requireAssignedTeacher(plan.getSchoolClass().getId(), actorUserId);
+        TeachingPlanItem item = getItemOrThrow(planId, itemId);
+
+        item.setItemOrder(request.itemOrder());
+        item.setPlannedDate(request.plannedDate());
+        item.setTopic(request.topic());
+        item.setObjectives(request.objectives());
+        item.setContentOutline(request.contentOutline());
+        item.setSkillsFocus(request.skillsFocus());
+        item.setHomeworkNote(request.homeworkNote());
+        if (request.classSessionId() == null) {
+            item.setClassSession(null);
+        } else {
+            ClassSession session = classSessionRepository.findById(request.classSessionId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy buổi học id=" + request.classSessionId()));
+            item.setClassSession(session);
+        }
+        item = teachingPlanItemRepository.save(item);
+        return toResponse(item);
+    }
+
     // ===================== Helpers =====================
 
     private void requireAssignedTeacher(Long classId, Long actorUserId) {
@@ -177,6 +203,15 @@ public class TeachingPlanService {
     private TeachingPlan getPlanOrThrow(Long id) {
         return teachingPlanRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy kế hoạch giảng dạy id=" + id));
+    }
+
+    private TeachingPlanItem getItemOrThrow(Long planId, Long itemId) {
+        TeachingPlanItem item = teachingPlanItemRepository.findById(itemId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy mục kế hoạch id=" + itemId));
+        if (!item.getTeachingPlan().getId().equals(planId)) {
+            throw new ResourceNotFoundException("Không tìm thấy mục kế hoạch id=" + itemId + " thuộc kế hoạch id=" + planId);
+        }
+        return item;
     }
 
     private void writeHistory(TeachingPlan plan, User actor, TeachingPlanHistory.Action action) {

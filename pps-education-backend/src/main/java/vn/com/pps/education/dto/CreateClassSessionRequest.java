@@ -6,10 +6,7 @@ import jakarta.validation.constraints.NotNull;
 import java.time.LocalDate;
 import java.time.LocalTime;
 
-/**
- * Xếp lịch 1 buổi học (class_sessions) — không có UC riêng, xem Javadoc
- * ClassSessionService.
- */
+/** UC-48: Xếp lịch buổi học (FR-ACA-05) — xem Javadoc ClassSessionService. */
 public record CreateClassSessionRequest(
         @NotNull LocalDate sessionDate,
         @NotNull LocalTime startTime,

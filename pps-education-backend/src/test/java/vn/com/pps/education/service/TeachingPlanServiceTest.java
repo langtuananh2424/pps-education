@@ -18,6 +18,7 @@ import vn.com.pps.education.dto.CurriculumResponse;
 import vn.com.pps.education.dto.TeachingPlanItemResponse;
 import vn.com.pps.education.dto.TeachingPlanResponse;
 import vn.com.pps.education.dto.UpdateCurriculumRequest;
+import vn.com.pps.education.dto.UpdateTeachingPlanItemRequest;
 import vn.com.pps.education.dto.UpdateTeachingPlanRequest;
 import vn.com.pps.education.exception.InvalidTeachingPlanPeriodException;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
@@ -153,6 +154,32 @@ class TeachingPlanServiceTest extends AbstractIntegrationTest {
         assertThat(item.topic()).isEqualTo("Buổi 1: Chào hỏi");
         List<TeachingPlanItemResponse> items = teachingPlanService.listItems(plan.id());
         assertThat(items).extracting(TeachingPlanItemResponse::id).contains(item.id());
+    }
+
+    @Test
+    void updateItem_UC28_A1_updatesItemContent() {
+        TeachingPlanResponse plan = teachingPlanService.createPlan(
+                new CreateTeachingPlanRequest(schoolClass.id(), "WEEKLY", null, 1,
+                        LocalDate.now(), LocalDate.now().plusDays(6), "Tuần 1", null, true),
+                teacher.getId());
+        TeachingPlanItemResponse item = teachingPlanService.addItem(plan.id(),
+                new AddTeachingPlanItemRequest(1, LocalDate.now(), "Buổi 1: Chào hỏi",
+                        "Chào hỏi cơ bản", "Giới thiệu bản thân, chào hỏi", "SPEAKING", "Học thuộc 10 từ mới", null),
+                teacher.getId());
+
+        TeachingPlanItemResponse updated = teachingPlanService.updateItem(plan.id(), item.id(),
+                new UpdateTeachingPlanItemRequest(1, LocalDate.now(), "Buổi 1: Chào hỏi (đã sửa)",
+                        "Chào hỏi nâng cao", "Giới thiệu bản thân, chào hỏi, tạm biệt", "SPEAKING,LISTENING",
+                        "Học thuộc 15 từ mới", null),
+                teacher.getId());
+
+        assertThat(updated.id()).isEqualTo(item.id());
+        assertThat(updated.topic()).isEqualTo("Buổi 1: Chào hỏi (đã sửa)");
+        assertThat(updated.skillsFocus()).isEqualTo("SPEAKING,LISTENING");
+        List<TeachingPlanItemResponse> items = teachingPlanService.listItems(plan.id());
+        assertThat(items).filteredOn(i -> i.id().equals(item.id()))
+                .extracting(TeachingPlanItemResponse::topic)
+                .containsExactly("Buổi 1: Chào hỏi (đã sửa)");
     }
 
     private String curriculumCode() {

@@ -69,6 +69,10 @@ public class OperatingExpense {
     @JoinColumn(name = "approved_by")
     private User approvedBy;
 
+    /** UC-31 bổ sung — chỉ có giá trị khi status=REJECTED (V30). */
+    @Column(name = "rejection_reason", columnDefinition = "TEXT")
+    private String rejectionReason;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "recorded_by", nullable = false)
     private User recordedBy;

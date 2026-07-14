@@ -13,6 +13,7 @@ import vn.com.pps.education.dto.AddTeachingPlanItemRequest;
 import vn.com.pps.education.dto.CreateTeachingPlanRequest;
 import vn.com.pps.education.dto.TeachingPlanItemResponse;
 import vn.com.pps.education.dto.TeachingPlanResponse;
+import vn.com.pps.education.dto.UpdateTeachingPlanItemRequest;
 import vn.com.pps.education.dto.UpdateTeachingPlanRequest;
 import vn.com.pps.education.security.AuthenticatedUser;
 import vn.com.pps.education.service.TeachingPlanService;
@@ -62,5 +63,13 @@ public class TeachingPlanController {
     @GetMapping("/api/teaching-plans/{id}/items")
     public ResponseEntity<List<TeachingPlanItemResponse>> listItems(@PathVariable Long id) {
         return ResponseEntity.ok(teachingPlanService.listItems(id));
+    }
+
+    @PutMapping("/api/teaching-plans/{id}/items/{itemId}")
+    public ResponseEntity<TeachingPlanItemResponse> updateItem(@PathVariable Long id,
+                                                                 @PathVariable Long itemId,
+                                                                 @Valid @RequestBody UpdateTeachingPlanItemRequest request,
+                                                                 @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(teachingPlanService.updateItem(id, itemId, request, actor.userId()));
     }
 }

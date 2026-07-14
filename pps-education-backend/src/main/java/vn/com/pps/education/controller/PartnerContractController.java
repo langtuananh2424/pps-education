@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -61,5 +62,12 @@ public class PartnerContractController {
     @GetMapping("/api/sites/{siteId}/partner-contracts")
     public ResponseEntity<List<PartnerContractResponse>> listBySite(@PathVariable Long siteId) {
         return ResponseEntity.ok(partnerContractService.listBySite(siteId));
+    }
+
+    @DeleteMapping("/api/partner-contracts/{id}")
+    @PreAuthorize("hasPermission(null, 'facility.manage')")
+    public ResponseEntity<Void> deleteContract(@PathVariable Long id, @AuthenticationPrincipal AuthenticatedUser actor) {
+        partnerContractService.deleteContract(id, actor.userId());
+        return ResponseEntity.noContent().build();
     }
 }
