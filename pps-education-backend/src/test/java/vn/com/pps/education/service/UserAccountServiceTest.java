@@ -4,14 +4,21 @@ import jakarta.validation.Validation;
 import jakarta.validation.Validator;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
+import vn.com.pps.education.domain.RefreshToken;
 import vn.com.pps.education.domain.User;
+import vn.com.pps.education.dto.AdminChangePasswordRequest;
+import vn.com.pps.education.dto.ChangeOwnPasswordRequest;
 import vn.com.pps.education.dto.CreateUserRequest;
 import vn.com.pps.education.dto.UserResponse;
 import vn.com.pps.education.exception.DuplicateUserAccountException;
+import vn.com.pps.education.exception.InvalidCredentialsException;
+import vn.com.pps.education.repository.RefreshTokenRepository;
 import vn.com.pps.education.repository.UserRepository;
 import vn.com.pps.education.support.AbstractIntegrationTest;
 
+import java.time.OffsetDateTime;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -19,7 +26,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * UC-43: Khởi tạo tài khoản người dùng — Main Flow (bước 1-4), A1 (username/
- * email trùng), A2 (mật khẩu quá ngắn). Xem docs/uc/phan-he-02-phan-quyen.md.
+ * email trùng), A2 (mật khẩu quá ngắn). UC-45: Đổi mật khẩu — Main Flow, A1
+ * (sai mật khẩu hiện tại), A3 (tài khoản chỉ đăng nhập Google), A4 (Quản trị
+ * viên đổi cho tài khoản khác). Xem docs/uc/phan-he-02-phan-quyen.md.
  */
 @Transactional
 class UserAccountServiceTest extends AbstractIntegrationTest {
@@ -32,6 +41,12 @@ class UserAccountServiceTest extends AbstractIntegrationTest {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private RefreshTokenRepository refreshTokenRepository;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
     @Test
     void create_UC43_MainFlow_withPassword_createsActiveAccountWithBcryptHash() {
@@ -92,6 +107,72 @@ class UserAccountServiceTest extends AbstractIntegrationTest {
                 username(), email(), "Người Test", null, "short1", null, null);
 
         assertThat(VALIDATOR.validate(request)).isNotEmpty();
+    }
+
+    @Test
+    void changeOwnPassword_UC45_MainFlow_updatesHashAndRevokesActiveRefreshTokens() {
+        UserResponse account = userAccountService.create(baseRequest("MatKhauCu@8"));
+        RefreshToken activeToken = activeRefreshTokenFor(account.id());
+
+        userAccountService.changeOwnPassword(account.id(),
+                new ChangeOwnPasswordRequest("MatKhauCu@8", "MatKhauMoi@9"));
+
+        User updated = userRepository.findById(account.id()).orElseThrow();
+        assertThat(passwordEncoder.matches("MatKhauMoi@9", updated.getPasswordHash())).isTrue();
+        // Hậu điều kiện UC-45: thu hồi toàn bộ refresh token đang hoạt động.
+        assertThat(refreshTokenRepository.findById(activeToken.getId()).orElseThrow().getRevokedAt()).isNotNull();
+    }
+
+    @Test
+    void changeOwnPassword_UC45_A1_rejectsWrongCurrentPassword() {
+        UserResponse account = userAccountService.create(baseRequest("MatKhauCu@8"));
+        RefreshToken activeToken = activeRefreshTokenFor(account.id());
+
+        assertThatThrownBy(() -> userAccountService.changeOwnPassword(account.id(),
+                new ChangeOwnPasswordRequest("SaiMatKhau@1", "MatKhauMoi@9")))
+                .isInstanceOf(InvalidCredentialsException.class);
+
+        User unchanged = userRepository.findById(account.id()).orElseThrow();
+        assertThat(passwordEncoder.matches("MatKhauCu@8", unchanged.getPasswordHash())).isTrue();
+        assertThat(refreshTokenRepository.findById(activeToken.getId()).orElseThrow().getRevokedAt()).isNull();
+    }
+
+    @Test
+    void changeOwnPassword_UC45_A2_rejectsNewPasswordShorterThan8Chars() {
+        ChangeOwnPasswordRequest request = new ChangeOwnPasswordRequest("MatKhauCu@8", "short1");
+
+        assertThat(VALIDATOR.validate(request)).isNotEmpty();
+    }
+
+    @Test
+    void changeOwnPassword_UC45_A3_googleOnlyAccountSetsFirstPasswordWithoutCurrentPassword() {
+        UserResponse account = userAccountService.create(baseRequest(null));
+
+        userAccountService.changeOwnPassword(account.id(),
+                new ChangeOwnPasswordRequest(null, "MatKhauMoi@9"));
+
+        User updated = userRepository.findById(account.id()).orElseThrow();
+        assertThat(passwordEncoder.matches("MatKhauMoi@9", updated.getPasswordHash())).isTrue();
+    }
+
+    @Test
+    void changePasswordAsAdmin_UC45_A4_updatesHashAndRevokesActiveRefreshTokensWithoutCurrentPassword() {
+        UserResponse account = userAccountService.create(baseRequest("MatKhauCu@8"));
+        RefreshToken activeToken = activeRefreshTokenFor(account.id());
+
+        userAccountService.changePasswordAsAdmin(account.id(), new AdminChangePasswordRequest("MatKhauMoi@9"));
+
+        User updated = userRepository.findById(account.id()).orElseThrow();
+        assertThat(passwordEncoder.matches("MatKhauMoi@9", updated.getPasswordHash())).isTrue();
+        assertThat(refreshTokenRepository.findById(activeToken.getId()).orElseThrow().getRevokedAt()).isNotNull();
+    }
+
+    private RefreshToken activeRefreshTokenFor(Long userId) {
+        RefreshToken token = new RefreshToken();
+        token.setUser(userRepository.findById(userId).orElseThrow());
+        token.setTokenHash("hash." + SEQ.incrementAndGet());
+        token.setExpiresAt(OffsetDateTime.now().plusDays(30));
+        return refreshTokenRepository.save(token);
     }
 
     private CreateUserRequest baseRequest(String password) {

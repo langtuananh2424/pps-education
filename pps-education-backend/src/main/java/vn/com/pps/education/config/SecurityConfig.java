@@ -44,9 +44,10 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable()) // API stateless dùng Bearer token, không cookie session
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                // GET /api/auth/me cần JWT (không phải luồng đăng nhập) -- rule cụ thể hơn
-                // này PHẢI khai báo TRƯỚC "/api/auth/**" permitAll bên dưới để được ưu tiên.
-                .requestMatchers("/api/auth/me").authenticated()
+                // GET /api/auth/me, PUT /api/auth/me/password cần JWT (không phải luồng
+                // đăng nhập) -- rule cụ thể hơn này PHẢI khai báo TRƯỚC "/api/auth/**"
+                // permitAll bên dưới để được ưu tiên.
+                .requestMatchers("/api/auth/me", "/api/auth/me/password").authenticated()
                 .requestMatchers(
                     "/api/auth/**",
                     "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**",

@@ -214,6 +214,16 @@ nhân đó mới được thao tác.*
         (FR-HRM-01) được phép tạo tài khoản kèm hồ sơ trong cùng một
         giao dịch cho nhân sự chưa có tài khoản.
 
+    -   **FR-USR-02: Đổi mật khẩu -** Hai luồng: (1) Tài khoản tự đổi mật
+        khẩu của chính mình, phải xác thực bằng mật khẩu hiện tại (trừ
+        tài khoản đang chỉ đăng nhập Google — chưa có mật khẩu — đặt mật
+        khẩu lần đầu không cần xác thực); (2) Quản trị viên (quyền
+        user.manage) đổi mật khẩu cho một tài khoản khác, không cần biết
+        mật khẩu hiện tại của tài khoản đó. Cả 2 luồng: mật khẩu mới tối
+        thiểu 8 ký tự, sau khi đổi thành công hệ thống thu hồi toàn bộ
+        refresh token đang hoạt động của tài khoản đó (đăng xuất khỏi mọi
+        thiết bị, bắt buộc đăng nhập lại bằng mật khẩu mới).
+
 **PHÂN HỆ 3: QUẢN LÝ CÔNG VIỆC VÀ QUY TRÌNH**
 
 -   **Mô tả tổng quan:** Số hóa luồng giao việc, theo dõi tiến độ phối
@@ -663,6 +673,8 @@ CDN)**
 
   UC-43             Khởi tạo tài      FR-USR-01         2
                     khoản người dùng                    
+
+  UC-45             Đổi mật khẩu      FR-USR-02         2
   -----------------------------------------------------------------------
 
 ## Ma trận Actor × Phân hệ

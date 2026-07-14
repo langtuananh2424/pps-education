@@ -333,4 +333,84 @@ UC-43: Khởi tạo tài khoản người dùng
 | ostcondition)** |     rỗng cho tới khi được gán qua UC-03/UC-04).    |
 +-----------------+----------------------------------------------------+
 
+---
+
+UC-45: Đổi mật khẩu
+
++-----------------+----------------------------------------------------+
+| **Mã Use Case** | UC-45                                              |
++-----------------+----------------------------------------------------+
+| **Tên Use       | Đổi mật khẩu                                       |
+| Case**          |                                                    |
++-----------------+----------------------------------------------------+
+| **Phân hệ**     | Phân hệ 2                                          |
++-----------------+----------------------------------------------------+
+| **Yêu cầu chức  | FR-USR-02                                          |
+| năng gốc**      |                                                    |
++-----------------+----------------------------------------------------+
+| **Tác nhân**    | Mọi tài khoản đã đăng nhập (tự đổi mật khẩu của    |
+|                 | chính mình)                                        |
+|                 |                                                    |
+|                 | (Liên quan: Quản trị viên — đổi mật khẩu cho tài   |
+|                 | khoản khác)                                        |
++-----------------+----------------------------------------------------+
+| **Mô tả tóm     | Đổi mật khẩu đăng nhập — tự phục vụ (yêu cầu xác   |
+| tắt**           | thực mật khẩu hiện tại) hoặc do Quản trị viên thực |
+|                 | hiện thay cho tài khoản khác (không cần biết mật   |
+|                 | khẩu hiện tại của tài khoản đó).                   |
++-----------------+----------------------------------------------------+
+| **Sự kiện kích  | Người dùng muốn đổi mật khẩu của mình; hoặc Quản   |
+| hoạt**          | trị viên cần đặt lại mật khẩu cho một tài khoản     |
+|                 | khác (quên mật khẩu, nghi ngờ bị lộ...).           |
++-----------------+----------------------------------------------------+
+| **Điều kiện     | -   Đã đăng nhập (JWT hợp lệ). Riêng luồng đổi cho |
+| tiên quyết      |     tài khoản khác: có quyền user.manage.          |
+| (               |                                                    |
+| Precondition)** |                                                    |
++-----------------+----------------------------------------------------+
+| **Luồng sự kiện | 1.  Người dùng mở màn hình Đổi mật khẩu, nhập mật  |
+| chính (Main     |     khẩu hiện tại và mật khẩu mới (tối thiểu 8 ký  |
+| Flow)**         |     tự).                                           |
+|                 |                                                    |
+|                 | 2.  Hệ thống xác thực mật khẩu hiện tại khớp với    |
+|                 |     password_hash đang lưu.                        |
+|                 |                                                    |
+|                 | 3.  Hệ thống băm mật khẩu mới (BCrypt, NFR-SEC-01), |
+|                 |     cập nhật password_hash.                        |
+|                 |                                                    |
+|                 | 4.  Hệ thống thu hồi toàn bộ refresh token đang     |
+|                 |     hoạt động của tài khoản — đăng xuất khỏi mọi   |
+|                 |     thiết bị, bắt buộc đăng nhập lại bằng mật khẩu |
+|                 |     mới.                                           |
++-----------------+----------------------------------------------------+
+| **Luồng thay    | ***A1 --- Mật khẩu hiện tại không đúng***          |
+| thế / ngoại lệ  |                                                    |
+| (Alternate      | 1.  Hệ thống từ chối, không đổi mật khẩu.           |
+| Flow)**         |                                                    |
+|                 | ***A2 --- Mật khẩu mới quá ngắn***                 |
+|                 |                                                    |
+|                 | 1.  Mật khẩu mới dưới 8 ký tự: hệ thống từ chối    |
+|                 |     với lỗi định dạng dữ liệu (giống UC-43 A2).    |
+|                 |                                                    |
+|                 | ***A3 --- Tài khoản chưa từng có mật khẩu (chỉ     |
+|                 | đăng nhập Google, password_hash NULL)***           |
+|                 |                                                    |
+|                 | 1.  Bước 1-2 (nhập/xác thực mật khẩu hiện tại)     |
+|                 |     không áp dụng — hệ thống cho đặt mật khẩu lần  |
+|                 |     đầu trực tiếp, tiếp tục từ bước 3.             |
+|                 |                                                    |
+|                 | ***A4 --- Quản trị viên đổi mật khẩu cho tài khoản |
+|                 | khác***                                            |
+|                 |                                                    |
+|                 | 1.  Quản trị viên (quyền user.manage) chọn đích    |
+|                 |     danh 1 tài khoản, nhập mật khẩu mới — không    |
+|                 |     cần biết/nhập mật khẩu hiện tại của tài khoản  |
+|                 |     đó. Tiếp tục từ bước 3 (A2 vẫn áp dụng).       |
++-----------------+----------------------------------------------------+
+| **Hậu điều kiện | -   password_hash của tài khoản được cập nhật.     |
+| (P              | -   Toàn bộ refresh_tokens của tài khoản đó có     |
+| ostcondition)** |     revoked_at được set (nếu đang NULL) — mọi      |
+|                 |     phiên đăng nhập cũ không dùng lại được nữa.    |
++-----------------+----------------------------------------------------+
+
 Phân hệ 3 --- Quản lý công việc và quy trình
