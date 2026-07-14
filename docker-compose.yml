@@ -34,6 +34,7 @@ services:
       DB_PASSWORD: root123456
       JWT_SECRET: local_dev_secret_change_in_prod_min_256_bits_xxxxxxxxxxxxxxxxx
       SEED_DEV_USERS: "true" # tạo sẵn 11 tài khoản demo (1/role) - xem DevUserSeeder
+      GOOGLE_OAUTH_CLIENT_IDS: "295752787966-8dsm6jo0p8md2p60safqqmifeo293855.apps.googleusercontent.com" # Client ID không phải secret (public, dùng ở FE) — audience verify id_token (UC-01 A4)
     ports:
       - "8080:8080"
     depends_on:

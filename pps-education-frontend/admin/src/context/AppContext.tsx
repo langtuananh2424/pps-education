@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useMemo, useState } from "react";
 import { UserRole } from "@/types";
 import { mockRolePermissions } from "@/data/mockData";
-import { CurrentUserResponse, fetchCurrentUser, login as loginApi, logout as logoutApi } from "@/features/auth/api";
+import { CurrentUserResponse, fetchCurrentUser, login as loginApi, loginWithGoogle as loginWithGoogleApi, logout as logoutApi } from "@/features/auth/api";
 import { getAccessToken } from "@/lib/tokenStorage";
 import { rolePriorityOrder } from "@/constants/roles";
 
@@ -16,6 +16,7 @@ interface AppContextValue {
   setSelectedCampusId: (id: string) => void;
   setSidebarOpen: (open: boolean) => void;
   login: (usernameOrEmail: string, password: string) => Promise<void>;
+  loginWithGoogle: (idToken: string) => Promise<void>;
   logout: () => Promise<void>;
   hasPermission: (requiredPermission?: string) => boolean;
 }
@@ -47,13 +48,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [selectedCampusId, setSelectedCampusId] = useState("ALL");
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const login = async (usernameOrEmail: string, password: string) => {
-    await loginApi(usernameOrEmail, password);
+  const completeLogin = async () => {
     const profile = await fetchCurrentUser();
     localStorage.setItem(CURRENT_USER_CACHE_KEY, JSON.stringify(profile));
     setCurrentUser(profile);
     setCurrentRole(deriveCurrentRole(profile.roleCodes));
     setIsLoggedIn(true);
+  };
+
+  const login = async (usernameOrEmail: string, password: string) => {
+    await loginApi(usernameOrEmail, password);
+    await completeLogin();
+  };
+
+  const loginWithGoogle = async (idToken: string) => {
+    await loginWithGoogleApi(idToken);
+    await completeLogin();
   };
 
   const logout = async () => {
@@ -81,6 +91,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setSelectedCampusId,
       setSidebarOpen,
       login,
+      loginWithGoogle,
       logout,
       hasPermission
     }),

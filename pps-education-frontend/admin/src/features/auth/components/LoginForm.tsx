@@ -2,6 +2,9 @@ import React, { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { ApiError } from "@/lib/apiClient";
+import GoogleSignInButton from "./GoogleSignInButton";
+
+const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
 interface LoginFormProps {
   usernameOrEmail: string;
@@ -142,6 +145,23 @@ export default function LoginForm({ usernameOrEmail, onUsernameOrEmailChange, on
           )}
         </button>
       </form>
+
+      {googleClientId && (
+        <>
+          <div className="flex items-center gap-3 mt-5">
+            <div className="flex-1 h-px bg-slate-100" />
+            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Hoặc</span>
+            <div className="flex-1 h-px bg-slate-100" />
+          </div>
+
+          <div className="mt-4">
+            <GoogleSignInButton
+              onSuccess={onLoginSuccess}
+              onError={(message) => setError(message)}
+            />
+          </div>
+        </>
+      )}
     </>
   );
 }
