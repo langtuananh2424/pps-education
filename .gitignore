@@ -31,3 +31,6 @@ node_modules/
 dist/
 build/
 docker-compose.override.yml
+
+# Trang test cục bộ (Google Sign-In id_token...) - không phải code dự án, không commit
+local-test/
