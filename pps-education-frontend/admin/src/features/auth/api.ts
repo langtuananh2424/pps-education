@@ -28,6 +28,16 @@ export async function login(usernameOrEmail: string, password: string): Promise<
   setTokens(response.accessToken, response.refreshToken);
 }
 
+/** UC-01 Main Flow bước 4 — idToken lấy từ Google Identity Services (credential trả về của nút Sign in with Google). */
+export async function loginWithGoogle(idToken: string): Promise<void> {
+  const response = await apiRequest<LoginResponse>("/auth/login/google", {
+    method: "POST",
+    skipAuth: true,
+    body: JSON.stringify({ idToken })
+  });
+  setTokens(response.accessToken, response.refreshToken);
+}
+
 export function fetchCurrentUser(): Promise<CurrentUserResponse> {
   return apiRequest<CurrentUserResponse>("/auth/me");
 }
