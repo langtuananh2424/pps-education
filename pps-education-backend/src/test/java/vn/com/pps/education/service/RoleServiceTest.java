@@ -1,16 +1,22 @@
 package vn.com.pps.education.service;
 
+import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.Permission;
 import vn.com.pps.education.domain.Role;
 import vn.com.pps.education.domain.RolePermission;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.domain.UserRole;
+import vn.com.pps.education.dto.CreateRoleRequest;
 import vn.com.pps.education.dto.RolePermissionMatrixResponse;
+import vn.com.pps.education.dto.RoleResponse;
 import vn.com.pps.education.dto.UpdateRolePermissionsRequest;
+import vn.com.pps.education.exception.DuplicateRoleCodeException;
+import vn.com.pps.education.exception.RoleNotDeletableException;
 import vn.com.pps.education.exception.RolePermissionConfirmationRequiredException;
 import vn.com.pps.education.repository.PermissionRepository;
 import vn.com.pps.education.repository.RolePermissionRepository;
@@ -49,6 +55,9 @@ class RoleServiceTest extends AbstractIntegrationTest {
 
     @Autowired
     private UserRoleRepository userRoleRepository;
+
+    @Autowired
+    private UserRoleAssignmentService userRoleAssignmentService;
 
     private Role role;
     private Permission permissionA;
@@ -113,6 +122,77 @@ class RoleServiceTest extends AbstractIntegrationTest {
 
         RolePermissionMatrixResponse matrix = roleService.getPermissionMatrix(role.getId());
         assertThat(matrix.permissions()).allMatch(p -> !p.granted());
+    }
+
+    @Test
+    void createRole_boSung_MainFlow_savesCustomRoleWithSystemFalse() {
+        RoleResponse created = roleService.createRole(
+                new CreateRoleRequest("CUSTOM_ROLE_" + System.nanoTime(), "Vai trò tùy chỉnh", "Mô tả test"),
+                newUser().getId());
+
+        assertThat(created.isSystem()).isFalse();
+        assertThat(created.name()).isEqualTo("Vai trò tùy chỉnh");
+    }
+
+    @Test
+    void createRole_boSung_rejectsDuplicateCode() {
+        Long actorId = newUser().getId();
+        String code = "CUSTOM_ROLE_" + System.nanoTime();
+        roleService.createRole(new CreateRoleRequest(code, "Lần 1", null), actorId);
+
+        assertThatThrownBy(() -> roleService.createRole(new CreateRoleRequest(code, "Lần 2", null), actorId))
+                .isInstanceOf(DuplicateRoleCodeException.class);
+    }
+
+    @Test
+    void deleteRole_boSung_MainFlow_removesRoleNeverAssigned() {
+        Long actorId = newUser().getId();
+        RoleResponse created = roleService.createRole(
+                new CreateRoleRequest("CUSTOM_ROLE_" + System.nanoTime(), "Xóa được", null), actorId);
+
+        roleService.deleteRole(created.id(), actorId);
+
+        assertThat(roleRepository.findById(created.id())).isEmpty();
+    }
+
+    @Test
+    void deleteRole_boSung_rejectsSystemRole() {
+        Role systemRole = roleRepository.findByCode("TEACHER").orElseThrow();
+
+        assertThatThrownBy(() -> roleService.deleteRole(systemRole.getId(), newUser().getId()))
+                .isInstanceOf(RoleNotDeletableException.class);
+    }
+
+    @Test
+    void deleteRole_boSung_rejectsWhenCurrentlyAssigned() {
+        activateUserForRole(role);
+
+        assertThatThrownBy(() -> roleService.deleteRole(role.getId(), newUser().getId()))
+                .isInstanceOf(RoleNotDeletableException.class);
+    }
+
+    @Test
+    void deleteRole_boSung_rejectsWhenHasAuditHistoryEvenAfterRevoke() {
+        User actor = newUser();
+        User target = newUser();
+        userRoleAssignmentService.assignRole(target.getId(), role.getId(), actor.getId(), mockRequest());
+        userRoleAssignmentService.revokeRole(target.getId(), role.getId(), actor.getId(), mockRequest());
+
+        assertThatThrownBy(() -> roleService.deleteRole(role.getId(), actor.getId()))
+                .isInstanceOf(RoleNotDeletableException.class);
+    }
+
+    private HttpServletRequest mockRequest() {
+        return new MockHttpServletRequest();
+    }
+
+    private User newUser() {
+        User user = new User();
+        user.setUsername("role.crud.user." + System.nanoTime());
+        user.setEmail("role.crud.user." + System.nanoTime() + "@pps.edu.vn");
+        user.setFullName("Role CRUD Test User");
+        user.setStatus(User.Status.ACTIVE);
+        return userRepository.save(user);
     }
 
     private void activateUserForRole(Role role) {
