@@ -143,6 +143,7 @@ my @order = (
     ['permission-controller',           'Danh mục quyền (UC-02)'],
     ['role-controller',                 'Nhóm quyền mặc định (UC-03)'],
     ['user-permission-override-controller', 'Quyền ngoại lệ theo tài khoản (UC-04)'],
+    ['user-role-controller',            'Gán/Thu hồi vai trò cho tài khoản (UC-46)'],
     ['permission-audit-log-controller', 'Nhật ký phân quyền (UC-05)'],
     ['task-controller',                 'Quản lý công việc (UC-06/07)'],
     ['employee-controller',             'Hồ sơ nhân sự, hợp đồng, bằng cấp (UC-08)'],

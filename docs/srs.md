@@ -205,14 +205,26 @@ nhân đó mới được thao tác.*
         lại lịch sử: Ai đã sửa quyền, sửa của ai, vào thời gian nào để
         phục vụ tra soát.
 
+    -   **FR-PER-05: Gán/Thu hồi vai trò cho tài khoản -** Quản trị
+        viên gán 1 vai trò (role) cho 1 tài khoản cụ thể, hoặc thu hồi 1
+        vai trò đã gán — mỗi tài khoản có thể mang nhiều vai trò cùng
+        lúc (bảng user_roles thiết kế M-N). Khác với FR-PER-02 (cấu
+        hình quyền MẶC ĐỊNH của 1 vai trò áp dụng hàng loạt) và
+        FR-PER-03 (tùy chỉnh quyền LẺ cho 1 tài khoản) — FR-PER-05 là
+        bước trung gian bắt buộc: liên kết tài khoản đó với vai trò
+        đang có sẵn. Mỗi lần gán/thu hồi ghi 1 dòng vào
+        permission_audit_log (action = ROLE_GRANTED/ROLE_REVOKED, cùng
+        cơ chế tra soát với FR-PER-04).
+
     -   **FR-USR-01: Khởi tạo tài khoản người dùng -** Quản trị viên
         khởi tạo tài khoản (username, email, họ tên, SĐT, phòng ban).
         Mật khẩu ban đầu là tùy chọn: bỏ trống nếu tài khoản chỉ đăng
         nhập bằng Google (FR-AUT-01 — hệ thống khớp theo email). Việc
         gán vai trò/quyền KHÔNG thuộc bước khởi tạo — thực hiện sau qua
-        FR-PER-02/FR-PER-03. Ngoài ra, luồng khởi tạo hồ sơ nhân sự
-        (FR-HRM-01) được phép tạo tài khoản kèm hồ sơ trong cùng một
-        giao dịch cho nhân sự chưa có tài khoản.
+        FR-PER-05 (gán vai trò) và/hoặc FR-PER-03 (tùy chỉnh quyền lẻ).
+        Ngoài ra, luồng khởi tạo hồ sơ nhân sự (FR-HRM-01) được phép
+        tạo tài khoản kèm hồ sơ trong cùng một giao dịch cho nhân sự
+        chưa có tài khoản.
 
     -   **FR-USR-02: Đổi mật khẩu -** Hai luồng: (1) Tài khoản tự đổi mật
         khẩu của chính mình, phải xác thực bằng mật khẩu hiện tại (trừ
@@ -675,6 +687,10 @@ CDN)**
                     khoản người dùng                    
 
   UC-45             Đổi mật khẩu      FR-USR-02         2
+
+  UC-46             Gán/Thu hồi vai   FR-PER-05         2
+                    trò cho tài                          
+                    khoản                                
   -----------------------------------------------------------------------
 
 ## Ma trận Actor × Phân hệ
