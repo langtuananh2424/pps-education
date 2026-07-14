@@ -75,6 +75,7 @@
 | POST | `/api/auth/login/google` | Công khai | Body: [GoogleLoginRequest](#googleloginrequest) | [LoginResponse](#loginresponse) |
 | POST | `/api/auth/logout` | Công khai | Body: [LogoutRequest](#logoutrequest) | 200 (không có body) |
 | GET | `/api/auth/me` | JWT | — | [CurrentUserResponse](#currentuserresponse) |
+| PUT | `/api/auth/me/password` | JWT | Body: [ChangeOwnPasswordRequest](#changeownpasswordrequest) | 200 (không có body) |
 | POST | `/api/auth/refresh` | Công khai | Body: [RefreshTokenRequest](#refreshtokenrequest) | [RefreshTokenResponse](#refreshtokenresponse) |
 
 ## Khởi tạo tài khoản người dùng (UC-43)
@@ -82,6 +83,7 @@
 | Method | Path | Auth | Input | Output |
 |---|---|---|---|---|
 | POST | `/api/users` | JWT + `user.manage` | Body: [CreateUserRequest](#createuserrequest) | [UserResponse](#userresponse) |
+| PUT | `/api/users/{userId}/password` | JWT + `user.manage` | Body: [AdminChangePasswordRequest](#adminchangepasswordrequest) | 200 (không có body) |
 
 ## Danh mục quyền (UC-02)
 
@@ -521,6 +523,12 @@
 | `skillsFocus` | string |  |
 | `topic` | string | ✔ |
 
+### AdminChangePasswordRequest
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `newPassword` | string | ✔ |
+
 ### AssignExerciseRequest
 
 | Trường | Kiểu | Bắt buộc |
@@ -634,6 +642,13 @@
 | `totalExpense` | number |  |
 | `totalOutstanding` | number |  |
 | `totalRevenue` | number |  |
+
+### ChangeOwnPasswordRequest
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `currentPassword` | string |  |
+| `newPassword` | string | ✔ |
 
 ### ChildResponse
 
@@ -1114,6 +1129,18 @@
 | `password` | string |  |
 | `phone` | string |  |
 | `username` | string | ✔ |
+
+### CurrentUserResponse
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `departmentName` | string |  |
+| `email` | string |  |
+| `fullName` | string |  |
+| `id` | integer (int64) |  |
+| `phone` | string |  |
+| `roleCodes` | mảng string |  |
+| `username` | string |  |
 
 ### CurriculumApprovalResponse
 

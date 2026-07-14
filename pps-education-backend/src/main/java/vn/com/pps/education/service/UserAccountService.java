@@ -4,13 +4,21 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.Department;
+import vn.com.pps.education.domain.RefreshToken;
 import vn.com.pps.education.domain.User;
+import vn.com.pps.education.dto.AdminChangePasswordRequest;
+import vn.com.pps.education.dto.ChangeOwnPasswordRequest;
 import vn.com.pps.education.dto.CreateUserRequest;
 import vn.com.pps.education.dto.UserResponse;
 import vn.com.pps.education.exception.DuplicateUserAccountException;
+import vn.com.pps.education.exception.InvalidCredentialsException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.repository.DepartmentRepository;
+import vn.com.pps.education.repository.RefreshTokenRepository;
 import vn.com.pps.education.repository.UserRepository;
+
+import java.time.OffsetDateTime;
+import java.util.List;
 
 /**
  * UC-43: Khởi tạo tài khoản người dùng (FR-USR-01).
@@ -37,13 +45,16 @@ public class UserAccountService {
 
     private final UserRepository userRepository;
     private final DepartmentRepository departmentRepository;
+    private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
 
     public UserAccountService(UserRepository userRepository,
                                DepartmentRepository departmentRepository,
+                               RefreshTokenRepository refreshTokenRepository,
                                PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.departmentRepository = departmentRepository;
+        this.refreshTokenRepository = refreshTokenRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -86,6 +97,57 @@ public class UserAccountService {
         user.setManagement(Boolean.TRUE.equals(request.isManagement()));
         user.setStatus(User.Status.ACTIVE);
         return userRepository.save(user);
+    }
+
+    /**
+     * UC-45: Đổi mật khẩu (FR-USR-02), luồng tự đổi mật khẩu của chính mình.
+     * Xem docs/uc/phan-he-02-phan-quyen.md — Main Flow, A1 (sai mật khẩu
+     * hiện tại), A3 (tài khoản chỉ đăng nhập Google, chưa từng có mật khẩu —
+     * bỏ qua bước xác thực, đặt mật khẩu lần đầu). A2 (mật khẩu mới quá
+     * ngắn) chặn bằng bean validation ở ChangeOwnPasswordRequest.
+     */
+    @Transactional
+    public void changeOwnPassword(Long userId, ChangeOwnPasswordRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + userId));
+
+        // A3 -- tài khoản chưa từng có mật khẩu (chỉ đăng nhập Google): đặt mật khẩu lần đầu, không cần xác thực.
+        if (user.getPasswordHash() != null) {
+            // A1 -- mật khẩu hiện tại không đúng.
+            if (request.currentPassword() == null
+                    || !passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
+                throw new InvalidCredentialsException("Mật khẩu hiện tại không đúng.");
+            }
+        }
+        applyNewPassword(user, request.newPassword());
+    }
+
+    /**
+     * UC-45: Đổi mật khẩu (FR-USR-02), luồng A4 — Quản trị viên (quyền
+     * user.manage) đổi mật khẩu cho một tài khoản khác, không cần biết mật
+     * khẩu hiện tại của tài khoản đó. A2 chặn bằng bean validation ở
+     * AdminChangePasswordRequest.
+     */
+    @Transactional
+    public void changePasswordAsAdmin(Long userId, AdminChangePasswordRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + userId));
+        applyNewPassword(user, request.newPassword());
+    }
+
+    /**
+     * Postcondition UC-45 (cả 2 luồng): cập nhật password_hash + thu hồi
+     * toàn bộ refresh token đang hoạt động của tài khoản — đăng xuất khỏi
+     * mọi thiết bị, bắt buộc đăng nhập lại bằng mật khẩu mới.
+     */
+    private void applyNewPassword(User user, String newPassword) {
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+
+        OffsetDateTime now = OffsetDateTime.now();
+        List<RefreshToken> activeTokens = refreshTokenRepository.findByUserIdAndRevokedAtIsNull(user.getId());
+        activeTokens.forEach(t -> t.setRevokedAt(now));
+        refreshTokenRepository.saveAll(activeTokens);
     }
 
     private UserResponse toResponse(User u) {

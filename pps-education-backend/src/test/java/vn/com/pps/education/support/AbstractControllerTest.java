@@ -2,6 +2,7 @@ package vn.com.pps.education.support;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import vn.com.pps.education.domain.Role;
 import vn.com.pps.education.domain.User;
@@ -38,6 +39,9 @@ public abstract class AbstractControllerTest extends AbstractIntegrationTest {
     @Autowired
     private UserRoleRepository userRoleRepository;
 
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
     protected User userWithRole(String usernamePrefix, String roleCode) {
         User user = new User();
         user.setUsername(usernamePrefix + "." + System.nanoTime());
@@ -54,6 +58,13 @@ public abstract class AbstractControllerTest extends AbstractIntegrationTest {
         userRoleRepository.save(userRole);
 
         return user;
+    }
+
+    /** Như userWithRole, kèm mật khẩu đã băm — phục vụ test UC-45 (đổi mật khẩu). */
+    protected User userWithRoleWithPassword(String usernamePrefix, String roleCode, String rawPassword) {
+        User user = userWithRole(usernamePrefix, roleCode);
+        user.setPasswordHash(passwordEncoder.encode(rawPassword));
+        return userRepository.save(user);
     }
 
     protected String bearerToken(User user, String roleCode) {
