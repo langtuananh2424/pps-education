@@ -11,10 +11,8 @@ import java.util.UUID;
 
 /**
  * Bảng class_sessions (SDD > Học thuật > Lịch dạy & Điểm danh > a) —
- * 1 buổi học vật lý tại 1 thời điểm cụ thể. Không có UC nào mô tả Main
- * Flow tạo class_sessions (UC-15/UC-37 đều trỏ nhầm về UC-18, đã xác
- * nhận với user) — coi là phần mở rộng ngầm của Phân hệ 6, xem Javadoc
- * ClassSessionService.
+ * 1 buổi học vật lý tại 1 thời điểm cụ thể. UC-48: Xếp lịch buổi học
+ * (FR-ACA-05, docs/uc/phan-he-06-hoc-thuat.md) — xem Javadoc ClassSessionService.
  */
 @Getter
 @Setter

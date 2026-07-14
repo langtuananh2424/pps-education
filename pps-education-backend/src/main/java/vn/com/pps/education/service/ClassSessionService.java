@@ -9,9 +9,12 @@ import vn.com.pps.education.domain.SchoolClass;
 import vn.com.pps.education.domain.SessionPeriod;
 import vn.com.pps.education.domain.SessionPeriodHistory;
 import vn.com.pps.education.domain.User;
+import vn.com.pps.education.dto.CancelClassSessionRequest;
 import vn.com.pps.education.dto.ClassSessionResponse;
 import vn.com.pps.education.dto.CreateClassSessionRequest;
+import vn.com.pps.education.dto.RescheduleClassSessionRequest;
 import vn.com.pps.education.dto.SessionPeriodResponse;
+import vn.com.pps.education.exception.InvalidClassSessionStatusTransitionException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.exception.RoomConflictException;
 import vn.com.pps.education.repository.ClassSessionHistoryRepository;
@@ -23,6 +26,7 @@ import vn.com.pps.education.repository.SessionPeriodRepository;
 import vn.com.pps.education.repository.SystemSettingRepository;
 import vn.com.pps.education.repository.UserRepository;
 
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashMap;
@@ -30,17 +34,10 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Xếp lịch buổi học (class_sessions/session_periods) — nền tảng bắt buộc
- * cho UC-15 (Điểm danh học sinh, docs/uc/phan-he-05-hoc-sinh.md).
- *
- * KHÔNG có UC nào trong docs/uc/ mô tả Main Flow cho việc này — UC-15 và
- * UC-37 (Phân hệ 10) đều trỏ về "UC-18" nhưng UC-18 thực tế (đã code,
- * docs/uc/phan-he-06-hoc-thuat.md) chỉ tạo `classes`/`class_teachers`/
- * `class_enrollments`, không liên quan xếp lịch buổi học — đã xác nhận
- * với user đây là lỗi tham chiếu lặp lại trong tài liệu gốc. Coi là phần
- * mở rộng ngầm của Phân hệ 6 (cùng actor STAFF/HEAD_ACADEMIC như UC-18),
- * bám đúng schema SDD + FR-FAC-03 (kiểm tra trùng phòng, chỉ áp dụng cho
- * phòng is_flexible=FALSE).
+ * UC-48: Xếp lịch buổi học (FR-ACA-05, docs/uc/phan-he-06-hoc-thuat.md).
+ * Trước đây UC-15/UC-37 đều trỏ nhầm về "UC-18" cho việc này — UC-18 thực
+ * tế chỉ tạo `classes`/`class_teachers`/`class_enrollments` (xem Javadoc
+ * cũ trong git history); UC-48 đã lấp đúng khoảng trống tài liệu này.
  *
  * session_periods tự sinh theo system_settings.academic.default_periods_per_session
  * (key mới, xác nhận với user — SDD chỉ nói "mặc định 2 tiết/buổi theo
@@ -109,17 +106,8 @@ public class ClassSessionService {
 
         Room room = null;
         if (request.roomId() != null) {
-            room = roomRepository.findById(request.roomId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phòng học id=" + request.roomId()));
-            if (!room.isFlexible()) {
-                List<ClassSession> overlapping = classSessionRepository.findOverlappingInRoom(
-                        room.getId(), request.sessionDate(), request.startTime(), request.endTime(), null,
-                        List.of(ClassSession.Status.CANCELLED, ClassSession.Status.RESCHEDULED));
-                if (!overlapping.isEmpty()) {
-                    throw new RoomConflictException(
-                            "Phòng id=" + room.getId() + " đã có buổi học khác trùng khung giờ ngày " + request.sessionDate() + ".");
-                }
-            }
+            room = getRoomOrThrow(request.roomId());
+            checkRoomConflict(room, request.sessionDate(), request.startTime(), request.endTime(), null);
         }
 
         ClassSession session = new ClassSession();
@@ -137,6 +125,98 @@ public class ClassSessionService {
         generateDefaultPeriods(session, actor);
 
         return toResponse(session);
+    }
+
+    /** UC-48 A2: hủy 1 buổi đang SCHEDULED, giải phóng phòng khỏi ràng buộc trùng lịch. */
+    @Transactional
+    public ClassSessionResponse cancelSession(Long classId, Long sessionId, CancelClassSessionRequest request, Long actorUserId) {
+        ClassSession session = getSessionOrThrow(classId, sessionId);
+        requireScheduled(session);
+        User actor = getUserOrThrow(actorUserId);
+
+        session.setStatus(ClassSession.Status.CANCELLED);
+        session.setCancellationReason(request.reason());
+        session = classSessionRepository.save(session);
+
+        writeClassSessionHistory(session, actor, ClassSessionHistory.Action.UPDATED);
+        return toResponse(session);
+    }
+
+    /** UC-48 A3: dời 1 buổi đang SCHEDULED sang buổi mới; buổi cũ chuyển RESCHEDULED và liên kết sang buổi mới. */
+    @Transactional
+    public ClassSessionResponse rescheduleSession(Long classId, Long sessionId, RescheduleClassSessionRequest request, Long actorUserId) {
+        ClassSession oldSession = getSessionOrThrow(classId, sessionId);
+        requireScheduled(oldSession);
+        if (!request.newEndTime().isAfter(request.newStartTime())) {
+            throw new IllegalArgumentException("newEndTime phải sau newStartTime.");
+        }
+        User newTeacher = getUserOrThrow(request.newPrimaryTeacherId());
+        User actor = getUserOrThrow(actorUserId);
+
+        Room newRoom = null;
+        if (request.newRoomId() != null) {
+            newRoom = getRoomOrThrow(request.newRoomId());
+            checkRoomConflict(newRoom, request.newSessionDate(), request.newStartTime(), request.newEndTime(), oldSession.getId());
+        }
+
+        ClassSession newSession = new ClassSession();
+        newSession.setSchoolClass(oldSession.getSchoolClass());
+        newSession.setSessionDate(request.newSessionDate());
+        newSession.setStartTime(request.newStartTime());
+        newSession.setEndTime(request.newEndTime());
+        newSession.setRoom(newRoom);
+        newSession.setPrimaryTeacher(newTeacher);
+        newSession.setSessionType(oldSession.getSessionType());
+        newSession.setCreatedBy(actor);
+        newSession = classSessionRepository.save(newSession);
+        writeClassSessionHistory(newSession, actor, ClassSessionHistory.Action.CREATED);
+        generateDefaultPeriods(newSession, actor);
+
+        oldSession.setStatus(ClassSession.Status.RESCHEDULED);
+        oldSession.setCancellationReason(request.reason());
+        oldSession.setRescheduledToSession(newSession);
+        oldSession = classSessionRepository.save(oldSession);
+        writeClassSessionHistory(oldSession, actor, ClassSessionHistory.Action.UPDATED);
+
+        return toResponse(newSession);
+    }
+
+    private void checkRoomConflict(Room room, LocalDate date, LocalTime startTime, LocalTime endTime, Long editingSessionId) {
+        if (room.isFlexible()) {
+            return;
+        }
+        List<ClassSession> overlapping = classSessionRepository.findOverlappingInRoom(
+                room.getId(), date, startTime, endTime, editingSessionId,
+                List.of(ClassSession.Status.CANCELLED, ClassSession.Status.RESCHEDULED));
+        if (!overlapping.isEmpty()) {
+            throw new RoomConflictException("Phòng id=" + room.getId() + " đã có buổi học khác trùng khung giờ ngày " + date + ".");
+        }
+    }
+
+    private void requireScheduled(ClassSession session) {
+        if (session.getStatus() != ClassSession.Status.SCHEDULED) {
+            throw new InvalidClassSessionStatusTransitionException(
+                    "Chỉ có thể hủy/dời lịch buổi học đang ở trạng thái SCHEDULED (hiện tại: " + session.getStatus() + ").");
+        }
+    }
+
+    private ClassSession getSessionOrThrow(Long classId, Long sessionId) {
+        ClassSession session = classSessionRepository.findById(sessionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy buổi học id=" + sessionId));
+        if (!session.getSchoolClass().getId().equals(classId)) {
+            throw new ResourceNotFoundException("Không tìm thấy buổi học id=" + sessionId + " thuộc lớp id=" + classId);
+        }
+        return session;
+    }
+
+    private Room getRoomOrThrow(Long roomId) {
+        return roomRepository.findById(roomId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phòng học id=" + roomId));
+    }
+
+    private User getUserOrThrow(Long userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + userId));
     }
 
     private void generateDefaultPeriods(ClassSession session, User actor) {
@@ -192,7 +272,8 @@ public class ClassSessionService {
                 s.getId(), s.getSchoolClass().getId(), s.getSessionDate(), s.getStartTime(), s.getEndTime(),
                 s.getRoom() == null ? null : s.getRoom().getId(), s.getRoom() == null ? null : s.getRoom().getName(),
                 s.getPrimaryTeacher().getId(), s.getPrimaryTeacher().getFullName(),
-                s.getSessionType().name(), s.getStatus().name());
+                s.getSessionType().name(), s.getStatus().name(),
+                s.getCancellationReason(), s.getRescheduledToSession() == null ? null : s.getRescheduledToSession().getId());
     }
 
     private SessionPeriodResponse toResponse(SessionPeriod p) {

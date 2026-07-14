@@ -14,6 +14,7 @@ import vn.com.pps.education.dto.CreateQuestionBankRequest;
 import vn.com.pps.education.dto.CreateQuestionRequest;
 import vn.com.pps.education.dto.QuestionBankResponse;
 import vn.com.pps.education.dto.QuestionResponse;
+import vn.com.pps.education.dto.UpdateQuestionBankStatusRequest;
 import vn.com.pps.education.dto.UpdateQuestionRequest;
 import vn.com.pps.education.security.AuthenticatedUser;
 import vn.com.pps.education.service.QuestionBankService;
@@ -40,6 +41,14 @@ public class QuestionBankController {
     @GetMapping("/api/curriculums/{curriculumId}/question-banks")
     public ResponseEntity<List<QuestionBankResponse>> listBanksByCurriculum(@PathVariable Long curriculumId) {
         return ResponseEntity.ok(questionBankService.listBanksByCurriculum(curriculumId));
+    }
+
+    @PreAuthorize("hasPermission(null, 'lms.exercise.manage')")
+    @PutMapping("/api/question-banks/{id}/status")
+    public ResponseEntity<QuestionBankResponse> updateBankStatus(@PathVariable Long id,
+                                                                    @Valid @RequestBody UpdateQuestionBankStatusRequest request,
+                                                                    @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(questionBankService.updateBankStatus(id, request, actor.userId()));
     }
 
     @PreAuthorize("hasPermission(null, 'lms.exercise.manage')")

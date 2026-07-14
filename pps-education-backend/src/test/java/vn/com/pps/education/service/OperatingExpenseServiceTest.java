@@ -9,7 +9,9 @@ import vn.com.pps.education.domain.Site;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.domain.UserRole;
 import vn.com.pps.education.dto.CreateOperatingExpenseRequest;
+import vn.com.pps.education.dto.DecideOperatingExpenseRequest;
 import vn.com.pps.education.dto.OperatingExpenseResponse;
+import vn.com.pps.education.exception.OperatingExpenseAlreadyDecidedException;
 import vn.com.pps.education.repository.RoleRepository;
 import vn.com.pps.education.repository.SiteRepository;
 import vn.com.pps.education.repository.UserRepository;
@@ -22,11 +24,12 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * UC-31: Ghi nhận chi vận hành — Main Flow (bước 1-4), A1 (chi phí dùng
- * chung nhiều điểm trường, siteId để trống). Xem
- * docs/uc/phan-he-08-tai-chinh.md.
+ * chung nhiều điểm trường, siteId để trống), A2 (Ban giám đốc duyệt/từ
+ * chối, bổ sung FR-FIN-03). Xem docs/uc/phan-he-08-tai-chinh.md.
  */
 @Transactional
 class OperatingExpenseServiceTest extends AbstractIntegrationTest {
@@ -49,12 +52,15 @@ class OperatingExpenseServiceTest extends AbstractIntegrationTest {
     private SiteRepository siteRepository;
 
     private User accountant;
+    private User executive;
     private Site site;
 
     @BeforeEach
     void setUp() {
         accountant = newUser("accountant");
         assignRole(accountant, "STAFF");
+        executive = newUser("executive");
+        assignRole(executive, "EXECUTIVE");
         site = newSite();
     }
 
@@ -84,6 +90,56 @@ class OperatingExpenseServiceTest extends AbstractIntegrationTest {
         List<OperatingExpenseResponse> list = operatingExpenseService.listBySiteAndPeriod(
                 null, LocalDate.now().minusDays(1), LocalDate.now().plusDays(1));
         assertThat(list).extracting(OperatingExpenseResponse::id).contains(expense.id());
+    }
+
+    @Test
+    void decide_UC31_A2_approvesRecordedExpense() {
+        OperatingExpenseResponse expense = operatingExpenseService.create(new CreateOperatingExpenseRequest(
+                "RENT", site.getId(), LocalDate.now(), new BigDecimal("1500000"), "Thuê mặt bằng tháng 7",
+                "BANK_TRANSFER", "Chủ nhà A", "RC-100", null), accountant.getId());
+
+        OperatingExpenseResponse decided = operatingExpenseService.decide(expense.id(),
+                new DecideOperatingExpenseRequest("APPROVED", null), executive.getId());
+
+        assertThat(decided.status()).isEqualTo("APPROVED");
+        assertThat(decided.approvedBy()).isEqualTo(executive.getId());
+        assertThat(decided.rejectionReason()).isNull();
+    }
+
+    @Test
+    void decide_UC31_A2_rejectsWithReasonRecordsRejectionReason() {
+        OperatingExpenseResponse expense = operatingExpenseService.create(new CreateOperatingExpenseRequest(
+                "RENT", site.getId(), LocalDate.now(), new BigDecimal("1500000"), "Thuê mặt bằng tháng 7",
+                "BANK_TRANSFER", "Chủ nhà A", "RC-100", null), accountant.getId());
+
+        OperatingExpenseResponse decided = operatingExpenseService.decide(expense.id(),
+                new DecideOperatingExpenseRequest("REJECTED", "Thiếu chứng từ hợp lệ"), executive.getId());
+
+        assertThat(decided.status()).isEqualTo("REJECTED");
+        assertThat(decided.rejectionReason()).isEqualTo("Thiếu chứng từ hợp lệ");
+    }
+
+    @Test
+    void decide_UC31_rejectsMissingReasonWhenRejecting() {
+        OperatingExpenseResponse expense = operatingExpenseService.create(new CreateOperatingExpenseRequest(
+                "RENT", site.getId(), LocalDate.now(), new BigDecimal("1500000"), "Thuê mặt bằng tháng 7",
+                "BANK_TRANSFER", "Chủ nhà A", "RC-100", null), accountant.getId());
+
+        assertThatThrownBy(() -> operatingExpenseService.decide(expense.id(),
+                new DecideOperatingExpenseRequest("REJECTED", null), executive.getId()))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void decide_UC31_rejectsWhenAlreadyDecided() {
+        OperatingExpenseResponse expense = operatingExpenseService.create(new CreateOperatingExpenseRequest(
+                "RENT", site.getId(), LocalDate.now(), new BigDecimal("1500000"), "Thuê mặt bằng tháng 7",
+                "BANK_TRANSFER", "Chủ nhà A", "RC-100", null), accountant.getId());
+        operatingExpenseService.decide(expense.id(), new DecideOperatingExpenseRequest("APPROVED", null), executive.getId());
+
+        assertThatThrownBy(() -> operatingExpenseService.decide(expense.id(),
+                new DecideOperatingExpenseRequest("REJECTED", "Đổi ý"), executive.getId()))
+                .isInstanceOf(OperatingExpenseAlreadyDecidedException.class);
     }
 
     private void assignRole(User user, String roleCode) {

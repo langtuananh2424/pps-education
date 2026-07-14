@@ -236,6 +236,28 @@ nhân đó mới được thao tác.*
         refresh token đang hoạt động của tài khoản đó (đăng xuất khỏi mọi
         thiết bị, bắt buộc đăng nhập lại bằng mật khẩu mới).
 
+    -   **FR-USR-03: Xem/tra cứu danh sách tài khoản -** Quản trị viên xem
+        danh sách toàn bộ tài khoản; tìm kiếm theo username/email/họ tên,
+        lọc theo phòng ban và trạng thái (ACTIVE/INACTIVE/SUSPENDED); xem
+        chi tiết 1 tài khoản (không bao gồm password_hash). Là hạ tầng
+        tra cứu bắt buộc trước khi thực hiện FR-USR-02 (đổi mật khẩu cho
+        tài khoản khác), FR-PER-03 (tùy chỉnh quyền riêng), FR-PER-05
+        (gán/thu hồi vai trò) và FR-USR-04 (khóa/mở khóa tài khoản) — cả
+        4 FR này đều yêu cầu Quản trị viên "chọn đích danh 1 tài khoản"
+        nhưng trước nay chưa có FR nào định nghĩa cách tra cứu ra tài
+        khoản đó.
+
+    -   **FR-USR-04: Khóa/Mở khóa tài khoản -** Quản trị viên chuyển
+        trạng thái 1 tài khoản: ACTIVE → INACTIVE (ngừng hoạt động dài
+        hạn, ví dụ nhân sự đã nghỉ việc/học sinh rời trung tâm — thao tác
+        thủ công, KHÔNG tự động đồng bộ từ trạng thái nhân sự/học sinh,
+        ngoài phạm vi thiết kế hiện tại), ACTIVE → SUSPENDED (tạm khóa có
+        chủ đích, ví dụ đang xử lý vi phạm/nghi vấn bảo mật), hoặc khôi
+        phục INACTIVE/SUSPENDED → ACTIVE. Tài khoản không ở trạng thái
+        ACTIVE bị từ chối đăng nhập (đã đặc tả ở UC-01 A3) nhưng trước
+        nay chưa có FR nào mô tả ai/khi nào thực hiện việc chuyển trạng
+        thái đó. Mỗi lần đổi trạng thái ghi lại vào users_history.
+
 **PHÂN HỆ 3: QUẢN LÝ CÔNG VIỆC VÀ QUY TRÌNH**
 
 -   **Mô tả tổng quan:** Số hóa luồng giao việc, theo dõi tiến độ phối
@@ -360,6 +382,16 @@ nhân đó mới được thao tác.*
         học sinh theo 3 biểu mẫu: Hàng ngày (thái độ), Giữa kỳ, và Cuối
         kỳ (tổng kết năng lực).
 
+    -   **FR-ACA-05: Xếp lịch buổi học -** Nhân viên giáo vụ/Trưởng phòng
+        đào tạo xếp lịch từng buổi học cụ thể (ngày, khung giờ, phòng,
+        giáo viên phụ trách) cho 1 lớp đã khởi tạo (FR-ACA-02); hệ thống
+        tự sinh session_periods theo cấu hình mặc định, kiểm tra trùng
+        phòng (chỉ áp dụng phòng không đánh dấu linh hoạt — FR-FAC-03).
+        Có thể hủy 1 buổi đã lên lịch (kèm lý do tùy chọn) hoặc dời lịch
+        sang buổi mới (buổi cũ chuyển trạng thái RESCHEDULED, liên kết
+        sang buổi mới tạo) — cả 2 thao tác chỉ áp dụng cho buổi đang ở
+        trạng thái SCHEDULED.
+
 **PHÂN HỆ 7: CỔNG THÔNG TIN VÀ E-LEARNING (PORTAL & LMS - TÍCH HỢP
 CDN)**
 
@@ -473,6 +505,11 @@ CDN)**
     -   **FR-FIN-03: Quản lý Chi vận hành -** Kế toán ghi nhận các khoản
         chi lương, chi phí mặt bằng, chi phí bản quyền công nghệ và hạ
         tầng CDN.
+        Bổ sung: Ban giám đốc duyệt/từ chối từng khoản chi đã ghi nhận —
+        khớp mô tả tác nhân Ban giám đốc "phê duyệt các quyết định quan
+        trọng có tính chiến lược (chi phí lớn...)"; dùng quyền riêng
+        finance.expense.approve (khác finance.manage của Kế toán). Từ
+        chối bắt buộc kèm lý do (rejection_reason).
 
     -   **FR-FIN-04: Báo cáo doanh thu phân cấp -** Quản lý điểm trường
         xem được báo cáo Thu/Chi/Công nợ của cơ sở mình. Ban giám đốc có
@@ -611,6 +648,8 @@ CDN)**
   UC-18             Xếp lớp & gán     FR-ACA-02         6
                     khóa học                            
 
+  UC-48             Xếp lịch buổi học FR-ACA-05         6
+
   UC-19             Nhập điểm         FR-ACA-03         6
 
   UC-20             Duyệt điểm        FR-ACA-03         6
@@ -686,10 +725,16 @@ CDN)**
   UC-43             Khởi tạo tài      FR-USR-01         2
                     khoản người dùng                    
 
+  UC-44             Xem/tra cứu danh  FR-USR-03         2
+                    sách tài khoản                      
+
   UC-45             Đổi mật khẩu      FR-USR-02         2
 
   UC-46             Gán/Thu hồi vai   FR-PER-05         2
                     trò cho tài                          
+                    khoản                                
+
+  UC-47             Khóa/Mở khóa tài  FR-USR-04         2
                     khoản                                
   -----------------------------------------------------------------------
 

@@ -11,7 +11,9 @@ import vn.com.pps.education.dto.AssignTuitionPlanRequest;
 import vn.com.pps.education.dto.CreateTuitionPlanRequest;
 import vn.com.pps.education.dto.TuitionPlanAssignmentResponse;
 import vn.com.pps.education.dto.TuitionPlanResponse;
+import vn.com.pps.education.dto.UpdateTuitionPlanStatusRequest;
 import vn.com.pps.education.exception.ResourceNotFoundException;
+import vn.com.pps.education.exception.TuitionPlanNotActiveException;
 import vn.com.pps.education.repository.CurriculumRepository;
 import vn.com.pps.education.repository.SchoolClassRepository;
 import vn.com.pps.education.repository.TuitionPlanAssignmentRepository;
@@ -27,6 +29,10 @@ import java.time.LocalDate;
  * định mức phí; gate dưới cùng quyền finance.manage như UC-31 (Precondition
  * "STAFF bộ phận Kế toán, quyền finance.manage") vì cùng thuộc phạm vi
  * Phân hệ 8 — đã xác nhận với user thay vì tự đoán actor khác.
+ *
+ * Bổ sung: updateStatus (ACTIVE/INACTIVE) — status tồn tại sẵn trong SDD
+ * nhưng trước đây không endpoint nào set được; assignToClass nay chặn
+ * gán plan INACTIVE (xem TuitionPlanNotActiveException).
  */
 @Service
 public class TuitionPlanService {
@@ -78,6 +84,10 @@ public class TuitionPlanService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp id=" + request.classId()));
         TuitionPlan plan = tuitionPlanRepository.findById(request.tuitionPlanId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy định mức phí id=" + request.tuitionPlanId()));
+        if (plan.getStatus() != TuitionPlan.Status.ACTIVE) {
+            throw new TuitionPlanNotActiveException(
+                    "Định mức phí id=" + plan.getId() + " đã INACTIVE, không thể gán cho lớp mới.");
+        }
         User actor = getUserOrThrow(actorUserId);
 
         tuitionPlanAssignmentRepository.findBySchoolClassIdAndEffectiveToIsNull(request.classId())
@@ -100,6 +110,21 @@ public class TuitionPlanService {
     public TuitionPlanResponse getPlan(Long id) {
         return toResponse(tuitionPlanRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy định mức phí id=" + id)));
+    }
+
+    /**
+     * Bổ sung — chuyển ACTIVE/INACTIVE. status trong SDD tồn tại sẵn
+     * nhưng chưa từng có endpoint nào set được; dùng để đóng plan cũ khi
+     * đã tạo plan mới thay thế (SDD: "thay đổi plan tạo record mới thay
+     * vì sửa"), tránh gán nhầm plan lỗi thời cho lớp mới.
+     */
+    @Transactional
+    public TuitionPlanResponse updateStatus(Long id, UpdateTuitionPlanStatusRequest request, Long actorUserId) {
+        TuitionPlan plan = tuitionPlanRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy định mức phí id=" + id));
+        plan.setStatus(TuitionPlan.Status.valueOf(request.status()));
+        plan = tuitionPlanRepository.save(plan);
+        return toResponse(plan);
     }
 
     // ===================== Helpers =====================

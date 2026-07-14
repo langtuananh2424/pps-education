@@ -26,6 +26,7 @@ import vn.com.pps.education.dto.QuestionBankResponse;
 import vn.com.pps.education.dto.QuestionChoiceRequest;
 import vn.com.pps.education.dto.QuestionResponse;
 import vn.com.pps.education.dto.UpdateCurriculumRequest;
+import vn.com.pps.education.dto.UpdateQuestionBankStatusRequest;
 import vn.com.pps.education.dto.UpdateQuestionRequest;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
 import vn.com.pps.education.exception.QuestionLockedException;
@@ -151,6 +152,19 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
                 teacher.getId());
 
         assertThat(archived.status()).isEqualTo("ARCHIVED");
+    }
+
+    @Test
+    void updateBankStatus_boSung_deactivatesAndReactivatesBank() {
+        assertThat(bank.isActive()).isTrue();
+
+        QuestionBankResponse deactivated = questionBankService.updateBankStatus(bank.id(),
+                new UpdateQuestionBankStatusRequest(false), teacher.getId());
+        assertThat(deactivated.isActive()).isFalse();
+
+        QuestionBankResponse reactivated = questionBankService.updateBankStatus(bank.id(),
+                new UpdateQuestionBankStatusRequest(true), teacher.getId());
+        assertThat(reactivated.isActive()).isTrue();
     }
 
     @Test

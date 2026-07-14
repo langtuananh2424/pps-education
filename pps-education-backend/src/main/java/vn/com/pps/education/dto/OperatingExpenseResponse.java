@@ -17,5 +17,7 @@ public record OperatingExpenseResponse(
         String receiptNumber,
         String fileUrl,
         String status,
-        Long recordedBy
+        Long recordedBy,
+        Long approvedBy,
+        String rejectionReason
 ) {}

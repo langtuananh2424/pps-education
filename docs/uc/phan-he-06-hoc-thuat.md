@@ -256,6 +256,91 @@ UC-18: Xếp lớp & gán khóa học
 
 ---
 
+UC-48: Xếp lịch buổi học
+
++-----------------+----------------------------------------------------+
+| **Mã Use Case** | UC-48                                              |
++-----------------+----------------------------------------------------+
+| **Tên Use       | Xếp lịch buổi học                                  |
+| Case**          |                                                    |
++-----------------+----------------------------------------------------+
+| **Phân hệ**     | Phân hệ 6                                          |
++-----------------+----------------------------------------------------+
+| **Yêu cầu chức  | FR-ACA-05                                          |
+| năng gốc**      |                                                    |
++-----------------+----------------------------------------------------+
+| **Tác nhân**    | Nhân viên (Giáo vụ), Trưởng phòng đào tạo          |
++-----------------+----------------------------------------------------+
+| **Mô tả tóm     | Xếp lịch từng buổi học cụ thể (ngày, khung giờ,    |
+| tắt**           | phòng, giáo viên phụ trách) cho 1 lớp đã khởi tạo  |
+|                 | (UC-18); có thể hủy hoặc dời lịch 1 buổi đã xếp    |
+|                 | khi cần. Là điều kiện tiên quyết bắt buộc cho      |
+|                 | UC-15 (Điểm danh học sinh) và dùng chung ràng buộc |
+|                 | trùng phòng với UC-37.                             |
++-----------------+----------------------------------------------------+
+| **Sự kiện kích  | Lớp học đã khởi tạo (UC-18) cần lịch học cụ thể    |
+| hoạt**          | theo tuần/kỳ; hoặc giáo viên nghỉ đột xuất/phòng   |
+|                 | có sự cố cần hủy hoặc dời 1 buổi đã lên lịch.      |
++-----------------+----------------------------------------------------+
+| **Điều kiện     | - Người thao tác có quyền academic.class.manage.   |
+| tiên quyết      |                                                    |
+| (               | - Lớp học đích đã tồn tại (UC-18).                 |
+| Precondition)** |                                                    |
+|                 | - Nếu có chỉ định phòng: phòng đã tồn tại (UC-37). |
++-----------------+----------------------------------------------------+
+| **Luồng sự kiện | 1. Người dùng chọn lớp học, nhập ngày, khung giờ   |
+| chính (Main     | bắt đầu/kết thúc, loại buổi                        |
+| Flow)**         | (REGULAR/MAKEUP/EXAM/SPECIAL), giáo viên phụ trách |
+|                 | buổi (có thể khác giáo viên chính của lớp — VD dạy |
+|                 | thay), và phòng học (tùy chọn).                    |
+|                 |                                                    |
+|                 | 2. Nếu có chỉ định phòng và phòng không đánh dấu   |
+|                 | linh hoạt: hệ thống kiểm tra trùng khung giờ với   |
+|                 | các buổi khác cùng ngày tại phòng đó (FR-FAC-03).  |
+|                 |                                                    |
+|                 | 3. Hệ thống lưu buổi học với trạng thái SCHEDULED, |
+|                 | tự sinh các tiết học (session_periods) theo số     |
+|                 | lượng mặc định cấu hình sẵn trong system_settings, |
+|                 | chia đều khung giờ của buổi.                       |
++-----------------+----------------------------------------------------+
+| **Luồng thay    | ***A1 --- Trùng phòng***                           |
+| thế / ngoại lệ  |                                                    |
+| (Alternate      | 1. Hệ thống từ chối tạo, báo rõ phòng đã có buổi   |
+| Flow)**         | khác trùng khung giờ trong ngày.                   |
+|                 |                                                    |
+|                 | ***A2 --- Hủy buổi đã xếp***                       |
+|                 |                                                    |
+|                 | 1. Người dùng chọn hủy 1 buổi đang ở trạng thái    |
+|                 | SCHEDULED, có thể nhập lý do. Hệ thống chuyển      |
+|                 | trạng thái buổi sang CANCELLED; phòng (nếu có)     |
+|                 | được giải phóng khỏi ràng buộc trùng lịch cho các  |
+|                 | buổi khác. Chỉ áp dụng cho buổi đang SCHEDULED —   |
+|                 | buổi đang                                          |
+|                 | IN_PROGRESS/COMPLETED/CANCELLED/RESCHEDULED bị từ  |
+|                 | chối.                                              |
+|                 |                                                    |
+|                 | ***A3 --- Dời lịch buổi đã xếp***                  |
+|                 |                                                    |
+|                 | 1. Người dùng chọn dời 1 buổi đang SCHEDULED sang  |
+|                 | ngày/khung giờ mới, có thể đổi phòng/giáo viên phụ |
+|                 | trách. Hệ thống kiểm tra trùng phòng cho khung giờ |
+|                 | mới (như bước 2), tạo 1 buổi học mới ở trạng thái  |
+|                 | SCHEDULED với thông tin mới; đồng thời chuyển buổi |
+|                 | cũ sang trạng thái RESCHEDULED và liên kết sang    |
+|                 | buổi mới vừa tạo. Chỉ áp dụng cho buổi đang        |
+|                 | SCHEDULED.                                         |
++-----------------+----------------------------------------------------+
+| **Hậu điều kiện | - class_sessions/session_periods phản ánh đúng     |
+| (P              | lịch học hiện hành của lớp, là dữ liệu tham chiếu  |
+| ostcondition)** | cho UC-15 (điểm danh) và ràng buộc trùng phòng của |
+|                 | UC-37.                                             |
+|                 |                                                    |
+|                 | - class_sessions_history/session_periods_history   |
+|                 | lưu đầy đủ lịch sử tạo/hủy/dời lịch.               |
++-----------------+----------------------------------------------------+
+
+---
+
 UC-19: Nhập điểm
 
 +-----------------+----------------------------------------------------+

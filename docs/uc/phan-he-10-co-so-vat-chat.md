@@ -97,20 +97,36 @@ UC-36b: Quản lý hợp đồng liên kết trường
 +-----------------+----------------------------------------------------+
 | **Luồng thay    | ***A1 --- Hợp đồng sắp hết hạn***                  |
 | thế / ngoại lệ  |                                                    |
-| (Alternate      | 1.  Hệ thống cảnh báo Quản lý vận hành khi hợp     |
-| Flow)**         |     đồng gần đến hạn để xử lý gia hạn hoặc chấm    |
-|                 |     dứt kịp thời.                                  |
+| (Alternate      | 1. Hệ thống cảnh báo Quản lý vận hành khi hợp đồng |
+| Flow)**         | gần đến hạn để xử lý gia hạn hoặc chấm dứt kịp     |
+|                 | thời.                                              |
 |                 |                                                    |
 |                 | ***A2 --- Chấm dứt hợp đồng***                     |
 |                 |                                                    |
-|                 | 1.  Quản lý vận hành đánh dấu hợp đồng chấm dứt;   |
-|                 |     hệ thống cảnh báo các lớp/hoạt động đang gắn   |
-|                 |     với điểm trường đó để xử lý chuyển tiếp.       |
+|                 | 1. Quản lý vận hành đánh dấu hợp đồng chấm dứt; hệ |
+|                 | thống cảnh báo các lớp/hoạt động đang gắn với điểm |
+|                 | trường đó để xử lý chuyển tiếp.                    |
+|                 |                                                    |
+|                 | ***A3 --- Xóa hợp đồng nhập nhầm (bổ sung,         |
+|                 | FR-FAC-01)***                                      |
+|                 |                                                    |
+|                 | 1. Quản lý vận hành xóa 1 hợp đồng đang DRAFT      |
+|                 | (nhập sai điểm trường/thông tin, chưa từng ký/kích |
+|                 | hoạt); hệ thống xóa mềm (deleted_at), loại khỏi    |
+|                 | mọi danh sách/tra cứu. Chỉ áp dụng cho hợp đồng    |
+|                 | đang DRAFT — hợp đồng đã ACTIVE/EXPIRED/TERMINATED |
+|                 | (đã từng có hiệu lực pháp lý) không thể xóa, dùng  |
+|                 | A2 (chấm dứt) thay thế để giữ đúng chứng cứ pháp   |
+|                 | lý.                                                |
 +-----------------+----------------------------------------------------+
-| **Hậu điều kiện | -   Trạng thái hợp đồng hợp tác được cập nhật      |
-| (P              |     chính xác, làm cơ sở cho Ban giám đốc phê      |
-| ostcondition)** |     duyệt các quyết định chiến lược liên quan (hợp |
-|                 |     đồng liên kết trường mới).                     |
+| **Hậu điều kiện | - Trạng thái hợp đồng hợp tác được cập nhật chính  |
+| (P              | xác, làm cơ sở cho Ban giám đốc phê duyệt các      |
+| ostcondition)** | quyết định chiến lược liên quan (hợp đồng liên kết |
+|                 | trường mới).                                       |
+|                 |                                                    |
+|                 | - Hợp đồng đã bị xóa mềm (A3) không còn xuất hiện  |
+|                 | trong danh sách/tra cứu, nhưng bản ghi vẫn tồn tại |
+|                 | (không hard-delete).                               |
 +-----------------+----------------------------------------------------+
 
 ---
@@ -160,7 +176,7 @@ UC-37: Quản lý phòng học & thiết bị
 |                 |     phòng, quản lý trạng thái sử dụng.             |
 |                 |                                                    |
 |                 | 4.  Hệ thống lưu thông tin phòng học/thiết bị, sẵn |
-|                 |     sàng phục vụ ràng buộc xếp lịch (UC-18).       |
+|                 |     sàng phục vụ ràng buộc xếp lịch (UC-48).       |
 +-----------------+----------------------------------------------------+
 | **Luồng thay    | ***A1 --- Thiết bị hỏng/bảo trì***                 |
 | thế / ngoại lệ  |                                                    |
@@ -171,7 +187,7 @@ UC-37: Quản lý phòng học & thiết bị
 +-----------------+----------------------------------------------------+
 | **Hậu điều kiện | -   Danh mục phòng học/thiết bị được cập nhật      |
 | (P              |     chính xác, dùng làm dữ liệu tham chiếu khi xếp |
-| ostcondition)** |     lịch học (UC-18) để tránh trùng phòng.         |
+| ostcondition)** |     lịch học (UC-48) để tránh trùng phòng.         |
 +-----------------+----------------------------------------------------+
 
 ---
