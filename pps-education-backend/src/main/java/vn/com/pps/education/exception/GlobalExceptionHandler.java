@@ -55,6 +55,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler({DuplicateEmployeeCodeException.class, DuplicateContractNumberException.class,
             ActiveContractAlreadyExistsException.class, EmployeeAlreadyExistsException.class,
+            DuplicateStudentCodeException.class,
             StudentAlreadyExistsException.class, ParentAlreadyExistsException.class,
             ParentStudentLinkAlreadyExistsException.class, StudentContactRoleConflictException.class,
             DuplicateCurriculumCodeException.class, DuplicateClassCodeException.class,

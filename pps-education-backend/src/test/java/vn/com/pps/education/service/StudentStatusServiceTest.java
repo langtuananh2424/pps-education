@@ -103,7 +103,7 @@ class StudentStatusServiceTest extends AbstractIntegrationTest {
     private StudentResponse createStudent() {
         User studentUser = newUser("student.status");
         return studentService.create(
-                new CreateStudentRequest(studentUser.getId(), LocalDate.of(2012, 5, 1), "MALE", null, null,
+                new CreateStudentRequest(studentUser.getId(), null, "HS" + (System.nanoTime() % 1_000_000), LocalDate.of(2012, 5, 1), "MALE", null, null,
                         null, null, LocalDate.of(2026, 1, 1), null),
                 siteManager.getId());
     }

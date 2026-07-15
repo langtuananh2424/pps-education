@@ -200,7 +200,7 @@ public class ParentBatchImportService {
         return parentRepository.findByUserId(parentUser.getId())
                 .orElseGet(() -> {
                     var response = studentService.createParent(
-                            new CreateParentRequest(parentUser.getId(), null, null, null, null), actorUserId);
+                            new CreateParentRequest(parentUser.getId(), null, null, null, null, null), actorUserId);
                     return parentRepository.findById(response.id()).orElseThrow();
                 });
     }
