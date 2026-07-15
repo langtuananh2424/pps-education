@@ -55,6 +55,16 @@ UC-13: Quản lý hồ sơ học sinh
 |                 |     lý điểm trường khác phụ trách, hệ thống cập    |
 |                 |     nhật lại phạm vi truy cập dữ liệu (row-level   |
 |                 |     theo điểm trường) ngay khi giao dịch hoàn tất. |
+|                 |                                                    |
+|                 | ***A2 --- Chuyển lớp (CLASS_CHANGE/BOTH)***        |
+|                 |                                                    |
+|                 | 1.  Hệ thống đồng bộ luôn class_enrollments (Phân  |
+|                 |     hệ 6): ghi danh cũ ở lớp nguồn chuyển sang     |
+|                 |     TRANSFERRED, tạo ghi danh mới ACTIVE ở lớp     |
+|                 |     đích. Vì 1 học sinh có thể có nhiều ghi danh   |
+|                 |     ACTIVE đồng thời ở nhiều lớp khác nhau, người  |
+|                 |     dùng phải chỉ định rõ fromClassId -- hệ thống  |
+|                 |     không tự suy luận lớp hiện tại.                |
 +-----------------+----------------------------------------------------+
 | **Hậu điều kiện | -   Hồ sơ học sinh được cập nhật chính xác, đầy    |
 | (P              |     đủ; lịch sử chuyển lớp/chuyển điểm trường được |
