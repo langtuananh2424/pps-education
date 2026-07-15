@@ -2041,9 +2041,10 @@
 | Trường | Kiểu | Bắt buộc |
 |---|---|---|
 | `effectiveDate` | string (date) | ✔ |
+| `fromClassId` | integer (int64) | Bắt buộc khi `transferType` là CLASS_CHANGE/BOTH — phải là lớp học sinh đang ghi danh ACTIVE |
 | `reason` | string |  |
-| `toClassId` | integer (int64) |  |
-| `toSiteId` | integer (int64) |  |
+| `toClassId` | integer (int64) | Bắt buộc khi `transferType` là CLASS_CHANGE/BOTH |
+| `toSiteId` | integer (int64) | Bắt buộc khi `transferType` là SITE_CHANGE/BOTH |
 | `transferType` | string | ✔ |
 
 ### RefreshTokenRequest
