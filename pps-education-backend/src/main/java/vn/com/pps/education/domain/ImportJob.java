@@ -13,9 +13,11 @@ import java.util.UUID;
 
 /**
  * Bảng import_jobs (SDD > Nền tảng > l, tạo sẵn từ V1 làm hạ tầng import
- * Excel dùng chung). UC-35 là luồng ĐẦU TIÊN thực sự dùng bảng này
- * (import_type=STUDENTS) — chưa có luồng import nào khác (SHIFTS/
- * EMPLOYEE_SHIFTS/WORK_CALENDAR/ATTENDANCE/TEACHING_SCHEDULE) code trước đó.
+ * Excel dùng chung). UC-35 (STUDENTS), UC-50 (PARENTS), UC-51 (EMPLOYEES)
+ * dùng chung bảng này — SHIFTS/EMPLOYEE_SHIFTS/WORK_CALENDAR/ATTENDANCE/
+ * TEACHING_SCHEDULE vẫn chỉ là placeholder enum, chưa có code nào dùng.
+ * Cột import_type là VARCHAR(50) tự do (không CHECK constraint DB), nên
+ * thêm giá trị enum mới không cần migration.
  */
 @Getter
 @Setter
@@ -23,7 +25,7 @@ import java.util.UUID;
 @Table(name = "import_jobs")
 public class ImportJob {
 
-    public enum ImportType { SHIFTS, EMPLOYEE_SHIFTS, WORK_CALENDAR, STUDENTS, ATTENDANCE, TEACHING_SCHEDULE }
+    public enum ImportType { SHIFTS, EMPLOYEE_SHIFTS, WORK_CALENDAR, STUDENTS, ATTENDANCE, TEACHING_SCHEDULE, PARENTS, EMPLOYEES }
 
     public enum Status { PENDING, PROCESSING, COMPLETED, FAILED, PARTIAL_SUCCESS }
 

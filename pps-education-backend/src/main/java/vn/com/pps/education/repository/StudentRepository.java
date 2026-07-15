@@ -14,6 +14,8 @@ public interface StudentRepository extends JpaRepository<Student, Long> {
 
     Optional<Student> findByUserId(Long userId);
 
+    Optional<Student> findByStudentCode(String studentCode);
+
     long countByStudentCodeStartingWith(String prefix);
 
     @Query("""
