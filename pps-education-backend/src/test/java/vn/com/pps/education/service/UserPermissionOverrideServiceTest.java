@@ -93,6 +93,9 @@ class UserPermissionOverrideServiceTest extends AbstractIntegrationTest {
         assertThat(logs).hasSize(1);
         assertThat(logs.get(0).getAction()).isEqualTo(PermissionAuditLog.Action.PERM_OVERRIDE_ADDED);
         assertThat(logs.get(0).getActorUser().getId()).isEqualTo(actorUser.getId());
+        assertThat(logs.get(0).getDetails())
+                .containsEntry("overrideType", "GRANT")
+                .containsEntry("reason", "Ủy quyền tạm thời");
     }
 
     @Test
@@ -125,5 +128,6 @@ class UserPermissionOverrideServiceTest extends AbstractIntegrationTest {
                         && l.getAction() == PermissionAuditLog.Action.PERM_OVERRIDE_REMOVED)
                 .toList();
         assertThat(logs).hasSize(1);
+        assertThat(logs.get(0).getDetails()).containsEntry("overrideType", "GRANT");
     }
 }
