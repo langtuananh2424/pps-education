@@ -39,7 +39,7 @@ class StudentStatusControllerTest extends AbstractControllerTest {
         var siteManager = userWithRole("site.manager.setup", "SITE_MANAGER");
         User studentUser = userWithRole("student.forstatus", "STUDENT");
         studentId = studentService.create(
-                new CreateStudentRequest(studentUser.getId(), LocalDate.of(2012, 5, 1), "MALE", null, null,
+                new CreateStudentRequest(studentUser.getId(), null, "HS" + (System.nanoTime() % 1_000_000), LocalDate.of(2012, 5, 1), "MALE", null, null,
                         null, null, LocalDate.of(2026, 1, 1), null),
                 siteManager.getId()).id();
     }

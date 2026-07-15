@@ -7,12 +7,14 @@ import vn.com.pps.education.domain.ClassEnrollmentHistory;
 import vn.com.pps.education.domain.Parent;
 import vn.com.pps.education.domain.ParentHistory;
 import vn.com.pps.education.domain.ParentStudent;
+import vn.com.pps.education.domain.Role;
 import vn.com.pps.education.domain.SchoolClass;
 import vn.com.pps.education.domain.Site;
 import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.StudentHistory;
 import vn.com.pps.education.domain.StudentTransferHistory;
 import vn.com.pps.education.domain.User;
+import vn.com.pps.education.domain.UserRole;
 import vn.com.pps.education.dto.CreateParentRequest;
 import vn.com.pps.education.dto.CreateStudentRequest;
 import vn.com.pps.education.dto.LinkParentRequest;
@@ -24,6 +26,7 @@ import vn.com.pps.education.dto.StudentTransferHistoryResponse;
 import vn.com.pps.education.dto.UpdateParentRequest;
 import vn.com.pps.education.dto.UpdateStudentRequest;
 import vn.com.pps.education.exception.ClassEnrollmentAlreadyActiveException;
+import vn.com.pps.education.exception.DuplicateStudentCodeException;
 import vn.com.pps.education.exception.ParentAlreadyExistsException;
 import vn.com.pps.education.exception.ParentStudentLinkAlreadyExistsException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
@@ -34,12 +37,14 @@ import vn.com.pps.education.repository.ClassEnrollmentRepository;
 import vn.com.pps.education.repository.ParentHistoryRepository;
 import vn.com.pps.education.repository.ParentRepository;
 import vn.com.pps.education.repository.ParentStudentRepository;
+import vn.com.pps.education.repository.RoleRepository;
 import vn.com.pps.education.repository.SchoolClassRepository;
 import vn.com.pps.education.repository.SiteRepository;
 import vn.com.pps.education.repository.StudentHistoryRepository;
 import vn.com.pps.education.repository.StudentRepository;
 import vn.com.pps.education.repository.StudentTransferHistoryRepository;
 import vn.com.pps.education.repository.UserRepository;
+import vn.com.pps.education.repository.UserRoleRepository;
 
 import java.time.LocalDate;
 import java.time.Year;
@@ -62,7 +67,7 @@ import java.util.Map;
 @Service
 public class StudentService {
 
-    private static final String STUDENT_CODE_PREFIX = "HS";
+    // private static final String STUDENT_CODE_PREFIX = "HS"; // cũ: dùng cho generateStudentCode (đã comment lại bên dưới)
 
     private final StudentRepository studentRepository;
     private final ParentRepository parentRepository;
@@ -75,6 +80,9 @@ public class StudentService {
     private final SchoolClassRepository schoolClassRepository;
     private final ClassEnrollmentRepository classEnrollmentRepository;
     private final ClassEnrollmentHistoryRepository classEnrollmentHistoryRepository;
+    private final RoleRepository roleRepository;
+    private final UserRoleRepository userRoleRepository;
+    private final UserAccountService userAccountService;
 
     public StudentService(StudentRepository studentRepository,
                            ParentRepository parentRepository,
@@ -86,7 +94,10 @@ public class StudentService {
                            SiteRepository siteRepository,
                            SchoolClassRepository schoolClassRepository,
                            ClassEnrollmentRepository classEnrollmentRepository,
-                           ClassEnrollmentHistoryRepository classEnrollmentHistoryRepository) {
+                           ClassEnrollmentHistoryRepository classEnrollmentHistoryRepository,
+                           RoleRepository roleRepository,
+                           UserRoleRepository userRoleRepository,
+                           UserAccountService userAccountService) {
         this.studentRepository = studentRepository;
         this.parentRepository = parentRepository;
         this.parentStudentRepository = parentStudentRepository;
@@ -98,6 +109,9 @@ public class StudentService {
         this.schoolClassRepository = schoolClassRepository;
         this.classEnrollmentRepository = classEnrollmentRepository;
         this.classEnrollmentHistoryRepository = classEnrollmentHistoryRepository;
+        this.roleRepository = roleRepository;
+        this.userRoleRepository = userRoleRepository;
+        this.userAccountService = userAccountService;
     }
 
     @Transactional(readOnly = true)
@@ -113,18 +127,38 @@ public class StudentService {
         return toResponse(getStudentOrThrow(id));
     }
 
-    /** Main Flow bước 1-3: khởi tạo hồ sơ học sinh mới, hệ thống tự sinh student_code. */
+    /**
+     * Main Flow bước 1-3: khởi tạo hồ sơ học sinh mới. Nhận ĐÚNG 1 trong 2:
+     * userId (tài khoản có sẵn) hoặc newAccount (tạo tài khoản kèm hồ sơ
+     * trong cùng transaction, gán role STUDENT — theo mẫu EmployeeService.create).
+     * student_code do người dùng tự nhập.
+     */
     @Transactional
     public StudentResponse create(CreateStudentRequest request, Long actorUserId) {
-        User user = userRepository.findById(request.userId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + request.userId()));
-        if (studentRepository.findByUserId(request.userId()).isPresent()) {
-            throw new StudentAlreadyExistsException("Tài khoản id=" + request.userId() + " đã có hồ sơ học sinh.");
+        if ((request.userId() == null) == (request.newAccount() == null)) {
+            throw new IllegalArgumentException("Cung cấp đúng 1 trong 2: userId (tài khoản có sẵn) hoặc newAccount (tạo tài khoản mới).");
+        }
+        User user;
+        if (request.userId() != null) {
+            user = userRepository.findById(request.userId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + request.userId()));
+        } else {
+            user = userAccountService.createAccount(request.newAccount());
+            assignRole(user, "STUDENT", actorUserId);
+        }
+        if (studentRepository.findByUserId(user.getId()).isPresent()) {
+            throw new StudentAlreadyExistsException("Tài khoản id=" + user.getId() + " đã có hồ sơ học sinh.");
+        }
+
+        // A-mới -- mã học sinh do người dùng tự nhập, phải duy nhất (đổi từ tự sinh sang nhập tay, theo yêu cầu).
+        if (studentRepository.findByStudentCode(request.studentCode()).isPresent()) {
+            throw new DuplicateStudentCodeException("Mã học sinh đã tồn tại: " + request.studentCode());
         }
 
         Student student = new Student();
         student.setUser(user);
-        student.setStudentCode(generateStudentCode(request.enrollmentDate()));
+        // student.setStudentCode(generateStudentCode(request.enrollmentDate())); // cũ: hệ thống tự sinh mã học sinh
+        student.setStudentCode(request.studentCode());
         student.setDateOfBirth(request.dateOfBirth());
         student.setGender(request.gender() == null ? null : Student.Gender.valueOf(request.gender()));
         student.setPortraitUrl(request.portraitUrl());
@@ -157,13 +191,26 @@ public class StudentService {
         return toResponse(student);
     }
 
-    /** Main Flow bước 2: khởi tạo hồ sơ phụ huynh mới cho 1 user đã có sẵn. */
+    /**
+     * Main Flow bước 2: khởi tạo hồ sơ phụ huynh mới. Nhận ĐÚNG 1 trong 2:
+     * userId (tài khoản có sẵn) hoặc newAccount (tạo tài khoản kèm hồ sơ
+     * trong cùng transaction, gán role PARENT — theo mẫu EmployeeService.create).
+     */
     @Transactional
     public ParentResponse createParent(CreateParentRequest request, Long actorUserId) {
-        User user = userRepository.findById(request.userId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + request.userId()));
-        if (parentRepository.findByUserId(request.userId()).isPresent()) {
-            throw new ParentAlreadyExistsException("Tài khoản id=" + request.userId() + " đã có hồ sơ phụ huynh.");
+        if ((request.userId() == null) == (request.newAccount() == null)) {
+            throw new IllegalArgumentException("Cung cấp đúng 1 trong 2: userId (tài khoản có sẵn) hoặc newAccount (tạo tài khoản mới).");
+        }
+        User user;
+        if (request.userId() != null) {
+            user = userRepository.findById(request.userId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + request.userId()));
+        } else {
+            user = userAccountService.createAccount(request.newAccount());
+            assignRole(user, "PARENT", actorUserId);
+        }
+        if (parentRepository.findByUserId(user.getId()).isPresent()) {
+            throw new ParentAlreadyExistsException("Tài khoản id=" + user.getId() + " đã có hồ sơ phụ huynh.");
         }
 
         Parent parent = new Parent();
@@ -334,12 +381,14 @@ public class StudentService {
                 .toList();
     }
 
-    /** VD HS2026-0001 (SDD > Học sinh & Phụ huynh > a) — HS + năm nhập học + số thứ tự 4 chữ số. */
-    private String generateStudentCode(LocalDate enrollmentDate) {
-        String prefix = STUDENT_CODE_PREFIX + Year.from(enrollmentDate).getValue() + "-";
-        long sequence = studentRepository.countByStudentCodeStartingWith(prefix) + 1;
-        return prefix + String.format("%04d", sequence);
-    }
+    // Cũ: hệ thống tự sinh mã học sinh (VD HS2026-0001) — đã đổi sang nhập tay
+    // theo yêu cầu, giữ lại đây để tham chiếu nếu cần khôi phục.
+    // /** VD HS2026-0001 (SDD > Học sinh & Phụ huynh > a) — HS + năm nhập học + số thứ tự 4 chữ số. */
+    // private String generateStudentCode(LocalDate enrollmentDate) {
+    //     String prefix = STUDENT_CODE_PREFIX + Year.from(enrollmentDate).getValue() + "-";
+    //     long sequence = studentRepository.countByStudentCodeStartingWith(prefix) + 1;
+    //     return prefix + String.format("%04d", sequence);
+    // }
 
     private void writeStudentHistory(Student student, Long actorUserId, StudentHistory.Action action) {
         User actor = userRepository.findById(actorUserId)
@@ -361,6 +410,18 @@ public class StudentService {
         history.setAction(action);
         history.setDetails(parentSnapshot(parent));
         parentHistoryRepository.save(history);
+    }
+
+    /** Gán role cố định (STUDENT/PARENT) ngay khi tạo tài khoản mới qua nhánh newAccount. */
+    private void assignRole(User user, String roleCode, Long actorUserId) {
+        Role role = roleRepository.findByCode(roleCode).orElseThrow();
+        User actor = userRepository.findById(actorUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
+        UserRole userRole = new UserRole();
+        userRole.setUser(user);
+        userRole.setRole(role);
+        userRole.setAssignedBy(actor);
+        userRoleRepository.save(userRole);
     }
 
     private Map<String, Object> studentSnapshot(Student s) {

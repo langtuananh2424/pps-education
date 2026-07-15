@@ -31,15 +31,25 @@ UC-13: Quản lý hồ sơ học sinh
 | Precondition)** |                                                    |
 +-----------------+----------------------------------------------------+
 | **Luồng sự kiện | 1.  Người dùng mở màn hình Hồ sơ học sinh, chọn    |
-| chính (Main     |     Thêm mới hoặc tìm 1 học sinh hiện có.          |
-| Flow)**         |                                                    |
+| chính (Main     |     Thêm mới hoặc tìm 1 học sinh hiện có. Khi Thêm |
+| Flow)**         |     mới cho học sinh/phụ huynh CHƯA có tài khoản   |
+|                 |     đăng nhập, hệ thống cho phép khởi tạo tài      |
+|                 |     khoản kèm hồ sơ trong cùng 1 giao dịch (cơ chế |
+|                 |     khởi tạo tài khoản theo UC-43/FR-USR-01, dưới  |
+|                 |     thẩm quyền student.manage của luồng này — gán  |
+|                 |     role STUDENT/PARENT tương ứng ngay lúc tạo,    |
+|                 |     khác UC-43 gốc không gán role); nếu đã có tài  |
+|                 |     khoản sẵn thì chỉ gắn hồ sơ vào tài khoản đó.  |
+|                 |                                                    |
 |                 | 2.  Nhập/cập nhật thông tin cá nhân, tải ảnh chân  |
 |                 |     dung, thông tin liên hệ của Phụ huynh (liên    |
 |                 |     kết tài khoản Phụ huynh nếu đã có, hoặc khởi   |
 |                 |     tạo mới).                                      |
 |                 |                                                    |
-|                 | 3.  Hệ thống sinh/giữ nguyên mã số học sinh (ID    |
-|                 |     duy nhất).                                     |
+|                 | 3.  Người dùng nhập mã số học sinh (student_code,  |
+|                 |     duy nhất trong hệ thống — không tự sinh); khi  |
+|                 |     cập nhật hồ sơ đã có, mã này giữ nguyên, không |
+|                 |     sửa được (chỉ nhập lúc tạo mới).               |
 |                 |                                                    |
 |                 | 4.  Nếu có yêu cầu chuyển lớp/chuyển điểm trường,  |
 |                 |     người dùng ghi nhận sự kiện chuyển đổi; hệ     |

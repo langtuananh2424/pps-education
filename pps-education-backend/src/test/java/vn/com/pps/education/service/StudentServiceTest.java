@@ -11,6 +11,7 @@ import vn.com.pps.education.dto.CreateClassRequest;
 import vn.com.pps.education.dto.CreateCurriculumRequest;
 import vn.com.pps.education.dto.CreateParentRequest;
 import vn.com.pps.education.dto.CreateStudentRequest;
+import vn.com.pps.education.dto.CreateUserRequest;
 import vn.com.pps.education.dto.CurriculumResponse;
 import vn.com.pps.education.dto.EnrollStudentRequest;
 import vn.com.pps.education.dto.LinkParentRequest;
@@ -65,6 +66,9 @@ class StudentServiceTest extends AbstractIntegrationTest {
     @Autowired
     private ParentHistoryRepository parentHistoryRepository;
 
+    @Autowired
+    private vn.com.pps.education.repository.UserRoleRepository userRoleRepository;
+
     private User staff;
 
     @BeforeEach
@@ -73,16 +77,17 @@ class StudentServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void create_UC13_MainFlow_generatesStudentCodeAndWritesHistory() {
+    void create_UC13_MainFlow_usesUserProvidedStudentCodeAndWritesHistory() {
         User target = newUser("student.new");
+        String code = studentCode();
 
         StudentResponse response = studentService.create(
-                new CreateStudentRequest(target.getId(), LocalDate.of(2012, 5, 1), "MALE", null, null,
+                new CreateStudentRequest(target.getId(), null, code, LocalDate.of(2012, 5, 1), "MALE", null, null,
                         "THCS Nguyễn Du", "8A2", LocalDate.of(2026, 8, 1), null),
                 staff.getId());
 
         assertThat(response.id()).isNotNull();
-        assertThat(response.studentCode()).matches("HS2026-\\d{4}");
+        assertThat(response.studentCode()).isEqualTo(code);
         assertThat(response.status()).isEqualTo("ACTIVE");
         assertThat(studentHistoryRepository.findByStudentIdOrderByCreatedAtDesc(response.id()))
                 .hasSize(1)
@@ -90,17 +95,63 @@ class StudentServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void create_generatesSequentialStudentCodesForSameEnrollmentYear() {
-        User target1 = newUser("student.seq.1");
-        User target2 = newUser("student.seq.2");
-        LocalDate enrollmentDate = LocalDate.of(2027, 1, 1);
+    void create_UC13_A_rejectsDuplicateStudentCode() {
+        User target1 = newUser("student.dup.code.1");
+        User target2 = newUser("student.dup.code.2");
+        String code = studentCode();
 
-        StudentResponse first = studentService.create(baseStudentRequest(target1.getId(), enrollmentDate), staff.getId());
-        StudentResponse second = studentService.create(baseStudentRequest(target2.getId(), enrollmentDate), staff.getId());
+        studentService.create(
+                new CreateStudentRequest(target1.getId(), null, code, LocalDate.of(2012, 5, 1), "MALE", null, null,
+                        null, null, LocalDate.of(2027, 1, 1), null),
+                staff.getId());
 
-        assertThat(first.studentCode()).isNotEqualTo(second.studentCode());
-        assertThat(first.studentCode()).startsWith("HS2027-");
-        assertThat(second.studentCode()).startsWith("HS2027-");
+        assertThatThrownBy(() -> studentService.create(
+                new CreateStudentRequest(target2.getId(), null, code, LocalDate.of(2012, 5, 1), "MALE", null, null,
+                        null, null, LocalDate.of(2027, 1, 1), null),
+                staff.getId()))
+                .isInstanceOf(vn.com.pps.education.exception.DuplicateStudentCodeException.class);
+    }
+
+    @Test
+    void create_UC13_MainFlow_withNewAccount_createsUserAndStudentInOneTransactionAndAssignsStudentRole() {
+        CreateUserRequest newAccount = new CreateUserRequest(
+                "hs.moi." + System.nanoTime(), "hs.moi." + System.nanoTime() + "@pps.edu.vn",
+                "Học Sinh Mới", null, "MatKhau@8kytu");
+
+        StudentResponse response = studentService.create(
+                new CreateStudentRequest(null, newAccount, studentCode(), LocalDate.of(2012, 5, 1), "MALE", null, null,
+                        null, null, LocalDate.of(2026, 8, 1), null),
+                staff.getId());
+
+        assertThat(response.id()).isNotNull();
+        User created = userRepository.findByUsername(newAccount.username()).orElseThrow();
+        assertThat(created.getEmail()).isEqualTo(newAccount.email());
+        assertThat(created.getPasswordHash()).startsWith("$2"); // BCrypt (NFR-SEC-01)
+        assertThat(userRoleRepository.findByUserId(created.getId()))
+                .extracting(ur -> ur.getRole().getCode())
+                .containsExactly("STUDENT");
+    }
+
+    @Test
+    void create_UC13_A_rejectsWhenBothUserIdAndNewAccountProvided() {
+        User target = newUser("student.both");
+        CreateUserRequest newAccount = new CreateUserRequest(
+                "hs.both." + System.nanoTime(), "hs.both." + System.nanoTime() + "@pps.edu.vn", "Học Sinh Both", null, null);
+
+        assertThatThrownBy(() -> studentService.create(
+                new CreateStudentRequest(target.getId(), newAccount, studentCode(), LocalDate.of(2012, 5, 1), "MALE", null, null,
+                        null, null, LocalDate.of(2026, 8, 1), null),
+                staff.getId()))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void create_UC13_A_rejectsWhenNeitherUserIdNorNewAccountProvided() {
+        assertThatThrownBy(() -> studentService.create(
+                new CreateStudentRequest(null, null, studentCode(), LocalDate.of(2012, 5, 1), "MALE", null, null,
+                        null, null, LocalDate.of(2026, 8, 1), null),
+                staff.getId()))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
@@ -130,6 +181,42 @@ class StudentServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void createParent_UC13_MainFlow_withNewAccount_createsUserAndParentInOneTransactionAndAssignsParentRole() {
+        CreateUserRequest newAccount = new CreateUserRequest(
+                "ph.moi." + System.nanoTime(), "ph.moi." + System.nanoTime() + "@pps.edu.vn",
+                "Phụ Huynh Mới", null, "MatKhau@8kytu");
+
+        ParentResponse response = studentService.createParent(
+                new CreateParentRequest(null, newAccount, "Kỹ sư", "FPT Software", "Hà Nội", null), staff.getId());
+
+        assertThat(response.id()).isNotNull();
+        User created = userRepository.findByUsername(newAccount.username()).orElseThrow();
+        assertThat(created.getEmail()).isEqualTo(newAccount.email());
+        assertThat(created.getPasswordHash()).startsWith("$2"); // BCrypt (NFR-SEC-01)
+        assertThat(userRoleRepository.findByUserId(created.getId()))
+                .extracting(ur -> ur.getRole().getCode())
+                .containsExactly("PARENT");
+    }
+
+    @Test
+    void createParent_UC13_A_rejectsWhenBothUserIdAndNewAccountProvided() {
+        User target = newUser("parent.both");
+        CreateUserRequest newAccount = new CreateUserRequest(
+                "ph.both." + System.nanoTime(), "ph.both." + System.nanoTime() + "@pps.edu.vn", "Phụ Huynh Both", null, null);
+
+        assertThatThrownBy(() -> studentService.createParent(
+                new CreateParentRequest(target.getId(), newAccount, null, null, null, null), staff.getId()))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void createParent_UC13_A_rejectsWhenNeitherUserIdNorNewAccountProvided() {
+        assertThatThrownBy(() -> studentService.createParent(
+                new CreateParentRequest(null, null, null, null, null, null), staff.getId()))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     void linkParent_UC13_MainFlow_createsParentAndLinksToStudent() {
         User studentUser = newUser("student.withparent");
         StudentResponse student = studentService.create(
@@ -137,7 +224,7 @@ class StudentServiceTest extends AbstractIntegrationTest {
 
         User parentUser = newUser("parent.of.student");
         ParentResponse parent = studentService.createParent(
-                new CreateParentRequest(parentUser.getId(), "Kỹ sư", "FPT Software", "Hà Nội", null), staff.getId());
+                new CreateParentRequest(parentUser.getId(), null, "Kỹ sư", "FPT Software", "Hà Nội", null), staff.getId());
 
         var link = studentService.linkParent(student.id(),
                 new LinkParentRequest(parent.id(), "MOTHER", true, true, null));
@@ -155,7 +242,7 @@ class StudentServiceTest extends AbstractIntegrationTest {
                 baseStudentRequest(studentUser.getId(), LocalDate.of(2026, 1, 1)), staff.getId());
         User parentUser = newUser("parent.dup.link");
         ParentResponse parent = studentService.createParent(
-                new CreateParentRequest(parentUser.getId(), null, null, null, null), staff.getId());
+                new CreateParentRequest(parentUser.getId(), null, null, null, null, null), staff.getId());
         studentService.linkParent(student.id(), new LinkParentRequest(parent.id(), "FATHER", false, false, null));
 
         assertThatThrownBy(() -> studentService.linkParent(student.id(),
@@ -170,10 +257,10 @@ class StudentServiceTest extends AbstractIntegrationTest {
                 baseStudentRequest(studentUser.getId(), LocalDate.of(2026, 1, 1)), staff.getId());
         User parentUser1 = newUser("parent.primary.1");
         ParentResponse parent1 = studentService.createParent(
-                new CreateParentRequest(parentUser1.getId(), null, null, null, null), staff.getId());
+                new CreateParentRequest(parentUser1.getId(), null, null, null, null, null), staff.getId());
         User parentUser2 = newUser("parent.primary.2");
         ParentResponse parent2 = studentService.createParent(
-                new CreateParentRequest(parentUser2.getId(), null, null, null, null), staff.getId());
+                new CreateParentRequest(parentUser2.getId(), null, null, null, null, null), staff.getId());
         studentService.linkParent(student.id(), new LinkParentRequest(parent1.id(), "FATHER", true, false, null));
 
         assertThatThrownBy(() -> studentService.linkParent(student.id(),
@@ -186,7 +273,7 @@ class StudentServiceTest extends AbstractIntegrationTest {
         User studentUser = newUser("student.transfer");
         Site oldSite = newSite("SITE-OLD");
         StudentResponse created = studentService.create(
-                new CreateStudentRequest(studentUser.getId(), LocalDate.of(2012, 5, 1), null, null, oldSite.getId(),
+                new CreateStudentRequest(studentUser.getId(), null, studentCode(), LocalDate.of(2012, 5, 1), null, null, oldSite.getId(),
                         null, null, LocalDate.of(2026, 1, 1), null),
                 staff.getId());
         Site newSite = newSite("SITE-NEW");
@@ -284,8 +371,12 @@ class StudentServiceTest extends AbstractIntegrationTest {
     }
 
     private CreateStudentRequest baseStudentRequest(Long userId, LocalDate enrollmentDate) {
-        return new CreateStudentRequest(userId, LocalDate.of(2012, 5, 1), "MALE", null, null,
+        return new CreateStudentRequest(userId, null, studentCode(), LocalDate.of(2012, 5, 1), "MALE", null, null,
                 null, null, enrollmentDate, null);
+    }
+
+    private String studentCode() {
+        return "HSTEST" + SEQ.incrementAndGet();
     }
 
     private User newUser(String prefix) {
