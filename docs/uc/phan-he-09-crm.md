@@ -103,14 +103,17 @@ UC-34: Chuyển đổi lead thành học sinh
 | chính (Main     |     ký (khách đã đồng ý nhập học và đóng phí lần   |
 | Flow)**         |     đầu).                                          |
 |                 |                                                    |
-|                 | 2.  Nhân viên bấm nút chuyển đổi lead thành học    |
-|                 |     sinh.                                          |
+|                 | 2.  Nhân viên nhập mã học sinh (student_code, duy  |
+|                 |     nhất trong hệ thống — không tự sinh, đồng bộ   |
+|                 |     UC-13/UC-35) và bấm nút chuyển đổi lead thành  |
+|                 |     học sinh.                                      |
 |                 |                                                    |
 |                 | 3.  Hệ thống thực hiện transaction: chuyển trạng   |
 |                 |     thái lead sang WON, tự động tạo hồ sơ học sinh |
 |                 |     mới (Phân hệ Quản lý Học sinh) từ toàn bộ      |
-|                 |     thông tin đã có ở lead, không cần nhập liệu    |
-|                 |     thủ công lại.                                  |
+|                 |     thông tin đã có ở lead cộng mã học sinh vừa    |
+|                 |     nhập, không cần nhập liệu thủ công lại các     |
+|                 |     trường khác.                                   |
 |                 |                                                    |
 |                 | 4.  Hệ thống tạo tài khoản Phụ huynh (nếu chưa có) |
 |                 |     liên kết với hồ sơ học sinh mới.               |

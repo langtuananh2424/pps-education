@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import vn.com.pps.education.dto.AssignLeadRequest;
+import vn.com.pps.education.dto.ConvertLeadRequest;
 import vn.com.pps.education.dto.CreateLeadRequest;
 import vn.com.pps.education.dto.LeadResponse;
 import vn.com.pps.education.dto.UpdateLeadStatusRequest;
@@ -67,7 +68,9 @@ public class LeadController {
 
     @PreAuthorize("hasPermission(null, 'crm.lead.manage')")
     @PostMapping("/api/leads/{id}/convert")
-    public ResponseEntity<LeadResponse> convertToStudent(@PathVariable Long id, @AuthenticationPrincipal AuthenticatedUser actor) {
-        return ResponseEntity.ok(leadService.convertToStudent(id, actor.userId()));
+    public ResponseEntity<LeadResponse> convertToStudent(@PathVariable Long id,
+                                                             @Valid @RequestBody ConvertLeadRequest request,
+                                                             @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(leadService.convertToStudent(id, request, actor.userId()));
     }
 }

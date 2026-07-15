@@ -45,8 +45,9 @@ import java.util.Map;
  * ("đúng định dạng mẫu" chỉ nói chung chung), tự định nghĩa cột theo thứ
  * tự: A=Họ và tên, B=Ngày sinh (dd/MM/yyyy), C=Giới tính (Nam/Nữ/Khác,
  * tùy chọn), D=Trường đang học (tùy chọn), E=Lớp đang học (tùy chọn),
- * F=Mã lớp PPS cần ghi danh (class_code, bắt buộc). Dòng 1 = header, dữ
- * liệu từ dòng 2.
+ * F=Mã lớp PPS cần ghi danh (class_code, bắt buộc), G=Mã học sinh
+ * (student_code, bắt buộc — người dùng tự nhập, không tự sinh, đồng bộ
+ * UC-13/UC-34). Dòng 1 = header, dữ liệu từ dòng 2.
  *
  * Không có file storage (S3/blob) trong dự án — file chỉ được parse
  * trong bộ nhớ (MultipartFile), KHÔNG lưu trữ lâu dài; source_file_url
@@ -54,7 +55,10 @@ import java.util.Map;
  * cập được thật — note gap tương tự các chỗ khác thiếu hạ tầng file thật.
  *
  * Dedup (Main Flow bước 3): SDD nói "theo CCCD/họ tên+ngày sinh" nhưng
- * schema students không có cột CCCD — dùng họ tên+ngày sinh.
+ * schema students không có cột CCCD — dùng họ tên+ngày sinh. Từ khi
+ * student_code chuyển sang nhập tay (cột G), kiểm tra thêm trùng theo
+ * student_code — khớp đúng nghĩa "mã học sinh" trong câu SDD trên mà
+ * trước đây chưa có dữ liệu để check (đóng khoảng lệch cũ).
  */
 @Service
 public class StudentBatchImportService {
@@ -171,6 +175,7 @@ public class StudentBatchImportService {
         String originalSchool = cell(row, formatter, 3);
         String originalClass = cell(row, formatter, 4);
         String classCode = cell(row, formatter, 5);
+        String studentCode = cell(row, formatter, 6);
 
         if (fullName == null || fullName.isBlank()) {
             throw new IllegalArgumentException("Thiếu họ và tên (cột A).");
@@ -181,6 +186,9 @@ public class StudentBatchImportService {
         if (classCode == null || classCode.isBlank()) {
             throw new IllegalArgumentException("Thiếu mã lớp (cột F).");
         }
+        if (studentCode == null || studentCode.isBlank()) {
+            throw new IllegalArgumentException("Thiếu mã học sinh (cột G).");
+        }
         LocalDate dob;
         try {
             dob = LocalDate.parse(dobText.trim(), DOB_FORMAT);
@@ -190,6 +198,9 @@ public class StudentBatchImportService {
         SchoolClass schoolClass = schoolClassRepository.findByClassCode(classCode.trim())
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy lớp mã=" + classCode));
 
+        if (studentRepository.findByStudentCode(studentCode.trim()).isPresent()) {
+            throw new IllegalArgumentException("Mã học sinh đã tồn tại: " + studentCode);
+        }
         if (!studentRepository.findByFullNameAndDateOfBirth(fullName.trim(), dob).isEmpty()) {
             throw new IllegalArgumentException("Trùng lặp: đã có học sinh " + fullName + " sinh " + dobText + ".");
         }
@@ -204,7 +215,8 @@ public class StudentBatchImportService {
 
         Student student = new Student();
         student.setUser(studentUser);
-        student.setStudentCode(generateStudentCode());
+        // student.setStudentCode(generateStudentCode()); // cũ: hệ thống tự sinh mã học sinh
+        student.setStudentCode(studentCode.trim());
         student.setDateOfBirth(dob);
         if (genderText != null && !genderText.isBlank()) {
             student.setGender(parseGender(genderText.trim()));
@@ -236,7 +248,7 @@ public class StudentBatchImportService {
     }
 
     private boolean isBlankRow(Row row, DataFormatter formatter) {
-        for (int i = 0; i < 6; i++) {
+        for (int i = 0; i < 7; i++) {
             String value = cell(row, formatter, i);
             if (value != null && !value.isBlank()) {
                 return false;
@@ -265,11 +277,13 @@ public class StudentBatchImportService {
         return candidate;
     }
 
-    private String generateStudentCode() {
-        String prefix = "HS" + Year.now().getValue() + "-";
-        long sequence = studentRepository.countByStudentCodeStartingWith(prefix) + 1;
-        return prefix + String.format("%04d", sequence);
-    }
+    // Cũ: hệ thống tự sinh mã học sinh — đã đổi sang nhập tay qua cột G
+    // (đồng bộ UC-13/UC-34), giữ lại đây để tham chiếu nếu cần khôi phục.
+    // private String generateStudentCode() {
+    //     String prefix = "HS" + Year.now().getValue() + "-";
+    //     long sequence = studentRepository.countByStudentCodeStartingWith(prefix) + 1;
+    //     return prefix + String.format("%04d", sequence);
+    // }
 
     private Map<String, Object> rowError(int rowNumber, String reason) {
         Map<String, Object> error = new HashMap<>();

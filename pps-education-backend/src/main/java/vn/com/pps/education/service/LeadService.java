@@ -14,10 +14,12 @@ import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.domain.UserRole;
 import vn.com.pps.education.dto.AssignLeadRequest;
+import vn.com.pps.education.dto.ConvertLeadRequest;
 import vn.com.pps.education.dto.CreateLeadRequest;
 import vn.com.pps.education.dto.LeadResponse;
 import vn.com.pps.education.dto.UpdateLeadStatusRequest;
 import vn.com.pps.education.exception.DuplicateLeadPhoneException;
+import vn.com.pps.education.exception.DuplicateStudentCodeException;
 import vn.com.pps.education.exception.IncompleteLeadDataException;
 import vn.com.pps.education.exception.InvalidLeadStatusTransitionException;
 import vn.com.pps.education.exception.LeadNotQualifiedException;
@@ -207,10 +209,12 @@ public class LeadService {
      * UC-34 Main Flow: transaction tạo users+parents (nếu chưa có PH với
      * số phone này) + users+students + parent_student, cập nhật lead sang
      * WON. A2 (lỗi giữa chừng): @Transactional tự rollback toàn bộ, không
-     * để lead WON thiếu hồ sơ học sinh tương ứng.
+     * để lead WON thiếu hồ sơ học sinh tương ứng. student_code do người
+     * dùng tự nhập (request.studentCode()) — không tự sinh, đồng bộ với
+     * UC-13 (StudentService.create).
      */
     @Transactional
-    public LeadResponse convertToStudent(Long leadId, Long actorUserId) {
+    public LeadResponse convertToStudent(Long leadId, ConvertLeadRequest request, Long actorUserId) {
         Lead lead = getLeadOrThrow(leadId);
         if (lead.getStatus() != Lead.Status.QUALIFIED) {
             throw new LeadNotQualifiedException(
@@ -220,13 +224,16 @@ public class LeadService {
             throw new IncompleteLeadDataException(
                     "Lead id=" + leadId + " thiếu student_name hoặc student_dob — cập nhật đầy đủ thông tin học sinh trước khi chuyển đổi.");
         }
+        if (studentRepository.findByStudentCode(request.studentCode()).isPresent()) {
+            throw new DuplicateStudentCodeException("Mã học sinh đã tồn tại: " + request.studentCode());
+        }
         User actor = getUserOrThrow(actorUserId);
 
         // 1. Tạo users (nếu chưa có PH với số phone này) + parents
         Parent parent = findOrCreateParent(lead, actor);
 
         // 2. Tạo users + students cho HS
-        Student student = createStudentAccount(lead, actor);
+        Student student = createStudentAccount(lead, actor, request.studentCode());
 
         // 3. Tạo parent_student liên kết
         ParentStudent link = new ParentStudent();
@@ -291,7 +298,7 @@ public class LeadService {
         });
     }
 
-    private Student createStudentAccount(Lead lead, User actor) {
+    private Student createStudentAccount(Lead lead, User actor, String studentCode) {
         User studentUser = new User();
         studentUser.setUsername(generateUsername(lead.getPhone()) + "-hs");
         studentUser.setEmail(generatePlaceholderEmail(lead).replace("@", "-hs@"));
@@ -302,7 +309,8 @@ public class LeadService {
 
         Student student = new Student();
         student.setUser(studentUser);
-        student.setStudentCode(generateStudentCode());
+        // student.setStudentCode(generateStudentCode()); // cũ: hệ thống tự sinh mã học sinh
+        student.setStudentCode(studentCode);
         student.setDateOfBirth(lead.getStudentDob());
         if (lead.getInterestedSite() != null) {
             student.setPrimarySite(lead.getInterestedSite());
@@ -348,11 +356,14 @@ public class LeadService {
         return prefix + String.format("%04d", sequence);
     }
 
-    private String generateStudentCode() {
-        String prefix = "HS" + Year.now().getValue() + "-";
-        long sequence = studentRepository.countByStudentCodeStartingWith(prefix) + 1;
-        return prefix + String.format("%04d", sequence);
-    }
+    // Cũ: hệ thống tự sinh mã học sinh — đã đổi sang nhập tay qua
+    // ConvertLeadRequest.studentCode (đồng bộ UC-13/UC-34), giữ lại đây để
+    // tham chiếu nếu cần khôi phục.
+    // private String generateStudentCode() {
+    //     String prefix = "HS" + Year.now().getValue() + "-";
+    //     long sequence = studentRepository.countByStudentCodeStartingWith(prefix) + 1;
+    //     return prefix + String.format("%04d", sequence);
+    // }
 
     private void writeLeadHistory(Lead lead, User actor, LeadHistory.Action action) {
         LeadHistory history = new LeadHistory();
