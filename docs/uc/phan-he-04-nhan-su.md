@@ -110,10 +110,13 @@ UC-09: Chấm công
 |                 |     chối ngay và kết thúc (cấp quản lý miễn trừ    |
 |                 |     hoàn toàn).                                    |
 |                 |                                                    |
-|                 | 3.  Hệ thống xác định ngày D có phải ngày làm      |
-|                 |     việc: đối chiếu work_calendar (override)       |
-|                 |     trước, sau đó shifts (pattern mặc định +       |
-|                 |     week_parity).                                  |
+|                 | 3.  Hệ thống xác định ngày D có phải ngày làm việc:|
+|                 |     đối chiếu work_calendar (override) trước, sau  |
+|                 |     đó shifts (pattern mặc định + week_parity); nếu|
+|                 |     cả 2 đều không xác định được (không có         |
+|                 |     override, không có ca khớp), Giáo viên có tiết |
+|                 |     dạy hôm nay cũng được coi là ngày làm việc     |
+|                 |     (không áp dụng nếu đã có override tường minh). |
 |                 |                                                    |
 |                 | 4.  Nếu là Giáo viên có tiết dạy hôm nay, hệ thống |
 |                 |     tính thêm cửa sổ theo lịch dạy; nếu            |

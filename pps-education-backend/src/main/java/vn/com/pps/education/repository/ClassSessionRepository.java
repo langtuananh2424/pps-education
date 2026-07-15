@@ -13,6 +13,10 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, Long
 
     List<ClassSession> findBySchoolClassIdOrderBySessionDateAsc(Long classId);
 
+    /** UC-09 A12/A13 (Chấm công GV — cửa sổ theo lịch dạy): tiết dạy trong ngày của 1 GV. */
+    List<ClassSession> findByPrimaryTeacherIdAndSessionDateAndStatusNotIn(
+            Long primaryTeacherId, LocalDate sessionDate, List<ClassSession.Status> excludedStatuses);
+
     /**
      * FR-FAC-03 — kiểm tra trùng phòng: cùng room_id, cùng ngày, khoảng
      * thời gian giao nhau, status không phải CANCELLED/RESCHEDULED, loại
