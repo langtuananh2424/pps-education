@@ -1,204 +1,56 @@
 import React, { useEffect, useState } from "react";
 import { Shield } from "lucide-react";
-import { Employee, PermissionAuditLog } from "@/types";
-import { mockAuditLogs, mockEmployees, mockPermissions, mockRolePermissions } from "@/data/mockData";
-import { PermissionGroup } from "../types";
-import { initialGroupMembers, initialGroups, initialRoleGroups } from "../data";
+import { useApp } from "@/context/AppContext";
+import { ApiError } from "@/lib/apiClient";
+import { createRole, deleteRole, listRoles, RoleResponse } from "../api";
 import RoleListPanel from "../components/RoleListPanel";
 import RoleDetailPanel, { RoleDetailTab } from "../components/RoleDetailPanel";
-
-function syncRolePermissionsFromGroups(updatedRoleGroups: Record<string, string[]>, currentGroups: PermissionGroup[]) {
-  const updatedRolePerms = Object.entries(updatedRoleGroups).map(([role, gIds]) => {
-    const activeGroups = currentGroups.filter((g) => gIds.includes(g.id) && g.status === "active");
-    const activeCodes = Array.from(new Set(activeGroups.flatMap((g) => g.permissions)));
-    return { role, permissions: activeCodes };
-  });
-
-  mockRolePermissions.length = 0;
-  updatedRolePerms.forEach((rp) => mockRolePermissions.push(rp));
-}
+import Modal from "@/components/ui/Modal";
+import Button from "@/components/ui/Button";
 
 export default function RolesPage() {
-  const [groups, setGroups] = useState<PermissionGroup[]>(initialGroups);
-  const [employees] = useState<Employee[]>(mockEmployees);
-  const [auditLogs, setAuditLogs] = useState<PermissionAuditLog[]>(mockAuditLogs);
-  const [roleGroups, setRoleGroups] = useState<Record<string, string[]>>(initialRoleGroups);
-  const [groupMembers, setGroupMembers] = useState<Record<string, string[]>>(initialGroupMembers);
+  const { hasPermission } = useApp();
+  const canManageMembers = hasPermission("user.role.manage");
 
-  const [selectedGroupId, setSelectedGroupId] = useState("GRP-01");
+  const [roles, setRoles] = useState<RoleResponse[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [listError, setListError] = useState<string | null>(null);
+  const [selectedRoleId, setSelectedRoleId] = useState<number | null>(null);
   const [rightActiveTab, setRightActiveTab] = useState<RoleDetailTab>("permissions");
   const [roleSearchQuery, setRoleSearchQuery] = useState("");
+  const [createOpen, setCreateOpen] = useState(false);
 
-  const activeGroup = groups.find((g) => g.id === selectedGroupId);
-  const isNew = selectedGroupId === "new";
-
-  const [editName, setEditName] = useState("");
-  const [editDesc, setEditDesc] = useState("");
-  const [editStatus, setEditStatus] = useState<"active" | "inactive">("active");
-  const [editPermissions, setEditPermissions] = useState<string[]>([]);
-
-  useEffect(() => {
-    if (activeGroup) {
-      setEditName(activeGroup.name);
-      setEditDesc(activeGroup.description);
-      setEditStatus(activeGroup.status);
-      setEditPermissions([...activeGroup.permissions]);
-    } else if (isNew) {
-      setEditName("");
-      setEditDesc("");
-      setEditStatus("active");
-      setEditPermissions([]);
-    }
-  }, [selectedGroupId, activeGroup, isNew]);
-
-  const pushAuditLog = (entry: Omit<PermissionAuditLog, "id" | "createdAt">) => {
-    const log: PermissionAuditLog = {
-      id: `LOG-00${auditLogs.length + 1}`,
-      createdAt: new Date().toISOString().replace("T", " ").substring(0, 16),
-      ...entry
-    };
-    setAuditLogs((prev) => [log, ...prev]);
+  const loadRoles = (selectId?: number) => {
+    setLoading(true);
+    setListError(null);
+    listRoles()
+      .then((res) => {
+        setRoles(res);
+        if (selectId != null) {
+          setSelectedRoleId(selectId);
+        } else if (selectedRoleId == null && res.length > 0) {
+          setSelectedRoleId(res[0].id);
+        }
+      })
+      .catch((err) => setListError(err instanceof ApiError ? err.message : "Không tải được danh sách vai trò."))
+      .finally(() => setLoading(false));
   };
 
-  const handleDeleteRole = () => {
-    if (!activeGroup) return;
-    if (!window.confirm(`Bạn có chắc chắn muốn loại bỏ vai trò "${activeGroup.name}"? Hành động này sẽ thu hồi quyền hạn của toàn bộ thành viên gán kèm.`)) return;
+  useEffect(() => loadRoles(), []);
 
-    const updatedGroups = groups.filter((g) => g.id !== selectedGroupId);
-    setGroups(updatedGroups);
+  const activeRole = roles.find((r) => r.id === selectedRoleId) ?? null;
 
-    const updatedRoleGroups = { ...roleGroups };
-    Object.keys(updatedRoleGroups).forEach((role) => {
-      updatedRoleGroups[role] = updatedRoleGroups[role].filter((gId) => gId !== selectedGroupId);
-    });
-    setRoleGroups(updatedRoleGroups);
-
-    pushAuditLog({
-      actorName: "Lăng Tuấn Anh (SYS_ADMIN)",
-      targetName: activeGroup.name,
-      action: "ROLE_REVOKED",
-      details: `Xóa vai trò "${activeGroup.name}" (${activeGroup.code}) khỏi cấu hình phân quyền hệ thống.`
-    });
-
-    syncRolePermissionsFromGroups(updatedRoleGroups, updatedGroups);
-    setSelectedGroupId(updatedGroups[0]?.id || "");
-  };
-
-  const handleSaveRoleChanges = () => {
-    if (!editName.trim()) {
-      alert("Tên vai trò không được để trống.");
-      return;
-    }
-    if (!editDesc.trim()) {
-      alert("Mô tả vai trò không được để trống.");
-      return;
-    }
-
-    if (isNew) {
-      const newId = `GRP-${Date.now()}`;
-      const newCode = `GRP-CUSTOM-${Date.now().toString().slice(-4)}`;
-      const newGroup: PermissionGroup = {
-        id: newId,
-        code: newCode,
-        name: editName.trim(),
-        module: "SYS",
-        description: editDesc.trim(),
-        permissions: editPermissions,
-        status: editStatus,
-        createdBy: "Lăng Tuấn Anh",
-        updatedAt: new Date().toISOString().substring(0, 10)
-      };
-
-      const updatedGroups = [...groups, newGroup];
-      setGroups(updatedGroups);
-      setGroupMembers((prev) => ({ ...prev, [newId]: [] }));
-
-      const updatedRoleGroups = { ...roleGroups, [newCode]: [newId] };
-      setRoleGroups(updatedRoleGroups);
-
-      pushAuditLog({
-        actorName: "Lăng Tuấn Anh (SYS_ADMIN)",
-        targetName: editName.trim(),
-        action: "PERM_OVERRIDE_ADDED",
-        details: `Khởi tạo vai trò mới "${editName.trim()}" với ${editPermissions.length} quyền hạt nhân.`
-      });
-
-      syncRolePermissionsFromGroups(updatedRoleGroups, updatedGroups);
-      setSelectedGroupId(newId);
-      alert(`Khởi tạo thành công vai trò "${editName.trim()}"!`);
-    } else {
-      const updatedGroups = groups.map((g) =>
-        g.id === selectedGroupId
-          ? { ...g, name: editName.trim(), description: editDesc.trim(), status: editStatus, permissions: editPermissions, updatedAt: new Date().toISOString().substring(0, 10) }
-          : g
-      );
-      setGroups(updatedGroups);
-
-      pushAuditLog({
-        actorName: "Lăng Tuấn Anh (SYS_ADMIN)",
-        targetName: editName.trim(),
-        action: "PERM_OVERRIDE_ADDED",
-        details: `Cập nhật cấu hình vai trò "${editName.trim()}" (${editPermissions.length} quyền hoạt vụ). Trạng thái: ${editStatus}.`
-      });
-
-      syncRolePermissionsFromGroups(roleGroups, updatedGroups);
-      alert(`Đã lưu thay đổi cấu hình cho "${editName.trim()}"!`);
+  const handleDeleteRole = async () => {
+    if (!activeRole) return;
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa vai trò "${activeRole.name}"?`)) return;
+    try {
+      await deleteRole(activeRole.id);
+      setSelectedRoleId(null);
+      loadRoles();
+    } catch (err) {
+      alert(err instanceof ApiError ? err.message : "Xóa vai trò thất bại.");
     }
   };
-
-  const handleAssignMember = (employeeId: string) => {
-    if (!employeeId) return;
-    const emp = employees.find((e) => e.id === employeeId);
-    if (!emp) return;
-
-    const currentMembers = groupMembers[selectedGroupId] || [];
-    if (currentMembers.includes(employeeId)) {
-      alert("Nhân viên này đã là thành viên của vai trò này.");
-      return;
-    }
-
-    setGroupMembers((prev) => ({ ...prev, [selectedGroupId]: [...currentMembers, employeeId] }));
-    pushAuditLog({
-      actorName: "Lăng Tuấn Anh (SYS_ADMIN)",
-      targetName: emp.fullName,
-      action: "ROLE_GRANTED",
-      details: `Gán thành viên "${emp.fullName}" (${emp.email}) vào vai trò "${activeGroup?.name}".`
-    });
-  };
-
-  const handleRemoveMember = (employeeId: string) => {
-    const emp = employees.find((e) => e.id === employeeId);
-    if (!emp) return;
-    if (!window.confirm(`Bạn có chắc muốn gỡ "${emp.fullName}" khỏi vai trò này?`)) return;
-
-    setGroupMembers((prev) => ({ ...prev, [selectedGroupId]: (prev[selectedGroupId] || []).filter((id) => id !== employeeId) }));
-    pushAuditLog({
-      actorName: "Lăng Tuấn Anh (SYS_ADMIN)",
-      targetName: emp.fullName,
-      action: "ROLE_REVOKED",
-      details: `Gỡ thành viên "${emp.fullName}" khỏi vai trò "${activeGroup?.name}".`
-    });
-  };
-
-  const handleTogglePermission = (code: string) => {
-    setEditPermissions((prev) => (prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]));
-  };
-
-  const handleToggleModuleAll = (codes: string[]) => {
-    const hasAll = codes.every((code) => editPermissions.includes(code));
-    setEditPermissions((prev) => (hasAll ? prev.filter((code) => !codes.includes(code)) : [...prev, ...codes.filter((c) => !prev.includes(c))]));
-  };
-
-  const roleAuditLogs = auditLogs.filter((log) => {
-    if (!activeGroup) return false;
-    const lowerDetails = log.details.toLowerCase();
-    const lowerTarget = log.targetName.toLowerCase();
-    const roleName = activeGroup.name.toLowerCase();
-    return lowerDetails.includes(roleName) || lowerTarget.includes(roleName) || lowerDetails.includes(activeGroup.id.toLowerCase());
-  });
-
-  const memberIds = groupMembers[selectedGroupId] || [];
-  const memberEmployees = employees.filter((e) => memberIds.includes(e.id));
 
   return (
     <div className="space-y-6">
@@ -206,53 +58,36 @@ export default function RolesPage() {
         <div>
           <h1 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
             <Shield className="w-6 h-6 text-brand-red" />
-            <span>Phân hệ Quản trị & Bảo mật Hệ thống</span>
+            <span>Nhóm vai trò (UC-03)</span>
           </h1>
-          <p className="text-xs text-slate-500 mt-1">Thiết lập ma trận phân quyền, quản trị vai trò, ủy quyền ngoại lệ và truy vết hoạt động bảo mật.</p>
+          <p className="text-xs text-slate-500 mt-1">Cấu hình ma trận quyền theo vai trò và gán/thu hồi vai trò cho tài khoản (UC-46).</p>
         </div>
       </div>
 
+      {listError && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{listError}</div>}
+
       <div className="flex flex-col md:flex-row border border-slate-200 bg-white rounded-xl shadow-soft overflow-hidden min-h-[620px] animate-in fade-in duration-200">
         <RoleListPanel
-          groups={groups}
-          groupMembers={groupMembers}
-          selectedGroupId={selectedGroupId}
-          onSelect={setSelectedGroupId}
-          onAddNew={() => {
-            setSelectedGroupId("new");
+          roles={roles}
+          loading={loading}
+          selectedRoleId={selectedRoleId}
+          onSelect={(id) => {
+            setSelectedRoleId(id);
             setRightActiveTab("permissions");
           }}
+          onAddNew={() => setCreateOpen(true)}
           searchQuery={roleSearchQuery}
           onSearchChange={setRoleSearchQuery}
         />
 
         <div className="flex-1 flex flex-col bg-white">
-          {isNew || activeGroup ? (
+          {activeRole ? (
             <RoleDetailPanel
-              isNew={isNew}
-              activeGroup={activeGroup}
-              editName={editName}
-              editDesc={editDesc}
-              editStatus={editStatus}
-              editPermissions={editPermissions}
-              onNameChange={setEditName}
-              onDescChange={setEditDesc}
-              onToggleStatus={() => setEditStatus((s) => (s === "active" ? "inactive" : "active"))}
+              role={activeRole}
+              canManageMembers={canManageMembers}
               onDelete={handleDeleteRole}
-              onSave={handleSaveRoleChanges}
               rightActiveTab={rightActiveTab}
               onTabChange={setRightActiveTab}
-              permissions={mockPermissions}
-              onTogglePermission={handleTogglePermission}
-              onToggleModuleAll={handleToggleModuleAll}
-              onClearAllPermissions={() => setEditPermissions([])}
-              onSelectAllPermissions={() => setEditPermissions(mockPermissions.map((p) => p.code))}
-              memberEmployees={memberEmployees}
-              allEmployees={employees}
-              memberIds={memberIds}
-              onAssignMember={handleAssignMember}
-              onRemoveMember={handleRemoveMember}
-              roleAuditLogs={roleAuditLogs}
             />
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center p-12 text-center text-slate-400 bg-slate-50/10 space-y-3">
@@ -267,6 +102,95 @@ export default function RolesPage() {
           )}
         </div>
       </div>
+
+      <CreateRoleModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={(id) => {
+          setCreateOpen(false);
+          loadRoles(id);
+        }}
+      />
     </div>
+  );
+}
+
+function CreateRoleModal({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: (id: number) => void }) {
+  const [code, setCode] = useState("");
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (open) {
+      setCode("");
+      setName("");
+      setDescription("");
+      setError(null);
+    }
+  }, [open]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!code.trim() || !name.trim()) {
+      setError("Vui lòng điền mã vai trò và tên vai trò.");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      const role = await createRole({ code: code.trim(), name: name.trim(), description: description.trim() || undefined });
+      onCreated(role.id);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Tạo vai trò thất bại.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Modal open={open} onClose={onClose} title="Tạo vai trò tùy chỉnh mới (UC-03)">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        <div>
+          <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Mã vai trò *</label>
+          <input
+            value={code}
+            onChange={(e) => setCode(e.target.value.toUpperCase())}
+            placeholder="VD: MARKETING_LEAD"
+            className="w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none font-mono"
+            required
+          />
+        </div>
+        <div>
+          <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Tên vai trò *</label>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
+            required
+          />
+        </div>
+        <div>
+          <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Mô tả</label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={3}
+            className="w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
+          />
+        </div>
+        <p className="text-[10px] text-slate-400">Sau khi tạo, vào tab "Quyền hạn gán" để cấu hình ma trận quyền cho vai trò này.</p>
+        <div className="flex justify-end gap-2 pt-2">
+          <Button type="button" variant="secondary" onClick={onClose}>
+            Hủy
+          </Button>
+          <Button type="submit" variant="primary" disabled={submitting}>
+            {submitting ? "Đang tạo..." : "Tạo vai trò"}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   );
 }

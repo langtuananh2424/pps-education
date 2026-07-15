@@ -14,6 +14,22 @@ export const roleLabels: Record<UserRole, string> = {
   [UserRole.STUDENT]: "Học Sinh"
 };
 
+/**
+ * 8 role thuộc app Admin (`admin/`) theo kiến trúc A1/A2 đã định nghĩa ở
+ * docs/sdd-groups/00-intro-va-kien-truc.md — 3 role còn lại (STUDENT/PARENT/
+ * PARTNER_REP) thuộc app Portal (`user/`, chưa xây), không "sống" ở đây.
+ */
+export const adminAppRoles: UserRole[] = [
+  UserRole.SYS_ADMIN,
+  UserRole.TEACHER,
+  UserRole.HEAD_ACADEMIC,
+  UserRole.SITE_MANAGER,
+  UserRole.HR_MANAGER,
+  UserRole.STAFF,
+  UserRole.OPS_MANAGER,
+  UserRole.EXECUTIVE
+];
+
 /** Thứ tự ưu tiên khi 1 user có nhiều role — role cao nhất đứng trước, dùng để chọn currentRole hiển thị chính. */
 export const rolePriorityOrder: UserRole[] = [
   UserRole.SYS_ADMIN,

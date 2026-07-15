@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
-import { ChevronDown, ChevronRight, Lock, LogOut, X } from "lucide-react";
+import { NavLink } from "react-router-dom";
+import { ChevronDown, ChevronRight, LogOut, X } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { navSections } from "@/constants/navigation";
 import { roleLabels } from "@/constants/roles";
@@ -9,7 +9,6 @@ import { cn } from "@/lib/cn";
 
 export default function Sidebar() {
   const { currentRole, currentUser, sidebarOpen, setSidebarOpen, hasPermission, logout } = useApp();
-  const navigate = useNavigate();
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(
     Object.fromEntries(navSections.map((section) => [section.id, true]))
   );
@@ -60,6 +59,9 @@ export default function Sidebar() {
 
         <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
           {navSections.map((section) => {
+            const visibleItems = section.items.filter((item) => hasPermission(item.requiredPermission));
+            if (visibleItems.length === 0) return null;
+
             const isExpanded = expandedGroups[section.id];
             return (
               <div key={section.id} className="space-y-1">
@@ -73,29 +75,8 @@ export default function Sidebar() {
 
                 {isExpanded && (
                   <div className="space-y-[2px] pl-1">
-                    {section.items.map((item) => {
-                      const allowed = hasPermission(item.requiredPermission);
+                    {visibleItems.map((item) => {
                       const Icon = item.icon;
-
-                      if (!allowed) {
-                        return (
-                          <button
-                            key={item.id}
-                            onClick={() => {
-                              navigate("/access-denied", { state: { label: item.label } });
-                              closeOnMobile();
-                            }}
-                            className="w-full px-3 py-2 flex items-center justify-between rounded-md text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-200/80 transition-all"
-                          >
-                            <div className="flex items-center gap-2.5 overflow-hidden">
-                              <Icon className="w-4 h-4 shrink-0 text-slate-400" />
-                              <span className="truncate">{item.label}</span>
-                            </div>
-                            <Lock className="w-3 h-3 text-slate-400 shrink-0" />
-                          </button>
-                        );
-                      }
-
                       return (
                         <NavLink
                           key={item.id}

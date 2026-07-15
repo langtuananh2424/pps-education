@@ -29,9 +29,8 @@ export default function AccessDeniedPage() {
           <span>Làm thế nào để mở khóa?</span>
         </div>
         <p className="text-[11px] text-slate-600 leading-relaxed">
-          Nhấp chọn menu <strong>"Xem thử với vai trò"</strong> ở thanh tiêu đề phía trên bên phải màn hình và đổi sang vai trò
-          quản lý tương ứng (như <strong>Quản trị viên</strong> hoặc <strong>Ban giám đốc</strong>) để ngay lập tức trải nghiệm
-          phân hệ này mà không cần đăng nhập lại.
+          Liên hệ <strong>Quản trị viên hệ thống</strong> để được cấp thêm quyền phù hợp (qua màn "Nhóm vai trò" hoặc
+          "Tùy chỉnh tài khoản" trong Quản trị hệ thống), sau đó đăng nhập lại để áp dụng quyền mới.
         </p>
       </div>
 

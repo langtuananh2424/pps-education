@@ -1,108 +1,144 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { UserMinus, UserPlus, Users } from "lucide-react";
-import { Employee } from "@/types";
-import { getEmployeeOrganization } from "../utils";
+import { ApiError } from "@/lib/apiClient";
+import { assignUserRole, revokeUserRole, searchUsers, UserListItemResponse } from "../api";
 import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
-import Badge from "@/components/ui/Badge";
+import Badge, { BadgeVariant } from "@/components/ui/Badge";
 import AssignUserModal from "./AssignUserModal";
 
+const statusVariants: Record<string, BadgeVariant> = {
+  ACTIVE: "success",
+  INACTIVE: "neutral",
+  SUSPENDED: "danger"
+};
+
 interface RoleMembersPanelProps {
-  memberEmployees: Employee[];
-  allEmployees: Employee[];
-  memberIds: string[];
-  onAssign: (employeeId: string) => void;
-  onRemove: (employeeId: string) => void;
+  roleId: number;
+  roleName: string;
+  canManage: boolean;
 }
 
-export default function RoleMembersPanel({ memberEmployees, allEmployees, memberIds, onAssign, onRemove }: RoleMembersPanelProps) {
+export default function RoleMembersPanel({ roleId, roleName, canManage }: RoleMembersPanelProps) {
+  const [allUsers, setAllUsers] = useState<UserListItemResponse[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [showAssignModal, setShowAssignModal] = useState(false);
+  const [busyUserId, setBusyUserId] = useState<number | null>(null);
+
+  const loadUsers = () => {
+    setLoading(true);
+    setError(null);
+    // size lớn để lấy gần như toàn bộ tài khoản — lọc thành viên của role phía FE vì backend chưa có API "GET members theo role".
+    searchUsers({}, 0, 1000)
+      .then((res) => setAllUsers(res.content))
+      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách tài khoản."))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(loadUsers, [roleId]);
+
+  const members = allUsers.filter((u) => u.roles.some((r) => r.id === roleId));
+
+  const handleAssign = async (userId: number) => {
+    setBusyUserId(userId);
+    setError(null);
+    try {
+      await assignUserRole(userId, roleId);
+      setShowAssignModal(false);
+      loadUsers();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Gán vai trò thất bại.");
+    } finally {
+      setBusyUserId(null);
+    }
+  };
+
+  const handleRemove = async (user: UserListItemResponse) => {
+    if (!window.confirm(`Bạn có chắc muốn gỡ "${user.fullName}" khỏi vai trò "${roleName}"?`)) return;
+    setBusyUserId(user.id);
+    setError(null);
+    try {
+      await revokeUserRole(user.id, roleId);
+      loadUsers();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Gỡ vai trò thất bại.");
+    } finally {
+      setBusyUserId(null);
+    }
+  };
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider block">Thành viên hoạt vụ gán kèm</h4>
-          <p className="text-[10px] text-slate-400 mt-0.5">Quản lý trực tiếp các cán bộ nhân sự được áp dụng cấu hình vai trò này.</p>
+          <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider block">Thành viên gán vai trò này</h4>
+          <p className="text-[10px] text-slate-400 mt-0.5">Quản lý trực tiếp các tài khoản được áp dụng cấu hình vai trò này (UC-46).</p>
         </div>
 
-        <button
-          onClick={() => setShowAssignModal(true)}
-          className="bg-brand-gradient hover:opacity-90 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm"
-        >
-          <UserPlus className="w-4 h-4" />
-          <span>Gán cán sự</span>
-        </button>
+        {canManage && (
+          <button
+            onClick={() => setShowAssignModal(true)}
+            className="bg-brand-gradient hover:opacity-90 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm"
+          >
+            <UserPlus className="w-4 h-4" />
+            <span>Gán thành viên</span>
+          </button>
+        )}
       </div>
+
+      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       <AssignUserModal
         open={showAssignModal}
-        employees={allEmployees}
-        currentMemberIds={memberIds}
+        candidates={allUsers.filter((u) => !u.roles.some((r) => r.id === roleId))}
+        busyUserId={busyUserId}
         onClose={() => setShowAssignModal(false)}
-        onAssign={(employeeId) => {
-          onAssign(employeeId);
-          setShowAssignModal(false);
-        }}
+        onAssign={handleAssign}
       />
 
-      {memberEmployees.length === 0 ? (
+      {loading ? (
+        <p className="text-xs text-slate-500">Đang tải...</p>
+      ) : members.length === 0 ? (
         <div className="py-12 border-2 border-dashed border-slate-200 rounded-xl flex flex-col items-center justify-center text-center p-6 space-y-2">
           <Users className="w-8 h-8 text-slate-300" />
           <div>
             <p className="text-xs font-bold text-slate-700">Chưa có thành viên nào gán vai trò này</p>
-            <p className="text-[10px] text-slate-400 mt-0.5 max-w-xs leading-normal">
-              Hệ thống yêu cầu gán ít nhất một tài khoản hoạt vụ để thực thi các tác vụ bảo mật.
-            </p>
           </div>
         </div>
       ) : (
         <TableContainer>
           <thead>
             <tr>
+              <Th>Username</Th>
               <Th>Họ và tên</Th>
               <Th>Email tài khoản</Th>
-              <Th>Phân tổ phòng ban</Th>
               <Th>Trạng thái</Th>
-              <Th className="text-center">Gỡ bỏ</Th>
+              {canManage && <Th className="text-center">Gỡ bỏ</Th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {memberEmployees.map((emp) => {
-              const initials = emp.fullName.split(" ").slice(-2).map((n) => n[0]).join("").toUpperCase();
-              return (
-                <tr key={emp.id} className="hover:bg-slate-50/50 transition-colors">
-                  <Td>
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-full bg-orange-100 border border-orange-200 flex items-center justify-center text-[10px] font-bold text-brand-red shadow-inner shrink-0">
-                        {initials}
-                      </div>
-                      <div>
-                        <span className="font-bold text-slate-900 block tracking-tight">{emp.fullName}</span>
-                        <span className="text-[9px] font-mono font-bold text-slate-400 block mt-0.5">{emp.id}</span>
-                      </div>
-                    </div>
-                  </Td>
-                  <Td className="truncate">{emp.email}</Td>
-                  <Td>
-                    <span className="text-[10px] bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full border border-slate-200 font-medium">
-                      {getEmployeeOrganization(emp)}
-                    </span>
-                  </Td>
-                  <Td>
-                    <Badge variant="success">{emp.status}</Badge>
-                  </Td>
+            {members.map((u) => (
+              <tr key={u.id} className="hover:bg-slate-50/50 transition-colors">
+                <Td className="font-mono font-bold text-slate-800">{u.username}</Td>
+                <Td className="font-semibold">{u.fullName}</Td>
+                <Td className="truncate">{u.email}</Td>
+                <Td>
+                  <Badge variant={statusVariants[u.status]}>{u.status}</Badge>
+                </Td>
+                {canManage && (
                   <Td className="text-center">
                     <button
-                      onClick={() => onRemove(emp.id)}
-                      className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                      onClick={() => handleRemove(u)}
+                      disabled={busyUserId === u.id}
+                      className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors disabled:opacity-50"
                       title="Gỡ khỏi vai trò này"
                     >
                       <UserMinus className="w-4 h-4" />
                     </button>
                   </Td>
-                </tr>
-              );
-            })}
+                )}
+              </tr>
+            ))}
           </tbody>
         </TableContainer>
       )}
