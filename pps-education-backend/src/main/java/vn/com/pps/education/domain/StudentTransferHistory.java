@@ -11,10 +11,11 @@ import java.time.OffsetDateTime;
  * Bảng student_transfer_history (SDD > Học sinh & Phụ huynh > d) — lịch sử
  * chuyển lớp/chuyển điểm trường (UC-13 Main Flow bước 4, A1).
  *
- * fromClassId/toClassId map thô kiểu Long (không @ManyToOne) vì bảng
- * classes (Phân hệ 6 - Học thuật) chưa tồn tại — xem V11__student_core.sql.
- * Không dùng cho chuyển lớp thật cho tới khi Phân hệ 6 triển khai; ở phiên
- * này chỉ hỗ trợ transferType SITE_CHANGE (cập nhật students.primary_site_id).
+ * fromClassId/toClassId map thô kiểu Long (không @ManyToOne) — giữ entity
+ * lịch sử nhẹ, tránh lazy-load 2 SchoolClass mỗi lần đọc list lịch sử (cùng
+ * lựa chọn với ClassEnrollment.importJobId). FK constraint thật tới
+ * classes(id) được bổ sung ở V33__student_transfer_history_class_fk.sql
+ * (Phân hệ 6 - Học thuật đã triển khai từ V12, xem StudentService.recordTransfer).
  */
 @Getter
 @Setter

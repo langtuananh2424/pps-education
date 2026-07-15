@@ -6,13 +6,21 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.Site;
 import vn.com.pps.education.domain.User;
+import vn.com.pps.education.dto.ClassResponse;
+import vn.com.pps.education.dto.CreateClassRequest;
+import vn.com.pps.education.dto.CreateCurriculumRequest;
 import vn.com.pps.education.dto.CreateParentRequest;
 import vn.com.pps.education.dto.CreateStudentRequest;
+import vn.com.pps.education.dto.CurriculumResponse;
+import vn.com.pps.education.dto.EnrollStudentRequest;
 import vn.com.pps.education.dto.LinkParentRequest;
 import vn.com.pps.education.dto.ParentResponse;
 import vn.com.pps.education.dto.RecordTransferRequest;
 import vn.com.pps.education.dto.StudentResponse;
+import vn.com.pps.education.dto.UpdateCurriculumRequest;
+import vn.com.pps.education.exception.ClassEnrollmentAlreadyActiveException;
 import vn.com.pps.education.exception.ParentStudentLinkAlreadyExistsException;
+import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.exception.StudentAlreadyExistsException;
 import vn.com.pps.education.exception.StudentContactRoleConflictException;
 import vn.com.pps.education.repository.ParentHistoryRepository;
@@ -38,6 +46,12 @@ class StudentServiceTest extends AbstractIntegrationTest {
 
     @Autowired
     private StudentService studentService;
+
+    @Autowired
+    private ClassService classService;
+
+    @Autowired
+    private CurriculumService curriculumService;
 
     @Autowired
     private UserRepository userRepository;
@@ -178,7 +192,7 @@ class StudentServiceTest extends AbstractIntegrationTest {
         Site newSite = newSite("SITE-NEW");
 
         var transfer = studentService.recordTransfer(created.id(),
-                new RecordTransferRequest("SITE_CHANGE", null, newSite.getId(), LocalDate.now(), "Chuyển nhà"),
+                new RecordTransferRequest("SITE_CHANGE", null, null, newSite.getId(), LocalDate.now(), "Chuyển nhà"),
                 staff.getId());
 
         assertThat(transfer.fromSiteId()).isEqualTo(oldSite.getId());
@@ -186,6 +200,87 @@ class StudentServiceTest extends AbstractIntegrationTest {
         // A1: primary_site_id được cập nhật ngay khi giao dịch hoàn tất.
         assertThat(studentService.getById(created.id()).primarySiteId()).isEqualTo(newSite.getId());
         assertThat(studentService.listTransferHistory(created.id())).containsExactly(transfer);
+    }
+
+    @Test
+    void recordTransfer_UC13_CLASS_CHANGE_transfersEnrollmentAndSetsFromClassId() {
+        Site site = newSite("SITE-CLASS");
+        CurriculumResponse curriculum = newActiveCurriculum();
+        ClassResponse oldClass = newClass(site, curriculum, "8A2-OLD");
+        ClassResponse newClass = newClass(site, curriculum, "8A2-NEW");
+        StudentResponse student = studentService.create(
+                baseStudentRequest(newUser("student.classchange").getId(), LocalDate.of(2026, 1, 1)), staff.getId());
+        classService.enroll(oldClass.id(), new EnrollStudentRequest(student.id(), LocalDate.now()), staff.getId());
+
+        var transfer = studentService.recordTransfer(student.id(),
+                new RecordTransferRequest("CLASS_CHANGE", oldClass.id(), newClass.id(), null, LocalDate.now(), "Đổi lớp"),
+                staff.getId());
+
+        assertThat(transfer.fromClassId()).isEqualTo(oldClass.id());
+        assertThat(transfer.toClassId()).isEqualTo(newClass.id());
+        assertThat(classService.listEnrollments(oldClass.id()))
+                .allMatch(e -> e.status().equals("TRANSFERRED"));
+        assertThat(classService.listEnrollments(newClass.id()))
+                .allMatch(e -> e.status().equals("ACTIVE"));
+    }
+
+    @Test
+    void recordTransfer_rejectsClassChangeWithoutFromClassId() {
+        ClassResponse toClass = newClass(newSite("SITE-NOFROM"), newActiveCurriculum(), "8A2-NOFROM");
+        StudentResponse student = studentService.create(
+                baseStudentRequest(newUser("student.nofrom").getId(), LocalDate.of(2026, 1, 1)), staff.getId());
+
+        assertThatThrownBy(() -> studentService.recordTransfer(student.id(),
+                new RecordTransferRequest("CLASS_CHANGE", null, toClass.id(), null, LocalDate.now(), null),
+                staff.getId()))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void recordTransfer_rejectsWhenFromClassIdHasNoActiveEnrollment() {
+        Site site = newSite("SITE-NOENROLL");
+        CurriculumResponse curriculum = newActiveCurriculum();
+        ClassResponse fromClass = newClass(site, curriculum, "8A2-NOENROLL-FROM");
+        ClassResponse toClass = newClass(site, curriculum, "8A2-NOENROLL-TO");
+        StudentResponse student = studentService.create(
+                baseStudentRequest(newUser("student.noenroll").getId(), LocalDate.of(2026, 1, 1)), staff.getId());
+
+        assertThatThrownBy(() -> studentService.recordTransfer(student.id(),
+                new RecordTransferRequest("CLASS_CHANGE", fromClass.id(), toClass.id(), null, LocalDate.now(), null),
+                staff.getId()))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void recordTransfer_rejectsWhenAlreadyActiveInDestinationClass() {
+        Site site = newSite("SITE-DUPACTIVE");
+        CurriculumResponse curriculum = newActiveCurriculum();
+        ClassResponse fromClass = newClass(site, curriculum, "8A2-DUP-FROM");
+        ClassResponse toClass = newClass(site, curriculum, "8A2-DUP-TO");
+        StudentResponse student = studentService.create(
+                baseStudentRequest(newUser("student.dupactive").getId(), LocalDate.of(2026, 1, 1)), staff.getId());
+        classService.enroll(fromClass.id(), new EnrollStudentRequest(student.id(), LocalDate.now()), staff.getId());
+        classService.enroll(toClass.id(), new EnrollStudentRequest(student.id(), LocalDate.now()), staff.getId());
+
+        assertThatThrownBy(() -> studentService.recordTransfer(student.id(),
+                new RecordTransferRequest("CLASS_CHANGE", fromClass.id(), toClass.id(), null, LocalDate.now(), null),
+                staff.getId()))
+                .isInstanceOf(ClassEnrollmentAlreadyActiveException.class);
+    }
+
+    private CurriculumResponse newActiveCurriculum() {
+        CurriculumResponse draft = curriculumService.create(
+                new CreateCurriculumRequest("CUR-" + SEQ.incrementAndGet(), "Chuẩn", "MAIN", null, null, null),
+                staff.getId());
+        return curriculumService.update(draft.id(),
+                new UpdateCurriculumRequest("Chuẩn", null, null, null, "ACTIVE", false), staff.getId());
+    }
+
+    private ClassResponse newClass(Site site, CurriculumResponse curriculum, String codePrefix) {
+        return classService.create(
+                new CreateClassRequest(codePrefix + "-" + SEQ.incrementAndGet(), codePrefix, site.getId(),
+                        curriculum.id(), "OPEN", 25, 10, LocalDate.now(), null, "2026-2027", "S1"),
+                staff.getId());
     }
 
     private CreateStudentRequest baseStudentRequest(Long userId, LocalDate enrollmentDate) {

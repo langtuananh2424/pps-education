@@ -2,9 +2,12 @@ package vn.com.pps.education.service;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.com.pps.education.domain.ClassEnrollment;
+import vn.com.pps.education.domain.ClassEnrollmentHistory;
 import vn.com.pps.education.domain.Parent;
 import vn.com.pps.education.domain.ParentHistory;
 import vn.com.pps.education.domain.ParentStudent;
+import vn.com.pps.education.domain.SchoolClass;
 import vn.com.pps.education.domain.Site;
 import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.StudentHistory;
@@ -20,14 +23,18 @@ import vn.com.pps.education.dto.StudentResponse;
 import vn.com.pps.education.dto.StudentTransferHistoryResponse;
 import vn.com.pps.education.dto.UpdateParentRequest;
 import vn.com.pps.education.dto.UpdateStudentRequest;
+import vn.com.pps.education.exception.ClassEnrollmentAlreadyActiveException;
 import vn.com.pps.education.exception.ParentAlreadyExistsException;
 import vn.com.pps.education.exception.ParentStudentLinkAlreadyExistsException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.exception.StudentAlreadyExistsException;
 import vn.com.pps.education.exception.StudentContactRoleConflictException;
+import vn.com.pps.education.repository.ClassEnrollmentHistoryRepository;
+import vn.com.pps.education.repository.ClassEnrollmentRepository;
 import vn.com.pps.education.repository.ParentHistoryRepository;
 import vn.com.pps.education.repository.ParentRepository;
 import vn.com.pps.education.repository.ParentStudentRepository;
+import vn.com.pps.education.repository.SchoolClassRepository;
 import vn.com.pps.education.repository.SiteRepository;
 import vn.com.pps.education.repository.StudentHistoryRepository;
 import vn.com.pps.education.repository.StudentRepository;
@@ -65,6 +72,9 @@ public class StudentService {
     private final ParentHistoryRepository parentHistoryRepository;
     private final UserRepository userRepository;
     private final SiteRepository siteRepository;
+    private final SchoolClassRepository schoolClassRepository;
+    private final ClassEnrollmentRepository classEnrollmentRepository;
+    private final ClassEnrollmentHistoryRepository classEnrollmentHistoryRepository;
 
     public StudentService(StudentRepository studentRepository,
                            ParentRepository parentRepository,
@@ -73,7 +83,10 @@ public class StudentService {
                            StudentHistoryRepository studentHistoryRepository,
                            ParentHistoryRepository parentHistoryRepository,
                            UserRepository userRepository,
-                           SiteRepository siteRepository) {
+                           SiteRepository siteRepository,
+                           SchoolClassRepository schoolClassRepository,
+                           ClassEnrollmentRepository classEnrollmentRepository,
+                           ClassEnrollmentHistoryRepository classEnrollmentHistoryRepository) {
         this.studentRepository = studentRepository;
         this.parentRepository = parentRepository;
         this.parentStudentRepository = parentStudentRepository;
@@ -82,6 +95,9 @@ public class StudentService {
         this.parentHistoryRepository = parentHistoryRepository;
         this.userRepository = userRepository;
         this.siteRepository = siteRepository;
+        this.schoolClassRepository = schoolClassRepository;
+        this.classEnrollmentRepository = classEnrollmentRepository;
+        this.classEnrollmentHistoryRepository = classEnrollmentHistoryRepository;
     }
 
     @Transactional(readOnly = true)
@@ -226,8 +242,13 @@ public class StudentService {
 
     /**
      * Main Flow bước 4, A1: ghi nhận sự kiện chuyển lớp/chuyển điểm trường.
-     * fromClassId luôn NULL — chưa có bảng class_enrollments (Phân hệ 6) để
-     * tra cứu lớp hiện tại của học sinh.
+     * CLASS_CHANGE/BOTH đồng bộ luôn class_enrollments (Phân hệ 6): ghi danh
+     * cũ ở fromClassId chuyển TRANSFERRED, tạo ghi danh mới ACTIVE ở
+     * toClassId — vì class_enrollments là nguồn sự thật duy nhất cho "lớp
+     * hiện tại" của học sinh (UC-42, điểm danh...), không đồng bộ thì lịch
+     * sử chuyển lớp và trạng thái ghi danh sẽ lệch nhau ngay sau giao dịch.
+     * fromClassId do người dùng chỉ định (không tự suy luận) vì 1 học sinh
+     * có thể có nhiều ghi danh ACTIVE đồng thời ở nhiều lớp khác nhau.
      */
     @Transactional
     public StudentTransferHistoryResponse recordTransfer(Long studentId, RecordTransferRequest request, Long actorUserId) {
@@ -243,22 +264,57 @@ public class StudentService {
         if (changesClass && request.toClassId() == null) {
             throw new IllegalArgumentException("transferType=" + type + " yêu cầu toClassId.");
         }
+        if (changesClass && request.fromClassId() == null) {
+            throw new IllegalArgumentException("transferType=" + type + " yêu cầu fromClassId.");
+        }
         User actor = userRepository.findById(actorUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
 
         Site toSite = changesSite ? getSiteOrThrow(request.toSiteId()) : null;
 
+        ClassEnrollment fromEnrollment = null;
+        SchoolClass toClass = null;
+        if (changesClass) {
+            fromEnrollment = classEnrollmentRepository
+                    .findBySchoolClassIdAndStudentIdAndStatus(request.fromClassId(), studentId, ClassEnrollment.Status.ACTIVE)
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Học sinh id=" + studentId + " không có ghi danh đang hoạt động ở lớp id=" + request.fromClassId() + "."));
+            toClass = getSchoolClassOrThrow(request.toClassId());
+            if (classEnrollmentRepository
+                    .findBySchoolClassIdAndStudentIdAndStatus(request.toClassId(), studentId, ClassEnrollment.Status.ACTIVE)
+                    .isPresent()) {
+                throw new ClassEnrollmentAlreadyActiveException(
+                        "Học sinh id=" + studentId + " đã ghi danh ACTIVE trong lớp id=" + request.toClassId() + ".");
+            }
+        }
+
         StudentTransferHistory history = new StudentTransferHistory();
         history.setStudent(student);
         history.setTransferType(type);
-        history.setFromClassId(null);
-        history.setToClassId(request.toClassId());
+        history.setFromClassId(changesClass ? request.fromClassId() : null);
+        history.setToClassId(changesClass ? request.toClassId() : null);
         history.setFromSite(student.getPrimarySite());
         history.setToSite(toSite);
         history.setEffectiveDate(request.effectiveDate());
         history.setReason(request.reason());
         history.setApprovedBy(actor);
         history = transferHistoryRepository.save(history);
+
+        if (changesClass) {
+            fromEnrollment.setStatus(ClassEnrollment.Status.TRANSFERRED);
+            fromEnrollment.setWithdrawnDate(request.effectiveDate());
+            fromEnrollment.setWithdrawReason(request.reason());
+            fromEnrollment = classEnrollmentRepository.save(fromEnrollment);
+            writeEnrollmentHistory(fromEnrollment, actor, ClassEnrollmentHistory.Action.UPDATED);
+
+            ClassEnrollment newEnrollment = new ClassEnrollment();
+            newEnrollment.setSchoolClass(toClass);
+            newEnrollment.setStudent(student);
+            newEnrollment.setEnrolledDate(request.effectiveDate());
+            newEnrollment.setEnrolledBy(actor);
+            newEnrollment = classEnrollmentRepository.save(newEnrollment);
+            writeEnrollmentHistory(newEnrollment, actor, ClassEnrollmentHistory.Action.CREATED);
+        }
 
         if (changesSite) {
             // A1: cập nhật primary_site_id ngay khi giao dịch hoàn tất — mọi truy vấn
@@ -336,6 +392,23 @@ public class StudentService {
     private Site getSiteOrThrow(Long id) {
         return siteRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy điểm trường id=" + id));
+    }
+
+    private SchoolClass getSchoolClassOrThrow(Long id) {
+        return schoolClassRepository.findByIdAndDeletedAtIsNull(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học id=" + id));
+    }
+
+    private void writeEnrollmentHistory(ClassEnrollment enrollment, User actor, ClassEnrollmentHistory.Action action) {
+        ClassEnrollmentHistory history = new ClassEnrollmentHistory();
+        history.setClassEnrollment(enrollment);
+        history.setChangedBy(actor);
+        history.setAction(action);
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("studentId", enrollment.getStudent().getId());
+        snapshot.put("status", enrollment.getStatus().name());
+        history.setDetails(snapshot);
+        classEnrollmentHistoryRepository.save(history);
     }
 
     private StudentResponse toResponse(Student s) {
