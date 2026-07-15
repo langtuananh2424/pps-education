@@ -5,8 +5,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
+import vn.com.pps.education.domain.AttendanceRecord;
+import vn.com.pps.education.domain.ClassSession;
+import vn.com.pps.education.domain.Curriculum;
 import vn.com.pps.education.domain.Employee;
 import vn.com.pps.education.domain.EmployeeShift;
+import vn.com.pps.education.domain.SchoolClass;
 import vn.com.pps.education.domain.Shift;
 import vn.com.pps.education.domain.Site;
 import vn.com.pps.education.domain.User;
@@ -17,8 +21,12 @@ import vn.com.pps.education.exception.BiometricVerificationFailedException;
 import vn.com.pps.education.exception.ManagementExemptFromAttendanceException;
 import vn.com.pps.education.exception.OutsideAttendanceWindowException;
 import vn.com.pps.education.exception.OutsideGpsRadiusException;
+import vn.com.pps.education.repository.AttendanceRecordRepository;
+import vn.com.pps.education.repository.ClassSessionRepository;
+import vn.com.pps.education.repository.CurriculumRepository;
 import vn.com.pps.education.repository.EmployeeRepository;
 import vn.com.pps.education.repository.EmployeeShiftRepository;
+import vn.com.pps.education.repository.SchoolClassRepository;
 import vn.com.pps.education.repository.ShiftRepository;
 import vn.com.pps.education.repository.SiteRepository;
 import vn.com.pps.education.repository.UserRepository;
@@ -64,6 +72,18 @@ class AttendanceServiceTest extends AbstractIntegrationTest {
 
     @Autowired
     private SiteRepository siteRepository;
+
+    @Autowired
+    private CurriculumRepository curriculumRepository;
+
+    @Autowired
+    private SchoolClassRepository schoolClassRepository;
+
+    @Autowired
+    private ClassSessionRepository classSessionRepository;
+
+    @Autowired
+    private AttendanceRecordRepository attendanceRecordRepository;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -155,6 +175,118 @@ class AttendanceServiceTest extends AbstractIntegrationTest {
                 .isInstanceOf(AttendanceMethodNotAvailableException.class);
     }
 
+    @Test
+    void checkIn_UC09_A12A13_recordsAttendanceWithinTeachingScheduleWindowOutsideShiftWindow() {
+        User teacher = newUser(false);
+        Employee teacherEmployee = newEmployee(teacher, Employee.EmployeeType.TEACHER);
+        // Ca cố định chỉ dùng để xác định D là ngày làm việc (bước 3) -- cửa sổ giờ của
+        // chính ca này KHÔNG phủ thời điểm hiện tại, để cô lập rõ nhánh lịch dạy (A12/A13).
+        assignShiftNotCoveringNow(teacherEmployee);
+        SchoolClass schoolClass = newSchoolClass(teacher);
+        newSession(schoolClass, teacher, LocalTime.now().minusHours(1), LocalTime.now().plusHours(1), ClassSession.Status.SCHEDULED);
+
+        AttendanceRecordResponse response = attendanceService.checkIn(teacher.getId(),
+                new AttendanceCheckRequest("GPS", site.getId(), SITE_LAT, SITE_LNG, null));
+
+        assertThat(response.checkInAt()).isNotNull();
+        assertThat(response.status()).isIn("NORMAL", "LATE");
+        var persisted = attendanceRecordRepository
+                .findByEmployeeIdAndWorkDate(teacherEmployee.getId(), LocalDate.now()).orElseThrow();
+        assertThat(persisted.getCheckInMatchedSource()).isEqualTo(AttendanceRecord.MatchedSource.TEACHING_SCHEDULE);
+    }
+
+    @Test
+    void checkIn_UC09_A1_rejectsOutsideTeachingScheduleAndShiftWindow() {
+        User teacher = newUser(false);
+        Employee teacherEmployee = newEmployee(teacher, Employee.EmployeeType.TEACHER);
+        assignShiftNotCoveringNow(teacherEmployee);
+        SchoolClass schoolClass = newSchoolClass(teacher);
+        // Tiết dạy đã kết thúc từ lâu, không phủ thời điểm hiện tại.
+        newSession(schoolClass, teacher, LocalTime.now().minusHours(6), LocalTime.now().minusHours(5), ClassSession.Status.SCHEDULED);
+
+        assertThatThrownBy(() -> attendanceService.checkIn(teacher.getId(),
+                new AttendanceCheckRequest("GPS", site.getId(), SITE_LAT, SITE_LNG, null)))
+                .isInstanceOf(OutsideAttendanceWindowException.class);
+    }
+
+    @Test
+    void checkIn_UC09_A12A13_ignoresCancelledSession() {
+        User teacher = newUser(false);
+        Employee teacherEmployee = newEmployee(teacher, Employee.EmployeeType.TEACHER);
+        assignShiftNotCoveringNow(teacherEmployee);
+        SchoolClass schoolClass = newSchoolClass(teacher);
+        // Tiết dạy phủ thời điểm hiện tại nhưng đã CANCELLED -- không được tính vào cửa sổ.
+        newSession(schoolClass, teacher, LocalTime.now().minusMinutes(30), LocalTime.now().plusMinutes(30), ClassSession.Status.CANCELLED);
+
+        assertThatThrownBy(() -> attendanceService.checkIn(teacher.getId(),
+                new AttendanceCheckRequest("GPS", site.getId(), SITE_LAT, SITE_LNG, null)))
+                .isInstanceOf(OutsideAttendanceWindowException.class);
+    }
+
+    @Test
+    void checkIn_UC09_MainFlow_teacherWithoutSessionTodayStillUsesShiftWindow() {
+        User teacher = newUser(false);
+        newEmployee(teacher, Employee.EmployeeType.TEACHER);
+        assignWideOpenShift(employeeRepository.findByUserId(teacher.getId()).orElseThrow());
+
+        AttendanceRecordResponse response = attendanceService.checkIn(teacher.getId(),
+                new AttendanceCheckRequest("GPS", site.getId(), SITE_LAT, SITE_LNG, null));
+
+        var persisted = attendanceRecordRepository
+                .findByEmployeeIdAndWorkDate(response.employeeId(), LocalDate.now()).orElseThrow();
+        assertThat(persisted.getCheckInMatchedSource()).isEqualTo(AttendanceRecord.MatchedSource.SHIFT);
+    }
+
+    private SchoolClass newSchoolClass(User creator) {
+        Curriculum curriculum = new Curriculum();
+        curriculum.setCode("CUR-ATT-" + SEQ.incrementAndGet());
+        curriculum.setName("Test curriculum");
+        curriculum.setClassCategory(Curriculum.ClassCategory.MAIN);
+        curriculum.setCreatedBy(creator);
+        curriculum = curriculumRepository.save(curriculum);
+
+        SchoolClass schoolClass = new SchoolClass();
+        schoolClass.setClassCode("CLS-ATT-" + SEQ.incrementAndGet());
+        schoolClass.setName("Test class");
+        schoolClass.setSite(site);
+        schoolClass.setCurriculum(curriculum);
+        schoolClass.setClassType(SchoolClass.ClassType.OPEN);
+        schoolClass.setMaxStudents(20);
+        schoolClass.setStartDate(LocalDate.now());
+        schoolClass.setCreatedBy(creator);
+        return schoolClassRepository.save(schoolClass);
+    }
+
+    private ClassSession newSession(SchoolClass schoolClass, User teacher, LocalTime start, LocalTime end, ClassSession.Status status) {
+        ClassSession session = new ClassSession();
+        session.setSchoolClass(schoolClass);
+        session.setSessionDate(LocalDate.now());
+        session.setStartTime(start);
+        session.setEndTime(end);
+        session.setPrimaryTeacher(teacher);
+        session.setCreatedBy(teacher);
+        session.setStatus(status);
+        return classSessionRepository.save(session);
+    }
+
+    private void assignShiftNotCoveringNow(Employee forEmployee) {
+        Shift shift = newShift(LocalTime.now().minusHours(6), LocalTime.now().minusHours(5), 0, 0, 0, 0);
+        EmployeeShift employeeShift = new EmployeeShift();
+        employeeShift.setEmployee(forEmployee);
+        employeeShift.setShift(shift);
+        employeeShift.setEffectiveFrom(LocalDate.now().minusYears(1));
+        employeeShiftRepository.save(employeeShift);
+    }
+
+    private void assignWideOpenShift(Employee forEmployee) {
+        Shift shift = newShift(LocalTime.now(), LocalTime.now().plusHours(8), 600, 600, 600, 600);
+        EmployeeShift employeeShift = new EmployeeShift();
+        employeeShift.setEmployee(forEmployee);
+        employeeShift.setShift(shift);
+        employeeShift.setEffectiveFrom(LocalDate.now().minusYears(1));
+        employeeShiftRepository.save(employeeShift);
+    }
+
     private void assignWideOpenShift() {
         Shift shift = newShift(LocalTime.now(), LocalTime.now().plusHours(8), 600, 600, 600, 600);
         assignShift(shift);
@@ -195,11 +327,15 @@ class AttendanceServiceTest extends AbstractIntegrationTest {
     }
 
     private Employee newEmployee(User forUser) {
+        return newEmployee(forUser, Employee.EmployeeType.STAFF);
+    }
+
+    private Employee newEmployee(User forUser, Employee.EmployeeType type) {
         Employee newEmployee = new Employee();
         newEmployee.setUser(forUser);
         newEmployee.setEmployeeCode("NVCC" + SEQ.incrementAndGet());
         newEmployee.setDateOfBirth(LocalDate.of(1995, 1, 1));
-        newEmployee.setEmployeeType(Employee.EmployeeType.STAFF);
+        newEmployee.setEmployeeType(type);
         newEmployee.setDefaultShiftRequired(true);
         newEmployee.setHireDate(LocalDate.of(2024, 1, 1));
         return employeeRepository.save(newEmployee);
