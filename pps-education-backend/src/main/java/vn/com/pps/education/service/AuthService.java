@@ -22,6 +22,7 @@ import vn.com.pps.education.exception.InvalidCredentialsException;
 import vn.com.pps.education.exception.InvalidRefreshTokenException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.domain.Notification;
+import vn.com.pps.education.repository.EmployeeRepository;
 import vn.com.pps.education.repository.LoginAttemptRepository;
 import vn.com.pps.education.repository.RefreshTokenRepository;
 import vn.com.pps.education.repository.RoleRepository;
@@ -48,6 +49,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final UserRoleRepository userRoleRepository;
     private final RoleRepository roleRepository;
+    private final EmployeeRepository employeeRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final LoginAttemptRepository loginAttemptRepository;
     private final PasswordEncoder passwordEncoder;
@@ -61,6 +63,7 @@ public class AuthService {
     public AuthService(UserRepository userRepository,
                         UserRoleRepository userRoleRepository,
                         RoleRepository roleRepository,
+                        EmployeeRepository employeeRepository,
                         RefreshTokenRepository refreshTokenRepository,
                         LoginAttemptRepository loginAttemptRepository,
                         PasswordEncoder passwordEncoder,
@@ -73,6 +76,7 @@ public class AuthService {
         this.userRepository = userRepository;
         this.userRoleRepository = userRoleRepository;
         this.roleRepository = roleRepository;
+        this.employeeRepository = employeeRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.loginAttemptRepository = loginAttemptRepository;
         this.passwordEncoder = passwordEncoder;
@@ -210,9 +214,12 @@ public class AuthService {
     public CurrentUserResponse getCurrentUser(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + userId));
+        String departmentName = employeeRepository.findByUserId(userId)
+                .map(e -> e.getDepartment() == null ? null : e.getDepartment().getName())
+                .orElse(null);
         return new CurrentUserResponse(
                 user.getId(), user.getUsername(), user.getEmail(), user.getFullName(), user.getPhone(),
-                user.getDepartment() == null ? null : user.getDepartment().getName(),
+                departmentName,
                 rolesOf(user));
     }
 

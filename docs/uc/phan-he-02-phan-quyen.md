@@ -300,8 +300,9 @@ UC-43: Khởi tạo tài khoản người dùng
 +-----------------+----------------------------------------------------+
 | **Luồng sự kiện | 1.  Quản trị viên mở màn hình Quản trị tài khoản,  |
 | chính (Main     |     chọn Thêm mới; nhập username, email, họ tên,   |
-| Flow)**         |     SĐT (tùy chọn), phòng ban (tùy chọn), cờ miễn  |
-|                 |     trừ chấm công is_management (tùy chọn).        |
+| Flow)**         |     SĐT (tùy chọn). Phòng ban/cờ miễn trừ chấm     |
+|                 |     công (is_management) không thuộc bước này —    |
+|                 |     thuộc hồ sơ nhân sự, gán qua UC-08.             |
 |                 |                                                    |
 |                 | 2.  Tùy chọn nhập mật khẩu ban đầu (tối thiểu 8 ký |
 |                 |     tự). Bỏ trống nếu tài khoản chỉ đăng nhập bằng |
@@ -641,12 +642,14 @@ UC-49: Cập nhật thông tin tài khoản
 +-----------------+----------------------------------------------------+
 | **Tác nhân**    | Quản trị viên                                      |
 +-----------------+----------------------------------------------------+
-| **Mô tả tóm     | Sửa thông tin hồ sơ (họ tên, SĐT, phòng ban, cờ    |
-| tắt**           | is_management) của 1 tài khoản đã tồn tại --- không |
-|                 | đổi username/email/mật khẩu/trạng thái tài khoản.  |
+| **Mô tả tóm     | Sửa thông tin hồ sơ (họ tên, SĐT) của 1 tài khoản  |
+| tắt**           | đã tồn tại --- không đổi username/email/mật khẩu/  |
+|                 | trạng thái tài khoản. Phòng ban/cờ miễn trừ quản   |
+|                 | lý (is_management) không thuộc UC này --- thuộc hồ |
+|                 | sơ nhân sự, sửa qua UC-08.                         |
 +-----------------+----------------------------------------------------+
-| **Sự kiện kích  | Thông tin hồ sơ của 1 tài khoản (VD SĐT, phòng     |
-| hoạt**          | ban) đã lỗi thời hoặc cần điều chỉnh.              |
+| **Sự kiện kích  | Thông tin hồ sơ của 1 tài khoản (VD SĐT) đã lỗi    |
+| hoạt**          | thời hoặc cần điều chỉnh.                          |
 +-----------------+----------------------------------------------------+
 | **Điều kiện     | -   Người thao tác có quyền user.manage.           |
 | tiên quyết      | -   Tài khoản đích tồn tại (tra cứu qua UC-44).    |
@@ -656,30 +659,21 @@ UC-49: Cập nhật thông tin tài khoản
 | **Luồng sự kiện | 1.  Quản trị viên tìm và chọn đích danh 1 tài       |
 | chính (Main     |     khoản (UC-44), mở form sửa thông tin.          |
 | Flow)**         |                                                    |
-|                 | 2.  Quản trị viên sửa họ tên, SĐT, phòng ban, cờ    |
-|                 |     is_management; xác nhận Lưu.                   |
+|                 | 2.  Quản trị viên sửa họ tên, SĐT; xác nhận Lưu.    |
 |                 |                                                    |
 |                 | 3.  Hệ thống cập nhật bản ghi users tương ứng       |
-|                 |     (full_name, phone, department_id,              |
-|                 |     is_management) và trả về thông tin đã cập      |
+|                 |     (full_name, phone) và trả về thông tin đã cập  |
 |                 |     nhật.                                          |
 +-----------------+----------------------------------------------------+
-| **Luồng thay    | ***A1 --- Bỏ trống phòng ban***                    |
+| **Luồng thay    | Không có.                                          |
 | thế / ngoại lệ  |                                                    |
-| (Alternate      | 1.  Quản trị viên để trống phòng ban; hệ thống lưu |
-| Flow)**         |     department_id = NULL (giống UC-43 --- tài      |
-|                 |     khoản không thuộc phòng ban nào, VD Học         |
-|                 |     sinh/Phụ huynh).                               |
-|                 |                                                    |
-|                 | ***A2 --- Phòng ban không tồn tại***               |
-|                 |                                                    |
-|                 | 1.  department_id gửi lên không khớp bản ghi nào   |
-|                 |     trong bảng departments; hệ thống từ chối cập   |
-|                 |     nhật, báo không tìm thấy phòng ban.            |
+| (Alternate      |                                                    |
+| Flow)**         |                                                    |
 +-----------------+----------------------------------------------------+
 | **Hậu điều kiện | -   Bảng users phản ánh đúng thông tin hồ sơ mới   |
 | (P              |     của tài khoản. Username, email, password_hash, |
-| ostcondition)** |     status, danh sách role/permission override     |
+| ostcondition)** |     status, danh sách role/permission override,    |
+|                 |     phòng ban/is_management (thuộc employees)      |
 |                 |     giữ nguyên không đổi.                          |
 +-----------------+----------------------------------------------------+
 

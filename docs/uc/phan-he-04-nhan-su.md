@@ -38,7 +38,9 @@ UC-08: Quản lý hồ sơ nhân sự
 |                 |     của luồng này).                                |
 |                 |                                                    |
 |                 | 2.  Nhập/cập nhật thông tin cá nhân, bằng cấp,     |
-|                 |     chứng chỉ sư phạm.                             |
+|                 |     chứng chỉ sư phạm, phòng ban (tùy chọn) và cờ  |
+|                 |     miễn trừ chấm công/duyệt đơn is_management     |
+|                 |     (mặc định FALSE).                              |
 |                 |                                                    |
 |                 | 3.  Thêm/chỉnh sửa lịch sử hợp đồng lao động (loại |
 |                 |     hợp đồng, thời hạn, mức lương cơ bản).         |
@@ -63,6 +65,18 @@ UC-08: Quản lý hồ sơ nhân sự
 |                 | 1.  Hệ thống cảnh báo cho Quản lý nhân sự khi hợp  |
 |                 |     đồng lao động sắp/đã hết hạn để xử lý gia hạn  |
 |                 |     hoặc chấm dứt.                                 |
+|                 |                                                    |
+|                 | ***A3 --- Bỏ trống phòng ban***                    |
+|                 |                                                    |
+|                 | 1.  Quản lý nhân sự để trống phòng ban; hệ thống   |
+|                 |     lưu department_id = NULL (nhân sự chưa gán     |
+|                 |     phòng ban nào).                                |
+|                 |                                                    |
+|                 | ***A4 --- Phòng ban không tồn tại***               |
+|                 |                                                    |
+|                 | 1.  department_id gửi lên không khớp bản ghi nào   |
+|                 |     trong bảng departments; hệ thống từ chối lưu,  |
+|                 |     báo không tìm thấy phòng ban.                  |
 +-----------------+----------------------------------------------------+
 | **Hậu điều kiện | -   Hồ sơ nhân sự phản ánh đầy đủ, chính xác thông |
 | (P              |     tin mới nhất; dữ liệu này được dùng làm đầu    |

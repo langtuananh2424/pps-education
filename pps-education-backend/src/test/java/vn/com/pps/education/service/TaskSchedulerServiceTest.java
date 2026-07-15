@@ -135,6 +135,9 @@ class TaskSchedulerServiceTest extends AbstractIntegrationTest {
         return departmentRepository.save(department);
     }
 
+    // dept không còn set trực tiếp trên User (đã chuyển sang Employee) — tham
+    // số giữ lại vì Task.department (đối tượng đang test) vẫn set độc lập qua
+    // createTaskDirectly, không đọc lại từ User.
     private User newUserInDept(String prefix, Department dept) {
         User user = new User();
         long seq = SEQ.incrementAndGet();
@@ -142,7 +145,6 @@ class TaskSchedulerServiceTest extends AbstractIntegrationTest {
         user.setEmail(prefix + "." + seq + "@pps.edu.vn");
         user.setFullName("Test " + prefix);
         user.setStatus(User.Status.ACTIVE);
-        user.setDepartment(dept);
         return userRepository.save(user);
     }
 }

@@ -20,6 +20,8 @@ public record UpdateEmployeeRequest(
         String socialInsuranceNumber,
         @NotBlank String employeeType,
         String positionTitle,
+        Long departmentId,
+        @NotNull Boolean isManagement,
         Boolean isDefaultShiftRequired,
         @NotBlank String status,
         LocalDate terminationDate

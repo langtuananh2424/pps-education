@@ -9,6 +9,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.Department;
+import vn.com.pps.education.domain.Employee;
 import vn.com.pps.education.domain.Permission;
 import vn.com.pps.education.domain.RefreshToken;
 import vn.com.pps.education.domain.Role;
@@ -27,9 +28,9 @@ import vn.com.pps.education.dto.UserResponse;
 import vn.com.pps.education.dto.UserSearchRequest;
 import vn.com.pps.education.exception.DuplicateUserAccountException;
 import vn.com.pps.education.exception.InvalidCredentialsException;
-import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.exception.SelfAccountLockException;
 import vn.com.pps.education.repository.DepartmentRepository;
+import vn.com.pps.education.repository.EmployeeRepository;
 import vn.com.pps.education.repository.PermissionRepository;
 import vn.com.pps.education.repository.RefreshTokenRepository;
 import vn.com.pps.education.repository.RoleRepository;
@@ -39,6 +40,7 @@ import vn.com.pps.education.repository.UserRepository;
 import vn.com.pps.education.repository.UserRoleRepository;
 import vn.com.pps.education.support.AbstractIntegrationTest;
 
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -51,7 +53,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * (sai mật khẩu hiện tại), A3 (tài khoản chỉ đăng nhập Google), A4 (Quản trị
  * viên đổi cho tài khoản khác). UC-44: Xem/tra cứu danh sách tài khoản —
  * Main Flow, A1 (không có kết quả). UC-49: Cập nhật thông tin tài khoản —
- * Main Flow, A1 (bỏ trống phòng ban), A2 (phòng ban không tồn tại). UC-47:
+ * Main Flow (chỉ còn họ tên/SĐT — phòng ban/is_management đã chuyển sang
+ * hồ sơ nhân sự, xem EmployeeServiceTest A1/A2). UC-47:
  * Khóa/Mở khóa tài khoản — Main Flow, A1 (khôi phục), A2 (tự khóa chính
  * mình). Xem docs/uc/phan-he-02-phan-quyen.md.
  */
@@ -72,6 +75,9 @@ class UserAccountServiceTest extends AbstractIntegrationTest {
 
     @Autowired
     private DepartmentRepository departmentRepository;
+
+    @Autowired
+    private EmployeeRepository employeeRepository;
 
     @Autowired
     private PermissionRepository permissionRepository;
@@ -126,10 +132,10 @@ class UserAccountServiceTest extends AbstractIntegrationTest {
     void create_UC43_A1_rejectsDuplicateUsername() {
         String username = username();
         userAccountService.create(new CreateUserRequest(
-                username, email(), "Người Một", null, null, null, null));
+                username, email(), "Người Một", null, null));
 
         assertThatThrownBy(() -> userAccountService.create(new CreateUserRequest(
-                username, email(), "Người Hai", null, null, null, null)))
+                username, email(), "Người Hai", null, null)))
                 .isInstanceOf(DuplicateUserAccountException.class);
     }
 
@@ -137,17 +143,17 @@ class UserAccountServiceTest extends AbstractIntegrationTest {
     void create_UC43_A1_rejectsDuplicateEmail() {
         String email = email();
         userAccountService.create(new CreateUserRequest(
-                username(), email, "Người Một", null, null, null, null));
+                username(), email, "Người Một", null, null));
 
         assertThatThrownBy(() -> userAccountService.create(new CreateUserRequest(
-                username(), email, "Người Hai", null, null, null, null)))
+                username(), email, "Người Hai", null, null)))
                 .isInstanceOf(DuplicateUserAccountException.class);
     }
 
     @Test
     void create_UC43_A2_rejectsPasswordShorterThan8Chars() {
         CreateUserRequest request = new CreateUserRequest(
-                username(), email(), "Người Test", null, "short1", null, null);
+                username(), email(), "Người Test", null, "short1");
 
         assertThat(VALIDATOR.validate(request)).isNotEmpty();
     }
@@ -214,7 +220,7 @@ class UserAccountServiceTest extends AbstractIntegrationTest {
     void search_UC44_MainFlow_findsByKeywordAndIncludesAssignedRoles() {
         String suffix = "kw" + SEQ.incrementAndGet();
         UserResponse account = userAccountService.create(
-                new CreateUserRequest(username(), email(), "Người Tìm Kiếm " + suffix, null, null, null, null));
+                new CreateUserRequest(username(), email(), "Người Tìm Kiếm " + suffix, null, null));
         Role role = roleRepository.findByCode("STAFF").orElseThrow();
         assignRole(account.id(), role);
 
@@ -233,7 +239,7 @@ class UserAccountServiceTest extends AbstractIntegrationTest {
         Department department = departmentRepository.save(newDepartment());
         UserResponse account = userAccountService.create(baseRequest("MatKhau@8"));
         User user = userRepository.findById(account.id()).orElseThrow();
-        user.setDepartment(department);
+        newEmployee(user, department);
         user.setStatus(User.Status.SUSPENDED);
         userRepository.save(user);
 
@@ -284,40 +290,18 @@ class UserAccountServiceTest extends AbstractIntegrationTest {
     @Test
     void update_UC49_MainFlow_updatesProfileFieldsAndKeepsIdentityUnchanged() {
         UserResponse account = userAccountService.create(baseRequest("MatKhau@8"));
-        Department department = departmentRepository.save(newDepartment());
 
         UserResponse updated = userAccountService.update(account.id(),
-                new UpdateUserRequest("Tên Đã Sửa", "0900000000", department.getId(), true));
+                new UpdateUserRequest("Tên Đã Sửa", "0900000000"));
 
         assertThat(updated.fullName()).isEqualTo("Tên Đã Sửa");
         assertThat(updated.phone()).isEqualTo("0900000000");
-        assertThat(updated.departmentId()).isEqualTo(department.getId());
-        assertThat(updated.isManagement()).isTrue();
-        // Postcondition UC-49 -- username/email/status giữ nguyên.
+        // Postcondition UC-49 -- username/email/status giữ nguyên. Phòng
+        // ban/is_management không còn thuộc UC-49 -- xem EmployeeServiceTest
+        // (UC-08, đã chuyển 2 trường này sang employees).
         assertThat(updated.username()).isEqualTo(account.username());
         assertThat(updated.email()).isEqualTo(account.email());
         assertThat(updated.status()).isEqualTo("ACTIVE");
-    }
-
-    @Test
-    void update_UC49_A1_clearsDepartmentWhenNull() {
-        Department department = departmentRepository.save(newDepartment());
-        UserResponse account = userAccountService.create(baseRequest("MatKhau@8"));
-        userAccountService.update(account.id(), new UpdateUserRequest("Tên", null, department.getId(), false));
-
-        UserResponse cleared = userAccountService.update(account.id(),
-                new UpdateUserRequest("Tên", null, null, false));
-
-        assertThat(cleared.departmentId()).isNull();
-    }
-
-    @Test
-    void update_UC49_A2_rejectsUnknownDepartment() {
-        UserResponse account = userAccountService.create(baseRequest("MatKhau@8"));
-
-        assertThatThrownBy(() -> userAccountService.update(account.id(),
-                new UpdateUserRequest("Tên", null, -1L, false)))
-                .isInstanceOf(ResourceNotFoundException.class);
     }
 
     @Test
@@ -392,6 +376,18 @@ class UserAccountServiceTest extends AbstractIntegrationTest {
         return department;
     }
 
+    private Employee newEmployee(User forUser, Department department) {
+        Employee employee = new Employee();
+        employee.setUser(forUser);
+        employee.setEmployeeCode("NVUAS" + SEQ.incrementAndGet());
+        employee.setDateOfBirth(LocalDate.of(1995, 1, 1));
+        employee.setEmployeeType(Employee.EmployeeType.STAFF);
+        employee.setDepartment(department);
+        employee.setDefaultShiftRequired(true);
+        employee.setHireDate(LocalDate.of(2024, 1, 1));
+        return employeeRepository.save(employee);
+    }
+
     private Permission newPermission() {
         Permission permission = new Permission();
         permission.setCode("test.override_" + SEQ.incrementAndGet());
@@ -409,7 +405,7 @@ class UserAccountServiceTest extends AbstractIntegrationTest {
     }
 
     private CreateUserRequest baseRequest(String password) {
-        return new CreateUserRequest(username(), email(), "Người Test", null, password, null, null);
+        return new CreateUserRequest(username(), email(), "Người Test", null, password);
     }
 
     private String username() {

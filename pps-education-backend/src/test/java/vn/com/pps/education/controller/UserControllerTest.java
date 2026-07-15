@@ -119,7 +119,7 @@ class UserControllerTest extends AbstractControllerTest {
                         .header("Authorization", bearerToken(staff, "STAFF"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
-                                new UpdateUserRequest("Tên Mới", null, null, false))))
+                                new UpdateUserRequest("Tên Mới", null))))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.message").value("Tài khoản không có quyền thực hiện thao tác này."));
     }
@@ -133,7 +133,7 @@ class UserControllerTest extends AbstractControllerTest {
                         .header("Authorization", bearerToken(sysAdmin, "SYS_ADMIN"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
-                                new UpdateUserRequest("Tên Mới", "0911111111", null, false))))
+                                new UpdateUserRequest("Tên Mới", "0911111111"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.fullName").value("Tên Mới"));
     }
@@ -179,6 +179,6 @@ class UserControllerTest extends AbstractControllerTest {
     private CreateUserRequest newUserRequest() {
         long n = SEQ.incrementAndGet();
         return new CreateUserRequest("user.api." + n, "user.api." + n + "@pps.edu.vn",
-                "Người Test API", null, "MatKhau@8", null, null);
+                "Người Test API", null, "MatKhau@8");
     }
 }

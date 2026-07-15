@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.Department;
+import vn.com.pps.education.domain.Employee;
 import vn.com.pps.education.domain.Role;
 import vn.com.pps.education.domain.Task;
 import vn.com.pps.education.domain.TaskAssignment;
@@ -22,6 +23,7 @@ import vn.com.pps.education.exception.InvalidTaskStatusTransitionException;
 import vn.com.pps.education.exception.NotTaskParticipantException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.repository.DepartmentRepository;
+import vn.com.pps.education.repository.EmployeeRepository;
 import vn.com.pps.education.repository.RoleRepository;
 import vn.com.pps.education.repository.TaskAssignmentRepository;
 import vn.com.pps.education.repository.TaskRepository;
@@ -29,6 +31,7 @@ import vn.com.pps.education.repository.UserRepository;
 import vn.com.pps.education.repository.UserRoleRepository;
 import vn.com.pps.education.support.AbstractIntegrationTest;
 
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
@@ -61,6 +64,7 @@ class TaskServiceTest extends AbstractIntegrationTest {
     @Autowired private TaskRepository taskRepository;
     @Autowired private TaskAssignmentRepository taskAssignmentRepository;
     @Autowired private UserRepository userRepository;
+    @Autowired private EmployeeRepository employeeRepository;
     @Autowired private DepartmentRepository departmentRepository;
     @Autowired private RoleRepository roleRepository;
     @Autowired private UserRoleRepository userRoleRepository;
@@ -132,8 +136,9 @@ class TaskServiceTest extends AbstractIntegrationTest {
         Department deptA = newDepartment();
         Department deptB = newDepartment();
         User opsManager = newUserInDept("ops.manager", deptA);
-        opsManager.setManagement(true);
-        userRepository.save(opsManager);
+        Employee opsManagerEmployee = employeeRepository.findByUserId(opsManager.getId()).orElseThrow();
+        opsManagerEmployee.setManagement(true);
+        employeeRepository.save(opsManagerEmployee);
         assignRole(opsManager, "OPS_MANAGER");
         User assignee = newUserInDept("assignee.cross", deptB);
 
@@ -532,8 +537,19 @@ class TaskServiceTest extends AbstractIntegrationTest {
         user.setEmail(prefix + "." + seq + "@pps.edu.vn");
         user.setFullName("Test " + prefix);
         user.setStatus(User.Status.ACTIVE);
-        user.setDepartment(dept);
-        return userRepository.save(user);
+        user = userRepository.save(user);
+
+        Employee employee = new Employee();
+        employee.setUser(user);
+        employee.setEmployeeCode("NVTSK" + seq);
+        employee.setDateOfBirth(LocalDate.of(1995, 1, 1));
+        employee.setEmployeeType(Employee.EmployeeType.STAFF);
+        employee.setDepartment(dept);
+        employee.setDefaultShiftRequired(true);
+        employee.setHireDate(LocalDate.of(2024, 1, 1));
+        employeeRepository.save(employee);
+
+        return user;
     }
 
     private void assignRole(User user, String roleCode) {

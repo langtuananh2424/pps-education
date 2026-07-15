@@ -3,6 +3,7 @@ package vn.com.pps.education.service;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.Commendation;
+import vn.com.pps.education.domain.Department;
 import vn.com.pps.education.domain.Employee;
 import vn.com.pps.education.domain.EmployeeHistory;
 import vn.com.pps.education.domain.EmploymentContract;
@@ -26,6 +27,7 @@ import vn.com.pps.education.exception.DuplicateEmployeeCodeException;
 import vn.com.pps.education.exception.EmployeeAlreadyExistsException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.repository.CommendationRepository;
+import vn.com.pps.education.repository.DepartmentRepository;
 import vn.com.pps.education.repository.EmployeeHistoryRepository;
 import vn.com.pps.education.repository.EmployeeRepository;
 import vn.com.pps.education.repository.EmploymentContractHistoryRepository;
@@ -54,6 +56,7 @@ public class EmployeeService {
     private final EmployeeHistoryRepository employeeHistoryRepository;
     private final EmploymentContractHistoryRepository employmentContractHistoryRepository;
     private final UserRepository userRepository;
+    private final DepartmentRepository departmentRepository;
     private final UserAccountService userAccountService;
 
     public EmployeeService(EmployeeRepository employeeRepository,
@@ -63,6 +66,7 @@ public class EmployeeService {
                             EmployeeHistoryRepository employeeHistoryRepository,
                             EmploymentContractHistoryRepository employmentContractHistoryRepository,
                             UserRepository userRepository,
+                            DepartmentRepository departmentRepository,
                             UserAccountService userAccountService) {
         this.employeeRepository = employeeRepository;
         this.employmentContractRepository = employmentContractRepository;
@@ -71,6 +75,7 @@ public class EmployeeService {
         this.employeeHistoryRepository = employeeHistoryRepository;
         this.employmentContractHistoryRepository = employmentContractHistoryRepository;
         this.userRepository = userRepository;
+        this.departmentRepository = departmentRepository;
         this.userAccountService = userAccountService;
     }
 
@@ -123,6 +128,13 @@ public class EmployeeService {
         employee.setSocialInsuranceNumber(request.socialInsuranceNumber());
         employee.setEmployeeType(Employee.EmployeeType.valueOf(request.employeeType()));
         employee.setPositionTitle(request.positionTitle());
+        if (request.departmentId() != null) {
+            Department department = departmentRepository.findById(request.departmentId())
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Không tìm thấy phòng ban id=" + request.departmentId()));
+            employee.setDepartment(department);
+        }
+        employee.setManagement(Boolean.TRUE.equals(request.isManagement()));
         employee.setDefaultShiftRequired(request.isDefaultShiftRequired() == null || request.isDefaultShiftRequired());
         employee.setHireDate(request.hireDate());
         employee = employeeRepository.save(employee);
@@ -148,6 +160,15 @@ public class EmployeeService {
         employee.setSocialInsuranceNumber(request.socialInsuranceNumber());
         employee.setEmployeeType(Employee.EmployeeType.valueOf(request.employeeType()));
         employee.setPositionTitle(request.positionTitle());
+        if (request.departmentId() != null) {
+            Department department = departmentRepository.findById(request.departmentId())
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Không tìm thấy phòng ban id=" + request.departmentId()));
+            employee.setDepartment(department);
+        } else {
+            employee.setDepartment(null); // A1 -- bỏ trống phòng ban.
+        }
+        employee.setManagement(Boolean.TRUE.equals(request.isManagement()));
         employee.setDefaultShiftRequired(request.isDefaultShiftRequired() == null || request.isDefaultShiftRequired());
         employee.setStatus(Employee.Status.valueOf(request.status()));
         employee.setTerminationDate(request.terminationDate());
@@ -365,6 +386,8 @@ public class EmployeeService {
                 e.getSocialInsuranceNumber(),
                 e.getEmployeeType().name(),
                 e.getPositionTitle(),
+                e.getDepartment() == null ? null : e.getDepartment().getId(),
+                e.isManagement(),
                 e.isDefaultShiftRequired(),
                 e.getHireDate(),
                 e.getTerminationDate(),

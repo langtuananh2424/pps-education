@@ -121,7 +121,7 @@ public class LeaveRequestService {
 
         // Main Flow bước 3 -- xác định workflow duyệt.
         List<LeaveRequestApproval.ApproverRole> steps;
-        Department department = actor.getDepartment();
+        Department department = employee.getDepartment();
         if (!MANAGEMENT_ROLE_CODES.isEmpty() && roleCodes.stream().anyMatch(MANAGEMENT_ROLE_CODES::contains)) {
             steps = List.of(LeaveRequestApproval.ApproverRole.EXECUTIVE);
         } else if (department != null && department.getHeadUser() != null) {

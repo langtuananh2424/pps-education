@@ -100,7 +100,7 @@ class AttendanceServiceTest extends AbstractIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        user = newUser(false);
+        user = newUser();
         employee = newEmployee(user);
         site = newSite();
     }
@@ -133,8 +133,8 @@ class AttendanceServiceTest extends AbstractIntegrationTest {
 
     @Test
     void checkIn_UC09_managementExempt_rejectsWhenIsManagementTrue() {
-        User manager = newUser(true);
-        newEmployee(manager);
+        User manager = newUser();
+        newEmployee(manager, Employee.EmployeeType.STAFF, true);
 
         assertThatThrownBy(() -> attendanceService.checkIn(manager.getId(),
                 new AttendanceCheckRequest("GPS", site.getId(), SITE_LAT, SITE_LNG, null)))
@@ -183,7 +183,7 @@ class AttendanceServiceTest extends AbstractIntegrationTest {
 
     @Test
     void checkIn_UC09_A12A13_recordsAttendanceWithinTeachingScheduleWindowOutsideShiftWindow() {
-        User teacher = newUser(false);
+        User teacher = newUser();
         Employee teacherEmployee = newEmployee(teacher, Employee.EmployeeType.TEACHER);
         // Ca cố định chỉ dùng để xác định D là ngày làm việc (bước 3) -- cửa sổ giờ của
         // chính ca này KHÔNG phủ thời điểm hiện tại, để cô lập rõ nhánh lịch dạy (A12/A13).
@@ -203,7 +203,7 @@ class AttendanceServiceTest extends AbstractIntegrationTest {
 
     @Test
     void checkIn_UC09_A1_rejectsOutsideTeachingScheduleAndShiftWindow() {
-        User teacher = newUser(false);
+        User teacher = newUser();
         Employee teacherEmployee = newEmployee(teacher, Employee.EmployeeType.TEACHER);
         assignShiftNotCoveringNow(teacherEmployee);
         SchoolClass schoolClass = newSchoolClass(teacher);
@@ -217,7 +217,7 @@ class AttendanceServiceTest extends AbstractIntegrationTest {
 
     @Test
     void checkIn_UC09_A12A13_ignoresCancelledSession() {
-        User teacher = newUser(false);
+        User teacher = newUser();
         Employee teacherEmployee = newEmployee(teacher, Employee.EmployeeType.TEACHER);
         assignShiftNotCoveringNow(teacherEmployee);
         SchoolClass schoolClass = newSchoolClass(teacher);
@@ -231,7 +231,7 @@ class AttendanceServiceTest extends AbstractIntegrationTest {
 
     @Test
     void checkIn_UC09_MainFlow_teacherWithSessionTodayIsWorkingDayWithoutAnyShiftAssigned() {
-        User teacher = newUser(false);
+        User teacher = newUser();
         Employee teacherEmployee = newEmployee(teacher, Employee.EmployeeType.TEACHER);
         // Không gán employee_shifts nào cả, không có work_calendar override -- đúng kịch bản
         // gap đã báo cáo: GV chỉ dạy theo lịch, HR không tạo ca cố định cho họ.
@@ -249,7 +249,7 @@ class AttendanceServiceTest extends AbstractIntegrationTest {
 
     @Test
     void checkIn_UC09_A1_rejectsWhenWorkCalendarMarksHolidayEvenWithTeachingSessionToday() {
-        User teacher = newUser(false);
+        User teacher = newUser();
         newEmployee(teacher, Employee.EmployeeType.TEACHER);
         SchoolClass schoolClass = newSchoolClass(teacher);
         newSession(schoolClass, teacher, LocalTime.now().minusHours(1), LocalTime.now().plusHours(1), ClassSession.Status.SCHEDULED);
@@ -268,7 +268,7 @@ class AttendanceServiceTest extends AbstractIntegrationTest {
 
     @Test
     void checkIn_UC09_MainFlow_teacherWithoutSessionTodayStillUsesShiftWindow() {
-        User teacher = newUser(false);
+        User teacher = newUser();
         newEmployee(teacher, Employee.EmployeeType.TEACHER);
         assignWideOpenShift(employeeRepository.findByUserId(teacher.getId()).orElseThrow());
 
@@ -359,26 +359,30 @@ class AttendanceServiceTest extends AbstractIntegrationTest {
         employeeShiftRepository.save(employeeShift);
     }
 
-    private User newUser(boolean management) {
+    private User newUser() {
         User newUser = new User();
         newUser.setUsername("attendance.user." + SEQ.incrementAndGet());
         newUser.setEmail("attendance.user." + SEQ.incrementAndGet() + "@pps.edu.vn");
         newUser.setFullName("Attendance Test User");
         newUser.setStatus(User.Status.ACTIVE);
-        newUser.setManagement(management);
         return userRepository.save(newUser);
     }
 
     private Employee newEmployee(User forUser) {
-        return newEmployee(forUser, Employee.EmployeeType.STAFF);
+        return newEmployee(forUser, Employee.EmployeeType.STAFF, false);
     }
 
     private Employee newEmployee(User forUser, Employee.EmployeeType type) {
+        return newEmployee(forUser, type, false);
+    }
+
+    private Employee newEmployee(User forUser, Employee.EmployeeType type, boolean management) {
         Employee newEmployee = new Employee();
         newEmployee.setUser(forUser);
         newEmployee.setEmployeeCode("NVCC" + SEQ.incrementAndGet());
         newEmployee.setDateOfBirth(LocalDate.of(1995, 1, 1));
         newEmployee.setEmployeeType(type);
+        newEmployee.setManagement(management);
         newEmployee.setDefaultShiftRequired(true);
         newEmployee.setHireDate(LocalDate.of(2024, 1, 1));
         return employeeRepository.save(newEmployee);

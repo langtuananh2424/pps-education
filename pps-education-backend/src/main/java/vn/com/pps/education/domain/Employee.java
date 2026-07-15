@@ -70,6 +70,14 @@ public class Employee extends BaseAuditEntity {
     @Column(name = "position_title", length = 200)
     private String positionTitle;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "department_id")
+    private Department department;
+
+    /** Miễn trừ chấm công (FR-HRM-02) / miễn trừ hoặc quy trình duyệt đơn riêng (FR-HRM-03). */
+    @Column(name = "is_management", nullable = false)
+    private boolean management = false;
+
     @Column(name = "is_default_shift_required", nullable = false)
     private boolean defaultShiftRequired = true;
 

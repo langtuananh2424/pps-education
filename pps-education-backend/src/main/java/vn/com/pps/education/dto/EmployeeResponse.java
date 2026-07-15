@@ -19,6 +19,8 @@ public record EmployeeResponse(
         String socialInsuranceNumber,
         String employeeType,
         String positionTitle,
+        Long departmentId,
+        boolean isManagement,
         boolean isDefaultShiftRequired,
         LocalDate hireDate,
         LocalDate terminationDate,

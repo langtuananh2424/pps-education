@@ -4,6 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
+import vn.com.pps.education.domain.Department;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.dto.CreateCommendationRequest;
 import vn.com.pps.education.dto.CreateEmployeeRequest;
@@ -13,9 +14,12 @@ import vn.com.pps.education.dto.CreateQualificationRequest;
 import vn.com.pps.education.dto.EmployeeResponse;
 import vn.com.pps.education.dto.EmploymentContractResponse;
 import vn.com.pps.education.dto.ExpiringContractResponse;
+import vn.com.pps.education.dto.UpdateEmployeeRequest;
 import vn.com.pps.education.exception.ActiveContractAlreadyExistsException;
 import vn.com.pps.education.exception.DuplicateEmployeeCodeException;
 import vn.com.pps.education.exception.EmployeeAlreadyExistsException;
+import vn.com.pps.education.exception.ResourceNotFoundException;
+import vn.com.pps.education.repository.DepartmentRepository;
 import vn.com.pps.education.repository.EmployeeHistoryRepository;
 import vn.com.pps.education.repository.EmploymentContractHistoryRepository;
 import vn.com.pps.education.repository.UserRepository;
@@ -48,6 +52,9 @@ class EmployeeServiceTest extends AbstractIntegrationTest {
     private UserRepository userRepository;
 
     @Autowired
+    private DepartmentRepository departmentRepository;
+
+    @Autowired
     private EmployeeHistoryRepository employeeHistoryRepository;
 
     @Autowired
@@ -67,7 +74,7 @@ class EmployeeServiceTest extends AbstractIntegrationTest {
         EmployeeResponse response = employeeService.create(
                 new CreateEmployeeRequest(target.getId(), null, employeeCode(),
                         LocalDate.of(1995, 1, 1), "001095000123", null, null, null, null, null, null, null, null,
-                        "TEACHER", "Giáo viên tiếng Anh", true, LocalDate.of(2024, 1, 1)),
+                        "TEACHER", "Giáo viên tiếng Anh", null, null, true, LocalDate.of(2024, 1, 1)),
                 hrManager.getId());
 
         assertThat(response.id()).isNotNull();
@@ -82,12 +89,12 @@ class EmployeeServiceTest extends AbstractIntegrationTest {
     void create_UC08_MainFlow_withNewAccount_createsUserAndEmployeeInOneTransaction() {
         CreateUserRequest newAccount = new CreateUserRequest(
                 "nv.moi." + CODE_SEQ.incrementAndGet(), "nv.moi." + CODE_SEQ.get() + "@pps.edu.vn",
-                "Nhân Viên Mới", null, "MatKhau@8kytu", null, null);
+                "Nhân Viên Mới", null, "MatKhau@8kytu");
 
         EmployeeResponse response = employeeService.create(
                 new CreateEmployeeRequest(null, newAccount, employeeCode(),
                         LocalDate.of(1995, 1, 1), null, null, null, null, null, null, null, null, null,
-                        "TEACHER", "Giáo viên tiếng Anh", true, LocalDate.of(2024, 1, 1)),
+                        "TEACHER", "Giáo viên tiếng Anh", null, null, true, LocalDate.of(2024, 1, 1)),
                 hrManager.getId());
 
         assertThat(response.id()).isNotNull();
@@ -102,12 +109,12 @@ class EmployeeServiceTest extends AbstractIntegrationTest {
         User target = newUser("employee.both");
         CreateUserRequest newAccount = new CreateUserRequest(
                 "nv.both." + CODE_SEQ.incrementAndGet(), "nv.both." + CODE_SEQ.get() + "@pps.edu.vn",
-                "Nhân Viên Both", null, null, null, null);
+                "Nhân Viên Both", null, null);
 
         assertThatThrownBy(() -> employeeService.create(
                 new CreateEmployeeRequest(target.getId(), newAccount, employeeCode(),
                         LocalDate.of(1995, 1, 1), null, null, null, null, null, null, null, null, null,
-                        "STAFF", null, true, LocalDate.of(2024, 1, 1)),
+                        "STAFF", null, null, null, true, LocalDate.of(2024, 1, 1)),
                 hrManager.getId()))
                 .isInstanceOf(IllegalArgumentException.class);
     }
@@ -117,7 +124,7 @@ class EmployeeServiceTest extends AbstractIntegrationTest {
         assertThatThrownBy(() -> employeeService.create(
                 new CreateEmployeeRequest(null, null, employeeCode(),
                         LocalDate.of(1995, 1, 1), null, null, null, null, null, null, null, null, null,
-                        "STAFF", null, true, LocalDate.of(2024, 1, 1)),
+                        "STAFF", null, null, null, true, LocalDate.of(2024, 1, 1)),
                 hrManager.getId()))
                 .isInstanceOf(IllegalArgumentException.class);
     }
@@ -141,6 +148,65 @@ class EmployeeServiceTest extends AbstractIntegrationTest {
         assertThatThrownBy(() -> employeeService.create(
                 baseEmployeeRequest(target.getId(), employeeCode()), hrManager.getId()))
                 .isInstanceOf(EmployeeAlreadyExistsException.class);
+    }
+
+    @Test
+    void create_UC08_MainFlow_setsDepartmentAndManagement() {
+        User target = newUser("employee.dept");
+        Department department = newDepartment();
+
+        EmployeeResponse response = employeeService.create(
+                baseEmployeeRequest(target.getId(), employeeCode(), department.getId(), true), hrManager.getId());
+
+        assertThat(response.departmentId()).isEqualTo(department.getId());
+        assertThat(response.isManagement()).isTrue();
+    }
+
+    @Test
+    void create_UC08_A4_rejectsUnknownDepartment() {
+        User target = newUser("employee.dept.unknown");
+
+        assertThatThrownBy(() -> employeeService.create(
+                baseEmployeeRequest(target.getId(), employeeCode(), -1L, false), hrManager.getId()))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void update_UC08_MainFlow_updatesDepartmentAndManagement() {
+        User target = newUser("employee.dept.update");
+        EmployeeResponse employee = employeeService.create(
+                baseEmployeeRequest(target.getId(), employeeCode()), hrManager.getId());
+        Department department = newDepartment();
+
+        EmployeeResponse updated = employeeService.update(employee.id(),
+                updateRequest(department.getId(), true), hrManager.getId());
+
+        assertThat(updated.departmentId()).isEqualTo(department.getId());
+        assertThat(updated.isManagement()).isTrue();
+    }
+
+    @Test
+    void update_UC08_A3_clearsDepartmentWhenNull() {
+        User target = newUser("employee.dept.clear");
+        Department department = newDepartment();
+        EmployeeResponse employee = employeeService.create(
+                baseEmployeeRequest(target.getId(), employeeCode(), department.getId(), false), hrManager.getId());
+
+        EmployeeResponse cleared = employeeService.update(employee.id(),
+                updateRequest(null, false), hrManager.getId());
+
+        assertThat(cleared.departmentId()).isNull();
+    }
+
+    @Test
+    void update_UC08_A4_rejectsUnknownDepartment() {
+        User target = newUser("employee.dept.update.unknown");
+        EmployeeResponse employee = employeeService.create(
+                baseEmployeeRequest(target.getId(), employeeCode()), hrManager.getId());
+
+        assertThatThrownBy(() -> employeeService.update(employee.id(),
+                updateRequest(-1L, false), hrManager.getId()))
+                .isInstanceOf(ResourceNotFoundException.class);
     }
 
     @Test
@@ -229,8 +295,24 @@ class EmployeeServiceTest extends AbstractIntegrationTest {
     }
 
     private CreateEmployeeRequest baseEmployeeRequest(Long userId, String employeeCode) {
+        return baseEmployeeRequest(userId, employeeCode, null, null);
+    }
+
+    private CreateEmployeeRequest baseEmployeeRequest(Long userId, String employeeCode, Long departmentId, Boolean isManagement) {
         return new CreateEmployeeRequest(userId, null, employeeCode, LocalDate.of(1995, 1, 1), null, null, null, null,
-                null, null, null, null, null, "STAFF", "Nhân viên", true, LocalDate.of(2024, 1, 1));
+                null, null, null, null, null, "STAFF", "Nhân viên", departmentId, isManagement, true, LocalDate.of(2024, 1, 1));
+    }
+
+    private UpdateEmployeeRequest updateRequest(Long departmentId, boolean isManagement) {
+        return new UpdateEmployeeRequest(LocalDate.of(1995, 1, 1), null, null, null, null, null, null, null, null,
+                null, "STAFF", "Nhân viên", departmentId, isManagement, true, "ACTIVE", null);
+    }
+
+    private Department newDepartment() {
+        Department department = new Department();
+        department.setCode("DEPT-EMP-" + CODE_SEQ.incrementAndGet());
+        department.setName("Employee Test Dept " + CODE_SEQ.get());
+        return departmentRepository.save(department);
     }
 
     private User newUser(String prefix) {

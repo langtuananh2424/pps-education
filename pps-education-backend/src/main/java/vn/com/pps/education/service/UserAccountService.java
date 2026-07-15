@@ -8,7 +8,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import vn.com.pps.education.domain.Department;
+import vn.com.pps.education.domain.Employee;
 import vn.com.pps.education.domain.RefreshToken;
 import vn.com.pps.education.domain.Role;
 import vn.com.pps.education.domain.User;
@@ -29,12 +29,14 @@ import vn.com.pps.education.exception.DuplicateUserAccountException;
 import vn.com.pps.education.exception.InvalidCredentialsException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.exception.SelfAccountLockException;
-import vn.com.pps.education.repository.DepartmentRepository;
+import vn.com.pps.education.repository.EmployeeRepository;
 import vn.com.pps.education.repository.RefreshTokenRepository;
 import vn.com.pps.education.repository.UserHistoryRepository;
 import vn.com.pps.education.repository.UserPermissionOverrideRepository;
 import vn.com.pps.education.repository.UserRepository;
 import vn.com.pps.education.repository.UserRoleRepository;
+
+import jakarta.persistence.criteria.Subquery;
 
 import java.time.OffsetDateTime;
 import java.util.Comparator;
@@ -67,7 +69,7 @@ import java.util.stream.Collectors;
 public class UserAccountService {
 
     private final UserRepository userRepository;
-    private final DepartmentRepository departmentRepository;
+    private final EmployeeRepository employeeRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final UserRoleRepository userRoleRepository;
     private final UserPermissionOverrideRepository userPermissionOverrideRepository;
@@ -75,14 +77,14 @@ public class UserAccountService {
     private final PasswordEncoder passwordEncoder;
 
     public UserAccountService(UserRepository userRepository,
-                               DepartmentRepository departmentRepository,
+                               EmployeeRepository employeeRepository,
                                RefreshTokenRepository refreshTokenRepository,
                                UserRoleRepository userRoleRepository,
                                UserPermissionOverrideRepository userPermissionOverrideRepository,
                                UserHistoryRepository userHistoryRepository,
                                PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
-        this.departmentRepository = departmentRepository;
+        this.employeeRepository = employeeRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.userRoleRepository = userRoleRepository;
         this.userPermissionOverrideRepository = userPermissionOverrideRepository;
@@ -120,13 +122,6 @@ public class UserAccountService {
         if (request.password() != null) {
             user.setPasswordHash(passwordEncoder.encode(request.password()));
         }
-        if (request.departmentId() != null) {
-            Department department = departmentRepository.findById(request.departmentId())
-                    .orElseThrow(() -> new ResourceNotFoundException(
-                            "Không tìm thấy phòng ban id=" + request.departmentId()));
-            user.setDepartment(department);
-        }
-        user.setManagement(Boolean.TRUE.equals(request.isManagement()));
         user.setStatus(User.Status.ACTIVE);
         return userRepository.save(user);
     }
@@ -202,8 +197,10 @@ public class UserAccountService {
         Map<Long, List<RoleResponse>> rolesByUser = userRoleRepository.findByUserIdIn(userIds).stream()
                 .collect(Collectors.groupingBy(ur -> ur.getUser().getId(),
                         Collectors.mapping(ur -> toRoleResponse(ur.getRole()), Collectors.toList())));
+        Map<Long, Employee> employeeByUserId = employeeRepository.findByUserIdIn(userIds).stream()
+                .collect(Collectors.toMap(e -> e.getUser().getId(), e -> e));
 
-        return page.map(u -> toListItem(u, rolesByUser.getOrDefault(u.getId(), List.of())));
+        return page.map(u -> toListItem(u, rolesByUser.getOrDefault(u.getId(), List.of()), employeeByUserId.get(u.getId())));
     }
 
     private Specification<User> buildSpecification(UserSearchRequest filter) {
@@ -216,7 +213,15 @@ public class UserAccountService {
                     cb.like(cb.lower(root.get("fullName")), pattern)));
         }
         if (filter.departmentId() != null) {
-            spec = spec.and((root, query, cb) -> cb.equal(root.get("department").get("id"), filter.departmentId()));
+            // department_id nay thuộc employees — lọc qua EXISTS subquery correlate theo user.
+            spec = spec.and((root, query, cb) -> {
+                Subquery<Long> sq = query.subquery(Long.class);
+                var employeeRoot = sq.from(Employee.class);
+                sq.select(employeeRoot.get("id"))
+                        .where(cb.equal(employeeRoot.get("user"), root),
+                                cb.equal(employeeRoot.get("department").get("id"), filter.departmentId()));
+                return cb.exists(sq);
+            });
         }
         if (filter.status() != null && !filter.status().isBlank()) {
             spec = spec.and((root, query, cb) -> cb.equal(root.get("status"), User.Status.valueOf(filter.status())));
@@ -236,31 +241,23 @@ public class UserAccountService {
         List<UserPermissionOverrideSummary> overrides = userPermissionOverrideRepository.findByUserId(userId).stream()
                 .map(this::toOverrideSummary)
                 .toList();
+        Employee employee = employeeRepository.findByUserId(userId).orElse(null);
 
-        return toDetailResponse(user, roles, overrides);
+        return toDetailResponse(user, roles, overrides, employee);
     }
 
     /**
      * UC-49: Cập nhật thông tin tài khoản (FR-USR-05).
-     * Xem docs/uc/phan-he-02-phan-quyen.md — Main Flow, A1 (bỏ trống phòng
-     * ban), A2 (phòng ban không tồn tại). KHÔNG đổi username/email/mật
-     * khẩu/trạng thái — ngoài phạm vi UC-49 (thuộc UC-43/UC-45/UC-47).
+     * Xem docs/uc/phan-he-02-phan-quyen.md — Main Flow. KHÔNG đổi
+     * username/email/mật khẩu/trạng thái — ngoài phạm vi UC-49 (thuộc
+     * UC-43/UC-45/UC-47). KHÔNG đổi phòng ban/cờ miễn trừ quản lý — 2
+     * trường đó thuộc hồ sơ nhân sự, sửa qua UC-08 (EmployeeService).
      */
     @Transactional
     public UserResponse update(Long userId, UpdateUserRequest request) {
         User user = getUserOrThrow(userId);
         user.setFullName(request.fullName());
         user.setPhone(request.phone());
-        if (request.departmentId() != null) {
-            // A2 -- phòng ban không tồn tại.
-            Department department = departmentRepository.findById(request.departmentId())
-                    .orElseThrow(() -> new ResourceNotFoundException(
-                            "Không tìm thấy phòng ban id=" + request.departmentId()));
-            user.setDepartment(department);
-        } else {
-            user.setDepartment(null); // A1 -- bỏ trống phòng ban.
-        }
-        user.setManagement(Boolean.TRUE.equals(request.isManagement()));
         return toResponse(userRepository.save(user));
     }
 
@@ -321,26 +318,27 @@ public class UserAccountService {
     }
 
     private UserResponse toResponse(User u) {
+        Employee employee = employeeRepository.findByUserId(u.getId()).orElse(null);
         return new UserResponse(
                 u.getId(), u.getUsername(), u.getEmail(), u.getFullName(), u.getPhone(),
-                u.getDepartment() == null ? null : u.getDepartment().getId(),
-                u.getStatus().name(), u.isManagement(),
+                employee == null || employee.getDepartment() == null ? null : employee.getDepartment().getId(),
+                u.getStatus().name(), employee != null && employee.isManagement(),
                 u.getPasswordHash() != null, u.getGoogleId() != null);
     }
 
-    private UserListItemResponse toListItem(User u, List<RoleResponse> roles) {
+    private UserListItemResponse toListItem(User u, List<RoleResponse> roles, Employee employee) {
         return new UserListItemResponse(
                 u.getId(), u.getUsername(), u.getEmail(), u.getFullName(), u.getPhone(),
-                u.getDepartment() == null ? null : u.getDepartment().getId(),
-                u.getStatus().name(), u.isManagement(), roles);
+                employee == null || employee.getDepartment() == null ? null : employee.getDepartment().getId(),
+                u.getStatus().name(), employee != null && employee.isManagement(), roles);
     }
 
     private UserDetailResponse toDetailResponse(User u, List<RoleResponse> roles,
-                                                 List<UserPermissionOverrideSummary> overrides) {
+                                                 List<UserPermissionOverrideSummary> overrides, Employee employee) {
         return new UserDetailResponse(
                 u.getId(), u.getUsername(), u.getEmail(), u.getFullName(), u.getPhone(),
-                u.getDepartment() == null ? null : u.getDepartment().getId(),
-                u.getStatus().name(), u.isManagement(),
+                employee == null || employee.getDepartment() == null ? null : employee.getDepartment().getId(),
+                u.getStatus().name(), employee != null && employee.isManagement(),
                 u.getPasswordHash() != null, u.getGoogleId() != null,
                 u.getLastLoginAt(), u.getFailedLoginCount(), u.getLockedUntil(),
                 roles, overrides);

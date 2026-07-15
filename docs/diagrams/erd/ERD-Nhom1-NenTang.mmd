@@ -1,7 +1,6 @@
 erDiagram
     users ||--o{ user_roles : "duoc gan"
     users ||--o{ user_permission_overrides : "quyen ngoai le"
-    users }o--|| departments : "thuoc"
     users ||--o{ refresh_tokens : "phien"
     users ||--o{ login_attempts : "log dang nhap"
     users ||--o{ users_history : ""
@@ -24,9 +23,7 @@ erDiagram
         VARCHAR email UK
         VARCHAR password_hash
         VARCHAR full_name
-        BIGINT department_id FK
         VARCHAR status
-        BOOLEAN is_management
         VARCHAR google_id UK
         TIMESTAMPTZ last_login_at
         INT failed_login_count

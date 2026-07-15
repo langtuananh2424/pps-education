@@ -60,9 +60,7 @@ class LeaveRequestServiceTest extends AbstractIntegrationTest {
         User head = newUser("dept.head");
         Department department = newDepartment(head);
         User staffUser = newUser("staff.with.head");
-        staffUser.setDepartment(department);
-        userRepository.save(staffUser);
-        newEmployee(staffUser);
+        newEmployee(staffUser, department);
 
         LeaveRequestResponse response = leaveRequestService.submit(staffUser.getId(),
                 new CreateLeaveRequestRequest("ANNUAL", LocalDate.now().plusDays(5), LocalDate.now().plusDays(7),
@@ -78,9 +76,7 @@ class LeaveRequestServiceTest extends AbstractIntegrationTest {
     void submit_UC10_A2_departmentWithoutHead_skipsDirectlyToOperationsManager() {
         Department department = newDepartment(null);
         User staffUser = newUser("staff.no.head");
-        staffUser.setDepartment(department);
-        userRepository.save(staffUser);
-        newEmployee(staffUser);
+        newEmployee(staffUser, department);
 
         LeaveRequestResponse response = leaveRequestService.submit(staffUser.getId(),
                 new CreateLeaveRequestRequest("SICK", LocalDate.now().plusDays(1), LocalDate.now().plusDays(1),
@@ -119,9 +115,7 @@ class LeaveRequestServiceTest extends AbstractIntegrationTest {
         User head = newUser("decide.head");
         Department department = newDepartment(head);
         User staffUser = newUser("decide.staff");
-        staffUser.setDepartment(department);
-        userRepository.save(staffUser);
-        newEmployee(staffUser);
+        newEmployee(staffUser, department);
         User opsManagerUser = newUser("decide.ops");
         assignRole(opsManagerUser, "OPS_MANAGER");
 
@@ -145,9 +139,7 @@ class LeaveRequestServiceTest extends AbstractIntegrationTest {
         User head = newUser("reject.head");
         Department department = newDepartment(head);
         User staffUser = newUser("reject.staff");
-        staffUser.setDepartment(department);
-        userRepository.save(staffUser);
-        newEmployee(staffUser);
+        newEmployee(staffUser, department);
 
         LeaveRequestResponse submitted = leaveRequestService.submit(staffUser.getId(),
                 new CreateLeaveRequestRequest("UNPAID", LocalDate.now().plusDays(1), LocalDate.now().plusDays(1),
@@ -166,9 +158,7 @@ class LeaveRequestServiceTest extends AbstractIntegrationTest {
         User head = newUser("wrongapprover.head");
         Department department = newDepartment(head);
         User staffUser = newUser("wrongapprover.staff");
-        staffUser.setDepartment(department);
-        userRepository.save(staffUser);
-        newEmployee(staffUser);
+        newEmployee(staffUser, department);
         User randomUser = newUser("wrongapprover.random");
 
         LeaveRequestResponse submitted = leaveRequestService.submit(staffUser.getId(),
@@ -207,11 +197,16 @@ class LeaveRequestServiceTest extends AbstractIntegrationTest {
     }
 
     private Employee newEmployee(User forUser) {
+        return newEmployee(forUser, null);
+    }
+
+    private Employee newEmployee(User forUser, Department department) {
         Employee employee = new Employee();
         employee.setUser(forUser);
         employee.setEmployeeCode("NVLR" + SEQ.incrementAndGet());
         employee.setDateOfBirth(LocalDate.of(1995, 1, 1));
         employee.setEmployeeType(Employee.EmployeeType.STAFF);
+        employee.setDepartment(department);
         employee.setDefaultShiftRequired(true);
         employee.setHireDate(LocalDate.of(2024, 1, 1));
         return employeeRepository.save(employee);
