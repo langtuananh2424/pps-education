@@ -339,6 +339,12 @@ nhân đó mới được thao tác.*
         của Giáo viên (lấy dữ liệu từ Phân hệ Học thuật) và trừ đi các
         khoản phạt, thuế, bảo hiểm.
 
+    -   **FR-HRM-05: Nhập nhân sự theo lô -** Quản lý nhân sự nhập file
+        Excel danh sách nhân sự để tạo tài khoản (username bắt buộc,
+        email tùy chọn, mật khẩu tạm hệ thống tự sinh) + hồ sơ nhân sự
+        hàng loạt, thay vì nhập tay từng người. Kiểm tra trùng lặp theo
+        mã nhân sự/username/email trước khi tạo mới.
+
 **PHÂN HỆ 5: QUẢN LÝ HỌC SINH**
 
 -   **Mô tả tổng quan:** Quản lý thông tin định danh, hồ sơ lý lịch và
@@ -360,6 +366,13 @@ nhân đó mới được thao tác.*
     -   **FR-STU-03: Điểm danh & Chuyên cần -** Giáo viên thực hiện điểm
         danh học sinh đầu mỗi tiết học. Hệ thống tự động tổng hợp tỷ lệ
         nghỉ học và gửi thông báo vắng mặt ngay lập tức cho Phụ huynh.
+
+    -   **FR-STU-04: Nhập phụ huynh theo lô -** Nhân viên giáo vụ nhập
+        file Excel danh sách phụ huynh để tạo hồ sơ + liên kết với học
+        sinh đã tồn tại sẵn (tra theo mã học sinh) hàng loạt. 2 dòng cùng
+        số điện thoại (VD anh chị em ruột) dùng lại đúng 1 hồ sơ phụ
+        huynh, không tạo trùng. Không tạo phụ huynh không liên kết học
+        sinh nào.
 
 **PHÂN HỆ 6: QUẢN LÝ HỌC THUẬT VÀ ĐÀO TẠO**
 
@@ -637,6 +650,9 @@ CDN)**
 
   UC-12             Xem bảng lương    FR-HRM-04         4
 
+  UC-51             Nhập nhân sự theo FR-HRM-05         4
+                    lô                                  
+
   UC-13             Quản lý hồ sơ học FR-STU-01         5
                     sinh                                
 
@@ -645,6 +661,9 @@ CDN)**
 
   UC-15             Điểm danh học     FR-STU-03         5
                     sinh                                
+
+  UC-50             Nhập phụ huynh    FR-STU-04         5
+                    theo lô                             
 
   UC-16             Quản lý khung     FR-ACA-01         6
                     chương trình                        

@@ -379,4 +379,90 @@ UC-12: Xem bảng lương
 | ostcondition)** |     không bị thay đổi (use case chỉ đọc).          |
 +-----------------+----------------------------------------------------+
 
+UC-51: Nhập nhân sự theo lô
+
++-----------------+----------------------------------------------------+
+| **Mã Use Case** | UC-51                                              |
++-----------------+----------------------------------------------------+
+| **Tên Use       | Nhập nhân sự theo lô                               |
+| Case**          |                                                    |
++-----------------+----------------------------------------------------+
+| **Phân hệ**     | Phân hệ 4                                          |
++-----------------+----------------------------------------------------+
+| **Yêu cầu chức  | FR-HRM-05                                          |
+| năng gốc**      |                                                    |
++-----------------+----------------------------------------------------+
+| **Tác nhân**    | Quản lý nhân sự                                    |
++-----------------+----------------------------------------------------+
+| **Mô tả tóm     | Quản lý nhân sự nhập file Excel danh sách nhân sự  |
+| tắt**           | để tạo tài khoản + hồ sơ hàng loạt, thay vì nhập   |
+|                 | tay từng người (UC-08). Hệ thống tự sinh mật khẩu  |
+|                 | tạm cho từng tài khoản, không đặt mật khẩu qua     |
+|                 | file Excel (rủi ro bảo mật khi file bị chuyển tay/ |
+|                 | email).                                            |
++-----------------+----------------------------------------------------+
+| **Sự kiện kích  | Quản lý nhân sự cần khởi tạo hàng loạt tài khoản + |
+| hoạt**          | hồ sơ nhân sự (VD chuyển dữ liệu từ hệ thống cũ).  |
++-----------------+----------------------------------------------------+
+| **Điều kiện     | -   Người dùng có quyền hrm.manage.                |
+| tiên quyết      | -   Có file Excel danh sách nhân sự đúng định dạng |
+| (               |     mẫu.                                           |
+| Precondition)** |                                                    |
++-----------------+----------------------------------------------------+
+| **Luồng sự kiện | 1.  Quản lý nhân sự tải file Excel lên.            |
+| chính (Main     |                                                    |
+| Flow)**         | 2.  Hệ thống tạo bản ghi import_jobs               |
+|                 |     (import_type=EMPLOYEES), đọc và xác thực định |
+|                 |     dạng file.                                     |
+|                 |                                                    |
+|                 | 3.  Với từng dòng: kiểm tra trùng lặp theo mã nhân |
+|                 |     sự/username/email.                             |
+|                 |                                                    |
+|                 | 4.  Tạo tài khoản (username bắt buộc, email tùy    |
+|                 |     chọn --- trống thì hệ thống tự sinh placeholder |
+|                 |     để thỏa ràng buộc email NOT NULL) kèm mật khẩu |
+|                 |     tạm sinh ngẫu nhiên, và hồ sơ nhân sự (mã nhân |
+|                 |     sự, loại nhân sự, phòng ban nếu có, cờ miễn    |
+|                 |     trừ is_management) cho từng dòng hợp lệ. KHÔNG |
+|                 |     tự gán role --- Quản lý nhân sự gán sau qua    |
+|                 |     UC-03/UC-04 (nhân sự có nhiều loại role khác   |
+|                 |     nhau, không áp đặt trước).                     |
+|                 |                                                    |
+|                 | 5.  Hệ thống cập nhật total_rows/success_rows/     |
+|                 |     failed_rows/error_summary, trạng thái COMPLETED|
+|                 |     hoặc PARTIAL_SUCCESS.                          |
+|                 |                                                    |
+|                 | 6.  Quản lý nhân sự xem kết quả, nhận danh sách    |
+|                 |     username + mật khẩu tạm (chỉ hiển thị 1 lần    |
+|                 |     ngay trong kết quả của bước tải lên, không tra |
+|                 |     cứu lại được sau đó) để gửi riêng từng người,  |
+|                 |     và tải danh sách dòng lỗi (nếu có).            |
++-----------------+----------------------------------------------------+
+| **Luồng thay    | ***A1 --- File sai định dạng***                    |
+| thế / ngoại lệ  |                                                    |
+| (Alternate      | 1.  File rỗng, thiếu dòng tiêu đề, hoặc không mở   |
+| Flow)**         |     được như file Excel (.xlsx) hợp lệ --- hệ      |
+|                 |     thống từ chối xử lý toàn bộ, đánh dấu          |
+|                 |     import_jobs.status=FAILED ngay, không tạo bản  |
+|                 |     ghi nào.                                       |
+|                 |                                                    |
+|                 | ***A2 --- Một phần dòng lỗi/trùng lặp***           |
+|                 |                                                    |
+|                 | 1.  1 hoặc nhiều dòng lỗi (thiếu trường bắt buộc,  |
+|                 |     mã nhân sự/username/email trùng, mã phòng ban  |
+|                 |     không tồn tại, sai định dạng ngày) --- hệ      |
+|                 |     thống vẫn tạo tài khoản + hồ sơ cho các dòng   |
+|                 |     hợp lệ, bỏ qua dòng lỗi, đánh dấu               |
+|                 |     status=PARTIAL_SUCCESS, liệt kê chi tiết từng  |
+|                 |     dòng lỗi trong error_summary.                  |
++-----------------+----------------------------------------------------+
+| **Hậu điều kiện | -   Hồ sơ nhân sự hợp lệ được tạo hàng loạt kèm    |
+| (P              |     tài khoản đăng nhập (username/password), sẵn   |
+| ostcondition)** |     sàng để Quản lý nhân sự gán role qua UC-03/    |
+|                 |     UC-04. Kết quả import (bao gồm mật khẩu tạm    |
+|                 |     của lần import đó) được trả về ngay cho người  |
+|                 |     thực hiện; tra cứu lại job sau đó (UC tương tự |
+|                 |     UC-35 getJob) KHÔNG còn thấy mật khẩu tạm.     |
++-----------------+----------------------------------------------------+
+
 Phân hệ 5 --- Quản lý học sinh

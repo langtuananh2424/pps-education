@@ -211,4 +211,87 @@ UC-15: Điểm danh học sinh
 |                 |     nhận trạng thái gửi.                           |
 +-----------------+----------------------------------------------------+
 
+UC-50: Nhập phụ huynh theo lô
+
++-----------------+----------------------------------------------------+
+| **Mã Use Case** | UC-50                                              |
++-----------------+----------------------------------------------------+
+| **Tên Use       | Nhập phụ huynh theo lô                             |
+| Case**          |                                                    |
++-----------------+----------------------------------------------------+
+| **Phân hệ**     | Phân hệ 5                                          |
++-----------------+----------------------------------------------------+
+| **Yêu cầu chức  | FR-STU-04                                          |
+| năng gốc**      |                                                    |
++-----------------+----------------------------------------------------+
+| **Tác nhân**    | Nhân viên (Giáo vụ)                                |
++-----------------+----------------------------------------------------+
+| **Mô tả tóm     | Nhân viên giáo vụ nhập file Excel danh sách phụ    |
+| tắt**           | huynh để tạo hồ sơ + liên kết với học sinh ĐÃ TỒN  |
+|                 | TẠI SẴN trong hệ thống hàng loạt, thay vì nhập tay |
+|                 | từng người (UC-13). Không tạo phụ huynh không có   |
+|                 | liên kết học sinh nào.                             |
++-----------------+----------------------------------------------------+
+| **Sự kiện kích  | Nhân viên giáo vụ cần bổ sung hàng loạt phụ huynh  |
+| hoạt**          | cho các học sinh đã ghi danh sẵn (VD chuyển dữ     |
+|                 | liệu từ hệ thống cũ).                              |
++-----------------+----------------------------------------------------+
+| **Điều kiện     | -   Người dùng có quyền student.manage.            |
+| tiên quyết      | -   Học sinh cần liên kết đã có hồ sơ sẵn trong hệ |
+| (               |     thống (tra theo mã học sinh).                  |
+| Precondition)** |                                                    |
++-----------------+----------------------------------------------------+
+| **Luồng sự kiện | 1.  Nhân viên giáo vụ tải file Excel lên.          |
+| chính (Main     |                                                    |
+| Flow)**         | 2.  Hệ thống tạo bản ghi import_jobs               |
+|                 |     (import_type=PARENTS), đọc và xác thực định   |
+|                 |     dạng file.                                     |
+|                 |                                                    |
+|                 | 3.  Với từng dòng: tra mã học sinh --- không tìm   |
+|                 |     thấy thì đánh dấu dòng lỗi, bỏ qua.            |
+|                 |                                                    |
+|                 | 4.  Tìm tài khoản phụ huynh theo số điện thoại ---  |
+|                 |     nếu đã có hồ sơ phụ huynh cho số điện thoại đó |
+|                 |     (VD 2 dòng cùng cha/mẹ khác con) thì DÙNG LẠI, |
+|                 |     không tạo trùng; chưa có thì tạo tài khoản +   |
+|                 |     hồ sơ phụ huynh mới (chỉ đăng nhập Google ---  |
+|                 |     UC-01 A4, giống cơ chế UC-34).                 |
+|                 |                                                    |
+|                 | 5.  Tạo liên kết parent_student (quan hệ, người    |
+|                 |     liên hệ chính, người chịu trách nhiệm tài      |
+|                 |     chính) cho dòng hợp lệ --- tái dùng đúng quy   |
+|                 |     tắc validate của UC-13 bước liên kết (không    |
+|                 |     trùng liên kết, không quá 1 người liên hệ       |
+|                 |     chính/1 người chịu trách nhiệm tài chính cho   |
+|                 |     1 học sinh).                                   |
+|                 |                                                    |
+|                 | 6.  Hệ thống cập nhật total_rows/success_rows/     |
+|                 |     failed_rows/error_summary, trạng thái COMPLETED|
+|                 |     hoặc PARTIAL_SUCCESS. Nhân viên giáo vụ xem    |
+|                 |     kết quả, tải danh sách dòng lỗi (nếu có).      |
++-----------------+----------------------------------------------------+
+| **Luồng thay    | ***A1 --- File sai định dạng***                    |
+| thế / ngoại lệ  |                                                    |
+| (Alternate      | 1.  File rỗng, thiếu dòng tiêu đề, hoặc không mở   |
+| Flow)**         |     được như file Excel (.xlsx) hợp lệ --- hệ      |
+|                 |     thống từ chối xử lý toàn bộ, đánh dấu          |
+|                 |     import_jobs.status=FAILED ngay, không tạo bản  |
+|                 |     ghi nào.                                       |
+|                 |                                                    |
+|                 | ***A2 --- Một phần dòng lỗi***                     |
+|                 |                                                    |
+|                 | 1.  1 hoặc nhiều dòng lỗi (thiếu trường bắt buộc,  |
+|                 |     không tìm thấy mã học sinh, quan hệ không hợp  |
+|                 |     lệ, liên kết đã tồn tại, xung đột người liên   |
+|                 |     hệ chính/chịu trách nhiệm tài chính) --- hệ    |
+|                 |     thống vẫn tạo liên kết cho dòng hợp lệ, bỏ qua |
+|                 |     dòng lỗi, đánh dấu status=PARTIAL_SUCCESS, liệt|
+|                 |     kê chi tiết từng dòng lỗi trong error_summary. |
++-----------------+----------------------------------------------------+
+| **Hậu điều kiện | -   Hồ sơ phụ huynh hợp lệ được tạo/tái sử dụng và |
+| (P              |     liên kết đúng học sinh tương ứng; không có phụ |
+| ostcondition)** |     huynh nào được tạo mà không liên kết học sinh  |
+|                 |     nào.                                           |
++-----------------+----------------------------------------------------+
+
 Phân hệ 6 --- Quản lý học thuật và đào tạo
