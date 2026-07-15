@@ -52,6 +52,13 @@ import java.util.Optional;
  * cửa sổ đúng bằng [startTime tiết sớm nhất, endTime tiết muộn nhất]. Ưu
  * tiên xét cửa sổ lịch dạy trước cửa sổ ca cố định (đúng thứ tự Main Flow
  * bước 4 và A12→A14 trong activity diagram) khi cả 2 cùng khớp T.
+ *
+ * Main Flow bước 3 (D có phải ngày làm việc — A8/A9): GV có tiết dạy hôm nay
+ * cũng được coi là ngày làm việc, nhưng CHỈ khi không có work_calendar
+ * override tường minh nào (mọi scope ALL/SHIFT/EMPLOYEE) — tiết dạy KHÔNG
+ * bao giờ ghi đè 1 quyết định HOLIDAY/OFF đã khai báo (VD buổi MAKEUP xếp
+ * vào ngày Lễ vẫn bị chặn trừ khi HR bổ sung override COMPENSATORY cho ngày
+ * đó). Xác nhận với PM 2026-07-15 — xem isWorkingDay(...).
  */
 @Service
 public class AttendanceService {
@@ -114,18 +121,20 @@ public class AttendanceService {
         LocalDate workDate = now.toLocalDate();
         EmployeeShift activeShift = employeeShiftRepository.findByEmployeeIdAndEffectiveToIsNull(employee.getId())
                 .orElse(null);
+        List<ClassSession> todaySessions = employee.getEmployeeType() == Employee.EmployeeType.TEACHER
+                ? classSessionRepository.findByPrimaryTeacherIdAndSessionDateAndStatusNotIn(
+                        actorUserId, workDate, TEACHING_WINDOW_EXCLUDED_STATUSES)
+                : List.of();
 
-        // Main Flow bước 3 -- xác định ngày D có phải ngày làm việc.
-        if (!isWorkingDay(workDate, employee.getId(), activeShift)) {
+        // Main Flow bước 3 -- xác định ngày D có phải ngày làm việc. GV có tiết dạy hôm nay cũng được
+        // coi là ngày làm việc, nhưng CHỈ khi không có work_calendar override tường minh nào (mọi scope)
+        // -- không bao giờ ghi đè quyết định HOLIDAY/OFF đã khai báo (xác nhận với PM, xem UC-09 A2 mới).
+        if (!isWorkingDay(workDate, employee.getId(), activeShift, !todaySessions.isEmpty())) {
             throw new NotAWorkingDayException("Ngày " + workDate + " không phải ngày làm việc.");
         }
 
         // Main Flow bước 4-5 -- xác định cửa sổ hợp lệ: A12/A13 cửa sổ theo lịch dạy
         // (GV có tiết dạy hôm nay) ưu tiên trước, A14/A15 cửa sổ ca cố định xét sau.
-        List<ClassSession> todaySessions = employee.getEmployeeType() == Employee.EmployeeType.TEACHER
-                ? classSessionRepository.findByPrimaryTeacherIdAndSessionDateAndStatusNotIn(
-                        actorUserId, workDate, TEACHING_WINDOW_EXCLUDED_STATUSES)
-                : List.of();
         WindowMatch windowMatch = resolveTeachingScheduleWindow(todaySessions, now, isCheckIn);
         if (windowMatch == null) {
             windowMatch = resolveShiftWindow(activeShift, employee.isDefaultShiftRequired(), now, isCheckIn);
@@ -188,7 +197,7 @@ public class AttendanceService {
         return toResponse(record);
     }
 
-    private boolean isWorkingDay(LocalDate date, Long employeeId, EmployeeShift activeShift) {
+    private boolean isWorkingDay(LocalDate date, Long employeeId, EmployeeShift activeShift, boolean hasTeachingSessionToday) {
         Optional<WorkCalendar> override = workCalendarRepository
                 .findByCalendarDateAndAppliesToScopeAndEmployeeId(date, WorkCalendar.Scope.EMPLOYEE, employeeId);
         if (override.isEmpty() && activeShift != null) {
@@ -202,7 +211,9 @@ public class AttendanceService {
             WorkCalendar.DayType dayType = override.get().getDayType();
             return dayType == WorkCalendar.DayType.WORKING || dayType == WorkCalendar.DayType.COMPENSATORY;
         }
-        return activeShift != null && matchesShiftPattern(activeShift.getShift(), date);
+        // Không có override tường minh nào -- fallback theo pattern ca cố định, hoặc (mới) GV có
+        // tiết dạy hôm nay. Chỉ áp dụng ở fallback cuối cùng này, không ghi đè HOLIDAY/OFF đã khai báo.
+        return (activeShift != null && matchesShiftPattern(activeShift.getShift(), date)) || hasTeachingSessionToday;
     }
 
     private boolean matchesShiftPattern(Shift shift, LocalDate date) {

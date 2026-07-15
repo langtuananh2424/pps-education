@@ -14,11 +14,13 @@ import vn.com.pps.education.domain.SchoolClass;
 import vn.com.pps.education.domain.Shift;
 import vn.com.pps.education.domain.Site;
 import vn.com.pps.education.domain.User;
+import vn.com.pps.education.domain.WorkCalendar;
 import vn.com.pps.education.dto.AttendanceCheckRequest;
 import vn.com.pps.education.dto.AttendanceRecordResponse;
 import vn.com.pps.education.exception.AttendanceMethodNotAvailableException;
 import vn.com.pps.education.exception.BiometricVerificationFailedException;
 import vn.com.pps.education.exception.ManagementExemptFromAttendanceException;
+import vn.com.pps.education.exception.NotAWorkingDayException;
 import vn.com.pps.education.exception.OutsideAttendanceWindowException;
 import vn.com.pps.education.exception.OutsideGpsRadiusException;
 import vn.com.pps.education.repository.AttendanceRecordRepository;
@@ -30,6 +32,7 @@ import vn.com.pps.education.repository.SchoolClassRepository;
 import vn.com.pps.education.repository.ShiftRepository;
 import vn.com.pps.education.repository.SiteRepository;
 import vn.com.pps.education.repository.UserRepository;
+import vn.com.pps.education.repository.WorkCalendarRepository;
 import vn.com.pps.education.support.AbstractIntegrationTest;
 
 import java.time.LocalDate;
@@ -84,6 +87,9 @@ class AttendanceServiceTest extends AbstractIntegrationTest {
 
     @Autowired
     private AttendanceRecordRepository attendanceRecordRepository;
+
+    @Autowired
+    private WorkCalendarRepository workCalendarRepository;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -221,6 +227,43 @@ class AttendanceServiceTest extends AbstractIntegrationTest {
         assertThatThrownBy(() -> attendanceService.checkIn(teacher.getId(),
                 new AttendanceCheckRequest("GPS", site.getId(), SITE_LAT, SITE_LNG, null)))
                 .isInstanceOf(OutsideAttendanceWindowException.class);
+    }
+
+    @Test
+    void checkIn_UC09_MainFlow_teacherWithSessionTodayIsWorkingDayWithoutAnyShiftAssigned() {
+        User teacher = newUser(false);
+        Employee teacherEmployee = newEmployee(teacher, Employee.EmployeeType.TEACHER);
+        // Không gán employee_shifts nào cả, không có work_calendar override -- đúng kịch bản
+        // gap đã báo cáo: GV chỉ dạy theo lịch, HR không tạo ca cố định cho họ.
+        SchoolClass schoolClass = newSchoolClass(teacher);
+        newSession(schoolClass, teacher, LocalTime.now().minusHours(1), LocalTime.now().plusHours(1), ClassSession.Status.SCHEDULED);
+
+        AttendanceRecordResponse response = attendanceService.checkIn(teacher.getId(),
+                new AttendanceCheckRequest("GPS", site.getId(), SITE_LAT, SITE_LNG, null));
+
+        assertThat(response.checkInAt()).isNotNull();
+        var persisted = attendanceRecordRepository
+                .findByEmployeeIdAndWorkDate(teacherEmployee.getId(), LocalDate.now()).orElseThrow();
+        assertThat(persisted.getCheckInMatchedSource()).isEqualTo(AttendanceRecord.MatchedSource.TEACHING_SCHEDULE);
+    }
+
+    @Test
+    void checkIn_UC09_A1_rejectsWhenWorkCalendarMarksHolidayEvenWithTeachingSessionToday() {
+        User teacher = newUser(false);
+        newEmployee(teacher, Employee.EmployeeType.TEACHER);
+        SchoolClass schoolClass = newSchoolClass(teacher);
+        newSession(schoolClass, teacher, LocalTime.now().minusHours(1), LocalTime.now().plusHours(1), ClassSession.Status.SCHEDULED);
+        // work_calendar override tường minh (scope ALL) đánh dấu hôm nay là ngày Lễ -- tiết dạy
+        // KHÔNG được ghi đè quyết định này (xác nhận với PM: chỉ là fallback cuối cùng).
+        WorkCalendar holiday = new WorkCalendar();
+        holiday.setCalendarDate(LocalDate.now());
+        holiday.setDayType(WorkCalendar.DayType.HOLIDAY);
+        holiday.setAppliesToScope(WorkCalendar.Scope.ALL);
+        workCalendarRepository.save(holiday);
+
+        assertThatThrownBy(() -> attendanceService.checkIn(teacher.getId(),
+                new AttendanceCheckRequest("GPS", site.getId(), SITE_LAT, SITE_LNG, null)))
+                .isInstanceOf(NotAWorkingDayException.class);
     }
 
     @Test
