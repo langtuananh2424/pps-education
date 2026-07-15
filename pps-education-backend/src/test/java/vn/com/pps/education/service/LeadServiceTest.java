@@ -8,6 +8,7 @@ import vn.com.pps.education.domain.Role;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.domain.UserRole;
 import vn.com.pps.education.dto.AssignLeadRequest;
+import vn.com.pps.education.dto.ConvertLeadRequest;
 import vn.com.pps.education.dto.CreateLeadRequest;
 import vn.com.pps.education.dto.LeadResponse;
 import vn.com.pps.education.dto.UpdateLeadStatusRequest;
@@ -134,7 +135,7 @@ class LeadServiceTest extends AbstractIntegrationTest {
     void convertToStudent_UC34_MainFlow_createsParentAndStudentAndMarksWon() {
         LeadResponse lead = qualifiedLead();
 
-        LeadResponse converted = leadService.convertToStudent(lead.id(), staff.getId());
+        LeadResponse converted = leadService.convertToStudent(lead.id(), new ConvertLeadRequest(studentCode()), staff.getId());
 
         assertThat(converted.status()).isEqualTo("WON");
         assertThat(converted.outcome()).isEqualTo("WON_ENROLLED");
@@ -149,7 +150,7 @@ class LeadServiceTest extends AbstractIntegrationTest {
         userRepository.save(existingParentUser);
 
         LeadResponse lead = qualifiedLead(sharedPhone);
-        leadService.convertToStudent(lead.id(), staff.getId());
+        leadService.convertToStudent(lead.id(), new ConvertLeadRequest(studentCode()), staff.getId());
 
         // Không tạo thêm user mới cho parent — chỉ 1 user có phone này.
         assertThat(userRepository.findByPhone(sharedPhone)).isPresent();
@@ -159,7 +160,7 @@ class LeadServiceTest extends AbstractIntegrationTest {
     void convertToStudent_UC34_Precondition_rejectsWhenNotQualified() {
         LeadResponse lead = leadService.createLead(baseLeadRequest(phone()), staff.getId());
 
-        assertThatThrownBy(() -> leadService.convertToStudent(lead.id(), staff.getId()))
+        assertThatThrownBy(() -> leadService.convertToStudent(lead.id(), new ConvertLeadRequest(studentCode()), staff.getId()))
                 .isInstanceOf(LeadNotQualifiedException.class);
     }
 
@@ -172,8 +173,19 @@ class LeadServiceTest extends AbstractIntegrationTest {
         leadService.updateStatus(lead.id(), new UpdateLeadStatusRequest("CONTACTED", null, null), staff.getId());
         leadService.updateStatus(lead.id(), new UpdateLeadStatusRequest("QUALIFIED", null, null), staff.getId());
 
-        assertThatThrownBy(() -> leadService.convertToStudent(lead.id(), staff.getId()))
+        assertThatThrownBy(() -> leadService.convertToStudent(lead.id(), new ConvertLeadRequest(studentCode()), staff.getId()))
                 .isInstanceOf(IncompleteLeadDataException.class);
+    }
+
+    @Test
+    void convertToStudent_UC34_A_rejectsDuplicateStudentCode() {
+        String code = studentCode();
+        LeadResponse firstLead = qualifiedLead();
+        leadService.convertToStudent(firstLead.id(), new ConvertLeadRequest(code), staff.getId());
+
+        LeadResponse secondLead = qualifiedLead();
+        assertThatThrownBy(() -> leadService.convertToStudent(secondLead.id(), new ConvertLeadRequest(code), staff.getId()))
+                .isInstanceOf(vn.com.pps.education.exception.DuplicateStudentCodeException.class);
     }
 
     private LeadResponse qualifiedLead() {
@@ -195,6 +207,10 @@ class LeadServiceTest extends AbstractIntegrationTest {
 
     private String phone() {
         return "09" + (100000000L + SEQ.incrementAndGet());
+    }
+
+    private String studentCode() {
+        return "HSLEAD" + SEQ.incrementAndGet();
     }
 
     private void assignRole(User user, String roleCode) {

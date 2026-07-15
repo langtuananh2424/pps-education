@@ -86,8 +86,8 @@ class StudentBatchImportServiceTest extends AbstractIntegrationTest {
     @Test
     void importStudents_UC35_MainFlow_createsStudentsForValidRows() throws IOException {
         byte[] file = buildWorkbook(new String[][]{
-                {"Nguyễn Văn A", "01/01/2015", "Nam", "TH Kim Đồng", "Lớp 3A", schoolClass.classCode()},
-                {"Trần Thị B", "15/06/2015", "Nữ", "TH Kim Đồng", "Lớp 3A", schoolClass.classCode()},
+                {"Nguyễn Văn A", "01/01/2015", "Nam", "TH Kim Đồng", "Lớp 3A", schoolClass.classCode(), studentCode()},
+                {"Trần Thị B", "15/06/2015", "Nữ", "TH Kim Đồng", "Lớp 3A", schoolClass.classCode(), studentCode()},
         });
 
         StudentBatchImportResponse result = studentBatchImportService.importStudents(
@@ -101,16 +101,17 @@ class StudentBatchImportServiceTest extends AbstractIntegrationTest {
 
     @Test
     void importStudents_UC35_A2_partialSuccessSkipsDuplicateAndInvalidRows() throws IOException {
+        String duplicateCode = studentCode();
         byte[] first = buildWorkbook(new String[][]{
-                {"Lê Văn C", "10/09/2015", "Nam", "TH ABC", "Lớp 3B", schoolClass.classCode()},
+                {"Lê Văn C", "10/09/2015", "Nam", "TH ABC", "Lớp 3B", schoolClass.classCode(), duplicateCode},
         });
         studentBatchImportService.importStudents(
                 new MockMultipartFile("file", "lan1.xlsx", "application/vnd.openxmlformats", first), staff.getId());
 
         byte[] second = buildWorkbook(new String[][]{
-                {"Lê Văn C", "10/09/2015", "Nam", "TH ABC", "Lớp 3B", schoolClass.classCode()}, // trùng lặp
-                {"", "10/09/2015", "Nam", "TH ABC", "Lớp 3B", schoolClass.classCode()},        // thiếu họ tên
-                {"Phạm Thị D", "20/11/2015", "Nữ", "TH ABC", "Lớp 3B", schoolClass.classCode()}, // hợp lệ
+                {"Lê Văn C", "10/09/2015", "Nam", "TH ABC", "Lớp 3B", schoolClass.classCode(), duplicateCode}, // trùng mã học sinh
+                {"", "10/09/2015", "Nam", "TH ABC", "Lớp 3B", schoolClass.classCode(), studentCode()},        // thiếu họ tên
+                {"Phạm Thị D", "20/11/2015", "Nữ", "TH ABC", "Lớp 3B", schoolClass.classCode(), studentCode()}, // hợp lệ
         });
 
         StudentBatchImportResponse result = studentBatchImportService.importStudents(
@@ -121,6 +122,20 @@ class StudentBatchImportServiceTest extends AbstractIntegrationTest {
         assertThat(result.successRows()).isEqualTo(1);
         assertThat(result.failedRows()).isEqualTo(2);
         assertThat(result.errorSummary()).hasSize(2);
+    }
+
+    @Test
+    void importStudents_UC35_A2_rejectsMissingStudentCode() throws IOException {
+        byte[] file = buildWorkbook(new String[][]{
+                {"Thiếu Mã", "10/09/2015", "Nam", "TH ABC", "Lớp 3B", schoolClass.classCode(), ""},
+        });
+
+        StudentBatchImportResponse result = studentBatchImportService.importStudents(
+                new MockMultipartFile("file", "thieu_ma.xlsx", "application/vnd.openxmlformats", file), staff.getId());
+
+        assertThat(result.status()).isEqualTo("PARTIAL_SUCCESS");
+        assertThat(result.failedRows()).isEqualTo(1);
+        assertThat(result.errorSummary().get(0).get("reason")).isEqualTo("Thiếu mã học sinh (cột G).");
     }
 
     @Test
@@ -137,7 +152,7 @@ class StudentBatchImportServiceTest extends AbstractIntegrationTest {
         try (XSSFWorkbook workbook = new XSSFWorkbook()) {
             Sheet sheet = workbook.createSheet("HocSinh");
             Row header = sheet.createRow(0);
-            String[] headers = {"Họ và tên", "Ngày sinh", "Giới tính", "Trường đang học", "Lớp đang học", "Mã lớp PPS"};
+            String[] headers = {"Họ và tên", "Ngày sinh", "Giới tính", "Trường đang học", "Lớp đang học", "Mã lớp PPS", "Mã học sinh"};
             for (int i = 0; i < headers.length; i++) {
                 header.createCell(i).setCellValue(headers[i]);
             }
@@ -159,6 +174,10 @@ class StudentBatchImportServiceTest extends AbstractIntegrationTest {
 
     private String classCode() {
         return "CLS-" + SEQ.incrementAndGet();
+    }
+
+    private String studentCode() {
+        return "HSIMP" + SEQ.incrementAndGet();
     }
 
     private void assignRole(User user, String roleCode) {
