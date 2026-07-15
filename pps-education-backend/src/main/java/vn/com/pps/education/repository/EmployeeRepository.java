@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import vn.com.pps.education.domain.Employee;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -15,6 +16,8 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
     Optional<Employee> findByEmployeeCode(String employeeCode);
 
     Optional<Employee> findByUserId(Long userId);
+
+    List<Employee> findByUserIdIn(Collection<Long> userIds);
 
     @Query("""
             SELECT e FROM Employee e JOIN e.user u

@@ -1,5 +1,6 @@
 erDiagram
     users ||--o| employees : "extends"
+    employees }o--|| departments : "thuoc"
     employees ||--o{ employment_contracts : "hop dong LD"
     employees ||--o{ qualifications : "bang cap/chung chi"
     employees ||--o{ commendations : "khen thuong/ky luat"
@@ -15,6 +16,8 @@ erDiagram
         VARCHAR id_card_number UK
         VARCHAR employee_type
         VARCHAR position_title
+        BIGINT department_id FK
+        BOOLEAN is_management
         BOOLEAN is_default_shift_required
         DATE hire_date
         DATE termination_date

@@ -31,6 +31,8 @@ public record CreateEmployeeRequest(
         String socialInsuranceNumber,
         @NotBlank String employeeType,
         String positionTitle,
+        Long departmentId,
+        Boolean isManagement,
         Boolean isDefaultShiftRequired,
         @NotNull LocalDate hireDate
 ) {}

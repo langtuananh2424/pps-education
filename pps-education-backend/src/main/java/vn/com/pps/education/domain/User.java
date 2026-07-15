@@ -39,17 +39,9 @@ public class User extends BaseAuditEntity {
 
     private String phone;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "department_id")
-    private Department department;
-
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private Status status = Status.ACTIVE;
-
-    /** Miễn trừ chấm công (FR-HRM-02) / miễn trừ hoặc quy trình duyệt đơn riêng (FR-HRM-03). */
-    @Column(name = "is_management", nullable = false)
-    private boolean management = false;
 
     @Column(name = "google_id", unique = true)
     private String googleId;

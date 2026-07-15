@@ -85,7 +85,7 @@ public class PayrollService {
     }
 
     private boolean matchesDepartment(PayrollEntry entry, Long departmentId) {
-        var department = entry.getEmployee().getUser().getDepartment();
+        var department = entry.getEmployee().getDepartment();
         return department != null && department.getId().equals(departmentId);
     }
 

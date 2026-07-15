@@ -113,7 +113,7 @@ public class AttendanceService {
                 .orElseThrow(() -> new ResourceNotFoundException("Tài khoản chưa có hồ sơ nhân sự."));
 
         // Main Flow bước 2 -- cấp quản lý miễn trừ hoàn toàn.
-        if (actor.isManagement()) {
+        if (employee.isManagement()) {
             throw new ManagementExemptFromAttendanceException("Cấp quản lý được miễn trừ chấm công.");
         }
 

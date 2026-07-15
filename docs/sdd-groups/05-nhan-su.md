@@ -15,6 +15,7 @@ Bảng lương.
 ```mermaid
 erDiagram
     users ||--o| employees : "extends"
+    employees }o--|| departments : "thuoc"
     employees ||--o{ employment_contracts : "hop dong LD"
     employees ||--o{ qualifications : "bang cap/chung chi"
     employees ||--o{ commendations : "khen thuong/ky luat"
@@ -30,6 +31,8 @@ erDiagram
         VARCHAR id_card_number UK
         VARCHAR employee_type
         VARCHAR position_title
+        BIGINT department_id FK
+        BOOLEAN is_management
         BOOLEAN is_default_shift_required
         DATE hire_date
         DATE termination_date
@@ -110,6 +113,17 @@ a)  Bảng Employees -- Hồ sơ nhân sự
 
   position_title              VARCHAR(200)    NULL         
 
+  department_id                BIGINT          FK →         NULL nếu chưa gán
+                                              departments(id),  phòng ban
+                                              NULL
+
+  is_management                BOOLEAN         NOT NULL,    Miễn trừ chấm công,
+                                              DEFAULT FALSE  miễn trừ duyệt đơn
+                                                             (dành cho Ban giám
+                                                             đốc và các cấp
+                                                             quản lý theo từng
+                                                             ngữ cảnh)
+
   is_default_shift_required   BOOLEAN         NOT NULL,    TRUE = phải chấm công
                                               DEFAULT TRUE ca mặc định khi không
                                                            có lịch dạy; FALSE =
@@ -129,7 +143,7 @@ a)  Bảng Employees -- Hồ sơ nhân sự
                                                            hàng)
   ------------------------------------------------------------------------------
 
-Có employees_history. Cột department_id đã nằm ở bảng users.
+Có employees_history.
 
 b)  Bảng employment_contracts --- Hợp đồng lao động
 

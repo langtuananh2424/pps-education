@@ -2,6 +2,7 @@ package vn.com.pps.education.service;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.com.pps.education.domain.Employee;
 import vn.com.pps.education.domain.Notification;
 import vn.com.pps.education.domain.Task;
 import vn.com.pps.education.domain.TaskAssignment;
@@ -27,6 +28,7 @@ import vn.com.pps.education.repository.TaskAssignmentRepository;
 import vn.com.pps.education.repository.TaskAttachmentRepository;
 import vn.com.pps.education.repository.TaskCommentRepository;
 import vn.com.pps.education.repository.TaskHistoryRepository;
+import vn.com.pps.education.repository.EmployeeRepository;
 import vn.com.pps.education.repository.TaskRepository;
 import vn.com.pps.education.repository.UserRepository;
 import vn.com.pps.education.repository.UserRoleRepository;
@@ -70,6 +72,7 @@ public class TaskService {
     private final TaskAssignmentHistoryRepository taskAssignmentHistoryRepository;
     private final UserRepository userRepository;
     private final UserRoleRepository userRoleRepository;
+    private final EmployeeRepository employeeRepository;
     private final NotificationService notificationService;
 
     public TaskService(TaskRepository taskRepository,
@@ -80,6 +83,7 @@ public class TaskService {
                         TaskAssignmentHistoryRepository taskAssignmentHistoryRepository,
                         UserRepository userRepository,
                         UserRoleRepository userRoleRepository,
+                        EmployeeRepository employeeRepository,
                         NotificationService notificationService) {
         this.taskRepository = taskRepository;
         this.taskAssignmentRepository = taskAssignmentRepository;
@@ -89,6 +93,7 @@ public class TaskService {
         this.taskAssignmentHistoryRepository = taskAssignmentHistoryRepository;
         this.userRepository = userRepository;
         this.userRoleRepository = userRoleRepository;
+        this.employeeRepository = employeeRepository;
         this.notificationService = notificationService;
     }
 
@@ -96,18 +101,22 @@ public class TaskService {
     @Transactional
     public TaskResponse createTask(CreateTaskRequest request, Long actorUserId) {
         User actor = getUserOrThrow(actorUserId);
+        Employee actorEmployee = employeeRepository.findByUserId(actorUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản chưa có hồ sơ nhân sự."));
         List<User> assignees = userRepository.findAllById(request.assigneeUserIds());
         if (assignees.size() != request.assigneeUserIds().size()) {
             throw new ResourceNotFoundException("Có người nhận việc không tồn tại trong danh sách assigneeUserIds.");
         }
-        requireInDepartmentScope(actor, assignees);
+        Map<Long, Employee> assigneeEmployeesByUserId = employeeRepository.findByUserIdIn(request.assigneeUserIds()).stream()
+                .collect(Collectors.toMap(e -> e.getUser().getId(), e -> e));
+        requireInDepartmentScope(actorUserId, actorEmployee, assignees, assigneeEmployeesByUserId);
 
         Task task = new Task();
         task.setTaskCode(generateTaskCode());
         task.setTitle(request.title());
         task.setDescription(request.description());
         task.setCreatedBy(actor);
-        task.setDepartment(actor.getDepartment());
+        task.setDepartment(actorEmployee.getDepartment());
         if (request.taskType() != null) {
             task.setTaskType(Task.TaskType.valueOf(request.taskType()));
         }
@@ -282,17 +291,20 @@ public class TaskService {
     // ===================== Helpers =====================
 
     /** Main Flow bước 3, A1: phạm vi phòng ban — trừ is_management=true và role OPS_MANAGER (toàn công ty). */
-    private void requireInDepartmentScope(User actor, List<User> assignees) {
-        boolean companyWide = actor.isManagement() && roleCodesOf(actor.getId()).contains("OPS_MANAGER");
+    private void requireInDepartmentScope(Long actorUserId, Employee actorEmployee, List<User> assignees,
+                                           Map<Long, Employee> assigneeEmployeesByUserId) {
+        boolean companyWide = actorEmployee.isManagement() && roleCodesOf(actorUserId).contains("OPS_MANAGER");
         if (companyWide) {
             return;
         }
-        Long actorDeptId = actor.getDepartment() == null ? null : actor.getDepartment().getId();
+        Long actorDeptId = actorEmployee.getDepartment() == null ? null : actorEmployee.getDepartment().getId();
         for (User assignee : assignees) {
-            Long assigneeDeptId = assignee.getDepartment() == null ? null : assignee.getDepartment().getId();
+            Employee assigneeEmployee = assigneeEmployeesByUserId.get(assignee.getId());
+            Long assigneeDeptId = assigneeEmployee == null || assigneeEmployee.getDepartment() == null
+                    ? null : assigneeEmployee.getDepartment().getId();
             if (actorDeptId == null || !actorDeptId.equals(assigneeDeptId)) {
                 throw new AssigneeOutsideDepartmentException(
-                        "Người nhận việc id=" + assignee.getId() + " không thuộc phòng ban của người giao id=" + actor.getId() + ".");
+                        "Người nhận việc id=" + assignee.getId() + " không thuộc phòng ban của người giao id=" + actorUserId + ".");
             }
         }
     }
