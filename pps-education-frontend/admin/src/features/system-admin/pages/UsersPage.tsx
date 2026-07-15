@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { KeyRound, Lock, Plus, Search, ShieldCheck, Unlock, Users as UsersIcon } from "lucide-react";
+import { KeyRound, Lock, Search, ShieldCheck, Unlock, Users as UsersIcon } from "lucide-react";
 import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
 import Badge, { BadgeVariant } from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
@@ -8,8 +8,6 @@ import EmptyState from "@/components/ui/EmptyState";
 import { ApiError } from "@/lib/apiClient";
 import {
   changeUserPassword,
-  createUser,
-  CreateUserRequest,
   getUserDetail,
   searchUsers,
   updateUser,
@@ -48,7 +46,6 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
 
-  const [createOpen, setCreateOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
 
   const loadUsers = () => {
@@ -80,15 +77,12 @@ export default function UsersPage() {
     <div className="space-y-4 animate-in fade-in duration-200">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div>
-          <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider block">Quản lý người dùng (UC-43/44/47/49)</h2>
+          <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider block">Quản lý người dùng (UC-44/47/49)</h2>
           <p className="text-[10px] text-slate-400 mt-0.5">
-            Danh sách tài khoản toàn hệ thống — tra cứu, khởi tạo, cập nhật hồ sơ, khóa/mở khóa.
+            Danh sách tài khoản toàn hệ thống — tra cứu, cập nhật hồ sơ, khóa/mở khóa. Tài khoản được khởi tạo từ Quản lý nhân sự /
+            Quản lý học sinh.
           </p>
         </div>
-        <Button variant="primary" onClick={() => setCreateOpen(true)}>
-          <Plus className="w-3.5 h-3.5" />
-          Thêm tài khoản
-        </Button>
       </div>
 
       <form onSubmit={handleSearch} className="bg-white p-4 rounded-xl border border-slate-200 shadow-soft flex flex-col md:flex-row gap-3">
@@ -209,122 +203,12 @@ export default function UsersPage() {
         )}
       </div>
 
-      <CreateUserModal
-        open={createOpen}
-        onClose={() => setCreateOpen(false)}
-        onCreated={() => {
-          setCreateOpen(false);
-          setPage(0);
-          loadUsers();
-        }}
-      />
-
       <UserDetailModal
         userId={selectedUserId}
         onClose={() => setSelectedUserId(null)}
         onChanged={loadUsers}
       />
     </div>
-  );
-}
-
-function CreateUserModal({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: () => void }) {
-  const [form, setForm] = useState<CreateUserRequest>({ username: "", email: "", fullName: "", phone: "", isManagement: false });
-  const [departmentIdInput, setDepartmentIdInput] = useState("");
-  const [password, setPassword] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (open) {
-      setForm({ username: "", email: "", fullName: "", phone: "", isManagement: false });
-      setDepartmentIdInput("");
-      setPassword("");
-      setError(null);
-    }
-  }, [open]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.username.trim() || !form.email.trim() || !form.fullName.trim()) {
-      setError("Vui lòng điền đầy đủ username, email, họ tên.");
-      return;
-    }
-    setSubmitting(true);
-    setError(null);
-    try {
-      await createUser({
-        ...form,
-        phone: form.phone?.trim() || undefined,
-        departmentId: departmentIdInput ? Number(departmentIdInput) : undefined,
-        password: password.trim() || undefined
-      });
-      onCreated();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Tạo tài khoản thất bại.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <Modal open={open} onClose={onClose} title="Thêm tài khoản mới (UC-43)" size="lg">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className={labelClass}>Username *</label>
-            <input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} className={inputClass} required />
-          </div>
-          <div>
-            <label className={labelClass}>Email *</label>
-            <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className={inputClass} required />
-          </div>
-        </div>
-        <div>
-          <label className={labelClass}>Họ tên *</label>
-          <input value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} className={inputClass} required />
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className={labelClass}>Số điện thoại</label>
-            <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className={inputClass} />
-          </div>
-          <div>
-            <label className={labelClass}>ID phòng ban</label>
-            <input
-              value={departmentIdInput}
-              onChange={(e) => setDepartmentIdInput(e.target.value.replace(/[^0-9]/g, ""))}
-              className={inputClass}
-              placeholder="Tùy chọn"
-            />
-          </div>
-        </div>
-        <div>
-          <label className={labelClass}>Mật khẩu ban đầu</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className={inputClass}
-            placeholder="Để trống nếu chỉ đăng nhập Google (tối thiểu 8 ký tự nếu nhập)"
-          />
-        </div>
-        <label className="flex items-center gap-2 text-xs font-semibold text-slate-700">
-          <input type="checkbox" checked={!!form.isManagement} onChange={(e) => setForm({ ...form, isManagement: e.target.checked })} />
-          Miễn trừ chấm công (is_management)
-        </label>
-
-        <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="secondary" onClick={onClose}>
-            Hủy
-          </Button>
-          <Button type="submit" variant="primary" disabled={submitting}>
-            {submitting ? "Đang tạo..." : "Tạo tài khoản"}
-          </Button>
-        </div>
-      </form>
-    </Modal>
   );
 }
 
