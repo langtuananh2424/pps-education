@@ -2,11 +2,10 @@ import React, { useEffect, useState } from "react";
 import { Shield } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { ApiError } from "@/lib/apiClient";
-import { createRole, deleteRole, listRoles, RoleResponse } from "../api";
+import { deleteRole, listRoles, RoleResponse } from "../api";
 import RoleListPanel from "../components/RoleListPanel";
 import RoleDetailPanel, { RoleDetailTab } from "../components/RoleDetailPanel";
-import Modal from "@/components/ui/Modal";
-import Button from "@/components/ui/Button";
+import CreateRolePanel from "../components/CreateRolePanel";
 
 export default function RolesPage() {
   const { hasPermission } = useApp();
@@ -18,7 +17,7 @@ export default function RolesPage() {
   const [selectedRoleId, setSelectedRoleId] = useState<number | null>(null);
   const [rightActiveTab, setRightActiveTab] = useState<RoleDetailTab>("permissions");
   const [roleSearchQuery, setRoleSearchQuery] = useState("");
-  const [createOpen, setCreateOpen] = useState(false);
+  const [creatingNew, setCreatingNew] = useState(false);
 
   const loadRoles = (selectId?: number) => {
     setLoading(true);
@@ -73,15 +72,27 @@ export default function RolesPage() {
           selectedRoleId={selectedRoleId}
           onSelect={(id) => {
             setSelectedRoleId(id);
+            setCreatingNew(false);
             setRightActiveTab("permissions");
           }}
-          onAddNew={() => setCreateOpen(true)}
+          onAddNew={() => {
+            setCreatingNew(true);
+            setSelectedRoleId(null);
+          }}
           searchQuery={roleSearchQuery}
           onSearchChange={setRoleSearchQuery}
         />
 
         <div className="flex-1 flex flex-col bg-white">
-          {activeRole ? (
+          {creatingNew ? (
+            <CreateRolePanel
+              onCancel={() => setCreatingNew(false)}
+              onCreated={(id) => {
+                setCreatingNew(false);
+                loadRoles(id);
+              }}
+            />
+          ) : activeRole ? (
             <RoleDetailPanel
               role={activeRole}
               canManageMembers={canManageMembers}
@@ -102,95 +113,6 @@ export default function RolesPage() {
           )}
         </div>
       </div>
-
-      <CreateRoleModal
-        open={createOpen}
-        onClose={() => setCreateOpen(false)}
-        onCreated={(id) => {
-          setCreateOpen(false);
-          loadRoles(id);
-        }}
-      />
     </div>
-  );
-}
-
-function CreateRoleModal({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: (id: number) => void }) {
-  const [code, setCode] = useState("");
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (open) {
-      setCode("");
-      setName("");
-      setDescription("");
-      setError(null);
-    }
-  }, [open]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!code.trim() || !name.trim()) {
-      setError("Vui lòng điền mã vai trò và tên vai trò.");
-      return;
-    }
-    setSubmitting(true);
-    setError(null);
-    try {
-      const role = await createRole({ code: code.trim(), name: name.trim(), description: description.trim() || undefined });
-      onCreated(role.id);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Tạo vai trò thất bại.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <Modal open={open} onClose={onClose} title="Tạo vai trò tùy chỉnh mới (UC-03)">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
-        <div>
-          <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Mã vai trò *</label>
-          <input
-            value={code}
-            onChange={(e) => setCode(e.target.value.toUpperCase())}
-            placeholder="VD: MARKETING_LEAD"
-            className="w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none font-mono"
-            required
-          />
-        </div>
-        <div>
-          <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Tên vai trò *</label>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
-            required
-          />
-        </div>
-        <div>
-          <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Mô tả</label>
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={3}
-            className="w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
-          />
-        </div>
-        <p className="text-[10px] text-slate-400">Sau khi tạo, vào tab "Quyền hạn gán" để cấu hình ma trận quyền cho vai trò này.</p>
-        <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="secondary" onClick={onClose}>
-            Hủy
-          </Button>
-          <Button type="submit" variant="primary" disabled={submitting}>
-            {submitting ? "Đang tạo..." : "Tạo vai trò"}
-          </Button>
-        </div>
-      </form>
-    </Modal>
   );
 }
