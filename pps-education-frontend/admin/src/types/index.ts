@@ -33,14 +33,6 @@ export interface RolePermission {
   permissions: string[]; // List of permission codes
 }
 
-export interface UserOverride {
-  userId: string;
-  permissionId: string;
-  type: "GRANT" | "REVOKE";
-  reason: string;
-  expiresAt?: string;
-}
-
 export interface PermissionAuditLog {
   id: string;
   actorName: string;
@@ -316,4 +308,13 @@ export interface SyllabusPlan {
   content: string;
   authorName: string;
   updatedAt: string;
+}
+
+/** Khớp shape phân trang thật của Spring Data `Page<T>` — dùng chung cho mọi API GET có phân trang (xem API.md). */
+export interface Page<T> {
+  content: T[];
+  totalElements: number;
+  totalPages: number;
+  number: number; // Trang hiện tại, 0-based
+  size: number;
 }

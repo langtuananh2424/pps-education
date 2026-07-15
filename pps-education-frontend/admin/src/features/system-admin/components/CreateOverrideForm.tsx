@@ -1,46 +1,50 @@
 import React, { useState } from "react";
 import { Plus } from "lucide-react";
-import { Employee, Permission } from "@/types";
+import { ApiError } from "@/lib/apiClient";
+import { PermissionCatalogItem } from "../api";
 
 interface CreateOverrideFormProps {
-  employees: Employee[];
-  permissions: Permission[];
-  onSubmit: (input: { userId: string; permissionId: string; type: "GRANT" | "REVOKE"; reason: string; expiresAt: string }) => void;
+  permissions: PermissionCatalogItem[];
+  onSubmit: (permissionId: number, overrideType: "GRANT" | "REVOKE", reason: string, expiresAt: string) => Promise<void>;
 }
 
-export default function CreateOverrideForm({ employees, permissions, onSubmit }: CreateOverrideFormProps) {
-  const [userId, setUserId] = useState("");
+export default function CreateOverrideForm({ permissions, onSubmit }: CreateOverrideFormProps) {
   const [permissionId, setPermissionId] = useState("");
   const [type, setType] = useState<"GRANT" | "REVOKE">("GRANT");
-  const [expiresAt, setExpiresAt] = useState("2026-08-31");
+  const [expiresAt, setExpiresAt] = useState("");
   const [reason, setReason] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!userId || !permissionId || !reason.trim()) {
-      alert("Vui lòng điền đầy đủ thông tin.");
+    if (!permissionId || !reason.trim()) {
+      setError("Vui lòng chọn quyền và nhập lý do.");
       return;
     }
-    onSubmit({ userId, permissionId, type, reason: reason.trim(), expiresAt });
-    setReason("");
+    setSubmitting(true);
+    setError(null);
+    try {
+      // Input date chỉ có ngày — quy ước hết hạn vào cuối ngày đó (giờ local), chuyển sang ISO date-time có offset cho backend (OffsetDateTime).
+      const expiresAtIso = expiresAt ? new Date(`${expiresAt}T23:59:59`).toISOString() : "";
+      await onSubmit(Number(permissionId), type, reason.trim(), expiresAtIso);
+      setPermissionId("");
+      setReason("");
+      setExpiresAt("");
+      setType("GRANT");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Lưu ngoại lệ thất bại.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <div className="lg:col-span-1 bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4 h-fit">
-      <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block border-b pb-2">Thiết lập ngoại lệ mới</span>
+      <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block border-b pb-2">Bước 2 — Thiết lập ngoại lệ</span>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="space-y-1">
-          <label className="text-[10px] uppercase font-bold text-slate-500 block">Chọn Nhân sự</label>
-          <select value={userId} onChange={(e) => setUserId(e.target.value)} required className="w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none">
-            <option value="">-- Chọn nhân sự --</option>
-            {employees.map((e) => (
-              <option key={e.id} value={e.id}>
-                {e.fullName} ({e.id})
-              </option>
-            ))}
-          </select>
-        </div>
+        {error && <div className="text-[11px] text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
 
         <div className="space-y-1">
           <label className="text-[10px] uppercase font-bold text-slate-500 block">Chọn Mã Quyền hạt nhân</label>
@@ -79,7 +83,7 @@ export default function CreateOverrideForm({ employees, permissions, onSubmit }:
         </div>
 
         <div className="space-y-1">
-          <label className="text-[10px] uppercase font-bold text-slate-500 block">Thời hạn áp dụng</label>
+          <label className="text-[10px] uppercase font-bold text-slate-500 block">Thời hạn áp dụng (tùy chọn)</label>
           <input
             type="date"
             value={expiresAt}
@@ -100,9 +104,13 @@ export default function CreateOverrideForm({ employees, permissions, onSubmit }:
           />
         </div>
 
-        <button type="submit" className="w-full bg-brand-gradient hover:opacity-90 text-white font-bold text-xs py-2 px-4 rounded-lg flex items-center justify-center gap-1 transition-all shadow-md">
+        <button
+          type="submit"
+          disabled={submitting}
+          className="w-full bg-brand-gradient hover:opacity-90 text-white font-bold text-xs py-2 px-4 rounded-lg flex items-center justify-center gap-1 transition-all shadow-md disabled:opacity-50"
+        >
           <Plus className="w-3.5 h-3.5 text-white" />
-          <span>Áp dụng tức thì</span>
+          <span>{submitting ? "Đang lưu..." : "Áp dụng"}</span>
         </button>
       </form>
     </div>

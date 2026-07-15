@@ -1,0 +1,523 @@
+import React, { useEffect, useState } from "react";
+import { KeyRound, Lock, Plus, Search, ShieldCheck, Unlock, Users as UsersIcon } from "lucide-react";
+import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
+import Badge, { BadgeVariant } from "@/components/ui/Badge";
+import Button from "@/components/ui/Button";
+import Modal from "@/components/ui/Modal";
+import EmptyState from "@/components/ui/EmptyState";
+import { ApiError } from "@/lib/apiClient";
+import {
+  changeUserPassword,
+  createUser,
+  CreateUserRequest,
+  getUserDetail,
+  searchUsers,
+  updateUser,
+  UpdateUserRequest,
+  updateUserStatus,
+  UserDetailResponse,
+  UserListItemResponse
+} from "../api";
+
+const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
+
+const statusLabels: Record<string, string> = {
+  ACTIVE: "Đang hoạt động",
+  INACTIVE: "Ngừng hoạt động",
+  SUSPENDED: "Tạm khóa"
+};
+
+const statusVariants: Record<string, BadgeVariant> = {
+  ACTIVE: "success",
+  INACTIVE: "neutral",
+  SUSPENDED: "danger"
+};
+
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
+const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+
+export default function UsersPage() {
+  const [rows, setRows] = useState<UserListItemResponse[]>([]);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
+  const [keyword, setKeyword] = useState("");
+  const [status, setStatus] = useState<"" | "ACTIVE" | "INACTIVE" | "SUSPENDED">("");
+  const [departmentId, setDepartmentId] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [listError, setListError] = useState<string | null>(null);
+
+  const [createOpen, setCreateOpen] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+
+  const loadUsers = () => {
+    setLoading(true);
+    setListError(null);
+    searchUsers(
+      { keyword: keyword.trim() || undefined, status: status || undefined, departmentId: departmentId ? Number(departmentId) : undefined },
+      page,
+      pageSize
+    )
+      .then((res) => {
+        setRows(res.content);
+        setTotalPages(res.totalPages);
+        setTotalElements(res.totalElements);
+      })
+      .catch((err) => setListError(err instanceof ApiError ? err.message : "Không tải được danh sách tài khoản."))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(loadUsers, [page, pageSize]);
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPage(0);
+    loadUsers();
+  };
+
+  return (
+    <div className="space-y-4 animate-in fade-in duration-200">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider block">Quản lý người dùng (UC-43/44/47/49)</h2>
+          <p className="text-[10px] text-slate-400 mt-0.5">
+            Danh sách tài khoản toàn hệ thống — tra cứu, khởi tạo, cập nhật hồ sơ, khóa/mở khóa.
+          </p>
+        </div>
+        <Button variant="primary" onClick={() => setCreateOpen(true)}>
+          <Plus className="w-3.5 h-3.5" />
+          Thêm tài khoản
+        </Button>
+      </div>
+
+      <form onSubmit={handleSearch} className="bg-white p-4 rounded-xl border border-slate-200 shadow-soft flex flex-col md:flex-row gap-3">
+        <div className="flex-1 relative">
+          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <input
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
+            placeholder="Tìm theo username / email / họ tên..."
+            className="w-full bg-slate-50 border border-slate-200 text-xs pl-8 pr-3 py-2.5 rounded-lg focus:outline-none"
+          />
+        </div>
+        <select value={status} onChange={(e) => setStatus(e.target.value as typeof status)} className="bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none">
+          <option value="">-- Mọi trạng thái --</option>
+          <option value="ACTIVE">Đang hoạt động</option>
+          <option value="INACTIVE">Ngừng hoạt động</option>
+          <option value="SUSPENDED">Tạm khóa</option>
+        </select>
+        <input
+          value={departmentId}
+          onChange={(e) => setDepartmentId(e.target.value.replace(/[^0-9]/g, ""))}
+          placeholder="ID phòng ban (tùy chọn)"
+          className="w-40 bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
+        />
+        <Button type="submit" variant="dark">
+          Tìm kiếm
+        </Button>
+      </form>
+
+      <div className="bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden">
+        {listError && <div className="p-4 text-xs text-rose-600 bg-rose-50 border-b border-rose-100">{listError}</div>}
+        {!loading && rows.length === 0 && !listError ? (
+          <EmptyState icon={UsersIcon} title="Không tìm thấy tài khoản phù hợp" description="Thử nới lỏng từ khóa hoặc bộ lọc." />
+        ) : (
+          <TableContainer className="rounded-none border-0">
+            <thead>
+              <tr>
+                <Th>Username</Th>
+                <Th>Họ tên</Th>
+                <Th>Email</Th>
+                <Th>Phòng ban</Th>
+                <Th>Vai trò</Th>
+                <Th>Trạng thái</Th>
+                <Th>{" "}</Th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {rows.map((u) => (
+                <tr key={u.id} className="hover:bg-slate-50/50 transition-colors">
+                  <Td className="font-mono font-bold text-slate-800">{u.username}</Td>
+                  <Td className="font-semibold">{u.fullName}</Td>
+                  <Td>{u.email}</Td>
+                  <Td>{u.departmentId ?? "—"}</Td>
+                  <Td>
+                    <div className="flex flex-wrap gap-1">
+                      {u.roles.length === 0 ? (
+                        <span className="text-slate-400">Chưa gán</span>
+                      ) : (
+                        u.roles.map((r) => (
+                          <Badge key={r.id} variant="info">
+                            {r.code}
+                          </Badge>
+                        ))
+                      )}
+                    </div>
+                  </Td>
+                  <Td>
+                    <Badge variant={statusVariants[u.status]}>{statusLabels[u.status]}</Badge>
+                  </Td>
+                  <Td>
+                    <Button size="sm" onClick={() => setSelectedUserId(u.id)}>
+                      Xem/Sửa
+                    </Button>
+                  </Td>
+                </tr>
+              ))}
+            </tbody>
+          </TableContainer>
+        )}
+
+        {rows.length > 0 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-4 py-3 border-t border-slate-100 text-[11px] text-slate-500">
+            <div className="flex items-center gap-2">
+              <span>Tổng {totalElements} tài khoản</span>
+              <span className="text-slate-300">|</span>
+              <label className="flex items-center gap-1.5">
+                Số dòng/trang:
+                <select
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setPage(0);
+                  }}
+                  className="bg-slate-50 border border-slate-200 text-[11px] px-1.5 py-1 rounded-md focus:outline-none cursor-pointer"
+                >
+                  {PAGE_SIZE_OPTIONS.map((size) => (
+                    <option key={size} value={size}>
+                      {size}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            {totalPages > 1 && (
+              <div className="flex items-center gap-2">
+                <Button size="sm" variant="secondary" disabled={page <= 0} onClick={() => setPage((p) => p - 1)}>
+                  Trước
+                </Button>
+                <span className="font-mono">
+                  Trang {page + 1}/{totalPages}
+                </span>
+                <Button size="sm" variant="secondary" disabled={page + 1 >= totalPages} onClick={() => setPage((p) => p + 1)}>
+                  Sau
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      <CreateUserModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={() => {
+          setCreateOpen(false);
+          setPage(0);
+          loadUsers();
+        }}
+      />
+
+      <UserDetailModal
+        userId={selectedUserId}
+        onClose={() => setSelectedUserId(null)}
+        onChanged={loadUsers}
+      />
+    </div>
+  );
+}
+
+function CreateUserModal({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: () => void }) {
+  const [form, setForm] = useState<CreateUserRequest>({ username: "", email: "", fullName: "", phone: "", isManagement: false });
+  const [departmentIdInput, setDepartmentIdInput] = useState("");
+  const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (open) {
+      setForm({ username: "", email: "", fullName: "", phone: "", isManagement: false });
+      setDepartmentIdInput("");
+      setPassword("");
+      setError(null);
+    }
+  }, [open]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.username.trim() || !form.email.trim() || !form.fullName.trim()) {
+      setError("Vui lòng điền đầy đủ username, email, họ tên.");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      await createUser({
+        ...form,
+        phone: form.phone?.trim() || undefined,
+        departmentId: departmentIdInput ? Number(departmentIdInput) : undefined,
+        password: password.trim() || undefined
+      });
+      onCreated();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Tạo tài khoản thất bại.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Modal open={open} onClose={onClose} title="Thêm tài khoản mới (UC-43)" size="lg">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className={labelClass}>Username *</label>
+            <input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} className={inputClass} required />
+          </div>
+          <div>
+            <label className={labelClass}>Email *</label>
+            <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className={inputClass} required />
+          </div>
+        </div>
+        <div>
+          <label className={labelClass}>Họ tên *</label>
+          <input value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} className={inputClass} required />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className={labelClass}>Số điện thoại</label>
+            <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className={inputClass} />
+          </div>
+          <div>
+            <label className={labelClass}>ID phòng ban</label>
+            <input
+              value={departmentIdInput}
+              onChange={(e) => setDepartmentIdInput(e.target.value.replace(/[^0-9]/g, ""))}
+              className={inputClass}
+              placeholder="Tùy chọn"
+            />
+          </div>
+        </div>
+        <div>
+          <label className={labelClass}>Mật khẩu ban đầu</label>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className={inputClass}
+            placeholder="Để trống nếu chỉ đăng nhập Google (tối thiểu 8 ký tự nếu nhập)"
+          />
+        </div>
+        <label className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+          <input type="checkbox" checked={!!form.isManagement} onChange={(e) => setForm({ ...form, isManagement: e.target.checked })} />
+          Miễn trừ chấm công (is_management)
+        </label>
+
+        <div className="flex justify-end gap-2 pt-2">
+          <Button type="button" variant="secondary" onClick={onClose}>
+            Hủy
+          </Button>
+          <Button type="submit" variant="primary" disabled={submitting}>
+            {submitting ? "Đang tạo..." : "Tạo tài khoản"}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+function UserDetailModal({ userId, onClose, onChanged }: { userId: number | null; onClose: () => void; onChanged: () => void }) {
+  const [detail, setDetail] = useState<UserDetailResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileForm, setProfileForm] = useState<UpdateUserRequest>({ fullName: "", phone: "", isManagement: false });
+  const [departmentIdInput, setDepartmentIdInput] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [changingStatus, setChangingStatus] = useState(false);
+
+  const loadDetail = (id: number) => {
+    setLoading(true);
+    setError(null);
+    getUserDetail(id)
+      .then((d) => {
+        setDetail(d);
+        setProfileForm({ fullName: d.fullName, phone: d.phone ?? "", isManagement: d.isManagement });
+        setDepartmentIdInput(d.departmentId ? String(d.departmentId) : "");
+      })
+      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được chi tiết tài khoản."))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    if (userId != null) {
+      loadDetail(userId);
+      setNewPassword("");
+    } else {
+      setDetail(null);
+    }
+  }, [userId]);
+
+  if (userId == null) return null;
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!detail) return;
+    setSavingProfile(true);
+    setError(null);
+    try {
+      await updateUser(detail.id, {
+        fullName: profileForm.fullName,
+        phone: profileForm.phone?.trim() || undefined,
+        departmentId: departmentIdInput ? Number(departmentIdInput) : undefined,
+        isManagement: !!profileForm.isManagement
+      });
+      loadDetail(detail.id);
+      onChanged();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Cập nhật hồ sơ thất bại.");
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const handleToggleStatus = async (newStatus: "ACTIVE" | "INACTIVE" | "SUSPENDED") => {
+    if (!detail) return;
+    if (newStatus !== "ACTIVE" && !window.confirm(`Xác nhận chuyển tài khoản "${detail.username}" sang trạng thái ${statusLabels[newStatus]}?`)) {
+      return;
+    }
+    setChangingStatus(true);
+    setError(null);
+    try {
+      await updateUserStatus(detail.id, newStatus);
+      loadDetail(detail.id);
+      onChanged();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Đổi trạng thái thất bại.");
+    } finally {
+      setChangingStatus(false);
+    }
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!detail || newPassword.trim().length < 8) {
+      setError("Mật khẩu mới phải từ 8 ký tự trở lên.");
+      return;
+    }
+    setChangingPassword(true);
+    setError(null);
+    try {
+      await changeUserPassword(detail.id, newPassword.trim());
+      setNewPassword("");
+      loadDetail(detail.id);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Đặt lại mật khẩu thất bại.");
+    } finally {
+      setChangingPassword(false);
+    }
+  };
+
+  return (
+    <Modal open={userId != null} onClose={onClose} title={detail ? `Tài khoản: ${detail.username}` : "Chi tiết tài khoản"} size="lg">
+      {loading && <p className="text-xs text-slate-500">Đang tải...</p>}
+      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-4">{error}</div>}
+
+      {detail && (
+        <div className="space-y-5">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant={statusVariants[detail.status]}>{statusLabels[detail.status]}</Badge>
+            {detail.roles.map((r) => (
+              <Badge key={r.id} variant="info">
+                <ShieldCheck className="w-3 h-3" /> {r.code}
+              </Badge>
+            ))}
+            {detail.googleLinked && <Badge variant="brand">Liên kết Google</Badge>}
+          </div>
+
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-slate-500">
+            <span>Đăng nhập gần nhất: <span className="font-mono text-slate-700">{detail.lastLoginAt ?? "Chưa từng"}</span></span>
+            <span>Số lần đăng nhập sai: <span className="font-mono text-slate-700">{detail.failedLoginCount}</span></span>
+            {detail.lockedUntil && <span>Khóa tạm tới: <span className="font-mono text-slate-700">{detail.lockedUntil}</span></span>}
+          </div>
+
+          <form onSubmit={handleSaveProfile} className="space-y-3 border-t border-slate-100 pt-4">
+            <span className="text-[10px] font-bold uppercase text-slate-500">Cập nhật hồ sơ (UC-49)</span>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelClass}>Họ tên *</label>
+                <input value={profileForm.fullName} onChange={(e) => setProfileForm({ ...profileForm, fullName: e.target.value })} className={inputClass} required />
+              </div>
+              <div>
+                <label className={labelClass}>Số điện thoại</label>
+                <input value={profileForm.phone ?? ""} onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })} className={inputClass} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3 items-end">
+              <div>
+                <label className={labelClass}>ID phòng ban</label>
+                <input
+                  value={departmentIdInput}
+                  onChange={(e) => setDepartmentIdInput(e.target.value.replace(/[^0-9]/g, ""))}
+                  className={inputClass}
+                  placeholder="Bỏ trống = không thuộc phòng ban"
+                />
+              </div>
+              <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 pb-2.5">
+                <input
+                  type="checkbox"
+                  checked={!!profileForm.isManagement}
+                  onChange={(e) => setProfileForm({ ...profileForm, isManagement: e.target.checked })}
+                />
+                Miễn trừ chấm công
+              </label>
+            </div>
+            <Button type="submit" variant="primary" size="sm" disabled={savingProfile}>
+              {savingProfile ? "Đang lưu..." : "Lưu hồ sơ"}
+            </Button>
+          </form>
+
+          <form onSubmit={handleChangePassword} className="space-y-2 border-t border-slate-100 pt-4">
+            <span className="text-[10px] font-bold uppercase text-slate-500 flex items-center gap-1">
+              <KeyRound className="w-3 h-3" /> Đặt lại mật khẩu (UC-45)
+            </span>
+            <div className="flex gap-2">
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Mật khẩu mới (tối thiểu 8 ký tự)"
+                className={inputClass}
+              />
+              <Button type="submit" variant="secondary" size="sm" disabled={changingPassword}>
+                {changingPassword ? "Đang lưu..." : "Đặt lại"}
+              </Button>
+            </div>
+          </form>
+
+          <div className="border-t border-slate-100 pt-4 flex flex-wrap gap-2">
+            <span className="text-[10px] font-bold uppercase text-slate-500 w-full">Khóa/Mở khóa (UC-47)</span>
+            {detail.status !== "ACTIVE" && (
+              <Button size="sm" variant="secondary" disabled={changingStatus} onClick={() => handleToggleStatus("ACTIVE")}>
+                <Unlock className="w-3.5 h-3.5" /> Mở khóa (ACTIVE)
+              </Button>
+            )}
+            {detail.status !== "INACTIVE" && (
+              <Button size="sm" variant="danger" disabled={changingStatus} onClick={() => handleToggleStatus("INACTIVE")}>
+                <Lock className="w-3.5 h-3.5" /> Ngừng hoạt động
+              </Button>
+            )}
+            {detail.status !== "SUSPENDED" && (
+              <Button size="sm" variant="danger" disabled={changingStatus} onClick={() => handleToggleStatus("SUSPENDED")}>
+                <Lock className="w-3.5 h-3.5" /> Tạm khóa
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+    </Modal>
+  );
+}

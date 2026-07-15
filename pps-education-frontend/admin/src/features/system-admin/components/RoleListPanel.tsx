@@ -1,36 +1,36 @@
 import React from "react";
-import { Plus, Search, Shield, Users } from "lucide-react";
-import { PermissionGroup } from "../types";
+import { Plus, Search, Shield } from "lucide-react";
+import { RoleResponse } from "../api";
 import { cn } from "@/lib/cn";
 import Badge from "@/components/ui/Badge";
 
 interface RoleListPanelProps {
-  groups: PermissionGroup[];
-  groupMembers: Record<string, string[]>;
-  selectedGroupId: string;
-  onSelect: (id: string) => void;
+  roles: RoleResponse[];
+  loading: boolean;
+  selectedRoleId: number | null;
+  onSelect: (id: number) => void;
   onAddNew: () => void;
   searchQuery: string;
   onSearchChange: (value: string) => void;
 }
 
-export default function RoleListPanel({ groups, groupMembers, selectedGroupId, onSelect, onAddNew, searchQuery, onSearchChange }: RoleListPanelProps) {
-  const filtered = groups.filter(
-    (g) =>
-      g.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      g.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      g.code.toLowerCase().includes(searchQuery.toLowerCase())
+export default function RoleListPanel({ roles, loading, selectedRoleId, onSelect, onAddNew, searchQuery, onSearchChange }: RoleListPanelProps) {
+  const filtered = roles.filter(
+    (r) =>
+      r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      r.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (r.description ?? "").toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
     <div className="w-full md:w-80 lg:w-96 border-r border-slate-200 flex flex-col bg-slate-50/50">
       <div className="p-4 border-b border-slate-200 space-y-3 bg-white">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-bold text-slate-800 uppercase tracking-wide">Danh sách Vai trò ({groups.length})</span>
+          <span className="text-xs font-bold text-slate-800 uppercase tracking-wide">Danh sách Vai trò ({roles.length})</span>
           <button
             onClick={onAddNew}
             className="bg-brand-gradient hover:opacity-90 text-white p-1.5 rounded-lg flex items-center gap-1 text-[11px] font-semibold transition-all shadow-sm"
-            title="Thêm vai trò mới"
+            title="Thêm vai trò tùy chỉnh mới"
           >
             <Plus className="w-4 h-4" />
             <span>Vai trò</span>
@@ -50,17 +50,18 @@ export default function RoleListPanel({ groups, groupMembers, selectedGroupId, o
       </div>
 
       <div className="flex-1 overflow-y-auto divide-y divide-slate-150 p-2 space-y-1 bg-slate-50/30 max-h-[580px]">
-        {filtered.length === 0 ? (
+        {loading ? (
+          <div className="py-12 text-center text-slate-400 text-xs">Đang tải...</div>
+        ) : filtered.length === 0 ? (
           <div className="py-12 text-center text-slate-400 text-xs italic">Không tìm thấy vai trò phù hợp</div>
         ) : (
-          filtered.map((roleItem) => {
-            const isSelected = selectedGroupId === roleItem.id;
-            const memberCount = groupMembers[roleItem.id]?.length || 0;
+          filtered.map((role) => {
+            const isSelected = selectedRoleId === role.id;
 
             return (
               <button
-                key={roleItem.id}
-                onClick={() => onSelect(roleItem.id)}
+                key={role.id}
+                onClick={() => onSelect(role.id)}
                 className={cn(
                   "w-full text-left p-3.5 rounded-xl border transition-all duration-150 flex flex-col gap-1.5",
                   isSelected
@@ -70,23 +71,17 @@ export default function RoleListPanel({ groups, groupMembers, selectedGroupId, o
               >
                 <div className="flex items-center justify-between w-full">
                   <span className={cn("text-xs font-bold leading-tight", isSelected ? "text-brand-red" : "text-slate-900")}>
-                    {roleItem.name}
+                    {role.name}
                   </span>
-                  <Badge variant={roleItem.status === "active" ? "success" : "neutral"}>
-                    {roleItem.status === "active" ? "Active" : "Inactive"}
-                  </Badge>
+                  <Badge variant={role.isSystem ? "info" : "neutral"}>{role.isSystem ? "Hệ thống" : "Tùy chỉnh"}</Badge>
                 </div>
 
-                <p className="text-[10px] text-slate-400 line-clamp-2 leading-normal">{roleItem.description}</p>
+                {role.description && <p className="text-[10px] text-slate-400 line-clamp-2 leading-normal">{role.description}</p>}
 
                 <div className="flex items-center gap-3 pt-1 text-[10px] text-slate-500 font-medium">
                   <span className="flex items-center gap-1">
-                    <Users className="w-3 h-3 text-slate-400" />
-                    <span>{memberCount} nhân sự</span>
-                  </span>
-                  <span className="flex items-center gap-1">
                     <Shield className="w-3 h-3 text-slate-400" />
-                    <span>{roleItem.permissions.length} quyền</span>
+                    <code className="font-mono">{role.code}</code>
                   </span>
                 </div>
               </button>

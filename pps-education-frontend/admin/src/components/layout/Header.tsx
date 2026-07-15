@@ -1,5 +1,5 @@
 import React from "react";
-import { Bell, ChevronDown, Clock, LogOut, Menu, MapPin, ShieldCheck } from "lucide-react";
+import { Bell, ChevronDown, Clock, LogOut, Menu, MapPin, Settings, ShieldCheck, User } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { mockCampuses } from "@/data/mockData";
 import { roleLabels } from "@/constants/roles";
@@ -91,32 +91,41 @@ export default function Header() {
         </Dropdown>
 
         <Dropdown
-          panelClassName="w-64 py-2"
+          panelClassName="w-56 py-1.5"
           trigger={
-            <button className="flex items-center gap-2 px-3.5 py-1.5 bg-white border border-slate-200/50 hover:bg-slate-50 rounded-full transition-all shadow-soft">
+            <button className="flex items-center gap-3 pl-4 pr-2.5 py-2 bg-white border border-slate-200/50 hover:bg-slate-50 rounded-2xl transition-all shadow-soft">
+              <div className="hidden md:block text-left leading-tight">
+                <p className="text-xs font-bold text-slate-800 truncate max-w-[130px]">{currentUser?.fullName || "Cán bộ PPS"}</p>
+                <p className="text-[10px] text-slate-500 truncate max-w-[130px]">{roleLabels[currentRole]}</p>
+              </div>
               <Avatar name={currentUser?.fullName || "U"} size="sm" />
-              <span className="hidden md:block text-xs font-semibold text-slate-700 truncate max-w-[120px]">
-                {currentUser?.fullName || "Cán bộ PPS"}
-              </span>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
             </button>
           }
         >
-          <div className="px-4 py-2 border-b border-slate-100 bg-slate-50">
-            <span className="text-[9px] font-bold text-slate-400 block uppercase font-mono tracking-wider">Nhân sự đăng nhập</span>
-            <p className="text-xs font-bold text-slate-800 truncate mt-0.5">{currentUser?.fullName || "Chưa đăng nhập"}</p>
-            <p className="text-[10px] text-slate-500 truncate mt-0.5 font-mono">{currentUser?.email || "example@pps.edu.vn"}</p>
-            <span className="inline-block mt-2 px-2 py-0.5 text-[9px] font-bold bg-slate-100 border border-slate-200 text-brand-orange rounded">
-              {roleLabels[currentRole]}
-            </span>
+          <div className="p-1.5">
+            <button
+              onClick={() => alert("Tính năng Hồ sơ cá nhân đang được phát triển.")}
+              className="w-full px-3 py-2.5 flex items-center gap-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer"
+            >
+              <User className="w-4 h-4 text-slate-400 shrink-0" />
+              <span>Hồ sơ cá nhân</span>
+            </button>
+            <button
+              onClick={() => alert("Tính năng Cài đặt đang được phát triển.")}
+              className="w-full px-3 py-2.5 flex items-center gap-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer"
+            >
+              <Settings className="w-4 h-4 text-slate-400 shrink-0" />
+              <span>Cài đặt</span>
+            </button>
           </div>
-          <div className="p-1">
+          <div className="p-1.5 border-t border-slate-100">
             <button
               onClick={logout}
-              className="w-full px-3 py-2 flex items-center gap-2 text-left text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-md transition-colors cursor-pointer"
+              className="w-full px-3 py-2.5 flex items-center gap-2.5 text-left text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
             >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>Đăng xuất hệ thống</span>
+              <LogOut className="w-4 h-4 shrink-0" />
+              <span>Đăng xuất</span>
             </button>
           </div>
         </Dropdown>

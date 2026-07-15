@@ -15,6 +15,7 @@ interface AppContextValue {
   sidebarOpen: boolean;
   setSelectedCampusId: (id: string) => void;
   setSidebarOpen: (open: boolean) => void;
+  loginNotice: string | null;
   login: (usernameOrEmail: string, password: string) => Promise<void>;
   loginWithGoogle: (idToken: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -47,6 +48,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   });
   const [selectedCampusId, setSelectedCampusId] = useState("ALL");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [loginNotice, setLoginNotice] = useState<string | null>(null);
 
   const completeLogin = async () => {
     const profile = await fetchCurrentUser();
@@ -54,6 +56,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setCurrentUser(profile);
     setCurrentRole(deriveCurrentRole(profile.roleCodes));
     setIsLoggedIn(true);
+    setLoginNotice(`Đăng nhập thành công! Chào mừng trở lại, ${profile.fullName}.`);
+    setTimeout(() => setLoginNotice(null), 4000);
   };
 
   const login = async (usernameOrEmail: string, password: string) => {
@@ -76,9 +80,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const hasPermission = (requiredPermission?: string) => {
     if (!requiredPermission) return true;
-    const roleConfig = mockRolePermissions.find((rp) => rp.role === currentRole);
-    if (!roleConfig) return false;
-    return roleConfig.permissions.includes(requiredPermission) || roleConfig.permissions.includes("system.admin");
+    // Effective permissions = hợp của TẤT CẢ role đang gán cho tài khoản (khớp cách backend tính effective_permissions ở UC-03/UC-46), không chỉ role ưu tiên cao nhất đang hiển thị.
+    const roleCodes = currentUser?.roleCodes ?? [currentRole];
+    return roleCodes.some((code) => mockRolePermissions.find((rp) => rp.role === code)?.permissions.includes(requiredPermission));
   };
 
   const value = useMemo<AppContextValue>(
@@ -90,12 +94,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       sidebarOpen,
       setSelectedCampusId,
       setSidebarOpen,
+      loginNotice,
       login,
       loginWithGoogle,
       logout,
       hasPermission
     }),
-    [isLoggedIn, currentUser, currentRole, selectedCampusId, sidebarOpen]
+    [isLoggedIn, currentUser, currentRole, selectedCampusId, sidebarOpen, loginNotice]
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

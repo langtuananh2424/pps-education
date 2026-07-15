@@ -6,6 +6,7 @@ import ProtectedRoute from "@/components/layout/ProtectedRoute";
 import LoginPage from "@/features/auth/pages/LoginPage";
 import AccessDeniedPage from "@/features/auth/pages/AccessDeniedPage";
 import DashboardPage from "@/features/dashboard/pages/DashboardPage";
+import UsersPage from "@/features/system-admin/pages/UsersPage";
 import RolesPage from "@/features/system-admin/pages/RolesPage";
 import OverridesPage from "@/features/system-admin/pages/OverridesPage";
 import AuditLogPage from "@/features/system-admin/pages/AuditLogPage";
@@ -46,6 +47,7 @@ export default function App() {
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/access-denied" element={<AccessDeniedPage />} />
 
+          <Route path="/system-admin/users" element={<UsersPage />} />
           <Route path="/system-admin/roles" element={<RolesPage />} />
           <Route path="/system-admin/overrides" element={<OverridesPage />} />
           <Route path="/system-admin/audit-log" element={<AuditLogPage />} />

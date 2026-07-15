@@ -20,9 +20,7 @@ import {
   FeedbackTicket,
   SyllabusPlan,
   Permission,
-  RolePermission,
-  PermissionAuditLog,
-  UserOverride
+  RolePermission
 } from "../types";
 
 export const mockCampuses: Campus[] = [
@@ -737,98 +735,65 @@ export const mockPermissions: Permission[] = [
   { id: "P-24", code: "facility.feedback_resolve", name: "Xử lý phản hồi đối tác", module: "FACILITY", description: "Tiếp nhận kiến nghị từ trường liên kết", apiEndpoints: ["POST /api/facility/feedback/resolve"] }
 ];
 
+/**
+ * Khớp ĐÚNG bảng role_permissions thật của backend (truy vấn trực tiếp từ DB
+ * — không suy diễn). Dùng 22 permission code thật (xem API.md), KHÔNG dùng
+ * mã bịa của bản Google AI Studio nữa. STUDENT/PARENT không có quyền business
+ * nào ở app Admin — 2 role này thuộc app "user" riêng (Portal HS/PH).
+ */
 export const mockRolePermissions: RolePermission[] = [
   {
     role: UserRole.SYS_ADMIN,
-    permissions: mockPermissions.map(p => p.code)
+    permissions: [
+      "facility.manage", "permission.audit.view", "permission.catalog.manage",
+      "permission.override.manage", "permission.role.manage", "user.manage", "user.role.manage"
+    ]
   },
   {
     role: UserRole.EXECUTIVE,
-    permissions: [
-      "task.view_all", "task.create", "hrm.payroll", "hrm.approve_leave",
-      "student.manage", "academic.grade_approve", "academic.comment_approve",
-      "finance.report_all", "facility.manage", "facility.feedback_resolve"
-    ]
+    permissions: ["finance.report.view", "task.create"]
   },
   {
     role: UserRole.HEAD_ACADEMIC,
     permissions: [
-      "task.create", "task.view_all", "student.manage",
-      "academic.curriculum", "academic.grade_approve", "academic.comment_approve",
-      "lms.manage", "lms.exam_grade"
+      "academic.class.manage", "academic.curriculum.manage", "academic.grade.manage",
+      "facility.room.manage", "task.create"
     ]
   },
   {
     role: UserRole.SITE_MANAGER,
+    permissions: ["crm.lead.assign", "student.manage", "student.status.manage", "task.create"]
+  },
+  {
+    role: UserRole.HR_MANAGER,
+    permissions: ["hrm.manage", "task.create"]
+  },
+  {
+    role: UserRole.STAFF,
     permissions: [
-      "task.create", "task.view_all", "hrm.approve_leave", "crm.manage",
-      "student.manage", "student.attendance", "academic.grade_approve",
-      "academic.comment_approve", "finance.billing", "finance.expenses",
-      "facility.manage", "facility.feedback_resolve"
+      "academic.class.manage", "crm.lead.assign", "crm.lead.manage",
+      "facility.room.manage", "finance.manage", "student.manage", "student.status.manage"
     ]
   },
   {
     role: UserRole.TEACHER,
-    permissions: [
-      "student.attendance", "academic.grade_entry", "academic.comment_write",
-      "lms.manage", "lms.exam_grade"
-    ]
-  },
-  {
-    role: UserRole.HR_MANAGER,
-    permissions: [
-      "task.create", "hrm.manage", "hrm.approve_leave", "hrm.payroll"
-    ]
-  },
-  {
-    role: UserRole.STAFF,
-    permissions: [
-      "crm.manage", "crm.convert_student", "student.manage"
-    ]
-  },
-  {
-    role: UserRole.STAFF,
-    permissions: [
-      "finance.billing", "finance.expenses"
-    ]
+    permissions: ["lms.exercise.manage", "lms.grading.manage"]
   },
   {
     role: UserRole.OPS_MANAGER,
-    permissions: [
-      "task.create", "task.view_all", "hrm.approve_leave", "facility.manage"
-    ]
+    permissions: ["facility.manage", "task.create"]
   },
   {
     role: UserRole.PARTNER_REP,
-    permissions: [] // Quyền xem hạn chế Portal
-  }
-];
-
-export const mockUserOverrides: UserOverride[] = [
-  {
-    userId: "EMP-005", // Lê Thu Hà (Giáo viên)
-    permissionId: "P-15", // academic.grade_approve (Quyền duyệt điểm)
-    type: "GRANT",
-    reason: "Được ủy quyền duyệt điểm nhanh cho lớp starter do Trưởng điểm trường đi công tác",
-    expiresAt: "2026-08-31"
-  }
-];
-
-export const mockAuditLogs: PermissionAuditLog[] = [
-  {
-    id: "LOG-001",
-    actorName: "Lăng Tuấn Anh (SYS_ADMIN)",
-    targetName: "Lê Thu Hà",
-    action: "PERM_OVERRIDE_ADDED",
-    details: "Cấp quyền ngoại lệ academic.grade_approve (Duyệt điểm học phần) có thời hạn đến 31/08/2026. Lý do: Ủy quyền hỗ trợ phê duyệt điểm starter.",
-    createdAt: "2026-07-10 11:24"
+    permissions: []
   },
   {
-    id: "LOG-002",
-    actorName: "Lăng Tuấn Anh (SYS_ADMIN)",
-    targetName: "Michael Smith",
-    action: "ROLE_GRANTED",
-    details: "Phân công vai trò Giáo viên bản xứ (TEACHER) kiêm quản lý kho LMS cơ sở Cầu Giấy.",
-    createdAt: "2026-07-09 15:40"
+    role: UserRole.PARENT,
+    permissions: []
+  },
+  {
+    role: UserRole.STUDENT,
+    permissions: []
   }
 ];
+
