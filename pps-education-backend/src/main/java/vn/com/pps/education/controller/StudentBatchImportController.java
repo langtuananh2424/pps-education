@@ -1,6 +1,7 @@
 package vn.com.pps.education.controller;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -12,8 +13,20 @@ import vn.com.pps.education.dto.StudentBatchImportResponse;
 import vn.com.pps.education.security.AuthenticatedUser;
 import vn.com.pps.education.service.StudentBatchImportService;
 
-/** UC-35: Nhập học theo lô cho lớp liên kết (FR-CRM-04) — xem Javadoc StudentBatchImportService. */
+/**
+ * UC-35: Nhập học theo lô cho lớp liên kết (FR-CRM-04) — xem Javadoc
+ * StudentBatchImportService. Precondition UC-35: tác nhân "Nhân viên (Giáo
+ * vụ)" — tái dùng permission student.manage đã có sẵn (V11, cấp cho
+ * STAFF/SITE_MANAGER, dùng cho UC-13 quản lý hồ sơ học sinh) vì UC-35 cũng
+ * tạo hồ sơ học sinh, chỉ khác là hàng loạt qua Excel thay vì từng dòng.
+ *
+ * Bảo mật: trước đây Controller này KHÔNG có @PreAuthorize (lỗ hổng — bất kỳ
+ * tài khoản đã đăng nhập nào, kể cả STUDENT/PARENT, đều gọi được để tạo tài
+ * khoản + ghi danh hàng loạt). Đặt ở class-level vì cả 2 endpoint dùng
+ * chung 1 quyền.
+ */
 @RestController
+@PreAuthorize("hasPermission(null, 'student.manage')")
 public class StudentBatchImportController {
 
     private final StudentBatchImportService studentBatchImportService;
