@@ -390,8 +390,8 @@ UC-44: Xem/tra cứu danh sách tài khoản
 +-----------------+----------------------------------------------------+
 | **Hậu điều kiện | Quản trị viên có đủ thông tin (đặc biệt userId) để |
 | (P              | tiếp tục các use case khác (UC-45, UC-04, UC-46,   |
-| ostcondition)** | UC-47) — use case này chỉ đọc, không thay đổi dữ   |
-|                 | liệu.                                              |
+| ostcondition)** | UC-47, UC-49) — use case này chỉ đọc, không thay   |
+|                 | đổi dữ liệu.                                       |
 +-----------------+----------------------------------------------------+
 
 ---
@@ -622,6 +622,65 @@ UC-47: Khóa/Mở khóa tài khoản
 | ostcondition)** | - users_history có đầy đủ lịch sử ai đổi trạng     |
 |                 | thái tài khoản nào, khi nào, từ giá trị gì sang    |
 |                 | giá trị gì.                                        |
++-----------------+----------------------------------------------------+
+
+---
+
+UC-49: Cập nhật thông tin tài khoản
+
++-----------------+----------------------------------------------------+
+| **Mã Use Case** | UC-49                                              |
++-----------------+----------------------------------------------------+
+| **Tên Use       | Cập nhật thông tin tài khoản                       |
+| Case**          |                                                    |
++-----------------+----------------------------------------------------+
+| **Phân hệ**     | Phân hệ 2                                          |
++-----------------+----------------------------------------------------+
+| **Yêu cầu chức  | FR-USR-05                                          |
+| năng gốc**      |                                                    |
++-----------------+----------------------------------------------------+
+| **Tác nhân**    | Quản trị viên                                      |
++-----------------+----------------------------------------------------+
+| **Mô tả tóm     | Sửa thông tin hồ sơ (họ tên, SĐT, phòng ban, cờ    |
+| tắt**           | is_management) của 1 tài khoản đã tồn tại --- không |
+|                 | đổi username/email/mật khẩu/trạng thái tài khoản.  |
++-----------------+----------------------------------------------------+
+| **Sự kiện kích  | Thông tin hồ sơ của 1 tài khoản (VD SĐT, phòng     |
+| hoạt**          | ban) đã lỗi thời hoặc cần điều chỉnh.              |
++-----------------+----------------------------------------------------+
+| **Điều kiện     | -   Người thao tác có quyền user.manage.           |
+| tiên quyết      | -   Tài khoản đích tồn tại (tra cứu qua UC-44).    |
+| (               |                                                    |
+| Precondition)** |                                                    |
++-----------------+----------------------------------------------------+
+| **Luồng sự kiện | 1.  Quản trị viên tìm và chọn đích danh 1 tài       |
+| chính (Main     |     khoản (UC-44), mở form sửa thông tin.          |
+| Flow)**         |                                                    |
+|                 | 2.  Quản trị viên sửa họ tên, SĐT, phòng ban, cờ    |
+|                 |     is_management; xác nhận Lưu.                   |
+|                 |                                                    |
+|                 | 3.  Hệ thống cập nhật bản ghi users tương ứng       |
+|                 |     (full_name, phone, department_id,              |
+|                 |     is_management) và trả về thông tin đã cập      |
+|                 |     nhật.                                          |
++-----------------+----------------------------------------------------+
+| **Luồng thay    | ***A1 --- Bỏ trống phòng ban***                    |
+| thế / ngoại lệ  |                                                    |
+| (Alternate      | 1.  Quản trị viên để trống phòng ban; hệ thống lưu |
+| Flow)**         |     department_id = NULL (giống UC-43 --- tài      |
+|                 |     khoản không thuộc phòng ban nào, VD Học         |
+|                 |     sinh/Phụ huynh).                               |
+|                 |                                                    |
+|                 | ***A2 --- Phòng ban không tồn tại***               |
+|                 |                                                    |
+|                 | 1.  department_id gửi lên không khớp bản ghi nào   |
+|                 |     trong bảng departments; hệ thống từ chối cập   |
+|                 |     nhật, báo không tìm thấy phòng ban.            |
++-----------------+----------------------------------------------------+
+| **Hậu điều kiện | -   Bảng users phản ánh đúng thông tin hồ sơ mới   |
+| (P              |     của tài khoản. Username, email, password_hash, |
+| ostcondition)** |     status, danh sách role/permission override     |
+|                 |     giữ nguyên không đổi.                          |
 +-----------------+----------------------------------------------------+
 
 Phân hệ 3 --- Quản lý công việc và quy trình

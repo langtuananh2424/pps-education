@@ -145,6 +145,12 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.UNAUTHORIZED, ex.getMessage());
     }
 
+    /** UC-47 / A2 — không thể tự khóa tài khoản của chính mình. */
+    @ExceptionHandler(SelfAccountLockException.class)
+    public ResponseEntity<Object> handleSelfAccountLock(SelfAccountLockException ex) {
+        return error(HttpStatus.FORBIDDEN, ex.getMessage());
+    }
+
     private ResponseEntity<Object> error(HttpStatus status, String message) {
         return ResponseEntity.status(status).body(Map.of(
                 "timestamp", OffsetDateTime.now().toString(),

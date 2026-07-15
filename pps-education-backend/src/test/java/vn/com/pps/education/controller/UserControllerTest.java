@@ -8,10 +8,13 @@ import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.dto.AdminChangePasswordRequest;
 import vn.com.pps.education.dto.CreateUserRequest;
+import vn.com.pps.education.dto.UpdateUserRequest;
+import vn.com.pps.education.dto.UpdateUserStatusRequest;
 import vn.com.pps.education.support.AbstractControllerTest;
 
 import java.util.concurrent.atomic.AtomicLong;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -75,6 +78,102 @@ class UserControllerTest extends AbstractControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new AdminChangePasswordRequest("MatKhauMoi@9"))))
                 .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void search_UC44_deniedForRoleWithoutUserManage_returns403() throws Exception {
+        var staff = userWithRole("staff.search.noaccess", "STAFF");
+
+        mockMvc.perform(get("/api/users")
+                        .header("Authorization", bearerToken(staff, "STAFF")))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("Tài khoản không có quyền thực hiện thao tác này."));
+    }
+
+    @Test
+    void search_UC44_allowedForSysAdmin_returns200() throws Exception {
+        var sysAdmin = userWithRole("sysadmin.search.access", "SYS_ADMIN");
+
+        mockMvc.perform(get("/api/users")
+                        .header("Authorization", bearerToken(sysAdmin, "SYS_ADMIN")))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void getDetail_UC44_allowedForSysAdmin_returns200() throws Exception {
+        var sysAdmin = userWithRole("sysadmin.detail.access", "SYS_ADMIN");
+        User target = userWithRole("target.detail.access", "STUDENT");
+
+        mockMvc.perform(get("/api/users/" + target.getId())
+                        .header("Authorization", bearerToken(sysAdmin, "SYS_ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(target.getId()));
+    }
+
+    @Test
+    void update_UC49_deniedForRoleWithoutUserManage_returns403() throws Exception {
+        var staff = userWithRole("staff.update.noaccess", "STAFF");
+        User target = userWithRole("target.update.noaccess", "STUDENT");
+
+        mockMvc.perform(put("/api/users/" + target.getId())
+                        .header("Authorization", bearerToken(staff, "STAFF"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new UpdateUserRequest("Tên Mới", null, null, false))))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("Tài khoản không có quyền thực hiện thao tác này."));
+    }
+
+    @Test
+    void update_UC49_allowedForSysAdmin_returns200() throws Exception {
+        var sysAdmin = userWithRole("sysadmin.update.access", "SYS_ADMIN");
+        User target = userWithRole("target.update.access", "STUDENT");
+
+        mockMvc.perform(put("/api/users/" + target.getId())
+                        .header("Authorization", bearerToken(sysAdmin, "SYS_ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new UpdateUserRequest("Tên Mới", "0911111111", null, false))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.fullName").value("Tên Mới"));
+    }
+
+    @Test
+    void updateStatus_UC47_deniedForRoleWithoutUserManage_returns403() throws Exception {
+        var staff = userWithRole("staff.status.noaccess", "STAFF");
+        User target = userWithRole("target.status.noaccess", "STUDENT");
+
+        mockMvc.perform(put("/api/users/" + target.getId() + "/status")
+                        .header("Authorization", bearerToken(staff, "STAFF"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new UpdateUserStatusRequest("SUSPENDED"))))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("Tài khoản không có quyền thực hiện thao tác này."));
+    }
+
+    @Test
+    void updateStatus_UC47_allowedForSysAdmin_returns200() throws Exception {
+        var sysAdmin = userWithRole("sysadmin.status.access", "SYS_ADMIN");
+        User target = userWithRole("target.status.access", "STUDENT");
+
+        mockMvc.perform(put("/api/users/" + target.getId() + "/status")
+                        .header("Authorization", bearerToken(sysAdmin, "SYS_ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new UpdateUserStatusRequest("SUSPENDED"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("SUSPENDED"));
+    }
+
+    @Test
+    void updateStatus_UC47_A2_selfLockReturns403() throws Exception {
+        var sysAdmin = userWithRole("sysadmin.selflock.access", "SYS_ADMIN");
+
+        mockMvc.perform(put("/api/users/" + sysAdmin.getId() + "/status")
+                        .header("Authorization", bearerToken(sysAdmin, "SYS_ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new UpdateUserStatusRequest("SUSPENDED"))))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("Không thể tự khóa tài khoản của chính mình."));
     }
 
     private CreateUserRequest newUserRequest() {

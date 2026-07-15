@@ -1,24 +1,47 @@
 package vn.com.pps.education.service;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.Department;
 import vn.com.pps.education.domain.RefreshToken;
+import vn.com.pps.education.domain.Role;
 import vn.com.pps.education.domain.User;
+import vn.com.pps.education.domain.UserHistory;
+import vn.com.pps.education.domain.UserPermissionOverride;
 import vn.com.pps.education.dto.AdminChangePasswordRequest;
 import vn.com.pps.education.dto.ChangeOwnPasswordRequest;
 import vn.com.pps.education.dto.CreateUserRequest;
+import vn.com.pps.education.dto.RoleResponse;
+import vn.com.pps.education.dto.UpdateUserRequest;
+import vn.com.pps.education.dto.UpdateUserStatusRequest;
+import vn.com.pps.education.dto.UserDetailResponse;
+import vn.com.pps.education.dto.UserListItemResponse;
+import vn.com.pps.education.dto.UserPermissionOverrideSummary;
 import vn.com.pps.education.dto.UserResponse;
+import vn.com.pps.education.dto.UserSearchRequest;
 import vn.com.pps.education.exception.DuplicateUserAccountException;
 import vn.com.pps.education.exception.InvalidCredentialsException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
+import vn.com.pps.education.exception.SelfAccountLockException;
 import vn.com.pps.education.repository.DepartmentRepository;
 import vn.com.pps.education.repository.RefreshTokenRepository;
+import vn.com.pps.education.repository.UserHistoryRepository;
+import vn.com.pps.education.repository.UserPermissionOverrideRepository;
 import vn.com.pps.education.repository.UserRepository;
+import vn.com.pps.education.repository.UserRoleRepository;
 
 import java.time.OffsetDateTime;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * UC-43: Khởi tạo tài khoản người dùng (FR-USR-01).
@@ -35,10 +58,10 @@ import java.util.List;
  * EmployeeService trong cùng transaction — xem ghi chú trong UC-08 và
  * "Cơ chế khởi tạo tài khoản" trong docs/sdd-groups/02-nen-tang.md.
  *
- * Gap có sẵn (không xử lý ở đây): SDD ghi "Có bảng users_history" nhưng
- * bảng này chưa từng được migrate và không luồng tạo user nào hiện có
- * (UC-34, UC-35, DevUserSeeder) ghi lịch sử — giữ nhất quán, sẽ bổ sung
- * đồng loạt khi có quyết định triển khai users_history.
+ * users_history (V32) chỉ ghi Action.STATUS_CHANGED (UC-47) — khớp đúng
+ * phạm vi Postcondition UC-47, không mở rộng sang các luồng tạo/sửa khác
+ * (UC-34, UC-35, DevUserSeeder, UC-49) vì SRS không yêu cầu audit log cho
+ * các luồng đó (giống UC-45 đổi mật khẩu — không ghi users_history).
  */
 @Service
 public class UserAccountService {
@@ -46,15 +69,24 @@ public class UserAccountService {
     private final UserRepository userRepository;
     private final DepartmentRepository departmentRepository;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final UserRoleRepository userRoleRepository;
+    private final UserPermissionOverrideRepository userPermissionOverrideRepository;
+    private final UserHistoryRepository userHistoryRepository;
     private final PasswordEncoder passwordEncoder;
 
     public UserAccountService(UserRepository userRepository,
                                DepartmentRepository departmentRepository,
                                RefreshTokenRepository refreshTokenRepository,
+                               UserRoleRepository userRoleRepository,
+                               UserPermissionOverrideRepository userPermissionOverrideRepository,
+                               UserHistoryRepository userHistoryRepository,
                                PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.departmentRepository = departmentRepository;
         this.refreshTokenRepository = refreshTokenRepository;
+        this.userRoleRepository = userRoleRepository;
+        this.userPermissionOverrideRepository = userPermissionOverrideRepository;
+        this.userHistoryRepository = userHistoryRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -108,8 +140,7 @@ public class UserAccountService {
      */
     @Transactional
     public void changeOwnPassword(Long userId, ChangeOwnPasswordRequest request) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + userId));
+        User user = getUserOrThrow(userId);
 
         // A3 -- tài khoản chưa từng có mật khẩu (chỉ đăng nhập Google): đặt mật khẩu lần đầu, không cần xác thực.
         if (user.getPasswordHash() != null) {
@@ -130,8 +161,7 @@ public class UserAccountService {
      */
     @Transactional
     public void changePasswordAsAdmin(Long userId, AdminChangePasswordRequest request) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + userId));
+        User user = getUserOrThrow(userId);
         applyNewPassword(user, request.newPassword());
     }
 
@@ -143,11 +173,151 @@ public class UserAccountService {
     private void applyNewPassword(User user, String newPassword) {
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         userRepository.save(user);
+        revokeAllActiveTokens(user);
+    }
 
+    private void revokeAllActiveTokens(User user) {
         OffsetDateTime now = OffsetDateTime.now();
         List<RefreshToken> activeTokens = refreshTokenRepository.findByUserIdAndRevokedAtIsNull(user.getId());
         activeTokens.forEach(t -> t.setRevokedAt(now));
         refreshTokenRepository.saveAll(activeTokens);
+    }
+
+    /**
+     * UC-44: Xem/tra cứu danh sách tài khoản (FR-USR-03).
+     * Xem docs/uc/phan-he-02-phan-quyen.md — Main Flow bước 1-2 (danh sách +
+     * tìm kiếm/lọc), A1 (không có kết quả = trang rỗng, không phải lỗi).
+     * Mỗi dòng kèm danh sách role hiện tại (Main Flow bước 1) — batch-load
+     * theo user_id để tránh N+1.
+     */
+    @Transactional(readOnly = true)
+    public Page<UserListItemResponse> search(UserSearchRequest filter, Pageable pageable) {
+        Specification<User> spec = buildSpecification(filter);
+        Pageable sorted = pageable.getSort().isSorted()
+                ? pageable
+                : PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by(Sort.Direction.ASC, "username"));
+        Page<User> page = userRepository.findAll(spec, sorted);
+
+        List<Long> userIds = page.getContent().stream().map(User::getId).toList();
+        Map<Long, List<RoleResponse>> rolesByUser = userRoleRepository.findByUserIdIn(userIds).stream()
+                .collect(Collectors.groupingBy(ur -> ur.getUser().getId(),
+                        Collectors.mapping(ur -> toRoleResponse(ur.getRole()), Collectors.toList())));
+
+        return page.map(u -> toListItem(u, rolesByUser.getOrDefault(u.getId(), List.of())));
+    }
+
+    private Specification<User> buildSpecification(UserSearchRequest filter) {
+        Specification<User> spec = Specification.where(null);
+        if (filter.keyword() != null && !filter.keyword().isBlank()) {
+            String pattern = "%" + filter.keyword().toLowerCase() + "%";
+            spec = spec.and((root, query, cb) -> cb.or(
+                    cb.like(cb.lower(root.get("username")), pattern),
+                    cb.like(cb.lower(root.get("email")), pattern),
+                    cb.like(cb.lower(root.get("fullName")), pattern)));
+        }
+        if (filter.departmentId() != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("department").get("id"), filter.departmentId()));
+        }
+        if (filter.status() != null && !filter.status().isBlank()) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("status"), User.Status.valueOf(filter.status())));
+        }
+        return spec;
+    }
+
+    /** UC-44 Main Flow bước 3: chi tiết đầy đủ 1 tài khoản (role + permission override). */
+    @Transactional(readOnly = true)
+    public UserDetailResponse getDetail(Long userId) {
+        User user = getUserOrThrow(userId);
+
+        List<RoleResponse> roles = userRoleRepository.findByUserId(userId).stream()
+                .map(ur -> toRoleResponse(ur.getRole()))
+                .sorted(Comparator.comparing(RoleResponse::code))
+                .toList();
+        List<UserPermissionOverrideSummary> overrides = userPermissionOverrideRepository.findByUserId(userId).stream()
+                .map(this::toOverrideSummary)
+                .toList();
+
+        return toDetailResponse(user, roles, overrides);
+    }
+
+    /**
+     * UC-49: Cập nhật thông tin tài khoản (FR-USR-05).
+     * Xem docs/uc/phan-he-02-phan-quyen.md — Main Flow, A1 (bỏ trống phòng
+     * ban), A2 (phòng ban không tồn tại). KHÔNG đổi username/email/mật
+     * khẩu/trạng thái — ngoài phạm vi UC-49 (thuộc UC-43/UC-45/UC-47).
+     */
+    @Transactional
+    public UserResponse update(Long userId, UpdateUserRequest request) {
+        User user = getUserOrThrow(userId);
+        user.setFullName(request.fullName());
+        user.setPhone(request.phone());
+        if (request.departmentId() != null) {
+            // A2 -- phòng ban không tồn tại.
+            Department department = departmentRepository.findById(request.departmentId())
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Không tìm thấy phòng ban id=" + request.departmentId()));
+            user.setDepartment(department);
+        } else {
+            user.setDepartment(null); // A1 -- bỏ trống phòng ban.
+        }
+        user.setManagement(Boolean.TRUE.equals(request.isManagement()));
+        return toResponse(userRepository.save(user));
+    }
+
+    /**
+     * UC-47: Khóa/Mở khóa tài khoản (FR-USR-04).
+     * Xem docs/uc/phan-he-02-phan-quyen.md — Main Flow bước 2-4, A1 (khôi
+     * phục về ACTIVE — reset failed_login_count/locked_until), A2 (không
+     * thể tự khóa tài khoản của chính mình).
+     */
+    @Transactional
+    public UserResponse updateStatus(Long userId, UpdateUserStatusRequest request, Long actorUserId) {
+        User user = getUserOrThrow(userId);
+        User.Status newStatus = User.Status.valueOf(request.status());
+
+        // A2 -- không thể tự khóa tài khoản của chính mình đang đăng nhập.
+        if (userId.equals(actorUserId) && newStatus != User.Status.ACTIVE) {
+            throw new SelfAccountLockException("Không thể tự khóa tài khoản của chính mình.");
+        }
+
+        User.Status oldStatus = user.getStatus();
+        if (oldStatus == newStatus) {
+            return toResponse(user); // Idempotent -- không đổi gì thì không ghi log/thu hồi token thừa.
+        }
+
+        user.setStatus(newStatus);
+        if (newStatus == User.Status.ACTIVE) {
+            // A1 -- khôi phục tài khoản: reset đếm đăng nhập sai + bỏ khóa tạm.
+            user.setFailedLoginCount(0);
+            user.setLockedUntil(null);
+        } else {
+            // Main Flow bước 4 -- thu hồi toàn bộ refresh token đang hoạt động, buộc đăng xuất mọi thiết bị.
+            revokeAllActiveTokens(user);
+        }
+        userRepository.save(user);
+
+        User actor = getUserOrThrow(actorUserId);
+        writeStatusHistory(user, actor, oldStatus, newStatus);
+
+        return toResponse(user);
+    }
+
+    /** Postcondition UC-47: users_history ghi ai đổi trạng thái tài khoản nào, khi nào, từ giá trị gì sang giá trị gì. */
+    private void writeStatusHistory(User target, User actor, User.Status oldStatus, User.Status newStatus) {
+        UserHistory history = new UserHistory();
+        history.setUser(target);
+        history.setChangedBy(actor);
+        history.setAction(UserHistory.Action.STATUS_CHANGED);
+        Map<String, Object> details = new HashMap<>();
+        details.put("oldStatus", oldStatus.name());
+        details.put("newStatus", newStatus.name());
+        history.setDetails(details);
+        userHistoryRepository.save(history);
+    }
+
+    private User getUserOrThrow(Long userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + userId));
     }
 
     private UserResponse toResponse(User u) {
@@ -156,5 +326,33 @@ public class UserAccountService {
                 u.getDepartment() == null ? null : u.getDepartment().getId(),
                 u.getStatus().name(), u.isManagement(),
                 u.getPasswordHash() != null, u.getGoogleId() != null);
+    }
+
+    private UserListItemResponse toListItem(User u, List<RoleResponse> roles) {
+        return new UserListItemResponse(
+                u.getId(), u.getUsername(), u.getEmail(), u.getFullName(), u.getPhone(),
+                u.getDepartment() == null ? null : u.getDepartment().getId(),
+                u.getStatus().name(), u.isManagement(), roles);
+    }
+
+    private UserDetailResponse toDetailResponse(User u, List<RoleResponse> roles,
+                                                 List<UserPermissionOverrideSummary> overrides) {
+        return new UserDetailResponse(
+                u.getId(), u.getUsername(), u.getEmail(), u.getFullName(), u.getPhone(),
+                u.getDepartment() == null ? null : u.getDepartment().getId(),
+                u.getStatus().name(), u.isManagement(),
+                u.getPasswordHash() != null, u.getGoogleId() != null,
+                u.getLastLoginAt(), u.getFailedLoginCount(), u.getLockedUntil(),
+                roles, overrides);
+    }
+
+    private RoleResponse toRoleResponse(Role role) {
+        return new RoleResponse(role.getId(), role.getCode(), role.getName(), role.getDescription(), role.isSystem());
+    }
+
+    private UserPermissionOverrideSummary toOverrideSummary(UserPermissionOverride o) {
+        return new UserPermissionOverrideSummary(
+                o.getPermission().getId(), o.getPermission().getCode(),
+                o.getOverrideType().name(), o.getReason(), o.getExpiresAt());
     }
 }

@@ -242,10 +242,10 @@ nhân đó mới được thao tác.*
         chi tiết 1 tài khoản (không bao gồm password_hash). Là hạ tầng
         tra cứu bắt buộc trước khi thực hiện FR-USR-02 (đổi mật khẩu cho
         tài khoản khác), FR-PER-03 (tùy chỉnh quyền riêng), FR-PER-05
-        (gán/thu hồi vai trò) và FR-USR-04 (khóa/mở khóa tài khoản) — cả
-        4 FR này đều yêu cầu Quản trị viên "chọn đích danh 1 tài khoản"
-        nhưng trước nay chưa có FR nào định nghĩa cách tra cứu ra tài
-        khoản đó.
+        (gán/thu hồi vai trò), FR-USR-04 (khóa/mở khóa tài khoản) và
+        FR-USR-05 (cập nhật thông tin tài khoản) — cả 5 FR này đều yêu
+        cầu Quản trị viên "chọn đích danh 1 tài khoản" nhưng trước nay
+        chưa có FR nào định nghĩa cách tra cứu ra tài khoản đó.
 
     -   **FR-USR-04: Khóa/Mở khóa tài khoản -** Quản trị viên chuyển
         trạng thái 1 tài khoản: ACTIVE → INACTIVE (ngừng hoạt động dài
@@ -257,6 +257,18 @@ nhân đó mới được thao tác.*
         ACTIVE bị từ chối đăng nhập (đã đặc tả ở UC-01 A3) nhưng trước
         nay chưa có FR nào mô tả ai/khi nào thực hiện việc chuyển trạng
         thái đó. Mỗi lần đổi trạng thái ghi lại vào users_history.
+
+    -   **FR-USR-05: Cập nhật thông tin tài khoản -** Quản trị viên sửa
+        thông tin hồ sơ của 1 tài khoản đã tồn tại: họ tên, SĐT, phòng
+        ban, cờ miễn trừ chấm công is_management. KHÔNG bao gồm
+        username/email (định danh đăng nhập, không đổi sau khi tạo — đổi
+        username/email nằm ngoài phạm vi thiết kế hiện tại), mật khẩu
+        (FR-USR-02) hay trạng thái tài khoản (FR-USR-04) — 2 FR đó có
+        luồng xác nhận/hệ quả riêng (thu hồi refresh token, reset
+        failed_login_count...) không áp dụng cho việc sửa hồ sơ thông
+        thường. Là hạ tầng bắt buộc cho UI Quản trị tài khoản chỉnh sửa
+        hồ sơ sau khi khởi tạo (FR-USR-01), sau khi đã tra cứu ra tài
+        khoản đích qua FR-USR-03.
 
 **PHÂN HỆ 3: QUẢN LÝ CÔNG VIỆC VÀ QUY TRÌNH**
 
@@ -736,6 +748,9 @@ CDN)**
 
   UC-47             Khóa/Mở khóa tài  FR-USR-04         2
                     khoản                                
+
+  UC-49             Cập nhật thông    FR-USR-05         2
+                    tin tài khoản                        
   -----------------------------------------------------------------------
 
 ## Ma trận Actor × Phân hệ
