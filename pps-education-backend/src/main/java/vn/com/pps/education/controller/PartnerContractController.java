@@ -60,6 +60,7 @@ public class PartnerContractController {
     }
 
     @GetMapping("/api/sites/{siteId}/partner-contracts")
+    @PreAuthorize("hasPermission(null, 'facility.manage')")
     public ResponseEntity<List<PartnerContractResponse>> listBySite(@PathVariable Long siteId) {
         return ResponseEntity.ok(partnerContractService.listBySite(siteId));
     }
