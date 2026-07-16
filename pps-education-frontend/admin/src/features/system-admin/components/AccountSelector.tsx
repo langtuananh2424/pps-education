@@ -3,7 +3,9 @@ import { UserCheck, X } from "lucide-react";
 import { CreateUserRequest, searchUsers, UserListItemResponse } from "../api";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
+const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-xs p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export interface AccountSelection {
   userId?: number;
@@ -13,6 +15,8 @@ export interface AccountSelection {
 interface AccountSelectorProps {
   value: AccountSelection;
   onChange: (value: AccountSelection) => void;
+  /** Cha bật cờ này sau khi người dùng bấm Submit mà form vẫn còn lỗi — buộc hiện lỗi ở mọi trường bắt buộc, kể cả trường chưa bị blur. */
+  submitAttempted?: boolean;
 }
 
 /**
@@ -21,14 +25,21 @@ interface AccountSelectorProps {
  * email/username qua GET /api/users?keyword=) hoặc newAccount (tạo tài
  * khoản mới trong cùng transaction — CreateUserRequest).
  */
-export default function AccountSelector({ value, onChange }: AccountSelectorProps) {
+export default function AccountSelector({ value, onChange, submitAttempted = false }: AccountSelectorProps) {
   const [mode, setMode] = useState<"new" | "existing">(value.userId ? "existing" : "new");
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<UserListItemResponse[]>([]);
   const [searching, setSearching] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserListItemResponse | null>(null);
+  const [touched, setTouched] = useState({ username: false, email: false, fullName: false });
+  const markTouched = (field: keyof typeof touched) => setTouched((t) => ({ ...t, [field]: true }));
 
   const [newAccount, setNewAccount] = useState<CreateUserRequest>({ username: "", email: "", fullName: "", phone: "", password: "" });
+  const usernameInvalid = (touched.username || submitAttempted) && !newAccount.username.trim();
+  const fullNameInvalid = (touched.fullName || submitAttempted) && !newAccount.fullName.trim();
+  const emailEmpty = (touched.email || submitAttempted) && !newAccount.email.trim();
+  const emailBadFormat = (touched.email || submitAttempted) && newAccount.email.trim() !== "" && !EMAIL_PATTERN.test(newAccount.email.trim());
+  const emailInvalid = emailEmpty || emailBadFormat;
 
   const switchMode = (next: "new" | "existing") => {
     setMode(next);
@@ -92,15 +103,35 @@ export default function AccountSelector({ value, onChange }: AccountSelectorProp
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className={labelClass}>Username *</label>
-            <input value={newAccount.username} onChange={(e) => updateNewAccount({ username: e.target.value })} className={inputClass} />
+            <input
+              value={newAccount.username}
+              onChange={(e) => updateNewAccount({ username: e.target.value })}
+              onBlur={() => markTouched("username")}
+              className={usernameInvalid ? inputErrorClass : inputClass}
+            />
+            {usernameInvalid && <p className="text-[10px] text-rose-600 mt-1">Vui lòng nhập Username.</p>}
           </div>
           <div>
             <label className={labelClass}>Email *</label>
-            <input type="email" value={newAccount.email} onChange={(e) => updateNewAccount({ email: e.target.value })} className={inputClass} />
+            <input
+              type="email"
+              value={newAccount.email}
+              onChange={(e) => updateNewAccount({ email: e.target.value })}
+              onBlur={() => markTouched("email")}
+              className={emailInvalid ? inputErrorClass : inputClass}
+            />
+            {emailEmpty && <p className="text-[10px] text-rose-600 mt-1">Vui lòng nhập Email.</p>}
+            {emailBadFormat && <p className="text-[10px] text-rose-600 mt-1">Email không đúng định dạng.</p>}
           </div>
           <div>
             <label className={labelClass}>Họ tên *</label>
-            <input value={newAccount.fullName} onChange={(e) => updateNewAccount({ fullName: e.target.value })} className={inputClass} />
+            <input
+              value={newAccount.fullName}
+              onChange={(e) => updateNewAccount({ fullName: e.target.value })}
+              onBlur={() => markTouched("fullName")}
+              className={fullNameInvalid ? inputErrorClass : inputClass}
+            />
+            {fullNameInvalid && <p className="text-[10px] text-rose-600 mt-1">Vui lòng nhập Họ tên.</p>}
           </div>
           <div>
             <label className={labelClass}>Số điện thoại</label>

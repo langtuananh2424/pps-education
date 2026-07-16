@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Users } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
-import { listStudentParents, listStudents, ParentResponse, ParentStudentResponse } from "../api";
+import { listStudentParents, listStudents, ParentStudentResponse, searchParents } from "../api";
 import ParentListPanel from "../components/ParentListPanel";
 import ParentDetailPanel from "../components/ParentDetailPanel";
 import ParentCreateModal from "../components/ParentCreateModal";
@@ -23,12 +23,12 @@ export interface ParentAggregate {
 }
 
 /**
- * Backend chưa có "GET /api/parents" liệt kê toàn bộ phụ huynh — chỉ có
- * `GET /api/students/{id}/parents` theo từng học sinh. Trang này tổng hợp
- * (client-side) từ toàn bộ học sinh để dựng danh sách phụ huynh, giống
- * cách RoleMembersPanel đã tổng hợp thành viên vai trò.
+ * `GET /api/parents` (từ PR#39) trả về hồ sơ phụ huynh nhưng KHÔNG kèm
+ * con em đã liên kết — và cũng chưa có chiều ngược "phụ huynh này có
+ * những học sinh nào". Vẫn phải dựng map con em bằng cách quét toàn bộ
+ * học sinh + liên kết của từng em (giống RoleMembersPanel).
  */
-async function aggregateParents(): Promise<ParentAggregate[]> {
+async function buildChildrenMap(): Promise<Map<number, ParentAggregateChild[]>> {
   const students = await listStudents();
   const perStudent = await Promise.all(
     students.map((s) =>
@@ -36,10 +36,9 @@ async function aggregateParents(): Promise<ParentAggregate[]> {
     )
   );
 
-  const map = new Map<number, ParentAggregate>();
+  const map = new Map<number, ParentAggregateChild[]>();
   for (const { student, links } of perStudent) {
     for (const link of links) {
-      const existing = map.get(link.parentId);
       const child: ParentAggregateChild = {
         studentId: student.id,
         studentName: student.fullName,
@@ -49,14 +48,12 @@ async function aggregateParents(): Promise<ParentAggregate[]> {
         isPrimaryContact: link.isPrimaryContact,
         isFinancialResponsible: link.isFinancialResponsible
       };
-      if (existing) {
-        existing.children.push(child);
-      } else {
-        map.set(link.parentId, { parentId: link.parentId, parentFullName: link.parentFullName, children: [child] });
-      }
+      const existing = map.get(link.parentId);
+      if (existing) existing.push(child);
+      else map.set(link.parentId, [child]);
     }
   }
-  return Array.from(map.values()).sort((a, b) => a.parentFullName.localeCompare(b.parentFullName));
+  return map;
 }
 
 export default function ParentsPage() {
@@ -66,40 +63,31 @@ export default function ParentsPage() {
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
-  const [profileCache, setProfileCache] = useState<Map<number, ParentResponse>>(new Map());
 
   const load = () => {
     setLoading(true);
     setError(null);
-    aggregateParents()
-      .then(setParents)
+    Promise.all([searchParents(), buildChildrenMap()])
+      .then(([profiles, childrenMap]) => {
+        const aggregates = profiles
+          .map((p) => ({ parentId: p.id, parentFullName: p.fullName, children: childrenMap.get(p.id) ?? [] }))
+          .sort((a, b) => a.parentFullName.localeCompare(b.parentFullName));
+        setParents(aggregates);
+      })
       .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách phụ huynh."))
       .finally(() => setLoading(false));
   };
 
   useEffect(load, []);
 
-  // Phụ huynh mới tạo, CHƯA liên kết học sinh nào sẽ không xuất hiện trong
-  // aggregateParents() (vốn chỉ dựng từ liên kết student→parent). Bù lại
-  // bằng các hồ sơ đã cache trong phiên làm việc này nhưng chưa có trong
-  // danh sách tổng hợp — hiển thị với 0 con em cho tới khi được liên kết.
-  const orphanParents: ParentAggregate[] = Array.from(profileCache.values())
-    .filter((profile) => !parents.some((p) => p.parentId === profile.id))
-    .map((profile) => ({ parentId: profile.id, parentFullName: profile.fullName, children: [] }));
-  const displayParents = [...parents, ...orphanParents].sort((a, b) => a.parentFullName.localeCompare(b.parentFullName));
-
-  const selectedParent = displayParents.find((p) => p.parentId === selectedId) ?? null;
-
-  const cacheProfile = (profile: ParentResponse) => {
-    setProfileCache((prev) => new Map(prev).set(profile.id, profile));
-  };
+  const selectedParent = parents.find((p) => p.parentId === selectedId) ?? null;
 
   return (
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Quản lý phụ huynh (UC-13)</h1>
         <p className="text-xs text-slate-500 mt-1">
-          Danh sách phụ huynh tổng hợp từ liên kết con em — khởi tạo hồ sơ độc lập, liên kết/gỡ liên kết học sinh.
+          Toàn bộ hồ sơ phụ huynh (kể cả chưa liên kết con em) — khởi tạo hồ sơ độc lập, liên kết/gỡ liên kết học sinh.
         </p>
       </div>
 
@@ -107,7 +95,7 @@ export default function ParentsPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         <ParentListPanel
-          parents={displayParents}
+          parents={parents}
           loading={loading}
           selectedId={selectedId}
           onSelect={setSelectedId}
@@ -117,12 +105,7 @@ export default function ParentsPage() {
         />
 
         {selectedParent ? (
-          <ParentDetailPanel
-            parent={selectedParent}
-            cachedProfile={profileCache.get(selectedParent.parentId) ?? null}
-            onChanged={load}
-            onProfileCached={cacheProfile}
-          />
+          <ParentDetailPanel parent={selectedParent} onChanged={load} />
         ) : (
           <div className="lg:col-span-3 bg-white rounded-xl border border-slate-200 shadow-soft flex flex-col items-center justify-center p-12 text-center text-slate-400 space-y-3">
             <Users className="w-12 h-12 text-slate-300" />
@@ -139,7 +122,6 @@ export default function ParentsPage() {
           onClose={() => setCreateOpen(false)}
           onCreated={(parent) => {
             setCreateOpen(false);
-            cacheProfile(parent);
             setSelectedId(parent.id);
             load();
           }}

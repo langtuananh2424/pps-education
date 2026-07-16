@@ -23,11 +23,13 @@ export default function ParentCreateModal({ onClose, onCreated }: ParentCreateMo
   const [form, setForm] = useState({ occupation: "", workplace: "", address: "", notes: "" });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [submitAttempted, setSubmitAttempted] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!account.userId && !account.newAccount?.username) {
-      setError("Vui lòng chọn tài khoản có sẵn hoặc điền thông tin tài khoản mới.");
+    setSubmitAttempted(true);
+    if (!account.userId && (!account.newAccount?.username || !account.newAccount?.email || !account.newAccount?.fullName)) {
+      setError("Vui lòng chọn tài khoản có sẵn hoặc điền đủ thông tin tài khoản mới.");
       return;
     }
     setSubmitting(true);
@@ -62,7 +64,7 @@ export default function ParentCreateModal({ onClose, onCreated }: ParentCreateMo
 
           <div className="space-y-2">
             <span className="text-[10px] font-bold uppercase text-slate-500">Tài khoản</span>
-            <AccountSelector value={account} onChange={setAccount} />
+            <AccountSelector value={account} onChange={setAccount} submitAttempted={submitAttempted} />
           </div>
 
           <div className="space-y-3 border-t border-slate-100 pt-4">

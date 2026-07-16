@@ -1,7 +1,7 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Bell, ChevronDown, Clock, LogOut, Menu, MapPin, Settings, ShieldCheck, User } from "lucide-react";
 import { useApp } from "@/context/AppContext";
-import { mockCampuses } from "@/data/mockData";
+import { listSites, SiteResponse } from "@/features/facility/api";
 import { roleLabels } from "@/constants/roles";
 import Avatar from "@/components/ui/Avatar";
 import Dropdown from "@/components/ui/Dropdown";
@@ -14,6 +14,11 @@ const notifications = [
 
 export default function Header() {
   const { currentRole, currentUser, selectedCampusId, setSelectedCampusId, sidebarOpen, setSidebarOpen, logout } = useApp();
+  const [sites, setSites] = useState<SiteResponse[]>([]);
+
+  useEffect(() => {
+    listSites().then(setSites).catch(() => undefined);
+  }, []);
 
   return (
     <header className="h-16 bg-transparent px-2 md:px-0 flex items-center justify-between z-30 mb-4 shrink-0">
@@ -34,9 +39,9 @@ export default function Header() {
             className="bg-transparent border-none text-slate-800 font-semibold focus:outline-none focus:ring-0 cursor-pointer pr-1"
           >
             <option value="ALL">Tất cả cơ sở & Trường liên kết</option>
-            {mockCampuses.map((campus) => (
-              <option key={campus.id} value={campus.id}>
-                {campus.name}
+            {sites.map((site) => (
+              <option key={site.id} value={site.id}>
+                {site.name}
               </option>
             ))}
           </select>

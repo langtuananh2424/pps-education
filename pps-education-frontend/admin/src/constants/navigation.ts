@@ -90,6 +90,8 @@ export const navSections: NavSection[] = [
     id: "academic",
     title: "QUẢN LÝ HỌC THUẬT",
     items: [
+      // Không gate requiredPermission: Giáo viên (không có academic.class.manage) vẫn cần vào đây để điểm danh/nhập điểm/viết nhận xét cho lớp mình dạy.
+      { id: "acad-classes", label: "Quản lý lớp học (UC-18)", path: "/academic/classes", icon: GraduationCap },
       { id: "acad-syllabus", label: "Khung chương trình (UC-16/17)", path: "/academic/syllabus", icon: GraduationCap, requiredPermission: "academic.curriculum.manage" },
       { id: "acad-grades", label: "Sổ điểm hệ thống (UC-19/20)", path: "/academic/grades", icon: Award, requiredPermission: "academic.grade.manage" },
       { id: "acad-comments", label: "Nhận xét học viên (UC-21/22)", path: "/academic/comments", icon: Award }
