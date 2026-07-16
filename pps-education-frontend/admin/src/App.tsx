@@ -17,6 +17,7 @@ import LeavesPage from "@/features/hrm/pages/LeavesPage";
 import PayrollPage from "@/features/hrm/pages/PayrollPage";
 import CRMPage from "@/features/crm/pages/CRMPage";
 import StudentProfilesPage from "@/features/student/pages/ProfilesPage";
+import ParentsPage from "@/features/student/pages/ParentsPage";
 import StudentAttendancePage from "@/features/student/pages/AttendancePage";
 import SyllabusPage from "@/features/academic/pages/SyllabusPage";
 import GradesPage from "@/features/academic/pages/GradesPage";
@@ -58,6 +59,7 @@ export default function App() {
           <Route path="/hrm/payroll" element={<PayrollPage />} />
           <Route path="/crm/leads" element={<CRMPage />} />
           <Route path="/student/profile" element={<StudentProfilesPage />} />
+          <Route path="/student/parents" element={<ParentsPage />} />
           <Route path="/student/attendance" element={<StudentAttendancePage />} />
           <Route path="/academic/syllabus" element={<SyllabusPage />} />
           <Route path="/academic/grades" element={<GradesPage />} />

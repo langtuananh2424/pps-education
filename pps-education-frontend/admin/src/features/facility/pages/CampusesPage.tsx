@@ -1,68 +1,71 @@
-import React from "react";
-import { Building2, MapPin, Sliders } from "lucide-react";
-import { mockCampuses } from "@/data/mockData";
-import Card from "@/components/ui/Card";
-import Badge from "@/components/ui/Badge";
+import React, { useEffect, useState } from "react";
+import { Building2 } from "lucide-react";
+import { ApiError } from "@/lib/apiClient";
+import { listSites, SiteResponse } from "../api";
+import SiteListPanel from "../components/SiteListPanel";
+import SiteDetailPanel from "../components/SiteDetailPanel";
+import SiteFormModal from "../components/SiteFormModal";
 
 export default function CampusesPage() {
+  const [sites, setSites] = useState<SiteResponse[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+
+  const load = () => {
+    setLoading(true);
+    setError(null);
+    listSites()
+      .then((res) => {
+        setSites(res);
+        if (selectedId == null && res.length > 0) setSelectedId(res[0].id);
+      })
+      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách điểm trường."))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(load, []);
+
+  const selectedSite = sites.find((s) => s.id === selectedId) ?? null;
+
   return (
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Quản Lý Điểm Trường, Phòng Học & Đối Tác</h1>
-        <p className="text-xs text-slate-500 mt-1">Khai báo cơ sở tự vận hành và hợp đồng đối tác trường liên kết (UC-36/36b).</p>
+        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Quản lý Điểm trường & Hợp đồng (UC-36/36b)</h1>
+        <p className="text-xs text-slate-500 mt-1">
+          Khai báo cơ sở tự vận hành và trường liên kết, gán Quản lý điểm trường, quản lý hợp đồng hợp tác.
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {mockCampuses.map((camp) => (
-          <Card key={camp.id} className="flex flex-col justify-between">
-            <div className="space-y-3.5">
-              <div className="flex items-start gap-3 border-b pb-3">
-                <div className="p-2.5 rounded-lg bg-slate-900 text-brand-orange shrink-0">
-                  <Building2 className="w-6 h-6" />
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-slate-900">{camp.name}</h4>
-                  <span className="text-[10px] text-slate-400 font-mono mt-0.5 block">Mã cơ sở: {camp.id}</span>
-                </div>
-              </div>
+      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
-              <div className="space-y-2 text-xs text-slate-600">
-                <p className="flex items-center gap-1.5">
-                  <MapPin className="w-4 h-4 text-slate-400 shrink-0" />
-                  <span>Địa chỉ: {camp.address}</span>
-                </p>
-                <p className="flex items-center gap-1.5">
-                  <Building2 className="w-4 h-4 text-slate-400 shrink-0" />
-                  <span>Hạng mục: {camp.type === "SELF_OPERATED" ? "Cơ sở Tự vận hành" : "Trường liên kết giáo dục"}</span>
-                </p>
-                <p className="flex items-center gap-1.5">
-                  <Sliders className="w-4 h-4 text-slate-400 shrink-0" />
-                  <span>Phụ trách chính: {camp.managerName}</span>
-                </p>
-              </div>
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        <SiteListPanel sites={sites} loading={loading} selectedId={selectedId} onSelect={setSelectedId} onCreate={() => setCreateOpen(true)} />
 
-              {camp.type === "AFFILIATED" && (
-                <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 space-y-1.5 text-[11px] leading-relaxed">
-                  <div className="flex items-center justify-between font-semibold">
-                    <span className="text-slate-500">Người đại diện liên hệ:</span>
-                    <span className="text-slate-800">{camp.contactPerson}</span>
-                  </div>
-
-                  <div className="flex items-center justify-between font-semibold">
-                    <span className="text-slate-500">Trạng thái hợp đồng hợp tác:</span>
-                    <Badge variant={camp.contractStatus === "ACTIVE" ? "success" : "warning"}>{camp.contractStatus === "ACTIVE" ? "ĐANG HIỆU LỰC" : "ĐANG CHỜ GIA HẠN"}</Badge>
-                  </div>
-
-                  <div className="flex items-center justify-between text-slate-500">
-                    <span>Thời hạn hết hạn hợp đồng:</span>
-                    <span className="font-mono font-bold text-slate-700">{camp.contractExpiryDate}</span>
-                  </div>
-                </div>
-              )}
+        {selectedSite ? (
+          <SiteDetailPanel site={selectedSite} onChanged={load} />
+        ) : (
+          <div className="lg:col-span-3 bg-white rounded-xl border border-slate-200 shadow-soft flex flex-col items-center justify-center p-12 text-center text-slate-400 space-y-3">
+            <Building2 className="w-12 h-12 text-slate-300" />
+            <div>
+              <h3 className="text-sm font-bold text-slate-700">Chưa chọn điểm trường nào</h3>
+              <p className="text-xs text-slate-400 mt-1">Chọn 1 điểm trường bên trái hoặc thêm mới để xem/sửa.</p>
             </div>
-          </Card>
-        ))}
+          </div>
+        )}
       </div>
+
+      {createOpen && (
+        <SiteFormModal
+          onClose={() => setCreateOpen(false)}
+          onCreated={(id) => {
+            setCreateOpen(false);
+            setSelectedId(id);
+            load();
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -62,23 +62,23 @@ export interface UserSearchFilter {
   status?: "ACTIVE" | "INACTIVE" | "SUSPENDED";
 }
 
-/** Khớp CreateUserRequest thật (UC-43). */
+/**
+ * Khớp CreateUserRequest thật (UC-43). KHÔNG có departmentId/isManagement —
+ * 2 trường đó đã chuyển sang hồ sơ nhân sự (UC-08, CreateEmployeeRequest),
+ * không thuộc tài khoản chung nữa (refactor BE gần đây).
+ */
 export interface CreateUserRequest {
   username: string;
   email: string;
   fullName: string;
   phone?: string;
-  departmentId?: number;
-  isManagement?: boolean;
   password?: string;
 }
 
-/** Khớp UpdateUserRequest thật (UC-49) — không có username/email/password/status. */
+/** Khớp UpdateUserRequest thật (UC-49) — không có username/email/password/status/departmentId/isManagement. */
 export interface UpdateUserRequest {
   fullName: string;
   phone?: string;
-  departmentId?: number;
-  isManagement: boolean;
 }
 
 /** UC-44 Main Flow bước 1-2: danh sách + tìm kiếm/lọc tài khoản. */

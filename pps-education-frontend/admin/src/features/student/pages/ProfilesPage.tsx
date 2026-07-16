@@ -1,248 +1,79 @@
 import React, { useEffect, useState } from "react";
 import { GraduationCap } from "lucide-react";
-import { CommentEntry, GradeEntry, Student } from "@/types";
-import { mockClassrooms } from "@/data/mockData";
-import { readStoredCommentEntries, readStoredGradeEntries, readStoredStudents, writeStoredCommentEntries, writeStoredGradeEntries, writeStoredStudents } from "../storage";
-import { getStatusLabel } from "../utils";
-import NotificationBanner from "../components/NotificationBanner";
+import { ApiError } from "@/lib/apiClient";
+import { listStudents, StudentResponse } from "../api";
 import StudentListPanel from "../components/StudentListPanel";
 import StudentDetailPanel from "../components/StudentDetailPanel";
-import StudentFormModal, { StudentFormValues } from "../components/StudentFormModal";
-
-const emptyForm: StudentFormValues = {
-  fullName: "",
-  birthDate: "2018-05-15",
-  avatarUrl: "",
-  phone: "",
-  parentName: "",
-  parentPhone: "",
-  campusId: "CAMP-01",
-  classIds: ["CLS-01"],
-  status: "STUDYING"
-};
-
-function toFormValues(s: Student): StudentFormValues {
-  return {
-    fullName: s.fullName,
-    birthDate: s.birthDate,
-    avatarUrl: s.avatarUrl || "",
-    phone: s.phone,
-    parentName: s.parentName,
-    parentPhone: s.parentPhone,
-    campusId: s.campusId,
-    classIds: s.classIds,
-    status: s.status
-  };
-}
+import StudentFormModal from "../components/StudentFormModal";
 
 export default function ProfilesPage() {
-  const [students, setStudents] = useState<Student[]>(readStoredStudents);
-  const [gradeEntries, setGradeEntries] = useState<GradeEntry[]>(readStoredGradeEntries);
-  const [commentEntries, setCommentEntries] = useState<CommentEntry[]>(readStoredCommentEntries);
-  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(students[0]?.id || null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [notification, setNotification] = useState<string | null>(null);
-  const [showModal, setShowModal] = useState(false);
-  const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+  const [students, setStudents] = useState<StudentResponse[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
 
-  useEffect(() => writeStoredStudents(students), [students]);
-  useEffect(() => writeStoredGradeEntries(gradeEntries), [gradeEntries]);
-  useEffect(() => writeStoredCommentEntries(commentEntries), [commentEntries]);
-
-  const classrooms = mockClassrooms;
-  const filteredStudents = students.filter(
-    (s) => s.fullName.toLowerCase().includes(searchTerm.toLowerCase()) || s.parentName.toLowerCase().includes(searchTerm.toLowerCase()) || s.id.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-  const selectedStudent = students.find((s) => s.id === selectedStudentId) || null;
-  const studentComments = commentEntries.filter((c) => c.studentId === selectedStudentId);
-  const studentGrade = selectedStudent ? gradeEntries.find((g) => g.studentId === selectedStudentId && g.classId === (selectedStudent.classIds[0] || "")) || null : null;
-
-  const handleUpdateStatus = (studentId: string, newStatus: Student["status"]) => {
-    const timeString = new Date().toISOString().substring(0, 10);
-    setStudents((prev) =>
-      prev.map((s) => (s.id === studentId ? { ...s, status: newStatus, history: [...s.history, `${timeString}: Cập nhật trạng thái học tập sang ${getStatusLabel(newStatus)} (Hệ thống ghi nhận).`] } : s))
-    );
-    setNotification(`🔄 Đã cập nhật trạng thái học viên sang: ${getStatusLabel(newStatus)}`);
+  const load = () => {
+    setLoading(true);
+    setError(null);
+    listStudents(query)
+      .then((res) => {
+        setStudents(res);
+        if (selectedId == null && res.length > 0) setSelectedId(res[0].id);
+      })
+      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách học sinh."))
+      .finally(() => setLoading(false));
   };
 
-  const handleSubmitForm = (values: StudentFormValues) => {
-    const timeString = new Date().toISOString().substring(0, 10);
+  useEffect(load, []);
 
-    if (editingStudent) {
-      setStudents((prev) =>
-        prev.map((s) =>
-          s.id === editingStudent.id
-            ? {
-                ...s,
-                fullName: values.fullName,
-                birthDate: values.birthDate,
-                avatarUrl: values.avatarUrl.trim() || undefined,
-                phone: values.phone,
-                parentName: values.parentName,
-                parentPhone: values.parentPhone,
-                campusId: values.campusId,
-                classIds: values.classIds,
-                status: values.status,
-                history: [...s.history, `${timeString}: Cập nhật thông tin hồ sơ học viên.`]
-              }
-            : s
-        )
-      );
-      setNotification(`✅ Đã cập nhật thông tin học viên ${values.fullName} thành công!`);
-    } else {
-      const newId = `STU-00${students.length + 1}`;
-      const newStudent: Student = {
-        id: newId,
-        fullName: values.fullName,
-        birthDate: values.birthDate,
-        avatarUrl: values.avatarUrl.trim() || undefined,
-        phone: values.phone,
-        parentName: values.parentName,
-        parentPhone: values.parentPhone,
-        campusId: values.campusId,
-        classIds: values.classIds,
-        status: values.status,
-        history: [`${timeString}: Khởi tạo hồ sơ học viên mới trên hệ thống.`]
-      };
-      setStudents((prev) => [...prev, newStudent]);
-      setSelectedStudentId(newId);
-      setNotification(`✅ Đã tiếp nhận học viên mới: ${values.fullName} (${newId})!`);
-    }
-
-    setShowModal(false);
-    setEditingStudent(null);
-  };
-
-  const handleDelete = (studentId: string) => {
-    const student = students.find((s) => s.id === studentId);
-    if (!student) return;
-    if (!window.confirm(`CẢNH BÁO: Bạn có chắc chắn muốn xóa hồ sơ học sinh "${student.fullName}"? Mọi nhận xét học tập và bảng điểm liên quan sẽ bị xóa.`)) return;
-
-    const updated = students.filter((s) => s.id !== studentId);
-    setStudents(updated);
-    if (selectedStudentId === studentId) setSelectedStudentId(updated[0]?.id || null);
-    setNotification(`❌ Đã xóa hồ sơ học viên ${student.fullName} khỏi hệ thống.`);
-  };
-
-  const handleAddComment = (type: CommentEntry["type"], content: string, isWarning: boolean) => {
-    if (!selectedStudent) return;
-    const primaryClassId = selectedStudent.classIds[0] || "CLS-01";
-    const matchedClass = classrooms.find((c) => c.id === primaryClassId);
-    const timeString = new Date().toISOString().substring(0, 10);
-
-    const newComment: CommentEntry = {
-      id: `CMT-${Date.now().toString().substring(8)}`,
-      studentId: selectedStudent.id,
-      studentName: selectedStudent.fullName,
-      classId: primaryClassId,
-      className: matchedClass?.name || "Lớp học",
-      type,
-      content,
-      isWarning,
-      status: "APPROVED",
-      createdAt: timeString
-    };
-
-    setCommentEntries((prev) => [newComment, ...prev]);
-    setStudents((prev) =>
-      prev.map((s) =>
-        s.id === selectedStudent.id
-          ? { ...s, history: [...s.history, `${timeString}: Giáo viên gửi đánh giá ${type === "DAILY" ? "hàng ngày" : type === "MIDTERM" ? "giữa kỳ" : "cuối kỳ"} - ${isWarning ? "⚠️ CÓ CẢNH BÁO" : "Bình thường"}.`] }
-          : s
-      )
-    );
-    setNotification("✅ Đã cập nhật nhận xét và đồng bộ hóa thành công!");
-  };
-
-  const handleSaveGrade = (midterm: number, final: number, comments: string) => {
-    if (!selectedStudent) return;
-    const primaryClassId = selectedStudent.classIds[0] || "CLS-01";
-    const matchedClass = classrooms.find((c) => c.id === primaryClassId);
-    const averageNum = Math.round(((midterm + final) / 2) * 10) / 10;
-    const timeString = new Date().toISOString().substring(0, 10);
-    const existingGrade = gradeEntries.find((g) => g.studentId === selectedStudent.id && g.classId === primaryClassId);
-
-    if (existingGrade) {
-      setGradeEntries((prev) =>
-        prev.map((g) => (g.id === existingGrade.id ? { ...g, midtermScore: midterm, finalScore: final, averageScore: averageNum, teacherComments: comments, updatedAt: timeString } : g))
-      );
-    } else {
-      const newGrade: GradeEntry = {
-        id: `GRD-${Date.now().toString().substring(8)}`,
-        studentId: selectedStudent.id,
-        studentName: selectedStudent.fullName,
-        classId: primaryClassId,
-        className: matchedClass?.name || "Lớp học",
-        midtermScore: midterm,
-        finalScore: final,
-        averageScore: averageNum,
-        status: "APPROVED",
-        teacherComments: comments,
-        updatedAt: timeString
-      };
-      setGradeEntries((prev) => [newGrade, ...prev]);
-    }
-
-    setStudents((prev) =>
-      prev.map((s) => (s.id === selectedStudent.id ? { ...s, history: [...s.history, `${timeString}: Cập nhật bảng điểm học tập (Giữa kỳ: ${midterm}, Cuối kỳ: ${final}, Trung bình: ${averageNum}).`] } : s))
-    );
-    setNotification(`✅ Đã cập nhật học bạ lớp ${matchedClass?.name || ""} thành công!`);
-  };
+  const selectedStudent = students.find((s) => s.id === selectedId) ?? null;
 
   return (
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900 flex items-center gap-2">
-          <GraduationCap className="w-6 h-6 text-brand-orange" />
-          Hồ Sơ Học Sinh & Học Trình
-        </h1>
+        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Quản lý hồ sơ học sinh (UC-13)</h1>
         <p className="text-xs text-slate-500 mt-1">
-          Quản lý thông tin học viên (CRUD), theo dõi trạng thái học tập, học bạ điểm số (UC-13/14).
+          Lưu hồ sơ học sinh, liên kết phụ huynh, theo dõi chuyển lớp/điểm trường và trạng thái học tập — khởi tạo kèm tài khoản đăng nhập.
         </p>
       </div>
 
-      <NotificationBanner message={notification} onClose={() => setNotification(null)} />
+      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <div className="lg:col-span-7">
-          <StudentListPanel
-            students={filteredStudents}
-            classrooms={classrooms}
-            selectedStudentId={selectedStudentId}
-            searchTerm={searchTerm}
-            onSearchChange={setSearchTerm}
-            onSelect={setSelectedStudentId}
-            onAdd={() => {
-              setEditingStudent(null);
-              setShowModal(true);
-            }}
-            onEdit={(s) => {
-              setEditingStudent(s);
-              setShowModal(true);
-            }}
-            onDelete={handleDelete}
-          />
-        </div>
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        <StudentListPanel
+          students={students}
+          loading={loading}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+          onCreate={() => setCreateOpen(true)}
+          query={query}
+          onQueryChange={setQuery}
+          onSearch={load}
+        />
 
-        <div className="lg:col-span-5">
-          <StudentDetailPanel
-            student={selectedStudent}
-            comments={studentComments}
-            grade={studentGrade}
-            onUpdateStatus={handleUpdateStatus}
-            onAddComment={handleAddComment}
-            onSaveGrade={handleSaveGrade}
-          />
-        </div>
+        {selectedStudent ? (
+          <StudentDetailPanel student={selectedStudent} onChanged={load} />
+        ) : (
+          <div className="lg:col-span-3 bg-white rounded-xl border border-slate-200 shadow-soft flex flex-col items-center justify-center p-12 text-center text-slate-400 space-y-3">
+            <GraduationCap className="w-12 h-12 text-slate-300" />
+            <div>
+              <h3 className="text-sm font-bold text-slate-700">Chưa chọn học sinh nào</h3>
+              <p className="text-xs text-slate-400 mt-1">Chọn 1 học sinh bên trái hoặc thêm mới để xem/sửa hồ sơ.</p>
+            </div>
+          </div>
+        )}
       </div>
 
-      {showModal && (
+      {createOpen && (
         <StudentFormModal
-          isEdit={!!editingStudent}
-          initialValues={editingStudent ? toFormValues(editingStudent) : emptyForm}
-          classrooms={classrooms}
-          onClose={() => setShowModal(false)}
-          onSubmit={handleSubmitForm}
+          onClose={() => setCreateOpen(false)}
+          onCreated={(id) => {
+            setCreateOpen(false);
+            setSelectedId(id);
+            load();
+          }}
         />
       )}
     </div>

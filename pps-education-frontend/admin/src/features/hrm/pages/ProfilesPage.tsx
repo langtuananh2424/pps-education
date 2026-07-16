@@ -1,162 +1,80 @@
 import React, { useEffect, useState } from "react";
-import { Employee, UserRole } from "@/types";
-import { readStoredEmployees, writeStoredEmployees } from "../storage";
-import { useToast } from "@/lib/useToast";
-import Toast from "@/components/ui/Toast";
+import { Users } from "lucide-react";
+import { ApiError } from "@/lib/apiClient";
+import { EmployeeResponse, listEmployees } from "../api";
 import EmployeeListPanel from "../components/EmployeeListPanel";
 import EmployeeDetailPanel from "../components/EmployeeDetailPanel";
-import EmployeeFormModal, { EmployeeFormValues } from "../components/EmployeeFormModal";
-
-const emptyFormValues: EmployeeFormValues = {
-  fullName: "",
-  email: "",
-  phone: "",
-  role: UserRole.TEACHER,
-  campusIds: ["CAMP-01"],
-  degrees: "",
-  certificates: "",
-  contractType: "LABOR",
-  baseSalary: 15000000,
-  status: "ACTIVE"
-};
-
-function toFormValues(emp: Employee): EmployeeFormValues {
-  return {
-    fullName: emp.fullName,
-    email: emp.email,
-    phone: emp.phone,
-    role: emp.role,
-    campusIds: emp.campusIds,
-    degrees: emp.degrees.join(", "),
-    certificates: emp.certificates.join(", "),
-    contractType: emp.contracts[0]?.type || "LABOR",
-    baseSalary: emp.contracts[0]?.baseSalary || 12000000,
-    status: emp.status
-  };
-}
+import EmployeeFormModal from "../components/EmployeeFormModal";
 
 export default function ProfilesPage() {
-  const [employees, setEmployees] = useState<Employee[]>(readStoredEmployees);
-  const [selectedEmpId, setSelectedEmpId] = useState(employees[0]?.id || "");
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
-  const { message, showToast } = useToast();
+  const [employees, setEmployees] = useState<EmployeeResponse[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
 
-  useEffect(() => {
-    writeStoredEmployees(employees);
-  }, [employees]);
-
-  const selectedEmp = employees.find((e) => e.id === selectedEmpId) || employees[0];
-
-  const handleAddEmployee = (values: EmployeeFormValues) => {
-    const newId = `EMP-0${employees.length + 1 < 10 ? "0" : ""}${employees.length + 1}`;
-    const employeeRecord: Employee = {
-      id: newId,
-      fullName: values.fullName,
-      email: values.email,
-      phone: values.phone,
-      role: values.role,
-      campusIds: values.campusIds,
-      degrees: values.degrees ? values.degrees.split(",").map((s) => s.trim()).filter(Boolean) : [],
-      certificates: values.certificates ? values.certificates.split(",").map((s) => s.trim()).filter(Boolean) : [],
-      contracts: [{ id: `CTR-0${employees.length + 1 < 10 ? "0" : ""}${employees.length + 1}`, type: values.contractType, startDate: new Date().toISOString().substring(0, 10), baseSalary: values.baseSalary }],
-      rewards: [],
-      disciplines: [],
-      joinedDate: new Date().toISOString().substring(0, 10),
-      status: "ACTIVE"
-    };
-
-    setEmployees((prev) => [...prev, employeeRecord]);
-    setSelectedEmpId(newId);
-    setShowCreateModal(false);
-    showToast("Đã thêm mới cán bộ thành công!");
-  };
-
-  const handleUpdateEmployee = (values: EmployeeFormValues) => {
-    if (!editingEmployee) return;
-    setEmployees((prev) =>
-      prev.map((emp) => {
-        if (emp.id !== editingEmployee.id) return emp;
-        const updatedContracts = [...emp.contracts];
-        if (updatedContracts.length > 0) {
-          updatedContracts[0] = { ...updatedContracts[0], type: values.contractType, baseSalary: values.baseSalary };
-        } else {
-          updatedContracts.push({ id: `CTR-${Date.now().toString().substring(8)}`, type: values.contractType, startDate: emp.joinedDate, baseSalary: values.baseSalary });
-        }
-        return {
-          ...emp,
-          fullName: values.fullName,
-          email: values.email,
-          phone: values.phone,
-          role: values.role,
-          campusIds: values.campusIds,
-          degrees: values.degrees ? values.degrees.split(",").map((s) => s.trim()).filter(Boolean) : [],
-          certificates: values.certificates ? values.certificates.split(",").map((s) => s.trim()).filter(Boolean) : [],
-          contracts: updatedContracts,
-          status: values.status
-        };
+  const load = () => {
+    setLoading(true);
+    setError(null);
+    listEmployees(query)
+      .then((res) => {
+        setEmployees(res);
+        if (selectedId == null && res.length > 0) setSelectedId(res[0].id);
       })
-    );
-    setEditingEmployee(null);
-    showToast("Đã cập nhật thông tin cán bộ thành công!");
+      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách nhân sự."))
+      .finally(() => setLoading(false));
   };
 
-  const handleToggleStatus = (empId: string) => {
-    const emp = employees.find((e) => e.id === empId);
-    if (!emp) return;
-    const nextStatus = emp.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
-    setEmployees((prev) => prev.map((e) => (e.id === empId ? { ...e, status: nextStatus } : e)));
-    showToast(`Đã ${nextStatus === "ACTIVE" ? "kích hoạt lại" : "tắt hoạt động"} cán bộ ${emp.fullName}!`);
-  };
+  useEffect(load, []);
 
-  const handleAddReward = (empId: string, text: string) => {
-    setEmployees((prev) => prev.map((emp) => (emp.id === empId ? { ...emp, rewards: [...emp.rewards, text] } : emp)));
-    showToast("Đã thêm quyết định khen thưởng!");
-  };
-
-  const handleAddDiscipline = (empId: string, text: string) => {
-    setEmployees((prev) => prev.map((emp) => (emp.id === empId ? { ...emp, disciplines: [...emp.disciplines, text] } : emp)));
-    showToast("Đã ghi nhận quyết định kỷ luật!");
-  };
+  const selectedEmployee = employees.find((e) => e.id === selectedId) ?? null;
 
   return (
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Phân hệ Quản lý Nhân sự & Tiền lương (HRM)</h1>
+        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Quản lý hồ sơ nhân sự (UC-08)</h1>
         <p className="text-xs text-slate-500 mt-1">
-          Lưu hồ sơ cán bộ đa cơ sở, kiểm soát thiết bị chấm công tự động, tính lương tự động dựa trên ngày công (UC-08/09/10/11/12).
+          Lưu hồ sơ cán bộ, bằng cấp/chứng chỉ, hợp đồng lao động, khen thưởng/kỷ luật — khởi tạo kèm tài khoản đăng nhập.
         </p>
       </div>
 
-      <Toast message={message} />
+      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         <EmployeeListPanel
           employees={employees}
-          selectedEmpId={selectedEmp?.id || ""}
-          onSelect={setSelectedEmpId}
-          onCreate={() => setShowCreateModal(true)}
-          onEdit={setEditingEmployee}
-          onToggleStatus={handleToggleStatus}
+          loading={loading}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+          onCreate={() => setCreateOpen(true)}
+          query={query}
+          onQueryChange={setQuery}
+          onSearch={load}
         />
 
-        {selectedEmp && (
-          <EmployeeDetailPanel
-            employee={selectedEmp}
-            onToggleStatus={handleToggleStatus}
-            onEdit={setEditingEmployee}
-            onAddReward={handleAddReward}
-            onAddDiscipline={handleAddDiscipline}
-          />
+        {selectedEmployee ? (
+          <EmployeeDetailPanel employee={selectedEmployee} onChanged={load} />
+        ) : (
+          <div className="lg:col-span-3 bg-white rounded-xl border border-slate-200 shadow-soft flex flex-col items-center justify-center p-12 text-center text-slate-400 space-y-3">
+            <Users className="w-12 h-12 text-slate-300" />
+            <div>
+              <h3 className="text-sm font-bold text-slate-700">Chưa chọn nhân sự nào</h3>
+              <p className="text-xs text-slate-400 mt-1">Chọn 1 nhân sự bên trái hoặc thêm mới để xem/sửa hồ sơ.</p>
+            </div>
+          </div>
         )}
       </div>
 
-      {showCreateModal && (
-        <EmployeeFormModal mode="create" initialValues={emptyFormValues} onClose={() => setShowCreateModal(false)} onSubmit={handleAddEmployee} />
-      )}
-
-      {editingEmployee && (
-        <EmployeeFormModal mode="edit" initialValues={toFormValues(editingEmployee)} onClose={() => setEditingEmployee(null)} onSubmit={handleUpdateEmployee} />
+      {createOpen && (
+        <EmployeeFormModal
+          onClose={() => setCreateOpen(false)}
+          onCreated={(id) => {
+            setCreateOpen(false);
+            setSelectedId(id);
+            load();
+          }}
+        />
       )}
     </div>
   );

@@ -1,101 +1,472 @@
-import React, { useState } from "react";
-import { BookOpen, Clock, TrendingUp, Users } from "lucide-react";
-import { CommentEntry, GradeEntry, Student } from "@/types";
-import StudentCommentsTab from "./StudentCommentsTab";
-import StudentGradesTab from "./StudentGradesTab";
+import React, { useEffect, useState } from "react";
+import { ArrowRightLeft, FileText, History, Save, UserPlus, Users, X } from "lucide-react";
+import { ApiError } from "@/lib/apiClient";
+import AccountSelector, { AccountSelection } from "@/features/system-admin/components/AccountSelector";
+import {
+  createParent,
+  linkParent,
+  listSites,
+  listStatusHistory,
+  listStudentParents,
+  listTransferHistory,
+  ParentStudentResponse,
+  recordTransfer,
+  RecordTransferRequest,
+  SiteOption,
+  StudentResponse,
+  StudentStatusHistoryResponse,
+  StudentTransferHistoryResponse,
+  unlinkParent,
+  updateStudent,
+  updateStudentStatus,
+  UpdateStudentRequest
+} from "../api";
+import Badge from "@/components/ui/Badge";
+import Button from "@/components/ui/Button";
+import { studentStatusLabels, studentStatusVariants } from "./StudentListPanel";
 
-const DEFAULT_AVATAR = "https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=150&h=150&q=80";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
+const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+
+type Tab = "profile" | "parents" | "transfer" | "status";
 
 interface StudentDetailPanelProps {
-  student: Student | null;
-  comments: CommentEntry[];
-  grade: GradeEntry | null;
-  onUpdateStatus: (studentId: string, status: Student["status"]) => void;
-  onAddComment: (type: CommentEntry["type"], content: string, isWarning: boolean) => void;
-  onSaveGrade: (midterm: number, final: number, comments: string) => void;
+  student: StudentResponse;
+  onChanged: () => void;
 }
 
-export default function StudentDetailPanel({ student, comments, grade, onUpdateStatus, onAddComment, onSaveGrade }: StudentDetailPanelProps) {
-  const [tab, setTab] = useState<"comments" | "grades" | "history">("comments");
-
-  if (!student) {
-    return (
-      <div className="bg-slate-50 rounded-xl border border-dashed border-slate-200 p-12 text-center h-full flex flex-col justify-center items-center space-y-2">
-        <Users className="w-8 h-8 text-slate-300" />
-        <h3 className="text-xs font-bold text-slate-700">Chưa chọn học viên</h3>
-        <p className="text-[11px] text-slate-400 max-w-xs">
-          Vui lòng chọn một học viên bên danh sách để bắt đầu theo dõi trạng thái, nhận xét hàng ngày, cập nhật điểm và quản lý học trình.
-        </p>
-      </div>
-    );
-  }
+export default function StudentDetailPanel({ student, onChanged }: StudentDetailPanelProps) {
+  const [tab, setTab] = useState<Tab>("profile");
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden flex flex-col h-full">
-      <div className="p-5 border-b border-slate-100 bg-slate-50/70">
-        <div className="flex items-start gap-4">
-          <img src={student.avatarUrl || DEFAULT_AVATAR} alt={student.fullName} className="w-14 h-14 rounded-xl object-cover border border-slate-200 shrink-0 bg-white shadow-sm" referrerPolicy="no-referrer" />
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-sm font-bold text-slate-900">{student.fullName}</h3>
-              <span className="text-[10px] font-mono bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-bold">{student.id}</span>
-            </div>
-            <span className="text-[11px] text-slate-500 block">Ngày sinh: {student.birthDate}</span>
-            <div className="flex items-center gap-1.5 mt-1">
-              <span className="text-[10px] font-bold text-slate-400">Trạng thái:</span>
-              <select
-                value={student.status}
-                onChange={(e) => onUpdateStatus(student.id, e.target.value as Student["status"])}
-                className="bg-white border border-slate-200 text-[10px] font-bold text-slate-700 px-1.5 py-0.5 rounded focus:outline-none"
-              >
-                <option value="STUDYING">Đang Học</option>
-                <option value="RESERVED">Bảo Lưu</option>
-                <option value="SUSPENDED">Đình Chỉ</option>
-                <option value="GRADUATED">Tốt Nghiệp</option>
-              </select>
-            </div>
+    <div className="lg:col-span-3 bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden flex flex-col">
+      <div className="p-5 border-b border-slate-200 space-y-3 bg-slate-50/20">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-brand-red bg-orange-50 border border-orange-100 px-2 py-0.5 rounded-md">
+              {student.studentCode}
+            </span>
+            <h2 className="text-sm font-bold text-slate-800 mt-1">{student.fullName}</h2>
           </div>
+          <Badge variant={studentStatusVariants[student.status]}>{studentStatusLabels[student.status]}</Badge>
+        </div>
+
+        <div className="flex border-b border-slate-200 pt-1 gap-5 overflow-x-auto">
+          {(
+            [
+              ["profile", "Hồ sơ", FileText],
+              ["parents", "Phụ huynh", Users],
+              ["transfer", "Chuyển lớp/điểm trường", ArrowRightLeft],
+              ["status", "Trạng thái học tập", History]
+            ] as const
+          ).map(([key, label, Icon]) => (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              className={`pb-2.5 text-xs font-bold border-b-2 flex items-center gap-1.5 transition-all whitespace-nowrap ${
+                tab === key ? "border-brand-red text-brand-red" : "border-transparent text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              {label}
+            </button>
+          ))}
         </div>
       </div>
 
-      <div className="flex border-b border-slate-100 bg-white">
-        {(
-          [
-            { id: "comments" as const, label: `Nhận xét (${comments.length})`, icon: BookOpen },
-            { id: "grades" as const, label: "Học bạ điểm số", icon: TrendingUp },
-            { id: "history" as const, label: `Nhật ký (${student.history.length})`, icon: Clock }
-          ]
-        ).map((item) => (
-          <button
-            key={item.id}
-            onClick={() => setTab(item.id)}
-            className={`flex-1 py-2.5 text-center text-xs font-bold border-b-2 transition-all flex items-center justify-center gap-1.5 ${
-              tab === item.id ? "border-brand-orange text-brand-orange" : "border-transparent text-slate-400 hover:text-slate-600"
-            }`}
-          >
-            <item.icon className="w-3.5 h-3.5" />
-            {item.label}
-          </button>
-        ))}
+      <div className="flex-1 p-5 overflow-y-auto max-h-[560px]">
+        {tab === "profile" && <ProfileTab student={student} onChanged={onChanged} />}
+        {tab === "parents" && <ParentsTab studentId={student.id} />}
+        {tab === "transfer" && <TransferTab studentId={student.id} onChanged={onChanged} />}
+        {tab === "status" && <StatusTab student={student} onChanged={onChanged} />}
       </div>
+    </div>
+  );
+}
 
-      <div className="p-4 flex-1 overflow-y-auto max-h-[460px]">
-        {tab === "comments" && <StudentCommentsTab comments={comments} onAddComment={onAddComment} />}
-        {tab === "grades" && <StudentGradesTab key={student.id} grade={grade} onSave={onSaveGrade} />}
-        {tab === "history" && (
-          <div className="space-y-4">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Nhật ký sự kiện học trình (Audit Log)</span>
-            <div className="relative border-l border-slate-200 pl-4 ml-2 space-y-4">
-              {student.history.map((hist, index) => (
-                <div key={index} className="relative">
-                  <span className="absolute -left-[21px] top-0.5 bg-slate-200 border-2 border-white w-2.5 h-2.5 rounded-full" />
-                  <p className="text-xs text-slate-700 leading-relaxed font-medium">{hist}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+function ProfileTab({ student, onChanged }: { student: StudentResponse; onChanged: () => void }) {
+  const [form, setForm] = useState<UpdateStudentRequest>(() => toForm(student));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => setForm(toForm(student)), [student]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+    try {
+      await updateStudent(student.id, form);
+      onChanged();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Cập nhật hồ sơ thất bại.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelClass}>Ngày sinh *</label>
+          <input type="date" value={form.dateOfBirth} onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })} className={inputClass} required />
+        </div>
+        <div>
+          <label className={labelClass}>Giới tính</label>
+          <select value={form.gender ?? ""} onChange={(e) => setForm({ ...form, gender: (e.target.value || undefined) as UpdateStudentRequest["gender"] })} className={inputClass}>
+            <option value="">-- Chưa rõ --</option>
+            <option value="MALE">Nam</option>
+            <option value="FEMALE">Nữ</option>
+            <option value="OTHER">Khác</option>
+          </select>
+        </div>
+        <div>
+          <label className={labelClass}>Trường gốc</label>
+          <input value={form.originalSchool ?? ""} onChange={(e) => setForm({ ...form, originalSchool: e.target.value })} className={inputClass} />
+        </div>
+        <div>
+          <label className={labelClass}>Lớp gốc</label>
+          <input value={form.originalClass ?? ""} onChange={(e) => setForm({ ...form, originalClass: e.target.value })} className={inputClass} />
+        </div>
+        <div className="col-span-2">
+          <label className={labelClass}>URL ảnh đại diện</label>
+          <input value={form.portraitUrl ?? ""} onChange={(e) => setForm({ ...form, portraitUrl: e.target.value })} className={inputClass} />
+        </div>
+        <div className="col-span-2">
+          <label className={labelClass}>Ghi chú</label>
+          <textarea value={form.notes ?? ""} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2} className={inputClass} />
+        </div>
       </div>
+      <p className="text-[10px] text-slate-400 italic">
+        Điểm trường chính chỉ đổi được qua tab "Chuyển lớp/điểm trường"; trạng thái học tập đổi qua tab "Trạng thái học tập".
+      </p>
+      <Button type="submit" variant="primary" size="sm" disabled={saving}>
+        <Save className="w-3.5 h-3.5" />
+        {saving ? "Đang lưu..." : "Lưu hồ sơ"}
+      </Button>
+    </form>
+  );
+}
+
+function toForm(s: StudentResponse): UpdateStudentRequest {
+  return {
+    dateOfBirth: s.dateOfBirth,
+    gender: s.gender ?? undefined,
+    portraitUrl: s.portraitUrl ?? undefined,
+    originalSchool: s.originalSchool ?? undefined,
+    originalClass: s.originalClass ?? undefined,
+    notes: s.notes ?? undefined
+  };
+}
+
+const relationshipLabels: Record<string, string> = { FATHER: "Bố", MOTHER: "Mẹ", GUARDIAN: "Người giám hộ", OTHER: "Khác" };
+
+function ParentsTab({ studentId }: { studentId: number }) {
+  const [links, setLinks] = useState<ParentStudentResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [addingNew, setAddingNew] = useState(false);
+  const [account, setAccount] = useState<AccountSelection>({ newAccount: { username: "", email: "", fullName: "", phone: "", password: "" } });
+  const [info, setInfo] = useState({ relationship: "MOTHER", isPrimaryContact: false, isFinancialResponsible: false });
+  const [submitting, setSubmitting] = useState(false);
+
+  const load = () => {
+    setLoading(true);
+    listStudentParents(studentId)
+      .then(setLinks)
+      .finally(() => setLoading(false));
+  };
+  useEffect(load, [studentId]);
+
+  const handleAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!account.userId && !account.newAccount?.username) {
+      setError("Vui lòng chọn tài khoản có sẵn hoặc điền thông tin tài khoản mới.");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      const parent = await createParent({ userId: account.userId, newAccount: account.userId ? undefined : account.newAccount });
+      await linkParent(studentId, {
+        parentId: parent.id,
+        relationship: info.relationship as "FATHER" | "MOTHER" | "GUARDIAN" | "OTHER",
+        isPrimaryContact: info.isPrimaryContact,
+        isFinancialResponsible: info.isFinancialResponsible
+      });
+      setAddingNew(false);
+      setAccount({ newAccount: { username: "", email: "", fullName: "", phone: "", password: "" } });
+      load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Liên kết phụ huynh thất bại.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleUnlink = async (link: ParentStudentResponse) => {
+    if (!window.confirm(`Gỡ liên kết phụ huynh "${link.parentFullName}" khỏi học sinh này?`)) return;
+    try {
+      await unlinkParent(studentId, link.id);
+      load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Gỡ liên kết thất bại.");
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+
+      {loading ? (
+        <p className="text-xs text-slate-500">Đang tải...</p>
+      ) : links.length === 0 ? (
+        <p className="text-xs text-slate-400 italic">Chưa liên kết phụ huynh nào.</p>
+      ) : (
+        <div className="space-y-2">
+          {links.map((l) => (
+            <div key={l.id} className="border border-slate-200 rounded-lg p-3 text-xs flex items-center justify-between">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-bold text-slate-800">{l.parentFullName}</span>
+                <Badge variant="info">{relationshipLabels[l.relationship]}</Badge>
+                {l.isPrimaryContact && <Badge variant="brand">Liên hệ chính</Badge>}
+                {l.isFinancialResponsible && <Badge variant="warning">Chịu trách nhiệm tài chính</Badge>}
+              </div>
+              <button onClick={() => handleUnlink(l)} className="text-rose-500 hover:text-rose-700">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {addingNew ? (
+        <form onSubmit={handleAdd} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+          <AccountSelector value={account} onChange={setAccount} />
+          <div className="grid grid-cols-3 gap-2 items-end">
+            <select value={info.relationship} onChange={(e) => setInfo({ ...info, relationship: e.target.value })} className={inputClass}>
+              <option value="FATHER">Bố</option>
+              <option value="MOTHER">Mẹ</option>
+              <option value="GUARDIAN">Người giám hộ</option>
+              <option value="OTHER">Khác</option>
+            </select>
+            <label className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 pb-2.5">
+              <input type="checkbox" checked={info.isPrimaryContact} onChange={(e) => setInfo({ ...info, isPrimaryContact: e.target.checked })} />
+              Liên hệ chính
+            </label>
+            <label className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 pb-2.5">
+              <input type="checkbox" checked={info.isFinancialResponsible} onChange={(e) => setInfo({ ...info, isFinancialResponsible: e.target.checked })} />
+              Chịu trách nhiệm tài chính
+            </label>
+          </div>
+          <div className="flex gap-2">
+            <Button type="button" variant="secondary" size="sm" onClick={() => setAddingNew(false)}>
+              Hủy
+            </Button>
+            <Button type="submit" variant="primary" size="sm" disabled={submitting}>
+              {submitting ? "Đang lưu..." : "Liên kết"}
+            </Button>
+          </div>
+        </form>
+      ) : (
+        <Button variant="secondary" size="sm" onClick={() => setAddingNew(true)}>
+          <UserPlus className="w-3.5 h-3.5" />
+          Liên kết phụ huynh
+        </Button>
+      )}
+    </div>
+  );
+}
+
+function TransferTab({ studentId, onChanged }: { studentId: number; onChanged: () => void }) {
+  const [history, setHistory] = useState<StudentTransferHistoryResponse[]>([]);
+  const [sites, setSites] = useState<SiteOption[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState({ transferType: "SITE_CHANGE", toSiteId: "", fromClassId: "", toClassId: "", effectiveDate: "", reason: "" });
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = () => {
+    setLoading(true);
+    listTransferHistory(studentId)
+      .then(setHistory)
+      .finally(() => setLoading(false));
+  };
+  useEffect(load, [studentId]);
+  useEffect(() => {
+    listSites().then(setSites).catch(() => undefined);
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.effectiveDate) {
+      setError("Vui lòng chọn ngày hiệu lực.");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      const request: RecordTransferRequest = {
+        transferType: form.transferType as RecordTransferRequest["transferType"],
+        toSiteId: form.toSiteId ? Number(form.toSiteId) : undefined,
+        fromClassId: form.fromClassId ? Number(form.fromClassId) : undefined,
+        toClassId: form.toClassId ? Number(form.toClassId) : undefined,
+        effectiveDate: form.effectiveDate,
+        reason: form.reason.trim() || undefined
+      };
+      await recordTransfer(studentId, request);
+      setForm({ transferType: "SITE_CHANGE", toSiteId: "", fromClassId: "", toClassId: "", effectiveDate: "", reason: "" });
+      load();
+      onChanged();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Ghi nhận chuyển lớp/điểm trường thất bại.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const needsSite = form.transferType === "SITE_CHANGE" || form.transferType === "BOTH";
+  const needsClass = form.transferType === "CLASS_CHANGE" || form.transferType === "BOTH";
+
+  return (
+    <div className="space-y-4">
+      <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
+        <select value={form.transferType} onChange={(e) => setForm({ ...form, transferType: e.target.value })} className={inputClass}>
+          <option value="SITE_CHANGE">Chuyển điểm trường</option>
+          <option value="CLASS_CHANGE">Chuyển lớp</option>
+          <option value="BOTH">Chuyển cả điểm trường lẫn lớp</option>
+        </select>
+        <div className="grid grid-cols-2 gap-3">
+          {needsSite && (
+            <select value={form.toSiteId} onChange={(e) => setForm({ ...form, toSiteId: e.target.value })} className={inputClass}>
+              <option value="">-- Chọn điểm trường mới --</option>
+              {sites.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          )}
+          {needsClass && (
+            <>
+              <input
+                value={form.fromClassId}
+                onChange={(e) => setForm({ ...form, fromClassId: e.target.value.replace(/[^0-9]/g, "") })}
+                placeholder="ID lớp đang học (fromClassId) *"
+                className={inputClass}
+              />
+              <input
+                value={form.toClassId}
+                onChange={(e) => setForm({ ...form, toClassId: e.target.value.replace(/[^0-9]/g, "") })}
+                placeholder="ID lớp mới (toClassId) *"
+                className={inputClass}
+              />
+            </>
+          )}
+          <div>
+            <label className={labelClass}>Ngày hiệu lực *</label>
+            <input type="date" value={form.effectiveDate} onChange={(e) => setForm({ ...form, effectiveDate: e.target.value })} className={inputClass} />
+          </div>
+          <input value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} placeholder="Lý do" className={inputClass} />
+        </div>
+        <Button type="submit" size="sm" variant="primary" disabled={submitting}>
+          {submitting ? "Đang lưu..." : "Ghi nhận chuyển"}
+        </Button>
+      </form>
+
+      {loading ? (
+        <p className="text-xs text-slate-500">Đang tải...</p>
+      ) : history.length === 0 ? (
+        <p className="text-xs text-slate-400 italic">Chưa có lịch sử chuyển lớp/điểm trường.</p>
+      ) : (
+        <div className="space-y-2">
+          {history.map((h) => (
+            <div key={h.id} className="border border-slate-200 rounded-lg p-3 text-xs">
+              <Badge variant="info">{h.transferType}</Badge>
+              <span className="text-slate-500 ml-2">{h.effectiveDate}</span>
+              {h.reason && <span className="text-slate-400 ml-2">— {h.reason}</span>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StatusTab({ student, onChanged }: { student: StudentResponse; onChanged: () => void }) {
+  const [history, setHistory] = useState<StudentStatusHistoryResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState({ newStatus: student.status, reason: "", effectiveDate: "" });
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = () => {
+    setLoading(true);
+    listStatusHistory(student.id)
+      .then(setHistory)
+      .finally(() => setLoading(false));
+  };
+  useEffect(load, [student.id]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.effectiveDate) {
+      setError("Vui lòng chọn ngày hiệu lực.");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      await updateStudentStatus(student.id, { newStatus: form.newStatus, reason: form.reason.trim() || undefined, effectiveDate: form.effectiveDate });
+      load();
+      onChanged();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Đổi trạng thái thất bại.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
+        <div className="grid grid-cols-2 gap-3">
+          <select value={form.newStatus} onChange={(e) => setForm({ ...form, newStatus: e.target.value as StudentResponse["status"] })} className={inputClass}>
+            {Object.entries(studentStatusLabels).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+          <input type="date" value={form.effectiveDate} onChange={(e) => setForm({ ...form, effectiveDate: e.target.value })} className={inputClass} />
+          <input value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} placeholder="Lý do" className={`${inputClass} col-span-2`} />
+        </div>
+        <Button type="submit" size="sm" variant="primary" disabled={submitting}>
+          {submitting ? "Đang lưu..." : "Đổi trạng thái"}
+        </Button>
+      </form>
+
+      {loading ? (
+        <p className="text-xs text-slate-500">Đang tải...</p>
+      ) : history.length === 0 ? (
+        <p className="text-xs text-slate-400 italic">Chưa có lịch sử đổi trạng thái.</p>
+      ) : (
+        <div className="space-y-2">
+          {history.map((h) => (
+            <div key={h.id} className="border border-slate-200 rounded-lg p-3 text-xs">
+              <Badge variant={studentStatusVariants[h.oldStatus]}>{studentStatusLabels[h.oldStatus] ?? h.oldStatus}</Badge>
+              <span className="mx-1.5 text-slate-400">→</span>
+              <Badge variant={studentStatusVariants[h.newStatus]}>{studentStatusLabels[h.newStatus] ?? h.newStatus}</Badge>
+              <span className="text-slate-400 ml-2">{h.effectiveDate}</span>
+              {h.reason && <span className="text-slate-400 ml-2">— {h.reason}</span>}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

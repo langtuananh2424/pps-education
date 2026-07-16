@@ -1,218 +1,182 @@
 import React, { useState } from "react";
-import { Save, Users } from "lucide-react";
-import { Employee, UserRole } from "@/types";
-import { mockCampuses } from "@/data/mockData";
-import { roleLabels } from "@/constants/roles";
+import { Plus } from "lucide-react";
+import { ApiError } from "@/lib/apiClient";
+import AccountSelector, { AccountSelection } from "@/features/system-admin/components/AccountSelector";
+import { createEmployee, CreateEmployeeRequest } from "../api";
 import Modal from "@/components/ui/Modal";
+import Button from "@/components/ui/Button";
 
-const campusShortNames: Record<string, string> = {
-  "CAMP-01": "Hai Bà Trưng",
-  "CAMP-02": "Cầu Giấy",
-  "CAMP-03": "TH Nghĩa Tân",
-  "CAMP-04": "THCS Lê Quý Đôn"
-};
-
-export interface EmployeeFormValues {
-  fullName: string;
-  email: string;
-  phone: string;
-  role: UserRole;
-  campusIds: string[];
-  degrees: string;
-  certificates: string;
-  contractType: "LABOR" | "COLLABORATOR" | "PROBATION";
-  baseSalary: number;
-  status: "ACTIVE" | "INACTIVE";
-}
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
+const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
 
 interface EmployeeFormModalProps {
-  mode: "create" | "edit";
-  initialValues: EmployeeFormValues;
   onClose: () => void;
-  onSubmit: (values: EmployeeFormValues) => void;
+  onCreated: (id: number) => void;
 }
 
-export default function EmployeeFormModal({ mode, initialValues, onClose, onSubmit }: EmployeeFormModalProps) {
-  const [values, setValues] = useState(initialValues);
+/** UC-08 Main Flow bước 1-2: khởi tạo hồ sơ nhân sự mới, kèm tài khoản mới hoặc gán tài khoản có sẵn (tìm theo email). */
+export default function EmployeeFormModal({ onClose, onCreated }: EmployeeFormModalProps) {
+  const [account, setAccount] = useState<AccountSelection>({ newAccount: { username: "", email: "", fullName: "", phone: "", password: "" } });
+  const [form, setForm] = useState({
+    employeeCode: "",
+    dateOfBirth: "",
+    idCardNumber: "",
+    idCardIssuedDate: "",
+    idCardIssuedPlace: "",
+    permanentAddress: "",
+    currentAddress: "",
+    bankAccountNumber: "",
+    bankName: "",
+    taxCode: "",
+    socialInsuranceNumber: "",
+    employeeType: "TEACHER",
+    positionTitle: "",
+    departmentId: "",
+    hireDate: "",
+    isManagement: false
+  });
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!values.fullName || !values.email || !values.phone) {
-      alert("Vui lòng nhập đầy đủ các trường thông tin bắt buộc!");
+    if (!form.employeeCode.trim() || !form.dateOfBirth || !form.hireDate) {
+      setError("Vui lòng điền mã nhân sự, ngày sinh, ngày vào làm.");
       return;
     }
-    onSubmit(values);
-  };
-
-  const toggleCampus = (campusId: string, checked: boolean) => {
-    setValues((v) => ({
-      ...v,
-      campusIds: checked ? [...v.campusIds, campusId] : v.campusIds.filter((id) => id !== campusId)
-    }));
+    if (!account.userId && !account.newAccount?.username) {
+      setError("Vui lòng chọn tài khoản có sẵn hoặc điền thông tin tài khoản mới.");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      const request: CreateEmployeeRequest = {
+        userId: account.userId,
+        newAccount: account.userId ? undefined : account.newAccount,
+        employeeCode: form.employeeCode.trim(),
+        dateOfBirth: form.dateOfBirth,
+        idCardNumber: form.idCardNumber.trim() || undefined,
+        idCardIssuedDate: form.idCardIssuedDate || undefined,
+        idCardIssuedPlace: form.idCardIssuedPlace.trim() || undefined,
+        permanentAddress: form.permanentAddress.trim() || undefined,
+        currentAddress: form.currentAddress.trim() || undefined,
+        bankAccountNumber: form.bankAccountNumber.trim() || undefined,
+        bankName: form.bankName.trim() || undefined,
+        taxCode: form.taxCode.trim() || undefined,
+        socialInsuranceNumber: form.socialInsuranceNumber.trim() || undefined,
+        employeeType: form.employeeType as CreateEmployeeRequest["employeeType"],
+        positionTitle: form.positionTitle.trim() || undefined,
+        departmentId: form.departmentId ? Number(form.departmentId) : undefined,
+        isManagement: form.isManagement,
+        hireDate: form.hireDate
+      };
+      const employee = await createEmployee(request);
+      onCreated(employee.id);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Tạo hồ sơ nhân sự thất bại.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
-    <Modal
-      open
-      onClose={onClose}
-      title={mode === "create" ? "Khai báo hồ sơ cán bộ mới" : "Cập nhật hồ sơ cán bộ"}
-      size="lg"
-    >
-      <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="space-y-1">
-            <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
-              Họ và tên <span className="text-rose-500">*</span>
-            </label>
-            <input
-              required
-              type="text"
-              placeholder="Nguyễn Văn A"
-              value={values.fullName}
-              onChange={(e) => setValues((v) => ({ ...v, fullName: e.target.value }))}
-              className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none focus:border-brand-orange"
-            />
-          </div>
+    <Modal open onClose={onClose} title="Thêm nhân sự mới (UC-08)" size="lg">
+      <form onSubmit={handleSubmit} className="space-y-5">
+        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
-          <div className="space-y-1">
-            <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
-              Số điện thoại <span className="text-rose-500">*</span>
-            </label>
-            <input
-              required
-              type="text"
-              placeholder="09xxxxxxxx"
-              value={values.phone}
-              onChange={(e) => setValues((v) => ({ ...v, phone: e.target.value }))}
-              className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none focus:border-brand-orange"
-            />
-          </div>
+        <div className="space-y-2">
+          <span className="text-[10px] font-bold uppercase text-slate-500">Tài khoản</span>
+          <AccountSelector value={account} onChange={setAccount} />
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="space-y-1">
-            <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
-              Email công vụ <span className="text-rose-500">*</span>
-            </label>
-            <input
-              required
-              type="email"
-              placeholder="email@pps.edu.vn"
-              value={values.email}
-              onChange={(e) => setValues((v) => ({ ...v, email: e.target.value }))}
-              className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none focus:border-brand-orange"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Chức vụ / Vai trò</label>
-            <select
-              value={values.role}
-              onChange={(e) => setValues((v) => ({ ...v, role: e.target.value as UserRole }))}
-              className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none"
-            >
-              {Object.values(UserRole).map((role) => (
-                <option key={role} value={role}>
-                  {roleLabels[role]}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div className="space-y-1">
-          <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Điểm trường phụ trách (Đa cơ sở)</label>
-          <div className="grid grid-cols-2 gap-2 p-3 bg-slate-50 border border-slate-200/60 rounded-lg">
-            {mockCampuses.map((camp) => (
-              <label key={camp.id} className="flex items-center gap-2 select-none cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={values.campusIds.includes(camp.id)}
-                  onChange={(e) => toggleCampus(camp.id, e.target.checked)}
-                  className="rounded border-slate-300 text-brand-orange focus:ring-brand-orange"
-                />
-                <span className="text-[11px] text-slate-700 truncate" title={camp.name}>
-                  {campusShortNames[camp.id] || camp.name}
-                </span>
-              </label>
-            ))}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="space-y-1">
-            <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Bằng cấp (Ngăn cách bởi dấu phẩy)</label>
-            <input
-              type="text"
-              placeholder="Thạc sĩ Sư Phạm, Cử nhân Tiếng Anh"
-              value={values.degrees}
-              onChange={(e) => setValues((v) => ({ ...v, degrees: e.target.value }))}
-              className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Chứng chỉ (Ngăn cách bởi dấu phẩy)</label>
-            <input
-              type="text"
-              placeholder="IELTS 8.0, CELTA, TESOL"
-              value={values.certificates}
-              onChange={(e) => setValues((v) => ({ ...v, certificates: e.target.value }))}
-              className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none"
-            />
-          </div>
-        </div>
-
-        {mode === "edit" && (
-          <div className="space-y-1">
-            <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Trạng thái làm việc</label>
-            <select
-              value={values.status}
-              onChange={(e) => setValues((v) => ({ ...v, status: e.target.value as "ACTIVE" | "INACTIVE" }))}
-              className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none"
-            >
-              <option value="ACTIVE">Đang làm việc (ACTIVE)</option>
-              <option value="INACTIVE">Nghỉ việc / Tắt hoạt động (INACTIVE)</option>
-            </select>
-          </div>
-        )}
-
-        <div className="p-3 bg-orange-50/40 rounded-xl border border-brand-yellow/20 space-y-3.5">
-          <span className="text-[10px] font-extrabold text-brand-orange uppercase tracking-wider block">Thiết lập hợp đồng</span>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Loại hợp đồng</label>
-              <select
-                value={values.contractType}
-                onChange={(e) => setValues((v) => ({ ...v, contractType: e.target.value as EmployeeFormValues["contractType"] }))}
-                className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none"
-              >
-                <option value="LABOR">HĐ Lao động Dài hạn (LABOR)</option>
-                <option value="COLLABORATOR">HĐ Cộng tác viên / Khoán (COLLABORATOR)</option>
-                <option value="PROBATION">HĐ Thử việc (PROBATION)</option>
+        <div className="space-y-3 border-t border-slate-100 pt-4">
+          <span className="text-[10px] font-bold uppercase text-slate-500">Thông tin nhân sự</span>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelClass}>Mã nhân sự *</label>
+              <input value={form.employeeCode} onChange={(e) => setForm({ ...form, employeeCode: e.target.value })} className={`${inputClass} font-mono`} />
+            </div>
+            <div>
+              <label className={labelClass}>Loại nhân sự *</label>
+              <select value={form.employeeType} onChange={(e) => setForm({ ...form, employeeType: e.target.value })} className={inputClass}>
+                <option value="TEACHER">Giáo viên</option>
+                <option value="STAFF">Nhân viên</option>
+                <option value="MANAGER">Quản lý</option>
               </select>
             </div>
-
-            <div className="space-y-1">
-              <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500 font-mono">Lương cơ bản (đ)</label>
+            <div>
+              <label className={labelClass}>Ngày sinh *</label>
+              <input type="date" value={form.dateOfBirth} onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })} className={inputClass} />
+            </div>
+            <div>
+              <label className={labelClass}>Ngày vào làm *</label>
+              <input type="date" value={form.hireDate} onChange={(e) => setForm({ ...form, hireDate: e.target.value })} className={inputClass} />
+            </div>
+            <div>
+              <label className={labelClass}>Chức vụ</label>
+              <input value={form.positionTitle} onChange={(e) => setForm({ ...form, positionTitle: e.target.value })} className={inputClass} />
+            </div>
+            <div>
+              <label className={labelClass}>ID phòng ban</label>
               <input
-                type="number"
-                value={values.baseSalary}
-                onChange={(e) => setValues((v) => ({ ...v, baseSalary: Number(e.target.value) }))}
-                className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none font-mono"
+                value={form.departmentId}
+                onChange={(e) => setForm({ ...form, departmentId: e.target.value.replace(/[^0-9]/g, "") })}
+                className={inputClass}
+                placeholder="Tùy chọn"
               />
             </div>
+            <div>
+              <label className={labelClass}>Số CCCD</label>
+              <input value={form.idCardNumber} onChange={(e) => setForm({ ...form, idCardNumber: e.target.value })} className={inputClass} />
+            </div>
+            <div>
+              <label className={labelClass}>Ngày cấp CCCD</label>
+              <input type="date" value={form.idCardIssuedDate} onChange={(e) => setForm({ ...form, idCardIssuedDate: e.target.value })} className={inputClass} />
+            </div>
+            <div className="col-span-2">
+              <label className={labelClass}>Nơi cấp CCCD</label>
+              <input value={form.idCardIssuedPlace} onChange={(e) => setForm({ ...form, idCardIssuedPlace: e.target.value })} className={inputClass} />
+            </div>
+            <div>
+              <label className={labelClass}>Địa chỉ thường trú</label>
+              <input value={form.permanentAddress} onChange={(e) => setForm({ ...form, permanentAddress: e.target.value })} className={inputClass} />
+            </div>
+            <div>
+              <label className={labelClass}>Địa chỉ hiện tại</label>
+              <input value={form.currentAddress} onChange={(e) => setForm({ ...form, currentAddress: e.target.value })} className={inputClass} />
+            </div>
+            <div>
+              <label className={labelClass}>Số tài khoản ngân hàng</label>
+              <input value={form.bankAccountNumber} onChange={(e) => setForm({ ...form, bankAccountNumber: e.target.value })} className={inputClass} />
+            </div>
+            <div>
+              <label className={labelClass}>Ngân hàng</label>
+              <input value={form.bankName} onChange={(e) => setForm({ ...form, bankName: e.target.value })} className={inputClass} />
+            </div>
+            <div>
+              <label className={labelClass}>Mã số thuế</label>
+              <input value={form.taxCode} onChange={(e) => setForm({ ...form, taxCode: e.target.value })} className={inputClass} />
+            </div>
+            <div>
+              <label className={labelClass}>Số BHXH</label>
+              <input value={form.socialInsuranceNumber} onChange={(e) => setForm({ ...form, socialInsuranceNumber: e.target.value })} className={inputClass} />
+            </div>
           </div>
+          <label className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+            <input type="checkbox" checked={form.isManagement} onChange={(e) => setForm({ ...form, isManagement: e.target.checked })} />
+            Miễn trừ chấm công (is_management)
+          </label>
         </div>
 
-        <div className="flex gap-2.5 justify-end pt-3 border-t border-slate-100 shrink-0">
-          <button type="button" onClick={onClose} className="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-lg font-bold">
-            Hủy bỏ
-          </button>
-          <button type="submit" className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-bold flex items-center gap-1.5">
-            {mode === "create" ? <Users className="w-4 h-4 text-brand-yellow" /> : <Save className="w-4 h-4 text-brand-yellow" />}
-            <span>{mode === "create" ? "Khai báo hồ sơ" : "Lưu thay đổi"}</span>
-          </button>
+        <div className="flex justify-end gap-2 pt-2">
+          <Button type="button" variant="secondary" onClick={onClose}>
+            Hủy
+          </Button>
+          <Button type="submit" variant="primary" disabled={submitting}>
+            <Plus className="w-3.5 h-3.5" />
+            {submitting ? "Đang tạo..." : "Tạo hồ sơ nhân sự"}
+          </Button>
         </div>
       </form>
     </Modal>
