@@ -13,16 +13,13 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import vn.com.pps.education.dto.CreateParentRequest;
 import vn.com.pps.education.dto.CreateStudentRequest;
 import vn.com.pps.education.dto.LinkParentRequest;
-import vn.com.pps.education.dto.ParentResponse;
 import vn.com.pps.education.dto.ParentStudentResponse;
 import vn.com.pps.education.dto.RecordTransferRequest;
 import vn.com.pps.education.dto.StudentResponse;
 import vn.com.pps.education.dto.StudentStatusHistoryResponse;
 import vn.com.pps.education.dto.StudentTransferHistoryResponse;
-import vn.com.pps.education.dto.UpdateParentRequest;
 import vn.com.pps.education.dto.UpdateStudentRequest;
 import vn.com.pps.education.dto.UpdateStudentStatusRequest;
 import vn.com.pps.education.security.AuthenticatedUser;
@@ -74,21 +71,6 @@ public class StudentController {
                                                      @Valid @RequestBody UpdateStudentRequest request,
                                                      @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(studentService.update(id, request, actor.userId()));
-    }
-
-    @PreAuthorize("hasPermission(null, 'student.manage')")
-    @PostMapping("/parents")
-    public ResponseEntity<ParentResponse> createParent(@Valid @RequestBody CreateParentRequest request,
-                                                          @AuthenticationPrincipal AuthenticatedUser actor) {
-        return ResponseEntity.ok(studentService.createParent(request, actor.userId()));
-    }
-
-    @PreAuthorize("hasPermission(null, 'student.manage')")
-    @PutMapping("/parents/{parentId}")
-    public ResponseEntity<ParentResponse> updateParent(@PathVariable Long parentId,
-                                                          @Valid @RequestBody UpdateParentRequest request,
-                                                          @AuthenticationPrincipal AuthenticatedUser actor) {
-        return ResponseEntity.ok(studentService.updateParent(parentId, request, actor.userId()));
     }
 
     @PreAuthorize("hasPermission(null, 'student.manage')")
