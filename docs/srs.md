@@ -366,6 +366,9 @@ nhân đó mới được thao tác.*
     -   **FR-STU-03: Điểm danh & Chuyên cần -** Giáo viên thực hiện điểm
         danh học sinh đầu mỗi tiết học. Hệ thống tự động tổng hợp tỷ lệ
         nghỉ học và gửi thông báo vắng mặt ngay lập tức cho Phụ huynh.
+        Quản lý điểm trường xem được báo cáo tổng hợp tỷ lệ chuyên cần
+        theo (các) điểm trường mình phụ trách, chỉ xem — không có quyền
+        chỉnh sửa điểm danh (UC-15b, bổ sung 2026-07-16).
 
     -   **FR-STU-04: Nhập phụ huynh theo lô -** Nhân viên giáo vụ nhập
         file Excel danh sách phụ huynh để tạo hồ sơ + liên kết với học
@@ -661,6 +664,10 @@ CDN)**
 
   UC-15             Điểm danh học     FR-STU-03         5
                     sinh                                
+
+  UC-15b            Xem báo cáo       FR-STU-03         5
+                    chuyên cần theo                     
+                    điểm trường                         
 
   UC-50             Nhập phụ huynh    FR-STU-04         5
                     theo lô                             
