@@ -61,7 +61,7 @@ class StudentStatusServiceTest extends AbstractIntegrationTest {
 
         assertThat(history.oldStatus()).isEqualTo("ACTIVE");
         assertThat(history.newStatus()).isEqualTo("SUSPENDED");
-        assertThat(studentService.getById(student.id()).status()).isEqualTo("SUSPENDED");
+        assertThat(studentService.getById(student.id(), siteManager.getId()).status()).isEqualTo("SUSPENDED");
         assertThat(studentStatusService.listStatusHistory(student.id())).containsExactly(history);
     }
 
@@ -74,7 +74,7 @@ class StudentStatusServiceTest extends AbstractIntegrationTest {
                 new UpdateStudentStatusRequest("GRADUATED", "Hoàn thành khóa học", graduationDate),
                 siteManager.getId());
 
-        assertThat(studentService.getById(student.id()).graduationDate()).isEqualTo(graduationDate);
+        assertThat(studentService.getById(student.id(), siteManager.getId()).graduationDate()).isEqualTo(graduationDate);
     }
 
     @Test

@@ -10,6 +10,7 @@ import vn.com.pps.education.domain.ParentStudent;
 import vn.com.pps.education.domain.Role;
 import vn.com.pps.education.domain.SchoolClass;
 import vn.com.pps.education.domain.Site;
+import vn.com.pps.education.domain.SiteManager;
 import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.StudentHistory;
 import vn.com.pps.education.domain.StudentTransferHistory;
@@ -30,6 +31,7 @@ import vn.com.pps.education.exception.DuplicateStudentCodeException;
 import vn.com.pps.education.exception.ParentAlreadyExistsException;
 import vn.com.pps.education.exception.ParentStudentLinkAlreadyExistsException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
+import vn.com.pps.education.exception.NotSiteManagerForSiteException;
 import vn.com.pps.education.exception.StudentAlreadyExistsException;
 import vn.com.pps.education.exception.StudentContactRoleConflictException;
 import vn.com.pps.education.repository.ClassEnrollmentHistoryRepository;
@@ -39,6 +41,7 @@ import vn.com.pps.education.repository.ParentRepository;
 import vn.com.pps.education.repository.ParentStudentRepository;
 import vn.com.pps.education.repository.RoleRepository;
 import vn.com.pps.education.repository.SchoolClassRepository;
+import vn.com.pps.education.repository.SiteManagerRepository;
 import vn.com.pps.education.repository.SiteRepository;
 import vn.com.pps.education.repository.StudentHistoryRepository;
 import vn.com.pps.education.repository.StudentRepository;
@@ -57,12 +60,15 @@ import java.util.Map;
  * Xem docs/uc/phan-he-05-hoc-sinh.md — Main Flow bước 1-5.
  *
  * A1 (chuyển điểm trường khác Quản lý điểm trường phụ trách → cập nhật
- * row-level access theo điểm trường): codebase hiện chưa có hạ tầng
- * row-level ACL theo site cho bất kỳ resource nào (xem Employee.java —
- * cùng quyết định với UC-08 A1). Vì mọi truy vấn scoped-theo-site trong
- * tương lai sẽ đọc trực tiếp students.primary_site_id (không có bản sao
- * cache riêng), việc recordTransfer() cập nhật cột này NGAY LẬP TỨC đã
- * thỏa mãn yêu cầu — không cần code ACL bổ sung ở đây.
+ * row-level access theo điểm trường): hiện thực qua
+ * {@link #resolveAllowedSiteIds(Long)} — student.manage được cấp cho CẢ
+ * Nhân viên Giáo vụ/STAFF (không giới hạn site) và Quản lý điểm trường
+ * (giới hạn theo (các) site được gán qua site_managers), cùng 1 permission
+ * code (V11__student_core.sql) nên không phân biệt được qua hasPermission
+ * như ClassService — phân biệt qua có/không có bản ghi site_managers
+ * role_type=SITE_MANAGER. recordTransfer() cập nhật students.primary_site_id
+ * ngay khi giao dịch hoàn tất (không đổi), mọi truy vấn scoped-theo-site
+ * (search/getById/update/create) đọc trực tiếp cột này.
  */
 @Service
 public class StudentService {
@@ -83,6 +89,7 @@ public class StudentService {
     private final RoleRepository roleRepository;
     private final UserRoleRepository userRoleRepository;
     private final UserAccountService userAccountService;
+    private final SiteManagerRepository siteManagerRepository;
 
     public StudentService(StudentRepository studentRepository,
                            ParentRepository parentRepository,
@@ -97,7 +104,8 @@ public class StudentService {
                            ClassEnrollmentHistoryRepository classEnrollmentHistoryRepository,
                            RoleRepository roleRepository,
                            UserRoleRepository userRoleRepository,
-                           UserAccountService userAccountService) {
+                           UserAccountService userAccountService,
+                           SiteManagerRepository siteManagerRepository) {
         this.studentRepository = studentRepository;
         this.parentRepository = parentRepository;
         this.parentStudentRepository = parentStudentRepository;
@@ -112,19 +120,43 @@ public class StudentService {
         this.roleRepository = roleRepository;
         this.userRoleRepository = userRoleRepository;
         this.userAccountService = userAccountService;
+        this.siteManagerRepository = siteManagerRepository;
     }
 
     @Transactional(readOnly = true)
-    public List<StudentResponse> search(String query) {
+    public List<StudentResponse> search(String query, Long siteId, Long actorUserId) {
+        List<Long> allowedSiteIds = resolveAllowedSiteIds(actorUserId);
+        boolean restrictSites = allowedSiteIds != null;
+        List<Long> siteIdsForQuery = allowedSiteIds == null || allowedSiteIds.isEmpty() ? List.of(-1L) : allowedSiteIds;
         List<Student> students = query == null || query.isBlank()
-                ? studentRepository.findAllActive()
-                : studentRepository.searchByQuery(query.trim());
+                ? studentRepository.search(siteId, restrictSites, siteIdsForQuery)
+                : studentRepository.searchByQuery(query.trim(), siteId, restrictSites, siteIdsForQuery);
         return students.stream().map(this::toResponse).toList();
     }
 
+    /** null = không giới hạn (actor là STAFF/Giáo vụ); danh sách (kể cả rỗng) = giới hạn theo site_managers. */
+    private List<Long> resolveAllowedSiteIds(Long actorUserId) {
+        List<SiteManager> assignments = siteManagerRepository
+                .findByUserIdAndRoleTypeAndAssignedToIsNull(actorUserId, SiteManager.RoleType.SITE_MANAGER);
+        return assignments.isEmpty() ? null : assignments.stream().map(sm -> sm.getSite().getId()).toList();
+    }
+
+    private void requireSiteAccessible(Student student, Long actorUserId) {
+        List<Long> allowedSiteIds = resolveAllowedSiteIds(actorUserId);
+        if (allowedSiteIds == null) {
+            return;
+        }
+        Long siteId = student.getPrimarySite() == null ? null : student.getPrimarySite().getId();
+        if (siteId == null || !allowedSiteIds.contains(siteId)) {
+            throw new ResourceNotFoundException("Không tìm thấy học sinh id=" + student.getId());
+        }
+    }
+
     @Transactional(readOnly = true)
-    public StudentResponse getById(Long id) {
-        return toResponse(getStudentOrThrow(id));
+    public StudentResponse getById(Long id, Long actorUserId) {
+        Student student = getStudentOrThrow(id);
+        requireSiteAccessible(student, actorUserId);
+        return toResponse(student);
     }
 
     /**
@@ -137,6 +169,11 @@ public class StudentService {
     public StudentResponse create(CreateStudentRequest request, Long actorUserId) {
         if ((request.userId() == null) == (request.newAccount() == null)) {
             throw new IllegalArgumentException("Cung cấp đúng 1 trong 2: userId (tài khoản có sẵn) hoặc newAccount (tạo tài khoản mới).");
+        }
+        List<Long> allowedSiteIds = resolveAllowedSiteIds(actorUserId);
+        if (allowedSiteIds != null && (request.primarySiteId() == null || !allowedSiteIds.contains(request.primarySiteId()))) {
+            throw new NotSiteManagerForSiteException(
+                    "Tài khoản id=" + actorUserId + " không được gán phụ trách điểm trường id=" + request.primarySiteId() + ".");
         }
         User user;
         if (request.userId() != null) {
@@ -179,6 +216,7 @@ public class StudentService {
     @Transactional
     public StudentResponse update(Long id, UpdateStudentRequest request, Long actorUserId) {
         Student student = getStudentOrThrow(id);
+        requireSiteAccessible(student, actorUserId);
         student.setDateOfBirth(request.dateOfBirth());
         student.setGender(request.gender() == null ? null : Student.Gender.valueOf(request.gender()));
         student.setPortraitUrl(request.portraitUrl());
