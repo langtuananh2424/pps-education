@@ -9,6 +9,7 @@ import vn.com.pps.education.domain.Parent;
 import vn.com.pps.education.domain.ParentStudent;
 import vn.com.pps.education.domain.Role;
 import vn.com.pps.education.domain.Site;
+import vn.com.pps.education.domain.SiteManager;
 import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.domain.UserRole;
@@ -21,17 +22,21 @@ import vn.com.pps.education.dto.CreateClassRequest;
 import vn.com.pps.education.dto.CreateClassSessionRequest;
 import vn.com.pps.education.dto.CreateCurriculumRequest;
 import vn.com.pps.education.dto.CurriculumResponse;
+import vn.com.pps.education.dto.EnrollStudentRequest;
 import vn.com.pps.education.dto.EnterAttendanceMarkRequest;
 import vn.com.pps.education.dto.MarkAttendanceRequest;
+import vn.com.pps.education.dto.PartnerAttendanceSummaryResponse;
 import vn.com.pps.education.dto.UpdateCurriculumRequest;
 import vn.com.pps.education.dto.UpdatePeriodMarkRequest;
 import vn.com.pps.education.exception.AttendanceSessionNotEditableException;
 import vn.com.pps.education.exception.NotAssignedTeacherForSessionException;
+import vn.com.pps.education.exception.NotSiteManagerForSiteException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.repository.NotificationRepository;
 import vn.com.pps.education.repository.ParentRepository;
 import vn.com.pps.education.repository.ParentStudentRepository;
 import vn.com.pps.education.repository.RoleRepository;
+import vn.com.pps.education.repository.SiteManagerRepository;
 import vn.com.pps.education.repository.SiteRepository;
 import vn.com.pps.education.repository.StudentRepository;
 import vn.com.pps.education.repository.UserRepository;
@@ -90,6 +95,9 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
 
     @Autowired
     private NotificationRepository notificationRepository;
+
+    @Autowired
+    private SiteManagerRepository siteManagerRepository;
 
     private User headAcademic;
     private User teacher;
@@ -249,6 +257,51 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
         AttendanceSessionResponse result = studentAttendanceService.getAttendanceSession(session.id(), teacher.getId());
 
         assertThat(result.classSessionId()).isEqualTo(session.id());
+    }
+
+    @Test
+    void getSiteSummary_UC15b_MainFlow_returnsAttendanceScopedToManagedSite() {
+        Site site = newSite();
+        CurriculumResponse curriculum = curriculumService.create(
+                new CreateCurriculumRequest(curriculumCode(), "Chuẩn", "MAIN", null, null, null), headAcademic.getId());
+        CurriculumResponse activeCurriculum = curriculumService.update(curriculum.id(),
+                new UpdateCurriculumRequest("Chuẩn", null, null, null, "ACTIVE", false), headAcademic.getId());
+        ClassResponse schoolClass = classService.create(
+                new CreateClassRequest(classCode(), "8A2", site.getId(), activeCurriculum.id(), "OPEN", 20, null,
+                        LocalDate.now(), null, null, null), headAcademic.getId());
+        classService.enroll(schoolClass.id(), new EnrollStudentRequest(student1.getId(), LocalDate.now()), headAcademic.getId());
+        ClassSessionResponse newSession = classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(LocalDate.now(), LocalTime.of(8, 0), LocalTime.of(9, 40), null, teacher.getId(), "REGULAR"),
+                headAcademic.getId());
+        studentAttendanceService.markAttendance(newSession.id(),
+                new MarkAttendanceRequest("SESSION_LEVEL", List.of(
+                        new EnterAttendanceMarkRequest(student1.getId(), "PRESENT", null, null, null))),
+                teacher.getId());
+        studentAttendanceService.submitAttendance(newSession.id(), teacher.getId());
+        User siteManagerUser = newUser("site.manager.attendance");
+        newSiteManager(siteManagerUser, site);
+
+        List<PartnerAttendanceSummaryResponse> result = studentAttendanceService.getSiteSummary(site.getId(), siteManagerUser.getId());
+
+        assertThat(result).extracting(PartnerAttendanceSummaryResponse::studentId).contains(student1.getId());
+    }
+
+    @Test
+    void getSiteSummary_UC15b_rejectsWhenActorNotSiteManagerForSite() {
+        Site site = newSite();
+        User outsider = newUser("site.manager.outsider");
+
+        assertThatThrownBy(() -> studentAttendanceService.getSiteSummary(site.getId(), outsider.getId()))
+                .isInstanceOf(NotSiteManagerForSiteException.class);
+    }
+
+    private SiteManager newSiteManager(User user, Site site) {
+        SiteManager siteManager = new SiteManager();
+        siteManager.setSite(site);
+        siteManager.setUser(user);
+        siteManager.setAssignedFrom(LocalDate.now().minusMonths(1));
+        siteManager.setAssignedBy(user);
+        return siteManagerRepository.save(siteManager);
     }
 
     private String curriculumCode() {

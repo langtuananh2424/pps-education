@@ -221,6 +221,61 @@ UC-15: Điểm danh học sinh
 |                 |     nhận trạng thái gửi.                           |
 +-----------------+----------------------------------------------------+
 
+UC-15b: Xem báo cáo chuyên cần theo điểm trường
+
+> ⚠️ Bổ sung ngoài SRS/SDD gốc (mở rộng phạm vi FR-STU-03, xác nhận với
+> người dùng ngày 2026-07-16) — UC-15 gốc chỉ có Giáo viên là tác nhân,
+> không giao việc xem báo cáo chuyên cần cho Quản lý điểm trường. UC-15b
+> bổ sung đúng 1 quyền xem (view-only), không đổi bất kỳ điều gì ở UC-15.
+
++-----------------+----------------------------------------------------+
+| **Mã Use Case** | UC-15b                                             |
++-----------------+----------------------------------------------------+
+| **Tên Use       | Xem báo cáo chuyên cần theo điểm trường            |
+| Case**          |                                                    |
++-----------------+----------------------------------------------------+
+| **Phân hệ**     | Phân hệ 5                                          |
++-----------------+----------------------------------------------------+
+| **Yêu cầu chức  | FR-STU-03 (bổ sung)                                |
+| năng gốc**      |                                                    |
++-----------------+----------------------------------------------------+
+| **Tác nhân**    | Quản lý điểm trường                                |
++-----------------+----------------------------------------------------+
+| **Mô tả tóm     | Quản lý điểm trường xem báo cáo tổng hợp tỷ lệ đi  |
+| tắt**           | học/vắng mặt của học sinh tại (các) điểm trường    |
+|                 | mình phụ trách — chỉ xem, không có quyền chỉnh sửa |
+|                 | điểm danh (vẫn thuộc Giáo viên, UC-15).            |
++-----------------+----------------------------------------------------+
+| **Sự kiện kích  | Quản lý điểm trường mở màn hình báo cáo chuyên cần |
+| hoạt**          | của điểm trường mình phụ trách.                    |
++-----------------+----------------------------------------------------+
+| **Điều kiện     | -   Tài khoản được gán phụ trách điểm trường qua   |
+| tiên quyết      |     site_managers role_type=SITE_MANAGER (UC-36).  |
+| (               |                                                    |
+| Precondition)** |                                                    |
++-----------------+----------------------------------------------------+
+| **Luồng sự kiện | 1.  Quản lý điểm trường mở màn hình báo cáo chuyên |
+| chính (Main     |     cần.                                           |
+| Flow)**         |                                                    |
+|                 | 2.  Hệ thống hiển thị tỷ lệ đi học/vắng mặt/muộn   |
+|                 |     theo từng học sinh, từng lớp, giới hạn trong   |
+|                 |     (các) điểm trường Quản lý điểm trường đang     |
+|                 |     phụ trách (không thấy điểm trường khác).       |
++-----------------+----------------------------------------------------+
+| **Luồng thay    | ***A1 --- Điểm trường chưa có buổi điểm danh nào***|
+| thế / ngoại lệ  |                                                    |
+| (Alternate      | 1.  Hệ thống hiển thị danh sách rỗng, không báo    |
+| Flow)**         |     lỗi.                                          |
++-----------------+----------------------------------------------------+
+| **Hậu điều kiện | -   Quản lý điểm trường xem được đúng phạm vi dữ   |
+| (P              |     liệu chuyên cần của điểm trường mình phụ       |
+| ostcondition)** |     trách — không có quyền chỉnh sửa bản ghi điểm  |
+|                 |     danh (Main Flow UC-15 giữ nguyên, chỉ Giáo     |
+|                 |     viên được phân công mới sửa được).             |
++-----------------+----------------------------------------------------+
+
+---
+
 UC-50: Nhập phụ huynh theo lô
 
 +-----------------+----------------------------------------------------+

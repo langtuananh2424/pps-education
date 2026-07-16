@@ -6,31 +6,41 @@ import vn.com.pps.education.domain.AttendanceMark;
 import vn.com.pps.education.domain.AttendanceMarkHistory;
 import vn.com.pps.education.domain.AttendancePeriodMark;
 import vn.com.pps.education.domain.AttendanceSession;
+import vn.com.pps.education.domain.ClassEnrollment;
 import vn.com.pps.education.domain.ClassSession;
 import vn.com.pps.education.domain.Notification;
 import vn.com.pps.education.domain.ParentStudent;
+import vn.com.pps.education.domain.SchoolClass;
 import vn.com.pps.education.domain.SessionPeriod;
+import vn.com.pps.education.domain.SiteManager;
 import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.dto.AttendanceMarkResponse;
 import vn.com.pps.education.dto.AttendanceSessionResponse;
 import vn.com.pps.education.dto.EnterAttendanceMarkRequest;
 import vn.com.pps.education.dto.MarkAttendanceRequest;
+import vn.com.pps.education.dto.PartnerAttendanceSummaryResponse;
 import vn.com.pps.education.dto.UpdatePeriodMarkRequest;
 import vn.com.pps.education.exception.AttendanceSessionNotEditableException;
 import vn.com.pps.education.exception.NotAssignedTeacherForSessionException;
+import vn.com.pps.education.exception.NotSiteManagerForSiteException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.repository.AttendanceMarkHistoryRepository;
 import vn.com.pps.education.repository.AttendanceMarkRepository;
 import vn.com.pps.education.repository.AttendancePeriodMarkRepository;
 import vn.com.pps.education.repository.AttendanceSessionRepository;
+import vn.com.pps.education.repository.ClassEnrollmentRepository;
 import vn.com.pps.education.repository.ClassSessionRepository;
 import vn.com.pps.education.repository.ParentStudentRepository;
+import vn.com.pps.education.repository.SchoolClassRepository;
 import vn.com.pps.education.repository.SessionPeriodRepository;
+import vn.com.pps.education.repository.SiteManagerRepository;
 import vn.com.pps.education.repository.SiteTeacherRepository;
 import vn.com.pps.education.repository.StudentRepository;
 import vn.com.pps.education.repository.UserRepository;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -65,6 +75,9 @@ public class StudentAttendanceService {
     private final NotificationService notificationService;
     private final SiteTeacherRepository siteTeacherRepository;
     private final PermissionEvaluationService permissionEvaluationService;
+    private final SchoolClassRepository schoolClassRepository;
+    private final ClassEnrollmentRepository classEnrollmentRepository;
+    private final SiteManagerRepository siteManagerRepository;
 
     public StudentAttendanceService(ClassSessionRepository classSessionRepository,
                                      SessionPeriodRepository sessionPeriodRepository,
@@ -77,7 +90,10 @@ public class StudentAttendanceService {
                                      UserRepository userRepository,
                                      NotificationService notificationService,
                                      SiteTeacherRepository siteTeacherRepository,
-                                     PermissionEvaluationService permissionEvaluationService) {
+                                     PermissionEvaluationService permissionEvaluationService,
+                                     SchoolClassRepository schoolClassRepository,
+                                     ClassEnrollmentRepository classEnrollmentRepository,
+                                     SiteManagerRepository siteManagerRepository) {
         this.classSessionRepository = classSessionRepository;
         this.sessionPeriodRepository = sessionPeriodRepository;
         this.attendanceSessionRepository = attendanceSessionRepository;
@@ -90,6 +106,9 @@ public class StudentAttendanceService {
         this.notificationService = notificationService;
         this.siteTeacherRepository = siteTeacherRepository;
         this.permissionEvaluationService = permissionEvaluationService;
+        this.schoolClassRepository = schoolClassRepository;
+        this.classEnrollmentRepository = classEnrollmentRepository;
+        this.siteManagerRepository = siteManagerRepository;
     }
 
     /** Main Flow bước 1-2: điểm danh cả lớp (lưu DRAFT, có thể gọi lại nhiều lần trước khi submit). */
@@ -279,6 +298,50 @@ public class StudentAttendanceService {
         }
         return siteTeacherRepository.findByTeacherIdAndAssignedToIsNull(actorUserId).stream()
                 .map(st -> st.getSite().getId()).toList();
+    }
+
+    /**
+     * UC-15b (bổ sung ngoài SRS gốc, xác nhận 2026-07-16): báo cáo chuyên
+     * cần cho Quản lý điểm trường, giới hạn đúng (các) điểm trường đang
+     * phụ trách qua site_managers role_type=SITE_MANAGER — chỉ xem, không
+     * đổi quyền chỉnh sửa điểm danh (vẫn của Giáo viên, UC-15). Logic tổng
+     * hợp mirror PartnerPortalService.getAttendanceSummary/summarize
+     * (UC-29) — theo tiền lệ mỗi Service tự có bản tổng hợp/mapper riêng
+     * cho việc đọc dữ liệu, không gọi chéo Service khác (xem
+     * GradeService.toResponse vs PartnerPortalService.toResponse(GradeEntry)).
+     */
+    @Transactional(readOnly = true)
+    public List<PartnerAttendanceSummaryResponse> getSiteSummary(Long siteId, Long actorUserId) {
+        if (!siteManagerRepository.existsBySiteIdAndUserIdAndRoleTypeAndAssignedToIsNull(
+                siteId, actorUserId, SiteManager.RoleType.SITE_MANAGER)) {
+            throw new NotSiteManagerForSiteException(
+                    "Tài khoản id=" + actorUserId + " không được gán phụ trách điểm trường id=" + siteId + ".");
+        }
+        List<SchoolClass> classes = schoolClassRepository.findBySiteIdAndDeletedAtIsNull(siteId);
+        return classes.stream()
+                .flatMap(schoolClass -> classEnrollmentRepository
+                        .findBySchoolClassIdAndStatus(schoolClass.getId(), ClassEnrollment.Status.ACTIVE).stream()
+                        .map(enrollment -> summarizeAttendance(schoolClass, enrollment)))
+                .filter(summary -> summary.totalMarks() > 0)
+                .toList();
+    }
+
+    private PartnerAttendanceSummaryResponse summarizeAttendance(SchoolClass schoolClass, ClassEnrollment enrollment) {
+        List<AttendanceMark> marks = attendanceMarkRepository
+                .findByStudentIdAndClassId(enrollment.getStudent().getId(), schoolClass.getId());
+        long present = marks.stream().filter(m -> m.getStatus() == AttendanceMark.Status.PRESENT).count();
+        long absent = marks.stream().filter(m -> m.getStatus() == AttendanceMark.Status.ABSENT).count();
+        long excused = marks.stream().filter(m -> m.getStatus() == AttendanceMark.Status.EXCUSED).count();
+        long late = marks.stream().filter(m -> m.getStatus() == AttendanceMark.Status.LATE).count();
+        long earlyLeave = marks.stream().filter(m -> m.getStatus() == AttendanceMark.Status.EARLY_LEAVE).count();
+        long total = marks.size();
+        BigDecimal rate = total == 0 ? BigDecimal.ZERO
+                : BigDecimal.valueOf(present).multiply(new BigDecimal("100"))
+                        .divide(BigDecimal.valueOf(total), 2, RoundingMode.HALF_UP);
+
+        return new PartnerAttendanceSummaryResponse(
+                enrollment.getStudent().getId(), enrollment.getStudent().getUser().getFullName(),
+                schoolClass.getId(), schoolClass.getName(), present, absent, excused, late, earlyLeave, total, rate);
     }
 
     private void requireAssignedTeacher(ClassSession classSession, Long actorUserId) {
