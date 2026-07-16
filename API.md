@@ -439,6 +439,9 @@
 | GET | `/api/sites/{id}` | JWT | — | [SiteResponse](#siteresponse) |
 | PUT | `/api/sites/{id}` | JWT + `facility.manage` | Body: [UpdateSiteRequest](#updatesiterequest) | [SiteResponse](#siteresponse) |
 | PUT | `/api/sites/{id}/manager` | JWT + `facility.manage` | Body: [AssignSiteManagerRequest](#assignsitemanagerrequest) | [SiteResponse](#siteresponse) |
+| GET | `/api/sites/{id}/teachers` | JWT | — | mảng [SiteTeacherResponse](#siteteacherresponse) |
+| POST | `/api/sites/{id}/teachers` | JWT + `facility.manage` | Body: [AssignSiteTeacherRequest](#assignsiteteacherrequest) | [SiteTeacherResponse](#siteteacherresponse) |
+| DELETE | `/api/sites/{id}/teachers/{siteTeacherId}` | JWT + `facility.manage` | — | 200 (không có body) |
 
 ## Hợp đồng trường liên kết (UC-36b)
 
@@ -597,6 +600,14 @@
 | Trường | Kiểu | Bắt buộc |
 |---|---|---|
 | `managerUserId` | integer (int64) | ✔ |
+
+### AssignSiteTeacherRequest
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `assignedFrom` | string (date) | ✔ |
+| `notes` | string |  |
+| `teacherUserId` | integer (int64) | ✔ |
 
 ### AssignTeacherRequest
 
@@ -2280,6 +2291,18 @@
 | `phone` | string |  |
 | `siteType` | string |  |
 | `status` | string |  |
+
+### SiteTeacherResponse
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `assignedFrom` | string (date) |  |
+| `assignedTo` | string (date) |  |
+| `id` | integer (int64) |  |
+| `notes` | string |  |
+| `siteId` | integer (int64) |  |
+| `teacherFullName` | string |  |
+| `teacherUserId` | integer (int64) |  |
 
 ### SortObject
 
