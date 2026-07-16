@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.Site;
+import vn.com.pps.education.domain.SiteManager;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.dto.ClassResponse;
 import vn.com.pps.education.dto.CreateClassRequest;
@@ -20,11 +21,13 @@ import vn.com.pps.education.dto.RecordTransferRequest;
 import vn.com.pps.education.dto.StudentResponse;
 import vn.com.pps.education.dto.UpdateCurriculumRequest;
 import vn.com.pps.education.exception.ClassEnrollmentAlreadyActiveException;
+import vn.com.pps.education.exception.NotSiteManagerForSiteException;
 import vn.com.pps.education.exception.ParentStudentLinkAlreadyExistsException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.exception.StudentAlreadyExistsException;
 import vn.com.pps.education.exception.StudentContactRoleConflictException;
 import vn.com.pps.education.repository.ParentHistoryRepository;
+import vn.com.pps.education.repository.SiteManagerRepository;
 import vn.com.pps.education.repository.SiteRepository;
 import vn.com.pps.education.repository.StudentHistoryRepository;
 import vn.com.pps.education.repository.UserRepository;
@@ -68,6 +71,9 @@ class StudentServiceTest extends AbstractIntegrationTest {
 
     @Autowired
     private vn.com.pps.education.repository.UserRoleRepository userRoleRepository;
+
+    @Autowired
+    private SiteManagerRepository siteManagerRepository;
 
     private User staff;
 
@@ -327,7 +333,7 @@ class StudentServiceTest extends AbstractIntegrationTest {
         assertThat(transfer.fromSiteId()).isEqualTo(oldSite.getId());
         assertThat(transfer.toSiteId()).isEqualTo(newSite.getId());
         // A1: primary_site_id được cập nhật ngay khi giao dịch hoàn tất.
-        assertThat(studentService.getById(created.id()).primarySiteId()).isEqualTo(newSite.getId());
+        assertThat(studentService.getById(created.id(), staff.getId()).primarySiteId()).isEqualTo(newSite.getId());
         assertThat(studentService.listTransferHistory(created.id())).containsExactly(transfer);
     }
 
@@ -395,6 +401,97 @@ class StudentServiceTest extends AbstractIntegrationTest {
                 new RecordTransferRequest("CLASS_CHANGE", fromClass.id(), toClass.id(), null, LocalDate.now(), null),
                 staff.getId()))
                 .isInstanceOf(ClassEnrollmentAlreadyActiveException.class);
+    }
+
+    @Test
+    void search_UC13_A1_scopesToSiteManagerAssignedSite() {
+        Site ownSite = newSite("SITE-SM-OWN");
+        Site otherSite = newSite("SITE-SM-OTHER");
+        User siteManagerUser = newUser("site.manager.search");
+        newSiteManager(siteManagerUser, ownSite);
+        StudentResponse ownStudent = studentService.create(
+                new CreateStudentRequest(newUser("student.own").getId(), null, studentCode(), LocalDate.of(2012, 5, 1),
+                        "MALE", null, ownSite.getId(), null, null, LocalDate.of(2026, 1, 1), null),
+                staff.getId());
+        StudentResponse otherStudent = studentService.create(
+                new CreateStudentRequest(newUser("student.other").getId(), null, studentCode(), LocalDate.of(2012, 5, 1),
+                        "MALE", null, otherSite.getId(), null, null, LocalDate.of(2026, 1, 1), null),
+                staff.getId());
+
+        assertThat(studentService.search(null, null, siteManagerUser.getId()))
+                .extracting(StudentResponse::id)
+                .contains(ownStudent.id())
+                .doesNotContain(otherStudent.id());
+    }
+
+    @Test
+    void getById_UC13_A1_rejectsSiteManagerReadingStudentOfOtherSite() {
+        Site ownSite = newSite("SITE-SM-GETOWN");
+        Site otherSite = newSite("SITE-SM-GETOTHER");
+        User siteManagerUser = newUser("site.manager.getbyid");
+        newSiteManager(siteManagerUser, ownSite);
+        StudentResponse otherStudent = studentService.create(
+                new CreateStudentRequest(newUser("student.getother").getId(), null, studentCode(), LocalDate.of(2012, 5, 1),
+                        "MALE", null, otherSite.getId(), null, null, LocalDate.of(2026, 1, 1), null),
+                staff.getId());
+
+        assertThatThrownBy(() -> studentService.getById(otherStudent.id(), siteManagerUser.getId()))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void update_UC13_A1_rejectsSiteManagerUpdatingStudentOfOtherSite() {
+        Site ownSite = newSite("SITE-SM-UPDOWN");
+        Site otherSite = newSite("SITE-SM-UPDOTHER");
+        User siteManagerUser = newUser("site.manager.update");
+        newSiteManager(siteManagerUser, ownSite);
+        StudentResponse otherStudent = studentService.create(
+                new CreateStudentRequest(newUser("student.updother").getId(), null, studentCode(), LocalDate.of(2012, 5, 1),
+                        "MALE", null, otherSite.getId(), null, null, LocalDate.of(2026, 1, 1), null),
+                staff.getId());
+
+        assertThatThrownBy(() -> studentService.update(otherStudent.id(),
+                new vn.com.pps.education.dto.UpdateStudentRequest(
+                        LocalDate.of(2012, 5, 1), "MALE", null, null, null, null),
+                siteManagerUser.getId()))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void create_UC13_A1_rejectsSiteManagerCreatingStudentForOtherSite() {
+        Site ownSite = newSite("SITE-SM-CREATEOWN");
+        Site otherSite = newSite("SITE-SM-CREATEOTHER");
+        User siteManagerUser = newUser("site.manager.create");
+        newSiteManager(siteManagerUser, ownSite);
+
+        assertThatThrownBy(() -> studentService.create(
+                new CreateStudentRequest(newUser("student.createother").getId(), null, studentCode(), LocalDate.of(2012, 5, 1),
+                        "MALE", null, otherSite.getId(), null, null, LocalDate.of(2026, 1, 1), null),
+                siteManagerUser.getId()))
+                .isInstanceOf(NotSiteManagerForSiteException.class);
+    }
+
+    @Test
+    void create_UC13_A1_allowsSiteManagerCreatingStudentForOwnSite() {
+        Site ownSite = newSite("SITE-SM-CREATEOK");
+        User siteManagerUser = newUser("site.manager.createok");
+        newSiteManager(siteManagerUser, ownSite);
+
+        StudentResponse created = studentService.create(
+                new CreateStudentRequest(newUser("student.createok").getId(), null, studentCode(), LocalDate.of(2012, 5, 1),
+                        "MALE", null, ownSite.getId(), null, null, LocalDate.of(2026, 1, 1), null),
+                siteManagerUser.getId());
+
+        assertThat(created.primarySiteId()).isEqualTo(ownSite.getId());
+    }
+
+    private SiteManager newSiteManager(User user, Site site) {
+        SiteManager siteManager = new SiteManager();
+        siteManager.setSite(site);
+        siteManager.setUser(user);
+        siteManager.setAssignedFrom(LocalDate.now().minusMonths(1));
+        siteManager.setAssignedBy(user);
+        return siteManagerRepository.save(siteManager);
     }
 
     private CurriculumResponse newActiveCurriculum() {

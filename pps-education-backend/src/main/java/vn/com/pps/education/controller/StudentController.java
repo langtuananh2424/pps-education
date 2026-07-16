@@ -48,14 +48,16 @@ public class StudentController {
 
     @PreAuthorize("hasPermission(null, 'student.manage')")
     @GetMapping
-    public ResponseEntity<List<StudentResponse>> search(@RequestParam(required = false) String query) {
-        return ResponseEntity.ok(studentService.search(query));
+    public ResponseEntity<List<StudentResponse>> search(@RequestParam(required = false) String query,
+                                                          @RequestParam(required = false) Long siteId,
+                                                          @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(studentService.search(query, siteId, actor.userId()));
     }
 
     @PreAuthorize("hasPermission(null, 'student.manage')")
     @GetMapping("/{id}")
-    public ResponseEntity<StudentResponse> getById(@PathVariable Long id) {
-        return ResponseEntity.ok(studentService.getById(id));
+    public ResponseEntity<StudentResponse> getById(@PathVariable Long id, @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(studentService.getById(id, actor.userId()));
     }
 
     @PreAuthorize("hasPermission(null, 'student.manage')")

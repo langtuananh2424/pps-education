@@ -18,12 +18,24 @@ public interface StudentRepository extends JpaRepository<Student, Long> {
 
     long countByStudentCodeStartingWith(String prefix);
 
+    /**
+     * Lọc theo điểm trường (siteId) và/hoặc giới hạn theo (các) điểm trường
+     * actor được phép truy cập (restrictSites/allowedSiteIds — Service tự
+     * tính, xem StudentService.resolveAllowedSiteIds) — không kèm text
+     * query. Luôn truyền 1 list cụ thể (không bao giờ null/rỗng) cho
+     * allowedSiteIds, tránh vấn đề Hibernate không xử lý được tham số IN
+     * null/rỗng.
+     */
     @Query("""
             SELECT s FROM Student s JOIN s.user u
             WHERE s.deletedAt IS NULL
+            AND (:siteId IS NULL OR s.primarySite.id = :siteId)
+            AND (:restrictSites = FALSE OR s.primarySite.id IN :allowedSiteIds)
             ORDER BY u.fullName
             """)
-    List<Student> findAllActive();
+    List<Student> search(@Param("siteId") Long siteId,
+                          @Param("restrictSites") boolean restrictSites,
+                          @Param("allowedSiteIds") List<Long> allowedSiteIds);
 
     // :query luôn non-null/non-blank ở đây (Service tự tách nhánh) — tránh lỗi
     // Postgres không suy được kiểu tham số NULL lồng trong LOWER/CONCAT (bytea).
@@ -32,9 +44,14 @@ public interface StudentRepository extends JpaRepository<Student, Long> {
             WHERE s.deletedAt IS NULL
             AND (LOWER(s.studentCode) LIKE LOWER(CONCAT('%', :query, '%'))
                  OR LOWER(u.fullName) LIKE LOWER(CONCAT('%', :query, '%')))
+            AND (:siteId IS NULL OR s.primarySite.id = :siteId)
+            AND (:restrictSites = FALSE OR s.primarySite.id IN :allowedSiteIds)
             ORDER BY u.fullName
             """)
-    List<Student> searchByQuery(@Param("query") String query);
+    List<Student> searchByQuery(@Param("query") String query,
+                                 @Param("siteId") Long siteId,
+                                 @Param("restrictSites") boolean restrictSites,
+                                 @Param("allowedSiteIds") List<Long> allowedSiteIds);
 
     /** UC-35 Main Flow bước 3: kiểm tra trùng lặp theo họ tên + ngày sinh (không có CCCD trong schema). */
     @Query("""
