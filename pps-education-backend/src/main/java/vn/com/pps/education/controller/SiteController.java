@@ -14,11 +14,13 @@ import org.springframework.web.bind.annotation.RestController;
 import vn.com.pps.education.dto.AssignSiteManagerRequest;
 import vn.com.pps.education.dto.AssignSiteTeacherRequest;
 import vn.com.pps.education.dto.CreateSiteRequest;
+import vn.com.pps.education.dto.PartnerAttendanceSummaryResponse;
 import vn.com.pps.education.dto.SiteResponse;
 import vn.com.pps.education.dto.SiteTeacherResponse;
 import vn.com.pps.education.dto.UpdateSiteRequest;
 import vn.com.pps.education.security.AuthenticatedUser;
 import vn.com.pps.education.service.SiteService;
+import vn.com.pps.education.service.StudentAttendanceService;
 
 import java.util.List;
 
@@ -27,9 +29,11 @@ import java.util.List;
 public class SiteController {
 
     private final SiteService siteService;
+    private final StudentAttendanceService studentAttendanceService;
 
-    public SiteController(SiteService siteService) {
+    public SiteController(SiteService siteService, StudentAttendanceService studentAttendanceService) {
         this.siteService = siteService;
+        this.studentAttendanceService = studentAttendanceService;
     }
 
     @PostMapping("/api/sites")
@@ -84,5 +88,12 @@ public class SiteController {
     @GetMapping("/api/sites/{id}/teachers")
     public ResponseEntity<List<SiteTeacherResponse>> listTeachers(@PathVariable Long id) {
         return ResponseEntity.ok(siteService.listTeachers(id));
+    }
+
+    /** UC-15b: Quản lý điểm trường xem báo cáo chuyên cần của điểm trường mình phụ trách. */
+    @GetMapping("/api/sites/{id}/attendance-summary")
+    public ResponseEntity<List<PartnerAttendanceSummaryResponse>> getAttendanceSummary(
+            @PathVariable Long id, @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(studentAttendanceService.getSiteSummary(id, actor.userId()));
     }
 }
