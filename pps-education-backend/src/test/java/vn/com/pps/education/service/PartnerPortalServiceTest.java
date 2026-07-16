@@ -18,8 +18,10 @@ import vn.com.pps.education.dto.CreateClassSessionRequest;
 import vn.com.pps.education.dto.CreateCurriculumRequest;
 import vn.com.pps.education.dto.CreateGradeComponentRequest;
 import vn.com.pps.education.dto.CreateGradePeriodRequest;
+import vn.com.pps.education.dto.CreateStudentCommentRequest;
 import vn.com.pps.education.dto.CreateTeachingPlanRequest;
 import vn.com.pps.education.dto.CurriculumResponse;
+import vn.com.pps.education.dto.DecideCommentsRequest;
 import vn.com.pps.education.dto.DecideGradesRequest;
 import vn.com.pps.education.dto.EnrollStudentRequest;
 import vn.com.pps.education.dto.EnterAttendanceMarkRequest;
@@ -30,6 +32,8 @@ import vn.com.pps.education.dto.GradePeriodResponse;
 import vn.com.pps.education.dto.MarkAttendanceRequest;
 import vn.com.pps.education.dto.PartnerAttendanceSummaryResponse;
 import vn.com.pps.education.dto.PartnerSiteResponse;
+import vn.com.pps.education.dto.StudentCommentResponse;
+import vn.com.pps.education.dto.SubmitCommentsRequest;
 import vn.com.pps.education.dto.SubmitGradesRequest;
 import vn.com.pps.education.dto.TeachingPlanResponse;
 import vn.com.pps.education.dto.UpdateCurriculumRequest;
@@ -78,6 +82,9 @@ class PartnerPortalServiceTest extends AbstractIntegrationTest {
 
     @Autowired
     private TeachingPlanService teachingPlanService;
+
+    @Autowired
+    private StudentCommentService studentCommentService;
 
     @Autowired
     private UserRepository userRepository;
@@ -225,6 +232,38 @@ class PartnerPortalServiceTest extends AbstractIntegrationTest {
 
         assertThat(plans).hasSize(1);
         assertThat(plans.get(0).status()).isEqualTo("PUBLISHED");
+    }
+
+    @Test
+    void getApprovedComments_UC29_MainFlow_returnsOnlyApprovedComments() {
+        GradePeriodResponse period = gradeService.createGradePeriod(activeCurriculum.id(),
+                new CreateGradePeriodRequest("MID_1", "Giữa kỳ 1", 1, new BigDecimal("50"), null, null), headAcademic.getId());
+        StudentCommentResponse approvedComment = studentCommentService.writeComment(schoolClass.id(),
+                new CreateStudentCommentRequest(student.getId(), "MID_TERM", null, period.id(),
+                        LocalDate.now(), "Chăm chỉ, tiến bộ rõ rệt.", null, "POSITIVE", false),
+                teacher.getId());
+        studentCommentService.submitComments(schoolClass.id(), new SubmitCommentsRequest(List.of(approvedComment.id())), teacher.getId());
+        studentCommentService.decideComments(
+                new DecideCommentsRequest(List.of(approvedComment.id()), "APPROVED", "Tốt"), siteManagerUser.getId());
+
+        // Nhan xet con DRAFT (chua submit/duyet) -- khong duoc hien thi cho Doi tac.
+        studentCommentService.writeComment(schoolClass.id(),
+                new CreateStudentCommentRequest(student.getId(), "MID_TERM", null, period.id(),
+                        LocalDate.now(), "Nhận xét nháp chưa gửi duyệt.", null, "NORMAL", false),
+                teacher.getId());
+
+        List<StudentCommentResponse> comments = partnerPortalService.getApprovedComments(partnerRepUser.getId());
+
+        assertThat(comments).hasSize(1);
+        assertThat(comments.get(0).status()).isEqualTo("APPROVED");
+        assertThat(comments.get(0).studentId()).isEqualTo(student.getId());
+    }
+
+    @Test
+    void getApprovedComments_UC29_A1_emptyWhenNoApprovedCommentsYet() {
+        List<StudentCommentResponse> comments = partnerPortalService.getApprovedComments(partnerRepUser.getId());
+
+        assertThat(comments).isEmpty();
     }
 
     private String curriculumCode() {
