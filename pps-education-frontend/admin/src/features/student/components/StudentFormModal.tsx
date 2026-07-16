@@ -1,182 +1,196 @@
-import React, { useState } from "react";
-import { Save } from "lucide-react";
-import { Classroom, Student } from "@/types";
-import { mockCampuses } from "@/data/mockData";
+import React, { useEffect, useState } from "react";
+import { Plus } from "lucide-react";
+import { ApiError } from "@/lib/apiClient";
+import AccountSelector, { AccountSelection } from "@/features/system-admin/components/AccountSelector";
+import { createParent, createStudent, CreateStudentRequest, linkParent, listSites, SiteOption } from "../api";
 import Modal from "@/components/ui/Modal";
+import Button from "@/components/ui/Button";
 
-export interface StudentFormValues {
-  fullName: string;
-  birthDate: string;
-  avatarUrl: string;
-  phone: string;
-  parentName: string;
-  parentPhone: string;
-  campusId: string;
-  classIds: string[];
-  status: Student["status"];
-}
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
+const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
 
 interface StudentFormModalProps {
-  isEdit: boolean;
-  initialValues: StudentFormValues;
-  classrooms: Classroom[];
   onClose: () => void;
-  onSubmit: (values: StudentFormValues) => void;
+  onCreated: (id: number) => void;
 }
 
-export default function StudentFormModal({ isEdit, initialValues, classrooms, onClose, onSubmit }: StudentFormModalProps) {
-  const [values, setValues] = useState(initialValues);
+/** UC-13 Main Flow bước 1-3: khởi tạo hồ sơ học sinh, kèm tài khoản mới hoặc gán tài khoản có sẵn — có thể liên kết luôn phụ huynh. */
+export default function StudentFormModal({ onClose, onCreated }: StudentFormModalProps) {
+  const [account, setAccount] = useState<AccountSelection>({ newAccount: { username: "", email: "", fullName: "", phone: "", password: "" } });
+  const [sites, setSites] = useState<SiteOption[]>([]);
+  const [form, setForm] = useState({
+    studentCode: "",
+    dateOfBirth: "",
+    gender: "",
+    primarySiteId: "",
+    originalSchool: "",
+    originalClass: "",
+    enrollmentDate: "",
+    notes: ""
+  });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [addParent, setAddParent] = useState(false);
+  const [parentAccount, setParentAccount] = useState<AccountSelection>({ newAccount: { username: "", email: "", fullName: "", phone: "", password: "" } });
+  const [parentInfo, setParentInfo] = useState({ relationship: "MOTHER", isPrimaryContact: true, isFinancialResponsible: true });
+
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    listSites().then(setSites).catch(() => undefined);
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!values.fullName.trim()) return;
-    onSubmit(values);
-  };
+    if (!form.studentCode.trim() || !form.dateOfBirth || !form.enrollmentDate) {
+      setError("Vui lòng điền mã học sinh, ngày sinh, ngày nhập học.");
+      return;
+    }
+    if (!account.userId && !account.newAccount?.username) {
+      setError("Vui lòng chọn tài khoản có sẵn hoặc điền thông tin tài khoản mới cho học sinh.");
+      return;
+    }
+    if (addParent && !parentAccount.userId && !parentAccount.newAccount?.username) {
+      setError("Vui lòng chọn tài khoản có sẵn hoặc điền thông tin tài khoản mới cho phụ huynh.");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      const request: CreateStudentRequest = {
+        userId: account.userId,
+        newAccount: account.userId ? undefined : account.newAccount,
+        studentCode: form.studentCode.trim(),
+        dateOfBirth: form.dateOfBirth,
+        gender: (form.gender || undefined) as CreateStudentRequest["gender"],
+        primarySiteId: form.primarySiteId ? Number(form.primarySiteId) : undefined,
+        originalSchool: form.originalSchool.trim() || undefined,
+        originalClass: form.originalClass.trim() || undefined,
+        enrollmentDate: form.enrollmentDate,
+        notes: form.notes.trim() || undefined
+      };
+      const student = await createStudent(request);
 
-  const toggleClass = (classId: string) => {
-    const isChecked = values.classIds.includes(classId);
-    if (isChecked) {
-      if (values.classIds.length > 1) {
-        setValues((v) => ({ ...v, classIds: v.classIds.filter((id) => id !== classId) }));
-      } else {
-        alert("Lỗi: Học viên phải ở trong ít nhất 1 lớp học!");
+      if (addParent) {
+        const parent = await createParent({
+          userId: parentAccount.userId,
+          newAccount: parentAccount.userId ? undefined : parentAccount.newAccount
+        });
+        await linkParent(student.id, {
+          parentId: parent.id,
+          relationship: parentInfo.relationship as "FATHER" | "MOTHER" | "GUARDIAN" | "OTHER",
+          isPrimaryContact: parentInfo.isPrimaryContact,
+          isFinancialResponsible: parentInfo.isFinancialResponsible
+        });
       }
-    } else {
-      setValues((v) => ({ ...v, classIds: [...v.classIds, classId] }));
+
+      onCreated(student.id);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Tạo hồ sơ học sinh thất bại.");
+    } finally {
+      setSubmitting(false);
     }
   };
 
   return (
-    <Modal open onClose={onClose} title={isEdit ? "Cập nhật thông tin học viên" : "Tiếp nhận học viên mới"} size="md">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Họ và tên học viên</label>
-            <input
-              type="text"
-              required
-              placeholder="Nguyễn Văn A"
-              value={values.fullName}
-              onChange={(e) => setValues((v) => ({ ...v, fullName: e.target.value }))}
-              className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-1.5 text-xs focus:outline-none"
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Ngày sinh</label>
-            <input
-              type="date"
-              required
-              value={values.birthDate}
-              onChange={(e) => setValues((v) => ({ ...v, birthDate: e.target.value }))}
-              className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-1.5 text-xs focus:outline-none font-mono"
-            />
-          </div>
+    <Modal open onClose={onClose} title="Thêm học sinh mới (UC-13)" size="lg">
+      <form onSubmit={handleSubmit} className="space-y-5">
+        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+
+        <div className="space-y-2">
+          <span className="text-[10px] font-bold uppercase text-slate-500">Tài khoản học sinh</span>
+          <AccountSelector value={account} onChange={setAccount} />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Số điện thoại</label>
-            <input
-              type="text"
-              placeholder="035..."
-              value={values.phone}
-              onChange={(e) => setValues((v) => ({ ...v, phone: e.target.value }))}
-              className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-1.5 text-xs focus:outline-none"
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Trạng thái hiện tại</label>
-            <select
-              value={values.status}
-              onChange={(e) => setValues((v) => ({ ...v, status: e.target.value as Student["status"] }))}
-              className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-1.5 text-xs focus:outline-none font-bold"
-            >
-              <option value="STUDYING">Đang Học</option>
-              <option value="RESERVED">Bảo Lưu</option>
-              <option value="SUSPENDED">Đình Chỉ</option>
-              <option value="GRADUATED">Đã Tốt Nghiệp</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Họ tên Phụ huynh</label>
-            <input
-              type="text"
-              required
-              placeholder="Nguyễn Văn B"
-              value={values.parentName}
-              onChange={(e) => setValues((v) => ({ ...v, parentName: e.target.value }))}
-              className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-1.5 text-xs focus:outline-none"
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">SĐT Phụ huynh</label>
-            <input
-              type="text"
-              required
-              placeholder="091..."
-              value={values.parentPhone}
-              onChange={(e) => setValues((v) => ({ ...v, parentPhone: e.target.value }))}
-              className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-1.5 text-xs focus:outline-none"
-            />
-          </div>
-        </div>
-
-        <div className="space-y-1">
-          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">URL ảnh đại diện (Tùy chọn)</label>
-          <input
-            type="text"
-            placeholder="https://images.unsplash.com..."
-            value={values.avatarUrl}
-            onChange={(e) => setValues((v) => ({ ...v, avatarUrl: e.target.value }))}
-            className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-1.5 text-xs focus:outline-none"
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Điểm trường</label>
-            <select
-              value={values.campusId}
-              onChange={(e) => setValues((v) => ({ ...v, campusId: e.target.value }))}
-              className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-1.5 text-xs focus:outline-none font-bold"
-            >
-              {mockCampuses.map((camp) => (
-                <option key={camp.id} value={camp.id}>
-                  {camp.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Lớp học tham gia</label>
-            <div className="bg-slate-50 border border-slate-200 rounded p-2.5 max-h-[120px] overflow-y-auto space-y-1">
-              {classrooms.map((cls) => (
-                <label key={cls.id} className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={values.classIds.includes(cls.id)}
-                    onChange={() => toggleClass(cls.id)}
-                    className="h-3.5 w-3.5 rounded border-slate-300 text-brand-orange focus:ring-brand-orange"
-                  />
-                  <span>{cls.name}</span>
-                </label>
-              ))}
+        <div className="space-y-3 border-t border-slate-100 pt-4">
+          <span className="text-[10px] font-bold uppercase text-slate-500">Thông tin học sinh</span>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelClass}>Mã học sinh *</label>
+              <input value={form.studentCode} onChange={(e) => setForm({ ...form, studentCode: e.target.value })} className={`${inputClass} font-mono`} />
+            </div>
+            <div>
+              <label className={labelClass}>Giới tính</label>
+              <select value={form.gender} onChange={(e) => setForm({ ...form, gender: e.target.value })} className={inputClass}>
+                <option value="">-- Chưa rõ --</option>
+                <option value="MALE">Nam</option>
+                <option value="FEMALE">Nữ</option>
+                <option value="OTHER">Khác</option>
+              </select>
+            </div>
+            <div>
+              <label className={labelClass}>Ngày sinh *</label>
+              <input type="date" value={form.dateOfBirth} onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })} className={inputClass} />
+            </div>
+            <div>
+              <label className={labelClass}>Ngày nhập học *</label>
+              <input type="date" value={form.enrollmentDate} onChange={(e) => setForm({ ...form, enrollmentDate: e.target.value })} className={inputClass} />
+            </div>
+            <div>
+              <label className={labelClass}>Điểm trường chính</label>
+              <select value={form.primarySiteId} onChange={(e) => setForm({ ...form, primarySiteId: e.target.value })} className={inputClass}>
+                <option value="">-- Chưa gán --</option>
+                {sites.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={labelClass}>Trường gốc</label>
+              <input value={form.originalSchool} onChange={(e) => setForm({ ...form, originalSchool: e.target.value })} className={inputClass} />
+            </div>
+            <div>
+              <label className={labelClass}>Lớp gốc</label>
+              <input value={form.originalClass} onChange={(e) => setForm({ ...form, originalClass: e.target.value })} className={inputClass} />
+            </div>
+            <div>
+              <label className={labelClass}>Ghi chú</label>
+              <input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className={inputClass} />
             </div>
           </div>
         </div>
 
-        <div className="pt-4 border-t border-slate-100 flex gap-2 justify-end">
-          <button type="button" onClick={onClose} className="px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-50 font-bold text-xs rounded-lg">
-            Hủy bỏ
-          </button>
-          <button type="submit" className="px-4 py-2 bg-brand-orange hover:bg-brand-orange/90 text-white font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-sm transition-all">
-            <Save className="w-4 h-4 text-white" />
-            <span>{isEdit ? "Cập nhật" : "Thêm mới"}</span>
-          </button>
+        <div className="border-t border-slate-100 pt-4 space-y-3">
+          <label className="flex items-center gap-2 text-xs font-bold text-slate-700 uppercase">
+            <input type="checkbox" checked={addParent} onChange={(e) => setAddParent(e.target.checked)} />
+            Liên kết Phụ huynh ngay
+          </label>
+          {addParent && (
+            <div className="space-y-3 bg-slate-50/60 border border-slate-200 rounded-xl p-3">
+              <AccountSelector value={parentAccount} onChange={setParentAccount} />
+              <div className="grid grid-cols-3 gap-2 items-end">
+                <div>
+                  <label className={labelClass}>Quan hệ</label>
+                  <select value={parentInfo.relationship} onChange={(e) => setParentInfo({ ...parentInfo, relationship: e.target.value })} className={inputClass}>
+                    <option value="FATHER">Bố</option>
+                    <option value="MOTHER">Mẹ</option>
+                    <option value="GUARDIAN">Người giám hộ</option>
+                    <option value="OTHER">Khác</option>
+                  </select>
+                </div>
+                <label className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 pb-2.5">
+                  <input type="checkbox" checked={parentInfo.isPrimaryContact} onChange={(e) => setParentInfo({ ...parentInfo, isPrimaryContact: e.target.checked })} />
+                  Người liên hệ chính
+                </label>
+                <label className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 pb-2.5">
+                  <input type="checkbox" checked={parentInfo.isFinancialResponsible} onChange={(e) => setParentInfo({ ...parentInfo, isFinancialResponsible: e.target.checked })} />
+                  Chịu trách nhiệm tài chính
+                </label>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="flex justify-end gap-2 pt-2">
+          <Button type="button" variant="secondary" onClick={onClose}>
+            Hủy
+          </Button>
+          <Button type="submit" variant="primary" disabled={submitting}>
+            <Plus className="w-3.5 h-3.5" />
+            {submitting ? "Đang tạo..." : "Tạo hồ sơ học sinh"}
+          </Button>
         </div>
       </form>
     </Modal>

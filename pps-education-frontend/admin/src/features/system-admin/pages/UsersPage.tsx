@@ -217,8 +217,7 @@ function UserDetailModal({ userId, onClose, onChanged }: { userId: number | null
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
-  const [profileForm, setProfileForm] = useState<UpdateUserRequest>({ fullName: "", phone: "", isManagement: false });
-  const [departmentIdInput, setDepartmentIdInput] = useState("");
+  const [profileForm, setProfileForm] = useState<UpdateUserRequest>({ fullName: "", phone: "" });
   const [newPassword, setNewPassword] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
   const [changingStatus, setChangingStatus] = useState(false);
@@ -229,8 +228,7 @@ function UserDetailModal({ userId, onClose, onChanged }: { userId: number | null
     getUserDetail(id)
       .then((d) => {
         setDetail(d);
-        setProfileForm({ fullName: d.fullName, phone: d.phone ?? "", isManagement: d.isManagement });
-        setDepartmentIdInput(d.departmentId ? String(d.departmentId) : "");
+        setProfileForm({ fullName: d.fullName, phone: d.phone ?? "" });
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được chi tiết tài khoản."))
       .finally(() => setLoading(false));
@@ -255,9 +253,7 @@ function UserDetailModal({ userId, onClose, onChanged }: { userId: number | null
     try {
       await updateUser(detail.id, {
         fullName: profileForm.fullName,
-        phone: profileForm.phone?.trim() || undefined,
-        departmentId: departmentIdInput ? Number(departmentIdInput) : undefined,
-        isManagement: !!profileForm.isManagement
+        phone: profileForm.phone?.trim() || undefined
       });
       loadDetail(detail.id);
       onChanged();
@@ -326,7 +322,16 @@ function UserDetailModal({ userId, onClose, onChanged }: { userId: number | null
             <span>Đăng nhập gần nhất: <span className="font-mono text-slate-700">{detail.lastLoginAt ?? "Chưa từng"}</span></span>
             <span>Số lần đăng nhập sai: <span className="font-mono text-slate-700">{detail.failedLoginCount}</span></span>
             {detail.lockedUntil && <span>Khóa tạm tới: <span className="font-mono text-slate-700">{detail.lockedUntil}</span></span>}
+            <span>
+              Phòng ban: <span className="font-mono text-slate-700">{detail.departmentId ?? "—"}</span>
+            </span>
+            <span>
+              Miễn trừ chấm công: <span className="font-mono text-slate-700">{detail.isManagement ? "Có" : "Không"}</span>
+            </span>
           </div>
+          <p className="text-[10px] text-slate-400 italic -mt-3">
+            Phòng ban / miễn trừ chấm công thuộc hồ sơ nhân sự — sửa tại "Quản lý nhân sự", không sửa được ở đây.
+          </p>
 
           <form onSubmit={handleSaveProfile} className="space-y-3 border-t border-slate-100 pt-4">
             <span className="text-[10px] font-bold uppercase text-slate-500">Cập nhật hồ sơ (UC-49)</span>
@@ -339,25 +344,6 @@ function UserDetailModal({ userId, onClose, onChanged }: { userId: number | null
                 <label className={labelClass}>Số điện thoại</label>
                 <input value={profileForm.phone ?? ""} onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })} className={inputClass} />
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3 items-end">
-              <div>
-                <label className={labelClass}>ID phòng ban</label>
-                <input
-                  value={departmentIdInput}
-                  onChange={(e) => setDepartmentIdInput(e.target.value.replace(/[^0-9]/g, ""))}
-                  className={inputClass}
-                  placeholder="Bỏ trống = không thuộc phòng ban"
-                />
-              </div>
-              <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 pb-2.5">
-                <input
-                  type="checkbox"
-                  checked={!!profileForm.isManagement}
-                  onChange={(e) => setProfileForm({ ...profileForm, isManagement: e.target.checked })}
-                />
-                Miễn trừ chấm công
-              </label>
             </div>
             <Button type="submit" variant="primary" size="sm" disabled={savingProfile}>
               {savingProfile ? "Đang lưu..." : "Lưu hồ sơ"}

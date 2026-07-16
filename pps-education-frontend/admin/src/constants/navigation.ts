@@ -82,6 +82,7 @@ export const navSections: NavSection[] = [
     title: "QUẢN LÝ HỌC SINH",
     items: [
       { id: "stu-profile", label: "Hồ sơ học sinh (UC-13)", path: "/student/profile", icon: Users, requiredPermission: "student.manage" },
+      { id: "stu-parents", label: "Quản lý phụ huynh (UC-13)", path: "/student/parents", icon: Users, requiredPermission: "student.manage" },
       { id: "stu-attendance", label: "Điểm danh nhanh (UC-15)", path: "/student/attendance", icon: Users, requiredPermission: "student.manage" }
     ]
   },

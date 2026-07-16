@@ -1,199 +1,514 @@
-import React, { useState } from "react";
-import { Award, Edit, GraduationCap, Power } from "lucide-react";
-import { Employee } from "@/types";
-import { roleLabels } from "@/constants/roles";
+import React, { useEffect, useState } from "react";
+import { Award, BookOpen, FileText, Save } from "lucide-react";
+import { ApiError } from "@/lib/apiClient";
+import {
+  addCommendation,
+  addContract,
+  addQualification,
+  CommendationResponse,
+  EmployeeResponse,
+  EmploymentContractResponse,
+  listCommendations,
+  listContracts,
+  listQualifications,
+  QualificationResponse,
+  updateContract,
+  updateEmployee,
+  UpdateEmployeeRequest
+} from "../api";
+import Badge from "@/components/ui/Badge";
+import Button from "@/components/ui/Button";
+import { employeeStatusLabels, employeeStatusVariants } from "./EmployeeListPanel";
+
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
+const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+
+type Tab = "profile" | "qualifications" | "commendations" | "contracts";
 
 interface EmployeeDetailPanelProps {
-  employee: Employee;
-  onToggleStatus: (empId: string) => void;
-  onEdit: (emp: Employee) => void;
-  onAddReward: (empId: string, text: string) => void;
-  onAddDiscipline: (empId: string, text: string) => void;
+  employee: EmployeeResponse;
+  onChanged: () => void;
 }
 
-export default function EmployeeDetailPanel({ employee, onToggleStatus, onEdit, onAddReward, onAddDiscipline }: EmployeeDetailPanelProps) {
-  const [rewardText, setRewardText] = useState("");
-  const [disciplineText, setDisciplineText] = useState("");
-  const primaryContract = employee.contracts[0] || null;
+export default function EmployeeDetailPanel({ employee, onChanged }: EmployeeDetailPanelProps) {
+  const [tab, setTab] = useState<Tab>("profile");
 
   return (
-    <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-soft flex flex-col justify-between space-y-5 h-full">
-      <div className="space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider font-display">Hồ sơ lý lịch & Hợp đồng (UC-08)</h3>
-          <span className="text-[10px] font-mono font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md">{employee.id}</span>
+    <div className="lg:col-span-3 bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden flex flex-col">
+      <div className="p-5 border-b border-slate-200 space-y-3 bg-slate-50/20">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-brand-red bg-orange-50 border border-orange-100 px-2 py-0.5 rounded-md">
+              {employee.employeeCode}
+            </span>
+            <h2 className="text-sm font-bold text-slate-800 mt-1">{employee.fullName}</h2>
+          </div>
+          <Badge variant={employeeStatusVariants[employee.status]}>{employeeStatusLabels[employee.status]}</Badge>
         </div>
 
-        <div className="flex items-center gap-3.5 p-3 bg-slate-50/50 rounded-xl border border-slate-100">
-          <div className="w-12 h-12 rounded-full bg-brand-gradient text-white flex items-center justify-center font-display font-black text-lg shadow-soft shrink-0">
-            {employee.fullName.charAt(0)}
-          </div>
-          <div className="space-y-0.5">
-            <h4 className="text-sm font-bold text-slate-900 leading-snug">{employee.fullName}</h4>
-            <p className="text-[10px] text-brand-orange font-bold font-mono">{roleLabels[employee.role]}</p>
-            <div className="flex items-center gap-1.5 pt-0.5">
-              <span className={`w-1.5 h-1.5 rounded-full ${employee.status === "ACTIVE" ? "bg-emerald-500 animate-pulse" : "bg-slate-400"}`} />
-              <span className="text-[9px] text-slate-400 font-bold uppercase">{employee.status === "ACTIVE" ? "Đang hoạt động" : "Tắt hoạt động"}</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-2 text-xs">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Thông tin liên hệ</span>
-          <div className="grid grid-cols-1 gap-2 p-3 bg-slate-50 rounded-lg border border-slate-100 font-medium text-slate-700">
-            <div className="flex items-center gap-2">
-              <span className="text-slate-400 w-4 font-bold">✉</span>
-              <a href={`mailto:${employee.email}`} className="hover:underline text-slate-600 truncate">
-                {employee.email}
-              </a>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-slate-400 w-4 font-bold">☎</span>
-              <span className="text-slate-600">{employee.phone}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-slate-400 w-4 font-bold">📅</span>
-              <span className="text-slate-500">Ngày gia nhập: {employee.joinedDate}</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-2 text-xs">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Bằng cấp & Chứng chỉ chuyên môn</span>
-          <div className="space-y-1.5">
-            {employee.degrees.length === 0 && employee.certificates.length === 0 ? (
-              <p className="text-[10px] text-slate-400 italic">Chưa khai báo bằng cấp chứng chỉ.</p>
-            ) : (
-              <>
-                {employee.degrees.map((deg, idx) => (
-                  <div key={idx} className="flex items-start gap-1.5 text-[11px] text-slate-600 leading-normal">
-                    <GraduationCap className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
-                    <span>{deg}</span>
-                  </div>
-                ))}
-                {employee.certificates.map((cert, idx) => (
-                  <div key={idx} className="flex items-start gap-1.5 text-[11px] text-slate-600 leading-normal">
-                    <Award className="w-3.5 h-3.5 text-brand-orange shrink-0 mt-0.5" />
-                    <span className="font-semibold text-slate-700">{cert}</span>
-                  </div>
-                ))}
-              </>
-            )}
-          </div>
-        </div>
-
-        <div className="p-3 bg-slate-50 rounded-xl space-y-2 border border-slate-100 shadow-inner">
-          <div className="flex items-center justify-between">
-            <span className="text-[9px] font-extrabold text-orange-400 uppercase tracking-widest font-mono">Thông tin hợp đồng lao động</span>
-            <span className="text-[8px] bg-white/10 text-white px-2 py-0.5 rounded font-bold font-mono">{primaryContract ? primaryContract.type : "N/A"}</span>
-          </div>
-          <div className="space-y-1 text-[11px]">
-            <div className="flex justify-between">
-              <span className="text-slate-400">Định mức lương cơ bản:</span>
-              <span className="font-mono font-bold text-white text-xs">{primaryContract ? primaryContract.baseSalary.toLocaleString("vi-VN") : "0"} đ</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-400">Hình thức ký hợp đồng:</span>
-              <span className="text-slate-200">
-                {primaryContract?.type === "LABOR" ? "Hợp đồng lao động dài hạn" : primaryContract?.type === "COLLABORATOR" ? "Cộng tác viên / Khoán" : "Thử việc"}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-400">Ngày bắt đầu hiệu lực:</span>
-              <span className="font-mono text-slate-200">{primaryContract ? primaryContract.startDate : employee.joinedDate}</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-2 border-t border-slate-100 pt-3">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Khen thưởng & Kỷ luật</span>
-          <div className="space-y-1.5 max-h-[120px] overflow-y-auto">
-            {employee.rewards.length === 0 && employee.disciplines.length === 0 ? (
-              <p className="text-[10px] text-slate-400 italic">Chưa ghi nhận quyết định khen thưởng / kỷ luật nào.</p>
-            ) : (
-              <>
-                {employee.rewards.map((rew, idx) => (
-                  <div key={idx} className="p-1.5 bg-emerald-50 border border-emerald-100 rounded text-[10px] text-emerald-800 font-medium flex items-center gap-1.5">
-                    <span className="text-emerald-500 font-bold shrink-0">✔</span>
-                    <span>{rew}</span>
-                  </div>
-                ))}
-                {employee.disciplines.map((dis, idx) => (
-                  <div key={idx} className="p-1.5 bg-rose-50 border border-rose-100 rounded text-[10px] text-rose-800 font-medium flex items-center gap-1.5">
-                    <span className="text-rose-500 font-bold shrink-0">✕</span>
-                    <span>{dis}</span>
-                  </div>
-                ))}
-              </>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
-            <div className="space-y-1">
-              <input
-                type="text"
-                placeholder="Nhập khen thưởng..."
-                value={rewardText}
-                onChange={(e) => setRewardText(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 text-[10px] px-2 py-1 rounded focus:outline-none focus:border-emerald-300"
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  if (!rewardText.trim()) return;
-                  onAddReward(employee.id, rewardText.trim());
-                  setRewardText("");
-                }}
-                className="w-full bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-[9px] font-bold py-0.5 rounded transition-colors"
-              >
-                + Ghi nhận KT
-              </button>
-            </div>
-
-            <div className="space-y-1">
-              <input
-                type="text"
-                placeholder="Nhập kỷ luật..."
-                value={disciplineText}
-                onChange={(e) => setDisciplineText(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 text-[10px] px-2 py-1 rounded focus:outline-none focus:border-rose-300"
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  if (!disciplineText.trim()) return;
-                  onAddDiscipline(employee.id, disciplineText.trim());
-                  setDisciplineText("");
-                }}
-                className="w-full bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 text-[9px] font-bold py-0.5 rounded transition-colors"
-              >
-                + Ghi nhận KL
-              </button>
-            </div>
-          </div>
+        <div className="flex border-b border-slate-200 pt-1 gap-5 overflow-x-auto">
+          {(
+            [
+              ["profile", "Hồ sơ", FileText],
+              ["qualifications", "Bằng cấp", BookOpen],
+              ["commendations", "Khen thưởng/Kỷ luật", Award],
+              ["contracts", "Hợp đồng", FileText]
+            ] as const
+          ).map(([key, label, Icon]) => (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              className={`pb-2.5 text-xs font-bold border-b-2 flex items-center gap-1.5 transition-all whitespace-nowrap ${
+                tab === key ? "border-brand-red text-brand-red" : "border-transparent text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              {label}
+            </button>
+          ))}
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 border-t border-slate-100 pt-3.5 mt-2">
-        <button
-          onClick={() => onToggleStatus(employee.id)}
-          className={`text-xs font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all active:scale-95 border ${employee.status === "ACTIVE"
-              ? "bg-slate-100 border-slate-200 text-slate-600 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200"
-              : "bg-emerald-50 border-emerald-100 text-emerald-700 hover:bg-emerald-100"
-            }`}
-        >
-          <Power className="w-3.5 h-3.5" />
-          <span>{employee.status === "ACTIVE" ? "Tắt hoạt động" : "Kích hoạt lại"}</span>
-        </button>
-
-        <button
-          onClick={() => onEdit(employee)}
-          className="bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all active:scale-95 shadow-sm"
-        >
-          <Edit className="w-3.5 h-3.5 text-brand-yellow" />
-          <span>Sửa thông tin</span>
-        </button>
+      <div className="flex-1 p-5 overflow-y-auto max-h-[560px]">
+        {tab === "profile" && <ProfileTab employee={employee} onChanged={onChanged} />}
+        {tab === "qualifications" && <QualificationsTab employeeId={employee.id} />}
+        {tab === "commendations" && <CommendationsTab employeeId={employee.id} />}
+        {tab === "contracts" && <ContractsTab employeeId={employee.id} />}
       </div>
+    </div>
+  );
+}
+
+function ProfileTab({ employee, onChanged }: { employee: EmployeeResponse; onChanged: () => void }) {
+  const [form, setForm] = useState<UpdateEmployeeRequest>(() => toForm(employee));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => setForm(toForm(employee)), [employee]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+    try {
+      await updateEmployee(employee.id, form);
+      onChanged();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Cập nhật hồ sơ thất bại.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelClass}>Ngày sinh *</label>
+          <input type="date" value={form.dateOfBirth} onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })} className={inputClass} required />
+        </div>
+        <div>
+          <label className={labelClass}>Loại nhân sự *</label>
+          <select value={form.employeeType} onChange={(e) => setForm({ ...form, employeeType: e.target.value as UpdateEmployeeRequest["employeeType"] })} className={inputClass}>
+            <option value="TEACHER">Giáo viên</option>
+            <option value="STAFF">Nhân viên</option>
+            <option value="MANAGER">Quản lý</option>
+          </select>
+        </div>
+        <div>
+          <label className={labelClass}>Số CCCD</label>
+          <input value={form.idCardNumber ?? ""} onChange={(e) => setForm({ ...form, idCardNumber: e.target.value })} className={inputClass} />
+        </div>
+        <div>
+          <label className={labelClass}>Ngày cấp CCCD</label>
+          <input type="date" value={form.idCardIssuedDate ?? ""} onChange={(e) => setForm({ ...form, idCardIssuedDate: e.target.value })} className={inputClass} />
+        </div>
+        <div className="col-span-2">
+          <label className={labelClass}>Nơi cấp CCCD</label>
+          <input value={form.idCardIssuedPlace ?? ""} onChange={(e) => setForm({ ...form, idCardIssuedPlace: e.target.value })} className={inputClass} />
+        </div>
+        <div>
+          <label className={labelClass}>Địa chỉ thường trú</label>
+          <input value={form.permanentAddress ?? ""} onChange={(e) => setForm({ ...form, permanentAddress: e.target.value })} className={inputClass} />
+        </div>
+        <div>
+          <label className={labelClass}>Địa chỉ hiện tại</label>
+          <input value={form.currentAddress ?? ""} onChange={(e) => setForm({ ...form, currentAddress: e.target.value })} className={inputClass} />
+        </div>
+        <div>
+          <label className={labelClass}>Số tài khoản ngân hàng</label>
+          <input value={form.bankAccountNumber ?? ""} onChange={(e) => setForm({ ...form, bankAccountNumber: e.target.value })} className={inputClass} />
+        </div>
+        <div>
+          <label className={labelClass}>Ngân hàng</label>
+          <input value={form.bankName ?? ""} onChange={(e) => setForm({ ...form, bankName: e.target.value })} className={inputClass} />
+        </div>
+        <div>
+          <label className={labelClass}>Mã số thuế</label>
+          <input value={form.taxCode ?? ""} onChange={(e) => setForm({ ...form, taxCode: e.target.value })} className={inputClass} />
+        </div>
+        <div>
+          <label className={labelClass}>Số BHXH</label>
+          <input value={form.socialInsuranceNumber ?? ""} onChange={(e) => setForm({ ...form, socialInsuranceNumber: e.target.value })} className={inputClass} />
+        </div>
+        <div>
+          <label className={labelClass}>Chức vụ</label>
+          <input value={form.positionTitle ?? ""} onChange={(e) => setForm({ ...form, positionTitle: e.target.value })} className={inputClass} />
+        </div>
+        <div>
+          <label className={labelClass}>ID phòng ban</label>
+          <input
+            value={form.departmentId ?? ""}
+            onChange={(e) => setForm({ ...form, departmentId: e.target.value ? Number(e.target.value.replace(/[^0-9]/g, "")) : undefined })}
+            className={inputClass}
+            placeholder="Tùy chọn"
+          />
+        </div>
+        <div>
+          <label className={labelClass}>Trạng thái *</label>
+          <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as UpdateEmployeeRequest["status"] })} className={inputClass}>
+            <option value="ACTIVE">Đang làm việc</option>
+            <option value="ON_LEAVE">Đang nghỉ phép dài hạn</option>
+            <option value="TERMINATED">Đã nghỉ việc</option>
+          </select>
+        </div>
+        {form.status === "TERMINATED" && (
+          <div>
+            <label className={labelClass}>Ngày nghỉ việc</label>
+            <input type="date" value={form.terminationDate ?? ""} onChange={(e) => setForm({ ...form, terminationDate: e.target.value })} className={inputClass} />
+          </div>
+        )}
+      </div>
+      <div className="flex items-center gap-4">
+        <label className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+          <input type="checkbox" checked={!!form.isManagement} onChange={(e) => setForm({ ...form, isManagement: e.target.checked })} />
+          Miễn trừ chấm công
+        </label>
+        <label className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+          <input type="checkbox" checked={form.isDefaultShiftRequired !== false} onChange={(e) => setForm({ ...form, isDefaultShiftRequired: e.target.checked })} />
+          Áp dụng ca mặc định
+        </label>
+      </div>
+      <Button type="submit" variant="primary" size="sm" disabled={saving}>
+        <Save className="w-3.5 h-3.5" />
+        {saving ? "Đang lưu..." : "Lưu hồ sơ"}
+      </Button>
+    </form>
+  );
+}
+
+function toForm(e: EmployeeResponse): UpdateEmployeeRequest {
+  return {
+    dateOfBirth: e.dateOfBirth,
+    idCardNumber: e.idCardNumber ?? undefined,
+    idCardIssuedDate: e.idCardIssuedDate ?? undefined,
+    idCardIssuedPlace: e.idCardIssuedPlace ?? undefined,
+    permanentAddress: e.permanentAddress ?? undefined,
+    currentAddress: e.currentAddress ?? undefined,
+    bankAccountNumber: e.bankAccountNumber ?? undefined,
+    bankName: e.bankName ?? undefined,
+    taxCode: e.taxCode ?? undefined,
+    socialInsuranceNumber: e.socialInsuranceNumber ?? undefined,
+    employeeType: e.employeeType,
+    positionTitle: e.positionTitle ?? undefined,
+    departmentId: e.departmentId ?? undefined,
+    isManagement: e.isManagement,
+    isDefaultShiftRequired: e.isDefaultShiftRequired,
+    status: e.status,
+    terminationDate: e.terminationDate ?? undefined
+  };
+}
+
+function QualificationsTab({ employeeId }: { employeeId: number }) {
+  const [items, setItems] = useState<QualificationResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState({ qualificationType: "DEGREE", title: "", issuer: "", issuedDate: "", expiryDate: "" });
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = () => {
+    setLoading(true);
+    listQualifications(employeeId)
+      .then(setItems)
+      .finally(() => setLoading(false));
+  };
+  useEffect(load, [employeeId]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.title.trim()) {
+      setError("Vui lòng nhập tên bằng cấp/chứng chỉ.");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      await addQualification(employeeId, {
+        qualificationType: form.qualificationType as QualificationResponse["qualificationType"],
+        title: form.title.trim(),
+        issuer: form.issuer.trim() || undefined,
+        issuedDate: form.issuedDate || undefined,
+        expiryDate: form.expiryDate || undefined
+      });
+      setForm({ qualificationType: "DEGREE", title: "", issuer: "", issuedDate: "", expiryDate: "" });
+      load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Thêm thất bại.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
+        <div className="grid grid-cols-2 gap-3">
+          <select value={form.qualificationType} onChange={(e) => setForm({ ...form, qualificationType: e.target.value })} className={inputClass}>
+            <option value="DEGREE">Bằng cấp</option>
+            <option value="PEDAGOGY_CERT">Chứng chỉ nghiệp vụ sư phạm</option>
+            <option value="LANGUAGE_CERT">Chứng chỉ ngoại ngữ</option>
+            <option value="OTHER">Khác</option>
+          </select>
+          <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Tên bằng cấp/chứng chỉ *" className={inputClass} />
+          <input value={form.issuer} onChange={(e) => setForm({ ...form, issuer: e.target.value })} placeholder="Đơn vị cấp" className={inputClass} />
+          <input type="date" value={form.issuedDate} onChange={(e) => setForm({ ...form, issuedDate: e.target.value })} className={inputClass} />
+        </div>
+        <Button type="submit" size="sm" variant="primary" disabled={submitting}>
+          {submitting ? "Đang lưu..." : "Thêm bằng cấp/chứng chỉ"}
+        </Button>
+      </form>
+
+      {loading ? (
+        <p className="text-xs text-slate-500">Đang tải...</p>
+      ) : items.length === 0 ? (
+        <p className="text-xs text-slate-400 italic">Chưa có bằng cấp/chứng chỉ nào.</p>
+      ) : (
+        <div className="space-y-2">
+          {items.map((q) => (
+            <div key={q.id} className="border border-slate-200 rounded-lg p-3 text-xs">
+              <span className="font-bold text-slate-800">{q.title}</span>
+              <span className="text-slate-400 ml-2">({q.issuer || "—"})</span>
+              {q.issuedDate && <span className="text-slate-400 ml-2">Cấp: {q.issuedDate}</span>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CommendationsTab({ employeeId }: { employeeId: number }) {
+  const [items, setItems] = useState<CommendationResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState({ recordType: "COMMENDATION", recordDate: "", title: "", amount: "" });
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = () => {
+    setLoading(true);
+    listCommendations(employeeId)
+      .then(setItems)
+      .finally(() => setLoading(false));
+  };
+  useEffect(load, [employeeId]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.title.trim() || !form.recordDate) {
+      setError("Vui lòng nhập tiêu đề và ngày ghi nhận.");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      await addCommendation(employeeId, {
+        recordType: form.recordType as CommendationResponse["recordType"],
+        recordDate: form.recordDate,
+        title: form.title.trim(),
+        amount: form.amount ? Number(form.amount) : undefined
+      });
+      setForm({ recordType: "COMMENDATION", recordDate: "", title: "", amount: "" });
+      load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Thêm thất bại.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2 col-span-2">
+            <button
+              type="button"
+              onClick={() => setForm({ ...form, recordType: "COMMENDATION" })}
+              className={`py-1.5 text-xs font-bold rounded-lg border ${
+                form.recordType === "COMMENDATION" ? "bg-emerald-50 text-emerald-600 border-emerald-200" : "bg-white border-slate-200 text-slate-500"
+              }`}
+            >
+              Khen thưởng
+            </button>
+            <button
+              type="button"
+              onClick={() => setForm({ ...form, recordType: "DISCIPLINE" })}
+              className={`py-1.5 text-xs font-bold rounded-lg border ${
+                form.recordType === "DISCIPLINE" ? "bg-rose-50 text-rose-600 border-rose-200" : "bg-white border-slate-200 text-slate-500"
+              }`}
+            >
+              Kỷ luật
+            </button>
+          </div>
+          <input type="date" value={form.recordDate} onChange={(e) => setForm({ ...form, recordDate: e.target.value })} className={inputClass} />
+          <input value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value.replace(/[^0-9]/g, "") })} placeholder="Số tiền (nếu có)" className={inputClass} />
+          <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Tiêu đề quyết định *" className={`${inputClass} col-span-2`} />
+        </div>
+        <Button type="submit" size="sm" variant="primary" disabled={submitting}>
+          {submitting ? "Đang lưu..." : "Ghi nhận"}
+        </Button>
+      </form>
+
+      {loading ? (
+        <p className="text-xs text-slate-500">Đang tải...</p>
+      ) : items.length === 0 ? (
+        <p className="text-xs text-slate-400 italic">Chưa có quyết định khen thưởng/kỷ luật nào.</p>
+      ) : (
+        <div className="space-y-2">
+          {items.map((c) => (
+            <div key={c.id} className="border border-slate-200 rounded-lg p-3 text-xs flex items-center justify-between">
+              <div>
+                <Badge variant={c.recordType === "COMMENDATION" ? "success" : "danger"}>{c.recordType === "COMMENDATION" ? "Khen thưởng" : "Kỷ luật"}</Badge>
+                <span className="font-bold text-slate-800 ml-2">{c.title}</span>
+              </div>
+              <span className="text-slate-400">{c.recordDate}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ContractsTab({ employeeId }: { employeeId: number }) {
+  const [items, setItems] = useState<EmploymentContractResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState({ contractNumber: "", contractType: "PROBATION", startDate: "", endDate: "", baseSalary: "", salaryType: "MONTHLY", status: "ACTIVE" });
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = () => {
+    setLoading(true);
+    listContracts(employeeId)
+      .then(setItems)
+      .finally(() => setLoading(false));
+  };
+  useEffect(load, [employeeId]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.contractNumber.trim() || !form.startDate || !form.baseSalary) {
+      setError("Vui lòng nhập đủ số hợp đồng, ngày bắt đầu, lương cơ bản.");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      await addContract(employeeId, {
+        contractNumber: form.contractNumber.trim(),
+        contractType: form.contractType as EmploymentContractResponse["contractType"],
+        startDate: form.startDate,
+        endDate: form.endDate || undefined,
+        baseSalary: Number(form.baseSalary),
+        salaryType: form.salaryType as EmploymentContractResponse["salaryType"],
+        status: form.status as EmploymentContractResponse["status"]
+      });
+      setForm({ contractNumber: "", contractType: "PROBATION", startDate: "", endDate: "", baseSalary: "", salaryType: "MONTHLY", status: "ACTIVE" });
+      load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Thêm hợp đồng thất bại.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleTerminate = async (contract: EmploymentContractResponse) => {
+    if (!window.confirm(`Chấm dứt hợp đồng ${contract.contractNumber}?`)) return;
+    try {
+      await updateContract(employeeId, contract.id, {
+        contractType: contract.contractType,
+        startDate: contract.startDate,
+        endDate: contract.endDate ?? undefined,
+        baseSalary: contract.baseSalary,
+        salaryType: contract.salaryType,
+        status: "TERMINATED"
+      });
+      load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Cập nhật thất bại.");
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
+        <div className="grid grid-cols-2 gap-3">
+          <input value={form.contractNumber} onChange={(e) => setForm({ ...form, contractNumber: e.target.value })} placeholder="Số hợp đồng *" className={inputClass} />
+          <select value={form.contractType} onChange={(e) => setForm({ ...form, contractType: e.target.value })} className={inputClass}>
+            <option value="PROBATION">Thử việc</option>
+            <option value="FIXED_TERM">Xác định thời hạn</option>
+            <option value="INDEFINITE">Không xác định thời hạn</option>
+            <option value="SEASONAL">Thời vụ</option>
+          </select>
+          <div>
+            <label className={labelClass}>Ngày bắt đầu *</label>
+            <input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} className={inputClass} />
+          </div>
+          <div>
+            <label className={labelClass}>Ngày kết thúc (bỏ trống nếu vô thời hạn)</label>
+            <input type="date" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} className={inputClass} />
+          </div>
+          <input value={form.baseSalary} onChange={(e) => setForm({ ...form, baseSalary: e.target.value.replace(/[^0-9]/g, "") })} placeholder="Lương cơ bản *" className={inputClass} />
+          <select value={form.salaryType} onChange={(e) => setForm({ ...form, salaryType: e.target.value })} className={inputClass}>
+            <option value="MONTHLY">Theo tháng</option>
+            <option value="HOURLY">Theo giờ</option>
+          </select>
+        </div>
+        <Button type="submit" size="sm" variant="primary" disabled={submitting}>
+          {submitting ? "Đang lưu..." : "Thêm hợp đồng"}
+        </Button>
+      </form>
+
+      {loading ? (
+        <p className="text-xs text-slate-500">Đang tải...</p>
+      ) : items.length === 0 ? (
+        <p className="text-xs text-slate-400 italic">Chưa có hợp đồng nào.</p>
+      ) : (
+        <div className="space-y-2">
+          {items.map((c) => (
+            <div key={c.id} className="border border-slate-200 rounded-lg p-3 text-xs flex items-center justify-between">
+              <div>
+                <span className="font-mono font-bold text-slate-800">{c.contractNumber}</span>
+                <Badge variant={c.status === "ACTIVE" ? "success" : c.status === "TERMINATED" ? "danger" : "neutral"} className="ml-2">
+                  {c.status}
+                </Badge>
+                <span className="text-slate-400 ml-2">
+                  {c.baseSalary.toLocaleString("vi-VN")}đ/{c.salaryType === "MONTHLY" ? "tháng" : "giờ"}
+                </span>
+              </div>
+              {c.status === "ACTIVE" && (
+                <button onClick={() => handleTerminate(c)} className="text-rose-500 hover:text-rose-700 text-[11px] font-semibold">
+                  Chấm dứt
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
