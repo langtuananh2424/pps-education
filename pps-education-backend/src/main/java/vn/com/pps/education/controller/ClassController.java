@@ -36,13 +36,19 @@ public class ClassController {
         this.classService = classService;
     }
 
-    /** Dropdown FE: chọn trường (siteId) -> hiển thị lớp của trường đó; lọc thêm theo chương trình (curriculumId/classCategory). */
+    /**
+     * Dropdown FE: chọn trường (siteId) -> hiển thị lớp của trường đó; lọc
+     * thêm theo chương trình (curriculumId/classCategory). Giáo viên (không
+     * có quyền academic.class.manage) chỉ thấy lớp thuộc (các) site được
+     * gán qua site_teachers — xem Javadoc ClassService.search.
+     */
     @GetMapping
     public ResponseEntity<List<ClassResponse>> search(@RequestParam(required = false) String query,
                                                        @RequestParam(required = false) Long siteId,
                                                        @RequestParam(required = false) Long curriculumId,
-                                                       @RequestParam(required = false) String classCategory) {
-        return ResponseEntity.ok(classService.search(query, siteId, curriculumId, classCategory));
+                                                       @RequestParam(required = false) String classCategory,
+                                                       @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(classService.search(query, siteId, curriculumId, classCategory, actor.userId()));
     }
 
     @GetMapping("/{id}")

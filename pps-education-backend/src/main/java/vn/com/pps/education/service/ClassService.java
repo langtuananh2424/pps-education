@@ -11,6 +11,7 @@ import vn.com.pps.education.domain.Curriculum;
 import vn.com.pps.education.domain.CurriculumSubject;
 import vn.com.pps.education.domain.SchoolClass;
 import vn.com.pps.education.domain.Site;
+import vn.com.pps.education.domain.SiteTeacher;
 import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.dto.AssignTeacherRequest;
@@ -36,9 +37,11 @@ import vn.com.pps.education.repository.CurriculumRepository;
 import vn.com.pps.education.repository.CurriculumSubjectRepository;
 import vn.com.pps.education.repository.SchoolClassRepository;
 import vn.com.pps.education.repository.SiteRepository;
+import vn.com.pps.education.repository.SiteTeacherRepository;
 import vn.com.pps.education.repository.StudentRepository;
 import vn.com.pps.education.repository.UserRepository;
 
+import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -71,8 +74,10 @@ public class ClassService {
     private final CurriculumRepository curriculumRepository;
     private final CurriculumSubjectRepository curriculumSubjectRepository;
     private final SiteRepository siteRepository;
+    private final SiteTeacherRepository siteTeacherRepository;
     private final StudentRepository studentRepository;
     private final UserRepository userRepository;
+    private final PermissionEvaluationService permissionEvaluationService;
 
     public ClassService(SchoolClassRepository schoolClassRepository,
                          ClassTeacherRepository classTeacherRepository,
@@ -83,8 +88,10 @@ public class ClassService {
                          CurriculumRepository curriculumRepository,
                          CurriculumSubjectRepository curriculumSubjectRepository,
                          SiteRepository siteRepository,
+                         SiteTeacherRepository siteTeacherRepository,
                          StudentRepository studentRepository,
-                         UserRepository userRepository) {
+                         UserRepository userRepository,
+                         PermissionEvaluationService permissionEvaluationService) {
         this.schoolClassRepository = schoolClassRepository;
         this.classTeacherRepository = classTeacherRepository;
         this.classEnrollmentRepository = classEnrollmentRepository;
@@ -94,17 +101,41 @@ public class ClassService {
         this.curriculumRepository = curriculumRepository;
         this.curriculumSubjectRepository = curriculumSubjectRepository;
         this.siteRepository = siteRepository;
+        this.siteTeacherRepository = siteTeacherRepository;
         this.studentRepository = studentRepository;
         this.userRepository = userRepository;
+        this.permissionEvaluationService = permissionEvaluationService;
     }
 
-    /** Hỗ trợ dropdown FE: lọc lớp theo trường (siteId) và/hoặc chương trình (curriculumId/classCategory). */
+    /**
+     * Hỗ trợ dropdown FE: lọc lớp theo trường (siteId) và/hoặc chương trình
+     * (curriculumId/classCategory). Nếu actor không có quyền
+     * academic.class.manage (VD giáo viên), chỉ trả về lớp thuộc (các) điểm
+     * trường actor đang được gán qua site_teachers (bổ sung ngoài SDD gốc,
+     * đã xác nhận với người dùng — xem docs/sdd-groups/03-co-so-vat-chat-and-diem-truong.md).
+     */
     @Transactional(readOnly = true)
-    public List<ClassResponse> search(String query, Long siteId, Long curriculumId, String classCategory) {
+    public List<ClassResponse> search(String query, Long siteId, Long curriculumId, String classCategory, Long actorUserId) {
+        List<Long> allowedSiteIds = resolveAllowedSiteIds(actorUserId);
+        boolean restrictSites = allowedSiteIds != null;
+        // Luôn truyền 1 list cụ thể (không bao giờ null/rỗng) cho tham số IN — tránh
+        // vấn đề Hibernate không xử lý được collection param null/rỗng; site id âm
+        // không tồn tại thật nên khi restrict mà giáo viên chưa được gán site nào,
+        // truy vấn tự nhiên trả rỗng.
+        List<Long> siteIdsForQuery = allowedSiteIds == null || allowedSiteIds.isEmpty() ? List.of(-1L) : allowedSiteIds;
         List<SchoolClass> classes = query == null || query.isBlank()
-                ? schoolClassRepository.search(siteId, curriculumId, classCategory)
-                : schoolClassRepository.searchByQuery(query.trim(), siteId, curriculumId, classCategory);
+                ? schoolClassRepository.search(siteId, curriculumId, classCategory, restrictSites, siteIdsForQuery)
+                : schoolClassRepository.searchByQuery(query.trim(), siteId, curriculumId, classCategory, restrictSites, siteIdsForQuery);
         return classes.stream().map(this::toResponse).toList();
+    }
+
+    /** null = không giới hạn (actor có academic.class.manage); danh sách rỗng = không thấy lớp nào. */
+    private List<Long> resolveAllowedSiteIds(Long actorUserId) {
+        if (permissionEvaluationService.hasPermission(actorUserId, "academic.class.manage")) {
+            return null;
+        }
+        return siteTeacherRepository.findByTeacherIdAndAssignedToIsNull(actorUserId).stream()
+                .map(st -> st.getSite().getId()).toList();
     }
 
     @Transactional(readOnly = true)
@@ -217,7 +248,26 @@ public class ClassService {
         history.setDetails(snapshot);
         classTeacherHistoryRepository.save(history);
 
+        ensureTeacherAssignedToSite(schoolClass.getSite(), teacher, actor);
         return toResponse(classTeacher);
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng, xem
+     * docs/sdd-groups/03-co-so-vat-chat-and-diem-truong.md): khi gán giáo
+     * viên vào 1 lớp, tự động tạo liên kết giáo viên↔site của lớp đó qua
+     * site_teachers nếu chưa có — im lặng bỏ qua nếu đã có sẵn.
+     */
+    private void ensureTeacherAssignedToSite(Site site, User teacher, User actor) {
+        if (siteTeacherRepository.existsBySiteIdAndTeacherIdAndAssignedToIsNull(site.getId(), teacher.getId())) {
+            return;
+        }
+        SiteTeacher link = new SiteTeacher();
+        link.setSite(site);
+        link.setTeacher(teacher);
+        link.setAssignedFrom(LocalDate.now());
+        link.setAssignedBy(actor);
+        siteTeacherRepository.save(link);
     }
 
     @Transactional(readOnly = true)

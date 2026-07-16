@@ -245,6 +245,19 @@ UC-18: Xếp lớp & gán khóa học
 |                 | 1.  Nếu chọn Loại hình Lớp liên kết trường nhưng   |
 |                 |     chưa gán Điểm trường phụ trách, hệ thống chặn  |
 |                 |     lưu và yêu cầu bổ sung.                        |
+|                 |                                                    |
+|                 | ***A3 --- Giáo viên chưa được gán vào Điểm trường  |
+|                 | của lớp (bổ sung ngoài SDD gốc, đã xác nhận với    |
+|                 | người dùng)***                                     |
+|                 |                                                    |
+|                 | 1.  Khi điều phối giáo viên phụ trách 1 lớp, nếu   |
+|                 |     giáo viên đó chưa từng được gán vào Điểm       |
+|                 |     trường của lớp, hệ thống TỰ ĐỘNG tạo liên kết  |
+|                 |     giáo viên--điểm trường (site_teachers), không  |
+|                 |     chặn thao tác.                                 |
+|                 |                                                    |
+|                 | 2.  Nếu giáo viên đã được gán vào điểm trường đó   |
+|                 |     từ trước, bỏ qua (không tạo trùng).            |
 +-----------------+----------------------------------------------------+
 | **Hậu điều kiện | -   Lớp học được khởi tạo với đầy đủ thông tin:    |
 | (P              |     khóa học, giáo viên, sĩ số, phòng học (nếu áp  |

@@ -15,6 +15,7 @@ erDiagram
     sites ||--o| partner_school_info : "1-1 neu PARTNER"
     sites ||--o{ partner_contracts : "nhieu hop dong"
     sites ||--o{ site_managers : "phu trach"
+    sites ||--o{ site_teachers : "giao vien duoc gan"
     sites ||--o{ rooms : "chua"
     sites ||--o{ partner_feedbacks : "phan hoi ve"
     sites ||--o{ sites_history : ""
@@ -23,6 +24,7 @@ erDiagram
     rooms ||--o{ rooms_history : ""
 
     users ||--o{ site_managers : ""
+    users ||--o{ site_teachers : "giao vien"
     users ||--o{ partner_feedbacks : "gui/xu ly"
     users ||--o{ partner_contracts : "khoi tao"
 
@@ -71,6 +73,15 @@ erDiagram
         BIGSERIAL id PK
         BIGINT site_id FK
         BIGINT user_id FK
+        DATE assigned_from
+        DATE assigned_to
+        BIGINT assigned_by FK
+    }
+
+    site_teachers {
+        BIGSERIAL id PK
+        BIGINT site_id FK
+        BIGINT teacher_user_id FK
         DATE assigned_from
         DATE assigned_to
         BIGINT assigned_by FK
@@ -409,3 +420,49 @@ g)  Bảng partner_feedbacks --- Kênh phản hồi từ trường liên kết
   ------------------------------------------------------------------------
 
 Có partner_feedbacks_history.
+
+h)  Bảng site_teachers --- Gán giáo viên vào điểm trường (migration V35,
+    bổ sung ngoài SDD gốc — đã xác nhận với người dùng)
+
+Quan hệ N-N thuần (khác site_managers — bảng cho vai trò quản lý, unique 1
+active/site/role_type): 1 giáo viên có thể được gán vào nhiều điểm trường
+(cả OWNED lẫn PARTNER), 1 điểm trường có nhiều giáo viên, không giới hạn số
+lượng. Dùng để giới hạn giáo viên chỉ thao tác được module lớp học/điểm
+danh thuộc (các) điểm trường mình được gán (UC-18 assignTeacher tự động
+tạo liên kết nếu chưa có — xem phan-he-06-hoc-thuat.md).
+
+  ------------------------------------------------------------------------
+  Cột                Kiểu            Ràng buộc           Ghi chú
+  ------------------ --------------- ------------------- -----------------
+  id                 BIGSERIAL       PK                  
+
+  site_id            BIGINT          FK → sites(id), NOT 
+                                     NULL                
+
+  teacher_user_id    BIGINT          FK → users(id), NOT 
+                                     NULL                
+
+  assigned_from      DATE            NOT NULL            
+
+  assigned_to        DATE            NULL                NULL = đang được
+                                                         gán tại site này
+
+  assigned_by        BIGINT          FK → users(id), NOT 
+                                     NULL                
+
+  notes              TEXT            NULL                
+
+  created_at,        TIMESTAMPTZ                         
+  updated_at                                             
+  ------------------------------------------------------------------------
+
+Ràng buộc:
+
+CREATE UNIQUE INDEX idx_site_teachers_active
+
+ON site_teachers(site_id, teacher_user_id)
+
+WHERE assigned_to IS NULL;
+
+Không soft-delete, không history riêng --- bản thân bảng đã là lịch sử
+phân công theo thời gian (giống site_managers).

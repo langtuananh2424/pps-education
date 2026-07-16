@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -11,8 +12,10 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import vn.com.pps.education.dto.AssignSiteManagerRequest;
+import vn.com.pps.education.dto.AssignSiteTeacherRequest;
 import vn.com.pps.education.dto.CreateSiteRequest;
 import vn.com.pps.education.dto.SiteResponse;
+import vn.com.pps.education.dto.SiteTeacherResponse;
 import vn.com.pps.education.dto.UpdateSiteRequest;
 import vn.com.pps.education.security.AuthenticatedUser;
 import vn.com.pps.education.service.SiteService;
@@ -60,5 +63,26 @@ public class SiteController {
     @GetMapping("/api/sites")
     public ResponseEntity<List<SiteResponse>> listSites() {
         return ResponseEntity.ok(siteService.listSites());
+    }
+
+    @PostMapping("/api/sites/{id}/teachers")
+    @PreAuthorize("hasPermission(null, 'facility.manage')")
+    public ResponseEntity<SiteTeacherResponse> assignTeacher(@PathVariable Long id,
+                                                              @Valid @RequestBody AssignSiteTeacherRequest request,
+                                                              @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(siteService.assignTeacher(id, request, actor.userId()));
+    }
+
+    @DeleteMapping("/api/sites/{id}/teachers/{siteTeacherId}")
+    @PreAuthorize("hasPermission(null, 'facility.manage')")
+    public ResponseEntity<Void> removeTeacher(@PathVariable Long id, @PathVariable Long siteTeacherId,
+                                               @AuthenticationPrincipal AuthenticatedUser actor) {
+        siteService.removeTeacherFromSite(id, siteTeacherId, actor.userId());
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/api/sites/{id}/teachers")
+    public ResponseEntity<List<SiteTeacherResponse>> listTeachers(@PathVariable Long id) {
+        return ResponseEntity.ok(siteService.listTeachers(id));
     }
 }

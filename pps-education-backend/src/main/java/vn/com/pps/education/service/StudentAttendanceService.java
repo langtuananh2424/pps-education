@@ -27,6 +27,7 @@ import vn.com.pps.education.repository.AttendanceSessionRepository;
 import vn.com.pps.education.repository.ClassSessionRepository;
 import vn.com.pps.education.repository.ParentStudentRepository;
 import vn.com.pps.education.repository.SessionPeriodRepository;
+import vn.com.pps.education.repository.SiteTeacherRepository;
 import vn.com.pps.education.repository.StudentRepository;
 import vn.com.pps.education.repository.UserRepository;
 
@@ -62,6 +63,8 @@ public class StudentAttendanceService {
     private final ParentStudentRepository parentStudentRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final SiteTeacherRepository siteTeacherRepository;
+    private final PermissionEvaluationService permissionEvaluationService;
 
     public StudentAttendanceService(ClassSessionRepository classSessionRepository,
                                      SessionPeriodRepository sessionPeriodRepository,
@@ -72,7 +75,9 @@ public class StudentAttendanceService {
                                      StudentRepository studentRepository,
                                      ParentStudentRepository parentStudentRepository,
                                      UserRepository userRepository,
-                                     NotificationService notificationService) {
+                                     NotificationService notificationService,
+                                     SiteTeacherRepository siteTeacherRepository,
+                                     PermissionEvaluationService permissionEvaluationService) {
         this.classSessionRepository = classSessionRepository;
         this.sessionPeriodRepository = sessionPeriodRepository;
         this.attendanceSessionRepository = attendanceSessionRepository;
@@ -83,6 +88,8 @@ public class StudentAttendanceService {
         this.parentStudentRepository = parentStudentRepository;
         this.userRepository = userRepository;
         this.notificationService = notificationService;
+        this.siteTeacherRepository = siteTeacherRepository;
+        this.permissionEvaluationService = permissionEvaluationService;
     }
 
     /** Main Flow bước 1-2: điểm danh cả lớp (lưu DRAFT, có thể gọi lại nhiều lần trước khi submit). */
@@ -252,11 +259,26 @@ public class StudentAttendanceService {
         attendanceMarkRepository.save(mark);
     }
 
+    /** Giáo viên (không có academic.class.manage) chỉ xem được điểm danh buổi thuộc site được gán — xem ClassService.resolveAllowedSiteIds. */
     @Transactional(readOnly = true)
-    public AttendanceSessionResponse getAttendanceSession(Long classSessionId) {
+    public AttendanceSessionResponse getAttendanceSession(Long classSessionId, Long actorUserId) {
         AttendanceSession attendanceSession = attendanceSessionRepository.findByClassSessionId(classSessionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Chưa có bản ghi điểm danh cho buổi id=" + classSessionId));
+        List<Long> allowedSiteIds = resolveAllowedSiteIds(actorUserId);
+        Long siteId = attendanceSession.getClassSession().getSchoolClass().getSite().getId();
+        if (allowedSiteIds != null && !allowedSiteIds.contains(siteId)) {
+            throw new ResourceNotFoundException("Chưa có bản ghi điểm danh cho buổi id=" + classSessionId);
+        }
         return toResponse(attendanceSession);
+    }
+
+    /** null = không giới hạn (actor có academic.class.manage); danh sách rỗng = không thấy buổi điểm danh nào. */
+    private List<Long> resolveAllowedSiteIds(Long actorUserId) {
+        if (permissionEvaluationService.hasPermission(actorUserId, "academic.class.manage")) {
+            return null;
+        }
+        return siteTeacherRepository.findByTeacherIdAndAssignedToIsNull(actorUserId).stream()
+                .map(st -> st.getSite().getId()).toList();
     }
 
     private void requireAssignedTeacher(ClassSession classSession, Long actorUserId) {

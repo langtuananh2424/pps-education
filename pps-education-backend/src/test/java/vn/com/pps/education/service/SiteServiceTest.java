@@ -9,9 +9,13 @@ import vn.com.pps.education.dto.CreateSiteRequest;
 import vn.com.pps.education.dto.PartnerSchoolInfoRequest;
 import vn.com.pps.education.dto.SiteResponse;
 import vn.com.pps.education.dto.UpdateSiteRequest;
+import vn.com.pps.education.dto.AssignSiteTeacherRequest;
+import vn.com.pps.education.dto.SiteTeacherResponse;
 import vn.com.pps.education.exception.DuplicateSiteCodeException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
+import vn.com.pps.education.exception.SiteTeacherAlreadyAssignedException;
 import vn.com.pps.education.repository.UserRepository;
+import java.time.LocalDate;
 import vn.com.pps.education.support.AbstractIntegrationTest;
 
 import java.util.List;
@@ -149,6 +153,50 @@ class SiteServiceTest extends AbstractIntegrationTest {
         List<SiteResponse> sites = siteService.listSites();
 
         assertThat(sites).extracting(SiteResponse::id).contains(created.id());
+    }
+
+    @Test
+    void assignTeacher_MainFlow_createsActiveAssignment() {
+        User actor = newUser("ops-manager");
+        User teacher = newUser("teacher-for-site");
+        SiteResponse site = siteService.createSite(
+                new CreateSiteRequest(uniqueCode(), "Cơ sở gán GV", "OWNED", null, null, null, null, null), actor.getId());
+
+        SiteTeacherResponse response = siteService.assignTeacher(site.id(),
+                new AssignSiteTeacherRequest(teacher.getId(), LocalDate.now(), "Ghi chú"), actor.getId());
+
+        assertThat(response.id()).isNotNull();
+        assertThat(response.siteId()).isEqualTo(site.id());
+        assertThat(response.teacherUserId()).isEqualTo(teacher.getId());
+        assertThat(response.assignedTo()).isNull();
+        assertThat(siteService.listTeachers(site.id())).extracting(SiteTeacherResponse::teacherUserId).containsExactly(teacher.getId());
+    }
+
+    @Test
+    void assignTeacher_rejectsDuplicateActiveAssignment() {
+        User actor = newUser("ops-manager");
+        User teacher = newUser("teacher-dup");
+        SiteResponse site = siteService.createSite(
+                new CreateSiteRequest(uniqueCode(), "Cơ sở dup GV", "OWNED", null, null, null, null, null), actor.getId());
+        siteService.assignTeacher(site.id(), new AssignSiteTeacherRequest(teacher.getId(), LocalDate.now(), null), actor.getId());
+
+        assertThatThrownBy(() -> siteService.assignTeacher(site.id(),
+                new AssignSiteTeacherRequest(teacher.getId(), LocalDate.now(), null), actor.getId()))
+                .isInstanceOf(SiteTeacherAlreadyAssignedException.class);
+    }
+
+    @Test
+    void removeTeacherFromSite_closesAssignment_andListTeachersNoLongerReturnsIt() {
+        User actor = newUser("ops-manager");
+        User teacher = newUser("teacher-removed");
+        SiteResponse site = siteService.createSite(
+                new CreateSiteRequest(uniqueCode(), "Cơ sở gỡ GV", "OWNED", null, null, null, null, null), actor.getId());
+        SiteTeacherResponse assignment = siteService.assignTeacher(site.id(),
+                new AssignSiteTeacherRequest(teacher.getId(), LocalDate.now(), null), actor.getId());
+
+        siteService.removeTeacherFromSite(site.id(), assignment.id(), actor.getId());
+
+        assertThat(siteService.listTeachers(site.id())).isEmpty();
     }
 
     // ===================== Helpers =====================

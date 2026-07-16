@@ -51,10 +51,31 @@ UC-36: Quản lý điểm trường
 | (Alternate      | 1.  Người dùng chọn Quản lý điểm trường mới thay   |
 | Flow)**         |     thế; hệ thống cập nhật phạm vi truy cập dữ     |
 |                 |     liệu row-level tương ứng ngay khi lưu.         |
+|                 |                                                    |
+|                 | ***A2 --- Gán giáo viên vào điểm trường (bổ sung   |
+|                 | ngoài SDD gốc, đã xác nhận với người dùng)***      |
+|                 |                                                    |
+|                 | 1.  Người dùng (quyền facility.manage) gán 1 giáo  |
+|                 |     viên vào điểm trường (mọi Loại hình, cả Cơ sở  |
+|                 |     tự vận hành lẫn Trường liên kết) — 1 giáo viên |
+|                 |     có thể được gán nhiều điểm trường cùng lúc     |
+|                 |     (site_teachers, migration V35).                |
+|                 |                                                    |
+|                 | 2.  Giáo viên không có quyền academic.class.manage |
+|                 |     (VD role Giáo viên thuần) chỉ xem/thao tác     |
+|                 |     được lớp học, buổi học, điểm danh thuộc (các)  |
+|                 |     điểm trường mình được gán — xem UC-18 A3.      |
+|                 |                                                    |
+|                 | 3.  Người dùng có thể gỡ 1 phân công (đóng          |
+|                 |     assigned_to, giữ lịch sử).                     |
 +-----------------+----------------------------------------------------+
 | **Hậu điều kiện | -   Danh mục điểm trường phản ánh đúng thực tế,    |
 | (P              |     sẵn sàng làm cơ sở cho xếp lớp (UC-18), quản   |
 | ostcondition)** |     lý phòng học (UC-37).                          |
+|                 |                                                    |
+|                 | -   Giáo viên được gán chỉ thao tác được dữ liệu   |
+|                 |     lớp học/điểm danh thuộc (các) điểm trường mình |
+|                 |     được gán (A2).                                 |
 +-----------------+----------------------------------------------------+
 
 ---

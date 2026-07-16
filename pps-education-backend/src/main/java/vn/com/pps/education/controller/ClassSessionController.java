@@ -32,8 +32,9 @@ public class ClassSessionController {
     }
 
     @GetMapping
-    public ResponseEntity<List<ClassSessionResponse>> listSessions(@PathVariable Long classId) {
-        return ResponseEntity.ok(classSessionService.listSessions(classId));
+    public ResponseEntity<List<ClassSessionResponse>> listSessions(@PathVariable Long classId,
+                                                                     @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(classSessionService.listSessions(classId, actor.userId()));
     }
 
     @PreAuthorize("hasPermission(null, 'academic.class.manage')")
@@ -45,8 +46,9 @@ public class ClassSessionController {
     }
 
     @GetMapping("/{classSessionId}/periods")
-    public ResponseEntity<List<SessionPeriodResponse>> listPeriods(@PathVariable Long classId, @PathVariable Long classSessionId) {
-        return ResponseEntity.ok(classSessionService.listPeriods(classSessionId));
+    public ResponseEntity<List<SessionPeriodResponse>> listPeriods(@PathVariable Long classId, @PathVariable Long classSessionId,
+                                                                    @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(classSessionService.listPeriods(classSessionId, actor.userId()));
     }
 
     @PreAuthorize("hasPermission(null, 'academic.class.manage')")
