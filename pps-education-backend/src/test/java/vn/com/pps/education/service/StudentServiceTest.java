@@ -269,6 +269,48 @@ class StudentServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void searchParents_returnsAllParents_whenQueryBlank() {
+        User parentUser1 = newUser("parent.searchall.1");
+        ParentResponse parent1 = studentService.createParent(
+                new CreateParentRequest(parentUser1.getId(), null, null, null, null, null), staff.getId());
+        User parentUser2 = newUser("parent.searchall.2");
+        ParentResponse parent2 = studentService.createParent(
+                new CreateParentRequest(parentUser2.getId(), null, null, null, null, null), staff.getId());
+
+        assertThat(studentService.searchParents(null))
+                .extracting(ParentResponse::id)
+                .contains(parent1.id(), parent2.id());
+    }
+
+    @Test
+    void searchParents_filtersByFullNameQuery() {
+        User parentUser = newUser("parent.uniquename." + System.nanoTime());
+        ParentResponse parent = studentService.createParent(
+                new CreateParentRequest(parentUser.getId(), null, null, null, null, null), staff.getId());
+
+        assertThat(studentService.searchParents(parentUser.getFullName()))
+                .extracting(ParentResponse::id)
+                .containsExactly(parent.id());
+    }
+
+    @Test
+    void getParentById_returnsParentDetails() {
+        User parentUser = newUser("parent.getbyid");
+        ParentResponse created = studentService.createParent(
+                new CreateParentRequest(parentUser.getId(), null, "Kỹ sư", "FPT Software", "Hà Nội", null), staff.getId());
+
+        ParentResponse fetched = studentService.getParentById(created.id());
+
+        assertThat(fetched).isEqualTo(created);
+    }
+
+    @Test
+    void getParentById_throwsWhenNotFound() {
+        assertThatThrownBy(() -> studentService.getParentById(-1L))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
     void recordTransfer_UC13_A1_updatesPrimarySiteImmediately() {
         User studentUser = newUser("student.transfer");
         Site oldSite = newSite("SITE-OLD");

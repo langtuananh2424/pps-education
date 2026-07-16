@@ -225,11 +225,23 @@ public class StudentService {
         return toResponse(parent);
     }
 
+    @Transactional(readOnly = true)
+    public List<ParentResponse> searchParents(String query) {
+        List<Parent> parents = query == null || query.isBlank()
+                ? parentRepository.findAllOrderByUserFullName()
+                : parentRepository.searchByQuery(query.trim());
+        return parents.stream().map(this::toResponse).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public ParentResponse getParentById(Long id) {
+        return toResponse(getParentOrThrow(id));
+    }
+
     /** Cập nhật thông tin phụ huynh đã có, giữ lịch sử phiên bản (SDD: có parents_history). */
     @Transactional
     public ParentResponse updateParent(Long id, UpdateParentRequest request, Long actorUserId) {
-        Parent parent = parentRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hồ sơ phụ huynh id=" + id));
+        Parent parent = getParentOrThrow(id);
         parent.setOccupation(request.occupation());
         parent.setWorkplace(request.workplace());
         parent.setAddress(request.address());
@@ -244,8 +256,7 @@ public class StudentService {
     @Transactional
     public ParentStudentResponse linkParent(Long studentId, LinkParentRequest request) {
         Student student = getStudentOrThrow(studentId);
-        Parent parent = parentRepository.findById(request.parentId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hồ sơ phụ huynh id=" + request.parentId()));
+        Parent parent = getParentOrThrow(request.parentId());
 
         if (parentStudentRepository.findByParentIdAndStudentId(parent.getId(), student.getId()).isPresent()) {
             throw new ParentStudentLinkAlreadyExistsException(
@@ -448,6 +459,11 @@ public class StudentService {
     private Student getStudentOrThrow(Long id) {
         return studentRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy học sinh id=" + id));
+    }
+
+    private Parent getParentOrThrow(Long id) {
+        return parentRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hồ sơ phụ huynh id=" + id));
     }
 
     private Site getSiteOrThrow(Long id) {
