@@ -12,6 +12,7 @@ import vn.com.pps.education.domain.Site;
 import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.domain.UserRole;
+import vn.com.pps.education.dto.AssignTeacherRequest;
 import vn.com.pps.education.dto.AttendanceMarkResponse;
 import vn.com.pps.education.dto.AttendanceSessionResponse;
 import vn.com.pps.education.dto.ClassResponse;
@@ -26,6 +27,7 @@ import vn.com.pps.education.dto.UpdateCurriculumRequest;
 import vn.com.pps.education.dto.UpdatePeriodMarkRequest;
 import vn.com.pps.education.exception.AttendanceSessionNotEditableException;
 import vn.com.pps.education.exception.NotAssignedTeacherForSessionException;
+import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.repository.NotificationRepository;
 import vn.com.pps.education.repository.ParentRepository;
 import vn.com.pps.education.repository.ParentStudentRepository;
@@ -167,7 +169,7 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
                 new MarkAttendanceRequest("SESSION_LEVEL", List.of(
                         new EnterAttendanceMarkRequest(student1.getId(), "PRESENT", null, null, null))),
                 teacher.getId());
-        Long periodId = classSessionService.listPeriods(session.id()).get(1).id();
+        Long periodId = classSessionService.listPeriods(session.id(), headAcademic.getId()).get(1).id();
 
         AttendanceMarkResponse updated = studentAttendanceService.updatePeriodMark(session.id(), student1.getId(), periodId,
                 new UpdatePeriodMarkRequest("LATE", "Muộn tiết 2"), teacher.getId());
@@ -220,6 +222,33 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
                         new EnterAttendanceMarkRequest(student1.getId(), "ABSENT", null, null, null))),
                 teacher.getId()))
                 .isInstanceOf(AttendanceSessionNotEditableException.class);
+    }
+
+    @Test
+    void getAttendanceSession_teacherWithoutSiteAssignment_throwsResourceNotFound() {
+        studentAttendanceService.markAttendance(session.id(),
+                new MarkAttendanceRequest("SESSION_LEVEL", List.of(
+                        new EnterAttendanceMarkRequest(student1.getId(), "PRESENT", null, null, null))),
+                teacher.getId());
+        User outsider = newUser("teacher.outsider.attendance");
+        assignRole(outsider, "TEACHER");
+
+        assertThatThrownBy(() -> studentAttendanceService.getAttendanceSession(session.id(), outsider.getId()))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void getAttendanceSession_teacherWithSiteAssignment_returnsSession() {
+        studentAttendanceService.markAttendance(session.id(),
+                new MarkAttendanceRequest("SESSION_LEVEL", List.of(
+                        new EnterAttendanceMarkRequest(student1.getId(), "PRESENT", null, null, null))),
+                teacher.getId());
+        classService.assignTeacher(session.classId(),
+                new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now()), headAcademic.getId());
+
+        AttendanceSessionResponse result = studentAttendanceService.getAttendanceSession(session.id(), teacher.getId());
+
+        assertThat(result.classSessionId()).isEqualTo(session.id());
     }
 
     private String curriculumCode() {

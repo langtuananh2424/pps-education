@@ -16,7 +16,7 @@ import java.util.Map;
 @Table(name = "sites_history")
 public class SiteHistory {
 
-    public enum Action { CREATED, UPDATED, MANAGER_CHANGED }
+    public enum Action { CREATED, UPDATED, MANAGER_CHANGED, TEACHER_ASSIGNED, TEACHER_REMOVED }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

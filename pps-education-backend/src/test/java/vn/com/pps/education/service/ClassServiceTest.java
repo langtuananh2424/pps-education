@@ -27,6 +27,7 @@ import vn.com.pps.education.exception.LinkedClassRequiresPartnerSiteException;
 import vn.com.pps.education.repository.RoleRepository;
 import vn.com.pps.education.repository.SiteManagerRepository;
 import vn.com.pps.education.repository.SiteRepository;
+import vn.com.pps.education.repository.SiteTeacherRepository;
 import vn.com.pps.education.repository.StudentRepository;
 import vn.com.pps.education.repository.UserRepository;
 import vn.com.pps.education.repository.UserRoleRepository;
@@ -71,6 +72,9 @@ class ClassServiceTest extends AbstractIntegrationTest {
 
     @Autowired
     private SiteManagerRepository siteManagerRepository;
+
+    @Autowired
+    private SiteTeacherRepository siteTeacherRepository;
 
     private User headAcademic;
     private CurriculumResponse activeCurriculum;
@@ -175,6 +179,43 @@ class ClassServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void assignTeacher_UC18_A3_autoCreatesSiteTeacherLinkWhenMissing() {
+        Site site = newSite(Site.SiteType.OWNED);
+        ClassResponse schoolClass = classService.create(
+                new CreateClassRequest(classCode(), "Tự động gán site", site.getId(), activeCurriculum.id(), "OPEN", 20,
+                        null, LocalDate.now(), null, null, null), headAcademic.getId());
+        User teacher = newUser("teacher.newsite");
+        assignRole(teacher, "TEACHER");
+        assertThat(siteTeacherRepository.existsBySiteIdAndTeacherIdAndAssignedToIsNull(site.getId(), teacher.getId())).isFalse();
+
+        classService.assignTeacher(schoolClass.id(),
+                new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now()), headAcademic.getId());
+
+        assertThat(siteTeacherRepository.existsBySiteIdAndTeacherIdAndAssignedToIsNull(site.getId(), teacher.getId())).isTrue();
+    }
+
+    @Test
+    void assignTeacher_UC18_A3_skipsWhenTeacherAlreadyAssignedToSite() {
+        Site site = newSite(Site.SiteType.OWNED);
+        ClassResponse class1 = classService.create(
+                new CreateClassRequest(classCode(), "Lớp 1", site.getId(), activeCurriculum.id(), "OPEN", 20, null,
+                        LocalDate.now(), null, null, null), headAcademic.getId());
+        ClassResponse class2 = classService.create(
+                new CreateClassRequest(classCode(), "Lớp 2", site.getId(), activeCurriculum.id(), "OPEN", 20, null,
+                        LocalDate.now(), null, null, null), headAcademic.getId());
+        User teacher = newUser("teacher.samesite");
+        assignRole(teacher, "TEACHER");
+        classService.assignTeacher(class1.id(),
+                new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now()), headAcademic.getId());
+
+        classService.assignTeacher(class2.id(),
+                new AssignTeacherRequest(teacher.getId(), "ASSISTANT", null, LocalDate.now()), headAcademic.getId());
+
+        assertThat(siteTeacherRepository.findByTeacherIdAndAssignedToIsNull(teacher.getId()))
+                .hasSize(1); // khong tao ban ghi trung cho cung 1 site
+    }
+
+    @Test
     void enroll_MainFlow_persistsEnrollment() {
         Site site = newSite(Site.SiteType.OWNED);
         ClassResponse schoolClass = classService.create(
@@ -231,7 +272,7 @@ class ClassServiceTest extends AbstractIntegrationTest {
                 new CreateClassRequest(classCode(), "Lớp B", siteB.getId(), activeCurriculum.id(), "OPEN", 20, null,
                         LocalDate.now(), null, null, null), headAcademic.getId());
 
-        var result = classService.search(null, siteA.getId(), null, null);
+        var result = classService.search(null, siteA.getId(), null, null, headAcademic.getId());
 
         assertThat(result).extracting(ClassResponse::id).containsExactly(classAtA.id());
     }
@@ -247,7 +288,7 @@ class ClassServiceTest extends AbstractIntegrationTest {
                 new CreateClassRequest(classCode(), "Lớp khác", site.getId(), otherCurriculum.id(), "OPEN", 20, null,
                         LocalDate.now(), null, null, null), headAcademic.getId());
 
-        var result = classService.search(null, null, activeCurriculum.id(), null);
+        var result = classService.search(null, null, activeCurriculum.id(), null, headAcademic.getId());
 
         assertThat(result).extracting(ClassResponse::id).containsExactly(classOfActive.id());
     }
@@ -263,9 +304,41 @@ class ClassServiceTest extends AbstractIntegrationTest {
                 new CreateClassRequest(classCode(), "Lớp bổ trợ", site.getId(), supplementaryCurriculum.id(), "OPEN",
                         20, null, LocalDate.now(), null, null, null), headAcademic.getId());
 
-        var result = classService.search(null, null, null, "MAIN");
+        var result = classService.search(null, null, null, "MAIN", headAcademic.getId());
 
         assertThat(result).extracting(ClassResponse::id).containsExactly(mainClass.id());
+    }
+
+    @Test
+    void search_teacherWithoutSiteAssignment_seesNoClasses() {
+        Site site = newSite(Site.SiteType.OWNED);
+        classService.create(
+                new CreateClassRequest(classCode(), "Lớp bất kỳ", site.getId(), activeCurriculum.id(), "OPEN", 20, null,
+                        LocalDate.now(), null, null, null), headAcademic.getId());
+        User teacher = newUser("teacher.nosite");
+        assignRole(teacher, "TEACHER");
+
+        assertThat(classService.search(null, null, null, null, teacher.getId())).isEmpty();
+    }
+
+    @Test
+    void search_teacherWithSiteAssignment_seesOnlyOwnSiteClasses() {
+        Site siteA = newSite(Site.SiteType.OWNED);
+        Site siteB = newSite(Site.SiteType.OWNED);
+        ClassResponse classAtA = classService.create(
+                new CreateClassRequest(classCode(), "Lớp A", siteA.getId(), activeCurriculum.id(), "OPEN", 20, null,
+                        LocalDate.now(), null, null, null), headAcademic.getId());
+        classService.create(
+                new CreateClassRequest(classCode(), "Lớp B", siteB.getId(), activeCurriculum.id(), "OPEN", 20, null,
+                        LocalDate.now(), null, null, null), headAcademic.getId());
+        User teacher = newUser("teacher.ownsite");
+        assignRole(teacher, "TEACHER");
+        classService.assignTeacher(classAtA.id(),
+                new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now()), headAcademic.getId());
+
+        var result = classService.search(null, null, null, null, teacher.getId());
+
+        assertThat(result).extracting(ClassResponse::id).containsExactly(classAtA.id());
     }
 
     private CurriculumResponse activeCurriculumWithCategory(String classCategory) {

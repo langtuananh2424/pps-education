@@ -29,8 +29,9 @@ public class StudentAttendanceController {
     }
 
     @GetMapping
-    public ResponseEntity<AttendanceSessionResponse> getAttendanceSession(@PathVariable Long classSessionId) {
-        return ResponseEntity.ok(studentAttendanceService.getAttendanceSession(classSessionId));
+    public ResponseEntity<AttendanceSessionResponse> getAttendanceSession(@PathVariable Long classSessionId,
+                                                                           @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(studentAttendanceService.getAttendanceSession(classSessionId, actor.userId()));
     }
 
     @PostMapping

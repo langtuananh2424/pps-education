@@ -63,7 +63,8 @@ public class GlobalExceptionHandler {
             DuplicateSiteCodeException.class, DuplicateLeadPhoneException.class,
             DuplicatePartnerContractNumberException.class, ActivePartnerContractAlreadyExistsException.class,
             DuplicateRoomCodeException.class, DuplicateEquipmentCodeException.class,
-            DuplicateUserAccountException.class, DuplicateRoleCodeException.class})
+            DuplicateUserAccountException.class, DuplicateRoleCodeException.class,
+            SiteTeacherAlreadyAssignedException.class})
     public ResponseEntity<Object> handleConflict(RuntimeException ex) {
         return error(HttpStatus.CONFLICT, ex.getMessage());
     }

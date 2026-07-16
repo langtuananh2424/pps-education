@@ -9,6 +9,7 @@ import vn.com.pps.education.domain.Room;
 import vn.com.pps.education.domain.Site;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.domain.UserRole;
+import vn.com.pps.education.dto.AssignTeacherRequest;
 import vn.com.pps.education.dto.CancelClassSessionRequest;
 import vn.com.pps.education.dto.ClassResponse;
 import vn.com.pps.education.dto.ClassSessionResponse;
@@ -99,7 +100,7 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
                 headAcademic.getId());
 
         assertThat(session.status()).isEqualTo("SCHEDULED");
-        List<SessionPeriodResponse> periods = classSessionService.listPeriods(session.id());
+        List<SessionPeriodResponse> periods = classSessionService.listPeriods(session.id(), headAcademic.getId());
         assertThat(periods).hasSize(2); // academic.default_periods_per_session = 2
         assertThat(periods.get(0).periodNumber()).isEqualTo(1);
         assertThat(periods.get(0).startTime()).isEqualTo(LocalTime.of(8, 0));
@@ -182,14 +183,41 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
 
         assertThat(newSession.status()).isEqualTo("SCHEDULED");
         assertThat(newSession.sessionDate()).isEqualTo(newDate);
-        List<SessionPeriodResponse> newPeriods = classSessionService.listPeriods(newSession.id());
+        List<SessionPeriodResponse> newPeriods = classSessionService.listPeriods(newSession.id(), headAcademic.getId());
         assertThat(newPeriods).hasSize(2);
 
-        List<ClassSessionResponse> sessions = classSessionService.listSessions(schoolClass.id());
+        List<ClassSessionResponse> sessions = classSessionService.listSessions(schoolClass.id(), headAcademic.getId());
         ClassSessionResponse reloadedOld = sessions.stream().filter(s -> s.id().equals(oldSession.id())).findFirst().orElseThrow();
         assertThat(reloadedOld.status()).isEqualTo("RESCHEDULED");
         assertThat(reloadedOld.cancellationReason()).isEqualTo("Phòng bảo trì");
         assertThat(reloadedOld.rescheduledToSessionId()).isEqualTo(newSession.id());
+    }
+
+    @Test
+    void listSessions_teacherWithoutSiteAssignment_seesNoSessions() {
+        ClassSessionResponse session = classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(LocalDate.now().plusDays(10), LocalTime.of(8, 0), LocalTime.of(9, 40),
+                        room.getId(), teacher.getId(), "REGULAR"),
+                headAcademic.getId());
+        User outsider = newUser("teacher.outsider.session");
+        assignRole(outsider, "TEACHER");
+
+        assertThat(classSessionService.listSessions(schoolClass.id(), outsider.getId())).isEmpty();
+        assertThat(classSessionService.listPeriods(session.id(), outsider.getId())).isEmpty();
+    }
+
+    @Test
+    void listSessions_teacherWithSiteAssignment_seesOwnSiteSessions() {
+        ClassSessionResponse session = classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(LocalDate.now().plusDays(11), LocalTime.of(8, 0), LocalTime.of(9, 40),
+                        room.getId(), teacher.getId(), "REGULAR"),
+                headAcademic.getId());
+        classService.assignTeacher(schoolClass.id(),
+                new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now()), headAcademic.getId());
+
+        assertThat(classSessionService.listSessions(schoolClass.id(), teacher.getId()))
+                .extracting(ClassSessionResponse::id).contains(session.id());
+        assertThat(classSessionService.listPeriods(session.id(), teacher.getId())).isNotEmpty();
     }
 
     @Test

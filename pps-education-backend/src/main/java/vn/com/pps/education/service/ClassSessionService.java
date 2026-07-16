@@ -23,6 +23,7 @@ import vn.com.pps.education.repository.RoomRepository;
 import vn.com.pps.education.repository.SchoolClassRepository;
 import vn.com.pps.education.repository.SessionPeriodHistoryRepository;
 import vn.com.pps.education.repository.SessionPeriodRepository;
+import vn.com.pps.education.repository.SiteTeacherRepository;
 import vn.com.pps.education.repository.SystemSettingRepository;
 import vn.com.pps.education.repository.UserRepository;
 
@@ -60,6 +61,8 @@ public class ClassSessionService {
     private final RoomRepository roomRepository;
     private final SystemSettingRepository systemSettingRepository;
     private final UserRepository userRepository;
+    private final SiteTeacherRepository siteTeacherRepository;
+    private final PermissionEvaluationService permissionEvaluationService;
 
     public ClassSessionService(ClassSessionRepository classSessionRepository,
                                 SessionPeriodRepository sessionPeriodRepository,
@@ -68,7 +71,9 @@ public class ClassSessionService {
                                 SchoolClassRepository schoolClassRepository,
                                 RoomRepository roomRepository,
                                 SystemSettingRepository systemSettingRepository,
-                                UserRepository userRepository) {
+                                UserRepository userRepository,
+                                SiteTeacherRepository siteTeacherRepository,
+                                PermissionEvaluationService permissionEvaluationService) {
         this.classSessionRepository = classSessionRepository;
         this.sessionPeriodRepository = sessionPeriodRepository;
         this.classSessionHistoryRepository = classSessionHistoryRepository;
@@ -77,18 +82,38 @@ public class ClassSessionService {
         this.roomRepository = roomRepository;
         this.systemSettingRepository = systemSettingRepository;
         this.userRepository = userRepository;
+        this.siteTeacherRepository = siteTeacherRepository;
+        this.permissionEvaluationService = permissionEvaluationService;
     }
 
+    /** Giáo viên (không có academic.class.manage) chỉ thấy buổi học thuộc site được gán — xem ClassService.resolveAllowedSiteIds. */
     @Transactional(readOnly = true)
-    public List<ClassSessionResponse> listSessions(Long classId) {
+    public List<ClassSessionResponse> listSessions(Long classId, Long actorUserId) {
+        List<Long> allowedSiteIds = resolveAllowedSiteIds(actorUserId);
         return classSessionRepository.findBySchoolClassIdOrderBySessionDateAsc(classId).stream()
+                .filter(s -> isSiteAllowed(s.getSchoolClass().getSite().getId(), allowedSiteIds))
                 .map(this::toResponse).toList();
     }
 
     @Transactional(readOnly = true)
-    public List<SessionPeriodResponse> listPeriods(Long classSessionId) {
+    public List<SessionPeriodResponse> listPeriods(Long classSessionId, Long actorUserId) {
+        List<Long> allowedSiteIds = resolveAllowedSiteIds(actorUserId);
         return sessionPeriodRepository.findByClassSessionIdOrderByPeriodNumber(classSessionId).stream()
+                .filter(p -> isSiteAllowed(p.getClassSession().getSchoolClass().getSite().getId(), allowedSiteIds))
                 .map(this::toResponse).toList();
+    }
+
+    /** null = không giới hạn (actor có academic.class.manage); danh sách rỗng = không thấy buổi/tiết học nào. */
+    private List<Long> resolveAllowedSiteIds(Long actorUserId) {
+        if (permissionEvaluationService.hasPermission(actorUserId, "academic.class.manage")) {
+            return null;
+        }
+        return siteTeacherRepository.findByTeacherIdAndAssignedToIsNull(actorUserId).stream()
+                .map(st -> st.getSite().getId()).toList();
+    }
+
+    private boolean isSiteAllowed(Long siteId, List<Long> allowedSiteIds) {
+        return allowedSiteIds == null || allowedSiteIds.contains(siteId);
     }
 
     /** Tạo 1 buổi học + tự sinh session_periods. FR-FAC-03: kiểm tra trùng phòng (chỉ phòng is_flexible=FALSE). */

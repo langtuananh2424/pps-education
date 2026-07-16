@@ -7,20 +7,25 @@ import vn.com.pps.education.domain.PartnerSchoolInfoHistory;
 import vn.com.pps.education.domain.Site;
 import vn.com.pps.education.domain.SiteHistory;
 import vn.com.pps.education.domain.SiteManager;
+import vn.com.pps.education.domain.SiteTeacher;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.dto.AssignSiteManagerRequest;
+import vn.com.pps.education.dto.AssignSiteTeacherRequest;
 import vn.com.pps.education.dto.CreateSiteRequest;
 import vn.com.pps.education.dto.PartnerSchoolInfoRequest;
 import vn.com.pps.education.dto.PartnerSchoolInfoResponse;
 import vn.com.pps.education.dto.SiteResponse;
+import vn.com.pps.education.dto.SiteTeacherResponse;
 import vn.com.pps.education.dto.UpdateSiteRequest;
 import vn.com.pps.education.exception.DuplicateSiteCodeException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
+import vn.com.pps.education.exception.SiteTeacherAlreadyAssignedException;
 import vn.com.pps.education.repository.PartnerSchoolInfoHistoryRepository;
 import vn.com.pps.education.repository.PartnerSchoolInfoRepository;
 import vn.com.pps.education.repository.SiteHistoryRepository;
 import vn.com.pps.education.repository.SiteManagerRepository;
 import vn.com.pps.education.repository.SiteRepository;
+import vn.com.pps.education.repository.SiteTeacherRepository;
 import vn.com.pps.education.repository.UserRepository;
 
 import java.time.LocalDate;
@@ -43,6 +48,7 @@ public class SiteService {
     private final PartnerSchoolInfoRepository partnerSchoolInfoRepository;
     private final PartnerSchoolInfoHistoryRepository partnerSchoolInfoHistoryRepository;
     private final SiteManagerRepository siteManagerRepository;
+    private final SiteTeacherRepository siteTeacherRepository;
     private final SiteHistoryRepository siteHistoryRepository;
     private final UserRepository userRepository;
 
@@ -50,12 +56,14 @@ public class SiteService {
                         PartnerSchoolInfoRepository partnerSchoolInfoRepository,
                         PartnerSchoolInfoHistoryRepository partnerSchoolInfoHistoryRepository,
                         SiteManagerRepository siteManagerRepository,
+                        SiteTeacherRepository siteTeacherRepository,
                         SiteHistoryRepository siteHistoryRepository,
                         UserRepository userRepository) {
         this.siteRepository = siteRepository;
         this.partnerSchoolInfoRepository = partnerSchoolInfoRepository;
         this.partnerSchoolInfoHistoryRepository = partnerSchoolInfoHistoryRepository;
         this.siteManagerRepository = siteManagerRepository;
+        this.siteTeacherRepository = siteTeacherRepository;
         this.siteHistoryRepository = siteHistoryRepository;
         this.userRepository = userRepository;
     }
@@ -148,6 +156,57 @@ public class SiteService {
     @Transactional(readOnly = true)
     public List<SiteResponse> listSites() {
         return siteRepository.findAll().stream().map(this::toResponse).toList();
+    }
+
+    /**
+     * Gán giáo viên (nhân viên) vào điểm trường — quan hệ N-N, không giới hạn
+     * số lượng như site_managers (khác migration V35 comment). Bổ sung ngoài
+     * SDD gốc, đã xác nhận với người dùng (không có UC/bảng nào đặc tả trước
+     * quan hệ này — xem docs/sdd-groups/03-co-so-vat-chat-and-diem-truong.md).
+     */
+    @Transactional
+    public SiteTeacherResponse assignTeacher(Long siteId, AssignSiteTeacherRequest request, Long actorUserId) {
+        Site site = getSiteOrThrow(siteId);
+        User teacher = getUserOrThrow(request.teacherUserId());
+        User actor = getUserOrThrow(actorUserId);
+        if (siteTeacherRepository.existsBySiteIdAndTeacherIdAndAssignedToIsNull(site.getId(), teacher.getId())) {
+            throw new SiteTeacherAlreadyAssignedException(
+                    "Giáo viên id=" + teacher.getId() + " đã được gán vào điểm trường id=" + site.getId());
+        }
+
+        SiteTeacher assignment = new SiteTeacher();
+        assignment.setSite(site);
+        assignment.setTeacher(teacher);
+        assignment.setAssignedFrom(request.assignedFrom());
+        assignment.setAssignedBy(actor);
+        assignment.setNotes(request.notes());
+        assignment = siteTeacherRepository.save(assignment);
+
+        writeSiteHistory(site, actor, SiteHistory.Action.TEACHER_ASSIGNED,
+                Map.of("teacherUserId", teacher.getId()));
+        return toResponse(assignment);
+    }
+
+    /** Kết thúc phân công (đóng assigned_to), giữ lịch sử — không xóa cứng (giống site_managers). */
+    @Transactional
+    public void removeTeacherFromSite(Long siteId, Long siteTeacherId, Long actorUserId) {
+        Site site = getSiteOrThrow(siteId);
+        SiteTeacher assignment = siteTeacherRepository.findById(siteTeacherId)
+                .filter(st -> st.getSite().getId().equals(siteId))
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phân công giáo viên id=" + siteTeacherId));
+        User actor = getUserOrThrow(actorUserId);
+
+        assignment.setAssignedTo(LocalDate.now());
+        siteTeacherRepository.save(assignment);
+
+        writeSiteHistory(site, actor, SiteHistory.Action.TEACHER_REMOVED,
+                Map.of("teacherUserId", assignment.getTeacher().getId()));
+    }
+
+    @Transactional(readOnly = true)
+    public List<SiteTeacherResponse> listTeachers(Long siteId) {
+        getSiteOrThrow(siteId);
+        return siteTeacherRepository.findBySiteIdAndAssignedToIsNull(siteId).stream().map(this::toResponse).toList();
     }
 
     // ===================== Helpers =====================
@@ -260,5 +319,10 @@ public class SiteService {
                 site.getAddress(), site.getDistrict(), site.getPhone(), site.getStatus().name(), partnerInfo,
                 currentManager.map(sm -> sm.getUser().getId()).orElse(null),
                 currentManager.map(sm -> sm.getUser().getFullName()).orElse(null));
+    }
+
+    private SiteTeacherResponse toResponse(SiteTeacher st) {
+        return new SiteTeacherResponse(st.getId(), st.getSite().getId(), st.getTeacher().getId(),
+                st.getTeacher().getFullName(), st.getAssignedFrom(), st.getAssignedTo(), st.getNotes());
     }
 }
