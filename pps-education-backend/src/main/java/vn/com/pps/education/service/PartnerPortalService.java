@@ -8,10 +8,12 @@ import vn.com.pps.education.domain.GradeEntry;
 import vn.com.pps.education.domain.SchoolClass;
 import vn.com.pps.education.domain.Site;
 import vn.com.pps.education.domain.SiteManager;
+import vn.com.pps.education.domain.StudentComment;
 import vn.com.pps.education.domain.TeachingPlan;
 import vn.com.pps.education.dto.GradeEntryResponse;
 import vn.com.pps.education.dto.PartnerAttendanceSummaryResponse;
 import vn.com.pps.education.dto.PartnerSiteResponse;
+import vn.com.pps.education.dto.StudentCommentResponse;
 import vn.com.pps.education.dto.TeachingPlanResponse;
 import vn.com.pps.education.exception.NotAuthorizedForPortalAccessException;
 import vn.com.pps.education.repository.AttendanceMarkRepository;
@@ -19,6 +21,7 @@ import vn.com.pps.education.repository.ClassEnrollmentRepository;
 import vn.com.pps.education.repository.GradeEntryRepository;
 import vn.com.pps.education.repository.SchoolClassRepository;
 import vn.com.pps.education.repository.SiteManagerRepository;
+import vn.com.pps.education.repository.StudentCommentRepository;
 import vn.com.pps.education.repository.TeachingPlanRepository;
 
 import java.math.BigDecimal;
@@ -41,6 +44,11 @@ import java.util.List;
  * tạo file (Apache POI/iText...), chưa có sẵn trong pom.xml, không tự ý
  * thêm dependency mới khi chưa xác nhận với user. Main Flow bước 4 (gửi
  * phản hồi) thuộc UC-38 (Phân hệ 10), ngoài phạm vi UC-29.
+ *
+ * getApprovedComments (bổ sung ngoài SRS gốc, xác nhận 2026-07-16): UC-29
+ * gốc không liệt kê "nhận xét" — chỉ trả về nhận xét đã APPROVED (UC-21/22),
+ * chỉ xem, không có endpoint sửa/xóa (đúng Postcondition "không có quyền
+ * chỉnh sửa hồ sơ học sinh hoặc dữ liệu học thuật").
  */
 @Service
 public class PartnerPortalService {
@@ -51,19 +59,22 @@ public class PartnerPortalService {
     private final AttendanceMarkRepository attendanceMarkRepository;
     private final GradeEntryRepository gradeEntryRepository;
     private final TeachingPlanRepository teachingPlanRepository;
+    private final StudentCommentRepository studentCommentRepository;
 
     public PartnerPortalService(SiteManagerRepository siteManagerRepository,
                                  SchoolClassRepository schoolClassRepository,
                                  ClassEnrollmentRepository classEnrollmentRepository,
                                  AttendanceMarkRepository attendanceMarkRepository,
                                  GradeEntryRepository gradeEntryRepository,
-                                 TeachingPlanRepository teachingPlanRepository) {
+                                 TeachingPlanRepository teachingPlanRepository,
+                                 StudentCommentRepository studentCommentRepository) {
         this.siteManagerRepository = siteManagerRepository;
         this.schoolClassRepository = schoolClassRepository;
         this.classEnrollmentRepository = classEnrollmentRepository;
         this.attendanceMarkRepository = attendanceMarkRepository;
         this.gradeEntryRepository = gradeEntryRepository;
         this.teachingPlanRepository = teachingPlanRepository;
+        this.studentCommentRepository = studentCommentRepository;
     }
 
     /** Main Flow bước 1: xác định điểm trường liên kết đang phụ trách. */
@@ -103,6 +114,18 @@ public class PartnerPortalService {
     public List<TeachingPlanResponse> getTeachingPlans(Long actorUserId) {
         Site site = requirePartnerSite(actorUserId);
         return teachingPlanRepository.findBySiteIdAndStatusAndVisibleToPartnerTrue(site.getId(), TeachingPlan.Status.PUBLISHED)
+                .stream().map(this::toResponse).toList();
+    }
+
+    /**
+     * Main Flow bước 2 (bổ sung ngoài SRS gốc, xác nhận 2026-07-16): nhận
+     * xét học sinh đã duyệt (APPROVED, UC-21/22) của trường mình — chỉ
+     * xem, không có quyền sửa/xóa (Postcondition UC-29).
+     */
+    @Transactional(readOnly = true)
+    public List<StudentCommentResponse> getApprovedComments(Long actorUserId) {
+        Site site = requirePartnerSite(actorUserId);
+        return studentCommentRepository.findByStatusAndSiteId(StudentComment.Status.APPROVED, site.getId())
                 .stream().map(this::toResponse).toList();
     }
 
@@ -150,5 +173,16 @@ public class PartnerPortalService {
                 p.getId(), p.getSchoolClass().getId(), p.getTeacher().getId(), p.getPlanType().name(),
                 p.getAcademicYear(), p.getWeekNumber(), p.getWeekStartDate(), p.getWeekEndDate(),
                 p.getSummary(), p.getObjectives(), p.getStatus().name(), p.isVisibleToPartner(), p.getPublishedAt());
+    }
+
+    private StudentCommentResponse toResponse(StudentComment c) {
+        return new StudentCommentResponse(
+                c.getId(), c.getStudent().getId(), c.getStudent().getUser().getFullName(), c.getSchoolClass().getId(),
+                c.getTeacher().getId(), c.getCommentType().name(),
+                c.getClassSession() == null ? null : c.getClassSession().getId(),
+                c.getGradePeriod() == null ? null : c.getGradePeriod().getId(),
+                c.getCommentDate(), c.getContent(), c.getStructuredContent(), c.getSeverity().name(), c.isWarning(),
+                c.getStatus().name(), c.getSubmittedAt(), c.getApprovedAt(),
+                c.getApprovedBy() == null ? null : c.getApprovedBy().getId(), c.getVisibleToParentAt(), c.getRejectionReason());
     }
 }

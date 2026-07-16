@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.RestController;
 import vn.com.pps.education.dto.GradeEntryResponse;
 import vn.com.pps.education.dto.PartnerAttendanceSummaryResponse;
 import vn.com.pps.education.dto.PartnerSiteResponse;
+import vn.com.pps.education.dto.StudentCommentResponse;
 import vn.com.pps.education.dto.TeachingPlanResponse;
 import vn.com.pps.education.security.AuthenticatedUser;
 import vn.com.pps.education.service.PartnerPortalService;
@@ -43,5 +44,10 @@ public class PartnerPortalController {
     @GetMapping("/teaching-plans")
     public ResponseEntity<List<TeachingPlanResponse>> getTeachingPlans(@AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(partnerPortalService.getTeachingPlans(actor.userId()));
+    }
+
+    @GetMapping("/comments")
+    public ResponseEntity<List<StudentCommentResponse>> getApprovedComments(@AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(partnerPortalService.getApprovedComments(actor.userId()));
     }
 }

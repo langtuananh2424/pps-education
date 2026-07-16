@@ -403,7 +403,8 @@ UC-29: Xem báo cáo Portal trường liên kết
 +-----------------+----------------------------------------------------+
 | **Mô tả tóm     | Đại diện trường liên kết xem báo cáo tổng hợp của  |
 | tắt**           | học sinh trường mình: chuyên cần, kết quả học tập, |
-|                 | kế hoạch giảng dạy; có thể xuất file.              |
+|                 | nhận xét học sinh (đã duyệt), kế hoạch giảng dạy;  |
+|                 | có thể xuất file.                                  |
 +-----------------+----------------------------------------------------+
 | **Sự kiện kích  | Đại diện trường liên kết đăng nhập Portal để theo  |
 | hoạt**          | dõi tình hình học sinh trường mình.                |
@@ -420,8 +421,10 @@ UC-29: Xem báo cáo Portal trường liên kết
 |                 | 2.  Hệ thống hiển thị báo cáo tổng hợp của học     |
 |                 |     sinh trường mình: chuyên cần (tỷ lệ đi         |
 |                 |     học/vắng mặt), kết quả học tập (điểm đã        |
-|                 |     duyệt), kế hoạch giảng dạy theo tuần/năm học   |
-|                 |     do Giáo viên điền (UC-28).                     |
+|                 |     duyệt), nhận xét học sinh đã duyệt (APPROVED — |
+|                 |     UC-21/22, bổ sung ngoài SRS gốc, xác nhận      |
+|                 |     2026-07-16), kế hoạch giảng dạy theo tuần/năm  |
+|                 |     học do Giáo viên điền (UC-28).                 |
 |                 |                                                    |
 |                 | 3.  Đại diện trường liên kết có thể xuất báo cáo   |
 |                 |     dưới định dạng PDF/Excel để tải về hoặc gửi    |

@@ -471,7 +471,8 @@ CDN)**
     -   **FR-LMS-08: Portal Báo cáo cho Trường liên kết** - Đại diện
         trường liên kết xem báo cáo tổng hợp của học sinh trường mình,
         gồm: chuyên cần (tỷ lệ đi học/vắng mặt), kết quả học tập (điểm
-        đã duyệt), và kế hoạch giảng dạy. Giáo viên điền kế hoạch giảng
+        đã duyệt), nhận xét học sinh (đã duyệt — bổ sung 2026-07-16),
+        và kế hoạch giảng dạy. Giáo viên điền kế hoạch giảng
         dạy theo tuần hoặc theo năm học cho từng lớp phụ trách; hệ thống
         tổng hợp và hiển thị trực tiếp trong tài khoản Portal của trường
         liên kết, đồng thời cung cấp chức năng xuất file (PDF/Excel) để
