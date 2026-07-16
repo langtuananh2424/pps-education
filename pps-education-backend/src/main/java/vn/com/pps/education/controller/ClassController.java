@@ -36,9 +36,13 @@ public class ClassController {
         this.classService = classService;
     }
 
+    /** Dropdown FE: chọn trường (siteId) -> hiển thị lớp của trường đó; lọc thêm theo chương trình (curriculumId/classCategory). */
     @GetMapping
-    public ResponseEntity<List<ClassResponse>> search(@RequestParam(required = false) String query) {
-        return ResponseEntity.ok(classService.search(query));
+    public ResponseEntity<List<ClassResponse>> search(@RequestParam(required = false) String query,
+                                                       @RequestParam(required = false) Long siteId,
+                                                       @RequestParam(required = false) Long curriculumId,
+                                                       @RequestParam(required = false) String classCategory) {
+        return ResponseEntity.ok(classService.search(query, siteId, curriculumId, classCategory));
     }
 
     @GetMapping("/{id}")

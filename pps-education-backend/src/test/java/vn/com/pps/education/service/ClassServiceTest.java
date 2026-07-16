@@ -220,6 +220,62 @@ class ClassServiceTest extends AbstractIntegrationTest {
         assertThat(withdrawn.withdrawReason()).isEqualTo("Chuyển trường");
     }
 
+    @Test
+    void search_filtersBySiteId_returnsOnlyClassesAtThatSite() {
+        Site siteA = newSite(Site.SiteType.OWNED);
+        Site siteB = newSite(Site.SiteType.OWNED);
+        ClassResponse classAtA = classService.create(
+                new CreateClassRequest(classCode(), "Lớp A", siteA.getId(), activeCurriculum.id(), "OPEN", 20, null,
+                        LocalDate.now(), null, null, null), headAcademic.getId());
+        classService.create(
+                new CreateClassRequest(classCode(), "Lớp B", siteB.getId(), activeCurriculum.id(), "OPEN", 20, null,
+                        LocalDate.now(), null, null, null), headAcademic.getId());
+
+        var result = classService.search(null, siteA.getId(), null, null);
+
+        assertThat(result).extracting(ClassResponse::id).containsExactly(classAtA.id());
+    }
+
+    @Test
+    void search_filtersByCurriculumId_returnsOnlyClassesOfThatCurriculum() {
+        Site site = newSite(Site.SiteType.OWNED);
+        CurriculumResponse otherCurriculum = activeCurriculumWithCategory("MAIN");
+        ClassResponse classOfActive = classService.create(
+                new CreateClassRequest(classCode(), "Lớp chuẩn", site.getId(), activeCurriculum.id(), "OPEN", 20, null,
+                        LocalDate.now(), null, null, null), headAcademic.getId());
+        classService.create(
+                new CreateClassRequest(classCode(), "Lớp khác", site.getId(), otherCurriculum.id(), "OPEN", 20, null,
+                        LocalDate.now(), null, null, null), headAcademic.getId());
+
+        var result = classService.search(null, null, activeCurriculum.id(), null);
+
+        assertThat(result).extracting(ClassResponse::id).containsExactly(classOfActive.id());
+    }
+
+    @Test
+    void search_filtersByClassCategory_returnsOnlyMatchingCategory() {
+        Site site = newSite(Site.SiteType.OWNED);
+        CurriculumResponse supplementaryCurriculum = activeCurriculumWithCategory("SUPPLEMENTARY");
+        ClassResponse mainClass = classService.create(
+                new CreateClassRequest(classCode(), "Lớp chuẩn", site.getId(), activeCurriculum.id(), "OPEN", 20, null,
+                        LocalDate.now(), null, null, null), headAcademic.getId());
+        classService.create(
+                new CreateClassRequest(classCode(), "Lớp bổ trợ", site.getId(), supplementaryCurriculum.id(), "OPEN",
+                        20, null, LocalDate.now(), null, null, null), headAcademic.getId());
+
+        var result = classService.search(null, null, null, "MAIN");
+
+        assertThat(result).extracting(ClassResponse::id).containsExactly(mainClass.id());
+    }
+
+    private CurriculumResponse activeCurriculumWithCategory(String classCategory) {
+        CurriculumResponse curriculum = curriculumService.create(
+                new CreateCurriculumRequest(curriculumCode(), classCategory, classCategory, null, null, null),
+                headAcademic.getId());
+        return curriculumService.update(curriculum.id(),
+                new UpdateCurriculumRequest(classCategory, null, null, null, "ACTIVE", false), headAcademic.getId());
+    }
+
     private String curriculumCode() {
         return "CUR-" + SEQ.incrementAndGet();
     }

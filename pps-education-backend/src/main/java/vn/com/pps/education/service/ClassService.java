@@ -98,11 +98,12 @@ public class ClassService {
         this.userRepository = userRepository;
     }
 
+    /** Hỗ trợ dropdown FE: lọc lớp theo trường (siteId) và/hoặc chương trình (curriculumId/classCategory). */
     @Transactional(readOnly = true)
-    public List<ClassResponse> search(String query) {
+    public List<ClassResponse> search(String query, Long siteId, Long curriculumId, String classCategory) {
         List<SchoolClass> classes = query == null || query.isBlank()
-                ? schoolClassRepository.findByDeletedAtIsNullOrderByStartDateDesc()
-                : schoolClassRepository.searchByQuery(query.trim());
+                ? schoolClassRepository.search(siteId, curriculumId, classCategory)
+                : schoolClassRepository.searchByQuery(query.trim(), siteId, curriculumId, classCategory);
         return classes.stream().map(this::toResponse).toList();
     }
 
