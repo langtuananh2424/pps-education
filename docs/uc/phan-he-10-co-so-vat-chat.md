@@ -33,7 +33,15 @@ UC-36: Quản lý điểm trường
 | chính (Main     |     chọn Thêm mới hoặc chọn điểm trường hiện có.   |
 | Flow)**         |                                                    |
 |                 | 2.  Nhập thông tin cơ bản: tên, địa chỉ, Loại hình |
-|                 |     (Cơ sở tự vận hành/Trường liên kết).           |
+|                 |     (Cơ sở tự vận hành/Trường liên kết). Có thể    |
+|                 |     nhập kèm tọa độ GPS (vĩ độ/kinh độ) của điểm   |
+|                 |     trường ngay lúc này hoặc bổ sung/cập nhật sau  |
+|                 |     (geo_location) --- bắt buộc phải có tọa độ thì |
+|                 |     UC-09 (Chấm công GPS) mới xác thực được bán    |
+|                 |     kính cho điểm trường đó (bổ sung ngoài mô tả   |
+|                 |     UC gốc, đã xác nhận với người dùng 2026-07-17  |
+|                 |     --- trước đó geo_location không có đường nào   |
+|                 |     ghi được qua API).                             |
 |                 |                                                    |
 |                 | 3.  Nếu Loại hình là Trường liên kết: bổ sung      |
 |                 |     thông tin người liên hệ đầu mối; trạng thái    |

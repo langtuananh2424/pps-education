@@ -19,6 +19,12 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
 
     List<Employee> findByUserIdIn(Collection<Long> userIds);
 
+    /** DepartmentService#delete — có nhân sự trực thuộc (kể cả đã soft-delete, FK vẫn ràng buộc) thì không xóa được phòng ban. */
+    boolean existsByDepartmentId(Long departmentId);
+
+    /** PositionService#delete — có nhân sự mang chức vụ (kể cả đã soft-delete, FK vẫn ràng buộc) thì không xóa được chức vụ. */
+    boolean existsByPositionId(Long positionId);
+
     @Query("""
             SELECT e FROM Employee e JOIN e.user u
             WHERE e.deletedAt IS NULL

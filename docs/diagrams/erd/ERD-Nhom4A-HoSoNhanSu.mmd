@@ -1,12 +1,16 @@
 erDiagram
     users ||--o| employees : "extends"
     employees }o--|| departments : "thuoc"
+    employees }o--o| positions : "chuc vu"
     employees ||--o{ employment_contracts : "hop dong LD"
     employees ||--o{ qualifications : "bang cap/chung chi"
     employees ||--o{ commendations : "khen thuong/ky luat"
 
     employees ||--o{ employees_history : ""
     employment_contracts ||--o{ employment_contracts_history : ""
+
+    positions ||--o{ position_default_roles : "role mac dinh"
+    roles ||--o{ position_default_roles : ""
 
     employees {
         BIGSERIAL id PK
@@ -15,7 +19,7 @@ erDiagram
         DATE date_of_birth
         VARCHAR id_card_number UK
         VARCHAR employee_type
-        VARCHAR position_title
+        BIGINT position_id FK
         BIGINT department_id FK
         BOOLEAN is_management
         BOOLEAN is_default_shift_required
@@ -23,6 +27,19 @@ erDiagram
         DATE termination_date
         VARCHAR status
         TIMESTAMPTZ deleted_at
+    }
+
+    positions {
+        BIGSERIAL id PK
+        UUID uuid UK
+        VARCHAR code UK
+        VARCHAR name
+    }
+
+    position_default_roles {
+        BIGSERIAL id PK
+        BIGINT position_id FK
+        BIGINT role_id FK
     }
 
     employment_contracts {

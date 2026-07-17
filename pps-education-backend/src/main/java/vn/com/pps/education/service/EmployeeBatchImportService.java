@@ -11,12 +11,14 @@ import org.springframework.web.multipart.MultipartFile;
 import vn.com.pps.education.domain.Department;
 import vn.com.pps.education.domain.Employee;
 import vn.com.pps.education.domain.ImportJob;
+import vn.com.pps.education.domain.Position;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.dto.EmployeeBatchImportResponse;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.repository.DepartmentRepository;
 import vn.com.pps.education.repository.EmployeeRepository;
 import vn.com.pps.education.repository.ImportJobRepository;
+import vn.com.pps.education.repository.PositionRepository;
 import vn.com.pps.education.repository.UserRepository;
 
 import java.io.IOException;
@@ -38,9 +40,10 @@ import java.util.Map;
  * Định dạng file Excel (.xlsx) — tự định nghĩa cột theo thứ tự (giống
  * UC-35, không có mẫu cụ thể nào khác trong SRS/SDD): A=Họ và tên,
  * B=Username, C=Email (tùy chọn), D=Ngày sinh (dd/MM/yyyy), E=Mã nhân sự,
- * F=Loại nhân sự (Giáo viên/Nhân viên/Quản lý), G=Chức danh (tùy chọn),
- * H=Mã phòng ban (tùy chọn), I=Miễn trừ chấm công/duyệt đơn (Có/Không, tùy
- * chọn), J=Ngày vào làm (dd/MM/yyyy). Dòng 1 = header, dữ liệu từ dòng 2.
+ * F=Loại nhân sự (Giáo viên/Nhân viên/Quản lý), G=Mã chức vụ (tùy chọn,
+ * khớp positions.code), H=Mã phòng ban (tùy chọn), I=Miễn trừ chấm công/
+ * duyệt đơn (Có/Không, tùy chọn), J=Ngày vào làm (dd/MM/yyyy). Dòng 1 =
+ * header, dữ liệu từ dòng 2.
  *
  * Mật khẩu: KHÔNG đặt trong Excel (rủi ro bảo mật khi file bị chuyển tay/
  * email) — hệ thống tự sinh mật khẩu tạm ngẫu nhiên mỗi dòng, hash lưu
@@ -48,9 +51,10 @@ import java.util.Map;
  * chính lần gọi importEmployees() (KHÔNG lưu vào import_jobs, KHÔNG trả
  * lại khi gọi getJob() sau đó).
  *
- * Không tự gán role (khác UC-35 tự gán STUDENT) — nhân sự có nhiều loại
- * role khác nhau, để Quản lý nhân sự tự gán sau qua UC-03/UC-04, tránh áp
- * đặt sai role.
+ * Cột G (mã chức vụ) áp dụng UC-08 A5 (FR-HRM-06/UC-52) — dòng nào có mã
+ * chức vụ hợp lệ thì tự động gán role mặc định của chức vụ đó; để trống
+ * thì không tự gán role nào (Quản lý nhân sự gán tay sau qua UC-46), vì
+ * không phải mọi chức vụ đều có role mặc định cấu hình sẵn.
  */
 @Service
 public class EmployeeBatchImportService {
@@ -65,19 +69,25 @@ public class EmployeeBatchImportService {
     private final ImportJobRepository importJobRepository;
     private final EmployeeRepository employeeRepository;
     private final DepartmentRepository departmentRepository;
+    private final PositionRepository positionRepository;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final PositionRoleSyncService positionRoleSyncService;
 
     public EmployeeBatchImportService(ImportJobRepository importJobRepository,
                                        EmployeeRepository employeeRepository,
                                        DepartmentRepository departmentRepository,
+                                       PositionRepository positionRepository,
                                        UserRepository userRepository,
-                                       PasswordEncoder passwordEncoder) {
+                                       PasswordEncoder passwordEncoder,
+                                       PositionRoleSyncService positionRoleSyncService) {
         this.importJobRepository = importJobRepository;
         this.employeeRepository = employeeRepository;
         this.departmentRepository = departmentRepository;
+        this.positionRepository = positionRepository;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.positionRoleSyncService = positionRoleSyncService;
     }
 
     /** Main Flow bước 1-6. A1: file sai định dạng hoàn toàn → status=FAILED ngay, không xử lý dòng nào. */
@@ -114,7 +124,7 @@ public class EmployeeBatchImportService {
                 }
                 totalRows++;
                 try {
-                    String tempPassword = importRow(row, formatter, job);
+                    String tempPassword = importRow(row, formatter, job, actorUserId);
                     successRows++;
                     Map<String, Object> credential = new HashMap<>();
                     credential.put("row", rowIndex + 1);
@@ -149,14 +159,14 @@ public class EmployeeBatchImportService {
     // ===================== Helpers =====================
 
     /** A2: 1 dòng lỗi/trùng lặp không chặn các dòng khác. Trả về mật khẩu tạm (plaintext) của dòng vừa tạo. */
-    private String importRow(Row row, DataFormatter formatter, ImportJob job) {
+    private String importRow(Row row, DataFormatter formatter, ImportJob job, Long actorUserId) {
         String fullName = cell(row, formatter, 0);
         String username = cell(row, formatter, 1);
         String email = cell(row, formatter, 2);
         String dobText = cell(row, formatter, 3);
         String employeeCode = cell(row, formatter, 4);
         String employeeTypeText = cell(row, formatter, 5);
-        String positionTitle = cell(row, formatter, 6);
+        String positionCode = cell(row, formatter, 6);
         String departmentCode = cell(row, formatter, 7);
         String managementText = cell(row, formatter, 8);
         String hireDateText = cell(row, formatter, 9);
@@ -203,6 +213,11 @@ public class EmployeeBatchImportService {
             department = departmentRepository.findByCode(departmentCode.trim())
                     .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy phòng ban mã=" + departmentCode));
         }
+        Position position = null;
+        if (positionCode != null && !positionCode.isBlank()) {
+            position = positionRepository.findByCode(positionCode.trim())
+                    .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy chức vụ mã=" + positionCode));
+        }
 
         String tempPassword = generateTempPassword();
         User user = new User();
@@ -218,12 +233,15 @@ public class EmployeeBatchImportService {
         employee.setEmployeeCode(employeeCode.trim());
         employee.setDateOfBirth(dob);
         employee.setEmployeeType(employeeType);
-        employee.setPositionTitle(positionTitle);
+        employee.setPosition(position);
         employee.setDepartment(department);
         employee.setManagement(parseBoolean(managementText));
         employee.setDefaultShiftRequired(true);
         employee.setHireDate(hireDate);
         employeeRepository.save(employee);
+
+        // UC-08 A5 (FR-HRM-06/UC-52) -- hồ sơ vừa tạo nên chưa từng có chức vụ (oldPositionId = null).
+        positionRoleSyncService.sync(user, null, position, actorUserId);
 
         return tempPassword;
     }

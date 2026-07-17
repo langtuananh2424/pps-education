@@ -11,11 +11,18 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.Department;
 import vn.com.pps.education.domain.Employee;
+import vn.com.pps.education.domain.Position;
+import vn.com.pps.education.domain.PositionDefaultRole;
+import vn.com.pps.education.domain.Role;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.dto.EmployeeBatchImportResponse;
 import vn.com.pps.education.repository.DepartmentRepository;
 import vn.com.pps.education.repository.EmployeeRepository;
+import vn.com.pps.education.repository.PositionDefaultRoleRepository;
+import vn.com.pps.education.repository.PositionRepository;
+import vn.com.pps.education.repository.RoleRepository;
 import vn.com.pps.education.repository.UserRepository;
+import vn.com.pps.education.repository.UserRoleRepository;
 import vn.com.pps.education.support.AbstractIntegrationTest;
 
 import java.io.ByteArrayOutputStream;
@@ -46,21 +53,35 @@ class EmployeeBatchImportServiceTest extends AbstractIntegrationTest {
     private DepartmentRepository departmentRepository;
 
     @Autowired
+    private PositionRepository positionRepository;
+
+    @Autowired
+    private PositionDefaultRoleRepository positionDefaultRoleRepository;
+
+    @Autowired
+    private RoleRepository roleRepository;
+
+    @Autowired
+    private UserRoleRepository userRoleRepository;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     private User hrManager;
     private Department department;
+    private Position position;
 
     @BeforeEach
     void setUp() {
         hrManager = newUser("hr.manager");
         department = newDepartment();
+        position = newPositionWithDefaultRole("TEACHER");
     }
 
     @Test
     void importEmployees_UC51_MainFlow_createsEmployeesAndReturnsCredentials() throws IOException {
         byte[] file = buildWorkbook(new String[][]{
-                {"Nguyễn Văn A", username("nva"), "", "01/01/1990", employeeCode(), "Giáo viên", "GV Tiếng Anh", department.getCode(), "Không", "01/01/2024"},
+                {"Nguyễn Văn A", username("nva"), "", "01/01/1990", employeeCode(), "Giáo viên", position.getCode(), department.getCode(), "Không", "01/01/2024"},
                 {"Trần Thị B", username("ttb"), "", "15/06/1988", employeeCode(), "Nhân viên", "", "", "Có", "01/02/2024"},
         });
 
@@ -78,11 +99,18 @@ class EmployeeBatchImportServiceTest extends AbstractIntegrationTest {
         User created = userRepository.findByUsername(firstUsername).orElseThrow();
         assertThat(passwordEncoder.matches(firstTempPassword, created.getPasswordHash())).isTrue();
 
+        // UC-51 bước 4 (FR-HRM-06/UC-52) -- dòng có mã chức vụ hợp lệ thì tự động gán role mặc định của chức vụ đó.
+        assertThat(userRoleRepository.findByUserId(created.getId()))
+                .extracting(ur -> ur.getRole().getCode())
+                .containsExactly("TEACHER");
+
         Employee employeeWithManagement = employeeRepository.findByUserId(
                 userRepository.findByUsername((String) result.generatedCredentials().get(1).get("username")).orElseThrow().getId())
                 .orElseThrow();
         assertThat(employeeWithManagement.isManagement()).isTrue();
         assertThat(employeeWithManagement.getDepartment()).isNull();
+        // Dòng B không có mã chức vụ -- không tự gán role nào.
+        assertThat(userRoleRepository.findByUserId(employeeWithManagement.getUser().getId())).isEmpty();
     }
 
     @Test
@@ -112,6 +140,7 @@ class EmployeeBatchImportServiceTest extends AbstractIntegrationTest {
                 {"Phạm Văn D 2", username("pvd2"), "", "01/01/1991", duplicateCode, "Nhân viên", "", "", "", "01/01/2024"}, // trùng mã nhân sự
                 {"Thiếu Mã", "", "", "01/01/1991", employeeCode(), "Nhân viên", "", "", "", "01/01/2024"}, // thiếu username
                 {"Sai Phòng Ban", username("saipb"), "", "01/01/1991", employeeCode(), "Nhân viên", "", "DEPT-KHONG-TON-TAI", "", "01/01/2024"}, // phòng ban không tồn tại
+                {"Sai Chức Vụ", username("saicv"), "", "01/01/1991", employeeCode(), "Nhân viên", "POS-KHONG-TON-TAI", "", "", "01/01/2024"}, // chức vụ không tồn tại
                 {"Hợp Lệ", username("hople"), "", "01/01/1991", employeeCode(), "Nhân viên", "", "", "", "01/01/2024"}, // hợp lệ
         });
 
@@ -119,10 +148,10 @@ class EmployeeBatchImportServiceTest extends AbstractIntegrationTest {
                 new MockMultipartFile("file", "lan2.xlsx", "application/vnd.openxmlformats", second), hrManager.getId());
 
         assertThat(result.status()).isEqualTo("PARTIAL_SUCCESS");
-        assertThat(result.totalRows()).isEqualTo(4);
+        assertThat(result.totalRows()).isEqualTo(5);
         assertThat(result.successRows()).isEqualTo(1);
-        assertThat(result.failedRows()).isEqualTo(3);
-        assertThat(result.errorSummary()).hasSize(3);
+        assertThat(result.failedRows()).isEqualTo(4);
+        assertThat(result.errorSummary()).hasSize(4);
     }
 
     @Test
@@ -183,6 +212,19 @@ class EmployeeBatchImportServiceTest extends AbstractIntegrationTest {
         d.setCode("DEPT-IMP-" + SEQ.incrementAndGet());
         d.setName("Phong Test Import");
         return departmentRepository.save(d);
+    }
+
+    private Position newPositionWithDefaultRole(String roleCode) {
+        Position p = new Position();
+        p.setCode("POS-IMP-" + SEQ.incrementAndGet());
+        p.setName("Chuc vu Test Import");
+        p = positionRepository.save(p);
+        Role role = roleRepository.findByCode(roleCode).orElseThrow();
+        PositionDefaultRole pdr = new PositionDefaultRole();
+        pdr.setPosition(p);
+        pdr.setRole(role);
+        positionDefaultRoleRepository.save(pdr);
+        return p;
     }
 
     private User newUser(String prefix) {

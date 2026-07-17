@@ -31,4 +31,9 @@ public class UserRole {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "assigned_by", nullable = false)
     private User assignedBy;
+
+    /** FR-HRM-06/UC-52 — NULL nếu gán tay qua UC-46; nếu không NULL, role này do hệ thống tự gán theo chức vụ đang trỏ tới. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "granted_via_position_id")
+    private Position grantedViaPosition;
 }

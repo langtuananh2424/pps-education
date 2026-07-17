@@ -6,7 +6,12 @@ import jakarta.validation.constraints.Past;
 
 import java.time.LocalDate;
 
-/** UC-08 Main Flow bước 2: cập nhật thông tin cá nhân của hồ sơ đã có. employeeCode/userId bất biến. */
+/**
+ * UC-08 Main Flow bước 2: cập nhật thông tin cá nhân của hồ sơ đã có.
+ * employeeCode/userId bất biến. positionId null = bỏ trống chức vụ — vai
+ * trò do hệ thống từng tự gán theo chức vụ cũ (nếu có) sẽ bị thu hồi
+ * (UC-08 A5, FR-HRM-06/UC-52).
+ */
 public record UpdateEmployeeRequest(
         @NotNull @Past LocalDate dateOfBirth,
         String idCardNumber,
@@ -19,7 +24,7 @@ public record UpdateEmployeeRequest(
         String taxCode,
         String socialInsuranceNumber,
         @NotBlank String employeeType,
-        String positionTitle,
+        Long positionId,
         Long departmentId,
         @NotNull Boolean isManagement,
         Boolean isDefaultShiftRequired,

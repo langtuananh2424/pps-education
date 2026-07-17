@@ -189,7 +189,8 @@ class AttendanceServiceTest extends AbstractIntegrationTest {
         // chính ca này KHÔNG phủ thời điểm hiện tại, để cô lập rõ nhánh lịch dạy (A12/A13).
         assignShiftNotCoveringNow(teacherEmployee);
         SchoolClass schoolClass = newSchoolClass(teacher);
-        newSession(schoolClass, teacher, LocalTime.now().minusHours(1), LocalTime.now().plusHours(1), ClassSession.Status.SCHEDULED);
+        LocalTime now = LocalTime.now();
+        newSession(schoolClass, teacher, minusHoursClamped(now, 1), plusHoursClamped(now, 1), ClassSession.Status.SCHEDULED);
 
         AttendanceRecordResponse response = attendanceService.checkIn(teacher.getId(),
                 new AttendanceCheckRequest("GPS", site.getId(), SITE_LAT, SITE_LNG, null));
@@ -208,7 +209,8 @@ class AttendanceServiceTest extends AbstractIntegrationTest {
         assignShiftNotCoveringNow(teacherEmployee);
         SchoolClass schoolClass = newSchoolClass(teacher);
         // Tiết dạy đã kết thúc từ lâu, không phủ thời điểm hiện tại.
-        newSession(schoolClass, teacher, LocalTime.now().minusHours(6), LocalTime.now().minusHours(5), ClassSession.Status.SCHEDULED);
+        LocalTime now = LocalTime.now();
+        newSession(schoolClass, teacher, minusHoursClamped(now, 6), minusHoursClamped(now, 5), ClassSession.Status.SCHEDULED);
 
         assertThatThrownBy(() -> attendanceService.checkIn(teacher.getId(),
                 new AttendanceCheckRequest("GPS", site.getId(), SITE_LAT, SITE_LNG, null)))
@@ -222,7 +224,8 @@ class AttendanceServiceTest extends AbstractIntegrationTest {
         assignShiftNotCoveringNow(teacherEmployee);
         SchoolClass schoolClass = newSchoolClass(teacher);
         // Tiết dạy phủ thời điểm hiện tại nhưng đã CANCELLED -- không được tính vào cửa sổ.
-        newSession(schoolClass, teacher, LocalTime.now().minusMinutes(30), LocalTime.now().plusMinutes(30), ClassSession.Status.CANCELLED);
+        LocalTime now = LocalTime.now();
+        newSession(schoolClass, teacher, minusMinutesClamped(now, 30), plusMinutesClamped(now, 30), ClassSession.Status.CANCELLED);
 
         assertThatThrownBy(() -> attendanceService.checkIn(teacher.getId(),
                 new AttendanceCheckRequest("GPS", site.getId(), SITE_LAT, SITE_LNG, null)))
@@ -236,7 +239,8 @@ class AttendanceServiceTest extends AbstractIntegrationTest {
         // Không gán employee_shifts nào cả, không có work_calendar override -- đúng kịch bản
         // gap đã báo cáo: GV chỉ dạy theo lịch, HR không tạo ca cố định cho họ.
         SchoolClass schoolClass = newSchoolClass(teacher);
-        newSession(schoolClass, teacher, LocalTime.now().minusHours(1), LocalTime.now().plusHours(1), ClassSession.Status.SCHEDULED);
+        LocalTime now = LocalTime.now();
+        newSession(schoolClass, teacher, minusHoursClamped(now, 1), plusHoursClamped(now, 1), ClassSession.Status.SCHEDULED);
 
         AttendanceRecordResponse response = attendanceService.checkIn(teacher.getId(),
                 new AttendanceCheckRequest("GPS", site.getId(), SITE_LAT, SITE_LNG, null));
@@ -252,7 +256,8 @@ class AttendanceServiceTest extends AbstractIntegrationTest {
         User teacher = newUser();
         newEmployee(teacher, Employee.EmployeeType.TEACHER);
         SchoolClass schoolClass = newSchoolClass(teacher);
-        newSession(schoolClass, teacher, LocalTime.now().minusHours(1), LocalTime.now().plusHours(1), ClassSession.Status.SCHEDULED);
+        LocalTime now = LocalTime.now();
+        newSession(schoolClass, teacher, minusHoursClamped(now, 1), plusHoursClamped(now, 1), ClassSession.Status.SCHEDULED);
         // work_calendar override tường minh (scope ALL) đánh dấu hôm nay là ngày Lễ -- tiết dạy
         // KHÔNG được ghi đè quyết định này (xác nhận với PM: chỉ là fallback cuối cùng).
         WorkCalendar holiday = new WorkCalendar();
@@ -310,6 +315,36 @@ class AttendanceServiceTest extends AbstractIntegrationTest {
         session.setCreatedBy(teacher);
         session.setStatus(status);
         return classSessionRepository.save(session);
+    }
+
+    /**
+     * Trừ N giờ nhưng giữ trong cùng ngày -- class_sessions có
+     * chk_session_time CHECK (end_time > start_time) (V14); trừ giờ thẳng từ
+     * LocalTime.now() có thể wrap qua ngày trước khi CI chạy gần 00:00, tạo
+     * start_time > end_time và vỡ constraint (đã gặp thật ở PR #47 khi CI
+     * chạy lúc 05:35 UTC). Clamp về LocalTime.MIN nếu bị wrap.
+     */
+    private static LocalTime minusHoursClamped(LocalTime base, long hours) {
+        LocalTime candidate = base.minusHours(hours);
+        return candidate.isAfter(base) ? LocalTime.MIN : candidate;
+    }
+
+    /** Cộng N giờ nhưng giữ trong cùng ngày -- xem minusHoursClamped. */
+    private static LocalTime plusHoursClamped(LocalTime base, long hours) {
+        LocalTime candidate = base.plusHours(hours);
+        return candidate.isBefore(base) ? LocalTime.of(23, 59, 59) : candidate;
+    }
+
+    /** Trừ N phút nhưng giữ trong cùng ngày -- xem minusHoursClamped. */
+    private static LocalTime minusMinutesClamped(LocalTime base, long minutes) {
+        LocalTime candidate = base.minusMinutes(minutes);
+        return candidate.isAfter(base) ? LocalTime.MIN : candidate;
+    }
+
+    /** Cộng N phút nhưng giữ trong cùng ngày -- xem minusHoursClamped. */
+    private static LocalTime plusMinutesClamped(LocalTime base, long minutes) {
+        LocalTime candidate = base.plusMinutes(minutes);
+        return candidate.isBefore(base) ? LocalTime.of(23, 59, 59) : candidate;
     }
 
     private void assignShiftNotCoveringNow(Employee forEmployee) {

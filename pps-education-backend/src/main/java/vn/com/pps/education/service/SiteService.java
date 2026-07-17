@@ -40,6 +40,12 @@ import java.util.Optional;
  *
  * "Trạng thái hợp đồng hợp tác" (Main Flow bước 3) thuộc UC-36b — ngoài
  * phạm vi Service này, chỉ chạm partner_school_info (thông tin liên hệ).
+ *
+ * latitude/longitude (Main Flow bước 2, bổ sung — xác nhận 2026-07-17): trước
+ * đây sites.geo_location (SDD Nhóm 3, cột phục vụ UC-09 A2 xác thực bán kính
+ * GPS) không có đường ghi nào qua API, chỉ set được bằng SQL thủ công/test —
+ * mọi điểm trường tạo qua API thật sẽ luôn NULL, khiến chấm công GPS luôn bị
+ * từ chối. Nay cho phép set/cập nhật qua createSite/updateSite.
  */
 @Service
 public class SiteService {
@@ -85,6 +91,7 @@ public class SiteService {
         site.setDistrict(request.district());
         site.setPhone(request.phone());
         site = siteRepository.save(site);
+        updateGeoLocationIfPresent(site, request.latitude(), request.longitude());
         User actor = getUserOrThrow(actorUserId);
 
         if (siteType == Site.SiteType.PARTNER && request.partnerInfo() != null) {
@@ -117,6 +124,7 @@ public class SiteService {
             site.setStatus(parseStatus(request.status()));
         }
         site = siteRepository.save(site);
+        updateGeoLocationIfPresent(site, request.latitude(), request.longitude());
         User actor = getUserOrThrow(actorUserId);
 
         if (siteType == Site.SiteType.PARTNER) {
@@ -264,6 +272,13 @@ public class SiteService {
         partnerSchoolInfoHistoryRepository.save(history);
     }
 
+    /** latitude/longitude tùy chọn -- chỉ ghi geo_location khi cả 2 cùng có giá trị, giữ nguyên nếu không truyền. */
+    private void updateGeoLocationIfPresent(Site site, Double latitude, Double longitude) {
+        if (latitude != null && longitude != null) {
+            siteRepository.updateGeoLocation(site.getId(), latitude, longitude);
+        }
+    }
+
     private void requirePartnerInfoOnlyForPartner(Site.SiteType siteType, PartnerSchoolInfoRequest partnerInfo) {
         if (siteType == Site.SiteType.OWNED && partnerInfo != null) {
             throw new IllegalArgumentException("Điểm trường Loại hình Cơ sở tự vận hành (OWNED) không có thông tin liên hệ trường liên kết.");
@@ -315,10 +330,14 @@ public class SiteService {
                 .findBySiteIdAndRoleTypeAndAssignedToIsNull(site.getId(), SiteManager.RoleType.SITE_MANAGER)
                 .stream().findFirst();
 
+        SiteRepository.GeoPoint geoPoint = siteRepository.findGeoLocation(site.getId()).orElse(null);
+
         return new SiteResponse(site.getId(), site.getCode(), site.getName(), site.getSiteType().name(),
                 site.getAddress(), site.getDistrict(), site.getPhone(), site.getStatus().name(), partnerInfo,
                 currentManager.map(sm -> sm.getUser().getId()).orElse(null),
-                currentManager.map(sm -> sm.getUser().getFullName()).orElse(null));
+                currentManager.map(sm -> sm.getUser().getFullName()).orElse(null),
+                geoPoint == null ? null : geoPoint.getLatitude(),
+                geoPoint == null ? null : geoPoint.getLongitude());
     }
 
     private SiteTeacherResponse toResponse(SiteTeacher st) {

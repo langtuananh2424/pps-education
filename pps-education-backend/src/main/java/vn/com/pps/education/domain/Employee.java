@@ -67,8 +67,10 @@ public class Employee extends BaseAuditEntity {
     @Column(name = "employee_type", nullable = false, length = 20)
     private EmployeeType employeeType;
 
-    @Column(name = "position_title", length = 200)
-    private String positionTitle;
+    /** FR-HRM-06/UC-52 — chức vụ, ánh xạ role mặc định (thay position_title text tự do cũ, V36). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "position_id")
+    private Position position;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "department_id")

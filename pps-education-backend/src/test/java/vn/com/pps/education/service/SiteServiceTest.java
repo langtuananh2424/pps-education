@@ -51,7 +51,7 @@ class SiteServiceTest extends AbstractIntegrationTest {
 
         SiteResponse response = siteService.createSite(
                 new CreateSiteRequest(uniqueCode(), "Cơ sở Đống Đa", "OWNED",
-                        "123 Đường ABC", "Đống Đa", "0900000000", null, manager.getId()),
+                        "123 Đường ABC", "Đống Đa", "0900000000", null, manager.getId(), 21.0285, 105.8542),
                 actor.getId());
 
         assertThat(response.id()).isNotNull();
@@ -60,6 +60,41 @@ class SiteServiceTest extends AbstractIntegrationTest {
         assertThat(response.partnerInfo()).isNull();
         assertThat(response.currentManagerUserId()).isEqualTo(manager.getId());
         assertThat(response.currentManagerFullName()).isEqualTo(manager.getFullName());
+        assertThat(response.latitude()).isEqualTo(21.0285, org.assertj.core.data.Offset.offset(0.0001));
+        assertThat(response.longitude()).isEqualTo(105.8542, org.assertj.core.data.Offset.offset(0.0001));
+    }
+
+    @Test
+    void createSite_UC36_withoutCoordinates_leavesGeoLocationNull() {
+        User actor = newUser("ops-manager");
+
+        SiteResponse response = siteService.createSite(
+                new CreateSiteRequest(uniqueCode(), "Cơ sở chưa có tọa độ", "OWNED", null, null, null, null, null, null, null),
+                actor.getId());
+
+        assertThat(response.latitude()).isNull();
+        assertThat(response.longitude()).isNull();
+    }
+
+    @Test
+    void updateSite_UC36_withCoordinates_persistsGeoLocation_andOmittingKeepsIt() {
+        User actor = newUser("ops-manager");
+        SiteResponse created = siteService.createSite(
+                new CreateSiteRequest(uniqueCode(), "Cơ sở chưa định vị", "OWNED", null, null, null, null, null, null, null),
+                actor.getId());
+        assertThat(created.latitude()).isNull();
+
+        SiteResponse withCoordinates = siteService.updateSite(created.id(),
+                new UpdateSiteRequest("Cơ sở chưa định vị", "OWNED", null, null, null, "ACTIVE", null, 10.8231, 106.6297),
+                actor.getId());
+        assertThat(withCoordinates.latitude()).isEqualTo(10.8231, org.assertj.core.data.Offset.offset(0.0001));
+        assertThat(withCoordinates.longitude()).isEqualTo(106.6297, org.assertj.core.data.Offset.offset(0.0001));
+
+        SiteResponse omittingCoordinates = siteService.updateSite(created.id(),
+                new UpdateSiteRequest("Cơ sở đã định vị", "OWNED", null, null, null, "ACTIVE", null, null, null),
+                actor.getId());
+        assertThat(omittingCoordinates.latitude()).isEqualTo(10.8231, org.assertj.core.data.Offset.offset(0.0001));
+        assertThat(omittingCoordinates.longitude()).isEqualTo(106.6297, org.assertj.core.data.Offset.offset(0.0001));
     }
 
     @Test
@@ -71,7 +106,7 @@ class SiteServiceTest extends AbstractIntegrationTest {
                         "456 Đường XYZ", "Ba Đình", "0911111111",
                         new PartnerSchoolInfoRequest("Nguyễn Văn A", "Hiệu trưởng", "0922222222",
                                 "hieutruong@ndu.edu.vn", "Ghi chú thêm"),
-                        null),
+                        null, null, null),
                 actor.getId());
 
         assertThat(response.siteType()).isEqualTo("PARTNER");
@@ -87,7 +122,7 @@ class SiteServiceTest extends AbstractIntegrationTest {
 
         assertThatThrownBy(() -> siteService.createSite(
                 new CreateSiteRequest(uniqueCode(), "Cơ sở lỗi", "OWNED", null, null, null,
-                        new PartnerSchoolInfoRequest("A", "B", "C", "D", "E"), null),
+                        new PartnerSchoolInfoRequest("A", "B", "C", "D", "E"), null, null, null),
                 actor.getId()))
                 .isInstanceOf(IllegalArgumentException.class);
     }
@@ -96,10 +131,10 @@ class SiteServiceTest extends AbstractIntegrationTest {
     void createSite_UC36_duplicateCode_rejectsWithDuplicateSiteCodeException() {
         User actor = newUser("ops-manager");
         String code = uniqueCode();
-        siteService.createSite(new CreateSiteRequest(code, "Cơ sở 1", "OWNED", null, null, null, null, null), actor.getId());
+        siteService.createSite(new CreateSiteRequest(code, "Cơ sở 1", "OWNED", null, null, null, null, null, null, null), actor.getId());
 
         assertThatThrownBy(() -> siteService.createSite(
-                new CreateSiteRequest(code, "Cơ sở 2", "OWNED", null, null, null, null, null), actor.getId()))
+                new CreateSiteRequest(code, "Cơ sở 2", "OWNED", null, null, null, null, null, null, null), actor.getId()))
                 .isInstanceOf(DuplicateSiteCodeException.class);
     }
 
@@ -110,7 +145,7 @@ class SiteServiceTest extends AbstractIntegrationTest {
         User secondManager = newUser("manager-2");
 
         SiteResponse created = siteService.createSite(
-                new CreateSiteRequest(uniqueCode(), "Cơ sở đổi QL", "OWNED", null, null, null, null, firstManager.getId()),
+                new CreateSiteRequest(uniqueCode(), "Cơ sở đổi QL", "OWNED", null, null, null, null, firstManager.getId(), null, null),
                 actor.getId());
         assertThat(created.currentManagerUserId()).isEqualTo(firstManager.getId());
 
@@ -126,12 +161,12 @@ class SiteServiceTest extends AbstractIntegrationTest {
         User actor = newUser("ops-manager");
         SiteResponse created = siteService.createSite(
                 new CreateSiteRequest(uniqueCode(), "Trường liên kết cũ", "PARTNER", null, null, null,
-                        new PartnerSchoolInfoRequest("X", "Y", "Z", "x@y.z", null), null),
+                        new PartnerSchoolInfoRequest("X", "Y", "Z", "x@y.z", null), null, null, null),
                 actor.getId());
         assertThat(created.partnerInfo()).isNotNull();
 
         SiteResponse updated = siteService.updateSite(created.id(),
-                new UpdateSiteRequest("Cơ sở tự vận hành mới", "OWNED", null, null, null, "ACTIVE", null),
+                new UpdateSiteRequest("Cơ sở tự vận hành mới", "OWNED", null, null, null, "ACTIVE", null, null, null),
                 actor.getId());
 
         assertThat(updated.siteType()).isEqualTo("OWNED");
@@ -147,7 +182,7 @@ class SiteServiceTest extends AbstractIntegrationTest {
     void listSites_UC36_includesCreatedSite() {
         User actor = newUser("ops-manager");
         SiteResponse created = siteService.createSite(
-                new CreateSiteRequest(uniqueCode(), "Cơ sở list", "OWNED", null, null, null, null, null),
+                new CreateSiteRequest(uniqueCode(), "Cơ sở list", "OWNED", null, null, null, null, null, null, null),
                 actor.getId());
 
         List<SiteResponse> sites = siteService.listSites();
@@ -160,7 +195,7 @@ class SiteServiceTest extends AbstractIntegrationTest {
         User actor = newUser("ops-manager");
         User teacher = newUser("teacher-for-site");
         SiteResponse site = siteService.createSite(
-                new CreateSiteRequest(uniqueCode(), "Cơ sở gán GV", "OWNED", null, null, null, null, null), actor.getId());
+                new CreateSiteRequest(uniqueCode(), "Cơ sở gán GV", "OWNED", null, null, null, null, null, null, null), actor.getId());
 
         SiteTeacherResponse response = siteService.assignTeacher(site.id(),
                 new AssignSiteTeacherRequest(teacher.getId(), LocalDate.now(), "Ghi chú"), actor.getId());
@@ -177,7 +212,7 @@ class SiteServiceTest extends AbstractIntegrationTest {
         User actor = newUser("ops-manager");
         User teacher = newUser("teacher-dup");
         SiteResponse site = siteService.createSite(
-                new CreateSiteRequest(uniqueCode(), "Cơ sở dup GV", "OWNED", null, null, null, null, null), actor.getId());
+                new CreateSiteRequest(uniqueCode(), "Cơ sở dup GV", "OWNED", null, null, null, null, null, null, null), actor.getId());
         siteService.assignTeacher(site.id(), new AssignSiteTeacherRequest(teacher.getId(), LocalDate.now(), null), actor.getId());
 
         assertThatThrownBy(() -> siteService.assignTeacher(site.id(),
@@ -190,7 +225,7 @@ class SiteServiceTest extends AbstractIntegrationTest {
         User actor = newUser("ops-manager");
         User teacher = newUser("teacher-removed");
         SiteResponse site = siteService.createSite(
-                new CreateSiteRequest(uniqueCode(), "Cơ sở gỡ GV", "OWNED", null, null, null, null, null), actor.getId());
+                new CreateSiteRequest(uniqueCode(), "Cơ sở gỡ GV", "OWNED", null, null, null, null, null, null, null), actor.getId());
         SiteTeacherResponse assignment = siteService.assignTeacher(site.id(),
                 new AssignSiteTeacherRequest(teacher.getId(), LocalDate.now(), null), actor.getId());
 

@@ -345,6 +345,19 @@ nhân đó mới được thao tác.*
         hàng loạt, thay vì nhập tay từng người. Kiểm tra trùng lặp theo
         mã nhân sự/username/email trước khi tạo mới.
 
+    -   **FR-HRM-06: Danh mục chức vụ & tự động gán vai trò theo chức vụ -**
+        Quản lý nhân sự duy trì danh mục chức vụ (VD Giáo viên, Trưởng
+        phòng đào tạo), mỗi chức vụ ánh xạ 0..N vai trò (role) mặc định
+        (VD Trưởng phòng đào tạo → TEACHER + HEAD_ACADEMIC). Khi tạo mới
+        hoặc đổi chức vụ của 1 hồ sơ nhân sự (FR-HRM-01), hệ thống tự
+        động gán các vai trò mặc định của chức vụ đó cho tài khoản, và
+        thu hồi vai trò do chính cơ chế này từng gán nếu chức vụ mới
+        không còn liệt kê vai trò đó — không đụng tới vai trò đã gán tay
+        qua FR-PER-05. Bổ sung ngoài SRS/SDD gốc (employees.position_title
+        vốn là text tự do) — xác nhận với người dùng ngày 2026-07-17 sau
+        khi phát hiện gap: tạo nhân viên qua FR-HRM-01 trước đây không hề
+        gán vai trò, phải thao tác thủ công qua FR-PER-05.
+
 **PHÂN HỆ 5: QUẢN LÝ HỌC SINH**
 
 -   **Mô tả tổng quan:** Quản lý thông tin định danh, hồ sơ lý lịch và
@@ -656,6 +669,10 @@ CDN)**
 
   UC-51             Nhập nhân sự theo FR-HRM-05         4
                     lô                                  
+
+  UC-52             Danh mục chức vụ  FR-HRM-06         4
+                    & tự động gán                       
+                    vai trò                             
 
   UC-13             Quản lý hồ sơ học FR-STU-01         5
                     sinh                                
