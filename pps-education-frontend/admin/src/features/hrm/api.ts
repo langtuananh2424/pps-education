@@ -18,7 +18,8 @@ export interface EmployeeResponse {
   taxCode: string | null;
   socialInsuranceNumber: string | null;
   employeeType: "TEACHER" | "STAFF" | "MANAGER";
-  positionTitle: string | null;
+  positionId: number | null;
+  positionName: string | null;
   departmentId: number | null;
   isManagement: boolean;
   isDefaultShiftRequired: boolean;
@@ -47,7 +48,7 @@ export interface CreateEmployeeRequest {
   taxCode?: string;
   socialInsuranceNumber?: string;
   employeeType: "TEACHER" | "STAFF" | "MANAGER";
-  positionTitle?: string;
+  positionId?: number | null;
   departmentId?: number;
   isManagement?: boolean;
   isDefaultShiftRequired?: boolean;
@@ -67,7 +68,7 @@ export interface UpdateEmployeeRequest {
   taxCode?: string;
   socialInsuranceNumber?: string;
   employeeType: "TEACHER" | "STAFF" | "MANAGER";
-  positionTitle?: string;
+  positionId?: number | null;
   departmentId?: number;
   isManagement: boolean;
   isDefaultShiftRequired?: boolean;
@@ -206,4 +207,111 @@ export function updateContract(employeeId: number, contractId: number, request: 
 /** UC-08 A2: hợp đồng ACTIVE sắp/đã hết hạn trong `withinDays` ngày. */
 export function listExpiringContracts(withinDays: number): Promise<ExpiringContractResponse[]> {
   return apiRequest<ExpiringContractResponse[]>(`/employees/contracts/expiring?withinDays=${withinDays}`);
+}
+
+// ===================== Phòng ban (Department) — đổ dropdown, UC-08 =====================
+
+export interface DepartmentResponse {
+  id: number;
+  code: string;
+  name: string;
+  headUserId: number | null;
+  headUserFullName: string | null;
+  parentDepartmentId: number | null;
+  parentDepartmentName: string | null;
+}
+
+export interface CreateDepartmentRequest {
+  code: string;
+  name: string;
+  headUserId?: number;
+  parentDepartmentId?: number;
+}
+
+/** Khớp UpdateDepartmentRequest thật — code bất biến, không sửa qua đây. */
+export interface UpdateDepartmentRequest {
+  name: string;
+  headUserId?: number;
+  parentDepartmentId?: number;
+}
+
+export function listDepartments(): Promise<DepartmentResponse[]> {
+  return apiRequest<DepartmentResponse[]>("/departments");
+}
+
+export function getDepartment(id: number): Promise<DepartmentResponse> {
+  return apiRequest<DepartmentResponse>(`/departments/${id}`);
+}
+
+export function createDepartment(request: CreateDepartmentRequest): Promise<DepartmentResponse> {
+  return apiRequest<DepartmentResponse>("/departments", { method: "POST", body: JSON.stringify(request) });
+}
+
+export function updateDepartment(id: number, request: UpdateDepartmentRequest): Promise<DepartmentResponse> {
+  return apiRequest<DepartmentResponse>(`/departments/${id}`, { method: "PUT", body: JSON.stringify(request) });
+}
+
+export function deleteDepartment(id: number): Promise<void> {
+  return apiRequest<void>(`/departments/${id}`, { method: "DELETE" });
+}
+
+// ===================== Chức vụ (Position) — đổ dropdown + gán role mặc định, bổ sung ngoài SDD gốc (V36) =====================
+
+export interface PositionResponse {
+  id: number;
+  code: string;
+  name: string;
+}
+
+export interface CreatePositionRequest {
+  code: string;
+  name: string;
+}
+
+/** Khớp UpdatePositionRequest thật — code bất biến, không sửa qua đây. */
+export interface UpdatePositionRequest {
+  name: string;
+}
+
+export function listPositions(): Promise<PositionResponse[]> {
+  return apiRequest<PositionResponse[]>("/positions");
+}
+
+export function getPosition(id: number): Promise<PositionResponse> {
+  return apiRequest<PositionResponse>(`/positions/${id}`);
+}
+
+export function createPosition(request: CreatePositionRequest): Promise<PositionResponse> {
+  return apiRequest<PositionResponse>("/positions", { method: "POST", body: JSON.stringify(request) });
+}
+
+export function updatePosition(id: number, request: UpdatePositionRequest): Promise<PositionResponse> {
+  return apiRequest<PositionResponse>(`/positions/${id}`, { method: "PUT", body: JSON.stringify(request) });
+}
+
+export function deletePosition(id: number): Promise<void> {
+  return apiRequest<void>(`/positions/${id}`, { method: "DELETE" });
+}
+
+export interface PositionDefaultRoleResponse {
+  id: number;
+  code: string;
+  name: string;
+  description: string | null;
+  isSystem: boolean;
+}
+
+export interface PositionDefaultRolesResponse {
+  positionId: number;
+  positionCode: string;
+  defaultRoles: PositionDefaultRoleResponse[];
+}
+
+export function getPositionDefaultRoles(positionId: number): Promise<PositionDefaultRolesResponse> {
+  return apiRequest<PositionDefaultRolesResponse>(`/positions/${positionId}/default-roles`);
+}
+
+/** Thay thế TOÀN BỘ danh sách role mặc định của chức vụ — roleIds=[] nghĩa là bỏ hết, không tự gán role nào khi chọn chức vụ này. */
+export function updatePositionDefaultRoles(positionId: number, roleIds: number[]): Promise<void> {
+  return apiRequest<void>(`/positions/${positionId}/default-roles`, { method: "PUT", body: JSON.stringify({ roleIds }) });
 }

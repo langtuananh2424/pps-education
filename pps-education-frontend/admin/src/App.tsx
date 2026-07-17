@@ -12,6 +12,7 @@ import OverridesPage from "@/features/system-admin/pages/OverridesPage";
 import AuditLogPage from "@/features/system-admin/pages/AuditLogPage";
 import TaskWorkflowPage from "@/features/task-workflow/pages/TaskWorkflowPage";
 import HrmProfilesPage from "@/features/hrm/pages/ProfilesPage";
+import DepartmentsPositionsPage from "@/features/hrm/pages/DepartmentsPositionsPage";
 import HrmAttendancePage from "@/features/hrm/pages/AttendancePage";
 import LeavesPage from "@/features/hrm/pages/LeavesPage";
 import PayrollPage from "@/features/hrm/pages/PayrollPage";
@@ -55,6 +56,7 @@ export default function App() {
           <Route path="/system-admin/audit-log" element={<AuditLogPage />} />
           <Route path="/task-workflow" element={<TaskWorkflowPage />} />
           <Route path="/hrm/profile" element={<HrmProfilesPage />} />
+          <Route path="/hrm/departments-positions" element={<DepartmentsPositionsPage />} />
           <Route path="/hrm/attendance" element={<HrmAttendancePage />} />
           <Route path="/hrm/leaves" element={<LeavesPage />} />
           <Route path="/hrm/payroll" element={<PayrollPage />} />

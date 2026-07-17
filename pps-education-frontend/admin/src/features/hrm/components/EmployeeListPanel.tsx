@@ -79,10 +79,10 @@ export default function EmployeeListPanel({ employees, loading, selectedId, onSe
                       <span className="font-mono">{emp.employeeCode}</span>
                       <span>•</span>
                       <span className="text-brand-orange font-bold">{employeeTypeLabels[emp.employeeType]}</span>
-                      {emp.positionTitle && (
+                      {emp.positionName && (
                         <>
                           <span>•</span>
-                          <span>{emp.positionTitle}</span>
+                          <span>{emp.positionName}</span>
                         </>
                       )}
                     </div>

@@ -6,11 +6,15 @@ import {
   addContract,
   addQualification,
   CommendationResponse,
+  DepartmentResponse,
   EmployeeResponse,
   EmploymentContractResponse,
   listCommendations,
   listContracts,
+  listDepartments,
+  listPositions,
   listQualifications,
+  PositionResponse,
   QualificationResponse,
   updateContract,
   updateEmployee,
@@ -86,8 +90,15 @@ function ProfileTab({ employee, onChanged }: { employee: EmployeeResponse; onCha
   const [error, setError] = useState<string | null>(null);
   const [dateOfBirthTouched, setDateOfBirthTouched] = useState(false);
   const dateOfBirthInvalid = dateOfBirthTouched && !form.dateOfBirth;
+  const [positions, setPositions] = useState<PositionResponse[]>([]);
+  const [departments, setDepartments] = useState<DepartmentResponse[]>([]);
 
   useEffect(() => setForm(toForm(employee)), [employee]);
+
+  useEffect(() => {
+    listPositions().then(setPositions).catch(() => undefined);
+    listDepartments().then(setDepartments).catch(() => undefined);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -166,16 +177,33 @@ function ProfileTab({ employee, onChanged }: { employee: EmployeeResponse; onCha
         </div>
         <div>
           <label className={labelClass}>Chức vụ</label>
-          <input value={form.positionTitle ?? ""} onChange={(e) => setForm({ ...form, positionTitle: e.target.value })} className={inputClass} />
+          <select
+            value={form.positionId ?? ""}
+            onChange={(e) => setForm({ ...form, positionId: e.target.value ? Number(e.target.value) : null })}
+            className={inputClass}
+          >
+            <option value="">-- Chưa gán --</option>
+            {positions.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
         </div>
         <div>
-          <label className={labelClass}>ID phòng ban</label>
-          <input
+          <label className={labelClass}>Phòng ban</label>
+          <select
             value={form.departmentId ?? ""}
-            onChange={(e) => setForm({ ...form, departmentId: e.target.value ? Number(e.target.value.replace(/[^0-9]/g, "")) : undefined })}
+            onChange={(e) => setForm({ ...form, departmentId: e.target.value ? Number(e.target.value) : undefined })}
             className={inputClass}
-            placeholder="Tùy chọn"
-          />
+          >
+            <option value="">-- Chưa gán --</option>
+            {departments.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name}
+              </option>
+            ))}
+          </select>
         </div>
         <div>
           <label className={labelClass}>Trạng thái *</label>
@@ -223,7 +251,7 @@ function toForm(e: EmployeeResponse): UpdateEmployeeRequest {
     taxCode: e.taxCode ?? undefined,
     socialInsuranceNumber: e.socialInsuranceNumber ?? undefined,
     employeeType: e.employeeType,
-    positionTitle: e.positionTitle ?? undefined,
+    positionId: e.positionId ?? null,
     departmentId: e.departmentId ?? undefined,
     isManagement: e.isManagement,
     isDefaultShiftRequired: e.isDefaultShiftRequired,
