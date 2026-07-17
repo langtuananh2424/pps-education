@@ -294,6 +294,18 @@ e)  Bảng user_roles -- Gán role cho user (M-N)
   assigned_by     BIGINT           FK → users(id),    
                                    NOT NULL           
 
+  granted_via_    BIGINT           FK →               V36, bổ sung ngoài
+  position_id                      positions(id),     SDD gốc (FR-HRM-06/
+                                   NULL               UC-52) --- NULL nếu
+                                                      role này được gán tay
+                                                      qua UC-46; nếu không
+                                                      NULL, đây là role hệ
+                                                      thống tự gán theo
+                                                      chức vụ đang trỏ tới,
+                                                      dùng để biết role nào
+                                                      an toàn tự thu hồi
+                                                      khi đổi chức vụ
+
                                    UNIQUE(user_id,    
                                    role_id)           
   ------------------------------------------------------------------------

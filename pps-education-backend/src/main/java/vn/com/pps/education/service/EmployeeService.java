@@ -8,6 +8,7 @@ import vn.com.pps.education.domain.Employee;
 import vn.com.pps.education.domain.EmployeeHistory;
 import vn.com.pps.education.domain.EmploymentContract;
 import vn.com.pps.education.domain.EmploymentContractHistory;
+import vn.com.pps.education.domain.Position;
 import vn.com.pps.education.domain.Qualification;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.dto.CommendationResponse;
@@ -32,6 +33,7 @@ import vn.com.pps.education.repository.EmployeeHistoryRepository;
 import vn.com.pps.education.repository.EmployeeRepository;
 import vn.com.pps.education.repository.EmploymentContractHistoryRepository;
 import vn.com.pps.education.repository.EmploymentContractRepository;
+import vn.com.pps.education.repository.PositionRepository;
 import vn.com.pps.education.repository.QualificationRepository;
 import vn.com.pps.education.repository.UserRepository;
 
@@ -57,7 +59,9 @@ public class EmployeeService {
     private final EmploymentContractHistoryRepository employmentContractHistoryRepository;
     private final UserRepository userRepository;
     private final DepartmentRepository departmentRepository;
+    private final PositionRepository positionRepository;
     private final UserAccountService userAccountService;
+    private final PositionRoleSyncService positionRoleSyncService;
 
     public EmployeeService(EmployeeRepository employeeRepository,
                             EmploymentContractRepository employmentContractRepository,
@@ -67,7 +71,9 @@ public class EmployeeService {
                             EmploymentContractHistoryRepository employmentContractHistoryRepository,
                             UserRepository userRepository,
                             DepartmentRepository departmentRepository,
-                            UserAccountService userAccountService) {
+                            PositionRepository positionRepository,
+                            UserAccountService userAccountService,
+                            PositionRoleSyncService positionRoleSyncService) {
         this.employeeRepository = employeeRepository;
         this.employmentContractRepository = employmentContractRepository;
         this.qualificationRepository = qualificationRepository;
@@ -76,7 +82,9 @@ public class EmployeeService {
         this.employmentContractHistoryRepository = employmentContractHistoryRepository;
         this.userRepository = userRepository;
         this.departmentRepository = departmentRepository;
+        this.positionRepository = positionRepository;
         this.userAccountService = userAccountService;
+        this.positionRoleSyncService = positionRoleSyncService;
     }
 
     @Transactional(readOnly = true)
@@ -127,7 +135,8 @@ public class EmployeeService {
         employee.setTaxCode(request.taxCode());
         employee.setSocialInsuranceNumber(request.socialInsuranceNumber());
         employee.setEmployeeType(Employee.EmployeeType.valueOf(request.employeeType()));
-        employee.setPositionTitle(request.positionTitle());
+        Position position = resolvePosition(request.positionId());
+        employee.setPosition(position);
         if (request.departmentId() != null) {
             Department department = departmentRepository.findById(request.departmentId())
                     .orElseThrow(() -> new ResourceNotFoundException(
@@ -139,6 +148,9 @@ public class EmployeeService {
         employee.setHireDate(request.hireDate());
         employee = employeeRepository.save(employee);
 
+        // UC-08 A5 (FR-HRM-06/UC-52) -- hồ sơ vừa tạo nên chưa từng có chức vụ (oldPositionId = null).
+        positionRoleSyncService.sync(user, null, position, actorUserId);
+
         writeEmployeeHistory(employee, actorUserId, EmployeeHistory.Action.CREATED);
         return toResponse(employee);
     }
@@ -147,6 +159,7 @@ public class EmployeeService {
     @Transactional
     public EmployeeResponse update(Long id, UpdateEmployeeRequest request, Long actorUserId) {
         Employee employee = getEmployeeOrThrow(id);
+        Long oldPositionId = employee.getPosition() == null ? null : employee.getPosition().getId();
 
         employee.setDateOfBirth(request.dateOfBirth());
         employee.setIdCardNumber(request.idCardNumber());
@@ -159,7 +172,8 @@ public class EmployeeService {
         employee.setTaxCode(request.taxCode());
         employee.setSocialInsuranceNumber(request.socialInsuranceNumber());
         employee.setEmployeeType(Employee.EmployeeType.valueOf(request.employeeType()));
-        employee.setPositionTitle(request.positionTitle());
+        Position newPosition = resolvePosition(request.positionId());
+        employee.setPosition(newPosition);
         if (request.departmentId() != null) {
             Department department = departmentRepository.findById(request.departmentId())
                     .orElseThrow(() -> new ResourceNotFoundException(
@@ -173,6 +187,9 @@ public class EmployeeService {
         employee.setStatus(Employee.Status.valueOf(request.status()));
         employee.setTerminationDate(request.terminationDate());
         employee = employeeRepository.save(employee);
+
+        // UC-08 A5 (FR-HRM-06/UC-52) -- đồng bộ role theo chức vụ mới, thu hồi role tự gán theo chức vụ cũ nếu không còn phù hợp.
+        positionRoleSyncService.sync(employee.getUser(), oldPositionId, newPosition, actorUserId);
 
         writeEmployeeHistory(employee, actorUserId, EmployeeHistory.Action.UPDATED);
         return toResponse(employee);
@@ -344,7 +361,7 @@ public class EmployeeService {
         snapshot.put("dateOfBirth", String.valueOf(e.getDateOfBirth()));
         snapshot.put("idCardNumber", e.getIdCardNumber());
         snapshot.put("employeeType", e.getEmployeeType().name());
-        snapshot.put("positionTitle", e.getPositionTitle());
+        snapshot.put("positionCode", e.getPosition() == null ? null : e.getPosition().getCode());
         snapshot.put("hireDate", String.valueOf(e.getHireDate()));
         snapshot.put("terminationDate", e.getTerminationDate() == null ? null : e.getTerminationDate().toString());
         snapshot.put("status", e.getStatus().name());
@@ -368,6 +385,14 @@ public class EmployeeService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy nhân sự id=" + id));
     }
 
+    private Position resolvePosition(Long positionId) {
+        if (positionId == null) {
+            return null;
+        }
+        return positionRepository.findById(positionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy chức vụ id=" + positionId));
+    }
+
     private EmployeeResponse toResponse(Employee e) {
         return new EmployeeResponse(
                 e.getId(),
@@ -385,7 +410,8 @@ public class EmployeeService {
                 e.getTaxCode(),
                 e.getSocialInsuranceNumber(),
                 e.getEmployeeType().name(),
-                e.getPositionTitle(),
+                e.getPosition() == null ? null : e.getPosition().getId(),
+                e.getPosition() == null ? null : e.getPosition().getName(),
                 e.getDepartment() == null ? null : e.getDepartment().getId(),
                 e.isManagement(),
                 e.isDefaultShiftRequired(),

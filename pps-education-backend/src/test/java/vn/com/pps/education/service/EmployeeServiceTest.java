@@ -5,7 +5,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.Department;
+import vn.com.pps.education.domain.Position;
+import vn.com.pps.education.domain.PositionDefaultRole;
+import vn.com.pps.education.domain.Role;
 import vn.com.pps.education.domain.User;
+import vn.com.pps.education.domain.UserRole;
 import vn.com.pps.education.dto.CreateCommendationRequest;
 import vn.com.pps.education.dto.CreateEmployeeRequest;
 import vn.com.pps.education.dto.CreateEmploymentContractRequest;
@@ -22,7 +26,11 @@ import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.repository.DepartmentRepository;
 import vn.com.pps.education.repository.EmployeeHistoryRepository;
 import vn.com.pps.education.repository.EmploymentContractHistoryRepository;
+import vn.com.pps.education.repository.PositionDefaultRoleRepository;
+import vn.com.pps.education.repository.PositionRepository;
+import vn.com.pps.education.repository.RoleRepository;
 import vn.com.pps.education.repository.UserRepository;
+import vn.com.pps.education.repository.UserRoleRepository;
 import vn.com.pps.education.support.AbstractIntegrationTest;
 
 import java.math.BigDecimal;
@@ -60,6 +68,18 @@ class EmployeeServiceTest extends AbstractIntegrationTest {
     @Autowired
     private EmploymentContractHistoryRepository employmentContractHistoryRepository;
 
+    @Autowired
+    private PositionRepository positionRepository;
+
+    @Autowired
+    private PositionDefaultRoleRepository positionDefaultRoleRepository;
+
+    @Autowired
+    private RoleRepository roleRepository;
+
+    @Autowired
+    private UserRoleRepository userRoleRepository;
+
     private User hrManager;
 
     @BeforeEach
@@ -74,7 +94,7 @@ class EmployeeServiceTest extends AbstractIntegrationTest {
         EmployeeResponse response = employeeService.create(
                 new CreateEmployeeRequest(target.getId(), null, employeeCode(),
                         LocalDate.of(1995, 1, 1), "001095000123", null, null, null, null, null, null, null, null,
-                        "TEACHER", "Giáo viên tiếng Anh", null, null, true, LocalDate.of(2024, 1, 1)),
+                        "TEACHER", null, null, null, true, LocalDate.of(2024, 1, 1)),
                 hrManager.getId());
 
         assertThat(response.id()).isNotNull();
@@ -94,7 +114,7 @@ class EmployeeServiceTest extends AbstractIntegrationTest {
         EmployeeResponse response = employeeService.create(
                 new CreateEmployeeRequest(null, newAccount, employeeCode(),
                         LocalDate.of(1995, 1, 1), null, null, null, null, null, null, null, null, null,
-                        "TEACHER", "Giáo viên tiếng Anh", null, null, true, LocalDate.of(2024, 1, 1)),
+                        "TEACHER", null, null, null, true, LocalDate.of(2024, 1, 1)),
                 hrManager.getId());
 
         assertThat(response.id()).isNotNull();
@@ -210,6 +230,89 @@ class EmployeeServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void create_UC08_A5_autoAssignsDefaultRolesForPosition() {
+        User target = newUser("employee.position.new");
+        Position teacherLead = newPositionWithDefaultRoles("TEACHER-LEAD-" + CODE_SEQ.incrementAndGet(), "TEACHER", "HEAD_ACADEMIC");
+
+        EmployeeResponse response = employeeService.create(
+                new CreateEmployeeRequest(target.getId(), null, employeeCode(), LocalDate.of(1995, 1, 1),
+                        null, null, null, null, null, null, null, null, null,
+                        "MANAGER", teacherLead.getId(), null, null, true, LocalDate.of(2024, 1, 1)),
+                hrManager.getId());
+
+        assertThat(response.positionId()).isEqualTo(teacherLead.getId());
+        assertThat(assignedRoleCodes(target.getId())).containsExactlyInAnyOrder("TEACHER", "HEAD_ACADEMIC");
+        assertThat(userRoleRepository.findByUserId(target.getId()))
+                .allMatch(ur -> ur.getGrantedViaPosition() != null
+                        && ur.getGrantedViaPosition().getId().equals(teacherLead.getId()));
+    }
+
+    @Test
+    void update_UC08_A5_changingPositionRevokesStaleAutoRoleAndAssignsNew() {
+        User target = newUser("employee.position.change");
+        Position teacher = newPositionWithDefaultRoles("TEACHER-" + CODE_SEQ.incrementAndGet(), "TEACHER");
+        Position staff = newPositionWithDefaultRoles("STAFF-" + CODE_SEQ.incrementAndGet(), "STAFF");
+        EmployeeResponse employee = employeeService.create(
+                new CreateEmployeeRequest(target.getId(), null, employeeCode(), LocalDate.of(1995, 1, 1),
+                        null, null, null, null, null, null, null, null, null,
+                        "TEACHER", teacher.getId(), null, null, true, LocalDate.of(2024, 1, 1)),
+                hrManager.getId());
+        assertThat(assignedRoleCodes(target.getId())).containsExactly("TEACHER");
+
+        employeeService.update(employee.id(), new UpdateEmployeeRequest(LocalDate.of(1995, 1, 1),
+                        null, null, null, null, null, null, null, null, null,
+                        "STAFF", staff.getId(), null, false, true, "ACTIVE", null),
+                hrManager.getId());
+
+        assertThat(assignedRoleCodes(target.getId())).containsExactly("STAFF");
+    }
+
+    @Test
+    void update_UC08_A5_doesNotTouchManuallyAssignedRole() {
+        User target = newUser("employee.position.manual.role");
+        Role manuallyGranted = roleRepository.findByCode("SYS_ADMIN").orElseThrow();
+        UserRole manualAssignment = new UserRole();
+        manualAssignment.setUser(target);
+        manualAssignment.setRole(manuallyGranted);
+        manualAssignment.setAssignedBy(hrManager);
+        userRoleRepository.save(manualAssignment);
+        Position staff = newPositionWithDefaultRoles("STAFF-MAN-" + CODE_SEQ.incrementAndGet(), "STAFF");
+        EmployeeResponse employee = employeeService.create(
+                new CreateEmployeeRequest(target.getId(), null, employeeCode(), LocalDate.of(1995, 1, 1),
+                        null, null, null, null, null, null, null, null, null,
+                        "STAFF", staff.getId(), null, null, true, LocalDate.of(2024, 1, 1)),
+                hrManager.getId());
+
+        Position teacher = newPositionWithDefaultRoles("TEACHER-MAN-" + CODE_SEQ.incrementAndGet(), "TEACHER");
+        employeeService.update(employee.id(), new UpdateEmployeeRequest(LocalDate.of(1995, 1, 1),
+                        null, null, null, null, null, null, null, null, null,
+                        "TEACHER", teacher.getId(), null, false, true, "ACTIVE", null),
+                hrManager.getId());
+
+        // SYS_ADMIN gán tay -- vẫn còn dù chức vụ đổi và không nằm trong role mặc định của chức vụ nào ở trên.
+        assertThat(assignedRoleCodes(target.getId())).containsExactlyInAnyOrder("SYS_ADMIN", "TEACHER");
+    }
+
+    @Test
+    void update_UC08_A5_clearingPositionRevokesAutoAssignedRole() {
+        User target = newUser("employee.position.clear");
+        Position teacher = newPositionWithDefaultRoles("TEACHER-CLR-" + CODE_SEQ.incrementAndGet(), "TEACHER");
+        EmployeeResponse employee = employeeService.create(
+                new CreateEmployeeRequest(target.getId(), null, employeeCode(), LocalDate.of(1995, 1, 1),
+                        null, null, null, null, null, null, null, null, null,
+                        "TEACHER", teacher.getId(), null, null, true, LocalDate.of(2024, 1, 1)),
+                hrManager.getId());
+        assertThat(assignedRoleCodes(target.getId())).containsExactly("TEACHER");
+
+        employeeService.update(employee.id(), new UpdateEmployeeRequest(LocalDate.of(1995, 1, 1),
+                        null, null, null, null, null, null, null, null, null,
+                        "STAFF", null, null, false, true, "ACTIVE", null),
+                hrManager.getId());
+
+        assertThat(assignedRoleCodes(target.getId())).isEmpty();
+    }
+
+    @Test
     void addQualificationAndCommendation_UC08_MainFlow_persistsSubRecords() {
         User target = newUser("employee.subrecords");
         EmployeeResponse employee = employeeService.create(
@@ -300,12 +403,31 @@ class EmployeeServiceTest extends AbstractIntegrationTest {
 
     private CreateEmployeeRequest baseEmployeeRequest(Long userId, String employeeCode, Long departmentId, Boolean isManagement) {
         return new CreateEmployeeRequest(userId, null, employeeCode, LocalDate.of(1995, 1, 1), null, null, null, null,
-                null, null, null, null, null, "STAFF", "Nhân viên", departmentId, isManagement, true, LocalDate.of(2024, 1, 1));
+                null, null, null, null, null, "STAFF", null, departmentId, isManagement, true, LocalDate.of(2024, 1, 1));
     }
 
     private UpdateEmployeeRequest updateRequest(Long departmentId, boolean isManagement) {
         return new UpdateEmployeeRequest(LocalDate.of(1995, 1, 1), null, null, null, null, null, null, null, null,
-                null, "STAFF", "Nhân viên", departmentId, isManagement, true, "ACTIVE", null);
+                null, "STAFF", null, departmentId, isManagement, true, "ACTIVE", null);
+    }
+
+    private Position newPositionWithDefaultRoles(String code, String... roleCodes) {
+        Position position = new Position();
+        position.setCode(code);
+        position.setName("Test Position " + code);
+        position = positionRepository.save(position);
+        for (String roleCode : roleCodes) {
+            Role role = roleRepository.findByCode(roleCode).orElseThrow();
+            PositionDefaultRole pdr = new PositionDefaultRole();
+            pdr.setPosition(position);
+            pdr.setRole(role);
+            positionDefaultRoleRepository.save(pdr);
+        }
+        return position;
+    }
+
+    private List<String> assignedRoleCodes(Long userId) {
+        return userRoleRepository.findByUserId(userId).stream().map(ur -> ur.getRole().getCode()).toList();
     }
 
     private Department newDepartment() {

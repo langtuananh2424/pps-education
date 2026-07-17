@@ -11,5 +11,7 @@ public record SiteResponse(
         String status,
         PartnerSchoolInfoResponse partnerInfo,
         Long currentManagerUserId,
-        String currentManagerFullName
+        String currentManagerFullName,
+        Double latitude,
+        Double longitude
 ) {}

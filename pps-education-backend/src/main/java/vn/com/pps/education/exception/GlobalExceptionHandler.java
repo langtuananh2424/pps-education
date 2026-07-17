@@ -64,7 +64,8 @@ public class GlobalExceptionHandler {
             DuplicatePartnerContractNumberException.class, ActivePartnerContractAlreadyExistsException.class,
             DuplicateRoomCodeException.class, DuplicateEquipmentCodeException.class,
             DuplicateUserAccountException.class, DuplicateRoleCodeException.class,
-            SiteTeacherAlreadyAssignedException.class})
+            SiteTeacherAlreadyAssignedException.class, DuplicateDepartmentCodeException.class,
+            DuplicatePositionCodeException.class})
     public ResponseEntity<Object> handleConflict(RuntimeException ex) {
         return error(HttpStatus.CONFLICT, ex.getMessage());
     }
@@ -87,7 +88,8 @@ public class GlobalExceptionHandler {
             LeadNotQualifiedException.class, InvalidLeadStatusTransitionException.class,
             InvalidFeedbackStatusTransitionException.class, InvalidClassSessionStatusTransitionException.class,
             OperatingExpenseAlreadyDecidedException.class, PartnerContractNotDeletableException.class,
-            TuitionPlanNotActiveException.class, RoleNotDeletableException.class})
+            TuitionPlanNotActiveException.class, RoleNotDeletableException.class,
+            DepartmentNotDeletableException.class, PositionNotDeletableException.class})
     public ResponseEntity<Object> handleClassSetupRejected(RuntimeException ex) {
         return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
     }

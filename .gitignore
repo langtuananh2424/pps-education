@@ -33,5 +33,5 @@ dist/
 build/
 docker-compose.override.yml
 
-# Trang test cục bộ (Google Sign-In id_token...) - không phải code dự án, không commit
-local-test/
+# Project thử nghiệm local, không đẩy lên GitHub
+pps-education-frontend-test/

@@ -64,9 +64,11 @@
 - [Thiết bị dạy học (UC-37)](#thiết-bị-dạy-học-uc-37)
 - [Phản hồi trường liên kết (UC-38/39)](#phản-hồi-trường-liên-kết-uc-3839)
 - [Cổng trường liên kết](#cổng-trường-liên-kết)
+- [department-controller](#department-controller)
 - [employee-batch-import-controller](#employee-batch-import-controller)
 - [parent-batch-import-controller](#parent-batch-import-controller)
 - [parent-controller](#parent-controller)
+- [position-controller](#position-controller)
 - [Phụ lục: Schemas](#phụ-lục-schemas)
 
 ---
@@ -192,7 +194,7 @@
 
 | Method | Path | Auth | Input | Output |
 |---|---|---|---|---|
-| GET | `/api/students` | JWT + `student.manage` | Query: `query`? | mảng [StudentResponse](#studentresponse) |
+| GET | `/api/students` | JWT + `student.manage` | Query: `query`?, `siteId`? | mảng [StudentResponse](#studentresponse) |
 | POST | `/api/students` | JWT + `student.manage` | Body: [CreateStudentRequest](#createstudentrequest) | [StudentResponse](#studentresponse) |
 | GET | `/api/students/{id}` | JWT + `student.manage` | — | [StudentResponse](#studentresponse) |
 | PUT | `/api/students/{id}` | JWT + `student.manage` | Body: [UpdateStudentRequest](#updatestudentrequest) | [StudentResponse](#studentresponse) |
@@ -438,6 +440,7 @@
 | POST | `/api/sites` | JWT + `facility.manage` | Body: [CreateSiteRequest](#createsiterequest) | [SiteResponse](#siteresponse) |
 | GET | `/api/sites/{id}` | JWT | — | [SiteResponse](#siteresponse) |
 | PUT | `/api/sites/{id}` | JWT + `facility.manage` | Body: [UpdateSiteRequest](#updatesiterequest) | [SiteResponse](#siteresponse) |
+| GET | `/api/sites/{id}/attendance-summary` | JWT | — | mảng [PartnerAttendanceSummaryResponse](#partnerattendancesummaryresponse) |
 | PUT | `/api/sites/{id}/manager` | JWT + `facility.manage` | Body: [AssignSiteManagerRequest](#assignsitemanagerrequest) | [SiteResponse](#siteresponse) |
 | GET | `/api/sites/{id}/teachers` | JWT | — | mảng [SiteTeacherResponse](#siteteacherresponse) |
 | POST | `/api/sites/{id}/teachers` | JWT + `facility.manage` | Body: [AssignSiteTeacherRequest](#assignsiteteacherrequest) | [SiteTeacherResponse](#siteteacherresponse) |
@@ -452,7 +455,7 @@
 | DELETE | `/api/partner-contracts/{id}` | JWT + `facility.manage` | — | 200 (không có body) |
 | PUT | `/api/partner-contracts/{id}` | JWT + `facility.manage` | Body: [UpdatePartnerContractRequest](#updatepartnercontractrequest) | [PartnerContractResponse](#partnercontractresponse) |
 | POST | `/api/partner-contracts/{id}/terminate` | JWT + `facility.manage` | — | [PartnerContractResponse](#partnercontractresponse) |
-| GET | `/api/sites/{siteId}/partner-contracts` | JWT | — | mảng [PartnerContractResponse](#partnercontractresponse) |
+| GET | `/api/sites/{siteId}/partner-contracts` | JWT + `facility.manage` | — | mảng [PartnerContractResponse](#partnercontractresponse) |
 
 ## Phòng học (UC-37)
 
@@ -488,9 +491,20 @@
 | Method | Path | Auth | Input | Output |
 |---|---|---|---|---|
 | GET | `/api/portal/partner/attendance-summary` | JWT | — | mảng [PartnerAttendanceSummaryResponse](#partnerattendancesummaryresponse) |
+| GET | `/api/portal/partner/comments` | JWT | — | mảng [StudentCommentResponse](#studentcommentresponse) |
 | GET | `/api/portal/partner/grades` | JWT | — | mảng [GradeEntryResponse](#gradeentryresponse) |
 | GET | `/api/portal/partner/site` | JWT | — | [PartnerSiteResponse](#partnersiteresponse) |
 | GET | `/api/portal/partner/teaching-plans` | JWT | — | mảng [TeachingPlanResponse](#teachingplanresponse) |
+
+## department-controller
+
+| Method | Path | Auth | Input | Output |
+|---|---|---|---|---|
+| GET | `/api/departments` | JWT | — | mảng [DepartmentResponse](#departmentresponse) |
+| POST | `/api/departments` | JWT + `hrm.manage` | Body: [CreateDepartmentRequest](#createdepartmentrequest) | [DepartmentResponse](#departmentresponse) |
+| DELETE | `/api/departments/{id}` | JWT + `hrm.manage` | — | 200 (không có body) |
+| GET | `/api/departments/{id}` | JWT | — | [DepartmentResponse](#departmentresponse) |
+| PUT | `/api/departments/{id}` | JWT + `hrm.manage` | Body: [UpdateDepartmentRequest](#updatedepartmentrequest) | [DepartmentResponse](#departmentresponse) |
 
 ## employee-batch-import-controller
 
@@ -514,6 +528,18 @@
 | POST | `/api/parents` | JWT + `student.manage` | Body: [CreateParentRequest](#createparentrequest) | [ParentResponse](#parentresponse) |
 | GET | `/api/parents/{id}` | JWT + `student.manage` | — | [ParentResponse](#parentresponse) |
 | PUT | `/api/parents/{id}` | JWT + `student.manage` | Body: [UpdateParentRequest](#updateparentrequest) | [ParentResponse](#parentresponse) |
+
+## position-controller
+
+| Method | Path | Auth | Input | Output |
+|---|---|---|---|---|
+| GET | `/api/positions` | JWT | — | mảng [PositionResponse](#positionresponse) |
+| POST | `/api/positions` | JWT + `hrm.manage` | Body: [CreatePositionRequest](#createpositionrequest) | [PositionResponse](#positionresponse) |
+| DELETE | `/api/positions/{id}` | JWT + `hrm.manage` | — | 200 (không có body) |
+| GET | `/api/positions/{id}` | JWT | — | [PositionResponse](#positionresponse) |
+| PUT | `/api/positions/{id}` | JWT + `hrm.manage` | Body: [UpdatePositionRequest](#updatepositionrequest) | [PositionResponse](#positionresponse) |
+| GET | `/api/positions/{id}/default-roles` | JWT + `hrm.manage` | — | [PositionDefaultRolesResponse](#positiondefaultrolesresponse) |
+| PUT | `/api/positions/{id}/default-roles` | JWT + `hrm.manage` | Body: [UpdatePositionDefaultRolesRequest](#updatepositiondefaultrolesrequest) | 200 (không có body) |
 
 ---
 
@@ -870,6 +896,15 @@
 | `parentCurriculumId` | integer (int64) | ✔ |
 | `siteId` | integer (int64) | ✔ |
 
+### CreateDepartmentRequest
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `code` | string | ✔ |
+| `headUserId` | integer (int64) |  |
+| `name` | string | ✔ |
+| `parentDepartmentId` | integer (int64) |  |
+
 ### CreateEmployeeRequest
 
 | Trường | Kiểu | Bắt buộc |
@@ -889,7 +924,7 @@
 | `isManagement` | boolean |  |
 | `newAccount` | [CreateUserRequest](#createuserrequest) |  |
 | `permanentAddress` | string |  |
-| `positionTitle` | string |  |
+| `positionId` | integer (int64) |  |
 | `socialInsuranceNumber` | string |  |
 | `taxCode` | string |  |
 | `userId` | integer (int64) |  |
@@ -1046,6 +1081,13 @@
 | `module` | string | ✔ |
 | `name` | string | ✔ |
 
+### CreatePositionRequest
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `code` | string | ✔ |
+| `name` | string | ✔ |
+
 ### CreateQualificationRequest
 
 | Trường | Kiểu | Bắt buộc |
@@ -1125,6 +1167,8 @@
 | `address` | string |  |
 | `code` | string | ✔ |
 | `district` | string |  |
+| `latitude` | number |  |
+| `longitude` | number |  |
 | `managerUserId` | integer (int64) |  |
 | `name` | string | ✔ |
 | `partnerInfo` | [PartnerSchoolInfoRequest](#partnerschoolinforequest) |  |
@@ -1305,6 +1349,18 @@
 | `decision` | string | ✔ |
 | `rejectionReason` | string |  |
 
+### DepartmentResponse
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `code` | string |  |
+| `headUserFullName` | string |  |
+| `headUserId` | integer (int64) |  |
+| `id` | integer (int64) |  |
+| `name` | string |  |
+| `parentDepartmentId` | integer (int64) |  |
+| `parentDepartmentName` | string |  |
+
 ### EffectivePermissionsResponse
 
 | Trường | Kiểu | Bắt buộc |
@@ -1345,7 +1401,8 @@
 | `isDefaultShiftRequired` | boolean |  |
 | `isManagement` | boolean |  |
 | `permanentAddress` | string |  |
-| `positionTitle` | string |  |
+| `positionId` | integer (int64) |  |
+| `positionName` | string |  |
 | `socialInsuranceNumber` | string |  |
 | `status` | string |  |
 | `taxCode` | string |  |
@@ -2088,6 +2145,22 @@
 | `status` | string |  |
 | `withdrawnDate` | string (date) |  |
 
+### PositionDefaultRolesResponse
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `defaultRoles` | mảng [RoleResponse](#roleresponse) |  |
+| `positionCode` | string |  |
+| `positionId` | integer (int64) |  |
+
+### PositionResponse
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `code` | string |  |
+| `id` | integer (int64) |  |
+| `name` | string |  |
+
 ### QualificationResponse
 
 | Trường | Kiểu | Bắt buộc |
@@ -2286,6 +2359,8 @@
 | `currentManagerUserId` | integer (int64) |  |
 | `district` | string |  |
 | `id` | integer (int64) |  |
+| `latitude` | number |  |
+| `longitude` | number |  |
 | `name` | string |  |
 | `partnerInfo` | [PartnerSchoolInfoResponse](#partnerschoolinforesponse) |  |
 | `phone` | string |  |
@@ -2604,6 +2679,14 @@
 | `name` | string | ✔ |
 | `totalPeriods` | integer |  |
 
+### UpdateDepartmentRequest
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `headUserId` | integer (int64) |  |
+| `name` | string | ✔ |
+| `parentDepartmentId` | integer (int64) |  |
+
 ### UpdateEmployeeRequest
 
 | Trường | Kiểu | Bắt buộc |
@@ -2620,7 +2703,7 @@
 | `isDefaultShiftRequired` | boolean |  |
 | `isManagement` | boolean | ✔ |
 | `permanentAddress` | string |  |
-| `positionTitle` | string |  |
+| `positionId` | integer (int64) |  |
 | `socialInsuranceNumber` | string |  |
 | `status` | string | ✔ |
 | `taxCode` | string |  |
@@ -2720,6 +2803,18 @@
 | `description` | string |  |
 | `name` | string | ✔ |
 
+### UpdatePositionDefaultRolesRequest
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `roleIds` | mảng integer (int64) |  |
+
+### UpdatePositionRequest
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `name` | string | ✔ |
+
 ### UpdateQuestionBankStatusRequest
 
 | Trường | Kiểu | Bắt buộc |
@@ -2764,6 +2859,8 @@
 |---|---|---|
 | `address` | string |  |
 | `district` | string |  |
+| `latitude` | number |  |
+| `longitude` | number |  |
 | `name` | string | ✔ |
 | `partnerInfo` | [PartnerSchoolInfoRequest](#partnerschoolinforequest) |  |
 | `phone` | string |  |

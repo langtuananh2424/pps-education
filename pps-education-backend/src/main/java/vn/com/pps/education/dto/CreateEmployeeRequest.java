@@ -14,6 +14,9 @@ import java.time.LocalDate;
  * - newAccount: nhân sự chưa có tài khoản — tạo tài khoản kèm hồ sơ trong
  *   cùng 1 transaction (cơ chế UC-43/FR-USR-01, dưới thẩm quyền hrm.manage
  *   của luồng này — xem ghi chú UC-08).
+ * positionId (FK positions, thay position_title text tự do cũ) — để trống
+ * nếu chưa gán chức vụ; nếu có, hệ thống tự gán role mặc định của chức vụ
+ * đó cho tài khoản (UC-08 A5, FR-HRM-06/UC-52).
  */
 public record CreateEmployeeRequest(
         Long userId,
@@ -30,7 +33,7 @@ public record CreateEmployeeRequest(
         String taxCode,
         String socialInsuranceNumber,
         @NotBlank String employeeType,
-        String positionTitle,
+        Long positionId,
         Long departmentId,
         Boolean isManagement,
         Boolean isDefaultShiftRequired,
