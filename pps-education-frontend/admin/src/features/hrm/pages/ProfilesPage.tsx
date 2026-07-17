@@ -1,10 +1,25 @@
 import React, { useEffect, useState } from "react";
 import { Users } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
-import { EmployeeResponse, listEmployees } from "../api";
+import ImportExcelButton from "@/components/ui/ImportExcelButton";
+import { EmployeeResponse, importEmployees, listEmployees } from "../api";
 import EmployeeListPanel from "../components/EmployeeListPanel";
 import EmployeeDetailPanel from "../components/EmployeeDetailPanel";
 import EmployeeFormModal from "../components/EmployeeFormModal";
+
+const EMPLOYEE_IMPORT_HEADERS = [
+  "Họ và tên *",
+  "Username *",
+  "Email",
+  "Ngày sinh (dd/MM/yyyy) *",
+  "Mã nhân sự *",
+  "Loại nhân sự (Giáo viên/Nhân viên/Quản lý) *",
+  "Mã chức vụ",
+  "Mã phòng ban",
+  "Miễn chấm công/duyệt đơn (Có/Không)",
+  "Ngày vào làm (dd/MM/yyyy) *"
+];
+const EMPLOYEE_IMPORT_SAMPLE = ["Nguyễn Văn A", "nguyenvana", "a@pps.edu.vn", "01/01/1995", "NV-001", "Nhân viên", "", "", "Không", "01/07/2026"];
 
 export default function ProfilesPage() {
   const [employees, setEmployees] = useState<EmployeeResponse[]>([]);
@@ -32,11 +47,21 @@ export default function ProfilesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Quản lý hồ sơ nhân sự (UC-08)</h1>
-        <p className="text-xs text-slate-500 mt-1">
-          Lưu hồ sơ cán bộ, bằng cấp/chứng chỉ, hợp đồng lao động, khen thưởng/kỷ luật — khởi tạo kèm tài khoản đăng nhập.
-        </p>
+      <div className="border-b border-slate-200 pb-4 flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Quản lý hồ sơ nhân sự (UC-08)</h1>
+          <p className="text-xs text-slate-500 mt-1">
+            Lưu hồ sơ cán bộ, bằng cấp/chứng chỉ, hợp đồng lao động, khen thưởng/kỷ luật — khởi tạo kèm tài khoản đăng nhập.
+          </p>
+        </div>
+        <ImportExcelButton
+          title="Nhập nhân sự theo lô (UC-51)"
+          templateFileName="mau-import-nhan-su.xlsx"
+          templateHeaders={EMPLOYEE_IMPORT_HEADERS}
+          templateSampleRow={EMPLOYEE_IMPORT_SAMPLE}
+          uploadFn={importEmployees}
+          onImported={load}
+        />
       </div>
 
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}

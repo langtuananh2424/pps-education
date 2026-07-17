@@ -216,3 +216,37 @@ export function updateStudentStatus(studentId: number, request: UpdateStudentSta
 export function listSites(): Promise<SiteOption[]> {
   return apiRequest<SiteOption[]>("/sites");
 }
+
+/** UC-35: Nhập học sinh theo lô (FR-CRM-04) — khớp StudentBatchImportResponse thật. */
+export interface StudentBatchImportResponse {
+  id: number;
+  sourceFileName: string;
+  totalRows: number | null;
+  successRows: number;
+  failedRows: number;
+  status: string;
+  errorSummary: { row: number; reason: string }[];
+}
+
+export function importStudents(file: File): Promise<StudentBatchImportResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return apiRequest<StudentBatchImportResponse>("/student-imports", { method: "POST", body: formData });
+}
+
+/** UC-50: Nhập phụ huynh theo lô (FR-STU-04) — khớp ParentBatchImportResponse thật. */
+export interface ParentBatchImportResponse {
+  id: number;
+  sourceFileName: string;
+  totalRows: number | null;
+  successRows: number;
+  failedRows: number;
+  status: string;
+  errorSummary: { row: number; reason: string }[];
+}
+
+export function importParents(file: File): Promise<ParentBatchImportResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return apiRequest<ParentBatchImportResponse>("/parent-imports", { method: "POST", body: formData });
+}
