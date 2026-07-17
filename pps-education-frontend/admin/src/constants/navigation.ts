@@ -60,7 +60,8 @@ export const navSections: NavSection[] = [
   {
     id: "task",
     title: "ĐIỀU HÀNH & GIAO VIỆC",
-    items: [{ id: "task-workflow", label: "Giao việc & Kanban (UC-06/07)", path: "/task-workflow", icon: CheckSquare, requiredPermission: "task.create" }]
+    // Không gate requiredPermission: mọi nhân sự có thể là người NHẬN việc, không riêng người có task.create — xem "Việc tôi được giao".
+    items: [{ id: "task-workflow", label: "Giao việc & Kanban (UC-06/07)", path: "/task-workflow", icon: CheckSquare }]
   },
   {
     id: "hrm",

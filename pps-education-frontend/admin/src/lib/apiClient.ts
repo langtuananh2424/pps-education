@@ -60,8 +60,10 @@ async function parseBody<T>(res: Response): Promise<T> {
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { skipAuth, isRetry, ...init } = options;
+  // FormData (upload multipart, VD import Excel) không được tự set Content-Type json —
+  // trình duyệt cần tự sinh header với boundary đúng, set thủ công sẽ làm BE không parse được multipart.
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    ...(init.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
     ...(init.headers as Record<string, string> | undefined)
   };
 

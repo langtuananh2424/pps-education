@@ -315,3 +315,25 @@ export function getPositionDefaultRoles(positionId: number): Promise<PositionDef
 export function updatePositionDefaultRoles(positionId: number, roleIds: number[]): Promise<void> {
   return apiRequest<void>(`/positions/${positionId}/default-roles`, { method: "PUT", body: JSON.stringify({ roleIds }) });
 }
+
+/**
+ * UC-51: Nhập nhân sự theo lô (FR-HRM-05) — khớp EmployeeBatchImportResponse
+ * thật. generatedCredentials chỉ có ở lần gọi import này, gọi lại
+ * GET /api/employee-imports/{id} sau đó sẽ không còn thấy mật khẩu tạm.
+ */
+export interface EmployeeBatchImportResponse {
+  id: number;
+  sourceFileName: string;
+  totalRows: number | null;
+  successRows: number;
+  failedRows: number;
+  status: string;
+  errorSummary: { row: number; reason: string }[];
+  generatedCredentials: { row: number; username: string; temporaryPassword: string }[];
+}
+
+export function importEmployees(file: File): Promise<EmployeeBatchImportResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return apiRequest<EmployeeBatchImportResponse>("/employee-imports", { method: "POST", body: formData });
+}
