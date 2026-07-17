@@ -7,6 +7,7 @@ import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
+const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-xs p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
 
 interface EmployeeFormModalProps {
@@ -37,15 +38,23 @@ export default function EmployeeFormModal({ onClose, onCreated }: EmployeeFormMo
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [touched, setTouched] = useState({ employeeCode: false, dateOfBirth: false, hireDate: false });
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+  const markTouched = (field: keyof typeof touched) => setTouched((t) => ({ ...t, [field]: true }));
+
+  const employeeCodeInvalid = (touched.employeeCode || submitAttempted) && !form.employeeCode.trim();
+  const dateOfBirthInvalid = (touched.dateOfBirth || submitAttempted) && !form.dateOfBirth;
+  const hireDateInvalid = (touched.hireDate || submitAttempted) && !form.hireDate;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitAttempted(true);
     if (!form.employeeCode.trim() || !form.dateOfBirth || !form.hireDate) {
-      setError("Vui lòng điền mã nhân sự, ngày sinh, ngày vào làm.");
+      setError("Vui lòng điền đủ các trường bắt buộc được đánh dấu đỏ.");
       return;
     }
-    if (!account.userId && !account.newAccount?.username) {
-      setError("Vui lòng chọn tài khoản có sẵn hoặc điền thông tin tài khoản mới.");
+    if (!account.userId && (!account.newAccount?.username || !account.newAccount?.email || !account.newAccount?.fullName)) {
+      setError("Vui lòng chọn tài khoản có sẵn, hoặc điền đủ Username/Email/Họ tên cho tài khoản mới.");
       return;
     }
     setSubmitting(true);
@@ -87,7 +96,7 @@ export default function EmployeeFormModal({ onClose, onCreated }: EmployeeFormMo
 
         <div className="space-y-2">
           <span className="text-[10px] font-bold uppercase text-slate-500">Tài khoản</span>
-          <AccountSelector value={account} onChange={setAccount} />
+          <AccountSelector value={account} onChange={setAccount} submitAttempted={submitAttempted} />
         </div>
 
         <div className="space-y-3 border-t border-slate-100 pt-4">
@@ -95,7 +104,13 @@ export default function EmployeeFormModal({ onClose, onCreated }: EmployeeFormMo
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelClass}>Mã nhân sự *</label>
-              <input value={form.employeeCode} onChange={(e) => setForm({ ...form, employeeCode: e.target.value })} className={`${inputClass} font-mono`} />
+              <input
+                value={form.employeeCode}
+                onChange={(e) => setForm({ ...form, employeeCode: e.target.value })}
+                onBlur={() => markTouched("employeeCode")}
+                className={`${employeeCodeInvalid ? inputErrorClass : inputClass} font-mono`}
+              />
+              {employeeCodeInvalid && <p className="text-[10px] text-rose-600 mt-1">Vui lòng nhập Mã nhân sự.</p>}
             </div>
             <div>
               <label className={labelClass}>Loại nhân sự *</label>
@@ -107,11 +122,25 @@ export default function EmployeeFormModal({ onClose, onCreated }: EmployeeFormMo
             </div>
             <div>
               <label className={labelClass}>Ngày sinh *</label>
-              <input type="date" value={form.dateOfBirth} onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })} className={inputClass} />
+              <input
+                type="date"
+                value={form.dateOfBirth}
+                onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })}
+                onBlur={() => markTouched("dateOfBirth")}
+                className={dateOfBirthInvalid ? inputErrorClass : inputClass}
+              />
+              {dateOfBirthInvalid && <p className="text-[10px] text-rose-600 mt-1">Vui lòng chọn Ngày sinh.</p>}
             </div>
             <div>
               <label className={labelClass}>Ngày vào làm *</label>
-              <input type="date" value={form.hireDate} onChange={(e) => setForm({ ...form, hireDate: e.target.value })} className={inputClass} />
+              <input
+                type="date"
+                value={form.hireDate}
+                onChange={(e) => setForm({ ...form, hireDate: e.target.value })}
+                onBlur={() => markTouched("hireDate")}
+                className={hireDateInvalid ? inputErrorClass : inputClass}
+              />
+              {hireDateInvalid && <p className="text-[10px] text-rose-600 mt-1">Vui lòng chọn Ngày vào làm.</p>}
             </div>
             <div>
               <label className={labelClass}>Chức vụ</label>

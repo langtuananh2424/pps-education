@@ -1,7 +1,7 @@
-import React, { useState } from "react";
-import { AlertTriangle, Save, Search, UserPlus, X } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { Save, Search, UserPlus, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
-import { linkParent, listStudents, ParentResponse, StudentResponse, unlinkParent, updateParent } from "../api";
+import { getParentById, linkParent, listStudents, ParentResponse, StudentResponse, unlinkParent, updateParent } from "../api";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import type { ParentAggregate } from "../pages/ParentsPage";
@@ -12,12 +12,10 @@ const relationshipLabels: Record<string, string> = { FATHER: "Bố", MOTHER: "M�
 
 interface ParentDetailPanelProps {
   parent: ParentAggregate;
-  cachedProfile: ParentResponse | null;
   onChanged: () => void;
-  onProfileCached: (profile: ParentResponse) => void;
 }
 
-export default function ParentDetailPanel({ parent, cachedProfile, onChanged, onProfileCached }: ParentDetailPanelProps) {
+export default function ParentDetailPanel({ parent, onChanged }: ParentDetailPanelProps) {
   return (
     <div className="lg:col-span-3 bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden flex flex-col">
       <div className="p-5 border-b border-slate-200 bg-slate-50/20">
@@ -26,30 +24,36 @@ export default function ParentDetailPanel({ parent, cachedProfile, onChanged, on
       </div>
 
       <div className="flex-1 p-5 overflow-y-auto max-h-[560px] space-y-6">
-        <ProfileSection parent={parent} cachedProfile={cachedProfile} onProfileCached={onProfileCached} />
+        <ProfileSection parentId={parent.parentId} />
         <ChildrenSection parent={parent} onChanged={onChanged} />
       </div>
     </div>
   );
 }
 
-function ProfileSection({ parent, cachedProfile, onProfileCached }: Omit<ParentDetailPanelProps, "onChanged">) {
+function ProfileSection({ parentId }: { parentId: number }) {
+  const [profile, setProfile] = useState<ParentResponse | null>(null);
+  const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({
-    occupation: cachedProfile?.occupation ?? "",
-    workplace: cachedProfile?.workplace ?? "",
-    address: cachedProfile?.address ?? "",
-    notes: cachedProfile?.notes ?? ""
-  });
+  const [form, setForm] = useState({ occupation: "", workplace: "", address: "", notes: "" });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    setLoading(true);
+    setEditing(false);
+    getParentById(parentId)
+      .then(setProfile)
+      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được hồ sơ phụ huynh."))
+      .finally(() => setLoading(false));
+  }, [parentId]);
+
   const startEdit = () => {
     setForm({
-      occupation: cachedProfile?.occupation ?? "",
-      workplace: cachedProfile?.workplace ?? "",
-      address: cachedProfile?.address ?? "",
-      notes: cachedProfile?.notes ?? ""
+      occupation: profile?.occupation ?? "",
+      workplace: profile?.workplace ?? "",
+      address: profile?.address ?? "",
+      notes: profile?.notes ?? ""
     });
     setEditing(true);
   };
@@ -59,13 +63,13 @@ function ProfileSection({ parent, cachedProfile, onProfileCached }: Omit<ParentD
     setSaving(true);
     setError(null);
     try {
-      const updated = await updateParent(parent.parentId, {
+      const updated = await updateParent(parentId, {
         occupation: form.occupation.trim() || undefined,
         workplace: form.workplace.trim() || undefined,
         address: form.address.trim() || undefined,
         notes: form.notes.trim() || undefined
       });
-      onProfileCached(updated);
+      setProfile(updated);
       setEditing(false);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Cập nhật thất bại.");
@@ -73,6 +77,10 @@ function ProfileSection({ parent, cachedProfile, onProfileCached }: Omit<ParentD
       setSaving(false);
     }
   };
+
+  if (loading) {
+    return <div className="text-xs text-slate-400">Đang tải hồ sơ...</div>;
+  }
 
   if (!editing) {
     return (
@@ -83,23 +91,13 @@ function ProfileSection({ parent, cachedProfile, onProfileCached }: Omit<ParentD
             Sửa thông tin
           </Button>
         </div>
-        {cachedProfile ? (
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-lg p-3">
-            <span>Nghề nghiệp: <strong>{cachedProfile.occupation || "—"}</strong></span>
-            <span>Nơi làm việc: <strong>{cachedProfile.workplace || "—"}</strong></span>
-            <span className="col-span-2">Địa chỉ: <strong>{cachedProfile.address || "—"}</strong></span>
-            {cachedProfile.notes && <span className="col-span-2">Ghi chú: {cachedProfile.notes}</span>}
-          </div>
-        ) : (
-          <div className="flex items-start gap-2 bg-amber-50 border border-amber-100 text-amber-700 text-[11px] p-3 rounded-lg">
-            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-            <span>
-              Backend hiện chưa có API xem lại nghề nghiệp/nơi làm việc/địa chỉ của phụ huynh đã tạo trước đó — chỉ xem được
-              nếu vừa tạo/sửa trong phiên làm việc này. Bấm "Sửa thông tin" vẫn nhập lại được, nhưng sẽ GHI ĐÈ (không giữ dữ
-              liệu cũ) vì không lấy lại được giá trị hiện tại.
-            </span>
-          </div>
-        )}
+        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-lg p-3">
+          <span>Nghề nghiệp: <strong>{profile?.occupation || "—"}</strong></span>
+          <span>Nơi làm việc: <strong>{profile?.workplace || "—"}</strong></span>
+          <span className="col-span-2">Địa chỉ: <strong>{profile?.address || "—"}</strong></span>
+          {profile?.notes && <span className="col-span-2">Ghi chú: {profile.notes}</span>}
+        </div>
       </div>
     );
   }
@@ -107,12 +105,6 @@ function ProfileSection({ parent, cachedProfile, onProfileCached }: Omit<ParentD
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
       <span className="text-[10px] font-bold uppercase text-slate-500">Sửa thông tin phụ huynh</span>
-      {!cachedProfile && (
-        <div className="flex items-start gap-2 bg-amber-50 border border-amber-100 text-amber-700 text-[11px] p-2.5 rounded-lg">
-          <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-          <span>Không có dữ liệu cũ để hiện sẵn — để trống trường nào sẽ XÓA trắng trường đó, không giữ nguyên.</span>
-        </div>
-      )}
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
       <div className="grid grid-cols-2 gap-3">
         <input value={form.occupation} onChange={(e) => setForm({ ...form, occupation: e.target.value })} placeholder="Nghề nghiệp" className={inputClass} />

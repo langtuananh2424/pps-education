@@ -102,6 +102,32 @@ export function listSites(): Promise<SiteResponse[]> {
   return apiRequest<SiteResponse[]>("/sites");
 }
 
+export interface SiteTeacherResponse {
+  id: number;
+  siteId: number;
+  teacherUserId: number;
+  teacherFullName: string;
+  assignedFrom: string | null;
+  assignedTo: string | null;
+  notes: string | null;
+}
+
+/** Giáo viên đang được gán vào 1 điểm trường (site_teachers, khác site_managers) — dùng để tự dò điểm trường của Giáo viên đang đăng nhập. */
+export function listSiteTeachers(siteId: number): Promise<SiteTeacherResponse[]> {
+  return apiRequest<SiteTeacherResponse[]>(`/sites/${siteId}/teachers`);
+}
+
+export interface PartnerSiteResponse {
+  siteId: number;
+  siteCode: string;
+  siteName: string;
+}
+
+/** UC-29: tự resolve điểm trường liên kết của Đại diện trường liên kết đang đăng nhập (không nhận siteId từ client). */
+export function getMyPartnerSite(): Promise<PartnerSiteResponse> {
+  return apiRequest<PartnerSiteResponse>("/portal/partner/site");
+}
+
 export function getSite(id: number): Promise<SiteResponse> {
   return apiRequest<SiteResponse>(`/sites/${id}`);
 }

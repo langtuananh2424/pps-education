@@ -7,6 +7,7 @@ import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
+const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-xs p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
 
 interface StudentFormModalProps {
@@ -35,6 +36,13 @@ export default function StudentFormModal({ onClose, onCreated }: StudentFormModa
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [touched, setTouched] = useState({ studentCode: false, dateOfBirth: false, enrollmentDate: false });
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+  const markTouched = (field: keyof typeof touched) => setTouched((t) => ({ ...t, [field]: true }));
+
+  const studentCodeInvalid = (touched.studentCode || submitAttempted) && !form.studentCode.trim();
+  const dateOfBirthInvalid = (touched.dateOfBirth || submitAttempted) && !form.dateOfBirth;
+  const enrollmentDateInvalid = (touched.enrollmentDate || submitAttempted) && !form.enrollmentDate;
 
   useEffect(() => {
     listSites().then(setSites).catch(() => undefined);
@@ -42,16 +50,17 @@ export default function StudentFormModal({ onClose, onCreated }: StudentFormModa
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitAttempted(true);
     if (!form.studentCode.trim() || !form.dateOfBirth || !form.enrollmentDate) {
-      setError("Vui lòng điền mã học sinh, ngày sinh, ngày nhập học.");
+      setError("Vui lòng điền đủ các trường bắt buộc được đánh dấu đỏ.");
       return;
     }
-    if (!account.userId && !account.newAccount?.username) {
-      setError("Vui lòng chọn tài khoản có sẵn hoặc điền thông tin tài khoản mới cho học sinh.");
+    if (!account.userId && (!account.newAccount?.username || !account.newAccount?.email || !account.newAccount?.fullName)) {
+      setError("Vui lòng chọn tài khoản có sẵn hoặc điền đủ thông tin tài khoản mới cho học sinh.");
       return;
     }
-    if (addParent && !parentAccount.userId && !parentAccount.newAccount?.username) {
-      setError("Vui lòng chọn tài khoản có sẵn hoặc điền thông tin tài khoản mới cho phụ huynh.");
+    if (addParent && !parentAccount.userId && (!parentAccount.newAccount?.username || !parentAccount.newAccount?.email || !parentAccount.newAccount?.fullName)) {
+      setError("Vui lòng chọn tài khoản có sẵn hoặc điền đủ thông tin tài khoản mới cho phụ huynh.");
       return;
     }
     setSubmitting(true);
@@ -99,7 +108,7 @@ export default function StudentFormModal({ onClose, onCreated }: StudentFormModa
 
         <div className="space-y-2">
           <span className="text-[10px] font-bold uppercase text-slate-500">Tài khoản học sinh</span>
-          <AccountSelector value={account} onChange={setAccount} />
+          <AccountSelector value={account} onChange={setAccount} submitAttempted={submitAttempted} />
         </div>
 
         <div className="space-y-3 border-t border-slate-100 pt-4">
@@ -107,7 +116,13 @@ export default function StudentFormModal({ onClose, onCreated }: StudentFormModa
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelClass}>Mã học sinh *</label>
-              <input value={form.studentCode} onChange={(e) => setForm({ ...form, studentCode: e.target.value })} className={`${inputClass} font-mono`} />
+              <input
+                value={form.studentCode}
+                onChange={(e) => setForm({ ...form, studentCode: e.target.value })}
+                onBlur={() => markTouched("studentCode")}
+                className={`${studentCodeInvalid ? inputErrorClass : inputClass} font-mono`}
+              />
+              {studentCodeInvalid && <p className="text-[10px] text-rose-600 mt-1">Vui lòng nhập Mã học sinh.</p>}
             </div>
             <div>
               <label className={labelClass}>Giới tính</label>
@@ -120,11 +135,25 @@ export default function StudentFormModal({ onClose, onCreated }: StudentFormModa
             </div>
             <div>
               <label className={labelClass}>Ngày sinh *</label>
-              <input type="date" value={form.dateOfBirth} onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })} className={inputClass} />
+              <input
+                type="date"
+                value={form.dateOfBirth}
+                onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })}
+                onBlur={() => markTouched("dateOfBirth")}
+                className={dateOfBirthInvalid ? inputErrorClass : inputClass}
+              />
+              {dateOfBirthInvalid && <p className="text-[10px] text-rose-600 mt-1">Vui lòng chọn Ngày sinh.</p>}
             </div>
             <div>
               <label className={labelClass}>Ngày nhập học *</label>
-              <input type="date" value={form.enrollmentDate} onChange={(e) => setForm({ ...form, enrollmentDate: e.target.value })} className={inputClass} />
+              <input
+                type="date"
+                value={form.enrollmentDate}
+                onChange={(e) => setForm({ ...form, enrollmentDate: e.target.value })}
+                onBlur={() => markTouched("enrollmentDate")}
+                className={enrollmentDateInvalid ? inputErrorClass : inputClass}
+              />
+              {enrollmentDateInvalid && <p className="text-[10px] text-rose-600 mt-1">Vui lòng chọn Ngày nhập học.</p>}
             </div>
             <div>
               <label className={labelClass}>Điểm trường chính</label>
@@ -159,7 +188,7 @@ export default function StudentFormModal({ onClose, onCreated }: StudentFormModa
           </label>
           {addParent && (
             <div className="space-y-3 bg-slate-50/60 border border-slate-200 rounded-xl p-3">
-              <AccountSelector value={parentAccount} onChange={setParentAccount} />
+              <AccountSelector value={parentAccount} onChange={setParentAccount} submitAttempted={submitAttempted} />
               <div className="grid grid-cols-3 gap-2 items-end">
                 <div>
                   <label className={labelClass}>Quan hệ</label>

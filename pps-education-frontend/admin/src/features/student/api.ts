@@ -162,13 +162,23 @@ export function updateStudent(id: number, request: UpdateStudentRequest): Promis
   return apiRequest<StudentResponse>(`/students/${id}`, { method: "PUT", body: JSON.stringify(request) });
 }
 
-/** UC-13 Main Flow bước 2: khởi tạo hồ sơ phụ huynh (kèm tài khoản mới hoặc gắn tài khoản có sẵn). */
+/** UC-13 Main Flow bước 2: khởi tạo hồ sơ phụ huynh (kèm tài khoản mới hoặc gắn tài khoản có sẵn). Resource /api/parents (tách khỏi /api/students từ PR#39). */
 export function createParent(request: CreateParentRequest): Promise<ParentResponse> {
-  return apiRequest<ParentResponse>("/students/parents", { method: "POST", body: JSON.stringify(request) });
+  return apiRequest<ParentResponse>("/parents", { method: "POST", body: JSON.stringify(request) });
 }
 
 export function updateParent(parentId: number, request: UpdateParentRequest): Promise<ParentResponse> {
-  return apiRequest<ParentResponse>(`/students/parents/${parentId}`, { method: "PUT", body: JSON.stringify(request) });
+  return apiRequest<ParentResponse>(`/parents/${parentId}`, { method: "PUT", body: JSON.stringify(request) });
+}
+
+/** Danh sách/tìm kiếm toàn bộ phụ huynh — có từ PR#39, thay cho cách tổng hợp thủ công qua từng học sinh. */
+export function searchParents(query?: string): Promise<ParentResponse[]> {
+  const params = query?.trim() ? `?query=${encodeURIComponent(query.trim())}` : "";
+  return apiRequest<ParentResponse[]>(`/parents${params}`);
+}
+
+export function getParentById(id: number): Promise<ParentResponse> {
+  return apiRequest<ParentResponse>(`/parents/${id}`);
 }
 
 export function listStudentParents(studentId: number): Promise<ParentStudentResponse[]> {

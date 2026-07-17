@@ -28,9 +28,9 @@ export default function EmployeeListPanel({ employees, loading, selectedId, onSe
           <span className="text-xs font-bold text-slate-700 font-display block">Danh sách Cán bộ - Giảng viên</span>
           <p className="text-[10px] text-slate-400">Nhấp chọn nhân sự để xem chi tiết & điều phối hợp đồng</p>
         </div>
-        <Button variant="primary" size="sm" onClick={onCreate}>
+        <Button variant="primary" size="sm" onClick={onCreate} className="whitespace-nowrap shrink-0">
           <Plus className="w-3.5 h-3.5" />
-          Thêm nhân sự mới
+          Thêm nhân sự
         </Button>
       </div>
 

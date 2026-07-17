@@ -26,6 +26,7 @@ import Button from "@/components/ui/Button";
 import { studentStatusLabels, studentStatusVariants } from "./StudentListPanel";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
+const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-xs p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
 
 type Tab = "profile" | "parents" | "transfer" | "status";
@@ -88,11 +89,15 @@ function ProfileTab({ student, onChanged }: { student: StudentResponse; onChange
   const [form, setForm] = useState<UpdateStudentRequest>(() => toForm(student));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dateOfBirthTouched, setDateOfBirthTouched] = useState(false);
+  const dateOfBirthInvalid = dateOfBirthTouched && !form.dateOfBirth;
 
   useEffect(() => setForm(toForm(student)), [student]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setDateOfBirthTouched(true);
+    if (!form.dateOfBirth) return;
     setSaving(true);
     setError(null);
     try {
@@ -111,7 +116,14 @@ function ProfileTab({ student, onChanged }: { student: StudentResponse; onChange
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className={labelClass}>Ngày sinh *</label>
-          <input type="date" value={form.dateOfBirth} onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })} className={inputClass} required />
+          <input
+            type="date"
+            value={form.dateOfBirth}
+            onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })}
+            onBlur={() => setDateOfBirthTouched(true)}
+            className={dateOfBirthInvalid ? inputErrorClass : inputClass}
+          />
+          {dateOfBirthInvalid && <p className="text-[10px] text-rose-600 mt-1">Vui lòng chọn Ngày sinh.</p>}
         </div>
         <div>
           <label className={labelClass}>Giới tính</label>
@@ -171,6 +183,7 @@ function ParentsTab({ studentId }: { studentId: number }) {
   const [account, setAccount] = useState<AccountSelection>({ newAccount: { username: "", email: "", fullName: "", phone: "", password: "" } });
   const [info, setInfo] = useState({ relationship: "MOTHER", isPrimaryContact: false, isFinancialResponsible: false });
   const [submitting, setSubmitting] = useState(false);
+  const [submitAttempted, setSubmitAttempted] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -182,8 +195,9 @@ function ParentsTab({ studentId }: { studentId: number }) {
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!account.userId && !account.newAccount?.username) {
-      setError("Vui lòng chọn tài khoản có sẵn hoặc điền thông tin tài khoản mới.");
+    setSubmitAttempted(true);
+    if (!account.userId && (!account.newAccount?.username || !account.newAccount?.email || !account.newAccount?.fullName)) {
+      setError("Vui lòng chọn tài khoản có sẵn hoặc điền đủ thông tin tài khoản mới.");
       return;
     }
     setSubmitting(true);
@@ -244,7 +258,7 @@ function ParentsTab({ studentId }: { studentId: number }) {
 
       {addingNew ? (
         <form onSubmit={handleAdd} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-          <AccountSelector value={account} onChange={setAccount} />
+          <AccountSelector value={account} onChange={setAccount} submitAttempted={submitAttempted} />
           <div className="grid grid-cols-3 gap-2 items-end">
             <select value={info.relationship} onChange={(e) => setInfo({ ...info, relationship: e.target.value })} className={inputClass}>
               <option value="FATHER">Bố</option>

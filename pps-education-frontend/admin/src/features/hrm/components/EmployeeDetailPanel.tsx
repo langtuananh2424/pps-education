@@ -21,6 +21,7 @@ import Button from "@/components/ui/Button";
 import { employeeStatusLabels, employeeStatusVariants } from "./EmployeeListPanel";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
+const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-xs p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
 
 type Tab = "profile" | "qualifications" | "commendations" | "contracts";
@@ -83,11 +84,15 @@ function ProfileTab({ employee, onChanged }: { employee: EmployeeResponse; onCha
   const [form, setForm] = useState<UpdateEmployeeRequest>(() => toForm(employee));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dateOfBirthTouched, setDateOfBirthTouched] = useState(false);
+  const dateOfBirthInvalid = dateOfBirthTouched && !form.dateOfBirth;
 
   useEffect(() => setForm(toForm(employee)), [employee]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setDateOfBirthTouched(true);
+    if (!form.dateOfBirth) return;
     setSaving(true);
     setError(null);
     try {
@@ -106,7 +111,14 @@ function ProfileTab({ employee, onChanged }: { employee: EmployeeResponse; onCha
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className={labelClass}>Ngày sinh *</label>
-          <input type="date" value={form.dateOfBirth} onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })} className={inputClass} required />
+          <input
+            type="date"
+            value={form.dateOfBirth}
+            onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })}
+            onBlur={() => setDateOfBirthTouched(true)}
+            className={dateOfBirthInvalid ? inputErrorClass : inputClass}
+          />
+          {dateOfBirthInvalid && <p className="text-[10px] text-rose-600 mt-1">Vui lòng chọn Ngày sinh.</p>}
         </div>
         <div>
           <label className={labelClass}>Loại nhân sự *</label>
