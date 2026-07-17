@@ -1,5 +1,6 @@
 package vn.com.pps.education.service;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +19,7 @@ import vn.com.pps.education.repository.EmployeeRepository;
 import vn.com.pps.education.repository.PositionRepository;
 import vn.com.pps.education.repository.RoleRepository;
 import vn.com.pps.education.repository.UserRepository;
+import vn.com.pps.education.repository.UserRoleRepository;
 import vn.com.pps.education.support.AbstractIntegrationTest;
 
 import java.time.LocalDate;
@@ -44,6 +46,14 @@ class PositionServiceTest extends AbstractIntegrationTest {
     @Autowired private RoleRepository roleRepository;
     @Autowired private EmployeeRepository employeeRepository;
     @Autowired private UserRepository userRepository;
+    @Autowired private UserRoleRepository userRoleRepository;
+
+    private User hrManager;
+
+    @BeforeEach
+    void setUp() {
+        hrManager = newUser("pos-hr-manager");
+    }
 
     @Test
     void create_UC52_MainFlow_savesPosition() {
@@ -98,7 +108,7 @@ class PositionServiceTest extends AbstractIntegrationTest {
         Role headAcademic = roleRepository.findByCode("HEAD_ACADEMIC").orElseThrow();
 
         positionService.updateDefaultRoles(position.id(),
-                new UpdatePositionDefaultRolesRequest(Set.of(teacher.getId(), headAcademic.getId())));
+                new UpdatePositionDefaultRolesRequest(Set.of(teacher.getId(), headAcademic.getId())), hrManager.getId());
 
         PositionDefaultRolesResponse result = positionService.getDefaultRoles(position.id());
         assertThat(result.defaultRoles()).extracting(r -> r.code()).containsExactlyInAnyOrder("TEACHER", "HEAD_ACADEMIC");
@@ -109,12 +119,47 @@ class PositionServiceTest extends AbstractIntegrationTest {
         PositionResponse position = positionService.create(new CreatePositionRequest(uniqueCode(), "Giáo viên"));
         Role teacher = roleRepository.findByCode("TEACHER").orElseThrow();
         Role staff = roleRepository.findByCode("STAFF").orElseThrow();
-        positionService.updateDefaultRoles(position.id(), new UpdatePositionDefaultRolesRequest(Set.of(teacher.getId())));
+        positionService.updateDefaultRoles(position.id(), new UpdatePositionDefaultRolesRequest(Set.of(teacher.getId())), hrManager.getId());
 
-        positionService.updateDefaultRoles(position.id(), new UpdatePositionDefaultRolesRequest(Set.of(staff.getId())));
+        positionService.updateDefaultRoles(position.id(), new UpdatePositionDefaultRolesRequest(Set.of(staff.getId())), hrManager.getId());
 
         PositionDefaultRolesResponse result = positionService.getDefaultRoles(position.id());
         assertThat(result.defaultRoles()).extracting(r -> r.code()).containsExactly("STAFF");
+    }
+
+    @Test
+    void updateDefaultRoles_UC52_Step5_backfillsRoleForExistingHolders() {
+        PositionResponse position = positionService.create(new CreatePositionRequest(uniqueCode(), "Quản lý TT"));
+        Role hrManagerRole = roleRepository.findByCode("HR_MANAGER").orElseThrow();
+        User target = newUser("pos-backfill-user");
+        saveEmployeeWithPosition(target, position.id());
+
+        positionService.updateDefaultRoles(position.id(),
+                new UpdatePositionDefaultRolesRequest(Set.of(hrManagerRole.getId())), hrManager.getId());
+
+        assertThat(userRoleRepository.findByUserId(target.getId()))
+                .extracting(ur -> ur.getRole().getCode())
+                .containsExactly("HR_MANAGER");
+        assertThat(userRoleRepository.findByUserId(target.getId()))
+                .allMatch(ur -> ur.getGrantedViaPosition() != null && ur.getGrantedViaPosition().getId().equals(position.id()));
+    }
+
+    @Test
+    void updateDefaultRoles_UC52_Step5_revokesStaleAutoRoleForExistingHoldersOnReconfigure() {
+        PositionResponse position = positionService.create(new CreatePositionRequest(uniqueCode(), "Quản lý TT 2"));
+        Role hrManagerRole = roleRepository.findByCode("HR_MANAGER").orElseThrow();
+        Role teacherRole = roleRepository.findByCode("TEACHER").orElseThrow();
+        User target = newUser("pos-backfill-revoke-user");
+        saveEmployeeWithPosition(target, position.id());
+        positionService.updateDefaultRoles(position.id(),
+                new UpdatePositionDefaultRolesRequest(Set.of(hrManagerRole.getId())), hrManager.getId());
+
+        positionService.updateDefaultRoles(position.id(),
+                new UpdatePositionDefaultRolesRequest(Set.of(teacherRole.getId())), hrManager.getId());
+
+        assertThat(userRoleRepository.findByUserId(target.getId()))
+                .extracting(ur -> ur.getRole().getCode())
+                .containsExactly("TEACHER");
     }
 
     @Test
@@ -147,6 +192,18 @@ class PositionServiceTest extends AbstractIntegrationTest {
 
     private String uniqueCode() {
         return "POS-TEST-" + SEQ.incrementAndGet();
+    }
+
+    /** Tạo hồ sơ nhân sự đang giữ 1 chức vụ, KHÔNG qua EmployeeService (không trigger sync lúc tạo) — để test riêng backfill của updateDefaultRoles. */
+    private Employee saveEmployeeWithPosition(User user, Long positionId) {
+        Employee employee = new Employee();
+        employee.setUser(user);
+        employee.setEmployeeCode("EMP-POS-" + SEQ.incrementAndGet());
+        employee.setDateOfBirth(LocalDate.of(1995, 1, 1));
+        employee.setEmployeeType(Employee.EmployeeType.STAFF);
+        employee.setHireDate(LocalDate.now());
+        employee.setPosition(positionRepository.findById(positionId).orElseThrow());
+        return employeeRepository.save(employee);
     }
 
     private User newUser(String prefix) {

@@ -531,6 +531,12 @@ UC-52: Danh mục chức vụ & tự động gán vai trò theo chức vụ
 |                 | 4.  Xem UC-08 A5 / UC-51 bước 4 cho cơ chế tự động |
 |                 |     gán/thu hồi vai trò khi hồ sơ nhân sự được gán |
 |                 |     chức vụ.                                       |
+|                 |                                                    |
+|                 | 5.  Nếu chức vụ đang có sẵn nhân sự nắm giữ, hệ    |
+|                 |     thống ngay lập tức rà lại toàn bộ nhân sự đó   |
+|                 |     và đồng bộ vai trò theo danh sách mặc định vừa |
+|                 |     lưu ở bước 2 (cùng cơ chế UC-08 A5) — không    |
+|                 |     chỉ áp dụng cho các lần gán chức vụ sau này.   |
 +-----------------+----------------------------------------------------+
 | **Luồng thay    | ***A1 --- Xóa chức vụ đang được sử dụng***         |
 | thế / ngoại lệ  |                                                    |
@@ -542,6 +548,9 @@ UC-52: Danh mục chức vụ & tự động gán vai trò theo chức vụ
 | (P              |     phản ánh đúng cấu hình mới nhất; mọi lần tạo/  |
 | ostcondition)** |     đổi chức vụ của hồ sơ nhân sự sau đó áp dụng   |
 |                 |     đúng danh sách vai trò mặc định hiện hành.     |
+|                 | -   Toàn bộ nhân sự ĐANG giữ chức vụ vừa cấu hình  |
+|                 |     lại cũng được đồng bộ vai trò ngay (không phải |
+|                 |     chờ tới lần sửa hồ sơ tiếp theo).              |
 +-----------------+----------------------------------------------------+
 
 Phân hệ 5 --- Quản lý học sinh

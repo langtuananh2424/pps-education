@@ -3,6 +3,7 @@ package vn.com.pps.education.controller;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -16,6 +17,7 @@ import vn.com.pps.education.dto.PositionDefaultRolesResponse;
 import vn.com.pps.education.dto.PositionResponse;
 import vn.com.pps.education.dto.UpdatePositionDefaultRolesRequest;
 import vn.com.pps.education.dto.UpdatePositionRequest;
+import vn.com.pps.education.security.AuthenticatedUser;
 import vn.com.pps.education.service.PositionService;
 
 import java.util.List;
@@ -76,8 +78,9 @@ public class PositionController {
     @PutMapping("/{id}/default-roles")
     @PreAuthorize("hasPermission(null, 'hrm.manage')")
     public ResponseEntity<Void> updateDefaultRoles(@PathVariable Long id,
-                                                     @RequestBody UpdatePositionDefaultRolesRequest request) {
-        positionService.updateDefaultRoles(id, request);
+                                                     @RequestBody UpdatePositionDefaultRolesRequest request,
+                                                     @AuthenticationPrincipal AuthenticatedUser actor) {
+        positionService.updateDefaultRoles(id, request, actor.userId());
         return ResponseEntity.noContent().build();
     }
 }

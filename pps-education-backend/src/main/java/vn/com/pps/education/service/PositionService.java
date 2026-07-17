@@ -14,6 +14,7 @@ import vn.com.pps.education.dto.UpdatePositionRequest;
 import vn.com.pps.education.exception.DuplicatePositionCodeException;
 import vn.com.pps.education.exception.PositionNotDeletableException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
+import vn.com.pps.education.domain.Employee;
 import vn.com.pps.education.repository.EmployeeRepository;
 import vn.com.pps.education.repository.PositionDefaultRoleRepository;
 import vn.com.pps.education.repository.PositionRepository;
@@ -39,15 +40,18 @@ public class PositionService {
     private final PositionDefaultRoleRepository positionDefaultRoleRepository;
     private final RoleRepository roleRepository;
     private final EmployeeRepository employeeRepository;
+    private final PositionRoleSyncService positionRoleSyncService;
 
     public PositionService(PositionRepository positionRepository,
                             PositionDefaultRoleRepository positionDefaultRoleRepository,
                             RoleRepository roleRepository,
-                            EmployeeRepository employeeRepository) {
+                            EmployeeRepository employeeRepository,
+                            PositionRoleSyncService positionRoleSyncService) {
         this.positionRepository = positionRepository;
         this.positionDefaultRoleRepository = positionDefaultRoleRepository;
         this.roleRepository = roleRepository;
         this.employeeRepository = employeeRepository;
+        this.positionRoleSyncService = positionRoleSyncService;
     }
 
     @Transactional
@@ -107,9 +111,15 @@ public class PositionService {
         return new PositionDefaultRolesResponse(position.getId(), position.getCode(), roles);
     }
 
-    /** Thay thế TOÀN BỘ danh sách role mặc định của 1 chức vụ (diff add/remove, giống RoleService#updatePermissions). */
+    /**
+     * UC-52 bước 2-5: thay thế TOÀN BỘ danh sách role mặc định của 1 chức vụ
+     * (diff add/remove, giống RoleService#updatePermissions), sau đó backfill
+     * ngay vai trò cho mọi nhân sự đang giữ chức vụ này — không chỉ áp dụng
+     * cho các lần gán chức vụ sau này (dùng lại PositionRoleSyncService, cùng
+     * cơ chế UC-08 A5).
+     */
     @Transactional
-    public void updateDefaultRoles(Long positionId, UpdatePositionDefaultRolesRequest request) {
+    public void updateDefaultRoles(Long positionId, UpdatePositionDefaultRolesRequest request, Long actorUserId) {
         Position position = getPositionOrThrow(positionId);
         List<PositionDefaultRole> current = positionDefaultRoleRepository.findByPositionId(positionId);
         Set<Long> currentRoleIds = current.stream().map(pdr -> pdr.getRole().getId()).collect(Collectors.toSet());
@@ -131,6 +141,11 @@ public class PositionService {
             return pdr;
         }).toList();
         positionDefaultRoleRepository.saveAll(newRows);
+
+        List<Employee> holders = employeeRepository.findByPositionIdAndDeletedAtIsNull(positionId);
+        for (Employee employee : holders) {
+            positionRoleSyncService.sync(employee.getUser(), positionId, position, actorUserId);
+        }
     }
 
     private Position getPositionOrThrow(Long id) {
