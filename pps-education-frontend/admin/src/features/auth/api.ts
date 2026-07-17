@@ -42,6 +42,17 @@ export function fetchCurrentUser(): Promise<CurrentUserResponse> {
   return apiRequest<CurrentUserResponse>("/auth/me");
 }
 
+/**
+ * UC-45 Main Flow: tự đổi mật khẩu của chính tài khoản đang đăng nhập.
+ * currentPassword để trống chỉ hợp lệ với tài khoản chưa từng có mật khẩu (chỉ đăng nhập Google — UC-45 A3).
+ */
+export function changeOwnPassword(currentPassword: string, newPassword: string): Promise<void> {
+  return apiRequest<void>("/auth/me/password", {
+    method: "PUT",
+    body: JSON.stringify({ currentPassword: currentPassword || undefined, newPassword })
+  });
+}
+
 export async function logout(): Promise<void> {
   const refreshToken = getRefreshToken();
   if (refreshToken) {
