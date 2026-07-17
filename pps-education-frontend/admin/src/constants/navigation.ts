@@ -67,6 +67,7 @@ export const navSections: NavSection[] = [
     title: "QUẢN LÝ NHÂN SỰ (HRM)",
     items: [
       { id: "hrm-profile", label: "Hồ sơ cán bộ (UC-08)", path: "/hrm/profile", icon: Users, requiredPermission: "hrm.manage" },
+      { id: "hrm-departments-positions", label: "Phòng ban & Chức vụ", path: "/hrm/departments-positions", icon: Users, requiredPermission: "hrm.manage" },
       { id: "hrm-attendance", label: "Dữ liệu chấm công (UC-09)", path: "/hrm/attendance", icon: Users, requiredPermission: "hrm.manage" },
       { id: "hrm-leaves", label: "Phê duyệt đơn từ (UC-11)", path: "/hrm/leaves", icon: Users, requiredPermission: "hrm.manage" },
       { id: "hrm-payroll", label: "Tính toán bảng lương (UC-12)", path: "/hrm/payroll", icon: Users, requiredPermission: "hrm.manage" }

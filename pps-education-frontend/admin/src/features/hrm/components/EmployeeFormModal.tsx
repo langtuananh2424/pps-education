@@ -1,8 +1,8 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import AccountSelector, { AccountSelection } from "@/features/system-admin/components/AccountSelector";
-import { createEmployee, CreateEmployeeRequest } from "../api";
+import { createEmployee, CreateEmployeeRequest, DepartmentResponse, listDepartments, listPositions, PositionResponse } from "../api";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 
@@ -31,16 +31,23 @@ export default function EmployeeFormModal({ onClose, onCreated }: EmployeeFormMo
     taxCode: "",
     socialInsuranceNumber: "",
     employeeType: "TEACHER",
-    positionTitle: "",
+    positionId: "",
     departmentId: "",
     hireDate: "",
     isManagement: false
   });
+  const [positions, setPositions] = useState<PositionResponse[]>([]);
+  const [departments, setDepartments] = useState<DepartmentResponse[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [touched, setTouched] = useState({ employeeCode: false, dateOfBirth: false, hireDate: false });
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const markTouched = (field: keyof typeof touched) => setTouched((t) => ({ ...t, [field]: true }));
+
+  useEffect(() => {
+    listPositions().then(setPositions).catch(() => undefined);
+    listDepartments().then(setDepartments).catch(() => undefined);
+  }, []);
 
   const employeeCodeInvalid = (touched.employeeCode || submitAttempted) && !form.employeeCode.trim();
   const dateOfBirthInvalid = (touched.dateOfBirth || submitAttempted) && !form.dateOfBirth;
@@ -75,7 +82,7 @@ export default function EmployeeFormModal({ onClose, onCreated }: EmployeeFormMo
         taxCode: form.taxCode.trim() || undefined,
         socialInsuranceNumber: form.socialInsuranceNumber.trim() || undefined,
         employeeType: form.employeeType as CreateEmployeeRequest["employeeType"],
-        positionTitle: form.positionTitle.trim() || undefined,
+        positionId: form.positionId ? Number(form.positionId) : undefined,
         departmentId: form.departmentId ? Number(form.departmentId) : undefined,
         isManagement: form.isManagement,
         hireDate: form.hireDate
@@ -144,16 +151,28 @@ export default function EmployeeFormModal({ onClose, onCreated }: EmployeeFormMo
             </div>
             <div>
               <label className={labelClass}>Chức vụ</label>
-              <input value={form.positionTitle} onChange={(e) => setForm({ ...form, positionTitle: e.target.value })} className={inputClass} />
+              <select value={form.positionId} onChange={(e) => setForm({ ...form, positionId: e.target.value })} className={inputClass}>
+                <option value="">-- Chưa gán --</option>
+                {positions.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+              {positions.length === 0 && (
+                <p className="text-[10px] text-slate-400 mt-1">Chưa có chức vụ nào — tạo tại "Phòng ban & Chức vụ".</p>
+              )}
             </div>
             <div>
-              <label className={labelClass}>ID phòng ban</label>
-              <input
-                value={form.departmentId}
-                onChange={(e) => setForm({ ...form, departmentId: e.target.value.replace(/[^0-9]/g, "") })}
-                className={inputClass}
-                placeholder="Tùy chọn"
-              />
+              <label className={labelClass}>Phòng ban</label>
+              <select value={form.departmentId} onChange={(e) => setForm({ ...form, departmentId: e.target.value })} className={inputClass}>
+                <option value="">-- Chưa gán --</option>
+                {departments.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className={labelClass}>Số CCCD</label>
