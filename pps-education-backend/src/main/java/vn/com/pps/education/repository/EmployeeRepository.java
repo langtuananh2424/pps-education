@@ -25,6 +25,9 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
     /** PositionService#delete — có nhân sự mang chức vụ (kể cả đã soft-delete, FK vẫn ràng buộc) thì không xóa được chức vụ. */
     boolean existsByPositionId(Long positionId);
 
+    /** PositionService#updateDefaultRoles (UC-52 bước 5) — backfill vai trò cho nhân sự đang giữ chức vụ vừa cấu hình lại. */
+    List<Employee> findByPositionIdAndDeletedAtIsNull(Long positionId);
+
     @Query("""
             SELECT e FROM Employee e JOIN e.user u
             WHERE e.deletedAt IS NULL
