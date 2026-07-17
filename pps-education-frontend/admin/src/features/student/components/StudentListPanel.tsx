@@ -42,9 +42,9 @@ export default function StudentListPanel({ students, loading, selectedId, onSele
           <span className="text-xs font-bold text-slate-700 font-display block">Danh sách Học sinh</span>
           <p className="text-[10px] text-slate-400">Nhấp chọn học sinh để xem chi tiết & quản lý phụ huynh</p>
         </div>
-        <Button variant="primary" size="sm" onClick={onCreate}>
+        <Button variant="primary" size="sm" onClick={onCreate} className="whitespace-nowrap shrink-0">
           <Plus className="w-3.5 h-3.5" />
-          Thêm học sinh mới
+          Thêm học sinh
         </Button>
       </div>
 

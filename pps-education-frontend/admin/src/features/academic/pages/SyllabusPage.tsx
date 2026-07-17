@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { BookOpen } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
+import { useApp } from "@/context/AppContext";
 import { CurriculumResponse, listCurriculums } from "../api";
 import Card from "@/components/ui/Card";
 import CurriculumListPanel from "../components/CurriculumListPanel";
@@ -9,6 +10,10 @@ import CurriculumFormModal from "../components/CurriculumFormModal";
 import CurriculumApprovalPanel from "../components/CurriculumApprovalPanel";
 
 export default function SyllabusPage() {
+  const { hasPermission } = useApp();
+  // Duyệt tùy biến (UC-17) yêu cầu academic.curriculum.manage ở backend (@PreAuthorize) —
+  // ẩn hẳn khối này với tài khoản không có quyền để tránh hiện lỗi 403 vô nghĩa.
+  const canApproveCurriculum = hasPermission("academic.curriculum.manage");
   const [curriculums, setCurriculums] = useState<CurriculumResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -67,12 +72,14 @@ export default function SyllabusPage() {
         )}
       </div>
 
-      <Card className="space-y-4">
-        <h3 className="text-xs font-bold text-slate-400 block uppercase tracking-wider font-display border-b border-slate-100 pb-2">
-          Duyệt tùy biến khung chương trình (UC-17)
-        </h3>
-        <CurriculumApprovalPanel />
-      </Card>
+      {canApproveCurriculum && (
+        <Card className="space-y-4">
+          <h3 className="text-xs font-bold text-slate-400 block uppercase tracking-wider font-display border-b border-slate-100 pb-2">
+            Duyệt tùy biến khung chương trình (UC-17)
+          </h3>
+          <CurriculumApprovalPanel />
+        </Card>
+      )}
 
       {createOpen && (
         <CurriculumFormModal

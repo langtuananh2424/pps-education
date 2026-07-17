@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
+import { UserRole } from "@/types";
 import {
   ClassEnrollmentResponse,
   ClassResponse,
@@ -26,8 +27,11 @@ import GradeApprovalQueue from "../components/GradeApprovalQueue";
 const inputClass = "bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none";
 
 export default function GradesPage() {
-  const { hasPermission } = useApp();
+  const { hasPermission, currentUser } = useApp();
   const canManage = hasPermission("academic.grade.manage");
+  // Hàng chờ duyệt (UC-20) chỉ có ý nghĩa với Quản lý điểm trường — API tự scope theo site được gán,
+  // ẩn hẳn khối này với tài khoản khác để đỡ hiện 1 panel rỗng không liên quan.
+  const isSiteManager = currentUser?.roleCodes?.includes(UserRole.SITE_MANAGER) ?? false;
 
   const [classes, setClasses] = useState<ClassResponse[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
@@ -86,7 +90,7 @@ export default function GradesPage() {
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card padded={false} className="lg:col-span-2 overflow-hidden">
+        <Card padded={false} className={`${isSiteManager ? "lg:col-span-2" : "lg:col-span-3"} overflow-hidden`}>
           <div className="px-5 py-4 border-b border-slate-100 bg-slate-50 space-y-3">
             <div className="flex items-center justify-between flex-wrap gap-2">
               <span className="text-xs font-bold text-slate-700 font-display">Bảng nhập điểm (UC-19)</span>
@@ -170,13 +174,15 @@ export default function GradesPage() {
           )}
         </Card>
 
-        <Card className="space-y-4">
-          <h3 className="text-xs font-bold text-slate-400 block uppercase tracking-wider font-display border-b border-slate-100 pb-2">
-            Duyệt điểm học phần (UC-20)
-          </h3>
-          <p className="text-xs text-slate-500">Điểm sau khi giáo viên nộp sẽ vào hàng chờ của điểm trường mình phụ trách.</p>
-          <GradeApprovalQueue />
-        </Card>
+        {isSiteManager && (
+          <Card className="space-y-4">
+            <h3 className="text-xs font-bold text-slate-400 block uppercase tracking-wider font-display border-b border-slate-100 pb-2">
+              Duyệt điểm học phần (UC-20)
+            </h3>
+            <p className="text-xs text-slate-500">Điểm sau khi giáo viên nộp sẽ vào hàng chờ của điểm trường mình phụ trách.</p>
+            <GradeApprovalQueue />
+          </Card>
+        )}
       </div>
     </div>
   );

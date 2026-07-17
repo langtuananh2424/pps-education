@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
-import { Bell, ChevronDown, Clock, LogOut, Menu, MapPin, Settings, ShieldCheck, User } from "lucide-react";
+import { Bell, ChevronDown, Clock, Lock, LogOut, Menu, MapPin, Settings, ShieldCheck, User } from "lucide-react";
 import { useApp } from "@/context/AppContext";
-import { listSites, SiteResponse } from "@/features/facility/api";
+import { getMyPartnerSite, listSites, listSiteTeachers, SiteResponse, SiteTeacherResponse } from "@/features/facility/api";
 import { roleLabels } from "@/constants/roles";
+import { UserRole } from "@/types";
 import Avatar from "@/components/ui/Avatar";
 import Dropdown from "@/components/ui/Dropdown";
 
@@ -20,6 +21,67 @@ export default function Header() {
     listSites().then(setSites).catch(() => undefined);
   }, []);
 
+  // Bất kỳ vai trò nào gắn với đúng 1 (vài) điểm trường cụ thể — Quản lý điểm trường (site_managers),
+  // Đại diện trường liên kết (site_managers role_type=PARTNER_REP, tự resolve qua UC-29), Giáo viên phụ trách
+  // (site_teachers) — chỉ biết đúng điểm trường của mình, không thấy/chọn được điểm trường khác hay "Tất cả".
+  const [managedSites, setManagedSites] = useState<SiteResponse[]>([]);
+
+  useEffect(() => {
+    if (!currentUser || sites.length === 0) {
+      setManagedSites([]);
+      return;
+    }
+    const roleCodes = currentUser.roleCodes ?? [];
+    const tasks: Promise<SiteResponse[]>[] = [];
+
+    if (roleCodes.includes(UserRole.SITE_MANAGER)) {
+      tasks.push(Promise.resolve(sites.filter((site) => site.currentManagerUserId === currentUser.id)));
+    }
+    if (roleCodes.includes(UserRole.PARTNER_REP)) {
+      tasks.push(
+        getMyPartnerSite()
+          .then((p) => sites.filter((site) => site.id === p.siteId))
+          .catch(() => [] as SiteResponse[])
+      );
+    }
+    if (roleCodes.includes(UserRole.TEACHER)) {
+      tasks.push(
+        Promise.allSettled(sites.map((site) => listSiteTeachers(site.id).then((list) => ({ site, list }))))
+          .then((results) =>
+            results
+              .filter(
+                (r): r is PromiseFulfilledResult<{ site: SiteResponse; list: SiteTeacherResponse[] }> => r.status === "fulfilled"
+              )
+              .filter((r) => r.value.list.some((t) => t.teacherUserId === currentUser.id))
+              .map((r) => r.value.site)
+          )
+      );
+    }
+
+    if (tasks.length === 0) {
+      setManagedSites([]);
+      return;
+    }
+
+    let cancelled = false;
+    Promise.all(tasks).then((results) => {
+      if (cancelled) return;
+      const merged = new Map<number, SiteResponse>();
+      results.flat().forEach((site) => merged.set(site.id, site));
+      setManagedSites(Array.from(merged.values()));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [sites, currentUser]);
+
+  useEffect(() => {
+    if (selectedCampusId !== "ALL" || managedSites.length === 0) return;
+    setSelectedCampusId(String(managedSites[0].id));
+  }, [managedSites, selectedCampusId, setSelectedCampusId]);
+
+  const lockToManagedSites = managedSites.length > 0;
+
   return (
     <header className="h-16 bg-transparent px-2 md:px-0 flex items-center justify-between z-30 mb-4 shrink-0">
       <div className="flex items-center gap-4">
@@ -33,18 +95,39 @@ export default function Header() {
         <div className="hidden sm:flex items-center gap-2 text-xs font-medium text-slate-500 bg-white border border-slate-200/50 shadow-soft px-4 py-2 rounded-full">
           <MapPin className="w-3.5 h-3.5 text-brand-orange shrink-0" />
           <span className="font-semibold text-slate-700">Điểm trường:</span>
-          <select
-            value={selectedCampusId}
-            onChange={(e) => setSelectedCampusId(e.target.value)}
-            className="bg-transparent border-none text-slate-800 font-semibold focus:outline-none focus:ring-0 cursor-pointer pr-1"
-          >
-            <option value="ALL">Tất cả cơ sở & Trường liên kết</option>
-            {sites.map((site) => (
-              <option key={site.id} value={site.id}>
-                {site.name}
-              </option>
-            ))}
-          </select>
+          {lockToManagedSites ? (
+            managedSites.length === 1 ? (
+              <span className="flex items-center gap-1.5 text-slate-800 font-semibold">
+                {managedSites[0].name}
+                <Lock className="w-3 h-3 text-slate-400" />
+              </span>
+            ) : (
+              <select
+                value={selectedCampusId}
+                onChange={(e) => setSelectedCampusId(e.target.value)}
+                className="bg-transparent border-none text-slate-800 font-semibold focus:outline-none focus:ring-0 cursor-pointer pr-1"
+              >
+                {managedSites.map((site) => (
+                  <option key={site.id} value={site.id}>
+                    {site.name}
+                  </option>
+                ))}
+              </select>
+            )
+          ) : (
+            <select
+              value={selectedCampusId}
+              onChange={(e) => setSelectedCampusId(e.target.value)}
+              className="bg-transparent border-none text-slate-800 font-semibold focus:outline-none focus:ring-0 cursor-pointer pr-1"
+            >
+              <option value="ALL">Tất cả cơ sở & Trường liên kết</option>
+              {sites.map((site) => (
+                <option key={site.id} value={site.id}>
+                  {site.name}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
       </div>
 

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Flag, Plus } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
-import { ClassSessionResponse, CreateStudentCommentRequest, GradePeriodResponse, StudentCommentResponse, listClassSessions, listGradePeriods, writeComment } from "../api";
+import { CreateStudentCommentRequest, GradePeriodResponse, StudentCommentResponse, listGradePeriods, writeComment } from "../api";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs px-2.5 py-1.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold tracking-wider text-slate-500";
@@ -13,11 +13,10 @@ interface CommentFormProps {
   onSubmitted: (comment: StudentCommentResponse) => void;
 }
 
+/** UC-21 nhánh MID_TERM/END_TERM — nhận xét hàng ngày theo buổi học đã tách sang DailyCommentPanel (bảng kiểu Điểm danh nhanh). */
 export default function CommentForm({ classId, studentId, curriculumId, onSubmitted }: CommentFormProps) {
-  const [commentType, setCommentType] = useState<CreateStudentCommentRequest["commentType"]>("DAILY");
-  const [sessions, setSessions] = useState<ClassSessionResponse[]>([]);
+  const [commentType, setCommentType] = useState<Exclude<CreateStudentCommentRequest["commentType"], "DAILY">>("MID_TERM");
   const [periods, setPeriods] = useState<GradePeriodResponse[]>([]);
-  const [classSessionId, setClassSessionId] = useState("");
   const [gradePeriodId, setGradePeriodId] = useState("");
   const [commentDate, setCommentDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [content, setContent] = useState("");
@@ -27,9 +26,8 @@ export default function CommentForm({ classId, studentId, curriculumId, onSubmit
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    listClassSessions(classId).then(setSessions).catch(() => undefined);
     listGradePeriods(curriculumId).then(setPeriods).catch(() => undefined);
-  }, [classId, curriculumId]);
+  }, [curriculumId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,11 +35,7 @@ export default function CommentForm({ classId, studentId, curriculumId, onSubmit
       setError("Vui lòng nhập nội dung nhận xét.");
       return;
     }
-    if (commentType === "DAILY" && !classSessionId) {
-      setError("Nhận xét hàng ngày cần chọn buổi học tương ứng.");
-      return;
-    }
-    if ((commentType === "MID_TERM" || commentType === "END_TERM") && !gradePeriodId) {
+    if (!gradePeriodId) {
       setError("Nhận xét định kỳ cần chọn kỳ điểm tương ứng.");
       return;
     }
@@ -51,8 +45,7 @@ export default function CommentForm({ classId, studentId, curriculumId, onSubmit
       const created = await writeComment(classId, {
         studentId,
         commentType,
-        classSessionId: commentType === "DAILY" ? Number(classSessionId) : undefined,
-        gradePeriodId: commentType !== "DAILY" ? Number(gradePeriodId) : undefined,
+        gradePeriodId: Number(gradePeriodId),
         commentDate,
         content: content.trim(),
         severity,
@@ -74,38 +67,23 @@ export default function CommentForm({ classId, studentId, curriculumId, onSubmit
 
       <div className="space-y-1">
         <label className={labelClass}>Hình thức nhận xét</label>
-        <select value={commentType} onChange={(e) => setCommentType(e.target.value as CreateStudentCommentRequest["commentType"])} className={inputClass}>
-          <option value="DAILY">Hàng ngày (theo buổi học)</option>
+        <select value={commentType} onChange={(e) => setCommentType(e.target.value as Exclude<CreateStudentCommentRequest["commentType"], "DAILY">)} className={inputClass}>
           <option value="MID_TERM">Định kỳ giữa kỳ</option>
           <option value="END_TERM">Tổng kết cuối kỳ</option>
         </select>
       </div>
 
-      {commentType === "DAILY" ? (
-        <div className="space-y-1">
-          <label className={labelClass}>Buổi học</label>
-          <select value={classSessionId} onChange={(e) => setClassSessionId(e.target.value)} className={inputClass}>
-            <option value="">-- Chọn buổi học --</option>
-            {sessions.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.sessionDate} ({s.startTime}–{s.endTime})
-              </option>
-            ))}
-          </select>
-        </div>
-      ) : (
-        <div className="space-y-1">
-          <label className={labelClass}>Kỳ điểm</label>
-          <select value={gradePeriodId} onChange={(e) => setGradePeriodId(e.target.value)} className={inputClass}>
-            <option value="">-- Chọn kỳ điểm --</option>
-            {periods.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
+      <div className="space-y-1">
+        <label className={labelClass}>Kỳ điểm</label>
+        <select value={gradePeriodId} onChange={(e) => setGradePeriodId(e.target.value)} className={inputClass}>
+          <option value="">-- Chọn kỳ điểm --</option>
+          {periods.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+      </div>
 
       <div className="space-y-1">
         <label className={labelClass}>Ngày nhận xét</label>

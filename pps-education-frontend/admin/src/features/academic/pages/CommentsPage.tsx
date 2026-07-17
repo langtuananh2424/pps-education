@@ -1,129 +1,94 @@
 import React, { useEffect, useState } from "react";
+import { Calendar, CalendarRange } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
-import { ClassEnrollmentResponse, ClassResponse, StudentCommentResponse, listClassEnrollments, listClasses, listComments, submitComments } from "../api";
+import { useApp } from "@/context/AppContext";
+import { UserRole } from "@/types";
+import { StudentCommentResponse, listPendingComments } from "../api";
 import Card from "@/components/ui/Card";
-import Badge from "@/components/ui/Badge";
-import Button from "@/components/ui/Button";
-import CommentForm from "../components/CommentForm";
-import CommentApprovalQueue from "../components/CommentApprovalQueue";
+import DailyCommentPanel from "../components/DailyCommentPanel";
+import PeriodicCommentPanel from "../components/PeriodicCommentPanel";
+import CommentApprovalList from "../components/CommentApprovalList";
+import CommentApprovalDetail from "../components/CommentApprovalDetail";
 
-const inputClass = "bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none";
-const statusLabels: Record<StudentCommentResponse["status"], string> = { DRAFT: "Nháp", PENDING: "Chờ duyệt", APPROVED: "Đã duyệt", REJECTED: "Bị từ chối" };
+type Tab = "daily" | "periodic";
 
 export default function CommentsPage() {
-  const [classes, setClasses] = useState<ClassResponse[]>([]);
-  const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
-  const [enrollments, setEnrollments] = useState<ClassEnrollmentResponse[]>([]);
-  const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
-  const [history, setHistory] = useState<StudentCommentResponse[]>([]);
+  const [tab, setTab] = useState<Tab>("daily");
+  const { currentUser } = useApp();
+  // Hàng chờ duyệt (UC-22) chỉ có ý nghĩa với Quản lý điểm trường — API tự scope theo site được gán.
+  // Quản lý điểm trường không viết nhận xét nên thay hẳn khu vực viết ở trên bằng khu vực xem chi tiết yêu cầu duyệt.
+  const isSiteManager = currentUser?.roleCodes?.includes(UserRole.SITE_MANAGER) ?? false;
+
+  const [pending, setPending] = useState<StudentCommentResponse[]>([]);
+  const [loadingPending, setLoadingPending] = useState(true);
+  const [selectedRequestId, setSelectedRequestId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const selectedClass = classes.find((c) => c.id === selectedClassId) ?? null;
+  const loadPending = () => {
+    setLoadingPending(true);
+    listPendingComments()
+      .then(setPending)
+      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được hàng chờ duyệt nhận xét."))
+      .finally(() => setLoadingPending(false));
+  };
 
   useEffect(() => {
-    listClasses().then(setClasses).catch(() => undefined);
-  }, []);
+    if (isSiteManager) loadPending();
+  }, [isSiteManager]);
 
-  useEffect(() => {
-    setSelectedStudentId(null);
-    setHistory([]);
-    if (!selectedClassId) return;
-    listClassEnrollments(selectedClassId).then(setEnrollments).catch(() => undefined);
-  }, [selectedClassId]);
-
-  const loadHistory = () => {
-    if (!selectedClassId || !selectedStudentId) return;
-    listComments(selectedClassId, selectedStudentId)
-      .then(setHistory)
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được lịch sử nhận xét."));
-  };
-  useEffect(loadHistory, [selectedClassId, selectedStudentId]);
-
-  const handleSubmitDraft = async (commentId: number) => {
-    if (!selectedClassId) return;
-    try {
-      await submitComments(selectedClassId, [commentId]);
-      loadHistory();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Nộp nhận xét thất bại.");
-    }
-  };
+  const selectedRequest = pending.find((p) => p.id === selectedRequestId) ?? null;
 
   return (
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Nhận xét học viên (UC-21/22)</h1>
-        <p className="text-xs text-slate-500 mt-1">Giáo viên viết nhận xét định kỳ/hàng ngày, Quản lý điểm trường duyệt trước khi hiển thị Portal phụ huynh.</p>
+        <p className="text-xs text-slate-500 mt-1">Giáo viên viết nhận xét hàng ngày/định kỳ, Quản lý điểm trường duyệt trước khi hiển thị Portal phụ huynh.</p>
       </div>
 
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="space-y-4">
-          <h3 className="text-xs font-bold text-slate-400 block uppercase tracking-wider font-display border-b border-slate-100 pb-2">Viết nhận xét (UC-21)</h3>
+      {isSiteManager ? (
+        <>
+          <CommentApprovalDetail
+            comment={selectedRequest}
+            onDecided={() => {
+              setSelectedRequestId(null);
+              loadPending();
+            }}
+          />
 
-          <div className="space-y-2">
-            <select value={selectedClassId ?? ""} onChange={(e) => setSelectedClassId(e.target.value ? Number(e.target.value) : null)} className={`${inputClass} w-full`}>
-              <option value="">-- Chọn lớp --</option>
-              {classes.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.classCode} — {c.name}
-                </option>
-              ))}
-            </select>
-            <select
-              value={selectedStudentId ?? ""}
-              onChange={(e) => setSelectedStudentId(e.target.value ? Number(e.target.value) : null)}
-              disabled={!selectedClassId}
-              className={`${inputClass} w-full disabled:opacity-50`}
-            >
-              <option value="">-- Chọn học sinh --</option>
-              {enrollments
-                .filter((en) => en.status === "ACTIVE")
-                .map((en) => (
-                  <option key={en.studentId} value={en.studentId}>
-                    {en.studentFullName} ({en.studentCode})
-                  </option>
-                ))}
-            </select>
-          </div>
-
-          {selectedClass && selectedStudentId ? (
-            <CommentForm classId={selectedClass.id} studentId={selectedStudentId} curriculumId={selectedClass.curriculumId} onSubmitted={loadHistory} />
-          ) : (
-            <p className="text-xs text-slate-400 italic">Chọn lớp và học sinh để viết nhận xét.</p>
-          )}
-
-          {history.length > 0 && (
-            <div className="space-y-2 border-t border-slate-100 pt-3">
-              <span className="text-[10px] font-bold uppercase text-slate-500">Lịch sử nhận xét học sinh này</span>
-              {history.map((h) => (
-                <div key={h.id} className="border border-slate-200 rounded-lg p-2.5 text-[11px] space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400">{h.commentDate}</span>
-                    <Badge variant={h.status === "APPROVED" ? "success" : h.status === "REJECTED" ? "danger" : h.status === "PENDING" ? "warning" : "neutral"}>
-                      {statusLabels[h.status]}
-                    </Badge>
-                  </div>
-                  <p className="text-slate-700">{h.content}</p>
-                  {h.status === "DRAFT" && (
-                    <Button size="sm" variant="secondary" onClick={() => handleSubmitDraft(h.id)}>
-                      Nộp duyệt
-                    </Button>
-                  )}
-                </div>
-              ))}
+          <Card padded={false} className="overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100 bg-slate-50">
+              <span className="text-xs font-bold text-slate-700 font-display">Danh sách yêu cầu chờ duyệt ({pending.length})</span>
             </div>
-          )}
-        </Card>
-
-        <Card padded={false} className="lg:col-span-2 overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-100 bg-slate-50">
-            <span className="text-xs font-bold text-slate-700 font-display">Phê duyệt Nhận xét Học viên (UC-22)</span>
+            <CommentApprovalList items={pending} loading={loadingPending} selectedId={selectedRequestId} onSelect={setSelectedRequestId} />
+          </Card>
+        </>
+      ) : (
+        <>
+          <div className="flex border-b border-slate-200 gap-5">
+            {(
+              [
+                ["daily", "Nhận xét hàng ngày", Calendar],
+                ["periodic", "Nhận xét giữa kỳ / cuối kỳ", CalendarRange]
+              ] as const
+            ).map(([key, label, Icon]) => (
+              <button
+                key={key}
+                onClick={() => setTab(key)}
+                className={`pb-2.5 text-xs font-bold border-b-2 flex items-center gap-1.5 transition-all ${
+                  tab === key ? "border-brand-red text-brand-red" : "border-transparent text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                {label}
+              </button>
+            ))}
           </div>
-          <CommentApprovalQueue />
-        </Card>
-      </div>
+
+          {tab === "daily" ? <DailyCommentPanel /> : <PeriodicCommentPanel />}
+        </>
+      )}
     </div>
   );
 }
