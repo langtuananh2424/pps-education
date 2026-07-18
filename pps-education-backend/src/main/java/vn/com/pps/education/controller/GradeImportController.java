@@ -14,9 +14,11 @@ import vn.com.pps.education.service.GradeImportService;
 
 /**
  * UC-53: Nhập điểm thi qua Excel (FR-ACA-03) — xem Javadoc
- * GradeImportService. Quyền: Giáo viên được phân công giảng dạy lớp
- * (requireAssignedTeacher, row-level check trong service — giống
- * enterGrade UC-19), không phải @PreAuthorize role-hardcode.
+ * GradeImportService. Quyền: Giáo viên được phân công giảng dạy lớp, HOẶC
+ * Trưởng phòng đào tạo (academic.grade.manage), HOẶC Quản lý điểm trường
+ * phụ trách site của lớp (GradeService#requireCanEnterGrades, row-level
+ * check trong service — giống enterGrade UC-19), không phải
+ * @PreAuthorize role-hardcode.
  */
 @RestController
 public class GradeImportController {

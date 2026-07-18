@@ -226,6 +226,24 @@ class GradeServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void enterGrade_UC19_Precondition_supportsHeadAcademicEnteringOnBehalfOfTeacher() {
+        // Mở rộng ngoài SDD gốc, đã xác nhận với người dùng: HEAD_ACADEMIC (quyền academic.grade.manage) nhập thay được.
+        GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
+                new EnterGradeRequest(student.getId(), new BigDecimal("8"), false, null), headAcademic.getId());
+
+        assertThat(entry.status()).isEqualTo("DRAFT");
+    }
+
+    @Test
+    void enterGrade_UC19_Precondition_supportsSiteManagerOfClassSiteEnteringOnBehalfOfTeacher() {
+        // Mở rộng ngoài SDD gốc, đã xác nhận với người dùng: Quản lý điểm trường phụ trách đúng site của lớp nhập thay được.
+        GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
+                new EnterGradeRequest(student.getId(), new BigDecimal("7"), false, null), siteManagerUser.getId());
+
+        assertThat(entry.status()).isEqualTo("DRAFT");
+    }
+
+    @Test
     void enterGrade_rejectsWhenActorNotAssignedTeacher() {
         User outsider = newUser("outsider.teacher");
         assignRole(outsider, "TEACHER");

@@ -402,14 +402,19 @@ UC-19: Nhập điểm
 | hoạt**          |                                                    |
 +-----------------+----------------------------------------------------+
 | **Điều kiện     | -   Giáo viên được phân công giảng dạy lớp cần     |
-| tiên quyết      |     nhập điểm (UC-18).                             |
-| (               |                                                    |
-| Precondition)** | -   Công thức tính điểm trung bình đã được cấu     |
+| tiên quyết      |     nhập điểm (UC-18); HOẶC Trưởng phòng đào tạo   |
+| (               |     (quyền academic.grade.manage); HOẶC Quản lý    |
+| Precondition)** |     điểm trường phụ trách đúng điểm trường của lớp |
+|                 |     — được phép nhập/nộp thay giáo viên khi cần hỗ |
+|                 |     trợ (bổ sung ngoài SDD gốc, đã xác nhận với    |
+|                 |     người dùng).                                   |
+|                 |                                                    |
+|                 | -   Công thức tính điểm trung bình đã được cấu     |
 |                 |     hình trong khung chương trình (UC-16/17).      |
 +-----------------+----------------------------------------------------+
-| **Luồng sự kiện | 1.  Giáo viên mở Sổ điểm của lớp phụ trách, chọn   |
-| chính (Main     |     cột điểm thành phần cần nhập.                  |
-| Flow)**         |                                                    |
+| **Luồng sự kiện | 1.  Giáo viên (hoặc người hỗ trợ hợp lệ ở trên) mở |
+| chính (Main     |     Sổ điểm của lớp, chọn cột điểm thành phần cần  |
+| Flow)**         |     nhập.                                          |
 |                 | 2.  Giáo viên nhập điểm cho từng học sinh; hệ      |
 |                 |     thống kiểm tra tính hợp lệ (0 ≤ score ≤        |
 |                 |     max_score) ngay khi nhập, chặn lưu nếu không   |
@@ -673,9 +678,12 @@ người dùng)
 |                 | loạt lên thay vì nhập tay từng dòng.                |
 +-----------------+----------------------------------------------------+
 | **Điều kiện     | -   Giáo viên được phân công giảng dạy lớp cần     |
-| tiên quyết      |     nhập điểm (UC-18), như UC-19.                  |
-| (               |                                                    |
-| Precondition)** | -   Kỳ đánh giá và các thành phần điểm (kỹ năng)   |
+| tiên quyết      |     nhập điểm (UC-18), như UC-19 — HOẶC Trưởng     |
+| (               |     phòng đào tạo/Quản lý điểm trường phụ trách    |
+| Precondition)** |     đúng điểm trường của lớp (cùng mở rộng quyền   |
+|                 |     như UC-19).                                    |
+|                 |                                                    |
+|                 | -   Kỳ đánh giá và các thành phần điểm (kỹ năng)   |
 |                 |     tương ứng đã được cấu hình sẵn cho khung        |
 |                 |     chương trình của lớp (UC-16, kể cả qua A2).    |
 +-----------------+----------------------------------------------------+
