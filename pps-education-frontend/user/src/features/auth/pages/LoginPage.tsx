@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ChevronDown, Eye, EyeOff, Lock, Mail, User } from "lucide-react";
+import { ChevronDown, Eye, EyeOff, Lock, Mail } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import GoogleSignInButton from "../components/GoogleSignInButton";
@@ -34,51 +34,41 @@ export default function LoginPage() {
   return (
     <div className="login-hero-page">
       <nav className="navbar">
-        <div className="brand">
-          <div className="brand-text">
-            <div className="top">PPS Education</div>
-            <div className="bottom">CỔNG THÔNG TIN</div>
+        <div className="navbar-inner">
+          <div className="brand">
+            <div className="brand-text">
+              <div className="top">PPS Education</div>
+              <div className="bottom">CỔNG THÔNG TIN</div>
+            </div>
           </div>
-        </div>
 
-        <ul className="nav-links">
-          <li>
-            <a href="#" className="active" onClick={preventNav}>
-              Về chúng tôi
-            </a>
-          </li>
-          <li>
-            <a href="#" onClick={preventNav}>
-              Góc học tập <ChevronDown />
-            </a>
-          </li>
-          <li>
-            <a href="#" onClick={preventNav}>
-              Điều phối viên
-            </a>
-          </li>
-          <li>
-            <a href="#" onClick={preventNav}>
-              Tin tức &amp; Sự kiện
-            </a>
-          </li>
-          <li>
-            <a href="#" onClick={preventNav}>
-              Liên hệ
-            </a>
-          </li>
-        </ul>
-
-        <div className="nav-right">
-          <div className="icon-btn">
-            <User size={17} />
-          </div>
-          <button className="cta-btn" type="button" onClick={preventNav}>
-            Dùng thử miễn phí
-          </button>
-          <div className="lang">
-            Vi <ChevronDown size={10} />
-          </div>
+          <ul className="nav-links">
+            <li>
+              <a href="#" className="" onClick={preventNav}>
+                Về chúng tôi
+              </a>
+            </li>
+            <li>
+              <a href="#" onClick={preventNav}>
+                Góc học tập <ChevronDown />
+              </a>
+            </li>
+            <li>
+              <a href="#" onClick={preventNav}>
+                Điều phối viên
+              </a>
+            </li>
+            <li>
+              <a href="#" onClick={preventNav}>
+                Tin tức &amp; Sự kiện
+              </a>
+            </li>
+            <li>
+              <a href="#" onClick={preventNav}>
+                Liên hệ
+              </a>
+            </li>
+          </ul>
         </div>
       </nav>
 

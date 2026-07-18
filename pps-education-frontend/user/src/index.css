@@ -294,19 +294,27 @@ h3,
     radial-gradient(900px 500px at 100% 0%, #fdefe3 0%, transparent 55%),
     var(--sky-2);
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 .navbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 15px 48px;
   background: rgba(255, 255, 255, 0.75);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--line);
   position: sticky;
   top: 0;
   z-index: 50;
+}
+
+.navbar-inner {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 300px;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px 40px;
 }
 
 .brand {
@@ -316,17 +324,17 @@ h3,
 }
 
 .brand-text {
-  line-height: 1.05;
+  line-height: 1.1;
 }
 
 .brand-text .top {
   font-weight: 700;
-  font-size: 15.5px;
+  font-size: 18px;
   color: var(--ink);
 }
 
 .brand-text .bottom {
-  font-size: 11.5px;
+  font-size: 12.5px;
   letter-spacing: 0.14em;
   color: var(--teal-deep);
   font-weight: 700;
@@ -345,12 +353,12 @@ h3,
   text-decoration: none;
   color: var(--ink);
   font-weight: 700;
-  font-size: 15px;
+  font-size: 16.5px;
   display: flex;
   align-items: center;
   gap: 5px;
   opacity: 0.85;
-  transition: opacity 0.2s, color 0.2s;
+  transition: opacity 0.2s, color 0.2s, background 0.2s;
 }
 
 .nav-links li a:hover {
@@ -359,8 +367,12 @@ h3,
 }
 
 .nav-links li a.active {
-  color: var(--teal-deep);
+  color: #fff;
   opacity: 1;
+  background: var(--teal);
+  padding: 11px 24px;
+  border-radius: 999px;
+  box-shadow: 0 3px 0 var(--teal-deep);
 }
 
 .nav-links li a svg {
@@ -422,8 +434,11 @@ h3,
   display: grid;
   grid-template-columns: 1.1fr 0.9fr;
   gap: 40px;
-  padding: 10px 48px 40px;
+  padding: 10px 48px 30px;
   align-items: center;
+  align-content: center;
+  flex: 1;
+  width: 100%;
 }
 
 .eyebrow {
@@ -449,6 +464,7 @@ h3,
 }
 
 h1.headline {
+  padding-top: 10px;
   font-size: 52px;
   font-weight: 800;
   line-height: 1.04;
@@ -718,8 +734,9 @@ h1.headline .accent {
     height: 320px;
   }
 
-  .navbar {
+  .navbar-inner {
     padding: 16px 20px;
+    gap: 24px;
   }
 
   .nav-links {
