@@ -18,16 +18,19 @@ import vn.com.pps.education.dto.CreateGradeComponentRequest;
 import vn.com.pps.education.dto.CreateGradePeriodRequest;
 import vn.com.pps.education.dto.CurriculumResponse;
 import vn.com.pps.education.dto.DecideGradesRequest;
+import vn.com.pps.education.dto.EnterGradePeriodResultRequest;
 import vn.com.pps.education.dto.EnterGradeRequest;
 import vn.com.pps.education.dto.GradeComponentResponse;
 import vn.com.pps.education.dto.GradeEntryResponse;
 import vn.com.pps.education.dto.GradePeriodResponse;
+import vn.com.pps.education.dto.GradePeriodResultResponse;
 import vn.com.pps.education.dto.PeriodAverageResponse;
 import vn.com.pps.education.dto.SubmitGradesRequest;
 import vn.com.pps.education.dto.UpdateCurriculumRequest;
 import vn.com.pps.education.dto.UpdateGradeComponentRequest;
 import vn.com.pps.education.exception.ApprovalAlreadyDecidedException;
 import vn.com.pps.education.exception.GradeComponentLockedException;
+import vn.com.pps.education.exception.GradeComponentWeightExceededException;
 import vn.com.pps.education.exception.GradeEntryNotEditableException;
 import vn.com.pps.education.exception.GradePeriodWeightExceededException;
 import vn.com.pps.education.exception.InvalidGradeScoreException;
@@ -125,7 +128,7 @@ class GradeServiceTest extends AbstractIntegrationTest {
         gradePeriod = gradeService.createGradePeriod(activeCurriculum.id(),
                 new CreateGradePeriodRequest("MID_1", "Giữa kỳ 1", 1, new BigDecimal("50"), null, null), headAcademic.getId());
         gradeComponent = gradeService.addGradeComponent(gradePeriod.id(),
-                new CreateGradeComponentRequest(null, "SPEAKING", "Nói", new BigDecimal("100"), new BigDecimal("10.00"), null, 1),
+                new CreateGradeComponentRequest(null, null, "SPEAKING", "Nói", new BigDecimal("100"), new BigDecimal("10.00"), null, null, 1),
                 headAcademic.getId());
 
         student = newStudent();
@@ -146,6 +149,60 @@ class GradeServiceTest extends AbstractIntegrationTest {
         assertThatThrownBy(() -> gradeService.updateGradeComponent(gradeComponent.id(),
                 new UpdateGradeComponentRequest("Nói", new BigDecimal("50"), null, null, 1), headAcademic.getId()))
                 .isInstanceOf(GradeComponentLockedException.class);
+    }
+
+    @Test
+    void addGradeComponent_UC16_A2_vuotTongTrongSo_bloc() {
+        // setUp() đã tạo "Nói" weight=100 trong gradePeriod -> thêm bất kỳ weight > 0 nữa sẽ vượt 100.
+        assertThatThrownBy(() -> gradeService.addGradeComponent(gradePeriod.id(),
+                new CreateGradeComponentRequest(null, null, "WRITING", "Viết", new BigDecimal("1"), null, null, null, 2),
+                headAcademic.getId()))
+                .isInstanceOf(GradeComponentWeightExceededException.class);
+    }
+
+    @Test
+    void addGradeComponent_UC16_A2_themThanhCongKhongCanDuyetKhung_thanhCong() {
+        // Khung đang ACTIVE, đã có lớp dùng (schoolClass) -- vẫn thêm được, không cần qua UC-16b/17.
+        GradePeriodResponse newPeriod = gradeService.createGradePeriod(gradePeriod.curriculumId(),
+                new CreateGradePeriodRequest("END_1", "Cuối kỳ 1", 2, new BigDecimal("50"), null, null), headAcademic.getId());
+
+        GradeComponentResponse component = gradeService.addGradeComponent(newPeriod.id(),
+                new CreateGradeComponentRequest(null, null, "GRAMMAR", "Ngữ pháp", new BigDecimal("100"),
+                        new BigDecimal("9.00"), null, "BAND", 1),
+                headAcademic.getId());
+
+        assertThat(component.code()).isEqualTo("GRAMMAR");
+        assertThat(component.scaleType()).isEqualTo("BAND");
+        assertThat(gradeService.listGradeComponents(newPeriod.id())).extracting(GradeComponentResponse::id)
+                .contains(component.id());
+    }
+
+    @Test
+    void enterPeriodResult_UC53_luuOverallLevel_thanhCong() {
+        GradePeriodResultResponse result = gradeService.enterPeriodResult(schoolClass.id(), student.getId(), gradePeriod.id(),
+                new EnterGradePeriodResultRequest(new BigDecimal("6.5"), "BAND", "B2"), teacher.getId());
+
+        assertThat(result.status()).isEqualTo("DRAFT");
+        assertThat(result.overallScore()).isEqualByComparingTo("6.5");
+        assertThat(result.scaleType()).isEqualTo("BAND");
+        assertThat(result.level()).isEqualTo("B2");
+        assertThat(result.source()).isEqualTo("MANUAL");
+    }
+
+    @Test
+    void enterPeriodResult_UC53_suaKhiRejected_thanhCong() {
+        GradePeriodResultResponse result = gradeService.enterPeriodResult(schoolClass.id(), student.getId(), gradePeriod.id(),
+                new EnterGradePeriodResultRequest(new BigDecimal("5.0"), "BAND", "B1"), teacher.getId());
+        gradeService.submitGrades(schoolClass.id(),
+                new SubmitGradesRequest(null, List.of(result.id())), teacher.getId());
+        gradeService.decideGrades(new DecideGradesRequest(null, List.of(result.id()), "REJECTED", "Sai band"),
+                siteManagerUser.getId());
+
+        GradePeriodResultResponse reentered = gradeService.enterPeriodResult(schoolClass.id(), student.getId(), gradePeriod.id(),
+                new EnterGradePeriodResultRequest(new BigDecimal("6.0"), "BAND", "B2"), teacher.getId());
+
+        assertThat(reentered.status()).isEqualTo("DRAFT");
+        assertThat(reentered.overallScore()).isEqualByComparingTo("6.0");
     }
 
     @Test
@@ -184,7 +241,7 @@ class GradeServiceTest extends AbstractIntegrationTest {
                 new EnterGradeRequest(student.getId(), new BigDecimal("8"), false, null), teacher.getId());
 
         List<GradeEntryResponse> submitted = gradeService.submitGrades(schoolClass.id(),
-                new SubmitGradesRequest(List.of(entry.id())), teacher.getId());
+                new SubmitGradesRequest(List.of(entry.id()), null), teacher.getId());
 
         assertThat(submitted).hasSize(1);
         assertThat(submitted.get(0).status()).isEqualTo("PENDING");
@@ -196,10 +253,10 @@ class GradeServiceTest extends AbstractIntegrationTest {
     void decideGrades_UC20_MainFlow_approvedPublishesGrade() {
         GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
                 new EnterGradeRequest(student.getId(), new BigDecimal("9"), false, null), teacher.getId());
-        gradeService.submitGrades(schoolClass.id(), new SubmitGradesRequest(List.of(entry.id())), teacher.getId());
+        gradeService.submitGrades(schoolClass.id(), new SubmitGradesRequest(List.of(entry.id()), null), teacher.getId());
 
         List<GradeEntryResponse> decided = gradeService.decideGrades(
-                new DecideGradesRequest(List.of(entry.id()), "APPROVED", "Tốt"), siteManagerUser.getId());
+                new DecideGradesRequest(List.of(entry.id()), null, "APPROVED", "Tốt"), siteManagerUser.getId());
 
         assertThat(decided.get(0).status()).isEqualTo("APPROVED");
     }
@@ -208,10 +265,10 @@ class GradeServiceTest extends AbstractIntegrationTest {
     void decideGrades_UC20_MainFlow_rejectedAndUC19_A2_reenterLoopsBackToDraft() {
         GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
                 new EnterGradeRequest(student.getId(), new BigDecimal("4"), false, null), teacher.getId());
-        gradeService.submitGrades(schoolClass.id(), new SubmitGradesRequest(List.of(entry.id())), teacher.getId());
+        gradeService.submitGrades(schoolClass.id(), new SubmitGradesRequest(List.of(entry.id()), null), teacher.getId());
 
         List<GradeEntryResponse> decided = gradeService.decideGrades(
-                new DecideGradesRequest(List.of(entry.id()), "REJECTED", "Điểm không hợp lý"), siteManagerUser.getId());
+                new DecideGradesRequest(List.of(entry.id()), null, "REJECTED", "Điểm không hợp lý"), siteManagerUser.getId());
         assertThat(decided.get(0).status()).isEqualTo("REJECTED");
 
         // UC-19 A2 -- Giáo viên sửa lại, quay về DRAFT, submit lại được.
@@ -219,7 +276,7 @@ class GradeServiceTest extends AbstractIntegrationTest {
                 new EnterGradeRequest(student.getId(), new BigDecimal("7"), false, "Đã chấm lại"), teacher.getId());
         assertThat(reentered.status()).isEqualTo("DRAFT");
         List<GradeEntryResponse> resubmitted = gradeService.submitGrades(schoolClass.id(),
-                new SubmitGradesRequest(List.of(entry.id())), teacher.getId());
+                new SubmitGradesRequest(List.of(entry.id()), null), teacher.getId());
         assertThat(resubmitted.get(0).status()).isEqualTo("PENDING");
     }
 
@@ -230,10 +287,10 @@ class GradeServiceTest extends AbstractIntegrationTest {
                 new EnterGradeRequest(student.getId(), new BigDecimal("8"), false, null), teacher.getId());
         GradeEntryResponse entry2 = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
                 new EnterGradeRequest(student2.getId(), new BigDecimal("6"), false, null), teacher.getId());
-        gradeService.submitGrades(schoolClass.id(), new SubmitGradesRequest(List.of(entry1.id(), entry2.id())), teacher.getId());
+        gradeService.submitGrades(schoolClass.id(), new SubmitGradesRequest(List.of(entry1.id(), entry2.id()), null), teacher.getId());
 
         // A1 -- duyệt tách lẻ chỉ entry1, entry2 vẫn PENDING.
-        gradeService.decideGrades(new DecideGradesRequest(List.of(entry1.id()), "APPROVED", null), siteManagerUser.getId());
+        gradeService.decideGrades(new DecideGradesRequest(List.of(entry1.id()), null, "APPROVED", null), siteManagerUser.getId());
 
         assertThat(gradeService.listPendingForSite(siteManagerUser.getId()))
                 .extracting(GradeEntryResponse::id).containsExactly(entry2.id());
@@ -243,12 +300,12 @@ class GradeServiceTest extends AbstractIntegrationTest {
     void decideGrades_rejectsWhenActorNotSiteManagerForSite() {
         GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
                 new EnterGradeRequest(student.getId(), new BigDecimal("8"), false, null), teacher.getId());
-        gradeService.submitGrades(schoolClass.id(), new SubmitGradesRequest(List.of(entry.id())), teacher.getId());
+        gradeService.submitGrades(schoolClass.id(), new SubmitGradesRequest(List.of(entry.id()), null), teacher.getId());
         User outsiderManager = newUser("outsider.sitemanager");
         assignRole(outsiderManager, "SITE_MANAGER");
 
         assertThatThrownBy(() -> gradeService.decideGrades(
-                new DecideGradesRequest(List.of(entry.id()), "APPROVED", null), outsiderManager.getId()))
+                new DecideGradesRequest(List.of(entry.id()), null, "APPROVED", null), outsiderManager.getId()))
                 .isInstanceOf(NotSiteManagerForSiteException.class);
     }
 
@@ -256,11 +313,11 @@ class GradeServiceTest extends AbstractIntegrationTest {
     void decideGrades_rejectsWhenAlreadyDecided() {
         GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
                 new EnterGradeRequest(student.getId(), new BigDecimal("8"), false, null), teacher.getId());
-        gradeService.submitGrades(schoolClass.id(), new SubmitGradesRequest(List.of(entry.id())), teacher.getId());
-        gradeService.decideGrades(new DecideGradesRequest(List.of(entry.id()), "APPROVED", null), siteManagerUser.getId());
+        gradeService.submitGrades(schoolClass.id(), new SubmitGradesRequest(List.of(entry.id()), null), teacher.getId());
+        gradeService.decideGrades(new DecideGradesRequest(List.of(entry.id()), null, "APPROVED", null), siteManagerUser.getId());
 
         assertThatThrownBy(() -> gradeService.decideGrades(
-                new DecideGradesRequest(List.of(entry.id()), "APPROVED", null), siteManagerUser.getId()))
+                new DecideGradesRequest(List.of(entry.id()), null, "APPROVED", null), siteManagerUser.getId()))
                 .isInstanceOf(ApprovalAlreadyDecidedException.class);
     }
 
@@ -268,7 +325,7 @@ class GradeServiceTest extends AbstractIntegrationTest {
     void enterGrade_rejectsEditingPendingEntry() {
         GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
                 new EnterGradeRequest(student.getId(), new BigDecimal("8"), false, null), teacher.getId());
-        gradeService.submitGrades(schoolClass.id(), new SubmitGradesRequest(List.of(entry.id())), teacher.getId());
+        gradeService.submitGrades(schoolClass.id(), new SubmitGradesRequest(List.of(entry.id()), null), teacher.getId());
 
         assertThatThrownBy(() -> gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
                 new EnterGradeRequest(student.getId(), new BigDecimal("9"), false, null), teacher.getId()))
@@ -277,21 +334,26 @@ class GradeServiceTest extends AbstractIntegrationTest {
 
     @Test
     void getPeriodAverage_UC19_Postcondition_computesWeightedAverage() {
-        GradeComponentResponse writing = gradeService.addGradeComponent(gradePeriod.id(),
-                new CreateGradeComponentRequest(null, "WRITING", "Viết", new BigDecimal("50"), new BigDecimal("10.00"), null, 2),
+        // Tạo kỳ riêng với 2 thành phần 60/40 (tổng đúng 100 — UC-16 A2 giờ validate trần này).
+        GradePeriodResponse endPeriod = gradeService.createGradePeriod(gradePeriod.curriculumId(),
+                new CreateGradePeriodRequest("END_1", "Cuối kỳ 1", 2, new BigDecimal("50"), null, null), headAcademic.getId());
+        GradeComponentResponse speaking = gradeService.addGradeComponent(endPeriod.id(),
+                new CreateGradeComponentRequest(null, null, "SPEAKING", "Nói", new BigDecimal("60"), new BigDecimal("10.00"), null, null, 1),
                 headAcademic.getId());
-        // component "Nói" (gradeComponent) weight 100 -> đặt lại vì tổng ban đầu = 100 + 50, khong sao vi khong validate tong weightInPeriod.
-        gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
+        GradeComponentResponse writing = gradeService.addGradeComponent(endPeriod.id(),
+                new CreateGradeComponentRequest(null, null, "WRITING", "Viết", new BigDecimal("40"), new BigDecimal("10.00"), null, null, 2),
+                headAcademic.getId());
+        gradeService.enterGrade(schoolClass.id(), speaking.id(),
                 new EnterGradeRequest(student.getId(), new BigDecimal("8"), false, null), teacher.getId());
         gradeService.enterGrade(schoolClass.id(), writing.id(),
                 new EnterGradeRequest(student.getId(), new BigDecimal("6"), false, null), teacher.getId());
 
-        PeriodAverageResponse average = gradeService.getPeriodAverage(schoolClass.id(), student.getId(), gradePeriod.id());
+        PeriodAverageResponse average = gradeService.getPeriodAverage(schoolClass.id(), student.getId(), endPeriod.id());
 
-        // (8*100 + 6*50) / (100+50) = 900/150 = 6.0? tinh lai: (8*100 + 6*50)=800+300=1100 /150 = 7.33
+        // (8*60 + 6*40) / (60+40) = 720/100 = 7.20
         assertThat(average.componentsEntered()).isEqualTo(2);
         assertThat(average.componentsTotal()).isEqualTo(2);
-        assertThat(average.average()).isEqualByComparingTo("7.33");
+        assertThat(average.average()).isEqualByComparingTo("7.20");
     }
 
     private String curriculumCode() {

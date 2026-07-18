@@ -55,6 +55,12 @@ public class TaskController {
         return ResponseEntity.ok(taskService.listMyAssignments(actor.userId()));
     }
 
+    @GetMapping("/api/tasks/{id}/assignments")
+    public ResponseEntity<List<TaskAssignmentResponse>> listAssignments(@PathVariable Long id,
+                                                                          @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(taskService.listAssignments(id, actor.userId()));
+    }
+
     @PutMapping("/api/task-assignments/{id}/status")
     public ResponseEntity<TaskAssignmentResponse> updateAssignmentStatus(@PathVariable Long id,
                                                                           @Valid @RequestBody UpdateAssignmentStatusRequest request,

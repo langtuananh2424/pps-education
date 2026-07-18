@@ -21,6 +21,7 @@ import vn.com.pps.education.dto.TaskResponse;
 import vn.com.pps.education.dto.UpdateAssignmentStatusRequest;
 import vn.com.pps.education.exception.AssigneeOutsideDepartmentException;
 import vn.com.pps.education.exception.InvalidTaskStatusTransitionException;
+import vn.com.pps.education.exception.NotTaskCreatorException;
 import vn.com.pps.education.exception.NotTaskParticipantException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.repository.TaskAssignmentHistoryRepository;
@@ -187,6 +188,19 @@ public class TaskService {
     }
 
     /**
+     * UC-07 A2: người giao việc xem toàn bộ assignment (từng người nhận + trạng thái + assignmentId)
+     * của 1 task để duyệt/từ chối kết quả qua updateAssignmentStatus. Chỉ người giao (createdBy) —
+     * hẹp hơn requireParticipant có chủ đích: 1 người nhận không có nhu cầu nghiệp vụ nào (UC-06/07)
+     * để xem tiến độ/lý do từ chối của những người nhận khác cùng task.
+     */
+    @Transactional(readOnly = true)
+    public List<TaskAssignmentResponse> listAssignments(Long taskId, Long actorUserId) {
+        Task task = getTaskOrThrow(taskId);
+        requireCreator(task, actorUserId);
+        return taskAssignmentRepository.findByTaskId(taskId).stream().map(this::toResponse).toList();
+    }
+
+    /**
      * UC-07 Main Flow bước 2-4, A2: chuyển trạng thái 1 task_assignment.
      * Người nhận việc (assignee) điều khiển PENDING→ACCEPTED/DECLINED/IN_PROGRESS,
      * ACCEPTED→IN_PROGRESS, IN_PROGRESS→PENDING_REVIEW ("nộp kết quả").
@@ -307,6 +321,14 @@ public class TaskService {
                         "Người nhận việc id=" + assignee.getId() + " không thuộc phòng ban của người giao id=" + actorUserId + ".");
             }
         }
+    }
+
+    private void requireCreator(Task task, Long actorUserId) {
+        if (task.getCreatedBy().getId().equals(actorUserId)) {
+            return;
+        }
+        throw new NotTaskCreatorException(
+                "Tài khoản id=" + actorUserId + " không phải người giao công việc id=" + task.getId() + ".");
     }
 
     private void requireParticipant(Task task, Long actorUserId) {
