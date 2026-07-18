@@ -5,8 +5,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.transaction.annotation.Transactional;
+import vn.com.pps.education.domain.Student;
+import vn.com.pps.education.domain.User;
 import vn.com.pps.education.dto.ChangeOwnPasswordRequest;
+import vn.com.pps.education.repository.StudentRepository;
 import vn.com.pps.education.support.AbstractControllerTest;
+
+import java.time.LocalDate;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -27,6 +32,9 @@ class AuthControllerTest extends AbstractControllerTest {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @Autowired
+    private StudentRepository studentRepository;
+
     @Test
     void me_deniedWithoutJwt_returns403() throws Exception {
         // Không có AuthenticationEntryPoint riêng trong SecurityConfig -> Spring Security
@@ -44,7 +52,29 @@ class AuthControllerTest extends AbstractControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.username").value(student.getUsername()))
                 .andExpect(jsonPath("$.email").value(student.getEmail()))
-                .andExpect(jsonPath("$.roleCodes[0]").value("STUDENT"));
+                .andExpect(jsonPath("$.roleCodes[0]").value("STUDENT"))
+                .andExpect(jsonPath("$.studentId").doesNotExist()); // chưa có hồ sơ Student liên kết
+    }
+
+    /**
+     * UC-42 tiền đề: tài khoản Học sinh tự đăng nhập tra ra studentId của chính
+     * mình qua GET /api/auth/me (tương tự GET /api/portal/parent/children cho
+     * Phụ huynh) để gọi tiếp các API Portal cần studentId.
+     */
+    @Test
+    void me_UC42_returnsStudentIdWhenAccountLinkedToStudentProfile() throws Exception {
+        User student = userWithRole("student.withprofile", "STUDENT");
+        Student studentProfile = new Student();
+        studentProfile.setUser(student);
+        studentProfile.setStudentCode("HS-AUTHCTRL-TEST-1");
+        studentProfile.setDateOfBirth(LocalDate.of(2012, 5, 1));
+        studentProfile.setEnrollmentDate(LocalDate.now());
+        studentProfile = studentRepository.save(studentProfile);
+
+        mockMvc.perform(get("/api/auth/me")
+                        .header("Authorization", bearerToken(student, "STUDENT")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.studentId").value(studentProfile.getId()));
     }
 
     @Test
