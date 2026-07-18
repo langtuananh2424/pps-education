@@ -34,6 +34,7 @@ import vn.com.pps.education.repository.CurriculumSubjectRepository;
 import vn.com.pps.education.repository.SchoolClassRepository;
 import vn.com.pps.education.repository.SiteManagerRepository;
 import vn.com.pps.education.repository.SiteRepository;
+import vn.com.pps.education.repository.SkillRepository;
 import vn.com.pps.education.repository.UserRepository;
 
 import java.time.OffsetDateTime;
@@ -76,6 +77,7 @@ public class CurriculumService {
     private final SiteRepository siteRepository;
     private final SiteManagerRepository siteManagerRepository;
     private final ApprovalFlowRepository approvalFlowRepository;
+    private final SkillRepository skillRepository;
     private final UserRepository userRepository;
 
     public CurriculumService(CurriculumRepository curriculumRepository,
@@ -86,6 +88,7 @@ public class CurriculumService {
                               SiteRepository siteRepository,
                               SiteManagerRepository siteManagerRepository,
                               ApprovalFlowRepository approvalFlowRepository,
+                              SkillRepository skillRepository,
                               UserRepository userRepository) {
         this.curriculumRepository = curriculumRepository;
         this.curriculumSubjectRepository = curriculumSubjectRepository;
@@ -95,6 +98,7 @@ public class CurriculumService {
         this.siteRepository = siteRepository;
         this.siteManagerRepository = siteManagerRepository;
         this.approvalFlowRepository = approvalFlowRepository;
+        this.skillRepository = skillRepository;
         this.userRepository = userRepository;
     }
 
@@ -177,6 +181,10 @@ public class CurriculumService {
         CurriculumSubject subject = new CurriculumSubject();
         subject.setCurriculum(curriculum);
         subject.setSubjectCode(CurriculumSubject.SubjectCode.valueOf(request.subjectCode()));
+        if (request.skillId() != null) {
+            subject.setSkill(skillRepository.findById(request.skillId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy kỹ năng id=" + request.skillId())));
+        }
         subject.setName(request.name());
         subject.setPeriodCount(request.periodCount());
         subject.setDisplayOrder(request.displayOrder() == null ? 0 : request.displayOrder());
@@ -414,7 +422,8 @@ public class CurriculumService {
 
     private CurriculumSubjectResponse toResponse(CurriculumSubject s) {
         return new CurriculumSubjectResponse(
-                s.getId(), s.getCurriculum().getId(), s.getSubjectCode().name(), s.getName(),
+                s.getId(), s.getCurriculum().getId(), s.getSubjectCode().name(),
+                s.getSkill() == null ? null : s.getSkill().getId(), s.getName(),
                 s.getPeriodCount(), s.getDisplayOrder());
     }
 }

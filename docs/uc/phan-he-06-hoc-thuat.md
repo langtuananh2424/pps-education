@@ -48,6 +48,31 @@ UC-16: Quản lý khung chương trình
 | Flow)**         | 1.  Nếu chỉnh sửa ảnh hưởng tới cấu trúc điểm đang |
 |                 |     áp dụng cho lớp đang chạy, hệ thống cảnh báo   |
 |                 |     phạm vi ảnh hưởng trước khi cho phép lưu.      |
+|                 |                                                    |
+|                 | ***A2 --- Bổ sung thành phần điểm giữa kỳ, không   |
+|                 | cần duyệt lại toàn bộ khung (bổ sung ngoài SDD gốc,|
+|                 | đã xác nhận với người dùng)***                     |
+|                 |                                                    |
+|                 | 1.  Trưởng phòng đào tạo (hoặc người có quyền      |
+|                 |     academic.grade.manage) có thể thêm 1 thành     |
+|                 |     phần điểm mới (grade_component) vào 1 kỳ đánh  |
+|                 |     giá đã tồn tại — kể cả khi khung đang Có hiệu  |
+|                 |     lực và đã có lớp dùng — mà KHÔNG cần đi qua lại|
+|                 |     UC-16b/UC-17. Áp dụng cho trường hợp phát sinh |
+|                 |     kỹ năng thi mới (VD thêm Ngữ pháp giữa kỳ) mà  |
+|                 |     không cần chờ quy trình tùy biến + phê duyệt   |
+|                 |     đầy đủ.                                        |
+|                 |                                                    |
+|                 | 2.  Hệ thống kiểm tra tổng weight_in_period của tất|
+|                 |     cả thành phần điểm cùng kỳ đánh giá đó (kể cả  |
+|                 |     thành phần vừa thêm) không vượt quá 100; nếu   |
+|                 |     vượt, chặn lưu và báo lỗi.                     |
+|                 |                                                    |
+|                 | 3.  Vì kỳ đánh giá thuộc về khung chương trình dùng |
+|                 |     chung (curriculum_id), thành phần điểm mới sẽ  |
+|                 |     áp dụng cho MỌI lớp đang dùng khung đó (không  |
+|                 |     tách riêng theo từng lớp) — đúng bản chất khung|
+|                 |     chuẩn dùng chung.                              |
 +-----------------+----------------------------------------------------+
 | **Hậu điều kiện | -   Khung chương trình chuẩn được cập nhật, sẵn    |
 | (P              |     sàng làm cơ sở xếp lớp (UC-18) và tính điểm    |
@@ -616,6 +641,154 @@ UC-22: Duyệt nhận xét
 |                 |                                                    |
 |                 | -   Nhận xét REJECTED quay về Giáo viên, chưa hiển |
 |                 |     thị cho bất kỳ ai bên ngoài.                   |
++-----------------+----------------------------------------------------+
+
+---
+
+UC-53: Nhập điểm thi qua Excel (bổ sung ngoài SDD gốc, đã xác nhận với
+người dùng)
+
++-----------------+----------------------------------------------------+
+| **Mã Use Case** | UC-53                                              |
++-----------------+----------------------------------------------------+
+| **Tên Use       | Nhập điểm thi qua Excel                            |
+| Case**          |                                                    |
++-----------------+----------------------------------------------------+
+| **Phân hệ**     | Phân hệ 6                                          |
++-----------------+----------------------------------------------------+
+| **Yêu cầu chức  | FR-ACA-03                                          |
+| năng gốc**      |                                                    |
++-----------------+----------------------------------------------------+
+| **Tác nhân**    | Giáo viên                                          |
++-----------------+----------------------------------------------------+
+| **Mô tả tóm     | Giáo viên tải lên 1 file Excel đã hoàn thiện toàn  |
+| tắt**           | bộ bảng điểm (từng kỹ năng + Overall + Level đã    |
+|                 | quy đổi sẵn) cho 1 kỳ đánh giá; hệ thống quét dòng |
+|                 | header, tự map từng cột vào đúng thành phần điểm/  |
+|                 | Overall/Level đã cấu hình, rồi ghi nhận như nhập   |
+|                 | tay (UC-19) — không tự tính lại công thức.         |
++-----------------+----------------------------------------------------+
+| **Sự kiện kích  | Giáo viên đã hoàn thiện bảng điểm ngoài hệ thống   |
+| hoạt**          | (Excel) sau kỳ thi giữa kỳ/cuối kỳ, cần đẩy hàng    |
+|                 | loạt lên thay vì nhập tay từng dòng.                |
++-----------------+----------------------------------------------------+
+| **Điều kiện     | -   Giáo viên được phân công giảng dạy lớp cần     |
+| tiên quyết      |     nhập điểm (UC-18), như UC-19.                  |
+| (               |                                                    |
+| Precondition)** | -   Kỳ đánh giá và các thành phần điểm (kỹ năng)   |
+|                 |     tương ứng đã được cấu hình sẵn cho khung        |
+|                 |     chương trình của lớp (UC-16, kể cả qua A2).    |
++-----------------+----------------------------------------------------+
+| **Luồng sự kiện | 1.  Giáo viên chọn lớp và kỳ đánh giá, tải lên 1   |
+| chính (Main     |     file .xlsx đã hoàn thiện điểm: cột đầu là mã   |
+| Flow)**         |     học viên, các cột sau là từng kỹ năng/thành    |
+|                 |     phần điểm hoặc cột Overall/Level; dòng 1 là    |
+|                 |     header, dữ liệu từ dòng 2.                     |
+|                 |                                                    |
+|                 | 2.  Hệ thống đọc header, so khớp tên từng cột (đã  |
+|                 |     chuẩn hoá khoảng trắng/hoa-thường) với tên các |
+|                 |     thành phần điểm đã cấu hình cho đúng kỳ đánh   |
+|                 |     giá đó, hoặc với tên cột Overall/Level.        |
+|                 |                                                    |
+|                 | 3.  Nếu mọi cột đều khớp, hệ thống xử lý từng dòng: |
+|                 |     ghi điểm từng kỹ năng vào grade_entries (áp    |
+|                 |     dụng đúng validate 0 ≤ score ≤ max_score như   |
+|                 |     UC-19 A1) và ghi Overall/Level vào              |
+|                 |     grade_period_results — tất cả ở trạng thái     |
+|                 |     nháp (DRAFT), giống như Giáo viên tự nhập tay. |
+|                 |                                                    |
+|                 | 4.  Hệ thống trả về kết quả tổng hợp: số dòng thành |
+|                 |     công/lỗi (import_jobs).                        |
+|                 |                                                    |
+|                 | 5.  Giáo viên xem lại bảng điểm vừa nhập, dùng lại |
+|                 |     chức năng Submit sẵn có (UC-19 bước 4) để gửi  |
+|                 |     duyệt hàng loạt — không có luồng duyệt riêng   |
+|                 |     cho dữ liệu nhập từ Excel.                     |
++-----------------+----------------------------------------------------+
+| **Luồng thay    | ***A1 --- Cột không khớp cấu hình***               |
+| thế / ngoại lệ  |                                                    |
+| (Alternate      | 1.  Nếu có tên cột (ngoài cột mã học viên) không   |
+| Flow)**         |     khớp bất kỳ thành phần điểm/Overall/Level nào  |
+|                 |     đã cấu hình cho kỳ đánh giá đó, hệ thống DỪNG   |
+|                 |     toàn bộ import (không ghi dòng nào), liệt kê rõ|
+|                 |     danh sách tên cột không khớp, yêu cầu người có |
+|                 |     quyền academic.grade.manage bổ sung thành phần |
+|                 |     điểm đó (UC-16/A2) trước khi import lại.       |
+|                 |                                                    |
+|                 | ***A2 --- Lỗi ở từng dòng dữ liệu***               |
+|                 |                                                    |
+|                 | 1.  Nếu 1 dòng có mã học viên không tồn tại hoặc   |
+|                 |     điểm ngoài khoảng hợp lệ, hệ thống ghi nhận lỗi|
+|                 |     dòng đó vào error_summary, KHÔNG chặn các dòng |
+|                 |     còn lại (theo đúng cơ chế UC-51 A2).           |
+|                 |                                                    |
+|                 | ***A3 --- File sai định dạng hoàn toàn***          |
+|                 |                                                    |
+|                 | 1.  Nếu không đọc được file (không mở được dạng    |
+|                 |     .xlsx, thiếu dòng header), hệ thống đánh dấu    |
+|                 |     import_job FAILED ngay, không xử lý dòng nào   |
+|                 |     (theo đúng cơ chế UC-51 A1).                   |
++-----------------+----------------------------------------------------+
+| **Hậu điều kiện | -   Điểm nhập từ Excel ở trạng thái DRAFT, có thể  |
+| (P              |     chỉnh sửa/submit tiếp giống hệt nhập tay        |
+| ostcondition)** |     (UC-19) — không có quy trình duyệt riêng.      |
+|                 |                                                    |
+|                 | -   import_jobs lưu lại kết quả (thành công/lỗi    |
+|                 |     từng dòng) để Giáo viên đối chiếu.             |
++-----------------+----------------------------------------------------+
+
+---
+
+UC-54: Quản lý danh mục kỹ năng (bổ sung ngoài SDD gốc, đã xác nhận với
+người dùng)
+
++-----------------+----------------------------------------------------+
+| **Mã Use Case** | UC-54                                              |
++-----------------+----------------------------------------------------+
+| **Tên Use       | Quản lý danh mục kỹ năng                           |
+| Case**          |                                                    |
++-----------------+----------------------------------------------------+
+| **Phân hệ**     | Phân hệ 6                                          |
++-----------------+----------------------------------------------------+
+| **Yêu cầu chức  | FR-ACA-06                                          |
+| năng gốc**      |                                                    |
++-----------------+----------------------------------------------------+
+| **Tác nhân**    | Trưởng phòng đào tạo                               |
++-----------------+----------------------------------------------------+
+| **Mô tả tóm     | Trưởng phòng đào tạo quản lý danh mục kỹ năng thi  |
+| tắt**           | (skills) dùng chung cho toàn hệ thống — thêm kỹ    |
+|                 | năng mới không cần lập trình viên can thiệp.       |
++-----------------+----------------------------------------------------+
+| **Sự kiện kích  | Phát sinh nhu cầu thêm/đổi tên/vô hiệu hoá 1 kỹ    |
+| hoạt**          | năng thi (VD thêm "Từ vựng" ngoài 6 kỹ năng gốc).  |
++-----------------+----------------------------------------------------+
+| **Điều kiện     | -   Người dùng có quyền academic.grade.manage.     |
+| tiên quyết      |                                                    |
+| (               |                                                    |
+| Precondition)** |                                                    |
++-----------------+----------------------------------------------------+
+| **Luồng sự kiện | 1.  Trưởng phòng đào tạo mở màn hình Danh mục kỹ   |
+| chính (Main     |     năng, xem danh sách kỹ năng hiện có (skills).  |
+| Flow)**         |                                                    |
+|                 | 2.  Thêm mới: nhập mã (code, duy nhất) và tên hiển |
+|                 |     thị; hoặc Sửa: đổi tên hiển thị của 1 kỹ năng  |
+|                 |     hiện có; hoặc Vô hiệu hoá: đánh dấu is_active = |
+|                 |     FALSE cho 1 kỹ năng không còn dùng (không xoá  |
+|                 |     cứng vì có thể đã được tham chiếu ở khung       |
+|                 |     chương trình/thành phần điểm đã tồn tại).      |
+|                 |                                                    |
+|                 | 3.  Hệ thống lưu lại; kỹ năng mới có thể được chọn |
+|                 |     ngay khi thêm thành phần điểm mới cho 1 kỳ đánh |
+|                 |     giá (UC-16/A2) hoặc khi map cột Excel (UC-53). |
++-----------------+----------------------------------------------------+
+| **Luồng thay    | ***A1 --- Trùng mã kỹ năng***                      |
+| thế / ngoại lệ  |                                                    |
+| (Alternate      | 1.  Nếu mã (code) đã tồn tại, hệ thống chặn lưu và |
+| Flow)**         |     báo lỗi trùng mã.                              |
++-----------------+----------------------------------------------------+
+| **Hậu điều kiện | -   Danh mục kỹ năng được cập nhật, sẵn sàng dùng  |
+| (P              |     cho UC-16/A2 và UC-53.                         |
+| ostcondition)** |                                                    |
 +-----------------+----------------------------------------------------+
 
 Phân hệ 7 --- Cổng thông tin và E-Learning (Portal & LMS)

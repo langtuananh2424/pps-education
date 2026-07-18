@@ -20,6 +20,7 @@ import vn.com.pps.education.dto.TaskResponse;
 import vn.com.pps.education.dto.UpdateAssignmentStatusRequest;
 import vn.com.pps.education.exception.AssigneeOutsideDepartmentException;
 import vn.com.pps.education.exception.InvalidTaskStatusTransitionException;
+import vn.com.pps.education.exception.NotTaskCreatorException;
 import vn.com.pps.education.exception.NotTaskParticipantException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.repository.DepartmentRepository;
@@ -498,6 +499,57 @@ class TaskServiceTest extends AbstractIntegrationTest {
 
         assertThatThrownBy(() -> taskService.getTask(created.id(), outsider.getId()))
                 .isInstanceOf(NotTaskParticipantException.class);
+    }
+
+    @Test
+    void listAssignments_UC07_A2_byCreator_returnsAllAssigneesWithAssignmentIds() {
+        Department dept = newDepartment();
+        User assigner = newUserInDept("la.assigner", dept);
+        User assignee1 = newUserInDept("la.assignee1", dept);
+        User assignee2 = newUserInDept("la.assignee2", dept);
+
+        TaskResponse created = taskService.createTask(
+                new CreateTaskRequest("Multi-assignee review", null,
+                        List.of(assignee1.getId(), assignee2.getId()), null, null, null, null),
+                assigner.getId());
+
+        List<TaskAssignmentResponse> assignments = taskService.listAssignments(created.id(), assigner.getId());
+
+        assertThat(assignments).hasSize(2);
+        assertThat(assignments).extracting(TaskAssignmentResponse::assigneeUserId)
+                .containsExactlyInAnyOrder(assignee1.getId(), assignee2.getId());
+        assertThat(assignments).allSatisfy(a -> assertThat(a.id()).isNotNull());
+    }
+
+    @Test
+    void listAssignments_byAssignee_throws() {
+        Department dept = newDepartment();
+        User assigner = newUserInDept("la2.assigner", dept);
+        User assignee = newUserInDept("la2.assignee", dept);
+
+        TaskResponse created = taskService.createTask(
+                new CreateTaskRequest("Assignee cannot list", null,
+                        List.of(assignee.getId()), null, null, null, null),
+                assigner.getId());
+
+        assertThatThrownBy(() -> taskService.listAssignments(created.id(), assignee.getId()))
+                .isInstanceOf(NotTaskCreatorException.class);
+    }
+
+    @Test
+    void listAssignments_byOutsider_throws() {
+        Department dept = newDepartment();
+        User assigner = newUserInDept("la3.assigner", dept);
+        User assignee = newUserInDept("la3.assignee", dept);
+        User outsider = newUserInDept("la3.outsider", dept);
+
+        TaskResponse created = taskService.createTask(
+                new CreateTaskRequest("Outsider cannot list", null,
+                        List.of(assignee.getId()), null, null, null, null),
+                assigner.getId());
+
+        assertThatThrownBy(() -> taskService.listAssignments(created.id(), outsider.getId()))
+                .isInstanceOf(NotTaskCreatorException.class);
     }
 
     @Test

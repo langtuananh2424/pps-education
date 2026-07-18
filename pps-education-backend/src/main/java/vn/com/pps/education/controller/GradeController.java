@@ -13,10 +13,12 @@ import org.springframework.web.bind.annotation.RestController;
 import vn.com.pps.education.dto.CreateGradeComponentRequest;
 import vn.com.pps.education.dto.CreateGradePeriodRequest;
 import vn.com.pps.education.dto.DecideGradesRequest;
+import vn.com.pps.education.dto.EnterGradePeriodResultRequest;
 import vn.com.pps.education.dto.EnterGradeRequest;
 import vn.com.pps.education.dto.GradeComponentResponse;
 import vn.com.pps.education.dto.GradeEntryResponse;
 import vn.com.pps.education.dto.GradePeriodResponse;
+import vn.com.pps.education.dto.GradePeriodResultResponse;
 import vn.com.pps.education.dto.PeriodAverageResponse;
 import vn.com.pps.education.dto.SubmitGradesRequest;
 import vn.com.pps.education.dto.UpdateGradeComponentRequest;
@@ -105,6 +107,23 @@ public class GradeController {
     public ResponseEntity<PeriodAverageResponse> getPeriodAverage(@PathVariable Long classId, @PathVariable Long studentId,
                                                                       @PathVariable Long gradePeriodId) {
         return ResponseEntity.ok(gradeService.getPeriodAverage(classId, studentId, gradePeriodId));
+    }
+
+    // ---- UC-53: Overall/Level theo kỳ đánh giá (TEACHER) ----
+
+    @PostMapping("/api/classes/{classId}/grades/students/{studentId}/periods/{gradePeriodId}/result")
+    public ResponseEntity<GradePeriodResultResponse> enterPeriodResult(@PathVariable Long classId,
+                                                                       @PathVariable Long studentId,
+                                                                       @PathVariable Long gradePeriodId,
+                                                                       @Valid @RequestBody EnterGradePeriodResultRequest request,
+                                                                       @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(gradeService.enterPeriodResult(classId, studentId, gradePeriodId, request, actor.userId()));
+    }
+
+    @GetMapping("/api/classes/{classId}/grade-periods/{gradePeriodId}/results")
+    public ResponseEntity<List<GradePeriodResultResponse>> listPeriodResults(@PathVariable Long classId,
+                                                                             @PathVariable Long gradePeriodId) {
+        return ResponseEntity.ok(gradeService.listPeriodResults(classId, gradePeriodId));
     }
 
     // ---- UC-20: Duyệt điểm (SITE_MANAGER) ----

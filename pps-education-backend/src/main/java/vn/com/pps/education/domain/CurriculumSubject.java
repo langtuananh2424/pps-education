@@ -28,6 +28,11 @@ public class CurriculumSubject {
     @Column(name = "subject_code", nullable = false, length = 50)
     private SubjectCode subjectCode;
 
+    /** V37 — tham chiếu danh mục kỹ năng (UC-54), dùng khi subjectCode=OTHER cần kỹ năng ngoài enum gốc. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "skill_id")
+    private Skill skill;
+
     @Column(nullable = false, length = 200)
     private String name;
 

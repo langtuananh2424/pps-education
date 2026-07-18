@@ -66,9 +66,11 @@
 - [Cổng trường liên kết](#cổng-trường-liên-kết)
 - [department-controller](#department-controller)
 - [employee-batch-import-controller](#employee-batch-import-controller)
+- [grade-import-controller](#grade-import-controller)
 - [parent-batch-import-controller](#parent-batch-import-controller)
 - [parent-controller](#parent-controller)
 - [position-controller](#position-controller)
+- [skill-controller](#skill-controller)
 - [Phụ lục: Schemas](#phụ-lục-schemas)
 
 ---
@@ -145,6 +147,7 @@
 | GET | `/api/tasks/created-by-me` | JWT | — | mảng [TaskResponse](#taskresponse) |
 | GET | `/api/tasks/my-assignments` | JWT | — | mảng [TaskAssignmentResponse](#taskassignmentresponse) |
 | GET | `/api/tasks/{id}` | JWT | — | [TaskResponse](#taskresponse) |
+| GET | `/api/tasks/{id}/assignments` | JWT | — | mảng [TaskAssignmentResponse](#taskassignmentresponse) |
 | GET | `/api/tasks/{id}/attachments` | JWT | — | mảng [TaskAttachmentResponse](#taskattachmentresponse) |
 | POST | `/api/tasks/{id}/attachments` | JWT | Body: [AddTaskAttachmentRequest](#addtaskattachmentrequest) | [TaskAttachmentResponse](#taskattachmentresponse) |
 | GET | `/api/tasks/{id}/comments` | JWT | — | mảng [TaskCommentResponse](#taskcommentresponse) |
@@ -266,9 +269,11 @@
 
 | Method | Path | Auth | Input | Output |
 |---|---|---|---|---|
+| GET | `/api/classes/{classId}/grade-periods/{gradePeriodId}/results` | JWT | — | mảng [GradePeriodResultResponse](#gradeperiodresultresponse) |
 | GET | `/api/classes/{classId}/grades/components/{gradeComponentId}` | JWT | — | mảng [GradeEntryResponse](#gradeentryresponse) |
 | POST | `/api/classes/{classId}/grades/components/{gradeComponentId}` | JWT | Body: [EnterGradeRequest](#entergraderequest) | [GradeEntryResponse](#gradeentryresponse) |
 | GET | `/api/classes/{classId}/grades/students/{studentId}/periods/{gradePeriodId}/average` | JWT | — | [PeriodAverageResponse](#periodaverageresponse) |
+| POST | `/api/classes/{classId}/grades/students/{studentId}/periods/{gradePeriodId}/result` | JWT | Body: [EnterGradePeriodResultRequest](#entergradeperiodresultrequest) | [GradePeriodResultResponse](#gradeperiodresultresponse) |
 | POST | `/api/classes/{classId}/grades/submit` | JWT | Body: [SubmitGradesRequest](#submitgradesrequest) | mảng [GradeEntryResponse](#gradeentryresponse) |
 | GET | `/api/curriculums/{curriculumId}/grade-periods` | JWT | — | mảng [GradePeriodResponse](#gradeperiodresponse) |
 | POST | `/api/curriculums/{curriculumId}/grade-periods` | JWT + `academic.grade.manage` | Body: [CreateGradePeriodRequest](#creategradeperiodrequest) | [GradePeriodResponse](#gradeperiodresponse) |
@@ -513,6 +518,13 @@
 | POST | `/api/employee-imports` | JWT + `hrm.manage` | Form-data: `file` (tệp) | [EmployeeBatchImportResponse](#employeebatchimportresponse) |
 | GET | `/api/employee-imports/{id}` | JWT + `hrm.manage` | — | [EmployeeBatchImportResponse](#employeebatchimportresponse) |
 
+## grade-import-controller
+
+| Method | Path | Auth | Input | Output |
+|---|---|---|---|---|
+| POST | `/api/classes/{classId}/grade-periods/{gradePeriodId}/grades/import` | JWT | Form-data: `file` (tệp) | [GradeImportResponse](#gradeimportresponse) |
+| GET | `/api/grade-imports/{id}` | JWT | — | [GradeImportResponse](#gradeimportresponse) |
+
 ## parent-batch-import-controller
 
 | Method | Path | Auth | Input | Output |
@@ -540,6 +552,14 @@
 | PUT | `/api/positions/{id}` | JWT + `hrm.manage` | Body: [UpdatePositionRequest](#updatepositionrequest) | [PositionResponse](#positionresponse) |
 | GET | `/api/positions/{id}/default-roles` | JWT + `hrm.manage` | — | [PositionDefaultRolesResponse](#positiondefaultrolesresponse) |
 | PUT | `/api/positions/{id}/default-roles` | JWT + `hrm.manage` | Body: [UpdatePositionDefaultRolesRequest](#updatepositiondefaultrolesrequest) | 200 (không có body) |
+
+## skill-controller
+
+| Method | Path | Auth | Input | Output |
+|---|---|---|---|---|
+| GET | `/api/skills` | JWT | Query: `includeInactive`? | mảng [SkillResponse](#skillresponse) |
+| POST | `/api/skills` | JWT + `academic.grade.manage` | Body: [CreateSkillRequest](#createskillrequest) | [SkillResponse](#skillresponse) |
+| PUT | `/api/skills/{id}` | JWT + `academic.grade.manage` | Body: [UpdateSkillRequest](#updateskillrequest) | [SkillResponse](#skillresponse) |
 
 ---
 
@@ -885,6 +905,7 @@
 | `displayOrder` | integer |  |
 | `name` | string | ✔ |
 | `periodCount` | integer |  |
+| `skillId` | integer (int64) |  |
 | `subjectCode` | string | ✔ |
 
 ### CreateCustomCurriculumRequest
@@ -975,6 +996,8 @@
 | `maxScore` | number |  |
 | `name` | string | ✔ |
 | `passThreshold` | number |  |
+| `scaleType` | string |  |
+| `skillId` | integer (int64) |  |
 | `subjectId` | integer (int64) |  |
 | `weightInPeriod` | number | ✔ |
 
@@ -1175,6 +1198,14 @@
 | `phone` | string |  |
 | `siteType` | string | ✔ |
 
+### CreateSkillRequest
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `code` | string | ✔ |
+| `description` | string |  |
+| `name` | string | ✔ |
+
 ### CreateStudentCommentRequest
 
 | Trường | Kiểu | Bắt buộc |
@@ -1310,6 +1341,7 @@
 | `id` | integer (int64) |  |
 | `name` | string |  |
 | `periodCount` | integer |  |
+| `skillId` | integer (int64) |  |
 | `subjectCode` | string |  |
 
 ### DecideCommentsRequest
@@ -1333,7 +1365,8 @@
 |---|---|---|
 | `comment` | string |  |
 | `decision` | string | ✔ |
-| `gradeEntryIds` | mảng integer (int64) | ✔ |
+| `gradeEntryIds` | mảng integer (int64) |  |
+| `gradePeriodResultIds` | mảng integer (int64) |  |
 
 ### DecideLeaveRequestRequest
 
@@ -1440,6 +1473,14 @@
 | `minutesLate` | integer |  |
 | `status` | string | ✔ |
 | `studentId` | integer (int64) | ✔ |
+
+### EnterGradePeriodResultRequest
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `level` | string |  |
+| `overallScore` | number |  |
+| `scaleType` | string |  |
 
 ### EnterGradeRequest
 
@@ -1593,6 +1634,8 @@
 | `maxScore` | number |  |
 | `name` | string |  |
 | `passThreshold` | number |  |
+| `scaleType` | string |  |
+| `skillId` | integer (int64) |  |
 | `subjectId` | integer (int64) |  |
 | `weightInPeriod` | number |  |
 
@@ -1615,6 +1658,18 @@
 | `submittedAt` | string (date-time) |  |
 | `teacherNote` | string |  |
 
+### GradeImportResponse
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `errorSummary` | mảng object |  |
+| `failedRows` | integer |  |
+| `id` | integer (int64) |  |
+| `sourceFileName` | string |  |
+| `status` | string |  |
+| `successRows` | integer |  |
+| `totalRows` | integer |  |
+
 ### GradePeriodResponse
 
 | Trường | Kiểu | Bắt buộc |
@@ -1628,6 +1683,27 @@
 | `startDate` | string (date) |  |
 | `status` | string |  |
 | `weightInFinal` | number |  |
+
+### GradePeriodResultResponse
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `approvedAt` | string (date-time) |  |
+| `approvedBy` | integer (int64) |  |
+| `classId` | integer (int64) |  |
+| `enteredBy` | integer (int64) |  |
+| `gradePeriodId` | integer (int64) |  |
+| `id` | integer (int64) |  |
+| `importJobId` | integer (int64) |  |
+| `level` | string |  |
+| `overallScore` | number |  |
+| `scaleType` | string |  |
+| `source` | string |  |
+| `status` | string |  |
+| `studentCode` | string |  |
+| `studentFullName` | string |  |
+| `studentId` | integer (int64) |  |
+| `submittedAt` | string (date-time) |  |
 
 ### InvoiceItemResponse
 
@@ -2379,6 +2455,16 @@
 | `teacherFullName` | string |  |
 | `teacherUserId` | integer (int64) |  |
 
+### SkillResponse
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `active` | boolean |  |
+| `code` | string |  |
+| `description` | string |  |
+| `id` | integer (int64) |  |
+| `name` | string |  |
+
 ### SortObject
 
 | Trường | Kiểu | Bắt buộc |
@@ -2509,7 +2595,8 @@
 
 | Trường | Kiểu | Bắt buộc |
 |---|---|---|
-| `gradeEntryIds` | mảng integer (int64) | ✔ |
+| `gradeEntryIds` | mảng integer (int64) |  |
+| `gradePeriodResultIds` | mảng integer (int64) |  |
 
 ### SubmitPartnerFeedbackRequest
 
@@ -2866,6 +2953,14 @@
 | `phone` | string |  |
 | `siteType` | string | ✔ |
 | `status` | string |  |
+
+### UpdateSkillRequest
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `active` | boolean | ✔ |
+| `description` | string |  |
+| `name` | string | ✔ |
 
 ### UpdateStudentCommentRequest
 

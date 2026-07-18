@@ -173,16 +173,16 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
         GradePeriodResponse period = gradeService.createGradePeriod(schoolClass.curriculumId(),
                 new CreateGradePeriodRequest("MID_1", "Giữa kỳ 1", 1, new BigDecimal("50"), null, null), headAcademic.getId());
         GradeComponentResponse component = gradeService.addGradeComponent(period.id(),
-                new CreateGradeComponentRequest(null, "SPEAKING", "Nói", new BigDecimal("100"), new BigDecimal("10.00"), null, 1),
+                new CreateGradeComponentRequest(null, null, "SPEAKING", "Nói", new BigDecimal("50"), new BigDecimal("10.00"), null, null, 1),
                 headAcademic.getId());
         GradeEntryResponse approvedEntry = gradeService.enterGrade(schoolClass.id(), component.id(),
                 new EnterGradeRequest(student.getId(), new BigDecimal("9"), false, null), teacher.getId());
-        gradeService.submitGrades(schoolClass.id(), new SubmitGradesRequest(List.of(approvedEntry.id())), teacher.getId());
-        gradeService.decideGrades(new DecideGradesRequest(List.of(approvedEntry.id()), "APPROVED", "Tốt"), siteManagerUser.getId());
+        gradeService.submitGrades(schoolClass.id(), new SubmitGradesRequest(List.of(approvedEntry.id()), null), teacher.getId());
+        gradeService.decideGrades(new DecideGradesRequest(List.of(approvedEntry.id()), null, "APPROVED", "Tốt"), siteManagerUser.getId());
 
         // A1 -- 1 bản ghi khác vẫn DRAFT, chưa duyệt.
         GradeComponentResponse component2 = gradeService.addGradeComponent(period.id(),
-                new CreateGradeComponentRequest(null, "WRITING", "Viết", new BigDecimal("100"), new BigDecimal("10.00"), null, 2),
+                new CreateGradeComponentRequest(null, null, "WRITING", "Viết", new BigDecimal("50"), new BigDecimal("10.00"), null, null, 2),
                 headAcademic.getId());
         gradeService.enterGrade(schoolClass.id(), component2.id(),
                 new EnterGradeRequest(student.getId(), new BigDecimal("7"), false, null), teacher.getId());

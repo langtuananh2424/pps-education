@@ -65,13 +65,14 @@ public class GlobalExceptionHandler {
             DuplicateRoomCodeException.class, DuplicateEquipmentCodeException.class,
             DuplicateUserAccountException.class, DuplicateRoleCodeException.class,
             SiteTeacherAlreadyAssignedException.class, DuplicateDepartmentCodeException.class,
-            DuplicatePositionCodeException.class})
+            DuplicatePositionCodeException.class, DuplicateSkillCodeException.class})
     public ResponseEntity<Object> handleConflict(RuntimeException ex) {
         return error(HttpStatus.CONFLICT, ex.getMessage());
     }
 
     @ExceptionHandler({CurriculumUpdateConfirmationRequiredException.class, ApprovalAlreadyDecidedException.class,
-            GradePeriodWeightExceededException.class, GradeComponentLockedException.class})
+            GradePeriodWeightExceededException.class, GradeComponentLockedException.class,
+            GradeComponentWeightExceededException.class})
     public ResponseEntity<Object> handleConfirmationRequired(RuntimeException ex) {
         return error(HttpStatus.CONFLICT, ex.getMessage());
     }
@@ -97,7 +98,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({NotAuthorizedForPortalAccessException.class, NotSiteManagerForSiteException.class,
             NotAssignedTeacherForClassException.class, NotAssignedTeacherForSessionException.class,
             AssigneeOutsideDepartmentException.class,
-            NotTaskParticipantException.class, NotAuthorizedForFeedbackException.class})
+            NotTaskParticipantException.class, NotTaskCreatorException.class, NotAuthorizedForFeedbackException.class})
     public ResponseEntity<Object> handleAcademicAuthorization(RuntimeException ex) {
         return error(HttpStatus.FORBIDDEN, ex.getMessage());
     }
@@ -136,6 +137,12 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Object> handleIllegalArgument(IllegalArgumentException ex) {
+        return error(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
+    /** UC-53 A1 — cột Excel không khớp cấu hình kỳ đánh giá, dừng toàn bộ import. */
+    @ExceptionHandler(GradeImportColumnMismatchException.class)
+    public ResponseEntity<Object> handleGradeImportColumnMismatch(GradeImportColumnMismatchException ex) {
         return error(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 

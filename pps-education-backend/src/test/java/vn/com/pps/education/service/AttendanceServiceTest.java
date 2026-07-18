@@ -208,9 +208,20 @@ class AttendanceServiceTest extends AbstractIntegrationTest {
         Employee teacherEmployee = newEmployee(teacher, Employee.EmployeeType.TEACHER);
         assignShiftNotCoveringNow(teacherEmployee);
         SchoolClass schoolClass = newSchoolClass(teacher);
-        // Tiết dạy đã kết thúc từ lâu, không phủ thời điểm hiện tại.
+        // Tiết dạy đã kết thúc từ lâu, không phủ thời điểm hiện tại. Lấy mốc kết thúc đúng
+        // bằng "now" đã chụp (checkIn() gọi OffsetDateTime.now() muộn hơn 1 chút nên luôn
+        // > mốc này), start chỉ lùi 1 phút so với end qua đúng helper minusMinutesClamped
+        // đã dùng ở các test khác trong file -- KHÔNG trừ giờ cố định (6h/5h) rồi clamp
+        // riêng từng mốc như trước: khi "now" < 5h, cả 2 mốc cùng bị clamp về chung
+        // LocalTime.MIN, start == end vi phạm chk_session_time (V14) -- lỗi thật gặp ở CI
+        // 02:38 UTC (PR #52). Cũng KHÔNG dùng thẳng LocalTime.MIN làm mốc xa "now": tại
+        // dev machine JVM +07 (Asia/Bangkok), driver ghi lệch giờ đối với cặp mốc cách xa
+        // nhau qua ranh giới 7h (hibernate.jdbc.time_zone=UTC ở application.yml) -- giữ 2
+        // mốc sát nhau như các test khác trong file để tránh rơi vào đúng ranh giới đó.
         LocalTime now = LocalTime.now();
-        newSession(schoolClass, teacher, minusHoursClamped(now, 6), minusHoursClamped(now, 5), ClassSession.Status.SCHEDULED);
+        LocalTime end = now;
+        LocalTime start = minusMinutesClamped(end, 1);
+        newSession(schoolClass, teacher, start, end, ClassSession.Status.SCHEDULED);
 
         assertThatThrownBy(() -> attendanceService.checkIn(teacher.getId(),
                 new AttendanceCheckRequest("GPS", site.getId(), SITE_LAT, SITE_LNG, null)))
