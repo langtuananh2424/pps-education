@@ -82,7 +82,7 @@ public class GradeController {
         return ResponseEntity.ok(gradeService.updateGradeComponent(id, request, actor.userId()));
     }
 
-    // ---- UC-19: Nhập điểm (TEACHER) ----
+    // ---- UC-19: Nhập điểm (TEACHER + HEAD_ACADEMIC/SITE_MANAGER hỗ trợ) ----
 
     @GetMapping("/api/classes/{classId}/grades/components/{gradeComponentId}")
     public ResponseEntity<List<GradeEntryResponse>> listEntries(@PathVariable Long classId, @PathVariable Long gradeComponentId) {
@@ -109,7 +109,7 @@ public class GradeController {
         return ResponseEntity.ok(gradeService.getPeriodAverage(classId, studentId, gradePeriodId));
     }
 
-    // ---- UC-53: Overall/Level theo kỳ đánh giá (TEACHER) ----
+    // ---- UC-53: Overall/Level theo kỳ đánh giá (TEACHER + HEAD_ACADEMIC/SITE_MANAGER hỗ trợ) ----
 
     @PostMapping("/api/classes/{classId}/grades/students/{studentId}/periods/{gradePeriodId}/result")
     public ResponseEntity<GradePeriodResultResponse> enterPeriodResult(@PathVariable Long classId,
@@ -126,7 +126,7 @@ public class GradeController {
         return ResponseEntity.ok(gradeService.listPeriodResults(classId, gradePeriodId));
     }
 
-    // ---- UC-20: Duyệt điểm (SITE_MANAGER) ----
+    // ---- UC-20: Duyệt điểm (SITE_MANAGER + HEAD_ACADEMIC) ----
 
     @GetMapping("/api/grades/pending")
     public ResponseEntity<List<GradeEntryResponse>> listPendingForSite(@AuthenticationPrincipal AuthenticatedUser actor) {

@@ -426,7 +426,15 @@ nhân đó mới được thao tác.*
         1 kỳ đánh giá cần bổ sung thành phần điểm ngoài khung chuẩn ban
         đầu (VD Phòng đào tạo quyết định thêm 1 kỹ năng thi), có thể
         thêm trực tiếp vào kỳ đánh giá đó mà không cần lặp lại toàn bộ
-        quy trình tùy biến + phê duyệt khung (UC-16/A2).
+        quy trình tùy biến + phê duyệt khung (UC-16/A2). Ngoài Giáo viên
+        được phân công, Trưởng phòng đào tạo hoặc Quản lý điểm trường phụ
+        trách đúng điểm trường của lớp cũng được phép nhập tay/import
+        Excel thay giáo viên khi cần hỗ trợ (bổ sung ngoài SDD gốc, đã
+        xác nhận với người dùng). Duyệt điểm (UC-20) yêu cầu quyền
+        `academic.grade.approve` (bổ sung ngoài SDD gốc, đã xác nhận với
+        người dùng) — mặc định gán cho Quản lý điểm trường (giới hạn đúng
+        điểm trường được gán phụ trách) và Trưởng phòng đào tạo (không
+        giới hạn theo điểm trường).
 
     -   **FR-ACA-04: Sổ nhận xét định kỳ -** Giáo viên viết nhận xét cho
         học sinh theo 3 biểu mẫu: Hàng ngày (thái độ), Giữa kỳ, và Cuối

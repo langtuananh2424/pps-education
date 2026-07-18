@@ -9,6 +9,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.LoginAttempt;
 import vn.com.pps.education.domain.Role;
+import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.domain.UserRole;
 import vn.com.pps.education.dto.CurrentUserResponse;
@@ -19,11 +20,13 @@ import vn.com.pps.education.exception.AccountLockedException;
 import vn.com.pps.education.exception.InvalidCredentialsException;
 import vn.com.pps.education.repository.LoginAttemptRepository;
 import vn.com.pps.education.repository.RoleRepository;
+import vn.com.pps.education.repository.StudentRepository;
 import vn.com.pps.education.repository.UserRepository;
 import vn.com.pps.education.repository.UserRoleRepository;
 import vn.com.pps.education.security.JwtService;
 import vn.com.pps.education.support.AbstractIntegrationTest;
 
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
 
@@ -53,6 +56,9 @@ class AuthServiceTest extends AbstractIntegrationTest {
 
     @Autowired
     private UserRoleRepository userRoleRepository;
+
+    @Autowired
+    private StudentRepository studentRepository;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -190,6 +196,7 @@ class AuthServiceTest extends AbstractIntegrationTest {
         assertThat(response.fullName()).isEqualTo(activeUser.getFullName());
         assertThat(response.departmentName()).isNull(); // chưa gán phòng ban trong setUp()
         assertThat(response.roleCodes()).containsExactly("TEACHER");
+        assertThat(response.studentId()).isNull(); // tài khoản không có hồ sơ Student liên kết
     }
 
     @Test
@@ -197,5 +204,31 @@ class AuthServiceTest extends AbstractIntegrationTest {
         CurrentUserResponse response = authService.getCurrentUser(activeUser.getId());
 
         assertThat(response.roleCodes()).isEmpty();
+    }
+
+    /**
+     * UC-42 tiền đề: tài khoản Học sinh tự đăng nhập cần tra ra studentId của
+     * chính mình để gọi tiếp các API Portal (tương tự GET /api/portal/parent/children
+     * cho Phụ huynh) — GET /api/auth/me phải trả kèm studentId khi có hồ sơ liên kết.
+     */
+    @Test
+    void getCurrentUser_UC42_returnsStudentIdWhenAccountLinkedToStudentProfile() {
+        Role studentRole = roleRepository.findByCode("STUDENT").orElseThrow();
+        UserRole userRole = new UserRole();
+        userRole.setUser(activeUser);
+        userRole.setRole(studentRole);
+        userRole.setAssignedBy(activeUser);
+        userRoleRepository.save(userRole);
+
+        Student student = new Student();
+        student.setUser(activeUser);
+        student.setStudentCode("HS-AUTH-TEST-1");
+        student.setDateOfBirth(LocalDate.of(2012, 5, 1));
+        student.setEnrollmentDate(LocalDate.now());
+        student = studentRepository.save(student);
+
+        CurrentUserResponse response = authService.getCurrentUser(activeUser.getId());
+
+        assertThat(response.studentId()).isEqualTo(student.getId());
     }
 }

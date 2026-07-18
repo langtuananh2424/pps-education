@@ -18,9 +18,7 @@ import vn.com.pps.education.dto.EnterGradePeriodResultRequest;
 import vn.com.pps.education.dto.EnterGradeRequest;
 import vn.com.pps.education.dto.GradeImportResponse;
 import vn.com.pps.education.exception.GradeImportColumnMismatchException;
-import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
-import vn.com.pps.education.repository.ClassTeacherRepository;
 import vn.com.pps.education.repository.GradeComponentRepository;
 import vn.com.pps.education.repository.GradePeriodRepository;
 import vn.com.pps.education.repository.ImportJobRepository;
@@ -79,7 +77,6 @@ public class GradeImportService {
     private final GradeComponentRepository gradeComponentRepository;
     private final SchoolClassRepository schoolClassRepository;
     private final StudentRepository studentRepository;
-    private final ClassTeacherRepository classTeacherRepository;
     private final UserRepository userRepository;
     private final GradeService gradeService;
 
@@ -88,7 +85,6 @@ public class GradeImportService {
                               GradeComponentRepository gradeComponentRepository,
                               SchoolClassRepository schoolClassRepository,
                               StudentRepository studentRepository,
-                              ClassTeacherRepository classTeacherRepository,
                               UserRepository userRepository,
                               GradeService gradeService) {
         this.importJobRepository = importJobRepository;
@@ -96,7 +92,6 @@ public class GradeImportService {
         this.gradeComponentRepository = gradeComponentRepository;
         this.schoolClassRepository = schoolClassRepository;
         this.studentRepository = studentRepository;
-        this.classTeacherRepository = classTeacherRepository;
         this.userRepository = userRepository;
         this.gradeService = gradeService;
     }
@@ -117,10 +112,8 @@ public class GradeImportService {
             throw new IllegalArgumentException(
                     "Kỳ đánh giá id=" + gradePeriodId + " không thuộc khung chương trình của lớp id=" + classId + ".");
         }
-        if (!classTeacherRepository.existsBySchoolClassIdAndTeacherIdAndAssignedToIsNull(classId, actorUserId)) {
-            throw new NotAssignedTeacherForClassException(
-                    "Tài khoản id=" + actorUserId + " không được phân công giảng dạy lớp id=" + classId + ".");
-        }
+        // UC-53 Precondition (mở rộng, xem GradeService#requireCanEnterGrades) — dùng chung logic với UC-19, không lặp lại.
+        gradeService.requireCanEnterGrades(classId, actorUserId);
         User actor = userRepository.findById(actorUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
 
