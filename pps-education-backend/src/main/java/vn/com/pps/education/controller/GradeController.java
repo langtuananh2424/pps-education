@@ -126,7 +126,7 @@ public class GradeController {
         return ResponseEntity.ok(gradeService.listPeriodResults(classId, gradePeriodId));
     }
 
-    // ---- UC-20: Duyệt điểm (SITE_MANAGER) ----
+    // ---- UC-20: Duyệt điểm (SITE_MANAGER + HEAD_ACADEMIC) ----
 
     @GetMapping("/api/grades/pending")
     public ResponseEntity<List<GradeEntryResponse>> listPendingForSite(@AuthenticationPrincipal AuthenticatedUser actor) {
