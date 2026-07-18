@@ -205,6 +205,71 @@ nhân đó mới được thao tác.*
         lại lịch sử: Ai đã sửa quyền, sửa của ai, vào thời gian nào để
         phục vụ tra soát.
 
+    -   **FR-PER-05: Gán/Thu hồi vai trò cho tài khoản -** Quản trị
+        viên gán 1 vai trò (role) cho 1 tài khoản cụ thể, hoặc thu hồi 1
+        vai trò đã gán — mỗi tài khoản có thể mang nhiều vai trò cùng
+        lúc (bảng user_roles thiết kế M-N). Khác với FR-PER-02 (cấu
+        hình quyền MẶC ĐỊNH của 1 vai trò áp dụng hàng loạt) và
+        FR-PER-03 (tùy chỉnh quyền LẺ cho 1 tài khoản) — FR-PER-05 là
+        bước trung gian bắt buộc: liên kết tài khoản đó với vai trò
+        đang có sẵn. Mỗi lần gán/thu hồi ghi 1 dòng vào
+        permission_audit_log (action = ROLE_GRANTED/ROLE_REVOKED, cùng
+        cơ chế tra soát với FR-PER-04).
+
+    -   **FR-USR-01: Khởi tạo tài khoản người dùng -** Quản trị viên
+        khởi tạo tài khoản (username, email, họ tên, SĐT, phòng ban).
+        Mật khẩu ban đầu là tùy chọn: bỏ trống nếu tài khoản chỉ đăng
+        nhập bằng Google (FR-AUT-01 — hệ thống khớp theo email). Việc
+        gán vai trò/quyền KHÔNG thuộc bước khởi tạo — thực hiện sau qua
+        FR-PER-05 (gán vai trò) và/hoặc FR-PER-03 (tùy chỉnh quyền lẻ).
+        Ngoài ra, luồng khởi tạo hồ sơ nhân sự (FR-HRM-01) được phép
+        tạo tài khoản kèm hồ sơ trong cùng một giao dịch cho nhân sự
+        chưa có tài khoản.
+
+    -   **FR-USR-02: Đổi mật khẩu -** Hai luồng: (1) Tài khoản tự đổi mật
+        khẩu của chính mình, phải xác thực bằng mật khẩu hiện tại (trừ
+        tài khoản đang chỉ đăng nhập Google — chưa có mật khẩu — đặt mật
+        khẩu lần đầu không cần xác thực); (2) Quản trị viên (quyền
+        user.manage) đổi mật khẩu cho một tài khoản khác, không cần biết
+        mật khẩu hiện tại của tài khoản đó. Cả 2 luồng: mật khẩu mới tối
+        thiểu 8 ký tự, sau khi đổi thành công hệ thống thu hồi toàn bộ
+        refresh token đang hoạt động của tài khoản đó (đăng xuất khỏi mọi
+        thiết bị, bắt buộc đăng nhập lại bằng mật khẩu mới).
+
+    -   **FR-USR-03: Xem/tra cứu danh sách tài khoản -** Quản trị viên xem
+        danh sách toàn bộ tài khoản; tìm kiếm theo username/email/họ tên,
+        lọc theo phòng ban và trạng thái (ACTIVE/INACTIVE/SUSPENDED); xem
+        chi tiết 1 tài khoản (không bao gồm password_hash). Là hạ tầng
+        tra cứu bắt buộc trước khi thực hiện FR-USR-02 (đổi mật khẩu cho
+        tài khoản khác), FR-PER-03 (tùy chỉnh quyền riêng), FR-PER-05
+        (gán/thu hồi vai trò), FR-USR-04 (khóa/mở khóa tài khoản) và
+        FR-USR-05 (cập nhật thông tin tài khoản) — cả 5 FR này đều yêu
+        cầu Quản trị viên "chọn đích danh 1 tài khoản" nhưng trước nay
+        chưa có FR nào định nghĩa cách tra cứu ra tài khoản đó.
+
+    -   **FR-USR-04: Khóa/Mở khóa tài khoản -** Quản trị viên chuyển
+        trạng thái 1 tài khoản: ACTIVE → INACTIVE (ngừng hoạt động dài
+        hạn, ví dụ nhân sự đã nghỉ việc/học sinh rời trung tâm — thao tác
+        thủ công, KHÔNG tự động đồng bộ từ trạng thái nhân sự/học sinh,
+        ngoài phạm vi thiết kế hiện tại), ACTIVE → SUSPENDED (tạm khóa có
+        chủ đích, ví dụ đang xử lý vi phạm/nghi vấn bảo mật), hoặc khôi
+        phục INACTIVE/SUSPENDED → ACTIVE. Tài khoản không ở trạng thái
+        ACTIVE bị từ chối đăng nhập (đã đặc tả ở UC-01 A3) nhưng trước
+        nay chưa có FR nào mô tả ai/khi nào thực hiện việc chuyển trạng
+        thái đó. Mỗi lần đổi trạng thái ghi lại vào users_history.
+
+    -   **FR-USR-05: Cập nhật thông tin tài khoản -** Quản trị viên sửa
+        thông tin hồ sơ của 1 tài khoản đã tồn tại: họ tên, SĐT, phòng
+        ban, cờ miễn trừ chấm công is_management. KHÔNG bao gồm
+        username/email (định danh đăng nhập, không đổi sau khi tạo — đổi
+        username/email nằm ngoài phạm vi thiết kế hiện tại), mật khẩu
+        (FR-USR-02) hay trạng thái tài khoản (FR-USR-04) — 2 FR đó có
+        luồng xác nhận/hệ quả riêng (thu hồi refresh token, reset
+        failed_login_count...) không áp dụng cho việc sửa hồ sơ thông
+        thường. Là hạ tầng bắt buộc cho UI Quản trị tài khoản chỉnh sửa
+        hồ sơ sau khi khởi tạo (FR-USR-01), sau khi đã tra cứu ra tài
+        khoản đích qua FR-USR-03.
+
 **PHÂN HỆ 3: QUẢN LÝ CÔNG VIỆC VÀ QUY TRÌNH**
 
 -   **Mô tả tổng quan:** Số hóa luồng giao việc, theo dõi tiến độ phối
@@ -274,6 +339,25 @@ nhân đó mới được thao tác.*
         của Giáo viên (lấy dữ liệu từ Phân hệ Học thuật) và trừ đi các
         khoản phạt, thuế, bảo hiểm.
 
+    -   **FR-HRM-05: Nhập nhân sự theo lô -** Quản lý nhân sự nhập file
+        Excel danh sách nhân sự để tạo tài khoản (username bắt buộc,
+        email tùy chọn, mật khẩu tạm hệ thống tự sinh) + hồ sơ nhân sự
+        hàng loạt, thay vì nhập tay từng người. Kiểm tra trùng lặp theo
+        mã nhân sự/username/email trước khi tạo mới.
+
+    -   **FR-HRM-06: Danh mục chức vụ & tự động gán vai trò theo chức vụ -**
+        Quản lý nhân sự duy trì danh mục chức vụ (VD Giáo viên, Trưởng
+        phòng đào tạo), mỗi chức vụ ánh xạ 0..N vai trò (role) mặc định
+        (VD Trưởng phòng đào tạo → TEACHER + HEAD_ACADEMIC). Khi tạo mới
+        hoặc đổi chức vụ của 1 hồ sơ nhân sự (FR-HRM-01), hệ thống tự
+        động gán các vai trò mặc định của chức vụ đó cho tài khoản, và
+        thu hồi vai trò do chính cơ chế này từng gán nếu chức vụ mới
+        không còn liệt kê vai trò đó — không đụng tới vai trò đã gán tay
+        qua FR-PER-05. Bổ sung ngoài SRS/SDD gốc (employees.position_title
+        vốn là text tự do) — xác nhận với người dùng ngày 2026-07-17 sau
+        khi phát hiện gap: tạo nhân viên qua FR-HRM-01 trước đây không hề
+        gán vai trò, phải thao tác thủ công qua FR-PER-05.
+
 **PHÂN HỆ 5: QUẢN LÝ HỌC SINH**
 
 -   **Mô tả tổng quan:** Quản lý thông tin định danh, hồ sơ lý lịch và
@@ -295,6 +379,16 @@ nhân đó mới được thao tác.*
     -   **FR-STU-03: Điểm danh & Chuyên cần -** Giáo viên thực hiện điểm
         danh học sinh đầu mỗi tiết học. Hệ thống tự động tổng hợp tỷ lệ
         nghỉ học và gửi thông báo vắng mặt ngay lập tức cho Phụ huynh.
+        Quản lý điểm trường xem được báo cáo tổng hợp tỷ lệ chuyên cần
+        theo (các) điểm trường mình phụ trách, chỉ xem — không có quyền
+        chỉnh sửa điểm danh (UC-15b, bổ sung 2026-07-16).
+
+    -   **FR-STU-04: Nhập phụ huynh theo lô -** Nhân viên giáo vụ nhập
+        file Excel danh sách phụ huynh để tạo hồ sơ + liên kết với học
+        sinh đã tồn tại sẵn (tra theo mã học sinh) hàng loạt. 2 dòng cùng
+        số điện thoại (VD anh chị em ruột) dùng lại đúng 1 hồ sơ phụ
+        huynh, không tạo trùng. Không tạo phụ huynh không liên kết học
+        sinh nào.
 
 **PHÂN HỆ 6: QUẢN LÝ HỌC THUẬT VÀ ĐÀO TẠO**
 
@@ -323,11 +417,41 @@ nhân đó mới được thao tác.*
 
     -   **FR-ACA-03: Quản lý Sổ điểm -** Giáo viên nhập điểm thành phần
         cho học sinh. Hệ thống tự động tính điểm trung bình học phần
-        theo công thức cấu hình sẵn của Trưởng phòng đào tạo.
+        theo công thức cấu hình sẵn của Trưởng phòng đào tạo. Giáo viên
+        cũng có thể đẩy hàng loạt điểm đã hoàn thiện sẵn (kể cả Overall/
+        Level đã quy đổi theo band/%/thang riêng của lớp) qua file Excel
+        — hệ thống quét header, map theo đúng thành phần điểm đã cấu
+        hình cho kỳ đánh giá, không tự tính lại công thức Overall/Level
+        (UC-53, bổ sung ngoài SDD gốc, đã xác nhận với người dùng). Nếu
+        1 kỳ đánh giá cần bổ sung thành phần điểm ngoài khung chuẩn ban
+        đầu (VD Phòng đào tạo quyết định thêm 1 kỹ năng thi), có thể
+        thêm trực tiếp vào kỳ đánh giá đó mà không cần lặp lại toàn bộ
+        quy trình tùy biến + phê duyệt khung (UC-16/A2). Ngoài Giáo viên
+        được phân công, Trưởng phòng đào tạo hoặc Quản lý điểm trường phụ
+        trách đúng điểm trường của lớp cũng được phép nhập tay/import
+        Excel thay giáo viên khi cần hỗ trợ (bổ sung ngoài SDD gốc, đã
+        xác nhận với người dùng).
 
     -   **FR-ACA-04: Sổ nhận xét định kỳ -** Giáo viên viết nhận xét cho
         học sinh theo 3 biểu mẫu: Hàng ngày (thái độ), Giữa kỳ, và Cuối
         kỳ (tổng kết năng lực).
+
+    -   **FR-ACA-05: Xếp lịch buổi học -** Nhân viên giáo vụ/Trưởng phòng
+        đào tạo xếp lịch từng buổi học cụ thể (ngày, khung giờ, phòng,
+        giáo viên phụ trách) cho 1 lớp đã khởi tạo (FR-ACA-02); hệ thống
+        tự sinh session_periods theo cấu hình mặc định, kiểm tra trùng
+        phòng (chỉ áp dụng phòng không đánh dấu linh hoạt — FR-FAC-03).
+        Có thể hủy 1 buổi đã lên lịch (kèm lý do tùy chọn) hoặc dời lịch
+        sang buổi mới (buổi cũ chuyển trạng thái RESCHEDULED, liên kết
+        sang buổi mới tạo) — cả 2 thao tác chỉ áp dụng cho buổi đang ở
+        trạng thái SCHEDULED.
+
+    -   **FR-ACA-06: Quản lý Danh mục kỹ năng -** (bổ sung ngoài SDD
+        gốc, đã xác nhận với người dùng) Trưởng phòng đào tạo quản lý
+        danh mục kỹ năng thi dùng chung toàn hệ thống (thêm/sửa tên/vô
+        hiệu hoá), phục vụ FR-ACA-01 và FR-ACA-03 khi phát sinh kỹ năng
+        thi mới ngoài 6 giá trị gốc (Nghe/Nói/Đọc/Viết/Ngữ pháp/Dự án),
+        không cần lập trình viên can thiệp (UC-54).
 
 **PHÂN HỆ 7: CỔNG THÔNG TIN VÀ E-LEARNING (PORTAL & LMS - TÍCH HỢP
 CDN)**
@@ -380,7 +504,8 @@ CDN)**
     -   **FR-LMS-08: Portal Báo cáo cho Trường liên kết** - Đại diện
         trường liên kết xem báo cáo tổng hợp của học sinh trường mình,
         gồm: chuyên cần (tỷ lệ đi học/vắng mặt), kết quả học tập (điểm
-        đã duyệt), và kế hoạch giảng dạy. Giáo viên điền kế hoạch giảng
+        đã duyệt), nhận xét học sinh (đã duyệt — bổ sung 2026-07-16),
+        và kế hoạch giảng dạy. Giáo viên điền kế hoạch giảng
         dạy theo tuần hoặc theo năm học cho từng lớp phụ trách; hệ thống
         tổng hợp và hiển thị trực tiếp trong tài khoản Portal của trường
         liên kết, đồng thời cung cấp chức năng xuất file (PDF/Excel) để
@@ -442,6 +567,11 @@ CDN)**
     -   **FR-FIN-03: Quản lý Chi vận hành -** Kế toán ghi nhận các khoản
         chi lương, chi phí mặt bằng, chi phí bản quyền công nghệ và hạ
         tầng CDN.
+        Bổ sung: Ban giám đốc duyệt/từ chối từng khoản chi đã ghi nhận —
+        khớp mô tả tác nhân Ban giám đốc "phê duyệt các quyết định quan
+        trọng có tính chiến lược (chi phí lớn...)"; dùng quyền riêng
+        finance.expense.approve (khác finance.manage của Kế toán). Từ
+        chối bắt buộc kèm lý do (rejection_reason).
 
     -   **FR-FIN-04: Báo cáo doanh thu phân cấp -** Quản lý điểm trường
         xem được báo cáo Thu/Chi/Công nợ của cơ sở mình. Ban giám đốc có
@@ -557,6 +687,13 @@ CDN)**
 
   UC-12             Xem bảng lương    FR-HRM-04         4
 
+  UC-51             Nhập nhân sự theo FR-HRM-05         4
+                    lô                                  
+
+  UC-52             Danh mục chức vụ  FR-HRM-06         4
+                    & tự động gán                       
+                    vai trò                             
+
   UC-13             Quản lý hồ sơ học FR-STU-01         5
                     sinh                                
 
@@ -565,6 +702,13 @@ CDN)**
 
   UC-15             Điểm danh học     FR-STU-03         5
                     sinh                                
+
+  UC-15b            Xem báo cáo       FR-STU-03         5
+                    chuyên cần theo                     
+                    điểm trường                         
+
+  UC-50             Nhập phụ huynh    FR-STU-04         5
+                    theo lô                             
 
   UC-16             Quản lý khung     FR-ACA-01         6
                     chương trình                        
@@ -580,9 +724,17 @@ CDN)**
   UC-18             Xếp lớp & gán     FR-ACA-02         6
                     khóa học                            
 
+  UC-48             Xếp lịch buổi học FR-ACA-05         6
+
   UC-19             Nhập điểm         FR-ACA-03         6
 
   UC-20             Duyệt điểm        FR-ACA-03         6
+
+  UC-53             Nhập điểm thi qua FR-ACA-03         6
+                    Excel                               
+
+  UC-54             Quản lý danh mục  FR-ACA-06         6
+                    kỹ năng                             
 
   UC-21             Viết nhận xét học FR-ACA-04         6
                     sinh                                
@@ -651,6 +803,24 @@ CDN)**
   UC-42             Chọn lớp đang     FR-LMS-12         7
                     xem (Portal Học                     
                     sinh/Phụ huynh)                     
+
+  UC-43             Khởi tạo tài      FR-USR-01         2
+                    khoản người dùng                    
+
+  UC-44             Xem/tra cứu danh  FR-USR-03         2
+                    sách tài khoản                      
+
+  UC-45             Đổi mật khẩu      FR-USR-02         2
+
+  UC-46             Gán/Thu hồi vai   FR-PER-05         2
+                    trò cho tài                          
+                    khoản                                
+
+  UC-47             Khóa/Mở khóa tài  FR-USR-04         2
+                    khoản                                
+
+  UC-49             Cập nhật thông    FR-USR-05         2
+                    tin tài khoản                        
   -----------------------------------------------------------------------
 
 ## Ma trận Actor × Phân hệ

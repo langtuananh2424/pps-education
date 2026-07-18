@@ -15,12 +15,17 @@ Bảng lương.
 ```mermaid
 erDiagram
     users ||--o| employees : "extends"
+    employees }o--|| departments : "thuoc"
+    employees }o--o| positions : "chuc vu"
     employees ||--o{ employment_contracts : "hop dong LD"
     employees ||--o{ qualifications : "bang cap/chung chi"
     employees ||--o{ commendations : "khen thuong/ky luat"
 
     employees ||--o{ employees_history : ""
     employment_contracts ||--o{ employment_contracts_history : ""
+
+    positions ||--o{ position_default_roles : "role mac dinh"
+    roles ||--o{ position_default_roles : ""
 
     employees {
         BIGSERIAL id PK
@@ -29,12 +34,27 @@ erDiagram
         DATE date_of_birth
         VARCHAR id_card_number UK
         VARCHAR employee_type
-        VARCHAR position_title
+        BIGINT position_id FK
+        BIGINT department_id FK
+        BOOLEAN is_management
         BOOLEAN is_default_shift_required
         DATE hire_date
         DATE termination_date
         VARCHAR status
         TIMESTAMPTZ deleted_at
+    }
+
+    positions {
+        BIGSERIAL id PK
+        UUID uuid UK
+        VARCHAR code UK
+        VARCHAR name
+    }
+
+    position_default_roles {
+        BIGSERIAL id PK
+        BIGINT position_id FK
+        BIGINT role_id FK
     }
 
     employment_contracts {
@@ -108,7 +128,23 @@ a)  Bảng Employees -- Hồ sơ nhân sự
   employee_type               VARCHAR(20)     NOT NULL     TEACHER / STAFF /
                                                            MANAGER
 
-  position_title              VARCHAR(200)    NULL         
+  position_id                  BIGINT          FK →         NULL nếu chưa gán
+                                              positions(id),   chức vụ (V36 —
+                                              NULL              trước là
+                                                                position_title
+                                                                text tự do,
+                                                                xem mục c)
+
+  department_id                BIGINT          FK →         NULL nếu chưa gán
+                                              departments(id),  phòng ban
+                                              NULL
+
+  is_management                BOOLEAN         NOT NULL,    Miễn trừ chấm công,
+                                              DEFAULT FALSE  miễn trừ duyệt đơn
+                                                             (dành cho Ban giám
+                                                             đốc và các cấp
+                                                             quản lý theo từng
+                                                             ngữ cảnh)
 
   is_default_shift_required   BOOLEAN         NOT NULL,    TRUE = phải chấm công
                                               DEFAULT TRUE ca mặc định khi không
@@ -129,7 +165,7 @@ a)  Bảng Employees -- Hồ sơ nhân sự
                                                            hàng)
   ------------------------------------------------------------------------------
 
-Có employees_history. Cột department_id đã nằm ở bảng users.
+Có employees_history.
 
 b)  Bảng employment_contracts --- Hợp đồng lao động
 
@@ -226,6 +262,55 @@ d)  Bảng commendations --- Khen thưởng/Kỷ luật
   ------------------------------------------------------------------------
 
 Không history, mỗi record là 1 sự kiện độc lập, không sửa.
+
+e)  Bảng positions --- Chức vụ (V36, bổ sung ngoài SDD gốc — FR-HRM-06/UC-52)
+
+Thay thế employees.position_title (text tự do) — chuẩn hóa thành danh mục
+để có thể ánh xạ vai trò (role) mặc định qua position_default_roles.
+
+  ------------------------------------------------------------------------------
+  Cột                    Kiểu              Ràng buộc           Ghi chú
+  ---------------------- ----------------- ------------------- -----------------
+  id                     BIGSERIAL         PK                  
+
+  uuid                   UUID              UNIQUE, NOT NULL,   
+                                           DEFAULT             
+                                           gen_random_uuid()   
+
+  code                   VARCHAR(50)       UNIQUE, NOT NULL    Ví dụ: GV, TP_DT,
+                                                               NV
+
+  name                   VARCHAR(200)      NOT NULL            \"Giáo viên\",
+                                                               \"Trưởng phòng
+                                                               đào tạo\"...
+
+  created_at, updated_at TIMESTAMPTZ                           
+  ------------------------------------------------------------------------------
+
+Không soft-delete, không history — danh mục cấu hình tĩnh (giống
+departments). Không xóa được nếu đang có nhân sự mang chức vụ đó (UC-52 A1).
+
+f)  Bảng position_default_roles --- Vai trò mặc định theo chức vụ (V36,
+    bổ sung ngoài SDD gốc — FR-HRM-06/UC-52)
+
+  ------------------------------------------------------------------------
+  **Cột**        **Kiểu**           **Ràng buộc**    **Ghi chú**
+  -------------- ------------------ ---------------- ---------------------
+  id             BIGSERIAL          PK                
+
+  position_id    BIGINT             FK →             1 chức vụ có nhiều
+                                    positions(id),   role mặc định
+                                    NOT NULL         
+
+  role_id        BIGINT             FK → roles(id),  UNIQUE cùng
+                                    NOT NULL         position_id
+  ------------------------------------------------------------------------
+
+Khi employees.position_id được gán/đổi (UC-08 A5, UC-51 bước 4), hệ thống
+đối chiếu bảng này để tự động gán/thu hồi role tương ứng ở user_roles —
+xem cột user_roles.granted_via_position_id (docs/sdd-groups/02-nen-tang.md
+mục e) để biết role nào do cơ chế này tự gán (phân biệt với role gán tay
+qua UC-46).
 
 ### Chấm công
 

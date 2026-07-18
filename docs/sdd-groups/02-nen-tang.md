@@ -12,7 +12,6 @@ thống xác thực/phân quyền, phòng ban và các bảng hạ tầng dùng 
 erDiagram
     users ||--o{ user_roles : "duoc gan"
     users ||--o{ user_permission_overrides : "quyen ngoai le"
-    users }o--|| departments : "thuoc"
     users ||--o{ refresh_tokens : "phien"
     users ||--o{ login_attempts : "log dang nhap"
     users ||--o{ users_history : ""
@@ -35,9 +34,7 @@ erDiagram
         VARCHAR email UK
         VARCHAR password_hash
         VARCHAR full_name
-        BIGINT department_id FK
         VARCHAR status
-        BOOLEAN is_management
         VARCHAR google_id UK
         TIMESTAMPTZ last_login_at
         INT failed_login_count
@@ -153,8 +150,9 @@ phòng ban)
 Không soft-delete, không history -- danh mục cấu hình tĩnh
 
 *Lưu ý khi triển khai: Có quan hệ vòng giữa departments.head_user_id và
-users.department_id. Xử lý bằng cách seed departments trước, tạo users,
-sau đó UPDATE departments.head_user_id.*
+employees.department_id (qua employees.user_id). Xử lý bằng cách seed
+departments trước, tạo users + employees, sau đó UPDATE
+departments.head_user_id.*
 
 b)  Bảng user -- Tài khoản người dùng
 
@@ -179,19 +177,8 @@ Quản lý\...) đều là 1 record trong bảng này.
 
   phone                VARCHAR(20)      NULL               
 
-  department_id        BIGINT           FK →               NULL cho Học
-                                        departments(id),   sinh/Phụ huynh/Đại
-                                        NULL               diện trường liên kết
-
   status               VARCHAR(20)      NOT NULL, DEFAULT  ACTIVE / INACTIVE /
                                         \'ACTIVE\'         SUSPENDED
-
-  is_management        BOOLEAN          NOT NULL, DEFAULT  Miễn trừ chấm công,
-                                        FALSE              miễn trừ duyệt đơn
-                                                           (dành cho Ban giám
-                                                           đốc và các cấp quản
-                                                           lý theo từng ngữ
-                                                           cảnh)
 
   google_id            VARCHAR(255)     UNIQUE, NULL       
 
@@ -213,7 +200,20 @@ users_history.
 *Quyết định thiết kế:* Học sinh và Phụ huynh dùng chung bảng users thông
 tin đặc thù từng loại tác nhân được lưu ở bảng mở rộng riêng (students,
 parents, employees --- chi tiết ở các nhóm sau) liên kết 1-1 qua
-user_id.
+user_id. Áp dụng đúng nguyên tắc này, `department_id`/`is_management` ---
+chỉ có ý nghĩa với nhân sự --- nằm ở bảng `employees` (nhóm Nhân sự), không
+nằm ở `users`.
+
+*Cơ chế khởi tạo tài khoản (UC-43/FR-USR-01):* hệ thống không có tự đăng
+ký --- tài khoản do người có quyền user.manage khởi tạo. Mật khẩu ban đầu
+tùy chọn: nhập (tối thiểu 8 ký tự, băm BCrypt --- NFR-SEC-01) hoặc bỏ
+trống để tạo tài khoản chỉ đăng nhập Google (password_hash = NULL, đăng
+nhập Google khớp theo email --- UC-01 A4). Tài khoản mới KHÔNG kèm role
+--- gán sau qua UC-03/UC-04. Không có cơ chế "bắt đổi mật khẩu lần đầu"
+(bảng users không có cột tương ứng --- ngoài phạm vi thiết kế hiện tại).
+Ngoại lệ duy nhất về thẩm quyền: luồng khởi tạo hồ sơ nhân sự (UC-08,
+quyền hrm.manage) được tạo tài khoản kèm hồ sơ trong cùng 1 transaction
+cho nhân sự chưa có tài khoản --- dùng chung cơ chế/ràng buộc ở trên.
 
 c)  Bảng roles -- Vai trò
 
@@ -293,6 +293,18 @@ e)  Bảng user_roles -- Gán role cho user (M-N)
 
   assigned_by     BIGINT           FK → users(id),    
                                    NOT NULL           
+
+  granted_via_    BIGINT           FK →               V36, bổ sung ngoài
+  position_id                      positions(id),     SDD gốc (FR-HRM-06/
+                                   NULL               UC-52) --- NULL nếu
+                                                      role này được gán tay
+                                                      qua UC-46; nếu không
+                                                      NULL, đây là role hệ
+                                                      thống tự gán theo
+                                                      chức vụ đang trỏ tới,
+                                                      dùng để biết role nào
+                                                      an toàn tự thu hồi
+                                                      khi đổi chức vụ
 
                                    UNIQUE(user_id,    
                                    role_id)           

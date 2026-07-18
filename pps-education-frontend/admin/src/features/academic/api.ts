@@ -1,0 +1,551 @@
+import { apiRequest } from "@/lib/apiClient";
+
+// ===================== Khung chương trình (UC-16/17) =====================
+
+export interface CurriculumResponse {
+  id: number;
+  code: string;
+  name: string;
+  siteId: number | null;
+  parentCurriculumId: number | null;
+  classCategory: "MAIN" | "SUPPLEMENTARY" | "EXAM_PREP" | "OTHER" | null;
+  level: string | null;
+  totalPeriods: number | null;
+  defaultGradePassThreshold: number | null;
+  status: string;
+  createdBy: number;
+  approvedBy: number | null;
+}
+
+export function listCurriculums(): Promise<CurriculumResponse[]> {
+  return apiRequest<CurriculumResponse[]>("/curriculums");
+}
+
+export function getCurriculum(id: number): Promise<CurriculumResponse> {
+  return apiRequest<CurriculumResponse>(`/curriculums/${id}`);
+}
+
+export interface CreateCurriculumRequest {
+  code: string;
+  name: string;
+  classCategory: string;
+  level?: string;
+  totalPeriods?: number;
+  defaultGradePassThreshold?: number;
+}
+
+/** UC-16 Main Flow bước 1-3: khởi tạo khung chương trình chuẩn mới (siteId luôn null). */
+export function createCurriculum(request: CreateCurriculumRequest): Promise<CurriculumResponse> {
+  return apiRequest<CurriculumResponse>("/curriculums", { method: "POST", body: JSON.stringify(request) });
+}
+
+export interface UpdateCurriculumRequest {
+  name: string;
+  level?: string;
+  totalPeriods?: number;
+  defaultGradePassThreshold?: number;
+  status: string;
+  confirm: boolean;
+}
+
+export function updateCurriculum(id: number, request: UpdateCurriculumRequest): Promise<CurriculumResponse> {
+  return apiRequest<CurriculumResponse>(`/curriculums/${id}`, { method: "PUT", body: JSON.stringify(request) });
+}
+
+export interface CurriculumSubjectResponse {
+  id: number;
+  curriculumId: number;
+  subjectCode: string;
+  name: string;
+  periodCount: number | null;
+  displayOrder: number;
+}
+
+export interface CreateCurriculumSubjectRequest {
+  subjectCode: string;
+  name: string;
+  periodCount?: number;
+  displayOrder?: number;
+}
+
+export function listCurriculumSubjects(curriculumId: number): Promise<CurriculumSubjectResponse[]> {
+  return apiRequest<CurriculumSubjectResponse[]>(`/curriculums/${curriculumId}/subjects`);
+}
+
+export function addCurriculumSubject(curriculumId: number, request: CreateCurriculumSubjectRequest): Promise<CurriculumSubjectResponse> {
+  return apiRequest<CurriculumSubjectResponse>(`/curriculums/${curriculumId}/subjects`, { method: "POST", body: JSON.stringify(request) });
+}
+
+export interface CreateCustomCurriculumRequest {
+  code: string;
+  parentCurriculumId: number;
+  siteId: number;
+  name?: string;
+}
+
+/** UC-16b Main Flow bước 1-2: tạo bản sao tùy biến từ khung chương trình gốc cho 1 điểm trường. */
+export function createCustomCurriculum(request: CreateCustomCurriculumRequest): Promise<CurriculumResponse> {
+  return apiRequest<CurriculumResponse>("/curriculums/custom", { method: "POST", body: JSON.stringify(request) });
+}
+
+export interface UpdateCustomCurriculumRequest {
+  name: string;
+  level?: string;
+  totalPeriods?: number;
+  defaultGradePassThreshold?: number;
+}
+
+export function updateCustomCurriculum(id: number, request: UpdateCustomCurriculumRequest): Promise<CurriculumResponse> {
+  return apiRequest<CurriculumResponse>(`/curriculums/custom/${id}`, { method: "PUT", body: JSON.stringify(request) });
+}
+
+export interface CurriculumApprovalResponse {
+  id: number;
+  curriculumId: number;
+  curriculumCode: string;
+  curriculumName: string;
+  status: string;
+  submittedBy: number;
+  submittedAt: string;
+  approverId: number | null;
+  decision: string | null;
+  comment: string | null;
+  decidedAt: string | null;
+}
+
+/** UC-16b Main Flow bước 4-5: nộp bản tùy biến lên hàng chờ duyệt (cũng dùng lại cho A1 UC-17 — đề xuất lại sau từ chối). */
+export function submitCurriculumForApproval(id: number): Promise<CurriculumApprovalResponse> {
+  return apiRequest<CurriculumApprovalResponse>(`/curriculums/custom/${id}/submit`, { method: "POST" });
+}
+
+/** UC-17 Main Flow bước 1: Trưởng phòng đào tạo xem hàng chờ duyệt tùy biến. */
+export function listPendingCurriculumApprovals(): Promise<CurriculumApprovalResponse[]> {
+  return apiRequest<CurriculumApprovalResponse[]>("/curriculums/approvals/pending");
+}
+
+/** UC-17 Main Flow bước 3-5: duyệt/từ chối. */
+export function decideCurriculumApproval(approvalFlowId: number, decision: "APPROVED" | "REJECTED", comment?: string): Promise<CurriculumApprovalResponse> {
+  return apiRequest<CurriculumApprovalResponse>(`/curriculums/approvals/${approvalFlowId}/decision`, { method: "POST", body: JSON.stringify({ decision, comment }) });
+}
+
+// ===================== Lớp học (UC-18) =====================
+
+export interface ClassResponse {
+  id: number;
+  classCode: string;
+  name: string;
+  siteId: number;
+  siteName: string;
+  curriculumId: number;
+  curriculumCode: string;
+  classType: "LINKED" | "OPEN";
+  classCategory: string | null;
+  maxStudents: number;
+  minStudents: number | null;
+  startDate: string;
+  endDate: string | null;
+  academicYear: string | null;
+  semester: string | null;
+  status: "PLANNED" | "OPEN_ENROLLMENT" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
+}
+
+export interface CreateClassRequest {
+  classCode: string;
+  name: string;
+  siteId: number;
+  curriculumId: number;
+  classType: "LINKED" | "OPEN";
+  maxStudents: number;
+  minStudents?: number;
+  startDate: string;
+  endDate?: string;
+  academicYear?: string;
+  semester?: string;
+}
+
+export interface UpdateClassRequest {
+  name: string;
+  maxStudents: number;
+  minStudents?: number;
+  startDate: string;
+  endDate?: string;
+  academicYear?: string;
+  semester?: string;
+  status: ClassResponse["status"];
+}
+
+/** UC-18 Main Flow bước 3: dropdown site -> lớp của site đó; lọc thêm theo curriculum. Giáo viên chỉ thấy lớp thuộc site được gán (site_teachers). */
+export function listClasses(params?: { query?: string; siteId?: number; curriculumId?: number; classCategory?: string }): Promise<ClassResponse[]> {
+  const qs = new URLSearchParams();
+  if (params?.query?.trim()) qs.set("query", params.query.trim());
+  if (params?.siteId) qs.set("siteId", String(params.siteId));
+  if (params?.curriculumId) qs.set("curriculumId", String(params.curriculumId));
+  if (params?.classCategory) qs.set("classCategory", params.classCategory);
+  const suffix = qs.toString() ? `?${qs.toString()}` : "";
+  return apiRequest<ClassResponse[]>(`/classes${suffix}`);
+}
+
+export function getClass(id: number): Promise<ClassResponse> {
+  return apiRequest<ClassResponse>(`/classes/${id}`);
+}
+
+export function createClass(request: CreateClassRequest): Promise<ClassResponse> {
+  return apiRequest<ClassResponse>("/classes", { method: "POST", body: JSON.stringify(request) });
+}
+
+export function updateClass(id: number, request: UpdateClassRequest): Promise<ClassResponse> {
+  return apiRequest<ClassResponse>(`/classes/${id}`, { method: "PUT", body: JSON.stringify(request) });
+}
+
+export interface ClassTeacherResponse {
+  id: number;
+  classId: number;
+  teacherUserId: number;
+  teacherFullName: string;
+  teacherRole: "PRIMARY" | "ASSISTANT" | "SUBSTITUTE";
+  subjectId: number | null;
+  assignedFrom: string | null;
+  assignedTo: string | null;
+}
+
+export interface AssignTeacherRequest {
+  teacherUserId: number;
+  teacherRole?: ClassTeacherResponse["teacherRole"];
+  subjectId?: number;
+  assignedFrom?: string;
+}
+
+export function listClassTeachers(classId: number): Promise<ClassTeacherResponse[]> {
+  return apiRequest<ClassTeacherResponse[]>(`/classes/${classId}/teachers`);
+}
+
+/** UC-18 A3: nếu giáo viên chưa được gán vào điểm trường của lớp, backend tự tạo liên kết site_teachers, không chặn thao tác. */
+export function assignClassTeacher(classId: number, request: AssignTeacherRequest): Promise<ClassTeacherResponse> {
+  return apiRequest<ClassTeacherResponse>(`/classes/${classId}/teachers`, { method: "POST", body: JSON.stringify(request) });
+}
+
+export interface ClassEnrollmentResponse {
+  id: number;
+  classId: number;
+  studentId: number;
+  studentFullName: string;
+  studentCode: string;
+  enrolledDate: string;
+  withdrawnDate: string | null;
+  status: string;
+  withdrawReason: string | null;
+}
+
+export interface EnrollStudentRequest {
+  studentId: number;
+  enrolledDate: string;
+}
+
+export interface WithdrawEnrollmentRequest {
+  withdrawnDate: string;
+  reason?: string;
+}
+
+export function listClassEnrollments(classId: number): Promise<ClassEnrollmentResponse[]> {
+  return apiRequest<ClassEnrollmentResponse[]>(`/classes/${classId}/enrollments`);
+}
+
+export function enrollStudent(classId: number, request: EnrollStudentRequest): Promise<ClassEnrollmentResponse> {
+  return apiRequest<ClassEnrollmentResponse>(`/classes/${classId}/enrollments`, { method: "POST", body: JSON.stringify(request) });
+}
+
+export function withdrawEnrollment(classId: number, enrollmentId: number, request: WithdrawEnrollmentRequest): Promise<ClassEnrollmentResponse> {
+  return apiRequest<ClassEnrollmentResponse>(`/classes/${classId}/enrollments/${enrollmentId}/withdraw`, { method: "POST", body: JSON.stringify(request) });
+}
+
+// ===================== Buổi học (UC-48) =====================
+
+export interface ClassSessionResponse {
+  id: number;
+  classId: number;
+  sessionDate: string;
+  startTime: string;
+  endTime: string;
+  roomId: number | null;
+  roomName: string | null;
+  primaryTeacherId: number;
+  primaryTeacherName: string;
+  sessionType: string;
+  status: string;
+  cancellationReason: string | null;
+  rescheduledToSessionId: number | null;
+}
+
+export interface CreateClassSessionRequest {
+  sessionDate: string;
+  startTime: string;
+  endTime: string;
+  roomId?: number;
+  primaryTeacherId: number;
+  sessionType: string;
+}
+
+export interface RescheduleClassSessionRequest {
+  newSessionDate: string;
+  newStartTime: string;
+  newEndTime: string;
+  newRoomId?: number;
+  newPrimaryTeacherId: number;
+  reason?: string;
+}
+
+export function listClassSessions(classId: number): Promise<ClassSessionResponse[]> {
+  return apiRequest<ClassSessionResponse[]>(`/classes/${classId}/sessions`);
+}
+
+export function createClassSession(classId: number, request: CreateClassSessionRequest): Promise<ClassSessionResponse> {
+  return apiRequest<ClassSessionResponse>(`/classes/${classId}/sessions`, { method: "POST", body: JSON.stringify(request) });
+}
+
+export function cancelClassSession(classId: number, sessionId: number, reason?: string): Promise<ClassSessionResponse> {
+  return apiRequest<ClassSessionResponse>(`/classes/${classId}/sessions/${sessionId}/cancel`, { method: "POST", body: JSON.stringify({ reason }) });
+}
+
+export function rescheduleClassSession(classId: number, sessionId: number, request: RescheduleClassSessionRequest): Promise<ClassSessionResponse> {
+  return apiRequest<ClassSessionResponse>(`/classes/${classId}/sessions/${sessionId}/reschedule`, { method: "POST", body: JSON.stringify(request) });
+}
+
+// ===================== Điểm danh (UC-15) =====================
+
+export interface AttendanceMarkResponse {
+  id: number;
+  attendanceSessionId: number;
+  studentId: number;
+  studentFullName: string;
+  studentCode: string;
+  status: "PRESENT" | "ABSENT" | "EXCUSED" | "LATE" | "EARLY_LEAVE";
+  minutesLate: number | null;
+  minutesEarlyLeave: number | null;
+  absenceReason: string | null;
+  notifiedParentAt: string | null;
+}
+
+export interface AttendanceSessionResponse {
+  id: number;
+  classSessionId: number;
+  mode: "SESSION_LEVEL" | "PERIOD_LEVEL";
+  markedBy: number | null;
+  markedAt: string | null;
+  status: "DRAFT" | "SUBMITTED" | "LOCKED";
+  submittedAt: string | null;
+  marks: AttendanceMarkResponse[];
+}
+
+export interface EnterAttendanceMarkRequest {
+  studentId: number;
+  status: AttendanceMarkResponse["status"];
+  minutesLate?: number;
+  minutesEarlyLeave?: number;
+  absenceReason?: string;
+}
+
+export interface MarkAttendanceRequest {
+  mode: "SESSION_LEVEL" | "PERIOD_LEVEL";
+  marks: EnterAttendanceMarkRequest[];
+}
+
+export function getAttendanceSession(classSessionId: number): Promise<AttendanceSessionResponse> {
+  return apiRequest<AttendanceSessionResponse>(`/class-sessions/${classSessionId}/attendance`);
+}
+
+export function markAttendance(classSessionId: number, request: MarkAttendanceRequest): Promise<AttendanceSessionResponse> {
+  return apiRequest<AttendanceSessionResponse>(`/class-sessions/${classSessionId}/attendance`, { method: "POST", body: JSON.stringify(request) });
+}
+
+export function submitAttendance(classSessionId: number): Promise<AttendanceSessionResponse> {
+  return apiRequest<AttendanceSessionResponse>(`/class-sessions/${classSessionId}/attendance/submit`, { method: "POST" });
+}
+
+// ===================== Sổ điểm (UC-19/20) =====================
+
+export interface GradePeriodResponse {
+  id: number;
+  curriculumId: number;
+  code: string;
+  name: string;
+  displayOrder: number;
+  weightInFinal: number;
+  startDate: string | null;
+  endDate: string | null;
+  status: "ACTIVE" | "ARCHIVED";
+}
+
+export interface CreateGradePeriodRequest {
+  code: string;
+  name: string;
+  displayOrder?: number;
+  weightInFinal: number;
+  startDate?: string;
+  endDate?: string;
+}
+
+export function listGradePeriods(curriculumId: number): Promise<GradePeriodResponse[]> {
+  return apiRequest<GradePeriodResponse[]>(`/curriculums/${curriculumId}/grade-periods`);
+}
+
+export function createGradePeriod(curriculumId: number, request: CreateGradePeriodRequest): Promise<GradePeriodResponse> {
+  return apiRequest<GradePeriodResponse>(`/curriculums/${curriculumId}/grade-periods`, { method: "POST", body: JSON.stringify(request) });
+}
+
+export interface GradeComponentResponse {
+  id: number;
+  gradePeriodId: number;
+  subjectId: number | null;
+  code: string;
+  name: string;
+  weightInPeriod: number;
+  maxScore: number | null;
+  passThreshold: number | null;
+  displayOrder: number;
+}
+
+export interface CreateGradeComponentRequest {
+  subjectId?: number;
+  code: string;
+  name: string;
+  weightInPeriod: number;
+  maxScore?: number;
+  passThreshold?: number;
+  displayOrder?: number;
+}
+
+export function listGradeComponents(gradePeriodId: number): Promise<GradeComponentResponse[]> {
+  return apiRequest<GradeComponentResponse[]>(`/grade-periods/${gradePeriodId}/components`);
+}
+
+export function addGradeComponent(gradePeriodId: number, request: CreateGradeComponentRequest): Promise<GradeComponentResponse> {
+  return apiRequest<GradeComponentResponse>(`/grade-periods/${gradePeriodId}/components`, { method: "POST", body: JSON.stringify(request) });
+}
+
+export interface GradeEntryResponse {
+  id: number;
+  classId: number;
+  studentId: number;
+  studentFullName: string;
+  studentCode: string;
+  gradeComponentId: number;
+  score: number;
+  absenceFlag: boolean;
+  teacherNote: string | null;
+  status: "DRAFT" | "PENDING" | "APPROVED" | "REJECTED";
+  enteredBy: number;
+  submittedAt: string | null;
+  approvedBy: number | null;
+  approvedAt: string | null;
+}
+
+export interface EnterGradeRequest {
+  studentId: number;
+  score: number;
+  absenceFlag: boolean;
+  teacherNote?: string;
+}
+
+/** UC-19 Main Flow bước 1-3: Giáo viên nhập điểm 1 học sinh cho 1 đầu điểm của lớp. */
+export function listGradeEntries(classId: number, gradeComponentId: number): Promise<GradeEntryResponse[]> {
+  return apiRequest<GradeEntryResponse[]>(`/classes/${classId}/grades/components/${gradeComponentId}`);
+}
+
+export function enterGrade(classId: number, gradeComponentId: number, request: EnterGradeRequest): Promise<GradeEntryResponse> {
+  return apiRequest<GradeEntryResponse>(`/classes/${classId}/grades/components/${gradeComponentId}`, { method: "POST", body: JSON.stringify(request) });
+}
+
+/** UC-19 Main Flow bước 4: nộp điểm (1 hoặc nhiều bản ghi cùng lúc, sinh chung 1 batch). */
+export function submitGrades(classId: number, gradeEntryIds: number[]): Promise<GradeEntryResponse[]> {
+  return apiRequest<GradeEntryResponse[]>(`/classes/${classId}/grades/submit`, { method: "POST", body: JSON.stringify({ gradeEntryIds }) });
+}
+
+export function getPeriodAverage(classId: number, studentId: number, gradePeriodId: number): Promise<PeriodAverageResponse> {
+  return apiRequest<PeriodAverageResponse>(`/classes/${classId}/grades/students/${studentId}/periods/${gradePeriodId}/average`);
+}
+
+export interface PeriodAverageResponse {
+  classId: number;
+  studentId: number;
+  gradePeriodId: number;
+  average: number | null;
+  componentsEntered: number;
+  componentsTotal: number;
+}
+
+/** UC-20: Quản lý điểm trường duyệt điểm — hàng chờ của (các) site mình phụ trách. */
+export function listPendingGrades(): Promise<GradeEntryResponse[]> {
+  return apiRequest<GradeEntryResponse[]>("/grades/pending");
+}
+
+export function decideGrades(gradeEntryIds: number[], decision: "APPROVED" | "REJECTED", comment?: string): Promise<GradeEntryResponse[]> {
+  return apiRequest<GradeEntryResponse[]>("/grades/decision", { method: "POST", body: JSON.stringify({ gradeEntryIds, decision, comment }) });
+}
+
+// ===================== Nhận xét học viên (UC-21/22) =====================
+
+export interface StudentCommentResponse {
+  id: number;
+  studentId: number;
+  studentFullName: string;
+  classId: number;
+  teacherId: number;
+  commentType: "DAILY" | "MID_TERM" | "END_TERM";
+  classSessionId: number | null;
+  gradePeriodId: number | null;
+  commentDate: string;
+  content: string;
+  structuredContent: Record<string, unknown> | null;
+  severity: "POSITIVE" | "NORMAL" | "CONCERN" | "WARNING" | null;
+  isWarning: boolean;
+  status: "DRAFT" | "PENDING" | "APPROVED" | "REJECTED";
+  submittedAt: string | null;
+  approvedAt: string | null;
+  approvedBy: number | null;
+  visibleToParentAt: string | null;
+  rejectionReason: string | null;
+}
+
+export interface CreateStudentCommentRequest {
+  studentId: number;
+  commentType: StudentCommentResponse["commentType"];
+  classSessionId?: number;
+  gradePeriodId?: number;
+  commentDate: string;
+  content: string;
+  structuredContent?: Record<string, unknown>;
+  severity?: StudentCommentResponse["severity"];
+  isWarning: boolean;
+}
+
+export interface UpdateStudentCommentRequest {
+  content: string;
+  structuredContent?: Record<string, unknown>;
+  severity?: StudentCommentResponse["severity"];
+  isWarning: boolean;
+}
+
+export function listComments(classId: number, studentId: number): Promise<StudentCommentResponse[]> {
+  return apiRequest<StudentCommentResponse[]>(`/classes/${classId}/comments?studentId=${studentId}`);
+}
+
+export function writeComment(classId: number, request: CreateStudentCommentRequest): Promise<StudentCommentResponse> {
+  return apiRequest<StudentCommentResponse>(`/classes/${classId}/comments`, { method: "POST", body: JSON.stringify(request) });
+}
+
+export function updateComment(id: number, request: UpdateStudentCommentRequest): Promise<StudentCommentResponse> {
+  return apiRequest<StudentCommentResponse>(`/comments/${id}`, { method: "PUT", body: JSON.stringify(request) });
+}
+
+export function submitComments(classId: number, commentIds: number[]): Promise<StudentCommentResponse[]> {
+  return apiRequest<StudentCommentResponse[]>(`/classes/${classId}/comments/submit`, { method: "POST", body: JSON.stringify({ commentIds }) });
+}
+
+/** UC-22: Quản lý điểm trường duyệt nhận xét — hàng chờ của (các) site mình phụ trách. */
+export function listPendingComments(): Promise<StudentCommentResponse[]> {
+  return apiRequest<StudentCommentResponse[]>("/comments/pending");
+}
+
+export function decideComments(commentIds: number[], decision: "APPROVED" | "REJECTED", comment?: string): Promise<StudentCommentResponse[]> {
+  return apiRequest<StudentCommentResponse[]>("/comments/decision", { method: "POST", body: JSON.stringify({ commentIds, decision, comment }) });
+}

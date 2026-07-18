@@ -24,6 +24,11 @@ class JwtServiceTest {
 
         assertThat(claims.getSubject()).isEqualTo("test.user");
         assertThat(claims.get("uid", Long.class)).isEqualTo(42L);
-        assertThat(claims.get("roles", List.class)).containsExactly("SYS_ADMIN");
+        // Ép kiểu tường minh thay vì truyền raw List.class thẳng vào assertThat —
+        // javac suy luận được nhưng Eclipse JDT (VS Code) báo lỗi compile, tạo
+        // class hỏng trong target/test-classes làm mvn test (không clean) fail.
+        @SuppressWarnings("unchecked")
+        List<String> roles = claims.get("roles", List.class);
+        assertThat(roles).containsExactly("SYS_ADMIN");
     }
 }

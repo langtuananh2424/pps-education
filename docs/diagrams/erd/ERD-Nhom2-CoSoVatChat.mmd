@@ -2,6 +2,7 @@ erDiagram
     sites ||--o| partner_school_info : "1-1 neu PARTNER"
     sites ||--o{ partner_contracts : "nhieu hop dong"
     sites ||--o{ site_managers : "phu trach"
+    sites ||--o{ site_teachers : "giao vien duoc gan"
     sites ||--o{ rooms : "chua"
     sites ||--o{ partner_feedbacks : "phan hoi ve"
     sites ||--o{ sites_history : ""
@@ -10,6 +11,7 @@ erDiagram
     rooms ||--o{ rooms_history : ""
 
     users ||--o{ site_managers : ""
+    users ||--o{ site_teachers : "giao vien"
     users ||--o{ partner_feedbacks : "gui/xu ly"
     users ||--o{ partner_contracts : "khoi tao"
 
@@ -58,6 +60,15 @@ erDiagram
         BIGSERIAL id PK
         BIGINT site_id FK
         BIGINT user_id FK
+        DATE assigned_from
+        DATE assigned_to
+        BIGINT assigned_by FK
+    }
+
+    site_teachers {
+        BIGSERIAL id PK
+        BIGINT site_id FK
+        BIGINT teacher_user_id FK
         DATE assigned_from
         DATE assigned_to
         BIGINT assigned_by FK

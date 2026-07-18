@@ -1,0 +1,8 @@
+node_modules
+dist
+.env
+.vite/
+
+# Bộ skill AI cá nhân (cài qua `uipro init --ai claude`) — công cụ hỗ trợ local, không phải code dự án.
+# .claude/skills/pps-* ở gốc repo (ngoài admin/) là skill riêng của nhóm, KHÔNG bị ảnh hưởng bởi dòng này.
+.claude/skills/

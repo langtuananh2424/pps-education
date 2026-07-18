@@ -17,6 +17,8 @@ import vn.com.pps.education.repository.UserPermissionOverrideRepository;
 import vn.com.pps.education.repository.UserRepository;
 
 import java.time.OffsetDateTime;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * UC-04: Tùy chỉnh quyền riêng cho tài khoản (FR-PER-03).
@@ -75,7 +77,11 @@ public class UserPermissionOverrideService {
         override.setGrantedAt(OffsetDateTime.now());
         userPermissionOverrideRepository.save(override);
 
-        writeAuditLog(actor, targetUser, PermissionAuditLog.Action.PERM_OVERRIDE_ADDED, permission, httpRequest);
+        Map<String, Object> details = new HashMap<>();
+        details.put("overrideType", override.getOverrideType().name());
+        details.put("reason", override.getReason());
+        details.put("expiresAt", override.getExpiresAt() != null ? override.getExpiresAt().toString() : null);
+        writeAuditLog(actor, targetUser, PermissionAuditLog.Action.PERM_OVERRIDE_ADDED, permission, details, httpRequest);
     }
 
     /** A2 -- gỡ override: tự động hết hiệu lực (giữ row cho audit) thay vì xóa cứng. */
@@ -88,20 +94,25 @@ public class UserPermissionOverrideService {
         User actor = userRepository.findById(actorUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản thực hiện id=" + actorUserId));
 
+        Map<String, Object> details = new HashMap<>();
+        details.put("overrideType", override.getOverrideType().name());
+        details.put("reason", override.getReason());
+
         override.setExpiresAt(OffsetDateTime.now());
         userPermissionOverrideRepository.save(override);
 
         writeAuditLog(actor, override.getUser(), PermissionAuditLog.Action.PERM_OVERRIDE_REMOVED,
-                override.getPermission(), httpRequest);
+                override.getPermission(), details, httpRequest);
     }
 
     private void writeAuditLog(User actor, User target, PermissionAuditLog.Action action, Permission permission,
-                                HttpServletRequest httpRequest) {
+                                Map<String, Object> details, HttpServletRequest httpRequest) {
         PermissionAuditLog log = new PermissionAuditLog();
         log.setActorUser(actor);
         log.setTargetUser(target);
         log.setAction(action);
         log.setTargetPermission(permission);
+        log.setDetails(details);
         log.setIpAddress(httpRequest.getRemoteAddr());
         permissionAuditLogRepository.save(log);
     }

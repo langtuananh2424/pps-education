@@ -1,0 +1,171 @@
+import { apiRequest } from "@/lib/apiClient";
+
+/** Khớp SiteResponse thật của backend — xem UC-36 (Quản lý điểm trường). */
+export interface SiteResponse {
+  id: number;
+  code: string;
+  name: string;
+  siteType: "OWNED" | "PARTNER";
+  address: string | null;
+  district: string | null;
+  phone: string | null;
+  status: "ACTIVE" | "INACTIVE" | "PENDING";
+  partnerInfo: PartnerSchoolInfo | null;
+  currentManagerUserId: number | null;
+  currentManagerFullName: string | null;
+}
+
+export interface PartnerSchoolInfo {
+  contactPersonName: string | null;
+  contactPersonTitle: string | null;
+  contactPhone: string | null;
+  contactEmail: string | null;
+  additionalInfo: string | null;
+}
+
+/** Khớp CreateSiteRequest thật — partnerInfo chỉ hợp lệ khi siteType=PARTNER (BE từ chối nếu gửi kèm OWNED). */
+export interface CreateSiteRequest {
+  code: string;
+  name: string;
+  siteType: "OWNED" | "PARTNER";
+  address?: string;
+  district?: string;
+  phone?: string;
+  partnerInfo?: PartnerSchoolInfo;
+  managerUserId?: number;
+}
+
+/** Khớp UpdateSiteRequest thật — đổi siteType sang OWNED sẽ xóa cứng partnerInfo phía BE. */
+export interface UpdateSiteRequest {
+  name: string;
+  siteType: "OWNED" | "PARTNER";
+  address?: string;
+  district?: string;
+  phone?: string;
+  status?: "ACTIVE" | "INACTIVE" | "PENDING";
+  partnerInfo?: PartnerSchoolInfo;
+}
+
+export interface PartnerContractResponse {
+  id: number;
+  siteId: number;
+  contractNumber: string;
+  contractType: "INITIAL" | "RENEWAL" | "AMENDMENT";
+  parentContractId: number | null;
+  startDate: string;
+  endDate: string;
+  status: "DRAFT" | "ACTIVE" | "EXPIRED" | "TERMINATED";
+  termsSummary: string | null;
+  fileUrl: string | null;
+  signedAt: string | null;
+  signedByCenter: string | null;
+  signedByPartner: string | null;
+  revenueShareNotes: string | null;
+}
+
+export interface CreatePartnerContractRequest {
+  siteId: number;
+  contractType: "INITIAL" | "RENEWAL" | "AMENDMENT";
+  parentContractId?: number;
+  startDate: string;
+  endDate: string;
+  termsSummary?: string;
+  fileUrl?: string;
+  signedAt?: string;
+  signedByCenter?: string;
+  signedByPartner?: string;
+  revenueShareNotes?: string;
+}
+
+/** Khớp UpdatePartnerContractRequest thật — không có contractType/siteId (bất biến sau khi tạo). */
+export interface UpdatePartnerContractRequest {
+  endDate: string;
+  status: "DRAFT" | "ACTIVE" | "EXPIRED" | "TERMINATED";
+  termsSummary?: string;
+  fileUrl?: string;
+  signedAt?: string;
+  signedByCenter?: string;
+  signedByPartner?: string;
+  revenueShareNotes?: string;
+}
+
+export interface ExpiringPartnerContractResponse {
+  contractId: number;
+  siteId: number;
+  siteName: string;
+  contractNumber: string;
+  endDate: string;
+}
+
+/** UC-36 Main Flow: danh sách điểm trường (không phân trang). */
+export function listSites(): Promise<SiteResponse[]> {
+  return apiRequest<SiteResponse[]>("/sites");
+}
+
+export interface SiteTeacherResponse {
+  id: number;
+  siteId: number;
+  teacherUserId: number;
+  teacherFullName: string;
+  assignedFrom: string | null;
+  assignedTo: string | null;
+  notes: string | null;
+}
+
+/** Giáo viên đang được gán vào 1 điểm trường (site_teachers, khác site_managers) — dùng để tự dò điểm trường của Giáo viên đang đăng nhập. */
+export function listSiteTeachers(siteId: number): Promise<SiteTeacherResponse[]> {
+  return apiRequest<SiteTeacherResponse[]>(`/sites/${siteId}/teachers`);
+}
+
+export interface PartnerSiteResponse {
+  siteId: number;
+  siteCode: string;
+  siteName: string;
+}
+
+/** UC-29: tự resolve điểm trường liên kết của Đại diện trường liên kết đang đăng nhập (không nhận siteId từ client). */
+export function getMyPartnerSite(): Promise<PartnerSiteResponse> {
+  return apiRequest<PartnerSiteResponse>("/portal/partner/site");
+}
+
+export function getSite(id: number): Promise<SiteResponse> {
+  return apiRequest<SiteResponse>(`/sites/${id}`);
+}
+
+export function createSite(request: CreateSiteRequest): Promise<SiteResponse> {
+  return apiRequest<SiteResponse>("/sites", { method: "POST", body: JSON.stringify(request) });
+}
+
+export function updateSite(id: number, request: UpdateSiteRequest): Promise<SiteResponse> {
+  return apiRequest<SiteResponse>(`/sites/${id}`, { method: "PUT", body: JSON.stringify(request) });
+}
+
+/** UC-36 Main Flow bước 4 / A1: gán hoặc đổi Quản lý điểm trường phụ trách. */
+export function assignSiteManager(id: number, managerUserId: number): Promise<SiteResponse> {
+  return apiRequest<SiteResponse>(`/sites/${id}/manager`, { method: "PUT", body: JSON.stringify({ managerUserId }) });
+}
+
+export function listPartnerContractsBySite(siteId: number): Promise<PartnerContractResponse[]> {
+  return apiRequest<PartnerContractResponse[]>(`/sites/${siteId}/partner-contracts`);
+}
+
+export function createPartnerContract(request: CreatePartnerContractRequest): Promise<PartnerContractResponse> {
+  return apiRequest<PartnerContractResponse>("/partner-contracts", { method: "POST", body: JSON.stringify(request) });
+}
+
+export function updatePartnerContract(id: number, request: UpdatePartnerContractRequest): Promise<PartnerContractResponse> {
+  return apiRequest<PartnerContractResponse>(`/partner-contracts/${id}`, { method: "PUT", body: JSON.stringify(request) });
+}
+
+export function terminatePartnerContract(id: number): Promise<PartnerContractResponse> {
+  return apiRequest<PartnerContractResponse>(`/partner-contracts/${id}/terminate`, { method: "POST" });
+}
+
+/** A3: chỉ xóa được hợp đồng đang ở trạng thái DRAFT (BE tự chặn, trả lỗi rõ nếu không phải). */
+export function deletePartnerContract(id: number): Promise<void> {
+  return apiRequest<void>(`/partner-contracts/${id}`, { method: "DELETE" });
+}
+
+export function listExpiringContracts(withinDays: number): Promise<ExpiringPartnerContractResponse[]> {
+  return apiRequest<ExpiringPartnerContractResponse[]>(`/partner-contracts/expiring?withinDays=${withinDays}`);
+}

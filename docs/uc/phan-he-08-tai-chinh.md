@@ -124,13 +124,27 @@ UC-31: Ghi nhận chi vận hành
 +-----------------+----------------------------------------------------+
 | **Luồng thay    | ***A1 --- Chi phí dùng chung nhiều điểm trường***  |
 | thế / ngoại lệ  |                                                    |
-| (Alternate      | 1.  Kế toán có thể để trống điểm trường liên quan  |
-| Flow)**         |     hoặc phân bổ tỷ lệ, ghi rõ trong mô tả để phục |
-|                 |     vụ báo cáo tổng hợp (UC-32).                   |
+| (Alternate      | 1. Kế toán có thể để trống điểm trường liên quan   |
+| Flow)**         | hoặc phân bổ tỷ lệ, ghi rõ trong mô tả để phục vụ  |
+|                 | báo cáo tổng hợp (UC-32).                          |
+|                 |                                                    |
+|                 | ***A2 --- Ban giám đốc duyệt/từ chối khoản chi (bổ |
+|                 | sung, FR-FIN-03)***                                |
+|                 |                                                    |
+|                 | 1. Ban giám đốc (quyền finance.expense.approve)    |
+|                 | xem danh sách khoản chi đang RECORDED, chọn Duyệt  |
+|                 | hoặc Từ chối.                                      |
+|                 |                                                    |
+|                 | 2. Nếu Từ chối: bắt buộc nhập lý do. Hệ thống      |
+|                 | chuyển trạng thái sang APPROVED hoặc REJECTED, ghi |
+|                 | nhận người quyết định.                             |
 +-----------------+----------------------------------------------------+
-| **Hậu điều kiện | -   Khoản chi được lưu chính xác, làm dữ liệu đầu  |
-| (P              |     vào cho báo cáo Thu/Chi/Công nợ (UC-32).       |
+| **Hậu điều kiện | - Khoản chi được lưu chính xác, làm dữ liệu đầu    |
+| (P              | vào cho báo cáo Thu/Chi/Công nợ (UC-32).           |
 | ostcondition)** |                                                    |
+|                 | - Trạng thái khoản chi                             |
+|                 | (RECORDED/APPROVED/REJECTED) phản ánh đúng quyết   |
+|                 | định của Ban giám đốc (nếu đã có).                 |
 +-----------------+----------------------------------------------------+
 
 ---

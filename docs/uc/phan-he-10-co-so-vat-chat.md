@@ -33,7 +33,15 @@ UC-36: Quản lý điểm trường
 | chính (Main     |     chọn Thêm mới hoặc chọn điểm trường hiện có.   |
 | Flow)**         |                                                    |
 |                 | 2.  Nhập thông tin cơ bản: tên, địa chỉ, Loại hình |
-|                 |     (Cơ sở tự vận hành/Trường liên kết).           |
+|                 |     (Cơ sở tự vận hành/Trường liên kết). Có thể    |
+|                 |     nhập kèm tọa độ GPS (vĩ độ/kinh độ) của điểm   |
+|                 |     trường ngay lúc này hoặc bổ sung/cập nhật sau  |
+|                 |     (geo_location) --- bắt buộc phải có tọa độ thì |
+|                 |     UC-09 (Chấm công GPS) mới xác thực được bán    |
+|                 |     kính cho điểm trường đó (bổ sung ngoài mô tả   |
+|                 |     UC gốc, đã xác nhận với người dùng 2026-07-17  |
+|                 |     --- trước đó geo_location không có đường nào   |
+|                 |     ghi được qua API).                             |
 |                 |                                                    |
 |                 | 3.  Nếu Loại hình là Trường liên kết: bổ sung      |
 |                 |     thông tin người liên hệ đầu mối; trạng thái    |
@@ -51,10 +59,31 @@ UC-36: Quản lý điểm trường
 | (Alternate      | 1.  Người dùng chọn Quản lý điểm trường mới thay   |
 | Flow)**         |     thế; hệ thống cập nhật phạm vi truy cập dữ     |
 |                 |     liệu row-level tương ứng ngay khi lưu.         |
+|                 |                                                    |
+|                 | ***A2 --- Gán giáo viên vào điểm trường (bổ sung   |
+|                 | ngoài SDD gốc, đã xác nhận với người dùng)***      |
+|                 |                                                    |
+|                 | 1.  Người dùng (quyền facility.manage) gán 1 giáo  |
+|                 |     viên vào điểm trường (mọi Loại hình, cả Cơ sở  |
+|                 |     tự vận hành lẫn Trường liên kết) — 1 giáo viên |
+|                 |     có thể được gán nhiều điểm trường cùng lúc     |
+|                 |     (site_teachers, migration V35).                |
+|                 |                                                    |
+|                 | 2.  Giáo viên không có quyền academic.class.manage |
+|                 |     (VD role Giáo viên thuần) chỉ xem/thao tác     |
+|                 |     được lớp học, buổi học, điểm danh thuộc (các)  |
+|                 |     điểm trường mình được gán — xem UC-18 A3.      |
+|                 |                                                    |
+|                 | 3.  Người dùng có thể gỡ 1 phân công (đóng          |
+|                 |     assigned_to, giữ lịch sử).                     |
 +-----------------+----------------------------------------------------+
 | **Hậu điều kiện | -   Danh mục điểm trường phản ánh đúng thực tế,    |
 | (P              |     sẵn sàng làm cơ sở cho xếp lớp (UC-18), quản   |
 | ostcondition)** |     lý phòng học (UC-37).                          |
+|                 |                                                    |
+|                 | -   Giáo viên được gán chỉ thao tác được dữ liệu   |
+|                 |     lớp học/điểm danh thuộc (các) điểm trường mình |
+|                 |     được gán (A2).                                 |
 +-----------------+----------------------------------------------------+
 
 ---
@@ -97,20 +126,36 @@ UC-36b: Quản lý hợp đồng liên kết trường
 +-----------------+----------------------------------------------------+
 | **Luồng thay    | ***A1 --- Hợp đồng sắp hết hạn***                  |
 | thế / ngoại lệ  |                                                    |
-| (Alternate      | 1.  Hệ thống cảnh báo Quản lý vận hành khi hợp     |
-| Flow)**         |     đồng gần đến hạn để xử lý gia hạn hoặc chấm    |
-|                 |     dứt kịp thời.                                  |
+| (Alternate      | 1. Hệ thống cảnh báo Quản lý vận hành khi hợp đồng |
+| Flow)**         | gần đến hạn để xử lý gia hạn hoặc chấm dứt kịp     |
+|                 | thời.                                              |
 |                 |                                                    |
 |                 | ***A2 --- Chấm dứt hợp đồng***                     |
 |                 |                                                    |
-|                 | 1.  Quản lý vận hành đánh dấu hợp đồng chấm dứt;   |
-|                 |     hệ thống cảnh báo các lớp/hoạt động đang gắn   |
-|                 |     với điểm trường đó để xử lý chuyển tiếp.       |
+|                 | 1. Quản lý vận hành đánh dấu hợp đồng chấm dứt; hệ |
+|                 | thống cảnh báo các lớp/hoạt động đang gắn với điểm |
+|                 | trường đó để xử lý chuyển tiếp.                    |
+|                 |                                                    |
+|                 | ***A3 --- Xóa hợp đồng nhập nhầm (bổ sung,         |
+|                 | FR-FAC-01)***                                      |
+|                 |                                                    |
+|                 | 1. Quản lý vận hành xóa 1 hợp đồng đang DRAFT      |
+|                 | (nhập sai điểm trường/thông tin, chưa từng ký/kích |
+|                 | hoạt); hệ thống xóa mềm (deleted_at), loại khỏi    |
+|                 | mọi danh sách/tra cứu. Chỉ áp dụng cho hợp đồng    |
+|                 | đang DRAFT — hợp đồng đã ACTIVE/EXPIRED/TERMINATED |
+|                 | (đã từng có hiệu lực pháp lý) không thể xóa, dùng  |
+|                 | A2 (chấm dứt) thay thế để giữ đúng chứng cứ pháp   |
+|                 | lý.                                                |
 +-----------------+----------------------------------------------------+
-| **Hậu điều kiện | -   Trạng thái hợp đồng hợp tác được cập nhật      |
-| (P              |     chính xác, làm cơ sở cho Ban giám đốc phê      |
-| ostcondition)** |     duyệt các quyết định chiến lược liên quan (hợp |
-|                 |     đồng liên kết trường mới).                     |
+| **Hậu điều kiện | - Trạng thái hợp đồng hợp tác được cập nhật chính  |
+| (P              | xác, làm cơ sở cho Ban giám đốc phê duyệt các      |
+| ostcondition)** | quyết định chiến lược liên quan (hợp đồng liên kết |
+|                 | trường mới).                                       |
+|                 |                                                    |
+|                 | - Hợp đồng đã bị xóa mềm (A3) không còn xuất hiện  |
+|                 | trong danh sách/tra cứu, nhưng bản ghi vẫn tồn tại |
+|                 | (không hard-delete).                               |
 +-----------------+----------------------------------------------------+
 
 ---
@@ -160,7 +205,7 @@ UC-37: Quản lý phòng học & thiết bị
 |                 |     phòng, quản lý trạng thái sử dụng.             |
 |                 |                                                    |
 |                 | 4.  Hệ thống lưu thông tin phòng học/thiết bị, sẵn |
-|                 |     sàng phục vụ ràng buộc xếp lịch (UC-18).       |
+|                 |     sàng phục vụ ràng buộc xếp lịch (UC-48).       |
 +-----------------+----------------------------------------------------+
 | **Luồng thay    | ***A1 --- Thiết bị hỏng/bảo trì***                 |
 | thế / ngoại lệ  |                                                    |
@@ -171,7 +216,7 @@ UC-37: Quản lý phòng học & thiết bị
 +-----------------+----------------------------------------------------+
 | **Hậu điều kiện | -   Danh mục phòng học/thiết bị được cập nhật      |
 | (P              |     chính xác, dùng làm dữ liệu tham chiếu khi xếp |
-| ostcondition)** |     lịch học (UC-18) để tránh trùng phòng.         |
+| ostcondition)** |     lịch học (UC-48) để tránh trùng phòng.         |
 +-----------------+----------------------------------------------------+
 
 ---

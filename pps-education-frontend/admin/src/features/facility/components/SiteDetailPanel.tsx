@@ -1,0 +1,399 @@
+import React, { useEffect, useState } from "react";
+import { FileText, Save, Search, ShieldCheck, UserCog, X } from "lucide-react";
+import { ApiError } from "@/lib/apiClient";
+import { searchUsers, UserListItemResponse } from "@/features/system-admin/api";
+import {
+  assignSiteManager,
+  createPartnerContract,
+  CreatePartnerContractRequest,
+  listPartnerContractsBySite,
+  PartnerContractResponse,
+  SiteResponse,
+  terminatePartnerContract,
+  deletePartnerContract,
+  updateSite,
+  UpdateSiteRequest
+} from "../api";
+import Badge, { BadgeVariant } from "@/components/ui/Badge";
+import Button from "@/components/ui/Button";
+import { siteStatusLabels, siteStatusVariants, siteTypeLabels } from "./SiteListPanel";
+
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
+const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+
+type Tab = "profile" | "manager" | "contracts";
+
+const contractStatusVariants: Record<string, BadgeVariant> = { DRAFT: "neutral", ACTIVE: "success", EXPIRED: "warning", TERMINATED: "danger" };
+const contractStatusLabels: Record<string, string> = { DRAFT: "Nháp", ACTIVE: "Đang hiệu lực", EXPIRED: "Đã hết hạn", TERMINATED: "Đã chấm dứt" };
+const contractTypeLabels: Record<string, string> = { INITIAL: "Hợp đồng gốc", RENEWAL: "Gia hạn", AMENDMENT: "Phụ lục/Sửa đổi" };
+
+interface SiteDetailPanelProps {
+  site: SiteResponse;
+  onChanged: () => void;
+}
+
+export default function SiteDetailPanel({ site, onChanged }: SiteDetailPanelProps) {
+  const [tab, setTab] = useState<Tab>("profile");
+
+  return (
+    <div className="lg:col-span-3 bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden flex flex-col">
+      <div className="p-5 border-b border-slate-200 space-y-3 bg-slate-50/20">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-brand-red bg-orange-50 border border-orange-100 px-2 py-0.5 rounded-md">
+              {site.code}
+            </span>
+            <h2 className="text-sm font-bold text-slate-800 mt-1">{site.name}</h2>
+          </div>
+          <Badge variant={siteStatusVariants[site.status]}>{siteStatusLabels[site.status]}</Badge>
+        </div>
+
+        <div className="flex border-b border-slate-200 pt-1 gap-5 overflow-x-auto">
+          {(
+            [
+              ["profile", "Hồ sơ", FileText],
+              ["manager", "Quản lý điểm trường", UserCog],
+              ...(site.siteType === "PARTNER" ? ([["contracts", "Hợp đồng liên kết", ShieldCheck]] as const) : [])
+            ] as const
+          ).map(([key, label, Icon]) => (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              className={`pb-2.5 text-xs font-bold border-b-2 flex items-center gap-1.5 transition-all whitespace-nowrap ${
+                tab === key ? "border-brand-red text-brand-red" : "border-transparent text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex-1 p-5 overflow-y-auto max-h-[560px]">
+        {tab === "profile" && <ProfileTab site={site} onChanged={onChanged} />}
+        {tab === "manager" && <ManagerTab site={site} onChanged={onChanged} />}
+        {tab === "contracts" && site.siteType === "PARTNER" && <ContractsTab siteId={site.id} />}
+      </div>
+    </div>
+  );
+}
+
+function ProfileTab({ site, onChanged }: { site: SiteResponse; onChanged: () => void }) {
+  const [form, setForm] = useState<UpdateSiteRequest>(() => toForm(site));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => setForm(toForm(site)), [site]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (form.siteType === "OWNED" && site.siteType === "PARTNER") {
+      if (!window.confirm("Đổi sang 'Cơ sở tự vận hành' sẽ XÓA thông tin liên hệ đầu mối trường liên kết hiện có. Tiếp tục?")) return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      await updateSite(site.id, form);
+      onChanged();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Cập nhật điểm trường thất bại.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelClass}>Tên điểm trường *</label>
+          <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={inputClass} required />
+        </div>
+        <div>
+          <label className={labelClass}>Loại hình *</label>
+          <select value={form.siteType} onChange={(e) => setForm({ ...form, siteType: e.target.value as "OWNED" | "PARTNER" })} className={inputClass}>
+            <option value="OWNED">Cơ sở tự vận hành</option>
+            <option value="PARTNER">Trường liên kết</option>
+          </select>
+        </div>
+        <div>
+          <label className={labelClass}>Địa chỉ</label>
+          <input value={form.address ?? ""} onChange={(e) => setForm({ ...form, address: e.target.value })} className={inputClass} />
+        </div>
+        <div>
+          <label className={labelClass}>Quận/Huyện</label>
+          <input value={form.district ?? ""} onChange={(e) => setForm({ ...form, district: e.target.value })} className={inputClass} />
+        </div>
+        <div>
+          <label className={labelClass}>Số điện thoại</label>
+          <input value={form.phone ?? ""} onChange={(e) => setForm({ ...form, phone: e.target.value })} className={inputClass} />
+        </div>
+        <div>
+          <label className={labelClass}>Trạng thái</label>
+          <select value={form.status ?? "ACTIVE"} onChange={(e) => setForm({ ...form, status: e.target.value as UpdateSiteRequest["status"] })} className={inputClass}>
+            <option value="ACTIVE">Đang hoạt động</option>
+            <option value="INACTIVE">Ngừng hoạt động</option>
+            <option value="PENDING">Chờ kích hoạt</option>
+          </select>
+        </div>
+      </div>
+
+      {form.siteType === "PARTNER" && (
+        <div className="space-y-3 border-t border-slate-100 pt-4">
+          <span className="text-[10px] font-bold uppercase text-slate-500">Liên hệ đầu mối trường liên kết</span>
+          <div className="grid grid-cols-2 gap-3">
+            <input
+              value={form.partnerInfo?.contactPersonName ?? ""}
+              onChange={(e) => setForm({ ...form, partnerInfo: { ...emptyPartnerInfo(form.partnerInfo), contactPersonName: e.target.value } })}
+              placeholder="Tên người liên hệ"
+              className={inputClass}
+            />
+            <input
+              value={form.partnerInfo?.contactPersonTitle ?? ""}
+              onChange={(e) => setForm({ ...form, partnerInfo: { ...emptyPartnerInfo(form.partnerInfo), contactPersonTitle: e.target.value } })}
+              placeholder="Chức danh"
+              className={inputClass}
+            />
+            <input
+              value={form.partnerInfo?.contactPhone ?? ""}
+              onChange={(e) => setForm({ ...form, partnerInfo: { ...emptyPartnerInfo(form.partnerInfo), contactPhone: e.target.value } })}
+              placeholder="SĐT liên hệ"
+              className={inputClass}
+            />
+            <input
+              type="email"
+              value={form.partnerInfo?.contactEmail ?? ""}
+              onChange={(e) => setForm({ ...form, partnerInfo: { ...emptyPartnerInfo(form.partnerInfo), contactEmail: e.target.value } })}
+              placeholder="Email liên hệ"
+              className={inputClass}
+            />
+          </div>
+        </div>
+      )}
+
+      <Button type="submit" variant="primary" size="sm" disabled={saving}>
+        <Save className="w-3.5 h-3.5" />
+        {saving ? "Đang lưu..." : "Lưu thông tin"}
+      </Button>
+    </form>
+  );
+}
+
+function emptyPartnerInfo(p?: UpdateSiteRequest["partnerInfo"]) {
+  return p ?? { contactPersonName: null, contactPersonTitle: null, contactPhone: null, contactEmail: null, additionalInfo: null };
+}
+
+function toForm(s: SiteResponse): UpdateSiteRequest {
+  return {
+    name: s.name,
+    siteType: s.siteType,
+    address: s.address ?? undefined,
+    district: s.district ?? undefined,
+    phone: s.phone ?? undefined,
+    status: s.status,
+    partnerInfo: s.partnerInfo ?? undefined
+  };
+}
+
+function ManagerTab({ site, onChanged }: { site: SiteResponse; onChanged: () => void }) {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<UserListItemResponse[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSearch = (q: string) => {
+    setQuery(q);
+    if (!q.trim()) {
+      setResults([]);
+      return;
+    }
+    searchUsers({ keyword: q.trim() }, 0, 8).then((res) => setResults(res.content));
+  };
+
+  const handleAssign = async (userId: number) => {
+    setSaving(true);
+    setError(null);
+    try {
+      await assignSiteManager(site.id, userId);
+      setQuery("");
+      setResults([]);
+      onChanged();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Gán quản lý điểm trường thất bại.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+
+      <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-1">
+        <span className="text-[10px] uppercase font-bold text-slate-500">Quản lý điểm trường hiện tại</span>
+        {site.currentManagerFullName ? (
+          <p className="text-sm font-bold text-slate-800">{site.currentManagerFullName}</p>
+        ) : (
+          <p className="text-xs text-slate-400 italic">Chưa gán quản lý điểm trường.</p>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <span className="text-[10px] uppercase font-bold text-slate-500">Gán/Đổi quản lý điểm trường</span>
+        <div className="relative max-w-md">
+          <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400" />
+          <input
+            value={query}
+            onChange={(e) => handleSearch(e.target.value)}
+            placeholder="Tìm theo email / username / họ tên..."
+            className={`${inputClass} pl-8`}
+            disabled={saving}
+          />
+          {results.length > 0 && (
+            <div className="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg divide-y divide-slate-100 max-h-56 overflow-y-auto">
+              {results.map((u) => (
+                <button key={u.id} type="button" onClick={() => handleAssign(u.id)} className="w-full text-left px-3 py-2 hover:bg-slate-50 text-xs">
+                  {u.fullName} <span className="text-slate-400">({u.username} · {u.email})</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ContractsTab({ siteId }: { siteId: number }) {
+  const [items, setItems] = useState<PartnerContractResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [form, setForm] = useState({ contractType: "INITIAL", startDate: "", endDate: "", termsSummary: "" });
+  const [submitting, setSubmitting] = useState(false);
+
+  const load = () => {
+    setLoading(true);
+    listPartnerContractsBySite(siteId)
+      .then(setItems)
+      .finally(() => setLoading(false));
+  };
+  useEffect(load, [siteId]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.startDate || !form.endDate) {
+      setError("Vui lòng chọn ngày bắt đầu và kết thúc hợp đồng.");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      const request: CreatePartnerContractRequest = {
+        siteId,
+        contractType: form.contractType as CreatePartnerContractRequest["contractType"],
+        startDate: form.startDate,
+        endDate: form.endDate,
+        termsSummary: form.termsSummary.trim() || undefined
+      };
+      await createPartnerContract(request);
+      setForm({ contractType: "INITIAL", startDate: "", endDate: "", termsSummary: "" });
+      load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Tạo hợp đồng thất bại.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleTerminate = async (c: PartnerContractResponse) => {
+    if (!window.confirm(`Chấm dứt hợp đồng ${c.contractNumber}?`)) return;
+    try {
+      await terminatePartnerContract(c.id);
+      load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Chấm dứt hợp đồng thất bại.");
+    }
+  };
+
+  const handleDelete = async (c: PartnerContractResponse) => {
+    if (!window.confirm(`Xóa hợp đồng ${c.contractNumber}? Chỉ xóa được khi đang ở trạng thái Nháp.`)) return;
+    try {
+      await deletePartnerContract(c.id);
+      load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Xóa hợp đồng thất bại.");
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
+        <div className="grid grid-cols-2 gap-3">
+          <select value={form.contractType} onChange={(e) => setForm({ ...form, contractType: e.target.value })} className={inputClass}>
+            <option value="INITIAL">Hợp đồng gốc</option>
+            <option value="RENEWAL">Gia hạn</option>
+            <option value="AMENDMENT">Phụ lục/Sửa đổi</option>
+          </select>
+          <div />
+          <div>
+            <label className={labelClass}>Ngày bắt đầu *</label>
+            <input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} className={inputClass} />
+          </div>
+          <div>
+            <label className={labelClass}>Ngày kết thúc *</label>
+            <input type="date" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} className={inputClass} />
+          </div>
+          <textarea
+            value={form.termsSummary}
+            onChange={(e) => setForm({ ...form, termsSummary: e.target.value })}
+            placeholder="Tóm tắt điều khoản"
+            rows={2}
+            className={`${inputClass} col-span-2`}
+          />
+        </div>
+        <Button type="submit" size="sm" variant="primary" disabled={submitting}>
+          {submitting ? "Đang lưu..." : "Thêm hợp đồng"}
+        </Button>
+      </form>
+
+      {loading ? (
+        <p className="text-xs text-slate-500">Đang tải...</p>
+      ) : items.length === 0 ? (
+        <p className="text-xs text-slate-400 italic">Chưa có hợp đồng liên kết nào.</p>
+      ) : (
+        <div className="space-y-2">
+          {items.map((c) => (
+            <div key={c.id} className="border border-slate-200 rounded-lg p-3 text-xs space-y-1">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-mono font-bold text-slate-800">{c.contractNumber}</span>
+                  <Badge variant="info">{contractTypeLabels[c.contractType]}</Badge>
+                  <Badge variant={contractStatusVariants[c.status]}>{contractStatusLabels[c.status]}</Badge>
+                </div>
+                <div className="flex gap-2">
+                  {c.status === "ACTIVE" && (
+                    <button onClick={() => handleTerminate(c)} className="text-rose-500 hover:text-rose-700 text-[11px] font-semibold">
+                      Chấm dứt
+                    </button>
+                  )}
+                  {c.status === "DRAFT" && (
+                    <button onClick={() => handleDelete(c)} className="text-slate-400 hover:text-rose-600">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+              <p className="text-slate-400">
+                {c.startDate} → {c.endDate}
+                {c.termsSummary && <span className="ml-2">— {c.termsSummary}</span>}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

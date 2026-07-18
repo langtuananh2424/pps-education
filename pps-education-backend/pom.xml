@@ -26,7 +26,14 @@
         <java.version>21</java.version>
         <jjwt.version>0.12.6</jjwt.version>
         <mapstruct.version>1.6.0</mapstruct.version>
-        <testcontainers.version>1.20.4</testcontainers.version>
+        <!-- LƯU Ý máy dev Docker Desktop >= 29.x (engine MinAPIVersion 1.40):
+             Testcontainers probe Docker bằng GET /v1.32/info (ghim cứng) -> engine
+             trả 400 -> "Could not find a valid Docker environment" dù daemon chạy
+             bình thường. Fix ở MỨC MÁY (không phải trong repo): tạo file
+             %USERPROFILE%\.docker-java.properties với nội dung `api.version=1.44`.
+             Version 1.21.3 dưới đây chỉ là cập nhật lên bản mới nhất, tự nó
+             KHÔNG sửa được lỗi trên. -->
+        <testcontainers.version>1.21.3</testcontainers.version>
     </properties>
 
     <dependencies>
@@ -34,6 +41,18 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- Actuator (health check cho Docker/Railway - NFR-TECH-06) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <!-- Mail (kenh EMAIL cua module Notification - cau hinh SMTP qua bien moi truong) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
         </dependency>
 
         <!-- Validation -->
@@ -99,6 +118,13 @@
             <groupId>me.paulschwarz</groupId>
             <artifactId>spring-dotenv</artifactId>
             <version>4.0.0</version>
+        </dependency>
+
+        <!-- UC-35: đọc file Excel (.xlsx) nhập học theo lô - đã xác nhận với user trước khi thêm -->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>5.3.0</version>
         </dependency>
 
         <!-- Boilerplate reduction -->

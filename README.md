@@ -1,8 +1,7 @@
 # PPS Education — Monorepo
 
 Hệ thống quản lý trung tâm Anh ngữ PPS English. Tài liệu nghiệp vụ đầy đủ: SRS,
-SDD, Đặc tả Use Case IEEE (43 UC) — xem thư mục `docs/` (nếu đã đồng bộ) hoặc
-kho tài liệu dự án.
+SDD, Đặc tả Use Case IEEE (10 Phân hệ) — xem thư mục [`docs/`](./docs).
 
 ## Cấu trúc repo
 
@@ -10,11 +9,20 @@ kho tài liệu dự án.
 .
 ├── pps-education-backend/    # Spring Boot (Controller-Service-Repository, NFR-TECH-02)
 ├── docker-compose.yml        # Môi trường dev cục bộ (NFR-TECH-06)
-└── .github/workflows/        # CI (NFR-TECH-05)
+├── docs/                     # SRS, SDD, Đặc tả Use Case (nguồn chân lý nghiệp vụ)
+└── .github/workflows/        # CI/CD (NFR-TECH-05)
 ```
 
 Frontend (React, NFR-TECH-03) sẽ được thêm vào dưới dạng thư mục
 `pps-education-frontend/` khi bắt đầu **Frontend Phase 1** (xem kế hoạch phân kỳ).
+
+## Yêu cầu môi trường
+
+- **JDK 21** (repo chưa có Maven Wrapper — cần cài Maven 3.9+ riêng, hoặc dùng
+  Maven đi kèm IDE).
+- **Docker Desktop** (chạy Postgres + PostGIS cho dev local; CI dùng
+  Testcontainers nên cũng cần Docker nếu muốn chạy `mvn test` full trên máy).
+- Không cần cài Node/Frontend ở giai đoạn hiện tại.
 
 ## Chạy môi trường dev
 
@@ -26,18 +34,19 @@ docker compose --profile tools up -d  # thêm pgadmin (http://localhost:5050)
 Backend: http://localhost:8080
 Swagger UI: http://localhost:8080/swagger-ui.html
 
-Chạy backend trực tiếp bằng Maven (không qua Docker) khi dev:
+Chạy backend trực tiếp bằng Maven (không qua Docker) khi dev — cách phổ biến
+nhất, cho phép chạy/debug trong IDE:
 ```bash
-docker compose up -d postgres   # chỉ cần Postgres, chạy app trong IDE
+docker compose up -d postgres   # chỉ cần Postgres, chạy app trong IDE/terminal
 cd pps-education-backend
 mvn spring-boot:run
 ```
 Không cần set biến môi trường gì thêm — default trong `application.yml` đã
 khớp sẵn với `docker-compose.yml`. Muốn override (VD đổi port DB, bật Google
-OAuth test) thì copy `pps-education-backend/.env.example` thành
-`pps-education-backend/.env` (Spring Boot tự nạp file này mỗi lần khởi động
-nhờ `spring-dotenv` — xem `pom.xml` — không cần export biến môi trường thủ
-công, không commit `.env`).
+OAuth test, cấu hình SMTP thật) thì copy `pps-education-backend/.env.example`
+thành `pps-education-backend/.env` (Spring Boot tự nạp file này mỗi lần khởi
+động nhờ `spring-dotenv` — xem `pom.xml` — không cần export biến môi trường
+thủ công, và `.env` đã nằm trong `.gitignore` nên không lo commit nhầm).
 
 **Máy đã có PostgreSQL native chiếm port 5432?** Docker sẽ báo container chạy
 bình thường nhưng app kết nối nhầm sang Postgres native (lỗi `password
@@ -45,55 +54,84 @@ authentication failed` dù password đúng) — kiểm tra bằng cách xem log
 `docker logs pps-education-db` có ghi nhận lần kết nối vừa thử không, nếu
 không thì đúng là bị native Postgres chặn port. Xử lý: copy
 `docker-compose.override.yml.example` thành `docker-compose.override.yml`
-(đã gitignore), đổi port publish, cập nhật `DB_URL` cho khớp.
+(đã gitignore — Compose tự động áp dụng file này, không cần flag gì thêm),
+đổi port publish, cập nhật `DB_URL` trong `.env` cho khớp port mới.
 
-## Trạng thái Phase A (Nền tảng) — đã setup trong khung này
+### Tài khoản demo
 
-- [x] Cấu trúc project Spring Boot (Controller-Service-Repository)
-- [x] Docker Compose (Postgres + PostGIS + Backend + pgadmin tùy chọn)
-- [x] CI GitHub Actions (build + test trên PR vào `main`)
-- [x] Flyway migration V1: bảng nền (`users`, `roles`, `permissions`,
-      `user_roles`, `role_permissions`, `user_permission_overrides`,
-      `permission_audit_log`, `refresh_tokens`, `login_attempts`,
-      `system_settings`, `import_jobs`, `approval_flows`)
-- [x] Flyway migration V2: `sites`, `rooms`, `equipment`, `partner_contracts`,
-      `partner_school_info`, `site_managers`, `partner_feedbacks` (dữ liệu nền
-      Phân hệ 10, kéo sớm vì Phân hệ 6 phụ thuộc)
-- [x] Flyway migration V3: `employees`, `employment_contracts`,
-      `qualifications`, `commendations` (dữ liệu nền Phân hệ 4, kéo sớm vì
-      Phân hệ 6 cần gán Giáo viên vào lớp)
-- [x] Flyway migration V4: seed 11 role hệ thống + permission catalog khởi điểm
-- [x] Flyway migration V5: bổ sung cột `updated_at` cho bảng `permissions`
-      (entity `Permission` kế thừa `BaseAuditEntity`, thiếu sót từ V1)
-- [x] Entity + Repository cho nhóm Auth/Permission
-- [x] `POST /api/auth/login` — khung UC-01 (Main Flow + A1 sai mật khẩu + A2
-      khóa tài khoản sau 5 lần sai + A3 tài khoản INACTIVE)
-- [x] Spring Security: JWT stateless filter, BCrypt password encoder
-- [x] Unit test + integration test (Testcontainers) cho AuthService — Main
-      Flow + A1 + A2 + A3 (xem `AuthServiceTest`, PR #3)
+Khi bật cờ `SEED_DEV_USERS` (xem bên dưới), app tự tạo 11 tài khoản demo —
+1 tài khoản cho mỗi role hệ thống — lúc khởi động (code:
+`vn.com.pps.education.config.DevUserSeeder`, idempotent nên restart bao
+nhiêu lần cũng không tạo trùng). Đăng nhập qua `POST /api/auth/login` với
+`usernameOrEmail` là username hoặc email bên dưới, **mật khẩu chung cho tất
+cả: `Dev@123456`**.
 
-## Việc còn lại của Sprint 1 (UC-01 hoàn chỉnh)
+| Username       | Email                     | Role hệ thống  | Vai trò                    |
+|----------------|---------------------------|----------------|----------------------------|
+| `sysadmin`     | sysadmin@pps.edu.vn       | SYS_ADMIN      | Quản trị viên              |
+| `headacademic` | headacademic@pps.edu.vn   | HEAD_ACADEMIC  | Trưởng phòng đào tạo       |
+| `sitemanager`  | sitemanager@pps.edu.vn    | SITE_MANAGER   | Quản lý điểm trường        |
+| `hrmanager`    | hrmanager@pps.edu.vn      | HR_MANAGER     | Quản lý nhân sự            |
+| `staff`        | staff@pps.edu.vn          | STAFF          | Nhân viên                  |
+| `opsmanager`   | opsmanager@pps.edu.vn     | OPS_MANAGER    | Quản lý vận hành           |
+| `executive`    | executive@pps.edu.vn      | EXECUTIVE      | Ban giám đốc               |
+| `partnerrep`   | partnerrep@pps.edu.vn     | PARTNER_REP    | Đại diện trường liên kết   |
+| `teacher`      | teacher@pps.edu.vn        | TEACHER        | Giáo viên                  |
+| `parent`       | parent@pps.edu.vn         | PARENT         | Phụ huynh                  |
+| `student`      | student@pps.edu.vn        | STUDENT        | Học sinh                   |
 
-- [ ] `login_attempts` entity + ghi log mỗi lần đăng nhập (thành công/thất bại)
-- [ ] `POST /api/auth/login/google` — nhánh Google OAuth (Main Flow bước 4, A4)
-      — lưu ý: block cấu hình `spring.security.oauth2.client.registration.google`
-      đã bị gỡ khỏi `application.yml` (gây fail cứng lúc khởi động khi chưa có
-      credentials thật) — thêm lại cùng lúc implement nhánh này, kèm credentials
-      thật qua biến môi trường.
-- [ ] `POST /api/auth/refresh`, `POST /api/auth/logout` (thu hồi refresh token)
-- [ ] Gửi cảnh báo cho Quản trị viên khi tài khoản bị khóa (FR-AUT-02) — phụ
-      thuộc module Notification (Backend Phase B, Phân hệ 3)
+**Bật/tắt cơ chế seed** — điều khiển bằng biến môi trường `SEED_DEV_USERS`
+(map vào property `app.seed.dev-users` trong `application.yml`, mặc định
+`false` — cố tình không gắn theo Spring profile `dev` để seed data không
+lọt vào test suite/staging/production):
 
-## Sprint 2 (UC-02 → UC-05 — Quản trị người dùng & Phân quyền)
+- **Chạy qua docker compose**: đã bật sẵn dòng `SEED_DEV_USERS: "true"`
+  trong `docker-compose.yml` (service `backend`) — muốn tắt thì đổi thành
+  `"false"` hoặc xóa dòng đó rồi `docker compose up -d --build` lại.
+- **Chạy qua `mvn spring-boot:run`**: bật sẵn dòng `SEED_DEV_USERS=true`
+  trong `.env.example` — copy thành `.env` là có; muốn tắt thì đổi thành
+  `false` hoặc xóa dòng đó trong `.env`.
+- Tắt cờ **không xóa** các tài khoản đã seed trước đó — chỉ ngừng tạo mới;
+  muốn xóa hẳn thì xóa thủ công trong DB (hoặc xóa volume Postgres tạo lại).
 
-- [ ] `PermissionEvaluator` triển khai công thức `effective_permissions`
-      (role_permissions hợp user_permission_overrides, ưu tiên override)
-- [ ] CRUD danh mục quyền (UC-02), cấu hình nhóm quyền theo role (UC-03)
-- [ ] API tùy chỉnh quyền riêng theo tài khoản + ghi `permission_audit_log`
-      (UC-04, UC-05)
+### Chạy test
 
-Chi tiết đầy đủ backlog theo từng Sprint/Phase: xem tài liệu
-**"Kế hoạch phân kỳ & Backlog theo FR"**.
+```bash
+cd pps-education-backend
+mvn test        # unit + integration test (Testcontainers — cần Docker chạy sẵn)
+mvn clean verify
+```
+
+### Tài liệu API
+
+- **Nguồn sống** (luôn mới nhất): chạy app rồi mở Swagger UI —
+  http://localhost:8080/swagger-ui.html
+- **Bản chụp đọc offline**: [`API.md`](./API.md) — toàn bộ endpoint (method,
+  path, quyền yêu cầu, input/output) + phụ lục schema. File này được SINH TỰ
+  ĐỘNG, không sửa tay. Khi API thay đổi, sinh lại bằng:
+
+```bash
+# 1. Chạy app trước (docker compose up -d --build  HOẶC  mvn spring-boot:run)
+# 2. Từ gốc repo (Windows: chạy trong Git Bash — có sẵn perl + curl):
+perl scripts/gen-api-md.pl
+```
+
+Script tự tải đặc tả từ `http://localhost:8080/v3/api-docs` và quét
+`@PreAuthorize` trong source Controller để điền cột quyền (thông tin này
+không có trong OpenAPI). Nếu đã có sẵn file spec thì truyền làm tham số:
+`perl scripts/gen-api-md.pl duong-dan/openapi.json`.
+
+## Trạng thái hiện tại
+
+Toàn bộ 10 Phân hệ nghiệp vụ trong [`docs/uc/`](./docs/uc) đã được triển khai
+(Controller/Service/Repository + migration Flyway + test cho từng Main
+Flow/Alternate Flow của mỗi UC). Chi tiết từng Pull Request xem lịch sử Git/PR
+trên GitHub — README không theo dõi changelog chi tiết theo Sprint để tránh
+lạc hậu; nguồn chân lý về tiến độ là trạng thái `develop` + PR đã merge.
+
+Các gap nghiệp vụ đã biết (thiếu cơ chế trong SRS/SDD gốc, đã xác nhận với PM
+thay vì tự suy đoán) được ghi chú trực tiếp trong Javadoc của Service liên
+quan — tìm theo từ khóa "chưa làm"/"gap" trong code nếu cần tra cứu.
 
 ## Tài liệu nghiệp vụ & Claude Code
 
@@ -103,7 +141,9 @@ Chi tiết đầy đủ backlog theo từng Sprint/Phase: xem tài liệu
 - `CLAUDE.md` — ngữ cảnh dự án cho Claude Code (trỏ tới đúng file cần đọc
   theo từng loại việc, không nạp toàn bộ `docs/` mỗi phiên).
 - `.claude/skills/` — skill riêng cho dự án: `pps-uc-lookup` (tra cứu 1 UC
-  theo mã), `pps-add-migration` (tạo Flyway migration đúng quy ước).
+  theo mã), `pps-add-migration` (tạo Flyway migration đúng quy ước),
+  `pps-docker-recovery` (khôi phục khi Docker Desktop/Postgres chết giữa
+  phiên), `pps-cool-build` (giảm nhiệt CPU trước khi build/test nặng).
 
 ## Quy trình Git & CI/CD
 
@@ -120,6 +160,7 @@ bước cho 1 dev xử lý 1 task.
   lại việc tách package-by-feature khi bắt đầu Backend Phase B.
 - Toàn bộ bảng có `created_at/updated_at` kế thừa `BaseAuditEntity`.
 - Không tự sinh DDL từ Hibernate (`ddl-auto: validate`) — Flyway là nguồn chân
-  lý duy nhất cho schema.
+  lý duy nhất cho schema. Migration mới luôn là file `Vn__mo_ta.sql` mới,
+  không sửa migration cũ đã merge.
 - Nhánh Git: `main` (production) + `develop` + nhánh tính năng
   `feature/UC-xx-mo-ta`, merge qua Pull Request (NFR-TECH-05).

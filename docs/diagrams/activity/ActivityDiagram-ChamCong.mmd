@@ -9,7 +9,7 @@ flowchart TD
         A5{manual_when_all_disabled<br/>= true?}
         A6[Chỉ cho phép chấm thủ công<br/>- bỏ qua bước xác thực vị trí/sinh trắc]
         A7[Từ chối - không có<br/>phương thức nào khả dụng]
-        A8[Xác định ngày D có phải<br/>ngày làm việc?<br/>- ưu tiên work_calendar override<br/>- fallback theo pattern shift]
+        A8[Xác định ngày D có phải<br/>ngày làm việc?<br/>- ưu tiên work_calendar override mọi scope<br/>- fallback (chỉ khi không có override): pattern shift<br/>HOẶC GV có tiết dạy hôm nay - không ghi đè override]
         A9{D là ngày làm việc?}
         A10([Kết thúc - Từ chối,<br/>D là ngày nghỉ])
         A11[Xác định các cửa sổ hợp lệ cho D]

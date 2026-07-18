@@ -11,7 +11,7 @@ spring:
     # môi trường thật (staging/prod), không sửa default này thành secret thật.
     url: ${DB_URL:jdbc:postgresql://localhost:5432/pps_education}
     username: ${DB_USERNAME:pps_app}
-    password: ${DB_PASSWORD:root123456}
+    password: ${DB_PASSWORD:dev_only_not_a_real_secret}
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -23,11 +23,36 @@ spring:
       hibernate:
         format_sql: true
         default_schema: public
+        # JVM chạy ở múi giờ +07:00 (Việt Nam) - nếu không cố định UTC ở đây,
+        # driver Postgres có thể throw DateTimeException khi đọc cột TIME gần
+        # nửa đêm (quy đổi qua epoch nội bộ bị âm) - phát hiện qua UC-09
+        # (shifts.check_in_time). Không đổi user.timezone của cả JVM để tránh
+        # ảnh hưởng OffsetDateTime.now() dùng nơi khác trong app.
+        jdbc:
+          time_zone: UTC
 
   flyway:
     enabled: true
     locations: classpath:db/migration
     baseline-on-migrate: true
+
+  # Kênh EMAIL của module Notification - chưa cấu hình SMTP thật (host rỗng)
+  # thì EmailNotificationSender gửi lỗi có kiểm soát, delivery chuyển FAILED
+  # + lên lịch retry (đúng state machine đã thiết kế trong SDD), không crash
+  # app. Set MAIL_HOST/MAIL_USERNAME/MAIL_PASSWORD qua .env khi có SMTP thật.
+  mail:
+    host: ${MAIL_HOST:}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+          connectiontimeout: 5000
+          timeout: 5000
 
 # UC-01 Main Flow bước 4/A4 (đăng nhập Google) dùng flow xác thực id_token
 # (Frontend tự làm Google Sign-In, gửi id_token lên backend verify qua JWKS
@@ -40,6 +65,14 @@ spring:
 
 server:
   port: ${SERVER_PORT:8080}
+
+# Health check cho Docker/Railway (NFR-TECH-06) - chỉ expose "health", không lộ
+# /actuator/env, /actuator/beans... ra ngoài (NFR-SEC-03)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
 
 # NFR-AUT / FR-AUT-01, FR-AUT-02
 app:
@@ -55,6 +88,29 @@ app:
       # CSV client-id (Web/Mobile) dùng làm audience khi verify id_token (UC-01 A4).
       client-ids: ${GOOGLE_OAUTH_CLIENT_IDS:}
       jwks-uri: https://www.googleapis.com/oauth2/v3/certs
+  mail:
+    from-address: ${MAIL_FROM_ADDRESS:no-reply@pps.edu.vn}
+  notification:
+    # Ngưỡng retry cho kênh gửi ngoài (EMAIL...) - SDD không quy định số cụ
+    # thể, mặc định hợp lý có thể chỉnh qua env var khi cần.
+    max-retry-count: ${NOTIFICATION_MAX_RETRY:3}
+    retry-interval-minutes: ${NOTIFICATION_RETRY_INTERVAL_MINUTES:5}
+  finance:
+    # UC-30 Main Flow bước 5-6: webhook /api/webhooks/bank-payment không
+    # xác thực qua JWT (permitAll, SecurityConfig) vì gọi từ hệ thống ngân
+    # hàng ngoài - SDD không đặc tả cơ chế xác thực, bổ sung shared-secret
+    # tối thiểu (header X-Webhook-Secret) để không mở endpoint ghi dữ liệu
+    # tài chính hoàn toàn công khai. Đổi sang secret thật khi tích hợp
+    # ngân hàng thật.
+    bank-webhook-secret: ${BANK_WEBHOOK_SECRET:CHANGE_THIS_SECRET_IN_ENV}
+  seed:
+    # DevUserSeeder - tạo 11 tài khoản demo (1/role) lúc khởi động app. Mặc định
+    # false: KHÔNG gắn theo Spring profile "dev" vì Testcontainers cũng chạy
+    # context ở profile mặc định "dev" (xem AbstractIntegrationTest, không có
+    # @ActiveProfiles) - gắn theo profile sẽ lọt seed data vào DB test. Chỉ bật
+    # qua env var SEED_DEV_USERS=true (docker-compose.yml/.env.example local dev
+    # đã bật sẵn) để test/CI/staging/production không bao giờ dính.
+    dev-users: ${SEED_DEV_USERS:false}
 
 springdoc:
   swagger-ui:

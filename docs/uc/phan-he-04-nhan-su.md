@@ -30,9 +30,17 @@ UC-08: Quản lý hồ sơ nhân sự
 +-----------------+----------------------------------------------------+
 | **Luồng sự kiện | 1.  Quản lý nhân sự mở màn hình Hồ sơ nhân sự,     |
 | chính (Main     |     chọn Thêm mới hoặc tìm một nhân sự hiện có.    |
-| Flow)**         |                                                    |
+| Flow)**         |     Khi Thêm mới cho nhân sự CHƯA có tài khoản     |
+|                 |     đăng nhập, hệ thống cho phép khởi tạo tài      |
+|                 |     khoản người dùng kèm hồ sơ trong cùng một      |
+|                 |     giao dịch (cơ chế khởi tạo tài khoản theo      |
+|                 |     UC-43/FR-USR-01, dưới thẩm quyền hrm.manage    |
+|                 |     của luồng này).                                |
+|                 |                                                    |
 |                 | 2.  Nhập/cập nhật thông tin cá nhân, bằng cấp,     |
-|                 |     chứng chỉ sư phạm.                             |
+|                 |     chứng chỉ sư phạm, phòng ban (tùy chọn) và cờ  |
+|                 |     miễn trừ chấm công/duyệt đơn is_management     |
+|                 |     (mặc định FALSE).                              |
 |                 |                                                    |
 |                 | 3.  Thêm/chỉnh sửa lịch sử hợp đồng lao động (loại |
 |                 |     hợp đồng, thời hạn, mức lương cơ bản).         |
@@ -57,6 +65,33 @@ UC-08: Quản lý hồ sơ nhân sự
 |                 | 1.  Hệ thống cảnh báo cho Quản lý nhân sự khi hợp  |
 |                 |     đồng lao động sắp/đã hết hạn để xử lý gia hạn  |
 |                 |     hoặc chấm dứt.                                 |
+|                 |                                                    |
+|                 | ***A3 --- Bỏ trống phòng ban***                    |
+|                 |                                                    |
+|                 | 1.  Quản lý nhân sự để trống phòng ban; hệ thống   |
+|                 |     lưu department_id = NULL (nhân sự chưa gán     |
+|                 |     phòng ban nào).                                |
+|                 |                                                    |
+|                 | ***A4 --- Phòng ban không tồn tại***               |
+|                 |                                                    |
+|                 | 1.  department_id gửi lên không khớp bản ghi nào   |
+|                 |     trong bảng departments; hệ thống từ chối lưu,  |
+|                 |     báo không tìm thấy phòng ban.                  |
+|                 |                                                    |
+|                 | ***A5 --- Tự động gán vai trò theo chức vụ         |
+|                 | (FR-HRM-06, xem UC-52)***                          |
+|                 |                                                    |
+|                 | 1.  Khi tạo mới hoặc đổi chức vụ (position_id) của |
+|                 |     hồ sơ, hệ thống tự động gán cho tài khoản toàn |
+|                 |     bộ vai trò mặc định của chức vụ đó             |
+|                 |     (position_default_roles — UC-52), và thu hồi   |
+|                 |     vai trò do CHÍNH cơ chế này từng gán theo chức |
+|                 |     vụ cũ nếu chức vụ mới không còn liệt kê vai trò|
+|                 |     đó. Vai trò đã gán tay qua UC-46 không bị đụng.|
+|                 |                                                    |
+|                 | 2.  Để trống chức vụ (position_id = NULL): không   |
+|                 |     gán vai trò nào mới; vai trò từng tự gán theo  |
+|                 |     chức vụ cũ (nếu có) bị thu hồi.                |
 +-----------------+----------------------------------------------------+
 | **Hậu điều kiện | -   Hồ sơ nhân sự phản ánh đầy đủ, chính xác thông |
 | (P              |     tin mới nhất; dữ liệu này được dùng làm đầu    |
@@ -104,10 +139,13 @@ UC-09: Chấm công
 |                 |     chối ngay và kết thúc (cấp quản lý miễn trừ    |
 |                 |     hoàn toàn).                                    |
 |                 |                                                    |
-|                 | 3.  Hệ thống xác định ngày D có phải ngày làm      |
-|                 |     việc: đối chiếu work_calendar (override)       |
-|                 |     trước, sau đó shifts (pattern mặc định +       |
-|                 |     week_parity).                                  |
+|                 | 3.  Hệ thống xác định ngày D có phải ngày làm việc:|
+|                 |     đối chiếu work_calendar (override) trước, sau  |
+|                 |     đó shifts (pattern mặc định + week_parity); nếu|
+|                 |     cả 2 đều không xác định được (không có         |
+|                 |     override, không có ca khớp), Giáo viên có tiết |
+|                 |     dạy hôm nay cũng được coi là ngày làm việc     |
+|                 |     (không áp dụng nếu đã có override tường minh). |
 |                 |                                                    |
 |                 | 4.  Nếu là Giáo viên có tiết dạy hôm nay, hệ thống |
 |                 |     tính thêm cửa sổ theo lịch dạy; nếu            |
@@ -354,6 +392,165 @@ UC-12: Xem bảng lương
 | **Hậu điều kiện | -   Người dùng xem được đúng thông tin bảng lương  |
 | (P              |     trong phạm vi quyền hạn của mình; dữ liệu      |
 | ostcondition)** |     không bị thay đổi (use case chỉ đọc).          |
++-----------------+----------------------------------------------------+
+
+UC-51: Nhập nhân sự theo lô
+
++-----------------+----------------------------------------------------+
+| **Mã Use Case** | UC-51                                              |
++-----------------+----------------------------------------------------+
+| **Tên Use       | Nhập nhân sự theo lô                               |
+| Case**          |                                                    |
++-----------------+----------------------------------------------------+
+| **Phân hệ**     | Phân hệ 4                                          |
++-----------------+----------------------------------------------------+
+| **Yêu cầu chức  | FR-HRM-05                                          |
+| năng gốc**      |                                                    |
++-----------------+----------------------------------------------------+
+| **Tác nhân**    | Quản lý nhân sự                                    |
++-----------------+----------------------------------------------------+
+| **Mô tả tóm     | Quản lý nhân sự nhập file Excel danh sách nhân sự  |
+| tắt**           | để tạo tài khoản + hồ sơ hàng loạt, thay vì nhập   |
+|                 | tay từng người (UC-08). Hệ thống tự sinh mật khẩu  |
+|                 | tạm cho từng tài khoản, không đặt mật khẩu qua     |
+|                 | file Excel (rủi ro bảo mật khi file bị chuyển tay/ |
+|                 | email).                                            |
++-----------------+----------------------------------------------------+
+| **Sự kiện kích  | Quản lý nhân sự cần khởi tạo hàng loạt tài khoản + |
+| hoạt**          | hồ sơ nhân sự (VD chuyển dữ liệu từ hệ thống cũ).  |
++-----------------+----------------------------------------------------+
+| **Điều kiện     | -   Người dùng có quyền hrm.manage.                |
+| tiên quyết      | -   Có file Excel danh sách nhân sự đúng định dạng |
+| (               |     mẫu.                                           |
+| Precondition)** |                                                    |
++-----------------+----------------------------------------------------+
+| **Luồng sự kiện | 1.  Quản lý nhân sự tải file Excel lên.            |
+| chính (Main     |                                                    |
+| Flow)**         | 2.  Hệ thống tạo bản ghi import_jobs               |
+|                 |     (import_type=EMPLOYEES), đọc và xác thực định |
+|                 |     dạng file.                                     |
+|                 |                                                    |
+|                 | 3.  Với từng dòng: kiểm tra trùng lặp theo mã nhân |
+|                 |     sự/username/email.                             |
+|                 |                                                    |
+|                 | 4.  Tạo tài khoản (username bắt buộc, email tùy    |
+|                 |     chọn --- trống thì hệ thống tự sinh placeholder |
+|                 |     để thỏa ràng buộc email NOT NULL) kèm mật khẩu |
+|                 |     tạm sinh ngẫu nhiên, và hồ sơ nhân sự (mã nhân |
+|                 |     sự, loại nhân sự, phòng ban nếu có, chức vụ    |
+|                 |     nếu có, cờ miễn trừ is_management) cho từng    |
+|                 |     dòng hợp lệ. Nếu dòng có chức vụ (mã chức vụ), |
+|                 |     áp dụng luôn A5 của UC-08 (FR-HRM-06, xem       |
+|                 |     UC-52) --- tự gán vai trò mặc định của chức vụ |
+|                 |     đó; không để chức vụ thì không tự gán role nào |
+|                 |     (Quản lý nhân sự gán tay sau qua UC-46).        |
+|                 |                                                    |
+|                 | 5.  Hệ thống cập nhật total_rows/success_rows/     |
+|                 |     failed_rows/error_summary, trạng thái COMPLETED|
+|                 |     hoặc PARTIAL_SUCCESS.                          |
+|                 |                                                    |
+|                 | 6.  Quản lý nhân sự xem kết quả, nhận danh sách    |
+|                 |     username + mật khẩu tạm (chỉ hiển thị 1 lần    |
+|                 |     ngay trong kết quả của bước tải lên, không tra |
+|                 |     cứu lại được sau đó) để gửi riêng từng người,  |
+|                 |     và tải danh sách dòng lỗi (nếu có).            |
++-----------------+----------------------------------------------------+
+| **Luồng thay    | ***A1 --- File sai định dạng***                    |
+| thế / ngoại lệ  |                                                    |
+| (Alternate      | 1.  File rỗng, thiếu dòng tiêu đề, hoặc không mở   |
+| Flow)**         |     được như file Excel (.xlsx) hợp lệ --- hệ      |
+|                 |     thống từ chối xử lý toàn bộ, đánh dấu          |
+|                 |     import_jobs.status=FAILED ngay, không tạo bản  |
+|                 |     ghi nào.                                       |
+|                 |                                                    |
+|                 | ***A2 --- Một phần dòng lỗi/trùng lặp***           |
+|                 |                                                    |
+|                 | 1.  1 hoặc nhiều dòng lỗi (thiếu trường bắt buộc,  |
+|                 |     mã nhân sự/username/email trùng, mã phòng ban  |
+|                 |     hoặc mã chức vụ không tồn tại, sai định dạng   |
+|                 |     ngày) --- hệ thống vẫn tạo tài khoản + hồ sơ   |
+|                 |     cho các dòng hợp lệ, bỏ qua dòng lỗi, đánh dấu |
+|                 |     status=PARTIAL_SUCCESS, liệt kê chi tiết từng  |
+|                 |     dòng lỗi trong error_summary.                  |
++-----------------+----------------------------------------------------+
+| **Hậu điều kiện | -   Hồ sơ nhân sự hợp lệ được tạo hàng loạt kèm    |
+| (P              |     tài khoản đăng nhập (username/password), vai   |
+| ostcondition)** |     trò mặc định của chức vụ (nếu dòng có chỉ định |
+|                 |     chức vụ — FR-HRM-06/UC-52) đã được gán sẵn; dòng|
+|                 |     không có chức vụ thì sẵn sàng để Quản lý nhân   |
+|                 |     sự gán role tay sau qua UC-46. Kết quả import   |
+|                 |     (bao gồm mật khẩu tạm của lần import đó) được   |
+|                 |     trả về ngay cho người thực hiện; tra cứu lại job|
+|                 |     sau đó (UC tương tự UC-35 getJob) KHÔNG còn     |
+|                 |     thấy mật khẩu tạm.                              |
++-----------------+----------------------------------------------------+
+
+---
+
+UC-52: Danh mục chức vụ & tự động gán vai trò theo chức vụ
+
++-----------------+----------------------------------------------------+
+| **Mã Use Case** | UC-52                                              |
++-----------------+----------------------------------------------------+
+| **Tên Use       | Danh mục chức vụ & tự động gán vai trò theo chức   |
+| Case**          | vụ                                                 |
++-----------------+----------------------------------------------------+
+| **Phân hệ**     | Phân hệ 4                                          |
++-----------------+----------------------------------------------------+
+| **Yêu cầu chức  | FR-HRM-06                                          |
+| năng gốc**      |                                                    |
++-----------------+----------------------------------------------------+
+| **Tác nhân**    | Quản lý nhân sự                                    |
++-----------------+----------------------------------------------------+
+| **Mô tả tóm     | Quản lý nhân sự duy trì danh mục chức vụ (positions)|
+| tắt**           | và cấu hình vai trò (role) mặc định cho từng chức  |
+|                 | vụ (position_default_roles, 1 chức vụ có thể ánh   |
+|                 | xạ nhiều role). Khi hồ sơ nhân sự (UC-08/UC-51)    |
+|                 | được gán 1 chức vụ, hệ thống tự động đồng bộ vai   |
+|                 | trò của tài khoản theo đúng danh sách mặc định đó. |
++-----------------+----------------------------------------------------+
+| **Sự kiện kích  | Quản lý nhân sự cần thêm/sửa chức vụ, hoặc cấu     |
+| hoạt**          | hình lại vai trò mặc định của 1 chức vụ.           |
++-----------------+----------------------------------------------------+
+| **Điều kiện     | -   Người dùng có quyền hrm.manage.                |
+| tiên quyết      |                                                    |
+| (               |                                                    |
+| Precondition)** |                                                    |
++-----------------+----------------------------------------------------+
+| **Luồng sự kiện | 1.  Quản lý nhân sự tạo/sửa 1 chức vụ (mã, tên).   |
+| chính (Main     |     Mã chức vụ bất biến sau khi tạo.                |
+| Flow)**         |                                                    |
+|                 | 2.  Quản lý nhân sự chọn danh sách vai trò (role)  |
+|                 |     hệ thống làm mặc định cho chức vụ đó (0..N,    |
+|                 |     thay thế toàn bộ danh sách cũ mỗi lần lưu).    |
+|                 |                                                    |
+|                 | 3.  Hệ thống lưu lại — danh sách chức vụ dùng làm  |
+|                 |     dropdown khi tạo/sửa hồ sơ nhân sự (UC-08) và  |
+|                 |     nhập nhân sự theo lô (UC-51).                  |
+|                 |                                                    |
+|                 | 4.  Xem UC-08 A5 / UC-51 bước 4 cho cơ chế tự động |
+|                 |     gán/thu hồi vai trò khi hồ sơ nhân sự được gán |
+|                 |     chức vụ.                                       |
+|                 |                                                    |
+|                 | 5.  Nếu chức vụ đang có sẵn nhân sự nắm giữ, hệ    |
+|                 |     thống ngay lập tức rà lại toàn bộ nhân sự đó   |
+|                 |     và đồng bộ vai trò theo danh sách mặc định vừa |
+|                 |     lưu ở bước 2 (cùng cơ chế UC-08 A5) — không    |
+|                 |     chỉ áp dụng cho các lần gán chức vụ sau này.   |
++-----------------+----------------------------------------------------+
+| **Luồng thay    | ***A1 --- Xóa chức vụ đang được sử dụng***         |
+| thế / ngoại lệ  |                                                    |
+| (Alternate      | 1.  Chức vụ đang được gán cho ít nhất 1 hồ sơ nhân |
+| Flow)**         |     sự --- hệ thống từ chối xóa, báo chuyển nhân   |
+|                 |     sự sang chức vụ khác trước.                     |
++-----------------+----------------------------------------------------+
+| **Hậu điều kiện | -   Danh mục chức vụ và ánh xạ vai trò mặc định    |
+| (P              |     phản ánh đúng cấu hình mới nhất; mọi lần tạo/  |
+| ostcondition)** |     đổi chức vụ của hồ sơ nhân sự sau đó áp dụng   |
+|                 |     đúng danh sách vai trò mặc định hiện hành.     |
+|                 | -   Toàn bộ nhân sự ĐANG giữ chức vụ vừa cấu hình  |
+|                 |     lại cũng được đồng bộ vai trò ngay (không phải |
+|                 |     chờ tới lần sửa hồ sơ tiếp theo).              |
 +-----------------+----------------------------------------------------+
 
 Phân hệ 5 --- Quản lý học sinh

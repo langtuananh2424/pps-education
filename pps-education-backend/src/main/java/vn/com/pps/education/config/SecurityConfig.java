@@ -44,10 +44,16 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable()) // API stateless dùng Bearer token, không cookie session
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
+                // GET /api/auth/me, PUT /api/auth/me/password cần JWT (không phải luồng
+                // đăng nhập) -- rule cụ thể hơn này PHẢI khai báo TRƯỚC "/api/auth/**"
+                // permitAll bên dưới để được ưu tiên.
+                .requestMatchers("/api/auth/me", "/api/auth/me/password").authenticated()
                 .requestMatchers(
                     "/api/auth/**",
-                    "/swagger-ui/**", "/v3/api-docs/**",
-                    "/actuator/health"
+                    "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**",
+                    "/actuator/health",
+                    "/error", // không permitAll -> path lạ/404 bị forward sang /error rồi bật 403 thay vì 404 thật
+                    "/api/webhooks/**" // UC-30 Main Flow bước 5-6: hệ thống ngân hàng ngoài gọi vào, không có JWT — tự xác thực qua shared secret riêng (InvoiceController)
                 ).permitAll()
                 .anyRequest().authenticated()
             )
