@@ -1,5 +1,11 @@
 import React, { createContext, useContext, useMemo, useState } from "react";
-import { CurrentUserResponse, fetchCurrentUser, login as loginApi, logout as logoutApi } from "@/features/auth/api";
+import {
+  CurrentUserResponse,
+  fetchCurrentUser,
+  login as loginApi,
+  loginWithGoogle as loginWithGoogleApi,
+  logout as logoutApi
+} from "@/features/auth/api";
 import { getAccessToken } from "@/lib/tokenStorage";
 
 const CURRENT_USER_CACHE_KEY = "pps_portal_current_user";
@@ -10,6 +16,7 @@ interface AppContextValue {
   isParent: boolean;
   isStudent: boolean;
   login: (usernameOrEmail: string, password: string) => Promise<void>;
+  loginWithGoogle: (idToken: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -28,12 +35,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [isLoggedIn, setIsLoggedIn] = useState(() => !!getAccessToken());
   const [currentUser, setCurrentUser] = useState<CurrentUserResponse | null>(() => readCachedUser());
 
-  const login = async (usernameOrEmail: string, password: string) => {
-    await loginApi(usernameOrEmail, password);
+  const completeLogin = async () => {
     const profile = await fetchCurrentUser();
     localStorage.setItem(CURRENT_USER_CACHE_KEY, JSON.stringify(profile));
     setCurrentUser(profile);
     setIsLoggedIn(true);
+  };
+
+  const login = async (usernameOrEmail: string, password: string) => {
+    await loginApi(usernameOrEmail, password);
+    await completeLogin();
+  };
+
+  const loginWithGoogle = async (idToken: string) => {
+    await loginWithGoogleApi(idToken);
+    await completeLogin();
   };
 
   const logout = async () => {
@@ -50,6 +66,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       isParent: currentUser?.roleCodes?.includes("PARENT") ?? false,
       isStudent: currentUser?.roleCodes?.includes("STUDENT") ?? false,
       login,
+      loginWithGoogle,
       logout
     }),
     [isLoggedIn, currentUser]

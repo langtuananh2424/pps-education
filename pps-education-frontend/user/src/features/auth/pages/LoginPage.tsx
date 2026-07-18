@@ -2,23 +2,13 @@ import React, { useState } from "react";
 import { ChevronDown, Eye, EyeOff, Lock, Mail, User } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
+import GoogleSignInButton from "../components/GoogleSignInButton";
 import heroBoy from "@/assets/hero-boy.png";
 import heroUnicorn from "@/assets/hero-unicorn.png";
 import heroGirl from "@/assets/hero-girl.png";
 
 /** Không gọi navigate thật cho các mục menu/CTA — đây là placeholder trực quan theo đúng bản thiết kế, chưa có trang đích thật. */
 const preventNav = (e: React.MouseEvent) => e.preventDefault();
-
-function GoogleIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 48 48">
-      <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 6.5 29.6 4.5 24 4.5 12.9 4.5 4 13.4 4 24.5s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-4z" />
-      <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 15.9 18.9 13 24 13c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 6.5 29.6 4.5 24 4.5c-7.5 0-14 4.2-17.7 10.2z" />
-      <path fill="#4CAF50" d="M24 44.5c5.5 0 10.4-1.9 14.2-5.1l-6.6-5.4C29.6 35.6 27 36.5 24 36.5c-5.3 0-9.7-3.3-11.3-8l-6.6 5.1C9.9 39.9 16.4 44.5 24 44.5z" />
-      <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-1 2.8-2.9 5.1-5.3 6.6l6.6 5.4C40.5 36.7 44 31.1 44 24.5c0-1.3-.1-2.7-.4-4z" />
-    </svg>
-  );
-}
 
 export default function LoginPage() {
   const { login } = useApp();
@@ -174,17 +164,7 @@ export default function LoginPage() {
 
           <div className="divider">Hoặc đăng nhập nhanh</div>
 
-          <button className="google-btn" type="button" onClick={preventNav}>
-            <GoogleIcon />
-            Google
-          </button>
-
-          <p className="register">
-            Bạn chưa có tài khoản?{" "}
-            <a href="#" onClick={preventNav}>
-              Đăng ký ngay
-            </a>
-          </p>
+          <GoogleSignInButton onSuccess={() => setError(null)} onError={setError} />
         </section>
       </main>
     </div>

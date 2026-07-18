@@ -8,6 +8,8 @@ import ScheduleTab from "../components/ScheduleTab";
 import GradesTab from "../components/GradesTab";
 import BillingTab from "../components/BillingTab";
 import LmsTab from "../components/LmsTab";
+import ComingSoon from "../components/ComingSoon";
+import ProfileModal from "../components/ProfileModal";
 
 type Tab = "home" | "schedule" | "lms" | "grades" | "billing";
 
@@ -19,9 +21,17 @@ const TABS: { key: Tab; label: string; icon: React.ComponentType<{ size?: number
   { key: "billing", label: "Học phí & Dịch vụ", icon: CreditCard }
 ];
 
+/**
+ * UC-42 mới chỉ mở self-access cho học sinh ở /portal/students/{id}/class-options
+ * và /auth/me (studentId) — 5 API còn lại (grades/attendance/comments/schedule/
+ * invoices/my, thuộc ParentPortalService/InvoiceService) vẫn chỉ chấp nhận Phụ
+ * huynh (requireLinkedParent/parentOrThrow), gọi bằng tài khoản Học sinh sẽ 403.
+ * Nên chỉ tab LMS chạy thật cho Học sinh — 4 tab còn lại hiện ComingSoon, chờ BE
+ * áp dụng cùng pattern requireOwnerOrLinkedParent cho các Service đó.
+ */
 export default function PortalPage() {
-  const { currentUser, isParent, logout } = useApp();
-  const [activeTab, setActiveTab] = useState<Tab>("home");
+  const { currentUser, isParent, isStudent, logout } = useApp();
+  const [activeTab, setActiveTab] = useState<Tab>(() => (isParent ? "home" : "lms"));
 
   const [children, setChildren] = useState<ChildResponse[]>([]);
   const [selectedChildId, setSelectedChildId] = useState<number | null>(null);
@@ -29,20 +39,26 @@ export default function PortalPage() {
   const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [profileOpen, setProfileOpen] = useState(false);
 
   useEffect(() => {
-    if (!isParent) {
+    if (isParent) {
+      listMyChildren()
+        .then((kids) => {
+          setChildren(kids);
+          if (kids.length > 0) setSelectedChildId(kids[0].studentId);
+        })
+        .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách con."))
+        .finally(() => setLoading(false));
+      return;
+    }
+    if (isStudent) {
+      setSelectedChildId(currentUser?.studentId ?? null);
       setLoading(false);
       return;
     }
-    listMyChildren()
-      .then((kids) => {
-        setChildren(kids);
-        if (kids.length > 0) setSelectedChildId(kids[0].studentId);
-      })
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách con."))
-      .finally(() => setLoading(false));
-  }, [isParent]);
+    setLoading(false);
+  }, [isParent, isStudent, currentUser]);
 
   useEffect(() => {
     setSelectedClassId(null);
@@ -58,14 +74,17 @@ export default function PortalPage() {
   }, [selectedChildId]);
 
   const selectedChild = children.find((c) => c.studentId === selectedChildId) ?? null;
+  const noViewerData = isParent ? children.length === 0 : !selectedChildId;
+  const currentClass = classOptions.find((c) => c.classId === selectedClassId) ?? null;
+  const viewerName = isParent ? selectedChild?.studentFullName ?? "" : currentUser?.fullName ?? "";
 
-  if (!isParent) {
+  if (!isParent && !isStudent) {
     return (
       <div className="min-h-screen flex items-center justify-center p-8 text-center">
         <div className="bg-white border border-line/80 rounded-[24px] p-10 max-w-md space-y-3">
           <h2 className="text-lg font-extrabold text-ink">Tài khoản chưa hỗ trợ xem Portal</h2>
           <p className="text-xs text-muted font-bold">
-            Portal hiện chỉ phục vụ tài khoản Phụ huynh. Học sinh tự đăng nhập xem hồ sơ của chính mình đang chờ Backend bổ sung API — sẽ mở sau.
+            Portal hiện chỉ phục vụ tài khoản Phụ huynh và Học sinh.
           </p>
           <button onClick={() => logout()} className="text-xs font-extrabold text-teal hover:underline">
             Đăng xuất
@@ -85,11 +104,28 @@ export default function PortalPage() {
             </div>
             <div className="leading-tight">
               <div className="font-extrabold text-[15.5px] text-ink">PPS Education</div>
-              <div className="text-[11px] tracking-[0.14em] text-teal-deep font-extrabold">PORTAL PHỤ HUYNH</div>
+              <div className="text-[11px] tracking-[0.14em] text-teal-deep font-extrabold">
+                {isParent ? "PORTAL PHỤ HUYNH" : "PORTAL HỌC SINH"}
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <span className="text-xs font-bold text-ink hidden sm:inline">{currentUser?.fullName}</span>
+            {selectedChildId && (
+              <button
+                onClick={() => setProfileOpen(true)}
+                className="flex items-center gap-2.5 pl-2 pr-3.5 py-1.5 bg-sky-2 hover:bg-sky border border-line rounded-[16px] transition-colors"
+              >
+                <div className="w-7 h-7 rounded-full bg-teal/15 border border-teal/30 flex items-center justify-center text-teal-deep font-extrabold text-xs shrink-0">
+                  {(viewerName || "?").charAt(0).toUpperCase()}
+                </div>
+                <div className="text-left leading-tight hidden sm:block">
+                  <div className="text-[9px] text-muted font-extrabold uppercase tracking-wide">
+                    {isParent ? "Học viên" : "Học sinh"}
+                  </div>
+                  <div className="text-xs font-extrabold text-ink">{viewerName}</div>
+                </div>
+              </button>
+            )}
             <button
               onClick={() => logout()}
               className="flex items-center gap-1.5 px-4 py-1.5 bg-white border-2 border-coral text-coral font-bold text-xs rounded-[16px]"
@@ -100,14 +136,25 @@ export default function PortalPage() {
         </div>
       </nav>
 
+      {profileOpen && (
+        <ProfileModal
+          fullName={viewerName || "—"}
+          studentId={selectedChildId}
+          className={currentClass?.className ?? null}
+          classCode={currentClass?.classCode ?? null}
+          enrollmentStatus={currentClass?.status ?? null}
+          onClose={() => setProfileOpen(false)}
+        />
+      )}
+
       <div className="flex-1 w-full max-w-[1560px] mx-auto px-4 md:px-8 xl:px-12 py-8">
         {error && <div className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-xl mb-4">{error}</div>}
 
         {loading ? (
           <p className="text-sm text-muted font-bold">Đang tải...</p>
-        ) : children.length === 0 ? (
+        ) : noViewerData ? (
           <div className="bg-white border border-line/80 rounded-[24px] p-10 text-center text-muted font-bold">
-            Chưa có học sinh nào được liên kết với tài khoản của bạn.
+            {isParent ? "Chưa có học sinh nào được liên kết với tài khoản của bạn." : "Không tìm thấy hồ sơ học sinh gắn với tài khoản này."}
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -167,13 +214,43 @@ export default function PortalPage() {
                 </div>
               ) : (
                 <>
-                  {activeTab === "home" && selectedChild && (
-                    <HomeTab studentId={selectedChild.studentId} classId={selectedClassId} studentName={selectedChild.studentFullName} />
-                  )}
-                  {activeTab === "schedule" && selectedChild && <ScheduleTab studentId={selectedChild.studentId} classId={selectedClassId} />}
+                  {activeTab === "home" &&
+                    (isParent && selectedChild ? (
+                      <HomeTab studentId={selectedChild.studentId} classId={selectedClassId} studentName={selectedChild.studentFullName} />
+                    ) : (
+                      <ComingSoon
+                        title="Trang chủ & Bảng tin"
+                        description="Đang chờ Backend mở API cho Học sinh tự xem nhận xét/thông báo của chính mình (hiện chỉ Phụ huynh xem được)."
+                      />
+                    ))}
+                  {activeTab === "schedule" &&
+                    (isParent && selectedChild ? (
+                      <ScheduleTab studentId={selectedChild.studentId} classId={selectedClassId} />
+                    ) : (
+                      <ComingSoon
+                        title="Lịch học & Chuyên cần"
+                        description="Đang chờ Backend mở API cho Học sinh tự xem lịch học/chuyên cần của chính mình (hiện chỉ Phụ huynh xem được)."
+                      />
+                    ))}
                   {activeTab === "lms" && <LmsTab classId={selectedClassId} />}
-                  {activeTab === "grades" && selectedChild && <GradesTab studentId={selectedChild.studentId} classId={selectedClassId} />}
-                  {activeTab === "billing" && <BillingTab />}
+                  {activeTab === "grades" &&
+                    (isParent && selectedChild ? (
+                      <GradesTab studentId={selectedChild.studentId} classId={selectedClassId} />
+                    ) : (
+                      <ComingSoon
+                        title="Khảo thí & Điểm số"
+                        description="Đang chờ Backend mở API cho Học sinh tự xem điểm của chính mình (hiện chỉ Phụ huynh xem được)."
+                      />
+                    ))}
+                  {activeTab === "billing" &&
+                    (isParent ? (
+                      <BillingTab />
+                    ) : (
+                      <ComingSoon
+                        title="Học phí & Dịch vụ"
+                        description="Đang chờ Backend mở API cho Học sinh tự xem học phí của chính mình (hiện chỉ Phụ huynh xem được)."
+                      />
+                    ))}
                 </>
               )}
             </div>
