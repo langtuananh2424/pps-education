@@ -6,6 +6,7 @@ import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import EmptyState from "@/components/ui/EmptyState";
 import { ApiError } from "@/lib/apiClient";
+import { DepartmentResponse, listDepartments } from "@/features/hrm/api";
 import {
   changeUserPassword,
   getUserDetail,
@@ -45,8 +46,16 @@ export default function UsersPage() {
   const [departmentId, setDepartmentId] = useState("");
   const [loading, setLoading] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
+  const [departments, setDepartments] = useState<DepartmentResponse[]>([]);
 
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+
+  useEffect(() => {
+    // GET /api/departments không yêu cầu quyền riêng — chỉ dùng để đổi ID sang tên hiển thị, không dùng để sửa.
+    listDepartments().then(setDepartments).catch(() => {});
+  }, []);
+
+  const departmentName = (id: number | null): string => departments.find((d) => d.id === id)?.name ?? "—";
 
   const loadUsers = () => {
     setLoading(true);
@@ -101,12 +110,18 @@ export default function UsersPage() {
           <option value="INACTIVE">Ngừng hoạt động</option>
           <option value="SUSPENDED">Tạm khóa</option>
         </select>
-        <input
+        <select
           value={departmentId}
-          onChange={(e) => setDepartmentId(e.target.value.replace(/[^0-9]/g, ""))}
-          placeholder="ID phòng ban (tùy chọn)"
-          className="w-40 bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
-        />
+          onChange={(e) => setDepartmentId(e.target.value)}
+          className="w-48 bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
+        >
+          <option value="">-- Mọi phòng ban --</option>
+          {departments.map((d) => (
+            <option key={d.id} value={d.id}>
+              {d.name}
+            </option>
+          ))}
+        </select>
         <Button type="submit" variant="dark">
           Tìm kiếm
         </Button>
@@ -135,7 +150,7 @@ export default function UsersPage() {
                   <Td className="font-mono font-bold text-slate-800">{u.username}</Td>
                   <Td className="font-semibold">{u.fullName}</Td>
                   <Td>{u.email}</Td>
-                  <Td>{u.departmentId ?? "—"}</Td>
+                  <Td>{departmentName(u.departmentId)}</Td>
                   <Td>
                     <div className="flex flex-wrap gap-1">
                       {u.roles.length === 0 ? (
@@ -205,6 +220,7 @@ export default function UsersPage() {
 
       <UserDetailModal
         userId={selectedUserId}
+        departments={departments}
         onClose={() => setSelectedUserId(null)}
         onChanged={loadUsers}
       />
@@ -212,7 +228,17 @@ export default function UsersPage() {
   );
 }
 
-function UserDetailModal({ userId, onClose, onChanged }: { userId: number | null; onClose: () => void; onChanged: () => void }) {
+function UserDetailModal({
+  userId,
+  departments,
+  onClose,
+  onChanged
+}: {
+  userId: number | null;
+  departments: DepartmentResponse[];
+  onClose: () => void;
+  onChanged: () => void;
+}) {
   const [detail, setDetail] = useState<UserDetailResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -323,7 +349,7 @@ function UserDetailModal({ userId, onClose, onChanged }: { userId: number | null
             <span>Số lần đăng nhập sai: <span className="font-mono text-slate-700">{detail.failedLoginCount}</span></span>
             {detail.lockedUntil && <span>Khóa tạm tới: <span className="font-mono text-slate-700">{detail.lockedUntil}</span></span>}
             <span>
-              Phòng ban: <span className="font-mono text-slate-700">{detail.departmentId ?? "—"}</span>
+              Phòng ban: <span className="font-mono text-slate-700">{departments.find((d) => d.id === detail.departmentId)?.name ?? "—"}</span>
             </span>
             <span>
               Miễn trừ chấm công: <span className="font-mono text-slate-700">{detail.isManagement ? "Có" : "Không"}</span>
