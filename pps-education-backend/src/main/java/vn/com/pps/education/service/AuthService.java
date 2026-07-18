@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.LoginAttempt;
 import vn.com.pps.education.domain.RefreshToken;
+import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.dto.CurrentUserResponse;
 import vn.com.pps.education.dto.GoogleLoginRequest;
@@ -26,6 +27,7 @@ import vn.com.pps.education.repository.EmployeeRepository;
 import vn.com.pps.education.repository.LoginAttemptRepository;
 import vn.com.pps.education.repository.RefreshTokenRepository;
 import vn.com.pps.education.repository.RoleRepository;
+import vn.com.pps.education.repository.StudentRepository;
 import vn.com.pps.education.repository.UserRepository;
 import vn.com.pps.education.repository.UserRoleRepository;
 import vn.com.pps.education.security.GoogleIdTokenVerifier;
@@ -50,6 +52,7 @@ public class AuthService {
     private final UserRoleRepository userRoleRepository;
     private final RoleRepository roleRepository;
     private final EmployeeRepository employeeRepository;
+    private final StudentRepository studentRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final LoginAttemptRepository loginAttemptRepository;
     private final PasswordEncoder passwordEncoder;
@@ -64,6 +67,7 @@ public class AuthService {
                         UserRoleRepository userRoleRepository,
                         RoleRepository roleRepository,
                         EmployeeRepository employeeRepository,
+                        StudentRepository studentRepository,
                         RefreshTokenRepository refreshTokenRepository,
                         LoginAttemptRepository loginAttemptRepository,
                         PasswordEncoder passwordEncoder,
@@ -77,6 +81,7 @@ public class AuthService {
         this.userRoleRepository = userRoleRepository;
         this.roleRepository = roleRepository;
         this.employeeRepository = employeeRepository;
+        this.studentRepository = studentRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.loginAttemptRepository = loginAttemptRepository;
         this.passwordEncoder = passwordEncoder;
@@ -211,16 +216,25 @@ public class AuthService {
      * cần đã xác thực.
      */
     @Transactional(readOnly = true)
+    /**
+     * UC-42 (FR-LMS-12) tiền đề: tài khoản Học sinh tự đăng nhập cần tra ra studentId
+     * của chính mình để gọi các API Portal cần studentId (Phụ huynh đã có sẵn
+     * GET /api/portal/parent/children cho việc này) — bổ sung studentId (null nếu
+     * tài khoản không có hồ sơ Student liên kết) vào response tự-phục-vụ này thay vì
+     * thêm 1 endpoint riêng, vì bản chất chỉ là 1 field trong hồ sơ tài khoản đang xem.
+     */
     public CurrentUserResponse getCurrentUser(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + userId));
         String departmentName = employeeRepository.findByUserId(userId)
                 .map(e -> e.getDepartment() == null ? null : e.getDepartment().getName())
                 .orElse(null);
+        Long studentId = studentRepository.findByUserId(userId).map(Student::getId).orElse(null);
         return new CurrentUserResponse(
                 user.getId(), user.getUsername(), user.getEmail(), user.getFullName(), user.getPhone(),
                 departmentName,
-                rolesOf(user));
+                rolesOf(user),
+                studentId);
     }
 
     /** A2 (khóa 5 lần sai) + A3 (INACTIVE/SUSPENDED) — áp dụng cho cả luồng mật khẩu và Google. */
