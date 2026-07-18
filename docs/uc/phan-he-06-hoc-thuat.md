@@ -474,7 +474,9 @@ UC-20: Duyệt điểm
 | **Yêu cầu chức  | FR-ACA-03                                          |
 | năng gốc**      |                                                    |
 +-----------------+----------------------------------------------------+
-| **Tác nhân**    | Quản lý điểm trường                                |
+| **Tác nhân**    | Quản lý điểm trường (đúng site phụ trách); Trưởng  |
+|                 | phòng đào tạo (mọi site — bổ sung ngoài SDD gốc,   |
+|                 | đã xác nhận với người dùng)                        |
 |                 |                                                    |
 |                 | (Liên quan/hỗ trợ: Giáo viên (người nhập))         |
 +-----------------+----------------------------------------------------+
@@ -487,12 +489,19 @@ UC-20: Duyệt điểm
 +-----------------+----------------------------------------------------+
 | **Điều kiện     | -   Điểm đã được Giáo viên submit (UC-19).         |
 | tiên quyết      |                                                    |
-| (               |                                                    |
-| Precondition)** |                                                    |
+| (               | -   Actor có quyền academic.grade.approve (bổ sung |
+| Precondition)** |     ngoài SDD gốc, đã xác nhận với người dùng —    |
+|                 |     mặc định gán cho role SITE_MANAGER và          |
+|                 |     HEAD_ACADEMIC). Quản lý điểm trường còn phải   |
+|                 |     được gán phụ trách đúng điểm trường của lớp     |
+|                 |     (site_managers, row-level); Trưởng phòng đào   |
+|                 |     tạo (có thêm quyền academic.grade.manage) thì  |
+|                 |     không bị giới hạn theo site.                   |
 +-----------------+----------------------------------------------------+
-| **Luồng sự kiện | 1.  Quản lý điểm trường mở danh sách điểm Chờ      |
-| chính (Main     |     duyệt của điểm trường mình phụ trách.          |
-| Flow)**         |                                                    |
+| **Luồng sự kiện | 1.  Quản lý điểm trường (hoặc Trưởng phòng đào tạo)|
+| chính (Main     |     mở danh sách điểm Chờ duyệt — của điểm trường  |
+| Flow)**         |     mình phụ trách, hoặc của MỌI điểm trường nếu là|
+|                 |     Trưởng phòng đào tạo.                          |
 |                 | 2.  Quản lý điểm trường chọn cách duyệt: Duyệt     |
 |                 |     từng bản ghi (xem chi tiết 1 học sinh cụ thể)  |
 |                 |     hoặc Duyệt theo batch_id (theo lô Giáo viên đã |

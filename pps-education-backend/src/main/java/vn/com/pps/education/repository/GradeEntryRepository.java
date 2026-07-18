@@ -28,4 +28,7 @@ public interface GradeEntryRepository extends JpaRepository<GradeEntry, Long> {
             ORDER BY e.submittedAt ASC
             """)
     List<GradeEntry> findByStatusAndSiteId(@Param("status") GradeEntry.Status status, @Param("siteId") Long siteId);
+
+    /** UC-20 (mở rộng, bổ sung ngoài SDD gốc): HEAD_ACADEMIC xem hàng chờ duyệt của MỌI site, không giới hạn theo site_managers. */
+    List<GradeEntry> findByStatusOrderBySubmittedAtAsc(GradeEntry.Status status);
 }

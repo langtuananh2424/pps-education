@@ -84,15 +84,20 @@ import java.util.stream.Collectors;
  *
  * Cấu hình sổ điểm (HEAD_ACADEMIC) qua
  * @PreAuthorize("hasPermission(null,'academic.grade.manage')") ở
- * GradeController (Hybrid PBAC — V28). Duyệt điểm (SITE_MANAGER) vẫn dùng
- * requireSiteManagerForSite — row-level scope check (đúng site cụ thể),
- * không phải role-hardcode.
+ * GradeController (Hybrid PBAC — V28).
  *
  * Nhập/import điểm (UC-19/UC-53) dùng requireCanEnterGrades — mở rộng
  * ngoài SDD gốc, đã xác nhận với người dùng: ngoài Giáo viên được phân
  * công giảng dạy lớp, Trưởng phòng đào tạo (quyền academic.grade.manage)
  * hoặc Quản lý điểm trường phụ trách đúng site của lớp cũng được phép
  * nhập/import thay giáo viên khi cần hỗ trợ.
+ *
+ * Duyệt điểm (UC-20) dùng requireGradeApprovePermission +
+ * requireCanApproveGrades — bổ sung ngoài SDD gốc, đã xác nhận với người
+ * dùng: cần quyền academic.grade.approve (role mặc định: SITE_MANAGER,
+ * HEAD_ACADEMIC — V38); Quản lý điểm trường vẫn giới hạn row-level đúng
+ * site mình phụ trách (site_managers), Trưởng phòng đào tạo (có thêm
+ * academic.grade.manage) duyệt được mọi site.
  */
 @Service
 public class GradeService {
@@ -507,11 +512,22 @@ public class GradeService {
                 .stream().map(this::toResponse).toList();
     }
 
-    // ===================== UC-20: Duyệt điểm (SITE_MANAGER) =====================
+    // ===================== UC-20: Duyệt điểm (SITE_MANAGER + HEAD_ACADEMIC) =====================
 
-    /** Main Flow bước 1: danh sách điểm Chờ duyệt của các điểm trường actor phụ trách. */
+    /**
+     * Main Flow bước 1: danh sách điểm Chờ duyệt. Yêu cầu quyền
+     * academic.grade.approve (bổ sung ngoài SDD gốc, đã xác nhận với
+     * người dùng). Nếu actor có thêm academic.grade.manage (Trưởng phòng
+     * đào tạo) thì thấy MỌI site; ngược lại (Quản lý điểm trường) chỉ
+     * thấy (các) điểm trường mình được gán phụ trách.
+     */
     @Transactional(readOnly = true)
     public List<GradeEntryResponse> listPendingForSite(Long actorUserId) {
+        requireGradeApprovePermission(actorUserId);
+        if (permissionEvaluationService.hasPermission(actorUserId, "academic.grade.manage")) {
+            return gradeEntryRepository.findByStatusOrderBySubmittedAtAsc(GradeEntry.Status.PENDING)
+                    .stream().map(this::toResponse).toList();
+        }
         List<Long> siteIds = siteManagerRepository
                 .findByUserIdAndRoleTypeAndAssignedToIsNull(actorUserId, SiteManager.RoleType.SITE_MANAGER).stream()
                 .map(sm -> sm.getSite().getId()).toList();
@@ -544,9 +560,10 @@ public class GradeService {
             throw new ResourceNotFoundException("Có bản ghi Overall/Level không tồn tại trong danh sách gradePeriodResultIds.");
         }
 
+        requireGradeApprovePermission(actorUserId);
         OffsetDateTime now = OffsetDateTime.now();
         for (GradeEntry entry : entries) {
-            requireSiteManagerForSite(entry.getSchoolClass().getSite().getId(), actorUserId);
+            requireCanApproveGrades(entry.getSchoolClass().getSite().getId(), actorUserId);
             if (entry.getStatus() != GradeEntry.Status.PENDING) {
                 throw new ApprovalAlreadyDecidedException(
                         "Bản ghi điểm id=" + entry.getId() + " đã được quyết định (" + entry.getStatus() + ").");
@@ -568,7 +585,7 @@ public class GradeService {
             }
         }
         for (GradePeriodResult result : results) {
-            requireSiteManagerForSite(result.getSchoolClass().getSite().getId(), actorUserId);
+            requireCanApproveGrades(result.getSchoolClass().getSite().getId(), actorUserId);
             if (result.getStatus() != GradePeriodResult.Status.PENDING) {
                 throw new ApprovalAlreadyDecidedException(
                         "Bản ghi Overall/Level id=" + result.getId() + " đã được quyết định (" + result.getStatus() + ").");
@@ -622,11 +639,31 @@ public class GradeService {
                         + ", không có quyền academic.grade.manage, và cũng không phải Quản lý điểm trường phụ trách lớp này.");
     }
 
-    private void requireSiteManagerForSite(Long siteId, Long actorUserId) {
+    /**
+     * UC-20 Precondition (mở rộng, bổ sung ngoài SDD gốc, đã xác nhận với
+     * người dùng): actor phải có quyền academic.grade.approve (kiểm tra
+     * riêng ở {@link #requireGradeApprovePermission}, gọi 1 lần cho cả
+     * lô trước khi lặp từng bản ghi). Nếu actor còn có
+     * academic.grade.manage (Trưởng phòng đào tạo) thì duyệt được MỌI
+     * site, không giới hạn; ngược lại (Quản lý điểm trường) chỉ duyệt
+     * được đúng site mình được gán phụ trách (site_managers, row-level).
+     */
+    private void requireCanApproveGrades(Long siteId, Long actorUserId) {
+        if (permissionEvaluationService.hasPermission(actorUserId, "academic.grade.manage")) {
+            return;
+        }
         if (!siteManagerRepository.existsBySiteIdAndUserIdAndRoleTypeAndAssignedToIsNull(
                 siteId, actorUserId, SiteManager.RoleType.SITE_MANAGER)) {
             throw new NotSiteManagerForSiteException(
                     "Tài khoản id=" + actorUserId + " không được gán phụ trách điểm trường id=" + siteId + ".");
+        }
+    }
+
+    /** UC-20 Precondition — cổng quyền chung, kiểm tra 1 lần trước khi xử lý cả lô (áp dụng cho cả entries và results). */
+    private void requireGradeApprovePermission(Long actorUserId) {
+        if (!permissionEvaluationService.hasPermission(actorUserId, "academic.grade.approve")) {
+            throw new NotSiteManagerForSiteException(
+                    "Tài khoản id=" + actorUserId + " không có quyền academic.grade.approve.");
         }
     }
 

@@ -328,6 +328,42 @@ class GradeServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void decideGrades_UC20_Precondition_rejectsWhenActorHasNoGradeApprovePermission() {
+        GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
+                new EnterGradeRequest(student.getId(), new BigDecimal("8"), false, null), teacher.getId());
+        gradeService.submitGrades(schoolClass.id(), new SubmitGradesRequest(List.of(entry.id()), null), teacher.getId());
+        // TEACHER không được cấp academic.grade.approve (V38 chỉ gán cho SITE_MANAGER/HEAD_ACADEMIC).
+
+        assertThatThrownBy(() -> gradeService.decideGrades(
+                new DecideGradesRequest(List.of(entry.id()), null, "APPROVED", null), teacher.getId()))
+                .isInstanceOf(NotSiteManagerForSiteException.class);
+    }
+
+    @Test
+    void decideGrades_UC20_Precondition_supportsHeadAcademicApprovingAnySite() {
+        // Mở rộng ngoài SDD gốc, đã xác nhận với người dùng: HEAD_ACADEMIC (academic.grade.approve
+        // + academic.grade.manage) duyệt được dù không có bản ghi site_managers cho site của lớp.
+        GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
+                new EnterGradeRequest(student.getId(), new BigDecimal("8"), false, null), teacher.getId());
+        gradeService.submitGrades(schoolClass.id(), new SubmitGradesRequest(List.of(entry.id()), null), teacher.getId());
+
+        List<GradeEntryResponse> decided = gradeService.decideGrades(
+                new DecideGradesRequest(List.of(entry.id()), null, "APPROVED", "Duyệt bởi TPĐT"), headAcademic.getId());
+
+        assertThat(decided.get(0).status()).isEqualTo("APPROVED");
+    }
+
+    @Test
+    void listPendingForSite_UC20_Precondition_headAcademicSeesAllSitesNotJustOwnAssignment() {
+        GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
+                new EnterGradeRequest(student.getId(), new BigDecimal("8"), false, null), teacher.getId());
+        gradeService.submitGrades(schoolClass.id(), new SubmitGradesRequest(List.of(entry.id()), null), teacher.getId());
+
+        assertThat(gradeService.listPendingForSite(headAcademic.getId()))
+                .extracting(GradeEntryResponse::id).contains(entry.id());
+    }
+
+    @Test
     void decideGrades_rejectsWhenAlreadyDecided() {
         GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
                 new EnterGradeRequest(student.getId(), new BigDecimal("8"), false, null), teacher.getId());

@@ -1297,6 +1297,7 @@
 | `id` | integer (int64) |  |
 | `phone` | string |  |
 | `roleCodes` | mảng string |  |
+| `studentId` | integer (int64) |  |
 | `username` | string |  |
 
 ### CurriculumApprovalResponse
