@@ -91,7 +91,7 @@ class CurriculumServiceTest extends AbstractIntegrationTest {
                 headAcademic.getId());
 
         var subject = curriculumService.addSubject(curriculum.id(),
-                new CreateCurriculumSubjectRequest("SPEAKING", "Nói", 20, 1), headAcademic.getId());
+                new CreateCurriculumSubjectRequest("SPEAKING", null, "Nói", 20, 1), headAcademic.getId());
 
         assertThat(curriculumService.listSubjects(curriculum.id())).containsExactly(subject);
     }

@@ -20,6 +20,9 @@ public class GradeComponent {
 
     public enum ComponentCode { SPEAKING, WRITING, LISTENING, READING, GRAMMAR, PROJECT, OTHER }
 
+    /** V37 — chỉ phục vụ hiển thị đúng định dạng ở FE; max_score vẫn là cận trên validate. */
+    public enum ScaleType { NUMERIC, PERCENTAGE, BAND }
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -31,6 +34,11 @@ public class GradeComponent {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "subject_id")
     private CurriculumSubject subject;
+
+    /** V37 — tham chiếu danh mục kỹ năng (UC-54), dùng khi code=OTHER cần kỹ năng ngoài enum gốc. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "skill_id")
+    private Skill skill;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)
@@ -47,6 +55,10 @@ public class GradeComponent {
 
     @Column(name = "pass_threshold", precision = 5, scale = 2)
     private BigDecimal passThreshold;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "scale_type", nullable = false, length = 20)
+    private ScaleType scaleType = ScaleType.NUMERIC;
 
     @Column(name = "display_order", nullable = false)
     private int displayOrder = 0;

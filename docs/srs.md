@@ -417,7 +417,16 @@ nhân đó mới được thao tác.*
 
     -   **FR-ACA-03: Quản lý Sổ điểm -** Giáo viên nhập điểm thành phần
         cho học sinh. Hệ thống tự động tính điểm trung bình học phần
-        theo công thức cấu hình sẵn của Trưởng phòng đào tạo.
+        theo công thức cấu hình sẵn của Trưởng phòng đào tạo. Giáo viên
+        cũng có thể đẩy hàng loạt điểm đã hoàn thiện sẵn (kể cả Overall/
+        Level đã quy đổi theo band/%/thang riêng của lớp) qua file Excel
+        — hệ thống quét header, map theo đúng thành phần điểm đã cấu
+        hình cho kỳ đánh giá, không tự tính lại công thức Overall/Level
+        (UC-53, bổ sung ngoài SDD gốc, đã xác nhận với người dùng). Nếu
+        1 kỳ đánh giá cần bổ sung thành phần điểm ngoài khung chuẩn ban
+        đầu (VD Phòng đào tạo quyết định thêm 1 kỹ năng thi), có thể
+        thêm trực tiếp vào kỳ đánh giá đó mà không cần lặp lại toàn bộ
+        quy trình tùy biến + phê duyệt khung (UC-16/A2).
 
     -   **FR-ACA-04: Sổ nhận xét định kỳ -** Giáo viên viết nhận xét cho
         học sinh theo 3 biểu mẫu: Hàng ngày (thái độ), Giữa kỳ, và Cuối
@@ -432,6 +441,13 @@ nhân đó mới được thao tác.*
         sang buổi mới (buổi cũ chuyển trạng thái RESCHEDULED, liên kết
         sang buổi mới tạo) — cả 2 thao tác chỉ áp dụng cho buổi đang ở
         trạng thái SCHEDULED.
+
+    -   **FR-ACA-06: Quản lý Danh mục kỹ năng -** (bổ sung ngoài SDD
+        gốc, đã xác nhận với người dùng) Trưởng phòng đào tạo quản lý
+        danh mục kỹ năng thi dùng chung toàn hệ thống (thêm/sửa tên/vô
+        hiệu hoá), phục vụ FR-ACA-01 và FR-ACA-03 khi phát sinh kỹ năng
+        thi mới ngoài 6 giá trị gốc (Nghe/Nói/Đọc/Viết/Ngữ pháp/Dự án),
+        không cần lập trình viên can thiệp (UC-54).
 
 **PHÂN HỆ 7: CỔNG THÔNG TIN VÀ E-LEARNING (PORTAL & LMS - TÍCH HỢP
 CDN)**
@@ -709,6 +725,12 @@ CDN)**
   UC-19             Nhập điểm         FR-ACA-03         6
 
   UC-20             Duyệt điểm        FR-ACA-03         6
+
+  UC-53             Nhập điểm thi qua FR-ACA-03         6
+                    Excel                               
+
+  UC-54             Quản lý danh mục  FR-ACA-06         6
+                    kỹ năng                             
 
   UC-21             Viết nhận xét học FR-ACA-04         6
                     sinh                                

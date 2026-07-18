@@ -6,6 +6,7 @@ erDiagram
     curriculums }o--o| curriculums : "ban goc (parent)"
 
     curriculum_subjects ||--o{ curriculum_subjects_history : ""
+    curriculum_subjects }o--o| skills : "danh muc ky nang (V37)"
 
     classes ||--o{ class_teachers : "gan GV"
     classes ||--o{ class_enrollments : "hoc sinh"
@@ -42,9 +43,18 @@ erDiagram
         BIGSERIAL id PK
         BIGINT curriculum_id FK
         VARCHAR subject_code
+        BIGINT skill_id FK
         VARCHAR name
         INT period_count
         INT display_order
+    }
+
+    skills {
+        BIGSERIAL id PK
+        VARCHAR code UK
+        VARCHAR name
+        TEXT description
+        BOOLEAN is_active
     }
 
     classes {

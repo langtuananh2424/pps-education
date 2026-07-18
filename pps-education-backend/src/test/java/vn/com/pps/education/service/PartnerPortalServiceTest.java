@@ -202,12 +202,12 @@ class PartnerPortalServiceTest extends AbstractIntegrationTest {
         GradePeriodResponse period = gradeService.createGradePeriod(activeCurriculum.id(),
                 new CreateGradePeriodRequest("MID_1", "Giữa kỳ 1", 1, new BigDecimal("50"), null, null), headAcademic.getId());
         GradeComponentResponse component = gradeService.addGradeComponent(period.id(),
-                new CreateGradeComponentRequest(null, "SPEAKING", "Nói", new BigDecimal("100"), new BigDecimal("10.00"), null, 1),
+                new CreateGradeComponentRequest(null, null, "SPEAKING", "Nói", new BigDecimal("100"), new BigDecimal("10.00"), null, null, 1),
                 headAcademic.getId());
         GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), component.id(),
                 new EnterGradeRequest(student.getId(), new BigDecimal("9"), false, null), teacher.getId());
-        gradeService.submitGrades(schoolClass.id(), new SubmitGradesRequest(List.of(entry.id())), teacher.getId());
-        gradeService.decideGrades(new DecideGradesRequest(List.of(entry.id()), "APPROVED", "Tốt"), siteManagerUser.getId());
+        gradeService.submitGrades(schoolClass.id(), new SubmitGradesRequest(List.of(entry.id()), null), teacher.getId());
+        gradeService.decideGrades(new DecideGradesRequest(List.of(entry.id()), null, "APPROVED", "Tốt"), siteManagerUser.getId());
 
         List<GradeEntryResponse> grades = partnerPortalService.getApprovedGrades(partnerRepUser.getId());
 

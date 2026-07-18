@@ -22,7 +22,7 @@ import java.util.UUID;
 @Table(name = "approval_flows")
 public class ApprovalFlow extends BaseAuditEntity {
 
-    public enum EntityType { CURRICULUM, STUDENT_COMMENT, GRADE_ENTRY, TEACHING_PLAN }
+    public enum EntityType { CURRICULUM, STUDENT_COMMENT, GRADE_ENTRY, GRADE_PERIOD_RESULT, TEACHING_PLAN }
 
     public enum Status { PENDING, APPROVED, REJECTED, CANCELLED }
 
