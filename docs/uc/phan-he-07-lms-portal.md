@@ -59,6 +59,131 @@ UC-23: Quản lý bài giảng
 
 ---
 
+UC-23a: Xem bài giảng (Học sinh)
+
++-----------------+----------------------------------------------------+
+| **Mã Use Case** | UC-23a                                             |
++-----------------+----------------------------------------------------+
+| **Tên Use       | Xem bài giảng (Học sinh)                           |
+| Case**          |                                                    |
++-----------------+----------------------------------------------------+
+| **Phân hệ**     | Phân hệ 7                                          |
++-----------------+----------------------------------------------------+
+| **Yêu cầu chức  | FR-LMS-01                                          |
+| năng gốc**      |                                                    |
++-----------------+----------------------------------------------------+
+| **Tác nhân**    | Học sinh                                           |
++-----------------+----------------------------------------------------+
+| **Mô tả tóm     | Học sinh xem kho bài giảng (lessons +              |
+| tắt**           | lesson_materials) của (các) lớp mình đang ghi danh |
+|                 | — đã có tên trong sơ đồ actor                      |
+|                 | (UseCase-HocSinh.mmd) và được UC-42 dẫn chiếu từ   |
+|                 | trước nhưng chưa từng có Main Flow/Postcondition   |
+|                 | riêng; bổ sung đầy đủ nhân dịp sửa lại đúng logic  |
+|                 | hiển thị theo SDD (bổ sung ngoài SDD gốc, đã xác   |
+|                 | nhận với người dùng).                              |
++-----------------+----------------------------------------------------+
+| **Sự kiện kích  | Học sinh mở kho bài giảng của 1 lớp mình đang học. |
+| hoạt**          |                                                    |
++-----------------+----------------------------------------------------+
+| **Điều kiện     | -   Học sinh đã đăng nhập, có class_enrollment     |
+| tiên quyết      |     ACTIVE tại lớp đang xem.                       |
+| (               |                                                    |
+| Precondition)** | -   Bài giảng đã được Giáo viên publish (UC-23).   |
++-----------------+----------------------------------------------------+
+| **Luồng sự kiện | 1.  Học sinh chọn 1 lớp đang ghi danh (UC-42), mở  |
+| chính (Main     |     tab "Kho bài giảng".                           |
+| Flow)**         |                                                    |
+|                 | 2.  Hệ thống trả về mọi lessons có                 |
+|                 |     status=PUBLISHED và (gắn riêng đúng lớp này    |
+|                 |     HOẶC gắn chung theo khung chương trình của lớp |
+|                 |     này) — đúng logic OR đã thiết kế trong SDD     |
+|                 |     ("HS trong lớp X xem được lessons WHERE        |
+|                 |     class_id=X OR curriculum_id=curriculum của lớp |
+|                 |     X").                                           |
+|                 |                                                    |
+|                 | 3.  Học sinh chọn 1 bài giảng, xem danh sách       |
+|                 |     lesson_materials đính kèm (video/PDF/audio...) |
+|                 |     để phát/tải về.                                |
++-----------------+----------------------------------------------------+
+| **Luồng thay    | ***A1 --- Học sinh chưa/không còn ghi danh lớp     |
+| thế / ngoại lệ  | đang gọi***                                        |
+| (Alternate      |                                                    |
+| Flow)**         | 1.  Nếu không có class_enrollment ACTIVE khớp lớp  |
+|                 |     đang truy vấn, hệ thống từ chối truy cập (404, |
+|                 |     không lộ thông tin bài giảng của lớp không     |
+|                 |     thuộc về mình).                                |
++-----------------+----------------------------------------------------+
+| **Hậu điều kiện | -   Học sinh chỉ thấy bài giảng PUBLISHED thuộc    |
+| (P              |     đúng phạm vi lớp/khung chương trình mình đang  |
+| ostcondition)** |     học — không thấy bài DRAFT hay bài của         |
+|                 |     lớp/khung khác.                                |
++-----------------+----------------------------------------------------+
+
+---
+
+UC-60: Kho tài liệu tham khảo
+
++-----------------+----------------------------------------------------+
+| **Mã Use Case** | UC-60                                              |
++-----------------+----------------------------------------------------+
+| **Tên Use       | Kho tài liệu tham khảo                             |
+| Case**          |                                                    |
++-----------------+----------------------------------------------------+
+| **Phân hệ**     | Phân hệ 7                                          |
++-----------------+----------------------------------------------------+
+| **Yêu cầu chức  | FR-LMS-13                                          |
+| năng gốc**      |                                                    |
++-----------------+----------------------------------------------------+
+| **Tác nhân**    | Giáo viên, Trưởng phòng đào tạo/Quản lý điểm       |
+|                 | trường, Học sinh                                   |
++-----------------+----------------------------------------------------+
+| **Mô tả tóm     | Kho tài liệu tham khảo độc lập với bài giảng       |
+| tắt**           | (UC-23/23a) — không gắn 1 bài giảng cụ thể nào,    |
+|                 | chỉ gắn theo khung chương trình (curriculum). Giáo |
+|                 | viên/Trưởng phòng đào tạo/Quản lý điểm trường      |
+|                 | upload tài liệu (PDF/video/audio/slide/ảnh...),    |
+|                 | Học sinh xem theo curriculum của (các) lớp đang    |
+|                 | ghi danh (bổ sung ngoài SDD gốc, đã xác nhận với   |
+|                 | người dùng — khái niệm hoàn toàn mới, không có     |
+|                 | trong SDD gốc).                                    |
++-----------------+----------------------------------------------------+
+| **Sự kiện kích  | Giáo viên/Trưởng phòng đào tạo muốn chia sẻ tài    |
+| hoạt**          | liệu tham khảo chung cho học sinh theo 1 khung     |
+|                 | chương trình, không gắn với 1 bài giảng cụ thể     |
+|                 | nào; hoặc Học sinh mở kho tài liệu để tự học thêm. |
++-----------------+----------------------------------------------------+
+| **Điều kiện     | -   Người upload có quyền lms.document.manage.     |
+| tiên quyết      |                                                    |
+| (               | -   Tệp đã upload lên CDN từ trước (NFR-TECH-07),  |
+| Precondition)** |     Service chỉ nhận URL.                          |
+|                 |                                                    |
+|                 | -   Học sinh xem: đã có class_enrollment ACTIVE    |
+|                 |     tại 1 lớp thuộc curriculum đó.                 |
++-----------------+----------------------------------------------------+
+| **Luồng sự kiện | 1.  Giáo viên/Trưởng phòng đào tạo chọn 1          |
+| chính (Main     |     curriculum, nhập metadata tài liệu (tiêu đề,   |
+| Flow)**         |     mô tả, loại tệp, URL CDN), lưu ở trạng thái    |
+|                 |     DRAFT.                                         |
+|                 |                                                    |
+|                 | 2.  Người upload publish tài liệu                  |
+|                 |     (status=PUBLISHED) khi sẵn sàng hiển thị cho   |
+|                 |     học sinh.                                      |
+|                 |                                                    |
+|                 | 3.  Học sinh mở kho tài liệu, hệ thống trả về mọi  |
+|                 |     tài liệu PUBLISHED thuộc curriculum của (các)  |
+|                 |     lớp học sinh đang ghi danh ACTIVE.             |
++-----------------+----------------------------------------------------+
+| **Hậu điều kiện | -   Học sinh chỉ thấy tài liệu PUBLISHED thuộc     |
+| (P              |     đúng curriculum của lớp mình đang học — không  |
+| ostcondition)** |     thấy tài liệu DRAFT hay của curriculum khác.   |
+|                 |                                                    |
+|                 | -   Người có quyền lms.document.manage xem được    |
+|                 |     mọi trạng thái để quản lý.                     |
++-----------------+----------------------------------------------------+
+
+---
+
 UC-24: Làm bài kiểm tra trực tuyến
 
 +-----------------+----------------------------------------------------+
@@ -261,12 +386,19 @@ UC-26: Luyện Nghe -- Nói
 |                 |     nghe được.                                     |
 |                 |                                                    |
 |                 | 4.  Chế độ Nói: hệ thống ghi âm phản xạ của Học    |
-|                 |     sinh, so khớp phát âm với mẫu chuẩn.           |
+|                 |     sinh, lưu lại kèm mẫu chuẩn (script_text) để   |
+|                 |     Giáo viên đối chiếu khi chấm — KHÔNG tự động   |
+|                 |     so khớp phát âm bằng dịch vụ nhận diện giọng   |
+|                 |     nói bên thứ 3 (bổ sung ngoài SDD gốc, đã xác   |
+|                 |     nhận với người dùng).                          |
 |                 |                                                    |
-|                 | 5.  Hệ thống chấm/đánh giá kết quả (tự động với    |
-|                 |     Nghe/Chép chính tả; sơ bộ tự động và có thể bổ |
-|                 |     sung chấm thủ công với Nói), hiển thị kết quả  |
-|                 |     cho Học sinh.                                  |
+|                 | 5.  Hệ thống chấm/đánh giá kết quả: tự động hoàn   |
+|                 |     toàn với Nghe (chỉ đánh dấu hoàn thành, không  |
+|                 |     tính điểm) và Chép chính tả (so khớp với mẫu   |
+|                 |     chuẩn, chấm ngay); riêng Nói LUÔN chuyển thẳng |
+|                 |     vào hàng chờ Giáo viên chấm thủ công (tương tự |
+|                 |     UC-41), không có bước tự động sơ bộ (bổ sung   |
+|                 |     ngoài SDD gốc, đã xác nhận với người dùng).    |
 +-----------------+----------------------------------------------------+
 | **Luồng thay    | ***A1 --- Tạm dừng giữa chừng***                   |
 | thế / ngoại lệ  |                                                    |

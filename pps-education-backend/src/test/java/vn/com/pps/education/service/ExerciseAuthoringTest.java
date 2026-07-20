@@ -30,6 +30,7 @@ import vn.com.pps.education.dto.UpdateQuestionBankStatusRequest;
 import vn.com.pps.education.dto.UpdateQuestionRequest;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
 import vn.com.pps.education.exception.QuestionLockedException;
+import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.repository.RoleRepository;
 import vn.com.pps.education.repository.SiteRepository;
 import vn.com.pps.education.repository.StudentAnswerRepository;
@@ -182,9 +183,9 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("1.0")), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(essay.id(), 2, new BigDecimal("2.0")), teacher.getId());
 
-        ExerciseResponse withQuestions = exerciseService.getExercise(exercise.id());
+        ExerciseResponse withQuestions = exerciseService.getExercise(exercise.id(), teacher.getId());
         assertThat(withQuestions.hasEssayOrSpeaking()).isTrue();
-        assertThat(exerciseService.listQuestions(exercise.id())).hasSize(2);
+        assertThat(exerciseService.listQuestions(exercise.id(), teacher.getId())).hasSize(2);
     }
 
     @Test
@@ -215,7 +216,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
                 new AssignExerciseRequest(schoolClass.id(), null, null, false, null, null), teacher.getId());
 
         assertThat(assignment.classId()).isEqualTo(schoolClass.id());
-        assertThat(exerciseService.getExercise(exercise.id()).status()).isEqualTo("PUBLISHED");
+        assertThat(exerciseService.getExercise(exercise.id(), teacher.getId()).status()).isEqualTo("PUBLISHED");
     }
 
     @Test
@@ -246,6 +247,78 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
         assertThatThrownBy(() -> exerciseService.assignExercise(exercise.id(),
                 new AssignExerciseRequest(schoolClass.id(), null, null, false, null, null), outsider.getId()))
                 .isInstanceOf(NotAssignedTeacherForClassException.class);
+    }
+
+    @Test
+    void listAssignmentsForClass_boSung_teacherSeesExercisesAssignedToTheirClass() {
+        QuestionResponse mc = createMcQuestion();
+        ExerciseResponse exercise = exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "Kiểm tra", activeCurriculum.id(), null, "ASSIGNED",
+                        new BigDecimal("10"), null, false, 1, true), teacher.getId());
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("10")), teacher.getId());
+        exerciseService.assignExercise(exercise.id(),
+                new AssignExerciseRequest(schoolClass.id(), null, null, false, null, null), teacher.getId());
+
+        List<ExerciseAssignmentResponse> assignments = exerciseService.listAssignmentsForClass(schoolClass.id(), teacher.getId());
+
+        assertThat(assignments).extracting(ExerciseAssignmentResponse::exerciseId).contains(exercise.id());
+    }
+
+    @Test
+    void listAssignmentsForClass_rejectsWhenActorNotAssignedTeacherForClass() {
+        User outsider = newUser("outsider.list.teacher");
+        assignRole(outsider, "TEACHER");
+
+        assertThatThrownBy(() -> exerciseService.listAssignmentsForClass(schoolClass.id(), outsider.getId()))
+                .isInstanceOf(NotAssignedTeacherForClassException.class);
+    }
+
+    @Test
+    void getExercise_boSung_rejectsStudentWithoutActiveAssignmentForAssignedExercise() {
+        Student student = enrollStudent();
+        QuestionResponse mc = createMcQuestion();
+        ExerciseResponse exercise = exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "Kiểm tra", activeCurriculum.id(), null, "ASSIGNED",
+                        new BigDecimal("10"), null, false, 1, true), teacher.getId());
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("10")), teacher.getId());
+        // chưa gọi assignExercise cho lớp của student -> chưa được giao
+
+        assertThatThrownBy(() -> exerciseService.getExercise(exercise.id(), student.getUser().getId()))
+                .isInstanceOf(ResourceNotFoundException.class);
+        assertThatThrownBy(() -> exerciseService.listQuestions(exercise.id(), student.getUser().getId()))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void getExercise_boSung_allowsStudentWithActiveAssignment() {
+        Student student = enrollStudent();
+        QuestionResponse mc = createMcQuestion();
+        ExerciseResponse exercise = exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "Kiểm tra", activeCurriculum.id(), null, "ASSIGNED",
+                        new BigDecimal("10"), null, false, 1, true), teacher.getId());
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("10")), teacher.getId());
+        exerciseService.assignExercise(exercise.id(),
+                new AssignExerciseRequest(schoolClass.id(), null, null, false, null, null), teacher.getId());
+
+        ExerciseResponse viewed = exerciseService.getExercise(exercise.id(), student.getUser().getId());
+
+        assertThat(viewed.id()).isEqualTo(exercise.id());
+        assertThat(exerciseService.listQuestions(exercise.id(), student.getUser().getId())).hasSize(1);
+    }
+
+    @Test
+    void getExercise_boSung_allowsAnyStudentForPublishedSelfPractice() {
+        Student student = enrollStudent();
+        QuestionResponse mc = createMcQuestion();
+        ExerciseResponse exercise = exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "Ôn tập tự do", activeCurriculum.id(), null, "SELF_PRACTICE",
+                        new BigDecimal("1"), null, true, null, true), teacher.getId());
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("1.0")), teacher.getId());
+        exerciseService.publishExercise(exercise.id(), teacher.getId());
+
+        ExerciseResponse viewed = exerciseService.getExercise(exercise.id(), student.getUser().getId());
+
+        assertThat(viewed.id()).isEqualTo(exercise.id());
     }
 
     private QuestionResponse createMcQuestion() {

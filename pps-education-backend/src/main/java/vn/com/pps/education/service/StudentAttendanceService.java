@@ -45,6 +45,7 @@ import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 /**
  * UC-15: Điểm danh học sinh (FR-STU-03).
@@ -291,13 +292,25 @@ public class StudentAttendanceService {
         return toResponse(attendanceSession);
     }
 
-    /** null = không giới hạn (actor có academic.class.manage); danh sách rỗng = không thấy buổi điểm danh nào. */
+    /**
+     * null = không giới hạn (actor có academic.class.manage); danh sách rỗng
+     * = không thấy buổi điểm danh nào. Hợp nhất site_teachers VÀ
+     * site_managers (bổ sung ngoài SDD gốc, đã xác nhận với người dùng —
+     * cùng lý do như ClassService.resolveAllowedSiteIds; trước đây Quản lý
+     * điểm trường không kiêm giáo viên vẫn xem được báo cáo tổng hợp qua
+     * getSiteSummary nhưng lại không xem được chi tiết 1 buổi điểm danh ở
+     * đây, không nhất quán).
+     */
     private List<Long> resolveAllowedSiteIds(Long actorUserId) {
         if (permissionEvaluationService.hasPermission(actorUserId, "academic.class.manage")) {
             return null;
         }
-        return siteTeacherRepository.findByTeacherIdAndAssignedToIsNull(actorUserId).stream()
-                .map(st -> st.getSite().getId()).toList();
+        return Stream.concat(
+                siteTeacherRepository.findByTeacherIdAndAssignedToIsNull(actorUserId).stream()
+                        .map(st -> st.getSite().getId()),
+                siteManagerRepository.findByUserIdAndRoleTypeAndAssignedToIsNull(actorUserId, SiteManager.RoleType.SITE_MANAGER).stream()
+                        .map(sm -> sm.getSite().getId()))
+                .distinct().toList();
     }
 
     /**

@@ -259,6 +259,28 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
         assertThat(result.classSessionId()).isEqualTo(session.id());
     }
 
+    /**
+     * Bổ sung (audit FE 2026-07-20): resolveAllowedSiteIds trước đây chỉ
+     * cộng site theo site_teachers, bỏ sót site_managers -- Quản lý điểm
+     * trường không kiêm giáo viên luôn nhận ResourceNotFoundException dù
+     * đã có báo cáo tổng hợp riêng (getSiteSummary) cho đúng site này.
+     */
+    @Test
+    void getAttendanceSession_boSung_siteManagerForSiteCanViewSession() {
+        studentAttendanceService.markAttendance(session.id(),
+                new MarkAttendanceRequest("SESSION_LEVEL", List.of(
+                        new EnterAttendanceMarkRequest(student1.getId(), "PRESENT", null, null, null))),
+                teacher.getId());
+        Long siteId = classService.getById(session.classId()).siteId();
+        Site managedSite = siteRepository.findById(siteId).orElseThrow();
+        User siteManagerUser = newUser("site.manager.getsession");
+        newSiteManager(siteManagerUser, managedSite);
+
+        AttendanceSessionResponse result = studentAttendanceService.getAttendanceSession(session.id(), siteManagerUser.getId());
+
+        assertThat(result.classSessionId()).isEqualTo(session.id());
+    }
+
     @Test
     void getSiteSummary_UC15b_MainFlow_returnsAttendanceScopedToManagedSite() {
         Site site = newSite();

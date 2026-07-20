@@ -581,6 +581,59 @@ UC-58: Xem lịch dạy tổng hợp ("Lịch của tôi")
 
 ---
 
+UC-59: Xem lịch học của tôi (Học sinh)
+
++-----------------+----------------------------------------------------+
+| **Mã Use Case** | UC-59                                              |
++-----------------+----------------------------------------------------+
+| **Tên Use       | Xem lịch học của tôi (Học sinh)                    |
+| Case**          |                                                    |
++-----------------+----------------------------------------------------+
+| **Phân hệ**     | Phân hệ 6                                          |
++-----------------+----------------------------------------------------+
+| **Yêu cầu chức  | FR-ACA-05                                          |
+| năng gốc**      |                                                    |
++-----------------+----------------------------------------------------+
+| **Tác nhân**    | Học sinh                                           |
++-----------------+----------------------------------------------------+
+| **Mô tả tóm     | Học sinh tự xem lịch học theo tuần của (các) lớp   |
+| tắt**           | mình đang ghi danh — giờ giấc từng buổi, đối xứng  |
+|                 | với UC-58 ("Lịch của tôi" của Giáo viên), khác ở   |
+|                 | chỗ lọc theo lớp học sinh ghi danh thay vì lớp     |
+|                 | giáo viên phụ trách. Cũng gián tiếp phục vụ Phụ    |
+|                 | huynh kiểm soát giờ giấc học của con (bổ sung      |
+|                 | ngoài SDD gốc, đã xác nhận với người dùng).        |
++-----------------+----------------------------------------------------+
+| **Sự kiện kích  | Học sinh cần xem lịch học sắp tới/đã qua của chính |
+| hoạt**          | mình để chủ động sắp xếp thời gian.                |
++-----------------+----------------------------------------------------+
+| **Điều kiện     | -   Học sinh đã đăng nhập (không cần quyền đặc     |
+| tiên quyết      |     biệt nào khác).                                |
+| (               |                                                    |
+| Precondition)** | -   Đã có ít nhất 1 class_enrollment ACTIVE        |
+|                 |     (UC-18).                                       |
++-----------------+----------------------------------------------------+
+| **Luồng sự kiện | 1.  Học sinh mở trang "Lịch học của tôi", có thể   |
+| chính (Main     |     chọn khoảng ngày (từ ngày, đến ngày) để lọc,   |
+| Flow)**         |     để trống = xem toàn bộ; có thể chọn lọc theo 1 |
+|                 |     lớp cụ thể nếu đang học nhiều lớp (ngữ cảnh    |
+|                 |     "lớp đang xem" — UC-42).                       |
+|                 |                                                    |
+|                 | 2.  Hệ thống trả về mọi buổi học (class_sessions)  |
+|                 |     thuộc (các) lớp học sinh đang ghi danh ACTIVE, |
+|                 |     khớp khoảng ngày/lớp đã chọn, sắp xếp theo     |
+|                 |     ngày/giờ tăng dần.                             |
++-----------------+----------------------------------------------------+
+| **Hậu điều kiện | -   Học sinh thấy đúng và đủ các buổi học của      |
+| (P              |     (các) lớp mình đang ghi danh (không thấy buổi  |
+| ostcondition)** |     của lớp khác), không phụ thuộc site_teachers   |
+|                 |     hay hồ sơ Parent (khác 2 endpoint sẵn có — GET |
+|                 |     /classes/{id}/sessions và Portal Phụ huynh —   |
+|                 |     vốn không dùng được cho actor Học sinh).       |
++-----------------+----------------------------------------------------+
+
+---
+
 UC-19: Nhập điểm
 
 +-----------------+----------------------------------------------------+

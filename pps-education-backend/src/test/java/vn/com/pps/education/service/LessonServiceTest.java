@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.Role;
 import vn.com.pps.education.domain.Site;
+import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.domain.UserRole;
 import vn.com.pps.education.dto.AddLessonMaterialRequest;
@@ -15,14 +16,17 @@ import vn.com.pps.education.dto.CreateClassRequest;
 import vn.com.pps.education.dto.CreateCurriculumRequest;
 import vn.com.pps.education.dto.CreateLessonRequest;
 import vn.com.pps.education.dto.CurriculumResponse;
+import vn.com.pps.education.dto.EnrollStudentRequest;
 import vn.com.pps.education.dto.LessonMaterialResponse;
 import vn.com.pps.education.dto.LessonResponse;
 import vn.com.pps.education.dto.UpdateCurriculumRequest;
 import vn.com.pps.education.dto.UpdateLessonRequest;
 import vn.com.pps.education.exception.InvalidLessonScopeException;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
+import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.repository.RoleRepository;
 import vn.com.pps.education.repository.SiteRepository;
+import vn.com.pps.education.repository.StudentRepository;
 import vn.com.pps.education.repository.UserRepository;
 import vn.com.pps.education.repository.UserRoleRepository;
 import vn.com.pps.education.support.AbstractIntegrationTest;
@@ -60,6 +64,9 @@ class LessonServiceTest extends AbstractIntegrationTest {
 
     @Autowired
     private SiteRepository siteRepository;
+
+    @Autowired
+    private StudentRepository studentRepository;
 
     private User headAcademic;
     private User teacher;
@@ -183,8 +190,65 @@ class LessonServiceTest extends AbstractIntegrationTest {
                 teacher.getId());
 
         assertThat(material.fileUrl()).isEqualTo("https://cdn.pps.edu.vn/lessons/1/video.mp4");
-        List<LessonMaterialResponse> materials = lessonService.listMaterials(lesson.id());
+        List<LessonMaterialResponse> materials = lessonService.listMaterials(lesson.id(), teacher.getId());
         assertThat(materials).extracting(LessonMaterialResponse::id).contains(material.id());
+    }
+
+    @Test
+    void listByClass_UC23a_MainFlow_includesCurriculumWideLessonsViaOrLogic() {
+        LessonResponse classScoped = lessonService.createLesson(
+                new CreateLessonRequest(lessonCode(), "Bài riêng lớp", null, schoolClass.id(), null, 1, "VIDEO_LECTURE", 15),
+                teacher.getId());
+        lessonService.updateLesson(classScoped.id(), new UpdateLessonRequest("Bài riêng lớp", null, 1, 15, "PUBLISHED"), teacher.getId());
+        LessonResponse curriculumScoped = lessonService.createLesson(
+                new CreateLessonRequest(lessonCode(), "Bài chung khung", activeCurriculum.id(), null, null, 2, "PDF_DOCUMENT", null),
+                teacher.getId());
+        lessonService.updateLesson(curriculumScoped.id(), new UpdateLessonRequest("Bài chung khung", null, 2, null, "PUBLISHED"), teacher.getId());
+        Student student = enrollStudent(schoolClass.id());
+
+        List<LessonResponse> visible = lessonService.listByClass(schoolClass.id(), student.getUser().getId());
+
+        assertThat(visible).extracting(LessonResponse::id).contains(classScoped.id(), curriculumScoped.id());
+    }
+
+    @Test
+    void listByClass_UC23a_MainFlow_studentOnlySeesPublishedLessons() {
+        LessonResponse draft = lessonService.createLesson(
+                new CreateLessonRequest(lessonCode(), "Bài nháp", null, schoolClass.id(), null, 1, "VIDEO_LECTURE", 15),
+                teacher.getId());
+        Student student = enrollStudent(schoolClass.id());
+
+        List<LessonResponse> visibleToStudent = lessonService.listByClass(schoolClass.id(), student.getUser().getId());
+        List<LessonResponse> visibleToTeacher = lessonService.listByClass(schoolClass.id(), teacher.getId());
+
+        assertThat(visibleToStudent).extracting(LessonResponse::id).doesNotContain(draft.id());
+        assertThat(visibleToTeacher).extracting(LessonResponse::id).contains(draft.id());
+    }
+
+    @Test
+    void listByClass_UC23a_A1_rejectsWhenStudentNotEnrolled() {
+        User outsiderStudentUser = newUser("student.outsider");
+        Student outsider = new Student();
+        outsider.setUser(outsiderStudentUser);
+        outsider.setStudentCode("HS-OUT-" + SEQ.incrementAndGet());
+        outsider.setDateOfBirth(LocalDate.of(2012, 5, 1));
+        outsider.setEnrollmentDate(LocalDate.now());
+        studentRepository.save(outsider);
+
+        assertThatThrownBy(() -> lessonService.listByClass(schoolClass.id(), outsiderStudentUser.getId()))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    private Student enrollStudent(Long classId) {
+        User studentUser = newUser("student.lesson");
+        Student student = new Student();
+        student.setUser(studentUser);
+        student.setStudentCode("HS-LES-" + SEQ.incrementAndGet());
+        student.setDateOfBirth(LocalDate.of(2012, 5, 1));
+        student.setEnrollmentDate(LocalDate.now());
+        student = studentRepository.save(student);
+        classService.enroll(classId, new EnrollStudentRequest(student.getId(), LocalDate.now()), headAcademic.getId());
+        return student;
     }
 
     private String curriculumCode() {
