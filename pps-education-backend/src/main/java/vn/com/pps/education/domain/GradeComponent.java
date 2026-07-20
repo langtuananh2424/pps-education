@@ -47,9 +47,6 @@ public class GradeComponent {
     @Column(nullable = false, length = 200)
     private String name;
 
-    @Column(name = "weight_in_period", nullable = false, precision = 5, scale = 2)
-    private BigDecimal weightInPeriod;
-
     @Column(name = "max_score", nullable = false, precision = 5, scale = 2)
     private BigDecimal maxScore = new BigDecimal("10.00");
 
