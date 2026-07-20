@@ -475,7 +475,11 @@ nhân đó mới được thao tác.*
         Trưởng phòng đào tạo (không giới hạn theo điểm trường). Sửa điểm
         sau khi đã công bố, nếu còn trong hạn X ngày (trường hợp phúc
         khảo), vẫn được phép — giá trị mới hiển thị NGAY cho Phụ huynh,
-        không cần công bố lại.
+        không cần công bố lại. Nếu không ai công bố thủ công, hệ thống tự
+        động chuyển DRAFT → PUBLISHED ngay khi hết hạn X ngày (cron hàng
+        đêm, cùng giá trị X với hạn chỉnh sửa) — song song với công bố
+        thủ công, không thay thế (bổ sung ngoài SDD gốc, đã xác nhận với
+        người dùng).
 
     -   **FR-ACA-04: Sổ nhận xét định kỳ -** Giáo viên viết nhận xét cho
         học sinh theo 3 biểu mẫu: Hàng ngày (thái độ), Giữa kỳ, và Cuối

@@ -5,6 +5,7 @@ import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.AttendanceMark;
 import vn.com.pps.education.domain.ClassSession;
 import vn.com.pps.education.domain.GradeEntry;
+import vn.com.pps.education.domain.GradePeriodResult;
 import vn.com.pps.education.domain.Parent;
 import vn.com.pps.education.domain.ParentStudent;
 import vn.com.pps.education.domain.StudentComment;
@@ -12,6 +13,7 @@ import vn.com.pps.education.dto.AttendanceMarkResponse;
 import vn.com.pps.education.dto.ChildResponse;
 import vn.com.pps.education.dto.ClassSessionResponse;
 import vn.com.pps.education.dto.GradeEntryResponse;
+import vn.com.pps.education.dto.GradePeriodResultResponse;
 import vn.com.pps.education.dto.StudentCommentResponse;
 import vn.com.pps.education.exception.NotAuthorizedForPortalAccessException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
@@ -19,6 +21,7 @@ import vn.com.pps.education.repository.AttendanceMarkRepository;
 import vn.com.pps.education.repository.ClassEnrollmentRepository;
 import vn.com.pps.education.repository.ClassSessionRepository;
 import vn.com.pps.education.repository.GradeEntryRepository;
+import vn.com.pps.education.repository.GradePeriodResultRepository;
 import vn.com.pps.education.repository.ParentRepository;
 import vn.com.pps.education.repository.ParentStudentRepository;
 import vn.com.pps.education.repository.StudentCommentRepository;
@@ -49,6 +52,7 @@ public class ParentPortalService {
     private final StudentRepository studentRepository;
     private final ClassEnrollmentRepository classEnrollmentRepository;
     private final GradeEntryRepository gradeEntryRepository;
+    private final GradePeriodResultRepository gradePeriodResultRepository;
     private final AttendanceMarkRepository attendanceMarkRepository;
     private final StudentCommentRepository studentCommentRepository;
     private final ClassSessionRepository classSessionRepository;
@@ -58,6 +62,7 @@ public class ParentPortalService {
                                 StudentRepository studentRepository,
                                 ClassEnrollmentRepository classEnrollmentRepository,
                                 GradeEntryRepository gradeEntryRepository,
+                                GradePeriodResultRepository gradePeriodResultRepository,
                                 AttendanceMarkRepository attendanceMarkRepository,
                                 StudentCommentRepository studentCommentRepository,
                                 ClassSessionRepository classSessionRepository) {
@@ -66,6 +71,7 @@ public class ParentPortalService {
         this.studentRepository = studentRepository;
         this.classEnrollmentRepository = classEnrollmentRepository;
         this.gradeEntryRepository = gradeEntryRepository;
+        this.gradePeriodResultRepository = gradePeriodResultRepository;
         this.attendanceMarkRepository = attendanceMarkRepository;
         this.studentCommentRepository = studentCommentRepository;
         this.classSessionRepository = classSessionRepository;
@@ -87,6 +93,22 @@ public class ParentPortalService {
         requireAccessToChildClass(studentId, classId, actorUserId);
         return gradeEntryRepository.findBySchoolClassIdAndStudentIdAndStatus(classId, studentId, GradeEntry.Status.PUBLISHED)
                 .stream().map(this::toResponse).toList();
+    }
+
+    /**
+     * UC-53 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng): Overall/Level
+     * đã công bố (PUBLISHED) của 1 kỳ đánh giá — gap trước đây Portal Phụ
+     * huynh chỉ có điểm thành phần (listGrades), chưa có Overall/Level.
+     */
+    @Transactional(readOnly = true)
+    public GradePeriodResultResponse getPeriodResult(Long studentId, Long classId, Long gradePeriodId, Long actorUserId) {
+        requireAccessToChildClass(studentId, classId, actorUserId);
+        GradePeriodResult result = gradePeriodResultRepository
+                .findBySchoolClassIdAndStudentIdAndGradePeriodId(classId, studentId, gradePeriodId)
+                .filter(r -> r.getStatus() == GradePeriodResult.Status.PUBLISHED)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Chưa có điểm tổng kết đã công bố cho học sinh id=" + studentId + ", kỳ đánh giá id=" + gradePeriodId + "."));
+        return toResponse(result);
     }
 
     /** Main Flow bước 4: chuyên cần. */
@@ -151,6 +173,16 @@ public class ParentPortalService {
                 e.getStudent().getStudentCode(), e.getGradeComponent().getId(), e.getScore(), e.isAbsenceFlag(),
                 e.getTeacherNote(), e.getStatus().name(), e.getEnteredBy().getId(),
                 e.getPublishedBy() == null ? null : e.getPublishedBy().getId(), e.getPublishedAt());
+    }
+
+    private GradePeriodResultResponse toResponse(GradePeriodResult r) {
+        return new GradePeriodResultResponse(
+                r.getId(), r.getSchoolClass().getId(), r.getStudent().getId(),
+                r.getStudent().getUser().getFullName(), r.getStudent().getStudentCode(),
+                r.getGradePeriod().getId(), r.getOverallScore(), r.getScaleType().name(), r.getLevel(),
+                r.getSource().name(), r.getImportJob() == null ? null : r.getImportJob().getId(),
+                r.getStatus().name(), r.getEnteredBy().getId(),
+                r.getPublishedBy() == null ? null : r.getPublishedBy().getId(), r.getPublishedAt());
     }
 
     private AttendanceMarkResponse toResponse(AttendanceMark m) {

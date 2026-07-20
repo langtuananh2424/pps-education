@@ -31,4 +31,15 @@ public interface GradeEntryRepository extends JpaRepository<GradeEntry, Long> {
 
     /** UC-20 (mở rộng, bổ sung ngoài SDD gốc): HEAD_ACADEMIC xem danh sách chưa công bố của MỌI site, không giới hạn theo site_managers. */
     List<GradeEntry> findByStatusOrderByEnteredAtAsc(GradeEntry.Status status);
+
+    /** GradeSchedulerService: mọi grade_entries còn DRAFT của 1 (lớp, kỳ đánh giá) — grade_component trỏ tới grade_period, không có cột trực tiếp. */
+    @Query("""
+            SELECT e FROM GradeEntry e
+            WHERE e.schoolClass.id = :classId
+            AND e.gradeComponent.gradePeriod.id = :gradePeriodId
+            AND e.status = :status
+            """)
+    List<GradeEntry> findBySchoolClassIdAndGradePeriodIdAndStatus(@Param("classId") Long classId,
+                                                                   @Param("gradePeriodId") Long gradePeriodId,
+                                                                   @Param("status") GradeEntry.Status status);
 }
