@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { Send, UserCheck } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
+import { useApp } from "@/context/AppContext";
 import {
   ClassEnrollmentResponse,
   ClassResponse,
   ClassSessionResponse,
   StudentCommentResponse,
   listClassEnrollments,
+  listClassTeachers,
   listClasses,
   listClassSessions,
   listComments,
@@ -26,6 +28,8 @@ interface Row {
 
 /** UC-21 Main Flow (nhánh DAILY): viết nhận xét hàng ngày theo buổi học — cùng khuôn thao tác với Điểm danh nhanh. */
 export default function DailyCommentPanel() {
+  const { hasPermission, currentUser } = useApp();
+  const canManage = hasPermission("academic.class.manage");
   const [classes, setClasses] = useState<ClassResponse[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
   const [sessions, setSessions] = useState<ClassSessionResponse[]>([]);
@@ -41,11 +45,19 @@ export default function DailyCommentPanel() {
   const selectedClass = classes.find((c) => c.id === selectedClassId) ?? null;
   const selectedSession = sessions.find((s) => s.id === selectedSessionId) ?? null;
 
+  /** UC-21 Precondition: GV chỉ nhận xét lớp mình được phân công dạy (class_teachers) — cùng gốc rễ với fix ở GradesPage/ClassesPage/AttendancePage. */
   useEffect(() => {
     listClasses()
-      .then(setClasses)
+      .then(async (res) => {
+        if (canManage || !currentUser) {
+          setClasses(res);
+          return;
+        }
+        const teacherLists = await Promise.all(res.map((c) => listClassTeachers(c.id).catch(() => [])));
+        setClasses(res.filter((_, i) => teacherLists[i].some((t) => t.teacherUserId === currentUser.id)));
+      })
       .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách lớp học."));
-  }, []);
+  }, [canManage, currentUser]);
 
   useEffect(() => {
     setSelectedSessionId(null);

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Calendar, FileText, Save, Search, UserPlus, Users, X } from "lucide-react";
+import { Calendar, FileSpreadsheet, FileText, Save, Search, Sparkles, UserPlus, Users, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import { searchUsers, UserListItemResponse } from "@/features/system-admin/api";
@@ -26,6 +26,8 @@ import {
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import { classStatusLabels, classStatusVariants } from "./ClassListPanel";
+import BulkGenerateSessionsForm from "./BulkGenerateSessionsForm";
+import ImportScheduleForm from "./ImportScheduleForm";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-xs p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
@@ -84,7 +86,7 @@ export default function ClassDetailPanel({ schoolClass, onChanged }: ClassDetail
         {tab === "profile" && <ProfileTab schoolClass={schoolClass} onChanged={onChanged} canManage={canManage} />}
         {tab === "teachers" && <TeachersTab classId={schoolClass.id} canManage={canManage} />}
         {tab === "students" && <StudentsTab classId={schoolClass.id} siteId={schoolClass.siteId} siteName={schoolClass.siteName} canManage={canManage} />}
-        {tab === "sessions" && <SessionsTab classId={schoolClass.id} canManage={canManage} />}
+        {tab === "sessions" && <SessionsTab classId={schoolClass.id} siteId={schoolClass.siteId} canManage={canManage} />}
       </div>
     </div>
   );
@@ -582,13 +584,13 @@ const attendanceStatusVariants: Record<string, "success" | "warning" | "danger" 
   LOCKED: "success"
 };
 
-function SessionsTab({ classId, canManage }: { classId: number; canManage: boolean }) {
+function SessionsTab({ classId, siteId, canManage }: { classId: number; siteId: number; canManage: boolean }) {
   const navigate = useNavigate();
   const [sessions, setSessions] = useState<ClassSessionResponse[]>([]);
   const [attendanceStatusBySession, setAttendanceStatusBySession] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState<"single" | "bulk" | "excel" | null>(null);
 
   const load = () => {
     setLoading(true);
@@ -620,13 +622,23 @@ function SessionsTab({ classId, canManage }: { classId: number; canManage: boole
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <span className="text-[10px] font-bold uppercase text-slate-500">Buổi học ({sessions.length})</span>
         {canManage && !creating && (
-          <Button size="sm" variant="secondary" onClick={() => setCreating(true)}>
-            <UserPlus className="w-3.5 h-3.5" />
-            Xếp buổi học mới
-          </Button>
+          <div className="flex items-center gap-1.5">
+            <Button size="sm" variant="secondary" onClick={() => setCreating("single")}>
+              <UserPlus className="w-3.5 h-3.5" />
+              Xếp buổi học mới
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => setCreating("bulk")}>
+              <Sparkles className="w-3.5 h-3.5" />
+              Sinh lịch hàng loạt
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => setCreating("excel")}>
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+              Nhập lịch từ Excel
+            </Button>
+          </div>
         )}
       </div>
 
@@ -671,7 +683,11 @@ function SessionsTab({ classId, canManage }: { classId: number; canManage: boole
         </div>
       )}
 
-      {creating && <CreateSessionForm classId={classId} onDone={() => { setCreating(false); load(); }} onCancel={() => setCreating(false)} />}
+      {creating === "single" && <CreateSessionForm classId={classId} onDone={() => { setCreating(null); load(); }} onCancel={() => setCreating(null)} />}
+      {creating === "bulk" && (
+        <BulkGenerateSessionsForm classId={classId} siteId={siteId} onDone={() => { setCreating(null); load(); }} onCancel={() => setCreating(null)} />
+      )}
+      {creating === "excel" && <ImportScheduleForm classId={classId} onDone={() => { setCreating(null); load(); }} onCancel={() => setCreating(null)} />}
     </div>
   );
 }

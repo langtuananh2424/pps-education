@@ -17,6 +17,8 @@ export interface CurrentUserResponse {
   phone?: string;
   departmentName?: string;
   roleCodes: string[];
+  /** Effective permissions (hợp nhất role + override) của chính tài khoản đang gọi — dùng cho AppContext.hasPermission thay bảng mock tĩnh. */
+  permissions: string[];
 }
 
 export async function login(usernameOrEmail: string, password: string): Promise<void> {

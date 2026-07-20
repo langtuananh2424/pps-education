@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useMemo, useState } from "react";
 import { UserRole } from "@/types";
-import { mockRolePermissions } from "@/data/mockData";
 import { CurrentUserResponse, fetchCurrentUser, login as loginApi, loginWithGoogle as loginWithGoogleApi, logout as logoutApi } from "@/features/auth/api";
 import { getAccessToken } from "@/lib/tokenStorage";
 import { rolePriorityOrder } from "@/constants/roles";
@@ -80,9 +79,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const hasPermission = (requiredPermission?: string) => {
     if (!requiredPermission) return true;
-    // Effective permissions = hợp của TẤT CẢ role đang gán cho tài khoản (khớp cách backend tính effective_permissions ở UC-03/UC-46), không chỉ role ưu tiên cao nhất đang hiển thị.
-    const roleCodes = currentUser?.roleCodes ?? [currentRole];
-    return roleCodes.some((code) => mockRolePermissions.find((rp) => rp.role === code)?.permissions.includes(requiredPermission));
+    // Tra thẳng CurrentUserResponse.permissions (effective permissions thật từ BE — hợp nhất role + override,
+    // xem GET /api/auth/me) — không còn dùng bảng mock tĩnh, tránh lệch với quyền thật cấu hình qua UC-03/UC-04.
+    return currentUser?.permissions?.includes(requiredPermission) ?? false;
   };
 
   const value = useMemo<AppContextValue>(
