@@ -30,14 +30,16 @@ import java.util.List;
  * UC-25: Xem Portal Phụ huynh (FR-LMS-03, FR-LMS-07). Xem
  * docs/uc/phan-he-07-lms-portal.md. Read-only, không có bảng riêng — mọi
  * dữ liệu lấy từ các Repository đã có (SDD > LMS & Portal > Portal Phụ
- * huynh): bảng điểm (grade_entries APPROVED), chuyên cần (attendance_marks
- * join class_sessions), nhận xét/cảnh báo (student_comments APPROVED),
- * lịch học (class_sessions). Main Flow bước 5 (thông báo khẩn) không cần
- * endpoint riêng — GET /api/notifications (NotificationController) đã tự
- * phục vụ mọi user kể cả Phụ huynh, không viết lại.
+ * huynh): bảng điểm (grade_entries PUBLISHED, V39 — công bố thay duyệt),
+ * chuyên cần (attendance_marks join class_sessions), nhận xét/cảnh báo
+ * (student_comments APPROVED), lịch học (class_sessions). Main Flow bước 5
+ * (thông báo khẩn) không cần endpoint riêng — GET /api/notifications
+ * (NotificationController) đã tự phục vụ mọi user kể cả Phụ huynh, không
+ * viết lại.
  *
- * A1 (dữ liệu chưa duyệt không hiển thị) đã nằm sẵn trong các query
- * WHERE status=APPROVED — không cần nhánh riêng.
+ * A1 (dữ liệu chưa công bố/chưa duyệt không hiển thị) đã nằm sẵn trong các
+ * query WHERE status=PUBLISHED (điểm) / status=APPROVED (nhận xét) —
+ * không cần nhánh riêng.
  */
 @Service
 public class ParentPortalService {
@@ -79,11 +81,11 @@ public class ParentPortalService {
                 .toList();
     }
 
-    /** Main Flow bước 3: bảng điểm đã duyệt (UC-20). */
+    /** Main Flow bước 3: bảng điểm đã công bố (UC-20, V39 — công bố thay duyệt). */
     @Transactional(readOnly = true)
     public List<GradeEntryResponse> listGrades(Long studentId, Long classId, Long actorUserId) {
         requireAccessToChildClass(studentId, classId, actorUserId);
-        return gradeEntryRepository.findBySchoolClassIdAndStudentIdAndStatus(classId, studentId, GradeEntry.Status.APPROVED)
+        return gradeEntryRepository.findBySchoolClassIdAndStudentIdAndStatus(classId, studentId, GradeEntry.Status.PUBLISHED)
                 .stream().map(this::toResponse).toList();
     }
 
@@ -147,8 +149,8 @@ public class ParentPortalService {
         return new GradeEntryResponse(
                 e.getId(), e.getSchoolClass().getId(), e.getStudent().getId(), e.getStudent().getUser().getFullName(),
                 e.getStudent().getStudentCode(), e.getGradeComponent().getId(), e.getScore(), e.isAbsenceFlag(),
-                e.getTeacherNote(), e.getStatus().name(), e.getEnteredBy().getId(), e.getSubmittedAt(),
-                e.getApprovedBy() == null ? null : e.getApprovedBy().getId(), e.getApprovedAt());
+                e.getTeacherNote(), e.getStatus().name(), e.getEnteredBy().getId(),
+                e.getPublishedBy() == null ? null : e.getPublishedBy().getId(), e.getPublishedAt());
     }
 
     private AttendanceMarkResponse toResponse(AttendanceMark m) {

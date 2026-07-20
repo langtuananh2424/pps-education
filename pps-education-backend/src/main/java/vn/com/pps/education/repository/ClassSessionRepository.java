@@ -35,4 +35,21 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, Long
                                               @Param("startTime") LocalTime startTime, @Param("endTime") LocalTime endTime,
                                               @Param("editingSessionId") Long editingSessionId,
                                               @Param("excludedStatuses") List<ClassSession.Status> excludedStatuses);
+
+    /**
+     * UC-58: "Lịch của tôi" — mọi buổi học của 1 Giáo viên qua MỌI lớp,
+     * lọc theo khoảng ngày tùy chọn (null = không giới hạn). Tận dụng
+     * index có sẵn idx_class_sessions_teacher_date (primary_teacher_id,
+     * session_date DESC).
+     */
+    @Query("""
+            SELECT cs FROM ClassSession cs
+            WHERE cs.primaryTeacher.id = :teacherId
+            AND (cast(:fromDate as date) IS NULL OR cs.sessionDate >= :fromDate)
+            AND (cast(:toDate as date) IS NULL OR cs.sessionDate <= :toDate)
+            ORDER BY cs.sessionDate ASC, cs.startTime ASC
+            """)
+    List<ClassSession> findByPrimaryTeacherAndDateRange(@Param("teacherId") Long teacherId,
+                                                         @Param("fromDate") LocalDate fromDate,
+                                                         @Param("toDate") LocalDate toDate);
 }

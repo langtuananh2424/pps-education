@@ -318,9 +318,13 @@ UC-50: Nhập phụ huynh theo lô
 |                 | 4.  Tìm tài khoản phụ huynh theo số điện thoại ---  |
 |                 |     nếu đã có hồ sơ phụ huynh cho số điện thoại đó |
 |                 |     (VD 2 dòng cùng cha/mẹ khác con) thì DÙNG LẠI, |
-|                 |     không tạo trùng; chưa có thì tạo tài khoản +   |
-|                 |     hồ sơ phụ huynh mới (chỉ đăng nhập Google ---  |
-|                 |     UC-01 A4, giống cơ chế UC-34).                 |
+|                 |     không tạo trùng, không sinh mật khẩu mới; chưa |
+|                 |     có thì tạo tài khoản + hồ sơ phụ huynh mới, tự |
+|                 |     sinh mật khẩu tạm ngẫu nhiên (giống UC-51,      |
+|                 |     bổ sung ngoài SDD gốc, đã xác nhận với người   |
+|                 |     dùng --- trước đây tài khoản chỉ dự kiến đăng  |
+|                 |     nhập Google nhưng email lưu là placeholder nên |
+|                 |     không đăng nhập được bằng cách nào).           |
 |                 |                                                    |
 |                 | 5.  Tạo liên kết parent_student (quan hệ, người    |
 |                 |     liên hệ chính, người chịu trách nhiệm tài      |
@@ -333,7 +337,11 @@ UC-50: Nhập phụ huynh theo lô
 |                 | 6.  Hệ thống cập nhật total_rows/success_rows/     |
 |                 |     failed_rows/error_summary, trạng thái COMPLETED|
 |                 |     hoặc PARTIAL_SUCCESS. Nhân viên giáo vụ xem    |
-|                 |     kết quả, tải danh sách dòng lỗi (nếu có).      |
+|                 |     kết quả, nhận danh sách username + mật khẩu tạm|
+|                 |     của các tài khoản MỚI tạo (chỉ hiển thị 1 lần  |
+|                 |     ngay trong kết quả của bước tải lên, không tra |
+|                 |     cứu lại được sau đó), và tải danh sách dòng    |
+|                 |     lỗi (nếu có).                                  |
 +-----------------+----------------------------------------------------+
 | **Luồng thay    | ***A1 --- File sai định dạng***                    |
 | thế / ngoại lệ  |                                                    |
@@ -357,6 +365,15 @@ UC-50: Nhập phụ huynh theo lô
 | (P              |     liên kết đúng học sinh tương ứng; không có phụ |
 | ostcondition)** |     huynh nào được tạo mà không liên kết học sinh  |
 |                 |     nào.                                           |
+|                 |                                                    |
+|                 | -   Tài khoản phụ huynh MỚI tạo (không tính dòng   |
+|                 |     dùng lại Parent có sẵn) có mật khẩu tạm dùng   |
+|                 |     đăng nhập được ngay; kết quả import (gồm mật   |
+|                 |     khẩu tạm) trả về ngay cho người thực hiện, tra |
+|                 |     cứu lại job sau đó (getJob) KHÔNG còn thấy mật |
+|                 |     khẩu tạm. Nếu về sau cần đăng nhập Google, có  |
+|                 |     thể sửa lại email placeholder sang email thật  |
+|                 |     qua UC-55.                                     |
 +-----------------+----------------------------------------------------+
 
 Phân hệ 6 --- Quản lý học thuật và đào tạo

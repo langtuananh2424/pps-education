@@ -277,6 +277,17 @@ public class LeadService {
 
     // ===================== Helpers =====================
 
+    /**
+     * Tài khoản tạo ở đây chỉ dự kiến đăng nhập Google (UC-01 A4, password_hash
+     * NULL) — nếu lead.getEmail() có sẵn (thường khớp email Google thật của
+     * PH) thì Google login hoạt động ngay; nếu lead không có email, dùng
+     * placeholder và tài khoản tạm thời không đăng nhập được bằng cách nào
+     * cho tới khi Quản trị viên sửa lại email thật (UC-55) hoặc đặt mật khẩu
+     * (UC-45 A4) — CHƯA tự sinh mật khẩu tạm ở nhánh này (khác
+     * ParentBatchImportService/UC-50 đã đổi — bổ sung ngoài SDD gốc, đã xác
+     * nhận với người dùng); giữ nguyên hành vi UC-34 gốc cho tới khi có xác
+     * nhận riêng để đổi.
+     */
     private Parent findOrCreateParent(Lead lead, User actor) {
         User parentUser = userRepository.findByPhone(lead.getPhone()).orElseGet(() -> {
             User newUser = new User();

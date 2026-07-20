@@ -4,6 +4,7 @@ import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -27,6 +28,7 @@ import vn.com.pps.education.repository.UserRoleRepository;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.security.SecureRandom;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.Year;
@@ -59,6 +61,17 @@ import java.util.Map;
  * student_code chuyển sang nhập tay (cột G), kiểm tra thêm trùng theo
  * student_code — khớp đúng nghĩa "mã học sinh" trong câu SDD trên mà
  * trước đây chưa có dữ liệu để check (đóng khoảng lệch cũ).
+ *
+ * Mật khẩu tài khoản học sinh (bổ sung ngoài SDD gốc, đã xác nhận với
+ * người dùng qua nhiều vòng hỏi): trước đây tài khoản tạo qua import
+ * không có mật khẩu nào (chỉ dự kiến đăng nhập Google — nhưng email lưu
+ * là placeholder không khớp email Google thật của học sinh, nên tài
+ * khoản thực tế không đăng nhập được bằng cách nào). Từ nay hệ thống tự
+ * sinh mật khẩu tạm ngẫu nhiên mỗi dòng — giống hệt pattern UC-51
+ * EmployeeBatchImportService — hash lưu password_hash, CHỈ trả plaintext
+ * 1 lần trong response của chính lần gọi importStudents() (KHÔNG lưu vào
+ * import_jobs). Nếu cần đăng nhập Google về sau, Quản trị viên có thể sửa
+ * lại email placeholder sang email Google thật qua UC-55.
  */
 @Service
 public class StudentBatchImportService {
@@ -66,6 +79,8 @@ public class StudentBatchImportService {
     private static final DateTimeFormatter DOB_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final int HEADER_ROW_INDEX = 0;
     private static final int FIRST_DATA_ROW_INDEX = 1;
+    private static final String TEMP_PASSWORD_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+    private static final SecureRandom RANDOM = new SecureRandom();
 
     private final ImportJobRepository importJobRepository;
     private final StudentRepository studentRepository;
@@ -75,6 +90,7 @@ public class StudentBatchImportService {
     private final RoleRepository roleRepository;
     private final UserRoleRepository userRoleRepository;
     private final ClassService classService;
+    private final PasswordEncoder passwordEncoder;
 
     public StudentBatchImportService(ImportJobRepository importJobRepository,
                                       StudentRepository studentRepository,
@@ -83,7 +99,8 @@ public class StudentBatchImportService {
                                       UserRepository userRepository,
                                       RoleRepository roleRepository,
                                       UserRoleRepository userRoleRepository,
-                                      ClassService classService) {
+                                      ClassService classService,
+                                      PasswordEncoder passwordEncoder) {
         this.importJobRepository = importJobRepository;
         this.studentRepository = studentRepository;
         this.schoolClassRepository = schoolClassRepository;
@@ -92,6 +109,7 @@ public class StudentBatchImportService {
         this.roleRepository = roleRepository;
         this.userRoleRepository = userRoleRepository;
         this.classService = classService;
+        this.passwordEncoder = passwordEncoder;
     }
 
     /** Main Flow bước 1-6. A1: file sai định dạng hoàn toàn → status=FAILED ngay, không xử lý dòng nào. */
@@ -110,6 +128,7 @@ public class StudentBatchImportService {
         job = importJobRepository.save(job);
 
         List<Map<String, Object>> errors = new ArrayList<>();
+        List<Map<String, Object>> credentials = new ArrayList<>();
         try (InputStream inputStream = file.getInputStream();
              XSSFWorkbook workbook = new XSSFWorkbook(inputStream)) {
             Sheet sheet = workbook.getSheetAt(0);
@@ -127,8 +146,13 @@ public class StudentBatchImportService {
                 }
                 totalRows++;
                 try {
-                    importRow(row, formatter, job, actor);
+                    RowCredential credential = importRow(row, formatter, job, actor);
                     successRows++;
+                    Map<String, Object> entry = new HashMap<>();
+                    entry.put("row", rowIndex + 1);
+                    entry.put("username", credential.username());
+                    entry.put("temporaryPassword", credential.temporaryPassword());
+                    credentials.add(entry);
                 } catch (RuntimeException ex) {
                     errors.add(rowError(rowIndex + 1, ex.getMessage()));
                 }
@@ -141,7 +165,7 @@ public class StudentBatchImportService {
             job.setStatus(errors.isEmpty() ? ImportJob.Status.COMPLETED : ImportJob.Status.PARTIAL_SUCCESS);
             job.setFinishedAt(OffsetDateTime.now());
             job = importJobRepository.save(job);
-            return toResponse(job);
+            return toResponse(job, credentials);
         } catch (IOException | RuntimeException ex) {
             return failJob(job, "File sai định dạng Excel (.xlsx): " + ex.getMessage());
         }
@@ -151,8 +175,11 @@ public class StudentBatchImportService {
     public StudentBatchImportResponse getJob(Long id) {
         ImportJob job = importJobRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy import job id=" + id));
-        return toResponse(job);
+        return toResponse(job, List.of());
     }
+
+    /** Mật khẩu tạm (plaintext, 1 lần) sinh ra khi tạo tài khoản học sinh cho 1 dòng hợp lệ. */
+    private record RowCredential(String username, String temporaryPassword) {}
 
     // ===================== Helpers =====================
 
@@ -168,7 +195,7 @@ public class StudentBatchImportService {
      * nên enroll hiếm khi fail) thay vì thêm phức tạp tách bean riêng cho
      * REQUIRES_NEW.
      */
-    private void importRow(Row row, DataFormatter formatter, ImportJob job, User actor) {
+    private RowCredential importRow(Row row, DataFormatter formatter, ImportJob job, User actor) {
         String fullName = cell(row, formatter, 0);
         String dobText = cell(row, formatter, 1);
         String genderText = cell(row, formatter, 2);
@@ -205,10 +232,12 @@ public class StudentBatchImportService {
             throw new IllegalArgumentException("Trùng lặp: đã có học sinh " + fullName + " sinh " + dobText + ".");
         }
 
+        String tempPassword = generateTempPassword();
         User studentUser = new User();
         studentUser.setUsername(generateUsername(job.getId(), row.getRowNum()));
         studentUser.setEmail("import" + job.getId() + "-r" + row.getRowNum() + "@placeholder.pps.edu.vn");
         studentUser.setFullName(fullName.trim());
+        studentUser.setPasswordHash(passwordEncoder.encode(tempPassword));
         studentUser.setStatus(User.Status.ACTIVE);
         studentUser = userRepository.save(studentUser);
         assignRole(studentUser, "STUDENT", actor);
@@ -232,6 +261,16 @@ public class StudentBatchImportService {
         ClassEnrollment enrollmentEntity = classEnrollmentRepository.findById(enrollment.id()).orElseThrow();
         enrollmentEntity.setImportJobId(job.getId());
         classEnrollmentRepository.save(enrollmentEntity);
+
+        return new RowCredential(studentUser.getUsername(), tempPassword);
+    }
+
+    private String generateTempPassword() {
+        StringBuilder sb = new StringBuilder(10);
+        for (int i = 0; i < 10; i++) {
+            sb.append(TEMP_PASSWORD_CHARS.charAt(RANDOM.nextInt(TEMP_PASSWORD_CHARS.length())));
+        }
+        return sb.toString();
     }
 
     private Student.Gender parseGender(String text) {
@@ -298,12 +337,12 @@ public class StudentBatchImportService {
         job.setErrorSummary(List.of(rowError(0, reason)));
         job.setFinishedAt(OffsetDateTime.now());
         job = importJobRepository.save(job);
-        return toResponse(job);
+        return toResponse(job, List.of());
     }
 
-    private StudentBatchImportResponse toResponse(ImportJob job) {
+    private StudentBatchImportResponse toResponse(ImportJob job, List<Map<String, Object>> credentials) {
         return new StudentBatchImportResponse(
                 job.getId(), job.getSourceFileName(), job.getTotalRows(), job.getSuccessRows(), job.getFailedRows(),
-                job.getStatus().name(), job.getErrorSummary());
+                job.getStatus().name(), job.getErrorSummary(), credentials);
     }
 }

@@ -15,6 +15,10 @@ import java.util.UUID;
  * thống KHÔNG tự tính lại theo công thức — lưu nguyên giá trị GV đã
  * tính (band IELTS / % / thang riêng). Khác grade_final_summaries (tổng
  * kết toàn học phần, hệ thống tự tính — chưa triển khai).
+ *
+ * V39: cùng luồng công bố với grade_entries — chỉ còn DRAFT/PUBLISHED,
+ * sửa được bất kể status miễn còn trong hạn X ngày hoặc có quyền
+ * academic.grade.edit.override.
  */
 @Getter
 @Setter
@@ -26,7 +30,7 @@ public class GradePeriodResult {
 
     public enum Source { MANUAL, EXCEL_IMPORT }
 
-    public enum Status { DRAFT, PENDING, APPROVED, REJECTED }
+    public enum Status { DRAFT, PUBLISHED }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -76,17 +80,10 @@ public class GradePeriodResult {
     @Column(name = "entered_at", nullable = false)
     private OffsetDateTime enteredAt = OffsetDateTime.now();
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "approval_flow_id")
-    private ApprovalFlow approvalFlow;
-
-    @Column(name = "submitted_at")
-    private OffsetDateTime submittedAt;
-
-    @Column(name = "approved_at")
-    private OffsetDateTime approvedAt;
+    @Column(name = "published_at")
+    private OffsetDateTime publishedAt;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "approved_by")
-    private User approvedBy;
+    @JoinColumn(name = "published_by")
+    private User publishedBy;
 }
