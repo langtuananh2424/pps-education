@@ -14,6 +14,8 @@ import vn.com.pps.education.domain.GradePeriodEditWindow;
 import vn.com.pps.education.domain.GradePeriodHistory;
 import vn.com.pps.education.domain.GradePeriodResult;
 import vn.com.pps.education.domain.ImportJob;
+import vn.com.pps.education.domain.Notification;
+import vn.com.pps.education.domain.ParentStudent;
 import vn.com.pps.education.domain.SchoolClass;
 import vn.com.pps.education.domain.SiteManager;
 import vn.com.pps.education.domain.Student;
@@ -51,6 +53,7 @@ import vn.com.pps.education.repository.GradePeriodEditWindowRepository;
 import vn.com.pps.education.repository.GradePeriodHistoryRepository;
 import vn.com.pps.education.repository.GradePeriodRepository;
 import vn.com.pps.education.repository.GradePeriodResultRepository;
+import vn.com.pps.education.repository.ParentStudentRepository;
 import vn.com.pps.education.repository.SchoolClassRepository;
 import vn.com.pps.education.repository.SiteManagerRepository;
 import vn.com.pps.education.repository.SkillRepository;
@@ -127,6 +130,8 @@ public class GradeService {
     private final PermissionEvaluationService permissionEvaluationService;
     private final AcademicSettingsService academicSettingsService;
     private final ClassEnrollmentRepository classEnrollmentRepository;
+    private final ParentStudentRepository parentStudentRepository;
+    private final NotificationService notificationService;
 
     public GradeService(GradePeriodRepository gradePeriodRepository,
                          GradeComponentRepository gradeComponentRepository,
@@ -146,7 +151,9 @@ public class GradeService {
                          UserRepository userRepository,
                          PermissionEvaluationService permissionEvaluationService,
                          AcademicSettingsService academicSettingsService,
-                         ClassEnrollmentRepository classEnrollmentRepository) {
+                         ClassEnrollmentRepository classEnrollmentRepository,
+                         ParentStudentRepository parentStudentRepository,
+                         NotificationService notificationService) {
         this.gradePeriodRepository = gradePeriodRepository;
         this.gradeComponentRepository = gradeComponentRepository;
         this.gradeEntryRepository = gradeEntryRepository;
@@ -166,6 +173,8 @@ public class GradeService {
         this.permissionEvaluationService = permissionEvaluationService;
         this.academicSettingsService = academicSettingsService;
         this.classEnrollmentRepository = classEnrollmentRepository;
+        this.parentStudentRepository = parentStudentRepository;
+        this.notificationService = notificationService;
     }
 
     // ===================== Cấu hình sổ điểm (HEAD_ACADEMIC) =====================
@@ -537,13 +546,60 @@ public class GradeService {
             result.setPublishedBy(actor);
             result.setPublishedAt(now);
         }
-        gradePeriodResultRepository.saveAll(results);
+        List<GradePeriodResult> savedResults = gradePeriodResultRepository.saveAll(results);
         List<GradeEntry> saved = gradeEntryRepository.saveAll(entries);
         saved.forEach(e -> writeGradeEntryHistory(e, actor, GradeEntryHistory.Action.UPDATED));
+        saved.forEach(e -> notifyParentsGradeEntryPublished(e, actor.getId()));
+        savedResults.forEach(r -> notifyParentsPeriodResultPublished(r, actor.getId()));
         return saved.stream().map(this::toResponse).toList();
     }
 
     // ===================== Helpers =====================
+
+    /**
+     * UC-20 Main Flow bước 4 (bổ sung ngoài SDD gốc, đã xác nhận với người
+     * dùng): thông báo mọi Phụ huynh liên kết (parent_student) với học sinh
+     * có điểm thành phần vừa PUBLISHED. triggeredByUserId=null khi gọi từ
+     * GradeSchedulerService (tự động, không có actor con người).
+     */
+    void notifyParentsGradeEntryPublished(GradeEntry entry, Long triggeredByUserId) {
+        List<ParentStudent> links = parentStudentRepository.findByStudentId(entry.getStudent().getId());
+        if (links.isEmpty()) {
+            return;
+        }
+        String title = "Điểm đã được công bố";
+        String content = "Điểm thành phần \"" + entry.getGradeComponent().getName() + "\" (lớp "
+                + entry.getSchoolClass().getName() + ") của " + entry.getStudent().getUser().getFullName()
+                + " đã được công bố: " + entry.getScore() + "/" + entry.getGradeComponent().getMaxScore() + " điểm.";
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("classId", entry.getSchoolClass().getId());
+        metadata.put("studentId", entry.getStudent().getId());
+        metadata.put("gradeComponentId", entry.getGradeComponent().getId());
+        for (ParentStudent link : links) {
+            notificationService.notify(link.getParent().getUser().getId(), Notification.NotificationType.GRADE_PUBLISHED,
+                    title, content, metadata, "GRADE_ENTRY", entry.getId(), Notification.Priority.NORMAL, triggeredByUserId);
+        }
+    }
+
+    /** UC-20 Main Flow bước 4 — cùng cơ chế, cho Overall/Level theo kỳ đánh giá (UC-53). */
+    void notifyParentsPeriodResultPublished(GradePeriodResult result, Long triggeredByUserId) {
+        List<ParentStudent> links = parentStudentRepository.findByStudentId(result.getStudent().getId());
+        if (links.isEmpty()) {
+            return;
+        }
+        String title = "Điểm tổng kết đã được công bố";
+        String content = "Điểm tổng kết kỳ \"" + result.getGradePeriod().getName() + "\" (lớp "
+                + result.getSchoolClass().getName() + ") của " + result.getStudent().getUser().getFullName()
+                + " đã được công bố" + (result.getLevel() == null ? "" : ": Level " + result.getLevel()) + ".";
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("classId", result.getSchoolClass().getId());
+        metadata.put("studentId", result.getStudent().getId());
+        metadata.put("gradePeriodId", result.getGradePeriod().getId());
+        for (ParentStudent link : links) {
+            notificationService.notify(link.getParent().getUser().getId(), Notification.NotificationType.GRADE_PUBLISHED,
+                    title, content, metadata, "GRADE_PERIOD_RESULT", result.getId(), Notification.Priority.NORMAL, triggeredByUserId);
+        }
+    }
 
     /**
      * UC-19/UC-53 Precondition (mở rộng, bổ sung ngoài SDD gốc, đã xác nhận
