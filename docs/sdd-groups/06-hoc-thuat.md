@@ -1010,6 +1010,17 @@ cho hành động này (cột `changed_by` NOT NULL, không có actor người
 dùng tương ứng) — `published_at`/`published_by=NULL` trên chính bản ghi
 đã đủ làm tín hiệu audit phân biệt tự động/thủ công.
 
+**Thông báo Phụ huynh khi công bố điểm (UC-20, bổ sung ngoài SDD gốc,
+đã xác nhận với người dùng):** cả `GradeService#publishGrades` (thủ
+công) lẫn `GradeSchedulerService` (tự động, A3) sau khi chuyển
+`grade_entries`/`grade_period_results` sang `PUBLISHED` đều gọi
+`NotificationService.notify(...)` với `notification_type=GRADE_PUBLISHED`
+(enum đã có sẵn từ V10 nhưng trước đây chưa từng được dùng) cho mọi
+Phụ huynh liên kết qua `parent_student` với học sinh có điểm vừa công
+bố — `entity_type` = `GRADE_ENTRY`/`GRADE_PERIOD_RESULT`,
+`triggered_by` = actor công bố (thủ công) hoặc `NULL` (tự động, khớp
+quy ước `published_by=NULL` ở trên).
+
 d)  Bảng grade_final_summaries --- Điểm tổng kết học phần
 
 Snapshot chốt cuối cùng --- bảo toàn dữ liệu lịch sử ngay cả khi cấu

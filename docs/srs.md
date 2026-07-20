@@ -539,7 +539,10 @@ CDN)**
 
     -   **FR-LMS-03: Bảng tin Portal Phụ huynh -** Phụ huynh đăng nhập
         để xem toàn bộ lịch học của con, xem bảng điểm, đọc nhận xét của
-        giáo viên và nhận các thông báo khẩn từ nhà trường.
+        giáo viên và nhận các thông báo khẩn từ nhà trường. Học sinh cũng
+        tự xem được bảng điểm và Overall/Level đã công bố của chính mình
+        mà không cần qua Phụ huynh (UC-61, bổ sung ngoài SDD gốc, đã xác
+        nhận với người dùng).
 
     -   **FR-LMS-04: Luyện Nghe - Nói đa chế độ -** Học sinh luyện tập
         theo 3 chế độ: Nghe (nghe + highlight văn bản theo thời gian
@@ -847,6 +850,9 @@ CDN)**
 
   UC-25             Xem Portal Phụ    FR-LMS-03,        7
                     huynh             FR-LMS-07         
+
+  UC-61             Xem điểm của tôi  FR-LMS-03,        7
+                    (Học sinh)        FR-LMS-07         
 
   UC-26             Luyện Nghe -- Nói FR-LMS-04         7
 

@@ -32,6 +32,12 @@ import java.util.List;
  * cho hành động này vì changed_by ở đó NOT NULL (yêu cầu 1 User thật) —
  * không có actor con người tương ứng; publishedAt/publishedBy=null trên
  * chính bản ghi đã đủ làm audit trail cho hành động này.
+ *
+ * Thông báo Phụ huynh (bổ sung ngoài SDD gốc, đã xác nhận với người
+ * dùng): sau khi công bố, tái dùng đúng
+ * GradeService#notifyParentsGradeEntryPublished/notifyParentsPeriodResultPublished
+ * (không viết lại logic gửi thông báo) — triggeredByUserId=null vì
+ * không có actor con người, khớp quy ước publishedBy=null ở trên.
  */
 @Service
 public class GradeSchedulerService {
@@ -42,15 +48,18 @@ public class GradeSchedulerService {
     private final GradeEntryRepository gradeEntryRepository;
     private final GradePeriodResultRepository gradePeriodResultRepository;
     private final AcademicSettingsService academicSettingsService;
+    private final GradeService gradeService;
 
     public GradeSchedulerService(GradePeriodEditWindowRepository gradePeriodEditWindowRepository,
                                   GradeEntryRepository gradeEntryRepository,
                                   GradePeriodResultRepository gradePeriodResultRepository,
-                                  AcademicSettingsService academicSettingsService) {
+                                  AcademicSettingsService academicSettingsService,
+                                  GradeService gradeService) {
         this.gradePeriodEditWindowRepository = gradePeriodEditWindowRepository;
         this.gradeEntryRepository = gradeEntryRepository;
         this.gradePeriodResultRepository = gradePeriodResultRepository;
         this.academicSettingsService = academicSettingsService;
+        this.gradeService = gradeService;
     }
 
     @Scheduled(cron = "0 0 3 * * *")
@@ -73,8 +82,9 @@ public class GradeSchedulerService {
                 entry.setStatus(GradeEntry.Status.PUBLISHED);
                 entry.setPublishedAt(now);
             }
-            gradeEntryRepository.saveAll(draftEntries);
-            publishedEntries += draftEntries.size();
+            List<GradeEntry> savedEntries = gradeEntryRepository.saveAll(draftEntries);
+            savedEntries.forEach(entry -> gradeService.notifyParentsGradeEntryPublished(entry, null));
+            publishedEntries += savedEntries.size();
 
             List<GradePeriodResult> draftResults = gradePeriodResultRepository
                     .findBySchoolClassIdAndGradePeriodIdAndStatus(classId, gradePeriodId, GradePeriodResult.Status.DRAFT);
@@ -82,8 +92,9 @@ public class GradeSchedulerService {
                 result.setStatus(GradePeriodResult.Status.PUBLISHED);
                 result.setPublishedAt(now);
             }
-            gradePeriodResultRepository.saveAll(draftResults);
-            publishedResults += draftResults.size();
+            List<GradePeriodResult> savedResults = gradePeriodResultRepository.saveAll(draftResults);
+            savedResults.forEach(result -> gradeService.notifyParentsPeriodResultPublished(result, null));
+            publishedResults += savedResults.size();
         }
 
         if (publishedEntries > 0 || publishedResults > 0) {

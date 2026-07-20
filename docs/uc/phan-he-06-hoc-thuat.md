@@ -798,7 +798,10 @@ UC-20: Công bố điểm
 |                 | 4.  Hệ thống chuyển các bản ghi đã chọn từ DRAFT   |
 |                 |     sang PUBLISHED, ghi nhận người và thời điểm    |
 |                 |     công bố, công khai điểm cho Phụ huynh xem ngay |
-|                 |     qua Portal (UC-25).                            |
+|                 |     qua Portal (UC-25), đồng thời gửi thông báo    |
+|                 |     (notification) cho từng Phụ huynh liên kết với |
+|                 |     học sinh có điểm vừa công bố (bổ sung ngoài    |
+|                 |     SDD gốc, đã xác nhận với người dùng).          |
 +-----------------+----------------------------------------------------+
 | **Luồng thay    | ***A1 --- Công bố tách lẻ 1 bản ghi trong lô***    |
 | thế / ngoại lệ  |                                                    |
@@ -837,7 +840,10 @@ UC-20: Công bố điểm
 |                 |                                                    |
 |                 | 3.  published_by để trống (không gán người công    |
 |                 |     bố) để phân biệt với công bố thủ công —        |
-|                 |     published_at vẫn ghi nhận đúng thời điểm.      |
+|                 |     published_at vẫn ghi nhận đúng thời điểm; Phụ  |
+|                 |     huynh vẫn nhận được thông báo như công bố thủ  |
+|                 |     công, chỉ khác triggered_by để trống (hệ thống |
+|                 |     tự động, không có actor con người).            |
 +-----------------+----------------------------------------------------+
 | **Hậu điều kiện | -   Trạng thái điểm được cập nhật chính xác (DRAFT |
 | (P              |     → PUBLISHED).                                  |
@@ -856,6 +862,12 @@ UC-20: Công bố điểm
 |                 |     (lớp, kỳ đánh giá) đó ngay sau khi hết hạn     |
 |                 |     (A3) — Phụ huynh không phải chờ vô thời hạn    |
 |                 |     nếu Quản lý điểm trường quên công bố.          |
+|                 |                                                    |
+|                 | -   Phụ huynh nhận được thông báo (notification)   |
+|                 |     ngay khi điểm/Overall-Level được công bố — cả  |
+|                 |     công bố thủ công lẫn tự động (A3), không cần   |
+|                 |     tự vào Portal kiểm tra (bổ sung ngoài SDD gốc, |
+|                 |     đã xác nhận với người dùng).                   |
 +-----------------+----------------------------------------------------+
 
 ---

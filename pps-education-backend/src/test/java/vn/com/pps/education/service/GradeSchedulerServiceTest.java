@@ -5,6 +5,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.GradePeriodEditWindow;
+import vn.com.pps.education.domain.Parent;
+import vn.com.pps.education.domain.ParentStudent;
 import vn.com.pps.education.domain.Role;
 import vn.com.pps.education.domain.Site;
 import vn.com.pps.education.domain.SiteManager;
@@ -27,6 +29,8 @@ import vn.com.pps.education.dto.GradePeriodResultResponse;
 import vn.com.pps.education.dto.PublishGradesRequest;
 import vn.com.pps.education.dto.UpdateCurriculumRequest;
 import vn.com.pps.education.repository.GradePeriodEditWindowRepository;
+import vn.com.pps.education.repository.ParentRepository;
+import vn.com.pps.education.repository.ParentStudentRepository;
 import vn.com.pps.education.repository.RoleRepository;
 import vn.com.pps.education.repository.SiteManagerRepository;
 import vn.com.pps.education.repository.SiteRepository;
@@ -34,6 +38,8 @@ import vn.com.pps.education.repository.StudentRepository;
 import vn.com.pps.education.repository.UserRepository;
 import vn.com.pps.education.repository.UserRoleRepository;
 import vn.com.pps.education.support.AbstractIntegrationTest;
+
+import org.springframework.data.domain.PageRequest;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -87,6 +93,15 @@ class GradeSchedulerServiceTest extends AbstractIntegrationTest {
 
     @Autowired
     private StudentRepository studentRepository;
+
+    @Autowired
+    private ParentRepository parentRepository;
+
+    @Autowired
+    private ParentStudentRepository parentStudentRepository;
+
+    @Autowired
+    private NotificationService notificationService;
 
     private User headAcademic;
     private User teacher;
@@ -185,6 +200,32 @@ class GradeSchedulerServiceTest extends AbstractIntegrationTest {
         assertThat(reloaded.status()).isEqualTo("PUBLISHED");
         // Job không đụng tới bản ghi đã PUBLISHED thủ công -- vẫn giữ đúng người đã công bố tay, không bị ghi đè thành NULL.
         assertThat(reloaded.publishedBy()).isEqualTo(manuallyPublished.publishedBy()).isEqualTo(siteManagerUser.getId());
+    }
+
+    @Test
+    void autoPublishExpiredGrades_UC20_A3_boSung_notifiesLinkedParent() {
+        User parentUser = newUser("parent.autopublish");
+        Parent parent = new Parent();
+        parent.setUser(parentUser);
+        parent = parentRepository.save(parent);
+        ParentStudent link = new ParentStudent();
+        link.setParent(parent);
+        link.setStudent(student);
+        link.setRelationship(ParentStudent.Relationship.MOTHER);
+        parentStudentRepository.save(link);
+        GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
+                new EnterGradeRequest(student.getId(), new BigDecimal("8.0"), false, null), teacher.getId());
+        expireEditWindow(schoolClass.id(), gradePeriod.id());
+
+        gradeSchedulerService.autoPublishExpiredGrades();
+
+        var notifications = notificationService.listMine(parentUser.getId(), PageRequest.of(0, 10));
+        assertThat(notifications.getContent())
+                .anySatisfy(n -> {
+                    assertThat(n.notificationType()).isEqualTo("GRADE_PUBLISHED");
+                    assertThat(n.entityType()).isEqualTo("GRADE_ENTRY");
+                    assertThat(n.entityId()).isEqualTo(entry.id());
+                });
     }
 
     /** Đẩy lùi mốc "lần đầu nhập" (grade_period_edit_windows) quá hạn X ngày hiện hành để mô phỏng hết hạn (UC-20 A3). */
