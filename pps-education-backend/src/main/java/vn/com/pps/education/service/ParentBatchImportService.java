@@ -4,6 +4,7 @@ import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -27,6 +28,7 @@ import vn.com.pps.education.repository.UserRoleRepository;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.security.SecureRandom;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -58,6 +60,23 @@ import java.util.Map;
  * — ParentStudentLinkAlreadyExistsException; xung đột primary
  * contact/financial responsible — StudentContactRoleConflictException),
  * không viết lại logic đó.
+ *
+ * Mật khẩu tài khoản phụ huynh (bổ sung ngoài SDD gốc, đã xác nhận với
+ * người dùng qua nhiều vòng hỏi): trước đây tài khoản tạo mới qua luồng
+ * này không có mật khẩu nào (chỉ dự kiến đăng nhập Google, giống
+ * LeadService.findOrCreateParent — UC-01 A4) — nhưng email lưu là
+ * placeholder theo số điện thoại, không khớp email Google thật của phụ
+ * huynh, nên tài khoản thực tế không đăng nhập được bằng cách nào. Từ
+ * nay, CHỈ khi thực sự tạo User mới (nhánh orElseGet — không áp dụng khi
+ * DÙNG LẠI Parent đã tồn tại từ dòng khác/từ UC-34), hệ thống tự sinh mật
+ * khẩu tạm ngẫu nhiên — giống hệt pattern UC-51 EmployeeBatchImportService
+ * — hash lưu password_hash, CHỈ trả plaintext 1 lần trong response của
+ * chính lần gọi importParents() (KHÔNG lưu vào import_jobs). LeadService.
+ * findOrCreateParent (UC-34) CHƯA đổi theo — vẫn không đặt mật khẩu, đợi
+ * xác nhận riêng vì đó là 1 UC/luồng nghiệp vụ khác (chuyển đổi Lead), có
+ * thể gây thiếu nhất quán tạm thời giữa 2 nguồn tạo phụ huynh. Nếu cần
+ * đăng nhập Google về sau, Quản trị viên có thể sửa lại email placeholder
+ * sang email Google thật qua UC-55.
  */
 @Service
 public class ParentBatchImportService {
@@ -65,6 +84,8 @@ public class ParentBatchImportService {
     private static final int HEADER_ROW_INDEX = 0;
     private static final int FIRST_DATA_ROW_INDEX = 1;
     private static final int COLUMN_COUNT = 6;
+    private static final String TEMP_PASSWORD_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+    private static final SecureRandom RANDOM = new SecureRandom();
 
     private final ImportJobRepository importJobRepository;
     private final StudentRepository studentRepository;
@@ -73,6 +94,7 @@ public class ParentBatchImportService {
     private final RoleRepository roleRepository;
     private final UserRoleRepository userRoleRepository;
     private final StudentService studentService;
+    private final PasswordEncoder passwordEncoder;
 
     public ParentBatchImportService(ImportJobRepository importJobRepository,
                                      StudentRepository studentRepository,
@@ -80,7 +102,8 @@ public class ParentBatchImportService {
                                      UserRepository userRepository,
                                      RoleRepository roleRepository,
                                      UserRoleRepository userRoleRepository,
-                                     StudentService studentService) {
+                                     StudentService studentService,
+                                     PasswordEncoder passwordEncoder) {
         this.importJobRepository = importJobRepository;
         this.studentRepository = studentRepository;
         this.parentRepository = parentRepository;
@@ -88,6 +111,7 @@ public class ParentBatchImportService {
         this.roleRepository = roleRepository;
         this.userRoleRepository = userRoleRepository;
         this.studentService = studentService;
+        this.passwordEncoder = passwordEncoder;
     }
 
     /** Main Flow bước 1-6. A1: file sai định dạng hoàn toàn → status=FAILED ngay, không xử lý dòng nào. */
@@ -106,6 +130,7 @@ public class ParentBatchImportService {
         job = importJobRepository.save(job);
 
         List<Map<String, Object>> errors = new ArrayList<>();
+        List<Map<String, Object>> credentials = new ArrayList<>();
         try (InputStream inputStream = file.getInputStream();
              XSSFWorkbook workbook = new XSSFWorkbook(inputStream)) {
             Sheet sheet = workbook.getSheetAt(0);
@@ -123,8 +148,16 @@ public class ParentBatchImportService {
                 }
                 totalRows++;
                 try {
-                    importRow(row, formatter, actor, actorUserId);
+                    RowCredential credential = importRow(row, formatter, actor, actorUserId);
                     successRows++;
+                    // Chỉ có credential (không null) khi dòng này thực sự tạo User phụ huynh MỚI.
+                    if (credential != null) {
+                        Map<String, Object> entry = new HashMap<>();
+                        entry.put("row", rowIndex + 1);
+                        entry.put("username", credential.username());
+                        entry.put("temporaryPassword", credential.temporaryPassword());
+                        credentials.add(entry);
+                    }
                 } catch (RuntimeException ex) {
                     errors.add(rowError(rowIndex + 1, ex.getMessage()));
                 }
@@ -137,7 +170,7 @@ public class ParentBatchImportService {
             job.setStatus(errors.isEmpty() ? ImportJob.Status.COMPLETED : ImportJob.Status.PARTIAL_SUCCESS);
             job.setFinishedAt(OffsetDateTime.now());
             job = importJobRepository.save(job);
-            return toResponse(job);
+            return toResponse(job, credentials);
         } catch (IOException | RuntimeException ex) {
             return failJob(job, "File sai định dạng Excel (.xlsx): " + ex.getMessage());
         }
@@ -147,13 +180,16 @@ public class ParentBatchImportService {
     public ParentBatchImportResponse getJob(Long id) {
         ImportJob job = importJobRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy import job id=" + id));
-        return toResponse(job);
+        return toResponse(job, List.of());
     }
 
     // ===================== Helpers =====================
 
-    /** A2: 1 dòng lỗi/trùng lặp không chặn các dòng khác. */
-    private void importRow(Row row, DataFormatter formatter, User actor, Long actorUserId) {
+    /** Mật khẩu tạm (plaintext, 1 lần) sinh ra khi dòng này tạo User phụ huynh MỚI. */
+    private record RowCredential(String username, String temporaryPassword) {}
+
+    /** A2: 1 dòng lỗi/trùng lặp không chặn các dòng khác. Trả về credential nếu dòng này tạo User mới, null nếu dùng lại Parent đã tồn tại. */
+    private RowCredential importRow(Row row, DataFormatter formatter, User actor, Long actorUserId) {
         String fullName = cell(row, formatter, 0);
         String phone = cell(row, formatter, 1);
         String relationshipText = cell(row, formatter, 2);
@@ -177,32 +213,56 @@ public class ParentBatchImportService {
         Student student = studentRepository.findByStudentCode(studentCode.trim())
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy học sinh mã=" + studentCode));
 
-        Parent parent = findOrCreateParent(fullName.trim(), phone.trim(), actor, actorUserId);
+        ParentAndCredential result = findOrCreateParent(fullName.trim(), phone.trim(), actor, actorUserId);
 
         studentService.linkParent(student.getId(), new LinkParentRequest(
-                parent.getId(), relationship.name(), parseBoolean(primaryContactText), parseBoolean(financialResponsibleText), null));
+                result.parent().getId(), relationship.name(), parseBoolean(primaryContactText), parseBoolean(financialResponsibleText), null));
+
+        return result.temporaryPassword() == null ? null : new RowCredential(result.username(), result.temporaryPassword());
     }
 
-    /** Tái dùng nguyên xi cơ chế LeadService.findOrCreateParent (UC-34) — không phát minh quy tắc mới. */
-    private Parent findOrCreateParent(String fullName, String phone, User actor, Long actorUserId) {
+    /** parent + username luôn có; temporaryPassword chỉ khác null khi vừa tạo User MỚI ở nhánh orElseGet bên dưới. */
+    private record ParentAndCredential(Parent parent, String username, String temporaryPassword) {}
+
+    /**
+     * Tái dùng NGUYÊN XI cơ chế LeadService.findOrCreateParent (UC-34) để
+     * tìm/tạo User+Parent — không phát minh quy tắc mới ở phần đó. Chỉ bổ
+     * sung việc sinh mật khẩu tạm khi thực sự tạo User mới (bổ sung ngoài
+     * SDD gốc, đã xác nhận với người dùng — xem Javadoc đầu file); LeadService
+     * chưa đổi theo nên vẫn không đặt mật khẩu ở nhánh UC-34.
+     */
+    private ParentAndCredential findOrCreateParent(String fullName, String phone, User actor, Long actorUserId) {
+        String[] tempPasswordHolder = new String[1];
         User parentUser = userRepository.findByPhone(phone).orElseGet(() -> {
+            String tempPassword = generateTempPassword();
             User newUser = new User();
             newUser.setUsername(generateUsername(phone));
             newUser.setEmail(generatePlaceholderEmail(phone));
             newUser.setFullName(fullName);
             newUser.setPhone(phone);
+            newUser.setPasswordHash(passwordEncoder.encode(tempPassword));
             newUser.setStatus(User.Status.ACTIVE);
             User saved = userRepository.save(newUser);
             assignRole(saved, "PARENT", actor);
+            tempPasswordHolder[0] = tempPassword;
             return saved;
         });
 
-        return parentRepository.findByUserId(parentUser.getId())
+        Parent parent = parentRepository.findByUserId(parentUser.getId())
                 .orElseGet(() -> {
                     var response = studentService.createParent(
                             new CreateParentRequest(parentUser.getId(), null, null, null, null, null), actorUserId);
                     return parentRepository.findById(response.id()).orElseThrow();
                 });
+        return new ParentAndCredential(parent, parentUser.getUsername(), tempPasswordHolder[0]);
+    }
+
+    private String generateTempPassword() {
+        StringBuilder sb = new StringBuilder(10);
+        for (int i = 0; i < 10; i++) {
+            sb.append(TEMP_PASSWORD_CHARS.charAt(RANDOM.nextInt(TEMP_PASSWORD_CHARS.length())));
+        }
+        return sb.toString();
     }
 
     private ParentStudent.Relationship parseRelationship(String text) {
@@ -278,12 +338,12 @@ public class ParentBatchImportService {
         job.setErrorSummary(List.of(rowError(0, reason)));
         job.setFinishedAt(OffsetDateTime.now());
         job = importJobRepository.save(job);
-        return toResponse(job);
+        return toResponse(job, List.of());
     }
 
-    private ParentBatchImportResponse toResponse(ImportJob job) {
+    private ParentBatchImportResponse toResponse(ImportJob job, List<Map<String, Object>> credentials) {
         return new ParentBatchImportResponse(
                 job.getId(), job.getSourceFileName(), job.getTotalRows(), job.getSuccessRows(), job.getFailedRows(),
-                job.getStatus().name(), job.getErrorSummary());
+                job.getStatus().name(), job.getErrorSummary(), credentials);
     }
 }

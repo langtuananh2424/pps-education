@@ -9,6 +9,8 @@ import vn.com.pps.education.domain.SchoolClass;
 import vn.com.pps.education.domain.SessionPeriod;
 import vn.com.pps.education.domain.SessionPeriodHistory;
 import vn.com.pps.education.domain.User;
+import vn.com.pps.education.dto.BulkCreateClassSessionRequest;
+import vn.com.pps.education.dto.BulkCreateClassSessionResponse;
 import vn.com.pps.education.dto.CancelClassSessionRequest;
 import vn.com.pps.education.dto.ClassSessionResponse;
 import vn.com.pps.education.dto.CreateClassSessionRequest;
@@ -27,12 +29,16 @@ import vn.com.pps.education.repository.SiteTeacherRepository;
 import vn.com.pps.education.repository.SystemSettingRepository;
 import vn.com.pps.education.repository.UserRepository;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * UC-48: Xếp lịch buổi học (FR-ACA-05, docs/uc/phan-he-06-hoc-thuat.md).
@@ -119,37 +125,127 @@ public class ClassSessionService {
     /** Tạo 1 buổi học + tự sinh session_periods. FR-FAC-03: kiểm tra trùng phòng (chỉ phòng is_flexible=FALSE). */
     @Transactional
     public ClassSessionResponse createSession(Long classId, CreateClassSessionRequest request, Long actorUserId) {
-        SchoolClass schoolClass = schoolClassRepository.findByIdAndDeletedAtIsNull(classId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học id=" + classId));
+        SchoolClass schoolClass = getSchoolClassOrThrow(classId);
         if (!request.endTime().isAfter(request.startTime())) {
             throw new IllegalArgumentException("endTime phải sau startTime.");
         }
-        User teacher = userRepository.findById(request.primaryTeacherId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + request.primaryTeacherId()));
-        User actor = userRepository.findById(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
+        User teacher = getUserOrThrow(request.primaryTeacherId());
+        User actor = getUserOrThrow(actorUserId);
+        Room room = request.roomId() == null ? null : getRoomOrThrow(request.roomId());
 
-        Room room = null;
-        if (request.roomId() != null) {
-            room = getRoomOrThrow(request.roomId());
-            checkRoomConflict(room, request.sessionDate(), request.startTime(), request.endTime(), null);
+        ClassSession session = createSessionEntity(schoolClass, request.sessionDate(), request.startTime(), request.endTime(),
+                room, teacher, ClassSession.SessionType.valueOf(request.sessionType()), actor);
+
+        return toResponse(session);
+    }
+
+    /**
+     * UC-56: Sinh lịch học hàng loạt theo mẫu lặp (FR-ACA-05, bổ sung
+     * ngoài SDD gốc, đã xác nhận với người dùng). Với mỗi ngày trong
+     * [startDate, endDate] khớp 1 trong các daysOfWeek yêu cầu, thử tạo 1
+     * buổi — tái dùng đúng createSessionEntity (room-conflict-check +
+     * sinh session_periods) của createSession/rescheduleSession, không
+     * viết lại logic. Ngày nào trùng phòng bị bỏ qua (ghi lý do), các
+     * ngày khác trong lô vẫn tiếp tục tạo bình thường (giống pattern
+     * lỗi-từng-dòng của batch import UC-35/50/51/53 — không có preview
+     * phòng trống trước, chỉ báo lỗi/bỏ qua sau khi thử tạo).
+     */
+    @Transactional
+    public BulkCreateClassSessionResponse bulkCreateSessions(Long classId, BulkCreateClassSessionRequest request, Long actorUserId) {
+        SchoolClass schoolClass = getSchoolClassOrThrow(classId);
+        if (!request.endTime().isAfter(request.startTime())) {
+            throw new IllegalArgumentException("endTime phải sau startTime.");
+        }
+        if (request.endDate().isBefore(request.startDate())) {
+            throw new IllegalArgumentException("endDate phải sau hoặc bằng startDate.");
+        }
+        Set<DayOfWeek> daysOfWeek = request.daysOfWeek().stream().map(DayOfWeek::valueOf).collect(Collectors.toSet());
+        User teacher = getUserOrThrow(request.primaryTeacherId());
+        User actor = getUserOrThrow(actorUserId);
+        Room room = request.roomId() == null ? null : getRoomOrThrow(request.roomId());
+        ClassSession.SessionType sessionType = ClassSession.SessionType.valueOf(request.sessionType());
+
+        int totalDates = 0;
+        List<ClassSessionResponse> created = new ArrayList<>();
+        List<Map<String, Object>> skipped = new ArrayList<>();
+        for (LocalDate date = request.startDate(); !date.isAfter(request.endDate()); date = date.plusDays(1)) {
+            if (!daysOfWeek.contains(date.getDayOfWeek())) {
+                continue;
+            }
+            totalDates++;
+            try {
+                ClassSession session = createSessionEntity(schoolClass, date, request.startTime(), request.endTime(),
+                        room, teacher, sessionType, actor);
+                created.add(toResponse(session));
+            } catch (RoomConflictException ex) {
+                Map<String, Object> reason = new LinkedHashMap<>();
+                reason.put("date", date.toString());
+                reason.put("reason", ex.getMessage());
+                skipped.add(reason);
+            }
+        }
+        return new BulkCreateClassSessionResponse(totalDates, created.size(), skipped.size(), created, skipped);
+    }
+
+    /**
+     * UC-57: helper dùng lại y hệt logic tạo 1 buổi của UC-48/UC-56, nhận
+     * thẳng ID để ClassScheduleImportService (khác Service, cùng package)
+     * gọi theo từng dòng Excel. KHÔNG @Transactional — luôn chạy trong
+     * transaction bao ngoài của ClassScheduleImportService.importSchedule;
+     * nếu ném RoomConflictException/ResourceNotFoundException cho 1 dòng,
+     * caller bắt lỗi rồi tiếp tục dòng khác mà KHÔNG khiến Spring đánh dấu
+     * rollbackOnly cho cả giao dịch (tránh bẫy: 1 method @Transactional
+     * khác bean ném lỗi dù caller có bắt lại vẫn làm rollback cả giao
+     * dịch bao ngoài).
+     */
+    ClassSessionResponse createSessionForImport(Long classId, LocalDate sessionDate, LocalTime startTime, LocalTime endTime,
+                                                 Long roomId, Long teacherId, String sessionType, Long actorUserId) {
+        SchoolClass schoolClass = getSchoolClassOrThrow(classId);
+        if (!endTime.isAfter(startTime)) {
+            throw new IllegalArgumentException("endTime phải sau startTime.");
+        }
+        User teacher = getUserOrThrow(teacherId);
+        User actor = getUserOrThrow(actorUserId);
+        Room room = roomId == null ? null : getRoomOrThrow(roomId);
+
+        ClassSession session = createSessionEntity(schoolClass, sessionDate, startTime, endTime, room, teacher,
+                ClassSession.SessionType.valueOf(sessionType), actor);
+        return toResponse(session);
+    }
+
+    /** UC-58: "Lịch của tôi" — self-service GV, không cần permission đặc biệt, trả đúng buổi của actor qua MỌI lớp. */
+    @Transactional(readOnly = true)
+    public List<ClassSessionResponse> listMySessions(Long actorUserId, LocalDate fromDate, LocalDate toDate) {
+        return classSessionRepository.findByPrimaryTeacherAndDateRange(actorUserId, fromDate, toDate).stream()
+                .map(this::toResponse).toList();
+    }
+
+    /** Lõi dùng chung: đã resolve đủ entity, chỉ check trùng phòng + save + history + sinh session_periods. */
+    private ClassSession createSessionEntity(SchoolClass schoolClass, LocalDate sessionDate, LocalTime startTime, LocalTime endTime,
+                                              Room room, User teacher, ClassSession.SessionType sessionType, User actor) {
+        if (room != null) {
+            checkRoomConflict(room, sessionDate, startTime, endTime, null);
         }
 
         ClassSession session = new ClassSession();
         session.setSchoolClass(schoolClass);
-        session.setSessionDate(request.sessionDate());
-        session.setStartTime(request.startTime());
-        session.setEndTime(request.endTime());
+        session.setSessionDate(sessionDate);
+        session.setStartTime(startTime);
+        session.setEndTime(endTime);
         session.setRoom(room);
         session.setPrimaryTeacher(teacher);
-        session.setSessionType(ClassSession.SessionType.valueOf(request.sessionType()));
+        session.setSessionType(sessionType);
         session.setCreatedBy(actor);
         session = classSessionRepository.save(session);
 
         writeClassSessionHistory(session, actor, ClassSessionHistory.Action.CREATED);
         generateDefaultPeriods(session, actor);
+        return session;
+    }
 
-        return toResponse(session);
+    private SchoolClass getSchoolClassOrThrow(Long classId) {
+        return schoolClassRepository.findByIdAndDeletedAtIsNull(classId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học id=" + classId));
     }
 
     /** UC-48 A2: hủy 1 buổi đang SCHEDULED, giải phóng phòng khỏi ràng buộc trùng lịch. */
