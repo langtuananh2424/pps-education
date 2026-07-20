@@ -28,12 +28,14 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
     /** PositionService#updateDefaultRoles (UC-52 bước 5) — backfill vai trò cho nhân sự đang giữ chức vụ vừa cấu hình lại. */
     List<Employee> findByPositionIdAndDeletedAtIsNull(Long positionId);
 
+    /** :departmentId nullable — bổ sung filter theo phòng ban (trước đây không có, tham số bị FE truyền lên nhưng Controller không khai báo nên bị Spring MVC bỏ qua âm thầm). */
     @Query("""
             SELECT e FROM Employee e JOIN e.user u
             WHERE e.deletedAt IS NULL
+            AND (:departmentId IS NULL OR e.department.id = :departmentId)
             ORDER BY u.fullName
             """)
-    List<Employee> findAllActive();
+    List<Employee> findAllActive(@Param("departmentId") Long departmentId);
 
     // :query luôn non-null/non-blank ở đây (Service tự tách nhánh) — tránh lỗi
     // Postgres không suy được kiểu tham số NULL lồng trong LOWER/CONCAT (bytea).
@@ -42,7 +44,8 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
             WHERE e.deletedAt IS NULL
             AND (LOWER(e.employeeCode) LIKE LOWER(CONCAT('%', :query, '%'))
                  OR LOWER(u.fullName) LIKE LOWER(CONCAT('%', :query, '%')))
+            AND (:departmentId IS NULL OR e.department.id = :departmentId)
             ORDER BY u.fullName
             """)
-    List<Employee> searchByQuery(@Param("query") String query);
+    List<Employee> searchByQuery(@Param("query") String query, @Param("departmentId") Long departmentId);
 }

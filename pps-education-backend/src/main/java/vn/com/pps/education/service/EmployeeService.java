@@ -88,10 +88,10 @@ public class EmployeeService {
     }
 
     @Transactional(readOnly = true)
-    public List<EmployeeResponse> search(String query) {
+    public List<EmployeeResponse> search(String query, Long departmentId) {
         List<Employee> employees = query == null || query.isBlank()
-                ? employeeRepository.findAllActive()
-                : employeeRepository.searchByQuery(query.trim());
+                ? employeeRepository.findAllActive(departmentId)
+                : employeeRepository.searchByQuery(query.trim(), departmentId);
         return employees.stream().map(this::toResponse).toList();
     }
 

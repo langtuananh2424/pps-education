@@ -165,7 +165,7 @@
 
 | Method | Path | Auth | Input | Output |
 |---|---|---|---|---|
-| GET | `/api/employees` | JWT + `hrm.manage` | Query: `query`? | mảng [EmployeeResponse](#employeeresponse) |
+| GET | `/api/employees` | JWT + `hrm.manage` | Query: `query`?, `departmentId`? | mảng [EmployeeResponse](#employeeresponse) |
 | POST | `/api/employees` | JWT + `hrm.manage` | Body: [CreateEmployeeRequest](#createemployeerequest) | [EmployeeResponse](#employeeresponse) |
 | GET | `/api/employees/contracts/expiring` | JWT + `hrm.manage` | Query: `withinDays` | mảng [ExpiringContractResponse](#expiringcontractresponse) |
 | GET | `/api/employees/{id}` | JWT + `hrm.manage` | — | [EmployeeResponse](#employeeresponse) |
@@ -1435,6 +1435,7 @@
 | `email` | string |  |
 | `fullName` | string |  |
 | `id` | integer (int64) |  |
+| `permissions` | mảng string |  |
 | `phone` | string |  |
 | `roleCodes` | mảng string |  |
 | `studentId` | integer (int64) |  |
