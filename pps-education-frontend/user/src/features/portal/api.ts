@@ -20,7 +20,7 @@ export interface PortalClassOptionResponse {
   recommended: boolean;
 }
 
-/** UC-20 — khớp GradeEntryResponse thật (chỉ điểm đã duyệt được BE lọc sẵn ở portal). */
+/** UC-20 (V39 — công bố thay duyệt) — khớp GradeEntryResponse thật (chỉ điểm PUBLISHED được BE lọc sẵn ở portal). */
 export interface GradeEntryResponse {
   id: number;
   classId: number;
@@ -31,11 +31,56 @@ export interface GradeEntryResponse {
   score: number;
   absenceFlag: boolean;
   teacherNote: string | null;
-  status: string;
+  status: "DRAFT" | "PUBLISHED";
   enteredBy: number;
-  submittedAt: string | null;
-  approvedBy: number | null;
-  approvedAt: string | null;
+  publishedBy: number | null;
+  publishedAt: string | null;
+}
+
+/** UC-53 — Overall/Level theo kỳ đánh giá, chỉ trả về khi đã PUBLISHED (BE lọc sẵn). */
+export interface GradePeriodResultResponse {
+  id: number;
+  classId: number;
+  studentId: number;
+  studentFullName: string;
+  studentCode: string;
+  gradePeriodId: number;
+  overallScore: number | null;
+  scaleType: "NUMERIC" | "PERCENTAGE" | "BAND";
+  level: string | null;
+  source: "MANUAL" | "EXCEL_IMPORT";
+  importJobId: number | null;
+  status: "DRAFT" | "PUBLISHED";
+  enteredBy: number;
+  publishedBy: number | null;
+  publishedAt: string | null;
+}
+
+/** Chỉ cần đúng field dùng ở Portal (tra curriculumId để lấy danh sách kỳ đánh giá). */
+export interface PortalClassResponse {
+  id: number;
+  curriculumId: number;
+}
+
+export interface GradePeriodResponse {
+  id: number;
+  curriculumId: number;
+  code: string;
+  name: string;
+  displayOrder: number;
+}
+
+export function getPortalClass(classId: number): Promise<PortalClassResponse> {
+  return apiRequest<PortalClassResponse>(`/classes/${classId}`);
+}
+
+export function listGradePeriods(curriculumId: number): Promise<GradePeriodResponse[]> {
+  return apiRequest<GradePeriodResponse[]>(`/curriculums/${curriculumId}/grade-periods`);
+}
+
+/** UC-53/UC-25: Overall/Level đã công bố — 404 nếu chưa có/chưa công bố (bắt ở nơi gọi, không phải lỗi thật). */
+export function getPeriodResult(studentId: number, classId: number, gradePeriodId: number): Promise<GradePeriodResultResponse> {
+  return apiRequest<GradePeriodResultResponse>(`/portal/parent/children/${studentId}/classes/${classId}/periods/${gradePeriodId}/result`);
 }
 
 /** UC-15 — khớp AttendanceMarkResponse thật. */

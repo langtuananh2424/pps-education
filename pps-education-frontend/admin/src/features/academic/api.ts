@@ -396,21 +396,23 @@ export interface GradeComponentResponse {
   id: number;
   gradePeriodId: number;
   subjectId: number | null;
+  skillId: number | null;
   code: string;
   name: string;
-  weightInPeriod: number;
   maxScore: number | null;
   passThreshold: number | null;
+  scaleType: "NUMERIC" | "PERCENTAGE" | "BAND";
   displayOrder: number;
 }
 
 export interface CreateGradeComponentRequest {
   subjectId?: number;
+  skillId?: number;
   code: string;
   name: string;
-  weightInPeriod: number;
   maxScore?: number;
   passThreshold?: number;
+  scaleType?: GradeComponentResponse["scaleType"];
   displayOrder?: number;
 }
 
@@ -422,6 +424,7 @@ export function addGradeComponent(gradePeriodId: number, request: CreateGradeCom
   return apiRequest<GradeComponentResponse>(`/grade-periods/${gradePeriodId}/components`, { method: "POST", body: JSON.stringify(request) });
 }
 
+/** V39: bỏ hẳn PENDING/APPROVED/REJECTED — chỉ còn DRAFT (đang nhập/sửa) và PUBLISHED (đã công bố cho Phụ huynh). */
 export interface GradeEntryResponse {
   id: number;
   classId: number;
@@ -432,11 +435,10 @@ export interface GradeEntryResponse {
   score: number;
   absenceFlag: boolean;
   teacherNote: string | null;
-  status: "DRAFT" | "PENDING" | "APPROVED" | "REJECTED";
+  status: "DRAFT" | "PUBLISHED";
   enteredBy: number;
-  submittedAt: string | null;
-  approvedBy: number | null;
-  approvedAt: string | null;
+  publishedBy: number | null;
+  publishedAt: string | null;
 }
 
 export interface EnterGradeRequest {
@@ -446,7 +448,12 @@ export interface EnterGradeRequest {
   teacherNote?: string;
 }
 
-/** UC-19 Main Flow bước 1-3: Giáo viên nhập điểm 1 học sinh cho 1 đầu điểm của lớp. */
+/**
+ * UC-19 Main Flow bước 1-3: Giáo viên nhập điểm 1 học sinh cho 1 đầu điểm của lớp. V39:
+ * không còn "nộp" — nhập là lưu luôn (DRAFT), sửa được kể cả khi đã PUBLISHED miễn còn
+ * trong hạn (xem getGradeEditWindow) hoặc actor có quyền academic.grade.edit.override.
+ * Ngoài hạn: backend trả lỗi (bắt qua ApiError như bình thường).
+ */
 export function listGradeEntries(classId: number, gradeComponentId: number): Promise<GradeEntryResponse[]> {
   return apiRequest<GradeEntryResponse[]>(`/classes/${classId}/grades/components/${gradeComponentId}`);
 }
@@ -455,31 +462,85 @@ export function enterGrade(classId: number, gradeComponentId: number, request: E
   return apiRequest<GradeEntryResponse>(`/classes/${classId}/grades/components/${gradeComponentId}`, { method: "POST", body: JSON.stringify(request) });
 }
 
-/** UC-19 Main Flow bước 4: nộp điểm (1 hoặc nhiều bản ghi cùng lúc, sinh chung 1 batch). */
-export function submitGrades(classId: number, gradeEntryIds: number[]): Promise<GradeEntryResponse[]> {
-  return apiRequest<GradeEntryResponse[]>(`/classes/${classId}/grades/submit`, { method: "POST", body: JSON.stringify({ gradeEntryIds }) });
-}
+// ===================== UC-53: Overall/Level theo kỳ đánh giá + Nhập điểm qua Excel =====================
 
-export function getPeriodAverage(classId: number, studentId: number, gradePeriodId: number): Promise<PeriodAverageResponse> {
-  return apiRequest<PeriodAverageResponse>(`/classes/${classId}/grades/students/${studentId}/periods/${gradePeriodId}/average`);
-}
-
-export interface PeriodAverageResponse {
+export interface GradePeriodResultResponse {
+  id: number;
   classId: number;
   studentId: number;
+  studentFullName: string;
+  studentCode: string;
   gradePeriodId: number;
-  average: number | null;
-  componentsEntered: number;
-  componentsTotal: number;
+  overallScore: number | null;
+  scaleType: "NUMERIC" | "PERCENTAGE" | "BAND";
+  level: string | null;
+  source: "MANUAL" | "EXCEL_IMPORT";
+  importJobId: number | null;
+  status: "DRAFT" | "PUBLISHED";
+  enteredBy: number;
+  publishedBy: number | null;
+  publishedAt: string | null;
 }
 
-/** UC-20: Quản lý điểm trường duyệt điểm — hàng chờ của (các) site mình phụ trách. */
-export function listPendingGrades(): Promise<GradeEntryResponse[]> {
+export interface EnterGradePeriodResultRequest {
+  overallScore?: number;
+  scaleType: GradePeriodResultResponse["scaleType"];
+  level?: string;
+}
+
+/** UC-53: Overall/Level GV đã tính sẵn (nhập tay hoặc từ Excel) — hệ thống chỉ lưu, không tự tính lại. */
+export function enterPeriodResult(classId: number, studentId: number, gradePeriodId: number, request: EnterGradePeriodResultRequest): Promise<GradePeriodResultResponse> {
+  return apiRequest<GradePeriodResultResponse>(`/classes/${classId}/grades/students/${studentId}/periods/${gradePeriodId}/result`, {
+    method: "POST",
+    body: JSON.stringify(request)
+  });
+}
+
+export function listPeriodResults(classId: number, gradePeriodId: number): Promise<GradePeriodResultResponse[]> {
+  return apiRequest<GradePeriodResultResponse[]>(`/classes/${classId}/grade-periods/${gradePeriodId}/results`);
+}
+
+export interface GradeImportResponse {
+  id: number;
+  sourceFileName: string;
+  totalRows: number | null;
+  successRows: number;
+  failedRows: number;
+  status: string;
+  errorSummary: { row: number; reason: string }[];
+}
+
+/** UC-53 Main Flow: tải lên 1 file .xlsx đã hoàn thiện điểm cho đúng lớp + kỳ đánh giá. */
+export function importGrades(classId: number, gradePeriodId: number, file: File): Promise<GradeImportResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return apiRequest<GradeImportResponse>(`/classes/${classId}/grade-periods/${gradePeriodId}/grades/import`, { method: "POST", body: formData });
+}
+
+/** V39: số ngày Giáo viên toàn quyền sửa điểm kể từ lần đầu nhập cho 1 (lớp, kỳ) — cấu hình được (mặc định 7). */
+export interface GradeEditWindowResponse {
+  days: number;
+}
+
+export function getGradeEditWindow(): Promise<GradeEditWindowResponse> {
+  return apiRequest<GradeEditWindowResponse>("/academic/settings/grade-edit-window-days");
+}
+
+export function updateGradeEditWindow(days: number): Promise<GradeEditWindowResponse> {
+  return apiRequest<GradeEditWindowResponse>("/academic/settings/grade-edit-window-days", { method: "PUT", body: JSON.stringify({ days }) });
+}
+
+/** UC-20: Quản lý điểm trường xem điểm chưa công bố (DRAFT) — của (các) site mình phụ trách. */
+export function listUnpublishedGrades(): Promise<GradeEntryResponse[]> {
   return apiRequest<GradeEntryResponse[]>("/grades/pending");
 }
 
-export function decideGrades(gradeEntryIds: number[], decision: "APPROVED" | "REJECTED", comment?: string): Promise<GradeEntryResponse[]> {
-  return apiRequest<GradeEntryResponse[]>("/grades/decision", { method: "POST", body: JSON.stringify({ gradeEntryIds, decision, comment }) });
+/**
+ * UC-20: công bố điểm (DRAFT → PUBLISHED) — gradeEntryIds và/hoặc gradePeriodResultIds,
+ * ít nhất 1 danh sách phải có phần tử. V39: không còn nhánh từ chối/ghi chú.
+ */
+export function publishGrades(request: { gradeEntryIds?: number[]; gradePeriodResultIds?: number[] }): Promise<GradeEntryResponse[]> {
+  return apiRequest<GradeEntryResponse[]>("/grades/decision", { method: "POST", body: JSON.stringify(request) });
 }
 
 // ===================== Nhận xét học viên (UC-21/22) =====================

@@ -19,8 +19,7 @@ import {
   ClassroomRoom,
   FeedbackTicket,
   SyllabusPlan,
-  Permission,
-  RolePermission
+  Permission
 } from "../types";
 
 export const mockCampuses: Campus[] = [
@@ -733,67 +732,5 @@ export const mockPermissions: Permission[] = [
   // Facility
   { id: "P-23", code: "facility.manage", name: "Quản lý điểm trường & CSVC", module: "FACILITY", description: "Xếp phòng, theo dõi hợp đồng liên kết", apiEndpoints: ["GET /api/facility/campuses", "POST /api/facility/rooms/schedule"] },
   { id: "P-24", code: "facility.feedback_resolve", name: "Xử lý phản hồi đối tác", module: "FACILITY", description: "Tiếp nhận kiến nghị từ trường liên kết", apiEndpoints: ["POST /api/facility/feedback/resolve"] }
-];
-
-/**
- * Khớp ĐÚNG bảng role_permissions thật của backend (truy vấn trực tiếp từ DB
- * — không suy diễn). Dùng 22 permission code thật (xem API.md), KHÔNG dùng
- * mã bịa của bản Google AI Studio nữa. STUDENT/PARENT không có quyền business
- * nào ở app Admin — 2 role này thuộc app "user" riêng (Portal HS/PH).
- */
-export const mockRolePermissions: RolePermission[] = [
-  {
-    role: UserRole.SYS_ADMIN,
-    permissions: [
-      "facility.manage", "permission.audit.view", "permission.catalog.manage",
-      "permission.override.manage", "permission.role.manage", "user.manage", "user.role.manage"
-    ]
-  },
-  {
-    role: UserRole.EXECUTIVE,
-    permissions: ["finance.report.view", "task.create"]
-  },
-  {
-    role: UserRole.HEAD_ACADEMIC,
-    permissions: [
-      "academic.class.manage", "academic.curriculum.manage", "academic.grade.manage",
-      "facility.room.manage", "task.create"
-    ]
-  },
-  {
-    role: UserRole.SITE_MANAGER,
-    permissions: ["crm.lead.assign", "student.manage", "student.status.manage", "task.create"]
-  },
-  {
-    role: UserRole.HR_MANAGER,
-    permissions: ["hrm.manage", "task.create"]
-  },
-  {
-    role: UserRole.STAFF,
-    permissions: [
-      "academic.class.manage", "crm.lead.assign", "crm.lead.manage",
-      "facility.room.manage", "finance.manage", "student.manage", "student.status.manage"
-    ]
-  },
-  {
-    role: UserRole.TEACHER,
-    permissions: ["lms.exercise.manage", "lms.grading.manage"]
-  },
-  {
-    role: UserRole.OPS_MANAGER,
-    permissions: ["facility.manage", "task.create"]
-  },
-  {
-    role: UserRole.PARTNER_REP,
-    permissions: []
-  },
-  {
-    role: UserRole.PARENT,
-    permissions: []
-  },
-  {
-    role: UserRole.STUDENT,
-    permissions: []
-  }
 ];
 

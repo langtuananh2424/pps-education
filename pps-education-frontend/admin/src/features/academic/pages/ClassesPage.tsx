@@ -2,13 +2,14 @@ import React, { useEffect, useState } from "react";
 import { GraduationCap } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
-import { ClassResponse, listClasses } from "../api";
+import { ClassResponse, listClassTeachers, listClasses } from "../api";
 import ClassListPanel from "../components/ClassListPanel";
 import ClassDetailPanel from "../components/ClassDetailPanel";
 import ClassFormModal from "../components/ClassFormModal";
 
 export default function ClassesPage() {
-  const { selectedCampusId } = useApp();
+  const { selectedCampusId, hasPermission, currentUser } = useApp();
+  const canManage = hasPermission("academic.class.manage");
   const [classes, setClasses] = useState<ClassResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -16,19 +17,31 @@ export default function ClassesPage() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
 
+  /**
+   * UC-18 Precondition: GV chỉ xếp/xem lớp mình được phân công dạy (class_teachers),
+   * KHÔNG phải mọi lớp ở site mình được đăng ký dạy (site_teachers). GET /api/classes
+   * hiện chỉ lọc theo site_teachers (coarse hơn) nên phải lọc thêm ở FE cho tài khoản
+   * không có academic.class.manage — cùng gốc rễ với fix ở GradesPage (Sổ điểm).
+   */
   const load = () => {
     setLoading(true);
     setError(null);
     listClasses({ siteId: selectedCampusId !== "ALL" ? Number(selectedCampusId) : undefined })
-      .then((res) => {
-        setClasses(res);
-        if (selectedId == null && res.length > 0) setSelectedId(res[0].id);
+      .then(async (res) => {
+        const filtered =
+          canManage || !currentUser
+            ? res
+            : await Promise.all(res.map((c) => listClassTeachers(c.id).catch(() => []))).then((teacherLists) =>
+                res.filter((_, i) => teacherLists[i].some((t) => t.teacherUserId === currentUser.id))
+              );
+        setClasses(filtered);
+        if (selectedId == null && filtered.length > 0) setSelectedId(filtered[0].id);
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách lớp học."))
       .finally(() => setLoading(false));
   };
 
-  useEffect(load, [selectedCampusId]);
+  useEffect(load, [selectedCampusId, canManage, currentUser]);
 
   const selectedClass = classes.find((c) => c.id === selectedId) ?? null;
 
@@ -52,6 +65,7 @@ export default function ClassesPage() {
           onCreate={() => setCreateOpen(true)}
           query={query}
           onQueryChange={setQuery}
+          canManage={canManage}
         />
 
         {selectedClass ? (
