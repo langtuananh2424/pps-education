@@ -41,8 +41,9 @@ public class EmployeeController {
     }
 
     @GetMapping
-    public ResponseEntity<List<EmployeeResponse>> search(@RequestParam(required = false) String query) {
-        return ResponseEntity.ok(employeeService.search(query));
+    public ResponseEntity<List<EmployeeResponse>> search(@RequestParam(required = false) String query,
+                                                           @RequestParam(required = false) Long departmentId) {
+        return ResponseEntity.ok(employeeService.search(query, departmentId));
     }
 
     @GetMapping("/{id}")

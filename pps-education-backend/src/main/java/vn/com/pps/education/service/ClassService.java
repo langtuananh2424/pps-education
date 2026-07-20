@@ -11,6 +11,7 @@ import vn.com.pps.education.domain.Curriculum;
 import vn.com.pps.education.domain.CurriculumSubject;
 import vn.com.pps.education.domain.SchoolClass;
 import vn.com.pps.education.domain.Site;
+import vn.com.pps.education.domain.SiteManager;
 import vn.com.pps.education.domain.SiteTeacher;
 import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.User;
@@ -36,6 +37,7 @@ import vn.com.pps.education.repository.ClassTeacherRepository;
 import vn.com.pps.education.repository.CurriculumRepository;
 import vn.com.pps.education.repository.CurriculumSubjectRepository;
 import vn.com.pps.education.repository.SchoolClassRepository;
+import vn.com.pps.education.repository.SiteManagerRepository;
 import vn.com.pps.education.repository.SiteRepository;
 import vn.com.pps.education.repository.SiteTeacherRepository;
 import vn.com.pps.education.repository.StudentRepository;
@@ -45,6 +47,7 @@ import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 /**
  * UC-18: Xếp lớp & gán khóa học (FR-ACA-02).
@@ -75,6 +78,7 @@ public class ClassService {
     private final CurriculumSubjectRepository curriculumSubjectRepository;
     private final SiteRepository siteRepository;
     private final SiteTeacherRepository siteTeacherRepository;
+    private final SiteManagerRepository siteManagerRepository;
     private final StudentRepository studentRepository;
     private final UserRepository userRepository;
     private final PermissionEvaluationService permissionEvaluationService;
@@ -89,6 +93,7 @@ public class ClassService {
                          CurriculumSubjectRepository curriculumSubjectRepository,
                          SiteRepository siteRepository,
                          SiteTeacherRepository siteTeacherRepository,
+                         SiteManagerRepository siteManagerRepository,
                          StudentRepository studentRepository,
                          UserRepository userRepository,
                          PermissionEvaluationService permissionEvaluationService) {
@@ -102,6 +107,7 @@ public class ClassService {
         this.curriculumSubjectRepository = curriculumSubjectRepository;
         this.siteRepository = siteRepository;
         this.siteTeacherRepository = siteTeacherRepository;
+        this.siteManagerRepository = siteManagerRepository;
         this.studentRepository = studentRepository;
         this.userRepository = userRepository;
         this.permissionEvaluationService = permissionEvaluationService;
@@ -129,13 +135,25 @@ public class ClassService {
         return classes.stream().map(this::toResponse).toList();
     }
 
-    /** null = không giới hạn (actor có academic.class.manage); danh sách rỗng = không thấy lớp nào. */
+    /**
+     * null = không giới hạn (actor có academic.class.manage); danh sách rỗng
+     * = không thấy lớp nào. Hợp nhất site_teachers (Giáo viên) VÀ
+     * site_managers (Quản lý điểm trường — bổ sung ngoài SDD gốc, đã xác
+     * nhận với người dùng; trước đây bỏ sót khiến Quản lý điểm trường
+     * không kiêm giáo viên luôn nhận danh sách rỗng dù có quyền xem lớp
+     * thuộc site mình phụ trách, khớp Precondition UC-19 "Quản lý điểm
+     * trường phụ trách đúng điểm trường của lớp").
+     */
     private List<Long> resolveAllowedSiteIds(Long actorUserId) {
         if (permissionEvaluationService.hasPermission(actorUserId, "academic.class.manage")) {
             return null;
         }
-        return siteTeacherRepository.findByTeacherIdAndAssignedToIsNull(actorUserId).stream()
-                .map(st -> st.getSite().getId()).toList();
+        return Stream.concat(
+                siteTeacherRepository.findByTeacherIdAndAssignedToIsNull(actorUserId).stream()
+                        .map(st -> st.getSite().getId()),
+                siteManagerRepository.findByUserIdAndRoleTypeAndAssignedToIsNull(actorUserId, SiteManager.RoleType.SITE_MANAGER).stream()
+                        .map(sm -> sm.getSite().getId()))
+                .distinct().toList();
     }
 
     @Transactional(readOnly = true)

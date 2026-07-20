@@ -393,6 +393,44 @@ class EmployeeServiceTest extends AbstractIntegrationTest {
         assertThat(expiring).extracting(ExpiringContractResponse::employeeId).doesNotContain(employee2.id());
     }
 
+    /**
+     * Bổ sung (audit FE 2026-07-20): GET /api/employees?departmentId=X trước
+     * đây không có tham số này ở bất kỳ tầng nào (Controller/Service/
+     * Repository) — Spring MVC âm thầm bỏ qua tham số lạ, FE truyền
+     * departmentId nhưng không lọc được gì.
+     */
+    @Test
+    void search_boSung_filtersByDepartmentId() {
+        Department deptA = newDepartment();
+        Department deptB = newDepartment();
+        EmployeeResponse employeeInA = employeeService.create(
+                baseEmployeeRequest(newUser("employee.deptA").getId(), employeeCode(), deptA.getId(), false), hrManager.getId());
+        employeeService.create(
+                baseEmployeeRequest(newUser("employee.deptB").getId(), employeeCode(), deptB.getId(), false), hrManager.getId());
+
+        List<EmployeeResponse> result = employeeService.search(null, deptA.getId());
+
+        assertThat(result).extracting(EmployeeResponse::id).contains(employeeInA.id());
+        assertThat(result).extracting(EmployeeResponse::departmentId).containsOnly(deptA.getId());
+    }
+
+    @Test
+    void search_boSung_combinesQueryAndDepartmentIdFilters() {
+        Department department = newDepartment();
+        EmployeeResponse matching = employeeService.create(
+                baseEmployeeRequest(newUser("employee.combo.match").getId(), "NVCOMBOX" + CODE_SEQ.incrementAndGet(),
+                        department.getId(), false),
+                hrManager.getId());
+        employeeService.create(
+                baseEmployeeRequest(newUser("employee.combo.otherdept").getId(), "NVCOMBOX" + CODE_SEQ.incrementAndGet(),
+                        newDepartment().getId(), false),
+                hrManager.getId());
+
+        List<EmployeeResponse> result = employeeService.search("NVCOMBOX", department.getId());
+
+        assertThat(result).extracting(EmployeeResponse::id).containsExactly(matching.id());
+    }
+
     private String employeeCode() {
         return "NV" + CODE_SEQ.incrementAndGet();
     }

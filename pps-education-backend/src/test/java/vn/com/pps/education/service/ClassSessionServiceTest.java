@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.Role;
 import vn.com.pps.education.domain.Room;
 import vn.com.pps.education.domain.Site;
+import vn.com.pps.education.domain.SiteManager;
 import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.domain.UserRole;
@@ -29,6 +30,7 @@ import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.exception.RoomConflictException;
 import vn.com.pps.education.repository.RoleRepository;
 import vn.com.pps.education.repository.RoomRepository;
+import vn.com.pps.education.repository.SiteManagerRepository;
 import vn.com.pps.education.repository.SiteRepository;
 import vn.com.pps.education.repository.StudentRepository;
 import vn.com.pps.education.repository.UserRepository;
@@ -73,6 +75,9 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
 
     @Autowired
     private SiteRepository siteRepository;
+
+    @Autowired
+    private SiteManagerRepository siteManagerRepository;
 
     @Autowired
     private RoomRepository roomRepository;
@@ -228,6 +233,32 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
         assertThat(classSessionService.listSessions(schoolClass.id(), teacher.getId()))
                 .extracting(ClassSessionResponse::id).contains(session.id());
         assertThat(classSessionService.listPeriods(session.id(), teacher.getId())).isNotEmpty();
+    }
+
+    /**
+     * Bổ sung (audit FE 2026-07-20): resolveAllowedSiteIds trước đây chỉ
+     * cộng site theo site_teachers, bỏ sót site_managers -- Quản lý điểm
+     * trường không kiêm giáo viên gọi GET /api/classes/{id}/sessions luôn
+     * ra rỗng dù phụ trách đúng site của lớp đó.
+     */
+    @Test
+    void listSessions_siteManagerForSite_seesOwnSiteSessions() {
+        ClassSessionResponse session = classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(LocalDate.now().plusDays(12), LocalTime.of(8, 0), LocalTime.of(9, 40),
+                        room.getId(), teacher.getId(), "REGULAR"),
+                headAcademic.getId());
+        Site managedSite = siteRepository.findById(schoolClass.siteId()).orElseThrow();
+        User siteManagerUser = newUser("site.manager.sessions");
+        SiteManager siteManager = new SiteManager();
+        siteManager.setSite(managedSite);
+        siteManager.setUser(siteManagerUser);
+        siteManager.setAssignedFrom(LocalDate.now().minusMonths(1));
+        siteManager.setAssignedBy(siteManagerUser);
+        siteManagerRepository.save(siteManager);
+
+        assertThat(classSessionService.listSessions(schoolClass.id(), siteManagerUser.getId()))
+                .extracting(ClassSessionResponse::id).contains(session.id());
+        assertThat(classSessionService.listPeriods(session.id(), siteManagerUser.getId())).isNotEmpty();
     }
 
     @Test

@@ -9,6 +9,7 @@ import vn.com.pps.education.domain.Room;
 import vn.com.pps.education.domain.SchoolClass;
 import vn.com.pps.education.domain.SessionPeriod;
 import vn.com.pps.education.domain.SessionPeriodHistory;
+import vn.com.pps.education.domain.SiteManager;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.dto.BulkCreateClassSessionRequest;
 import vn.com.pps.education.dto.BulkCreateClassSessionResponse;
@@ -27,6 +28,7 @@ import vn.com.pps.education.repository.RoomRepository;
 import vn.com.pps.education.repository.SchoolClassRepository;
 import vn.com.pps.education.repository.SessionPeriodHistoryRepository;
 import vn.com.pps.education.repository.SessionPeriodRepository;
+import vn.com.pps.education.repository.SiteManagerRepository;
 import vn.com.pps.education.repository.SiteTeacherRepository;
 import vn.com.pps.education.repository.StudentRepository;
 import vn.com.pps.education.repository.SystemSettingRepository;
@@ -42,6 +44,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * UC-48: Xếp lịch buổi học (FR-ACA-05, docs/uc/phan-he-06-hoc-thuat.md).
@@ -71,6 +74,7 @@ public class ClassSessionService {
     private final SystemSettingRepository systemSettingRepository;
     private final UserRepository userRepository;
     private final SiteTeacherRepository siteTeacherRepository;
+    private final SiteManagerRepository siteManagerRepository;
     private final PermissionEvaluationService permissionEvaluationService;
     private final ClassEnrollmentRepository classEnrollmentRepository;
     private final StudentRepository studentRepository;
@@ -84,6 +88,7 @@ public class ClassSessionService {
                                 SystemSettingRepository systemSettingRepository,
                                 UserRepository userRepository,
                                 SiteTeacherRepository siteTeacherRepository,
+                                SiteManagerRepository siteManagerRepository,
                                 PermissionEvaluationService permissionEvaluationService,
                                 ClassEnrollmentRepository classEnrollmentRepository,
                                 StudentRepository studentRepository) {
@@ -96,6 +101,7 @@ public class ClassSessionService {
         this.systemSettingRepository = systemSettingRepository;
         this.userRepository = userRepository;
         this.siteTeacherRepository = siteTeacherRepository;
+        this.siteManagerRepository = siteManagerRepository;
         this.permissionEvaluationService = permissionEvaluationService;
         this.classEnrollmentRepository = classEnrollmentRepository;
         this.studentRepository = studentRepository;
@@ -118,13 +124,22 @@ public class ClassSessionService {
                 .map(this::toResponse).toList();
     }
 
-    /** null = không giới hạn (actor có academic.class.manage); danh sách rỗng = không thấy buổi/tiết học nào. */
+    /**
+     * null = không giới hạn (actor có academic.class.manage); danh sách rỗng
+     * = không thấy buổi/tiết học nào. Hợp nhất site_teachers VÀ site_managers
+     * (bổ sung ngoài SDD gốc, đã xác nhận với người dùng — cùng lý do như
+     * ClassService.resolveAllowedSiteIds).
+     */
     private List<Long> resolveAllowedSiteIds(Long actorUserId) {
         if (permissionEvaluationService.hasPermission(actorUserId, "academic.class.manage")) {
             return null;
         }
-        return siteTeacherRepository.findByTeacherIdAndAssignedToIsNull(actorUserId).stream()
-                .map(st -> st.getSite().getId()).toList();
+        return Stream.concat(
+                siteTeacherRepository.findByTeacherIdAndAssignedToIsNull(actorUserId).stream()
+                        .map(st -> st.getSite().getId()),
+                siteManagerRepository.findByUserIdAndRoleTypeAndAssignedToIsNull(actorUserId, SiteManager.RoleType.SITE_MANAGER).stream()
+                        .map(sm -> sm.getSite().getId()))
+                .distinct().toList();
     }
 
     private boolean isSiteAllowed(Long siteId, List<Long> allowedSiteIds) {
