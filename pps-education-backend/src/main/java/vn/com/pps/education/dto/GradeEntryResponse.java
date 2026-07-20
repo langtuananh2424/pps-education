@@ -15,6 +15,7 @@ public record GradeEntryResponse(
         String teacherNote,
         String status,
         Long enteredBy,
-        Long publishedBy,
-        OffsetDateTime publishedAt
+        OffsetDateTime submittedAt,
+        Long approvedBy,
+        OffsetDateTime approvedAt
 ) {}

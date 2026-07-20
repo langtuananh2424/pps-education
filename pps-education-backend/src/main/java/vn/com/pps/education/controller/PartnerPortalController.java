@@ -37,8 +37,8 @@ public class PartnerPortalController {
     }
 
     @GetMapping("/grades")
-    public ResponseEntity<List<GradeEntryResponse>> getPublishedGrades(@AuthenticationPrincipal AuthenticatedUser actor) {
-        return ResponseEntity.ok(partnerPortalService.getPublishedGrades(actor.userId()));
+    public ResponseEntity<List<GradeEntryResponse>> getApprovedGrades(@AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(partnerPortalService.getApprovedGrades(actor.userId()));
     }
 
     @GetMapping("/teaching-plans")

@@ -7,7 +7,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mock.web.MockMultipartFile;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.User;
@@ -50,9 +49,6 @@ class ParentBatchImportServiceTest extends AbstractIntegrationTest {
     @Autowired
     private UserRepository userRepository;
 
-    @Autowired
-    private PasswordEncoder passwordEncoder;
-
     private User staff;
 
     @BeforeEach
@@ -81,48 +77,6 @@ class ParentBatchImportServiceTest extends AbstractIntegrationTest {
         assertThat(link.getRelationship().name()).isEqualTo("FATHER");
         assertThat(link.isPrimaryContact()).isTrue();
         assertThat(link.isFinancialResponsible()).isTrue();
-    }
-
-    @Test
-    void importParents_UC50_Postcondition_generatesWorkingTemporaryPasswordForNewParentAccount() throws IOException {
-        Student student = newStudent("Học Sinh Mật Khẩu");
-        String phone = newPhone();
-        byte[] file = buildWorkbook(new String[][]{
-                {"Nguyễn Văn Mật Khẩu", phone, "Cha", student.getStudentCode(), "", ""},
-        });
-
-        ParentBatchImportResponse result = parentBatchImportService.importParents(
-                new MockMultipartFile("file", "phu_huynh.xlsx", "application/vnd.openxmlformats", file), staff.getId());
-
-        assertThat(result.generatedCredentials()).hasSize(1);
-        String username = (String) result.generatedCredentials().get(0).get("username");
-        String tempPassword = (String) result.generatedCredentials().get(0).get("temporaryPassword");
-        User created = userRepository.findByUsername(username).orElseThrow();
-        assertThat(passwordEncoder.matches(tempPassword, created.getPasswordHash())).isTrue();
-
-        // Tra cứu lại job sau đó -- KHÔNG còn thấy mật khẩu tạm (tránh lộ plaintext qua tra cứu lại).
-        ParentBatchImportResponse reFetched = parentBatchImportService.getJob(result.id());
-        assertThat(reFetched.generatedCredentials()).isEmpty();
-    }
-
-    @Test
-    void importParents_UC50_sameParentTwoChildren_onlyFirstRowGeneratesCredential() throws IOException {
-        Student child1 = newStudent("Con Mật Khẩu Một");
-        Student child2 = newStudent("Con Mật Khẩu Hai");
-        String phone = newPhone();
-        byte[] file = buildWorkbook(new String[][]{
-                {"Trần Thị Mật Khẩu", phone, "Mẹ", child1.getStudentCode(), "", ""},
-                {"Trần Thị Mật Khẩu", phone, "Mẹ", child2.getStudentCode(), "", ""},
-        });
-
-        ParentBatchImportResponse result = parentBatchImportService.importParents(
-                new MockMultipartFile("file", "phu_huynh.xlsx", "application/vnd.openxmlformats", file), staff.getId());
-
-        assertThat(result.successRows()).isEqualTo(2);
-        // Dòng 2 dùng lại đúng 1 Parent đã tạo ở dòng 1 -- không sinh thêm credential trùng cho cùng 1 tài khoản.
-        assertThat(result.generatedCredentials()).hasSize(1);
-        // Header = dòng Excel 1 -- dòng dữ liệu đầu tiên (con1) là dòng Excel 2.
-        assertThat(result.generatedCredentials().get(0).get("row")).isEqualTo(2);
     }
 
     @Test

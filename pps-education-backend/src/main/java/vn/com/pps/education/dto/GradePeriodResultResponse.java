@@ -17,6 +17,7 @@ public record GradePeriodResultResponse(
         Long importJobId,
         String status,
         Long enteredBy,
-        Long publishedBy,
-        OffsetDateTime publishedAt
+        OffsetDateTime submittedAt,
+        Long approvedBy,
+        OffsetDateTime approvedAt
 ) {}

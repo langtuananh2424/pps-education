@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { AlertTriangle, Bell, ChevronDown, Clock, Lock, LogOut, Menu, MapPin, Settings, ShieldCheck, User } from "lucide-react";
+import { Bell, ChevronDown, Clock, Lock, LogOut, Menu, MapPin, Settings, ShieldCheck, User } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { getMyPartnerSite, listSites, listSiteTeachers, SiteResponse, SiteTeacherResponse } from "@/features/facility/api";
 import { roleLabels } from "@/constants/roles";
@@ -27,18 +27,10 @@ export default function Header() {
   // Đại diện trường liên kết (site_managers role_type=PARTNER_REP, tự resolve qua UC-29), Giáo viên phụ trách
   // (site_teachers) — chỉ biết đúng điểm trường của mình, không thấy/chọn được điểm trường khác hay "Tất cả".
   const [managedSites, setManagedSites] = useState<SiteResponse[]>([]);
-  // true trong lúc chưa xác định xong managedSites -- tránh chớp nhoáng hiện cảnh báo
-  // "chưa gán điểm trường" trước khi các API site_managers/site_teachers trả về.
-  const [managedSitesLoading, setManagedSitesLoading] = useState(true);
-
-  // Vai trò bắt buộc gắn với (các) điểm trường cụ thể -- nếu tài khoản có 1 trong các
-  // vai trò này mà managedSites rỗng, đó là dấu hiệu CHƯA ĐƯỢC GÁN điểm trường (thiếu
-  // site_managers/site_teachers), không phải "không giới hạn site" như SYS_ADMIN/STAFF.
-  const siteScopedRoles: string[] = [UserRole.SITE_MANAGER, UserRole.PARTNER_REP, UserRole.TEACHER];
-  const isSiteScopedRole = (currentUser?.roleCodes ?? []).some((r) => siteScopedRoles.includes(r));
 
   useEffect(() => {
     if (!currentUser || sites.length === 0) {
+      setManagedSites([]);
       return;
     }
     const roleCodes = currentUser.roleCodes ?? [];
@@ -70,18 +62,15 @@ export default function Header() {
 
     if (tasks.length === 0) {
       setManagedSites([]);
-      setManagedSitesLoading(false);
       return;
     }
 
     let cancelled = false;
-    setManagedSitesLoading(true);
     Promise.all(tasks).then((results) => {
       if (cancelled) return;
       const merged = new Map<number, SiteResponse>();
       results.flat().forEach((site) => merged.set(site.id, site));
       setManagedSites(Array.from(merged.values()));
-      setManagedSitesLoading(false);
     });
     return () => {
       cancelled = true;
@@ -94,7 +83,6 @@ export default function Header() {
   }, [managedSites, selectedCampusId, setSelectedCampusId]);
 
   const lockToManagedSites = managedSites.length > 0;
-  const showUnassignedWarning = !managedSitesLoading && isSiteScopedRole && managedSites.length === 0;
 
   return (
     <header className="h-16 bg-transparent px-2 md:px-0 flex items-center justify-between z-30 mb-4 shrink-0">
@@ -106,20 +94,10 @@ export default function Header() {
           <Menu className="w-5 h-5" />
         </button>
 
-        <div
-          className={`hidden sm:flex items-center gap-2 text-xs font-medium px-4 py-2 rounded-full shadow-soft border ${
-            showUnassignedWarning ? "bg-amber-50 border-amber-200 text-amber-700" : "bg-white border-slate-200/50 text-slate-500"
-          }`}
-        >
-          {showUnassignedWarning ? (
-            <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-          ) : (
-            <MapPin className="w-3.5 h-3.5 text-brand-orange shrink-0" />
-          )}
-          <span className={`font-semibold ${showUnassignedWarning ? "text-amber-700" : "text-slate-700"}`}>Điểm trường:</span>
-          {showUnassignedWarning ? (
-            <span className="text-amber-700 font-semibold">Chưa được gán điểm trường — liên hệ quản trị viên</span>
-          ) : lockToManagedSites ? (
+        <div className="hidden sm:flex items-center gap-2 text-xs font-medium text-slate-500 bg-white border border-slate-200/50 shadow-soft px-4 py-2 rounded-full">
+          <MapPin className="w-3.5 h-3.5 text-brand-orange shrink-0" />
+          <span className="font-semibold text-slate-700">Điểm trường:</span>
+          {lockToManagedSites ? (
             managedSites.length === 1 ? (
               <span className="flex items-center gap-1.5 text-slate-800 font-semibold">
                 {managedSites[0].name}

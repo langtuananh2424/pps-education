@@ -35,11 +35,6 @@ public class SystemSetting {
     @Column(length = 50, nullable = false)
     private String category;
 
-    /** V39 — trước đây không map (chưa có API ghi nào); dùng để audit ai đã đổi setting. */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "updated_by")
-    private User updatedBy;
-
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt = OffsetDateTime.now();
 }

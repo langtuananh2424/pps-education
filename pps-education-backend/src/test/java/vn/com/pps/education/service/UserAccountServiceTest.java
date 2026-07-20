@@ -20,7 +20,6 @@ import vn.com.pps.education.dto.AdminChangePasswordRequest;
 import vn.com.pps.education.dto.ChangeOwnPasswordRequest;
 import vn.com.pps.education.dto.CreateUserRequest;
 import vn.com.pps.education.dto.RoleResponse;
-import vn.com.pps.education.dto.UpdateUserEmailRequest;
 import vn.com.pps.education.dto.UpdateUserRequest;
 import vn.com.pps.education.dto.UpdateUserStatusRequest;
 import vn.com.pps.education.dto.UserDetailResponse;
@@ -303,42 +302,6 @@ class UserAccountServiceTest extends AbstractIntegrationTest {
         assertThat(updated.username()).isEqualTo(account.username());
         assertThat(updated.email()).isEqualTo(account.email());
         assertThat(updated.status()).isEqualTo("ACTIVE");
-    }
-
-    @Test
-    void updateEmail_UC55_MainFlow_updatesEmailAndKeepsOtherFieldsUnchanged() {
-        UserResponse account = userAccountService.create(baseRequest("MatKhau@8"));
-        String newEmail = "phu.huynh." + SEQ.incrementAndGet() + "@gmail.com";
-
-        UserResponse updated = userAccountService.updateEmail(account.id(), new UpdateUserEmailRequest(newEmail));
-
-        assertThat(updated.email()).isEqualTo(newEmail);
-        // Postcondition UC-55 -- username/password_hash/status giữ nguyên.
-        assertThat(updated.username()).isEqualTo(account.username());
-        assertThat(updated.status()).isEqualTo("ACTIVE");
-        assertThat(updated.passwordSet()).isTrue();
-        User saved = userRepository.findById(account.id()).orElseThrow();
-        assertThat(saved.getEmail()).isEqualTo(newEmail);
-    }
-
-    @Test
-    void updateEmail_UC55_A1_rejectsEmailAlreadyUsedByAnotherAccount() {
-        UserResponse account = userAccountService.create(baseRequest("MatKhau@8"));
-        UserResponse other = userAccountService.create(baseRequest("MatKhau@9"));
-
-        assertThatThrownBy(() -> userAccountService.updateEmail(account.id(), new UpdateUserEmailRequest(other.email())))
-                .isInstanceOf(DuplicateUserAccountException.class);
-
-        assertThat(userRepository.findById(account.id()).orElseThrow().getEmail()).isEqualTo(account.email());
-    }
-
-    @Test
-    void updateEmail_UC55_MainFlow_allowsSettingSameEmailBackToItself() {
-        UserResponse account = userAccountService.create(baseRequest("MatKhau@8"));
-
-        UserResponse updated = userAccountService.updateEmail(account.id(), new UpdateUserEmailRequest(account.email()));
-
-        assertThat(updated.email()).isEqualTo(account.email());
     }
 
     @Test

@@ -1,15 +1,14 @@
 package vn.com.pps.education.service;
 
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.com.pps.education.domain.ApprovalFlow;
 import vn.com.pps.education.domain.Curriculum;
 import vn.com.pps.education.domain.GradeComponent;
 import vn.com.pps.education.domain.GradeComponentHistory;
 import vn.com.pps.education.domain.GradeEntry;
 import vn.com.pps.education.domain.GradeEntryHistory;
 import vn.com.pps.education.domain.GradePeriod;
-import vn.com.pps.education.domain.GradePeriodEditWindow;
 import vn.com.pps.education.domain.GradePeriodHistory;
 import vn.com.pps.education.domain.GradePeriodResult;
 import vn.com.pps.education.domain.ImportJob;
@@ -19,25 +18,29 @@ import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.dto.CreateGradeComponentRequest;
 import vn.com.pps.education.dto.CreateGradePeriodRequest;
+import vn.com.pps.education.dto.DecideGradesRequest;
 import vn.com.pps.education.dto.EnterGradePeriodResultRequest;
 import vn.com.pps.education.dto.EnterGradeRequest;
 import vn.com.pps.education.dto.GradeComponentResponse;
 import vn.com.pps.education.dto.GradeEntryResponse;
 import vn.com.pps.education.dto.GradePeriodResponse;
 import vn.com.pps.education.dto.GradePeriodResultResponse;
-import vn.com.pps.education.dto.PublishGradesRequest;
+import vn.com.pps.education.dto.PeriodAverageResponse;
+import vn.com.pps.education.dto.SubmitGradesRequest;
 import vn.com.pps.education.dto.UpdateGradeComponentRequest;
 import vn.com.pps.education.dto.UpdateGradePeriodRequest;
 import vn.com.pps.education.domain.Skill;
-import vn.com.pps.education.exception.GradeAlreadyPublishedException;
+import vn.com.pps.education.exception.ApprovalAlreadyDecidedException;
 import vn.com.pps.education.exception.GradeComponentLockedException;
-import vn.com.pps.education.exception.GradeEditWindowExpiredException;
+import vn.com.pps.education.exception.GradeComponentWeightExceededException;
+import vn.com.pps.education.exception.GradeEntryNotEditableException;
 import vn.com.pps.education.exception.GradePeriodWeightExceededException;
 import vn.com.pps.education.exception.InvalidGradeScoreException;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
 import vn.com.pps.education.exception.NotSiteManagerForSiteException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.domain.CurriculumSubject;
+import vn.com.pps.education.repository.ApprovalFlowRepository;
 import vn.com.pps.education.repository.ClassTeacherRepository;
 import vn.com.pps.education.repository.CurriculumRepository;
 import vn.com.pps.education.repository.CurriculumSubjectRepository;
@@ -45,7 +48,6 @@ import vn.com.pps.education.repository.GradeComponentHistoryRepository;
 import vn.com.pps.education.repository.GradeComponentRepository;
 import vn.com.pps.education.repository.GradeEntryHistoryRepository;
 import vn.com.pps.education.repository.GradeEntryRepository;
-import vn.com.pps.education.repository.GradePeriodEditWindowRepository;
 import vn.com.pps.education.repository.GradePeriodHistoryRepository;
 import vn.com.pps.education.repository.GradePeriodRepository;
 import vn.com.pps.education.repository.GradePeriodResultRepository;
@@ -56,35 +58,29 @@ import vn.com.pps.education.repository.StudentRepository;
 import vn.com.pps.education.repository.UserRepository;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
- * UC-19: Nhập điểm (FR-ACA-03) + UC-20: Công bố điểm (FR-ACA-03).
+ * UC-19: Nhập điểm (FR-ACA-03) + UC-20: Duyệt điểm (FR-ACA-03).
  * Xem docs/uc/phan-he-06-hoc-thuat.md.
  *
  * Gộp cấu hình sổ điểm (grade_periods/grade_components, actor HEAD_ACADEMIC
  * — Precondition UC-19: "công thức đã cấu hình trong khung chương trình")
- * + nhập điểm (actor TEACHER) + công bố điểm (actor SITE_MANAGER) vào 1
+ * + nhập điểm (actor TEACHER) + duyệt điểm (actor SITE_MANAGER) vào 1
  * Service — tất cả đều phục vụ trực tiếp UC-19/20, KHÔNG đặt trong
  * CurriculumService (UC-16/16b/17) để tránh vi phạm SRP (xem
  * .claude/rules/solid.md, ví dụ "AcademicService khổng lồ gộp UC-16 +
  * UC-19/20").
  *
- * V39 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng qua nhiều vòng
- * hỏi): bỏ hẳn luồng duyệt/từ chối qua ApprovalFlow cho điểm. Giáo viên
- * toàn quyền sửa điểm lớp mình trong hạn X ngày kể từ lần đầu nhập cho 1
- * (lớp, kỳ đánh giá) — mốc lưu ở grade_period_edit_windows, số ngày X đọc
- * qua {@link AcademicSettingsService}. Actor có quyền
- * academic.grade.edit.override (mặc định HEAD_ACADEMIC + SITE_MANAGER,
- * gán thêm được cho người khác qua UC-04) bỏ qua hạn này. "Công bố điểm"
- * (permission academic.grade.publish) chỉ còn là quyết định thời điểm
- * Phụ huynh/Học sinh được xem điểm (DRAFT → PUBLISHED) — không còn nhánh
- * từ chối. Sửa điểm sau khi công bố (vẫn trong hạn X ngày, trường hợp
- * phúc khảo) giữ nguyên status=PUBLISHED với giá trị mới — Phụ huynh thấy
- * ngay, không cần công bố lại.
+ * Dùng lại ApprovalFlow (entity_type=GRADE_ENTRY) — mỗi grade_entry có 1
+ * approval_flow riêng, nhiều entry submit cùng lúc (theo lô) chia sẻ 1
+ * batchId, giống pattern student_comments mô tả trong SDD.
  *
  * Cấu hình sổ điểm (HEAD_ACADEMIC) qua
  * @PreAuthorize("hasPermission(null,'academic.grade.manage')") ở
@@ -96,12 +92,12 @@ import java.util.Map;
  * hoặc Quản lý điểm trường phụ trách đúng site của lớp cũng được phép
  * nhập/import thay giáo viên khi cần hỗ trợ.
  *
- * Công bố điểm (UC-20) dùng requireGradePublishPermission +
- * requireCanPublishGrades — bổ sung ngoài SDD gốc, đã xác nhận với người
- * dùng: cần quyền academic.grade.publish (role mặc định: SITE_MANAGER,
- * HEAD_ACADEMIC — V38/V39); Quản lý điểm trường vẫn giới hạn row-level đúng
+ * Duyệt điểm (UC-20) dùng requireGradeApprovePermission +
+ * requireCanApproveGrades — bổ sung ngoài SDD gốc, đã xác nhận với người
+ * dùng: cần quyền academic.grade.approve (role mặc định: SITE_MANAGER,
+ * HEAD_ACADEMIC — V38); Quản lý điểm trường vẫn giới hạn row-level đúng
  * site mình phụ trách (site_managers), Trưởng phòng đào tạo (có thêm
- * academic.grade.manage) công bố được mọi site.
+ * academic.grade.manage) duyệt được mọi site.
  */
 @Service
 public class GradeService {
@@ -113,7 +109,7 @@ public class GradeService {
     private final GradePeriodHistoryRepository gradePeriodHistoryRepository;
     private final GradeComponentHistoryRepository gradeComponentHistoryRepository;
     private final GradeEntryHistoryRepository gradeEntryHistoryRepository;
-    private final GradePeriodEditWindowRepository gradePeriodEditWindowRepository;
+    private final ApprovalFlowRepository approvalFlowRepository;
     private final CurriculumRepository curriculumRepository;
     private final CurriculumSubjectRepository curriculumSubjectRepository;
     private final SchoolClassRepository schoolClassRepository;
@@ -123,7 +119,6 @@ public class GradeService {
     private final SkillRepository skillRepository;
     private final UserRepository userRepository;
     private final PermissionEvaluationService permissionEvaluationService;
-    private final AcademicSettingsService academicSettingsService;
 
     public GradeService(GradePeriodRepository gradePeriodRepository,
                          GradeComponentRepository gradeComponentRepository,
@@ -132,7 +127,7 @@ public class GradeService {
                          GradePeriodHistoryRepository gradePeriodHistoryRepository,
                          GradeComponentHistoryRepository gradeComponentHistoryRepository,
                          GradeEntryHistoryRepository gradeEntryHistoryRepository,
-                         GradePeriodEditWindowRepository gradePeriodEditWindowRepository,
+                         ApprovalFlowRepository approvalFlowRepository,
                          CurriculumRepository curriculumRepository,
                          CurriculumSubjectRepository curriculumSubjectRepository,
                          SchoolClassRepository schoolClassRepository,
@@ -141,8 +136,7 @@ public class GradeService {
                          SiteManagerRepository siteManagerRepository,
                          SkillRepository skillRepository,
                          UserRepository userRepository,
-                         PermissionEvaluationService permissionEvaluationService,
-                         AcademicSettingsService academicSettingsService) {
+                         PermissionEvaluationService permissionEvaluationService) {
         this.gradePeriodRepository = gradePeriodRepository;
         this.gradeComponentRepository = gradeComponentRepository;
         this.gradeEntryRepository = gradeEntryRepository;
@@ -150,7 +144,7 @@ public class GradeService {
         this.gradePeriodHistoryRepository = gradePeriodHistoryRepository;
         this.gradeComponentHistoryRepository = gradeComponentHistoryRepository;
         this.gradeEntryHistoryRepository = gradeEntryHistoryRepository;
-        this.gradePeriodEditWindowRepository = gradePeriodEditWindowRepository;
+        this.approvalFlowRepository = approvalFlowRepository;
         this.curriculumRepository = curriculumRepository;
         this.curriculumSubjectRepository = curriculumSubjectRepository;
         this.schoolClassRepository = schoolClassRepository;
@@ -160,7 +154,6 @@ public class GradeService {
         this.skillRepository = skillRepository;
         this.userRepository = userRepository;
         this.permissionEvaluationService = permissionEvaluationService;
-        this.academicSettingsService = academicSettingsService;
     }
 
     // ===================== Cấu hình sổ điểm (HEAD_ACADEMIC) =====================
@@ -239,12 +232,20 @@ public class GradeService {
      * UC-16 Main Flow bước 2 + A2 (bổ sung ngoài SDD gốc, đã xác nhận với
      * người dùng): thêm được thành phần điểm mới vào kỳ đánh giá đã tồn tại
      * (kể cả khung ACTIVE, đã có lớp dùng) — không cần qua lại UC-16b/17.
+     * A2 bước 2: tổng weightInPeriod của kỳ (kể cả thành phần mới) ≤ 100.
      */
     @Transactional
     public GradeComponentResponse addGradeComponent(Long gradePeriodId, CreateGradeComponentRequest request, Long actorUserId) {
         GradePeriod period = gradePeriodRepository.findById(gradePeriodId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy kỳ đánh giá id=" + gradePeriodId));
         User actor = getUserOrThrow(actorUserId);
+
+        BigDecimal currentTotal = gradeComponentRepository.findByGradePeriodIdOrderByDisplayOrder(gradePeriodId)
+                .stream().map(GradeComponent::getWeightInPeriod).reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (currentTotal.add(request.weightInPeriod()).compareTo(new BigDecimal("100")) > 0) {
+            throw new GradeComponentWeightExceededException(
+                    "Tổng weightInPeriod các thành phần điểm của kỳ id=" + gradePeriodId + " sẽ vượt quá 100.");
+        }
 
         GradeComponent component = new GradeComponent();
         component.setGradePeriod(period);
@@ -256,6 +257,7 @@ public class GradeService {
         }
         component.setCode(GradeComponent.ComponentCode.valueOf(request.code()));
         component.setName(request.name());
+        component.setWeightInPeriod(request.weightInPeriod());
         if (request.maxScore() != null) {
             component.setMaxScore(request.maxScore());
         }
@@ -270,21 +272,23 @@ public class GradeService {
         return toResponse(component);
     }
 
-    /** SDD: nếu đã có grade_entries cho component này, cấm sửa maxScore. */
+    /** SDD: nếu đã có grade_entries cho component này, cấm sửa weightInPeriod/maxScore. */
     @Transactional
     public GradeComponentResponse updateGradeComponent(Long id, UpdateGradeComponentRequest request, Long actorUserId) {
         GradeComponent component = gradeComponentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thành phần điểm id=" + id));
         User actor = getUserOrThrow(actorUserId);
 
+        boolean weightChanged = component.getWeightInPeriod().compareTo(request.weightInPeriod()) != 0;
         BigDecimal newMaxScore = request.maxScore() == null ? component.getMaxScore() : request.maxScore();
         boolean maxScoreChanged = component.getMaxScore().compareTo(newMaxScore) != 0;
-        if (maxScoreChanged && gradeEntryRepository.countByGradeComponentId(id) > 0) {
+        if ((weightChanged || maxScoreChanged) && gradeEntryRepository.countByGradeComponentId(id) > 0) {
             throw new GradeComponentLockedException(
-                    "Thành phần điểm id=" + id + " đã có điểm nhập — không được sửa maxScore.");
+                    "Thành phần điểm id=" + id + " đã có điểm nhập — không được sửa weightInPeriod/maxScore.");
         }
 
         component.setName(request.name());
+        component.setWeightInPeriod(request.weightInPeriod());
         component.setMaxScore(newMaxScore);
         component.setPassThreshold(request.passThreshold());
         component.setDisplayOrder(request.displayOrder() == null ? component.getDisplayOrder() : request.displayOrder());
@@ -296,14 +300,7 @@ public class GradeService {
 
     // ===================== UC-19: Nhập điểm (TEACHER) =====================
 
-    /**
-     * Main Flow bước 1-3: nhập/sửa điểm 1 học sinh cho 1 thành phần điểm.
-     * V39: không còn khoá theo status — sửa được bất kể DRAFT/PUBLISHED
-     * miễn còn trong hạn X ngày (hoặc có quyền academic.grade.edit.override,
-     * xem {@link #requireEditableOrOverride}). Giữ nguyên status hiện có khi
-     * sửa (KHÔNG reset về DRAFT) — nếu đã PUBLISHED, giá trị mới hiển thị
-     * ngay cho Phụ huynh (trường hợp phúc khảo).
-     */
+    /** Main Flow bước 1-3, A1: nhập/sửa điểm 1 học sinh cho 1 thành phần điểm. */
     @Transactional
     public GradeEntryResponse enterGrade(Long classId, Long gradeComponentId, EnterGradeRequest request, Long actorUserId) {
         SchoolClass schoolClass = getClassOrThrow(classId);
@@ -319,9 +316,6 @@ public class GradeService {
                     "score=" + request.score() + " ngoài khoảng [0, " + component.getMaxScore() + "].");
         }
 
-        Long gradePeriodId = component.getGradePeriod().getId();
-        requireEditableOrOverride(classId, gradePeriodId, actorUserId);
-
         User actor = getUserOrThrow(actorUserId);
         GradeEntry entry = gradeEntryRepository
                 .findBySchoolClassIdAndStudentIdAndGradeComponentId(classId, request.studentId(), gradeComponentId)
@@ -334,14 +328,21 @@ public class GradeService {
             entry.setGradeComponent(component);
             entry.setEnteredBy(actor);
         } else {
+            if (entry.getStatus() != GradeEntry.Status.DRAFT && entry.getStatus() != GradeEntry.Status.REJECTED) {
+                throw new GradeEntryNotEditableException(
+                        "Bản ghi điểm id=" + entry.getId() + " đang ở trạng thái " + entry.getStatus()
+                                + " — chỉ sửa được khi DRAFT hoặc REJECTED.");
+            }
             action = GradeEntryHistory.Action.UPDATED;
+            // A2 -- điểm bị từ chối, Giáo viên sửa lại thì quay về DRAFT để submit lại (UC-19).
+            entry.setStatus(GradeEntry.Status.DRAFT);
+            entry.setApprovalFlow(null);
         }
         entry.setScore(request.score());
         entry.setAbsenceFlag(request.absenceFlag());
         entry.setTeacherNote(request.teacherNote());
         entry = gradeEntryRepository.save(entry);
 
-        ensureEditWindowStarted(classId, gradePeriodId);
         writeGradeEntryHistory(entry, actor, action);
         return toResponse(entry);
     }
@@ -352,12 +353,109 @@ public class GradeService {
                 .stream().map(this::toResponse).toList();
     }
 
+    /**
+     * Main Flow bước 4-6: submit từng bản ghi hoặc theo lô (batch_id) sang
+     * Chờ duyệt. Từ UC-53: có thể submit kèm/riêng các bản ghi Overall/Level
+     * (gradePeriodResultIds) — cùng batch_id khi submit chung 1 lần gọi.
+     */
+    @Transactional
+    public List<GradeEntryResponse> submitGrades(Long classId, SubmitGradesRequest request, Long actorUserId) {
+        requireCanEnterGrades(classId, actorUserId);
+        User actor = getUserOrThrow(actorUserId);
+        List<Long> entryIds = request.gradeEntryIds() == null ? List.of() : request.gradeEntryIds();
+        List<Long> resultIds = request.gradePeriodResultIds() == null ? List.of() : request.gradePeriodResultIds();
+        if (entryIds.isEmpty() && resultIds.isEmpty()) {
+            throw new IllegalArgumentException("Phải truyền ít nhất 1 gradeEntryIds hoặc gradePeriodResultIds.");
+        }
+        List<GradeEntry> entries = gradeEntryRepository.findAllById(entryIds);
+        if (entries.size() != entryIds.size()) {
+            throw new ResourceNotFoundException("Có bản ghi điểm không tồn tại trong danh sách gradeEntryIds.");
+        }
+        List<GradePeriodResult> results = gradePeriodResultRepository.findAllById(resultIds);
+        if (results.size() != resultIds.size()) {
+            throw new ResourceNotFoundException("Có bản ghi Overall/Level không tồn tại trong danh sách gradePeriodResultIds.");
+        }
+        UUID batchId = entries.size() + results.size() > 1 ? UUID.randomUUID() : null;
+        OffsetDateTime now = OffsetDateTime.now();
+
+        for (GradeEntry entry : entries) {
+            if (!entry.getSchoolClass().getId().equals(classId)) {
+                throw new ResourceNotFoundException("Bản ghi điểm id=" + entry.getId() + " không thuộc lớp id=" + classId);
+            }
+            if (entry.getStatus() != GradeEntry.Status.DRAFT) {
+                throw new GradeEntryNotEditableException(
+                        "Bản ghi điểm id=" + entry.getId() + " đang ở trạng thái " + entry.getStatus() + " — chỉ submit được khi DRAFT.");
+            }
+            ApprovalFlow flow = new ApprovalFlow();
+            flow.setEntityType(ApprovalFlow.EntityType.GRADE_ENTRY);
+            flow.setEntityId(entry.getId());
+            flow.setStatus(ApprovalFlow.Status.PENDING);
+            flow.setSubmittedBy(actor);
+            flow.setBatchId(batchId);
+            flow = approvalFlowRepository.save(flow);
+            entry.setApprovalFlow(flow);
+            entry.setStatus(GradeEntry.Status.PENDING);
+            entry.setSubmittedAt(now);
+        }
+        for (GradePeriodResult result : results) {
+            if (!result.getSchoolClass().getId().equals(classId)) {
+                throw new ResourceNotFoundException("Bản ghi Overall/Level id=" + result.getId() + " không thuộc lớp id=" + classId);
+            }
+            if (result.getStatus() != GradePeriodResult.Status.DRAFT) {
+                throw new GradeEntryNotEditableException(
+                        "Bản ghi Overall/Level id=" + result.getId() + " đang ở trạng thái " + result.getStatus() + " — chỉ submit được khi DRAFT.");
+            }
+            ApprovalFlow flow = new ApprovalFlow();
+            flow.setEntityType(ApprovalFlow.EntityType.GRADE_PERIOD_RESULT);
+            flow.setEntityId(result.getId());
+            flow.setStatus(ApprovalFlow.Status.PENDING);
+            flow.setSubmittedBy(actor);
+            flow.setBatchId(batchId);
+            flow = approvalFlowRepository.save(flow);
+            result.setApprovalFlow(flow);
+            result.setStatus(GradePeriodResult.Status.PENDING);
+            result.setSubmittedAt(now);
+        }
+        gradePeriodResultRepository.saveAll(results);
+        List<GradeEntry> saved = gradeEntryRepository.saveAll(entries);
+        saved.forEach(e -> writeGradeEntryHistory(e, actor, GradeEntryHistory.Action.UPDATED));
+        return saved.stream().map(this::toResponse).toList();
+    }
+
+    /** UC-19 Postcondition: điểm trung bình học phần tạm thời (trọng số theo weightInPeriod, chỉ trên thành phần đã có điểm). */
+    @Transactional(readOnly = true)
+    public PeriodAverageResponse getPeriodAverage(Long classId, Long studentId, Long gradePeriodId) {
+        List<GradeComponent> components = gradeComponentRepository.findByGradePeriodIdOrderByDisplayOrder(gradePeriodId);
+        List<GradeEntry> entries = gradeEntryRepository.findBySchoolClassIdAndStudentId(classId, studentId).stream()
+                .filter(e -> e.getGradeComponent().getGradePeriod().getId().equals(gradePeriodId))
+                .toList();
+        Map<Long, GradeEntry> byComponentId = entries.stream()
+                .collect(Collectors.toMap(e -> e.getGradeComponent().getId(), e -> e));
+
+        BigDecimal weightedSum = BigDecimal.ZERO;
+        BigDecimal weightSum = BigDecimal.ZERO;
+        int entered = 0;
+        for (GradeComponent component : components) {
+            GradeEntry entry = byComponentId.get(component.getId());
+            if (entry == null) {
+                continue;
+            }
+            entered++;
+            weightedSum = weightedSum.add(entry.getScore().multiply(component.getWeightInPeriod()));
+            weightSum = weightSum.add(component.getWeightInPeriod());
+        }
+        BigDecimal average = weightSum.signum() == 0
+                ? null
+                : weightedSum.divide(weightSum, 2, RoundingMode.HALF_UP);
+        return new PeriodAverageResponse(classId, studentId, gradePeriodId, average, entered, components.size());
+    }
+
     // ===================== UC-53: Overall/Level theo kỳ đánh giá =====================
 
     /**
      * UC-53 Main Flow bước 3 (nhánh Overall/Level): lưu nguyên giá trị GV đã
-     * tính sẵn — hệ thống KHÔNG tự tính lại công thức. V39: cùng cơ chế
-     * hạn chỉnh sửa với enterGrade — xem Javadoc ở đó.
+     * tính sẵn — hệ thống KHÔNG tự tính lại công thức. Chỉ sửa được khi
+     * DRAFT/REJECTED (giống enterGrade), sửa xong quay về DRAFT.
      */
     @Transactional
     public GradePeriodResultResponse enterPeriodResult(Long classId, Long studentId, Long gradePeriodId,
@@ -380,8 +478,6 @@ public class GradeService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy kỳ đánh giá id=" + gradePeriodId));
         User actor = getUserOrThrow(actorUserId);
 
-        requireEditableOrOverride(classId, gradePeriodId, actorUserId);
-
         GradePeriodResult result = gradePeriodResultRepository
                 .findBySchoolClassIdAndStudentIdAndGradePeriodId(classId, studentId, gradePeriodId)
                 .orElse(null);
@@ -390,7 +486,14 @@ public class GradeService {
             result.setSchoolClass(schoolClass);
             result.setStudent(student);
             result.setGradePeriod(period);
+        } else if (result.getStatus() != GradePeriodResult.Status.DRAFT
+                && result.getStatus() != GradePeriodResult.Status.REJECTED) {
+            throw new GradeEntryNotEditableException(
+                    "Bản ghi Overall/Level id=" + result.getId() + " đang ở trạng thái " + result.getStatus()
+                            + " — chỉ sửa được khi DRAFT hoặc REJECTED.");
         }
+        result.setStatus(GradePeriodResult.Status.DRAFT);
+        result.setApprovalFlow(null);
         result.setOverallScore(request.overallScore());
         if (request.scaleType() != null) {
             result.setScaleType(GradePeriodResult.ScaleType.valueOf(request.scaleType()));
@@ -400,10 +503,7 @@ public class GradeService {
         result.setImportJob(importJob);
         result.setEnteredBy(actor);
         result.setEnteredAt(OffsetDateTime.now());
-        result = gradePeriodResultRepository.save(result);
-
-        ensureEditWindowStarted(classId, gradePeriodId);
-        return result;
+        return gradePeriodResultRepository.save(result);
     }
 
     @Transactional(readOnly = true)
@@ -412,39 +512,40 @@ public class GradeService {
                 .stream().map(this::toResponse).toList();
     }
 
-    // ===================== UC-20: Công bố điểm (SITE_MANAGER + HEAD_ACADEMIC) =====================
+    // ===================== UC-20: Duyệt điểm (SITE_MANAGER + HEAD_ACADEMIC) =====================
 
     /**
-     * Main Flow bước 1: danh sách điểm chưa công bố. Yêu cầu quyền
-     * academic.grade.publish (bổ sung ngoài SDD gốc, đã xác nhận với
+     * Main Flow bước 1: danh sách điểm Chờ duyệt. Yêu cầu quyền
+     * academic.grade.approve (bổ sung ngoài SDD gốc, đã xác nhận với
      * người dùng). Nếu actor có thêm academic.grade.manage (Trưởng phòng
      * đào tạo) thì thấy MỌI site; ngược lại (Quản lý điểm trường) chỉ
      * thấy (các) điểm trường mình được gán phụ trách.
      */
     @Transactional(readOnly = true)
-    public List<GradeEntryResponse> listUnpublishedForSite(Long actorUserId) {
-        requireGradePublishPermission(actorUserId);
+    public List<GradeEntryResponse> listPendingForSite(Long actorUserId) {
+        requireGradeApprovePermission(actorUserId);
         if (permissionEvaluationService.hasPermission(actorUserId, "academic.grade.manage")) {
-            return gradeEntryRepository.findByStatusOrderByEnteredAtAsc(GradeEntry.Status.DRAFT)
+            return gradeEntryRepository.findByStatusOrderBySubmittedAtAsc(GradeEntry.Status.PENDING)
                     .stream().map(this::toResponse).toList();
         }
         List<Long> siteIds = siteManagerRepository
                 .findByUserIdAndRoleTypeAndAssignedToIsNull(actorUserId, SiteManager.RoleType.SITE_MANAGER).stream()
                 .map(sm -> sm.getSite().getId()).toList();
         return siteIds.stream()
-                .flatMap(siteId -> gradeEntryRepository.findByStatusAndSiteId(GradeEntry.Status.DRAFT, siteId).stream())
+                .flatMap(siteId -> gradeEntryRepository.findByStatusAndSiteId(GradeEntry.Status.PENDING, siteId).stream())
                 .map(this::toResponse)
                 .toList();
     }
 
     /**
-     * Main Flow bước 2-5: công bố điểm (DRAFT → PUBLISHED) — từ nay Phụ
-     * huynh/Học sinh xem được. V39: không còn nhánh từ chối — bản ghi đã
-     * PUBLISHED mà công bố lại thì báo lỗi ({@link GradeAlreadyPublishedException}).
+     * Main Flow bước 2-5, A1 (duyệt tách lẻ — truyền đúng 1 id): quyết định
+     * APPROVED (công khai cho Phụ huynh) hoặc REJECTED (trả về Giáo viên —
+     * UC-19 A2).
      */
     @Transactional
-    public List<GradeEntryResponse> publishGrades(PublishGradesRequest request, Long actorUserId) {
+    public List<GradeEntryResponse> decideGrades(DecideGradesRequest request, Long actorUserId) {
         User actor = getUserOrThrow(actorUserId);
+        ApprovalFlow.Decision decision = ApprovalFlow.Decision.valueOf(request.decision());
         List<Long> entryIds = request.gradeEntryIds() == null ? List.of() : request.gradeEntryIds();
         List<Long> resultIds = request.gradePeriodResultIds() == null ? List.of() : request.gradePeriodResultIds();
         if (entryIds.isEmpty() && resultIds.isEmpty()) {
@@ -459,27 +560,51 @@ public class GradeService {
             throw new ResourceNotFoundException("Có bản ghi Overall/Level không tồn tại trong danh sách gradePeriodResultIds.");
         }
 
-        requireGradePublishPermission(actorUserId);
+        requireGradeApprovePermission(actorUserId);
         OffsetDateTime now = OffsetDateTime.now();
         for (GradeEntry entry : entries) {
-            requireCanPublishGrades(entry.getSchoolClass().getSite().getId(), actorUserId);
-            if (entry.getStatus() == GradeEntry.Status.PUBLISHED) {
-                throw new GradeAlreadyPublishedException(
-                        "Bản ghi điểm id=" + entry.getId() + " đã được công bố trước đó.");
+            requireCanApproveGrades(entry.getSchoolClass().getSite().getId(), actorUserId);
+            if (entry.getStatus() != GradeEntry.Status.PENDING) {
+                throw new ApprovalAlreadyDecidedException(
+                        "Bản ghi điểm id=" + entry.getId() + " đã được quyết định (" + entry.getStatus() + ").");
             }
-            entry.setStatus(GradeEntry.Status.PUBLISHED);
-            entry.setPublishedBy(actor);
-            entry.setPublishedAt(now);
+            ApprovalFlow flow = entry.getApprovalFlow();
+            flow.setDecision(decision);
+            flow.setApprover(actor);
+            flow.setComment(request.comment());
+            flow.setDecidedAt(now);
+
+            if (decision == ApprovalFlow.Decision.APPROVED) {
+                flow.setStatus(ApprovalFlow.Status.APPROVED);
+                entry.setStatus(GradeEntry.Status.APPROVED);
+                entry.setApprovedBy(actor);
+                entry.setApprovedAt(now);
+            } else {
+                flow.setStatus(ApprovalFlow.Status.REJECTED);
+                entry.setStatus(GradeEntry.Status.REJECTED);
+            }
         }
         for (GradePeriodResult result : results) {
-            requireCanPublishGrades(result.getSchoolClass().getSite().getId(), actorUserId);
-            if (result.getStatus() == GradePeriodResult.Status.PUBLISHED) {
-                throw new GradeAlreadyPublishedException(
-                        "Bản ghi Overall/Level id=" + result.getId() + " đã được công bố trước đó.");
+            requireCanApproveGrades(result.getSchoolClass().getSite().getId(), actorUserId);
+            if (result.getStatus() != GradePeriodResult.Status.PENDING) {
+                throw new ApprovalAlreadyDecidedException(
+                        "Bản ghi Overall/Level id=" + result.getId() + " đã được quyết định (" + result.getStatus() + ").");
             }
-            result.setStatus(GradePeriodResult.Status.PUBLISHED);
-            result.setPublishedBy(actor);
-            result.setPublishedAt(now);
+            ApprovalFlow flow = result.getApprovalFlow();
+            flow.setDecision(decision);
+            flow.setApprover(actor);
+            flow.setComment(request.comment());
+            flow.setDecidedAt(now);
+
+            if (decision == ApprovalFlow.Decision.APPROVED) {
+                flow.setStatus(ApprovalFlow.Status.APPROVED);
+                result.setStatus(GradePeriodResult.Status.APPROVED);
+                result.setApprovedBy(actor);
+                result.setApprovedAt(now);
+            } else {
+                flow.setStatus(ApprovalFlow.Status.REJECTED);
+                result.setStatus(GradePeriodResult.Status.REJECTED);
+            }
         }
         gradePeriodResultRepository.saveAll(results);
         List<GradeEntry> saved = gradeEntryRepository.saveAll(entries);
@@ -515,62 +640,15 @@ public class GradeService {
     }
 
     /**
-     * UC-19 A2 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng): actor
-     * sửa được điểm của (lớp, kỳ đánh giá) này nếu (a) có quyền
-     * academic.grade.edit.override (ngoại lệ, gán được cho bất kỳ ai qua
-     * UC-04 — mặc định HEAD_ACADEMIC + SITE_MANAGER, V39), HOẶC (b) chưa
-     * hết hạn X ngày kể từ lần đầu nhập cho (lớp, kỳ) này
-     * (grade_period_edit_windows, số ngày X đọc từ
-     * {@link AcademicSettingsService#gradeEditWindowDays()}). Nếu (lớp,
-     * kỳ) chưa từng có mốc (lần đầu nhập) thì luôn cho phép.
-     */
-    private void requireEditableOrOverride(Long classId, Long gradePeriodId, Long actorUserId) {
-        if (permissionEvaluationService.hasPermission(actorUserId, "academic.grade.edit.override")) {
-            return;
-        }
-        gradePeriodEditWindowRepository.findBySchoolClassIdAndGradePeriodId(classId, gradePeriodId)
-                .ifPresent(window -> {
-                    int days = academicSettingsService.gradeEditWindowDays();
-                    OffsetDateTime deadline = window.getFirstEnteredAt().plusDays(days);
-                    if (OffsetDateTime.now().isAfter(deadline)) {
-                        throw new GradeEditWindowExpiredException(
-                                "Đã hết hạn " + days + " ngày chỉnh sửa điểm của lớp id=" + classId
-                                        + ", kỳ đánh giá id=" + gradePeriodId + " (kể từ " + window.getFirstEnteredAt() + ").");
-                    }
-                });
-    }
-
-    /**
-     * V39: đánh dấu mốc "lần đầu nhập điểm" cho (lớp, kỳ đánh giá) nếu
-     * chưa có — làm gốc tính hạn X ngày (UC-19 A2). Ghi 1 lần duy nhất,
-     * gọi lại sau đó là no-op. Bắt DataIntegrityViolationException để
-     * an toàn khi 2 bản ghi cùng lô import (UC-53) cùng cố tạo mốc.
-     */
-    private void ensureEditWindowStarted(Long classId, Long gradePeriodId) {
-        if (gradePeriodEditWindowRepository.existsBySchoolClassIdAndGradePeriodId(classId, gradePeriodId)) {
-            return;
-        }
-        try {
-            GradePeriodEditWindow window = new GradePeriodEditWindow();
-            window.setSchoolClass(getClassOrThrow(classId));
-            window.setGradePeriod(gradePeriodRepository.getReferenceById(gradePeriodId));
-            window.setFirstEnteredAt(OffsetDateTime.now());
-            gradePeriodEditWindowRepository.save(window);
-        } catch (DataIntegrityViolationException ignored) {
-            // Race trong cùng batch import: bản ghi khác đã tạo mốc trước (UNIQUE class_id+grade_period_id).
-        }
-    }
-
-    /**
      * UC-20 Precondition (mở rộng, bổ sung ngoài SDD gốc, đã xác nhận với
-     * người dùng): actor phải có quyền academic.grade.publish (kiểm tra
-     * riêng ở {@link #requireGradePublishPermission}, gọi 1 lần cho cả
+     * người dùng): actor phải có quyền academic.grade.approve (kiểm tra
+     * riêng ở {@link #requireGradeApprovePermission}, gọi 1 lần cho cả
      * lô trước khi lặp từng bản ghi). Nếu actor còn có
-     * academic.grade.manage (Trưởng phòng đào tạo) thì công bố được MỌI
-     * site, không giới hạn; ngược lại (Quản lý điểm trường) chỉ công bố
+     * academic.grade.manage (Trưởng phòng đào tạo) thì duyệt được MỌI
+     * site, không giới hạn; ngược lại (Quản lý điểm trường) chỉ duyệt
      * được đúng site mình được gán phụ trách (site_managers, row-level).
      */
-    private void requireCanPublishGrades(Long siteId, Long actorUserId) {
+    private void requireCanApproveGrades(Long siteId, Long actorUserId) {
         if (permissionEvaluationService.hasPermission(actorUserId, "academic.grade.manage")) {
             return;
         }
@@ -582,10 +660,10 @@ public class GradeService {
     }
 
     /** UC-20 Precondition — cổng quyền chung, kiểm tra 1 lần trước khi xử lý cả lô (áp dụng cho cả entries và results). */
-    private void requireGradePublishPermission(Long actorUserId) {
-        if (!permissionEvaluationService.hasPermission(actorUserId, "academic.grade.publish")) {
+    private void requireGradeApprovePermission(Long actorUserId) {
+        if (!permissionEvaluationService.hasPermission(actorUserId, "academic.grade.approve")) {
             throw new NotSiteManagerForSiteException(
-                    "Tài khoản id=" + actorUserId + " không có quyền academic.grade.publish.");
+                    "Tài khoản id=" + actorUserId + " không có quyền academic.grade.approve.");
         }
     }
 
@@ -631,6 +709,7 @@ public class GradeService {
         Map<String, Object> snapshot = new LinkedHashMap<>();
         snapshot.put("code", component.getCode().name());
         snapshot.put("name", component.getName());
+        snapshot.put("weightInPeriod", component.getWeightInPeriod());
         snapshot.put("maxScore", component.getMaxScore());
         history.setDetails(snapshot);
         gradeComponentHistoryRepository.save(history);
@@ -659,7 +738,7 @@ public class GradeService {
         return new GradeComponentResponse(
                 c.getId(), c.getGradePeriod().getId(), c.getSubject() == null ? null : c.getSubject().getId(),
                 c.getSkill() == null ? null : c.getSkill().getId(),
-                c.getCode().name(), c.getName(), c.getMaxScore(), c.getPassThreshold(),
+                c.getCode().name(), c.getName(), c.getWeightInPeriod(), c.getMaxScore(), c.getPassThreshold(),
                 c.getScaleType().name(), c.getDisplayOrder());
     }
 
@@ -667,8 +746,8 @@ public class GradeService {
         return new GradeEntryResponse(
                 e.getId(), e.getSchoolClass().getId(), e.getStudent().getId(), e.getStudent().getUser().getFullName(),
                 e.getStudent().getStudentCode(), e.getGradeComponent().getId(), e.getScore(), e.isAbsenceFlag(),
-                e.getTeacherNote(), e.getStatus().name(), e.getEnteredBy().getId(),
-                e.getPublishedBy() == null ? null : e.getPublishedBy().getId(), e.getPublishedAt());
+                e.getTeacherNote(), e.getStatus().name(), e.getEnteredBy().getId(), e.getSubmittedAt(),
+                e.getApprovedBy() == null ? null : e.getApprovedBy().getId(), e.getApprovedAt());
     }
 
     private GradePeriodResultResponse toResponse(GradePeriodResult r) {
@@ -677,7 +756,7 @@ public class GradeService {
                 r.getStudent().getUser().getFullName(), r.getStudent().getStudentCode(),
                 r.getGradePeriod().getId(), r.getOverallScore(), r.getScaleType().name(), r.getLevel(),
                 r.getSource().name(), r.getImportJob() == null ? null : r.getImportJob().getId(),
-                r.getStatus().name(), r.getEnteredBy().getId(),
-                r.getPublishedBy() == null ? null : r.getPublishedBy().getId(), r.getPublishedAt());
+                r.getStatus().name(), r.getEnteredBy().getId(), r.getSubmittedAt(),
+                r.getApprovedBy() == null ? null : r.getApprovedBy().getId(), r.getApprovedAt());
     }
 }

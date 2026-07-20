@@ -10,8 +10,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import vn.com.pps.education.dto.BulkCreateClassSessionRequest;
-import vn.com.pps.education.dto.BulkCreateClassSessionResponse;
 import vn.com.pps.education.dto.CancelClassSessionRequest;
 import vn.com.pps.education.dto.ClassSessionResponse;
 import vn.com.pps.education.dto.CreateClassSessionRequest;
@@ -45,15 +43,6 @@ public class ClassSessionController {
                                                                   @Valid @RequestBody CreateClassSessionRequest request,
                                                                   @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(classSessionService.createSession(classId, request, actor.userId()));
-    }
-
-    /** UC-56: Sinh lịch học hàng loạt theo mẫu lặp (FR-ACA-05, bổ sung ngoài SDD gốc, đã xác nhận với người dùng). */
-    @PreAuthorize("hasPermission(null, 'academic.class.manage')")
-    @PostMapping("/bulk")
-    public ResponseEntity<BulkCreateClassSessionResponse> bulkCreateSessions(@PathVariable Long classId,
-                                                                              @Valid @RequestBody BulkCreateClassSessionRequest request,
-                                                                              @AuthenticationPrincipal AuthenticatedUser actor) {
-        return ResponseEntity.ok(classSessionService.bulkCreateSessions(classId, request, actor.userId()));
     }
 
     @GetMapping("/{classSessionId}/periods")
