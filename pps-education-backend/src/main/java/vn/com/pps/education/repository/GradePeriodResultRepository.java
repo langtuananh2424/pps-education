@@ -11,4 +11,7 @@ public interface GradePeriodResultRepository extends JpaRepository<GradePeriodRe
     Optional<GradePeriodResult> findBySchoolClassIdAndStudentIdAndGradePeriodId(Long classId, Long studentId, Long gradePeriodId);
 
     List<GradePeriodResult> findBySchoolClassIdAndGradePeriodIdOrderByStudentId(Long classId, Long gradePeriodId);
+
+    /** GradeSchedulerService: mọi grade_period_results còn DRAFT của 1 (lớp, kỳ đánh giá). */
+    List<GradePeriodResult> findBySchoolClassIdAndGradePeriodIdAndStatus(Long classId, Long gradePeriodId, GradePeriodResult.Status status);
 }

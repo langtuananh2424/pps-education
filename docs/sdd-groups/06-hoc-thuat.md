@@ -994,6 +994,22 @@ ghi qua PUT cùng đường dẫn (quyền academic.grade.manage) ---
 AcademicSettingsController, API hẹp riêng cho đúng setting này (không
 xây SystemSettingsController tổng quát).
 
+**GradeSchedulerService (UC-20/A3, bổ sung ngoài SDD gốc, đã xác nhận
+với người dùng):** cron job `@Scheduled(cron = "0 0 3 * * *")` (03:00
+hàng đêm) — quét toàn bộ `grade_period_edit_windows` có
+`first_entered_at < now() - X ngày` (dùng đúng
+`academic.grade_edit_window_days` ở trên, không phải setting riêng),
+với mỗi (class_id, grade_period_id) khớp: chuyển mọi
+`grade_entries`/`grade_period_results` còn `status=DRAFT` của đúng cặp
+đó sang `PUBLISHED`, `published_at=now()`, **`published_by=NULL`**
+(phân biệt với công bố thủ công luôn có `published_by`). Đây là cơ chế
+**song song** với công bố thủ công (`GradeService#publishGrades`), TỰ
+ĐỘNG kích hoạt khi không ai công bố tay — không thay thế, không tắt đi
+khả năng công bố thủ công trước hạn. Không ghi `grade_entries_history`
+cho hành động này (cột `changed_by` NOT NULL, không có actor người
+dùng tương ứng) — `published_at`/`published_by=NULL` trên chính bản ghi
+đã đủ làm tín hiệu audit phân biệt tự động/thủ công.
+
 d)  Bảng grade_final_summaries --- Điểm tổng kết học phần
 
 Snapshot chốt cuối cùng --- bảo toàn dữ liệu lịch sử ngay cả khi cấu
