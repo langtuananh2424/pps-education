@@ -116,10 +116,10 @@ class GradeImportServiceTest extends AbstractIntegrationTest {
         gradePeriod = gradeService.createGradePeriod(activeCurriculum.id(),
                 new CreateGradePeriodRequest("MID_1", "Giữa kỳ 1", 1, new BigDecimal("50"), null, null), headAcademic.getId());
         speaking = gradeService.addGradeComponent(gradePeriod.id(),
-                new CreateGradeComponentRequest(null, null, "SPEAKING", "Nói", new BigDecimal("50"), new BigDecimal("10.00"), null, null, 1),
+                new CreateGradeComponentRequest(null, null, "SPEAKING", "Nói", new BigDecimal("10.00"), null, null, 1),
                 headAcademic.getId());
         writing = gradeService.addGradeComponent(gradePeriod.id(),
-                new CreateGradeComponentRequest(null, null, "WRITING", "Viết", new BigDecimal("50"), new BigDecimal("10.00"), null, null, 2),
+                new CreateGradeComponentRequest(null, null, "WRITING", "Viết", new BigDecimal("10.00"), null, null, 2),
                 headAcademic.getId());
 
         student1 = newStudent();

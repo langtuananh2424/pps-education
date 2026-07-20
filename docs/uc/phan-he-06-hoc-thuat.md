@@ -63,20 +63,22 @@ UC-16: Quản lý khung chương trình
 |                 |     không cần chờ quy trình tùy biến + phê duyệt   |
 |                 |     đầy đủ.                                        |
 |                 |                                                    |
-|                 | 2.  Hệ thống kiểm tra tổng weight_in_period của tất|
-|                 |     cả thành phần điểm cùng kỳ đánh giá đó (kể cả  |
-|                 |     thành phần vừa thêm) không vượt quá 100; nếu   |
-|                 |     vượt, chặn lưu và báo lỗi.                     |
-|                 |                                                    |
-|                 | 3.  Vì kỳ đánh giá thuộc về khung chương trình dùng |
+|                 | 2.  Vì kỳ đánh giá thuộc về khung chương trình dùng |
 |                 |     chung (curriculum_id), thành phần điểm mới sẽ  |
 |                 |     áp dụng cho MỌI lớp đang dùng khung đó (không  |
 |                 |     tách riêng theo từng lớp) — đúng bản chất khung|
 |                 |     chuẩn dùng chung.                              |
+|                 |                                                    |
+|                 | *(V40 --- bổ sung ngoài SDD gốc, đã xác nhận với   |
+|                 | người dùng: đã bỏ hẳn cột weight_in_period cấp     |
+|                 | thành phần điểm — không còn bước validate tổng     |
+|                 | trọng số ≤ 100 ở đây. Overall/Level công bố cho    |
+|                 | Phụ huynh (UC-53) luôn do Giáo viên tự nhập/import  |
+|                 | Excel, không tính lại theo trọng số thành phần.)*  |
 +-----------------+----------------------------------------------------+
 | **Hậu điều kiện | -   Khung chương trình chuẩn được cập nhật, sẵn    |
-| (P              |     sàng làm cơ sở xếp lớp (UC-18) và tính điểm    |
-| ostcondition)** |     trung bình (UC-19).                            |
+| (P              |     sàng làm cơ sở xếp lớp (UC-18) và nhập điểm    |
+| ostcondition)** |     (UC-19).                                       |
 +-----------------+----------------------------------------------------+
 
 ---
@@ -366,7 +368,7 @@ UC-48: Xếp lịch buổi học
 |                 | SCHEDULED với thông tin mới; đồng thời chuyển buổi |
 |                 | cũ sang trạng thái RESCHEDULED và liên kết sang    |
 |                 | buổi mới vừa tạo. Chỉ áp dụng cho buổi đang        |
-|                 | SCHEDULED.                                         |
+|                 | SCHEDULED.                                          |
 +-----------------+----------------------------------------------------+
 | **Hậu điều kiện | - class_sessions/session_periods phản ánh đúng     |
 | (P              | lịch học hiện hành của lớp, là dữ liệu tham chiếu  |
@@ -375,6 +377,206 @@ UC-48: Xếp lịch buổi học
 |                 |                                                    |
 |                 | - class_sessions_history/session_periods_history   |
 |                 | lưu đầy đủ lịch sử tạo/hủy/dời lịch.               |
++-----------------+----------------------------------------------------+
+
+---
+
+UC-56: Sinh lịch học hàng loạt theo mẫu lặp
+
++-----------------+----------------------------------------------------+
+| **Mã Use Case** | UC-56                                              |
++-----------------+----------------------------------------------------+
+| **Tên Use       | Sinh lịch học hàng loạt theo mẫu lặp               |
+| Case**          |                                                    |
++-----------------+----------------------------------------------------+
+| **Phân hệ**     | Phân hệ 6                                          |
++-----------------+----------------------------------------------------+
+| **Yêu cầu chức  | FR-ACA-05                                          |
+| năng gốc**      |                                                    |
++-----------------+----------------------------------------------------+
+| **Tác nhân**    | Nhân viên (Giáo vụ), Trưởng phòng đào tạo          |
++-----------------+----------------------------------------------------+
+| **Mô tả tóm     | Sinh nhanh nhiều buổi học cùng lúc theo mẫu lặp    |
+| tắt**           | lại (khoảng ngày + các thứ trong tuần cố định +    |
+|                 | khung giờ chung), thay vì phải tạo từng buổi một   |
+|                 | qua UC-48. Dùng lại đúng logic tạo 1 buổi + kiểm   |
+|                 | tra trùng phòng của UC-48 (bổ sung ngoài SDD gốc,  |
+|                 | đã xác nhận với người dùng).                       |
++-----------------+----------------------------------------------------+
+| **Sự kiện kích  | Lớp học đã khởi tạo (UC-18) cần lịch học đều đặn   |
+| hoạt**          | theo tuần trong 1 khoảng thời gian dài (VD học Thứ |
+|                 | 2/4/6 suốt học kỳ), không muốn tạo tay từng buổi.  |
++-----------------+----------------------------------------------------+
+| **Điều kiện     | -   Người thao tác có quyền academic.class.manage  |
+| tiên quyết      |     (giống UC-48).                                 |
+| (               |                                                    |
+| Precondition)** | -   Lớp học đích đã tồn tại (UC-18).               |
+|                 |                                                    |
+|                 | -   Nếu có chỉ định phòng: phòng đã tồn tại        |
+|                 |     (UC-37).                                       |
++-----------------+----------------------------------------------------+
+| **Luồng sự kiện | 1.  Người dùng chọn lớp học, nhập khoảng ngày (từ  |
+| chính (Main     |     ngày, đến ngày), danh sách thứ trong tuần lặp  |
+| Flow)**         |     lại (VD Thứ 2/4/6), khung giờ bắt đầu/kết thúc |
+|                 |     chung, loại buổi, giáo viên phụ trách, phòng   |
+|                 |     học (tùy chọn).                                |
+|                 |                                                    |
+|                 | 2.  Với mỗi ngày trong khoảng khớp 1 trong các thứ |
+|                 |     đã chọn, hệ thống thử tạo 1 buổi học — áp dụng |
+|                 |     đúng bước 2-3 của UC-48 (kiểm tra trùng phòng  |
+|                 |     nếu có chỉ định phòng không linh hoạt, lưu     |
+|                 |     SCHEDULED, tự sinh session_periods).           |
+|                 |                                                    |
+|                 | 3.  Hệ thống trả về danh sách buổi đã tạo thành    |
+|                 |     công và danh sách ngày bị bỏ qua kèm lý do     |
+|                 |     (nếu có).                                      |
++-----------------+----------------------------------------------------+
+| **Luồng thay    | ***A1 --- 1 hoặc nhiều ngày trùng phòng***         |
+| thế / ngoại lệ  |                                                    |
+| (Alternate      | 1.  Ngày nào phát hiện trùng phòng (như UC-48/A1)  |
+| Flow)**         |     bị bỏ qua, ghi lại lý do; các ngày khác trong  |
+|                 |     lô vẫn tiếp tục xử lý bình thường, không dừng  |
+|                 |     cả lô (bổ sung ngoài SDD gốc, đã xác nhận với  |
+|                 |     người dùng).                                   |
++-----------------+----------------------------------------------------+
+| **Hậu điều kiện | -   Mỗi ngày khớp mẫu lặp và không trùng phòng có  |
+| (P              |     1 class_session mới (SCHEDULED) +              |
+| ostcondition)** |     session_periods tương ứng, giống hệt kết quả   |
+|                 |     UC-48 Main Flow.                               |
+|                 |                                                    |
+|                 | -   Response liệt kê rõ tổng số ngày khớp mẫu, số  |
+|                 |     buổi tạo thành công, số ngày bị bỏ qua kèm lý  |
+|                 |     do — người dùng biết ngay cần xử lý thủ công   |
+|                 |     ngày nào.                                      |
++-----------------+----------------------------------------------------+
+
+---
+
+UC-57: Nhập lịch học qua Excel
+
++-----------------+----------------------------------------------------+
+| **Mã Use Case** | UC-57                                              |
++-----------------+----------------------------------------------------+
+| **Tên Use       | Nhập lịch học qua Excel                            |
+| Case**          |                                                    |
++-----------------+----------------------------------------------------+
+| **Phân hệ**     | Phân hệ 6                                          |
++-----------------+----------------------------------------------------+
+| **Yêu cầu chức  | FR-ACA-05                                          |
+| năng gốc**      |                                                    |
++-----------------+----------------------------------------------------+
+| **Tác nhân**    | Nhân viên (Giáo vụ), Trưởng phòng đào tạo          |
++-----------------+----------------------------------------------------+
+| **Mô tả tóm     | Nhập hàng loạt buổi học từ file Excel (.xlsx) đã   |
+| tắt**           | chuẩn bị sẵn ngoài hệ thống, thay vì nhập tay từng |
+|                 | buổi hoặc theo mẫu lặp đều (UC-56) — phù hợp lịch  |
+|                 | không đều theo tuần. Dùng lại đúng logic tạo 1     |
+|                 | buổi + kiểm tra trùng phòng của UC-48, theo        |
+|                 | pattern nhập Excel dùng chung đã có ở              |
+|                 | UC-35/50/51/53 (bổ sung ngoài SDD gốc, đã xác nhận |
+|                 | với người dùng).                                   |
++-----------------+----------------------------------------------------+
+| **Sự kiện kích  | Người dùng đã có sẵn lịch học soạn ngoài hệ thống  |
+| hoạt**          | (Excel), muốn import thẳng thay vì nhập tay.       |
++-----------------+----------------------------------------------------+
+| **Điều kiện     | -   Người thao tác có quyền academic.class.manage  |
+| tiên quyết      |     (giống UC-48).                                 |
+| (               |                                                    |
+| Precondition)** | -   Lớp học đích đã tồn tại (UC-18).               |
+|                 |                                                    |
+|                 | -   File .xlsx đúng định dạng cột quy định (xem    |
+|                 |     Main Flow bước 1).                             |
++-----------------+----------------------------------------------------+
+| **Luồng sự kiện | 1.  Người dùng chọn lớp học, tải lên file .xlsx    |
+| chính (Main     |     theo định dạng cột quy định (dòng 1 = tiêu đề, |
+| Flow)**         |     dữ liệu từ dòng 2): A=Ngày (dd/MM/yyyy), B=Giờ |
+|                 |     bắt đầu (HH:mm), C=Giờ kết thúc (HH:mm),       |
+|                 |     D=Loại buổi (để trống = REGULAR), E=Username   |
+|                 |     giáo viên phụ trách (bắt buộc), F=Mã phòng     |
+|                 |     (tùy chọn, tra theo đúng điểm trường của lớp). |
+|                 |                                                    |
+|                 | 2.  Hệ thống tạo bản ghi import_jobs               |
+|                 |     (import_type=TEACHING_SCHEDULE), xử lý từng    |
+|                 |     dòng: parse ngày/giờ, tìm giáo viên theo       |
+|                 |     username, tìm phòng theo mã (nếu có), áp dụng  |
+|                 |     đúng bước 2-3 của UC-48 (kiểm tra trùng phòng, |
+|                 |     lưu SCHEDULED, tự sinh session_periods) cho    |
+|                 |     mỗi dòng hợp lệ.                               |
+|                 |                                                    |
+|                 | 3.  Hệ thống trả về kết quả tổng hợp: tổng số      |
+|                 |     dòng, số dòng thành công, số dòng lỗi, chi     |
+|                 |     tiết lỗi từng dòng.                            |
++-----------------+----------------------------------------------------+
+| **Luồng thay    | ***A2 --- 1 dòng lỗi không chặn dòng khác***       |
+| thế / ngoại lệ  |                                                    |
+| (Alternate      | 1.  Dòng thiếu giáo viên, sai định dạng ngày/giờ,  |
+| Flow)**         |     không tìm thấy giáo viên/phòng theo mã, hoặc   |
+|                 |     trùng phòng: dòng đó bị bỏ qua, ghi lý do vào  |
+|                 |     error_summary; các dòng khác trong file vẫn    |
+|                 |     tiếp tục xử lý bình thường, không dừng cả      |
+|                 |     file.                                          |
+|                 |                                                    |
+|                 | ***A3 --- File sai định dạng***                    |
+|                 |                                                    |
+|                 | 1.  File không mở được dưới dạng .xlsx hợp lệ,     |
+|                 |     hoặc thiếu dòng tiêu đề: import_jobs chuyển    |
+|                 |     ngay trạng thái FAILED, không xử lý dòng nào.  |
++-----------------+----------------------------------------------------+
+| **Hậu điều kiện | -   Mỗi dòng hợp lệ có 1 class_session mới         |
+| (P              |     (SCHEDULED) + session_periods tương ứng, giống |
+| ostcondition)** |     hệt kết quả UC-48 Main Flow.                   |
+|                 |                                                    |
+|                 | -   import_jobs lưu đầy đủ tổng số dòng/số dòng    |
+|                 |     thành công/lỗi/chi tiết lỗi từng dòng — trạng  |
+|                 |     thái COMPLETED (không lỗi), PARTIAL_SUCCESS    |
+|                 |     (có ít nhất 1 lỗi dòng), hoặc FAILED (A3).     |
++-----------------+----------------------------------------------------+
+
+---
+
+UC-58: Xem lịch dạy tổng hợp ("Lịch của tôi")
+
++-----------------+----------------------------------------------------+
+| **Mã Use Case** | UC-58                                              |
++-----------------+----------------------------------------------------+
+| **Tên Use       | Xem lịch dạy tổng hợp ("Lịch của tôi")             |
+| Case**          |                                                    |
++-----------------+----------------------------------------------------+
+| **Phân hệ**     | Phân hệ 6                                          |
++-----------------+----------------------------------------------------+
+| **Yêu cầu chức  | FR-ACA-05                                          |
+| năng gốc**      |                                                    |
++-----------------+----------------------------------------------------+
+| **Tác nhân**    | Giáo viên                                          |
++-----------------+----------------------------------------------------+
+| **Mô tả tóm     | Giáo viên xem tổng hợp mọi buổi dạy của chính mình |
+| tắt**           | qua TẤT CẢ các lớp đang phụ trách (không giới hạn  |
+|                 | theo 1 lớp/1 điểm trường như UC-48 hiện có), lọc   |
+|                 | theo khoảng ngày tùy chọn — self-service, không    |
+|                 | cần quyền academic.class.manage (bổ sung ngoài SDD |
+|                 | gốc, đã xác nhận với người dùng).                  |
++-----------------+----------------------------------------------------+
+| **Sự kiện kích  | Giáo viên cần xem lịch dạy sắp tới/đã qua của      |
+| hoạt**          | chính mình để chủ động sắp xếp.                    |
++-----------------+----------------------------------------------------+
+| **Điều kiện     | -   Giáo viên đã đăng nhập (không cần quyền đặc    |
+| tiên quyết      |     biệt nào khác).                                |
+| (               |                                                    |
+| Precondition)** |                                                    |
++-----------------+----------------------------------------------------+
+| **Luồng sự kiện | 1.  Giáo viên mở trang "Lịch của tôi", có thể chọn |
+| chính (Main     |     khoảng ngày (từ ngày, đến ngày) để lọc, để     |
+| Flow)**         |     trống = xem toàn bộ.                           |
+|                 |                                                    |
+|                 | 2.  Hệ thống trả về mọi buổi học (qua mọi lớp, mọi |
+|                 |     điểm trường) mà Giáo viên này là               |
+|                 |     primary_teacher của buổi, khớp khoảng ngày đã  |
+|                 |     chọn, sắp xếp theo ngày/giờ tăng dần.          |
++-----------------+----------------------------------------------------+
+| **Hậu điều kiện | -   Giáo viên thấy đúng và đủ các buổi mình phụ    |
+| (P              |     trách (không thấy buổi của giáo viên khác),    |
+| ostcondition)** |     không phụ thuộc site_teachers như UC-48        |
+|                 |     listSessions theo lớp.                         |
 +-----------------+----------------------------------------------------+
 
 ---
@@ -394,79 +596,99 @@ UC-19: Nhập điểm
 +-----------------+----------------------------------------------------+
 | **Tác nhân**    | Giáo viên                                          |
 +-----------------+----------------------------------------------------+
-| **Mô tả tóm     | Giáo viên nhập điểm thành phần cho học sinh; hệ    |
-| tắt**           | thống tự động tính điểm trung bình học phần theo   |
-|                 | công thức cấu hình sẵn.                            |
+| **Mô tả tóm     | Giáo viên nhập điểm thành phần cho học sinh, ghi   |
+| tắt**           | nhận ngay ở trạng thái nháp, không qua bước gửi    |
+|                 | duyệt riêng (V39 — bổ sung ngoài SDD gốc, đã xác   |
+|                 | nhận với người dùng, thay thế luồng Submit/Chờ     |
+|                 | duyệt cũ). Điểm tổng kết/Overall hiển thị cho Phụ  |
+|                 | huynh do Giáo viên tự nhập hoặc import Excel       |
+|                 | (UC-53), hệ thống không tự tính từ điểm thành phần |
+|                 | (V40 — bổ sung ngoài SDD gốc, đã xác nhận với      |
+|                 | người dùng).                                       |
 +-----------------+----------------------------------------------------+
-| **Sự kiện kích  | Đến kỳ nhập điểm cho lớp học phụ trách.            |
-| hoạt**          |                                                    |
+| **Sự kiện kích  | Đến kỳ nhập điểm cho lớp học phụ trách; hoặc cần   |
+| hoạt**          | sửa lại điểm đã nhập, kể cả sau khi đã công bố     |
+|                 | (UC-20), nếu còn trong hạn cho phép.               |
 +-----------------+----------------------------------------------------+
 | **Điều kiện     | -   Giáo viên được phân công giảng dạy lớp cần     |
 | tiên quyết      |     nhập điểm (UC-18); HOẶC Trưởng phòng đào tạo   |
 | (               |     (quyền academic.grade.manage); HOẶC Quản lý    |
 | Precondition)** |     điểm trường phụ trách đúng điểm trường của lớp |
-|                 |     — được phép nhập/nộp thay giáo viên khi cần hỗ |
-|                 |     trợ (bổ sung ngoài SDD gốc, đã xác nhận với    |
-|                 |     người dùng).                                   |
+|                 |     — được phép nhập thay giáo viên khi cần hỗ trợ |
+|                 |     (bổ sung ngoài SDD gốc, đã xác nhận với người  |
+|                 |     dùng).                                         |
 |                 |                                                    |
-|                 | -   Công thức tính điểm trung bình đã được cấu     |
-|                 |     hình trong khung chương trình (UC-16/17).      |
+|                 | -   Để sửa 1 bản ghi đã tồn tại (kể cả đã công bố  |
+|                 |     — PUBLISHED): còn trong hạn X ngày kể từ lần   |
+|                 |     đầu nhập điểm cho (lớp, kỳ đánh giá) đó        |
+|                 |     (system_settings.academic.grade_edit_window_days, |
+|                 |     mặc định 7 ngày — V39, bổ sung ngoài SDD gốc,  |
+|                 |     đã xác nhận với người dùng), HOẶC actor có     |
+|                 |     quyền academic.grade.edit.override (quyền      |
+|                 |     ngoại lệ, gán được cho bất kỳ ai qua UC-04 —   |
+|                 |     mặc định gán sẵn cho HEAD_ACADEMIC và          |
+|                 |     SITE_MANAGER).                                 |
 +-----------------+----------------------------------------------------+
 | **Luồng sự kiện | 1.  Giáo viên (hoặc người hỗ trợ hợp lệ ở trên) mở |
 | chính (Main     |     Sổ điểm của lớp, chọn cột điểm thành phần cần  |
 | Flow)**         |     nhập.                                          |
+|                 |                                                    |
 |                 | 2.  Giáo viên nhập điểm cho từng học sinh; hệ      |
 |                 |     thống kiểm tra tính hợp lệ (0 ≤ score ≤        |
 |                 |     max_score) ngay khi nhập, chặn lưu nếu không   |
 |                 |     hợp lệ.                                        |
 |                 |                                                    |
-|                 | 3.  Giáo viên có thể nhập rải rác nhiều lần, lưu ở |
-|                 |     trạng thái nháp (DRAFT) cho tới khi hoàn tất   |
-|                 |     toàn bộ lớp.                                   |
+|                 | 3.  Hệ thống ghi nhận điểm ngay ở trạng thái nháp  |
+|                 |     (DRAFT) — không có bước gửi duyệt riêng; Giáo  |
+|                 |     viên có thể nhập/sửa rải rác nhiều lần.        |
 |                 |                                                    |
-|                 | 4.  Khi đã nhập xong toàn bộ lớp, Giáo viên chọn   |
-|                 |     Submit --- theo 1 trong 2 cách: Submit từng    |
-|                 |     bản ghi hoặc Submit theo lô (batch_id) cho     |
-|                 |     nhiều học sinh cùng lúc.                       |
-|                 |                                                    |
-|                 | 5.  Hệ thống tự động tính điểm trung bình học phần |
-|                 |     theo công thức cấu hình sẵn của Trưởng phòng   |
-|                 |     đào tạo.                                       |
-|                 |                                                    |
-|                 | 6.  Hệ thống chuyển các bản ghi điểm đã submit     |
-|                 |     sang trạng thái Chờ duyệt (approval_flows,     |
-|                 |     entity_type = GRADE_ENTRY) và thông báo Quản   |
-|                 |     lý điểm trường.                                |
+|                 | 4.  Nếu đây là lần đầu tiên (lớp, kỳ đánh giá) này |
+|                 |     có điểm được nhập, hệ thống ghi nhận mốc “lần  |
+|                 |     đầu nhập” (grade_period_edit_windows) — làm    |
+|                 |     gốc tính hạn X ngày toàn quyền chỉnh sửa.      |
 +-----------------+----------------------------------------------------+
 | **Luồng thay    | ***A1 --- Điểm nhập không hợp lệ***                |
 | thế / ngoại lệ  |                                                    |
-| (Alternate      | 1.  Nếu score ngoài khoảng \[0, max_score\], hệ    |
+| (Alternate      | 1.  Nếu score ngoài khoảng [0, max_score], hệ      |
 | Flow)**         |     thống chặn lưu ngay tại phía Giáo viên, không  |
 |                 |     để lọt xuống database.                         |
 |                 |                                                    |
-|                 | ***A2 --- Điểm bị Quản lý điểm trường từ chối***   |
+|                 | ***A2 --- Hết hạn chỉnh sửa, không có quyền ngoại  |
+|                 | lệ (bổ sung ngoài SDD gốc, đã xác nhận với người   |
+|                 | dùng)***                                           |
 |                 |                                                    |
-|                 | 1.  Khi UC-20 trả kết quả REJECTED, bản ghi điểm   |
-|                 |     quay lại trạng thái cho Giáo viên sửa và       |
-|                 |     submit lại (vòng lặp).                         |
+|                 | 1.  Nếu actor sửa 1 bản ghi đã tồn tại mà đã quá   |
+|                 |     hạn X ngày kể từ lần đầu nhập cho (lớp, kỳ     |
+|                 |     đánh giá) đó, và actor không có quyền          |
+|                 |     academic.grade.edit.override, hệ thống chặn    |
+|                 |     lưu, báo rõ đã hết hạn kể từ ngày nào.         |
 +-----------------+----------------------------------------------------+
-| **Hậu điều kiện | -   Bản ghi điểm được lưu ở trạng thái Chờ duyệt,  |
-| (P              |     sẵn sàng cho UC-20.                            |
-| ostcondition)** |                                                    |
-|                 | -   Điểm trung bình học phần được tính toán tự     |
-|                 |     động, hiển thị tạm thời cho Giáo viên (chưa    |
-|                 |     công khai cho Phụ huynh cho tới khi được       |
-|                 |     duyệt).                                        |
+| **Hậu điều kiện | -   Bản ghi điểm được lưu ngay — DRAFT nếu là lần  |
+| (P              |     nhập đầu tiên, hoặc giữ nguyên trạng thái hiện |
+| ostcondition)** |     có (kể cả PUBLISHED) nếu là sửa lại bản ghi đã |
+|                 |     tồn tại.                                       |
+|                 |                                                    |
+|                 | -   Điểm tổng kết/Overall theo kỳ đánh giá         |
+|                 |     (grade_period_results) là 1 thao tác nhập liệu |
+|                 |     riêng của Giáo viên (UC-53) — hệ thống không   |
+|                 |     tự tính lại từ điểm thành phần vừa nhập ở đây  |
+|                 |     (V40 — bổ sung ngoài SDD gốc, đã xác nhận với  |
+|                 |     người dùng).                                   |
+|                 |                                                    |
+|                 | -   Nếu bản ghi đã PUBLISHED và còn trong hạn X    |
+|                 |     ngày (trường hợp phúc khảo), giá trị mới sửa   |
+|                 |     lại hiển thị NGAY cho Phụ huynh, không cần     |
+|                 |     công bố lại.                                   |
 +-----------------+----------------------------------------------------+
 
 ---
 
-UC-20: Duyệt điểm
+UC-20: Công bố điểm
 
 +-----------------+----------------------------------------------------+
 | **Mã Use Case** | UC-20                                              |
 +-----------------+----------------------------------------------------+
-| **Tên Use       | Duyệt điểm                                         |
+| **Tên Use       | Công bố điểm                                       |
 | Case**          |                                                    |
 +-----------------+----------------------------------------------------+
 | **Phân hệ**     | Phân hệ 6                                          |
@@ -480,55 +702,75 @@ UC-20: Duyệt điểm
 |                 |                                                    |
 |                 | (Liên quan/hỗ trợ: Giáo viên (người nhập))         |
 +-----------------+----------------------------------------------------+
-| **Mô tả tóm     | Quản lý điểm trường xem xét, duyệt hoặc từ chối    |
-| tắt**           | các bản ghi điểm do Giáo viên submit, có thể duyệt |
-|                 | từng bản ghi hoặc theo lô.                         |
+| **Mô tả tóm     | Quản lý điểm trường/Trưởng phòng đào tạo quyết     |
+| tắt**           | định thời điểm công bố điểm cho Phụ huynh/Học sinh |
+|                 | xem qua Portal — không còn kiểm duyệt đúng/sai như |
+|                 | trước, chỉ là mốc công khai dữ liệu (V39 — bổ sung |
+|                 | ngoài SDD gốc, đã xác nhận với người dùng, thay    |
+|                 | thế hoàn toàn khái niệm “Duyệt điểm” và luồng      |
+|                 | Approved/Rejected cũ).                             |
 +-----------------+----------------------------------------------------+
-| **Sự kiện kích  | Có bản ghi điểm ở trạng thái Chờ duyệt thuộc điểm  |
-| hoạt**          | trường phụ trách.                                  |
+| **Sự kiện kích  | Có bản ghi điểm ở trạng thái chưa công bố (DRAFT)  |
+| hoạt**          | thuộc điểm trường phụ trách, đã sẵn sàng công khai |
+|                 | cho Phụ huynh.                                     |
 +-----------------+----------------------------------------------------+
-| **Điều kiện     | -   Điểm đã được Giáo viên submit (UC-19).         |
-| tiên quyết      |                                                    |
-| (               | -   Actor có quyền academic.grade.approve (bổ sung |
-| Precondition)** |     ngoài SDD gốc, đã xác nhận với người dùng —    |
-|                 |     mặc định gán cho role SITE_MANAGER và          |
-|                 |     HEAD_ACADEMIC). Quản lý điểm trường còn phải   |
-|                 |     được gán phụ trách đúng điểm trường của lớp     |
-|                 |     (site_managers, row-level); Trưởng phòng đào   |
-|                 |     tạo (có thêm quyền academic.grade.manage) thì  |
-|                 |     không bị giới hạn theo site.                   |
+| **Điều kiện     | -   Actor có quyền academic.grade.publish (bổ sung |
+| tiên quyết      |     ngoài SDD gốc, đã xác nhận với người dùng —    |
+| (               |     mặc định gán cho role SITE_MANAGER và          |
+| Precondition)** |     HEAD_ACADEMIC).                                |
+|                 |                                                    |
+|                 | -   Quản lý điểm trường còn phải được gán phụ      |
+|                 |     trách đúng điểm trường của lớp (site_managers, |
+|                 |     row-level); Trưởng phòng đào tạo (có thêm      |
+|                 |     quyền academic.grade.manage) thì không bị giới |
+|                 |     hạn theo site.                                 |
 +-----------------+----------------------------------------------------+
-| **Luồng sự kiện | 1.  Quản lý điểm trường (hoặc Trưởng phòng đào tạo)|
-| chính (Main     |     mở danh sách điểm Chờ duyệt — của điểm trường  |
-| Flow)**         |     mình phụ trách, hoặc của MỌI điểm trường nếu là|
-|                 |     Trưởng phòng đào tạo.                          |
-|                 | 2.  Quản lý điểm trường chọn cách duyệt: Duyệt     |
+| **Luồng sự kiện | 1.  Quản lý điểm trường (hoặc Trưởng phòng đào     |
+| chính (Main     |     tạo) mở danh sách điểm chưa công bố — của điểm |
+| Flow)**         |     trường mình phụ trách, hoặc của MỌI điểm       |
+|                 |     trường nếu là Trưởng phòng đào tạo.            |
+|                 |                                                    |
+|                 | 2.  Quản lý điểm trường chọn cách công bố: Công bố |
 |                 |     từng bản ghi (xem chi tiết 1 học sinh cụ thể)  |
-|                 |     hoặc Duyệt theo batch_id (theo lô Giáo viên đã |
-|                 |     submit) --- không bắt buộc phải theo đúng cách |
-|                 |     Giáo viên đã submit.                           |
+|                 |     hoặc Công bố theo lô (nhiều bản ghi cùng lúc). |
 |                 |                                                    |
-|                 | 3.  Quản lý điểm trường ra quyết định APPROVED     |
-|                 |     hoặc REJECTED, có thể kèm ghi chú.             |
+|                 | 3.  Quản lý điểm trường xác nhận công bố — không   |
+|                 |     còn quyết định Đúng/Sai như trước, chỉ có 1    |
+|                 |     hành động duy nhất: Công bố.                   |
 |                 |                                                    |
-|                 | 4.  Nếu APPROVED: hệ thống công khai điểm cho Phụ  |
-|                 |     huynh xem qua Portal (UC-25), kết thúc luồng.  |
-|                 |                                                    |
-|                 | 5.  Nếu REJECTED: hệ thống trả bản ghi về cho Giáo |
-|                 |     viên sửa và submit lại (quay lại UC-19).       |
+|                 | 4.  Hệ thống chuyển các bản ghi đã chọn từ DRAFT   |
+|                 |     sang PUBLISHED, ghi nhận người và thời điểm    |
+|                 |     công bố, công khai điểm cho Phụ huynh xem ngay |
+|                 |     qua Portal (UC-25).                            |
 +-----------------+----------------------------------------------------+
-| **Luồng thay    | ***A1 --- Duyệt tách lẻ 1 học sinh trong lô đã     |
-| thế / ngoại lệ  | submit theo batch***                               |
-| (Alternate      |                                                    |
-| Flow)**         | 1.  Quản lý điểm trường có thể mở riêng 1 bản ghi  |
-|                 |     trong 1 batch để xem kỹ và duyệt/từ chối độc   |
-|                 |     lập với phần còn lại của lô.                   |
+| **Luồng thay    | ***A1 --- Công bố tách lẻ 1 bản ghi trong lô***    |
+| thế / ngoại lệ  |                                                    |
+| (Alternate      | 1.  Quản lý điểm trường có thể mở riêng 1 bản ghi  |
+| Flow)**         |     trong 1 lô để công bố độc lập với phần còn lại |
+|                 |     — không bắt buộc công bố cả lô cùng lúc.       |
+|                 |                                                    |
+|                 | ***A2 --- Công bố lại bản ghi đã PUBLISHED (bổ     |
+|                 | sung ngoài SDD gốc, đã xác nhận với người dùng)*** |
+|                 |                                                    |
+|                 | 1.  Nếu bản ghi được chọn đã ở trạng thái          |
+|                 |     PUBLISHED từ trước, hệ thống báo lỗi (đã công  |
+|                 |     bố trước đó), không cho công bố lại.           |
+|                 |                                                    |
+|                 | 2.  Việc này KHÔNG chặn Giáo viên sửa lại giá trị  |
+|                 |     bản ghi (UC-19, còn trong hạn X ngày) — giá    |
+|                 |     trị mới hiển thị ngay cho Phụ huynh mà không   |
+|                 |     cần lặp lại bước công bố.                      |
 +-----------------+----------------------------------------------------+
-| **Hậu điều kiện | -   Trạng thái điểm được cập nhật chính xác        |
-| (P              |     (APPROVED/REJECTED).                           |
+| **Hậu điều kiện | -   Trạng thái điểm được cập nhật chính xác (DRAFT |
+| (P              |     → PUBLISHED).                                  |
 | ostcondition)** |                                                    |
-|                 | -   Điểm APPROVED được công khai cho Phụ huynh;    |
-|                 |     điểm REJECTED quay về Giáo viên để chỉnh sửa.  |
+|                 | -   Điểm PUBLISHED được công khai cho Phụ huynh    |
+|                 |     ngay lập tức qua Portal (UC-25).               |
+|                 |                                                    |
+|                 | -   Nếu Giáo viên sửa lại bản ghi đã PUBLISHED     |
+|                 |     trong hạn X ngày (UC-19), giá trị mới cũng     |
+|                 |     hiển thị ngay cho Phụ huynh mà không cần công  |
+|                 |     bố lại.                                        |
 +-----------------+----------------------------------------------------+
 
 ---
@@ -717,10 +959,11 @@ người dùng)
 |                 | 4.  Hệ thống trả về kết quả tổng hợp: số dòng thành |
 |                 |     công/lỗi (import_jobs).                        |
 |                 |                                                    |
-|                 | 5.  Giáo viên xem lại bảng điểm vừa nhập, dùng lại |
-|                 |     chức năng Submit sẵn có (UC-19 bước 4) để gửi  |
-|                 |     duyệt hàng loạt — không có luồng duyệt riêng   |
-|                 |     cho dữ liệu nhập từ Excel.                     |
+|                 | 5.  Giáo viên xem lại bảng điểm vừa nhập; điểm đã  |
+|                 |     ở trạng thái nháp (DRAFT) ngay, sẵn sàng để     |
+|                 |     Quản lý điểm trường/Trưởng phòng đào tạo công  |
+|                 |     bố hàng loạt (UC-20) — không có luồng công bố  |
+|                 |     riêng cho dữ liệu nhập từ Excel.                |
 +-----------------+----------------------------------------------------+
 | **Luồng thay    | ***A1 --- Cột không khớp cấu hình***               |
 | thế / ngoại lệ  |                                                    |
@@ -747,8 +990,9 @@ người dùng)
 |                 |     (theo đúng cơ chế UC-51 A1).                   |
 +-----------------+----------------------------------------------------+
 | **Hậu điều kiện | -   Điểm nhập từ Excel ở trạng thái DRAFT, có thể  |
-| (P              |     chỉnh sửa/submit tiếp giống hệt nhập tay        |
-| ostcondition)** |     (UC-19) — không có quy trình duyệt riêng.      |
+| (P              |     chỉnh sửa tiếp giống hệt nhập tay (UC-19, còn   |
+| ostcondition)** |     trong hạn X ngày) và được công bố qua cùng      |
+|                 |     luồng UC-20 — không có quy trình công bố riêng.|
 |                 |                                                    |
 |                 | -   import_jobs lưu lại kết quả (thành công/lỗi    |
 |                 |     từng dòng) để Giáo viên đối chiếu.             |

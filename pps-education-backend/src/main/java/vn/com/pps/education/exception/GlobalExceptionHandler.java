@@ -72,14 +72,14 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler({CurriculumUpdateConfirmationRequiredException.class, ApprovalAlreadyDecidedException.class,
             GradePeriodWeightExceededException.class, GradeComponentLockedException.class,
-            GradeComponentWeightExceededException.class})
+            GradeAlreadyPublishedException.class})
     public ResponseEntity<Object> handleConfirmationRequired(RuntimeException ex) {
         return error(HttpStatus.CONFLICT, ex.getMessage());
     }
 
     @ExceptionHandler({CurriculumNotActiveException.class, LinkedClassRequiresPartnerSiteException.class,
             CurriculumNotEditableException.class, CurriculumNotAvailableForSiteException.class,
-            InvalidGradeScoreException.class, GradeEntryNotEditableException.class,
+            InvalidGradeScoreException.class, GradeEditWindowExpiredException.class,
             AttendanceSessionNotEditableException.class, StudentCommentNotEditableException.class,
             InvalidCommentContextException.class, InvalidLessonScopeException.class, QuestionLockedException.class,
             ExerciseNotAvailableException.class, RetakeNotAllowedException.class,

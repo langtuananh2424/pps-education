@@ -10,6 +10,8 @@ import vn.com.pps.education.domain.Site;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.domain.UserRole;
 import vn.com.pps.education.dto.AssignTeacherRequest;
+import vn.com.pps.education.dto.BulkCreateClassSessionRequest;
+import vn.com.pps.education.dto.BulkCreateClassSessionResponse;
 import vn.com.pps.education.dto.CancelClassSessionRequest;
 import vn.com.pps.education.dto.ClassResponse;
 import vn.com.pps.education.dto.ClassSessionResponse;
@@ -29,6 +31,7 @@ import vn.com.pps.education.repository.UserRepository;
 import vn.com.pps.education.repository.UserRoleRepository;
 import vn.com.pps.education.support.AbstractIntegrationTest;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
@@ -249,6 +252,100 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
                 new RescheduleClassSessionRequest(date.plusDays(1), LocalTime.of(8, 0), LocalTime.of(9, 40), room.getId(), teacher.getId(), null),
                 headAcademic.getId()))
                 .isInstanceOf(InvalidClassSessionStatusTransitionException.class);
+    }
+
+    @Test
+    void bulkCreateSessions_UC56_MainFlow_generatesSessionsOnMatchingWeekdays() {
+        LocalDate startDate = nextWeekday(LocalDate.now().plusDays(20), DayOfWeek.MONDAY);
+        LocalDate endDate = startDate.plusDays(13); // 2 tuần trọn vẹn -> đúng 2 Monday + 2 Wednesday
+
+        BulkCreateClassSessionResponse response = classSessionService.bulkCreateSessions(schoolClass.id(),
+                new BulkCreateClassSessionRequest(startDate, endDate, List.of("MONDAY", "WEDNESDAY"),
+                        LocalTime.of(8, 0), LocalTime.of(9, 40), room.getId(), teacher.getId(), "REGULAR"),
+                headAcademic.getId());
+
+        assertThat(response.totalDates()).isEqualTo(4);
+        assertThat(response.createdCount()).isEqualTo(4);
+        assertThat(response.skippedCount()).isEqualTo(0);
+        assertThat(response.created()).hasSize(4)
+                .allSatisfy(s -> assertThat(s.sessionDate().getDayOfWeek()).isIn(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY));
+    }
+
+    @Test
+    void bulkCreateSessions_UC56_A1_skipsDateWithRoomConflictButContinuesOtherDates() {
+        LocalDate startDate = nextWeekday(LocalDate.now().plusDays(40), DayOfWeek.MONDAY);
+        LocalDate endDate = startDate.plusDays(13);
+        LocalDate conflictDate = startDate.plusDays(7); // Monday thứ 2 trong khoảng 14 ngày
+
+        // Đã có sẵn 1 buổi khác trùng phòng đúng khung giờ vào conflictDate.
+        classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(conflictDate, LocalTime.of(8, 0), LocalTime.of(9, 40), room.getId(), teacher.getId(), "REGULAR"),
+                headAcademic.getId());
+
+        BulkCreateClassSessionResponse response = classSessionService.bulkCreateSessions(schoolClass.id(),
+                new BulkCreateClassSessionRequest(startDate, endDate, List.of("MONDAY"),
+                        LocalTime.of(8, 0), LocalTime.of(9, 40), room.getId(), teacher.getId(), "REGULAR"),
+                headAcademic.getId());
+
+        assertThat(response.totalDates()).isEqualTo(2); // 2 Monday trong khoảng 14 ngày
+        assertThat(response.createdCount()).isEqualTo(1);
+        assertThat(response.skippedCount()).isEqualTo(1);
+        assertThat(response.skipped().get(0).get("date")).isEqualTo(conflictDate.toString());
+    }
+
+    @Test
+    void listMySessions_UC58_MainFlow_returnsSessionsAcrossAllClassesForActorOnly() {
+        ClassSessionResponse session1 = classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(LocalDate.now().plusDays(60), LocalTime.of(8, 0), LocalTime.of(9, 40),
+                        room.getId(), teacher.getId(), "REGULAR"),
+                headAcademic.getId());
+
+        Site site2 = newSite();
+        ClassResponse class2 = classService.create(new CreateClassRequest(classCode(), "9A1", site2.getId(),
+                schoolClass.curriculumId(), "OPEN", 20, null, LocalDate.now(), null, null, null), headAcademic.getId());
+        Room room2 = newRoom(site2, false);
+        ClassSessionResponse session2 = classSessionService.createSession(class2.id(),
+                new CreateClassSessionRequest(LocalDate.now().plusDays(61), LocalTime.of(10, 0), LocalTime.of(11, 40),
+                        room2.getId(), teacher.getId(), "REGULAR"),
+                headAcademic.getId());
+
+        User otherTeacher = newUser("teacher.other.myschedule");
+        assignRole(otherTeacher, "TEACHER");
+        classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(LocalDate.now().plusDays(62), LocalTime.of(8, 0), LocalTime.of(9, 40),
+                        room.getId(), otherTeacher.getId(), "REGULAR"),
+                headAcademic.getId());
+
+        List<ClassSessionResponse> mySessions = classSessionService.listMySessions(teacher.getId(), null, null);
+
+        assertThat(mySessions).extracting(ClassSessionResponse::id).contains(session1.id(), session2.id());
+        assertThat(mySessions).extracting(ClassSessionResponse::primaryTeacherId).containsOnly(teacher.getId());
+    }
+
+    @Test
+    void listMySessions_UC58_filtersByFromDateToDate() {
+        ClassSessionResponse early = classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(LocalDate.now().plusDays(70), LocalTime.of(8, 0), LocalTime.of(9, 40),
+                        room.getId(), teacher.getId(), "REGULAR"),
+                headAcademic.getId());
+        ClassSessionResponse late = classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(LocalDate.now().plusDays(80), LocalTime.of(8, 0), LocalTime.of(9, 40),
+                        room.getId(), teacher.getId(), "REGULAR"),
+                headAcademic.getId());
+
+        List<ClassSessionResponse> filtered = classSessionService.listMySessions(teacher.getId(),
+                LocalDate.now().plusDays(75), LocalDate.now().plusDays(85));
+
+        assertThat(filtered).extracting(ClassSessionResponse::id).contains(late.id()).doesNotContain(early.id());
+    }
+
+    /** Ngày đầu tiên >= from khớp đúng dayOfWeek yêu cầu — dùng để dựng test case UC-56 không phụ thuộc ngày chạy test. */
+    private LocalDate nextWeekday(LocalDate from, DayOfWeek dayOfWeek) {
+        LocalDate date = from;
+        while (date.getDayOfWeek() != dayOfWeek) {
+            date = date.plusDays(1);
+        }
+        return date;
     }
 
     private String curriculumCode() {

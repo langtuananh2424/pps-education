@@ -7,6 +7,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.Role;
 import vn.com.pps.education.domain.Site;
@@ -62,6 +63,9 @@ class StudentBatchImportServiceTest extends AbstractIntegrationTest {
     @Autowired
     private SiteRepository siteRepository;
 
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
     private User staff;
     private ClassResponse schoolClass;
 
@@ -97,6 +101,26 @@ class StudentBatchImportServiceTest extends AbstractIntegrationTest {
         assertThat(result.totalRows()).isEqualTo(2);
         assertThat(result.successRows()).isEqualTo(2);
         assertThat(result.failedRows()).isEqualTo(0);
+    }
+
+    @Test
+    void importStudents_UC35_Postcondition_generatesWorkingTemporaryPasswordForEachNewAccount() throws IOException {
+        byte[] file = buildWorkbook(new String[][]{
+                {"Đỗ Văn E", "01/01/2016", "Nam", "TH Kim Đồng", "Lớp 3A", schoolClass.classCode(), studentCode()},
+        });
+
+        StudentBatchImportResponse result = studentBatchImportService.importStudents(
+                new MockMultipartFile("file", "danh_sach.xlsx", "application/vnd.openxmlformats", file), staff.getId());
+
+        assertThat(result.generatedCredentials()).hasSize(1);
+        String username = (String) result.generatedCredentials().get(0).get("username");
+        String tempPassword = (String) result.generatedCredentials().get(0).get("temporaryPassword");
+        User created = userRepository.findByUsername(username).orElseThrow();
+        assertThat(passwordEncoder.matches(tempPassword, created.getPasswordHash())).isTrue();
+
+        // Tra cứu lại job sau đó -- KHÔNG còn thấy mật khẩu tạm (tránh lộ plaintext qua tra cứu lại).
+        StudentBatchImportResponse reFetched = studentBatchImportService.getJob(result.id());
+        assertThat(reFetched.generatedCredentials()).isEmpty();
     }
 
     @Test
