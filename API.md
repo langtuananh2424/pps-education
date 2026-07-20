@@ -376,6 +376,7 @@
 | GET | `/api/portal/parent/children/{studentId}/classes/{classId}/attendance` | JWT | — | mảng [AttendanceMarkResponse](#attendancemarkresponse) |
 | GET | `/api/portal/parent/children/{studentId}/classes/{classId}/comments` | JWT | — | mảng [StudentCommentResponse](#studentcommentresponse) |
 | GET | `/api/portal/parent/children/{studentId}/classes/{classId}/grades` | JWT | — | mảng [GradeEntryResponse](#gradeentryresponse) |
+| GET | `/api/portal/parent/children/{studentId}/classes/{classId}/periods/{gradePeriodId}/result` | JWT | — | [GradePeriodResultResponse](#gradeperiodresultresponse) |
 | GET | `/api/portal/parent/children/{studentId}/classes/{classId}/schedule` | JWT | — | mảng [ClassSessionResponse](#classsessionresponse) |
 
 ## Thông báo

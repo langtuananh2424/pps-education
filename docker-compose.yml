@@ -46,7 +46,7 @@ services:
     container_name: pps-education-pgadmin
     restart: unless-stopped
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@pps.local
+      PGADMIN_DEFAULT_EMAIL: admin@pps-education.dev
       PGADMIN_DEFAULT_PASSWORD: changeme
     ports:
       - "5050:80"

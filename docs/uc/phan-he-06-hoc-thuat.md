@@ -708,7 +708,11 @@ UC-20: Công bố điểm
 |                 | trước, chỉ là mốc công khai dữ liệu (V39 — bổ sung |
 |                 | ngoài SDD gốc, đã xác nhận với người dùng, thay    |
 |                 | thế hoàn toàn khái niệm “Duyệt điểm” và luồng      |
-|                 | Approved/Rejected cũ).                             |
+|                 | Approved/Rejected cũ). Nếu không ai công bố thủ    |
+|                 | công, hệ thống tự động công bố khi hết hạn X ngày  |
+|                 | chỉnh sửa (UC-19) — 2 cơ chế chạy song song, không |
+|                 | cái nào thay thế cái nào (bổ sung ngoài SDD gốc,   |
+|                 | đã xác nhận với người dùng).                       |
 +-----------------+----------------------------------------------------+
 | **Sự kiện kích  | Có bản ghi điểm ở trạng thái chưa công bố (DRAFT)  |
 | hoạt**          | thuộc điểm trường phụ trách, đã sẵn sàng công khai |
@@ -760,6 +764,27 @@ UC-20: Công bố điểm
 |                 |     bản ghi (UC-19, còn trong hạn X ngày) — giá    |
 |                 |     trị mới hiển thị ngay cho Phụ huynh mà không   |
 |                 |     cần lặp lại bước công bố.                      |
+|                 |                                                    |
+|                 | ***A3 --- Tự động công bố khi hết hạn X ngày,      |
+|                 | không ai công bố tay (bổ sung ngoài SDD gốc, đã    |
+|                 | xác nhận với người dùng)***                        |
+|                 |                                                    |
+|                 | 1.  Mỗi đêm, hệ thống quét mọi (lớp, kỳ đánh giá)  |
+|                 |     đã hết hạn X ngày kể từ lần đầu nhập điểm      |
+|                 |     (UC-19, grade_period_edit_windows) — dùng đúng |
+|                 |     1 giá trị X ngày cấu hình chung với hạn chỉnh  |
+|                 |     sửa                                            |
+|                 |     (system_settings.academic.grade_edit_window_days). |
+|                 |                                                    |
+|                 | 2.  Mọi grade_entries/grade_period_results còn     |
+|                 |     DRAFT thuộc (lớp, kỳ đánh giá) đó được tự động |
+|                 |     chuyển sang PUBLISHED — không cần Quản lý điểm |
+|                 |     trường xác nhận. Bản ghi đã PUBLISHED thủ công |
+|                 |     từ trước không bị ảnh hưởng.                   |
+|                 |                                                    |
+|                 | 3.  published_by để trống (không gán người công    |
+|                 |     bố) để phân biệt với công bố thủ công —        |
+|                 |     published_at vẫn ghi nhận đúng thời điểm.      |
 +-----------------+----------------------------------------------------+
 | **Hậu điều kiện | -   Trạng thái điểm được cập nhật chính xác (DRAFT |
 | (P              |     → PUBLISHED).                                  |
@@ -771,6 +796,13 @@ UC-20: Công bố điểm
 |                 |     trong hạn X ngày (UC-19), giá trị mới cũng     |
 |                 |     hiển thị ngay cho Phụ huynh mà không cần công  |
 |                 |     bố lại.                                        |
+|                 |                                                    |
+|                 | -   Nếu không ai công bố thủ công trong hạn X      |
+|                 |     ngày, hệ thống tự động chuyển DRAFT →          |
+|                 |     PUBLISHED cho toàn bộ bản ghi còn lại của      |
+|                 |     (lớp, kỳ đánh giá) đó ngay sau khi hết hạn     |
+|                 |     (A3) — Phụ huynh không phải chờ vô thời hạn    |
+|                 |     nếu Quản lý điểm trường quên công bố.          |
 +-----------------+----------------------------------------------------+
 
 ---

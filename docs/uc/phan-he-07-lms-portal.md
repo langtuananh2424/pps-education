@@ -180,8 +180,10 @@ UC-25: Xem Portal Phụ huynh
 |                 |     lớp đã kết thúc).                               |
 |                 |                                                    |
 |                 | 3.  Phụ huynh xem lịch học của con, bảng điểm đã   |
-|                 |     công bố (UC-20 — V39: công bố thay duyệt),     |
-|                 |     nhận xét giáo viên đã duyệt (UC-22).           |
+|                 | công bố (UC-20 --- V39: công bố thay duyệt) và     |
+|                 | Overall/Level theo kỳ đánh giá (UC-53, bổ sung     |
+|                 | ngoài SDD gốc, đã xác nhận với người dùng), nhận   |
+|                 | xét giáo viên đã duyệt (UC-22).                    |
 |                 |                                                    |
 |                 | 4.  Phụ huynh xem hồ sơ tổng hợp: kết quả học tập, |
 |                 |     chuyên cần, tình trạng bài tập, cảnh báo (ý    |
@@ -201,6 +203,11 @@ UC-25: Xem Portal Phụ huynh
 |                 | 2.  Nhận xét đang ở trạng thái Chờ duyệt không     |
 |                 |     hiển thị cho Phụ huynh; hệ thống chỉ hiển thị  |
 |                 |     nhận xét đã APPROVED (UC-22).                  |
+|                 |                                                    |
+|                 | 3.  Cùng quy tắc PUBLISHED áp dụng cho             |
+|                 |     Overall/Level theo kỳ đánh giá (UC-53) — chỉ   |
+|                 |     hiển thị khi đã công bố (thủ công hoặc tự      |
+|                 |     động, UC-20/A3).                               |
 +-----------------+----------------------------------------------------+
 | **Hậu điều kiện | -   Phụ huynh xem được đầy đủ, chính xác thông tin |
 | (P              |     học tập của con trong phạm vi quyền hạn (kiểm  |
