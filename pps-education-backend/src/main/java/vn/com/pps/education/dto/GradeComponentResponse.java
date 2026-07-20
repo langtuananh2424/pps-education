@@ -9,6 +9,7 @@ public record GradeComponentResponse(
         Long skillId,
         String code,
         String name,
+        BigDecimal weightInPeriod,
         BigDecimal maxScore,
         BigDecimal passThreshold,
         String scaleType,

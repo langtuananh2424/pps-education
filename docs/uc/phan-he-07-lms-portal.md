@@ -180,8 +180,8 @@ UC-25: Xem Portal Phụ huynh
 |                 |     lớp đã kết thúc).                               |
 |                 |                                                    |
 |                 | 3.  Phụ huynh xem lịch học của con, bảng điểm đã   |
-|                 |     công bố (UC-20 — V39: công bố thay duyệt),     |
-|                 |     nhận xét giáo viên đã duyệt (UC-22).           |
+|                 |     duyệt (UC-20), nhận xét giáo viên đã duyệt     |
+|                 |     (UC-22).                                       |
 |                 |                                                    |
 |                 | 4.  Phụ huynh xem hồ sơ tổng hợp: kết quả học tập, |
 |                 |     chuyên cần, tình trạng bài tập, cảnh báo (ý    |
@@ -192,15 +192,11 @@ UC-25: Xem Portal Phụ huynh
 |                 |     trường (thông báo vắng mặt --- UC-15, thông    |
 |                 |     báo chung).                                    |
 +-----------------+----------------------------------------------------+
-| **Luồng thay    | ***A1 --- Dữ liệu chưa công bố/chưa được duyệt***  |
+| **Luồng thay    | ***A1 --- Dữ liệu chưa được duyệt***               |
 | thế / ngoại lệ  |                                                    |
-| (Alternate      | 1.  Điểm đang ở trạng thái DRAFT (chưa công bố ---  |
-| Flow)**         |     UC-20) không hiển thị cho Phụ huynh; hệ thống  |
-|                 |     chỉ hiển thị điểm đã PUBLISHED.                |
-|                 |                                                    |
-|                 | 2.  Nhận xét đang ở trạng thái Chờ duyệt không     |
-|                 |     hiển thị cho Phụ huynh; hệ thống chỉ hiển thị  |
-|                 |     nhận xét đã APPROVED (UC-22).                  |
+| (Alternate      | 1.  Điểm/nhận xét đang ở trạng thái Chờ duyệt      |
+| Flow)**         |     không hiển thị cho Phụ huynh; hệ thống chỉ     |
+|                 |     hiển thị dữ liệu đã APPROVED.                  |
 +-----------------+----------------------------------------------------+
 | **Hậu điều kiện | -   Phụ huynh xem được đầy đủ, chính xác thông tin |
 | (P              |     học tập của con trong phạm vi quyền hạn (kiểm  |
@@ -424,12 +420,11 @@ UC-29: Xem báo cáo Portal trường liên kết
 |                 |                                                    |
 |                 | 2.  Hệ thống hiển thị báo cáo tổng hợp của học     |
 |                 |     sinh trường mình: chuyên cần (tỷ lệ đi         |
-|                 |     học/vắng mặt), kết quả học tập (điểm đã công   |
-|                 |     bố — UC-20, V39: công bố thay duyệt), nhận xét |
-|                 |     học sinh đã duyệt (APPROVED — UC-21/22, bổ     |
-|                 |     sung ngoài SRS gốc, xác nhận 2026-07-16), kế   |
-|                 |     hoạch giảng dạy theo tuần/năm học do Giáo viên |
-|                 |     điền (UC-28).                                  |
+|                 |     học/vắng mặt), kết quả học tập (điểm đã        |
+|                 |     duyệt), nhận xét học sinh đã duyệt (APPROVED — |
+|                 |     UC-21/22, bổ sung ngoài SRS gốc, xác nhận      |
+|                 |     2026-07-16), kế hoạch giảng dạy theo tuần/năm  |
+|                 |     học do Giáo viên điền (UC-28).                 |
 |                 |                                                    |
 |                 | 3.  Đại diện trường liên kết có thể xuất báo cáo   |
 |                 |     dưới định dạng PDF/Excel để tải về hoặc gửi    |

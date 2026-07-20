@@ -11,16 +11,9 @@ import java.util.UUID;
 /**
  * Bảng grade_entries (SDD > Học thuật > Sổ điểm & Điểm tổng kết > c) —
  * điểm cụ thể của 1 học sinh cho 1 thành phần điểm (UC-19 nhập điểm,
- * UC-20 công bố điểm). V39 (bổ sung ngoài SDD gốc, đã xác nhận với người
- * dùng): bỏ luồng duyệt/từ chối — chỉ còn DRAFT (chưa công bố) → PUBLISHED
- * (công bố). Sửa điểm KHÔNG còn khoá theo status — actor còn trong hạn X
- * ngày (grade_period_edit_windows) hoặc có quyền
- * academic.grade.edit.override thì sửa được kể cả khi đã PUBLISHED (giá
- * trị mới hiển thị ngay cho Phụ huynh, không cần công bố lại).
- *
- * Cột submitted_at/approval_flow_id vẫn còn trong DB (lịch sử luồng
- * duyệt cũ) nhưng không còn map ở entity — không còn submit/ApprovalFlow
- * cho điểm nữa.
+ * UC-20 duyệt điểm). Workflow DRAFT → PENDING (submit, UC-19) →
+ * APPROVED/REJECTED (UC-20) — REJECTED quay lại DRAFT khi Giáo viên sửa
+ * (enterGrade), khác với curriculums (không có REJECTED riêng).
  */
 @Getter
 @Setter
@@ -28,7 +21,7 @@ import java.util.UUID;
 @Table(name = "grade_entries")
 public class GradeEntry {
 
-    public enum Status { DRAFT, PUBLISHED }
+    public enum Status { DRAFT, PENDING, APPROVED, REJECTED }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -69,10 +62,17 @@ public class GradeEntry {
     @Column(nullable = false, length = 20)
     private Status status = Status.DRAFT;
 
-    @Column(name = "published_at")
-    private OffsetDateTime publishedAt;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "approval_flow_id")
+    private ApprovalFlow approvalFlow;
+
+    @Column(name = "submitted_at")
+    private OffsetDateTime submittedAt;
+
+    @Column(name = "approved_at")
+    private OffsetDateTime approvedAt;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "published_by")
-    private User publishedBy;
+    @JoinColumn(name = "approved_by")
+    private User approvedBy;
 }
