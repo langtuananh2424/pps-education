@@ -346,6 +346,54 @@ UC-25: Xem Portal Phụ huynh
 
 ---
 
+UC-61: Xem điểm của tôi (Học sinh)
+
++-----------------+----------------------------------------------------+
+| **Mã Use Case** | UC-61                                              |
++-----------------+----------------------------------------------------+
+| **Tên Use       | Xem điểm của tôi (Học sinh)                        |
+| Case**          |                                                    |
++-----------------+----------------------------------------------------+
+| **Phân hệ**     | Phân hệ 7                                          |
++-----------------+----------------------------------------------------+
+| **Yêu cầu chức  | FR-LMS-03, FR-LMS-07                               |
+| năng gốc**      |                                                    |
++-----------------+----------------------------------------------------+
+| **Tác nhân**    | Học sinh                                           |
++-----------------+----------------------------------------------------+
+| **Mô tả tóm     | Học sinh tự xem bảng điểm và Overall/Level đã công |
+| tắt**           | bố của chính mình theo (các) lớp đang ghi danh —   |
+|                 | đối xứng với phần xem điểm trong UC-25 (Portal Phụ |
+|                 | huynh), khác ở chỗ tác nhân là chính Học sinh,     |
+|                 | không cần qua Phụ huynh (bổ sung ngoài SDD gốc, đã |
+|                 | xác nhận với người dùng).                          |
++-----------------+----------------------------------------------------+
+| **Sự kiện kích  | Học sinh mở mục "Điểm của tôi" trong Portal.       |
+| hoạt**          |                                                    |
++-----------------+----------------------------------------------------+
+| **Điều kiện     | -   Học sinh đã đăng nhập, có class_enrollment     |
+| tiên quyết      |     ACTIVE tại lớp đang xem.                       |
+| (               |                                                    |
+| Precondition)** | -   Điểm/Overall-Level đã được công bố (PUBLISHED) |
+|                 |     — thủ công hoặc tự động sau N ngày (UC-20/A3). |
++-----------------+----------------------------------------------------+
+| **Luồng sự kiện | 1.  Học sinh chọn 1 lớp đang ghi danh (UC-42), mở  |
+| chính (Main     |     bảng điểm — hệ thống trả về mọi grade_entries  |
+| Flow)**         |     đã PUBLISHED của học sinh tại lớp đó (điểm     |
+|                 |     chưa công bố không hiển thị).                  |
+|                 |                                                    |
+|                 | 2.  Học sinh chọn 1 kỳ đánh giá, xem Overall/Level |
+|                 |     (UC-53) đã công bố của kỳ đó — nếu chưa công   |
+|                 |     bố, hệ thống báo rõ chưa có điểm tổng kết,     |
+|                 |     không trả dữ liệu nháp.                        |
++-----------------+----------------------------------------------------+
+| **Hậu điều kiện | -   Học sinh chỉ thấy điểm/Overall-Level đã        |
+| (P              |     PUBLISHED của đúng (các) lớp mình đang ghi     |
+| ostcondition)** |     danh — không thấy điểm DRAFT hay của lớp khác. |
++-----------------+----------------------------------------------------+
+
+---
+
 UC-26: Luyện Nghe -- Nói
 
 +-----------------+----------------------------------------------------+

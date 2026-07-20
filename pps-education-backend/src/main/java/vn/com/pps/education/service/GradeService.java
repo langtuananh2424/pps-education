@@ -3,6 +3,7 @@ package vn.com.pps.education.service;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.com.pps.education.domain.ClassEnrollment;
 import vn.com.pps.education.domain.Curriculum;
 import vn.com.pps.education.domain.GradeComponent;
 import vn.com.pps.education.domain.GradeComponentHistory;
@@ -38,6 +39,7 @@ import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
 import vn.com.pps.education.exception.NotSiteManagerForSiteException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.domain.CurriculumSubject;
+import vn.com.pps.education.repository.ClassEnrollmentRepository;
 import vn.com.pps.education.repository.ClassTeacherRepository;
 import vn.com.pps.education.repository.CurriculumRepository;
 import vn.com.pps.education.repository.CurriculumSubjectRepository;
@@ -124,6 +126,7 @@ public class GradeService {
     private final UserRepository userRepository;
     private final PermissionEvaluationService permissionEvaluationService;
     private final AcademicSettingsService academicSettingsService;
+    private final ClassEnrollmentRepository classEnrollmentRepository;
 
     public GradeService(GradePeriodRepository gradePeriodRepository,
                          GradeComponentRepository gradeComponentRepository,
@@ -142,7 +145,8 @@ public class GradeService {
                          SkillRepository skillRepository,
                          UserRepository userRepository,
                          PermissionEvaluationService permissionEvaluationService,
-                         AcademicSettingsService academicSettingsService) {
+                         AcademicSettingsService academicSettingsService,
+                         ClassEnrollmentRepository classEnrollmentRepository) {
         this.gradePeriodRepository = gradePeriodRepository;
         this.gradeComponentRepository = gradeComponentRepository;
         this.gradeEntryRepository = gradeEntryRepository;
@@ -161,6 +165,7 @@ public class GradeService {
         this.userRepository = userRepository;
         this.permissionEvaluationService = permissionEvaluationService;
         this.academicSettingsService = academicSettingsService;
+        this.classEnrollmentRepository = classEnrollmentRepository;
     }
 
     // ===================== Cấu hình sổ điểm (HEAD_ACADEMIC) =====================
@@ -410,6 +415,57 @@ public class GradeService {
     public List<GradePeriodResultResponse> listPeriodResults(Long classId, Long gradePeriodId) {
         return gradePeriodResultRepository.findBySchoolClassIdAndGradePeriodIdOrderByStudentId(classId, gradePeriodId)
                 .stream().map(this::toResponse).toList();
+    }
+
+    // ===================== UC-61: Học sinh tự xem điểm của mình (bổ sung ngoài SDD gốc, đã xác nhận với người dùng) =====================
+
+    /**
+     * UC-61 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng — tái dùng
+     * FR-LMS-03/FR-LMS-07 giống UC-25, chỉ khác actor là Học sinh thay vì
+     * Phụ huynh). Chỉ trả về grade_entries đã PUBLISHED, theo (các) lớp
+     * học sinh đang ghi danh ACTIVE — mirror đúng
+     * ParentPortalService.listGrades, không tự tính lại điểm gì.
+     * classIdFilter tùy chọn (ngữ cảnh "lớp đang xem" — UC-42).
+     */
+    @Transactional(readOnly = true)
+    public List<GradeEntryResponse> listMyGrades(Long actorUserId, Long classIdFilter) {
+        Student student = studentOrThrow(actorUserId);
+        List<Long> classIds = classEnrollmentRepository.findByStudentId(student.getId()).stream()
+                .filter(e -> e.getStatus() == ClassEnrollment.Status.ACTIVE)
+                .map(e -> e.getSchoolClass().getId())
+                .filter(id -> classIdFilter == null || id.equals(classIdFilter))
+                .toList();
+        return classIds.stream()
+                .flatMap(classId -> gradeEntryRepository
+                        .findBySchoolClassIdAndStudentIdAndStatus(classId, student.getId(), GradeEntry.Status.PUBLISHED).stream())
+                .map(this::toResponse).toList();
+    }
+
+    /**
+     * UC-61: Overall/Level đã công bố (PUBLISHED) của 1 kỳ đánh giá, tự
+     * xem — mirror đúng ParentPortalService.getPeriodResult. Bắt buộc học
+     * sinh phải có class_enrollment ACTIVE tại đúng classId truy vấn
+     * (không lộ dữ liệu của lớp không thuộc về mình).
+     */
+    @Transactional(readOnly = true)
+    public GradePeriodResultResponse getMyPeriodResult(Long actorUserId, Long classId, Long gradePeriodId) {
+        Student student = studentOrThrow(actorUserId);
+        boolean enrolled = classEnrollmentRepository.findBySchoolClassIdAndStudentIdAndStatus(
+                classId, student.getId(), ClassEnrollment.Status.ACTIVE).isPresent();
+        if (!enrolled) {
+            throw new ResourceNotFoundException("Không tìm thấy lớp học id=" + classId);
+        }
+        GradePeriodResult result = gradePeriodResultRepository
+                .findBySchoolClassIdAndStudentIdAndGradePeriodId(classId, student.getId(), gradePeriodId)
+                .filter(r -> r.getStatus() == GradePeriodResult.Status.PUBLISHED)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Chưa có điểm tổng kết đã công bố cho kỳ đánh giá id=" + gradePeriodId + "."));
+        return toResponse(result);
+    }
+
+    private Student studentOrThrow(Long actorUserId) {
+        return studentRepository.findByUserId(actorUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản id=" + actorUserId + " không có hồ sơ học sinh."));
     }
 
     // ===================== UC-20: Công bố điểm (SITE_MANAGER + HEAD_ACADEMIC) =====================

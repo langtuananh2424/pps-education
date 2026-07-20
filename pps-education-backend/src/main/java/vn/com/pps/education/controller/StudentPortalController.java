@@ -4,17 +4,21 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import vn.com.pps.education.dto.AssignedExerciseResponse;
 import vn.com.pps.education.dto.ClassSessionResponse;
 import vn.com.pps.education.dto.CurriculumDocumentResponse;
+import vn.com.pps.education.dto.GradeEntryResponse;
+import vn.com.pps.education.dto.GradePeriodResultResponse;
 import vn.com.pps.education.dto.ListeningPracticeItemResponse;
 import vn.com.pps.education.security.AuthenticatedUser;
 import vn.com.pps.education.service.ClassSessionService;
 import vn.com.pps.education.service.CurriculumDocumentService;
 import vn.com.pps.education.service.ExerciseAttemptService;
+import vn.com.pps.education.service.GradeService;
 import vn.com.pps.education.service.ListeningPracticeService;
 
 import java.time.LocalDate;
@@ -34,15 +38,18 @@ public class StudentPortalController {
     private final ExerciseAttemptService exerciseAttemptService;
     private final CurriculumDocumentService curriculumDocumentService;
     private final ListeningPracticeService listeningPracticeService;
+    private final GradeService gradeService;
 
     public StudentPortalController(ClassSessionService classSessionService,
                                     ExerciseAttemptService exerciseAttemptService,
                                     CurriculumDocumentService curriculumDocumentService,
-                                    ListeningPracticeService listeningPracticeService) {
+                                    ListeningPracticeService listeningPracticeService,
+                                    GradeService gradeService) {
         this.classSessionService = classSessionService;
         this.exerciseAttemptService = exerciseAttemptService;
         this.curriculumDocumentService = curriculumDocumentService;
         this.listeningPracticeService = listeningPracticeService;
+        this.gradeService = gradeService;
     }
 
     /** UC-59: lịch học của tôi. */
@@ -78,5 +85,21 @@ public class StudentPortalController {
             @RequestParam(required = false) Long curriculumId,
             @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(listeningPracticeService.listMyPracticeItems(actor.userId(), mode, curriculumId));
+    }
+
+    /** UC-61: bảng điểm đã công bố (PUBLISHED) của (các) lớp tôi đang học. */
+    @GetMapping("/grades")
+    public ResponseEntity<List<GradeEntryResponse>> listMyGrades(
+            @RequestParam(required = false) Long classId,
+            @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(gradeService.listMyGrades(actor.userId(), classId));
+    }
+
+    /** UC-61: Overall/Level đã công bố (PUBLISHED) của 1 kỳ đánh giá. */
+    @GetMapping("/classes/{classId}/periods/{gradePeriodId}/result")
+    public ResponseEntity<GradePeriodResultResponse> getMyPeriodResult(
+            @PathVariable Long classId, @PathVariable Long gradePeriodId,
+            @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(gradeService.getMyPeriodResult(actor.userId(), classId, gradePeriodId));
     }
 }

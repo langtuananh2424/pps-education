@@ -18,6 +18,7 @@ import vn.com.pps.education.dto.CreateCurriculumRequest;
 import vn.com.pps.education.dto.CreateGradeComponentRequest;
 import vn.com.pps.education.dto.CreateGradePeriodRequest;
 import vn.com.pps.education.dto.CurriculumResponse;
+import vn.com.pps.education.dto.EnrollStudentRequest;
 import vn.com.pps.education.dto.EnterGradePeriodResultRequest;
 import vn.com.pps.education.dto.EnterGradeRequest;
 import vn.com.pps.education.dto.GradeComponentResponse;
@@ -34,6 +35,7 @@ import vn.com.pps.education.exception.GradePeriodWeightExceededException;
 import vn.com.pps.education.exception.InvalidGradeScoreException;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
 import vn.com.pps.education.exception.NotSiteManagerForSiteException;
+import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.repository.GradePeriodEditWindowRepository;
 import vn.com.pps.education.repository.RoleRepository;
 import vn.com.pps.education.repository.SiteManagerRepository;
@@ -395,6 +397,65 @@ class GradeServiceTest extends AbstractIntegrationTest {
 
         assertThat(gradeService.listUnpublishedForSite(headAcademic.getId()))
                 .extracting(GradeEntryResponse::id).contains(entry.id());
+    }
+
+    @Test
+    void listMyGrades_UC61_MainFlow_returnsPublishedEntriesForEnrolledClass() {
+        classService.enroll(schoolClass.id(), new EnrollStudentRequest(student.getId(), LocalDate.now()), headAcademic.getId());
+        GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
+                new EnterGradeRequest(student.getId(), new BigDecimal("8"), false, null), teacher.getId());
+        gradeService.publishGrades(new PublishGradesRequest(List.of(entry.id()), null), siteManagerUser.getId());
+
+        List<GradeEntryResponse> myGrades = gradeService.listMyGrades(student.getUser().getId(), null);
+
+        assertThat(myGrades).extracting(GradeEntryResponse::id).contains(entry.id());
+        assertThat(myGrades).extracting(GradeEntryResponse::status).containsOnly("PUBLISHED");
+    }
+
+    @Test
+    void listMyGrades_UC61_excludesUnpublishedEntries() {
+        classService.enroll(schoolClass.id(), new EnrollStudentRequest(student.getId(), LocalDate.now()), headAcademic.getId());
+        GradeEntryResponse draftEntry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
+                new EnterGradeRequest(student.getId(), new BigDecimal("8"), false, null), teacher.getId());
+
+        List<GradeEntryResponse> myGrades = gradeService.listMyGrades(student.getUser().getId(), null);
+
+        assertThat(myGrades).extracting(GradeEntryResponse::id).doesNotContain(draftEntry.id());
+    }
+
+    @Test
+    void getMyPeriodResult_UC61_MainFlow_returnsPublishedResult() {
+        classService.enroll(schoolClass.id(), new EnrollStudentRequest(student.getId(), LocalDate.now()), headAcademic.getId());
+        GradePeriodResultResponse result = gradeService.enterPeriodResult(schoolClass.id(), student.getId(), gradePeriod.id(),
+                new EnterGradePeriodResultRequest(new BigDecimal("7.5"), "BAND", "B2"), teacher.getId());
+        gradeService.publishGrades(new PublishGradesRequest(null, List.of(result.id())), siteManagerUser.getId());
+
+        GradePeriodResultResponse myResult = gradeService.getMyPeriodResult(student.getUser().getId(), schoolClass.id(), gradePeriod.id());
+
+        assertThat(myResult.status()).isEqualTo("PUBLISHED");
+        assertThat(myResult.level()).isEqualTo("B2");
+        assertThat(myResult.overallScore()).isEqualByComparingTo("7.5");
+    }
+
+    @Test
+    void getMyPeriodResult_UC61_A_rejectsWhenNotYetPublished() {
+        classService.enroll(schoolClass.id(), new EnrollStudentRequest(student.getId(), LocalDate.now()), headAcademic.getId());
+        gradeService.enterPeriodResult(schoolClass.id(), student.getId(), gradePeriod.id(),
+                new EnterGradePeriodResultRequest(new BigDecimal("7.5"), "BAND", "B2"), teacher.getId());
+
+        assertThatThrownBy(() -> gradeService.getMyPeriodResult(student.getUser().getId(), schoolClass.id(), gradePeriod.id()))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void getMyPeriodResult_UC61_rejectsWhenStudentNotEnrolledInClass() {
+        GradePeriodResultResponse result = gradeService.enterPeriodResult(schoolClass.id(), student.getId(), gradePeriod.id(),
+                new EnterGradePeriodResultRequest(new BigDecimal("7.5"), "BAND", "B2"), teacher.getId());
+        gradeService.publishGrades(new PublishGradesRequest(null, List.of(result.id())), siteManagerUser.getId());
+        // Cố tình KHÔNG gọi classService.enroll -- học sinh chưa ghi danh lớp này.
+
+        assertThatThrownBy(() -> gradeService.getMyPeriodResult(student.getUser().getId(), schoolClass.id(), gradePeriod.id()))
+                .isInstanceOf(ResourceNotFoundException.class);
     }
 
     /** Đẩy lùi mốc "lần đầu nhập" (grade_period_edit_windows) quá hạn X ngày hiện hành để mô phỏng hết hạn chỉnh sửa (UC-19 A2). */
