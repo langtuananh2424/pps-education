@@ -18,4 +18,9 @@ public interface ClassEnrollmentRepository extends JpaRepository<ClassEnrollment
             Long classId, Long studentId, ClassEnrollment.Status status);
 
     long countBySchoolClassIdAndStatus(Long classId, ClassEnrollment.Status status);
+
+    List<ClassEnrollment> findByStudentIdAndStatus(Long studentId, ClassEnrollment.Status status);
+
+    /** UC-23a/UC-60: HS gọi thẳng theo curriculumId (không qua 1 lớp cụ thể) — kiểm tra có học lớp nào thuộc khung này không. */
+    boolean existsByStudentIdAndSchoolClass_CurriculumIdAndStatus(Long studentId, Long curriculumId, ClassEnrollment.Status status);
 }

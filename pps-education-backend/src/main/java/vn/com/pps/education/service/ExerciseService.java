@@ -29,6 +29,7 @@ import vn.com.pps.education.repository.ExerciseQuestionRepository;
 import vn.com.pps.education.repository.ExerciseRepository;
 import vn.com.pps.education.repository.QuestionRepository;
 import vn.com.pps.education.repository.SchoolClassRepository;
+import vn.com.pps.education.repository.StudentRepository;
 import vn.com.pps.education.repository.UserRepository;
 
 import java.util.List;
@@ -55,6 +56,7 @@ public class ExerciseService {
     private final SchoolClassRepository schoolClassRepository;
     private final ClassTeacherRepository classTeacherRepository;
     private final ClassEnrollmentRepository classEnrollmentRepository;
+    private final StudentRepository studentRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
 
@@ -67,6 +69,7 @@ public class ExerciseService {
                             SchoolClassRepository schoolClassRepository,
                             ClassTeacherRepository classTeacherRepository,
                             ClassEnrollmentRepository classEnrollmentRepository,
+                            StudentRepository studentRepository,
                             UserRepository userRepository,
                             NotificationService notificationService) {
         this.exerciseRepository = exerciseRepository;
@@ -78,6 +81,7 @@ public class ExerciseService {
         this.schoolClassRepository = schoolClassRepository;
         this.classTeacherRepository = classTeacherRepository;
         this.classEnrollmentRepository = classEnrollmentRepository;
+        this.studentRepository = studentRepository;
         this.userRepository = userRepository;
         this.notificationService = notificationService;
     }
@@ -126,17 +130,29 @@ public class ExerciseService {
         return toResponse(eq);
     }
 
+    /** UC-24/UC-27: HS chỉ xem được đề ASSIGNED nếu có assignment ACTIVE khớp lớp đang học; SELF_PRACTICE/MOCK_TEST/SKILL_PRACTICE mở tự do khi đã PUBLISHED. Staff (lms.exercise.manage) xem được mọi đề. */
     @Transactional(readOnly = true)
-    public ExerciseResponse getExercise(Long id) {
+    public ExerciseResponse getExercise(Long id, Long actorUserId) {
         Exercise exercise = getExerciseOrThrow(id);
+        requireCanViewExercise(exercise, actorUserId);
         List<ExerciseQuestion> questions = exerciseQuestionRepository.findByExerciseIdOrderByDisplayOrder(id);
         return toResponse(exercise, questions);
     }
 
     @Transactional(readOnly = true)
-    public List<ExerciseQuestionResponse> listQuestions(Long exerciseId) {
+    public List<ExerciseQuestionResponse> listQuestions(Long exerciseId, Long actorUserId) {
+        Exercise exercise = getExerciseOrThrow(exerciseId);
+        requireCanViewExercise(exercise, actorUserId);
         return exerciseQuestionRepository.findByExerciseIdOrderByDisplayOrder(exerciseId).stream()
                 .map(this::toResponse).toList();
+    }
+
+    /** Bổ sung: GV xem lại danh sách đề đã giao cho 1 lớp (trước đây có repo method nhưng không controller/service nào gọi). */
+    @Transactional(readOnly = true)
+    public List<ExerciseAssignmentResponse> listAssignmentsForClass(Long classId, Long actorUserId) {
+        requireAssignedTeacher(classId, actorUserId);
+        return exerciseAssignmentRepository.findBySchoolClassIdAndStatus(classId, ExerciseAssignment.Status.ACTIVE)
+                .stream().map(this::toResponse).toList();
     }
 
     /** Main Flow bước 4 (SELF_PRACTICE): xác nhận lưu đề, không cần giao lớp. */
@@ -175,13 +191,13 @@ public class ExerciseService {
         exercise.setStatus(Exercise.Status.PUBLISHED);
         exerciseRepository.save(exercise);
 
-        notifyAssignedStudents(schoolClass, exercise, request.targetStudentIds());
+        notifyAssignedStudents(schoolClass, exercise, assignment, request.targetStudentIds());
         return toResponse(assignment);
     }
 
     // ===================== Helpers =====================
 
-    private void notifyAssignedStudents(SchoolClass schoolClass, Exercise exercise, List<Long> targetStudentIds) {
+    private void notifyAssignedStudents(SchoolClass schoolClass, Exercise exercise, ExerciseAssignment assignment, List<Long> targetStudentIds) {
         List<ClassEnrollment> enrollments = classEnrollmentRepository
                 .findBySchoolClassIdAndStatus(schoolClass.getId(), ClassEnrollment.Status.ACTIVE);
         String title = "Bài kiểm tra mới được giao";
@@ -192,7 +208,9 @@ public class ExerciseService {
                 continue;
             }
             notificationService.notify(enrollment.getStudent().getUser().getId(),
-                    Notification.NotificationType.OTHER, title, content);
+                    Notification.NotificationType.OTHER, title, content,
+                    null, "EXERCISE_ASSIGNMENT", assignment.getId(),
+                    Notification.Priority.NORMAL, null);
         }
     }
 
@@ -200,6 +218,26 @@ public class ExerciseService {
         if (!classTeacherRepository.existsBySchoolClassIdAndTeacherIdAndAssignedToIsNull(classId, actorUserId)) {
             throw new NotAssignedTeacherForClassException(
                     "Tài khoản id=" + actorUserId + " không được phân công giảng dạy lớp id=" + classId + ".");
+        }
+    }
+
+    /** Staff (đã qua @PreAuthorize lms.exercise.manage ở phần lệnh khác) luôn xem được; HS chỉ xem đề mình được phép làm. */
+    private void requireCanViewExercise(Exercise exercise, Long actorUserId) {
+        var student = studentRepository.findByUserId(actorUserId);
+        if (student.isEmpty()) {
+            return; // staff/teacher/admin — không hạn chế thêm ở đây
+        }
+        if (exercise.getStatus() != Exercise.Status.PUBLISHED) {
+            throw new ResourceNotFoundException("Không tìm thấy đề id=" + exercise.getId());
+        }
+        if (exercise.getExerciseType() == Exercise.ExerciseType.ASSIGNED) {
+            boolean hasActiveAssignment = classEnrollmentRepository.findByStudentId(student.get().getId()).stream()
+                    .filter(e -> e.getStatus() == ClassEnrollment.Status.ACTIVE)
+                    .anyMatch(e -> !exerciseAssignmentRepository.findByExerciseIdAndSchoolClassIdAndStatus(
+                            exercise.getId(), e.getSchoolClass().getId(), ExerciseAssignment.Status.ACTIVE).isEmpty());
+            if (!hasActiveAssignment) {
+                throw new ResourceNotFoundException("Không tìm thấy đề id=" + exercise.getId());
+            }
         }
     }
 

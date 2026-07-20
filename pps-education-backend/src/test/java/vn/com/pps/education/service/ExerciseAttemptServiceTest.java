@@ -12,6 +12,7 @@ import vn.com.pps.education.domain.UserRole;
 import vn.com.pps.education.dto.AddExerciseQuestionRequest;
 import vn.com.pps.education.dto.AssignExerciseRequest;
 import vn.com.pps.education.dto.AssignTeacherRequest;
+import vn.com.pps.education.dto.AssignedExerciseResponse;
 import vn.com.pps.education.dto.ClassResponse;
 import vn.com.pps.education.dto.CreateClassRequest;
 import vn.com.pps.education.dto.CreateCurriculumRequest;
@@ -247,6 +248,93 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
                 .isInstanceOf(AttemptNotEditableException.class);
     }
 
+    @Test
+    void submitAttempt_UC24_MainFlow_exposesCorrectAnswersAndExplanationWhenConfigured() {
+        QuestionResponse mc = questionBankService.createQuestion(
+                new CreateQuestionRequest(bank.id(), "MULTIPLE_CHOICE", "GRAMMAR", "EASY",
+                        "She ___ to school.", null, null, null, "Vì chủ ngữ số ít nên dùng 'goes'.",
+                        new BigDecimal("1.0"), null,
+                        List.of(new QuestionChoiceRequest("A", "go", false, 1), new QuestionChoiceRequest("B", "goes", true, 2))),
+                teacher.getId());
+        ExerciseResponse exercise = assignedExerciseWithQuestions(List.of(mc), null, false, true, true);
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
+        answerCorrectly(attempt.id(), mc);
+        exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
+
+        StudentAnswerResponse answer = exerciseAttemptService.listAnswers(attempt.id(), studentUser.getId()).get(0);
+
+        Long correctChoiceId = mc.choices().stream().filter(c -> c.isCorrect()).findFirst().orElseThrow().id();
+        assertThat(answer.correctChoiceIds()).containsExactly(correctChoiceId);
+        assertThat(answer.explanation()).isEqualTo("Vì chủ ngữ số ít nên dùng 'goes'.");
+    }
+
+    @Test
+    void submitAttempt_UC24_A_hidesCorrectAnswersWhenShowCorrectAnswersFalse() {
+        QuestionResponse mc = createMcQuestion();
+        ExerciseResponse exercise = assignedExerciseWithQuestions(List.of(mc), null, false, true, false);
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
+        answerCorrectly(attempt.id(), mc);
+        exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
+
+        StudentAnswerResponse answer = exerciseAttemptService.listAnswers(attempt.id(), studentUser.getId()).get(0);
+
+        assertThat(answer.correctChoiceIds()).isNull();
+    }
+
+    @Test
+    void submitAttempt_UC24_hidesCorrectAnswersWhileAttemptStillInProgress() {
+        QuestionResponse mc = createMcQuestion();
+        ExerciseResponse exercise = assignedExerciseWithQuestions(List.of(mc), null, false, true, true);
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
+        answerCorrectly(attempt.id(), mc);
+
+        StudentAnswerResponse answer = exerciseAttemptService.listAnswers(attempt.id(), studentUser.getId()).get(0);
+
+        assertThat(answer.correctChoiceIds()).isNull();
+    }
+
+    @Test
+    void listMyAssignedExercises_MainFlow_returnsAssignedExercisesForEnrolledClasses() {
+        QuestionResponse mc = createMcQuestion();
+        ExerciseResponse exercise = assignedExerciseWithQuestions(List.of(mc), null, false, true);
+
+        List<AssignedExerciseResponse> assigned = exerciseAttemptService.listMyAssignedExercises(studentUser.getId(), null);
+
+        assertThat(assigned).extracting(AssignedExerciseResponse::exerciseId).contains(exercise.id());
+        assertThat(assigned).filteredOn(a -> a.exerciseId().equals(exercise.id()))
+                .first().satisfies(a -> assertThat(a.classId()).isEqualTo(schoolClass.id()));
+    }
+
+    @Test
+    void listMyAssignedExercises_doesNotReturnAssignmentsForClassStudentNotEnrolledIn() {
+        QuestionResponse mc = createMcQuestion();
+        ExerciseResponse exercise = exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "Kiểm tra lớp khác", activeCurriculum.id(), null, "ASSIGNED",
+                        new BigDecimal("10"), null, false, 1, true), teacher.getId());
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("10")), teacher.getId());
+        Site otherSite = newSite();
+        ClassResponse otherClass = classService.create(new CreateClassRequest(classCode(), "9B1", otherSite.getId(),
+                activeCurriculum.id(), "OPEN", 20, null, LocalDate.now(), null, null, null), headAcademic.getId());
+        classService.assignTeacher(otherClass.id(),
+                new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now()), headAcademic.getId());
+        exerciseService.assignExercise(exercise.id(),
+                new AssignExerciseRequest(otherClass.id(), null, null, false, null, null), teacher.getId());
+
+        List<AssignedExerciseResponse> assigned = exerciseAttemptService.listMyAssignedExercises(studentUser.getId(), null);
+
+        assertThat(assigned).extracting(AssignedExerciseResponse::exerciseId).doesNotContain(exercise.id());
+    }
+
+    @Test
+    void listMyAssignedExercises_A_filtersByClassIdWhenProvided() {
+        QuestionResponse mc = createMcQuestion();
+        assignedExerciseWithQuestions(List.of(mc), null, false, true);
+
+        List<AssignedExerciseResponse> filteredOut = exerciseAttemptService.listMyAssignedExercises(studentUser.getId(), 999_999L);
+
+        assertThat(filteredOut).isEmpty();
+    }
+
     private QuestionResponse createMcQuestion() {
         return questionBankService.createQuestion(
                 new CreateQuestionRequest(bank.id(), "MULTIPLE_CHOICE", "GRAMMAR", "EASY",
@@ -275,9 +363,14 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
 
     private ExerciseResponse assignedExerciseWithQuestions(List<QuestionResponse> questions, OffsetDateTime dueAt,
                                                              boolean lateAllowed, boolean publish) {
+        return assignedExerciseWithQuestions(questions, dueAt, lateAllowed, publish, true);
+    }
+
+    private ExerciseResponse assignedExerciseWithQuestions(List<QuestionResponse> questions, OffsetDateTime dueAt,
+                                                             boolean lateAllowed, boolean publish, boolean showCorrectAnswers) {
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Kiểm tra", activeCurriculum.id(), null, "ASSIGNED",
-                        new BigDecimal(questions.size()), null, false, 1, true), teacher.getId());
+                        new BigDecimal(questions.size()), null, false, 1, showCorrectAnswers), teacher.getId());
         int order = 1;
         for (QuestionResponse q : questions) {
             exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(q.id(), order++, new BigDecimal("1.0")), teacher.getId());

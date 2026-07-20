@@ -38,8 +38,9 @@ public class ExerciseController {
     }
 
     @GetMapping("/api/exercises/{id}")
-    public ResponseEntity<ExerciseResponse> getExercise(@PathVariable Long id) {
-        return ResponseEntity.ok(exerciseService.getExercise(id));
+    public ResponseEntity<ExerciseResponse> getExercise(@PathVariable Long id,
+                                                          @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(exerciseService.getExercise(id, actor.userId()));
     }
 
     @PreAuthorize("hasPermission(null, 'lms.exercise.manage')")
@@ -51,8 +52,15 @@ public class ExerciseController {
     }
 
     @GetMapping("/api/exercises/{id}/questions")
-    public ResponseEntity<List<ExerciseQuestionResponse>> listQuestions(@PathVariable Long id) {
-        return ResponseEntity.ok(exerciseService.listQuestions(id));
+    public ResponseEntity<List<ExerciseQuestionResponse>> listQuestions(@PathVariable Long id,
+                                                                          @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(exerciseService.listQuestions(id, actor.userId()));
+    }
+
+    @GetMapping("/api/classes/{classId}/exercises")
+    public ResponseEntity<List<ExerciseAssignmentResponse>> listAssignmentsForClass(@PathVariable Long classId,
+                                                                                      @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(exerciseService.listAssignmentsForClass(classId, actor.userId()));
     }
 
     @PreAuthorize("hasPermission(null, 'lms.exercise.manage')")
