@@ -1,6 +1,7 @@
 import {
   Award,
   Building2,
+  CalendarDays,
   CheckSquare,
   DollarSign,
   ExternalLink,
@@ -94,6 +95,8 @@ export const navSections: NavSection[] = [
     items: [
       // Không gate requiredPermission: Giáo viên (không có academic.class.manage/academic.grade.manage) vẫn cần vào đây để điểm danh/nhập điểm/viết nhận xét cho lớp mình dạy.
       { id: "acad-classes", label: "Quản lý lớp học (UC-18)", path: "/academic/classes", icon: GraduationCap },
+      // Self-service (UC-58) — không gate quyền, ai đăng nhập cũng vào được, chỉ có dữ liệu thật với Giáo viên.
+      { id: "acad-my-schedule", label: "Lịch của tôi (UC-58)", path: "/schedule/my-timetable", icon: CalendarDays },
       { id: "acad-syllabus", label: "Khung chương trình (UC-16/17)", path: "/academic/syllabus", icon: GraduationCap, requiredPermission: "academic.curriculum.manage" },
       { id: "acad-grades", label: "Sổ điểm hệ thống (UC-19/20)", path: "/academic/grades", icon: Award },
       { id: "acad-comments", label: "Nhận xét học viên (UC-21/22)", path: "/academic/comments", icon: Award }
@@ -103,6 +106,8 @@ export const navSections: NavSection[] = [
     id: "lms",
     title: "TÀI LIỆU & KHẢO THÍ LMS",
     items: [
+      { id: "lms-question-banks", label: "Ngân hàng câu hỏi (UC-40)", path: "/lms/question-banks", icon: BookOpen, requiredPermission: "lms.exercise.manage" },
+      { id: "lms-exercises", label: "Soạn & giao đề (UC-40)", path: "/lms/exercises", icon: BookOpen, requiredPermission: "lms.exercise.manage" },
       { id: "lms-lectures", label: "Kho bài giảng (UC-23)", path: "/lms/lectures", icon: BookOpen, requiredPermission: "lms.exercise.manage" },
       { id: "lms-exams", label: "Hàng chờ chấm bài (UC-41)", path: "/lms/exams", icon: BookOpen, requiredPermission: "lms.grading.manage" }
     ]

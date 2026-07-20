@@ -117,6 +117,24 @@ export function listSiteTeachers(siteId: number): Promise<SiteTeacherResponse[]>
   return apiRequest<SiteTeacherResponse[]>(`/sites/${siteId}/teachers`);
 }
 
+export interface RoomResponse {
+  id: number;
+  siteId: number;
+  code: string;
+  name: string;
+  roomType: string;
+  capacity: number;
+  flexible: boolean;
+  managedByCenter: boolean;
+  status: string;
+  notes: string | null;
+}
+
+/** UC-37: phòng học của 1 điểm trường — dùng khi xếp/sinh lịch buổi học (UC-48/56). */
+export function listRoomsBySite(siteId: number): Promise<RoomResponse[]> {
+  return apiRequest<RoomResponse[]>(`/sites/${siteId}/rooms`);
+}
+
 export interface PartnerSiteResponse {
   siteId: number;
   siteCode: string;

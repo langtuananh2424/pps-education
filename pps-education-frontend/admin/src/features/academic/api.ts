@@ -310,6 +310,65 @@ export function rescheduleClassSession(classId: number, sessionId: number, reque
   return apiRequest<ClassSessionResponse>(`/classes/${classId}/sessions/${sessionId}/reschedule`, { method: "POST", body: JSON.stringify(request) });
 }
 
+// ===================== Sinh lịch hàng loạt (UC-56) =====================
+
+/** daysOfWeek dùng đúng tên hằng số java.time.DayOfWeek: MONDAY..SUNDAY. */
+export interface BulkCreateClassSessionRequest {
+  startDate: string;
+  endDate: string;
+  daysOfWeek: string[];
+  startTime: string;
+  endTime: string;
+  roomId?: number;
+  primaryTeacherId: number;
+  sessionType: string;
+}
+
+export interface BulkCreateClassSessionResponse {
+  totalDates: number;
+  createdCount: number;
+  skippedCount: number;
+  created: ClassSessionResponse[];
+  skipped: { date: string; reason: string }[];
+}
+
+export function bulkCreateClassSessions(classId: number, request: BulkCreateClassSessionRequest): Promise<BulkCreateClassSessionResponse> {
+  return apiRequest<BulkCreateClassSessionResponse>(`/classes/${classId}/sessions/bulk`, { method: "POST", body: JSON.stringify(request) });
+}
+
+// ===================== Nhập lịch học từ Excel (UC-57) =====================
+
+export interface ClassScheduleImportResponse {
+  id: number;
+  sourceFileName: string;
+  totalRows: number | null;
+  successRows: number;
+  failedRows: number;
+  status: string;
+  errorSummary: Record<string, unknown>[] | null;
+}
+
+export function importClassSchedule(classId: number, file: File): Promise<ClassScheduleImportResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return apiRequest<ClassScheduleImportResponse>(`/classes/${classId}/session-imports`, { method: "POST", body: formData });
+}
+
+export function getScheduleImportJob(classId: number, jobId: number): Promise<ClassScheduleImportResponse> {
+  return apiRequest<ClassScheduleImportResponse>(`/classes/${classId}/session-imports/${jobId}`);
+}
+
+// ===================== Lịch của tôi — Giáo viên (UC-58, self-service) =====================
+
+/** GV tự xem mọi buổi dạy của chính mình qua mọi lớp — không cần quyền academic.class.manage. */
+export function getMyTeachingSchedule(fromDate?: string, toDate?: string): Promise<ClassSessionResponse[]> {
+  const params = new URLSearchParams();
+  if (fromDate) params.set("fromDate", fromDate);
+  if (toDate) params.set("toDate", toDate);
+  const query = params.toString();
+  return apiRequest<ClassSessionResponse[]>(`/teachers/me/sessions${query ? `?${query}` : ""}`);
+}
+
 // ===================== Điểm danh (UC-15) =====================
 
 export interface AttendanceMarkResponse {

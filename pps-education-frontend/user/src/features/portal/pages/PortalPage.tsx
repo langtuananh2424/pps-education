@@ -5,6 +5,8 @@ import { useApp } from "@/context/AppContext";
 import { ChildResponse, listClassOptions, listMyChildren, PortalClassOptionResponse } from "../api";
 import HomeTab from "../components/HomeTab";
 import ScheduleTab from "../components/ScheduleTab";
+import StudentScheduleTab from "../components/StudentScheduleTab";
+import AssignmentsTab from "../components/AssignmentsTab";
 import GradesTab from "../components/GradesTab";
 import BillingTab from "../components/BillingTab";
 import LmsTab from "../components/LmsTab";
@@ -22,12 +24,13 @@ const TABS: { key: Tab; label: string; icon: React.ComponentType<{ size?: number
 ];
 
 /**
- * UC-42 mới chỉ mở self-access cho học sinh ở /portal/students/{id}/class-options
- * và /auth/me (studentId) — 5 API còn lại (grades/attendance/comments/schedule/
- * invoices/my, thuộc ParentPortalService/InvoiceService) vẫn chỉ chấp nhận Phụ
- * huynh (requireLinkedParent/parentOrThrow), gọi bằng tài khoản Học sinh sẽ 403.
- * Nên chỉ tab LMS chạy thật cho Học sinh — 4 tab còn lại hiện ComingSoon, chờ BE
- * áp dụng cùng pattern requireOwnerOrLinkedParent cho các Service đó.
+ * UC-42 mở self-access cho học sinh ở /portal/students/{id}/class-options,
+ * /auth/me (studentId), và giờ có thêm /students/me/sessions (UC-59, lịch học
+ * — xem StudentScheduleTab). 4 API còn lại (grades/attendance/comments/
+ * invoices/my, thuộc ParentPortalService/InvoiceService) vẫn chỉ chấp nhận
+ * Phụ huynh (requireLinkedParent/parentOrThrow), gọi bằng tài khoản Học sinh
+ * sẽ 403 — các tab đó vẫn hiện ComingSoon, chờ BE áp dụng cùng pattern
+ * requireOwnerOrLinkedParent cho các Service đó.
  */
 export default function PortalPage() {
   const { currentUser, isParent, isStudent, logout } = useApp();
@@ -226,13 +229,21 @@ export default function PortalPage() {
                   {activeTab === "schedule" &&
                     (isParent && selectedChild ? (
                       <ScheduleTab studentId={selectedChild.studentId} classId={selectedClassId} />
+                    ) : isStudent ? (
+                      <StudentScheduleTab />
                     ) : (
                       <ComingSoon
                         title="Lịch học & Chuyên cần"
                         description="Đang chờ Backend mở API cho Học sinh tự xem lịch học/chuyên cần của chính mình (hiện chỉ Phụ huynh xem được)."
                       />
                     ))}
-                  {activeTab === "lms" && <LmsTab classId={selectedClassId} />}
+                  {activeTab === "lms" && (
+                    <div className="space-y-6">
+                      {/* GET /students/me/exercises tra theo userId của chính người gọi — chỉ hoạt động cho Học sinh tự đăng nhập, Phụ huynh gọi sẽ 404 "không có hồ sơ học sinh" nên chỉ hiện với isStudent. */}
+                      {isStudent && <AssignmentsTab classId={selectedClassId} />}
+                      <LmsTab classId={selectedClassId} />
+                    </div>
+                  )}
                   {activeTab === "grades" &&
                     (isParent && selectedChild ? (
                       <GradesTab studentId={selectedChild.studentId} classId={selectedClassId} />

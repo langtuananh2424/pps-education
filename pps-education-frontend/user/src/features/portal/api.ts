@@ -204,6 +204,16 @@ export function listSchedule(studentId: number, classId: number): Promise<ClassS
   return apiRequest<ClassSessionResponse[]>(`/portal/parent/children/${studentId}/classes/${classId}/schedule`);
 }
 
+/** UC-59: Học sinh tự xem lịch học của chính mình (self-service, không cần studentId/classId — suy từ JWT) — khác listSchedule (Phụ huynh xem theo con+lớp cụ thể). */
+export function listMySessions(fromDate?: string, toDate?: string, classId?: number): Promise<ClassSessionResponse[]> {
+  const params = new URLSearchParams();
+  if (fromDate) params.set("fromDate", fromDate);
+  if (toDate) params.set("toDate", toDate);
+  if (classId) params.set("classId", String(classId));
+  const query = params.toString();
+  return apiRequest<ClassSessionResponse[]>(`/students/me/sessions${query ? `?${query}` : ""}`);
+}
+
 export function listMyInvoices(): Promise<InvoiceResponse[]> {
   return apiRequest<InvoiceResponse[]>("/finance/invoices/my");
 }
@@ -246,4 +256,46 @@ export function listLessonsByClass(classId: number): Promise<LessonResponse[]> {
 
 export function listLessonMaterials(lessonId: number): Promise<LessonMaterialResponse[]> {
   return apiRequest<LessonMaterialResponse[]>(`/lessons/${lessonId}/materials`);
+}
+
+/**
+ * UC-40 (phía học viên): đề đã được giao cho (các) lớp tôi đang học —
+ * self-service thật (KHÁC `GET /api/classes/{classId}/exercises`, hàm đó
+ * chỉ dành cho Giáo viên của lớp, học sinh gọi vào luôn bị 403). Khớp
+ * AssignedExerciseResponse thật — 3 field myLatestAttempt... cho biết
+ * ngay đã làm/đang làm dở/đã có điểm, không cần gọi thêm API nào.
+ */
+export interface AssignedExerciseResponse {
+  exerciseId: number;
+  exerciseCode: string;
+  title: string;
+  exerciseType: "SELF_PRACTICE" | "ASSIGNED";
+  assignmentId: number;
+  classId: number;
+  className: string;
+  availableFrom: string;
+  dueAt: string | null;
+  lateSubmissionAllowed: boolean;
+  myLatestAttemptId: number | null;
+  myLatestAttemptStatus: "IN_PROGRESS" | "AUTO_GRADED" | "FULLY_GRADED" | null;
+  myLatestTotalScore: number | null;
+}
+
+export function listMyAssignedExercises(classId?: number): Promise<AssignedExerciseResponse[]> {
+  return apiRequest<AssignedExerciseResponse[]>(`/students/me/exercises${classId ? `?classId=${classId}` : ""}`);
+}
+
+/** questionContent/points chỉ mang tính xem trước — KHÔNG có choices/đáp án đúng (field đó chỉ lộ ra qua GET /api/questions/{id}, endpoint riêng có gate quyền lms.exercise.manage, học viên không gọi được). */
+export interface ExerciseQuestionResponse {
+  id: number;
+  exerciseId: number;
+  questionId: number;
+  questionType: string;
+  questionContent: string;
+  displayOrder: number;
+  points: number;
+}
+
+export function listExerciseQuestions(exerciseId: number): Promise<ExerciseQuestionResponse[]> {
+  return apiRequest<ExerciseQuestionResponse[]>(`/exercises/${exerciseId}/questions`);
 }
