@@ -504,7 +504,10 @@ nhân đó mới được thao tác.*
         Excel dùng chung của UC-35/50/51/53 (UC-57); và **"Lịch của
         tôi"** — Giáo viên tự xem tổng hợp mọi buổi mình phụ trách qua
         TẤT CẢ các lớp/điểm trường, lọc theo khoảng ngày, không cần
-        quyền quản lý lớp (UC-58).
+        quyền quản lý lớp (UC-58). Học sinh cũng có phiên bản tương tự
+        cho chính mình — tự xem lịch học theo tuần của (các) lớp đang
+        ghi danh, không cần quyền đặc biệt (UC-59, bổ sung ngoài SDD
+        gốc, đã xác nhận với người dùng).
 
     -   **FR-ACA-06: Quản lý Danh mục kỹ năng -** (bổ sung ngoài SDD
         gốc, đã xác nhận với người dùng) Trưởng phòng đào tạo quản lý
@@ -543,7 +546,12 @@ CDN)**
         thực), Chép chính tả (điền từ khóa hoặc điền toàn bộ), Nói (ghi
         âm phản xạ, so khớp phát âm). Hỗ trợ điều chỉnh tốc độ phát
         (0.6x--1.15x) và nhiều giọng đọc. Hệ thống cho phép tạm dừng khi
-        đang nghe.
+        đang nghe. Backend tổ chức nội dung theo khung chương trình
+        (curriculum), tự luyện không hạn nộp, domain tách biệt hoàn
+        toàn khỏi Ngân hàng câu hỏi & Bài tập (FR-LMS-10); chế độ Nói
+        không tích hợp nhận diện/so khớp phát âm tự động bằng dịch vụ
+        bên thứ 3 — luôn chuyển hàng chờ Giáo viên chấm thủ công riêng
+        (bổ sung ngoài SDD gốc, đã xác nhận với người dùng).
 
     -   **FR-LMS-05: Hệ thống Gamification** *(Phase 2)*\
         Học sinh tích lũy điểm kinh nghiệm và duy trì chuỗi ngày học. Hệ
@@ -604,6 +612,14 @@ CDN)**
         --- tự động chọn nếu chỉ có 1 lớp, cho chọn nếu có nhiều lớp (kể
         cả lớp đã kết thúc). Dữ liệu của lớp cũ không bị xóa hay ẩn vĩnh
         viễn.
+
+    -   **FR-LMS-13: Kho tài liệu tham khảo -** (bổ sung ngoài SDD gốc,
+        đã xác nhận với người dùng) Giáo viên/Trưởng phòng đào tạo/Quản
+        lý điểm trường upload tài liệu tham khảo (PDF/video/audio/slide/
+        ảnh...) gắn theo khung chương trình (curriculum) — độc lập với
+        bài giảng (FR-LMS-01), không gắn 1 bài giảng cụ thể nào. Học
+        sinh xem tài liệu đã publish theo curriculum của (các) lớp đang
+        ghi danh (UC-60).
 
 **PHÂN HỆ 8: QUẢN LÝ TÀI CHÍNH VÀ HỌC PHÍ**
 
@@ -800,6 +816,9 @@ CDN)**
                     hợp (Lịch của                       
                     tôi)                                
 
+  UC-59             Xem lịch học của  FR-ACA-05         6
+                    tôi (Học sinh)                       
+
   UC-19             Nhập điểm         FR-ACA-03         6
 
   UC-20             Công bố điểm      FR-ACA-03         6
@@ -816,6 +835,12 @@ CDN)**
   UC-22             Duyệt nhận xét    FR-LMS-09         6, 7
 
   UC-23             Quản lý bài giảng FR-LMS-01         7
+
+  UC-23a            Xem bài giảng     FR-LMS-01         7
+                    (Học sinh)                          
+
+  UC-60             Kho tài liệu tham FR-LMS-13         7
+                    khảo                                
 
   UC-24             Làm bài kiểm tra  FR-LMS-02         7
                     trực tuyến                          

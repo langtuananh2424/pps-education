@@ -52,4 +52,22 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, Long
     List<ClassSession> findByPrimaryTeacherAndDateRange(@Param("teacherId") Long teacherId,
                                                          @Param("fromDate") LocalDate fromDate,
                                                          @Param("toDate") LocalDate toDate);
+
+    /**
+     * UC-59: "Lịch học của tôi" (Học sinh) — mọi buổi học của các lớp
+     * học sinh đang ghi danh (classIds đã lọc ACTIVE ở Service), lọc theo
+     * khoảng ngày tùy chọn (null = không giới hạn). Đối xứng với
+     * findByPrimaryTeacherAndDateRange (UC-58) — khác ở chỗ lọc theo
+     * nhiều classId thay vì 1 teacherId.
+     */
+    @Query("""
+            SELECT cs FROM ClassSession cs
+            WHERE cs.schoolClass.id IN (:classIds)
+            AND (cast(:fromDate as date) IS NULL OR cs.sessionDate >= :fromDate)
+            AND (cast(:toDate as date) IS NULL OR cs.sessionDate <= :toDate)
+            ORDER BY cs.sessionDate ASC, cs.startTime ASC
+            """)
+    List<ClassSession> findBySchoolClassIdInAndDateRange(@Param("classIds") List<Long> classIds,
+                                                          @Param("fromDate") LocalDate fromDate,
+                                                          @Param("toDate") LocalDate toDate);
 }

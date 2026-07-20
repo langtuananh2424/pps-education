@@ -2,6 +2,7 @@ package vn.com.pps.education.service;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.com.pps.education.domain.ClassEnrollment;
 import vn.com.pps.education.domain.ClassSession;
 import vn.com.pps.education.domain.ClassSessionHistory;
 import vn.com.pps.education.domain.Room;
@@ -19,6 +20,7 @@ import vn.com.pps.education.dto.SessionPeriodResponse;
 import vn.com.pps.education.exception.InvalidClassSessionStatusTransitionException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.exception.RoomConflictException;
+import vn.com.pps.education.repository.ClassEnrollmentRepository;
 import vn.com.pps.education.repository.ClassSessionHistoryRepository;
 import vn.com.pps.education.repository.ClassSessionRepository;
 import vn.com.pps.education.repository.RoomRepository;
@@ -26,6 +28,7 @@ import vn.com.pps.education.repository.SchoolClassRepository;
 import vn.com.pps.education.repository.SessionPeriodHistoryRepository;
 import vn.com.pps.education.repository.SessionPeriodRepository;
 import vn.com.pps.education.repository.SiteTeacherRepository;
+import vn.com.pps.education.repository.StudentRepository;
 import vn.com.pps.education.repository.SystemSettingRepository;
 import vn.com.pps.education.repository.UserRepository;
 
@@ -69,6 +72,8 @@ public class ClassSessionService {
     private final UserRepository userRepository;
     private final SiteTeacherRepository siteTeacherRepository;
     private final PermissionEvaluationService permissionEvaluationService;
+    private final ClassEnrollmentRepository classEnrollmentRepository;
+    private final StudentRepository studentRepository;
 
     public ClassSessionService(ClassSessionRepository classSessionRepository,
                                 SessionPeriodRepository sessionPeriodRepository,
@@ -79,7 +84,9 @@ public class ClassSessionService {
                                 SystemSettingRepository systemSettingRepository,
                                 UserRepository userRepository,
                                 SiteTeacherRepository siteTeacherRepository,
-                                PermissionEvaluationService permissionEvaluationService) {
+                                PermissionEvaluationService permissionEvaluationService,
+                                ClassEnrollmentRepository classEnrollmentRepository,
+                                StudentRepository studentRepository) {
         this.classSessionRepository = classSessionRepository;
         this.sessionPeriodRepository = sessionPeriodRepository;
         this.classSessionHistoryRepository = classSessionHistoryRepository;
@@ -90,6 +97,8 @@ public class ClassSessionService {
         this.userRepository = userRepository;
         this.siteTeacherRepository = siteTeacherRepository;
         this.permissionEvaluationService = permissionEvaluationService;
+        this.classEnrollmentRepository = classEnrollmentRepository;
+        this.studentRepository = studentRepository;
     }
 
     /** Giáo viên (không có academic.class.manage) chỉ thấy buổi học thuộc site được gán — xem ClassService.resolveAllowedSiteIds. */
@@ -217,6 +226,30 @@ public class ClassSessionService {
     @Transactional(readOnly = true)
     public List<ClassSessionResponse> listMySessions(Long actorUserId, LocalDate fromDate, LocalDate toDate) {
         return classSessionRepository.findByPrimaryTeacherAndDateRange(actorUserId, fromDate, toDate).stream()
+                .map(this::toResponse).toList();
+    }
+
+    /**
+     * UC-59: "Lịch học của tôi" (Học sinh, bổ sung ngoài SDD gốc, đã xác
+     * nhận với người dùng) — self-service, không cần permission đặc
+     * biệt, trả đúng buổi học của mọi lớp học sinh đang ghi danh ACTIVE.
+     * classIdFilter tùy chọn (ngữ cảnh "lớp đang xem" — UC-42) để thu hẹp
+     * về đúng 1 lớp khi học sinh học nhiều lớp cùng lúc.
+     */
+    @Transactional(readOnly = true)
+    public List<ClassSessionResponse> listMySessionsForStudent(Long actorUserId, LocalDate fromDate, LocalDate toDate,
+                                                                 Long classIdFilter) {
+        var student = studentRepository.findByUserId(actorUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản id=" + actorUserId + " không có hồ sơ học sinh."));
+        List<Long> classIds = classEnrollmentRepository.findByStudentIdAndStatus(student.getId(), ClassEnrollment.Status.ACTIVE)
+                .stream()
+                .map(e -> e.getSchoolClass().getId())
+                .filter(id -> classIdFilter == null || id.equals(classIdFilter))
+                .toList();
+        if (classIds.isEmpty()) {
+            return List.of();
+        }
+        return classSessionRepository.findBySchoolClassIdInAndDateRange(classIds, fromDate, toDate).stream()
                 .map(this::toResponse).toList();
     }
 

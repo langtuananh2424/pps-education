@@ -13,10 +13,14 @@ public interface LessonRepository extends JpaRepository<Lesson, Long> {
 
     List<Lesson> findByCurriculumIdOrderByLessonOrder(Long curriculumId);
 
-    /** UC-25/UC-27: bài giảng HS lớp X xem được — riêng lớp X hoặc chung theo khung của lớp X (SDD). */
+    /**
+     * UC-23a: bài giảng HS lớp X xem được — riêng lớp X hoặc chung theo
+     * khung của lớp X (SDD). status=NULL cho phép staff xem cả DRAFT khi
+     * quản lý; truyền PUBLISHED khi gọi cho học viên.
+     */
     @Query("""
             SELECT l FROM Lesson l
-            WHERE l.status = :status
+            WHERE (:status IS NULL OR l.status = :status)
             AND (l.schoolClass.id = :classId OR l.curriculum.id = :curriculumId)
             ORDER BY l.lessonOrder
             """)
