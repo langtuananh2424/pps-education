@@ -36,6 +36,14 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: true
 
+  # Nâng giới hạn mặc định của Spring Boot (1MB/10MB) để chấp nhận upload
+  # audio thật (tối đa 50MB - xem app.media bên dưới). max-request-size cao
+  # hơn max-file-size một chút để chừa chỗ cho phần multipart metadata khác.
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 55MB
+
   # Kênh EMAIL của module Notification - chưa cấu hình SMTP thật (host rỗng)
   # thì EmailNotificationSender gửi lỗi có kiểm soát, delivery chuyển FAILED
   # + lên lịch retry (đúng state machine đã thiết kế trong SDD), không crash
@@ -111,6 +119,14 @@ app:
     # qua env var SEED_DEV_USERS=true (docker-compose.yml/.env.example local dev
     # đã bật sẵn) để test/CI/staging/production không bao giờ dính.
     dev-users: ${SEED_DEV_USERS:false}
+  media:
+    # Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (2026-07-21): API
+    # upload file audio/ảnh cho Question.audioUrl/imageUrl (UC-40) - trước đây
+    # backend không có hạ tầng lưu file (xem ghi chú "Tệp coi như đã upload
+    # lên CDN từ trước" ở LessonService/các URL field khác - vẫn giữ nguyên,
+    # phạm vi lần này CHỈ áp dụng cho Question). Lưu đĩa cục bộ + Docker volume
+    # bền vững (không có S3/MinIO trong phạm vi hiện tại) thay vì CDN thật.
+    storage-dir: ${MEDIA_STORAGE_DIR:media-storage}
 
 springdoc:
   swagger-ui:
