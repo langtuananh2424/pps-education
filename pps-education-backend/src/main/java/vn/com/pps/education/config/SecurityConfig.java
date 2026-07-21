@@ -11,6 +11,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import vn.com.pps.education.security.JwtAuthenticationEntryPoint;
 import vn.com.pps.education.security.JwtAuthenticationFilter;
 
 /**
@@ -23,9 +24,12 @@ import vn.com.pps.education.security.JwtAuthenticationFilter;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
 
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
+    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
+                           JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.jwtAuthenticationEntryPoint = jwtAuthenticationEntryPoint;
     }
 
     @Bean
@@ -43,6 +47,10 @@ public class SecurityConfig {
         http
             .csrf(csrf -> csrf.disable()) // API stateless dùng Bearer token, không cookie session
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            // Không khai báo -> Spring Security fallback Http403ForbiddenEntryPoint, trả 403 cho
+            // CẢ chưa xác thực lẫn thiếu quyền -> FE không phân biệt được lúc nào cần refresh token
+            // (401) và lúc nào là bị chặn quyền thật sự (403, xem GlobalExceptionHandler).
+            .exceptionHandling(ex -> ex.authenticationEntryPoint(jwtAuthenticationEntryPoint))
             .authorizeHttpRequests(auth -> auth
                 // GET /api/auth/me, PUT /api/auth/me/password cần JWT (không phải luồng
                 // đăng nhập) -- rule cụ thể hơn này PHẢI khai báo TRƯỚC "/api/auth/**"

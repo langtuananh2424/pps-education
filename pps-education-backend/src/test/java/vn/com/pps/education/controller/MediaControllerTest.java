@@ -47,11 +47,11 @@ class MediaControllerTest extends AbstractControllerTest {
     }
 
     @Test
-    void upload_A_deniedWithoutJwt_returns403() throws Exception {
+    void upload_A_deniedWithoutJwt_returns401() throws Exception {
         MockMultipartFile file = new MockMultipartFile("file", "cau-hoi.mp3", "audio/mpeg", "fake-audio".getBytes());
 
         mockMvc.perform(multipart("/api/media/upload").file(file))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
