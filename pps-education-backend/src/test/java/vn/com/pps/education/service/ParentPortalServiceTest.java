@@ -190,7 +190,7 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
         List<GradeEntryResponse> grades = parentPortalService.listGrades(student.getId(), schoolClass.id(), parentUser.getId());
 
         assertThat(grades).hasSize(1);
-        assertThat(grades.get(0).status()).isEqualTo("PUBLISHED");
+        assertThat(grades.get(0).status()).isEqualTo("PROVISIONAL_PUBLISHED");
         assertThat(grades.get(0).id()).isEqualTo(publishedEntry.id());
     }
 
@@ -204,7 +204,7 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
 
         GradePeriodResultResponse result = parentPortalService.getPeriodResult(student.getId(), schoolClass.id(), period.id(), parentUser.getId());
 
-        assertThat(result.status()).isEqualTo("PUBLISHED");
+        assertThat(result.status()).isEqualTo("PROVISIONAL_PUBLISHED");
         assertThat(result.overallScore()).isEqualByComparingTo("7.5");
         assertThat(result.level()).isEqualTo("B2");
     }

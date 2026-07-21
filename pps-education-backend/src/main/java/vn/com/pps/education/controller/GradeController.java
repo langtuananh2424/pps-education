@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -94,6 +95,15 @@ public class GradeController {
         return ResponseEntity.ok(gradeService.enterGrade(classId, gradeComponentId, request, actor.userId()));
     }
 
+    /** UC-19 (xoá điểm nháp, bổ sung ngoài SDD gốc, đã xác nhận với người dùng) — chỉ xoá được bản ghi DRAFT (hoặc academic.grade.edit.override). */
+    @DeleteMapping("/api/classes/{classId}/grades/components/{gradeComponentId}/students/{studentId}")
+    public ResponseEntity<Void> deleteGradeEntry(@PathVariable Long classId, @PathVariable Long gradeComponentId,
+                                                  @PathVariable Long studentId,
+                                                  @AuthenticationPrincipal AuthenticatedUser actor) {
+        gradeService.deleteGradeEntry(classId, gradeComponentId, studentId, actor.userId());
+        return ResponseEntity.noContent().build();
+    }
+
     // ---- UC-53: Overall/Level theo kỳ đánh giá (TEACHER + HEAD_ACADEMIC/SITE_MANAGER hỗ trợ) ----
 
     @PostMapping("/api/classes/{classId}/grades/students/{studentId}/periods/{gradePeriodId}/result")
@@ -109,6 +119,15 @@ public class GradeController {
     public ResponseEntity<List<GradePeriodResultResponse>> listPeriodResults(@PathVariable Long classId,
                                                                              @PathVariable Long gradePeriodId) {
         return ResponseEntity.ok(gradeService.listPeriodResults(classId, gradePeriodId));
+    }
+
+    /** UC-53 (xoá điểm tổng kết kỳ nháp, bổ sung ngoài SDD gốc, đã xác nhận với người dùng) — chỉ xoá được bản ghi DRAFT (hoặc academic.grade.edit.override). */
+    @DeleteMapping("/api/classes/{classId}/grades/students/{studentId}/periods/{gradePeriodId}/result")
+    public ResponseEntity<Void> deletePeriodResult(@PathVariable Long classId, @PathVariable Long studentId,
+                                                    @PathVariable Long gradePeriodId,
+                                                    @AuthenticationPrincipal AuthenticatedUser actor) {
+        gradeService.deletePeriodResult(classId, studentId, gradePeriodId, actor.userId());
+        return ResponseEntity.noContent().build();
     }
 
     // ---- UC-20: Công bố điểm (SITE_MANAGER + HEAD_ACADEMIC) ----

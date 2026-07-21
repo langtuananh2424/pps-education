@@ -210,7 +210,7 @@ class PartnerPortalServiceTest extends AbstractIntegrationTest {
         List<GradeEntryResponse> grades = partnerPortalService.getPublishedGrades(partnerRepUser.getId());
 
         assertThat(grades).hasSize(1);
-        assertThat(grades.get(0).status()).isEqualTo("PUBLISHED");
+        assertThat(grades.get(0).status()).isEqualTo("PROVISIONAL_PUBLISHED");
     }
 
     @Test

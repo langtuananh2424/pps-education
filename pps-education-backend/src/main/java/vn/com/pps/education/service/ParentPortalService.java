@@ -33,7 +33,8 @@ import java.util.List;
  * UC-25: Xem Portal Phụ huynh (FR-LMS-03, FR-LMS-07). Xem
  * docs/uc/phan-he-07-lms-portal.md. Read-only, không có bảng riêng — mọi
  * dữ liệu lấy từ các Repository đã có (SDD > LMS & Portal > Portal Phụ
- * huynh): bảng điểm (grade_entries PUBLISHED, V39 — công bố thay duyệt),
+ * huynh): bảng điểm (grade_entries khác DRAFT — V43: hiển thị cả
+ * PROVISIONAL_PUBLISHED/APPEAL/OFFICIAL, không chỉ PUBLISHED như V39),
  * chuyên cần (attendance_marks join class_sessions), nhận xét/cảnh báo
  * (student_comments APPROVED), lịch học (class_sessions). Main Flow bước 5
  * (thông báo khẩn) không cần endpoint riêng — GET /api/notifications
@@ -41,7 +42,7 @@ import java.util.List;
  * viết lại.
  *
  * A1 (dữ liệu chưa công bố/chưa duyệt không hiển thị) đã nằm sẵn trong các
- * query WHERE status=PUBLISHED (điểm) / status=APPROVED (nhận xét) —
+ * query WHERE status != DRAFT (điểm) / status=APPROVED (nhận xét) —
  * không cần nhánh riêng.
  */
 @Service
@@ -87,25 +88,26 @@ public class ParentPortalService {
                 .toList();
     }
 
-    /** Main Flow bước 3: bảng điểm đã công bố (UC-20, V39 — công bố thay duyệt). */
+    /** Main Flow bước 3: bảng điểm đã công bố dự kiến trở lên (UC-20; V43 — hiển thị cả lúc đang phúc khảo). */
     @Transactional(readOnly = true)
     public List<GradeEntryResponse> listGrades(Long studentId, Long classId, Long actorUserId) {
         requireAccessToChildClass(studentId, classId, actorUserId);
-        return gradeEntryRepository.findBySchoolClassIdAndStudentIdAndStatus(classId, studentId, GradeEntry.Status.PUBLISHED)
+        return gradeEntryRepository.findBySchoolClassIdAndStudentIdAndStatusNot(classId, studentId, GradeEntry.Status.DRAFT)
                 .stream().map(this::toResponse).toList();
     }
 
     /**
      * UC-53 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng): Overall/Level
-     * đã công bố (PUBLISHED) của 1 kỳ đánh giá — gap trước đây Portal Phụ
-     * huynh chỉ có điểm thành phần (listGrades), chưa có Overall/Level.
+     * đã công bố dự kiến trở lên (khác DRAFT — V43) của 1 kỳ đánh giá — gap
+     * trước đây Portal Phụ huynh chỉ có điểm thành phần (listGrades), chưa
+     * có Overall/Level.
      */
     @Transactional(readOnly = true)
     public GradePeriodResultResponse getPeriodResult(Long studentId, Long classId, Long gradePeriodId, Long actorUserId) {
         requireAccessToChildClass(studentId, classId, actorUserId);
         GradePeriodResult result = gradePeriodResultRepository
                 .findBySchoolClassIdAndStudentIdAndGradePeriodId(classId, studentId, gradePeriodId)
-                .filter(r -> r.getStatus() == GradePeriodResult.Status.PUBLISHED)
+                .filter(r -> r.getStatus() != GradePeriodResult.Status.DRAFT)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Chưa có điểm tổng kết đã công bố cho học sinh id=" + studentId + ", kỳ đánh giá id=" + gradePeriodId + "."));
         return toResponse(result);
@@ -172,7 +174,7 @@ public class ParentPortalService {
                 e.getId(), e.getSchoolClass().getId(), e.getStudent().getId(), e.getStudent().getUser().getFullName(),
                 e.getStudent().getStudentCode(), e.getGradeComponent().getId(), e.getScore(), e.isAbsenceFlag(),
                 e.getTeacherNote(), e.getStatus().name(), e.getEnteredBy().getId(),
-                e.getPublishedBy() == null ? null : e.getPublishedBy().getId(), e.getPublishedAt());
+                e.getPublishedBy() == null ? null : e.getPublishedBy().getId(), e.getPublishedAt(), e.getFinalizedAt());
     }
 
     private GradePeriodResultResponse toResponse(GradePeriodResult r) {
@@ -182,7 +184,7 @@ public class ParentPortalService {
                 r.getGradePeriod().getId(), r.getOverallScore(), r.getScaleType().name(), r.getLevel(),
                 r.getSource().name(), r.getImportJob() == null ? null : r.getImportJob().getId(),
                 r.getStatus().name(), r.getEnteredBy().getId(),
-                r.getPublishedBy() == null ? null : r.getPublishedBy().getId(), r.getPublishedAt());
+                r.getPublishedBy() == null ? null : r.getPublishedBy().getId(), r.getPublishedAt(), r.getFinalizedAt());
     }
 
     private AttendanceMarkResponse toResponse(AttendanceMark m) {

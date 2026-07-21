@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.ClassEnrollment;
 import vn.com.pps.education.domain.Curriculum;
+import vn.com.pps.education.domain.GradeAppealRequest;
 import vn.com.pps.education.domain.GradeComponent;
 import vn.com.pps.education.domain.GradeComponentHistory;
 import vn.com.pps.education.domain.GradeEntry;
@@ -34,7 +35,7 @@ import vn.com.pps.education.dto.UpdateGradePeriodRequest;
 import vn.com.pps.education.domain.Skill;
 import vn.com.pps.education.exception.GradeAlreadyPublishedException;
 import vn.com.pps.education.exception.GradeComponentLockedException;
-import vn.com.pps.education.exception.GradeEditWindowExpiredException;
+import vn.com.pps.education.exception.GradeNotEditableException;
 import vn.com.pps.education.exception.GradePeriodWeightExceededException;
 import vn.com.pps.education.exception.InvalidGradeScoreException;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
@@ -45,6 +46,7 @@ import vn.com.pps.education.repository.ClassEnrollmentRepository;
 import vn.com.pps.education.repository.ClassTeacherRepository;
 import vn.com.pps.education.repository.CurriculumRepository;
 import vn.com.pps.education.repository.CurriculumSubjectRepository;
+import vn.com.pps.education.repository.GradeAppealRequestRepository;
 import vn.com.pps.education.repository.GradeComponentHistoryRepository;
 import vn.com.pps.education.repository.GradeComponentRepository;
 import vn.com.pps.education.repository.GradeEntryHistoryRepository;
@@ -67,8 +69,11 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * UC-19: Nhập điểm (FR-ACA-03) + UC-20: Công bố điểm (FR-ACA-03).
- * Xem docs/uc/phan-he-06-hoc-thuat.md.
+ * UC-19: Nhập điểm (FR-ACA-03) + UC-20: Công bố điểm dự kiến (FR-ACA-03).
+ * Xem docs/uc/phan-he-06-hoc-thuat.md. Phần "sửa điểm trong lúc phúc
+ * khảo" (UC-62) cũng nằm ở đây (enterGrade/upsertPeriodResult dùng
+ * chung) — chỉ việc gửi/tiếp nhận yêu cầu phúc khảo tách sang
+ * {@link GradeAppealService} riêng (SRP).
  *
  * Gộp cấu hình sổ điểm (grade_periods/grade_components, actor HEAD_ACADEMIC
  * — Precondition UC-19: "công thức đã cấu hình trong khung chương trình")
@@ -78,18 +83,22 @@ import java.util.Map;
  * .claude/rules/solid.md, ví dụ "AcademicService khổng lồ gộp UC-16 +
  * UC-19/20").
  *
- * V39 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng qua nhiều vòng
- * hỏi): bỏ hẳn luồng duyệt/từ chối qua ApprovalFlow cho điểm. Giáo viên
- * toàn quyền sửa điểm lớp mình trong hạn X ngày kể từ lần đầu nhập cho 1
- * (lớp, kỳ đánh giá) — mốc lưu ở grade_period_edit_windows, số ngày X đọc
- * qua {@link AcademicSettingsService}. Actor có quyền
- * academic.grade.edit.override (mặc định HEAD_ACADEMIC + SITE_MANAGER,
- * gán thêm được cho người khác qua UC-04) bỏ qua hạn này. "Công bố điểm"
- * (permission academic.grade.publish) chỉ còn là quyết định thời điểm
- * Phụ huynh/Học sinh được xem điểm (DRAFT → PUBLISHED) — không còn nhánh
- * từ chối. Sửa điểm sau khi công bố (vẫn trong hạn X ngày, trường hợp
- * phúc khảo) giữ nguyên status=PUBLISHED với giá trị mới — Phụ huynh thấy
- * ngay, không cần công bố lại.
+ * V43 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng — sửa đổi lần 2
+ * sau V39): luồng 4 trạng thái DRAFT → PROVISIONAL_PUBLISHED → APPEAL →
+ * OFFICIAL, khoá sửa/xoá hoàn toàn theo TRẠNG THÁI (không còn theo hạn X
+ * ngày như V39 — xem {@link #requireEditableState}). X ngày
+ * (grade_period_edit_windows, {@link AcademicSettingsService#gradeEditWindowDays()})
+ * giờ CHỈ còn ý nghĩa "độ trễ tự động công bố điểm dự kiến" (UC-20 A3),
+ * không còn là hạn chỉnh sửa. Y ngày mới
+ * ({@link AcademicSettingsService#gradeAppealWindowDays()}) là hạn phúc
+ * khảo kể từ lúc công bố điểm dự kiến — hết hạn thì GradeSchedulerService
+ * tự động chuyển OFFICIAL bất kể còn PROVISIONAL_PUBLISHED hay APPEAL.
+ * Actor có quyền academic.grade.edit.override (mặc định HEAD_ACADEMIC +
+ * SITE_MANAGER, gán thêm được cho người khác qua UC-04) bỏ qua mọi ràng
+ * buộc theo trạng thái. "Công bố điểm dự kiến" (permission
+ * academic.grade.publish) chỉ còn là quyết định thời điểm Phụ huynh/Học
+ * sinh được xem điểm (DRAFT → PROVISIONAL_PUBLISHED) — không còn nhánh
+ * từ chối.
  *
  * Cấu hình sổ điểm (HEAD_ACADEMIC) qua
  * @PreAuthorize("hasPermission(null,'academic.grade.manage')") ở
@@ -101,7 +110,7 @@ import java.util.Map;
  * hoặc Quản lý điểm trường phụ trách đúng site của lớp cũng được phép
  * nhập/import thay giáo viên khi cần hỗ trợ.
  *
- * Công bố điểm (UC-20) dùng requireGradePublishPermission +
+ * Công bố điểm dự kiến (UC-20) dùng requireGradePublishPermission +
  * requireCanPublishGrades — bổ sung ngoài SDD gốc, đã xác nhận với người
  * dùng: cần quyền academic.grade.publish (role mặc định: SITE_MANAGER,
  * HEAD_ACADEMIC — V38/V39); Quản lý điểm trường vẫn giới hạn row-level đúng
@@ -132,6 +141,7 @@ public class GradeService {
     private final ClassEnrollmentRepository classEnrollmentRepository;
     private final ParentStudentRepository parentStudentRepository;
     private final NotificationService notificationService;
+    private final GradeAppealRequestRepository gradeAppealRequestRepository;
 
     public GradeService(GradePeriodRepository gradePeriodRepository,
                          GradeComponentRepository gradeComponentRepository,
@@ -153,7 +163,8 @@ public class GradeService {
                          AcademicSettingsService academicSettingsService,
                          ClassEnrollmentRepository classEnrollmentRepository,
                          ParentStudentRepository parentStudentRepository,
-                         NotificationService notificationService) {
+                         NotificationService notificationService,
+                         GradeAppealRequestRepository gradeAppealRequestRepository) {
         this.gradePeriodRepository = gradePeriodRepository;
         this.gradeComponentRepository = gradeComponentRepository;
         this.gradeEntryRepository = gradeEntryRepository;
@@ -175,6 +186,7 @@ public class GradeService {
         this.classEnrollmentRepository = classEnrollmentRepository;
         this.parentStudentRepository = parentStudentRepository;
         this.notificationService = notificationService;
+        this.gradeAppealRequestRepository = gradeAppealRequestRepository;
     }
 
     // ===================== Cấu hình sổ điểm (HEAD_ACADEMIC) =====================
@@ -312,11 +324,12 @@ public class GradeService {
 
     /**
      * Main Flow bước 1-3: nhập/sửa điểm 1 học sinh cho 1 thành phần điểm.
-     * V39: không còn khoá theo status — sửa được bất kể DRAFT/PUBLISHED
-     * miễn còn trong hạn X ngày (hoặc có quyền academic.grade.edit.override,
-     * xem {@link #requireEditableOrOverride}). Giữ nguyên status hiện có khi
-     * sửa (KHÔNG reset về DRAFT) — nếu đã PUBLISHED, giá trị mới hiển thị
-     * ngay cho Phụ huynh (trường hợp phúc khảo).
+     * V43: bản ghi mới (chưa tồn tại) luôn tạo được (DRAFT). Sửa bản ghi
+     * đã tồn tại phải qua {@link #requireEditableState} — DRAFT sửa tự
+     * do, APPEAL chỉ sửa được nếu actor là người đã tiếp nhận yêu cầu
+     * phúc khảo (UC-62), PROVISIONAL_PUBLISHED/OFFICIAL bị chặn (trừ
+     * academic.grade.edit.override). Sửa xong lúc đang APPEAL tự động
+     * quay lại PROVISIONAL_PUBLISHED + đóng yêu cầu phúc khảo (RESOLVED).
      */
     @Transactional
     public GradeEntryResponse enterGrade(Long classId, Long gradeComponentId, EnterGradeRequest request, Long actorUserId) {
@@ -333,14 +346,12 @@ public class GradeService {
                     "score=" + request.score() + " ngoài khoảng [0, " + component.getMaxScore() + "].");
         }
 
-        Long gradePeriodId = component.getGradePeriod().getId();
-        requireEditableOrOverride(classId, gradePeriodId, actorUserId);
-
         User actor = getUserOrThrow(actorUserId);
         GradeEntry entry = gradeEntryRepository
                 .findBySchoolClassIdAndStudentIdAndGradeComponentId(classId, request.studentId(), gradeComponentId)
                 .orElse(null);
         GradeEntryHistory.Action action = GradeEntryHistory.Action.CREATED;
+        boolean wasAppeal = false;
         if (entry == null) {
             entry = new GradeEntry();
             entry.setSchoolClass(schoolClass);
@@ -349,15 +360,39 @@ public class GradeService {
             entry.setEnteredBy(actor);
         } else {
             action = GradeEntryHistory.Action.UPDATED;
+            requireEditableState(entry.getStatus(), entry.getId(), actorUserId);
+            wasAppeal = entry.getStatus() == GradeEntry.Status.APPEAL;
         }
         entry.setScore(request.score());
         entry.setAbsenceFlag(request.absenceFlag());
         entry.setTeacherNote(request.teacherNote());
+        if (wasAppeal) {
+            resolveAcceptedAppeal(GradeAppealRequest.EntityType.GRADE_ENTRY, entry.getId());
+            entry.setStatus(GradeEntry.Status.PROVISIONAL_PUBLISHED);
+        }
         entry = gradeEntryRepository.save(entry);
 
-        ensureEditWindowStarted(classId, gradePeriodId);
+        ensureEditWindowStarted(classId, component.getGradePeriod().getId());
         writeGradeEntryHistory(entry, actor, action);
         return toResponse(entry);
+    }
+
+    /**
+     * UC-19 (xoá điểm nháp, bổ sung ngoài SDD gốc, đã xác nhận với người
+     * dùng): chỉ xoá được bản ghi DRAFT (hoặc actor có
+     * academic.grade.edit.override) — xoá cứng, không có deleted_at
+     * (điểm nháp chưa công bố, chưa có giá trị pháp lý cần giữ lại).
+     */
+    @Transactional
+    public void deleteGradeEntry(Long classId, Long gradeComponentId, Long studentId, Long actorUserId) {
+        requireCanEnterGrades(classId, actorUserId);
+        GradeEntry entry = gradeEntryRepository
+                .findBySchoolClassIdAndStudentIdAndGradeComponentId(classId, studentId, gradeComponentId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Không tìm thấy điểm của học sinh id=" + studentId + " cho thành phần id=" + gradeComponentId));
+        requireEditableState(entry.getStatus(), entry.getId(), actorUserId);
+        gradeEntryHistoryRepository.deleteByGradeEntryId(entry.getId());
+        gradeEntryRepository.delete(entry);
     }
 
     @Transactional(readOnly = true)
@@ -370,8 +405,8 @@ public class GradeService {
 
     /**
      * UC-53 Main Flow bước 3 (nhánh Overall/Level): lưu nguyên giá trị GV đã
-     * tính sẵn — hệ thống KHÔNG tự tính lại công thức. V39: cùng cơ chế
-     * hạn chỉnh sửa với enterGrade — xem Javadoc ở đó.
+     * tính sẵn — hệ thống KHÔNG tự tính lại công thức. V43: cùng cơ chế
+     * khoá theo trạng thái với enterGrade — xem Javadoc ở đó.
      */
     @Transactional
     public GradePeriodResultResponse enterPeriodResult(Long classId, Long studentId, Long gradePeriodId,
@@ -394,16 +429,18 @@ public class GradeService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy kỳ đánh giá id=" + gradePeriodId));
         User actor = getUserOrThrow(actorUserId);
 
-        requireEditableOrOverride(classId, gradePeriodId, actorUserId);
-
         GradePeriodResult result = gradePeriodResultRepository
                 .findBySchoolClassIdAndStudentIdAndGradePeriodId(classId, studentId, gradePeriodId)
                 .orElse(null);
+        boolean wasAppeal = false;
         if (result == null) {
             result = new GradePeriodResult();
             result.setSchoolClass(schoolClass);
             result.setStudent(student);
             result.setGradePeriod(period);
+        } else {
+            requireEditableState(result.getStatus(), result.getId(), actorUserId);
+            wasAppeal = result.getStatus() == GradePeriodResult.Status.APPEAL;
         }
         result.setOverallScore(request.overallScore());
         if (request.scaleType() != null) {
@@ -414,10 +451,31 @@ public class GradeService {
         result.setImportJob(importJob);
         result.setEnteredBy(actor);
         result.setEnteredAt(OffsetDateTime.now());
+        if (wasAppeal) {
+            resolveAcceptedAppeal(GradeAppealRequest.EntityType.GRADE_PERIOD_RESULT, result.getId());
+            result.setStatus(GradePeriodResult.Status.PROVISIONAL_PUBLISHED);
+        }
         result = gradePeriodResultRepository.save(result);
 
         ensureEditWindowStarted(classId, gradePeriodId);
         return result;
+    }
+
+    /**
+     * UC-53 (xoá điểm tổng kết kỳ nháp, bổ sung ngoài SDD gốc, đã xác
+     * nhận với người dùng) — cùng ràng buộc với deleteGradeEntry: chỉ
+     * DRAFT (hoặc override), xoá cứng, không có bảng history riêng cho
+     * grade_period_results nên không cần dọn gì thêm trước khi xoá.
+     */
+    @Transactional
+    public void deletePeriodResult(Long classId, Long studentId, Long gradePeriodId, Long actorUserId) {
+        requireCanEnterGrades(classId, actorUserId);
+        GradePeriodResult result = gradePeriodResultRepository
+                .findBySchoolClassIdAndStudentIdAndGradePeriodId(classId, studentId, gradePeriodId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Không tìm thấy điểm tổng kết của học sinh id=" + studentId + " cho kỳ đánh giá id=" + gradePeriodId));
+        requireEditableState(result.getStatus(), result.getId(), actorUserId);
+        gradePeriodResultRepository.delete(result);
     }
 
     @Transactional(readOnly = true)
@@ -431,10 +489,11 @@ public class GradeService {
     /**
      * UC-61 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng — tái dùng
      * FR-LMS-03/FR-LMS-07 giống UC-25, chỉ khác actor là Học sinh thay vì
-     * Phụ huynh). Chỉ trả về grade_entries đã PUBLISHED, theo (các) lớp
-     * học sinh đang ghi danh ACTIVE — mirror đúng
-     * ParentPortalService.listGrades, không tự tính lại điểm gì.
-     * classIdFilter tùy chọn (ngữ cảnh "lớp đang xem" — UC-42).
+     * Phụ huynh). Trả về mọi grade_entries đã công bố dự kiến trở lên
+     * (khác DRAFT — V43: PROVISIONAL_PUBLISHED/APPEAL/OFFICIAL đều hiển
+     * thị, kể cả đang phúc khảo), theo (các) lớp học sinh đang ghi danh
+     * ACTIVE — mirror đúng ParentPortalService.listGrades, không tự tính
+     * lại điểm gì. classIdFilter tùy chọn (ngữ cảnh "lớp đang xem" — UC-42).
      */
     @Transactional(readOnly = true)
     public List<GradeEntryResponse> listMyGrades(Long actorUserId, Long classIdFilter) {
@@ -446,15 +505,16 @@ public class GradeService {
                 .toList();
         return classIds.stream()
                 .flatMap(classId -> gradeEntryRepository
-                        .findBySchoolClassIdAndStudentIdAndStatus(classId, student.getId(), GradeEntry.Status.PUBLISHED).stream())
+                        .findBySchoolClassIdAndStudentIdAndStatusNot(classId, student.getId(), GradeEntry.Status.DRAFT).stream())
                 .map(this::toResponse).toList();
     }
 
     /**
-     * UC-61: Overall/Level đã công bố (PUBLISHED) của 1 kỳ đánh giá, tự
-     * xem — mirror đúng ParentPortalService.getPeriodResult. Bắt buộc học
-     * sinh phải có class_enrollment ACTIVE tại đúng classId truy vấn
-     * (không lộ dữ liệu của lớp không thuộc về mình).
+     * UC-61: Overall/Level đã công bố dự kiến trở lên (khác DRAFT — V43)
+     * của 1 kỳ đánh giá, tự xem — mirror đúng
+     * ParentPortalService.getPeriodResult. Bắt buộc học sinh phải có
+     * class_enrollment ACTIVE tại đúng classId truy vấn (không lộ dữ
+     * liệu của lớp không thuộc về mình).
      */
     @Transactional(readOnly = true)
     public GradePeriodResultResponse getMyPeriodResult(Long actorUserId, Long classId, Long gradePeriodId) {
@@ -466,7 +526,7 @@ public class GradeService {
         }
         GradePeriodResult result = gradePeriodResultRepository
                 .findBySchoolClassIdAndStudentIdAndGradePeriodId(classId, student.getId(), gradePeriodId)
-                .filter(r -> r.getStatus() == GradePeriodResult.Status.PUBLISHED)
+                .filter(r -> r.getStatus() != GradePeriodResult.Status.DRAFT)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Chưa có điểm tổng kết đã công bố cho kỳ đánh giá id=" + gradePeriodId + "."));
         return toResponse(result);
@@ -477,14 +537,14 @@ public class GradeService {
                 .orElseThrow(() -> new ResourceNotFoundException("Tài khoản id=" + actorUserId + " không có hồ sơ học sinh."));
     }
 
-    // ===================== UC-20: Công bố điểm (SITE_MANAGER + HEAD_ACADEMIC) =====================
+    // ===================== UC-20: Công bố điểm dự kiến (SITE_MANAGER + HEAD_ACADEMIC) =====================
 
     /**
-     * Main Flow bước 1: danh sách điểm chưa công bố. Yêu cầu quyền
-     * academic.grade.publish (bổ sung ngoài SDD gốc, đã xác nhận với
-     * người dùng). Nếu actor có thêm academic.grade.manage (Trưởng phòng
-     * đào tạo) thì thấy MỌI site; ngược lại (Quản lý điểm trường) chỉ
-     * thấy (các) điểm trường mình được gán phụ trách.
+     * Main Flow bước 1: danh sách điểm chưa công bố dự kiến (còn DRAFT).
+     * Yêu cầu quyền academic.grade.publish (bổ sung ngoài SDD gốc, đã xác
+     * nhận với người dùng). Nếu actor có thêm academic.grade.manage
+     * (Trưởng phòng đào tạo) thì thấy MỌI site; ngược lại (Quản lý điểm
+     * trường) chỉ thấy (các) điểm trường mình được gán phụ trách.
      */
     @Transactional(readOnly = true)
     public List<GradeEntryResponse> listUnpublishedForSite(Long actorUserId) {
@@ -503,9 +563,11 @@ public class GradeService {
     }
 
     /**
-     * Main Flow bước 2-5: công bố điểm (DRAFT → PUBLISHED) — từ nay Phụ
-     * huynh/Học sinh xem được. V39: không còn nhánh từ chối — bản ghi đã
-     * PUBLISHED mà công bố lại thì báo lỗi ({@link GradeAlreadyPublishedException}).
+     * Main Flow bước 2-5: công bố điểm dự kiến (DRAFT → PROVISIONAL_PUBLISHED)
+     * — từ nay Phụ huynh/Học sinh xem được, và bắt đầu tính hạn Y ngày
+     * phúc khảo (UC-62) kể từ publishedAt. V43: không còn nhánh từ chối —
+     * bản ghi không còn DRAFT (đã PROVISIONAL_PUBLISHED/APPEAL/OFFICIAL)
+     * mà công bố lại thì báo lỗi ({@link GradeAlreadyPublishedException}).
      */
     @Transactional
     public List<GradeEntryResponse> publishGrades(PublishGradesRequest request, Long actorUserId) {
@@ -528,21 +590,21 @@ public class GradeService {
         OffsetDateTime now = OffsetDateTime.now();
         for (GradeEntry entry : entries) {
             requireCanPublishGrades(entry.getSchoolClass().getSite().getId(), actorUserId);
-            if (entry.getStatus() == GradeEntry.Status.PUBLISHED) {
+            if (entry.getStatus() != GradeEntry.Status.DRAFT) {
                 throw new GradeAlreadyPublishedException(
-                        "Bản ghi điểm id=" + entry.getId() + " đã được công bố trước đó.");
+                        "Bản ghi điểm id=" + entry.getId() + " đã được công bố dự kiến trước đó.");
             }
-            entry.setStatus(GradeEntry.Status.PUBLISHED);
+            entry.setStatus(GradeEntry.Status.PROVISIONAL_PUBLISHED);
             entry.setPublishedBy(actor);
             entry.setPublishedAt(now);
         }
         for (GradePeriodResult result : results) {
             requireCanPublishGrades(result.getSchoolClass().getSite().getId(), actorUserId);
-            if (result.getStatus() == GradePeriodResult.Status.PUBLISHED) {
+            if (result.getStatus() != GradePeriodResult.Status.DRAFT) {
                 throw new GradeAlreadyPublishedException(
-                        "Bản ghi Overall/Level id=" + result.getId() + " đã được công bố trước đó.");
+                        "Bản ghi Overall/Level id=" + result.getId() + " đã được công bố dự kiến trước đó.");
             }
-            result.setStatus(GradePeriodResult.Status.PUBLISHED);
+            result.setStatus(GradePeriodResult.Status.PROVISIONAL_PUBLISHED);
             result.setPublishedBy(actor);
             result.setPublishedAt(now);
         }
@@ -627,28 +689,60 @@ public class GradeService {
     }
 
     /**
-     * UC-19 A2 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng): actor
-     * sửa được điểm của (lớp, kỳ đánh giá) này nếu (a) có quyền
-     * academic.grade.edit.override (ngoại lệ, gán được cho bất kỳ ai qua
-     * UC-04 — mặc định HEAD_ACADEMIC + SITE_MANAGER, V39), HOẶC (b) chưa
-     * hết hạn X ngày kể từ lần đầu nhập cho (lớp, kỳ) này
-     * (grade_period_edit_windows, số ngày X đọc từ
-     * {@link AcademicSettingsService#gradeEditWindowDays()}). Nếu (lớp,
-     * kỳ) chưa từng có mốc (lần đầu nhập) thì luôn cho phép.
+     * V43 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng — thay hẳn
+     * cơ chế hạn X ngày của V39): actor sửa/xoá được bản ghi điểm khi (a)
+     * có quyền academic.grade.edit.override (bỏ qua mọi ràng buộc theo
+     * trạng thái, gán được cho bất kỳ ai qua UC-04 — mặc định HEAD_ACADEMIC
+     * + SITE_MANAGER), (b) status=DRAFT (không giới hạn thời gian), hoặc
+     * (c) status=APPEAL VÀ actor chính là người đã tiếp nhận (ACCEPTED)
+     * yêu cầu phúc khảo (UC-62) của đúng bản ghi này.
+     * PROVISIONAL_PUBLISHED/OFFICIAL luôn bị chặn với actor thường.
      */
-    private void requireEditableOrOverride(Long classId, Long gradePeriodId, Long actorUserId) {
+    private void requireEditableState(GradeEntry.Status status, Long entityId, Long actorUserId) {
+        requireEditableStateInternal(status.name(), GradeAppealRequest.EntityType.GRADE_ENTRY, entityId, actorUserId);
+    }
+
+    private void requireEditableState(GradePeriodResult.Status status, Long entityId, Long actorUserId) {
+        requireEditableStateInternal(status.name(), GradeAppealRequest.EntityType.GRADE_PERIOD_RESULT, entityId, actorUserId);
+    }
+
+    private void requireEditableStateInternal(String statusName, GradeAppealRequest.EntityType entityType,
+                                                Long entityId, Long actorUserId) {
         if (permissionEvaluationService.hasPermission(actorUserId, "academic.grade.edit.override")) {
             return;
         }
-        gradePeriodEditWindowRepository.findBySchoolClassIdAndGradePeriodId(classId, gradePeriodId)
-                .ifPresent(window -> {
-                    int days = academicSettingsService.gradeEditWindowDays();
-                    OffsetDateTime deadline = window.getFirstEnteredAt().plusDays(days);
-                    if (OffsetDateTime.now().isAfter(deadline)) {
-                        throw new GradeEditWindowExpiredException(
-                                "Đã hết hạn " + days + " ngày chỉnh sửa điểm của lớp id=" + classId
-                                        + ", kỳ đánh giá id=" + gradePeriodId + " (kể từ " + window.getFirstEnteredAt() + ").");
-                    }
+        if ("DRAFT".equals(statusName)) {
+            return;
+        }
+        if ("APPEAL".equals(statusName)) {
+            boolean acceptedByActor = gradeAppealRequestRepository
+                    .findFirstByEntityTypeAndEntityIdAndStatus(entityType, entityId, GradeAppealRequest.Status.ACCEPTED)
+                    .map(req -> req.getAcceptedBy() != null && req.getAcceptedBy().getId().equals(actorUserId))
+                    .orElse(false);
+            if (acceptedByActor) {
+                return;
+            }
+            throw new GradeNotEditableException(
+                    "Bản ghi điểm id=" + entityId + " đang Phúc khảo — chỉ giáo viên đã tiếp nhận yêu cầu phúc khảo này mới được sửa.");
+        }
+        throw new GradeNotEditableException(
+                "Bản ghi điểm id=" + entityId + " ở trạng thái " + statusName + " không thể sửa/xoá.");
+    }
+
+    /**
+     * UC-62: sửa điểm xong trong lúc đang Phúc khảo = tự động coi là xử
+     * lý xong — đóng yêu cầu phúc khảo ACCEPTED (RESOLVED). publishedAt
+     * của bản ghi điểm GIỮ NGUYÊN (không reset hạn Y ngày, xem
+     * GradeService lớp Javadoc). Gọi từ enterGrade/upsertPeriodResult
+     * TRƯỚC khi set lại status=PROVISIONAL_PUBLISHED.
+     */
+    private void resolveAcceptedAppeal(GradeAppealRequest.EntityType entityType, Long entityId) {
+        gradeAppealRequestRepository
+                .findFirstByEntityTypeAndEntityIdAndStatus(entityType, entityId, GradeAppealRequest.Status.ACCEPTED)
+                .ifPresent(req -> {
+                    req.setStatus(GradeAppealRequest.Status.RESOLVED);
+                    req.setResolvedAt(OffsetDateTime.now());
+                    gradeAppealRequestRepository.save(req);
                 });
     }
 
@@ -780,7 +874,7 @@ public class GradeService {
                 e.getId(), e.getSchoolClass().getId(), e.getStudent().getId(), e.getStudent().getUser().getFullName(),
                 e.getStudent().getStudentCode(), e.getGradeComponent().getId(), e.getScore(), e.isAbsenceFlag(),
                 e.getTeacherNote(), e.getStatus().name(), e.getEnteredBy().getId(),
-                e.getPublishedBy() == null ? null : e.getPublishedBy().getId(), e.getPublishedAt());
+                e.getPublishedBy() == null ? null : e.getPublishedBy().getId(), e.getPublishedAt(), e.getFinalizedAt());
     }
 
     private GradePeriodResultResponse toResponse(GradePeriodResult r) {
@@ -790,6 +884,6 @@ public class GradeService {
                 r.getGradePeriod().getId(), r.getOverallScore(), r.getScaleType().name(), r.getLevel(),
                 r.getSource().name(), r.getImportJob() == null ? null : r.getImportJob().getId(),
                 r.getStatus().name(), r.getEnteredBy().getId(),
-                r.getPublishedBy() == null ? null : r.getPublishedBy().getId(), r.getPublishedAt());
+                r.getPublishedBy() == null ? null : r.getPublishedBy().getId(), r.getPublishedAt(), r.getFinalizedAt());
     }
 }

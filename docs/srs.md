@@ -454,32 +454,32 @@ nhân đó mới được thao tác.*
         được phép nhập tay/import Excel thay giáo viên khi cần hỗ trợ
         (bổ sung ngoài SDD gốc, đã xác nhận với người dùng).
 
-        **Cửa sổ chỉnh sửa X ngày + Công bố điểm (V39, bổ sung ngoài SDD
-        gốc, đã xác nhận với người dùng qua nhiều vòng hỏi) —** thay thế
-        hoàn toàn workflow duyệt/từ chối điểm trước đây. Giáo viên toàn
-        quyền sửa điểm của 1 lớp trong X ngày kể từ lần đầu điểm được
-        nhập cho (lớp, kỳ đánh giá) đó — mốc chung cho cả lớp, không
-        tính riêng theo từng học sinh/ô điểm. Số ngày X cấu hình qua
-        `system_settings.academic.grade_edit_window_days` (mặc định 7),
-        đọc/ghi qua API riêng
-        `GET/PUT /api/academic/settings/grade-edit-window-days` (ghi
-        yêu cầu quyền `academic.grade.manage`). Actor có quyền ngoại lệ
-        `academic.grade.edit.override` (mặc định gán cho HEAD_ACADEMIC
-        và SITE_MANAGER, gán thêm được cho người khác qua UC-04) sửa
-        điểm được bất kể đã hết hạn X ngày hay chưa. "Duyệt điểm" (UC-20)
-        đổi thành **Công bố điểm** — không còn kiểm duyệt đúng/sai, chỉ
-        là quyết định thời điểm Phụ huynh/Học sinh được xem điểm
-        (DRAFT → PUBLISHED), yêu cầu quyền `academic.grade.publish` (đổi
-        tên từ `academic.grade.approve`) — mặc định gán cho Quản lý
-        điểm trường (giới hạn đúng điểm trường được gán phụ trách) và
-        Trưởng phòng đào tạo (không giới hạn theo điểm trường). Sửa điểm
-        sau khi đã công bố, nếu còn trong hạn X ngày (trường hợp phúc
-        khảo), vẫn được phép — giá trị mới hiển thị NGAY cho Phụ huynh,
-        không cần công bố lại. Nếu không ai công bố thủ công, hệ thống tự
-        động chuyển DRAFT → PUBLISHED ngay khi hết hạn X ngày (cron hàng
-        đêm, cùng giá trị X với hạn chỉnh sửa) — song song với công bố
-        thủ công, không thay thế (bổ sung ngoài SDD gốc, đã xác nhận với
-        người dùng).
+        **Luồng 4 trạng thái + Công bố điểm dự kiến + Phúc khảo (V43, bổ
+        sung ngoài SDD gốc, đã xác nhận với người dùng — sửa đổi lần 2
+        sau V39) —** thay hẳn cơ chế "hạn X ngày toàn quyền sửa" của V39
+        bằng luồng 4 trạng thái theo UC-19/20/62: **Nháp (DRAFT)** — Giáo
+        viên toàn quyền thêm/sửa/xoá, không giới hạn thời gian → **Công
+        bố dự kiến (PROVISIONAL_PUBLISHED)** — Quản lý điểm trường/Trưởng
+        phòng đào tạo công bố (yêu cầu quyền `academic.grade.publish`,
+        đổi tên từ `academic.grade.approve` ở V39) hoặc hệ thống tự động
+        công bố sau X ngày kể từ lần đầu nhập điểm nếu không ai công bố
+        tay (`system_settings.academic.grade_edit_window_days`, mặc định
+        7 — X ngày giờ CHỈ còn ý nghĩa độ trễ tự động công bố dự kiến,
+        không còn là hạn chỉnh sửa); Giáo viên KHÔNG tự sửa/xoá được nữa
+        → **Phúc khảo (APPEAL)** — Học sinh/Phụ huynh liên kết gửi yêu
+        cầu phúc khảo trong hạn Y ngày kể từ lúc công bố dự kiến
+        (`system_settings.academic.grade_appeal_window_days`, mặc định
+        7), Giáo viên phụ trách lớp nhận thông báo và phải tiếp nhận
+        (accept) trước khi được sửa điểm của đúng học sinh đó; sửa xong
+        tự động quay lại Công bố dự kiến (UC-62) → **Chính thức
+        (OFFICIAL)** — hệ thống tự động khoá vĩnh viễn khi hết hạn Y
+        ngày, kể cả khi còn yêu cầu phúc khảo dở dang. Actor có quyền
+        `academic.grade.edit.override` (mặc định HEAD_ACADEMIC +
+        SITE_MANAGER, gán thêm được qua UC-04) toàn quyền thêm/sửa/xoá
+        bất kể trạng thái nào. Phụ huynh/Học sinh xem được điểm ngay từ
+        lúc Công bố dự kiến (không chỉ khi Chính thức), kể cả đang Phúc
+        khảo. Xem chi tiết UC-19 (nhập/sửa/xoá), UC-20 (công bố dự kiến),
+        UC-62 (phúc khảo).
 
     -   **FR-ACA-04: Sổ nhận xét định kỳ -** Giáo viên viết nhận xét cho
         học sinh theo 3 biểu mẫu: Hàng ngày (thái độ), Giữa kỳ, và Cuối
@@ -824,7 +824,10 @@ CDN)**
 
   UC-19             Nhập điểm         FR-ACA-03         6
 
-  UC-20             Công bố điểm      FR-ACA-03         6
+  UC-20             Công bố điểm dự   FR-ACA-03         6
+                    kiến                                
+
+  UC-62             Phúc khảo điểm    FR-ACA-03         6
 
   UC-53             Nhập điểm thi qua FR-ACA-03         6
                     Excel                               

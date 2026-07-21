@@ -16,5 +16,6 @@ public record GradeEntryResponse(
         String status,
         Long enteredBy,
         Long publishedBy,
-        OffsetDateTime publishedAt
+        OffsetDateTime publishedAt,
+        OffsetDateTime finalizedAt
 ) {}

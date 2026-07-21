@@ -65,7 +65,8 @@ public class GlobalExceptionHandler {
             DuplicateRoomCodeException.class, DuplicateEquipmentCodeException.class,
             DuplicateUserAccountException.class, DuplicateRoleCodeException.class,
             SiteTeacherAlreadyAssignedException.class, DuplicateDepartmentCodeException.class,
-            DuplicatePositionCodeException.class, DuplicateSkillCodeException.class})
+            DuplicatePositionCodeException.class, DuplicateSkillCodeException.class,
+            AppealAlreadyOpenException.class, AppealAlreadyAcceptedException.class})
     public ResponseEntity<Object> handleConflict(RuntimeException ex) {
         return error(HttpStatus.CONFLICT, ex.getMessage());
     }
@@ -79,7 +80,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler({CurriculumNotActiveException.class, LinkedClassRequiresPartnerSiteException.class,
             CurriculumNotEditableException.class, CurriculumNotAvailableForSiteException.class,
-            InvalidGradeScoreException.class, GradeEditWindowExpiredException.class,
+            InvalidGradeScoreException.class, GradeNotEditableException.class,
             AttendanceSessionNotEditableException.class, StudentCommentNotEditableException.class,
             InvalidCommentContextException.class, InvalidLessonScopeException.class, QuestionLockedException.class,
             ExerciseNotAvailableException.class, RetakeNotAllowedException.class,

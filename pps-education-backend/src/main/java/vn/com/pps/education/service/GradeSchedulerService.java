@@ -16,25 +16,32 @@ import java.time.OffsetDateTime;
 import java.util.List;
 
 /**
- * UC-20 (mở rộng, bổ sung ngoài SDD gốc, đã xác nhận với người dùng): tự
- * động công bố (DRAFT → PUBLISHED) mọi grade_entries/grade_period_results
- * còn DRAFT của 1 (lớp, kỳ đánh giá) nếu đã quá hạn X ngày kể từ lần đầu
- * nhập điểm (grade_period_edit_windows.first_entered_at, cùng
- * system_settings.academic.grade_edit_window_days đang dùng cho hạn
- * chỉnh sửa ở GradeService) — song song với công bố thủ công
- * (GradeService#publishGrades), không thay thế. Nếu Quản lý điểm trường
- * đã công bố tay trước đó, job này không làm gì thêm (chỉ tác động các
- * bản ghi còn DRAFT).
+ * UC-20/UC-62 (mở rộng, bổ sung ngoài SDD gốc, đã xác nhận với người
+ * dùng): 2 job đêm tách biệt, chạy giờ khác nhau để không chồng nhau.
  *
- * publishedBy để NULL cho các bản ghi tự động công bố (khác công bố thủ
- * công luôn có publishedBy) — tự thân đã là tín hiệu phân biệt "công bố
- * tự động" mà không cần cột/trạng thái mới. Không ghi grade_entries_history
- * cho hành động này vì changed_by ở đó NOT NULL (yêu cầu 1 User thật) —
- * không có actor con người tương ứng; publishedAt/publishedBy=null trên
- * chính bản ghi đã đủ làm audit trail cho hành động này.
+ * <p>{@link #autoPublishProvisionalExpiredGrades()} (UC-20 A3): tự động
+ * công bố dự kiến (DRAFT → PROVISIONAL_PUBLISHED) mọi grade_entries/
+ * grade_period_results còn DRAFT của 1 (lớp, kỳ đánh giá) nếu đã quá hạn
+ * X ngày kể từ lần đầu nhập điểm (grade_period_edit_windows.first_entered_at,
+ * system_settings.academic.grade_edit_window_days) — song song với công
+ * bố thủ công (GradeService#publishGrades), không thay thế.
  *
- * Thông báo Phụ huynh (bổ sung ngoài SDD gốc, đã xác nhận với người
- * dùng): sau khi công bố, tái dùng đúng
+ * <p>{@link #autoFinalizeExpiredAppealWindow()} (UC-62 A3, mới ở V43): tự
+ * động chuyển Chính thức (→ OFFICIAL) mọi bản ghi còn PROVISIONAL_PUBLISHED
+ * hoặc APPEAL đã quá hạn Y ngày kể từ publishedAt
+ * (system_settings.academic.grade_appeal_window_days) — chạy BẤT KỂ bản
+ * ghi có đang phúc khảo dở dang hay không (đã xác nhận với người dùng),
+ * không gửi thông báo gì thêm (không có trong yêu cầu).
+ *
+ * <p>publishedBy để NULL cho các bản ghi tự động công bố dự kiến (khác
+ * công bố thủ công luôn có publishedBy) — tự thân đã là tín hiệu phân
+ * biệt "công bố tự động" mà không cần cột/trạng thái mới. Không ghi
+ * grade_entries_history cho hành động này vì changed_by ở đó NOT NULL
+ * (yêu cầu 1 User thật) — không có actor con người tương ứng;
+ * publishedAt/publishedBy=null trên chính bản ghi đã đủ làm audit trail.
+ *
+ * <p>Thông báo Phụ huynh (bổ sung ngoài SDD gốc, đã xác nhận với người
+ * dùng): sau khi công bố dự kiến, tái dùng đúng
  * GradeService#notifyParentsGradeEntryPublished/notifyParentsPeriodResultPublished
  * (không viết lại logic gửi thông báo) — triggeredByUserId=null vì
  * không có actor con người, khớp quy ước publishedBy=null ở trên.
@@ -64,7 +71,7 @@ public class GradeSchedulerService {
 
     @Scheduled(cron = "0 0 3 * * *")
     @Transactional
-    public void autoPublishExpiredGrades() {
+    public void autoPublishProvisionalExpiredGrades() {
         int days = academicSettingsService.gradeEditWindowDays();
         OffsetDateTime cutoff = OffsetDateTime.now().minusDays(days);
         List<GradePeriodEditWindow> expiredWindows = gradePeriodEditWindowRepository.findByFirstEnteredAtBefore(cutoff);
@@ -79,7 +86,7 @@ public class GradeSchedulerService {
             List<GradeEntry> draftEntries = gradeEntryRepository
                     .findBySchoolClassIdAndGradePeriodIdAndStatus(classId, gradePeriodId, GradeEntry.Status.DRAFT);
             for (GradeEntry entry : draftEntries) {
-                entry.setStatus(GradeEntry.Status.PUBLISHED);
+                entry.setStatus(GradeEntry.Status.PROVISIONAL_PUBLISHED);
                 entry.setPublishedAt(now);
             }
             List<GradeEntry> savedEntries = gradeEntryRepository.saveAll(draftEntries);
@@ -89,7 +96,7 @@ public class GradeSchedulerService {
             List<GradePeriodResult> draftResults = gradePeriodResultRepository
                     .findBySchoolClassIdAndGradePeriodIdAndStatus(classId, gradePeriodId, GradePeriodResult.Status.DRAFT);
             for (GradePeriodResult result : draftResults) {
-                result.setStatus(GradePeriodResult.Status.PUBLISHED);
+                result.setStatus(GradePeriodResult.Status.PROVISIONAL_PUBLISHED);
                 result.setPublishedAt(now);
             }
             List<GradePeriodResult> savedResults = gradePeriodResultRepository.saveAll(draftResults);
@@ -98,9 +105,41 @@ public class GradeSchedulerService {
         }
 
         if (publishedEntries > 0 || publishedResults > 0) {
-            log.info("GradeSchedulerService: tự động công bố {} grade_entries + {} grade_period_results "
+            log.info("GradeSchedulerService: tự động công bố dự kiến {} grade_entries + {} grade_period_results "
                             + "quá hạn {} ngày (qua {} lớp/kỳ đánh giá).",
                     publishedEntries, publishedResults, days, expiredWindows.size());
+        }
+    }
+
+    /** UC-62 A3 — chạy lệch giờ so với autoPublishProvisionalExpiredGrades để không chồng nhau. */
+    @Scheduled(cron = "0 30 3 * * *")
+    @Transactional
+    public void autoFinalizeExpiredAppealWindow() {
+        int days = academicSettingsService.gradeAppealWindowDays();
+        OffsetDateTime cutoff = OffsetDateTime.now().minusDays(days);
+        List<GradeEntry.Status> entryStatuses = List.of(GradeEntry.Status.PROVISIONAL_PUBLISHED, GradeEntry.Status.APPEAL);
+        List<GradePeriodResult.Status> resultStatuses =
+                List.of(GradePeriodResult.Status.PROVISIONAL_PUBLISHED, GradePeriodResult.Status.APPEAL);
+
+        OffsetDateTime now = OffsetDateTime.now();
+        List<GradeEntry> expiredEntries = gradeEntryRepository.findByStatusInAndPublishedAtBefore(entryStatuses, cutoff);
+        expiredEntries.forEach(entry -> {
+            entry.setStatus(GradeEntry.Status.OFFICIAL);
+            entry.setFinalizedAt(now);
+        });
+        gradeEntryRepository.saveAll(expiredEntries);
+
+        List<GradePeriodResult> expiredResults = gradePeriodResultRepository.findByStatusInAndPublishedAtBefore(resultStatuses, cutoff);
+        expiredResults.forEach(result -> {
+            result.setStatus(GradePeriodResult.Status.OFFICIAL);
+            result.setFinalizedAt(now);
+        });
+        gradePeriodResultRepository.saveAll(expiredResults);
+
+        if (!expiredEntries.isEmpty() || !expiredResults.isEmpty()) {
+            log.info("GradeSchedulerService: tự động chuyển Chính thức {} grade_entries + {} grade_period_results "
+                            + "quá hạn phúc khảo {} ngày.",
+                    expiredEntries.size(), expiredResults.size(), days);
         }
     }
 }

@@ -9,6 +9,7 @@ import java.util.Optional;
 
 public interface GradePeriodEditWindowRepository extends JpaRepository<GradePeriodEditWindow, Long> {
 
+    /** Test-only lookup (mô phỏng hết hạn X ngày bằng cách đẩy lùi first_entered_at) + tiện tra cứu chung. */
     Optional<GradePeriodEditWindow> findBySchoolClassIdAndGradePeriodId(Long classId, Long gradePeriodId);
 
     boolean existsBySchoolClassIdAndGradePeriodId(Long classId, Long gradePeriodId);
