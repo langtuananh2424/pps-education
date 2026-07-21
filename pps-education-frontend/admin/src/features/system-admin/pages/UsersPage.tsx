@@ -10,6 +10,8 @@ import { DepartmentResponse, listDepartments } from "@/features/hrm/api";
 import {
   changeUserPassword,
   getUserDetail,
+  listRoles,
+  RoleResponse,
   searchUsers,
   updateUser,
   UpdateUserRequest,
@@ -44,27 +46,48 @@ export default function UsersPage() {
   const [keyword, setKeyword] = useState("");
   const [status, setStatus] = useState<"" | "ACTIVE" | "INACTIVE" | "SUSPENDED">("");
   const [departmentId, setDepartmentId] = useState("");
+  const [roleCode, setRoleCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
   const [departments, setDepartments] = useState<DepartmentResponse[]>([]);
+  const [roles, setRoles] = useState<RoleResponse[]>([]);
 
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
 
   useEffect(() => {
     // GET /api/departments không yêu cầu quyền riêng — chỉ dùng để đổi ID sang tên hiển thị, không dùng để sửa.
     listDepartments().then(setDepartments).catch(() => {});
+    listRoles().then(setRoles).catch(() => {});
   }, []);
 
   const departmentName = (id: number | null): string => departments.find((d) => d.id === id)?.name ?? "—";
 
+  /**
+   * GET /api/users chưa có param lọc theo vai trò (chỉ keyword/status/departmentId) — lọc
+   * theo vai trò đang làm tạm ở FE: khi có chọn vai trò, tải 1 lô lớn (bỏ qua phân trang
+   * server) rồi tự lọc + tự phân trang lại ở đây. Đã báo BE bổ sung param roleCode cho
+   * GET /api/users (tương tự departmentId) để chuyển hẳn về lọc server-side, tránh giới
+   * hạn lô lớn khi hệ thống có nhiều tài khoản hơn.
+   */
   const loadUsers = () => {
     setLoading(true);
     setListError(null);
-    searchUsers(
-      { keyword: keyword.trim() || undefined, status: status || undefined, departmentId: departmentId ? Number(departmentId) : undefined },
-      page,
-      pageSize
-    )
+    const filter = { keyword: keyword.trim() || undefined, status: status || undefined, departmentId: departmentId ? Number(departmentId) : undefined };
+
+    if (roleCode) {
+      searchUsers(filter, 0, 1000)
+        .then((res) => {
+          const filtered = res.content.filter((u) => u.roles.some((r) => r.code === roleCode));
+          setTotalElements(filtered.length);
+          setTotalPages(Math.max(1, Math.ceil(filtered.length / pageSize)));
+          setRows(filtered.slice(page * pageSize, (page + 1) * pageSize));
+        })
+        .catch((err) => setListError(err instanceof ApiError ? err.message : "Không tải được danh sách tài khoản."))
+        .finally(() => setLoading(false));
+      return;
+    }
+
+    searchUsers(filter, page, pageSize)
       .then((res) => {
         setRows(res.content);
         setTotalPages(res.totalPages);
@@ -119,6 +142,18 @@ export default function UsersPage() {
           {departments.map((d) => (
             <option key={d.id} value={d.id}>
               {d.name}
+            </option>
+          ))}
+        </select>
+        <select
+          value={roleCode}
+          onChange={(e) => setRoleCode(e.target.value)}
+          className="w-48 bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
+        >
+          <option value="">-- Mọi vai trò --</option>
+          {roles.map((r) => (
+            <option key={r.id} value={r.code}>
+              {r.name}
             </option>
           ))}
         </select>

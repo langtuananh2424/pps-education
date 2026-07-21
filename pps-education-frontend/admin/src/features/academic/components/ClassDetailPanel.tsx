@@ -584,6 +584,11 @@ const attendanceStatusVariants: Record<string, "success" | "warning" | "danger" 
   LOCKED: "success"
 };
 
+/** UC-15 "Sự kiện kích hoạt": chỉ điểm danh được từ khi buổi học bắt đầu — chặn bấm sớm cho buổi tương lai. */
+function hasSessionStarted(s: ClassSessionResponse): boolean {
+  return new Date(`${s.sessionDate}T${s.startTime}`) <= new Date();
+}
+
 function SessionsTab({ classId, siteId, canManage }: { classId: number; siteId: number; canManage: boolean }) {
   const navigate = useNavigate();
   const [sessions, setSessions] = useState<ClassSessionResponse[]>([]);
@@ -666,9 +671,15 @@ function SessionsTab({ classId, siteId, canManage }: { classId: number; siteId: 
                   )}
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button size="sm" variant="secondary" onClick={() => navigate(`/student/attendance?classId=${classId}&sessionId=${s.id}`)}>
-                    {attendanceStatusBySession[s.id] ? "Xem điểm danh" : "Điểm danh"}
-                  </Button>
+                  {!attendanceStatusBySession[s.id] && !hasSessionStarted(s) ? (
+                    <Button size="sm" variant="secondary" disabled title="Chưa tới giờ học — chỉ điểm danh được từ khi buổi học bắt đầu.">
+                      Chưa tới giờ học
+                    </Button>
+                  ) : (
+                    <Button size="sm" variant="secondary" onClick={() => navigate(`/student/attendance?classId=${classId}&sessionId=${s.id}`)}>
+                      {attendanceStatusBySession[s.id] ? "Xem điểm danh" : "Điểm danh"}
+                    </Button>
+                  )}
                   {canManage && s.status !== "CANCELLED" && (
                     <button onClick={() => handleCancel(s.id)} className="text-rose-500 hover:text-rose-700">
                       <X className="w-3.5 h-3.5" />

@@ -1,8 +1,17 @@
 import React, { useEffect, useState } from "react";
-import { BookOpen, Download, FileText, Play } from "lucide-react";
+import { BookOpen, Download, FileText, Library, Play } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
-import { LessonMaterialResponse, LessonResponse, listLessonMaterials, listLessonsByClass } from "../api";
+import { CurriculumDocumentResponse, LessonMaterialResponse, LessonResponse, getPortalClass, listLessonMaterials, listLessonsByClass, listMyDocuments } from "../api";
 import LmsPracticeDemo from "./LmsPracticeDemo";
+
+const documentTypeLabels: Record<CurriculumDocumentResponse["documentType"], string> = {
+  VIDEO: "Video",
+  PDF: "PDF",
+  AUDIO: "Audio",
+  SLIDE: "Slide",
+  IMAGE: "Ảnh",
+  OTHER: "Khác"
+};
 
 interface LmsTabProps {
   classId: number;
@@ -10,6 +19,7 @@ interface LmsTabProps {
 
 export default function LmsTab({ classId }: LmsTabProps) {
   const [lessons, setLessons] = useState<LessonResponse[]>([]);
+  const [documents, setDocuments] = useState<CurriculumDocumentResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [openLessonId, setOpenLessonId] = useState<number | null>(null);
@@ -17,8 +27,14 @@ export default function LmsTab({ classId }: LmsTabProps) {
 
   useEffect(() => {
     setLoading(true);
-    listLessonsByClass(classId)
-      .then((res) => setLessons(res.filter((l) => l.status === "PUBLISHED").sort((a, b) => a.lessonOrder - b.lessonOrder)))
+    Promise.all([
+      listLessonsByClass(classId),
+      getPortalClass(classId).then((cls) => listMyDocuments(cls.curriculumId))
+    ])
+      .then(([lessonRes, documentRes]) => {
+        setLessons(lessonRes.filter((l) => l.status === "PUBLISHED").sort((a, b) => a.lessonOrder - b.lessonOrder));
+        setDocuments(documentRes);
+      })
       .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được bài giảng."))
       .finally(() => setLoading(false));
   }, [classId]);
@@ -83,6 +99,37 @@ export default function LmsTab({ classId }: LmsTabProps) {
                   </div>
                 )}
               </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="bg-white border border-line/80 p-6 rounded-[20px] shadow-[0_8px_30px_rgba(30,42,69,0.03)] space-y-4">
+        <h2 className="text-xl font-extrabold text-ink flex items-center gap-2">
+          <Library className="text-teal" /> Tài liệu tham khảo
+        </h2>
+        <p className="text-xs text-muted font-bold">Tài liệu chung theo khung chương trình để tự học thêm — không thuộc bài giảng nào cụ thể.</p>
+        {documents.length === 0 ? (
+          <p className="text-xs text-muted font-bold italic">Chưa có tài liệu tham khảo nào.</p>
+        ) : (
+          <div className="space-y-2">
+            {documents.map((doc) => (
+              <a
+                key={doc.id}
+                href={doc.fileUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-3 p-3 rounded-[14px] border border-line/80 bg-sky-2 hover:bg-sky transition-colors"
+              >
+                <span className="w-8 h-8 rounded-full bg-teal/10 border border-teal/20 flex items-center justify-center text-teal shrink-0">
+                  <FileText size={14} />
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="font-extrabold text-ink text-sm truncate">{doc.title}</p>
+                  {doc.description && <p className="text-[10px] text-muted font-bold truncate">{doc.description}</p>}
+                </div>
+                <span className="text-[10px] font-extrabold text-teal-deep uppercase shrink-0">{documentTypeLabels[doc.documentType]}</span>
+              </a>
             ))}
           </div>
         )}
