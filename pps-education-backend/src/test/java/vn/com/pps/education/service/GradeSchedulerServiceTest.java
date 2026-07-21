@@ -27,7 +27,9 @@ import vn.com.pps.education.dto.GradeEntryResponse;
 import vn.com.pps.education.dto.GradePeriodResponse;
 import vn.com.pps.education.dto.GradePeriodResultResponse;
 import vn.com.pps.education.dto.PublishGradesRequest;
+import vn.com.pps.education.dto.SubmitGradeAppealRequest;
 import vn.com.pps.education.dto.UpdateCurriculumRequest;
+import vn.com.pps.education.repository.GradeEntryRepository;
 import vn.com.pps.education.repository.GradePeriodEditWindowRepository;
 import vn.com.pps.education.repository.ParentRepository;
 import vn.com.pps.education.repository.ParentStudentRepository;
@@ -49,9 +51,11 @@ import java.util.concurrent.atomic.AtomicLong;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * UC-20/A3 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng): tự động
- * công bố DRAFT sau khi hết hạn X ngày, chạy song song với công bố thủ
- * công (UC-20 Main Flow). Xem docs/uc/phan-he-06-hoc-thuat.md.
+ * UC-20/A3 + UC-62/A3 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng,
+ * V43): 2 job tách biệt — tự động công bố dự kiến DRAFT sau khi hết hạn X
+ * ngày (song song với công bố thủ công, UC-20 Main Flow); tự động chuyển
+ * Chính thức (OFFICIAL) sau khi hết hạn Y ngày phúc khảo, bất kể còn đang
+ * PROVISIONAL_PUBLISHED hay APPEAL. Xem docs/uc/phan-he-06-hoc-thuat.md.
  */
 @Transactional
 class GradeSchedulerServiceTest extends AbstractIntegrationTest {
@@ -63,6 +67,12 @@ class GradeSchedulerServiceTest extends AbstractIntegrationTest {
 
     @Autowired
     private GradeService gradeService;
+
+    @Autowired
+    private GradeAppealService gradeAppealService;
+
+    @Autowired
+    private GradeEntryRepository gradeEntryRepository;
 
     @Autowired
     private ClassService classService;
@@ -149,35 +159,35 @@ class GradeSchedulerServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void autoPublishExpiredGrades_UC20_A3_MainFlow_publishesDraftEntriesAndResultsPastWindow() {
+    void autoPublishProvisionalExpiredGrades_UC20_A3_MainFlow_publishesDraftEntriesAndResultsPastWindow() {
         GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
                 new EnterGradeRequest(student.getId(), new BigDecimal("8.0"), false, null), teacher.getId());
         GradePeriodResultResponse result = gradeService.enterPeriodResult(schoolClass.id(), student.getId(), gradePeriod.id(),
                 new EnterGradePeriodResultRequest(new BigDecimal("8.0"), "BAND", "B2"), teacher.getId());
         expireEditWindow(schoolClass.id(), gradePeriod.id());
 
-        gradeSchedulerService.autoPublishExpiredGrades();
+        gradeSchedulerService.autoPublishProvisionalExpiredGrades();
 
         var publishedEntry = gradeService.listEntries(schoolClass.id(), gradeComponent.id()).stream()
                 .filter(e -> e.id().equals(entry.id())).findFirst().orElseThrow();
-        assertThat(publishedEntry.status()).isEqualTo("PUBLISHED");
+        assertThat(publishedEntry.status()).isEqualTo("PROVISIONAL_PUBLISHED");
         assertThat(publishedEntry.publishedBy()).isNull();
         assertThat(publishedEntry.publishedAt()).isNotNull();
 
         var publishedResult = gradeService.listPeriodResults(schoolClass.id(), gradePeriod.id()).stream()
                 .filter(r -> r.id().equals(result.id())).findFirst().orElseThrow();
-        assertThat(publishedResult.status()).isEqualTo("PUBLISHED");
+        assertThat(publishedResult.status()).isEqualTo("PROVISIONAL_PUBLISHED");
         assertThat(publishedResult.publishedBy()).isNull();
         assertThat(publishedResult.publishedAt()).isNotNull();
     }
 
     @Test
-    void autoPublishExpiredGrades_UC20_A3_doesNotTouchEntriesStillWithinWindow() {
+    void autoPublishProvisionalExpiredGrades_UC20_A3_doesNotTouchEntriesStillWithinWindow() {
         GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
                 new EnterGradeRequest(student.getId(), new BigDecimal("8.0"), false, null), teacher.getId());
         // Không expire window -- còn trong hạn X ngày mặc định.
 
-        gradeSchedulerService.autoPublishExpiredGrades();
+        gradeSchedulerService.autoPublishProvisionalExpiredGrades();
 
         var stillDraft = gradeService.listEntries(schoolClass.id(), gradeComponent.id()).stream()
                 .filter(e -> e.id().equals(entry.id())).findFirst().orElseThrow();
@@ -186,24 +196,24 @@ class GradeSchedulerServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void autoPublishExpiredGrades_UC20_A3_doesNotAffectAlreadyPublishedEntries() {
+    void autoPublishProvisionalExpiredGrades_UC20_A3_doesNotAffectAlreadyPublishedEntries() {
         GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
                 new EnterGradeRequest(student.getId(), new BigDecimal("8.0"), false, null), teacher.getId());
         var manuallyPublished = gradeService.publishGrades(
                 new PublishGradesRequest(java.util.List.of(entry.id()), null), siteManagerUser.getId()).get(0);
         expireEditWindow(schoolClass.id(), gradePeriod.id());
 
-        gradeSchedulerService.autoPublishExpiredGrades();
+        gradeSchedulerService.autoPublishProvisionalExpiredGrades();
 
         var reloaded = gradeService.listEntries(schoolClass.id(), gradeComponent.id()).stream()
                 .filter(e -> e.id().equals(entry.id())).findFirst().orElseThrow();
-        assertThat(reloaded.status()).isEqualTo("PUBLISHED");
-        // Job không đụng tới bản ghi đã PUBLISHED thủ công -- vẫn giữ đúng người đã công bố tay, không bị ghi đè thành NULL.
+        assertThat(reloaded.status()).isEqualTo("PROVISIONAL_PUBLISHED");
+        // Job không đụng tới bản ghi đã công bố dự kiến thủ công -- vẫn giữ đúng người đã công bố tay, không bị ghi đè thành NULL.
         assertThat(reloaded.publishedBy()).isEqualTo(manuallyPublished.publishedBy()).isEqualTo(siteManagerUser.getId());
     }
 
     @Test
-    void autoPublishExpiredGrades_UC20_A3_boSung_notifiesLinkedParent() {
+    void autoPublishProvisionalExpiredGrades_UC20_A3_boSung_notifiesLinkedParent() {
         User parentUser = newUser("parent.autopublish");
         Parent parent = new Parent();
         parent.setUser(parentUser);
@@ -217,7 +227,7 @@ class GradeSchedulerServiceTest extends AbstractIntegrationTest {
                 new EnterGradeRequest(student.getId(), new BigDecimal("8.0"), false, null), teacher.getId());
         expireEditWindow(schoolClass.id(), gradePeriod.id());
 
-        gradeSchedulerService.autoPublishExpiredGrades();
+        gradeSchedulerService.autoPublishProvisionalExpiredGrades();
 
         var notifications = notificationService.listMine(parentUser.getId(), PageRequest.of(0, 10));
         assertThat(notifications.getContent())
@@ -228,12 +238,65 @@ class GradeSchedulerServiceTest extends AbstractIntegrationTest {
                 });
     }
 
-    /** Đẩy lùi mốc "lần đầu nhập" (grade_period_edit_windows) quá hạn X ngày hiện hành để mô phỏng hết hạn (UC-20 A3). */
+    @Test
+    void autoFinalizeExpiredAppealWindow_UC62_A3_MainFlow_finalizesProvisionalPublishedPastWindow() {
+        GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
+                new EnterGradeRequest(student.getId(), new BigDecimal("8.0"), false, null), teacher.getId());
+        gradeService.publishGrades(new PublishGradesRequest(java.util.List.of(entry.id()), null), siteManagerUser.getId());
+        backdatePublishedAt(entry.id(), academicSettingsService.gradeAppealWindowDays() + 1L);
+
+        gradeSchedulerService.autoFinalizeExpiredAppealWindow();
+
+        var finalized = gradeService.listEntries(schoolClass.id(), gradeComponent.id()).stream()
+                .filter(e -> e.id().equals(entry.id())).findFirst().orElseThrow();
+        assertThat(finalized.status()).isEqualTo("OFFICIAL");
+        assertThat(finalized.finalizedAt()).isNotNull();
+    }
+
+    @Test
+    void autoFinalizeExpiredAppealWindow_UC62_A3_finalizesEvenWhileUnderAppeal() {
+        GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
+                new EnterGradeRequest(student.getId(), new BigDecimal("8.0"), false, null), teacher.getId());
+        gradeService.publishGrades(new PublishGradesRequest(java.util.List.of(entry.id()), null), siteManagerUser.getId());
+        gradeAppealService.submitAppeal(new SubmitGradeAppealRequest("GRADE_ENTRY", entry.id(), null), student.getUser().getId());
+        backdatePublishedAt(entry.id(), academicSettingsService.gradeAppealWindowDays() + 1L);
+
+        gradeSchedulerService.autoFinalizeExpiredAppealWindow();
+
+        // Đã xác nhận với người dùng: khoá Chính thức đúng hạn dù đang Phúc khảo dở dang (chưa được GV xử lý xong).
+        var finalized = gradeService.listEntries(schoolClass.id(), gradeComponent.id()).stream()
+                .filter(e -> e.id().equals(entry.id())).findFirst().orElseThrow();
+        assertThat(finalized.status()).isEqualTo("OFFICIAL");
+    }
+
+    @Test
+    void autoFinalizeExpiredAppealWindow_UC62_doesNotTouchEntriesStillWithinWindow() {
+        GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
+                new EnterGradeRequest(student.getId(), new BigDecimal("8.0"), false, null), teacher.getId());
+        gradeService.publishGrades(new PublishGradesRequest(java.util.List.of(entry.id()), null), siteManagerUser.getId());
+        // Không backdate publishedAt -- còn trong hạn Y ngày mặc định.
+
+        gradeSchedulerService.autoFinalizeExpiredAppealWindow();
+
+        var stillProvisional = gradeService.listEntries(schoolClass.id(), gradeComponent.id()).stream()
+                .filter(e -> e.id().equals(entry.id())).findFirst().orElseThrow();
+        assertThat(stillProvisional.status()).isEqualTo("PROVISIONAL_PUBLISHED");
+        assertThat(stillProvisional.finalizedAt()).isNull();
+    }
+
+    /** Đẩy lùi mốc "lần đầu nhập" (grade_period_edit_windows) quá hạn X ngày hiện hành để mô phỏng hết hạn công bố dự kiến (UC-20 A3). */
     private void expireEditWindow(Long classId, Long gradePeriodId) {
         GradePeriodEditWindow window = gradePeriodEditWindowRepository
                 .findBySchoolClassIdAndGradePeriodId(classId, gradePeriodId).orElseThrow();
         window.setFirstEnteredAt(OffsetDateTime.now().minusDays(academicSettingsService.gradeEditWindowDays() + 1L));
         gradePeriodEditWindowRepository.save(window);
+    }
+
+    /** Đẩy lùi publishedAt của 1 grade_entries quá hạn Y ngày hiện hành để mô phỏng hết hạn phúc khảo (UC-62 A3). */
+    private void backdatePublishedAt(Long entryId, long daysBeyondWindow) {
+        var entry = gradeEntryRepository.findById(entryId).orElseThrow();
+        entry.setPublishedAt(OffsetDateTime.now().minusDays(daysBeyondWindow));
+        gradeEntryRepository.save(entry);
     }
 
     private String curriculumCode() {
