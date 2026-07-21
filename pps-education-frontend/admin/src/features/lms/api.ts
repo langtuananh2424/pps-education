@@ -236,3 +236,140 @@ export function assignExercise(exerciseId: number, request: AssignExerciseReques
 export function listAssignmentsForClass(classId: number): Promise<ExerciseAssignmentResponse[]> {
   return apiRequest<ExerciseAssignmentResponse[]>(`/classes/${classId}/exercises`);
 }
+
+// ===================== Kho bài giảng (UC-23) =====================
+
+export type LessonType = "VIDEO_LECTURE" | "PDF_DOCUMENT" | "MIXED" | "LIVE_RECORDING";
+export type LessonStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
+
+/** Khớp LessonResponse thật — đúng 1 trong 2 curriculumId/classId khác null (không cả hai, không cái nào). */
+export interface LessonResponse {
+  id: number;
+  code: string;
+  title: string;
+  curriculumId: number | null;
+  classId: number | null;
+  subjectId: number | null;
+  lessonOrder: number | null;
+  lessonType: LessonType;
+  durationMinutes: number | null;
+  status: LessonStatus;
+  publishedAt: string | null;
+  createdBy: number;
+}
+
+export interface CreateLessonRequest {
+  code: string;
+  title: string;
+  curriculumId?: number;
+  classId?: number;
+  subjectId?: number;
+  lessonOrder?: number;
+  lessonType: LessonType;
+  durationMinutes?: number;
+}
+
+export interface UpdateLessonRequest {
+  title: string;
+  subjectId?: number;
+  lessonOrder?: number;
+  durationMinutes?: number;
+  status: LessonStatus;
+}
+
+/** UC-23 Main Flow bước 3-4: chỉ Giáo viên được phân công dạy đúng lớp/khung mới tạo được — BE tự chặn (403), không bypass qua permission. */
+export function createLesson(request: CreateLessonRequest): Promise<LessonResponse> {
+  return apiRequest<LessonResponse>("/lessons", { method: "POST", body: JSON.stringify(request) });
+}
+
+export function updateLesson(id: number, request: UpdateLessonRequest): Promise<LessonResponse> {
+  return apiRequest<LessonResponse>(`/lessons/${id}`, { method: "PUT", body: JSON.stringify(request) });
+}
+
+export function listLessonsByClass(classId: number): Promise<LessonResponse[]> {
+  return apiRequest<LessonResponse[]>(`/classes/${classId}/lessons`);
+}
+
+export function listLessonsByCurriculum(curriculumId: number): Promise<LessonResponse[]> {
+  return apiRequest<LessonResponse[]>(`/curriculums/${curriculumId}/lessons`);
+}
+
+export type LessonMaterialType = "VIDEO" | "PDF" | "AUDIO" | "SLIDE" | "IMAGE" | "OTHER";
+
+/** Khớp AddLessonMaterialRequest thật — hệ thống KHÔNG tự upload file, GV dán URL đã có sẵn trên CDN/Object Storage. */
+export interface AddLessonMaterialRequest {
+  materialType: LessonMaterialType;
+  title: string;
+  fileUrl: string;
+  fileSizeBytes?: number;
+  durationSeconds?: number;
+  displayOrder?: number;
+  isDownloadable: boolean;
+}
+
+export interface LessonMaterialResponse {
+  id: number;
+  lessonId: number;
+  materialType: LessonMaterialType;
+  title: string;
+  fileUrl: string;
+  fileSizeBytes: number | null;
+  durationSeconds: number | null;
+  displayOrder: number;
+  isDownloadable: boolean;
+}
+
+export function addLessonMaterial(lessonId: number, request: AddLessonMaterialRequest): Promise<LessonMaterialResponse> {
+  return apiRequest<LessonMaterialResponse>(`/lessons/${lessonId}/materials`, { method: "POST", body: JSON.stringify(request) });
+}
+
+export function listLessonMaterials(lessonId: number): Promise<LessonMaterialResponse[]> {
+  return apiRequest<LessonMaterialResponse[]>(`/lessons/${lessonId}/materials`);
+}
+
+// ===================== Kho tài liệu tham khảo (UC-60) =====================
+
+export type CurriculumDocumentType = "VIDEO" | "PDF" | "AUDIO" | "SLIDE" | "IMAGE" | "OTHER";
+export type CurriculumDocumentStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
+
+/** Khớp CurriculumDocumentResponse thật — độc lập với Lesson (UC-23), chỉ gắn theo curriculum, không gắn 1 bài giảng cụ thể nào. */
+export interface CurriculumDocumentResponse {
+  id: number;
+  curriculumId: number;
+  title: string;
+  description: string | null;
+  documentType: CurriculumDocumentType;
+  fileUrl: string;
+  displayOrder: number;
+  status: CurriculumDocumentStatus;
+  createdBy: number;
+}
+
+export interface CreateCurriculumDocumentRequest {
+  title: string;
+  description?: string;
+  documentType: CurriculumDocumentType;
+  fileUrl: string;
+  displayOrder?: number;
+}
+
+export interface UpdateCurriculumDocumentRequest {
+  title: string;
+  description?: string;
+  displayOrder?: number;
+  status: CurriculumDocumentStatus;
+}
+
+/** UC-60: chỉ tài khoản có quyền lms.document.manage (mặc định gán cho TEACHER) mới tạo/sửa được. */
+export function createCurriculumDocument(curriculumId: number, request: CreateCurriculumDocumentRequest): Promise<CurriculumDocumentResponse> {
+  return apiRequest<CurriculumDocumentResponse>(`/curriculums/${curriculumId}/documents`, { method: "POST", body: JSON.stringify(request) });
+}
+
+export function updateCurriculumDocument(id: number, request: UpdateCurriculumDocumentRequest): Promise<CurriculumDocumentResponse> {
+  return apiRequest<CurriculumDocumentResponse>(`/documents/${id}`, { method: "PUT", body: JSON.stringify(request) });
+}
+
+/** Xem mọi trạng thái (staff quản lý) — khác hẳn GET /api/students/me/documents (Học sinh, chỉ PUBLISHED, self-service). */
+export function listCurriculumDocuments(curriculumId: number): Promise<CurriculumDocumentResponse[]> {
+  return apiRequest<CurriculumDocumentResponse[]>(`/curriculums/${curriculumId}/documents`);
+}

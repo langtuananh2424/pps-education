@@ -44,6 +44,8 @@ export default function DailyCommentPanel() {
 
   const selectedClass = classes.find((c) => c.id === selectedClassId) ?? null;
   const selectedSession = sessions.find((s) => s.id === selectedSessionId) ?? null;
+  /** UC-21 áp cùng nguyên tắc "đến giờ học mới nhận xét" như UC-15 (Điểm danh) — chặn chọn buổi tương lai. */
+  const selectableSessions = sessions.filter((s) => new Date(`${s.sessionDate}T${s.startTime}`) <= new Date());
 
   /** UC-21 Precondition: GV chỉ nhận xét lớp mình được phân công dạy (class_teachers) — cùng gốc rễ với fix ở GradesPage/ClassesPage/AttendancePage. */
   useEffect(() => {
@@ -170,7 +172,7 @@ export default function DailyCommentPanel() {
                 className="bg-white border text-[10px] font-bold text-slate-700 px-2 py-1 rounded focus:outline-none"
               >
                 <option value="">-- Chọn buổi học --</option>
-                {sessions.map((s) => (
+                {selectableSessions.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.sessionDate} ({s.startTime}–{s.endTime})
                   </option>

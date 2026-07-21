@@ -37,10 +37,13 @@ export default function GradesPage() {
   // phải cờ "được xem mọi lớp". academic.class.manage mới đúng là quyền quản trị lớp học rộng (chỉ
   // HEAD_ACADEMIC/Admin), khớp UC-19 Precondition ("Trưởng phòng đào tạo... quyền academic.grade.manage"
   // chỉ mở rộng cho vai trò quản lý, không áp dụng cho GV thường dù họ cũng có permission code này).
-  const canSeeAllClasses = hasPermission("academic.class.manage");
   // Hàng chờ duyệt (UC-20) chỉ có ý nghĩa với Quản lý điểm trường — API tự scope theo site được gán,
   // ẩn hẳn khối này với tài khoản khác để đỡ hiện 1 panel rỗng không liên quan.
   const isSiteManager = currentUser?.roleCodes?.includes(UserRole.SITE_MANAGER) ?? false;
+  // Quản lý điểm trường không dạy lớp nào (không có mặt trong class_teachers) nên cũng cần thấy TOÀN
+  // BỘ lớp thuộc site mình quản lý (GET /api/classes đã tự scope theo site_managers, xem commit
+  // 183222e) để chọn xem lại sổ điểm bất kỳ lớp nào — không chỉ riêng những lớp đang "chờ công bố".
+  const canSeeAllClasses = hasPermission("academic.class.manage") || isSiteManager;
 
   const [classes, setClasses] = useState<ClassResponse[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
@@ -169,6 +172,51 @@ export default function GradesPage() {
               selectedClassId={selectedPendingClassId}
               onSelect={setSelectedPendingClassId}
             />
+          </Card>
+
+          <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider font-display border-b border-slate-200 pb-2 pt-2">
+            Xem lại sổ điểm theo lớp (đã công bố)
+          </h2>
+          <Card padded={false} className="overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100 bg-slate-50 grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <select value={selectedClassId ?? ""} onChange={(e) => setSelectedClassId(e.target.value ? Number(e.target.value) : null)} className={inputClass}>
+                <option value="">-- Chọn lớp --</option>
+                {classes.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.classCode} — {c.name}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={selectedPeriodId ?? ""}
+                onChange={(e) => setSelectedPeriodId(e.target.value ? Number(e.target.value) : null)}
+                disabled={!selectedClassId}
+                className={`${inputClass} disabled:opacity-50`}
+              >
+                <option value="">-- Chọn kỳ điểm --</option>
+                {gradePeriods.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {selectedClassId && selectedPeriodId ? (
+              gradeComponents.length === 0 ? (
+                <p className="text-xs text-slate-400 italic p-6 text-center">Kỳ điểm này chưa có đầu điểm nào được cấu hình.</p>
+              ) : (
+                <GradeSheetTable
+                  key={`view-${selectedClassId}-${selectedPeriodId}`}
+                  classId={selectedClassId}
+                  gradePeriodId={selectedPeriodId}
+                  components={gradeComponents}
+                  enrollments={enrollments}
+                  readOnly
+                />
+              )
+            ) : (
+              <p className="text-xs text-slate-400 italic p-6 text-center">Chọn lớp → kỳ điểm để xem lại điểm (Nháp + Đã công bố).</p>
+            )}
           </Card>
         </div>
       )}

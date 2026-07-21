@@ -28,6 +28,7 @@ import CommentsPage from "@/features/academic/pages/CommentsPage";
 import QuestionBankPage from "@/features/lms/pages/QuestionBankPage";
 import ExerciseAssignPage from "@/features/lms/pages/ExerciseAssignPage";
 import LecturesPage from "@/features/lms/pages/LecturesPage";
+import DocumentBankPage from "@/features/lms/pages/DocumentBankPage";
 import ExamsPage from "@/features/lms/pages/ExamsPage";
 import BillingPage from "@/features/finance/pages/BillingPage";
 import ExpensesPage from "@/features/finance/pages/ExpensesPage";
@@ -75,6 +76,7 @@ export default function App() {
           <Route path="/lms/question-banks" element={<QuestionBankPage />} />
           <Route path="/lms/exercises" element={<ExerciseAssignPage />} />
           <Route path="/lms/lectures" element={<LecturesPage />} />
+          <Route path="/lms/documents" element={<DocumentBankPage />} />
           <Route path="/lms/exams" element={<ExamsPage />} />
           <Route path="/finance/billing" element={<BillingPage />} />
           <Route path="/finance/expenses" element={<ExpensesPage />} />

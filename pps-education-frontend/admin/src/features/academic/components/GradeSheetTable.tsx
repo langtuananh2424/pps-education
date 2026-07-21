@@ -35,6 +35,8 @@ interface GradeSheetTableProps {
   enrollments: ClassEnrollmentResponse[];
   /** Cho khối Công bố điểm (UC-20) đọc lại danh sách entries/results vừa tải, khỏi phải fetch lần 2. */
   onLoaded?: (entries: GradeEntryResponse[], results: GradePeriodResultResponse[]) => void;
+  /** Quản lý điểm trường xem lại điểm (kể cả đã công bố) — chỉ hiển thị, không cho sửa (họ không có quyền nhập điểm). */
+  readOnly?: boolean;
 }
 
 /**
@@ -44,7 +46,7 @@ interface GradeSheetTableProps {
  * thì backend tự chặn (báo lỗi ở banner phía trên), không tự đoán/khoá phía FE vì hiện
  * chưa có API trả sẵn "còn bao nhiêu ngày" cho 1 lớp+kỳ cụ thể.
  */
-export default function GradeSheetTable({ classId, gradePeriodId, components, enrollments, onLoaded }: GradeSheetTableProps) {
+export default function GradeSheetTable({ classId, gradePeriodId, components, enrollments, onLoaded, readOnly = false }: GradeSheetTableProps) {
   const [entriesByStudent, setEntriesByStudent] = useState<Map<number, Map<number, GradeEntryResponse>>>(new Map());
   const [resultsByStudent, setResultsByStudent] = useState<Map<number, GradePeriodResultResponse>>(new Map());
   const [editWindow, setEditWindow] = useState<GradeEditWindowResponse | null>(null);
@@ -212,51 +214,67 @@ export default function GradeSheetTable({ classId, gradePeriodId, components, en
                       const key = `${en.studentId}:${c.id}`;
                       return (
                         <Td key={c.id} className="text-center">
-                          <input
-                            type="text"
-                            placeholder={existing ? String(existing.score) : "—"}
-                            value={scoreInput[key] ?? ""}
-                            onChange={(e) => setScoreInput((prev) => ({ ...prev, [key]: e.target.value }))}
-                            onBlur={() => handleBlurScore(en.studentId, c.id)}
-                            disabled={savingKey === key}
-                            className="w-16 bg-slate-50 text-center border rounded py-1 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-brand-orange disabled:opacity-50"
-                          />
+                          {readOnly ? (
+                            <span className="text-xs font-semibold text-slate-700">{existing ? existing.score : "—"}</span>
+                          ) : (
+                            <input
+                              type="text"
+                              placeholder={existing ? String(existing.score) : "—"}
+                              value={scoreInput[key] ?? ""}
+                              onChange={(e) => setScoreInput((prev) => ({ ...prev, [key]: e.target.value }))}
+                              onBlur={() => handleBlurScore(en.studentId, c.id)}
+                              disabled={savingKey === key}
+                              className="w-16 bg-slate-50 text-center border rounded py-1 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-brand-orange disabled:opacity-50"
+                            />
+                          )}
                         </Td>
                       );
                     })}
                     <Td className="text-center">
-                      <input
-                        type="text"
-                        placeholder={result?.overallScore != null ? String(result.overallScore) : "—"}
-                        value={overallInput[en.studentId] ?? ""}
-                        onChange={(e) => setOverallInput((prev) => ({ ...prev, [en.studentId]: e.target.value }))}
-                        onBlur={() => handleBlurResult(en.studentId)}
-                        className="w-16 bg-slate-50 text-center border rounded py-1 text-xs font-semibold focus:outline-none"
-                      />
+                      {readOnly ? (
+                        <span className="text-xs font-semibold text-slate-700">{result?.overallScore ?? "—"}</span>
+                      ) : (
+                        <input
+                          type="text"
+                          placeholder={result?.overallScore != null ? String(result.overallScore) : "—"}
+                          value={overallInput[en.studentId] ?? ""}
+                          onChange={(e) => setOverallInput((prev) => ({ ...prev, [en.studentId]: e.target.value }))}
+                          onBlur={() => handleBlurResult(en.studentId)}
+                          className="w-16 bg-slate-50 text-center border rounded py-1 text-xs font-semibold focus:outline-none"
+                        />
+                      )}
                     </Td>
                     <Td className="text-center">
-                      <select
-                        value={scaleInput[en.studentId] ?? result?.scaleType ?? "NUMERIC"}
-                        onChange={(e) => setScaleInput((prev) => ({ ...prev, [en.studentId]: e.target.value }))}
-                        onBlur={() => handleBlurResult(en.studentId)}
-                        className="bg-slate-50 border rounded py-1 px-1.5 text-[11px] font-semibold focus:outline-none"
-                      >
-                        {Object.entries(scaleLabels).map(([value, label]) => (
-                          <option key={value} value={value}>
-                            {label}
-                          </option>
-                        ))}
-                      </select>
+                      {readOnly ? (
+                        <span className="text-[11px] font-semibold text-slate-700">{scaleLabels[result?.scaleType ?? "NUMERIC"]}</span>
+                      ) : (
+                        <select
+                          value={scaleInput[en.studentId] ?? result?.scaleType ?? "NUMERIC"}
+                          onChange={(e) => setScaleInput((prev) => ({ ...prev, [en.studentId]: e.target.value }))}
+                          onBlur={() => handleBlurResult(en.studentId)}
+                          className="bg-slate-50 border rounded py-1 px-1.5 text-[11px] font-semibold focus:outline-none"
+                        >
+                          {Object.entries(scaleLabels).map(([value, label]) => (
+                            <option key={value} value={value}>
+                              {label}
+                            </option>
+                          ))}
+                        </select>
+                      )}
                     </Td>
                     <Td className="text-center">
-                      <input
-                        type="text"
-                        placeholder={result?.level ?? "—"}
-                        value={levelInput[en.studentId] ?? ""}
-                        onChange={(e) => setLevelInput((prev) => ({ ...prev, [en.studentId]: e.target.value }))}
-                        onBlur={() => handleBlurResult(en.studentId)}
-                        className="w-20 bg-slate-50 text-center border rounded py-1 text-xs font-semibold focus:outline-none"
-                      />
+                      {readOnly ? (
+                        <span className="text-xs font-semibold text-slate-700">{result?.level ?? "—"}</span>
+                      ) : (
+                        <input
+                          type="text"
+                          placeholder={result?.level ?? "—"}
+                          value={levelInput[en.studentId] ?? ""}
+                          onChange={(e) => setLevelInput((prev) => ({ ...prev, [en.studentId]: e.target.value }))}
+                          onBlur={() => handleBlurResult(en.studentId)}
+                          className="w-20 bg-slate-50 text-center border rounded py-1 text-xs font-semibold focus:outline-none"
+                        />
+                      )}
                     </Td>
                     <Td className="text-center">
                       {result ? <Badge variant="info">{sourceLabels[result.source]}</Badge> : <span className="text-[10px] text-slate-300 italic">—</span>}

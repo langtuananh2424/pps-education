@@ -299,3 +299,24 @@ export interface ExerciseQuestionResponse {
 export function listExerciseQuestions(exerciseId: number): Promise<ExerciseQuestionResponse[]> {
   return apiRequest<ExerciseQuestionResponse[]>(`/exercises/${exerciseId}/questions`);
 }
+
+/**
+ * UC-60: Kho tài liệu tham khảo — độc lập với Kho bài giảng (UC-23, gắn 1 bài giảng cụ
+ * thể), chỉ gắn theo khung chương trình để "tự học thêm", không qua bài giảng nào.
+ */
+export interface CurriculumDocumentResponse {
+  id: number;
+  curriculumId: number;
+  title: string;
+  description: string | null;
+  documentType: "VIDEO" | "PDF" | "AUDIO" | "SLIDE" | "IMAGE" | "OTHER";
+  fileUrl: string;
+  displayOrder: number;
+  status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
+  createdBy: number;
+}
+
+/** Self-service — chỉ trả PUBLISHED, theo curriculum của (các) lớp tôi đang ghi danh ACTIVE (BE lọc sẵn). */
+export function listMyDocuments(curriculumId?: number): Promise<CurriculumDocumentResponse[]> {
+  return apiRequest<CurriculumDocumentResponse[]>(`/students/me/documents${curriculumId ? `?curriculumId=${curriculumId}` : ""}`);
+}

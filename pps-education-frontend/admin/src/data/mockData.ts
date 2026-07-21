@@ -2,7 +2,6 @@ import {
   UserRole,
   Campus,
   Classroom,
-  Course,
   Employee,
   Task,
   AttendanceLog,
@@ -10,7 +9,6 @@ import {
   Student,
   GradeEntry,
   CommentEntry,
-  Lecture,
   Exam,
   StudentExamSubmission,
   Invoice,
@@ -61,13 +59,6 @@ export const mockCampuses: Campus[] = [
     managerId: "EMP-004",
     managerName: "Nguyễn Thị Mai"
   }
-];
-
-export const mockCourses: Course[] = [
-  { id: "CRS-01", name: "Tiếng Anh Trẻ Em PPS Junior Starter", code: "PPS-J-STAR" },
-  { id: "CRS-02", name: "Tiếng Anh Giao Tiếp Học Thuật - Academic Communication", code: "PPS-A-COMM" },
-  { id: "CRS-03", name: "Chương Trình Luyện Thi Cambridge PET/KET", code: "PPS-CAM-PET" },
-  { id: "CRS-04", name: "Anh Văn Phản Xạ PPS Active Kids", code: "PPS-ACT-KID" }
 ];
 
 export const mockClassrooms: Classroom[] = [
@@ -480,27 +471,6 @@ export const mockCommentEntries: CommentEntry[] = [
     batchId: "B-CMT-1",
     status: "PENDING",
     createdAt: "2026-07-10"
-  }
-];
-
-export const mockLectures: Lecture[] = [
-  {
-    id: "LEC-001",
-    title: "Unit 1: Greetings and Introduction",
-    description: "Video hướng dẫn chi tiết cách phát âm các nguyên âm cơ bản và hội thoại chào hỏi.",
-    fileType: "VIDEO",
-    cdnUrl: "https://pps-cdn.vn/lectures/greetings_intro.mp4",
-    courseId: "CRS-01",
-    views: 124
-  },
-  {
-    id: "LEC-002",
-    title: "Tài liệu học tập Unit 1 - Từ vựng & Mẫu câu",
-    description: "Tệp tin PDF tổng hợp các từ vựng và mẫu câu chào hỏi thông dụng.",
-    fileType: "PDF",
-    cdnUrl: "https://pps-cdn.vn/lectures/unit1_vocab.pdf",
-    courseId: "CRS-01",
-    views: 95
   }
 ];
 
