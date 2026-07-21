@@ -698,6 +698,21 @@ UC-40: Soạn & giao đề kiểm tra
 |                 |     bài (UC-24).                                   |
 +-----------------+----------------------------------------------------+
 
+> **Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (2026-07-21):**
+> `Question.audioUrl` (trắc nghiệm Voice) và `Question.imageUrl` (tự luận
+> scan đề bài) ở bước 1 Main Flow trước đây yêu cầu Giáo viên tự dán URL
+> đã upload sẵn lên CDN ngoài — thực tế backend/dự án chưa có hạ tầng lưu
+> trữ file nào. Đã bổ sung API dùng chung `POST /api/media/upload`
+> (multipart, chấp nhận `audio/*`/`image/*`, tối đa 50MB/10MB) trả về
+> `{"url": "..."}`, lưu trên đĩa cục bộ có Docker volume bền vững, phục vụ
+> qua `GET /media-files/{tên file}` công khai (không cần JWT, vì file
+> nhúng trong thẻ `<audio>`/`<img>` không gửi kèm được header
+> Authorization) — xem `MediaController`/`MediaStorageService`. Phạm vi
+> lần này CHỈ áp dụng cho `Question.audioUrl`/`imageUrl`; các trường URL
+> khác trong hệ thống (`Student.portraitUrl`, tài liệu bài giảng, file
+> đính kèm Task...) vẫn giữ nguyên quy ước "coi như đã upload sẵn" cho tới
+> khi có yêu cầu riêng.
+
 ---
 
 UC-41: Chấm bài thủ công

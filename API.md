@@ -72,6 +72,7 @@
 - [grade-import-controller](#grade-import-controller)
 - [listening-practice-controller](#listening-practice-controller)
 - [listening-practice-grading-controller](#listening-practice-grading-controller)
+- [media-controller](#media-controller)
 - [parent-batch-import-controller](#parent-batch-import-controller)
 - [parent-controller](#parent-controller)
 - [position-controller](#position-controller)
@@ -574,6 +575,12 @@
 |---|---|---|---|---|
 | POST | `/api/listening-practice-attempts/{id}/grade` | JWT + `lms.grading.manage` | Body: [GradeListeningAttemptRequest](#gradelisteningattemptrequest) | [ListeningPracticeGradingResponse](#listeningpracticegradingresponse) |
 | GET | `/api/listening-practice/grading/pending` | JWT + `lms.grading.manage` | — | mảng [PendingListeningGradingResponse](#pendinglisteninggradingresponse) |
+
+## media-controller
+
+| Method | Path | Auth | Input | Output |
+|---|---|---|---|---|
+| POST | `/api/media/upload` | JWT | Form-data: `file` (tệp) | [MediaUploadResponse](#mediauploadresponse) |
 
 ## parent-batch-import-controller
 
@@ -2067,6 +2074,12 @@
 |---|---|---|
 | `marks` | mảng [EnterAttendanceMarkRequest](#enterattendancemarkrequest) | ✔ |
 | `mode` | string | ✔ |
+
+### MediaUploadResponse
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `url` | string |  |
 
 ### NotificationPreferenceRequest
 

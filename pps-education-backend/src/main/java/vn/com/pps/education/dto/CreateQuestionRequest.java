@@ -1,5 +1,6 @@
 package vn.com.pps.education.dto;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
@@ -23,5 +24,5 @@ public record CreateQuestionRequest(
         String explanation,
         BigDecimal defaultPoints,
         List<String> tags,
-        List<QuestionChoiceRequest> choices
+        @Valid List<QuestionChoiceRequest> choices
 ) {}
