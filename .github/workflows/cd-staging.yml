@@ -41,15 +41,18 @@ jobs:
             ${{ steps.meta.outputs.image }}
             ghcr.io/${{ github.repository }}/backend:staging-latest
 
-  deploy:
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    environment: staging
-    steps:
-      - name: Deploy to Railway (staging)
-        run: |
-          npm install -g @railway/cli
-          railway up --service backend --environment staging
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-          RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+  # TODO: mo lai khi da cau hinh xong secret RAILWAY_TOKEN/RAILWAY_PROJECT_ID
+  # trong GitHub Environment "staging" (Settings > Environments > staging) -
+  # tam comment de CD khong fail lien tuc moi lan merge vao develop.
+  # deploy:
+  #   needs: build-and-push
+  #   runs-on: ubuntu-latest
+  #   environment: staging
+  #   steps:
+  #     - name: Deploy to Railway (staging)
+  #       run: |
+  #         npm install -g @railway/cli
+  #         railway up --service backend --environment staging
+  #       env:
+  #         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+  #         RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
