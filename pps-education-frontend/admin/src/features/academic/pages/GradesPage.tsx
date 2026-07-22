@@ -286,90 +286,90 @@ export default function GradesPage() {
       )}
 
       {!isSiteManager && (
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card padded={false} className="lg:col-span-3 overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-100 bg-slate-50 space-y-3">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <span className="text-xs font-bold text-slate-700 font-display">Bảng nhập điểm (UC-19)</span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <select value={selectedClassId ?? ""} onChange={(e) => setSelectedClassId(e.target.value ? Number(e.target.value) : null)} className={inputClass}>
-                <option value="">-- Chọn lớp --</option>
-                {classes.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.classCode} — {c.name}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={selectedPeriodId ?? ""}
-                onChange={(e) => setSelectedPeriodId(e.target.value ? Number(e.target.value) : null)}
-                disabled={!selectedClassId}
-                className={`${inputClass} disabled:opacity-50`}
-              >
-                <option value="">-- Chọn kỳ điểm --</option>
-                {gradePeriods.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            {canManage && selectedClass && (
-              <div className="flex gap-2">
-                <Button type="button" size="sm" variant="secondary" onClick={() => setShowPeriodForm((v) => !v)}>
-                  <Plus className="w-3.5 h-3.5" />
-                  Thêm kỳ điểm
-                </Button>
-                {selectedPeriodId && (
-                  <Button type="button" size="sm" variant="secondary" onClick={() => setShowComponentForm((v) => !v)}>
-                    <Plus className="w-3.5 h-3.5" />
-                    Thêm đầu điểm
-                  </Button>
-                )}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <Card padded={false} className="lg:col-span-3 overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100 bg-slate-50 space-y-3">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <span className="text-xs font-bold text-slate-700 font-display">Bảng nhập điểm (UC-19)</span>
               </div>
-            )}
-            {showPeriodForm && selectedClass && (
-              <CreatePeriodForm
-                curriculumId={selectedClass.curriculumId}
-                onDone={(p) => {
-                  setGradePeriods((prev) => [...prev, p]);
-                  setShowPeriodForm(false);
-                }}
-                onCancel={() => setShowPeriodForm(false)}
-              />
-            )}
-            {showComponentForm && selectedPeriodId && (
-              <CreateComponentForm
-                gradePeriodId={selectedPeriodId}
-                onDone={(c) => {
-                  setGradeComponents((prev) => [...prev, c]);
-                  setShowComponentForm(false);
-                }}
-                onCancel={() => setShowComponentForm(false)}
-              />
-            )}
-          </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <select value={selectedClassId ?? ""} onChange={(e) => setSelectedClassId(e.target.value ? Number(e.target.value) : null)} className={inputClass}>
+                  <option value="">-- Chọn lớp --</option>
+                  {classes.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.classCode} — {c.name}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={selectedPeriodId ?? ""}
+                  onChange={(e) => setSelectedPeriodId(e.target.value ? Number(e.target.value) : null)}
+                  disabled={!selectedClassId}
+                  className={`${inputClass} disabled:opacity-50`}
+                >
+                  <option value="">-- Chọn kỳ điểm --</option>
+                  {gradePeriods.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {canManage && selectedClass && (
+                <div className="flex gap-2">
+                  <Button type="button" size="sm" variant="secondary" onClick={() => setShowPeriodForm((v) => !v)}>
+                    <Plus className="w-3.5 h-3.5" />
+                    Thêm kỳ điểm
+                  </Button>
+                  {selectedPeriodId && (
+                    <Button type="button" size="sm" variant="secondary" onClick={() => setShowComponentForm((v) => !v)}>
+                      <Plus className="w-3.5 h-3.5" />
+                      Thêm đầu điểm
+                    </Button>
+                  )}
+                </div>
+              )}
+              {showPeriodForm && selectedClass && (
+                <CreatePeriodForm
+                  curriculumId={selectedClass.curriculumId}
+                  onDone={(p) => {
+                    setGradePeriods((prev) => [...prev, p]);
+                    setShowPeriodForm(false);
+                  }}
+                  onCancel={() => setShowPeriodForm(false)}
+                />
+              )}
+              {showComponentForm && selectedPeriodId && (
+                <CreateComponentForm
+                  gradePeriodId={selectedPeriodId}
+                  onDone={(c) => {
+                    setGradeComponents((prev) => [...prev, c]);
+                    setShowComponentForm(false);
+                  }}
+                  onCancel={() => setShowComponentForm(false)}
+                />
+              )}
+            </div>
 
-          {selectedClassId && selectedPeriodId ? (
-            gradeComponents.length === 0 ? (
-              <p className="text-xs text-slate-400 italic p-6 text-center">
-                Kỳ điểm này chưa có đầu điểm nào được cấu hình{canManage ? " — dùng nút \"Thêm đầu điểm\" ở trên." : "."}
-              </p>
+            {selectedClassId && selectedPeriodId ? (
+              gradeComponents.length === 0 ? (
+                <p className="text-xs text-slate-400 italic p-6 text-center">
+                  Kỳ điểm này chưa có đầu điểm nào được cấu hình{canManage ? " — dùng nút \"Thêm đầu điểm\" ở trên." : "."}
+                </p>
+              ) : (
+                <GradeSheetTable
+                  key={`${selectedClassId}-${selectedPeriodId}-${sheetVersion}`}
+                  classId={selectedClassId}
+                  gradePeriodId={selectedPeriodId}
+                  components={gradeComponents}
+                  enrollments={enrollments}
+                />
+              )
             ) : (
-              <GradeSheetTable
-                key={`${selectedClassId}-${selectedPeriodId}-${sheetVersion}`}
-                classId={selectedClassId}
-                gradePeriodId={selectedPeriodId}
-                components={gradeComponents}
-                enrollments={enrollments}
-              />
-            )
-          ) : (
-            <p className="text-xs text-slate-400 italic p-6 text-center">Chọn lớp → kỳ điểm để bắt đầu nhập điểm.</p>
-          )}
-        </Card>
-      </div>
+              <p className="text-xs text-slate-400 italic p-6 text-center">Chọn lớp → kỳ điểm để bắt đầu nhập điểm.</p>
+            )}
+          </Card>
+        </div>
       )}
 
       {!isSiteManager && selectedClassId && selectedPeriodId && gradeComponents.length > 0 && (
@@ -393,7 +393,7 @@ function CreatePeriodForm({ curriculumId, onDone, onCancel }: { curriculumId: nu
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name.trim() || !form.weightInFinal) {
-      setError("Vui lòng điền đủ tên và trọng số.");
+      setError("Vui lòng điền đủ tên và điểm kỳ vọng");
       return;
     }
     setSubmitting(true);
@@ -421,7 +421,7 @@ function CreatePeriodForm({ curriculumId, onDone, onCancel }: { curriculumId: nu
           <option value="OTHER">OTHER — Khác</option>
         </select>
         <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Tên kỳ điểm" className={inputClass} />
-        <input type="number" step="0.01" value={form.weightInFinal} onChange={(e) => setForm({ ...form, weightInFinal: e.target.value })} placeholder="Trọng số" className={inputClass} />
+        <input type="number" step="0.01" value={form.weightInFinal} onChange={(e) => setForm({ ...form, weightInFinal: e.target.value })} placeholder="Điểm kỳ vọng" className={inputClass} />
       </div>
       <div className="flex gap-2">
         <Button type="button" size="sm" variant="secondary" onClick={onCancel}>
