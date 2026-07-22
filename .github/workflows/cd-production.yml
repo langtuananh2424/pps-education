@@ -46,15 +46,18 @@ jobs:
             ${{ steps.meta.outputs.image }}
             ghcr.io/${{ github.repository }}/backend:prod-latest
 
-  deploy:
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    environment: production # yêu cầu approval thủ công nếu đã cấu hình required reviewer
-    steps:
-      - name: Deploy to Railway (production)
-        run: |
-          npm install -g @railway/cli
-          railway up --service backend --environment production
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-          RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+  # TODO: mo lai khi da cau hinh xong secret RAILWAY_TOKEN/RAILWAY_PROJECT_ID
+  # trong GitHub Environment "production" (Settings > Environments > production,
+  # project Railway KHAC voi staging) - tam comment de CD khong fail lien tuc.
+  # deploy:
+  #   needs: build-and-push
+  #   runs-on: ubuntu-latest
+  #   environment: production # yêu cầu approval thủ công nếu đã cấu hình required reviewer
+  #   steps:
+  #     - name: Deploy to Railway (production)
+  #       run: |
+  #         npm install -g @railway/cli
+  #         railway up --service backend --environment production
+  #       env:
+  #         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+  #         RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
