@@ -354,7 +354,15 @@ export function listMyAssignedExercises(classId?: number): Promise<AssignedExerc
   return apiRequest<AssignedExerciseResponse[]>(`/students/me/exercises${classId ? `?classId=${classId}` : ""}`);
 }
 
-/** questionContent/points chỉ mang tính xem trước — KHÔNG có choices/đáp án đúng (field đó chỉ lộ ra qua GET /api/questions/{id}, endpoint riêng có gate quyền lms.exercise.manage, học viên không gọi được). */
+/** UC-24/UC-27 (BE bổ sung): phương án chọn cho câu trắc nghiệm — CHỦ Ý không có isCorrect, chỉ lộ qua StudentAnswerResponse.correctChoiceIds sau khi nộp bài. */
+export interface ExerciseQuestionChoiceResponse {
+  id: number;
+  choiceLabel: string;
+  content: string;
+  displayOrder: number;
+}
+
+/** choices chỉ có giá trị với câu MULTIPLE_CHOICE/MULTIPLE_ANSWER/TRUE_FALSE — rỗng với ESSAY/SPEAKING/FILL_IN_BLANK. */
 export interface ExerciseQuestionResponse {
   id: number;
   exerciseId: number;
@@ -363,10 +371,73 @@ export interface ExerciseQuestionResponse {
   questionContent: string;
   displayOrder: number;
   points: number;
+  choices: ExerciseQuestionChoiceResponse[];
 }
 
 export function listExerciseQuestions(exerciseId: number): Promise<ExerciseQuestionResponse[]> {
   return apiRequest<ExerciseQuestionResponse[]>(`/exercises/${exerciseId}/questions`);
+}
+
+// ===================== UC-24/UC-27: Làm bài + nộp bài =====================
+
+export interface ExerciseAttemptResponse {
+  id: number;
+  exerciseId: number;
+  exerciseAssignmentId: number | null;
+  studentId: number;
+  attemptNumber: number;
+  startedAt: string;
+  submittedAt: string | null;
+  autoGradeScore: number | null;
+  manualGradeScore: number | null;
+  totalScore: number | null;
+  status: "IN_PROGRESS" | "AUTO_GRADED" | "FULLY_GRADED";
+  isLateSubmission: boolean;
+}
+
+/** Main Flow bước 1: mở lượt làm mới — LUÔN tạo attempt mới (không tự resume), chỉ gọi khi thật sự chưa có attempt nào hoặc muốn làm lại. */
+export function startAttempt(exerciseId: number): Promise<ExerciseAttemptResponse> {
+  return apiRequest<ExerciseAttemptResponse>(`/exercises/${exerciseId}/attempts`, { method: "POST" });
+}
+
+export function getAttempt(attemptId: number): Promise<ExerciseAttemptResponse> {
+  return apiRequest<ExerciseAttemptResponse>(`/attempts/${attemptId}`);
+}
+
+export interface SaveAnswerRequest {
+  questionId: number;
+  answerText?: string;
+  selectedChoiceIds?: number[];
+  audioAnswerUrl?: string;
+}
+
+/** correctChoiceIds/explanation chỉ được điền khi attempt đã nộp (không còn IN_PROGRESS) và exercise.showCorrectAnswers=true. */
+export interface StudentAnswerResponse {
+  id: number;
+  exerciseAttemptId: number;
+  questionId: number;
+  answerText: string | null;
+  selectedChoiceIds: number[] | null;
+  audioAnswerUrl: string | null;
+  isAutoGradable: boolean;
+  autoScore: number | null;
+  isCorrect: boolean | null;
+  correctChoiceIds: number[] | null;
+  explanation: string | null;
+}
+
+/** Main Flow bước 2: trả lời 1 câu — ghi/ghi đè, gọi lại nhiều lần trong lúc attempt còn IN_PROGRESS. */
+export function saveAnswer(attemptId: number, request: SaveAnswerRequest): Promise<StudentAnswerResponse> {
+  return apiRequest<StudentAnswerResponse>(`/attempts/${attemptId}/answers`, { method: "POST", body: JSON.stringify(request) });
+}
+
+export function listAnswers(attemptId: number): Promise<StudentAnswerResponse[]> {
+  return apiRequest<StudentAnswerResponse[]>(`/attempts/${attemptId}/answers`);
+}
+
+/** Main Flow bước 3-4: nộp bài — BE tự chấm trắc nghiệm ngay, chuyển AUTO_GRADED (còn câu tự luận/nói chờ chấm) hoặc FULLY_GRADED (toàn trắc nghiệm). */
+export function submitAttempt(attemptId: number): Promise<ExerciseAttemptResponse> {
+  return apiRequest<ExerciseAttemptResponse>(`/attempts/${attemptId}/submit`, { method: "POST" });
 }
 
 /**

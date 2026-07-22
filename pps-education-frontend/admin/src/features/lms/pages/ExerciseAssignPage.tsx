@@ -21,7 +21,7 @@ const assignmentStatusLabels: Record<ExerciseAssignmentResponse["status"], strin
 
 /** UC-40: Soạn & giao đề kiểm tra — chọn 1 lớp trước, xem lịch sử đề đã giao, giao đề mới. */
 export default function ExerciseAssignPage() {
-  const { hasPermission, currentUser } = useApp();
+  const { hasPermission, currentUser, selectedCampusId } = useApp();
   const canManage = hasPermission("lms.exercise.manage");
   const canSeeAllClasses = hasPermission("academic.class.manage");
 
@@ -34,7 +34,7 @@ export default function ExerciseAssignPage() {
 
   /** UC-40 Precondition: GV chỉ giao đề cho lớp mình được phân công dạy (class_teachers) — cùng gốc rễ với fix ở GradesPage/ClassesPage/AttendancePage. */
   useEffect(() => {
-    listClasses()
+    listClasses({ siteId: selectedCampusId !== "ALL" ? Number(selectedCampusId) : undefined })
       .then(async (allClasses) => {
         if (canSeeAllClasses || !currentUser) {
           setClasses(allClasses);
@@ -44,7 +44,7 @@ export default function ExerciseAssignPage() {
         setClasses(allClasses.filter((_, i) => teacherLists[i].some((t) => t.teacherUserId === currentUser.id)));
       })
       .catch(() => undefined);
-  }, [canSeeAllClasses, currentUser]);
+  }, [canSeeAllClasses, currentUser, selectedCampusId]);
 
   const loadAssignments = () => {
     if (!selectedClassId) {
