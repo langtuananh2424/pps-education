@@ -17,7 +17,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * UC-35: xác nhận student.manage (Hybrid PBAC) chặn/cho phép đúng qua HTTP
+ * UC-35: xác nhận student.profile.import (tách từ student.manage ở V44) chặn/cho phép đúng qua HTTP
  * thật. Regression test cho lỗ hổng đã vá: trước đây
  * StudentBatchImportController hoàn toàn không có @PreAuthorize (class lẫn
  * method) — bất kỳ tài khoản đã đăng nhập nào (kể cả STUDENT/PARENT) đều

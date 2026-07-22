@@ -2,6 +2,7 @@ package vn.com.pps.education.controller;
 
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -34,6 +35,7 @@ public class StudentAttendanceController {
         return ResponseEntity.ok(studentAttendanceService.getAttendanceSession(classSessionId, actor.userId()));
     }
 
+    @PreAuthorize("hasPermission(null, 'academic.attendance.mark')")
     @PostMapping
     public ResponseEntity<AttendanceSessionResponse> markAttendance(@PathVariable Long classSessionId,
                                                                         @Valid @RequestBody MarkAttendanceRequest request,
@@ -41,6 +43,7 @@ public class StudentAttendanceController {
         return ResponseEntity.ok(studentAttendanceService.markAttendance(classSessionId, request, actor.userId()));
     }
 
+    @PreAuthorize("hasPermission(null, 'academic.attendance.mark')")
     @PutMapping("/students/{studentId}/periods/{sessionPeriodId}")
     public ResponseEntity<AttendanceMarkResponse> updatePeriodMark(@PathVariable Long classSessionId,
                                                                        @PathVariable Long studentId,
@@ -50,6 +53,7 @@ public class StudentAttendanceController {
         return ResponseEntity.ok(studentAttendanceService.updatePeriodMark(classSessionId, studentId, sessionPeriodId, request, actor.userId()));
     }
 
+    @PreAuthorize("hasPermission(null, 'academic.attendance.mark')")
     @PostMapping("/submit")
     public ResponseEntity<AttendanceSessionResponse> submitAttendance(@PathVariable Long classSessionId,
                                                                           @AuthenticationPrincipal AuthenticatedUser actor) {
