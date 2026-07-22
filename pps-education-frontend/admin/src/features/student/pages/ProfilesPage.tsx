@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { GraduationCap } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
+import { useApp } from "@/context/AppContext";
 import ImportExcelButton from "@/components/ui/ImportExcelButton";
 import { importStudents, listStudents, StudentResponse } from "../api";
 import StudentListPanel from "../components/StudentListPanel";
@@ -11,6 +12,7 @@ const STUDENT_IMPORT_HEADERS = ["Họ và tên *", "Ngày sinh (dd/MM/yyyy)", "G
 const STUDENT_IMPORT_SAMPLE = ["Nguyễn Văn A", "01/01/2015", "Nam", "TH Kim Đồng", "5A", "TA-501", "HS-0001"];
 
 export default function ProfilesPage() {
+  const { selectedCampusId } = useApp();
   const [students, setStudents] = useState<StudentResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -21,7 +23,7 @@ export default function ProfilesPage() {
   const load = () => {
     setLoading(true);
     setError(null);
-    listStudents(query)
+    listStudents(query, selectedCampusId !== "ALL" ? Number(selectedCampusId) : undefined)
       .then((res) => {
         setStudents(res);
         if (selectedId == null && res.length > 0) setSelectedId(res[0].id);
@@ -30,7 +32,7 @@ export default function ProfilesPage() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(load, []);
+  useEffect(load, [selectedCampusId]);
 
   const selectedStudent = students.find((s) => s.id === selectedId) ?? null;
 

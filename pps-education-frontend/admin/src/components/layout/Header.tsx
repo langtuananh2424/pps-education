@@ -15,7 +15,7 @@ const notifications = [
 ];
 
 export default function Header() {
-  const { currentRole, currentUser, selectedCampusId, setSelectedCampusId, sidebarOpen, setSidebarOpen, logout } = useApp();
+  const { currentRole, currentUser, selectedCampusId, setSelectedCampusId, sidebarOpen, setSidebarOpen, logout, hasPermission } = useApp();
   const [sites, setSites] = useState<SiteResponse[]>([]);
   const [profileOpen, setProfileOpen] = useState(false);
 
@@ -34,8 +34,15 @@ export default function Header() {
   // Vai trò bắt buộc gắn với (các) điểm trường cụ thể -- nếu tài khoản có 1 trong các
   // vai trò này mà managedSites rỗng, đó là dấu hiệu CHƯA ĐƯỢC GÁN điểm trường (thiếu
   // site_managers/site_teachers), không phải "không giới hạn site" như SYS_ADMIN/STAFF.
+  //
+  // Loại trừ tài khoản có academic.class.manage (đúng quyền BE dùng để bỏ giới hạn site
+  // ở ClassService.resolveAllowedSiteIds) — tài khoản demo "Super Admin" cố tình được gán
+  // ĐỦ mọi roleCodes (kể cả TEACHER/SITE_MANAGER) để test mọi màn hình, nhưng không thật
+  // sự được gán site_teachers/site_managers nào — nếu không loại trừ, tài khoản này bị
+  // hiểu lầm thành "chưa gán điểm trường" dù thực ra xem được hết mọi điểm trường.
   const siteScopedRoles: string[] = [UserRole.SITE_MANAGER, UserRole.PARTNER_REP, UserRole.TEACHER];
-  const isSiteScopedRole = (currentUser?.roleCodes ?? []).some((r) => siteScopedRoles.includes(r));
+  const seesAllSites = hasPermission("academic.class.manage");
+  const isSiteScopedRole = !seesAllSites && (currentUser?.roleCodes ?? []).some((r) => siteScopedRoles.includes(r));
 
   useEffect(() => {
     if (!currentUser || sites.length === 0) {

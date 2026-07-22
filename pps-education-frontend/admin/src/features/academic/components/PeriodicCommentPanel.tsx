@@ -10,7 +10,7 @@ const inputClass = "bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg f
 
 /** UC-21 nhánh MID_TERM/END_TERM: chọn lớp + học sinh + kỳ điểm, viết nhận xét định kỳ (không gắn buổi học). */
 export default function PeriodicCommentPanel() {
-  const { hasPermission, currentUser } = useApp();
+  const { hasPermission, currentUser, selectedCampusId } = useApp();
   const canManage = hasPermission("academic.class.manage");
   const [classes, setClasses] = useState<ClassResponse[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
@@ -23,7 +23,7 @@ export default function PeriodicCommentPanel() {
 
   /** UC-21 Precondition: GV chỉ nhận xét lớp mình được phân công dạy (class_teachers) — cùng gốc rễ với fix ở DailyCommentPanel/GradesPage/ClassesPage/AttendancePage. */
   useEffect(() => {
-    listClasses()
+    listClasses({ siteId: selectedCampusId !== "ALL" ? Number(selectedCampusId) : undefined })
       .then(async (res) => {
         if (canManage || !currentUser) {
           setClasses(res);
@@ -33,7 +33,7 @@ export default function PeriodicCommentPanel() {
         setClasses(res.filter((_, i) => teacherLists[i].some((t) => t.teacherUserId === currentUser.id)));
       })
       .catch(() => undefined);
-  }, [canManage, currentUser]);
+  }, [canManage, currentUser, selectedCampusId]);
 
   useEffect(() => {
     setSelectedStudentId(null);

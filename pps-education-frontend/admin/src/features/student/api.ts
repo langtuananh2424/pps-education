@@ -143,10 +143,13 @@ export interface SiteOption {
   name: string;
 }
 
-/** UC-13 Main Flow bước 1: danh sách/tìm kiếm học sinh. */
-export function listStudents(query?: string): Promise<StudentResponse[]> {
-  const params = query?.trim() ? `?query=${encodeURIComponent(query.trim())}` : "";
-  return apiRequest<StudentResponse[]>(`/students${params}`);
+/** UC-13 Main Flow bước 1: danh sách/tìm kiếm học sinh — lọc thêm theo điểm trường (siteId) nếu có. */
+export function listStudents(query?: string, siteId?: number): Promise<StudentResponse[]> {
+  const params = new URLSearchParams();
+  if (query?.trim()) params.set("query", query.trim());
+  if (siteId) params.set("siteId", String(siteId));
+  const qs = params.toString();
+  return apiRequest<StudentResponse[]>(`/students${qs ? `?${qs}` : ""}`);
 }
 
 export function getStudent(id: number): Promise<StudentResponse> {

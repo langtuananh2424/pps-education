@@ -247,11 +247,10 @@ export default function PortalPage() {
                   {activeTab === "grades" &&
                     (isParent && selectedChild ? (
                       <GradesTab studentId={selectedChild.studentId} classId={selectedClassId} />
+                    ) : isStudent ? (
+                      <GradesTab classId={selectedClassId} />
                     ) : (
-                      <ComingSoon
-                        title="Khảo thí & Điểm số"
-                        description="Đang chờ Backend mở API cho Học sinh tự xem điểm của chính mình (hiện chỉ Phụ huynh xem được)."
-                      />
+                      <ComingSoon title="Khảo thí & Điểm số" description="Không có hồ sơ Học sinh hoặc Phụ huynh liên kết với tài khoản này." />
                     ))}
                   {activeTab === "billing" &&
                     (isParent ? (

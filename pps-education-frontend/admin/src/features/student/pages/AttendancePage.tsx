@@ -35,7 +35,7 @@ function toSimpleStatus(status: EnterAttendanceMarkRequest["status"]): SimpleSta
 }
 
 export default function AttendancePage() {
-  const { hasPermission, currentUser } = useApp();
+  const { hasPermission, currentUser, selectedCampusId } = useApp();
   // UC-15 Precondition: Tác nhân chỉ là "Giáo viên được phân công giảng dạy tiết đó" — không dùng
   // student.manage làm cờ bypass (quyền đó nghĩa thật là "Quản lý hồ sơ học sinh", backend cấp rộng
   // cho TEACHER, không liên quan phạm vi lớp điểm danh). Chỉ academic.class.manage (Admin/HEAD_ACADEMIC) mới thấy hết.
@@ -61,7 +61,7 @@ export default function AttendancePage() {
 
   /** UC-15 Precondition: GV chỉ điểm danh lớp mình được phân công dạy (class_teachers) — cùng gốc rễ với fix ở GradesPage/ClassesPage. */
   useEffect(() => {
-    listClasses()
+    listClasses({ siteId: selectedCampusId !== "ALL" ? Number(selectedCampusId) : undefined })
       .then(async (res) => {
         if (canSeeAllClasses || !currentUser) {
           setClasses(res);
@@ -71,7 +71,7 @@ export default function AttendancePage() {
         setClasses(res.filter((_, i) => teacherLists[i].some((t) => t.teacherUserId === currentUser.id)));
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách lớp học."));
-  }, [canSeeAllClasses, currentUser]);
+  }, [canSeeAllClasses, currentUser, selectedCampusId]);
 
   useEffect(() => {
     if (!selectedClassId) {

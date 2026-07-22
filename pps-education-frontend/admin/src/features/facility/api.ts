@@ -117,6 +117,9 @@ export function listSiteTeachers(siteId: number): Promise<SiteTeacherResponse[]>
   return apiRequest<SiteTeacherResponse[]>(`/sites/${siteId}/teachers`);
 }
 
+export type RoomType = "THEORY" | "COMPUTER" | "LAB" | "OTHER";
+export type RoomStatus = "AVAILABLE" | "MAINTENANCE" | "DISABLED";
+
 export interface RoomResponse {
   id: number;
   siteId: number;
@@ -133,6 +136,70 @@ export interface RoomResponse {
 /** UC-37: phòng học của 1 điểm trường — dùng khi xếp/sinh lịch buổi học (UC-48/56). */
 export function listRoomsBySite(siteId: number): Promise<RoomResponse[]> {
   return apiRequest<RoomResponse[]>(`/sites/${siteId}/rooms`);
+}
+
+export interface CreateRoomRequest {
+  siteId: number;
+  code: string;
+  name?: string;
+  roomType: RoomType;
+  capacity: number;
+  flexible: boolean;
+  managedByCenter: boolean;
+}
+
+/** UC-37 Main Flow bước 1-2: khai báo phòng học mới tại 1 điểm trường. */
+export function createRoom(request: CreateRoomRequest): Promise<RoomResponse> {
+  return apiRequest<RoomResponse>("/rooms", { method: "POST", body: JSON.stringify(request) });
+}
+
+/** Không có roomType/siteId — bất biến sau khi tạo, giống nhiều pattern khác trong dự án. */
+export interface UpdateRoomRequest {
+  name?: string;
+  capacity: number;
+  flexible: boolean;
+  managedByCenter: boolean;
+  status: RoomStatus;
+  notes?: string;
+}
+
+export function updateRoom(id: number, request: UpdateRoomRequest): Promise<RoomResponse> {
+  return apiRequest<RoomResponse>(`/rooms/${id}`, { method: "PUT", body: JSON.stringify(request) });
+}
+
+// ===================== UC-37: Thiết bị dạy học (FR-FAC-02) =====================
+
+export type EquipmentType = "PROJECTOR" | "SPEAKER" | "MIC" | "COMPUTER" | "OTHER";
+export type EquipmentStatus = "AVAILABLE" | "IN_USE" | "MAINTENANCE" | "BROKEN";
+
+export interface EquipmentResponse {
+  id: number;
+  roomId: number | null;
+  code: string;
+  name: string;
+  equipmentType: EquipmentType;
+  status: EquipmentStatus;
+  notes: string | null;
+}
+
+export interface CreateEquipmentRequest {
+  roomId?: number;
+  code: string;
+  name: string;
+  equipmentType: EquipmentType;
+}
+
+export function createEquipment(request: CreateEquipmentRequest): Promise<EquipmentResponse> {
+  return apiRequest<EquipmentResponse>("/equipment", { method: "POST", body: JSON.stringify(request) });
+}
+
+/** UC-37 A1: thiết bị hỏng/bảo trì — chuyển status để loại khỏi danh sách khả dụng. */
+export function updateEquipmentStatus(id: number, status: EquipmentStatus, notes?: string): Promise<EquipmentResponse> {
+  return apiRequest<EquipmentResponse>(`/equipment/${id}/status`, { method: "PUT", body: JSON.stringify({ status, notes }) });
+}
+
+export function listEquipmentByRoom(roomId: number): Promise<EquipmentResponse[]> {
+  return apiRequest<EquipmentResponse[]>(`/rooms/${roomId}/equipment`);
 }
 
 export interface PartnerSiteResponse {
