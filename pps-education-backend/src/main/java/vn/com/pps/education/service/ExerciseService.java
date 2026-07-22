@@ -10,12 +10,14 @@ import vn.com.pps.education.domain.ExerciseAssignment;
 import vn.com.pps.education.domain.ExerciseQuestion;
 import vn.com.pps.education.domain.Notification;
 import vn.com.pps.education.domain.Question;
+import vn.com.pps.education.domain.QuestionChoice;
 import vn.com.pps.education.domain.SchoolClass;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.dto.AddExerciseQuestionRequest;
 import vn.com.pps.education.dto.AssignExerciseRequest;
 import vn.com.pps.education.dto.CreateExerciseRequest;
 import vn.com.pps.education.dto.ExerciseAssignmentResponse;
+import vn.com.pps.education.dto.ExerciseQuestionChoiceResponse;
 import vn.com.pps.education.dto.ExerciseQuestionResponse;
 import vn.com.pps.education.dto.ExerciseResponse;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
@@ -27,12 +29,14 @@ import vn.com.pps.education.repository.CurriculumSubjectRepository;
 import vn.com.pps.education.repository.ExerciseAssignmentRepository;
 import vn.com.pps.education.repository.ExerciseQuestionRepository;
 import vn.com.pps.education.repository.ExerciseRepository;
+import vn.com.pps.education.repository.QuestionChoiceRepository;
 import vn.com.pps.education.repository.QuestionRepository;
 import vn.com.pps.education.repository.SchoolClassRepository;
 import vn.com.pps.education.repository.StudentRepository;
 import vn.com.pps.education.repository.UserRepository;
 
 import java.util.List;
+import java.util.Set;
 
 /**
  * UC-40: Soạn & giao đề kiểm tra (FR-LMS-10) — phần lắp đề + giao đề.
@@ -47,10 +51,15 @@ import java.util.List;
 @Service
 public class ExerciseService {
 
+    /** Câu hỏi trắc nghiệm/đúng-sai có phương án chọn sẵn (lộ cho HS khi làm bài) — khớp AUTO_GRADABLE_TYPES của ExerciseAttemptService. */
+    private static final Set<Question.QuestionType> CHOICE_BASED_TYPES = Set.of(
+            Question.QuestionType.MULTIPLE_CHOICE, Question.QuestionType.MULTIPLE_ANSWER, Question.QuestionType.TRUE_FALSE);
+
     private final ExerciseRepository exerciseRepository;
     private final ExerciseQuestionRepository exerciseQuestionRepository;
     private final ExerciseAssignmentRepository exerciseAssignmentRepository;
     private final QuestionRepository questionRepository;
+    private final QuestionChoiceRepository questionChoiceRepository;
     private final CurriculumRepository curriculumRepository;
     private final CurriculumSubjectRepository curriculumSubjectRepository;
     private final SchoolClassRepository schoolClassRepository;
@@ -64,6 +73,7 @@ public class ExerciseService {
                             ExerciseQuestionRepository exerciseQuestionRepository,
                             ExerciseAssignmentRepository exerciseAssignmentRepository,
                             QuestionRepository questionRepository,
+                            QuestionChoiceRepository questionChoiceRepository,
                             CurriculumRepository curriculumRepository,
                             CurriculumSubjectRepository curriculumSubjectRepository,
                             SchoolClassRepository schoolClassRepository,
@@ -76,6 +86,7 @@ public class ExerciseService {
         this.exerciseQuestionRepository = exerciseQuestionRepository;
         this.exerciseAssignmentRepository = exerciseAssignmentRepository;
         this.questionRepository = questionRepository;
+        this.questionChoiceRepository = questionChoiceRepository;
         this.curriculumRepository = curriculumRepository;
         this.curriculumSubjectRepository = curriculumSubjectRepository;
         this.schoolClassRepository = schoolClassRepository;
@@ -280,10 +291,20 @@ public class ExerciseService {
     }
 
     private ExerciseQuestionResponse toResponse(ExerciseQuestion eq) {
+        Question question = eq.getQuestion();
+        List<ExerciseQuestionChoiceResponse> choices = CHOICE_BASED_TYPES.contains(question.getQuestionType())
+                ? questionChoiceRepository.findByQuestionIdOrderByDisplayOrder(question.getId()).stream()
+                        .map(this::toChoiceResponse).toList()
+                : List.of();
         return new ExerciseQuestionResponse(
-                eq.getId(), eq.getExercise().getId(), eq.getQuestion().getId(),
-                eq.getQuestion().getQuestionType().name(), eq.getQuestion().getContent(),
-                eq.getDisplayOrder(), eq.getPoints());
+                eq.getId(), eq.getExercise().getId(), question.getId(),
+                question.getQuestionType().name(), question.getContent(),
+                eq.getDisplayOrder(), eq.getPoints(), choices);
+    }
+
+    /** Map phương án cho HS chọn — KHÔNG lộ is_correct (xem ExerciseQuestionChoiceResponse). */
+    private ExerciseQuestionChoiceResponse toChoiceResponse(QuestionChoice c) {
+        return new ExerciseQuestionChoiceResponse(c.getId(), c.getChoiceLabel(), c.getContent(), c.getDisplayOrder());
     }
 
     private ExerciseAssignmentResponse toResponse(ExerciseAssignment a) {
