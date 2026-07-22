@@ -22,9 +22,9 @@ interface ProfileModalProps {
  * nhưng chỉ điền dữ liệu thật đang có (họ tên, lớp, trạng thái ghi danh). Phần
  * "Thành tích & điểm thưởng" (EXP/xu/streak/huy hiệu) không tồn tại trong schema
  * PPS Education — không tự bịa số liệu, hiện "—"/khoá thay vì số giả. "Liên hệ
- * gia đình" cần API tra phụ huynh mà Học sinh tự xem chưa gọi được (student.manage
- * hiện chỉ dành Nhân viên/Quản lý điểm trường) — giữ đúng khung 2 dòng như bản
- * gốc, không tự đoán dữ liệu.
+ * gia đình" cần API tra phụ huynh mà Học sinh tự xem chưa gọi được (student.parent.view,
+ * tách từ student.manage ở V44, hiện chỉ dành Nhân viên/Quản lý điểm trường) — giữ
+ * đúng khung 2 dòng như bản gốc, không tự đoán dữ liệu.
  */
 export default function ProfileModal({ fullName, studentId, className, classCode, enrollmentStatus, onClose }: ProfileModalProps) {
   return (

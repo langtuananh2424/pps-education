@@ -1,5 +1,16 @@
 import { apiRequest } from "@/lib/apiClient";
 
+/** Khớp MediaModule thật của backend — mỗi module quy định content-type/size limit riêng (xem MediaStorageService.java). */
+export type MediaUploadModule = "LMS_QUESTION" | "CURRICULUM_DOCUMENT" | "LESSON_MATERIAL";
+
+/** UC-60/UC-23a: upload file thật lên Cloudflare R2 qua API dùng chung, trả về URL public để lưu vào field fileUrl/audioUrl/imageUrl. */
+export function uploadMedia(file: File, module: MediaUploadModule): Promise<{ url: string }> {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("module", module);
+  return apiRequest<{ url: string }>("/media/upload", { method: "POST", body: formData });
+}
+
 // ===================== Ngân hàng câu hỏi (UC-40 bước 1) =====================
 
 export interface QuestionBankResponse {
@@ -296,7 +307,7 @@ export function listLessonsByCurriculum(curriculumId: number): Promise<LessonRes
 
 export type LessonMaterialType = "VIDEO" | "PDF" | "AUDIO" | "SLIDE" | "IMAGE" | "OTHER";
 
-/** Khớp AddLessonMaterialRequest thật — hệ thống KHÔNG tự upload file, GV dán URL đã có sẵn trên CDN/Object Storage. */
+/** Khớp AddLessonMaterialRequest thật — fileUrl lấy từ URL trả về sau khi upload thật qua uploadMedia (module LESSON_MATERIAL). */
 export interface AddLessonMaterialRequest {
   materialType: LessonMaterialType;
   title: string;

@@ -2,7 +2,8 @@ import React, { useState } from "react";
 import { Check, CheckSquare, FileText, Mic, Volume2 } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import Button from "@/components/ui/Button";
-import { CreateQuestionRequest, QuestionChoiceRequest, QuestionDifficulty, QuestionResponse, QuestionType, createQuestion, updateQuestion } from "../api";
+import FileUploadField from "@/components/ui/FileUploadField";
+import { CreateQuestionRequest, QuestionChoiceRequest, QuestionDifficulty, QuestionResponse, QuestionType, createQuestion, updateQuestion, uploadMedia } from "../api";
 
 const inputClass = "w-full bg-white border border-slate-200 text-xs px-3.5 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-red";
 const labelClass = "block font-bold text-slate-700 mb-1 uppercase tracking-wider text-[10px]";
@@ -218,8 +219,8 @@ export default function QuestionEditorForm({ questionBankId, existingQuestion, o
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label className="block font-bold text-slate-600 mb-1 text-[9px] uppercase">Đường dẫn Audio mẫu (URL) *</label>
-              <input required type="url" value={audioUrl} onChange={(e) => setAudioUrl(e.target.value)} placeholder="https://example.com/audio.mp3" className={inputClass} />
+              <label className="block font-bold text-slate-600 mb-1 text-[9px] uppercase">File Audio mẫu *</label>
+              <FileUploadField value={audioUrl} onChange={setAudioUrl} onUpload={(file) => uploadMedia(file, "LMS_QUESTION")} accept="audio/*" placeholder="Chọn file audio..." />
             </div>
             <div>
               <label className="block font-bold text-slate-600 mb-1 text-[9px] uppercase">Ghi chú phát âm / Transcript</label>
@@ -236,8 +237,14 @@ export default function QuestionEditorForm({ questionBankId, existingQuestion, o
             <span>Đính kèm hình ảnh / File scan đề bài</span>
           </div>
           <div>
-            <label className="block font-bold text-slate-600 mb-1 text-[9px] uppercase">Hình ảnh/Tài liệu scan mẫu (URL)</label>
-            <input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://..." className={inputClass} />
+            <label className="block font-bold text-slate-600 mb-1 text-[9px] uppercase">Hình ảnh/Tài liệu scan mẫu</label>
+            <FileUploadField
+              value={imageUrl}
+              onChange={setImageUrl}
+              onUpload={(file) => uploadMedia(file, "LMS_QUESTION")}
+              accept="image/*,.pdf,application/pdf"
+              placeholder="Chọn ảnh hoặc file PDF..."
+            />
           </div>
         </div>
       )}

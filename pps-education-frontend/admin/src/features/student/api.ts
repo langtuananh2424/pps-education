@@ -210,7 +210,7 @@ export function listStatusHistory(studentId: number): Promise<StudentStatusHisto
   return apiRequest<StudentStatusHistoryResponse[]>(`/students/${studentId}/status-history`);
 }
 
-/** UC-14: đổi trạng thái học tập — quyền riêng student.status.manage, tách khỏi student.manage. */
+/** UC-14: đổi trạng thái học tập — quyền riêng student.status.manage, tách khỏi nhóm student.profile.xxx / student.parent.xxx (V44). */
 export function updateStudentStatus(studentId: number, request: UpdateStudentStatusRequest): Promise<StudentStatusHistoryResponse> {
   return apiRequest<StudentStatusHistoryResponse>(`/students/${studentId}/status`, { method: "POST", body: JSON.stringify(request) });
 }

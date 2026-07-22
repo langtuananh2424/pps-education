@@ -373,7 +373,13 @@ export default function GradesPage() {
       )}
 
       {!isSiteManager && selectedClassId && selectedPeriodId && gradeComponents.length > 0 && (
-        <GradeExcelImportPanel classId={selectedClassId} gradePeriodId={selectedPeriodId} onImported={() => setSheetVersion((v) => v + 1)} />
+        <GradeExcelImportPanel
+          classId={selectedClassId}
+          gradePeriodId={selectedPeriodId}
+          components={gradeComponents}
+          enrollments={enrollments}
+          onImported={() => setSheetVersion((v) => v + 1)}
+        />
       )}
     </div>
   );

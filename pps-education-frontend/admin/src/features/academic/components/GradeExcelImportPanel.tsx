@@ -1,24 +1,42 @@
 import React, { useRef, useState } from "react";
-import { UploadCloud } from "lucide-react";
+import { Download, UploadCloud } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
-import { GradeImportResponse, importGrades } from "../api";
+import { buildXlsxTemplateBlob, downloadBlob } from "@/lib/xlsxTemplate";
+import { ClassEnrollmentResponse, GradeComponentResponse, GradeImportResponse, importGrades } from "../api";
 
 interface GradeExcelImportPanelProps {
   classId: number;
   gradePeriodId: number;
+  components: GradeComponentResponse[];
+  enrollments: ClassEnrollmentResponse[];
   onImported: () => void;
 }
 
 /**
- * UC-53: cột header do chính Giáo viên tự đặt tên khớp tên thành phần điểm đã cấu hình
- * cho kỳ này (hoặc Overall/Level) — không có 1 mẫu cột cố định để tải về như các import
- * khác (student/employee/parent), nên chỉ có ô chọn file, không có nút "Tải file mẫu".
+ * UC-53: cột header phải khớp CHÍNH XÁC tên thành phần điểm đã cấu hình cho kỳ này
+ * (hoặc Overall/Level) — sai 1 ký tự là bị từ chối cả file (xem
+ * GradeImportService.mapHeader, không tạo import_job nếu có cột không khớp). Vì vậy
+ * "Tải file mẫu" ở đây KHÔNG dùng 1 mẫu cột cố định như các import khác — tự dựng theo
+ * đúng components/enrollments đang truyền vào (đúng kỳ + đúng lớp đang chọn), điền sẵn cột
+ * A = mã học viên của mọi học viên ACTIVE trong lớp, đảm bảo tải mẫu về rồi nộp lại chắc
+ * chắn khớp header ngay từ đầu.
  */
-export default function GradeExcelImportPanel({ classId, gradePeriodId, onImported }: GradeExcelImportPanelProps) {
+export default function GradeExcelImportPanel({ classId, gradePeriodId, components, enrollments, onImported }: GradeExcelImportPanelProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<GradeImportResponse | null>(null);
+
+  const handleDownloadTemplate = () => {
+    // Cột B (họ tên) để trống ở dòng tiêu đề — GradeImportService.mapHeader bỏ qua hẳn cột
+    // không có tiêu đề, chỉ để tham khảo cho dễ điền, không bị BE hiểu nhầm là 1 cột điểm.
+    const headers = ["Mã học viên", "", ...components.map((c) => c.name), "Overall", "Level"];
+    const sampleRows = enrollments
+      .filter((en) => en.status === "ACTIVE")
+      .map((en) => [en.studentCode, en.studentFullName, ...components.map(() => ""), "", ""]);
+    const blob = buildXlsxTemplateBlob(headers, sampleRows);
+    downloadBlob(blob, `mau-nhap-diem-lop-${classId}-ky-${gradePeriodId}.xlsx`);
+  };
 
   const handleFile = async (file: File | null) => {
     if (!file) return;
@@ -55,9 +73,19 @@ export default function GradeExcelImportPanel({ classId, gradePeriodId, onImport
       <div className="p-5">
         <button
           type="button"
+          onClick={handleDownloadTemplate}
+          disabled={components.length === 0}
+          className="w-full flex items-center justify-center gap-2 border border-dashed border-slate-300 rounded-lg py-3 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <Download className="w-4 h-4" />
+          Tải file mẫu (.xlsx) — đã điền sẵn mã học viên của lớp này
+        </button>
+
+        <button
+          type="button"
           onClick={() => inputRef.current?.click()}
           disabled={submitting}
-          className="w-full flex flex-col items-center justify-center gap-2 border-2 border-dashed border-slate-200 rounded-xl py-10 text-slate-500 hover:border-brand-orange hover:bg-orange-50/30 transition-colors disabled:opacity-50"
+          className="w-full flex flex-col items-center justify-center gap-2 border-2 border-dashed border-slate-200 rounded-xl py-10 text-slate-500 hover:border-brand-orange hover:bg-orange-50/30 transition-colors disabled:opacity-50 mt-3"
         >
           <UploadCloud className="w-7 h-7 text-brand-orange" />
           <span className="text-sm font-bold text-slate-700">{submitting ? "Đang nhập..." : "Click để chọn file bảng điểm (.xlsx)"}</span>

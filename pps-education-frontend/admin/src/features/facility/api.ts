@@ -254,3 +254,48 @@ export function deletePartnerContract(id: number): Promise<void> {
 export function listExpiringContracts(withinDays: number): Promise<ExpiringPartnerContractResponse[]> {
   return apiRequest<ExpiringPartnerContractResponse[]>(`/partner-contracts/expiring?withinDays=${withinDays}`);
 }
+
+// ===================== UC-38/39: Ý kiến phản hồi từ trường liên kết (FR-FAC-05) =====================
+
+export type PartnerFeedbackType = "TEACHER" | "CLASS" | "OPERATIONS" | "OTHER";
+export type PartnerFeedbackPriority = "LOW" | "NORMAL" | "HIGH" | "URGENT";
+export type PartnerFeedbackStatus = "NEW" | "IN_PROGRESS" | "RESOLVED" | "CLOSED";
+
+/**
+ * Khớp PartnerFeedbackResponse thật của backend — CHƯA có siteName/submittedByName
+ * (chỉ trả id thô), và chưa có API đọc lại lịch sử trao đổi (partner_feedbacks_history)
+ * dù bảng đó đã ghi đủ — xem tài liệu yêu cầu BE bổ sung trong plan.
+ */
+export interface PartnerFeedbackResponse {
+  id: number;
+  siteId: number;
+  submittedBy: number;
+  content: string;
+  feedbackType: PartnerFeedbackType;
+  priority: PartnerFeedbackPriority;
+  status: PartnerFeedbackStatus;
+  assignedTo: number | null;
+  resolutionNotes: string | null;
+  resolvedAt: string | null;
+  createdAt: string;
+}
+
+/** UC-39 Main Flow bước 1: hàng chờ phản hồi của (các) điểm trường mình phụ trách — chỉ actor có site_managers row cho site đó mới thấy/xử lý được (BE tự chặn). */
+export function listPartnerFeedbacksForMySites(): Promise<PartnerFeedbackResponse[]> {
+  return apiRequest<PartnerFeedbackResponse[]>("/partner-feedbacks/my-sites");
+}
+
+/** UC-39 Main Flow bước 2: Mới → Đang xử lý. */
+export function startProcessingPartnerFeedback(id: number): Promise<PartnerFeedbackResponse> {
+  return apiRequest<PartnerFeedbackResponse>(`/partner-feedbacks/${id}/start-processing`, { method: "POST" });
+}
+
+/** UC-39 Main Flow bước 3-4: ghi phương án khắc phục, chuyển Đang xử lý → Đã giải quyết. */
+export function resolvePartnerFeedback(id: number, resolutionNotes: string): Promise<PartnerFeedbackResponse> {
+  return apiRequest<PartnerFeedbackResponse>(`/partner-feedbacks/${id}/resolve`, { method: "POST", body: JSON.stringify({ resolutionNotes }) });
+}
+
+/** UC-39 Main Flow bước 5: Đã giải quyết → Đóng. */
+export function closePartnerFeedback(id: number): Promise<PartnerFeedbackResponse> {
+  return apiRequest<PartnerFeedbackResponse>(`/partner-feedbacks/${id}/close`, { method: "POST" });
+}
