@@ -12,10 +12,12 @@ package vn.com.pps.education.service;
  * (2026-07-22, theo yêu cầu FE) - CURRICULUM_DOCUMENT (curriculum_documents.
  * file_url, UC-60) và LESSON_MATERIAL (lesson_materials.file_url, UC-23a)
  * trước đây là field nhập tay URL, giờ cũng upload thật qua API này nên cần
- * nhận thêm PDF/Word/Excel/video (LMS_QUESTION giữ nguyên, chỉ audio/ảnh).
+ * nhận thêm PDF/Word/Excel/video. LMS_QUESTION (Question.imageUrl, UC-40)
+ * cũng bật `acceptsDocuments=true` (2026-07-22) để câu tự luận nhận file
+ * PDF/ảnh; video đi kèm theo logic chung không dùng ở FE nhưng vô hại.
  */
 public enum MediaModule {
-    LMS_QUESTION("lms/questions", false),
+    LMS_QUESTION("lms/questions", true),
     CURRICULUM_DOCUMENT("lms/curriculum-documents", true),
     LESSON_MATERIAL("lms/lesson-materials", true);
 

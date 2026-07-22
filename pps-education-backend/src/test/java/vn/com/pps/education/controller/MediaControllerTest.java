@@ -113,7 +113,9 @@ class MediaControllerTest extends AbstractControllerTest {
     }
 
     @Test
-    void upload_boSung_lmsQuestionStillRejectsPdf_returns400() throws Exception {
+    void upload_boSung_lmsQuestionAcceptsPdf_returns200() throws Exception {
+        when(r2Client.putObject(any(PutObjectRequest.class), any(RequestBody.class)))
+                .thenReturn(PutObjectResponse.builder().build());
         User teacher = userWithRole("teacher.media.pdf", "TEACHER");
         MockMultipartFile file = new MockMultipartFile("file", "tai-lieu.pdf", "application/pdf", "fake-pdf".getBytes());
 
@@ -121,6 +123,8 @@ class MediaControllerTest extends AbstractControllerTest {
                         .file(file)
                         .param("module", "LMS_QUESTION")
                         .header("Authorization", bearerToken(teacher, "TEACHER")))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.url").value(startsWith(PUBLIC_BASE_URL + "/lms/questions/documents/")))
+                .andExpect(jsonPath("$.url").value(endsWith(".pdf")));
     }
 }

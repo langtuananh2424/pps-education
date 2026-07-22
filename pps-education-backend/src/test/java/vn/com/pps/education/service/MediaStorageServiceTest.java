@@ -146,11 +146,17 @@ class MediaStorageServiceTest {
         assertThatThrownBy(() -> service.store(file, "CURRICULUM_DOCUMENT")).isInstanceOf(IllegalArgumentException.class);
     }
 
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (2026-07-22, theo yêu
+     * cầu FE): LMS_QUESTION cũng bật acceptsDocuments=true để câu tự luận
+     * (Question.imageUrl, UC-40) nhận file PDF - xem MediaModule.
+     */
     @Test
-    void store_boSung_lmsQuestionStillRejectsDocumentTypes() {
-        MockMultipartFile file = new MockMultipartFile("file", "tai-lieu.pdf", "application/pdf", "fake-pdf-bytes".getBytes());
+    void store_boSung_lmsQuestionAcceptsPdf() {
+        MockMultipartFile file = new MockMultipartFile("file", "de-thi.pdf", "application/pdf", "fake-pdf-bytes".getBytes());
 
-        assertThatThrownBy(() -> service.store(file, MODULE)).isInstanceOf(IllegalArgumentException.class);
-        verify(r2Client, never()).putObject(any(PutObjectRequest.class), any(RequestBody.class));
+        String url = service.store(file, MODULE);
+
+        assertThat(url).startsWith(PUBLIC_BASE_URL + "/lms/questions/documents/").endsWith(".pdf");
     }
 }

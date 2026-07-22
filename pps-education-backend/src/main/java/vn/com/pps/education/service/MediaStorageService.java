@@ -28,8 +28,8 @@ import java.util.UUID;
  *
  * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (2026-07-22, theo yêu
  * cầu FE): module có `acceptsDocuments()=true` (CURRICULUM_DOCUMENT,
- * LESSON_MATERIAL) được nhận thêm PDF/Word/Excel/PowerPoint (≤20MB) và
- * video/* (≤200MB) ngoài audio/ảnh - LMS_QUESTION giữ nguyên hành vi cũ.
+ * LESSON_MATERIAL, và LMS_QUESTION từ 2026-07-22) được nhận thêm PDF/Word/
+ * Excel/PowerPoint (≤20MB) và video/* (≤200MB) ngoài audio/ảnh.
  */
 @Service
 public class MediaStorageService {
