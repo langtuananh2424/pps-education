@@ -214,6 +214,19 @@ gán thêm cho HEAD_ACADEMIC/SITE_MANAGER qua UC-04 override) — không tái
 dùng `lms.exercise.manage` vì mô tả permission đó đã khai rõ "ngân hàng
 câu hỏi & đề kiểm tra", khác ngữ nghĩa.
 
+**Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (2026-07-22, theo
+yêu cầu FE):** `lesson_materials.file_url` và `curriculum_documents.
+file_url` ở trên vốn quy ước "Bắt buộc qua CDN" nhưng thực tế là field
+nhập tay URL, không qua upload thật. Đã thêm 2 module `LESSON_MATERIAL`
+và `CURRICULUM_DOCUMENT` vào `MediaModule` (dùng chung
+`POST /api/media/upload` với `LMS_QUESTION`, xem ghi chú ở mục Ngân hàng
+câu hỏi bên dưới) — 2 module này được nhận thêm PDF/Word/Excel/
+PowerPoint (≤20MB) và `video/*` (≤200MB) ngoài audio/ảnh, khớp với miền
+giá trị `material_type`/`document_type` (VIDEO/PDF/AUDIO/SLIDE/IMAGE/
+OTHER) đã thiết kế ở 2 bảng trên — cột `material_type`/`document_type`
+vẫn do người dùng tự chọn trong form, không suy ra tự động từ
+Content-Type file upload.
+
 ### Ngân hàng câu hỏi & Bài tập
 
 <!-- Nguồn: docs/diagrams/erd/ERD-Nhom8B-CauHoiBaiTap.mmd (chỉnh sửa trực tiếp file này, không sửa trong srs.md/sdd-groups) -->
@@ -431,8 +444,10 @@ dung/đáp án đúng. Tạo bản mới, archive bản cũ.
 lên CDN ngoài" (không có hạ tầng lưu file trong phạm vi backend). Đã bổ
 sung API dùng chung `POST /api/media/upload`
 (`MediaController`/`MediaStorageService`) nhận multipart `audio/*`
-(≤50MB) hoặc `image/*` (≤10MB) kèm tham số bắt buộc `module`
-(hiện chỉ có `LMS_QUESTION` - xem `MediaModule`), upload lên
+(≤50MB) hoặc `image/*` (≤10MB) kèm tham số bắt buộc `module` (xem
+`MediaModule` - từ 2026-07-22 có thêm `CURRICULUM_DOCUMENT`/
+`LESSON_MATERIAL`, xem ghi chú ở mục "Kho tài liệu tham khảo" bên trên),
+upload lên
 **Cloudflare R2** (Object Storage tương thích S3 API, không tính phí
 egress — xem `R2StorageConfig`) thay vì lưu đĩa cục bộ + Docker volume
 như quyết định ban đầu, trả về URL công khai của R2 (r2.dev subdomain

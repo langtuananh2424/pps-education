@@ -37,12 +37,14 @@ spring:
     baseline-on-migrate: true
 
   # Nâng giới hạn mặc định của Spring Boot (1MB/10MB) để chấp nhận upload
-  # audio thật (tối đa 50MB - xem app.media bên dưới). max-request-size cao
-  # hơn max-file-size một chút để chừa chỗ cho phần multipart metadata khác.
+  # audio/video thật (tối đa 200MB cho video CURRICULUM_DOCUMENT/
+  # LESSON_MATERIAL - bổ sung 2026-07-22, xem app.media bên dưới và
+  # MediaStorageService.MAX_VIDEO_BYTES). max-request-size cao hơn
+  # max-file-size một chút để chừa chỗ cho phần multipart metadata khác.
   servlet:
     multipart:
-      max-file-size: 50MB
-      max-request-size: 55MB
+      max-file-size: 200MB
+      max-request-size: 205MB
 
   # Kênh EMAIL của module Notification - chưa cấu hình SMTP thật (host rỗng)
   # thì EmailNotificationSender gửi lỗi có kiểm soát, delivery chuyển FAILED
