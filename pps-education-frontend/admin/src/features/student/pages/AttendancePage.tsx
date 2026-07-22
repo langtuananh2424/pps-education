@@ -34,6 +34,11 @@ function toSimpleStatus(status: EnterAttendanceMarkRequest["status"]): SimpleSta
   return "ABSENT";
 }
 
+/** UC-15 "Sự kiện kích hoạt": chỉ điểm danh được từ khi buổi học bắt đầu — chặn chọn buổi tương lai (cùng logic ClassDetailPanel.tsx). */
+function hasSessionStarted(s: ClassSessionResponse): boolean {
+  return new Date(`${s.sessionDate}T${s.startTime}`) <= new Date();
+}
+
 export default function AttendancePage() {
   const { hasPermission, currentUser, selectedCampusId } = useApp();
   // UC-15 Precondition: Tác nhân chỉ là "Giáo viên được phân công giảng dạy tiết đó" — không dùng
@@ -182,7 +187,7 @@ export default function AttendancePage() {
                   className="bg-white border text-[10px] font-bold text-slate-700 px-2 py-1 rounded focus:outline-none"
                 >
                   <option value="">-- Chọn buổi học --</option>
-                  {sessions.map((s) => (
+                  {sessions.filter(hasSessionStarted).map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.sessionDate} ({s.startTime}–{s.endTime})
                     </option>
