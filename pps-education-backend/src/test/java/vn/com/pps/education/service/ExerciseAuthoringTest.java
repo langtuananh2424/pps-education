@@ -21,6 +21,7 @@ import vn.com.pps.education.dto.CreateQuestionRequest;
 import vn.com.pps.education.dto.CurriculumResponse;
 import vn.com.pps.education.dto.EnrollStudentRequest;
 import vn.com.pps.education.dto.ExerciseAssignmentResponse;
+import vn.com.pps.education.dto.ExerciseQuestionChoiceResponse;
 import vn.com.pps.education.dto.ExerciseResponse;
 import vn.com.pps.education.dto.QuestionBankResponse;
 import vn.com.pps.education.dto.QuestionChoiceRequest;
@@ -319,6 +320,52 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
         ExerciseResponse viewed = exerciseService.getExercise(exercise.id(), student.getUser().getId());
 
         assertThat(viewed.id()).isEqualTo(exercise.id());
+    }
+
+    /**
+     * UC-24/UC-27 Main Flow bước 2 (HS trả lời câu trắc nghiệm): danh sách
+     * câu hỏi trả cho HS phải kèm phương án để chọn — nhưng TUYỆT ĐỐI không
+     * lộ đáp án đúng trước khi nộp (ExerciseQuestionChoiceResponse không có
+     * field is_correct).
+     */
+    @Test
+    void listQuestions_UC24_MainFlow_studentGetsChoicesWithoutRevealingCorrectAnswer() {
+        Student student = enrollStudent();
+        QuestionResponse mc = createMcQuestion();
+        ExerciseResponse exercise = exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "Ôn tập trắc nghiệm", activeCurriculum.id(), null,
+                        "SELF_PRACTICE", new BigDecimal("1"), null, true, null, true), teacher.getId());
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("1.0")), teacher.getId());
+        exerciseService.publishExercise(exercise.id(), teacher.getId());
+
+        var questions = exerciseService.listQuestions(exercise.id(), student.getUser().getId());
+
+        assertThat(questions).hasSize(1);
+        var choices = questions.get(0).choices();
+        assertThat(choices).extracting(ExerciseQuestionChoiceResponse::choiceLabel).containsExactly("A", "B");
+        assertThat(choices).extracting(ExerciseQuestionChoiceResponse::content).containsExactly("go", "goes");
+        assertThat(choices).allSatisfy(c -> assertThat(c.id()).isNotNull());
+        // ExerciseQuestionChoiceResponse là record KHÔNG có field is_correct -> không thể lộ đáp án đúng cho HS.
+    }
+
+    /** Câu ESSAY/SPEAKING/FILL_IN_BLANK không có phương án chọn sẵn -> choices rỗng (không null). */
+    @Test
+    void listQuestions_UC24_MainFlow_nonChoiceQuestionHasEmptyChoices() {
+        Student student = enrollStudent();
+        QuestionResponse essay = questionBankService.createQuestion(
+                new CreateQuestionRequest(bank.id(), "ESSAY", "WRITING", "MEDIUM", "Viết đoạn văn 50 từ.",
+                        null, null, null, null, new BigDecimal("2.0"), null, null), teacher.getId());
+        ExerciseResponse exercise = exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "Đề tự luận", activeCurriculum.id(), null, "SELF_PRACTICE",
+                        new BigDecimal("2"), null, true, null, true), teacher.getId());
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(essay.id(), 1, new BigDecimal("2.0")), teacher.getId());
+        exerciseService.publishExercise(exercise.id(), teacher.getId());
+
+        var questions = exerciseService.listQuestions(exercise.id(), student.getUser().getId());
+
+        assertThat(questions).hasSize(1);
+        assertThat(questions.get(0).questionType()).isEqualTo("ESSAY");
+        assertThat(questions.get(0).choices()).isEmpty();
     }
 
     private QuestionResponse createMcQuestion() {
