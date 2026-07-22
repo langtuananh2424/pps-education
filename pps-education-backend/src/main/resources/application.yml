@@ -126,13 +126,18 @@ app:
     # coi như đã upload lên CDN từ trước" ở LessonService/các URL field khác -
     # vẫn giữ nguyên, phạm vi lần này CHỈ áp dụng cho Question). Lưu trên
     # Cloudflare R2 (Object Storage tương thích S3 API, không tính phí egress)
-    # - thay thế quyết định lưu đĩa cục bộ + Docker volume trước đó.
+    # - thay thế quyết định lưu đĩa cục bộ + Docker volume trước đó. Placeholder
+    # non-blank mặc định (không phải secret thật, giống JWT_SECRET/
+    # BANK_WEBHOOK_SECRET) - AwsBasicCredentials.create() ném lỗi ngay lúc khởi
+    # động nếu access-key rỗng, làm sập toàn bộ Spring context dùng chung cho
+    # MỌI test (không chỉ Media*) khi CI/máy dev chưa cấu hình R2 thật. Chỉ cần
+    # override qua env var khi thật sự gọi API upload.
     r2:
-      account-id: ${R2_ACCOUNT_ID:}
-      access-key: ${R2_ACCESS_KEY_ID:}
-      secret-key: ${R2_SECRET_ACCESS_KEY:}
-      bucket: ${R2_BUCKET_NAME:}
-      public-base-url: ${R2_PUBLIC_BASE_URL:}
+      account-id: ${R2_ACCOUNT_ID:CHANGE_THIS_IN_ENV}
+      access-key: ${R2_ACCESS_KEY_ID:CHANGE_THIS_IN_ENV}
+      secret-key: ${R2_SECRET_ACCESS_KEY:CHANGE_THIS_IN_ENV}
+      bucket: ${R2_BUCKET_NAME:CHANGE_THIS_IN_ENV}
+      public-base-url: ${R2_PUBLIC_BASE_URL:https://change-this-in-env.r2.dev}
 
 springdoc:
   swagger-ui:
