@@ -61,8 +61,9 @@ public class SecurityConfig {
                     "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**",
                     "/actuator/health",
                     "/error", // không permitAll -> path lạ/404 bị forward sang /error rồi bật 403 thay vì 404 thật
-                    "/api/webhooks/**", // UC-30 Main Flow bước 5-6: hệ thống ngân hàng ngoài gọi vào, không có JWT — tự xác thực qua shared secret riêng (InvoiceController)
-                    "/media-files/**" // file đã upload qua POST /api/media/upload (JWT), nhúng trong <img>/<audio> src -> không gửi kèm Authorization header được, xem MediaWebConfig
+                    "/api/webhooks/**" // UC-30 Main Flow bước 5-6: hệ thống ngân hàng ngoài gọi vào, không có JWT — tự xác thực qua shared secret riêng (InvoiceController)
+                    // File upload qua POST /api/media/upload giờ lưu trên Cloudflare R2, phục vụ
+                    // trực tiếp qua URL public của R2 (không qua Spring nữa) - xem MediaStorageService/R2StorageConfig.
                 ).permitAll()
                 .anyRequest().authenticated()
             )
