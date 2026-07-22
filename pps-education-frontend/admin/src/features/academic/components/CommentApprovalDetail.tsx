@@ -21,8 +21,8 @@ export default function CommentApprovalDetail({ comment, onDecided }: CommentApp
   useEffect(() => {
     setStudentCode(null);
     if (!comment) return;
-    // GET /api/students/{id} yêu cầu quyền student.manage (Quản lý điểm trường không có) — lấy studentCode
-    // qua danh sách ghi danh của lớp thay vì tra thẳng hồ sơ học sinh.
+    // GET /api/students/{id} yêu cầu quyền student.profile.view (tách từ student.manage ở V44) — lấy
+    // studentCode qua danh sách ghi danh của lớp thay vì tra thẳng hồ sơ học sinh, tránh phụ thuộc quyền đó.
     listClassEnrollments(comment.classId)
       .then((enrollments) => setStudentCode(enrollments.find((en) => en.studentId === comment.studentId)?.studentCode ?? null))
       .catch(() => undefined);

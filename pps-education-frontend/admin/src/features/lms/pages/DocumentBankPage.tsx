@@ -10,12 +10,18 @@ import {
   CurriculumDocumentType,
   listCurriculumDocuments,
   updateCurriculumDocument,
+  uploadMedia,
   UpdateCurriculumDocumentRequest
 } from "../api";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Badge, { BadgeVariant } from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
+import FileUploadField from "@/components/ui/FileUploadField";
+
+/** Khớp DOCUMENT_CONTENT_TYPES + audio/image/video của module CURRICULUM_DOCUMENT (xem MediaStorageService.java). */
+const DOCUMENT_UPLOAD_ACCEPT =
+  "image/*,audio/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
@@ -206,15 +212,14 @@ function CreateDocumentModal({ curriculumId, onClose, onCreated }: { curriculumI
           <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} className={inputClass} />
         </div>
         <div>
-          <label className={labelClass}>URL tệp phân phối (CDN) *</label>
-          <input
+          <label className={labelClass}>Tệp tài liệu *</label>
+          <FileUploadField
             value={form.fileUrl}
-            onChange={(e) => setForm({ ...form, fileUrl: e.target.value })}
-            placeholder="https://pps-cdn.vn/documents/..."
-            className={inputClass}
-            required
+            onChange={(url) => setForm({ ...form, fileUrl: url })}
+            onUpload={(file) => uploadMedia(file, "CURRICULUM_DOCUMENT")}
+            accept={DOCUMENT_UPLOAD_ACCEPT}
+            placeholder="Chọn PDF/Word/Excel/ảnh/audio/video..."
           />
-          <p className="text-[10px] text-slate-400 italic mt-1">Tệp được upload lên CDN/Object Storage từ trước — ở đây chỉ đăng ký URL đã có.</p>
         </div>
         <div>
           <label className={labelClass}>Thứ tự hiển thị</label>

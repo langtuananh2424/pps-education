@@ -16,15 +16,21 @@ import {
   listLessonsByClass,
   listLessonsByCurriculum,
   updateLesson,
-  UpdateLessonRequest
+  UpdateLessonRequest,
+  uploadMedia
 } from "../api";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Badge, { BadgeVariant } from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
+import FileUploadField from "@/components/ui/FileUploadField";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+
+/** Khớp DOCUMENT_CONTENT_TYPES + audio/image/video của module LESSON_MATERIAL (xem MediaStorageService.java). */
+const MATERIAL_UPLOAD_ACCEPT =
+  "image/*,audio/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation";
 
 const lessonTypeLabels: Record<LessonType, string> = {
   VIDEO_LECTURE: "Video bài giảng",
@@ -542,15 +548,15 @@ function MaterialsModal({ lesson, onClose }: { lesson: LessonResponse; onClose: 
               </div>
             </div>
             <div>
-              <label className={labelClass}>URL tệp phân phối (CDN) *</label>
-              <input
+              <label className={labelClass}>Tệp học liệu *</label>
+              <FileUploadField
                 value={form.fileUrl}
-                onChange={(e) => setForm({ ...form, fileUrl: e.target.value })}
-                placeholder="https://pps-cdn.vn/lectures/..."
-                className={inputClass}
-                required
+                onChange={(url) => setForm({ ...form, fileUrl: url })}
+                onUpload={(file) => uploadMedia(file, "LESSON_MATERIAL")}
+                onFileSize={(bytes) => setForm((prev) => ({ ...prev, fileSizeBytes: String(bytes) }))}
+                accept={MATERIAL_UPLOAD_ACCEPT}
+                placeholder="Chọn PDF/Word/Excel/ảnh/audio/video..."
               />
-              <p className="text-[10px] text-slate-400 italic mt-1">Tệp được upload lên CDN/Object Storage từ trước — ở đây chỉ đăng ký URL đã có.</p>
             </div>
             <div className="grid grid-cols-3 gap-3 items-end">
               <div>
