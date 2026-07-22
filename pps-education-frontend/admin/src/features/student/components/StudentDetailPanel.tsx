@@ -12,6 +12,7 @@ import {
   ParentStudentResponse,
   recordTransfer,
   RecordTransferRequest,
+  searchParents,
   SiteOption,
   StudentResponse,
   StudentStatusHistoryResponse,
@@ -203,9 +204,18 @@ function ParentsTab({ studentId }: { studentId: number }) {
     setSubmitting(true);
     setError(null);
     try {
-      const parent = await createParent({ userId: account.userId, newAccount: account.userId ? undefined : account.newAccount });
+      let parentId: number;
+      if (account.userId) {
+        // Tài khoản có sẵn có thể ĐÃ có hồ sơ phụ huynh từ lần liên kết học sinh khác trước đó
+        // (1 phụ huynh có thể có nhiều con) — tìm lại hồ sơ cũ để dùng liên kết thêm, không gọi
+        // createParent nữa vì BE sẽ báo lỗi 409 "đã có hồ sơ phụ huynh" (1 user = đúng 1 Parent).
+        const existing = (await searchParents()).find((p) => p.userId === account.userId);
+        parentId = existing ? existing.id : (await createParent({ userId: account.userId })).id;
+      } else {
+        parentId = (await createParent({ newAccount: account.newAccount })).id;
+      }
       await linkParent(studentId, {
-        parentId: parent.id,
+        parentId,
         relationship: info.relationship as "FATHER" | "MOTHER" | "GUARDIAN" | "OTHER",
         isPrimaryContact: info.isPrimaryContact,
         isFinancialResponsible: info.isFinancialResponsible

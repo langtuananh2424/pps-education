@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { BookOpen, Calendar, CreditCard, Home, LogOut, Award, School } from "lucide-react";
+import { BookOpen, Calendar, CreditCard, Home, LogOut, Award, School, Users } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import { ChildResponse, listClassOptions, listMyChildren, PortalClassOptionResponse } from "../api";
 import HomeTab from "../components/HomeTab";
+import PortalDropdown from "../components/PortalDropdown";
 import ScheduleTab from "../components/ScheduleTab";
 import StudentScheduleTab from "../components/StudentScheduleTab";
 import AssignmentsTab from "../components/AssignmentsTab";
@@ -146,6 +147,8 @@ export default function PortalPage() {
           className={currentClass?.className ?? null}
           classCode={currentClass?.classCode ?? null}
           enrollmentStatus={currentClass?.status ?? null}
+          parentName={isParent ? currentUser?.fullName ?? null : null}
+          parentPhone={isParent ? currentUser?.phone ?? null : null}
           onClose={() => setProfileOpen(false)}
         />
       )}
@@ -163,38 +166,28 @@ export default function PortalPage() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
             <div className="lg:col-span-3 bg-white border border-line/80 rounded-[24px] p-6 shadow-[0_8px_30px_rgba(30,42,69,0.03)] space-y-6">
               {children.length > 1 && (
-                <select
-                  value={selectedChildId ?? ""}
-                  onChange={(e) => setSelectedChildId(Number(e.target.value))}
-                  className="w-full text-xs font-extrabold text-ink bg-sky-2 border border-line px-3 py-2.5 rounded-[16px]"
-                >
-                  {children.map((c) => (
-                    <option key={c.studentId} value={c.studentId}>
-                      {c.studentFullName} ({c.studentCode})
-                    </option>
-                  ))}
-                </select>
+                <PortalDropdown
+                  icon={Users}
+                  label="Học viên"
+                  value={selectedChildId ?? 0}
+                  onChange={(v) => setSelectedChildId(v)}
+                  options={children.map((c) => ({ value: c.studentId, label: `${c.studentFullName} (${c.studentCode})` }))}
+                />
               )}
 
               {classOptions.length > 1 && (
-                <div className="flex items-center gap-2 bg-sky-2 border border-line px-3 py-2 rounded-[16px]">
-                  <School size={14} className="text-teal shrink-0" />
-                  <select
-                    value={selectedClassId ?? ""}
-                    onChange={(e) => setSelectedClassId(Number(e.target.value))}
-                    className="w-full text-xs font-extrabold text-ink bg-transparent focus:outline-none"
-                  >
-                    {classOptions.map((c) => (
-                      <option key={c.classEnrollmentId} value={c.classId}>
-                        {c.className}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <PortalDropdown
+                  icon={School}
+                  label="Lớp đang học"
+                  value={selectedClassId ?? 0}
+                  onChange={(v) => setSelectedClassId(v)}
+                  options={classOptions.map((c) => ({ value: c.classId, label: c.className }))}
+                />
               )}
 
               <div className="space-y-3">
-                {TABS.map(({ key, label, icon: Icon }) => (
+                {/* Học phí & Dịch vụ (invoices/thanh toán) chỉ dành Phụ huynh — Học sinh không cần/không nên xem thông tin tài chính của gia đình. */}
+                {TABS.filter((tab) => tab.key !== "billing" || isParent).map(({ key, label, icon: Icon }) => (
                   <button
                     key={key}
                     onClick={() => setActiveTab(key)}
@@ -219,12 +212,16 @@ export default function PortalPage() {
                 <>
                   {activeTab === "home" &&
                     (isParent && selectedChild ? (
-                      <HomeTab studentId={selectedChild.studentId} classId={selectedClassId} studentName={selectedChild.studentFullName} />
-                    ) : (
-                      <ComingSoon
-                        title="Trang chủ & Bảng tin"
-                        description="Đang chờ Backend mở API cho Học sinh tự xem nhận xét/thông báo của chính mình (hiện chỉ Phụ huynh xem được)."
+                      <HomeTab
+                        studentName={selectedChild.studentFullName}
+                        commentsSource={{ studentId: selectedChild.studentId, classId: selectedClassId }}
                       />
+                    ) : isStudent ? (
+                      // Thông báo (GET /notifications) đã self-service thật cho mọi vai trò — hiện được ngay.
+                      // Nhận xét/cảnh báo giáo viên vẫn chưa có API tự xem (commentsSource=null, xem HomeTab).
+                      <HomeTab studentName={viewerName} commentsSource={null} />
+                    ) : (
+                      <ComingSoon title="Trang chủ & Bảng tin" description="Không có hồ sơ Học sinh hoặc Phụ huynh liên kết với tài khoản này." />
                     ))}
                   {activeTab === "schedule" &&
                     (isParent && selectedChild ? (

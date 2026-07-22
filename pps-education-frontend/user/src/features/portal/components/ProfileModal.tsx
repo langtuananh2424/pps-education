@@ -14,6 +14,15 @@ interface ProfileModalProps {
   className: string | null;
   classCode: string | null;
   enrollmentStatus: string | null;
+  /**
+   * Chỉ có giá trị khi Phụ huynh đang xem con mình — chính là thông tin của
+   * `currentUser` đang đăng nhập (không cần gọi API riêng, Phụ huynh xem con
+   * nào thì hiển thị đúng liên hệ của chính họ). `null` khi Học sinh tự xem
+   * hồ sơ của mình — chưa có API self-service tra phụ huynh liên kết (xem
+   * ghi chú trong JSX), giữ khung "Sắp có" như cũ, không tự đoán dữ liệu.
+   */
+  parentName: string | null;
+  parentPhone: string | null;
   onClose: () => void;
 }
 
@@ -21,12 +30,9 @@ interface ProfileModalProps {
  * Khớp layout modal "Thông tin cá nhân" trong bản thiết kế gốc (Google AI Studio),
  * nhưng chỉ điền dữ liệu thật đang có (họ tên, lớp, trạng thái ghi danh). Phần
  * "Thành tích & điểm thưởng" (EXP/xu/streak/huy hiệu) không tồn tại trong schema
- * PPS Education — không tự bịa số liệu, hiện "—"/khoá thay vì số giả. "Liên hệ
- * gia đình" cần API tra phụ huynh mà Học sinh tự xem chưa gọi được (student.parent.view,
- * tách từ student.manage ở V44, hiện chỉ dành Nhân viên/Quản lý điểm trường) — giữ
- * đúng khung 2 dòng như bản gốc, không tự đoán dữ liệu.
+ * PPS Education — không tự bịa số liệu, hiện "—"/khoá thay vì số giả.
  */
-export default function ProfileModal({ fullName, studentId, className, classCode, enrollmentStatus, onClose }: ProfileModalProps) {
+export default function ProfileModal({ fullName, studentId, className, classCode, enrollmentStatus, parentName, parentPhone, onClose }: ProfileModalProps) {
   return (
     <div className="fixed inset-0 bg-ink/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={onClose}>
       <div
@@ -113,22 +119,24 @@ export default function ProfileModal({ fullName, studentId, className, classCode
             <h4 className="text-xs font-extrabold text-teal-deep uppercase tracking-wide flex items-center gap-1.5 mb-3">
               <Users size={14} /> Liên hệ gia đình
             </h4>
-            <div className="bg-sky-2/60 border border-dashed border-line rounded-[16px] p-4 space-y-2.5 text-xs">
+            <div className="bg-sky-2/60 border border-line/70 rounded-[16px] p-4 space-y-2.5 text-xs">
               <div className="flex justify-between items-center border-b border-line/60 pb-2">
                 <span className="text-muted font-bold flex items-center gap-1.5">
                   <User size={12} /> Phụ huynh:
                 </span>
-                <span className="font-extrabold text-muted/70">—</span>
+                <span className={`font-extrabold ${parentName ? "text-ink" : "text-muted/70"}`}>{parentName ?? "—"}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-muted font-bold flex items-center gap-1.5">
                   <Phone size={12} /> Số điện thoại:
                 </span>
-                <span className="font-extrabold text-muted/70">—</span>
+                <span className={`font-extrabold ${parentPhone ? "text-ink" : "text-muted/70"}`}>{parentPhone ?? "—"}</span>
               </div>
-              <p className="text-[10px] text-gold font-bold pt-1">
-                Sắp có — đang chờ Backend mở API cho Học sinh tự tra thông tin phụ huynh liên kết với chính mình.
-              </p>
+              {!parentName && (
+                <p className="text-[10px] text-gold font-bold pt-1">
+                  Sắp có — đang chờ Backend mở API cho Học sinh tự tra thông tin phụ huynh liên kết với chính mình.
+                </p>
+              )}
             </div>
           </div>
 
