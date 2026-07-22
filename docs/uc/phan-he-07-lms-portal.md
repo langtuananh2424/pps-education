@@ -714,10 +714,22 @@ UC-40: Soạn & giao đề kiểm tra
 > ngoài LMS sau này cũng upload qua đây), không cần JWT để xem vì file
 > nhúng trong thẻ `<audio>`/`<img>` không gửi kèm được header
 > Authorization — xem `MediaController`/`MediaStorageService`/
-> `R2StorageConfig`. Phạm vi lần này CHỈ áp dụng cho
+> `R2StorageConfig`. Phạm vi ban đầu CHỈ áp dụng cho
 > `Question.audioUrl`/`imageUrl`; các trường URL khác trong hệ thống
-> (`Student.portraitUrl`, tài liệu bài giảng, file đính kèm Task...) vẫn
-> giữ nguyên quy ước "coi như đã upload sẵn" cho tới khi có yêu cầu riêng.
+> (`Student.portraitUrl`, file đính kèm Task...) vẫn giữ nguyên quy ước
+> "coi như đã upload sẵn" cho tới khi có yêu cầu riêng.
+>
+> **Mở rộng, đã xác nhận với người dùng (2026-07-22, theo yêu cầu FE):**
+> thêm 2 module `CURRICULUM_DOCUMENT` (`curriculum_documents.file_url`,
+> UC-60) và `LESSON_MATERIAL` (`lesson_materials.file_url`, mục "Tệp đính
+> kèm" ở trên) vào `MediaModule` — 2 field này trước đây cũng là nhập tay
+> URL, giờ upload thật qua cùng API `POST /api/media/upload`. 2 module
+> này được nhận thêm PDF/Word/Excel/PowerPoint (≤20MB) và `video/*`
+> (≤200MB) ngoài audio/ảnh (xem `MediaModule.acceptsDocuments()`/
+> `MediaStorageService`) — `LMS_QUESTION` giữ nguyên hành vi cũ (chỉ
+> audio/ảnh). Key R2 tương ứng: `lms/curriculum-documents/{category}/` và
+> `lms/lesson-materials/{category}/` (`category` = `audio`/`images`/
+> `video`/`documents` theo content-type).
 
 ---
 

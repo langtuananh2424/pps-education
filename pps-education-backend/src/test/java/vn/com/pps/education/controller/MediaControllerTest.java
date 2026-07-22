@@ -90,4 +90,37 @@ class MediaControllerTest extends AbstractControllerTest {
                         .header("Authorization", bearerToken(teacher, "TEACHER")))
                 .andExpect(status().isBadRequest());
     }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (2026-07-22, theo yêu
+     * cầu FE): CURRICULUM_DOCUMENT/LESSON_MATERIAL nhận thêm PDF/Word/Excel/
+     * video - xem MediaModule.acceptsDocuments()/MediaStorageService.
+     */
+    @Test
+    void upload_boSung_curriculumDocumentAcceptsPdf_returns200() throws Exception {
+        when(r2Client.putObject(any(PutObjectRequest.class), any(RequestBody.class)))
+                .thenReturn(PutObjectResponse.builder().build());
+        User staff = userWithRole("staff.media.doc", "HEAD_ACADEMIC");
+        MockMultipartFile file = new MockMultipartFile("file", "tai-lieu.pdf", "application/pdf", "fake-pdf".getBytes());
+
+        mockMvc.perform(multipart("/api/media/upload")
+                        .file(file)
+                        .param("module", "CURRICULUM_DOCUMENT")
+                        .header("Authorization", bearerToken(staff, "HEAD_ACADEMIC")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.url").value(startsWith(PUBLIC_BASE_URL + "/lms/curriculum-documents/documents/")))
+                .andExpect(jsonPath("$.url").value(endsWith(".pdf")));
+    }
+
+    @Test
+    void upload_boSung_lmsQuestionStillRejectsPdf_returns400() throws Exception {
+        User teacher = userWithRole("teacher.media.pdf", "TEACHER");
+        MockMultipartFile file = new MockMultipartFile("file", "tai-lieu.pdf", "application/pdf", "fake-pdf".getBytes());
+
+        mockMvc.perform(multipart("/api/media/upload")
+                        .file(file)
+                        .param("module", "LMS_QUESTION")
+                        .header("Authorization", bearerToken(teacher, "TEACHER")))
+                .andExpect(status().isBadRequest());
+    }
 }

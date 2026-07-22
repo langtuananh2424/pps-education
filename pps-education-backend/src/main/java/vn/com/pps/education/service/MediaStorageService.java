@@ -10,6 +10,7 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -18,18 +19,34 @@ import java.util.UUID;
  * imageUrl) lên Cloudflare R2 (Object Storage tương thích S3 API) - thay
  * thế quyết định "lưu đĩa cục bộ + Docker volume" trước đó (2026-07-21) vì
  * Railway/production không có ổ đĩa bền vững đáng tin cậy như R2
- * (2026-07-22). Key R2 chia theo "thư mục" `{module}/audio|images/` (tiền
- * tố trong key, R2/S3 không có khái niệm thư mục thật, chỉ hiển thị dạng
- * cây trên Dashboard) - `module` do caller khai báo (xem MediaModule) để
- * phân biệt module gọi API dùng chung này, `audio`/`images` theo
- * content-type. Stateless: không có bảng DB nào theo dõi upload, key R2
- * sinh bằng UUID là nguồn dữ liệu duy nhất.
+ * (2026-07-22). Key R2 chia theo "thư mục" `{module}/{category}/` (tiền tố
+ * trong key, R2/S3 không có khái niệm thư mục thật, chỉ hiển thị dạng cây
+ * trên Dashboard) - `module` do caller khai báo (xem MediaModule) để phân
+ * biệt module gọi API dùng chung này, `category` theo content-type
+ * (audio/images/video/documents). Stateless: không có bảng DB nào theo dõi
+ * upload, key R2 sinh bằng UUID là nguồn dữ liệu duy nhất.
+ *
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (2026-07-22, theo yêu
+ * cầu FE): module có `acceptsDocuments()=true` (CURRICULUM_DOCUMENT,
+ * LESSON_MATERIAL) được nhận thêm PDF/Word/Excel/PowerPoint (≤20MB) và
+ * video/* (≤200MB) ngoài audio/ảnh - LMS_QUESTION giữ nguyên hành vi cũ.
  */
 @Service
 public class MediaStorageService {
 
     private static final long MAX_IMAGE_BYTES = 10L * 1024 * 1024;
     private static final long MAX_AUDIO_BYTES = 50L * 1024 * 1024;
+    private static final long MAX_DOCUMENT_BYTES = 20L * 1024 * 1024;
+    private static final long MAX_VIDEO_BYTES = 200L * 1024 * 1024;
+
+    private static final Set<String> DOCUMENT_CONTENT_TYPES = Set.of(
+            "application/pdf",
+            "application/msword",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "application/vnd.ms-excel",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "application/vnd.ms-powerpoint",
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation");
 
     private final S3Client r2Client;
     private final String bucket;
@@ -55,19 +72,28 @@ public class MediaStorageService {
         if (contentType == null) {
             throw new IllegalArgumentException("Không xác định được loại tệp (Content-Type).");
         }
+        String category;
+        long maxBytes;
         if (contentType.startsWith("audio/")) {
-            if (file.getSize() > MAX_AUDIO_BYTES) {
-                throw new IllegalArgumentException("Tệp âm thanh vượt quá dung lượng tối đa 50MB.");
-            }
+            category = "audio";
+            maxBytes = MAX_AUDIO_BYTES;
         } else if (contentType.startsWith("image/")) {
-            if (file.getSize() > MAX_IMAGE_BYTES) {
-                throw new IllegalArgumentException("Tệp ảnh vượt quá dung lượng tối đa 10MB.");
-            }
+            category = "images";
+            maxBytes = MAX_IMAGE_BYTES;
+        } else if (module.acceptsDocuments() && contentType.startsWith("video/")) {
+            category = "video";
+            maxBytes = MAX_VIDEO_BYTES;
+        } else if (module.acceptsDocuments() && DOCUMENT_CONTENT_TYPES.contains(contentType)) {
+            category = "documents";
+            maxBytes = MAX_DOCUMENT_BYTES;
         } else {
-            throw new IllegalArgumentException("Chỉ chấp nhận tệp audio/* hoặc image/*, nhận được: " + contentType);
+            throw new IllegalArgumentException("Loại tệp không được hỗ trợ cho module " + module + ": " + contentType);
+        }
+        if (file.getSize() > maxBytes) {
+            throw new IllegalArgumentException("Tệp vượt quá dung lượng tối đa cho phép ("
+                    + (maxBytes / (1024 * 1024)) + "MB).");
         }
 
-        String category = contentType.startsWith("audio/") ? "audio" : "images";
         String key = module.folderPrefix() + "/" + category + "/" + UUID.randomUUID() + extensionOf(file.getOriginalFilename());
         try {
             r2Client.putObject(

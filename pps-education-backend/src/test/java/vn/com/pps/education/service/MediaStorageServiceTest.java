@@ -101,4 +101,56 @@ class MediaStorageServiceTest {
         assertThatThrownBy(() -> service.store(file, "KHONG_TON_TAI")).isInstanceOf(IllegalArgumentException.class);
         verify(r2Client, never()).putObject(any(PutObjectRequest.class), any(RequestBody.class));
     }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (2026-07-22, theo yêu
+     * cầu FE): CURRICULUM_DOCUMENT/LESSON_MATERIAL nhận thêm PDF/Word/Excel/
+     * video ngoài audio/ảnh - xem MediaModule.acceptsDocuments().
+     */
+    @Test
+    void store_boSung_curriculumDocumentAcceptsPdf() {
+        MockMultipartFile file = new MockMultipartFile("file", "tai-lieu.pdf", "application/pdf", "fake-pdf-bytes".getBytes());
+
+        String url = service.store(file, "CURRICULUM_DOCUMENT");
+
+        assertThat(url).startsWith(PUBLIC_BASE_URL + "/lms/curriculum-documents/documents/").endsWith(".pdf");
+    }
+
+    @Test
+    void store_boSung_lessonMaterialAcceptsWordAndExcel() {
+        MockMultipartFile word = new MockMultipartFile("file", "de-cuong.docx",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "fake-docx".getBytes());
+        MockMultipartFile excel = new MockMultipartFile("file", "bang-diem.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "fake-xlsx".getBytes());
+
+        assertThat(service.store(word, "LESSON_MATERIAL"))
+                .startsWith(PUBLIC_BASE_URL + "/lms/lesson-materials/documents/").endsWith(".docx");
+        assertThat(service.store(excel, "LESSON_MATERIAL"))
+                .startsWith(PUBLIC_BASE_URL + "/lms/lesson-materials/documents/").endsWith(".xlsx");
+    }
+
+    @Test
+    void store_boSung_lessonMaterialAcceptsVideo() {
+        MockMultipartFile file = new MockMultipartFile("file", "bai-giang.mp4", "video/mp4", "fake-mp4-bytes".getBytes());
+
+        String url = service.store(file, "LESSON_MATERIAL");
+
+        assertThat(url).startsWith(PUBLIC_BASE_URL + "/lms/lesson-materials/video/").endsWith(".mp4");
+    }
+
+    @Test
+    void store_boSung_rejectsDocumentExceeding20MB() {
+        byte[] tooLarge = new byte[21 * 1024 * 1024];
+        MockMultipartFile file = new MockMultipartFile("file", "big.pdf", "application/pdf", tooLarge);
+
+        assertThatThrownBy(() -> service.store(file, "CURRICULUM_DOCUMENT")).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void store_boSung_lmsQuestionStillRejectsDocumentTypes() {
+        MockMultipartFile file = new MockMultipartFile("file", "tai-lieu.pdf", "application/pdf", "fake-pdf-bytes".getBytes());
+
+        assertThatThrownBy(() -> service.store(file, MODULE)).isInstanceOf(IllegalArgumentException.class);
+        verify(r2Client, never()).putObject(any(PutObjectRequest.class), any(RequestBody.class));
+    }
 }
