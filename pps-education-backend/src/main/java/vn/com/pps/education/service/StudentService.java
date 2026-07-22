@@ -61,10 +61,10 @@ import java.util.Map;
  *
  * A1 (chuyển điểm trường khác Quản lý điểm trường phụ trách → cập nhật
  * row-level access theo điểm trường): hiện thực qua
- * {@link #resolveAllowedSiteIds(Long)} — student.manage được cấp cho CẢ
+ * {@link #resolveAllowedSiteIds(Long)} — student.profile.* được cấp cho CẢ
  * Nhân viên Giáo vụ/STAFF (không giới hạn site) và Quản lý điểm trường
- * (giới hạn theo (các) site được gán qua site_managers), cùng 1 permission
- * code (V11__student_core.sql) nên không phân biệt được qua hasPermission
+ * (giới hạn theo (các) site được gán qua site_managers), cùng tập permission
+ * code (V44, tách từ student.manage) nên không phân biệt được qua hasPermission
  * như ClassService — phân biệt qua có/không có bản ghi site_managers
  * role_type=SITE_MANAGER. recordTransfer() cập nhật students.primary_site_id
  * ngay khi giao dịch hoàn tất (không đổi), mọi truy vấn scoped-theo-site

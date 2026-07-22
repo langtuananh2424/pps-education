@@ -37,26 +37,26 @@ public class ParentController {
         this.studentService = studentService;
     }
 
-    @PreAuthorize("hasPermission(null, 'student.manage')")
+    @PreAuthorize("hasPermission(null, 'student.parent.view')")
     @GetMapping
     public ResponseEntity<List<ParentResponse>> search(@RequestParam(required = false) String query) {
         return ResponseEntity.ok(studentService.searchParents(query));
     }
 
-    @PreAuthorize("hasPermission(null, 'student.manage')")
+    @PreAuthorize("hasPermission(null, 'student.parent.view')")
     @GetMapping("/{id}")
     public ResponseEntity<ParentResponse> getById(@PathVariable Long id) {
         return ResponseEntity.ok(studentService.getParentById(id));
     }
 
-    @PreAuthorize("hasPermission(null, 'student.manage')")
+    @PreAuthorize("hasPermission(null, 'student.parent.manage')")
     @PostMapping
     public ResponseEntity<ParentResponse> create(@Valid @RequestBody CreateParentRequest request,
                                                   @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(studentService.createParent(request, actor.userId()));
     }
 
-    @PreAuthorize("hasPermission(null, 'student.manage')")
+    @PreAuthorize("hasPermission(null, 'student.parent.manage')")
     @PutMapping("/{id}")
     public ResponseEntity<ParentResponse> update(@PathVariable Long id,
                                                   @Valid @RequestBody UpdateParentRequest request,
