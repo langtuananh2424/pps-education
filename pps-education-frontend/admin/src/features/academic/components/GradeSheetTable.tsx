@@ -7,6 +7,7 @@ import {
   GradeEditWindowResponse,
   GradeEntryResponse,
   GradePeriodResultResponse,
+  GradeStatus,
   enterGrade,
   enterPeriodResult,
   getGradeEditWindow,
@@ -16,10 +17,20 @@ import {
 import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
 import Badge, { BadgeVariant } from "@/components/ui/Badge";
 
-type Status = "DRAFT" | "PUBLISHED";
-
-const statusLabels: Record<Status, string> = { DRAFT: "Nháp", PUBLISHED: "Đã công bố" };
-const statusVariants: Record<Status, BadgeVariant> = { DRAFT: "neutral", PUBLISHED: "success" };
+const statusLabels: Record<GradeStatus, string> = {
+  DRAFT: "Nháp",
+  PROVISIONAL_PUBLISHED: "Công bố dự kiến",
+  APPEAL: "Đang phúc khảo",
+  OFFICIAL: "Chính thức"
+};
+const statusVariants: Record<GradeStatus, BadgeVariant> = {
+  DRAFT: "neutral",
+  PROVISIONAL_PUBLISHED: "success",
+  APPEAL: "warning",
+  OFFICIAL: "info"
+};
+/** Thứ tự "cần chú ý nhất trước" khi 1 dòng có nhiều bản ghi (nhiều đầu điểm + Overall) ở trạng thái khác nhau. */
+const statusPriority: GradeStatus[] = ["DRAFT", "APPEAL", "PROVISIONAL_PUBLISHED", "OFFICIAL"];
 
 const scaleLabels: Record<GradePeriodResultResponse["scaleType"], string> = {
   NUMERIC: "Số (0–10)",
@@ -40,11 +51,11 @@ interface GradeSheetTableProps {
 }
 
 /**
- * UC-19/UC-53 (V39 — bỏ hẳn workflow duyệt/từ chối cũ): sổ điểm đầy đủ theo lớp + kỳ
- * đánh giá, mỗi thành phần điểm là 1 cột, cộng Overall/Thang/Level (UC-53). Sửa được
- * bất kể DRAFT/PUBLISHED miễn còn trong hạn chỉnh sửa (giáo viên toàn quyền) — hết hạn
- * thì backend tự chặn (báo lỗi ở banner phía trên), không tự đoán/khoá phía FE vì hiện
- * chưa có API trả sẵn "còn bao nhiêu ngày" cho 1 lớp+kỳ cụ thể.
+ * UC-19/UC-53 (V43 — 4 trạng thái + phúc khảo UC-62): sổ điểm đầy đủ theo lớp + kỳ đánh
+ * giá, mỗi thành phần điểm là 1 cột, cộng Overall/Thang/Level (UC-53). Sửa/xoá được khi
+ * DRAFT (không giới hạn thời gian) hoặc APPEAL (đã tiếp nhận đúng yêu cầu phúc khảo) —
+ * PROVISIONAL_PUBLISHED/OFFICIAL bị chặn với actor thường. Không tự đoán trạng thái
+ * editable ở FE — luôn để input hiện, backend là nguồn chân lý, chặn thì báo lỗi rõ.
  */
 export default function GradeSheetTable({ classId, gradePeriodId, components, enrollments, onLoaded, readOnly = false }: GradeSheetTableProps) {
   const [entriesByStudent, setEntriesByStudent] = useState<Map<number, Map<number, GradeEntryResponse>>>(new Map());
@@ -86,12 +97,12 @@ export default function GradeSheetTable({ classId, gradePeriodId, components, en
     getGradeEditWindow().then(setEditWindow).catch(() => undefined);
   }, []);
 
-  const rowStatus = (studentId: number): Status | null => {
+  const rowStatus = (studentId: number): GradeStatus | null => {
     const entryStatuses = [...(entriesByStudent.get(studentId)?.values() ?? [])].map((e) => e.status);
     const result = resultsByStudent.get(studentId);
     const statuses = result ? [...entryStatuses, result.status] : entryStatuses;
     if (statuses.length === 0) return null;
-    return statuses.some((s) => s === "DRAFT") ? "DRAFT" : "PUBLISHED";
+    return statusPriority.find((s) => statuses.includes(s)) ?? statuses[0];
   };
 
   const handleBlurScore = async (studentId: number, componentId: number) => {
@@ -171,8 +182,8 @@ export default function GradeSheetTable({ classId, gradePeriodId, components, en
     <div>
       {editWindow && (
         <p className="text-[11px] text-slate-400 italic px-5 pt-3">
-          Hạn chỉnh sửa: {editWindow.days} ngày kể từ lần đầu nhập điểm cho lớp + kỳ này (Trưởng phòng đào tạo/Quản lý điểm trường không bị
-          giới hạn).
+          Sau {editWindow.days} ngày kể từ lần đầu nhập điểm cho lớp + kỳ này, điểm còn Nháp sẽ tự động chuyển "Công bố dự kiến" nếu không ai
+          công bố tay. Sửa/xoá điểm chỉ còn giới hạn theo trạng thái (Nháp hoặc đang Phúc khảo đã tiếp nhận) — không còn theo thời gian.
         </p>
       )}
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 m-3 rounded-lg">{error}</div>}
@@ -212,20 +223,27 @@ export default function GradeSheetTable({ classId, gradePeriodId, components, en
                     {components.map((c) => {
                       const existing = entriesByStudent.get(en.studentId)?.get(c.id);
                       const key = `${en.studentId}:${c.id}`;
+                      const underAppeal = existing?.status === "APPEAL";
                       return (
                         <Td key={c.id} className="text-center">
                           {readOnly ? (
                             <span className="text-xs font-semibold text-slate-700">{existing ? existing.score : "—"}</span>
                           ) : (
-                            <input
-                              type="text"
-                              placeholder={existing ? String(existing.score) : "—"}
-                              value={scoreInput[key] ?? ""}
-                              onChange={(e) => setScoreInput((prev) => ({ ...prev, [key]: e.target.value }))}
-                              onBlur={() => handleBlurScore(en.studentId, c.id)}
-                              disabled={savingKey === key}
-                              className="w-16 bg-slate-50 text-center border rounded py-1 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-brand-orange disabled:opacity-50"
-                            />
+                            <div className="inline-flex flex-col items-center gap-0.5">
+                              <input
+                                type="text"
+                                placeholder={existing ? String(existing.score) : "—"}
+                                value={scoreInput[key] ?? ""}
+                                onChange={(e) => setScoreInput((prev) => ({ ...prev, [key]: e.target.value }))}
+                                onBlur={() => handleBlurScore(en.studentId, c.id)}
+                                disabled={savingKey === key}
+                                title={underAppeal ? "Đang phúc khảo — nhập lại điểm (kể cả giữ nguyên giá trị) rồi rời ô để xử lý xong." : undefined}
+                                className={`w-16 bg-slate-50 text-center border rounded py-1 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-brand-orange disabled:opacity-50 ${
+                                  underAppeal ? "border-amber-400 ring-1 ring-amber-300" : ""
+                                }`}
+                              />
+                              {underAppeal && <span className="text-[9px] font-bold text-amber-600 uppercase">Phúc khảo</span>}
+                            </div>
                           )}
                         </Td>
                       );
@@ -234,14 +252,20 @@ export default function GradeSheetTable({ classId, gradePeriodId, components, en
                       {readOnly ? (
                         <span className="text-xs font-semibold text-slate-700">{result?.overallScore ?? "—"}</span>
                       ) : (
-                        <input
-                          type="text"
-                          placeholder={result?.overallScore != null ? String(result.overallScore) : "—"}
-                          value={overallInput[en.studentId] ?? ""}
-                          onChange={(e) => setOverallInput((prev) => ({ ...prev, [en.studentId]: e.target.value }))}
-                          onBlur={() => handleBlurResult(en.studentId)}
-                          className="w-16 bg-slate-50 text-center border rounded py-1 text-xs font-semibold focus:outline-none"
-                        />
+                        <div className="inline-flex flex-col items-center gap-0.5">
+                          <input
+                            type="text"
+                            placeholder={result?.overallScore != null ? String(result.overallScore) : "—"}
+                            value={overallInput[en.studentId] ?? ""}
+                            onChange={(e) => setOverallInput((prev) => ({ ...prev, [en.studentId]: e.target.value }))}
+                            onBlur={() => handleBlurResult(en.studentId)}
+                            title={result?.status === "APPEAL" ? "Đang phúc khảo — nhập lại điểm (kể cả giữ nguyên giá trị) rồi rời ô để xử lý xong." : undefined}
+                            className={`w-16 bg-slate-50 text-center border rounded py-1 text-xs font-semibold focus:outline-none ${
+                              result?.status === "APPEAL" ? "border-amber-400 ring-1 ring-amber-300" : ""
+                            }`}
+                          />
+                          {result?.status === "APPEAL" && <span className="text-[9px] font-bold text-amber-600 uppercase">Phúc khảo</span>}
+                        </div>
                       )}
                     </Td>
                     <Td className="text-center">

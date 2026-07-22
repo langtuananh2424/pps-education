@@ -483,7 +483,12 @@ export function addGradeComponent(gradePeriodId: number, request: CreateGradeCom
   return apiRequest<GradeComponentResponse>(`/grade-periods/${gradePeriodId}/components`, { method: "POST", body: JSON.stringify(request) });
 }
 
-/** V39: bỏ hẳn PENDING/APPROVED/REJECTED — chỉ còn DRAFT (đang nhập/sửa) và PUBLISHED (đã công bố cho Phụ huynh). */
+/**
+ * V43: 4 trạng thái DRAFT → PROVISIONAL_PUBLISHED → (APPEAL) → OFFICIAL (thay hẳn
+ * DRAFT/PUBLISHED của V39) — xem GradeAppealResponse/UC-62 (phúc khảo) bên dưới.
+ */
+export type GradeStatus = "DRAFT" | "PROVISIONAL_PUBLISHED" | "APPEAL" | "OFFICIAL";
+
 export interface GradeEntryResponse {
   id: number;
   classId: number;
@@ -494,10 +499,11 @@ export interface GradeEntryResponse {
   score: number;
   absenceFlag: boolean;
   teacherNote: string | null;
-  status: "DRAFT" | "PUBLISHED";
+  status: GradeStatus;
   enteredBy: number;
   publishedBy: number | null;
   publishedAt: string | null;
+  finalizedAt: string | null;
 }
 
 export interface EnterGradeRequest {
@@ -508,10 +514,12 @@ export interface EnterGradeRequest {
 }
 
 /**
- * UC-19 Main Flow bước 1-3: Giáo viên nhập điểm 1 học sinh cho 1 đầu điểm của lớp. V39:
- * không còn "nộp" — nhập là lưu luôn (DRAFT), sửa được kể cả khi đã PUBLISHED miễn còn
- * trong hạn (xem getGradeEditWindow) hoặc actor có quyền academic.grade.edit.override.
- * Ngoài hạn: backend trả lỗi (bắt qua ApiError như bình thường).
+ * UC-19 Main Flow bước 1-3: Giáo viên nhập điểm 1 học sinh cho 1 đầu điểm của lớp.
+ * V43: sửa/xoá được khi bản ghi DRAFT (không giới hạn thời gian), hoặc đang APPEAL
+ * và chính actor là GV đã tiếp nhận yêu cầu phúc khảo đó (UC-62), hoặc actor có quyền
+ * academic.grade.edit.override. PROVISIONAL_PUBLISHED/OFFICIAL luôn bị chặn với actor
+ * thường — backend trả lỗi rõ (bắt qua ApiError như bình thường), FE không tự đoán
+ * trước điều kiện editable, cứ để nhập rồi để BE quyết định.
  */
 export function listGradeEntries(classId: number, gradeComponentId: number): Promise<GradeEntryResponse[]> {
   return apiRequest<GradeEntryResponse[]>(`/classes/${classId}/grades/components/${gradeComponentId}`);
@@ -535,10 +543,11 @@ export interface GradePeriodResultResponse {
   level: string | null;
   source: "MANUAL" | "EXCEL_IMPORT";
   importJobId: number | null;
-  status: "DRAFT" | "PUBLISHED";
+  status: GradeStatus;
   enteredBy: number;
   publishedBy: number | null;
   publishedAt: string | null;
+  finalizedAt: string | null;
 }
 
 export interface EnterGradePeriodResultRequest {
@@ -576,7 +585,11 @@ export function importGrades(classId: number, gradePeriodId: number, file: File)
   return apiRequest<GradeImportResponse>(`/classes/${classId}/grade-periods/${gradePeriodId}/grades/import`, { method: "POST", body: formData });
 }
 
-/** V39: số ngày Giáo viên toàn quyền sửa điểm kể từ lần đầu nhập cho 1 (lớp, kỳ) — cấu hình được (mặc định 7). */
+/**
+ * V43: đổi nghĩa — X ngày này giờ CHỈ còn là độ trễ tự động "công bố dự kiến"
+ * (DRAFT → PROVISIONAL_PUBLISHED, UC-20 A3) nếu không ai công bố tay, KHÔNG còn là
+ * hạn chỉnh sửa như V39 (hạn sửa giờ theo TRẠNG THÁI — xem enterGrade).
+ */
 export interface GradeEditWindowResponse {
   days: number;
 }
@@ -595,11 +608,40 @@ export function listUnpublishedGrades(): Promise<GradeEntryResponse[]> {
 }
 
 /**
- * UC-20: công bố điểm (DRAFT → PUBLISHED) — gradeEntryIds và/hoặc gradePeriodResultIds,
- * ít nhất 1 danh sách phải có phần tử. V39: không còn nhánh từ chối/ghi chú.
+ * UC-20: công bố điểm dự kiến (DRAFT → PROVISIONAL_PUBLISHED) — gradeEntryIds và/hoặc
+ * gradePeriodResultIds, ít nhất 1 danh sách phải có phần tử. Bắt đầu tính hạn Y ngày
+ * phúc khảo (UC-62) kể từ lúc này.
  */
 export function publishGrades(request: { gradeEntryIds?: number[]; gradePeriodResultIds?: number[] }): Promise<GradeEntryResponse[]> {
   return apiRequest<GradeEntryResponse[]>("/grades/decision", { method: "POST", body: JSON.stringify(request) });
+}
+
+// ===================== UC-62: Phúc khảo điểm =====================
+
+export interface GradeAppealResponse {
+  id: number;
+  entityType: "GRADE_ENTRY" | "GRADE_PERIOD_RESULT";
+  entityId: number;
+  classId: number;
+  studentId: number;
+  studentFullName: string;
+  requestedByUserId: number;
+  reason: string | null;
+  status: "PENDING" | "ACCEPTED" | "RESOLVED";
+  acceptedByUserId: number | null;
+  acceptedAt: string | null;
+  resolvedAt: string | null;
+  createdAt: string;
+}
+
+/** Hàng chờ phúc khảo (PENDING) của (các) lớp Giáo viên đang phụ trách. */
+export function listPendingGradeAppeals(): Promise<GradeAppealResponse[]> {
+  return apiRequest<GradeAppealResponse[]>("/grade-appeals/pending");
+}
+
+/** Giáo viên tiếp nhận — sau khi tiếp nhận mới sửa được điểm của đúng học sinh này (UC-19, enterGrade). */
+export function acceptGradeAppeal(id: number): Promise<GradeAppealResponse> {
+  return apiRequest<GradeAppealResponse>(`/grade-appeals/${id}/accept`, { method: "POST" });
 }
 
 // ===================== Nhận xét học viên (UC-21/22) =====================

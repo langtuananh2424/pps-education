@@ -28,7 +28,7 @@ interface Row {
 
 /** UC-21 Main Flow (nhánh DAILY): viết nhận xét hàng ngày theo buổi học — cùng khuôn thao tác với Điểm danh nhanh. */
 export default function DailyCommentPanel() {
-  const { hasPermission, currentUser } = useApp();
+  const { hasPermission, currentUser, selectedCampusId } = useApp();
   const canManage = hasPermission("academic.class.manage");
   const [classes, setClasses] = useState<ClassResponse[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
@@ -49,7 +49,7 @@ export default function DailyCommentPanel() {
 
   /** UC-21 Precondition: GV chỉ nhận xét lớp mình được phân công dạy (class_teachers) — cùng gốc rễ với fix ở GradesPage/ClassesPage/AttendancePage. */
   useEffect(() => {
-    listClasses()
+    listClasses({ siteId: selectedCampusId !== "ALL" ? Number(selectedCampusId) : undefined })
       .then(async (res) => {
         if (canManage || !currentUser) {
           setClasses(res);
@@ -59,7 +59,7 @@ export default function DailyCommentPanel() {
         setClasses(res.filter((_, i) => teacherLists[i].some((t) => t.teacherUserId === currentUser.id)));
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách lớp học."));
-  }, [canManage, currentUser]);
+  }, [canManage, currentUser, selectedCampusId]);
 
   useEffect(() => {
     setSelectedSessionId(null);

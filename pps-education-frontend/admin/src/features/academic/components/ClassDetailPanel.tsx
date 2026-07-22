@@ -5,6 +5,7 @@ import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import { searchUsers, UserListItemResponse } from "@/features/system-admin/api";
 import { listStudents, StudentResponse } from "@/features/student/api";
+import { RoomResponse, listRoomsBySite } from "@/features/facility/api";
 import {
   AssignTeacherRequest,
   ClassEnrollmentResponse,
@@ -694,7 +695,7 @@ function SessionsTab({ classId, siteId, canManage }: { classId: number; siteId: 
         </div>
       )}
 
-      {creating === "single" && <CreateSessionForm classId={classId} onDone={() => { setCreating(null); load(); }} onCancel={() => setCreating(null)} />}
+      {creating === "single" && <CreateSessionForm classId={classId} siteId={siteId} onDone={() => { setCreating(null); load(); }} onCancel={() => setCreating(null)} />}
       {creating === "bulk" && (
         <BulkGenerateSessionsForm classId={classId} siteId={siteId} onDone={() => { setCreating(null); load(); }} onCancel={() => setCreating(null)} />
       )}
@@ -703,13 +704,19 @@ function SessionsTab({ classId, siteId, canManage }: { classId: number; siteId: 
   );
 }
 
-function CreateSessionForm({ classId, onDone, onCancel }: { classId: number; onDone: () => void; onCancel: () => void }) {
+function CreateSessionForm({ classId, siteId, onDone, onCancel }: { classId: number; siteId: number; onDone: () => void; onCancel: () => void }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<UserListItemResponse[]>([]);
   const [teacher, setTeacher] = useState<UserListItemResponse | null>(null);
+  const [rooms, setRooms] = useState<RoomResponse[]>([]);
+  const [roomId, setRoomId] = useState("");
   const [form, setForm] = useState({ sessionDate: "", startTime: "", endTime: "", sessionType: "REGULAR" });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    listRoomsBySite(siteId).then(setRooms).catch(() => undefined);
+  }, [siteId]);
 
   const handleSearch = (q: string) => {
     setQuery(q);
@@ -733,6 +740,7 @@ function CreateSessionForm({ classId, onDone, onCancel }: { classId: number; onD
         sessionDate: form.sessionDate,
         startTime: form.startTime,
         endTime: form.endTime,
+        roomId: roomId ? Number(roomId) : undefined,
         primaryTeacherId: teacher.id,
         sessionType: form.sessionType
       };
@@ -764,14 +772,27 @@ function CreateSessionForm({ classId, onDone, onCancel }: { classId: number; onD
         </div>
       </div>
 
-      <div>
-        <label className={labelClass}>Loại buổi học</label>
-        <select value={form.sessionType} onChange={(e) => setForm({ ...form, sessionType: e.target.value })} className={inputClass}>
-          <option value="REGULAR">Buổi học thường</option>
-          <option value="REVIEW">Ôn tập</option>
-          <option value="EXAM">Kiểm tra</option>
-          <option value="MAKEUP">Học bù</option>
-        </select>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className={labelClass}>Loại buổi học</label>
+          <select value={form.sessionType} onChange={(e) => setForm({ ...form, sessionType: e.target.value })} className={inputClass}>
+            <option value="REGULAR">Buổi học thường</option>
+            <option value="REVIEW">Ôn tập</option>
+            <option value="EXAM">Kiểm tra</option>
+            <option value="MAKEUP">Học bù</option>
+          </select>
+        </div>
+        <div>
+          <label className={labelClass}>Phòng học</label>
+          <select value={roomId} onChange={(e) => setRoomId(e.target.value)} className={inputClass}>
+            <option value="">-- Không gán --</option>
+            {rooms.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.code} — {r.name}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <div>

@@ -14,7 +14,6 @@ import {
   Invoice,
   Expense,
   Lead,
-  ClassroomRoom,
   FeedbackTicket,
   SyllabusPlan,
   Permission
@@ -602,13 +601,6 @@ export const mockLeads: Lead[] = [
     ],
     createdAt: "2026-07-01"
   }
-];
-
-export const mockClassroomRooms: ClassroomRoom[] = [
-  { id: "RM-101", campusId: "CAMP-01", roomName: "Phòng 201 (Lý thuyết)", capacity: 25, type: "THEORY", isFlexible: false, status: "AVAILABLE" },
-  { id: "RM-102", campusId: "CAMP-01", roomName: "Phòng 202 (Lý thuyết)", capacity: 25, type: "THEORY", isFlexible: false, status: "OCCUPIED" },
-  { id: "RM-103", campusId: "CAMP-02", roomName: "Phòng Máy tính Cầu Giấy", capacity: 20, type: "COMPUTER", isFlexible: false, status: "AVAILABLE" },
-  { id: "RM-104", campusId: "CAMP-03", roomName: "Phòng 102 (Linh hoạt)", capacity: 40, type: "THEORY", isFlexible: true, status: "AVAILABLE" }
 ];
 
 export const mockFeedbackTickets: FeedbackTicket[] = [
