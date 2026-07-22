@@ -426,17 +426,24 @@ Có questions_history.\
 Bảo vệ khi sửa: Nếu câu hỏi đã có student_answers, không cho sửa nội
 dung/đáp án đúng. Tạo bản mới, archive bản cũ.
 
-**Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (2026-07-21):**
-`audio_url`/`image_url` trước đây quy ước "đã upload sẵn lên CDN ngoài"
-(không có hạ tầng lưu file trong phạm vi backend). Đã bổ sung API dùng
-chung `POST /api/media/upload` (`MediaController`/`MediaStorageService`)
-nhận multipart `audio/*` (≤50MB) hoặc `image/*` (≤10MB), lưu đĩa cục bộ +
-Docker volume bền vững (`pps_media_data`), trả về URL công khai dạng
-`/media-files/{uuid}.{ext}` (phục vụ qua Spring static resource handler,
-permitAll — file nhúng `<audio>`/`<img>` không gửi kèm JWT được). Không
-có bảng DB mới cho việc này (stateless — filesystem + tên file UUID là
-nguồn dữ liệu duy nhất). Phạm vi lần đầu chỉ áp dụng cho 2 cột này của
-`questions`; các cột URL khác trong hệ thống chưa đổi.
+**Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (2026-07-21, cập nhật
+2026-07-22):** `audio_url`/`image_url` trước đây quy ước "đã upload sẵn
+lên CDN ngoài" (không có hạ tầng lưu file trong phạm vi backend). Đã bổ
+sung API dùng chung `POST /api/media/upload`
+(`MediaController`/`MediaStorageService`) nhận multipart `audio/*`
+(≤50MB) hoặc `image/*` (≤10MB) kèm tham số bắt buộc `module`
+(hiện chỉ có `LMS_QUESTION` - xem `MediaModule`), upload lên
+**Cloudflare R2** (Object Storage tương thích S3 API, không tính phí
+egress — xem `R2StorageConfig`) thay vì lưu đĩa cục bộ + Docker volume
+như quyết định ban đầu, trả về URL công khai của R2 (r2.dev subdomain
+hoặc Custom Domain, tuỳ cấu hình bucket) với key dạng
+`{module}/{audio|images}/{uuid}.{ext}` - tham số `module` để phân biệt
+"thư mục" trên R2 khi có module khác ngoài LMS cũng gọi API dùng chung
+này sau này, tránh trộn lẫn file giữa các module. Không có bảng DB mới
+cho việc này (stateless — R2 + tên file UUID là nguồn dữ liệu duy nhất).
+Phạm vi lần đầu chỉ áp dụng cho 2 cột này của `questions`; các cột URL
+khác trong hệ
+thống chưa đổi.
 
 c)  Bảng question_choices --- Đáp án trắc nghiệm
 

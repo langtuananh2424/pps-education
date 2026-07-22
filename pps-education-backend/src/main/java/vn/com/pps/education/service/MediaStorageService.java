@@ -4,19 +4,26 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
+import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.UUID;
 
 /**
  * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng: lưu file audio/ảnh do
  * Giáo viên/Admin upload cho ngân hàng câu hỏi (UC-40, Question.audioUrl/
- * imageUrl) lên đĩa cục bộ (Docker volume bền vững - xem docker-compose.yml).
- * Stateless: không có bảng DB nào theo dõi upload, filesystem + tên file
- * UUID sinh ra là nguồn dữ liệu duy nhất.
+ * imageUrl) lên Cloudflare R2 (Object Storage tương thích S3 API) - thay
+ * thế quyết định "lưu đĩa cục bộ + Docker volume" trước đó (2026-07-21) vì
+ * Railway/production không có ổ đĩa bền vững đáng tin cậy như R2
+ * (2026-07-22). Key R2 chia theo "thư mục" `{module}/audio|images/` (tiền
+ * tố trong key, R2/S3 không có khái niệm thư mục thật, chỉ hiển thị dạng
+ * cây trên Dashboard) - `module` do caller khai báo (xem MediaModule) để
+ * phân biệt module gọi API dùng chung này, `audio`/`images` theo
+ * content-type. Stateless: không có bảng DB nào theo dõi upload, key R2
+ * sinh bằng UUID là nguồn dữ liệu duy nhất.
  */
 @Service
 public class MediaStorageService {
@@ -24,14 +31,23 @@ public class MediaStorageService {
     private static final long MAX_IMAGE_BYTES = 10L * 1024 * 1024;
     private static final long MAX_AUDIO_BYTES = 50L * 1024 * 1024;
 
-    private final Path storageDir;
+    private final S3Client r2Client;
+    private final String bucket;
+    private final String publicBaseUrl;
 
-    public MediaStorageService(@Value("${app.media.storage-dir}") String storageDir) {
-        this.storageDir = Path.of(storageDir).toAbsolutePath().normalize();
+    public MediaStorageService(S3Client r2Client,
+                                @Value("${app.media.r2.bucket}") String bucket,
+                                @Value("${app.media.r2.public-base-url}") String publicBaseUrl) {
+        this.r2Client = r2Client;
+        this.bucket = bucket;
+        this.publicBaseUrl = publicBaseUrl.endsWith("/")
+                ? publicBaseUrl.substring(0, publicBaseUrl.length() - 1)
+                : publicBaseUrl;
     }
 
-    /** Validate loại/kích thước file, lưu xuống đĩa với tên UUID, trả về tên file đã lưu. */
-    public String store(MultipartFile file) {
+    /** Validate module/loại/kích thước file, upload lên Cloudflare R2, trả về URL công khai. */
+    public String store(MultipartFile file, String moduleCode) {
+        MediaModule module = MediaModule.fromCode(moduleCode);
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("File không được để trống.");
         }
@@ -51,14 +67,21 @@ public class MediaStorageService {
             throw new IllegalArgumentException("Chỉ chấp nhận tệp audio/* hoặc image/*, nhận được: " + contentType);
         }
 
-        String filename = UUID.randomUUID() + extensionOf(file.getOriginalFilename());
+        String category = contentType.startsWith("audio/") ? "audio" : "images";
+        String key = module.folderPrefix() + "/" + category + "/" + UUID.randomUUID() + extensionOf(file.getOriginalFilename());
         try {
-            Files.createDirectories(storageDir);
-            file.transferTo(storageDir.resolve(filename));
+            r2Client.putObject(
+                    PutObjectRequest.builder()
+                            .bucket(bucket)
+                            .key(key)
+                            .contentType(contentType)
+                            .contentLength(file.getSize())
+                            .build(),
+                    RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
         } catch (IOException ex) {
-            throw new UncheckedIOException("Không thể lưu file upload.", ex);
+            throw new UncheckedIOException("Không thể upload file lên R2.", ex);
         }
-        return filename;
+        return publicBaseUrl + "/" + key;
     }
 
     /** Chỉ giữ lại phần mở rộng gồm chữ/số (chặn path traversal/ký tự lạ từ tên file gốc). */

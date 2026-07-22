@@ -698,20 +698,26 @@ UC-40: Soạn & giao đề kiểm tra
 |                 |     bài (UC-24).                                   |
 +-----------------+----------------------------------------------------+
 
-> **Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (2026-07-21):**
-> `Question.audioUrl` (trắc nghiệm Voice) và `Question.imageUrl` (tự luận
-> scan đề bài) ở bước 1 Main Flow trước đây yêu cầu Giáo viên tự dán URL
-> đã upload sẵn lên CDN ngoài — thực tế backend/dự án chưa có hạ tầng lưu
-> trữ file nào. Đã bổ sung API dùng chung `POST /api/media/upload`
-> (multipart, chấp nhận `audio/*`/`image/*`, tối đa 50MB/10MB) trả về
-> `{"url": "..."}`, lưu trên đĩa cục bộ có Docker volume bền vững, phục vụ
-> qua `GET /media-files/{tên file}` công khai (không cần JWT, vì file
+> **Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (2026-07-21, cập
+> nhật 2026-07-22):** `Question.audioUrl` (trắc nghiệm Voice) và
+> `Question.imageUrl` (tự luận scan đề bài) ở bước 1 Main Flow trước đây
+> yêu cầu Giáo viên tự dán URL đã upload sẵn lên CDN ngoài — thực tế
+> backend/dự án chưa có hạ tầng lưu trữ file nào. Đã bổ sung API dùng
+> chung `POST /api/media/upload` (multipart, chấp nhận `audio/*`/`image/*`,
+> tối đa 50MB/10MB, kèm tham số bắt buộc `module=LMS_QUESTION` - xem
+> `MediaModule`) trả về `{"url": "..."}`, upload lên **Cloudflare R2**
+> (Object Storage tương thích S3 API, không tính phí egress) — thay cho
+> quyết định lưu đĩa cục bộ + Docker volume ban đầu — trả thẳng URL công
+> khai của R2 (r2.dev subdomain hoặc Custom Domain) với key dạng
+> `lms/questions/{audio|images}/{uuid}.{ext}` (tham số `module` để phân
+> biệt module gọi API dùng chung này, tránh trộn lẫn file nếu module khác
+> ngoài LMS sau này cũng upload qua đây), không cần JWT để xem vì file
 > nhúng trong thẻ `<audio>`/`<img>` không gửi kèm được header
-> Authorization) — xem `MediaController`/`MediaStorageService`. Phạm vi
-> lần này CHỈ áp dụng cho `Question.audioUrl`/`imageUrl`; các trường URL
-> khác trong hệ thống (`Student.portraitUrl`, tài liệu bài giảng, file
-> đính kèm Task...) vẫn giữ nguyên quy ước "coi như đã upload sẵn" cho tới
-> khi có yêu cầu riêng.
+> Authorization — xem `MediaController`/`MediaStorageService`/
+> `R2StorageConfig`. Phạm vi lần này CHỈ áp dụng cho
+> `Question.audioUrl`/`imageUrl`; các trường URL khác trong hệ thống
+> (`Student.portraitUrl`, tài liệu bài giảng, file đính kèm Task...) vẫn
+> giữ nguyên quy ước "coi như đã upload sẵn" cho tới khi có yêu cầu riêng.
 
 ---
 

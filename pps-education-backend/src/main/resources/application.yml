@@ -120,13 +120,24 @@ app:
     # đã bật sẵn) để test/CI/staging/production không bao giờ dính.
     dev-users: ${SEED_DEV_USERS:false}
   media:
-    # Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (2026-07-21): API
-    # upload file audio/ảnh cho Question.audioUrl/imageUrl (UC-40) - trước đây
-    # backend không có hạ tầng lưu file (xem ghi chú "Tệp coi như đã upload
-    # lên CDN từ trước" ở LessonService/các URL field khác - vẫn giữ nguyên,
-    # phạm vi lần này CHỈ áp dụng cho Question). Lưu đĩa cục bộ + Docker volume
-    # bền vững (không có S3/MinIO trong phạm vi hiện tại) thay vì CDN thật.
-    storage-dir: ${MEDIA_STORAGE_DIR:media-storage}
+    # Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (2026-07-21, cập nhật
+    # 2026-07-22): API upload file audio/ảnh cho Question.audioUrl/imageUrl
+    # (UC-40) - trước đây backend không có hạ tầng lưu file (xem ghi chú "Tệp
+    # coi như đã upload lên CDN từ trước" ở LessonService/các URL field khác -
+    # vẫn giữ nguyên, phạm vi lần này CHỈ áp dụng cho Question). Lưu trên
+    # Cloudflare R2 (Object Storage tương thích S3 API, không tính phí egress)
+    # - thay thế quyết định lưu đĩa cục bộ + Docker volume trước đó. Placeholder
+    # non-blank mặc định (không phải secret thật, giống JWT_SECRET/
+    # BANK_WEBHOOK_SECRET) - AwsBasicCredentials.create() ném lỗi ngay lúc khởi
+    # động nếu access-key rỗng, làm sập toàn bộ Spring context dùng chung cho
+    # MỌI test (không chỉ Media*) khi CI/máy dev chưa cấu hình R2 thật. Chỉ cần
+    # override qua env var khi thật sự gọi API upload.
+    r2:
+      account-id: ${R2_ACCOUNT_ID:CHANGE_THIS_IN_ENV}
+      access-key: ${R2_ACCESS_KEY_ID:CHANGE_THIS_IN_ENV}
+      secret-key: ${R2_SECRET_ACCESS_KEY:CHANGE_THIS_IN_ENV}
+      bucket: ${R2_BUCKET_NAME:CHANGE_THIS_IN_ENV}
+      public-base-url: ${R2_PUBLIC_BASE_URL:https://change-this-in-env.r2.dev}
 
 springdoc:
   swagger-ui:
