@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { FileText, Plus, Upload, Video } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
+import { useApp } from "@/context/AppContext";
 import { ClassResponse, CurriculumResponse, CurriculumSubjectResponse, listClasses, listCurriculums, listCurriculumSubjects } from "@/features/academic/api";
 import {
   AddLessonMaterialRequest,
@@ -42,6 +43,7 @@ const materialTypeIcon: Record<string, React.ReactNode> = {
 
 /** UC-23: Kho bài giảng — chỉ Giáo viên được phân công dạy đúng lớp/khung chương trình mới tạo/sửa được (BE tự chặn, không bypass qua permission — đã xác nhận với người dùng). */
 export default function LecturesPage() {
+  const { selectedCampusId } = useApp();
   const [scopeType, setScopeType] = useState<"CLASS" | "CURRICULUM">("CLASS");
   const [classes, setClasses] = useState<ClassResponse[]>([]);
   const [curriculums, setCurriculums] = useState<CurriculumResponse[]>([]);
@@ -61,9 +63,9 @@ export default function LecturesPage() {
   const effectiveCurriculumId = scopeType === "CLASS" ? selectedClass?.curriculumId ?? null : selectedCurriculumId;
 
   useEffect(() => {
-    listClasses().then(setClasses).catch(() => undefined);
+    listClasses({ siteId: selectedCampusId !== "ALL" ? Number(selectedCampusId) : undefined }).then(setClasses).catch(() => undefined);
     listCurriculums().then(setCurriculums).catch(() => undefined);
-  }, []);
+  }, [selectedCampusId]);
 
   const loadLessons = () => {
     if (scopeType === "CLASS" && !selectedClassId) {

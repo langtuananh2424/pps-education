@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { ChevronDown, ChevronRight, ClipboardList, Clock } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { AssignedExerciseResponse, ExerciseQuestionResponse, listExerciseQuestions, listMyAssignedExercises } from "../api";
+import TakeExerciseModal from "./TakeExerciseModal";
 
 interface AssignmentsTabProps {
   classId: number;
@@ -13,20 +14,22 @@ const attemptStatusLabels: Record<string, { label: string; className: string }> 
   FULLY_GRADED: { label: "Đã có điểm", className: "bg-teal/10 text-teal-deep" }
 };
 
-/** UC-40 (phía học viên): xem bài tập được giao cho lớp mình — chỉ xem, chưa làm bài (nộp bài thuộc UC-24/27, đang chờ BE bổ sung field choices an toàn cho câu trắc nghiệm trước khi làm được ở đây). */
+/** UC-40 (phía học viên): xem bài tập được giao cho lớp mình + làm bài thật (UC-24/27, đã có field choices an toàn cho câu trắc nghiệm). */
 export default function AssignmentsTab({ classId }: AssignmentsTabProps) {
   const [items, setItems] = useState<AssignedExerciseResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const load = () => {
     setLoading(true);
     setError(null);
     listMyAssignedExercises(classId)
       .then(setItems)
       .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách bài tập."))
       .finally(() => setLoading(false));
-  }, [classId]);
+  };
+
+  useEffect(load, [classId]);
 
   if (loading) return <p className="text-sm text-muted font-bold">Đang tải...</p>;
 
@@ -43,7 +46,7 @@ export default function AssignmentsTab({ classId }: AssignmentsTabProps) {
       ) : (
         <div className="space-y-3">
           {items.map((item) => (
-            <AssignmentCard key={item.assignmentId} item={item} />
+            <AssignmentCard key={item.assignmentId} item={item} onChanged={load} />
           ))}
         </div>
       )}
@@ -51,10 +54,11 @@ export default function AssignmentsTab({ classId }: AssignmentsTabProps) {
   );
 }
 
-function AssignmentCard({ item }: { item: AssignedExerciseResponse }) {
+function AssignmentCard({ item, onChanged }: { item: AssignedExerciseResponse; onChanged: () => void }) {
   const [expanded, setExpanded] = useState(false);
   const [questions, setQuestions] = useState<ExerciseQuestionResponse[] | null>(null);
   const [loadingQuestions, setLoadingQuestions] = useState(false);
+  const [taking, setTaking] = useState(false);
 
   const isOverdue = item.dueAt != null && new Date(item.dueAt) < new Date();
   const attemptMeta = item.myLatestAttemptStatus ? attemptStatusLabels[item.myLatestAttemptStatus] : null;
@@ -95,7 +99,7 @@ function AssignmentCard({ item }: { item: AssignedExerciseResponse }) {
       </button>
 
       {expanded && (
-        <div className="p-4 bg-white space-y-2">
+        <div className="p-4 bg-white space-y-3">
           {loadingQuestions ? (
             <p className="text-xs text-muted font-bold">Đang tải câu hỏi...</p>
           ) : !questions || questions.length === 0 ? (
@@ -112,7 +116,27 @@ function AssignmentCard({ item }: { item: AssignedExerciseResponse }) {
               ))}
             </div>
           )}
+          <button onClick={() => setTaking(true)} className="text-xs font-extrabold text-white bg-teal px-4 py-2 rounded-xl">
+            {item.myLatestAttemptStatus == null ? "Làm bài" : item.myLatestAttemptStatus === "IN_PROGRESS" ? "Tiếp tục làm bài" : "Xem lại bài đã nộp"}
+          </button>
         </div>
+      )}
+
+      {taking && (
+        <TakeExerciseModal
+          item={item}
+          // Mở đề = BE đã tạo attempt ngay (started_at = NOW), kể cả khi đóng chưa nộp — luôn báo onChanged
+          // để danh sách bên ngoài cập nhật đúng myLatestAttemptId/Status, tránh lần sau bấm "Làm bài" lại
+          // tưởng chưa có lượt nào rồi gọi tạo lượt MỚI (đề không cho làm lại sẽ bị chặn ngay).
+          onClose={() => {
+            setTaking(false);
+            onChanged();
+          }}
+          onFinished={() => {
+            onChanged();
+            setQuestions(null);
+          }}
+        />
       )}
     </div>
   );
