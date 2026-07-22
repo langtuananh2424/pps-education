@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 import vn.com.pps.education.dto.AddTaskAttachmentRequest;
 import vn.com.pps.education.dto.AddTaskCommentRequest;
 import vn.com.pps.education.dto.CreateTaskRequest;
+import vn.com.pps.education.dto.ReassignTaskRequest;
 import vn.com.pps.education.dto.TaskAssignmentResponse;
 import vn.com.pps.education.dto.TaskAttachmentResponse;
 import vn.com.pps.education.dto.TaskCommentResponse;
@@ -66,6 +67,15 @@ public class TaskController {
                                                                           @Valid @RequestBody UpdateAssignmentStatusRequest request,
                                                                           @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(taskService.updateAssignmentStatus(id, request, actor.userId()));
+    }
+
+    /** UC-07 A3: người giao việc giao lại phân công đã bị từ chối cho nhân sự khác. */
+    @PostMapping("/api/tasks/{id}/reassign")
+    @PreAuthorize("hasPermission(null, 'task.create')")
+    public ResponseEntity<TaskAssignmentResponse> reassign(@PathVariable Long id,
+                                                            @Valid @RequestBody ReassignTaskRequest request,
+                                                            @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(taskService.reassign(id, request, actor.userId()));
     }
 
     @PostMapping("/api/tasks/{id}/attachments")
