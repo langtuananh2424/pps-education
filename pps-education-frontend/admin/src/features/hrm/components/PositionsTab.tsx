@@ -13,6 +13,8 @@ import {
 } from "../api";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
+import { useToast } from "@/lib/useToast";
+import Toast from "@/components/ui/Toast";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-xs p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
@@ -25,6 +27,7 @@ export default function PositionsTab() {
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const { message: toastMessage, showToast } = useToast();
 
   const load = () => {
     setLoading(true);
@@ -47,6 +50,7 @@ export default function PositionsTab() {
       await deletePosition(id);
       if (selectedId === id) setSelectedId(null);
       load();
+      showToast("Đã xóa chức vụ thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Xóa chức vụ thất bại.");
     }
@@ -67,7 +71,16 @@ export default function PositionsTab() {
 
         {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
-        {creating && <PositionForm onDone={() => { setCreating(false); load(); }} onCancel={() => setCreating(false)} />}
+        {creating && (
+          <PositionForm
+            onDone={() => {
+              setCreating(false);
+              load();
+              showToast("Đã tạo chức vụ thành công!");
+            }}
+            onCancel={() => setCreating(false)}
+          />
+        )}
 
         {loading ? (
           <p className="text-xs text-slate-500">Đang tải...</p>
@@ -103,6 +116,8 @@ export default function PositionsTab() {
           <div className="border border-slate-200 rounded-lg p-8 text-center text-xs text-slate-400 italic">Chọn 1 chức vụ bên trái để cấu hình role mặc định.</div>
         )}
       </div>
+
+      <Toast message={toastMessage} />
     </div>
   );
 }

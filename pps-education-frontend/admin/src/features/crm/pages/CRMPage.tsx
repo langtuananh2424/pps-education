@@ -2,8 +2,11 @@ import React, { useState } from "react";
 import { Lead, Student } from "@/types";
 import { mockLeads, mockStudents } from "@/data/mockData";
 import Tabs from "@/components/ui/Tabs";
-import LeadsPanel from "../components/LeadsPanel";
-import ExcelImportPanel from "../components/ExcelImportPanel";
+import UnderDevelopment from "@/components/ui/UnderDevelopment";
+// Cả LeadsPanel (UC-33) và ExcelImportPanel (UC-35) tạm ẩn theo yêu cầu người dùng (2026-07-23)
+// — sẽ phát triển tiếp ở giai đoạn sau, không xoá component, chỉ chưa hiển thị.
+// import LeadsPanel from "../components/LeadsPanel";
+// import ExcelImportPanel from "../components/ExcelImportPanel";
 
 export default function CRMPage() {
   const [activeSubTab, setActiveSubTab] = useState<"leads" | "import">("leads");
@@ -95,9 +98,9 @@ export default function CRMPage() {
       </div>
 
       {activeSubTab === "leads" ? (
-        <LeadsPanel leads={leads} onAddCallLog={handleAddCallLog} onConvertToStudent={handleConvertToStudent} />
+        <UnderDevelopment title="Data Khách hàng & Leads (UC-33)" />
       ) : (
-        <ExcelImportPanel onImport={handleBatchImport} />
+        <UnderDevelopment title="Nhập Học Theo Lô - Excel (UC-35)" />
       )}
     </div>
   );

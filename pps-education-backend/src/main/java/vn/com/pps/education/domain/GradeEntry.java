@@ -11,11 +11,6 @@ import java.util.UUID;
 /**
  * Bảng grade_entries (SDD > Học thuật > Sổ điểm & Điểm tổng kết > c) —
  * điểm cụ thể của 1 học sinh cho 1 thành phần điểm (UC-19 nhập điểm,
-<<<<<<< HEAD
- * UC-20 duyệt điểm). Workflow DRAFT → PENDING (submit, UC-19) →
- * APPROVED/REJECTED (UC-20) — REJECTED quay lại DRAFT khi Giáo viên sửa
- * (enterGrade), khác với curriculums (không có REJECTED riêng).
-=======
  * UC-20 công bố điểm dự kiến, UC-62 phúc khảo). V43 (bổ sung ngoài SDD
  * gốc, đã xác nhận với người dùng — sửa đổi lần 2 sau V39): luồng 4
  * trạng thái DRAFT → PROVISIONAL_PUBLISHED → APPEAL → OFFICIAL, khoá sửa
@@ -38,7 +33,6 @@ import java.util.UUID;
  *
  * Cột submitted_at/approval_flow_id vẫn còn trong DB (lịch sử luồng
  * duyệt cũ trước V39) nhưng không còn map ở entity.
->>>>>>> develop
  */
 @Getter
 @Setter
@@ -46,11 +40,7 @@ import java.util.UUID;
 @Table(name = "grade_entries")
 public class GradeEntry {
 
-<<<<<<< HEAD
-    public enum Status { DRAFT, PENDING, APPROVED, REJECTED }
-=======
     public enum Status { DRAFT, PROVISIONAL_PUBLISHED, APPEAL, OFFICIAL }
->>>>>>> develop
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -91,25 +81,13 @@ public class GradeEntry {
     @Column(nullable = false, length = 30)
     private Status status = Status.DRAFT;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "approval_flow_id")
-    private ApprovalFlow approvalFlow;
-
-    @Column(name = "submitted_at")
-    private OffsetDateTime submittedAt;
-
-    @Column(name = "approved_at")
-    private OffsetDateTime approvedAt;
+    @Column(name = "published_at")
+    private OffsetDateTime publishedAt;
 
     @ManyToOne(fetch = FetchType.LAZY)
-<<<<<<< HEAD
-    @JoinColumn(name = "approved_by")
-    private User approvedBy;
-=======
     @JoinColumn(name = "published_by")
     private User publishedBy;
 
     @Column(name = "finalized_at")
     private OffsetDateTime finalizedAt;
->>>>>>> develop
 }

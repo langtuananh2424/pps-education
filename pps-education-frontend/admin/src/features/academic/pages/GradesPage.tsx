@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import { UserRole } from "@/types";
@@ -14,6 +14,8 @@ import {
   acceptGradeAppeal,
   addGradeComponent,
   createGradePeriod,
+  deleteGradeComponent,
+  deleteGradePeriod,
   getClass,
   listClassEnrollments,
   listClassTeachers,
@@ -29,6 +31,8 @@ import GradeSheetTable from "../components/GradeSheetTable";
 import GradeExcelImportPanel from "../components/GradeExcelImportPanel";
 import GradePublishDetail from "../components/GradePublishDetail";
 import GradePublishGroupList, { GradePublishGroup } from "../components/GradePublishGroupList";
+import { useToast } from "@/lib/useToast";
+import Toast from "@/components/ui/Toast";
 
 const inputClass = "bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none";
 
@@ -66,6 +70,7 @@ export default function GradesPage() {
   const [pendingAppeals, setPendingAppeals] = useState<GradeAppealResponse[]>([]);
   const [loadingAppeals, setLoadingAppeals] = useState(true);
   const [acceptingAppealId, setAcceptingAppealId] = useState<number | null>(null);
+  const { message: toastMessage, showToast } = useToast();
 
   const selectedClass = classes.find((c) => c.id === selectedClassId) ?? null;
   const selectedPendingGroup = pendingGroups.find((g) => g.classId === selectedPendingClassId) ?? null;
@@ -143,6 +148,7 @@ export default function GradesPage() {
     try {
       await acceptGradeAppeal(id);
       loadPendingAppeals();
+      showToast("Đã tiếp nhận yêu cầu phúc khảo thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Tiếp nhận yêu cầu phúc khảo thất bại.");
     } finally {
@@ -170,6 +176,35 @@ export default function GradesPage() {
       .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được đầu điểm."));
   }, [selectedPeriodId]);
 
+  /** UC-19 (bổ sung): chỉ xoá được kỳ RỖNG (chưa có đầu điểm/điểm tổng kết/cửa sổ nhập điểm) — BE tự chặn 422 nếu không đủ điều kiện. */
+  const handleDeletePeriod = async () => {
+    if (!selectedPeriodId) return;
+    const period = gradePeriods.find((p) => p.id === selectedPeriodId);
+    if (!window.confirm(`Xoá kỳ điểm "${period?.name ?? selectedPeriodId}"? Chỉ xoá được khi kỳ này còn rỗng (chưa có đầu điểm/điểm tổng kết).`)) return;
+    setError(null);
+    try {
+      await deleteGradePeriod(selectedPeriodId);
+      setGradePeriods((prev) => prev.filter((p) => p.id !== selectedPeriodId));
+      setSelectedPeriodId(null);
+      showToast("Đã xoá kỳ điểm thành công!");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Xoá kỳ điểm thất bại.");
+    }
+  };
+
+  /** UC-19 (bổ sung): chỉ xoá được đầu điểm CHƯA có điểm nhập nào — BE tự chặn 422 nếu đã có điểm. */
+  const handleDeleteComponent = async (component: GradeComponentResponse) => {
+    if (!window.confirm(`Xoá đầu điểm "${component.name}"? Chỉ xoá được khi đầu điểm này chưa có điểm nhập nào.`)) return;
+    setError(null);
+    try {
+      await deleteGradeComponent(component.id);
+      setGradeComponents((prev) => prev.filter((c) => c.id !== component.id));
+      showToast("Đã xoá đầu điểm thành công!");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Xoá đầu điểm thất bại.");
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
@@ -194,6 +229,7 @@ export default function GradesPage() {
             onPublished={() => {
               setSelectedPendingClassId(null);
               loadPendingGroups();
+              showToast("Đã công bố điểm thành công!");
             }}
           />
           <Card padded={false} className="overflow-hidden">
@@ -316,17 +352,35 @@ export default function GradesPage() {
                 </select>
               </div>
               {canManage && selectedClass && (
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap items-center">
                   <Button type="button" size="sm" variant="secondary" onClick={() => setShowPeriodForm((v) => !v)}>
                     <Plus className="w-3.5 h-3.5" />
                     Thêm kỳ điểm
                   </Button>
                   {selectedPeriodId && (
-                    <Button type="button" size="sm" variant="secondary" onClick={() => setShowComponentForm((v) => !v)}>
-                      <Plus className="w-3.5 h-3.5" />
-                      Thêm đầu điểm
-                    </Button>
+                    <>
+                      <Button type="button" size="sm" variant="secondary" onClick={() => setShowComponentForm((v) => !v)}>
+                        <Plus className="w-3.5 h-3.5" />
+                        Thêm đầu điểm
+                      </Button>
+                      <Button type="button" size="sm" variant="secondary" onClick={handleDeletePeriod} className="text-rose-600 hover:bg-rose-50">
+                        <X className="w-3.5 h-3.5" />
+                        Xoá kỳ điểm này
+                      </Button>
+                    </>
                   )}
+                </div>
+              )}
+              {canManage && selectedPeriodId && gradeComponents.length > 0 && (
+                <div className="flex gap-1.5 flex-wrap">
+                  {gradeComponents.map((c) => (
+                    <span key={c.id} className="flex items-center gap-1 bg-slate-100 border border-slate-200 text-slate-600 text-[11px] font-semibold px-2 py-1 rounded-lg">
+                      {c.name}
+                      <button type="button" onClick={() => handleDeleteComponent(c)} title="Xoá đầu điểm (chỉ khi chưa có điểm nhập)" className="hover:text-rose-600">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
                 </div>
               )}
               {showPeriodForm && selectedClass && (
@@ -335,6 +389,7 @@ export default function GradesPage() {
                   onDone={(p) => {
                     setGradePeriods((prev) => [...prev, p]);
                     setShowPeriodForm(false);
+                    showToast("Đã tạo kỳ điểm thành công!");
                   }}
                   onCancel={() => setShowPeriodForm(false)}
                 />
@@ -345,6 +400,7 @@ export default function GradesPage() {
                   onDone={(c) => {
                     setGradeComponents((prev) => [...prev, c]);
                     setShowComponentForm(false);
+                    showToast("Đã tạo đầu điểm thành công!");
                   }}
                   onCancel={() => setShowComponentForm(false)}
                 />
@@ -378,9 +434,14 @@ export default function GradesPage() {
           gradePeriodId={selectedPeriodId}
           components={gradeComponents}
           enrollments={enrollments}
-          onImported={() => setSheetVersion((v) => v + 1)}
+          onImported={() => {
+            setSheetVersion((v) => v + 1);
+            showToast("Đã nhập điểm từ Excel thành công!");
+          }}
         />
       )}
+
+      <Toast message={toastMessage} />
     </div>
   );
 }

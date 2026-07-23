@@ -11,6 +11,8 @@ import vn.com.pps.education.domain.SessionPeriod;
 import vn.com.pps.education.domain.SessionPeriodHistory;
 import vn.com.pps.education.domain.SiteManager;
 import vn.com.pps.education.domain.User;
+import vn.com.pps.education.dto.BulkCreateClassSessionRequest;
+import vn.com.pps.education.dto.BulkCreateClassSessionResponse;
 import vn.com.pps.education.dto.CancelClassSessionRequest;
 import vn.com.pps.education.dto.ClassSessionResponse;
 import vn.com.pps.education.dto.CreateClassSessionRequest;
@@ -32,18 +34,17 @@ import vn.com.pps.education.repository.StudentRepository;
 import vn.com.pps.education.repository.SystemSettingRepository;
 import vn.com.pps.education.repository.UserRepository;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-<<<<<<< HEAD
-=======
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
->>>>>>> develop
 
 /**
  * UC-48: Xếp lịch buổi học (FR-ACA-05, docs/uc/phan-he-06-hoc-thuat.md).
@@ -148,22 +149,14 @@ public class ClassSessionService {
     /** Tạo 1 buổi học + tự sinh session_periods. FR-FAC-03: kiểm tra trùng phòng (chỉ phòng is_flexible=FALSE). */
     @Transactional
     public ClassSessionResponse createSession(Long classId, CreateClassSessionRequest request, Long actorUserId) {
-        SchoolClass schoolClass = schoolClassRepository.findByIdAndDeletedAtIsNull(classId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học id=" + classId));
+        SchoolClass schoolClass = getSchoolClassOrThrow(classId);
         if (!request.endTime().isAfter(request.startTime())) {
             throw new IllegalArgumentException("endTime phải sau startTime.");
         }
-        User teacher = userRepository.findById(request.primaryTeacherId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + request.primaryTeacherId()));
-        User actor = userRepository.findById(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
+        User teacher = getUserOrThrow(request.primaryTeacherId());
+        User actor = getUserOrThrow(actorUserId);
+        Room room = request.roomId() == null ? null : getRoomOrThrow(request.roomId());
 
-<<<<<<< HEAD
-        Room room = null;
-        if (request.roomId() != null) {
-            room = getRoomOrThrow(request.roomId());
-            checkRoomConflict(room, request.sessionDate(), request.startTime(), request.endTime(), null);
-=======
         ClassSession session = createSessionEntity(schoolClass, request.sessionDate(), request.startTime(), request.endTime(),
                 room, teacher, ClassSession.SessionType.valueOf(request.sessionType()), actor);
 
@@ -280,24 +273,27 @@ public class ClassSessionService {
                                               Room room, User teacher, ClassSession.SessionType sessionType, User actor) {
         if (room != null) {
             checkRoomConflict(room, sessionDate, startTime, endTime, null);
->>>>>>> develop
         }
 
         ClassSession session = new ClassSession();
         session.setSchoolClass(schoolClass);
-        session.setSessionDate(request.sessionDate());
-        session.setStartTime(request.startTime());
-        session.setEndTime(request.endTime());
+        session.setSessionDate(sessionDate);
+        session.setStartTime(startTime);
+        session.setEndTime(endTime);
         session.setRoom(room);
         session.setPrimaryTeacher(teacher);
-        session.setSessionType(ClassSession.SessionType.valueOf(request.sessionType()));
+        session.setSessionType(sessionType);
         session.setCreatedBy(actor);
         session = classSessionRepository.save(session);
 
         writeClassSessionHistory(session, actor, ClassSessionHistory.Action.CREATED);
         generateDefaultPeriods(session, actor);
+        return session;
+    }
 
-        return toResponse(session);
+    private SchoolClass getSchoolClassOrThrow(Long classId) {
+        return schoolClassRepository.findByIdAndDeletedAtIsNull(classId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học id=" + classId));
     }
 
     /** UC-48 A2: hủy 1 buổi đang SCHEDULED, giải phóng phòng khỏi ràng buộc trùng lịch. */

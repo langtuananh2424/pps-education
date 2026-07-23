@@ -6,6 +6,8 @@ import { EmployeeResponse, importEmployees, listEmployees } from "../api";
 import EmployeeListPanel from "../components/EmployeeListPanel";
 import EmployeeDetailPanel from "../components/EmployeeDetailPanel";
 import EmployeeFormModal from "../components/EmployeeFormModal";
+import { useToast } from "@/lib/useToast";
+import Toast from "@/components/ui/Toast";
 
 const EMPLOYEE_IMPORT_HEADERS = [
   "Họ và tên *",
@@ -28,6 +30,7 @@ export default function ProfilesPage() {
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const { message: toastMessage, showToast } = useToast();
 
   const load = () => {
     setLoading(true);
@@ -98,9 +101,12 @@ export default function ProfilesPage() {
             setCreateOpen(false);
             setSelectedId(id);
             load();
+            showToast("Đã tạo hồ sơ nhân sự thành công!");
           }}
         />
       )}
+
+      <Toast message={toastMessage} />
     </div>
   );
 }

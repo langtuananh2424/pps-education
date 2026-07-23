@@ -12,6 +12,8 @@ import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.domain.UserRole;
 import vn.com.pps.education.dto.AssignTeacherRequest;
+import vn.com.pps.education.dto.BulkCreateClassSessionRequest;
+import vn.com.pps.education.dto.BulkCreateClassSessionResponse;
 import vn.com.pps.education.dto.CancelClassSessionRequest;
 import vn.com.pps.education.dto.ClassResponse;
 import vn.com.pps.education.dto.ClassSessionResponse;
@@ -35,6 +37,7 @@ import vn.com.pps.education.repository.UserRepository;
 import vn.com.pps.education.repository.UserRoleRepository;
 import vn.com.pps.education.support.AbstractIntegrationTest;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
@@ -289,8 +292,6 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
                 .isInstanceOf(InvalidClassSessionStatusTransitionException.class);
     }
 
-<<<<<<< HEAD
-=======
     @Test
     void bulkCreateSessions_UC56_MainFlow_generatesSessionsOnMatchingWeekdays() {
         LocalDate startDate = nextWeekday(LocalDate.now().plusDays(20), DayOfWeek.MONDAY);
@@ -463,7 +464,6 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
         return date;
     }
 
->>>>>>> develop
     private String curriculumCode() {
         return "CUR-" + SEQ.incrementAndGet();
     }

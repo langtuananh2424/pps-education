@@ -5,6 +5,7 @@ import Button from "@/components/ui/Button";
 import { searchUsers, UserListItemResponse } from "@/features/system-admin/api";
 import { RoomResponse, listRoomsBySite } from "@/features/facility/api";
 import { BulkCreateClassSessionRequest, BulkCreateClassSessionResponse, bulkCreateClassSessions } from "../api";
+import DatePicker from "@/components/ui/DatePicker";
 
 const inputClass = "w-full bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
@@ -101,11 +102,11 @@ export default function BulkGenerateSessionsForm({ classId, siteId, onDone, onCa
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className={labelClass}>Từ ngày *</label>
-          <input required type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className={inputClass} />
+          <DatePicker value={startDate} onChange={setStartDate} max={endDate || undefined} />
         </div>
         <div>
           <label className={labelClass}>Đến ngày *</label>
-          <input required type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className={inputClass} />
+          <DatePicker value={endDate} onChange={setEndDate} min={startDate || undefined} />
         </div>
       </div>
 

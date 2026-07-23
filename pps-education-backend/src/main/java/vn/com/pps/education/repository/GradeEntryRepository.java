@@ -17,13 +17,8 @@ public interface GradeEntryRepository extends JpaRepository<GradeEntry, Long> {
 
     List<GradeEntry> findBySchoolClassIdAndStudentId(Long classId, Long studentId);
 
-<<<<<<< HEAD
-    /** UC-25 Portal Phụ huynh — bảng điểm: grade_entries WHERE status=APPROVED (SDD). */
-    List<GradeEntry> findBySchoolClassIdAndStudentIdAndStatus(Long classId, Long studentId, GradeEntry.Status status);
-=======
     /** UC-25/61 Portal Phụ huynh/Học sinh — bảng điểm: mọi trạng thái đã công bố dự kiến trở lên (V43, khác DRAFT). */
     List<GradeEntry> findBySchoolClassIdAndStudentIdAndStatusNot(Long classId, Long studentId, GradeEntry.Status status);
->>>>>>> develop
 
     long countByGradeComponentId(Long gradeComponentId);
 
@@ -31,14 +26,10 @@ public interface GradeEntryRepository extends JpaRepository<GradeEntry, Long> {
             SELECT e FROM GradeEntry e
             WHERE e.status = :status
             AND e.schoolClass.site.id = :siteId
-            ORDER BY e.submittedAt ASC
+            ORDER BY e.enteredAt ASC
             """)
     List<GradeEntry> findByStatusAndSiteId(@Param("status") GradeEntry.Status status, @Param("siteId") Long siteId);
 
-<<<<<<< HEAD
-    /** UC-20 (mở rộng, bổ sung ngoài SDD gốc): HEAD_ACADEMIC xem hàng chờ duyệt của MỌI site, không giới hạn theo site_managers. */
-    List<GradeEntry> findByStatusOrderBySubmittedAtAsc(GradeEntry.Status status);
-=======
     /** UC-25 Portal trường liên kết (PartnerPortalService) — bảng điểm: mọi trạng thái đã công bố dự kiến trở lên (V43, khác DRAFT), theo site. */
     @Query("""
             SELECT e FROM GradeEntry e
@@ -64,5 +55,4 @@ public interface GradeEntryRepository extends JpaRepository<GradeEntry, Long> {
 
     /** UC-62 A3 — GradeSchedulerService: hết hạn Y ngày phúc khảo kể từ publishedAt, tự động chuyển OFFICIAL bất kể còn PROVISIONAL_PUBLISHED hay APPEAL. */
     List<GradeEntry> findByStatusInAndPublishedAtBefore(List<GradeEntry.Status> statuses, OffsetDateTime cutoff);
->>>>>>> develop
 }

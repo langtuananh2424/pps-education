@@ -6,6 +6,9 @@ import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import EmptyState from "@/components/ui/EmptyState";
 import { ApiError } from "@/lib/apiClient";
+import { useToast } from "@/lib/useToast";
+import Toast from "@/components/ui/Toast";
+import { DepartmentResponse, listDepartments } from "@/features/hrm/api";
 import {
   changeUserPassword,
   getUserDetail,
@@ -48,11 +51,6 @@ export default function UsersPage() {
   const [roleCode, setRoleCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
-<<<<<<< HEAD
-
-  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
-
-=======
   const [departments, setDepartments] = useState<DepartmentResponse[]>([]);
   const [roles, setRoles] = useState<RoleResponse[]>([]);
 
@@ -73,7 +71,6 @@ export default function UsersPage() {
    * GET /api/users (tương tự departmentId) để chuyển hẳn về lọc server-side, tránh giới
    * hạn lô lớn khi hệ thống có nhiều tài khoản hơn.
    */
->>>>>>> develop
   const loadUsers = () => {
     setLoading(true);
     setListError(null);
@@ -138,14 +135,8 @@ export default function UsersPage() {
           <option value="INACTIVE">Ngừng hoạt động</option>
           <option value="SUSPENDED">Tạm khóa</option>
         </select>
-        <input
+        <select
           value={departmentId}
-<<<<<<< HEAD
-          onChange={(e) => setDepartmentId(e.target.value.replace(/[^0-9]/g, ""))}
-          placeholder="ID phòng ban (tùy chọn)"
-          className="w-40 bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
-        />
-=======
           onChange={(e) => setDepartmentId(e.target.value)}
           className="w-48 bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
         >
@@ -168,7 +159,6 @@ export default function UsersPage() {
             </option>
           ))}
         </select>
->>>>>>> develop
         <Button type="submit" variant="dark">
           Tìm kiếm
         </Button>
@@ -197,7 +187,7 @@ export default function UsersPage() {
                   <Td className="font-mono font-bold text-slate-800">{u.username}</Td>
                   <Td className="font-semibold">{u.fullName}</Td>
                   <Td>{u.email}</Td>
-                  <Td>{u.departmentId ?? "—"}</Td>
+                  <Td>{departmentName(u.departmentId)}</Td>
                   <Td>
                     <div className="flex flex-wrap gap-1">
                       {u.roles.length === 0 ? (
@@ -267,6 +257,7 @@ export default function UsersPage() {
 
       <UserDetailModal
         userId={selectedUserId}
+        departments={departments}
         onClose={() => setSelectedUserId(null)}
         onChanged={loadUsers}
       />
@@ -274,7 +265,17 @@ export default function UsersPage() {
   );
 }
 
-function UserDetailModal({ userId, onClose, onChanged }: { userId: number | null; onClose: () => void; onChanged: () => void }) {
+function UserDetailModal({
+  userId,
+  departments,
+  onClose,
+  onChanged
+}: {
+  userId: number | null;
+  departments: DepartmentResponse[];
+  onClose: () => void;
+  onChanged: () => void;
+}) {
   const [detail, setDetail] = useState<UserDetailResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -283,6 +284,7 @@ function UserDetailModal({ userId, onClose, onChanged }: { userId: number | null
   const [newPassword, setNewPassword] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
   const [changingStatus, setChangingStatus] = useState(false);
+  const { message: toastMessage, showToast } = useToast();
 
   const loadDetail = (id: number) => {
     setLoading(true);
@@ -319,6 +321,7 @@ function UserDetailModal({ userId, onClose, onChanged }: { userId: number | null
       });
       loadDetail(detail.id);
       onChanged();
+      showToast("Đã lưu hồ sơ thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Cập nhật hồ sơ thất bại.");
     } finally {
@@ -337,6 +340,7 @@ function UserDetailModal({ userId, onClose, onChanged }: { userId: number | null
       await updateUserStatus(detail.id, newStatus);
       loadDetail(detail.id);
       onChanged();
+      showToast(`Đã chuyển tài khoản sang trạng thái "${statusLabels[newStatus]}"!`);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Đổi trạng thái thất bại.");
     } finally {
@@ -350,12 +354,16 @@ function UserDetailModal({ userId, onClose, onChanged }: { userId: number | null
       setError("Mật khẩu mới phải từ 8 ký tự trở lên.");
       return;
     }
+    if (!window.confirm(`Xác nhận đặt mật khẩu mới cho tài khoản "${detail.username}"? Tài khoản này có thể đăng nhập ngay bằng mật khẩu mới, mật khẩu cũ sẽ không còn dùng được.`)) {
+      return;
+    }
     setChangingPassword(true);
     setError(null);
     try {
       await changeUserPassword(detail.id, newPassword.trim());
       setNewPassword("");
       loadDetail(detail.id);
+      showToast("Đã đặt lại mật khẩu thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Đặt lại mật khẩu thất bại.");
     } finally {
@@ -385,7 +393,7 @@ function UserDetailModal({ userId, onClose, onChanged }: { userId: number | null
             <span>Số lần đăng nhập sai: <span className="font-mono text-slate-700">{detail.failedLoginCount}</span></span>
             {detail.lockedUntil && <span>Khóa tạm tới: <span className="font-mono text-slate-700">{detail.lockedUntil}</span></span>}
             <span>
-              Phòng ban: <span className="font-mono text-slate-700">{detail.departmentId ?? "—"}</span>
+              Phòng ban: <span className="font-mono text-slate-700">{departments.find((d) => d.id === detail.departmentId)?.name ?? "—"}</span>
             </span>
             <span>
               Miễn trừ chấm công: <span className="font-mono text-slate-700">{detail.isManagement ? "Có" : "Không"}</span>
@@ -396,7 +404,10 @@ function UserDetailModal({ userId, onClose, onChanged }: { userId: number | null
           </p>
 
           <form onSubmit={handleSaveProfile} className="space-y-3 border-t border-slate-100 pt-4">
-            <span className="text-[10px] font-bold uppercase text-slate-500">Cập nhật hồ sơ (UC-49)</span>
+            <div>
+              <span className="text-[10px] font-bold uppercase text-slate-500">Cập nhật hồ sơ (UC-49)</span>
+              <p className="text-[10px] text-slate-400">Chỉ đổi họ tên/số điện thoại hiển thị của tài khoản này.</p>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={labelClass}>Họ tên *</label>
@@ -413,9 +424,12 @@ function UserDetailModal({ userId, onClose, onChanged }: { userId: number | null
           </form>
 
           <form onSubmit={handleChangePassword} className="space-y-2 border-t border-slate-100 pt-4">
-            <span className="text-[10px] font-bold uppercase text-slate-500 flex items-center gap-1">
-              <KeyRound className="w-3 h-3" /> Đặt lại mật khẩu (UC-45)
-            </span>
+            <div>
+              <span className="text-[10px] font-bold uppercase text-slate-500 flex items-center gap-1">
+                <KeyRound className="w-3 h-3" /> Đặt lại mật khẩu (UC-45)
+              </span>
+              <p className="text-[10px] text-slate-400">Admin đặt thẳng mật khẩu mới cho tài khoản này, có hiệu lực ngay — không cần biết mật khẩu cũ (dùng khi người dùng quên mật khẩu).</p>
+            </div>
             <div className="flex gap-2">
               <input
                 type="password"
@@ -424,14 +438,17 @@ function UserDetailModal({ userId, onClose, onChanged }: { userId: number | null
                 placeholder="Mật khẩu mới (tối thiểu 8 ký tự)"
                 className={inputClass}
               />
-              <Button type="submit" variant="secondary" size="sm" disabled={changingPassword}>
-                {changingPassword ? "Đang lưu..." : "Đặt lại"}
+              <Button type="submit" variant="secondary" size="sm" disabled={changingPassword} className="whitespace-nowrap">
+                {changingPassword ? "Đang lưu..." : "Đặt lại mật khẩu"}
               </Button>
             </div>
           </form>
 
           <div className="border-t border-slate-100 pt-4 flex flex-wrap gap-2">
-            <span className="text-[10px] font-bold uppercase text-slate-500 w-full">Khóa/Mở khóa (UC-47)</span>
+            <div className="w-full">
+              <span className="text-[10px] font-bold uppercase text-slate-500">Khóa/Mở khóa (UC-47)</span>
+              <p className="text-[10px] text-slate-400">Đổi trạng thái đăng nhập của tài khoản — ngừng/tạm khóa sẽ chặn đăng nhập ngay.</p>
+            </div>
             {detail.status !== "ACTIVE" && (
               <Button size="sm" variant="secondary" disabled={changingStatus} onClick={() => handleToggleStatus("ACTIVE")}>
                 <Unlock className="w-3.5 h-3.5" /> Mở khóa (ACTIVE)
@@ -450,6 +467,8 @@ function UserDetailModal({ userId, onClose, onChanged }: { userId: number | null
           </div>
         </div>
       )}
+
+      <Toast message={toastMessage} />
     </Modal>
   );
 }

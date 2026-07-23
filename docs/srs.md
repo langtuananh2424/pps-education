@@ -261,17 +261,16 @@ nhân đó mới được thao tác.*
     -   **FR-USR-05: Cập nhật thông tin tài khoản -** Quản trị viên sửa
         thông tin hồ sơ của 1 tài khoản đã tồn tại: họ tên, SĐT, phòng
         ban, cờ miễn trừ chấm công is_management. KHÔNG bao gồm
-        username/email (định danh đăng nhập, không đổi sau khi tạo — đổi
-        username/email nằm ngoài phạm vi thiết kế hiện tại), mật khẩu
-        (FR-USR-02) hay trạng thái tài khoản (FR-USR-04) — 2 FR đó có
-        luồng xác nhận/hệ quả riêng (thu hồi refresh token, reset
+        username/email (định danh đăng nhập, không đổi sau khi tạo qua
+        luồng này — đổi username nằm ngoài phạm vi thiết kế hiện tại,
+        riêng đổi email nay có FR-USR-06), mật khẩu (FR-USR-02) hay
+        trạng thái tài khoản (FR-USR-04) — các FR đó có luồng xác
+        nhận/hệ quả riêng (thu hồi refresh token, reset
         failed_login_count...) không áp dụng cho việc sửa hồ sơ thông
         thường. Là hạ tầng bắt buộc cho UI Quản trị tài khoản chỉnh sửa
         hồ sơ sau khi khởi tạo (FR-USR-01), sau khi đã tra cứu ra tài
         khoản đích qua FR-USR-03.
 
-<<<<<<< HEAD
-=======
     -   **FR-USR-06: Cập nhật email tài khoản -** (bổ sung ngoài SDD
         gốc, đã xác nhận với người dùng) Quản trị viên sửa email của 1
         tài khoản đã tồn tại — tách riêng khỏi FR-USR-05 vì lý do khác
@@ -295,7 +294,6 @@ nhân đó mới được thao tác.*
         ghi chú nội bộ...) vẫn chỉ Admin/Nhân viên Giáo vụ sửa được qua 2
         FR đó. Không đổi username/email/mật khẩu (FR-USR-02/FR-USR-06).
 
->>>>>>> develop
 **PHÂN HỆ 3: QUẢN LÝ CÔNG VIỆC VÀ QUY TRÌNH**
 
 -   **Mô tả tổng quan:** Số hóa luồng giao việc, theo dõi tiến độ phối
@@ -414,7 +412,11 @@ nhân đó mới được thao tác.*
         sinh đã tồn tại sẵn (tra theo mã học sinh) hàng loạt. 2 dòng cùng
         số điện thoại (VD anh chị em ruột) dùng lại đúng 1 hồ sơ phụ
         huynh, không tạo trùng. Không tạo phụ huynh không liên kết học
-        sinh nào.
+        sinh nào. Tài khoản phụ huynh MỚI tạo (bổ sung ngoài SDD gốc, đã
+        xác nhận với người dùng) được sinh kèm mật khẩu tạm ngẫu nhiên,
+        trả về 1 lần trong kết quả import (giống FR-HRM-05) — dùng đăng
+        nhập được ngay; sửa lại email placeholder sang email thật qua
+        FR-USR-06 nếu muốn dùng thêm được đăng nhập Google.
 
 **PHÂN HỆ 6: QUẢN LÝ HỌC THUẬT VÀ ĐÀO TẠO**
 
@@ -442,27 +444,6 @@ nhân đó mới được thao tác.*
         liên kết) phụ trách.
 
     -   **FR-ACA-03: Quản lý Sổ điểm -** Giáo viên nhập điểm thành phần
-<<<<<<< HEAD
-        cho học sinh. Hệ thống tự động tính điểm trung bình học phần
-        theo công thức cấu hình sẵn của Trưởng phòng đào tạo. Giáo viên
-        cũng có thể đẩy hàng loạt điểm đã hoàn thiện sẵn (kể cả Overall/
-        Level đã quy đổi theo band/%/thang riêng của lớp) qua file Excel
-        — hệ thống quét header, map theo đúng thành phần điểm đã cấu
-        hình cho kỳ đánh giá, không tự tính lại công thức Overall/Level
-        (UC-53, bổ sung ngoài SDD gốc, đã xác nhận với người dùng). Nếu
-        1 kỳ đánh giá cần bổ sung thành phần điểm ngoài khung chuẩn ban
-        đầu (VD Phòng đào tạo quyết định thêm 1 kỹ năng thi), có thể
-        thêm trực tiếp vào kỳ đánh giá đó mà không cần lặp lại toàn bộ
-        quy trình tùy biến + phê duyệt khung (UC-16/A2). Ngoài Giáo viên
-        được phân công, Trưởng phòng đào tạo hoặc Quản lý điểm trường phụ
-        trách đúng điểm trường của lớp cũng được phép nhập tay/import
-        Excel thay giáo viên khi cần hỗ trợ (bổ sung ngoài SDD gốc, đã
-        xác nhận với người dùng). Duyệt điểm (UC-20) yêu cầu quyền
-        `academic.grade.approve` (bổ sung ngoài SDD gốc, đã xác nhận với
-        người dùng) — mặc định gán cho Quản lý điểm trường (giới hạn đúng
-        điểm trường được gán phụ trách) và Trưởng phòng đào tạo (không
-        giới hạn theo điểm trường).
-=======
         cho học sinh; điểm được ghi nhận ngay ở trạng thái nháp (DRAFT),
         không qua bước gửi duyệt riêng. Điểm tổng kết/Overall theo kỳ
         đánh giá (hiển thị cho Phụ huynh) do Giáo viên tự nhập tay hoặc
@@ -511,7 +492,6 @@ nhân đó mới được thao tác.*
         lúc Công bố dự kiến (không chỉ khi Chính thức), kể cả đang Phúc
         khảo. Xem chi tiết UC-19 (nhập/sửa/xoá), UC-20 (công bố dự kiến),
         UC-62 (phúc khảo).
->>>>>>> develop
 
     -   **FR-ACA-04: Sổ nhận xét định kỳ -** Giáo viên viết nhận xét cho
         học sinh theo 3 biểu mẫu: Hàng ngày (thái độ), Giữa kỳ, và Cuối
@@ -525,9 +505,6 @@ nhân đó mới được thao tác.*
         Có thể hủy 1 buổi đã lên lịch (kèm lý do tùy chọn) hoặc dời lịch
         sang buổi mới (buổi cũ chuyển trạng thái RESCHEDULED, liên kết
         sang buổi mới tạo) — cả 2 thao tác chỉ áp dụng cho buổi đang ở
-<<<<<<< HEAD
-        trạng thái SCHEDULED.
-=======
         trạng thái SCHEDULED. Ngoài tạo từng buổi một, hệ thống còn hỗ
         trợ (bổ sung ngoài SDD gốc, đã xác nhận với người dùng): **sinh
         lịch hàng loạt theo mẫu lặp** — chọn khoảng ngày + các thứ trong
@@ -543,7 +520,6 @@ nhân đó mới được thao tác.*
         cho chính mình — tự xem lịch học theo tuần của (các) lớp đang
         ghi danh, không cần quyền đặc biệt (UC-59, bổ sung ngoài SDD
         gốc, đã xác nhận với người dùng).
->>>>>>> develop
 
     -   **FR-ACA-06: Quản lý Danh mục kỹ năng -** (bổ sung ngoài SDD
         gốc, đã xác nhận với người dùng) Trưởng phòng đào tạo quản lý
@@ -719,7 +695,10 @@ CDN)**
         giáo vụ import file Excel danh sách học sinh (theo lớp/khối) từ
         trường liên kết để tạo hồ sơ học sinh hàng loạt, thay vì nhập
         tay từng em. Hệ thống kiểm tra trùng lặp (theo mã học sinh/họ
-        tên + ngày sinh) trước khi tạo mới.
+        tên + ngày sinh) trước khi tạo mới. Mỗi tài khoản học sinh MỚI
+        tạo (bổ sung ngoài SDD gốc, đã xác nhận với người dùng) được
+        sinh kèm mật khẩu tạm ngẫu nhiên, trả về 1 lần trong kết quả
+        import (giống FR-HRM-05) — dùng đăng nhập được ngay.
 
 **PHÂN HỆ 10: QUẢN LÝ ĐIỂM TRƯỜNG & CƠ SỞ VẬT CHẤT**
 
@@ -841,11 +820,6 @@ CDN)**
 
   UC-48             Xếp lịch buổi học FR-ACA-05         6
 
-<<<<<<< HEAD
-  UC-19             Nhập điểm         FR-ACA-03         6
-
-  UC-20             Duyệt điểm        FR-ACA-03         6
-=======
   UC-56             Sinh lịch học     FR-ACA-05         6
                     hàng loạt theo                      
                     mẫu lặp                             
@@ -866,7 +840,6 @@ CDN)**
                     kiến                                
 
   UC-62             Phúc khảo điểm    FR-ACA-03         6
->>>>>>> develop
 
   UC-53             Nhập điểm thi qua FR-ACA-03         6
                     Excel                               
@@ -968,15 +941,12 @@ CDN)**
 
   UC-49             Cập nhật thông    FR-USR-05         2
                     tin tài khoản                        
-<<<<<<< HEAD
-=======
 
   UC-55             Cập nhật email    FR-USR-06         2
                     tài khoản                            
 
   UC-63             Tự cập nhật hồ    FR-USR-07         2
                     sơ cá nhân                            
->>>>>>> develop
   -----------------------------------------------------------------------
 
 ## Ma trận Actor × Phân hệ
@@ -1115,7 +1085,7 @@ graph TD
     UC13(["UC-13: Quản lý hồ sơ học sinh"])
     UC14(["UC-14: Cập nhật trạng thái học tập"])
     UC16b(["UC-16b: Đề xuất khung chương trình tùy biến"])
-    UC20(["UC-20: Duyệt điểm"])
+    UC20(["UC-20: Công bố điểm"])
     UC22(["UC-22: Duyệt nhận xét"])
 
     QLDT --> UC01

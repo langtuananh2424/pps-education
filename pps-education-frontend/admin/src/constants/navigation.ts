@@ -58,16 +58,19 @@ export const navSections: NavSection[] = [
       { id: "sys-audit", label: "Nhật ký thay đổi (UC-05)", path: "/system-admin/audit-log", icon: ShieldAlert, requiredPermission: "permission.audit.view" }
     ]
   },
-  {
-    id: "task",
-    title: "ĐIỀU HÀNH & GIAO VIỆC",
-    items: [
-      // Không gate requiredPermission: mọi nhân sự có thể là người NHẬN việc, không riêng người có task.create — xem "Việc tôi được giao".
-      { id: "task-workflow", label: "Giao việc & Kanban (UC-06/07)", path: "/task-workflow", icon: CheckSquare },
-      // Self-service (UC-58) — không gate quyền, ai đăng nhập cũng vào được, chỉ có dữ liệu thật với Giáo viên.
-      { id: "acad-my-schedule", label: "Lịch của tôi (UC-58)", path: "/schedule/my-timetable", icon: CalendarDays }
-    ]
-  },
+  // Tạm ẩn cả mục "ĐIỀU HÀNH & GIAO VIỆC" theo yêu cầu người dùng (2026-07-23) — đang phát triển
+  // tiếp, chưa muốn hiện lên sidebar. CHỈ ẩn khỏi menu, không xoá route (App.tsx vẫn giữ nguyên
+  // /task-workflow và /schedule/my-timetable, vào thẳng URL vẫn dùng được bình thường).
+  // {
+  //   id: "task",
+  //   title: "ĐIỀU HÀNH & GIAO VIỆC",
+  //   items: [
+  //     // Không gate requiredPermission: mọi nhân sự có thể là người NHẬN việc, không riêng người có task.create — xem "Việc tôi được giao".
+  //     { id: "task-workflow", label: "Giao việc & Kanban (UC-06/07)", path: "/task-workflow", icon: CheckSquare },
+  //     // Self-service (UC-58) — không gate quyền, ai đăng nhập cũng vào được, chỉ có dữ liệu thật với Giáo viên.
+  //     { id: "acad-my-schedule", label: "Lịch của tôi (UC-58)", path: "/schedule/my-timetable", icon: CalendarDays }
+  //   ]
+  // },
   {
     id: "hrm",
     title: "QUẢN LÝ NHÂN SỰ (HRM)",

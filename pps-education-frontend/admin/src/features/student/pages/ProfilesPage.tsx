@@ -7,6 +7,8 @@ import { importStudents, listStudents, StudentResponse } from "../api";
 import StudentListPanel from "../components/StudentListPanel";
 import StudentDetailPanel from "../components/StudentDetailPanel";
 import StudentFormModal from "../components/StudentFormModal";
+import { useToast } from "@/lib/useToast";
+import Toast from "@/components/ui/Toast";
 
 const STUDENT_IMPORT_HEADERS = ["Họ và tên *", "Ngày sinh (dd/MM/yyyy)", "Giới tính (Nam/Nữ/Khác)", "Trường đang học", "Lớp đang học", "Mã lớp PPS *", "Mã học sinh *"];
 const STUDENT_IMPORT_SAMPLE = ["Nguyễn Văn A", "01/01/2015", "Nam", "TH Kim Đồng", "5A", "TA-501", "HS-0001"];
@@ -19,6 +21,7 @@ export default function ProfilesPage() {
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const { message: toastMessage, showToast } = useToast();
 
   const load = () => {
     setLoading(true);
@@ -89,9 +92,12 @@ export default function ProfilesPage() {
             setCreateOpen(false);
             setSelectedId(id);
             load();
+            showToast("Đã tạo hồ sơ học sinh thành công!");
           }}
         />
       )}
+
+      <Toast message={toastMessage} />
     </div>
   );
 }

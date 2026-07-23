@@ -13,15 +13,13 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import vn.com.pps.education.dto.CreateGradeComponentRequest;
 import vn.com.pps.education.dto.CreateGradePeriodRequest;
-import vn.com.pps.education.dto.DecideGradesRequest;
 import vn.com.pps.education.dto.EnterGradePeriodResultRequest;
 import vn.com.pps.education.dto.EnterGradeRequest;
 import vn.com.pps.education.dto.GradeComponentResponse;
 import vn.com.pps.education.dto.GradeEntryResponse;
 import vn.com.pps.education.dto.GradePeriodResponse;
 import vn.com.pps.education.dto.GradePeriodResultResponse;
-import vn.com.pps.education.dto.PeriodAverageResponse;
-import vn.com.pps.education.dto.SubmitGradesRequest;
+import vn.com.pps.education.dto.PublishGradesRequest;
 import vn.com.pps.education.dto.UpdateGradeComponentRequest;
 import vn.com.pps.education.dto.UpdateGradePeriodRequest;
 import vn.com.pps.education.security.AuthenticatedUser;
@@ -29,7 +27,7 @@ import vn.com.pps.education.service.GradeService;
 
 import java.util.List;
 
-/** UC-19: Nhập điểm (FR-ACA-03) + UC-20: Duyệt điểm (FR-ACA-03) — xem Javadoc GradeService. */
+/** UC-19: Nhập điểm (FR-ACA-03) + UC-20: Công bố điểm (FR-ACA-03) — xem Javadoc GradeService. */
 @RestController
 public class GradeController {
 
@@ -115,19 +113,6 @@ public class GradeController {
         return ResponseEntity.ok(gradeService.enterGrade(classId, gradeComponentId, request, actor.userId()));
     }
 
-<<<<<<< HEAD
-    @PostMapping("/api/classes/{classId}/grades/submit")
-    public ResponseEntity<List<GradeEntryResponse>> submitGrades(@PathVariable Long classId,
-                                                                     @Valid @RequestBody SubmitGradesRequest request,
-                                                                     @AuthenticationPrincipal AuthenticatedUser actor) {
-        return ResponseEntity.ok(gradeService.submitGrades(classId, request, actor.userId()));
-    }
-
-    @GetMapping("/api/classes/{classId}/grades/students/{studentId}/periods/{gradePeriodId}/average")
-    public ResponseEntity<PeriodAverageResponse> getPeriodAverage(@PathVariable Long classId, @PathVariable Long studentId,
-                                                                      @PathVariable Long gradePeriodId) {
-        return ResponseEntity.ok(gradeService.getPeriodAverage(classId, studentId, gradePeriodId));
-=======
     /** UC-19 (xoá điểm nháp, bổ sung ngoài SDD gốc, đã xác nhận với người dùng) — chỉ xoá được bản ghi DRAFT (hoặc academic.grade.edit.override). */
     @DeleteMapping("/api/classes/{classId}/grades/components/{gradeComponentId}/students/{studentId}")
     public ResponseEntity<Void> deleteGradeEntry(@PathVariable Long classId, @PathVariable Long gradeComponentId,
@@ -135,7 +120,6 @@ public class GradeController {
                                                   @AuthenticationPrincipal AuthenticatedUser actor) {
         gradeService.deleteGradeEntry(classId, gradeComponentId, studentId, actor.userId());
         return ResponseEntity.noContent().build();
->>>>>>> develop
     }
 
     // ---- UC-53: Overall/Level theo kỳ đánh giá (TEACHER + HEAD_ACADEMIC/SITE_MANAGER hỗ trợ) ----
@@ -155,9 +139,6 @@ public class GradeController {
         return ResponseEntity.ok(gradeService.listPeriodResults(classId, gradePeriodId));
     }
 
-<<<<<<< HEAD
-    // ---- UC-20: Duyệt điểm (SITE_MANAGER + HEAD_ACADEMIC) ----
-=======
     /** UC-53 (xoá điểm tổng kết kỳ nháp, bổ sung ngoài SDD gốc, đã xác nhận với người dùng) — chỉ xoá được bản ghi DRAFT (hoặc academic.grade.edit.override). */
     @DeleteMapping("/api/classes/{classId}/grades/students/{studentId}/periods/{gradePeriodId}/result")
     public ResponseEntity<Void> deletePeriodResult(@PathVariable Long classId, @PathVariable Long studentId,
@@ -168,16 +149,15 @@ public class GradeController {
     }
 
     // ---- UC-20: Công bố điểm (SITE_MANAGER + HEAD_ACADEMIC) ----
->>>>>>> develop
 
     @GetMapping("/api/grades/pending")
-    public ResponseEntity<List<GradeEntryResponse>> listPendingForSite(@AuthenticationPrincipal AuthenticatedUser actor) {
-        return ResponseEntity.ok(gradeService.listPendingForSite(actor.userId()));
+    public ResponseEntity<List<GradeEntryResponse>> listUnpublishedForSite(@AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(gradeService.listUnpublishedForSite(actor.userId()));
     }
 
     @PostMapping("/api/grades/decision")
-    public ResponseEntity<List<GradeEntryResponse>> decideGrades(@Valid @RequestBody DecideGradesRequest request,
+    public ResponseEntity<List<GradeEntryResponse>> publishGrades(@Valid @RequestBody PublishGradesRequest request,
                                                                      @AuthenticationPrincipal AuthenticatedUser actor) {
-        return ResponseEntity.ok(gradeService.decideGrades(request, actor.userId()));
+        return ResponseEntity.ok(gradeService.publishGrades(request, actor.userId()));
     }
 }

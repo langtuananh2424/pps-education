@@ -24,6 +24,8 @@ import Button from "@/components/ui/Button";
 import Badge, { BadgeVariant } from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
 import { cn } from "@/lib/cn";
+import { useToast } from "@/lib/useToast";
+import Toast from "@/components/ui/Toast";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
@@ -45,6 +47,7 @@ export default function RoomsPage() {
   const [error, setError] = useState<string | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [equipmentRoom, setEquipmentRoom] = useState<RoomResponse | null>(null);
+  const { message: toastMessage, showToast } = useToast();
 
   const siteName = (id: number) => sites.find((s) => s.id === id)?.name ?? `Site #${id}`;
 
@@ -81,6 +84,7 @@ export default function RoomsPage() {
         notes: room.notes ?? undefined
       });
       setRooms((prev) => prev.map((r) => (r.id === room.id ? updated : r)));
+      showToast("Đã cập nhật cấu hình phòng học thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Cập nhật cấu hình phòng học thất bại.");
     }
@@ -154,11 +158,14 @@ export default function RoomsPage() {
           onCreated={(room) => {
             setRooms((prev) => (selectedCampusId === "ALL" || room.siteId === Number(selectedCampusId) ? [...prev, room] : prev));
             setShowCreateForm(false);
+            showToast("Đã tạo phòng học thành công!");
           }}
         />
       )}
 
       {equipmentRoom && <EquipmentModal room={equipmentRoom} onClose={() => setEquipmentRoom(null)} />}
+
+      <Toast message={toastMessage} />
     </div>
   );
 }
@@ -283,6 +290,7 @@ function EquipmentModal({ room, onClose }: { room: RoomResponse; onClose: () => 
   const [showAddForm, setShowAddForm] = useState(false);
   const [form, setForm] = useState({ code: "", name: "", equipmentType: "PROJECTOR" as EquipmentType });
   const [submitting, setSubmitting] = useState(false);
+  const { message: toastMessage, showToast } = useToast();
 
   const load = () => {
     setLoading(true);
@@ -309,6 +317,7 @@ function EquipmentModal({ room, onClose }: { room: RoomResponse; onClose: () => 
       setForm({ code: "", name: "", equipmentType: "PROJECTOR" });
       setShowAddForm(false);
       load();
+      showToast("Đã thêm thiết bị thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Thêm thiết bị thất bại.");
     } finally {
@@ -321,6 +330,7 @@ function EquipmentModal({ room, onClose }: { room: RoomResponse; onClose: () => 
     try {
       await updateEquipmentStatus(item.id, item.status === "BROKEN" ? "AVAILABLE" : "BROKEN");
       load();
+      showToast("Đã cập nhật trạng thái thiết bị thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Cập nhật trạng thái thiết bị thất bại.");
     }
@@ -391,6 +401,8 @@ function EquipmentModal({ room, onClose }: { room: RoomResponse; onClose: () => 
           </Button>
         )}
       </div>
+
+      <Toast message={toastMessage} />
     </Modal>
   );
 }

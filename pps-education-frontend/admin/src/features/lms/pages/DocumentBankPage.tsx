@@ -18,6 +18,8 @@ import Button from "@/components/ui/Button";
 import Badge, { BadgeVariant } from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
 import FileUploadField from "@/components/ui/FileUploadField";
+import { useToast } from "@/lib/useToast";
+import Toast from "@/components/ui/Toast";
 
 /** Khớp DOCUMENT_CONTENT_TYPES + audio/image/video của module CURRICULUM_DOCUMENT (xem MediaStorageService.java). */
 const DOCUMENT_UPLOAD_ACCEPT =
@@ -52,6 +54,7 @@ export default function DocumentBankPage() {
 
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingDocument, setEditingDocument] = useState<CurriculumDocumentResponse | null>(null);
+  const { message: toastMessage, showToast } = useToast();
 
   useEffect(() => {
     listCurriculums().then(setCurriculums).catch(() => undefined);
@@ -139,6 +142,7 @@ export default function DocumentBankPage() {
           onCreated={() => {
             setShowCreateForm(false);
             loadDocuments();
+            showToast("Đã thêm tài liệu thành công!");
           }}
         />
       )}
@@ -150,9 +154,12 @@ export default function DocumentBankPage() {
           onSaved={() => {
             setEditingDocument(null);
             loadDocuments();
+            showToast("Đã lưu tài liệu thành công!");
           }}
         />
       )}
+
+      <Toast message={toastMessage} />
     </div>
   );
 }

@@ -4,6 +4,8 @@ import { ApiError } from "@/lib/apiClient";
 import { StudentCommentResponse, submitComments, updateComment } from "../api";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
+import { useToast } from "@/lib/useToast";
+import Toast from "@/components/ui/Toast";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none";
 const statusLabels: Record<StudentCommentResponse["status"], string> = { DRAFT: "Nháp", PENDING: "Chờ duyệt", APPROVED: "Đã duyệt", REJECTED: "Bị từ chối" };
@@ -30,6 +32,7 @@ export default function CommentHistoryList({ classId, history, onChanged, showSt
   const [saving, setSaving] = useState(false);
   const [submittingId, setSubmittingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { message: toastMessage, showToast } = useToast();
 
   const startEdit = (h: StudentCommentResponse) => {
     setEditingId(h.id);
@@ -45,6 +48,7 @@ export default function CommentHistoryList({ classId, history, onChanged, showSt
     try {
       await submitComments(classId, [commentId]);
       onChanged();
+      showToast("Đã nộp duyệt nhận xét thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Nộp nhận xét thất bại.");
     } finally {
@@ -64,6 +68,7 @@ export default function CommentHistoryList({ classId, history, onChanged, showSt
       await submitComments(classId, [commentId]);
       setEditingId(null);
       onChanged();
+      showToast("Đã gửi lại nhận xét thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Gửi lại nhận xét thất bại.");
     } finally {
@@ -133,6 +138,8 @@ export default function CommentHistoryList({ classId, history, onChanged, showSt
           )}
         </div>
       ))}
+
+      <Toast message={toastMessage} />
     </div>
   );
 }

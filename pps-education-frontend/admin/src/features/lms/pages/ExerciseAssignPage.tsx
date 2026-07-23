@@ -7,6 +7,8 @@ import { ExerciseAssignmentResponse, ExerciseQuestionResponse, ExerciseResponse,
 import CreateAndAssignExerciseModal from "../components/CreateAndAssignExerciseModal";
 import ExercisePreviewModal from "../components/ExercisePreviewModal";
 import Button from "@/components/ui/Button";
+import { useToast } from "@/lib/useToast";
+import Toast from "@/components/ui/Toast";
 
 interface AssignmentRow {
   assignment: ExerciseAssignmentResponse;
@@ -31,6 +33,7 @@ export default function ExerciseAssignPage() {
   const [loadingRows, setLoadingRows] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { message: toastMessage, showToast } = useToast();
 
   /** UC-40 Precondition: GV chỉ giao đề cho lớp mình được phân công dạy (class_teachers) — cùng gốc rễ với fix ở GradesPage/ClassesPage/AttendancePage. */
   useEffect(() => {
@@ -122,13 +125,18 @@ export default function ExerciseAssignPage() {
         <CreateAndAssignExerciseModal
           classId={selectedClassId}
           onClose={() => setCreateOpen(false)}
-          onAssigned={loadAssignments}
+          onAssigned={() => {
+            loadAssignments();
+            showToast("Đã giao đề bài tập thành công!");
+          }}
         />
       )}
 
       {!selectedClass && classes.length === 0 && (
         <p className="text-xs text-slate-400 italic">Không có lớp nào để chọn — kiểm tra lại phân công giảng dạy nếu đây là tài khoản Giáo viên.</p>
       )}
+
+      <Toast message={toastMessage} />
     </div>
   );
 }

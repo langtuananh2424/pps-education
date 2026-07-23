@@ -5,6 +5,7 @@ import { listSites, SiteResponse } from "@/features/facility/api";
 import { ClassResponse, CreateClassRequest, createClass, CurriculumResponse, listCurriculums } from "../api";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
+import DatePicker from "@/components/ui/DatePicker";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-xs p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
@@ -184,18 +185,20 @@ export default function ClassFormModal({ onClose, onCreated }: ClassFormModalPro
 
           <div>
             <label className={labelClass}>Ngày khai giảng *</label>
-            <input
-              type="date"
+            <DatePicker
               value={form.startDate}
-              onChange={(e) => setForm({ ...form, startDate: e.target.value })}
-              onBlur={() => markTouched("startDate")}
-              className={invalid.startDate ? inputErrorClass : inputClass}
+              onChange={(v) => {
+                setForm({ ...form, startDate: v });
+                markTouched("startDate");
+              }}
+              max={form.endDate || undefined}
+              hasError={invalid.startDate}
             />
             {invalid.startDate && <p className="text-[10px] text-rose-600 mt-1">Vui lòng chọn Ngày khai giảng.</p>}
           </div>
           <div>
             <label className={labelClass}>Ngày kết thúc (dự kiến)</label>
-            <input type="date" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} className={inputClass} />
+            <DatePicker value={form.endDate} onChange={(v) => setForm({ ...form, endDate: v })} min={form.startDate || undefined} />
           </div>
 
           <div>

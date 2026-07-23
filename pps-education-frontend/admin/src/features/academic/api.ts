@@ -451,6 +451,11 @@ export function createGradePeriod(curriculumId: number, request: CreateGradePeri
   return apiRequest<GradePeriodResponse>(`/curriculums/${curriculumId}/grade-periods`, { method: "POST", body: JSON.stringify(request) });
 }
 
+/** UC-19 (bổ sung): chỉ xoá được kỳ RỖNG — chưa có thành phần điểm, chưa có điểm tổng kết, chưa bắt đầu nhập điểm ở lớp nào (BE tự chặn 422 nếu không đủ điều kiện). */
+export function deleteGradePeriod(id: number): Promise<void> {
+  return apiRequest<void>(`/grade-periods/${id}`, { method: "DELETE" });
+}
+
 export interface GradeComponentResponse {
   id: number;
   gradePeriodId: number;
@@ -481,6 +486,11 @@ export function listGradeComponents(gradePeriodId: number): Promise<GradeCompone
 
 export function addGradeComponent(gradePeriodId: number, request: CreateGradeComponentRequest): Promise<GradeComponentResponse> {
   return apiRequest<GradeComponentResponse>(`/grade-periods/${gradePeriodId}/components`, { method: "POST", body: JSON.stringify(request) });
+}
+
+/** UC-19 (bổ sung): chỉ xoá được đầu điểm CHƯA có điểm nhập nào (BE tự chặn 422 nếu đã có điểm). */
+export function deleteGradeComponent(id: number): Promise<void> {
+  return apiRequest<void>(`/grade-components/${id}`, { method: "DELETE" });
 }
 
 /**
