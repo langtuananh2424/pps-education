@@ -26,10 +26,12 @@ import vn.com.pps.education.dto.DecideCommentsRequest;
 import vn.com.pps.education.dto.DecideGradesRequest;
 import vn.com.pps.education.dto.EnrollStudentRequest;
 import vn.com.pps.education.dto.EnterAttendanceMarkRequest;
+import vn.com.pps.education.dto.EnterGradePeriodResultRequest;
 import vn.com.pps.education.dto.EnterGradeRequest;
 import vn.com.pps.education.dto.GradeComponentResponse;
 import vn.com.pps.education.dto.GradeEntryResponse;
 import vn.com.pps.education.dto.GradePeriodResponse;
+import vn.com.pps.education.dto.GradePeriodResultResponse;
 import vn.com.pps.education.dto.MarkAttendanceRequest;
 import vn.com.pps.education.dto.StudentCommentResponse;
 import vn.com.pps.education.dto.SubmitCommentsRequest;
@@ -190,8 +192,40 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
         List<GradeEntryResponse> grades = parentPortalService.listGrades(student.getId(), schoolClass.id(), parentUser.getId());
 
         assertThat(grades).hasSize(1);
+<<<<<<< HEAD
         assertThat(grades.get(0).status()).isEqualTo("APPROVED");
         assertThat(grades.get(0).id()).isEqualTo(approvedEntry.id());
+=======
+        assertThat(grades.get(0).status()).isEqualTo("PROVISIONAL_PUBLISHED");
+        assertThat(grades.get(0).id()).isEqualTo(publishedEntry.id());
+>>>>>>> develop
+    }
+
+    @Test
+    void getPeriodResult_UC25_UC53_MainFlow_returnsPublishedOverallLevel() {
+        GradePeriodResponse period = gradeService.createGradePeriod(schoolClass.curriculumId(),
+                new CreateGradePeriodRequest("MID_1", "Giữa kỳ 1", 1, new BigDecimal("50"), null, null), headAcademic.getId());
+        var enteredResult = gradeService.enterPeriodResult(schoolClass.id(), student.getId(), period.id(),
+                new EnterGradePeriodResultRequest(new BigDecimal("7.5"), "BAND", "B2"), teacher.getId());
+        gradeService.publishGrades(new PublishGradesRequest(null, List.of(enteredResult.id())), siteManagerUser.getId());
+
+        GradePeriodResultResponse result = parentPortalService.getPeriodResult(student.getId(), schoolClass.id(), period.id(), parentUser.getId());
+
+        assertThat(result.status()).isEqualTo("PROVISIONAL_PUBLISHED");
+        assertThat(result.overallScore()).isEqualByComparingTo("7.5");
+        assertThat(result.level()).isEqualTo("B2");
+    }
+
+    @Test
+    void getPeriodResult_UC25_A1_rejectsWhenResultNotPublishedYet() {
+        GradePeriodResponse period = gradeService.createGradePeriod(schoolClass.curriculumId(),
+                new CreateGradePeriodRequest("MID_1", "Giữa kỳ 1", 1, new BigDecimal("50"), null, null), headAcademic.getId());
+        gradeService.enterPeriodResult(schoolClass.id(), student.getId(), period.id(),
+                new EnterGradePeriodResultRequest(new BigDecimal("7.5"), "BAND", "B2"), teacher.getId());
+        // Chưa công bố (còn DRAFT) -- Phụ huynh chưa được xem.
+
+        assertThatThrownBy(() -> parentPortalService.getPeriodResult(student.getId(), schoolClass.id(), period.id(), parentUser.getId()))
+                .isInstanceOf(ResourceNotFoundException.class);
     }
 
     @Test

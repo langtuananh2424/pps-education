@@ -8,30 +8,45 @@ import {
   ClassResponse,
   CreateGradeComponentRequest,
   CreateGradePeriodRequest,
+  GradeAppealResponse,
   GradeComponentResponse,
-  GradeEntryResponse,
   GradePeriodResponse,
+  acceptGradeAppeal,
   addGradeComponent,
   createGradePeriod,
+  getClass,
   listClassEnrollments,
+  listClassTeachers,
   listClasses,
   listGradeComponents,
-  listGradeEntries,
-  listGradePeriods
+  listGradePeriods,
+  listPendingGradeAppeals,
+  listUnpublishedGrades
 } from "../api";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
-import GradebookTable from "../components/GradebookTable";
-import GradeApprovalQueue from "../components/GradeApprovalQueue";
+import GradeSheetTable from "../components/GradeSheetTable";
+import GradeExcelImportPanel from "../components/GradeExcelImportPanel";
+import GradePublishDetail from "../components/GradePublishDetail";
+import GradePublishGroupList, { GradePublishGroup } from "../components/GradePublishGroupList";
 
 const inputClass = "bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none";
 
 export default function GradesPage() {
-  const { hasPermission, currentUser } = useApp();
+  const { hasPermission, currentUser, selectedCampusId } = useApp();
   const canManage = hasPermission("academic.grade.manage");
+  // Cờ riêng cho việc lọc DANH SÁCH LỚP — không dùng canManage (academic.grade.manage) vì quyền đó
+  // nghĩa thật là "Cấu hình sổ điểm" (tạo đầu điểm/kỳ điểm) và backend cấp luôn cho TEACHER, không
+  // phải cờ "được xem mọi lớp". academic.class.manage mới đúng là quyền quản trị lớp học rộng (chỉ
+  // HEAD_ACADEMIC/Admin), khớp UC-19 Precondition ("Trưởng phòng đào tạo... quyền academic.grade.manage"
+  // chỉ mở rộng cho vai trò quản lý, không áp dụng cho GV thường dù họ cũng có permission code này).
   // Hàng chờ duyệt (UC-20) chỉ có ý nghĩa với Quản lý điểm trường — API tự scope theo site được gán,
   // ẩn hẳn khối này với tài khoản khác để đỡ hiện 1 panel rỗng không liên quan.
   const isSiteManager = currentUser?.roleCodes?.includes(UserRole.SITE_MANAGER) ?? false;
+  // Quản lý điểm trường không dạy lớp nào (không có mặt trong class_teachers) nên cũng cần thấy TOÀN
+  // BỘ lớp thuộc site mình quản lý (GET /api/classes đã tự scope theo site_managers, xem commit
+  // 183222e) để chọn xem lại sổ điểm bất kỳ lớp nào — không chỉ riêng những lớp đang "chờ công bố".
+  const canSeeAllClasses = hasPermission("academic.class.manage") || isSiteManager;
 
   const [classes, setClasses] = useState<ClassResponse[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
@@ -39,17 +54,101 @@ export default function GradesPage() {
   const [gradePeriods, setGradePeriods] = useState<GradePeriodResponse[]>([]);
   const [selectedPeriodId, setSelectedPeriodId] = useState<number | null>(null);
   const [gradeComponents, setGradeComponents] = useState<GradeComponentResponse[]>([]);
-  const [selectedComponentId, setSelectedComponentId] = useState<number | null>(null);
-  const [entries, setEntries] = useState<GradeEntryResponse[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [showPeriodForm, setShowPeriodForm] = useState(false);
   const [showComponentForm, setShowComponentForm] = useState(false);
+  const [sheetVersion, setSheetVersion] = useState(0);
+
+  const [pendingGroups, setPendingGroups] = useState<GradePublishGroup[]>([]);
+  const [loadingPendingGroups, setLoadingPendingGroups] = useState(true);
+  const [selectedPendingClassId, setSelectedPendingClassId] = useState<number | null>(null);
+
+  const [pendingAppeals, setPendingAppeals] = useState<GradeAppealResponse[]>([]);
+  const [loadingAppeals, setLoadingAppeals] = useState(true);
+  const [acceptingAppealId, setAcceptingAppealId] = useState<number | null>(null);
 
   const selectedClass = classes.find((c) => c.id === selectedClassId) ?? null;
+  const selectedPendingGroup = pendingGroups.find((g) => g.classId === selectedPendingClassId) ?? null;
+
+  /**
+   * UC-19 Precondition: "Giáo viên được phân công giảng dạy lớp cần nhập điểm (UC-18)"
+   * — nghĩa là theo class_teachers (từng lớp cụ thể), KHÔNG phải theo site_teachers
+   * (mọi lớp ở site GV được đăng ký). GET /api/classes hiện chỉ lọc theo site_teachers
+   * (coarse hơn UC-19 yêu cầu) nên phải lọc thêm ở FE cho tài khoản không có
+   * academic.class.manage (GV thường) — HEAD_ACADEMIC/Admin (canSeeAllClasses) vẫn
+   * thấy đủ theo đúng phần mở rộng quyền đã xác nhận.
+   */
+  useEffect(() => {
+    listClasses({ siteId: selectedCampusId !== "ALL" ? Number(selectedCampusId) : undefined })
+      .then(async (allClasses) => {
+        if (canSeeAllClasses || !currentUser) {
+          setClasses(allClasses);
+          return;
+        }
+        const teacherLists = await Promise.all(allClasses.map((c) => listClassTeachers(c.id).catch(() => [])));
+        setClasses(allClasses.filter((_, i) => teacherLists[i].some((t) => t.teacherUserId === currentUser.id)));
+      })
+      .catch(() => undefined);
+  }, [canSeeAllClasses, currentUser, selectedCampusId]);
+
+  /**
+   * V39/UC-20: tra tên lớp qua GET /api/classes/{id} (đơn lẻ, không lọc site) thay vì
+   * tìm trong state `classes` (từ GET /api/classes danh sách) — danh sách đó hiện chỉ
+   * lọc theo site_teachers, BỎ SÓT site_managers (gap backend, đã báo lại riêng), nên
+   * với tài khoản Quản lý điểm trường không đồng thời là giáo viên, `classes` luôn rỗng.
+   */
+  const loadPendingGroups = () => {
+    setLoadingPendingGroups(true);
+    listUnpublishedGrades()
+      .then(async (entries) => {
+        const countByClass = new Map<number, number>();
+        entries.forEach((e) => countByClass.set(e.classId, (countByClass.get(e.classId) ?? 0) + 1));
+        const groups = await Promise.all(
+          [...countByClass.entries()].map(async ([classId, pendingCount]) => {
+            const cls = await getClass(classId).catch(() => null);
+            const teacherName = await listClassTeachers(classId)
+              .then((teachers) => teachers.find((t) => t.teacherRole === "PRIMARY")?.teacherFullName ?? teachers[0]?.teacherFullName ?? null)
+              .catch(() => null);
+            return { classId, classCode: cls?.classCode ?? String(classId), className: cls?.name ?? "", teacherName, pendingCount };
+          })
+        );
+        setPendingGroups(groups);
+      })
+      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách lớp chờ công bố."))
+      .finally(() => setLoadingPendingGroups(false));
+  };
 
   useEffect(() => {
-    listClasses().then(setClasses).catch(() => undefined);
-  }, []);
+    if (isSiteManager) loadPendingGroups();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSiteManager]);
+
+  /** UC-62: hàng chờ phúc khảo của (các) lớp Giáo viên đang phụ trách — không có ý nghĩa với Quản lý điểm trường (không dạy lớp nào). */
+  const loadPendingAppeals = () => {
+    setLoadingAppeals(true);
+    listPendingGradeAppeals()
+      .then(setPendingAppeals)
+      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được hàng chờ phúc khảo."))
+      .finally(() => setLoadingAppeals(false));
+  };
+
+  useEffect(() => {
+    if (!isSiteManager) loadPendingAppeals();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSiteManager]);
+
+  const handleAcceptAppeal = async (id: number) => {
+    setAcceptingAppealId(id);
+    setError(null);
+    try {
+      await acceptGradeAppeal(id);
+      loadPendingAppeals();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Tiếp nhận yêu cầu phúc khảo thất bại.");
+    } finally {
+      setAcceptingAppealId(null);
+    }
+  };
 
   useEffect(() => {
     if (!selectedClassId) return;
@@ -59,43 +158,61 @@ export default function GradesPage() {
   useEffect(() => {
     setSelectedPeriodId(null);
     setGradeComponents([]);
-    setSelectedComponentId(null);
-    setEntries([]);
     if (!selectedClass) return;
     listGradePeriods(selectedClass.curriculumId).then(setGradePeriods).catch(() => undefined);
   }, [selectedClass?.curriculumId]);
 
   useEffect(() => {
-    setSelectedComponentId(null);
-    setEntries([]);
+    setGradeComponents([]);
     if (!selectedPeriodId) return;
-    listGradeComponents(selectedPeriodId).then(setGradeComponents).catch(() => undefined);
+    listGradeComponents(selectedPeriodId)
+      .then(setGradeComponents)
+      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được đầu điểm."));
   }, [selectedPeriodId]);
-
-  const loadEntries = () => {
-    if (!selectedClassId || !selectedComponentId) return;
-    listGradeEntries(selectedClassId, selectedComponentId)
-      .then(setEntries)
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được điểm."));
-  };
-  useEffect(loadEntries, [selectedClassId, selectedComponentId]);
 
   return (
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Sổ điểm hệ thống (UC-19/20)</h1>
-        <p className="text-xs text-slate-500 mt-1">Giáo viên nhập điểm thành phần theo lớp, Quản lý điểm trường duyệt trước khi công khai.</p>
+        <p className="text-xs text-slate-500 mt-1">
+          Giáo viên nhập điểm theo lớp, sửa/xoá tự do khi còn Nháp. Quản lý điểm trường công bố dự kiến cho Phụ huynh xem — sau đó chỉ sửa
+          được qua yêu cầu phúc khảo (UC-62) trong hạn quy định, hết hạn tự khoá Chính thức.
+        </p>
       </div>
 
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card padded={false} className={`${isSiteManager ? "lg:col-span-2" : "lg:col-span-3"} overflow-hidden`}>
-          <div className="px-5 py-4 border-b border-slate-100 bg-slate-50 space-y-3">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <span className="text-xs font-bold text-slate-700 font-display">Bảng nhập điểm (UC-19)</span>
+      {isSiteManager && (
+        <div className="space-y-4">
+          <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider font-display border-b border-slate-200 pb-2">
+            Công bố điểm học phần (UC-20)
+          </h2>
+          <GradePublishDetail
+            classId={selectedPendingClassId}
+            classLabel={selectedPendingGroup ? `${selectedPendingGroup.classCode} — ${selectedPendingGroup.className}` : null}
+            teacherName={selectedPendingGroup?.teacherName ?? null}
+            onPublished={() => {
+              setSelectedPendingClassId(null);
+              loadPendingGroups();
+            }}
+          />
+          <Card padded={false} className="overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100 bg-slate-50">
+              <span className="text-xs font-bold text-slate-700 font-display">Danh sách lớp chờ công bố ({pendingGroups.length})</span>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <GradePublishGroupList
+              groups={pendingGroups}
+              loading={loadingPendingGroups}
+              selectedClassId={selectedPendingClassId}
+              onSelect={setSelectedPendingClassId}
+            />
+          </Card>
+
+          <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider font-display border-b border-slate-200 pb-2 pt-2">
+            Xem lại sổ điểm theo lớp (đã công bố)
+          </h2>
+          <Card padded={false} className="overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100 bg-slate-50 grid grid-cols-1 sm:grid-cols-2 gap-2">
               <select value={selectedClassId ?? ""} onChange={(e) => setSelectedClassId(e.target.value ? Number(e.target.value) : null)} className={inputClass}>
                 <option value="">-- Chọn lớp --</option>
                 {classes.map((c) => (
@@ -117,73 +234,153 @@ export default function GradesPage() {
                   </option>
                 ))}
               </select>
-              <select
-                value={selectedComponentId ?? ""}
-                onChange={(e) => setSelectedComponentId(e.target.value ? Number(e.target.value) : null)}
-                disabled={!selectedPeriodId}
-                className={`${inputClass} disabled:opacity-50`}
-              >
-                <option value="">-- Chọn đầu điểm --</option>
-                {gradeComponents.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} (x{c.weightInPeriod})
-                  </option>
-                ))}
-              </select>
             </div>
-            {canManage && selectedClass && (
-              <div className="flex gap-2">
-                <Button type="button" size="sm" variant="secondary" onClick={() => setShowPeriodForm((v) => !v)}>
-                  <Plus className="w-3.5 h-3.5" />
-                  Thêm kỳ điểm
-                </Button>
-                {selectedPeriodId && (
-                  <Button type="button" size="sm" variant="secondary" onClick={() => setShowComponentForm((v) => !v)}>
-                    <Plus className="w-3.5 h-3.5" />
-                    Thêm đầu điểm
-                  </Button>
-                )}
-              </div>
+            {selectedClassId && selectedPeriodId ? (
+              gradeComponents.length === 0 ? (
+                <p className="text-xs text-slate-400 italic p-6 text-center">Kỳ điểm này chưa có đầu điểm nào được cấu hình.</p>
+              ) : (
+                <GradeSheetTable
+                  key={`view-${selectedClassId}-${selectedPeriodId}`}
+                  classId={selectedClassId}
+                  gradePeriodId={selectedPeriodId}
+                  components={gradeComponents}
+                  enrollments={enrollments}
+                  readOnly
+                />
+              )
+            ) : (
+              <p className="text-xs text-slate-400 italic p-6 text-center">Chọn lớp → kỳ điểm để xem lại điểm (Nháp + Đã công bố).</p>
             )}
-            {showPeriodForm && selectedClass && (
-              <CreatePeriodForm
-                curriculumId={selectedClass.curriculumId}
-                onDone={(p) => {
-                  setGradePeriods((prev) => [...prev, p]);
-                  setShowPeriodForm(false);
-                }}
-                onCancel={() => setShowPeriodForm(false)}
-              />
-            )}
-            {showComponentForm && selectedPeriodId && (
-              <CreateComponentForm
-                gradePeriodId={selectedPeriodId}
-                onDone={(c) => {
-                  setGradeComponents((prev) => [...prev, c]);
-                  setShowComponentForm(false);
-                }}
-                onCancel={() => setShowComponentForm(false)}
-              />
-            )}
-          </div>
+          </Card>
+        </div>
+      )}
 
-          {selectedClassId && selectedComponentId ? (
-            <GradebookTable classId={selectedClassId} componentId={selectedComponentId} enrollments={enrollments} entries={entries} onChanged={loadEntries} />
+      {!isSiteManager && (pendingAppeals.length > 0 || loadingAppeals) && (
+        <Card padded={false} className="overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-100 bg-slate-50">
+            <span className="text-xs font-bold text-slate-700 font-display">Hàng chờ phúc khảo (UC-62)</span>
+            <p className="text-[10px] text-slate-400 mt-0.5">
+              Học sinh/Phụ huynh gửi yêu cầu — tiếp nhận rồi mới sửa được điểm của đúng học sinh đó trong bảng nhập điểm bên dưới.
+            </p>
+          </div>
+          {loadingAppeals ? (
+            <p className="text-xs text-slate-500 p-4">Đang tải...</p>
           ) : (
-            <p className="text-xs text-slate-400 italic p-6 text-center">Chọn lớp → kỳ điểm → đầu điểm để bắt đầu nhập điểm.</p>
+            <div className="divide-y divide-slate-100">
+              {pendingAppeals.map((a) => (
+                <div key={a.id} className="px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+                  <div className="min-w-0">
+                    <span className="text-xs font-bold text-slate-800 block">{a.studentFullName}</span>
+                    <span className="text-[10px] text-slate-400 block mt-0.5">
+                      {a.reason || "(không ghi lý do)"} · {new Date(a.createdAt).toLocaleString("vi-VN")}
+                    </span>
+                  </div>
+                  <Button size="sm" variant="primary" disabled={acceptingAppealId === a.id} onClick={() => handleAcceptAppeal(a.id)}>
+                    {acceptingAppealId === a.id ? "Đang tiếp nhận..." : "Tiếp nhận"}
+                  </Button>
+                </div>
+              ))}
+            </div>
           )}
         </Card>
+      )}
 
-        {isSiteManager && (
-          <Card className="space-y-4">
-            <h3 className="text-xs font-bold text-slate-400 block uppercase tracking-wider font-display border-b border-slate-100 pb-2">
-              Duyệt điểm học phần (UC-20)
-            </h3>
-            <p className="text-xs text-slate-500">Điểm sau khi giáo viên nộp sẽ vào hàng chờ của điểm trường mình phụ trách.</p>
-            <GradeApprovalQueue />
+      {!isSiteManager && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <Card padded={false} className="lg:col-span-3 overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100 bg-slate-50 space-y-3">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <span className="text-xs font-bold text-slate-700 font-display">Bảng nhập điểm (UC-19)</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <select value={selectedClassId ?? ""} onChange={(e) => setSelectedClassId(e.target.value ? Number(e.target.value) : null)} className={inputClass}>
+                  <option value="">-- Chọn lớp --</option>
+                  {classes.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.classCode} — {c.name}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={selectedPeriodId ?? ""}
+                  onChange={(e) => setSelectedPeriodId(e.target.value ? Number(e.target.value) : null)}
+                  disabled={!selectedClassId}
+                  className={`${inputClass} disabled:opacity-50`}
+                >
+                  <option value="">-- Chọn kỳ điểm --</option>
+                  {gradePeriods.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {canManage && selectedClass && (
+                <div className="flex gap-2">
+                  <Button type="button" size="sm" variant="secondary" onClick={() => setShowPeriodForm((v) => !v)}>
+                    <Plus className="w-3.5 h-3.5" />
+                    Thêm kỳ điểm
+                  </Button>
+                  {selectedPeriodId && (
+                    <Button type="button" size="sm" variant="secondary" onClick={() => setShowComponentForm((v) => !v)}>
+                      <Plus className="w-3.5 h-3.5" />
+                      Thêm đầu điểm
+                    </Button>
+                  )}
+                </div>
+              )}
+              {showPeriodForm && selectedClass && (
+                <CreatePeriodForm
+                  curriculumId={selectedClass.curriculumId}
+                  onDone={(p) => {
+                    setGradePeriods((prev) => [...prev, p]);
+                    setShowPeriodForm(false);
+                  }}
+                  onCancel={() => setShowPeriodForm(false)}
+                />
+              )}
+              {showComponentForm && selectedPeriodId && (
+                <CreateComponentForm
+                  gradePeriodId={selectedPeriodId}
+                  onDone={(c) => {
+                    setGradeComponents((prev) => [...prev, c]);
+                    setShowComponentForm(false);
+                  }}
+                  onCancel={() => setShowComponentForm(false)}
+                />
+              )}
+            </div>
+
+            {selectedClassId && selectedPeriodId ? (
+              gradeComponents.length === 0 ? (
+                <p className="text-xs text-slate-400 italic p-6 text-center">
+                  Kỳ điểm này chưa có đầu điểm nào được cấu hình{canManage ? " — dùng nút \"Thêm đầu điểm\" ở trên." : "."}
+                </p>
+              ) : (
+                <GradeSheetTable
+                  key={`${selectedClassId}-${selectedPeriodId}-${sheetVersion}`}
+                  classId={selectedClassId}
+                  gradePeriodId={selectedPeriodId}
+                  components={gradeComponents}
+                  enrollments={enrollments}
+                />
+              )
+            ) : (
+              <p className="text-xs text-slate-400 italic p-6 text-center">Chọn lớp → kỳ điểm để bắt đầu nhập điểm.</p>
+            )}
           </Card>
-        )}
-      </div>
+        </div>
+      )}
+
+      {!isSiteManager && selectedClassId && selectedPeriodId && gradeComponents.length > 0 && (
+        <GradeExcelImportPanel
+          classId={selectedClassId}
+          gradePeriodId={selectedPeriodId}
+          components={gradeComponents}
+          enrollments={enrollments}
+          onImported={() => setSheetVersion((v) => v + 1)}
+        />
+      )}
     </div>
   );
 }
@@ -196,7 +393,7 @@ function CreatePeriodForm({ curriculumId, onDone, onCancel }: { curriculumId: nu
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name.trim() || !form.weightInFinal) {
-      setError("Vui lòng điền đủ tên và trọng số.");
+      setError("Vui lòng điền đủ tên và điểm kỳ vọng");
       return;
     }
     setSubmitting(true);
@@ -224,7 +421,7 @@ function CreatePeriodForm({ curriculumId, onDone, onCancel }: { curriculumId: nu
           <option value="OTHER">OTHER — Khác</option>
         </select>
         <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Tên kỳ điểm" className={inputClass} />
-        <input type="number" step="0.01" value={form.weightInFinal} onChange={(e) => setForm({ ...form, weightInFinal: e.target.value })} placeholder="Trọng số" className={inputClass} />
+        <input type="number" step="0.01" value={form.weightInFinal} onChange={(e) => setForm({ ...form, weightInFinal: e.target.value })} placeholder="Điểm kỳ vọng" className={inputClass} />
       </div>
       <div className="flex gap-2">
         <Button type="button" size="sm" variant="secondary" onClick={onCancel}>
@@ -239,14 +436,14 @@ function CreatePeriodForm({ curriculumId, onDone, onCancel }: { curriculumId: nu
 }
 
 function CreateComponentForm({ gradePeriodId, onDone, onCancel }: { gradePeriodId: number; onDone: (c: GradeComponentResponse) => void; onCancel: () => void }) {
-  const [form, setForm] = useState({ code: "OTHER", name: "", weightInPeriod: "", maxScore: "10" });
+  const [form, setForm] = useState({ code: "OTHER", name: "", maxScore: "10" });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name.trim() || !form.weightInPeriod) {
-      setError("Vui lòng điền đủ tên và trọng số.");
+    if (!form.name.trim()) {
+      setError("Vui lòng điền tên đầu điểm.");
       return;
     }
     setSubmitting(true);
@@ -255,7 +452,6 @@ function CreateComponentForm({ gradePeriodId, onDone, onCancel }: { gradePeriodI
       const request: CreateGradeComponentRequest = {
         code: form.code,
         name: form.name.trim(),
-        weightInPeriod: Number(form.weightInPeriod),
         maxScore: form.maxScore ? Number(form.maxScore) : undefined
       };
       const created = await addGradeComponent(gradePeriodId, request);
@@ -270,7 +466,7 @@ function CreateComponentForm({ gradePeriodId, onDone, onCancel }: { gradePeriodI
   return (
     <form onSubmit={handleSubmit} className="bg-white border border-slate-200 rounded-lg p-3 space-y-2">
       {error && <div className="text-[11px] text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
-      <div className="grid grid-cols-4 gap-2">
+      <div className="grid grid-cols-3 gap-2">
         <select value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} className={inputClass}>
           <option value="SPEAKING">Speaking</option>
           <option value="WRITING">Writing</option>
@@ -281,7 +477,6 @@ function CreateComponentForm({ gradePeriodId, onDone, onCancel }: { gradePeriodI
           <option value="OTHER">Khác</option>
         </select>
         <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Tên đầu điểm" className={inputClass} />
-        <input type="number" step="0.01" value={form.weightInPeriod} onChange={(e) => setForm({ ...form, weightInPeriod: e.target.value })} placeholder="Trọng số" className={inputClass} />
         <input type="number" step="0.01" value={form.maxScore} onChange={(e) => setForm({ ...form, maxScore: e.target.value })} placeholder="Điểm tối đa" className={inputClass} />
       </div>
       <div className="flex gap-2">

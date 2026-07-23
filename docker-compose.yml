@@ -35,6 +35,13 @@ services:
       JWT_SECRET: local_dev_secret_change_in_prod_min_256_bits_xxxxxxxxxxxxxxxxx
       SEED_DEV_USERS: "true" # tạo sẵn 11 tài khoản demo (1/role) - xem DevUserSeeder
       GOOGLE_OAUTH_CLIENT_IDS: "295752787966-8dsm6jo0p8md2p60safqqmifeo293855.apps.googleusercontent.com" # Client ID không phải secret (public, dùng ở FE) — audience verify id_token (UC-01 A4)
+      # Cloudflare R2 (UC-40 Question.audioUrl/imageUrl) - secret thật, KHÔNG hardcode ở đây.
+      # Đọc từ file .env ở root (Compose tự nạp, đã gitignore) - xem .env.example.
+      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:?Thiếu R2_ACCOUNT_ID - copy .env.example thành .env ở root và điền giá trị thật}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:?Thiếu R2_ACCESS_KEY_ID}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:?Thiếu R2_SECRET_ACCESS_KEY}
+      R2_BUCKET_NAME: ${R2_BUCKET_NAME:?Thiếu R2_BUCKET_NAME}
+      R2_PUBLIC_BASE_URL: ${R2_PUBLIC_BASE_URL:?Thiếu R2_PUBLIC_BASE_URL}
     ports:
       - "8080:8080"
     depends_on:
@@ -46,7 +53,7 @@ services:
     container_name: pps-education-pgadmin
     restart: unless-stopped
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@pps.local
+      PGADMIN_DEFAULT_EMAIL: admin@pps-education.dev
       PGADMIN_DEFAULT_PASSWORD: changeme
     ports:
       - "5050:80"

@@ -29,9 +29,10 @@ interface ClassListPanelProps {
   onCreate: () => void;
   query: string;
   onQueryChange: (q: string) => void;
+  canManage: boolean;
 }
 
-export default function ClassListPanel({ classes, loading, selectedId, onSelect, onCreate, query, onQueryChange }: ClassListPanelProps) {
+export default function ClassListPanel({ classes, loading, selectedId, onSelect, onCreate, query, onQueryChange, canManage }: ClassListPanelProps) {
   return (
     <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden flex flex-col h-full">
       <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3 bg-slate-50 shrink-0">
@@ -39,10 +40,12 @@ export default function ClassListPanel({ classes, loading, selectedId, onSelect,
           <span className="text-xs font-bold text-slate-700 font-display block">Danh sách Lớp học</span>
           <p className="text-[10px] text-slate-400">Xếp lớp & gán khóa học (UC-18)</p>
         </div>
-        <Button variant="primary" size="sm" onClick={onCreate}>
-          <Plus className="w-3.5 h-3.5" />
-          Thêm lớp
-        </Button>
+        {canManage && (
+          <Button variant="primary" size="sm" onClick={onCreate}>
+            <Plus className="w-3.5 h-3.5" />
+            Thêm lớp
+          </Button>
+        )}
       </div>
 
       <div className="px-4 py-3 border-b border-slate-100 shrink-0">
@@ -61,7 +64,11 @@ export default function ClassListPanel({ classes, loading, selectedId, onSelect,
         {loading ? (
           <div className="p-8 text-center text-slate-400 text-xs">Đang tải...</div>
         ) : classes.length === 0 ? (
-          <EmptyState icon={GraduationCap} title="Không tìm thấy lớp học nào" description="Thử nới lỏng bộ lọc, hoặc bấm 'Thêm lớp'." />
+          <EmptyState
+            icon={GraduationCap}
+            title="Không tìm thấy lớp học nào"
+            description={canManage ? "Thử nới lỏng bộ lọc, hoặc bấm 'Thêm lớp'." : "Bạn chưa được phân công vào lớp nào, hoặc thử nới lỏng bộ lọc."}
+          />
         ) : (
           classes.map((c) => {
             const isSelected = c.id === selectedId;

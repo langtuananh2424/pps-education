@@ -12,7 +12,9 @@ import vn.com.pps.education.domain.User;
 import vn.com.pps.education.domain.UserRole;
 import vn.com.pps.education.dto.AddTaskAttachmentRequest;
 import vn.com.pps.education.dto.AddTaskCommentRequest;
+import vn.com.pps.education.dto.CancelTaskRequest;
 import vn.com.pps.education.dto.CreateTaskRequest;
+import vn.com.pps.education.dto.ReassignTaskRequest;
 import vn.com.pps.education.dto.TaskAssignmentResponse;
 import vn.com.pps.education.dto.TaskAttachmentResponse;
 import vn.com.pps.education.dto.TaskCommentResponse;
@@ -20,9 +22,11 @@ import vn.com.pps.education.dto.TaskResponse;
 import vn.com.pps.education.dto.UpdateAssignmentStatusRequest;
 import vn.com.pps.education.exception.AssigneeOutsideDepartmentException;
 import vn.com.pps.education.exception.InvalidTaskStatusTransitionException;
+import vn.com.pps.education.exception.NotAuthorizedForTaskOverviewException;
 import vn.com.pps.education.exception.NotTaskCreatorException;
 import vn.com.pps.education.exception.NotTaskParticipantException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
+import vn.com.pps.education.exception.TaskAssigneeAlreadyAssignedException;
 import vn.com.pps.education.repository.DepartmentRepository;
 import vn.com.pps.education.repository.EmployeeRepository;
 import vn.com.pps.education.repository.RoleRepository;
@@ -69,6 +73,8 @@ class TaskServiceTest extends AbstractIntegrationTest {
     @Autowired private DepartmentRepository departmentRepository;
     @Autowired private RoleRepository roleRepository;
     @Autowired private UserRoleRepository userRoleRepository;
+    @Autowired private vn.com.pps.education.repository.PermissionRepository permissionRepository;
+    @Autowired private vn.com.pps.education.repository.UserPermissionOverrideRepository userPermissionOverrideRepository;
 
     // ===================== UC-06: Giao việc =====================
 
@@ -133,22 +139,52 @@ class TaskServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void createTask_UC06_opsManager_canAssignCrossDepartment() {
+    void createTask_UC06_executive_canAssignCrossDepartment() {
+        // Ban giám đốc (EXECUTIVE) = company-wide, giao được cho bất kỳ ai (kể cả khác phòng / trưởng phòng).
         Department deptA = newDepartment();
         Department deptB = newDepartment();
-        User opsManager = newUserInDept("ops.manager", deptA);
-        Employee opsManagerEmployee = employeeRepository.findByUserId(opsManager.getId()).orElseThrow();
-        opsManagerEmployee.setManagement(true);
-        employeeRepository.save(opsManagerEmployee);
-        assignRole(opsManager, "OPS_MANAGER");
+        User executive = newUserInDept("exec", deptA);
+        assignRole(executive, "EXECUTIVE");
         User assignee = newUserInDept("assignee.cross", deptB);
 
         TaskResponse response = taskService.createTask(
                 new CreateTaskRequest("Cross-dept allowed", null,
                         List.of(assignee.getId()), null, null, null, null),
-                opsManager.getId());
+                executive.getId());
 
         assertThat(response.id()).isNotNull();
+    }
+
+    @Test
+    void createTask_UC06_taskManage_canAssignCrossDepartment() {
+        // Quyền task.manage = company-wide (ban quản lý).
+        Department deptA = newDepartment();
+        Department deptB = newDepartment();
+        User manager = newUserInDept("mgr", deptA);
+        grantPermission(manager, "task.manage");
+        User assignee = newUserInDept("assignee.mgr", deptB);
+
+        TaskResponse response = taskService.createTask(
+                new CreateTaskRequest("Manager cross-dept", null,
+                        List.of(assignee.getId()), null, null, null, null),
+                manager.getId());
+
+        assertThat(response.id()).isNotNull();
+    }
+
+    @Test
+    void createTask_UC06_plainEmployeeNotHead_cannotAssign_throws() {
+        // Nhân viên thường (không là trưởng phòng, không company-wide) không giao việc được.
+        Department dept = newDepartment();
+        newUserInDept("plain.head", dept); // người đầu tiên = trưởng phòng
+        User plainEmployee = newUserInDept("plain.emp", dept);
+        User assignee = newUserInDept("plain.assignee", dept);
+
+        assertThatThrownBy(() -> taskService.createTask(
+                new CreateTaskRequest("Plain cannot assign", null,
+                        List.of(assignee.getId()), null, null, null, null),
+                plainEmployee.getId()))
+                .isInstanceOf(AssigneeOutsideDepartmentException.class);
     }
 
     @Test
@@ -404,6 +440,176 @@ class TaskServiceTest extends AbstractIntegrationTest {
         assertThat(taskAfter.completedAt()).isNotNull();
     }
 
+    // ===================== UC-07 A3: từ chối + giao lại =====================
+
+    @Test
+    void updateAssignmentStatus_UC07_A3_singleAssigneeDeclines_taskNotStuckCompleted() {
+        Department dept = newDepartment();
+        User assigner = newUserInDept("a3.decline.assigner", dept);
+        User assignee = newUserInDept("a3.decline.assignee", dept);
+
+        TaskResponse task = taskService.createTask(
+                new CreateTaskRequest("A3 single decline", null,
+                        List.of(assignee.getId()), null, null, null, null),
+                assigner.getId());
+        Long assignmentId = taskService.listMyAssignments(assignee.getId()).getFirst().id();
+
+        taskService.updateAssignmentStatus(assignmentId,
+                new UpdateAssignmentStatusRequest("DECLINED", "Bận việc khác"), assignee.getId());
+
+        // Lone declined assignment must NOT auto-complete the task; stays open awaiting reassign
+        TaskResponse after = taskService.getTask(task.id(), assigner.getId());
+        assertThat(after.status()).isEqualTo("OPEN");
+        assertThat(after.completedAt()).isNull();
+    }
+
+    @Test
+    void recompute_UC07_A3_multiAssignee_declinedIgnored_completesOnRemaining() {
+        Department dept = newDepartment();
+        User assigner = newUserInDept("a3.multi.assigner", dept);
+        User a1 = newUserInDept("a3.multi.a1", dept);
+        User a2 = newUserInDept("a3.multi.a2", dept);
+
+        TaskResponse task = taskService.createTask(
+                new CreateTaskRequest("A3 multi decline", null,
+                        List.of(a1.getId(), a2.getId()), null, null, null, null),
+                assigner.getId());
+        Long id1 = taskService.listMyAssignments(a1.getId()).getFirst().id();
+        Long id2 = taskService.listMyAssignments(a2.getId()).getFirst().id();
+
+        // a1 completes
+        taskService.updateAssignmentStatus(id1, new UpdateAssignmentStatusRequest("IN_PROGRESS", null), a1.getId());
+        taskService.updateAssignmentStatus(id1, new UpdateAssignmentStatusRequest("PENDING_REVIEW", null), a1.getId());
+        taskService.updateAssignmentStatus(id1, new UpdateAssignmentStatusRequest("COMPLETED", null), assigner.getId());
+
+        // Still open: a2 still PENDING (active, not completed)
+        assertThat(taskService.getTask(task.id(), assigner.getId()).status()).isNotEqualTo("COMPLETED");
+
+        // a2 declines → only active assignment (a1) is COMPLETED → task COMPLETED
+        taskService.updateAssignmentStatus(id2, new UpdateAssignmentStatusRequest("DECLINED", "Không thể nhận"), a2.getId());
+
+        assertThat(taskService.getTask(task.id(), assigner.getId()).status()).isEqualTo("COMPLETED");
+    }
+
+    @Test
+    void reassign_UC07_A3_afterDecline_createsNewAssignmentAndCanComplete() {
+        Department dept = newDepartment();
+        User assigner = newUserInDept("a3.re.assigner", dept);
+        User assignee = newUserInDept("a3.re.assignee", dept);
+        User newAssignee = newUserInDept("a3.re.new", dept);
+
+        TaskResponse task = taskService.createTask(
+                new CreateTaskRequest("A3 reassign", null,
+                        List.of(assignee.getId()), null, null, null, null),
+                assigner.getId());
+        Long declinedId = taskService.listMyAssignments(assignee.getId()).getFirst().id();
+        taskService.updateAssignmentStatus(declinedId,
+                new UpdateAssignmentStatusRequest("DECLINED", "Không nhận"), assignee.getId());
+
+        TaskAssignmentResponse fresh = taskService.reassign(task.id(),
+                new ReassignTaskRequest(declinedId, newAssignee.getId(), "Giao lại cho bạn"),
+                assigner.getId());
+
+        assertThat(fresh.id()).isNotNull();
+        assertThat(fresh.assigneeUserId()).isEqualTo(newAssignee.getId());
+        assertThat(fresh.assignmentStatus()).isEqualTo("PENDING");
+
+        // DECLINED record preserved as history — task now has 2 assignments
+        List<TaskAssignmentResponse> all = taskService.listAssignments(task.id(), assigner.getId());
+        assertThat(all).hasSize(2);
+
+        // New assignee completes the reassigned work → task COMPLETED (declined ignored)
+        taskService.updateAssignmentStatus(fresh.id(),
+                new UpdateAssignmentStatusRequest("IN_PROGRESS", null), newAssignee.getId());
+        taskService.updateAssignmentStatus(fresh.id(),
+                new UpdateAssignmentStatusRequest("PENDING_REVIEW", null), newAssignee.getId());
+        taskService.updateAssignmentStatus(fresh.id(),
+                new UpdateAssignmentStatusRequest("COMPLETED", null), assigner.getId());
+
+        assertThat(taskService.getTask(task.id(), assigner.getId()).status()).isEqualTo("COMPLETED");
+    }
+
+    @Test
+    void reassign_UC07_A3_byNonCreator_throws() {
+        Department dept = newDepartment();
+        User assigner = newUserInDept("a3.nc.assigner", dept);
+        User assignee = newUserInDept("a3.nc.assignee", dept);
+        User other = newUserInDept("a3.nc.other", dept);
+
+        TaskResponse task = taskService.createTask(
+                new CreateTaskRequest("A3 non-creator", null,
+                        List.of(assignee.getId()), null, null, null, null),
+                assigner.getId());
+        Long declinedId = taskService.listMyAssignments(assignee.getId()).getFirst().id();
+        taskService.updateAssignmentStatus(declinedId,
+                new UpdateAssignmentStatusRequest("DECLINED", "x"), assignee.getId());
+
+        assertThatThrownBy(() -> taskService.reassign(task.id(),
+                new ReassignTaskRequest(declinedId, other.getId(), null), assignee.getId()))
+                .isInstanceOf(NotTaskCreatorException.class);
+    }
+
+    @Test
+    void reassign_UC07_A3_nonDeclinedAssignment_throws() {
+        Department dept = newDepartment();
+        User assigner = newUserInDept("a3.nd.assigner", dept);
+        User assignee = newUserInDept("a3.nd.assignee", dept);
+        User other = newUserInDept("a3.nd.other", dept);
+
+        TaskResponse task = taskService.createTask(
+                new CreateTaskRequest("A3 non-declined", null,
+                        List.of(assignee.getId()), null, null, null, null),
+                assigner.getId());
+        Long pendingId = taskService.listMyAssignments(assignee.getId()).getFirst().id();
+
+        // Assignment is still PENDING (not DECLINED) → cannot reassign
+        assertThatThrownBy(() -> taskService.reassign(task.id(),
+                new ReassignTaskRequest(pendingId, other.getId(), null), assigner.getId()))
+                .isInstanceOf(InvalidTaskStatusTransitionException.class);
+    }
+
+    @Test
+    void reassign_UC07_A3_toExistingAssignee_throws() {
+        Department dept = newDepartment();
+        User assigner = newUserInDept("a3.ex.assigner", dept);
+        User a1 = newUserInDept("a3.ex.a1", dept);
+        User a2 = newUserInDept("a3.ex.a2", dept);
+
+        TaskResponse task = taskService.createTask(
+                new CreateTaskRequest("A3 existing assignee", null,
+                        List.of(a1.getId(), a2.getId()), null, null, null, null),
+                assigner.getId());
+        Long id1 = taskService.listMyAssignments(a1.getId()).getFirst().id();
+        taskService.updateAssignmentStatus(id1,
+                new UpdateAssignmentStatusRequest("DECLINED", "x"), a1.getId());
+
+        // a2 already has an assignment on this task → conflict
+        assertThatThrownBy(() -> taskService.reassign(task.id(),
+                new ReassignTaskRequest(id1, a2.getId(), null), assigner.getId()))
+                .isInstanceOf(TaskAssigneeAlreadyAssignedException.class);
+    }
+
+    @Test
+    void reassign_UC07_A3_outsideDepartment_throws() {
+        Department deptA = newDepartment();
+        Department deptB = newDepartment();
+        User assigner = newUserInDept("a3.od.assigner", deptA);
+        User assignee = newUserInDept("a3.od.assignee", deptA);
+        User outsider = newUserInDept("a3.od.outsider", deptB);
+
+        TaskResponse task = taskService.createTask(
+                new CreateTaskRequest("A3 outside dept", null,
+                        List.of(assignee.getId()), null, null, null, null),
+                assigner.getId());
+        Long declinedId = taskService.listMyAssignments(assignee.getId()).getFirst().id();
+        taskService.updateAssignmentStatus(declinedId,
+                new UpdateAssignmentStatusRequest("DECLINED", "x"), assignee.getId());
+
+        assertThatThrownBy(() -> taskService.reassign(task.id(),
+                new ReassignTaskRequest(declinedId, outsider.getId(), null), assigner.getId()))
+                .isInstanceOf(AssigneeOutsideDepartmentException.class);
+    }
+
     // ===================== UC-07 Comments =====================
 
     @Test
@@ -558,6 +764,9 @@ class TaskServiceTest extends AbstractIntegrationTest {
         User assigner1 = newUserInDept("list.assigner1", dept);
         User assigner2 = newUserInDept("list.assigner2", dept);
         User assignee = newUserInDept("list.assignee", dept);
+        // Cả 2 người giao là EXECUTIVE (company-wide) để giao cùng 1 người nhận (assigner2 không là trưởng phòng).
+        assignRole(assigner1, "EXECUTIVE");
+        assignRole(assigner2, "EXECUTIVE");
 
         taskService.createTask(
                 new CreateTaskRequest("Task by assigner1", null,
@@ -571,6 +780,144 @@ class TaskServiceTest extends AbstractIntegrationTest {
         List<TaskResponse> byAssigner1 = taskService.listTasksCreatedByMe(assigner1.getId());
         assertThat(byAssigner1).hasSize(1);
         assertThat(byAssigner1.getFirst().title()).isEqualTo("Task by assigner1");
+    }
+
+    // ===================== UC-06/07: Tổng quan công việc (GET /api/tasks/overview) =====================
+
+    @Test
+    void listOverview_companyPerm_returnsAllTasksAcrossDepartments() {
+        Department dept1 = newDepartment();
+        User head1 = newUserInDept("ov.co.head1", dept1);
+        User assignee1 = newUserInDept("ov.co.a1", dept1);
+        TaskResponse task1 = taskService.createTask(
+                new CreateTaskRequest("Overview dept1", null, List.of(assignee1.getId()), null, null, null, null),
+                head1.getId());
+
+        Department dept2 = newDepartment();
+        User head2 = newUserInDept("ov.co.head2", dept2);
+        User assignee2 = newUserInDept("ov.co.a2", dept2);
+        TaskResponse task2 = taskService.createTask(
+                new CreateTaskRequest("Overview dept2", null, List.of(assignee2.getId()), null, null, null, null),
+                head2.getId());
+
+        User viewer = newUserInDept("ov.co.viewer", newDepartment());
+        grantPermission(viewer, "task.overview.company");
+
+        List<TaskResponse> overview = taskService.listOverview(viewer.getId());
+
+        assertThat(overview).extracting(TaskResponse::id).contains(task1.id(), task2.id());
+    }
+
+    @Test
+    void listOverview_deptHead_returnsOwnDepartmentTasksOnly() {
+        Department dept1 = newDepartment();
+        User head1 = newUserInDept("ov.dh.head1", dept1);
+        User assignee1 = newUserInDept("ov.dh.a1", dept1);
+        TaskResponse task1 = taskService.createTask(
+                new CreateTaskRequest("DeptHead dept1", null, List.of(assignee1.getId()), null, null, null, null),
+                head1.getId());
+
+        Department dept2 = newDepartment();
+        User head2 = newUserInDept("ov.dh.head2", dept2);
+        User assignee2 = newUserInDept("ov.dh.a2", dept2);
+        TaskResponse task2 = taskService.createTask(
+                new CreateTaskRequest("DeptHead dept2", null, List.of(assignee2.getId()), null, null, null, null),
+                head2.getId());
+
+        // head1 chỉ làm trưởng dept1 -> thấy task1, KHÔNG thấy task2
+        List<TaskResponse> overview = taskService.listOverview(head1.getId());
+
+        assertThat(overview).extracting(TaskResponse::id).contains(task1.id());
+        assertThat(overview).extracting(TaskResponse::id).doesNotContain(task2.id());
+    }
+
+    @Test
+    void listOverview_plainEmployee_throws403() {
+        Department dept = newDepartment();
+        newUserInDept("ov.plain.head", dept); // người đầu tiên = trưởng phòng
+        User plainEmployee = newUserInDept("ov.plain.emp", dept);
+
+        assertThatThrownBy(() -> taskService.listOverview(plainEmployee.getId()))
+                .isInstanceOf(NotAuthorizedForTaskOverviewException.class);
+    }
+
+    // ===================== UC-06/07: Hủy công việc (CANCELLED thay vì xóa) =====================
+
+    @Test
+    void cancelTask_UC06_byCreator_setsCancelled() {
+        Department dept = newDepartment();
+        User assigner = newUserInDept("cancel.assigner", dept);
+        User assignee = newUserInDept("cancel.assignee", dept);
+        TaskResponse task = taskService.createTask(
+                new CreateTaskRequest("Cancel me", null, List.of(assignee.getId()), null, null, null, null),
+                assigner.getId());
+
+        TaskResponse cancelled = taskService.cancelTask(task.id(), new CancelTaskRequest("Không cần nữa"), assigner.getId());
+
+        assertThat(cancelled.status()).isEqualTo("CANCELLED");
+        assertThat(taskService.getTask(task.id(), assigner.getId()).status()).isEqualTo("CANCELLED");
+    }
+
+    @Test
+    void cancelTask_UC06_blocksAssignmentUpdateAfterCancel() {
+        Department dept = newDepartment();
+        User assigner = newUserInDept("cancel2.assigner", dept);
+        User assignee = newUserInDept("cancel2.assignee", dept);
+        TaskResponse task = taskService.createTask(
+                new CreateTaskRequest("Cancel block", null, List.of(assignee.getId()), null, null, null, null),
+                assigner.getId());
+        Long assignmentId = taskService.listMyAssignments(assignee.getId()).getFirst().id();
+        taskService.cancelTask(task.id(), null, assigner.getId());
+
+        assertThatThrownBy(() -> taskService.updateAssignmentStatus(assignmentId,
+                new UpdateAssignmentStatusRequest("ACCEPTED", null), assignee.getId()))
+                .isInstanceOf(InvalidTaskStatusTransitionException.class);
+    }
+
+    @Test
+    void cancelTask_UC06_byNonCreatorWithoutManage_throws() {
+        Department dept = newDepartment();
+        User assigner = newUserInDept("cancel3.assigner", dept);
+        User assignee = newUserInDept("cancel3.assignee", dept);
+        TaskResponse task = taskService.createTask(
+                new CreateTaskRequest("Cancel deny", null, List.of(assignee.getId()), null, null, null, null),
+                assigner.getId());
+
+        assertThatThrownBy(() -> taskService.cancelTask(task.id(), null, assignee.getId()))
+                .isInstanceOf(NotTaskCreatorException.class);
+    }
+
+    @Test
+    void cancelTask_UC06_alreadyCompleted_throws() {
+        Department dept = newDepartment();
+        User assigner = newUserInDept("cancel4.assigner", dept);
+        User assignee = newUserInDept("cancel4.assignee", dept);
+        TaskResponse task = taskService.createTask(
+                new CreateTaskRequest("Cancel completed", null, List.of(assignee.getId()), null, null, null, null),
+                assigner.getId());
+        Long assignmentId = taskService.listMyAssignments(assignee.getId()).getFirst().id();
+        taskService.updateAssignmentStatus(assignmentId, new UpdateAssignmentStatusRequest("IN_PROGRESS", null), assignee.getId());
+        taskService.updateAssignmentStatus(assignmentId, new UpdateAssignmentStatusRequest("PENDING_REVIEW", null), assignee.getId());
+        taskService.updateAssignmentStatus(assignmentId, new UpdateAssignmentStatusRequest("COMPLETED", null), assigner.getId());
+
+        assertThatThrownBy(() -> taskService.cancelTask(task.id(), null, assigner.getId()))
+                .isInstanceOf(InvalidTaskStatusTransitionException.class);
+    }
+
+    @Test
+    void cancelTask_UC06_byManagerWithTaskManage_succeeds() {
+        Department dept = newDepartment();
+        User assigner = newUserInDept("cancel5.assigner", dept);
+        User assignee = newUserInDept("cancel5.assignee", dept);
+        TaskResponse task = taskService.createTask(
+                new CreateTaskRequest("Cancel by manager", null, List.of(assignee.getId()), null, null, null, null),
+                assigner.getId());
+        User manager = newUserInDept("cancel5.manager", newDepartment());
+        grantPermission(manager, "task.manage");
+
+        TaskResponse cancelled = taskService.cancelTask(task.id(), new CancelTaskRequest("admin hủy"), manager.getId());
+
+        assertThat(cancelled.status()).isEqualTo("CANCELLED");
     }
 
     // ===================== Helpers =====================
@@ -601,7 +948,25 @@ class TaskServiceTest extends AbstractIntegrationTest {
         employee.setHireDate(LocalDate.of(2024, 1, 1));
         employeeRepository.save(employee);
 
+        // Người ĐẦU TIÊN tạo trong 1 phòng = trưởng phòng (head_user_id) — trong mọi test đây
+        // chính là người giao việc, khớp mô hình phạm vi mới (trưởng phòng giao cho nhân sự phòng mình).
+        if (dept.getHeadUser() == null) {
+            dept.setHeadUser(user);
+            departmentRepository.save(dept);
+        }
         return user;
+    }
+
+    /** Cấp 1 quyền lẻ cho user qua override GRANT (VD task.manage) — dùng để test luồng company-wide. */
+    private void grantPermission(User user, String permissionCode) {
+        vn.com.pps.education.domain.Permission permission = permissionRepository.findByCode(permissionCode).orElseThrow();
+        vn.com.pps.education.domain.UserPermissionOverride override = new vn.com.pps.education.domain.UserPermissionOverride();
+        override.setUser(user);
+        override.setPermission(permission);
+        override.setOverrideType(vn.com.pps.education.domain.UserPermissionOverride.OverrideType.GRANT);
+        override.setReason("test");
+        override.setGrantedBy(user);
+        userPermissionOverrideRepository.save(override);
     }
 
     private void assignRole(User user, String roleCode) {

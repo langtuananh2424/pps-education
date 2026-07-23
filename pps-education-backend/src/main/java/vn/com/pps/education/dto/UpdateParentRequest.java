@@ -5,5 +5,6 @@ public record UpdateParentRequest(
         String occupation,
         String workplace,
         String address,
-        String notes
+        String notes,
+        String portraitUrl
 ) {}

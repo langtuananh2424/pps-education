@@ -123,8 +123,14 @@ CREATE INDEX idx_tasks_overdue ON tasks(status, due_at)
 
 WHERE status IN (\'OPEN\',\'IN_PROGRESS\') AND due_at IS NOT NULL;
 
-Logic auto-status: Khi tất cả task_assignments của task = COMPLETED →
-tasks.status = COMPLETED. Cron job nightly set OVERDUE khi quá hạn.
+Logic auto-status: Khi tất cả task_assignments CÒN HIỆU LỰC (không tính
+DECLINED) của task = COMPLETED → tasks.status = COMPLETED. Phân công
+DECLINED không tính vào điều kiện hoàn thành; nếu toàn bộ phân công của
+task đều bị DECLINED (chưa giao lại) thì task giữ nguyên trạng thái mở,
+chờ người giao giao lại (reassign — xem UC-07 A3). Người giao có thể giao
+lại phần bị từ chối cho nhân sự khác: tạo 1 task_assignment MỚI (PENDING)
+cho người nhận mới, bản ghi DECLINED được giữ lại làm lịch sử. Cron job
+nightly set OVERDUE khi quá hạn.
 
 Phân quyền: Cấp quản lý/trưởng phòng giao việc cho nhân sự trực thuộc
 phòng ban trực thuộc; riêng Quản lý vận hành có quyền giao việc cho toàn

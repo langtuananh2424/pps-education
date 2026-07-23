@@ -207,6 +207,36 @@ class AuthServiceTest extends AbstractIntegrationTest {
     }
 
     /**
+     * Bổ sung (audit FE 2026-07-20): Admin FE cần biết effective permissions
+     * thật của chính tài khoản đang gọi để ẩn/hiện menu/nút hành động, thay
+     * vì tra bảng hardcode tĩnh phía client không đồng bộ với DB — tái dùng
+     * đúng PermissionEvaluationService.getEffectivePermissions (cùng công
+     * thức role_permissions ∪ user_permission_overrides dùng để enforce
+     * @PreAuthorize("hasPermission(...)")).
+     */
+    @Test
+    void getCurrentUser_boSung_includesEffectivePermissionsFromAssignedRole() {
+        Role teacherRole = roleRepository.findByCode("TEACHER").orElseThrow();
+        UserRole userRole = new UserRole();
+        userRole.setUser(activeUser);
+        userRole.setRole(teacherRole);
+        userRole.setAssignedBy(activeUser);
+        userRoleRepository.save(userRole);
+
+        CurrentUserResponse response = authService.getCurrentUser(activeUser.getId());
+
+        // lms.exercise.manage được gán mặc định cho TEACHER từ V28 -- xác nhận field permissions phản ánh đúng DB thật.
+        assertThat(response.permissions()).contains("lms.exercise.manage");
+    }
+
+    @Test
+    void getCurrentUser_boSung_returnsEmptyPermissionsWhenNoRoleAssigned() {
+        CurrentUserResponse response = authService.getCurrentUser(activeUser.getId());
+
+        assertThat(response.permissions()).isEmpty();
+    }
+
+    /**
      * UC-42 tiền đề: tài khoản Học sinh tự đăng nhập cần tra ra studentId của
      * chính mình để gọi tiếp các API Portal (tương tự GET /api/portal/parent/children
      * cho Phụ huynh) — GET /api/auth/me phải trả kèm studentId khi có hồ sơ liên kết.

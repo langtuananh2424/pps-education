@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Save, UserCheck } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
+import { useApp } from "@/context/AppContext";
 import {
   AttendanceMarkResponse,
   ClassResponse,
@@ -9,6 +10,7 @@ import {
   EnterAttendanceMarkRequest,
   getAttendanceSession,
   listClassEnrollments,
+  listClassTeachers,
   listClasses,
   listClassSessions,
   markAttendance,
@@ -32,7 +34,17 @@ function toSimpleStatus(status: EnterAttendanceMarkRequest["status"]): SimpleSta
   return "ABSENT";
 }
 
+/** UC-15 "Sự kiện kích hoạt": chỉ điểm danh được từ khi buổi học bắt đầu — chặn chọn buổi tương lai (cùng logic ClassDetailPanel.tsx). */
+function hasSessionStarted(s: ClassSessionResponse): boolean {
+  return new Date(`${s.sessionDate}T${s.startTime}`) <= new Date();
+}
+
 export default function AttendancePage() {
+  const { hasPermission, currentUser, selectedCampusId } = useApp();
+  // UC-15 Precondition: Tác nhân chỉ là "Giáo viên được phân công giảng dạy tiết đó" — không dùng
+  // student.manage làm cờ bypass (quyền đó nghĩa thật là "Quản lý hồ sơ học sinh", backend cấp rộng
+  // cho TEACHER, không liên quan phạm vi lớp điểm danh). Chỉ academic.class.manage (Admin/HEAD_ACADEMIC) mới thấy hết.
+  const canSeeAllClasses = hasPermission("academic.class.manage");
   const [searchParams, setSearchParams] = useSearchParams();
   const classIdParam = searchParams.get("classId");
   const sessionIdParam = searchParams.get("sessionId");
@@ -52,11 +64,19 @@ export default function AttendancePage() {
   const selectedClass = classes.find((c) => c.id === selectedClassId) ?? null;
   const locked = sessionStatus === "SUBMITTED" || sessionStatus === "LOCKED";
 
+  /** UC-15 Precondition: GV chỉ điểm danh lớp mình được phân công dạy (class_teachers) — cùng gốc rễ với fix ở GradesPage/ClassesPage. */
   useEffect(() => {
-    listClasses()
-      .then(setClasses)
+    listClasses({ siteId: selectedCampusId !== "ALL" ? Number(selectedCampusId) : undefined })
+      .then(async (res) => {
+        if (canSeeAllClasses || !currentUser) {
+          setClasses(res);
+          return;
+        }
+        const teacherLists = await Promise.all(res.map((c) => listClassTeachers(c.id).catch(() => [])));
+        setClasses(res.filter((_, i) => teacherLists[i].some((t) => t.teacherUserId === currentUser.id)));
+      })
       .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách lớp học."));
-  }, []);
+  }, [canSeeAllClasses, currentUser, selectedCampusId]);
 
   useEffect(() => {
     if (!selectedClassId) {
@@ -167,7 +187,7 @@ export default function AttendancePage() {
                   className="bg-white border text-[10px] font-bold text-slate-700 px-2 py-1 rounded focus:outline-none"
                 >
                   <option value="">-- Chọn buổi học --</option>
-                  {sessions.map((s) => (
+                  {sessions.filter(hasSessionStarted).map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.sessionDate} ({s.startTime}–{s.endTime})
                     </option>

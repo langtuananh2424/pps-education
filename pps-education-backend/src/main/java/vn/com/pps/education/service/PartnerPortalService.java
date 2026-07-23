@@ -101,11 +101,19 @@ public class PartnerPortalService {
                 .toList();
     }
 
+<<<<<<< HEAD
     /** Main Flow bước 2: kết quả học tập — điểm đã duyệt (UC-20) của học sinh trường mình. */
+=======
+    /** Main Flow bước 2: kết quả học tập — điểm đã công bố dự kiến trở lên (UC-20; V43 — khác DRAFT, hiển thị cả lúc đang phúc khảo) của học sinh trường mình. */
+>>>>>>> develop
     @Transactional(readOnly = true)
     public List<GradeEntryResponse> getApprovedGrades(Long actorUserId) {
         Site site = requirePartnerSite(actorUserId);
+<<<<<<< HEAD
         return gradeEntryRepository.findByStatusAndSiteId(GradeEntry.Status.APPROVED, site.getId())
+=======
+        return gradeEntryRepository.findByStatusNotAndSiteId(GradeEntry.Status.DRAFT, site.getId())
+>>>>>>> develop
                 .stream().map(this::toResponse).toList();
     }
 
@@ -164,8 +172,13 @@ public class PartnerPortalService {
         return new GradeEntryResponse(
                 e.getId(), e.getSchoolClass().getId(), e.getStudent().getId(), e.getStudent().getUser().getFullName(),
                 e.getStudent().getStudentCode(), e.getGradeComponent().getId(), e.getScore(), e.isAbsenceFlag(),
+<<<<<<< HEAD
                 e.getTeacherNote(), e.getStatus().name(), e.getEnteredBy().getId(), e.getSubmittedAt(),
                 e.getApprovedBy() == null ? null : e.getApprovedBy().getId(), e.getApprovedAt());
+=======
+                e.getTeacherNote(), e.getStatus().name(), e.getEnteredBy().getId(),
+                e.getPublishedBy() == null ? null : e.getPublishedBy().getId(), e.getPublishedAt(), e.getFinalizedAt());
+>>>>>>> develop
     }
 
     private TeachingPlanResponse toResponse(TeachingPlan p) {

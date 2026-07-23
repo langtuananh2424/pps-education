@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { ApiError } from "@/lib/apiClient";
-import { ClassEnrollmentResponse, ClassResponse, StudentCommentResponse, listClassEnrollments, listClasses, listComments } from "../api";
+import { useApp } from "@/context/AppContext";
+import { ClassEnrollmentResponse, ClassResponse, StudentCommentResponse, listClassEnrollments, listClassTeachers, listClasses, listComments } from "../api";
 import Card from "@/components/ui/Card";
 import CommentForm from "./CommentForm";
 import CommentHistoryList from "./CommentHistoryList";
@@ -9,6 +10,8 @@ const inputClass = "bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg f
 
 /** UC-21 nhánh MID_TERM/END_TERM: chọn lớp + học sinh + kỳ điểm, viết nhận xét định kỳ (không gắn buổi học). */
 export default function PeriodicCommentPanel() {
+  const { hasPermission, currentUser, selectedCampusId } = useApp();
+  const canManage = hasPermission("academic.class.manage");
   const [classes, setClasses] = useState<ClassResponse[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
   const [enrollments, setEnrollments] = useState<ClassEnrollmentResponse[]>([]);
@@ -18,9 +21,19 @@ export default function PeriodicCommentPanel() {
 
   const selectedClass = classes.find((c) => c.id === selectedClassId) ?? null;
 
+  /** UC-21 Precondition: GV chỉ nhận xét lớp mình được phân công dạy (class_teachers) — cùng gốc rễ với fix ở DailyCommentPanel/GradesPage/ClassesPage/AttendancePage. */
   useEffect(() => {
-    listClasses().then(setClasses).catch(() => undefined);
-  }, []);
+    listClasses({ siteId: selectedCampusId !== "ALL" ? Number(selectedCampusId) : undefined })
+      .then(async (res) => {
+        if (canManage || !currentUser) {
+          setClasses(res);
+          return;
+        }
+        const teacherLists = await Promise.all(res.map((c) => listClassTeachers(c.id).catch(() => [])));
+        setClasses(res.filter((_, i) => teacherLists[i].some((t) => t.teacherUserId === currentUser.id)));
+      })
+      .catch(() => undefined);
+  }, [canManage, currentUser, selectedCampusId]);
 
   useEffect(() => {
     setSelectedStudentId(null);

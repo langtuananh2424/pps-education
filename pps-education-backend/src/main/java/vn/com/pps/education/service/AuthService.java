@@ -59,6 +59,7 @@ public class AuthService {
     private final JwtService jwtService;
     private final GoogleIdTokenVerifier googleIdTokenVerifier;
     private final NotificationService notificationService;
+    private final PermissionEvaluationService permissionEvaluationService;
     private final int maxFailedAttempts;
     private final int lockDurationMinutes;
     private final long refreshTokenTtlDays;
@@ -74,6 +75,7 @@ public class AuthService {
                         JwtService jwtService,
                         GoogleIdTokenVerifier googleIdTokenVerifier,
                         NotificationService notificationService,
+                        PermissionEvaluationService permissionEvaluationService,
                         @Value("${app.security.brute-force.max-failed-attempts}") int maxFailedAttempts,
                         @Value("${app.security.brute-force.lock-duration-minutes}") int lockDurationMinutes,
                         @Value("${app.jwt.refresh-token-ttl-days}") long refreshTokenTtlDays) {
@@ -88,6 +90,7 @@ public class AuthService {
         this.jwtService = jwtService;
         this.googleIdTokenVerifier = googleIdTokenVerifier;
         this.notificationService = notificationService;
+        this.permissionEvaluationService = permissionEvaluationService;
         this.maxFailedAttempts = maxFailedAttempts;
         this.lockDurationMinutes = lockDurationMinutes;
         this.refreshTokenTtlDays = refreshTokenTtlDays;
@@ -234,7 +237,8 @@ public class AuthService {
                 user.getId(), user.getUsername(), user.getEmail(), user.getFullName(), user.getPhone(),
                 departmentName,
                 rolesOf(user),
-                studentId);
+                studentId,
+                permissionEvaluationService.getEffectivePermissions(userId));
     }
 
     /** A2 (khóa 5 lần sai) + A3 (INACTIVE/SUSPENDED) — áp dụng cho cả luồng mật khẩu và Google. */

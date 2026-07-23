@@ -66,11 +66,19 @@ public class QuestionBankController {
         return ResponseEntity.ok(questionBankService.updateQuestion(id, request, actor.userId()));
     }
 
+    @PreAuthorize("hasPermission(null, 'lms.exercise.manage')")
     @GetMapping("/api/question-banks/{bankId}/questions")
     public ResponseEntity<List<QuestionResponse>> listQuestions(@PathVariable Long bankId) {
         return ResponseEntity.ok(questionBankService.listQuestions(bankId));
     }
 
+    /**
+     * Chỉ dành cho GV/quản lý ngân hàng câu hỏi — trả về cả is_correct nên
+     * TUYỆT ĐỐI không cho Học viên gọi trực tiếp (đáp án đúng chỉ lộ ra
+     * cho Học viên qua ExerciseAttemptService sau khi nộp bài, có kiểm
+     * soát show_correct_answers — xem Javadoc ExerciseAttemptService).
+     */
+    @PreAuthorize("hasPermission(null, 'lms.exercise.manage')")
     @GetMapping("/api/questions/{id}")
     public ResponseEntity<QuestionResponse> getQuestion(@PathVariable Long id) {
         return ResponseEntity.ok(questionBankService.getQuestion(id));

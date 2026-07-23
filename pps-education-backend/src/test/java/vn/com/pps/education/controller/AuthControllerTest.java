@@ -36,11 +36,22 @@ class AuthControllerTest extends AbstractControllerTest {
     private StudentRepository studentRepository;
 
     @Test
-    void me_deniedWithoutJwt_returns403() throws Exception {
-        // Không có AuthenticationEntryPoint riêng trong SecurityConfig -> Spring Security
-        // mặc định trả 403 (không phải 401) cho request chưa xác thực bị chặn bởi authenticated().
+    void me_deniedWithoutJwt_returns401() throws Exception {
+        // JwtAuthenticationEntryPoint (SecurityConfig) phân biệt 401 (chưa xác thực) với
+        // 403 (đã xác thực nhưng thiếu quyền, xem GlobalExceptionHandler) - FE dựa vào 401
+        // này để tự động refresh token thay vì bắt người dùng đăng xuất/đăng nhập lại thủ công.
         mockMvc.perform(get("/api/auth/me"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void me_deniedWithExpiredOrInvalidJwt_returns401() throws Exception {
+        // JwtAuthenticationFilter chỉ clearContext() khi token hết hạn/không hợp lệ rồi cho
+        // đi tiếp (không tự trả lỗi) -> request tới authorizeHttpRequests với SecurityContext
+        // rỗng, phải trả 401 giống hệt trường hợp không gửi JWT, không phải 403.
+        mockMvc.perform(get("/api/auth/me")
+                        .header("Authorization", "Bearer not-a-valid-jwt-token"))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -78,11 +89,11 @@ class AuthControllerTest extends AbstractControllerTest {
     }
 
     @Test
-    void changeOwnPassword_UC45_deniedWithoutJwt_returns403() throws Exception {
+    void changeOwnPassword_UC45_deniedWithoutJwt_returns401() throws Exception {
         mockMvc.perform(put("/api/auth/me/password")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new ChangeOwnPasswordRequest("old", "MatKhauMoi@9"))))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test

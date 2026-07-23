@@ -32,6 +32,7 @@ erDiagram
         BIGINT user_id FK
         VARCHAR employee_code UK
         DATE date_of_birth
+        VARCHAR portrait_url
         VARCHAR id_card_number UK
         VARCHAR employee_type
         BIGINT position_id FK
@@ -109,6 +110,16 @@ a)  Bảng Employees -- Hồ sơ nhân sự
                                               NULL         
 
   date_of_birth               DATE            NOT NULL     
+
+  portrait_url                VARCHAR(500)    NULL         Ảnh chân dung lưu
+                                                           trên CDN. Bổ sung
+                                                           ngoài SDD gốc, đã
+                                                           xác nhận với
+                                                           người dùng
+                                                           (2026-07-23, V48)
+                                                           — mẫu tham chiếu
+                                                           students.
+                                                           portrait_url
 
   id_card_number              VARCHAR(20)     UNIQUE, NULL Số CCCD/CMND
 

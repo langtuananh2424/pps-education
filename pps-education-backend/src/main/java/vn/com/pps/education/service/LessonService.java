@@ -2,6 +2,7 @@ package vn.com.pps.education.service;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.com.pps.education.domain.ClassEnrollment;
 import vn.com.pps.education.domain.Curriculum;
 import vn.com.pps.education.domain.CurriculumSubject;
 import vn.com.pps.education.domain.Lesson;
@@ -17,6 +18,7 @@ import vn.com.pps.education.dto.UpdateLessonRequest;
 import vn.com.pps.education.exception.InvalidLessonScopeException;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
+import vn.com.pps.education.repository.ClassEnrollmentRepository;
 import vn.com.pps.education.repository.ClassTeacherRepository;
 import vn.com.pps.education.repository.CurriculumRepository;
 import vn.com.pps.education.repository.CurriculumSubjectRepository;
@@ -24,6 +26,7 @@ import vn.com.pps.education.repository.LessonHistoryRepository;
 import vn.com.pps.education.repository.LessonMaterialRepository;
 import vn.com.pps.education.repository.LessonRepository;
 import vn.com.pps.education.repository.SchoolClassRepository;
+import vn.com.pps.education.repository.StudentRepository;
 import vn.com.pps.education.repository.UserRepository;
 
 import java.time.OffsetDateTime;
@@ -32,7 +35,10 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * UC-23: Quản lý bài giảng (FR-LMS-01). Xem docs/uc/phan-he-07-lms-portal.md.
+ * UC-23: Quản lý bài giảng (FR-LMS-01, Giáo viên) + UC-23a: Xem bài giảng
+ * (FR-LMS-01, Học sinh — bổ sung ngoài SDD gốc, đã xác nhận với người
+ * dùng: UC-23a chỉ có tên trong sơ đồ actor, chưa từng có Main
+ * Flow/Postcondition riêng). Xem docs/uc/phan-he-07-lms-portal.md.
  *
  * Tệp (video/PDF) được xem là đã upload lên CDN/Object Storage từ trước
  * (NFR-TECH-07) — Service chỉ nhận URL phân phối đã có sẵn, không tự làm
@@ -49,6 +55,8 @@ public class LessonService {
     private final SchoolClassRepository schoolClassRepository;
     private final CurriculumSubjectRepository curriculumSubjectRepository;
     private final ClassTeacherRepository classTeacherRepository;
+    private final ClassEnrollmentRepository classEnrollmentRepository;
+    private final StudentRepository studentRepository;
     private final UserRepository userRepository;
 
     public LessonService(LessonRepository lessonRepository,
@@ -58,6 +66,8 @@ public class LessonService {
                           SchoolClassRepository schoolClassRepository,
                           CurriculumSubjectRepository curriculumSubjectRepository,
                           ClassTeacherRepository classTeacherRepository,
+                          ClassEnrollmentRepository classEnrollmentRepository,
+                          StudentRepository studentRepository,
                           UserRepository userRepository) {
         this.lessonRepository = lessonRepository;
         this.lessonMaterialRepository = lessonMaterialRepository;
@@ -66,6 +76,8 @@ public class LessonService {
         this.schoolClassRepository = schoolClassRepository;
         this.curriculumSubjectRepository = curriculumSubjectRepository;
         this.classTeacherRepository = classTeacherRepository;
+        this.classEnrollmentRepository = classEnrollmentRepository;
+        this.studentRepository = studentRepository;
         this.userRepository = userRepository;
     }
 
@@ -128,13 +140,33 @@ public class LessonService {
         return toResponse(lesson);
     }
 
+    /**
+     * UC-23a: HS trong lớp X xem được bài riêng lớp X HOẶC bài chung theo
+     * khung của lớp X (SDD > LMS & Portal > Bài giảng & Kho học liệu >
+     * "Logic HS xem được bài gì"). Trước đây chỉ trả bài riêng lớp, bỏ sót
+     * bài dùng chung theo curriculum — sửa lại dùng đúng
+     * findVisibleForClass đã có sẵn nhưng chưa được nối dây.
+     */
     @Transactional(readOnly = true)
-    public List<LessonResponse> listByClass(Long classId) {
-        return lessonRepository.findBySchoolClassIdOrderByLessonOrder(classId).stream().map(this::toResponse).toList();
+    public List<LessonResponse> listByClass(Long classId, Long actorUserId) {
+        SchoolClass schoolClass = getClassOrThrow(classId);
+        Lesson.Status statusFilter = null;
+        if (isStudent(actorUserId)) {
+            requireStudentEnrolledInClass(classId, actorUserId);
+            statusFilter = Lesson.Status.PUBLISHED;
+        }
+        return lessonRepository.findVisibleForClass(classId, schoolClass.getCurriculum().getId(), statusFilter)
+                .stream().map(this::toResponse).toList();
     }
 
     @Transactional(readOnly = true)
-    public List<LessonResponse> listByCurriculum(Long curriculumId) {
+    public List<LessonResponse> listByCurriculum(Long curriculumId, Long actorUserId) {
+        if (isStudent(actorUserId)) {
+            requireStudentEnrolledInCurriculum(curriculumId, actorUserId);
+            return lessonRepository.findByCurriculumIdOrderByLessonOrder(curriculumId).stream()
+                    .filter(l -> l.getStatus() == Lesson.Status.PUBLISHED)
+                    .map(this::toResponse).toList();
+        }
         return lessonRepository.findByCurriculumIdOrderByLessonOrder(curriculumId).stream().map(this::toResponse).toList();
     }
 
@@ -158,11 +190,54 @@ public class LessonService {
     }
 
     @Transactional(readOnly = true)
-    public List<LessonMaterialResponse> listMaterials(Long lessonId) {
+    public List<LessonMaterialResponse> listMaterials(Long lessonId, Long actorUserId) {
+        Lesson lesson = getLessonOrThrow(lessonId);
+        if (isStudent(actorUserId)) {
+            requireStudentCanViewLesson(lesson, actorUserId);
+        }
         return lessonMaterialRepository.findByLessonIdOrderByDisplayOrder(lessonId).stream().map(this::toResponse).toList();
     }
 
     // ===================== Helpers =====================
+
+    private boolean isStudent(Long actorUserId) {
+        return studentRepository.findByUserId(actorUserId).isPresent();
+    }
+
+    private void requireStudentEnrolledInClass(Long classId, Long actorUserId) {
+        var student = studentRepository.findByUserId(actorUserId).orElseThrow();
+        if (classEnrollmentRepository.findBySchoolClassIdAndStudentIdAndStatus(
+                classId, student.getId(), ClassEnrollment.Status.ACTIVE).isEmpty()) {
+            throw new ResourceNotFoundException("Không tìm thấy lớp học id=" + classId);
+        }
+    }
+
+    private void requireStudentEnrolledInCurriculum(Long curriculumId, Long actorUserId) {
+        var student = studentRepository.findByUserId(actorUserId).orElseThrow();
+        if (!classEnrollmentRepository.existsByStudentIdAndSchoolClass_CurriculumIdAndStatus(
+                student.getId(), curriculumId, ClassEnrollment.Status.ACTIVE)) {
+            throw new ResourceNotFoundException("Không tìm thấy khung chương trình id=" + curriculumId);
+        }
+    }
+
+    /** UC-23a: HS chỉ xem được bài PUBLISHED và (đúng lớp mình học HOẶC đúng khung của lớp mình học). */
+    private void requireStudentCanViewLesson(Lesson lesson, Long actorUserId) {
+        if (lesson.getStatus() != Lesson.Status.PUBLISHED) {
+            throw new ResourceNotFoundException("Không tìm thấy bài giảng id=" + lesson.getId());
+        }
+        var student = studentRepository.findByUserId(actorUserId).orElseThrow();
+        boolean visible;
+        if (lesson.getSchoolClass() != null) {
+            visible = classEnrollmentRepository.findBySchoolClassIdAndStudentIdAndStatus(
+                    lesson.getSchoolClass().getId(), student.getId(), ClassEnrollment.Status.ACTIVE).isPresent();
+        } else {
+            visible = classEnrollmentRepository.existsByStudentIdAndSchoolClass_CurriculumIdAndStatus(
+                    student.getId(), lesson.getCurriculum().getId(), ClassEnrollment.Status.ACTIVE);
+        }
+        if (!visible) {
+            throw new ResourceNotFoundException("Không tìm thấy bài giảng id=" + lesson.getId());
+        }
+    }
 
     private void requireOwnerScope(Lesson lesson, Long actorUserId) {
         if (lesson.getCurriculum() != null) {

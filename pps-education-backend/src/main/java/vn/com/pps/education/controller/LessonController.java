@@ -43,13 +43,15 @@ public class LessonController {
     }
 
     @GetMapping("/api/classes/{classId}/lessons")
-    public ResponseEntity<List<LessonResponse>> listByClass(@PathVariable Long classId) {
-        return ResponseEntity.ok(lessonService.listByClass(classId));
+    public ResponseEntity<List<LessonResponse>> listByClass(@PathVariable Long classId,
+                                                              @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(lessonService.listByClass(classId, actor.userId()));
     }
 
     @GetMapping("/api/curriculums/{curriculumId}/lessons")
-    public ResponseEntity<List<LessonResponse>> listByCurriculum(@PathVariable Long curriculumId) {
-        return ResponseEntity.ok(lessonService.listByCurriculum(curriculumId));
+    public ResponseEntity<List<LessonResponse>> listByCurriculum(@PathVariable Long curriculumId,
+                                                                    @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(lessonService.listByCurriculum(curriculumId, actor.userId()));
     }
 
     @PostMapping("/api/lessons/{lessonId}/materials")
@@ -60,7 +62,8 @@ public class LessonController {
     }
 
     @GetMapping("/api/lessons/{lessonId}/materials")
-    public ResponseEntity<List<LessonMaterialResponse>> listMaterials(@PathVariable Long lessonId) {
-        return ResponseEntity.ok(lessonService.listMaterials(lessonId));
+    public ResponseEntity<List<LessonMaterialResponse>> listMaterials(@PathVariable Long lessonId,
+                                                                        @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(lessonService.listMaterials(lessonId, actor.userId()));
     }
 }

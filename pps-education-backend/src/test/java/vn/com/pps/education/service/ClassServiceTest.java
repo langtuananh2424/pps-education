@@ -341,6 +341,37 @@ class ClassServiceTest extends AbstractIntegrationTest {
         assertThat(result).extracting(ClassResponse::id).containsExactly(classAtA.id());
     }
 
+    /**
+     * Bổ sung (audit FE 2026-07-20): resolveAllowedSiteIds trước đây chỉ
+     * cộng site theo site_teachers, bỏ sót site_managers -- Quản lý điểm
+     * trường không kiêm giáo viên gọi GET /api/classes luôn ra rỗng, dù
+     * Precondition UC-19 xác nhận rõ họ được thao tác trên lớp thuộc site
+     * mình phụ trách.
+     */
+    @Test
+    void search_siteManagerForSite_seesOwnSiteClasses() {
+        Site siteA = newSite(Site.SiteType.OWNED);
+        Site siteB = newSite(Site.SiteType.OWNED);
+        ClassResponse classAtA = classService.create(
+                new CreateClassRequest(classCode(), "Lớp A", siteA.getId(), activeCurriculum.id(), "OPEN", 20, null,
+                        LocalDate.now(), null, null, null), headAcademic.getId());
+        classService.create(
+                new CreateClassRequest(classCode(), "Lớp B", siteB.getId(), activeCurriculum.id(), "OPEN", 20, null,
+                        LocalDate.now(), null, null, null), headAcademic.getId());
+        User siteManagerUser = newUser("site.manager.search");
+        assignRole(siteManagerUser, "SITE_MANAGER");
+        SiteManager siteManager = new SiteManager();
+        siteManager.setSite(siteA);
+        siteManager.setUser(siteManagerUser);
+        siteManager.setAssignedFrom(LocalDate.now().minusMonths(1));
+        siteManager.setAssignedBy(siteManagerUser);
+        siteManagerRepository.save(siteManager);
+
+        var result = classService.search(null, null, null, null, siteManagerUser.getId());
+
+        assertThat(result).extracting(ClassResponse::id).containsExactly(classAtA.id());
+    }
+
     private CurriculumResponse activeCurriculumWithCategory(String classCategory) {
         CurriculumResponse curriculum = curriculumService.create(
                 new CreateCurriculumRequest(curriculumCode(), classCategory, classCategory, null, null, null),

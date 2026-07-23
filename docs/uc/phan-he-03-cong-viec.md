@@ -147,4 +147,62 @@ UC-07: Cập nhật tiến độ công việc
 |                 |     theo dõi tiến độ.                              |
 +-----------------+----------------------------------------------------+
 
+> **Bổ sung ngoài đặc tả gốc — đã xác nhận với người dùng (2026-07-22).**
+> SDD/UC gốc có trạng thái `DECLINED` (người nhận từ chối nhận việc) nhưng
+> không mô tả hệ quả sau đó, khiến công việc có thể "kẹt" (không bao giờ
+> đạt COMPLETED vì auto-status yêu cầu *tất cả* assignment = COMPLETED).
+> Chốt bổ sung luồng A3 dưới đây; SDD mục "Logic auto-status" đã cập nhật
+> tương ứng.
+>
+> ***A3 --- Người nhận từ chối nhận việc, người giao giao lại***
+>
+> 1.  Người nhận việc từ chối nhận việc (chuyển assignment sang `DECLINED`,
+>     bắt buộc nêu lý do — lưu `decline_reason`). Assignment `DECLINED` là
+>     trạng thái kết thúc, không chuyển tiếp được nữa.
+>
+> 2.  Phân công `DECLINED` KHÔNG tính vào điều kiện hoàn thành của công
+>     việc: nếu còn người nhận khác, công việc vẫn tự `COMPLETED` khi những
+>     người còn hiệu lực đều `COMPLETED`; nếu toàn bộ phân công đều bị từ
+>     chối, công việc giữ nguyên trạng thái mở (không tự đóng).
+>
+> 3.  Người giao việc (chỉ `created_by`) có thể giao lại phần bị từ chối
+>     cho một nhân sự khác trong phạm vi phòng ban (như UC-06 Main Flow
+>     bước 3): hệ thống tạo một phân công MỚI trạng thái `PENDING`, giữ lại
+>     bản ghi `DECLINED` làm lịch sử, và gửi thông báo cho người nhận mới
+>     (FR-TSK-03). Không giao lại được khi công việc đã `COMPLETED`/
+>     `CANCELLED`, hoặc khi phân công đích không ở trạng thái `DECLINED`,
+>     hoặc người nhận mới đã có phân công trong công việc này.
+
+> **Bổ sung ngoài đặc tả gốc — đã xác nhận với người dùng (2026-07-22).**
+> Phạm vi giao việc theo vai trò + quyền chi tiết + luồng hủy (thực thi ở
+> backend — migration V47):
+>
+> - **Phạm vi giao việc:**
+>   - **Trưởng phòng** (`departments.head_user_id`) chỉ giao việc cho nhân
+>     sự thuộc phòng do mình làm trưởng.
+>   - **Company-wide** (giao cho BẤT KỲ AI, kể cả trưởng phòng) = có quyền
+>     `task.manage` HOẶC role `EXECUTIVE` (Ban giám đốc). Đây là "ban quản
+>     lý / ban giám đốc".
+>   - Nhân sự không làm trưởng phòng nào và không company-wide → không giao
+>     việc được (`AssigneeOutsideDepartmentException`).
+> - **Quyền chi tiết:** `task.assign` (giao việc — thay `task.create`),
+>   `task.receive` (nhận việc), `task.manage` (cao nhất: sửa/xóa/hủy bất kỳ,
+>   giao toàn công ty, cấu hình dọn CANCELLED), `task.overview.company` (xem
+>   tổng quan toàn công ty).
+> - **Tổng quan công việc:** `GET /api/tasks/overview` — phân quyền 2 tầng
+>   trong Service: (a) có `task.overview.company` → toàn bộ công việc công
+>   ty; (b) là trưởng phòng (`departments.head_user_id`) → mọi việc thuộc
+>   phòng mình làm trưởng (theo `tasks.department_id`, không lọc người tạo);
+>   (c) không có cả hai → **403**, FE fallback `GET /api/tasks/my-assignments`
+>   (nhân viên thường chỉ xem việc của mình).
+> - **Hủy công việc (CANCELLED thay vì xóa):** người giao (hoặc `task.manage`)
+>   KHÔNG xóa trực tiếp việc đã giao mà gọi `POST /api/tasks/{id}/cancel` →
+>   task chuyển `CANCELLED` (giữ lịch sử, thông báo người nhận đang mở), rồi
+>   tạo việc mới nếu cần. Không hủy task đã `COMPLETED`/`CANCELLED`; sau khi
+>   hủy thì không cập nhật phân công được nữa.
+> - **Dọn CANCELLED:** cron nightly xóa cứng task `CANCELLED` quá
+>   `task.cancelled_retention_days` ngày (mặc định 7, chỉnh qua
+>   `GET/PUT /api/task/settings/cancelled-retention-days` — quyền `task.manage`,
+>   giống thiết lập cửa sổ điểm UC-19/20).
+
 Phân hệ 4 --- Quản lý nhân sự

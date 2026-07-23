@@ -23,6 +23,7 @@ import vn.com.pps.education.dto.ExpiringContractResponse;
 import vn.com.pps.education.dto.QualificationResponse;
 import vn.com.pps.education.dto.UpdateEmployeeRequest;
 import vn.com.pps.education.dto.UpdateEmploymentContractRequest;
+import vn.com.pps.education.dto.UpdateOwnEmployeeProfileRequest;
 import vn.com.pps.education.security.AuthenticatedUser;
 import vn.com.pps.education.service.EmployeeService;
 
@@ -41,13 +42,33 @@ public class EmployeeController {
     }
 
     @GetMapping
-    public ResponseEntity<List<EmployeeResponse>> search(@RequestParam(required = false) String query) {
-        return ResponseEntity.ok(employeeService.search(query));
+    public ResponseEntity<List<EmployeeResponse>> search(@RequestParam(required = false) String query,
+                                                           @RequestParam(required = false) Long departmentId) {
+        return ResponseEntity.ok(employeeService.search(query, departmentId));
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<EmployeeResponse> getById(@PathVariable Long id) {
         return ResponseEntity.ok(employeeService.getById(id));
+    }
+
+    /**
+     * UC-63: nhân viên tự xem hồ sơ của chính mình — override permission
+     * hrm.manage ở class-level, chỉ cần đăng nhập (Service tự giới hạn
+     * đúng hồ sơ của actor qua user_id, không nhận id tùy ý).
+     */
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/me")
+    public ResponseEntity<EmployeeResponse> getMine(@AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(employeeService.getMyProfile(actor.userId()));
+    }
+
+    /** UC-63: nhân viên tự cập nhật ảnh đại diện + địa chỉ liên hệ của chính mình (FR-USR-07). */
+    @PreAuthorize("isAuthenticated()")
+    @PutMapping("/me")
+    public ResponseEntity<EmployeeResponse> updateMine(@AuthenticationPrincipal AuthenticatedUser actor,
+                                                         @Valid @RequestBody UpdateOwnEmployeeProfileRequest request) {
+        return ResponseEntity.ok(employeeService.updateMyProfile(actor.userId(), request));
     }
 
     @PostMapping

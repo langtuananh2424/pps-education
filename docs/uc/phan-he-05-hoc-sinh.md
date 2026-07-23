@@ -221,6 +221,25 @@ UC-15: Điểm danh học sinh
 |                 |     nhận trạng thái gửi.                           |
 +-----------------+----------------------------------------------------+
 
+> **Bổ sung ngoài đặc tả gốc — đã xác nhận với người dùng (2026-07-22).**
+> Ràng buộc thao tác điểm danh & quyền chi tiết (thực thi ở backend —
+> `StudentAttendanceService` + migration V45):
+>
+> - **Phạm vi Giáo viên:** Giáo viên chỉ điểm danh/sửa buổi **mình được
+>   phân công dạy** (`class_sessions.primary_teacher`) và **chỉ trong ngày
+>   diễn ra buổi học**. Được sửa lại **kể cả sau khi Lưu/submit**, cho tới
+>   **hết ngày hôm đó**; sang ngày hôm sau thì khóa (không sửa được nữa qua
+>   quyền `academic.attendance.mark`). Submit lại trong ngày là idempotent —
+>   không gửi trùng thông báo cho Phụ huynh (chỉ gửi cho học sinh ABSENT/LATE
+>   chưa từng được thông báo).
+>
+> - **Quyền quản trị (vượt rào Giáo viên):** 3 quyền chi tiết mới cho phép
+>   gán 1 tài khoản thao tác điểm danh **buổi bất kỳ, ngày bất kỳ** (không
+>   cần là Giáo viên được phân công) để bổ sung/khắc phục sai sót:
+>   `academic.attendance.create` (tạo/điểm danh + submit),
+>   `academic.attendance.update` (sửa chi tiết theo tiết),
+>   `academic.attendance.delete` (xóa toàn bộ bản ghi điểm danh của 1 buổi).
+
 UC-15b: Xem báo cáo chuyên cần theo điểm trường
 
 > ⚠️ Bổ sung ngoài SRS/SDD gốc (mở rộng phạm vi FR-STU-03, xác nhận với

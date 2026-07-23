@@ -22,6 +22,7 @@ import vn.com.pps.education.dto.ExpiringContractResponse;
 import vn.com.pps.education.dto.QualificationResponse;
 import vn.com.pps.education.dto.UpdateEmployeeRequest;
 import vn.com.pps.education.dto.UpdateEmploymentContractRequest;
+import vn.com.pps.education.dto.UpdateOwnEmployeeProfileRequest;
 import vn.com.pps.education.exception.ActiveContractAlreadyExistsException;
 import vn.com.pps.education.exception.DuplicateContractNumberException;
 import vn.com.pps.education.exception.DuplicateEmployeeCodeException;
@@ -88,16 +89,41 @@ public class EmployeeService {
     }
 
     @Transactional(readOnly = true)
-    public List<EmployeeResponse> search(String query) {
+    public List<EmployeeResponse> search(String query, Long departmentId) {
         List<Employee> employees = query == null || query.isBlank()
-                ? employeeRepository.findAllActive()
-                : employeeRepository.searchByQuery(query.trim());
+                ? employeeRepository.findAllActive(departmentId)
+                : employeeRepository.searchByQuery(query.trim(), departmentId);
         return employees.stream().map(this::toResponse).toList();
     }
 
     @Transactional(readOnly = true)
     public EmployeeResponse getById(Long id) {
         return toResponse(getEmployeeOrThrow(id));
+    }
+
+    /** UC-63 Main Flow bước 1: nhân viên tự xem hồ sơ của chính mình (FR-USR-07). */
+    @Transactional(readOnly = true)
+    public EmployeeResponse getMyProfile(Long userId) {
+        return toResponse(getEmployeeByUserIdOrThrow(userId));
+    }
+
+    /**
+     * UC-63 Main Flow bước 2-4: nhân viên tự cập nhật ảnh đại diện + địa
+     * chỉ liên hệ của chính mình (FR-USR-07). Không tái dùng update() —
+     * whitelist field khác hẳn (UpdateOwnEmployeeProfileRequest), không
+     * nhận employeeCode/idCardNumber/employeeType/position/department/
+     * status/bank info. Xem docs/uc/phan-he-02-phan-quyen.md.
+     */
+    @Transactional
+    public EmployeeResponse updateMyProfile(Long userId, UpdateOwnEmployeeProfileRequest request) {
+        Employee employee = getEmployeeByUserIdOrThrow(userId);
+        employee.setPortraitUrl(request.portraitUrl());
+        employee.setPermanentAddress(request.permanentAddress());
+        employee.setCurrentAddress(request.currentAddress());
+        employee = employeeRepository.save(employee);
+
+        writeEmployeeHistory(employee, userId, EmployeeHistory.Action.UPDATED);
+        return toResponse(employee);
     }
 
     /**
@@ -128,6 +154,7 @@ public class EmployeeService {
         employee.setIdCardNumber(request.idCardNumber());
         employee.setIdCardIssuedDate(request.idCardIssuedDate());
         employee.setIdCardIssuedPlace(request.idCardIssuedPlace());
+        employee.setPortraitUrl(request.portraitUrl());
         employee.setPermanentAddress(request.permanentAddress());
         employee.setCurrentAddress(request.currentAddress());
         employee.setBankAccountNumber(request.bankAccountNumber());
@@ -165,6 +192,7 @@ public class EmployeeService {
         employee.setIdCardNumber(request.idCardNumber());
         employee.setIdCardIssuedDate(request.idCardIssuedDate());
         employee.setIdCardIssuedPlace(request.idCardIssuedPlace());
+        employee.setPortraitUrl(request.portraitUrl());
         employee.setPermanentAddress(request.permanentAddress());
         employee.setCurrentAddress(request.currentAddress());
         employee.setBankAccountNumber(request.bankAccountNumber());
@@ -385,6 +413,13 @@ public class EmployeeService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy nhân sự id=" + id));
     }
 
+    /** UC-63 A1: tài khoản chưa có hồ sơ nhân sự tương ứng. */
+    private Employee getEmployeeByUserIdOrThrow(Long userId) {
+        return employeeRepository.findByUserId(userId)
+                .filter(e -> e.getDeletedAt() == null)
+                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản id=" + userId + " không có hồ sơ nhân sự."));
+    }
+
     private Position resolvePosition(Long positionId) {
         if (positionId == null) {
             return null;
@@ -417,7 +452,8 @@ public class EmployeeService {
                 e.isDefaultShiftRequired(),
                 e.getHireDate(),
                 e.getTerminationDate(),
-                e.getStatus().name());
+                e.getStatus().name(),
+                e.getPortraitUrl());
     }
 
     private EmploymentContractResponse toResponse(EmploymentContract c) {

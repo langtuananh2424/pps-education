@@ -15,7 +15,7 @@ const notifications = [
 ];
 
 export default function Header() {
-  const { currentRole, currentUser, selectedCampusId, setSelectedCampusId, sidebarOpen, setSidebarOpen, logout } = useApp();
+  const { currentRole, currentUser, selectedCampusId, setSelectedCampusId, sidebarOpen, setSidebarOpen, logout, hasPermission } = useApp();
   const [sites, setSites] = useState<SiteResponse[]>([]);
   const [profileOpen, setProfileOpen] = useState(false);
 
@@ -27,6 +27,25 @@ export default function Header() {
   // Đại diện trường liên kết (site_managers role_type=PARTNER_REP, tự resolve qua UC-29), Giáo viên phụ trách
   // (site_teachers) — chỉ biết đúng điểm trường của mình, không thấy/chọn được điểm trường khác hay "Tất cả".
   const [managedSites, setManagedSites] = useState<SiteResponse[]>([]);
+<<<<<<< HEAD
+=======
+  // true trong lúc chưa xác định xong managedSites -- tránh chớp nhoáng hiện cảnh báo
+  // "chưa gán điểm trường" trước khi các API site_managers/site_teachers trả về.
+  const [managedSitesLoading, setManagedSitesLoading] = useState(true);
+
+  // Vai trò bắt buộc gắn với (các) điểm trường cụ thể -- nếu tài khoản có 1 trong các
+  // vai trò này mà managedSites rỗng, đó là dấu hiệu CHƯA ĐƯỢC GÁN điểm trường (thiếu
+  // site_managers/site_teachers), không phải "không giới hạn site" như SYS_ADMIN/STAFF.
+  //
+  // Loại trừ tài khoản có academic.class.manage (đúng quyền BE dùng để bỏ giới hạn site
+  // ở ClassService.resolveAllowedSiteIds) — tài khoản demo "Super Admin" cố tình được gán
+  // ĐỦ mọi roleCodes (kể cả TEACHER/SITE_MANAGER) để test mọi màn hình, nhưng không thật
+  // sự được gán site_teachers/site_managers nào — nếu không loại trừ, tài khoản này bị
+  // hiểu lầm thành "chưa gán điểm trường" dù thực ra xem được hết mọi điểm trường.
+  const siteScopedRoles: string[] = [UserRole.SITE_MANAGER, UserRole.PARTNER_REP, UserRole.TEACHER];
+  const seesAllSites = hasPermission("academic.class.manage");
+  const isSiteScopedRole = !seesAllSites && (currentUser?.roleCodes ?? []).some((r) => siteScopedRoles.includes(r));
+>>>>>>> develop
 
   useEffect(() => {
     if (!currentUser || sites.length === 0) {
