@@ -18,6 +18,7 @@ import vn.com.pps.education.dto.AdminChangePasswordRequest;
 import vn.com.pps.education.dto.ChangeOwnPasswordRequest;
 import vn.com.pps.education.dto.CreateUserRequest;
 import vn.com.pps.education.dto.RoleResponse;
+import vn.com.pps.education.dto.UpdateUserEmailRequest;
 import vn.com.pps.education.dto.UpdateUserRequest;
 import vn.com.pps.education.dto.UpdateUserStatusRequest;
 import vn.com.pps.education.dto.UserDetailResponse;
@@ -258,6 +259,31 @@ public class UserAccountService {
         User user = getUserOrThrow(userId);
         user.setFullName(request.fullName());
         user.setPhone(request.phone());
+        return toResponse(userRepository.save(user));
+    }
+
+    /**
+     * UC-55: Cập nhật email tài khoản (FR-USR-06, bổ sung ngoài SDD gốc, đã
+     * xác nhận với người dùng). Xem docs/uc/phan-he-02-phan-quyen.md — Main
+     * Flow, A1 (email trùng tài khoản khác). Tách riêng khỏi UC-49 vì
+     * Postcondition UC-49 quy định rõ email giữ nguyên không đổi qua luồng
+     * đó. Phục vụ chủ yếu việc sửa email placeholder của tài khoản Phụ
+     * huynh/Học sinh tạo qua UC-34/UC-35/UC-50 (không đặt mật khẩu, chỉ dự
+     * kiến đăng nhập Google — UC-01 A4) sang email Google thật, để đăng
+     * nhập Google khớp được (email/google_id phải khớp bản ghi users).
+     */
+    @Transactional
+    public UserResponse updateEmail(Long userId, UpdateUserEmailRequest request) {
+        User user = getUserOrThrow(userId);
+
+        // A1 -- email đã được dùng bởi tài khoản khác: từ chối, báo rõ trùng email.
+        userRepository.findByEmail(request.newEmail()).ifPresent(existing -> {
+            if (!existing.getId().equals(userId)) {
+                throw new DuplicateUserAccountException("Email đã tồn tại: " + request.newEmail());
+            }
+        });
+
+        user.setEmail(request.newEmail());
         return toResponse(userRepository.save(user));
     }
 

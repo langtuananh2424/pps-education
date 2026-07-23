@@ -24,6 +24,8 @@ import Button from "@/components/ui/Button";
 import Badge, { BadgeVariant } from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
 import FileUploadField from "@/components/ui/FileUploadField";
+import { useToast } from "@/lib/useToast";
+import Toast from "@/components/ui/Toast";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
@@ -63,6 +65,7 @@ export default function LecturesPage() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingLesson, setEditingLesson] = useState<LessonResponse | null>(null);
   const [materialsLesson, setMaterialsLesson] = useState<LessonResponse | null>(null);
+  const { message: toastMessage, showToast } = useToast();
 
   const selectedClass = classes.find((c) => c.id === selectedClassId) ?? null;
   /** curriculumId hiệu lực để tra học phần (subjects) — theo lớp đang chọn hoặc theo khung đang chọn trực tiếp. */
@@ -209,6 +212,7 @@ export default function LecturesPage() {
           onCreated={() => {
             setShowCreateForm(false);
             loadLessons();
+            showToast("Đã tạo bài giảng thành công!");
           }}
         />
       )}
@@ -221,11 +225,14 @@ export default function LecturesPage() {
           onSaved={() => {
             setEditingLesson(null);
             loadLessons();
+            showToast("Đã lưu bài giảng thành công!");
           }}
         />
       )}
 
       {materialsLesson && <MaterialsModal lesson={materialsLesson} onClose={() => setMaterialsLesson(null)} />}
+
+      <Toast message={toastMessage} />
     </div>
   );
 }
@@ -460,6 +467,7 @@ function MaterialsModal({ lesson, onClose }: { lesson: LessonResponse; onClose: 
     isDownloadable: true
   });
   const [submitting, setSubmitting] = useState(false);
+  const { message: toastMessage, showToast } = useToast();
 
   const load = () => {
     setLoading(true);
@@ -493,6 +501,7 @@ function MaterialsModal({ lesson, onClose }: { lesson: LessonResponse; onClose: 
       setForm({ materialType: "VIDEO", title: "", fileUrl: "", fileSizeBytes: "", durationSeconds: "", isDownloadable: true });
       setShowAddForm(false);
       load();
+      showToast("Đã thêm học liệu thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Thêm học liệu thất bại — có thể bạn không được phân công giảng dạy lớp/khung này.");
     } finally {
@@ -587,6 +596,8 @@ function MaterialsModal({ lesson, onClose }: { lesson: LessonResponse; onClose: 
           </Button>
         )}
       </div>
+
+      <Toast message={toastMessage} />
     </Modal>
   );
 }

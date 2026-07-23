@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { PlusCircle } from "lucide-react";
+import DatePicker from "@/components/ui/DatePicker";
 
 interface LeaveRequestFormProps {
   onSubmit: (input: { type: "LEAVE" | "LATE" | "EARLY"; startDate: string; endDate: string; reason: string }) => void;
@@ -38,11 +39,11 @@ export default function LeaveRequestForm({ onSubmit }: LeaveRequestFormProps) {
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1">
             <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Từ ngày/giờ</label>
-            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-1.5 rounded-lg focus:outline-none" />
+            <DatePicker value={startDate} onChange={setStartDate} max={endDate || undefined} />
           </div>
           <div className="space-y-1">
             <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Đến ngày/giờ</label>
-            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-1.5 rounded-lg focus:outline-none" />
+            <DatePicker value={endDate} onChange={setEndDate} min={startDate || undefined} />
           </div>
         </div>
 

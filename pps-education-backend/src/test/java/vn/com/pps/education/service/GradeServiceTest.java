@@ -4,13 +4,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
-<<<<<<< HEAD
-=======
 import vn.com.pps.education.domain.GradePeriodEditWindow;
 import vn.com.pps.education.domain.Notification;
 import vn.com.pps.education.domain.Parent;
 import vn.com.pps.education.domain.ParentStudent;
->>>>>>> develop
 import vn.com.pps.education.domain.Role;
 import vn.com.pps.education.domain.Site;
 import vn.com.pps.education.domain.SiteManager;
@@ -24,11 +21,7 @@ import vn.com.pps.education.dto.CreateCurriculumRequest;
 import vn.com.pps.education.dto.CreateGradeComponentRequest;
 import vn.com.pps.education.dto.CreateGradePeriodRequest;
 import vn.com.pps.education.dto.CurriculumResponse;
-<<<<<<< HEAD
-import vn.com.pps.education.dto.DecideGradesRequest;
-=======
 import vn.com.pps.education.dto.EnrollStudentRequest;
->>>>>>> develop
 import vn.com.pps.education.dto.EnterGradePeriodResultRequest;
 import vn.com.pps.education.dto.EnterGradeRequest;
 import vn.com.pps.education.dto.GradeAppealResponse;
@@ -36,38 +29,25 @@ import vn.com.pps.education.dto.GradeComponentResponse;
 import vn.com.pps.education.dto.GradeEntryResponse;
 import vn.com.pps.education.dto.GradePeriodResponse;
 import vn.com.pps.education.dto.GradePeriodResultResponse;
-<<<<<<< HEAD
-import vn.com.pps.education.dto.PeriodAverageResponse;
-import vn.com.pps.education.dto.SubmitGradesRequest;
-=======
 import vn.com.pps.education.dto.PublishGradesRequest;
 import vn.com.pps.education.dto.SubmitGradeAppealRequest;
->>>>>>> develop
 import vn.com.pps.education.dto.UpdateCurriculumRequest;
 import vn.com.pps.education.dto.UpdateGradeComponentRequest;
-import vn.com.pps.education.exception.ApprovalAlreadyDecidedException;
+import vn.com.pps.education.exception.GradeAlreadyPublishedException;
 import vn.com.pps.education.exception.GradeComponentLockedException;
-<<<<<<< HEAD
-import vn.com.pps.education.exception.GradeComponentWeightExceededException;
-import vn.com.pps.education.exception.GradeEntryNotEditableException;
-=======
 import vn.com.pps.education.exception.GradeComponentNotDeletableException;
 import vn.com.pps.education.exception.GradeNotEditableException;
 import vn.com.pps.education.exception.GradePeriodNotDeletableException;
->>>>>>> develop
 import vn.com.pps.education.exception.GradePeriodWeightExceededException;
 import vn.com.pps.education.exception.InvalidGradeScoreException;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
 import vn.com.pps.education.exception.NotSiteManagerForSiteException;
-<<<<<<< HEAD
-=======
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.repository.GradeEntryHistoryRepository;
 import vn.com.pps.education.repository.GradeEntryRepository;
 import vn.com.pps.education.repository.GradePeriodEditWindowRepository;
 import vn.com.pps.education.repository.ParentRepository;
 import vn.com.pps.education.repository.ParentStudentRepository;
->>>>>>> develop
 import vn.com.pps.education.repository.RoleRepository;
 import vn.com.pps.education.repository.SiteManagerRepository;
 import vn.com.pps.education.repository.SiteRepository;
@@ -80,6 +60,7 @@ import org.springframework.data.domain.PageRequest;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -87,11 +68,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
-<<<<<<< HEAD
- * UC-19: Nhập điểm — Main Flow (bước 1-6), A1 (điểm không hợp lệ), A2
- * (điểm bị từ chối) + UC-20: Duyệt điểm — Main Flow (bước 1-5), A1 (duyệt
- * tách lẻ). Xem docs/uc/phan-he-06-hoc-thuat.md.
-=======
  * UC-19: Nhập điểm — Main Flow (bước 1-3), A1 (điểm không hợp lệ), A2 (sửa/xoá
  * bản ghi không ở trạng thái cho phép) + UC-20: Công bố điểm dự kiến — Main
  * Flow (bước 1-5), A1 (công bố tách lẻ), A2 (công bố lại bản ghi không còn
@@ -101,7 +77,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * V39). Test UC-62 (phúc khảo, GradeAppealService) nằm ở GradeAppealServiceTest
  * riêng — file này chỉ test phần "sửa điểm trong lúc APPEAL" thuộc GradeService.
  * Xem docs/uc/phan-he-06-hoc-thuat.md.
->>>>>>> develop
  */
 @Transactional
 class GradeServiceTest extends AbstractIntegrationTest {
@@ -121,8 +96,6 @@ class GradeServiceTest extends AbstractIntegrationTest {
     private CurriculumService curriculumService;
 
     @Autowired
-<<<<<<< HEAD
-=======
     private AcademicSettingsService academicSettingsService;
 
     @Autowired
@@ -135,7 +108,6 @@ class GradeServiceTest extends AbstractIntegrationTest {
     private GradeEntryHistoryRepository gradeEntryHistoryRepository;
 
     @Autowired
->>>>>>> develop
     private UserRepository userRepository;
 
     @Autowired
@@ -201,7 +173,7 @@ class GradeServiceTest extends AbstractIntegrationTest {
         gradePeriod = gradeService.createGradePeriod(activeCurriculum.id(),
                 new CreateGradePeriodRequest("MID_1", "Giữa kỳ 1", 1, new BigDecimal("50"), null, null), headAcademic.getId());
         gradeComponent = gradeService.addGradeComponent(gradePeriod.id(),
-                new CreateGradeComponentRequest(null, null, "SPEAKING", "Nói", new BigDecimal("100"), new BigDecimal("10.00"), null, null, 1),
+                new CreateGradeComponentRequest(null, null, "SPEAKING", "Nói", new BigDecimal("10.00"), null, null, 1),
                 headAcademic.getId());
 
         student = newStudent();
@@ -215,12 +187,12 @@ class GradeServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void updateGradeComponent_rejectsWeightChangeWhenEntriesExist() {
+    void updateGradeComponent_rejectsMaxScoreChangeWhenEntriesExist() {
         gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
                 new EnterGradeRequest(student.getId(), new BigDecimal("8.0"), false, null), teacher.getId());
 
         assertThatThrownBy(() -> gradeService.updateGradeComponent(gradeComponent.id(),
-                new UpdateGradeComponentRequest("Nói", new BigDecimal("50"), null, null, 1), headAcademic.getId()))
+                new UpdateGradeComponentRequest("Nói", new BigDecimal("50"), null, 1), headAcademic.getId()))
                 .isInstanceOf(GradeComponentLockedException.class);
     }
 
@@ -276,23 +248,14 @@ class GradeServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void addGradeComponent_UC16_A2_vuotTongTrongSo_bloc() {
-        // setUp() đã tạo "Nói" weight=100 trong gradePeriod -> thêm bất kỳ weight > 0 nữa sẽ vượt 100.
-        assertThatThrownBy(() -> gradeService.addGradeComponent(gradePeriod.id(),
-                new CreateGradeComponentRequest(null, null, "WRITING", "Viết", new BigDecimal("1"), null, null, null, 2),
-                headAcademic.getId()))
-                .isInstanceOf(GradeComponentWeightExceededException.class);
-    }
-
-    @Test
     void addGradeComponent_UC16_A2_themThanhCongKhongCanDuyetKhung_thanhCong() {
         // Khung đang ACTIVE, đã có lớp dùng (schoolClass) -- vẫn thêm được, không cần qua UC-16b/17.
         GradePeriodResponse newPeriod = gradeService.createGradePeriod(gradePeriod.curriculumId(),
                 new CreateGradePeriodRequest("END_1", "Cuối kỳ 1", 2, new BigDecimal("50"), null, null), headAcademic.getId());
 
         GradeComponentResponse component = gradeService.addGradeComponent(newPeriod.id(),
-                new CreateGradeComponentRequest(null, null, "GRAMMAR", "Ngữ pháp", new BigDecimal("100"),
-                        new BigDecimal("9.00"), null, "BAND", 1),
+                new CreateGradeComponentRequest(null, null, "GRAMMAR", "Ngữ pháp", new BigDecimal("9.00"),
+                        null, "BAND", 1),
                 headAcademic.getId());
 
         assertThat(component.code()).isEqualTo("GRAMMAR");
@@ -314,13 +277,9 @@ class GradeServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void enterPeriodResult_UC53_suaKhiRejected_thanhCong() {
-        GradePeriodResultResponse result = gradeService.enterPeriodResult(schoolClass.id(), student.getId(), gradePeriod.id(),
+    void enterPeriodResult_suaLaiTruocKhiCongBo_thanhCong() {
+        gradeService.enterPeriodResult(schoolClass.id(), student.getId(), gradePeriod.id(),
                 new EnterGradePeriodResultRequest(new BigDecimal("5.0"), "BAND", "B1"), teacher.getId());
-        gradeService.submitGrades(schoolClass.id(),
-                new SubmitGradesRequest(null, List.of(result.id())), teacher.getId());
-        gradeService.decideGrades(new DecideGradesRequest(null, List.of(result.id()), "REJECTED", "Sai band"),
-                siteManagerUser.getId());
 
         GradePeriodResultResponse reentered = gradeService.enterPeriodResult(schoolClass.id(), student.getId(), gradePeriod.id(),
                 new EnterGradePeriodResultRequest(new BigDecimal("6.0"), "BAND", "B2"), teacher.getId());
@@ -350,8 +309,6 @@ class GradeServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
-<<<<<<< HEAD
-=======
     void enterGrade_UC19_MainFlow_draftEditableWithNoTimeLimit() {
         // V43: bỏ hẳn hạn X ngày làm giới hạn sửa -- DRAFT sửa được vô thời hạn, kể cả sau mốc X ngày cũ.
         GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
@@ -477,7 +434,6 @@ class GradeServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
->>>>>>> develop
     void enterGrade_UC19_Precondition_supportsHeadAcademicEnteringOnBehalfOfTeacher() {
         // Mở rộng ngoài SDD gốc, đã xác nhận với người dùng: HEAD_ACADEMIC (quyền academic.grade.manage) nhập thay được.
         GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
@@ -506,9 +462,6 @@ class GradeServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
-<<<<<<< HEAD
-    void submitGrades_UC19_MainFlow_transitionsToPending() {
-=======
     void publishGrades_UC20_MainFlow_publishesGradeAsProvisional() {
         GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
                 new EnterGradeRequest(student.getId(), new BigDecimal("9"), false, null), teacher.getId());
@@ -536,166 +489,76 @@ class GradeServiceTest extends AbstractIntegrationTest {
 
     @Test
     void publishGrades_UC20_A2_rejectsWhenAlreadyPublished() {
->>>>>>> develop
         GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
                 new EnterGradeRequest(student.getId(), new BigDecimal("8"), false, null), teacher.getId());
+        gradeService.publishGrades(new PublishGradesRequest(List.of(entry.id()), null), siteManagerUser.getId());
 
-        List<GradeEntryResponse> submitted = gradeService.submitGrades(schoolClass.id(),
-                new SubmitGradesRequest(List.of(entry.id()), null), teacher.getId());
-
-        assertThat(submitted).hasSize(1);
-        assertThat(submitted.get(0).status()).isEqualTo("PENDING");
-        assertThat(gradeService.listPendingForSite(siteManagerUser.getId()))
-                .extracting(GradeEntryResponse::id).contains(entry.id());
+        assertThatThrownBy(() -> gradeService.publishGrades(
+                new PublishGradesRequest(List.of(entry.id()), null), siteManagerUser.getId()))
+                .isInstanceOf(GradeAlreadyPublishedException.class);
     }
 
     @Test
-    void decideGrades_UC20_MainFlow_approvedPublishesGrade() {
-        GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
-                new EnterGradeRequest(student.getId(), new BigDecimal("9"), false, null), teacher.getId());
-        gradeService.submitGrades(schoolClass.id(), new SubmitGradesRequest(List.of(entry.id()), null), teacher.getId());
-
-        List<GradeEntryResponse> decided = gradeService.decideGrades(
-                new DecideGradesRequest(List.of(entry.id()), null, "APPROVED", "Tốt"), siteManagerUser.getId());
-
-        assertThat(decided.get(0).status()).isEqualTo("APPROVED");
-    }
-
-    @Test
-    void decideGrades_UC20_MainFlow_rejectedAndUC19_A2_reenterLoopsBackToDraft() {
-        GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
-                new EnterGradeRequest(student.getId(), new BigDecimal("4"), false, null), teacher.getId());
-        gradeService.submitGrades(schoolClass.id(), new SubmitGradesRequest(List.of(entry.id()), null), teacher.getId());
-
-        List<GradeEntryResponse> decided = gradeService.decideGrades(
-                new DecideGradesRequest(List.of(entry.id()), null, "REJECTED", "Điểm không hợp lý"), siteManagerUser.getId());
-        assertThat(decided.get(0).status()).isEqualTo("REJECTED");
-
-        // UC-19 A2 -- Giáo viên sửa lại, quay về DRAFT, submit lại được.
-        GradeEntryResponse reentered = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
-                new EnterGradeRequest(student.getId(), new BigDecimal("7"), false, "Đã chấm lại"), teacher.getId());
-        assertThat(reentered.status()).isEqualTo("DRAFT");
-        List<GradeEntryResponse> resubmitted = gradeService.submitGrades(schoolClass.id(),
-                new SubmitGradesRequest(List.of(entry.id()), null), teacher.getId());
-        assertThat(resubmitted.get(0).status()).isEqualTo("PENDING");
-    }
-
-    @Test
-    void decideGrades_UC20_A1_approvesOneEntryIndependentlyInBatch() {
+    void publishGrades_UC20_A1_publishesOneEntryIndependentlyInBatch() {
         Student student2 = newStudent();
         GradeEntryResponse entry1 = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
                 new EnterGradeRequest(student.getId(), new BigDecimal("8"), false, null), teacher.getId());
         GradeEntryResponse entry2 = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
                 new EnterGradeRequest(student2.getId(), new BigDecimal("6"), false, null), teacher.getId());
-        gradeService.submitGrades(schoolClass.id(), new SubmitGradesRequest(List.of(entry1.id(), entry2.id()), null), teacher.getId());
 
-        // A1 -- duyệt tách lẻ chỉ entry1, entry2 vẫn PENDING.
-        gradeService.decideGrades(new DecideGradesRequest(List.of(entry1.id()), null, "APPROVED", null), siteManagerUser.getId());
+        // A1 -- công bố tách lẻ chỉ entry1, entry2 vẫn DRAFT (chưa công bố).
+        gradeService.publishGrades(new PublishGradesRequest(List.of(entry1.id()), null), siteManagerUser.getId());
 
-        assertThat(gradeService.listPendingForSite(siteManagerUser.getId()))
+        assertThat(gradeService.listUnpublishedForSite(siteManagerUser.getId()))
                 .extracting(GradeEntryResponse::id).containsExactly(entry2.id());
     }
 
     @Test
-    void decideGrades_rejectsWhenActorNotSiteManagerForSite() {
+    void publishGrades_rejectsWhenActorNotSiteManagerForSite() {
         GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
                 new EnterGradeRequest(student.getId(), new BigDecimal("8"), false, null), teacher.getId());
-        gradeService.submitGrades(schoolClass.id(), new SubmitGradesRequest(List.of(entry.id()), null), teacher.getId());
         User outsiderManager = newUser("outsider.sitemanager");
         assignRole(outsiderManager, "SITE_MANAGER");
 
-        assertThatThrownBy(() -> gradeService.decideGrades(
-                new DecideGradesRequest(List.of(entry.id()), null, "APPROVED", null), outsiderManager.getId()))
+        assertThatThrownBy(() -> gradeService.publishGrades(
+                new PublishGradesRequest(List.of(entry.id()), null), outsiderManager.getId()))
                 .isInstanceOf(NotSiteManagerForSiteException.class);
     }
 
     @Test
-    void decideGrades_UC20_Precondition_rejectsWhenActorHasNoGradeApprovePermission() {
+    void publishGrades_UC20_Precondition_rejectsWhenActorHasNoGradePublishPermission() {
         GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
                 new EnterGradeRequest(student.getId(), new BigDecimal("8"), false, null), teacher.getId());
-        gradeService.submitGrades(schoolClass.id(), new SubmitGradesRequest(List.of(entry.id()), null), teacher.getId());
-        // TEACHER không được cấp academic.grade.approve (V38 chỉ gán cho SITE_MANAGER/HEAD_ACADEMIC).
+        // TEACHER không được cấp academic.grade.publish (V38/V39 chỉ gán cho SITE_MANAGER/HEAD_ACADEMIC).
 
-        assertThatThrownBy(() -> gradeService.decideGrades(
-                new DecideGradesRequest(List.of(entry.id()), null, "APPROVED", null), teacher.getId()))
+        assertThatThrownBy(() -> gradeService.publishGrades(
+                new PublishGradesRequest(List.of(entry.id()), null), teacher.getId()))
                 .isInstanceOf(NotSiteManagerForSiteException.class);
     }
 
     @Test
-    void decideGrades_UC20_Precondition_supportsHeadAcademicApprovingAnySite() {
-        // Mở rộng ngoài SDD gốc, đã xác nhận với người dùng: HEAD_ACADEMIC (academic.grade.approve
-        // + academic.grade.manage) duyệt được dù không có bản ghi site_managers cho site của lớp.
+    void publishGrades_UC20_Precondition_supportsHeadAcademicPublishingAnySite() {
+        // Mở rộng ngoài SDD gốc, đã xác nhận với người dùng: HEAD_ACADEMIC (academic.grade.publish
+        // + academic.grade.manage) công bố được dù không có bản ghi site_managers cho site của lớp.
         GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
                 new EnterGradeRequest(student.getId(), new BigDecimal("8"), false, null), teacher.getId());
-        gradeService.submitGrades(schoolClass.id(), new SubmitGradesRequest(List.of(entry.id()), null), teacher.getId());
 
-        List<GradeEntryResponse> decided = gradeService.decideGrades(
-                new DecideGradesRequest(List.of(entry.id()), null, "APPROVED", "Duyệt bởi TPĐT"), headAcademic.getId());
+        List<GradeEntryResponse> published = gradeService.publishGrades(
+                new PublishGradesRequest(List.of(entry.id()), null), headAcademic.getId());
 
-<<<<<<< HEAD
-        assertThat(decided.get(0).status()).isEqualTo("APPROVED");
-=======
         assertThat(published.get(0).status()).isEqualTo("PROVISIONAL_PUBLISHED");
->>>>>>> develop
     }
 
     @Test
-    void listPendingForSite_UC20_Precondition_headAcademicSeesAllSitesNotJustOwnAssignment() {
+    void listUnpublishedForSite_UC20_Precondition_headAcademicSeesAllSitesNotJustOwnAssignment() {
         GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
                 new EnterGradeRequest(student.getId(), new BigDecimal("8"), false, null), teacher.getId());
-        gradeService.submitGrades(schoolClass.id(), new SubmitGradesRequest(List.of(entry.id()), null), teacher.getId());
 
-        assertThat(gradeService.listPendingForSite(headAcademic.getId()))
+        assertThat(gradeService.listUnpublishedForSite(headAcademic.getId()))
                 .extracting(GradeEntryResponse::id).contains(entry.id());
     }
 
     @Test
-<<<<<<< HEAD
-    void decideGrades_rejectsWhenAlreadyDecided() {
-        GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
-                new EnterGradeRequest(student.getId(), new BigDecimal("8"), false, null), teacher.getId());
-        gradeService.submitGrades(schoolClass.id(), new SubmitGradesRequest(List.of(entry.id()), null), teacher.getId());
-        gradeService.decideGrades(new DecideGradesRequest(List.of(entry.id()), null, "APPROVED", null), siteManagerUser.getId());
-
-        assertThatThrownBy(() -> gradeService.decideGrades(
-                new DecideGradesRequest(List.of(entry.id()), null, "APPROVED", null), siteManagerUser.getId()))
-                .isInstanceOf(ApprovalAlreadyDecidedException.class);
-    }
-
-    @Test
-    void enterGrade_rejectsEditingPendingEntry() {
-        GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
-                new EnterGradeRequest(student.getId(), new BigDecimal("8"), false, null), teacher.getId());
-        gradeService.submitGrades(schoolClass.id(), new SubmitGradesRequest(List.of(entry.id()), null), teacher.getId());
-
-        assertThatThrownBy(() -> gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
-                new EnterGradeRequest(student.getId(), new BigDecimal("9"), false, null), teacher.getId()))
-                .isInstanceOf(GradeEntryNotEditableException.class);
-    }
-
-    @Test
-    void getPeriodAverage_UC19_Postcondition_computesWeightedAverage() {
-        // Tạo kỳ riêng với 2 thành phần 60/40 (tổng đúng 100 — UC-16 A2 giờ validate trần này).
-        GradePeriodResponse endPeriod = gradeService.createGradePeriod(gradePeriod.curriculumId(),
-                new CreateGradePeriodRequest("END_1", "Cuối kỳ 1", 2, new BigDecimal("50"), null, null), headAcademic.getId());
-        GradeComponentResponse speaking = gradeService.addGradeComponent(endPeriod.id(),
-                new CreateGradeComponentRequest(null, null, "SPEAKING", "Nói", new BigDecimal("60"), new BigDecimal("10.00"), null, null, 1),
-                headAcademic.getId());
-        GradeComponentResponse writing = gradeService.addGradeComponent(endPeriod.id(),
-                new CreateGradeComponentRequest(null, null, "WRITING", "Viết", new BigDecimal("40"), new BigDecimal("10.00"), null, null, 2),
-                headAcademic.getId());
-        gradeService.enterGrade(schoolClass.id(), speaking.id(),
-                new EnterGradeRequest(student.getId(), new BigDecimal("8"), false, null), teacher.getId());
-        gradeService.enterGrade(schoolClass.id(), writing.id(),
-                new EnterGradeRequest(student.getId(), new BigDecimal("6"), false, null), teacher.getId());
-
-        PeriodAverageResponse average = gradeService.getPeriodAverage(schoolClass.id(), student.getId(), endPeriod.id());
-
-        // (8*60 + 6*40) / (60+40) = 720/100 = 7.20
-        assertThat(average.componentsEntered()).isEqualTo(2);
-        assertThat(average.componentsTotal()).isEqualTo(2);
-        assertThat(average.average()).isEqualByComparingTo("7.20");
-=======
     void listMyGrades_UC61_MainFlow_returnsProvisionalPublishedEntriesForEnrolledClass() {
         classService.enroll(schoolClass.id(), new EnrollStudentRequest(student.getId(), LocalDate.now()), headAcademic.getId());
         GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
@@ -834,7 +697,6 @@ class GradeServiceTest extends AbstractIntegrationTest {
                 .findBySchoolClassIdAndGradePeriodId(classId, gradePeriodId).orElseThrow();
         window.setFirstEnteredAt(OffsetDateTime.now().minusDays(academicSettingsService.gradeEditWindowDays() + 1L));
         gradePeriodEditWindowRepository.save(window);
->>>>>>> develop
     }
 
     private String curriculumCode() {

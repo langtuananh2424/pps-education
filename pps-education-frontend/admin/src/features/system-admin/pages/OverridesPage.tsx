@@ -16,6 +16,8 @@ import {
 import CreateOverrideForm from "../components/CreateOverrideForm";
 import OverridesTable from "../components/OverridesTable";
 import EmptyState from "@/components/ui/EmptyState";
+import { useToast } from "@/lib/useToast";
+import Toast from "@/components/ui/Toast";
 
 export default function OverridesPage() {
   const [allUsers, setAllUsers] = useState<UserListItemResponse[]>([]);
@@ -27,6 +29,7 @@ export default function OverridesPage() {
   const [effective, setEffective] = useState<EffectivePermissionsResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { message: toastMessage, showToast } = useToast();
 
   useEffect(() => {
     searchUsers({}, 0, 1000).then((res) => setAllUsers(res.content)).catch(() => undefined);
@@ -70,12 +73,14 @@ export default function OverridesPage() {
     if (!selectedUserId) return;
     await upsertUserPermissionOverride(selectedUserId, permissionId, overrideType, reason, expiresAt || undefined);
     loadSelectedUser(selectedUserId);
+    showToast("Đã lưu ngoại lệ quyền thành công!");
   };
 
   const handleRemove = async (permissionId: number) => {
     if (!selectedUserId) return;
     await removeUserPermissionOverride(selectedUserId, permissionId);
     loadSelectedUser(selectedUserId);
+    showToast("Đã gỡ ngoại lệ quyền thành công!");
   };
 
   return (
@@ -169,6 +174,8 @@ export default function OverridesPage() {
           </div>
         </>
       )}
+
+      <Toast message={toastMessage} />
     </div>
   );
 }

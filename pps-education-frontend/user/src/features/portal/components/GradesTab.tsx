@@ -188,9 +188,8 @@ export default function GradesTab({ studentId, classId }: GradesTabProps) {
                   <p className="text-[10px] text-muted font-bold">Gửi lúc {new Date(a.createdAt).toLocaleString("vi-VN")}</p>
                 </div>
                 <span
-                  className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full ${
-                    a.status === "RESOLVED" ? "bg-teal/10 text-teal-deep" : a.status === "ACCEPTED" ? "bg-sky text-teal-deep" : "bg-gold/10 text-gold"
-                  }`}
+                  className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full ${a.status === "RESOLVED" ? "bg-teal/10 text-teal-deep" : a.status === "ACCEPTED" ? "bg-sky text-teal-deep" : "bg-gold/10 text-gold"
+                    }`}
                 >
                   {a.status === "PENDING" ? "Chờ giáo viên tiếp nhận" : a.status === "ACCEPTED" ? "Đang xử lý" : "Đã xử lý xong"}
                 </span>
@@ -202,7 +201,7 @@ export default function GradesTab({ studentId, classId }: GradesTabProps) {
 
       <ComingSoon
         title="Làm bài kiểm tra trực tuyến"
-        description="Học sinh tự đăng nhập để làm quiz — đang chờ backend bổ sung API tự tra cứu hồ sơ học sinh (studentId) từ tài khoản đăng nhập."
+        description="Đang trong quá trình phát triển"
       />
 
       {appealTarget && (

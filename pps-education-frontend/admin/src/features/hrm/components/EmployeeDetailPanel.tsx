@@ -23,6 +23,11 @@ import {
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import { employeeStatusLabels, employeeStatusVariants } from "./EmployeeListPanel";
+import { useToast } from "@/lib/useToast";
+import Toast from "@/components/ui/Toast";
+import DatePicker from "@/components/ui/DatePicker";
+
+const TODAY_ISO = new Date().toISOString().slice(0, 10);
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-xs p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
@@ -37,6 +42,7 @@ interface EmployeeDetailPanelProps {
 
 export default function EmployeeDetailPanel({ employee, onChanged }: EmployeeDetailPanelProps) {
   const [tab, setTab] = useState<Tab>("profile");
+  const { message: toastMessage, showToast } = useToast();
 
   return (
     <div className="lg:col-span-3 bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden flex flex-col">
@@ -75,16 +81,26 @@ export default function EmployeeDetailPanel({ employee, onChanged }: EmployeeDet
       </div>
 
       <div className="flex-1 p-5 overflow-y-auto max-h-[560px]">
-        {tab === "profile" && <ProfileTab employee={employee} onChanged={onChanged} />}
-        {tab === "qualifications" && <QualificationsTab employeeId={employee.id} />}
-        {tab === "commendations" && <CommendationsTab employeeId={employee.id} />}
-        {tab === "contracts" && <ContractsTab employeeId={employee.id} />}
+        {tab === "profile" && <ProfileTab employee={employee} onChanged={onChanged} showToast={showToast} />}
+        {tab === "qualifications" && <QualificationsTab employeeId={employee.id} showToast={showToast} />}
+        {tab === "commendations" && <CommendationsTab employeeId={employee.id} showToast={showToast} />}
+        {tab === "contracts" && <ContractsTab employeeId={employee.id} showToast={showToast} />}
       </div>
+
+      <Toast message={toastMessage} />
     </div>
   );
 }
 
-function ProfileTab({ employee, onChanged }: { employee: EmployeeResponse; onChanged: () => void }) {
+function ProfileTab({
+  employee,
+  onChanged,
+  showToast
+}: {
+  employee: EmployeeResponse;
+  onChanged: () => void;
+  showToast: (msg: string) => void;
+}) {
   const [form, setForm] = useState<UpdateEmployeeRequest>(() => toForm(employee));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -109,6 +125,7 @@ function ProfileTab({ employee, onChanged }: { employee: EmployeeResponse; onCha
     try {
       await updateEmployee(employee.id, form);
       onChanged();
+      showToast("Đã lưu hồ sơ nhân sự thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Cập nhật hồ sơ thất bại.");
     } finally {
@@ -122,12 +139,14 @@ function ProfileTab({ employee, onChanged }: { employee: EmployeeResponse; onCha
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className={labelClass}>Ngày sinh *</label>
-          <input
-            type="date"
+          <DatePicker
             value={form.dateOfBirth}
-            onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })}
-            onBlur={() => setDateOfBirthTouched(true)}
-            className={dateOfBirthInvalid ? inputErrorClass : inputClass}
+            onChange={(v) => {
+              setForm({ ...form, dateOfBirth: v });
+              setDateOfBirthTouched(true);
+            }}
+            max={TODAY_ISO}
+            hasError={dateOfBirthInvalid}
           />
           {dateOfBirthInvalid && <p className="text-[10px] text-rose-600 mt-1">Vui lòng chọn Ngày sinh.</p>}
         </div>
@@ -145,7 +164,7 @@ function ProfileTab({ employee, onChanged }: { employee: EmployeeResponse; onCha
         </div>
         <div>
           <label className={labelClass}>Ngày cấp CCCD</label>
-          <input type="date" value={form.idCardIssuedDate ?? ""} onChange={(e) => setForm({ ...form, idCardIssuedDate: e.target.value })} className={inputClass} />
+          <DatePicker value={form.idCardIssuedDate ?? ""} onChange={(v) => setForm({ ...form, idCardIssuedDate: v })} max={TODAY_ISO} />
         </div>
         <div className="col-span-2">
           <label className={labelClass}>Nơi cấp CCCD</label>
@@ -216,7 +235,7 @@ function ProfileTab({ employee, onChanged }: { employee: EmployeeResponse; onCha
         {form.status === "TERMINATED" && (
           <div>
             <label className={labelClass}>Ngày nghỉ việc</label>
-            <input type="date" value={form.terminationDate ?? ""} onChange={(e) => setForm({ ...form, terminationDate: e.target.value })} className={inputClass} />
+            <DatePicker value={form.terminationDate ?? ""} onChange={(v) => setForm({ ...form, terminationDate: v })} />
           </div>
         )}
       </div>
@@ -260,7 +279,7 @@ function toForm(e: EmployeeResponse): UpdateEmployeeRequest {
   };
 }
 
-function QualificationsTab({ employeeId }: { employeeId: number }) {
+function QualificationsTab({ employeeId, showToast }: { employeeId: number; showToast: (msg: string) => void }) {
   const [items, setItems] = useState<QualificationResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ qualificationType: "DEGREE", title: "", issuer: "", issuedDate: "", expiryDate: "" });
@@ -293,6 +312,7 @@ function QualificationsTab({ employeeId }: { employeeId: number }) {
       });
       setForm({ qualificationType: "DEGREE", title: "", issuer: "", issuedDate: "", expiryDate: "" });
       load();
+      showToast("Đã thêm bằng cấp/chứng chỉ thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Thêm thất bại.");
     } finally {
@@ -313,7 +333,7 @@ function QualificationsTab({ employeeId }: { employeeId: number }) {
           </select>
           <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Tên bằng cấp/chứng chỉ *" className={inputClass} />
           <input value={form.issuer} onChange={(e) => setForm({ ...form, issuer: e.target.value })} placeholder="Đơn vị cấp" className={inputClass} />
-          <input type="date" value={form.issuedDate} onChange={(e) => setForm({ ...form, issuedDate: e.target.value })} className={inputClass} />
+          <DatePicker value={form.issuedDate} onChange={(v) => setForm({ ...form, issuedDate: v })} max={TODAY_ISO} />
         </div>
         <Button type="submit" size="sm" variant="primary" disabled={submitting}>
           {submitting ? "Đang lưu..." : "Thêm bằng cấp/chứng chỉ"}
@@ -339,7 +359,7 @@ function QualificationsTab({ employeeId }: { employeeId: number }) {
   );
 }
 
-function CommendationsTab({ employeeId }: { employeeId: number }) {
+function CommendationsTab({ employeeId, showToast }: { employeeId: number; showToast: (msg: string) => void }) {
   const [items, setItems] = useState<CommendationResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ recordType: "COMMENDATION", recordDate: "", title: "", amount: "" });
@@ -371,6 +391,7 @@ function CommendationsTab({ employeeId }: { employeeId: number }) {
       });
       setForm({ recordType: "COMMENDATION", recordDate: "", title: "", amount: "" });
       load();
+      showToast("Đã ghi nhận khen thưởng/kỷ luật thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Thêm thất bại.");
     } finally {
@@ -403,7 +424,7 @@ function CommendationsTab({ employeeId }: { employeeId: number }) {
               Kỷ luật
             </button>
           </div>
-          <input type="date" value={form.recordDate} onChange={(e) => setForm({ ...form, recordDate: e.target.value })} className={inputClass} />
+          <DatePicker value={form.recordDate} onChange={(v) => setForm({ ...form, recordDate: v })} max={TODAY_ISO} />
           <input value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value.replace(/[^0-9]/g, "") })} placeholder="Số tiền (nếu có)" className={inputClass} />
           <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Tiêu đề quyết định *" className={`${inputClass} col-span-2`} />
         </div>
@@ -433,7 +454,7 @@ function CommendationsTab({ employeeId }: { employeeId: number }) {
   );
 }
 
-function ContractsTab({ employeeId }: { employeeId: number }) {
+function ContractsTab({ employeeId, showToast }: { employeeId: number; showToast: (msg: string) => void }) {
   const [items, setItems] = useState<EmploymentContractResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ contractNumber: "", contractType: "PROBATION", startDate: "", endDate: "", baseSalary: "", salaryType: "MONTHLY", status: "ACTIVE" });
@@ -468,6 +489,7 @@ function ContractsTab({ employeeId }: { employeeId: number }) {
       });
       setForm({ contractNumber: "", contractType: "PROBATION", startDate: "", endDate: "", baseSalary: "", salaryType: "MONTHLY", status: "ACTIVE" });
       load();
+      showToast("Đã thêm hợp đồng thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Thêm hợp đồng thất bại.");
     } finally {
@@ -487,6 +509,7 @@ function ContractsTab({ employeeId }: { employeeId: number }) {
         status: "TERMINATED"
       });
       load();
+      showToast("Đã chấm dứt hợp đồng thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Cập nhật thất bại.");
     }
@@ -506,11 +529,11 @@ function ContractsTab({ employeeId }: { employeeId: number }) {
           </select>
           <div>
             <label className={labelClass}>Ngày bắt đầu *</label>
-            <input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} className={inputClass} />
+            <DatePicker value={form.startDate} onChange={(v) => setForm({ ...form, startDate: v })} max={form.endDate || undefined} />
           </div>
           <div>
             <label className={labelClass}>Ngày kết thúc (bỏ trống nếu vô thời hạn)</label>
-            <input type="date" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} className={inputClass} />
+            <DatePicker value={form.endDate} onChange={(v) => setForm({ ...form, endDate: v })} min={form.startDate || undefined} />
           </div>
           <input value={form.baseSalary} onChange={(e) => setForm({ ...form, baseSalary: e.target.value.replace(/[^0-9]/g, "") })} placeholder="Lương cơ bản *" className={inputClass} />
           <select value={form.salaryType} onChange={(e) => setForm({ ...form, salaryType: e.target.value })} className={inputClass}>

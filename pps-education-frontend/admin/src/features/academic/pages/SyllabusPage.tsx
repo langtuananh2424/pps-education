@@ -8,6 +8,8 @@ import CurriculumListPanel from "../components/CurriculumListPanel";
 import CurriculumDetailPanel from "../components/CurriculumDetailPanel";
 import CurriculumFormModal from "../components/CurriculumFormModal";
 import CurriculumApprovalPanel from "../components/CurriculumApprovalPanel";
+import { useToast } from "@/lib/useToast";
+import Toast from "@/components/ui/Toast";
 
 export default function SyllabusPage() {
   const { hasPermission } = useApp();
@@ -20,6 +22,7 @@ export default function SyllabusPage() {
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const { message: toastMessage, showToast } = useToast();
 
   const load = () => {
     setLoading(true);
@@ -88,9 +91,12 @@ export default function SyllabusPage() {
             setCreateOpen(false);
             setSelectedId(created.id);
             load();
+            showToast("Đã tạo khung chương trình thành công!");
           }}
         />
       )}
+
+      <Toast message={toastMessage} />
     </div>
   );
 }

@@ -677,8 +677,6 @@ UC-49: Cập nhật thông tin tài khoản
 |                 |     giữ nguyên không đổi.                          |
 +-----------------+----------------------------------------------------+
 
-<<<<<<< HEAD
-=======
 ---
 
 UC-55: Cập nhật email tài khoản
@@ -833,5 +831,4 @@ UC-63: Tự cập nhật hồ sơ cá nhân
 |                 |     changed_by = chính tài khoản tự thực hiện.     |
 +-----------------+----------------------------------------------------+
 
->>>>>>> develop
 Phân hệ 3 --- Quản lý công việc và quy trình

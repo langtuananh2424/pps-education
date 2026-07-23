@@ -16,6 +16,8 @@ import {
   updateAssignmentStatus
 } from "../api";
 import { ASSIGNMENT_ACTION_LABEL, ASSIGNMENT_STATUS_META, ASSIGNEE_TRANSITIONS } from "../statusMeta";
+import { useToast } from "@/lib/useToast";
+import Toast from "@/components/ui/Toast";
 
 const PRIORITY_LABEL: Record<string, string> = { LOW: "Thấp", NORMAL: "Bình thường", HIGH: "Cao", URGENT: "Khẩn cấp" };
 
@@ -40,6 +42,7 @@ export default function AssignmentDetailModal({ assignment, onClose, onChanged }
 
   const [attachUrl, setAttachUrl] = useState("");
   const [attachName, setAttachName] = useState("");
+  const { message: toastMessage, showToast } = useToast();
 
   useEffect(() => {
     setLoading(true);
@@ -63,6 +66,7 @@ export default function AssignmentDetailModal({ assignment, onClose, onChanged }
       onChanged(updated);
       setDeclineTarget(null);
       setDeclineReason("");
+      showToast(`Đã cập nhật trạng thái "${ASSIGNMENT_ACTION_LABEL[target]}" thành công!`);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Đổi trạng thái thất bại.");
     } finally {
@@ -85,6 +89,7 @@ export default function AssignmentDetailModal({ assignment, onClose, onChanged }
       const created = await addComment(assignment.taskId, { content: newComment.trim() });
       setComments((prev) => [...prev, created]);
       setNewComment("");
+      showToast("Đã gửi bình luận thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Gửi bình luận thất bại.");
     }
@@ -98,6 +103,7 @@ export default function AssignmentDetailModal({ assignment, onClose, onChanged }
       setAttachments((prev) => [...prev, created]);
       setAttachUrl("");
       setAttachName("");
+      showToast("Đã thêm tệp đính kèm thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Thêm đính kèm thất bại.");
     }
@@ -263,6 +269,8 @@ export default function AssignmentDetailModal({ assignment, onClose, onChanged }
           </div>
         </div>
       )}
+
+      <Toast message={toastMessage} />
     </Modal>
   );
 }

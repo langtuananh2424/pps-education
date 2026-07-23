@@ -25,6 +25,11 @@ import {
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import { studentStatusLabels, studentStatusVariants } from "./StudentListPanel";
+import { useToast } from "@/lib/useToast";
+import Toast from "@/components/ui/Toast";
+import DatePicker from "@/components/ui/DatePicker";
+
+const TODAY_ISO = new Date().toISOString().slice(0, 10);
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-xs p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
@@ -39,6 +44,7 @@ interface StudentDetailPanelProps {
 
 export default function StudentDetailPanel({ student, onChanged }: StudentDetailPanelProps) {
   const [tab, setTab] = useState<Tab>("profile");
+  const { message: toastMessage, showToast } = useToast();
 
   return (
     <div className="lg:col-span-3 bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden flex flex-col">
@@ -77,16 +83,26 @@ export default function StudentDetailPanel({ student, onChanged }: StudentDetail
       </div>
 
       <div className="flex-1 p-5 overflow-y-auto max-h-[560px]">
-        {tab === "profile" && <ProfileTab student={student} onChanged={onChanged} />}
-        {tab === "parents" && <ParentsTab studentId={student.id} />}
-        {tab === "transfer" && <TransferTab studentId={student.id} onChanged={onChanged} />}
-        {tab === "status" && <StatusTab student={student} onChanged={onChanged} />}
+        {tab === "profile" && <ProfileTab student={student} onChanged={onChanged} showToast={showToast} />}
+        {tab === "parents" && <ParentsTab studentId={student.id} showToast={showToast} />}
+        {tab === "transfer" && <TransferTab studentId={student.id} onChanged={onChanged} showToast={showToast} />}
+        {tab === "status" && <StatusTab student={student} onChanged={onChanged} showToast={showToast} />}
       </div>
+
+      <Toast message={toastMessage} />
     </div>
   );
 }
 
-function ProfileTab({ student, onChanged }: { student: StudentResponse; onChanged: () => void }) {
+function ProfileTab({
+  student,
+  onChanged,
+  showToast
+}: {
+  student: StudentResponse;
+  onChanged: () => void;
+  showToast: (msg: string) => void;
+}) {
   const [form, setForm] = useState<UpdateStudentRequest>(() => toForm(student));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -104,6 +120,7 @@ function ProfileTab({ student, onChanged }: { student: StudentResponse; onChange
     try {
       await updateStudent(student.id, form);
       onChanged();
+      showToast("Đã lưu hồ sơ học sinh thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Cập nhật hồ sơ thất bại.");
     } finally {
@@ -117,12 +134,14 @@ function ProfileTab({ student, onChanged }: { student: StudentResponse; onChange
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className={labelClass}>Ngày sinh *</label>
-          <input
-            type="date"
+          <DatePicker
             value={form.dateOfBirth}
-            onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })}
-            onBlur={() => setDateOfBirthTouched(true)}
-            className={dateOfBirthInvalid ? inputErrorClass : inputClass}
+            onChange={(v) => {
+              setForm({ ...form, dateOfBirth: v });
+              setDateOfBirthTouched(true);
+            }}
+            max={TODAY_ISO}
+            hasError={dateOfBirthInvalid}
           />
           {dateOfBirthInvalid && <p className="text-[10px] text-rose-600 mt-1">Vui lòng chọn Ngày sinh.</p>}
         </div>
@@ -176,7 +195,7 @@ function toForm(s: StudentResponse): UpdateStudentRequest {
 
 const relationshipLabels: Record<string, string> = { FATHER: "Bố", MOTHER: "Mẹ", GUARDIAN: "Người giám hộ", OTHER: "Khác" };
 
-function ParentsTab({ studentId }: { studentId: number }) {
+function ParentsTab({ studentId, showToast }: { studentId: number; showToast: (msg: string) => void }) {
   const [links, setLinks] = useState<ParentStudentResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -223,6 +242,7 @@ function ParentsTab({ studentId }: { studentId: number }) {
       setAddingNew(false);
       setAccount({ newAccount: { username: "", email: "", fullName: "", phone: "", password: "" } });
       load();
+      showToast("Đã liên kết phụ huynh thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Liên kết phụ huynh thất bại.");
     } finally {
@@ -235,6 +255,7 @@ function ParentsTab({ studentId }: { studentId: number }) {
     try {
       await unlinkParent(studentId, link.id);
       load();
+      showToast("Đã gỡ liên kết phụ huynh thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Gỡ liên kết thất bại.");
     }
@@ -304,7 +325,7 @@ function ParentsTab({ studentId }: { studentId: number }) {
   );
 }
 
-function TransferTab({ studentId, onChanged }: { studentId: number; onChanged: () => void }) {
+function TransferTab({ studentId, onChanged, showToast }: { studentId: number; onChanged: () => void; showToast: (msg: string) => void }) {
   const [history, setHistory] = useState<StudentTransferHistoryResponse[]>([]);
   const [sites, setSites] = useState<SiteOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -344,6 +365,7 @@ function TransferTab({ studentId, onChanged }: { studentId: number; onChanged: (
       setForm({ transferType: "SITE_CHANGE", toSiteId: "", fromClassId: "", toClassId: "", effectiveDate: "", reason: "" });
       load();
       onChanged();
+      showToast("Đã ghi nhận chuyển lớp/điểm trường thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Ghi nhận chuyển lớp/điểm trường thất bại.");
     } finally {
@@ -392,7 +414,7 @@ function TransferTab({ studentId, onChanged }: { studentId: number; onChanged: (
           )}
           <div>
             <label className={labelClass}>Ngày hiệu lực *</label>
-            <input type="date" value={form.effectiveDate} onChange={(e) => setForm({ ...form, effectiveDate: e.target.value })} className={inputClass} />
+            <DatePicker value={form.effectiveDate} onChange={(v) => setForm({ ...form, effectiveDate: v })} />
           </div>
           <input value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} placeholder="Lý do" className={inputClass} />
         </div>
@@ -420,7 +442,7 @@ function TransferTab({ studentId, onChanged }: { studentId: number; onChanged: (
   );
 }
 
-function StatusTab({ student, onChanged }: { student: StudentResponse; onChanged: () => void }) {
+function StatusTab({ student, onChanged, showToast }: { student: StudentResponse; onChanged: () => void; showToast: (msg: string) => void }) {
   const [history, setHistory] = useState<StudentStatusHistoryResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ newStatus: student.status, reason: "", effectiveDate: "" });
@@ -447,6 +469,7 @@ function StatusTab({ student, onChanged }: { student: StudentResponse; onChanged
       await updateStudentStatus(student.id, { newStatus: form.newStatus, reason: form.reason.trim() || undefined, effectiveDate: form.effectiveDate });
       load();
       onChanged();
+      showToast("Đã đổi trạng thái học tập thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Đổi trạng thái thất bại.");
     } finally {
@@ -466,7 +489,7 @@ function StatusTab({ student, onChanged }: { student: StudentResponse; onChanged
               </option>
             ))}
           </select>
-          <input type="date" value={form.effectiveDate} onChange={(e) => setForm({ ...form, effectiveDate: e.target.value })} className={inputClass} />
+          <DatePicker value={form.effectiveDate} onChange={(v) => setForm({ ...form, effectiveDate: v })} />
           <input value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} placeholder="Lý do" className={`${inputClass} col-span-2`} />
         </div>
         <Button type="submit" size="sm" variant="primary" disabled={submitting}>

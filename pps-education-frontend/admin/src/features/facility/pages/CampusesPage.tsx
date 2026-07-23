@@ -5,6 +5,8 @@ import { listSites, SiteResponse } from "../api";
 import SiteListPanel from "../components/SiteListPanel";
 import SiteDetailPanel from "../components/SiteDetailPanel";
 import SiteFormModal from "../components/SiteFormModal";
+import { useToast } from "@/lib/useToast";
+import Toast from "@/components/ui/Toast";
 
 export default function CampusesPage() {
   const [sites, setSites] = useState<SiteResponse[]>([]);
@@ -12,6 +14,7 @@ export default function CampusesPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const { message: toastMessage, showToast } = useToast();
 
   const load = () => {
     setLoading(true);
@@ -63,9 +66,12 @@ export default function CampusesPage() {
             setCreateOpen(false);
             setSelectedId(id);
             load();
+            showToast("Đã tạo điểm trường thành công!");
           }}
         />
       )}
+
+      <Toast message={toastMessage} />
     </div>
   );
 }

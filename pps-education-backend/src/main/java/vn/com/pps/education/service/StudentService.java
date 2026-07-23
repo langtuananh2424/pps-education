@@ -352,16 +352,7 @@ public class StudentService {
             throw new ParentStudentLinkAlreadyExistsException(
                     "Phụ huynh id=" + parent.getId() + " đã liên kết với học sinh id=" + student.getId());
         }
-
-        List<ParentStudent> existingLinks = parentStudentRepository.findByStudentId(student.getId());
-        if (request.isPrimaryContact() && existingLinks.stream().anyMatch(ParentStudent::isPrimaryContact)) {
-            throw new StudentContactRoleConflictException(
-                    "Học sinh id=" + student.getId() + " đã có người liên hệ chính (primary contact).");
-        }
-        if (request.isFinancialResponsible() && existingLinks.stream().anyMatch(ParentStudent::isFinancialResponsible)) {
-            throw new StudentContactRoleConflictException(
-                    "Học sinh id=" + student.getId() + " đã có người chịu trách nhiệm tài chính.");
-        }
+        assertContactRoleAvailable(student.getId(), request.isPrimaryContact(), request.isFinancialResponsible());
 
         ParentStudent link = new ParentStudent();
         link.setParent(parent);
@@ -371,6 +362,31 @@ public class StudentService {
         link.setFinancialResponsible(request.isFinancialResponsible());
         link.setNotes(request.notes());
         return toResponse(parentStudentRepository.save(link));
+    }
+
+    /**
+     * Tách từ linkParent() để ParentBatchImportService (UC-50) gọi PRE-CHECK
+     * trước khi tạo phụ huynh mới — bổ sung ngoài SDD gốc, đã xác nhận với
+     * người dùng (fix bug phát hiện khi audit): trước đây import theo lô gọi
+     * findOrCreateParent() (tạo User+Parent mới) rồi mới gọi linkParent(), nên
+     * nếu 2 dòng SĐT mới khác nhau cùng chỉ định primaryContact=Có cho cùng 1
+     * học sinh, dòng 2 tạo xong User+Parent MỚI rồi mới phát hiện xung đột —
+     * để lại "phụ huynh mồ côi" (vi phạm bất biến của UC-50) vì cả job dùng
+     * chung 1 transaction, dòng lỗi chỉ bị catch chứ không rollback. Do xung
+     * đột role chỉ phụ thuộc studentId (không phụ thuộc parentId), gọi được
+     * TRƯỚC khi tạo phụ huynh — tránh tạo ra orphan thay vì phải dọn dẹp sau.
+     */
+    @Transactional(readOnly = true)
+    public void assertContactRoleAvailable(Long studentId, boolean primaryContact, boolean financialResponsible) {
+        List<ParentStudent> existingLinks = parentStudentRepository.findByStudentId(studentId);
+        if (primaryContact && existingLinks.stream().anyMatch(ParentStudent::isPrimaryContact)) {
+            throw new StudentContactRoleConflictException(
+                    "Học sinh id=" + studentId + " đã có người liên hệ chính (primary contact).");
+        }
+        if (financialResponsible && existingLinks.stream().anyMatch(ParentStudent::isFinancialResponsible)) {
+            throw new StudentContactRoleConflictException(
+                    "Học sinh id=" + studentId + " đã có người chịu trách nhiệm tài chính.");
+        }
     }
 
     /** SDD > Học sinh & Phụ huynh > b: đổi giám hộ = xóa cứng record cũ, không lưu lịch sử. */

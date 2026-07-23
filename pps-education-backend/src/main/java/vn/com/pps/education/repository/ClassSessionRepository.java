@@ -35,8 +35,6 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, Long
                                               @Param("startTime") LocalTime startTime, @Param("endTime") LocalTime endTime,
                                               @Param("editingSessionId") Long editingSessionId,
                                               @Param("excludedStatuses") List<ClassSession.Status> excludedStatuses);
-<<<<<<< HEAD
-=======
 
     /**
      * UC-58: "Lịch của tôi" — mọi buổi học của 1 Giáo viên qua MỌI lớp,
@@ -72,5 +70,4 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, Long
     List<ClassSession> findBySchoolClassIdInAndDateRange(@Param("classIds") List<Long> classIds,
                                                           @Param("fromDate") LocalDate fromDate,
                                                           @Param("toDate") LocalDate toDate);
->>>>>>> develop
 }

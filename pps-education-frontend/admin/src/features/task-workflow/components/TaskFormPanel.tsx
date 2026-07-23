@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { AlertCircle } from "lucide-react";
 import { Employee } from "@/types";
+import DatePicker from "@/components/ui/DatePicker";
 
 interface TaskFormPanelProps {
   employees: Employee[];
@@ -41,12 +42,7 @@ export default function TaskFormPanel({ employees, onSubmit, onCancel }: TaskFor
 
         <div className="space-y-1">
           <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Hạn hoàn thành (Deadline)</label>
-          <input
-            type="date"
-            value={deadline}
-            onChange={(e) => setDeadline(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-1.5 rounded-lg focus:outline-none"
-          />
+          <DatePicker value={deadline} onChange={setDeadline} />
         </div>
 
         <div className="md:col-span-2 space-y-1">

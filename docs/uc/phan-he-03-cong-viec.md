@@ -16,7 +16,8 @@ UC-06: Giao việc
 | **Tác nhân**    | Cấp quản lý, Trưởng phòng ban                      |
 |                 |                                                    |
 |                 | (Liên quan/hỗ trợ: Quản lý vận hành (ngoại lệ:     |
-|                 | giao việc toàn công ty))                           |
+|                 | giao việc toàn công ty); Ban giám đốc chỉ XEM      |
+|                 | (không tự giao việc), xem UC-07 bước 5)            |
 +-----------------+----------------------------------------------------+
 | **Mô tả tóm     | Cấp quản lý/trưởng phòng tạo và giao đầu việc cho  |
 | tắt**           | nhân sự trực thuộc, đặt deadline, đính kèm tệp     |
@@ -92,8 +93,12 @@ UC-07: Cập nhật tiến độ công việc
 | **Tác nhân**    | Người nhận việc (mọi Giáo viên/Nhân viên/cấp Quản  |
 |                 | lý được giao việc)                                 |
 |                 |                                                    |
-|                 | (Liên quan/hỗ trợ: Cấp quản lý giao việc (theo dõi |
-|                 | qua biểu đồ Kanban/Gantt))                         |
+|                 | (Liên quan/hỗ trợ: Cấp quản lý/Trưởng phòng ban    |
+|                 | giao việc (theo dõi Kanban/Gantt, chỉ phạm vi      |
+|                 | phòng ban mình phụ trách); Ban giám đốc (theo dõi  |
+|                 | toàn bộ công việc mọi phòng ban, chỉ xem, không tự |
+|                 | giao/duyệt việc — bổ sung ngoài SDD gốc, đã xác    |
+|                 | nhận với người dùng 2026-07-22))                   |
 +-----------------+----------------------------------------------------+
 | **Mô tả tóm     | Người nhận việc cập nhật trạng thái công việc qua  |
 | tắt**           | các bước; cấp quản lý theo dõi tiến độ tổng quan.  |
@@ -122,9 +127,14 @@ UC-07: Cập nhật tiến độ công việc
 |                 |     hồi mới hoặc khi công việc chuyển sang \'Chờ   |
 |                 |     duyệt\'/\'Hoàn thành\'.                        |
 |                 |                                                    |
-|                 | 5.  Cấp quản lý xem biểu đồ Kanban/Gantt tổng quan |
-|                 |     để theo dõi tiến độ toàn bộ công việc đã giao  |
-|                 |     cho phòng ban/cá nhân.                         |
+|                 | 5.  Cấp quản lý/Trưởng phòng ban xem biểu đồ       |
+|                 |     Kanban/Gantt tổng quan để theo dõi tiến độ     |
+|                 |     toàn bộ công việc đã giao trong PHÒNG BAN mình |
+|                 |     phụ trách (bất kể ai trong phòng ban đã giao). |
+|                 |     Ban giám đốc xem được tổng quan CÔNG VIỆC CỦA  |
+|                 |     TOÀN BỘ công ty (mọi phòng ban) — chỉ xem, đây  |
+|                 |     là bổ sung ngoài SDD gốc, đã xác nhận với      |
+|                 |     người dùng 2026-07-22.                          |
 +-----------------+----------------------------------------------------+
 | **Luồng thay    | ***A1 --- Công việc sắp trễ hạn***                 |
 | thế / ngoại lệ  |                                                    |

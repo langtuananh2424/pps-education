@@ -36,3 +36,13 @@ export const ASSIGNMENT_ACTION_LABEL: Record<AssignmentStatus, string> = {
   COMPLETED: "",
   DECLINED: "Từ chối nhận việc"
 };
+
+/** Khớp ĐÚNG ASSIGNER_TRANSITIONS ở TaskService.java — hành động của người GIAO việc (tab "Việc tôi giao"). */
+export const ASSIGNER_TRANSITIONS: Record<AssignmentStatus, AssignmentStatus[]> = {
+  PENDING: [],
+  ACCEPTED: [],
+  IN_PROGRESS: [],
+  PENDING_REVIEW: ["COMPLETED", "IN_PROGRESS"],
+  COMPLETED: [],
+  DECLINED: []
+};

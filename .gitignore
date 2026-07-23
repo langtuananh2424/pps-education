@@ -34,6 +34,7 @@ application-local.yml
 node_modules/
 dist/
 build/
+.vite/
 docker-compose.override.yml
 
 # Project thử nghiệm local, không đẩy lên GitHub

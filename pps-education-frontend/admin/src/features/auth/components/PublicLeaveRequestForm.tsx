@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { ArrowLeft, Check, FileText } from "lucide-react";
 import { UserRole } from "@/types";
 import { mockEmployees, mockLeaveRequests } from "@/data/mockData";
+import DatePicker from "@/components/ui/DatePicker";
 
 interface PublicLeaveRequestFormProps {
   onClose: () => void;
@@ -137,21 +138,11 @@ export default function PublicLeaveRequestForm({ onClose }: PublicLeaveRequestFo
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
               <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500 block">Từ ngày</label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full bg-slate-50/50 border border-slate-200 text-xs px-3 py-2 rounded-xl focus:outline-none"
-              />
+              <DatePicker value={startDate} onChange={setStartDate} max={endDate || undefined} />
             </div>
             <div className="space-y-1">
               <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500 block">Đến ngày</label>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="w-full bg-slate-50/50 border border-slate-200 text-xs px-3 py-2 rounded-xl focus:outline-none"
-              />
+              <DatePicker value={endDate} onChange={setEndDate} min={startDate || undefined} />
             </div>
           </div>
 
