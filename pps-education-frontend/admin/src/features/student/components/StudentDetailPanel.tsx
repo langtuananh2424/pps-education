@@ -133,6 +133,15 @@ function ProfileTab({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <div>
+        <label className={labelClass}>Ảnh đại diện</label>
+        <AvatarUploadField
+          value={form.portraitUrl}
+          onChange={(url) => setForm({ ...form, portraitUrl: url })}
+          onUpload={(file) => uploadMedia(file, "STUDENT")}
+          fallbackName={student.fullName}
+        />
+      </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className={labelClass}>Ngày sinh *</label>
@@ -163,15 +172,6 @@ function ProfileTab({
         <div>
           <label className={labelClass}>Lớp gốc</label>
           <input value={form.originalClass ?? ""} onChange={(e) => setForm({ ...form, originalClass: e.target.value })} className={inputClass} />
-        </div>
-        <div className="col-span-2">
-          <label className={labelClass}>Ảnh đại diện</label>
-          <AvatarUploadField
-            value={form.portraitUrl}
-            onChange={(url) => setForm({ ...form, portraitUrl: url })}
-            onUpload={(file) => uploadMedia(file, "STUDENT")}
-            fallbackName={student.fullName}
-          />
         </div>
         <div className="col-span-2">
           <label className={labelClass}>Ghi chú</label>

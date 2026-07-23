@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { BookOpen, Calendar, CreditCard, Home, LogOut, Award, School, Users } from "lucide-react";
+import { BookOpen, Calendar, CreditCard, Home, LogOut, Award, School, Users, Menu, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import { ChildResponse, listClassOptions, listMyChildren, PortalClassOptionResponse } from "../api";
@@ -44,6 +44,7 @@ export default function PortalPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     if (isParent) {
@@ -103,6 +104,15 @@ export default function PortalPage() {
       <nav className="bg-white border-b border-line sticky top-0 z-50 shadow-sm w-full py-2.5">
         <div className="w-full max-w-[1560px] mx-auto px-4 md:px-8 xl:px-12 flex items-center justify-between">
           <div className="flex items-center gap-3">
+            {!noViewerData && !loading && (
+              <button
+                onClick={() => setMobileMenuOpen(true)}
+                className="lg:hidden shrink-0 w-9 h-9 rounded-xl bg-sky-2 border border-line flex items-center justify-center text-ink hover:bg-sky transition-colors"
+                aria-label="Mở menu"
+              >
+                <Menu size={18} />
+              </button>
+            )}
             <div className="w-10 h-10 rounded-xl bg-teal border-2 border-teal-deep flex items-center justify-center shadow-[0_3px_0_var(--teal-deep)]">
               <span className="font-display font-extrabold text-white text-xl">P</span>
             </div>
@@ -166,42 +176,69 @@ export default function PortalPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            <div className="lg:col-span-3 bg-white border border-line/80 rounded-[24px] p-6 shadow-[0_8px_30px_rgba(30,42,69,0.03)] space-y-6">
-              {children.length > 1 && (
-                <PortalDropdown
-                  icon={Users}
-                  label="Học viên"
-                  value={selectedChildId ?? 0}
-                  onChange={(v) => setSelectedChildId(v)}
-                  options={children.map((c) => ({ value: c.studentId, label: `${c.studentFullName} (${c.studentCode})` }))}
-                />
-              )}
+            {mobileMenuOpen && (
+              <div
+                className="fixed inset-0 z-[70] bg-ink/40 backdrop-blur-[1px] lg:hidden"
+                onClick={() => setMobileMenuOpen(false)}
+              />
+            )}
 
-              {classOptions.length > 1 && (
-                <PortalDropdown
-                  icon={School}
-                  label="Lớp đang học"
-                  value={selectedClassId ?? 0}
-                  onChange={(v) => setSelectedClassId(v)}
-                  options={classOptions.map((c) => ({ value: c.classId, label: c.className }))}
-                />
-              )}
+            <div
+              className={`fixed inset-y-0 left-0 z-[80] w-[82%] max-w-[320px] overflow-y-auto bg-white p-6 shadow-[0_8px_40px_rgba(30,42,69,0.18)] transition-transform duration-300 ease-in-out
+                lg:sticky lg:top-[76px] lg:z-auto lg:col-span-3 lg:w-auto lg:max-w-none lg:translate-x-0 lg:shadow-[0_8px_30px_rgba(30,42,69,0.03)] lg:rounded-[24px] lg:border lg:border-line/80
+                ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full"}`}
+            >
+              <div className="flex items-center justify-between mb-5 lg:hidden">
+                <span className="text-xs font-extrabold uppercase tracking-wide text-muted">Menu</span>
+                <button
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="w-8 h-8 rounded-full bg-sky-2 border border-line flex items-center justify-center text-ink hover:bg-sky transition-colors"
+                  aria-label="Đóng menu"
+                >
+                  <X size={16} />
+                </button>
+              </div>
 
-              <div className="space-y-3">
-                {/* Học phí & Dịch vụ (invoices/thanh toán) chỉ dành Phụ huynh — Học sinh không cần/không nên xem thông tin tài chính của gia đình. */}
-                {TABS.filter((tab) => tab.key !== "billing" || isParent).map(({ key, label, icon: Icon }) => (
-                  <button
-                    key={key}
-                    onClick={() => setActiveTab(key)}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-[16px] font-bold text-sm transition-all border ${
-                      activeTab === key
-                        ? "bg-teal text-white border-teal-deep shadow-[0_4px_12px_rgba(23,166,160,0.2)]"
-                        : "bg-slate-50/50 hover:bg-slate-50 text-muted border-line/60"
-                    }`}
-                  >
-                    <Icon size={18} /> {label}
-                  </button>
-                ))}
+              <div className="space-y-6">
+                {children.length > 1 && (
+                  <PortalDropdown
+                    icon={Users}
+                    label="Học viên"
+                    value={selectedChildId ?? 0}
+                    onChange={(v) => setSelectedChildId(v)}
+                    options={children.map((c) => ({ value: c.studentId, label: `${c.studentFullName} (${c.studentCode})` }))}
+                  />
+                )}
+
+                {classOptions.length > 1 && (
+                  <PortalDropdown
+                    icon={School}
+                    label="Lớp đang học"
+                    value={selectedClassId ?? 0}
+                    onChange={(v) => setSelectedClassId(v)}
+                    options={classOptions.map((c) => ({ value: c.classId, label: c.className }))}
+                  />
+                )}
+
+                <div className="space-y-3">
+                  {/* Học phí & Dịch vụ (invoices/thanh toán) chỉ dành Phụ huynh — Học sinh không cần/không nên xem thông tin tài chính của gia đình. */}
+                  {TABS.filter((tab) => tab.key !== "billing" || isParent).map(({ key, label, icon: Icon }) => (
+                    <button
+                      key={key}
+                      onClick={() => {
+                        setActiveTab(key);
+                        setMobileMenuOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-[16px] font-bold text-sm transition-all border ${
+                        activeTab === key
+                          ? "bg-teal text-white border-teal-deep shadow-[0_4px_12px_rgba(23,166,160,0.2)]"
+                          : "bg-slate-50/50 hover:bg-slate-50 text-muted border-line/60"
+                      }`}
+                    >
+                      <Icon size={18} /> {label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 

@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { ChevronDown, ChevronUp, Search } from "lucide-react";
+import { permissionGroupsByModule } from "../constants/permissionGroups";
 
 export interface ChecklistItem {
   permissionId: number;
@@ -20,9 +21,11 @@ export default function PermissionChecklist({ items, selectedIds, onToggle, onTo
   const [searchQuery, setSearchQuery] = useState("");
   const [moduleFilter, setModuleFilter] = useState("ALL");
   const [expandedModules, setExpandedModules] = useState<Record<string, boolean>>({});
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
 
   const modules = useMemo(() => Array.from(new Set(items.map((p) => p.module))).sort(), [items]);
   const toggleExpand = (mod: string) => setExpandedModules((prev) => ({ ...prev, [mod]: !prev[mod] }));
+  const toggleGroupExpand = (groupKey: string) => setExpandedGroups((prev) => ({ ...prev, [groupKey]: !prev[groupKey] }));
 
   return (
     <div className="space-y-4">
@@ -65,6 +68,11 @@ export default function PermissionChecklist({ items, selectedIds, onToggle, onTo
           const selectedInModule = filtered.filter((p) => selectedIds.has(p.permissionId));
           const isAllSelected = selectedInModule.length === filtered.length;
 
+          // Tách thành nhóm con (VD "Điểm danh" gồm tạo/sửa/xoá) + phần còn lại hiện phẳng như cũ.
+          const groupDefs = permissionGroupsByModule[mod] ?? [];
+          const groupedCodeSet = new Set(groupDefs.flatMap((g) => g.codes));
+          const standaloneItems = filtered.filter((p) => !groupedCodeSet.has(p.code));
+
           return (
             <div key={mod} className="border border-slate-200 rounded-xl overflow-hidden shadow-sm bg-white">
               <div className="bg-slate-50/70 p-3.5 border-b border-slate-200 flex items-center justify-between gap-3">
@@ -89,38 +97,88 @@ export default function PermissionChecklist({ items, selectedIds, onToggle, onTo
               </div>
 
               {isExpanded && (
-                <div className="divide-y divide-slate-100 p-1.5 bg-white">
-                  {filtered.map((p) => {
-                    const isChecked = selectedIds.has(p.permissionId);
+                <div className="p-1.5 bg-white space-y-1.5">
+                  {groupDefs.map((group) => {
+                    const groupItems = filtered.filter((p) => group.codes.includes(p.code));
+                    if (groupItems.length === 0) return null;
+
+                    const groupKey = `${mod}.${group.key}`;
+                    const isGroupExpanded = expandedGroups[groupKey] !== false;
+                    const selectedInGroup = groupItems.filter((p) => selectedIds.has(p.permissionId));
+                    const isGroupAllSelected = selectedInGroup.length === groupItems.length;
+
                     return (
-                      <label
-                        key={p.permissionId}
-                        className={`flex items-start gap-3.5 p-3.5 rounded-lg transition-colors cursor-pointer ${
-                          isChecked ? "bg-orange-50/40 hover:bg-orange-50/60 text-slate-900" : "hover:bg-slate-50/50 text-slate-700"
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => onToggle(p.permissionId)}
-                          className="mt-0.5 rounded border-slate-300 text-brand-red focus:ring-brand-orange h-4 w-4 cursor-pointer shrink-0"
-                        />
-                        <div className="flex-1 space-y-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-xs font-bold tracking-tight text-slate-900 block leading-tight">{p.name}</span>
-                            <code className="text-[9px] font-mono font-bold text-brand-red bg-orange-50/60 border border-orange-100 px-1.5 py-0.2 rounded shrink-0">
-                              {p.code}
-                            </code>
+                      <div key={group.key} className="border border-slate-100 rounded-lg overflow-hidden bg-slate-50/40">
+                        <div className="p-2.5 flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2.5">
+                            <button
+                              type="button"
+                              onClick={() => toggleGroupExpand(groupKey)}
+                              className="p-0.5 rounded hover:bg-slate-200/60 text-slate-400 transition-colors"
+                            >
+                              {isGroupExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                            </button>
+                            <input
+                              type="checkbox"
+                              checked={isGroupAllSelected}
+                              onChange={() => onToggleModuleAll(groupItems.map((p) => p.permissionId))}
+                              className="rounded border-slate-300 text-brand-red focus:ring-brand-orange h-3.5 w-3.5 cursor-pointer"
+                            />
+                            <span className="text-[11px] font-bold text-slate-700">{group.label}</span>
                           </div>
+                          <span className="text-[9px] font-mono font-bold bg-white text-slate-500 border border-slate-200 px-2 py-0.5 rounded-full">
+                            {selectedInGroup.length}/{groupItems.length}
+                          </span>
                         </div>
-                      </label>
+
+                        {isGroupExpanded && (
+                          <div className="divide-y divide-slate-100 pl-7 pr-1.5 pb-1.5">
+                            {groupItems.map((p) => (
+                              <PermissionRow key={p.permissionId} item={p} checked={selectedIds.has(p.permissionId)} onToggle={onToggle} />
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     );
                   })}
+
+                  {standaloneItems.length > 0 && (
+                    <div className="divide-y divide-slate-100">
+                      {standaloneItems.map((p) => (
+                        <PermissionRow key={p.permissionId} item={p} checked={selectedIds.has(p.permissionId)} onToggle={onToggle} />
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           );
         })}
     </div>
+  );
+}
+
+function PermissionRow({ item, checked, onToggle }: { item: ChecklistItem; checked: boolean; onToggle: (permissionId: number) => void }) {
+  return (
+    <label
+      className={`flex items-start gap-3.5 p-3.5 rounded-lg transition-colors cursor-pointer ${
+        checked ? "bg-orange-50/40 hover:bg-orange-50/60 text-slate-900" : "hover:bg-slate-50/50 text-slate-700"
+      }`}
+    >
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={() => onToggle(item.permissionId)}
+        className="mt-0.5 rounded border-slate-300 text-brand-red focus:ring-brand-orange h-4 w-4 cursor-pointer shrink-0"
+      />
+      <div className="flex-1 space-y-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-bold tracking-tight text-slate-900 block leading-tight">{item.name}</span>
+          <code className="text-[9px] font-mono font-bold text-brand-red bg-orange-50/60 border border-orange-100 px-1.5 py-0.2 rounded shrink-0">
+            {item.code}
+          </code>
+        </div>
+      </div>
+    </label>
   );
 }
