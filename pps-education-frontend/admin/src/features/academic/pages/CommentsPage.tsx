@@ -9,6 +9,8 @@ import DailyCommentPanel from "../components/DailyCommentPanel";
 import PeriodicCommentPanel from "../components/PeriodicCommentPanel";
 import CommentApprovalList from "../components/CommentApprovalList";
 import CommentApprovalDetail from "../components/CommentApprovalDetail";
+import { useToast } from "@/lib/useToast";
+import Toast from "@/components/ui/Toast";
 
 type Tab = "daily" | "periodic";
 
@@ -23,6 +25,7 @@ export default function CommentsPage() {
   const [loadingPending, setLoadingPending] = useState(true);
   const [selectedRequestId, setSelectedRequestId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { message: toastMessage, showToast } = useToast();
 
   const loadPending = () => {
     setLoadingPending(true);
@@ -54,6 +57,7 @@ export default function CommentsPage() {
             onDecided={() => {
               setSelectedRequestId(null);
               loadPending();
+              showToast("Đã xử lý yêu cầu duyệt nhận xét thành công!");
             }}
           />
 
@@ -89,6 +93,8 @@ export default function CommentsPage() {
           {tab === "daily" ? <DailyCommentPanel /> : <PeriodicCommentPanel />}
         </>
       )}
+
+      <Toast message={toastMessage} />
     </div>
   );
 }

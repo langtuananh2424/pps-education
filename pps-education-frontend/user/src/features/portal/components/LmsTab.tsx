@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { BookOpen, Download, FileText, Library, Play } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { CurriculumDocumentResponse, LessonMaterialResponse, LessonResponse, getPortalClass, listLessonMaterials, listLessonsByClass, listMyDocuments } from "../api";
-import LmsPracticeDemo from "./LmsPracticeDemo";
+import ComingSoon from "./ComingSoon";
 
 const documentTypeLabels: Record<CurriculumDocumentResponse["documentType"], string> = {
   VIDEO: "Video",
@@ -135,7 +135,10 @@ export default function LmsTab({ classId }: LmsTabProps) {
         )}
       </div>
 
-      <LmsPracticeDemo />
+      <ComingSoon
+        title="Luyện Nghe-Nói & Đổi xu thưởng (UC-26)"
+        description="Đang trong quá trình phát triển"
+      />
     </div>
   );
 }

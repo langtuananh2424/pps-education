@@ -5,6 +5,8 @@ import { getParentById, linkParent, listStudents, ParentResponse, StudentRespons
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import type { ParentAggregate } from "../pages/ParentsPage";
+import { useToast } from "@/lib/useToast";
+import Toast from "@/components/ui/Toast";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
@@ -16,6 +18,8 @@ interface ParentDetailPanelProps {
 }
 
 export default function ParentDetailPanel({ parent, onChanged }: ParentDetailPanelProps) {
+  const { message: toastMessage, showToast } = useToast();
+
   return (
     <div className="lg:col-span-3 bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden flex flex-col">
       <div className="p-5 border-b border-slate-200 bg-slate-50/20">
@@ -24,14 +28,16 @@ export default function ParentDetailPanel({ parent, onChanged }: ParentDetailPan
       </div>
 
       <div className="flex-1 p-5 overflow-y-auto max-h-[560px] space-y-6">
-        <ProfileSection parentId={parent.parentId} />
-        <ChildrenSection parent={parent} onChanged={onChanged} />
+        <ProfileSection parentId={parent.parentId} showToast={showToast} />
+        <ChildrenSection parent={parent} onChanged={onChanged} showToast={showToast} />
       </div>
+
+      <Toast message={toastMessage} />
     </div>
   );
 }
 
-function ProfileSection({ parentId }: { parentId: number }) {
+function ProfileSection({ parentId, showToast }: { parentId: number; showToast: (msg: string) => void }) {
   const [profile, setProfile] = useState<ParentResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -71,6 +77,7 @@ function ProfileSection({ parentId }: { parentId: number }) {
       });
       setProfile(updated);
       setEditing(false);
+      showToast("Đã lưu thông tin phụ huynh thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Cập nhật thất bại.");
     } finally {
@@ -125,7 +132,15 @@ function ProfileSection({ parentId }: { parentId: number }) {
   );
 }
 
-function ChildrenSection({ parent, onChanged }: { parent: ParentAggregate; onChanged: () => void }) {
+function ChildrenSection({
+  parent,
+  onChanged,
+  showToast
+}: {
+  parent: ParentAggregate;
+  onChanged: () => void;
+  showToast: (msg: string) => void;
+}) {
   const [linking, setLinking] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<StudentResponse[]>([]);
@@ -164,6 +179,7 @@ function ChildrenSection({ parent, onChanged }: { parent: ParentAggregate; onCha
       setSelectedStudent(null);
       setQuery("");
       onChanged();
+      showToast("Đã liên kết học sinh thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Liên kết thất bại.");
     } finally {
@@ -176,6 +192,7 @@ function ChildrenSection({ parent, onChanged }: { parent: ParentAggregate; onCha
     try {
       await unlinkParent(studentId, parentStudentId);
       onChanged();
+      showToast("Đã gỡ liên kết học sinh thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Gỡ liên kết thất bại.");
     }

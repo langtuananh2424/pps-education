@@ -16,6 +16,8 @@ import {
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import { curriculumStatusLabels, curriculumStatusVariants } from "./CurriculumListPanel";
+import { useToast } from "@/lib/useToast";
+import Toast from "@/components/ui/Toast";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
@@ -30,6 +32,7 @@ interface CurriculumDetailPanelProps {
 export default function CurriculumDetailPanel({ curriculum, onChanged }: CurriculumDetailPanelProps) {
   const [tab, setTab] = useState<Tab>("profile");
   const isCustom = curriculum.siteId != null;
+  const { message: toastMessage, showToast } = useToast();
 
   return (
     <div className="lg:col-span-3 bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden flex flex-col">
@@ -66,14 +69,26 @@ export default function CurriculumDetailPanel({ curriculum, onChanged }: Curricu
       </div>
 
       <div className="flex-1 p-5 overflow-y-auto max-h-[560px]">
-        {tab === "profile" && <ProfileTab curriculum={curriculum} isCustom={isCustom} onChanged={onChanged} />}
-        {tab === "subjects" && <SubjectsTab curriculumId={curriculum.id} />}
+        {tab === "profile" && <ProfileTab curriculum={curriculum} isCustom={isCustom} onChanged={onChanged} showToast={showToast} />}
+        {tab === "subjects" && <SubjectsTab curriculumId={curriculum.id} showToast={showToast} />}
       </div>
+
+      <Toast message={toastMessage} />
     </div>
   );
 }
 
-function ProfileTab({ curriculum, isCustom, onChanged }: { curriculum: CurriculumResponse; isCustom: boolean; onChanged: () => void }) {
+function ProfileTab({
+  curriculum,
+  isCustom,
+  onChanged,
+  showToast
+}: {
+  curriculum: CurriculumResponse;
+  isCustom: boolean;
+  onChanged: () => void;
+  showToast: (msg: string) => void;
+}) {
   const [form, setForm] = useState({
     name: curriculum.name,
     level: curriculum.level ?? "",
@@ -124,6 +139,7 @@ function ProfileTab({ curriculum, isCustom, onChanged }: { curriculum: Curriculu
         });
       }
       onChanged();
+      showToast("Đã lưu hồ sơ khung chương trình thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Cập nhật thất bại.");
     } finally {
@@ -136,6 +152,7 @@ function ProfileTab({ curriculum, isCustom, onChanged }: { curriculum: Curriculu
     try {
       await submitCurriculumForApproval(curriculum.id);
       onChanged();
+      showToast("Đã nộp duyệt thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Nộp duyệt thất bại.");
     }
@@ -202,7 +219,14 @@ function ProfileTab({ curriculum, isCustom, onChanged }: { curriculum: Curriculu
               Tạo bản tùy biến cho điểm trường (UC-16b)
             </Button>
           ) : (
-            <CreateCustomForm parentCurriculumId={curriculum.id} onDone={onChanged} onCancel={() => setShowCustomForm(false)} />
+            <CreateCustomForm
+              parentCurriculumId={curriculum.id}
+              onDone={() => {
+                onChanged();
+                showToast("Đã tạo bản tùy biến thành công!");
+              }}
+              onCancel={() => setShowCustomForm(false)}
+            />
           )}
         </div>
       )}
@@ -265,7 +289,7 @@ function CreateCustomForm({ parentCurriculumId, onDone, onCancel }: { parentCurr
   );
 }
 
-function SubjectsTab({ curriculumId }: { curriculumId: number }) {
+function SubjectsTab({ curriculumId, showToast }: { curriculumId: number; showToast: (msg: string) => void }) {
   const [subjects, setSubjects] = useState<CurriculumSubjectResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -315,7 +339,17 @@ function SubjectsTab({ curriculumId }: { curriculumId: number }) {
         </div>
       )}
 
-      {adding && <AddSubjectForm curriculumId={curriculumId} onDone={() => { setAdding(false); load(); }} onCancel={() => setAdding(false)} />}
+      {adding && (
+        <AddSubjectForm
+          curriculumId={curriculumId}
+          onDone={() => {
+            setAdding(false);
+            load();
+            showToast("Đã thêm học phần thành công!");
+          }}
+          onCancel={() => setAdding(false)}
+        />
+      )}
     </div>
   );
 }

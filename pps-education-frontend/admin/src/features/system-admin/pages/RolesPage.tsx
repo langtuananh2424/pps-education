@@ -6,6 +6,8 @@ import { deleteRole, listRoles, RoleResponse } from "../api";
 import RoleListPanel from "../components/RoleListPanel";
 import RoleDetailPanel, { RoleDetailTab } from "../components/RoleDetailPanel";
 import CreateRolePanel from "../components/CreateRolePanel";
+import { useToast } from "@/lib/useToast";
+import Toast from "@/components/ui/Toast";
 
 export default function RolesPage() {
   const { hasPermission } = useApp();
@@ -18,6 +20,7 @@ export default function RolesPage() {
   const [rightActiveTab, setRightActiveTab] = useState<RoleDetailTab>("permissions");
   const [roleSearchQuery, setRoleSearchQuery] = useState("");
   const [creatingNew, setCreatingNew] = useState(false);
+  const { message: toastMessage, showToast } = useToast();
 
   const loadRoles = (selectId?: number) => {
     setLoading(true);
@@ -46,6 +49,7 @@ export default function RolesPage() {
       await deleteRole(activeRole.id);
       setSelectedRoleId(null);
       loadRoles();
+      showToast("Đã xoá vai trò thành công!");
     } catch (err) {
       alert(err instanceof ApiError ? err.message : "Xóa vai trò thất bại.");
     }
@@ -90,6 +94,7 @@ export default function RolesPage() {
               onCreated={(id) => {
                 setCreatingNew(false);
                 loadRoles(id);
+                showToast("Đã tạo vai trò mới thành công!");
               }}
             />
           ) : activeRole ? (
@@ -113,6 +118,8 @@ export default function RolesPage() {
           )}
         </div>
       </div>
+
+      <Toast message={toastMessage} />
     </div>
   );
 }

@@ -29,6 +29,9 @@ import Button from "@/components/ui/Button";
 import { classStatusLabels, classStatusVariants } from "./ClassListPanel";
 import BulkGenerateSessionsForm from "./BulkGenerateSessionsForm";
 import ImportScheduleForm from "./ImportScheduleForm";
+import { useToast } from "@/lib/useToast";
+import Toast from "@/components/ui/Toast";
+import DatePicker from "@/components/ui/DatePicker";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-xs p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
@@ -45,6 +48,7 @@ export default function ClassDetailPanel({ schoolClass, onChanged }: ClassDetail
   const [tab, setTab] = useState<Tab>("profile");
   const { hasPermission } = useApp();
   const canManage = hasPermission("academic.class.manage");
+  const { message: toastMessage, showToast } = useToast();
 
   return (
     <div className="lg:col-span-3 bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden flex flex-col">
@@ -84,16 +88,28 @@ export default function ClassDetailPanel({ schoolClass, onChanged }: ClassDetail
       </div>
 
       <div className="flex-1 p-5 overflow-y-auto max-h-[560px]">
-        {tab === "profile" && <ProfileTab schoolClass={schoolClass} onChanged={onChanged} canManage={canManage} />}
-        {tab === "teachers" && <TeachersTab classId={schoolClass.id} canManage={canManage} />}
-        {tab === "students" && <StudentsTab classId={schoolClass.id} siteId={schoolClass.siteId} siteName={schoolClass.siteName} canManage={canManage} />}
-        {tab === "sessions" && <SessionsTab classId={schoolClass.id} siteId={schoolClass.siteId} canManage={canManage} />}
+        {tab === "profile" && <ProfileTab schoolClass={schoolClass} onChanged={onChanged} canManage={canManage} showToast={showToast} />}
+        {tab === "teachers" && <TeachersTab classId={schoolClass.id} canManage={canManage} showToast={showToast} />}
+        {tab === "students" && <StudentsTab classId={schoolClass.id} siteId={schoolClass.siteId} siteName={schoolClass.siteName} canManage={canManage} showToast={showToast} />}
+        {tab === "sessions" && <SessionsTab classId={schoolClass.id} siteId={schoolClass.siteId} canManage={canManage} showToast={showToast} />}
       </div>
+
+      <Toast message={toastMessage} />
     </div>
   );
 }
 
-function ProfileTab({ schoolClass, onChanged, canManage }: { schoolClass: ClassResponse; onChanged: () => void; canManage: boolean }) {
+function ProfileTab({
+  schoolClass,
+  onChanged,
+  canManage,
+  showToast
+}: {
+  schoolClass: ClassResponse;
+  onChanged: () => void;
+  canManage: boolean;
+  showToast: (msg: string) => void;
+}) {
   const [form, setForm] = useState(() => toForm(schoolClass));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -123,6 +139,7 @@ function ProfileTab({ schoolClass, onChanged, canManage }: { schoolClass: ClassR
         status: form.status as ClassResponse["status"]
       });
       onChanged();
+      showToast("Đã lưu hồ sơ lớp học thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Cập nhật lớp học thất bại.");
     } finally {
@@ -177,11 +194,11 @@ function ProfileTab({ schoolClass, onChanged, canManage }: { schoolClass: ClassR
         </div>
         <div>
           <label className={labelClass}>Ngày khai giảng *</label>
-          <input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} className={inputClass} required />
+          <DatePicker value={form.startDate} onChange={(v) => setForm({ ...form, startDate: v })} max={form.endDate || undefined} />
         </div>
         <div>
           <label className={labelClass}>Ngày kết thúc</label>
-          <input type="date" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} className={inputClass} />
+          <DatePicker value={form.endDate} onChange={(v) => setForm({ ...form, endDate: v })} min={form.startDate || undefined} />
         </div>
         <div>
           <label className={labelClass}>Năm học</label>
@@ -217,7 +234,7 @@ function toForm(c: ClassResponse) {
 
 const teacherRoleLabels: Record<ClassTeacherResponse["teacherRole"], string> = { PRIMARY: "Chính", ASSISTANT: "Trợ giảng", SUBSTITUTE: "Dạy thay" };
 
-function TeachersTab({ classId, canManage }: { classId: number; canManage: boolean }) {
+function TeachersTab({ classId, canManage, showToast }: { classId: number; canManage: boolean; showToast: (msg: string) => void }) {
   const [teachers, setTeachers] = useState<ClassTeacherResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -264,7 +281,17 @@ function TeachersTab({ classId, canManage }: { classId: number; canManage: boole
         </div>
       )}
 
-      {assigning && <AssignTeacherForm classId={classId} onDone={() => { setAssigning(false); load(); }} onCancel={() => setAssigning(false)} />}
+      {assigning && (
+        <AssignTeacherForm
+          classId={classId}
+          onDone={() => {
+            setAssigning(false);
+            load();
+            showToast("Đã gán giáo viên thành công!");
+          }}
+          onCancel={() => setAssigning(false)}
+        />
+      )}
     </div>
   );
 }
@@ -356,7 +383,19 @@ function AssignTeacherForm({ classId, onDone, onCancel }: { classId: number; onD
   );
 }
 
-function StudentsTab({ classId, siteId, siteName, canManage }: { classId: number; siteId: number; siteName: string; canManage: boolean }) {
+function StudentsTab({
+  classId,
+  siteId,
+  siteName,
+  canManage,
+  showToast
+}: {
+  classId: number;
+  siteId: number;
+  siteName: string;
+  canManage: boolean;
+  showToast: (msg: string) => void;
+}) {
   const [enrollments, setEnrollments] = useState<ClassEnrollmentResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -377,6 +416,7 @@ function StudentsTab({ classId, siteId, siteName, canManage }: { classId: number
     try {
       await withdrawEnrollment(classId, enrollmentId, { withdrawnDate: new Date().toISOString().slice(0, 10), reason: reason.trim() || undefined });
       load();
+      showToast("Đã rút học sinh khỏi lớp thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Rút lớp thất bại.");
     }
@@ -425,7 +465,11 @@ function StudentsTab({ classId, siteId, siteName, canManage }: { classId: number
           siteId={siteId}
           siteName={siteName}
           existingStudentIds={new Set(enrollments.filter((en) => en.status === "ACTIVE").map((en) => en.studentId))}
-          onDone={() => { setEnrolling(false); load(); }}
+          onDone={() => {
+            setEnrolling(false);
+            load();
+            showToast("Đã ghi danh học sinh thành công!");
+          }}
           onCancel={() => setEnrolling(false)}
         />
       )}
@@ -553,7 +597,7 @@ function EnrollStudentForm({
 
       <div>
         <label className={labelClass}>Ngày ghi danh (áp dụng cho tất cả học sinh đã chọn)</label>
-        <input type="date" value={enrolledDate} onChange={(e) => setEnrolledDate(e.target.value)} className={inputClass} required />
+        <DatePicker value={enrolledDate} onChange={setEnrolledDate} />
       </div>
 
       <div className="flex items-center justify-between gap-2">
@@ -590,8 +634,25 @@ function hasSessionStarted(s: ClassSessionResponse): boolean {
   return new Date(`${s.sessionDate}T${s.startTime}`) <= new Date();
 }
 
-function SessionsTab({ classId, siteId, canManage }: { classId: number; siteId: number; canManage: boolean }) {
+/** V45: GV chỉ điểm danh/sửa đúng NGÀY diễn ra buổi học (StudentAttendanceService.requireCanWriteAttendance). */
+function isToday(s: ClassSessionResponse): boolean {
+  return s.sessionDate === new Date().toISOString().slice(0, 10);
+}
+
+function SessionsTab({
+  classId,
+  siteId,
+  canManage,
+  showToast
+}: {
+  classId: number;
+  siteId: number;
+  canManage: boolean;
+  showToast: (msg: string) => void;
+}) {
   const navigate = useNavigate();
+  const { hasPermission } = useApp();
+  const hasAttendanceOverride = hasPermission("academic.attendance.create") || hasPermission("academic.attendance.update");
   const [sessions, setSessions] = useState<ClassSessionResponse[]>([]);
   const [attendanceStatusBySession, setAttendanceStatusBySession] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(true);
@@ -621,6 +682,7 @@ function SessionsTab({ classId, siteId, canManage }: { classId: number; siteId: 
     try {
       await cancelClassSession(classId, sessionId, reason.trim());
       load();
+      showToast("Đã hủy buổi học thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Hủy buổi học thất bại.");
     }
@@ -676,6 +738,10 @@ function SessionsTab({ classId, siteId, canManage }: { classId: number; siteId: 
                     <Button size="sm" variant="secondary" disabled title="Chưa tới giờ học — chỉ điểm danh được từ khi buổi học bắt đầu.">
                       Chưa tới giờ học
                     </Button>
+                  ) : !attendanceStatusBySession[s.id] && !hasAttendanceOverride && !isToday(s) ? (
+                    <Button size="sm" variant="secondary" disabled title="Chỉ điểm danh được trong ngày diễn ra buổi học — cần quyền quản trị điểm danh để điểm danh buổi khác ngày.">
+                      Đã qua ngày điểm danh
+                    </Button>
                   ) : (
                     <Button size="sm" variant="secondary" onClick={() => navigate(`/student/attendance?classId=${classId}&sessionId=${s.id}`)}>
                       {attendanceStatusBySession[s.id] ? "Xem điểm danh" : "Điểm danh"}
@@ -695,11 +761,41 @@ function SessionsTab({ classId, siteId, canManage }: { classId: number; siteId: 
         </div>
       )}
 
-      {creating === "single" && <CreateSessionForm classId={classId} siteId={siteId} onDone={() => { setCreating(null); load(); }} onCancel={() => setCreating(null)} />}
-      {creating === "bulk" && (
-        <BulkGenerateSessionsForm classId={classId} siteId={siteId} onDone={() => { setCreating(null); load(); }} onCancel={() => setCreating(null)} />
+      {creating === "single" && (
+        <CreateSessionForm
+          classId={classId}
+          siteId={siteId}
+          onDone={() => {
+            setCreating(null);
+            load();
+            showToast("Đã xếp buổi học thành công!");
+          }}
+          onCancel={() => setCreating(null)}
+        />
       )}
-      {creating === "excel" && <ImportScheduleForm classId={classId} onDone={() => { setCreating(null); load(); }} onCancel={() => setCreating(null)} />}
+      {creating === "bulk" && (
+        <BulkGenerateSessionsForm
+          classId={classId}
+          siteId={siteId}
+          onDone={() => {
+            setCreating(null);
+            load();
+            showToast("Đã sinh lịch hàng loạt thành công!");
+          }}
+          onCancel={() => setCreating(null)}
+        />
+      )}
+      {creating === "excel" && (
+        <ImportScheduleForm
+          classId={classId}
+          onDone={() => {
+            setCreating(null);
+            load();
+            showToast("Đã nhập lịch từ Excel thành công!");
+          }}
+          onCancel={() => setCreating(null)}
+        />
+      )}
     </div>
   );
 }
@@ -760,7 +856,7 @@ function CreateSessionForm({ classId, siteId, onDone, onCancel }: { classId: num
       <div className="grid grid-cols-3 gap-2">
         <div>
           <label className={labelClass}>Ngày học</label>
-          <input type="date" value={form.sessionDate} onChange={(e) => setForm({ ...form, sessionDate: e.target.value })} className={inputClass} required />
+          <DatePicker value={form.sessionDate} onChange={(v) => setForm({ ...form, sessionDate: v })} />
         </div>
         <div>
           <label className={labelClass}>Giờ bắt đầu</label>

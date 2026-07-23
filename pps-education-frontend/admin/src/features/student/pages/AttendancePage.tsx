@@ -39,12 +39,19 @@ function hasSessionStarted(s: ClassSessionResponse): boolean {
   return new Date(`${s.sessionDate}T${s.startTime}`) <= new Date();
 }
 
+/** V45: GV chỉ điểm danh/sửa buổi đúng NGÀY diễn ra (StudentAttendanceService.requireCanWriteAttendance) — không còn theo giờ bắt đầu. */
+function isToday(s: ClassSessionResponse): boolean {
+  return s.sessionDate === new Date().toISOString().slice(0, 10);
+}
+
 export default function AttendancePage() {
   const { hasPermission, currentUser, selectedCampusId } = useApp();
   // UC-15 Precondition: Tác nhân chỉ là "Giáo viên được phân công giảng dạy tiết đó" — không dùng
   // student.manage làm cờ bypass (quyền đó nghĩa thật là "Quản lý hồ sơ học sinh", backend cấp rộng
   // cho TEACHER, không liên quan phạm vi lớp điểm danh). Chỉ academic.class.manage (Admin/HEAD_ACADEMIC) mới thấy hết.
   const canSeeAllClasses = hasPermission("academic.class.manage");
+  // V45: quyền quản trị điểm danh vượt rào "chỉ đúng ngày diễn ra buổi học" của Giáo viên thường.
+  const hasAttendanceOverride = hasPermission("academic.attendance.create") || hasPermission("academic.attendance.update");
   const [searchParams, setSearchParams] = useSearchParams();
   const classIdParam = searchParams.get("classId");
   const sessionIdParam = searchParams.get("sessionId");
@@ -62,7 +69,10 @@ export default function AttendancePage() {
   const [error, setError] = useState<string | null>(null);
 
   const selectedClass = classes.find((c) => c.id === selectedClassId) ?? null;
-  const locked = sessionStatus === "SUBMITTED" || sessionStatus === "LOCKED";
+  const selectedSession = sessions.find((s) => s.id === selectedSessionId) ?? null;
+  // V45: SUBMITTED không còn tự khoá sửa — GV vẫn sửa được tới hết ngày diễn ra buổi học (kể cả sau khi đã Lưu/nộp).
+  // Chỉ khoá khi qua ngày (không phải hôm nay) và tài khoản không có quyền quản trị điểm danh vượt rào.
+  const locked = !hasAttendanceOverride && !!selectedSession && !isToday(selectedSession);
 
   /** UC-15 Precondition: GV chỉ điểm danh lớp mình được phân công dạy (class_teachers) — cùng gốc rễ với fix ở GradesPage/ClassesPage. */
   useEffect(() => {
@@ -187,7 +197,7 @@ export default function AttendancePage() {
                   className="bg-white border text-[10px] font-bold text-slate-700 px-2 py-1 rounded focus:outline-none"
                 >
                   <option value="">-- Chọn buổi học --</option>
-                  {sessions.filter(hasSessionStarted).map((s) => (
+                  {sessions.filter((s) => hasAttendanceOverride || (hasSessionStarted(s) && isToday(s))).map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.sessionDate} ({s.startTime}–{s.endTime})
                     </option>
@@ -207,8 +217,8 @@ export default function AttendancePage() {
           </div>
 
           {locked && (
-            <div className="px-5 py-2.5 bg-emerald-50 border-b border-emerald-100 text-emerald-700 text-[11px] font-semibold">
-              Điểm danh buổi này đã ở trạng thái {sessionStatus} — không sửa được nữa.
+            <div className="px-5 py-2.5 bg-amber-50 border-b border-amber-100 text-amber-700 text-[11px] font-semibold">
+              Buổi học ngày {selectedSession?.sessionDate} đã qua — chỉ sửa được trong ngày diễn ra buổi học. Cần quyền quản trị điểm danh để thao tác buổi khác ngày.
             </div>
           )}
 

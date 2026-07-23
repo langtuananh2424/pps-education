@@ -4,6 +4,8 @@ import { ApiError } from "@/lib/apiClient";
 import { getRolePermissionMatrix, PermissionMatrixItem, updateRolePermissions } from "../api";
 import Button from "@/components/ui/Button";
 import PermissionChecklist from "./PermissionChecklist";
+import { useToast } from "@/lib/useToast";
+import Toast from "@/components/ui/Toast";
 
 interface RolePermissionsEditorProps {
   roleId: number;
@@ -16,6 +18,7 @@ export default function RolePermissionsEditor({ roleId, roleName }: RolePermissi
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { message: toastMessage, showToast } = useToast();
 
   useEffect(() => {
     setLoading(true);
@@ -52,6 +55,7 @@ export default function RolePermissionsEditor({ roleId, roleName }: RolePermissi
     setError(null);
     try {
       await updateRolePermissions(roleId, Array.from(selectedIds), false);
+      showToast("Đã lưu quyền hạn thành công!");
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
         const proceed = window.confirm(`${err.message}\n\nBạn có chắc chắn muốn tiếp tục?`);
@@ -61,6 +65,7 @@ export default function RolePermissionsEditor({ roleId, roleName }: RolePermissi
         }
         try {
           await updateRolePermissions(roleId, Array.from(selectedIds), true);
+          showToast("Đã lưu quyền hạn thành công!");
         } catch (err2) {
           setError(err2 instanceof ApiError ? err2.message : "Lưu quyền hạn thất bại.");
           setSaving(false);
@@ -96,6 +101,8 @@ export default function RolePermissionsEditor({ roleId, roleName }: RolePermissi
       </div>
 
       <PermissionChecklist items={items} selectedIds={selectedIds} onToggle={toggle} onToggleModuleAll={toggleModuleAll} />
+
+      <Toast message={toastMessage} />
     </div>
   );
 }

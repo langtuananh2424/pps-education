@@ -5,6 +5,8 @@ import { assignUserRole, revokeUserRole, searchUsers, UserListItemResponse } fro
 import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
 import Badge, { BadgeVariant } from "@/components/ui/Badge";
 import AssignUserModal from "./AssignUserModal";
+import { useToast } from "@/lib/useToast";
+import Toast from "@/components/ui/Toast";
 
 const statusVariants: Record<string, BadgeVariant> = {
   ACTIVE: "success",
@@ -24,6 +26,7 @@ export default function RoleMembersPanel({ roleId, roleName, canManage }: RoleMe
   const [error, setError] = useState<string | null>(null);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [busyUserId, setBusyUserId] = useState<number | null>(null);
+  const { message: toastMessage, showToast } = useToast();
 
   const loadUsers = () => {
     setLoading(true);
@@ -46,6 +49,7 @@ export default function RoleMembersPanel({ roleId, roleName, canManage }: RoleMe
       await assignUserRole(userId, roleId);
       setShowAssignModal(false);
       loadUsers();
+      showToast("Đã gán vai trò thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Gán vai trò thất bại.");
     } finally {
@@ -60,6 +64,7 @@ export default function RoleMembersPanel({ roleId, roleName, canManage }: RoleMe
     try {
       await revokeUserRole(user.id, roleId);
       loadUsers();
+      showToast("Đã gỡ vai trò thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Gỡ vai trò thất bại.");
     } finally {
@@ -142,6 +147,8 @@ export default function RoleMembersPanel({ roleId, roleName, canManage }: RoleMe
           </tbody>
         </TableContainer>
       )}
+
+      <Toast message={toastMessage} />
     </div>
   );
 }
