@@ -739,4 +739,96 @@ UC-55: Cập nhật email tài khoản
 |                 |     miễn google_id/email khớp lúc xác thực Google. |
 +-----------------+----------------------------------------------------+
 
+---
+
+UC-63: Tự cập nhật hồ sơ cá nhân
+
++-----------------+----------------------------------------------------+
+| **Mã Use Case** | UC-63                                              |
++-----------------+----------------------------------------------------+
+| **Tên Use       | Tự cập nhật hồ sơ cá nhân                          |
+| Case**          |                                                    |
++-----------------+----------------------------------------------------+
+| **Phân hệ**     | Phân hệ 2                                          |
++-----------------+----------------------------------------------------+
+| **Yêu cầu chức  | FR-USR-07 (bổ sung ngoài SDD gốc, đã xác nhận với  |
+| năng gốc**      | người dùng)                                        |
++-----------------+----------------------------------------------------+
+| **Tác nhân**    | Nhân viên, Học sinh, Phụ huynh (tự cập nhật hồ sơ  |
+|                 | của chính mình)                                    |
++-----------------+----------------------------------------------------+
+| **Mô tả tóm     | Tài khoản Nhân viên/Học sinh/Phụ huynh tự sửa ảnh  |
+| tắt**           | đại diện (portrait_url) và một số thông tin liên   |
+|                 | hệ cá nhân phi nghiệp vụ của chính mình — không    |
+|                 | cần quyền quản lý (hrm.manage/                     |
+|                 | student.profile.update/student.parent.manage).     |
+|                 | Phạm vi field tự sửa khác nhau theo loại hồ sơ do  |
+|                 | đặc thù dữ liệu mỗi bảng (đã xác nhận với người    |
+|                 | dùng khi thiết kế):                                |
+|                 |                                                    |
+|                 | -   Nhân viên (employees): portrait_url,           |
+|                 |     permanent_address, current_address.            |
+|                 |                                                    |
+|                 | -   Học sinh (students): chỉ portrait_url — các    |
+|                 |     field còn lại (ngày sinh, giới tính, trường/   |
+|                 |     lớp gốc, trạng thái...) mang tính hồ sơ học vụ |
+|                 |     do Nhân viên Giáo vụ quản lý (UC-13), không tự |
+|                 |     sửa được.                                      |
+|                 |                                                    |
+|                 | -   Phụ huynh (parents): portrait_url, occupation, |
+|                 |     workplace, address.                            |
+|                 |                                                    |
+|                 | Không đổi username/email/mật khẩu (UC-01/UC-45/    |
+|                 | UC-55), không đổi field nghiệp vụ/hành chính (chức |
+|                 | vụ, phòng ban, trạng thái, mã số, notes nội bộ...)  |
+|                 | — các field đó vẫn chỉ Admin/Nhân viên Giáo vụ sửa |
+|                 | qua UC-08/UC-13.                                   |
++-----------------+----------------------------------------------------+
+| **Sự kiện kích  | Người dùng muốn cập nhật ảnh đại diện hoặc thông   |
+| hoạt**          | tin liên hệ cá nhân của chính mình mà không cần    |
+|                 | nhờ Admin/Giáo vụ.                                 |
++-----------------+----------------------------------------------------+
+| **Điều kiện     | -   Đã đăng nhập (JWT hợp lệ).                     |
+| tiên quyết      | -   Tài khoản đã có hồ sơ tương ứng (employees/    |
+| (               |     students/parents).                             |
+| Precondition)** |                                                    |
++-----------------+----------------------------------------------------+
+| **Luồng sự kiện | 1.  Người dùng mở màn hình Hồ sơ cá nhân — hệ      |
+| chính (Main     |     thống tra hồ sơ (employees/students/parents)   |
+| Flow)**         |     theo user_id của tài khoản đang đăng nhập, trả |
+|                 |     về thông tin hiện tại.                         |
+|                 |                                                    |
+|                 | 2.  Người dùng sửa ảnh đại diện (upload qua         |
+|                 |     POST /api/media/upload có sẵn, nhận về URL)    |
+|                 |     và/hoặc các field liên hệ được phép; xác nhận  |
+|                 |     Lưu.                                           |
+|                 |                                                    |
+|                 | 3.  Hệ thống cập nhật đúng các field được phép của  |
+|                 |     bản ghi hồ sơ tương ứng — DTO tách riêng khỏi  |
+|                 |     DTO Admin dùng (UC-08/UC-13), không nhận field |
+|                 |     ngoài whitelist qua body request.              |
+|                 |                                                    |
+|                 | 4.  Hệ thống ghi 1 bản ghi lịch sử mới              |
+|                 |     (employees_history/students_history/           |
+|                 |     parents_history) với changed_by = chính tài    |
+|                 |     khoản đó.                                      |
++-----------------+----------------------------------------------------+
+| **Luồng thay    | ***A1 --- Tài khoản chưa có hồ sơ tương ứng***     |
+| thế / ngoại lệ  |                                                    |
+| (Alternate      | 1.  Nếu tài khoản đăng nhập không có bản ghi        |
+| Flow)**         |     employees/students/parents tương ứng với route |
+|                 |     đang gọi (VD tài khoản Quản trị viên thuần gọi |
+|                 |     PUT /api/employees/me), hệ thống trả lỗi không |
+|                 |     tìm thấy hồ sơ, không tự tạo hồ sơ mới.        |
++-----------------+----------------------------------------------------+
+| **Hậu điều kiện | -   Bản ghi employees/students/parents của chính   |
+| (P              |     tài khoản đó được cập nhật đúng các field      |
+| ostcondition)** |     trong phạm vi cho phép (Mô tả tóm tắt), field  |
+|                 |     khác giữ nguyên không đổi.                     |
+|                 |                                                    |
+|                 | -   1 bản ghi lịch sử mới trong employees_history/ |
+|                 |     students_history/parents_history tương ứng,    |
+|                 |     changed_by = chính tài khoản tự thực hiện.     |
++-----------------+----------------------------------------------------+
+
 Phân hệ 3 --- Quản lý công việc và quy trình

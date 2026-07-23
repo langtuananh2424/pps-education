@@ -174,6 +174,8 @@
 | GET | `/api/employees` | JWT + `hrm.manage` | Query: `query`?, `departmentId`? | mảng [EmployeeResponse](#employeeresponse) |
 | POST | `/api/employees` | JWT + `hrm.manage` | Body: [CreateEmployeeRequest](#createemployeerequest) | [EmployeeResponse](#employeeresponse) |
 | GET | `/api/employees/contracts/expiring` | JWT + `hrm.manage` | Query: `withinDays` | mảng [ExpiringContractResponse](#expiringcontractresponse) |
+| GET | `/api/employees/me` | JWT | — | [EmployeeResponse](#employeeresponse) |
+| PUT | `/api/employees/me` | JWT | Body: [UpdateOwnEmployeeProfileRequest](#updateownemployeeprofilerequest) | [EmployeeResponse](#employeeresponse) |
 | GET | `/api/employees/{id}` | JWT + `hrm.manage` | — | [EmployeeResponse](#employeeresponse) |
 | PUT | `/api/employees/{id}` | JWT + `hrm.manage` | Body: [UpdateEmployeeRequest](#updateemployeerequest) | [EmployeeResponse](#employeeresponse) |
 | GET | `/api/employees/{id}/commendations` | JWT + `hrm.manage` | — | mảng [CommendationResponse](#commendationresponse) |
@@ -616,6 +618,8 @@
 |---|---|---|---|---|
 | GET | `/api/parents` | JWT + `student.parent.view` | Query: `query`? | mảng [ParentResponse](#parentresponse) |
 | POST | `/api/parents` | JWT + `student.parent.manage` | Body: [CreateParentRequest](#createparentrequest) | [ParentResponse](#parentresponse) |
+| GET | `/api/parents/me` | JWT | — | [ParentResponse](#parentresponse) |
+| PUT | `/api/parents/me` | JWT | Body: [UpdateOwnParentProfileRequest](#updateownparentprofilerequest) | [ParentResponse](#parentresponse) |
 | GET | `/api/parents/{id}` | JWT + `student.parent.view` | — | [ParentResponse](#parentresponse) |
 | PUT | `/api/parents/{id}` | JWT + `student.parent.manage` | Body: [UpdateParentRequest](#updateparentrequest) | [ParentResponse](#parentresponse) |
 
@@ -643,6 +647,8 @@
 
 | Method | Path | Auth | Input | Output |
 |---|---|---|---|---|
+| GET | `/api/students/me` | JWT | — | [StudentResponse](#studentresponse) |
+| PUT | `/api/students/me` | JWT | Body: [UpdateOwnStudentProfileRequest](#updateownstudentprofilerequest) | [StudentResponse](#studentresponse) |
 | GET | `/api/students/me/classes/{classId}/periods/{gradePeriodId}/result` | JWT | — | [GradePeriodResultResponse](#gradeperiodresultresponse) |
 | GET | `/api/students/me/documents` | JWT | Query: `curriculumId`? | mảng [CurriculumDocumentResponse](#curriculumdocumentresponse) |
 | GET | `/api/students/me/exercises` | JWT | Query: `classId`? | mảng [AssignedExerciseResponse](#assignedexerciseresponse) |
@@ -3218,6 +3224,29 @@
 | `scriptText` | string | ✔ |
 | `status` | string | ✔ |
 | `title` | string | ✔ |
+
+### UpdateOwnEmployeeProfileRequest
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `currentAddress` | string |  |
+| `permanentAddress` | string |  |
+| `portraitUrl` | string |  |
+
+### UpdateOwnParentProfileRequest
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `address` | string |  |
+| `occupation` | string |  |
+| `portraitUrl` | string |  |
+| `workplace` | string |  |
+
+### UpdateOwnStudentProfileRequest
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `portraitUrl` | string |  |
 
 ### UpdateParentRequest
 

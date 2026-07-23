@@ -187,6 +187,102 @@ class StudentServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void getMyStudentProfile_UC63_MainFlow_returnsOwnProfileByUserId() {
+        User target = newUser("student.self.view");
+        StudentResponse created = studentService.create(
+                baseStudentRequest(target.getId(), LocalDate.of(2026, 1, 1)), staff.getId());
+
+        StudentResponse mine = studentService.getMyStudentProfile(target.getId());
+
+        assertThat(mine.id()).isEqualTo(created.id());
+        assertThat(mine.userId()).isEqualTo(target.getId());
+    }
+
+    @Test
+    void getMyStudentProfile_UC63_A1_rejectsWhenAccountHasNoStudentProfile() {
+        User noProfile = newUser("student.self.view.noprofile");
+
+        assertThatThrownBy(() -> studentService.getMyStudentProfile(noProfile.getId()))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void updateMyStudentProfile_UC63_MainFlow_updatesOnlyPortraitForOwnAccount() {
+        User target = newUser("student.self.update");
+        StudentResponse created = studentService.create(
+                baseStudentRequest(target.getId(), LocalDate.of(2026, 1, 1)), staff.getId());
+
+        StudentResponse updated = studentService.updateMyStudentProfile(target.getId(),
+                new vn.com.pps.education.dto.UpdateOwnStudentProfileRequest("https://cdn.pps.edu.vn/self.jpg"));
+
+        assertThat(updated.portraitUrl()).isEqualTo("https://cdn.pps.edu.vn/self.jpg");
+        // UC-63 Postcondition -- field học vụ/hành chính khác giữ nguyên không đổi.
+        assertThat(updated.studentCode()).isEqualTo(created.studentCode());
+        assertThat(updated.status()).isEqualTo(created.status());
+        assertThat(updated.gender()).isEqualTo(created.gender());
+        assertThat(studentHistoryRepository.findByStudentIdOrderByCreatedAtDesc(created.id())).hasSize(2);
+    }
+
+    @Test
+    void updateMyStudentProfile_UC63_A1_rejectsWhenAccountHasNoStudentProfile() {
+        User noProfile = newUser("student.self.update.noprofile");
+
+        assertThatThrownBy(() -> studentService.updateMyStudentProfile(noProfile.getId(),
+                new vn.com.pps.education.dto.UpdateOwnStudentProfileRequest("https://cdn.pps.edu.vn/self.jpg")))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void getMyParentProfile_UC63_MainFlow_returnsOwnProfileByUserId() {
+        User parentUser = newUser("parent.self.view");
+        ParentResponse created = studentService.createParent(
+                new CreateParentRequest(parentUser.getId(), null, "Kỹ sư", "FPT Software", "Hà Nội", null, null), staff.getId());
+
+        ParentResponse mine = studentService.getMyParentProfile(parentUser.getId());
+
+        assertThat(mine.id()).isEqualTo(created.id());
+        assertThat(mine.userId()).isEqualTo(parentUser.getId());
+    }
+
+    @Test
+    void getMyParentProfile_UC63_A1_rejectsWhenAccountHasNoParentProfile() {
+        User noProfile = newUser("parent.self.view.noprofile");
+
+        assertThatThrownBy(() -> studentService.getMyParentProfile(noProfile.getId()))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void updateMyParentProfile_UC63_MainFlow_updatesPortraitAndContactInfoForOwnAccountOnly() {
+        User parentUser = newUser("parent.self.update");
+        ParentResponse created = studentService.createParent(
+                new CreateParentRequest(parentUser.getId(), null, "Kỹ sư", "FPT Software", "Hà Nội", "Ghi chú nội bộ", null), staff.getId());
+
+        ParentResponse updated = studentService.updateMyParentProfile(parentUser.getId(),
+                new vn.com.pps.education.dto.UpdateOwnParentProfileRequest(
+                        "https://cdn.pps.edu.vn/parent-self.jpg", "Bác sĩ", "Bệnh viện Bạch Mai", "Hà Nội mới"));
+
+        assertThat(updated.portraitUrl()).isEqualTo("https://cdn.pps.edu.vn/parent-self.jpg");
+        assertThat(updated.occupation()).isEqualTo("Bác sĩ");
+        assertThat(updated.workplace()).isEqualTo("Bệnh viện Bạch Mai");
+        assertThat(updated.address()).isEqualTo("Hà Nội mới");
+        // UC-63 Postcondition -- notes (ghi chú nội bộ do Nhân viên quản lý) giữ nguyên không đổi.
+        assertThat(updated.notes()).isEqualTo(created.notes());
+        assertThat(parentHistoryRepository.findByParentIdOrderByCreatedAtDesc(created.id()))
+                .filteredOn(h -> h.getAction() == vn.com.pps.education.domain.ParentHistory.Action.UPDATED)
+                .hasSize(1);
+    }
+
+    @Test
+    void updateMyParentProfile_UC63_A1_rejectsWhenAccountHasNoParentProfile() {
+        User noProfile = newUser("parent.self.update.noprofile");
+
+        assertThatThrownBy(() -> studentService.updateMyParentProfile(noProfile.getId(),
+                new vn.com.pps.education.dto.UpdateOwnParentProfileRequest("https://cdn.pps.edu.vn/x.jpg", null, null, null)))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
     void createParent_UC13_MainFlow_withNewAccount_createsUserAndParentInOneTransactionAndAssignsParentRole() {
         CreateUserRequest newAccount = new CreateUserRequest(
                 "ph.moi." + System.nanoTime(), "ph.moi." + System.nanoTime() + "@pps.edu.vn",

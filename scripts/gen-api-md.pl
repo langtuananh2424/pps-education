@@ -38,6 +38,12 @@ for my $f (grep { /\.java$/ } readdir $dh) {
         if ($line =~ /\@PreAuthorize\("hasPermission\(null,\s*'([^']+)'\)"\)/) {
             if ($seenClass) { $pending = $1; } else { $classPerm{$class} = $1; }
         }
+        # Method-level override "chỉ cần đăng nhập" (VD self-service /me, UC-63)
+        # ghi đè permission class-level -- $pending = '' (khac undef) de authcell()
+        # khong roi ve $classPerm.
+        if ($seenClass && $line =~ /\@PreAuthorize\("isAuthenticated\(\)"\)/) {
+            $pending = '';
+        }
         $seenClass = 1 if $line =~ /public\s+class\s+\Q$class\E/;
         if ($seenClass && $line =~ /public\s+[\w<>,.\[\]? ]+\s+(\w+)\s*\(/) {
             my $m = $1;

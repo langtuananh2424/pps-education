@@ -24,6 +24,8 @@ import vn.com.pps.education.dto.ParentStudentResponse;
 import vn.com.pps.education.dto.RecordTransferRequest;
 import vn.com.pps.education.dto.StudentResponse;
 import vn.com.pps.education.dto.StudentTransferHistoryResponse;
+import vn.com.pps.education.dto.UpdateOwnParentProfileRequest;
+import vn.com.pps.education.dto.UpdateOwnStudentProfileRequest;
 import vn.com.pps.education.dto.UpdateParentRequest;
 import vn.com.pps.education.dto.UpdateStudentRequest;
 import vn.com.pps.education.exception.ClassEnrollmentAlreadyActiveException;
@@ -159,6 +161,28 @@ public class StudentService {
         return toResponse(student);
     }
 
+    /** UC-63 Main Flow bước 1: học sinh tự xem hồ sơ của chính mình (FR-USR-07). */
+    @Transactional(readOnly = true)
+    public StudentResponse getMyStudentProfile(Long userId) {
+        return toResponse(getStudentByUserIdOrThrow(userId));
+    }
+
+    /**
+     * UC-63 Main Flow bước 2-4: học sinh tự cập nhật ảnh đại diện của
+     * chính mình (FR-USR-07). Chỉ portraitUrl — không tái dùng update()
+     * (dành cho UC-13, Nhân viên Giáo vụ sửa toàn bộ hồ sơ học vụ). Xem
+     * docs/uc/phan-he-02-phan-quyen.md.
+     */
+    @Transactional
+    public StudentResponse updateMyStudentProfile(Long userId, UpdateOwnStudentProfileRequest request) {
+        Student student = getStudentByUserIdOrThrow(userId);
+        student.setPortraitUrl(request.portraitUrl());
+        student = studentRepository.save(student);
+
+        writeStudentHistory(student, userId, StudentHistory.Action.UPDATED);
+        return toResponse(student);
+    }
+
     /**
      * Main Flow bước 1-3: khởi tạo hồ sơ học sinh mới. Nhận ĐÚNG 1 trong 2:
      * userId (tài khoản có sẵn) hoặc newAccount (tạo tài khoản kèm hồ sơ
@@ -275,6 +299,32 @@ public class StudentService {
     @Transactional(readOnly = true)
     public ParentResponse getParentById(Long id) {
         return toResponse(getParentOrThrow(id));
+    }
+
+    /** UC-63 Main Flow bước 1: phụ huynh tự xem hồ sơ của chính mình (FR-USR-07). */
+    @Transactional(readOnly = true)
+    public ParentResponse getMyParentProfile(Long userId) {
+        return toResponse(getParentByUserIdOrThrow(userId));
+    }
+
+    /**
+     * UC-63 Main Flow bước 2-4: phụ huynh tự cập nhật ảnh đại diện +
+     * thông tin liên hệ cá nhân của chính mình (FR-USR-07). Không tái
+     * dùng updateParent() — whitelist field khác hẳn
+     * (UpdateOwnParentProfileRequest), không nhận notes (ghi chú nội bộ
+     * do Nhân viên quản lý). Xem docs/uc/phan-he-02-phan-quyen.md.
+     */
+    @Transactional
+    public ParentResponse updateMyParentProfile(Long userId, UpdateOwnParentProfileRequest request) {
+        Parent parent = getParentByUserIdOrThrow(userId);
+        parent.setPortraitUrl(request.portraitUrl());
+        parent.setOccupation(request.occupation());
+        parent.setWorkplace(request.workplace());
+        parent.setAddress(request.address());
+        parent = parentRepository.save(parent);
+
+        writeParentHistory(parent, userId, ParentHistory.Action.UPDATED);
+        return toResponse(parent);
     }
 
     /** Cập nhật thông tin phụ huynh đã có, giữ lịch sử phiên bản (SDD: có parents_history). */
@@ -501,9 +551,22 @@ public class StudentService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy học sinh id=" + id));
     }
 
+    /** UC-63 A1: tài khoản chưa có hồ sơ học sinh tương ứng. */
+    private Student getStudentByUserIdOrThrow(Long userId) {
+        return studentRepository.findByUserId(userId)
+                .filter(s -> s.getDeletedAt() == null)
+                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản id=" + userId + " không có hồ sơ học sinh."));
+    }
+
     private Parent getParentOrThrow(Long id) {
         return parentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hồ sơ phụ huynh id=" + id));
+    }
+
+    /** UC-63 A1: tài khoản chưa có hồ sơ phụ huynh tương ứng. */
+    private Parent getParentByUserIdOrThrow(Long userId) {
+        return parentRepository.findByUserId(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản id=" + userId + " không có hồ sơ phụ huynh."));
     }
 
     private Site getSiteOrThrow(Long id) {
