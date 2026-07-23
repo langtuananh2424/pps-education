@@ -42,18 +42,22 @@ import java.util.Map;
  * BẮT BUỘC liên kết 1 học sinh đã tồn tại sẵn, không tạo phụ huynh mồ côi.
  *
  * Định dạng file Excel (.xlsx) — tự định nghĩa cột theo thứ tự (giống
- * UC-35): A=Họ và tên phụ huynh, B=Số điện thoại, C=Quan hệ (Cha/Mẹ/Người
- * giám hộ/Khác), D=Mã học sinh (student_code, bắt buộc tồn tại sẵn),
- * E=Là người liên hệ chính (Có/Không, tùy chọn), F=Chịu trách nhiệm tài
- * chính (Có/Không, tùy chọn). Dòng 1 = header, dữ liệu từ dòng 2.
+ * UC-35): A=Họ và tên phụ huynh, B=Username (bắt buộc — người dùng tự
+ * nhập, giống EmployeeBatchImportService, không tự sinh; CHỈ áp dụng cho
+ * dòng thực sự tạo tài khoản mới — dòng dùng lại Parent có sẵn theo SĐT
+ * thì bỏ qua giá trị này, giống cách cột A/Họ tên cũng chỉ được dùng ở
+ * dòng tạo mới), C=Số điện thoại, D=Quan hệ (Cha/Mẹ/Người giám hộ/Khác),
+ * E=Mã học sinh (student_code, bắt buộc tồn tại sẵn), F=Là người liên hệ
+ * chính (Có/Không, tùy chọn), G=Chịu trách nhiệm tài chính (Có/Không, tùy
+ * chọn). Dòng 1 = header, dữ liệu từ dòng 2.
  *
  * Tạo tài khoản/hồ sơ phụ huynh: tái dùng NGUYÊN XI cơ chế đã có ở
  * LeadService.findOrCreateParent (UC-34) — không phát minh quy tắc mới:
- * tìm User theo phone, chưa có thì tạo (username/email placeholder theo
- * phone, gán role PARENT), chưa có Parent thì gọi StudentService.createParent
- * tạo hồ sơ. 2 dòng Excel cùng SĐT (anh chị em ruột, khác con) sẽ DÙNG
- * LẠI đúng 1 Parent, chỉ tạo thêm parent_student cho từng em — không tạo
- * trùng User/Parent.
+ * tìm User theo phone, chưa có thì tạo (username theo cột B, email
+ * placeholder theo phone, gán role PARENT), chưa có Parent thì gọi
+ * StudentService.createParent tạo hồ sơ. 2 dòng Excel cùng SĐT (anh chị
+ * em ruột, khác con) sẽ DÙNG LẠI đúng 1 Parent, chỉ tạo thêm
+ * parent_student cho từng em — không tạo trùng User/Parent.
  *
  * Liên kết parent_student: gọi thẳng StudentService.linkParent (UC-13
  * Main Flow bước 2) để tái dùng nguyên vẹn validate đã có (trùng liên kết
@@ -83,7 +87,7 @@ public class ParentBatchImportService {
 
     private static final int HEADER_ROW_INDEX = 0;
     private static final int FIRST_DATA_ROW_INDEX = 1;
-    private static final int COLUMN_COUNT = 6;
+    private static final int COLUMN_COUNT = 7;
     private static final String TEMP_PASSWORD_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
     private static final SecureRandom RANDOM = new SecureRandom();
 
@@ -191,29 +195,33 @@ public class ParentBatchImportService {
     /** A2: 1 dòng lỗi/trùng lặp không chặn các dòng khác. Trả về credential nếu dòng này tạo User mới, null nếu dùng lại Parent đã tồn tại. */
     private RowCredential importRow(Row row, DataFormatter formatter, User actor, Long actorUserId) {
         String fullName = cell(row, formatter, 0);
-        String phone = cell(row, formatter, 1);
-        String relationshipText = cell(row, formatter, 2);
-        String studentCode = cell(row, formatter, 3);
-        String primaryContactText = cell(row, formatter, 4);
-        String financialResponsibleText = cell(row, formatter, 5);
+        String username = cell(row, formatter, 1);
+        String phone = cell(row, formatter, 2);
+        String relationshipText = cell(row, formatter, 3);
+        String studentCode = cell(row, formatter, 4);
+        String primaryContactText = cell(row, formatter, 5);
+        String financialResponsibleText = cell(row, formatter, 6);
 
         if (fullName == null || fullName.isBlank()) {
             throw new IllegalArgumentException("Thiếu họ và tên phụ huynh (cột A).");
         }
+        if (username == null || username.isBlank()) {
+            throw new IllegalArgumentException("Thiếu username (cột B).");
+        }
         if (phone == null || phone.isBlank()) {
-            throw new IllegalArgumentException("Thiếu số điện thoại (cột B).");
+            throw new IllegalArgumentException("Thiếu số điện thoại (cột C).");
         }
         if (relationshipText == null || relationshipText.isBlank()) {
-            throw new IllegalArgumentException("Thiếu quan hệ (cột C).");
+            throw new IllegalArgumentException("Thiếu quan hệ (cột D).");
         }
         if (studentCode == null || studentCode.isBlank()) {
-            throw new IllegalArgumentException("Thiếu mã học sinh (cột D).");
+            throw new IllegalArgumentException("Thiếu mã học sinh (cột E).");
         }
         var relationship = parseRelationship(relationshipText.trim());
         Student student = studentRepository.findByStudentCode(studentCode.trim())
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy học sinh mã=" + studentCode));
 
-        ParentAndCredential result = findOrCreateParent(fullName.trim(), phone.trim(), actor, actorUserId);
+        ParentAndCredential result = findOrCreateParent(fullName.trim(), phone.trim(), username.trim(), actor, actorUserId);
 
         studentService.linkParent(student.getId(), new LinkParentRequest(
                 result.parent().getId(), relationship.name(), parseBoolean(primaryContactText), parseBoolean(financialResponsibleText), null));
@@ -230,13 +238,20 @@ public class ParentBatchImportService {
      * sung việc sinh mật khẩu tạm khi thực sự tạo User mới (bổ sung ngoài
      * SDD gốc, đã xác nhận với người dùng — xem Javadoc đầu file); LeadService
      * chưa đổi theo nên vẫn không đặt mật khẩu ở nhánh UC-34.
+     *
+     * username (cột B) chỉ được đọc/kiểm tra trùng trong nhánh orElseGet
+     * (tạo User MỚI) — dòng dùng lại Parent có sẵn theo SĐT thì bỏ qua,
+     * giống cách fullName cũng chỉ áp dụng ở dòng tạo mới.
      */
-    private ParentAndCredential findOrCreateParent(String fullName, String phone, User actor, Long actorUserId) {
+    private ParentAndCredential findOrCreateParent(String fullName, String phone, String username, User actor, Long actorUserId) {
         String[] tempPasswordHolder = new String[1];
         User parentUser = userRepository.findByPhone(phone).orElseGet(() -> {
+            if (userRepository.findByUsername(username).isPresent()) {
+                throw new IllegalArgumentException("Username đã tồn tại: " + username);
+            }
             String tempPassword = generateTempPassword();
             User newUser = new User();
-            newUser.setUsername(generateUsername(phone));
+            newUser.setUsername(username);
             newUser.setEmail(generatePlaceholderEmail(phone));
             newUser.setFullName(fullName);
             newUser.setPhone(phone);
@@ -293,17 +308,6 @@ public class ParentBatchImportService {
         userRole.setRole(role);
         userRole.setAssignedBy(actor);
         userRoleRepository.save(userRole);
-    }
-
-    private String generateUsername(String phone) {
-        String base = "ph" + phone.replaceAll("[^0-9]", "");
-        String candidate = base;
-        int suffix = 0;
-        while (userRepository.findByUsername(candidate).isPresent()) {
-            suffix++;
-            candidate = base + suffix;
-        }
-        return candidate;
     }
 
     private String generatePlaceholderEmail(String phone) {
