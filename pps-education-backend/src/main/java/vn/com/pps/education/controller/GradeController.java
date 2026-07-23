@@ -44,7 +44,7 @@ public class GradeController {
         return ResponseEntity.ok(gradeService.listGradePeriods(curriculumId));
     }
 
-    @PreAuthorize("hasPermission(null, 'academic.grade.manage')")
+    @PreAuthorize("hasPermission(null, 'academic.grade.period.create') or hasPermission(null, 'academic.grade.manage')")
     @PostMapping("/api/curriculums/{curriculumId}/grade-periods")
     public ResponseEntity<GradePeriodResponse> createGradePeriod(@PathVariable Long curriculumId,
                                                                      @Valid @RequestBody CreateGradePeriodRequest request,
@@ -52,7 +52,7 @@ public class GradeController {
         return ResponseEntity.ok(gradeService.createGradePeriod(curriculumId, request, actor.userId()));
     }
 
-    @PreAuthorize("hasPermission(null, 'academic.grade.manage')")
+    @PreAuthorize("hasPermission(null, 'academic.grade.period.update') or hasPermission(null, 'academic.grade.manage')")
     @PutMapping("/api/grade-periods/{id}")
     public ResponseEntity<GradePeriodResponse> updateGradePeriod(@PathVariable Long id,
                                                                      @Valid @RequestBody UpdateGradePeriodRequest request,
@@ -60,12 +60,21 @@ public class GradeController {
         return ResponseEntity.ok(gradeService.updateGradePeriod(id, request, actor.userId()));
     }
 
+    /** UC-19 (bổ sung): xoá kỳ đánh giá rỗng — xem Javadoc GradeService.deleteGradePeriod. */
+    @PreAuthorize("hasPermission(null, 'academic.grade.period.delete') or hasPermission(null, 'academic.grade.manage')")
+    @DeleteMapping("/api/grade-periods/{id}")
+    public ResponseEntity<Void> deleteGradePeriod(@PathVariable Long id,
+                                                  @AuthenticationPrincipal AuthenticatedUser actor) {
+        gradeService.deleteGradePeriod(id, actor.userId());
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/api/grade-periods/{gradePeriodId}/components")
     public ResponseEntity<List<GradeComponentResponse>> listGradeComponents(@PathVariable Long gradePeriodId) {
         return ResponseEntity.ok(gradeService.listGradeComponents(gradePeriodId));
     }
 
-    @PreAuthorize("hasPermission(null, 'academic.grade.manage')")
+    @PreAuthorize("hasPermission(null, 'academic.grade.component.create') or hasPermission(null, 'academic.grade.manage')")
     @PostMapping("/api/grade-periods/{gradePeriodId}/components")
     public ResponseEntity<GradeComponentResponse> addGradeComponent(@PathVariable Long gradePeriodId,
                                                                         @Valid @RequestBody CreateGradeComponentRequest request,
@@ -73,12 +82,21 @@ public class GradeController {
         return ResponseEntity.ok(gradeService.addGradeComponent(gradePeriodId, request, actor.userId()));
     }
 
-    @PreAuthorize("hasPermission(null, 'academic.grade.manage')")
+    @PreAuthorize("hasPermission(null, 'academic.grade.component.update') or hasPermission(null, 'academic.grade.manage')")
     @PutMapping("/api/grade-components/{id}")
     public ResponseEntity<GradeComponentResponse> updateGradeComponent(@PathVariable Long id,
                                                                            @Valid @RequestBody UpdateGradeComponentRequest request,
                                                                            @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(gradeService.updateGradeComponent(id, request, actor.userId()));
+    }
+
+    /** UC-19 (bổ sung): xoá thành phần điểm chưa có điểm nhập — xem Javadoc GradeService.deleteGradeComponent. */
+    @PreAuthorize("hasPermission(null, 'academic.grade.component.delete') or hasPermission(null, 'academic.grade.manage')")
+    @DeleteMapping("/api/grade-components/{id}")
+    public ResponseEntity<Void> deleteGradeComponent(@PathVariable Long id,
+                                                     @AuthenticationPrincipal AuthenticatedUser actor) {
+        gradeService.deleteGradeComponent(id, actor.userId());
+        return ResponseEntity.noContent().build();
     }
 
     // ---- UC-19: Nhập điểm (TEACHER + HEAD_ACADEMIC/SITE_MANAGER hỗ trợ) ----

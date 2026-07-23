@@ -35,7 +35,9 @@ import vn.com.pps.education.dto.UpdateCurriculumRequest;
 import vn.com.pps.education.dto.UpdateGradeComponentRequest;
 import vn.com.pps.education.exception.GradeAlreadyPublishedException;
 import vn.com.pps.education.exception.GradeComponentLockedException;
+import vn.com.pps.education.exception.GradeComponentNotDeletableException;
 import vn.com.pps.education.exception.GradeNotEditableException;
+import vn.com.pps.education.exception.GradePeriodNotDeletableException;
 import vn.com.pps.education.exception.GradePeriodWeightExceededException;
 import vn.com.pps.education.exception.InvalidGradeScoreException;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
@@ -192,6 +194,57 @@ class GradeServiceTest extends AbstractIntegrationTest {
         assertThatThrownBy(() -> gradeService.updateGradeComponent(gradeComponent.id(),
                 new UpdateGradeComponentRequest("Nói", new BigDecimal("50"), null, 1), headAcademic.getId()))
                 .isInstanceOf(GradeComponentLockedException.class);
+    }
+
+    // ===================== UC-19 (bổ sung): xoá thành phần điểm / kỳ đánh giá =====================
+
+    @Test
+    void deleteGradeComponent_UC19_success_whenNoEntries() {
+        gradeService.deleteGradeComponent(gradeComponent.id(), headAcademic.getId());
+
+        assertThat(gradeService.listGradeComponents(gradePeriod.id()))
+                .extracting(GradeComponentResponse::id)
+                .doesNotContain(gradeComponent.id());
+    }
+
+    @Test
+    void deleteGradeComponent_UC19_blockedWhenEntriesExist() {
+        gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
+                new EnterGradeRequest(student.getId(), new BigDecimal("8.0"), false, null), teacher.getId());
+
+        assertThatThrownBy(() -> gradeService.deleteGradeComponent(gradeComponent.id(), headAcademic.getId()))
+                .isInstanceOf(GradeComponentNotDeletableException.class);
+    }
+
+    @Test
+    void deleteGradePeriod_UC19_blockedWhenHasComponent() {
+        // gradePeriod (setUp) đang còn gradeComponent -> phải xoá thành phần trước.
+        assertThatThrownBy(() -> gradeService.deleteGradePeriod(gradePeriod.id(), headAcademic.getId()))
+                .isInstanceOf(GradePeriodNotDeletableException.class);
+    }
+
+    @Test
+    void deleteGradePeriod_UC19_blockedWhenHasResult() {
+        GradePeriodResponse emptyPeriod = gradeService.createGradePeriod(gradePeriod.curriculumId(),
+                new CreateGradePeriodRequest("END_1", "Cuối kỳ 1", 2, new BigDecimal("20"), null, null), headAcademic.getId());
+        // Điểm tổng kết (Overall/Level) không cần thành phần điểm -> kỳ có result nhưng không có component.
+        gradeService.enterPeriodResult(schoolClass.id(), student.getId(), emptyPeriod.id(),
+                new EnterGradePeriodResultRequest(new BigDecimal("7.0"), "NUMERIC", null), teacher.getId());
+
+        assertThatThrownBy(() -> gradeService.deleteGradePeriod(emptyPeriod.id(), headAcademic.getId()))
+                .isInstanceOf(GradePeriodNotDeletableException.class);
+    }
+
+    @Test
+    void deleteGradePeriod_UC19_success_afterDeletingItsComponent() {
+        // Kịch bản thực tế: tạo Speaking nhầm -> xoá thành phần (chưa nhập điểm) -> xoá luôn kỳ rỗng.
+        gradeService.deleteGradeComponent(gradeComponent.id(), headAcademic.getId());
+
+        gradeService.deleteGradePeriod(gradePeriod.id(), headAcademic.getId());
+
+        assertThat(gradeService.listGradePeriods(gradePeriod.curriculumId()))
+                .extracting(GradePeriodResponse::id)
+                .doesNotContain(gradePeriod.id());
     }
 
     @Test

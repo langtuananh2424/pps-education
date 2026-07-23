@@ -753,6 +753,26 @@ UC-19: Nhập điểm
 |                 |     sửa trực tiếp được trong hạn X ngày).          |
 +-----------------+----------------------------------------------------+
 
+> **Bổ sung ngoài đặc tả gốc — đã xác nhận với người dùng (2026-07-22).**
+> Cấu hình sổ điểm (kỳ đánh giá / thành phần điểm) — sửa & xoá + phân rã
+> quyền (thực thi ở backend):
+>
+> - **Sửa:** đã có `PUT /api/grade-periods/{id}` và `PUT /api/grade-components/{id}`
+>   (sửa tên/trọng số/thứ tự…; riêng `maxScore` của thành phần điểm chỉ đổi
+>   được khi CHƯA có điểm nhập — `GradeComponentLockedException`).
+> - **Xoá (mới):** `DELETE /api/grade-periods/{id}` và
+>   `DELETE /api/grade-components/{id}`. Quy tắc an toàn: chỉ xoá thành phần
+>   điểm khi **chưa có điểm nhập** nào; chỉ xoá kỳ đánh giá khi **rỗng** —
+>   không còn thành phần điểm, không có điểm tổng kết, và chưa bắt đầu nhập
+>   điểm ở lớp nào. Vi phạm → `GradeComponentNotDeletableException` /
+>   `GradePeriodNotDeletableException` (HTTP 422).
+> - **Phân rã quyền (migration V46):** `academic.grade.manage` (Cấu hình sổ
+>   điểm) được tách thành `academic.grade.period.create|update|delete` và
+>   `academic.grade.component.create|update|delete` để gán riêng lẻ. GIỮ
+>   `academic.grade.manage` làm quyền tổng (mọi endpoint cấu hình chấp nhận
+>   "quyền chi tiết HOẶC academic.grade.manage") — không phá quyền/role hiện
+>   có (HEAD_ACADEMIC).
+
 ---
 
 UC-20: Công bố điểm

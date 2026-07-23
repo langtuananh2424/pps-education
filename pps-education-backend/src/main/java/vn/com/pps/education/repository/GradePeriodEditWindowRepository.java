@@ -14,6 +14,9 @@ public interface GradePeriodEditWindowRepository extends JpaRepository<GradePeri
 
     boolean existsBySchoolClassIdAndGradePeriodId(Long classId, Long gradePeriodId);
 
+    /** UC-19 (xoá kỳ đánh giá): chặn xoá kỳ đã bắt đầu nhập điểm (đã có cửa sổ chỉnh sửa ở bất kỳ lớp nào). */
+    boolean existsByGradePeriodId(Long gradePeriodId);
+
     /** GradeSchedulerService: mọi (lớp, kỳ đánh giá) đã hết hạn X ngày kể từ lần đầu nhập — ứng viên tự động công bố. */
     List<GradePeriodEditWindow> findByFirstEnteredAtBefore(OffsetDateTime cutoff);
 }
