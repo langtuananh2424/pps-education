@@ -506,6 +506,7 @@ export interface CurriculumDocumentResponse {
   description: string | null;
   documentType: "VIDEO" | "PDF" | "AUDIO" | "SLIDE" | "IMAGE" | "OTHER";
   fileUrl: string;
+  coverImageUrl: string | null;
   displayOrder: number;
   status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
   createdBy: number;

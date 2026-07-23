@@ -112,23 +112,29 @@ export default function LmsTab({ classId }: LmsTabProps) {
         {documents.length === 0 ? (
           <p className="text-xs text-muted font-bold italic">Chưa có tài liệu tham khảo nào.</p>
         ) : (
-          <div className="space-y-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {documents.map((doc) => (
               <a
                 key={doc.id}
                 href={doc.fileUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="flex items-center gap-3 p-3 rounded-[14px] border border-line/80 bg-sky-2 hover:bg-sky transition-colors"
+                className="flex flex-col rounded-[16px] border border-line/80 bg-sky-2 hover:bg-sky transition-colors overflow-hidden"
               >
-                <span className="w-8 h-8 rounded-full bg-teal/10 border border-teal/20 flex items-center justify-center text-teal shrink-0">
-                  <FileText size={14} />
-                </span>
-                <div className="flex-1 min-w-0">
+                {doc.coverImageUrl ? (
+                  <img src={doc.coverImageUrl} alt="" className="w-full h-28 object-cover" />
+                ) : (
+                  <div className="w-full h-28 bg-teal/10 flex items-center justify-center text-teal">
+                    <FileText size={28} />
+                  </div>
+                )}
+                <div className="p-3.5 flex-1 min-w-0 space-y-1">
                   <p className="font-extrabold text-ink text-sm truncate">{doc.title}</p>
-                  {doc.description && <p className="text-[10px] text-muted font-bold truncate">{doc.description}</p>}
+                  {doc.description && <p className="text-[10px] text-muted font-bold line-clamp-2">{doc.description}</p>}
                 </div>
-                <span className="text-[10px] font-extrabold text-teal-deep uppercase shrink-0">{documentTypeLabels[doc.documentType]}</span>
+                <div className="px-3.5 pb-3 flex items-center justify-between">
+                  <span className="text-[10px] font-extrabold text-teal-deep uppercase">{documentTypeLabels[doc.documentType]}</span>
+                </div>
               </a>
             ))}
           </div>
