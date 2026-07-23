@@ -45,11 +45,12 @@ import java.util.Map;
  *
  * Định dạng file Excel (.xlsx) — KHÔNG có mẫu cụ thể nào trong SRS/SDD
  * ("đúng định dạng mẫu" chỉ nói chung chung), tự định nghĩa cột theo thứ
- * tự: A=Họ và tên, B=Ngày sinh (dd/MM/yyyy), C=Giới tính (Nam/Nữ/Khác,
- * tùy chọn), D=Trường đang học (tùy chọn), E=Lớp đang học (tùy chọn),
- * F=Mã lớp PPS cần ghi danh (class_code, bắt buộc), G=Mã học sinh
- * (student_code, bắt buộc — người dùng tự nhập, không tự sinh, đồng bộ
- * UC-13/UC-34). Dòng 1 = header, dữ liệu từ dòng 2.
+ * tự: A=Họ và tên, B=Username (bắt buộc — người dùng tự nhập, giống
+ * EmployeeBatchImportService, không tự sinh), C=Ngày sinh (dd/MM/yyyy),
+ * D=Giới tính (Nam/Nữ/Khác, tùy chọn), E=Trường đang học (tùy chọn),
+ * F=Lớp đang học (tùy chọn), G=Mã lớp PPS cần ghi danh (class_code, bắt
+ * buộc), H=Mã học sinh (student_code, bắt buộc — người dùng tự nhập,
+ * không tự sinh, đồng bộ UC-13/UC-34). Dòng 1 = header, dữ liệu từ dòng 2.
  *
  * Không có file storage (S3/blob) trong dự án — file chỉ được parse
  * trong bộ nhớ (MultipartFile), KHÔNG lưu trữ lâu dài; source_file_url
@@ -79,6 +80,7 @@ public class StudentBatchImportService {
     private static final DateTimeFormatter DOB_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final int HEADER_ROW_INDEX = 0;
     private static final int FIRST_DATA_ROW_INDEX = 1;
+    private static final int COLUMN_COUNT = 8;
     private static final String TEMP_PASSWORD_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
     private static final SecureRandom RANDOM = new SecureRandom();
 
@@ -197,24 +199,28 @@ public class StudentBatchImportService {
      */
     private RowCredential importRow(Row row, DataFormatter formatter, ImportJob job, User actor) {
         String fullName = cell(row, formatter, 0);
-        String dobText = cell(row, formatter, 1);
-        String genderText = cell(row, formatter, 2);
-        String originalSchool = cell(row, formatter, 3);
-        String originalClass = cell(row, formatter, 4);
-        String classCode = cell(row, formatter, 5);
-        String studentCode = cell(row, formatter, 6);
+        String username = cell(row, formatter, 1);
+        String dobText = cell(row, formatter, 2);
+        String genderText = cell(row, formatter, 3);
+        String originalSchool = cell(row, formatter, 4);
+        String originalClass = cell(row, formatter, 5);
+        String classCode = cell(row, formatter, 6);
+        String studentCode = cell(row, formatter, 7);
 
         if (fullName == null || fullName.isBlank()) {
             throw new IllegalArgumentException("Thiếu họ và tên (cột A).");
         }
+        if (username == null || username.isBlank()) {
+            throw new IllegalArgumentException("Thiếu username (cột B).");
+        }
         if (dobText == null || dobText.isBlank()) {
-            throw new IllegalArgumentException("Thiếu ngày sinh (cột B).");
+            throw new IllegalArgumentException("Thiếu ngày sinh (cột C).");
         }
         if (classCode == null || classCode.isBlank()) {
-            throw new IllegalArgumentException("Thiếu mã lớp (cột F).");
+            throw new IllegalArgumentException("Thiếu mã lớp (cột G).");
         }
         if (studentCode == null || studentCode.isBlank()) {
-            throw new IllegalArgumentException("Thiếu mã học sinh (cột G).");
+            throw new IllegalArgumentException("Thiếu mã học sinh (cột H).");
         }
         LocalDate dob;
         try {
@@ -225,6 +231,9 @@ public class StudentBatchImportService {
         SchoolClass schoolClass = schoolClassRepository.findByClassCode(classCode.trim())
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy lớp mã=" + classCode));
 
+        if (userRepository.findByUsername(username.trim()).isPresent()) {
+            throw new IllegalArgumentException("Username đã tồn tại: " + username);
+        }
         if (studentRepository.findByStudentCode(studentCode.trim()).isPresent()) {
             throw new IllegalArgumentException("Mã học sinh đã tồn tại: " + studentCode);
         }
@@ -234,7 +243,7 @@ public class StudentBatchImportService {
 
         String tempPassword = generateTempPassword();
         User studentUser = new User();
-        studentUser.setUsername(generateUsername(job.getId(), row.getRowNum()));
+        studentUser.setUsername(username.trim());
         studentUser.setEmail("import" + job.getId() + "-r" + row.getRowNum() + "@placeholder.pps.edu.vn");
         studentUser.setFullName(fullName.trim());
         studentUser.setPasswordHash(passwordEncoder.encode(tempPassword));
@@ -287,7 +296,7 @@ public class StudentBatchImportService {
     }
 
     private boolean isBlankRow(Row row, DataFormatter formatter) {
-        for (int i = 0; i < 7; i++) {
+        for (int i = 0; i < COLUMN_COUNT; i++) {
             String value = cell(row, formatter, i);
             if (value != null && !value.isBlank()) {
                 return false;
@@ -303,17 +312,6 @@ public class StudentBatchImportService {
         userRole.setRole(role);
         userRole.setAssignedBy(actor);
         userRoleRepository.save(userRole);
-    }
-
-    private String generateUsername(Long jobId, int rowIndex) {
-        String base = "imp" + jobId + "r" + rowIndex;
-        String candidate = base;
-        int suffix = 0;
-        while (userRepository.findByUsername(candidate).isPresent()) {
-            suffix++;
-            candidate = base + suffix;
-        }
-        return candidate;
     }
 
     // Cũ: hệ thống tự sinh mã học sinh — đã đổi sang nhập tay qua cột G
