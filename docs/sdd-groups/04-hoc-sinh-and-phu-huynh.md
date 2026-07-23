@@ -44,6 +44,7 @@ erDiagram
     parents {
         BIGSERIAL id PK
         BIGINT user_id FK
+        VARCHAR portrait_url
         VARCHAR occupation
         VARCHAR workplace
         VARCHAR address
@@ -181,6 +182,15 @@ Extends users.
 
   user_id            BIGINT          FK → users(id),     Quan hệ 1-1 với
                                      UNIQUE, NOT NULL    users
+
+  portrait_url       VARCHAR(500)    NULL                Ảnh chân dung lưu
+                                                         trên CDN. Bổ sung
+                                                         ngoài SDD gốc, đã
+                                                         xác nhận với người
+                                                         dùng (2026-07-23,
+                                                         V48) — mẫu tham
+                                                         chiếu
+                                                         students.portrait_url
 
   occupation         VARCHAR(200)    NULL                Nghề nghiệp
 

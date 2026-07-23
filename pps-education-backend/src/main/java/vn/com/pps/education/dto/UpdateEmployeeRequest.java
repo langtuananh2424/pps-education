@@ -29,5 +29,6 @@ public record UpdateEmployeeRequest(
         @NotNull Boolean isManagement,
         Boolean isDefaultShiftRequired,
         @NotBlank String status,
-        LocalDate terminationDate
+        LocalDate terminationDate,
+        String portraitUrl
 ) {}

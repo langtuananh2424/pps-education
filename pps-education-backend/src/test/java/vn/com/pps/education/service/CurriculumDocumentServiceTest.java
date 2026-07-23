@@ -88,7 +88,7 @@ class CurriculumDocumentServiceTest extends AbstractIntegrationTest {
     void createDocument_UC60_MainFlow_savesAsDraft() {
         CurriculumDocumentResponse document = curriculumDocumentService.createDocument(
                 new CreateCurriculumDocumentRequest(activeCurriculum.id(), "Tài liệu ngữ pháp", "Mô tả", "PDF",
-                        "https://cdn.pps.edu.vn/docs/1.pdf", null),
+                        "https://cdn.pps.edu.vn/docs/1.pdf", null, null),
                 teacher.getId());
 
         assertThat(document.status()).isEqualTo("DRAFT");
@@ -99,14 +99,14 @@ class CurriculumDocumentServiceTest extends AbstractIntegrationTest {
     void updateDocument_UC60_MainFlow_publishMakesVisibleToStudents() {
         CurriculumDocumentResponse document = curriculumDocumentService.createDocument(
                 new CreateCurriculumDocumentRequest(activeCurriculum.id(), "Tài liệu ngữ pháp", null, "PDF",
-                        "https://cdn.pps.edu.vn/docs/1.pdf", null),
+                        "https://cdn.pps.edu.vn/docs/1.pdf", null, null),
                 teacher.getId());
         Student student = enrollStudent();
 
         assertThat(curriculumDocumentService.listMyDocuments(student.getUser().getId(), null)).isEmpty();
 
         CurriculumDocumentResponse published = curriculumDocumentService.updateDocument(document.id(),
-                new UpdateCurriculumDocumentRequest("Tài liệu ngữ pháp", null, null, "PUBLISHED"), teacher.getId());
+                new UpdateCurriculumDocumentRequest("Tài liệu ngữ pháp", null, null, "PUBLISHED", null), teacher.getId());
 
         assertThat(published.status()).isEqualTo("PUBLISHED");
         List<CurriculumDocumentResponse> visible = curriculumDocumentService.listMyDocuments(student.getUser().getId(), null);
@@ -117,10 +117,10 @@ class CurriculumDocumentServiceTest extends AbstractIntegrationTest {
     void listMyDocuments_UC60_A1_returnsEmptyWhenStudentNotEnrolledInCurriculum() {
         CurriculumDocumentResponse document = curriculumDocumentService.createDocument(
                 new CreateCurriculumDocumentRequest(activeCurriculum.id(), "Tài liệu ngữ pháp", null, "PDF",
-                        "https://cdn.pps.edu.vn/docs/1.pdf", null),
+                        "https://cdn.pps.edu.vn/docs/1.pdf", null, null),
                 teacher.getId());
         curriculumDocumentService.updateDocument(document.id(),
-                new UpdateCurriculumDocumentRequest("Tài liệu ngữ pháp", null, null, "PUBLISHED"), teacher.getId());
+                new UpdateCurriculumDocumentRequest("Tài liệu ngữ pháp", null, null, "PUBLISHED", null), teacher.getId());
 
         User outsiderStudentUser = newUser("student.outsider.doc");
         Student outsider = new Student();
@@ -137,7 +137,7 @@ class CurriculumDocumentServiceTest extends AbstractIntegrationTest {
     void listByCurriculum_boSung_staffSeesDraftDocuments() {
         CurriculumDocumentResponse document = curriculumDocumentService.createDocument(
                 new CreateCurriculumDocumentRequest(activeCurriculum.id(), "Tài liệu nháp", null, "VIDEO",
-                        "https://cdn.pps.edu.vn/docs/2.mp4", null),
+                        "https://cdn.pps.edu.vn/docs/2.mp4", null, null),
                 teacher.getId());
 
         List<CurriculumDocumentResponse> all = curriculumDocumentService.listByCurriculum(activeCurriculum.id());

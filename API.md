@@ -79,6 +79,7 @@
 - [position-controller](#position-controller)
 - [skill-controller](#skill-controller)
 - [student-portal-controller](#student-portal-controller)
+- [task-settings-controller](#task-settings-controller)
 - [teacher-schedule-controller](#teacher-schedule-controller)
 - [Phụ lục: Schemas](#phụ-lục-schemas)
 
@@ -153,15 +154,18 @@
 | Method | Path | Auth | Input | Output |
 |---|---|---|---|---|
 | PUT | `/api/task-assignments/{id}/status` | JWT | Body: [UpdateAssignmentStatusRequest](#updateassignmentstatusrequest) | [TaskAssignmentResponse](#taskassignmentresponse) |
-| POST | `/api/tasks` | JWT + `task.create` | Body: [CreateTaskRequest](#createtaskrequest) | [TaskResponse](#taskresponse) |
+| POST | `/api/tasks` | JWT | Body: [CreateTaskRequest](#createtaskrequest) | [TaskResponse](#taskresponse) |
 | GET | `/api/tasks/created-by-me` | JWT | — | mảng [TaskResponse](#taskresponse) |
 | GET | `/api/tasks/my-assignments` | JWT | — | mảng [TaskAssignmentResponse](#taskassignmentresponse) |
+| GET | `/api/tasks/overview` | JWT | — | mảng [TaskResponse](#taskresponse) |
 | GET | `/api/tasks/{id}` | JWT | — | [TaskResponse](#taskresponse) |
 | GET | `/api/tasks/{id}/assignments` | JWT | — | mảng [TaskAssignmentResponse](#taskassignmentresponse) |
 | GET | `/api/tasks/{id}/attachments` | JWT | — | mảng [TaskAttachmentResponse](#taskattachmentresponse) |
 | POST | `/api/tasks/{id}/attachments` | JWT | Body: [AddTaskAttachmentRequest](#addtaskattachmentrequest) | [TaskAttachmentResponse](#taskattachmentresponse) |
+| POST | `/api/tasks/{id}/cancel` | JWT | Body: [CancelTaskRequest](#canceltaskrequest) | [TaskResponse](#taskresponse) |
 | GET | `/api/tasks/{id}/comments` | JWT | — | mảng [TaskCommentResponse](#taskcommentresponse) |
 | POST | `/api/tasks/{id}/comments` | JWT | Body: [AddTaskCommentRequest](#addtaskcommentrequest) | [TaskCommentResponse](#taskcommentresponse) |
+| POST | `/api/tasks/{id}/reassign` | JWT | Body: [ReassignTaskRequest](#reassigntaskrequest) | [TaskAssignmentResponse](#taskassignmentresponse) |
 
 ## Hồ sơ nhân sự, hợp đồng, bằng cấp (UC-08)
 
@@ -170,6 +174,8 @@
 | GET | `/api/employees` | JWT + `hrm.manage` | Query: `query`?, `departmentId`? | mảng [EmployeeResponse](#employeeresponse) |
 | POST | `/api/employees` | JWT + `hrm.manage` | Body: [CreateEmployeeRequest](#createemployeerequest) | [EmployeeResponse](#employeeresponse) |
 | GET | `/api/employees/contracts/expiring` | JWT + `hrm.manage` | Query: `withinDays` | mảng [ExpiringContractResponse](#expiringcontractresponse) |
+| GET | `/api/employees/me` | JWT | — | [EmployeeResponse](#employeeresponse) |
+| PUT | `/api/employees/me` | JWT | Body: [UpdateOwnEmployeeProfileRequest](#updateownemployeeprofilerequest) | [EmployeeResponse](#employeeresponse) |
 | GET | `/api/employees/{id}` | JWT + `hrm.manage` | — | [EmployeeResponse](#employeeresponse) |
 | PUT | `/api/employees/{id}` | JWT + `hrm.manage` | Body: [UpdateEmployeeRequest](#updateemployeerequest) | [EmployeeResponse](#employeeresponse) |
 | GET | `/api/employees/{id}/commendations` | JWT + `hrm.manage` | — | mảng [CommendationResponse](#commendationresponse) |
@@ -207,22 +213,23 @@
 
 | Method | Path | Auth | Input | Output |
 |---|---|---|---|---|
-| GET | `/api/students` | JWT + `student.manage` | Query: `query`?, `siteId`? | mảng [StudentResponse](#studentresponse) |
-| POST | `/api/students` | JWT + `student.manage` | Body: [CreateStudentRequest](#createstudentrequest) | [StudentResponse](#studentresponse) |
-| GET | `/api/students/{id}` | JWT + `student.manage` | — | [StudentResponse](#studentresponse) |
-| PUT | `/api/students/{id}` | JWT + `student.manage` | Body: [UpdateStudentRequest](#updatestudentrequest) | [StudentResponse](#studentresponse) |
-| GET | `/api/students/{id}/parents` | JWT + `student.manage` | — | mảng [ParentStudentResponse](#parentstudentresponse) |
-| POST | `/api/students/{id}/parents` | JWT + `student.manage` | Body: [LinkParentRequest](#linkparentrequest) | [ParentStudentResponse](#parentstudentresponse) |
-| DELETE | `/api/students/{id}/parents/{parentStudentId}` | JWT + `student.manage` | — | 200 (không có body) |
+| GET | `/api/students` | JWT + `student.profile.view` | Query: `query`?, `siteId`? | mảng [StudentResponse](#studentresponse) |
+| POST | `/api/students` | JWT + `student.profile.create` | Body: [CreateStudentRequest](#createstudentrequest) | [StudentResponse](#studentresponse) |
+| GET | `/api/students/{id}` | JWT + `student.profile.view` | — | [StudentResponse](#studentresponse) |
+| PUT | `/api/students/{id}` | JWT + `student.profile.update` | Body: [UpdateStudentRequest](#updatestudentrequest) | [StudentResponse](#studentresponse) |
+| GET | `/api/students/{id}/parents` | JWT + `student.parent.view` | — | mảng [ParentStudentResponse](#parentstudentresponse) |
+| POST | `/api/students/{id}/parents` | JWT + `student.parent.manage` | Body: [LinkParentRequest](#linkparentrequest) | [ParentStudentResponse](#parentstudentresponse) |
+| DELETE | `/api/students/{id}/parents/{parentStudentId}` | JWT + `student.parent.manage` | — | 200 (không có body) |
 | POST | `/api/students/{id}/status` | JWT + `student.status.manage` | Body: [UpdateStudentStatusRequest](#updatestudentstatusrequest) | [StudentStatusHistoryResponse](#studentstatushistoryresponse) |
 | GET | `/api/students/{id}/status-history` | JWT | — | mảng [StudentStatusHistoryResponse](#studentstatushistoryresponse) |
-| GET | `/api/students/{id}/transfers` | JWT + `student.manage` | — | mảng [StudentTransferHistoryResponse](#studenttransferhistoryresponse) |
-| POST | `/api/students/{id}/transfers` | JWT + `student.manage` | Body: [RecordTransferRequest](#recordtransferrequest) | [StudentTransferHistoryResponse](#studenttransferhistoryresponse) |
+| GET | `/api/students/{id}/transfers` | JWT + `student.profile.view` | — | mảng [StudentTransferHistoryResponse](#studenttransferhistoryresponse) |
+| POST | `/api/students/{id}/transfers` | JWT + `student.profile.update` | Body: [RecordTransferRequest](#recordtransferrequest) | [StudentTransferHistoryResponse](#studenttransferhistoryresponse) |
 
 ## Điểm danh học sinh (UC-15)
 
 | Method | Path | Auth | Input | Output |
 |---|---|---|---|---|
+| DELETE | `/api/class-sessions/{classSessionId}/attendance` | JWT + `academic.attendance.delete` | — | 200 (không có body) |
 | GET | `/api/class-sessions/{classSessionId}/attendance` | JWT | — | [AttendanceSessionResponse](#attendancesessionresponse) |
 | POST | `/api/class-sessions/{classSessionId}/attendance` | JWT | Body: [MarkAttendanceRequest](#markattendancerequest) | [AttendanceSessionResponse](#attendancesessionresponse) |
 | PUT | `/api/class-sessions/{classSessionId}/attendance/students/{studentId}/periods/{sessionPeriodId}` | JWT | Body: [UpdatePeriodMarkRequest](#updateperiodmarkrequest) | [AttendanceMarkResponse](#attendancemarkresponse) |
@@ -232,8 +239,8 @@
 
 | Method | Path | Auth | Input | Output |
 |---|---|---|---|---|
-| POST | `/api/student-imports` | JWT + `student.manage` | Form-data: `file` (tệp) | [StudentBatchImportResponse](#studentbatchimportresponse) |
-| GET | `/api/student-imports/{id}` | JWT + `student.manage` | — | [StudentBatchImportResponse](#studentbatchimportresponse) |
+| POST | `/api/student-imports` | JWT + `student.profile.import` | Form-data: `file` (tệp) | [StudentBatchImportResponse](#studentbatchimportresponse) |
+| GET | `/api/student-imports/{id}` | JWT + `student.profile.import` | — | [StudentBatchImportResponse](#studentbatchimportresponse) |
 
 ## Khung chương trình (UC-16/16b/17)
 
@@ -287,11 +294,13 @@
 | DELETE | `/api/classes/{classId}/grades/students/{studentId}/periods/{gradePeriodId}/result` | JWT | — | 200 (không có body) |
 | POST | `/api/classes/{classId}/grades/students/{studentId}/periods/{gradePeriodId}/result` | JWT | Body: [EnterGradePeriodResultRequest](#entergradeperiodresultrequest) | [GradePeriodResultResponse](#gradeperiodresultresponse) |
 | GET | `/api/curriculums/{curriculumId}/grade-periods` | JWT | — | mảng [GradePeriodResponse](#gradeperiodresponse) |
-| POST | `/api/curriculums/{curriculumId}/grade-periods` | JWT + `academic.grade.manage` | Body: [CreateGradePeriodRequest](#creategradeperiodrequest) | [GradePeriodResponse](#gradeperiodresponse) |
-| PUT | `/api/grade-components/{id}` | JWT + `academic.grade.manage` | Body: [UpdateGradeComponentRequest](#updategradecomponentrequest) | [GradeComponentResponse](#gradecomponentresponse) |
+| POST | `/api/curriculums/{curriculumId}/grade-periods` | JWT | Body: [CreateGradePeriodRequest](#creategradeperiodrequest) | [GradePeriodResponse](#gradeperiodresponse) |
+| DELETE | `/api/grade-components/{id}` | JWT | — | 200 (không có body) |
+| PUT | `/api/grade-components/{id}` | JWT | Body: [UpdateGradeComponentRequest](#updategradecomponentrequest) | [GradeComponentResponse](#gradecomponentresponse) |
 | GET | `/api/grade-periods/{gradePeriodId}/components` | JWT | — | mảng [GradeComponentResponse](#gradecomponentresponse) |
-| POST | `/api/grade-periods/{gradePeriodId}/components` | JWT + `academic.grade.manage` | Body: [CreateGradeComponentRequest](#creategradecomponentrequest) | [GradeComponentResponse](#gradecomponentresponse) |
-| PUT | `/api/grade-periods/{id}` | JWT + `academic.grade.manage` | Body: [UpdateGradePeriodRequest](#updategradeperiodrequest) | [GradePeriodResponse](#gradeperiodresponse) |
+| POST | `/api/grade-periods/{gradePeriodId}/components` | JWT | Body: [CreateGradeComponentRequest](#creategradecomponentrequest) | [GradeComponentResponse](#gradecomponentresponse) |
+| DELETE | `/api/grade-periods/{id}` | JWT | — | 200 (không có body) |
+| PUT | `/api/grade-periods/{id}` | JWT | Body: [UpdateGradePeriodRequest](#updategradeperiodrequest) | [GradePeriodResponse](#gradeperiodresponse) |
 | POST | `/api/grades/decision` | JWT | Body: [PublishGradesRequest](#publishgradesrequest) | mảng [GradeEntryResponse](#gradeentryresponse) |
 | GET | `/api/grades/pending` | JWT | — | mảng [GradeEntryResponse](#gradeentryresponse) |
 
@@ -300,11 +309,11 @@
 | Method | Path | Auth | Input | Output |
 |---|---|---|---|---|
 | GET | `/api/classes/{classId}/comments` | JWT | Query: `studentId` | mảng [StudentCommentResponse](#studentcommentresponse) |
-| POST | `/api/classes/{classId}/comments` | JWT | Body: [CreateStudentCommentRequest](#createstudentcommentrequest) | [StudentCommentResponse](#studentcommentresponse) |
-| POST | `/api/classes/{classId}/comments/submit` | JWT | Body: [SubmitCommentsRequest](#submitcommentsrequest) | mảng [StudentCommentResponse](#studentcommentresponse) |
-| POST | `/api/comments/decision` | JWT | Body: [DecideCommentsRequest](#decidecommentsrequest) | mảng [StudentCommentResponse](#studentcommentresponse) |
+| POST | `/api/classes/{classId}/comments` | JWT + `academic.comment.write` | Body: [CreateStudentCommentRequest](#createstudentcommentrequest) | [StudentCommentResponse](#studentcommentresponse) |
+| POST | `/api/classes/{classId}/comments/submit` | JWT + `academic.comment.write` | Body: [SubmitCommentsRequest](#submitcommentsrequest) | mảng [StudentCommentResponse](#studentcommentresponse) |
+| POST | `/api/comments/decision` | JWT + `academic.comment.approve` | Body: [DecideCommentsRequest](#decidecommentsrequest) | mảng [StudentCommentResponse](#studentcommentresponse) |
 | GET | `/api/comments/pending` | JWT | — | mảng [StudentCommentResponse](#studentcommentresponse) |
-| PUT | `/api/comments/{id}` | JWT | Body: [UpdateStudentCommentRequest](#updatestudentcommentrequest) | [StudentCommentResponse](#studentcommentresponse) |
+| PUT | `/api/comments/{id}` | JWT + `academic.comment.write` | Body: [UpdateStudentCommentRequest](#updatestudentcommentrequest) | [StudentCommentResponse](#studentcommentresponse) |
 
 ## Bài giảng (LMS)
 
@@ -594,23 +603,25 @@
 
 | Method | Path | Auth | Input | Output |
 |---|---|---|---|---|
-| POST | `/api/media/upload` | JWT | Form-data: `file` (tệp) | [MediaUploadResponse](#mediauploadresponse) |
+| POST | `/api/media/upload` | JWT | Form-data: `file` (tệp)<br>Query: `module` | [MediaUploadResponse](#mediauploadresponse) |
 
 ## parent-batch-import-controller
 
 | Method | Path | Auth | Input | Output |
 |---|---|---|---|---|
-| POST | `/api/parent-imports` | JWT + `student.manage` | Form-data: `file` (tệp) | [ParentBatchImportResponse](#parentbatchimportresponse) |
-| GET | `/api/parent-imports/{id}` | JWT + `student.manage` | — | [ParentBatchImportResponse](#parentbatchimportresponse) |
+| POST | `/api/parent-imports` | JWT + `student.parent.manage` | Form-data: `file` (tệp) | [ParentBatchImportResponse](#parentbatchimportresponse) |
+| GET | `/api/parent-imports/{id}` | JWT + `student.parent.manage` | — | [ParentBatchImportResponse](#parentbatchimportresponse) |
 
 ## parent-controller
 
 | Method | Path | Auth | Input | Output |
 |---|---|---|---|---|
-| GET | `/api/parents` | JWT + `student.manage` | Query: `query`? | mảng [ParentResponse](#parentresponse) |
-| POST | `/api/parents` | JWT + `student.manage` | Body: [CreateParentRequest](#createparentrequest) | [ParentResponse](#parentresponse) |
-| GET | `/api/parents/{id}` | JWT + `student.manage` | — | [ParentResponse](#parentresponse) |
-| PUT | `/api/parents/{id}` | JWT + `student.manage` | Body: [UpdateParentRequest](#updateparentrequest) | [ParentResponse](#parentresponse) |
+| GET | `/api/parents` | JWT + `student.parent.view` | Query: `query`? | mảng [ParentResponse](#parentresponse) |
+| POST | `/api/parents` | JWT + `student.parent.manage` | Body: [CreateParentRequest](#createparentrequest) | [ParentResponse](#parentresponse) |
+| GET | `/api/parents/me` | JWT | — | [ParentResponse](#parentresponse) |
+| PUT | `/api/parents/me` | JWT | Body: [UpdateOwnParentProfileRequest](#updateownparentprofilerequest) | [ParentResponse](#parentresponse) |
+| GET | `/api/parents/{id}` | JWT + `student.parent.view` | — | [ParentResponse](#parentresponse) |
+| PUT | `/api/parents/{id}` | JWT + `student.parent.manage` | Body: [UpdateParentRequest](#updateparentrequest) | [ParentResponse](#parentresponse) |
 
 ## position-controller
 
@@ -636,12 +647,21 @@
 
 | Method | Path | Auth | Input | Output |
 |---|---|---|---|---|
+| GET | `/api/students/me` | JWT | — | [StudentResponse](#studentresponse) |
+| PUT | `/api/students/me` | JWT | Body: [UpdateOwnStudentProfileRequest](#updateownstudentprofilerequest) | [StudentResponse](#studentresponse) |
 | GET | `/api/students/me/classes/{classId}/periods/{gradePeriodId}/result` | JWT | — | [GradePeriodResultResponse](#gradeperiodresultresponse) |
 | GET | `/api/students/me/documents` | JWT | Query: `curriculumId`? | mảng [CurriculumDocumentResponse](#curriculumdocumentresponse) |
 | GET | `/api/students/me/exercises` | JWT | Query: `classId`? | mảng [AssignedExerciseResponse](#assignedexerciseresponse) |
 | GET | `/api/students/me/grades` | JWT | Query: `classId`? | mảng [GradeEntryResponse](#gradeentryresponse) |
 | GET | `/api/students/me/listening-practice` | JWT | Query: `mode`?, `curriculumId`? | mảng [ListeningPracticeItemResponse](#listeningpracticeitemresponse) |
 | GET | `/api/students/me/sessions` | JWT | Query: `fromDate`?, `toDate`?, `classId`? | mảng [ClassSessionResponse](#classsessionresponse) |
+
+## task-settings-controller
+
+| Method | Path | Auth | Input | Output |
+|---|---|---|---|---|
+| GET | `/api/task/settings/cancelled-retention-days` | JWT | — | [TaskCancelledRetentionResponse](#taskcancelledretentionresponse) |
+| PUT | `/api/task/settings/cancelled-retention-days` | JWT + `task.manage` | Body: [UpdateTaskCancelledRetentionRequest](#updatetaskcancelledretentionrequest) | [TaskCancelledRetentionResponse](#taskcancelledretentionresponse) |
 
 ## teacher-schedule-controller
 
@@ -870,6 +890,12 @@
 |---|---|---|
 | `reason` | string |  |
 
+### CancelTaskRequest
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `reason` | string |  |
+
 ### ChainFinancialReportResponse
 
 | Trường | Kiểu | Bắt buộc |
@@ -1032,6 +1058,7 @@
 
 | Trường | Kiểu | Bắt buộc |
 |---|---|---|
+| `coverImageUrl` | string |  |
 | `curriculumId` | integer (int64) |  |
 | `description` | string |  |
 | `displayOrder` | integer |  |
@@ -1097,6 +1124,7 @@
 | `isManagement` | boolean |  |
 | `newAccount` | [CreateUserRequest](#createuserrequest) |  |
 | `permanentAddress` | string |  |
+| `portraitUrl` | string |  |
 | `positionId` | integer (int64) |  |
 | `socialInsuranceNumber` | string |  |
 | `taxCode` | string |  |
@@ -1239,6 +1267,7 @@
 | `newAccount` | [CreateUserRequest](#createuserrequest) |  |
 | `notes` | string |  |
 | `occupation` | string |  |
+| `portraitUrl` | string |  |
 | `userId` | integer (int64) |  |
 | `workplace` | string |  |
 
@@ -1484,6 +1513,7 @@
 
 | Trường | Kiểu | Bắt buộc |
 |---|---|---|
+| `coverImageUrl` | string |  |
 | `createdBy` | integer (int64) |  |
 | `curriculumId` | integer (int64) |  |
 | `description` | string |  |
@@ -1604,6 +1634,7 @@
 | `isDefaultShiftRequired` | boolean |  |
 | `isManagement` | boolean |  |
 | `permanentAddress` | string |  |
+| `portraitUrl` | string |  |
 | `positionId` | integer (int64) |  |
 | `positionName` | string |  |
 | `socialInsuranceNumber` | string |  |
@@ -1705,10 +1736,20 @@
 | `submittedAt` | string (date-time) |  |
 | `totalScore` | number |  |
 
+### ExerciseQuestionChoiceResponse
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `choiceLabel` | string |  |
+| `content` | string |  |
+| `displayOrder` | integer |  |
+| `id` | integer (int64) |  |
+
 ### ExerciseQuestionResponse
 
 | Trường | Kiểu | Bắt buộc |
 |---|---|---|
+| `choices` | mảng [ExerciseQuestionChoiceResponse](#exercisequestionchoiceresponse) |  |
 | `displayOrder` | integer |  |
 | `exerciseId` | integer (int64) |  |
 | `id` | integer (int64) |  |
@@ -2266,6 +2307,7 @@
 | `id` | integer (int64) |  |
 | `notes` | string |  |
 | `occupation` | string |  |
+| `portraitUrl` | string |  |
 | `userId` | integer (int64) |  |
 | `workplace` | string |  |
 
@@ -2571,6 +2613,14 @@
 | `skill` | string |  |
 | `status` | string |  |
 | `tags` | mảng string |  |
+
+### ReassignTaskRequest
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `comment` | string |  |
+| `fromAssignmentId` | integer (int64) | ✔ |
+| `newAssigneeUserId` | integer (int64) | ✔ |
 
 ### RecordManualPaymentRequest
 
@@ -2914,6 +2964,12 @@
 | `taskId` | integer (int64) |  |
 | `uploadedBy` | integer (int64) |  |
 
+### TaskCancelledRetentionResponse
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `days` | integer |  |
+
 ### TaskCommentResponse
 
 | Trường | Kiểu | Bắt buộc |
@@ -3032,6 +3088,7 @@
 
 | Trường | Kiểu | Bắt buộc |
 |---|---|---|
+| `coverImageUrl` | string |  |
 | `description` | string |  |
 | `displayOrder` | integer |  |
 | `status` | string | ✔ |
@@ -3081,6 +3138,7 @@
 | `isDefaultShiftRequired` | boolean |  |
 | `isManagement` | boolean | ✔ |
 | `permanentAddress` | string |  |
+| `portraitUrl` | string |  |
 | `positionId` | integer (int64) |  |
 | `socialInsuranceNumber` | string |  |
 | `status` | string | ✔ |
@@ -3167,6 +3225,29 @@
 | `status` | string | ✔ |
 | `title` | string | ✔ |
 
+### UpdateOwnEmployeeProfileRequest
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `currentAddress` | string |  |
+| `permanentAddress` | string |  |
+| `portraitUrl` | string |  |
+
+### UpdateOwnParentProfileRequest
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `address` | string |  |
+| `occupation` | string |  |
+| `portraitUrl` | string |  |
+| `workplace` | string |  |
+
+### UpdateOwnStudentProfileRequest
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `portraitUrl` | string |  |
+
 ### UpdateParentRequest
 
 | Trường | Kiểu | Bắt buộc |
@@ -3174,6 +3255,7 @@
 | `address` | string |  |
 | `notes` | string |  |
 | `occupation` | string |  |
+| `portraitUrl` | string |  |
 | `workplace` | string |  |
 
 ### UpdatePartnerContractRequest
@@ -3302,6 +3384,12 @@
 | `effectiveDate` | string (date) | ✔ |
 | `newStatus` | string | ✔ |
 | `reason` | string |  |
+
+### UpdateTaskCancelledRetentionRequest
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `days` | integer |  |
 
 ### UpdateTeachingPlanItemRequest
 

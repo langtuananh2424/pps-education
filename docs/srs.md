@@ -282,6 +282,18 @@ nhân đó mới được thao tác.*
         không đăng nhập Google được cho tới khi email đúng được cập
         nhật. Chặn trùng email với tài khoản khác (UNIQUE users.email).
 
+    -   **FR-USR-07: Tự cập nhật hồ sơ cá nhân -** (bổ sung ngoài SDD
+        gốc, đã xác nhận với người dùng) Tài khoản Nhân viên/Học sinh/Phụ
+        huynh tự sửa ảnh đại diện và một số thông tin liên hệ cá nhân phi
+        nghiệp vụ của chính mình (Nhân viên: địa chỉ thường trú/hiện tại;
+        Học sinh: chỉ ảnh đại diện; Phụ huynh: nghề nghiệp, nơi làm việc,
+        địa chỉ) — không cần quyền quản lý hồ sơ người khác
+        (hrm.manage/student.profile.update/student.parent.manage). Tách
+        biệt hẳn khỏi FR-HRM-01 (UC-08)/FR-STU-01 (UC-13): các field
+        nghiệp vụ/hành chính (chức vụ, phòng ban, trạng thái, mã số,
+        ghi chú nội bộ...) vẫn chỉ Admin/Nhân viên Giáo vụ sửa được qua 2
+        FR đó. Không đổi username/email/mật khẩu (FR-USR-02/FR-USR-06).
+
 **PHÂN HỆ 3: QUẢN LÝ CÔNG VIỆC VÀ QUY TRÌNH**
 
 -   **Mô tả tổng quan:** Số hóa luồng giao việc, theo dõi tiến độ phối
@@ -932,6 +944,9 @@ CDN)**
 
   UC-55             Cập nhật email    FR-USR-06         2
                     tài khoản                            
+
+  UC-63             Tự cập nhật hồ    FR-USR-07         2
+                    sơ cá nhân                            
   -----------------------------------------------------------------------
 
 ## Ma trận Actor × Phân hệ

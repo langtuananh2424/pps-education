@@ -164,6 +164,7 @@ erDiagram
         TEXT description
         VARCHAR document_type
         VARCHAR file_url
+        VARCHAR cover_image_url
         INT display_order
         VARCHAR status
         BIGINT created_by FK
@@ -193,6 +194,19 @@ a)  Bảng curriculum_documents --- Tài liệu tham khảo
   file_url           VARCHAR(1000)   NOT NULL                   Bắt buộc qua
                                                                 CDN
                                                                 (NFR-TECH-07)
+
+  cover_image_url    VARCHAR(500)    NULL                       Ảnh bìa hiển
+                                                                thị khi liệt
+                                                                kê kho tài
+                                                                liệu, độc
+                                                                lập với
+                                                                file_url. Bổ
+                                                                sung ngoài
+                                                                SDD gốc, đã
+                                                                xác nhận với
+                                                                người dùng
+                                                                (2026-07-23,
+                                                                V48)
 
   display_order      INT             NOT NULL, DEFAULT 0        
 
@@ -226,6 +240,14 @@ giá trị `material_type`/`document_type` (VIDEO/PDF/AUDIO/SLIDE/IMAGE/
 OTHER) đã thiết kế ở 2 bảng trên — cột `material_type`/`document_type`
 vẫn do người dùng tự chọn trong form, không suy ra tự động từ
 Content-Type file upload.
+
+**Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (2026-07-23, V48):**
+thêm cột `cover_image_url` cho `curriculum_documents` — ảnh bìa hiển thị
+khi liệt kê danh sách tài liệu, độc lập với `file_url` (nội dung tài liệu
+thực tế). Upload qua `POST /api/media/upload` dùng lại module
+`CURRICULUM_DOCUMENT` sẵn có (nhánh `image/*` trong `MediaStorageService.
+store()` không phân biệt theo `acceptsDocuments`, mọi module đều nhận
+ảnh) — không cần thêm module riêng.
 
 ### Ngân hàng câu hỏi & Bài tập
 

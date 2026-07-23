@@ -9,5 +9,6 @@ public record CurriculumDocumentResponse(
         String fileUrl,
         int displayOrder,
         String status,
-        Long createdBy
+        Long createdBy,
+        String coverImageUrl
 ) {}

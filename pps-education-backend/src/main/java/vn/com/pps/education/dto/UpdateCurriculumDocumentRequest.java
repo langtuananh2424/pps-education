@@ -7,5 +7,6 @@ public record UpdateCurriculumDocumentRequest(
         @NotBlank String title,
         String description,
         Integer displayOrder,
-        @NotBlank String status
+        @NotBlank String status,
+        String coverImageUrl
 ) {}

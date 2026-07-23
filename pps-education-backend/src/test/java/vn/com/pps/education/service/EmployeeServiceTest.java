@@ -19,6 +19,7 @@ import vn.com.pps.education.dto.EmployeeResponse;
 import vn.com.pps.education.dto.EmploymentContractResponse;
 import vn.com.pps.education.dto.ExpiringContractResponse;
 import vn.com.pps.education.dto.UpdateEmployeeRequest;
+import vn.com.pps.education.dto.UpdateOwnEmployeeProfileRequest;
 import vn.com.pps.education.exception.ActiveContractAlreadyExistsException;
 import vn.com.pps.education.exception.DuplicateEmployeeCodeException;
 import vn.com.pps.education.exception.EmployeeAlreadyExistsException;
@@ -94,7 +95,7 @@ class EmployeeServiceTest extends AbstractIntegrationTest {
         EmployeeResponse response = employeeService.create(
                 new CreateEmployeeRequest(target.getId(), null, employeeCode(),
                         LocalDate.of(1995, 1, 1), "001095000123", null, null, null, null, null, null, null, null,
-                        "TEACHER", null, null, null, true, LocalDate.of(2024, 1, 1)),
+                        "TEACHER", null, null, null, true, LocalDate.of(2024, 1, 1), null),
                 hrManager.getId());
 
         assertThat(response.id()).isNotNull();
@@ -114,7 +115,7 @@ class EmployeeServiceTest extends AbstractIntegrationTest {
         EmployeeResponse response = employeeService.create(
                 new CreateEmployeeRequest(null, newAccount, employeeCode(),
                         LocalDate.of(1995, 1, 1), null, null, null, null, null, null, null, null, null,
-                        "TEACHER", null, null, null, true, LocalDate.of(2024, 1, 1)),
+                        "TEACHER", null, null, null, true, LocalDate.of(2024, 1, 1), null),
                 hrManager.getId());
 
         assertThat(response.id()).isNotNull();
@@ -134,7 +135,7 @@ class EmployeeServiceTest extends AbstractIntegrationTest {
         assertThatThrownBy(() -> employeeService.create(
                 new CreateEmployeeRequest(target.getId(), newAccount, employeeCode(),
                         LocalDate.of(1995, 1, 1), null, null, null, null, null, null, null, null, null,
-                        "STAFF", null, null, null, true, LocalDate.of(2024, 1, 1)),
+                        "STAFF", null, null, null, true, LocalDate.of(2024, 1, 1), null),
                 hrManager.getId()))
                 .isInstanceOf(IllegalArgumentException.class);
     }
@@ -144,7 +145,7 @@ class EmployeeServiceTest extends AbstractIntegrationTest {
         assertThatThrownBy(() -> employeeService.create(
                 new CreateEmployeeRequest(null, null, employeeCode(),
                         LocalDate.of(1995, 1, 1), null, null, null, null, null, null, null, null, null,
-                        "STAFF", null, null, null, true, LocalDate.of(2024, 1, 1)),
+                        "STAFF", null, null, null, true, LocalDate.of(2024, 1, 1), null),
                 hrManager.getId()))
                 .isInstanceOf(IllegalArgumentException.class);
     }
@@ -237,7 +238,7 @@ class EmployeeServiceTest extends AbstractIntegrationTest {
         EmployeeResponse response = employeeService.create(
                 new CreateEmployeeRequest(target.getId(), null, employeeCode(), LocalDate.of(1995, 1, 1),
                         null, null, null, null, null, null, null, null, null,
-                        "MANAGER", teacherLead.getId(), null, null, true, LocalDate.of(2024, 1, 1)),
+                        "MANAGER", teacherLead.getId(), null, null, true, LocalDate.of(2024, 1, 1), null),
                 hrManager.getId());
 
         assertThat(response.positionId()).isEqualTo(teacherLead.getId());
@@ -255,13 +256,13 @@ class EmployeeServiceTest extends AbstractIntegrationTest {
         EmployeeResponse employee = employeeService.create(
                 new CreateEmployeeRequest(target.getId(), null, employeeCode(), LocalDate.of(1995, 1, 1),
                         null, null, null, null, null, null, null, null, null,
-                        "TEACHER", teacher.getId(), null, null, true, LocalDate.of(2024, 1, 1)),
+                        "TEACHER", teacher.getId(), null, null, true, LocalDate.of(2024, 1, 1), null),
                 hrManager.getId());
         assertThat(assignedRoleCodes(target.getId())).containsExactly("TEACHER");
 
         employeeService.update(employee.id(), new UpdateEmployeeRequest(LocalDate.of(1995, 1, 1),
                         null, null, null, null, null, null, null, null, null,
-                        "STAFF", staff.getId(), null, false, true, "ACTIVE", null),
+                        "STAFF", staff.getId(), null, false, true, "ACTIVE", null, null),
                 hrManager.getId());
 
         assertThat(assignedRoleCodes(target.getId())).containsExactly("STAFF");
@@ -280,13 +281,13 @@ class EmployeeServiceTest extends AbstractIntegrationTest {
         EmployeeResponse employee = employeeService.create(
                 new CreateEmployeeRequest(target.getId(), null, employeeCode(), LocalDate.of(1995, 1, 1),
                         null, null, null, null, null, null, null, null, null,
-                        "STAFF", staff.getId(), null, null, true, LocalDate.of(2024, 1, 1)),
+                        "STAFF", staff.getId(), null, null, true, LocalDate.of(2024, 1, 1), null),
                 hrManager.getId());
 
         Position teacher = newPositionWithDefaultRoles("TEACHER-MAN-" + CODE_SEQ.incrementAndGet(), "TEACHER");
         employeeService.update(employee.id(), new UpdateEmployeeRequest(LocalDate.of(1995, 1, 1),
                         null, null, null, null, null, null, null, null, null,
-                        "TEACHER", teacher.getId(), null, false, true, "ACTIVE", null),
+                        "TEACHER", teacher.getId(), null, false, true, "ACTIVE", null, null),
                 hrManager.getId());
 
         // SYS_ADMIN gán tay -- vẫn còn dù chức vụ đổi và không nằm trong role mặc định của chức vụ nào ở trên.
@@ -300,13 +301,13 @@ class EmployeeServiceTest extends AbstractIntegrationTest {
         EmployeeResponse employee = employeeService.create(
                 new CreateEmployeeRequest(target.getId(), null, employeeCode(), LocalDate.of(1995, 1, 1),
                         null, null, null, null, null, null, null, null, null,
-                        "TEACHER", teacher.getId(), null, null, true, LocalDate.of(2024, 1, 1)),
+                        "TEACHER", teacher.getId(), null, null, true, LocalDate.of(2024, 1, 1), null),
                 hrManager.getId());
         assertThat(assignedRoleCodes(target.getId())).containsExactly("TEACHER");
 
         employeeService.update(employee.id(), new UpdateEmployeeRequest(LocalDate.of(1995, 1, 1),
                         null, null, null, null, null, null, null, null, null,
-                        "STAFF", null, null, false, true, "ACTIVE", null),
+                        "STAFF", null, null, false, true, "ACTIVE", null, null),
                 hrManager.getId());
 
         assertThat(assignedRoleCodes(target.getId())).isEmpty();
@@ -431,6 +432,54 @@ class EmployeeServiceTest extends AbstractIntegrationTest {
         assertThat(result).extracting(EmployeeResponse::id).containsExactly(matching.id());
     }
 
+    @Test
+    void getMyProfile_UC63_MainFlow_returnsOwnProfileByUserId() {
+        User target = newUser("employee.self.view");
+        EmployeeResponse created = employeeService.create(baseEmployeeRequest(target.getId(), employeeCode()), hrManager.getId());
+
+        EmployeeResponse mine = employeeService.getMyProfile(target.getId());
+
+        assertThat(mine.id()).isEqualTo(created.id());
+        assertThat(mine.userId()).isEqualTo(target.getId());
+    }
+
+    @Test
+    void getMyProfile_UC63_A1_rejectsWhenAccountHasNoEmployeeProfile() {
+        User noProfile = newUser("employee.self.view.noprofile");
+
+        assertThatThrownBy(() -> employeeService.getMyProfile(noProfile.getId()))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void updateMyProfile_UC63_MainFlow_updatesPortraitAndAddressForOwnAccountOnly() {
+        User target = newUser("employee.self.update");
+        EmployeeResponse created = employeeService.create(baseEmployeeRequest(target.getId(), employeeCode()), hrManager.getId());
+
+        EmployeeResponse updated = employeeService.updateMyProfile(target.getId(),
+                new UpdateOwnEmployeeProfileRequest("https://cdn.pps.edu.vn/p.jpg", "123 Thường trú", "456 Hiện tại"));
+
+        assertThat(updated.portraitUrl()).isEqualTo("https://cdn.pps.edu.vn/p.jpg");
+        assertThat(updated.permanentAddress()).isEqualTo("123 Thường trú");
+        assertThat(updated.currentAddress()).isEqualTo("456 Hiện tại");
+        // UC-63 Postcondition -- field nghiệp vụ/hành chính giữ nguyên không đổi.
+        assertThat(updated.employeeCode()).isEqualTo(created.employeeCode());
+        assertThat(updated.employeeType()).isEqualTo(created.employeeType());
+        assertThat(updated.status()).isEqualTo(created.status());
+        assertThat(employeeHistoryRepository.findByEmployeeIdOrderByCreatedAtDesc(created.id()))
+                .filteredOn(h -> h.getAction() == vn.com.pps.education.domain.EmployeeHistory.Action.UPDATED)
+                .hasSize(1);
+    }
+
+    @Test
+    void updateMyProfile_UC63_A1_rejectsWhenAccountHasNoEmployeeProfile() {
+        User noProfile = newUser("employee.self.update.noprofile");
+
+        assertThatThrownBy(() -> employeeService.updateMyProfile(noProfile.getId(),
+                new UpdateOwnEmployeeProfileRequest("https://cdn.pps.edu.vn/p.jpg", null, null)))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
     private String employeeCode() {
         return "NV" + CODE_SEQ.incrementAndGet();
     }
@@ -441,12 +490,12 @@ class EmployeeServiceTest extends AbstractIntegrationTest {
 
     private CreateEmployeeRequest baseEmployeeRequest(Long userId, String employeeCode, Long departmentId, Boolean isManagement) {
         return new CreateEmployeeRequest(userId, null, employeeCode, LocalDate.of(1995, 1, 1), null, null, null, null,
-                null, null, null, null, null, "STAFF", null, departmentId, isManagement, true, LocalDate.of(2024, 1, 1));
+                null, null, null, null, null, "STAFF", null, departmentId, isManagement, true, LocalDate.of(2024, 1, 1), null);
     }
 
     private UpdateEmployeeRequest updateRequest(Long departmentId, boolean isManagement) {
         return new UpdateEmployeeRequest(LocalDate.of(1995, 1, 1), null, null, null, null, null, null, null, null,
-                null, "STAFF", null, departmentId, isManagement, true, "ACTIVE", null);
+                null, "STAFF", null, departmentId, isManagement, true, "ACTIVE", null, null);
     }
 
     private Position newPositionWithDefaultRoles(String code, String... roleCodes) {

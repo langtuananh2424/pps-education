@@ -25,5 +25,6 @@ public record EmployeeResponse(
         boolean isDefaultShiftRequired,
         LocalDate hireDate,
         LocalDate terminationDate,
-        String status
+        String status,
+        String portraitUrl
 ) {}
