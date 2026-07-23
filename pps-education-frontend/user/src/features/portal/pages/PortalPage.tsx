@@ -149,6 +149,8 @@ export default function PortalPage() {
           enrollmentStatus={currentClass?.status ?? null}
           parentName={isParent ? currentUser?.fullName ?? null : null}
           parentPhone={isParent ? currentUser?.phone ?? null : null}
+          isStudent={isStudent}
+          isParent={isParent}
           onClose={() => setProfileOpen(false)}
         />
       )}

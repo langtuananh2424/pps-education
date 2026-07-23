@@ -57,6 +57,8 @@ export interface ParentResponse {
   workplace: string | null;
   address: string | null;
   notes: string | null;
+  /** V48: ảnh đại diện phụ huynh, upload qua POST /api/media/upload (module PARENT). */
+  portraitUrl: string | null;
 }
 
 /** Khớp CreateParentRequest thật — cung cấp ĐÚNG 1 trong 2: userId hoặc newAccount (tự gán role PARENT). */
@@ -67,6 +69,7 @@ export interface CreateParentRequest {
   workplace?: string;
   address?: string;
   notes?: string;
+  portraitUrl?: string;
 }
 
 export interface UpdateParentRequest {
@@ -74,6 +77,7 @@ export interface UpdateParentRequest {
   workplace?: string;
   address?: string;
   notes?: string;
+  portraitUrl?: string;
 }
 
 export interface ParentStudentResponse {

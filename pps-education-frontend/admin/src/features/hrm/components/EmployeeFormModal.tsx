@@ -6,6 +6,8 @@ import { createEmployee, CreateEmployeeRequest, DepartmentResponse, listDepartme
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import DatePicker from "@/components/ui/DatePicker";
+import AvatarUploadField from "@/components/ui/AvatarUploadField";
+import { uploadMedia } from "@/features/lms/api";
 
 const TODAY_ISO = new Date().toISOString().slice(0, 10);
 
@@ -37,7 +39,8 @@ export default function EmployeeFormModal({ onClose, onCreated }: EmployeeFormMo
     positionId: "",
     departmentId: "",
     hireDate: "",
-    isManagement: false
+    isManagement: false,
+    portraitUrl: ""
   });
   const [positions, setPositions] = useState<PositionResponse[]>([]);
   const [departments, setDepartments] = useState<DepartmentResponse[]>([]);
@@ -88,7 +91,8 @@ export default function EmployeeFormModal({ onClose, onCreated }: EmployeeFormMo
         positionId: form.positionId ? Number(form.positionId) : undefined,
         departmentId: form.departmentId ? Number(form.departmentId) : undefined,
         isManagement: form.isManagement,
-        hireDate: form.hireDate
+        hireDate: form.hireDate,
+        portraitUrl: form.portraitUrl || undefined
       };
       const employee = await createEmployee(request);
       onCreated(employee.id);
@@ -107,6 +111,16 @@ export default function EmployeeFormModal({ onClose, onCreated }: EmployeeFormMo
         <div className="space-y-2">
           <span className="text-[10px] font-bold uppercase text-slate-500">Tài khoản</span>
           <AccountSelector value={account} onChange={setAccount} submitAttempted={submitAttempted} />
+        </div>
+
+        <div className="space-y-2 border-t border-slate-100 pt-4">
+          <span className="text-[10px] font-bold uppercase text-slate-500">Ảnh đại diện</span>
+          <AvatarUploadField
+            value={form.portraitUrl}
+            onChange={(url) => setForm({ ...form, portraitUrl: url })}
+            onUpload={(file) => uploadMedia(file, "EMPLOYEE")}
+            fallbackName={account.newAccount?.fullName || "Nhân sự"}
+          />
         </div>
 
         <div className="space-y-3 border-t border-slate-100 pt-4">

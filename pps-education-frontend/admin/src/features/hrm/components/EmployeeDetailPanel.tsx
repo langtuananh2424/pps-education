@@ -26,6 +26,8 @@ import { employeeStatusLabels, employeeStatusVariants } from "./EmployeeListPane
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import DatePicker from "@/components/ui/DatePicker";
+import AvatarUploadField from "@/components/ui/AvatarUploadField";
+import { uploadMedia } from "@/features/lms/api";
 
 const TODAY_ISO = new Date().toISOString().slice(0, 10);
 
@@ -136,6 +138,14 @@ function ProfileTab({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+
+      <AvatarUploadField
+        value={form.portraitUrl}
+        onChange={(url) => setForm({ ...form, portraitUrl: url })}
+        onUpload={(file) => uploadMedia(file, "EMPLOYEE")}
+        fallbackName={employee.fullName}
+      />
+
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className={labelClass}>Ngày sinh *</label>
@@ -275,7 +285,8 @@ function toForm(e: EmployeeResponse): UpdateEmployeeRequest {
     isManagement: e.isManagement,
     isDefaultShiftRequired: e.isDefaultShiftRequired,
     status: e.status,
-    terminationDate: e.terminationDate ?? undefined
+    terminationDate: e.terminationDate ?? undefined,
+    portraitUrl: e.portraitUrl ?? undefined
   };
 }
 

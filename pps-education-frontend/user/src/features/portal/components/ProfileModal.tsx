@@ -1,5 +1,7 @@
-import React from "react";
-import { Award, GraduationCap, Heart, Lock, Phone, Sparkles, User, Users, X } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import { Award, Camera, GraduationCap, Heart, Loader2, Lock, Phone, Sparkles, User, Users, X } from "lucide-react";
+import { ApiError } from "@/lib/apiClient";
+import { getMyParentProfile, getMyStudentProfile, updateMyParentProfile, updateMyStudentProfile, uploadMedia } from "../api";
 
 const STATUS_LABEL: Record<string, string> = {
   ACTIVE: "Đang hoạt động",
@@ -23,6 +25,10 @@ interface ProfileModalProps {
    */
   parentName: string | null;
   parentPhone: string | null;
+  /** UC-63: true khi Học sinh đang tự xem hồ sơ của chính mình — cho sửa ảnh đại diện ngay trên avatar này. */
+  isStudent: boolean;
+  /** UC-63: true khi Phụ huynh đang xem hồ sơ con — hồ sơ CỦA CHÍNH Phụ huynh (khác con) sửa ở khối "Liên hệ gia đình". */
+  isParent: boolean;
   onClose: () => void;
 }
 
@@ -32,7 +38,93 @@ interface ProfileModalProps {
  * "Thành tích & điểm thưởng" (EXP/xu/streak/huy hiệu) không tồn tại trong schema
  * PPS Education — không tự bịa số liệu, hiện "—"/khoá thay vì số giả.
  */
-export default function ProfileModal({ fullName, studentId, className, classCode, enrollmentStatus, parentName, parentPhone, onClose }: ProfileModalProps) {
+export default function ProfileModal({
+  fullName,
+  studentId,
+  className,
+  classCode,
+  enrollmentStatus,
+  parentName,
+  parentPhone,
+  isStudent,
+  isParent,
+  onClose
+}: ProfileModalProps) {
+  const [studentPortraitUrl, setStudentPortraitUrl] = useState<string | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const studentFileInputRef = useRef<HTMLInputElement>(null);
+
+  const [editingParent, setEditingParent] = useState(false);
+  const [parentPortraitUrl, setParentPortraitUrl] = useState<string | null>(null);
+  const [parentForm, setParentForm] = useState({ occupation: "", workplace: "", address: "" });
+  const [savingParent, setSavingParent] = useState(false);
+  const [parentError, setParentError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isStudent) {
+      getMyStudentProfile().then((p) => setStudentPortraitUrl(p.portraitUrl)).catch(() => undefined);
+    } else if (isParent) {
+      getMyParentProfile()
+        .then((p) => {
+          setParentPortraitUrl(p.portraitUrl);
+          setParentForm({ occupation: p.occupation ?? "", workplace: p.workplace ?? "", address: p.address ?? "" });
+        })
+        .catch(() => undefined);
+    }
+  }, [isStudent, isParent]);
+
+  const handleStudentAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setUploadingAvatar(true);
+    setAvatarError(null);
+    try {
+      const { url } = await uploadMedia(file, "STUDENT");
+      const updated = await updateMyStudentProfile({ portraitUrl: url });
+      setStudentPortraitUrl(updated.portraitUrl);
+    } catch (err) {
+      setAvatarError(err instanceof ApiError ? err.message : "Đổi ảnh đại diện thất bại.");
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  /** Ảnh đại diện lưu ngay khi chọn xong (upload + PUT nối tiếp) — không cần đợi bấm "Lưu" chung với nghề nghiệp/nơi làm/địa chỉ. */
+  const handleParentAvatarPick = async (file: File) => {
+    setSavingParent(true);
+    setParentError(null);
+    try {
+      const { url } = await uploadMedia(file, "PARENT");
+      const updated = await updateMyParentProfile({ portraitUrl: url });
+      setParentPortraitUrl(updated.portraitUrl);
+    } catch (err) {
+      setParentError(err instanceof ApiError ? err.message : "Upload ảnh thất bại.");
+    } finally {
+      setSavingParent(false);
+    }
+  };
+
+  const handleSaveParentProfile = async () => {
+    setSavingParent(true);
+    setParentError(null);
+    try {
+      const updated = await updateMyParentProfile({
+        occupation: parentForm.occupation.trim() || undefined,
+        workplace: parentForm.workplace.trim() || undefined,
+        address: parentForm.address.trim() || undefined,
+        portraitUrl: parentPortraitUrl || undefined
+      });
+      setParentPortraitUrl(updated.portraitUrl);
+      setEditingParent(false);
+    } catch (err) {
+      setParentError(err instanceof ApiError ? err.message : "Cập nhật hồ sơ thất bại.");
+    } finally {
+      setSavingParent(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-ink/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={onClose}>
       <div
@@ -51,10 +143,25 @@ export default function ProfileModal({ fullName, studentId, className, classCode
         <div className="px-7 pb-7">
           <div className="flex items-end gap-4 -mt-10 mb-6">
             <div className="relative shrink-0">
-              <div className="w-20 h-20 rounded-full bg-sky-2 border-4 border-white shadow-md flex items-center justify-center text-teal-deep">
-                <GraduationCap size={30} />
+              {isStudent && (
+                <input ref={studentFileInputRef} type="file" accept="image/*" className="hidden" onChange={handleStudentAvatarChange} disabled={uploadingAvatar} />
+              )}
+              <div className="w-20 h-20 rounded-full bg-sky-2 border-4 border-white shadow-md flex items-center justify-center text-teal-deep overflow-hidden">
+                {studentPortraitUrl ? <img src={studentPortraitUrl} alt="" className="w-full h-full object-cover" /> : <GraduationCap size={30} />}
               </div>
-              <span className="absolute bottom-0 right-0 w-4 h-4 rounded-full bg-emerald-400 border-2 border-white" />
+              {isStudent ? (
+                <button
+                  type="button"
+                  onClick={() => studentFileInputRef.current?.click()}
+                  disabled={uploadingAvatar}
+                  title="Đổi ảnh đại diện (UC-63)"
+                  className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-teal hover:bg-teal-deep text-white flex items-center justify-center shadow-md border-2 border-white disabled:opacity-50"
+                >
+                  {uploadingAvatar ? <Loader2 size={13} className="animate-spin" /> : <Camera size={13} />}
+                </button>
+              ) : (
+                <span className="absolute bottom-0 right-0 w-4 h-4 rounded-full bg-emerald-400 border-2 border-white" />
+              )}
             </div>
             <div className="pb-1 flex items-center gap-2 flex-wrap">
               <h3 className="text-xl font-extrabold text-ink">{fullName}</h3>
@@ -63,6 +170,7 @@ export default function ProfileModal({ fullName, studentId, className, classCode
               </span>
             </div>
           </div>
+          {avatarError && <p className="text-[10px] text-rose-500 font-bold -mt-4 mb-3">{avatarError}</p>}
           <p className="text-[11px] text-muted font-bold -mt-4 mb-6 flex items-center gap-1.5">
             <User size={12} /> ID hệ thống: {studentId ?? "—"}
           </p>
@@ -116,9 +224,16 @@ export default function ProfileModal({ fullName, studentId, className, classCode
           </div>
 
           <div className="mt-6">
-            <h4 className="text-xs font-extrabold text-teal-deep uppercase tracking-wide flex items-center gap-1.5 mb-3">
-              <Users size={14} /> Liên hệ gia đình
-            </h4>
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-xs font-extrabold text-teal-deep uppercase tracking-wide flex items-center gap-1.5">
+                <Users size={14} /> Liên hệ gia đình
+              </h4>
+              {isParent && !editingParent && (
+                <button onClick={() => setEditingParent(true)} className="text-[10px] font-extrabold text-teal-deep hover:underline">
+                  Sửa hồ sơ của tôi (UC-63)
+                </button>
+              )}
+            </div>
             <div className="bg-sky-2/60 border border-line/70 rounded-[16px] p-4 space-y-2.5 text-xs">
               <div className="flex justify-between items-center border-b border-line/60 pb-2">
                 <span className="text-muted font-bold flex items-center gap-1.5">
@@ -136,6 +251,69 @@ export default function ProfileModal({ fullName, studentId, className, classCode
                 <p className="text-[10px] text-gold font-bold pt-1">
                   Sắp có — đang chờ Backend mở API cho Học sinh tự tra thông tin phụ huynh liên kết với chính mình.
                 </p>
+              )}
+
+              {isParent && editingParent && (
+                <div className="border-t border-line/60 pt-3 mt-1 space-y-2.5">
+                  {parentError && <p className="text-[10px] text-rose-500 font-bold">{parentError}</p>}
+                  <div className="flex items-center gap-3">
+                    <label className="relative shrink-0 cursor-pointer">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        disabled={savingParent}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          e.target.value = "";
+                          if (file) handleParentAvatarPick(file);
+                        }}
+                      />
+                      <div className="w-12 h-12 rounded-full bg-white border-2 border-teal/30 shadow-sm flex items-center justify-center text-teal-deep overflow-hidden">
+                        {parentPortraitUrl ? <img src={parentPortraitUrl} alt="" className="w-full h-full object-cover" /> : <User size={18} />}
+                      </div>
+                      <span className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-teal text-white flex items-center justify-center border-2 border-white">
+                        {savingParent ? <Loader2 size={10} className="animate-spin" /> : <Camera size={10} />}
+                      </span>
+                    </label>
+                    <p className="text-[10px] text-muted font-bold flex-1">Bấm vào ảnh để đổi ảnh đại diện của chính bạn.</p>
+                  </div>
+                  <input
+                    value={parentForm.occupation}
+                    onChange={(e) => setParentForm({ ...parentForm, occupation: e.target.value })}
+                    placeholder="Nghề nghiệp"
+                    className="w-full bg-white border border-line text-xs px-3 py-2 rounded-[12px] focus:outline-none"
+                  />
+                  <input
+                    value={parentForm.workplace}
+                    onChange={(e) => setParentForm({ ...parentForm, workplace: e.target.value })}
+                    placeholder="Nơi làm việc"
+                    className="w-full bg-white border border-line text-xs px-3 py-2 rounded-[12px] focus:outline-none"
+                  />
+                  <input
+                    value={parentForm.address}
+                    onChange={(e) => setParentForm({ ...parentForm, address: e.target.value })}
+                    placeholder="Địa chỉ"
+                    className="w-full bg-white border border-line text-xs px-3 py-2 rounded-[12px] focus:outline-none"
+                  />
+                  <div className="flex justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setEditingParent(false)}
+                      className="px-3 py-1.5 text-[11px] font-extrabold text-muted hover:text-ink"
+                    >
+                      Hủy
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveParentProfile}
+                      disabled={savingParent}
+                      className="px-3.5 py-1.5 text-[11px] font-extrabold text-white bg-teal hover:bg-teal-deep rounded-[12px] disabled:opacity-50"
+                    >
+                      {savingParent ? "Đang lưu..." : "Lưu"}
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
           </div>

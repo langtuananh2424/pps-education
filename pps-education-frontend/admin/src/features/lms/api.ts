@@ -1,7 +1,11 @@
 import { apiRequest } from "@/lib/apiClient";
 
-/** Khớp MediaModule thật của backend — mỗi module quy định content-type/size limit riêng (xem MediaStorageService.java). */
-export type MediaUploadModule = "LMS_QUESTION" | "CURRICULUM_DOCUMENT" | "LESSON_MATERIAL";
+/**
+ * Khớp MediaModule thật của backend — mỗi module quy định content-type/size limit riêng
+ * (xem MediaStorageService.java). STUDENT/PARENT/EMPLOYEE (V48): chỉ nhận ảnh, dùng cho
+ * ảnh đại diện — path riêng trên R2 ("profiles/students|parents|employees").
+ */
+export type MediaUploadModule = "LMS_QUESTION" | "CURRICULUM_DOCUMENT" | "LESSON_MATERIAL" | "STUDENT" | "PARENT" | "EMPLOYEE";
 
 /** UC-60/UC-23a: upload file thật lên Cloudflare R2 qua API dùng chung, trả về URL public để lưu vào field fileUrl/audioUrl/imageUrl. */
 export function uploadMedia(file: File, module: MediaUploadModule): Promise<{ url: string }> {
@@ -354,6 +358,8 @@ export interface CurriculumDocumentResponse {
   displayOrder: number;
   status: CurriculumDocumentStatus;
   createdBy: number;
+  /** V48: ảnh bìa hiển thị ở card, upload qua POST /api/media/upload (module CURRICULUM_DOCUMENT). */
+  coverImageUrl: string | null;
 }
 
 export interface CreateCurriculumDocumentRequest {
@@ -362,6 +368,7 @@ export interface CreateCurriculumDocumentRequest {
   documentType: CurriculumDocumentType;
   fileUrl: string;
   displayOrder?: number;
+  coverImageUrl?: string;
 }
 
 export interface UpdateCurriculumDocumentRequest {
@@ -369,6 +376,7 @@ export interface UpdateCurriculumDocumentRequest {
   description?: string;
   displayOrder?: number;
   status: CurriculumDocumentStatus;
+  coverImageUrl?: string;
 }
 
 /** UC-60: chỉ tài khoản có quyền lms.document.manage (mặc định gán cho TEACHER) mới tạo/sửa được. */

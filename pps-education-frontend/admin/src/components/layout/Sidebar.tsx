@@ -2,13 +2,12 @@ import React, { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { ChevronDown, ChevronRight, LogOut, X } from "lucide-react";
 import { useApp } from "@/context/AppContext";
-import { navSections } from "@/constants/navigation";
-import { roleLabels } from "@/constants/roles";
+import { isNavItemAllowed, navSections } from "@/constants/navigation";
 import Avatar from "@/components/ui/Avatar";
 import { cn } from "@/lib/cn";
 
 export default function Sidebar() {
-  const { currentRole, currentUser, sidebarOpen, setSidebarOpen, hasPermission, logout } = useApp();
+  const { currentRoleLabel, currentUser, sidebarOpen, setSidebarOpen, hasPermission, logout } = useApp();
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(
     Object.fromEntries(navSections.map((section) => [section.id, true]))
   );
@@ -59,7 +58,7 @@ export default function Sidebar() {
 
         <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
           {navSections.map((section) => {
-            const visibleItems = section.items.filter((item) => hasPermission(item.requiredPermission));
+            const visibleItems = section.items.filter((item) => isNavItemAllowed(item, currentUser?.roleCodes ?? [], hasPermission));
             if (visibleItems.length === 0) return null;
 
             const isExpanded = expandedGroups[section.id];
@@ -114,7 +113,7 @@ export default function Sidebar() {
               <span className="text-xs font-bold text-slate-900 block truncate leading-tight">
                 {currentUser?.fullName || "Chưa đăng nhập"}
               </span>
-              <span className="text-[10px] text-slate-500 block truncate mt-0.5 font-medium">{roleLabels[currentRole]}</span>
+              <span className="text-[10px] text-slate-500 block truncate mt-0.5 font-medium">{currentRoleLabel}</span>
             </div>
           </div>
 

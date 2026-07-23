@@ -1,6 +1,61 @@
 import { apiRequest } from "@/lib/apiClient";
 import type { Page } from "@/types";
 
+/** Khớp MediaModule thật của backend (chỉ nhánh ảnh — Portal chưa cần upload tài liệu/audio). */
+export type MediaUploadModule = "STUDENT" | "PARENT";
+
+/** UC-63: upload ảnh đại diện thật lên Cloudflare R2 qua API dùng chung, trả về URL public để lưu vào portraitUrl. */
+export function uploadMedia(file: File, module: MediaUploadModule): Promise<{ url: string }> {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("module", module);
+  return apiRequest<{ url: string }>("/media/upload", { method: "POST", body: formData });
+}
+
+/** UC-63: Học sinh tự xem/sửa hồ sơ của chính mình — chỉ portraitUrl được phép sửa (field khác vẫn do Giáo vụ quản lý). */
+export interface MyStudentProfileResponse {
+  id: number;
+  fullName: string;
+  portraitUrl: string | null;
+}
+
+export interface UpdateOwnStudentProfileRequest {
+  portraitUrl?: string;
+}
+
+export function getMyStudentProfile(): Promise<MyStudentProfileResponse> {
+  return apiRequest<MyStudentProfileResponse>("/students/me");
+}
+
+export function updateMyStudentProfile(request: UpdateOwnStudentProfileRequest): Promise<MyStudentProfileResponse> {
+  return apiRequest<MyStudentProfileResponse>("/students/me", { method: "PUT", body: JSON.stringify(request) });
+}
+
+/** UC-63: Phụ huynh tự xem/sửa hồ sơ của chính mình (khác hồ sơ con em — xem ChildResponse). */
+export interface MyParentProfileResponse {
+  id: number;
+  fullName: string;
+  occupation: string | null;
+  workplace: string | null;
+  address: string | null;
+  portraitUrl: string | null;
+}
+
+export interface UpdateOwnParentProfileRequest {
+  occupation?: string;
+  workplace?: string;
+  address?: string;
+  portraitUrl?: string;
+}
+
+export function getMyParentProfile(): Promise<MyParentProfileResponse> {
+  return apiRequest<MyParentProfileResponse>("/parents/me");
+}
+
+export function updateMyParentProfile(request: UpdateOwnParentProfileRequest): Promise<MyParentProfileResponse> {
+  return apiRequest<MyParentProfileResponse>("/parents/me", { method: "PUT", body: JSON.stringify(request) });
+}
+
 /** UC-25 Main Flow bước 2 — khớp ChildResponse thật. */
 export interface ChildResponse {
   studentId: number;
