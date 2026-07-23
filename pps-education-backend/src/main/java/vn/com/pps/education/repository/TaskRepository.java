@@ -17,8 +17,18 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
 
     List<Task> findByCreatedByIdOrderByIdDesc(Long createdByUserId);
 
+    /** UC-06/07 overview — tầng company-wide: toàn bộ task. */
+    @Query("SELECT t FROM Task t ORDER BY t.id DESC")
+    List<Task> findAllOrderByIdDesc();
+
+    /** UC-06/07 overview — tầng phòng ban: mọi task thuộc các phòng actor làm trưởng (không lọc theo người tạo). */
+    List<Task> findByDepartmentIdInOrderByIdDesc(java.util.Collection<Long> departmentIds);
+
     /** DepartmentService#delete — công việc đang gắn phòng ban (FR-TSK-01) thì không xóa được phòng ban. */
     boolean existsByDepartmentId(Long departmentId);
+
+    /** TaskSchedulerService — dọn task CANCELLED quá hạn giữ (task.cancelled_retention_days). */
+    List<Task> findByStatusAndCancelledAtBefore(Task.Status status, OffsetDateTime cutoff);
 
     /** TaskSchedulerService — cron nightly đặt OVERDUE (SDD). */
     @Query("""

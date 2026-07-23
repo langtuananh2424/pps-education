@@ -71,6 +71,10 @@ public class Task {
     @Column(name = "completed_at")
     private OffsetDateTime completedAt;
 
+    /** Thời điểm chuyển CANCELLED — cron nightly xóa cứng sau task.cancelled_retention_days ngày (UC-06/07). */
+    @Column(name = "cancelled_at")
+    private OffsetDateTime cancelledAt;
+
     /** Cho phép chia task lớn thành sub-tasks (SDD) — chưa có UC nào dùng, giữ FK sẵn theo schema. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_task_id")

@@ -101,7 +101,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({NotAuthorizedForPortalAccessException.class, NotSiteManagerForSiteException.class,
             NotAssignedTeacherForClassException.class, NotAssignedTeacherForSessionException.class,
             AssigneeOutsideDepartmentException.class,
-            NotTaskParticipantException.class, NotTaskCreatorException.class, NotAuthorizedForFeedbackException.class})
+            NotTaskParticipantException.class, NotTaskCreatorException.class, NotAuthorizedForFeedbackException.class,
+            NotAuthorizedForTaskOverviewException.class})
     public ResponseEntity<Object> handleAcademicAuthorization(RuntimeException ex) {
         return error(HttpStatus.FORBIDDEN, ex.getMessage());
     }

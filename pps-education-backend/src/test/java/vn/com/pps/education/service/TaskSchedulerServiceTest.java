@@ -98,6 +98,29 @@ class TaskSchedulerServiceTest extends AbstractIntegrationTest {
         assertThat(reloaded.getStatus()).isEqualTo(Task.Status.OPEN);
     }
 
+    @Test
+    void runNightlyJob_deletesCancelledTasksPastRetention() {
+        Department dept = newDepartment();
+        User creator = newUserInDept("cleanup.creator", dept);
+        User assignee = newUserInDept("cleanup.assignee", dept);
+
+        // CANCELLED 10 ngày trước (quá hạn giữ mặc định 7 ngày) → xóa cứng cả assignment con.
+        Task oldCancelled = createTaskDirectly(creator, dept, "Hủy lâu", null, Task.Status.CANCELLED);
+        oldCancelled.setCancelledAt(OffsetDateTime.now().minusDays(10));
+        taskRepository.save(oldCancelled);
+        createAssignmentDirectly(oldCancelled, assignee);
+
+        // CANCELLED hôm nay → còn trong hạn giữ, KHÔNG bị xóa.
+        Task recentCancelled = createTaskDirectly(creator, dept, "Hủy gần đây", null, Task.Status.CANCELLED);
+        recentCancelled.setCancelledAt(OffsetDateTime.now());
+        taskRepository.save(recentCancelled);
+
+        taskSchedulerService.runNightlyJob();
+
+        assertThat(taskRepository.findById(oldCancelled.getId())).isEmpty();
+        assertThat(taskRepository.findById(recentCancelled.getId())).isPresent();
+    }
+
     // ===================== Helpers =====================
 
     private Task createTaskDirectly(User creator, Department dept, String title, OffsetDateTime dueAt, Task.Status status) {

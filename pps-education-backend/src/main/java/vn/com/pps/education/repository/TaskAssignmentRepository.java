@@ -13,4 +13,7 @@ public interface TaskAssignmentRepository extends JpaRepository<TaskAssignment, 
     List<TaskAssignment> findByAssigneeIdOrderByIdDesc(Long assigneeUserId);
 
     Optional<TaskAssignment> findByTaskIdAndAssigneeId(Long taskId, Long assigneeUserId);
+
+    /** TaskSchedulerService (dọn CANCELLED) — xóa assignment của task trước khi xóa task (FK). */
+    void deleteByTaskId(Long taskId);
 }
