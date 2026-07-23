@@ -28,6 +28,8 @@ import { studentStatusLabels, studentStatusVariants } from "./StudentListPanel";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import DatePicker from "@/components/ui/DatePicker";
+import AvatarUploadField from "@/components/ui/AvatarUploadField";
+import { uploadMedia } from "@/features/lms/api";
 
 const TODAY_ISO = new Date().toISOString().slice(0, 10);
 
@@ -163,8 +165,13 @@ function ProfileTab({
           <input value={form.originalClass ?? ""} onChange={(e) => setForm({ ...form, originalClass: e.target.value })} className={inputClass} />
         </div>
         <div className="col-span-2">
-          <label className={labelClass}>URL ảnh đại diện</label>
-          <input value={form.portraitUrl ?? ""} onChange={(e) => setForm({ ...form, portraitUrl: e.target.value })} className={inputClass} />
+          <label className={labelClass}>Ảnh đại diện</label>
+          <AvatarUploadField
+            value={form.portraitUrl}
+            onChange={(url) => setForm({ ...form, portraitUrl: url })}
+            onUpload={(file) => uploadMedia(file, "STUDENT")}
+            fallbackName={student.fullName}
+          />
         </div>
         <div className="col-span-2">
           <label className={labelClass}>Ghi chú</label>

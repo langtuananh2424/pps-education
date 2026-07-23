@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { AlertTriangle, Bell, ChevronDown, Clock, Lock, LogOut, Menu, MapPin, Settings, ShieldCheck, User } from "lucide-react";
+import { AlertTriangle, Bell, ChevronDown, Clock, KeyRound, Lock, LogOut, Menu, MapPin, Settings, ShieldCheck, User } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { getMyPartnerSite, listSites, listSiteTeachers, SiteResponse, SiteTeacherResponse } from "@/features/facility/api";
-import { roleLabels } from "@/constants/roles";
 import { UserRole } from "@/types";
 import Avatar from "@/components/ui/Avatar";
 import Dropdown from "@/components/ui/Dropdown";
 import ProfileModal from "@/features/auth/components/ProfileModal";
+import ChangePasswordModal from "@/features/auth/components/ChangePasswordModal";
 
 const notifications = [
   { id: "1", text: "Trường Tiểu học Nghĩa Tân gửi ý kiến đóng góp mới (Cô Hiệu Trưởng)", time: "10 phút trước", type: "urgent" },
@@ -15,9 +15,10 @@ const notifications = [
 ];
 
 export default function Header() {
-  const { currentRole, currentUser, selectedCampusId, setSelectedCampusId, sidebarOpen, setSidebarOpen, logout, hasPermission } = useApp();
+  const { currentRoleLabel, currentUser, selectedCampusId, setSelectedCampusId, sidebarOpen, setSidebarOpen, logout, hasPermission } = useApp();
   const [sites, setSites] = useState<SiteResponse[]>([]);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
 
   useEffect(() => {
     listSites().then(setSites).catch(() => undefined);
@@ -166,7 +167,7 @@ export default function Header() {
         <div className="flex items-center gap-2 bg-slate-900 text-white px-3.5 py-1.5 rounded-md text-xs font-semibold shadow-glow tracking-tight font-display">
           <ShieldCheck className="w-3.5 h-3.5 text-brand-yellow shrink-0" />
           <span className="hidden md:inline">Vai trò:</span>
-          <span className="text-brand-orange">{roleLabels[currentRole]}</span>
+          <span className="text-brand-orange">{currentRoleLabel}</span>
         </div>
 
         <div className="hidden lg:flex items-center gap-1.5 text-slate-600 bg-white border border-slate-200/50 shadow-soft px-3.5 py-2 rounded-full font-mono text-[11px]">
@@ -215,7 +216,7 @@ export default function Header() {
             <button className="flex items-center gap-3 pl-4 pr-2.5 py-2 bg-white border border-slate-200/50 hover:bg-slate-50 rounded-2xl transition-all shadow-soft">
               <div className="hidden md:block text-left leading-tight">
                 <p className="text-xs font-bold text-slate-800 truncate max-w-[130px]">{currentUser?.fullName || "Cán bộ PPS"}</p>
-                <p className="text-[10px] text-slate-500 truncate max-w-[130px]">{roleLabels[currentRole]}</p>
+                <p className="text-[10px] text-slate-500 truncate max-w-[130px]">{currentRoleLabel}</p>
               </div>
               <Avatar name={currentUser?.fullName || "U"} size="sm" />
               <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
@@ -229,6 +230,13 @@ export default function Header() {
             >
               <User className="w-4 h-4 text-slate-400 shrink-0" />
               <span>Hồ sơ cá nhân</span>
+            </button>
+            <button
+              onClick={() => setChangePasswordOpen(true)}
+              className="w-full px-3 py-2.5 flex items-center gap-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer"
+            >
+              <KeyRound className="w-4 h-4 text-slate-400 shrink-0" />
+              <span>Đổi mật khẩu</span>
             </button>
             <button
               onClick={() => alert("Tính năng Cài đặt đang được phát triển.")}
@@ -251,6 +259,7 @@ export default function Header() {
       </div>
 
       {profileOpen && <ProfileModal onClose={() => setProfileOpen(false)} />}
+      {changePasswordOpen && <ChangePasswordModal onClose={() => setChangePasswordOpen(false)} />}
     </header>
   );
 }

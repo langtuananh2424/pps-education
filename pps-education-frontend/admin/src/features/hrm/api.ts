@@ -26,6 +26,8 @@ export interface EmployeeResponse {
   hireDate: string;
   terminationDate: string | null;
   status: "ACTIVE" | "ON_LEAVE" | "TERMINATED";
+  /** V48: ảnh đại diện nhân sự, upload qua POST /api/media/upload (module EMPLOYEE). */
+  portraitUrl: string | null;
 }
 
 /**
@@ -53,6 +55,7 @@ export interface CreateEmployeeRequest {
   isManagement?: boolean;
   isDefaultShiftRequired?: boolean;
   hireDate: string;
+  portraitUrl?: string;
 }
 
 /** Khớp UpdateEmployeeRequest thật — employeeCode/userId bất biến, không sửa qua đây. */
@@ -74,6 +77,7 @@ export interface UpdateEmployeeRequest {
   isDefaultShiftRequired?: boolean;
   status: "ACTIVE" | "ON_LEAVE" | "TERMINATED";
   terminationDate?: string;
+  portraitUrl?: string;
 }
 
 export interface QualificationResponse {
@@ -174,6 +178,22 @@ export function createEmployee(request: CreateEmployeeRequest): Promise<Employee
 
 export function updateEmployee(id: number, request: UpdateEmployeeRequest): Promise<EmployeeResponse> {
   return apiRequest<EmployeeResponse>(`/employees/${id}`, { method: "PUT", body: JSON.stringify(request) });
+}
+
+/** UC-63: nhân sự tự sửa hồ sơ CHÍNH MÌNH — whitelist field hẹp hơn hẳn UpdateEmployeeRequest (chỉ ảnh + 2 địa chỉ). */
+export interface UpdateOwnEmployeeProfileRequest {
+  portraitUrl?: string;
+  permanentAddress?: string;
+  currentAddress?: string;
+}
+
+/** Trả 404 nếu tài khoản đang đăng nhập chưa có hồ sơ Employee (VD SUPER_ADMIN thuần) — gọi có try/catch ở nơi dùng. */
+export function getMyEmployeeProfile(): Promise<EmployeeResponse> {
+  return apiRequest<EmployeeResponse>("/employees/me");
+}
+
+export function updateMyEmployeeProfile(request: UpdateOwnEmployeeProfileRequest): Promise<EmployeeResponse> {
+  return apiRequest<EmployeeResponse>("/employees/me", { method: "PUT", body: JSON.stringify(request) });
 }
 
 export function listQualifications(employeeId: number): Promise<QualificationResponse[]> {

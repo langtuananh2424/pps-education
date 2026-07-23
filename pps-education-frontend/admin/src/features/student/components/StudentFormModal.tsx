@@ -6,6 +6,8 @@ import { createParent, createStudent, CreateStudentRequest, linkParent, listSite
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import DatePicker from "@/components/ui/DatePicker";
+import AvatarUploadField from "@/components/ui/AvatarUploadField";
+import { uploadMedia } from "@/features/lms/api";
 
 const TODAY_ISO = new Date().toISOString().slice(0, 10);
 
@@ -30,7 +32,8 @@ export default function StudentFormModal({ onClose, onCreated }: StudentFormModa
     originalSchool: "",
     originalClass: "",
     enrollmentDate: "",
-    notes: ""
+    notes: "",
+    portraitUrl: ""
   });
 
   const [addParent, setAddParent] = useState(false);
@@ -79,7 +82,8 @@ export default function StudentFormModal({ onClose, onCreated }: StudentFormModa
         originalSchool: form.originalSchool.trim() || undefined,
         originalClass: form.originalClass.trim() || undefined,
         enrollmentDate: form.enrollmentDate,
-        notes: form.notes.trim() || undefined
+        notes: form.notes.trim() || undefined,
+        portraitUrl: form.portraitUrl || undefined
       };
       const student = await createStudent(request);
 
@@ -112,6 +116,16 @@ export default function StudentFormModal({ onClose, onCreated }: StudentFormModa
         <div className="space-y-2">
           <span className="text-[10px] font-bold uppercase text-slate-500">Tài khoản học sinh</span>
           <AccountSelector value={account} onChange={setAccount} submitAttempted={submitAttempted} />
+        </div>
+
+        <div className="space-y-2 border-t border-slate-100 pt-4">
+          <span className="text-[10px] font-bold uppercase text-slate-500">Ảnh đại diện</span>
+          <AvatarUploadField
+            value={form.portraitUrl}
+            onChange={(url) => setForm({ ...form, portraitUrl: url })}
+            onUpload={(file) => uploadMedia(file, "STUDENT")}
+            fallbackName={account.newAccount?.fullName || "Học sinh"}
+          />
         </div>
 
         <div className="space-y-3 border-t border-slate-100 pt-4">

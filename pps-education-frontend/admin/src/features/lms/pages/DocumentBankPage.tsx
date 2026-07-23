@@ -110,12 +110,16 @@ export default function DocumentBankPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {documents.map((doc) => (
-            <Card key={doc.id} className="flex flex-col justify-between">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="p-2 rounded-lg bg-amber-50 text-brand-orange shrink-0">
-                    <FileText className="w-4 h-4" />
-                  </span>
+            <Card key={doc.id} padded={false} className="flex flex-col justify-between overflow-hidden">
+              {doc.coverImageUrl ? (
+                <img src={doc.coverImageUrl} alt="" className="w-full h-28 object-cover" />
+              ) : (
+                <div className="w-full h-28 bg-amber-50 flex items-center justify-center text-brand-orange">
+                  <FileText className="w-8 h-8" />
+                </div>
+              )}
+              <div className="p-4 space-y-2 flex-1">
+                <div className="flex items-center justify-end">
                   <Badge variant={statusVariants[doc.status]}>{statusLabels[doc.status]}</Badge>
                 </div>
                 <div>
@@ -124,7 +128,7 @@ export default function DocumentBankPage() {
                 </div>
                 <p className="text-[11px] text-slate-400 break-all bg-slate-50 p-2 rounded border">{doc.fileUrl}</p>
               </div>
-              <div className="border-t border-slate-100 pt-3 mt-3 flex items-center justify-between">
+              <div className="border-t border-slate-100 px-4 py-3 flex items-center justify-between">
                 <span className="text-[10px] font-bold text-brand-orange">{documentTypeLabels[doc.documentType]}</span>
                 <Button size="sm" variant="secondary" onClick={() => setEditingDocument(doc)}>
                   Sửa
@@ -165,7 +169,7 @@ export default function DocumentBankPage() {
 }
 
 function CreateDocumentModal({ curriculumId, onClose, onCreated }: { curriculumId: number; onClose: () => void; onCreated: () => void }) {
-  const [form, setForm] = useState({ title: "", description: "", documentType: "PDF" as CurriculumDocumentType, fileUrl: "", displayOrder: "" });
+  const [form, setForm] = useState({ title: "", description: "", documentType: "PDF" as CurriculumDocumentType, fileUrl: "", displayOrder: "", coverImageUrl: "" });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -183,7 +187,8 @@ function CreateDocumentModal({ curriculumId, onClose, onCreated }: { curriculumI
         description: form.description.trim() || undefined,
         documentType: form.documentType,
         fileUrl: form.fileUrl.trim(),
-        displayOrder: form.displayOrder ? Number(form.displayOrder) : undefined
+        displayOrder: form.displayOrder ? Number(form.displayOrder) : undefined,
+        coverImageUrl: form.coverImageUrl || undefined
       };
       await createCurriculumDocument(curriculumId, request);
       onCreated();
@@ -229,6 +234,16 @@ function CreateDocumentModal({ curriculumId, onClose, onCreated }: { curriculumI
           />
         </div>
         <div>
+          <label className={labelClass}>Ảnh bìa hiển thị (tùy chọn)</label>
+          <FileUploadField
+            value={form.coverImageUrl}
+            onChange={(url) => setForm({ ...form, coverImageUrl: url })}
+            onUpload={(file) => uploadMedia(file, "CURRICULUM_DOCUMENT")}
+            accept="image/*"
+            placeholder="Chọn ảnh bìa..."
+          />
+        </div>
+        <div>
           <label className={labelClass}>Thứ tự hiển thị</label>
           <input type="number" value={form.displayOrder} onChange={(e) => setForm({ ...form, displayOrder: e.target.value })} className={`${inputClass} w-32`} />
         </div>
@@ -259,7 +274,8 @@ function EditDocumentModal({
     title: doc.title,
     description: doc.description ?? "",
     displayOrder: String(doc.displayOrder),
-    status: doc.status
+    status: doc.status,
+    coverImageUrl: doc.coverImageUrl ?? ""
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -277,7 +293,8 @@ function EditDocumentModal({
         title: form.title.trim(),
         description: form.description.trim() || undefined,
         displayOrder: form.displayOrder ? Number(form.displayOrder) : undefined,
-        status: form.status
+        status: form.status,
+        coverImageUrl: form.coverImageUrl || undefined
       };
       await updateCurriculumDocument(doc.id, request);
       onSaved();
@@ -299,6 +316,16 @@ function EditDocumentModal({
         <div>
           <label className={labelClass}>Mô tả</label>
           <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} className={inputClass} />
+        </div>
+        <div>
+          <label className={labelClass}>Ảnh bìa hiển thị (tùy chọn)</label>
+          <FileUploadField
+            value={form.coverImageUrl}
+            onChange={(url) => setForm({ ...form, coverImageUrl: url })}
+            onUpload={(file) => uploadMedia(file, "CURRICULUM_DOCUMENT")}
+            accept="image/*"
+            placeholder="Chọn ảnh bìa..."
+          />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>

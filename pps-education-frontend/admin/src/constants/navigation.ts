@@ -14,6 +14,7 @@ import {
   Users
 } from "lucide-react";
 import type { ComponentType } from "react";
+import { UserRole } from "@/types";
 
 export interface NavItem {
   id: string;
@@ -21,6 +22,17 @@ export interface NavItem {
   path: string;
   icon: ComponentType<{ className?: string }>;
   requiredPermission?: string;
+  /**
+   * Cho vào theo VAI TRÒ (OR với requiredPermission, không phải AND) — dùng cho vài màn mà quyền
+   * truy cập được backend tính theo QUAN HỆ DỮ LIỆU (VD site_managers) chứ không qua 1 permission
+   * cụ thể nào (SITE_MANAGER hiện KHÔNG có permission riêng cho "Ý kiến phản hồi"; PARTNER_REP
+   * cũng vậy với "Kế hoạch giảng dạy/Báo cáo liên kết") — nếu chỉ gate bằng requiredPermission thì
+   * 2 role này sẽ bị ẩn mất mục họ vẫn cần dùng thật. Đã xác nhận với người dùng 2026-07-23 (sự cố
+   * vai trò tùy biến "Trưởng phòng đào tạo" thấy được các mục không liên quan vì mục đó KHÔNG gate
+   * gì cả — nay gate lại bằng permission thật (nếu có) + role thật cần dùng (nếu quyền không tồn tại
+   * ở tầng permission), không còn mục nào mở toang cho mọi vai trò như trước.
+   */
+  requiredRoleAny?: UserRole[];
 }
 
 export interface NavSection {
@@ -29,11 +41,19 @@ export interface NavSection {
   items: NavItem[];
 }
 
-/** Tra `requiredPermission` của 1 route theo path — dùng để chặn truy cập trực tiếp qua URL (không qua click Sidebar). */
-export function findRequiredPermissionForPath(pathname: string): string | undefined {
+/** true nếu 1 NavItem cho phép hiển thị/truy cập với (roleCodes, hasPermission) đang có — OR giữa requiredPermission và requiredRoleAny. */
+export function isNavItemAllowed(item: NavItem, roleCodes: string[], hasPermission: (permission?: string) => boolean): boolean {
+  if (!item.requiredPermission && !item.requiredRoleAny) return true;
+  if (item.requiredPermission && hasPermission(item.requiredPermission)) return true;
+  if (item.requiredRoleAny && item.requiredRoleAny.some((role) => roleCodes.includes(role))) return true;
+  return false;
+}
+
+/** Tra NavItem theo path — dùng để chặn truy cập trực tiếp qua URL (không qua click Sidebar). */
+export function findNavItemForPath(pathname: string): NavItem | undefined {
   for (const section of navSections) {
     const item = section.items.find((i) => i.path === pathname);
-    if (item) return item.requiredPermission;
+    if (item) return item;
   }
   return undefined;
 }
@@ -100,11 +120,13 @@ export const navSections: NavSection[] = [
     id: "academic",
     title: "QUẢN LÝ HỌC THUẬT",
     items: [
-      // Không gate requiredPermission: Giáo viên (không có academic.class.manage/academic.grade.manage) vẫn cần vào đây để điểm danh/nhập điểm/viết nhận xét cho lớp mình dạy.
-      { id: "acad-classes", label: "Quản lý lớp học (UC-18)", path: "/academic/classes", icon: GraduationCap },
+      // academic.class.manage: TEACHER/HEAD_ACADEMIC đều có sẵn permission này (xem UC-18) — không cần gate thêm role.
+      { id: "acad-classes", label: "Quản lý lớp học (UC-18)", path: "/academic/classes", icon: GraduationCap, requiredPermission: "academic.class.manage" },
       { id: "acad-syllabus", label: "Khung chương trình (UC-16/17)", path: "/academic/syllabus", icon: GraduationCap, requiredPermission: "academic.curriculum.manage" },
-      { id: "acad-grades", label: "Sổ điểm hệ thống (UC-19/20)", path: "/academic/grades", icon: Award },
-      { id: "acad-comments", label: "Nhận xét học viên (UC-21/22)", path: "/academic/comments", icon: Award }
+      // academic.grade.manage: TEACHER/HEAD_ACADEMIC có sẵn. SITE_MANAGER KHÔNG có permission điểm nào (công bố/xem lại điểm ở GradesPage tự nhận diện qua role, không qua permission) — phải gate thêm requiredRoleAny mới không mất quyền vào của Site Manager.
+      { id: "acad-grades", label: "Sổ điểm hệ thống (UC-19/20)", path: "/academic/grades", icon: Award, requiredPermission: "academic.grade.manage", requiredRoleAny: [UserRole.SITE_MANAGER] },
+      // academic.comment.write: TEACHER có sẵn (viết nhận xét). SITE_MANAGER duyệt nhận xét qua role check nội bộ trang, không có permission riêng.
+      { id: "acad-comments", label: "Nhận xét học viên (UC-21/22)", path: "/academic/comments", icon: Award, requiredPermission: "academic.comment.write", requiredRoleAny: [UserRole.SITE_MANAGER] }
     ]
   },
   {
@@ -133,15 +155,17 @@ export const navSections: NavSection[] = [
     items: [
       { id: "fac-campuses", label: "Điểm trường & HĐ (UC-36/36b)", path: "/facility/campuses", icon: Building2, requiredPermission: "facility.manage" },
       { id: "fac-rooms", label: "Phòng học & thiết bị (UC-37)", path: "/facility/rooms", icon: Building2, requiredPermission: "facility.room.manage" },
-      { id: "fac-feedback", label: "Ý kiến phản hồi (UC-38/39)", path: "/facility/feedback", icon: Building2 }
+      // Không có permission riêng — quyền xem/xử lý được backend tính qua bảng site_managers (đúng site đang phụ trách), không qua permission nào.
+      { id: "fac-feedback", label: "Ý kiến phản hồi (UC-38/39)", path: "/facility/feedback", icon: Building2, requiredRoleAny: [UserRole.SITE_MANAGER] }
     ]
   },
   {
     id: "partner",
     title: "PORTAL TRƯỜNG LIÊN KẾT",
     items: [
-      { id: "part-syllabus", label: "Kế hoạch giảng dạy (UC-28)", path: "/partner/syllabus", icon: ExternalLink },
-      { id: "part-portal", label: "Báo cáo liên kết (UC-29)", path: "/partner/portal", icon: ExternalLink }
+      // PARTNER_REP không có permission riêng — quyền xem được backend tính qua bảng site_managers (role_type=PARTNER_REP).
+      { id: "part-syllabus", label: "Kế hoạch giảng dạy (UC-28)", path: "/partner/syllabus", icon: ExternalLink, requiredRoleAny: [UserRole.PARTNER_REP] },
+      { id: "part-portal", label: "Báo cáo liên kết (UC-29)", path: "/partner/portal", icon: ExternalLink, requiredRoleAny: [UserRole.PARTNER_REP] }
     ]
   }
 ];

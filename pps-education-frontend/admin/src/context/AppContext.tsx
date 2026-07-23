@@ -2,7 +2,7 @@ import React, { createContext, useContext, useMemo, useState } from "react";
 import { UserRole } from "@/types";
 import { CurrentUserResponse, fetchCurrentUser, login as loginApi, loginWithGoogle as loginWithGoogleApi, logout as logoutApi } from "@/features/auth/api";
 import { getAccessToken } from "@/lib/tokenStorage";
-import { rolePriorityOrder } from "@/constants/roles";
+import { deriveCurrentRoleLabel, rolePriorityOrder } from "@/constants/roles";
 
 const CURRENT_USER_CACHE_KEY = "pps_current_user";
 
@@ -10,6 +10,8 @@ interface AppContextValue {
   isLoggedIn: boolean;
   currentUser: CurrentUserResponse | null;
   currentRole: UserRole;
+  /** Nhãn hiển thị Header/Sidebar — khác currentRole (enum cố định) vì hỗ trợ đúng cả vai trò tùy biến tạo qua UC-03. */
+  currentRoleLabel: string;
   selectedCampusId: string;
   sidebarOpen: boolean;
   setSelectedCampusId: (id: string) => void;
@@ -84,11 +86,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return currentUser?.permissions?.includes(requiredPermission) ?? false;
   };
 
+  const currentRoleLabel = currentUser ? deriveCurrentRoleLabel(currentUser.roleCodes) : deriveCurrentRoleLabel([]);
+
   const value = useMemo<AppContextValue>(
     () => ({
       isLoggedIn,
       currentUser,
       currentRole,
+      currentRoleLabel,
       selectedCampusId,
       sidebarOpen,
       setSelectedCampusId,
@@ -99,7 +104,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       logout,
       hasPermission
     }),
-    [isLoggedIn, currentUser, currentRole, selectedCampusId, sidebarOpen, loginNotice]
+    [isLoggedIn, currentUser, currentRole, currentRoleLabel, selectedCampusId, sidebarOpen, loginNotice]
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

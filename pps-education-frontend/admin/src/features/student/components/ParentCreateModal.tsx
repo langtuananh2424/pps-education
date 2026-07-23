@@ -3,6 +3,8 @@ import { Plus } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import AccountSelector, { AccountSelection } from "@/features/system-admin/components/AccountSelector";
 import { createParent, ParentResponse } from "../api";
+import AvatarUploadField from "@/components/ui/AvatarUploadField";
+import { uploadMedia } from "@/features/lms/api";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
@@ -20,7 +22,7 @@ interface ParentCreateModalProps {
  */
 export default function ParentCreateModal({ onClose, onCreated }: ParentCreateModalProps) {
   const [account, setAccount] = useState<AccountSelection>({ newAccount: { username: "", email: "", fullName: "", phone: "", password: "" } });
-  const [form, setForm] = useState({ occupation: "", workplace: "", address: "", notes: "" });
+  const [form, setForm] = useState({ occupation: "", workplace: "", address: "", notes: "", portraitUrl: "" });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitAttempted, setSubmitAttempted] = useState(false);
@@ -41,7 +43,8 @@ export default function ParentCreateModal({ onClose, onCreated }: ParentCreateMo
         occupation: form.occupation.trim() || undefined,
         workplace: form.workplace.trim() || undefined,
         address: form.address.trim() || undefined,
-        notes: form.notes.trim() || undefined
+        notes: form.notes.trim() || undefined,
+        portraitUrl: form.portraitUrl || undefined
       });
       onCreated(parent);
     } catch (err) {
@@ -65,6 +68,16 @@ export default function ParentCreateModal({ onClose, onCreated }: ParentCreateMo
           <div className="space-y-2">
             <span className="text-[10px] font-bold uppercase text-slate-500">Tài khoản</span>
             <AccountSelector value={account} onChange={setAccount} submitAttempted={submitAttempted} />
+          </div>
+
+          <div className="space-y-2 border-t border-slate-100 pt-4">
+            <span className="text-[10px] font-bold uppercase text-slate-500">Ảnh đại diện</span>
+            <AvatarUploadField
+              value={form.portraitUrl}
+              onChange={(url) => setForm({ ...form, portraitUrl: url })}
+              onUpload={(file) => uploadMedia(file, "PARENT")}
+              fallbackName={account.newAccount?.fullName || "Phụ huynh"}
+            />
           </div>
 
           <div className="space-y-3 border-t border-slate-100 pt-4">
