@@ -253,6 +253,7 @@ public class StudentService {
 
         Parent parent = new Parent();
         parent.setUser(user);
+        parent.setPortraitUrl(request.portraitUrl());
         parent.setOccupation(request.occupation());
         parent.setWorkplace(request.workplace());
         parent.setAddress(request.address());
@@ -280,6 +281,7 @@ public class StudentService {
     @Transactional
     public ParentResponse updateParent(Long id, UpdateParentRequest request, Long actorUserId) {
         Parent parent = getParentOrThrow(id);
+        parent.setPortraitUrl(request.portraitUrl());
         parent.setOccupation(request.occupation());
         parent.setWorkplace(request.workplace());
         parent.setAddress(request.address());
@@ -548,7 +550,7 @@ public class StudentService {
     private ParentResponse toResponse(Parent p) {
         return new ParentResponse(
                 p.getId(), p.getUser().getId(), p.getUser().getFullName(),
-                p.getOccupation(), p.getWorkplace(), p.getAddress(), p.getNotes());
+                p.getOccupation(), p.getWorkplace(), p.getAddress(), p.getNotes(), p.getPortraitUrl());
     }
 
     private ParentStudentResponse toResponse(ParentStudent ps) {

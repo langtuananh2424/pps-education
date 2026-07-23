@@ -63,6 +63,7 @@ public class CurriculumDocumentService {
         document.setDescription(request.description());
         document.setDocumentType(CurriculumDocument.DocumentType.valueOf(request.documentType()));
         document.setFileUrl(request.fileUrl());
+        document.setCoverImageUrl(request.coverImageUrl());
         document.setDisplayOrder(request.displayOrder() == null ? 0 : request.displayOrder());
         document.setCreatedBy(actor);
         document = curriculumDocumentRepository.save(document);
@@ -75,6 +76,7 @@ public class CurriculumDocumentService {
         CurriculumDocument document = documentOrThrow(id);
         document.setTitle(request.title());
         document.setDescription(request.description());
+        document.setCoverImageUrl(request.coverImageUrl());
         if (request.displayOrder() != null) {
             document.setDisplayOrder(request.displayOrder());
         }
@@ -134,6 +136,6 @@ public class CurriculumDocumentService {
         return new CurriculumDocumentResponse(
                 d.getId(), d.getCurriculum().getId(), d.getTitle(), d.getDescription(),
                 d.getDocumentType().name(), d.getFileUrl(), d.getDisplayOrder(), d.getStatus().name(),
-                d.getCreatedBy().getId());
+                d.getCreatedBy().getId(), d.getCoverImageUrl());
     }
 }

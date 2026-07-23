@@ -193,7 +193,7 @@ class StudentServiceTest extends AbstractIntegrationTest {
                 "Phụ Huynh Mới", null, "MatKhau@8kytu");
 
         ParentResponse response = studentService.createParent(
-                new CreateParentRequest(null, newAccount, "Kỹ sư", "FPT Software", "Hà Nội", null), staff.getId());
+                new CreateParentRequest(null, newAccount, "Kỹ sư", "FPT Software", "Hà Nội", null, null), staff.getId());
 
         assertThat(response.id()).isNotNull();
         User created = userRepository.findByUsername(newAccount.username()).orElseThrow();
@@ -211,14 +211,14 @@ class StudentServiceTest extends AbstractIntegrationTest {
                 "ph.both." + System.nanoTime(), "ph.both." + System.nanoTime() + "@pps.edu.vn", "Phụ Huynh Both", null, null);
 
         assertThatThrownBy(() -> studentService.createParent(
-                new CreateParentRequest(target.getId(), newAccount, null, null, null, null), staff.getId()))
+                new CreateParentRequest(target.getId(), newAccount, null, null, null, null, null), staff.getId()))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     void createParent_UC13_A_rejectsWhenNeitherUserIdNorNewAccountProvided() {
         assertThatThrownBy(() -> studentService.createParent(
-                new CreateParentRequest(null, null, null, null, null, null), staff.getId()))
+                new CreateParentRequest(null, null, null, null, null, null, null), staff.getId()))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -230,7 +230,7 @@ class StudentServiceTest extends AbstractIntegrationTest {
 
         User parentUser = newUser("parent.of.student");
         ParentResponse parent = studentService.createParent(
-                new CreateParentRequest(parentUser.getId(), null, "Kỹ sư", "FPT Software", "Hà Nội", null), staff.getId());
+                new CreateParentRequest(parentUser.getId(), null, "Kỹ sư", "FPT Software", "Hà Nội", null, null), staff.getId());
 
         var link = studentService.linkParent(student.id(),
                 new LinkParentRequest(parent.id(), "MOTHER", true, true, null));
@@ -248,7 +248,7 @@ class StudentServiceTest extends AbstractIntegrationTest {
                 baseStudentRequest(studentUser.getId(), LocalDate.of(2026, 1, 1)), staff.getId());
         User parentUser = newUser("parent.dup.link");
         ParentResponse parent = studentService.createParent(
-                new CreateParentRequest(parentUser.getId(), null, null, null, null, null), staff.getId());
+                new CreateParentRequest(parentUser.getId(), null, null, null, null, null, null), staff.getId());
         studentService.linkParent(student.id(), new LinkParentRequest(parent.id(), "FATHER", false, false, null));
 
         assertThatThrownBy(() -> studentService.linkParent(student.id(),
@@ -263,10 +263,10 @@ class StudentServiceTest extends AbstractIntegrationTest {
                 baseStudentRequest(studentUser.getId(), LocalDate.of(2026, 1, 1)), staff.getId());
         User parentUser1 = newUser("parent.primary.1");
         ParentResponse parent1 = studentService.createParent(
-                new CreateParentRequest(parentUser1.getId(), null, null, null, null, null), staff.getId());
+                new CreateParentRequest(parentUser1.getId(), null, null, null, null, null, null), staff.getId());
         User parentUser2 = newUser("parent.primary.2");
         ParentResponse parent2 = studentService.createParent(
-                new CreateParentRequest(parentUser2.getId(), null, null, null, null, null), staff.getId());
+                new CreateParentRequest(parentUser2.getId(), null, null, null, null, null, null), staff.getId());
         studentService.linkParent(student.id(), new LinkParentRequest(parent1.id(), "FATHER", true, false, null));
 
         assertThatThrownBy(() -> studentService.linkParent(student.id(),
@@ -278,10 +278,10 @@ class StudentServiceTest extends AbstractIntegrationTest {
     void searchParents_returnsAllParents_whenQueryBlank() {
         User parentUser1 = newUser("parent.searchall.1");
         ParentResponse parent1 = studentService.createParent(
-                new CreateParentRequest(parentUser1.getId(), null, null, null, null, null), staff.getId());
+                new CreateParentRequest(parentUser1.getId(), null, null, null, null, null, null), staff.getId());
         User parentUser2 = newUser("parent.searchall.2");
         ParentResponse parent2 = studentService.createParent(
-                new CreateParentRequest(parentUser2.getId(), null, null, null, null, null), staff.getId());
+                new CreateParentRequest(parentUser2.getId(), null, null, null, null, null, null), staff.getId());
 
         assertThat(studentService.searchParents(null))
                 .extracting(ParentResponse::id)
@@ -292,7 +292,7 @@ class StudentServiceTest extends AbstractIntegrationTest {
     void searchParents_filtersByFullNameQuery() {
         User parentUser = newUser("parent.uniquename." + System.nanoTime());
         ParentResponse parent = studentService.createParent(
-                new CreateParentRequest(parentUser.getId(), null, null, null, null, null), staff.getId());
+                new CreateParentRequest(parentUser.getId(), null, null, null, null, null, null), staff.getId());
 
         assertThat(studentService.searchParents(parentUser.getFullName()))
                 .extracting(ParentResponse::id)
@@ -303,7 +303,7 @@ class StudentServiceTest extends AbstractIntegrationTest {
     void getParentById_returnsParentDetails() {
         User parentUser = newUser("parent.getbyid");
         ParentResponse created = studentService.createParent(
-                new CreateParentRequest(parentUser.getId(), null, "Kỹ sư", "FPT Software", "Hà Nội", null), staff.getId());
+                new CreateParentRequest(parentUser.getId(), null, "Kỹ sư", "FPT Software", "Hà Nội", null, null), staff.getId());
 
         ParentResponse fetched = studentService.getParentById(created.id());
 

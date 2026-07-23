@@ -37,5 +37,6 @@ public record CreateEmployeeRequest(
         Long departmentId,
         Boolean isManagement,
         Boolean isDefaultShiftRequired,
-        @NotNull LocalDate hireDate
+        @NotNull LocalDate hireDate,
+        String portraitUrl
 ) {}

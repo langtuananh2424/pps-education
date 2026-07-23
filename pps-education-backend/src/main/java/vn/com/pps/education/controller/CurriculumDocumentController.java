@@ -35,7 +35,7 @@ public class CurriculumDocumentController {
                                                                         @AuthenticationPrincipal AuthenticatedUser actor) {
         CreateCurriculumDocumentRequest merged = new CreateCurriculumDocumentRequest(
                 curriculumId, request.title(), request.description(), request.documentType(),
-                request.fileUrl(), request.displayOrder());
+                request.fileUrl(), request.displayOrder(), request.coverImageUrl());
         return ResponseEntity.ok(curriculumDocumentService.createDocument(merged, actor.userId()));
     }
 

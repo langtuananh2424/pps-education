@@ -251,7 +251,7 @@ public class ParentBatchImportService {
         Parent parent = parentRepository.findByUserId(parentUser.getId())
                 .orElseGet(() -> {
                     var response = studentService.createParent(
-                            new CreateParentRequest(parentUser.getId(), null, null, null, null, null), actorUserId);
+                            new CreateParentRequest(parentUser.getId(), null, null, null, null, null, null), actorUserId);
                     return parentRepository.findById(response.id()).orElseThrow();
                 });
         return new ParentAndCredential(parent, parentUser.getUsername(), tempPasswordHolder[0]);

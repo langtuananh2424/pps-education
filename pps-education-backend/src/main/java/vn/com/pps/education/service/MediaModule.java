@@ -15,11 +15,19 @@ package vn.com.pps.education.service;
  * nhận thêm PDF/Word/Excel/video. LMS_QUESTION (Question.imageUrl, UC-40)
  * cũng bật `acceptsDocuments=true` (2026-07-22) để câu tự luận nhận file
  * PDF/ảnh; video đi kèm theo logic chung không dùng ở FE nhưng vô hại.
+ *
+ * STUDENT/PARENT/EMPLOYEE: bổ sung ngoài SDD gốc, đã xác nhận với người
+ * dùng (2026-07-23) - ảnh đại diện (students/parents/employees.
+ * portrait_url, V48), đúng như dự kiến ghi chú ở trên ("ảnh đại diện HRM
+ * sau này"). `acceptsDocuments=false` vì chỉ nhận ảnh, không cần PDF/video.
  */
 public enum MediaModule {
     LMS_QUESTION("lms/questions", true),
     CURRICULUM_DOCUMENT("lms/curriculum-documents", true),
-    LESSON_MATERIAL("lms/lesson-materials", true);
+    LESSON_MATERIAL("lms/lesson-materials", true),
+    STUDENT("profiles/students", false),
+    PARENT("profiles/parents", false),
+    EMPLOYEE("profiles/employees", false);
 
     private final String folderPrefix;
     private final boolean acceptsDocuments;

@@ -15,5 +15,6 @@ public record CreateCurriculumDocumentRequest(
         String description,
         @NotBlank String documentType,
         @NotBlank String fileUrl,
-        Integer displayOrder
+        Integer displayOrder,
+        String coverImageUrl
 ) {}

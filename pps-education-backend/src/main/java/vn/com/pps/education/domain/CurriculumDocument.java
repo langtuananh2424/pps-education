@@ -48,6 +48,10 @@ public class CurriculumDocument extends BaseAuditEntity {
     @Column(name = "file_url", nullable = false, length = 1000)
     private String fileUrl;
 
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (2026-07-23, V48) — ảnh bìa hiển thị khi liệt kê kho tài liệu, độc lập với fileUrl. */
+    @Column(name = "cover_image_url", length = 500)
+    private String coverImageUrl;
+
     @Column(name = "display_order", nullable = false)
     private int displayOrder = 0;
 

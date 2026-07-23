@@ -128,6 +128,7 @@ public class EmployeeService {
         employee.setIdCardNumber(request.idCardNumber());
         employee.setIdCardIssuedDate(request.idCardIssuedDate());
         employee.setIdCardIssuedPlace(request.idCardIssuedPlace());
+        employee.setPortraitUrl(request.portraitUrl());
         employee.setPermanentAddress(request.permanentAddress());
         employee.setCurrentAddress(request.currentAddress());
         employee.setBankAccountNumber(request.bankAccountNumber());
@@ -165,6 +166,7 @@ public class EmployeeService {
         employee.setIdCardNumber(request.idCardNumber());
         employee.setIdCardIssuedDate(request.idCardIssuedDate());
         employee.setIdCardIssuedPlace(request.idCardIssuedPlace());
+        employee.setPortraitUrl(request.portraitUrl());
         employee.setPermanentAddress(request.permanentAddress());
         employee.setCurrentAddress(request.currentAddress());
         employee.setBankAccountNumber(request.bankAccountNumber());
@@ -417,7 +419,8 @@ public class EmployeeService {
                 e.isDefaultShiftRequired(),
                 e.getHireDate(),
                 e.getTerminationDate(),
-                e.getStatus().name());
+                e.getStatus().name(),
+                e.getPortraitUrl());
     }
 
     private EmploymentContractResponse toResponse(EmploymentContract c) {
