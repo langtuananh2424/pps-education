@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import vn.com.pps.education.dto.AddTaskAttachmentRequest;
 import vn.com.pps.education.dto.AddTaskCommentRequest;
+import vn.com.pps.education.dto.CancelTaskRequest;
 import vn.com.pps.education.dto.CreateTaskRequest;
 import vn.com.pps.education.dto.ReassignTaskRequest;
 import vn.com.pps.education.dto.TaskAssignmentResponse;
@@ -35,10 +36,19 @@ public class TaskController {
     }
 
     @PostMapping("/api/tasks")
-    @PreAuthorize("hasPermission(null, 'task.create')")
+    @PreAuthorize("hasPermission(null, 'task.assign') or hasPermission(null, 'task.manage')")
     public ResponseEntity<TaskResponse> createTask(@Valid @RequestBody CreateTaskRequest request,
                                                      @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(taskService.createTask(request, actor.userId()));
+    }
+
+    /** UC-06/07 (bổ sung): hủy công việc (CANCELLED thay vì xóa) rồi giao việc mới — người giao hoặc task.manage. */
+    @PostMapping("/api/tasks/{id}/cancel")
+    @PreAuthorize("hasPermission(null, 'task.assign') or hasPermission(null, 'task.manage')")
+    public ResponseEntity<TaskResponse> cancelTask(@PathVariable Long id,
+                                                    @RequestBody(required = false) CancelTaskRequest request,
+                                                    @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(taskService.cancelTask(id, request, actor.userId()));
     }
 
     @GetMapping("/api/tasks/{id}")
@@ -51,7 +61,18 @@ public class TaskController {
         return ResponseEntity.ok(taskService.listTasksCreatedByMe(actor.userId()));
     }
 
+    /**
+     * UC-06/07 (bổ sung): tổng quan công việc 2 tầng — task.overview.company → toàn công ty;
+     * trưởng phòng → việc của phòng mình; không có gì → 403 (FE fallback my-assignments).
+     * Phân quyền nằm trong Service (không @PreAuthorize) vì tầng "trưởng phòng" theo dữ liệu head_user_id.
+     */
+    @GetMapping("/api/tasks/overview")
+    public ResponseEntity<List<TaskResponse>> listOverview(@AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(taskService.listOverview(actor.userId()));
+    }
+
     @GetMapping("/api/tasks/my-assignments")
+    @PreAuthorize("hasPermission(null, 'task.receive') or hasPermission(null, 'task.manage')")
     public ResponseEntity<List<TaskAssignmentResponse>> listMyAssignments(@AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(taskService.listMyAssignments(actor.userId()));
     }
@@ -63,6 +84,7 @@ public class TaskController {
     }
 
     @PutMapping("/api/task-assignments/{id}/status")
+    @PreAuthorize("hasPermission(null, 'task.receive') or hasPermission(null, 'task.assign') or hasPermission(null, 'task.manage')")
     public ResponseEntity<TaskAssignmentResponse> updateAssignmentStatus(@PathVariable Long id,
                                                                           @Valid @RequestBody UpdateAssignmentStatusRequest request,
                                                                           @AuthenticationPrincipal AuthenticatedUser actor) {
@@ -71,7 +93,7 @@ public class TaskController {
 
     /** UC-07 A3: người giao việc giao lại phân công đã bị từ chối cho nhân sự khác. */
     @PostMapping("/api/tasks/{id}/reassign")
-    @PreAuthorize("hasPermission(null, 'task.create')")
+    @PreAuthorize("hasPermission(null, 'task.assign') or hasPermission(null, 'task.manage')")
     public ResponseEntity<TaskAssignmentResponse> reassign(@PathVariable Long id,
                                                             @Valid @RequestBody ReassignTaskRequest request,
                                                             @AuthenticationPrincipal AuthenticatedUser actor) {
