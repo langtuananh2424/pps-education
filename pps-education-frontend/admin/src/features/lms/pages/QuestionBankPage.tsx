@@ -26,6 +26,8 @@ import {
 } from "../api";
 import QuestionEditorForm from "../components/QuestionEditorForm";
 import Button from "@/components/ui/Button";
+import { useToast } from "@/lib/useToast";
+import Toast from "@/components/ui/Toast";
 
 interface FlatQuestionRow {
   question: QuestionResponse;
@@ -71,6 +73,7 @@ export default function QuestionBankPage() {
   const [selectedQuestionId, setSelectedQuestionId] = useState<number | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingRow, setEditingRow] = useState<FlatQuestionRow | null>(null);
+  const { message: toastMessage, showToast } = useToast();
 
   const loadAll = () => {
     setLoading(true);
@@ -325,6 +328,7 @@ export default function QuestionBankPage() {
           onCreated={(question, bank, curriculum) => {
             upsertRow(question, bank, curriculum);
             setShowCreateModal(false);
+            showToast("Đã tạo câu hỏi thành công!");
           }}
         />
       )}
@@ -349,6 +353,7 @@ export default function QuestionBankPage() {
                 onCreated={(updated) => {
                   upsertRow(updated, editingRow.bank, editingRow.curriculum);
                   setEditingRow(null);
+                  showToast("Đã lưu câu hỏi thành công!");
                 }}
                 onCancel={() => setEditingRow(null)}
               />
@@ -356,6 +361,8 @@ export default function QuestionBankPage() {
           </div>
         </div>
       )}
+
+      <Toast message={toastMessage} />
     </div>
   );
 }

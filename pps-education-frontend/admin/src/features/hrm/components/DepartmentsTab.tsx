@@ -4,6 +4,8 @@ import { ApiError } from "@/lib/apiClient";
 import { searchUsers, UserListItemResponse } from "@/features/system-admin/api";
 import { createDepartment, deleteDepartment, DepartmentResponse, listDepartments, updateDepartment } from "../api";
 import Button from "@/components/ui/Button";
+import { useToast } from "@/lib/useToast";
+import Toast from "@/components/ui/Toast";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-xs p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
@@ -16,6 +18,7 @@ export default function DepartmentsTab() {
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const { message: toastMessage, showToast } = useToast();
 
   const load = () => {
     setLoading(true);
@@ -32,6 +35,7 @@ export default function DepartmentsTab() {
     try {
       await deleteDepartment(id);
       load();
+      showToast("Đã xóa phòng ban thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Xóa phòng ban thất bại.");
     }
@@ -67,6 +71,7 @@ export default function DepartmentsTab() {
           onDone={() => {
             setCreating(false);
             load();
+            showToast("Đã tạo phòng ban thành công!");
           }}
           onCancel={() => setCreating(false)}
         />
@@ -85,9 +90,14 @@ export default function DepartmentsTab() {
           onEdit={setEditingId}
           onCancelEdit={() => setEditingId(null)}
           onDelete={handleDelete}
-          onChanged={load}
+          onChanged={() => {
+            load();
+            showToast("Đã lưu phòng ban thành công!");
+          }}
         />
       )}
+
+      <Toast message={toastMessage} />
     </div>
   );
 }

@@ -2,6 +2,11 @@ import React, { useEffect, useState } from "react";
 import { Flag, Plus } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { CreateStudentCommentRequest, GradePeriodResponse, StudentCommentResponse, listGradePeriods, writeComment } from "../api";
+import { useToast } from "@/lib/useToast";
+import Toast from "@/components/ui/Toast";
+import DatePicker from "@/components/ui/DatePicker";
+
+const TODAY_ISO = new Date().toISOString().slice(0, 10);
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs px-2.5 py-1.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold tracking-wider text-slate-500";
@@ -24,6 +29,7 @@ export default function CommentForm({ classId, studentId, curriculumId, onSubmit
   const [isWarning, setIsWarning] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { message: toastMessage, showToast } = useToast();
 
   useEffect(() => {
     listGradePeriods(curriculumId).then(setPeriods).catch(() => undefined);
@@ -54,6 +60,7 @@ export default function CommentForm({ classId, studentId, curriculumId, onSubmit
       onSubmitted(created);
       setContent("");
       setIsWarning(false);
+      showToast("Đã lưu nhận xét thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Viết nhận xét thất bại.");
     } finally {
@@ -87,7 +94,7 @@ export default function CommentForm({ classId, studentId, curriculumId, onSubmit
 
       <div className="space-y-1">
         <label className={labelClass}>Ngày nhận xét</label>
-        <input type="date" value={commentDate} onChange={(e) => setCommentDate(e.target.value)} className={inputClass} required />
+        <DatePicker value={commentDate} onChange={setCommentDate} max={TODAY_ISO} />
       </div>
 
       <div className="space-y-1">
@@ -131,6 +138,8 @@ export default function CommentForm({ classId, studentId, curriculumId, onSubmit
         <Plus className="w-4 h-4 text-brand-yellow" />
         {submitting ? "Đang lưu..." : "Lưu nhận xét (nháp)"}
       </button>
+
+      <Toast message={toastMessage} />
     </form>
   );
 }

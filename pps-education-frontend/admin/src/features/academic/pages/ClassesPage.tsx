@@ -6,6 +6,8 @@ import { ClassResponse, listClassTeachers, listClasses } from "../api";
 import ClassListPanel from "../components/ClassListPanel";
 import ClassDetailPanel from "../components/ClassDetailPanel";
 import ClassFormModal from "../components/ClassFormModal";
+import { useToast } from "@/lib/useToast";
+import Toast from "@/components/ui/Toast";
 
 export default function ClassesPage() {
   const { selectedCampusId, hasPermission, currentUser } = useApp();
@@ -16,6 +18,7 @@ export default function ClassesPage() {
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const { message: toastMessage, showToast } = useToast();
 
   /**
    * UC-18 Precondition: GV chỉ xếp/xem lớp mình được phân công dạy (class_teachers),
@@ -88,9 +91,12 @@ export default function ClassesPage() {
             setCreateOpen(false);
             setSelectedId(created.id);
             load();
+            showToast("Đã tạo lớp học thành công!");
           }}
         />
       )}
+
+      <Toast message={toastMessage} />
     </div>
   );
 }

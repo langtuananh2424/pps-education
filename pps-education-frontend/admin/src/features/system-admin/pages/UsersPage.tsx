@@ -6,6 +6,8 @@ import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import EmptyState from "@/components/ui/EmptyState";
 import { ApiError } from "@/lib/apiClient";
+import { useToast } from "@/lib/useToast";
+import Toast from "@/components/ui/Toast";
 import { DepartmentResponse, listDepartments } from "@/features/hrm/api";
 import {
   changeUserPassword,
@@ -282,6 +284,7 @@ function UserDetailModal({
   const [newPassword, setNewPassword] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
   const [changingStatus, setChangingStatus] = useState(false);
+  const { message: toastMessage, showToast } = useToast();
 
   const loadDetail = (id: number) => {
     setLoading(true);
@@ -318,6 +321,7 @@ function UserDetailModal({
       });
       loadDetail(detail.id);
       onChanged();
+      showToast("Đã lưu hồ sơ thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Cập nhật hồ sơ thất bại.");
     } finally {
@@ -336,6 +340,7 @@ function UserDetailModal({
       await updateUserStatus(detail.id, newStatus);
       loadDetail(detail.id);
       onChanged();
+      showToast(`Đã chuyển tài khoản sang trạng thái "${statusLabels[newStatus]}"!`);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Đổi trạng thái thất bại.");
     } finally {
@@ -349,12 +354,16 @@ function UserDetailModal({
       setError("Mật khẩu mới phải từ 8 ký tự trở lên.");
       return;
     }
+    if (!window.confirm(`Xác nhận đặt mật khẩu mới cho tài khoản "${detail.username}"? Tài khoản này có thể đăng nhập ngay bằng mật khẩu mới, mật khẩu cũ sẽ không còn dùng được.`)) {
+      return;
+    }
     setChangingPassword(true);
     setError(null);
     try {
       await changeUserPassword(detail.id, newPassword.trim());
       setNewPassword("");
       loadDetail(detail.id);
+      showToast("Đã đặt lại mật khẩu thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Đặt lại mật khẩu thất bại.");
     } finally {
@@ -395,7 +404,10 @@ function UserDetailModal({
           </p>
 
           <form onSubmit={handleSaveProfile} className="space-y-3 border-t border-slate-100 pt-4">
-            <span className="text-[10px] font-bold uppercase text-slate-500">Cập nhật hồ sơ (UC-49)</span>
+            <div>
+              <span className="text-[10px] font-bold uppercase text-slate-500">Cập nhật hồ sơ (UC-49)</span>
+              <p className="text-[10px] text-slate-400">Chỉ đổi họ tên/số điện thoại hiển thị của tài khoản này.</p>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={labelClass}>Họ tên *</label>
@@ -412,9 +424,12 @@ function UserDetailModal({
           </form>
 
           <form onSubmit={handleChangePassword} className="space-y-2 border-t border-slate-100 pt-4">
-            <span className="text-[10px] font-bold uppercase text-slate-500 flex items-center gap-1">
-              <KeyRound className="w-3 h-3" /> Đặt lại mật khẩu (UC-45)
-            </span>
+            <div>
+              <span className="text-[10px] font-bold uppercase text-slate-500 flex items-center gap-1">
+                <KeyRound className="w-3 h-3" /> Đặt lại mật khẩu (UC-45)
+              </span>
+              <p className="text-[10px] text-slate-400">Admin đặt thẳng mật khẩu mới cho tài khoản này, có hiệu lực ngay — không cần biết mật khẩu cũ (dùng khi người dùng quên mật khẩu).</p>
+            </div>
             <div className="flex gap-2">
               <input
                 type="password"
@@ -423,14 +438,17 @@ function UserDetailModal({
                 placeholder="Mật khẩu mới (tối thiểu 8 ký tự)"
                 className={inputClass}
               />
-              <Button type="submit" variant="secondary" size="sm" disabled={changingPassword}>
-                {changingPassword ? "Đang lưu..." : "Đặt lại"}
+              <Button type="submit" variant="secondary" size="sm" disabled={changingPassword} className="whitespace-nowrap">
+                {changingPassword ? "Đang lưu..." : "Đặt lại mật khẩu"}
               </Button>
             </div>
           </form>
 
           <div className="border-t border-slate-100 pt-4 flex flex-wrap gap-2">
-            <span className="text-[10px] font-bold uppercase text-slate-500 w-full">Khóa/Mở khóa (UC-47)</span>
+            <div className="w-full">
+              <span className="text-[10px] font-bold uppercase text-slate-500">Khóa/Mở khóa (UC-47)</span>
+              <p className="text-[10px] text-slate-400">Đổi trạng thái đăng nhập của tài khoản — ngừng/tạm khóa sẽ chặn đăng nhập ngay.</p>
+            </div>
             {detail.status !== "ACTIVE" && (
               <Button size="sm" variant="secondary" disabled={changingStatus} onClick={() => handleToggleStatus("ACTIVE")}>
                 <Unlock className="w-3.5 h-3.5" /> Mở khóa (ACTIVE)
@@ -449,6 +467,8 @@ function UserDetailModal({
           </div>
         </div>
       )}
+
+      <Toast message={toastMessage} />
     </Modal>
   );
 }

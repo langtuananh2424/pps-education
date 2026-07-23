@@ -1,21 +1,53 @@
-import React, { useEffect, useState } from "react";
-import { LayoutGrid, Table2 } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import { LayoutGrid, Plus, Table2 } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
-import { listMyAssignments, TaskAssignmentResponse } from "../api";
+import { useApp } from "@/context/AppContext";
+import { listMyAssignments, listOverview, listTasksCreatedByMe, TaskAssignmentResponse, TaskResponse, TaskStatus } from "../api";
 import AssignmentKanbanBoard from "../components/AssignmentKanbanBoard";
 import AssignmentSheetView from "../components/AssignmentSheetView";
 import AssignmentDetailModal from "../components/AssignmentDetailModal";
+import CreateTaskModal from "../components/CreateTaskModal";
+import CreatedTaskDetailModal from "../components/CreatedTaskDetailModal";
+import { useToast } from "@/lib/useToast";
+import Toast from "@/components/ui/Toast";
+import DatePicker from "@/components/ui/DatePicker";
 
 type Tab = "assigned-to-me" | "assigned-by-me";
 type ViewMode = "kanban" | "sheet";
 
+const TASK_STATUS_META: Record<TaskStatus, { label: string; badge: string }> = {
+  OPEN: { label: "Đang mở", badge: "bg-slate-100 text-slate-600" },
+  IN_PROGRESS: { label: "Đang làm", badge: "bg-amber-50 text-amber-600" },
+  COMPLETED: { label: "Hoàn thành", badge: "bg-emerald-50 text-emerald-600" },
+  CANCELLED: { label: "Đã hủy", badge: "bg-slate-100 text-slate-400" },
+  OVERDUE: { label: "Quá hạn", badge: "bg-rose-50 text-rose-600" }
+};
+
 export default function TaskWorkflowPage() {
+  // UC-06 (V47): task.create cũ đã tách thành task.assign (giao việc)/task.manage (quản trị cao nhất).
+  // Nhân viên/Giáo viên thường (chỉ có task.receive) không có quyền này — tab "Việc tôi giao" + nút
+  // "Giao việc mới" phải ẩn hẳn, không chỉ chặn lúc submit (BE đã chặn đúng ở createTask).
+  const { hasPermission } = useApp();
+  const canCreateTask = hasPermission("task.assign") || hasPermission("task.manage");
+  // true nếu đang xem tổng quan công ty/phòng ban (GET /api/tasks/overview) — false nếu fallback về
+  // "chỉ việc chính mình tự tạo" (actor có task.assign nhưng KHÔNG làm trưởng phòng nào, BE 403 overview).
+  const [isOverviewScope, setIsOverviewScope] = useState(false);
   const [tab, setTab] = useState<Tab>("assigned-to-me");
   const [view, setView] = useState<ViewMode>("kanban");
   const [assignments, setAssignments] = useState<TaskAssignmentResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<TaskAssignmentResponse | null>(null);
+  // Lọc lịch sử theo ngày được giao (assignedAt) — field duy nhất luôn có giá trị (không như startedAt/completedAt chỉ có khi đã xử lý).
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+
+  const [createdTasks, setCreatedTasks] = useState<TaskResponse[]>([]);
+  const [createdLoading, setCreatedLoading] = useState(true);
+  const [createdError, setCreatedError] = useState<string | null>(null);
+  const [selectedTask, setSelectedTask] = useState<TaskResponse | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const { message: toastMessage, showToast } = useToast();
 
   const load = () => {
     setLoading(true);
@@ -25,6 +57,42 @@ export default function TaskWorkflowPage() {
       .finally(() => setLoading(false));
   };
   useEffect(load, []);
+
+  const loadCreated = () => {
+    if (!canCreateTask) {
+      setCreatedLoading(false);
+      return;
+    }
+    setCreatedLoading(true);
+    setCreatedError(null);
+    listOverview()
+      .then((tasks) => {
+        setIsOverviewScope(true);
+        setCreatedTasks(tasks);
+      })
+      .catch((err) => {
+        if (err instanceof ApiError && err.status === 403) {
+          // Có task.assign nhưng không phải trưởng phòng nào + không có task.overview.company —
+          // BE chặn đúng chủ ý (xem TaskService.listOverview) — quay về "chỉ việc chính mình tự giao".
+          setIsOverviewScope(false);
+          return listTasksCreatedByMe().then(setCreatedTasks);
+        }
+        throw err;
+      })
+      .catch((err) => setCreatedError(err instanceof ApiError ? err.message : "Không tải được danh sách việc đã giao."))
+      .finally(() => setCreatedLoading(false));
+  };
+  useEffect(loadCreated, [canCreateTask]);
+
+  const filteredAssignments = useMemo(() => {
+    if (!dateFrom && !dateTo) return assignments;
+    return assignments.filter((a) => {
+      const assignedDate = a.assignedAt.slice(0, 10);
+      if (dateFrom && assignedDate < dateFrom) return false;
+      if (dateTo && assignedDate > dateTo) return false;
+      return true;
+    });
+  }, [assignments, dateFrom, dateTo]);
 
   return (
     <div className="space-y-6">
@@ -38,7 +106,7 @@ export default function TaskWorkflowPage() {
           {(
             [
               ["assigned-to-me", "Việc tôi được giao"],
-              ["assigned-by-me", "Việc tôi giao"]
+              ...(canCreateTask ? ([["assigned-by-me", "Việc tôi giao"]] as const) : [])
             ] as const
           ).map(([key, label]) => (
             <button
@@ -53,7 +121,7 @@ export default function TaskWorkflowPage() {
           ))}
         </div>
 
-        {tab === "assigned-to-me" && (
+        {tab === "assigned-to-me" ? (
           <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1 shrink-0">
             <button
               onClick={() => setView("kanban")}
@@ -70,6 +138,13 @@ export default function TaskWorkflowPage() {
               <Table2 className="w-4 h-4" />
             </button>
           </div>
+        ) : (
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center gap-1.5 bg-brand-red hover:bg-brand-red/90 text-white text-xs font-bold px-3.5 py-2 rounded-lg shrink-0"
+          >
+            <Plus className="w-4 h-4" /> Giao việc mới
+          </button>
         )}
       </div>
 
@@ -77,19 +152,77 @@ export default function TaskWorkflowPage() {
         <>
           {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[10px] uppercase font-bold text-slate-400">Lọc theo ngày được giao:</span>
+            <div className="w-36">
+              <DatePicker value={dateFrom} onChange={setDateFrom} max={dateTo || undefined} />
+            </div>
+            <span className="text-xs text-slate-400">đến</span>
+            <div className="w-36">
+              <DatePicker value={dateTo} onChange={setDateTo} min={dateFrom || undefined} />
+            </div>
+            {(dateFrom || dateTo) && (
+              <button
+                onClick={() => {
+                  setDateFrom("");
+                  setDateTo("");
+                }}
+                className="text-[11px] font-semibold text-brand-red hover:underline"
+              >
+                Xóa lọc
+              </button>
+            )}
+            <span className="text-[11px] text-slate-400 ml-auto">{filteredAssignments.length}/{assignments.length} việc</span>
+          </div>
+
           {loading ? (
             <p className="text-xs text-slate-500">Đang tải...</p>
           ) : view === "kanban" ? (
-            <AssignmentKanbanBoard assignments={assignments} onSelect={setSelected} />
+            <AssignmentKanbanBoard assignments={filteredAssignments} onSelect={setSelected} />
           ) : (
-            <AssignmentSheetView assignments={assignments} onSelect={setSelected} />
+            <AssignmentSheetView assignments={filteredAssignments} onSelect={setSelected} />
           )}
         </>
       ) : (
-        <div className="bg-amber-50 border border-amber-100 rounded-xl p-5 text-xs text-amber-700">
-          Tab "Việc tôi giao" (Kanban + bảng cho người quản lý theo dõi toàn bộ việc đã giao) đang chờ Backend bổ sung 1 endpoint
-          để lấy được danh sách phân công theo từng người nhận (cần để duyệt/từ chối kết quả) — sẽ hoàn thiện ngay sau khi có.
-        </div>
+        <>
+          {createdError && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{createdError}</div>}
+
+          {!createdLoading && (
+            <p className="text-[11px] text-slate-400 italic">
+              {isOverviewScope
+                ? "Đang xem tổng quan toàn bộ việc thuộc phạm vi của bạn (phòng ban mình làm trưởng, hoặc toàn công ty)."
+                : "Chỉ đang xem việc do chính bạn tự giao (chưa được gán làm trưởng phòng nào)."}
+            </p>
+          )}
+
+          {createdLoading ? (
+            <p className="text-xs text-slate-500">Đang tải...</p>
+          ) : createdTasks.length === 0 ? (
+            <div className="bg-white border border-slate-200 rounded-xl p-10 text-center text-xs text-slate-400 italic">
+              Chưa giao việc nào — bấm "Giao việc mới" để bắt đầu.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {createdTasks.map((t) => {
+                const meta = TASK_STATUS_META[t.status];
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => setSelectedTask(t)}
+                    className="text-left bg-white border border-slate-200 hover:border-brand-red/40 rounded-xl p-4 space-y-1.5 transition-colors"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-bold text-slate-800 text-sm">{t.title}</span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${meta.badge}`}>{meta.label}</span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 font-mono">{t.taskCode}</p>
+                    {t.dueAt && <p className="text-[11px] text-slate-500">Hạn: {new Date(t.dueAt).toLocaleString("vi-VN")}</p>}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </>
       )}
 
       {selected && (
@@ -102,6 +235,23 @@ export default function TaskWorkflowPage() {
           }}
         />
       )}
+
+      {showCreateModal && (
+        <CreateTaskModal
+          onClose={() => setShowCreateModal(false)}
+          onCreated={() => {
+            setShowCreateModal(false);
+            loadCreated();
+            showToast("Đã giao việc mới thành công!");
+          }}
+        />
+      )}
+
+      {selectedTask && (
+        <CreatedTaskDetailModal task={selectedTask} onClose={() => setSelectedTask(null)} onTaskChanged={loadCreated} />
+      )}
+
+      <Toast message={toastMessage} />
     </div>
   );
 }

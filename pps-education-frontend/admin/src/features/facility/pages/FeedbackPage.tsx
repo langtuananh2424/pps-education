@@ -13,6 +13,8 @@ import {
 import Card from "@/components/ui/Card";
 import Badge, { BadgeVariant } from "@/components/ui/Badge";
 import { cn } from "@/lib/cn";
+import { useToast } from "@/lib/useToast";
+import Toast from "@/components/ui/Toast";
 
 const feedbackTypeLabels: Record<PartnerFeedbackResponse["feedbackType"], string> = {
   TEACHER: "Giáo viên",
@@ -44,6 +46,7 @@ export default function FeedbackPage() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [resolutionText, setResolutionText] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const { message: toastMessage, showToast } = useToast();
 
   const load = () => {
     setLoading(true);
@@ -62,12 +65,13 @@ export default function FeedbackPage() {
   const siteName = (siteId: number) => sites.find((s) => s.id === siteId)?.name ?? `Điểm trường #${siteId}`;
   const selectedTicket = tickets.find((t) => t.id === selectedId) ?? null;
 
-  const runAction = async (action: () => Promise<PartnerFeedbackResponse>) => {
+  const runAction = async (action: () => Promise<PartnerFeedbackResponse>, successMessage: string) => {
     setSubmitting(true);
     setError(null);
     try {
       const updated = await action();
       setTickets((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+      showToast(successMessage);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Cập nhật phản hồi thất bại.");
     } finally {
@@ -78,7 +82,7 @@ export default function FeedbackPage() {
   const handleResolve = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedTicket || !resolutionText.trim()) return;
-    runAction(() => resolvePartnerFeedback(selectedTicket.id, resolutionText.trim())).then(() => setResolutionText(""));
+    runAction(() => resolvePartnerFeedback(selectedTicket.id, resolutionText.trim()), "Đã ghi nhận phương án giải quyết thành công!").then(() => setResolutionText(""));
   };
 
   return (
@@ -160,7 +164,7 @@ export default function FeedbackPage() {
               {selectedTicket.status === "NEW" && (
                 <button
                   disabled={submitting}
-                  onClick={() => runAction(() => startProcessingPartnerFeedback(selectedTicket.id))}
+                  onClick={() => runAction(() => startProcessingPartnerFeedback(selectedTicket.id), "Đã bắt đầu xử lý thành công!")}
                   className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs py-2 rounded-lg disabled:opacity-50"
                 >
                   {submitting ? "Đang xử lý..." : "Bắt đầu xử lý"}
@@ -195,7 +199,7 @@ export default function FeedbackPage() {
               {selectedTicket.status === "RESOLVED" && (
                 <button
                   disabled={submitting}
-                  onClick={() => runAction(() => closePartnerFeedback(selectedTicket.id))}
+                  onClick={() => runAction(() => closePartnerFeedback(selectedTicket.id), "Đã đóng ticket thành công!")}
                   className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs py-2 rounded-lg disabled:opacity-50"
                 >
                   {submitting ? "Đang đóng..." : "Đóng ticket"}
@@ -212,6 +216,8 @@ export default function FeedbackPage() {
           )}
         </Card>
       </div>
+
+      <Toast message={toastMessage} />
     </div>
   );
 }

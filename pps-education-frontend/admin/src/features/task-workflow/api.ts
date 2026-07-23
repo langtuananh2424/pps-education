@@ -9,7 +9,7 @@ export type TaskStatus = "OPEN" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "O
 export type TaskType = "GENERAL" | "URGENT" | "RECURRING" | "PROJECT";
 export type TaskPriority = "LOW" | "NORMAL" | "HIGH" | "URGENT";
 
-/** Khớp TaskResponse thật — GET /api/tasks/{id}, GET /api/tasks/created-by-me. */
+/** Khớp TaskResponse thật — GET /api/tasks/{id}, GET /api/tasks/created-by-me, GET /api/tasks/overview. */
 export interface TaskResponse {
   id: number;
   taskCode: string;
@@ -90,9 +90,28 @@ export function listMyAssignments(): Promise<TaskAssignmentResponse[]> {
   return apiRequest<TaskAssignmentResponse[]>("/tasks/my-assignments");
 }
 
-/** UC-06 Main Flow bước 5 — "Việc tôi giao" (chưa dùng ở tab hiện tại, để sẵn cho Phase 1b). */
+/** UC-06 Main Flow bước 5 — chỉ đúng việc CHÍNH actor tự tạo (dùng làm fallback khi listOverview() 403). */
 export function listTasksCreatedByMe(): Promise<TaskResponse[]> {
   return apiRequest<TaskResponse[]>("/tasks/created-by-me");
+}
+
+/**
+ * UC-06/07 (bổ sung 2026-07-23) — "Việc tôi giao" tầng đầy đủ: company-wide (task.overview.company,
+ * OPS_MANAGER/HR_MANAGER/EXECUTIVE/SUPER_ADMIN) thấy toàn công ty; Trưởng phòng
+ * (departments.head_user_id = actor) thấy toàn bộ việc phòng mình bất kể ai giao. 403 nếu không thuộc
+ * 2 tầng trên (không có quyền overview, không làm trưởng phòng nào) — khi đó dùng listTasksCreatedByMe().
+ */
+export function listOverview(): Promise<TaskResponse[]> {
+  return apiRequest<TaskResponse[]>("/tasks/overview");
+}
+
+export interface CancelTaskRequest {
+  reason?: string;
+}
+
+/** UC-06/07 (bổ sung): hủy việc (CANCELLED, giữ lịch sử, không xóa cứng) — người giao hoặc task.manage. */
+export function cancelTask(taskId: number, request?: CancelTaskRequest): Promise<TaskResponse> {
+  return apiRequest<TaskResponse>(`/tasks/${taskId}/cancel`, { method: "POST", body: JSON.stringify(request ?? {}) });
 }
 
 export function getTask(taskId: number): Promise<TaskResponse> {
@@ -125,4 +144,20 @@ export function listAttachments(taskId: number): Promise<TaskAttachmentResponse[
 
 export function addAttachment(taskId: number, request: AddTaskAttachmentRequest): Promise<TaskAttachmentResponse> {
   return apiRequest<TaskAttachmentResponse>(`/tasks/${taskId}/attachments`, { method: "POST", body: JSON.stringify(request) });
+}
+
+/** UC-07 A2: người giao xem toàn bộ phân công của 1 việc (mọi người nhận + trạng thái) — chỉ createdBy gọi được (BE tự chặn). */
+export function listAssignments(taskId: number): Promise<TaskAssignmentResponse[]> {
+  return apiRequest<TaskAssignmentResponse[]>(`/tasks/${taskId}/assignments`);
+}
+
+export interface ReassignTaskRequest {
+  fromAssignmentId: number;
+  newAssigneeUserId: number;
+  comment?: string;
+}
+
+/** UC-06/07 A3: người giao giao lại 1 phân công đã DECLINED cho nhân sự khác trong phạm vi phòng ban. */
+export function reassignTask(taskId: number, request: ReassignTaskRequest): Promise<TaskAssignmentResponse> {
+  return apiRequest<TaskAssignmentResponse>(`/tasks/${taskId}/reassign`, { method: "POST", body: JSON.stringify(request) });
 }
