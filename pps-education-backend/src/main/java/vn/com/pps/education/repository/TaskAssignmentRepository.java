@@ -13,6 +13,4 @@ public interface TaskAssignmentRepository extends JpaRepository<TaskAssignment, 
     List<TaskAssignment> findByAssigneeIdOrderByIdDesc(Long assigneeUserId);
 
     Optional<TaskAssignment> findByTaskIdAndAssigneeId(Long taskId, Long assigneeUserId);
-
-    long countByTaskIdAndStatusNot(Long taskId, TaskAssignment.Status status);
 }

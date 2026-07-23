@@ -14,6 +14,7 @@ import vn.com.pps.education.domain.User;
 import vn.com.pps.education.dto.AddTaskAttachmentRequest;
 import vn.com.pps.education.dto.AddTaskCommentRequest;
 import vn.com.pps.education.dto.CreateTaskRequest;
+import vn.com.pps.education.dto.ReassignTaskRequest;
 import vn.com.pps.education.dto.TaskAssignmentResponse;
 import vn.com.pps.education.dto.TaskAttachmentResponse;
 import vn.com.pps.education.dto.TaskCommentResponse;
@@ -24,6 +25,7 @@ import vn.com.pps.education.exception.InvalidTaskStatusTransitionException;
 import vn.com.pps.education.exception.NotTaskCreatorException;
 import vn.com.pps.education.exception.NotTaskParticipantException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
+import vn.com.pps.education.exception.TaskAssigneeAlreadyAssignedException;
 import vn.com.pps.education.repository.TaskAssignmentHistoryRepository;
 import vn.com.pps.education.repository.TaskAssignmentRepository;
 import vn.com.pps.education.repository.TaskAttachmentRepository;
@@ -269,6 +271,73 @@ public class TaskService {
         return toResponse(assignment);
     }
 
+    /**
+     * UC-07 A3: người giao việc giao lại 1 phân công đã bị từ chối (DECLINED)
+     * cho nhân sự khác. Bản ghi DECLINED được GIỮ LẠI làm lịch sử; tạo 1
+     * task_assignment MỚI trạng thái PENDING cho người nhận mới và thông báo
+     * cho họ (FR-TSK-03). Chỉ người giao (createdBy) mới giao lại được; người
+     * nhận mới phải trong phạm vi phòng ban (như UC-06 Main Flow bước 3).
+     * Không giao lại được khi task đã COMPLETED/CANCELLED (không mở lại việc
+     * đã đóng).
+     */
+    @Transactional
+    public TaskAssignmentResponse reassign(Long taskId, ReassignTaskRequest request, Long actorUserId) {
+        Task task = getTaskOrThrow(taskId);
+        requireCreator(task, actorUserId);
+        User actor = getUserOrThrow(actorUserId);
+
+        if (task.getStatus() == Task.Status.COMPLETED || task.getStatus() == Task.Status.CANCELLED) {
+            throw new InvalidTaskStatusTransitionException(
+                    "Không thể giao lại công việc id=" + taskId + " đang ở trạng thái " + task.getStatus() + ".");
+        }
+
+        TaskAssignment declined = taskAssignmentRepository.findById(request.fromAssignmentId())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Không tìm thấy phân công công việc id=" + request.fromAssignmentId()));
+        if (!declined.getTask().getId().equals(taskId)) {
+            throw new IllegalArgumentException(
+                    "Phân công id=" + request.fromAssignmentId() + " không thuộc công việc id=" + taskId + ".");
+        }
+        if (declined.getStatus() != TaskAssignment.Status.DECLINED) {
+            throw new InvalidTaskStatusTransitionException(
+                    "Chỉ giao lại được phân công đã bị từ chối (DECLINED); phân công id="
+                            + request.fromAssignmentId() + " hiện là " + declined.getStatus() + ".");
+        }
+
+        User newAssignee = getUserOrThrow(request.newAssigneeUserId());
+        Employee actorEmployee = employeeRepository.findByUserId(actorUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản chưa có hồ sơ nhân sự."));
+        Map<Long, Employee> newAssigneeEmployeeByUserId = employeeRepository.findByUserIdIn(List.of(newAssignee.getId())).stream()
+                .collect(Collectors.toMap(e -> e.getUser().getId(), e -> e));
+        requireInDepartmentScope(actorUserId, actorEmployee, List.of(newAssignee), newAssigneeEmployeeByUserId);
+
+        if (taskAssignmentRepository.findByTaskIdAndAssigneeId(taskId, newAssignee.getId()).isPresent()) {
+            throw new TaskAssigneeAlreadyAssignedException(
+                    "Người nhận mới id=" + newAssignee.getId() + " đã có phân công trong công việc id=" + taskId + ".");
+        }
+
+        TaskAssignment fresh = new TaskAssignment();
+        fresh.setTask(task);
+        fresh.setAssignee(newAssignee);
+        fresh = taskAssignmentRepository.save(fresh);
+        writeAssignmentHistory(fresh, actor, TaskAssignmentHistory.Action.CREATED);
+
+        if (request.comment() != null && !request.comment().isBlank()) {
+            TaskComment comment = new TaskComment();
+            comment.setTask(task);
+            comment.setCommenter(actor);
+            comment.setContent(request.comment());
+            taskCommentRepository.save(comment);
+        }
+
+        String content = "Công việc \"%s\" đã được giao lại cho bạn%s.".formatted(task.getTitle(),
+                task.getDueAt() == null ? "" : ", hạn: " + task.getDueAt());
+        notificationService.notify(newAssignee.getId(), Notification.NotificationType.TASK_ASSIGNED,
+                "Bạn được giao lại việc", content);
+
+        return toResponse(fresh);
+    }
+
     /** UC-07 Main Flow bước 3: bình luận/phản hồi tiến độ (không nhất thiết đi kèm đổi trạng thái). */
     @Transactional
     public TaskCommentResponse addComment(Long taskId, AddTaskCommentRequest request, Long actorUserId) {
@@ -369,10 +438,20 @@ public class TaskService {
                 "\"%s\" đã bị người giao việc từ chối, cần tiếp tục xử lý.".formatted(task.getTitle()));
     }
 
-    /** SDD: khi tất cả task_assignments của task = COMPLETED → tasks.status = COMPLETED. */
+    /**
+     * SDD (đã cập nhật theo UC-07 A3): task COMPLETED khi MỌI phân công CÒN
+     * HIỆU LỰC (bỏ qua DECLINED) = COMPLETED. Phân công DECLINED không tính
+     * vào điều kiện hoàn thành — nếu toàn bộ phân công đều DECLINED (chưa
+     * giao lại) thì task GIỮ NGUYÊN trạng thái mở, chờ người giao giao lại
+     * (reassign), không tự COMPLETED cũng không tự CANCELLED.
+     */
     private void recomputeTaskStatus(Task task) {
-        long notCompleted = taskAssignmentRepository.countByTaskIdAndStatusNot(task.getId(), TaskAssignment.Status.COMPLETED);
-        if (notCompleted == 0 && task.getStatus() != Task.Status.COMPLETED) {
+        List<TaskAssignment> active = taskAssignmentRepository.findByTaskId(task.getId()).stream()
+                .filter(a -> a.getStatus() != TaskAssignment.Status.DECLINED)
+                .toList();
+        boolean allActiveCompleted = !active.isEmpty()
+                && active.stream().allMatch(a -> a.getStatus() == TaskAssignment.Status.COMPLETED);
+        if (allActiveCompleted && task.getStatus() != Task.Status.COMPLETED) {
             task.setStatus(Task.Status.COMPLETED);
             task.setCompletedAt(OffsetDateTime.now());
             taskRepository.save(task);

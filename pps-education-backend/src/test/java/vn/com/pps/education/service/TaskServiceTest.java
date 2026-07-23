@@ -13,6 +13,7 @@ import vn.com.pps.education.domain.UserRole;
 import vn.com.pps.education.dto.AddTaskAttachmentRequest;
 import vn.com.pps.education.dto.AddTaskCommentRequest;
 import vn.com.pps.education.dto.CreateTaskRequest;
+import vn.com.pps.education.dto.ReassignTaskRequest;
 import vn.com.pps.education.dto.TaskAssignmentResponse;
 import vn.com.pps.education.dto.TaskAttachmentResponse;
 import vn.com.pps.education.dto.TaskCommentResponse;
@@ -23,6 +24,7 @@ import vn.com.pps.education.exception.InvalidTaskStatusTransitionException;
 import vn.com.pps.education.exception.NotTaskCreatorException;
 import vn.com.pps.education.exception.NotTaskParticipantException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
+import vn.com.pps.education.exception.TaskAssigneeAlreadyAssignedException;
 import vn.com.pps.education.repository.DepartmentRepository;
 import vn.com.pps.education.repository.EmployeeRepository;
 import vn.com.pps.education.repository.RoleRepository;
@@ -402,6 +404,176 @@ class TaskServiceTest extends AbstractIntegrationTest {
         TaskResponse taskAfter = taskService.getTask(task.id(), assigner.getId());
         assertThat(taskAfter.status()).isEqualTo("COMPLETED");
         assertThat(taskAfter.completedAt()).isNotNull();
+    }
+
+    // ===================== UC-07 A3: từ chối + giao lại =====================
+
+    @Test
+    void updateAssignmentStatus_UC07_A3_singleAssigneeDeclines_taskNotStuckCompleted() {
+        Department dept = newDepartment();
+        User assigner = newUserInDept("a3.decline.assigner", dept);
+        User assignee = newUserInDept("a3.decline.assignee", dept);
+
+        TaskResponse task = taskService.createTask(
+                new CreateTaskRequest("A3 single decline", null,
+                        List.of(assignee.getId()), null, null, null, null),
+                assigner.getId());
+        Long assignmentId = taskService.listMyAssignments(assignee.getId()).getFirst().id();
+
+        taskService.updateAssignmentStatus(assignmentId,
+                new UpdateAssignmentStatusRequest("DECLINED", "Bận việc khác"), assignee.getId());
+
+        // Lone declined assignment must NOT auto-complete the task; stays open awaiting reassign
+        TaskResponse after = taskService.getTask(task.id(), assigner.getId());
+        assertThat(after.status()).isEqualTo("OPEN");
+        assertThat(after.completedAt()).isNull();
+    }
+
+    @Test
+    void recompute_UC07_A3_multiAssignee_declinedIgnored_completesOnRemaining() {
+        Department dept = newDepartment();
+        User assigner = newUserInDept("a3.multi.assigner", dept);
+        User a1 = newUserInDept("a3.multi.a1", dept);
+        User a2 = newUserInDept("a3.multi.a2", dept);
+
+        TaskResponse task = taskService.createTask(
+                new CreateTaskRequest("A3 multi decline", null,
+                        List.of(a1.getId(), a2.getId()), null, null, null, null),
+                assigner.getId());
+        Long id1 = taskService.listMyAssignments(a1.getId()).getFirst().id();
+        Long id2 = taskService.listMyAssignments(a2.getId()).getFirst().id();
+
+        // a1 completes
+        taskService.updateAssignmentStatus(id1, new UpdateAssignmentStatusRequest("IN_PROGRESS", null), a1.getId());
+        taskService.updateAssignmentStatus(id1, new UpdateAssignmentStatusRequest("PENDING_REVIEW", null), a1.getId());
+        taskService.updateAssignmentStatus(id1, new UpdateAssignmentStatusRequest("COMPLETED", null), assigner.getId());
+
+        // Still open: a2 still PENDING (active, not completed)
+        assertThat(taskService.getTask(task.id(), assigner.getId()).status()).isNotEqualTo("COMPLETED");
+
+        // a2 declines → only active assignment (a1) is COMPLETED → task COMPLETED
+        taskService.updateAssignmentStatus(id2, new UpdateAssignmentStatusRequest("DECLINED", "Không thể nhận"), a2.getId());
+
+        assertThat(taskService.getTask(task.id(), assigner.getId()).status()).isEqualTo("COMPLETED");
+    }
+
+    @Test
+    void reassign_UC07_A3_afterDecline_createsNewAssignmentAndCanComplete() {
+        Department dept = newDepartment();
+        User assigner = newUserInDept("a3.re.assigner", dept);
+        User assignee = newUserInDept("a3.re.assignee", dept);
+        User newAssignee = newUserInDept("a3.re.new", dept);
+
+        TaskResponse task = taskService.createTask(
+                new CreateTaskRequest("A3 reassign", null,
+                        List.of(assignee.getId()), null, null, null, null),
+                assigner.getId());
+        Long declinedId = taskService.listMyAssignments(assignee.getId()).getFirst().id();
+        taskService.updateAssignmentStatus(declinedId,
+                new UpdateAssignmentStatusRequest("DECLINED", "Không nhận"), assignee.getId());
+
+        TaskAssignmentResponse fresh = taskService.reassign(task.id(),
+                new ReassignTaskRequest(declinedId, newAssignee.getId(), "Giao lại cho bạn"),
+                assigner.getId());
+
+        assertThat(fresh.id()).isNotNull();
+        assertThat(fresh.assigneeUserId()).isEqualTo(newAssignee.getId());
+        assertThat(fresh.assignmentStatus()).isEqualTo("PENDING");
+
+        // DECLINED record preserved as history — task now has 2 assignments
+        List<TaskAssignmentResponse> all = taskService.listAssignments(task.id(), assigner.getId());
+        assertThat(all).hasSize(2);
+
+        // New assignee completes the reassigned work → task COMPLETED (declined ignored)
+        taskService.updateAssignmentStatus(fresh.id(),
+                new UpdateAssignmentStatusRequest("IN_PROGRESS", null), newAssignee.getId());
+        taskService.updateAssignmentStatus(fresh.id(),
+                new UpdateAssignmentStatusRequest("PENDING_REVIEW", null), newAssignee.getId());
+        taskService.updateAssignmentStatus(fresh.id(),
+                new UpdateAssignmentStatusRequest("COMPLETED", null), assigner.getId());
+
+        assertThat(taskService.getTask(task.id(), assigner.getId()).status()).isEqualTo("COMPLETED");
+    }
+
+    @Test
+    void reassign_UC07_A3_byNonCreator_throws() {
+        Department dept = newDepartment();
+        User assigner = newUserInDept("a3.nc.assigner", dept);
+        User assignee = newUserInDept("a3.nc.assignee", dept);
+        User other = newUserInDept("a3.nc.other", dept);
+
+        TaskResponse task = taskService.createTask(
+                new CreateTaskRequest("A3 non-creator", null,
+                        List.of(assignee.getId()), null, null, null, null),
+                assigner.getId());
+        Long declinedId = taskService.listMyAssignments(assignee.getId()).getFirst().id();
+        taskService.updateAssignmentStatus(declinedId,
+                new UpdateAssignmentStatusRequest("DECLINED", "x"), assignee.getId());
+
+        assertThatThrownBy(() -> taskService.reassign(task.id(),
+                new ReassignTaskRequest(declinedId, other.getId(), null), assignee.getId()))
+                .isInstanceOf(NotTaskCreatorException.class);
+    }
+
+    @Test
+    void reassign_UC07_A3_nonDeclinedAssignment_throws() {
+        Department dept = newDepartment();
+        User assigner = newUserInDept("a3.nd.assigner", dept);
+        User assignee = newUserInDept("a3.nd.assignee", dept);
+        User other = newUserInDept("a3.nd.other", dept);
+
+        TaskResponse task = taskService.createTask(
+                new CreateTaskRequest("A3 non-declined", null,
+                        List.of(assignee.getId()), null, null, null, null),
+                assigner.getId());
+        Long pendingId = taskService.listMyAssignments(assignee.getId()).getFirst().id();
+
+        // Assignment is still PENDING (not DECLINED) → cannot reassign
+        assertThatThrownBy(() -> taskService.reassign(task.id(),
+                new ReassignTaskRequest(pendingId, other.getId(), null), assigner.getId()))
+                .isInstanceOf(InvalidTaskStatusTransitionException.class);
+    }
+
+    @Test
+    void reassign_UC07_A3_toExistingAssignee_throws() {
+        Department dept = newDepartment();
+        User assigner = newUserInDept("a3.ex.assigner", dept);
+        User a1 = newUserInDept("a3.ex.a1", dept);
+        User a2 = newUserInDept("a3.ex.a2", dept);
+
+        TaskResponse task = taskService.createTask(
+                new CreateTaskRequest("A3 existing assignee", null,
+                        List.of(a1.getId(), a2.getId()), null, null, null, null),
+                assigner.getId());
+        Long id1 = taskService.listMyAssignments(a1.getId()).getFirst().id();
+        taskService.updateAssignmentStatus(id1,
+                new UpdateAssignmentStatusRequest("DECLINED", "x"), a1.getId());
+
+        // a2 already has an assignment on this task → conflict
+        assertThatThrownBy(() -> taskService.reassign(task.id(),
+                new ReassignTaskRequest(id1, a2.getId(), null), assigner.getId()))
+                .isInstanceOf(TaskAssigneeAlreadyAssignedException.class);
+    }
+
+    @Test
+    void reassign_UC07_A3_outsideDepartment_throws() {
+        Department deptA = newDepartment();
+        Department deptB = newDepartment();
+        User assigner = newUserInDept("a3.od.assigner", deptA);
+        User assignee = newUserInDept("a3.od.assignee", deptA);
+        User outsider = newUserInDept("a3.od.outsider", deptB);
+
+        TaskResponse task = taskService.createTask(
+                new CreateTaskRequest("A3 outside dept", null,
+                        List.of(assignee.getId()), null, null, null, null),
+                assigner.getId());
+        Long declinedId = taskService.listMyAssignments(assignee.getId()).getFirst().id();
+        taskService.updateAssignmentStatus(declinedId,
+                new UpdateAssignmentStatusRequest("DECLINED", "x"), assignee.getId());
+
+        assertThatThrownBy(() -> taskService.reassign(task.id(),
+                new ReassignTaskRequest(declinedId, outsider.getId(), null), assigner.getId()))
+                .isInstanceOf(AssigneeOutsideDepartmentException.class);
     }
 
     // ===================== UC-07 Comments =====================

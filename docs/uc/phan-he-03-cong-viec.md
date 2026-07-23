@@ -147,4 +147,30 @@ UC-07: Cập nhật tiến độ công việc
 |                 |     theo dõi tiến độ.                              |
 +-----------------+----------------------------------------------------+
 
+> **Bổ sung ngoài đặc tả gốc — đã xác nhận với người dùng (2026-07-22).**
+> SDD/UC gốc có trạng thái `DECLINED` (người nhận từ chối nhận việc) nhưng
+> không mô tả hệ quả sau đó, khiến công việc có thể "kẹt" (không bao giờ
+> đạt COMPLETED vì auto-status yêu cầu *tất cả* assignment = COMPLETED).
+> Chốt bổ sung luồng A3 dưới đây; SDD mục "Logic auto-status" đã cập nhật
+> tương ứng.
+>
+> ***A3 --- Người nhận từ chối nhận việc, người giao giao lại***
+>
+> 1.  Người nhận việc từ chối nhận việc (chuyển assignment sang `DECLINED`,
+>     bắt buộc nêu lý do — lưu `decline_reason`). Assignment `DECLINED` là
+>     trạng thái kết thúc, không chuyển tiếp được nữa.
+>
+> 2.  Phân công `DECLINED` KHÔNG tính vào điều kiện hoàn thành của công
+>     việc: nếu còn người nhận khác, công việc vẫn tự `COMPLETED` khi những
+>     người còn hiệu lực đều `COMPLETED`; nếu toàn bộ phân công đều bị từ
+>     chối, công việc giữ nguyên trạng thái mở (không tự đóng).
+>
+> 3.  Người giao việc (chỉ `created_by`) có thể giao lại phần bị từ chối
+>     cho một nhân sự khác trong phạm vi phòng ban (như UC-06 Main Flow
+>     bước 3): hệ thống tạo một phân công MỚI trạng thái `PENDING`, giữ lại
+>     bản ghi `DECLINED` làm lịch sử, và gửi thông báo cho người nhận mới
+>     (FR-TSK-03). Không giao lại được khi công việc đã `COMPLETED`/
+>     `CANCELLED`, hoặc khi phân công đích không ở trạng thái `DECLINED`,
+>     hoặc người nhận mới đã có phân công trong công việc này.
+
 Phân hệ 4 --- Quản lý nhân sự
