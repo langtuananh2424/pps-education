@@ -81,6 +81,37 @@ import java.util.Map;
  * thể gây thiếu nhất quán tạm thời giữa 2 nguồn tạo phụ huynh. Nếu cần
  * đăng nhập Google về sau, Quản trị viên có thể sửa lại email placeholder
  * sang email Google thật qua UC-55.
+ *
+ * Tránh "phụ huynh mồ côi" khi xung đột role (bổ sung ngoài SDD gốc, đã
+ * xác nhận với người dùng — fix bug phát hiện khi audit): trước đây gọi
+ * findOrCreateParent() (tạo User+Parent MỚI nếu SĐT chưa từng có) rồi mới
+ * gọi linkParent() — nếu 2 dòng SĐT mới khác nhau cùng chỉ định
+ * primaryContact=Có cho cùng 1 học sinh, dòng 2 tạo xong User+Parent MỚI
+ * rồi mới phát hiện xung đột (StudentContactRoleConflictException). Vì cả
+ * job dùng chung 1 transaction và dòng lỗi chỉ bị `catch` trong vòng lặp
+ * (không rollback riêng từng dòng), User+Parent vừa tạo đó bị lưu vĩnh
+ * viễn dù dòng đã báo lỗi — vi phạm thẳng bất biến "không tạo phụ huynh mồ
+ * côi" ở trên, và mật khẩu tạm vừa hash cũng mất vĩnh viễn (không ai đăng
+ * nhập được tài khoản đó).
+ *
+ * (Đã thử bọc findOrCreateParent+linkParent trong 1 transaction
+ * REQUIRES_NEW riêng qua TransactionTemplate để tự rollback theo dòng —
+ * KHÔNG dùng được: PROPAGATION_REQUIRES_NEW tự treo (suspend) transaction
+ * bên ngoài rồi mở 1 transaction/connection ĐỘC LẬP HOÀN TOÀN; test
+ * integration của dự án dùng @Transactional bọc cả test method — rollback
+ * cuối bài, không bao giờ commit, xem .claude/rules/testing.md — nên
+ * transaction REQUIRES_NEW không bao giờ thấy được dữ liệu, VD tài khoản
+ * actor, vừa tạo trong transaction ngoài của chính test đó → vi phạm FK
+ * assigned_by và treo cứng do hết connection pool.)
+ *
+ * Khắc phục đúng gốc thay vì dọn dẹp sau: StudentContactRoleConflictException
+ * chỉ phụ thuộc studentId + cờ primary/financial — KHÔNG phụ thuộc
+ * parentId — nên gọi StudentService.assertContactRoleAvailable() (tách từ
+ * linkParent(), không viết lại logic) để kiểm tra TRƯỚC khi tạo phụ huynh
+ * mới. Xung đột thì never tạo User/Parent — không cần rollback/dọn dẹp gì
+ * cả. ParentStudentLinkAlreadyExistsException không cần pre-check tương tự
+ * vì chỉ có thể xảy ra khi DÙNG LẠI 1 Parent đã có sẵn (parent vừa tạo mới
+ * luôn có 0 liên kết, không thể trùng).
  */
 @Service
 public class ParentBatchImportService {
@@ -220,11 +251,17 @@ public class ParentBatchImportService {
         var relationship = parseRelationship(relationshipText.trim());
         Student student = studentRepository.findByStudentCode(studentCode.trim())
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy học sinh mã=" + studentCode));
+        boolean primaryContact = parseBoolean(primaryContactText);
+        boolean financialResponsible = parseBoolean(financialResponsibleText);
+
+        // Pre-check TRƯỚC khi tạo phụ huynh mới -- tránh "phụ huynh mồ côi" nếu
+        // linkParent() phát hiện xung đột role sau khi đã tạo User+Parent (xem Javadoc đầu file).
+        studentService.assertContactRoleAvailable(student.getId(), primaryContact, financialResponsible);
 
         ParentAndCredential result = findOrCreateParent(fullName.trim(), phone.trim(), username.trim(), actor, actorUserId);
 
         studentService.linkParent(student.getId(), new LinkParentRequest(
-                result.parent().getId(), relationship.name(), parseBoolean(primaryContactText), parseBoolean(financialResponsibleText), null));
+                result.parent().getId(), relationship.name(), primaryContact, financialResponsible, null));
 
         return result.temporaryPassword() == null ? null : new RowCredential(result.username(), result.temporaryPassword());
     }

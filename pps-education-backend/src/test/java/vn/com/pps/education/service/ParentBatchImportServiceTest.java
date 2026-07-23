@@ -149,6 +149,34 @@ class ParentBatchImportServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void importParents_UC50_A2_rollsBackNewAccountWhenLinkParentFailsAfterCreatingBrandNewParent() throws IOException {
+        // Bug đã fix: 2 dòng với 2 SĐT MỚI hoàn toàn (chưa tồn tại), cùng chỉ định
+        // primaryContact=Có cho CÙNG 1 học sinh -- dòng 2 tạo xong User+Parent mới
+        // rồi mới phát hiện xung đột (StudentContactRoleConflictException). Trước
+        // khi bọc REQUIRES_NEW, User+Parent của dòng 2 vẫn bị lưu vĩnh viễn dù dòng
+        // báo lỗi (phụ huynh mồ côi, mật khẩu tạm mất vĩnh viễn).
+        Student student = newStudent("Học Sinh Xung Đột Primary Contact");
+        String phone1 = newPhone();
+        String phone2 = newPhone();
+        String username2 = username();
+        byte[] file = buildWorkbook(new String[][]{
+                {"Phụ Huynh Một", username(), phone1, "Cha", student.getStudentCode(), "Có", ""},
+                {"Phụ Huynh Hai", username2, phone2, "Mẹ", student.getStudentCode(), "Có", ""},
+        });
+
+        ParentBatchImportResponse result = parentBatchImportService.importParents(
+                new MockMultipartFile("file", "phu_huynh.xlsx", "application/vnd.openxmlformats", file), staff.getId());
+
+        assertThat(result.status()).isEqualTo("PARTIAL_SUCCESS");
+        assertThat(result.successRows()).isEqualTo(1);
+        assertThat(result.failedRows()).isEqualTo(1);
+
+        // Dòng 2 thất bại -- User/Parent theo phone2/username2 KHÔNG được để lại (rollback sạch).
+        assertThat(userRepository.findByPhone(phone2)).isEmpty();
+        assertThat(userRepository.findByUsername(username2)).isEmpty();
+    }
+
+    @Test
     void importParents_UC50_A2_partialSuccessSkipsUnknownStudentCode() throws IOException {
         Student student = newStudent("Học Sinh Hợp Lệ");
         byte[] file = buildWorkbook(new String[][]{
