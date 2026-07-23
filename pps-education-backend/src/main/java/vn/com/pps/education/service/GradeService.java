@@ -35,7 +35,9 @@ import vn.com.pps.education.dto.UpdateGradePeriodRequest;
 import vn.com.pps.education.domain.Skill;
 import vn.com.pps.education.exception.GradeAlreadyPublishedException;
 import vn.com.pps.education.exception.GradeComponentLockedException;
+import vn.com.pps.education.exception.GradeComponentNotDeletableException;
 import vn.com.pps.education.exception.GradeNotEditableException;
+import vn.com.pps.education.exception.GradePeriodNotDeletableException;
 import vn.com.pps.education.exception.GradePeriodWeightExceededException;
 import vn.com.pps.education.exception.InvalidGradeScoreException;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
@@ -255,6 +257,34 @@ public class GradeService {
         return toResponse(period);
     }
 
+    /**
+     * UC-19 (xoá kỳ đánh giá, bổ sung ngoài SDD gốc — đã xác nhận với người
+     * dùng 2026-07-22): chỉ xoá được kỳ RỖNG — chưa có thành phần điểm, chưa
+     * có điểm tổng kết, và chưa bắt đầu nhập điểm ở lớp nào (không có cửa sổ
+     * chỉnh sửa). Muốn xoá kỳ đã có thành phần: xoá từng thành phần trước.
+     * Xoá cứng (kỳ chưa dùng, không có giá trị pháp lý cần giữ) — đối xứng
+     * cách xoá điểm nháp (deleteGradeEntry). Quyền gate ở Controller.
+     */
+    @Transactional
+    public void deleteGradePeriod(Long id, Long actorUserId) {
+        GradePeriod period = gradePeriodRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy kỳ đánh giá id=" + id));
+        if (gradeComponentRepository.countByGradePeriodId(id) > 0) {
+            throw new GradePeriodNotDeletableException(
+                    "Kỳ đánh giá id=" + id + " còn thành phần điểm — xoá từng thành phần trước khi xoá kỳ.");
+        }
+        if (gradePeriodResultRepository.countByGradePeriodId(id) > 0) {
+            throw new GradePeriodNotDeletableException(
+                    "Kỳ đánh giá id=" + id + " đã có điểm tổng kết — không thể xoá.");
+        }
+        if (gradePeriodEditWindowRepository.existsByGradePeriodId(id)) {
+            throw new GradePeriodNotDeletableException(
+                    "Kỳ đánh giá id=" + id + " đã bắt đầu nhập điểm — không thể xoá.");
+        }
+        gradePeriodHistoryRepository.deleteByGradePeriodId(id);
+        gradePeriodRepository.delete(period);
+    }
+
     @Transactional(readOnly = true)
     public List<GradeComponentResponse> listGradeComponents(Long gradePeriodId) {
         return gradeComponentRepository.findByGradePeriodIdOrderByDisplayOrder(gradePeriodId).stream()
@@ -318,6 +348,25 @@ public class GradeService {
 
         writeGradeComponentHistory(component, actor, GradeComponentHistory.Action.UPDATED);
         return toResponse(component);
+    }
+
+    /**
+     * UC-19 (xoá thành phần điểm, bổ sung ngoài SDD gốc — đã xác nhận với
+     * người dùng 2026-07-22): chỉ xoá được khi CHƯA có điểm nhập nào
+     * (grade_entries) — đối xứng với rule khoá maxScore. Xoá cứng (thành
+     * phần chưa có điểm, không có giá trị pháp lý cần giữ). Quyền gate ở
+     * Controller.
+     */
+    @Transactional
+    public void deleteGradeComponent(Long id, Long actorUserId) {
+        GradeComponent component = gradeComponentRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thành phần điểm id=" + id));
+        if (gradeEntryRepository.countByGradeComponentId(id) > 0) {
+            throw new GradeComponentNotDeletableException(
+                    "Thành phần điểm id=" + id + " đã có điểm nhập — không thể xoá.");
+        }
+        gradeComponentHistoryRepository.deleteByGradeComponentId(id);
+        gradeComponentRepository.delete(component);
     }
 
     // ===================== UC-19: Nhập điểm (TEACHER) =====================

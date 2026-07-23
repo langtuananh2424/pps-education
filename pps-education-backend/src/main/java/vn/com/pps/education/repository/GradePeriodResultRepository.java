@@ -18,4 +18,7 @@ public interface GradePeriodResultRepository extends JpaRepository<GradePeriodRe
 
     /** UC-62 A3 — GradeSchedulerService: hết hạn Y ngày phúc khảo kể từ publishedAt, tự động chuyển OFFICIAL bất kể còn PROVISIONAL_PUBLISHED hay APPEAL. */
     List<GradePeriodResult> findByStatusInAndPublishedAtBefore(List<GradePeriodResult.Status> statuses, OffsetDateTime cutoff);
+
+    /** UC-19 (xoá kỳ đánh giá): chặn xoá kỳ còn điểm tổng kết. */
+    long countByGradePeriodId(Long gradePeriodId);
 }

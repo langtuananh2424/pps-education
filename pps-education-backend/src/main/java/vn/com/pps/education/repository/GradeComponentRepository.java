@@ -11,4 +11,7 @@ public interface GradeComponentRepository extends JpaRepository<GradeComponent, 
     List<GradeComponent> findByGradePeriodIdOrderByDisplayOrder(Long gradePeriodId);
 
     Optional<GradeComponent> findByGradePeriodIdAndCode(Long gradePeriodId, GradeComponent.ComponentCode code);
+
+    /** UC-19 (xoá kỳ đánh giá): chặn xoá kỳ còn thành phần điểm. */
+    long countByGradePeriodId(Long gradePeriodId);
 }
