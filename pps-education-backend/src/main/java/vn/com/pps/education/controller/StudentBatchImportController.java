@@ -1,14 +1,18 @@
 package vn.com.pps.education.controller;
 
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import vn.com.pps.education.common.ExcelHttpResponses;
+import vn.com.pps.education.dto.AccountExportRequest;
 import vn.com.pps.education.dto.StudentBatchImportResponse;
 import vn.com.pps.education.security.AuthenticatedUser;
 import vn.com.pps.education.service.StudentBatchImportService;
@@ -44,5 +48,22 @@ public class StudentBatchImportController {
     @GetMapping("/api/student-imports/{id}")
     public ResponseEntity<StudentBatchImportResponse> getJob(@PathVariable Long id) {
         return ResponseEntity.ok(studentBatchImportService.getJob(id));
+    }
+
+    /** File mẫu nhập học theo lô (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-24). */
+    @GetMapping("/api/student-imports/template")
+    public ResponseEntity<byte[]> downloadTemplate() {
+        return ExcelHttpResponses.attachment(studentBatchImportService.buildTemplate(), "mau-nhap-hoc-sinh.xlsx");
+    }
+
+    /**
+     * Xuất Excel danh sách tài khoản vừa tạo (bổ sung ngoài SDD gốc, đã xác
+     * nhận với người dùng 2026-07-24) — FE gửi lại generatedCredentials đã
+     * nhận từ importStudents(), chỉ dùng được trong cùng phiên vừa import.
+     */
+    @PostMapping("/api/student-imports/accounts-export")
+    public ResponseEntity<byte[]> exportAccounts(@Valid @RequestBody AccountExportRequest request) {
+        return ExcelHttpResponses.attachment(
+                studentBatchImportService.buildAccountsExport(request), "tai-khoan-hoc-sinh.xlsx");
     }
 }

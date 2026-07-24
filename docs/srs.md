@@ -367,7 +367,12 @@ nhân đó mới được thao tác.*
         Excel danh sách nhân sự để tạo tài khoản (username bắt buộc,
         email tùy chọn, mật khẩu tạm hệ thống tự sinh) + hồ sơ nhân sự
         hàng loạt, thay vì nhập tay từng người. Kiểm tra trùng lặp theo
-        mã nhân sự/username/email trước khi tạo mới.
+        mã nhân sự/username/email trước khi tạo mới. Hệ thống cung cấp
+        API tải file Excel mẫu (đầy đủ mọi trường trừ mật khẩu, trường
+        bắt buộc đánh dấu `*` cuối tên cột) và API xuất Excel danh sách
+        tài khoản vừa tạo (username + mật khẩu tạm) ngay sau khi import,
+        để tải về giao lại cho nhân sự (bổ sung ngoài SDD gốc, đã xác
+        nhận với người dùng 2026-07-24 — xem UC-51).
 
     -   **FR-HRM-06: Danh mục chức vụ & tự động gán vai trò theo chức vụ -**
         Quản lý nhân sự duy trì danh mục chức vụ (VD Giáo viên, Trưởng
@@ -416,7 +421,10 @@ nhân đó mới được thao tác.*
         xác nhận với người dùng) được sinh kèm mật khẩu tạm ngẫu nhiên,
         trả về 1 lần trong kết quả import (giống FR-HRM-05) — dùng đăng
         nhập được ngay; sửa lại email placeholder sang email thật qua
-        FR-USR-06 nếu muốn dùng thêm được đăng nhập Google.
+        FR-USR-06 nếu muốn dùng thêm được đăng nhập Google. Cũng có API
+        tải file Excel mẫu và API xuất Excel danh sách tài khoản vừa tạo,
+        giống hệt FR-HRM-05 (bổ sung ngoài SDD gốc, đã xác nhận với người
+        dùng 2026-07-24 — xem UC-50).
 
 **PHÂN HỆ 6: QUẢN LÝ HỌC THUẬT VÀ ĐÀO TẠO**
 
@@ -464,7 +472,12 @@ nhân đó mới được thao tác.*
         (UC-16/A2). Ngoài Giáo viên được phân công, Trưởng phòng đào tạo
         hoặc Quản lý điểm trường phụ trách đúng điểm trường của lớp cũng
         được phép nhập tay/import Excel thay giáo viên khi cần hỗ trợ
-        (bổ sung ngoài SDD gốc, đã xác nhận với người dùng).
+        (bổ sung ngoài SDD gốc, đã xác nhận với người dùng). Trước khi
+        import, có thể tải API file Excel mẫu điền sẵn danh sách học
+        sinh đang ghi danh của lớp (mã học sinh/họ tên/lớp) kèm đúng cột
+        theo từng thành phần điểm của kỳ đánh giá đó, cột điểm để trống
+        sẵn sàng nhập rồi tải lên lại (bổ sung ngoài SDD gốc, đã xác nhận
+        với người dùng 2026-07-24 — xem UC-53).
 
         **Luồng 4 trạng thái + Công bố điểm dự kiến + Phúc khảo (V43, bổ
         sung ngoài SDD gốc, đã xác nhận với người dùng — sửa đổi lần 2
@@ -698,7 +711,10 @@ CDN)**
         tên + ngày sinh) trước khi tạo mới. Mỗi tài khoản học sinh MỚI
         tạo (bổ sung ngoài SDD gốc, đã xác nhận với người dùng) được
         sinh kèm mật khẩu tạm ngẫu nhiên, trả về 1 lần trong kết quả
-        import (giống FR-HRM-05) — dùng đăng nhập được ngay.
+        import (giống FR-HRM-05) — dùng đăng nhập được ngay. Cũng có API
+        tải file Excel mẫu và API xuất Excel danh sách tài khoản vừa tạo,
+        giống hệt FR-HRM-05 (bổ sung ngoài SDD gốc, đã xác nhận với người
+        dùng 2026-07-24 — xem UC-35).
 
 **PHÂN HỆ 10: QUẢN LÝ ĐIỂM TRƯỜNG & CƠ SỞ VẬT CHẤT**
 

@@ -227,4 +227,19 @@ UC-35: Nhập học theo lô cho lớp liên kết
 |                 |     mật khẩu tạm.                                  |
 +-----------------+----------------------------------------------------+
 
+Mở rộng --- File mẫu + xuất danh sách tài khoản (bổ sung ngoài SDD gốc, đã
+xác nhận với người dùng 2026-07-24)
+
+-   Trước bước 1, Nhân viên giáo vụ có thể gọi `GET
+    /api/student-imports/template` để tải file Excel mẫu đầy đủ 8 cột theo
+    đúng thứ tự Main Flow bước 2 đọc, trường bắt buộc đánh dấu `*` cuối
+    tên cột (Họ và tên\*/Username\*/Ngày sinh\*/Mã lớp PPS\*/Mã học
+    sinh\*), không có cột mật khẩu.
+-   Sau bước 6, nếu muốn có bản Excel để giao lại danh sách tài khoản
+    (thay vì chỉ xem trên màn hình), gọi `POST
+    /api/student-imports/accounts-export` với đúng danh sách username +
+    mật khẩu tạm vừa nhận được ở bước 6 — chỉ dùng được trong cùng phiên
+    vừa import (hệ thống không lưu mật khẩu tạm ở đâu để tra cứu lại
+    sau).
+
 Phân hệ 10 --- Quản lý điểm trường & Cơ sở vật chất

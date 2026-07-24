@@ -1,14 +1,18 @@
 package vn.com.pps.education.controller;
 
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import vn.com.pps.education.common.ExcelHttpResponses;
+import vn.com.pps.education.dto.AccountExportRequest;
 import vn.com.pps.education.dto.ParentBatchImportResponse;
 import vn.com.pps.education.security.AuthenticatedUser;
 import vn.com.pps.education.service.ParentBatchImportService;
@@ -41,5 +45,22 @@ public class ParentBatchImportController {
     @GetMapping("/api/parent-imports/{id}")
     public ResponseEntity<ParentBatchImportResponse> getJob(@PathVariable Long id) {
         return ResponseEntity.ok(parentBatchImportService.getJob(id));
+    }
+
+    /** File mẫu nhập phụ huynh theo lô (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-24). */
+    @GetMapping("/api/parent-imports/template")
+    public ResponseEntity<byte[]> downloadTemplate() {
+        return ExcelHttpResponses.attachment(parentBatchImportService.buildTemplate(), "mau-nhap-phu-huynh.xlsx");
+    }
+
+    /**
+     * Xuất Excel danh sách tài khoản phụ huynh vừa tạo (bổ sung ngoài SDD
+     * gốc, đã xác nhận với người dùng 2026-07-24) — xem Javadoc
+     * StudentBatchImportController.exportAccounts().
+     */
+    @PostMapping("/api/parent-imports/accounts-export")
+    public ResponseEntity<byte[]> exportAccounts(@Valid @RequestBody AccountExportRequest request) {
+        return ExcelHttpResponses.attachment(
+                parentBatchImportService.buildAccountsExport(request), "tai-khoan-phu-huynh.xlsx");
     }
 }

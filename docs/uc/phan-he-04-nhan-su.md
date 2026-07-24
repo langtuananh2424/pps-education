@@ -485,6 +485,18 @@ UC-51: Nhập nhân sự theo lô
 |                 |     thấy mật khẩu tạm.                              |
 +-----------------+----------------------------------------------------+
 
+Mở rộng --- File mẫu + xuất danh sách tài khoản (bổ sung ngoài SDD gốc, đã
+xác nhận với người dùng 2026-07-24)
+
+-   Trước bước 1, Quản lý nhân sự có thể gọi `GET
+    /api/employee-imports/template` để tải file Excel mẫu đầy đủ 10 cột
+    theo đúng thứ tự Main Flow đọc, trường bắt buộc đánh dấu `*` cuối tên
+    cột, không có cột mật khẩu.
+-   Sau bước 6, có thể gọi `POST /api/employee-imports/accounts-export`
+    với đúng danh sách username + mật khẩu tạm vừa nhận được để lấy file
+    Excel giao lại cho từng nhân sự — chỉ dùng được trong cùng phiên vừa
+    import (không lưu mật khẩu tạm lại để tra cứu sau).
+
 ---
 
 UC-52: Danh mục chức vụ & tự động gán vai trò theo chức vụ

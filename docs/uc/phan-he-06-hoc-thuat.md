@@ -1278,6 +1278,20 @@ người dùng)
 |                 |     từng dòng) để Giáo viên đối chiếu.             |
 +-----------------+----------------------------------------------------+
 
+Mở rộng --- File mẫu (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+2026-07-24)
+
+-   Trước bước 1, Giáo viên có thể gọi `GET
+    /api/classes/{classId}/grade-periods/{gradePeriodId}/grades/import-template`
+    để tải file Excel mẫu điền sẵn: cột A = mã học viên (giữ nguyên vị trí
+    để import lại đúng bước 1), cột B/C = họ tên/lớp (chỉ để đọc, hệ thống
+    tự bỏ qua khi so khớp header ở bước 2 — không tính là "cột không khớp"
+    của A1), các cột sau đúng tên từng thành phần điểm đã cấu hình cho kỳ
+    đánh giá + Overall/Level — 1 dòng cho mỗi học sinh đang ghi danh
+    (ACTIVE) của lớp, cột điểm để trống sẵn sàng nhập. Cùng điều kiện tiên
+    quyết với bước tải lên (Giáo viên được phân công/Trưởng phòng đào
+    tạo/Quản lý điểm trường phụ trách site).
+
 ---
 
 UC-54: Quản lý danh mục kỹ năng (bổ sung ngoài SDD gốc, đã xác nhận với
