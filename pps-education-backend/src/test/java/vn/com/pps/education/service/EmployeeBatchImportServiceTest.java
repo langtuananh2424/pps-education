@@ -178,6 +178,24 @@ class EmployeeBatchImportServiceTest extends AbstractIntegrationTest {
         assertThat(reFetched.generatedCredentials()).isEmpty();
     }
 
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-24 — file mẫu tải xuống. */
+    @Test
+    void buildTemplate_hasAllColumnsWithRequiredFieldsMarked() throws IOException {
+        byte[] template = employeeBatchImportService.buildTemplate();
+
+        try (var workbook = new XSSFWorkbook(new java.io.ByteArrayInputStream(template))) {
+            Row header = workbook.getSheetAt(0).getRow(0);
+            java.util.List<String> headers = new java.util.ArrayList<>();
+            for (int i = 0; i < header.getLastCellNum(); i++) {
+                headers.add(header.getCell(i).getStringCellValue());
+            }
+            assertThat(headers).containsExactly(
+                    "Họ và tên*", "Username*", "Email", "Ngày sinh (dd/MM/yyyy)*", "Mã nhân sự*",
+                    "Loại nhân sự (Giáo viên/Nhân viên/Quản lý)*", "Mã chức vụ", "Mã phòng ban",
+                    "Miễn trừ chấm công/duyệt đơn (Có/Không)", "Ngày vào làm (dd/MM/yyyy)*");
+        }
+    }
+
     private byte[] buildWorkbook(String[][] rows) throws IOException {
         try (XSSFWorkbook workbook = new XSSFWorkbook()) {
             Sheet sheet = workbook.createSheet("NhanSu");

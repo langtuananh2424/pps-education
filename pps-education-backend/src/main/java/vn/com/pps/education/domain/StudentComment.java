@@ -29,6 +29,13 @@ public class StudentComment {
 
     public enum Status { DRAFT, PENDING, APPROVED, REJECTED }
 
+    /**
+     * Thái độ học tập buổi đó (chỉ dùng khi commentType=DAILY, bổ sung
+     * ngoài SDD gốc, đã xác nhận với người dùng 2026-07-24) — Kém/Trung
+     * bình/Tốt, dự kiến bổ sung thêm giá trị sau này.
+     */
+    public enum Attitude { POOR, AVERAGE, GOOD }
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -103,4 +110,22 @@ public class StudentComment {
 
     @Column(name = "rejection_reason", columnDefinition = "TEXT")
     private String rejectionReason;
+
+    // ===== Nhận xét Hàng ngày kiểu mới (chỉ dùng khi commentType=DAILY) =====
+    // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-24.
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private Attitude attitude;
+
+    /** VD "80%" — chấm BTVN buổi TRƯỚC buổi này (yêu cầu kiểu dữ liệu tường minh từ người dùng). */
+    @Column(name = "homework_previous_score", length = 10)
+    private String homeworkPreviousScore;
+
+    /** VD "Unit 4 Trang 18" — BTVN giao cho buổi SAU, hạn nộp ngầm hiểu là ngày buổi học kế tiếp. */
+    @Column(name = "homework_next", columnDefinition = "TEXT")
+    private String homeworkNext;
+
+    @Column(columnDefinition = "TEXT")
+    private String note;
 }

@@ -7,6 +7,8 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import vn.com.pps.education.common.ExcelExportHelper;
+import vn.com.pps.education.domain.ClassEnrollment;
 import vn.com.pps.education.domain.GradeComponent;
 import vn.com.pps.education.domain.GradePeriod;
 import vn.com.pps.education.domain.GradePeriodResult;
@@ -19,6 +21,7 @@ import vn.com.pps.education.dto.EnterGradeRequest;
 import vn.com.pps.education.dto.GradeImportResponse;
 import vn.com.pps.education.exception.GradeImportColumnMismatchException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
+import vn.com.pps.education.repository.ClassEnrollmentRepository;
 import vn.com.pps.education.repository.GradeComponentRepository;
 import vn.com.pps.education.repository.GradePeriodRepository;
 import vn.com.pps.education.repository.ImportJobRepository;
@@ -71,6 +74,15 @@ public class GradeImportService {
     private static final int FIRST_DATA_ROW_INDEX = 1;
     private static final Set<String> OVERALL_ALIASES = Set.of("overall", "tong diem", "diem tong", "diem tong ket");
     private static final Set<String> LEVEL_ALIASES = Set.of("level", "cap do", "trinh do", "xep loai");
+    /**
+     * Cột hiển thị/tham chiếu (Họ và tên, Lớp) do buildTemplate() tự thêm
+     * vào file mẫu cho dễ đọc (bổ sung ngoài SDD gốc, đã xác nhận với người
+     * dùng 2026-07-24) — KHÔNG map vào điểm nào, mapHeader() phải bỏ qua
+     * (không coi là "cột không khớp"), nếu không thì chính file mẫu tự
+     * sinh ra, điền điểm rồi upload lại sẽ tự báo lỗi mismatch.
+     */
+    private static final Set<String> IGNORED_ALIASES = Set.of(
+            "ho va ten", "full name", "ten hoc sinh", "lop", "ten lop", "class");
 
     private final ImportJobRepository importJobRepository;
     private final GradePeriodRepository gradePeriodRepository;
@@ -78,6 +90,7 @@ public class GradeImportService {
     private final SchoolClassRepository schoolClassRepository;
     private final StudentRepository studentRepository;
     private final UserRepository userRepository;
+    private final ClassEnrollmentRepository classEnrollmentRepository;
     private final GradeService gradeService;
 
     public GradeImportService(ImportJobRepository importJobRepository,
@@ -86,6 +99,7 @@ public class GradeImportService {
                               SchoolClassRepository schoolClassRepository,
                               StudentRepository studentRepository,
                               UserRepository userRepository,
+                              ClassEnrollmentRepository classEnrollmentRepository,
                               GradeService gradeService) {
         this.importJobRepository = importJobRepository;
         this.gradePeriodRepository = gradePeriodRepository;
@@ -93,6 +107,7 @@ public class GradeImportService {
         this.schoolClassRepository = schoolClassRepository;
         this.studentRepository = studentRepository;
         this.userRepository = userRepository;
+        this.classEnrollmentRepository = classEnrollmentRepository;
         this.gradeService = gradeService;
     }
 
@@ -104,14 +119,7 @@ public class GradeImportService {
      */
     @Transactional
     public GradeImportResponse importGrades(Long classId, Long gradePeriodId, MultipartFile file, Long actorUserId) {
-        SchoolClass schoolClass = schoolClassRepository.findByIdAndDeletedAtIsNull(classId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học id=" + classId));
-        GradePeriod period = gradePeriodRepository.findById(gradePeriodId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy kỳ đánh giá id=" + gradePeriodId));
-        if (!period.getCurriculum().getId().equals(schoolClass.getCurriculum().getId())) {
-            throw new IllegalArgumentException(
-                    "Kỳ đánh giá id=" + gradePeriodId + " không thuộc khung chương trình của lớp id=" + classId + ".");
-        }
+        loadAndValidate(classId, gradePeriodId);
         // UC-53 Precondition (mở rộng, xem GradeService#requireCanEnterGrades) — dùng chung logic với UC-19, không lặp lại.
         gradeService.requireCanEnterGrades(classId, actorUserId);
         User actor = userRepository.findById(actorUserId)
@@ -174,10 +182,66 @@ public class GradeImportService {
         return toResponse(job);
     }
 
+    /**
+     * File mẫu để nhập điểm qua Excel (bổ sung ngoài SDD gốc, đã xác nhận
+     * với người dùng 2026-07-24) — cột A = mã học sinh (bắt buộc giữ đúng
+     * vị trí đầu tiên, importRow() đọc theo vị trí này), cột B/C = họ tên/
+     * lớp (chỉ để đọc, mapHeader() bỏ qua qua IGNORED_ALIASES), các cột sau
+     * = đúng tên từng thành phần điểm của kỳ đánh giá + Overall/Level.
+     * Điền sẵn 1 dòng / học sinh đang ghi danh ACTIVE của lớp, cột điểm để
+     * trống sẵn sàng nhập — cùng quyền với importGrades() (Giáo viên được
+     * phân công/Trưởng phòng đào tạo/Quản lý điểm trường phụ trách site).
+     */
+    @Transactional(readOnly = true)
+    public byte[] buildTemplate(Long classId, Long gradePeriodId, Long actorUserId) {
+        gradeService.requireCanEnterGrades(classId, actorUserId);
+        ClassAndPeriod validated = loadAndValidate(classId, gradePeriodId);
+        List<GradeComponent> components = gradeComponentRepository.findByGradePeriodIdOrderByDisplayOrder(gradePeriodId);
+
+        List<String> headers = new ArrayList<>();
+        headers.add("Mã học sinh*");
+        headers.add("Họ và tên");
+        headers.add("Lớp");
+        components.forEach(component -> headers.add(component.getName()));
+        headers.add("Overall");
+        headers.add("Level");
+
+        List<ClassEnrollment> enrollments =
+                classEnrollmentRepository.findBySchoolClassIdAndStatus(classId, ClassEnrollment.Status.ACTIVE);
+        List<List<Object>> rows = new ArrayList<>();
+        for (ClassEnrollment enrollment : enrollments) {
+            Student student = enrollment.getStudent();
+            List<Object> row = new ArrayList<>();
+            row.add(student.getStudentCode());
+            row.add(student.getUser().getFullName());
+            row.add(validated.schoolClass().getName());
+            components.forEach(component -> row.add(null));
+            row.add(null); // Overall
+            row.add(null); // Level
+            rows.add(row);
+        }
+        return ExcelExportHelper.buildWorkbook("Nhập điểm", headers, rows);
+    }
+
     // ===================== Helpers =====================
 
     private record ColumnMapping(Map<Integer, GradeComponent> componentByColumn,
                                  Integer overallColumn, Integer levelColumn, int columnCount) {
+    }
+
+    private record ClassAndPeriod(SchoolClass schoolClass, GradePeriod period) {}
+
+    /** Dùng chung cho importGrades() và buildTemplate() — tránh lặp lại lookup + check khớp curriculum. */
+    private ClassAndPeriod loadAndValidate(Long classId, Long gradePeriodId) {
+        SchoolClass schoolClass = schoolClassRepository.findByIdAndDeletedAtIsNull(classId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học id=" + classId));
+        GradePeriod period = gradePeriodRepository.findById(gradePeriodId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy kỳ đánh giá id=" + gradePeriodId));
+        if (!period.getCurriculum().getId().equals(schoolClass.getCurriculum().getId())) {
+            throw new IllegalArgumentException(
+                    "Kỳ đánh giá id=" + gradePeriodId + " không thuộc khung chương trình của lớp id=" + classId + ".");
+        }
+        return new ClassAndPeriod(schoolClass, period);
     }
 
     /** Main Flow bước 2, A1 — cột nào (ngoài cột A) không khớp thì dừng toàn bộ, liệt kê rõ. */
@@ -209,6 +273,8 @@ public class GradeImportService {
                 levelColumn = col;
             } else if (componentByKey.containsKey(key)) {
                 componentByColumn.put(col, componentByKey.get(key));
+            } else if (IGNORED_ALIASES.contains(key)) {
+                // Cột hiển thị (Họ và tên/Lớp) do buildTemplate() tự thêm — bỏ qua, không phải lỗi.
             } else {
                 unmatched.add(header);
             }

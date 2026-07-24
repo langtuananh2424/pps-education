@@ -1112,6 +1112,43 @@ UC-21: Viết nhận xét học sinh
 | ostcondition)** |     thị cho Phụ huynh.                             |
 +-----------------+----------------------------------------------------+
 
+Mở rộng --- Nhận xét Hàng ngày kiểu mới (bổ sung ngoài SDD gốc, đã xác
+nhận với người dùng 2026-07-24, kết luận họp — CHỈ áp dụng comment_type=
+DAILY, Giữa/Cuối kỳ giữ nguyên 100% luồng ở trên)
+
+-   Luồng thao tác: Giáo viên điểm danh buổi học (UC-15) → điền "bài học
+    hôm nay" (TEXT, `class_sessions.lesson_content`, dùng chung cả lớp —
+    `PUT /api/class-sessions/{classSessionId}/lesson-content`) → nhận xét
+    từng học sinh của buổi đó. Học sinh Vắng/Có phép thì không cần điền
+    các trường nhận xét.
+-   4 cột mới trên `student_comments` (chỉ có ý nghĩa khi comment_type=
+    DAILY): `attitude` (VARCHAR(20), enum Kém/Trung bình/Tốt — dự kiến bổ
+    sung thêm sau), `homework_previous_score` (VARCHAR(10), VD "80%" —
+    chấm BTVN buổi TRƯỚC ngay trong dòng của buổi này), `homework_next`
+    (TEXT, VD "Unit 4 Trang 18" — giao BTVN cho buổi SAU, hạn nộp ngầm
+    hiểu là ngày buổi học kế tiếp, không lưu cột deadline riêng), `note`
+    (TEXT).
+-   Excel round-trip theo buổi học: `GET
+    /api/class-sessions/{classSessionId}/comments/template` tải file mẫu
+    điền sẵn học sinh ACTIVE của lớp (Ngày/Mã học viên/Họ và tên/Điểm
+    danh hiện có/nhận xét đã nhập trước đó nếu có); điền xong gọi `POST
+    /api/class-sessions/{classSessionId}/comments/import` — cột Điểm danh
+    trong file CHO PHÉP sửa luôn điểm danh khi import lại (tái dùng
+    nguyên StudentAttendanceService.markAttendance — rào "chỉ trong ngày
+    diễn ra buổi học" của UC-15 không đổi, KHÁC hạn X ngày của nhận xét
+    bên dưới). Lỗi 1 dòng không chặn dòng khác (đúng pattern UC-35/50/51/53).
+-   Hạn nhập/sửa: mặc định 7 ngày kể từ NGÀY BUỔI HỌC diễn ra
+    (`system_settings.academic.comment_edit_window_days`, cấu hình qua
+    `GET`/`PUT /api/academic/settings/comment-edit-window-days`).
+-   Quy trình duyệt: Giáo viên (chỉ có `academic.comment.write`) ghi
+    xong tự động chuyển Chờ duyệt (PENDING) ngay — không còn bước Nháp
+    (DRAFT) rồi submit riêng cho biểu mẫu Hàng ngày, kể cả sửa lại sau
+    khi bị từ chối (UC-21 A1). Actor có `academic.comment.approve`
+    (Quản lý điểm trường/Quản trị viên — permission đã có sẵn từ V44,
+    không tạo permission mới) ghi trực tiếp thì bỏ qua bước chờ duyệt
+    (APPROVED ngay, hiển thị Phụ huynh luôn) VÀ bỏ qua luôn hạn X ngày ở
+    trên (cùng 1 permission gánh cả 2 "quyền quản trị").
+
 ---
 
 UC-22: Duyệt nhận xét
@@ -1277,6 +1314,20 @@ người dùng)
 |                 | -   import_jobs lưu lại kết quả (thành công/lỗi    |
 |                 |     từng dòng) để Giáo viên đối chiếu.             |
 +-----------------+----------------------------------------------------+
+
+Mở rộng --- File mẫu (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+2026-07-24)
+
+-   Trước bước 1, Giáo viên có thể gọi `GET
+    /api/classes/{classId}/grade-periods/{gradePeriodId}/grades/import-template`
+    để tải file Excel mẫu điền sẵn: cột A = mã học viên (giữ nguyên vị trí
+    để import lại đúng bước 1), cột B/C = họ tên/lớp (chỉ để đọc, hệ thống
+    tự bỏ qua khi so khớp header ở bước 2 — không tính là "cột không khớp"
+    của A1), các cột sau đúng tên từng thành phần điểm đã cấu hình cho kỳ
+    đánh giá + Overall/Level — 1 dòng cho mỗi học sinh đang ghi danh
+    (ACTIVE) của lớp, cột điểm để trống sẵn sàng nhập. Cùng điều kiện tiên
+    quyết với bước tải lên (Giáo viên được phân công/Trưởng phòng đào
+    tạo/Quản lý điểm trường phụ trách site).
 
 ---
 

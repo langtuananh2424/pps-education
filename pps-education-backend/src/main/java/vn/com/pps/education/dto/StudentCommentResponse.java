@@ -23,5 +23,11 @@ public record StudentCommentResponse(
         OffsetDateTime approvedAt,
         Long approvedBy,
         OffsetDateTime visibleToParentAt,
-        String rejectionReason
+        String rejectionReason,
+        // Nhận xét Hàng ngày kiểu mới (chỉ có ý nghĩa khi commentType=DAILY) —
+        // bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-24.
+        String attitude,
+        String homeworkPreviousScore,
+        String homeworkNext,
+        String note
 ) {}

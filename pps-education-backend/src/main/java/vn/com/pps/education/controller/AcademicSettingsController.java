@@ -8,8 +8,10 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
+import vn.com.pps.education.dto.CommentEditWindowResponse;
 import vn.com.pps.education.dto.GradeAppealWindowResponse;
 import vn.com.pps.education.dto.GradeEditWindowResponse;
+import vn.com.pps.education.dto.UpdateCommentEditWindowRequest;
 import vn.com.pps.education.dto.UpdateGradeAppealWindowRequest;
 import vn.com.pps.education.dto.UpdateGradeEditWindowRequest;
 import vn.com.pps.education.security.AuthenticatedUser;
@@ -52,5 +54,17 @@ public class AcademicSettingsController {
     public ResponseEntity<GradeAppealWindowResponse> updateGradeAppealWindow(@Valid @RequestBody UpdateGradeAppealWindowRequest request,
                                                                               @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(academicSettingsService.updateGradeAppealWindowDays(request.days(), actor.userId()));
+    }
+
+    @GetMapping("/api/academic/settings/comment-edit-window-days")
+    public ResponseEntity<CommentEditWindowResponse> getCommentEditWindow() {
+        return ResponseEntity.ok(academicSettingsService.getCommentEditWindow());
+    }
+
+    @PreAuthorize("hasPermission(null, 'academic.comment.approve')")
+    @PutMapping("/api/academic/settings/comment-edit-window-days")
+    public ResponseEntity<CommentEditWindowResponse> updateCommentEditWindow(@Valid @RequestBody UpdateCommentEditWindowRequest request,
+                                                                              @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(academicSettingsService.updateCommentEditWindowDays(request.days(), actor.userId()));
     }
 }

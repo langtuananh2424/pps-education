@@ -17,6 +17,7 @@ import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.dto.AttendanceMarkResponse;
 import vn.com.pps.education.dto.AttendanceSessionResponse;
+import vn.com.pps.education.dto.ClassSessionLessonContentResponse;
 import vn.com.pps.education.dto.EnterAttendanceMarkRequest;
 import vn.com.pps.education.dto.MarkAttendanceRequest;
 import vn.com.pps.education.dto.PartnerAttendanceSummaryResponse;
@@ -257,6 +258,22 @@ public class StudentAttendanceService {
     }
 
     /**
+     * "Bài học hôm nay" (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+     * 2026-07-24) — cùng rào với điểm danh (GV được phân công buổi + trong
+     * ngày diễn ra, hoặc quyền quản trị điểm danh), nên đặt ở đây thay vì
+     * ClassSessionService để tái dùng nguyên requireCanWriteAttendance,
+     * không viết lại rào ở chỗ khác.
+     */
+    @Transactional
+    public ClassSessionLessonContentResponse updateLessonContent(Long classSessionId, String lessonContent, Long actorUserId) {
+        ClassSession classSession = getClassSessionOrThrow(classSessionId);
+        requireCanWriteAttendance(classSession, actorUserId, PERM_ATTENDANCE_UPDATE);
+        classSession.setLessonContent(lessonContent);
+        classSession = classSessionRepository.save(classSession);
+        return new ClassSessionLessonContentResponse(classSession.getId(), classSession.getLessonContent());
+    }
+
+    /**
      * Quyền quản trị academic.attendance.delete (vượt rào Giáo viên): xóa
      * toàn bộ bản ghi điểm danh của 1 buổi. Xóa theo đúng thứ tự khóa ngoại:
      * attendance_period_marks → attendance_marks_history → attendance_marks →
@@ -405,6 +422,27 @@ public class StudentAttendanceService {
                     "Chỉ điểm danh/sửa được trong ngày diễn ra buổi học (" + classSession.getSessionDate()
                             + "); hôm nay là " + today + ". Cần quyền quản trị điểm danh để thao tác buổi khác ngày.");
         }
+    }
+
+    /**
+     * Kiểm tra TRƯỚC (không throw) actor có ghi được điểm danh buổi này
+     * không — dùng cho StudentCommentService.importComments() để tránh gọi
+     * markAttendance() (bean @Transactional khác) rồi bắt exception: exception
+     * xuyên qua ranh giới @Transactional của lời gọi lồng nhau đánh dấu
+     * transaction NGOÀI rollback-only ngay tại proxy, dù caller có catch
+     * cũng không "gỡ" được — commit sau đó ném UnexpectedRollbackException.
+     * Cùng đúng rào với requireCanWriteAttendance, chỉ khác không throw.
+     */
+    @Transactional(readOnly = true)
+    public boolean canWriteAttendance(Long classSessionId, Long actorUserId) {
+        ClassSession classSession = getClassSessionOrThrow(classSessionId);
+        if (permissionEvaluationService.hasPermission(actorUserId, PERM_ATTENDANCE_CREATE)) {
+            return true;
+        }
+        if (!classSession.getPrimaryTeacher().getId().equals(actorUserId)) {
+            return false;
+        }
+        return LocalDate.now().equals(classSession.getSessionDate());
     }
 
     private ClassSession getClassSessionOrThrow(Long id) {

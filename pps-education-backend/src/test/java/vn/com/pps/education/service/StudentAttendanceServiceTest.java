@@ -191,6 +191,23 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void updateLessonContent_savesLessonContentForSession() {
+        var result = studentAttendanceService.updateLessonContent(session.id(), "Unit 4: Present simple tense.", teacher.getId());
+
+        assertThat(result.classSessionId()).isEqualTo(session.id());
+        assertThat(result.lessonContent()).isEqualTo("Unit 4: Present simple tense.");
+    }
+
+    @Test
+    void updateLessonContent_rejectsWhenActorNotAssignedTeacher() {
+        User outsider = newUser("outsider.teacher");
+        assignRole(outsider, "TEACHER");
+
+        assertThatThrownBy(() -> studentAttendanceService.updateLessonContent(session.id(), "Nội dung", outsider.getId()))
+                .isInstanceOf(NotAssignedTeacherForSessionException.class);
+    }
+
+    @Test
     void updatePeriodMark_UC15_MainFlow_overridesSinglePeriod() {
         studentAttendanceService.markAttendance(session.id(),
                 new MarkAttendanceRequest("SESSION_LEVEL", List.of(

@@ -442,7 +442,8 @@ public class ClassSessionService {
                 s.getRoom() == null ? null : s.getRoom().getId(), s.getRoom() == null ? null : s.getRoom().getName(),
                 s.getPrimaryTeacher().getId(), s.getPrimaryTeacher().getFullName(),
                 s.getSessionType().name(), s.getStatus().name(),
-                s.getCancellationReason(), s.getRescheduledToSession() == null ? null : s.getRescheduledToSession().getId());
+                s.getCancellationReason(), s.getRescheduledToSession() == null ? null : s.getRescheduledToSession().getId(),
+                s.getLessonContent());
     }
 
     private SessionPeriodResponse toResponse(SessionPeriod p) {

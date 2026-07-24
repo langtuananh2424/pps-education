@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.SystemSetting;
 import vn.com.pps.education.domain.User;
+import vn.com.pps.education.dto.CommentEditWindowResponse;
 import vn.com.pps.education.dto.GradeAppealWindowResponse;
 import vn.com.pps.education.dto.GradeEditWindowResponse;
 import vn.com.pps.education.exception.ResourceNotFoundException;
@@ -27,6 +28,7 @@ public class AcademicSettingsService {
 
     private static final String GRADE_EDIT_WINDOW_DAYS = "academic.grade_edit_window_days";
     private static final String GRADE_APPEAL_WINDOW_DAYS = "academic.grade_appeal_window_days";
+    private static final String COMMENT_EDIT_WINDOW_DAYS = "academic.comment_edit_window_days";
 
     private final SystemSettingRepository systemSettingRepository;
     private final UserRepository userRepository;
@@ -84,6 +86,35 @@ public class AcademicSettingsService {
         setting.setUpdatedAt(OffsetDateTime.now());
         systemSettingRepository.save(setting);
         return new GradeAppealWindowResponse(days);
+    }
+
+    /**
+     * UC-21 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-24):
+     * số ngày X kể từ NGÀY BUỔI HỌC DIỄN RA, Giáo viên được nhập/sửa nhận
+     * xét Hàng ngày — xem StudentCommentService.requireCanWriteDailyComment.
+     */
+    @Transactional(readOnly = true)
+    public int commentEditWindowDays() {
+        return readSetting(COMMENT_EDIT_WINDOW_DAYS).getSettingValue().asInt();
+    }
+
+    @Transactional(readOnly = true)
+    public CommentEditWindowResponse getCommentEditWindow() {
+        return new CommentEditWindowResponse(commentEditWindowDays());
+    }
+
+    /** Trưởng phòng đào tạo đổi số ngày X — validate days > 0. */
+    @Transactional
+    public CommentEditWindowResponse updateCommentEditWindowDays(int days, Long actorUserId) {
+        if (days <= 0) {
+            throw new IllegalArgumentException("Số ngày phải lớn hơn 0.");
+        }
+        SystemSetting setting = readSetting(COMMENT_EDIT_WINDOW_DAYS);
+        setting.setSettingValue(IntNode.valueOf(days));
+        setting.setUpdatedBy(getUserOrThrow(actorUserId));
+        setting.setUpdatedAt(OffsetDateTime.now());
+        systemSettingRepository.save(setting);
+        return new CommentEditWindowResponse(days);
     }
 
     private User getUserOrThrow(Long actorUserId) {

@@ -34,7 +34,6 @@ import vn.com.pps.education.dto.GradePeriodResultResponse;
 import vn.com.pps.education.dto.MarkAttendanceRequest;
 import vn.com.pps.education.dto.PublishGradesRequest;
 import vn.com.pps.education.dto.StudentCommentResponse;
-import vn.com.pps.education.dto.SubmitCommentsRequest;
 import vn.com.pps.education.dto.UpdateCurriculumRequest;
 import vn.com.pps.education.exception.NotAuthorizedForPortalAccessException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
@@ -223,16 +222,16 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
 
     @Test
     void listComments_UC25_A1_onlyApprovedCommentsVisible() {
+        // DAILY: ghi xong tự động chuyển PENDING ngay (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-24) -- không còn bước submit riêng.
         StudentCommentResponse approved = studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), "DAILY", session.id(), null,
-                        LocalDate.now(), "Chăm chỉ.", null, null, false), teacher.getId());
-        studentCommentService.submitComments(schoolClass.id(), new SubmitCommentsRequest(List.of(approved.id())), teacher.getId());
+                        LocalDate.now(), "Chăm chỉ.", null, null, false, null, null, null, null), teacher.getId());
         studentCommentService.decideComments(new DecideCommentsRequest(List.of(approved.id()), "APPROVED", null), siteManagerUser.getId());
 
-        // A1 -- nhận xét khác vẫn DRAFT.
+        // A1 -- nhận xét khác vẫn PENDING (chưa duyệt).
         studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), "DAILY", session.id(), null,
-                        LocalDate.now(), "Nội dung chưa gửi.", null, null, false), teacher.getId());
+                        LocalDate.now(), "Nội dung chưa duyệt.", null, null, false, null, null, null, null), teacher.getId());
 
         List<StudentCommentResponse> comments = parentPortalService.listComments(student.getId(), schoolClass.id(), parentUser.getId());
 

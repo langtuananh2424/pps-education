@@ -202,7 +202,9 @@ public class ParentPortalService {
                 c.getGradePeriod() == null ? null : c.getGradePeriod().getId(),
                 c.getCommentDate(), c.getContent(), c.getStructuredContent(), c.getSeverity().name(), c.isWarning(),
                 c.getStatus().name(), c.getSubmittedAt(), c.getApprovedAt(),
-                c.getApprovedBy() == null ? null : c.getApprovedBy().getId(), c.getVisibleToParentAt(), c.getRejectionReason());
+                c.getApprovedBy() == null ? null : c.getApprovedBy().getId(), c.getVisibleToParentAt(), c.getRejectionReason(),
+                c.getAttitude() == null ? null : c.getAttitude().name(), c.getHomeworkPreviousScore(),
+                c.getHomeworkNext(), c.getNote());
     }
 
     private ClassSessionResponse toResponse(ClassSession s) {
@@ -210,6 +212,7 @@ public class ParentPortalService {
                 s.getId(), s.getSchoolClass().getId(), s.getSessionDate(), s.getStartTime(), s.getEndTime(),
                 s.getRoom() == null ? null : s.getRoom().getId(), s.getRoom() == null ? null : s.getRoom().getName(),
                 s.getPrimaryTeacher().getId(), s.getPrimaryTeacher().getFullName(), s.getSessionType().name(), s.getStatus().name(),
-                s.getCancellationReason(), s.getRescheduledToSession() == null ? null : s.getRescheduledToSession().getId());
+                s.getCancellationReason(), s.getRescheduledToSession() == null ? null : s.getRescheduledToSession().getId(),
+                s.getLessonContent());
     }
 }

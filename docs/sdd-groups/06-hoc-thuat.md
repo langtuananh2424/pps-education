@@ -418,6 +418,7 @@ erDiagram
         TEXT cancellation_reason
         BIGINT rescheduled_to_session_id FK
         BIGINT created_by FK
+        TEXT lesson_content
     }
 
     session_periods {
@@ -506,6 +507,27 @@ a)  Bảng class_sessions --- Buổi học
 
   created_by                  BIGINT           FK → users(id)        Nhân viên
                                                                      giáo vụ tạo
+
+  lesson_content               TEXT             NULL                  "Bài học hôm
+                                                                     nay" — 1 giá
+                                                                     trị dùng
+                                                                     chung cả lớp,
+                                                                     GV điền cùng
+                                                                     lúc điểm danh
+                                                                     (V50, bổ sung
+                                                                     ngoài SDD
+                                                                     gốc, đã xác
+                                                                     nhận với
+                                                                     người dùng
+                                                                     2026-07-24).
+                                                                     KHÁC
+                                                                     session_periods.
+                                                                     content_note
+                                                                     (per-tiết,
+                                                                     chưa có code
+                                                                     nào dùng) —
+                                                                     đây là giá
+                                                                     trị per-buổi.
 
   created_at, updated_at      TIMESTAMPTZ
   --------------------------------------------------------------------------------
@@ -1385,6 +1407,10 @@ erDiagram
         BIGINT approved_by FK
         TIMESTAMPTZ visible_to_parent_at
         TEXT rejection_reason
+        VARCHAR attitude
+        VARCHAR homework_previous_score
+        TEXT homework_next
+        TEXT note
     }
 ```
 
@@ -1449,6 +1475,25 @@ a)  Bảng student_comments --- Nhận xét học sinh
   visible_to_parent_at     TIMESTAMPTZ   NULL
 
   rejection_reason         TEXT          NULL
+
+  attitude                 VARCHAR(20)   NULL                  Chỉ dùng khi comment_type=
+                                                                DAILY (V50, bổ sung ngoài SDD
+                                                                gốc, đã xác nhận với người
+                                                                dùng 2026-07-24) — Kém/Trung
+                                                                bình/Tốt, cột phẳng RIÊNG với
+                                                                structured_content.attitude
+                                                                (JSONB, chỉ dùng cho Giữa/Cuối
+                                                                kỳ) — 2 cơ chế khác nhau cho 2
+                                                                nhóm biểu mẫu khác nhau
+
+  homework_previous_score  VARCHAR(10)   NULL                  Chỉ DAILY (V50) — VD "80%",
+                                                                chấm BTVN buổi TRƯỚC buổi này
+
+  homework_next            TEXT          NULL                  Chỉ DAILY (V50) — BTVN giao
+                                                                cho buổi SAU, hạn nộp ngầm
+                                                                hiểu là ngày buổi học kế tiếp
+
+  note                     TEXT          NULL                  Chỉ DAILY (V50) — ghi chú thêm
   -------------------------------------------------------------------------------------------
 
 Có student_comments_history.
