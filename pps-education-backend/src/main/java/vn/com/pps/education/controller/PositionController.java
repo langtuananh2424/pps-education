@@ -50,20 +50,20 @@ public class PositionController {
     }
 
     @PostMapping
-    @PreAuthorize("hasPermission(null, 'hrm.manage')")
+    @PreAuthorize("hasPermission(null, 'hrm.position.create') or hasPermission(null, 'hrm.manage')")
     public ResponseEntity<PositionResponse> create(@Valid @RequestBody CreatePositionRequest request) {
         return ResponseEntity.ok(positionService.create(request));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasPermission(null, 'hrm.manage')")
+    @PreAuthorize("hasPermission(null, 'hrm.position.update') or hasPermission(null, 'hrm.manage')")
     public ResponseEntity<PositionResponse> update(@PathVariable Long id,
                                                       @Valid @RequestBody UpdatePositionRequest request) {
         return ResponseEntity.ok(positionService.update(id, request));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasPermission(null, 'hrm.manage')")
+    @PreAuthorize("hasPermission(null, 'hrm.position.delete') or hasPermission(null, 'hrm.manage')")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         positionService.delete(id);
         return ResponseEntity.noContent().build();
@@ -76,7 +76,7 @@ public class PositionController {
     }
 
     @PutMapping("/{id}/default-roles")
-    @PreAuthorize("hasPermission(null, 'hrm.manage')")
+    @PreAuthorize("hasPermission(null, 'hrm.position.update') or hasPermission(null, 'hrm.manage')")
     public ResponseEntity<Void> updateDefaultRoles(@PathVariable Long id,
                                                      @RequestBody UpdatePositionDefaultRolesRequest request,
                                                      @AuthenticationPrincipal AuthenticatedUser actor) {
