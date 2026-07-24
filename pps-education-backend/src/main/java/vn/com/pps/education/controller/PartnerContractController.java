@@ -32,14 +32,14 @@ public class PartnerContractController {
     }
 
     @PostMapping("/api/partner-contracts")
-    @PreAuthorize("hasPermission(null, 'facility.manage')")
+    @PreAuthorize("hasPermission(null, 'facility.partner-contract.create') or hasPermission(null, 'facility.manage')")
     public ResponseEntity<PartnerContractResponse> createContract(@Valid @RequestBody CreatePartnerContractRequest request,
                                                                       @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(partnerContractService.createContract(request, actor.userId()));
     }
 
     @PutMapping("/api/partner-contracts/{id}")
-    @PreAuthorize("hasPermission(null, 'facility.manage')")
+    @PreAuthorize("hasPermission(null, 'facility.partner-contract.update') or hasPermission(null, 'facility.manage')")
     public ResponseEntity<PartnerContractResponse> updateContract(@PathVariable Long id,
                                                                       @Valid @RequestBody UpdatePartnerContractRequest request,
                                                                       @AuthenticationPrincipal AuthenticatedUser actor) {
@@ -47,7 +47,7 @@ public class PartnerContractController {
     }
 
     @PostMapping("/api/partner-contracts/{id}/terminate")
-    @PreAuthorize("hasPermission(null, 'facility.manage')")
+    @PreAuthorize("hasPermission(null, 'facility.partner-contract.update') or hasPermission(null, 'facility.manage')")
     public ResponseEntity<PartnerContractResponse> terminateContract(@PathVariable Long id,
                                                                          @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(partnerContractService.terminateContract(id, actor.userId()));
@@ -66,7 +66,7 @@ public class PartnerContractController {
     }
 
     @DeleteMapping("/api/partner-contracts/{id}")
-    @PreAuthorize("hasPermission(null, 'facility.manage')")
+    @PreAuthorize("hasPermission(null, 'facility.partner-contract.delete') or hasPermission(null, 'facility.manage')")
     public ResponseEntity<Void> deleteContract(@PathVariable Long id, @AuthenticationPrincipal AuthenticatedUser actor) {
         partnerContractService.deleteContract(id, actor.userId());
         return ResponseEntity.noContent().build();

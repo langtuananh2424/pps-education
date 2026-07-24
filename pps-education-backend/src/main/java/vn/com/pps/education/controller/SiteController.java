@@ -70,7 +70,7 @@ public class SiteController {
     }
 
     @PostMapping("/api/sites/{id}/teachers")
-    @PreAuthorize("hasPermission(null, 'facility.manage')")
+    @PreAuthorize("hasPermission(null, 'facility.site-teacher.assign') or hasPermission(null, 'facility.manage')")
     public ResponseEntity<SiteTeacherResponse> assignTeacher(@PathVariable Long id,
                                                               @Valid @RequestBody AssignSiteTeacherRequest request,
                                                               @AuthenticationPrincipal AuthenticatedUser actor) {
@@ -78,7 +78,7 @@ public class SiteController {
     }
 
     @DeleteMapping("/api/sites/{id}/teachers/{siteTeacherId}")
-    @PreAuthorize("hasPermission(null, 'facility.manage')")
+    @PreAuthorize("hasPermission(null, 'facility.site-teacher.remove') or hasPermission(null, 'facility.manage')")
     public ResponseEntity<Void> removeTeacher(@PathVariable Long id, @PathVariable Long siteTeacherId,
                                                @AuthenticationPrincipal AuthenticatedUser actor) {
         siteService.removeTeacherFromSite(id, siteTeacherId, actor.userId());

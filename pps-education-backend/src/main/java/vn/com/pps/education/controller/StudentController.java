@@ -81,14 +81,14 @@ public class StudentController {
         return ResponseEntity.ok(studentService.listParents(id));
     }
 
-    @PreAuthorize("hasPermission(null, 'student.parent.manage')")
+    @PreAuthorize("hasPermission(null, 'student.parent.link.create') or hasPermission(null, 'student.parent.manage')")
     @PostMapping("/{id}/parents")
     public ResponseEntity<ParentStudentResponse> linkParent(@PathVariable Long id,
                                                                @Valid @RequestBody LinkParentRequest request) {
         return ResponseEntity.ok(studentService.linkParent(id, request));
     }
 
-    @PreAuthorize("hasPermission(null, 'student.parent.manage')")
+    @PreAuthorize("hasPermission(null, 'student.parent.link.delete') or hasPermission(null, 'student.parent.manage')")
     @DeleteMapping("/{id}/parents/{parentStudentId}")
     public ResponseEntity<Void> unlinkParent(@PathVariable Long id, @PathVariable Long parentStudentId) {
         studentService.unlinkParent(id, parentStudentId);

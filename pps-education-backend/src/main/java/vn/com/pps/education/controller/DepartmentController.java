@@ -46,20 +46,20 @@ public class DepartmentController {
     }
 
     @PostMapping
-    @PreAuthorize("hasPermission(null, 'hrm.manage')")
+    @PreAuthorize("hasPermission(null, 'hrm.department.create') or hasPermission(null, 'hrm.manage')")
     public ResponseEntity<DepartmentResponse> create(@Valid @RequestBody CreateDepartmentRequest request) {
         return ResponseEntity.ok(departmentService.create(request));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasPermission(null, 'hrm.manage')")
+    @PreAuthorize("hasPermission(null, 'hrm.department.update') or hasPermission(null, 'hrm.manage')")
     public ResponseEntity<DepartmentResponse> update(@PathVariable Long id,
                                                         @Valid @RequestBody UpdateDepartmentRequest request) {
         return ResponseEntity.ok(departmentService.update(id, request));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasPermission(null, 'hrm.manage')")
+    @PreAuthorize("hasPermission(null, 'hrm.department.delete') or hasPermission(null, 'hrm.manage')")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         departmentService.delete(id);
         return ResponseEntity.noContent().build();

@@ -23,7 +23,6 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/api/users/{userId}/roles")
-@PreAuthorize("hasPermission(null, 'user.role.manage')")
 public class UserRoleController {
 
     private final UserRoleAssignmentService userRoleAssignmentService;
@@ -32,11 +31,13 @@ public class UserRoleController {
         this.userRoleAssignmentService = userRoleAssignmentService;
     }
 
+    @PreAuthorize("hasPermission(null, 'user.role.manage')")
     @GetMapping
     public ResponseEntity<List<RoleResponse>> listAssignedRoles(@PathVariable Long userId) {
         return ResponseEntity.ok(userRoleAssignmentService.listAssignedRoles(userId));
     }
 
+    @PreAuthorize("hasPermission(null, 'user.role.assign') or hasPermission(null, 'user.role.manage')")
     @PutMapping("/{roleId}")
     public ResponseEntity<Void> assignRole(@PathVariable Long userId,
                                             @PathVariable Long roleId,
@@ -46,6 +47,7 @@ public class UserRoleController {
         return ResponseEntity.noContent().build();
     }
 
+    @PreAuthorize("hasPermission(null, 'user.role.revoke') or hasPermission(null, 'user.role.manage')")
     @DeleteMapping("/{roleId}")
     public ResponseEntity<Void> revokeRole(@PathVariable Long userId,
                                             @PathVariable Long roleId,
