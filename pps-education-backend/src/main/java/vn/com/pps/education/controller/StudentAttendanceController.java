@@ -14,7 +14,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import vn.com.pps.education.dto.AttendanceMarkResponse;
 import vn.com.pps.education.dto.AttendanceSessionResponse;
+import vn.com.pps.education.dto.ClassSessionLessonContentResponse;
 import vn.com.pps.education.dto.MarkAttendanceRequest;
+import vn.com.pps.education.dto.UpdateLessonContentRequest;
 import vn.com.pps.education.dto.UpdatePeriodMarkRequest;
 import vn.com.pps.education.security.AuthenticatedUser;
 import vn.com.pps.education.service.StudentAttendanceService;
@@ -52,6 +54,15 @@ public class StudentAttendanceController {
                                                                        @Valid @RequestBody UpdatePeriodMarkRequest request,
                                                                        @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(studentAttendanceService.updatePeriodMark(classSessionId, studentId, sessionPeriodId, request, actor.userId()));
+    }
+
+    /** "Bài học hôm nay" (bổ sung ngoài SDD gốc, đã xác nhận với người dùng). */
+    @PreAuthorize("hasPermission(null, 'academic.attendance.mark') or hasPermission(null, 'academic.attendance.update')")
+    @PutMapping("/lesson-content")
+    public ResponseEntity<ClassSessionLessonContentResponse> updateLessonContent(@PathVariable Long classSessionId,
+                                                                                  @Valid @RequestBody UpdateLessonContentRequest request,
+                                                                                  @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(studentAttendanceService.updateLessonContent(classSessionId, request.lessonContent(), actor.userId()));
     }
 
     @PreAuthorize("hasPermission(null, 'academic.attendance.mark') or hasPermission(null, 'academic.attendance.create')")

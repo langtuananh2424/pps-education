@@ -71,4 +71,12 @@ public class ClassSession extends BaseAuditEntity {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "created_by", nullable = false)
     private User createdBy;
+
+    /**
+     * "Bài học hôm nay" (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+     * 2026-07-24) — 1 giá trị dùng chung cho cả lớp trong buổi này, Giáo
+     * viên điền cùng lúc điểm danh (xem StudentAttendanceService.updateLessonContent).
+     */
+    @Column(name = "lesson_content", columnDefinition = "TEXT")
+    private String lessonContent;
 }

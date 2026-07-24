@@ -16,5 +16,6 @@ public record ClassSessionResponse(
         String sessionType,
         String status,
         String cancellationReason,
-        Long rescheduledToSessionId
+        Long rescheduledToSessionId,
+        String lessonContent
 ) {}

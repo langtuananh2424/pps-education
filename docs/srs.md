@@ -510,6 +510,23 @@ nhân đó mới được thao tác.*
         học sinh theo 3 biểu mẫu: Hàng ngày (thái độ), Giữa kỳ, và Cuối
         kỳ (tổng kết năng lực).
 
+        **Nhận xét Hàng ngày kiểu mới (bổ sung ngoài SDD gốc, đã xác nhận
+        với người dùng 2026-07-24 — kết luận họp, CHỈ áp dụng biểu mẫu
+        Hàng ngày, Giữa/Cuối kỳ giữ nguyên):** Giáo viên điểm danh buổi
+        học → điền "bài học hôm nay" (TEXT, dùng chung cả lớp, thuộc buổi
+        học) → nhận xét từng học sinh (Thái độ học tập: Kém/Trung
+        bình/Tốt; chấm BTVN buổi trước dạng %; nhận xét; giao BTVN buổi
+        sau; ghi chú) — có thể làm trực tiếp hoặc tải file Excel mẫu theo
+        buổi học (điền sẵn mã HS/họ tên/ngày/điểm danh), điền xong tải
+        lên lại (cột điểm danh trong file cho phép sửa luôn điểm danh).
+        Chỉ nhập/sửa được trong vòng X ngày kể từ ngày buổi học diễn ra
+        (mặc định 7, cấu hình qua system_settings). Giáo viên nhập vẫn
+        qua quy trình duyệt của Quản lý điểm trường như cũ (UC-22); actor
+        có quyền `academic.comment.approve` (Quản lý điểm trường/Quản trị
+        viên) nhập trực tiếp thì bỏ qua bước chờ duyệt (và bỏ qua luôn hạn
+        X ngày) — không tạo permission mới, tái dùng đúng
+        `academic.comment.write`/`academic.comment.approve` đã có.
+
     -   **FR-ACA-05: Xếp lịch buổi học -** Nhân viên giáo vụ/Trưởng phòng
         đào tạo xếp lịch từng buổi học cụ thể (ngày, khung giờ, phòng,
         giáo viên phụ trách) cho 1 lớp đã khởi tạo (FR-ACA-02); hệ thống

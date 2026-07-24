@@ -232,6 +232,7 @@
 | DELETE | `/api/class-sessions/{classSessionId}/attendance` | JWT + `academic.attendance.delete` | — | 200 (không có body) |
 | GET | `/api/class-sessions/{classSessionId}/attendance` | JWT | — | [AttendanceSessionResponse](#attendancesessionresponse) |
 | POST | `/api/class-sessions/{classSessionId}/attendance` | JWT + `academic.attendance.mark hoặc academic.attendance.create` | Body: [MarkAttendanceRequest](#markattendancerequest) | [AttendanceSessionResponse](#attendancesessionresponse) |
+| PUT | `/api/class-sessions/{classSessionId}/attendance/lesson-content` | JWT + `academic.attendance.mark hoặc academic.attendance.update` | Body: [UpdateLessonContentRequest](#updatelessoncontentrequest) | [ClassSessionLessonContentResponse](#classsessionlessoncontentresponse) |
 | PUT | `/api/class-sessions/{classSessionId}/attendance/students/{studentId}/periods/{sessionPeriodId}` | JWT + `academic.attendance.mark hoặc academic.attendance.update` | Body: [UpdatePeriodMarkRequest](#updateperiodmarkrequest) | [AttendanceMarkResponse](#attendancemarkresponse) |
 | POST | `/api/class-sessions/{classSessionId}/attendance/submit` | JWT + `academic.attendance.mark hoặc academic.attendance.create` | — | [AttendanceSessionResponse](#attendancesessionresponse) |
 
@@ -310,6 +311,8 @@
 
 | Method | Path | Auth | Input | Output |
 |---|---|---|---|---|
+| POST | `/api/class-sessions/{classSessionId}/comments/import` | JWT + `academic.comment.write hoặc academic.comment.approve` | Form-data: `file` (tệp) | [DailyCommentImportResponse](#dailycommentimportresponse) |
+| GET | `/api/class-sessions/{classSessionId}/comments/template` | JWT + `academic.comment.write hoặc academic.comment.approve` | — | string |
 | GET | `/api/classes/{classId}/comments` | JWT | Query: `studentId` | mảng [StudentCommentResponse](#studentcommentresponse) |
 | POST | `/api/classes/{classId}/comments` | JWT + `academic.comment.write` | Body: [CreateStudentCommentRequest](#createstudentcommentrequest) | [StudentCommentResponse](#studentcommentresponse) |
 | POST | `/api/classes/{classId}/comments/submit` | JWT + `academic.comment.write` | Body: [SubmitCommentsRequest](#submitcommentsrequest) | mảng [StudentCommentResponse](#studentcommentresponse) |
@@ -529,6 +532,8 @@
 
 | Method | Path | Auth | Input | Output |
 |---|---|---|---|---|
+| GET | `/api/academic/settings/comment-edit-window-days` | JWT | — | [CommentEditWindowResponse](#commenteditwindowresponse) |
+| PUT | `/api/academic/settings/comment-edit-window-days` | JWT + `academic.comment.approve` | Body: [UpdateCommentEditWindowRequest](#updatecommenteditwindowrequest) | [CommentEditWindowResponse](#commenteditwindowresponse) |
 | GET | `/api/academic/settings/grade-appeal-window-days` | JWT | — | [GradeAppealWindowResponse](#gradeappealwindowresponse) |
 | PUT | `/api/academic/settings/grade-appeal-window-days` | JWT + `academic.grade.manage` | Body: [UpdateGradeAppealWindowRequest](#updategradeappealwindowrequest) | [GradeAppealWindowResponse](#gradeappealwindowresponse) |
 | GET | `/api/academic/settings/grade-edit-window-days` | JWT | — | [GradeEditWindowResponse](#gradeeditwindowresponse) |
@@ -990,6 +995,13 @@
 | `successRows` | integer |  |
 | `totalRows` | integer |  |
 
+### ClassSessionLessonContentResponse
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `classSessionId` | integer (int64) |  |
+| `lessonContent` | string |  |
+
 ### ClassSessionResponse
 
 | Trường | Kiểu | Bắt buộc |
@@ -998,6 +1010,7 @@
 | `classId` | integer (int64) |  |
 | `endTime` | [LocalTime](#localtime) |  |
 | `id` | integer (int64) |  |
+| `lessonContent` | string |  |
 | `primaryTeacherId` | integer (int64) |  |
 | `primaryTeacherName` | string |  |
 | `rescheduledToSessionId` | integer (int64) |  |
@@ -1032,6 +1045,12 @@
 | `recordDate` | string (date) |  |
 | `recordType` | string |  |
 | `title` | string |  |
+
+### CommentEditWindowResponse
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `days` | integer |  |
 
 ### ConvertLeadRequest
 
@@ -1423,12 +1442,16 @@
 
 | Trường | Kiểu | Bắt buộc |
 |---|---|---|
+| `attitude` | string |  |
 | `classSessionId` | integer (int64) |  |
 | `commentDate` | string (date) | ✔ |
 | `commentType` | string | ✔ |
 | `content` | string | ✔ |
 | `gradePeriodId` | integer (int64) |  |
+| `homeworkNext` | string |  |
+| `homeworkPreviousScore` | string |  |
 | `isWarning` | boolean |  |
+| `note` | string |  |
 | `severity` | string |  |
 | `structuredContent` | object |  |
 | `studentId` | integer (int64) | ✔ |
@@ -1573,6 +1596,18 @@
 | `periodCount` | integer |  |
 | `skillId` | integer (int64) |  |
 | `subjectCode` | string |  |
+
+### DailyCommentImportResponse
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `errorSummary` | mảng object |  |
+| `failedRows` | integer |  |
+| `id` | integer (int64) |  |
+| `sourceFileName` | string |  |
+| `status` | string |  |
+| `successRows` | integer |  |
+| `totalRows` | integer |  |
 
 ### DecideCommentsRequest
 
@@ -2864,14 +2899,18 @@
 |---|---|---|
 | `approvedAt` | string (date-time) |  |
 | `approvedBy` | integer (int64) |  |
+| `attitude` | string |  |
 | `classId` | integer (int64) |  |
 | `classSessionId` | integer (int64) |  |
 | `commentDate` | string (date) |  |
 | `commentType` | string |  |
 | `content` | string |  |
 | `gradePeriodId` | integer (int64) |  |
+| `homeworkNext` | string |  |
+| `homeworkPreviousScore` | string |  |
 | `id` | integer (int64) |  |
 | `isWarning` | boolean |  |
+| `note` | string |  |
 | `rejectionReason` | string |  |
 | `severity` | string |  |
 | `status` | string |  |
@@ -3105,6 +3144,12 @@
 | `startDate` | string (date) | ✔ |
 | `status` | string | ✔ |
 
+### UpdateCommentEditWindowRequest
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `days` | integer |  |
+
 ### UpdateCurriculumDocumentRequest
 
 | Trường | Kiểu | Bắt buộc |
@@ -3224,6 +3269,12 @@
 | `finalNote` | string |  |
 | `outcome` | string |  |
 | `status` | string | ✔ |
+
+### UpdateLessonContentRequest
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `lessonContent` | string | ✔ |
 
 ### UpdateLessonRequest
 
@@ -3382,8 +3433,12 @@
 
 | Trường | Kiểu | Bắt buộc |
 |---|---|---|
+| `attitude` | string |  |
 | `content` | string | ✔ |
+| `homeworkNext` | string |  |
+| `homeworkPreviousScore` | string |  |
 | `isWarning` | boolean |  |
+| `note` | string |  |
 | `severity` | string |  |
 | `structuredContent` | object |  |
 
