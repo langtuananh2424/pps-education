@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { ChevronDown, ChevronRight, ClipboardList, Clock } from "lucide-react";
+import { ChevronRight, ClipboardList, Clock } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
-import { AssignedExerciseResponse, ExerciseQuestionResponse, listExerciseQuestions, listMyAssignedExercises } from "../api";
+import { AssignedExerciseResponse, listMyAssignedExercises } from "../api";
 import TakeExerciseModal from "./TakeExerciseModal";
 
 interface AssignmentsTabProps {
@@ -55,72 +55,50 @@ export default function AssignmentsTab({ classId }: AssignmentsTabProps) {
 }
 
 function AssignmentCard({ item, onChanged }: { item: AssignedExerciseResponse; onChanged: () => void }) {
-  const [expanded, setExpanded] = useState(false);
-  const [questions, setQuestions] = useState<ExerciseQuestionResponse[] | null>(null);
-  const [loadingQuestions, setLoadingQuestions] = useState(false);
   const [taking, setTaking] = useState(false);
 
   const isOverdue = item.dueAt != null && new Date(item.dueAt) < new Date();
   const attemptMeta = item.myLatestAttemptStatus ? attemptStatusLabels[item.myLatestAttemptStatus] : null;
+  const isFullyGraded = item.myLatestAttemptStatus === "FULLY_GRADED";
 
-  const toggle = () => {
-    setExpanded((v) => !v);
-    if (!questions && !loadingQuestions) {
-      setLoadingQuestions(true);
-      listExerciseQuestions(item.exerciseId)
-        .then((res) => setQuestions([...res].sort((a, b) => a.displayOrder - b.displayOrder)))
-        .catch(() => setQuestions([]))
-        .finally(() => setLoadingQuestions(false));
-    }
-  };
+  const actionLabel =
+    item.myLatestAttemptStatus == null
+      ? "Làm bài ngay"
+      : item.myLatestAttemptStatus === "IN_PROGRESS"
+        ? "Tiếp tục làm bài"
+        : isFullyGraded
+          ? "Xem lại bài đã làm"
+          : "Xem lại bài đã nộp";
 
   return (
-    <div className="border border-line/80 rounded-[16px] overflow-hidden">
-      <button onClick={toggle} className="w-full text-left p-4 bg-sky-2 hover:bg-sky flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          {expanded ? <ChevronDown size={16} className="text-muted shrink-0" /> : <ChevronRight size={16} className="text-muted shrink-0" />}
-          <div className="min-w-0">
-            <p className="font-extrabold text-ink text-sm truncate">{item.title}</p>
-            <p className="text-[10px] text-muted font-bold flex items-center gap-1 mt-0.5">
-              <Clock size={11} />
-              Hạn nộp: {item.dueAt ? new Date(item.dueAt).toLocaleString("vi-VN") : "Không giới hạn"}
-              {item.myLatestTotalScore != null && ` · Điểm: ${item.myLatestTotalScore}`}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-1.5 shrink-0">
-          {attemptMeta && <span className={`text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full ${attemptMeta.className}`}>{attemptMeta.label}</span>}
-          {!attemptMeta && (
-            <span className={`text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full ${isOverdue ? "bg-coral/10 text-coral" : "bg-teal/10 text-teal-deep"}`}>
-              {isOverdue ? "Đã quá hạn — chưa làm" : "Chưa làm"}
-            </span>
-          )}
-        </div>
-      </button>
+    <div className={`rounded-[16px] p-4 flex items-center justify-between gap-3 ${isOverdue && !attemptMeta ? "bg-coral/5 border border-coral/20" : "bg-sky-2 border border-line/80"}`}>
+      <div className="min-w-0 flex-1">
+        {attemptMeta ? (
+          <span className={`text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full ${attemptMeta.className}`}>{attemptMeta.label}</span>
+        ) : (
+          <span className={`text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full ${isOverdue ? "bg-coral/10 text-coral" : "bg-teal/10 text-teal-deep"}`}>
+            {isOverdue ? "Đã quá hạn — chưa làm" : "Chưa làm"}
+          </span>
+        )}
+        <p className="font-extrabold text-ink text-sm mt-1.5 truncate">{item.title}</p>
+        <p className="text-[10px] text-muted font-bold flex items-center gap-1 mt-0.5">
+          <Clock size={11} />
+          Hạn nộp: {item.dueAt ? new Date(item.dueAt).toLocaleString("vi-VN") : "Không giới hạn"}
+          {item.myLatestTotalScore != null && ` · Điểm: ${item.myLatestTotalScore}`}
+        </p>
+      </div>
 
-      {expanded && (
-        <div className="p-4 bg-white space-y-3">
-          {loadingQuestions ? (
-            <p className="text-xs text-muted font-bold">Đang tải câu hỏi...</p>
-          ) : !questions || questions.length === 0 ? (
-            <p className="text-xs text-muted font-bold italic">Đề này chưa có câu hỏi nào.</p>
-          ) : (
-            <div className="space-y-1.5">
-              {questions.map((q) => (
-                <div key={q.id} className="flex items-center justify-between gap-3 text-xs border-b border-line/50 pb-1.5">
-                  <span className="text-ink font-bold truncate">
-                    {q.displayOrder}. {q.questionContent}
-                  </span>
-                  <span className="text-muted font-bold shrink-0">{q.points} đ</span>
-                </div>
-              ))}
-            </div>
-          )}
-          <button onClick={() => setTaking(true)} className="text-xs font-extrabold text-white bg-teal px-4 py-2 rounded-xl">
-            {item.myLatestAttemptStatus == null ? "Làm bài" : item.myLatestAttemptStatus === "IN_PROGRESS" ? "Tiếp tục làm bài" : "Xem lại bài đã nộp"}
-          </button>
-        </div>
-      )}
+      <div className="shrink-0 flex items-center gap-3">
+        {isFullyGraded && item.myLatestTotalScore != null && <p className="text-sm font-extrabold text-teal-deep">{item.myLatestTotalScore} đ</p>}
+        <button
+          onClick={() => setTaking(true)}
+          className={`flex items-center gap-1 text-xs font-extrabold px-4 py-2.5 rounded-full transition-colors ${
+            isFullyGraded ? "text-teal-deep bg-teal/10 hover:bg-teal/20" : "text-white bg-teal hover:bg-teal-deep"
+          }`}
+        >
+          {actionLabel} <ChevronRight size={14} />
+        </button>
+      </div>
 
       {taking && (
         <TakeExerciseModal
@@ -132,10 +110,7 @@ function AssignmentCard({ item, onChanged }: { item: AssignedExerciseResponse; o
             setTaking(false);
             onChanged();
           }}
-          onFinished={() => {
-            onChanged();
-            setQuestions(null);
-          }}
+          onFinished={onChanged}
         />
       )}
     </div>

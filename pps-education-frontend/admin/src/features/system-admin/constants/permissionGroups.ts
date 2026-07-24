@@ -38,14 +38,50 @@ export const permissionGroupsByModule: Record<string, PermissionGroupDef[]> = {
       label: "Hồ sơ học sinh",
       codes: ["student.profile.view", "student.profile.create", "student.profile.update", "student.profile.import"]
     },
-    { key: "parent", label: "Phụ huynh", codes: ["student.parent.view", "student.parent.manage"] }
+    { key: "parent", label: "Phụ huynh", codes: ["student.parent.view", "student.parent.manage"] },
+    {
+      key: "parent-link",
+      label: "Phụ huynh — Liên kết với học sinh",
+      codes: ["student.parent.link.create", "student.parent.link.delete"]
+    }
   ],
   CRM: [{ key: "lead", label: "Khách hàng tiềm năng (Lead)", codes: ["crm.lead.manage", "crm.lead.assign"] }],
   USER: [
     {
-      key: "permission",
-      label: "Phân quyền hệ thống",
-      codes: ["permission.role.manage", "permission.override.manage", "permission.catalog.manage", "permission.audit.view"]
+      key: "permission-catalog",
+      label: "Danh mục quyền",
+      codes: ["permission.catalog.manage", "permission.catalog.create", "permission.catalog.update", "permission.catalog.delete"]
+    },
+    {
+      key: "permission-role",
+      label: "Vai trò tuỳ biến",
+      codes: ["permission.role.manage", "permission.role.create", "permission.role.update", "permission.role.delete"]
+    },
+    {
+      key: "permission-override",
+      label: "Tuỳ chỉnh quyền riêng theo tài khoản",
+      codes: ["permission.override.manage", "permission.override.set", "permission.override.delete"]
+    },
+    {
+      key: "user-role",
+      label: "Gán vai trò cho tài khoản",
+      codes: ["user.role.manage", "user.role.assign", "user.role.revoke"]
+    }
+  ],
+  HRM: [
+    { key: "department", label: "Phòng ban", codes: ["hrm.department.create", "hrm.department.update", "hrm.department.delete"] },
+    { key: "position", label: "Chức vụ", codes: ["hrm.position.create", "hrm.position.update", "hrm.position.delete"] }
+  ],
+  FACILITY: [
+    {
+      key: "partner-contract",
+      label: "Hợp đồng đối tác",
+      codes: ["facility.partner-contract.create", "facility.partner-contract.update", "facility.partner-contract.delete"]
+    },
+    {
+      key: "site-teacher",
+      label: "Gán giáo viên vào điểm trường",
+      codes: ["facility.site-teacher.assign", "facility.site-teacher.remove"]
     }
   ]
 };

@@ -467,6 +467,7 @@ function MaterialsModal({ lesson, onClose }: { lesson: LessonResponse; onClose: 
     isDownloadable: true
   });
   const [submitting, setSubmitting] = useState(false);
+  const [videoSourceMode, setVideoSourceMode] = useState<"upload" | "youtube">("upload");
   const { message: toastMessage, showToast } = useToast();
 
   const load = () => {
@@ -543,7 +544,15 @@ function MaterialsModal({ lesson, onClose }: { lesson: LessonResponse; onClose: 
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={labelClass}>Loại tệp *</label>
-                <select value={form.materialType} onChange={(e) => setForm({ ...form, materialType: e.target.value as AddLessonMaterialRequest["materialType"] })} className={inputClass}>
+                <select
+                  value={form.materialType}
+                  onChange={(e) => {
+                    const materialType = e.target.value as AddLessonMaterialRequest["materialType"];
+                    setForm({ ...form, materialType });
+                    if (materialType !== "VIDEO") setVideoSourceMode("upload");
+                  }}
+                  className={inputClass}
+                >
                   {["VIDEO", "PDF", "AUDIO", "SLIDE", "IMAGE", "OTHER"].map((t) => (
                     <option key={t} value={t}>
                       {t}
@@ -558,14 +567,48 @@ function MaterialsModal({ lesson, onClose }: { lesson: LessonResponse; onClose: 
             </div>
             <div>
               <label className={labelClass}>Tệp học liệu *</label>
-              <FileUploadField
-                value={form.fileUrl}
-                onChange={(url) => setForm({ ...form, fileUrl: url })}
-                onUpload={(file) => uploadMedia(file, "LESSON_MATERIAL")}
-                onFileSize={(bytes) => setForm((prev) => ({ ...prev, fileSizeBytes: String(bytes) }))}
-                accept={MATERIAL_UPLOAD_ACCEPT}
-                placeholder="Chọn PDF/Word/Excel/ảnh/audio/video..."
-              />
+              {form.materialType === "VIDEO" && (
+                <div className="flex gap-1.5 mb-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setVideoSourceMode("upload");
+                      setForm((prev) => ({ ...prev, fileUrl: "" }));
+                    }}
+                    className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${videoSourceMode === "upload" ? "bg-brand-orange text-white" : "bg-slate-100 text-slate-500"}`}
+                  >
+                    Tải file lên
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setVideoSourceMode("youtube");
+                      setForm((prev) => ({ ...prev, fileUrl: "" }));
+                    }}
+                    className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${videoSourceMode === "youtube" ? "bg-brand-orange text-white" : "bg-slate-100 text-slate-500"}`}
+                  >
+                    Dán link YouTube
+                  </button>
+                </div>
+              )}
+              {form.materialType === "VIDEO" && videoSourceMode === "youtube" ? (
+                <input
+                  value={form.fileUrl}
+                  onChange={(e) => setForm({ ...form, fileUrl: e.target.value })}
+                  className={inputClass}
+                  placeholder="https://www.youtube.com/watch?v=..."
+                  required
+                />
+              ) : (
+                <FileUploadField
+                  value={form.fileUrl}
+                  onChange={(url) => setForm({ ...form, fileUrl: url })}
+                  onUpload={(file) => uploadMedia(file, "LESSON_MATERIAL")}
+                  onFileSize={(bytes) => setForm((prev) => ({ ...prev, fileSizeBytes: String(bytes) }))}
+                  accept={MATERIAL_UPLOAD_ACCEPT}
+                  placeholder="Chọn PDF/Word/Excel/ảnh/audio/video..."
+                />
+              )}
             </div>
             <div className="grid grid-cols-3 gap-3 items-end">
               <div>
