@@ -93,8 +93,8 @@ class MediaControllerTest extends AbstractControllerTest {
 
     /**
      * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (2026-07-22, theo yêu
-     * cầu FE): CURRICULUM_DOCUMENT/LESSON_MATERIAL nhận thêm PDF/Word/Excel/
-     * video - xem MediaModule.acceptsDocuments()/MediaStorageService.
+     * cầu FE): CURRICULUM_DOCUMENT nhận thêm PDF/Word/Excel/video - xem
+     * MediaModule.acceptsOfficeDocuments()/acceptsVideo()/MediaStorageService.
      */
     @Test
     void upload_boSung_curriculumDocumentAcceptsPdf_returns200() throws Exception {

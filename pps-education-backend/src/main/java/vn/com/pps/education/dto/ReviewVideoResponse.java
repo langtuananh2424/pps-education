@@ -1,13 +1,12 @@
 package vn.com.pps.education.dto;
 
-public record LessonMaterialResponse(
+public record ReviewVideoResponse(
         Long id,
-        Long lessonId,
-        String materialType,
+        Long reviewVideoSetId,
+        String sourceType,
         String title,
         String fileUrl,
         Long fileSizeBytes,
         Integer durationSeconds,
-        Integer displayOrder,
-        boolean isDownloadable
+        Integer displayOrder
 ) {}

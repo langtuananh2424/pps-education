@@ -38,7 +38,7 @@ spring:
 
   # Nâng giới hạn mặc định của Spring Boot (1MB/10MB) để chấp nhận upload
   # audio/video thật (tối đa 200MB cho video CURRICULUM_DOCUMENT/
-  # LESSON_MATERIAL - bổ sung 2026-07-22, xem app.media bên dưới và
+  # REVIEW_VIDEO - bổ sung 2026-07-22, xem app.media bên dưới và
   # MediaStorageService.MAX_VIDEO_BYTES). max-request-size cao hơn
   # max-file-size một chút để chừa chỗ cho phần multipart metadata khác.
   servlet:
@@ -125,7 +125,7 @@ app:
     # Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (2026-07-21, cập nhật
     # 2026-07-22): API upload file audio/ảnh cho Question.audioUrl/imageUrl
     # (UC-40) - trước đây backend không có hạ tầng lưu file (xem ghi chú "Tệp
-    # coi như đã upload lên CDN từ trước" ở LessonService/các URL field khác -
+    # coi như đã upload lên CDN từ trước" ở ReviewVideoService/các URL field khác -
     # vẫn giữ nguyên, phạm vi lần này CHỈ áp dụng cho Question). Lưu trên
     # Cloudflare R2 (Object Storage tương thích S3 API, không tính phí egress)
     # - thay thế quyết định lưu đĩa cục bộ + Docker volume trước đó. Placeholder

@@ -571,11 +571,15 @@ CDN)**
 
 -   **Yêu cầu chức năng:**
 
-    -   **FR-LMS-01: Kho bài giảng phân phối qua CDN -** Giáo viên tải
-        lên bài giảng video, tài liệu PDF. Toàn bộ các tệp tin này bắt
-        buộc phải lưu trữ và phân phối thông qua mạng mạng **CDN** để
-        bảo đảm Học sinh tải/xem video mượt mà, không giật lag kể cả khi
-        mạng yếu.
+    -   **FR-LMS-01: Kho Video Ôn tập phân phối qua CDN -** (tái cấu
+        trúc 2026-07-27 từ "Kho bài giảng phân phối qua CDN", đã xác
+        nhận với người dùng — bỏ hẳn tài liệu PDF, chỉ còn video/audio)
+        Giáo viên tổ chức video ôn tập theo "bộ" (Video từ kết nối/Video
+        phản xạ), thêm video qua link YouTube hoặc upload video/audio
+        lên **Cloudflare R2 (CDN)** để bảo đảm Học sinh xem mượt mà,
+        không giật lag kể cả khi mạng yếu. Hệ thống theo dõi % thời
+        lượng Học sinh đã xem (≥80% = "đã xem"), Giáo viên xem thống kê
+        theo lớp (UC-23a).
 
     -   **FR-LMS-02: Thi & Kiểm tra trực tuyến -** Hệ thống cho phép học
         sinh làm bài tập trắc nghiệm/tự luận trực tuyến. Tự động chấm
@@ -888,10 +892,11 @@ CDN)**
 
   UC-22             Duyệt nhận xét    FR-LMS-09         6, 7
 
-  UC-23             Quản lý bài giảng FR-LMS-01         7
+  UC-23             Quản lý Kho Video FR-LMS-01         7
+                    Ôn tập                              
 
-  UC-23a            Xem bài giảng     FR-LMS-01         7
-                    (Học sinh)                          
+  UC-23a            Xem & Theo dõi    FR-LMS-01         7
+                    Kho Video Ôn tập                    
 
   UC-60             Kho tài liệu tham FR-LMS-13         7
                     khảo                                

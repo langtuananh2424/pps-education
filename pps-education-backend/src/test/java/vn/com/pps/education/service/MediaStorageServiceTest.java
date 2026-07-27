@@ -104,8 +104,9 @@ class MediaStorageServiceTest {
 
     /**
      * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (2026-07-22, theo yêu
-     * cầu FE): CURRICULUM_DOCUMENT/LESSON_MATERIAL nhận thêm PDF/Word/Excel/
-     * video ngoài audio/ảnh - xem MediaModule.acceptsDocuments().
+     * cầu FE) — test hồi quy sau khi tách acceptsDocuments thành
+     * acceptsVideo/acceptsOfficeDocuments (2026-07-27, xem MediaModule):
+     * CURRICULUM_DOCUMENT vẫn nhận PDF y hệt trước khi tách cờ.
      */
     @Test
     void store_boSung_curriculumDocumentAcceptsPdf() {
@@ -116,26 +117,48 @@ class MediaStorageServiceTest {
         assertThat(url).startsWith(PUBLIC_BASE_URL + "/lms/curriculum-documents/documents/").endsWith(".pdf");
     }
 
+    /** Test hồi quy: CURRICULUM_DOCUMENT vẫn nhận video y hệt trước khi tách cờ. */
     @Test
-    void store_boSung_lessonMaterialAcceptsWordAndExcel() {
+    void store_regression_curriculumDocumentStillAcceptsVideo() {
+        MockMultipartFile file = new MockMultipartFile("file", "gioi-thieu.mp4", "video/mp4", "fake-mp4-bytes".getBytes());
+
+        String url = service.store(file, "CURRICULUM_DOCUMENT");
+
+        assertThat(url).startsWith(PUBLIC_BASE_URL + "/lms/curriculum-documents/video/").endsWith(".mp4");
+    }
+
+    /**
+     * UC-23: Kho Video Ôn tập (đổi tên từ LESSON_MATERIAL/Kho bài giảng,
+     * 2026-07-27) — chỉ còn nhận video/audio, KHÔNG còn nhận Word/Excel/PDF
+     * (đã xác nhận với người dùng: bỏ hẳn hỗ trợ tài liệu văn phòng).
+     */
+    @Test
+    void store_UC23_A_reviewVideoRejectsWordAndExcel() {
         MockMultipartFile word = new MockMultipartFile("file", "de-cuong.docx",
                 "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "fake-docx".getBytes());
         MockMultipartFile excel = new MockMultipartFile("file", "bang-diem.xlsx",
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "fake-xlsx".getBytes());
 
-        assertThat(service.store(word, "LESSON_MATERIAL"))
-                .startsWith(PUBLIC_BASE_URL + "/lms/lesson-materials/documents/").endsWith(".docx");
-        assertThat(service.store(excel, "LESSON_MATERIAL"))
-                .startsWith(PUBLIC_BASE_URL + "/lms/lesson-materials/documents/").endsWith(".xlsx");
+        assertThatThrownBy(() -> service.store(word, "REVIEW_VIDEO")).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.store(excel, "REVIEW_VIDEO")).isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
-    void store_boSung_lessonMaterialAcceptsVideo() {
-        MockMultipartFile file = new MockMultipartFile("file", "bai-giang.mp4", "video/mp4", "fake-mp4-bytes".getBytes());
+    void store_UC23_MainFlow_reviewVideoAcceptsVideo() {
+        MockMultipartFile file = new MockMultipartFile("file", "video-tu-ket-noi.mp4", "video/mp4", "fake-mp4-bytes".getBytes());
 
-        String url = service.store(file, "LESSON_MATERIAL");
+        String url = service.store(file, "REVIEW_VIDEO");
 
-        assertThat(url).startsWith(PUBLIC_BASE_URL + "/lms/lesson-materials/video/").endsWith(".mp4");
+        assertThat(url).startsWith(PUBLIC_BASE_URL + "/lms/review-videos/video/").endsWith(".mp4");
+    }
+
+    @Test
+    void store_UC23_MainFlow_reviewVideoAcceptsAudio() {
+        MockMultipartFile file = new MockMultipartFile("file", "video-phan-xa.mp3", "audio/mpeg", "fake-mp3-bytes".getBytes());
+
+        String url = service.store(file, "REVIEW_VIDEO");
+
+        assertThat(url).startsWith(PUBLIC_BASE_URL + "/lms/review-videos/audio/").endsWith(".mp3");
     }
 
     @Test
@@ -148,8 +171,9 @@ class MediaStorageServiceTest {
 
     /**
      * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (2026-07-22, theo yêu
-     * cầu FE): LMS_QUESTION cũng bật acceptsDocuments=true để câu tự luận
-     * (Question.imageUrl, UC-40) nhận file PDF - xem MediaModule.
+     * cầu FE) — test hồi quy sau khi tách cờ (2026-07-27): LMS_QUESTION vẫn
+     * bật acceptsOfficeDocuments=true để câu tự luận (Question.imageUrl,
+     * UC-40) nhận file PDF y hệt trước.
      */
     @Test
     void store_boSung_lmsQuestionAcceptsPdf() {
@@ -158,5 +182,15 @@ class MediaStorageServiceTest {
         String url = service.store(file, MODULE);
 
         assertThat(url).startsWith(PUBLIC_BASE_URL + "/lms/questions/documents/").endsWith(".pdf");
+    }
+
+    /** Test hồi quy: LMS_QUESTION vẫn nhận video y hệt trước khi tách cờ. */
+    @Test
+    void store_regression_lmsQuestionStillAcceptsVideo() {
+        MockMultipartFile file = new MockMultipartFile("file", "huong-dan.mp4", "video/mp4", "fake-mp4-bytes".getBytes());
+
+        String url = service.store(file, MODULE);
+
+        assertThat(url).startsWith(PUBLIC_BASE_URL + "/lms/questions/video/").endsWith(".mp4");
     }
 }

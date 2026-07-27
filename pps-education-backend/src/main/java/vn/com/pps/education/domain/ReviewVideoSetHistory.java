@@ -9,12 +9,12 @@ import org.hibernate.type.SqlTypes;
 import java.time.OffsetDateTime;
 import java.util.Map;
 
-/** Bảng lessons_history (SDD — "Có lessons_history"). */
+/** Bảng review_video_sets_history (SDD — "Có review_video_sets_history"), tái cấu trúc 2026-07-27 từ lessons_history. */
 @Getter
 @Setter
 @Entity
-@Table(name = "lessons_history")
-public class LessonHistory {
+@Table(name = "review_video_sets_history")
+public class ReviewVideoSetHistory {
 
     public enum Action { CREATED, UPDATED }
 
@@ -23,8 +23,8 @@ public class LessonHistory {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "lesson_id", nullable = false)
-    private Lesson lesson;
+    @JoinColumn(name = "review_video_set_id", nullable = false)
+    private ReviewVideoSet reviewVideoSet;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "changed_by", nullable = false)

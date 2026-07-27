@@ -1,35 +1,49 @@
 erDiagram
-    curriculums ||--o{ lessons : "bai chung"
-    classes ||--o{ lessons : "bai rieng lop"
-    lessons ||--o{ lesson_materials : "tep dinh kem"
-    lessons ||--o{ lessons_history : ""
-    curriculum_subjects ||--o{ lessons : ""
-    users ||--o{ lessons : "GV tao"
+    curriculums ||--o{ review_video_sets : "bo chung"
+    classes ||--o{ review_video_sets : "bo rieng lop"
+    review_video_sets ||--o{ review_videos : "video trong bo"
+    review_video_sets ||--o{ review_video_sets_history : ""
+    curriculum_subjects ||--o{ review_video_sets : ""
+    users ||--o{ review_video_sets : "GV tao"
+    review_videos ||--o{ review_video_progress : "tien do xem"
+    students ||--o{ review_video_progress : ""
 
-    lessons {
+    review_video_sets {
         BIGSERIAL id PK
         UUID uuid UK
         VARCHAR code
         VARCHAR title
+        VARCHAR video_type
         BIGINT curriculum_id FK
         BIGINT class_id FK
         BIGINT subject_id FK
-        INT lesson_order
-        VARCHAR lesson_type
-        INT duration_minutes
+        INT display_order
         VARCHAR status
         TIMESTAMPTZ published_at
         BIGINT created_by FK
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ updated_at
     }
 
-    lesson_materials {
+    review_videos {
         BIGSERIAL id PK
-        BIGINT lesson_id FK
-        VARCHAR material_type
+        BIGINT review_video_set_id FK
         VARCHAR title
+        VARCHAR source_type
         VARCHAR file_url
         BIGINT file_size_bytes
         INT duration_seconds
         INT display_order
-        BOOLEAN is_downloadable
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ updated_at
+    }
+
+    review_video_progress {
+        BIGSERIAL id PK
+        BIGINT review_video_id FK
+        BIGINT student_id FK
+        INT watched_seconds
+        BOOLEAN is_completed
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ updated_at
     }

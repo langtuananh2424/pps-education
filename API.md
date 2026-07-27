@@ -43,7 +43,6 @@
 - [Buổi học / xếp lịch](#buổi-học-xếp-lịch)
 - [Sổ điểm & duyệt điểm (UC-19/20)](#sổ-điểm-duyệt-điểm-uc-1920)
 - [Nhận xét học sinh (UC-21/22)](#nhận-xét-học-sinh-uc-2122)
-- [Bài giảng (LMS)](#bài-giảng-lms)
 - [Ngân hàng câu hỏi (UC-40)](#ngân-hàng-câu-hỏi-uc-40)
 - [Soạn & giao đề (UC-40)](#soạn-giao-đề-uc-40)
 - [Làm bài & nộp bài (LMS)](#làm-bài-nộp-bài-lms)
@@ -77,6 +76,7 @@
 - [parent-batch-import-controller](#parent-batch-import-controller)
 - [parent-controller](#parent-controller)
 - [position-controller](#position-controller)
+- [review-video-controller](#review-video-controller)
 - [skill-controller](#skill-controller)
 - [student-portal-controller](#student-portal-controller)
 - [task-settings-controller](#task-settings-controller)
@@ -319,17 +319,6 @@
 | POST | `/api/comments/decision` | JWT + `academic.comment.approve` | Body: [DecideCommentsRequest](#decidecommentsrequest) | mảng [StudentCommentResponse](#studentcommentresponse) |
 | GET | `/api/comments/pending` | JWT | — | mảng [StudentCommentResponse](#studentcommentresponse) |
 | PUT | `/api/comments/{id}` | JWT + `academic.comment.write` | Body: [UpdateStudentCommentRequest](#updatestudentcommentrequest) | [StudentCommentResponse](#studentcommentresponse) |
-
-## Bài giảng (LMS)
-
-| Method | Path | Auth | Input | Output |
-|---|---|---|---|---|
-| GET | `/api/classes/{classId}/lessons` | JWT | — | mảng [LessonResponse](#lessonresponse) |
-| GET | `/api/curriculums/{curriculumId}/lessons` | JWT | — | mảng [LessonResponse](#lessonresponse) |
-| POST | `/api/lessons` | JWT | Body: [CreateLessonRequest](#createlessonrequest) | [LessonResponse](#lessonresponse) |
-| PUT | `/api/lessons/{id}` | JWT | Body: [UpdateLessonRequest](#updatelessonrequest) | [LessonResponse](#lessonresponse) |
-| GET | `/api/lessons/{lessonId}/materials` | JWT | — | mảng [LessonMaterialResponse](#lessonmaterialresponse) |
-| POST | `/api/lessons/{lessonId}/materials` | JWT | Body: [AddLessonMaterialRequest](#addlessonmaterialrequest) | [LessonMaterialResponse](#lessonmaterialresponse) |
 
 ## Ngân hàng câu hỏi (UC-40)
 
@@ -647,6 +636,19 @@
 | GET | `/api/positions/{id}/default-roles` | JWT + `hrm.position.view` | — | [PositionDefaultRolesResponse](#positiondefaultrolesresponse) |
 | PUT | `/api/positions/{id}/default-roles` | JWT + `hrm.position.update` | Body: [UpdatePositionDefaultRolesRequest](#updatepositiondefaultrolesrequest) | 200 (không có body) |
 
+## review-video-controller
+
+| Method | Path | Auth | Input | Output |
+|---|---|---|---|---|
+| GET | `/api/classes/{classId}/review-video-sets` | JWT | — | mảng [ReviewVideoSetResponse](#reviewvideosetresponse) |
+| GET | `/api/curriculums/{curriculumId}/review-video-sets` | JWT | — | mảng [ReviewVideoSetResponse](#reviewvideosetresponse) |
+| POST | `/api/review-video-sets` | JWT | Body: [CreateReviewVideoSetRequest](#createreviewvideosetrequest) | [ReviewVideoSetResponse](#reviewvideosetresponse) |
+| PUT | `/api/review-video-sets/{id}` | JWT | Body: [UpdateReviewVideoSetRequest](#updatereviewvideosetrequest) | [ReviewVideoSetResponse](#reviewvideosetresponse) |
+| GET | `/api/review-video-sets/{setId}/stats` | JWT | Query: `classId`? | [ReviewVideoSetStatsResponse](#reviewvideosetstatsresponse) |
+| GET | `/api/review-video-sets/{setId}/videos` | JWT | — | mảng [ReviewVideoResponse](#reviewvideoresponse) |
+| POST | `/api/review-video-sets/{setId}/videos` | JWT | Body: [AddReviewVideoRequest](#addreviewvideorequest) | [ReviewVideoResponse](#reviewvideoresponse) |
+| PUT | `/api/review-videos/{videoId}/progress` | JWT | Body: [ReportVideoProgressRequest](#reportvideoprogressrequest) | [ReviewVideoProgressResponse](#reviewvideoprogressresponse) |
+
 ## skill-controller
 
 | Method | Path | Auth | Input | Output |
@@ -713,16 +715,15 @@
 |---|---|---|
 | `note` | string | ✔ |
 
-### AddLessonMaterialRequest
+### AddReviewVideoRequest
 
 | Trường | Kiểu | Bắt buộc |
 |---|---|---|
 | `displayOrder` | integer |  |
-| `durationSeconds` | integer |  |
+| `durationSeconds` | integer | ✔ |
 | `fileSizeBytes` | integer (int64) |  |
 | `fileUrl` | string | ✔ |
-| `isDownloadable` | boolean |  |
-| `materialType` | string | ✔ |
+| `sourceType` | string | ✔ |
 | `title` | string | ✔ |
 
 ### AddTaskAttachmentRequest
@@ -1260,19 +1261,6 @@
 | `startDate` | string (date) | ✔ |
 | `startTime` | [LocalTime](#localtime) |  |
 
-### CreateLessonRequest
-
-| Trường | Kiểu | Bắt buộc |
-|---|---|---|
-| `classId` | integer (int64) |  |
-| `code` | string | ✔ |
-| `curriculumId` | integer (int64) |  |
-| `durationMinutes` | integer |  |
-| `lessonOrder` | integer |  |
-| `lessonType` | string | ✔ |
-| `subjectId` | integer (int64) |  |
-| `title` | string | ✔ |
-
 ### CreateListeningPracticeItemRequest
 
 | Trường | Kiểu | Bắt buộc |
@@ -1380,6 +1368,18 @@
 | `referencePassage` | string |  |
 | `skill` | string |  |
 | `tags` | mảng string |  |
+
+### CreateReviewVideoSetRequest
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `classId` | integer (int64) |  |
+| `code` | string | ✔ |
+| `curriculumId` | integer (int64) |  |
+| `displayOrder` | integer |  |
+| `subjectId` | integer (int64) |  |
+| `title` | string | ✔ |
+| `videoType` | string | ✔ |
 
 ### CreateRoleRequest
 
@@ -2091,37 +2091,6 @@
 | `submittedAt` | string (date-time) |  |
 | `totalDays` | number |  |
 
-### LessonMaterialResponse
-
-| Trường | Kiểu | Bắt buộc |
-|---|---|---|
-| `displayOrder` | integer |  |
-| `durationSeconds` | integer |  |
-| `fileSizeBytes` | integer (int64) |  |
-| `fileUrl` | string |  |
-| `id` | integer (int64) |  |
-| `isDownloadable` | boolean |  |
-| `lessonId` | integer (int64) |  |
-| `materialType` | string |  |
-| `title` | string |  |
-
-### LessonResponse
-
-| Trường | Kiểu | Bắt buộc |
-|---|---|---|
-| `classId` | integer (int64) |  |
-| `code` | string |  |
-| `createdBy` | integer (int64) |  |
-| `curriculumId` | integer (int64) |  |
-| `durationMinutes` | integer |  |
-| `id` | integer (int64) |  |
-| `lessonOrder` | integer |  |
-| `lessonType` | string |  |
-| `publishedAt` | string (date-time) |  |
-| `status` | string |  |
-| `subjectId` | integer (int64) |  |
-| `title` | string |  |
-
 ### LinkParentRequest
 
 | Trường | Kiểu | Bắt buộc |
@@ -2712,6 +2681,12 @@
 | `accessTokenExpiresInSeconds` | integer (int64) |  |
 | `refreshToken` | string |  |
 
+### ReportVideoProgressRequest
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `watchedSeconds` | integer | ✔ |
+
 ### RescheduleClassSessionRequest
 
 | Trường | Kiểu | Bắt buộc |
@@ -2728,6 +2703,52 @@
 | Trường | Kiểu | Bắt buộc |
 |---|---|---|
 | `resolutionNotes` | string | ✔ |
+
+### ReviewVideoProgressResponse
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `completed` | boolean |  |
+| `durationSeconds` | integer |  |
+| `reviewVideoId` | integer (int64) |  |
+| `watchedPercent` | integer |  |
+| `watchedSeconds` | integer |  |
+
+### ReviewVideoResponse
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `displayOrder` | integer |  |
+| `durationSeconds` | integer |  |
+| `fileSizeBytes` | integer (int64) |  |
+| `fileUrl` | string |  |
+| `id` | integer (int64) |  |
+| `reviewVideoSetId` | integer (int64) |  |
+| `sourceType` | string |  |
+| `title` | string |  |
+
+### ReviewVideoSetResponse
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `classId` | integer (int64) |  |
+| `code` | string |  |
+| `createdBy` | integer (int64) |  |
+| `curriculumId` | integer (int64) |  |
+| `displayOrder` | integer |  |
+| `id` | integer (int64) |  |
+| `publishedAt` | string (date-time) |  |
+| `status` | string |  |
+| `subjectId` | integer (int64) |  |
+| `title` | string |  |
+| `videoType` | string |  |
+
+### ReviewVideoSetStatsResponse
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `cells` | mảng [StatsCell](#statscell) |  |
+| `videos` | mảng [VideoHeader](#videoheader) |  |
 
 ### RolePermissionMatrixResponse
 
@@ -2851,6 +2872,16 @@
 | `ignoreCase` | boolean |  |
 | `nullHandling` | string |  |
 | `property` | string |  |
+
+### StatsCell
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `completed` | boolean |  |
+| `studentId` | integer (int64) |  |
+| `videoId` | integer (int64) |  |
+| `watchedPercent` | integer |  |
+| `watchedSeconds` | integer |  |
 
 ### StudentAnswerGradingResponse
 
@@ -3276,16 +3307,6 @@
 |---|---|---|
 | `lessonContent` | string | ✔ |
 
-### UpdateLessonRequest
-
-| Trường | Kiểu | Bắt buộc |
-|---|---|---|
-| `durationMinutes` | integer |  |
-| `lessonOrder` | integer |  |
-| `status` | string | ✔ |
-| `subjectId` | integer (int64) |  |
-| `title` | string | ✔ |
-
 ### UpdateListeningPracticeItemRequest
 
 | Trường | Kiểu | Bắt buộc |
@@ -3388,6 +3409,15 @@
 | `referencePassage` | string |  |
 | `status` | string |  |
 | `tags` | mảng string |  |
+
+### UpdateReviewVideoSetRequest
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `displayOrder` | integer |  |
+| `status` | string | ✔ |
+| `subjectId` | integer (int64) |  |
+| `title` | string | ✔ |
 
 ### UpdateRolePermissionsRequest
 
@@ -3580,6 +3610,14 @@
 | `phone` | string |  |
 | `status` | string |  |
 | `username` | string |  |
+
+### VideoHeader
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `durationSeconds` | integer |  |
+| `title` | string |  |
+| `videoId` | integer (int64) |  |
 
 ### WithdrawEnrollmentRequest
 
