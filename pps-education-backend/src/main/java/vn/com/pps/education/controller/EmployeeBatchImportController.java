@@ -19,15 +19,15 @@ import vn.com.pps.education.service.EmployeeBatchImportService;
 
 /**
  * UC-51: Nhập nhân sự theo lô (FR-HRM-05) — xem Javadoc
- * EmployeeBatchImportService. Tái dùng permission hrm.manage đã có sẵn
- * (khớp EmployeeController — UC-08 tạo hồ sơ nhân sự) vì UC-51 cũng tạo
- * hồ sơ nhân sự, chỉ khác là hàng loạt qua Excel thay vì từng dòng.
+ * EmployeeBatchImportService. Dùng permission riêng hrm.employee.import
+ * (V51, tách từ hrm.manage — bổ sung ngoài SDD gốc, đã xác nhận với người
+ * dùng 2026-07-24), khớp quy ước student.profile.import.
  *
  * @PreAuthorize đặt ở class-level ngay từ đầu — rút kinh nghiệm lỗ hổng
  * thiếu quyền từng xảy ra ở StudentBatchImportController.
  */
 @RestController
-@PreAuthorize("hasPermission(null, 'hrm.manage')")
+@PreAuthorize("hasPermission(null, 'hrm.employee.import')")
 public class EmployeeBatchImportController {
 
     private final EmployeeBatchImportService employeeBatchImportService;

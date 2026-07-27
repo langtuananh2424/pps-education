@@ -12,7 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * UC-46: xác nhận user.role.manage (Hybrid PBAC) chặn/cho phép đúng qua HTTP thật.
+ * UC-46: xác nhận user.role.assign/revoke (Hybrid PBAC) chặn/cho phép đúng qua HTTP thật.
  */
 @Transactional
 class UserRoleControllerTest extends AbstractControllerTest {

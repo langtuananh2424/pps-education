@@ -212,8 +212,10 @@ nhập Google khớp theo email --- UC-01 A4). Tài khoản mới KHÔNG kèm ro
 --- gán sau qua UC-03/UC-04. Không có cơ chế "bắt đổi mật khẩu lần đầu"
 (bảng users không có cột tương ứng --- ngoài phạm vi thiết kế hiện tại).
 Ngoại lệ duy nhất về thẩm quyền: luồng khởi tạo hồ sơ nhân sự (UC-08,
-quyền hrm.manage) được tạo tài khoản kèm hồ sơ trong cùng 1 transaction
-cho nhân sự chưa có tài khoản --- dùng chung cơ chế/ràng buộc ở trên.
+quyền hrm.employee.create --- V51, tách từ hrm.manage, bổ sung ngoài SDD
+gốc đã xác nhận với người dùng 2026-07-24) được tạo tài khoản kèm hồ sơ
+trong cùng 1 transaction cho nhân sự chưa có tài khoản --- dùng chung cơ
+chế/ràng buộc ở trên.
 
 c)  Bảng roles -- Vai trò
 

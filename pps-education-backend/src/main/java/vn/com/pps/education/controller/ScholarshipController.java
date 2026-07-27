@@ -24,14 +24,14 @@ public class ScholarshipController {
     }
 
     @PostMapping("/api/finance/scholarships")
-    @PreAuthorize("hasPermission(null, 'finance.manage')")
+    @PreAuthorize("hasPermission(null, 'finance.scholarship.manage')")
     public ResponseEntity<ScholarshipResponse> create(@Valid @RequestBody CreateScholarshipRequest request,
                                                          @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(scholarshipService.create(request, actor.userId()));
     }
 
     @PostMapping("/api/finance/scholarships/{id}/revoke")
-    @PreAuthorize("hasPermission(null, 'finance.manage')")
+    @PreAuthorize("hasPermission(null, 'finance.scholarship.manage')")
     public ResponseEntity<ScholarshipResponse> revoke(@PathVariable Long id) {
         return ResponseEntity.ok(scholarshipService.revoke(id));
     }

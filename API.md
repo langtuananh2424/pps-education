@@ -112,36 +112,36 @@
 
 | Method | Path | Auth | Input | Output |
 |---|---|---|---|---|
-| GET | `/api/permissions` | JWT + `permission.catalog.manage` | — | mảng [PermissionResponse](#permissionresponse) |
-| POST | `/api/permissions` | JWT + `permission.catalog.create hoặc permission.catalog.manage` | Body: [CreatePermissionRequest](#createpermissionrequest) | [PermissionResponse](#permissionresponse) |
-| DELETE | `/api/permissions/{id}` | JWT + `permission.catalog.delete hoặc permission.catalog.manage` | — | 200 (không có body) |
-| PUT | `/api/permissions/{id}` | JWT + `permission.catalog.update hoặc permission.catalog.manage` | Body: [UpdatePermissionRequest](#updatepermissionrequest) | [PermissionResponse](#permissionresponse) |
+| GET | `/api/permissions` | JWT + `permission.catalog.view` | — | mảng [PermissionResponse](#permissionresponse) |
+| POST | `/api/permissions` | JWT + `permission.catalog.create` | Body: [CreatePermissionRequest](#createpermissionrequest) | [PermissionResponse](#permissionresponse) |
+| DELETE | `/api/permissions/{id}` | JWT + `permission.catalog.delete` | — | 200 (không có body) |
+| PUT | `/api/permissions/{id}` | JWT + `permission.catalog.update` | Body: [UpdatePermissionRequest](#updatepermissionrequest) | [PermissionResponse](#permissionresponse) |
 
 ## Nhóm quyền mặc định (UC-03)
 
 | Method | Path | Auth | Input | Output |
 |---|---|---|---|---|
-| GET | `/api/roles` | JWT + `permission.role.manage` | — | mảng [RoleResponse](#roleresponse) |
-| POST | `/api/roles` | JWT + `permission.role.create hoặc permission.role.manage` | Body: [CreateRoleRequest](#createrolerequest) | [RoleResponse](#roleresponse) |
-| DELETE | `/api/roles/{id}` | JWT + `permission.role.delete hoặc permission.role.manage` | — | 200 (không có body) |
-| GET | `/api/roles/{id}/permissions` | JWT + `permission.role.manage` | — | [RolePermissionMatrixResponse](#rolepermissionmatrixresponse) |
-| PUT | `/api/roles/{id}/permissions` | JWT + `permission.role.update hoặc permission.role.manage` | Body: [UpdateRolePermissionsRequest](#updaterolepermissionsrequest) | 200 (không có body) |
+| GET | `/api/roles` | JWT + `permission.role.view` | — | mảng [RoleResponse](#roleresponse) |
+| POST | `/api/roles` | JWT + `permission.role.create` | Body: [CreateRoleRequest](#createrolerequest) | [RoleResponse](#roleresponse) |
+| DELETE | `/api/roles/{id}` | JWT + `permission.role.delete` | — | 200 (không có body) |
+| GET | `/api/roles/{id}/permissions` | JWT + `permission.role.view` | — | [RolePermissionMatrixResponse](#rolepermissionmatrixresponse) |
+| PUT | `/api/roles/{id}/permissions` | JWT + `permission.role.update` | Body: [UpdateRolePermissionsRequest](#updaterolepermissionsrequest) | 200 (không có body) |
 
 ## Quyền ngoại lệ theo tài khoản (UC-04)
 
 | Method | Path | Auth | Input | Output |
 |---|---|---|---|---|
-| GET | `/api/users/{userId}/effective-permissions` | JWT + `permission.override.manage` | — | [EffectivePermissionsResponse](#effectivepermissionsresponse) |
-| DELETE | `/api/users/{userId}/permission-overrides/{permissionId}` | JWT + `permission.override.delete hoặc permission.override.manage` | — | 200 (không có body) |
-| PUT | `/api/users/{userId}/permission-overrides/{permissionId}` | JWT + `permission.override.set hoặc permission.override.manage` | Body: [UserPermissionOverrideRequest](#userpermissionoverriderequest) | 200 (không có body) |
+| GET | `/api/users/{userId}/effective-permissions` | JWT + `permission.override.view` | — | [EffectivePermissionsResponse](#effectivepermissionsresponse) |
+| DELETE | `/api/users/{userId}/permission-overrides/{permissionId}` | JWT + `permission.override.delete` | — | 200 (không có body) |
+| PUT | `/api/users/{userId}/permission-overrides/{permissionId}` | JWT + `permission.override.set` | Body: [UserPermissionOverrideRequest](#userpermissionoverriderequest) | 200 (không có body) |
 
 ## Gán/Thu hồi vai trò cho tài khoản (UC-46)
 
 | Method | Path | Auth | Input | Output |
 |---|---|---|---|---|
-| GET | `/api/users/{userId}/roles` | JWT + `user.role.manage` | — | mảng [RoleResponse](#roleresponse) |
-| DELETE | `/api/users/{userId}/roles/{roleId}` | JWT + `user.role.revoke hoặc user.role.manage` | — | 200 (không có body) |
-| PUT | `/api/users/{userId}/roles/{roleId}` | JWT + `user.role.assign hoặc user.role.manage` | — | 200 (không có body) |
+| GET | `/api/users/{userId}/roles` | JWT + `user.role.view` | — | mảng [RoleResponse](#roleresponse) |
+| DELETE | `/api/users/{userId}/roles/{roleId}` | JWT + `user.role.revoke` | — | 200 (không có body) |
+| PUT | `/api/users/{userId}/roles/{roleId}` | JWT + `user.role.assign` | — | 200 (không có body) |
 
 ## Nhật ký phân quyền (UC-05)
 
@@ -153,38 +153,38 @@
 
 | Method | Path | Auth | Input | Output |
 |---|---|---|---|---|
-| PUT | `/api/task-assignments/{id}/status` | JWT + `task.receive hoặc task.assign hoặc task.manage` | Body: [UpdateAssignmentStatusRequest](#updateassignmentstatusrequest) | [TaskAssignmentResponse](#taskassignmentresponse) |
-| POST | `/api/tasks` | JWT + `task.assign hoặc task.manage` | Body: [CreateTaskRequest](#createtaskrequest) | [TaskResponse](#taskresponse) |
+| PUT | `/api/task-assignments/{id}/status` | JWT + `task.receive hoặc task.assign` | Body: [UpdateAssignmentStatusRequest](#updateassignmentstatusrequest) | [TaskAssignmentResponse](#taskassignmentresponse) |
+| POST | `/api/tasks` | JWT + `task.assign` | Body: [CreateTaskRequest](#createtaskrequest) | [TaskResponse](#taskresponse) |
 | GET | `/api/tasks/created-by-me` | JWT | — | mảng [TaskResponse](#taskresponse) |
-| GET | `/api/tasks/my-assignments` | JWT + `task.receive hoặc task.manage` | — | mảng [TaskAssignmentResponse](#taskassignmentresponse) |
+| GET | `/api/tasks/my-assignments` | JWT + `task.receive` | — | mảng [TaskAssignmentResponse](#taskassignmentresponse) |
 | GET | `/api/tasks/overview` | JWT | — | mảng [TaskResponse](#taskresponse) |
 | GET | `/api/tasks/{id}` | JWT | — | [TaskResponse](#taskresponse) |
 | GET | `/api/tasks/{id}/assignments` | JWT | — | mảng [TaskAssignmentResponse](#taskassignmentresponse) |
 | GET | `/api/tasks/{id}/attachments` | JWT | — | mảng [TaskAttachmentResponse](#taskattachmentresponse) |
 | POST | `/api/tasks/{id}/attachments` | JWT | Body: [AddTaskAttachmentRequest](#addtaskattachmentrequest) | [TaskAttachmentResponse](#taskattachmentresponse) |
-| POST | `/api/tasks/{id}/cancel` | JWT + `task.assign hoặc task.manage` | Body: [CancelTaskRequest](#canceltaskrequest) | [TaskResponse](#taskresponse) |
+| POST | `/api/tasks/{id}/cancel` | JWT + `task.assign` | Body: [CancelTaskRequest](#canceltaskrequest) | [TaskResponse](#taskresponse) |
 | GET | `/api/tasks/{id}/comments` | JWT | — | mảng [TaskCommentResponse](#taskcommentresponse) |
 | POST | `/api/tasks/{id}/comments` | JWT | Body: [AddTaskCommentRequest](#addtaskcommentrequest) | [TaskCommentResponse](#taskcommentresponse) |
-| POST | `/api/tasks/{id}/reassign` | JWT + `task.assign hoặc task.manage` | Body: [ReassignTaskRequest](#reassigntaskrequest) | [TaskAssignmentResponse](#taskassignmentresponse) |
+| POST | `/api/tasks/{id}/reassign` | JWT + `task.assign` | Body: [ReassignTaskRequest](#reassigntaskrequest) | [TaskAssignmentResponse](#taskassignmentresponse) |
 
 ## Hồ sơ nhân sự, hợp đồng, bằng cấp (UC-08)
 
 | Method | Path | Auth | Input | Output |
 |---|---|---|---|---|
-| GET | `/api/employees` | JWT + `hrm.manage` | Query: `query`?, `departmentId`? | mảng [EmployeeResponse](#employeeresponse) |
-| POST | `/api/employees` | JWT + `hrm.manage` | Body: [CreateEmployeeRequest](#createemployeerequest) | [EmployeeResponse](#employeeresponse) |
-| GET | `/api/employees/contracts/expiring` | JWT + `hrm.manage` | Query: `withinDays` | mảng [ExpiringContractResponse](#expiringcontractresponse) |
+| GET | `/api/employees` | JWT + `hrm.employee.view` | Query: `query`?, `departmentId`? | mảng [EmployeeResponse](#employeeresponse) |
+| POST | `/api/employees` | JWT + `hrm.employee.create` | Body: [CreateEmployeeRequest](#createemployeerequest) | [EmployeeResponse](#employeeresponse) |
+| GET | `/api/employees/contracts/expiring` | JWT + `hrm.employee.view` | Query: `withinDays` | mảng [ExpiringContractResponse](#expiringcontractresponse) |
 | GET | `/api/employees/me` | JWT | — | [EmployeeResponse](#employeeresponse) |
 | PUT | `/api/employees/me` | JWT | Body: [UpdateOwnEmployeeProfileRequest](#updateownemployeeprofilerequest) | [EmployeeResponse](#employeeresponse) |
-| GET | `/api/employees/{id}` | JWT + `hrm.manage` | — | [EmployeeResponse](#employeeresponse) |
-| PUT | `/api/employees/{id}` | JWT + `hrm.manage` | Body: [UpdateEmployeeRequest](#updateemployeerequest) | [EmployeeResponse](#employeeresponse) |
-| GET | `/api/employees/{id}/commendations` | JWT + `hrm.manage` | — | mảng [CommendationResponse](#commendationresponse) |
-| POST | `/api/employees/{id}/commendations` | JWT + `hrm.manage` | Body: [CreateCommendationRequest](#createcommendationrequest) | [CommendationResponse](#commendationresponse) |
-| GET | `/api/employees/{id}/contracts` | JWT + `hrm.manage` | — | mảng [EmploymentContractResponse](#employmentcontractresponse) |
-| POST | `/api/employees/{id}/contracts` | JWT + `hrm.manage` | Body: [CreateEmploymentContractRequest](#createemploymentcontractrequest) | [EmploymentContractResponse](#employmentcontractresponse) |
-| PUT | `/api/employees/{id}/contracts/{contractId}` | JWT + `hrm.manage` | Body: [UpdateEmploymentContractRequest](#updateemploymentcontractrequest) | [EmploymentContractResponse](#employmentcontractresponse) |
-| GET | `/api/employees/{id}/qualifications` | JWT + `hrm.manage` | — | mảng [QualificationResponse](#qualificationresponse) |
-| POST | `/api/employees/{id}/qualifications` | JWT + `hrm.manage` | Body: [CreateQualificationRequest](#createqualificationrequest) | [QualificationResponse](#qualificationresponse) |
+| GET | `/api/employees/{id}` | JWT + `hrm.employee.view` | — | [EmployeeResponse](#employeeresponse) |
+| PUT | `/api/employees/{id}` | JWT + `hrm.employee.update` | Body: [UpdateEmployeeRequest](#updateemployeerequest) | [EmployeeResponse](#employeeresponse) |
+| GET | `/api/employees/{id}/commendations` | JWT + `hrm.employee.view` | — | mảng [CommendationResponse](#commendationresponse) |
+| POST | `/api/employees/{id}/commendations` | JWT + `hrm.employee.update` | Body: [CreateCommendationRequest](#createcommendationrequest) | [CommendationResponse](#commendationresponse) |
+| GET | `/api/employees/{id}/contracts` | JWT + `hrm.employee.view` | — | mảng [EmploymentContractResponse](#employmentcontractresponse) |
+| POST | `/api/employees/{id}/contracts` | JWT + `hrm.employee.update` | Body: [CreateEmploymentContractRequest](#createemploymentcontractrequest) | [EmploymentContractResponse](#employmentcontractresponse) |
+| PUT | `/api/employees/{id}/contracts/{contractId}` | JWT + `hrm.employee.update` | Body: [UpdateEmploymentContractRequest](#updateemploymentcontractrequest) | [EmploymentContractResponse](#employmentcontractresponse) |
+| GET | `/api/employees/{id}/qualifications` | JWT + `hrm.employee.view` | — | mảng [QualificationResponse](#qualificationresponse) |
+| POST | `/api/employees/{id}/qualifications` | JWT + `hrm.employee.update` | Body: [CreateQualificationRequest](#createqualificationrequest) | [QualificationResponse](#qualificationresponse) |
 
 ## Chấm công nhân sự (UC-09)
 
@@ -218,8 +218,8 @@
 | GET | `/api/students/{id}` | JWT + `student.profile.view` | — | [StudentResponse](#studentresponse) |
 | PUT | `/api/students/{id}` | JWT + `student.profile.update` | Body: [UpdateStudentRequest](#updatestudentrequest) | [StudentResponse](#studentresponse) |
 | GET | `/api/students/{id}/parents` | JWT + `student.parent.view` | — | mảng [ParentStudentResponse](#parentstudentresponse) |
-| POST | `/api/students/{id}/parents` | JWT + `student.parent.link.create hoặc student.parent.manage` | Body: [LinkParentRequest](#linkparentrequest) | [ParentStudentResponse](#parentstudentresponse) |
-| DELETE | `/api/students/{id}/parents/{parentStudentId}` | JWT + `student.parent.link.delete hoặc student.parent.manage` | — | 200 (không có body) |
+| POST | `/api/students/{id}/parents` | JWT + `student.parent.link.create` | Body: [LinkParentRequest](#linkparentrequest) | [ParentStudentResponse](#parentstudentresponse) |
+| DELETE | `/api/students/{id}/parents/{parentStudentId}` | JWT + `student.parent.link.delete` | — | 200 (không có body) |
 | POST | `/api/students/{id}/status` | JWT + `student.status.manage` | Body: [UpdateStudentStatusRequest](#updatestudentstatusrequest) | [StudentStatusHistoryResponse](#studentstatushistoryresponse) |
 | GET | `/api/students/{id}/status-history` | JWT | — | mảng [StudentStatusHistoryResponse](#studentstatushistoryresponse) |
 | GET | `/api/students/{id}/transfers` | JWT + `student.profile.view` | — | mảng [StudentTransferHistoryResponse](#studenttransferhistoryresponse) |
@@ -297,13 +297,13 @@
 | DELETE | `/api/classes/{classId}/grades/students/{studentId}/periods/{gradePeriodId}/result` | JWT | — | 200 (không có body) |
 | POST | `/api/classes/{classId}/grades/students/{studentId}/periods/{gradePeriodId}/result` | JWT | Body: [EnterGradePeriodResultRequest](#entergradeperiodresultrequest) | [GradePeriodResultResponse](#gradeperiodresultresponse) |
 | GET | `/api/curriculums/{curriculumId}/grade-periods` | JWT | — | mảng [GradePeriodResponse](#gradeperiodresponse) |
-| POST | `/api/curriculums/{curriculumId}/grade-periods` | JWT + `academic.grade.period.create hoặc academic.grade.manage` | Body: [CreateGradePeriodRequest](#creategradeperiodrequest) | [GradePeriodResponse](#gradeperiodresponse) |
-| DELETE | `/api/grade-components/{id}` | JWT + `academic.grade.component.delete hoặc academic.grade.manage` | — | 200 (không có body) |
-| PUT | `/api/grade-components/{id}` | JWT + `academic.grade.component.update hoặc academic.grade.manage` | Body: [UpdateGradeComponentRequest](#updategradecomponentrequest) | [GradeComponentResponse](#gradecomponentresponse) |
+| POST | `/api/curriculums/{curriculumId}/grade-periods` | JWT + `academic.grade.period.create` | Body: [CreateGradePeriodRequest](#creategradeperiodrequest) | [GradePeriodResponse](#gradeperiodresponse) |
+| DELETE | `/api/grade-components/{id}` | JWT + `academic.grade.component.delete` | — | 200 (không có body) |
+| PUT | `/api/grade-components/{id}` | JWT + `academic.grade.component.update` | Body: [UpdateGradeComponentRequest](#updategradecomponentrequest) | [GradeComponentResponse](#gradecomponentresponse) |
 | GET | `/api/grade-periods/{gradePeriodId}/components` | JWT | — | mảng [GradeComponentResponse](#gradecomponentresponse) |
-| POST | `/api/grade-periods/{gradePeriodId}/components` | JWT + `academic.grade.component.create hoặc academic.grade.manage` | Body: [CreateGradeComponentRequest](#creategradecomponentrequest) | [GradeComponentResponse](#gradecomponentresponse) |
-| DELETE | `/api/grade-periods/{id}` | JWT + `academic.grade.period.delete hoặc academic.grade.manage` | — | 200 (không có body) |
-| PUT | `/api/grade-periods/{id}` | JWT + `academic.grade.period.update hoặc academic.grade.manage` | Body: [UpdateGradePeriodRequest](#updategradeperiodrequest) | [GradePeriodResponse](#gradeperiodresponse) |
+| POST | `/api/grade-periods/{gradePeriodId}/components` | JWT + `academic.grade.component.create` | Body: [CreateGradeComponentRequest](#creategradecomponentrequest) | [GradeComponentResponse](#gradecomponentresponse) |
+| DELETE | `/api/grade-periods/{id}` | JWT + `academic.grade.period.delete` | — | 200 (không có body) |
+| PUT | `/api/grade-periods/{id}` | JWT + `academic.grade.period.update` | Body: [UpdateGradePeriodRequest](#updategradeperiodrequest) | [GradePeriodResponse](#gradeperiodresponse) |
 | POST | `/api/grades/decision` | JWT | Body: [PublishGradesRequest](#publishgradesrequest) | mảng [GradeEntryResponse](#gradeentryresponse) |
 | GET | `/api/grades/pending` | JWT | — | mảng [GradeEntryResponse](#gradeentryresponse) |
 
@@ -415,34 +415,34 @@
 
 | Method | Path | Auth | Input | Output |
 |---|---|---|---|---|
-| POST | `/api/finance/tuition-plan-assignments` | JWT + `finance.manage` | Body: [AssignTuitionPlanRequest](#assigntuitionplanrequest) | [TuitionPlanAssignmentResponse](#tuitionplanassignmentresponse) |
-| POST | `/api/finance/tuition-plans` | JWT + `finance.manage` | Body: [CreateTuitionPlanRequest](#createtuitionplanrequest) | [TuitionPlanResponse](#tuitionplanresponse) |
-| GET | `/api/finance/tuition-plans/{id}` | JWT + `finance.manage` | — | [TuitionPlanResponse](#tuitionplanresponse) |
-| PUT | `/api/finance/tuition-plans/{id}/status` | JWT + `finance.manage` | Body: [UpdateTuitionPlanStatusRequest](#updatetuitionplanstatusrequest) | [TuitionPlanResponse](#tuitionplanresponse) |
+| POST | `/api/finance/tuition-plan-assignments` | JWT + `finance.tuition-plan.manage` | Body: [AssignTuitionPlanRequest](#assigntuitionplanrequest) | [TuitionPlanAssignmentResponse](#tuitionplanassignmentresponse) |
+| POST | `/api/finance/tuition-plans` | JWT + `finance.tuition-plan.manage` | Body: [CreateTuitionPlanRequest](#createtuitionplanrequest) | [TuitionPlanResponse](#tuitionplanresponse) |
+| GET | `/api/finance/tuition-plans/{id}` | JWT + `finance.tuition-plan.manage` | — | [TuitionPlanResponse](#tuitionplanresponse) |
+| PUT | `/api/finance/tuition-plans/{id}/status` | JWT + `finance.tuition-plan.manage` | Body: [UpdateTuitionPlanStatusRequest](#updatetuitionplanstatusrequest) | [TuitionPlanResponse](#tuitionplanresponse) |
 
 ## Học bổng
 
 | Method | Path | Auth | Input | Output |
 |---|---|---|---|---|
-| POST | `/api/finance/scholarships` | JWT + `finance.manage` | Body: [CreateScholarshipRequest](#createscholarshiprequest) | [ScholarshipResponse](#scholarshipresponse) |
-| POST | `/api/finance/scholarships/{id}/revoke` | JWT + `finance.manage` | — | [ScholarshipResponse](#scholarshipresponse) |
+| POST | `/api/finance/scholarships` | JWT + `finance.scholarship.manage` | Body: [CreateScholarshipRequest](#createscholarshiprequest) | [ScholarshipResponse](#scholarshipresponse) |
+| POST | `/api/finance/scholarships/{id}/revoke` | JWT + `finance.scholarship.manage` | — | [ScholarshipResponse](#scholarshipresponse) |
 
 ## Hóa đơn & thanh toán (UC-30)
 
 | Method | Path | Auth | Input | Output |
 |---|---|---|---|---|
-| POST | `/api/finance/invoices/generate` | JWT + `finance.manage` | Body: [GenerateInvoicesRequest](#generateinvoicesrequest) | mảng [InvoiceResponse](#invoiceresponse) |
+| POST | `/api/finance/invoices/generate` | JWT + `finance.invoice.manage` | Body: [GenerateInvoicesRequest](#generateinvoicesrequest) | mảng [InvoiceResponse](#invoiceresponse) |
 | GET | `/api/finance/invoices/my` | JWT | — | mảng [InvoiceResponse](#invoiceresponse) |
 | GET | `/api/finance/invoices/{id}` | JWT | — | [InvoiceResponse](#invoiceresponse) |
-| POST | `/api/finance/invoices/{id}/payments` | JWT + `finance.manage` | Body: [RecordManualPaymentRequest](#recordmanualpaymentrequest) | [PaymentResponse](#paymentresponse) |
+| POST | `/api/finance/invoices/{id}/payments` | JWT + `finance.invoice.manage` | Body: [RecordManualPaymentRequest](#recordmanualpaymentrequest) | [PaymentResponse](#paymentresponse) |
 | POST | `/api/webhooks/bank-payment` | Header `X-Webhook-Secret` | Body: [BankWebhookPaymentRequest](#bankwebhookpaymentrequest)<br>Header: `X-Webhook-Secret` | [PaymentResponse](#paymentresponse) |
 
 ## Chi phí vận hành (UC-31)
 
 | Method | Path | Auth | Input | Output |
 |---|---|---|---|---|
-| GET | `/api/finance/operating-expenses` | JWT + `finance.manage hoặc finance.expense.approve` | Query: `siteId`?, `from`, `to` | mảng [OperatingExpenseResponse](#operatingexpenseresponse) |
-| POST | `/api/finance/operating-expenses` | JWT + `finance.manage` | Body: [CreateOperatingExpenseRequest](#createoperatingexpenserequest) | [OperatingExpenseResponse](#operatingexpenseresponse) |
+| GET | `/api/finance/operating-expenses` | JWT + `finance.expense.create hoặc finance.expense.approve` | Query: `siteId`?, `from`, `to` | mảng [OperatingExpenseResponse](#operatingexpenseresponse) |
+| POST | `/api/finance/operating-expenses` | JWT + `finance.expense.create` | Body: [CreateOperatingExpenseRequest](#createoperatingexpenserequest) | [OperatingExpenseResponse](#operatingexpenseresponse) |
 | POST | `/api/finance/operating-expenses/{id}/decision` | JWT + `finance.expense.approve` | Body: [DecideOperatingExpenseRequest](#decideoperatingexpenserequest) | [OperatingExpenseResponse](#operatingexpenseresponse) |
 
 ## Báo cáo tài chính (UC-32)
@@ -469,25 +469,25 @@
 | Method | Path | Auth | Input | Output |
 |---|---|---|---|---|
 | GET | `/api/sites` | JWT | — | mảng [SiteResponse](#siteresponse) |
-| POST | `/api/sites` | JWT + `facility.manage` | Body: [CreateSiteRequest](#createsiterequest) | [SiteResponse](#siteresponse) |
+| POST | `/api/sites` | JWT + `facility.site.create` | Body: [CreateSiteRequest](#createsiterequest) | [SiteResponse](#siteresponse) |
 | GET | `/api/sites/{id}` | JWT | — | [SiteResponse](#siteresponse) |
-| PUT | `/api/sites/{id}` | JWT + `facility.manage` | Body: [UpdateSiteRequest](#updatesiterequest) | [SiteResponse](#siteresponse) |
+| PUT | `/api/sites/{id}` | JWT + `facility.site.update` | Body: [UpdateSiteRequest](#updatesiterequest) | [SiteResponse](#siteresponse) |
 | GET | `/api/sites/{id}/attendance-summary` | JWT | — | mảng [PartnerAttendanceSummaryResponse](#partnerattendancesummaryresponse) |
-| PUT | `/api/sites/{id}/manager` | JWT + `facility.manage` | Body: [AssignSiteManagerRequest](#assignsitemanagerrequest) | [SiteResponse](#siteresponse) |
+| PUT | `/api/sites/{id}/manager` | JWT + `facility.site.update` | Body: [AssignSiteManagerRequest](#assignsitemanagerrequest) | [SiteResponse](#siteresponse) |
 | GET | `/api/sites/{id}/teachers` | JWT | — | mảng [SiteTeacherResponse](#siteteacherresponse) |
-| POST | `/api/sites/{id}/teachers` | JWT + `facility.site-teacher.assign hoặc facility.manage` | Body: [AssignSiteTeacherRequest](#assignsiteteacherrequest) | [SiteTeacherResponse](#siteteacherresponse) |
-| DELETE | `/api/sites/{id}/teachers/{siteTeacherId}` | JWT + `facility.site-teacher.remove hoặc facility.manage` | — | 200 (không có body) |
+| POST | `/api/sites/{id}/teachers` | JWT + `facility.site-teacher.assign` | Body: [AssignSiteTeacherRequest](#assignsiteteacherrequest) | [SiteTeacherResponse](#siteteacherresponse) |
+| DELETE | `/api/sites/{id}/teachers/{siteTeacherId}` | JWT + `facility.site-teacher.remove` | — | 200 (không có body) |
 
 ## Hợp đồng trường liên kết (UC-36b)
 
 | Method | Path | Auth | Input | Output |
 |---|---|---|---|---|
-| POST | `/api/partner-contracts` | JWT + `facility.partner-contract.create hoặc facility.manage` | Body: [CreatePartnerContractRequest](#createpartnercontractrequest) | [PartnerContractResponse](#partnercontractresponse) |
-| GET | `/api/partner-contracts/expiring` | JWT + `facility.manage` | Query: `withinDays` | mảng [ExpiringPartnerContractResponse](#expiringpartnercontractresponse) |
-| DELETE | `/api/partner-contracts/{id}` | JWT + `facility.partner-contract.delete hoặc facility.manage` | — | 200 (không có body) |
-| PUT | `/api/partner-contracts/{id}` | JWT + `facility.partner-contract.update hoặc facility.manage` | Body: [UpdatePartnerContractRequest](#updatepartnercontractrequest) | [PartnerContractResponse](#partnercontractresponse) |
-| POST | `/api/partner-contracts/{id}/terminate` | JWT + `facility.partner-contract.update hoặc facility.manage` | — | [PartnerContractResponse](#partnercontractresponse) |
-| GET | `/api/sites/{siteId}/partner-contracts` | JWT + `facility.manage` | — | mảng [PartnerContractResponse](#partnercontractresponse) |
+| POST | `/api/partner-contracts` | JWT + `facility.partner-contract.create` | Body: [CreatePartnerContractRequest](#createpartnercontractrequest) | [PartnerContractResponse](#partnercontractresponse) |
+| GET | `/api/partner-contracts/expiring` | JWT + `facility.partner-contract.view` | Query: `withinDays` | mảng [ExpiringPartnerContractResponse](#expiringpartnercontractresponse) |
+| DELETE | `/api/partner-contracts/{id}` | JWT + `facility.partner-contract.delete` | — | 200 (không có body) |
+| PUT | `/api/partner-contracts/{id}` | JWT + `facility.partner-contract.update` | Body: [UpdatePartnerContractRequest](#updatepartnercontractrequest) | [PartnerContractResponse](#partnercontractresponse) |
+| POST | `/api/partner-contracts/{id}/terminate` | JWT + `facility.partner-contract.update` | — | [PartnerContractResponse](#partnercontractresponse) |
+| GET | `/api/sites/{siteId}/partner-contracts` | JWT + `facility.partner-contract.view` | — | mảng [PartnerContractResponse](#partnercontractresponse) |
 
 ## Phòng học (UC-37)
 
@@ -559,19 +559,19 @@
 | Method | Path | Auth | Input | Output |
 |---|---|---|---|---|
 | GET | `/api/departments` | JWT | — | mảng [DepartmentResponse](#departmentresponse) |
-| POST | `/api/departments` | JWT + `hrm.department.create hoặc hrm.manage` | Body: [CreateDepartmentRequest](#createdepartmentrequest) | [DepartmentResponse](#departmentresponse) |
-| DELETE | `/api/departments/{id}` | JWT + `hrm.department.delete hoặc hrm.manage` | — | 200 (không có body) |
+| POST | `/api/departments` | JWT + `hrm.department.create` | Body: [CreateDepartmentRequest](#createdepartmentrequest) | [DepartmentResponse](#departmentresponse) |
+| DELETE | `/api/departments/{id}` | JWT + `hrm.department.delete` | — | 200 (không có body) |
 | GET | `/api/departments/{id}` | JWT | — | [DepartmentResponse](#departmentresponse) |
-| PUT | `/api/departments/{id}` | JWT + `hrm.department.update hoặc hrm.manage` | Body: [UpdateDepartmentRequest](#updatedepartmentrequest) | [DepartmentResponse](#departmentresponse) |
+| PUT | `/api/departments/{id}` | JWT + `hrm.department.update` | Body: [UpdateDepartmentRequest](#updatedepartmentrequest) | [DepartmentResponse](#departmentresponse) |
 
 ## employee-batch-import-controller
 
 | Method | Path | Auth | Input | Output |
 |---|---|---|---|---|
-| POST | `/api/employee-imports` | JWT + `hrm.manage` | Form-data: `file` (tệp) | [EmployeeBatchImportResponse](#employeebatchimportresponse) |
-| POST | `/api/employee-imports/accounts-export` | JWT + `hrm.manage` | Body: [AccountExportRequest](#accountexportrequest) | string |
-| GET | `/api/employee-imports/template` | JWT + `hrm.manage` | — | string |
-| GET | `/api/employee-imports/{id}` | JWT + `hrm.manage` | — | [EmployeeBatchImportResponse](#employeebatchimportresponse) |
+| POST | `/api/employee-imports` | JWT + `hrm.employee.import` | Form-data: `file` (tệp) | [EmployeeBatchImportResponse](#employeebatchimportresponse) |
+| POST | `/api/employee-imports/accounts-export` | JWT + `hrm.employee.import` | Body: [AccountExportRequest](#accountexportrequest) | string |
+| GET | `/api/employee-imports/template` | JWT + `hrm.employee.import` | — | string |
+| GET | `/api/employee-imports/{id}` | JWT + `hrm.employee.import` | — | [EmployeeBatchImportResponse](#employeebatchimportresponse) |
 
 ## grade-appeal-controller
 
@@ -619,41 +619,41 @@
 
 | Method | Path | Auth | Input | Output |
 |---|---|---|---|---|
-| POST | `/api/parent-imports` | JWT + `student.parent.manage` | Form-data: `file` (tệp) | [ParentBatchImportResponse](#parentbatchimportresponse) |
-| POST | `/api/parent-imports/accounts-export` | JWT + `student.parent.manage` | Body: [AccountExportRequest](#accountexportrequest) | string |
-| GET | `/api/parent-imports/template` | JWT + `student.parent.manage` | — | string |
-| GET | `/api/parent-imports/{id}` | JWT + `student.parent.manage` | — | [ParentBatchImportResponse](#parentbatchimportresponse) |
+| POST | `/api/parent-imports` | JWT + `student.parent.import` | Form-data: `file` (tệp) | [ParentBatchImportResponse](#parentbatchimportresponse) |
+| POST | `/api/parent-imports/accounts-export` | JWT + `student.parent.import` | Body: [AccountExportRequest](#accountexportrequest) | string |
+| GET | `/api/parent-imports/template` | JWT + `student.parent.import` | — | string |
+| GET | `/api/parent-imports/{id}` | JWT + `student.parent.import` | — | [ParentBatchImportResponse](#parentbatchimportresponse) |
 
 ## parent-controller
 
 | Method | Path | Auth | Input | Output |
 |---|---|---|---|---|
 | GET | `/api/parents` | JWT + `student.parent.view` | Query: `query`? | mảng [ParentResponse](#parentresponse) |
-| POST | `/api/parents` | JWT + `student.parent.manage` | Body: [CreateParentRequest](#createparentrequest) | [ParentResponse](#parentresponse) |
+| POST | `/api/parents` | JWT + `student.parent.create` | Body: [CreateParentRequest](#createparentrequest) | [ParentResponse](#parentresponse) |
 | GET | `/api/parents/me` | JWT | — | [ParentResponse](#parentresponse) |
 | PUT | `/api/parents/me` | JWT | Body: [UpdateOwnParentProfileRequest](#updateownparentprofilerequest) | [ParentResponse](#parentresponse) |
 | GET | `/api/parents/{id}` | JWT + `student.parent.view` | — | [ParentResponse](#parentresponse) |
-| PUT | `/api/parents/{id}` | JWT + `student.parent.manage` | Body: [UpdateParentRequest](#updateparentrequest) | [ParentResponse](#parentresponse) |
+| PUT | `/api/parents/{id}` | JWT + `student.parent.update` | Body: [UpdateParentRequest](#updateparentrequest) | [ParentResponse](#parentresponse) |
 
 ## position-controller
 
 | Method | Path | Auth | Input | Output |
 |---|---|---|---|---|
 | GET | `/api/positions` | JWT | — | mảng [PositionResponse](#positionresponse) |
-| POST | `/api/positions` | JWT + `hrm.position.create hoặc hrm.manage` | Body: [CreatePositionRequest](#createpositionrequest) | [PositionResponse](#positionresponse) |
-| DELETE | `/api/positions/{id}` | JWT + `hrm.position.delete hoặc hrm.manage` | — | 200 (không có body) |
+| POST | `/api/positions` | JWT + `hrm.position.create` | Body: [CreatePositionRequest](#createpositionrequest) | [PositionResponse](#positionresponse) |
+| DELETE | `/api/positions/{id}` | JWT + `hrm.position.delete` | — | 200 (không có body) |
 | GET | `/api/positions/{id}` | JWT | — | [PositionResponse](#positionresponse) |
-| PUT | `/api/positions/{id}` | JWT + `hrm.position.update hoặc hrm.manage` | Body: [UpdatePositionRequest](#updatepositionrequest) | [PositionResponse](#positionresponse) |
-| GET | `/api/positions/{id}/default-roles` | JWT + `hrm.manage` | — | [PositionDefaultRolesResponse](#positiondefaultrolesresponse) |
-| PUT | `/api/positions/{id}/default-roles` | JWT + `hrm.position.update hoặc hrm.manage` | Body: [UpdatePositionDefaultRolesRequest](#updatepositiondefaultrolesrequest) | 200 (không có body) |
+| PUT | `/api/positions/{id}` | JWT + `hrm.position.update` | Body: [UpdatePositionRequest](#updatepositionrequest) | [PositionResponse](#positionresponse) |
+| GET | `/api/positions/{id}/default-roles` | JWT + `hrm.position.view` | — | [PositionDefaultRolesResponse](#positiondefaultrolesresponse) |
+| PUT | `/api/positions/{id}/default-roles` | JWT + `hrm.position.update` | Body: [UpdatePositionDefaultRolesRequest](#updatepositiondefaultrolesrequest) | 200 (không có body) |
 
 ## skill-controller
 
 | Method | Path | Auth | Input | Output |
 |---|---|---|---|---|
 | GET | `/api/skills` | JWT | Query: `includeInactive`? | mảng [SkillResponse](#skillresponse) |
-| POST | `/api/skills` | JWT + `academic.grade.manage` | Body: [CreateSkillRequest](#createskillrequest) | [SkillResponse](#skillresponse) |
-| PUT | `/api/skills/{id}` | JWT + `academic.grade.manage` | Body: [UpdateSkillRequest](#updateskillrequest) | [SkillResponse](#skillresponse) |
+| POST | `/api/skills` | JWT + `academic.skill.create` | Body: [CreateSkillRequest](#createskillrequest) | [SkillResponse](#skillresponse) |
+| PUT | `/api/skills/{id}` | JWT + `academic.skill.update` | Body: [UpdateSkillRequest](#updateskillrequest) | [SkillResponse](#skillresponse) |
 
 ## student-portal-controller
 

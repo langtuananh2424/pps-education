@@ -63,14 +63,14 @@ public class ParentController {
         return ResponseEntity.ok(studentService.updateMyParentProfile(actor.userId(), request));
     }
 
-    @PreAuthorize("hasPermission(null, 'student.parent.manage')")
+    @PreAuthorize("hasPermission(null, 'student.parent.create')")
     @PostMapping
     public ResponseEntity<ParentResponse> create(@Valid @RequestBody CreateParentRequest request,
                                                   @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(studentService.createParent(request, actor.userId()));
     }
 
-    @PreAuthorize("hasPermission(null, 'student.parent.manage')")
+    @PreAuthorize("hasPermission(null, 'student.parent.update')")
     @PutMapping("/{id}")
     public ResponseEntity<ParentResponse> update(@PathVariable Long id,
                                                   @Valid @RequestBody UpdateParentRequest request,

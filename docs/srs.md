@@ -288,7 +288,9 @@ nhân đó mới được thao tác.*
         nghiệp vụ của chính mình (Nhân viên: địa chỉ thường trú/hiện tại;
         Học sinh: chỉ ảnh đại diện; Phụ huynh: nghề nghiệp, nơi làm việc,
         địa chỉ) — không cần quyền quản lý hồ sơ người khác
-        (hrm.manage/student.profile.update/student.parent.manage). Tách
+        (hrm.employee.update/student.profile.update/student.parent.update
+        — V51: hrm.employee.update/student.parent.update tách từ
+        hrm.manage/student.parent.manage). Tách
         biệt hẳn khỏi FR-HRM-01 (UC-08)/FR-STU-01 (UC-13): các field
         nghiệp vụ/hành chính (chức vụ, phòng ban, trạng thái, mã số,
         ghi chú nội bộ...) vẫn chỉ Admin/Nhân viên Giáo vụ sửa được qua 2
@@ -691,8 +693,9 @@ CDN)**
         Bổ sung: Ban giám đốc duyệt/từ chối từng khoản chi đã ghi nhận —
         khớp mô tả tác nhân Ban giám đốc "phê duyệt các quyết định quan
         trọng có tính chiến lược (chi phí lớn...)"; dùng quyền riêng
-        finance.expense.approve (khác finance.manage của Kế toán). Từ
-        chối bắt buộc kèm lý do (rejection_reason).
+        finance.expense.approve (khác finance.expense.create của Kế toán —
+        V51, tách từ finance.manage). Từ chối bắt buộc kèm lý do
+        (rejection_reason).
 
     -   **FR-FIN-04: Báo cáo doanh thu phân cấp -** Quản lý điểm trường
         xem được báo cáo Thu/Chi/Công nợ của cơ sở mình. Ban giám đốc có
