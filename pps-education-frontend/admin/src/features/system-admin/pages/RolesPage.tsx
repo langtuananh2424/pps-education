@@ -11,7 +11,11 @@ import Toast from "@/components/ui/Toast";
 
 export default function RolesPage() {
   const { hasPermission } = useApp();
-  const canManageMembers = hasPermission("user.role.manage");
+  // user.role.manage đã bị tách nhỏ thành user.role.assign/revoke/view (hạt nhân hóa) — mã gộp cũ
+  // không còn tồn tại trong bảng permissions, gate theo mã đó khiến nút "Gán thành viên"/"Gỡ bỏ"
+  // không bao giờ hiện với bất kỳ ai (xem UserRoleController: 2 endpoint dùng 2 mã khác nhau).
+  const canAssignMembers = hasPermission("user.role.assign");
+  const canRevokeMembers = hasPermission("user.role.revoke");
 
   const [roles, setRoles] = useState<RoleResponse[]>([]);
   const [loading, setLoading] = useState(false);
@@ -100,7 +104,8 @@ export default function RolesPage() {
           ) : activeRole ? (
             <RoleDetailPanel
               role={activeRole}
-              canManageMembers={canManageMembers}
+              canAssignMembers={canAssignMembers}
+              canRevokeMembers={canRevokeMembers}
               onDelete={handleDeleteRole}
               rightActiveTab={rightActiveTab}
               onTabChange={setRightActiveTab}

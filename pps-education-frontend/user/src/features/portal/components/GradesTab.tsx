@@ -49,8 +49,11 @@ type AppealTarget = { entityType: "GRADE_ENTRY" | "GRADE_PERIOD_RESULT"; entityI
 
 export default function GradesTab({ studentId, classId }: GradesTabProps) {
   const [grades, setGrades] = useState<GradeEntryResponse[]>([]);
+  const [periods, setPeriods] = useState<GradePeriodResponse[]>([]);
   const [periodResults, setPeriodResults] = useState<{ period: GradePeriodResponse; result: GradePeriodResultResponse }[]>([]);
   const [componentNames, setComponentNames] = useState<Map<number, string>>(new Map());
+  /** Đầu điểm (Listening/Reading/...) lặp lại giữa các kỳ (VD Giữa kỳ 1 và Cuối kỳ 1 đều có Listening riêng) — cần tra ngược kỳ của từng đầu điểm để nhóm/hiện rõ, tránh học sinh nhầm 2 điểm Listening là trùng nhau. */
+  const [componentPeriodId, setComponentPeriodId] = useState<Map<number, number>>(new Map());
   const [appeals, setAppeals] = useState<GradeAppealResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -67,6 +70,7 @@ export default function GradesTab({ studentId, classId }: GradesTabProps) {
 
     Promise.all([
       fetchGrades,
+      periodsPromise,
       periodsPromise.then((periods) =>
         Promise.all(
           periods.map((period) =>
@@ -83,17 +87,26 @@ export default function GradesTab({ studentId, classId }: GradesTabProps) {
       // Đầu điểm (Listening/Reading/...) — GradeEntryResponse chỉ có gradeComponentId, phải tra tên qua đây (UC-19 group tables).
       periodsPromise.then((periods) => Promise.all(periods.map((p) => listGradeComponents(p.id))))
     ])
-      .then(([entries, results, myAppeals, componentsByPeriod]) => {
+      .then(([entries, fetchedPeriods, results, myAppeals, componentsByPeriod]) => {
         setGrades(entries);
+        setPeriods(fetchedPeriods);
         setPeriodResults(results);
         setAppeals(myAppeals);
-        setComponentNames(new Map(componentsByPeriod.flat().map((c) => [c.id, c.name])));
+        const allComponents = componentsByPeriod.flat();
+        setComponentNames(new Map(allComponents.map((c) => [c.id, c.name])));
+        setComponentPeriodId(new Map(allComponents.map((c) => [c.id, c.gradePeriodId])));
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được điểm số."))
       .finally(() => setLoading(false));
   };
 
   useEffect(load, [studentId, classId]);
+
+  /** Nhóm điểm đã công bố theo kỳ đánh giá (Giữa kỳ/Cuối kỳ...) để học sinh biết rõ điểm nào thuộc kỳ nào — trước đây liệt kê phẳng nên 2 đầu điểm cùng tên (VD 2 "Listening" ở 2 kỳ khác nhau) trông như bị trùng lặp. */
+  const gradesByPeriod = periods
+    .map((period) => ({ period, entries: grades.filter((g) => componentPeriodId.get(g.gradeComponentId) === period.id) }))
+    .filter((group) => group.entries.length > 0);
+  const ungroupedGrades = grades.filter((g) => !componentPeriodId.has(g.gradeComponentId));
 
   /** Bản ghi có yêu cầu phúc khảo PENDING/ACCEPTED chưa xử lý xong — ẩn nút gửi thêm (BE cũng tự chặn qua AppealAlreadyOpenException). */
   const hasOpenAppeal = (entityType: AppealTarget["entityType"], entityId: number) =>
@@ -140,37 +153,79 @@ export default function GradesTab({ studentId, classId }: GradesTabProps) {
         </div>
       )}
 
-      <div className="bg-white border border-line/80 p-6 rounded-[20px] shadow-[0_8px_30px_rgba(30,42,69,0.03)] space-y-4">
+      <div className="bg-white border border-line/80 p-6 rounded-[20px] shadow-[0_8px_30px_rgba(30,42,69,0.03)] space-y-5">
         <h2 className="text-xl font-extrabold text-ink flex items-center gap-2">
           <Award className="text-teal" /> Điểm số đã công bố
         </h2>
         {grades.length === 0 ? (
           <p className="text-xs text-muted font-bold italic">Chưa có điểm nào được công bố cho lớp này.</p>
         ) : (
-          <div className="space-y-3">
-            {grades.map((g) => (
-              <div key={g.id} className="border border-line/60 p-4 rounded-[16px] flex flex-wrap justify-between items-center gap-2 bg-sky-2">
-                <div>
-                  <p className="text-xs font-extrabold text-ink">{componentNames.get(g.gradeComponentId) ?? "Đầu điểm"}</p>
-                  {g.teacherNote && <p className="text-[10px] text-muted font-bold mt-0.5">{g.teacherNote}</p>}
-                  {g.absenceFlag && <span className="text-[10px] text-coral font-extrabold uppercase">Vắng — không có điểm</span>}
-                  <span className={`inline-block mt-1 text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full ${statusClasses[g.status]}`}>
-                    {statusLabels[g.status]}
-                  </span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-lg font-extrabold text-teal-deep">{g.absenceFlag ? "—" : g.score}</span>
-                  {g.status === "PROVISIONAL_PUBLISHED" && !hasOpenAppeal("GRADE_ENTRY", g.id) && (
-                    <button
-                      onClick={() => setAppealTarget({ entityType: "GRADE_ENTRY", entityId: g.id, label: componentNames.get(g.gradeComponentId) ?? "Đầu điểm" })}
-                      className="text-[10px] font-extrabold text-coral hover:underline shrink-0"
-                    >
-                      Gửi phúc khảo
-                    </button>
-                  )}
-                </div>
+          <div className="space-y-5">
+            {gradesByPeriod.map(({ period, entries }) => (
+              <div key={period.id} className="space-y-3">
+                <h3 className="text-[11px] font-extrabold text-teal-deep uppercase tracking-wide border-b border-line/60 pb-1.5">{period.name}</h3>
+                {entries.map((g) => (
+                  <div key={g.id} className="border border-line/60 p-4 rounded-[16px] flex flex-wrap justify-between items-center gap-2 bg-sky-2">
+                    <div>
+                      <p className="text-xs font-extrabold text-ink">{componentNames.get(g.gradeComponentId) ?? "Đầu điểm"}</p>
+                      {g.teacherNote && <p className="text-[10px] text-muted font-bold mt-0.5">{g.teacherNote}</p>}
+                      {g.absenceFlag && <span className="text-[10px] text-coral font-extrabold uppercase">Vắng — không có điểm</span>}
+                      <span className={`inline-block mt-1 text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full ${statusClasses[g.status]}`}>
+                        {statusLabels[g.status]}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-lg font-extrabold text-teal-deep">{g.absenceFlag ? "—" : g.score}</span>
+                      {g.status === "PROVISIONAL_PUBLISHED" && !hasOpenAppeal("GRADE_ENTRY", g.id) && (
+                        <button
+                          onClick={() =>
+                            setAppealTarget({
+                              entityType: "GRADE_ENTRY",
+                              entityId: g.id,
+                              label: `${componentNames.get(g.gradeComponentId) ?? "Đầu điểm"} — ${period.name}`
+                            })
+                          }
+                          className="text-[10px] font-extrabold text-coral hover:underline shrink-0"
+                        >
+                          Gửi phúc khảo
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
             ))}
+
+            {ungroupedGrades.length > 0 && (
+              <div className="space-y-3">
+                {gradesByPeriod.length > 0 && (
+                  <h3 className="text-[11px] font-extrabold text-muted uppercase tracking-wide border-b border-line/60 pb-1.5">Khác</h3>
+                )}
+                {ungroupedGrades.map((g) => (
+                  <div key={g.id} className="border border-line/60 p-4 rounded-[16px] flex flex-wrap justify-between items-center gap-2 bg-sky-2">
+                    <div>
+                      <p className="text-xs font-extrabold text-ink">{componentNames.get(g.gradeComponentId) ?? "Đầu điểm"}</p>
+                      {g.teacherNote && <p className="text-[10px] text-muted font-bold mt-0.5">{g.teacherNote}</p>}
+                      {g.absenceFlag && <span className="text-[10px] text-coral font-extrabold uppercase">Vắng — không có điểm</span>}
+                      <span className={`inline-block mt-1 text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full ${statusClasses[g.status]}`}>
+                        {statusLabels[g.status]}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-lg font-extrabold text-teal-deep">{g.absenceFlag ? "—" : g.score}</span>
+                      {g.status === "PROVISIONAL_PUBLISHED" && !hasOpenAppeal("GRADE_ENTRY", g.id) && (
+                        <button
+                          onClick={() => setAppealTarget({ entityType: "GRADE_ENTRY", entityId: g.id, label: componentNames.get(g.gradeComponentId) ?? "Đầu điểm" })}
+                          className="text-[10px] font-extrabold text-coral hover:underline shrink-0"
+                        >
+                          Gửi phúc khảo
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

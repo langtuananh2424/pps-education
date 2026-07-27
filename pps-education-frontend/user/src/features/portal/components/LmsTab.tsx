@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Download, FileText, Library, Link2, MessageCircle, Play } from "lucide-react";
+import { FileText, Library, Link2, MessageCircle, Play, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import {
   CurriculumDocumentResponse,
@@ -305,8 +305,7 @@ export default function LmsTab({ classId }: LmsTabProps) {
   if (loading) return <p className="text-sm text-muted font-bold">Đang tải...</p>;
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-      <div className="lg:col-span-2 space-y-6">
+    <div className="space-y-6">
       {error && <div className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-xl">{error}</div>}
 
       <div className="bg-white border border-line/80 p-6 rounded-[20px] shadow-[0_8px_30px_rgba(30,42,69,0.03)] space-y-4">
@@ -336,7 +335,7 @@ export default function LmsTab({ classId }: LmsTabProps) {
                     {videos.length === 0 ? (
                       <p className="text-xs text-muted font-bold italic">Bộ này chưa có video nào.</p>
                     ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                         {videos.map((v) => {
                           const youtubeVideoId = v.sourceType === "YOUTUBE_URL" ? extractYouTubeVideoId(v.fileUrl) : null;
                           const youtubeThumbnailUrl = youtubeVideoId ? getYouTubeThumbnailUrl(youtubeVideoId) : null;
@@ -355,8 +354,8 @@ export default function LmsTab({ classId }: LmsTabProps) {
                               }
                               className="flex flex-col rounded-[16px] border border-line/80 bg-sky-2 hover:bg-sky transition-colors overflow-hidden text-left"
                             >
-                              <div className="relative w-full h-24 bg-teal/10">
-                                {youtubeThumbnailUrl && <img src={youtubeThumbnailUrl} alt="" className="w-full h-24 object-cover" />}
+                              <div className="relative w-full h-36 bg-teal/10">
+                                {youtubeThumbnailUrl && <img src={youtubeThumbnailUrl} alt="" className="w-full h-36 object-cover" />}
                                 <div className="absolute inset-0 flex items-center justify-center bg-ink/10">
                                   <div className="w-9 h-9 rounded-full bg-white/90 flex items-center justify-center text-teal-deep shadow">
                                     <Play size={16} className="ml-0.5" />
@@ -448,12 +447,23 @@ export default function LmsTab({ classId }: LmsTabProps) {
         title="Luyện Nghe-Nói & Đổi xu thưởng (UC-26)"
         description="Đang trong quá trình phát triển"
       />
-      </div>
 
-      <div className="lg:sticky lg:top-6 bg-white border border-line/80 p-6 rounded-[20px] shadow-[0_8px_30px_rgba(30,42,69,0.03)] space-y-4">
-        {activeVideo ? (
-          <>
-            <h3 className="text-lg font-extrabold text-ink">{activeVideo.title}</h3>
+      {activeVideo && (
+        <div className="fixed inset-0 bg-ink/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={() => setActiveVideo(null)}>
+          <div
+            className="bg-white rounded-[24px] max-w-2xl w-full max-h-[92vh] overflow-y-auto shadow-2xl p-6 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <h3 className="text-lg font-extrabold text-ink">{activeVideo.title}</h3>
+              <button
+                onClick={() => setActiveVideo(null)}
+                className="w-8 h-8 shrink-0 rounded-full bg-sky-2 hover:bg-sky flex items-center justify-center text-ink transition-colors"
+                aria-label="Đóng"
+              >
+                <X size={16} />
+              </button>
+            </div>
             <div className="aspect-video w-full rounded-[12px] overflow-hidden bg-ink">
               {isYouTube && youTubeVideoId ? (
                 <iframe
@@ -502,15 +512,9 @@ export default function LmsTab({ classId }: LmsTabProps) {
                 </div>
               </div>
             )}
-          </>
-        ) : (
-          <div className="flex flex-col items-center justify-center text-center py-10 gap-3">
-            <Play size={40} className="text-line" />
-            <p className="font-extrabold text-ink text-sm">Chưa có video nào được mở</p>
-            <p className="text-xs text-muted font-bold">Hãy bấm vào một video ở kho để bắt đầu hành trình tự học nha!</p>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

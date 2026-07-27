@@ -50,17 +50,17 @@ export const permissionGroupsByModule: Record<string, PermissionGroupDef[]> = {
     {
       key: "permission-catalog",
       label: "Danh mục quyền",
-      codes: ["permission.catalog.manage", "permission.catalog.create", "permission.catalog.update", "permission.catalog.delete"]
+      codes: ["permission.catalog.view", "permission.catalog.create", "permission.catalog.update", "permission.catalog.delete"]
     },
     {
       key: "permission-role",
       label: "Vai trò tuỳ biến",
-      codes: ["permission.role.manage", "permission.role.create", "permission.role.update", "permission.role.delete"]
+      codes: ["permission.role.view", "permission.role.create", "permission.role.update", "permission.role.delete"]
     },
     {
       key: "permission-override",
       label: "Tuỳ chỉnh quyền riêng theo tài khoản",
-      codes: ["permission.override.manage", "permission.override.set", "permission.override.delete"]
+      codes: ["permission.override.view", "permission.override.set", "permission.override.delete"]
     },
     {
       key: "user-role",

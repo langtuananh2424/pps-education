@@ -266,7 +266,7 @@ export default function PortalPage() {
                     (isParent && selectedChild ? (
                       <ScheduleTab studentId={selectedChild.studentId} classId={selectedClassId} />
                     ) : isStudent ? (
-                      <StudentScheduleTab />
+                      <StudentScheduleTab classId={selectedClassId} />
                     ) : (
                       <ComingSoon
                         title="Lịch học & Chuyên cần"

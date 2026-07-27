@@ -3,19 +3,32 @@ import { Calendar } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { ClassSessionResponse, listMySessions } from "../api";
 
-/** UC-59: Học sinh tự xem lịch học của chính mình — self-service, khác ScheduleTab.tsx (dành cho Phụ huynh xem theo con+lớp cụ thể, có gộp cả Attendance mà Học sinh chưa self-service được). */
-export default function StudentScheduleTab() {
+interface StudentScheduleTabProps {
+  classId: number;
+}
+
+/**
+ * UC-59: Học sinh tự xem lịch học của chính mình — self-service, khác ScheduleTab.tsx (dành cho Phụ
+ * huynh xem theo con+lớp cụ thể, có gộp cả Attendance mà Học sinh chưa self-service được).
+ *
+ * Lọc theo classId (lớp đang chọn ở sidebar "Lớp đang học") — GIỐNG mọi tab khác trên trang Portal
+ * (Trang chủ/E-Learning/Khảo thí đều nhận classId). Trước đây gọi listMySessions() không kèm
+ * classId nên gộp lịch của MỌI lớp học sinh ghi danh, gây lệch với Admin xem theo đúng 1 lớp cụ thể
+ * (VD học sinh ghi danh 2 lớp, 1 lớp chưa xếp buổi học nào — Admin thấy đúng 0 buổi nhưng tab này lại
+ * hiện lịch của lớp còn lại, ngỡ là lịch của lớp đang chọn) — đã xác nhận sửa với người dùng.
+ */
+export default function StudentScheduleTab({ classId }: StudentScheduleTabProps) {
   const [schedule, setSchedule] = useState<ClassSessionResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
-    listMySessions()
+    listMySessions(undefined, undefined, classId)
       .then((res) => setSchedule([...res].sort((a, b) => `${a.sessionDate}T${a.startTime}`.localeCompare(`${b.sessionDate}T${b.startTime}`))))
       .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được lịch học."))
       .finally(() => setLoading(false));
-  }, []);
+  }, [classId]);
 
   if (loading) return <p className="text-sm text-muted font-bold">Đang tải...</p>;
 
@@ -27,7 +40,7 @@ export default function StudentScheduleTab() {
         <h2 className="text-xl font-extrabold text-ink flex items-center gap-2">
           <Calendar className="text-teal" /> Lịch học của tôi
         </h2>
-        <p className="text-xs text-muted font-bold">Tổng hợp mọi buổi học qua tất cả các lớp bạn đang ghi danh.</p>
+        <p className="text-xs text-muted font-bold">Lịch học của lớp đang chọn ở menu bên trái.</p>
         <div className="space-y-4 max-h-[560px] overflow-y-auto pr-1">
           {schedule.map((s) => (
             <div
