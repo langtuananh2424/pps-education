@@ -29,26 +29,26 @@ public class PermissionController {
         this.permissionService = permissionService;
     }
 
-    @PreAuthorize("hasPermission(null, 'permission.catalog.manage')")
+    @PreAuthorize("hasPermission(null, 'permission.catalog.view')")
     @GetMapping
     public ResponseEntity<List<PermissionResponse>> listAll() {
         return ResponseEntity.ok(permissionService.listAll());
     }
 
-    @PreAuthorize("hasPermission(null, 'permission.catalog.create') or hasPermission(null, 'permission.catalog.manage')")
+    @PreAuthorize("hasPermission(null, 'permission.catalog.create')")
     @PostMapping
     public ResponseEntity<PermissionResponse> create(@Valid @RequestBody CreatePermissionRequest request) {
         return ResponseEntity.ok(permissionService.create(request));
     }
 
-    @PreAuthorize("hasPermission(null, 'permission.catalog.update') or hasPermission(null, 'permission.catalog.manage')")
+    @PreAuthorize("hasPermission(null, 'permission.catalog.update')")
     @PutMapping("/{id}")
     public ResponseEntity<PermissionResponse> update(@PathVariable Long id,
                                                        @Valid @RequestBody UpdatePermissionRequest request) {
         return ResponseEntity.ok(permissionService.update(id, request));
     }
 
-    @PreAuthorize("hasPermission(null, 'permission.catalog.delete') or hasPermission(null, 'permission.catalog.manage')")
+    @PreAuthorize("hasPermission(null, 'permission.catalog.delete')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         permissionService.delete(id);

@@ -504,11 +504,13 @@ UC-46: Gán/Thu hồi vai trò cho tài khoản
 |                 | khoản đang hoạt động (ví dụ: kiêm nhiệm thêm vai   |
 |                 | trò Quản lý nhân sự).                              |
 +-----------------+----------------------------------------------------+
-| **Điều kiện     | -   Người thao tác có quyền user.role.manage.      |
-| tiên quyết      | -   Vai trò cần gán đã tồn tại trong bảng roles    |
-| (               |     (11 role hệ thống — UC-03).                    |
-| Precondition)** | -   Gán role: tài khoản đích tồn tại và đang        |
-|                 |     ACTIVE (giống UC-04).                          |
+| **Điều kiện     | -   Người thao tác có quyền user.role.assign (gán) |
+| tiên quyết      |     hoặc user.role.revoke (thu hồi) — V51, tách    |
+| (               |     từ user.role.manage.                           |
+| Precondition)** | -   Vai trò cần gán đã tồn tại trong bảng roles    |
+|                 |     (11 role hệ thống — UC-03).                    |
+|                 | -   Gán role: tài khoản đích tồn tại và đang        |
+|                 |     ACTIVE (giống UC-04).                           |
 +-----------------+----------------------------------------------------+
 | **Luồng sự kiện | 1.  Quản trị viên tìm và chọn đích danh 1 tài       |
 | chính (Main     |     khoản, hệ thống hiển thị danh sách role hiện   |
@@ -760,8 +762,10 @@ UC-63: Tự cập nhật hồ sơ cá nhân
 | **Mô tả tóm     | Tài khoản Nhân viên/Học sinh/Phụ huynh tự sửa ảnh  |
 | tắt**           | đại diện (portrait_url) và một số thông tin liên   |
 |                 | hệ cá nhân phi nghiệp vụ của chính mình — không    |
-|                 | cần quyền quản lý (hrm.manage/                     |
-|                 | student.profile.update/student.parent.manage).     |
+|                 | cần quyền quản lý (hrm.employee.update/            |
+|                 | student.profile.update/student.parent.update — V51,|
+|                 | hrm.employee.update/student.parent.update tách từ   |
+|                 | hrm.manage/student.parent.manage).                  |
 |                 | Phạm vi field tự sửa khác nhau theo loại hồ sơ do  |
 |                 | đặc thù dữ liệu mỗi bảng (đã xác nhận với người    |
 |                 | dùng khi thiết kế):                                |

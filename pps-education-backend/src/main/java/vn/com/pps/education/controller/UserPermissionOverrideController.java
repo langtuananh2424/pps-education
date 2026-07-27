@@ -28,13 +28,13 @@ public class UserPermissionOverrideController {
         this.userPermissionOverrideService = userPermissionOverrideService;
     }
 
-    @PreAuthorize("hasPermission(null, 'permission.override.manage')")
+    @PreAuthorize("hasPermission(null, 'permission.override.view')")
     @GetMapping("/effective-permissions")
     public ResponseEntity<EffectivePermissionsResponse> getEffectivePermissions(@PathVariable Long userId) {
         return ResponseEntity.ok(userPermissionOverrideService.getEffectivePermissions(userId));
     }
 
-    @PreAuthorize("hasPermission(null, 'permission.override.set') or hasPermission(null, 'permission.override.manage')")
+    @PreAuthorize("hasPermission(null, 'permission.override.set')")
     @PutMapping("/permission-overrides/{permissionId}")
     public ResponseEntity<Void> upsertOverride(@PathVariable Long userId,
                                                 @PathVariable Long permissionId,
@@ -45,7 +45,7 @@ public class UserPermissionOverrideController {
         return ResponseEntity.noContent().build();
     }
 
-    @PreAuthorize("hasPermission(null, 'permission.override.delete') or hasPermission(null, 'permission.override.manage')")
+    @PreAuthorize("hasPermission(null, 'permission.override.delete')")
     @DeleteMapping("/permission-overrides/{permissionId}")
     public ResponseEntity<Void> removeOverride(@PathVariable Long userId,
                                                 @PathVariable Long permissionId,

@@ -29,10 +29,16 @@ import vn.com.pps.education.service.EmployeeService;
 
 import java.util.List;
 
-/** UC-08: Quản lý hồ sơ nhân sự (FR-HRM-01). */
+/**
+ * UC-08: Quản lý hồ sơ nhân sự (FR-HRM-01).
+ *
+ * Trước đây `hrm.manage` gác toàn bộ Controller ở class-level. V51 tách
+ * riêng `hrm.employee.view/create/update` (bổ sung ngoài SDD gốc, đã xác
+ * nhận với người dùng 2026-07-24) — mỗi method giờ tự khai permission,
+ * không còn @PreAuthorize class-level.
+ */
 @RestController
 @RequestMapping("/api/employees")
-@PreAuthorize("hasPermission(null, 'hrm.manage')")
 public class EmployeeController {
 
     private final EmployeeService employeeService;
@@ -41,21 +47,23 @@ public class EmployeeController {
         this.employeeService = employeeService;
     }
 
+    @PreAuthorize("hasPermission(null, 'hrm.employee.view')")
     @GetMapping
     public ResponseEntity<List<EmployeeResponse>> search(@RequestParam(required = false) String query,
                                                            @RequestParam(required = false) Long departmentId) {
         return ResponseEntity.ok(employeeService.search(query, departmentId));
     }
 
+    @PreAuthorize("hasPermission(null, 'hrm.employee.view')")
     @GetMapping("/{id}")
     public ResponseEntity<EmployeeResponse> getById(@PathVariable Long id) {
         return ResponseEntity.ok(employeeService.getById(id));
     }
 
     /**
-     * UC-63: nhân viên tự xem hồ sơ của chính mình — override permission
-     * hrm.manage ở class-level, chỉ cần đăng nhập (Service tự giới hạn
-     * đúng hồ sơ của actor qua user_id, không nhận id tùy ý).
+     * UC-63: nhân viên tự xem hồ sơ của chính mình — chỉ cần đăng nhập
+     * (Service tự giới hạn đúng hồ sơ của actor qua user_id, không nhận id
+     * tùy ý), không cần hrm.employee.view.
      */
     @PreAuthorize("isAuthenticated()")
     @GetMapping("/me")
@@ -71,12 +79,14 @@ public class EmployeeController {
         return ResponseEntity.ok(employeeService.updateMyProfile(actor.userId(), request));
     }
 
+    @PreAuthorize("hasPermission(null, 'hrm.employee.create')")
     @PostMapping
     public ResponseEntity<EmployeeResponse> create(@Valid @RequestBody CreateEmployeeRequest request,
                                                      @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(employeeService.create(request, actor.userId()));
     }
 
+    @PreAuthorize("hasPermission(null, 'hrm.employee.update')")
     @PutMapping("/{id}")
     public ResponseEntity<EmployeeResponse> update(@PathVariable Long id,
                                                      @Valid @RequestBody UpdateEmployeeRequest request,
@@ -84,22 +94,26 @@ public class EmployeeController {
         return ResponseEntity.ok(employeeService.update(id, request, actor.userId()));
     }
 
+    @PreAuthorize("hasPermission(null, 'hrm.employee.view')")
     @GetMapping("/{id}/qualifications")
     public ResponseEntity<List<QualificationResponse>> listQualifications(@PathVariable Long id) {
         return ResponseEntity.ok(employeeService.listQualifications(id));
     }
 
+    @PreAuthorize("hasPermission(null, 'hrm.employee.update')")
     @PostMapping("/{id}/qualifications")
     public ResponseEntity<QualificationResponse> addQualification(@PathVariable Long id,
                                                                      @Valid @RequestBody CreateQualificationRequest request) {
         return ResponseEntity.ok(employeeService.addQualification(id, request));
     }
 
+    @PreAuthorize("hasPermission(null, 'hrm.employee.view')")
     @GetMapping("/{id}/commendations")
     public ResponseEntity<List<CommendationResponse>> listCommendations(@PathVariable Long id) {
         return ResponseEntity.ok(employeeService.listCommendations(id));
     }
 
+    @PreAuthorize("hasPermission(null, 'hrm.employee.update')")
     @PostMapping("/{id}/commendations")
     public ResponseEntity<CommendationResponse> addCommendation(@PathVariable Long id,
                                                                    @Valid @RequestBody CreateCommendationRequest request,
@@ -107,11 +121,13 @@ public class EmployeeController {
         return ResponseEntity.ok(employeeService.addCommendation(id, request, actor.userId()));
     }
 
+    @PreAuthorize("hasPermission(null, 'hrm.employee.view')")
     @GetMapping("/{id}/contracts")
     public ResponseEntity<List<EmploymentContractResponse>> listContracts(@PathVariable Long id) {
         return ResponseEntity.ok(employeeService.listContracts(id));
     }
 
+    @PreAuthorize("hasPermission(null, 'hrm.employee.update')")
     @PostMapping("/{id}/contracts")
     public ResponseEntity<EmploymentContractResponse> addContract(@PathVariable Long id,
                                                                      @Valid @RequestBody CreateEmploymentContractRequest request,
@@ -119,6 +135,7 @@ public class EmployeeController {
         return ResponseEntity.ok(employeeService.addContract(id, request, actor.userId()));
     }
 
+    @PreAuthorize("hasPermission(null, 'hrm.employee.update')")
     @PutMapping("/{id}/contracts/{contractId}")
     public ResponseEntity<EmploymentContractResponse> updateContract(@PathVariable Long id,
                                                                         @PathVariable Long contractId,
@@ -132,6 +149,7 @@ public class EmployeeController {
      * withinDays bắt buộc do người gọi chỉ định — UC không quy định 1 ngưỡng cố định,
      * không tự đặt mặc định (xem .claude/rules/business-fidelity.md).
      */
+    @PreAuthorize("hasPermission(null, 'hrm.employee.view')")
     @GetMapping("/contracts/expiring")
     public ResponseEntity<List<ExpiringContractResponse>> listExpiringContracts(@RequestParam int withinDays) {
         return ResponseEntity.ok(employeeService.listExpiringContracts(withinDays));

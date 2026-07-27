@@ -15,11 +15,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * UC-36b: xác nhận facility.manage (Hybrid PBAC — V28) chặn/cho phép đúng
- * qua HTTP thật cho GET /api/sites/{siteId}/partner-contracts — endpoint
- * này trước đây thiếu @PreAuthorize (cho phép mọi user đã đăng nhập xem
- * hợp đồng của bất kỳ điểm trường nào), nay đồng nhất với 5 endpoint còn
- * lại của PartnerContractController.
+ * UC-36b: xác nhận facility.partner-contract.view (V51, tách từ
+ * facility.manage — Hybrid PBAC V28) chặn/cho phép đúng qua HTTP thật cho
+ * GET /api/sites/{siteId}/partner-contracts — endpoint này trước đây thiếu
+ * @PreAuthorize (cho phép mọi user đã đăng nhập xem hợp đồng của bất kỳ
+ * điểm trường nào), nay đồng nhất với 5 endpoint còn lại của
+ * PartnerContractController.
  */
 @Transactional
 class PartnerContractControllerTest extends AbstractControllerTest {

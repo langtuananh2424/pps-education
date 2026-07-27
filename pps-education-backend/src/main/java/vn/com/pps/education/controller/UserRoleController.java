@@ -31,13 +31,13 @@ public class UserRoleController {
         this.userRoleAssignmentService = userRoleAssignmentService;
     }
 
-    @PreAuthorize("hasPermission(null, 'user.role.manage')")
+    @PreAuthorize("hasPermission(null, 'user.role.view')")
     @GetMapping
     public ResponseEntity<List<RoleResponse>> listAssignedRoles(@PathVariable Long userId) {
         return ResponseEntity.ok(userRoleAssignmentService.listAssignedRoles(userId));
     }
 
-    @PreAuthorize("hasPermission(null, 'user.role.assign') or hasPermission(null, 'user.role.manage')")
+    @PreAuthorize("hasPermission(null, 'user.role.assign')")
     @PutMapping("/{roleId}")
     public ResponseEntity<Void> assignRole(@PathVariable Long userId,
                                             @PathVariable Long roleId,
@@ -47,7 +47,7 @@ public class UserRoleController {
         return ResponseEntity.noContent().build();
     }
 
-    @PreAuthorize("hasPermission(null, 'user.role.revoke') or hasPermission(null, 'user.role.manage')")
+    @PreAuthorize("hasPermission(null, 'user.role.revoke')")
     @DeleteMapping("/{roleId}")
     public ResponseEntity<Void> revokeRole(@PathVariable Long userId,
                                             @PathVariable Long roleId,

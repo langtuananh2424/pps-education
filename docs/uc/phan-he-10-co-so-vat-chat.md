@@ -24,9 +24,9 @@ UC-36: Quản lý điểm trường
 | **Sự kiện kích  | Cần mở điểm trường mới hoặc cập nhật thông tin     |
 | hoạt**          | điểm trường hiện có.                               |
 +-----------------+----------------------------------------------------+
-| **Điều kiện     | -   Người dùng có quyền facility.manage.           |
-| tiên quyết      |                                                    |
-| (               |                                                    |
+| **Điều kiện     | -   Người dùng có quyền facility.site.create (tạo  |
+| tiên quyết      |     mới) hoặc facility.site.update (sửa/gán quản   |
+| (               |     lý) — V51, tách từ facility.manage.            |
 | Precondition)** |                                                    |
 +-----------------+----------------------------------------------------+
 | **Luồng sự kiện | 1.  Người dùng mở màn hình Quản lý điểm trường,    |
@@ -63,9 +63,11 @@ UC-36: Quản lý điểm trường
 |                 | ***A2 --- Gán giáo viên vào điểm trường (bổ sung   |
 |                 | ngoài SDD gốc, đã xác nhận với người dùng)***      |
 |                 |                                                    |
-|                 | 1.  Người dùng (quyền facility.manage) gán 1 giáo  |
-|                 |     viên vào điểm trường (mọi Loại hình, cả Cơ sở  |
-|                 |     tự vận hành lẫn Trường liên kết) — 1 giáo viên |
+|                 | 1.  Người dùng (quyền facility.site-teacher.assign |
+|                 |     — đã có sẵn từ V49, tách từ facility.manage)   |
+|                 |     gán 1 giáo viên vào điểm trường (mọi Loại      |
+|                 |     hình, cả Cơ sở tự vận hành lẫn Trường liên kết)|
+|                 |     — 1 giáo viên                                  |
 |                 |     có thể được gán nhiều điểm trường cùng lúc     |
 |                 |     (site_teachers, migration V35).                |
 |                 |                                                    |

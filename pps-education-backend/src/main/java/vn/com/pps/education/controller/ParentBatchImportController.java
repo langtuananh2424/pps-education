@@ -19,15 +19,16 @@ import vn.com.pps.education.service.ParentBatchImportService;
 
 /**
  * UC-50: Nhập phụ huynh theo lô, liên kết học sinh có sẵn (FR-STU-04) —
- * xem Javadoc ParentBatchImportService. Dùng permission student.parent.manage
- * (tách từ student.manage ở V44, khớp StudentController.linkParent — UC-13)
- * vì UC-50 cũng tạo hồ sơ phụ huynh, chỉ khác là hàng loạt qua Excel.
+ * xem Javadoc ParentBatchImportService. Dùng permission riêng
+ * student.parent.import (V51, tách từ student.parent.manage — bổ sung
+ * ngoài SDD gốc, đã xác nhận với người dùng 2026-07-24), khớp quy ước
+ * student.profile.import/hrm.employee.import.
  *
  * @PreAuthorize đặt ở class-level ngay từ đầu — rút kinh nghiệm lỗ hổng
  * thiếu quyền từng xảy ra ở StudentBatchImportController.
  */
 @RestController
-@PreAuthorize("hasPermission(null, 'student.parent.manage')")
+@PreAuthorize("hasPermission(null, 'student.parent.import')")
 public class ParentBatchImportController {
 
     private final ParentBatchImportService parentBatchImportService;

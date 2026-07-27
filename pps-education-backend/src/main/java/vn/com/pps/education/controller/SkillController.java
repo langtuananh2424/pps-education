@@ -33,13 +33,13 @@ public class SkillController {
         return ResponseEntity.ok(skillService.list(includeInactive));
     }
 
-    @PreAuthorize("hasPermission(null, 'academic.grade.manage')")
+    @PreAuthorize("hasPermission(null, 'academic.skill.create')")
     @PostMapping("/api/skills")
     public ResponseEntity<SkillResponse> create(@Valid @RequestBody CreateSkillRequest request) {
         return ResponseEntity.ok(skillService.create(request));
     }
 
-    @PreAuthorize("hasPermission(null, 'academic.grade.manage')")
+    @PreAuthorize("hasPermission(null, 'academic.skill.update')")
     @PutMapping("/api/skills/{id}")
     public ResponseEntity<SkillResponse> update(@PathVariable Long id,
                                                 @Valid @RequestBody UpdateSkillRequest request) {

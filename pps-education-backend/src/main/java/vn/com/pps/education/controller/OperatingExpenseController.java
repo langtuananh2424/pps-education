@@ -30,14 +30,14 @@ public class OperatingExpenseController {
     }
 
     @PostMapping("/api/finance/operating-expenses")
-    @PreAuthorize("hasPermission(null, 'finance.manage')")
+    @PreAuthorize("hasPermission(null, 'finance.expense.create')")
     public ResponseEntity<OperatingExpenseResponse> create(@Valid @RequestBody CreateOperatingExpenseRequest request,
                                                               @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(operatingExpenseService.create(request, actor.userId()));
     }
 
     @GetMapping("/api/finance/operating-expenses")
-    @PreAuthorize("hasPermission(null, 'finance.manage') or hasPermission(null, 'finance.expense.approve')")
+    @PreAuthorize("hasPermission(null, 'finance.expense.create') or hasPermission(null, 'finance.expense.approve')")
     public ResponseEntity<List<OperatingExpenseResponse>> list(
             @RequestParam(required = false) Long siteId,
             @RequestParam LocalDate from,
