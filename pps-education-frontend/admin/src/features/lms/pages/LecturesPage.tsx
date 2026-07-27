@@ -2,7 +2,8 @@ import React, { useEffect, useState } from "react";
 import { FileText, Plus, Upload, Video } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
-import { ClassResponse, CurriculumResponse, CurriculumSubjectResponse, listClasses, listCurriculums, listCurriculumSubjects } from "@/features/academic/api";
+import { CurriculumResponse, CurriculumSubjectResponse, listCurriculums, listCurriculumSubjects } from "@/features/academic/api";
+import { useEligibleClasses } from "@/features/academic/hooks/useEligibleClasses";
 import {
   AddLessonMaterialRequest,
   addLessonMaterial,
@@ -51,11 +52,10 @@ const materialTypeIcon: Record<string, React.ReactNode> = {
 
 /** UC-23: Kho bài giảng — chỉ Giáo viên được phân công dạy đúng lớp/khung chương trình mới tạo/sửa được (BE tự chặn, không bypass qua permission — đã xác nhận với người dùng). */
 export default function LecturesPage() {
-  const { selectedCampusId } = useApp();
+  const { selectedClassId } = useApp();
   const [scopeType, setScopeType] = useState<"CLASS" | "CURRICULUM">("CLASS");
-  const [classes, setClasses] = useState<ClassResponse[]>([]);
+  const { classes } = useEligibleClasses();
   const [curriculums, setCurriculums] = useState<CurriculumResponse[]>([]);
-  const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
   const [selectedCurriculumId, setSelectedCurriculumId] = useState<number | null>(null);
 
   const [lessons, setLessons] = useState<LessonResponse[]>([]);
@@ -72,9 +72,8 @@ export default function LecturesPage() {
   const effectiveCurriculumId = scopeType === "CLASS" ? selectedClass?.curriculumId ?? null : selectedCurriculumId;
 
   useEffect(() => {
-    listClasses({ siteId: selectedCampusId !== "ALL" ? Number(selectedCampusId) : undefined }).then(setClasses).catch(() => undefined);
     listCurriculums().then(setCurriculums).catch(() => undefined);
-  }, [selectedCampusId]);
+  }, []);
 
   const loadLessons = () => {
     if (scopeType === "CLASS" && !selectedClassId) {
@@ -122,10 +121,7 @@ export default function LecturesPage() {
             </button>
             <button
               type="button"
-              onClick={() => {
-                setScopeType("CURRICULUM");
-                setSelectedClassId(null);
-              }}
+              onClick={() => setScopeType("CURRICULUM")}
               className={`px-3 py-1.5 rounded-md transition-all ${scopeType === "CURRICULUM" ? "bg-white shadow-sm text-slate-800" : "text-slate-500"}`}
             >
               Theo khung chương trình (dùng chung)
@@ -133,14 +129,9 @@ export default function LecturesPage() {
           </div>
 
           {scopeType === "CLASS" ? (
-            <select value={selectedClassId ?? ""} onChange={(e) => setSelectedClassId(e.target.value ? Number(e.target.value) : null)} className={`${inputClass} w-64`}>
-              <option value="">-- Chọn lớp --</option>
-              {classes.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.classCode} — {c.name}
-                </option>
-              ))}
-            </select>
+            <span className="text-xs font-bold text-slate-700">
+              {selectedClass ? `Lớp: ${selectedClass.classCode} — ${selectedClass.name}` : "Chưa chọn lớp — chọn ở góc trên bên phải (Header)"}
+            </span>
           ) : (
             <select value={selectedCurriculumId ?? ""} onChange={(e) => setSelectedCurriculumId(e.target.value ? Number(e.target.value) : null)} className={`${inputClass} w-64`}>
               <option value="">-- Chọn khung chương trình --</option>

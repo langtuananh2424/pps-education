@@ -112,8 +112,12 @@ export const navSections: NavSection[] = [
     title: "QUẢN LÝ HỌC SINH",
     items: [
       { id: "stu-profile", label: "Hồ sơ học sinh (UC-13)", path: "/student/profile", icon: Users, requiredPermission: "student.profile.view" },
-      { id: "stu-parents", label: "Quản lý phụ huynh (UC-13)", path: "/student/parents", icon: Users, requiredPermission: "student.parent.view" },
-      { id: "stu-attendance", label: "Điểm danh nhanh (UC-15)", path: "/student/attendance", icon: Users, requiredPermission: "academic.attendance.mark" }
+      { id: "stu-parents", label: "Quản lý phụ huynh (UC-13)", path: "/student/parents", icon: Users, requiredPermission: "student.parent.view" }
+      // Ẩn khỏi sidebar theo yêu cầu người dùng (2026-07-24) — giờ vào bằng nút "Điểm danh" ở tab
+      // "Buổi học & Điểm danh" trong Quản lý lớp học (UC-18, ClassDetailPanel), deep-link kèm
+      // classId/sessionId. CHỈ ẩn khỏi menu, không xoá route (App.tsx vẫn giữ /student/attendance,
+      // vào qua nút ở UC-18 vẫn dùng được bình thường).
+      // { id: "stu-attendance", label: "Điểm danh nhanh (UC-15)", path: "/student/attendance", icon: Users, requiredPermission: "academic.attendance.mark" }
     ]
   },
   {
@@ -123,8 +127,11 @@ export const navSections: NavSection[] = [
       // academic.class.manage: TEACHER/HEAD_ACADEMIC đều có sẵn permission này (xem UC-18) — không cần gate thêm role.
       { id: "acad-classes", label: "Quản lý lớp học (UC-18)", path: "/academic/classes", icon: GraduationCap, requiredPermission: "academic.class.manage" },
       { id: "acad-syllabus", label: "Khung chương trình (UC-16/17)", path: "/academic/syllabus", icon: GraduationCap, requiredPermission: "academic.curriculum.manage" },
-      // academic.grade.manage: TEACHER/HEAD_ACADEMIC có sẵn. SITE_MANAGER KHÔNG có permission điểm nào (công bố/xem lại điểm ở GradesPage tự nhận diện qua role, không qua permission) — phải gate thêm requiredRoleAny mới không mất quyền vào của Site Manager.
-      { id: "acad-grades", label: "Sổ điểm hệ thống (UC-19/20)", path: "/academic/grades", icon: Award, requiredPermission: "academic.grade.manage", requiredRoleAny: [UserRole.SITE_MANAGER] },
+      // GV thuần giờ nhập điểm ngay ở tab "Sổ điểm" trong Quản lý lớp học (UC-18, ClassDetailPanel) nên
+      // KHÔNG còn hiện mục này với TEACHER nữa — chỉ gate theo role quản trị (không dùng requiredPermission
+      // academic.grade.manage vì TEACHER cũng có permission đó, sẽ lại lọt vào nếu gate theo permission).
+      // Trang GradesPage vẫn giữ cho HEAD_ACADEMIC/SYS_ADMIN xem tổng quan + SITE_MANAGER công bố điểm (UC-20).
+      { id: "acad-grades", label: "Sổ điểm hệ thống (UC-19/20)", path: "/academic/grades", icon: Award, requiredRoleAny: [UserRole.HEAD_ACADEMIC, UserRole.SYS_ADMIN, UserRole.SITE_MANAGER] },
       // academic.comment.write: TEACHER có sẵn (viết nhận xét). SITE_MANAGER duyệt nhận xét qua role check nội bộ trang, không có permission riêng.
       { id: "acad-comments", label: "Nhận xét học viên (UC-21/22)", path: "/academic/comments", icon: Award, requiredPermission: "academic.comment.write", requiredRoleAny: [UserRole.SITE_MANAGER] }
     ]

@@ -29,6 +29,8 @@ import Button from "@/components/ui/Button";
 import { classStatusLabels, classStatusVariants } from "./ClassListPanel";
 import BulkGenerateSessionsForm from "./BulkGenerateSessionsForm";
 import ImportScheduleForm from "./ImportScheduleForm";
+import ClassGradeSheetPanel from "./ClassGradeSheetPanel";
+import StudentInfoModal from "./StudentInfoModal";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import DatePicker from "@/components/ui/DatePicker";
@@ -37,7 +39,7 @@ const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rou
 const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-xs p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
 
-type Tab = "profile" | "teachers" | "students" | "sessions";
+type Tab = "profile" | "teachers" | "students" | "sessions" | "grades";
 
 interface ClassDetailPanelProps {
   schoolClass: ClassResponse;
@@ -70,7 +72,8 @@ export default function ClassDetailPanel({ schoolClass, onChanged }: ClassDetail
               ["profile", "Hồ sơ", FileText],
               ["teachers", "Giáo viên", Users],
               ["students", "Học sinh", Users],
-              ["sessions", "Buổi học & Điểm danh", Calendar]
+              ["sessions", "Buổi học & Điểm danh", Calendar],
+              ["grades", "Sổ điểm", FileSpreadsheet]
             ] as const
           ).map(([key, label, Icon]) => (
             <button
@@ -90,8 +93,18 @@ export default function ClassDetailPanel({ schoolClass, onChanged }: ClassDetail
       <div className="flex-1 p-5 overflow-y-auto max-h-[560px]">
         {tab === "profile" && <ProfileTab schoolClass={schoolClass} onChanged={onChanged} canManage={canManage} showToast={showToast} />}
         {tab === "teachers" && <TeachersTab classId={schoolClass.id} canManage={canManage} showToast={showToast} />}
-        {tab === "students" && <StudentsTab classId={schoolClass.id} siteId={schoolClass.siteId} siteName={schoolClass.siteName} canManage={canManage} showToast={showToast} />}
+        {tab === "students" && (
+          <StudentsTab
+            classId={schoolClass.id}
+            curriculumId={schoolClass.curriculumId}
+            siteId={schoolClass.siteId}
+            siteName={schoolClass.siteName}
+            canManage={canManage}
+            showToast={showToast}
+          />
+        )}
         {tab === "sessions" && <SessionsTab classId={schoolClass.id} siteId={schoolClass.siteId} canManage={canManage} showToast={showToast} />}
+        {tab === "grades" && <ClassGradeSheetPanel classId={schoolClass.id} curriculumId={schoolClass.curriculumId} />}
       </div>
 
       <Toast message={toastMessage} />
@@ -385,12 +398,14 @@ function AssignTeacherForm({ classId, onDone, onCancel }: { classId: number; onD
 
 function StudentsTab({
   classId,
+  curriculumId,
   siteId,
   siteName,
   canManage,
   showToast
 }: {
   classId: number;
+  curriculumId: number;
   siteId: number;
   siteName: string;
   canManage: boolean;
@@ -400,6 +415,7 @@ function StudentsTab({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [enrolling, setEnrolling] = useState(false);
+  const [viewingEnrollment, setViewingEnrollment] = useState<ClassEnrollmentResponse | null>(null);
 
   const load = () => {
     setLoading(true);
@@ -445,7 +461,13 @@ function StudentsTab({
           {enrollments.map((en) => (
             <div key={en.id} className="border border-slate-200 rounded-lg p-3 text-xs flex items-center justify-between">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-bold text-slate-800">{en.studentFullName}</span>
+                <button
+                  type="button"
+                  onClick={() => setViewingEnrollment(en)}
+                  className="font-bold text-slate-800 hover:text-brand-red hover:underline"
+                >
+                  {en.studentFullName}
+                </button>
                 <span className="font-mono text-slate-400">{en.studentCode}</span>
                 <Badge variant={en.status === "ACTIVE" ? "success" : "neutral"}>{en.status}</Badge>
               </div>
@@ -471,6 +493,15 @@ function StudentsTab({
             showToast("Đã ghi danh học sinh thành công!");
           }}
           onCancel={() => setEnrolling(false)}
+        />
+      )}
+
+      {viewingEnrollment && (
+        <StudentInfoModal
+          enrollment={viewingEnrollment}
+          classId={classId}
+          curriculumId={curriculumId}
+          onClose={() => setViewingEnrollment(null)}
         />
       )}
     </div>
