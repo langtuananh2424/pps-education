@@ -142,7 +142,12 @@ export const navSections: NavSection[] = [
     items: [
       { id: "lms-question-banks", label: "Ngân hàng câu hỏi (UC-40)", path: "/lms/question-banks", icon: BookOpen, requiredPermission: "lms.exercise.manage" },
       { id: "lms-exercises", label: "Soạn & giao đề (UC-40)", path: "/lms/exercises", icon: BookOpen, requiredPermission: "lms.exercise.manage" },
-      { id: "lms-lectures", label: "Kho bài giảng (UC-23)", path: "/lms/lectures", icon: BookOpen, requiredPermission: "lms.exercise.manage" },
+      // Không dùng requiredPermission: từ khi tái cấu trúc thành Kho Video Ôn tập (2026-07-27),
+      // ReviewVideoService không còn check @PreAuthorize permission nào — chỉ check "giáo viên có
+      // được phân công dạy đúng lớp/khung không" qua class_teachers (requireAssignedTeacher). Gate
+      // theo role TEACHER ở đây chỉ để ẩn mục khỏi vai trò rõ ràng không liên quan; quyền thật vẫn do
+      // backend tự chặn 403 theo phân công, không phải theo role.
+      { id: "lms-lectures", label: "Kho Video Ôn tập (UC-23)", path: "/lms/lectures", icon: BookOpen, requiredRoleAny: [UserRole.TEACHER] },
       { id: "lms-documents", label: "Kho tài liệu tham khảo (UC-60)", path: "/lms/documents", icon: BookOpen, requiredPermission: "lms.document.manage" },
       { id: "lms-exams", label: "Hàng chờ chấm bài (UC-41)", path: "/lms/exams", icon: BookOpen, requiredPermission: "lms.grading.manage" }
     ]

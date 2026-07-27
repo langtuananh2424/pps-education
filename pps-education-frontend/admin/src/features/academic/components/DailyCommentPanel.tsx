@@ -1,11 +1,15 @@
-import React, { useEffect, useState } from "react";
-import { Send } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import { Download, Send, UploadCloud } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
+import { downloadBlob } from "@/lib/xlsxTemplate";
 import { useApp } from "@/context/AppContext";
 import {
   ClassEnrollmentResponse,
   ClassSessionResponse,
+  DailyCommentImportResponse,
   StudentCommentResponse,
+  downloadDailyCommentTemplate,
+  importDailyComments,
   listClassEnrollments,
   listClassSessions,
   listComments,
@@ -21,8 +25,18 @@ interface Row {
   studentId: number;
   studentFullName: string;
   studentCode: string;
+  attitude: "" | NonNullable<StudentCommentResponse["attitude"]>;
+  homeworkPreviousScore: string;
   content: string;
+  homeworkNext: string;
+  note: string;
 }
+
+const attitudeLabels: Record<NonNullable<StudentCommentResponse["attitude"]>, string> = {
+  POOR: "Kém",
+  AVERAGE: "Trung bình",
+  GOOD: "Tốt"
+};
 
 /** UC-21 Main Flow (nhánh DAILY): viết nhận xét hàng ngày theo buổi học — cùng khuôn thao tác với Điểm danh nhanh. */
 export default function DailyCommentPanel() {
@@ -37,6 +51,10 @@ export default function DailyCommentPanel() {
   const [sending, setSending] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [downloadingTemplate, setDownloadingTemplate] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<DailyCommentImportResponse | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const selectedClass = classes.find((c) => c.id === selectedClassId) ?? null;
   const selectedSession = sessions.find((s) => s.id === selectedSessionId) ?? null;
@@ -65,8 +83,24 @@ export default function DailyCommentPanel() {
     setError(null);
     listClassEnrollments(selectedClassId)
       .then((enrollments: ClassEnrollmentResponse[]) => {
-        const active = enrollments.filter((en) => en.status === "ACTIVE");
-        setRows(active.map((en) => ({ studentId: en.studentId, studentFullName: en.studentFullName, studentCode: en.studentCode, content: "" })));
+        // Sắp theo mã học viên — BE chưa có ORDER BY cố định ở đây (findBySchoolClassId), nên tự
+        // sắp ở FE để bảng không đổi thứ tự lung tung mỗi lần tải lại (đã báo BE bổ sung ORDER BY
+        // để file mẫu Excel tải về cũng khớp đúng thứ tự này).
+        const active = enrollments
+          .filter((en) => en.status === "ACTIVE")
+          .sort((a, b) => a.studentCode.localeCompare(b.studentCode));
+        setRows(
+          active.map((en) => ({
+            studentId: en.studentId,
+            studentFullName: en.studentFullName,
+            studentCode: en.studentCode,
+            attitude: "",
+            homeworkPreviousScore: "",
+            content: "",
+            homeworkNext: "",
+            note: ""
+          }))
+        );
         return loadHistory(selectedClassId, selectedSessionId, active.map((en) => en.studentId));
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách học sinh."))
@@ -107,7 +141,11 @@ export default function DailyCommentPanel() {
             commentDate: selectedSession.sessionDate,
             content: r.content.trim(),
             severity: "NORMAL",
-            isWarning: false
+            isWarning: false,
+            attitude: r.attitude || undefined,
+            homeworkPreviousScore: r.homeworkPreviousScore.trim() || undefined,
+            homeworkNext: r.homeworkNext.trim() || undefined,
+            note: r.note.trim() || undefined
           })
         )
       );
@@ -122,12 +160,52 @@ export default function DailyCommentPanel() {
       if (failedCount > 0) message += `\n- ${failedCount} học sinh bị lỗi khi ghi nhận xét, thử lại sau.`;
       setNotification(message);
       setTimeout(() => setNotification(null), 6000);
-      setRows((prev) => prev.map((r) => (r.content.trim() ? { ...r, content: "" } : r)));
+      setRows((prev) =>
+        prev.map((r) => (r.content.trim() ? { ...r, attitude: "", homeworkPreviousScore: "", content: "", homeworkNext: "", note: "" } : r))
+      );
       await loadHistory(selectedClassId, selectedSession.id, rows.map((r) => r.studentId));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Gửi nhận xét thất bại.");
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleDownloadTemplate = async () => {
+    if (!selectedSessionId) return;
+    setDownloadingTemplate(true);
+    setError(null);
+    try {
+      const blob = await downloadDailyCommentTemplate(selectedSessionId);
+      downloadBlob(blob, `mau-nhan-xet-buoi-${selectedSessionId}.xlsx`);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Tải file mẫu thất bại.");
+    } finally {
+      setDownloadingTemplate(false);
+    }
+  };
+
+  const handleImportFile = async (file: File | null) => {
+    if (!file || !selectedClassId || !selectedSessionId) return;
+    if (!file.name.toLowerCase().endsWith(".xlsx")) {
+      setError("Chỉ hỗ trợ file .xlsx.");
+      return;
+    }
+    setImporting(true);
+    setError(null);
+    setImportResult(null);
+    try {
+      const res = await importDailyComments(selectedSessionId, file);
+      setImportResult(res);
+      if (res.successRows > 0) {
+        const active = rows.map((r) => r.studentId);
+        await loadHistory(selectedClassId, selectedSessionId, active);
+      }
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Nhập từ Excel thất bại.");
+    } finally {
+      setImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
@@ -160,49 +238,144 @@ export default function DailyCommentPanel() {
             )}
           </div>
 
+          {selectedSessionId && (
+            <div className="px-5 py-3 border-b border-slate-100 bg-slate-50/60 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={handleDownloadTemplate}
+                disabled={downloadingTemplate}
+                className="flex items-center gap-1.5 border border-dashed border-slate-300 rounded-lg px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-white disabled:opacity-50"
+              >
+                <Download className="w-3.5 h-3.5" />
+                {downloadingTemplate ? "Đang tải..." : "Tải mẫu Excel (điền sẵn điểm danh + nhận xét hiện có)"}
+              </button>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={importing}
+                className="flex items-center gap-1.5 border-2 border-dashed border-slate-200 rounded-lg px-3 py-2 text-[11px] font-semibold text-slate-600 hover:border-brand-orange hover:bg-orange-50/30 disabled:opacity-50"
+              >
+                <UploadCloud className="w-3.5 h-3.5 text-brand-orange" />
+                {importing ? "Đang nhập..." : "Nhập từ Excel (.xlsx)"}
+              </button>
+              <input ref={fileInputRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => handleImportFile(e.target.files?.[0] ?? null)} />
+
+              {importResult && (
+                <div className="w-full flex flex-wrap items-center gap-2 text-[11px] mt-1">
+                  <span className="bg-slate-100 border border-slate-200 text-slate-700 font-semibold px-2 py-1 rounded-lg">
+                    Tổng: {importResult.totalRows ?? "—"}
+                  </span>
+                  <span className="bg-emerald-50 border border-emerald-100 text-emerald-600 font-semibold px-2 py-1 rounded-lg">
+                    Thành công: {importResult.successRows}
+                  </span>
+                  <span className="bg-rose-50 border border-rose-100 text-rose-600 font-semibold px-2 py-1 rounded-lg">
+                    Lỗi: {importResult.failedRows}
+                  </span>
+                  {importResult.errorSummary.length > 0 && (
+                    <div className="w-full border border-rose-100 rounded-lg overflow-hidden mt-1">
+                      <div className="max-h-40 overflow-y-auto divide-y divide-slate-100">
+                        {importResult.errorSummary.map((e, i) => (
+                          <div key={i} className="px-3 py-1.5 flex gap-2 bg-white">
+                            <span className="font-mono font-bold text-slate-400 shrink-0">Dòng {e.row}</span>
+                            <span className="text-slate-600">{e.reason}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           <TableContainer className="rounded-none border-0">
             <thead>
               <tr>
                 <Th>Mã ID</Th>
                 <Th>Họ và tên</Th>
-                <Th>Nhận xét của giáo viên</Th>
+                <Th>Thái độ học tập</Th>
+                <Th>BTVN buổi trước</Th>
+                <Th>Nhận xét học sinh *</Th>
+                <Th>BTVN buổi sau</Th>
+                <Th>Ghi chú</Th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {!selectedSessionId ? (
                 <tr>
-                  <td colSpan={3} className="px-6 py-12 text-center text-xs text-slate-400 italic">
+                  <td colSpan={7} className="px-6 py-12 text-center text-xs text-slate-400 italic">
                     {selectedClass ? "Chọn buổi học ở trên để tải danh sách học sinh." : "Chọn 1 lớp ở Header (góc trên bên phải)."}
                   </td>
                 </tr>
               ) : loadingRows ? (
                 <tr>
-                  <td colSpan={3} className="px-6 py-12 text-center text-xs text-slate-400">
+                  <td colSpan={7} className="px-6 py-12 text-center text-xs text-slate-400">
                     Đang tải...
                   </td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={3} className="px-6 py-12 text-center text-xs text-slate-400 italic">
+                  <td colSpan={7} className="px-6 py-12 text-center text-xs text-slate-400 italic">
                     Không tìm thấy học sinh nào thuộc lớp học này.
                   </td>
                 </tr>
               ) : (
-                rows.map((r) => (
-                  <tr key={r.studentId} className="hover:bg-slate-50/40 transition-colors">
-                    <Td className="font-mono font-bold text-slate-500">{r.studentCode}</Td>
-                    <Td className="font-bold text-slate-900 whitespace-nowrap">{r.studentFullName}</Td>
-                    <Td>
-                      <textarea
-                        value={r.content}
-                        onChange={(e) => setRows((prev) => prev.map((row) => (row.studentId === r.studentId ? { ...row, content: e.target.value } : row)))}
-                        placeholder="Viết nhận xét cho học sinh này..."
-                        rows={2}
-                        className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
-                      />
-                    </Td>
-                  </tr>
-                ))
+                rows.map((r) => {
+                  const updateRow = (patch: Partial<Row>) =>
+                    setRows((prev) => prev.map((row) => (row.studentId === r.studentId ? { ...row, ...patch } : row)));
+                  return (
+                    <tr key={r.studentId} className="hover:bg-slate-50/40 transition-colors">
+                      <Td className="font-mono font-bold text-slate-500">{r.studentCode}</Td>
+                      <Td className="font-bold text-slate-900 whitespace-nowrap">{r.studentFullName}</Td>
+                      <Td>
+                        <select
+                          value={r.attitude}
+                          onChange={(e) => updateRow({ attitude: e.target.value as Row["attitude"] })}
+                          className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
+                        >
+                          <option value="">-- Chưa chọn --</option>
+                          {Object.entries(attitudeLabels).map(([value, label]) => (
+                            <option key={value} value={value}>
+                              {label}
+                            </option>
+                          ))}
+                        </select>
+                      </Td>
+                      <Td>
+                        <input
+                          value={r.homeworkPreviousScore}
+                          onChange={(e) => updateRow({ homeworkPreviousScore: e.target.value })}
+                          placeholder="VD: Đã làm đủ"
+                          className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
+                        />
+                      </Td>
+                      <Td>
+                        <textarea
+                          value={r.content}
+                          onChange={(e) => updateRow({ content: e.target.value })}
+                          placeholder="Viết nhận xét cho học sinh này..."
+                          rows={2}
+                          className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
+                        />
+                      </Td>
+                      <Td>
+                        <input
+                          value={r.homeworkNext}
+                          onChange={(e) => updateRow({ homeworkNext: e.target.value })}
+                          placeholder="VD: Unit 2 trang 10"
+                          className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
+                        />
+                      </Td>
+                      <Td>
+                        <input
+                          value={r.note}
+                          onChange={(e) => updateRow({ note: e.target.value })}
+                          className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
+                        />
+                      </Td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </TableContainer>

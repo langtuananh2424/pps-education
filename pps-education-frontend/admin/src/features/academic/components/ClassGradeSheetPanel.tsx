@@ -27,13 +27,15 @@ const inputClass = "bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg f
 interface ClassGradeSheetPanelProps {
   classId: number;
   curriculumId: number;
+  /** SITE_MANAGER xem tab "Sổ điểm" ở Quản lý lớp học chỉ để tham khảo — không nhập/sửa điểm được (khác GradesPage cũ, đã bỏ sót readOnly khi tách component này). */
+  readOnly?: boolean;
 }
 
 /**
  * "Bảng nhập điểm (UC-19)" của đúng 1 lớp — tách khỏi GradesPage để dùng lại được ở tab "Sổ điểm"
  * trong ClassDetailPanel (UC-18), tránh lặp lại toàn bộ logic kỳ điểm/đầu điểm/nhập điểm 2 nơi.
  */
-export default function ClassGradeSheetPanel({ classId, curriculumId }: ClassGradeSheetPanelProps) {
+export default function ClassGradeSheetPanel({ classId, curriculumId, readOnly = false }: ClassGradeSheetPanelProps) {
   const { hasPermission } = useApp();
   const canManage = hasPermission("academic.grade.manage");
   const [enrollments, setEnrollments] = useState<ClassEnrollmentResponse[]>([]);
@@ -113,7 +115,7 @@ export default function ClassGradeSheetPanel({ classId, curriculumId }: ClassGra
         </select>
       </div>
 
-      {canManage && (
+      {canManage && !readOnly && (
         <div className="flex gap-2 flex-wrap items-center">
           <Button type="button" size="sm" variant="secondary" onClick={() => setShowPeriodForm((v) => !v)}>
             <Plus className="w-3.5 h-3.5" />
@@ -133,7 +135,7 @@ export default function ClassGradeSheetPanel({ classId, curriculumId }: ClassGra
           )}
         </div>
       )}
-      {canManage && selectedPeriodId && gradeComponents.length > 0 && (
+      {canManage && !readOnly && selectedPeriodId && gradeComponents.length > 0 && (
         <div className="flex gap-1.5 flex-wrap">
           {gradeComponents.map((c) => (
             <span key={c.id} className="flex items-center gap-1 bg-slate-100 border border-slate-200 text-slate-600 text-[11px] font-semibold px-2 py-1 rounded-lg">
@@ -180,13 +182,14 @@ export default function ClassGradeSheetPanel({ classId, curriculumId }: ClassGra
             gradePeriodId={selectedPeriodId}
             components={gradeComponents}
             enrollments={enrollments}
+            readOnly={readOnly}
           />
         )
       ) : (
         <p className="text-xs text-slate-400 italic p-6 text-center">Chọn kỳ điểm để bắt đầu nhập điểm.</p>
       )}
 
-      {selectedPeriodId && gradeComponents.length > 0 && (
+      {!readOnly && selectedPeriodId && gradeComponents.length > 0 && (
         <GradeExcelImportPanel
           classId={classId}
           gradePeriodId={selectedPeriodId}

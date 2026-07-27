@@ -3,6 +3,7 @@ import { ApiError } from "@/lib/apiClient";
 import {
   ClassEnrollmentResponse,
   EnterGradePeriodResultRequest,
+  GradeAppealWindowResponse,
   GradeComponentResponse,
   GradeEditWindowResponse,
   GradeEntryResponse,
@@ -10,6 +11,7 @@ import {
   GradeStatus,
   enterGrade,
   enterPeriodResult,
+  getGradeAppealWindow,
   getGradeEditWindow,
   listGradeEntries,
   listPeriodResults
@@ -61,6 +63,7 @@ export default function GradeSheetTable({ classId, gradePeriodId, components, en
   const [entriesByStudent, setEntriesByStudent] = useState<Map<number, Map<number, GradeEntryResponse>>>(new Map());
   const [resultsByStudent, setResultsByStudent] = useState<Map<number, GradePeriodResultResponse>>(new Map());
   const [editWindow, setEditWindow] = useState<GradeEditWindowResponse | null>(null);
+  const [appealWindow, setAppealWindow] = useState<GradeAppealWindowResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -95,6 +98,7 @@ export default function GradeSheetTable({ classId, gradePeriodId, components, en
   useEffect(load, [classId, gradePeriodId, componentIdsKey]);
   useEffect(() => {
     getGradeEditWindow().then(setEditWindow).catch(() => undefined);
+    getGradeAppealWindow().then(setAppealWindow).catch(() => undefined);
   }, []);
 
   const rowStatus = (studentId: number): GradeStatus | null => {
@@ -103,6 +107,28 @@ export default function GradeSheetTable({ classId, gradePeriodId, components, en
     const statuses = result ? [...entryStatuses, result.status] : entryStatuses;
     if (statuses.length === 0) return null;
     return statusPriority.find((s) => statuses.includes(s)) ?? statuses[0];
+  };
+
+  /**
+   * Hạn tự động khoá "Chính thức" (UC-62) = publishedAt SỚM NHẤT trong các bản ghi đang
+   * PROVISIONAL_PUBLISHED/APPEAL của học sinh này, cộng số ngày phúc khảo cấu hình được
+   * (grade-appeal-window-days) — GradeSchedulerService tự khoá bất kể còn ở trạng thái nào
+   * trong 2 trạng thái đó khi hết hạn.
+   */
+  const officialLockInfo = (studentId: number): { deadline: Date; daysLeft: number } | null => {
+    if (!appealWindow) return null;
+    const records: { status: GradeStatus; publishedAt: string | null }[] = [
+      ...(entriesByStudent.get(studentId)?.values() ?? []),
+      ...(resultsByStudent.get(studentId) ? [resultsByStudent.get(studentId)!] : [])
+    ];
+    const publishedTimestamps = records
+      .filter((r) => (r.status === "PROVISIONAL_PUBLISHED" || r.status === "APPEAL") && r.publishedAt)
+      .map((r) => new Date(r.publishedAt!).getTime());
+    if (publishedTimestamps.length === 0) return null;
+    const earliest = Math.min(...publishedTimestamps);
+    const deadline = new Date(earliest + appealWindow.days * 24 * 60 * 60 * 1000);
+    const daysLeft = Math.ceil((deadline.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+    return { deadline, daysLeft };
   };
 
   const handleBlurScore = async (studentId: number, componentId: number) => {
@@ -118,18 +144,27 @@ export default function GradeSheetTable({ classId, gradePeriodId, components, en
     setSavingKey(key);
     setError(null);
     try {
-      await enterGrade(classId, componentId, {
+      const updated = await enterGrade(classId, componentId, {
         studentId,
         score: isNaN(score) ? 0 : score,
         absenceFlag: existing?.absenceFlag ?? false,
         teacherNote: existing?.teacherNote ?? undefined
+      });
+      // Cập nhật thẳng từ response thay vì gọi load() — load() set loading=true khiến cả bảng bị
+      // unmount rồi mount lại (cảm giác "reload" mỗi lần rời khỏi 1 ô điểm), không cần thiết vì
+      // response đã có đủ dữ liệu mới nhất của đúng 1 ô vừa lưu.
+      setEntriesByStudent((prev) => {
+        const next = new Map(prev);
+        const studentMap = new Map(next.get(studentId) ?? []);
+        studentMap.set(componentId, updated);
+        next.set(studentId, studentMap);
+        return next;
       });
       setScoreInput((prev) => {
         const next = { ...prev };
         delete next[key];
         return next;
       });
-      load();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Lưu điểm thất bại.");
     } finally {
@@ -152,7 +187,12 @@ export default function GradeSheetTable({ classId, gradePeriodId, components, en
     setSavingKey(key);
     setError(null);
     try {
-      await enterPeriodResult(classId, studentId, gradePeriodId, { overallScore, scaleType: scale, level: level.trim() || undefined });
+      const updated = await enterPeriodResult(classId, studentId, gradePeriodId, { overallScore, scaleType: scale, level: level.trim() || undefined });
+      setResultsByStudent((prev) => {
+        const next = new Map(prev);
+        next.set(studentId, updated);
+        return next;
+      });
       setOverallInput((prev) => {
         const next = { ...prev };
         delete next[studentId];
@@ -168,7 +208,6 @@ export default function GradeSheetTable({ classId, gradePeriodId, components, en
         delete next[studentId];
         return next;
       });
-      load();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Lưu Overall/Level thất bại.");
     } finally {
@@ -180,11 +219,21 @@ export default function GradeSheetTable({ classId, gradePeriodId, components, en
 
   return (
     <div>
-      {editWindow && (
-        <p className="text-[11px] text-slate-400 italic px-5 pt-3">
-          Sau {editWindow.days} ngày kể từ lần đầu nhập điểm cho lớp + kỳ này, điểm còn Nháp sẽ tự động chuyển "Công bố dự kiến" nếu không ai
-          công bố tay. Sửa/xoá điểm chỉ còn giới hạn theo trạng thái (Nháp hoặc đang Phúc khảo đã tiếp nhận) — không còn theo thời gian.
-        </p>
+      {(editWindow || appealWindow) && (
+        <div className="px-5 pt-3 space-y-1">
+          {editWindow && (
+            <p className="text-[11px] text-slate-400 italic">
+              Sau {editWindow.days} ngày kể từ lần đầu nhập điểm cho lớp + kỳ này, điểm còn Nháp sẽ tự động chuyển "Công bố dự kiến" nếu không ai
+              công bố tay. Sửa/xoá điểm chỉ còn giới hạn theo trạng thái (Nháp hoặc đang Phúc khảo đã tiếp nhận) — không còn theo thời gian.
+            </p>
+          )}
+          {appealWindow && (
+            <p className="text-[11px] text-slate-400 italic">
+              Sau {appealWindow.days} ngày kể từ lúc "Công bố dự kiến", điểm tự động khoá "Chính thức" — không sửa được nữa (trừ tài khoản có
+              quyền toàn quyền sửa điểm).
+            </p>
+          )}
+        </div>
       )}
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 m-3 rounded-lg">{error}</div>}
       <div className="overflow-x-auto">
@@ -304,7 +353,26 @@ export default function GradeSheetTable({ classId, gradePeriodId, components, en
                       {result ? <Badge variant="info">{sourceLabels[result.source]}</Badge> : <span className="text-[10px] text-slate-300 italic">—</span>}
                     </Td>
                     <Td className="text-center">
-                      {status ? <Badge variant={statusVariants[status]}>{statusLabels[status]}</Badge> : <span className="text-[10px] text-slate-300 italic">Chưa nhập</span>}
+                      {status ? (
+                        <div className="inline-flex flex-col items-center gap-0.5">
+                          <Badge variant={statusVariants[status]}>{statusLabels[status]}</Badge>
+                          {(status === "PROVISIONAL_PUBLISHED" || status === "APPEAL") &&
+                            (() => {
+                              const lockInfo = officialLockInfo(en.studentId);
+                              if (!lockInfo) return null;
+                              const { deadline, daysLeft } = lockInfo;
+                              return (
+                                <span className={`text-[9px] font-bold whitespace-nowrap ${daysLeft <= 1 ? "text-rose-600" : "text-slate-400"}`}>
+                                  {daysLeft > 0
+                                    ? `Khoá Chính thức sau ${daysLeft} ngày (${deadline.toLocaleDateString("vi-VN")})`
+                                    : "Sắp tự khoá Chính thức"}
+                                </span>
+                              );
+                            })()}
+                        </div>
+                      ) : (
+                        <span className="text-[10px] text-slate-300 italic">Chưa nhập</span>
+                      )}
                     </Td>
                   </tr>
                 );

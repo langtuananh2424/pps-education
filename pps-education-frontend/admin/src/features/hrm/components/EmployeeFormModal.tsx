@@ -107,12 +107,6 @@ export default function EmployeeFormModal({ onClose, onCreated }: EmployeeFormMo
     <Modal open onClose={onClose} title="Thêm nhân sự mới (UC-08)" size="lg">
       <form onSubmit={handleSubmit} className="space-y-5">
         {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
-
-        <div className="space-y-2">
-          <span className="text-[10px] font-bold uppercase text-slate-500">Tài khoản</span>
-          <AccountSelector value={account} onChange={setAccount} submitAttempted={submitAttempted} />
-        </div>
-
         <div className="space-y-2 border-t border-slate-100 pt-4">
           <span className="text-[10px] font-bold uppercase text-slate-500">Ảnh đại diện</span>
           <AvatarUploadField
@@ -121,6 +115,10 @@ export default function EmployeeFormModal({ onClose, onCreated }: EmployeeFormMo
             onUpload={(file) => uploadMedia(file, "EMPLOYEE")}
             fallbackName={account.newAccount?.fullName || "Nhân sự"}
           />
+        </div>
+        <div className="space-y-2">
+          <span className="text-[10px] font-bold uppercase text-slate-500">Tài khoản</span>
+          <AccountSelector value={account} onChange={setAccount} submitAttempted={submitAttempted} />
         </div>
 
         <div className="space-y-3 border-t border-slate-100 pt-4">
