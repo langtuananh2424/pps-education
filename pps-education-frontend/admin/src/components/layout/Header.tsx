@@ -120,14 +120,27 @@ export default function Header() {
   // SITE_MANAGER không có permission điểm nhưng vẫn cần lọc lớp để "xem lại sổ điểm"), Điểm danh
   // (UC-15), Soạn & giao đề (UC-40), Nhận xét (UC-21/22), Kho bài giảng (UC-23) — ẩn với vai trò
   // không liên quan (Tài chính/HRM/CRM...) để đỡ rối mắt, cùng tinh thần với "Điểm trường".
-  const isSiteManagerRole = currentUser?.roleCodes?.includes(UserRole.SITE_MANAGER) ?? false;
+  //
+  // isGenuineSiteManager dùng managedSites (site_managers THẬT, đã tính ở trên cho phần Điểm
+  // trường) — KHÔNG dùng roleCodes.includes(SITE_MANAGER) trực tiếp, vì tài khoản demo "Super
+  // Admin" cố tình được gán roleCode SITE_MANAGER để test màn hình nhưng không thật sự quản lý
+  // site nào (managedSites rỗng) — dùng roleCodes suông sẽ lại hiện nhầm pill cho tài khoản đó.
+  const isGenuineSiteManager = (currentUser?.roleCodes?.includes(UserRole.SITE_MANAGER) ?? false) && managedSites.length > 0;
+  // academic.class.manage: quyền quản trị rộng (HEAD_ACADEMIC/SYS_ADMIN/"Super Admin" demo) cho
+  // xem MỌI lớp thuộc site đang chọn (ClassService.resolveAllowedSiteIds) — không đứng lớp nào thật
+  // (myAssignedClassCount luôn 0) nhưng vẫn cần pill để chọn lớp cho các màn lọc theo lớp (Kho Video
+  // Ôn tập UC-23, Sổ điểm UC-19/20...), cùng lý do với isGenuineSiteManager bên dưới.
+  const hasBroadClassAccess = hasPermission("academic.class.manage");
+  const { classes: eligibleClasses, myAssignedClassCount, loading: loadingEligibleClasses } = useEligibleClasses();
+  // Dùng myAssignedClassCount (đứng tên thật trong class_teachers) để quyết định hiện pill — KHÔNG
+  // dùng quyền academic.class.manage để loại trừ (đã dính bug: 1 tài khoản Giáo viên demo vừa có
+  // quyền quản trị vừa thật sự đứng lớp bị ẩn nhầm pill, vì quyền đó không phản ánh có được phân
+  // công dạy lớp nào hay không). SITE_MANAGER thật/tài khoản có quyền quản trị rộng không đứng lớp
+  // nào (myAssignedClassCount luôn 0) nhưng vẫn cần thấy pill — xét riêng qua eligibleClasses.
   const showClassSelector =
-    hasPermission("academic.grade.manage") ||
-    hasPermission("academic.attendance.mark") ||
-    hasPermission("lms.exercise.manage") ||
-    hasPermission("academic.comment.write") ||
-    isSiteManagerRole;
-  const { classes: eligibleClasses } = useEligibleClasses();
+    loadingEligibleClasses ||
+    myAssignedClassCount > 0 ||
+    ((isGenuineSiteManager || hasBroadClassAccess) && eligibleClasses.length > 0);
 
   return (
     <header className="h-16 bg-transparent px-2 md:px-0 flex items-center justify-between z-30 mb-4 shrink-0">

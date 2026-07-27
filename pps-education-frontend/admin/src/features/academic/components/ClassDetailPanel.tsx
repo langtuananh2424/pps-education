@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Calendar, FileSpreadsheet, FileText, Save, Search, Sparkles, UserPlus, Users, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
+import { UserRole } from "@/types";
 import { searchUsers, UserListItemResponse } from "@/features/system-admin/api";
 import { listStudents, StudentResponse } from "@/features/student/api";
 import { RoomResponse, listRoomsBySite } from "@/features/facility/api";
@@ -48,8 +49,11 @@ interface ClassDetailPanelProps {
 
 export default function ClassDetailPanel({ schoolClass, onChanged }: ClassDetailPanelProps) {
   const [tab, setTab] = useState<Tab>("profile");
-  const { hasPermission } = useApp();
+  const { hasPermission, currentUser } = useApp();
   const canManage = hasPermission("academic.class.manage");
+  // SITE_MANAGER thấy được tab "Sổ điểm" (đủ quyền quản trị lớp) nhưng KHÔNG được tự nhập/sửa điểm
+  // thay giáo viên ở đây — chỉ xem, khớp đúng hành vi readOnly đã có sẵn ở trang Sổ điểm hệ thống cũ.
+  const isSiteManagerRole = currentUser?.roleCodes?.includes(UserRole.SITE_MANAGER) ?? false;
   const { message: toastMessage, showToast } = useToast();
 
   return (
@@ -104,7 +108,7 @@ export default function ClassDetailPanel({ schoolClass, onChanged }: ClassDetail
           />
         )}
         {tab === "sessions" && <SessionsTab classId={schoolClass.id} siteId={schoolClass.siteId} canManage={canManage} showToast={showToast} />}
-        {tab === "grades" && <ClassGradeSheetPanel classId={schoolClass.id} curriculumId={schoolClass.curriculumId} />}
+        {tab === "grades" && <ClassGradeSheetPanel classId={schoolClass.id} curriculumId={schoolClass.curriculumId} readOnly={isSiteManagerRole} />}
       </div>
 
       <Toast message={toastMessage} />

@@ -1,7 +1,16 @@
 import React, { useEffect, useRef, useState } from "react";
-import { BookOpen, Download, FileText, Library, Play } from "lucide-react";
+import { Download, FileText, Library, Link2, MessageCircle, Play } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
-import { CurriculumDocumentResponse, LessonMaterialResponse, LessonResponse, getPortalClass, listLessonMaterials, listLessonsByClass, listMyDocuments } from "../api";
+import {
+  CurriculumDocumentResponse,
+  ReviewVideoResponse,
+  ReviewVideoSetResponse,
+  getPortalClass,
+  listMyDocuments,
+  listReviewVideoSetsByClass,
+  listReviewVideos,
+  reportReviewVideoProgress
+} from "../api";
 import ComingSoon from "./ComingSoon";
 
 const documentTypeLabels: Record<CurriculumDocumentResponse["documentType"], string> = {
@@ -13,11 +22,23 @@ const documentTypeLabels: Record<CurriculumDocumentResponse["documentType"], str
   OTHER: "Khác"
 };
 
-/** Ngưỡng % xem tối thiểu để tính là "đạt" yêu cầu ôn tập. */
-const WATCH_PASS_THRESHOLD_PERCENT = 70;
+const videoTypeLabels: Record<ReviewVideoSetResponse["videoType"], string> = {
+  CONNECTION: "Video từ kết nối",
+  REFLEX: "Video phản xạ"
+};
+const videoTypeIcons: Record<ReviewVideoSetResponse["videoType"], React.ReactNode> = {
+  CONNECTION: <Link2 size={16} />,
+  REFLEX: <MessageCircle size={16} />
+};
+
+/** Ngưỡng % xem tối thiểu để tính là "đạt" — khớp ReviewVideoService.COMPLETION_THRESHOLD (0.8) ở backend. */
+const WATCH_PASS_THRESHOLD_PERCENT = 80;
 
 /** Sai số cho phép (giây) trước khi coi là hành vi tua tới — tránh false positive do độ trễ polling. */
 const SEEK_TOLERANCE_SECONDS = 2;
+
+/** Chỉ báo tiến độ lên server tối đa 1 lần mỗi khoảng này (giây thời gian thực) — tránh spam API mỗi lần poll/timeupdate. */
+const PROGRESS_REPORT_INTERVAL_SECONDS = 5;
 
 /** Nhận diện link YouTube (watch/youtu.be/shorts/embed) và trả về videoId, null nếu không phải YouTube. */
 function extractYouTubeVideoId(url: string): string | null {
@@ -78,22 +99,46 @@ function loadYouTubeIframeApi(): Promise<void> {
   return youTubeIframeApiPromise;
 }
 
+/** Video đang mở ở khung phát bên phải — reviewVideoId dùng để báo tiến độ lên server (UC-23a). */
+interface ActiveVideo {
+  reviewVideoId: number;
+  title: string;
+  sourceType: ReviewVideoResponse["sourceType"];
+  fileUrl: string;
+  durationSeconds: number;
+}
+
 /**
- * Theo dõi % đã xem THẬT của video đang mở, dùng mốc giây cao nhất từng xem qua
- * (không tính theo thời điểm tua tới) để tránh học sinh tua nhanh tới cuối coi như đã xem.
- * Đây là số liệu tính ở client — muốn dùng để chấm hoàn thành ôn tập cần thêm API lưu lại phía server.
+ * Theo dõi % đã xem THẬT của video YouTube đang mở, dùng mốc giây cao nhất từng xem qua (không
+ * tính theo thời điểm tua tới) để tránh học sinh tua nhanh tới cuối coi như đã xem. Định kỳ báo
+ * tiến độ lên server qua PUT /api/review-videos/{id}/progress (BE tự lấy max(cũ, mới), không giảm)
+ * — giữ lại được kể cả khi F5, khác bản cũ chỉ lưu tạm trong state React.
  */
-function useYouTubeWatchProgress(videoId: string | null) {
+function useYouTubeWatchProgress(video: ActiveVideo | null) {
   const iframeId = "lms-active-video-frame";
   const [watchedPercent, setWatchedPercent] = useState(0);
   const playerRef = useRef<any>(null);
   const maxWatchedSecondsRef = useRef(0);
+  const lastReportedSecondsRef = useRef(0);
   const pollRef = useRef<number | null>(null);
+  const videoRef = useRef(video);
+  videoRef.current = video;
+
+  const reportProgress = (force: boolean) => {
+    const current = videoRef.current;
+    if (!current || current.reviewVideoId <= 0) return;
+    const watched = maxWatchedSecondsRef.current;
+    if (!force && watched - lastReportedSecondsRef.current < PROGRESS_REPORT_INTERVAL_SECONDS) return;
+    lastReportedSecondsRef.current = watched;
+    reportReviewVideoProgress(current.reviewVideoId, Math.round(watched)).catch(() => undefined);
+  };
 
   useEffect(() => {
     maxWatchedSecondsRef.current = 0;
+    lastReportedSecondsRef.current = 0;
     setWatchedPercent(0);
-    if (!videoId) return;
+    const youTubeVideoId = video && video.sourceType === "YOUTUBE_URL" ? extractYouTubeVideoId(video.fileUrl) : null;
+    if (!youTubeVideoId) return;
 
     let cancelled = false;
     loadYouTubeIframeApi().then(() => {
@@ -116,10 +161,14 @@ function useYouTubeWatchProgress(videoId: string | null) {
                 }
                 maxWatchedSecondsRef.current = Math.max(maxWatchedSecondsRef.current, current);
                 setWatchedPercent(Math.min(100, Math.round((maxWatchedSecondsRef.current / duration) * 100)));
+                reportProgress(false);
               }, 500);
-            } else if (pollRef.current) {
-              window.clearInterval(pollRef.current);
-              pollRef.current = null;
+            } else {
+              if (pollRef.current) {
+                window.clearInterval(pollRef.current);
+                pollRef.current = null;
+              }
+              reportProgress(true);
             }
           }
         }
@@ -129,6 +178,7 @@ function useYouTubeWatchProgress(videoId: string | null) {
     return () => {
       cancelled = true;
       if (pollRef.current) window.clearInterval(pollRef.current);
+      reportProgress(true);
       try {
         playerRef.current?.destroy?.();
       } catch {
@@ -136,9 +186,76 @@ function useYouTubeWatchProgress(videoId: string | null) {
       }
       playerRef.current = null;
     };
-  }, [videoId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [video?.reviewVideoId, video?.sourceType, video?.fileUrl]);
 
   return { iframeId, watchedPercent };
+}
+
+/**
+ * Bản song song của useYouTubeWatchProgress cho video/audio tải thẳng lên R2 (R2_VIDEO/R2_AUDIO)
+ * — dùng sự kiện timeupdate/ended của thẻ <video>/<audio> gốc thay vì YouTube IFrame Player API
+ * (2 cơ chế độc lập, không tái dùng chung được vì API hoàn toàn khác nhau).
+ */
+function useMediaElementWatchProgress(video: ActiveVideo | null) {
+  const mediaRef = useRef<HTMLMediaElement | null>(null);
+  const [watchedPercent, setWatchedPercent] = useState(0);
+  const maxWatchedSecondsRef = useRef(0);
+  const lastReportedSecondsRef = useRef(0);
+  const videoRef = useRef(video);
+  videoRef.current = video;
+
+  const reportProgress = (force: boolean) => {
+    const current = videoRef.current;
+    if (!current || current.reviewVideoId <= 0) return;
+    const watched = maxWatchedSecondsRef.current;
+    if (!force && watched - lastReportedSecondsRef.current < PROGRESS_REPORT_INTERVAL_SECONDS) return;
+    lastReportedSecondsRef.current = watched;
+    reportReviewVideoProgress(current.reviewVideoId, Math.round(watched)).catch(() => undefined);
+  };
+
+  useEffect(() => {
+    maxWatchedSecondsRef.current = 0;
+    lastReportedSecondsRef.current = 0;
+    setWatchedPercent(0);
+    const isNativeMedia = video && (video.sourceType === "R2_VIDEO" || video.sourceType === "R2_AUDIO");
+    if (!isNativeMedia) return;
+
+    const media = mediaRef.current;
+    if (!media) return;
+    const duration = video!.durationSeconds;
+
+    const handleTimeUpdate = () => {
+      const current = media.currentTime;
+      const allowedMax = maxWatchedSecondsRef.current + SEEK_TOLERANCE_SECONDS;
+      if (current > allowedMax) {
+        media.currentTime = maxWatchedSecondsRef.current;
+        return;
+      }
+      maxWatchedSecondsRef.current = Math.max(maxWatchedSecondsRef.current, current);
+      if (duration > 0) setWatchedPercent(Math.min(100, Math.round((maxWatchedSecondsRef.current / duration) * 100)));
+      reportProgress(false);
+    };
+    const handleEnded = () => {
+      maxWatchedSecondsRef.current = duration;
+      setWatchedPercent(100);
+      reportProgress(true);
+    };
+    const handlePause = () => reportProgress(true);
+
+    media.addEventListener("timeupdate", handleTimeUpdate);
+    media.addEventListener("ended", handleEnded);
+    media.addEventListener("pause", handlePause);
+    return () => {
+      media.removeEventListener("timeupdate", handleTimeUpdate);
+      media.removeEventListener("ended", handleEnded);
+      media.removeEventListener("pause", handlePause);
+      reportProgress(true);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [video?.reviewVideoId, video?.sourceType, video?.fileUrl]);
+
+  return { mediaRef, watchedPercent };
 }
 
 interface LmsTabProps {
@@ -146,38 +263,43 @@ interface LmsTabProps {
 }
 
 export default function LmsTab({ classId }: LmsTabProps) {
-  const [lessons, setLessons] = useState<LessonResponse[]>([]);
+  const [videoSets, setVideoSets] = useState<ReviewVideoSetResponse[]>([]);
   const [documents, setDocuments] = useState<CurriculumDocumentResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [openLessonId, setOpenLessonId] = useState<number | null>(null);
-  const [materials, setMaterials] = useState<LessonMaterialResponse[]>([]);
-  const [activeVideo, setActiveVideo] = useState<{ title: string; description?: string | null; videoId: string } | null>(null);
-  const { iframeId, watchedPercent } = useYouTubeWatchProgress(activeVideo?.videoId ?? null);
+  const [openSetId, setOpenSetId] = useState<number | null>(null);
+  const [videos, setVideos] = useState<ReviewVideoResponse[]>([]);
+  const [activeVideo, setActiveVideo] = useState<ActiveVideo | null>(null);
+
+  const isYouTube = activeVideo?.sourceType === "YOUTUBE_URL";
+  const { iframeId, watchedPercent: youTubeWatchedPercent } = useYouTubeWatchProgress(isYouTube ? activeVideo : null);
+  const { mediaRef, watchedPercent: mediaWatchedPercent } = useMediaElementWatchProgress(!isYouTube ? activeVideo : null);
+  const watchedPercent = isYouTube ? youTubeWatchedPercent : mediaWatchedPercent;
+  const youTubeVideoId = isYouTube ? extractYouTubeVideoId(activeVideo!.fileUrl) : null;
 
   useEffect(() => {
     setLoading(true);
     Promise.all([
-      listLessonsByClass(classId),
+      listReviewVideoSetsByClass(classId).then((sets) => sets.sort((a, b) => a.displayOrder - b.displayOrder)),
       getPortalClass(classId).then((cls) => listMyDocuments(cls.curriculumId))
     ])
-      .then(([lessonRes, documentRes]) => {
-        setLessons(lessonRes.filter((l) => l.status === "PUBLISHED").sort((a, b) => a.lessonOrder - b.lessonOrder));
+      .then(([setRes, documentRes]) => {
+        setVideoSets(setRes);
         setDocuments(documentRes);
       })
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được bài giảng."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được kho video ôn tập."))
       .finally(() => setLoading(false));
   }, [classId]);
 
-  const handleOpen = (lessonId: number) => {
-    if (openLessonId === lessonId) {
-      setOpenLessonId(null);
+  const handleOpenSet = (setId: number) => {
+    if (openSetId === setId) {
+      setOpenSetId(null);
       return;
     }
-    setOpenLessonId(lessonId);
-    listLessonMaterials(lessonId)
-      .then(setMaterials)
-      .catch(() => setMaterials([]));
+    setOpenSetId(setId);
+    listReviewVideos(setId)
+      .then(setVideos)
+      .catch(() => setVideos([]));
   };
 
   if (loading) return <p className="text-sm text-muted font-bold">Đang tải...</p>;
@@ -189,74 +311,66 @@ export default function LmsTab({ classId }: LmsTabProps) {
 
       <div className="bg-white border border-line/80 p-6 rounded-[20px] shadow-[0_8px_30px_rgba(30,42,69,0.03)] space-y-4">
         <h2 className="text-xl font-extrabold text-ink flex items-center gap-2">
-          <BookOpen className="text-teal" /> Kho bài giảng
+          <Play className="text-teal" /> Kho Video Ôn tập
         </h2>
-        {lessons.length === 0 ? (
-          <p className="text-xs text-muted font-bold italic">Lớp này chưa có bài giảng nào được công bố.</p>
+        {videoSets.length === 0 ? (
+          <p className="text-xs text-muted font-bold italic">Lớp này chưa có bộ video ôn tập nào được công bố.</p>
         ) : (
           <div className="space-y-3">
-            {lessons.map((lesson) => (
-              <div key={lesson.id} className="border border-line/80 rounded-[16px] overflow-hidden">
+            {videoSets.map((set) => (
+              <div key={set.id} className="border border-line/80 rounded-[16px] overflow-hidden">
                 <button
-                  onClick={() => handleOpen(lesson.id)}
+                  onClick={() => handleOpenSet(set.id)}
                   className="w-full flex items-center gap-4 p-4 bg-sky-2 hover:bg-sky text-left"
                 >
                   <div className="w-10 h-10 rounded-full bg-teal/10 border border-teal/20 flex items-center justify-center text-teal shrink-0">
-                    <Play size={16} />
+                    {videoTypeIcons[set.videoType]}
                   </div>
                   <div className="flex-1">
-                    <p className="font-extrabold text-ink text-sm">{lesson.title}</p>
-                    <p className="text-[10px] text-muted font-bold">{lesson.durationMinutes ? `${lesson.durationMinutes} phút` : lesson.lessonType}</p>
+                    <p className="font-extrabold text-ink text-sm">{set.title}</p>
+                    <p className="text-[10px] text-muted font-bold">{videoTypeLabels[set.videoType]}</p>
                   </div>
                 </button>
-                {openLessonId === lesson.id && (
+                {openSetId === set.id && (
                   <div className="p-4 space-y-2 bg-white">
-                    {materials.length === 0 ? (
-                      <p className="text-xs text-muted font-bold italic">Chưa có tài liệu đính kèm.</p>
+                    {videos.length === 0 ? (
+                      <p className="text-xs text-muted font-bold italic">Bộ này chưa có video nào.</p>
                     ) : (
-                      materials.map((m) => {
-                        const youtubeVideoId = m.materialType === "VIDEO" ? extractYouTubeVideoId(m.fileUrl) : null;
-                        const youtubeThumbnailUrl = youtubeVideoId ? getYouTubeThumbnailUrl(youtubeVideoId) : null;
-                        if (youtubeVideoId) {
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {videos.map((v) => {
+                          const youtubeVideoId = v.sourceType === "YOUTUBE_URL" ? extractYouTubeVideoId(v.fileUrl) : null;
+                          const youtubeThumbnailUrl = youtubeVideoId ? getYouTubeThumbnailUrl(youtubeVideoId) : null;
                           return (
                             <button
-                              key={m.id}
+                              key={v.id}
                               type="button"
-                              onClick={() => setActiveVideo({ title: m.title, videoId: youtubeVideoId })}
-                              className="flex flex-col rounded-[16px] border border-line/80 bg-sky-2 hover:bg-sky transition-colors overflow-hidden text-left w-full max-w-xs"
+                              onClick={() =>
+                                setActiveVideo({
+                                  reviewVideoId: v.id,
+                                  title: v.title,
+                                  sourceType: v.sourceType,
+                                  fileUrl: v.fileUrl,
+                                  durationSeconds: v.durationSeconds
+                                })
+                              }
+                              className="flex flex-col rounded-[16px] border border-line/80 bg-sky-2 hover:bg-sky transition-colors overflow-hidden text-left"
                             >
-                              <div className="relative w-full h-28 bg-teal/10">
-                                {youtubeThumbnailUrl && (
-                                  <img src={youtubeThumbnailUrl} alt="" className="w-full h-28 object-cover" />
-                                )}
+                              <div className="relative w-full h-24 bg-teal/10">
+                                {youtubeThumbnailUrl && <img src={youtubeThumbnailUrl} alt="" className="w-full h-24 object-cover" />}
                                 <div className="absolute inset-0 flex items-center justify-center bg-ink/10">
                                   <div className="w-9 h-9 rounded-full bg-white/90 flex items-center justify-center text-teal-deep shadow">
                                     <Play size={16} className="ml-0.5" />
                                   </div>
                                 </div>
                               </div>
-                              <div className="p-3.5 flex-1 min-w-0 space-y-1">
-                                <p className="font-extrabold text-ink text-sm truncate">{m.title}</p>
-                              </div>
-                              <div className="px-3.5 pb-3 flex items-center justify-between">
-                                <span className="text-[10px] font-extrabold text-teal-deep uppercase">Video</span>
+                              <div className="p-3 flex-1 min-w-0 space-y-1">
+                                <p className="font-extrabold text-ink text-sm truncate">{v.title}</p>
+                                <p className="text-[10px] text-muted font-bold">{Math.round(v.durationSeconds / 60)} phút</p>
                               </div>
                             </button>
                           );
-                        }
-                        return (
-                          <a
-                            key={m.id}
-                            href={m.fileUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="flex items-center gap-2 text-xs font-bold text-teal-deep hover:underline"
-                          >
-                            {m.isDownloadable ? <Download size={14} /> : <FileText size={14} />}
-                            {m.title}
-                          </a>
-                        );
-                      })
+                        })}
+                      </div>
                     )}
                   </div>
                 )}
@@ -270,7 +384,7 @@ export default function LmsTab({ classId }: LmsTabProps) {
         <h2 className="text-xl font-extrabold text-ink flex items-center gap-2">
           <Library className="text-teal" /> Tài liệu tham khảo
         </h2>
-        <p className="text-xs text-muted font-bold">Tài liệu chung theo khung chương trình để tự học thêm — không thuộc bài giảng nào cụ thể.</p>
+        <p className="text-xs text-muted font-bold">Tài liệu chung theo khung chương trình để tự học thêm — không thuộc bộ video nào cụ thể.</p>
         {documents.length === 0 ? (
           <p className="text-xs text-muted font-bold italic">Chưa có tài liệu tham khảo nào.</p>
         ) : (
@@ -305,7 +419,9 @@ export default function LmsTab({ classId }: LmsTabProps) {
                   <button
                     key={doc.id}
                     type="button"
-                    onClick={() => setActiveVideo({ title: doc.title, description: doc.description, videoId: youtubeVideoId })}
+                    onClick={() =>
+                      setActiveVideo({ reviewVideoId: -doc.id, title: doc.title, sourceType: "YOUTUBE_URL", fileUrl: doc.fileUrl, durationSeconds: 0 })
+                    }
                     className="flex flex-col rounded-[16px] border border-line/80 bg-sky-2 hover:bg-sky transition-colors overflow-hidden text-left"
                   >
                     {cardBody}
@@ -339,43 +455,59 @@ export default function LmsTab({ classId }: LmsTabProps) {
           <>
             <h3 className="text-lg font-extrabold text-ink">{activeVideo.title}</h3>
             <div className="aspect-video w-full rounded-[12px] overflow-hidden bg-ink">
-              <iframe
-                key={activeVideo.videoId}
-                id={iframeId}
-                src={buildYouTubeEmbedSrc(activeVideo.videoId)}
-                title={activeVideo.title}
-                className="w-full h-full"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
+              {isYouTube && youTubeVideoId ? (
+                <iframe
+                  key={activeVideo.reviewVideoId}
+                  id={iframeId}
+                  src={buildYouTubeEmbedSrc(youTubeVideoId)}
+                  title={activeVideo.title}
+                  className="w-full h-full"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              ) : activeVideo.sourceType === "R2_AUDIO" ? (
+                <div className="w-full h-full flex items-center justify-center p-6">
+                  <audio key={activeVideo.reviewVideoId} ref={mediaRef as React.RefObject<HTMLAudioElement>} src={activeVideo.fileUrl} controls className="w-full" />
+                </div>
+              ) : (
+                <video
+                  key={activeVideo.reviewVideoId}
+                  ref={mediaRef as React.RefObject<HTMLVideoElement>}
+                  src={activeVideo.fileUrl}
+                  controls
+                  controlsList="nodownload"
+                  className="w-full h-full"
+                />
+              )}
             </div>
-            <div className="bg-sky-2 border border-teal/20 rounded-[14px] p-4 space-y-2">
-              <p className="text-[10px] font-extrabold text-teal-deep uppercase tracking-wide">Đang học bài</p>
-              <p className="text-xs text-muted font-bold">{activeVideo.description || activeVideo.title}</p>
-              <div className="space-y-1">
-                <div className="flex items-center justify-between text-[10px] font-extrabold text-teal-deep">
-                  <span>Đã xem tối đa</span>
-                  <span>{watchedPercent}%</span>
+            {activeVideo.reviewVideoId > 0 && (
+              <div className="bg-sky-2 border border-teal/20 rounded-[14px] p-4 space-y-2">
+                <p className="text-[10px] font-extrabold text-teal-deep uppercase tracking-wide">Đang học bài</p>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-[10px] font-extrabold text-teal-deep">
+                    <span>Đã xem tối đa</span>
+                    <span>{watchedPercent}%</span>
+                  </div>
+                  <div className="h-1.5 w-full rounded-full bg-white overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${watchedPercent >= WATCH_PASS_THRESHOLD_PERCENT ? "bg-emerald-500" : "bg-teal-deep"}`}
+                      style={{ width: `${watchedPercent}%` }}
+                    />
+                  </div>
+                  <p className={`text-[10px] font-extrabold ${watchedPercent >= WATCH_PASS_THRESHOLD_PERCENT ? "text-emerald-600" : "text-amber-600"}`}>
+                    {watchedPercent >= WATCH_PASS_THRESHOLD_PERCENT
+                      ? `✓ Đạt yêu cầu ôn tập (đã xem ≥ ${WATCH_PASS_THRESHOLD_PERCENT}%)`
+                      : `Cần xem ít nhất ${WATCH_PASS_THRESHOLD_PERCENT}% để đạt yêu cầu ôn tập`}
+                  </p>
                 </div>
-                <div className="h-1.5 w-full rounded-full bg-white overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all ${watchedPercent >= WATCH_PASS_THRESHOLD_PERCENT ? "bg-emerald-500" : "bg-teal-deep"}`}
-                    style={{ width: `${watchedPercent}%` }}
-                  />
-                </div>
-                <p className={`text-[10px] font-extrabold ${watchedPercent >= WATCH_PASS_THRESHOLD_PERCENT ? "text-emerald-600" : "text-amber-600"}`}>
-                  {watchedPercent >= WATCH_PASS_THRESHOLD_PERCENT
-                    ? `✓ Đạt yêu cầu ôn tập (đã xem ≥ ${WATCH_PASS_THRESHOLD_PERCENT}%)`
-                    : `Cần xem ít nhất ${WATCH_PASS_THRESHOLD_PERCENT}% để đạt yêu cầu ôn tập`}
-                </p>
               </div>
-            </div>
+            )}
           </>
         ) : (
           <div className="flex flex-col items-center justify-center text-center py-10 gap-3">
             <Play size={40} className="text-line" />
-            <p className="font-extrabold text-ink text-sm">Chưa có bài giảng nào được mở</p>
-            <p className="text-xs text-muted font-bold">Hãy bấm vào một bài giảng ở kho để bắt đầu hành trình tự học nha!</p>
+            <p className="font-extrabold text-ink text-sm">Chưa có video nào được mở</p>
+            <p className="text-xs text-muted font-bold">Hãy bấm vào một video ở kho để bắt đầu hành trình tự học nha!</p>
           </div>
         )}
       </div>

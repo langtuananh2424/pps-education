@@ -5,7 +5,7 @@ import { apiRequest } from "@/lib/apiClient";
  * (xem MediaStorageService.java). STUDENT/PARENT/EMPLOYEE (V48): chỉ nhận ảnh, dùng cho
  * ảnh đại diện — path riêng trên R2 ("profiles/students|parents|employees").
  */
-export type MediaUploadModule = "LMS_QUESTION" | "CURRICULUM_DOCUMENT" | "LESSON_MATERIAL" | "STUDENT" | "PARENT" | "EMPLOYEE";
+export type MediaUploadModule = "LMS_QUESTION" | "CURRICULUM_DOCUMENT" | "REVIEW_VIDEO" | "STUDENT" | "PARENT" | "EMPLOYEE";
 
 /** UC-60/UC-23a: upload file thật lên Cloudflare R2 qua API dùng chung, trả về URL public để lưu vào field fileUrl/audioUrl/imageUrl. */
 export function uploadMedia(file: File, module: MediaUploadModule): Promise<{ url: string }> {
@@ -252,94 +252,118 @@ export function listAssignmentsForClass(classId: number): Promise<ExerciseAssign
   return apiRequest<ExerciseAssignmentResponse[]>(`/classes/${classId}/exercises`);
 }
 
-// ===================== Kho bài giảng (UC-23) =====================
+// ===================== Kho Video Ôn tập (UC-23/UC-23a) =====================
 
-export type LessonType = "VIDEO_LECTURE" | "PDF_DOCUMENT" | "MIXED" | "LIVE_RECORDING";
-export type LessonStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
+/** Khớp ReviewVideoSet.VideoType thật — CONNECTION: ôn từ vựng buổi học; REFLEX: hỏi-đáp luyện nói. */
+export type ReviewVideoType = "CONNECTION" | "REFLEX";
+export type ReviewVideoSetStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
 
-/** Khớp LessonResponse thật — đúng 1 trong 2 curriculumId/classId khác null (không cả hai, không cái nào). */
-export interface LessonResponse {
+/** Khớp ReviewVideoSetResponse thật — đúng 1 trong 2 curriculumId/classId khác null (không cả hai, không cái nào). */
+export interface ReviewVideoSetResponse {
   id: number;
   code: string;
   title: string;
+  videoType: ReviewVideoType;
   curriculumId: number | null;
   classId: number | null;
   subjectId: number | null;
-  lessonOrder: number | null;
-  lessonType: LessonType;
-  durationMinutes: number | null;
-  status: LessonStatus;
+  displayOrder: number;
+  status: ReviewVideoSetStatus;
   publishedAt: string | null;
   createdBy: number;
 }
 
-export interface CreateLessonRequest {
+export interface CreateReviewVideoSetRequest {
   code: string;
   title: string;
+  videoType: ReviewVideoType;
   curriculumId?: number;
   classId?: number;
   subjectId?: number;
-  lessonOrder?: number;
-  lessonType: LessonType;
-  durationMinutes?: number;
+  displayOrder?: number;
 }
 
-export interface UpdateLessonRequest {
+/** Khớp UpdateReviewVideoSetRequest thật — không đổi được code/scope (curriculumId/classId) sau khi tạo, chỉ đổi status để công bố (PUBLISHED, publishedAt chỉ set 1 lần) hoặc gỡ (ARCHIVED, soft-remove). */
+export interface UpdateReviewVideoSetRequest {
   title: string;
   subjectId?: number;
-  lessonOrder?: number;
-  durationMinutes?: number;
-  status: LessonStatus;
+  displayOrder?: number;
+  status: ReviewVideoSetStatus;
 }
 
-/** UC-23 Main Flow bước 3-4: chỉ Giáo viên được phân công dạy đúng lớp/khung mới tạo được — BE tự chặn (403), không bypass qua permission. */
-export function createLesson(request: CreateLessonRequest): Promise<LessonResponse> {
-  return apiRequest<LessonResponse>("/lessons", { method: "POST", body: JSON.stringify(request) });
+/** UC-23 Main Flow bước 1-4: chỉ Giáo viên được phân công dạy đúng lớp/khung mới tạo/sửa được — BE tự chặn theo class_teachers, không phải theo permission. */
+export function createReviewVideoSet(request: CreateReviewVideoSetRequest): Promise<ReviewVideoSetResponse> {
+  return apiRequest<ReviewVideoSetResponse>("/review-video-sets", { method: "POST", body: JSON.stringify(request) });
 }
 
-export function updateLesson(id: number, request: UpdateLessonRequest): Promise<LessonResponse> {
-  return apiRequest<LessonResponse>(`/lessons/${id}`, { method: "PUT", body: JSON.stringify(request) });
+export function updateReviewVideoSet(id: number, request: UpdateReviewVideoSetRequest): Promise<ReviewVideoSetResponse> {
+  return apiRequest<ReviewVideoSetResponse>(`/review-video-sets/${id}`, { method: "PUT", body: JSON.stringify(request) });
 }
 
-export function listLessonsByClass(classId: number): Promise<LessonResponse[]> {
-  return apiRequest<LessonResponse[]>(`/classes/${classId}/lessons`);
+export function listReviewVideoSetsByClass(classId: number): Promise<ReviewVideoSetResponse[]> {
+  return apiRequest<ReviewVideoSetResponse[]>(`/classes/${classId}/review-video-sets`);
 }
 
-export function listLessonsByCurriculum(curriculumId: number): Promise<LessonResponse[]> {
-  return apiRequest<LessonResponse[]>(`/curriculums/${curriculumId}/lessons`);
+export function listReviewVideoSetsByCurriculum(curriculumId: number): Promise<ReviewVideoSetResponse[]> {
+  return apiRequest<ReviewVideoSetResponse[]>(`/curriculums/${curriculumId}/review-video-sets`);
 }
 
-export type LessonMaterialType = "VIDEO" | "PDF" | "AUDIO" | "SLIDE" | "IMAGE" | "OTHER";
+/** Khớp ReviewVideo.SourceType thật. */
+export type ReviewVideoSourceType = "YOUTUBE_URL" | "R2_VIDEO" | "R2_AUDIO";
 
-/** Khớp AddLessonMaterialRequest thật — fileUrl lấy từ URL trả về sau khi upload thật qua uploadMedia (module LESSON_MATERIAL). */
-export interface AddLessonMaterialRequest {
-  materialType: LessonMaterialType;
+/** Khớp AddReviewVideoRequest thật — durationSeconds BẮT BUỘC cho cả 3 nguồn, FE phải tự dò trước khi gọi (BE không tự dò). fileUrl lấy từ uploadMedia (module REVIEW_VIDEO) hoặc dán trực tiếp link YouTube. */
+export interface AddReviewVideoRequest {
+  sourceType: ReviewVideoSourceType;
   title: string;
   fileUrl: string;
   fileSizeBytes?: number;
-  durationSeconds?: number;
+  durationSeconds: number;
   displayOrder?: number;
-  isDownloadable: boolean;
 }
 
-export interface LessonMaterialResponse {
+export interface ReviewVideoResponse {
   id: number;
-  lessonId: number;
-  materialType: LessonMaterialType;
+  reviewVideoSetId: number;
+  sourceType: ReviewVideoSourceType;
   title: string;
   fileUrl: string;
   fileSizeBytes: number | null;
-  durationSeconds: number | null;
+  durationSeconds: number;
   displayOrder: number;
-  isDownloadable: boolean;
 }
 
-export function addLessonMaterial(lessonId: number, request: AddLessonMaterialRequest): Promise<LessonMaterialResponse> {
-  return apiRequest<LessonMaterialResponse>(`/lessons/${lessonId}/materials`, { method: "POST", body: JSON.stringify(request) });
+export function addReviewVideo(setId: number, request: AddReviewVideoRequest): Promise<ReviewVideoResponse> {
+  return apiRequest<ReviewVideoResponse>(`/review-video-sets/${setId}/videos`, { method: "POST", body: JSON.stringify(request) });
 }
 
-export function listLessonMaterials(lessonId: number): Promise<LessonMaterialResponse[]> {
-  return apiRequest<LessonMaterialResponse[]>(`/lessons/${lessonId}/materials`);
+export function listReviewVideos(setId: number): Promise<ReviewVideoResponse[]> {
+  return apiRequest<ReviewVideoResponse[]>(`/review-video-sets/${setId}/videos`);
+}
+
+/** Khớp VideoHeader/StatsCell thật — ma trận học sinh × video (roster LEFT JOIN tiến độ, học sinh chưa xem gì vẫn hiện 0%). */
+export interface ReviewVideoStatsHeader {
+  videoId: number;
+  title: string;
+  durationSeconds: number;
+}
+
+export interface ReviewVideoStatsCell {
+  studentId: number;
+  videoId: number;
+  watchedSeconds: number;
+  watchedPercent: number;
+  completed: boolean;
+}
+
+export interface ReviewVideoSetStatsResponse {
+  videos: ReviewVideoStatsHeader[];
+  cells: ReviewVideoStatsCell[];
+}
+
+/** UC-23a Main Flow bước 4: chỉ Giáo viên được phân công (requireOwnerScope) mới xem được — classId bắt buộc nếu bộ gán theo khung chương trình. */
+export function getReviewVideoSetStats(setId: number, classId?: number): Promise<ReviewVideoSetStatsResponse> {
+  const query = classId ? `?classId=${classId}` : "";
+  return apiRequest<ReviewVideoSetStatsResponse>(`/review-video-sets/${setId}/stats${query}`);
 }
 
 // ===================== Kho tài liệu tham khảo (UC-60) =====================
@@ -347,7 +371,7 @@ export function listLessonMaterials(lessonId: number): Promise<LessonMaterialRes
 export type CurriculumDocumentType = "VIDEO" | "PDF" | "AUDIO" | "SLIDE" | "IMAGE" | "OTHER";
 export type CurriculumDocumentStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
 
-/** Khớp CurriculumDocumentResponse thật — độc lập với Lesson (UC-23), chỉ gắn theo curriculum, không gắn 1 bài giảng cụ thể nào. */
+/** Khớp CurriculumDocumentResponse thật — độc lập với Kho Video Ôn tập (UC-23), chỉ gắn theo curriculum, không gắn 1 bộ video cụ thể nào. */
 export interface CurriculumDocumentResponse {
   id: number;
   curriculumId: number;

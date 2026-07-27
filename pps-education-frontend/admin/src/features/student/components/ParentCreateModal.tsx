@@ -65,11 +65,6 @@ export default function ParentCreateModal({ onClose, onCreated }: ParentCreateMo
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
-          <div className="space-y-2">
-            <span className="text-[10px] font-bold uppercase text-slate-500">Tài khoản</span>
-            <AccountSelector value={account} onChange={setAccount} submitAttempted={submitAttempted} />
-          </div>
-
           <div className="space-y-2 border-t border-slate-100 pt-4">
             <span className="text-[10px] font-bold uppercase text-slate-500">Ảnh đại diện</span>
             <AvatarUploadField
@@ -78,6 +73,10 @@ export default function ParentCreateModal({ onClose, onCreated }: ParentCreateMo
               onUpload={(file) => uploadMedia(file, "PARENT")}
               fallbackName={account.newAccount?.fullName || "Phụ huynh"}
             />
+          </div>
+          <div className="space-y-2">
+            <span className="text-[10px] font-bold uppercase text-slate-500">Tài khoản</span>
+            <AccountSelector value={account} onChange={setAccount} submitAttempted={submitAttempted} />
           </div>
 
           <div className="space-y-3 border-t border-slate-100 pt-4">

@@ -1,4 +1,4 @@
-import { apiRequest } from "@/lib/apiClient";
+import { apiRequest, apiRequestBlob } from "@/lib/apiClient";
 
 // ===================== Khung chương trình (UC-16/17) =====================
 
@@ -612,6 +612,23 @@ export function updateGradeEditWindow(days: number): Promise<GradeEditWindowResp
   return apiRequest<GradeEditWindowResponse>("/academic/settings/grade-edit-window-days", { method: "PUT", body: JSON.stringify({ days }) });
 }
 
+/**
+ * V43: hạn phúc khảo (UC-62) tính từ lúc "Công bố dự kiến" (publishedAt) — hết hạn thì
+ * GradeSchedulerService tự khoá OFFICIAL bất kể còn PROVISIONAL_PUBLISHED hay APPEAL.
+ * Khác hẳn GradeEditWindowResponse (X ngày = độ trễ tự động CÔNG BỐ, không phải khoá).
+ */
+export interface GradeAppealWindowResponse {
+  days: number;
+}
+
+export function getGradeAppealWindow(): Promise<GradeAppealWindowResponse> {
+  return apiRequest<GradeAppealWindowResponse>("/academic/settings/grade-appeal-window-days");
+}
+
+export function updateGradeAppealWindow(days: number): Promise<GradeAppealWindowResponse> {
+  return apiRequest<GradeAppealWindowResponse>("/academic/settings/grade-appeal-window-days", { method: "PUT", body: JSON.stringify({ days }) });
+}
+
 /** UC-20: Quản lý điểm trường xem điểm chưa công bố (DRAFT) — của (các) site mình phụ trách. */
 export function listUnpublishedGrades(): Promise<GradeEntryResponse[]> {
   return apiRequest<GradeEntryResponse[]>("/grades/pending");
@@ -676,6 +693,11 @@ export interface StudentCommentResponse {
   approvedBy: number | null;
   visibleToParentAt: string | null;
   rejectionReason: string | null;
+  // Nhận xét Hàng ngày kiểu mới (chỉ có ý nghĩa khi commentType=DAILY) — bổ sung ngoài SDD gốc.
+  attitude: "POOR" | "AVERAGE" | "GOOD" | null;
+  homeworkPreviousScore: string | null;
+  homeworkNext: string | null;
+  note: string | null;
 }
 
 export interface CreateStudentCommentRequest {
@@ -688,6 +710,11 @@ export interface CreateStudentCommentRequest {
   structuredContent?: Record<string, unknown>;
   severity?: StudentCommentResponse["severity"];
   isWarning: boolean;
+  // Chỉ áp dụng khi commentType=DAILY — bỏ qua với MID_TERM/END_TERM.
+  attitude?: NonNullable<StudentCommentResponse["attitude"]>;
+  homeworkPreviousScore?: string;
+  homeworkNext?: string;
+  note?: string;
 }
 
 export interface UpdateStudentCommentRequest {
@@ -695,6 +722,10 @@ export interface UpdateStudentCommentRequest {
   structuredContent?: Record<string, unknown>;
   severity?: StudentCommentResponse["severity"];
   isWarning: boolean;
+  attitude?: NonNullable<StudentCommentResponse["attitude"]>;
+  homeworkPreviousScore?: string;
+  homeworkNext?: string;
+  note?: string;
 }
 
 export function listComments(classId: number, studentId: number): Promise<StudentCommentResponse[]> {
@@ -711,6 +742,28 @@ export function updateComment(id: number, request: UpdateStudentCommentRequest):
 
 export function submitComments(classId: number, commentIds: number[]): Promise<StudentCommentResponse[]> {
   return apiRequest<StudentCommentResponse[]>(`/classes/${classId}/comments/submit`, { method: "POST", body: JSON.stringify({ commentIds }) });
+}
+
+export interface DailyCommentImportResponse {
+  id: number;
+  sourceFileName: string;
+  totalRows: number | null;
+  successRows: number;
+  failedRows: number;
+  status: string;
+  errorSummary: { row: number; reason: string }[];
+}
+
+/** UC-21 (bổ sung): tải mẫu Excel theo buổi học — điền sẵn điểm danh + nhận xét Hàng ngày hiện có của từng học sinh ACTIVE. */
+export function downloadDailyCommentTemplate(classSessionId: number): Promise<Blob> {
+  return apiRequestBlob(`/class-sessions/${classSessionId}/comments/template`);
+}
+
+/** UC-21 (bổ sung): nhập lại file đã sửa — cập nhật cả điểm danh lẫn nhận xét Hàng ngày trong 1 lần. */
+export function importDailyComments(classSessionId: number, file: File): Promise<DailyCommentImportResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return apiRequest<DailyCommentImportResponse>(`/class-sessions/${classSessionId}/comments/import`, { method: "POST", body: formData });
 }
 
 /** UC-22: Quản lý điểm trường duyệt nhận xét — hàng chờ của (các) site mình phụ trách. */

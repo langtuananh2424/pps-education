@@ -346,40 +346,59 @@ export function listMyNotifications(page = 0, size = 20): Promise<Page<Notificat
   return apiRequest<Page<NotificationResponse>>(`/notifications?page=${page}&size=${size}`);
 }
 
-/** UC-23 — khớp LessonResponse thật. Chỉ hiển thị status=PUBLISHED ở phía Portal (lọc client-side). */
-export interface LessonResponse {
+/**
+ * UC-23a — khớp ReviewVideoSetResponse thật. GET /api/classes/{classId}/review-video-sets tự trả
+ * đúng phạm vi nhìn thấy của học sinh (findVisibleForClass — bộ riêng lớp NÀY HOẶC bộ dùng chung
+ * theo khung của lớp NÀY, chỉ status=PUBLISHED — BE tự lọc, Portal không cần gọi thêm endpoint
+ * theo curriculum). 404 (không 403) nếu học sinh không thuộc lớp — không lộ tồn tại ngoài phạm vi.
+ */
+export interface ReviewVideoSetResponse {
   id: number;
   code: string;
   title: string;
-  curriculumId: number;
-  classId: number;
+  videoType: "CONNECTION" | "REFLEX";
+  curriculumId: number | null;
+  classId: number | null;
   subjectId: number | null;
-  lessonOrder: number;
-  lessonType: string;
-  durationMinutes: number | null;
+  displayOrder: number;
   status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
   publishedAt: string | null;
   createdBy: number;
 }
 
-export interface LessonMaterialResponse {
+export interface ReviewVideoResponse {
   id: number;
-  lessonId: number;
-  materialType: string;
+  reviewVideoSetId: number;
+  sourceType: "YOUTUBE_URL" | "R2_VIDEO" | "R2_AUDIO";
   title: string;
   fileUrl: string;
   fileSizeBytes: number | null;
-  durationSeconds: number | null;
+  durationSeconds: number;
   displayOrder: number;
-  isDownloadable: boolean;
 }
 
-export function listLessonsByClass(classId: number): Promise<LessonResponse[]> {
-  return apiRequest<LessonResponse[]>(`/classes/${classId}/lessons`);
+export interface ReviewVideoProgressResponse {
+  reviewVideoId: number;
+  watchedSeconds: number;
+  durationSeconds: number;
+  watchedPercent: number;
+  completed: boolean;
 }
 
-export function listLessonMaterials(lessonId: number): Promise<LessonMaterialResponse[]> {
-  return apiRequest<LessonMaterialResponse[]>(`/lessons/${lessonId}/materials`);
+export function listReviewVideoSetsByClass(classId: number): Promise<ReviewVideoSetResponse[]> {
+  return apiRequest<ReviewVideoSetResponse[]>(`/classes/${classId}/review-video-sets`);
+}
+
+export function listReviewVideos(setId: number): Promise<ReviewVideoResponse[]> {
+  return apiRequest<ReviewVideoResponse[]>(`/review-video-sets/${setId}/videos`);
+}
+
+/** UC-23a Main Flow bước 3: báo tiến độ xem (giây) — BE tự lấy max(cũ, mới), không bao giờ giảm dù báo giá trị thấp hơn. */
+export function reportReviewVideoProgress(videoId: number, watchedSeconds: number): Promise<ReviewVideoProgressResponse> {
+  return apiRequest<ReviewVideoProgressResponse>(`/review-videos/${videoId}/progress`, {
+    method: "PUT",
+    body: JSON.stringify({ watchedSeconds })
+  });
 }
 
 /**

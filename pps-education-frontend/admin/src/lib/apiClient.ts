@@ -91,3 +91,33 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
 
   return parseBody<T>(res);
 }
+
+/** Như apiRequest nhưng cho endpoint trả file nhị phân (VD tải mẫu Excel) — parse Blob thay vì JSON. */
+export async function apiRequestBlob(path: string, options: RequestOptions = {}): Promise<Blob> {
+  const { skipAuth, isRetry, ...init } = options;
+  const headers: Record<string, string> = { ...(init.headers as Record<string, string> | undefined) };
+
+  if (!skipAuth) {
+    const accessToken = getAccessToken();
+    if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+  }
+
+  const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
+
+  if (res.status === 401 && !skipAuth && !isRetry) {
+    const newAccessToken = await refreshAccessToken();
+    if (newAccessToken) {
+      return apiRequestBlob(path, { ...options, isRetry: true });
+    }
+    clearTokens();
+    window.location.href = "/login";
+    throw new ApiError(401, "Phiên đăng nhập đã hết hạn.");
+  }
+
+  if (!res.ok) {
+    const body = await parseBody<BackendErrorBody>(res).catch(() => ({}) as BackendErrorBody);
+    throw new ApiError(res.status, body.message || res.statusText);
+  }
+
+  return res.blob();
+}
