@@ -31,10 +31,12 @@ public class StudentComment {
 
     /**
      * Thái độ học tập buổi đó (chỉ dùng khi commentType=DAILY, bổ sung
-     * ngoài SDD gốc, đã xác nhận với người dùng 2026-07-24) — Kém/Trung
-     * bình/Tốt, dự kiến bổ sung thêm giá trị sau này.
+     * ngoài SDD gốc, đã xác nhận với người dùng 2026-07-24, mở rộng từ 3
+     * lên 6 mức 2026-07-27) — Kém/Yếu/Trung bình/Trung bình khá/Khá/Tốt.
+     * Giữ nguyên tên hằng số POOR/AVERAGE/GOOD của 3 mức cũ (dữ liệu đã
+     * lưu qua EnumType.STRING vẫn đọc được, không cần migration backfill).
      */
-    public enum Attitude { POOR, AVERAGE, GOOD }
+    public enum Attitude { POOR, WEAK, AVERAGE, ABOVE_AVERAGE, FAIR, GOOD }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

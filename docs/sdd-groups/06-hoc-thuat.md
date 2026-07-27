@@ -1479,12 +1479,15 @@ a)  Bảng student_comments --- Nhận xét học sinh
   attitude                 VARCHAR(20)   NULL                  Chỉ dùng khi comment_type=
                                                                 DAILY (V50, bổ sung ngoài SDD
                                                                 gốc, đã xác nhận với người
-                                                                dùng 2026-07-24) — Kém/Trung
-                                                                bình/Tốt, cột phẳng RIÊNG với
-                                                                structured_content.attitude
-                                                                (JSONB, chỉ dùng cho Giữa/Cuối
-                                                                kỳ) — 2 cơ chế khác nhau cho 2
-                                                                nhóm biểu mẫu khác nhau
+                                                                dùng 2026-07-24) — Kém/Yếu/
+                                                                Trung bình/Trung bình khá/
+                                                                Khá/Tốt (mở rộng từ 3 lên 6
+                                                                mức 2026-07-27), cột phẳng
+                                                                RIÊNG với structured_content.
+                                                                attitude (JSONB, chỉ dùng cho
+                                                                Giữa/Cuối kỳ) — 2 cơ chế khác
+                                                                nhau cho 2 nhóm biểu mẫu khác
+                                                                nhau
 
   homework_previous_score  VARCHAR(10)   NULL                  Chỉ DAILY (V50) — VD "80%",
                                                                 chấm BTVN buổi TRƯỚC buổi này

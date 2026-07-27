@@ -395,6 +395,19 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
             Row row = sheet.getRow(1);
             assertThat(row.getCell(1).getStringCellValue()).isEqualTo(student.getStudentCode());
             assertThat(row.getCell(3).getStringCellValue()).isEqualTo("Có mặt");
+
+            List<? extends org.apache.poi.ss.usermodel.DataValidation> validations = sheet.getDataValidations();
+            assertThat(validations).hasSize(2);
+            assertThat(validations).anySatisfy(v -> {
+                assertThat(v.getRegions().getCellRangeAddress(0).getFirstColumn()).isEqualTo(3);
+                assertThat(v.getValidationConstraint().getExplicitListValues())
+                        .containsExactly("Có mặt", "Vắng", "Có phép", "Muộn", "Về sớm");
+            });
+            assertThat(validations).anySatisfy(v -> {
+                assertThat(v.getRegions().getCellRangeAddress(0).getFirstColumn()).isEqualTo(4);
+                assertThat(v.getValidationConstraint().getExplicitListValues())
+                        .containsExactly("Kém", "Yếu", "Trung bình", "Trung bình khá", "Khá", "Tốt");
+            });
         }
     }
 

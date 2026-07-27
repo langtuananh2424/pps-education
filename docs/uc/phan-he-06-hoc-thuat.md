@@ -1122,8 +1122,9 @@ DAILY, Giữa/Cuối kỳ giữ nguyên 100% luồng ở trên)
     từng học sinh của buổi đó. Học sinh Vắng/Có phép thì không cần điền
     các trường nhận xét.
 -   4 cột mới trên `student_comments` (chỉ có ý nghĩa khi comment_type=
-    DAILY): `attitude` (VARCHAR(20), enum Kém/Trung bình/Tốt — dự kiến bổ
-    sung thêm sau), `homework_previous_score` (VARCHAR(10), VD "80%" —
+    DAILY): `attitude` (VARCHAR(20), enum Kém/Yếu/Trung bình/Trung bình
+    khá/Khá/Tốt — mở rộng từ 3 lên 6 mức 2026-07-27),
+    `homework_previous_score` (VARCHAR(10), VD "80%" —
     chấm BTVN buổi TRƯỚC ngay trong dòng của buổi này), `homework_next`
     (TEXT, VD "Unit 4 Trang 18" — giao BTVN cho buổi SAU, hạn nộp ngầm
     hiểu là ngày buổi học kế tiếp, không lưu cột deadline riêng), `note`
