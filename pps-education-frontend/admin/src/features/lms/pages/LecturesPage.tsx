@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { BarChart3, Link2, MessageCircle, Music, Plus, Upload, Video } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
-import { useApp } from "@/context/AppContext";
 import { CurriculumResponse, CurriculumSubjectResponse, ClassEnrollmentResponse, listClassEnrollments, listCurriculums, listCurriculumSubjects } from "@/features/academic/api";
 import { useEligibleClasses } from "@/features/academic/hooks/useEligibleClasses";
 import {
@@ -265,11 +264,20 @@ function ContentSourceField({ value, onChange }: { value: ContentSourceValue; on
   );
 }
 
-/** UC-23/UC-23a: Kho Video Ôn tập — chỉ Giáo viên được phân công dạy đúng lớp/khung chương trình mới tạo/sửa/xem thống kê được (BE tự chặn theo class_teachers, không qua permission). */
+/**
+ * UC-23/UC-23a: Kho Video Ôn tập — chỉ Giáo viên được phân công dạy đúng lớp/khung chương trình mới
+ * tạo/sửa/xem thống kê được (BE tự chặn theo class_teachers, không qua permission).
+ *
+ * Chọn lớp cho trang này dùng state RIÊNG của trang (localClassId), KHÔNG dùng selectedClassId dùng
+ * chung ở Header — đã xác nhận với người dùng 2026-07-27: Header chỉ hiện pill "Lớp" cho tài khoản
+ * có phân công thật (Giáo viên đứng lớp/SITE_MANAGER thật); tài khoản chỉ có quyền quản trị rộng
+ * (Super Admin/HEAD_ACADEMIC) không thấy pill đó nên cần tự chọn lớp ngay trong trang, giống hệt
+ * cách chọn khung chương trình ở tab bên cạnh.
+ */
 export default function LecturesPage() {
-  const { selectedClassId } = useApp();
   const [scopeType, setScopeType] = useState<"CLASS" | "CURRICULUM">("CLASS");
   const { classes } = useEligibleClasses();
+  const [localClassId, setLocalClassId] = useState<number | null>(null);
   const [curriculums, setCurriculums] = useState<CurriculumResponse[]>([]);
   const [selectedCurriculumId, setSelectedCurriculumId] = useState<number | null>(null);
 
@@ -283,7 +291,7 @@ export default function LecturesPage() {
   const [statsSet, setStatsSet] = useState<ReviewVideoSetResponse | null>(null);
   const { message: toastMessage, showToast } = useToast();
 
-  const selectedClass = classes.find((c) => c.id === selectedClassId) ?? null;
+  const selectedClass = classes.find((c) => c.id === localClassId) ?? null;
   const effectiveCurriculumId = scopeType === "CLASS" ? selectedClass?.curriculumId ?? null : selectedCurriculumId;
 
   useEffect(() => {
@@ -291,7 +299,7 @@ export default function LecturesPage() {
   }, []);
 
   const loadSets = () => {
-    if (scopeType === "CLASS" && !selectedClassId) {
+    if (scopeType === "CLASS" && !localClassId) {
       setVideoSets([]);
       return;
     }
@@ -301,14 +309,14 @@ export default function LecturesPage() {
     }
     setLoadingSets(true);
     setError(null);
-    const request = scopeType === "CLASS" ? listReviewVideoSetsByClass(selectedClassId!) : listReviewVideoSetsByCurriculum(selectedCurriculumId!);
+    const request = scopeType === "CLASS" ? listReviewVideoSetsByClass(localClassId!) : listReviewVideoSetsByCurriculum(selectedCurriculumId!);
     request
       .then(setVideoSets)
       .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách bộ video ôn tập."))
       .finally(() => setLoadingSets(false));
   };
 
-  useEffect(loadSets, [scopeType, selectedClassId, selectedCurriculumId]);
+  useEffect(loadSets, [scopeType, localClassId, selectedCurriculumId]);
 
   return (
     <div className="space-y-6">
@@ -345,9 +353,14 @@ export default function LecturesPage() {
           </div>
 
           {scopeType === "CLASS" ? (
-            <span className="text-xs font-bold text-slate-700">
-              {selectedClass ? `Lớp: ${selectedClass.classCode} — ${selectedClass.name}` : "Chưa chọn lớp — chọn ở góc trên bên phải (Header)"}
-            </span>
+            <select value={localClassId ?? ""} onChange={(e) => setLocalClassId(e.target.value ? Number(e.target.value) : null)} className={`${inputClass} w-64`}>
+              <option value="">-- Chọn lớp --</option>
+              {classes.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.classCode} — {c.name}
+                </option>
+              ))}
+            </select>
           ) : (
             <select value={selectedCurriculumId ?? ""} onChange={(e) => setSelectedCurriculumId(e.target.value ? Number(e.target.value) : null)} className={`${inputClass} w-64`}>
               <option value="">-- Chọn khung chương trình --</option>
@@ -361,7 +374,7 @@ export default function LecturesPage() {
 
           <Button
             variant="primary"
-            disabled={scopeType === "CLASS" ? !selectedClassId : !selectedCurriculumId}
+            disabled={scopeType === "CLASS" ? !localClassId : !selectedCurriculumId}
             onClick={() => setShowCreateForm(true)}
             className="ml-auto"
           >
@@ -377,7 +390,7 @@ export default function LecturesPage() {
 
       {loadingSets ? (
         <p className="text-xs text-slate-500">Đang tải...</p>
-      ) : !selectedClassId && !selectedCurriculumId ? (
+      ) : !localClassId && !selectedCurriculumId ? (
         <p className="text-xs text-slate-400 italic text-center py-10">Chọn lớp hoặc khung chương trình ở trên để xem kho video ôn tập.</p>
       ) : videoSets.length === 0 ? (
         <p className="text-xs text-slate-400 italic text-center py-10">Chưa có bộ video ôn tập nào trong phạm vi này.</p>
@@ -415,7 +428,7 @@ export default function LecturesPage() {
       {showCreateForm && (
         <CreateSetModal
           scopeType={scopeType}
-          classId={selectedClassId}
+          classId={localClassId}
           curriculumId={selectedCurriculumId}
           curriculumIdForSubjects={effectiveCurriculumId}
           onClose={() => setShowCreateForm(false)}

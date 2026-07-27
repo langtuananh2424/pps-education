@@ -53,7 +53,7 @@ export const portalOnlyRoles: UserRole[] = [UserRole.STUDENT, UserRole.PARENT, U
  * "Học Sinh" (sai và gây hiểu nhầm nghiêm trọng, xem sự cố tài khoản Trưởng phòng đào tạo 2026-07-23).
  * FE hiện KHÔNG có cách lấy tên tiếng Việt thật của vai trò tùy biến cho chính tài khoản đang đăng
  * nhập (GET /api/auth/me chỉ trả roleCodes, không kèm tên; GET /api/roles trả tên nhưng yêu cầu
- * permission.role.manage mà tài khoản vai trò tùy biến thường không có) — cần BE bổ sung tên vai
+ * permission.role.view mà tài khoản vai trò tùy biến thường không có) — cần BE bổ sung tên vai
  * trò vào CurrentUserResponse mới hiện đúng tên tiếng Việt được, đã ghi lại thành yêu cầu BE riêng.
  */
 export function deriveCurrentRoleLabel(roleCodes: string[]): string {

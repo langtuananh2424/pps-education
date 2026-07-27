@@ -126,21 +126,18 @@ export default function Header() {
   // Admin" cố tình được gán roleCode SITE_MANAGER để test màn hình nhưng không thật sự quản lý
   // site nào (managedSites rỗng) — dùng roleCodes suông sẽ lại hiện nhầm pill cho tài khoản đó.
   const isGenuineSiteManager = (currentUser?.roleCodes?.includes(UserRole.SITE_MANAGER) ?? false) && managedSites.length > 0;
-  // academic.class.manage: quyền quản trị rộng (HEAD_ACADEMIC/SYS_ADMIN/"Super Admin" demo) cho
-  // xem MỌI lớp thuộc site đang chọn (ClassService.resolveAllowedSiteIds) — không đứng lớp nào thật
-  // (myAssignedClassCount luôn 0) nhưng vẫn cần pill để chọn lớp cho các màn lọc theo lớp (Kho Video
-  // Ôn tập UC-23, Sổ điểm UC-19/20...), cùng lý do với isGenuineSiteManager bên dưới.
-  const hasBroadClassAccess = hasPermission("academic.class.manage");
   const { classes: eligibleClasses, myAssignedClassCount, loading: loadingEligibleClasses } = useEligibleClasses();
   // Dùng myAssignedClassCount (đứng tên thật trong class_teachers) để quyết định hiện pill — KHÔNG
   // dùng quyền academic.class.manage để loại trừ (đã dính bug: 1 tài khoản Giáo viên demo vừa có
   // quyền quản trị vừa thật sự đứng lớp bị ẩn nhầm pill, vì quyền đó không phản ánh có được phân
-  // công dạy lớp nào hay không). SITE_MANAGER thật/tài khoản có quyền quản trị rộng không đứng lớp
-  // nào (myAssignedClassCount luôn 0) nhưng vẫn cần thấy pill — xét riêng qua eligibleClasses.
+  // công dạy lớp nào hay không). SITE_MANAGER thật không đứng lớp nào (myAssignedClassCount luôn 0)
+  // nhưng vẫn cần thấy pill để "xem lại sổ điểm" (UC-20) — xét riêng qua eligibleClasses.
+  //
+  // Tài khoản chỉ có quyền quản trị rộng (academic.class.manage) như HEAD_ACADEMIC/SYS_ADMIN/"Super
+  // Admin" demo KHÔNG hiện pill này ở Header (đã xác nhận với người dùng 2026-07-27) — các trang cần
+  // chọn lớp cho nhóm tài khoản này (VD Kho Video Ôn tập UC-23) tự có bộ chọn lớp riêng trong trang.
   const showClassSelector =
-    loadingEligibleClasses ||
-    myAssignedClassCount > 0 ||
-    ((isGenuineSiteManager || hasBroadClassAccess) && eligibleClasses.length > 0);
+    loadingEligibleClasses || myAssignedClassCount > 0 || (isGenuineSiteManager && eligibleClasses.length > 0);
 
   return (
     <header className="h-16 bg-transparent px-2 md:px-0 flex items-center justify-between z-30 mb-4 shrink-0">
