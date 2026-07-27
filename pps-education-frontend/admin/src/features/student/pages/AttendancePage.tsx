@@ -1,21 +1,19 @@
 import React, { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Save, UserCheck } from "lucide-react";
+import { Save } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import {
   AttendanceMarkResponse,
-  ClassResponse,
   ClassSessionResponse,
   EnterAttendanceMarkRequest,
   getAttendanceSession,
   listClassEnrollments,
-  listClassTeachers,
-  listClasses,
   listClassSessions,
   markAttendance,
   submitAttendance
 } from "@/features/academic/api";
+import { useEligibleClasses } from "@/features/academic/hooks/useEligibleClasses";
 import NotificationBanner from "../components/NotificationBanner";
 import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
 
@@ -45,20 +43,19 @@ function isToday(s: ClassSessionResponse): boolean {
 }
 
 export default function AttendancePage() {
-  const { hasPermission, currentUser, selectedCampusId } = useApp();
-  // UC-15 Precondition: Tác nhân chỉ là "Giáo viên được phân công giảng dạy tiết đó" — không dùng
-  // student.manage làm cờ bypass (quyền đó nghĩa thật là "Quản lý hồ sơ học sinh", backend cấp rộng
-  // cho TEACHER, không liên quan phạm vi lớp điểm danh). Chỉ academic.class.manage (Admin/HEAD_ACADEMIC) mới thấy hết.
-  const canSeeAllClasses = hasPermission("academic.class.manage");
+  const { hasPermission, selectedClassId: globalClassId } = useApp();
   // V45: quyền quản trị điểm danh vượt rào "chỉ đúng ngày diễn ra buổi học" của Giáo viên thường.
   const hasAttendanceOverride = hasPermission("academic.attendance.create") || hasPermission("academic.attendance.update");
   const [searchParams, setSearchParams] = useSearchParams();
+  // classId trên URL (deep-link từ Quản lý lớp học/ClassDetailPanel — mở đúng buổi cụ thể) được ưu
+  // tiên hơn lớp đang chọn ở Header; không có thì mới rơi về lớp global (UC-15 không còn dropdown/
+  // card chọn lớp riêng trên trang này nữa).
   const classIdParam = searchParams.get("classId");
   const sessionIdParam = searchParams.get("sessionId");
-  const selectedClassId = classIdParam ? Number(classIdParam) : null;
+  const selectedClassId = classIdParam ? Number(classIdParam) : globalClassId;
   const selectedSessionId = sessionIdParam ? Number(sessionIdParam) : null;
 
-  const [classes, setClasses] = useState<ClassResponse[]>([]);
+  const { classes } = useEligibleClasses();
   const [sessions, setSessions] = useState<ClassSessionResponse[]>([]);
   const [rows, setRows] = useState<Row[]>([]);
   const [attendanceMode, setAttendanceMode] = useState<"SESSION_LEVEL" | "PERIOD_LEVEL">("SESSION_LEVEL");
@@ -73,20 +70,6 @@ export default function AttendancePage() {
   // V45: SUBMITTED không còn tự khoá sửa — GV vẫn sửa được tới hết ngày diễn ra buổi học (kể cả sau khi đã Lưu/nộp).
   // Chỉ khoá khi qua ngày (không phải hôm nay) và tài khoản không có quyền quản trị điểm danh vượt rào.
   const locked = !hasAttendanceOverride && !!selectedSession && !isToday(selectedSession);
-
-  /** UC-15 Precondition: GV chỉ điểm danh lớp mình được phân công dạy (class_teachers) — cùng gốc rễ với fix ở GradesPage/ClassesPage. */
-  useEffect(() => {
-    listClasses({ siteId: selectedCampusId !== "ALL" ? Number(selectedCampusId) : undefined })
-      .then(async (res) => {
-        if (canSeeAllClasses || !currentUser) {
-          setClasses(res);
-          return;
-        }
-        const teacherLists = await Promise.all(res.map((c) => listClassTeachers(c.id).catch(() => [])));
-        setClasses(res.filter((_, i) => teacherLists[i].some((t) => t.teacherUserId === currentUser.id)));
-      })
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách lớp học."));
-  }, [canSeeAllClasses, currentUser, selectedCampusId]);
 
   useEffect(() => {
     if (!selectedClassId) {
@@ -128,7 +111,6 @@ export default function AttendancePage() {
       .finally(() => setLoadingRows(false));
   }, [selectedClassId, selectedSessionId]);
 
-  const pickClass = (id: number) => setSearchParams({ classId: String(id) });
   const pickSession = (id: string) => {
     if (!id) {
       setSearchParams({ classId: String(selectedClassId) });
@@ -180,13 +162,12 @@ export default function AttendancePage() {
       <NotificationBanner message={notification} onClose={() => setNotification(null)} />
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50">
             <div>
               <span className="text-xs font-bold text-slate-700 font-display">Điểm danh Chuyên cần đầu giờ (UC-15)</span>
               <p className="text-[10px] text-slate-400 mt-0.5">
-                {selectedClass ? `${selectedClass.name} (${selectedClass.classCode})` : "Chọn lớp bên phải để bắt đầu điểm danh."}
+                {selectedClass ? `${selectedClass.name} (${selectedClass.classCode})` : "Chưa chọn lớp — chọn ở góc trên bên phải (Header) để bắt đầu điểm danh."}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -236,7 +217,7 @@ export default function AttendancePage() {
               {!selectedSessionId ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-12 text-center text-xs text-slate-400 italic">
-                    {selectedClass ? "Chọn buổi học ở trên để tải danh sách học sinh." : "Chọn 1 lớp ở bảng bên phải."}
+                    {selectedClass ? "Chọn buổi học ở trên để tải danh sách học sinh." : "Chọn 1 lớp ở Header (góc trên bên phải)."}
                   </td>
                 </tr>
               ) : loadingRows ? (
@@ -292,29 +273,6 @@ export default function AttendancePage() {
               </button>
             </div>
           )}
-        </div>
-
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-soft space-y-4 self-start">
-          <h3 className="text-xs font-bold text-slate-400 block uppercase tracking-wider font-display border-b border-slate-100 pb-2">Chọn lớp điểm danh</h3>
-          <div className="space-y-2">
-            {classes.map((cls) => (
-              <button
-                key={cls.id}
-                onClick={() => pickClass(cls.id)}
-                className={`w-full p-3 rounded-lg text-left text-xs font-semibold flex items-center justify-between transition-all border ${
-                  selectedClassId === cls.id ? "bg-brand-orange border-brand-orange text-white shadow-sm" : "bg-slate-50 hover:bg-slate-100/60 border-slate-100 text-slate-600"
-                }`}
-              >
-                <div>
-                  <span className={`font-bold block ${selectedClassId === cls.id ? "text-white" : "text-slate-800"}`}>{cls.name}</span>
-                  <span className={`text-[10px] block font-normal mt-0.5 ${selectedClassId === cls.id ? "text-white/80" : "text-slate-400"}`}>{cls.classCode} · {cls.siteName}</span>
-                </div>
-                <UserCheck className={`w-4 h-4 shrink-0 ${selectedClassId === cls.id ? "text-white" : "text-brand-orange"}`} />
-              </button>
-            ))}
-            {classes.length === 0 && <p className="text-xs text-slate-400 italic">Chưa có lớp học nào.</p>}
-          </div>
-        </div>
       </div>
     </div>
   );

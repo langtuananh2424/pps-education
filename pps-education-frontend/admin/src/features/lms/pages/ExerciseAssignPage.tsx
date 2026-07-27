@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { ChevronDown, ChevronRight, ClipboardList, Plus } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
-import { ClassResponse, listClassTeachers, listClasses } from "@/features/academic/api";
+import { useEligibleClasses } from "@/features/academic/hooks/useEligibleClasses";
 import { ExerciseAssignmentResponse, ExerciseQuestionResponse, ExerciseResponse, getExercise, listAssignmentsForClass, listExerciseQuestions } from "../api";
 import CreateAndAssignExerciseModal from "../components/CreateAndAssignExerciseModal";
 import ExercisePreviewModal from "../components/ExercisePreviewModal";
@@ -23,31 +23,15 @@ const assignmentStatusLabels: Record<ExerciseAssignmentResponse["status"], strin
 
 /** UC-40: Soạn & giao đề kiểm tra — chọn 1 lớp trước, xem lịch sử đề đã giao, giao đề mới. */
 export default function ExerciseAssignPage() {
-  const { hasPermission, currentUser, selectedCampusId } = useApp();
+  const { hasPermission, selectedClassId } = useApp();
   const canManage = hasPermission("lms.exercise.manage");
-  const canSeeAllClasses = hasPermission("academic.class.manage");
 
-  const [classes, setClasses] = useState<ClassResponse[]>([]);
-  const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
+  const { classes } = useEligibleClasses();
   const [rows, setRows] = useState<AssignmentRow[]>([]);
   const [loadingRows, setLoadingRows] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { message: toastMessage, showToast } = useToast();
-
-  /** UC-40 Precondition: GV chỉ giao đề cho lớp mình được phân công dạy (class_teachers) — cùng gốc rễ với fix ở GradesPage/ClassesPage/AttendancePage. */
-  useEffect(() => {
-    listClasses({ siteId: selectedCampusId !== "ALL" ? Number(selectedCampusId) : undefined })
-      .then(async (allClasses) => {
-        if (canSeeAllClasses || !currentUser) {
-          setClasses(allClasses);
-          return;
-        }
-        const teacherLists = await Promise.all(allClasses.map((c) => listClassTeachers(c.id).catch(() => [])));
-        setClasses(allClasses.filter((_, i) => teacherLists[i].some((t) => t.teacherUserId === currentUser.id)));
-      })
-      .catch(() => undefined);
-  }, [canSeeAllClasses, currentUser, selectedCampusId]);
 
   const loadAssignments = () => {
     if (!selectedClassId) {
@@ -79,18 +63,9 @@ export default function ExerciseAssignPage() {
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between flex-wrap gap-3">
-          <select
-            value={selectedClassId ?? ""}
-            onChange={(e) => setSelectedClassId(e.target.value ? Number(e.target.value) : null)}
-            className="bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none min-w-[240px]"
-          >
-            <option value="">-- Chọn lớp --</option>
-            {classes.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.classCode} — {c.name}
-              </option>
-            ))}
-          </select>
+          <span className="text-xs font-bold text-slate-700">
+            {selectedClass ? `Lớp: ${selectedClass.classCode} — ${selectedClass.name}` : "Chưa chọn lớp — chọn ở góc trên bên phải (Header)"}
+          </span>
 
           {canManage && selectedClassId && (
             <Button variant="primary" size="sm" onClick={() => setCreateOpen(true)}>
@@ -105,7 +80,7 @@ export default function ExerciseAssignPage() {
             <ClipboardList className="w-12 h-12 text-slate-300" />
             <div>
               <h3 className="text-sm font-bold text-slate-700">Chưa chọn lớp nào</h3>
-              <p className="text-xs text-slate-400 mt-1">Chọn 1 lớp ở trên để xem lịch sử đề đã giao.</p>
+              <p className="text-xs text-slate-400 mt-1">Chọn 1 lớp ở Header (góc trên bên phải) để xem lịch sử đề đã giao.</p>
             </div>
           </div>
         ) : loadingRows ? (

@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { AlertTriangle, Bell, ChevronDown, Clock, KeyRound, Lock, LogOut, Menu, MapPin, Settings, ShieldCheck, User } from "lucide-react";
+import { AlertTriangle, Bell, ChevronDown, Clock, GraduationCap, KeyRound, Lock, LogOut, Menu, MapPin, Settings, User } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { getMyPartnerSite, listSites, listSiteTeachers, SiteResponse, SiteTeacherResponse } from "@/features/facility/api";
+import { useEligibleClasses } from "@/features/academic/hooks/useEligibleClasses";
 import { UserRole } from "@/types";
 import Avatar from "@/components/ui/Avatar";
 import Dropdown from "@/components/ui/Dropdown";
@@ -15,7 +16,18 @@ const notifications = [
 ];
 
 export default function Header() {
-  const { currentRoleLabel, currentUser, selectedCampusId, setSelectedCampusId, sidebarOpen, setSidebarOpen, logout, hasPermission } = useApp();
+  const {
+    currentRoleLabel,
+    currentUser,
+    selectedCampusId,
+    setSelectedCampusId,
+    selectedClassId,
+    setSelectedClassId,
+    sidebarOpen,
+    setSidebarOpen,
+    logout,
+    hasPermission
+  } = useApp();
   const [sites, setSites] = useState<SiteResponse[]>([]);
   const [profileOpen, setProfileOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
@@ -104,6 +116,19 @@ export default function Header() {
   const lockToManagedSites = managedSites.length > 0;
   const showUnassignedWarning = !managedSitesLoading && isSiteScopedRole && managedSites.length === 0;
 
+  // Chỉ hiện "Lớp" cho vai trò thật sự cần lọc theo lớp ở 1 trong các màn: Sổ điểm (UC-19/20,
+  // SITE_MANAGER không có permission điểm nhưng vẫn cần lọc lớp để "xem lại sổ điểm"), Điểm danh
+  // (UC-15), Soạn & giao đề (UC-40), Nhận xét (UC-21/22), Kho bài giảng (UC-23) — ẩn với vai trò
+  // không liên quan (Tài chính/HRM/CRM...) để đỡ rối mắt, cùng tinh thần với "Điểm trường".
+  const isSiteManagerRole = currentUser?.roleCodes?.includes(UserRole.SITE_MANAGER) ?? false;
+  const showClassSelector =
+    hasPermission("academic.grade.manage") ||
+    hasPermission("academic.attendance.mark") ||
+    hasPermission("lms.exercise.manage") ||
+    hasPermission("academic.comment.write") ||
+    isSiteManagerRole;
+  const { classes: eligibleClasses } = useEligibleClasses();
+
   return (
     <header className="h-16 bg-transparent px-2 md:px-0 flex items-center justify-between z-30 mb-4 shrink-0">
       <div className="flex items-center gap-4">
@@ -161,15 +186,28 @@ export default function Header() {
             </select>
           )}
         </div>
+
+        {showClassSelector && (
+          <div className="hidden sm:flex items-center gap-2 text-xs font-medium px-4 py-2 rounded-full shadow-soft border bg-white border-slate-200/50 text-slate-500">
+            <GraduationCap className="w-3.5 h-3.5 text-brand-orange shrink-0" />
+            <span className="font-semibold text-slate-700">Lớp:</span>
+            <select
+              value={selectedClassId ?? ""}
+              onChange={(e) => setSelectedClassId(e.target.value ? Number(e.target.value) : null)}
+              className="bg-transparent border-none text-slate-800 font-semibold focus:outline-none focus:ring-0 cursor-pointer pr-1"
+            >
+              <option value="">-- Chọn lớp --</option>
+              {eligibleClasses.map((cls) => (
+                <option key={cls.id} value={cls.id}>
+                  {cls.classCode} — {cls.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       <div className="flex items-center gap-3 md:gap-5">
-        <div className="flex items-center gap-2 bg-slate-900 text-white px-3.5 py-1.5 rounded-md text-xs font-semibold shadow-glow tracking-tight font-display">
-          <ShieldCheck className="w-3.5 h-3.5 text-brand-yellow shrink-0" />
-          <span className="hidden md:inline">Vai trò:</span>
-          <span className="text-brand-orange">{currentRoleLabel}</span>
-        </div>
-
         <div className="hidden lg:flex items-center gap-1.5 text-slate-600 bg-white border border-slate-200/50 shadow-soft px-3.5 py-2 rounded-full font-mono text-[11px]">
           <Clock className="w-3.5 h-3.5 text-slate-400" />
           <span>

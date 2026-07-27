@@ -13,8 +13,11 @@ interface AppContextValue {
   /** Nhãn hiển thị Header/Sidebar — khác currentRole (enum cố định) vì hỗ trợ đúng cả vai trò tùy biến tạo qua UC-03. */
   currentRoleLabel: string;
   selectedCampusId: string;
+  /** Lớp đang chọn ở Header (cạnh Điểm trường) — dùng chung cho mọi trang cần lọc theo lớp (Sổ điểm, Điểm danh, Giao đề, Nhận xét, Kho bài giảng...), không phải chọn lại mỗi trang. */
+  selectedClassId: number | null;
   sidebarOpen: boolean;
   setSelectedCampusId: (id: string) => void;
+  setSelectedClassId: (id: number | null) => void;
   setSidebarOpen: (open: boolean) => void;
   loginNotice: string | null;
   login: (usernameOrEmail: string, password: string) => Promise<void>;
@@ -47,8 +50,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const cached = readCachedUser();
     return cached ? deriveCurrentRole(cached.roleCodes) : UserRole.STUDENT;
   });
-  const [selectedCampusId, setSelectedCampusId] = useState("ALL");
+  const [selectedCampusId, setSelectedCampusIdState] = useState("ALL");
+  const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Đổi điểm trường thì lớp đang chọn (thuộc site cũ) không còn hợp lệ — reset để tránh lọc nhầm.
+  const setSelectedCampusId = (id: string) => {
+    setSelectedCampusIdState(id);
+    setSelectedClassId(null);
+  };
   const [loginNotice, setLoginNotice] = useState<string | null>(null);
 
   const completeLogin = async () => {
@@ -95,8 +105,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       currentRole,
       currentRoleLabel,
       selectedCampusId,
+      selectedClassId,
       sidebarOpen,
       setSelectedCampusId,
+      setSelectedClassId,
       setSidebarOpen,
       loginNotice,
       login,
@@ -104,7 +116,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       logout,
       hasPermission
     }),
-    [isLoggedIn, currentUser, currentRole, currentRoleLabel, selectedCampusId, sidebarOpen, loginNotice]
+    [isLoggedIn, currentUser, currentRole, currentRoleLabel, selectedCampusId, selectedClassId, sidebarOpen, loginNotice]
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
