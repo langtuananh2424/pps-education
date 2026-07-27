@@ -155,6 +155,100 @@ UC-23a: Xem & Theo dõi Kho Video Ôn tập
 
 ---
 
+UC-23b: Nộp & Chấm điểm Audio cho Video Phản xạ
+
++-----------------+----------------------------------------------------+
+| **Mã Use Case** | UC-23b                                             |
++-----------------+----------------------------------------------------+
+| **Tên Use       | Nộp & Chấm điểm Audio cho Video Phản xạ            |
+| Case**          |                                                    |
++-----------------+----------------------------------------------------+
+| **Phân hệ**     | Phân hệ 7                                          |
++-----------------+----------------------------------------------------+
+| **Yêu cầu chức  | FR-LMS-01                                          |
+| năng gốc**      |                                                    |
++-----------------+----------------------------------------------------+
+| **Tác nhân**    | Học sinh (nộp audio), Giáo viên (chấm điểm)        |
++-----------------+----------------------------------------------------+
+| **Mô tả tóm     | Bổ sung ngoài SDD gốc, đã xác nhận với người dùng  |
+| tắt**           | (2026-07-27) — thiếu sót thật sự trong thiết kế    |
+|                 | gốc của UC-23/23a: video loại "Video phản xạ"      |
+|                 | (REFLEX) trước đây chỉ theo dõi % xem, chưa có nơi |
+|                 | để Học sinh ghi âm/nộp audio trả lời. Học sinh nộp |
+|                 | (và nộp lại) audio cho từng video REFLEX; Giáo     |
+|                 | viên chấm điểm + nhận xét.                         |
++-----------------+----------------------------------------------------+
+| **Sự kiện kích  | Học sinh xem xong 1 video Phản xạ, ghi âm câu trả  |
+| hoạt**          | lời; Giáo viên mở danh sách bài audio đã nộp của 1 |
+|                 | bộ + lớp để chấm.                                  |
++-----------------+----------------------------------------------------+
+| **Điều kiện     | -   Học sinh đã đăng nhập, có class_enrollment     |
+| tiên quyết      |     ACTIVE tại lớp đang xem, bộ video đã PUBLISHED |
+| (               |     (UC-23), video thuộc bộ có video_type=REFLEX.  |
+| Precondition)** |                                                    |
+|                 | -   Giáo viên được phân công giảng dạy lớp/khung   |
+|                 |     chương trình sở hữu bộ video đó.               |
++-----------------+----------------------------------------------------+
+| **Luồng sự kiện | 1.  Học sinh ghi âm (hoặc chọn file có sẵn), upload|
+| chính (Main     |     qua API upload media chung, gửi audioUrl lên   |
+| Flow)**         |     hệ thống — hệ thống lưu lại (nộp lần đầu) hoặc |
+|                 |     GHI ĐÈ bản trước (nộp lại/resubmit).           |
+|                 |                                                    |
+|                 | 2.  Nếu là nộp lại đè lên 1 bài đã được chấm, hệ   |
+|                 |     thống XOÁ điểm/nhận xét/người chấm cũ — audio  |
+|                 |     mới chưa có điểm, chờ Giáo viên chấm lại.      |
+|                 |                                                    |
+|                 | 3.  Giáo viên mở danh sách bài audio đã nộp theo bộ|
+|                 |     + lớp cụ thể (chỉ hiện bài đã thực sự nộp).    |
+|                 |                                                    |
+|                 | 4.  Giáo viên nghe audio, chấm điểm (score/maxScore|
+|                 |     ) và ghi nhận xét (feedback) cho từng bài.     |
++-----------------+----------------------------------------------------+
+| **Luồng thay    | ***A1 --- Nộp audio cho video không phải REFLEX*** |
+| thế / ngoại lệ  |                                                    |
+| (Alternate      | 1.  Hệ thống từ chối (400) — chỉ video Phản xạ mới |
+| Flow)**         |     nhận audio trả lời, video Kết nối (CONNECTION) |
+|                 |     không áp dụng.                                 |
+|                 |                                                    |
+|                 | ***A2 --- Học sinh ngoài phạm vi lớp/bộ chưa        |
+|                 | PUBLISHED***                                       |
+|                 |                                                    |
+|                 | 1.  Cùng cơ chế 404 như UC-23a (A1/A2) — không lộ  |
+|                 |     sự tồn tại của video ngoài phạm vi lớp mình.   |
+|                 |                                                    |
+|                 | ***A3 --- Giáo viên không được phân công lớp/khung |
+|                 | sở hữu bộ video***                                 |
+|                 |                                                    |
+|                 | 1.  Hệ thống từ chối (403) khi xem danh sách hoặc  |
+|                 |     chấm điểm.                                     |
+|                 |                                                    |
+|                 | ***A4 --- Chấm điểm cho bài nộp không tồn tại***   |
+|                 |                                                    |
+|                 | 1.  Hệ thống báo lỗi (404).                        |
+|                 |                                                    |
+|                 | ***A5 --- Học sinh nộp lại (resubmit) đè bài đã    |
+|                 | được chấm***                                       |
+|                 |                                                    |
+|                 | 1.  Điểm/nhận xét/người chấm cũ bị xoá sạch (vì gắn |
+|                 |     với nội dung audio cũ đã không còn tồn tại) —  |
+|                 |     Giáo viên phải chấm lại bài mới.               |
++-----------------+----------------------------------------------------+
+| **Hậu điều kiện | -   Chỉ giữ lại audio MỚI NHẤT của mỗi Học sinh/   |
+| (P              |     video (không giữ lịch sử các lần nộp trước).   |
+| ostcondition)** |                                                    |
+|                 | -   Nộp lại xoá sạch điểm/nhận xét cũ nếu có.      |
+|                 |                                                    |
+|                 | -   Giáo viên chấm được điểm (score/maxScore) +    |
+|                 |     nhận xét cho từng bài audio đã nộp.            |
++-----------------+----------------------------------------------------+
+
+> **Lưu ý phân biệt:** UC-23b khác hoàn toàn với luồng "ghi âm phản xạ"
+> ở FR-LMS-04 (chế độ Nói trong Luyện Nghe — Nói, UC-26, chấm qua
+> `ListeningPracticeGradingService`) — 2 domain tách biệt, không dùng
+> chung bảng/Service, chỉ trùng tên gọi thông thường "phản xạ".
+
+---
+
 UC-60: Kho tài liệu tham khảo
 
 +-----------------+----------------------------------------------------+

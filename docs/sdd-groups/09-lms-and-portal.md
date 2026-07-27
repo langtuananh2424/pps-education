@@ -212,6 +212,80 @@ riêng (GET /api/review-video-sets/{setId}/stats), ghép ma trận học sinh
 × video ở tầng Service (roster lớp LEFT JOIN video LEFT JOIN tiến độ —
 học sinh chưa xem gì vẫn hiện 0%, không biến mất khỏi ma trận).
 
+d)  Bảng review_video_submissions --- Audio Học sinh nộp cho Video Phản
+xạ + Giáo viên chấm điểm (MỚI HOÀN TOÀN, UC-23b, 2026-07-27, bổ sung
+ngoài SDD gốc đã xác nhận với người dùng — thiếu sót thật sự trong thiết
+kế gốc của UC-23/23a)
+
+  --------------------------------------------------------------------------
+  **Cột**               **Kiểu**                **Ràng buộc**  **Ghi chú**
+  --------------------- ----------------------- -------------- -------------
+  id                    BIGSERIAL               PK
+
+  review_video_id       BIGINT                  FK →           Chỉ hợp lệ
+                                                 review_videos  khi video
+                                                 (id), NOT NULL thuộc bộ có
+                                                                video_type=
+                                                                REFLEX —
+                                                                kiểm tra ở
+                                                                Service,
+                                                                không CHECK
+                                                                trên bảng
+                                                                này (phải
+                                                                join qua
+                                                                review_video_
+                                                                sets)
+
+  student_id            BIGINT                  FK →
+                                                 students(id),
+                                                 NOT NULL
+
+  audio_url              VARCHAR(1000)           NOT NULL       URL CDN
+                                                                (Cloudflare
+                                                                R2, module
+                                                                REVIEW_VIDEO_
+                                                                SUBMISSION —
+                                                                tách folder
+                                                                với
+                                                                REVIEW_VIDEO
+                                                                của GV)
+
+  submitted_at           TIMESTAMPTZ             NOT NULL       Cập nhật lại
+                                                                mỗi lần nộp
+                                                                lại
+                                                                (resubmit)
+
+  score                  DECIMAL(5,2)            NULL           NULL = chưa
+                                                                chấm
+
+  max_score               DECIMAL(5,2)            NULL
+
+  feedback                TEXT                    NULL
+
+  graded_by               BIGINT                  FK →
+                                                  users(id),
+                                                  NULL
+
+  graded_at               TIMESTAMPTZ             NULL
+
+  created_at,             TIMESTAMPTZ             NOT NULL       BaseAuditEntity
+  updated_at
+  --------------------------------------------------------------------------
+
+Ràng buộc: UNIQUE (review_video_id, student_id) — 1 dòng/học sinh/video,
+upsert khi nộp lại (giống review_video_progress). Nộp lại GHI ĐÈ audio_url
+và XOÁ SẠCH score/max_score/feedback/graded_by/graded_at (Service tự xoá)
+vì điểm cũ chấm cho nội dung audio đã không còn tồn tại — không giữ lịch
+sử các lần nộp trước.
+
+KHÔNG tái dùng grade_entries/GradeEntry (gắn sổ điểm chính thức, luồng
+DRAFT→PROVISIONAL_PUBLISHED→APPEAL→OFFICIAL quá nặng cho audio ôn tập tự
+nguyện) và KHÔNG tái dùng StudentAnswerGrading (gắn UC-40/41, có
+versioning is_final/latest + partial unique index không cần thiết ở đây).
+score/max_score/feedback theo đúng shape đã có tiền lệ ở
+listening_practice_gradings (UC-26) để nhất quán convention chấm điểm
+dạng luyện tập trong dự án.
+
 ### Kho tài liệu tham khảo (UC-60, FR-LMS-13 — bổ sung ngoài SDD gốc, đã xác nhận với người dùng)
 
 Khái niệm độc lập với review_video_sets/review_videos ở trên — không gắn

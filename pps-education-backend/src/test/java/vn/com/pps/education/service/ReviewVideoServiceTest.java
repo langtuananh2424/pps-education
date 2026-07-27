@@ -17,11 +17,14 @@ import vn.com.pps.education.dto.CreateCurriculumRequest;
 import vn.com.pps.education.dto.CreateReviewVideoSetRequest;
 import vn.com.pps.education.dto.CurriculumResponse;
 import vn.com.pps.education.dto.EnrollStudentRequest;
+import vn.com.pps.education.dto.GradeReviewVideoSubmissionRequest;
 import vn.com.pps.education.dto.ReportVideoProgressRequest;
 import vn.com.pps.education.dto.ReviewVideoProgressResponse;
 import vn.com.pps.education.dto.ReviewVideoResponse;
 import vn.com.pps.education.dto.ReviewVideoSetResponse;
 import vn.com.pps.education.dto.ReviewVideoSetStatsResponse;
+import vn.com.pps.education.dto.ReviewVideoSubmissionResponse;
+import vn.com.pps.education.dto.SubmitReviewVideoAudioRequest;
 import vn.com.pps.education.dto.UpdateCurriculumRequest;
 import vn.com.pps.education.dto.UpdateReviewVideoSetRequest;
 import vn.com.pps.education.exception.InvalidReviewVideoSetScopeException;
@@ -34,6 +37,7 @@ import vn.com.pps.education.repository.UserRepository;
 import vn.com.pps.education.repository.UserRoleRepository;
 import vn.com.pps.education.support.AbstractIntegrationTest;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
@@ -46,6 +50,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * tập — Main Flow, A1 (không áp dụng ở tầng Service — upload CDN nằm
  * ngoài phạm vi), A2 (học sinh/video ngoài phạm vi lớp). Tái cấu trúc
  * 2026-07-27 từ LessonServiceTest.
+ *
+ * UC-23b: Nộp & Chấm điểm Audio cho Video Phản xạ — Main Flow, A1 (video
+ * không phải REFLEX), A2 (học sinh ngoài phạm vi), A3 (giáo viên không
+ * phụ trách), A4 (chấm bài không tồn tại), A5 (nộp lại xoá điểm cũ).
  */
 @Transactional
 class ReviewVideoServiceTest extends AbstractIntegrationTest {
@@ -348,6 +356,171 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
 
         assertThatThrownBy(() -> reviewVideoService.getStats(set.id(), null, teacher.getId()))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void submitAudio_UC23b_MainFlow_savesAudioForReflexVideo() {
+        ReviewVideoResponse video = createPublishedReflexSetWithVideo(100);
+        Student student = enrollStudent(schoolClass.id());
+
+        ReviewVideoSubmissionResponse submission = reviewVideoService.submitAudio(video.id(),
+                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/lms/review-video-submissions/audio/a.mp3"),
+                student.getUser().getId());
+
+        assertThat(submission.audioUrl()).isEqualTo("https://media.pps.edu.vn/lms/review-video-submissions/audio/a.mp3");
+        assertThat(submission.studentId()).isEqualTo(student.getId());
+        assertThat(submission.submittedAt()).isNotNull();
+        assertThat(submission.score()).isNull();
+    }
+
+    @Test
+    void submitAudio_UC23b_A1_rejectsForConnectionVideo() {
+        ReviewVideoResponse video = createPublishedSetWithVideo(100);
+        Student student = enrollStudent(schoolClass.id());
+
+        assertThatThrownBy(() -> reviewVideoService.submitAudio(video.id(),
+                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/a.mp3"), student.getUser().getId()))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void submitAudio_UC23b_A2_rejectsForStudentOutsideScope() {
+        ReviewVideoResponse video = createPublishedReflexSetWithVideo(100);
+        User outsiderStudentUser = newUser("student.outsider4");
+        newStudent(outsiderStudentUser);
+
+        assertThatThrownBy(() -> reviewVideoService.submitAudio(video.id(),
+                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/a.mp3"), outsiderStudentUser.getId()))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void submitAudio_UC23b_A5_resubmitOverwritesAudioAndClearsPreviousGrade() {
+        ReviewVideoResponse video = createPublishedReflexSetWithVideo(100);
+        Student student = enrollStudent(schoolClass.id());
+        ReviewVideoSubmissionResponse first = reviewVideoService.submitAudio(video.id(),
+                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/first.mp3"), student.getUser().getId());
+        reviewVideoService.gradeSubmission(first.id(),
+                new GradeReviewVideoSubmissionRequest(new BigDecimal("8.00"), new BigDecimal("10.00"), "Tốt"), teacher.getId());
+
+        ReviewVideoSubmissionResponse resubmitted = reviewVideoService.submitAudio(video.id(),
+                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/second.mp3"), student.getUser().getId());
+
+        assertThat(resubmitted.id()).isEqualTo(first.id());
+        assertThat(resubmitted.audioUrl()).isEqualTo("https://media.pps.edu.vn/second.mp3");
+        assertThat(resubmitted.score()).isNull();
+        assertThat(resubmitted.maxScore()).isNull();
+        assertThat(resubmitted.feedback()).isNull();
+        assertThat(resubmitted.gradedByUserId()).isNull();
+        assertThat(resubmitted.gradedAt()).isNull();
+    }
+
+    @Test
+    void getMySubmission_UC23b_MainFlow_returnsOwnSubmission() {
+        ReviewVideoResponse video = createPublishedReflexSetWithVideo(100);
+        Student student = enrollStudent(schoolClass.id());
+        reviewVideoService.submitAudio(video.id(),
+                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/a.mp3"), student.getUser().getId());
+
+        ReviewVideoSubmissionResponse mine = reviewVideoService.getMySubmission(video.id(), student.getUser().getId());
+
+        assertThat(mine).isNotNull();
+        assertThat(mine.audioUrl()).isEqualTo("https://media.pps.edu.vn/a.mp3");
+    }
+
+    @Test
+    void getMySubmission_UC23b_MainFlow_returnsNullWhenNotYetSubmitted() {
+        ReviewVideoResponse video = createPublishedReflexSetWithVideo(100);
+        Student student = enrollStudent(schoolClass.id());
+
+        ReviewVideoSubmissionResponse mine = reviewVideoService.getMySubmission(video.id(), student.getUser().getId());
+
+        assertThat(mine).isNull();
+    }
+
+    @Test
+    void getMySubmission_UC23b_A2_rejectsForStudentOutsideScope() {
+        ReviewVideoResponse video = createPublishedReflexSetWithVideo(100);
+        User outsiderStudentUser = newUser("student.outsider5");
+        newStudent(outsiderStudentUser);
+
+        assertThatThrownBy(() -> reviewVideoService.getMySubmission(video.id(), outsiderStudentUser.getId()))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void listSubmissionsForTeacher_UC23b_MainFlow_returnsOnlySubmittedRowsForClass() {
+        ReviewVideoResponse video = createPublishedReflexSetWithVideo(100);
+        Long setId = video.reviewVideoSetId();
+        Student submitted = enrollStudent(schoolClass.id());
+        Student notSubmitted = enrollStudent(schoolClass.id());
+        reviewVideoService.submitAudio(video.id(),
+                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/a.mp3"), submitted.getUser().getId());
+
+        List<ReviewVideoSubmissionResponse> submissions = reviewVideoService.listSubmissionsForTeacher(setId, schoolClass.id(), teacher.getId());
+
+        assertThat(submissions).extracting(ReviewVideoSubmissionResponse::studentId).contains(submitted.getId());
+        assertThat(submissions).extracting(ReviewVideoSubmissionResponse::studentId).doesNotContain(notSubmitted.getId());
+    }
+
+    @Test
+    void listSubmissionsForTeacher_UC23b_A3_rejectsForNonAssignedTeacher() {
+        ReviewVideoResponse video = createPublishedReflexSetWithVideo(100);
+        Long setId = video.reviewVideoSetId();
+        User outsider = newUser("outsider.submissions");
+        assignRole(outsider, "TEACHER");
+
+        assertThatThrownBy(() -> reviewVideoService.listSubmissionsForTeacher(setId, schoolClass.id(), outsider.getId()))
+                .isInstanceOf(NotAssignedTeacherForClassException.class);
+    }
+
+    @Test
+    void gradeSubmission_UC23b_MainFlow_savesScoreMaxScoreAndFeedback() {
+        ReviewVideoResponse video = createPublishedReflexSetWithVideo(100);
+        Student student = enrollStudent(schoolClass.id());
+        ReviewVideoSubmissionResponse submission = reviewVideoService.submitAudio(video.id(),
+                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/a.mp3"), student.getUser().getId());
+
+        ReviewVideoSubmissionResponse graded = reviewVideoService.gradeSubmission(submission.id(),
+                new GradeReviewVideoSubmissionRequest(new BigDecimal("8.50"), new BigDecimal("10.00"), "Phát âm tốt"),
+                teacher.getId());
+
+        assertThat(graded.score()).isEqualByComparingTo("8.50");
+        assertThat(graded.maxScore()).isEqualByComparingTo("10.00");
+        assertThat(graded.feedback()).isEqualTo("Phát âm tốt");
+        assertThat(graded.gradedByUserId()).isEqualTo(teacher.getId());
+        assertThat(graded.gradedAt()).isNotNull();
+    }
+
+    @Test
+    void gradeSubmission_UC23b_A3_rejectsForNonAssignedTeacher() {
+        ReviewVideoResponse video = createPublishedReflexSetWithVideo(100);
+        Student student = enrollStudent(schoolClass.id());
+        ReviewVideoSubmissionResponse submission = reviewVideoService.submitAudio(video.id(),
+                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/a.mp3"), student.getUser().getId());
+        User outsider = newUser("outsider.grade");
+        assignRole(outsider, "TEACHER");
+
+        assertThatThrownBy(() -> reviewVideoService.gradeSubmission(submission.id(),
+                new GradeReviewVideoSubmissionRequest(new BigDecimal("5"), new BigDecimal("10"), null), outsider.getId()))
+                .isInstanceOf(NotAssignedTeacherForClassException.class);
+    }
+
+    @Test
+    void gradeSubmission_UC23b_A4_rejectsWhenSubmissionNotFound() {
+        assertThatThrownBy(() -> reviewVideoService.gradeSubmission(999_999L,
+                new GradeReviewVideoSubmissionRequest(new BigDecimal("5"), new BigDecimal("10"), null), teacher.getId()))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    private ReviewVideoResponse createPublishedReflexSetWithVideo(int durationSeconds) {
+        ReviewVideoSetResponse set = reviewVideoService.createSet(
+                new CreateReviewVideoSetRequest(setCode(), "Bài 1: Video phản xạ", "REFLEX", null, schoolClass.id(), null, 1),
+                teacher.getId());
+        reviewVideoService.updateSet(set.id(), new UpdateReviewVideoSetRequest(set.title(), null, 1, "PUBLISHED"), teacher.getId());
+        return reviewVideoService.addVideo(set.id(),
+                new AddReviewVideoRequest("R2_AUDIO", "Audio", "https://media.pps.edu.vn/lms/review-videos/audio/x.mp3", 1_000_000L, durationSeconds, 1),
+                teacher.getId());
     }
 
     private ReviewVideoResponse createPublishedSetWithVideo(int durationSeconds) {

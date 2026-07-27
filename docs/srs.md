@@ -580,7 +580,10 @@ CDN)**
         lên **Cloudflare R2 (CDN)** để bảo đảm Học sinh xem mượt mà,
         không giật lag kể cả khi mạng yếu. Hệ thống theo dõi % thời
         lượng Học sinh đã xem (≥80% = "đã xem"), Giáo viên xem thống kê
-        theo lớp (UC-23a).
+        theo lớp (UC-23a). Riêng video Phản xạ (REFLEX), Học sinh ghi
+        âm/upload audio trả lời, được nộp lại (ghi đè, không giữ lịch
+        sử); Giáo viên chấm điểm + nhận xét (UC-23b, bổ sung ngoài SDD
+        gốc, đã xác nhận với người dùng 2026-07-27).
 
     -   **FR-LMS-02: Thi & Kiểm tra trực tuyến -** Hệ thống cho phép học
         sinh làm bài tập trắc nghiệm/tự luận trực tuyến. Tự động chấm
@@ -898,6 +901,10 @@ CDN)**
 
   UC-23a            Xem & Theo dõi    FR-LMS-01         7
                     Kho Video Ôn tập                    
+
+  UC-23b            Nộp & Chấm điểm   FR-LMS-01         7
+                    Audio Video Phản                    
+                    xạ                                  
 
   UC-60             Kho tài liệu tham FR-LMS-13         7
                     khảo                                
