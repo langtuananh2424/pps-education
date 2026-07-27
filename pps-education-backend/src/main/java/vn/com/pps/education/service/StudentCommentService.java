@@ -56,6 +56,7 @@ import java.io.InputStream;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -398,7 +399,10 @@ public class StudentCommentService {
             row.add(existing == null ? null : existing.getNote());
             rows.add(row);
         }
-        return ExcelExportHelper.buildWorkbook("Nhận xét", headers, rows);
+        Map<Integer, List<String>> dropdowns = Map.of(
+                COL_ATTENDANCE, Arrays.stream(AttendanceMark.Status.values()).map(this::attendanceLabel).toList(),
+                COL_ATTITUDE, Arrays.stream(StudentComment.Attitude.values()).map(this::attitudeLabel).toList());
+        return ExcelExportHelper.buildWorkbook("Nhận xét", headers, rows, null, dropdowns);
     }
 
     /**
@@ -687,17 +691,23 @@ public class StudentCommentService {
     private StudentComment.Attitude parseAttitude(String text) {
         return switch (text.toLowerCase()) {
             case "kém", "kem", "poor" -> StudentComment.Attitude.POOR;
+            case "yếu", "yeu", "weak" -> StudentComment.Attitude.WEAK;
             case "trung bình", "trung binh", "average" -> StudentComment.Attitude.AVERAGE;
+            case "trung bình khá", "trung binh kha", "above average" -> StudentComment.Attitude.ABOVE_AVERAGE;
+            case "khá", "kha", "fair" -> StudentComment.Attitude.FAIR;
             case "tốt", "tot", "good" -> StudentComment.Attitude.GOOD;
             default -> throw new IllegalArgumentException(
-                    "Thái độ học tập không hợp lệ (cần Kém/Trung bình/Tốt): " + text);
+                    "Thái độ học tập không hợp lệ (cần Kém/Yếu/Trung bình/Trung bình khá/Khá/Tốt): " + text);
         };
     }
 
     private String attitudeLabel(StudentComment.Attitude attitude) {
         return switch (attitude) {
             case POOR -> "Kém";
+            case WEAK -> "Yếu";
             case AVERAGE -> "Trung bình";
+            case ABOVE_AVERAGE -> "Trung bình khá";
+            case FAIR -> "Khá";
             case GOOD -> "Tốt";
         };
     }

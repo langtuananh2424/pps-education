@@ -516,8 +516,9 @@ nhân đó mới được thao tác.*
         với người dùng 2026-07-24 — kết luận họp, CHỈ áp dụng biểu mẫu
         Hàng ngày, Giữa/Cuối kỳ giữ nguyên):** Giáo viên điểm danh buổi
         học → điền "bài học hôm nay" (TEXT, dùng chung cả lớp, thuộc buổi
-        học) → nhận xét từng học sinh (Thái độ học tập: Kém/Trung
-        bình/Tốt; chấm BTVN buổi trước dạng %; nhận xét; giao BTVN buổi
+        học) → nhận xét từng học sinh (Thái độ học tập: Kém/Yếu/Trung
+        bình/Trung bình khá/Khá/Tốt — mở rộng từ 3 lên 6 mức 2026-07-27;
+        chấm BTVN buổi trước dạng %; nhận xét; giao BTVN buổi
         sau; ghi chú) — có thể làm trực tiếp hoặc tải file Excel mẫu theo
         buổi học (điền sẵn mã HS/họ tên/ngày/điểm danh), điền xong tải
         lên lại (cột điểm danh trong file cho phép sửa luôn điểm danh).

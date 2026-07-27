@@ -2,8 +2,12 @@ package vn.com.pps.education.common;
 
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.DataValidation;
+import org.apache.poi.ss.usermodel.DataValidationConstraint;
+import org.apache.poi.ss.usermodel.DataValidationHelper;
 import org.apache.poi.ss.usermodel.Font;
 import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.util.CellRangeAddressList;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
@@ -11,6 +15,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Dựng file .xlsx dùng chung cho các endpoint "tải file mẫu" (Student/
@@ -31,6 +36,25 @@ public final class ExcelExportHelper {
      */
     public static byte[] buildWorkbook(String sheetName, List<String> headers, List<List<Object>> rows,
                                         List<String> notes) {
+        return buildWorkbook(sheetName, headers, rows, notes, null);
+    }
+
+    public static byte[] buildWorkbook(String sheetName, List<String> headers, List<List<Object>> rows) {
+        return buildWorkbook(sheetName, headers, rows, null, null);
+    }
+
+    /**
+     * Như trên, cộng thêm dropdown (Excel Data Validation) cho các cột có
+     * tập giá trị cố định — {@code columnDropdowns} ánh xạ chỉ số cột (0-based,
+     * theo {@code headers}) sang danh sách giá trị hợp lệ. Áp cho toàn bộ
+     * dòng dữ liệu (dòng 1..rows.size(), không tính header) để kéo dòng có
+     * sẵn xuống dòng mới vẫn giữ dropdown. Không strict-enforce (không gọi
+     * setShowErrorBox) vì backend còn chấp nhận thêm biến thể viết thường/
+     * không dấu/tiếng Anh khi import (VD parseAttendanceStatus) — dropdown
+     * chỉ để gợi ý, chặn cứng sẽ từ chối oan các biến thể đó.
+     */
+    public static byte[] buildWorkbook(String sheetName, List<String> headers, List<List<Object>> rows,
+                                        List<String> notes, Map<Integer, List<String>> columnDropdowns) {
         try (XSSFWorkbook workbook = new XSSFWorkbook()) {
             CellStyle headerStyle = boldHeaderStyle(workbook);
 
@@ -58,6 +82,10 @@ public final class ExcelExportHelper {
                 sheet.autoSizeColumn(col);
             }
 
+            if (columnDropdowns != null && !rows.isEmpty()) {
+                addColumnDropdowns(sheet, rows.size(), columnDropdowns);
+            }
+
             if (notes != null && !notes.isEmpty()) {
                 XSSFSheet noteSheet = workbook.createSheet("Hướng dẫn");
                 for (int i = 0; i < notes.size(); i++) {
@@ -74,8 +102,19 @@ public final class ExcelExportHelper {
         }
     }
 
-    public static byte[] buildWorkbook(String sheetName, List<String> headers, List<List<Object>> rows) {
-        return buildWorkbook(sheetName, headers, rows, null);
+    private static void addColumnDropdowns(XSSFSheet sheet, int rowCount, Map<Integer, List<String>> columnDropdowns) {
+        DataValidationHelper dvHelper = sheet.getDataValidationHelper();
+        for (Map.Entry<Integer, List<String>> entry : columnDropdowns.entrySet()) {
+            int col = entry.getKey();
+            String[] values = entry.getValue().toArray(new String[0]);
+            CellRangeAddressList range = new CellRangeAddressList(1, rowCount, col, col);
+            DataValidationConstraint constraint = dvHelper.createExplicitListConstraint(values);
+            DataValidation validation = dvHelper.createValidation(constraint, range);
+            // true ở đây MỚI là hiện mũi tên dropdown trong ô — quirk đã biết của
+            // XSSFDataValidation (POI đảo ngược cờ này so với tên gọi để khớp OOXML).
+            validation.setSuppressDropDownArrow(true);
+            sheet.addValidationData(validation);
+        }
     }
 
     private static void writeCell(Cell cell, Object value) {
