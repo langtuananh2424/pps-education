@@ -3,22 +3,25 @@ package vn.com.pps.education.domain;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import vn.com.pps.education.common.BaseAuditEntity;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
 /**
- * Bảng lessons (SDD > LMS & Portal > Bài giảng & Kho học liệu > a) — bài
- * giảng dùng chung theo khung chương trình (curriculum_id) hoặc riêng
- * theo 1 lớp (class_id), không cả hai (UC-23 FR-LMS-01).
+ * Bảng review_video_sets (SDD > LMS & Portal > Kho Video Ôn tập > a) —
+ * "bộ" video ôn tập dùng chung theo khung chương trình (curriculum_id)
+ * hoặc riêng theo 1 lớp (class_id), không cả hai (UC-23 FR-LMS-01).
+ * Tái cấu trúc 2026-07-27 từ "lessons" (Kho bài giảng) — đã xác nhận với
+ * người dùng: bỏ hẳn PDF/Slide/Word, chỉ còn video/audio ôn tập.
  */
 @Getter
 @Setter
 @Entity
-@Table(name = "lessons")
-public class Lesson {
+@Table(name = "review_video_sets")
+public class ReviewVideoSet extends BaseAuditEntity {
 
-    public enum LessonType { VIDEO_LECTURE, PDF_DOCUMENT, MIXED, LIVE_RECORDING }
+    public enum VideoType { CONNECTION, REFLEX }
 
     public enum Status { DRAFT, PUBLISHED, ARCHIVED }
 
@@ -35,12 +38,16 @@ public class Lesson {
     @Column(nullable = false, length = 500)
     private String title;
 
-    /** Bài chung — dùng cho mọi lớp theo khung này. Loại trừ với classScope (CHECK chk_lesson_scope). */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "video_type", nullable = false, length = 20)
+    private VideoType videoType;
+
+    /** Bộ chung — dùng cho mọi lớp theo khung này. Loại trừ với classScope (CHECK chk_review_video_set_scope). */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "curriculum_id")
     private Curriculum curriculum;
 
-    /** Bài riêng — chỉ 1 lớp cụ thể xem được. */
+    /** Bộ riêng — chỉ 1 lớp cụ thể xem được. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "class_id")
     private SchoolClass schoolClass;
@@ -49,15 +56,8 @@ public class Lesson {
     @JoinColumn(name = "subject_id")
     private CurriculumSubject subject;
 
-    @Column(name = "lesson_order")
-    private Integer lessonOrder;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "lesson_type", nullable = false, length = 30)
-    private LessonType lessonType;
-
-    @Column(name = "duration_minutes")
-    private Integer durationMinutes;
+    @Column(name = "display_order")
+    private Integer displayOrder;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)

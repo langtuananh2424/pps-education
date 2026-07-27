@@ -47,53 +47,68 @@ erDiagram
     }
 ```
 
-a)  Bảng lessons --- Bài giảng
+**Tái cấu trúc 2026-07-27 (đã xác nhận với người dùng):** "Bài giảng &
+Kho học liệu" (UC-23/UC-23a) đổi thành "Kho Video Ôn tập" — bỏ hẳn
+PDF/Slide/Word/Image, chỉ còn video/audio ôn tập (Video từ kết nối/Video
+phản xạ), tổ chức theo "bộ" (`review_video_sets`, trước là `lessons`),
+mỗi bộ chứa nhiều video (`review_videos`, trước là `lesson_materials`),
+thêm bảng hoàn toàn mới `review_video_progress` theo dõi % thời lượng
+từng học sinh đã xem. Migration V52 (thay thế toàn bộ V16, DB dev xác
+nhận 0 dòng dữ liệu tại thời điểm tái cấu trúc nên chọn DROP+CREATE thay
+vì ALTER).
 
-Bài giảng có thể thuộc curriculum (dùng chung nhiều lớp) hoặc thuộc 1
-class cụ thể (riêng).
+a)  Bảng review_video_sets --- "Bộ" video ôn tập
+
+Bộ có thể thuộc curriculum (dùng chung nhiều lớp) hoặc thuộc 1 class cụ
+thể (riêng).
 
   --------------------------------------------------------------------------------
   **Cột**            **Kiểu**        **Ràng buộc**              **Ghi chú**
   ------------------ --------------- -------------------------- ------------------
-  id                 BIGSERIAL       PK                          
+  id                 BIGSERIAL       PK
 
-  uuid               UUID            UNIQUE, NOT NULL           
+  uuid               UUID            UNIQUE, NOT NULL
 
-  code               VARCHAR(50)     NOT NULL                    
+  code               VARCHAR(50)     NOT NULL
 
-  title              VARCHAR(500)    NOT NULL                   
+  title              VARCHAR(500)    NOT NULL
 
-  curriculum_id      BIGINT          FK → curriculums(id), NULL Nếu là bài chung
+  video_type         VARCHAR(20)     NOT NULL                   CONNECTION
+                                                                 (Video từ kết
+                                                                 nối) / REFLEX
+                                                                 (Video phản
+                                                                 xạ)
 
-  class_id           BIGINT          FK → classes(id), NULL     Nếu là bài riêng
-                                                                lớp
+  curriculum_id      BIGINT          FK → curriculums(id), NULL Nếu là bộ chung
 
-  subject_id         BIGINT          FK →                        
-                                     curriculum_subjects(id),   
-                                     NULL                       
+  class_id           BIGINT          FK → classes(id), NULL     Nếu là bộ riêng
+                                                                 lớp
 
-  lesson_order       INT             NULL                       
+  subject_id         BIGINT          FK →
+                                     curriculum_subjects(id),
+                                     NULL
 
-  lesson_type        VARCHAR(30)     NOT NULL                   VIDEO_LECTURE /
-                                                                PDF_DOCUMENT /
-                                                                MIXED /
-                                                                LIVE_RECORDING
-
-  duration_minutes   INT             NULL                       
+  display_order      INT             NULL
 
   status             VARCHAR(20)     NOT NULL, DEFAULT          DRAFT / PUBLISHED
-                                     \'DRAFT\'                  / ARCHIVED
+                                     'DRAFT'                     / ARCHIVED
 
-  published_at       TIMESTAMPTZ     NULL                       
+  published_at       TIMESTAMPTZ     NULL
 
-  created_by         BIGINT          FK → users(id), NOT NULL    
+  created_by         BIGINT          FK → users(id), NOT NULL
+
+  created_at,        TIMESTAMPTZ     NOT NULL                   BaseAuditEntity —
+  updated_at                                                     bảng lessons cũ
+                                                                 thiếu 2 cột này,
+                                                                 bổ sung khi tái
+                                                                 cấu trúc
   --------------------------------------------------------------------------------
 
-Có lessons_history.
+Có review_video_sets_history.
 
 Ràng buộc:
 
-ALTER TABLE lessons ADD CONSTRAINT chk_lesson_scope CHECK (
+ALTER TABLE review_video_sets ADD CONSTRAINT chk_review_video_set_scope CHECK (
 
 (curriculum_id IS NOT NULL AND class_id IS NULL) OR
 
@@ -101,55 +116,106 @@ ALTER TABLE lessons ADD CONSTRAINT chk_lesson_scope CHECK (
 
 );
 
-*Logic HS xem được bài gì:* HS trong lớp X xem được lessons WHERE
-class_id=X OR curriculum_id=(curriculum của lớp X).
+*Logic HS xem được bộ gì:* HS trong lớp X xem được review_video_sets
+WHERE class_id=X OR curriculum_id=(curriculum của lớp X).
 
-*Ghi chú sửa lỗi (UC-23a):* logic OR ở trên đã có sẵn trong thiết kế từ
-đầu (repository method `findVisibleForClass`) nhưng trước đây chưa được
-`LessonService.listByClass` gọi tới (chỉ lọc theo class_id, bỏ sót bài
-dùng chung theo curriculum) — đã nối dây lại đúng, đồng thời bổ sung
-kiểm tra Học sinh gọi phải có class_enrollments ACTIVE khớp lớp/khung
-đang truy vấn (trước đây API không kiểm tra ghi danh).
+*Ghi chú kế thừa (từ lessons cũ, UC-23a):* logic OR ở trên copy nguyên
+văn từ `Lesson.findVisibleForClass` (repository method, đổi tên thành
+`ReviewVideoSet.findVisibleForClass`) — bản gốc từng có 1 bug (bỏ sót bộ
+dùng chung theo curriculum, chỉ lọc theo class_id) đã được sửa trước khi
+tái cấu trúc, giữ nguyên logic đã fix. Học sinh gọi phải có
+class_enrollments ACTIVE khớp lớp/khung đang truy vấn.
 
-b)  Bảng lesson_materials --- Tệp đính kèm
+b)  Bảng review_videos --- Video/audio trong 1 bộ
 
   --------------------------------------------------------------------------
   **Cột**               **Kiểu**                **Ràng buộc**  **Ghi chú**
   --------------------- ----------------------- -------------- -------------
-  id                    BIGSERIAL               PK              
+  id                    BIGSERIAL               PK
 
-  lesson_id             BIGINT                  FK →           
-                                                lessons(id),   
-                                                NOT NULL       
+  review_video_set_id   BIGINT                  FK →
+                                                 review_video_
+                                                 sets(id), NOT
+                                                 NULL
 
-  material_type         VARCHAR(30)             NOT NULL       VIDEO / PDF /
-                                                               AUDIO / SLIDE
-                                                               / IMAGE /
-                                                               OTHER
+  source_type           VARCHAR(20)             NOT NULL       YOUTUBE_URL /
+                                                                R2_VIDEO /
+                                                                R2_AUDIO
 
-  title                 VARCHAR(300)            NOT NULL       
+  title                 VARCHAR(300)            NOT NULL
 
-  file_url              VARCHAR(1000)           NOT NULL       Bắt buộc qua
-                                                               CDN
-                                                               (FR-LMS-01)
+  file_url              VARCHAR(1000)           NOT NULL       Link YouTube
+                                                                hoặc URL CDN
+                                                                (Cloudflare R2,
+                                                                FR-LMS-01)
 
-  file_size_bytes       BIGINT                  NULL           
+  file_size_bytes       BIGINT                  NULL           NULL với
+                                                                YOUTUBE_URL
 
-  duration_seconds      INT                     NULL            
+  duration_seconds      INT                     NOT NULL       Bắt buộc cho
+                                                                cả 3 nguồn —
+                                                                FE tự phát
+                                                                hiện trước khi
+                                                                gọi API, dùng
+                                                                tính % xem
+                                                                (UC-23a)
 
-  display_order         INT                     NOT NULL,      
-                                                DEFAULT 0      
+  display_order         INT                     NOT NULL,
+                                                 DEFAULT 0
 
-  is_downloadable       BOOLEAN                 NOT NULL,       
-                                                DEFAULT FALSE  
+  created_at,           TIMESTAMPTZ             NOT NULL       BaseAuditEntity
+  updated_at
   --------------------------------------------------------------------------
 
-Không history, thay đổi tài liệu tạo bản mới.
+Không history, thay đổi video tạo bản ghi mới. Bỏ `material_type` (thay
+bằng `source_type`) và `is_downloadable` so với `lesson_materials` cũ —
+cho tải xuống sẽ phá mục đích theo dõi % xem, không có yêu cầu nào cần
+giữ.
+
+c)  Bảng review_video_progress --- Theo dõi tiến độ xem (MỚI HOÀN TOÀN,
+UC-23a, 2026-07-27, bổ sung ngoài SDD gốc đã xác nhận với người dùng —
+chưa từng tồn tại cơ chế này trước khi tái cấu trúc)
+
+  --------------------------------------------------------------------------
+  **Cột**               **Kiểu**                **Ràng buộc**  **Ghi chú**
+  --------------------- ----------------------- -------------- -------------
+  id                    BIGSERIAL               PK
+
+  review_video_id       BIGINT                  FK →
+                                                 review_videos
+                                                 (id), NOT NULL
+
+  student_id            BIGINT                  FK →
+                                                 students(id),
+                                                 NOT NULL
+
+  watched_seconds       INT                     NOT NULL,      Mốc giây CAO
+                                                 DEFAULT 0      NHẤT từng đạt
+                                                                — server lấy
+                                                                max(cũ, mới),
+                                                                không giảm khi
+                                                                tua tới
+
+  is_completed          BOOLEAN                 NOT NULL,      Tính lại mỗi
+                                                 DEFAULT FALSE  lần cập nhật =
+                                                                watched_seconds
+                                                                >= duration_
+                                                                seconds * 0.8
+
+  created_at,           TIMESTAMPTZ             NOT NULL       BaseAuditEntity
+  updated_at
+  --------------------------------------------------------------------------
+
+Ràng buộc: UNIQUE (review_video_id, student_id) — 1 dòng/học sinh/video,
+upsert mỗi lần báo tiến độ. Giáo viên xem thống kê theo bộ + lớp qua API
+riêng (GET /api/review-video-sets/{setId}/stats), ghép ma trận học sinh
+× video ở tầng Service (roster lớp LEFT JOIN video LEFT JOIN tiến độ —
+học sinh chưa xem gì vẫn hiện 0%, không biến mất khỏi ma trận).
 
 ### Kho tài liệu tham khảo (UC-60, FR-LMS-13 — bổ sung ngoài SDD gốc, đã xác nhận với người dùng)
 
-Khái niệm độc lập với lessons/lesson_materials ở trên — không gắn 1 bài
-giảng cụ thể nào, chỉ gắn theo curriculum. Migration V41.
+Khái niệm độc lập với review_video_sets/review_videos ở trên — không gắn
+1 bộ video ôn tập cụ thể nào, chỉ gắn theo curriculum. Migration V41.
 
 ```mermaid
 erDiagram
@@ -217,7 +283,7 @@ a)  Bảng curriculum_documents --- Tài liệu tham khảo
   --------------------------------------------------------------------------------
 
 Không có bảng history — sửa metadata/trạng thái update tại chỗ (không
-có ràng buộc downstream nào cần bất biến, khác questions/lessons).
+có ràng buộc downstream nào cần bất biến, khác questions/review_video_sets).
 
 *Logic HS xem được tài liệu gì:* HS ghi danh ACTIVE tại lớp thuộc
 curriculum X xem được curriculum_documents WHERE curriculum_id=X AND
@@ -229,17 +295,23 @@ dùng `lms.exercise.manage` vì mô tả permission đó đã khai rõ "ngân h�
 câu hỏi & đề kiểm tra", khác ngữ nghĩa.
 
 **Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (2026-07-22, theo
-yêu cầu FE):** `lesson_materials.file_url` và `curriculum_documents.
-file_url` ở trên vốn quy ước "Bắt buộc qua CDN" nhưng thực tế là field
-nhập tay URL, không qua upload thật. Đã thêm 2 module `LESSON_MATERIAL`
-và `CURRICULUM_DOCUMENT` vào `MediaModule` (dùng chung
+yêu cầu FE):** `lesson_materials.file_url` (nay là `review_videos.
+file_url`, xem ghi chú tái cấu trúc 2026-07-27 ở mục Kho Video Ôn tập
+phía trên) và `curriculum_documents.file_url` ở trên vốn quy ước "Bắt
+buộc qua CDN" nhưng thực tế là field nhập tay URL, không qua upload
+thật. Đã thêm 2 module `LESSON_MATERIAL` (nay là `REVIEW_VIDEO`) và
+`CURRICULUM_DOCUMENT` vào `MediaModule` (dùng chung
 `POST /api/media/upload` với `LMS_QUESTION`, xem ghi chú ở mục Ngân hàng
-câu hỏi bên dưới) — 2 module này được nhận thêm PDF/Word/Excel/
+câu hỏi bên dưới) — 2 module này ban đầu được nhận thêm PDF/Word/Excel/
 PowerPoint (≤20MB) và `video/*` (≤200MB) ngoài audio/ảnh, khớp với miền
 giá trị `material_type`/`document_type` (VIDEO/PDF/AUDIO/SLIDE/IMAGE/
 OTHER) đã thiết kế ở 2 bảng trên — cột `material_type`/`document_type`
 vẫn do người dùng tự chọn trong form, không suy ra tự động từ
-Content-Type file upload.
+Content-Type file upload. **Từ 2026-07-27:** `REVIEW_VIDEO` (Kho Video
+Ôn tập) chỉ còn nhận video/audio, không còn PDF/Word/Excel/PowerPoint —
+cờ `acceptsDocuments()` được tách thành `acceptsVideo()`/
+`acceptsOfficeDocuments()` độc lập để hỗ trợ riêng trường hợp này;
+`CURRICULUM_DOCUMENT`/`LMS_QUESTION` không đổi hành vi.
 
 **Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (2026-07-23, V48):**
 thêm cột `cover_image_url` cho `curriculum_documents` — ảnh bìa hiển thị

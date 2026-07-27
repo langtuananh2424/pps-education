@@ -83,7 +83,7 @@ public class GlobalExceptionHandler {
             CurriculumNotEditableException.class, CurriculumNotAvailableForSiteException.class,
             InvalidGradeScoreException.class, GradeNotEditableException.class,
             AttendanceSessionNotEditableException.class, StudentCommentNotEditableException.class,
-            InvalidCommentContextException.class, InvalidLessonScopeException.class, QuestionLockedException.class,
+            InvalidCommentContextException.class, InvalidReviewVideoSetScopeException.class, QuestionLockedException.class,
             ExerciseNotAvailableException.class, RetakeNotAllowedException.class,
             SubmissionPastDeadlineException.class, AttemptNotEditableException.class,
             AnswerNotManuallyGradableException.class, InvalidTeachingPlanPeriodException.class,

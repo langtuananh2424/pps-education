@@ -1,11 +1,11 @@
 # phan-he-07-lms-portal
 
-UC-23: Quản lý bài giảng
+UC-23: Quản lý Kho Video Ôn tập
 
 +-----------------+----------------------------------------------------+
 | **Mã Use Case** | UC-23                                              |
 +-----------------+----------------------------------------------------+
-| **Tên Use       | Quản lý bài giảng                                  |
+| **Tên Use       | Quản lý Kho Video Ôn tập                           |
 | Case**          |                                                    |
 +-----------------+----------------------------------------------------+
 | **Phân hệ**     | Phân hệ 7                                          |
@@ -15,56 +15,71 @@ UC-23: Quản lý bài giảng
 +-----------------+----------------------------------------------------+
 | **Tác nhân**    | Giáo viên                                          |
 |                 |                                                    |
-|                 | (Liên quan/hỗ trợ: CDN/Object Storage)             |
+|                 | (Liên quan/hỗ trợ: CDN/Object Storage, YouTube)    |
 +-----------------+----------------------------------------------------+
-| **Mô tả tóm     | Giáo viên tải lên bài giảng video, tài liệu PDF;   |
-| tắt**           | toàn bộ tệp tin được lưu trữ và phân phối qua CDN  |
-|                 | đảm bảo tải/xem mượt mà.                           |
+| **Mô tả tóm     | Tái cấu trúc 2026-07-27 từ "Kho bài giảng" — đã    |
+| tắt**           | xác nhận với người dùng: bỏ hẳn PDF/Slide/Word,    |
+|                 | chỉ còn video/audio ôn tập, tổ chức theo "bộ"      |
+|                 | (Video từ kết nối/Video phản xạ), theo dõi % thời  |
+|                 | lượng học sinh đã xem (UC-23a).                    |
 +-----------------+----------------------------------------------------+
-| **Sự kiện kích  | Giáo viên cần bổ sung/cập nhật học liệu cho lớp    |
-| hoạt**          | phụ trách.                                         |
+| **Sự kiện kích  | Giáo viên cần bổ sung/cập nhật video ôn tập cho    |
+| hoạt**          | lớp phụ trách.                                     |
 +-----------------+----------------------------------------------------+
-| **Điều kiện     | -   Giáo viên được phân công giảng dạy lớp/khóa    |
-| tiên quyết      |     học liên quan.                                 |
+| **Điều kiện     | -   Giáo viên được phân công giảng dạy lớp/khung   |
+| tiên quyết      |     chương trình liên quan.                        |
 | (               |                                                    |
 | Precondition)** |                                                    |
 +-----------------+----------------------------------------------------+
-| **Luồng sự kiện | 1.  Giáo viên mở Kho bài giảng, chọn Thêm mới, tải |
-| chính (Main     |     lên tệp video hoặc tài liệu PDF.               |
-| Flow)**         |                                                    |
-|                 | 2.  Hệ thống upload tệp lên CDN/Object Storage     |
-|                 |     (không lưu trực tiếp trên server ứng dụng ---  |
-|                 |     NFR-TECH-07), trả về URL phân phối.            |
+| **Luồng sự kiện | 1.  Giáo viên mở Kho Video Ôn tập, tạo bộ mới —    |
+| chính (Main     |     nhập tiêu đề, chọn loại (Video từ kết nối/     |
+| Flow)**         |     Video phản xạ), gán vào 1 lớp cụ thể hoặc 1    |
+|                 |     khung chương trình.                            |
 |                 |                                                    |
-|                 | 3.  Giáo viên nhập metadata: tiêu đề, mô tả, gán   |
-|                 |     vào khóa học/lớp học liên quan, thứ tự hiển    |
-|                 |     thị.                                           |
+|                 | 2.  Giáo viên thêm từng video vào bộ — chọn 1      |
+|                 |     trong 3 nguồn: dán link YouTube, upload file   |
+|                 |     video, hoặc upload file audio. Với file upload,|
+|                 |     hệ thống đẩy lên Cloudflare R2 (không lưu trực |
+|                 |     tiếp trên server ứng dụng --- NFR-TECH-07),    |
+|                 |     trả về URL phân phối.                          |
 |                 |                                                    |
-|                 | 4.  Hệ thống lưu bản ghi bài giảng, liên kết URL   |
-|                 |     CDN.                                           |
+|                 | 3.  Hệ thống lưu URL + thời lượng (giây) của video |
+|                 |     — thời lượng do phía Giáo viên (FE) tự phát    |
+|                 |     hiện và gửi kèm, hệ thống không tự dò.         |
 |                 |                                                    |
-|                 | 5.  Giáo viên có thể chỉnh sửa metadata hoặc gỡ    |
-|                 |     bài giảng khỏi kho khi cần.                    |
+|                 | 4.  Giáo viên sắp thứ tự video trong bộ, công bố   |
+|                 |     (PUBLISHED) khi sẵn sàng cho học sinh xem.     |
+|                 |                                                    |
+|                 | 5.  Giáo viên có thể sửa metadata hoặc gỡ (chuyển  |
+|                 |     ARCHIVED — soft-remove, không xóa cứng) bộ/    |
+|                 |     video khi cần.                                 |
 +-----------------+----------------------------------------------------+
 | **Luồng thay    | ***A1 --- Upload thất bại/tệp quá lớn***           |
 | thế / ngoại lệ  |                                                    |
 | (Alternate      | 1.  Hệ thống báo lỗi upload, cho phép Giáo viên    |
 | Flow)**         |     thử lại hoặc nén/giảm dung lượng tệp trước khi |
 |                 |     tải lên lại.                                   |
+|                 |                                                    |
+|                 | ***A2 --- Không phát hiện được thời lượng video*** |
+|                 |                                                    |
+|                 | 1.  Nếu trình phát (YouTube IFrame Player) hoặc    |
+|                 |     tệp lỗi không đọc được thời lượng, Giáo viên   |
+|                 |     tự nhập tay thời lượng (giây).                 |
 +-----------------+----------------------------------------------------+
-| **Hậu điều kiện | -   Bài giảng được lưu trữ ổn định trên CDN và     |
-| (P              |     hiển thị cho Học sinh thuộc lớp/khóa học tương |
-| ostcondition)** |     ứng (UC-25, UC-27).                            |
+| **Hậu điều kiện | -   Bộ video ôn tập được lưu trữ ổn định trên CDN/ |
+| (P              |     YouTube và hiển thị cho Học sinh thuộc lớp/    |
+| ostcondition)** |     khung chương trình tương ứng khi PUBLISHED     |
+|                 |     (UC-23a).                                      |
 +-----------------+----------------------------------------------------+
 
 ---
 
-UC-23a: Xem bài giảng (Học sinh)
+UC-23a: Xem & Theo dõi Kho Video Ôn tập
 
 +-----------------+----------------------------------------------------+
 | **Mã Use Case** | UC-23a                                             |
 +-----------------+----------------------------------------------------+
-| **Tên Use       | Xem bài giảng (Học sinh)                           |
+| **Tên Use       | Xem & Theo dõi Kho Video Ôn tập                    |
 | Case**          |                                                    |
 +-----------------+----------------------------------------------------+
 | **Phân hệ**     | Phân hệ 7                                          |
@@ -72,52 +87,70 @@ UC-23a: Xem bài giảng (Học sinh)
 | **Yêu cầu chức  | FR-LMS-01                                          |
 | năng gốc**      |                                                    |
 +-----------------+----------------------------------------------------+
-| **Tác nhân**    | Học sinh                                           |
+| **Tác nhân**    | Học sinh (xem + báo tiến độ), Giáo viên (xem       |
+|                 | thống kê)                                          |
 +-----------------+----------------------------------------------------+
-| **Mô tả tóm     | Học sinh xem kho bài giảng (lessons +              |
-| tắt**           | lesson_materials) của (các) lớp mình đang ghi danh |
-|                 | — đã có tên trong sơ đồ actor                      |
-|                 | (UseCase-HocSinh.mmd) và được UC-42 dẫn chiếu từ   |
-|                 | trước nhưng chưa từng có Main Flow/Postcondition   |
-|                 | riêng; bổ sung đầy đủ nhân dịp sửa lại đúng logic  |
-|                 | hiển thị theo SDD (bổ sung ngoài SDD gốc, đã xác   |
-|                 | nhận với người dùng).                              |
+| **Mô tả tóm     | Học sinh xem kho video ôn tập (review_video_sets + |
+| tắt**           | review_videos) của (các) lớp mình đang ghi danh;   |
+|                 | hệ thống tự theo dõi số giây đã xem, đạt ≥80% thời |
+|                 | lượng thì coi là "đã xem" (review_video_progress — |
+|                 | bổ sung ngoài SDD gốc, đã xác nhận với người dùng  |
+|                 | 2026-07-27). Giáo viên xem thống kê học sinh đã    |
+|                 | xem/chưa xem theo từng bộ + lớp.                   |
 +-----------------+----------------------------------------------------+
-| **Sự kiện kích  | Học sinh mở kho bài giảng của 1 lớp mình đang học. |
-| hoạt**          |                                                    |
+| **Sự kiện kích  | Học sinh mở kho video ôn tập của 1 lớp mình đang   |
+| hoạt**          | học; Giáo viên mở màn hình thống kê 1 bộ.          |
 +-----------------+----------------------------------------------------+
 | **Điều kiện     | -   Học sinh đã đăng nhập, có class_enrollment     |
 | tiên quyết      |     ACTIVE tại lớp đang xem.                       |
 | (               |                                                    |
-| Precondition)** | -   Bài giảng đã được Giáo viên publish (UC-23).   |
+| Precondition)** | -   Bộ video đã được Giáo viên publish (UC-23).    |
 +-----------------+----------------------------------------------------+
 | **Luồng sự kiện | 1.  Học sinh chọn 1 lớp đang ghi danh (UC-42), mở  |
-| chính (Main     |     tab "Kho bài giảng".                           |
+| chính (Main     |     tab "Kho Video Ôn tập".                        |
 | Flow)**         |                                                    |
-|                 | 2.  Hệ thống trả về mọi lessons có                 |
-|                 |     status=PUBLISHED và (gắn riêng đúng lớp này    |
-|                 |     HOẶC gắn chung theo khung chương trình của lớp |
-|                 |     này) — đúng logic OR đã thiết kế trong SDD     |
-|                 |     ("HS trong lớp X xem được lessons WHERE        |
-|                 |     class_id=X OR curriculum_id=curriculum của lớp |
-|                 |     X").                                           |
+|                 | 2.  Hệ thống trả về mọi bộ có status=PUBLISHED và  |
+|                 |     (gắn riêng đúng lớp này HOẶC gắn chung theo    |
+|                 |     khung chương trình của lớp này) — đúng logic   |
+|                 |     OR đã thiết kế trong SDD.                      |
 |                 |                                                    |
-|                 | 3.  Học sinh chọn 1 bài giảng, xem danh sách       |
-|                 |     lesson_materials đính kèm (video/PDF/audio...) |
-|                 |     để phát/tải về.                                |
+|                 | 3.  Học sinh chọn 1 bộ, xem danh sách video, chọn  |
+|                 |     phát 1 video.                                  |
+|                 |                                                    |
+|                 | 4.  Trong lúc xem, hệ thống ghi nhận định kỳ số    |
+|                 |     giây đã xem — lấy mốc giây CAO NHẤT từng đạt,  |
+|                 |     không tính lùi khi học sinh tua tới — đạt ≥80% |
+|                 |     thời lượng thì coi là "đã xem".                |
+|                 |                                                    |
+|                 | 5.  Giáo viên xem thống kê theo bộ + lớp — từng    |
+|                 |     học sinh đã xem bao nhiêu % mỗi video, đạt     |
+|                 |     "đã xem" hay chưa (kể cả học sinh chưa từng mở |
+|                 |     video nào, hiển thị 0%).                       |
 +-----------------+----------------------------------------------------+
 | **Luồng thay    | ***A1 --- Học sinh chưa/không còn ghi danh lớp     |
 | thế / ngoại lệ  | đang gọi***                                        |
 | (Alternate      |                                                    |
 | Flow)**         | 1.  Nếu không có class_enrollment ACTIVE khớp lớp  |
 |                 |     đang truy vấn, hệ thống từ chối truy cập (404, |
-|                 |     không lộ thông tin bài giảng của lớp không     |
+|                 |     không lộ thông tin bộ video của lớp không      |
 |                 |     thuộc về mình).                                |
+|                 |                                                    |
+|                 | ***A2 --- Học sinh báo tiến độ cho video ngoài     |
+|                 | phạm vi lớp mình***                                |
+|                 |                                                    |
+|                 | 1.  Cùng cơ chế 404 như A1 — không lộ sự tồn tại   |
+|                 |     của video ngoài phạm vi lớp học sinh đang học. |
 +-----------------+----------------------------------------------------+
-| **Hậu điều kiện | -   Học sinh chỉ thấy bài giảng PUBLISHED thuộc    |
-| (P              |     đúng phạm vi lớp/khung chương trình mình đang  |
-| ostcondition)** |     học — không thấy bài DRAFT hay bài của         |
-|                 |     lớp/khung khác.                                |
+| **Hậu điều kiện | -   Học sinh chỉ thấy bộ PUBLISHED thuộc đúng      |
+| (P              |     phạm vi lớp/khung chương trình mình đang học — |
+| ostcondition)** |     không thấy bộ DRAFT hay bộ của lớp/khung khác. |
+|                 |                                                    |
+|                 | -   Tiến độ xem của học sinh được lưu lại, không   |
+|                 |     giảm theo thời gian.                           |
+|                 |                                                    |
+|                 | -   Giáo viên xem được thống kê chính xác kể cả    |
+|                 |     học sinh chưa từng mở video nào (hiện 0%,      |
+|                 |     không biến mất khỏi danh sách).                |
 +-----------------+----------------------------------------------------+
 
 ---
@@ -138,8 +171,8 @@ UC-60: Kho tài liệu tham khảo
 | **Tác nhân**    | Giáo viên, Trưởng phòng đào tạo/Quản lý điểm       |
 |                 | trường, Học sinh                                   |
 +-----------------+----------------------------------------------------+
-| **Mô tả tóm     | Kho tài liệu tham khảo độc lập với bài giảng       |
-| tắt**           | (UC-23/23a) — không gắn 1 bài giảng cụ thể nào,    |
+| **Mô tả tóm     | Kho tài liệu tham khảo độc lập với Kho Video Ôn    |
+| tắt**           | tập (UC-23/23a) — không gắn 1 bộ video cụ thể nào, |
 |                 | chỉ gắn theo khung chương trình (curriculum). Giáo |
 |                 | viên/Trưởng phòng đào tạo/Quản lý điểm trường      |
 |                 | upload tài liệu (PDF/video/audio/slide/ảnh...),    |
@@ -721,15 +754,25 @@ UC-40: Soạn & giao đề kiểm tra
 >
 > **Mở rộng, đã xác nhận với người dùng (2026-07-22, theo yêu cầu FE):**
 > thêm 2 module `CURRICULUM_DOCUMENT` (`curriculum_documents.file_url`,
-> UC-60) và `LESSON_MATERIAL` (`lesson_materials.file_url`, mục "Tệp đính
-> kèm" ở trên) vào `MediaModule` — 2 field này trước đây cũng là nhập tay
-> URL, giờ upload thật qua cùng API `POST /api/media/upload`. 2 module
-> này được nhận thêm PDF/Word/Excel/PowerPoint (≤20MB) và `video/*`
-> (≤200MB) ngoài audio/ảnh (xem `MediaModule.acceptsDocuments()`/
-> `MediaStorageService`) — `LMS_QUESTION` giữ nguyên hành vi cũ (chỉ
-> audio/ảnh). Key R2 tương ứng: `lms/curriculum-documents/{category}/` và
-> `lms/lesson-materials/{category}/` (`category` = `audio`/`images`/
-> `video`/`documents` theo content-type).
+> UC-60) và `LESSON_MATERIAL` (`lesson_materials.file_url`, xem UC-23 —
+> đã đổi tên thành `REVIEW_VIDEO` từ 2026-07-27, xem ghi chú ngay dưới)
+> vào `MediaModule` — 2 field này trước đây cũng là nhập tay URL, giờ
+> upload thật qua cùng API `POST /api/media/upload`. `LMS_QUESTION` cũng
+> được bật nhận PDF/ảnh cho câu tự luận cùng đợt này.
+>
+> **Tái cấu trúc 2026-07-27 (Kho Video Ôn tập, đã xác nhận với người
+> dùng):** `LESSON_MATERIAL` đổi tên thành `REVIEW_VIDEO`
+> (`review_videos.file_url`, xem UC-23 ở trên) — Kho Video Ôn tập đã bỏ
+> hẳn PDF/Slide/Word, chỉ còn video/audio, nên cờ `acceptsDocuments()`
+> (1 cờ duy nhất gộp cả video lẫn tài liệu văn phòng) được tách thành 2
+> cờ độc lập `acceptsVideo()`/`acceptsOfficeDocuments()` trên
+> `MediaModule` để có thể "cho video, cấm PDF" riêng cho `REVIEW_VIDEO`.
+> `CURRICULUM_DOCUMENT`/`LMS_QUESTION` giữ nguyên hành vi kết hợp cũ (cả
+> 2 cờ đều bật — nhận PDF/Word/Excel/PowerPoint ≤20MB và `video/*`
+> ≤200MB ngoài audio/ảnh); `REVIEW_VIDEO` chỉ bật `acceptsVideo()` (nhận
+> video/audio, từ chối PDF/Word/Excel/PowerPoint). Key R2 tương ứng:
+> `lms/curriculum-documents/{category}/` và `lms/review-videos/{category}/`
+> (`category` = `audio`/`images`/`video`/`documents` theo content-type).
 
 ---
 
