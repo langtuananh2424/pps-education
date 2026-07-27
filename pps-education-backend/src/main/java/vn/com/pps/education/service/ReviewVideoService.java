@@ -9,16 +9,20 @@ import vn.com.pps.education.domain.ReviewVideo;
 import vn.com.pps.education.domain.ReviewVideoProgress;
 import vn.com.pps.education.domain.ReviewVideoSet;
 import vn.com.pps.education.domain.ReviewVideoSetHistory;
+import vn.com.pps.education.domain.ReviewVideoSubmission;
 import vn.com.pps.education.domain.SchoolClass;
 import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.dto.AddReviewVideoRequest;
 import vn.com.pps.education.dto.CreateReviewVideoSetRequest;
+import vn.com.pps.education.dto.GradeReviewVideoSubmissionRequest;
 import vn.com.pps.education.dto.ReportVideoProgressRequest;
 import vn.com.pps.education.dto.ReviewVideoProgressResponse;
 import vn.com.pps.education.dto.ReviewVideoResponse;
 import vn.com.pps.education.dto.ReviewVideoSetResponse;
 import vn.com.pps.education.dto.ReviewVideoSetStatsResponse;
+import vn.com.pps.education.dto.ReviewVideoSubmissionResponse;
+import vn.com.pps.education.dto.SubmitReviewVideoAudioRequest;
 import vn.com.pps.education.dto.UpdateReviewVideoSetRequest;
 import vn.com.pps.education.exception.InvalidReviewVideoSetScopeException;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
@@ -31,6 +35,7 @@ import vn.com.pps.education.repository.ReviewVideoProgressRepository;
 import vn.com.pps.education.repository.ReviewVideoRepository;
 import vn.com.pps.education.repository.ReviewVideoSetHistoryRepository;
 import vn.com.pps.education.repository.ReviewVideoSetRepository;
+import vn.com.pps.education.repository.ReviewVideoSubmissionRepository;
 import vn.com.pps.education.repository.SchoolClassRepository;
 import vn.com.pps.education.repository.StudentRepository;
 import vn.com.pps.education.repository.UserRepository;
@@ -45,7 +50,9 @@ import java.util.stream.Collectors;
 /**
  * UC-23: Quản lý Kho Video Ôn tập (FR-LMS-01, Giáo viên) + UC-23a: Xem &
  * Theo dõi Kho Video Ôn tập (FR-LMS-01, Học sinh xem + báo tiến độ, Giáo
- * viên xem thống kê). Xem docs/uc/phan-he-07-lms-portal.md.
+ * viên xem thống kê) + UC-23b: Nộp & Chấm điểm Audio cho Video Phản xạ
+ * (FR-LMS-01, Học sinh nộp audio cho video REFLEX, Giáo viên chấm điểm).
+ * Xem docs/uc/phan-he-07-lms-portal.md.
  *
  * Tái cấu trúc 2026-07-27 từ "Kho bài giảng" (LessonService) — đã xác
  * nhận với người dùng: bỏ hẳn PDF/Slide/Word, chỉ còn video/audio, thêm
@@ -65,6 +72,7 @@ public class ReviewVideoService {
     private final ReviewVideoRepository reviewVideoRepository;
     private final ReviewVideoSetHistoryRepository reviewVideoSetHistoryRepository;
     private final ReviewVideoProgressRepository reviewVideoProgressRepository;
+    private final ReviewVideoSubmissionRepository reviewVideoSubmissionRepository;
     private final CurriculumRepository curriculumRepository;
     private final SchoolClassRepository schoolClassRepository;
     private final CurriculumSubjectRepository curriculumSubjectRepository;
@@ -77,6 +85,7 @@ public class ReviewVideoService {
                                ReviewVideoRepository reviewVideoRepository,
                                ReviewVideoSetHistoryRepository reviewVideoSetHistoryRepository,
                                ReviewVideoProgressRepository reviewVideoProgressRepository,
+                               ReviewVideoSubmissionRepository reviewVideoSubmissionRepository,
                                CurriculumRepository curriculumRepository,
                                SchoolClassRepository schoolClassRepository,
                                CurriculumSubjectRepository curriculumSubjectRepository,
@@ -88,6 +97,7 @@ public class ReviewVideoService {
         this.reviewVideoRepository = reviewVideoRepository;
         this.reviewVideoSetHistoryRepository = reviewVideoSetHistoryRepository;
         this.reviewVideoProgressRepository = reviewVideoProgressRepository;
+        this.reviewVideoSubmissionRepository = reviewVideoSubmissionRepository;
         this.curriculumRepository = curriculumRepository;
         this.schoolClassRepository = schoolClassRepository;
         this.curriculumSubjectRepository = curriculumSubjectRepository;
@@ -237,6 +247,54 @@ public class ReviewVideoService {
     }
 
     /**
+     * UC-23b Main Flow bước 1-2: học sinh nộp (hoặc nộp lại) audio trả
+     * lời cho video REFLEX — chỉ áp dụng videoType=REFLEX (A1). Nộp lại
+     * GHI ĐÈ audioUrl (UNIQUE review_video_id+student_id) và XOÁ sạch
+     * điểm/nhận xét cũ (A5) vì điểm cũ chấm cho nội dung audio đã không
+     * còn tồn tại — giáo viên phải chấm lại. Chặn bởi requireStudentCanViewSet
+     * TRƯỚC khi check videoType để không lộ loại video ngoài phạm vi lớp
+     * mình (A2, cùng cơ chế 404 với UC-23a).
+     */
+    @Transactional
+    public ReviewVideoSubmissionResponse submitAudio(Long videoId, SubmitReviewVideoAudioRequest request, Long actorUserId) {
+        ReviewVideo video = getVideoOrThrow(videoId);
+        Student student = requireStudentCanViewSet(video.getReviewVideoSet(), actorUserId);
+        if (video.getReviewVideoSet().getVideoType() != ReviewVideoSet.VideoType.REFLEX) {
+            throw new IllegalArgumentException("Video id=" + videoId + " không phải loại Video phản xạ (REFLEX) — không nhận nộp audio.");
+        }
+
+        ReviewVideoSubmission submission = reviewVideoSubmissionRepository
+                .findByReviewVideoIdAndStudentId(videoId, student.getId())
+                .orElseGet(() -> {
+                    ReviewVideoSubmission s = new ReviewVideoSubmission();
+                    s.setReviewVideo(video);
+                    s.setStudent(student);
+                    return s;
+                });
+        boolean resubmit = submission.getId() != null;
+        submission.setAudioUrl(request.audioUrl());
+        submission.setSubmittedAt(OffsetDateTime.now());
+        if (resubmit) {
+            submission.setScore(null);
+            submission.setMaxScore(null);
+            submission.setFeedback(null);
+            submission.setGradedBy(null);
+            submission.setGradedAt(null);
+        }
+        submission = reviewVideoSubmissionRepository.save(submission);
+        return toResponse(submission);
+    }
+
+    /** UC-23b: học sinh xem bài audio mình đã nộp cho 1 video — null nếu chưa nộp. */
+    @Transactional(readOnly = true)
+    public ReviewVideoSubmissionResponse getMySubmission(Long videoId, Long actorUserId) {
+        ReviewVideo video = getVideoOrThrow(videoId);
+        Student student = requireStudentCanViewSet(video.getReviewVideoSet(), actorUserId);
+        return reviewVideoSubmissionRepository.findByReviewVideoIdAndStudentId(videoId, student.getId())
+                .map(this::toResponse).orElse(null);
+    }
+
+    /**
      * UC-23a Main Flow bước 4: thống kê giáo viên — ma trận học sinh ×
      * video cho 1 lớp cụ thể. Bắt đầu từ roster lớp (ClassEnrollment
      * ACTIVE) LEFT JOIN video/tiến độ (không bắt đầu từ bảng progress) để
@@ -246,24 +304,7 @@ public class ReviewVideoService {
     public ReviewVideoSetStatsResponse getStats(Long setId, Long classIdParam, Long actorUserId) {
         ReviewVideoSet set = getSetOrThrow(setId);
         requireOwnerScope(set, actorUserId);
-
-        Long classId;
-        if (set.getSchoolClass() != null) {
-            if (classIdParam != null && !classIdParam.equals(set.getSchoolClass().getId())) {
-                throw new IllegalArgumentException("classId không khớp lớp của bộ video id=" + setId + ".");
-            }
-            classId = set.getSchoolClass().getId();
-        } else {
-            if (classIdParam == null) {
-                throw new IllegalArgumentException(
-                        "Bộ video id=" + setId + " gán theo khung chương trình — bắt buộc truyền classId để xem thống kê theo đúng 1 lớp.");
-            }
-            SchoolClass schoolClass = getClassOrThrow(classIdParam);
-            if (schoolClass.getCurriculum() == null || !schoolClass.getCurriculum().getId().equals(set.getCurriculum().getId())) {
-                throw new IllegalArgumentException("Lớp id=" + classIdParam + " không thuộc khung chương trình của bộ video id=" + setId + ".");
-            }
-            classId = classIdParam;
-        }
+        Long classId = resolveClassIdForSet(set, classIdParam);
 
         List<ClassEnrollment> roster = classEnrollmentRepository.findBySchoolClassIdAndStatus(classId, ClassEnrollment.Status.ACTIVE);
         List<ReviewVideo> videos = reviewVideoRepository.findByReviewVideoSetIdOrderByDisplayOrder(setId);
@@ -289,6 +330,46 @@ public class ReviewVideoService {
             }
         }
         return new ReviewVideoSetStatsResponse(headers, cells);
+    }
+
+    /**
+     * UC-23b Main Flow bước 3: giáo viên xem danh sách bài audio đã nộp
+     * (chỉ các dòng đã thực sự nộp — không dựng ma trận roster × video
+     * đầy đủ như getStats(), vì đây là "danh sách chờ chấm" không phải
+     * "thống kê xem video").
+     */
+    @Transactional(readOnly = true)
+    public List<ReviewVideoSubmissionResponse> listSubmissionsForTeacher(Long setId, Long classIdParam, Long actorUserId) {
+        ReviewVideoSet set = getSetOrThrow(setId);
+        requireOwnerScope(set, actorUserId);
+        Long classId = resolveClassIdForSet(set, classIdParam);
+
+        List<Long> studentIds = classEnrollmentRepository.findBySchoolClassIdAndStatus(classId, ClassEnrollment.Status.ACTIVE)
+                .stream().map(e -> e.getStudent().getId()).toList();
+        List<Long> videoIds = reviewVideoRepository.findByReviewVideoSetIdOrderByDisplayOrder(setId)
+                .stream().map(ReviewVideo::getId).toList();
+        if (studentIds.isEmpty() || videoIds.isEmpty()) {
+            return List.of();
+        }
+        return reviewVideoSubmissionRepository.findByReviewVideoIdInAndStudentIdIn(videoIds, studentIds)
+                .stream().map(this::toResponse).toList();
+    }
+
+    /** UC-23b Main Flow bước 4: giáo viên chấm điểm + nhận xét cho 1 bài audio đã nộp (A3 nếu không phụ trách lớp, A4 nếu không tồn tại). */
+    @Transactional
+    public ReviewVideoSubmissionResponse gradeSubmission(Long submissionId, GradeReviewVideoSubmissionRequest request, Long actorUserId) {
+        ReviewVideoSubmission submission = reviewVideoSubmissionRepository.findById(submissionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bài nộp id=" + submissionId));
+        requireOwnerScope(submission.getReviewVideo().getReviewVideoSet(), actorUserId);
+        User actor = getUserOrThrow(actorUserId);
+
+        submission.setScore(request.score());
+        submission.setMaxScore(request.maxScore());
+        submission.setFeedback(request.feedback());
+        submission.setGradedBy(actor);
+        submission.setGradedAt(OffsetDateTime.now());
+        submission = reviewVideoSubmissionRepository.save(submission);
+        return toResponse(submission);
     }
 
     // ===================== Helpers =====================
@@ -348,6 +429,30 @@ public class ReviewVideoService {
         } else {
             requireAssignedTeacher(set.getSchoolClass().getId(), actorUserId);
         }
+    }
+
+    /**
+     * Dùng chung cho getStats()/listSubmissionsForTeacher(): bộ riêng 1
+     * lớp thì classId suy ra từ bộ (bỏ qua/đối chiếu classIdParam nếu
+     * có); bộ dùng chung theo khung chương trình thì bắt buộc truyền
+     * classIdParam và phải thuộc đúng khung đó.
+     */
+    private Long resolveClassIdForSet(ReviewVideoSet set, Long classIdParam) {
+        if (set.getSchoolClass() != null) {
+            if (classIdParam != null && !classIdParam.equals(set.getSchoolClass().getId())) {
+                throw new IllegalArgumentException("classId không khớp lớp của bộ video id=" + set.getId() + ".");
+            }
+            return set.getSchoolClass().getId();
+        }
+        if (classIdParam == null) {
+            throw new IllegalArgumentException(
+                    "Bộ video id=" + set.getId() + " gán theo khung chương trình — bắt buộc truyền classId để xem theo đúng 1 lớp.");
+        }
+        SchoolClass schoolClass = getClassOrThrow(classIdParam);
+        if (schoolClass.getCurriculum() == null || !schoolClass.getCurriculum().getId().equals(set.getCurriculum().getId())) {
+            throw new IllegalArgumentException("Lớp id=" + classIdParam + " không thuộc khung chương trình của bộ video id=" + set.getId() + ".");
+        }
+        return classIdParam;
     }
 
     private void requireAssignedTeacher(Long classId, Long actorUserId) {
@@ -427,5 +532,12 @@ public class ReviewVideoService {
     private ReviewVideoProgressResponse toResponse(ReviewVideoProgress p, ReviewVideo video) {
         int percent = watchedPercentOf(p.getWatchedSeconds(), video.getDurationSeconds());
         return new ReviewVideoProgressResponse(video.getId(), p.getWatchedSeconds(), video.getDurationSeconds(), percent, p.isCompleted());
+    }
+
+    private ReviewVideoSubmissionResponse toResponse(ReviewVideoSubmission s) {
+        return new ReviewVideoSubmissionResponse(
+                s.getId(), s.getReviewVideo().getId(), s.getStudent().getId(), s.getStudent().getUser().getFullName(),
+                s.getAudioUrl(), s.getSubmittedAt(), s.getScore(), s.getMaxScore(), s.getFeedback(),
+                s.getGradedBy() == null ? null : s.getGradedBy().getId(), s.getGradedAt());
     }
 }

@@ -22,11 +22,19 @@ package vn.com.pps.education.service;
  * STUDENT/PARENT/EMPLOYEE: bổ sung ngoài SDD gốc, đã xác nhận với người
  * dùng (2026-07-23) - ảnh đại diện (students/parents/employees.
  * portrait_url, V48). Cả 2 cờ `false` vì chỉ nhận ảnh, không cần PDF/video.
+ *
+ * REVIEW_VIDEO_SUBMISSION: bổ sung ngoài SDD gốc, đã xác nhận với người
+ * dùng (2026-07-27, UC-23b) - audio Học sinh nộp trả lời cho video REFLEX
+ * (review_video_submissions.audio_url). Tách folder riêng với REVIEW_VIDEO
+ * (file Giáo viên upload) dù cùng module Kho Video Ôn tập, để không trộn
+ * lẫn nội dung GV tạo với nội dung HS nộp trên R2. Cả 2 cờ `false` vì chỉ
+ * nhận audio (mọi module đã được nhận audio/* mặc định, xem MediaStorageService).
  */
 public enum MediaModule {
     LMS_QUESTION("lms/questions", true, true),
     CURRICULUM_DOCUMENT("lms/curriculum-documents", true, true),
     REVIEW_VIDEO("lms/review-videos", true, false),
+    REVIEW_VIDEO_SUBMISSION("lms/review-video-submissions", false, false),
     STUDENT("profiles/students", false, false),
     PARENT("profiles/parents", false, false),
     EMPLOYEE("profiles/employees", false, false);
