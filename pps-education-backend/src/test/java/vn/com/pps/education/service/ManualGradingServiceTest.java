@@ -117,12 +117,12 @@ class ManualGradingServiceTest extends AbstractIntegrationTest {
 
         mcQuestion = questionBankService.createQuestion(
                 new CreateQuestionRequest(bank.id(), "MULTIPLE_CHOICE", "GRAMMAR", "EASY", "She ___ to school.",
-                        null, null, null, null, new BigDecimal("1.0"), null,
+                        null, null, null, null, null, new BigDecimal("1.0"), null,
                         List.of(new QuestionChoiceRequest("A", "go", false, 1), new QuestionChoiceRequest("B", "goes", true, 2))),
                 teacher.getId());
         essayQuestion = questionBankService.createQuestion(
                 new CreateQuestionRequest(bank.id(), "ESSAY", "WRITING", "MEDIUM", "Viết đoạn văn 50 từ.",
-                        null, null, null, null, new BigDecimal("2.0"), null, null),
+                        null, null, null, null, null, new BigDecimal("2.0"), null, null),
                 teacher.getId());
 
         studentUser = newUser("student");

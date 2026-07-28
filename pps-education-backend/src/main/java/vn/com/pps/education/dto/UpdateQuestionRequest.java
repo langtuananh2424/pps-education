@@ -17,6 +17,7 @@ public record UpdateQuestionRequest(
         String imageUrl,
         String referencePassage,
         String explanation,
+        String correctAnswerText,
         BigDecimal defaultPoints,
         List<String> tags,
         @Valid List<QuestionChoiceRequest> choices,
