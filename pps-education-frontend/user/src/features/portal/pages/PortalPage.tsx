@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from "react";
-import { BookOpen, Calendar, CreditCard, Home, LogOut, Award, School } from "lucide-react";
+import { BookOpen, Calendar, CreditCard, Home, LogOut, Award, School, Users, Menu, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import { ChildResponse, listClassOptions, listMyChildren, PortalClassOptionResponse } from "../api";
 import HomeTab from "../components/HomeTab";
+import PortalDropdown from "../components/PortalDropdown";
 import ScheduleTab from "../components/ScheduleTab";
+import StudentScheduleTab from "../components/StudentScheduleTab";
+import AssignmentsTab from "../components/AssignmentsTab";
 import GradesTab from "../components/GradesTab";
 import BillingTab from "../components/BillingTab";
 import LmsTab from "../components/LmsTab";
@@ -22,12 +25,13 @@ const TABS: { key: Tab; label: string; icon: React.ComponentType<{ size?: number
 ];
 
 /**
- * UC-42 mới chỉ mở self-access cho học sinh ở /portal/students/{id}/class-options
- * và /auth/me (studentId) — 5 API còn lại (grades/attendance/comments/schedule/
- * invoices/my, thuộc ParentPortalService/InvoiceService) vẫn chỉ chấp nhận Phụ
- * huynh (requireLinkedParent/parentOrThrow), gọi bằng tài khoản Học sinh sẽ 403.
- * Nên chỉ tab LMS chạy thật cho Học sinh — 4 tab còn lại hiện ComingSoon, chờ BE
- * áp dụng cùng pattern requireOwnerOrLinkedParent cho các Service đó.
+ * UC-42 mở self-access cho học sinh ở /portal/students/{id}/class-options,
+ * /auth/me (studentId), và giờ có thêm /students/me/sessions (UC-59, lịch học
+ * — xem StudentScheduleTab). 4 API còn lại (grades/attendance/comments/
+ * invoices/my, thuộc ParentPortalService/InvoiceService) vẫn chỉ chấp nhận
+ * Phụ huynh (requireLinkedParent/parentOrThrow), gọi bằng tài khoản Học sinh
+ * sẽ 403 — các tab đó vẫn hiện ComingSoon, chờ BE áp dụng cùng pattern
+ * requireOwnerOrLinkedParent cho các Service đó.
  */
 export default function PortalPage() {
   const { currentUser, isParent, isStudent, logout } = useApp();
@@ -40,6 +44,7 @@ export default function PortalPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     if (isParent) {
@@ -99,6 +104,15 @@ export default function PortalPage() {
       <nav className="bg-white border-b border-line sticky top-0 z-50 shadow-sm w-full py-2.5">
         <div className="w-full max-w-[1560px] mx-auto px-4 md:px-8 xl:px-12 flex items-center justify-between">
           <div className="flex items-center gap-3">
+            {!noViewerData && !loading && (
+              <button
+                onClick={() => setMobileMenuOpen(true)}
+                className="lg:hidden shrink-0 w-9 h-9 rounded-xl bg-sky-2 border border-line flex items-center justify-center text-ink hover:bg-sky transition-colors"
+                aria-label="Mở menu"
+              >
+                <Menu size={18} />
+              </button>
+            )}
             <div className="w-10 h-10 rounded-xl bg-teal border-2 border-teal-deep flex items-center justify-center shadow-[0_3px_0_var(--teal-deep)]">
               <span className="font-display font-extrabold text-white text-xl">P</span>
             </div>
@@ -143,6 +157,10 @@ export default function PortalPage() {
           className={currentClass?.className ?? null}
           classCode={currentClass?.classCode ?? null}
           enrollmentStatus={currentClass?.status ?? null}
+          parentName={isParent ? currentUser?.fullName ?? null : null}
+          parentPhone={isParent ? currentUser?.phone ?? null : null}
+          isStudent={isStudent}
+          isParent={isParent}
           onClose={() => setProfileOpen(false)}
         />
       )}
@@ -158,52 +176,69 @@ export default function PortalPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            <div className="lg:col-span-3 bg-white border border-line/80 rounded-[24px] p-6 shadow-[0_8px_30px_rgba(30,42,69,0.03)] space-y-6">
-              {children.length > 1 && (
-                <select
-                  value={selectedChildId ?? ""}
-                  onChange={(e) => setSelectedChildId(Number(e.target.value))}
-                  className="w-full text-xs font-extrabold text-ink bg-sky-2 border border-line px-3 py-2.5 rounded-[16px]"
+            {mobileMenuOpen && (
+              <div
+                className="fixed inset-0 z-[70] bg-ink/40 backdrop-blur-[1px] lg:hidden"
+                onClick={() => setMobileMenuOpen(false)}
+              />
+            )}
+
+            <div
+              className={`fixed inset-y-0 left-0 z-[80] w-[82%] max-w-[320px] overflow-y-auto bg-white p-6 shadow-[0_8px_40px_rgba(30,42,69,0.18)] transition-transform duration-300 ease-in-out
+                lg:sticky lg:top-[76px] lg:z-auto lg:col-span-3 lg:w-auto lg:max-w-none lg:translate-x-0 lg:shadow-[0_8px_30px_rgba(30,42,69,0.03)] lg:rounded-[24px] lg:border lg:border-line/80
+                ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full"}`}
+            >
+              <div className="flex items-center justify-between mb-5 lg:hidden">
+                <span className="text-xs font-extrabold uppercase tracking-wide text-muted">Menu</span>
+                <button
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="w-8 h-8 rounded-full bg-sky-2 border border-line flex items-center justify-center text-ink hover:bg-sky transition-colors"
+                  aria-label="Đóng menu"
                 >
-                  {children.map((c) => (
-                    <option key={c.studentId} value={c.studentId}>
-                      {c.studentFullName} ({c.studentCode})
-                    </option>
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                {children.length > 1 && (
+                  <PortalDropdown
+                    icon={Users}
+                    label="Học viên"
+                    value={selectedChildId ?? 0}
+                    onChange={(v) => setSelectedChildId(v)}
+                    options={children.map((c) => ({ value: c.studentId, label: `${c.studentFullName} (${c.studentCode})` }))}
+                  />
+                )}
+
+                {classOptions.length > 1 && (
+                  <PortalDropdown
+                    icon={School}
+                    label="Lớp đang học"
+                    value={selectedClassId ?? 0}
+                    onChange={(v) => setSelectedClassId(v)}
+                    options={classOptions.map((c) => ({ value: c.classId, label: c.className }))}
+                  />
+                )}
+
+                <div className="space-y-3">
+                  {/* Học phí & Dịch vụ (invoices/thanh toán) chỉ dành Phụ huynh — Học sinh không cần/không nên xem thông tin tài chính của gia đình. */}
+                  {TABS.filter((tab) => tab.key !== "billing" || isParent).map(({ key, label, icon: Icon }) => (
+                    <button
+                      key={key}
+                      onClick={() => {
+                        setActiveTab(key);
+                        setMobileMenuOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-[16px] font-bold text-sm transition-all border ${
+                        activeTab === key
+                          ? "bg-teal text-white border-teal-deep shadow-[0_4px_12px_rgba(23,166,160,0.2)]"
+                          : "bg-slate-50/50 hover:bg-slate-50 text-muted border-line/60"
+                      }`}
+                    >
+                      <Icon size={18} /> {label}
+                    </button>
                   ))}
-                </select>
-              )}
-
-              {classOptions.length > 1 && (
-                <div className="flex items-center gap-2 bg-sky-2 border border-line px-3 py-2 rounded-[16px]">
-                  <School size={14} className="text-teal shrink-0" />
-                  <select
-                    value={selectedClassId ?? ""}
-                    onChange={(e) => setSelectedClassId(Number(e.target.value))}
-                    className="w-full text-xs font-extrabold text-ink bg-transparent focus:outline-none"
-                  >
-                    {classOptions.map((c) => (
-                      <option key={c.classEnrollmentId} value={c.classId}>
-                        {c.className}
-                      </option>
-                    ))}
-                  </select>
                 </div>
-              )}
-
-              <div className="space-y-3">
-                {TABS.map(({ key, label, icon: Icon }) => (
-                  <button
-                    key={key}
-                    onClick={() => setActiveTab(key)}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-[16px] font-bold text-sm transition-all border ${
-                      activeTab === key
-                        ? "bg-teal text-white border-teal-deep shadow-[0_4px_12px_rgba(23,166,160,0.2)]"
-                        : "bg-slate-50/50 hover:bg-slate-50 text-muted border-line/60"
-                    }`}
-                  >
-                    <Icon size={18} /> {label}
-                  </button>
-                ))}
               </div>
             </div>
 
@@ -216,31 +251,42 @@ export default function PortalPage() {
                 <>
                   {activeTab === "home" &&
                     (isParent && selectedChild ? (
-                      <HomeTab studentId={selectedChild.studentId} classId={selectedClassId} studentName={selectedChild.studentFullName} />
-                    ) : (
-                      <ComingSoon
-                        title="Trang chủ & Bảng tin"
-                        description="Đang chờ Backend mở API cho Học sinh tự xem nhận xét/thông báo của chính mình (hiện chỉ Phụ huynh xem được)."
+                      <HomeTab
+                        studentName={selectedChild.studentFullName}
+                        commentsSource={{ studentId: selectedChild.studentId, classId: selectedClassId }}
                       />
+                    ) : isStudent ? (
+                      // Thông báo (GET /notifications) đã self-service thật cho mọi vai trò — hiện được ngay.
+                      // Nhận xét/cảnh báo giáo viên vẫn chưa có API tự xem (commentsSource=null, xem HomeTab).
+                      <HomeTab studentName={viewerName} commentsSource={null} />
+                    ) : (
+                      <ComingSoon title="Trang chủ & Bảng tin" description="Không có hồ sơ Học sinh hoặc Phụ huynh liên kết với tài khoản này." />
                     ))}
                   {activeTab === "schedule" &&
                     (isParent && selectedChild ? (
                       <ScheduleTab studentId={selectedChild.studentId} classId={selectedClassId} />
+                    ) : isStudent ? (
+                      <StudentScheduleTab classId={selectedClassId} />
                     ) : (
                       <ComingSoon
                         title="Lịch học & Chuyên cần"
                         description="Đang chờ Backend mở API cho Học sinh tự xem lịch học/chuyên cần của chính mình (hiện chỉ Phụ huynh xem được)."
                       />
                     ))}
-                  {activeTab === "lms" && <LmsTab classId={selectedClassId} />}
+                  {activeTab === "lms" && (
+                    <div className="space-y-6">
+                      {/* GET /students/me/exercises tra theo userId của chính người gọi — chỉ hoạt động cho Học sinh tự đăng nhập, Phụ huynh gọi sẽ 404 "không có hồ sơ học sinh" nên chỉ hiện với isStudent. */}
+                      {isStudent && <AssignmentsTab classId={selectedClassId} />}
+                      <LmsTab classId={selectedClassId} />
+                    </div>
+                  )}
                   {activeTab === "grades" &&
                     (isParent && selectedChild ? (
                       <GradesTab studentId={selectedChild.studentId} classId={selectedClassId} />
+                    ) : isStudent ? (
+                      <GradesTab classId={selectedClassId} />
                     ) : (
-                      <ComingSoon
-                        title="Khảo thí & Điểm số"
-                        description="Đang chờ Backend mở API cho Học sinh tự xem điểm của chính mình (hiện chỉ Phụ huynh xem được)."
-                      />
+                      <ComingSoon title="Khảo thí & Điểm số" description="Không có hồ sơ Học sinh hoặc Phụ huynh liên kết với tài khoản này." />
                     ))}
                   {activeTab === "billing" &&
                     (isParent ? (

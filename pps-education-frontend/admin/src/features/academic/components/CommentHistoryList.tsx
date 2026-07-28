@@ -4,8 +4,11 @@ import { ApiError } from "@/lib/apiClient";
 import { StudentCommentResponse, submitComments, updateComment } from "../api";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
+import { useToast } from "@/lib/useToast";
+import Toast from "@/components/ui/Toast";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none";
+const attitudeLabels: Record<NonNullable<StudentCommentResponse["attitude"]>, string> = { POOR: "Kém", AVERAGE: "Trung bình", GOOD: "Tốt" };
 const statusLabels: Record<StudentCommentResponse["status"], string> = { DRAFT: "Nháp", PENDING: "Chờ duyệt", APPROVED: "Đã duyệt", REJECTED: "Bị từ chối" };
 const statusVariants: Record<StudentCommentResponse["status"], "success" | "warning" | "danger" | "neutral"> = {
   DRAFT: "neutral",
@@ -27,15 +30,24 @@ export default function CommentHistoryList({ classId, history, onChanged, showSt
   const [editContent, setEditContent] = useState("");
   const [editSeverity, setEditSeverity] = useState<NonNullable<StudentCommentResponse["severity"]>>("NORMAL");
   const [editIsWarning, setEditIsWarning] = useState(false);
+  const [editAttitude, setEditAttitude] = useState<"" | NonNullable<StudentCommentResponse["attitude"]>>("");
+  const [editHomeworkPreviousScore, setEditHomeworkPreviousScore] = useState("");
+  const [editHomeworkNext, setEditHomeworkNext] = useState("");
+  const [editNote, setEditNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [submittingId, setSubmittingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { message: toastMessage, showToast } = useToast();
 
   const startEdit = (h: StudentCommentResponse) => {
     setEditingId(h.id);
     setEditContent(h.content);
     setEditSeverity(h.severity ?? "NORMAL");
     setEditIsWarning(h.isWarning);
+    setEditAttitude(h.attitude ?? "");
+    setEditHomeworkPreviousScore(h.homeworkPreviousScore ?? "");
+    setEditHomeworkNext(h.homeworkNext ?? "");
+    setEditNote(h.note ?? "");
     setError(null);
   };
 
@@ -45,6 +57,7 @@ export default function CommentHistoryList({ classId, history, onChanged, showSt
     try {
       await submitComments(classId, [commentId]);
       onChanged();
+      showToast("Đã nộp duyệt nhận xét thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Nộp nhận xét thất bại.");
     } finally {
@@ -60,10 +73,19 @@ export default function CommentHistoryList({ classId, history, onChanged, showSt
     setSaving(true);
     setError(null);
     try {
-      await updateComment(commentId, { content: editContent.trim(), severity: editSeverity, isWarning: editIsWarning });
+      await updateComment(commentId, {
+        content: editContent.trim(),
+        severity: editSeverity,
+        isWarning: editIsWarning,
+        attitude: editAttitude || undefined,
+        homeworkPreviousScore: editHomeworkPreviousScore.trim() || undefined,
+        homeworkNext: editHomeworkNext.trim() || undefined,
+        note: editNote.trim() || undefined
+      });
       await submitComments(classId, [commentId]);
       setEditingId(null);
       onChanged();
+      showToast("Đã gửi lại nhận xét thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Gửi lại nhận xét thất bại.");
     } finally {
@@ -88,7 +110,26 @@ export default function CommentHistoryList({ classId, history, onChanged, showSt
 
           {editingId === h.id ? (
             <div className="space-y-2 pt-1">
+              {h.commentType === "DAILY" && (
+                <div className="grid grid-cols-2 gap-2">
+                  <select value={editAttitude} onChange={(e) => setEditAttitude(e.target.value as typeof editAttitude)} className={inputClass}>
+                    <option value="">-- Thái độ học tập --</option>
+                    {Object.entries(attitudeLabels).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                  <input value={editHomeworkPreviousScore} onChange={(e) => setEditHomeworkPreviousScore(e.target.value)} placeholder="BTVN buổi trước" className={inputClass} />
+                </div>
+              )}
               <textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} rows={3} className={inputClass} />
+              {h.commentType === "DAILY" && (
+                <div className="grid grid-cols-2 gap-2">
+                  <input value={editHomeworkNext} onChange={(e) => setEditHomeworkNext(e.target.value)} placeholder="BTVN buổi sau" className={inputClass} />
+                  <input value={editNote} onChange={(e) => setEditNote(e.target.value)} placeholder="Ghi chú" className={inputClass} />
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-2">
                 <select value={editSeverity} onChange={(e) => setEditSeverity(e.target.value as NonNullable<StudentCommentResponse["severity"]>)} className={inputClass}>
                   <option value="POSITIVE">Tích cực</option>
@@ -114,7 +155,21 @@ export default function CommentHistoryList({ classId, history, onChanged, showSt
             </div>
           ) : (
             <>
+              {h.commentType === "DAILY" && (h.attitude || h.homeworkPreviousScore) && (
+                <p className="text-slate-500">
+                  {h.attitude && `Thái độ: ${attitudeLabels[h.attitude]}`}
+                  {h.attitude && h.homeworkPreviousScore && " · "}
+                  {h.homeworkPreviousScore && `BTVN buổi trước: ${h.homeworkPreviousScore}`}
+                </p>
+              )}
               <p className="text-slate-700">{h.content}</p>
+              {h.commentType === "DAILY" && (h.homeworkNext || h.note) && (
+                <p className="text-slate-500">
+                  {h.homeworkNext && `BTVN buổi sau: ${h.homeworkNext}`}
+                  {h.homeworkNext && h.note && " · "}
+                  {h.note && `Ghi chú: ${h.note}`}
+                </p>
+              )}
               {h.status === "REJECTED" && h.rejectionReason && (
                 <p className="text-rose-500">Lý do từ chối: {h.rejectionReason}</p>
               )}
@@ -133,6 +188,8 @@ export default function CommentHistoryList({ classId, history, onChanged, showSt
           )}
         </div>
       ))}
+
+      <Toast message={toastMessage} />
     </div>
   );
 }

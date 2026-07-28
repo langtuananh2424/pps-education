@@ -13,6 +13,7 @@ import vn.com.pps.education.domain.QuestionChoice;
 import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.StudentAnswer;
 import vn.com.pps.education.domain.User;
+import vn.com.pps.education.dto.AssignedExerciseResponse;
 import vn.com.pps.education.dto.ExerciseAttemptResponse;
 import vn.com.pps.education.dto.SaveAnswerRequest;
 import vn.com.pps.education.dto.StudentAnswerResponse;
@@ -239,6 +240,34 @@ public class ExerciseAttemptService {
                 .stream().map(this::toResponse).toList();
     }
 
+    /**
+     * Bổ sung: Học sinh tự tra cứu đề đã được giao cho (các) lớp mình
+     * đang ghi danh ACTIVE — trước đây không có API nào cho việc này, HS
+     * phải biết trước exerciseId mới gọi được startAttempt/getExercise.
+     * classIdFilter tùy chọn (ngữ cảnh "lớp đang xem" — UC-42).
+     */
+    @Transactional(readOnly = true)
+    public List<AssignedExerciseResponse> listMyAssignedExercises(Long actorUserId, Long classIdFilter) {
+        Student student = studentOrThrow(actorUserId);
+        List<ClassEnrollment> enrollments = classEnrollmentRepository.findByStudentId(student.getId()).stream()
+                .filter(e -> e.getStatus() == ClassEnrollment.Status.ACTIVE)
+                .filter(e -> classIdFilter == null || e.getSchoolClass().getId().equals(classIdFilter))
+                .toList();
+
+        List<AssignedExerciseResponse> result = new java.util.ArrayList<>();
+        for (ClassEnrollment enrollment : enrollments) {
+            List<ExerciseAssignment> assignments = exerciseAssignmentRepository.findBySchoolClassIdAndStatus(
+                    enrollment.getSchoolClass().getId(), ExerciseAssignment.Status.ACTIVE);
+            for (ExerciseAssignment assignment : assignments) {
+                if (assignment.getTargetStudentIds() != null && !assignment.getTargetStudentIds().contains(student.getId())) {
+                    continue;
+                }
+                result.add(toAssignedResponse(assignment, enrollment, student));
+            }
+        }
+        return result;
+    }
+
     // ===================== Helpers =====================
 
     private boolean isAnswerCorrect(StudentAnswer answer) {
@@ -305,9 +334,33 @@ public class ExerciseAttemptService {
                 a.getAutoGradeScore(), a.getManualGradeScore(), a.getTotalScore(), a.getStatus().name(), a.isLateSubmission());
     }
 
+    private AssignedExerciseResponse toAssignedResponse(ExerciseAssignment assignment, ClassEnrollment enrollment, Student student) {
+        Exercise exercise = assignment.getExercise();
+        List<ExerciseAttempt> myAttempts = exerciseAttemptRepository
+                .findByExerciseIdAndStudentIdOrderByAttemptNumberDesc(exercise.getId(), student.getId());
+        ExerciseAttempt latest = myAttempts.isEmpty() ? null : myAttempts.get(0);
+        return new AssignedExerciseResponse(
+                exercise.getId(), exercise.getCode(), exercise.getTitle(), exercise.getExerciseType().name(),
+                assignment.getId(), enrollment.getSchoolClass().getId(), enrollment.getSchoolClass().getName(),
+                assignment.getAvailableFrom(), assignment.getDueAt(), assignment.isLateSubmissionAllowed(),
+                latest == null ? null : latest.getId(), latest == null ? null : latest.getStatus().name(),
+                latest == null ? null : latest.getTotalScore());
+    }
+
     private StudentAnswerResponse toResponse(StudentAnswer a) {
+        ExerciseAttempt attempt = a.getExerciseAttempt();
+        boolean revealAnswer = attempt.getStatus() != ExerciseAttempt.Status.IN_PROGRESS
+                && attempt.getExercise().isShowCorrectAnswers();
+        List<Long> correctChoiceIds = null;
+        String explanation = null;
+        if (revealAnswer) {
+            correctChoiceIds = questionChoiceRepository.findByQuestionIdOrderByDisplayOrder(a.getQuestion().getId())
+                    .stream().filter(QuestionChoice::isCorrect).map(QuestionChoice::getId).toList();
+            explanation = a.getQuestion().getExplanation();
+        }
         return new StudentAnswerResponse(
-                a.getId(), a.getExerciseAttempt().getId(), a.getQuestion().getId(), a.getAnswerText(),
-                a.getSelectedChoiceIds(), a.getAudioAnswerUrl(), a.isAutoGradable(), a.getAutoScore(), a.getCorrect());
+                a.getId(), attempt.getId(), a.getQuestion().getId(), a.getAnswerText(),
+                a.getSelectedChoiceIds(), a.getAudioAnswerUrl(), a.isAutoGradable(), a.getAutoScore(), a.getCorrect(),
+                correctChoiceIds, explanation);
     }
 }

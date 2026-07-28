@@ -32,14 +32,14 @@ public class PartnerContractController {
     }
 
     @PostMapping("/api/partner-contracts")
-    @PreAuthorize("hasPermission(null, 'facility.manage')")
+    @PreAuthorize("hasPermission(null, 'facility.partner-contract.create')")
     public ResponseEntity<PartnerContractResponse> createContract(@Valid @RequestBody CreatePartnerContractRequest request,
                                                                       @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(partnerContractService.createContract(request, actor.userId()));
     }
 
     @PutMapping("/api/partner-contracts/{id}")
-    @PreAuthorize("hasPermission(null, 'facility.manage')")
+    @PreAuthorize("hasPermission(null, 'facility.partner-contract.update')")
     public ResponseEntity<PartnerContractResponse> updateContract(@PathVariable Long id,
                                                                       @Valid @RequestBody UpdatePartnerContractRequest request,
                                                                       @AuthenticationPrincipal AuthenticatedUser actor) {
@@ -47,26 +47,26 @@ public class PartnerContractController {
     }
 
     @PostMapping("/api/partner-contracts/{id}/terminate")
-    @PreAuthorize("hasPermission(null, 'facility.manage')")
+    @PreAuthorize("hasPermission(null, 'facility.partner-contract.update')")
     public ResponseEntity<PartnerContractResponse> terminateContract(@PathVariable Long id,
                                                                          @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(partnerContractService.terminateContract(id, actor.userId()));
     }
 
     @GetMapping("/api/partner-contracts/expiring")
-    @PreAuthorize("hasPermission(null, 'facility.manage')")
+    @PreAuthorize("hasPermission(null, 'facility.partner-contract.view')")
     public ResponseEntity<List<ExpiringPartnerContractResponse>> listExpiringContracts(@RequestParam int withinDays) {
         return ResponseEntity.ok(partnerContractService.listExpiringContracts(withinDays));
     }
 
     @GetMapping("/api/sites/{siteId}/partner-contracts")
-    @PreAuthorize("hasPermission(null, 'facility.manage')")
+    @PreAuthorize("hasPermission(null, 'facility.partner-contract.view')")
     public ResponseEntity<List<PartnerContractResponse>> listBySite(@PathVariable Long siteId) {
         return ResponseEntity.ok(partnerContractService.listBySite(siteId));
     }
 
     @DeleteMapping("/api/partner-contracts/{id}")
-    @PreAuthorize("hasPermission(null, 'facility.manage')")
+    @PreAuthorize("hasPermission(null, 'facility.partner-contract.delete')")
     public ResponseEntity<Void> deleteContract(@PathVariable Long id, @AuthenticationPrincipal AuthenticatedUser actor) {
         partnerContractService.deleteContract(id, actor.userId());
         return ResponseEntity.noContent().build();

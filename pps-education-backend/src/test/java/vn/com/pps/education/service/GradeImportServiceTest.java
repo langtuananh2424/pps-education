@@ -20,6 +20,7 @@ import vn.com.pps.education.dto.CreateCurriculumRequest;
 import vn.com.pps.education.dto.CreateGradeComponentRequest;
 import vn.com.pps.education.dto.CreateGradePeriodRequest;
 import vn.com.pps.education.dto.CurriculumResponse;
+import vn.com.pps.education.dto.EnrollStudentRequest;
 import vn.com.pps.education.dto.GradeComponentResponse;
 import vn.com.pps.education.dto.GradeEntryResponse;
 import vn.com.pps.education.dto.GradeImportResponse;
@@ -116,10 +117,10 @@ class GradeImportServiceTest extends AbstractIntegrationTest {
         gradePeriod = gradeService.createGradePeriod(activeCurriculum.id(),
                 new CreateGradePeriodRequest("MID_1", "Giữa kỳ 1", 1, new BigDecimal("50"), null, null), headAcademic.getId());
         speaking = gradeService.addGradeComponent(gradePeriod.id(),
-                new CreateGradeComponentRequest(null, null, "SPEAKING", "Nói", new BigDecimal("50"), new BigDecimal("10.00"), null, null, 1),
+                new CreateGradeComponentRequest(null, null, "SPEAKING", "Nói", new BigDecimal("10.00"), null, null, 1),
                 headAcademic.getId());
         writing = gradeService.addGradeComponent(gradePeriod.id(),
-                new CreateGradeComponentRequest(null, null, "WRITING", "Viết", new BigDecimal("50"), new BigDecimal("10.00"), null, null, 2),
+                new CreateGradeComponentRequest(null, null, "WRITING", "Viết", new BigDecimal("10.00"), null, null, 2),
                 headAcademic.getId());
 
         student1 = newStudent();
@@ -206,6 +207,77 @@ class GradeImportServiceTest extends AbstractIntegrationTest {
                 new MockMultipartFile("file", "broken.xlsx", "application/vnd.openxmlformats", garbage), teacher.getId());
 
         assertThat(result.status()).isEqualTo("FAILED");
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-24 — file
+     * mẫu tải xuống điền sẵn học sinh ACTIVE của lớp, cột điểm để trống.
+     */
+    @Test
+    void buildTemplate_hasOneRowPerActiveEnrolledStudentWithEmptyScoreColumns() throws IOException {
+        classService.enroll(schoolClass.id(), new EnrollStudentRequest(student1.getId(), LocalDate.now()), headAcademic.getId());
+        classService.enroll(schoolClass.id(), new EnrollStudentRequest(student2.getId(), LocalDate.now()), headAcademic.getId());
+
+        byte[] template = gradeImportService.buildTemplate(schoolClass.id(), gradePeriod.id(), teacher.getId());
+
+        try (var workbook = new XSSFWorkbook(new java.io.ByteArrayInputStream(template))) {
+            Sheet sheet = workbook.getSheetAt(0);
+            Row header = sheet.getRow(0);
+            assertThat(cellValues(header, 7)).containsExactly(
+                    "Mã học sinh*", "Họ và tên", "Lớp", "Nói", "Viết", "Overall", "Level");
+
+            assertThat(sheet.getLastRowNum()).isEqualTo(2); // header + 2 học sinh
+            java.util.List<String> studentCodesInTemplate = new java.util.ArrayList<>();
+            for (int r = 1; r <= 2; r++) {
+                Row row = sheet.getRow(r);
+                studentCodesInTemplate.add(row.getCell(0).getStringCellValue());
+                assertThat(row.getCell(3)).isNull(); // cột "Nói" để trống
+                assertThat(row.getCell(4)).isNull(); // cột "Viết" để trống
+            }
+            assertThat(studentCodesInTemplate).containsExactlyInAnyOrder(
+                    student1.getStudentCode(), student2.getStudentCode());
+        }
+    }
+
+    /**
+     * Round-trip: tải mẫu về, điền điểm vào đúng ô trống, upload lại — PHẢI
+     * thành công, không được ném GradeImportColumnMismatchException dù mẫu
+     * có thêm 2 cột "Họ và tên"/"Lớp" mà mapHeader() vốn không biết trước
+     * đây (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-24).
+     */
+    @Test
+    void buildTemplate_roundTrip_reuploadingFilledTemplateImportsSuccessfully() throws IOException {
+        classService.enroll(schoolClass.id(), new EnrollStudentRequest(student1.getId(), LocalDate.now()), headAcademic.getId());
+        classService.enroll(schoolClass.id(), new EnrollStudentRequest(student2.getId(), LocalDate.now()), headAcademic.getId());
+        byte[] template = gradeImportService.buildTemplate(schoolClass.id(), gradePeriod.id(), teacher.getId());
+
+        byte[] filled;
+        try (var workbook = new XSSFWorkbook(new java.io.ByteArrayInputStream(template))) {
+            Sheet sheet = workbook.getSheetAt(0);
+            for (int r = 1; r <= sheet.getLastRowNum(); r++) {
+                Row row = sheet.getRow(r);
+                row.createCell(3).setCellValue(8.0); // Nói
+                row.createCell(4).setCellValue(7.0); // Viết
+            }
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            workbook.write(out);
+            filled = out.toByteArray();
+        }
+
+        GradeImportResponse result = gradeImportService.importGrades(schoolClass.id(), gradePeriod.id(),
+                new MockMultipartFile("file", "mau-da-dien.xlsx", "application/vnd.openxmlformats", filled), teacher.getId());
+
+        assertThat(result.status()).isEqualTo("COMPLETED");
+        assertThat(result.successRows()).isEqualTo(2);
+        assertThat(result.failedRows()).isEqualTo(0);
+    }
+
+    private java.util.List<String> cellValues(Row row, int count) {
+        java.util.List<String> values = new java.util.ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            values.add(row.getCell(i).getStringCellValue());
+        }
+        return values;
     }
 
     private byte[] buildWorkbook(String[] headers, String[][] rows) throws IOException {

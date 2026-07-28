@@ -221,6 +221,25 @@ UC-15: Điểm danh học sinh
 |                 |     nhận trạng thái gửi.                           |
 +-----------------+----------------------------------------------------+
 
+> **Bổ sung ngoài đặc tả gốc — đã xác nhận với người dùng (2026-07-22).**
+> Ràng buộc thao tác điểm danh & quyền chi tiết (thực thi ở backend —
+> `StudentAttendanceService` + migration V45):
+>
+> - **Phạm vi Giáo viên:** Giáo viên chỉ điểm danh/sửa buổi **mình được
+>   phân công dạy** (`class_sessions.primary_teacher`) và **chỉ trong ngày
+>   diễn ra buổi học**. Được sửa lại **kể cả sau khi Lưu/submit**, cho tới
+>   **hết ngày hôm đó**; sang ngày hôm sau thì khóa (không sửa được nữa qua
+>   quyền `academic.attendance.mark`). Submit lại trong ngày là idempotent —
+>   không gửi trùng thông báo cho Phụ huynh (chỉ gửi cho học sinh ABSENT/LATE
+>   chưa từng được thông báo).
+>
+> - **Quyền quản trị (vượt rào Giáo viên):** 3 quyền chi tiết mới cho phép
+>   gán 1 tài khoản thao tác điểm danh **buổi bất kỳ, ngày bất kỳ** (không
+>   cần là Giáo viên được phân công) để bổ sung/khắc phục sai sót:
+>   `academic.attendance.create` (tạo/điểm danh + submit),
+>   `academic.attendance.update` (sửa chi tiết theo tiết),
+>   `academic.attendance.delete` (xóa toàn bộ bản ghi điểm danh của 1 buổi).
+
 UC-15b: Xem báo cáo chuyên cần theo điểm trường
 
 > ⚠️ Bổ sung ngoài SRS/SDD gốc (mở rộng phạm vi FR-STU-03, xác nhận với
@@ -318,9 +337,13 @@ UC-50: Nhập phụ huynh theo lô
 |                 | 4.  Tìm tài khoản phụ huynh theo số điện thoại ---  |
 |                 |     nếu đã có hồ sơ phụ huynh cho số điện thoại đó |
 |                 |     (VD 2 dòng cùng cha/mẹ khác con) thì DÙNG LẠI, |
-|                 |     không tạo trùng; chưa có thì tạo tài khoản +   |
-|                 |     hồ sơ phụ huynh mới (chỉ đăng nhập Google ---  |
-|                 |     UC-01 A4, giống cơ chế UC-34).                 |
+|                 |     không tạo trùng, không sinh mật khẩu mới; chưa |
+|                 |     có thì tạo tài khoản + hồ sơ phụ huynh mới, tự |
+|                 |     sinh mật khẩu tạm ngẫu nhiên (giống UC-51,      |
+|                 |     bổ sung ngoài SDD gốc, đã xác nhận với người   |
+|                 |     dùng --- trước đây tài khoản chỉ dự kiến đăng  |
+|                 |     nhập Google nhưng email lưu là placeholder nên |
+|                 |     không đăng nhập được bằng cách nào).           |
 |                 |                                                    |
 |                 | 5.  Tạo liên kết parent_student (quan hệ, người    |
 |                 |     liên hệ chính, người chịu trách nhiệm tài      |
@@ -333,7 +356,11 @@ UC-50: Nhập phụ huynh theo lô
 |                 | 6.  Hệ thống cập nhật total_rows/success_rows/     |
 |                 |     failed_rows/error_summary, trạng thái COMPLETED|
 |                 |     hoặc PARTIAL_SUCCESS. Nhân viên giáo vụ xem    |
-|                 |     kết quả, tải danh sách dòng lỗi (nếu có).      |
+|                 |     kết quả, nhận danh sách username + mật khẩu tạm|
+|                 |     của các tài khoản MỚI tạo (chỉ hiển thị 1 lần  |
+|                 |     ngay trong kết quả của bước tải lên, không tra |
+|                 |     cứu lại được sau đó), và tải danh sách dòng    |
+|                 |     lỗi (nếu có).                                  |
 +-----------------+----------------------------------------------------+
 | **Luồng thay    | ***A1 --- File sai định dạng***                    |
 | thế / ngoại lệ  |                                                    |
@@ -357,6 +384,29 @@ UC-50: Nhập phụ huynh theo lô
 | (P              |     liên kết đúng học sinh tương ứng; không có phụ |
 | ostcondition)** |     huynh nào được tạo mà không liên kết học sinh  |
 |                 |     nào.                                           |
+|                 |                                                    |
+|                 | -   Tài khoản phụ huynh MỚI tạo (không tính dòng   |
+|                 |     dùng lại Parent có sẵn) có mật khẩu tạm dùng   |
+|                 |     đăng nhập được ngay; kết quả import (gồm mật   |
+|                 |     khẩu tạm) trả về ngay cho người thực hiện, tra |
+|                 |     cứu lại job sau đó (getJob) KHÔNG còn thấy mật |
+|                 |     khẩu tạm. Nếu về sau cần đăng nhập Google, có  |
+|                 |     thể sửa lại email placeholder sang email thật  |
+|                 |     qua UC-55.                                     |
 +-----------------+----------------------------------------------------+
+
+Mở rộng --- File mẫu + xuất danh sách tài khoản (bổ sung ngoài SDD gốc, đã
+xác nhận với người dùng 2026-07-24)
+
+-   Trước bước 1, Nhân viên giáo vụ có thể gọi `GET
+    /api/parent-imports/template` để tải file Excel mẫu đầy đủ 7 cột theo
+    đúng thứ tự Main Flow đọc, trường bắt buộc đánh dấu `*` cuối tên cột;
+    kèm sheet "Hướng dẫn" giải thích cột Họ và tên/Username chỉ thực sự
+    bắt buộc khi số điện thoại chưa từng tồn tại (bước 4 — dòng dùng lại
+    Parent có sẵn thì bỏ qua 2 cột đó).
+-   Sau bước 6, có thể gọi `POST /api/parent-imports/accounts-export` với
+    đúng danh sách username + mật khẩu tạm vừa nhận được để lấy file
+    Excel giao lại cho phụ huynh — chỉ dùng được trong cùng phiên vừa
+    import (không lưu mật khẩu tạm lại để tra cứu sau).
 
 Phân hệ 6 --- Quản lý học thuật và đào tạo

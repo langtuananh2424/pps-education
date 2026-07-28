@@ -5,6 +5,8 @@ import { assignUserRole, revokeUserRole, searchUsers, UserListItemResponse } fro
 import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
 import Badge, { BadgeVariant } from "@/components/ui/Badge";
 import AssignUserModal from "./AssignUserModal";
+import { useToast } from "@/lib/useToast";
+import Toast from "@/components/ui/Toast";
 
 const statusVariants: Record<string, BadgeVariant> = {
   ACTIVE: "success",
@@ -15,15 +17,17 @@ const statusVariants: Record<string, BadgeVariant> = {
 interface RoleMembersPanelProps {
   roleId: number;
   roleName: string;
-  canManage: boolean;
+  canAssign: boolean;
+  canRevoke: boolean;
 }
 
-export default function RoleMembersPanel({ roleId, roleName, canManage }: RoleMembersPanelProps) {
+export default function RoleMembersPanel({ roleId, roleName, canAssign, canRevoke }: RoleMembersPanelProps) {
   const [allUsers, setAllUsers] = useState<UserListItemResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [busyUserId, setBusyUserId] = useState<number | null>(null);
+  const { message: toastMessage, showToast } = useToast();
 
   const loadUsers = () => {
     setLoading(true);
@@ -46,6 +50,7 @@ export default function RoleMembersPanel({ roleId, roleName, canManage }: RoleMe
       await assignUserRole(userId, roleId);
       setShowAssignModal(false);
       loadUsers();
+      showToast("Đã gán vai trò thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Gán vai trò thất bại.");
     } finally {
@@ -60,6 +65,7 @@ export default function RoleMembersPanel({ roleId, roleName, canManage }: RoleMe
     try {
       await revokeUserRole(user.id, roleId);
       loadUsers();
+      showToast("Đã gỡ vai trò thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Gỡ vai trò thất bại.");
     } finally {
@@ -75,7 +81,7 @@ export default function RoleMembersPanel({ roleId, roleName, canManage }: RoleMe
           <p className="text-[10px] text-slate-400 mt-0.5">Quản lý trực tiếp các tài khoản được áp dụng cấu hình vai trò này (UC-46).</p>
         </div>
 
-        {canManage && (
+        {canAssign && (
           <button
             onClick={() => setShowAssignModal(true)}
             className="bg-brand-gradient hover:opacity-90 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm"
@@ -113,7 +119,7 @@ export default function RoleMembersPanel({ roleId, roleName, canManage }: RoleMe
               <Th>Họ và tên</Th>
               <Th>Email tài khoản</Th>
               <Th>Trạng thái</Th>
-              {canManage && <Th className="text-center">Gỡ bỏ</Th>}
+              {canRevoke && <Th className="text-center">Gỡ bỏ</Th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -125,7 +131,7 @@ export default function RoleMembersPanel({ roleId, roleName, canManage }: RoleMe
                 <Td>
                   <Badge variant={statusVariants[u.status]}>{u.status}</Badge>
                 </Td>
-                {canManage && (
+                {canRevoke && (
                   <Td className="text-center">
                     <button
                       onClick={() => handleRemove(u)}
@@ -142,6 +148,8 @@ export default function RoleMembersPanel({ roleId, roleName, canManage }: RoleMe
           </tbody>
         </TableContainer>
       )}
+
+      <Toast message={toastMessage} />
     </div>
   );
 }

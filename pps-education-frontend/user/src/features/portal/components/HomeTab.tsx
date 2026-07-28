@@ -1,17 +1,24 @@
 import React, { useEffect, useState } from "react";
-import { Bell, MessageSquareCode, ShieldAlert } from "lucide-react";
+import { Bell, Clock, MessageSquareCode, ShieldAlert } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { listComments, listMyNotifications, NotificationResponse, StudentCommentResponse } from "../api";
 
 const COMMENT_TYPE_LABEL: Record<string, string> = { DAILY: "Hàng ngày", MID_TERM: "Giữa kỳ", END_TERM: "Cuối kỳ" };
 
 interface HomeTabProps {
-  studentId: number;
-  classId: number;
   studentName: string;
+  /**
+   * Nguồn xem nhận xét/cảnh báo giáo viên — Phụ huynh xem con qua
+   * `/portal/parent/children/{studentId}/classes/{classId}/comments` (đã có, self-owner
+   * check trong ParentPortalService). Học sinh CHƯA có API tự xem nhận xét của chính mình
+   * (chưa có `/students/me/classes/{classId}/comments` tương tự các API self-service khác
+   * — GET /students/me/grades, /sessions...) — truyền `null` để ẩn gọn 2 khối này, không
+   * gọi API/không tự chế cách né quyền.
+   */
+  commentsSource: { studentId: number; classId: number } | null;
 }
 
-export default function HomeTab({ studentId, classId, studentName }: HomeTabProps) {
+export default function HomeTab({ studentName, commentsSource }: HomeTabProps) {
   const [notifications, setNotifications] = useState<NotificationResponse[]>([]);
   const [comments, setComments] = useState<StudentCommentResponse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -19,14 +26,14 @@ export default function HomeTab({ studentId, classId, studentName }: HomeTabProp
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([listMyNotifications(), listComments(studentId, classId)])
+    Promise.all([listMyNotifications(), commentsSource ? listComments(commentsSource.studentId, commentsSource.classId) : Promise.resolve([])])
       .then(([notif, cmt]) => {
         setNotifications(notif.content);
         setComments(cmt);
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được bảng tin."))
       .finally(() => setLoading(false));
-  }, [studentId, classId]);
+  }, [commentsSource?.studentId, commentsSource?.classId]);
 
   const warned = comments.filter((c) => c.isWarning);
   const regular = comments.filter((c) => !c.isWarning);
@@ -47,8 +54,8 @@ export default function HomeTab({ studentId, classId, studentName }: HomeTabProp
 
       {error && <div className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-xl">{error}</div>}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white border border-line/80 p-6 rounded-[20px] shadow-[0_8px_30px_rgba(30,42,69,0.03)] space-y-4">
+      <div className={`grid grid-cols-1 gap-6 ${commentsSource ? "lg:grid-cols-3" : ""}`}>
+        <div className={`${commentsSource ? "lg:col-span-2" : ""} bg-white border border-line/80 p-6 rounded-[20px] shadow-[0_8px_30px_rgba(30,42,69,0.03)] space-y-4`}>
           <h2 className="text-xl font-extrabold text-ink flex items-center gap-2">
             <Bell className="text-teal" /> Thông báo
           </h2>
@@ -70,6 +77,16 @@ export default function HomeTab({ studentId, classId, studentName }: HomeTabProp
           )}
         </div>
 
+        {!commentsSource && (
+          <div className="bg-white border border-dashed border-line/80 p-6 rounded-[20px] flex items-center gap-3 text-muted">
+            <Clock size={18} className="shrink-0" />
+            <p className="text-xs font-bold italic">
+              Nhận xét & cảnh báo từ giáo viên: đang chờ Backend mở API cho Học sinh tự xem của chính mình (hiện chỉ Phụ huynh xem được).
+            </p>
+          </div>
+        )}
+
+        {commentsSource && (
         <div className="lg:col-span-1 space-y-6">
           {warned.length > 0 && (
             <div className="bg-[#ff7a59]/5 border border-[#ff7a59]/20 p-5 rounded-[20px] space-y-3">
@@ -105,6 +122,7 @@ export default function HomeTab({ studentId, classId, studentName }: HomeTabProp
             </div>
           </div>
         </div>
+        )}
       </div>
     </div>
   );

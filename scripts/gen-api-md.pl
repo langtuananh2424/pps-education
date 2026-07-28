@@ -35,8 +35,20 @@ for my $f (grep { /\.java$/ } readdir $dh) {
     open my $fh, '<', "$CTRL/$f" or die $!;
     my $pending; my $seenClass = 0;
     while (my $line = <$fh>) {
-        if ($line =~ /\@PreAuthorize\("hasPermission\(null,\s*'([^']+)'\)"\)/) {
-            if ($seenClass) { $pending = $1; } else { $classPerm{$class} = $1; }
+        if ($line =~ /\@PreAuthorize\("([^"]*hasPermission\(null,\s*'[^']+'\)[^"]*)"\)/) {
+            # OR-fallback (VD "hasPermission(null,'a.create') or hasPermission(null,'a.manage')",
+            # pattern quyền hạt nhân + umbrella — xem .claude rules) co the co NHIEU
+            # hasPermission() trong 1 bieu thuc -- gop het lai thay vi chi khop dung
+            # 1 loi goi duy nhat (regex cu bo sot toan bo bieu thuc OR, tra ve "JWT" sai).
+            my @perms = $1 =~ /hasPermission\(null,\s*'([^']+)'\)/g;
+            my $perm = join(' hoặc ', @perms);
+            if ($seenClass) { $pending = $perm; } else { $classPerm{$class} = $perm; }
+        }
+        # Method-level override "chỉ cần đăng nhập" (VD self-service /me, UC-63)
+        # ghi đè permission class-level -- $pending = '' (khac undef) de authcell()
+        # khong roi ve $classPerm.
+        if ($seenClass && $line =~ /\@PreAuthorize\("isAuthenticated\(\)"\)/) {
+            $pending = '';
         }
         $seenClass = 1 if $line =~ /public\s+class\s+\Q$class\E/;
         if ($seenClass && $line =~ /public\s+[\w<>,.\[\]? ]+\s+(\w+)\s*\(/) {

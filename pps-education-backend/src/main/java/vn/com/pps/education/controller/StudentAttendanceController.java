@@ -2,7 +2,9 @@ package vn.com.pps.education.controller;
 
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -12,7 +14,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import vn.com.pps.education.dto.AttendanceMarkResponse;
 import vn.com.pps.education.dto.AttendanceSessionResponse;
+import vn.com.pps.education.dto.ClassSessionLessonContentResponse;
 import vn.com.pps.education.dto.MarkAttendanceRequest;
+import vn.com.pps.education.dto.UpdateLessonContentRequest;
 import vn.com.pps.education.dto.UpdatePeriodMarkRequest;
 import vn.com.pps.education.security.AuthenticatedUser;
 import vn.com.pps.education.service.StudentAttendanceService;
@@ -34,6 +38,7 @@ public class StudentAttendanceController {
         return ResponseEntity.ok(studentAttendanceService.getAttendanceSession(classSessionId, actor.userId()));
     }
 
+    @PreAuthorize("hasPermission(null, 'academic.attendance.mark') or hasPermission(null, 'academic.attendance.create')")
     @PostMapping
     public ResponseEntity<AttendanceSessionResponse> markAttendance(@PathVariable Long classSessionId,
                                                                         @Valid @RequestBody MarkAttendanceRequest request,
@@ -41,6 +46,7 @@ public class StudentAttendanceController {
         return ResponseEntity.ok(studentAttendanceService.markAttendance(classSessionId, request, actor.userId()));
     }
 
+    @PreAuthorize("hasPermission(null, 'academic.attendance.mark') or hasPermission(null, 'academic.attendance.update')")
     @PutMapping("/students/{studentId}/periods/{sessionPeriodId}")
     public ResponseEntity<AttendanceMarkResponse> updatePeriodMark(@PathVariable Long classSessionId,
                                                                        @PathVariable Long studentId,
@@ -50,9 +56,28 @@ public class StudentAttendanceController {
         return ResponseEntity.ok(studentAttendanceService.updatePeriodMark(classSessionId, studentId, sessionPeriodId, request, actor.userId()));
     }
 
+    /** "Bài học hôm nay" (bổ sung ngoài SDD gốc, đã xác nhận với người dùng). */
+    @PreAuthorize("hasPermission(null, 'academic.attendance.mark') or hasPermission(null, 'academic.attendance.update')")
+    @PutMapping("/lesson-content")
+    public ResponseEntity<ClassSessionLessonContentResponse> updateLessonContent(@PathVariable Long classSessionId,
+                                                                                  @Valid @RequestBody UpdateLessonContentRequest request,
+                                                                                  @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(studentAttendanceService.updateLessonContent(classSessionId, request.lessonContent(), actor.userId()));
+    }
+
+    @PreAuthorize("hasPermission(null, 'academic.attendance.mark') or hasPermission(null, 'academic.attendance.create')")
     @PostMapping("/submit")
     public ResponseEntity<AttendanceSessionResponse> submitAttendance(@PathVariable Long classSessionId,
                                                                           @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(studentAttendanceService.submitAttendance(classSessionId, actor.userId()));
+    }
+
+    /** UC-15 (bổ sung): quyền quản trị academic.attendance.delete — xóa toàn bộ bản ghi điểm danh của 1 buổi. */
+    @PreAuthorize("hasPermission(null, 'academic.attendance.delete')")
+    @DeleteMapping
+    public ResponseEntity<Void> deleteAttendance(@PathVariable Long classSessionId,
+                                                  @AuthenticationPrincipal AuthenticatedUser actor) {
+        studentAttendanceService.deleteAttendance(classSessionId, actor.userId());
+        return ResponseEntity.noContent().build();
     }
 }

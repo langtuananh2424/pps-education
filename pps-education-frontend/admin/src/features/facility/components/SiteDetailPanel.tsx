@@ -17,6 +17,9 @@ import {
 import Badge, { BadgeVariant } from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import { siteStatusLabels, siteStatusVariants, siteTypeLabels } from "./SiteListPanel";
+import { useToast } from "@/lib/useToast";
+import Toast from "@/components/ui/Toast";
+import DatePicker from "@/components/ui/DatePicker";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
@@ -34,6 +37,7 @@ interface SiteDetailPanelProps {
 
 export default function SiteDetailPanel({ site, onChanged }: SiteDetailPanelProps) {
   const [tab, setTab] = useState<Tab>("profile");
+  const { message: toastMessage, showToast } = useToast();
 
   return (
     <div className="lg:col-span-3 bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden flex flex-col">
@@ -71,15 +75,25 @@ export default function SiteDetailPanel({ site, onChanged }: SiteDetailPanelProp
       </div>
 
       <div className="flex-1 p-5 overflow-y-auto max-h-[560px]">
-        {tab === "profile" && <ProfileTab site={site} onChanged={onChanged} />}
-        {tab === "manager" && <ManagerTab site={site} onChanged={onChanged} />}
-        {tab === "contracts" && site.siteType === "PARTNER" && <ContractsTab siteId={site.id} />}
+        {tab === "profile" && <ProfileTab site={site} onChanged={onChanged} showToast={showToast} />}
+        {tab === "manager" && <ManagerTab site={site} onChanged={onChanged} showToast={showToast} />}
+        {tab === "contracts" && site.siteType === "PARTNER" && <ContractsTab siteId={site.id} showToast={showToast} />}
       </div>
+
+      <Toast message={toastMessage} />
     </div>
   );
 }
 
-function ProfileTab({ site, onChanged }: { site: SiteResponse; onChanged: () => void }) {
+function ProfileTab({
+  site,
+  onChanged,
+  showToast
+}: {
+  site: SiteResponse;
+  onChanged: () => void;
+  showToast: (msg: string) => void;
+}) {
   const [form, setForm] = useState<UpdateSiteRequest>(() => toForm(site));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -96,6 +110,7 @@ function ProfileTab({ site, onChanged }: { site: SiteResponse; onChanged: () => 
     try {
       await updateSite(site.id, form);
       onChanged();
+      showToast("Đã lưu thông tin điểm trường thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Cập nhật điểm trường thất bại.");
     } finally {
@@ -197,7 +212,15 @@ function toForm(s: SiteResponse): UpdateSiteRequest {
   };
 }
 
-function ManagerTab({ site, onChanged }: { site: SiteResponse; onChanged: () => void }) {
+function ManagerTab({
+  site,
+  onChanged,
+  showToast
+}: {
+  site: SiteResponse;
+  onChanged: () => void;
+  showToast: (msg: string) => void;
+}) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<UserListItemResponse[]>([]);
   const [saving, setSaving] = useState(false);
@@ -220,6 +243,7 @@ function ManagerTab({ site, onChanged }: { site: SiteResponse; onChanged: () => 
       setQuery("");
       setResults([]);
       onChanged();
+      showToast("Đã gán quản lý điểm trường thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Gán quản lý điểm trường thất bại.");
     } finally {
@@ -266,7 +290,7 @@ function ManagerTab({ site, onChanged }: { site: SiteResponse; onChanged: () => 
   );
 }
 
-function ContractsTab({ siteId }: { siteId: number }) {
+function ContractsTab({ siteId, showToast }: { siteId: number; showToast: (msg: string) => void }) {
   const [items, setItems] = useState<PartnerContractResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -300,6 +324,7 @@ function ContractsTab({ siteId }: { siteId: number }) {
       await createPartnerContract(request);
       setForm({ contractType: "INITIAL", startDate: "", endDate: "", termsSummary: "" });
       load();
+      showToast("Đã tạo hợp đồng thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Tạo hợp đồng thất bại.");
     } finally {
@@ -312,6 +337,7 @@ function ContractsTab({ siteId }: { siteId: number }) {
     try {
       await terminatePartnerContract(c.id);
       load();
+      showToast("Đã chấm dứt hợp đồng thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Chấm dứt hợp đồng thất bại.");
     }
@@ -322,6 +348,7 @@ function ContractsTab({ siteId }: { siteId: number }) {
     try {
       await deletePartnerContract(c.id);
       load();
+      showToast("Đã xóa hợp đồng thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Xóa hợp đồng thất bại.");
     }
@@ -340,11 +367,11 @@ function ContractsTab({ siteId }: { siteId: number }) {
           <div />
           <div>
             <label className={labelClass}>Ngày bắt đầu *</label>
-            <input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} className={inputClass} />
+            <DatePicker value={form.startDate} onChange={(v) => setForm({ ...form, startDate: v })} max={form.endDate || undefined} />
           </div>
           <div>
             <label className={labelClass}>Ngày kết thúc *</label>
-            <input type="date" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} className={inputClass} />
+            <DatePicker value={form.endDate} onChange={(v) => setForm({ ...form, endDate: v })} min={form.startDate || undefined} />
           </div>
           <textarea
             value={form.termsSummary}

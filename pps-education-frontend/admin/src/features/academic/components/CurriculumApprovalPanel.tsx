@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import { Check, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { CurriculumApprovalResponse, decideCurriculumApproval, listPendingCurriculumApprovals } from "../api";
+import { useToast } from "@/lib/useToast";
+import Toast from "@/components/ui/Toast";
 
 /** UC-17: Trưởng phòng đào tạo duyệt/từ chối bản tùy biến khung chương trình. */
 export default function CurriculumApprovalPanel() {
@@ -9,6 +11,7 @@ export default function CurriculumApprovalPanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [decidingId, setDecidingId] = useState<number | null>(null);
+  const { message: toastMessage, showToast } = useToast();
 
   const load = () => {
     setLoading(true);
@@ -29,6 +32,7 @@ export default function CurriculumApprovalPanel() {
     try {
       await decideCurriculumApproval(id, decision, comment?.trim() || undefined);
       load();
+      showToast(decision === "APPROVED" ? "Đã duyệt tùy biến thành công!" : "Đã từ chối tùy biến thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Duyệt thất bại.");
     } finally {
@@ -69,6 +73,8 @@ export default function CurriculumApprovalPanel() {
       ))}
 
       {approvals.length === 0 && <p className="text-xs text-slate-400 italic text-center py-6">Chưa có bản tùy biến nào chờ duyệt.</p>}
+
+      <Toast message={toastMessage} />
     </div>
   );
 }

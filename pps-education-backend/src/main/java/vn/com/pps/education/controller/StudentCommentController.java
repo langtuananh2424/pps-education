@@ -2,6 +2,7 @@ package vn.com.pps.education.controller;
 
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -10,7 +11,10 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+import vn.com.pps.education.common.ExcelHttpResponses;
 import vn.com.pps.education.dto.CreateStudentCommentRequest;
+import vn.com.pps.education.dto.DailyCommentImportResponse;
 import vn.com.pps.education.dto.DecideCommentsRequest;
 import vn.com.pps.education.dto.StudentCommentResponse;
 import vn.com.pps.education.dto.SubmitCommentsRequest;
@@ -38,6 +42,7 @@ public class StudentCommentController {
         return ResponseEntity.ok(studentCommentService.listComments(classId, studentId));
     }
 
+    @PreAuthorize("hasPermission(null, 'academic.comment.write')")
     @PostMapping("/api/classes/{classId}/comments")
     public ResponseEntity<StudentCommentResponse> writeComment(@PathVariable Long classId,
                                                                  @Valid @RequestBody CreateStudentCommentRequest request,
@@ -45,6 +50,7 @@ public class StudentCommentController {
         return ResponseEntity.ok(studentCommentService.writeComment(classId, request, actor.userId()));
     }
 
+    @PreAuthorize("hasPermission(null, 'academic.comment.write')")
     @PutMapping("/api/comments/{id}")
     public ResponseEntity<StudentCommentResponse> updateComment(@PathVariable Long id,
                                                                    @Valid @RequestBody UpdateStudentCommentRequest request,
@@ -52,6 +58,7 @@ public class StudentCommentController {
         return ResponseEntity.ok(studentCommentService.updateComment(id, request, actor.userId()));
     }
 
+    @PreAuthorize("hasPermission(null, 'academic.comment.write')")
     @PostMapping("/api/classes/{classId}/comments/submit")
     public ResponseEntity<List<StudentCommentResponse>> submitComments(@PathVariable Long classId,
                                                                          @Valid @RequestBody SubmitCommentsRequest request,
@@ -66,9 +73,28 @@ public class StudentCommentController {
         return ResponseEntity.ok(studentCommentService.listPendingForSite(actor.userId()));
     }
 
+    @PreAuthorize("hasPermission(null, 'academic.comment.approve')")
     @PostMapping("/api/comments/decision")
     public ResponseEntity<List<StudentCommentResponse>> decideComments(@Valid @RequestBody DecideCommentsRequest request,
                                                                          @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(studentCommentService.decideComments(request, actor.userId()));
+    }
+
+    // ---- Nhận xét Hàng ngày kiểu mới — Excel round-trip (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-24) ----
+
+    @PreAuthorize("hasPermission(null, 'academic.comment.write') or hasPermission(null, 'academic.comment.approve')")
+    @GetMapping("/api/class-sessions/{classSessionId}/comments/template")
+    public ResponseEntity<byte[]> downloadTemplate(@PathVariable Long classSessionId,
+                                                    @AuthenticationPrincipal AuthenticatedUser actor) {
+        byte[] content = studentCommentService.buildTemplate(classSessionId, actor.userId());
+        return ExcelHttpResponses.attachment(content, "mau-nhan-xet-buoi-" + classSessionId + ".xlsx");
+    }
+
+    @PreAuthorize("hasPermission(null, 'academic.comment.write') or hasPermission(null, 'academic.comment.approve')")
+    @PostMapping(value = "/api/class-sessions/{classSessionId}/comments/import", consumes = "multipart/form-data")
+    public ResponseEntity<DailyCommentImportResponse> importComments(@PathVariable Long classSessionId,
+                                                                       @RequestParam("file") MultipartFile file,
+                                                                       @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(studentCommentService.importComments(classSessionId, file, actor.userId()));
     }
 }

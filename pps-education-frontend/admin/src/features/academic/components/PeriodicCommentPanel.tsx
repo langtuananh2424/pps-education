@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { ApiError } from "@/lib/apiClient";
-import { ClassEnrollmentResponse, ClassResponse, StudentCommentResponse, listClassEnrollments, listClasses, listComments } from "../api";
+import { useApp } from "@/context/AppContext";
+import { ClassEnrollmentResponse, StudentCommentResponse, listClassEnrollments, listComments } from "../api";
+import { useEligibleClasses } from "../hooks/useEligibleClasses";
 import Card from "@/components/ui/Card";
 import CommentForm from "./CommentForm";
 import CommentHistoryList from "./CommentHistoryList";
@@ -9,18 +11,14 @@ const inputClass = "bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg f
 
 /** UC-21 nhánh MID_TERM/END_TERM: chọn lớp + học sinh + kỳ điểm, viết nhận xét định kỳ (không gắn buổi học). */
 export default function PeriodicCommentPanel() {
-  const [classes, setClasses] = useState<ClassResponse[]>([]);
-  const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
+  const { selectedClassId } = useApp();
+  const { classes } = useEligibleClasses();
   const [enrollments, setEnrollments] = useState<ClassEnrollmentResponse[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
   const [history, setHistory] = useState<StudentCommentResponse[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const selectedClass = classes.find((c) => c.id === selectedClassId) ?? null;
-
-  useEffect(() => {
-    listClasses().then(setClasses).catch(() => undefined);
-  }, []);
 
   useEffect(() => {
     setSelectedStudentId(null);
@@ -45,14 +43,9 @@ export default function PeriodicCommentPanel() {
         <h3 className="text-xs font-bold text-slate-400 block uppercase tracking-wider font-display border-b border-slate-100 pb-2">Viết nhận xét định kỳ</h3>
 
         <div className="space-y-2">
-          <select value={selectedClassId ?? ""} onChange={(e) => setSelectedClassId(e.target.value ? Number(e.target.value) : null)} className={`${inputClass} w-full`}>
-            <option value="">-- Chọn lớp --</option>
-            {classes.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.classCode} — {c.name}
-              </option>
-            ))}
-          </select>
+          <p className="text-xs font-bold text-slate-700">
+            {selectedClass ? `Lớp: ${selectedClass.classCode} — ${selectedClass.name}` : "Chưa chọn lớp — chọn ở góc trên bên phải (Header)"}
+          </p>
           <select
             value={selectedStudentId ?? ""}
             onChange={(e) => setSelectedStudentId(e.target.value ? Number(e.target.value) : null)}

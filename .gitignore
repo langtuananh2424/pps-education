@@ -16,6 +16,9 @@ Thumbs.db
 # Log output từ chạy app cục bộ (mvn spring-boot:run > *.log) để verify runtime
 *.log
 
+# File upload cục bộ (MediaStorageService, mvn spring-boot:run không qua Docker)
+pps-education-backend/media-storage/
+
 # Env / secrets
 .env
 .env.*

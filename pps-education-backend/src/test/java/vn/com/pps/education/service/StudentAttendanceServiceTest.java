@@ -5,13 +5,16 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.transaction.annotation.Transactional;
+import vn.com.pps.education.domain.ClassSession;
 import vn.com.pps.education.domain.Parent;
 import vn.com.pps.education.domain.ParentStudent;
+import vn.com.pps.education.domain.Permission;
 import vn.com.pps.education.domain.Role;
 import vn.com.pps.education.domain.Site;
 import vn.com.pps.education.domain.SiteManager;
 import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.User;
+import vn.com.pps.education.domain.UserPermissionOverride;
 import vn.com.pps.education.domain.UserRole;
 import vn.com.pps.education.dto.AssignTeacherRequest;
 import vn.com.pps.education.dto.AttendanceMarkResponse;
@@ -32,13 +35,17 @@ import vn.com.pps.education.exception.AttendanceSessionNotEditableException;
 import vn.com.pps.education.exception.NotAssignedTeacherForSessionException;
 import vn.com.pps.education.exception.NotSiteManagerForSiteException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
+import vn.com.pps.education.repository.AttendanceSessionRepository;
+import vn.com.pps.education.repository.ClassSessionRepository;
 import vn.com.pps.education.repository.NotificationRepository;
 import vn.com.pps.education.repository.ParentRepository;
 import vn.com.pps.education.repository.ParentStudentRepository;
+import vn.com.pps.education.repository.PermissionRepository;
 import vn.com.pps.education.repository.RoleRepository;
 import vn.com.pps.education.repository.SiteManagerRepository;
 import vn.com.pps.education.repository.SiteRepository;
 import vn.com.pps.education.repository.StudentRepository;
+import vn.com.pps.education.repository.UserPermissionOverrideRepository;
 import vn.com.pps.education.repository.UserRepository;
 import vn.com.pps.education.repository.UserRoleRepository;
 import vn.com.pps.education.support.AbstractIntegrationTest;
@@ -98,6 +105,18 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
 
     @Autowired
     private SiteManagerRepository siteManagerRepository;
+
+    @Autowired
+    private ClassSessionRepository classSessionRepository;
+
+    @Autowired
+    private AttendanceSessionRepository attendanceSessionRepository;
+
+    @Autowired
+    private PermissionRepository permissionRepository;
+
+    @Autowired
+    private UserPermissionOverrideRepository userPermissionOverrideRepository;
 
     private User headAcademic;
     private User teacher;
@@ -172,6 +191,23 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void updateLessonContent_savesLessonContentForSession() {
+        var result = studentAttendanceService.updateLessonContent(session.id(), "Unit 4: Present simple tense.", teacher.getId());
+
+        assertThat(result.classSessionId()).isEqualTo(session.id());
+        assertThat(result.lessonContent()).isEqualTo("Unit 4: Present simple tense.");
+    }
+
+    @Test
+    void updateLessonContent_rejectsWhenActorNotAssignedTeacher() {
+        User outsider = newUser("outsider.teacher");
+        assignRole(outsider, "TEACHER");
+
+        assertThatThrownBy(() -> studentAttendanceService.updateLessonContent(session.id(), "Nội dung", outsider.getId()))
+                .isInstanceOf(NotAssignedTeacherForSessionException.class);
+    }
+
+    @Test
     void updatePeriodMark_UC15_MainFlow_overridesSinglePeriod() {
         studentAttendanceService.markAttendance(session.id(),
                 new MarkAttendanceRequest("SESSION_LEVEL", List.of(
@@ -218,18 +254,99 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void markAttendance_rejectsEditingAfterSubmit() {
+    void markAttendance_UC15_editableUntilEndOfDay_afterSubmit() {
         studentAttendanceService.markAttendance(session.id(),
                 new MarkAttendanceRequest("SESSION_LEVEL", List.of(
                         new EnterAttendanceMarkRequest(student1.getId(), "PRESENT", null, null, null))),
                 teacher.getId());
         studentAttendanceService.submitAttendance(session.id(), teacher.getId());
 
+        // Sửa lại trong ngày (session.sessionDate = hôm nay) sau khi Lưu -> được phép
+        AttendanceSessionResponse edited = studentAttendanceService.markAttendance(session.id(),
+                new MarkAttendanceRequest("SESSION_LEVEL", List.of(
+                        new EnterAttendanceMarkRequest(student1.getId(), "ABSENT", null, null, "Sửa sau khi Lưu"))),
+                teacher.getId());
+
+        AttendanceMarkResponse mark = edited.marks().stream()
+                .filter(m -> m.studentId().equals(student1.getId())).findFirst().orElseThrow();
+        assertThat(mark.status()).isEqualTo("ABSENT");
+    }
+
+    @Test
+    void markAttendance_UC15_rejectsWhenSessionNotToday() {
+        setSessionDate(session.id(), LocalDate.now().minusDays(1));
+
         assertThatThrownBy(() -> studentAttendanceService.markAttendance(session.id(),
                 new MarkAttendanceRequest("SESSION_LEVEL", List.of(
-                        new EnterAttendanceMarkRequest(student1.getId(), "ABSENT", null, null, null))),
+                        new EnterAttendanceMarkRequest(student1.getId(), "PRESENT", null, null, null))),
                 teacher.getId()))
                 .isInstanceOf(AttendanceSessionNotEditableException.class);
+    }
+
+    @Test
+    void submitAttendance_UC15_resubmitSameDay_doesNotDuplicateParentNotification() {
+        studentAttendanceService.markAttendance(session.id(),
+                new MarkAttendanceRequest("SESSION_LEVEL", List.of(
+                        new EnterAttendanceMarkRequest(student1.getId(), "ABSENT", null, null, "Ốm"))),
+                teacher.getId());
+        studentAttendanceService.submitAttendance(session.id(), teacher.getId());
+        long afterFirst = notificationRepository.findByRecipientUserIdOrderByCreatedAtDesc(parentUser.getId(), PageRequest.of(0, 10))
+                .getTotalElements();
+
+        // Submit lại trong ngày -> không gửi trùng thông báo cho PH
+        studentAttendanceService.submitAttendance(session.id(), teacher.getId());
+        long afterSecond = notificationRepository.findByRecipientUserIdOrderByCreatedAtDesc(parentUser.getId(), PageRequest.of(0, 10))
+                .getTotalElements();
+
+        assertThat(afterSecond).isEqualTo(afterFirst);
+    }
+
+    @Test
+    void markAttendance_UC15_adminCreate_bypassesTeacherAndDayConstraints() {
+        // Buổi 3 ngày trước + người thao tác KHÔNG phải GV được phân công
+        setSessionDate(session.id(), LocalDate.now().minusDays(3));
+        User admin = newUser("attendance.admin.create");
+        grantPermission(admin, "academic.attendance.create");
+
+        AttendanceSessionResponse result = studentAttendanceService.markAttendance(session.id(),
+                new MarkAttendanceRequest("SESSION_LEVEL", List.of(
+                        new EnterAttendanceMarkRequest(student1.getId(), "PRESENT", null, null, null))),
+                admin.getId());
+
+        assertThat(result.marks()).hasSize(1);
+        assertThat(result.marks().get(0).studentId()).isEqualTo(student1.getId());
+    }
+
+    @Test
+    void updatePeriodMark_UC15_adminUpdate_bypassesTeacherAndDayConstraints() {
+        studentAttendanceService.markAttendance(session.id(),
+                new MarkAttendanceRequest("SESSION_LEVEL", List.of(
+                        new EnterAttendanceMarkRequest(student1.getId(), "PRESENT", null, null, null))),
+                teacher.getId());
+        Long periodId = classSessionService.listPeriods(session.id(), headAcademic.getId()).get(0).id();
+        // Đưa buổi về quá khứ -> GV không sửa được, nhưng admin update thì được
+        setSessionDate(session.id(), LocalDate.now().minusDays(2));
+        User admin = newUser("attendance.admin.update");
+        grantPermission(admin, "academic.attendance.update");
+
+        AttendanceMarkResponse updated = studentAttendanceService.updatePeriodMark(session.id(), student1.getId(), periodId,
+                new UpdatePeriodMarkRequest("ABSENT", "Sửa bởi quản trị"), admin.getId());
+
+        assertThat(updated.studentId()).isEqualTo(student1.getId());
+    }
+
+    @Test
+    void deleteAttendance_UC15_adminDelete_removesSessionAndMarks() {
+        studentAttendanceService.markAttendance(session.id(),
+                new MarkAttendanceRequest("SESSION_LEVEL", List.of(
+                        new EnterAttendanceMarkRequest(student1.getId(), "ABSENT", null, null, "Ốm"),
+                        new EnterAttendanceMarkRequest(student2.getId(), "PRESENT", null, null, null))),
+                teacher.getId());
+        studentAttendanceService.submitAttendance(session.id(), teacher.getId());
+
+        studentAttendanceService.deleteAttendance(session.id(), headAcademic.getId());
+
+        assertThat(attendanceSessionRepository.findByClassSessionId(session.id())).isEmpty();
     }
 
     @Test
@@ -255,6 +372,28 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
                 new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now()), headAcademic.getId());
 
         AttendanceSessionResponse result = studentAttendanceService.getAttendanceSession(session.id(), teacher.getId());
+
+        assertThat(result.classSessionId()).isEqualTo(session.id());
+    }
+
+    /**
+     * Bổ sung (audit FE 2026-07-20): resolveAllowedSiteIds trước đây chỉ
+     * cộng site theo site_teachers, bỏ sót site_managers -- Quản lý điểm
+     * trường không kiêm giáo viên luôn nhận ResourceNotFoundException dù
+     * đã có báo cáo tổng hợp riêng (getSiteSummary) cho đúng site này.
+     */
+    @Test
+    void getAttendanceSession_boSung_siteManagerForSiteCanViewSession() {
+        studentAttendanceService.markAttendance(session.id(),
+                new MarkAttendanceRequest("SESSION_LEVEL", List.of(
+                        new EnterAttendanceMarkRequest(student1.getId(), "PRESENT", null, null, null))),
+                teacher.getId());
+        Long siteId = classService.getById(session.classId()).siteId();
+        Site managedSite = siteRepository.findById(siteId).orElseThrow();
+        User siteManagerUser = newUser("site.manager.getsession");
+        newSiteManager(siteManagerUser, managedSite);
+
+        AttendanceSessionResponse result = studentAttendanceService.getAttendanceSession(session.id(), siteManagerUser.getId());
 
         assertThat(result.classSessionId()).isEqualTo(session.id());
     }
@@ -302,6 +441,23 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
         siteManager.setAssignedFrom(LocalDate.now().minusMonths(1));
         siteManager.setAssignedBy(user);
         return siteManagerRepository.save(siteManager);
+    }
+
+    private void grantPermission(User user, String permissionCode) {
+        Permission permission = permissionRepository.findByCode(permissionCode).orElseThrow();
+        UserPermissionOverride override = new UserPermissionOverride();
+        override.setUser(user);
+        override.setPermission(permission);
+        override.setOverrideType(UserPermissionOverride.OverrideType.GRANT);
+        override.setReason("test");
+        override.setGrantedBy(user);
+        userPermissionOverrideRepository.save(override);
+    }
+
+    private void setSessionDate(Long classSessionId, LocalDate date) {
+        ClassSession classSession = classSessionRepository.findById(classSessionId).orElseThrow();
+        classSession.setSessionDate(date);
+        classSessionRepository.save(classSession);
     }
 
     private String curriculumCode() {

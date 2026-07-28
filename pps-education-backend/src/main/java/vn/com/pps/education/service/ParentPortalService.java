@@ -5,6 +5,7 @@ import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.AttendanceMark;
 import vn.com.pps.education.domain.ClassSession;
 import vn.com.pps.education.domain.GradeEntry;
+import vn.com.pps.education.domain.GradePeriodResult;
 import vn.com.pps.education.domain.Parent;
 import vn.com.pps.education.domain.ParentStudent;
 import vn.com.pps.education.domain.StudentComment;
@@ -12,6 +13,7 @@ import vn.com.pps.education.dto.AttendanceMarkResponse;
 import vn.com.pps.education.dto.ChildResponse;
 import vn.com.pps.education.dto.ClassSessionResponse;
 import vn.com.pps.education.dto.GradeEntryResponse;
+import vn.com.pps.education.dto.GradePeriodResultResponse;
 import vn.com.pps.education.dto.StudentCommentResponse;
 import vn.com.pps.education.exception.NotAuthorizedForPortalAccessException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
@@ -19,6 +21,7 @@ import vn.com.pps.education.repository.AttendanceMarkRepository;
 import vn.com.pps.education.repository.ClassEnrollmentRepository;
 import vn.com.pps.education.repository.ClassSessionRepository;
 import vn.com.pps.education.repository.GradeEntryRepository;
+import vn.com.pps.education.repository.GradePeriodResultRepository;
 import vn.com.pps.education.repository.ParentRepository;
 import vn.com.pps.education.repository.ParentStudentRepository;
 import vn.com.pps.education.repository.StudentCommentRepository;
@@ -30,14 +33,17 @@ import java.util.List;
  * UC-25: Xem Portal Phụ huynh (FR-LMS-03, FR-LMS-07). Xem
  * docs/uc/phan-he-07-lms-portal.md. Read-only, không có bảng riêng — mọi
  * dữ liệu lấy từ các Repository đã có (SDD > LMS & Portal > Portal Phụ
- * huynh): bảng điểm (grade_entries APPROVED), chuyên cần (attendance_marks
- * join class_sessions), nhận xét/cảnh báo (student_comments APPROVED),
- * lịch học (class_sessions). Main Flow bước 5 (thông báo khẩn) không cần
- * endpoint riêng — GET /api/notifications (NotificationController) đã tự
- * phục vụ mọi user kể cả Phụ huynh, không viết lại.
+ * huynh): bảng điểm (grade_entries khác DRAFT — V43: hiển thị cả
+ * PROVISIONAL_PUBLISHED/APPEAL/OFFICIAL, không chỉ PUBLISHED như V39),
+ * chuyên cần (attendance_marks join class_sessions), nhận xét/cảnh báo
+ * (student_comments APPROVED), lịch học (class_sessions). Main Flow bước 5
+ * (thông báo khẩn) không cần endpoint riêng — GET /api/notifications
+ * (NotificationController) đã tự phục vụ mọi user kể cả Phụ huynh, không
+ * viết lại.
  *
- * A1 (dữ liệu chưa duyệt không hiển thị) đã nằm sẵn trong các query
- * WHERE status=APPROVED — không cần nhánh riêng.
+ * A1 (dữ liệu chưa công bố/chưa duyệt không hiển thị) đã nằm sẵn trong các
+ * query WHERE status != DRAFT (điểm) / status=APPROVED (nhận xét) —
+ * không cần nhánh riêng.
  */
 @Service
 public class ParentPortalService {
@@ -47,6 +53,7 @@ public class ParentPortalService {
     private final StudentRepository studentRepository;
     private final ClassEnrollmentRepository classEnrollmentRepository;
     private final GradeEntryRepository gradeEntryRepository;
+    private final GradePeriodResultRepository gradePeriodResultRepository;
     private final AttendanceMarkRepository attendanceMarkRepository;
     private final StudentCommentRepository studentCommentRepository;
     private final ClassSessionRepository classSessionRepository;
@@ -56,6 +63,7 @@ public class ParentPortalService {
                                 StudentRepository studentRepository,
                                 ClassEnrollmentRepository classEnrollmentRepository,
                                 GradeEntryRepository gradeEntryRepository,
+                                GradePeriodResultRepository gradePeriodResultRepository,
                                 AttendanceMarkRepository attendanceMarkRepository,
                                 StudentCommentRepository studentCommentRepository,
                                 ClassSessionRepository classSessionRepository) {
@@ -64,6 +72,7 @@ public class ParentPortalService {
         this.studentRepository = studentRepository;
         this.classEnrollmentRepository = classEnrollmentRepository;
         this.gradeEntryRepository = gradeEntryRepository;
+        this.gradePeriodResultRepository = gradePeriodResultRepository;
         this.attendanceMarkRepository = attendanceMarkRepository;
         this.studentCommentRepository = studentCommentRepository;
         this.classSessionRepository = classSessionRepository;
@@ -79,12 +88,29 @@ public class ParentPortalService {
                 .toList();
     }
 
-    /** Main Flow bước 3: bảng điểm đã duyệt (UC-20). */
+    /** Main Flow bước 3: bảng điểm đã công bố dự kiến trở lên (UC-20; V43 — hiển thị cả lúc đang phúc khảo). */
     @Transactional(readOnly = true)
     public List<GradeEntryResponse> listGrades(Long studentId, Long classId, Long actorUserId) {
         requireAccessToChildClass(studentId, classId, actorUserId);
-        return gradeEntryRepository.findBySchoolClassIdAndStudentIdAndStatus(classId, studentId, GradeEntry.Status.APPROVED)
+        return gradeEntryRepository.findBySchoolClassIdAndStudentIdAndStatusNot(classId, studentId, GradeEntry.Status.DRAFT)
                 .stream().map(this::toResponse).toList();
+    }
+
+    /**
+     * UC-53 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng): Overall/Level
+     * đã công bố dự kiến trở lên (khác DRAFT — V43) của 1 kỳ đánh giá — gap
+     * trước đây Portal Phụ huynh chỉ có điểm thành phần (listGrades), chưa
+     * có Overall/Level.
+     */
+    @Transactional(readOnly = true)
+    public GradePeriodResultResponse getPeriodResult(Long studentId, Long classId, Long gradePeriodId, Long actorUserId) {
+        requireAccessToChildClass(studentId, classId, actorUserId);
+        GradePeriodResult result = gradePeriodResultRepository
+                .findBySchoolClassIdAndStudentIdAndGradePeriodId(classId, studentId, gradePeriodId)
+                .filter(r -> r.getStatus() != GradePeriodResult.Status.DRAFT)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Chưa có điểm tổng kết đã công bố cho học sinh id=" + studentId + ", kỳ đánh giá id=" + gradePeriodId + "."));
+        return toResponse(result);
     }
 
     /** Main Flow bước 4: chuyên cần. */
@@ -147,8 +173,18 @@ public class ParentPortalService {
         return new GradeEntryResponse(
                 e.getId(), e.getSchoolClass().getId(), e.getStudent().getId(), e.getStudent().getUser().getFullName(),
                 e.getStudent().getStudentCode(), e.getGradeComponent().getId(), e.getScore(), e.isAbsenceFlag(),
-                e.getTeacherNote(), e.getStatus().name(), e.getEnteredBy().getId(), e.getSubmittedAt(),
-                e.getApprovedBy() == null ? null : e.getApprovedBy().getId(), e.getApprovedAt());
+                e.getTeacherNote(), e.getStatus().name(), e.getEnteredBy().getId(),
+                e.getPublishedBy() == null ? null : e.getPublishedBy().getId(), e.getPublishedAt(), e.getFinalizedAt());
+    }
+
+    private GradePeriodResultResponse toResponse(GradePeriodResult r) {
+        return new GradePeriodResultResponse(
+                r.getId(), r.getSchoolClass().getId(), r.getStudent().getId(),
+                r.getStudent().getUser().getFullName(), r.getStudent().getStudentCode(),
+                r.getGradePeriod().getId(), r.getOverallScore(), r.getScaleType().name(), r.getLevel(),
+                r.getSource().name(), r.getImportJob() == null ? null : r.getImportJob().getId(),
+                r.getStatus().name(), r.getEnteredBy().getId(),
+                r.getPublishedBy() == null ? null : r.getPublishedBy().getId(), r.getPublishedAt(), r.getFinalizedAt());
     }
 
     private AttendanceMarkResponse toResponse(AttendanceMark m) {
@@ -166,7 +202,9 @@ public class ParentPortalService {
                 c.getGradePeriod() == null ? null : c.getGradePeriod().getId(),
                 c.getCommentDate(), c.getContent(), c.getStructuredContent(), c.getSeverity().name(), c.isWarning(),
                 c.getStatus().name(), c.getSubmittedAt(), c.getApprovedAt(),
-                c.getApprovedBy() == null ? null : c.getApprovedBy().getId(), c.getVisibleToParentAt(), c.getRejectionReason());
+                c.getApprovedBy() == null ? null : c.getApprovedBy().getId(), c.getVisibleToParentAt(), c.getRejectionReason(),
+                c.getAttitude() == null ? null : c.getAttitude().name(), c.getHomeworkPreviousScore(),
+                c.getHomeworkNext(), c.getNote());
     }
 
     private ClassSessionResponse toResponse(ClassSession s) {
@@ -174,6 +212,7 @@ public class ParentPortalService {
                 s.getId(), s.getSchoolClass().getId(), s.getSessionDate(), s.getStartTime(), s.getEndTime(),
                 s.getRoom() == null ? null : s.getRoom().getId(), s.getRoom() == null ? null : s.getRoom().getName(),
                 s.getPrimaryTeacher().getId(), s.getPrimaryTeacher().getFullName(), s.getSessionType().name(), s.getStatus().name(),
-                s.getCancellationReason(), s.getRescheduledToSession() == null ? null : s.getRescheduledToSession().getId());
+                s.getCancellationReason(), s.getRescheduledToSession() == null ? null : s.getRescheduledToSession().getId(),
+                s.getLessonContent());
     }
 }

@@ -187,13 +187,109 @@ class StudentServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void getMyStudentProfile_UC63_MainFlow_returnsOwnProfileByUserId() {
+        User target = newUser("student.self.view");
+        StudentResponse created = studentService.create(
+                baseStudentRequest(target.getId(), LocalDate.of(2026, 1, 1)), staff.getId());
+
+        StudentResponse mine = studentService.getMyStudentProfile(target.getId());
+
+        assertThat(mine.id()).isEqualTo(created.id());
+        assertThat(mine.userId()).isEqualTo(target.getId());
+    }
+
+    @Test
+    void getMyStudentProfile_UC63_A1_rejectsWhenAccountHasNoStudentProfile() {
+        User noProfile = newUser("student.self.view.noprofile");
+
+        assertThatThrownBy(() -> studentService.getMyStudentProfile(noProfile.getId()))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void updateMyStudentProfile_UC63_MainFlow_updatesOnlyPortraitForOwnAccount() {
+        User target = newUser("student.self.update");
+        StudentResponse created = studentService.create(
+                baseStudentRequest(target.getId(), LocalDate.of(2026, 1, 1)), staff.getId());
+
+        StudentResponse updated = studentService.updateMyStudentProfile(target.getId(),
+                new vn.com.pps.education.dto.UpdateOwnStudentProfileRequest("https://cdn.pps.edu.vn/self.jpg"));
+
+        assertThat(updated.portraitUrl()).isEqualTo("https://cdn.pps.edu.vn/self.jpg");
+        // UC-63 Postcondition -- field học vụ/hành chính khác giữ nguyên không đổi.
+        assertThat(updated.studentCode()).isEqualTo(created.studentCode());
+        assertThat(updated.status()).isEqualTo(created.status());
+        assertThat(updated.gender()).isEqualTo(created.gender());
+        assertThat(studentHistoryRepository.findByStudentIdOrderByCreatedAtDesc(created.id())).hasSize(2);
+    }
+
+    @Test
+    void updateMyStudentProfile_UC63_A1_rejectsWhenAccountHasNoStudentProfile() {
+        User noProfile = newUser("student.self.update.noprofile");
+
+        assertThatThrownBy(() -> studentService.updateMyStudentProfile(noProfile.getId(),
+                new vn.com.pps.education.dto.UpdateOwnStudentProfileRequest("https://cdn.pps.edu.vn/self.jpg")))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void getMyParentProfile_UC63_MainFlow_returnsOwnProfileByUserId() {
+        User parentUser = newUser("parent.self.view");
+        ParentResponse created = studentService.createParent(
+                new CreateParentRequest(parentUser.getId(), null, "Kỹ sư", "FPT Software", "Hà Nội", null, null), staff.getId());
+
+        ParentResponse mine = studentService.getMyParentProfile(parentUser.getId());
+
+        assertThat(mine.id()).isEqualTo(created.id());
+        assertThat(mine.userId()).isEqualTo(parentUser.getId());
+    }
+
+    @Test
+    void getMyParentProfile_UC63_A1_rejectsWhenAccountHasNoParentProfile() {
+        User noProfile = newUser("parent.self.view.noprofile");
+
+        assertThatThrownBy(() -> studentService.getMyParentProfile(noProfile.getId()))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void updateMyParentProfile_UC63_MainFlow_updatesPortraitAndContactInfoForOwnAccountOnly() {
+        User parentUser = newUser("parent.self.update");
+        ParentResponse created = studentService.createParent(
+                new CreateParentRequest(parentUser.getId(), null, "Kỹ sư", "FPT Software", "Hà Nội", "Ghi chú nội bộ", null), staff.getId());
+
+        ParentResponse updated = studentService.updateMyParentProfile(parentUser.getId(),
+                new vn.com.pps.education.dto.UpdateOwnParentProfileRequest(
+                        "https://cdn.pps.edu.vn/parent-self.jpg", "Bác sĩ", "Bệnh viện Bạch Mai", "Hà Nội mới"));
+
+        assertThat(updated.portraitUrl()).isEqualTo("https://cdn.pps.edu.vn/parent-self.jpg");
+        assertThat(updated.occupation()).isEqualTo("Bác sĩ");
+        assertThat(updated.workplace()).isEqualTo("Bệnh viện Bạch Mai");
+        assertThat(updated.address()).isEqualTo("Hà Nội mới");
+        // UC-63 Postcondition -- notes (ghi chú nội bộ do Nhân viên quản lý) giữ nguyên không đổi.
+        assertThat(updated.notes()).isEqualTo(created.notes());
+        assertThat(parentHistoryRepository.findByParentIdOrderByCreatedAtDesc(created.id()))
+                .filteredOn(h -> h.getAction() == vn.com.pps.education.domain.ParentHistory.Action.UPDATED)
+                .hasSize(1);
+    }
+
+    @Test
+    void updateMyParentProfile_UC63_A1_rejectsWhenAccountHasNoParentProfile() {
+        User noProfile = newUser("parent.self.update.noprofile");
+
+        assertThatThrownBy(() -> studentService.updateMyParentProfile(noProfile.getId(),
+                new vn.com.pps.education.dto.UpdateOwnParentProfileRequest("https://cdn.pps.edu.vn/x.jpg", null, null, null)))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
     void createParent_UC13_MainFlow_withNewAccount_createsUserAndParentInOneTransactionAndAssignsParentRole() {
         CreateUserRequest newAccount = new CreateUserRequest(
                 "ph.moi." + System.nanoTime(), "ph.moi." + System.nanoTime() + "@pps.edu.vn",
                 "Phụ Huynh Mới", null, "MatKhau@8kytu");
 
         ParentResponse response = studentService.createParent(
-                new CreateParentRequest(null, newAccount, "Kỹ sư", "FPT Software", "Hà Nội", null), staff.getId());
+                new CreateParentRequest(null, newAccount, "Kỹ sư", "FPT Software", "Hà Nội", null, null), staff.getId());
 
         assertThat(response.id()).isNotNull();
         User created = userRepository.findByUsername(newAccount.username()).orElseThrow();
@@ -211,14 +307,14 @@ class StudentServiceTest extends AbstractIntegrationTest {
                 "ph.both." + System.nanoTime(), "ph.both." + System.nanoTime() + "@pps.edu.vn", "Phụ Huynh Both", null, null);
 
         assertThatThrownBy(() -> studentService.createParent(
-                new CreateParentRequest(target.getId(), newAccount, null, null, null, null), staff.getId()))
+                new CreateParentRequest(target.getId(), newAccount, null, null, null, null, null), staff.getId()))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     void createParent_UC13_A_rejectsWhenNeitherUserIdNorNewAccountProvided() {
         assertThatThrownBy(() -> studentService.createParent(
-                new CreateParentRequest(null, null, null, null, null, null), staff.getId()))
+                new CreateParentRequest(null, null, null, null, null, null, null), staff.getId()))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -230,7 +326,7 @@ class StudentServiceTest extends AbstractIntegrationTest {
 
         User parentUser = newUser("parent.of.student");
         ParentResponse parent = studentService.createParent(
-                new CreateParentRequest(parentUser.getId(), null, "Kỹ sư", "FPT Software", "Hà Nội", null), staff.getId());
+                new CreateParentRequest(parentUser.getId(), null, "Kỹ sư", "FPT Software", "Hà Nội", null, null), staff.getId());
 
         var link = studentService.linkParent(student.id(),
                 new LinkParentRequest(parent.id(), "MOTHER", true, true, null));
@@ -248,7 +344,7 @@ class StudentServiceTest extends AbstractIntegrationTest {
                 baseStudentRequest(studentUser.getId(), LocalDate.of(2026, 1, 1)), staff.getId());
         User parentUser = newUser("parent.dup.link");
         ParentResponse parent = studentService.createParent(
-                new CreateParentRequest(parentUser.getId(), null, null, null, null, null), staff.getId());
+                new CreateParentRequest(parentUser.getId(), null, null, null, null, null, null), staff.getId());
         studentService.linkParent(student.id(), new LinkParentRequest(parent.id(), "FATHER", false, false, null));
 
         assertThatThrownBy(() -> studentService.linkParent(student.id(),
@@ -263,10 +359,10 @@ class StudentServiceTest extends AbstractIntegrationTest {
                 baseStudentRequest(studentUser.getId(), LocalDate.of(2026, 1, 1)), staff.getId());
         User parentUser1 = newUser("parent.primary.1");
         ParentResponse parent1 = studentService.createParent(
-                new CreateParentRequest(parentUser1.getId(), null, null, null, null, null), staff.getId());
+                new CreateParentRequest(parentUser1.getId(), null, null, null, null, null, null), staff.getId());
         User parentUser2 = newUser("parent.primary.2");
         ParentResponse parent2 = studentService.createParent(
-                new CreateParentRequest(parentUser2.getId(), null, null, null, null, null), staff.getId());
+                new CreateParentRequest(parentUser2.getId(), null, null, null, null, null, null), staff.getId());
         studentService.linkParent(student.id(), new LinkParentRequest(parent1.id(), "FATHER", true, false, null));
 
         assertThatThrownBy(() -> studentService.linkParent(student.id(),
@@ -278,10 +374,10 @@ class StudentServiceTest extends AbstractIntegrationTest {
     void searchParents_returnsAllParents_whenQueryBlank() {
         User parentUser1 = newUser("parent.searchall.1");
         ParentResponse parent1 = studentService.createParent(
-                new CreateParentRequest(parentUser1.getId(), null, null, null, null, null), staff.getId());
+                new CreateParentRequest(parentUser1.getId(), null, null, null, null, null, null), staff.getId());
         User parentUser2 = newUser("parent.searchall.2");
         ParentResponse parent2 = studentService.createParent(
-                new CreateParentRequest(parentUser2.getId(), null, null, null, null, null), staff.getId());
+                new CreateParentRequest(parentUser2.getId(), null, null, null, null, null, null), staff.getId());
 
         assertThat(studentService.searchParents(null))
                 .extracting(ParentResponse::id)
@@ -292,7 +388,7 @@ class StudentServiceTest extends AbstractIntegrationTest {
     void searchParents_filtersByFullNameQuery() {
         User parentUser = newUser("parent.uniquename." + System.nanoTime());
         ParentResponse parent = studentService.createParent(
-                new CreateParentRequest(parentUser.getId(), null, null, null, null, null), staff.getId());
+                new CreateParentRequest(parentUser.getId(), null, null, null, null, null, null), staff.getId());
 
         assertThat(studentService.searchParents(parentUser.getFullName()))
                 .extracting(ParentResponse::id)
@@ -303,7 +399,7 @@ class StudentServiceTest extends AbstractIntegrationTest {
     void getParentById_returnsParentDetails() {
         User parentUser = newUser("parent.getbyid");
         ParentResponse created = studentService.createParent(
-                new CreateParentRequest(parentUser.getId(), null, "Kỹ sư", "FPT Software", "Hà Nội", null), staff.getId());
+                new CreateParentRequest(parentUser.getId(), null, "Kỹ sư", "FPT Software", "Hà Nội", null, null), staff.getId());
 
         ParentResponse fetched = studentService.getParentById(created.id());
 

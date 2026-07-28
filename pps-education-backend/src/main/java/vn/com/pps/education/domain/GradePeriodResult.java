@@ -15,6 +15,12 @@ import java.util.UUID;
  * thống KHÔNG tự tính lại theo công thức — lưu nguyên giá trị GV đã
  * tính (band IELTS / % / thang riêng). Khác grade_final_summaries (tổng
  * kết toàn học phần, hệ thống tự tính — chưa triển khai).
+ *
+ * V43 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng — sửa đổi lần 2
+ * sau V39): cùng luồng 4 trạng thái với grade_entries — DRAFT →
+ * PROVISIONAL_PUBLISHED → APPEAL → OFFICIAL, khoá sửa theo TRẠNG THÁI
+ * (không còn theo hạn X ngày) — xem Javadoc {@link GradeEntry} để biết
+ * chi tiết từng trạng thái, áp dụng y hệt ở đây.
  */
 @Getter
 @Setter
@@ -26,7 +32,7 @@ public class GradePeriodResult {
 
     public enum Source { MANUAL, EXCEL_IMPORT }
 
-    public enum Status { DRAFT, PENDING, APPROVED, REJECTED }
+    public enum Status { DRAFT, PROVISIONAL_PUBLISHED, APPEAL, OFFICIAL }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -66,7 +72,7 @@ public class GradePeriodResult {
     private ImportJob importJob;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
+    @Column(nullable = false, length = 30)
     private Status status = Status.DRAFT;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
@@ -76,17 +82,13 @@ public class GradePeriodResult {
     @Column(name = "entered_at", nullable = false)
     private OffsetDateTime enteredAt = OffsetDateTime.now();
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "approval_flow_id")
-    private ApprovalFlow approvalFlow;
-
-    @Column(name = "submitted_at")
-    private OffsetDateTime submittedAt;
-
-    @Column(name = "approved_at")
-    private OffsetDateTime approvedAt;
+    @Column(name = "published_at")
+    private OffsetDateTime publishedAt;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "approved_by")
-    private User approvedBy;
+    @JoinColumn(name = "published_by")
+    private User publishedBy;
+
+    @Column(name = "finalized_at")
+    private OffsetDateTime finalizedAt;
 }

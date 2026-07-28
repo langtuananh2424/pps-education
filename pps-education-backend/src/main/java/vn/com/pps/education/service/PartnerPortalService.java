@@ -101,11 +101,11 @@ public class PartnerPortalService {
                 .toList();
     }
 
-    /** Main Flow bước 2: kết quả học tập — điểm đã duyệt (UC-20) của học sinh trường mình. */
+    /** Main Flow bước 2: kết quả học tập — điểm đã công bố dự kiến trở lên (UC-20; V43 — khác DRAFT, hiển thị cả lúc đang phúc khảo) của học sinh trường mình. */
     @Transactional(readOnly = true)
-    public List<GradeEntryResponse> getApprovedGrades(Long actorUserId) {
+    public List<GradeEntryResponse> getPublishedGrades(Long actorUserId) {
         Site site = requirePartnerSite(actorUserId);
-        return gradeEntryRepository.findByStatusAndSiteId(GradeEntry.Status.APPROVED, site.getId())
+        return gradeEntryRepository.findByStatusNotAndSiteId(GradeEntry.Status.DRAFT, site.getId())
                 .stream().map(this::toResponse).toList();
     }
 
@@ -164,8 +164,8 @@ public class PartnerPortalService {
         return new GradeEntryResponse(
                 e.getId(), e.getSchoolClass().getId(), e.getStudent().getId(), e.getStudent().getUser().getFullName(),
                 e.getStudent().getStudentCode(), e.getGradeComponent().getId(), e.getScore(), e.isAbsenceFlag(),
-                e.getTeacherNote(), e.getStatus().name(), e.getEnteredBy().getId(), e.getSubmittedAt(),
-                e.getApprovedBy() == null ? null : e.getApprovedBy().getId(), e.getApprovedAt());
+                e.getTeacherNote(), e.getStatus().name(), e.getEnteredBy().getId(),
+                e.getPublishedBy() == null ? null : e.getPublishedBy().getId(), e.getPublishedAt(), e.getFinalizedAt());
     }
 
     private TeachingPlanResponse toResponse(TeachingPlan p) {
@@ -183,6 +183,8 @@ public class PartnerPortalService {
                 c.getGradePeriod() == null ? null : c.getGradePeriod().getId(),
                 c.getCommentDate(), c.getContent(), c.getStructuredContent(), c.getSeverity().name(), c.isWarning(),
                 c.getStatus().name(), c.getSubmittedAt(), c.getApprovedAt(),
-                c.getApprovedBy() == null ? null : c.getApprovedBy().getId(), c.getVisibleToParentAt(), c.getRejectionReason());
+                c.getApprovedBy() == null ? null : c.getApprovedBy().getId(), c.getVisibleToParentAt(), c.getRejectionReason(),
+                c.getAttitude() == null ? null : c.getAttitude().name(), c.getHomeworkPreviousScore(),
+                c.getHomeworkNext(), c.getNote());
     }
 }

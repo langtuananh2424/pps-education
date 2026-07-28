@@ -2,7 +2,6 @@ import {
   UserRole,
   Campus,
   Classroom,
-  Course,
   Employee,
   Task,
   AttendanceLog,
@@ -10,17 +9,14 @@ import {
   Student,
   GradeEntry,
   CommentEntry,
-  Lecture,
   Exam,
   StudentExamSubmission,
   Invoice,
   Expense,
   Lead,
-  ClassroomRoom,
   FeedbackTicket,
   SyllabusPlan,
-  Permission,
-  RolePermission
+  Permission
 } from "../types";
 
 export const mockCampuses: Campus[] = [
@@ -62,13 +58,6 @@ export const mockCampuses: Campus[] = [
     managerId: "EMP-004",
     managerName: "Nguyễn Thị Mai"
   }
-];
-
-export const mockCourses: Course[] = [
-  { id: "CRS-01", name: "Tiếng Anh Trẻ Em PPS Junior Starter", code: "PPS-J-STAR" },
-  { id: "CRS-02", name: "Tiếng Anh Giao Tiếp Học Thuật - Academic Communication", code: "PPS-A-COMM" },
-  { id: "CRS-03", name: "Chương Trình Luyện Thi Cambridge PET/KET", code: "PPS-CAM-PET" },
-  { id: "CRS-04", name: "Anh Văn Phản Xạ PPS Active Kids", code: "PPS-ACT-KID" }
 ];
 
 export const mockClassrooms: Classroom[] = [
@@ -484,27 +473,6 @@ export const mockCommentEntries: CommentEntry[] = [
   }
 ];
 
-export const mockLectures: Lecture[] = [
-  {
-    id: "LEC-001",
-    title: "Unit 1: Greetings and Introduction",
-    description: "Video hướng dẫn chi tiết cách phát âm các nguyên âm cơ bản và hội thoại chào hỏi.",
-    fileType: "VIDEO",
-    cdnUrl: "https://pps-cdn.vn/lectures/greetings_intro.mp4",
-    courseId: "CRS-01",
-    views: 124
-  },
-  {
-    id: "LEC-002",
-    title: "Tài liệu học tập Unit 1 - Từ vựng & Mẫu câu",
-    description: "Tệp tin PDF tổng hợp các từ vựng và mẫu câu chào hỏi thông dụng.",
-    fileType: "PDF",
-    cdnUrl: "https://pps-cdn.vn/lectures/unit1_vocab.pdf",
-    courseId: "CRS-01",
-    views: 95
-  }
-];
-
 export const mockExams: Exam[] = [
   { id: "EXM-001", title: "Bài Kiểm Tra Giữa Kỳ Junior Starter", courseId: "CRS-01", type: "QUIZ", questionsCount: 20, deadline: "2026-07-20" },
   { id: "EXM-002", title: "Luyện phát âm Reflexive Dialogue", courseId: "CRS-04", type: "SPEAKING", questionsCount: 5, deadline: "2026-07-18" }
@@ -635,13 +603,6 @@ export const mockLeads: Lead[] = [
   }
 ];
 
-export const mockClassroomRooms: ClassroomRoom[] = [
-  { id: "RM-101", campusId: "CAMP-01", roomName: "Phòng 201 (Lý thuyết)", capacity: 25, type: "THEORY", isFlexible: false, status: "AVAILABLE" },
-  { id: "RM-102", campusId: "CAMP-01", roomName: "Phòng 202 (Lý thuyết)", capacity: 25, type: "THEORY", isFlexible: false, status: "OCCUPIED" },
-  { id: "RM-103", campusId: "CAMP-02", roomName: "Phòng Máy tính Cầu Giấy", capacity: 20, type: "COMPUTER", isFlexible: false, status: "AVAILABLE" },
-  { id: "RM-104", campusId: "CAMP-03", roomName: "Phòng 102 (Linh hoạt)", capacity: 40, type: "THEORY", isFlexible: true, status: "AVAILABLE" }
-];
-
 export const mockFeedbackTickets: FeedbackTicket[] = [
   {
     id: "TKT-001",
@@ -733,67 +694,5 @@ export const mockPermissions: Permission[] = [
   // Facility
   { id: "P-23", code: "facility.manage", name: "Quản lý điểm trường & CSVC", module: "FACILITY", description: "Xếp phòng, theo dõi hợp đồng liên kết", apiEndpoints: ["GET /api/facility/campuses", "POST /api/facility/rooms/schedule"] },
   { id: "P-24", code: "facility.feedback_resolve", name: "Xử lý phản hồi đối tác", module: "FACILITY", description: "Tiếp nhận kiến nghị từ trường liên kết", apiEndpoints: ["POST /api/facility/feedback/resolve"] }
-];
-
-/**
- * Khớp ĐÚNG bảng role_permissions thật của backend (truy vấn trực tiếp từ DB
- * — không suy diễn). Dùng 22 permission code thật (xem API.md), KHÔNG dùng
- * mã bịa của bản Google AI Studio nữa. STUDENT/PARENT không có quyền business
- * nào ở app Admin — 2 role này thuộc app "user" riêng (Portal HS/PH).
- */
-export const mockRolePermissions: RolePermission[] = [
-  {
-    role: UserRole.SYS_ADMIN,
-    permissions: [
-      "facility.manage", "permission.audit.view", "permission.catalog.manage",
-      "permission.override.manage", "permission.role.manage", "user.manage", "user.role.manage"
-    ]
-  },
-  {
-    role: UserRole.EXECUTIVE,
-    permissions: ["finance.report.view", "task.create"]
-  },
-  {
-    role: UserRole.HEAD_ACADEMIC,
-    permissions: [
-      "academic.class.manage", "academic.curriculum.manage", "academic.grade.manage",
-      "facility.room.manage", "task.create"
-    ]
-  },
-  {
-    role: UserRole.SITE_MANAGER,
-    permissions: ["crm.lead.assign", "student.manage", "student.status.manage", "task.create"]
-  },
-  {
-    role: UserRole.HR_MANAGER,
-    permissions: ["hrm.manage", "task.create"]
-  },
-  {
-    role: UserRole.STAFF,
-    permissions: [
-      "academic.class.manage", "crm.lead.assign", "crm.lead.manage",
-      "facility.room.manage", "finance.manage", "student.manage", "student.status.manage"
-    ]
-  },
-  {
-    role: UserRole.TEACHER,
-    permissions: ["lms.exercise.manage", "lms.grading.manage"]
-  },
-  {
-    role: UserRole.OPS_MANAGER,
-    permissions: ["facility.manage", "task.create"]
-  },
-  {
-    role: UserRole.PARTNER_REP,
-    permissions: []
-  },
-  {
-    role: UserRole.PARENT,
-    permissions: []
-  },
-  {
-    role: UserRole.STUDENT,
-    permissions: []
-  }
 ];
 

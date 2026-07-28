@@ -2,6 +2,7 @@ package vn.com.pps.education.service;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.com.pps.education.domain.Department;
 import vn.com.pps.education.domain.Employee;
 import vn.com.pps.education.domain.Notification;
 import vn.com.pps.education.domain.Task;
@@ -13,7 +14,9 @@ import vn.com.pps.education.domain.TaskHistory;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.dto.AddTaskAttachmentRequest;
 import vn.com.pps.education.dto.AddTaskCommentRequest;
+import vn.com.pps.education.dto.CancelTaskRequest;
 import vn.com.pps.education.dto.CreateTaskRequest;
+import vn.com.pps.education.dto.ReassignTaskRequest;
 import vn.com.pps.education.dto.TaskAssignmentResponse;
 import vn.com.pps.education.dto.TaskAttachmentResponse;
 import vn.com.pps.education.dto.TaskCommentResponse;
@@ -22,13 +25,16 @@ import vn.com.pps.education.dto.UpdateAssignmentStatusRequest;
 import vn.com.pps.education.exception.AssigneeOutsideDepartmentException;
 import vn.com.pps.education.exception.InvalidTaskStatusTransitionException;
 import vn.com.pps.education.exception.NotTaskCreatorException;
+import vn.com.pps.education.exception.NotAuthorizedForTaskOverviewException;
 import vn.com.pps.education.exception.NotTaskParticipantException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
+import vn.com.pps.education.exception.TaskAssigneeAlreadyAssignedException;
 import vn.com.pps.education.repository.TaskAssignmentHistoryRepository;
 import vn.com.pps.education.repository.TaskAssignmentRepository;
 import vn.com.pps.education.repository.TaskAttachmentRepository;
 import vn.com.pps.education.repository.TaskCommentRepository;
 import vn.com.pps.education.repository.TaskHistoryRepository;
+import vn.com.pps.education.repository.DepartmentRepository;
 import vn.com.pps.education.repository.EmployeeRepository;
 import vn.com.pps.education.repository.TaskRepository;
 import vn.com.pps.education.repository.UserRepository;
@@ -74,6 +80,8 @@ public class TaskService {
     private final UserRepository userRepository;
     private final UserRoleRepository userRoleRepository;
     private final EmployeeRepository employeeRepository;
+    private final DepartmentRepository departmentRepository;
+    private final PermissionEvaluationService permissionEvaluationService;
     private final NotificationService notificationService;
 
     public TaskService(TaskRepository taskRepository,
@@ -85,6 +93,8 @@ public class TaskService {
                         UserRepository userRepository,
                         UserRoleRepository userRoleRepository,
                         EmployeeRepository employeeRepository,
+                        DepartmentRepository departmentRepository,
+                        PermissionEvaluationService permissionEvaluationService,
                         NotificationService notificationService) {
         this.taskRepository = taskRepository;
         this.taskAssignmentRepository = taskAssignmentRepository;
@@ -95,6 +105,8 @@ public class TaskService {
         this.userRepository = userRepository;
         this.userRoleRepository = userRoleRepository;
         this.employeeRepository = employeeRepository;
+        this.departmentRepository = departmentRepository;
+        this.permissionEvaluationService = permissionEvaluationService;
         this.notificationService = notificationService;
     }
 
@@ -110,7 +122,7 @@ public class TaskService {
         }
         Map<Long, Employee> assigneeEmployeesByUserId = employeeRepository.findByUserIdIn(request.assigneeUserIds()).stream()
                 .collect(Collectors.toMap(e -> e.getUser().getId(), e -> e));
-        requireInDepartmentScope(actorUserId, actorEmployee, assignees, assigneeEmployeesByUserId);
+        requireAssignScope(actorUserId, assignees, assigneeEmployeesByUserId);
 
         Task task = new Task();
         task.setTaskCode(generateTaskCode());
@@ -181,6 +193,31 @@ public class TaskService {
         return taskRepository.findByCreatedByIdOrderByIdDesc(actorUserId).stream().map(this::toResponse).toList();
     }
 
+    /**
+     * UC-06/07 (bổ sung, xác nhận với người dùng 2026-07-22): tổng quan công
+     * việc 2 tầng cho FE (GET /api/tasks/overview):
+     * - Có quyền task.overview.company → toàn bộ công việc công ty.
+     * - Là trưởng phòng (departments.head_user_id) → mọi công việc thuộc
+     *   phòng mình làm trưởng (theo tasks.department_id = phòng người tạo,
+     *   KHÔNG lọc theo người tạo).
+     * - Không có cả 2 → 403 (FE fallback GET /api/tasks/my-assignments cho
+     *   nhân viên thường — chỉ xem việc của mình).
+     */
+    @Transactional(readOnly = true)
+    public List<TaskResponse> listOverview(Long actorUserId) {
+        if (permissionEvaluationService.hasPermission(actorUserId, "task.overview.company")) {
+            return taskRepository.findAllOrderByIdDesc().stream().map(this::toResponse).toList();
+        }
+        Set<Long> headedDeptIds = departmentRepository.findByHeadUserId(actorUserId).stream()
+                .map(Department::getId).collect(Collectors.toSet());
+        if (headedDeptIds.isEmpty()) {
+            throw new NotAuthorizedForTaskOverviewException(
+                    "Tài khoản id=" + actorUserId + " không có quyền xem tổng quan công việc"
+                            + " (task.overview.company) và không làm trưởng phòng nào.");
+        }
+        return taskRepository.findByDepartmentIdInOrderByIdDesc(headedDeptIds).stream().map(this::toResponse).toList();
+    }
+
     /** UC-07 Main Flow bước 1: không gian làm việc Kanban của người nhận việc. */
     @Transactional(readOnly = true)
     public List<TaskAssignmentResponse> listMyAssignments(Long actorUserId) {
@@ -212,6 +249,10 @@ public class TaskService {
         TaskAssignment assignment = taskAssignmentRepository.findById(assignmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phân công công việc id=" + assignmentId));
         Task task = assignment.getTask();
+        if (task.getStatus() == Task.Status.CANCELLED) {
+            throw new InvalidTaskStatusTransitionException(
+                    "Công việc id=" + task.getId() + " đã bị hủy (CANCELLED) — không thể cập nhật phân công.");
+        }
         User actor = getUserOrThrow(actorUserId);
         TaskAssignment.Status current = assignment.getStatus();
         TaskAssignment.Status target = TaskAssignment.Status.valueOf(request.status());
@@ -269,6 +310,120 @@ public class TaskService {
         return toResponse(assignment);
     }
 
+    /**
+     * UC-07 A3: người giao việc giao lại 1 phân công đã bị từ chối (DECLINED)
+     * cho nhân sự khác. Bản ghi DECLINED được GIỮ LẠI làm lịch sử; tạo 1
+     * task_assignment MỚI trạng thái PENDING cho người nhận mới và thông báo
+     * cho họ (FR-TSK-03). Chỉ người giao (createdBy) mới giao lại được; người
+     * nhận mới phải trong phạm vi phòng ban (như UC-06 Main Flow bước 3).
+     * Không giao lại được khi task đã COMPLETED/CANCELLED (không mở lại việc
+     * đã đóng).
+     */
+    @Transactional
+    public TaskAssignmentResponse reassign(Long taskId, ReassignTaskRequest request, Long actorUserId) {
+        Task task = getTaskOrThrow(taskId);
+        requireCreator(task, actorUserId);
+        User actor = getUserOrThrow(actorUserId);
+
+        if (task.getStatus() == Task.Status.COMPLETED || task.getStatus() == Task.Status.CANCELLED) {
+            throw new InvalidTaskStatusTransitionException(
+                    "Không thể giao lại công việc id=" + taskId + " đang ở trạng thái " + task.getStatus() + ".");
+        }
+
+        TaskAssignment declined = taskAssignmentRepository.findById(request.fromAssignmentId())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Không tìm thấy phân công công việc id=" + request.fromAssignmentId()));
+        if (!declined.getTask().getId().equals(taskId)) {
+            throw new IllegalArgumentException(
+                    "Phân công id=" + request.fromAssignmentId() + " không thuộc công việc id=" + taskId + ".");
+        }
+        if (declined.getStatus() != TaskAssignment.Status.DECLINED) {
+            throw new InvalidTaskStatusTransitionException(
+                    "Chỉ giao lại được phân công đã bị từ chối (DECLINED); phân công id="
+                            + request.fromAssignmentId() + " hiện là " + declined.getStatus() + ".");
+        }
+
+        User newAssignee = getUserOrThrow(request.newAssigneeUserId());
+        Map<Long, Employee> newAssigneeEmployeeByUserId = employeeRepository.findByUserIdIn(List.of(newAssignee.getId())).stream()
+                .collect(Collectors.toMap(e -> e.getUser().getId(), e -> e));
+        requireAssignScope(actorUserId, List.of(newAssignee), newAssigneeEmployeeByUserId);
+
+        if (taskAssignmentRepository.findByTaskIdAndAssigneeId(taskId, newAssignee.getId()).isPresent()) {
+            throw new TaskAssigneeAlreadyAssignedException(
+                    "Người nhận mới id=" + newAssignee.getId() + " đã có phân công trong công việc id=" + taskId + ".");
+        }
+
+        TaskAssignment fresh = new TaskAssignment();
+        fresh.setTask(task);
+        fresh.setAssignee(newAssignee);
+        fresh = taskAssignmentRepository.save(fresh);
+        writeAssignmentHistory(fresh, actor, TaskAssignmentHistory.Action.CREATED);
+
+        if (request.comment() != null && !request.comment().isBlank()) {
+            TaskComment comment = new TaskComment();
+            comment.setTask(task);
+            comment.setCommenter(actor);
+            comment.setContent(request.comment());
+            taskCommentRepository.save(comment);
+        }
+
+        String content = "Công việc \"%s\" đã được giao lại cho bạn%s.".formatted(task.getTitle(),
+                task.getDueAt() == null ? "" : ", hạn: " + task.getDueAt());
+        notificationService.notify(newAssignee.getId(), Notification.NotificationType.TASK_ASSIGNED,
+                "Bạn được giao lại việc", content);
+
+        return toResponse(fresh);
+    }
+
+    /**
+     * UC-06/07 (bổ sung, xác nhận với người dùng 2026-07-22): "xóa" công việc
+     * đã giao KHÔNG xóa trực tiếp mà chuyển task sang CANCELLED (giữ lịch sử)
+     * — sau đó người giao tự tạo việc mới nếu cần. Chỉ người giao (createdBy)
+     * hoặc tài khoản có task.manage. Không hủy task đã COMPLETED/CANCELLED.
+     * Cron nightly xóa cứng task CANCELLED sau task.cancelled_retention_days
+     * ngày (TaskSchedulerService).
+     */
+    @Transactional
+    public TaskResponse cancelTask(Long taskId, CancelTaskRequest request, Long actorUserId) {
+        Task task = getTaskOrThrow(taskId);
+        User actor = getUserOrThrow(actorUserId);
+        boolean isCreator = task.getCreatedBy().getId().equals(actorUserId);
+        boolean isManager = permissionEvaluationService.hasPermission(actorUserId, "task.manage");
+        if (!isCreator && !isManager) {
+            throw new NotTaskCreatorException(
+                    "Tài khoản id=" + actorUserId + " không phải người giao công việc id=" + taskId
+                            + " và không có quyền quản trị công việc (task.manage).");
+        }
+        if (task.getStatus() == Task.Status.COMPLETED || task.getStatus() == Task.Status.CANCELLED) {
+            throw new InvalidTaskStatusTransitionException(
+                    "Không thể hủy công việc id=" + taskId + " đang ở trạng thái " + task.getStatus() + ".");
+        }
+        task.setStatus(Task.Status.CANCELLED);
+        task.setCancelledAt(OffsetDateTime.now());
+        task = taskRepository.save(task);
+        writeTaskHistory(task, actor, TaskHistory.Action.UPDATED);
+
+        String reason = request == null ? null : request.reason();
+        if (reason != null && !reason.isBlank()) {
+            TaskComment comment = new TaskComment();
+            comment.setTask(task);
+            comment.setCommenter(actor);
+            comment.setContent("[Hủy công việc] " + reason);
+            taskCommentRepository.save(comment);
+        }
+
+        // Thông báo cho các người nhận đang mở (chưa COMPLETED/DECLINED) rằng việc đã bị hủy.
+        String notifyContent = "\"%s\" đã bị hủy%s.".formatted(task.getTitle(),
+                reason != null && !reason.isBlank() ? ": " + reason : "");
+        taskAssignmentRepository.findByTaskId(taskId).stream()
+                .filter(a -> a.getStatus() != TaskAssignment.Status.COMPLETED
+                        && a.getStatus() != TaskAssignment.Status.DECLINED)
+                .filter(a -> !a.getAssignee().getId().equals(actorUserId))
+                .forEach(a -> notificationService.notify(a.getAssignee().getId(),
+                        Notification.NotificationType.TASK_ASSIGNED, "Công việc đã bị hủy", notifyContent));
+        return toResponse(task);
+    }
+
     /** UC-07 Main Flow bước 3: bình luận/phản hồi tiến độ (không nhất thiết đi kèm đổi trạng thái). */
     @Transactional
     public TaskCommentResponse addComment(Long taskId, AddTaskCommentRequest request, Long actorUserId) {
@@ -304,23 +459,38 @@ public class TaskService {
 
     // ===================== Helpers =====================
 
-    /** Main Flow bước 3, A1: phạm vi phòng ban — trừ is_management=true và role OPS_MANAGER (toàn công ty). */
-    private void requireInDepartmentScope(Long actorUserId, Employee actorEmployee, List<User> assignees,
-                                           Map<Long, Employee> assigneeEmployeesByUserId) {
-        boolean companyWide = actorEmployee.isManagement() && roleCodesOf(actorUserId).contains("OPS_MANAGER");
-        if (companyWide) {
+    /**
+     * Main Flow bước 3, A1 (mô hình phạm vi đã chốt với người dùng 2026-07-22):
+     * - "Company-wide" (giao cho BẤT KỲ AI, kể cả trưởng phòng) = có quyền
+     *   task.manage HOẶC role EXECUTIVE (Ban giám đốc).
+     * - Ngược lại: chỉ TRƯỞNG PHÒNG (departments.head_user_id = actor) mới
+     *   giao được, và chỉ cho nhân sự thuộc phòng do mình làm trưởng.
+     * - Nhân sự thường (không company-wide, không làm trưởng phòng nào) →
+     *   không có phòng đích hợp lệ → bị chặn.
+     */
+    private void requireAssignScope(Long actorUserId, List<User> assignees,
+                                     Map<Long, Employee> assigneeEmployeesByUserId) {
+        if (canAssignCompanyWide(actorUserId)) {
             return;
         }
-        Long actorDeptId = actorEmployee.getDepartment() == null ? null : actorEmployee.getDepartment().getId();
+        Set<Long> headedDeptIds = departmentRepository.findByHeadUserId(actorUserId).stream()
+                .map(Department::getId).collect(Collectors.toSet());
         for (User assignee : assignees) {
             Employee assigneeEmployee = assigneeEmployeesByUserId.get(assignee.getId());
             Long assigneeDeptId = assigneeEmployee == null || assigneeEmployee.getDepartment() == null
                     ? null : assigneeEmployee.getDepartment().getId();
-            if (actorDeptId == null || !actorDeptId.equals(assigneeDeptId)) {
+            if (assigneeDeptId == null || !headedDeptIds.contains(assigneeDeptId)) {
                 throw new AssigneeOutsideDepartmentException(
-                        "Người nhận việc id=" + assignee.getId() + " không thuộc phòng ban của người giao id=" + actorUserId + ".");
+                        "Người nhận việc id=" + assignee.getId() + " không thuộc phòng ban do người giao id="
+                                + actorUserId + " làm trưởng phòng.");
             }
         }
+    }
+
+    /** Company-wide (giao cho bất kỳ ai): quyền task.manage HOẶC role EXECUTIVE (Ban giám đốc). */
+    private boolean canAssignCompanyWide(Long actorUserId) {
+        return permissionEvaluationService.hasPermission(actorUserId, "task.manage")
+                || roleCodesOf(actorUserId).contains("EXECUTIVE");
     }
 
     private void requireCreator(Task task, Long actorUserId) {
@@ -369,10 +539,22 @@ public class TaskService {
                 "\"%s\" đã bị người giao việc từ chối, cần tiếp tục xử lý.".formatted(task.getTitle()));
     }
 
-    /** SDD: khi tất cả task_assignments của task = COMPLETED → tasks.status = COMPLETED. */
+    /**
+     * SDD (đã cập nhật theo UC-07 A3): task COMPLETED khi MỌI phân công CÒN
+     * HIỆU LỰC (bỏ qua DECLINED) = COMPLETED. Phân công DECLINED không tính
+     * vào điều kiện hoàn thành — nếu toàn bộ phân công đều DECLINED (chưa
+     * giao lại) thì task GIỮ NGUYÊN trạng thái mở, chờ người giao giao lại
+     * (reassign), không tự COMPLETED cũng không tự CANCELLED.
+     */
     private void recomputeTaskStatus(Task task) {
-        long notCompleted = taskAssignmentRepository.countByTaskIdAndStatusNot(task.getId(), TaskAssignment.Status.COMPLETED);
-        if (notCompleted == 0 && task.getStatus() != Task.Status.COMPLETED) {
+        List<TaskAssignment> active = taskAssignmentRepository.findByTaskId(task.getId()).stream()
+                .filter(a -> a.getStatus() != TaskAssignment.Status.DECLINED)
+                .toList();
+        boolean allActiveCompleted = !active.isEmpty()
+                && active.stream().allMatch(a -> a.getStatus() == TaskAssignment.Status.COMPLETED);
+        // Không tự hoàn thành task đã ở trạng thái kết thúc (COMPLETED/CANCELLED).
+        boolean terminal = task.getStatus() == Task.Status.COMPLETED || task.getStatus() == Task.Status.CANCELLED;
+        if (allActiveCompleted && !terminal) {
             task.setStatus(Task.Status.COMPLETED);
             task.setCompletedAt(OffsetDateTime.now());
             taskRepository.save(task);

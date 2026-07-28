@@ -184,13 +184,21 @@ UC-35: Nhập học theo lô cho lớp liên kết
 |                 | 4.  Hệ thống tạo hồ sơ học sinh hàng loạt cho các  |
 |                 |     dòng hợp lệ, gán vào lớp/điểm trường liên kết  |
 |                 |     tương ứng; đánh dấu các dòng lỗi/trùng lặp.    |
+|                 |     Mỗi tài khoản học sinh tạo mới kèm mật khẩu    |
+|                 |     tạm sinh ngẫu nhiên (giống UC-51, bổ sung ngoài|
+|                 |     SDD gốc, đã xác nhận với người dùng --- trước  |
+|                 |     đây không có mật khẩu nào, tài khoản không     |
+|                 |     đăng nhập được bằng cách nào).                 |
 |                 |                                                    |
 |                 | 5.  Hệ thống cập nhật import_jobs với total_rows,  |
 |                 |     success_rows, failed_rows, error_summary;      |
 |                 |     trạng thái COMPLETED hoặc PARTIAL_SUCCESS.     |
 |                 |                                                    |
-|                 | 6.  Nhân viên giáo vụ xem kết quả import, tải về   |
-|                 |     danh sách lỗi (nếu có) để xử lý riêng.         |
+|                 | 6.  Nhân viên giáo vụ xem kết quả import, nhận danh|
+|                 |     sách username + mật khẩu tạm (chỉ hiển thị 1   |
+|                 |     lần ngay trong kết quả của bước tải lên, không |
+|                 |     tra cứu lại được sau đó) để gửi riêng từng học |
+|                 |     sinh, và tải về danh sách lỗi (nếu có).        |
 +-----------------+----------------------------------------------------+
 | **Luồng thay    | ***A1 --- File sai định dạng***                    |
 | thế / ngoại lệ  |                                                    |
@@ -211,6 +219,27 @@ UC-35: Nhập học theo lô cho lớp liên kết
 | ostcondition)** |                                                    |
 |                 | -   Kết quả import (thành công/thất bại) được lưu  |
 |                 |     lại đầy đủ phục vụ tra soát.                   |
+|                 |                                                    |
+|                 | -   Tài khoản học sinh MỚI tạo có mật khẩu tạm     |
+|                 |     dùng đăng nhập được ngay; kết quả import (gồm  |
+|                 |     mật khẩu tạm) trả về ngay cho người thực hiện, |
+|                 |     tra cứu lại job sau đó (getJob) KHÔNG còn thấy |
+|                 |     mật khẩu tạm.                                  |
 +-----------------+----------------------------------------------------+
+
+Mở rộng --- File mẫu + xuất danh sách tài khoản (bổ sung ngoài SDD gốc, đã
+xác nhận với người dùng 2026-07-24)
+
+-   Trước bước 1, Nhân viên giáo vụ có thể gọi `GET
+    /api/student-imports/template` để tải file Excel mẫu đầy đủ 8 cột theo
+    đúng thứ tự Main Flow bước 2 đọc, trường bắt buộc đánh dấu `*` cuối
+    tên cột (Họ và tên\*/Username\*/Ngày sinh\*/Mã lớp PPS\*/Mã học
+    sinh\*), không có cột mật khẩu.
+-   Sau bước 6, nếu muốn có bản Excel để giao lại danh sách tài khoản
+    (thay vì chỉ xem trên màn hình), gọi `POST
+    /api/student-imports/accounts-export` với đúng danh sách username +
+    mật khẩu tạm vừa nhận được ở bước 6 — chỉ dùng được trong cùng phiên
+    vừa import (hệ thống không lưu mật khẩu tạm ở đâu để tra cứu lại
+    sau).
 
 Phân hệ 10 --- Quản lý điểm trường & Cơ sở vật chất

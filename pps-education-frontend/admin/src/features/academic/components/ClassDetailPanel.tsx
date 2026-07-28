@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Calendar, FileText, Save, Search, UserPlus, Users, X } from "lucide-react";
+import { Calendar, FileSpreadsheet, FileText, Save, Search, Sparkles, UserPlus, Users, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
+import { UserRole } from "@/types";
 import { searchUsers, UserListItemResponse } from "@/features/system-admin/api";
 import { listStudents, StudentResponse } from "@/features/student/api";
+import { RoomResponse, listRoomsBySite } from "@/features/facility/api";
 import {
   AssignTeacherRequest,
   ClassEnrollmentResponse,
@@ -26,12 +28,19 @@ import {
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import { classStatusLabels, classStatusVariants } from "./ClassListPanel";
+import BulkGenerateSessionsForm from "./BulkGenerateSessionsForm";
+import ImportScheduleForm from "./ImportScheduleForm";
+import ClassGradeSheetPanel from "./ClassGradeSheetPanel";
+import StudentInfoModal from "./StudentInfoModal";
+import { useToast } from "@/lib/useToast";
+import Toast from "@/components/ui/Toast";
+import DatePicker from "@/components/ui/DatePicker";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-xs p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
 
-type Tab = "profile" | "teachers" | "students" | "sessions";
+type Tab = "profile" | "teachers" | "students" | "sessions" | "grades";
 
 interface ClassDetailPanelProps {
   schoolClass: ClassResponse;
@@ -40,8 +49,12 @@ interface ClassDetailPanelProps {
 
 export default function ClassDetailPanel({ schoolClass, onChanged }: ClassDetailPanelProps) {
   const [tab, setTab] = useState<Tab>("profile");
-  const { hasPermission } = useApp();
+  const { hasPermission, currentUser } = useApp();
   const canManage = hasPermission("academic.class.manage");
+  // SITE_MANAGER thấy được tab "Sổ điểm" (đủ quyền quản trị lớp) nhưng KHÔNG được tự nhập/sửa điểm
+  // thay giáo viên ở đây — chỉ xem, khớp đúng hành vi readOnly đã có sẵn ở trang Sổ điểm hệ thống cũ.
+  const isSiteManagerRole = currentUser?.roleCodes?.includes(UserRole.SITE_MANAGER) ?? false;
+  const { message: toastMessage, showToast } = useToast();
 
   return (
     <div className="lg:col-span-3 bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden flex flex-col">
@@ -63,7 +76,8 @@ export default function ClassDetailPanel({ schoolClass, onChanged }: ClassDetail
               ["profile", "Hồ sơ", FileText],
               ["teachers", "Giáo viên", Users],
               ["students", "Học sinh", Users],
-              ["sessions", "Buổi học & Điểm danh", Calendar]
+              ["sessions", "Buổi học & Điểm danh", Calendar],
+              ["grades", "Sổ điểm", FileSpreadsheet]
             ] as const
           ).map(([key, label, Icon]) => (
             <button
@@ -81,16 +95,38 @@ export default function ClassDetailPanel({ schoolClass, onChanged }: ClassDetail
       </div>
 
       <div className="flex-1 p-5 overflow-y-auto max-h-[560px]">
-        {tab === "profile" && <ProfileTab schoolClass={schoolClass} onChanged={onChanged} canManage={canManage} />}
-        {tab === "teachers" && <TeachersTab classId={schoolClass.id} canManage={canManage} />}
-        {tab === "students" && <StudentsTab classId={schoolClass.id} siteId={schoolClass.siteId} siteName={schoolClass.siteName} canManage={canManage} />}
-        {tab === "sessions" && <SessionsTab classId={schoolClass.id} canManage={canManage} />}
+        {tab === "profile" && <ProfileTab schoolClass={schoolClass} onChanged={onChanged} canManage={canManage} showToast={showToast} />}
+        {tab === "teachers" && <TeachersTab classId={schoolClass.id} canManage={canManage} showToast={showToast} />}
+        {tab === "students" && (
+          <StudentsTab
+            classId={schoolClass.id}
+            curriculumId={schoolClass.curriculumId}
+            siteId={schoolClass.siteId}
+            siteName={schoolClass.siteName}
+            canManage={canManage}
+            showToast={showToast}
+          />
+        )}
+        {tab === "sessions" && <SessionsTab classId={schoolClass.id} siteId={schoolClass.siteId} canManage={canManage} showToast={showToast} />}
+        {tab === "grades" && <ClassGradeSheetPanel classId={schoolClass.id} curriculumId={schoolClass.curriculumId} readOnly={isSiteManagerRole} />}
       </div>
+
+      <Toast message={toastMessage} />
     </div>
   );
 }
 
-function ProfileTab({ schoolClass, onChanged, canManage }: { schoolClass: ClassResponse; onChanged: () => void; canManage: boolean }) {
+function ProfileTab({
+  schoolClass,
+  onChanged,
+  canManage,
+  showToast
+}: {
+  schoolClass: ClassResponse;
+  onChanged: () => void;
+  canManage: boolean;
+  showToast: (msg: string) => void;
+}) {
   const [form, setForm] = useState(() => toForm(schoolClass));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -120,6 +156,7 @@ function ProfileTab({ schoolClass, onChanged, canManage }: { schoolClass: ClassR
         status: form.status as ClassResponse["status"]
       });
       onChanged();
+      showToast("Đã lưu hồ sơ lớp học thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Cập nhật lớp học thất bại.");
     } finally {
@@ -174,11 +211,11 @@ function ProfileTab({ schoolClass, onChanged, canManage }: { schoolClass: ClassR
         </div>
         <div>
           <label className={labelClass}>Ngày khai giảng *</label>
-          <input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} className={inputClass} required />
+          <DatePicker value={form.startDate} onChange={(v) => setForm({ ...form, startDate: v })} max={form.endDate || undefined} />
         </div>
         <div>
           <label className={labelClass}>Ngày kết thúc</label>
-          <input type="date" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} className={inputClass} />
+          <DatePicker value={form.endDate} onChange={(v) => setForm({ ...form, endDate: v })} min={form.startDate || undefined} />
         </div>
         <div>
           <label className={labelClass}>Năm học</label>
@@ -214,7 +251,7 @@ function toForm(c: ClassResponse) {
 
 const teacherRoleLabels: Record<ClassTeacherResponse["teacherRole"], string> = { PRIMARY: "Chính", ASSISTANT: "Trợ giảng", SUBSTITUTE: "Dạy thay" };
 
-function TeachersTab({ classId, canManage }: { classId: number; canManage: boolean }) {
+function TeachersTab({ classId, canManage, showToast }: { classId: number; canManage: boolean; showToast: (msg: string) => void }) {
   const [teachers, setTeachers] = useState<ClassTeacherResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -261,7 +298,17 @@ function TeachersTab({ classId, canManage }: { classId: number; canManage: boole
         </div>
       )}
 
-      {assigning && <AssignTeacherForm classId={classId} onDone={() => { setAssigning(false); load(); }} onCancel={() => setAssigning(false)} />}
+      {assigning && (
+        <AssignTeacherForm
+          classId={classId}
+          onDone={() => {
+            setAssigning(false);
+            load();
+            showToast("Đã gán giáo viên thành công!");
+          }}
+          onCancel={() => setAssigning(false)}
+        />
+      )}
     </div>
   );
 }
@@ -353,11 +400,26 @@ function AssignTeacherForm({ classId, onDone, onCancel }: { classId: number; onD
   );
 }
 
-function StudentsTab({ classId, siteId, siteName, canManage }: { classId: number; siteId: number; siteName: string; canManage: boolean }) {
+function StudentsTab({
+  classId,
+  curriculumId,
+  siteId,
+  siteName,
+  canManage,
+  showToast
+}: {
+  classId: number;
+  curriculumId: number;
+  siteId: number;
+  siteName: string;
+  canManage: boolean;
+  showToast: (msg: string) => void;
+}) {
   const [enrollments, setEnrollments] = useState<ClassEnrollmentResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [enrolling, setEnrolling] = useState(false);
+  const [viewingEnrollment, setViewingEnrollment] = useState<ClassEnrollmentResponse | null>(null);
 
   const load = () => {
     setLoading(true);
@@ -374,6 +436,7 @@ function StudentsTab({ classId, siteId, siteName, canManage }: { classId: number
     try {
       await withdrawEnrollment(classId, enrollmentId, { withdrawnDate: new Date().toISOString().slice(0, 10), reason: reason.trim() || undefined });
       load();
+      showToast("Đã rút học sinh khỏi lớp thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Rút lớp thất bại.");
     }
@@ -402,7 +465,13 @@ function StudentsTab({ classId, siteId, siteName, canManage }: { classId: number
           {enrollments.map((en) => (
             <div key={en.id} className="border border-slate-200 rounded-lg p-3 text-xs flex items-center justify-between">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-bold text-slate-800">{en.studentFullName}</span>
+                <button
+                  type="button"
+                  onClick={() => setViewingEnrollment(en)}
+                  className="font-bold text-slate-800 hover:text-brand-red hover:underline"
+                >
+                  {en.studentFullName}
+                </button>
                 <span className="font-mono text-slate-400">{en.studentCode}</span>
                 <Badge variant={en.status === "ACTIVE" ? "success" : "neutral"}>{en.status}</Badge>
               </div>
@@ -422,8 +491,21 @@ function StudentsTab({ classId, siteId, siteName, canManage }: { classId: number
           siteId={siteId}
           siteName={siteName}
           existingStudentIds={new Set(enrollments.filter((en) => en.status === "ACTIVE").map((en) => en.studentId))}
-          onDone={() => { setEnrolling(false); load(); }}
+          onDone={() => {
+            setEnrolling(false);
+            load();
+            showToast("Đã ghi danh học sinh thành công!");
+          }}
           onCancel={() => setEnrolling(false)}
+        />
+      )}
+
+      {viewingEnrollment && (
+        <StudentInfoModal
+          enrollment={viewingEnrollment}
+          classId={classId}
+          curriculumId={curriculumId}
+          onClose={() => setViewingEnrollment(null)}
         />
       )}
     </div>
@@ -550,7 +632,7 @@ function EnrollStudentForm({
 
       <div>
         <label className={labelClass}>Ngày ghi danh (áp dụng cho tất cả học sinh đã chọn)</label>
-        <input type="date" value={enrolledDate} onChange={(e) => setEnrolledDate(e.target.value)} className={inputClass} required />
+        <DatePicker value={enrolledDate} onChange={setEnrolledDate} />
       </div>
 
       <div className="flex items-center justify-between gap-2">
@@ -582,13 +664,35 @@ const attendanceStatusVariants: Record<string, "success" | "warning" | "danger" 
   LOCKED: "success"
 };
 
-function SessionsTab({ classId, canManage }: { classId: number; canManage: boolean }) {
+/** UC-15 "Sự kiện kích hoạt": chỉ điểm danh được từ khi buổi học bắt đầu — chặn bấm sớm cho buổi tương lai. */
+function hasSessionStarted(s: ClassSessionResponse): boolean {
+  return new Date(`${s.sessionDate}T${s.startTime}`) <= new Date();
+}
+
+/** V45: GV chỉ điểm danh/sửa đúng NGÀY diễn ra buổi học (StudentAttendanceService.requireCanWriteAttendance). */
+function isToday(s: ClassSessionResponse): boolean {
+  return s.sessionDate === new Date().toISOString().slice(0, 10);
+}
+
+function SessionsTab({
+  classId,
+  siteId,
+  canManage,
+  showToast
+}: {
+  classId: number;
+  siteId: number;
+  canManage: boolean;
+  showToast: (msg: string) => void;
+}) {
   const navigate = useNavigate();
+  const { hasPermission } = useApp();
+  const hasAttendanceOverride = hasPermission("academic.attendance.create") || hasPermission("academic.attendance.update");
   const [sessions, setSessions] = useState<ClassSessionResponse[]>([]);
   const [attendanceStatusBySession, setAttendanceStatusBySession] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState<"single" | "bulk" | "excel" | null>(null);
 
   const load = () => {
     setLoading(true);
@@ -613,6 +717,7 @@ function SessionsTab({ classId, canManage }: { classId: number; canManage: boole
     try {
       await cancelClassSession(classId, sessionId, reason.trim());
       load();
+      showToast("Đã hủy buổi học thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Hủy buổi học thất bại.");
     }
@@ -620,13 +725,23 @@ function SessionsTab({ classId, canManage }: { classId: number; canManage: boole
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <span className="text-[10px] font-bold uppercase text-slate-500">Buổi học ({sessions.length})</span>
         {canManage && !creating && (
-          <Button size="sm" variant="secondary" onClick={() => setCreating(true)}>
-            <UserPlus className="w-3.5 h-3.5" />
-            Xếp buổi học mới
-          </Button>
+          <div className="flex items-center gap-1.5">
+            <Button size="sm" variant="secondary" onClick={() => setCreating("single")}>
+              <UserPlus className="w-3.5 h-3.5" />
+              Xếp buổi học mới
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => setCreating("bulk")}>
+              <Sparkles className="w-3.5 h-3.5" />
+              Sinh lịch hàng loạt
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => setCreating("excel")}>
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+              Nhập lịch từ Excel
+            </Button>
+          </div>
         )}
       </div>
 
@@ -654,9 +769,19 @@ function SessionsTab({ classId, canManage }: { classId: number; canManage: boole
                   )}
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button size="sm" variant="secondary" onClick={() => navigate(`/student/attendance?classId=${classId}&sessionId=${s.id}`)}>
-                    {attendanceStatusBySession[s.id] ? "Xem điểm danh" : "Điểm danh"}
-                  </Button>
+                  {!attendanceStatusBySession[s.id] && !hasSessionStarted(s) ? (
+                    <Button size="sm" variant="secondary" disabled title="Chưa tới giờ học — chỉ điểm danh được từ khi buổi học bắt đầu.">
+                      Chưa tới giờ học
+                    </Button>
+                  ) : !attendanceStatusBySession[s.id] && !hasAttendanceOverride && !isToday(s) ? (
+                    <Button size="sm" variant="secondary" disabled title="Chỉ điểm danh được trong ngày diễn ra buổi học — cần quyền quản trị điểm danh để điểm danh buổi khác ngày.">
+                      Đã qua ngày điểm danh
+                    </Button>
+                  ) : (
+                    <Button size="sm" variant="secondary" onClick={() => navigate(`/student/attendance?classId=${classId}&sessionId=${s.id}`)}>
+                      {attendanceStatusBySession[s.id] ? "Xem điểm danh" : "Điểm danh"}
+                    </Button>
+                  )}
                   {canManage && s.status !== "CANCELLED" && (
                     <button onClick={() => handleCancel(s.id)} className="text-rose-500 hover:text-rose-700">
                       <X className="w-3.5 h-3.5" />
@@ -671,18 +796,58 @@ function SessionsTab({ classId, canManage }: { classId: number; canManage: boole
         </div>
       )}
 
-      {creating && <CreateSessionForm classId={classId} onDone={() => { setCreating(false); load(); }} onCancel={() => setCreating(false)} />}
+      {creating === "single" && (
+        <CreateSessionForm
+          classId={classId}
+          siteId={siteId}
+          onDone={() => {
+            setCreating(null);
+            load();
+            showToast("Đã xếp buổi học thành công!");
+          }}
+          onCancel={() => setCreating(null)}
+        />
+      )}
+      {creating === "bulk" && (
+        <BulkGenerateSessionsForm
+          classId={classId}
+          siteId={siteId}
+          onDone={() => {
+            setCreating(null);
+            load();
+            showToast("Đã sinh lịch hàng loạt thành công!");
+          }}
+          onCancel={() => setCreating(null)}
+        />
+      )}
+      {creating === "excel" && (
+        <ImportScheduleForm
+          classId={classId}
+          onDone={() => {
+            setCreating(null);
+            load();
+            showToast("Đã nhập lịch từ Excel thành công!");
+          }}
+          onCancel={() => setCreating(null)}
+        />
+      )}
     </div>
   );
 }
 
-function CreateSessionForm({ classId, onDone, onCancel }: { classId: number; onDone: () => void; onCancel: () => void }) {
+function CreateSessionForm({ classId, siteId, onDone, onCancel }: { classId: number; siteId: number; onDone: () => void; onCancel: () => void }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<UserListItemResponse[]>([]);
   const [teacher, setTeacher] = useState<UserListItemResponse | null>(null);
+  const [rooms, setRooms] = useState<RoomResponse[]>([]);
+  const [roomId, setRoomId] = useState("");
   const [form, setForm] = useState({ sessionDate: "", startTime: "", endTime: "", sessionType: "REGULAR" });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    listRoomsBySite(siteId).then(setRooms).catch(() => undefined);
+  }, [siteId]);
 
   const handleSearch = (q: string) => {
     setQuery(q);
@@ -706,6 +871,7 @@ function CreateSessionForm({ classId, onDone, onCancel }: { classId: number; onD
         sessionDate: form.sessionDate,
         startTime: form.startTime,
         endTime: form.endTime,
+        roomId: roomId ? Number(roomId) : undefined,
         primaryTeacherId: teacher.id,
         sessionType: form.sessionType
       };
@@ -725,7 +891,7 @@ function CreateSessionForm({ classId, onDone, onCancel }: { classId: number; onD
       <div className="grid grid-cols-3 gap-2">
         <div>
           <label className={labelClass}>Ngày học</label>
-          <input type="date" value={form.sessionDate} onChange={(e) => setForm({ ...form, sessionDate: e.target.value })} className={inputClass} required />
+          <DatePicker value={form.sessionDate} onChange={(v) => setForm({ ...form, sessionDate: v })} />
         </div>
         <div>
           <label className={labelClass}>Giờ bắt đầu</label>
@@ -737,14 +903,27 @@ function CreateSessionForm({ classId, onDone, onCancel }: { classId: number; onD
         </div>
       </div>
 
-      <div>
-        <label className={labelClass}>Loại buổi học</label>
-        <select value={form.sessionType} onChange={(e) => setForm({ ...form, sessionType: e.target.value })} className={inputClass}>
-          <option value="REGULAR">Buổi học thường</option>
-          <option value="REVIEW">Ôn tập</option>
-          <option value="EXAM">Kiểm tra</option>
-          <option value="MAKEUP">Học bù</option>
-        </select>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className={labelClass}>Loại buổi học</label>
+          <select value={form.sessionType} onChange={(e) => setForm({ ...form, sessionType: e.target.value })} className={inputClass}>
+            <option value="REGULAR">Buổi học thường</option>
+            <option value="REVIEW">Ôn tập</option>
+            <option value="EXAM">Kiểm tra</option>
+            <option value="MAKEUP">Học bù</option>
+          </select>
+        </div>
+        <div>
+          <label className={labelClass}>Phòng học</label>
+          <select value={roomId} onChange={(e) => setRoomId(e.target.value)} className={inputClass}>
+            <option value="">-- Không gán --</option>
+            {rooms.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.code} — {r.name}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <div>

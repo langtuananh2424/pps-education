@@ -12,6 +12,9 @@ public interface ClassTeacherRepository extends JpaRepository<ClassTeacher, Long
             Long classId, ClassTeacher.TeacherRole teacherRole);
     boolean existsBySchoolClassIdAndTeacherIdAndAssignedToIsNull(Long classId, Long teacherId);
 
+    /** UC-62 — GV xem hàng chờ phúc khảo của (các) lớp mình đang phụ trách. */
+    List<ClassTeacher> findByTeacherIdAndAssignedToIsNull(Long teacherId);
+
     /** UC-23: GV được coi là "phụ trách khung chương trình" nếu đang dạy ít nhất 1 lớp dùng khung đó. */
     boolean existsBySchoolClass_CurriculumIdAndTeacherIdAndAssignedToIsNull(Long curriculumId, Long teacherId);
 }

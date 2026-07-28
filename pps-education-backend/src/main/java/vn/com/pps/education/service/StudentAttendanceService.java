@@ -17,6 +17,7 @@ import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.dto.AttendanceMarkResponse;
 import vn.com.pps.education.dto.AttendanceSessionResponse;
+import vn.com.pps.education.dto.ClassSessionLessonContentResponse;
 import vn.com.pps.education.dto.EnterAttendanceMarkRequest;
 import vn.com.pps.education.dto.MarkAttendanceRequest;
 import vn.com.pps.education.dto.PartnerAttendanceSummaryResponse;
@@ -41,10 +42,12 @@ import vn.com.pps.education.repository.UserRepository;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 /**
  * UC-15: Điểm danh học sinh (FR-STU-03).
@@ -62,6 +65,10 @@ import java.util.Map;
  */
 @Service
 public class StudentAttendanceService {
+
+    /** Quyền quản trị vượt rào Giáo viên (migration V45) — điểm danh/sửa buổi bất kỳ, ngày bất kỳ. */
+    private static final String PERM_ATTENDANCE_CREATE = "academic.attendance.create";
+    private static final String PERM_ATTENDANCE_UPDATE = "academic.attendance.update";
 
     private final ClassSessionRepository classSessionRepository;
     private final SessionPeriodRepository sessionPeriodRepository;
@@ -111,11 +118,17 @@ public class StudentAttendanceService {
         this.siteManagerRepository = siteManagerRepository;
     }
 
-    /** Main Flow bước 1-2: điểm danh cả lớp (lưu DRAFT, có thể gọi lại nhiều lần trước khi submit). */
+    /**
+     * Main Flow bước 1-2: điểm danh cả lớp. Giáo viên chỉ điểm danh buổi mình
+     * được phân công dạy và trong ngày diễn ra buổi học; được gọi lại nhiều
+     * lần để SỬA (kể cả sau khi submit) cho tới hết ngày hôm đó (xem
+     * requireCanWriteAttendance). Quyền quản trị academic.attendance.create
+     * vượt cả 2 ràng buộc này.
+     */
     @Transactional
     public AttendanceSessionResponse markAttendance(Long classSessionId, MarkAttendanceRequest request, Long actorUserId) {
         ClassSession classSession = getClassSessionOrThrow(classSessionId);
-        requireAssignedTeacher(classSession, actorUserId);
+        requireCanWriteAttendance(classSession, actorUserId, PERM_ATTENDANCE_CREATE);
         User actor = getUserOrThrow(actorUserId);
 
         AttendanceSession attendanceSession = attendanceSessionRepository.findByClassSessionId(classSessionId)
@@ -125,11 +138,6 @@ public class StudentAttendanceService {
                     created.setMarkedBy(actor);
                     return created;
                 });
-        if (attendanceSession.getId() != null && attendanceSession.getStatus() != AttendanceSession.Status.DRAFT) {
-            throw new AttendanceSessionNotEditableException(
-                    "Điểm danh buổi id=" + classSessionId + " đang ở trạng thái " + attendanceSession.getStatus()
-                            + " — chỉ sửa được khi DRAFT.");
-        }
         attendanceSession.setMode(AttendanceSession.Mode.valueOf(request.mode()));
         attendanceSession.setMarkedBy(actor);
         attendanceSession.setMarkedAt(OffsetDateTime.now());
@@ -192,16 +200,11 @@ public class StudentAttendanceService {
     public AttendanceMarkResponse updatePeriodMark(Long classSessionId, Long studentId, Long sessionPeriodId,
                                                      UpdatePeriodMarkRequest request, Long actorUserId) {
         ClassSession classSession = getClassSessionOrThrow(classSessionId);
-        requireAssignedTeacher(classSession, actorUserId);
+        requireCanWriteAttendance(classSession, actorUserId, PERM_ATTENDANCE_UPDATE);
         User actor = getUserOrThrow(actorUserId);
 
         AttendanceSession attendanceSession = attendanceSessionRepository.findByClassSessionId(classSessionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Chưa có bản ghi điểm danh cho buổi id=" + classSessionId));
-        if (attendanceSession.getStatus() != AttendanceSession.Status.DRAFT) {
-            throw new AttendanceSessionNotEditableException(
-                    "Điểm danh buổi id=" + classSessionId + " đang ở trạng thái " + attendanceSession.getStatus()
-                            + " — chỉ sửa được khi DRAFT.");
-        }
         AttendanceMark mark = attendanceMarkRepository
                 .findByAttendanceSessionIdAndStudentId(attendanceSession.getId(), studentId)
                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -230,29 +233,65 @@ public class StudentAttendanceService {
     @Transactional
     public AttendanceSessionResponse submitAttendance(Long classSessionId, Long actorUserId) {
         ClassSession classSession = getClassSessionOrThrow(classSessionId);
-        requireAssignedTeacher(classSession, actorUserId);
+        requireCanWriteAttendance(classSession, actorUserId, PERM_ATTENDANCE_CREATE);
         User actor = getUserOrThrow(actorUserId);
 
         AttendanceSession attendanceSession = attendanceSessionRepository.findByClassSessionId(classSessionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Chưa có bản ghi điểm danh cho buổi id=" + classSessionId));
-        if (attendanceSession.getStatus() != AttendanceSession.Status.DRAFT) {
-            throw new AttendanceSessionNotEditableException(
-                    "Điểm danh buổi id=" + classSessionId + " đang ở trạng thái " + attendanceSession.getStatus()
-                            + " — chỉ submit được khi DRAFT.");
-        }
         attendanceSession.setStatus(AttendanceSession.Status.SUBMITTED);
-        attendanceSession.setSubmittedAt(OffsetDateTime.now());
+        if (attendanceSession.getSubmittedAt() == null) {
+            attendanceSession.setSubmittedAt(OffsetDateTime.now());
+        }
         attendanceSession = attendanceSessionRepository.save(attendanceSession);
 
         List<AttendanceMark> marks = attendanceMarkRepository.findByAttendanceSessionId(attendanceSession.getId());
         for (AttendanceMark mark : marks) {
-            // Main Flow bước 5 / A2 -- chỉ ABSENT/LATE mới kích hoạt thông báo.
-            if (mark.getStatus() == AttendanceMark.Status.ABSENT || mark.getStatus() == AttendanceMark.Status.LATE) {
+            // Main Flow bước 5 / A2 -- chỉ ABSENT/LATE CHƯA gửi mới kích hoạt thông báo.
+            // Guard notifiedParentAt: submit lại trong ngày (sau khi sửa) không gửi trùng cho PH.
+            if ((mark.getStatus() == AttendanceMark.Status.ABSENT || mark.getStatus() == AttendanceMark.Status.LATE)
+                    && mark.getNotifiedParentAt() == null) {
                 notifyParents(mark, classSession, actor);
             }
         }
 
         return toResponse(attendanceSession);
+    }
+
+    /**
+     * "Bài học hôm nay" (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+     * 2026-07-24) — cùng rào với điểm danh (GV được phân công buổi + trong
+     * ngày diễn ra, hoặc quyền quản trị điểm danh), nên đặt ở đây thay vì
+     * ClassSessionService để tái dùng nguyên requireCanWriteAttendance,
+     * không viết lại rào ở chỗ khác.
+     */
+    @Transactional
+    public ClassSessionLessonContentResponse updateLessonContent(Long classSessionId, String lessonContent, Long actorUserId) {
+        ClassSession classSession = getClassSessionOrThrow(classSessionId);
+        requireCanWriteAttendance(classSession, actorUserId, PERM_ATTENDANCE_UPDATE);
+        classSession.setLessonContent(lessonContent);
+        classSession = classSessionRepository.save(classSession);
+        return new ClassSessionLessonContentResponse(classSession.getId(), classSession.getLessonContent());
+    }
+
+    /**
+     * Quyền quản trị academic.attendance.delete (vượt rào Giáo viên): xóa
+     * toàn bộ bản ghi điểm danh của 1 buổi. Xóa theo đúng thứ tự khóa ngoại:
+     * attendance_period_marks → attendance_marks_history → attendance_marks →
+     * attendance_sessions. Dùng để gỡ bỏ điểm danh nhầm/sai buổi. Gating quyền
+     * đặt ở Controller (@PreAuthorize) — service không giới hạn GV/ngày.
+     */
+    @Transactional
+    public void deleteAttendance(Long classSessionId, Long actorUserId) {
+        getClassSessionOrThrow(classSessionId);
+        AttendanceSession attendanceSession = attendanceSessionRepository.findByClassSessionId(classSessionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Chưa có bản ghi điểm danh cho buổi id=" + classSessionId));
+        Long attendanceSessionId = attendanceSession.getId();
+        attendancePeriodMarkRepository.deleteByAttendanceSessionId(attendanceSessionId);
+        attendanceMarkHistoryRepository.deleteByAttendanceSessionId(attendanceSessionId);
+        attendanceMarkRepository.deleteByAttendanceSessionId(attendanceSessionId);
+        // clearAutomatically ở các bulk delete trên đã detach attendanceSession —
+        // xóa lại qua id (deleteById tự nạp mới) để tránh thao tác trên entity detached.
+        attendanceSessionRepository.deleteById(attendanceSessionId);
     }
 
     private void notifyParents(AttendanceMark mark, ClassSession classSession, User actor) {
@@ -291,13 +330,25 @@ public class StudentAttendanceService {
         return toResponse(attendanceSession);
     }
 
-    /** null = không giới hạn (actor có academic.class.manage); danh sách rỗng = không thấy buổi điểm danh nào. */
+    /**
+     * null = không giới hạn (actor có academic.class.manage); danh sách rỗng
+     * = không thấy buổi điểm danh nào. Hợp nhất site_teachers VÀ
+     * site_managers (bổ sung ngoài SDD gốc, đã xác nhận với người dùng —
+     * cùng lý do như ClassService.resolveAllowedSiteIds; trước đây Quản lý
+     * điểm trường không kiêm giáo viên vẫn xem được báo cáo tổng hợp qua
+     * getSiteSummary nhưng lại không xem được chi tiết 1 buổi điểm danh ở
+     * đây, không nhất quán).
+     */
     private List<Long> resolveAllowedSiteIds(Long actorUserId) {
         if (permissionEvaluationService.hasPermission(actorUserId, "academic.class.manage")) {
             return null;
         }
-        return siteTeacherRepository.findByTeacherIdAndAssignedToIsNull(actorUserId).stream()
-                .map(st -> st.getSite().getId()).toList();
+        return Stream.concat(
+                siteTeacherRepository.findByTeacherIdAndAssignedToIsNull(actorUserId).stream()
+                        .map(st -> st.getSite().getId()),
+                siteManagerRepository.findByUserIdAndRoleTypeAndAssignedToIsNull(actorUserId, SiteManager.RoleType.SITE_MANAGER).stream()
+                        .map(sm -> sm.getSite().getId()))
+                .distinct().toList();
     }
 
     /**
@@ -349,6 +400,49 @@ public class StudentAttendanceService {
             throw new NotAssignedTeacherForSessionException(
                     "Tài khoản id=" + actorUserId + " không được phân công giảng dạy buổi id=" + classSession.getId() + ".");
         }
+    }
+
+    /**
+     * UC-15 (quy tắc bổ sung, xác nhận với người dùng 2026-07-22): Giáo viên
+     * tự điểm danh chỉ được thao tác buổi MÌNH được phân công dạy
+     * (primary_teacher) và CHỈ trong ngày diễn ra buổi học — được sửa lại (kể
+     * cả sau khi Lưu/submit) cho tới hết ngày hôm đó, sang ngày sau thì khóa.
+     * Tài khoản có quyền quản trị tương ứng (adminOverridePermission —
+     * academic.attendance.create/update) vượt cả 2 ràng buộc: thao tác buổi
+     * bất kỳ, ngày bất kỳ (bổ sung/khắc phục sai sót).
+     */
+    private void requireCanWriteAttendance(ClassSession classSession, Long actorUserId, String adminOverridePermission) {
+        if (permissionEvaluationService.hasPermission(actorUserId, adminOverridePermission)) {
+            return;
+        }
+        requireAssignedTeacher(classSession, actorUserId);
+        LocalDate today = LocalDate.now();
+        if (!today.equals(classSession.getSessionDate())) {
+            throw new AttendanceSessionNotEditableException(
+                    "Chỉ điểm danh/sửa được trong ngày diễn ra buổi học (" + classSession.getSessionDate()
+                            + "); hôm nay là " + today + ". Cần quyền quản trị điểm danh để thao tác buổi khác ngày.");
+        }
+    }
+
+    /**
+     * Kiểm tra TRƯỚC (không throw) actor có ghi được điểm danh buổi này
+     * không — dùng cho StudentCommentService.importComments() để tránh gọi
+     * markAttendance() (bean @Transactional khác) rồi bắt exception: exception
+     * xuyên qua ranh giới @Transactional của lời gọi lồng nhau đánh dấu
+     * transaction NGOÀI rollback-only ngay tại proxy, dù caller có catch
+     * cũng không "gỡ" được — commit sau đó ném UnexpectedRollbackException.
+     * Cùng đúng rào với requireCanWriteAttendance, chỉ khác không throw.
+     */
+    @Transactional(readOnly = true)
+    public boolean canWriteAttendance(Long classSessionId, Long actorUserId) {
+        ClassSession classSession = getClassSessionOrThrow(classSessionId);
+        if (permissionEvaluationService.hasPermission(actorUserId, PERM_ATTENDANCE_CREATE)) {
+            return true;
+        }
+        if (!classSession.getPrimaryTeacher().getId().equals(actorUserId)) {
+            return false;
+        }
+        return LocalDate.now().equals(classSession.getSessionDate());
     }
 
     private ClassSession getClassSessionOrThrow(Long id) {

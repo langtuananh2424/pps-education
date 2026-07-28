@@ -24,7 +24,6 @@ import java.util.List;
 /** UC-03: Cấu hình nhóm quyền mặc định (FR-PER-02). */
 @RestController
 @RequestMapping("/api/roles")
-@PreAuthorize("hasPermission(null, 'permission.role.manage')")
 public class RoleController {
 
     private final RoleService roleService;
@@ -33,28 +32,33 @@ public class RoleController {
         this.roleService = roleService;
     }
 
+    @PreAuthorize("hasPermission(null, 'permission.role.view')")
     @GetMapping
     public ResponseEntity<List<RoleResponse>> listRoles() {
         return ResponseEntity.ok(roleService.listRoles());
     }
 
+    @PreAuthorize("hasPermission(null, 'permission.role.create')")
     @PostMapping
     public ResponseEntity<RoleResponse> createRole(@Valid @RequestBody CreateRoleRequest request,
                                                      @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(roleService.createRole(request, actor.userId()));
     }
 
+    @PreAuthorize("hasPermission(null, 'permission.role.delete')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteRole(@PathVariable Long id, @AuthenticationPrincipal AuthenticatedUser actor) {
         roleService.deleteRole(id, actor.userId());
         return ResponseEntity.noContent().build();
     }
 
+    @PreAuthorize("hasPermission(null, 'permission.role.view')")
     @GetMapping("/{id}/permissions")
     public ResponseEntity<RolePermissionMatrixResponse> getPermissionMatrix(@PathVariable Long id) {
         return ResponseEntity.ok(roleService.getPermissionMatrix(id));
     }
 
+    @PreAuthorize("hasPermission(null, 'permission.role.update')")
     @PutMapping("/{id}/permissions")
     public ResponseEntity<Void> updatePermissions(@PathVariable Long id,
                                                     @Valid @RequestBody UpdateRolePermissionsRequest request) {

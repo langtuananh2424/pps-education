@@ -6,6 +6,8 @@ import { importParents, listStudentParents, listStudents, ParentStudentResponse,
 import ParentListPanel from "../components/ParentListPanel";
 import ParentDetailPanel from "../components/ParentDetailPanel";
 import ParentCreateModal from "../components/ParentCreateModal";
+import { useToast } from "@/lib/useToast";
+import Toast from "@/components/ui/Toast";
 
 const PARENT_IMPORT_HEADERS = ["Họ và tên phụ huynh *", "Số điện thoại *", "Quan hệ (Cha/Mẹ/Người giám hộ/Khác)", "Mã học sinh *", "Là người liên hệ chính (Có/Không)", "Chịu trách nhiệm tài chính (Có/Không)"];
 const PARENT_IMPORT_SAMPLE = ["Nguyễn Văn B", "0901234567", "Cha", "HS-0001", "Có", "Có"];
@@ -67,6 +69,7 @@ export default function ParentsPage() {
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const { message: toastMessage, showToast } = useToast();
 
   const load = () => {
     setLoading(true);
@@ -138,9 +141,12 @@ export default function ParentsPage() {
             setCreateOpen(false);
             setSelectedId(parent.id);
             load();
+            showToast("Đã tạo hồ sơ phụ huynh thành công!");
           }}
         />
       )}
+
+      <Toast message={toastMessage} />
     </div>
   );
 }

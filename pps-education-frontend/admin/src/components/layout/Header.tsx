@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from "react";
-import { AlertTriangle, Bell, ChevronDown, Clock, Lock, LogOut, Menu, MapPin, Settings, ShieldCheck, User } from "lucide-react";
+import { AlertTriangle, Bell, ChevronDown, Clock, GraduationCap, KeyRound, Lock, LogOut, Menu, MapPin, Settings, User } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { getMyPartnerSite, listSites, listSiteTeachers, SiteResponse, SiteTeacherResponse } from "@/features/facility/api";
-import { roleLabels } from "@/constants/roles";
+import { useEligibleClasses } from "@/features/academic/hooks/useEligibleClasses";
 import { UserRole } from "@/types";
 import Avatar from "@/components/ui/Avatar";
 import Dropdown from "@/components/ui/Dropdown";
 import ProfileModal from "@/features/auth/components/ProfileModal";
+import ChangePasswordModal from "@/features/auth/components/ChangePasswordModal";
 
 const notifications = [
   { id: "1", text: "Trường Tiểu học Nghĩa Tân gửi ý kiến đóng góp mới (Cô Hiệu Trưởng)", time: "10 phút trước", type: "urgent" },
@@ -15,9 +16,21 @@ const notifications = [
 ];
 
 export default function Header() {
-  const { currentRole, currentUser, selectedCampusId, setSelectedCampusId, sidebarOpen, setSidebarOpen, logout } = useApp();
+  const {
+    currentRoleLabel,
+    currentUser,
+    selectedCampusId,
+    setSelectedCampusId,
+    selectedClassId,
+    setSelectedClassId,
+    sidebarOpen,
+    setSidebarOpen,
+    logout,
+    hasPermission
+  } = useApp();
   const [sites, setSites] = useState<SiteResponse[]>([]);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
 
   useEffect(() => {
     listSites().then(setSites).catch(() => undefined);
@@ -34,8 +47,15 @@ export default function Header() {
   // Vai trò bắt buộc gắn với (các) điểm trường cụ thể -- nếu tài khoản có 1 trong các
   // vai trò này mà managedSites rỗng, đó là dấu hiệu CHƯA ĐƯỢC GÁN điểm trường (thiếu
   // site_managers/site_teachers), không phải "không giới hạn site" như SYS_ADMIN/STAFF.
+  //
+  // Loại trừ tài khoản có academic.class.manage (đúng quyền BE dùng để bỏ giới hạn site
+  // ở ClassService.resolveAllowedSiteIds) — tài khoản demo "Super Admin" cố tình được gán
+  // ĐỦ mọi roleCodes (kể cả TEACHER/SITE_MANAGER) để test mọi màn hình, nhưng không thật
+  // sự được gán site_teachers/site_managers nào — nếu không loại trừ, tài khoản này bị
+  // hiểu lầm thành "chưa gán điểm trường" dù thực ra xem được hết mọi điểm trường.
   const siteScopedRoles: string[] = [UserRole.SITE_MANAGER, UserRole.PARTNER_REP, UserRole.TEACHER];
-  const isSiteScopedRole = (currentUser?.roleCodes ?? []).some((r) => siteScopedRoles.includes(r));
+  const seesAllSites = hasPermission("academic.class.manage");
+  const isSiteScopedRole = !seesAllSites && (currentUser?.roleCodes ?? []).some((r) => siteScopedRoles.includes(r));
 
   useEffect(() => {
     if (!currentUser || sites.length === 0) {
@@ -96,6 +116,29 @@ export default function Header() {
   const lockToManagedSites = managedSites.length > 0;
   const showUnassignedWarning = !managedSitesLoading && isSiteScopedRole && managedSites.length === 0;
 
+  // Chỉ hiện "Lớp" cho vai trò thật sự cần lọc theo lớp ở 1 trong các màn: Sổ điểm (UC-19/20,
+  // SITE_MANAGER không có permission điểm nhưng vẫn cần lọc lớp để "xem lại sổ điểm"), Điểm danh
+  // (UC-15), Soạn & giao đề (UC-40), Nhận xét (UC-21/22), Kho bài giảng (UC-23) — ẩn với vai trò
+  // không liên quan (Tài chính/HRM/CRM...) để đỡ rối mắt, cùng tinh thần với "Điểm trường".
+  //
+  // isGenuineSiteManager dùng managedSites (site_managers THẬT, đã tính ở trên cho phần Điểm
+  // trường) — KHÔNG dùng roleCodes.includes(SITE_MANAGER) trực tiếp, vì tài khoản demo "Super
+  // Admin" cố tình được gán roleCode SITE_MANAGER để test màn hình nhưng không thật sự quản lý
+  // site nào (managedSites rỗng) — dùng roleCodes suông sẽ lại hiện nhầm pill cho tài khoản đó.
+  const isGenuineSiteManager = (currentUser?.roleCodes?.includes(UserRole.SITE_MANAGER) ?? false) && managedSites.length > 0;
+  const { classes: eligibleClasses, myAssignedClassCount, loading: loadingEligibleClasses } = useEligibleClasses();
+  // Dùng myAssignedClassCount (đứng tên thật trong class_teachers) để quyết định hiện pill — KHÔNG
+  // dùng quyền academic.class.manage để loại trừ (đã dính bug: 1 tài khoản Giáo viên demo vừa có
+  // quyền quản trị vừa thật sự đứng lớp bị ẩn nhầm pill, vì quyền đó không phản ánh có được phân
+  // công dạy lớp nào hay không). SITE_MANAGER thật không đứng lớp nào (myAssignedClassCount luôn 0)
+  // nhưng vẫn cần thấy pill để "xem lại sổ điểm" (UC-20) — xét riêng qua eligibleClasses.
+  //
+  // Tài khoản chỉ có quyền quản trị rộng (academic.class.manage) như HEAD_ACADEMIC/SYS_ADMIN/"Super
+  // Admin" demo KHÔNG hiện pill này ở Header (đã xác nhận với người dùng 2026-07-27) — các trang cần
+  // chọn lớp cho nhóm tài khoản này (VD Kho Video Ôn tập UC-23) tự có bộ chọn lớp riêng trong trang.
+  const showClassSelector =
+    loadingEligibleClasses || myAssignedClassCount > 0 || (isGenuineSiteManager && eligibleClasses.length > 0);
+
   return (
     <header className="h-16 bg-transparent px-2 md:px-0 flex items-center justify-between z-30 mb-4 shrink-0">
       <div className="flex items-center gap-4">
@@ -153,15 +196,28 @@ export default function Header() {
             </select>
           )}
         </div>
+
+        {showClassSelector && (
+          <div className="hidden sm:flex items-center gap-2 text-xs font-medium px-4 py-2 rounded-full shadow-soft border bg-white border-slate-200/50 text-slate-500">
+            <GraduationCap className="w-3.5 h-3.5 text-brand-orange shrink-0" />
+            <span className="font-semibold text-slate-700">Lớp:</span>
+            <select
+              value={selectedClassId ?? ""}
+              onChange={(e) => setSelectedClassId(e.target.value ? Number(e.target.value) : null)}
+              className="bg-transparent border-none text-slate-800 font-semibold focus:outline-none focus:ring-0 cursor-pointer pr-1"
+            >
+              <option value="">-- Chọn lớp --</option>
+              {eligibleClasses.map((cls) => (
+                <option key={cls.id} value={cls.id}>
+                  {cls.classCode} — {cls.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       <div className="flex items-center gap-3 md:gap-5">
-        <div className="flex items-center gap-2 bg-slate-900 text-white px-3.5 py-1.5 rounded-md text-xs font-semibold shadow-glow tracking-tight font-display">
-          <ShieldCheck className="w-3.5 h-3.5 text-brand-yellow shrink-0" />
-          <span className="hidden md:inline">Vai trò:</span>
-          <span className="text-brand-orange">{roleLabels[currentRole]}</span>
-        </div>
-
         <div className="hidden lg:flex items-center gap-1.5 text-slate-600 bg-white border border-slate-200/50 shadow-soft px-3.5 py-2 rounded-full font-mono text-[11px]">
           <Clock className="w-3.5 h-3.5 text-slate-400" />
           <span>
@@ -208,7 +264,7 @@ export default function Header() {
             <button className="flex items-center gap-3 pl-4 pr-2.5 py-2 bg-white border border-slate-200/50 hover:bg-slate-50 rounded-2xl transition-all shadow-soft">
               <div className="hidden md:block text-left leading-tight">
                 <p className="text-xs font-bold text-slate-800 truncate max-w-[130px]">{currentUser?.fullName || "Cán bộ PPS"}</p>
-                <p className="text-[10px] text-slate-500 truncate max-w-[130px]">{roleLabels[currentRole]}</p>
+                <p className="text-[10px] text-slate-500 truncate max-w-[130px]">{currentRoleLabel}</p>
               </div>
               <Avatar name={currentUser?.fullName || "U"} size="sm" />
               <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
@@ -222,6 +278,13 @@ export default function Header() {
             >
               <User className="w-4 h-4 text-slate-400 shrink-0" />
               <span>Hồ sơ cá nhân</span>
+            </button>
+            <button
+              onClick={() => setChangePasswordOpen(true)}
+              className="w-full px-3 py-2.5 flex items-center gap-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer"
+            >
+              <KeyRound className="w-4 h-4 text-slate-400 shrink-0" />
+              <span>Đổi mật khẩu</span>
             </button>
             <button
               onClick={() => alert("Tính năng Cài đặt đang được phát triển.")}
@@ -244,6 +307,7 @@ export default function Header() {
       </div>
 
       {profileOpen && <ProfileModal onClose={() => setProfileOpen(false)} />}
+      {changePasswordOpen && <ChangePasswordModal onClose={() => setChangePasswordOpen(false)} />}
     </header>
   );
 }

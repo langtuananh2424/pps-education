@@ -1,9 +1,8 @@
 import React, { createContext, useContext, useMemo, useState } from "react";
 import { UserRole } from "@/types";
-import { mockRolePermissions } from "@/data/mockData";
 import { CurrentUserResponse, fetchCurrentUser, login as loginApi, loginWithGoogle as loginWithGoogleApi, logout as logoutApi } from "@/features/auth/api";
 import { getAccessToken } from "@/lib/tokenStorage";
-import { rolePriorityOrder } from "@/constants/roles";
+import { deriveCurrentRoleLabel, rolePriorityOrder } from "@/constants/roles";
 
 const CURRENT_USER_CACHE_KEY = "pps_current_user";
 
@@ -11,9 +10,14 @@ interface AppContextValue {
   isLoggedIn: boolean;
   currentUser: CurrentUserResponse | null;
   currentRole: UserRole;
+  /** Nhãn hiển thị Header/Sidebar — khác currentRole (enum cố định) vì hỗ trợ đúng cả vai trò tùy biến tạo qua UC-03. */
+  currentRoleLabel: string;
   selectedCampusId: string;
+  /** Lớp đang chọn ở Header (cạnh Điểm trường) — dùng chung cho mọi trang cần lọc theo lớp (Sổ điểm, Điểm danh, Giao đề, Nhận xét, Kho bài giảng...), không phải chọn lại mỗi trang. */
+  selectedClassId: number | null;
   sidebarOpen: boolean;
   setSelectedCampusId: (id: string) => void;
+  setSelectedClassId: (id: number | null) => void;
   setSidebarOpen: (open: boolean) => void;
   loginNotice: string | null;
   login: (usernameOrEmail: string, password: string) => Promise<void>;
@@ -25,7 +29,7 @@ interface AppContextValue {
 const AppContext = createContext<AppContextValue | null>(null);
 
 function readCachedUser(): CurrentUserResponse | null {
-  const saved = localStorage.getItem(CURRENT_USER_CACHE_KEY);
+  const saved = sessionStorage.getItem(CURRENT_USER_CACHE_KEY);
   try {
     return saved ? (JSON.parse(saved) as CurrentUserResponse) : null;
   } catch {
@@ -46,13 +50,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const cached = readCachedUser();
     return cached ? deriveCurrentRole(cached.roleCodes) : UserRole.STUDENT;
   });
-  const [selectedCampusId, setSelectedCampusId] = useState("ALL");
+  const [selectedCampusId, setSelectedCampusIdState] = useState("ALL");
+  const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Đổi điểm trường thì lớp đang chọn (thuộc site cũ) không còn hợp lệ — reset để tránh lọc nhầm.
+  const setSelectedCampusId = (id: string) => {
+    setSelectedCampusIdState(id);
+    setSelectedClassId(null);
+  };
   const [loginNotice, setLoginNotice] = useState<string | null>(null);
 
   const completeLogin = async () => {
     const profile = await fetchCurrentUser();
-    localStorage.setItem(CURRENT_USER_CACHE_KEY, JSON.stringify(profile));
+    sessionStorage.setItem(CURRENT_USER_CACHE_KEY, JSON.stringify(profile));
     setCurrentUser(profile);
     setCurrentRole(deriveCurrentRole(profile.roleCodes));
     setIsLoggedIn(true);
@@ -72,7 +83,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     await logoutApi();
-    localStorage.removeItem(CURRENT_USER_CACHE_KEY);
+    sessionStorage.removeItem(CURRENT_USER_CACHE_KEY);
     setIsLoggedIn(false);
     setCurrentUser(null);
     setCurrentRole(UserRole.STUDENT);
@@ -80,19 +91,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const hasPermission = (requiredPermission?: string) => {
     if (!requiredPermission) return true;
-    // Effective permissions = hợp của TẤT CẢ role đang gán cho tài khoản (khớp cách backend tính effective_permissions ở UC-03/UC-46), không chỉ role ưu tiên cao nhất đang hiển thị.
-    const roleCodes = currentUser?.roleCodes ?? [currentRole];
-    return roleCodes.some((code) => mockRolePermissions.find((rp) => rp.role === code)?.permissions.includes(requiredPermission));
+    // Tra thẳng CurrentUserResponse.permissions (effective permissions thật từ BE — hợp nhất role + override,
+    // xem GET /api/auth/me) — không còn dùng bảng mock tĩnh, tránh lệch với quyền thật cấu hình qua UC-03/UC-04.
+    return currentUser?.permissions?.includes(requiredPermission) ?? false;
   };
+
+  const currentRoleLabel = currentUser ? deriveCurrentRoleLabel(currentUser.roleCodes) : deriveCurrentRoleLabel([]);
 
   const value = useMemo<AppContextValue>(
     () => ({
       isLoggedIn,
       currentUser,
       currentRole,
+      currentRoleLabel,
       selectedCampusId,
+      selectedClassId,
       sidebarOpen,
       setSelectedCampusId,
+      setSelectedClassId,
       setSidebarOpen,
       loginNotice,
       login,
@@ -100,7 +116,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       logout,
       hasPermission
     }),
-    [isLoggedIn, currentUser, currentRole, selectedCampusId, sidebarOpen, loginNotice]
+    [isLoggedIn, currentUser, currentRole, currentRoleLabel, selectedCampusId, selectedClassId, sidebarOpen, loginNotice]
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

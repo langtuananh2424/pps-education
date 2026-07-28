@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.dto.AdminChangePasswordRequest;
 import vn.com.pps.education.dto.CreateUserRequest;
+import vn.com.pps.education.dto.UpdateUserEmailRequest;
 import vn.com.pps.education.dto.UpdateUserRequest;
 import vn.com.pps.education.dto.UpdateUserStatusRequest;
 import vn.com.pps.education.support.AbstractControllerTest;
@@ -78,6 +79,33 @@ class UserControllerTest extends AbstractControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new AdminChangePasswordRequest("MatKhauMoi@9"))))
                 .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void updateEmail_UC55_deniedForRoleWithoutUserManage_returns403() throws Exception {
+        var staff = userWithRole("staff.email.noaccess", "STAFF");
+        User target = userWithRole("target.email.noaccess", "STUDENT");
+
+        mockMvc.perform(put("/api/users/" + target.getId() + "/email")
+                        .header("Authorization", bearerToken(staff, "STAFF"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new UpdateUserEmailRequest("moi." + SEQ.incrementAndGet() + "@gmail.com"))))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("Tài khoản không có quyền thực hiện thao tác này."));
+    }
+
+    @Test
+    void updateEmail_UC55_allowedForSysAdmin_returns200() throws Exception {
+        var sysAdmin = userWithRole("sysadmin.email.access", "SYS_ADMIN");
+        User target = userWithRole("target.email.access", "STUDENT");
+        String newEmail = "moi." + SEQ.incrementAndGet() + "@gmail.com";
+
+        mockMvc.perform(put("/api/users/" + target.getId() + "/email")
+                        .header("Authorization", bearerToken(sysAdmin, "SYS_ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new UpdateUserEmailRequest(newEmail))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").value(newEmail));
     }
 
     @Test

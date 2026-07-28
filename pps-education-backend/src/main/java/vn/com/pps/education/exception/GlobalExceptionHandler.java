@@ -65,23 +65,25 @@ public class GlobalExceptionHandler {
             DuplicateRoomCodeException.class, DuplicateEquipmentCodeException.class,
             DuplicateUserAccountException.class, DuplicateRoleCodeException.class,
             SiteTeacherAlreadyAssignedException.class, DuplicateDepartmentCodeException.class,
-            DuplicatePositionCodeException.class, DuplicateSkillCodeException.class})
+            DuplicatePositionCodeException.class, DuplicateSkillCodeException.class,
+            AppealAlreadyOpenException.class, AppealAlreadyAcceptedException.class,
+            TaskAssigneeAlreadyAssignedException.class})
     public ResponseEntity<Object> handleConflict(RuntimeException ex) {
         return error(HttpStatus.CONFLICT, ex.getMessage());
     }
 
     @ExceptionHandler({CurriculumUpdateConfirmationRequiredException.class, ApprovalAlreadyDecidedException.class,
             GradePeriodWeightExceededException.class, GradeComponentLockedException.class,
-            GradeComponentWeightExceededException.class})
+            GradeAlreadyPublishedException.class})
     public ResponseEntity<Object> handleConfirmationRequired(RuntimeException ex) {
         return error(HttpStatus.CONFLICT, ex.getMessage());
     }
 
     @ExceptionHandler({CurriculumNotActiveException.class, LinkedClassRequiresPartnerSiteException.class,
             CurriculumNotEditableException.class, CurriculumNotAvailableForSiteException.class,
-            InvalidGradeScoreException.class, GradeEntryNotEditableException.class,
+            InvalidGradeScoreException.class, GradeNotEditableException.class,
             AttendanceSessionNotEditableException.class, StudentCommentNotEditableException.class,
-            InvalidCommentContextException.class, InvalidLessonScopeException.class, QuestionLockedException.class,
+            InvalidCommentContextException.class, InvalidReviewVideoSetScopeException.class, QuestionLockedException.class,
             ExerciseNotAvailableException.class, RetakeNotAllowedException.class,
             SubmissionPastDeadlineException.class, AttemptNotEditableException.class,
             AnswerNotManuallyGradableException.class, InvalidTeachingPlanPeriodException.class,
@@ -90,7 +92,8 @@ public class GlobalExceptionHandler {
             InvalidFeedbackStatusTransitionException.class, InvalidClassSessionStatusTransitionException.class,
             OperatingExpenseAlreadyDecidedException.class, PartnerContractNotDeletableException.class,
             TuitionPlanNotActiveException.class, RoleNotDeletableException.class,
-            DepartmentNotDeletableException.class, PositionNotDeletableException.class})
+            DepartmentNotDeletableException.class, PositionNotDeletableException.class,
+            GradeComponentNotDeletableException.class, GradePeriodNotDeletableException.class})
     public ResponseEntity<Object> handleClassSetupRejected(RuntimeException ex) {
         return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
     }
@@ -98,7 +101,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({NotAuthorizedForPortalAccessException.class, NotSiteManagerForSiteException.class,
             NotAssignedTeacherForClassException.class, NotAssignedTeacherForSessionException.class,
             AssigneeOutsideDepartmentException.class,
-            NotTaskParticipantException.class, NotTaskCreatorException.class, NotAuthorizedForFeedbackException.class})
+            NotTaskParticipantException.class, NotTaskCreatorException.class, NotAuthorizedForFeedbackException.class,
+            NotAuthorizedForTaskOverviewException.class})
     public ResponseEntity<Object> handleAcademicAuthorization(RuntimeException ex) {
         return error(HttpStatus.FORBIDDEN, ex.getMessage());
     }

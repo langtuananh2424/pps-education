@@ -23,7 +23,7 @@ interface AppContextValue {
 const AppContext = createContext<AppContextValue | null>(null);
 
 function readCachedUser(): CurrentUserResponse | null {
-  const saved = localStorage.getItem(CURRENT_USER_CACHE_KEY);
+  const saved = sessionStorage.getItem(CURRENT_USER_CACHE_KEY);
   try {
     return saved ? (JSON.parse(saved) as CurrentUserResponse) : null;
   } catch {
@@ -37,7 +37,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const completeLogin = async () => {
     const profile = await fetchCurrentUser();
-    localStorage.setItem(CURRENT_USER_CACHE_KEY, JSON.stringify(profile));
+    sessionStorage.setItem(CURRENT_USER_CACHE_KEY, JSON.stringify(profile));
     setCurrentUser(profile);
     setIsLoggedIn(true);
   };
@@ -54,7 +54,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     await logoutApi();
-    localStorage.removeItem(CURRENT_USER_CACHE_KEY);
+    sessionStorage.removeItem(CURRENT_USER_CACHE_KEY);
     setIsLoggedIn(false);
     setCurrentUser(null);
   };

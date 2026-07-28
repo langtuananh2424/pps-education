@@ -418,6 +418,7 @@ erDiagram
         TEXT cancellation_reason
         BIGINT rescheduled_to_session_id FK
         BIGINT created_by FK
+        TEXT lesson_content
     }
 
     session_periods {
@@ -507,6 +508,27 @@ a)  Bảng class_sessions --- Buổi học
   created_by                  BIGINT           FK → users(id)        Nhân viên
                                                                      giáo vụ tạo
 
+  lesson_content               TEXT             NULL                  "Bài học hôm
+                                                                     nay" — 1 giá
+                                                                     trị dùng
+                                                                     chung cả lớp,
+                                                                     GV điền cùng
+                                                                     lúc điểm danh
+                                                                     (V50, bổ sung
+                                                                     ngoài SDD
+                                                                     gốc, đã xác
+                                                                     nhận với
+                                                                     người dùng
+                                                                     2026-07-24).
+                                                                     KHÁC
+                                                                     session_periods.
+                                                                     content_note
+                                                                     (per-tiết,
+                                                                     chưa có code
+                                                                     nào dùng) —
+                                                                     đây là giá
+                                                                     trị per-buổi.
+
   created_at, updated_at      TIMESTAMPTZ
   --------------------------------------------------------------------------------
 
@@ -543,6 +565,20 @@ AND cs.id != :editing_session_id;
 
 Chỉ kiểm tra với phòng có is_flexible=FALSE; phòng linh hoạt (trường
 liên kết cấp) được loại trừ khỏi ràng buộc cứng.
+
+**UC-56/UC-57/UC-58 (FR-ACA-05, bổ sung ngoài SDD gốc, đã xác nhận với
+người dùng):** không thêm bảng/cột mới nào. UC-56 (sinh lịch hàng loạt
+theo mẫu lặp) và UC-57 (nhập lịch qua Excel) đều gọi lại đúng logic tạo
+1 class_session + kiểm tra trùng phòng ở trên (lặp qua nhiều
+ngày/dòng), không viết lại. UC-58 ("Lịch của tôi" — Giáo viên xem lịch
+dạy qua mọi lớp) chỉ thêm 1 query lọc theo `primary_teacher_id` +
+khoảng `session_date` tùy chọn, tận dụng đúng index
+`idx_class_sessions_teacher_date` đã có sẵn ở trên — không cần index
+mới. Riêng UC-57 dùng lại giá trị có sẵn từ V1
+`import_jobs.import_type = TEACHING_SCHEDULE` (bảng import_jobs định
+nghĩa ở `docs/sdd-groups/02-nen-tang.md` mục l — giá trị enum này có
+sẵn từ đầu nhưng trước giờ chưa có code nào dùng, nay chính là lần đầu
+dùng thật, không cần migration vì import_type là VARCHAR(50) tự do).
 
 b)  Bảng session_periods --- Tiết học trong buổi
 
@@ -785,9 +821,6 @@ Với lớp bổ trợ 2 kỹ năng, lớp chính 5 kỹ năng → chỉ khác s
 
   name               VARCHAR(200)     NOT NULL
 
-  weight_in_period   DECIMAL(5,2)     NOT NULL                  Trọng số
-                                                                 trong kỳ
-
   max_score          DECIMAL(5,2)     NOT NULL, DEFAULT 10.00
 
   pass_threshold     DECIMAL(5,2)     NULL
@@ -822,18 +855,37 @@ Với lớp bổ trợ 2 kỹ năng, lớp chính 5 kỹ năng → chỉ khác s
 Có grade_components_history.
 
 *Logic bảo vệ khi sửa cấu trúc:* Nếu đã tồn tại grade_entries cho
-component này → cấm sửa weight_in_period/max_score, chỉ cho sửa
-name/description/display_order. Muốn đổi trọng số thì phải archive
-grade_period cũ, tạo grade_period mới.
+component này → cấm sửa max_score, chỉ cho sửa
+name/description/display_order/pass_threshold.
 
-*Logic thêm thành phần điểm mới (UC-16/A2, V37):* Tổng weight_in_period
-của tất cả component cùng 1 grade_period_id (kể cả component vừa thêm)
-không được vượt quá 100 — validate ở service khi tạo mới, cùng nguyên
-tắc với grade_periods.weight_in_final.
+*Logic thêm thành phần điểm mới (UC-16/A2):* Trưởng phòng đào tạo (hoặc
+người có quyền academic.grade.manage) có thể thêm 1 component mới vào 1
+grade_period đã tồn tại — kể cả khung đang Có hiệu lực và đã có lớp
+dùng — mà không cần đi qua lại UC-16b/UC-17.
+
+**V40 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng): đã bỏ hẳn
+cột `weight_in_period`.** Trọng số cấp thành phần điểm/kỹ năng trước đây
+chỉ dùng để (a) validate tổng ≤ 100 lúc thêm component và (b) tính điểm
+trung bình tạm thời cho Giáo viên tham khảo (API không được frontend
+gọi ở bất kỳ đâu) — không hề ảnh hưởng tới Overall/Level thực tế công
+bố cho Phụ huynh (grade_period_results), giá trị này luôn do Giáo viên
+tự nhập tay hoặc import Excel (UC-53). Người dùng quyết định bỏ hẳn cột
+này; không còn validate tổng trọng số, không còn công thức tự tính
+điểm trung bình nào nữa. **Không nhầm với `grade_periods.weight_in_final`
+(trọng số cấp KỲ đánh giá, phục vụ `grade_final_summaries` — chưa triển
+khai) — cột đó vẫn giữ nguyên, không bị ảnh hưởng.**
 
 c)  Bảng grade_entries --- Điểm cụ thể của học sinh
 
-Mỗi ô nhập điểm = 1 record. Có workflow duyệt qua approval_flows.
+Mỗi ô nhập điểm = 1 record. **V43 (bổ sung ngoài SDD gốc, đã xác nhận
+với người dùng --- sửa đổi lần 2 sau V39)** --- luồng 4 trạng thái DRAFT
+(Nháp) → PROVISIONAL_PUBLISHED (Công bố dự kiến) → APPEAL (Phúc khảo) →
+OFFICIAL (Chính thức). Khoá sửa/xoá hoàn toàn theo TRẠNG THÁI (khác V39
+--- không còn khoá theo hạn X ngày): Nháp sửa/xoá tự do không giới hạn
+thời gian; Công bố dự kiến/Chính thức khoá hẳn với GV thường; Phúc khảo
+chỉ GV đã tiếp nhận (`grade_appeal_requests.status=ACCEPTED`, xem mục
+c3) đúng yêu cầu đó mới sửa được. Actor có quyền
+`academic.grade.edit.override` bỏ qua mọi ràng buộc trạng thái.
 
   ---------------------------------------------------------------------------
   **Cột**              **Kiểu**         **Ràng buộc**           **Ghi chú**
@@ -868,42 +920,248 @@ Mỗi ô nhập điểm = 1 record. Có workflow duyệt qua approval_flows.
   entered_at           TIMESTAMPTZ      NOT NULL, DEFAULT NOW()
 
   status               VARCHAR(20)      NOT NULL, DEFAULT       DRAFT /
-                                         'DRAFT'                 PENDING /
-                                                                 APPROVED /
-                                                                 REJECTED
+                                         'DRAFT'                 PROVISIONAL_
+                                                                 PUBLISHED /
+                                                                 APPEAL /
+                                                                 OFFICIAL
+                                                                 (V43 --- thay
+                                                                 DRAFT/
+                                                                 PUBLISHED
+                                                                 của V39)
 
-  approval_flow_id     BIGINT           FK →
-                                         approval_flows(id),
-                                         NULL
+  submitted_at,        TIMESTAMPTZ      NULL                    V39: cột vẫn
+  approval_flow_id     BIGINT           FK →                    còn trong DB
+                                         approval_flows(id),     (không DROP,
+                                         NULL                    bảo toàn lịch
+                                                                 sử luồng
+                                                                 duyệt cũ)
+                                                                 nhưng KHÔNG
+                                                                 còn dùng ở
+                                                                 code/entity
+                                                                 mới.
 
-  submitted_at,        TIMESTAMPTZ      NULL
-  approved_at
+  published_at         TIMESTAMPTZ      NULL                    Thời điểm
+                                                                 công bố DỰ
+                                                                 KIẾN (V39 đổi
+                                                                 tên từ
+                                                                 approved_at)
+                                                                 --- là mốc
+                                                                 tính hạn Y
+                                                                 ngày phúc
+                                                                 khảo (V43)
 
-  approved_by          BIGINT           FK → users(id), NULL    Quản lý điểm
-                                                                 trường
+  published_by         BIGINT           FK → users(id), NULL    V39: đổi tên
+                                                                 từ approved_by.
+                                                                 Quản lý điểm
+                                                                 trường/Trưởng
+                                                                 phòng đào tạo
+
+  finalized_at         TIMESTAMPTZ      NULL                    V43, mới ---
+                                                                 thời điểm
+                                                                 chuyển
+                                                                 OFFICIAL,
+                                                                 luôn do hệ
+                                                                 thống tự động
+                                                                 gán (không có
+                                                                 finalized_by
+                                                                 --- không có
+                                                                 thao tác thủ
+                                                                 công nào
+                                                                 chuyển
+                                                                 Chính thức)
 
                                          UNIQUE(class_id,
                                          student_id,
                                          grade_component_id)
   ---------------------------------------------------------------------------
 
-Có grade_entries_history --- bắt buộc.
+Có grade_entries_history --- bắt buộc. V43 (xoá điểm Nháp, bổ sung
+ngoài SDD gốc): xoá cứng grade_entries phải xoá hết
+grade_entries_history của bản ghi đó trước (FK NOT NULL không CASCADE)
+--- không lưu lại "bản ghi lịch sử xoá" nào (điểm Nháp chưa công bố,
+chưa có giá trị pháp lý cần giữ, xem quy ước soft-delete trong
+`docs/sdd-groups/00-intro-va-kien-truc.md`).
 
 CREATE INDEX idx_grade_entries_class_student ON grade_entries(class_id,
 student_id);
 
-CREATE INDEX idx_grade_entries_pending ON grade_entries(status) WHERE
-status = 'PENDING';
+idx_grade_entries_pending (WHERE status = 'PENDING') --- không còn ý
+nghĩa từ V39 (status không còn giá trị PENDING), giữ nguyên index cũ
+trong DB (không DROP), không tạo index mới thay thế.
 
-Workflow:
+Workflow (V43):
 
-GV nhập điểm → DRAFT
+GV nhập điểm → ghi nhận ngay DRAFT, không qua bước submit riêng, sửa/xoá
+tự do không giới hạn thời gian.
 
-GV submit → PENDING (tạo record ở approval_flows, có thể theo batch_id
-nếu submit theo lô)
+Lần đầu tiên có điểm nhập cho 1 (class_id, grade_period_id) → hệ thống
+ghi 1 dòng `grade_period_edit_windows` đánh dấu mốc first_entered_at ---
+làm gốc tính hạn X ngày TỰ ĐỘNG CÔNG BỐ DỰ KIẾN (không còn là hạn chỉnh
+sửa như V39).
 
-Quản lý điểm trường duyệt → APPROVED (hiển thị cho PH) hoặc REJECTED (GV
-sửa lại, submit lại)
+Quản lý điểm trường/Trưởng phòng đào tạo công bố dự kiến (quyền
+academic.grade.publish, UC-20) → PROVISIONAL_PUBLISHED, hiển thị cho
+Phụ huynh ngay lập tức, bắt đầu tính hạn Y ngày phúc khảo (UC-62). GV
+KHÔNG tự sửa/xoá được nữa từ đây (khác V39).
+
+Học sinh/Phụ huynh gửi phúc khảo (UC-62) trong hạn Y ngày → APPEAL. GV
+phụ trách lớp tiếp nhận rồi sửa lại điểm → tự động quay lại
+PROVISIONAL_PUBLISHED (publishedAt giữ nguyên, không reset hạn Y ngày).
+
+Hết hạn Y ngày (dù đang PROVISIONAL_PUBLISHED hay APPEAL) → OFFICIAL,
+`finalized_at=now()`, khoá vĩnh viễn. Actor có quyền
+`academic.grade.edit.override` bỏ qua mọi ràng buộc trạng thái ở trên
+(thêm/sửa/xoá bất kể DRAFT/PROVISIONAL_PUBLISHED/APPEAL/OFFICIAL).
+
+c2) Bảng grade_period_edit_windows --- Mốc lần đầu nhập điểm theo (lớp,
+    kỳ đánh giá) (V39, bổ sung ngoài SDD gốc, đã xác nhận với người
+    dùng)
+
+Ghi 1 lần duy nhất (UNIQUE class_id + grade_period_id) mốc thời điểm
+lần đầu tiên có điểm được nhập cho 1 (lớp, kỳ đánh giá) --- làm gốc
+tính hạn X ngày tự động công bố dự kiến (V43 --- KHÔNG còn là hạn
+Giáo viên toàn quyền sửa điểm như V39; grade_entries VÀ
+grade_period_results dùng chung 1 mốc theo cùng cặp class_id +
+grade_period_id). Không cập nhật lại sau khi tạo, không có bảng history
+riêng.
+
+  -------------------------------------------------------------------
+  **Cột**            **Kiểu**       **Ràng buộc**          **Ghi chú**
+  ------------------ -------------- ---------------------- -----------
+  id                 BIGSERIAL      PK
+
+  class_id           BIGINT         FK → classes(id), NOT
+                                     NULL
+
+  grade_period_id    BIGINT         FK → grade_periods(id),
+                                     NOT NULL
+
+  first_entered_at   TIMESTAMPTZ    NOT NULL, DEFAULT
+                                     NOW()
+
+                                     UNIQUE(class_id,
+                                     grade_period_id)
+  -------------------------------------------------------------------
+
+Cấu hình số ngày X: system_settings key
+`academic.grade_edit_window_days` (JSONB số nguyên, mặc định 7) ---
+đọc qua GET /api/academic/settings/grade-edit-window-days (public),
+ghi qua PUT cùng đường dẫn (quyền academic.grade.manage) ---
+AcademicSettingsController, API hẹp riêng cho đúng setting này (không
+xây SystemSettingsController tổng quát).
+
+c3) Bảng grade_appeal_requests --- Yêu cầu phúc khảo (V43, mới, bổ sung
+    ngoài SDD gốc, đã xác nhận với người dùng --- UC-62)
+
+Học sinh/Phụ huynh gửi yêu cầu phúc khảo trên 1 bản ghi điểm đang
+PROVISIONAL_PUBLISHED; Giáo viên phụ trách lớp phải tiếp nhận (ACCEPTED)
+mới được sửa điểm. `entity_type`/`entity_id` polymorphic --- không FK
+cứng tới `grade_entries`/`grade_period_results` (giống pattern
+`notifications.entity_type`/`entity_id` đã dùng), vì 1 yêu cầu phúc
+khảo có thể trỏ tới 1 trong 2 bảng khác nhau.
+
+  ------------------------------------------------------------------------------
+  **Cột**                **Kiểu**       **Ràng buộc**              **Ghi chú**
+  ----------------------- -------------- -------------------------- -----------
+  id                      BIGSERIAL      PK
+
+  uuid                    UUID           UNIQUE, NOT NULL
+
+  entity_type             VARCHAR(30)    NOT NULL                   GRADE_ENTRY
+                                                                     /
+                                                                     GRADE_PERIOD
+                                                                     _RESULT
+
+  entity_id               BIGINT         NOT NULL                   Polymorphic,
+                                                                     không FK
+                                                                     cứng
+
+  class_id                BIGINT         FK → classes(id), NOT NULL Denormalized
+                                                                     --- truy vấn
+                                                                     theo lớp GV
+                                                                     phụ trách
+
+  student_id              BIGINT         FK → students(id), NOT
+                                          NULL
+
+  requested_by_user_id    BIGINT         FK → users(id), NOT NULL   Học sinh
+                                                                     hoặc Phụ
+                                                                     huynh
+
+  reason                  TEXT           NULL                       Tuỳ chọn
+
+  status                  VARCHAR(20)    NOT NULL, DEFAULT 'PENDING' PENDING /
+                                                                     ACCEPTED /
+                                                                     RESOLVED
+
+  accepted_by_user_id     BIGINT         FK → users(id), NULL       GV đã tiếp
+                                                                     nhận
+
+  accepted_at             TIMESTAMPTZ    NULL
+
+  resolved_at             TIMESTAMPTZ    NULL                       GV sửa điểm
+                                                                     xong (tự
+                                                                     động, xem
+                                                                     GradeService)
+
+  created_at              TIMESTAMPTZ    NOT NULL, DEFAULT NOW()
+  ------------------------------------------------------------------------------
+
+Index: `(entity_type, entity_id, status)` --- check đang có phúc khảo mở
+chưa; `(class_id, status)` --- GV liệt kê hàng chờ tiếp nhận;
+`(requested_by_user_id)` --- Học sinh/Phụ huynh tự xem lịch sử. Không có
+bảng history riêng --- vòng đời PENDING → ACCEPTED → RESOLVED nằm ngay
+trên chính bản ghi (đủ làm audit trail, không cần versioning).
+
+**GradeSchedulerService --- 2 job tách biệt (bổ sung ngoài SDD gốc, đã
+xác nhận với người dùng):**
+
+- `autoPublishProvisionalExpiredGrades` (UC-20 A3) --- cron
+  `@Scheduled(cron = "0 0 3 * * *")` (03:00 hàng đêm) --- quét toàn bộ
+  `grade_period_edit_windows` có `first_entered_at < now() - X ngày`
+  (`academic.grade_edit_window_days`), với mỗi (class_id,
+  grade_period_id) khớp: chuyển mọi `grade_entries`/
+  `grade_period_results` còn `status=DRAFT` của đúng cặp đó sang
+  `PROVISIONAL_PUBLISHED`, `published_at=now()`, **`published_by=NULL`**
+  (phân biệt với công bố thủ công luôn có `published_by`). Song song
+  với công bố thủ công (`GradeService#publishGrades`), TỰ ĐỘNG kích
+  hoạt khi không ai công bố tay — không thay thế. Không ghi
+  `grade_entries_history` cho hành động này (cột `changed_by` NOT NULL,
+  không có actor người dùng tương ứng) — `published_at`/
+  `published_by=NULL` trên chính bản ghi đã đủ làm tín hiệu audit.
+
+- `autoFinalizeExpiredAppealWindow` (UC-62 A3, V43, mới) --- cron
+  `@Scheduled(cron = "0 30 3 * * *")` (03:30 hàng đêm, lệch giờ với job
+  trên) --- quét mọi `grade_entries`/`grade_period_results` có
+  `status IN (PROVISIONAL_PUBLISHED, APPEAL)` và
+  `published_at < now() - Y ngày` (`academic.grade_appeal_window_days`,
+  mặc định 7) → chuyển `status=OFFICIAL`, `finalized_at=now()`. Chạy
+  BẤT KỂ bản ghi có đang APPEAL dở dang hay không (đã xác nhận với
+  người dùng) --- không gửi thông báo gì thêm.
+
+Cấu hình số ngày Y: system_settings key
+`academic.grade_appeal_window_days` (JSONB số nguyên, mặc định 7) ---
+đọc qua GET /api/academic/settings/grade-appeal-window-days (public),
+ghi qua PUT cùng đường dẫn (quyền academic.grade.manage) --- cùng
+`AcademicSettingsController` với setting X ngày ở trên.
+
+**Thông báo (bổ sung ngoài SDD gốc, đã xác nhận với người dùng):**
+
+- Công bố điểm dự kiến (UC-20): cả `GradeService#publishGrades` (thủ
+  công) lẫn `GradeSchedulerService#autoPublishProvisionalExpiredGrades`
+  (tự động, A3) sau khi chuyển `grade_entries`/`grade_period_results`
+  sang `PROVISIONAL_PUBLISHED` đều gọi `NotificationService.notify(...)`
+  với `notification_type=GRADE_PUBLISHED` cho mọi Phụ huynh liên kết
+  qua `parent_student` với học sinh có điểm vừa công bố — `entity_type`
+  = `GRADE_ENTRY`/`GRADE_PERIOD_RESULT`, `triggered_by` = actor công bố
+  (thủ công) hoặc `NULL` (tự động).
+
+- Gửi yêu cầu phúc khảo (UC-62, V43, mới): `GradeAppealService#submitAppeal`
+  gọi `NotificationService.notify(...)` với
+  `notification_type=GRADE_APPEAL_REQUESTED` (enum mới, V43) cho TẤT CẢ
+  giáo viên phụ trách lớp (`class_teachers`, không chỉ primary) —
+  `entity_type=GRADE_APPEAL_REQUEST`, `triggered_by` = học sinh/phụ
+  huynh đã gửi yêu cầu.
 
 d)  Bảng grade_final_summaries --- Điểm tổng kết học phần
 
@@ -992,6 +1250,14 @@ Format calculation_snapshot (JSONB) --- ví dụ:
 
 }
 
+*Lưu ý (V40, bổ sung ngoài SDD gốc, đã xác nhận với người dùng):* ví dụ
+trên giả định mỗi component có 1 `weight` riêng để tính `weighted` —
+nhưng cột `grade_components.weight_in_period` đã bị bỏ (xem mục b). Nếu
+sau này triển khai `grade_final_summaries` thật, trọng số theo component
+(nếu vẫn cần) phải lấy từ 1 nguồn khác (VD nhập tay lúc tổng kết, hoặc
+thiết kế lại theo yêu cầu tại thời điểm đó) — không còn tồn tại sẵn trên
+`grade_components`.
+
 h)  Bảng grade_period_results --- Overall/Level theo kỳ đánh giá (mới,
     V37, bổ sung ngoài SDD gốc, đã xác nhận với người dùng)
 
@@ -1000,8 +1266,13 @@ cụ thể (không phải tổng kết cả học phần — xem phân biệt v�
 `grade_final_summaries` ở mục d). Phục vụ UC-53 (nhập điểm qua Excel):
 GV/hệ thống ghi nguyên giá trị Overall/Level do GV đã tự tính (band
 IELTS, %, hay quy đổi riêng của trường) — hệ thống KHÔNG tự tính lại
-theo công thức. Vòng đời trạng thái/duyệt tương tự grade_entries, dùng
-chung approval_flows với entity_type='GRADE_PERIOD_RESULT'.
+theo công thức. **V43 (bổ sung ngoài SDD gốc, đã xác nhận với người
+dùng — sửa đổi lần 2 sau V39):** vòng đời trạng thái giống hệt
+grade_entries sau khi cập nhật — luồng 4 trạng thái DRAFT →
+PROVISIONAL_PUBLISHED → APPEAL → OFFICIAL (xem mục c), khoá sửa/xoá
+theo TRẠNG THÁI (không còn theo hạn X ngày), phúc khảo dùng chung bảng
+`grade_appeal_requests` (mục c3, qua entity_type=GRADE_PERIOD_RESULT)
+với grade_entries.
 
   ---------------------------------------------------------------------------
   **Cột**            **Kiểu**         **Ràng buộc**             **Ghi chú**
@@ -1043,39 +1314,65 @@ chung approval_flows với entity_type='GRADE_PERIOD_RESULT'.
                                        NULL                      source=EXCEL_IMPORT
 
   status              VARCHAR(20)      NOT NULL, DEFAULT        DRAFT /
-                                       'DRAFT'                   PENDING /
-                                                                 APPROVED /
-                                                                 REJECTED
+                                       'DRAFT'                   PROVISIONAL_
+                                                                 PUBLISHED /
+                                                                 APPEAL /
+                                                                 OFFICIAL
+                                                                 (V43)
 
   entered_by          BIGINT           FK → users(id), NOT
                                        NULL
 
   entered_at          TIMESTAMPTZ      NOT NULL, DEFAULT NOW()
 
-  approval_flow_id    BIGINT           FK → approval_flows(id),
-                                       NULL
+  submitted_at,       TIMESTAMPTZ      NULL                     V39: cột vẫn
+  approval_flow_id    BIGINT           FK →                     còn trong DB
+                                       approval_flows(id),      (không DROP)
+                                       NULL                      nhưng KHÔNG
+                                                                 còn dùng ở
+                                                                 code/entity
+                                                                 mới.
 
-  submitted_at,       TIMESTAMPTZ      NULL
-  approved_at
+  published_at        TIMESTAMPTZ      NULL                     Thời điểm
+                                                                 công bố dự
+                                                                 kiến (V39
+                                                                 đổi tên từ
+                                                                 approved_at)
+                                                                 --- mốc tính
+                                                                 hạn Y ngày
+                                                                 phúc khảo
 
-  approved_by         BIGINT           FK → users(id), NULL     Quản lý điểm
-                                                                 trường
+  published_by        BIGINT           FK → users(id), NULL     V39: đổi tên
+                                                                 từ approved_by.
+                                                                 Quản lý điểm
+                                                                 trường/Trưởng
+                                                                 phòng đào tạo
+
+  finalized_at        TIMESTAMPTZ      NULL                     V43, mới ---
+                                                                 giống
+                                                                 grade_entries
 
                                        UNIQUE(class_id,
                                        student_id,
                                        grade_period_id)
   ---------------------------------------------------------------------------
 
-Có thể sửa khi DRAFT/REJECTED (giống grade_entries). Không có bảng
-history riêng ở lần này (đủ audit qua entered_by/approved_by/timestamps
-— bổ sung *_history sau nếu phát sinh nhu cầu).
+Sửa/xoá được khi status=DRAFT (không giới hạn thời gian) hoặc status=
+APPEAL và actor là GV đã tiếp nhận đúng yêu cầu phúc khảo (mục c3), hoặc
+actor có quyền academic.grade.edit.override (bỏ qua mọi ràng buộc trạng
+thái) — giống hệt grade_entries (V43). Không có bảng history riêng ở
+lần này (đủ audit qua entered_by/published_by/timestamps — bổ sung
+*_history sau nếu phát sinh nhu cầu).
 
 CREATE INDEX idx_grade_period_results_class_student ON
 grade_period_results(class_id, student_id);
 
-Workflow: giống hệt grade_entries (DRAFT → PENDING khi submit → APPROVED
-hiển thị PH / REJECTED quay lại GV sửa). Khi submit/duyệt cùng lúc với
-các grade_entries của cùng học sinh/kỳ đánh giá, dùng chung 1 batch_id.
+Workflow (V43): giống hệt grade_entries — GV nhập → DRAFT ngay (không
+qua submit), sửa/xoá tự do; Quản lý điểm trường/Trưởng phòng đào tạo
+công bố dự kiến (quyền academic.grade.publish) → PROVISIONAL_PUBLISHED,
+hiển thị Phụ huynh ngay, GV không tự sửa được nữa; Học sinh/Phụ huynh
+gửi phúc khảo (UC-62) → APPEAL, GV tiếp nhận rồi sửa → quay lại
+PROVISIONAL_PUBLISHED; hết hạn Y ngày → OFFICIAL, khoá vĩnh viễn.
 
 ### Nhận xét định kỳ
 
@@ -1110,6 +1407,10 @@ erDiagram
         BIGINT approved_by FK
         TIMESTAMPTZ visible_to_parent_at
         TEXT rejection_reason
+        VARCHAR attitude
+        VARCHAR homework_previous_score
+        TEXT homework_next
+        TEXT note
     }
 ```
 
@@ -1174,6 +1475,28 @@ a)  Bảng student_comments --- Nhận xét học sinh
   visible_to_parent_at     TIMESTAMPTZ   NULL
 
   rejection_reason         TEXT          NULL
+
+  attitude                 VARCHAR(20)   NULL                  Chỉ dùng khi comment_type=
+                                                                DAILY (V50, bổ sung ngoài SDD
+                                                                gốc, đã xác nhận với người
+                                                                dùng 2026-07-24) — Kém/Yếu/
+                                                                Trung bình/Trung bình khá/
+                                                                Khá/Tốt (mở rộng từ 3 lên 6
+                                                                mức 2026-07-27), cột phẳng
+                                                                RIÊNG với structured_content.
+                                                                attitude (JSONB, chỉ dùng cho
+                                                                Giữa/Cuối kỳ) — 2 cơ chế khác
+                                                                nhau cho 2 nhóm biểu mẫu khác
+                                                                nhau
+
+  homework_previous_score  VARCHAR(10)   NULL                  Chỉ DAILY (V50) — VD "80%",
+                                                                chấm BTVN buổi TRƯỚC buổi này
+
+  homework_next            TEXT          NULL                  Chỉ DAILY (V50) — BTVN giao
+                                                                cho buổi SAU, hạn nộp ngầm
+                                                                hiểu là ngày buổi học kế tiếp
+
+  note                     TEXT          NULL                  Chỉ DAILY (V50) — ghi chú thêm
   -------------------------------------------------------------------------------------------
 
 Có student_comments_history.

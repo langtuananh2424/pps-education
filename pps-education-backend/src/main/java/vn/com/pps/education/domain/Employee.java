@@ -36,6 +36,10 @@ public class Employee extends BaseAuditEntity {
     @Column(name = "date_of_birth", nullable = false)
     private LocalDate dateOfBirth;
 
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (2026-07-23, V48) — ảnh đại diện, mẫu tham chiếu students.portrait_url. */
+    @Column(name = "portrait_url", length = 500)
+    private String portraitUrl;
+
     @Column(name = "id_card_number", unique = true, length = 20)
     private String idCardNumber;
 

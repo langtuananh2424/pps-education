@@ -10,12 +10,14 @@ import vn.com.pps.education.domain.ExerciseAssignment;
 import vn.com.pps.education.domain.ExerciseQuestion;
 import vn.com.pps.education.domain.Notification;
 import vn.com.pps.education.domain.Question;
+import vn.com.pps.education.domain.QuestionChoice;
 import vn.com.pps.education.domain.SchoolClass;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.dto.AddExerciseQuestionRequest;
 import vn.com.pps.education.dto.AssignExerciseRequest;
 import vn.com.pps.education.dto.CreateExerciseRequest;
 import vn.com.pps.education.dto.ExerciseAssignmentResponse;
+import vn.com.pps.education.dto.ExerciseQuestionChoiceResponse;
 import vn.com.pps.education.dto.ExerciseQuestionResponse;
 import vn.com.pps.education.dto.ExerciseResponse;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
@@ -27,11 +29,14 @@ import vn.com.pps.education.repository.CurriculumSubjectRepository;
 import vn.com.pps.education.repository.ExerciseAssignmentRepository;
 import vn.com.pps.education.repository.ExerciseQuestionRepository;
 import vn.com.pps.education.repository.ExerciseRepository;
+import vn.com.pps.education.repository.QuestionChoiceRepository;
 import vn.com.pps.education.repository.QuestionRepository;
 import vn.com.pps.education.repository.SchoolClassRepository;
+import vn.com.pps.education.repository.StudentRepository;
 import vn.com.pps.education.repository.UserRepository;
 
 import java.util.List;
+import java.util.Set;
 
 /**
  * UC-40: Soạn & giao đề kiểm tra (FR-LMS-10) — phần lắp đề + giao đề.
@@ -46,15 +51,21 @@ import java.util.List;
 @Service
 public class ExerciseService {
 
+    /** Câu hỏi trắc nghiệm/đúng-sai có phương án chọn sẵn (lộ cho HS khi làm bài) — khớp AUTO_GRADABLE_TYPES của ExerciseAttemptService. */
+    private static final Set<Question.QuestionType> CHOICE_BASED_TYPES = Set.of(
+            Question.QuestionType.MULTIPLE_CHOICE, Question.QuestionType.MULTIPLE_ANSWER, Question.QuestionType.TRUE_FALSE);
+
     private final ExerciseRepository exerciseRepository;
     private final ExerciseQuestionRepository exerciseQuestionRepository;
     private final ExerciseAssignmentRepository exerciseAssignmentRepository;
     private final QuestionRepository questionRepository;
+    private final QuestionChoiceRepository questionChoiceRepository;
     private final CurriculumRepository curriculumRepository;
     private final CurriculumSubjectRepository curriculumSubjectRepository;
     private final SchoolClassRepository schoolClassRepository;
     private final ClassTeacherRepository classTeacherRepository;
     private final ClassEnrollmentRepository classEnrollmentRepository;
+    private final StudentRepository studentRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
 
@@ -62,22 +73,26 @@ public class ExerciseService {
                             ExerciseQuestionRepository exerciseQuestionRepository,
                             ExerciseAssignmentRepository exerciseAssignmentRepository,
                             QuestionRepository questionRepository,
+                            QuestionChoiceRepository questionChoiceRepository,
                             CurriculumRepository curriculumRepository,
                             CurriculumSubjectRepository curriculumSubjectRepository,
                             SchoolClassRepository schoolClassRepository,
                             ClassTeacherRepository classTeacherRepository,
                             ClassEnrollmentRepository classEnrollmentRepository,
+                            StudentRepository studentRepository,
                             UserRepository userRepository,
                             NotificationService notificationService) {
         this.exerciseRepository = exerciseRepository;
         this.exerciseQuestionRepository = exerciseQuestionRepository;
         this.exerciseAssignmentRepository = exerciseAssignmentRepository;
         this.questionRepository = questionRepository;
+        this.questionChoiceRepository = questionChoiceRepository;
         this.curriculumRepository = curriculumRepository;
         this.curriculumSubjectRepository = curriculumSubjectRepository;
         this.schoolClassRepository = schoolClassRepository;
         this.classTeacherRepository = classTeacherRepository;
         this.classEnrollmentRepository = classEnrollmentRepository;
+        this.studentRepository = studentRepository;
         this.userRepository = userRepository;
         this.notificationService = notificationService;
     }
@@ -126,17 +141,29 @@ public class ExerciseService {
         return toResponse(eq);
     }
 
+    /** UC-24/UC-27: HS chỉ xem được đề ASSIGNED nếu có assignment ACTIVE khớp lớp đang học; SELF_PRACTICE/MOCK_TEST/SKILL_PRACTICE mở tự do khi đã PUBLISHED. Staff (lms.exercise.manage) xem được mọi đề. */
     @Transactional(readOnly = true)
-    public ExerciseResponse getExercise(Long id) {
+    public ExerciseResponse getExercise(Long id, Long actorUserId) {
         Exercise exercise = getExerciseOrThrow(id);
+        requireCanViewExercise(exercise, actorUserId);
         List<ExerciseQuestion> questions = exerciseQuestionRepository.findByExerciseIdOrderByDisplayOrder(id);
         return toResponse(exercise, questions);
     }
 
     @Transactional(readOnly = true)
-    public List<ExerciseQuestionResponse> listQuestions(Long exerciseId) {
+    public List<ExerciseQuestionResponse> listQuestions(Long exerciseId, Long actorUserId) {
+        Exercise exercise = getExerciseOrThrow(exerciseId);
+        requireCanViewExercise(exercise, actorUserId);
         return exerciseQuestionRepository.findByExerciseIdOrderByDisplayOrder(exerciseId).stream()
                 .map(this::toResponse).toList();
+    }
+
+    /** Bổ sung: GV xem lại danh sách đề đã giao cho 1 lớp (trước đây có repo method nhưng không controller/service nào gọi). */
+    @Transactional(readOnly = true)
+    public List<ExerciseAssignmentResponse> listAssignmentsForClass(Long classId, Long actorUserId) {
+        requireAssignedTeacher(classId, actorUserId);
+        return exerciseAssignmentRepository.findBySchoolClassIdAndStatus(classId, ExerciseAssignment.Status.ACTIVE)
+                .stream().map(this::toResponse).toList();
     }
 
     /** Main Flow bước 4 (SELF_PRACTICE): xác nhận lưu đề, không cần giao lớp. */
@@ -175,13 +202,13 @@ public class ExerciseService {
         exercise.setStatus(Exercise.Status.PUBLISHED);
         exerciseRepository.save(exercise);
 
-        notifyAssignedStudents(schoolClass, exercise, request.targetStudentIds());
+        notifyAssignedStudents(schoolClass, exercise, assignment, request.targetStudentIds());
         return toResponse(assignment);
     }
 
     // ===================== Helpers =====================
 
-    private void notifyAssignedStudents(SchoolClass schoolClass, Exercise exercise, List<Long> targetStudentIds) {
+    private void notifyAssignedStudents(SchoolClass schoolClass, Exercise exercise, ExerciseAssignment assignment, List<Long> targetStudentIds) {
         List<ClassEnrollment> enrollments = classEnrollmentRepository
                 .findBySchoolClassIdAndStatus(schoolClass.getId(), ClassEnrollment.Status.ACTIVE);
         String title = "Bài kiểm tra mới được giao";
@@ -192,7 +219,9 @@ public class ExerciseService {
                 continue;
             }
             notificationService.notify(enrollment.getStudent().getUser().getId(),
-                    Notification.NotificationType.OTHER, title, content);
+                    Notification.NotificationType.OTHER, title, content,
+                    null, "EXERCISE_ASSIGNMENT", assignment.getId(),
+                    Notification.Priority.NORMAL, null);
         }
     }
 
@@ -200,6 +229,26 @@ public class ExerciseService {
         if (!classTeacherRepository.existsBySchoolClassIdAndTeacherIdAndAssignedToIsNull(classId, actorUserId)) {
             throw new NotAssignedTeacherForClassException(
                     "Tài khoản id=" + actorUserId + " không được phân công giảng dạy lớp id=" + classId + ".");
+        }
+    }
+
+    /** Staff (đã qua @PreAuthorize lms.exercise.manage ở phần lệnh khác) luôn xem được; HS chỉ xem đề mình được phép làm. */
+    private void requireCanViewExercise(Exercise exercise, Long actorUserId) {
+        var student = studentRepository.findByUserId(actorUserId);
+        if (student.isEmpty()) {
+            return; // staff/teacher/admin — không hạn chế thêm ở đây
+        }
+        if (exercise.getStatus() != Exercise.Status.PUBLISHED) {
+            throw new ResourceNotFoundException("Không tìm thấy đề id=" + exercise.getId());
+        }
+        if (exercise.getExerciseType() == Exercise.ExerciseType.ASSIGNED) {
+            boolean hasActiveAssignment = classEnrollmentRepository.findByStudentId(student.get().getId()).stream()
+                    .filter(e -> e.getStatus() == ClassEnrollment.Status.ACTIVE)
+                    .anyMatch(e -> !exerciseAssignmentRepository.findByExerciseIdAndSchoolClassIdAndStatus(
+                            exercise.getId(), e.getSchoolClass().getId(), ExerciseAssignment.Status.ACTIVE).isEmpty());
+            if (!hasActiveAssignment) {
+                throw new ResourceNotFoundException("Không tìm thấy đề id=" + exercise.getId());
+            }
         }
     }
 
@@ -242,10 +291,20 @@ public class ExerciseService {
     }
 
     private ExerciseQuestionResponse toResponse(ExerciseQuestion eq) {
+        Question question = eq.getQuestion();
+        List<ExerciseQuestionChoiceResponse> choices = CHOICE_BASED_TYPES.contains(question.getQuestionType())
+                ? questionChoiceRepository.findByQuestionIdOrderByDisplayOrder(question.getId()).stream()
+                        .map(this::toChoiceResponse).toList()
+                : List.of();
         return new ExerciseQuestionResponse(
-                eq.getId(), eq.getExercise().getId(), eq.getQuestion().getId(),
-                eq.getQuestion().getQuestionType().name(), eq.getQuestion().getContent(),
-                eq.getDisplayOrder(), eq.getPoints());
+                eq.getId(), eq.getExercise().getId(), question.getId(),
+                question.getQuestionType().name(), question.getContent(),
+                eq.getDisplayOrder(), eq.getPoints(), choices);
+    }
+
+    /** Map phương án cho HS chọn — KHÔNG lộ is_correct (xem ExerciseQuestionChoiceResponse). */
+    private ExerciseQuestionChoiceResponse toChoiceResponse(QuestionChoice c) {
+        return new ExerciseQuestionChoiceResponse(c.getId(), c.getChoiceLabel(), c.getContent(), c.getDisplayOrder());
     }
 
     private ExerciseAssignmentResponse toResponse(ExerciseAssignment a) {

@@ -1,4 +1,4 @@
-import { apiRequest } from "@/lib/apiClient";
+import { apiRequest, apiRequestBlob } from "@/lib/apiClient";
 
 // ===================== Khung chương trình (UC-16/17) =====================
 
@@ -310,6 +310,65 @@ export function rescheduleClassSession(classId: number, sessionId: number, reque
   return apiRequest<ClassSessionResponse>(`/classes/${classId}/sessions/${sessionId}/reschedule`, { method: "POST", body: JSON.stringify(request) });
 }
 
+// ===================== Sinh lịch hàng loạt (UC-56) =====================
+
+/** daysOfWeek dùng đúng tên hằng số java.time.DayOfWeek: MONDAY..SUNDAY. */
+export interface BulkCreateClassSessionRequest {
+  startDate: string;
+  endDate: string;
+  daysOfWeek: string[];
+  startTime: string;
+  endTime: string;
+  roomId?: number;
+  primaryTeacherId: number;
+  sessionType: string;
+}
+
+export interface BulkCreateClassSessionResponse {
+  totalDates: number;
+  createdCount: number;
+  skippedCount: number;
+  created: ClassSessionResponse[];
+  skipped: { date: string; reason: string }[];
+}
+
+export function bulkCreateClassSessions(classId: number, request: BulkCreateClassSessionRequest): Promise<BulkCreateClassSessionResponse> {
+  return apiRequest<BulkCreateClassSessionResponse>(`/classes/${classId}/sessions/bulk`, { method: "POST", body: JSON.stringify(request) });
+}
+
+// ===================== Nhập lịch học từ Excel (UC-57) =====================
+
+export interface ClassScheduleImportResponse {
+  id: number;
+  sourceFileName: string;
+  totalRows: number | null;
+  successRows: number;
+  failedRows: number;
+  status: string;
+  errorSummary: Record<string, unknown>[] | null;
+}
+
+export function importClassSchedule(classId: number, file: File): Promise<ClassScheduleImportResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return apiRequest<ClassScheduleImportResponse>(`/classes/${classId}/session-imports`, { method: "POST", body: formData });
+}
+
+export function getScheduleImportJob(classId: number, jobId: number): Promise<ClassScheduleImportResponse> {
+  return apiRequest<ClassScheduleImportResponse>(`/classes/${classId}/session-imports/${jobId}`);
+}
+
+// ===================== Lịch của tôi — Giáo viên (UC-58, self-service) =====================
+
+/** GV tự xem mọi buổi dạy của chính mình qua mọi lớp — không cần quyền academic.class.manage. */
+export function getMyTeachingSchedule(fromDate?: string, toDate?: string): Promise<ClassSessionResponse[]> {
+  const params = new URLSearchParams();
+  if (fromDate) params.set("fromDate", fromDate);
+  if (toDate) params.set("toDate", toDate);
+  const query = params.toString();
+  return apiRequest<ClassSessionResponse[]>(`/teachers/me/sessions${query ? `?${query}` : ""}`);
+}
+
 // ===================== Điểm danh (UC-15) =====================
 
 export interface AttendanceMarkResponse {
@@ -392,25 +451,32 @@ export function createGradePeriod(curriculumId: number, request: CreateGradePeri
   return apiRequest<GradePeriodResponse>(`/curriculums/${curriculumId}/grade-periods`, { method: "POST", body: JSON.stringify(request) });
 }
 
+/** UC-19 (bổ sung): chỉ xoá được kỳ RỖNG — chưa có thành phần điểm, chưa có điểm tổng kết, chưa bắt đầu nhập điểm ở lớp nào (BE tự chặn 422 nếu không đủ điều kiện). */
+export function deleteGradePeriod(id: number): Promise<void> {
+  return apiRequest<void>(`/grade-periods/${id}`, { method: "DELETE" });
+}
+
 export interface GradeComponentResponse {
   id: number;
   gradePeriodId: number;
   subjectId: number | null;
+  skillId: number | null;
   code: string;
   name: string;
-  weightInPeriod: number;
   maxScore: number | null;
   passThreshold: number | null;
+  scaleType: "NUMERIC" | "PERCENTAGE" | "BAND";
   displayOrder: number;
 }
 
 export interface CreateGradeComponentRequest {
   subjectId?: number;
+  skillId?: number;
   code: string;
   name: string;
-  weightInPeriod: number;
   maxScore?: number;
   passThreshold?: number;
+  scaleType?: GradeComponentResponse["scaleType"];
   displayOrder?: number;
 }
 
@@ -422,6 +488,17 @@ export function addGradeComponent(gradePeriodId: number, request: CreateGradeCom
   return apiRequest<GradeComponentResponse>(`/grade-periods/${gradePeriodId}/components`, { method: "POST", body: JSON.stringify(request) });
 }
 
+/** UC-19 (bổ sung): chỉ xoá được đầu điểm CHƯA có điểm nhập nào (BE tự chặn 422 nếu đã có điểm). */
+export function deleteGradeComponent(id: number): Promise<void> {
+  return apiRequest<void>(`/grade-components/${id}`, { method: "DELETE" });
+}
+
+/**
+ * V43: 4 trạng thái DRAFT → PROVISIONAL_PUBLISHED → (APPEAL) → OFFICIAL (thay hẳn
+ * DRAFT/PUBLISHED của V39) — xem GradeAppealResponse/UC-62 (phúc khảo) bên dưới.
+ */
+export type GradeStatus = "DRAFT" | "PROVISIONAL_PUBLISHED" | "APPEAL" | "OFFICIAL";
+
 export interface GradeEntryResponse {
   id: number;
   classId: number;
@@ -432,11 +509,11 @@ export interface GradeEntryResponse {
   score: number;
   absenceFlag: boolean;
   teacherNote: string | null;
-  status: "DRAFT" | "PENDING" | "APPROVED" | "REJECTED";
+  status: GradeStatus;
   enteredBy: number;
-  submittedAt: string | null;
-  approvedBy: number | null;
-  approvedAt: string | null;
+  publishedBy: number | null;
+  publishedAt: string | null;
+  finalizedAt: string | null;
 }
 
 export interface EnterGradeRequest {
@@ -446,7 +523,14 @@ export interface EnterGradeRequest {
   teacherNote?: string;
 }
 
-/** UC-19 Main Flow bước 1-3: Giáo viên nhập điểm 1 học sinh cho 1 đầu điểm của lớp. */
+/**
+ * UC-19 Main Flow bước 1-3: Giáo viên nhập điểm 1 học sinh cho 1 đầu điểm của lớp.
+ * V43: sửa/xoá được khi bản ghi DRAFT (không giới hạn thời gian), hoặc đang APPEAL
+ * và chính actor là GV đã tiếp nhận yêu cầu phúc khảo đó (UC-62), hoặc actor có quyền
+ * academic.grade.edit.override. PROVISIONAL_PUBLISHED/OFFICIAL luôn bị chặn với actor
+ * thường — backend trả lỗi rõ (bắt qua ApiError như bình thường), FE không tự đoán
+ * trước điều kiện editable, cứ để nhập rồi để BE quyết định.
+ */
 export function listGradeEntries(classId: number, gradeComponentId: number): Promise<GradeEntryResponse[]> {
   return apiRequest<GradeEntryResponse[]>(`/classes/${classId}/grades/components/${gradeComponentId}`);
 }
@@ -455,31 +539,136 @@ export function enterGrade(classId: number, gradeComponentId: number, request: E
   return apiRequest<GradeEntryResponse>(`/classes/${classId}/grades/components/${gradeComponentId}`, { method: "POST", body: JSON.stringify(request) });
 }
 
-/** UC-19 Main Flow bước 4: nộp điểm (1 hoặc nhiều bản ghi cùng lúc, sinh chung 1 batch). */
-export function submitGrades(classId: number, gradeEntryIds: number[]): Promise<GradeEntryResponse[]> {
-  return apiRequest<GradeEntryResponse[]>(`/classes/${classId}/grades/submit`, { method: "POST", body: JSON.stringify({ gradeEntryIds }) });
-}
+// ===================== UC-53: Overall/Level theo kỳ đánh giá + Nhập điểm qua Excel =====================
 
-export function getPeriodAverage(classId: number, studentId: number, gradePeriodId: number): Promise<PeriodAverageResponse> {
-  return apiRequest<PeriodAverageResponse>(`/classes/${classId}/grades/students/${studentId}/periods/${gradePeriodId}/average`);
-}
-
-export interface PeriodAverageResponse {
+export interface GradePeriodResultResponse {
+  id: number;
   classId: number;
   studentId: number;
+  studentFullName: string;
+  studentCode: string;
   gradePeriodId: number;
-  average: number | null;
-  componentsEntered: number;
-  componentsTotal: number;
+  overallScore: number | null;
+  scaleType: "NUMERIC" | "PERCENTAGE" | "BAND";
+  level: string | null;
+  source: "MANUAL" | "EXCEL_IMPORT";
+  importJobId: number | null;
+  status: GradeStatus;
+  enteredBy: number;
+  publishedBy: number | null;
+  publishedAt: string | null;
+  finalizedAt: string | null;
 }
 
-/** UC-20: Quản lý điểm trường duyệt điểm — hàng chờ của (các) site mình phụ trách. */
-export function listPendingGrades(): Promise<GradeEntryResponse[]> {
+export interface EnterGradePeriodResultRequest {
+  overallScore?: number;
+  scaleType: GradePeriodResultResponse["scaleType"];
+  level?: string;
+}
+
+/** UC-53: Overall/Level GV đã tính sẵn (nhập tay hoặc từ Excel) — hệ thống chỉ lưu, không tự tính lại. */
+export function enterPeriodResult(classId: number, studentId: number, gradePeriodId: number, request: EnterGradePeriodResultRequest): Promise<GradePeriodResultResponse> {
+  return apiRequest<GradePeriodResultResponse>(`/classes/${classId}/grades/students/${studentId}/periods/${gradePeriodId}/result`, {
+    method: "POST",
+    body: JSON.stringify(request)
+  });
+}
+
+export function listPeriodResults(classId: number, gradePeriodId: number): Promise<GradePeriodResultResponse[]> {
+  return apiRequest<GradePeriodResultResponse[]>(`/classes/${classId}/grade-periods/${gradePeriodId}/results`);
+}
+
+export interface GradeImportResponse {
+  id: number;
+  sourceFileName: string;
+  totalRows: number | null;
+  successRows: number;
+  failedRows: number;
+  status: string;
+  errorSummary: { row: number; reason: string }[];
+}
+
+/** UC-53 Main Flow: tải lên 1 file .xlsx đã hoàn thiện điểm cho đúng lớp + kỳ đánh giá. */
+export function importGrades(classId: number, gradePeriodId: number, file: File): Promise<GradeImportResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return apiRequest<GradeImportResponse>(`/classes/${classId}/grade-periods/${gradePeriodId}/grades/import`, { method: "POST", body: formData });
+}
+
+/**
+ * V43: đổi nghĩa — X ngày này giờ CHỈ còn là độ trễ tự động "công bố dự kiến"
+ * (DRAFT → PROVISIONAL_PUBLISHED, UC-20 A3) nếu không ai công bố tay, KHÔNG còn là
+ * hạn chỉnh sửa như V39 (hạn sửa giờ theo TRẠNG THÁI — xem enterGrade).
+ */
+export interface GradeEditWindowResponse {
+  days: number;
+}
+
+export function getGradeEditWindow(): Promise<GradeEditWindowResponse> {
+  return apiRequest<GradeEditWindowResponse>("/academic/settings/grade-edit-window-days");
+}
+
+export function updateGradeEditWindow(days: number): Promise<GradeEditWindowResponse> {
+  return apiRequest<GradeEditWindowResponse>("/academic/settings/grade-edit-window-days", { method: "PUT", body: JSON.stringify({ days }) });
+}
+
+/**
+ * V43: hạn phúc khảo (UC-62) tính từ lúc "Công bố dự kiến" (publishedAt) — hết hạn thì
+ * GradeSchedulerService tự khoá OFFICIAL bất kể còn PROVISIONAL_PUBLISHED hay APPEAL.
+ * Khác hẳn GradeEditWindowResponse (X ngày = độ trễ tự động CÔNG BỐ, không phải khoá).
+ */
+export interface GradeAppealWindowResponse {
+  days: number;
+}
+
+export function getGradeAppealWindow(): Promise<GradeAppealWindowResponse> {
+  return apiRequest<GradeAppealWindowResponse>("/academic/settings/grade-appeal-window-days");
+}
+
+export function updateGradeAppealWindow(days: number): Promise<GradeAppealWindowResponse> {
+  return apiRequest<GradeAppealWindowResponse>("/academic/settings/grade-appeal-window-days", { method: "PUT", body: JSON.stringify({ days }) });
+}
+
+/** UC-20: Quản lý điểm trường xem điểm chưa công bố (DRAFT) — của (các) site mình phụ trách. */
+export function listUnpublishedGrades(): Promise<GradeEntryResponse[]> {
   return apiRequest<GradeEntryResponse[]>("/grades/pending");
 }
 
-export function decideGrades(gradeEntryIds: number[], decision: "APPROVED" | "REJECTED", comment?: string): Promise<GradeEntryResponse[]> {
-  return apiRequest<GradeEntryResponse[]>("/grades/decision", { method: "POST", body: JSON.stringify({ gradeEntryIds, decision, comment }) });
+/**
+ * UC-20: công bố điểm dự kiến (DRAFT → PROVISIONAL_PUBLISHED) — gradeEntryIds và/hoặc
+ * gradePeriodResultIds, ít nhất 1 danh sách phải có phần tử. Bắt đầu tính hạn Y ngày
+ * phúc khảo (UC-62) kể từ lúc này.
+ */
+export function publishGrades(request: { gradeEntryIds?: number[]; gradePeriodResultIds?: number[] }): Promise<GradeEntryResponse[]> {
+  return apiRequest<GradeEntryResponse[]>("/grades/decision", { method: "POST", body: JSON.stringify(request) });
+}
+
+// ===================== UC-62: Phúc khảo điểm =====================
+
+export interface GradeAppealResponse {
+  id: number;
+  entityType: "GRADE_ENTRY" | "GRADE_PERIOD_RESULT";
+  entityId: number;
+  classId: number;
+  studentId: number;
+  studentFullName: string;
+  requestedByUserId: number;
+  reason: string | null;
+  status: "PENDING" | "ACCEPTED" | "RESOLVED";
+  acceptedByUserId: number | null;
+  acceptedAt: string | null;
+  resolvedAt: string | null;
+  createdAt: string;
+}
+
+/** Hàng chờ phúc khảo (PENDING) của (các) lớp Giáo viên đang phụ trách. */
+export function listPendingGradeAppeals(): Promise<GradeAppealResponse[]> {
+  return apiRequest<GradeAppealResponse[]>("/grade-appeals/pending");
+}
+
+/** Giáo viên tiếp nhận — sau khi tiếp nhận mới sửa được điểm của đúng học sinh này (UC-19, enterGrade). */
+export function acceptGradeAppeal(id: number): Promise<GradeAppealResponse> {
+  return apiRequest<GradeAppealResponse>(`/grade-appeals/${id}/accept`, { method: "POST" });
 }
 
 // ===================== Nhận xét học viên (UC-21/22) =====================
@@ -504,6 +693,11 @@ export interface StudentCommentResponse {
   approvedBy: number | null;
   visibleToParentAt: string | null;
   rejectionReason: string | null;
+  // Nhận xét Hàng ngày kiểu mới (chỉ có ý nghĩa khi commentType=DAILY) — bổ sung ngoài SDD gốc.
+  attitude: "POOR" | "AVERAGE" | "GOOD" | null;
+  homeworkPreviousScore: string | null;
+  homeworkNext: string | null;
+  note: string | null;
 }
 
 export interface CreateStudentCommentRequest {
@@ -516,6 +710,11 @@ export interface CreateStudentCommentRequest {
   structuredContent?: Record<string, unknown>;
   severity?: StudentCommentResponse["severity"];
   isWarning: boolean;
+  // Chỉ áp dụng khi commentType=DAILY — bỏ qua với MID_TERM/END_TERM.
+  attitude?: NonNullable<StudentCommentResponse["attitude"]>;
+  homeworkPreviousScore?: string;
+  homeworkNext?: string;
+  note?: string;
 }
 
 export interface UpdateStudentCommentRequest {
@@ -523,6 +722,10 @@ export interface UpdateStudentCommentRequest {
   structuredContent?: Record<string, unknown>;
   severity?: StudentCommentResponse["severity"];
   isWarning: boolean;
+  attitude?: NonNullable<StudentCommentResponse["attitude"]>;
+  homeworkPreviousScore?: string;
+  homeworkNext?: string;
+  note?: string;
 }
 
 export function listComments(classId: number, studentId: number): Promise<StudentCommentResponse[]> {
@@ -539,6 +742,28 @@ export function updateComment(id: number, request: UpdateStudentCommentRequest):
 
 export function submitComments(classId: number, commentIds: number[]): Promise<StudentCommentResponse[]> {
   return apiRequest<StudentCommentResponse[]>(`/classes/${classId}/comments/submit`, { method: "POST", body: JSON.stringify({ commentIds }) });
+}
+
+export interface DailyCommentImportResponse {
+  id: number;
+  sourceFileName: string;
+  totalRows: number | null;
+  successRows: number;
+  failedRows: number;
+  status: string;
+  errorSummary: { row: number; reason: string }[];
+}
+
+/** UC-21 (bổ sung): tải mẫu Excel theo buổi học — điền sẵn điểm danh + nhận xét Hàng ngày hiện có của từng học sinh ACTIVE. */
+export function downloadDailyCommentTemplate(classSessionId: number): Promise<Blob> {
+  return apiRequestBlob(`/class-sessions/${classSessionId}/comments/template`);
+}
+
+/** UC-21 (bổ sung): nhập lại file đã sửa — cập nhật cả điểm danh lẫn nhận xét Hàng ngày trong 1 lần. */
+export function importDailyComments(classSessionId: number, file: File): Promise<DailyCommentImportResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return apiRequest<DailyCommentImportResponse>(`/class-sessions/${classSessionId}/comments/import`, { method: "POST", body: formData });
 }
 
 /** UC-22: Quản lý điểm trường duyệt nhận xét — hàng chờ của (các) site mình phụ trách. */

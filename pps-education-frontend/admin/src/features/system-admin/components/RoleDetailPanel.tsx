@@ -8,13 +8,14 @@ export type RoleDetailTab = "permissions" | "members";
 
 interface RoleDetailPanelProps {
   role: RoleResponse;
-  canManageMembers: boolean;
+  canAssignMembers: boolean;
+  canRevokeMembers: boolean;
   onDelete: () => void;
   rightActiveTab: RoleDetailTab;
   onTabChange: (tab: RoleDetailTab) => void;
 }
 
-export default function RoleDetailPanel({ role, canManageMembers, onDelete, rightActiveTab, onTabChange }: RoleDetailPanelProps) {
+export default function RoleDetailPanel({ role, canAssignMembers, canRevokeMembers, onDelete, rightActiveTab, onTabChange }: RoleDetailPanelProps) {
   return (
     <div className="flex-1 flex flex-col h-full">
       <div className="p-6 border-b border-slate-200 space-y-4 bg-slate-50/20">
@@ -63,7 +64,9 @@ export default function RoleDetailPanel({ role, canManageMembers, onDelete, righ
 
       <div className="flex-1 p-6 overflow-y-auto max-h-[460px]">
         {rightActiveTab === "permissions" && <RolePermissionsEditor roleId={role.id} roleName={role.name} />}
-        {rightActiveTab === "members" && <RoleMembersPanel roleId={role.id} roleName={role.name} canManage={canManageMembers} />}
+        {rightActiveTab === "members" && (
+          <RoleMembersPanel roleId={role.id} roleName={role.name} canAssign={canAssignMembers} canRevoke={canRevokeMembers} />
+        )}
       </div>
     </div>
   );

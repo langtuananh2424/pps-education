@@ -7,6 +7,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.User;
@@ -49,6 +50,9 @@ class ParentBatchImportServiceTest extends AbstractIntegrationTest {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
     private User staff;
 
     @BeforeEach
@@ -61,7 +65,7 @@ class ParentBatchImportServiceTest extends AbstractIntegrationTest {
         Student student = newStudent("Học Sinh Một");
         String phone = newPhone();
         byte[] file = buildWorkbook(new String[][]{
-                {"Nguyễn Văn Cha", phone, "Cha", student.getStudentCode(), "Có", "Có"},
+                {"Nguyễn Văn Cha", username(), phone, "Cha", student.getStudentCode(), "Có", "Có"},
         });
 
         ParentBatchImportResponse result = parentBatchImportService.importParents(
@@ -80,13 +84,57 @@ class ParentBatchImportServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void importParents_UC50_Postcondition_generatesWorkingTemporaryPasswordForNewParentAccount() throws IOException {
+        Student student = newStudent("Học Sinh Mật Khẩu");
+        String phone = newPhone();
+        byte[] file = buildWorkbook(new String[][]{
+                {"Nguyễn Văn Mật Khẩu", username(), phone, "Cha", student.getStudentCode(), "", ""},
+        });
+
+        ParentBatchImportResponse result = parentBatchImportService.importParents(
+                new MockMultipartFile("file", "phu_huynh.xlsx", "application/vnd.openxmlformats", file), staff.getId());
+
+        assertThat(result.generatedCredentials()).hasSize(1);
+        String username = (String) result.generatedCredentials().get(0).get("username");
+        String tempPassword = (String) result.generatedCredentials().get(0).get("temporaryPassword");
+        User created = userRepository.findByUsername(username).orElseThrow();
+        assertThat(passwordEncoder.matches(tempPassword, created.getPasswordHash())).isTrue();
+
+        // Tra cứu lại job sau đó -- KHÔNG còn thấy mật khẩu tạm (tránh lộ plaintext qua tra cứu lại).
+        ParentBatchImportResponse reFetched = parentBatchImportService.getJob(result.id());
+        assertThat(reFetched.generatedCredentials()).isEmpty();
+    }
+
+    @Test
+    void importParents_UC50_sameParentTwoChildren_onlyFirstRowGeneratesCredential() throws IOException {
+        Student child1 = newStudent("Con Mật Khẩu Một");
+        Student child2 = newStudent("Con Mật Khẩu Hai");
+        String phone = newPhone();
+        String username = username();
+        byte[] file = buildWorkbook(new String[][]{
+                {"Trần Thị Mật Khẩu", username, phone, "Mẹ", child1.getStudentCode(), "", ""},
+                {"Trần Thị Mật Khẩu", username, phone, "Mẹ", child2.getStudentCode(), "", ""},
+        });
+
+        ParentBatchImportResponse result = parentBatchImportService.importParents(
+                new MockMultipartFile("file", "phu_huynh.xlsx", "application/vnd.openxmlformats", file), staff.getId());
+
+        assertThat(result.successRows()).isEqualTo(2);
+        // Dòng 2 dùng lại đúng 1 Parent đã tạo ở dòng 1 -- không sinh thêm credential trùng cho cùng 1 tài khoản.
+        assertThat(result.generatedCredentials()).hasSize(1);
+        // Header = dòng Excel 1 -- dòng dữ liệu đầu tiên (con1) là dòng Excel 2.
+        assertThat(result.generatedCredentials().get(0).get("row")).isEqualTo(2);
+    }
+
+    @Test
     void importParents_UC50_MainFlow_sameParentTwoChildren_reusesOneParentRecord() throws IOException {
         Student child1 = newStudent("Con Một");
         Student child2 = newStudent("Con Hai");
         String phone = newPhone();
+        String username = username();
         byte[] file = buildWorkbook(new String[][]{
-                {"Trần Thị Mẹ", phone, "Mẹ", child1.getStudentCode(), "Có", "Có"},
-                {"Trần Thị Mẹ", phone, "Mẹ", child2.getStudentCode(), "Không", "Không"},
+                {"Trần Thị Mẹ", username, phone, "Mẹ", child1.getStudentCode(), "Có", "Có"},
+                {"Trần Thị Mẹ", username, phone, "Mẹ", child2.getStudentCode(), "Không", "Không"},
         });
 
         ParentBatchImportResponse result = parentBatchImportService.importParents(
@@ -101,11 +149,39 @@ class ParentBatchImportServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void importParents_UC50_A2_rollsBackNewAccountWhenLinkParentFailsAfterCreatingBrandNewParent() throws IOException {
+        // Bug đã fix: 2 dòng với 2 SĐT MỚI hoàn toàn (chưa tồn tại), cùng chỉ định
+        // primaryContact=Có cho CÙNG 1 học sinh -- dòng 2 tạo xong User+Parent mới
+        // rồi mới phát hiện xung đột (StudentContactRoleConflictException). Trước
+        // khi bọc REQUIRES_NEW, User+Parent của dòng 2 vẫn bị lưu vĩnh viễn dù dòng
+        // báo lỗi (phụ huynh mồ côi, mật khẩu tạm mất vĩnh viễn).
+        Student student = newStudent("Học Sinh Xung Đột Primary Contact");
+        String phone1 = newPhone();
+        String phone2 = newPhone();
+        String username2 = username();
+        byte[] file = buildWorkbook(new String[][]{
+                {"Phụ Huynh Một", username(), phone1, "Cha", student.getStudentCode(), "Có", ""},
+                {"Phụ Huynh Hai", username2, phone2, "Mẹ", student.getStudentCode(), "Có", ""},
+        });
+
+        ParentBatchImportResponse result = parentBatchImportService.importParents(
+                new MockMultipartFile("file", "phu_huynh.xlsx", "application/vnd.openxmlformats", file), staff.getId());
+
+        assertThat(result.status()).isEqualTo("PARTIAL_SUCCESS");
+        assertThat(result.successRows()).isEqualTo(1);
+        assertThat(result.failedRows()).isEqualTo(1);
+
+        // Dòng 2 thất bại -- User/Parent theo phone2/username2 KHÔNG được để lại (rollback sạch).
+        assertThat(userRepository.findByPhone(phone2)).isEmpty();
+        assertThat(userRepository.findByUsername(username2)).isEmpty();
+    }
+
+    @Test
     void importParents_UC50_A2_partialSuccessSkipsUnknownStudentCode() throws IOException {
         Student student = newStudent("Học Sinh Hợp Lệ");
         byte[] file = buildWorkbook(new String[][]{
-                {"Phụ Huynh Sai Mã", newPhone(), "Cha", "MA-KHONG-TON-TAI", "", ""},
-                {"Phụ Huynh Đúng", newPhone(), "Mẹ", student.getStudentCode(), "", ""},
+                {"Phụ Huynh Sai Mã", username(), newPhone(), "Cha", "MA-KHONG-TON-TAI", "", ""},
+                {"Phụ Huynh Đúng", username(), newPhone(), "Mẹ", student.getStudentCode(), "", ""},
         });
 
         ParentBatchImportResponse result = parentBatchImportService.importParents(
@@ -119,6 +195,37 @@ class ParentBatchImportServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void importParents_UC50_A2_rejectsMissingUsername() throws IOException {
+        Student student = newStudent("Học Sinh Thiếu Username");
+        byte[] file = buildWorkbook(new String[][]{
+                {"Phụ Huynh Thiếu Username", "", newPhone(), "Cha", student.getStudentCode(), "", ""},
+        });
+
+        ParentBatchImportResponse result = parentBatchImportService.importParents(
+                new MockMultipartFile("file", "phu_huynh.xlsx", "application/vnd.openxmlformats", file), staff.getId());
+
+        assertThat(result.status()).isEqualTo("PARTIAL_SUCCESS");
+        assertThat(result.failedRows()).isEqualTo(1);
+        assertThat(result.errorSummary().get(0).get("reason")).isEqualTo("Thiếu username (cột B).");
+    }
+
+    @Test
+    void importParents_UC50_A2_rejectsDuplicateUsernameOnlyWhenCreatingNewAccount() throws IOException {
+        Student student = newStudent("Học Sinh Trùng Username");
+        User existing = newUser("parent.dup.username");
+        byte[] file = buildWorkbook(new String[][]{
+                {"Phụ Huynh Trùng Username", existing.getUsername(), newPhone(), "Cha", student.getStudentCode(), "", ""},
+        });
+
+        ParentBatchImportResponse result = parentBatchImportService.importParents(
+                new MockMultipartFile("file", "phu_huynh.xlsx", "application/vnd.openxmlformats", file), staff.getId());
+
+        assertThat(result.status()).isEqualTo("PARTIAL_SUCCESS");
+        assertThat(result.failedRows()).isEqualTo(1);
+        assertThat(result.errorSummary().get(0).get("reason")).isEqualTo("Username đã tồn tại: " + existing.getUsername());
+    }
+
+    @Test
     void importParents_UC50_A1_marksFailedForCorruptFile() {
         byte[] garbage = "not an excel file".getBytes();
 
@@ -128,11 +235,30 @@ class ParentBatchImportServiceTest extends AbstractIntegrationTest {
         assertThat(result.status()).isEqualTo("FAILED");
     }
 
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-24 — file mẫu tải xuống. */
+    @Test
+    void buildTemplate_hasAllColumnsWithRequiredFieldsMarked() throws IOException {
+        byte[] template = parentBatchImportService.buildTemplate();
+
+        try (var workbook = new XSSFWorkbook(new java.io.ByteArrayInputStream(template))) {
+            Row header = workbook.getSheetAt(0).getRow(0);
+            java.util.List<String> headers = new java.util.ArrayList<>();
+            for (int i = 0; i < header.getLastCellNum(); i++) {
+                headers.add(header.getCell(i).getStringCellValue());
+            }
+            assertThat(headers).containsExactly(
+                    "Họ và tên phụ huynh*", "Username*", "Số điện thoại*",
+                    "Quan hệ (Cha/Mẹ/Người giám hộ/Khác)*", "Mã học sinh*",
+                    "Là người liên hệ chính (Có/Không)", "Chịu trách nhiệm tài chính (Có/Không)");
+            assertThat(workbook.getSheet("Hướng dẫn")).isNotNull();
+        }
+    }
+
     private byte[] buildWorkbook(String[][] rows) throws IOException {
         try (XSSFWorkbook workbook = new XSSFWorkbook()) {
             Sheet sheet = workbook.createSheet("PhuHuynh");
             Row header = sheet.createRow(0);
-            String[] headers = {"Họ và tên phụ huynh", "Số điện thoại", "Quan hệ", "Mã học sinh",
+            String[] headers = {"Họ và tên phụ huynh", "Username", "Số điện thoại", "Quan hệ", "Mã học sinh",
                     "Là người liên hệ chính", "Chịu trách nhiệm tài chính"};
             for (int i = 0; i < headers.length; i++) {
                 header.createCell(i).setCellValue(headers[i]);
@@ -151,6 +277,10 @@ class ParentBatchImportServiceTest extends AbstractIntegrationTest {
 
     private String newPhone() {
         return "09" + (100000000L + SEQ.incrementAndGet());
+    }
+
+    private String username() {
+        return "phimp" + SEQ.incrementAndGet();
     }
 
     private Student newStudent(String fullName) {

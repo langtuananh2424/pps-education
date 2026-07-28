@@ -5,6 +5,11 @@ import AccountSelector, { AccountSelection } from "@/features/system-admin/compo
 import { createParent, createStudent, CreateStudentRequest, linkParent, listSites, SiteOption } from "../api";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
+import DatePicker from "@/components/ui/DatePicker";
+import AvatarUploadField from "@/components/ui/AvatarUploadField";
+import { uploadMedia } from "@/features/lms/api";
+
+const TODAY_ISO = new Date().toISOString().slice(0, 10);
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-xs p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
@@ -27,7 +32,8 @@ export default function StudentFormModal({ onClose, onCreated }: StudentFormModa
     originalSchool: "",
     originalClass: "",
     enrollmentDate: "",
-    notes: ""
+    notes: "",
+    portraitUrl: ""
   });
 
   const [addParent, setAddParent] = useState(false);
@@ -76,7 +82,8 @@ export default function StudentFormModal({ onClose, onCreated }: StudentFormModa
         originalSchool: form.originalSchool.trim() || undefined,
         originalClass: form.originalClass.trim() || undefined,
         enrollmentDate: form.enrollmentDate,
-        notes: form.notes.trim() || undefined
+        notes: form.notes.trim() || undefined,
+        portraitUrl: form.portraitUrl || undefined
       };
       const student = await createStudent(request);
 
@@ -105,6 +112,16 @@ export default function StudentFormModal({ onClose, onCreated }: StudentFormModa
     <Modal open onClose={onClose} title="Thêm học sinh mới (UC-13)" size="lg">
       <form onSubmit={handleSubmit} className="space-y-5">
         {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+
+        <div className="space-y-2 border-t border-slate-100 pt-4">
+          <span className="text-[10px] font-bold uppercase text-slate-500">Ảnh đại diện</span>
+          <AvatarUploadField
+            value={form.portraitUrl}
+            onChange={(url) => setForm({ ...form, portraitUrl: url })}
+            onUpload={(file) => uploadMedia(file, "STUDENT")}
+            fallbackName={account.newAccount?.fullName || "Học sinh"}
+          />
+        </div>
 
         <div className="space-y-2">
           <span className="text-[10px] font-bold uppercase text-slate-500">Tài khoản học sinh</span>
@@ -135,23 +152,26 @@ export default function StudentFormModal({ onClose, onCreated }: StudentFormModa
             </div>
             <div>
               <label className={labelClass}>Ngày sinh *</label>
-              <input
-                type="date"
+              <DatePicker
                 value={form.dateOfBirth}
-                onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })}
-                onBlur={() => markTouched("dateOfBirth")}
-                className={dateOfBirthInvalid ? inputErrorClass : inputClass}
+                onChange={(v) => {
+                  setForm({ ...form, dateOfBirth: v });
+                  markTouched("dateOfBirth");
+                }}
+                max={TODAY_ISO}
+                hasError={dateOfBirthInvalid}
               />
               {dateOfBirthInvalid && <p className="text-[10px] text-rose-600 mt-1">Vui lòng chọn Ngày sinh.</p>}
             </div>
             <div>
               <label className={labelClass}>Ngày nhập học *</label>
-              <input
-                type="date"
+              <DatePicker
                 value={form.enrollmentDate}
-                onChange={(e) => setForm({ ...form, enrollmentDate: e.target.value })}
-                onBlur={() => markTouched("enrollmentDate")}
-                className={enrollmentDateInvalid ? inputErrorClass : inputClass}
+                onChange={(v) => {
+                  setForm({ ...form, enrollmentDate: v });
+                  markTouched("enrollmentDate");
+                }}
+                hasError={enrollmentDateInvalid}
               />
               {enrollmentDateInvalid && <p className="text-[10px] text-rose-600 mt-1">Vui lòng chọn Ngày nhập học.</p>}
             </div>

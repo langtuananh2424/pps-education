@@ -1,29 +1,88 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { HelpCircle, Send } from "lucide-react";
-import { FeedbackTicket } from "@/types";
-import { mockFeedbackTickets } from "@/data/mockData";
+import { ApiError } from "@/lib/apiClient";
+import {
+  PartnerFeedbackResponse,
+  SiteResponse,
+  closePartnerFeedback,
+  listPartnerFeedbacksForMySites,
+  listSites,
+  resolvePartnerFeedback,
+  startProcessingPartnerFeedback
+} from "../api";
 import Card from "@/components/ui/Card";
-import Badge from "@/components/ui/Badge";
+import Badge, { BadgeVariant } from "@/components/ui/Badge";
 import { cn } from "@/lib/cn";
+import { useToast } from "@/lib/useToast";
+import Toast from "@/components/ui/Toast";
 
+const feedbackTypeLabels: Record<PartnerFeedbackResponse["feedbackType"], string> = {
+  TEACHER: "Giáo viên",
+  CLASS: "Lớp học",
+  OPERATIONS: "Vận hành",
+  OTHER: "Khác"
+};
+
+const priorityVariants: Record<PartnerFeedbackResponse["priority"], BadgeVariant> = {
+  URGENT: "danger",
+  HIGH: "danger",
+  NORMAL: "warning",
+  LOW: "neutral"
+};
+
+const statusMeta: Record<PartnerFeedbackResponse["status"], { label: string; variant: BadgeVariant }> = {
+  NEW: { label: "Mới gửi", variant: "danger" },
+  IN_PROGRESS: { label: "Đang xử lý", variant: "warning" },
+  RESOLVED: { label: "Đã giải quyết", variant: "success" },
+  CLOSED: { label: "Đã đóng", variant: "neutral" }
+};
+
+/** UC-38/39: kênh Quản lý điểm trường xử lý ý kiến phản hồi từ trường liên kết (FR-FAC-05). Chỉ thấy/xử lý được phản hồi của site mình phụ trách (BE tự chặn qua site_managers). */
 export default function FeedbackPage() {
-  const [tickets, setTickets] = useState<FeedbackTicket[]>(mockFeedbackTickets);
-  const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
-  const [replyText, setReplyText] = useState("");
-  const selectedTicket = tickets.find((t) => t.id === selectedTicketId) || null;
+  const [sites, setSites] = useState<SiteResponse[]>([]);
+  const [tickets, setTickets] = useState<PartnerFeedbackResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [resolutionText, setResolutionText] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const { message: toastMessage, showToast } = useToast();
 
-  const handleReply = (e: React.FormEvent) => {
+  const load = () => {
+    setLoading(true);
+    setError(null);
+    Promise.all([listSites(), listPartnerFeedbacksForMySites()])
+      .then(([siteRes, ticketRes]) => {
+        setSites(siteRes);
+        setTickets(ticketRes);
+      })
+      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được hàng chờ phản hồi."))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(load, []);
+
+  const siteName = (siteId: number) => sites.find((s) => s.id === siteId)?.name ?? `Điểm trường #${siteId}`;
+  const selectedTicket = tickets.find((t) => t.id === selectedId) ?? null;
+
+  const runAction = async (action: () => Promise<PartnerFeedbackResponse>, successMessage: string) => {
+    setSubmitting(true);
+    setError(null);
+    try {
+      const updated = await action();
+      setTickets((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+      showToast(successMessage);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Cập nhật phản hồi thất bại.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleResolve = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!replyText || !selectedTicket) return;
-
-    const timeString = new Date().toISOString().replace("T", " ").substring(0, 16);
-    const newEntry = { text: replyText, time: timeString, author: "Trần Đức Nam (CAMPUS_MANAGER)" };
-
-    setTickets((prev) =>
-      prev.map((t) => (t.id === selectedTicket.id ? { ...t, status: "RESOLVED", resolutionText: replyText, history: [...t.history, newEntry] } : t))
-    );
-    setReplyText("");
-    alert("Đã cập nhật câu trả lời phản hồi giải quyết kiến nghị trường liên kết thành công (UC-39)!");
+    if (!selectedTicket || !resolutionText.trim()) return;
+    runAction(() => resolvePartnerFeedback(selectedTicket.id, resolutionText.trim()), "Đã ghi nhận phương án giải quyết thành công!").then(() => setResolutionText(""));
   };
 
   return (
@@ -33,36 +92,48 @@ export default function FeedbackPage() {
         <p className="text-xs text-slate-500 mt-1">Giải quyết phản hồi kiến nghị từ trường liên kết (UC-38/39).</p>
       </div>
 
+      {error && <div className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-xl">{error}</div>}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card padded={false} className="lg:col-span-2 overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-100 bg-slate-50">
             <span className="text-xs font-bold text-slate-700 font-display">Kênh giải quyết ý kiến phản hồi đối tác (UC-39)</span>
           </div>
 
-          <div className="divide-y divide-slate-100 max-h-[500px] overflow-y-auto">
-            {tickets.map((tkt) => (
-              <div
-                key={tkt.id}
-                onClick={() => setSelectedTicketId(tkt.id)}
-                className={cn("p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/40 transition-colors cursor-pointer", selectedTicket?.id === tkt.id && "bg-slate-50")}
-              >
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <h4 className="text-xs font-bold text-slate-900">{tkt.campusName}</h4>
-                    <Badge variant={tkt.priority === "HIGH" ? "danger" : "neutral"}>{tkt.priority}</Badge>
+          {loading ? (
+            <p className="text-xs text-slate-500 font-medium p-5">Đang tải...</p>
+          ) : tickets.length === 0 ? (
+            <p className="text-xs text-slate-400 italic p-5">
+              Chưa có phản hồi nào từ trường liên kết mình phụ trách (chỉ thấy phản hồi của điểm trường bạn đang là Quản lý điểm trường).
+            </p>
+          ) : (
+            <div className="divide-y divide-slate-100 max-h-[500px] overflow-y-auto">
+              {tickets.map((tkt) => (
+                <div
+                  key={tkt.id}
+                  onClick={() => setSelectedId(tkt.id)}
+                  className={cn(
+                    "p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/40 transition-colors cursor-pointer",
+                    selectedId === tkt.id && "bg-slate-50"
+                  )}
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-xs font-bold text-slate-900">{siteName(tkt.siteId)}</h4>
+                      <Badge variant={priorityVariants[tkt.priority]}>{tkt.priority}</Badge>
+                      <Badge variant="neutral">{feedbackTypeLabels[tkt.feedbackType]}</Badge>
+                    </div>
+                    <span className="text-[11px] text-slate-500 font-medium block">Người gửi: tài khoản #{tkt.submittedBy}</span>
+                    <p className="text-[11px] text-slate-500 line-clamp-2 mt-1">Nội dung: "{tkt.content}"</p>
                   </div>
-                  <span className="text-[11px] text-slate-500 font-medium block">Người phản hồi: {tkt.senderName}</span>
-                  <p className="text-[11px] text-slate-500 line-clamp-2 mt-1">Nội dung: "{tkt.content}"</p>
-                </div>
 
-                <Badge variant={tkt.status === "NEW" ? "danger" : tkt.status === "IN_PROGRESS" ? "warning" : "success"} className="shrink-0 self-start sm:self-center">
-                  {tkt.status === "NEW" && "Mới gửi"}
-                  {tkt.status === "IN_PROGRESS" && "Đang xử lý"}
-                  {tkt.status === "RESOLVED" && "Đã khắc phục"}
-                </Badge>
-              </div>
-            ))}
-          </div>
+                  <Badge variant={statusMeta[tkt.status].variant} className="shrink-0 self-start sm:self-center">
+                    {statusMeta[tkt.status].label}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          )}
         </Card>
 
         <Card>
@@ -70,56 +141,83 @@ export default function FeedbackPage() {
             <div className="space-y-4">
               <div className="border-b pb-2.5 flex items-center justify-between">
                 <div>
-                  <span className="text-[10px] font-mono font-bold text-slate-400">TICKET: {selectedTicket.id}</span>
-                  <h3 className="text-xs font-bold text-slate-800 truncate max-w-[150px]">{selectedTicket.campusName}</h3>
+                  <span className="text-[10px] font-mono font-bold text-slate-400">TICKET #{selectedTicket.id}</span>
+                  <h3 className="text-xs font-bold text-slate-800 truncate max-w-[150px]">{siteName(selectedTicket.siteId)}</h3>
                 </div>
-                <button onClick={() => setSelectedTicketId(null)} className="text-xs text-slate-400 hover:text-slate-800">
+                <button onClick={() => setSelectedId(null)} className="text-xs text-slate-400 hover:text-slate-800">
                   Đóng
                 </button>
               </div>
 
-              <div className="space-y-2">
-                <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block font-display">Lịch sử tương tác</span>
-                <div className="space-y-2 bg-slate-50 p-2.5 rounded-lg border max-h-48 overflow-y-auto">
-                  {selectedTicket.history.map((hist, idx) => (
-                    <div key={idx} className="text-[10px] text-slate-500 border-b border-dashed pb-1.5 last:border-b-0 leading-relaxed">
-                      <div className="flex justify-between font-bold text-slate-700 mb-0.5">
-                        <span>{hist.author}</span>
-                        <span className="font-mono text-[9px] font-normal">{hist.time}</span>
-                      </div>
-                      <p>{hist.text}</p>
-                    </div>
-                  ))}
-                </div>
+              <div className="space-y-1.5">
+                <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block font-display">Nội dung phản hồi</span>
+                <p className="text-[11px] text-slate-600 bg-slate-50 p-2.5 rounded-lg border leading-relaxed">{selectedTicket.content}</p>
               </div>
 
-              <form onSubmit={handleReply} className="space-y-3.5 pt-2">
-                <div className="space-y-1">
-                  <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Phương án khắc phục (Resolution)</label>
-                  <textarea
-                    required
-                    placeholder="Gõ chi tiết phương án giải quyết gửi lại trường liên kết..."
-                    value={replyText}
-                    onChange={(e) => setReplyText(e.target.value)}
-                    rows={3}
-                    className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none"
-                  />
+              {selectedTicket.resolutionNotes && (
+                <div className="space-y-1.5">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block font-display">Phương án đã ghi nhận</span>
+                  <p className="text-[11px] text-emerald-700 bg-emerald-50 p-2.5 rounded-lg border border-emerald-100 leading-relaxed">{selectedTicket.resolutionNotes}</p>
                 </div>
+              )}
 
-                <button type="submit" className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs py-2 rounded-lg flex items-center justify-center gap-1.5 shadow-soft">
-                  <Send className="w-3.5 h-3.5 text-brand-yellow shrink-0" />
-                  Xác nhận Giải Quyết
+              {selectedTicket.status === "NEW" && (
+                <button
+                  disabled={submitting}
+                  onClick={() => runAction(() => startProcessingPartnerFeedback(selectedTicket.id), "Đã bắt đầu xử lý thành công!")}
+                  className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs py-2 rounded-lg disabled:opacity-50"
+                >
+                  {submitting ? "Đang xử lý..." : "Bắt đầu xử lý"}
                 </button>
-              </form>
+              )}
+
+              {selectedTicket.status === "IN_PROGRESS" && (
+                <form onSubmit={handleResolve} className="space-y-3.5 pt-1">
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Phương án khắc phục (Resolution)</label>
+                    <textarea
+                      required
+                      placeholder="Gõ chi tiết phương án giải quyết gửi lại trường liên kết..."
+                      value={resolutionText}
+                      onChange={(e) => setResolutionText(e.target.value)}
+                      rows={3}
+                      className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs py-2 rounded-lg flex items-center justify-center gap-1.5 shadow-soft disabled:opacity-50"
+                  >
+                    <Send className="w-3.5 h-3.5 text-brand-yellow shrink-0" />
+                    {submitting ? "Đang gửi..." : "Xác nhận Giải Quyết"}
+                  </button>
+                </form>
+              )}
+
+              {selectedTicket.status === "RESOLVED" && (
+                <button
+                  disabled={submitting}
+                  onClick={() => runAction(() => closePartnerFeedback(selectedTicket.id), "Đã đóng ticket thành công!")}
+                  className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs py-2 rounded-lg disabled:opacity-50"
+                >
+                  {submitting ? "Đang đóng..." : "Đóng ticket"}
+                </button>
+              )}
+
+              {selectedTicket.status === "CLOSED" && <p className="text-[11px] text-slate-400 italic text-center pt-1">Ticket đã đóng — không còn hành động nào.</p>}
             </div>
           ) : (
             <div className="h-64 border border-dashed rounded-xl flex flex-col items-center justify-center text-slate-400 text-xs italic gap-1.5 text-center p-4">
               <HelpCircle className="w-6 h-6 text-slate-300 animate-bounce" />
-              <span>Nhấp chọn một Ticket kiến nghị đối tác từ hàng chờ để rà soát lịch sử tương tác và ghi nội dung khắc phục (UC-39).</span>
+              <span>Nhấp chọn một Ticket kiến nghị đối tác từ hàng chờ để rà soát và ghi nội dung khắc phục (UC-39).</span>
             </div>
           )}
         </Card>
       </div>
+
+      <Toast message={toastMessage} />
     </div>
   );
 }

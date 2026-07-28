@@ -127,6 +127,25 @@
             <version>5.3.0</version>
         </dependency>
 
+        <!-- Cloudflare R2 (Object Storage tương thích S3 API) - lưu file audio/ảnh
+             cho Question.audioUrl/imageUrl (UC-40), thay thế lưu đĩa cục bộ -
+             đã xác nhận với user trước khi thêm (2026-07-22). -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+            <version>2.46.7</version>
+        </dependency>
+        <!-- SDK v2 mặc định dùng Apache5 HTTP client (thiếu httpclient5 trên
+             classpath -> ClassNotFoundException lúc runtime) - chọn thẳng
+             url-connection-client (dựa trên HttpURLConnection JDK có sẵn,
+             đủ dùng cho upload tuần tự, không cần connection pool) để tránh
+             phải thêm dependency ngoài. -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>url-connection-client</artifactId>
+            <version>2.46.7</version>
+        </dependency>
+
         <!-- Boilerplate reduction -->
         <dependency>
             <groupId>org.projectlombok</groupId>

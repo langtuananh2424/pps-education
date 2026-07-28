@@ -6,10 +6,16 @@ import { deleteRole, listRoles, RoleResponse } from "../api";
 import RoleListPanel from "../components/RoleListPanel";
 import RoleDetailPanel, { RoleDetailTab } from "../components/RoleDetailPanel";
 import CreateRolePanel from "../components/CreateRolePanel";
+import { useToast } from "@/lib/useToast";
+import Toast from "@/components/ui/Toast";
 
 export default function RolesPage() {
   const { hasPermission } = useApp();
-  const canManageMembers = hasPermission("user.role.manage");
+  // user.role.manage đã bị tách nhỏ thành user.role.assign/revoke/view (hạt nhân hóa) — mã gộp cũ
+  // không còn tồn tại trong bảng permissions, gate theo mã đó khiến nút "Gán thành viên"/"Gỡ bỏ"
+  // không bao giờ hiện với bất kỳ ai (xem UserRoleController: 2 endpoint dùng 2 mã khác nhau).
+  const canAssignMembers = hasPermission("user.role.assign");
+  const canRevokeMembers = hasPermission("user.role.revoke");
 
   const [roles, setRoles] = useState<RoleResponse[]>([]);
   const [loading, setLoading] = useState(false);
@@ -18,6 +24,7 @@ export default function RolesPage() {
   const [rightActiveTab, setRightActiveTab] = useState<RoleDetailTab>("permissions");
   const [roleSearchQuery, setRoleSearchQuery] = useState("");
   const [creatingNew, setCreatingNew] = useState(false);
+  const { message: toastMessage, showToast } = useToast();
 
   const loadRoles = (selectId?: number) => {
     setLoading(true);
@@ -46,6 +53,7 @@ export default function RolesPage() {
       await deleteRole(activeRole.id);
       setSelectedRoleId(null);
       loadRoles();
+      showToast("Đã xoá vai trò thành công!");
     } catch (err) {
       alert(err instanceof ApiError ? err.message : "Xóa vai trò thất bại.");
     }
@@ -90,12 +98,14 @@ export default function RolesPage() {
               onCreated={(id) => {
                 setCreatingNew(false);
                 loadRoles(id);
+                showToast("Đã tạo vai trò mới thành công!");
               }}
             />
           ) : activeRole ? (
             <RoleDetailPanel
               role={activeRole}
-              canManageMembers={canManageMembers}
+              canAssignMembers={canAssignMembers}
+              canRevokeMembers={canRevokeMembers}
               onDelete={handleDeleteRole}
               rightActiveTab={rightActiveTab}
               onTabChange={setRightActiveTab}
@@ -113,6 +123,8 @@ export default function RolesPage() {
           )}
         </div>
       </div>
+
+      <Toast message={toastMessage} />
     </div>
   );
 }

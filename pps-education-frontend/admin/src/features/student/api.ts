@@ -57,6 +57,8 @@ export interface ParentResponse {
   workplace: string | null;
   address: string | null;
   notes: string | null;
+  /** V48: ảnh đại diện phụ huynh, upload qua POST /api/media/upload (module PARENT). */
+  portraitUrl: string | null;
 }
 
 /** Khớp CreateParentRequest thật — cung cấp ĐÚNG 1 trong 2: userId hoặc newAccount (tự gán role PARENT). */
@@ -67,6 +69,7 @@ export interface CreateParentRequest {
   workplace?: string;
   address?: string;
   notes?: string;
+  portraitUrl?: string;
 }
 
 export interface UpdateParentRequest {
@@ -74,6 +77,7 @@ export interface UpdateParentRequest {
   workplace?: string;
   address?: string;
   notes?: string;
+  portraitUrl?: string;
 }
 
 export interface ParentStudentResponse {
@@ -143,10 +147,13 @@ export interface SiteOption {
   name: string;
 }
 
-/** UC-13 Main Flow bước 1: danh sách/tìm kiếm học sinh. */
-export function listStudents(query?: string): Promise<StudentResponse[]> {
-  const params = query?.trim() ? `?query=${encodeURIComponent(query.trim())}` : "";
-  return apiRequest<StudentResponse[]>(`/students${params}`);
+/** UC-13 Main Flow bước 1: danh sách/tìm kiếm học sinh — lọc thêm theo điểm trường (siteId) nếu có. */
+export function listStudents(query?: string, siteId?: number): Promise<StudentResponse[]> {
+  const params = new URLSearchParams();
+  if (query?.trim()) params.set("query", query.trim());
+  if (siteId) params.set("siteId", String(siteId));
+  const qs = params.toString();
+  return apiRequest<StudentResponse[]>(`/students${qs ? `?${qs}` : ""}`);
 }
 
 export function getStudent(id: number): Promise<StudentResponse> {
@@ -207,7 +214,7 @@ export function listStatusHistory(studentId: number): Promise<StudentStatusHisto
   return apiRequest<StudentStatusHistoryResponse[]>(`/students/${studentId}/status-history`);
 }
 
-/** UC-14: đổi trạng thái học tập — quyền riêng student.status.manage, tách khỏi student.manage. */
+/** UC-14: đổi trạng thái học tập — quyền riêng student.status.manage, tách khỏi nhóm student.profile.xxx / student.parent.xxx (V44). */
 export function updateStudentStatus(studentId: number, request: UpdateStudentStatusRequest): Promise<StudentStatusHistoryResponse> {
   return apiRequest<StudentStatusHistoryResponse>(`/students/${studentId}/status`, { method: "POST", body: JSON.stringify(request) });
 }

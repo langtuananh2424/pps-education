@@ -12,6 +12,7 @@ import {
   ParentStudentResponse,
   recordTransfer,
   RecordTransferRequest,
+  searchParents,
   SiteOption,
   StudentResponse,
   StudentStatusHistoryResponse,
@@ -24,6 +25,13 @@ import {
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import { studentStatusLabels, studentStatusVariants } from "./StudentListPanel";
+import { useToast } from "@/lib/useToast";
+import Toast from "@/components/ui/Toast";
+import DatePicker from "@/components/ui/DatePicker";
+import AvatarUploadField from "@/components/ui/AvatarUploadField";
+import { uploadMedia } from "@/features/lms/api";
+
+const TODAY_ISO = new Date().toISOString().slice(0, 10);
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-xs p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
@@ -38,6 +46,7 @@ interface StudentDetailPanelProps {
 
 export default function StudentDetailPanel({ student, onChanged }: StudentDetailPanelProps) {
   const [tab, setTab] = useState<Tab>("profile");
+  const { message: toastMessage, showToast } = useToast();
 
   return (
     <div className="lg:col-span-3 bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden flex flex-col">
@@ -76,16 +85,26 @@ export default function StudentDetailPanel({ student, onChanged }: StudentDetail
       </div>
 
       <div className="flex-1 p-5 overflow-y-auto max-h-[560px]">
-        {tab === "profile" && <ProfileTab student={student} onChanged={onChanged} />}
-        {tab === "parents" && <ParentsTab studentId={student.id} />}
-        {tab === "transfer" && <TransferTab studentId={student.id} onChanged={onChanged} />}
-        {tab === "status" && <StatusTab student={student} onChanged={onChanged} />}
+        {tab === "profile" && <ProfileTab student={student} onChanged={onChanged} showToast={showToast} />}
+        {tab === "parents" && <ParentsTab studentId={student.id} showToast={showToast} />}
+        {tab === "transfer" && <TransferTab studentId={student.id} onChanged={onChanged} showToast={showToast} />}
+        {tab === "status" && <StatusTab student={student} onChanged={onChanged} showToast={showToast} />}
       </div>
+
+      <Toast message={toastMessage} />
     </div>
   );
 }
 
-function ProfileTab({ student, onChanged }: { student: StudentResponse; onChanged: () => void }) {
+function ProfileTab({
+  student,
+  onChanged,
+  showToast
+}: {
+  student: StudentResponse;
+  onChanged: () => void;
+  showToast: (msg: string) => void;
+}) {
   const [form, setForm] = useState<UpdateStudentRequest>(() => toForm(student));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -103,6 +122,7 @@ function ProfileTab({ student, onChanged }: { student: StudentResponse; onChange
     try {
       await updateStudent(student.id, form);
       onChanged();
+      showToast("Đã lưu hồ sơ học sinh thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Cập nhật hồ sơ thất bại.");
     } finally {
@@ -113,15 +133,26 @@ function ProfileTab({ student, onChanged }: { student: StudentResponse; onChange
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <div>
+        <label className={labelClass}>Ảnh đại diện</label>
+        <AvatarUploadField
+          value={form.portraitUrl}
+          onChange={(url) => setForm({ ...form, portraitUrl: url })}
+          onUpload={(file) => uploadMedia(file, "STUDENT")}
+          fallbackName={student.fullName}
+        />
+      </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className={labelClass}>Ngày sinh *</label>
-          <input
-            type="date"
+          <DatePicker
             value={form.dateOfBirth}
-            onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })}
-            onBlur={() => setDateOfBirthTouched(true)}
-            className={dateOfBirthInvalid ? inputErrorClass : inputClass}
+            onChange={(v) => {
+              setForm({ ...form, dateOfBirth: v });
+              setDateOfBirthTouched(true);
+            }}
+            max={TODAY_ISO}
+            hasError={dateOfBirthInvalid}
           />
           {dateOfBirthInvalid && <p className="text-[10px] text-rose-600 mt-1">Vui lòng chọn Ngày sinh.</p>}
         </div>
@@ -141,10 +172,6 @@ function ProfileTab({ student, onChanged }: { student: StudentResponse; onChange
         <div>
           <label className={labelClass}>Lớp gốc</label>
           <input value={form.originalClass ?? ""} onChange={(e) => setForm({ ...form, originalClass: e.target.value })} className={inputClass} />
-        </div>
-        <div className="col-span-2">
-          <label className={labelClass}>URL ảnh đại diện</label>
-          <input value={form.portraitUrl ?? ""} onChange={(e) => setForm({ ...form, portraitUrl: e.target.value })} className={inputClass} />
         </div>
         <div className="col-span-2">
           <label className={labelClass}>Ghi chú</label>
@@ -175,7 +202,7 @@ function toForm(s: StudentResponse): UpdateStudentRequest {
 
 const relationshipLabels: Record<string, string> = { FATHER: "Bố", MOTHER: "Mẹ", GUARDIAN: "Người giám hộ", OTHER: "Khác" };
 
-function ParentsTab({ studentId }: { studentId: number }) {
+function ParentsTab({ studentId, showToast }: { studentId: number; showToast: (msg: string) => void }) {
   const [links, setLinks] = useState<ParentStudentResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -203,9 +230,18 @@ function ParentsTab({ studentId }: { studentId: number }) {
     setSubmitting(true);
     setError(null);
     try {
-      const parent = await createParent({ userId: account.userId, newAccount: account.userId ? undefined : account.newAccount });
+      let parentId: number;
+      if (account.userId) {
+        // Tài khoản có sẵn có thể ĐÃ có hồ sơ phụ huynh từ lần liên kết học sinh khác trước đó
+        // (1 phụ huynh có thể có nhiều con) — tìm lại hồ sơ cũ để dùng liên kết thêm, không gọi
+        // createParent nữa vì BE sẽ báo lỗi 409 "đã có hồ sơ phụ huynh" (1 user = đúng 1 Parent).
+        const existing = (await searchParents()).find((p) => p.userId === account.userId);
+        parentId = existing ? existing.id : (await createParent({ userId: account.userId })).id;
+      } else {
+        parentId = (await createParent({ newAccount: account.newAccount })).id;
+      }
       await linkParent(studentId, {
-        parentId: parent.id,
+        parentId,
         relationship: info.relationship as "FATHER" | "MOTHER" | "GUARDIAN" | "OTHER",
         isPrimaryContact: info.isPrimaryContact,
         isFinancialResponsible: info.isFinancialResponsible
@@ -213,6 +249,7 @@ function ParentsTab({ studentId }: { studentId: number }) {
       setAddingNew(false);
       setAccount({ newAccount: { username: "", email: "", fullName: "", phone: "", password: "" } });
       load();
+      showToast("Đã liên kết phụ huynh thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Liên kết phụ huynh thất bại.");
     } finally {
@@ -225,6 +262,7 @@ function ParentsTab({ studentId }: { studentId: number }) {
     try {
       await unlinkParent(studentId, link.id);
       load();
+      showToast("Đã gỡ liên kết phụ huynh thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Gỡ liên kết thất bại.");
     }
@@ -294,7 +332,7 @@ function ParentsTab({ studentId }: { studentId: number }) {
   );
 }
 
-function TransferTab({ studentId, onChanged }: { studentId: number; onChanged: () => void }) {
+function TransferTab({ studentId, onChanged, showToast }: { studentId: number; onChanged: () => void; showToast: (msg: string) => void }) {
   const [history, setHistory] = useState<StudentTransferHistoryResponse[]>([]);
   const [sites, setSites] = useState<SiteOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -334,6 +372,7 @@ function TransferTab({ studentId, onChanged }: { studentId: number; onChanged: (
       setForm({ transferType: "SITE_CHANGE", toSiteId: "", fromClassId: "", toClassId: "", effectiveDate: "", reason: "" });
       load();
       onChanged();
+      showToast("Đã ghi nhận chuyển lớp/điểm trường thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Ghi nhận chuyển lớp/điểm trường thất bại.");
     } finally {
@@ -382,7 +421,7 @@ function TransferTab({ studentId, onChanged }: { studentId: number; onChanged: (
           )}
           <div>
             <label className={labelClass}>Ngày hiệu lực *</label>
-            <input type="date" value={form.effectiveDate} onChange={(e) => setForm({ ...form, effectiveDate: e.target.value })} className={inputClass} />
+            <DatePicker value={form.effectiveDate} onChange={(v) => setForm({ ...form, effectiveDate: v })} />
           </div>
           <input value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} placeholder="Lý do" className={inputClass} />
         </div>
@@ -410,7 +449,7 @@ function TransferTab({ studentId, onChanged }: { studentId: number; onChanged: (
   );
 }
 
-function StatusTab({ student, onChanged }: { student: StudentResponse; onChanged: () => void }) {
+function StatusTab({ student, onChanged, showToast }: { student: StudentResponse; onChanged: () => void; showToast: (msg: string) => void }) {
   const [history, setHistory] = useState<StudentStatusHistoryResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ newStatus: student.status, reason: "", effectiveDate: "" });
@@ -437,6 +476,7 @@ function StatusTab({ student, onChanged }: { student: StudentResponse; onChanged
       await updateStudentStatus(student.id, { newStatus: form.newStatus, reason: form.reason.trim() || undefined, effectiveDate: form.effectiveDate });
       load();
       onChanged();
+      showToast("Đã đổi trạng thái học tập thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Đổi trạng thái thất bại.");
     } finally {
@@ -456,7 +496,7 @@ function StatusTab({ student, onChanged }: { student: StudentResponse; onChanged
               </option>
             ))}
           </select>
-          <input type="date" value={form.effectiveDate} onChange={(e) => setForm({ ...form, effectiveDate: e.target.value })} className={inputClass} />
+          <DatePicker value={form.effectiveDate} onChange={(v) => setForm({ ...form, effectiveDate: v })} />
           <input value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} placeholder="Lý do" className={`${inputClass} col-span-2`} />
         </div>
         <Button type="submit" size="sm" variant="primary" disabled={submitting}>

@@ -1,5 +1,6 @@
 package vn.com.pps.education.dto;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 
 import java.math.BigDecimal;
@@ -18,6 +19,6 @@ public record UpdateQuestionRequest(
         String explanation,
         BigDecimal defaultPoints,
         List<String> tags,
-        List<QuestionChoiceRequest> choices,
+        @Valid List<QuestionChoiceRequest> choices,
         String status
 ) {}

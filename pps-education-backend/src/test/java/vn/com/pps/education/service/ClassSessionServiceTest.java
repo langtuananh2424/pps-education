@@ -7,9 +7,13 @@ import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.Role;
 import vn.com.pps.education.domain.Room;
 import vn.com.pps.education.domain.Site;
+import vn.com.pps.education.domain.SiteManager;
+import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.domain.UserRole;
 import vn.com.pps.education.dto.AssignTeacherRequest;
+import vn.com.pps.education.dto.BulkCreateClassSessionRequest;
+import vn.com.pps.education.dto.BulkCreateClassSessionResponse;
 import vn.com.pps.education.dto.CancelClassSessionRequest;
 import vn.com.pps.education.dto.ClassResponse;
 import vn.com.pps.education.dto.ClassSessionResponse;
@@ -17,18 +21,23 @@ import vn.com.pps.education.dto.CreateClassRequest;
 import vn.com.pps.education.dto.CreateClassSessionRequest;
 import vn.com.pps.education.dto.CreateCurriculumRequest;
 import vn.com.pps.education.dto.CurriculumResponse;
+import vn.com.pps.education.dto.EnrollStudentRequest;
 import vn.com.pps.education.dto.RescheduleClassSessionRequest;
 import vn.com.pps.education.dto.SessionPeriodResponse;
 import vn.com.pps.education.dto.UpdateCurriculumRequest;
 import vn.com.pps.education.exception.InvalidClassSessionStatusTransitionException;
+import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.exception.RoomConflictException;
 import vn.com.pps.education.repository.RoleRepository;
 import vn.com.pps.education.repository.RoomRepository;
+import vn.com.pps.education.repository.SiteManagerRepository;
 import vn.com.pps.education.repository.SiteRepository;
+import vn.com.pps.education.repository.StudentRepository;
 import vn.com.pps.education.repository.UserRepository;
 import vn.com.pps.education.repository.UserRoleRepository;
 import vn.com.pps.education.support.AbstractIntegrationTest;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
@@ -68,7 +77,13 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
     private SiteRepository siteRepository;
 
     @Autowired
+    private SiteManagerRepository siteManagerRepository;
+
+    @Autowired
     private RoomRepository roomRepository;
+
+    @Autowired
+    private StudentRepository studentRepository;
 
     private User headAcademic;
     private User teacher;
@@ -220,6 +235,32 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
         assertThat(classSessionService.listPeriods(session.id(), teacher.getId())).isNotEmpty();
     }
 
+    /**
+     * Bổ sung (audit FE 2026-07-20): resolveAllowedSiteIds trước đây chỉ
+     * cộng site theo site_teachers, bỏ sót site_managers -- Quản lý điểm
+     * trường không kiêm giáo viên gọi GET /api/classes/{id}/sessions luôn
+     * ra rỗng dù phụ trách đúng site của lớp đó.
+     */
+    @Test
+    void listSessions_siteManagerForSite_seesOwnSiteSessions() {
+        ClassSessionResponse session = classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(LocalDate.now().plusDays(12), LocalTime.of(8, 0), LocalTime.of(9, 40),
+                        room.getId(), teacher.getId(), "REGULAR"),
+                headAcademic.getId());
+        Site managedSite = siteRepository.findById(schoolClass.siteId()).orElseThrow();
+        User siteManagerUser = newUser("site.manager.sessions");
+        SiteManager siteManager = new SiteManager();
+        siteManager.setSite(managedSite);
+        siteManager.setUser(siteManagerUser);
+        siteManager.setAssignedFrom(LocalDate.now().minusMonths(1));
+        siteManager.setAssignedBy(siteManagerUser);
+        siteManagerRepository.save(siteManager);
+
+        assertThat(classSessionService.listSessions(schoolClass.id(), siteManagerUser.getId()))
+                .extracting(ClassSessionResponse::id).contains(session.id());
+        assertThat(classSessionService.listPeriods(session.id(), siteManagerUser.getId())).isNotEmpty();
+    }
+
     @Test
     void rescheduleSession_UC48_FRFAC03_rejectsOverlappingRoomAtNewSlot() {
         LocalDate oldDate = LocalDate.now().plusDays(7);
@@ -249,6 +290,178 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
                 new RescheduleClassSessionRequest(date.plusDays(1), LocalTime.of(8, 0), LocalTime.of(9, 40), room.getId(), teacher.getId(), null),
                 headAcademic.getId()))
                 .isInstanceOf(InvalidClassSessionStatusTransitionException.class);
+    }
+
+    @Test
+    void bulkCreateSessions_UC56_MainFlow_generatesSessionsOnMatchingWeekdays() {
+        LocalDate startDate = nextWeekday(LocalDate.now().plusDays(20), DayOfWeek.MONDAY);
+        LocalDate endDate = startDate.plusDays(13); // 2 tuần trọn vẹn -> đúng 2 Monday + 2 Wednesday
+
+        BulkCreateClassSessionResponse response = classSessionService.bulkCreateSessions(schoolClass.id(),
+                new BulkCreateClassSessionRequest(startDate, endDate, List.of("MONDAY", "WEDNESDAY"),
+                        LocalTime.of(8, 0), LocalTime.of(9, 40), room.getId(), teacher.getId(), "REGULAR"),
+                headAcademic.getId());
+
+        assertThat(response.totalDates()).isEqualTo(4);
+        assertThat(response.createdCount()).isEqualTo(4);
+        assertThat(response.skippedCount()).isEqualTo(0);
+        assertThat(response.created()).hasSize(4)
+                .allSatisfy(s -> assertThat(s.sessionDate().getDayOfWeek()).isIn(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY));
+    }
+
+    @Test
+    void bulkCreateSessions_UC56_A1_skipsDateWithRoomConflictButContinuesOtherDates() {
+        LocalDate startDate = nextWeekday(LocalDate.now().plusDays(40), DayOfWeek.MONDAY);
+        LocalDate endDate = startDate.plusDays(13);
+        LocalDate conflictDate = startDate.plusDays(7); // Monday thứ 2 trong khoảng 14 ngày
+
+        // Đã có sẵn 1 buổi khác trùng phòng đúng khung giờ vào conflictDate.
+        classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(conflictDate, LocalTime.of(8, 0), LocalTime.of(9, 40), room.getId(), teacher.getId(), "REGULAR"),
+                headAcademic.getId());
+
+        BulkCreateClassSessionResponse response = classSessionService.bulkCreateSessions(schoolClass.id(),
+                new BulkCreateClassSessionRequest(startDate, endDate, List.of("MONDAY"),
+                        LocalTime.of(8, 0), LocalTime.of(9, 40), room.getId(), teacher.getId(), "REGULAR"),
+                headAcademic.getId());
+
+        assertThat(response.totalDates()).isEqualTo(2); // 2 Monday trong khoảng 14 ngày
+        assertThat(response.createdCount()).isEqualTo(1);
+        assertThat(response.skippedCount()).isEqualTo(1);
+        assertThat(response.skipped().get(0).get("date")).isEqualTo(conflictDate.toString());
+    }
+
+    @Test
+    void listMySessions_UC58_MainFlow_returnsSessionsAcrossAllClassesForActorOnly() {
+        ClassSessionResponse session1 = classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(LocalDate.now().plusDays(60), LocalTime.of(8, 0), LocalTime.of(9, 40),
+                        room.getId(), teacher.getId(), "REGULAR"),
+                headAcademic.getId());
+
+        Site site2 = newSite();
+        ClassResponse class2 = classService.create(new CreateClassRequest(classCode(), "9A1", site2.getId(),
+                schoolClass.curriculumId(), "OPEN", 20, null, LocalDate.now(), null, null, null), headAcademic.getId());
+        Room room2 = newRoom(site2, false);
+        ClassSessionResponse session2 = classSessionService.createSession(class2.id(),
+                new CreateClassSessionRequest(LocalDate.now().plusDays(61), LocalTime.of(10, 0), LocalTime.of(11, 40),
+                        room2.getId(), teacher.getId(), "REGULAR"),
+                headAcademic.getId());
+
+        User otherTeacher = newUser("teacher.other.myschedule");
+        assignRole(otherTeacher, "TEACHER");
+        classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(LocalDate.now().plusDays(62), LocalTime.of(8, 0), LocalTime.of(9, 40),
+                        room.getId(), otherTeacher.getId(), "REGULAR"),
+                headAcademic.getId());
+
+        List<ClassSessionResponse> mySessions = classSessionService.listMySessions(teacher.getId(), null, null);
+
+        assertThat(mySessions).extracting(ClassSessionResponse::id).contains(session1.id(), session2.id());
+        assertThat(mySessions).extracting(ClassSessionResponse::primaryTeacherId).containsOnly(teacher.getId());
+    }
+
+    @Test
+    void listMySessions_UC58_filtersByFromDateToDate() {
+        ClassSessionResponse early = classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(LocalDate.now().plusDays(70), LocalTime.of(8, 0), LocalTime.of(9, 40),
+                        room.getId(), teacher.getId(), "REGULAR"),
+                headAcademic.getId());
+        ClassSessionResponse late = classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(LocalDate.now().plusDays(80), LocalTime.of(8, 0), LocalTime.of(9, 40),
+                        room.getId(), teacher.getId(), "REGULAR"),
+                headAcademic.getId());
+
+        List<ClassSessionResponse> filtered = classSessionService.listMySessions(teacher.getId(),
+                LocalDate.now().plusDays(75), LocalDate.now().plusDays(85));
+
+        assertThat(filtered).extracting(ClassSessionResponse::id).contains(late.id()).doesNotContain(early.id());
+    }
+
+    @Test
+    void listMySessionsForStudent_UC59_MainFlow_returnsSessionsAcrossAllEnrolledClasses() {
+        ClassSessionResponse session1 = classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(LocalDate.now().plusDays(90), LocalTime.of(8, 0), LocalTime.of(9, 40),
+                        room.getId(), teacher.getId(), "REGULAR"),
+                headAcademic.getId());
+
+        Site site2 = newSite();
+        ClassResponse class2 = classService.create(new CreateClassRequest(classCode(), "9A1", site2.getId(),
+                schoolClass.curriculumId(), "OPEN", 20, null, LocalDate.now(), null, null, null), headAcademic.getId());
+        Room room2 = newRoom(site2, false);
+        ClassSessionResponse session2 = classSessionService.createSession(class2.id(),
+                new CreateClassSessionRequest(LocalDate.now().plusDays(91), LocalTime.of(10, 0), LocalTime.of(11, 40),
+                        room2.getId(), teacher.getId(), "REGULAR"),
+                headAcademic.getId());
+
+        // Buổi của 1 lớp khác mà học sinh KHÔNG ghi danh -- không được xuất hiện.
+        Site site3 = newSite();
+        ClassResponse class3 = classService.create(new CreateClassRequest(classCode(), "10A1", site3.getId(),
+                schoolClass.curriculumId(), "OPEN", 20, null, LocalDate.now(), null, null, null), headAcademic.getId());
+        Room room3 = newRoom(site3, false);
+        ClassSessionResponse otherClassSession = classSessionService.createSession(class3.id(),
+                new CreateClassSessionRequest(LocalDate.now().plusDays(92), LocalTime.of(8, 0), LocalTime.of(9, 40),
+                        room3.getId(), teacher.getId(), "REGULAR"),
+                headAcademic.getId());
+
+        Student student = enrollStudentIn(schoolClass.id());
+        classService.enroll(class2.id(), new EnrollStudentRequest(student.getId(), LocalDate.now()), headAcademic.getId());
+
+        List<ClassSessionResponse> mySessions = classSessionService.listMySessionsForStudent(
+                student.getUser().getId(), null, null, null);
+
+        assertThat(mySessions).extracting(ClassSessionResponse::id)
+                .contains(session1.id(), session2.id())
+                .doesNotContain(otherClassSession.id());
+    }
+
+    @Test
+    void listMySessionsForStudent_UC59_A1_filtersToSelectedClassWhenClassIdProvided() {
+        ClassSessionResponse session1 = classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(LocalDate.now().plusDays(93), LocalTime.of(8, 0), LocalTime.of(9, 40),
+                        room.getId(), teacher.getId(), "REGULAR"),
+                headAcademic.getId());
+        Site site2 = newSite();
+        ClassResponse class2 = classService.create(new CreateClassRequest(classCode(), "9A1", site2.getId(),
+                schoolClass.curriculumId(), "OPEN", 20, null, LocalDate.now(), null, null, null), headAcademic.getId());
+        Room room2 = newRoom(site2, false);
+        ClassSessionResponse session2 = classSessionService.createSession(class2.id(),
+                new CreateClassSessionRequest(LocalDate.now().plusDays(94), LocalTime.of(10, 0), LocalTime.of(11, 40),
+                        room2.getId(), teacher.getId(), "REGULAR"),
+                headAcademic.getId());
+        Student student = enrollStudentIn(schoolClass.id());
+        classService.enroll(class2.id(), new EnrollStudentRequest(student.getId(), LocalDate.now()), headAcademic.getId());
+
+        List<ClassSessionResponse> filtered = classSessionService.listMySessionsForStudent(
+                student.getUser().getId(), null, null, schoolClass.id());
+
+        assertThat(filtered).extracting(ClassSessionResponse::id).contains(session1.id()).doesNotContain(session2.id());
+    }
+
+    @Test
+    void listMySessionsForStudent_UC59_rejectsWhenActorHasNoStudentProfile() {
+        assertThatThrownBy(() -> classSessionService.listMySessionsForStudent(teacher.getId(), null, null, null))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    private Student enrollStudentIn(Long classId) {
+        User studentUser = newUser("student.schedule");
+        Student student = new Student();
+        student.setUser(studentUser);
+        student.setStudentCode("HS-SCH-" + SEQ.incrementAndGet());
+        student.setDateOfBirth(LocalDate.of(2012, 5, 1));
+        student.setEnrollmentDate(LocalDate.now());
+        student = studentRepository.save(student);
+        classService.enroll(classId, new EnrollStudentRequest(student.getId(), LocalDate.now()), headAcademic.getId());
+        return student;
+    }
+
+    /** Ngày đầu tiên >= from khớp đúng dayOfWeek yêu cầu — dùng để dựng test case UC-56 không phụ thuộc ngày chạy test. */
+    private LocalDate nextWeekday(LocalDate from, DayOfWeek dayOfWeek) {
+        LocalDate date = from;
+        while (date.getDayOfWeek() != dayOfWeek) {
+            date = date.plusDays(1);
+        }
+        return date;
     }
 
     private String curriculumCode() {

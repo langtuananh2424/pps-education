@@ -15,8 +15,10 @@ import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
 import Badge, { BadgeVariant } from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import EmptyState from "@/components/ui/EmptyState";
+import DatePicker from "@/components/ui/DatePicker";
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
+const TODAY_ISO = new Date().toISOString().slice(0, 10);
 
 /** Dùng cho dropdown lọc "Hành động" — không đổi (vẫn đúng 4 giá trị enum Action thật của backend). */
 const actionLabels: Record<string, string> = {
@@ -144,11 +146,11 @@ export default function AuditLogPage() {
         <div className="grid grid-cols-2 gap-2">
           <div>
             <label className={labelClass}>Từ ngày</label>
-            <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className={inputClass} />
+            <DatePicker value={fromDate} onChange={setFromDate} max={toDate || TODAY_ISO} />
           </div>
           <div>
             <label className={labelClass}>Đến ngày</label>
-            <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className={inputClass} />
+            <DatePicker value={toDate} onChange={setToDate} min={fromDate || undefined} max={TODAY_ISO} />
           </div>
         </div>
         <div className="lg:col-span-4 flex justify-end gap-2">

@@ -23,17 +23,17 @@ import vn.com.pps.education.dto.CreateGradePeriodRequest;
 import vn.com.pps.education.dto.CreateStudentCommentRequest;
 import vn.com.pps.education.dto.CurriculumResponse;
 import vn.com.pps.education.dto.DecideCommentsRequest;
-import vn.com.pps.education.dto.DecideGradesRequest;
 import vn.com.pps.education.dto.EnrollStudentRequest;
 import vn.com.pps.education.dto.EnterAttendanceMarkRequest;
+import vn.com.pps.education.dto.EnterGradePeriodResultRequest;
 import vn.com.pps.education.dto.EnterGradeRequest;
 import vn.com.pps.education.dto.GradeComponentResponse;
 import vn.com.pps.education.dto.GradeEntryResponse;
 import vn.com.pps.education.dto.GradePeriodResponse;
+import vn.com.pps.education.dto.GradePeriodResultResponse;
 import vn.com.pps.education.dto.MarkAttendanceRequest;
+import vn.com.pps.education.dto.PublishGradesRequest;
 import vn.com.pps.education.dto.StudentCommentResponse;
-import vn.com.pps.education.dto.SubmitCommentsRequest;
-import vn.com.pps.education.dto.SubmitGradesRequest;
 import vn.com.pps.education.dto.UpdateCurriculumRequest;
 import vn.com.pps.education.exception.NotAuthorizedForPortalAccessException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
@@ -56,7 +56,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-/** UC-25: Xem Portal Phụ huynh — Main Flow (bước 2-4), A1 (dữ liệu chưa duyệt không hiển thị). */
+/** UC-25: Xem Portal Phụ huynh — Main Flow (bước 2-4), A1 (dữ liệu chưa công bố/chưa duyệt không hiển thị). */
 @Transactional
 class ParentPortalServiceTest extends AbstractIntegrationTest {
 
@@ -169,20 +169,19 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void listGrades_UC25_A1_onlyApprovedGradesVisible() {
+    void listGrades_UC25_A1_onlyPublishedGradesVisible() {
         GradePeriodResponse period = gradeService.createGradePeriod(schoolClass.curriculumId(),
                 new CreateGradePeriodRequest("MID_1", "Giữa kỳ 1", 1, new BigDecimal("50"), null, null), headAcademic.getId());
         GradeComponentResponse component = gradeService.addGradeComponent(period.id(),
-                new CreateGradeComponentRequest(null, null, "SPEAKING", "Nói", new BigDecimal("50"), new BigDecimal("10.00"), null, null, 1),
+                new CreateGradeComponentRequest(null, null, "SPEAKING", "Nói", new BigDecimal("10.00"), null, null, 1),
                 headAcademic.getId());
-        GradeEntryResponse approvedEntry = gradeService.enterGrade(schoolClass.id(), component.id(),
+        GradeEntryResponse publishedEntry = gradeService.enterGrade(schoolClass.id(), component.id(),
                 new EnterGradeRequest(student.getId(), new BigDecimal("9"), false, null), teacher.getId());
-        gradeService.submitGrades(schoolClass.id(), new SubmitGradesRequest(List.of(approvedEntry.id()), null), teacher.getId());
-        gradeService.decideGrades(new DecideGradesRequest(List.of(approvedEntry.id()), null, "APPROVED", "Tốt"), siteManagerUser.getId());
+        gradeService.publishGrades(new PublishGradesRequest(List.of(publishedEntry.id()), null), siteManagerUser.getId());
 
-        // A1 -- 1 bản ghi khác vẫn DRAFT, chưa duyệt.
+        // A1 -- 1 bản ghi khác vẫn DRAFT, chưa công bố.
         GradeComponentResponse component2 = gradeService.addGradeComponent(period.id(),
-                new CreateGradeComponentRequest(null, null, "WRITING", "Viết", new BigDecimal("50"), new BigDecimal("10.00"), null, null, 2),
+                new CreateGradeComponentRequest(null, null, "WRITING", "Viết", new BigDecimal("10.00"), null, null, 2),
                 headAcademic.getId());
         gradeService.enterGrade(schoolClass.id(), component2.id(),
                 new EnterGradeRequest(student.getId(), new BigDecimal("7"), false, null), teacher.getId());
@@ -190,22 +189,49 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
         List<GradeEntryResponse> grades = parentPortalService.listGrades(student.getId(), schoolClass.id(), parentUser.getId());
 
         assertThat(grades).hasSize(1);
-        assertThat(grades.get(0).status()).isEqualTo("APPROVED");
-        assertThat(grades.get(0).id()).isEqualTo(approvedEntry.id());
+        assertThat(grades.get(0).status()).isEqualTo("PROVISIONAL_PUBLISHED");
+        assertThat(grades.get(0).id()).isEqualTo(publishedEntry.id());
+    }
+
+    @Test
+    void getPeriodResult_UC25_UC53_MainFlow_returnsPublishedOverallLevel() {
+        GradePeriodResponse period = gradeService.createGradePeriod(schoolClass.curriculumId(),
+                new CreateGradePeriodRequest("MID_1", "Giữa kỳ 1", 1, new BigDecimal("50"), null, null), headAcademic.getId());
+        var enteredResult = gradeService.enterPeriodResult(schoolClass.id(), student.getId(), period.id(),
+                new EnterGradePeriodResultRequest(new BigDecimal("7.5"), "BAND", "B2"), teacher.getId());
+        gradeService.publishGrades(new PublishGradesRequest(null, List.of(enteredResult.id())), siteManagerUser.getId());
+
+        GradePeriodResultResponse result = parentPortalService.getPeriodResult(student.getId(), schoolClass.id(), period.id(), parentUser.getId());
+
+        assertThat(result.status()).isEqualTo("PROVISIONAL_PUBLISHED");
+        assertThat(result.overallScore()).isEqualByComparingTo("7.5");
+        assertThat(result.level()).isEqualTo("B2");
+    }
+
+    @Test
+    void getPeriodResult_UC25_A1_rejectsWhenResultNotPublishedYet() {
+        GradePeriodResponse period = gradeService.createGradePeriod(schoolClass.curriculumId(),
+                new CreateGradePeriodRequest("MID_1", "Giữa kỳ 1", 1, new BigDecimal("50"), null, null), headAcademic.getId());
+        gradeService.enterPeriodResult(schoolClass.id(), student.getId(), period.id(),
+                new EnterGradePeriodResultRequest(new BigDecimal("7.5"), "BAND", "B2"), teacher.getId());
+        // Chưa công bố (còn DRAFT) -- Phụ huynh chưa được xem.
+
+        assertThatThrownBy(() -> parentPortalService.getPeriodResult(student.getId(), schoolClass.id(), period.id(), parentUser.getId()))
+                .isInstanceOf(ResourceNotFoundException.class);
     }
 
     @Test
     void listComments_UC25_A1_onlyApprovedCommentsVisible() {
+        // DAILY: ghi xong tự động chuyển PENDING ngay (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-24) -- không còn bước submit riêng.
         StudentCommentResponse approved = studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), "DAILY", session.id(), null,
-                        LocalDate.now(), "Chăm chỉ.", null, null, false), teacher.getId());
-        studentCommentService.submitComments(schoolClass.id(), new SubmitCommentsRequest(List.of(approved.id())), teacher.getId());
+                        LocalDate.now(), "Chăm chỉ.", null, null, false, null, null, null, null), teacher.getId());
         studentCommentService.decideComments(new DecideCommentsRequest(List.of(approved.id()), "APPROVED", null), siteManagerUser.getId());
 
-        // A1 -- nhận xét khác vẫn DRAFT.
+        // A1 -- nhận xét khác vẫn PENDING (chưa duyệt).
         studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), "DAILY", session.id(), null,
-                        LocalDate.now(), "Nội dung chưa gửi.", null, null, false), teacher.getId());
+                        LocalDate.now(), "Nội dung chưa duyệt.", null, null, false, null, null, null, null), teacher.getId());
 
         List<StudentCommentResponse> comments = parentPortalService.listComments(student.getId(), schoolClass.id(), parentUser.getId());
 

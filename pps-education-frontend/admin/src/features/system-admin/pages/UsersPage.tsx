@@ -6,10 +6,14 @@ import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import EmptyState from "@/components/ui/EmptyState";
 import { ApiError } from "@/lib/apiClient";
+import { useToast } from "@/lib/useToast";
+import Toast from "@/components/ui/Toast";
 import { DepartmentResponse, listDepartments } from "@/features/hrm/api";
 import {
   changeUserPassword,
   getUserDetail,
+  listRoles,
+  RoleResponse,
   searchUsers,
   updateUser,
   UpdateUserRequest,
@@ -44,27 +48,48 @@ export default function UsersPage() {
   const [keyword, setKeyword] = useState("");
   const [status, setStatus] = useState<"" | "ACTIVE" | "INACTIVE" | "SUSPENDED">("");
   const [departmentId, setDepartmentId] = useState("");
+  const [roleCode, setRoleCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
   const [departments, setDepartments] = useState<DepartmentResponse[]>([]);
+  const [roles, setRoles] = useState<RoleResponse[]>([]);
 
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
 
   useEffect(() => {
     // GET /api/departments không yêu cầu quyền riêng — chỉ dùng để đổi ID sang tên hiển thị, không dùng để sửa.
     listDepartments().then(setDepartments).catch(() => {});
+    listRoles().then(setRoles).catch(() => {});
   }, []);
 
   const departmentName = (id: number | null): string => departments.find((d) => d.id === id)?.name ?? "—";
 
+  /**
+   * GET /api/users chưa có param lọc theo vai trò (chỉ keyword/status/departmentId) — lọc
+   * theo vai trò đang làm tạm ở FE: khi có chọn vai trò, tải 1 lô lớn (bỏ qua phân trang
+   * server) rồi tự lọc + tự phân trang lại ở đây. Đã báo BE bổ sung param roleCode cho
+   * GET /api/users (tương tự departmentId) để chuyển hẳn về lọc server-side, tránh giới
+   * hạn lô lớn khi hệ thống có nhiều tài khoản hơn.
+   */
   const loadUsers = () => {
     setLoading(true);
     setListError(null);
-    searchUsers(
-      { keyword: keyword.trim() || undefined, status: status || undefined, departmentId: departmentId ? Number(departmentId) : undefined },
-      page,
-      pageSize
-    )
+    const filter = { keyword: keyword.trim() || undefined, status: status || undefined, departmentId: departmentId ? Number(departmentId) : undefined };
+
+    if (roleCode) {
+      searchUsers(filter, 0, 1000)
+        .then((res) => {
+          const filtered = res.content.filter((u) => u.roles.some((r) => r.code === roleCode));
+          setTotalElements(filtered.length);
+          setTotalPages(Math.max(1, Math.ceil(filtered.length / pageSize)));
+          setRows(filtered.slice(page * pageSize, (page + 1) * pageSize));
+        })
+        .catch((err) => setListError(err instanceof ApiError ? err.message : "Không tải được danh sách tài khoản."))
+        .finally(() => setLoading(false));
+      return;
+    }
+
+    searchUsers(filter, page, pageSize)
       .then((res) => {
         setRows(res.content);
         setTotalPages(res.totalPages);
@@ -119,6 +144,18 @@ export default function UsersPage() {
           {departments.map((d) => (
             <option key={d.id} value={d.id}>
               {d.name}
+            </option>
+          ))}
+        </select>
+        <select
+          value={roleCode}
+          onChange={(e) => setRoleCode(e.target.value)}
+          className="w-48 bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
+        >
+          <option value="">-- Mọi vai trò --</option>
+          {roles.map((r) => (
+            <option key={r.id} value={r.code}>
+              {r.name}
             </option>
           ))}
         </select>
@@ -247,6 +284,7 @@ function UserDetailModal({
   const [newPassword, setNewPassword] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
   const [changingStatus, setChangingStatus] = useState(false);
+  const { message: toastMessage, showToast } = useToast();
 
   const loadDetail = (id: number) => {
     setLoading(true);
@@ -283,6 +321,7 @@ function UserDetailModal({
       });
       loadDetail(detail.id);
       onChanged();
+      showToast("Đã lưu hồ sơ thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Cập nhật hồ sơ thất bại.");
     } finally {
@@ -301,6 +340,7 @@ function UserDetailModal({
       await updateUserStatus(detail.id, newStatus);
       loadDetail(detail.id);
       onChanged();
+      showToast(`Đã chuyển tài khoản sang trạng thái "${statusLabels[newStatus]}"!`);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Đổi trạng thái thất bại.");
     } finally {
@@ -314,12 +354,16 @@ function UserDetailModal({
       setError("Mật khẩu mới phải từ 8 ký tự trở lên.");
       return;
     }
+    if (!window.confirm(`Xác nhận đặt mật khẩu mới cho tài khoản "${detail.username}"? Tài khoản này có thể đăng nhập ngay bằng mật khẩu mới, mật khẩu cũ sẽ không còn dùng được.`)) {
+      return;
+    }
     setChangingPassword(true);
     setError(null);
     try {
       await changeUserPassword(detail.id, newPassword.trim());
       setNewPassword("");
       loadDetail(detail.id);
+      showToast("Đã đặt lại mật khẩu thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Đặt lại mật khẩu thất bại.");
     } finally {
@@ -360,7 +404,10 @@ function UserDetailModal({
           </p>
 
           <form onSubmit={handleSaveProfile} className="space-y-3 border-t border-slate-100 pt-4">
-            <span className="text-[10px] font-bold uppercase text-slate-500">Cập nhật hồ sơ (UC-49)</span>
+            <div>
+              <span className="text-[10px] font-bold uppercase text-slate-500">Cập nhật hồ sơ (UC-49)</span>
+              <p className="text-[10px] text-slate-400">Chỉ đổi họ tên/số điện thoại hiển thị của tài khoản này.</p>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={labelClass}>Họ tên *</label>
@@ -377,9 +424,12 @@ function UserDetailModal({
           </form>
 
           <form onSubmit={handleChangePassword} className="space-y-2 border-t border-slate-100 pt-4">
-            <span className="text-[10px] font-bold uppercase text-slate-500 flex items-center gap-1">
-              <KeyRound className="w-3 h-3" /> Đặt lại mật khẩu (UC-45)
-            </span>
+            <div>
+              <span className="text-[10px] font-bold uppercase text-slate-500 flex items-center gap-1">
+                <KeyRound className="w-3 h-3" /> Đặt lại mật khẩu (UC-45)
+              </span>
+              <p className="text-[10px] text-slate-400">Admin đặt thẳng mật khẩu mới cho tài khoản này, có hiệu lực ngay — không cần biết mật khẩu cũ (dùng khi người dùng quên mật khẩu).</p>
+            </div>
             <div className="flex gap-2">
               <input
                 type="password"
@@ -388,14 +438,17 @@ function UserDetailModal({
                 placeholder="Mật khẩu mới (tối thiểu 8 ký tự)"
                 className={inputClass}
               />
-              <Button type="submit" variant="secondary" size="sm" disabled={changingPassword}>
-                {changingPassword ? "Đang lưu..." : "Đặt lại"}
+              <Button type="submit" variant="secondary" size="sm" disabled={changingPassword} className="whitespace-nowrap">
+                {changingPassword ? "Đang lưu..." : "Đặt lại mật khẩu"}
               </Button>
             </div>
           </form>
 
           <div className="border-t border-slate-100 pt-4 flex flex-wrap gap-2">
-            <span className="text-[10px] font-bold uppercase text-slate-500 w-full">Khóa/Mở khóa (UC-47)</span>
+            <div className="w-full">
+              <span className="text-[10px] font-bold uppercase text-slate-500">Khóa/Mở khóa (UC-47)</span>
+              <p className="text-[10px] text-slate-400">Đổi trạng thái đăng nhập của tài khoản — ngừng/tạm khóa sẽ chặn đăng nhập ngay.</p>
+            </div>
             {detail.status !== "ACTIVE" && (
               <Button size="sm" variant="secondary" disabled={changingStatus} onClick={() => handleToggleStatus("ACTIVE")}>
                 <Unlock className="w-3.5 h-3.5" /> Mở khóa (ACTIVE)
@@ -414,6 +467,8 @@ function UserDetailModal({
           </div>
         </div>
       )}
+
+      <Toast message={toastMessage} />
     </Modal>
   );
 }
