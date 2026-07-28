@@ -79,6 +79,8 @@ export interface CreateQuestionRequest {
   imageUrl?: string;
   referencePassage?: string;
   explanation?: string;
+  /** V54 — chỉ dùng khi questionType=FILL_IN_BLANK, so khớp case-insensitive + trim khi tự chấm. */
+  correctAnswerText?: string;
   defaultPoints?: number;
   tags?: string[];
   /** Bắt buộc khi questionType thuộc MULTIPLE_CHOICE/MULTIPLE_ANSWER/TRUE_FALSE — để trống với ESSAY/SPEAKING/FILL_IN_BLANK. */
@@ -96,6 +98,7 @@ export interface QuestionResponse {
   imageUrl: string | null;
   referencePassage: string | null;
   explanation: string | null;
+  correctAnswerText: string | null;
   defaultPoints: number | null;
   tags: string[] | null;
   status: string;
@@ -113,6 +116,7 @@ export interface UpdateQuestionRequest {
   imageUrl?: string;
   referencePassage?: string;
   explanation?: string;
+  correctAnswerText?: string;
   defaultPoints?: number;
   tags?: string[];
   choices?: QuestionChoiceRequest[];
@@ -231,7 +235,11 @@ export interface AssignExerciseRequest {
 
 export interface ExerciseAssignmentResponse {
   id: number;
+  /** V55 — dùng để dán trực tiếp vào Excel BTVN thay cho chọn dropdown khi danh sách quá dài. */
+  uuid: string;
   exerciseId: number;
+  exerciseTitle: string;
+  exerciseCode: string;
   classId: number;
   assignedBy: number;
   availableFrom: string;
@@ -261,6 +269,8 @@ export type ReviewVideoSetStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
 /** Khớp ReviewVideoSetResponse thật — đúng 1 trong 2 curriculumId/classId khác null (không cả hai, không cái nào). */
 export interface ReviewVideoSetResponse {
   id: number;
+  /** V55 — dùng để dán trực tiếp vào Excel BTVN thay cho chọn dropdown khi danh sách quá dài. */
+  uuid: string;
   code: string;
   title: string;
   videoType: ReviewVideoType;

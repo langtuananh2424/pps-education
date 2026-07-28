@@ -16,10 +16,14 @@ import {
   writeComment,
   submitComments
 } from "../api";
+import { ExerciseAssignmentResponse, ReviewVideoSetResponse, listAssignmentsForClass, listReviewVideoSetsByClass } from "@/features/lms/api";
 import { useEligibleClasses } from "../hooks/useEligibleClasses";
 import NotificationBanner from "@/features/student/components/NotificationBanner";
 import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
 import CommentHistoryList from "./CommentHistoryList";
+
+/** BTVN ngữ pháp buổi sau: OFFLINE (chữ tự do, homeworkNext) hoặc ONLINE (chọn 1 đề đã giao lớp, tự chấm ra %) — V55. */
+type GrammarMode = "OFFLINE" | "ONLINE";
 
 interface Row {
   studentId: number;
@@ -28,13 +32,26 @@ interface Row {
   attitude: "" | NonNullable<StudentCommentResponse["attitude"]>;
   homeworkPreviousScore: string;
   content: string;
+  grammarMode: GrammarMode;
   homeworkNext: string;
+  homeworkNextExerciseAssignmentId: number | "";
+  homeworkNextReviewVideoSetId: number | "";
   note: string;
 }
 
+const EMPTY_ROW_HOMEWORK: Pick<Row, "grammarMode" | "homeworkNext" | "homeworkNextExerciseAssignmentId" | "homeworkNextReviewVideoSetId"> = {
+  grammarMode: "OFFLINE",
+  homeworkNext: "",
+  homeworkNextExerciseAssignmentId: "",
+  homeworkNextReviewVideoSetId: ""
+};
+
 const attitudeLabels: Record<NonNullable<StudentCommentResponse["attitude"]>, string> = {
   POOR: "Kém",
+  WEAK: "Yếu",
   AVERAGE: "Trung bình",
+  ABOVE_AVERAGE: "Trung bình khá",
+  FAIR: "Khá",
   GOOD: "Tốt"
 };
 
@@ -54,6 +71,8 @@ export default function DailyCommentPanel() {
   const [downloadingTemplate, setDownloadingTemplate] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<DailyCommentImportResponse | null>(null);
+  const [grammarOptions, setGrammarOptions] = useState<ExerciseAssignmentResponse[]>([]);
+  const [videoOptions, setVideoOptions] = useState<ReviewVideoSetResponse[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const selectedClass = classes.find((c) => c.id === selectedClassId) ?? null;
@@ -64,6 +83,8 @@ export default function DailyCommentPanel() {
   useEffect(() => {
     setSelectedSessionId(null);
     setRows([]);
+    setGrammarOptions([]);
+    setVideoOptions([]);
     if (!selectedClassId) {
       setSessions([]);
       return;
@@ -71,6 +92,12 @@ export default function DailyCommentPanel() {
     listClassSessions(selectedClassId)
       .then(setSessions)
       .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách buổi học."));
+    // BTVN ngữ pháp ONLINE chỉ chọn được từ đề ĐÃ giao lớp này (status=ACTIVE, API tự lọc sẵn);
+    // BTVN Video Ôn tập chỉ chọn được bộ đã CÔNG BỐ (PUBLISHED) — khớp đúng điều kiện buildTemplate ở BE.
+    listAssignmentsForClass(selectedClassId).then(setGrammarOptions).catch(() => undefined);
+    listReviewVideoSetsByClass(selectedClassId)
+      .then((sets) => setVideoOptions(sets.filter((s) => s.status === "PUBLISHED")))
+      .catch(() => undefined);
   }, [selectedClassId]);
 
   useEffect(() => {
@@ -97,7 +124,7 @@ export default function DailyCommentPanel() {
             attitude: "",
             homeworkPreviousScore: "",
             content: "",
-            homeworkNext: "",
+            ...EMPTY_ROW_HOMEWORK,
             note: ""
           }))
         );
@@ -144,7 +171,9 @@ export default function DailyCommentPanel() {
             isWarning: false,
             attitude: r.attitude || undefined,
             homeworkPreviousScore: r.homeworkPreviousScore.trim() || undefined,
-            homeworkNext: r.homeworkNext.trim() || undefined,
+            homeworkNext: r.grammarMode === "OFFLINE" ? r.homeworkNext.trim() || undefined : undefined,
+            homeworkNextExerciseAssignmentId: r.grammarMode === "ONLINE" && r.homeworkNextExerciseAssignmentId !== "" ? r.homeworkNextExerciseAssignmentId : undefined,
+            homeworkNextReviewVideoSetId: r.homeworkNextReviewVideoSetId !== "" ? r.homeworkNextReviewVideoSetId : undefined,
             note: r.note.trim() || undefined
           })
         )
@@ -161,7 +190,7 @@ export default function DailyCommentPanel() {
       setNotification(message);
       setTimeout(() => setNotification(null), 6000);
       setRows((prev) =>
-        prev.map((r) => (r.content.trim() ? { ...r, attitude: "", homeworkPreviousScore: "", content: "", homeworkNext: "", note: "" } : r))
+        prev.map((r) => (r.content.trim() ? { ...r, attitude: "", homeworkPreviousScore: "", content: "", ...EMPTY_ROW_HOMEWORK, note: "" } : r))
       );
       await loadHistory(selectedClassId, selectedSession.id, rows.map((r) => r.studentId));
     } catch (err) {
@@ -296,26 +325,27 @@ export default function DailyCommentPanel() {
                 <Th>Thái độ học tập</Th>
                 <Th>BTVN buổi trước</Th>
                 <Th>Nhận xét học sinh *</Th>
-                <Th>BTVN buổi sau</Th>
+                <Th>BTVN Ngữ pháp buổi sau</Th>
+                <Th>BTVN Video ôn tập buổi sau</Th>
                 <Th>Ghi chú</Th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {!selectedSessionId ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-xs text-slate-400 italic">
+                  <td colSpan={8} className="px-6 py-12 text-center text-xs text-slate-400 italic">
                     {selectedClass ? "Chọn buổi học ở trên để tải danh sách học sinh." : "Chọn 1 lớp ở Header (góc trên bên phải)."}
                   </td>
                 </tr>
               ) : loadingRows ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-xs text-slate-400">
+                  <td colSpan={8} className="px-6 py-12 text-center text-xs text-slate-400">
                     Đang tải...
                   </td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-xs text-slate-400 italic">
+                  <td colSpan={8} className="px-6 py-12 text-center text-xs text-slate-400 italic">
                     Không tìm thấy học sinh nào thuộc lớp học này.
                   </td>
                 </tr>
@@ -358,13 +388,62 @@ export default function DailyCommentPanel() {
                           className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
                         />
                       </Td>
-                      <Td>
-                        <input
-                          value={r.homeworkNext}
-                          onChange={(e) => updateRow({ homeworkNext: e.target.value })}
-                          placeholder="VD: Unit 2 trang 10"
+                      <Td className="min-w-[220px]">
+                        <div className="flex gap-1 mb-1.5">
+                          <button
+                            type="button"
+                            onClick={() => updateRow({ grammarMode: "OFFLINE", homeworkNextExerciseAssignmentId: "" })}
+                            className={`flex-1 text-[10px] font-bold py-1.5 rounded-lg border ${
+                              r.grammarMode === "OFFLINE" ? "bg-brand-orange border-brand-orange text-white" : "bg-slate-50 border-slate-200 text-slate-500"
+                            }`}
+                          >
+                            Offline
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => updateRow({ grammarMode: "ONLINE", homeworkNext: "" })}
+                            className={`flex-1 text-[10px] font-bold py-1.5 rounded-lg border ${
+                              r.grammarMode === "ONLINE" ? "bg-brand-orange border-brand-orange text-white" : "bg-slate-50 border-slate-200 text-slate-500"
+                            }`}
+                          >
+                            Online
+                          </button>
+                        </div>
+                        {r.grammarMode === "OFFLINE" ? (
+                          <input
+                            value={r.homeworkNext}
+                            onChange={(e) => updateRow({ homeworkNext: e.target.value })}
+                            placeholder="VD: Unit 2 trang 10"
+                            className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
+                          />
+                        ) : (
+                          <select
+                            value={r.homeworkNextExerciseAssignmentId}
+                            onChange={(e) => updateRow({ homeworkNextExerciseAssignmentId: e.target.value ? Number(e.target.value) : "" })}
+                            className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
+                          >
+                            <option value="">-- Chọn đề đã giao lớp --</option>
+                            {grammarOptions.map((a) => (
+                              <option key={a.id} value={a.id}>
+                                {a.exerciseTitle} ({a.exerciseCode})
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </Td>
+                      <Td className="min-w-[200px]">
+                        <select
+                          value={r.homeworkNextReviewVideoSetId}
+                          onChange={(e) => updateRow({ homeworkNextReviewVideoSetId: e.target.value ? Number(e.target.value) : "" })}
                           className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
-                        />
+                        >
+                          <option value="">-- Không giao --</option>
+                          {videoOptions.map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.title} ({s.code})
+                            </option>
+                          ))}
+                        </select>
                       </Td>
                       <Td>
                         <input

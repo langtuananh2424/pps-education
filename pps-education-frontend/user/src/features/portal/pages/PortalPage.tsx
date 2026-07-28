@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { BookOpen, Calendar, CreditCard, Home, LogOut, Award, School, Users, Menu, X } from "lucide-react";
+import { Calendar, ClipboardList, CreditCard, FolderOpen, Home, LogOut, Award, NotebookPen, School, Users, Menu, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import { ChildResponse, listClassOptions, listMyChildren, PortalClassOptionResponse } from "../api";
@@ -10,16 +10,19 @@ import StudentScheduleTab from "../components/StudentScheduleTab";
 import AssignmentsTab from "../components/AssignmentsTab";
 import GradesTab from "../components/GradesTab";
 import BillingTab from "../components/BillingTab";
-import LmsTab from "../components/LmsTab";
+import DailyLearningProgressTab from "../components/DailyLearningProgressTab";
+import DocumentLibraryTab from "../components/DocumentLibraryTab";
 import ComingSoon from "../components/ComingSoon";
 import ProfileModal from "../components/ProfileModal";
 
-type Tab = "home" | "schedule" | "lms" | "grades" | "billing";
+type Tab = "home" | "schedule" | "learning-progress" | "homework" | "documents" | "grades" | "billing";
 
 const TABS: { key: Tab; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
   { key: "home", label: "Trang chủ & Bảng tin", icon: Home },
   { key: "schedule", label: "Lịch học & Chuyên cần", icon: Calendar },
-  { key: "lms", label: "E-Learning & LMS", icon: BookOpen },
+  { key: "learning-progress", label: "Quá trình học tập", icon: NotebookPen },
+  { key: "homework", label: "Bài tập về nhà (BTVN)", icon: ClipboardList },
+  { key: "documents", label: "Kho dữ liệu (Sách, TLTK)", icon: FolderOpen },
   { key: "grades", label: "Khảo thí & Điểm số", icon: Award },
   { key: "billing", label: "Học phí & Dịch vụ", icon: CreditCard }
 ];
@@ -35,7 +38,7 @@ const TABS: { key: Tab; label: string; icon: React.ComponentType<{ size?: number
  */
 export default function PortalPage() {
   const { currentUser, isParent, isStudent, logout } = useApp();
-  const [activeTab, setActiveTab] = useState<Tab>(() => (isParent ? "home" : "lms"));
+  const [activeTab, setActiveTab] = useState<Tab>(() => (isParent ? "home" : "homework"));
 
   const [children, setChildren] = useState<ChildResponse[]>([]);
   const [selectedChildId, setSelectedChildId] = useState<number | null>(null);
@@ -273,13 +276,26 @@ export default function PortalPage() {
                         description="Đang chờ Backend mở API cho Học sinh tự xem lịch học/chuyên cần của chính mình (hiện chỉ Phụ huynh xem được)."
                       />
                     ))}
-                  {activeTab === "lms" && (
-                    <div className="space-y-6">
-                      {/* GET /students/me/exercises tra theo userId của chính người gọi — chỉ hoạt động cho Học sinh tự đăng nhập, Phụ huynh gọi sẽ 404 "không có hồ sơ học sinh" nên chỉ hiện với isStudent. */}
-                      {isStudent && <AssignmentsTab classId={selectedClassId} />}
-                      <LmsTab classId={selectedClassId} />
-                    </div>
-                  )}
+                  {activeTab === "learning-progress" &&
+                    (isParent && selectedChild ? (
+                      <DailyLearningProgressTab studentName={selectedChild.studentFullName} studentCode={selectedChild.studentCode} />
+                    ) : isStudent ? (
+                      <DailyLearningProgressTab studentName={viewerName} studentCode={currentUser?.studentId ? String(currentUser.studentId) : ""} />
+                    ) : (
+                      <ComingSoon title="Quá trình học tập" description="Không có hồ sơ Học sinh hoặc Phụ huynh liên kết với tài khoản này." />
+                    ))}
+                  {activeTab === "homework" &&
+                    (isStudent ? (
+                      // GET /students/me/exercises tra theo userId của chính người gọi — chỉ hoạt động cho Học sinh tự
+                      // đăng nhập, Phụ huynh gọi sẽ 404 "không có hồ sơ học sinh".
+                      <AssignmentsTab classId={selectedClassId} />
+                    ) : (
+                      <ComingSoon
+                        title="Bài tập về nhà (BTVN)"
+                        description="Đang chờ Backend mở API cho Phụ huynh xem bài tập của con (hiện chỉ Học sinh tự làm được)."
+                      />
+                    ))}
+                  {activeTab === "documents" && <DocumentLibraryTab classId={selectedClassId} />}
                   {activeTab === "grades" &&
                     (isParent && selectedChild ? (
                       <GradesTab studentId={selectedChild.studentId} classId={selectedClassId} />

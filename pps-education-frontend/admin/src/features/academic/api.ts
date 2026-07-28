@@ -694,9 +694,21 @@ export interface StudentCommentResponse {
   visibleToParentAt: string | null;
   rejectionReason: string | null;
   // Nhận xét Hàng ngày kiểu mới (chỉ có ý nghĩa khi commentType=DAILY) — bổ sung ngoài SDD gốc.
-  attitude: "POOR" | "AVERAGE" | "GOOD" | null;
+  // Attitude mở rộng từ 3 lên 6 mức 2026-07-27 (StudentComment.Attitude) — giữ nguyên tên hằng số
+  // POOR/AVERAGE/GOOD của 3 mức cũ, thêm WEAK/ABOVE_AVERAGE/FAIR.
+  attitude: "POOR" | "WEAK" | "AVERAGE" | "ABOVE_AVERAGE" | "FAIR" | "GOOD" | null;
   homeworkPreviousScore: string | null;
   homeworkNext: string | null;
+  // BTVN online/offline theo từng học sinh (V55, PR UC-21-giao-btvn-online-offline, 2026-07-28) —
+  // kênh ngữ pháp ONLINE (homeworkNextExerciseAssignmentId khác null) hoặc OFFLINE (dùng homeworkNext
+  // ở trên); kênh Video Ôn tập luôn ONLINE. grammarPreviousProgress/videoPreviousProgress tự tính từ
+  // exercise_attempts/review_video_progress|submissions của buổi TRƯỚC, không nhập tay được.
+  homeworkNextExerciseAssignmentId: number | null;
+  homeworkNextExerciseTitle: string | null;
+  homeworkNextReviewVideoSetId: number | null;
+  homeworkNextReviewVideoSetTitle: string | null;
+  grammarPreviousProgress: string | null;
+  videoPreviousProgress: string | null;
   note: string | null;
 }
 
@@ -714,6 +726,10 @@ export interface CreateStudentCommentRequest {
   attitude?: NonNullable<StudentCommentResponse["attitude"]>;
   homeworkPreviousScore?: string;
   homeworkNext?: string;
+  /** Kênh ngữ pháp ONLINE — để trống nếu dùng homeworkNext (OFFLINE) hoặc không giao gì. */
+  homeworkNextExerciseAssignmentId?: number;
+  /** Kênh Video Ôn tập (luôn ONLINE) — để trống nếu không giao. */
+  homeworkNextReviewVideoSetId?: number;
   note?: string;
 }
 
@@ -725,6 +741,8 @@ export interface UpdateStudentCommentRequest {
   attitude?: NonNullable<StudentCommentResponse["attitude"]>;
   homeworkPreviousScore?: string;
   homeworkNext?: string;
+  homeworkNextExerciseAssignmentId?: number;
+  homeworkNextReviewVideoSetId?: number;
   note?: string;
 }
 
