@@ -20,6 +20,8 @@ import vn.com.pps.education.domain.GradePeriod;
 import vn.com.pps.education.domain.ImportJob;
 import vn.com.pps.education.domain.Notification;
 import vn.com.pps.education.domain.ReviewVideo;
+import vn.com.pps.education.domain.ReviewVideoQuestion;
+import vn.com.pps.education.domain.ReviewVideoQuestionSubmission;
 import vn.com.pps.education.domain.ReviewVideoSet;
 import vn.com.pps.education.domain.SchoolClass;
 import vn.com.pps.education.domain.SiteManager;
@@ -51,9 +53,10 @@ import vn.com.pps.education.repository.ExerciseAttemptRepository;
 import vn.com.pps.education.repository.GradePeriodRepository;
 import vn.com.pps.education.repository.ImportJobRepository;
 import vn.com.pps.education.repository.ReviewVideoProgressRepository;
+import vn.com.pps.education.repository.ReviewVideoQuestionRepository;
+import vn.com.pps.education.repository.ReviewVideoQuestionSubmissionRepository;
 import vn.com.pps.education.repository.ReviewVideoRepository;
 import vn.com.pps.education.repository.ReviewVideoSetRepository;
-import vn.com.pps.education.repository.ReviewVideoSubmissionRepository;
 import vn.com.pps.education.repository.SchoolClassRepository;
 import vn.com.pps.education.repository.ClassTeacherRepository;
 import vn.com.pps.education.repository.SiteManagerRepository;
@@ -150,7 +153,8 @@ public class StudentCommentService {
     private final ReviewVideoSetRepository reviewVideoSetRepository;
     private final ReviewVideoRepository reviewVideoRepository;
     private final ReviewVideoProgressRepository reviewVideoProgressRepository;
-    private final ReviewVideoSubmissionRepository reviewVideoSubmissionRepository;
+    private final ReviewVideoQuestionRepository reviewVideoQuestionRepository;
+    private final ReviewVideoQuestionSubmissionRepository reviewVideoQuestionSubmissionRepository;
 
     public StudentCommentService(StudentCommentRepository studentCommentRepository,
                                   StudentCommentHistoryRepository studentCommentHistoryRepository,
@@ -175,7 +179,8 @@ public class StudentCommentService {
                                   ReviewVideoSetRepository reviewVideoSetRepository,
                                   ReviewVideoRepository reviewVideoRepository,
                                   ReviewVideoProgressRepository reviewVideoProgressRepository,
-                                  ReviewVideoSubmissionRepository reviewVideoSubmissionRepository) {
+                                  ReviewVideoQuestionRepository reviewVideoQuestionRepository,
+                                  ReviewVideoQuestionSubmissionRepository reviewVideoQuestionSubmissionRepository) {
         this.studentCommentRepository = studentCommentRepository;
         this.studentCommentHistoryRepository = studentCommentHistoryRepository;
         this.approvalFlowRepository = approvalFlowRepository;
@@ -199,7 +204,8 @@ public class StudentCommentService {
         this.reviewVideoSetRepository = reviewVideoSetRepository;
         this.reviewVideoRepository = reviewVideoRepository;
         this.reviewVideoProgressRepository = reviewVideoProgressRepository;
-        this.reviewVideoSubmissionRepository = reviewVideoSubmissionRepository;
+        this.reviewVideoQuestionRepository = reviewVideoQuestionRepository;
+        this.reviewVideoQuestionSubmissionRepository = reviewVideoQuestionSubmissionRepository;
     }
 
     // ===================== UC-21: Viết nhận xét (TEACHER) =====================
@@ -793,12 +799,27 @@ public class StudentCommentService {
                 .orElse(0);
     }
 
+    /** V57: video REFLEX nay có nhiều câu hỏi — % là trung bình % (điểm/điểm tối đa của attempt MỚI NHẤT) trên từng câu hỏi trong video. */
     private int reflexPercent(ReviewVideo v, Long studentId) {
-        return reviewVideoSubmissionRepository.findByReviewVideoIdAndStudentId(v.getId(), studentId)
-                .filter(s -> s.getScore() != null && s.getMaxScore() != null && s.getMaxScore().signum() > 0)
-                .map(s -> s.getScore().divide(s.getMaxScore(), 4, RoundingMode.HALF_UP)
-                        .multiply(BigDecimal.valueOf(100)).intValue())
-                .orElse(0);
+        List<ReviewVideoQuestion> questions = reviewVideoQuestionRepository.findByReviewVideoIdOrderByDisplayOrder(v.getId());
+        if (questions.isEmpty()) {
+            return 0;
+        }
+        int total = 0;
+        for (ReviewVideoQuestion q : questions) {
+            List<ReviewVideoQuestionSubmission> attempts = reviewVideoQuestionSubmissionRepository
+                    .findByReviewVideoQuestionIdAndStudentIdOrderByAttemptNumberDesc(q.getId(), studentId);
+            total += attempts.isEmpty() ? 0 : latestAttemptPercent(attempts.get(0));
+        }
+        return Math.round(total / (float) questions.size());
+    }
+
+    private int latestAttemptPercent(ReviewVideoQuestionSubmission latest) {
+        if (latest.getScore() == null || latest.getMaxScore() == null || latest.getMaxScore().signum() <= 0) {
+            return 0;
+        }
+        return latest.getScore().divide(latest.getMaxScore(), 4, RoundingMode.HALF_UP)
+                .multiply(BigDecimal.valueOf(100)).intValue();
     }
 
     /**

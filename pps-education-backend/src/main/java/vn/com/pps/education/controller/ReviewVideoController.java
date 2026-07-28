@@ -10,11 +10,13 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import vn.com.pps.education.dto.AddReviewVideoQuestionRequest;
 import vn.com.pps.education.dto.AddReviewVideoRequest;
 import vn.com.pps.education.dto.CreateReviewVideoSetRequest;
 import vn.com.pps.education.dto.GradeReviewVideoSubmissionRequest;
 import vn.com.pps.education.dto.ReportVideoProgressRequest;
 import vn.com.pps.education.dto.ReviewVideoProgressResponse;
+import vn.com.pps.education.dto.ReviewVideoQuestionResponse;
 import vn.com.pps.education.dto.ReviewVideoResponse;
 import vn.com.pps.education.dto.ReviewVideoSetResponse;
 import vn.com.pps.education.dto.ReviewVideoSetStatsResponse;
@@ -74,6 +76,19 @@ public class ReviewVideoController {
         return ResponseEntity.ok(reviewVideoService.listVideos(setId, actor.userId()));
     }
 
+    @PostMapping("/api/review-videos/{videoId}/questions")
+    public ResponseEntity<ReviewVideoQuestionResponse> addQuestion(@PathVariable Long videoId,
+                                                                      @Valid @RequestBody AddReviewVideoQuestionRequest request,
+                                                                      @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(reviewVideoService.addQuestion(videoId, request, actor.userId()));
+    }
+
+    @GetMapping("/api/review-videos/{videoId}/questions")
+    public ResponseEntity<List<ReviewVideoQuestionResponse>> listQuestions(@PathVariable Long videoId,
+                                                                             @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(reviewVideoService.listQuestions(videoId, actor.userId()));
+    }
+
     @PutMapping("/api/review-videos/{videoId}/progress")
     public ResponseEntity<ReviewVideoProgressResponse> reportProgress(@PathVariable Long videoId,
                                                                         @Valid @RequestBody ReportVideoProgressRequest request,
@@ -88,18 +103,24 @@ public class ReviewVideoController {
         return ResponseEntity.ok(reviewVideoService.getStats(setId, classId, actor.userId()));
     }
 
-    @PutMapping("/api/review-videos/{videoId}/submission")
-    public ResponseEntity<ReviewVideoSubmissionResponse> submitAudio(@PathVariable Long videoId,
+    @PutMapping("/api/review-video-questions/{questionId}/submissions")
+    public ResponseEntity<ReviewVideoSubmissionResponse> submitQuestionAudio(@PathVariable Long questionId,
                                                                         @Valid @RequestBody SubmitReviewVideoAudioRequest request,
                                                                         @AuthenticationPrincipal AuthenticatedUser actor) {
-        return ResponseEntity.ok(reviewVideoService.submitAudio(videoId, request, actor.userId()));
+        return ResponseEntity.ok(reviewVideoService.submitQuestionAudio(questionId, request, actor.userId()));
     }
 
-    @GetMapping("/api/review-videos/{videoId}/submission")
-    public ResponseEntity<ReviewVideoSubmissionResponse> getMySubmission(@PathVariable Long videoId,
+    @GetMapping("/api/review-video-questions/{questionId}/submissions/latest")
+    public ResponseEntity<ReviewVideoSubmissionResponse> getMyLatestSubmission(@PathVariable Long questionId,
                                                                             @AuthenticationPrincipal AuthenticatedUser actor) {
-        ReviewVideoSubmissionResponse response = reviewVideoService.getMySubmission(videoId, actor.userId());
+        ReviewVideoSubmissionResponse response = reviewVideoService.getMyLatestSubmission(questionId, actor.userId());
         return response == null ? ResponseEntity.noContent().build() : ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/api/review-video-questions/{questionId}/submissions/history")
+    public ResponseEntity<List<ReviewVideoSubmissionResponse>> listMySubmissionHistory(@PathVariable Long questionId,
+                                                                            @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(reviewVideoService.listMySubmissionHistory(questionId, actor.userId()));
     }
 
     @GetMapping("/api/review-video-sets/{setId}/submissions")
