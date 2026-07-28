@@ -67,6 +67,15 @@ public class Question {
     @Column(columnDefinition = "TEXT")
     private String explanation;
 
+    /**
+     * Chỉ có ý nghĩa khi questionType=FILL_IN_BLANK — so khớp CHÍNH XÁC
+     * (case-insensitive + trim) khi tự chấm, xem
+     * ExerciseAttemptService.isAnswerCorrect(). Bổ sung ngoài SDD gốc,
+     * đã xác nhận với người dùng — xem V54.
+     */
+    @Column(name = "correct_answer_text", columnDefinition = "TEXT")
+    private String correctAnswerText;
+
     @Column(name = "default_points", nullable = false, precision = 5, scale = 2)
     private BigDecimal defaultPoints = new BigDecimal("1.0");
 
