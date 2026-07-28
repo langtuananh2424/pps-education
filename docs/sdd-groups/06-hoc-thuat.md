@@ -1409,6 +1409,7 @@ erDiagram
         TEXT rejection_reason
         VARCHAR attitude
         VARCHAR homework_previous_score
+        VARCHAR homework_previous_speaking_score
         TEXT homework_next
         BIGINT homework_next_exercise_assignment_id FK
         BIGINT homework_next_review_video_set_id FK
@@ -1492,7 +1493,23 @@ a)  Bảng student_comments --- Nhận xét học sinh
                                                                 nhau
 
   homework_previous_score  VARCHAR(10)   NULL                  Chỉ DAILY (V50) — VD "80%",
-                                                                chấm BTVN buổi TRƯỚC buổi này
+                                                                chấm BTVN Ngữ pháp buổi TRƯỚC
+                                                                buổi này, nhập tay
+
+  homework_previous_       VARCHAR(10)   NULL                  Chỉ DAILY (V56, bổ sung ngoài
+  speaking_score                                               SDD gốc, đã xác nhận với người
+                                                                dùng 2026-07-28) — VD "80%",
+                                                                chấm BTVN Nghe-nói (Video Ôn
+                                                                tập) buổi TRƯỚC buổi này, nhập
+                                                                tay ĐỘC LẬP với
+                                                                homework_previous_score (Ngữ
+                                                                pháp); khác với
+                                                                videoPreviousProgress (response
+                                                                field, % tự động tính từ FK
+                                                                homework_next_review_video_
+                                                                set_id buổi trước, V55) — 2 cơ
+                                                                chế song song, không thay thế
+                                                                nhau
 
   homework_next            TEXT          NULL                  Chỉ DAILY (V50) — BTVN ngữ
                                                                 pháp OFFLINE giao cho buổi
@@ -1532,6 +1549,13 @@ exercise.total_points) hoặc `review_video_progress`/`review_video_
 submissions` (video, tuỳ video_type CONNECTION/REFLEX) — không lưu %
 trùng lặp, tính lại mỗi lần hiển thị/xuất Excel. Xem
 `StudentCommentService`.
+
+**Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (V56, 2026-07-28):**
+cột `homework_previous_speaking_score` tách "BTVN Nghe-nói buổi trước"
+khỏi "BTVN Ngữ pháp buổi trước" (`homework_previous_score`) — đối xứng
+với việc "BTVN buổi sau" đã tách 2 kênh ở V55, nhưng vẫn là text nhập
+tay (không FK, không dropdown), không liên quan tới
+`videoPreviousProgress` tự động tính.
 
 Có student_comments_history.
 

@@ -17,6 +17,7 @@ public record UpdateStudentCommentRequest(
         boolean isWarning,
         String attitude,
         String homeworkPreviousScore,
+        String homeworkPreviousSpeakingScore,
         String homeworkNext,
         Long homeworkNextExerciseAssignmentId,
         Long homeworkNextReviewVideoSetId,

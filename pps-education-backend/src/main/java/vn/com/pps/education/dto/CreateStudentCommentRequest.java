@@ -26,6 +26,7 @@ public record CreateStudentCommentRequest(
         boolean isWarning,
         String attitude,
         String homeworkPreviousScore,
+        String homeworkPreviousSpeakingScore,
         String homeworkNext,
         Long homeworkNextExerciseAssignmentId,
         Long homeworkNextReviewVideoSetId,

@@ -28,6 +28,7 @@ public record StudentCommentResponse(
         // bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-24.
         String attitude,
         String homeworkPreviousScore,
+        String homeworkPreviousSpeakingScore,
         String homeworkNext,
         Long homeworkNextExerciseAssignmentId,
         String homeworkNextExerciseTitle,
