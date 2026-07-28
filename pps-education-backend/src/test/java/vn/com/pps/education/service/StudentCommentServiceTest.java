@@ -15,24 +15,41 @@ import vn.com.pps.education.domain.SiteManager;
 import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.domain.UserRole;
+import vn.com.pps.education.dto.AddExerciseQuestionRequest;
+import vn.com.pps.education.dto.AddReviewVideoRequest;
+import vn.com.pps.education.dto.AssignExerciseRequest;
 import vn.com.pps.education.dto.AssignTeacherRequest;
 import vn.com.pps.education.dto.ClassResponse;
 import vn.com.pps.education.dto.ClassSessionResponse;
 import vn.com.pps.education.dto.CreateClassRequest;
 import vn.com.pps.education.dto.CreateClassSessionRequest;
 import vn.com.pps.education.dto.CreateCurriculumRequest;
+import vn.com.pps.education.dto.CreateExerciseRequest;
 import vn.com.pps.education.dto.CreateGradePeriodRequest;
+import vn.com.pps.education.dto.CreateQuestionBankRequest;
+import vn.com.pps.education.dto.CreateQuestionRequest;
+import vn.com.pps.education.dto.CreateReviewVideoSetRequest;
 import vn.com.pps.education.dto.CreateStudentCommentRequest;
 import vn.com.pps.education.dto.CurriculumResponse;
 import vn.com.pps.education.dto.DailyCommentImportResponse;
 import vn.com.pps.education.dto.DecideCommentsRequest;
 import vn.com.pps.education.dto.EnrollStudentRequest;
 import vn.com.pps.education.dto.EnterAttendanceMarkRequest;
+import vn.com.pps.education.dto.ExerciseAssignmentResponse;
+import vn.com.pps.education.dto.ExerciseResponse;
 import vn.com.pps.education.dto.GradePeriodResponse;
 import vn.com.pps.education.dto.MarkAttendanceRequest;
+import vn.com.pps.education.dto.QuestionBankResponse;
+import vn.com.pps.education.dto.QuestionChoiceRequest;
+import vn.com.pps.education.dto.QuestionResponse;
+import vn.com.pps.education.dto.ReportVideoProgressRequest;
+import vn.com.pps.education.dto.ReviewVideoResponse;
+import vn.com.pps.education.dto.ReviewVideoSetResponse;
+import vn.com.pps.education.dto.SaveAnswerRequest;
 import vn.com.pps.education.dto.StudentCommentResponse;
 import vn.com.pps.education.dto.SubmitCommentsRequest;
 import vn.com.pps.education.dto.UpdateCurriculumRequest;
+import vn.com.pps.education.dto.UpdateReviewVideoSetRequest;
 import vn.com.pps.education.dto.UpdateStudentCommentRequest;
 import vn.com.pps.education.exception.ApprovalAlreadyDecidedException;
 import vn.com.pps.education.exception.InvalidCommentContextException;
@@ -93,6 +110,18 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
 
     @Autowired
     private GradeService gradeService;
+
+    @Autowired
+    private ExerciseService exerciseService;
+
+    @Autowired
+    private ExerciseAttemptService exerciseAttemptService;
+
+    @Autowired
+    private QuestionBankService questionBankService;
+
+    @Autowired
+    private ReviewVideoService reviewVideoService;
 
     @Autowired
     private UserRepository userRepository;
@@ -189,7 +218,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
     void writeComment_UC21_MainFlow_savesMidTermCommentWithWarningFlag() {
         StudentCommentResponse comment = studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), "MID_TERM", null, gradePeriod.id(),
-                        LocalDate.now(), "Cần cải thiện kỹ năng nghe.", null, "CONCERN", true, null, null, null, null),
+                        LocalDate.now(), "Cần cải thiện kỹ năng nghe.", null, "CONCERN", true, null, null, null, null, null, null),
                 teacher.getId());
 
         assertThat(comment.status()).isEqualTo("DRAFT");
@@ -203,7 +232,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
     void writeComment_rejectsInvalidContextForDailyWithoutSession() {
         assertThatThrownBy(() -> studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), "DAILY", null, null,
-                        LocalDate.now(), "Nội dung", null, null, false, null, null, null, null),
+                        LocalDate.now(), "Nội dung", null, null, false, null, null, null, null, null, null),
                 teacher.getId()))
                 .isInstanceOf(InvalidCommentContextException.class);
     }
@@ -212,7 +241,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
     void writeComment_rejectsInvalidContextForMidTermWithSessionInsteadOfPeriod() {
         assertThatThrownBy(() -> studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), "MID_TERM", classSession.id(), null,
-                        LocalDate.now(), "Nội dung", null, null, false, null, null, null, null),
+                        LocalDate.now(), "Nội dung", null, null, false, null, null, null, null, null, null),
                 teacher.getId()))
                 .isInstanceOf(InvalidCommentContextException.class);
     }
@@ -236,7 +265,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
 
         assertThatThrownBy(() -> studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), "DAILY", oldSession.id(), null,
-                        oldSession.sessionDate(), "Nội dung", null, null, false, null, null, null, null),
+                        oldSession.sessionDate(), "Nội dung", null, null, false, null, null, null, null, null, null),
                 teacher.getId()))
                 .isInstanceOf(StudentCommentNotEditableException.class);
     }
@@ -251,7 +280,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
 
         StudentCommentResponse comment = studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), "DAILY", oldSession.id(), null,
-                        oldSession.sessionDate(), "Nội dung do quản lý nhập ngoài hạn.", null, null, false, null, null, null, null),
+                        oldSession.sessionDate(), "Nội dung do quản lý nhập ngoài hạn.", null, null, false, null, null, null, null, null, null),
                 siteManagerUser.getId());
 
         assertThat(comment.status()).isEqualTo("APPROVED");
@@ -263,7 +292,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         assertThat(comment.status()).isEqualTo("PENDING");
 
         StudentCommentResponse edited = studentCommentService.updateComment(comment.id(),
-                new UpdateStudentCommentRequest("Nội dung đã sửa.", null, null, false, "GOOD", "80%", "Unit 4", "Ghi chú"),
+                new UpdateStudentCommentRequest("Nội dung đã sửa.", null, null, false, "GOOD", "80%", "Unit 4", null, null, "Ghi chú"),
                 teacher.getId());
 
         assertThat(edited.status()).isEqualTo("PENDING");
@@ -314,7 +343,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         StudentCommentResponse comment1 = writeDailyComment(teacher, "Nhận xét HS1.");
         StudentCommentResponse comment2 = studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student2.getId(), "DAILY", classSession.id(), null,
-                        LocalDate.now(), "Nhận xét HS2.", null, null, false, null, null, null, null),
+                        LocalDate.now(), "Nhận xét HS2.", null, null, false, null, null, null, null, null, null),
                 teacher.getId());
 
         List<StudentCommentResponse> decided = studentCommentService.decideComments(
@@ -336,7 +365,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
 
         // DAILY: sửa lại sau khi bị từ chối -- tự động quay lại PENDING ngay (không còn bước submit riêng).
         StudentCommentResponse edited = studentCommentService.updateComment(comment.id(),
-                new UpdateStudentCommentRequest("Nội dung đã sửa lại.", null, null, false, null, null, null, null),
+                new UpdateStudentCommentRequest("Nội dung đã sửa lại.", null, null, false, null, null, null, null, null, null),
                 teacher.getId());
         assertThat(edited.status()).isEqualTo("PENDING");
     }
@@ -347,7 +376,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         studentCommentService.submitComments(schoolClass.id(), new SubmitCommentsRequest(List.of(comment.id())), teacher.getId());
 
         assertThatThrownBy(() -> studentCommentService.updateComment(comment.id(),
-                new UpdateStudentCommentRequest("Sửa khi đang chờ duyệt.", null, null, false, null, null, null, null),
+                new UpdateStudentCommentRequest("Sửa khi đang chờ duyệt.", null, null, false, null, null, null, null, null, null),
                 teacher.getId()))
                 .isInstanceOf(StudentCommentNotEditableException.class);
     }
@@ -390,7 +419,9 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
                 headers.add(header.getCell(i).getStringCellValue());
             }
             assertThat(headers).containsExactly("Ngày*", "Mã học viên*", "Họ và tên", "Điểm danh*",
-                    "Thái độ học tập", "BTVN buổi trước", "Nhận xét học sinh*", "BTVN buổi sau", "Ghi chú");
+                    "Thái độ học tập", "BTVN buổi trước", "Nhận xét học sinh*", "BTVN buổi sau", "Ghi chú",
+                    "% Ngữ pháp buổi trước (tự động)", "% Video buổi trước (tự động)",
+                    "Giao BTVN ngữ pháp ONLINE (buổi sau)", "Giao Video ôn tập (buổi sau)");
             assertThat(sheet.getLastRowNum()).isEqualTo(1);
             Row row = sheet.getRow(1);
             assertThat(row.getCell(1).getStringCellValue()).isEqualTo(student.getStudentCode());
@@ -541,6 +572,208 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         assertThat(studentCommentService.listComments(schoolClass.id(), student2.getId()).get(0).status()).isEqualTo("APPROVED");
     }
 
+    // ===================== V55: BTVN online/offline theo học sinh =====================
+
+    private record GrammarFixture(ExerciseAssignmentResponse assignment, QuestionResponse question) {}
+
+    private record VideoFixture(ReviewVideoSetResponse set, ReviewVideoResponse video) {}
+
+    private GrammarFixture createGrammarOnlineAssignment() {
+        QuestionBankResponse bank = questionBankService.createBank(
+                new CreateQuestionBankRequest(bankCode(), "Ngân hàng V55", null, null, null), teacher.getId());
+        QuestionResponse question = questionBankService.createQuestion(
+                new CreateQuestionRequest(bank.id(), "MULTIPLE_CHOICE", "GRAMMAR", "EASY", "She ___ to school.",
+                        null, null, null, null, null, new BigDecimal("1.0"), null,
+                        List.of(new QuestionChoiceRequest("A", "go", false, 1), new QuestionChoiceRequest("B", "goes", true, 2))),
+                teacher.getId());
+        ExerciseResponse exercise = exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "Bài ngữ pháp V55", schoolClass.curriculumId(), null,
+                        "ASSIGNED", new BigDecimal("1"), null, false, 1, true), teacher.getId());
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(question.id(), 1, new BigDecimal("1.0")), teacher.getId());
+        ExerciseAssignmentResponse assignment = exerciseService.assignExercise(exercise.id(),
+                new AssignExerciseRequest(schoolClass.id(), null, null, false, null, null), teacher.getId());
+        return new GrammarFixture(assignment, question);
+    }
+
+    private void answerGrammarCorrectly(GrammarFixture fixture) {
+        var attempt = exerciseAttemptService.startAttempt(fixture.assignment().exerciseId(), student.getUser().getId());
+        Long correctChoiceId = fixture.question().choices().stream().filter(c -> c.isCorrect()).findFirst().orElseThrow().id();
+        exerciseAttemptService.saveAnswer(attempt.id(),
+                new SaveAnswerRequest(fixture.question().id(), null, List.of(correctChoiceId), null), student.getUser().getId());
+        exerciseAttemptService.submitAttempt(attempt.id(), student.getUser().getId());
+    }
+
+    private VideoFixture createConnectionVideoAssignedToClass(int durationSeconds) {
+        ReviewVideoSetResponse set = reviewVideoService.createSet(
+                new CreateReviewVideoSetRequest(setCode(), "Video V55", "CONNECTION", null, schoolClass.id(), null, 1),
+                teacher.getId());
+        ReviewVideoSetResponse published = reviewVideoService.updateSet(set.id(),
+                new UpdateReviewVideoSetRequest(set.title(), null, 1, "PUBLISHED"), teacher.getId());
+        ReviewVideoResponse video = reviewVideoService.addVideo(set.id(),
+                new AddReviewVideoRequest("R2_VIDEO", "Video", "https://media.pps.edu.vn/lms/review-videos/video/v55.mp4",
+                        1_000_000L, durationSeconds, 1),
+                teacher.getId());
+        return new VideoFixture(published, video);
+    }
+
+    private void writeDailyCommentWithHomeworkNext(Student targetStudent, ClassSessionResponse session,
+                                                    Long grammarAssignmentId, Long videoSetId) {
+        studentCommentService.writeComment(schoolClass.id(),
+                new CreateStudentCommentRequest(targetStudent.getId(), "DAILY", session.id(), null,
+                        session.sessionDate(), "Nội dung buổi.", null, null, false, null, null, null,
+                        grammarAssignmentId, videoSetId, null),
+                teacher.getId());
+    }
+
+    private ClassSessionResponse nextSession() {
+        Room room2 = newRoom(siteOf(schoolClass));
+        return classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(classSession.sessionDate().plusDays(1), LocalTime.of(8, 0), LocalTime.of(9, 40),
+                        room2.getId(), teacher.getId(), "REGULAR"),
+                headAcademic.getId());
+    }
+
+    /** Tìm dòng đúng theo mã học sinh (thứ tự roster không đảm bảo) rồi đọc giá trị 1 cột. */
+    private String rowForStudent(byte[] excelBytes, String studentCode, int col) throws IOException {
+        try (var workbook = new XSSFWorkbook(new ByteArrayInputStream(excelBytes))) {
+            Sheet sheet = workbook.getSheetAt(0);
+            for (int r = 1; r <= sheet.getLastRowNum(); r++) {
+                Row row = sheet.getRow(r);
+                if (row != null && row.getCell(1) != null && studentCode.equals(row.getCell(1).getStringCellValue())) {
+                    var cell = row.getCell(col);
+                    return cell == null ? null : cell.getStringCellValue();
+                }
+            }
+            return null;
+        }
+    }
+
+    private List<String> dropdownValues(byte[] excelBytes, int col) throws IOException {
+        try (var workbook = new XSSFWorkbook(new ByteArrayInputStream(excelBytes))) {
+            for (var validation : workbook.getSheetAt(0).getDataValidations()) {
+                if (validation.getRegions().getCellRangeAddress(0).getFirstColumn() == col) {
+                    return List.of(validation.getValidationConstraint().getExplicitListValues());
+                }
+            }
+            return List.of();
+        }
+    }
+
+    @Test
+    void buildTemplate_V55_MainFlow_showsGrammarOnlinePercentFromPreviousSessionAttempt() throws IOException {
+        GrammarFixture fixture = createGrammarOnlineAssignment();
+        writeDailyCommentWithHomeworkNext(student, classSession, fixture.assignment().id(), null);
+        answerGrammarCorrectly(fixture);
+        ClassSessionResponse session2 = nextSession();
+
+        byte[] template = studentCommentService.buildTemplate(session2.id(), teacher.getId());
+
+        assertThat(rowForStudent(template, student.getStudentCode(), 9)).isEqualTo("100%");
+    }
+
+    @Test
+    void buildTemplate_V55_MainFlow_showsNotYetDoneForAssignedButUnattemptedGrammar() throws IOException {
+        GrammarFixture fixture = createGrammarOnlineAssignment();
+        writeDailyCommentWithHomeworkNext(student, classSession, fixture.assignment().id(), null);
+        ClassSessionResponse session2 = nextSession();
+
+        byte[] template = studentCommentService.buildTemplate(session2.id(), teacher.getId());
+
+        assertThat(rowForStudent(template, student.getStudentCode(), 9)).isEqualTo("Chưa làm bài");
+    }
+
+    @Test
+    void buildTemplate_V55_MainFlow_showsVideoWatchPercentFromPreviousSessionAssignment() throws IOException {
+        VideoFixture fixture = createConnectionVideoAssignedToClass(100);
+        writeDailyCommentWithHomeworkNext(student, classSession, null, fixture.set().id());
+        reviewVideoService.reportProgress(fixture.video().id(), new ReportVideoProgressRequest(80), student.getUser().getId());
+        ClassSessionResponse session2 = nextSession();
+
+        byte[] template = studentCommentService.buildTemplate(session2.id(), teacher.getId());
+
+        assertThat(rowForStudent(template, student.getStudentCode(), 10)).isEqualTo("80%");
+    }
+
+    /** Homework theo TỪNG học sinh (không theo cả lớp) — học sinh không được giao thì cột tự động để trống, không phải "Chưa làm bài". */
+    @Test
+    void buildTemplate_V55_MainFlow_leavesAutoColumnNullForStudentNotAssigned() throws IOException {
+        GrammarFixture fixture = createGrammarOnlineAssignment();
+        Student student2 = newStudent();
+        classService.enroll(schoolClass.id(), new EnrollStudentRequest(student2.getId(), LocalDate.now()), headAcademic.getId());
+        writeDailyCommentWithHomeworkNext(student, classSession, fixture.assignment().id(), null);
+        writeDailyCommentWithHomeworkNext(student2, classSession, null, null);
+        ClassSessionResponse session2 = nextSession();
+
+        byte[] template = studentCommentService.buildTemplate(session2.id(), teacher.getId());
+
+        assertThat(rowForStudent(template, student.getStudentCode(), 9)).isEqualTo("Chưa làm bài");
+        assertThat(rowForStudent(template, student2.getStudentCode(), 9)).isNull();
+    }
+
+    @Test
+    void buildTemplate_V55_MainFlow_dropdownOnlyListsAssignmentsForThisClass() throws IOException {
+        GrammarFixture fixture = createGrammarOnlineAssignment();
+        VideoFixture video = createConnectionVideoAssignedToClass(100);
+
+        byte[] template = studentCommentService.buildTemplate(classSession.id(), teacher.getId());
+
+        assertThat(dropdownValues(template, 11))
+                .containsExactly(fixture.assignment().exerciseTitle() + " (" + fixture.assignment().exerciseCode() + ")");
+        assertThat(dropdownValues(template, 12))
+                .containsExactly(video.set().title() + " (" + video.set().code() + ")");
+    }
+
+    @Test
+    void importComments_V55_MainFlow_resolvesGrammarAssignmentByUuid() throws IOException {
+        GrammarFixture fixture = createGrammarOnlineAssignment();
+        studentAttendanceService.markAttendance(classSession.id(),
+                new MarkAttendanceRequest("SESSION_LEVEL", List.of(
+                        new EnterAttendanceMarkRequest(student.getId(), "PRESENT", null, null, null))),
+                teacher.getId());
+        byte[] file = buildCommentWorkbook(new String[][]{
+                {classSession.sessionDate().toString(), student.getStudentCode(), "", "Có mặt", "", "", "Nội dung.", "", "",
+                        "", "", fixture.assignment().uuid().toString(), ""}
+        });
+
+        DailyCommentImportResponse result = studentCommentService.importComments(classSession.id(),
+                new MockMultipartFile("file", "nhanxet.xlsx", "application/vnd.openxmlformats", file), teacher.getId());
+
+        assertThat(result.status()).isEqualTo("COMPLETED");
+        StudentCommentResponse saved = studentCommentService.listComments(schoolClass.id(), student.getId()).get(0);
+        assertThat(saved.homeworkNextExerciseAssignmentId()).isEqualTo(fixture.assignment().id());
+    }
+
+    @Test
+    void importComments_V55_A_rejectsUnmatchedGrammarSelectionWithRowError() throws IOException {
+        studentAttendanceService.markAttendance(classSession.id(),
+                new MarkAttendanceRequest("SESSION_LEVEL", List.of(
+                        new EnterAttendanceMarkRequest(student.getId(), "PRESENT", null, null, null))),
+                teacher.getId());
+        byte[] file = buildCommentWorkbook(new String[][]{
+                {classSession.sessionDate().toString(), student.getStudentCode(), "", "Có mặt", "", "", "Nội dung.", "", "",
+                        "", "", "Bài không tồn tại (XX)", ""}
+        });
+
+        DailyCommentImportResponse result = studentCommentService.importComments(classSession.id(),
+                new MockMultipartFile("file", "nhanxet.xlsx", "application/vnd.openxmlformats", file), teacher.getId());
+
+        assertThat(result.status()).isEqualTo("PARTIAL_SUCCESS");
+        assertThat(result.failedRows()).isEqualTo(1);
+        assertThat(result.errorSummary().get(0).get("reason").toString()).contains("Không khớp bài tập ngữ pháp");
+    }
+
+    private String exerciseCode() {
+        return "EX-" + SEQ.incrementAndGet();
+    }
+
+    private String bankCode() {
+        return "QB-" + SEQ.incrementAndGet();
+    }
+
+    private String setCode() {
+        return "RVS-" + SEQ.incrementAndGet();
+    }
+
     private byte[] buildCommentWorkbook(String[][] rows) throws IOException {
         try (XSSFWorkbook workbook = new XSSFWorkbook()) {
             Sheet sheet = workbook.createSheet("NhanXet");
@@ -565,14 +798,14 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
     private StudentCommentResponse writeDailyComment(User actor, String content) {
         return studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), "DAILY", classSession.id(), null,
-                        LocalDate.now(), content, null, null, false, null, null, null, null),
+                        LocalDate.now(), content, null, null, false, null, null, null, null, null, null),
                 actor.getId());
     }
 
     private StudentCommentResponse writeMidTermComment() {
         return studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), "MID_TERM", null, gradePeriod.id(),
-                        LocalDate.now(), "Nội dung nhận xét giữa kỳ.", null, null, false, null, null, null, null),
+                        LocalDate.now(), "Nội dung nhận xét giữa kỳ.", null, null, false, null, null, null, null, null, null),
                 teacher.getId());
     }
 

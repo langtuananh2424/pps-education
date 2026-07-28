@@ -14,6 +14,7 @@ public record QuestionResponse(
         String imageUrl,
         String referencePassage,
         String explanation,
+        String correctAnswerText,
         BigDecimal defaultPoints,
         List<String> tags,
         String status,

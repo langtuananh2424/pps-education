@@ -309,7 +309,8 @@ public class ExerciseService {
 
     private ExerciseAssignmentResponse toResponse(ExerciseAssignment a) {
         return new ExerciseAssignmentResponse(
-                a.getId(), a.getExercise().getId(), a.getSchoolClass().getId(), a.getAssignedBy().getId(),
+                a.getId(), a.getUuid(), a.getExercise().getId(), a.getExercise().getTitle(), a.getExercise().getCode(),
+                a.getSchoolClass().getId(), a.getAssignedBy().getId(),
                 a.getAvailableFrom(), a.getDueAt(), a.isLateSubmissionAllowed(), a.getLatePenaltyPercent(),
                 a.getTargetStudentIds(), a.getStatus().name());
     }

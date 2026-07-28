@@ -10,7 +10,9 @@ import java.util.List;
 /**
  * UC-40 Main Flow bước 1: soạn câu hỏi mới vào ngân hàng. choices bắt
  * buộc khi questionType=MULTIPLE_CHOICE/MULTIPLE_ANSWER/TRUE_FALSE, để
- * trống với ESSAY/SPEAKING/FILL_IN_BLANK.
+ * trống với ESSAY/SPEAKING. correctAnswerText dùng cho FILL_IN_BLANK (so
+ * khớp chính xác khi tự chấm — xem ExerciseAttemptService), để trống với
+ * các loại khác.
  */
 public record CreateQuestionRequest(
         @NotNull Long questionBankId,
@@ -22,6 +24,7 @@ public record CreateQuestionRequest(
         String imageUrl,
         String referencePassage,
         String explanation,
+        String correctAnswerText,
         BigDecimal defaultPoints,
         List<String> tags,
         @Valid List<QuestionChoiceRequest> choices

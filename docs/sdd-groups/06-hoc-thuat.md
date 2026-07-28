@@ -1410,6 +1410,8 @@ erDiagram
         VARCHAR attitude
         VARCHAR homework_previous_score
         TEXT homework_next
+        BIGINT homework_next_exercise_assignment_id FK
+        BIGINT homework_next_review_video_set_id FK
         TEXT note
     }
 ```
@@ -1492,12 +1494,44 @@ a)  Bảng student_comments --- Nhận xét học sinh
   homework_previous_score  VARCHAR(10)   NULL                  Chỉ DAILY (V50) — VD "80%",
                                                                 chấm BTVN buổi TRƯỚC buổi này
 
-  homework_next            TEXT          NULL                  Chỉ DAILY (V50) — BTVN giao
-                                                                cho buổi SAU, hạn nộp ngầm
-                                                                hiểu là ngày buổi học kế tiếp
+  homework_next            TEXT          NULL                  Chỉ DAILY (V50) — BTVN ngữ
+                                                                pháp OFFLINE giao cho buổi
+                                                                SAU (kênh ONLINE dùng
+                                                                homework_next_exercise_
+                                                                assignment_id, V55), hạn nộp
+                                                                ngầm hiểu là ngày buổi học kế
+                                                                tiếp
+
+  homework_next_           BIGINT        FK →                  Chỉ DAILY (V55, bổ sung ngoài
+  exercise_assignment_id                 exercise_             SDD gốc, đã xác nhận với
+                                          assignments(id),      người dùng 2026-07-28) — BTVN
+                                          NULL                  ngữ pháp ONLINE giao cho buổi
+                                                                SAU; NULL = kênh này đang
+                                                                OFFLINE (dùng homework_next)
+                                                                hoặc không giao cho học sinh
+                                                                này
+
+  homework_next_review_    BIGINT        FK →                  Chỉ DAILY (V55, bổ sung ngoài
+  video_set_id                           review_video_         SDD gốc, đã xác nhận với
+                                          sets(id), NULL        người dùng 2026-07-28) — Video
+                                                                Ôn tập (Kết nối/Phản xạ) giao
+                                                                cho buổi SAU, luôn ONLINE;
+                                                                NULL = không giao video cho
+                                                                học sinh này
 
   note                     TEXT          NULL                  Chỉ DAILY (V50) — ghi chú thêm
   -------------------------------------------------------------------------------------------
+
+**Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (V55, 2026-07-28):**
+2 cột `homework_next_exercise_assignment_id`/`homework_next_review_video_set_id`
+theo TỪNG học sinh (không theo cả lớp) để có thể không giao bài cho 1 số
+học sinh cụ thể. Dòng của buổi N lưu "sẽ giao gì cho buổi N+1"; % buổi
+trước của buổi N+1 tính NGƯỢC lại từ FK trên dòng buổi N của CHÍNH học
+sinh đó — join `exercise_attempts` (ngữ pháp, % = total_score/
+exercise.total_points) hoặc `review_video_progress`/`review_video_
+submissions` (video, tuỳ video_type CONNECTION/REFLEX) — không lưu %
+trùng lặp, tính lại mỗi lần hiển thị/xuất Excel. Xem
+`StudentCommentService`.
 
 Có student_comments_history.
 

@@ -438,6 +438,7 @@ erDiagram
         VARCHAR audio_url
         TEXT reference_passage
         TEXT explanation
+        TEXT correct_answer_text
         DECIMAL default_points
         JSONB tags
         VARCHAR status
@@ -593,6 +594,21 @@ b)  Bảng questions --- Câu hỏi
 
   explanation         TEXT             NULL                   
 
+  correct_answer_text TEXT             NULL                  Chỉ dùng khi
+                                                             question_type=
+                                                             FILL_IN_BLANK
+                                                             — so khớp
+                                                             CHÍNH XÁC
+                                                             (case-
+                                                             insensitive +
+                                                             trim) khi tự
+                                                             chấm (V54, bổ
+                                                             sung ngoài SDD
+                                                             gốc, đã xác
+                                                             nhận với người
+                                                             dùng
+                                                             2026-07-27)
+
   default_points      DECIMAL(5,2)     NOT NULL, DEFAULT 1.0 
 
   tags                JSONB            NULL                   
@@ -605,7 +621,8 @@ b)  Bảng questions --- Câu hỏi
 
 Có questions_history.\
 Bảo vệ khi sửa: Nếu câu hỏi đã có student_answers, không cho sửa nội
-dung/đáp án đúng. Tạo bản mới, archive bản cũ.
+dung/đáp án đúng (bao gồm cả `correct_answer_text`). Tạo bản mới, archive
+bản cũ.
 
 **Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (2026-07-21, cập nhật
 2026-07-22):** `audio_url`/`image_url` trước đây quy ước "đã upload sẵn
@@ -701,6 +718,18 @@ nhưng trước đây chưa được `ExerciseAttemptService` đọc/áp dụng 
 `show_correct_answers=true`, response `student_answers` trả thêm đáp án
 đúng (correct_choice_ids) và giải thích (questions.explanation, cột đã
 có sẵn nhưng trước đây cũng chưa từng được dùng).
+
+**Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (V54, 2026-07-27):**
+FILL_IN_BLANK giờ tự chấm được (thêm vào `AUTO_GRADABLE_TYPES` của
+`ExerciseAttemptService`, so khớp CHÍNH XÁC case-insensitive + trim với
+`correct_answer_text`) — trước đây luôn rơi vào hàng chờ Giáo viên chấm
+tay giống ESSAY/SPEAKING. Đồng thời thu hẹp phạm vi hiển thị
+`explanation`: câu **tự chấm được** (MULTIPLE_CHOICE/MULTIPLE_ANSWER/
+TRUE_FALSE/FILL_IN_BLANK) chỉ trả `explanation` khi học sinh trả lời
+SAI; câu **chấm tay** (ESSAY/SPEAKING) giữ nguyên hành vi cũ — luôn trả
+`explanation` khi `revealAnswer=true` (vì `ManualGradingService` không
+set cờ `student_answers.is_correct`, không có tín hiệu đúng/sai đáng tin
+cậy để lọc theo).
 
 e)  Bảng exercise_questions --- Câu hỏi thuộc đề
 

@@ -138,7 +138,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
         markQuestionAsAnswered(question.id());
 
         assertThatThrownBy(() -> questionBankService.updateQuestion(question.id(),
-                new UpdateQuestionRequest("Nội dung mới", null, null, null, null, null, null, null, null), teacher.getId()))
+                new UpdateQuestionRequest("Nội dung mới", null, null, null, null, null, null, null, null, null), teacher.getId()))
                 .isInstanceOf(QuestionLockedException.class);
     }
 
@@ -149,8 +149,8 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
 
         QuestionResponse archived = questionBankService.updateQuestion(question.id(),
                 new UpdateQuestionRequest(question.content(), question.audioUrl(), question.imageUrl(),
-                        question.referencePassage(), question.explanation(), question.defaultPoints(), question.tags(),
-                        null, "ARCHIVED"),
+                        question.referencePassage(), question.explanation(), question.correctAnswerText(), question.defaultPoints(),
+                        question.tags(), null, "ARCHIVED"),
                 teacher.getId());
 
         assertThat(archived.status()).isEqualTo("ARCHIVED");
@@ -174,7 +174,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
         QuestionResponse mc = createMcQuestion();
         QuestionResponse essay = questionBankService.createQuestion(
                 new CreateQuestionRequest(bank.id(), "ESSAY", "WRITING", "MEDIUM", "Viết đoạn văn 50 từ.",
-                        null, null, null, null, new BigDecimal("2.0"), null, null),
+                        null, null, null, null, null, new BigDecimal("2.0"), null, null),
                 teacher.getId());
 
         ExerciseResponse exercise = exerciseService.createExercise(
@@ -354,7 +354,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
         Student student = enrollStudent();
         QuestionResponse essay = questionBankService.createQuestion(
                 new CreateQuestionRequest(bank.id(), "ESSAY", "WRITING", "MEDIUM", "Viết đoạn văn 50 từ.",
-                        null, null, null, null, new BigDecimal("2.0"), null, null), teacher.getId());
+                        null, null, null, null, null, new BigDecimal("2.0"), null, null), teacher.getId());
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Đề tự luận", activeCurriculum.id(), null, "SELF_PRACTICE",
                         new BigDecimal("2"), null, true, null, true), teacher.getId());
@@ -371,7 +371,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
     private QuestionResponse createMcQuestion() {
         return questionBankService.createQuestion(
                 new CreateQuestionRequest(bank.id(), "MULTIPLE_CHOICE", "GRAMMAR", "EASY",
-                        "She ___ to school every day.", null, null, null, null, new BigDecimal("1.0"), null,
+                        "She ___ to school every day.", null, null, null, null, null, new BigDecimal("1.0"), null,
                         List.of(
                                 new QuestionChoiceRequest("A", "go", false, 1),
                                 new QuestionChoiceRequest("B", "goes", true, 2))),

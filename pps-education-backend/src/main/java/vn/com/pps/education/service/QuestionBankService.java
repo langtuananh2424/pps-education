@@ -136,6 +136,7 @@ public class QuestionBankService {
         question.setImageUrl(request.imageUrl());
         question.setReferencePassage(request.referencePassage());
         question.setExplanation(request.explanation());
+        question.setCorrectAnswerText(request.correctAnswerText());
         if (request.defaultPoints() != null) {
             question.setDefaultPoints(request.defaultPoints());
         }
@@ -159,7 +160,8 @@ public class QuestionBankService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy câu hỏi id=" + id));
         User actor = getUserOrThrow(actorUserId);
 
-        boolean changesContent = !Objects.equals(question.getContent(), request.content()) || request.choices() != null;
+        boolean changesContent = !Objects.equals(question.getContent(), request.content()) || request.choices() != null
+                || !Objects.equals(question.getCorrectAnswerText(), request.correctAnswerText());
         if (changesContent && studentAnswerRepository.existsByQuestionId(id)) {
             throw new QuestionLockedException(
                     "Câu hỏi id=" + id + " đã có học sinh trả lời — không sửa được nội dung/đáp án. Hãy tạo câu hỏi mới rồi archive câu này.");
@@ -170,6 +172,7 @@ public class QuestionBankService {
         question.setImageUrl(request.imageUrl());
         question.setReferencePassage(request.referencePassage());
         question.setExplanation(request.explanation());
+        question.setCorrectAnswerText(request.correctAnswerText());
         if (request.defaultPoints() != null) {
             question.setDefaultPoints(request.defaultPoints());
         }
@@ -260,6 +263,7 @@ public class QuestionBankService {
                 q.getSkill() == null ? null : q.getSkill().name(),
                 q.getDifficulty() == null ? null : q.getDifficulty().name(),
                 q.getContent(), q.getAudioUrl(), q.getImageUrl(), q.getReferencePassage(), q.getExplanation(),
+                q.getCorrectAnswerText(),
                 q.getDefaultPoints(), q.getTags(), q.getStatus().name(), q.getCreatedBy().getId(), choices);
     }
 

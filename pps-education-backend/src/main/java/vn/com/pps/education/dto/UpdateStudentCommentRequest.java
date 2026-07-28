@@ -18,5 +18,7 @@ public record UpdateStudentCommentRequest(
         String attitude,
         String homeworkPreviousScore,
         String homeworkNext,
+        Long homeworkNextExerciseAssignmentId,
+        Long homeworkNextReviewVideoSetId,
         String note
 ) {}
