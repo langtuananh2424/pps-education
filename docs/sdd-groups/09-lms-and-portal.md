@@ -301,66 +301,107 @@ xạ + Giáo viên chấm điểm (MỚI HOÀN TOÀN, UC-23b, 2026-07-27, bổ s
 ngoài SDD gốc đã xác nhận với người dùng — thiếu sót thật sự trong thiết
 kế gốc của UC-23/23a)
 
+  ------------------------------------------------------------------------
+  **Cột**                 **Kiểu**       **Ràng buộc**    **Ghi chú**
+  ----------------------- -------------- ---------------- -----------------
+  id                      BIGSERIAL      PK
+
+  review_video_id         BIGINT         FK →             Chỉ hợp lệ khi
+                                          review_videos    video thuộc bộ
+                                          (id), NOT NULL   có video_type=
+                                                            REFLEX — kiểm
+                                                            tra ở Service
+
+  timestamp_seconds       INT            NOT NULL         Mốc giây trong
+                                                            video — FE
+                                                            seek video tới
+                                                            đây khi HS bấm
+                                                            câu hỏi
+
+  prompt                  VARCHAR(500)   NULL             Nội dung câu
+                                                            hỏi (tuỳ chọn)
+
+  max_recording_seconds   INT            NOT NULL         Thời lượng ghi
+                                                            âm tối đa —
+                                                            RIÊNG từng câu
+                                                            hỏi (đã xác
+                                                            nhận, không
+                                                            dùng chung 1
+                                                            giá trị/video)
+
+  max_attempts            INT            NULL             NULL = không
+                                                            giới hạn số
+                                                            lần nộp lại —
+                                                            RIÊNG từng
+                                                            câu hỏi
+
+  display_order           INT            NOT NULL
+
+  created_at, updated_at  TIMESTAMPTZ    NOT NULL         BaseAuditEntity
+  ------------------------------------------------------------------------
+
+e)  Bảng review_video_question_submissions --- Audio Học sinh nộp cho 1
+câu hỏi + Giáo viên chấm điểm (thay thế review_video_submissions cũ, V57)
+
   --------------------------------------------------------------------------
-  **Cột**               **Kiểu**                **Ràng buộc**  **Ghi chú**
-  --------------------- ----------------------- -------------- -------------
-  id                    BIGSERIAL               PK
+  **Cột**                  **Kiểu**       **Ràng buộc**     **Ghi chú**
+  ------------------------- -------------- ----------------- -----------------
+  id                        BIGSERIAL      PK
 
-  review_video_id       BIGINT                  FK →           Chỉ hợp lệ
-                                                 review_videos  khi video
-                                                 (id), NOT NULL thuộc bộ có
-                                                                video_type=
-                                                                REFLEX —
-                                                                kiểm tra ở
-                                                                Service,
-                                                                không CHECK
-                                                                trên bảng
-                                                                này (phải
-                                                                join qua
-                                                                review_video_
-                                                                sets)
+  review_video_question_id  BIGINT         FK →              
+                                            review_video_
+                                            questions(id),
+                                            NOT NULL
 
-  student_id            BIGINT                  FK →
-                                                 students(id),
-                                                 NOT NULL
+  student_id                 BIGINT         FK →
+                                            students(id),
+                                            NOT NULL
 
-  audio_url              VARCHAR(1000)           NOT NULL       URL CDN
+  attempt_number              INT            NOT NULL          Tăng dần mỗi
+                                                                lần nộp lại
+                                                                — GIỮ LỊCH
+                                                                SỬ (khác
+                                                                hẳn cơ chế
+                                                                ghi đè cũ)
+
+  audio_url                    VARCHAR(1000)  NOT NULL          URL CDN
                                                                 (Cloudflare
                                                                 R2, module
                                                                 REVIEW_VIDEO_
-                                                                SUBMISSION —
-                                                                tách folder
-                                                                với
-                                                                REVIEW_VIDEO
-                                                                của GV)
+                                                                SUBMISSION)
 
-  submitted_at           TIMESTAMPTZ             NOT NULL       Cập nhật lại
-                                                                mỗi lần nộp
-                                                                lại
-                                                                (resubmit)
+  submitted_at                  TIMESTAMPTZ    NOT NULL
 
-  score                  DECIMAL(5,2)            NULL           NULL = chưa
-                                                                chấm
+  score                          DECIMAL(5,2)   NULL              NULL = chưa
+                                                                chấm — attempt
+                                                                mới KHÔNG kế
+                                                                thừa điểm
+                                                                attempt trước
 
-  max_score               DECIMAL(5,2)            NULL
+  max_score                       DECIMAL(5,2)   NULL
 
-  feedback                TEXT                    NULL
+  feedback                         TEXT           NULL
 
-  graded_by               BIGINT                  FK →
-                                                  users(id),
-                                                  NULL
+  graded_by                         BIGINT         FK → users(id),
+                                                    NULL
 
-  graded_at               TIMESTAMPTZ             NULL
+  graded_at                         TIMESTAMPTZ    NULL
 
-  created_at,             TIMESTAMPTZ             NOT NULL       BaseAuditEntity
-  updated_at
+  created_at, updated_at             TIMESTAMPTZ    NOT NULL          BaseAuditEntity
   --------------------------------------------------------------------------
 
-Ràng buộc: UNIQUE (review_video_id, student_id) — 1 dòng/học sinh/video,
-upsert khi nộp lại (giống review_video_progress). Nộp lại GHI ĐÈ audio_url
-và XOÁ SẠCH score/max_score/feedback/graded_by/graded_at (Service tự xoá)
-vì điểm cũ chấm cho nội dung audio đã không còn tồn tại — không giữ lịch
-sử các lần nộp trước.
+Ràng buộc: UNIQUE (review_video_question_id, student_id, attempt_number)
+— GIỮ LỊCH SỬ mọi lần nộp (khác hẳn UNIQUE(review_video_id, student_id)
++ upsert-ghi-đè của thiết kế cũ). Vượt quá max_attempts của câu hỏi →
+từ chối tạo attempt mới (RetakeNotAllowedException, tái dùng nguyên cơ
+chế giới hạn lượt làm lại của Exercise/UC-24/27). Giáo viên chấm điểm
+mặc định trên attempt MỚI NHẤT (listSubmissionsForTeacher chỉ trả 1
+dòng/câu hỏi/học sinh — attempt có attempt_number lớn nhất).
+
+Migration V57 (DROP review_video_submissions cũ sau khi migrate dữ liệu:
+mỗi video REFLEX có sẵn → 1 câu hỏi mặc định timestamp=0 phủ cả video,
+submission cũ → attempt_number=1 của câu hỏi đó — không mất dữ liệu học
+sinh đã nộp trước khi tái cấu trúc).
 
 KHÔNG tái dùng grade_entries/GradeEntry (gắn sổ điểm chính thức, luồng
 DRAFT→PROVISIONAL_PUBLISHED→APPEAL→OFFICIAL quá nặng cho audio ôn tập tự

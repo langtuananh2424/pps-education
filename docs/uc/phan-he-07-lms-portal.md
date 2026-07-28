@@ -180,16 +180,19 @@ UC-23b: Nộp & Chấm điểm Audio cho Video Phản xạ
 | **Tác nhân**    | Học sinh (nộp audio), Giáo viên (chấm điểm)        |
 +-----------------+----------------------------------------------------+
 | **Mô tả tóm     | Bổ sung ngoài SDD gốc, đã xác nhận với người dùng  |
-| tắt**           | (2026-07-27) — thiếu sót thật sự trong thiết kế    |
-|                 | gốc của UC-23/23a: video loại "Video phản xạ"      |
-|                 | (REFLEX) trước đây chỉ theo dõi % xem, chưa có nơi |
-|                 | để Học sinh ghi âm/nộp audio trả lời. Học sinh nộp |
-|                 | (và nộp lại) audio cho từng video REFLEX; Giáo     |
-|                 | viên chấm điểm + nhận xét.                         |
+| tắt**           | (2026-07-27, cập nhật 2026-07-28 — V57, THAY THẾ   |
+|                 | thiết kế UC-23b gốc) — video loại "Video phản xạ"  |
+|                 | (REFLEX) chia thành NHIỀU câu hỏi, mỗi câu gắn 1    |
+|                 | mốc thời gian trong video (timestamp), thời lượng  |
+|                 | ghi âm tối đa và số lần nộp lại tối đa RIÊNG theo   |
+|                 | từng câu hỏi. Học sinh nộp audio cho TỪNG câu hỏi,  |
+|                 | nộp lại GIỮ LỊCH SỬ (không ghi đè); Giáo viên chấm  |
+|                 | điểm + nhận xét cho attempt mới nhất mỗi câu.       |
 +-----------------+----------------------------------------------------+
-| **Sự kiện kích  | Học sinh xem xong 1 video Phản xạ, ghi âm câu trả  |
-| hoạt**          | lời; Giáo viên mở danh sách bài audio đã nộp của 1 |
-|                 | bộ + lớp để chấm.                                  |
+| **Sự kiện kích  | Giáo viên soạn câu hỏi khi tạo video Phản xạ; Học   |
+| hoạt**          | sinh bấm vào 1 câu hỏi, ghi âm câu trả lời; Giáo    |
+|                 | viên mở danh sách bài audio đã nộp của 1 bộ + lớp   |
+|                 | để chấm.                                            |
 +-----------------+----------------------------------------------------+
 | **Điều kiện     | -   Học sinh đã đăng nhập, có class_enrollment     |
 | tiên quyết      |     ACTIVE tại lớp đang xem, bộ video đã PUBLISHED |
@@ -198,32 +201,36 @@ UC-23b: Nộp & Chấm điểm Audio cho Video Phản xạ
 |                 | -   Giáo viên được phân công giảng dạy lớp/khung   |
 |                 |     chương trình sở hữu bộ video đó.               |
 +-----------------+----------------------------------------------------+
-| **Luồng sự kiện | 1.  Học sinh ghi âm (hoặc chọn file có sẵn), upload|
-| chính (Main     |     qua API upload media chung, gửi audioUrl lên   |
-| Flow)**         |     hệ thống — hệ thống lưu lại (nộp lần đầu) hoặc |
-|                 |     GHI ĐÈ bản trước (nộp lại/resubmit).           |
+| **Luồng sự kiện | 1.  Giáo viên soạn video REFLEX, thêm từng câu hỏi |
+| chính (Main     |     kèm mốc thời gian (timestampSeconds), thời     |
+| Flow)**         |     lượng ghi âm tối đa (maxRecordingSeconds) và    |
+|                 |     số lần cho phép nộp lại (maxAttempts, để trống  |
+|                 |     = không giới hạn) — riêng cho câu hỏi đó.       |
 |                 |                                                    |
-|                 | 2.  Nếu là nộp lại đè lên 1 bài đã được chấm, hệ   |
-|                 |     thống XOÁ điểm/nhận xét/người chấm cũ — audio  |
-|                 |     mới chưa có điểm, chờ Giáo viên chấm lại.      |
+|                 | 2.  Học sinh bấm 1 câu hỏi, ghi âm (hoặc chọn file  |
+|                 |     có sẵn), upload qua API upload media chung, gửi |
+|                 |     audioUrl — hệ thống tạo 1 ATTEMPT MỚI (tăng dần |
+|                 |     attemptNumber), KHÔNG xoá các attempt trước.    |
 |                 |                                                    |
 |                 | 3.  Giáo viên mở danh sách bài audio đã nộp theo bộ|
-|                 |     + lớp cụ thể (chỉ hiện bài đã thực sự nộp).    |
+|                 |     + lớp cụ thể — chỉ hiện ATTEMPT MỚI NHẤT mỗi   |
+|                 |     (câu hỏi, học sinh).                            |
 |                 |                                                    |
 |                 | 4.  Giáo viên nghe audio, chấm điểm (score/maxScore|
-|                 |     ) và ghi nhận xét (feedback) cho từng bài.     |
+|                 |     ) và ghi nhận xét (feedback) cho attempt đó.    |
 +-----------------+----------------------------------------------------+
 | **Luồng thay    | ***A1 --- Nộp audio cho video không phải REFLEX*** |
 | thế / ngoại lệ  |                                                    |
 | (Alternate      | 1.  Hệ thống từ chối (400) — chỉ video Phản xạ mới |
-| Flow)**         |     nhận audio trả lời, video Kết nối (CONNECTION) |
-|                 |     không áp dụng.                                 |
+| Flow)**         |     nhận câu hỏi/audio trả lời, video Kết nối       |
+|                 |     (CONNECTION) không áp dụng.                     |
 |                 |                                                    |
 |                 | ***A2 --- Học sinh ngoài phạm vi lớp/bộ chưa        |
 |                 | PUBLISHED***                                       |
 |                 |                                                    |
 |                 | 1.  Cùng cơ chế 404 như UC-23a (A1/A2) — không lộ  |
-|                 |     sự tồn tại của video ngoài phạm vi lớp mình.   |
+|                 |     sự tồn tại của video/câu hỏi ngoài phạm vi lớp  |
+|                 |     mình.                                           |
 |                 |                                                    |
 |                 | ***A3 --- Giáo viên không được phân công lớp/khung |
 |                 | sở hữu bộ video***                                 |
@@ -235,20 +242,20 @@ UC-23b: Nộp & Chấm điểm Audio cho Video Phản xạ
 |                 |                                                    |
 |                 | 1.  Hệ thống báo lỗi (404).                        |
 |                 |                                                    |
-|                 | ***A5 --- Học sinh nộp lại (resubmit) đè bài đã    |
-|                 | được chấm***                                       |
+|                 | ***A5 --- Học sinh nộp lại khi đã hết lượt          |
+|                 | (maxAttempts)***                                    |
 |                 |                                                    |
-|                 | 1.  Điểm/nhận xét/người chấm cũ bị xoá sạch (vì gắn |
-|                 |     với nội dung audio cũ đã không còn tồn tại) —  |
-|                 |     Giáo viên phải chấm lại bài mới.               |
+|                 | 1.  Hệ thống từ chối, không tạo attempt mới (tái    |
+|                 |     dùng nguyên cơ chế `RetakeNotAllowedException`  |
+|                 |     của UC-24/27 bài tập ngữ pháp).                 |
 +-----------------+----------------------------------------------------+
-| **Hậu điều kiện | -   Chỉ giữ lại audio MỚI NHẤT của mỗi Học sinh/   |
-| (P              |     video (không giữ lịch sử các lần nộp trước).   |
-| ostcondition)** |                                                    |
-|                 | -   Nộp lại xoá sạch điểm/nhận xét cũ nếu có.      |
+| **Hậu điều kiện | -   Mỗi lần nộp tạo 1 attempt MỚI, GIỮ LỊCH SỬ mọi |
+| (P              |     attempt trước (không ghi đè, không xoá) — học   |
+| ostcondition)** |     sinh xem lại được toàn bộ lịch sử đã nộp.       |
 |                 |                                                    |
 |                 | -   Giáo viên chấm được điểm (score/maxScore) +    |
-|                 |     nhận xét cho từng bài audio đã nộp.            |
+|                 |     nhận xét cho TỪNG attempt (mặc định thao tác    |
+|                 |     trên attempt mới nhất).                         |
 +-----------------+----------------------------------------------------+
 
 > **Lưu ý phân biệt:** UC-23b khác hoàn toàn với luồng "ghi âm phản xạ"

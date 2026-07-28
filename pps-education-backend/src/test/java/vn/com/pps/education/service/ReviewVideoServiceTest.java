@@ -9,6 +9,7 @@ import vn.com.pps.education.domain.Site;
 import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.domain.UserRole;
+import vn.com.pps.education.dto.AddReviewVideoQuestionRequest;
 import vn.com.pps.education.dto.AddReviewVideoRequest;
 import vn.com.pps.education.dto.AssignTeacherRequest;
 import vn.com.pps.education.dto.ClassResponse;
@@ -20,6 +21,7 @@ import vn.com.pps.education.dto.EnrollStudentRequest;
 import vn.com.pps.education.dto.GradeReviewVideoSubmissionRequest;
 import vn.com.pps.education.dto.ReportVideoProgressRequest;
 import vn.com.pps.education.dto.ReviewVideoProgressResponse;
+import vn.com.pps.education.dto.ReviewVideoQuestionResponse;
 import vn.com.pps.education.dto.ReviewVideoResponse;
 import vn.com.pps.education.dto.ReviewVideoSetResponse;
 import vn.com.pps.education.dto.ReviewVideoSetStatsResponse;
@@ -30,6 +32,7 @@ import vn.com.pps.education.dto.UpdateReviewVideoSetRequest;
 import vn.com.pps.education.exception.InvalidReviewVideoSetScopeException;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
+import vn.com.pps.education.exception.RetakeNotAllowedException;
 import vn.com.pps.education.repository.RoleRepository;
 import vn.com.pps.education.repository.SiteRepository;
 import vn.com.pps.education.repository.StudentRepository;
@@ -405,108 +408,149 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void submitAudio_UC23b_MainFlow_savesAudioForReflexVideo() {
+    void addQuestion_UC23b_MainFlow_savesQuestionForReflexVideo() {
         ReviewVideoResponse video = createPublishedReflexSetWithVideo(100);
+
+        ReviewVideoQuestionResponse question = addQuestion(video.id(), 53, 15, null);
+
+        assertThat(question.timestampSeconds()).isEqualTo(53);
+        assertThat(question.maxRecordingSeconds()).isEqualTo(15);
+        assertThat(question.maxAttempts()).isNull();
+        assertThat(reviewVideoService.listQuestions(video.id(), teacher.getId()))
+                .extracting(ReviewVideoQuestionResponse::id).contains(question.id());
+    }
+
+    @Test
+    void addQuestion_UC23b_A1_rejectsForConnectionVideo() {
+        ReviewVideoResponse video = createPublishedSetWithVideo(100);
+
+        assertThatThrownBy(() -> reviewVideoService.addQuestion(video.id(),
+                new AddReviewVideoQuestionRequest(53, null, 15, null, null), teacher.getId()))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void submitQuestionAudio_UC23b_MainFlow_createsFirstAttempt() {
+        ReviewVideoResponse video = createPublishedReflexSetWithVideo(100);
+        ReviewVideoQuestionResponse question = addQuestion(video.id(), 53, 15, null);
         Student student = enrollStudent(schoolClass.id());
 
-        ReviewVideoSubmissionResponse submission = reviewVideoService.submitAudio(video.id(),
+        ReviewVideoSubmissionResponse submission = reviewVideoService.submitQuestionAudio(question.id(),
                 new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/lms/review-video-submissions/audio/a.mp3"),
                 student.getUser().getId());
 
         assertThat(submission.audioUrl()).isEqualTo("https://media.pps.edu.vn/lms/review-video-submissions/audio/a.mp3");
         assertThat(submission.studentId()).isEqualTo(student.getId());
+        assertThat(submission.attemptNumber()).isEqualTo(1);
         assertThat(submission.submittedAt()).isNotNull();
         assertThat(submission.score()).isNull();
     }
 
     @Test
-    void submitAudio_UC23b_A1_rejectsForConnectionVideo() {
-        ReviewVideoResponse video = createPublishedSetWithVideo(100);
-        Student student = enrollStudent(schoolClass.id());
-
-        assertThatThrownBy(() -> reviewVideoService.submitAudio(video.id(),
-                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/a.mp3"), student.getUser().getId()))
-                .isInstanceOf(IllegalArgumentException.class);
-    }
-
-    @Test
-    void submitAudio_UC23b_A2_rejectsForStudentOutsideScope() {
+    void submitQuestionAudio_UC23b_A2_rejectsForStudentOutsideScope() {
         ReviewVideoResponse video = createPublishedReflexSetWithVideo(100);
+        ReviewVideoQuestionResponse question = addQuestion(video.id(), 53, 15, null);
         User outsiderStudentUser = newUser("student.outsider4");
         newStudent(outsiderStudentUser);
 
-        assertThatThrownBy(() -> reviewVideoService.submitAudio(video.id(),
+        assertThatThrownBy(() -> reviewVideoService.submitQuestionAudio(question.id(),
                 new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/a.mp3"), outsiderStudentUser.getId()))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 
     @Test
-    void submitAudio_UC23b_A5_resubmitOverwritesAudioAndClearsPreviousGrade() {
+    void submitQuestionAudio_UC23b_MainFlow_resubmitCreatesNewAttemptKeepingHistory() {
         ReviewVideoResponse video = createPublishedReflexSetWithVideo(100);
+        ReviewVideoQuestionResponse question = addQuestion(video.id(), 53, 15, null);
         Student student = enrollStudent(schoolClass.id());
-        ReviewVideoSubmissionResponse first = reviewVideoService.submitAudio(video.id(),
+        ReviewVideoSubmissionResponse first = reviewVideoService.submitQuestionAudio(question.id(),
                 new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/first.mp3"), student.getUser().getId());
         reviewVideoService.gradeSubmission(first.id(),
                 new GradeReviewVideoSubmissionRequest(new BigDecimal("8.00"), new BigDecimal("10.00"), "Tốt"), teacher.getId());
 
-        ReviewVideoSubmissionResponse resubmitted = reviewVideoService.submitAudio(video.id(),
+        ReviewVideoSubmissionResponse second = reviewVideoService.submitQuestionAudio(question.id(),
                 new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/second.mp3"), student.getUser().getId());
 
-        assertThat(resubmitted.id()).isEqualTo(first.id());
-        assertThat(resubmitted.audioUrl()).isEqualTo("https://media.pps.edu.vn/second.mp3");
-        assertThat(resubmitted.score()).isNull();
-        assertThat(resubmitted.maxScore()).isNull();
-        assertThat(resubmitted.feedback()).isNull();
-        assertThat(resubmitted.gradedByUserId()).isNull();
-        assertThat(resubmitted.gradedAt()).isNull();
+        assertThat(second.id()).isNotEqualTo(first.id());
+        assertThat(second.attemptNumber()).isEqualTo(2);
+        assertThat(second.audioUrl()).isEqualTo("https://media.pps.edu.vn/second.mp3");
+        assertThat(second.score()).isNull();
+        // Postcondition: giữ lịch sử — attempt 1 vẫn còn nguyên điểm đã chấm, không bị xoá.
+        List<ReviewVideoSubmissionResponse> history = reviewVideoService.listMySubmissionHistory(question.id(), student.getUser().getId());
+        assertThat(history).hasSize(2);
+        assertThat(history).extracting(ReviewVideoSubmissionResponse::id).containsExactly(second.id(), first.id());
+        assertThat(history.get(1).score()).isEqualByComparingTo("8.00");
     }
 
     @Test
-    void getMySubmission_UC23b_MainFlow_returnsOwnSubmission() {
+    void submitQuestionAudio_UC23b_A5_rejectsWhenMaxAttemptsExceeded() {
         ReviewVideoResponse video = createPublishedReflexSetWithVideo(100);
+        ReviewVideoQuestionResponse question = addQuestion(video.id(), 53, 15, 1);
         Student student = enrollStudent(schoolClass.id());
-        reviewVideoService.submitAudio(video.id(),
-                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/a.mp3"), student.getUser().getId());
+        reviewVideoService.submitQuestionAudio(question.id(),
+                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/first.mp3"), student.getUser().getId());
 
-        ReviewVideoSubmissionResponse mine = reviewVideoService.getMySubmission(video.id(), student.getUser().getId());
-
-        assertThat(mine).isNotNull();
-        assertThat(mine.audioUrl()).isEqualTo("https://media.pps.edu.vn/a.mp3");
+        assertThatThrownBy(() -> reviewVideoService.submitQuestionAudio(question.id(),
+                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/second.mp3"), student.getUser().getId()))
+                .isInstanceOf(RetakeNotAllowedException.class);
     }
 
     @Test
-    void getMySubmission_UC23b_MainFlow_returnsNullWhenNotYetSubmitted() {
+    void getMyLatestSubmission_UC23b_MainFlow_returnsLatestAttempt() {
         ReviewVideoResponse video = createPublishedReflexSetWithVideo(100);
+        ReviewVideoQuestionResponse question = addQuestion(video.id(), 53, 15, null);
+        Student student = enrollStudent(schoolClass.id());
+        reviewVideoService.submitQuestionAudio(question.id(),
+                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/first.mp3"), student.getUser().getId());
+        reviewVideoService.submitQuestionAudio(question.id(),
+                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/second.mp3"), student.getUser().getId());
+
+        ReviewVideoSubmissionResponse mine = reviewVideoService.getMyLatestSubmission(question.id(), student.getUser().getId());
+
+        assertThat(mine.attemptNumber()).isEqualTo(2);
+        assertThat(mine.audioUrl()).isEqualTo("https://media.pps.edu.vn/second.mp3");
+    }
+
+    @Test
+    void getMyLatestSubmission_UC23b_MainFlow_returnsNullWhenNotYetSubmitted() {
+        ReviewVideoResponse video = createPublishedReflexSetWithVideo(100);
+        ReviewVideoQuestionResponse question = addQuestion(video.id(), 53, 15, null);
         Student student = enrollStudent(schoolClass.id());
 
-        ReviewVideoSubmissionResponse mine = reviewVideoService.getMySubmission(video.id(), student.getUser().getId());
+        ReviewVideoSubmissionResponse mine = reviewVideoService.getMyLatestSubmission(question.id(), student.getUser().getId());
 
         assertThat(mine).isNull();
     }
 
     @Test
-    void getMySubmission_UC23b_A2_rejectsForStudentOutsideScope() {
+    void getMyLatestSubmission_UC23b_A2_rejectsForStudentOutsideScope() {
         ReviewVideoResponse video = createPublishedReflexSetWithVideo(100);
+        ReviewVideoQuestionResponse question = addQuestion(video.id(), 53, 15, null);
         User outsiderStudentUser = newUser("student.outsider5");
         newStudent(outsiderStudentUser);
 
-        assertThatThrownBy(() -> reviewVideoService.getMySubmission(video.id(), outsiderStudentUser.getId()))
+        assertThatThrownBy(() -> reviewVideoService.getMyLatestSubmission(question.id(), outsiderStudentUser.getId()))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 
     @Test
-    void listSubmissionsForTeacher_UC23b_MainFlow_returnsOnlySubmittedRowsForClass() {
+    void listSubmissionsForTeacher_UC23b_MainFlow_returnsOnlyLatestAttemptPerStudent() {
         ReviewVideoResponse video = createPublishedReflexSetWithVideo(100);
+        ReviewVideoQuestionResponse question = addQuestion(video.id(), 53, 15, null);
         Long setId = video.reviewVideoSetId();
         Student submitted = enrollStudent(schoolClass.id());
         Student notSubmitted = enrollStudent(schoolClass.id());
-        reviewVideoService.submitAudio(video.id(),
-                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/a.mp3"), submitted.getUser().getId());
+        reviewVideoService.submitQuestionAudio(question.id(),
+                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/first.mp3"), submitted.getUser().getId());
+        reviewVideoService.submitQuestionAudio(question.id(),
+                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/second.mp3"), submitted.getUser().getId());
 
         List<ReviewVideoSubmissionResponse> submissions = reviewVideoService.listSubmissionsForTeacher(setId, schoolClass.id(), teacher.getId());
 
         assertThat(submissions).extracting(ReviewVideoSubmissionResponse::studentId).contains(submitted.getId());
         assertThat(submissions).extracting(ReviewVideoSubmissionResponse::studentId).doesNotContain(notSubmitted.getId());
+        assertThat(submissions).filteredOn(s -> s.studentId().equals(submitted.getId()))
+                .extracting(ReviewVideoSubmissionResponse::attemptNumber).containsExactly(2);
     }
 
     @Test
@@ -523,8 +567,9 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
     @Test
     void gradeSubmission_UC23b_MainFlow_savesScoreMaxScoreAndFeedback() {
         ReviewVideoResponse video = createPublishedReflexSetWithVideo(100);
+        ReviewVideoQuestionResponse question = addQuestion(video.id(), 53, 15, null);
         Student student = enrollStudent(schoolClass.id());
-        ReviewVideoSubmissionResponse submission = reviewVideoService.submitAudio(video.id(),
+        ReviewVideoSubmissionResponse submission = reviewVideoService.submitQuestionAudio(question.id(),
                 new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/a.mp3"), student.getUser().getId());
 
         ReviewVideoSubmissionResponse graded = reviewVideoService.gradeSubmission(submission.id(),
@@ -541,8 +586,9 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
     @Test
     void gradeSubmission_UC23b_A3_rejectsForNonAssignedTeacher() {
         ReviewVideoResponse video = createPublishedReflexSetWithVideo(100);
+        ReviewVideoQuestionResponse question = addQuestion(video.id(), 53, 15, null);
         Student student = enrollStudent(schoolClass.id());
-        ReviewVideoSubmissionResponse submission = reviewVideoService.submitAudio(video.id(),
+        ReviewVideoSubmissionResponse submission = reviewVideoService.submitQuestionAudio(question.id(),
                 new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/a.mp3"), student.getUser().getId());
         User outsider = newUser("outsider.grade");
         assignRole(outsider, "TEACHER");
@@ -557,6 +603,11 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         assertThatThrownBy(() -> reviewVideoService.gradeSubmission(999_999L,
                 new GradeReviewVideoSubmissionRequest(new BigDecimal("5"), new BigDecimal("10"), null), teacher.getId()))
                 .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    private ReviewVideoQuestionResponse addQuestion(Long videoId, int timestampSeconds, int maxRecordingSeconds, Integer maxAttempts) {
+        return reviewVideoService.addQuestion(videoId,
+                new AddReviewVideoQuestionRequest(timestampSeconds, null, maxRecordingSeconds, maxAttempts, null), teacher.getId());
     }
 
     private ReviewVideoResponse createPublishedReflexSetWithVideo(int durationSeconds) {
