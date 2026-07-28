@@ -199,10 +199,18 @@ function QuestionBlock({
   onChoiceToggle: (choiceIds: number[]) => void;
 }) {
   const isChoiceQuestion = CHOICE_TYPES.has(question.questionType) && question.choices.length > 0;
+  const isFillInBlank = question.questionType === "FILL_IN_BLANK";
   const isMultiSelect = question.questionType === "MULTIPLE_ANSWER";
   const selected = new Set(answer?.selectedChoiceIds ?? []);
   const correctIds = new Set(answer?.correctChoiceIds ?? []);
-  const showFeedback = answer?.correctChoiceIds != null;
+  /**
+   * "Đã nộp bài + showCorrectAnswers=true" — BE chỉ điền 1 trong các field này khi điều kiện đó
+   * đúng (xem Javadoc StudentAnswerResponse), nên chỉ cần kiểm tra correctChoiceIds cho câu trắc
+   * nghiệm là KHÔNG đủ: câu Điền từ không có choices (correctChoiceIds luôn null) nên trước đây
+   * không bao giờ hiện đáp án/giải thích dù đã tự chấm xong — sửa lại dùng chung 1 điều kiện cho
+   * mọi loại câu hỏi.
+   */
+  const showFeedback = answer != null && (answer.correctChoiceIds != null || answer.correctAnswerText != null || answer.isCorrect != null || answer.explanation != null);
 
   const toggleChoice = (choiceId: number) => {
     if (readOnly || saving) return;
@@ -258,15 +266,23 @@ function QuestionBlock({
       ) : question.questionType === "SPEAKING" ? (
         <p className="text-xs text-muted font-bold italic">Câu hỏi dạng Nói chưa hỗ trợ ghi âm trực tiếp trên Portal — giáo viên sẽ chấm theo cách khác.</p>
       ) : (
-        <textarea
-          value={textValue ?? answer?.answerText ?? ""}
-          onChange={(e) => onTextChange(e.target.value)}
-          onBlur={onTextBlur}
-          disabled={readOnly || saving}
-          rows={3}
-          placeholder="Nhập câu trả lời..."
-          className="w-full bg-sky-2 border border-line/70 text-xs p-3 rounded-xl focus:outline-none disabled:opacity-70"
-        />
+        <div className="space-y-2">
+          <textarea
+            value={textValue ?? answer?.answerText ?? ""}
+            onChange={(e) => onTextChange(e.target.value)}
+            onBlur={onTextBlur}
+            disabled={readOnly || saving}
+            rows={isFillInBlank ? 1 : 3}
+            placeholder="Nhập câu trả lời..."
+            className="w-full bg-sky-2 border border-line/70 text-xs p-3 rounded-xl focus:outline-none disabled:opacity-70"
+          />
+          {isFillInBlank && showFeedback && (
+            <div className={`flex items-center gap-1.5 text-xs font-bold ${answer?.isCorrect ? "text-teal-deep" : "text-coral"}`}>
+              {answer?.isCorrect ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
+              {answer?.isCorrect ? "Chính xác" : `Đáp án đúng: ${answer?.correctAnswerText ?? "—"}`}
+            </div>
+          )}
+        </div>
       )}
 
       {answer?.explanation && showFeedback && <p className="text-[11px] text-muted font-bold italic border-t border-line/50 pt-2">Giải thích: {answer.explanation}</p>}

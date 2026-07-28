@@ -1,14 +1,24 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Flag, Save, Send } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { StudentCommentResponse, submitComments, updateComment } from "../api";
+import { ExerciseAssignmentResponse, ReviewVideoSetResponse, listAssignmentsForClass, listReviewVideoSetsByClass } from "@/features/lms/api";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 
+type GrammarMode = "OFFLINE" | "ONLINE";
+
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none";
-const attitudeLabels: Record<NonNullable<StudentCommentResponse["attitude"]>, string> = { POOR: "Kém", AVERAGE: "Trung bình", GOOD: "Tốt" };
+const attitudeLabels: Record<NonNullable<StudentCommentResponse["attitude"]>, string> = {
+  POOR: "Kém",
+  WEAK: "Yếu",
+  AVERAGE: "Trung bình",
+  ABOVE_AVERAGE: "Trung bình khá",
+  FAIR: "Khá",
+  GOOD: "Tốt"
+};
 const statusLabels: Record<StudentCommentResponse["status"], string> = { DRAFT: "Nháp", PENDING: "Chờ duyệt", APPROVED: "Đã duyệt", REJECTED: "Bị từ chối" };
 const statusVariants: Record<StudentCommentResponse["status"], "success" | "warning" | "danger" | "neutral"> = {
   DRAFT: "neutral",
@@ -32,12 +42,24 @@ export default function CommentHistoryList({ classId, history, onChanged, showSt
   const [editIsWarning, setEditIsWarning] = useState(false);
   const [editAttitude, setEditAttitude] = useState<"" | NonNullable<StudentCommentResponse["attitude"]>>("");
   const [editHomeworkPreviousScore, setEditHomeworkPreviousScore] = useState("");
+  const [editGrammarMode, setEditGrammarMode] = useState<GrammarMode>("OFFLINE");
   const [editHomeworkNext, setEditHomeworkNext] = useState("");
+  const [editHomeworkNextExerciseAssignmentId, setEditHomeworkNextExerciseAssignmentId] = useState<number | "">("");
+  const [editHomeworkNextReviewVideoSetId, setEditHomeworkNextReviewVideoSetId] = useState<number | "">("");
   const [editNote, setEditNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [submittingId, setSubmittingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [grammarOptions, setGrammarOptions] = useState<ExerciseAssignmentResponse[]>([]);
+  const [videoOptions, setVideoOptions] = useState<ReviewVideoSetResponse[]>([]);
   const { message: toastMessage, showToast } = useToast();
+
+  useEffect(() => {
+    listAssignmentsForClass(classId).then(setGrammarOptions).catch(() => undefined);
+    listReviewVideoSetsByClass(classId)
+      .then((sets) => setVideoOptions(sets.filter((s) => s.status === "PUBLISHED")))
+      .catch(() => undefined);
+  }, [classId]);
 
   const startEdit = (h: StudentCommentResponse) => {
     setEditingId(h.id);
@@ -46,7 +68,10 @@ export default function CommentHistoryList({ classId, history, onChanged, showSt
     setEditIsWarning(h.isWarning);
     setEditAttitude(h.attitude ?? "");
     setEditHomeworkPreviousScore(h.homeworkPreviousScore ?? "");
+    setEditGrammarMode(h.homeworkNextExerciseAssignmentId != null ? "ONLINE" : "OFFLINE");
     setEditHomeworkNext(h.homeworkNext ?? "");
+    setEditHomeworkNextExerciseAssignmentId(h.homeworkNextExerciseAssignmentId ?? "");
+    setEditHomeworkNextReviewVideoSetId(h.homeworkNextReviewVideoSetId ?? "");
     setEditNote(h.note ?? "");
     setError(null);
   };
@@ -79,7 +104,9 @@ export default function CommentHistoryList({ classId, history, onChanged, showSt
         isWarning: editIsWarning,
         attitude: editAttitude || undefined,
         homeworkPreviousScore: editHomeworkPreviousScore.trim() || undefined,
-        homeworkNext: editHomeworkNext.trim() || undefined,
+        homeworkNext: editGrammarMode === "OFFLINE" ? editHomeworkNext.trim() || undefined : undefined,
+        homeworkNextExerciseAssignmentId: editGrammarMode === "ONLINE" && editHomeworkNextExerciseAssignmentId !== "" ? editHomeworkNextExerciseAssignmentId : undefined,
+        homeworkNextReviewVideoSetId: editHomeworkNextReviewVideoSetId !== "" ? editHomeworkNextReviewVideoSetId : undefined,
         note: editNote.trim() || undefined
       });
       await submitComments(classId, [commentId]);
@@ -125,10 +152,67 @@ export default function CommentHistoryList({ classId, history, onChanged, showSt
               )}
               <textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} rows={3} className={inputClass} />
               {h.commentType === "DAILY" && (
-                <div className="grid grid-cols-2 gap-2">
-                  <input value={editHomeworkNext} onChange={(e) => setEditHomeworkNext(e.target.value)} placeholder="BTVN buổi sau" className={inputClass} />
-                  <input value={editNote} onChange={(e) => setEditNote(e.target.value)} placeholder="Ghi chú" className={inputClass} />
-                </div>
+                <>
+                  <div className="space-y-1">
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditGrammarMode("OFFLINE");
+                          setEditHomeworkNextExerciseAssignmentId("");
+                        }}
+                        className={`flex-1 text-[10px] font-bold py-1.5 rounded-lg border ${
+                          editGrammarMode === "OFFLINE" ? "bg-brand-orange border-brand-orange text-white" : "bg-slate-50 border-slate-200 text-slate-500"
+                        }`}
+                      >
+                        BTVN Ngữ pháp: Offline
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditGrammarMode("ONLINE");
+                          setEditHomeworkNext("");
+                        }}
+                        className={`flex-1 text-[10px] font-bold py-1.5 rounded-lg border ${
+                          editGrammarMode === "ONLINE" ? "bg-brand-orange border-brand-orange text-white" : "bg-slate-50 border-slate-200 text-slate-500"
+                        }`}
+                      >
+                        Online
+                      </button>
+                    </div>
+                    {editGrammarMode === "OFFLINE" ? (
+                      <input value={editHomeworkNext} onChange={(e) => setEditHomeworkNext(e.target.value)} placeholder="VD: Unit 2 trang 10" className={inputClass} />
+                    ) : (
+                      <select
+                        value={editHomeworkNextExerciseAssignmentId}
+                        onChange={(e) => setEditHomeworkNextExerciseAssignmentId(e.target.value ? Number(e.target.value) : "")}
+                        className={inputClass}
+                      >
+                        <option value="">-- Chọn đề đã giao lớp --</option>
+                        {grammarOptions.map((a) => (
+                          <option key={a.id} value={a.id}>
+                            {a.exerciseTitle} ({a.exerciseCode})
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <select
+                      value={editHomeworkNextReviewVideoSetId}
+                      onChange={(e) => setEditHomeworkNextReviewVideoSetId(e.target.value ? Number(e.target.value) : "")}
+                      className={inputClass}
+                    >
+                      <option value="">-- Không giao Video ôn tập --</option>
+                      {videoOptions.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.title} ({s.code})
+                        </option>
+                      ))}
+                    </select>
+                    <input value={editNote} onChange={(e) => setEditNote(e.target.value)} placeholder="Ghi chú" className={inputClass} />
+                  </div>
+                </>
               )}
               <div className="grid grid-cols-2 gap-2">
                 <select value={editSeverity} onChange={(e) => setEditSeverity(e.target.value as NonNullable<StudentCommentResponse["severity"]>)} className={inputClass}>
@@ -155,18 +239,25 @@ export default function CommentHistoryList({ classId, history, onChanged, showSt
             </div>
           ) : (
             <>
-              {h.commentType === "DAILY" && (h.attitude || h.homeworkPreviousScore) && (
+              {h.commentType === "DAILY" && (h.attitude || h.homeworkPreviousScore || h.grammarPreviousProgress || h.videoPreviousProgress) && (
                 <p className="text-slate-500">
                   {h.attitude && `Thái độ: ${attitudeLabels[h.attitude]}`}
                   {h.attitude && h.homeworkPreviousScore && " · "}
                   {h.homeworkPreviousScore && `BTVN buổi trước: ${h.homeworkPreviousScore}`}
+                  {(h.attitude || h.homeworkPreviousScore) && (h.grammarPreviousProgress || h.videoPreviousProgress) && " · "}
+                  {h.grammarPreviousProgress && `% Ngữ pháp (tự động): ${h.grammarPreviousProgress}`}
+                  {h.grammarPreviousProgress && h.videoPreviousProgress && " · "}
+                  {h.videoPreviousProgress && `% Video (tự động): ${h.videoPreviousProgress}`}
                 </p>
               )}
               <p className="text-slate-700">{h.content}</p>
-              {h.commentType === "DAILY" && (h.homeworkNext || h.note) && (
+              {h.commentType === "DAILY" && (h.homeworkNext || h.homeworkNextExerciseTitle || h.homeworkNextReviewVideoSetTitle || h.note) && (
                 <p className="text-slate-500">
-                  {h.homeworkNext && `BTVN buổi sau: ${h.homeworkNext}`}
-                  {h.homeworkNext && h.note && " · "}
+                  {h.homeworkNext && `BTVN Ngữ pháp buổi sau (offline): ${h.homeworkNext}`}
+                  {h.homeworkNextExerciseTitle && `BTVN Ngữ pháp buổi sau (online): ${h.homeworkNextExerciseTitle}`}
+                  {(h.homeworkNext || h.homeworkNextExerciseTitle) && h.homeworkNextReviewVideoSetTitle && " · "}
+                  {h.homeworkNextReviewVideoSetTitle && `Video ôn tập buổi sau: ${h.homeworkNextReviewVideoSetTitle}`}
+                  {(h.homeworkNext || h.homeworkNextExerciseTitle || h.homeworkNextReviewVideoSetTitle) && h.note && " · "}
                   {h.note && `Ghi chú: ${h.note}`}
                 </p>
               )}

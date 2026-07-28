@@ -1,8 +1,8 @@
 import { apiRequest } from "@/lib/apiClient";
 import type { Page } from "@/types";
 
-/** Khớp MediaModule thật của backend (chỉ nhánh ảnh — Portal chưa cần upload tài liệu/audio). */
-export type MediaUploadModule = "STUDENT" | "PARENT";
+/** Khớp MediaModule thật của backend. REVIEW_VIDEO_SUBMISSION (UC-23b): audio Học sinh nộp trả lời video REFLEX. */
+export type MediaUploadModule = "STUDENT" | "PARENT" | "REVIEW_VIDEO_SUBMISSION";
 
 /** UC-63: upload ảnh đại diện thật lên Cloudflare R2 qua API dùng chung, trả về URL public để lưu vào portraitUrl. */
 export function uploadMedia(file: File, module: MediaUploadModule): Promise<{ url: string }> {
@@ -401,6 +401,34 @@ export function reportReviewVideoProgress(videoId: number, watchedSeconds: numbe
   });
 }
 
+/** UC-23b — khớp ReviewVideoSubmissionResponse thật (dùng chung Học sinh xem bài của mình + Giáo viên chấm). */
+export interface ReviewVideoSubmissionResponse {
+  id: number;
+  reviewVideoId: number;
+  studentId: number;
+  studentFullName: string;
+  audioUrl: string;
+  submittedAt: string;
+  score: number | null;
+  maxScore: number | null;
+  feedback: string | null;
+  gradedByUserId: number | null;
+  gradedAt: string | null;
+}
+
+/** UC-23b Main Flow bước 3: nộp/nộp lại audio trả lời cho video REFLEX — nộp lại xoá sạch điểm cũ (BE tự xử lý), chỉ nhận videoType=REFLEX. */
+export function submitReviewVideoAudio(videoId: number, audioUrl: string): Promise<ReviewVideoSubmissionResponse> {
+  return apiRequest<ReviewVideoSubmissionResponse>(`/review-videos/${videoId}/submission`, {
+    method: "PUT",
+    body: JSON.stringify({ audioUrl })
+  });
+}
+
+/** Trả về undefined (204) nếu học sinh chưa nộp bài cho video này. */
+export function getMyReviewVideoSubmission(videoId: number): Promise<ReviewVideoSubmissionResponse | undefined> {
+  return apiRequest<ReviewVideoSubmissionResponse | undefined>(`/review-videos/${videoId}/submission`);
+}
+
 /**
  * UC-40 (phía học viên): đề đã được giao cho (các) lớp tôi đang học —
  * self-service thật (KHÁC `GET /api/classes/{classId}/exercises`, hàm đó
@@ -485,7 +513,11 @@ export interface SaveAnswerRequest {
   audioAnswerUrl?: string;
 }
 
-/** correctChoiceIds/explanation chỉ được điền khi attempt đã nộp (không còn IN_PROGRESS) và exercise.showCorrectAnswers=true. */
+/**
+ * correctChoiceIds/correctAnswerText chỉ được điền khi attempt đã nộp (không còn IN_PROGRESS) VÀ
+ * exercise.showCorrectAnswers=true. explanation điền thêm khi: câu KHÔNG tự chấm được (ESSAY/SPEAKING,
+ * luôn hiện) HOẶC câu tự chấm được nhưng trả lời SAI (isCorrect=false) — V54.
+ */
 export interface StudentAnswerResponse {
   id: number;
   exerciseAttemptId: number;
@@ -497,6 +529,8 @@ export interface StudentAnswerResponse {
   autoScore: number | null;
   isCorrect: boolean | null;
   correctChoiceIds: number[] | null;
+  /** V54 — chỉ có ý nghĩa với câu FILL_IN_BLANK. */
+  correctAnswerText: string | null;
   explanation: string | null;
 }
 
