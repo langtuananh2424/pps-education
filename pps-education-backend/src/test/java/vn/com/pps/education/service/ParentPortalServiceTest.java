@@ -225,13 +225,13 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
         // DAILY: ghi xong tự động chuyển PENDING ngay (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-24) -- không còn bước submit riêng.
         StudentCommentResponse approved = studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), "DAILY", session.id(), null,
-                        LocalDate.now(), "Chăm chỉ.", null, null, false, null, null, null, null), teacher.getId());
+                        LocalDate.now(), "Chăm chỉ.", null, null, false, null, null, null, null, null, null), teacher.getId());
         studentCommentService.decideComments(new DecideCommentsRequest(List.of(approved.id()), "APPROVED", null), siteManagerUser.getId());
 
         // A1 -- nhận xét khác vẫn PENDING (chưa duyệt).
         studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), "DAILY", session.id(), null,
-                        LocalDate.now(), "Nội dung chưa duyệt.", null, null, false, null, null, null, null), teacher.getId());
+                        LocalDate.now(), "Nội dung chưa duyệt.", null, null, false, null, null, null, null, null, null), teacher.getId());
 
         List<StudentCommentResponse> comments = parentPortalService.listComments(student.getId(), schoolClass.id(), parentUser.getId());
 

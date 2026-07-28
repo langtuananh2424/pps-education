@@ -516,7 +516,7 @@ public class ReviewVideoService {
 
     private ReviewVideoSetResponse toResponse(ReviewVideoSet s) {
         return new ReviewVideoSetResponse(
-                s.getId(), s.getCode(), s.getTitle(), s.getVideoType().name(),
+                s.getId(), s.getUuid(), s.getCode(), s.getTitle(), s.getVideoType().name(),
                 s.getCurriculum() == null ? null : s.getCurriculum().getId(),
                 s.getSchoolClass() == null ? null : s.getSchoolClass().getId(),
                 s.getSubject() == null ? null : s.getSubject().getId(),

@@ -6,12 +6,17 @@ import org.springframework.data.repository.query.Param;
 import vn.com.pps.education.domain.ReviewVideoSet;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 public interface ReviewVideoSetRepository extends JpaRepository<ReviewVideoSet, Long> {
 
     List<ReviewVideoSet> findBySchoolClassIdOrderByDisplayOrder(Long classId);
 
     List<ReviewVideoSet> findByCurriculumIdOrderByDisplayOrder(Long curriculumId);
+
+    /** UC-21 mở rộng (BTVN online — dán uuid làm phương án thay dropdown, V55). */
+    Optional<ReviewVideoSet> findByUuid(UUID uuid);
 
     /**
      * UC-23a: bộ video HS lớp X xem được — riêng lớp X hoặc chung theo

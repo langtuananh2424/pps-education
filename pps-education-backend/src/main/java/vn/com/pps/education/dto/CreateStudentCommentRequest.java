@@ -27,5 +27,7 @@ public record CreateStudentCommentRequest(
         String attitude,
         String homeworkPreviousScore,
         String homeworkNext,
+        Long homeworkNextExerciseAssignmentId,
+        Long homeworkNextReviewVideoSetId,
         String note
 ) {}
