@@ -10,6 +10,7 @@ import vn.com.pps.education.domain.ReviewVideoProgress;
 import vn.com.pps.education.domain.ReviewVideoSet;
 import vn.com.pps.education.domain.ReviewVideoSetHistory;
 import vn.com.pps.education.domain.ReviewVideoSubmission;
+import vn.com.pps.education.domain.ReviewVideoWatchSession;
 import vn.com.pps.education.domain.SchoolClass;
 import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.User;
@@ -22,6 +23,7 @@ import vn.com.pps.education.dto.ReviewVideoResponse;
 import vn.com.pps.education.dto.ReviewVideoSetResponse;
 import vn.com.pps.education.dto.ReviewVideoSetStatsResponse;
 import vn.com.pps.education.dto.ReviewVideoSubmissionResponse;
+import vn.com.pps.education.dto.StartWatchSessionResponse;
 import vn.com.pps.education.dto.SubmitReviewVideoAudioRequest;
 import vn.com.pps.education.dto.UpdateReviewVideoSetRequest;
 import vn.com.pps.education.exception.InvalidReviewVideoSetScopeException;
@@ -36,6 +38,7 @@ import vn.com.pps.education.repository.ReviewVideoRepository;
 import vn.com.pps.education.repository.ReviewVideoSetHistoryRepository;
 import vn.com.pps.education.repository.ReviewVideoSetRepository;
 import vn.com.pps.education.repository.ReviewVideoSubmissionRepository;
+import vn.com.pps.education.repository.ReviewVideoWatchSessionRepository;
 import vn.com.pps.education.repository.SchoolClassRepository;
 import vn.com.pps.education.repository.StudentRepository;
 import vn.com.pps.education.repository.UserRepository;
@@ -66,13 +69,12 @@ import java.util.stream.Collectors;
 @Service
 public class ReviewVideoService {
 
-    private static final double COMPLETION_THRESHOLD = 0.8;
-
     private final ReviewVideoSetRepository reviewVideoSetRepository;
     private final ReviewVideoRepository reviewVideoRepository;
     private final ReviewVideoSetHistoryRepository reviewVideoSetHistoryRepository;
     private final ReviewVideoProgressRepository reviewVideoProgressRepository;
     private final ReviewVideoSubmissionRepository reviewVideoSubmissionRepository;
+    private final ReviewVideoWatchSessionRepository reviewVideoWatchSessionRepository;
     private final CurriculumRepository curriculumRepository;
     private final SchoolClassRepository schoolClassRepository;
     private final CurriculumSubjectRepository curriculumSubjectRepository;
@@ -86,6 +88,7 @@ public class ReviewVideoService {
                                ReviewVideoSetHistoryRepository reviewVideoSetHistoryRepository,
                                ReviewVideoProgressRepository reviewVideoProgressRepository,
                                ReviewVideoSubmissionRepository reviewVideoSubmissionRepository,
+                               ReviewVideoWatchSessionRepository reviewVideoWatchSessionRepository,
                                CurriculumRepository curriculumRepository,
                                SchoolClassRepository schoolClassRepository,
                                CurriculumSubjectRepository curriculumSubjectRepository,
@@ -98,6 +101,7 @@ public class ReviewVideoService {
         this.reviewVideoSetHistoryRepository = reviewVideoSetHistoryRepository;
         this.reviewVideoProgressRepository = reviewVideoProgressRepository;
         this.reviewVideoSubmissionRepository = reviewVideoSubmissionRepository;
+        this.reviewVideoWatchSessionRepository = reviewVideoWatchSessionRepository;
         this.curriculumRepository = curriculumRepository;
         this.schoolClassRepository = schoolClassRepository;
         this.curriculumSubjectRepository = curriculumSubjectRepository;
@@ -206,6 +210,8 @@ public class ReviewVideoService {
         video.setFileSizeBytes(request.fileSizeBytes());
         video.setDurationSeconds(request.durationSeconds());
         video.setDisplayOrder(request.displayOrder() == null ? 0 : request.displayOrder());
+        video.setCompletionThresholdPercent(request.completionThresholdPercent() == null ? 80 : request.completionThresholdPercent());
+        video.setRequiredViewCount(request.requiredViewCount() == null ? 1 : request.requiredViewCount());
         video = reviewVideoRepository.save(video);
         return toResponse(video);
     }
@@ -220,16 +226,47 @@ public class ReviewVideoService {
     }
 
     /**
-     * UC-23a Main Flow bước 3: học sinh báo tiến độ xem (giây) — lấy
-     * max(cũ, mới), không bao giờ giảm (chống tua tới báo khống). Bề mặt
-     * ghi đầu tiên của học sinh trong module này — chặn bởi
-     * requireStudentCanViewSet trước để không lộ sự tồn tại của video
-     * ngoài phạm vi lớp mình (A2).
+     * UC-23a (V59): mở 1 LƯỢT xem mới cho video CONNECTION — gọi khi học
+     * sinh bắt đầu/mở lại video. Trả sessionId để các lần reportProgress
+     * tiếp theo của lượt này cập nhật đúng session, không lẫn với lượt
+     * khác (khác cơ chế watermark suốt đời cũ, vốn không phân biệt được
+     * "lần" nào với "lần" nào).
+     */
+    @Transactional
+    public StartWatchSessionResponse startWatchSession(Long videoId, Long actorUserId) {
+        ReviewVideo video = getVideoOrThrow(videoId);
+        Student student = requireStudentCanViewSet(video.getReviewVideoSet(), actorUserId);
+
+        ReviewVideoWatchSession session = new ReviewVideoWatchSession();
+        session.setReviewVideo(video);
+        session.setStudent(student);
+        session = reviewVideoWatchSessionRepository.save(session);
+        return new StartWatchSessionResponse(session.getId());
+    }
+
+    /**
+     * UC-23a Main Flow bước 3 (V59): học sinh báo tiến độ xem (giây) cho
+     * ĐÚNG 1 lượt xem (watchSessionId) — lấy max(cũ, mới) TRONG PHẠM VI
+     * lượt đó, không bao giờ giảm. Lượt đạt completionThresholdPercent
+     * của video được đánh dấu qualified — chỉ lượt qualified mới tính
+     * vào viewCount. "Đạt" (completed) = viewCount >= requiredViewCount
+     * của video (đã xác nhận với người dùng — bổ sung ngoài SDD gốc,
+     * 2 tiêu chí ĐỘC LẬP, cả 2 đều cấu hình được khi tạo video).
      */
     @Transactional
     public ReviewVideoProgressResponse reportProgress(Long videoId, ReportVideoProgressRequest request, Long actorUserId) {
         ReviewVideo video = getVideoOrThrow(videoId);
         Student student = requireStudentCanViewSet(video.getReviewVideoSet(), actorUserId);
+
+        ReviewVideoWatchSession session = reviewVideoWatchSessionRepository.findById(request.watchSessionId())
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lượt xem id=" + request.watchSessionId()));
+        if (!session.getReviewVideo().getId().equals(videoId) || !session.getStudent().getId().equals(student.getId())) {
+            throw new ResourceNotFoundException("Không tìm thấy lượt xem id=" + request.watchSessionId());
+        }
+        int sessionWatchedSeconds = Math.max(session.getWatchedSeconds(), request.watchedSeconds());
+        session.setWatchedSeconds(sessionWatchedSeconds);
+        session.setQualified(sessionWatchedSeconds >= video.getDurationSeconds() * (video.getCompletionThresholdPercent() / 100.0));
+        reviewVideoWatchSessionRepository.save(session);
 
         ReviewVideoProgress progress = reviewVideoProgressRepository
                 .findByReviewVideoIdAndStudentId(videoId, student.getId())
@@ -239,9 +276,10 @@ public class ReviewVideoService {
                     p.setStudent(student);
                     return p;
                 });
-        int newWatchedSeconds = Math.max(progress.getWatchedSeconds(), request.watchedSeconds());
-        progress.setWatchedSeconds(newWatchedSeconds);
-        progress.setCompleted(newWatchedSeconds >= video.getDurationSeconds() * COMPLETION_THRESHOLD);
+        progress.setWatchedSeconds(Math.max(progress.getWatchedSeconds(), sessionWatchedSeconds));
+        int viewCount = reviewVideoWatchSessionRepository.countByReviewVideoIdAndStudentIdAndQualifiedTrue(videoId, student.getId());
+        progress.setViewCount(viewCount);
+        progress.setCompleted(viewCount >= video.getRequiredViewCount());
         progress = reviewVideoProgressRepository.save(progress);
         return toResponse(progress, video);
     }
@@ -315,7 +353,7 @@ public class ReviewVideoService {
                 .collect(Collectors.toMap(p -> p.getReviewVideo().getId() + ":" + p.getStudent().getId(), p -> p));
 
         List<ReviewVideoSetStatsResponse.VideoHeader> headers = videos.stream()
-                .map(v -> new ReviewVideoSetStatsResponse.VideoHeader(v.getId(), v.getTitle(), v.getDurationSeconds()))
+                .map(v -> new ReviewVideoSetStatsResponse.VideoHeader(v.getId(), v.getTitle(), v.getDurationSeconds(), v.getRequiredViewCount()))
                 .toList();
 
         List<ReviewVideoSetStatsResponse.StatsCell> cells = new ArrayList<>();
@@ -325,8 +363,9 @@ public class ReviewVideoService {
                 ReviewVideoProgress progress = progressByKey.get(video.getId() + ":" + studentId);
                 int watchedSeconds = progress == null ? 0 : progress.getWatchedSeconds();
                 boolean completed = progress != null && progress.isCompleted();
+                int viewCount = progress == null ? 0 : progress.getViewCount();
                 int watchedPercent = watchedPercentOf(watchedSeconds, video.getDurationSeconds());
-                cells.add(new ReviewVideoSetStatsResponse.StatsCell(studentId, video.getId(), watchedSeconds, watchedPercent, completed));
+                cells.add(new ReviewVideoSetStatsResponse.StatsCell(studentId, video.getId(), watchedSeconds, watchedPercent, completed, viewCount));
             }
         }
         return new ReviewVideoSetStatsResponse(headers, cells);
@@ -526,12 +565,14 @@ public class ReviewVideoService {
     private ReviewVideoResponse toResponse(ReviewVideo v) {
         return new ReviewVideoResponse(
                 v.getId(), v.getReviewVideoSet().getId(), v.getSourceType().name(), v.getTitle(), v.getFileUrl(),
-                v.getFileSizeBytes(), v.getDurationSeconds(), v.getDisplayOrder());
+                v.getFileSizeBytes(), v.getDurationSeconds(), v.getDisplayOrder(),
+                v.getCompletionThresholdPercent(), v.getRequiredViewCount());
     }
 
     private ReviewVideoProgressResponse toResponse(ReviewVideoProgress p, ReviewVideo video) {
         int percent = watchedPercentOf(p.getWatchedSeconds(), video.getDurationSeconds());
-        return new ReviewVideoProgressResponse(video.getId(), p.getWatchedSeconds(), video.getDurationSeconds(), percent, p.isCompleted());
+        return new ReviewVideoProgressResponse(video.getId(), p.getWatchedSeconds(), video.getDurationSeconds(), percent,
+                p.isCompleted(), p.getViewCount(), video.getRequiredViewCount());
     }
 
     private ReviewVideoSubmissionResponse toResponse(ReviewVideoSubmission s) {

@@ -8,5 +8,7 @@ public record ReviewVideoResponse(
         String fileUrl,
         Long fileSizeBytes,
         Integer durationSeconds,
-        Integer displayOrder
+        Integer displayOrder,
+        Integer completionThresholdPercent,
+        Integer requiredViewCount
 ) {}

@@ -19,6 +19,7 @@ import vn.com.pps.education.dto.ReviewVideoResponse;
 import vn.com.pps.education.dto.ReviewVideoSetResponse;
 import vn.com.pps.education.dto.ReviewVideoSetStatsResponse;
 import vn.com.pps.education.dto.ReviewVideoSubmissionResponse;
+import vn.com.pps.education.dto.StartWatchSessionResponse;
 import vn.com.pps.education.dto.SubmitReviewVideoAudioRequest;
 import vn.com.pps.education.dto.UpdateReviewVideoSetRequest;
 import vn.com.pps.education.security.AuthenticatedUser;
@@ -72,6 +73,12 @@ public class ReviewVideoController {
     public ResponseEntity<List<ReviewVideoResponse>> listVideos(@PathVariable Long setId,
                                                                   @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(reviewVideoService.listVideos(setId, actor.userId()));
+    }
+
+    @PostMapping("/api/review-videos/{videoId}/watch-sessions")
+    public ResponseEntity<StartWatchSessionResponse> startWatchSession(@PathVariable Long videoId,
+                                                                          @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(reviewVideoService.startWatchSession(videoId, actor.userId()));
     }
 
     @PutMapping("/api/review-videos/{videoId}/progress")
