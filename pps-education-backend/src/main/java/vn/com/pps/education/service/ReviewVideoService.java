@@ -7,17 +7,20 @@ import vn.com.pps.education.domain.Curriculum;
 import vn.com.pps.education.domain.CurriculumSubject;
 import vn.com.pps.education.domain.ReviewVideo;
 import vn.com.pps.education.domain.ReviewVideoProgress;
+import vn.com.pps.education.domain.ReviewVideoQuestion;
+import vn.com.pps.education.domain.ReviewVideoQuestionSubmission;
 import vn.com.pps.education.domain.ReviewVideoSet;
 import vn.com.pps.education.domain.ReviewVideoSetHistory;
-import vn.com.pps.education.domain.ReviewVideoSubmission;
 import vn.com.pps.education.domain.SchoolClass;
 import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.User;
+import vn.com.pps.education.dto.AddReviewVideoQuestionRequest;
 import vn.com.pps.education.dto.AddReviewVideoRequest;
 import vn.com.pps.education.dto.CreateReviewVideoSetRequest;
 import vn.com.pps.education.dto.GradeReviewVideoSubmissionRequest;
 import vn.com.pps.education.dto.ReportVideoProgressRequest;
 import vn.com.pps.education.dto.ReviewVideoProgressResponse;
+import vn.com.pps.education.dto.ReviewVideoQuestionResponse;
 import vn.com.pps.education.dto.ReviewVideoResponse;
 import vn.com.pps.education.dto.ReviewVideoSetResponse;
 import vn.com.pps.education.dto.ReviewVideoSetStatsResponse;
@@ -27,15 +30,17 @@ import vn.com.pps.education.dto.UpdateReviewVideoSetRequest;
 import vn.com.pps.education.exception.InvalidReviewVideoSetScopeException;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
+import vn.com.pps.education.exception.RetakeNotAllowedException;
 import vn.com.pps.education.repository.ClassEnrollmentRepository;
 import vn.com.pps.education.repository.ClassTeacherRepository;
 import vn.com.pps.education.repository.CurriculumRepository;
 import vn.com.pps.education.repository.CurriculumSubjectRepository;
 import vn.com.pps.education.repository.ReviewVideoProgressRepository;
+import vn.com.pps.education.repository.ReviewVideoQuestionRepository;
+import vn.com.pps.education.repository.ReviewVideoQuestionSubmissionRepository;
 import vn.com.pps.education.repository.ReviewVideoRepository;
 import vn.com.pps.education.repository.ReviewVideoSetHistoryRepository;
 import vn.com.pps.education.repository.ReviewVideoSetRepository;
-import vn.com.pps.education.repository.ReviewVideoSubmissionRepository;
 import vn.com.pps.education.repository.SchoolClassRepository;
 import vn.com.pps.education.repository.StudentRepository;
 import vn.com.pps.education.repository.UserRepository;
@@ -72,7 +77,8 @@ public class ReviewVideoService {
     private final ReviewVideoRepository reviewVideoRepository;
     private final ReviewVideoSetHistoryRepository reviewVideoSetHistoryRepository;
     private final ReviewVideoProgressRepository reviewVideoProgressRepository;
-    private final ReviewVideoSubmissionRepository reviewVideoSubmissionRepository;
+    private final ReviewVideoQuestionRepository reviewVideoQuestionRepository;
+    private final ReviewVideoQuestionSubmissionRepository reviewVideoQuestionSubmissionRepository;
     private final CurriculumRepository curriculumRepository;
     private final SchoolClassRepository schoolClassRepository;
     private final CurriculumSubjectRepository curriculumSubjectRepository;
@@ -85,7 +91,8 @@ public class ReviewVideoService {
                                ReviewVideoRepository reviewVideoRepository,
                                ReviewVideoSetHistoryRepository reviewVideoSetHistoryRepository,
                                ReviewVideoProgressRepository reviewVideoProgressRepository,
-                               ReviewVideoSubmissionRepository reviewVideoSubmissionRepository,
+                               ReviewVideoQuestionRepository reviewVideoQuestionRepository,
+                               ReviewVideoQuestionSubmissionRepository reviewVideoQuestionSubmissionRepository,
                                CurriculumRepository curriculumRepository,
                                SchoolClassRepository schoolClassRepository,
                                CurriculumSubjectRepository curriculumSubjectRepository,
@@ -97,7 +104,8 @@ public class ReviewVideoService {
         this.reviewVideoRepository = reviewVideoRepository;
         this.reviewVideoSetHistoryRepository = reviewVideoSetHistoryRepository;
         this.reviewVideoProgressRepository = reviewVideoProgressRepository;
-        this.reviewVideoSubmissionRepository = reviewVideoSubmissionRepository;
+        this.reviewVideoQuestionRepository = reviewVideoQuestionRepository;
+        this.reviewVideoQuestionSubmissionRepository = reviewVideoQuestionSubmissionRepository;
         this.curriculumRepository = curriculumRepository;
         this.schoolClassRepository = schoolClassRepository;
         this.curriculumSubjectRepository = curriculumSubjectRepository;
@@ -220,6 +228,41 @@ public class ReviewVideoService {
     }
 
     /**
+     * UC-23b (V57): giáo viên thêm 1 câu hỏi gắn mốc thời gian vào video
+     * REFLEX khi soạn — thời lượng ghi âm/số lần nộp lại tối đa đặt riêng
+     * theo TỪNG câu hỏi (đã xác nhận với người dùng, không dùng chung 1
+     * giá trị cho cả video). Chỉ áp dụng videoType=REFLEX (cùng rào A1
+     * với submitQuestionAudio).
+     */
+    @Transactional
+    public ReviewVideoQuestionResponse addQuestion(Long videoId, AddReviewVideoQuestionRequest request, Long actorUserId) {
+        ReviewVideo video = getVideoOrThrow(videoId);
+        requireOwnerScope(video.getReviewVideoSet(), actorUserId);
+        if (video.getReviewVideoSet().getVideoType() != ReviewVideoSet.VideoType.REFLEX) {
+            throw new IllegalArgumentException("Video id=" + videoId + " không phải loại Video phản xạ (REFLEX) — không nhận câu hỏi.");
+        }
+
+        ReviewVideoQuestion question = new ReviewVideoQuestion();
+        question.setReviewVideo(video);
+        question.setTimestampSeconds(request.timestampSeconds());
+        question.setPrompt(request.prompt());
+        question.setMaxRecordingSeconds(request.maxRecordingSeconds());
+        question.setMaxAttempts(request.maxAttempts());
+        question.setDisplayOrder(request.displayOrder() == null ? 0 : request.displayOrder());
+        question = reviewVideoQuestionRepository.save(question);
+        return toResponse(question);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReviewVideoQuestionResponse> listQuestions(Long videoId, Long actorUserId) {
+        ReviewVideo video = getVideoOrThrow(videoId);
+        if (isStudent(actorUserId)) {
+            requireStudentCanViewSet(video.getReviewVideoSet(), actorUserId);
+        }
+        return reviewVideoQuestionRepository.findByReviewVideoIdOrderByDisplayOrder(videoId).stream().map(this::toResponse).toList();
+    }
+
+    /**
      * UC-23a Main Flow bước 3: học sinh báo tiến độ xem (giây) — lấy
      * max(cũ, mới), không bao giờ giảm (chống tua tới báo khống). Bề mặt
      * ghi đầu tiên của học sinh trong module này — chặn bởi
@@ -247,51 +290,59 @@ public class ReviewVideoService {
     }
 
     /**
-     * UC-23b Main Flow bước 1-2: học sinh nộp (hoặc nộp lại) audio trả
-     * lời cho video REFLEX — chỉ áp dụng videoType=REFLEX (A1). Nộp lại
-     * GHI ĐÈ audioUrl (UNIQUE review_video_id+student_id) và XOÁ sạch
-     * điểm/nhận xét cũ (A5) vì điểm cũ chấm cho nội dung audio đã không
-     * còn tồn tại — giáo viên phải chấm lại. Chặn bởi requireStudentCanViewSet
-     * TRƯỚC khi check videoType để không lộ loại video ngoài phạm vi lớp
-     * mình (A2, cùng cơ chế 404 với UC-23a).
+     * UC-23b Main Flow bước 1-2 (V57): học sinh nộp audio trả lời cho 1
+     * CÂU HỎI của video REFLEX — chỉ áp dụng videoType=REFLEX (A1). Nộp
+     * lại tạo attempt MỚI, GIỮ LỊCH SỬ các attempt trước (khác cơ chế ghi
+     * đè cũ) — trừ phi đã đạt maxAttempts của câu hỏi đó thì từ chối
+     * (RetakeNotAllowedException, tái dùng nguyên exception của UC-24/27).
+     * Chặn bởi requireStudentCanViewSet TRƯỚC khi check videoType để
+     * không lộ loại video ngoài phạm vi lớp mình (A2, cùng cơ chế 404 với
+     * UC-23a).
      */
     @Transactional
-    public ReviewVideoSubmissionResponse submitAudio(Long videoId, SubmitReviewVideoAudioRequest request, Long actorUserId) {
-        ReviewVideo video = getVideoOrThrow(videoId);
+    public ReviewVideoSubmissionResponse submitQuestionAudio(Long questionId, SubmitReviewVideoAudioRequest request, Long actorUserId) {
+        ReviewVideoQuestion question = getQuestionOrThrow(questionId);
+        ReviewVideo video = question.getReviewVideo();
         Student student = requireStudentCanViewSet(video.getReviewVideoSet(), actorUserId);
         if (video.getReviewVideoSet().getVideoType() != ReviewVideoSet.VideoType.REFLEX) {
-            throw new IllegalArgumentException("Video id=" + videoId + " không phải loại Video phản xạ (REFLEX) — không nhận nộp audio.");
+            throw new IllegalArgumentException("Video id=" + video.getId() + " không phải loại Video phản xạ (REFLEX) — không nhận nộp audio.");
         }
 
-        ReviewVideoSubmission submission = reviewVideoSubmissionRepository
-                .findByReviewVideoIdAndStudentId(videoId, student.getId())
-                .orElseGet(() -> {
-                    ReviewVideoSubmission s = new ReviewVideoSubmission();
-                    s.setReviewVideo(video);
-                    s.setStudent(student);
-                    return s;
-                });
-        boolean resubmit = submission.getId() != null;
+        int previousAttempts = reviewVideoQuestionSubmissionRepository
+                .countByReviewVideoQuestionIdAndStudentId(questionId, student.getId());
+        if (question.getMaxAttempts() != null && previousAttempts >= question.getMaxAttempts()) {
+            throw new RetakeNotAllowedException(
+                    "Câu hỏi id=" + questionId + " đã hết lượt nộp lại (tối đa " + question.getMaxAttempts() + ").");
+        }
+
+        ReviewVideoQuestionSubmission submission = new ReviewVideoQuestionSubmission();
+        submission.setReviewVideoQuestion(question);
+        submission.setStudent(student);
+        submission.setAttemptNumber(previousAttempts + 1);
         submission.setAudioUrl(request.audioUrl());
         submission.setSubmittedAt(OffsetDateTime.now());
-        if (resubmit) {
-            submission.setScore(null);
-            submission.setMaxScore(null);
-            submission.setFeedback(null);
-            submission.setGradedBy(null);
-            submission.setGradedAt(null);
-        }
-        submission = reviewVideoSubmissionRepository.save(submission);
+        submission = reviewVideoQuestionSubmissionRepository.save(submission);
         return toResponse(submission);
     }
 
-    /** UC-23b: học sinh xem bài audio mình đã nộp cho 1 video — null nếu chưa nộp. */
+    /** UC-23b (V57): học sinh xem attempt MỚI NHẤT mình đã nộp cho 1 câu hỏi — null nếu chưa nộp lần nào. */
     @Transactional(readOnly = true)
-    public ReviewVideoSubmissionResponse getMySubmission(Long videoId, Long actorUserId) {
-        ReviewVideo video = getVideoOrThrow(videoId);
-        Student student = requireStudentCanViewSet(video.getReviewVideoSet(), actorUserId);
-        return reviewVideoSubmissionRepository.findByReviewVideoIdAndStudentId(videoId, student.getId())
-                .map(this::toResponse).orElse(null);
+    public ReviewVideoSubmissionResponse getMyLatestSubmission(Long questionId, Long actorUserId) {
+        ReviewVideoQuestion question = getQuestionOrThrow(questionId);
+        Student student = requireStudentCanViewSet(question.getReviewVideo().getReviewVideoSet(), actorUserId);
+        List<ReviewVideoQuestionSubmission> attempts = reviewVideoQuestionSubmissionRepository
+                .findByReviewVideoQuestionIdAndStudentIdOrderByAttemptNumberDesc(questionId, student.getId());
+        return attempts.isEmpty() ? null : toResponse(attempts.get(0));
+    }
+
+    /** UC-23b (V57): học sinh xem TOÀN BỘ lịch sử các lần đã nộp cho 1 câu hỏi (mới nhất trước) — giữ lịch sử thì phải xem lại được. */
+    @Transactional(readOnly = true)
+    public List<ReviewVideoSubmissionResponse> listMySubmissionHistory(Long questionId, Long actorUserId) {
+        ReviewVideoQuestion question = getQuestionOrThrow(questionId);
+        Student student = requireStudentCanViewSet(question.getReviewVideo().getReviewVideoSet(), actorUserId);
+        return reviewVideoQuestionSubmissionRepository
+                .findByReviewVideoQuestionIdAndStudentIdOrderByAttemptNumberDesc(questionId, student.getId())
+                .stream().map(this::toResponse).toList();
     }
 
     /**
@@ -333,10 +384,11 @@ public class ReviewVideoService {
     }
 
     /**
-     * UC-23b Main Flow bước 3: giáo viên xem danh sách bài audio đã nộp
-     * (chỉ các dòng đã thực sự nộp — không dựng ma trận roster × video
-     * đầy đủ như getStats(), vì đây là "danh sách chờ chấm" không phải
-     * "thống kê xem video").
+     * UC-23b Main Flow bước 3 (V57): giáo viên xem danh sách bài audio đã
+     * nộp — chỉ ATTEMPT MỚI NHẤT mỗi (câu hỏi, học sinh) (chấm bản mới
+     * nhất là chính, giống cách UC-40 lấy attempt mới nhất của bài ngữ
+     * pháp) — không dựng ma trận roster × video đầy đủ như getStats(), vì
+     * đây là "danh sách chờ chấm" không phải "thống kê xem video".
      */
     @Transactional(readOnly = true)
     public List<ReviewVideoSubmissionResponse> listSubmissionsForTeacher(Long setId, Long classIdParam, Long actorUserId) {
@@ -346,21 +398,28 @@ public class ReviewVideoService {
 
         List<Long> studentIds = classEnrollmentRepository.findBySchoolClassIdAndStatus(classId, ClassEnrollment.Status.ACTIVE)
                 .stream().map(e -> e.getStudent().getId()).toList();
-        List<Long> videoIds = reviewVideoRepository.findByReviewVideoSetIdOrderByDisplayOrder(setId)
-                .stream().map(ReviewVideo::getId).toList();
-        if (studentIds.isEmpty() || videoIds.isEmpty()) {
+        List<Long> questionIds = reviewVideoRepository.findByReviewVideoSetIdOrderByDisplayOrder(setId).stream()
+                .flatMap(v -> reviewVideoQuestionRepository.findByReviewVideoIdOrderByDisplayOrder(v.getId()).stream())
+                .map(ReviewVideoQuestion::getId).toList();
+        if (studentIds.isEmpty() || questionIds.isEmpty()) {
             return List.of();
         }
-        return reviewVideoSubmissionRepository.findByReviewVideoIdInAndStudentIdIn(videoIds, studentIds)
-                .stream().map(this::toResponse).toList();
+        return reviewVideoQuestionSubmissionRepository.findByReviewVideoQuestionIdInAndStudentIdIn(questionIds, studentIds)
+                .stream()
+                .collect(Collectors.toMap(
+                        s -> s.getReviewVideoQuestion().getId() + ":" + s.getStudent().getId(),
+                        s -> s,
+                        (a, b) -> a.getAttemptNumber() >= b.getAttemptNumber() ? a : b))
+                .values().stream()
+                .map(this::toResponse).toList();
     }
 
-    /** UC-23b Main Flow bước 4: giáo viên chấm điểm + nhận xét cho 1 bài audio đã nộp (A3 nếu không phụ trách lớp, A4 nếu không tồn tại). */
+    /** UC-23b Main Flow bước 4: giáo viên chấm điểm + nhận xét cho 1 attempt đã nộp (A3 nếu không phụ trách lớp, A4 nếu không tồn tại). */
     @Transactional
     public ReviewVideoSubmissionResponse gradeSubmission(Long submissionId, GradeReviewVideoSubmissionRequest request, Long actorUserId) {
-        ReviewVideoSubmission submission = reviewVideoSubmissionRepository.findById(submissionId)
+        ReviewVideoQuestionSubmission submission = reviewVideoQuestionSubmissionRepository.findById(submissionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bài nộp id=" + submissionId));
-        requireOwnerScope(submission.getReviewVideo().getReviewVideoSet(), actorUserId);
+        requireOwnerScope(submission.getReviewVideoQuestion().getReviewVideo().getReviewVideoSet(), actorUserId);
         User actor = getUserOrThrow(actorUserId);
 
         submission.setScore(request.score());
@@ -368,7 +427,7 @@ public class ReviewVideoService {
         submission.setFeedback(request.feedback());
         submission.setGradedBy(actor);
         submission.setGradedAt(OffsetDateTime.now());
-        submission = reviewVideoSubmissionRepository.save(submission);
+        submission = reviewVideoQuestionSubmissionRepository.save(submission);
         return toResponse(submission);
     }
 
@@ -494,6 +553,11 @@ public class ReviewVideoService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy video id=" + id));
     }
 
+    private ReviewVideoQuestion getQuestionOrThrow(Long id) {
+        return reviewVideoQuestionRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy câu hỏi id=" + id));
+    }
+
     private void writeHistory(ReviewVideoSet set, User actor, ReviewVideoSetHistory.Action action) {
         ReviewVideoSetHistory history = new ReviewVideoSetHistory();
         history.setReviewVideoSet(set);
@@ -534,9 +598,16 @@ public class ReviewVideoService {
         return new ReviewVideoProgressResponse(video.getId(), p.getWatchedSeconds(), video.getDurationSeconds(), percent, p.isCompleted());
     }
 
-    private ReviewVideoSubmissionResponse toResponse(ReviewVideoSubmission s) {
+    private ReviewVideoQuestionResponse toResponse(ReviewVideoQuestion q) {
+        return new ReviewVideoQuestionResponse(
+                q.getId(), q.getReviewVideo().getId(), q.getTimestampSeconds(), q.getPrompt(),
+                q.getMaxRecordingSeconds(), q.getMaxAttempts(), q.getDisplayOrder());
+    }
+
+    private ReviewVideoSubmissionResponse toResponse(ReviewVideoQuestionSubmission s) {
         return new ReviewVideoSubmissionResponse(
-                s.getId(), s.getReviewVideo().getId(), s.getStudent().getId(), s.getStudent().getUser().getFullName(),
+                s.getId(), s.getReviewVideoQuestion().getId(), s.getAttemptNumber(),
+                s.getStudent().getId(), s.getStudent().getUser().getFullName(),
                 s.getAudioUrl(), s.getSubmittedAt(), s.getScore(), s.getMaxScore(), s.getFeedback(),
                 s.getGradedBy() == null ? null : s.getGradedBy().getId(), s.getGradedAt());
     }

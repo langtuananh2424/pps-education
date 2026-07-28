@@ -9,33 +9,35 @@ import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 
 /**
- * Bảng review_video_submissions (SDD > LMS & Portal > Kho Video Ôn tập >
- * d) — MỚI HOÀN TOÀN (UC-23b, 2026-07-27, bổ sung ngoài SDD gốc đã xác
- * nhận với người dùng): Học sinh nộp audio trả lời cho video loại REFLEX
- * (kiểm tra videoType ở Service, không đặt CHECK trên bảng này), Giáo
- * viên chấm điểm (score/maxScore) + nhận xét (feedback). Học sinh nộp
- * lại (resubmit) GHI ĐÈ audioUrl (UNIQUE review_video_id+student_id,
- * giống ReviewVideoProgress) và xoá sạch điểm/nhận xét cũ (Service tự
- * xoá) vì điểm cũ chấm cho nội dung audio đã không còn tồn tại — không
- * giữ lịch sử các lần nộp trước.
+ * Bảng review_video_question_submissions (SDD > LMS & Portal > Kho
+ * Video Ôn tập) — thay thế ReviewVideoSubmission (V53) từ V57, 2026-07-28
+ * (bổ sung ngoài SDD gốc đã xác nhận với người dùng): Học sinh nộp audio
+ * trả lời cho 1 câu hỏi (ReviewVideoQuestion), GIỮ LỊCH SỬ mỗi lần nộp
+ * (attemptNumber tăng dần, UNIQUE review_video_question_id+student_id+
+ * attempt_number — khác hẳn cơ chế ghi đè cũ). Giáo viên chấm điểm/nhận
+ * xét cho TỪNG attempt riêng (không xoá điểm attempt trước khi nộp attempt
+ * mới, khác cơ chế cũ).
  */
 @Getter
 @Setter
 @Entity
-@Table(name = "review_video_submissions")
-public class ReviewVideoSubmission extends BaseAuditEntity {
+@Table(name = "review_video_question_submissions")
+public class ReviewVideoQuestionSubmission extends BaseAuditEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "review_video_id", nullable = false)
-    private ReviewVideo reviewVideo;
+    @JoinColumn(name = "review_video_question_id", nullable = false)
+    private ReviewVideoQuestion reviewVideoQuestion;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "student_id", nullable = false)
     private Student student;
+
+    @Column(name = "attempt_number", nullable = false)
+    private int attemptNumber;
 
     @Column(name = "audio_url", nullable = false, length = 1000)
     private String audioUrl;
