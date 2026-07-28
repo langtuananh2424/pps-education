@@ -206,13 +206,13 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         ReviewVideoSetResponse set = createClassScopedSet();
 
         ReviewVideoResponse youtube = reviewVideoService.addVideo(set.id(),
-                new AddReviewVideoRequest("YOUTUBE_URL", "Video TKN 1", "https://youtube.com/watch?v=abc123", null, 180, 1),
+                new AddReviewVideoRequest("YOUTUBE_URL", "Video TKN 1", "https://youtube.com/watch?v=abc123", null, 180, 1, null, null),
                 teacher.getId());
         ReviewVideoResponse r2Video = reviewVideoService.addVideo(set.id(),
-                new AddReviewVideoRequest("R2_VIDEO", "Video TKN 2", "https://media.pps.edu.vn/lms/review-videos/video/x.mp4", 5_000_000L, 200, 2),
+                new AddReviewVideoRequest("R2_VIDEO", "Video TKN 2", "https://media.pps.edu.vn/lms/review-videos/video/x.mp4", 5_000_000L, 200, 2, null, null),
                 teacher.getId());
         ReviewVideoResponse r2Audio = reviewVideoService.addVideo(set.id(),
-                new AddReviewVideoRequest("R2_AUDIO", "Video phản xạ audio", "https://media.pps.edu.vn/lms/review-videos/audio/y.mp3", 1_000_000L, 90, 3),
+                new AddReviewVideoRequest("R2_AUDIO", "Video phản xạ audio", "https://media.pps.edu.vn/lms/review-videos/audio/y.mp3", 1_000_000L, 90, 3, null, null),
                 teacher.getId());
 
         assertThat(youtube.sourceType()).isEqualTo("YOUTUBE_URL");
@@ -277,26 +277,27 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
     void reportProgress_UC23a_MainFlow_upsertsAndComputesCompletionAt80Percent() {
         ReviewVideoResponse video = createPublishedSetWithVideo(100);
         Student student = enrollStudent(schoolClass.id());
+        Long sessionId = startSession(video.id(), student.getUser().getId());
 
-        ReviewVideoProgressResponse below = reviewVideoService.reportProgress(video.id(),
-                new ReportVideoProgressRequest(79), student.getUser().getId());
-        ReviewVideoProgressResponse atThreshold = reviewVideoService.reportProgress(video.id(),
-                new ReportVideoProgressRequest(80), student.getUser().getId());
+        ReviewVideoProgressResponse below = reportProgress(video.id(), sessionId, 79, student.getUser().getId());
+        ReviewVideoProgressResponse atThreshold = reportProgress(video.id(), sessionId, 80, student.getUser().getId());
 
         assertThat(below.completed()).isFalse();
         assertThat(below.watchedPercent()).isEqualTo(79);
+        // Mặc định requiredViewCount=1 — session đạt ngưỡng 80% trong CHÍNH lượt này là đủ "đạt".
         assertThat(atThreshold.completed()).isTrue();
         assertThat(atThreshold.watchedPercent()).isEqualTo(80);
+        assertThat(atThreshold.viewCount()).isEqualTo(1);
     }
 
     @Test
     void reportProgress_UC23a_MainFlow_watchedSecondsNeverDecreases() {
         ReviewVideoResponse video = createPublishedSetWithVideo(100);
         Student student = enrollStudent(schoolClass.id());
-        reviewVideoService.reportProgress(video.id(), new ReportVideoProgressRequest(90), student.getUser().getId());
+        Long sessionId = startSession(video.id(), student.getUser().getId());
+        reportProgress(video.id(), sessionId, 90, student.getUser().getId());
 
-        ReviewVideoProgressResponse afterLowerReport = reviewVideoService.reportProgress(video.id(),
-                new ReportVideoProgressRequest(30), student.getUser().getId());
+        ReviewVideoProgressResponse afterLowerReport = reportProgress(video.id(), sessionId, 30, student.getUser().getId());
 
         assertThat(afterLowerReport.watchedSeconds()).isEqualTo(90);
         assertThat(afterLowerReport.completed()).isTrue();
@@ -308,9 +309,53 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         User outsiderStudentUser = newUser("student.outsider3");
         newStudent(outsiderStudentUser);
 
-        assertThatThrownBy(() -> reviewVideoService.reportProgress(video.id(),
-                new ReportVideoProgressRequest(50), outsiderStudentUser.getId()))
+        assertThatThrownBy(() -> reviewVideoService.startWatchSession(video.id(), outsiderStudentUser.getId()))
                 .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void reportProgress_UC59_MainFlow_requiresConfiguredViewCountBeforeCompleted() {
+        ReviewVideoResponse video = createPublishedSetWithVideo(100, 80, 2);
+        Student student = enrollStudent(schoolClass.id());
+
+        ReviewVideoProgressResponse afterFirstSession = reportProgress(video.id(), startSession(video.id(), student.getUser().getId()), 90, student.getUser().getId());
+        assertThat(afterFirstSession.viewCount()).isEqualTo(1);
+        assertThat(afterFirstSession.completed()).isFalse();
+
+        ReviewVideoProgressResponse afterSecondSession = reportProgress(video.id(), startSession(video.id(), student.getUser().getId()), 90, student.getUser().getId());
+        assertThat(afterSecondSession.viewCount()).isEqualTo(2);
+        assertThat(afterSecondSession.completed()).isTrue();
+    }
+
+    @Test
+    void reportProgress_UC59_MainFlow_unqualifiedSessionDoesNotIncrementViewCount() {
+        ReviewVideoResponse video = createPublishedSetWithVideo(100, 80, 1);
+        Student student = enrollStudent(schoolClass.id());
+        reportProgress(video.id(), startSession(video.id(), student.getUser().getId()), 50, student.getUser().getId());
+
+        ReviewVideoProgressResponse afterUnqualifiedSession = reportProgress(video.id(),
+                startSession(video.id(), student.getUser().getId()), 60, student.getUser().getId());
+
+        assertThat(afterUnqualifiedSession.viewCount()).isZero();
+        assertThat(afterUnqualifiedSession.completed()).isFalse();
+    }
+
+    @Test
+    void reportProgress_UC59_MainFlow_sessionsForDifferentVideosTrackIndependently() {
+        ReviewVideoResponse videoA = createPublishedSetWithVideo(100);
+        ReviewVideoSetResponse setB = createClassScopedSet();
+        reviewVideoService.updateSet(setB.id(), new UpdateReviewVideoSetRequest(setB.title(), null, 1, "PUBLISHED"), teacher.getId());
+        ReviewVideoResponse videoB = reviewVideoService.addVideo(setB.id(),
+                new AddReviewVideoRequest("R2_VIDEO", "Video B", "https://media.pps.edu.vn/lms/review-videos/video/b.mp4", 1_000_000L, 100, 1, null, null),
+                teacher.getId());
+        Student student = enrollStudent(schoolClass.id());
+
+        reportProgress(videoA.id(), startSession(videoA.id(), student.getUser().getId()), 80, student.getUser().getId());
+        ReviewVideoProgressResponse progressB = reportProgress(videoB.id(),
+                startSession(videoB.id(), student.getUser().getId()), 10, student.getUser().getId());
+
+        assertThat(progressB.viewCount()).isZero();
+        assertThat(progressB.watchedSeconds()).isEqualTo(10);
     }
 
     @Test
@@ -319,7 +364,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         Long setId = video.reviewVideoSetId();
         Student watcher = enrollStudent(schoolClass.id());
         Student neverWatched = enrollStudent(schoolClass.id());
-        reviewVideoService.reportProgress(video.id(), new ReportVideoProgressRequest(80), watcher.getUser().getId());
+        reportProgress(video.id(), startSession(video.id(), watcher.getUser().getId()), 80, watcher.getUser().getId());
 
         ReviewVideoSetStatsResponse stats = reviewVideoService.getStats(setId, schoolClass.id(), teacher.getId());
 
@@ -327,6 +372,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
             if (cell.studentId().equals(watcher.getId())) {
                 assertThat(cell.completed()).isTrue();
                 assertThat(cell.watchedPercent()).isEqualTo(80);
+                assertThat(cell.viewCount()).isEqualTo(1);
             }
         });
         assertThat(stats.cells()).anySatisfy(cell -> {
@@ -570,15 +616,20 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
                 teacher.getId());
         reviewVideoService.updateSet(set.id(), new UpdateReviewVideoSetRequest(set.title(), null, 1, "PUBLISHED"), teacher.getId());
         return reviewVideoService.addVideo(set.id(),
-                new AddReviewVideoRequest("R2_AUDIO", "Audio", "https://media.pps.edu.vn/lms/review-videos/audio/x.mp3", 1_000_000L, durationSeconds, 1),
+                new AddReviewVideoRequest("R2_AUDIO", "Audio", "https://media.pps.edu.vn/lms/review-videos/audio/x.mp3", 1_000_000L, durationSeconds, 1, null, null),
                 teacher.getId());
     }
 
     private ReviewVideoResponse createPublishedSetWithVideo(int durationSeconds) {
+        return createPublishedSetWithVideo(durationSeconds, null, null);
+    }
+
+    private ReviewVideoResponse createPublishedSetWithVideo(int durationSeconds, Integer completionThresholdPercent, Integer requiredViewCount) {
         ReviewVideoSetResponse set = createClassScopedSet();
         reviewVideoService.updateSet(set.id(), new UpdateReviewVideoSetRequest(set.title(), null, 1, "PUBLISHED"), teacher.getId());
         return reviewVideoService.addVideo(set.id(),
-                new AddReviewVideoRequest("R2_VIDEO", "Video", "https://media.pps.edu.vn/lms/review-videos/video/x.mp4", 1_000_000L, durationSeconds, 1),
+                new AddReviewVideoRequest("R2_VIDEO", "Video", "https://media.pps.edu.vn/lms/review-videos/video/x.mp4", 1_000_000L,
+                        durationSeconds, 1, completionThresholdPercent, requiredViewCount),
                 teacher.getId());
     }
 
@@ -586,6 +637,14 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         return reviewVideoService.createSet(
                 new CreateReviewVideoSetRequest(setCode(), "Bài 1: Video TKN", "CONNECTION", null, schoolClass.id(), null, 1),
                 teacher.getId());
+    }
+
+    private Long startSession(Long videoId, Long actorUserId) {
+        return reviewVideoService.startWatchSession(videoId, actorUserId).sessionId();
+    }
+
+    private ReviewVideoProgressResponse reportProgress(Long videoId, Long sessionId, int watchedSeconds, Long actorUserId) {
+        return reviewVideoService.reportProgress(videoId, new ReportVideoProgressRequest(sessionId, watchedSeconds), actorUserId);
     }
 
     private Student enrollStudent(Long classId) {

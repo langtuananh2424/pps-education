@@ -5,5 +5,7 @@ public record ReviewVideoProgressResponse(
         Integer watchedSeconds,
         Integer durationSeconds,
         Integer watchedPercent,
-        boolean completed
+        boolean completed,
+        Integer viewCount,
+        Integer requiredViewCount
 ) {}

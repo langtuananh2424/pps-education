@@ -92,11 +92,14 @@ UC-23a: Xem & Theo dõi Kho Video Ôn tập
 +-----------------+----------------------------------------------------+
 | **Mô tả tóm     | Học sinh xem kho video ôn tập (review_video_sets + |
 | tắt**           | review_videos) của (các) lớp mình đang ghi danh;   |
-|                 | hệ thống tự theo dõi số giây đã xem, đạt ≥80% thời |
-|                 | lượng thì coi là "đã xem" (review_video_progress — |
-|                 | bổ sung ngoài SDD gốc, đã xác nhận với người dùng  |
-|                 | 2026-07-27). Giáo viên xem thống kê học sinh đã    |
-|                 | xem/chưa xem theo từng bộ + lớp.                   |
+|                 | hệ thống theo dõi TỪNG LƯỢT xem (bổ sung V59,       |
+|                 | 2026-07-28, đã xác nhận với người dùng — thay thế   |
+|                 | cơ chế watermark suốt đời ban đầu), "đạt yêu cầu"   |
+|                 | video CONNECTION cần cả 2 điều kiện, đều cấu hình   |
+|                 | được khi Giáo viên tạo video: (1) % ngưỡng xem cho  |
+|                 | 1 lượt (mặc định 80%), (2) số lượt đạt ngưỡng đó    |
+|                 | tối thiểu (mặc định 1). Giáo viên xem thống kê học  |
+|                 | sinh đã xem/chưa xem theo từng bộ + lớp.            |
 +-----------------+----------------------------------------------------+
 | **Sự kiện kích  | Học sinh mở kho video ôn tập của 1 lớp mình đang   |
 | hoạt**          | học; Giáo viên mở màn hình thống kê 1 bộ.          |
@@ -114,18 +117,23 @@ UC-23a: Xem & Theo dõi Kho Video Ôn tập
 |                 |     khung chương trình của lớp này) — đúng logic   |
 |                 |     OR đã thiết kế trong SDD.                      |
 |                 |                                                    |
-|                 | 3.  Học sinh chọn 1 bộ, xem danh sách video, chọn  |
-|                 |     phát 1 video.                                  |
+|                 | 3.  Học sinh chọn 1 bộ, xem danh sách video, bắt   |
+|                 |     đầu phát 1 video — hệ thống mở 1 LƯỢT XEM mới  |
+|                 |     (watch session).                               |
 |                 |                                                    |
 |                 | 4.  Trong lúc xem, hệ thống ghi nhận định kỳ số    |
-|                 |     giây đã xem — lấy mốc giây CAO NHẤT từng đạt,  |
-|                 |     không tính lùi khi học sinh tua tới — đạt ≥80% |
-|                 |     thời lượng thì coi là "đã xem".                |
+|                 |     giây đã xem CHO ĐÚNG lượt đang mở — lấy mốc    |
+|                 |     giây CAO NHẤT trong lượt đó, không tính lùi    |
+|                 |     khi học sinh tua tới; lượt đạt % ngưỡng của    |
+|                 |     video được đánh dấu "hợp lệ".                  |
 |                 |                                                    |
-|                 | 5.  Giáo viên xem thống kê theo bộ + lớp — từng    |
-|                 |     học sinh đã xem bao nhiêu % mỗi video, đạt     |
-|                 |     "đã xem" hay chưa (kể cả học sinh chưa từng mở |
-|                 |     video nào, hiển thị 0%).                       |
+|                 | 5.  "Đạt yêu cầu" (đã xem) = số lượt hợp lệ ≥ số   |
+|                 |     lượt tối thiểu cấu hình cho video đó.          |
+|                 |                                                    |
+|                 | 6.  Giáo viên xem thống kê theo bộ + lớp — từng    |
+|                 |     học sinh đã xem bao nhiêu % + bao nhiêu lượt   |
+|                 |     hợp lệ mỗi video, đạt yêu cầu hay chưa (kể cả  |
+|                 |     học sinh chưa từng mở video nào, hiển thị 0%). |
 +-----------------+----------------------------------------------------+
 | **Luồng thay    | ***A1 --- Học sinh chưa/không còn ghi danh lớp     |
 | thế / ngoại lệ  | đang gọi***                                        |
@@ -135,8 +143,8 @@ UC-23a: Xem & Theo dõi Kho Video Ôn tập
 |                 |     không lộ thông tin bộ video của lớp không      |
 |                 |     thuộc về mình).                                |
 |                 |                                                    |
-|                 | ***A2 --- Học sinh báo tiến độ cho video ngoài     |
-|                 | phạm vi lớp mình***                                |
+|                 | ***A2 --- Học sinh mở lượt xem/báo tiến độ cho     |
+|                 | video ngoài phạm vi lớp mình***                    |
 |                 |                                                    |
 |                 | 1.  Cùng cơ chế 404 như A1 — không lộ sự tồn tại   |
 |                 |     của video ngoài phạm vi lớp học sinh đang học. |
@@ -145,12 +153,13 @@ UC-23a: Xem & Theo dõi Kho Video Ôn tập
 | (P              |     phạm vi lớp/khung chương trình mình đang học — |
 | ostcondition)** |     không thấy bộ DRAFT hay bộ của lớp/khung khác. |
 |                 |                                                    |
-|                 | -   Tiến độ xem của học sinh được lưu lại, không   |
-|                 |     giảm theo thời gian.                           |
+|                 | -   Mỗi lượt xem lưu riêng — trong 1 lượt, tiến độ |
+|                 |     không giảm theo thời gian; lượt hợp lệ được    |
+|                 |     cộng dồn vào số lượt đạt của video.            |
 |                 |                                                    |
-|                 | -   Giáo viên xem được thống kê chính xác kể cả    |
-|                 |     học sinh chưa từng mở video nào (hiện 0%,      |
-|                 |     không biến mất khỏi danh sách).                |
+|                 | -   Giáo viên xem được thống kê chính xác (%+số    |
+|                 |     lượt) kể cả học sinh chưa từng mở video nào    |
+|                 |     (hiện 0%, không biến mất khỏi danh sách).      |
 +-----------------+----------------------------------------------------+
 
 ---

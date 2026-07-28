@@ -625,7 +625,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
                 new UpdateReviewVideoSetRequest(set.title(), null, 1, "PUBLISHED"), teacher.getId());
         ReviewVideoResponse video = reviewVideoService.addVideo(set.id(),
                 new AddReviewVideoRequest("R2_VIDEO", "Video", "https://media.pps.edu.vn/lms/review-videos/video/v55.mp4",
-                        1_000_000L, durationSeconds, 1),
+                        1_000_000L, durationSeconds, 1, null, null),
                 teacher.getId());
         return new VideoFixture(published, video);
     }
@@ -700,7 +700,8 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
     void buildTemplate_V55_MainFlow_showsVideoWatchPercentFromPreviousSessionAssignment() throws IOException {
         VideoFixture fixture = createConnectionVideoAssignedToClass(100);
         writeDailyCommentWithHomeworkNext(student, classSession, null, fixture.set().id());
-        reviewVideoService.reportProgress(fixture.video().id(), new ReportVideoProgressRequest(80), student.getUser().getId());
+        Long sessionId = reviewVideoService.startWatchSession(fixture.video().id(), student.getUser().getId()).sessionId();
+        reviewVideoService.reportProgress(fixture.video().id(), new ReportVideoProgressRequest(sessionId, 80), student.getUser().getId());
         ClassSessionResponse session2 = nextSession();
 
         byte[] template = studentCommentService.buildTemplate(session2.id(), teacher.getId());

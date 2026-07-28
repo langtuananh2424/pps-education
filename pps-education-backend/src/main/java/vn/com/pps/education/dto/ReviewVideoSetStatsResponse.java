@@ -12,8 +12,8 @@ public record ReviewVideoSetStatsResponse(
         List<VideoHeader> videos,
         List<StatsCell> cells
 ) {
-    public record VideoHeader(Long videoId, String title, Integer durationSeconds) {}
+    public record VideoHeader(Long videoId, String title, Integer durationSeconds, Integer requiredViewCount) {}
 
-    /** watchedPercent/completed = 0/false khi học sinh chưa từng báo tiến độ (không biến mất khỏi ma trận). */
-    public record StatsCell(Long studentId, Long videoId, int watchedSeconds, int watchedPercent, boolean completed) {}
+    /** watchedPercent/completed/viewCount = 0/false/0 khi học sinh chưa từng báo tiến độ (không biến mất khỏi ma trận). */
+    public record StatsCell(Long studentId, Long videoId, int watchedSeconds, int watchedPercent, boolean completed, int viewCount) {}
 }

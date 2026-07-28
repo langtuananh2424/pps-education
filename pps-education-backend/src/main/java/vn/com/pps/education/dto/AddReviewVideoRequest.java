@@ -16,5 +16,9 @@ public record AddReviewVideoRequest(
         @NotBlank String fileUrl,
         Long fileSizeBytes,
         @NotNull Integer durationSeconds,
-        Integer displayOrder
+        Integer displayOrder,
+        /** Chỉ có ý nghĩa với videoType=CONNECTION — để trống dùng mặc định 80 (V59). */
+        Integer completionThresholdPercent,
+        /** Chỉ có ý nghĩa với videoType=CONNECTION — để trống dùng mặc định 1 (V59). */
+        Integer requiredViewCount
 ) {}

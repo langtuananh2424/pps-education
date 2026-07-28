@@ -35,6 +35,11 @@ public class ReviewVideoProgress extends BaseAuditEntity {
     @Column(name = "watched_seconds", nullable = false)
     private int watchedSeconds = 0;
 
+    /** V59: đổi ý nghĩa — tính lại ở Service = viewCount >= reviewVideo.requiredViewCount (không còn chỉ dựa vào watchedSeconds đơn thuần). */
     @Column(name = "is_completed", nullable = false)
     private boolean completed = false;
+
+    /** V59: số lượt xem (ReviewVideoWatchSession) đã đạt completionThresholdPercent — rollup, tính lại mỗi lần có session mới. */
+    @Column(name = "view_count", nullable = false)
+    private int viewCount = 0;
 }

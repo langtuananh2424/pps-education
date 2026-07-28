@@ -47,4 +47,12 @@ public class ReviewVideo extends BaseAuditEntity {
 
     @Column(name = "display_order", nullable = false)
     private int displayOrder = 0;
+
+    /** Chỉ có ý nghĩa với videoType=CONNECTION — % ngưỡng để 1 lượt xem được tính "đạt" (V59, mặc định 80). */
+    @Column(name = "completion_threshold_percent", nullable = false)
+    private int completionThresholdPercent = 80;
+
+    /** Chỉ có ý nghĩa với videoType=CONNECTION — số lượt xem đạt ngưỡng % tối thiểu để video được tính "đạt" (V59, mặc định 1). */
+    @Column(name = "required_view_count", nullable = false)
+    private int requiredViewCount = 1;
 }

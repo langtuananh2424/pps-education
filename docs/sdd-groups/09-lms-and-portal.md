@@ -163,6 +163,24 @@ b)  Bảng review_videos --- Video/audio trong 1 bộ
   display_order         INT                     NOT NULL,
                                                  DEFAULT 0
 
+  completion_threshold_ INT                     NOT NULL,      Chỉ có ý nghĩa
+  percent                                       DEFAULT 80     videoType=
+                                                                CONNECTION —
+                                                                % ngưỡng để 1
+                                                                LƯỢT xem được
+                                                                tính "hợp lệ"
+                                                                (V59, bổ sung
+                                                                ngoài SDD gốc)
+
+  required_view_count   INT                     NOT NULL,      Chỉ có ý nghĩa
+                                                 DEFAULT 1      videoType=
+                                                                CONNECTION —
+                                                                số lượt hợp lệ
+                                                                tối thiểu để
+                                                                video được
+                                                                tính "đạt"
+                                                                (V59)
+
   created_at,           TIMESTAMPTZ             NOT NULL       BaseAuditEntity
   updated_at
   --------------------------------------------------------------------------
@@ -196,26 +214,92 @@ chưa từng tồn tại cơ chế này trước khi tái cấu trúc)
                                                                 không giảm khi
                                                                 tua tới
 
-  is_completed          BOOLEAN                 NOT NULL,      Tính lại mỗi
-                                                 DEFAULT FALSE  lần cập nhật =
-                                                                watched_seconds
-                                                                >= duration_
-                                                                seconds * 0.8
+  is_completed          BOOLEAN                 NOT NULL,      V59, đổi ý
+                                                 DEFAULT FALSE  nghĩa: tính lại
+                                                                ở Service =
+                                                                view_count >=
+                                                                review_video.
+                                                                required_view_
+                                                                count (trước
+                                                                đây tính trực
+                                                                tiếp từ
+                                                                watched_seconds)
+
+  view_count             INT                     NOT NULL,      V59, bổ sung
+                                                 DEFAULT 0      ngoài SDD gốc
+                                                                — số LƯỢT xem
+                                                                (review_video_
+                                                                watch_sessions)
+                                                                đã đạt
+                                                                completion_
+                                                                threshold_
+                                                                percent, rollup
+                                                                tính lại mỗi
+                                                                lần có session
+                                                                mới cập nhật
 
   created_at,           TIMESTAMPTZ             NOT NULL       BaseAuditEntity
   updated_at
   --------------------------------------------------------------------------
 
 Ràng buộc: UNIQUE (review_video_id, student_id) — 1 dòng/học sinh/video,
-upsert mỗi lần báo tiến độ. Giáo viên xem thống kê theo bộ + lớp qua API
+là bảng TỔNG HỢP (rollup) từ review_video_watch_sessions, không phải bảng
+ghi trực tiếp nữa (V59). Giáo viên xem thống kê theo bộ + lớp qua API
 riêng (GET /api/review-video-sets/{setId}/stats), ghép ma trận học sinh
 × video ở tầng Service (roster lớp LEFT JOIN video LEFT JOIN tiến độ —
 học sinh chưa xem gì vẫn hiện 0%, không biến mất khỏi ma trận).
 
-d)  Bảng review_video_questions --- Câu hỏi theo mốc thời gian trong 1
-video Phản xạ (MỚI HOÀN TOÀN, V57, 2026-07-28, bổ sung ngoài SDD gốc đã
-xác nhận với người dùng — THAY THẾ thiết kế "1 video = 1 audio duy nhất"
-ban đầu của UC-23b, 2026-07-27)
+c2)  Bảng review_video_watch_sessions --- Từng LƯỢT xem (MỚI HOÀN TOÀN,
+V59, 2026-07-28, bổ sung ngoài SDD gốc đã xác nhận với người dùng — thay
+thế cơ chế watermark suốt đời không phân biệt được "lần" nào với "lần"
+nào của review_video_progress ban đầu)
+
+  --------------------------------------------------------------------------
+  **Cột**               **Kiểu**                **Ràng buộc**  **Ghi chú**
+  --------------------- ----------------------- -------------- -------------
+  id                    BIGSERIAL               PK
+
+  review_video_id       BIGINT                  FK →
+                                                 review_videos
+                                                 (id), NOT NULL
+
+  student_id            BIGINT                  FK →
+                                                 students(id),
+                                                 NOT NULL
+
+  watched_seconds       INT                     NOT NULL,      Mốc giây CAO
+                                                 DEFAULT 0      NHẤT trong
+                                                                CHÍNH lượt
+                                                                này (không
+                                                                phải suốt
+                                                                đời) — server
+                                                                lấy max(cũ,
+                                                                mới) trong
+                                                                phạm vi lượt
+
+  is_qualified           BOOLEAN                 NOT NULL,      Đã đạt
+                                                 DEFAULT FALSE  completion_
+                                                                threshold_
+                                                                percent của
+                                                                video trong
+                                                                lượt này
+
+  started_at,             TIMESTAMPTZ             NOT NULL       BaseAuditEntity
+  updated_at
+  --------------------------------------------------------------------------
+
+Mở 1 lượt mới (POST /api/review-videos/{videoId}/watch-sessions) khi học
+sinh bắt đầu/mở lại video; các lần báo tiến độ tiếp theo
+(PUT /api/review-videos/{videoId}/progress, kèm watchSessionId trong
+body) cập nhật ĐÚNG session đó. Mỗi lần cập nhật, Service tính lại rollup
+trên review_video_progress: watched_seconds = max mọi session,
+view_count = đếm session is_qualified=true, is_completed = view_count >=
+required_view_count.
+
+d)  Bảng review_video_submissions --- Audio Học sinh nộp cho Video Phản
+xạ + Giáo viên chấm điểm (MỚI HOÀN TOÀN, UC-23b, 2026-07-27, bổ sung
+ngoài SDD gốc đã xác nhận với người dùng — thiếu sót thật sự trong thiết
+kế gốc của UC-23/23a)
 
   ------------------------------------------------------------------------
   **Cột**                 **Kiểu**       **Ràng buộc**    **Ghi chú**
