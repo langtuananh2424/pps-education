@@ -204,6 +204,7 @@ public class ParentPortalService {
                 c.getStatus().name(), c.getSubmittedAt(), c.getApprovedAt(),
                 c.getApprovedBy() == null ? null : c.getApprovedBy().getId(), c.getVisibleToParentAt(), c.getRejectionReason(),
                 c.getAttitude() == null ? null : c.getAttitude().name(), c.getHomeworkPreviousScore(),
+                c.getHomeworkPreviousSpeakingScore(),
                 // Portal Phụ huynh chưa cần hiển thị chi tiết BTVN online (UC-21 mở rộng, V55) — để trống, bổ sung khi có yêu cầu.
                 c.getHomeworkNext(), null, null, null, null, null, null, c.getNote());
     }

@@ -218,7 +218,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
     void writeComment_UC21_MainFlow_savesMidTermCommentWithWarningFlag() {
         StudentCommentResponse comment = studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), "MID_TERM", null, gradePeriod.id(),
-                        LocalDate.now(), "Cần cải thiện kỹ năng nghe.", null, "CONCERN", true, null, null, null, null, null, null),
+                        LocalDate.now(), "Cần cải thiện kỹ năng nghe.", null, "CONCERN", true, null, null, null, null, null, null, null),
                 teacher.getId());
 
         assertThat(comment.status()).isEqualTo("DRAFT");
@@ -232,7 +232,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
     void writeComment_rejectsInvalidContextForDailyWithoutSession() {
         assertThatThrownBy(() -> studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), "DAILY", null, null,
-                        LocalDate.now(), "Nội dung", null, null, false, null, null, null, null, null, null),
+                        LocalDate.now(), "Nội dung", null, null, false, null, null, null, null, null, null, null),
                 teacher.getId()))
                 .isInstanceOf(InvalidCommentContextException.class);
     }
@@ -241,7 +241,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
     void writeComment_rejectsInvalidContextForMidTermWithSessionInsteadOfPeriod() {
         assertThatThrownBy(() -> studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), "MID_TERM", classSession.id(), null,
-                        LocalDate.now(), "Nội dung", null, null, false, null, null, null, null, null, null),
+                        LocalDate.now(), "Nội dung", null, null, false, null, null, null, null, null, null, null),
                 teacher.getId()))
                 .isInstanceOf(InvalidCommentContextException.class);
     }
@@ -265,7 +265,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
 
         assertThatThrownBy(() -> studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), "DAILY", oldSession.id(), null,
-                        oldSession.sessionDate(), "Nội dung", null, null, false, null, null, null, null, null, null),
+                        oldSession.sessionDate(), "Nội dung", null, null, false, null, null, null, null, null, null, null),
                 teacher.getId()))
                 .isInstanceOf(StudentCommentNotEditableException.class);
     }
@@ -280,7 +280,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
 
         StudentCommentResponse comment = studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), "DAILY", oldSession.id(), null,
-                        oldSession.sessionDate(), "Nội dung do quản lý nhập ngoài hạn.", null, null, false, null, null, null, null, null, null),
+                        oldSession.sessionDate(), "Nội dung do quản lý nhập ngoài hạn.", null, null, false, null, null, null, null, null, null, null),
                 siteManagerUser.getId());
 
         assertThat(comment.status()).isEqualTo("APPROVED");
@@ -292,15 +292,28 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         assertThat(comment.status()).isEqualTo("PENDING");
 
         StudentCommentResponse edited = studentCommentService.updateComment(comment.id(),
-                new UpdateStudentCommentRequest("Nội dung đã sửa.", null, null, false, "GOOD", "80%", "Unit 4", null, null, "Ghi chú"),
+                new UpdateStudentCommentRequest("Nội dung đã sửa.", null, null, false, "GOOD", "80%", "60%", "Unit 4", null, null, "Ghi chú"),
                 teacher.getId());
 
         assertThat(edited.status()).isEqualTo("PENDING");
         assertThat(edited.content()).isEqualTo("Nội dung đã sửa.");
         assertThat(edited.attitude()).isEqualTo("GOOD");
         assertThat(edited.homeworkPreviousScore()).isEqualTo("80%");
+        assertThat(edited.homeworkPreviousSpeakingScore()).isEqualTo("60%");
         assertThat(edited.homeworkNext()).isEqualTo("Unit 4");
         assertThat(edited.note()).isEqualTo("Ghi chú");
+    }
+
+    @Test
+    void updateComment_UC21_V56_homeworkPreviousSpeakingScoreIndependentFromGrammarScore() {
+        StudentCommentResponse comment = writeDailyComment(teacher, "Nội dung ban đầu.");
+
+        StudentCommentResponse edited = studentCommentService.updateComment(comment.id(),
+                new UpdateStudentCommentRequest("Nội dung.", null, null, false, null, null, "70%", null, null, null, null),
+                teacher.getId());
+
+        assertThat(edited.homeworkPreviousSpeakingScore()).isEqualTo("70%");
+        assertThat(edited.homeworkPreviousScore()).isNull();
     }
 
     @Test
@@ -343,7 +356,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         StudentCommentResponse comment1 = writeDailyComment(teacher, "Nhận xét HS1.");
         StudentCommentResponse comment2 = studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student2.getId(), "DAILY", classSession.id(), null,
-                        LocalDate.now(), "Nhận xét HS2.", null, null, false, null, null, null, null, null, null),
+                        LocalDate.now(), "Nhận xét HS2.", null, null, false, null, null, null, null, null, null, null),
                 teacher.getId());
 
         List<StudentCommentResponse> decided = studentCommentService.decideComments(
@@ -365,7 +378,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
 
         // DAILY: sửa lại sau khi bị từ chối -- tự động quay lại PENDING ngay (không còn bước submit riêng).
         StudentCommentResponse edited = studentCommentService.updateComment(comment.id(),
-                new UpdateStudentCommentRequest("Nội dung đã sửa lại.", null, null, false, null, null, null, null, null, null),
+                new UpdateStudentCommentRequest("Nội dung đã sửa lại.", null, null, false, null, null, null, null, null, null, null),
                 teacher.getId());
         assertThat(edited.status()).isEqualTo("PENDING");
     }
@@ -376,7 +389,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         studentCommentService.submitComments(schoolClass.id(), new SubmitCommentsRequest(List.of(comment.id())), teacher.getId());
 
         assertThatThrownBy(() -> studentCommentService.updateComment(comment.id(),
-                new UpdateStudentCommentRequest("Sửa khi đang chờ duyệt.", null, null, false, null, null, null, null, null, null),
+                new UpdateStudentCommentRequest("Sửa khi đang chờ duyệt.", null, null, false, null, null, null, null, null, null, null),
                 teacher.getId()))
                 .isInstanceOf(StudentCommentNotEditableException.class);
     }
@@ -421,7 +434,8 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
             assertThat(headers).containsExactly("Ngày*", "Mã học viên*", "Họ và tên", "Điểm danh*",
                     "Thái độ học tập", "BTVN buổi trước", "Nhận xét học sinh*", "BTVN buổi sau", "Ghi chú",
                     "% Ngữ pháp buổi trước (tự động)", "% Video buổi trước (tự động)",
-                    "Giao BTVN ngữ pháp ONLINE (buổi sau)", "Giao Video ôn tập (buổi sau)");
+                    "Giao BTVN ngữ pháp ONLINE (buổi sau)", "Giao Video ôn tập (buổi sau)",
+                    "BTVN Nghe-nói buổi trước");
             assertThat(sheet.getLastRowNum()).isEqualTo(1);
             Row row = sheet.getRow(1);
             assertThat(row.getCell(1).getStringCellValue()).isEqualTo(student.getStudentCode());
@@ -620,7 +634,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
                                                     Long grammarAssignmentId, Long videoSetId) {
         studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(targetStudent.getId(), "DAILY", session.id(), null,
-                        session.sessionDate(), "Nội dung buổi.", null, null, false, null, null, null,
+                        session.sessionDate(), "Nội dung buổi.", null, null, false, null, null, null, null,
                         grammarAssignmentId, videoSetId, null),
                 teacher.getId());
     }
@@ -762,6 +776,39 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         assertThat(result.errorSummary().get(0).get("reason").toString()).contains("Không khớp bài tập ngữ pháp");
     }
 
+    @Test
+    void buildTemplate_V56_MainFlow_exportsHomeworkPreviousSpeakingScoreIndependentlyFromGrammarScore() throws IOException {
+        studentCommentService.writeComment(schoolClass.id(),
+                new CreateStudentCommentRequest(student.getId(), "DAILY", classSession.id(), null,
+                        classSession.sessionDate(), "Nội dung.", null, null, false, null, "80%", "60%", null, null, null, null),
+                teacher.getId());
+
+        byte[] template = studentCommentService.buildTemplate(classSession.id(), teacher.getId());
+
+        assertThat(rowForStudent(template, student.getStudentCode(), 5)).isEqualTo("80%");
+        assertThat(rowForStudent(template, student.getStudentCode(), 13)).isEqualTo("60%");
+    }
+
+    @Test
+    void importComments_V56_MainFlow_importsHomeworkPreviousSpeakingScoreIndependentlyFromGrammarScore() throws IOException {
+        studentAttendanceService.markAttendance(classSession.id(),
+                new MarkAttendanceRequest("SESSION_LEVEL", List.of(
+                        new EnterAttendanceMarkRequest(student.getId(), "PRESENT", null, null, null))),
+                teacher.getId());
+        byte[] file = buildCommentWorkbook(new String[][]{
+                {classSession.sessionDate().toString(), student.getStudentCode(), "", "Có mặt", "", "80%", "Nội dung.", "", "",
+                        "", "", "", "", "60%"}
+        });
+
+        DailyCommentImportResponse result = studentCommentService.importComments(classSession.id(),
+                new MockMultipartFile("file", "nhanxet.xlsx", "application/vnd.openxmlformats", file), teacher.getId());
+
+        assertThat(result.status()).isEqualTo("COMPLETED");
+        StudentCommentResponse saved = studentCommentService.listComments(schoolClass.id(), student.getId()).get(0);
+        assertThat(saved.homeworkPreviousScore()).isEqualTo("80%");
+        assertThat(saved.homeworkPreviousSpeakingScore()).isEqualTo("60%");
+    }
+
     private String exerciseCode() {
         return "EX-" + SEQ.incrementAndGet();
     }
@@ -798,14 +845,14 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
     private StudentCommentResponse writeDailyComment(User actor, String content) {
         return studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), "DAILY", classSession.id(), null,
-                        LocalDate.now(), content, null, null, false, null, null, null, null, null, null),
+                        LocalDate.now(), content, null, null, false, null, null, null, null, null, null, null),
                 actor.getId());
     }
 
     private StudentCommentResponse writeMidTermComment() {
         return studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), "MID_TERM", null, gradePeriod.id(),
-                        LocalDate.now(), "Nội dung nhận xét giữa kỳ.", null, null, false, null, null, null, null, null, null),
+                        LocalDate.now(), "Nội dung nhận xét giữa kỳ.", null, null, false, null, null, null, null, null, null, null),
                 teacher.getId());
     }
 

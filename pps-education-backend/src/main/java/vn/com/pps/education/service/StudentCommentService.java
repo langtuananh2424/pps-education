@@ -111,7 +111,7 @@ import java.util.function.Function;
 @Service
 public class StudentCommentService {
 
-    private static final int COLUMN_COUNT = 13;
+    private static final int COLUMN_COUNT = 14;
     private static final int COL_DATE = 0;
     private static final int COL_STUDENT_CODE = 1;
     private static final int COL_FULL_NAME = 2;
@@ -125,6 +125,7 @@ public class StudentCommentService {
     private static final int COL_HOMEWORK_VIDEO_PREV_AUTO = 10;
     private static final int COL_HOMEWORK_GRAMMAR_ONLINE_NEXT = 11;
     private static final int COL_HOMEWORK_VIDEO_NEXT = 12;
+    private static final int COL_HOMEWORK_SPEAKING_PREVIOUS = 13;
 
     private final StudentCommentRepository studentCommentRepository;
     private final StudentCommentHistoryRepository studentCommentHistoryRepository;
@@ -245,8 +246,8 @@ public class StudentCommentService {
         comment.setGradePeriod(gradePeriod);
         comment.setCommentDate(request.commentDate());
         applyContent(comment, request.content(), request.structuredContent(), request.severity(), request.isWarning(),
-                request.attitude(), request.homeworkPreviousScore(), request.homeworkNext(),
-                exerciseAssignmentOrNull(request.homeworkNextExerciseAssignmentId()),
+                request.attitude(), request.homeworkPreviousScore(), request.homeworkPreviousSpeakingScore(),
+                request.homeworkNext(), exerciseAssignmentOrNull(request.homeworkNextExerciseAssignmentId()),
                 reviewVideoSetOrNull(request.homeworkNextReviewVideoSetId()), request.note());
         comment = studentCommentRepository.save(comment);
         writeHistory(comment, actor, StudentCommentHistory.Action.CREATED);
@@ -282,8 +283,8 @@ public class StudentCommentService {
 
         comment.setApprovalFlow(null);
         applyContent(comment, request.content(), request.structuredContent(), request.severity(), request.isWarning(),
-                request.attitude(), request.homeworkPreviousScore(), request.homeworkNext(),
-                exerciseAssignmentOrNull(request.homeworkNextExerciseAssignmentId()),
+                request.attitude(), request.homeworkPreviousScore(), request.homeworkPreviousSpeakingScore(),
+                request.homeworkNext(), exerciseAssignmentOrNull(request.homeworkNextExerciseAssignmentId()),
                 reviewVideoSetOrNull(request.homeworkNextReviewVideoSetId()), request.note());
         if (isDaily) {
             comment = studentCommentRepository.save(comment);
@@ -426,7 +427,8 @@ public class StudentCommentService {
         List<String> headers = List.of("Ngày*", "Mã học viên*", "Họ và tên", "Điểm danh*",
                 "Thái độ học tập", "BTVN buổi trước", "Nhận xét học sinh*", "BTVN buổi sau", "Ghi chú",
                 "% Ngữ pháp buổi trước (tự động)", "% Video buổi trước (tự động)",
-                "Giao BTVN ngữ pháp ONLINE (buổi sau)", "Giao Video ôn tập (buổi sau)");
+                "Giao BTVN ngữ pháp ONLINE (buổi sau)", "Giao Video ôn tập (buổi sau)",
+                "BTVN Nghe-nói buổi trước");
         List<List<Object>> rows = new ArrayList<>();
         for (ClassEnrollment enrollment : enrollments) {
             Student student = enrollment.getStudent();
@@ -451,6 +453,7 @@ public class StudentCommentService {
                     : grammarLabel(existing.getHomeworkNextExerciseAssignment()));
             row.add(existing == null || existing.getHomeworkNextReviewVideoSet() == null ? null
                     : videoLabel(existing.getHomeworkNextReviewVideoSet()));
+            row.add(existing == null ? null : existing.getHomeworkPreviousSpeakingScore());
             rows.add(row);
         }
         Map<Integer, List<String>> dropdowns = new LinkedHashMap<>();
@@ -558,7 +561,7 @@ public class StudentCommentService {
                     importRow(classSession, parsed.student(), effectiveAttendance, parsed.attitude(),
                             parsed.homeworkPrevious(), parsed.content(), parsed.homeworkNext(),
                             parsed.grammarAssignment(), parsed.videoSet(), parsed.note(),
-                            actor, isApprover);
+                            parsed.homeworkPreviousSpeaking(), actor, isApprover);
                     successRows++;
                 } catch (RuntimeException ex) {
                     errors.add(rowError(parsed.rowNumber() + 1, ex.getMessage()));
@@ -580,7 +583,8 @@ public class StudentCommentService {
 
     private record ParsedRow(int rowNumber, Student student, AttendanceMark.Status attendance, String attitude,
                               String homeworkPrevious, String content, String homeworkNext,
-                              ExerciseAssignment grammarAssignment, ReviewVideoSet videoSet, String note) {}
+                              ExerciseAssignment grammarAssignment, ReviewVideoSet videoSet, String note,
+                              String homeworkPreviousSpeaking) {}
 
     private ParsedRow parseRow(Row row, DataFormatter formatter, int rowIndex, ClassSession classSession,
                                 Map<String, ExerciseAssignment> grammarByLabel, Map<String, ReviewVideoSet> videoByLabel) {
@@ -594,6 +598,7 @@ public class StudentCommentService {
         String grammarOnlineText = cell(row, formatter, COL_HOMEWORK_GRAMMAR_ONLINE_NEXT);
         String videoText = cell(row, formatter, COL_HOMEWORK_VIDEO_NEXT);
         String note = cell(row, formatter, COL_NOTE);
+        String homeworkPreviousSpeaking = cell(row, formatter, COL_HOMEWORK_SPEAKING_PREVIOUS);
 
         if (dateText == null || dateText.isBlank()) {
             throw new IllegalArgumentException("Thiếu ngày (cột A).");
@@ -625,17 +630,18 @@ public class StudentCommentService {
                 reviewVideoSetRepository::findByUuid, "bộ video");
         return new ParsedRow(rowIndex, student, attendance, attitude,
                 blankToNull(homeworkPrevious), blankToNull(content), blankToNull(homeworkNext),
-                grammarAssignment, videoSet, blankToNull(note));
+                grammarAssignment, videoSet, blankToNull(note), blankToNull(homeworkPreviousSpeaking));
     }
 
     /** Ghi 1 dòng: Vắng/Có phép mà mọi cột sau Điểm danh đều trống thì bỏ qua (chỉ ghi điểm danh, không tạo nhận xét). */
     private void importRow(ClassSession classSession, Student student, AttendanceMark.Status attendance,
                             String attitude, String homeworkPrevious, String content, String homeworkNext,
                             ExerciseAssignment grammarAssignment, ReviewVideoSet videoSet, String note,
-                            User actor, boolean isApprover) {
+                            String homeworkPreviousSpeaking, User actor, boolean isApprover) {
         boolean absent = attendance == AttendanceMark.Status.ABSENT || attendance == AttendanceMark.Status.EXCUSED;
         boolean allBlank = attitude == null && homeworkPrevious == null && content == null
-                && homeworkNext == null && grammarAssignment == null && videoSet == null && note == null;
+                && homeworkNext == null && grammarAssignment == null && videoSet == null && note == null
+                && homeworkPreviousSpeaking == null;
         if (absent && allBlank) {
             return;
         }
@@ -657,7 +663,7 @@ public class StudentCommentService {
         comment.setTeacher(actor);
         comment.setApprovalFlow(null);
         applyContent(comment, content, null, null, false,
-                attitude, homeworkPrevious, homeworkNext, grammarAssignment, videoSet, note);
+                attitude, homeworkPrevious, homeworkPreviousSpeaking, homeworkNext, grammarAssignment, videoSet, note);
         comment = studentCommentRepository.save(comment);
         writeHistory(comment, actor, StudentCommentHistory.Action.UPDATED);
         routeDailyComment(comment, actor, isApprover);
@@ -667,7 +673,8 @@ public class StudentCommentService {
 
     private void applyContent(StudentComment comment, String content, Map<String, Object> structuredContent,
                                String severity, boolean isWarning, String attitude, String homeworkPreviousScore,
-                               String homeworkNext, ExerciseAssignment homeworkNextExerciseAssignment,
+                               String homeworkPreviousSpeakingScore, String homeworkNext,
+                               ExerciseAssignment homeworkNextExerciseAssignment,
                                ReviewVideoSet homeworkNextReviewVideoSet, String note) {
         comment.setContent(content);
         comment.setStructuredContent(structuredContent);
@@ -677,6 +684,7 @@ public class StudentCommentService {
         comment.setWarning(isWarning);
         comment.setAttitude(attitude == null ? null : StudentComment.Attitude.valueOf(attitude));
         comment.setHomeworkPreviousScore(homeworkPreviousScore);
+        comment.setHomeworkPreviousSpeakingScore(homeworkPreviousSpeakingScore);
         comment.setHomeworkNext(homeworkNext);
         comment.setHomeworkNextExerciseAssignment(homeworkNextExerciseAssignment);
         comment.setHomeworkNextReviewVideoSet(homeworkNextReviewVideoSet);
@@ -1025,6 +1033,7 @@ public class StudentCommentService {
                 c.getStatus().name(), c.getSubmittedAt(), c.getApprovedAt(),
                 c.getApprovedBy() == null ? null : c.getApprovedBy().getId(), c.getVisibleToParentAt(), c.getRejectionReason(),
                 c.getAttitude() == null ? null : c.getAttitude().name(), c.getHomeworkPreviousScore(),
+                c.getHomeworkPreviousSpeakingScore(),
                 c.getHomeworkNext(),
                 grammarNext == null ? null : grammarNext.getId(),
                 grammarNext == null ? null : grammarNext.getExercise().getTitle(),

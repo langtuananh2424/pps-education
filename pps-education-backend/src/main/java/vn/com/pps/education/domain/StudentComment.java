@@ -124,6 +124,10 @@ public class StudentComment {
     @Column(name = "homework_previous_score", length = 10)
     private String homeworkPreviousScore;
 
+    /** VD "80%" — chấm BTVN Nghe-nói (Video Ôn tập) buổi TRƯỚC buổi này, nhập tay độc lập với homeworkPreviousScore (Ngữ pháp). Bổ sung V56. */
+    @Column(name = "homework_previous_speaking_score", length = 10)
+    private String homeworkPreviousSpeakingScore;
+
     /** VD "Unit 4 Trang 18" — BTVN giao cho buổi SAU, hạn nộp ngầm hiểu là ngày buổi học kế tiếp. Chỉ còn dùng cho kênh ngữ pháp OFFLINE (V55) — kênh ONLINE dùng homeworkNextExerciseAssignment. */
     @Column(name = "homework_next", columnDefinition = "TEXT")
     private String homeworkNext;

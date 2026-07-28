@@ -1154,7 +1154,11 @@ DAILY, Giữa/Cuối kỳ giữ nguyên 100% luồng ở trên)
     dropdown ĐỘNG theo lớp (chỉ hiện bài/video đã gán cho đúng lớp đang
     xuất, named-range nếu danh sách dài vượt ~255 ký tự) CỘNG THÊM chấp
     nhận dán trực tiếp `uuid` làm phương án thay dropdown (không giới
-    hạn theo lớp khi dán uuid); điền xong gọi `POST
+    hạn theo lớp khi dán uuid); mở rộng tiếp 13→14 cột ở V56: thêm 1 cột
+    nhập tay "BTVN Nghe-nói buổi trước" (`homework_previous_speaking_
+    score`, độc lập với cột "BTVN buổi trước" cũ vốn chỉ dùng cho kênh
+    Ngữ pháp — không phải dropdown, không tự tính, khác với 2 cột %
+    đọc-only nói trên); điền xong gọi `POST
     /api/class-sessions/{classSessionId}/comments/import` — cột Điểm danh
     trong file CHO PHÉP sửa luôn điểm danh khi import lại (tái dùng
     nguyên StudentAttendanceService.markAttendance — rào "chỉ trong ngày
