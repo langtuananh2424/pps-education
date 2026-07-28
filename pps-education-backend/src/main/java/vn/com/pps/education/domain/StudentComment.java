@@ -124,9 +124,27 @@ public class StudentComment {
     @Column(name = "homework_previous_score", length = 10)
     private String homeworkPreviousScore;
 
-    /** VD "Unit 4 Trang 18" — BTVN giao cho buổi SAU, hạn nộp ngầm hiểu là ngày buổi học kế tiếp. */
+    /** VD "Unit 4 Trang 18" — BTVN giao cho buổi SAU, hạn nộp ngầm hiểu là ngày buổi học kế tiếp. Chỉ còn dùng cho kênh ngữ pháp OFFLINE (V55) — kênh ONLINE dùng homeworkNextExerciseAssignment. */
     @Column(name = "homework_next", columnDefinition = "TEXT")
     private String homeworkNext;
+
+    /**
+     * BTVN ngữ pháp ONLINE giao cho buổi sau — NULL = kênh này đang
+     * OFFLINE (dùng homeworkNext) hoặc không giao gì cho học sinh này.
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng — xem V55.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "homework_next_exercise_assignment_id")
+    private ExerciseAssignment homeworkNextExerciseAssignment;
+
+    /**
+     * BTVN Video Ôn tập giao cho buổi sau — luôn ONLINE, NULL = không
+     * giao video cho học sinh này. Bổ sung ngoài SDD gốc, đã xác nhận với
+     * người dùng — xem V55.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "homework_next_review_video_set_id")
+    private ReviewVideoSet homeworkNextReviewVideoSet;
 
     @Column(columnDefinition = "TEXT")
     private String note;

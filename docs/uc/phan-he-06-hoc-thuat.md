@@ -1125,14 +1125,36 @@ DAILY, Giữa/Cuối kỳ giữ nguyên 100% luồng ở trên)
     DAILY): `attitude` (VARCHAR(20), enum Kém/Yếu/Trung bình/Trung bình
     khá/Khá/Tốt — mở rộng từ 3 lên 6 mức 2026-07-27),
     `homework_previous_score` (VARCHAR(10), VD "80%" —
-    chấm BTVN buổi TRƯỚC ngay trong dòng của buổi này), `homework_next`
-    (TEXT, VD "Unit 4 Trang 18" — giao BTVN cho buổi SAU, hạn nộp ngầm
-    hiểu là ngày buổi học kế tiếp, không lưu cột deadline riêng), `note`
-    (TEXT).
+    chấm BTVN buổi TRƯỚC ngay trong dòng của buổi này, nay chỉ còn dùng
+    khi kênh ngữ pháp OFFLINE — xem bổ sung V55 dưới), `homework_next`
+    (TEXT, VD "Unit 4 Trang 18" — giao BTVN ngữ pháp OFFLINE cho buổi
+    SAU, hạn nộp ngầm hiểu là ngày buổi học kế tiếp, không lưu cột
+    deadline riêng), `note` (TEXT).
+-   **Bổ sung V55 (2026-07-28, đã xác nhận với người dùng) — giao BTVN
+    linh hoạt ONLINE/OFFLINE theo TỪNG học sinh:** thêm 2 cột FK
+    `homework_next_exercise_assignment_id` (→ `exercise_assignments`,
+    kênh ngữ pháp ONLINE — tái dùng thẳng UC-40's `assignExercise()`,
+    không dựng kho bài tập riêng) và `homework_next_review_video_set_id`
+    (→ `review_video_sets`, kênh Video Ôn tập — LUÔN online, không có
+    khái niệm offline cho kênh này). Cả 2 đều lưu TRÊN TỪNG DÒNG học
+    sinh (không theo cả lớp) — NULL = kênh đó đang OFFLINE hoặc không
+    giao gì cho đúng học sinh này, cho phép có học sinh không cần giao
+    bài. Dòng của buổi N lưu "sẽ giao gì cho buổi N+1"; % hoàn thành của
+    buổi N+1 tự tính NGƯỢC lại từ FK trên dòng buổi N (không nhập tay,
+    không lưu trùng lặp) — ngữ pháp qua `exercise_attempts.total_score/
+    exercise.total_points`, video qua `review_video_progress.watched_
+    seconds` (CONNECTION) hoặc `review_video_submissions.score/max_score`
+    (REFLEX, UC-23b).
 -   Excel round-trip theo buổi học: `GET
     /api/class-sessions/{classSessionId}/comments/template` tải file mẫu
     điền sẵn học sinh ACTIVE của lớp (Ngày/Mã học viên/Họ và tên/Điểm
-    danh hiện có/nhận xét đã nhập trước đó nếu có); điền xong gọi `POST
+    danh hiện có/nhận xét đã nhập trước đó nếu có) — mở rộng 9→13 cột từ
+    V55: thêm 2 cột đọc-only "% Ngữ pháp/Video buổi trước (tự động)" và 2
+    cột nhập liệu "Giao BTVN ngữ pháp ONLINE/Video ôn tập (buổi sau)" —
+    dropdown ĐỘNG theo lớp (chỉ hiện bài/video đã gán cho đúng lớp đang
+    xuất, named-range nếu danh sách dài vượt ~255 ký tự) CỘNG THÊM chấp
+    nhận dán trực tiếp `uuid` làm phương án thay dropdown (không giới
+    hạn theo lớp khi dán uuid); điền xong gọi `POST
     /api/class-sessions/{classSessionId}/comments/import` — cột Điểm danh
     trong file CHO PHÉP sửa luôn điểm danh khi import lại (tái dùng
     nguyên StudentAttendanceService.markAttendance — rào "chỉ trong ngày

@@ -29,5 +29,11 @@ public record StudentCommentResponse(
         String attitude,
         String homeworkPreviousScore,
         String homeworkNext,
+        Long homeworkNextExerciseAssignmentId,
+        String homeworkNextExerciseTitle,
+        Long homeworkNextReviewVideoSetId,
+        String homeworkNextReviewVideoSetTitle,
+        String grammarPreviousProgress,
+        String videoPreviousProgress,
         String note
 ) {}
