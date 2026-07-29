@@ -455,9 +455,13 @@ UC-25: Xem Portal Phụ huynh
 |                 | xét giáo viên đã duyệt (UC-22).                    |
 |                 |                                                    |
 |                 | 4.  Phụ huynh xem hồ sơ tổng hợp: kết quả học tập, |
-|                 |     chuyên cần, tình trạng bài tập, cảnh báo (ý    |
-|                 |     thức trên lớp + bài tập về nhà), tổng kết điểm |
-|                 |     theo từng giai đoạn.                           |
+|                 |     chuyên cần, tình trạng bài tập (chỉ xem tiến   |
+|                 |     độ — Ngữ pháp online/offline + Video Kết nối/  |
+|                 |     Phản xạ theo từng buổi có giao BTVN; endpoint   |
+|                 |     riêng bổ sung 2026-07-29, trước đó chỉ có sẵn   |
+|                 |     dữ liệu ẩn trong nhận xét chưa lộ ra), cảnh báo |
+|                 |     (ý thức trên lớp + bài tập về nhà), tổng kết    |
+|                 |     điểm theo từng giai đoạn.                       |
 |                 |                                                    |
 |                 | 5.  Phụ huynh nhận các thông báo khẩn từ nhà       |
 |                 |     trường (thông báo vắng mặt --- UC-15, thông    |
@@ -534,6 +538,53 @@ UC-61: Xem điểm của tôi (Học sinh)
 | **Hậu điều kiện | -   Học sinh chỉ thấy điểm/Overall-Level đã        |
 | (P              |     PUBLISHED của đúng (các) lớp mình đang ghi     |
 | ostcondition)** |     danh — không thấy điểm DRAFT hay của lớp khác. |
++-----------------+----------------------------------------------------+
+
+---
+
+UC-64: Xem chuyên cần & nhận xét của tôi (Học sinh)
+
++-----------------+----------------------------------------------------+
+| **Mã Use Case** | UC-64                                              |
++-----------------+----------------------------------------------------+
+| **Tên Use       | Xem chuyên cần & nhận xét của tôi (Học sinh)       |
+| Case**          |                                                    |
++-----------------+----------------------------------------------------+
+| **Phân hệ**     | Phân hệ 7                                          |
++-----------------+----------------------------------------------------+
+| **Yêu cầu chức  | FR-LMS-03, FR-LMS-07                               |
+| năng gốc**      |                                                    |
++-----------------+----------------------------------------------------+
+| **Tác nhân**    | Học sinh                                           |
++-----------------+----------------------------------------------------+
+| **Mô tả tóm     | Học sinh tự xem điểm danh (UC-15) và nhận xét giáo |
+| tắt**           | viên đã duyệt (UC-22) của chính mình theo (các) lớp|
+|                 | đang/đã ghi danh — đối xứng với phần xem điểm danh |
+|                 | + nhận xét trong UC-25 (Portal Phụ huynh) và với   |
+|                 | UC-61 (xem điểm của tôi), khác ở chỗ tác nhân là   |
+|                 | chính Học sinh, không cần qua Phụ huynh (bổ sung   |
+|                 | ngoài SDD gốc, đã xác nhận với người dùng          |
+|                 | 2026-07-29).                                       |
++-----------------+----------------------------------------------------+
+| **Sự kiện kích  | Học sinh mở mục "Quá trình học tập" trong Portal.  |
+| hoạt**          |                                                    |
++-----------------+----------------------------------------------------+
+| **Điều kiện     | -   Học sinh đã đăng nhập, có class_enrollment     |
+| tiên quyết      |     ACTIVE tại lớp đang xem.                       |
+| (Precondition)**|                                                    |
++-----------------+----------------------------------------------------+
+| **Luồng sự kiện | 1.  Học sinh chọn 1 lớp đang ghi danh (UC-42), xem |
+| chính (Main     |     toàn bộ bản ghi điểm danh của mình tại lớp đó. |
+| Flow)**         |                                                    |
+|                 | 2.  Học sinh xem nhận xét giáo viên của mình tại   |
+|                 |     lớp đó — chỉ nhận xét đã APPROVED (UC-22),     |
+|                 |     bao gồm cảnh báo (is_warning) và chi tiết BTVN |
+|                 |     (buổi trước/buổi sau, online lẫn offline).     |
++-----------------+----------------------------------------------------+
+| **Hậu điều kiện | -   Học sinh chỉ thấy điểm danh/nhận xét đã duyệt  |
+| (Postcondition)**|    của đúng (các) lớp mình đang/đã ghi danh —      |
+|                 |     không thấy dữ liệu của lớp khác hay nhận xét    |
+|                 |     đang PENDING/REJECTED.                          |
 +-----------------+----------------------------------------------------+
 
 ---

@@ -55,6 +55,7 @@ import vn.com.pps.education.exception.ApprovalAlreadyDecidedException;
 import vn.com.pps.education.exception.InvalidCommentContextException;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
 import vn.com.pps.education.exception.NotSiteManagerForSiteException;
+import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.exception.StudentCommentNotEditableException;
 import vn.com.pps.education.repository.RoleRepository;
 import vn.com.pps.education.repository.RoomRepository;
@@ -888,6 +889,37 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
 
         byte[] template = studentCommentService.buildTemplate(classSession.id(), teacher.getId());
         assertThat(rowForStudent(template, student.getStudentCode(), 5)).isEqualTo("45% (tay)");
+    }
+
+    // ===================== UC-64: học sinh tự xem nhận xét của chính mình =====================
+
+    @Test
+    void listMyComments_UC64_MainFlow_onlyReturnsApprovedForOwnClass() {
+        studentCommentService.writeComment(schoolClass.id(),
+                new CreateStudentCommentRequest(student.getId(), "DAILY", classSession.id(), null,
+                        classSession.sessionDate(), "Nội dung đã duyệt.", null, null, false, null, null, null, null, null, null, null),
+                siteManagerUser.getId());
+        ClassSessionResponse session2 = nextSession();
+        studentCommentService.writeComment(schoolClass.id(),
+                new CreateStudentCommentRequest(student.getId(), "DAILY", session2.id(), null,
+                        session2.sessionDate(), "Nội dung chờ duyệt.", null, null, false, null, null, null, null, null, null, null),
+                teacher.getId());
+
+        List<StudentCommentResponse> result = studentCommentService.listMyComments(schoolClass.id(), student.getUser().getId());
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).status()).isEqualTo("APPROVED");
+        assertThat(result.get(0).content()).isEqualTo("Nội dung đã duyệt.");
+    }
+
+    @Test
+    void listMyComments_rejectsWhenNotEnrolledInClass() {
+        ClassResponse otherClass = classService.create(
+                new CreateClassRequest(classCode(), "9A1", siteOf(schoolClass).getId(), schoolClass.curriculumId(), "OPEN", 20, null,
+                        LocalDate.now(), null, null, null), headAcademic.getId());
+
+        assertThatThrownBy(() -> studentCommentService.listMyComments(otherClass.id(), student.getUser().getId()))
+                .isInstanceOf(ResourceNotFoundException.class);
     }
 
     private void writeDailyCommentWithHomeworkPrevious(Student targetStudent, ClassSessionResponse session, String homeworkPreviousScore) {

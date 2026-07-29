@@ -11,6 +11,9 @@ import vn.com.pps.education.domain.Site;
 import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.domain.UserRole;
+import vn.com.pps.education.dto.AddExerciseQuestionRequest;
+import vn.com.pps.education.dto.AddReviewVideoRequest;
+import vn.com.pps.education.dto.AssignExerciseRequest;
 import vn.com.pps.education.dto.AssignTeacherRequest;
 import vn.com.pps.education.dto.AttendanceMarkResponse;
 import vn.com.pps.education.dto.ClassResponse;
@@ -18,8 +21,12 @@ import vn.com.pps.education.dto.ClassSessionResponse;
 import vn.com.pps.education.dto.CreateClassRequest;
 import vn.com.pps.education.dto.CreateClassSessionRequest;
 import vn.com.pps.education.dto.CreateCurriculumRequest;
+import vn.com.pps.education.dto.CreateExerciseRequest;
 import vn.com.pps.education.dto.CreateGradeComponentRequest;
 import vn.com.pps.education.dto.CreateGradePeriodRequest;
+import vn.com.pps.education.dto.CreateQuestionBankRequest;
+import vn.com.pps.education.dto.CreateQuestionRequest;
+import vn.com.pps.education.dto.CreateReviewVideoSetRequest;
 import vn.com.pps.education.dto.CreateStudentCommentRequest;
 import vn.com.pps.education.dto.CurriculumResponse;
 import vn.com.pps.education.dto.DecideCommentsRequest;
@@ -27,14 +34,23 @@ import vn.com.pps.education.dto.EnrollStudentRequest;
 import vn.com.pps.education.dto.EnterAttendanceMarkRequest;
 import vn.com.pps.education.dto.EnterGradePeriodResultRequest;
 import vn.com.pps.education.dto.EnterGradeRequest;
+import vn.com.pps.education.dto.ExerciseAssignmentResponse;
+import vn.com.pps.education.dto.ExerciseResponse;
 import vn.com.pps.education.dto.GradeComponentResponse;
 import vn.com.pps.education.dto.GradeEntryResponse;
 import vn.com.pps.education.dto.GradePeriodResponse;
 import vn.com.pps.education.dto.GradePeriodResultResponse;
+import vn.com.pps.education.dto.HomeworkProgressResponse;
 import vn.com.pps.education.dto.MarkAttendanceRequest;
 import vn.com.pps.education.dto.PublishGradesRequest;
+import vn.com.pps.education.dto.QuestionBankResponse;
+import vn.com.pps.education.dto.QuestionChoiceRequest;
+import vn.com.pps.education.dto.QuestionResponse;
+import vn.com.pps.education.dto.ReviewVideoResponse;
+import vn.com.pps.education.dto.ReviewVideoSetResponse;
 import vn.com.pps.education.dto.StudentCommentResponse;
 import vn.com.pps.education.dto.UpdateCurriculumRequest;
+import vn.com.pps.education.dto.UpdateReviewVideoSetRequest;
 import vn.com.pps.education.exception.NotAuthorizedForPortalAccessException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.repository.ParentRepository;
@@ -82,6 +98,15 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
 
     @Autowired
     private StudentAttendanceService studentAttendanceService;
+
+    @Autowired
+    private QuestionBankService questionBankService;
+
+    @Autowired
+    private ExerciseService exerciseService;
+
+    @Autowired
+    private ReviewVideoService reviewVideoService;
 
     @Autowired
     private UserRepository userRepository;
@@ -257,6 +282,109 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
         List<ClassSessionResponse> schedule = parentPortalService.listSchedule(student.getId(), schoolClass.id(), parentUser.getId());
 
         assertThat(schedule).extracting(ClassSessionResponse::id).contains(session.id());
+    }
+
+    // ===================== Xem tiến độ BTVN của con (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-29) =====================
+
+    private record GrammarFixture(ExerciseAssignmentResponse assignment) {}
+
+    private GrammarFixture createGrammarOnlineAssignment() {
+        QuestionBankResponse bank = questionBankService.createBank(
+                new CreateQuestionBankRequest(bankCode(), "Ngân hàng homework", null, null, null), teacher.getId());
+        QuestionResponse question = questionBankService.createQuestion(
+                new CreateQuestionRequest(bank.id(), "MULTIPLE_CHOICE", "GRAMMAR", "EASY", "She ___ to school.",
+                        null, null, null, null, null, new BigDecimal("1.0"), null,
+                        List.of(new QuestionChoiceRequest("A", "go", false, 1), new QuestionChoiceRequest("B", "goes", true, 2))),
+                teacher.getId());
+        ExerciseResponse exercise = exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "Bài ngữ pháp homework", schoolClass.curriculumId(), null,
+                        "ASSIGNED", new BigDecimal("1"), null, false, 1, true), teacher.getId());
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(question.id(), 1, new BigDecimal("1.0")), teacher.getId());
+        ExerciseAssignmentResponse assignment = exerciseService.assignExercise(exercise.id(),
+                new AssignExerciseRequest(schoolClass.id(), null, null, false, null, null), teacher.getId());
+        return new GrammarFixture(assignment);
+    }
+
+    private ReviewVideoSetResponse createConnectionVideoAssignedToClass() {
+        ReviewVideoSetResponse set = reviewVideoService.createSet(
+                new CreateReviewVideoSetRequest(setCode(), "Video homework", "CONNECTION", null, schoolClass.id(), null, 1),
+                teacher.getId());
+        ReviewVideoSetResponse published = reviewVideoService.updateSet(set.id(),
+                new UpdateReviewVideoSetRequest(set.title(), null, 1, "PUBLISHED"), teacher.getId());
+        reviewVideoService.addVideo(set.id(),
+                new AddReviewVideoRequest("R2_VIDEO", "Video", "https://media.pps.edu.vn/lms/review-videos/video/homework.mp4",
+                        1_000_000L, 100, 1, null, null),
+                teacher.getId());
+        return published;
+    }
+
+    private void writeDailyComment(Long grammarAssignmentId, Long videoSetId, String homeworkNext) {
+        studentCommentService.writeComment(schoolClass.id(),
+                new CreateStudentCommentRequest(student.getId(), "DAILY", session.id(), null,
+                        session.sessionDate(), "Nội dung buổi.", null, null, false, null, null, null,
+                        homeworkNext, grammarAssignmentId, videoSetId, null),
+                siteManagerUser.getId());
+    }
+
+    @Test
+    void listHomeworkProgress_MainFlow_offlineGrammarHasTextButNoProgress() {
+        writeDailyComment(null, null, "Ôn lại Unit 3 ở nhà");
+
+        List<HomeworkProgressResponse> result = parentPortalService.listHomeworkProgress(student.getId(), schoolClass.id(), parentUser.getId());
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).grammarOfflineText()).isEqualTo("Ôn lại Unit 3 ở nhà");
+        assertThat(result.get(0).grammarAssignmentId()).isNull();
+        assertThat(result.get(0).grammarProgress()).isNull();
+    }
+
+    @Test
+    void listHomeworkProgress_MainFlow_onlineGrammarNotYetAttemptedShowsChuaLamBai() {
+        GrammarFixture fixture = createGrammarOnlineAssignment();
+        writeDailyComment(fixture.assignment().id(), null, null);
+
+        List<HomeworkProgressResponse> result = parentPortalService.listHomeworkProgress(student.getId(), schoolClass.id(), parentUser.getId());
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).grammarAssignmentId()).isEqualTo(fixture.assignment().id());
+        assertThat(result.get(0).grammarOfflineText()).isNull();
+        assertThat(result.get(0).grammarProgress()).isEqualTo("Chưa làm bài");
+    }
+
+    @Test
+    void listHomeworkProgress_MainFlow_connectionVideoShowsWatchPercent() {
+        ReviewVideoSetResponse set = createConnectionVideoAssignedToClass();
+        writeDailyComment(null, set.id(), null);
+
+        List<HomeworkProgressResponse> result = parentPortalService.listHomeworkProgress(student.getId(), schoolClass.id(), parentUser.getId());
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).videoSetId()).isEqualTo(set.id());
+        assertThat(result.get(0).videoProgress()).isEqualTo("0%");
+    }
+
+    @Test
+    void listHomeworkProgress_skipsSessionsWithNoHomeworkAssigned() {
+        studentCommentService.writeComment(schoolClass.id(),
+                new CreateStudentCommentRequest(student.getId(), "DAILY", session.id(), null,
+                        session.sessionDate(), "Nội dung buổi, không giao BTVN.", null, null, false, null, null, null, null, null, null, null),
+                siteManagerUser.getId());
+
+        List<HomeworkProgressResponse> result = parentPortalService.listHomeworkProgress(student.getId(), schoolClass.id(), parentUser.getId());
+
+        assertThat(result).isEmpty();
+    }
+
+    private String bankCode() {
+        return "QB-" + SEQ.incrementAndGet();
+    }
+
+    private String exerciseCode() {
+        return "EX-" + SEQ.incrementAndGet();
+    }
+
+    private String setCode() {
+        return "RVS-" + SEQ.incrementAndGet();
     }
 
     @Test
