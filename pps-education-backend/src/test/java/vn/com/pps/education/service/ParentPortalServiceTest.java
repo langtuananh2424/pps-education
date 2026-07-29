@@ -49,6 +49,7 @@ import vn.com.pps.education.dto.QuestionResponse;
 import vn.com.pps.education.dto.ReviewVideoResponse;
 import vn.com.pps.education.dto.ReviewVideoSetResponse;
 import vn.com.pps.education.dto.StudentCommentResponse;
+import vn.com.pps.education.dto.SubmitCommentsRequest;
 import vn.com.pps.education.dto.UpdateCurriculumRequest;
 import vn.com.pps.education.dto.UpdateReviewVideoSetRequest;
 import vn.com.pps.education.exception.NotAuthorizedForPortalAccessException;
@@ -247,13 +248,14 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
 
     @Test
     void listComments_UC25_A1_onlyApprovedCommentsVisible() {
-        // DAILY: ghi xong tự động chuyển PENDING ngay (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-24) -- không còn bước submit riêng.
+        // DAILY dùng chung luồng DRAFT->Gửi->PENDING->duyệt với MID_TERM/END_TERM (2026-07-29).
         StudentCommentResponse approved = studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), "DAILY", session.id(), null,
                         LocalDate.now(), "Chăm chỉ.", null, null, false, null, null, null, null, null, null, null), teacher.getId());
+        studentCommentService.submitComments(schoolClass.id(), new SubmitCommentsRequest(List.of(approved.id())), teacher.getId());
         studentCommentService.decideComments(new DecideCommentsRequest(List.of(approved.id()), "APPROVED", null), siteManagerUser.getId());
 
-        // A1 -- nhận xét khác vẫn PENDING (chưa duyệt).
+        // A1 -- nhận xét khác vẫn DRAFT (chưa gửi/chưa duyệt).
         studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), "DAILY", session.id(), null,
                         LocalDate.now(), "Nội dung chưa duyệt.", null, null, false, null, null, null, null, null, null, null), teacher.getId());
@@ -318,12 +320,15 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
         return published;
     }
 
+    /** DAILY nay dùng chung luồng DRAFT->Gửi->PENDING->duyệt (2026-07-29) -- ghi rồi phải Gửi+duyệt mới APPROVED để lộ ra Cổng phụ huynh. */
     private void writeDailyComment(Long grammarAssignmentId, Long videoSetId, String homeworkNext) {
-        studentCommentService.writeComment(schoolClass.id(),
+        StudentCommentResponse comment = studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), "DAILY", session.id(), null,
                         session.sessionDate(), "Nội dung buổi.", null, null, false, null, null, null,
                         homeworkNext, grammarAssignmentId, videoSetId, null),
-                siteManagerUser.getId());
+                teacher.getId());
+        studentCommentService.submitComments(schoolClass.id(), new SubmitCommentsRequest(List.of(comment.id())), teacher.getId());
+        studentCommentService.decideComments(new DecideCommentsRequest(List.of(comment.id()), "APPROVED", null), siteManagerUser.getId());
     }
 
     @Test

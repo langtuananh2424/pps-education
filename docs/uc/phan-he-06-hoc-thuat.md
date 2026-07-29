@@ -1167,14 +1167,38 @@ DAILY, Giữa/Cuối kỳ giữ nguyên 100% luồng ở trên)
 -   Hạn nhập/sửa: mặc định 7 ngày kể từ NGÀY BUỔI HỌC diễn ra
     (`system_settings.academic.comment_edit_window_days`, cấu hình qua
     `GET`/`PUT /api/academic/settings/comment-edit-window-days`).
--   Quy trình duyệt: Giáo viên (chỉ có `academic.comment.write`) ghi
-    xong tự động chuyển Chờ duyệt (PENDING) ngay — không còn bước Nháp
-    (DRAFT) rồi submit riêng cho biểu mẫu Hàng ngày, kể cả sửa lại sau
-    khi bị từ chối (UC-21 A1). Actor có `academic.comment.approve`
-    (Quản lý điểm trường/Quản trị viên — permission đã có sẵn từ V44,
-    không tạo permission mới) ghi trực tiếp thì bỏ qua bước chờ duyệt
-    (APPROVED ngay, hiển thị Phụ huynh luôn) VÀ bỏ qua luôn hạn X ngày ở
-    trên (cùng 1 permission gánh cả 2 "quyền quản trị").
+-   Quy trình duyệt (**SỬA LẠI 2026-07-29, thay quyết định ngay dưới đây
+    — đã dùng thực tế, phát hiện thiếu bước xem lại trước khi gửi
+    duyệt**): DAILY dùng lại NGUYÊN luồng Nháp (DRAFT) → Gửi (submit,
+    `POST /api/classes/{classId}/comments/submit` — đã có sẵn, dùng
+    chung với Giữa/Cuối kỳ) → Chờ duyệt (PENDING) → Duyệt (UC-22) ở Main
+    Flow UC-21 gốc phía trên — không còn khác biệt gì so với Giữa/Cuối
+    kỳ ở khâu này. `writeComment`/`updateComment`/Excel import chỉ
+    tạo/sửa ở trạng thái DRAFT, không tự động chuyển trạng thái nào nữa.
+    Actor có `academic.comment.approve` KHÔNG còn được ghi/sửa trực tiếp
+    ra APPROVED bỏ qua chờ duyệt — muốn Gửi phải qua đúng
+    `submitComments()`, vốn luôn yêu cầu actor là Giáo viên được phân
+    công lớp (không đổi) — nghĩa là Quản lý điểm trường không kiêm giáo
+    viên lớp đó tự viết 1 nhận xét DAILY thì không tự Gửi được, phải nhờ
+    đúng Giáo viên lớp Gửi hộ (đánh đổi đã xác nhận với người dùng, giữ
+    luồng đơn giản/đồng nhất với Giữa/Cuối kỳ thay vì mở lại rào riêng
+    cho DAILY). Excel import cùng logic: dòng ứng với nhận xét đang
+    DRAFT/REJECTED thì sửa được (về lại DRAFT); dòng ứng với nhận xét đã
+    PENDING/APPROVED thì báo lỗi riêng dòng đó (không chặn dòng khác,
+    đúng pattern UC-35/50/51/53) — không cho Excel âm thầm ghi đè, bỏ qua
+    quy trình duyệt. Riêng việc actor có `academic.comment.approve` bỏ
+    qua hạn X ngày khi GHI/SỬA (bullet phía trên) — KHÔNG đổi, đây là
+    quyền quản trị độc lập với chuyện route trạng thái.
+
+    ~~Quyết định 2026-07-24 (đã thay thế)~~: Giáo viên (chỉ có
+    `academic.comment.write`) ghi xong tự động chuyển Chờ duyệt (PENDING)
+    ngay — không còn bước Nháp (DRAFT) rồi submit riêng cho biểu mẫu Hàng
+    ngày, kể cả sửa lại sau khi bị từ chối (UC-21 A1). Actor có
+    `academic.comment.approve` (Quản lý điểm trường/Quản trị viên —
+    permission đã có sẵn từ V44, không tạo permission mới) ghi trực tiếp
+    thì bỏ qua bước chờ duyệt (APPROVED ngay, hiển thị Phụ huynh luôn) VÀ
+    bỏ qua luôn hạn X ngày ở trên (cùng 1 permission gánh cả 2 "quyền
+    quản trị").
 
 ---
 

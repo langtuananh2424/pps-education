@@ -78,21 +78,34 @@ import java.util.function.Function;
  * UC-19/20 (GradeService) — mỗi nhận xét submit riêng lẻ có 1 approval_flow
  * riêng, submit theo lô chia sẻ 1 batchId.
  *
- * <p><b>Nhận xét Hàng ngày kiểu mới (comment_type=DAILY CHỈ — Giữa/Cuối kỳ
- * giữ nguyên 100% luồng DRAFT→submit→PENDING ở trên) — bổ sung ngoài SDD
- * gốc, đã xác nhận với người dùng 2026-07-24 (kết luận họp):</b>
+ * <p><b>Nhận xét Hàng ngày (comment_type=DAILY) — bổ sung ngoài SDD gốc:</b>
+ * quyết định 2026-07-24 (bỏ hẳn bước Nháp, ghi xong tự động chuyển
+ * PENDING/APPROVED ngay) đã bị THAY THẾ bởi quyết định 2026-07-29 sau khi
+ * dùng thực tế thấy thiếu bước xem lại trước khi gửi duyệt:</p>
  * <ul>
- *   <li>Ghi (tạo/sửa) 1 nhận xét DAILY = tự động chuyển PENDING (actor chỉ
- *       có {@code academic.comment.write}, chờ Quản lý điểm trường duyệt
- *       — UC-22 không đổi) hoặc APPROVED ngay (actor có
- *       {@code academic.comment.approve} — SITE_MANAGER/SUPER_ADMIN, bỏ
- *       qua bước chờ duyệt) — không còn bước DRAFT→submit riêng cho DAILY,
- *       kể cả sửa lại sau khi REJECTED. Không tạo permission mới, tái dùng
- *       đúng 2 permission đã có (V44).</li>
- *   <li>Hạn nhập/sửa: mặc định 7 ngày kể từ NGÀY BUỔI HỌC diễn ra
+ *   <li>DAILY nay dùng chung 100% luồng DRAFT→submit (UC-21 Main Flow bước
+ *       4, {@code submitComments})→PENDING→duyệt (UC-22) với MID_TERM/
+ *       END_TERM — {@code writeComment}/{@code updateComment}/
+ *       {@code importComments} (Excel) chỉ tạo/sửa ở trạng thái DRAFT,
+ *       không còn tự động route trạng thái nào. Actor có
+ *       {@code academic.comment.approve} không còn được ghi/sửa thẳng ra
+ *       APPROVED bỏ qua chờ duyệt nữa — muốn Gửi phải qua đúng
+ *       {@code submitComments()}, vốn luôn yêu cầu actor là GV được phân
+ *       công lớp ({@code requireAssignedTeacher}, không đổi) — Quản lý
+ *       điểm trường không kiêm GV lớp đó tự viết 1 nhận xét DAILY thì
+ *       không tự Gửi được, phải nhờ đúng GV lớp Gửi (đánh đổi đã xác nhận
+ *       với người dùng, giữ code đơn giản/đồng nhất với MID_TERM/END_TERM
+ *       thay vì mở lại rào riêng cho DAILY).</li>
+ *   <li>Excel import (importRow): dòng ứng với nhận xét đang DRAFT/REJECTED
+ *       thì sửa được (về lại DRAFT); dòng ứng với nhận xét đã PENDING/
+ *       APPROVED thì báo lỗi riêng dòng đó (không chặn dòng khác, đúng
+ *       pattern UC-35/50/51/53) — không cho Excel âm thầm ghi đè, bỏ qua
+ *       quy trình duyệt.</li>
+ *   <li>Hạn ghi/sửa: mặc định 7 ngày kể từ NGÀY BUỔI HỌC diễn ra
  *       (system_settings.academic.comment_edit_window_days — xem
  *       AcademicSettingsService), actor có {@code academic.comment.approve}
- *       bỏ qua hạn này (cùng 1 permission gánh cả 2 "quyền quản trị").</li>
+ *       bỏ qua hạn này khi ghi/sửa — KHÔNG đổi từ 2026-07-24, đây là quyền
+ *       quản trị độc lập với chuyện route trạng thái ở trên.</li>
  *   <li>Excel round-trip theo buổi học (buildTemplate/importComments) —
  *       điền sẵn học sinh ACTIVE của lớp, cột Điểm danh cho phép sửa luôn
  *       điểm danh khi import lại (tái dùng nguyên StudentAttendanceService.
@@ -183,11 +196,7 @@ public class StudentCommentService {
 
     // ===================== UC-21: Viết nhận xét (TEACHER) =====================
 
-    /**
-     * Main Flow bước 1-3 (MID_TERM/END_TERM — lưu nháp DRAFT). Nhận xét
-     * Hàng ngày kiểu mới (DAILY): ghi xong tự động chuyển PENDING/APPROVED
-     * ngay (xem Javadoc lớp) — không còn dừng ở DRAFT.
-     */
+    /** Main Flow bước 1-3: lưu nháp DRAFT — dùng chung cho cả DAILY/MID_TERM/END_TERM (xem Javadoc lớp). */
     @Transactional
     public StudentCommentResponse writeComment(Long classId, CreateStudentCommentRequest request, Long actorUserId) {
         SchoolClass schoolClass = getClassOrThrow(classId);
@@ -196,14 +205,13 @@ public class StudentCommentService {
 
         ClassSession classSession = null;
         GradePeriod gradePeriod = null;
-        boolean isApprover = false;
         if (commentType == StudentComment.CommentType.DAILY) {
             if (request.classSessionId() == null || request.gradePeriodId() != null) {
                 throw new InvalidCommentContextException(
                         "commentType=DAILY phải có classSessionId và không được có gradePeriodId.");
             }
             classSession = getClassSessionOrThrow(request.classSessionId());
-            isApprover = requireCanWriteDailyComment(classSession, actorUserId);
+            requireCanWriteDailyComment(classSession, actorUserId);
         } else {
             if (request.gradePeriodId() == null || request.classSessionId() != null) {
                 throw new InvalidCommentContextException(
@@ -230,18 +238,15 @@ public class StudentCommentService {
                 reviewVideoSetOrNull(request.homeworkNextReviewVideoSetId()), request.note());
         comment = studentCommentRepository.save(comment);
         writeHistory(comment, actor, StudentCommentHistory.Action.CREATED);
-
-        if (commentType == StudentComment.CommentType.DAILY) {
-            comment = routeDailyComment(comment, actor, isApprover);
-        }
         return toResponse(comment);
     }
 
     /**
-     * MID_TERM/END_TERM Main Flow bước 2, A1: sửa nội dung khi đang DRAFT
-     * hoặc sau khi bị REJECTED (quay lại DRAFT để submit lại) — không đổi.
-     * DAILY: sửa được bất kỳ trạng thái nào trong hạn X ngày, ghi xong lại
-     * tự động chuyển PENDING/APPROVED ngay (xem Javadoc lớp).
+     * Main Flow bước 2, A1: sửa nội dung khi đang DRAFT hoặc sau khi bị
+     * REJECTED (quay lại DRAFT để submit lại) — dùng chung cho cả 3 biểu
+     * mẫu (DAILY/MID_TERM/END_TERM, xem Javadoc lớp). DAILY khác ở chỗ
+     * rào ghi/sửa dùng requireCanWriteDailyComment (hạn X ngày) thay vì
+     * requireAssignedTeacher thuần.
      */
     @Transactional
     public StudentCommentResponse updateComment(Long id, UpdateStudentCommentRequest request, Long actorUserId) {
@@ -249,15 +254,14 @@ public class StudentCommentService {
         User actor = getUserOrThrow(actorUserId);
         boolean isDaily = comment.getCommentType() == StudentComment.CommentType.DAILY;
 
-        boolean isApprover = false;
         if (isDaily) {
-            isApprover = requireCanWriteDailyComment(comment.getClassSession(), actorUserId);
+            requireCanWriteDailyComment(comment.getClassSession(), actorUserId);
         } else {
             requireAssignedTeacher(comment.getSchoolClass().getId(), actorUserId);
-            if (comment.getStatus() != StudentComment.Status.DRAFT && comment.getStatus() != StudentComment.Status.REJECTED) {
-                throw new StudentCommentNotEditableException(
-                        "Nhận xét id=" + id + " đang ở trạng thái " + comment.getStatus() + " — chỉ sửa được khi DRAFT hoặc REJECTED.");
-            }
+        }
+        if (comment.getStatus() != StudentComment.Status.DRAFT && comment.getStatus() != StudentComment.Status.REJECTED) {
+            throw new StudentCommentNotEditableException(
+                    "Nhận xét id=" + id + " đang ở trạng thái " + comment.getStatus() + " — chỉ sửa được khi DRAFT hoặc REJECTED.");
         }
 
         comment.setApprovalFlow(null);
@@ -265,14 +269,9 @@ public class StudentCommentService {
                 request.attitude(), request.homeworkPreviousScore(), request.homeworkPreviousSpeakingScore(),
                 request.homeworkNext(), exerciseAssignmentOrNull(request.homeworkNextExerciseAssignmentId()),
                 reviewVideoSetOrNull(request.homeworkNextReviewVideoSetId()), request.note());
-        if (isDaily) {
-            comment = studentCommentRepository.save(comment);
-            comment = routeDailyComment(comment, actor, isApprover);
-        } else {
-            comment.setStatus(StudentComment.Status.DRAFT);
-            comment = studentCommentRepository.save(comment);
-            writeHistory(comment, actor, StudentCommentHistory.Action.UPDATED);
-        }
+        comment.setStatus(StudentComment.Status.DRAFT);
+        comment = studentCommentRepository.save(comment);
+        writeHistory(comment, actor, StudentCommentHistory.Action.UPDATED);
         return toResponse(comment);
     }
 
@@ -310,7 +309,7 @@ public class StudentCommentService {
         }
     }
 
-    /** Main Flow bước 4-5 (chỉ còn ý nghĩa với MID_TERM/END_TERM — DAILY tự route ngay khi ghi, xem Javadoc lớp). */
+    /** Main Flow bước 4-5: Gửi (submit) — dùng chung cho cả DAILY/MID_TERM/END_TERM (xem Javadoc lớp). */
     @Transactional
     public List<StudentCommentResponse> submitComments(Long classId, SubmitCommentsRequest request, Long actorUserId) {
         requireAssignedTeacher(classId, actorUserId);
@@ -503,7 +502,7 @@ public class StudentCommentService {
     @Transactional
     public DailyCommentImportResponse importComments(Long classSessionId, MultipartFile file, Long actorUserId) {
         ClassSession classSession = getClassSessionOrThrow(classSessionId);
-        boolean isApprover = requireCanWriteDailyComment(classSession, actorUserId);
+        requireCanWriteDailyComment(classSession, actorUserId);
         User actor = getUserOrThrow(actorUserId);
 
         ImportJob job = new ImportJob();
@@ -589,7 +588,7 @@ public class StudentCommentService {
                     importRow(classSession, parsed.student(), effectiveAttendance, parsed.attitude(),
                             parsed.homeworkPrevious(), parsed.content(), parsed.homeworkNext(),
                             parsed.grammarAssignment(), parsed.videoSet(), parsed.note(),
-                            parsed.homeworkPreviousSpeaking(), actor, isApprover);
+                            parsed.homeworkPreviousSpeaking(), actor);
                     successRows++;
                 } catch (RuntimeException ex) {
                     errors.add(rowError(parsed.rowNumber() + 1, ex.getMessage()));
@@ -673,11 +672,17 @@ public class StudentCommentService {
         return byLabel.get(text);
     }
 
-    /** Ghi 1 dòng: Vắng/Có phép mà mọi cột sau Điểm danh đều trống thì bỏ qua (chỉ ghi điểm danh, không tạo nhận xét). */
+    /**
+     * Ghi 1 dòng: Vắng/Có phép mà mọi cột sau Điểm danh đều trống thì bỏ
+     * qua (chỉ ghi điểm danh, không tạo nhận xét). Dòng ứng với 1 nhận
+     * xét đã tồn tại thì chỉ sửa được khi đang DRAFT/REJECTED (giống hệt
+     * updateComment) — tránh Excel âm thầm ghi đè 1 dòng đã PENDING/
+     * APPROVED, bỏ qua quy trình duyệt.
+     */
     private void importRow(ClassSession classSession, Student student, AttendanceMark.Status attendance,
                             String attitude, String homeworkPrevious, String content, String homeworkNext,
                             ExerciseAssignment grammarAssignment, ReviewVideoSet videoSet, String note,
-                            String homeworkPreviousSpeaking, User actor, boolean isApprover) {
+                            String homeworkPreviousSpeaking, User actor) {
         boolean absent = attendance == AttendanceMark.Status.ABSENT || attendance == AttendanceMark.Status.EXCUSED;
         boolean allBlank = attitude == null && homeworkPrevious == null && content == null
                 && homeworkNext == null && grammarAssignment == null && videoSet == null && note == null
@@ -700,13 +705,18 @@ public class StudentCommentService {
                     created.setCommentDate(classSession.getSessionDate());
                     return created;
                 });
+        if (comment.getStatus() != StudentComment.Status.DRAFT && comment.getStatus() != StudentComment.Status.REJECTED) {
+            throw new StudentCommentNotEditableException(
+                    "Nhận xét học sinh mã=" + student.getStudentCode() + " đang ở trạng thái "
+                            + comment.getStatus() + " — chỉ sửa được khi DRAFT hoặc REJECTED.");
+        }
         comment.setTeacher(actor);
         comment.setApprovalFlow(null);
         applyContent(comment, content, null, null, false,
                 attitude, homeworkPrevious, homeworkPreviousSpeaking, homeworkNext, grammarAssignment, videoSet, note);
+        comment.setStatus(StudentComment.Status.DRAFT);
         comment = studentCommentRepository.save(comment);
         writeHistory(comment, actor, StudentCommentHistory.Action.UPDATED);
-        routeDailyComment(comment, actor, isApprover);
     }
 
     // ===================== Helpers =====================
@@ -798,47 +808,15 @@ public class StudentCommentService {
     }
 
     /**
-     * Ghi (tạo/sửa) 1 nhận xét DAILY xong → tự động chuyển PENDING (tạo
-     * ApprovalFlow, chờ Quản lý điểm trường — UC-22) hoặc APPROVED ngay
-     * (actor có academic.comment.approve) — xem Javadoc lớp.
+     * Rào ghi/sửa nhận xét DAILY. Actor có academic.comment.approve: bỏ
+     * qua rào (không cần là GV được phân công, không giới hạn hạn X ngày
+     * — quyền quản trị độc lập với chuyện nhận xét route trạng thái gì,
+     * xem Javadoc lớp). Ngược lại: phải là GV được phân công lớp (giữ
+     * nguyên rào cũ) VÀ còn trong hạn X ngày kể từ ngày buổi học.
      */
-    private StudentComment routeDailyComment(StudentComment comment, User actor, boolean isApprover) {
-        OffsetDateTime now = OffsetDateTime.now();
-        if (isApprover) {
-            comment.setStatus(StudentComment.Status.APPROVED);
-            comment.setApprovedBy(actor);
-            comment.setApprovedAt(now);
-            comment.setVisibleToParentAt(now);
-            comment.setSubmittedAt(now);
-            comment = studentCommentRepository.save(comment);
-            writeHistory(comment, actor, StudentCommentHistory.Action.UPDATED);
-            return comment;
-        }
-        ApprovalFlow flow = new ApprovalFlow();
-        flow.setEntityType(ApprovalFlow.EntityType.STUDENT_COMMENT);
-        flow.setEntityId(comment.getId());
-        flow.setStatus(ApprovalFlow.Status.PENDING);
-        flow.setSubmittedBy(actor);
-        flow = approvalFlowRepository.save(flow);
-        comment.setApprovalFlow(flow);
-        comment.setStatus(StudentComment.Status.PENDING);
-        comment.setSubmittedAt(now);
-        comment = studentCommentRepository.save(comment);
-        writeHistory(comment, actor, StudentCommentHistory.Action.UPDATED);
-        notifySiteManagersPending(List.of(comment));
-        return comment;
-    }
-
-    /**
-     * Actor có academic.comment.approve: bỏ qua rào (không cần là GV được
-     * phân công, không giới hạn hạn X ngày) — trả true (dùng để route
-     * APPROVED thẳng). Ngược lại: phải là GV được phân công lớp (giữ
-     * nguyên rào cũ) VÀ còn trong hạn X ngày kể từ ngày buổi học — trả
-     * false (route PENDING).
-     */
-    private boolean requireCanWriteDailyComment(ClassSession classSession, Long actorUserId) {
+    private void requireCanWriteDailyComment(ClassSession classSession, Long actorUserId) {
         if (permissionEvaluationService.hasPermission(actorUserId, "academic.comment.approve")) {
-            return true;
+            return;
         }
         requireAssignedTeacher(classSession.getSchoolClass().getId(), actorUserId);
         int windowDays = academicSettingsService.commentEditWindowDays();
@@ -848,7 +826,6 @@ public class StudentCommentService {
                     "Chỉ nhập/sửa nhận xét trong vòng " + windowDays + " ngày kể từ ngày buổi học ("
                             + classSession.getSessionDate() + "); hạn đã hết ngày " + deadline + ".");
         }
-        return false;
     }
 
     private Map<Long, AttendanceMark.Status> currentAttendanceByStudent(Long classSessionId) {
