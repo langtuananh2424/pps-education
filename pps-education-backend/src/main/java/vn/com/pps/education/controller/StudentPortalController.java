@@ -12,11 +12,13 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import vn.com.pps.education.dto.AssignedExerciseResponse;
+import vn.com.pps.education.dto.AttendanceMarkResponse;
 import vn.com.pps.education.dto.ClassSessionResponse;
 import vn.com.pps.education.dto.CurriculumDocumentResponse;
 import vn.com.pps.education.dto.GradeEntryResponse;
 import vn.com.pps.education.dto.GradePeriodResultResponse;
 import vn.com.pps.education.dto.ListeningPracticeItemResponse;
+import vn.com.pps.education.dto.StudentCommentResponse;
 import vn.com.pps.education.dto.StudentResponse;
 import vn.com.pps.education.dto.UpdateOwnStudentProfileRequest;
 import vn.com.pps.education.security.AuthenticatedUser;
@@ -25,6 +27,8 @@ import vn.com.pps.education.service.CurriculumDocumentService;
 import vn.com.pps.education.service.ExerciseAttemptService;
 import vn.com.pps.education.service.GradeService;
 import vn.com.pps.education.service.ListeningPracticeService;
+import vn.com.pps.education.service.StudentAttendanceService;
+import vn.com.pps.education.service.StudentCommentService;
 import vn.com.pps.education.service.StudentService;
 
 import java.time.LocalDate;
@@ -46,19 +50,25 @@ public class StudentPortalController {
     private final ListeningPracticeService listeningPracticeService;
     private final GradeService gradeService;
     private final StudentService studentService;
+    private final StudentAttendanceService studentAttendanceService;
+    private final StudentCommentService studentCommentService;
 
     public StudentPortalController(ClassSessionService classSessionService,
                                     ExerciseAttemptService exerciseAttemptService,
                                     CurriculumDocumentService curriculumDocumentService,
                                     ListeningPracticeService listeningPracticeService,
                                     GradeService gradeService,
-                                    StudentService studentService) {
+                                    StudentService studentService,
+                                    StudentAttendanceService studentAttendanceService,
+                                    StudentCommentService studentCommentService) {
         this.classSessionService = classSessionService;
         this.exerciseAttemptService = exerciseAttemptService;
         this.curriculumDocumentService = curriculumDocumentService;
         this.listeningPracticeService = listeningPracticeService;
         this.gradeService = gradeService;
         this.studentService = studentService;
+        this.studentAttendanceService = studentAttendanceService;
+        this.studentCommentService = studentCommentService;
     }
 
     /** UC-63: học sinh tự xem hồ sơ của chính mình (FR-USR-07). */
@@ -123,5 +133,19 @@ public class StudentPortalController {
             @PathVariable Long classId, @PathVariable Long gradePeriodId,
             @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(gradeService.getMyPeriodResult(actor.userId(), classId, gradePeriodId));
+    }
+
+    /** UC-64: điểm danh của tôi theo lớp — "Xem quá trình học tập". */
+    @GetMapping("/classes/{classId}/attendance")
+    public ResponseEntity<List<AttendanceMarkResponse>> listMyAttendance(
+            @PathVariable Long classId, @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(studentAttendanceService.listMyAttendance(classId, actor.userId()));
+    }
+
+    /** UC-64: nhận xét giáo viên đã duyệt của tôi theo lớp — "Xem quá trình học tập". */
+    @GetMapping("/classes/{classId}/comments")
+    public ResponseEntity<List<StudentCommentResponse>> listMyComments(
+            @PathVariable Long classId, @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(studentCommentService.listMyComments(classId, actor.userId()));
     }
 }

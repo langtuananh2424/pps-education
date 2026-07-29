@@ -395,6 +395,25 @@ public class StudentAttendanceService {
                 schoolClass.getId(), schoolClass.getName(), present, absent, excused, late, earlyLeave, total, rate);
     }
 
+    /**
+     * UC-64 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-29):
+     * học sinh tự xem điểm danh của chính mình theo lớp đang/đã ghi danh
+     * ACTIVE — mirror ParentPortalService.listAttendance, chỉ khác scope
+     * là chính học sinh thay vì quan hệ phụ huynh-con.
+     */
+    @Transactional(readOnly = true)
+    public List<AttendanceMarkResponse> listMyAttendance(Long classId, Long actorUserId) {
+        Student student = studentRepository.findByUserId(actorUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản id=" + actorUserId + " không có hồ sơ học sinh."));
+        boolean enrolled = classEnrollmentRepository.findBySchoolClassIdAndStudentIdAndStatus(
+                classId, student.getId(), ClassEnrollment.Status.ACTIVE).isPresent();
+        if (!enrolled) {
+            throw new ResourceNotFoundException("Không tìm thấy lớp học id=" + classId);
+        }
+        return attendanceMarkRepository.findByStudentIdAndClassId(student.getId(), classId).stream()
+                .map(this::toResponse).toList();
+    }
+
     private void requireAssignedTeacher(ClassSession classSession, Long actorUserId) {
         if (!classSession.getPrimaryTeacher().getId().equals(actorUserId)) {
             throw new NotAssignedTeacherForSessionException(
