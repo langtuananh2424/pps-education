@@ -42,6 +42,7 @@ import vn.com.pps.education.dto.MarkAttendanceRequest;
 import vn.com.pps.education.dto.QuestionBankResponse;
 import vn.com.pps.education.dto.QuestionChoiceRequest;
 import vn.com.pps.education.dto.QuestionResponse;
+import vn.com.pps.education.dto.RecordTransferRequest;
 import vn.com.pps.education.dto.ReportVideoProgressRequest;
 import vn.com.pps.education.dto.ReviewVideoResponse;
 import vn.com.pps.education.dto.ReviewVideoSetResponse;
@@ -121,6 +122,9 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
 
     @Autowired
     private ReviewVideoService reviewVideoService;
+
+    @Autowired
+    private StudentService studentService;
 
     @Autowired
     private UserRepository userRepository;
@@ -996,6 +1000,27 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
 
         assertThatThrownBy(() -> studentCommentService.listMyComments(otherClass.id(), student.getUser().getId()))
                 .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    /** Bổ sung (đã xác nhận với người dùng 2026-07-29): nhận xét lớp cũ vẫn tự xem được sau khi chuyển lớp. */
+    @Test
+    void listMyComments_boSung_stillVisibleAfterTransferToAnotherClass() {
+        StudentCommentResponse toApprove = studentCommentService.writeComment(schoolClass.id(),
+                new CreateStudentCommentRequest(student.getId(), "DAILY", classSession.id(), null,
+                        classSession.sessionDate(), "Nội dung đã duyệt.", null, null, false, null, null, null, null, null, null, null),
+                teacher.getId());
+        studentCommentService.submitComments(schoolClass.id(), new SubmitCommentsRequest(List.of(toApprove.id())), teacher.getId());
+        studentCommentService.decideComments(new DecideCommentsRequest(List.of(toApprove.id()), "APPROVED", null), siteManagerUser.getId());
+        ClassResponse otherClass = classService.create(
+                new CreateClassRequest(classCode(), "9A2", siteOf(schoolClass).getId(), schoolClass.curriculumId(), "OPEN", 20, null,
+                        LocalDate.now(), null, null, null), headAcademic.getId());
+        studentService.recordTransfer(student.getId(),
+                new RecordTransferRequest("CLASS_CHANGE", schoolClass.id(), otherClass.id(), null, LocalDate.now(), "Chuyển lớp test"),
+                headAcademic.getId());
+
+        List<StudentCommentResponse> result = studentCommentService.listMyComments(schoolClass.id(), student.getUser().getId());
+
+        assertThat(result).extracting(StudentCommentResponse::id).contains(toApprove.id());
     }
 
     private void writeDailyCommentWithHomeworkPrevious(Student targetStudent, ClassSessionResponse session, String homeworkPreviousScore) {

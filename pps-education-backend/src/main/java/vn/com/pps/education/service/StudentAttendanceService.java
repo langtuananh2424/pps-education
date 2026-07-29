@@ -397,17 +397,16 @@ public class StudentAttendanceService {
 
     /**
      * UC-64 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-29):
-     * học sinh tự xem điểm danh của chính mình theo lớp đang/đã ghi danh
-     * ACTIVE — mirror ParentPortalService.listAttendance, chỉ khác scope
-     * là chính học sinh thay vì quan hệ phụ huynh-con.
+     * học sinh tự xem điểm danh của chính mình theo lớp đang/đã TỪNG ghi
+     * danh (kể cả lớp cũ sau khi chuyển lớp) — mirror
+     * ParentPortalService.listAttendance, chỉ khác scope là chính học
+     * sinh thay vì quan hệ phụ huynh-con.
      */
     @Transactional(readOnly = true)
     public List<AttendanceMarkResponse> listMyAttendance(Long classId, Long actorUserId) {
         Student student = studentRepository.findByUserId(actorUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("Tài khoản id=" + actorUserId + " không có hồ sơ học sinh."));
-        boolean enrolled = classEnrollmentRepository.findBySchoolClassIdAndStudentIdAndStatus(
-                classId, student.getId(), ClassEnrollment.Status.ACTIVE).isPresent();
-        if (!enrolled) {
+        if (!classEnrollmentRepository.existsByStudentIdAndSchoolClassId(student.getId(), classId)) {
             throw new ResourceNotFoundException("Không tìm thấy lớp học id=" + classId);
         }
         return attendanceMarkRepository.findByStudentIdAndClassId(student.getId(), classId).stream()

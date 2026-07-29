@@ -301,10 +301,9 @@ public class StudentCommentService {
                 .orElseThrow(() -> new ResourceNotFoundException("Tài khoản id=" + actorUserId + " không có hồ sơ học sinh."));
     }
 
+    /** Đã TỪNG ghi danh lớp này (kể cả đã chuyển lớp) — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-29. */
     private void requireEnrolled(Long studentId, Long classId) {
-        boolean enrolled = classEnrollmentRepository.findBySchoolClassIdAndStudentIdAndStatus(
-                classId, studentId, ClassEnrollment.Status.ACTIVE).isPresent();
-        if (!enrolled) {
+        if (!classEnrollmentRepository.existsByStudentIdAndSchoolClassId(studentId, classId)) {
             throw new ResourceNotFoundException("Không tìm thấy lớp học id=" + classId);
         }
     }
