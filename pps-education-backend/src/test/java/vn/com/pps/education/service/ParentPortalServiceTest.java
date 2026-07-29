@@ -320,12 +320,15 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
         return published;
     }
 
+    /** DAILY nay dùng chung luồng DRAFT->Gửi->PENDING->duyệt (2026-07-29) -- ghi rồi phải Gửi+duyệt mới APPROVED để lộ ra Cổng phụ huynh. */
     private void writeDailyComment(Long grammarAssignmentId, Long videoSetId, String homeworkNext) {
-        studentCommentService.writeComment(schoolClass.id(),
+        StudentCommentResponse comment = studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), "DAILY", session.id(), null,
                         session.sessionDate(), "Nội dung buổi.", null, null, false, null, null, null,
                         homeworkNext, grammarAssignmentId, videoSetId, null),
-                siteManagerUser.getId());
+                teacher.getId());
+        studentCommentService.submitComments(schoolClass.id(), new SubmitCommentsRequest(List.of(comment.id())), teacher.getId());
+        studentCommentService.decideComments(new DecideCommentsRequest(List.of(comment.id()), "APPROVED", null), siteManagerUser.getId());
     }
 
     @Test

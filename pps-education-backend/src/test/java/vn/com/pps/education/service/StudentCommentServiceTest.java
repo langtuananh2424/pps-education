@@ -968,10 +968,13 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
 
     @Test
     void listMyComments_UC64_MainFlow_onlyReturnsApprovedForOwnClass() {
-        studentCommentService.writeComment(schoolClass.id(),
+        // DAILY nay dùng chung luồng DRAFT->Gửi->PENDING->duyệt (2026-07-29) -- ghi rồi phải Gửi+duyệt mới APPROVED.
+        StudentCommentResponse toApprove = studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), "DAILY", classSession.id(), null,
                         classSession.sessionDate(), "Nội dung đã duyệt.", null, null, false, null, null, null, null, null, null, null),
-                siteManagerUser.getId());
+                teacher.getId());
+        studentCommentService.submitComments(schoolClass.id(), new SubmitCommentsRequest(List.of(toApprove.id())), teacher.getId());
+        studentCommentService.decideComments(new DecideCommentsRequest(List.of(toApprove.id()), "APPROVED", null), siteManagerUser.getId());
         ClassSessionResponse session2 = nextSession();
         studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), "DAILY", session2.id(), null,
