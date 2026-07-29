@@ -63,6 +63,13 @@ public class ClassSessionController {
         return ResponseEntity.ok(classSessionService.listTodaySessions(classId, actor.userId()));
     }
 
+    /** Danh sách buổi CANCELLED chưa có buổi bù (Case 1, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-29). */
+    @GetMapping("/cancelled-pending-makeup")
+    public ResponseEntity<List<ClassSessionResponse>> listCancelledSessionsPendingMakeup(@PathVariable Long classId,
+                                                                                           @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(classSessionService.listCancelledSessionsPendingMakeup(classId, actor.userId()));
+    }
+
     @GetMapping("/{classSessionId}/periods")
     public ResponseEntity<List<SessionPeriodResponse>> listPeriods(@PathVariable Long classId, @PathVariable Long classSessionId,
                                                                     @AuthenticationPrincipal AuthenticatedUser actor) {

@@ -173,7 +173,7 @@ class PartnerPortalServiceTest extends AbstractIntegrationTest {
     @Test
     void getAttendanceSummary_UC29_MainFlow_computesAttendanceRate() {
         ClassSessionResponse session = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(LocalDate.now(), LocalTime.of(8, 0), LocalTime.of(9, 40), null, teacher.getId(), "REGULAR", null),
+                new CreateClassSessionRequest(LocalDate.now(), LocalTime.of(8, 0), LocalTime.of(9, 40), null, teacher.getId(), "REGULAR", null, null),
                 headAcademic.getId());
         studentAttendanceService.markAttendance(session.id(),
                 new MarkAttendanceRequest("SESSION_LEVEL", List.of(

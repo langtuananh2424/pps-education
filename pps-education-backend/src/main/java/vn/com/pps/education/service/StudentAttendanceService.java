@@ -17,7 +17,6 @@ import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.dto.AttendanceMarkResponse;
 import vn.com.pps.education.dto.AttendanceSessionResponse;
-import vn.com.pps.education.dto.ClassSessionLessonContentResponse;
 import vn.com.pps.education.dto.EnterAttendanceMarkRequest;
 import vn.com.pps.education.dto.MarkAttendanceRequest;
 import vn.com.pps.education.dto.PartnerAttendanceSummaryResponse;
@@ -255,22 +254,6 @@ public class StudentAttendanceService {
         }
 
         return toResponse(attendanceSession);
-    }
-
-    /**
-     * "Bài học hôm nay" (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
-     * 2026-07-24) — cùng rào với điểm danh (GV được phân công buổi + trong
-     * ngày diễn ra, hoặc quyền quản trị điểm danh), nên đặt ở đây thay vì
-     * ClassSessionService để tái dùng nguyên requireCanWriteAttendance,
-     * không viết lại rào ở chỗ khác.
-     */
-    @Transactional
-    public ClassSessionLessonContentResponse updateLessonContent(Long classSessionId, String lessonContent, Long actorUserId) {
-        ClassSession classSession = getClassSessionOrThrow(classSessionId);
-        requireCanWriteAttendance(classSession, actorUserId, PERM_ATTENDANCE_UPDATE);
-        classSession.setLessonContent(lessonContent);
-        classSession = classSessionRepository.save(classSession);
-        return new ClassSessionLessonContentResponse(classSession.getId(), classSession.getLessonContent());
     }
 
     /**

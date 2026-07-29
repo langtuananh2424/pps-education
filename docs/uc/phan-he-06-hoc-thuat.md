@@ -374,6 +374,23 @@ UC-48: Xếp lịch buổi học
 |                 | cũ sang trạng thái RESCHEDULED và liên kết sang    |
 |                 | buổi mới vừa tạo. Chỉ áp dụng cho buổi đang        |
 |                 | SCHEDULED.                                          |
+|                 |                                                    |
+|                 | ***A4 --- Tạo buổi bù cho 1 buổi đã hủy (bổ sung   |
+|                 | ngoài SDD gốc, đã xác nhận với người dùng          |
+|                 | 2026-07-29)***                                      |
+|                 |                                                    |
+|                 | 1. Người dùng chọn loại buổi MAKEUP ở bước 1 Main  |
+|                 | Flow, BẮT BUỘC chỉ định buổi đã hủy (đang           |
+|                 | CANCELLED) mà buổi này bù cho. Hệ thống liên kết    |
+|                 | 1-1 (1 buổi hủy chỉ được đúng 1 buổi bù — từ chối   |
+|                 | nếu buổi hủy đã có buổi bù khác, hoặc buổi tham     |
+|                 | chiếu không phải CANCELLED/khác lớp). Dời lịch 1    |
+|                 | buổi bù (A3) giữ nguyên liên kết sang buổi mới.     |
+|                 | GET /api/classes/{classId}/sessions/cancelled-      |
+|                 | pending-makeup trả danh sách buổi hủy chưa có buổi  |
+|                 | bù, phục vụ màn hình chọn buổi khi tạo buổi bù.     |
+|                 | Chỉ áp dụng tạo 1 buổi lẻ (UC-48) — không áp dụng   |
+|                 | sinh lịch hàng loạt (UC-56) hay nhập Excel (UC-57). |
 +-----------------+----------------------------------------------------+
 | **Hậu điều kiện | - class_sessions/session_periods phản ánh đúng     |
 | (P              | lịch học hiện hành của lớp, là dữ liệu tham chiếu  |
@@ -389,6 +406,11 @@ UC-48: Xếp lịch buổi học
 |                 | không lưu cột DB, đếm cả buổi CANCELLED — bổ sung  |
 |                 | ngoài SDD gốc, đã xác nhận với người dùng          |
 |                 | 2026-07-29), phục vụ FE hiển thị "Buổi N + ngày".  |
+|                 |                                                    |
+|                 | - Buổi MAKEUP (A4) trả kèm makeupForSessionId — id |
+|                 | buổi CANCELLED nó bù cho (null nếu không phải      |
+|                 | MAKEUP) — bổ sung ngoài SDD gốc, đã xác nhận với   |
+|                 | người dùng 2026-07-29.                             |
 +-----------------+----------------------------------------------------+
 
 ---
@@ -1134,11 +1156,26 @@ Mở rộng --- Nhận xét Hàng ngày kiểu mới (bổ sung ngoài SDD gốc
 nhận với người dùng 2026-07-24, kết luận họp — CHỈ áp dụng comment_type=
 DAILY, Giữa/Cuối kỳ giữ nguyên 100% luồng ở trên)
 
--   Luồng thao tác: Giáo viên điểm danh buổi học (UC-15) → điền "bài học
-    hôm nay" (TEXT, `class_sessions.lesson_content`, dùng chung cả lớp —
-    `PUT /api/class-sessions/{classSessionId}/lesson-content`) → nhận xét
-    từng học sinh của buổi đó. Học sinh Vắng/Có phép thì không cần điền
-    các trường nhận xét.
+-   Luồng thao tác: Giáo viên điểm danh buổi học (UC-15) → nhận xét từng
+    học sinh của buổi đó. Học sinh Vắng/Có phép thì không cần điền các
+    trường nhận xét.
+-   **Sửa lại 2026-07-29 (đã xác nhận với người dùng) — "bài học hôm nay"
+    chuyển từ Điểm danh sang Nhận xét:** `class_sessions.lesson_content`
+    (TEXT, dùng chung cả lớp, không đổi) nay điền qua
+    `PUT /api/class-sessions/{classSessionId}/comments/lesson-content`
+    (rào giống ghi nhận xét — `requireCanWriteDailyComment`), KHÔNG còn
+    endpoint ở Điểm danh (`PUT .../attendance/lesson-content` đã bỏ). Trên
+    UI hiển thị 1 field chung theo lớp (không phải cột trong bảng), phục
+    vụ hiển thị xuống GV/Phụ huynh (`ClassSessionResponse.lessonContent`)
+    và Quản lý điểm trường lúc duyệt (`StudentCommentResponse.lessonContent`).
+    Excel: cột "Bài học hôm nay" nằm NGAY TRƯỚC cột Điểm danh trong file
+    mẫu (không bắt buộc điền) — điền sẵn từ giá trị đã nhập ở UI (nếu có);
+    khi import, mọi dòng có điền phải khớp giá trị nhau (học sinh trong
+    lớp học cùng 1 bài) — khác nhau thì CHẶN TOÀN BỘ file, không import
+    dòng nào; để trống hết thì giữ nguyên giá trị hiện có (không xóa nhầm
+    giá trị đã điền qua UI). Gửi duyệt (`submitComments`) 1 nhận xét DAILY
+    mà buổi chưa có `lesson_content` thì bị từ chối (422,
+    "chưa điền bài học hôm nay").
 -   4 cột mới trên `student_comments` (chỉ có ý nghĩa khi comment_type=
     DAILY): `attitude` (VARCHAR(20), enum Kém/Yếu/Trung bình/Trung bình
     khá/Khá/Tốt — mở rộng từ 3 lên 6 mức 2026-07-27),

@@ -81,6 +81,16 @@ public class ClassSession extends BaseAuditEntity {
     @JoinColumn(name = "rescheduled_to_session_id")
     private ClassSession rescheduledToSession;
 
+    /**
+     * Chỉ có ý nghĩa khi sessionType=MAKEUP — buổi CANCELLED mà buổi này
+     * bù cho (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+     * 2026-07-29). UNIQUE ở DB (V61) đảm bảo 1 buổi hủy chỉ có đúng 1
+     * buổi bù.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "makeup_for_session_id")
+    private ClassSession makeupForSession;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "created_by", nullable = false)
     private User createdBy;

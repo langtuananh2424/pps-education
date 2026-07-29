@@ -90,4 +90,10 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, Long
 
     /** Buổi học hôm nay của 1 lớp (tab Nhận xét, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-29). */
     List<ClassSession> findBySchoolClassIdAndSessionDate(Long classId, LocalDate sessionDate);
+
+    /** Liên kết buổi hủy↔bù (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-29). */
+    List<ClassSession> findBySchoolClassIdAndStatus(Long classId, ClassSession.Status status);
+
+    /** "1 buổi hủy — đúng 1 buổi bù": true nếu đã có buổi MAKEUP nào liên kết tới buổi này. */
+    boolean existsByMakeupForSessionId(Long sessionId);
 }
