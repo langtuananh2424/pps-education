@@ -432,10 +432,8 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
                 headers.add(header.getCell(i).getStringCellValue());
             }
             assertThat(headers).containsExactly("Ngày*", "Mã học viên*", "Họ và tên", "Điểm danh*",
-                    "Thái độ học tập", "BTVN buổi trước", "Nhận xét học sinh*", "BTVN buổi sau", "Ghi chú",
-                    "% Ngữ pháp buổi trước (tự động)", "% Video buổi trước (tự động)",
-                    "Giao BTVN ngữ pháp ONLINE (buổi sau)", "Giao Video ôn tập (buổi sau)",
-                    "BTVN Nghe-nói buổi trước");
+                    "Thái độ học tập", "BTVN Ngữ pháp buổi trước", "BTVN Nghe-nói buổi trước",
+                    "Nhận xét học sinh*", "BTVN Ngữ pháp buổi sau", "BTVN Nghe-nói buổi sau", "Ghi chú");
             assertThat(sheet.getLastRowNum()).isEqualTo(1);
             Row row = sheet.getRow(1);
             assertThat(row.getCell(1).getStringCellValue()).isEqualTo(student.getStudentCode());
@@ -463,7 +461,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
                         new EnterAttendanceMarkRequest(student.getId(), "PRESENT", null, null, null))),
                 teacher.getId());
         byte[] file = buildCommentWorkbook(new String[][]{
-                {classSession.sessionDate().toString(), student.getStudentCode(), "", "Có mặt", "Tốt", "80%", "Rất tốt.", "Unit 5", "Không có gì."}
+                {classSession.sessionDate().toString(), student.getStudentCode(), "", "Có mặt", "Tốt", "80%", "", "Rất tốt.", "Unit 5", "", "Không có gì."}
         });
 
         DailyCommentImportResponse result = studentCommentService.importComments(classSession.id(),
@@ -485,7 +483,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
                         new EnterAttendanceMarkRequest(student.getId(), "PRESENT", null, null, null))),
                 teacher.getId());
         byte[] file = buildCommentWorkbook(new String[][]{
-                {classSession.sessionDate().toString(), student.getStudentCode(), "", "Có mặt", "", "", "Quản lý nhập trực tiếp.", "", ""}
+                {classSession.sessionDate().toString(), student.getStudentCode(), "", "Có mặt", "", "", "", "Quản lý nhập trực tiếp.", "", "", ""}
         });
 
         studentCommentService.importComments(classSession.id(),
@@ -503,7 +501,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
                         new EnterAttendanceMarkRequest(student.getId(), "ABSENT", null, null, "Ốm"))),
                 teacher.getId());
         byte[] file = buildCommentWorkbook(new String[][]{
-                {classSession.sessionDate().toString(), student.getStudentCode(), "", "Vắng", "", "", "", "", ""}
+                {classSession.sessionDate().toString(), student.getStudentCode(), "", "Vắng", "", "", "", "", "", "", ""}
         });
 
         DailyCommentImportResponse result = studentCommentService.importComments(classSession.id(),
@@ -521,7 +519,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
                         new EnterAttendanceMarkRequest(student.getId(), "PRESENT", null, null, null))),
                 teacher.getId());
         byte[] file = buildCommentWorkbook(new String[][]{
-                {classSession.sessionDate().toString(), student.getStudentCode(), "", "Có mặt", "", "", "", "", ""}
+                {classSession.sessionDate().toString(), student.getStudentCode(), "", "Có mặt", "", "", "", "", "", "", ""}
         });
 
         DailyCommentImportResponse result = studentCommentService.importComments(classSession.id(),
@@ -538,7 +536,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
                         new EnterAttendanceMarkRequest(student.getId(), "ABSENT", null, null, "Ốm"))),
                 teacher.getId());
         byte[] file = buildCommentWorkbook(new String[][]{
-                {classSession.sessionDate().toString(), student.getStudentCode(), "", "Có mặt", "", "", "Đã đi học lại.", "", ""}
+                {classSession.sessionDate().toString(), student.getStudentCode(), "", "Có mặt", "", "", "", "Đã đi học lại.", "", "", ""}
         });
 
         studentCommentService.importComments(classSession.id(),
@@ -571,8 +569,8 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         // này và không có academic.attendance.create/update -- đổi điểm danh của student sẽ bị từ
         // chối, nhưng dòng của student2 (điểm danh không đổi) vẫn phải xử lý bình thường.
         byte[] file = buildCommentWorkbook(new String[][]{
-                {classSession.sessionDate().toString(), student.getStudentCode(), "", "Muộn", "", "", "Đến muộn.", "", ""},
-                {classSession.sessionDate().toString(), student2.getStudentCode(), "", "Có mặt", "", "", "Bình thường.", "", ""},
+                {classSession.sessionDate().toString(), student.getStudentCode(), "", "Muộn", "", "", "", "Đến muộn.", "", "", ""},
+                {classSession.sessionDate().toString(), student2.getStudentCode(), "", "Có mặt", "", "", "", "Bình thường.", "", "", ""},
         });
 
         DailyCommentImportResponse result = studentCommentService.importComments(classSession.id(),
@@ -682,7 +680,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
 
         byte[] template = studentCommentService.buildTemplate(session2.id(), teacher.getId());
 
-        assertThat(rowForStudent(template, student.getStudentCode(), 9)).isEqualTo("100%");
+        assertThat(rowForStudent(template, student.getStudentCode(), 5)).isEqualTo("100%");
     }
 
     @Test
@@ -693,7 +691,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
 
         byte[] template = studentCommentService.buildTemplate(session2.id(), teacher.getId());
 
-        assertThat(rowForStudent(template, student.getStudentCode(), 9)).isEqualTo("Chưa làm bài");
+        assertThat(rowForStudent(template, student.getStudentCode(), 5)).isEqualTo("Chưa làm bài");
     }
 
     @Test
@@ -706,7 +704,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
 
         byte[] template = studentCommentService.buildTemplate(session2.id(), teacher.getId());
 
-        assertThat(rowForStudent(template, student.getStudentCode(), 10)).isEqualTo("80%");
+        assertThat(rowForStudent(template, student.getStudentCode(), 6)).isEqualTo("80%");
     }
 
     /** Homework theo TỪNG học sinh (không theo cả lớp) — học sinh không được giao thì cột tự động để trống, không phải "Chưa làm bài". */
@@ -721,8 +719,8 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
 
         byte[] template = studentCommentService.buildTemplate(session2.id(), teacher.getId());
 
-        assertThat(rowForStudent(template, student.getStudentCode(), 9)).isEqualTo("Chưa làm bài");
-        assertThat(rowForStudent(template, student2.getStudentCode(), 9)).isNull();
+        assertThat(rowForStudent(template, student.getStudentCode(), 5)).isEqualTo("Chưa làm bài");
+        assertThat(rowForStudent(template, student2.getStudentCode(), 5)).isNull();
     }
 
     @Test
@@ -732,9 +730,9 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
 
         byte[] template = studentCommentService.buildTemplate(classSession.id(), teacher.getId());
 
-        assertThat(dropdownValues(template, 11))
+        assertThat(dropdownValues(template, 8))
                 .containsExactly(fixture.assignment().exerciseTitle() + " (" + fixture.assignment().exerciseCode() + ")");
-        assertThat(dropdownValues(template, 12))
+        assertThat(dropdownValues(template, 9))
                 .containsExactly(video.set().title() + " (" + video.set().code() + ")");
     }
 
@@ -746,8 +744,8 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
                         new EnterAttendanceMarkRequest(student.getId(), "PRESENT", null, null, null))),
                 teacher.getId());
         byte[] file = buildCommentWorkbook(new String[][]{
-                {classSession.sessionDate().toString(), student.getStudentCode(), "", "Có mặt", "", "", "Nội dung.", "", "",
-                        "", "", fixture.assignment().uuid().toString(), ""}
+                {classSession.sessionDate().toString(), student.getStudentCode(), "", "Có mặt", "", "", "",
+                        "Nội dung.", fixture.assignment().uuid().toString(), "", ""}
         });
 
         DailyCommentImportResponse result = studentCommentService.importComments(classSession.id(),
@@ -756,17 +754,62 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         assertThat(result.status()).isEqualTo("COMPLETED");
         StudentCommentResponse saved = studentCommentService.listComments(schoolClass.id(), student.getId()).get(0);
         assertThat(saved.homeworkNextExerciseAssignmentId()).isEqualTo(fixture.assignment().id());
+        assertThat(saved.homeworkNext()).isNull();
     }
 
     @Test
-    void importComments_V55_A_rejectsUnmatchedGrammarSelectionWithRowError() throws IOException {
+    void importComments_V55_MainFlow_resolvesGrammarAssignmentByDropdownLabel() throws IOException {
+        GrammarFixture fixture = createGrammarOnlineAssignment();
+        studentAttendanceService.markAttendance(classSession.id(),
+                new MarkAttendanceRequest("SESSION_LEVEL", List.of(
+                        new EnterAttendanceMarkRequest(student.getId(), "PRESENT", null, null, null))),
+                teacher.getId());
+        String label = fixture.assignment().exerciseTitle() + " (" + fixture.assignment().exerciseCode() + ")";
+        byte[] file = buildCommentWorkbook(new String[][]{
+                {classSession.sessionDate().toString(), student.getStudentCode(), "", "Có mặt", "", "", "",
+                        "Nội dung.", label, "", ""}
+        });
+
+        DailyCommentImportResponse result = studentCommentService.importComments(classSession.id(),
+                new MockMultipartFile("file", "nhanxet.xlsx", "application/vnd.openxmlformats", file), teacher.getId());
+
+        assertThat(result.status()).isEqualTo("COMPLETED");
+        StudentCommentResponse saved = studentCommentService.listComments(schoolClass.id(), student.getId()).get(0);
+        assertThat(saved.homeworkNextExerciseAssignmentId()).isEqualTo(fixture.assignment().id());
+        assertThat(saved.homeworkNext()).isNull();
+    }
+
+    /** Gộp cột: không khớp đề nào trong kho thì KHÔNG báo lỗi — coi là text thông báo offline như cũ. */
+    @Test
+    void importComments_V55_MainFlow_fallsBackToOfflineTextWhenGrammarSelectionUnmatched() throws IOException {
         studentAttendanceService.markAttendance(classSession.id(),
                 new MarkAttendanceRequest("SESSION_LEVEL", List.of(
                         new EnterAttendanceMarkRequest(student.getId(), "PRESENT", null, null, null))),
                 teacher.getId());
         byte[] file = buildCommentWorkbook(new String[][]{
-                {classSession.sessionDate().toString(), student.getStudentCode(), "", "Có mặt", "", "", "Nội dung.", "", "",
-                        "", "", "Bài không tồn tại (XX)", ""}
+                {classSession.sessionDate().toString(), student.getStudentCode(), "", "Có mặt", "", "", "",
+                        "Nội dung.", "Ôn lại Unit 3 ở nhà", "", ""}
+        });
+
+        DailyCommentImportResponse result = studentCommentService.importComments(classSession.id(),
+                new MockMultipartFile("file", "nhanxet.xlsx", "application/vnd.openxmlformats", file), teacher.getId());
+
+        assertThat(result.status()).isEqualTo("COMPLETED");
+        StudentCommentResponse saved = studentCommentService.listComments(schoolClass.id(), student.getId()).get(0);
+        assertThat(saved.homeworkNext()).isEqualTo("Ôn lại Unit 3 ở nhà");
+        assertThat(saved.homeworkNextExerciseAssignmentId()).isNull();
+    }
+
+    /** Cột "BTVN Nghe-nói buổi sau" (chỉ đổi tên, vẫn thuần online) — vẫn báo lỗi khi không khớp, không fallback text như cột Ngữ pháp. */
+    @Test
+    void importComments_V55_A_rejectsUnmatchedVideoSelectionWithRowError() throws IOException {
+        studentAttendanceService.markAttendance(classSession.id(),
+                new MarkAttendanceRequest("SESSION_LEVEL", List.of(
+                        new EnterAttendanceMarkRequest(student.getId(), "PRESENT", null, null, null))),
+                teacher.getId());
+        byte[] file = buildCommentWorkbook(new String[][]{
+                {classSession.sessionDate().toString(), student.getStudentCode(), "", "Có mặt", "", "", "",
+                        "Nội dung.", "", "Bộ video không tồn tại (XX)", ""}
         });
 
         DailyCommentImportResponse result = studentCommentService.importComments(classSession.id(),
@@ -774,7 +817,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
 
         assertThat(result.status()).isEqualTo("PARTIAL_SUCCESS");
         assertThat(result.failedRows()).isEqualTo(1);
-        assertThat(result.errorSummary().get(0).get("reason").toString()).contains("Không khớp bài tập ngữ pháp");
+        assertThat(result.errorSummary().get(0).get("reason").toString()).contains("Không khớp bộ video");
     }
 
     @Test
@@ -787,7 +830,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         byte[] template = studentCommentService.buildTemplate(classSession.id(), teacher.getId());
 
         assertThat(rowForStudent(template, student.getStudentCode(), 5)).isEqualTo("80%");
-        assertThat(rowForStudent(template, student.getStudentCode(), 13)).isEqualTo("60%");
+        assertThat(rowForStudent(template, student.getStudentCode(), 6)).isEqualTo("60%");
     }
 
     @Test
@@ -797,8 +840,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
                         new EnterAttendanceMarkRequest(student.getId(), "PRESENT", null, null, null))),
                 teacher.getId());
         byte[] file = buildCommentWorkbook(new String[][]{
-                {classSession.sessionDate().toString(), student.getStudentCode(), "", "Có mặt", "", "80%", "Nội dung.", "", "",
-                        "", "", "", "", "60%"}
+                {classSession.sessionDate().toString(), student.getStudentCode(), "", "Có mặt", "", "80%", "60%", "Nội dung.", "", "", ""}
         });
 
         DailyCommentImportResponse result = studentCommentService.importComments(classSession.id(),
@@ -808,6 +850,51 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         StudentCommentResponse saved = studentCommentService.listComments(schoolClass.id(), student.getId()).get(0);
         assertThat(saved.homeworkPreviousScore()).isEqualTo("80%");
         assertThat(saved.homeworkPreviousSpeakingScore()).isEqualTo("60%");
+    }
+
+    // ===================== Gộp cột "buổi trước" (auto + manual, ghi đè tay thắng) =====================
+
+    /** Ghi đè tay thắng: nếu GV đã nhập tay ở buổi này thì hiện đúng giá trị nhập, không phải % tự động (dù % tự động khác). */
+    @Test
+    void buildTemplate_MainFlow_manualOverrideWinsOverAutoGrammarPercent() throws IOException {
+        GrammarFixture fixture = createGrammarOnlineAssignment();
+        writeDailyCommentWithHomeworkNext(student, classSession, fixture.assignment().id(), null);
+        answerGrammarCorrectly(fixture);
+        ClassSessionResponse session2 = nextSession();
+        writeDailyCommentWithHomeworkPrevious(student, session2, "50% (tay)");
+
+        byte[] template = studentCommentService.buildTemplate(session2.id(), teacher.getId());
+
+        assertThat(rowForStudent(template, student.getStudentCode(), 5)).isEqualTo("50% (tay)");
+    }
+
+    /** Nhập giá trị ghi đè qua Excel rồi tải lại mẫu — giá trị ghi đè phải còn nguyên, không bị % tự động ghi đè ngược lại. */
+    @Test
+    void importComments_MainFlow_persistsManualOverrideForGrammarPreviousGoingForward() throws IOException {
+        studentAttendanceService.markAttendance(classSession.id(),
+                new MarkAttendanceRequest("SESSION_LEVEL", List.of(
+                        new EnterAttendanceMarkRequest(student.getId(), "PRESENT", null, null, null))),
+                teacher.getId());
+        byte[] file = buildCommentWorkbook(new String[][]{
+                {classSession.sessionDate().toString(), student.getStudentCode(), "", "Có mặt", "", "45% (tay)", "",
+                        "Nội dung.", "", "", ""}
+        });
+
+        studentCommentService.importComments(classSession.id(),
+                new MockMultipartFile("file", "nhanxet.xlsx", "application/vnd.openxmlformats", file), teacher.getId());
+
+        StudentCommentResponse saved = studentCommentService.listComments(schoolClass.id(), student.getId()).get(0);
+        assertThat(saved.homeworkPreviousScore()).isEqualTo("45% (tay)");
+
+        byte[] template = studentCommentService.buildTemplate(classSession.id(), teacher.getId());
+        assertThat(rowForStudent(template, student.getStudentCode(), 5)).isEqualTo("45% (tay)");
+    }
+
+    private void writeDailyCommentWithHomeworkPrevious(Student targetStudent, ClassSessionResponse session, String homeworkPreviousScore) {
+        studentCommentService.writeComment(schoolClass.id(),
+                new CreateStudentCommentRequest(targetStudent.getId(), "DAILY", session.id(), null,
+                        session.sessionDate(), "Nội dung buổi.", null, null, false, null, homeworkPreviousScore, null, null, null, null, null),
+                teacher.getId());
     }
 
     private String exerciseCode() {
@@ -827,7 +914,8 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
             Sheet sheet = workbook.createSheet("NhanXet");
             Row header = sheet.createRow(0);
             String[] headers = {"Ngày", "Mã học viên", "Họ và tên", "Điểm danh", "Thái độ học tập",
-                    "BTVN buổi trước", "Nhận xét học sinh", "BTVN buổi sau", "Ghi chú"};
+                    "BTVN Ngữ pháp buổi trước", "BTVN Nghe-nói buổi trước", "Nhận xét học sinh",
+                    "BTVN Ngữ pháp buổi sau", "BTVN Nghe-nói buổi sau", "Ghi chú"};
             for (int i = 0; i < headers.length; i++) {
                 header.createCell(i).setCellValue(headers[i]);
             }
