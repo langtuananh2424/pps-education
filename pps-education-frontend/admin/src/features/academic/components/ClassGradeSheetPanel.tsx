@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Plus, X } from "lucide-react";
+import { LineChart, Plus, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import {
@@ -19,6 +19,7 @@ import {
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import GradeSheetTable from "./GradeSheetTable";
+import ClassGradeComparisonTable from "./ClassGradeComparisonTable";
 import GradeExcelImportPanel from "./GradeExcelImportPanel";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
@@ -48,6 +49,9 @@ export default function ClassGradeSheetPanel({ classId, curriculumId, readOnly =
   const [showPeriodForm, setShowPeriodForm] = useState(false);
   const [showComponentForm, setShowComponentForm] = useState(false);
   const [sheetVersion, setSheetVersion] = useState(0);
+  // UC-19/20 (bổ sung, 2026-07-29): xem tổng hợp điểm cả lớp qua mọi kỳ để so sánh tiến bộ — CHỈ XEM,
+  // tách khỏi màn nhập điểm theo từng kỳ ở dưới (đổi qua đổi lại bằng nút này, không hiện đồng thời).
+  const [showComparison, setShowComparison] = useState(false);
   const { message: toastMessage, showToast } = useToast();
 
   useEffect(() => {
@@ -102,21 +106,35 @@ export default function ClassGradeSheetPanel({ classId, curriculumId, readOnly =
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <span className="text-xs font-bold text-slate-700 font-display">Bảng nhập điểm (UC-19)</span>
-        <Select
-          value={selectedPeriodId ?? ""}
-          onChange={(e) => setSelectedPeriodId(e.target.value ? Number(e.target.value) : null)}
-          className={inputClass}
-        >
-          <option value="">-- Chọn kỳ điểm --</option>
-          {gradePeriods.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </Select>
+        <span className="text-xs font-bold text-slate-700 font-display">
+          {showComparison ? "Tổng hợp điểm qua các kỳ" : "Bảng nhập điểm (UC-19)"}
+        </span>
+        <div className="flex items-center gap-2">
+          {!showComparison && (
+            <Select
+              value={selectedPeriodId ?? ""}
+              onChange={(e) => setSelectedPeriodId(e.target.value ? Number(e.target.value) : null)}
+              className={inputClass}
+            >
+              <option value="">-- Chọn kỳ điểm --</option>
+              {gradePeriods.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </Select>
+          )}
+          <Button type="button" size="sm" variant="secondary" onClick={() => setShowComparison((v) => !v)}>
+            <LineChart className="w-3.5 h-3.5" />
+            {showComparison ? "Quay lại nhập điểm" : "Xem tổng hợp qua các kỳ"}
+          </Button>
+        </div>
       </div>
 
+      {showComparison ? (
+        <ClassGradeComparisonTable classId={classId} curriculumId={curriculumId} enrollments={enrollments} />
+      ) : (
+        <>
       {canManage && !readOnly && (
         <div className="flex gap-2 flex-wrap items-center">
           <Button type="button" size="sm" variant="secondary" onClick={() => setShowPeriodForm((v) => !v)}>
@@ -204,6 +222,8 @@ export default function ClassGradeSheetPanel({ classId, curriculumId, readOnly =
             showToast("Đã nhập điểm từ Excel thành công!");
           }}
         />
+      )}
+        </>
       )}
 
       <Toast message={toastMessage} />

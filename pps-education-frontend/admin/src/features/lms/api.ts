@@ -329,6 +329,10 @@ export interface AddReviewVideoRequest {
   fileSizeBytes?: number;
   durationSeconds: number;
   displayOrder?: number;
+  /** V59 — chỉ có ý nghĩa với videoType=CONNECTION, để trống dùng mặc định 80. */
+  completionThresholdPercent?: number;
+  /** V59 — chỉ có ý nghĩa với videoType=CONNECTION, để trống dùng mặc định 1. */
+  requiredViewCount?: number;
 }
 
 export interface ReviewVideoResponse {
@@ -340,6 +344,8 @@ export interface ReviewVideoResponse {
   fileSizeBytes: number | null;
   durationSeconds: number;
   displayOrder: number;
+  completionThresholdPercent: number;
+  requiredViewCount: number;
 }
 
 export function addReviewVideo(setId: number, request: AddReviewVideoRequest): Promise<ReviewVideoResponse> {
@@ -355,6 +361,8 @@ export interface ReviewVideoStatsHeader {
   videoId: number;
   title: string;
   durationSeconds: number;
+  /** V59 — chỉ có ý nghĩa với video CONNECTION. */
+  requiredViewCount: number;
 }
 
 export interface ReviewVideoStatsCell {
@@ -363,6 +371,8 @@ export interface ReviewVideoStatsCell {
   watchedSeconds: number;
   watchedPercent: number;
   completed: boolean;
+  /** V59 — số lượt xem đã đạt ngưỡng %, chỉ có ý nghĩa với video CONNECTION. */
+  viewCount: number;
 }
 
 export interface ReviewVideoSetStatsResponse {
@@ -374,6 +384,36 @@ export interface ReviewVideoSetStatsResponse {
 export function getReviewVideoSetStats(setId: number, classId?: number): Promise<ReviewVideoSetStatsResponse> {
   const query = classId ? `?classId=${classId}` : "";
   return apiRequest<ReviewVideoSetStatsResponse>(`/review-video-sets/${setId}/stats${query}`);
+}
+
+// ===================== Kho Video Ôn tập — Câu hỏi Video phản xạ (UC-23b, V57) =====================
+
+/** Câu hỏi gắn 1 mốc thời gian trong video REFLEX — thời lượng ghi âm/số lần nộp lại đặt riêng theo TỪNG câu hỏi. */
+export interface ReviewVideoQuestionResponse {
+  id: number;
+  reviewVideoId: number;
+  timestampSeconds: number;
+  prompt: string | null;
+  maxRecordingSeconds: number;
+  /** null = không giới hạn số lần nộp lại. */
+  maxAttempts: number | null;
+  displayOrder: number;
+}
+
+export interface AddReviewVideoQuestionRequest {
+  timestampSeconds: number;
+  prompt?: string;
+  maxRecordingSeconds: number;
+  maxAttempts?: number;
+  displayOrder?: number;
+}
+
+export function addReviewVideoQuestion(videoId: number, request: AddReviewVideoQuestionRequest): Promise<ReviewVideoQuestionResponse> {
+  return apiRequest<ReviewVideoQuestionResponse>(`/review-videos/${videoId}/questions`, { method: "POST", body: JSON.stringify(request) });
+}
+
+export function listReviewVideoQuestions(videoId: number): Promise<ReviewVideoQuestionResponse[]> {
+  return apiRequest<ReviewVideoQuestionResponse[]>(`/review-videos/${videoId}/questions`);
 }
 
 // ===================== Kho tài liệu tham khảo (UC-60) =====================

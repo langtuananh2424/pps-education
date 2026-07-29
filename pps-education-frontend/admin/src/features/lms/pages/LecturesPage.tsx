@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState } from "react";
-import { BarChart3, Link2, MessageCircle, Music, Plus, Upload, Video } from "lucide-react";
+import { BarChart3, Link2, MessageCircle, Music, Plus, Upload, Video, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { CurriculumResponse, CurriculumSubjectResponse, ClassEnrollmentResponse, listClassEnrollments, listCurriculums, listCurriculumSubjects } from "@/features/academic/api";
 import { useEligibleClasses } from "@/features/academic/hooks/useEligibleClasses";
 import {
   AddReviewVideoRequest,
   CreateReviewVideoSetRequest,
+  ReviewVideoQuestionResponse,
   ReviewVideoResponse,
   ReviewVideoSetResponse,
   ReviewVideoSetStatsResponse,
@@ -14,8 +15,10 @@ import {
   ReviewVideoType,
   UpdateReviewVideoSetRequest,
   addReviewVideo,
+  addReviewVideoQuestion,
   createReviewVideoSet,
   getReviewVideoSetStats,
+  listReviewVideoQuestions,
   listReviewVideoSetsByClass,
   listReviewVideoSetsByCurriculum,
   listReviewVideos,
@@ -137,6 +140,136 @@ function useYouTubeDurationProbe() {
   };
 
   return { containerId, detect, detecting, detectError };
+}
+
+interface ConnectionThresholdValue {
+  completionThresholdPercent: string;
+  requiredViewCount: string;
+}
+
+/** UC-23a (V59) — chỉ có ý nghĩa với video CONNECTION: % ngưỡng xem để 1 lượt được tính "đạt" + số lượt đạt tối thiểu để cả video "đạt". Để trống dùng mặc định BE (80%/1 lượt). */
+function ConnectionThresholdFields({ value, onChange }: { value: ConnectionThresholdValue; onChange: (v: ConnectionThresholdValue) => void }) {
+  return (
+    <div className="grid grid-cols-2 gap-3 bg-sky-50/60 border border-sky-100 rounded-lg p-3">
+      <div>
+        <label className={labelClass}>Ngưỡng % xem / lượt (mặc định 80)</label>
+        <input
+          type="number"
+          min={1}
+          max={100}
+          value={value.completionThresholdPercent}
+          onChange={(e) => onChange({ ...value, completionThresholdPercent: e.target.value })}
+          placeholder="80"
+          className={inputClass}
+        />
+      </div>
+      <div>
+        <label className={labelClass}>Số lượt đạt tối thiểu (mặc định 1)</label>
+        <input
+          type="number"
+          min={1}
+          value={value.requiredViewCount}
+          onChange={(e) => onChange({ ...value, requiredViewCount: e.target.value })}
+          placeholder="1"
+          className={inputClass}
+        />
+      </div>
+    </div>
+  );
+}
+
+interface PendingReflexQuestion {
+  timestampSeconds: string;
+  prompt: string;
+  maxRecordingSeconds: string;
+  maxAttempts: string;
+}
+
+const EMPTY_PENDING_QUESTION: PendingReflexQuestion = { timestampSeconds: "", prompt: "", maxRecordingSeconds: "60", maxAttempts: "" };
+
+/**
+ * UC-23b (V57) — soạn sẵn danh sách câu hỏi REFLEX ngay trong form tạo bộ video mới (không phải tạo
+ * xong rồi mở lại "Video" → "Quản lý câu hỏi" mới thêm được câu đầu tiên, đã xác nhận với người dùng
+ * 2026-07-29). Chỉ giữ ở state client — thật sự gọi addReviewVideoQuestion sau khi tạo xong Set+Video.
+ */
+function ReflexQuestionsBuilder({ value, onChange }: { value: PendingReflexQuestion[]; onChange: (v: PendingReflexQuestion[]) => void }) {
+  const [draft, setDraft] = useState<PendingReflexQuestion>(EMPTY_PENDING_QUESTION);
+  const [draftError, setDraftError] = useState<string | null>(null);
+
+  const handleAddDraft = () => {
+    if (!draft.timestampSeconds || !draft.maxRecordingSeconds) {
+      setDraftError("Vui lòng điền mốc thời gian và thời lượng ghi âm tối đa.");
+      return;
+    }
+    setDraftError(null);
+    onChange([...value, draft]);
+    setDraft(EMPTY_PENDING_QUESTION);
+  };
+
+  const handleRemove = (index: number) => onChange(value.filter((_, i) => i !== index));
+
+  return (
+    <div className="space-y-2 bg-amber-50/40 border border-amber-200 rounded-lg p-3">
+      <label className={labelClass}>Câu hỏi (mốc thời gian) — ít nhất 1 câu *</label>
+
+      {value.length > 0 && (
+        <div className="space-y-1.5">
+          {value.map((q, i) => (
+            <div key={i} className="flex items-center justify-between gap-2 bg-white border border-slate-200 rounded-lg p-2 text-[11px]">
+              <span className="text-slate-700">
+                Câu {i + 1} · Mốc {Math.floor(Number(q.timestampSeconds) / 60)}:{String(Number(q.timestampSeconds) % 60).padStart(2, "0")} · Ghi âm tối đa{" "}
+                {q.maxRecordingSeconds}s · {q.maxAttempts ? `Tối đa ${q.maxAttempts} lượt nộp` : "Không giới hạn lượt nộp"}
+                {q.prompt && <span className="block text-slate-500 mt-0.5">{q.prompt}</span>}
+              </span>
+              <button type="button" onClick={() => handleRemove(i)} className="text-rose-500 hover:text-rose-700 shrink-0">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {draftError && <p className="text-[11px] text-rose-600 font-semibold">{draftError}</p>}
+
+      <div className="grid grid-cols-3 gap-2">
+        <input
+          type="number"
+          min={0}
+          value={draft.timestampSeconds}
+          onChange={(e) => setDraft({ ...draft, timestampSeconds: e.target.value })}
+          placeholder="Mốc giây *"
+          className={inputClass}
+        />
+        <input
+          type="number"
+          min={1}
+          value={draft.maxRecordingSeconds}
+          onChange={(e) => setDraft({ ...draft, maxRecordingSeconds: e.target.value })}
+          placeholder="Ghi âm tối đa (s) *"
+          className={inputClass}
+        />
+        <input
+          type="number"
+          min={1}
+          value={draft.maxAttempts}
+          onChange={(e) => setDraft({ ...draft, maxAttempts: e.target.value })}
+          placeholder="Số lượt nộp lại (bỏ trống = không giới hạn)"
+          className={inputClass}
+        />
+      </div>
+      <div className="flex gap-2">
+        <input
+          value={draft.prompt}
+          onChange={(e) => setDraft({ ...draft, prompt: e.target.value })}
+          placeholder="Nội dung câu hỏi (tuỳ chọn)"
+          className={`${inputClass} flex-1`}
+        />
+        <Button type="button" variant="secondary" size="sm" onClick={handleAddDraft}>
+          <Plus className="w-3.5 h-3.5" /> Thêm câu
+        </Button>
+      </div>
+    </div>
+  );
 }
 
 interface ContentSourceValue {
@@ -481,6 +614,8 @@ function CreateSetModal({
   const [subjects, setSubjects] = useState<CurriculumSubjectResponse[]>([]);
   const [form, setForm] = useState({ code: "", title: "", videoType: "CONNECTION" as ReviewVideoType, subjectId: "", displayOrder: "" });
   const [content, setContent] = useState<ContentSourceValue>({ sourceType: "R2_VIDEO", fileUrl: "", durationSeconds: null });
+  const [connSettings, setConnSettings] = useState<ConnectionThresholdValue>({ completionThresholdPercent: "", requiredViewCount: "" });
+  const [pendingQuestions, setPendingQuestions] = useState<PendingReflexQuestion[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -494,9 +629,14 @@ function CreateSetModal({
       setError("Vui lòng điền mã, tiêu đề, video/audio và chờ dò xong thời lượng.");
       return;
     }
+    if (form.videoType === "REFLEX" && pendingQuestions.length === 0) {
+      setError("Video phản xạ cần ít nhất 1 câu hỏi — dùng \"Thêm câu\" ở khung câu hỏi bên dưới.");
+      return;
+    }
     setSubmitting(true);
     setError(null);
     let createdSetId: number | null = null;
+    let createdVideoId: number | null = null;
     try {
       const setRequest: CreateReviewVideoSetRequest = {
         code: form.code.trim(),
@@ -515,17 +655,34 @@ function CreateSetModal({
         fileUrl: content.fileUrl.trim(),
         fileSizeBytes: content.fileSizeBytes,
         durationSeconds: content.durationSeconds,
-        displayOrder: 0
+        displayOrder: 0,
+        completionThresholdPercent: form.videoType === "CONNECTION" && connSettings.completionThresholdPercent ? Number(connSettings.completionThresholdPercent) : undefined,
+        requiredViewCount: form.videoType === "CONNECTION" && connSettings.requiredViewCount ? Number(connSettings.requiredViewCount) : undefined
       };
-      await addReviewVideo(set.id, videoRequest);
+      const video = await addReviewVideo(set.id, videoRequest);
+      createdVideoId = video.id;
+      if (form.videoType === "REFLEX") {
+        for (let i = 0; i < pendingQuestions.length; i++) {
+          const q = pendingQuestions[i];
+          await addReviewVideoQuestion(video.id, {
+            timestampSeconds: Number(q.timestampSeconds),
+            prompt: q.prompt.trim() || undefined,
+            maxRecordingSeconds: Number(q.maxRecordingSeconds),
+            maxAttempts: q.maxAttempts ? Number(q.maxAttempts) : undefined,
+            displayOrder: i
+          });
+        }
+      }
       onCreated();
     } catch (err) {
       setError(
-        createdSetId
-          ? "Đã tạo bộ nhưng gắn video/audio thất bại — mở lại bộ này, bấm \"Video\" để thêm lại."
-          : err instanceof ApiError
-            ? err.message
-            : "Tạo bộ video ôn tập thất bại."
+        createdVideoId
+          ? "Đã tạo bộ và video nhưng gắn câu hỏi thất bại — mở lại bộ này, bấm \"Video\" → \"Quản lý câu hỏi\" để thêm lại."
+          : createdSetId
+            ? "Đã tạo bộ nhưng gắn video/audio thất bại — mở lại bộ này, bấm \"Video\" để thêm lại."
+            : err instanceof ApiError
+              ? err.message
+              : "Tạo bộ video ôn tập thất bại."
       );
     } finally {
       setSubmitting(false);
@@ -564,6 +721,8 @@ function CreateSetModal({
           <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="VD: Unit 1: Greetings and Introduction" className={inputClass} required />
         </div>
         <ContentSourceField value={content} onChange={setContent} />
+        {form.videoType === "CONNECTION" && <ConnectionThresholdFields value={connSettings} onChange={setConnSettings} />}
+        {form.videoType === "REFLEX" && <ReflexQuestionsBuilder value={pendingQuestions} onChange={setPendingQuestions} />}
         <div className="grid grid-cols-2 gap-3 items-end">
           <div>
             <label className={labelClass}>Học phần (tùy chọn)</label>
@@ -702,7 +861,9 @@ function VideosModal({ set, onClose }: { set: ReviewVideoSetResponse; onClose: (
   const [showAddForm, setShowAddForm] = useState(false);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState<ContentSourceValue>({ sourceType: "R2_VIDEO", fileUrl: "", durationSeconds: null });
+  const [connSettings, setConnSettings] = useState<ConnectionThresholdValue>({ completionThresholdPercent: "", requiredViewCount: "" });
   const [submitting, setSubmitting] = useState(false);
+  const [expandedVideoId, setExpandedVideoId] = useState<number | null>(null);
   const { message: toastMessage, showToast } = useToast();
 
   const load = () => {
@@ -731,10 +892,13 @@ function VideosModal({ set, onClose }: { set: ReviewVideoSetResponse; onClose: (
         fileUrl: content.fileUrl.trim(),
         fileSizeBytes: content.fileSizeBytes,
         durationSeconds: content.durationSeconds,
-        displayOrder: videos.length
+        displayOrder: videos.length,
+        completionThresholdPercent: set.videoType === "CONNECTION" && connSettings.completionThresholdPercent ? Number(connSettings.completionThresholdPercent) : undefined,
+        requiredViewCount: set.videoType === "CONNECTION" && connSettings.requiredViewCount ? Number(connSettings.requiredViewCount) : undefined
       });
       setTitle("");
       setContent({ sourceType: "R2_VIDEO", fileUrl: "", durationSeconds: null });
+      setConnSettings({ completionThresholdPercent: "", requiredViewCount: "" });
       setShowAddForm(false);
       load();
       showToast("Đã thêm video thành công!");
@@ -768,7 +932,18 @@ function VideosModal({ set, onClose }: { set: ReviewVideoSetResponse; onClose: (
                 <p className="text-slate-400 break-all">{v.fileUrl}</p>
                 <p className="text-slate-400">
                   {v.fileSizeBytes ? `${(v.fileSizeBytes / 1024 / 1024).toFixed(1)} MB` : "—"} · {Math.round(v.durationSeconds / 60)} phút
+                  {set.videoType === "CONNECTION" && ` · Ngưỡng ${v.completionThresholdPercent}%/lượt · Cần đạt ${v.requiredViewCount} lượt`}
                 </p>
+                {set.videoType === "REFLEX" && (
+                  <button
+                    type="button"
+                    onClick={() => setExpandedVideoId(expandedVideoId === v.id ? null : v.id)}
+                    className="text-brand-red font-bold hover:underline"
+                  >
+                    {expandedVideoId === v.id ? "Đóng câu hỏi" : "Quản lý câu hỏi"}
+                  </button>
+                )}
+                {set.videoType === "REFLEX" && expandedVideoId === v.id && <VideoQuestionsPanel videoId={v.id} />}
               </div>
             ))}
           </div>
@@ -781,6 +956,7 @@ function VideosModal({ set, onClose }: { set: ReviewVideoSetResponse; onClose: (
               <input value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} required />
             </div>
             <ContentSourceField value={content} onChange={setContent} />
+            {set.videoType === "CONNECTION" && <ConnectionThresholdFields value={connSettings} onChange={setConnSettings} />}
             <div className="flex justify-end gap-2">
               <Button type="button" variant="secondary" onClick={() => setShowAddForm(false)}>
                 Hủy
@@ -799,6 +975,126 @@ function VideosModal({ set, onClose }: { set: ReviewVideoSetResponse; onClose: (
 
       <Toast message={toastMessage} />
     </Modal>
+  );
+}
+
+/** UC-23b (V57): quản lý câu hỏi gắn mốc thời gian của 1 video REFLEX — mỗi câu tự có thời lượng ghi âm/số lần nộp lại riêng. BE hiện chỉ có thêm mới + xem danh sách (chưa có sửa/xoá câu hỏi). */
+function VideoQuestionsPanel({ videoId }: { videoId: number }) {
+  const [questions, setQuestions] = useState<ReviewVideoQuestionResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [form, setForm] = useState({ timestampSeconds: "", prompt: "", maxRecordingSeconds: "60", maxAttempts: "" });
+  const [submitting, setSubmitting] = useState(false);
+
+  const load = () => {
+    setLoading(true);
+    setError(null);
+    listReviewVideoQuestions(videoId)
+      .then((qs) => setQuestions(qs.slice().sort((a, b) => a.displayOrder - b.displayOrder)))
+      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách câu hỏi."))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(load, [videoId]);
+
+  const handleAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.timestampSeconds || !form.maxRecordingSeconds) {
+      setError("Vui lòng điền mốc thời gian và thời lượng ghi âm tối đa.");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      await addReviewVideoQuestion(videoId, {
+        timestampSeconds: Number(form.timestampSeconds),
+        prompt: form.prompt.trim() || undefined,
+        maxRecordingSeconds: Number(form.maxRecordingSeconds),
+        maxAttempts: form.maxAttempts ? Number(form.maxAttempts) : undefined,
+        displayOrder: questions.length
+      });
+      setForm({ timestampSeconds: "", prompt: "", maxRecordingSeconds: "60", maxAttempts: "" });
+      setShowAddForm(false);
+      load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Thêm câu hỏi thất bại.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="border-t border-slate-100 mt-2 pt-2 space-y-2">
+      {error && <div className="text-[11px] text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
+      {loading ? (
+        <p className="text-slate-400">Đang tải câu hỏi...</p>
+      ) : questions.length === 0 ? (
+        <p className="text-slate-400 italic">Chưa có câu hỏi nào — học sinh sẽ không nộp được bài cho tới khi có ít nhất 1 câu.</p>
+      ) : (
+        <div className="space-y-1.5">
+          {questions.map((q, i) => (
+            <div key={q.id} className="bg-slate-50 border border-slate-200 rounded-lg p-2">
+              <p className="font-bold text-slate-700">
+                Câu {i + 1} · Mốc {Math.floor(q.timestampSeconds / 60)}:{String(q.timestampSeconds % 60).padStart(2, "0")} · Ghi âm tối đa {q.maxRecordingSeconds}s ·{" "}
+                {q.maxAttempts != null ? `Tối đa ${q.maxAttempts} lượt nộp` : "Không giới hạn lượt nộp"}
+              </p>
+              {q.prompt && <p className="text-slate-500 mt-0.5">{q.prompt}</p>}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showAddForm ? (
+        <form onSubmit={handleAdd} className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-2">
+          <div className="grid grid-cols-3 gap-2">
+            <input
+              type="number"
+              min={0}
+              value={form.timestampSeconds}
+              onChange={(e) => setForm({ ...form, timestampSeconds: e.target.value })}
+              placeholder="Mốc giây *"
+              className={inputClass}
+            />
+            <input
+              type="number"
+              min={1}
+              value={form.maxRecordingSeconds}
+              onChange={(e) => setForm({ ...form, maxRecordingSeconds: e.target.value })}
+              placeholder="Ghi âm tối đa (s) *"
+              className={inputClass}
+            />
+            <input
+              type="number"
+              min={1}
+              value={form.maxAttempts}
+              onChange={(e) => setForm({ ...form, maxAttempts: e.target.value })}
+              placeholder="Số lượt nộp lại (để trống = không giới hạn)"
+              className={inputClass}
+            />
+          </div>
+          <textarea
+            value={form.prompt}
+            onChange={(e) => setForm({ ...form, prompt: e.target.value })}
+            placeholder="Nội dung câu hỏi (tuỳ chọn)"
+            rows={2}
+            className={inputClass}
+          />
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="secondary" size="sm" onClick={() => setShowAddForm(false)}>
+              Hủy
+            </Button>
+            <Button type="submit" variant="primary" size="sm" disabled={submitting}>
+              {submitting ? "Đang lưu..." : "Thêm câu hỏi"}
+            </Button>
+          </div>
+        </form>
+      ) : (
+        <Button type="button" variant="secondary" size="sm" onClick={() => setShowAddForm(true)}>
+          <Plus className="w-3.5 h-3.5" /> Thêm câu hỏi
+        </Button>
+      )}
+    </div>
   );
 }
 
@@ -864,6 +1160,7 @@ function StatsModal({
                   {stats.videos.map((v) => (
                     <th key={v.videoId} className="text-center p-2 border border-slate-200 font-semibold whitespace-nowrap">
                       {v.title}
+                      <span className="block text-[10px] font-normal text-slate-400">Cần đạt {v.requiredViewCount} lượt</span>
                     </th>
                   ))}
                 </tr>
@@ -878,9 +1175,10 @@ function StatsModal({
                       const cell = stats.cells.find((c) => c.studentId === enr.studentId && c.videoId === v.videoId);
                       const percent = cell?.watchedPercent ?? 0;
                       const completed = cell?.completed ?? false;
+                      const viewCount = cell?.viewCount ?? 0;
                       return (
                         <td key={v.videoId} className={`text-center p-2 border border-slate-200 ${completed ? "bg-emerald-50 text-emerald-700 font-bold" : "text-slate-500"}`}>
-                          {percent}%
+                          {percent}%<span className="block text-[10px] font-normal">{viewCount}/{v.requiredViewCount} lượt</span>
                         </td>
                       );
                     })}
@@ -894,3 +1192,4 @@ function StatsModal({
     </Modal>
   );
 }
+

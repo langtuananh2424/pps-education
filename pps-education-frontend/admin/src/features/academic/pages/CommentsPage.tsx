@@ -4,11 +4,9 @@ import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import { UserRole } from "@/types";
 import { StudentCommentResponse, listPendingComments } from "../api";
-import Card from "@/components/ui/Card";
 import DailyCommentPanel from "../components/DailyCommentPanel";
 import PeriodicCommentPanel from "../components/PeriodicCommentPanel";
-import CommentApprovalList from "../components/CommentApprovalList";
-import CommentApprovalDetail from "../components/CommentApprovalDetail";
+import CommentApprovalByClass from "../components/CommentApprovalByClass";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 
@@ -23,7 +21,6 @@ export default function CommentsPage() {
 
   const [pending, setPending] = useState<StudentCommentResponse[]>([]);
   const [loadingPending, setLoadingPending] = useState(true);
-  const [selectedRequestId, setSelectedRequestId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { message: toastMessage, showToast } = useToast();
 
@@ -39,8 +36,6 @@ export default function CommentsPage() {
     if (isSiteManager) loadPending();
   }, [isSiteManager]);
 
-  const selectedRequest = pending.find((p) => p.id === selectedRequestId) ?? null;
-
   return (
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
@@ -51,23 +46,14 @@ export default function CommentsPage() {
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       {isSiteManager ? (
-        <>
-          <CommentApprovalDetail
-            comment={selectedRequest}
-            onDecided={() => {
-              setSelectedRequestId(null);
-              loadPending();
-              showToast("Đã xử lý yêu cầu duyệt nhận xét thành công!");
-            }}
-          />
-
-          <Card padded={false} className="overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-100 bg-slate-50">
-              <span className="text-xs font-bold text-slate-700 font-display">Danh sách yêu cầu chờ duyệt ({pending.length})</span>
-            </div>
-            <CommentApprovalList items={pending} loading={loadingPending} selectedId={selectedRequestId} onSelect={setSelectedRequestId} />
-          </Card>
-        </>
+        <CommentApprovalByClass
+          items={pending}
+          loading={loadingPending}
+          onDecided={() => {
+            loadPending();
+            showToast("Đã xử lý yêu cầu duyệt nhận xét thành công!");
+          }}
+        />
       ) : (
         <>
           <div className="flex border-b border-slate-200 gap-5">

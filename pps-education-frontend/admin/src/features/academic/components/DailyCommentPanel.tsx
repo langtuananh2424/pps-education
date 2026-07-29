@@ -13,8 +13,9 @@ import {
   listClassEnrollments,
   listClassSessions,
   listComments,
-  writeComment,
-  submitComments
+  submitComments,
+  updateComment,
+  writeComment
 } from "../api";
 import { ExerciseAssignmentResponse, ReviewVideoSetResponse, listAssignmentsForClass, listReviewVideoSetsByClass } from "@/features/lms/api";
 import { useEligibleClasses } from "../hooks/useEligibleClasses";
@@ -22,6 +23,9 @@ import NotificationBanner from "@/features/student/components/NotificationBanner
 import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
 import CommentHistoryList from "./CommentHistoryList";
 import Select from "@/components/ui/Select";
+
+const statusLabels: Record<StudentCommentResponse["status"], string> = { DRAFT: "Nháp", PENDING: "Chờ duyệt", APPROVED: "Đã duyệt", REJECTED: "Bị từ chối" };
+const readOnlyFieldClass = "w-full bg-emerald-50/60 border border-emerald-200 text-xs p-2 rounded-lg text-slate-700 min-h-[34px]";
 
 /** BTVN ngữ pháp buổi sau: OFFLINE (chữ tự do, homeworkNext) hoặc ONLINE (chọn 1 đề đã giao lớp, tự chấm ra %) — V55. */
 type GrammarMode = "OFFLINE" | "ONLINE";
@@ -47,6 +51,17 @@ const EMPTY_ROW_HOMEWORK: Pick<Row, "grammarMode" | "homeworkNext" | "homeworkNe
   homeworkNextExerciseAssignmentId: "",
   homeworkNextReviewVideoSetId: ""
 };
+
+/** Dòng chưa có dữ liệu gì (kể cả từ Excel import) — an toàn để tự điền lại từ nhận xét DRAFT/REJECTED đã có mà không đè lên nội dung giáo viên đang gõ dở. */
+const isRowBlank = (r: Row) =>
+  !r.content.trim() &&
+  !r.attitude &&
+  !r.homeworkPreviousScore.trim() &&
+  !r.homeworkPreviousSpeakingScore.trim() &&
+  !r.homeworkNext.trim() &&
+  r.homeworkNextExerciseAssignmentId === "" &&
+  r.homeworkNextReviewVideoSetId === "" &&
+  !r.note.trim();
 
 const attitudeLabels: Record<NonNullable<StudentCommentResponse["attitude"]>, string> = {
   POOR: "Kém",
@@ -142,10 +157,30 @@ export default function DailyCommentPanel() {
     try {
       const results = await Promise.allSettled(studentIds.map((studentId) => listComments(classId, studentId)));
       const all = results.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
-      setHistory(
-        all
-          .filter((c) => c.commentType === "DAILY" && c.classSessionId === sessionId)
-          .sort((a, b) => (a.studentFullName > b.studentFullName ? 1 : -1))
+      const filtered = all
+        .filter((c) => c.commentType === "DAILY" && c.classSessionId === sessionId)
+        .sort((a, b) => (a.studentFullName > b.studentFullName ? 1 : -1));
+      setHistory(filtered);
+      // Nhận xét DRAFT/REJECTED (nhập tay chưa gửi hoặc nhập từ Excel) — điền vào ô nhập trên màn hình để
+      // giáo viên xem/sửa tiếp trước khi bấm "Gửi nhận xét", KHÔNG khoá read-only như PENDING/APPROVED.
+      // Chỉ điền vào dòng còn trống để không đè lên nội dung đang gõ dở (đã xác nhận với người dùng 2026-07-29).
+      setRows((prev) =>
+        prev.map((r) => {
+          const draft = filtered.find((h) => h.studentId === r.studentId && (h.status === "DRAFT" || h.status === "REJECTED"));
+          if (!draft || !isRowBlank(r)) return r;
+          return {
+            ...r,
+            attitude: draft.attitude ?? "",
+            homeworkPreviousScore: draft.homeworkPreviousScore ?? "",
+            homeworkPreviousSpeakingScore: draft.homeworkPreviousSpeakingScore ?? "",
+            content: draft.content ?? "",
+            grammarMode: draft.homeworkNextExerciseAssignmentId != null ? "ONLINE" : "OFFLINE",
+            homeworkNext: draft.homeworkNext ?? "",
+            homeworkNextExerciseAssignmentId: draft.homeworkNextExerciseAssignmentId ?? "",
+            homeworkNextReviewVideoSetId: draft.homeworkNextReviewVideoSetId ?? "",
+            note: draft.note ?? ""
+          };
+        })
       );
     } finally {
       setLoadingHistory(false);
@@ -163,14 +198,10 @@ export default function DailyCommentPanel() {
     setError(null);
     try {
       const created = await Promise.allSettled(
-        filled.map((r) =>
-          writeComment(selectedClassId, {
-            studentId: r.studentId,
-            commentType: "DAILY",
-            classSessionId: selectedSession.id,
-            commentDate: selectedSession.sessionDate,
+        filled.map((r) => {
+          const payload = {
             content: r.content.trim(),
-            severity: "NORMAL",
+            severity: "NORMAL" as const,
             isWarning: false,
             attitude: r.attitude || undefined,
             homeworkPreviousScore: r.homeworkPreviousScore.trim() || undefined,
@@ -179,17 +210,42 @@ export default function DailyCommentPanel() {
             homeworkNextExerciseAssignmentId: r.grammarMode === "ONLINE" && r.homeworkNextExerciseAssignmentId !== "" ? r.homeworkNextExerciseAssignmentId : undefined,
             homeworkNextReviewVideoSetId: r.homeworkNextReviewVideoSetId !== "" ? r.homeworkNextReviewVideoSetId : undefined,
             note: r.note.trim() || undefined
-          })
-        )
+          };
+          // Dòng này đã có nhận xét DRAFT/REJECTED (gõ tay lưu dở hoặc nhập từ Excel) — SỬA bản ghi đã
+          // có qua updateComment(), không tạo mới qua writeComment() (tránh sinh 2 bản ghi trùng cùng
+          // 1 buổi+học sinh — đúng bug 500 đã gặp trước đây, backend hiện chưa tự chặn trùng ở writeComment()).
+          const existing = history.find((h) => h.studentId === r.studentId && (h.status === "DRAFT" || h.status === "REJECTED"));
+          return existing
+            ? updateComment(existing.id, payload)
+            : writeComment(selectedClassId, {
+                studentId: r.studentId,
+                commentType: "DAILY",
+                classSessionId: selectedSession.id,
+                commentDate: selectedSession.sessionDate,
+                ...payload
+              });
+        })
       );
       const succeededIds = created.filter((r): r is PromiseFulfilledResult<Awaited<ReturnType<typeof writeComment>>> => r.status === "fulfilled").map((r) => r.value.id);
       const failedCount = created.length - succeededIds.length;
 
+      // UC-21 (2026-07-29, BE PR #113 khôi phục DRAFT cho DAILY): writeComment() giờ chỉ lưu DRAFT —
+      // phải gọi thêm submitComments() mới thật sự chuyển sang PENDING (chờ Quản lý điểm trường duyệt).
+      // Nút "Gửi nhận xét" ở đây gộp cả 2 bước (ghi nháp + gửi duyệt) trong 1 lần bấm, không tách riêng
+      // bước "Lưu nháp" — nếu bước gửi thất bại (hiếm), dữ liệu vẫn an toàn ở DRAFT, có thể "Nộp duyệt"
+      // lại ở "Lịch sử nhận xét" bên dưới.
+      let submitFailed = false;
       if (succeededIds.length > 0) {
-        await submitComments(selectedClassId, succeededIds);
+        try {
+          await submitComments(selectedClassId, succeededIds);
+        } catch {
+          submitFailed = true;
+        }
       }
 
-      let message = `🔔 Đã gửi nhận xét ${succeededIds.length} học sinh lên Quản lý điểm trường rà soát duyệt.`;
+      let message = submitFailed
+        ? `⚠️ Đã lưu nháp ${succeededIds.length} nhận xét nhưng gửi duyệt thất bại — vào "Lịch sử nhận xét" bên dưới bấm "Nộp duyệt" để thử lại.`
+        : `🔔 Đã gửi nhận xét ${succeededIds.length} học sinh lên Quản lý điểm trường rà soát duyệt.`;
       if (failedCount > 0) message += `\n- ${failedCount} học sinh bị lỗi khi ghi nhận xét, thử lại sau.`;
       setNotification(message);
       setTimeout(() => setNotification(null), 6000);
@@ -204,6 +260,12 @@ export default function DailyCommentPanel() {
     } finally {
       setSending(false);
     }
+  };
+
+  /** UC-21 (2026-07-29): học sinh chỉ nhận xét DAILY được 1 lần/buổi — bấm vào dòng đã có nhận xét thì báo rõ thay vì im lặng khoá ô. */
+  const notifyAlreadySent = (r: Row, sent: StudentCommentResponse) => {
+    setNotification(`⚠️ Học sinh ${r.studentFullName} đã có nhận xét cho buổi này rồi (trạng thái: ${statusLabels[sent.status]}) — xem/sửa ở "Lịch sử nhận xét" bên dưới.`);
+    setTimeout(() => setNotification(null), 6000);
   };
 
   const handleDownloadTemplate = async () => {
@@ -360,110 +422,151 @@ export default function DailyCommentPanel() {
               rows.map((r) => {
                 const updateRow = (patch: Partial<Row>) =>
                   setRows((prev) => prev.map((row) => (row.studentId === r.studentId ? { ...row, ...patch } : row)));
+                // Học sinh này đã CÓ nhận xét DAILY cho đúng buổi đang chọn (gửi tay hoặc nhập Excel).
+                // Chỉ khoá read-only khi đã PENDING/APPROVED (không còn sửa được ở đây nữa — backend chỉ
+                // cho sửa khi DRAFT/REJECTED) — DRAFT/REJECTED vẫn hiện ô nhập bình thường (đã điền sẵn
+                // dữ liệu ở loadHistory) để giáo viên xem/sửa tiếp trước khi bấm "Gửi nhận xét" (đã xác
+                // nhận với người dùng 2026-07-29).
+                const sent = history.find((h) => h.studentId === r.studentId);
+                const locked = !!sent && (sent.status === "PENDING" || sent.status === "APPROVED");
                 return (
-                  <tr key={r.studentId} className="hover:bg-slate-50/40 transition-colors">
+                  <tr
+                    key={r.studentId}
+                    onClick={locked ? () => notifyAlreadySent(r, sent) : undefined}
+                    className={`transition-colors ${locked ? "bg-emerald-50/20 cursor-pointer hover:bg-emerald-50/40" : "hover:bg-slate-50/40"}`}
+                  >
                     <Td className="font-mono font-bold text-slate-500">{r.studentCode}</Td>
                     <Td className="font-bold text-slate-900 whitespace-nowrap">{r.studentFullName}</Td>
                     <Td className="min-w-[130px]">
-                      <Select
-                        value={r.attitude}
-                        onChange={(e) => updateRow({ attitude: e.target.value as Row["attitude"] })}
-                        className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
-                      >
-                        <option value="">-- Chưa chọn --</option>
-                        {Object.entries(attitudeLabels).map(([value, label]) => (
-                          <option key={value} value={value}>
-                            {label}
-                          </option>
-                        ))}
-                      </Select>
-                    </Td>
-                    <Td className="min-w-[150px]">
-                      <input
-                        value={r.homeworkPreviousScore}
-                        onChange={(e) => updateRow({ homeworkPreviousScore: e.target.value })}
-                        placeholder="VD: Đã thực hiện 90%"
-                        className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
-                      />
-                    </Td>
-                    <Td className="min-w-[150px]">
-                      <input
-                        value={r.homeworkPreviousSpeakingScore}
-                        onChange={(e) => updateRow({ homeworkPreviousSpeakingScore: e.target.value })}
-                        placeholder="VD: Đã thực hiện 85%"
-                        className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
-                      />
-                    </Td>
-                    <Td className="min-w-[320px]">
-                      <textarea
-                        value={r.content}
-                        onChange={(e) => updateRow({ content: e.target.value })}
-                        placeholder="Viết nhận xét cho học sinh này..."
-                        rows={2}
-                        className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
-                      />
-                    </Td>
-                    <Td className="min-w-[220px]">
-                      <div className="flex gap-1 mb-1.5">
-                        <button
-                          type="button"
-                          onClick={() => updateRow({ grammarMode: "OFFLINE", homeworkNextExerciseAssignmentId: "" })}
-                          className={`flex-1 text-[10px] font-bold py-1.5 rounded-lg border ${r.grammarMode === "OFFLINE" ? "bg-brand-orange border-brand-orange text-white" : "bg-slate-50 border-slate-200 text-slate-500"
-                            }`}
-                        >
-                          Offline
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => updateRow({ grammarMode: "ONLINE", homeworkNext: "" })}
-                          className={`flex-1 text-[10px] font-bold py-1.5 rounded-lg border ${r.grammarMode === "ONLINE" ? "bg-brand-orange border-brand-orange text-white" : "bg-slate-50 border-slate-200 text-slate-500"
-                            }`}
-                        >
-                          Online
-                        </button>
-                      </div>
-                      {r.grammarMode === "OFFLINE" ? (
-                        <input
-                          value={r.homeworkNext}
-                          onChange={(e) => updateRow({ homeworkNext: e.target.value })}
-                          placeholder="VD: Unit 2 trang 10"
-                          className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
-                        />
+                      {locked ? (
+                        <div className={readOnlyFieldClass}>{sent!.attitude ? attitudeLabels[sent!.attitude!] : "—"}</div>
                       ) : (
                         <Select
-                          value={r.homeworkNextExerciseAssignmentId}
-                          onChange={(e) => updateRow({ homeworkNextExerciseAssignmentId: e.target.value ? Number(e.target.value) : "" })}
+                          value={r.attitude}
+                          onChange={(e) => updateRow({ attitude: e.target.value as Row["attitude"] })}
                           className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
                         >
-                          <option value="">-- Chọn đề đã giao lớp --</option>
-                          {grammarOptions.map((a) => (
-                            <option key={a.id} value={a.id}>
-                              {a.exerciseTitle} ({a.exerciseCode})
+                          <option value="">-- Chưa chọn --</option>
+                          {Object.entries(attitudeLabels).map(([value, label]) => (
+                            <option key={value} value={value}>
+                              {label}
                             </option>
                           ))}
                         </Select>
                       )}
                     </Td>
+                    <Td className="min-w-[150px]">
+                      {locked ? (
+                        <div className={readOnlyFieldClass}>{sent!.homeworkPreviousScore || "—"}</div>
+                      ) : (
+                        <input
+                          value={r.homeworkPreviousScore}
+                          onChange={(e) => updateRow({ homeworkPreviousScore: e.target.value })}
+                          placeholder="VD: Đã thực hiện 90%"
+                          className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
+                        />
+                      )}
+                    </Td>
+                    <Td className="min-w-[150px]">
+                      {locked ? (
+                        <div className={readOnlyFieldClass}>{sent!.homeworkPreviousSpeakingScore || "—"}</div>
+                      ) : (
+                        <input
+                          value={r.homeworkPreviousSpeakingScore}
+                          onChange={(e) => updateRow({ homeworkPreviousSpeakingScore: e.target.value })}
+                          placeholder="VD: Đã thực hiện 85%"
+                          className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
+                        />
+                      )}
+                    </Td>
+                    <Td className="min-w-[320px]">
+                      {locked ? (
+                        <div className={`${readOnlyFieldClass} whitespace-pre-wrap`}>{sent!.content}</div>
+                      ) : (
+                        <textarea
+                          value={r.content}
+                          onChange={(e) => updateRow({ content: e.target.value })}
+                          placeholder="Viết nhận xét cho học sinh này..."
+                          rows={2}
+                          className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
+                        />
+                      )}
+                    </Td>
+                    <Td className="min-w-[220px]">
+                      {locked ? (
+                        <div className={readOnlyFieldClass}>{sent!.homeworkNext || sent!.homeworkNextExerciseTitle || "—"}</div>
+                      ) : (
+                        <>
+                          <div className="flex gap-1 mb-1.5">
+                            <button
+                              type="button"
+                              onClick={() => updateRow({ grammarMode: "OFFLINE", homeworkNextExerciseAssignmentId: "" })}
+                              className={`flex-1 text-[10px] font-bold py-1.5 rounded-lg border ${r.grammarMode === "OFFLINE" ? "bg-brand-orange border-brand-orange text-white" : "bg-slate-50 border-slate-200 text-slate-500"
+                                }`}
+                            >
+                              Offline
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => updateRow({ grammarMode: "ONLINE", homeworkNext: "" })}
+                              className={`flex-1 text-[10px] font-bold py-1.5 rounded-lg border ${r.grammarMode === "ONLINE" ? "bg-brand-orange border-brand-orange text-white" : "bg-slate-50 border-slate-200 text-slate-500"
+                                }`}
+                            >
+                              Online
+                            </button>
+                          </div>
+                          {r.grammarMode === "OFFLINE" ? (
+                            <input
+                              value={r.homeworkNext}
+                              onChange={(e) => updateRow({ homeworkNext: e.target.value })}
+                              placeholder="VD: Unit 2 trang 10"
+                              className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
+                            />
+                          ) : (
+                            <Select
+                              value={r.homeworkNextExerciseAssignmentId}
+                              onChange={(e) => updateRow({ homeworkNextExerciseAssignmentId: e.target.value ? Number(e.target.value) : "" })}
+                              className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
+                            >
+                              <option value="">-- Chọn đề đã giao lớp --</option>
+                              {grammarOptions.map((a) => (
+                                <option key={a.id} value={a.id}>
+                                  {a.exerciseTitle} ({a.exerciseCode})
+                                </option>
+                              ))}
+                            </Select>
+                          )}
+                        </>
+                      )}
+                    </Td>
                     <Td className="min-w-[200px]">
-                      <Select
-                        value={r.homeworkNextReviewVideoSetId}
-                        onChange={(e) => updateRow({ homeworkNextReviewVideoSetId: e.target.value ? Number(e.target.value) : "" })}
-                        className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
-                      >
-                        <option value="">-- Không giao --</option>
-                        {videoOptions.map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {s.title} ({s.code})
-                          </option>
-                        ))}
-                      </Select>
+                      {locked ? (
+                        <div className={readOnlyFieldClass}>{sent!.homeworkNextReviewVideoSetTitle || "—"}</div>
+                      ) : (
+                        <Select
+                          value={r.homeworkNextReviewVideoSetId}
+                          onChange={(e) => updateRow({ homeworkNextReviewVideoSetId: e.target.value ? Number(e.target.value) : "" })}
+                          className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
+                        >
+                          <option value="">-- Không giao --</option>
+                          {videoOptions.map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.title} ({s.code})
+                            </option>
+                          ))}
+                        </Select>
+                      )}
                     </Td>
                     <Td className="min-w-[140px]">
-                      <input
-                        value={r.note}
-                        onChange={(e) => updateRow({ note: e.target.value })}
-                        className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
-                      />
+                      {locked ? (
+                        <div className={readOnlyFieldClass}>{sent!.note || "—"}</div>
+                      ) : (
+                        <input
+                          value={r.note}
+                          onChange={(e) => updateRow({ note: e.target.value })}
+                          className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
+                        />
+                      )}
                     </Td>
                   </tr>
                 );
@@ -495,7 +598,8 @@ export default function DailyCommentPanel() {
                 classId={selectedClassId}
                 history={history}
                 onChanged={() => loadHistory(selectedClassId, selectedSessionId, rows.map((r) => r.studentId))}
-                showStudentName
+                layout="table"
+                studentCodeById={Object.fromEntries(rows.map((r) => [r.studentId, r.studentCode]))}
               />
             )}
           </div>
