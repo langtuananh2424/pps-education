@@ -114,21 +114,18 @@ import java.util.function.Function;
 @Service
 public class StudentCommentService {
 
-    private static final int COLUMN_COUNT = 14;
+    private static final int COLUMN_COUNT = 11;
     private static final int COL_DATE = 0;
     private static final int COL_STUDENT_CODE = 1;
     private static final int COL_FULL_NAME = 2;
     private static final int COL_ATTENDANCE = 3;
     private static final int COL_ATTITUDE = 4;
-    private static final int COL_HOMEWORK_PREVIOUS = 5;
-    private static final int COL_CONTENT = 6;
-    private static final int COL_HOMEWORK_NEXT = 7;
-    private static final int COL_NOTE = 8;
-    private static final int COL_HOMEWORK_GRAMMAR_PREV_AUTO = 9;
-    private static final int COL_HOMEWORK_VIDEO_PREV_AUTO = 10;
-    private static final int COL_HOMEWORK_GRAMMAR_ONLINE_NEXT = 11;
-    private static final int COL_HOMEWORK_VIDEO_NEXT = 12;
-    private static final int COL_HOMEWORK_SPEAKING_PREVIOUS = 13;
+    private static final int COL_HOMEWORK_GRAMMAR_PREVIOUS = 5;
+    private static final int COL_HOMEWORK_SPEAKING_PREVIOUS = 6;
+    private static final int COL_CONTENT = 7;
+    private static final int COL_HOMEWORK_GRAMMAR_NEXT = 8;
+    private static final int COL_HOMEWORK_VIDEO_NEXT = 9;
+    private static final int COL_NOTE = 10;
 
     private final StudentCommentRepository studentCommentRepository;
     private final StudentCommentHistoryRepository studentCommentHistoryRepository;
@@ -431,10 +428,8 @@ public class StudentCommentService {
                 classId, classSession.getSchoolClass().getCurriculum().getId(), ReviewVideoSet.Status.PUBLISHED);
 
         List<String> headers = List.of("Ngày*", "Mã học viên*", "Họ và tên", "Điểm danh*",
-                "Thái độ học tập", "BTVN buổi trước", "Nhận xét học sinh*", "BTVN buổi sau", "Ghi chú",
-                "% Ngữ pháp buổi trước (tự động)", "% Video buổi trước (tự động)",
-                "Giao BTVN ngữ pháp ONLINE (buổi sau)", "Giao Video ôn tập (buổi sau)",
-                "BTVN Nghe-nói buổi trước");
+                "Thái độ học tập", "BTVN Ngữ pháp buổi trước", "BTVN Nghe-nói buổi trước",
+                "Nhận xét học sinh*", "BTVN Ngữ pháp buổi sau", "BTVN Nghe-nói buổi sau", "Ghi chú");
         List<List<Object>> rows = new ArrayList<>();
         for (ClassEnrollment enrollment : enrollments) {
             Student student = enrollment.getStudent();
@@ -449,25 +444,48 @@ public class StudentCommentService {
             row.add(student.getUser().getFullName());
             row.add(attendance == null ? null : attendanceLabel(attendance));
             row.add(existing == null || existing.getAttitude() == null ? null : attitudeLabel(existing.getAttitude()));
-            row.add(existing == null ? null : existing.getHomeworkPreviousScore());
+            row.add(resolvedGrammarPrevious(existing, previous));
+            row.add(resolvedSpeakingPrevious(existing, previous));
             row.add(existing == null ? null : existing.getContent());
-            row.add(existing == null ? null : existing.getHomeworkNext());
-            row.add(existing == null ? null : existing.getNote());
-            row.add(grammarPreviousProgressLabel(previous));
-            row.add(videoPreviousProgressLabel(previous));
-            row.add(existing == null || existing.getHomeworkNextExerciseAssignment() == null ? null
-                    : grammarLabel(existing.getHomeworkNextExerciseAssignment()));
+            row.add(resolvedGrammarNext(existing));
             row.add(existing == null || existing.getHomeworkNextReviewVideoSet() == null ? null
                     : videoLabel(existing.getHomeworkNextReviewVideoSet()));
-            row.add(existing == null ? null : existing.getHomeworkPreviousSpeakingScore());
+            row.add(existing == null ? null : existing.getNote());
             rows.add(row);
         }
         Map<Integer, List<String>> dropdowns = new LinkedHashMap<>();
         dropdowns.put(COL_ATTENDANCE, Arrays.stream(AttendanceMark.Status.values()).map(this::attendanceLabel).toList());
         dropdowns.put(COL_ATTITUDE, Arrays.stream(StudentComment.Attitude.values()).map(this::attitudeLabel).toList());
-        dropdowns.put(COL_HOMEWORK_GRAMMAR_ONLINE_NEXT, grammarOptions.stream().map(this::grammarLabel).toList());
+        dropdowns.put(COL_HOMEWORK_GRAMMAR_NEXT, grammarOptions.stream().map(this::grammarLabel).toList());
         dropdowns.put(COL_HOMEWORK_VIDEO_NEXT, videoOptions.stream().map(this::videoLabel).toList());
         return ExcelExportHelper.buildWorkbook("Nhận xét", headers, rows, null, dropdowns);
+    }
+
+    /** Ghi đè tay thắng — chỉ fallback về % tự động khi chưa có giá trị nhập tay. */
+    private String resolvedGrammarPrevious(StudentComment existing, StudentComment previous) {
+        if (existing != null && existing.getHomeworkPreviousScore() != null) {
+            return existing.getHomeworkPreviousScore();
+        }
+        return grammarPreviousProgressLabel(previous);
+    }
+
+    /** Ghi đè tay thắng — chỉ fallback về % tự động khi chưa có giá trị nhập tay. */
+    private String resolvedSpeakingPrevious(StudentComment existing, StudentComment previous) {
+        if (existing != null && existing.getHomeworkPreviousSpeakingScore() != null) {
+            return existing.getHomeworkPreviousSpeakingScore();
+        }
+        return videoPreviousProgressLabel(previous);
+    }
+
+    /** Đã giao online thì hiện nhãn đề; không thì hiện text offline (homeworkNext) cũ. */
+    private String resolvedGrammarNext(StudentComment existing) {
+        if (existing == null) {
+            return null;
+        }
+        if (existing.getHomeworkNextExerciseAssignment() != null) {
+            return grammarLabel(existing.getHomeworkNextExerciseAssignment());
+        }
+        return existing.getHomeworkNext();
     }
 
     /**
@@ -598,10 +616,9 @@ public class StudentCommentService {
         String studentCode = cell(row, formatter, COL_STUDENT_CODE);
         String attendanceText = cell(row, formatter, COL_ATTENDANCE);
         String attitudeText = cell(row, formatter, COL_ATTITUDE);
-        String homeworkPrevious = cell(row, formatter, COL_HOMEWORK_PREVIOUS);
+        String homeworkPrevious = cell(row, formatter, COL_HOMEWORK_GRAMMAR_PREVIOUS);
         String content = cell(row, formatter, COL_CONTENT);
-        String homeworkNext = cell(row, formatter, COL_HOMEWORK_NEXT);
-        String grammarOnlineText = cell(row, formatter, COL_HOMEWORK_GRAMMAR_ONLINE_NEXT);
+        String grammarNextText = cell(row, formatter, COL_HOMEWORK_GRAMMAR_NEXT);
         String videoText = cell(row, formatter, COL_HOMEWORK_VIDEO_NEXT);
         String note = cell(row, formatter, COL_NOTE);
         String homeworkPreviousSpeaking = cell(row, formatter, COL_HOMEWORK_SPEAKING_PREVIOUS);
@@ -630,13 +647,26 @@ public class StudentCommentService {
         AttendanceMark.Status attendance = parseAttendanceStatus(attendanceText.trim());
 
         String attitude = attitudeText == null || attitudeText.isBlank() ? null : parseAttitude(attitudeText.trim()).name();
-        ExerciseAssignment grammarAssignment = resolveByUuidOrLabel(blankToNull(grammarOnlineText), grammarByLabel,
-                exerciseAssignmentRepository::findByUuid, "bài tập ngữ pháp");
+        // Cột gộp "BTVN Ngữ pháp buổi sau": khớp đề trong kho (nhãn dropdown hoặc uuid) thì giao ONLINE,
+        // không khớp thì coi là text offline — KHÔNG báo lỗi (khác cột Video vẫn báo lỗi nếu không khớp).
+        String grammarNextRaw = blankToNull(grammarNextText);
+        ExerciseAssignment grammarAssignment = grammarNextRaw == null ? null
+                : resolveGrammarAssignmentSoft(grammarNextRaw, grammarByLabel);
+        String homeworkNext = (grammarNextRaw != null && grammarAssignment == null) ? grammarNextRaw : null;
         ReviewVideoSet videoSet = resolveByUuidOrLabel(blankToNull(videoText), videoByLabel,
                 reviewVideoSetRepository::findByUuid, "bộ video");
         return new ParsedRow(rowIndex, student, attendance, attitude,
-                blankToNull(homeworkPrevious), blankToNull(content), blankToNull(homeworkNext),
+                blankToNull(homeworkPrevious), blankToNull(content), homeworkNext,
                 grammarAssignment, videoSet, blankToNull(note), blankToNull(homeworkPreviousSpeaking));
+    }
+
+    /** Cột "BTVN Ngữ pháp buổi sau" gộp: khớp uuid/nhãn đề thì trả về đề đó, không khớp trả null (KHÔNG throw) để caller fallback text offline. */
+    private ExerciseAssignment resolveGrammarAssignmentSoft(String text, Map<String, ExerciseAssignment> byLabel) {
+        UUID uuid = tryParseUuid(text);
+        if (uuid != null) {
+            return exerciseAssignmentRepository.findByUuid(uuid).orElse(null);
+        }
+        return byLabel.get(text);
     }
 
     /** Ghi 1 dòng: Vắng/Có phép mà mọi cột sau Điểm danh đều trống thì bỏ qua (chỉ ghi điểm danh, không tạo nhận xét). */
@@ -652,7 +682,7 @@ public class StudentCommentService {
             return;
         }
         if (content == null || content.isBlank()) {
-            throw new IllegalArgumentException("Thiếu nhận xét (cột G) — bắt buộc trừ khi học sinh vắng/có phép.");
+            throw new IllegalArgumentException("Thiếu nhận xét (cột H) — bắt buộc trừ khi học sinh vắng/có phép.");
         }
 
         StudentComment comment = studentCommentRepository
