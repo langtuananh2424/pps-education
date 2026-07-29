@@ -183,7 +183,7 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
         parentStudentRepository.save(link);
 
         session = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(LocalDate.now(), LocalTime.of(8, 0), LocalTime.of(9, 40), null, teacher.getId(), "REGULAR"),
+                new CreateClassSessionRequest(LocalDate.now(), LocalTime.of(8, 0), LocalTime.of(9, 40), null, teacher.getId(), "REGULAR", null),
                 headAcademic.getId());
     }
 
@@ -284,6 +284,36 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
         List<ClassSessionResponse> schedule = parentPortalService.listSchedule(student.getId(), schoolClass.id(), parentUser.getId());
 
         assertThat(schedule).extracting(ClassSessionResponse::id).contains(session.id());
+    }
+
+    /** Bổ sung (đã xác nhận với người dùng 2026-07-29): mapper riêng của Cổng phụ huynh cũng phải trả đúng teacherType. */
+    @Test
+    void listSchedule_boSung_includesTeacherType() {
+        ClassSessionResponse foreignSession = classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(LocalDate.now().plusDays(1), LocalTime.of(8, 0), LocalTime.of(9, 40),
+                        null, teacher.getId(), "REGULAR", "FOREIGN"),
+                headAcademic.getId());
+
+        List<ClassSessionResponse> schedule = parentPortalService.listSchedule(student.getId(), schoolClass.id(), parentUser.getId());
+
+        assertThat(schedule).filteredOn(s -> s.id().equals(foreignSession.id()))
+                .extracting(ClassSessionResponse::teacherType).containsExactly("FOREIGN");
+    }
+
+    /** Bổ sung (đã xác nhận với người dùng 2026-07-29): mapper riêng của Cổng phụ huynh cũng phải trả đúng sessionNumber. */
+    @Test
+    void listSchedule_boSung_includesSessionNumber() {
+        ClassSessionResponse secondSession = classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(session.sessionDate().plusDays(2), LocalTime.of(8, 0), LocalTime.of(9, 40),
+                        null, teacher.getId(), "REGULAR", null),
+                headAcademic.getId());
+
+        List<ClassSessionResponse> schedule = parentPortalService.listSchedule(student.getId(), schoolClass.id(), parentUser.getId());
+
+        assertThat(schedule).filteredOn(s -> s.id().equals(session.id()))
+                .extracting(ClassSessionResponse::sessionNumber).containsExactly(1);
+        assertThat(schedule).filteredOn(s -> s.id().equals(secondSession.id()))
+                .extracting(ClassSessionResponse::sessionNumber).containsExactly(2);
     }
 
     // ===================== Xem tiến độ BTVN của con (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-29) =====================

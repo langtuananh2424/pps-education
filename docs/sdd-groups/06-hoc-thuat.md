@@ -499,6 +499,23 @@ a)  Bảng class_sessions --- Buổi học
                                                                      CANCELLED /
                                                                      RESCHEDULED
 
+  teacher_type                VARCHAR(20)      NULL                  VIETNAMESE /
+                                                                     FOREIGN — HS/
+                                                                     PH xem GV
+                                                                     buổi này là
+                                                                     người Việt
+                                                                     hay nước
+                                                                     ngoài, tùy
+                                                                     chọn (bổ sung
+                                                                     ngoài SDD
+                                                                     gốc, đã xác
+                                                                     nhận với
+                                                                     người dùng
+                                                                     2026-07-29).
+                                                                     KHÔNG liên
+                                                                     quan hồ sơ
+                                                                     nhân sự.
+
   cancellation_reason         TEXT             NULL
 
   rescheduled_to_session_id   BIGINT           FK →                  Tự tham chiếu

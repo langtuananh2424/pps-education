@@ -332,7 +332,12 @@ UC-48: Xếp lịch buổi học
 | chính (Main     | bắt đầu/kết thúc, loại buổi                        |
 | Flow)**         | (REGULAR/MAKEUP/EXAM/SPECIAL), giáo viên phụ trách |
 |                 | buổi (có thể khác giáo viên chính của lớp — VD dạy |
-|                 | thay), và phòng học (tùy chọn).                    |
+|                 | thay), phòng học (tùy chọn), và tùy chọn loại giáo |
+|                 | viên (VIETNAMESE/FOREIGN — chỉ để hiển thị cho Học |
+|                 | sinh/Phụ huynh biết buổi này GV Việt Nam hay nước  |
+|                 | ngoài dạy, KHÔNG liên quan hồ sơ nhân sự — bổ sung |
+|                 | ngoài SDD gốc, đã xác nhận với người dùng          |
+|                 | 2026-07-29).                                       |
 |                 |                                                    |
 |                 | 2. Nếu có chỉ định phòng và phòng không đánh dấu   |
 |                 | linh hoạt: hệ thống kiểm tra trùng khung giờ với   |
@@ -377,6 +382,13 @@ UC-48: Xếp lịch buổi học
 |                 |                                                    |
 |                 | - class_sessions_history/session_periods_history   |
 |                 | lưu đầy đủ lịch sử tạo/hủy/dời lịch.               |
+|                 |                                                    |
+|                 | - Mọi response buổi học (ClassSessionResponse) trả |
+|                 | kèm sessionNumber — số thứ tự buổi trong lớp       |
+|                 | (1-based, đếm theo session_date rồi id, TÍNH ĐỘNG   |
+|                 | không lưu cột DB, đếm cả buổi CANCELLED — bổ sung  |
+|                 | ngoài SDD gốc, đã xác nhận với người dùng          |
+|                 | 2026-07-29), phục vụ FE hiển thị "Buổi N + ngày".  |
 +-----------------+----------------------------------------------------+
 
 ---
@@ -419,7 +431,13 @@ UC-56: Sinh lịch học hàng loạt theo mẫu lặp
 | chính (Main     |     ngày, đến ngày), danh sách thứ trong tuần lặp  |
 | Flow)**         |     lại (VD Thứ 2/4/6), khung giờ bắt đầu/kết thúc |
 |                 |     chung, loại buổi, giáo viên phụ trách, phòng   |
-|                 |     học (tùy chọn).                                |
+|                 |     học (tùy chọn), và tùy chọn loại giáo viên      |
+|                 |     (VIETNAMESE/FOREIGN — dùng chung cho cả lô;    |
+|                 |     muốn 1 tuần có ngày GV Việt Nam, ngày GV nước  |
+|                 |     ngoài thì gọi UC-56 riêng cho từng nhóm thứ,   |
+|                 |     VD Thứ 2 gọi 1 lần với FOREIGN, Thứ 5 gọi 1    |
+|                 |     lần khác với VIETNAMESE — bổ sung ngoài SDD    |
+|                 |     gốc, đã xác nhận với người dùng 2026-07-29).   |
 |                 |                                                    |
 |                 | 2.  Với mỗi ngày trong khoảng khớp 1 trong các thứ |
 |                 |     đã chọn, hệ thống thử tạo 1 buổi học — áp dụng |
@@ -1164,6 +1182,14 @@ DAILY, Giữa/Cuối kỳ giữ nguyên 100% luồng ở trên)
     nguyên StudentAttendanceService.markAttendance — rào "chỉ trong ngày
     diễn ra buổi học" của UC-15 không đổi, KHÁC hạn X ngày của nhận xét
     bên dưới). Lỗi 1 dòng không chặn dòng khác (đúng pattern UC-35/50/51/53).
+-   **Bổ sung 2026-07-29 (đã xác nhận với người dùng) — tự chọn buổi hôm
+    nay khi vào tab Nhận xét:** `GET /api/classes/{classId}/sessions/today`
+    trả buổi học của lớp có `session_date` = hôm nay (loại
+    CANCELLED/RESCHEDULED — không còn là buổi "đang diễn ra hôm nay"). FE
+    gọi khi Giáo viên vào tab Nhận xét học viên: có buổi thì tự hiển thị
+    nhận xét của buổi đó, danh sách rỗng thì báo "hôm nay không có buổi
+    học" và để Giáo viên tự chọn buổi khác từ `GET
+    /api/classes/{classId}/sessions`.
 -   Hạn nhập/sửa: mặc định 7 ngày kể từ NGÀY BUỔI HỌC diễn ra
     (`system_settings.academic.comment_edit_window_days`, cấu hình qua
     `GET`/`PUT /api/academic/settings/comment-edit-window-days`).

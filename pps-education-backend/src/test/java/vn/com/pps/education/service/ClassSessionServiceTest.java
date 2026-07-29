@@ -111,7 +111,7 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
     void createSession_MainFlow_autoGeneratesDefaultPeriods() {
         ClassSessionResponse session = classSessionService.createSession(schoolClass.id(),
                 new CreateClassSessionRequest(LocalDate.now().plusDays(1), LocalTime.of(8, 0), LocalTime.of(9, 40),
-                        room.getId(), teacher.getId(), "REGULAR"),
+                        room.getId(), teacher.getId(), "REGULAR", null),
                 headAcademic.getId());
 
         assertThat(session.status()).isEqualTo("SCHEDULED");
@@ -122,15 +122,36 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
         assertThat(periods.get(1).endTime()).isEqualTo(LocalTime.of(9, 40));
     }
 
+    /** Bổ sung (đã xác nhận với người dùng 2026-07-29): loại giáo viên (Việt Nam/nước ngoài) của buổi học. */
+    @Test
+    void createSession_boSung_setsTeacherTypeWhenProvided() {
+        ClassSessionResponse session = classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(LocalDate.now().plusDays(1), LocalTime.of(8, 0), LocalTime.of(9, 40),
+                        room.getId(), teacher.getId(), "REGULAR", "FOREIGN"),
+                headAcademic.getId());
+
+        assertThat(session.teacherType()).isEqualTo("FOREIGN");
+    }
+
+    @Test
+    void createSession_boSung_teacherTypeNullWhenNotProvided() {
+        ClassSessionResponse session = classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(LocalDate.now().plusDays(1), LocalTime.of(8, 0), LocalTime.of(9, 40),
+                        room.getId(), teacher.getId(), "REGULAR", null),
+                headAcademic.getId());
+
+        assertThat(session.teacherType()).isNull();
+    }
+
     @Test
     void createSession_FRFAC03_rejectsOverlappingRoomBooking() {
         LocalDate date = LocalDate.now().plusDays(2);
         classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(date, LocalTime.of(8, 0), LocalTime.of(9, 40), room.getId(), teacher.getId(), "REGULAR"),
+                new CreateClassSessionRequest(date, LocalTime.of(8, 0), LocalTime.of(9, 40), room.getId(), teacher.getId(), "REGULAR", null),
                 headAcademic.getId());
 
         assertThatThrownBy(() -> classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(date, LocalTime.of(9, 0), LocalTime.of(10, 30), room.getId(), teacher.getId(), "REGULAR"),
+                new CreateClassSessionRequest(date, LocalTime.of(9, 0), LocalTime.of(10, 30), room.getId(), teacher.getId(), "REGULAR", null),
                 headAcademic.getId()))
                 .isInstanceOf(RoomConflictException.class);
     }
@@ -141,11 +162,11 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
         Room flexibleRoom = newRoom(site, true);
         LocalDate date = LocalDate.now().plusDays(3);
         classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(date, LocalTime.of(8, 0), LocalTime.of(9, 40), flexibleRoom.getId(), teacher.getId(), "REGULAR"),
+                new CreateClassSessionRequest(date, LocalTime.of(8, 0), LocalTime.of(9, 40), flexibleRoom.getId(), teacher.getId(), "REGULAR", null),
                 headAcademic.getId());
 
         ClassSessionResponse second = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(date, LocalTime.of(9, 0), LocalTime.of(10, 30), flexibleRoom.getId(), teacher.getId(), "REGULAR"),
+                new CreateClassSessionRequest(date, LocalTime.of(9, 0), LocalTime.of(10, 30), flexibleRoom.getId(), teacher.getId(), "REGULAR", null),
                 headAcademic.getId());
 
         assertThat(second.id()).isNotNull();
@@ -155,7 +176,7 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
     void cancelSession_UC48_A2_cancelsScheduledSessionAndFreesRoom() {
         LocalDate date = LocalDate.now().plusDays(4);
         ClassSessionResponse session = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(date, LocalTime.of(8, 0), LocalTime.of(9, 40), room.getId(), teacher.getId(), "REGULAR"),
+                new CreateClassSessionRequest(date, LocalTime.of(8, 0), LocalTime.of(9, 40), room.getId(), teacher.getId(), "REGULAR", null),
                 headAcademic.getId());
 
         ClassSessionResponse cancelled = classSessionService.cancelSession(schoolClass.id(), session.id(),
@@ -165,7 +186,7 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
         assertThat(cancelled.cancellationReason()).isEqualTo("Giáo viên nghỉ đột xuất");
 
         ClassSessionResponse another = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(date, LocalTime.of(8, 0), LocalTime.of(9, 40), room.getId(), teacher.getId(), "REGULAR"),
+                new CreateClassSessionRequest(date, LocalTime.of(8, 0), LocalTime.of(9, 40), room.getId(), teacher.getId(), "REGULAR", null),
                 headAcademic.getId());
         assertThat(another.id()).isNotNull();
     }
@@ -174,7 +195,7 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
     void cancelSession_UC48_rejectsWhenSessionNotScheduled() {
         LocalDate date = LocalDate.now().plusDays(5);
         ClassSessionResponse session = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(date, LocalTime.of(8, 0), LocalTime.of(9, 40), room.getId(), teacher.getId(), "REGULAR"),
+                new CreateClassSessionRequest(date, LocalTime.of(8, 0), LocalTime.of(9, 40), room.getId(), teacher.getId(), "REGULAR", null),
                 headAcademic.getId());
         classSessionService.cancelSession(schoolClass.id(), session.id(), new CancelClassSessionRequest(null), headAcademic.getId());
 
@@ -187,7 +208,7 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
     void rescheduleSession_UC48_A3_createsNewSessionAndMarksOldAsRescheduled() {
         LocalDate oldDate = LocalDate.now().plusDays(6);
         ClassSessionResponse oldSession = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(oldDate, LocalTime.of(8, 0), LocalTime.of(9, 40), room.getId(), teacher.getId(), "REGULAR"),
+                new CreateClassSessionRequest(oldDate, LocalTime.of(8, 0), LocalTime.of(9, 40), room.getId(), teacher.getId(), "REGULAR", null),
                 headAcademic.getId());
 
         LocalDate newDate = oldDate.plusDays(1);
@@ -208,11 +229,27 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
         assertThat(reloadedOld.rescheduledToSessionId()).isEqualTo(newSession.id());
     }
 
+    /** Bổ sung (đã xác nhận với người dùng 2026-07-29): dời lịch không đổi loại giáo viên — copy nguyên từ buổi cũ. */
+    @Test
+    void rescheduleSession_boSung_copiesTeacherTypeFromOldSession() {
+        LocalDate oldDate = LocalDate.now().plusDays(7);
+        ClassSessionResponse oldSession = classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(oldDate, LocalTime.of(8, 0), LocalTime.of(9, 40), room.getId(), teacher.getId(), "REGULAR", "FOREIGN"),
+                headAcademic.getId());
+
+        ClassSessionResponse newSession = classSessionService.rescheduleSession(schoolClass.id(), oldSession.id(),
+                new RescheduleClassSessionRequest(oldDate.plusDays(1), LocalTime.of(10, 0), LocalTime.of(11, 40), room.getId(), teacher.getId(),
+                        "Phòng bảo trì"),
+                headAcademic.getId());
+
+        assertThat(newSession.teacherType()).isEqualTo("FOREIGN");
+    }
+
     @Test
     void listSessions_teacherWithoutSiteAssignment_seesNoSessions() {
         ClassSessionResponse session = classSessionService.createSession(schoolClass.id(),
                 new CreateClassSessionRequest(LocalDate.now().plusDays(10), LocalTime.of(8, 0), LocalTime.of(9, 40),
-                        room.getId(), teacher.getId(), "REGULAR"),
+                        room.getId(), teacher.getId(), "REGULAR", null),
                 headAcademic.getId());
         User outsider = newUser("teacher.outsider.session");
         assignRole(outsider, "TEACHER");
@@ -225,7 +262,7 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
     void listSessions_teacherWithSiteAssignment_seesOwnSiteSessions() {
         ClassSessionResponse session = classSessionService.createSession(schoolClass.id(),
                 new CreateClassSessionRequest(LocalDate.now().plusDays(11), LocalTime.of(8, 0), LocalTime.of(9, 40),
-                        room.getId(), teacher.getId(), "REGULAR"),
+                        room.getId(), teacher.getId(), "REGULAR", null),
                 headAcademic.getId());
         classService.assignTeacher(schoolClass.id(),
                 new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now()), headAcademic.getId());
@@ -245,7 +282,7 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
     void listSessions_siteManagerForSite_seesOwnSiteSessions() {
         ClassSessionResponse session = classSessionService.createSession(schoolClass.id(),
                 new CreateClassSessionRequest(LocalDate.now().plusDays(12), LocalTime.of(8, 0), LocalTime.of(9, 40),
-                        room.getId(), teacher.getId(), "REGULAR"),
+                        room.getId(), teacher.getId(), "REGULAR", null),
                 headAcademic.getId());
         Site managedSite = siteRepository.findById(schoolClass.siteId()).orElseThrow();
         User siteManagerUser = newUser("site.manager.sessions");
@@ -265,11 +302,11 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
     void rescheduleSession_UC48_FRFAC03_rejectsOverlappingRoomAtNewSlot() {
         LocalDate oldDate = LocalDate.now().plusDays(7);
         ClassSessionResponse oldSession = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(oldDate, LocalTime.of(8, 0), LocalTime.of(9, 40), room.getId(), teacher.getId(), "REGULAR"),
+                new CreateClassSessionRequest(oldDate, LocalTime.of(8, 0), LocalTime.of(9, 40), room.getId(), teacher.getId(), "REGULAR", null),
                 headAcademic.getId());
         LocalDate blockedDate = oldDate.plusDays(1);
         classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(blockedDate, LocalTime.of(10, 0), LocalTime.of(11, 40), room.getId(), teacher.getId(), "REGULAR"),
+                new CreateClassSessionRequest(blockedDate, LocalTime.of(10, 0), LocalTime.of(11, 40), room.getId(), teacher.getId(), "REGULAR", null),
                 headAcademic.getId());
 
         assertThatThrownBy(() -> classSessionService.rescheduleSession(schoolClass.id(), oldSession.id(),
@@ -282,7 +319,7 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
     void rescheduleSession_UC48_rejectsWhenOldSessionNotScheduled() {
         LocalDate date = LocalDate.now().plusDays(8);
         ClassSessionResponse session = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(date, LocalTime.of(8, 0), LocalTime.of(9, 40), room.getId(), teacher.getId(), "REGULAR"),
+                new CreateClassSessionRequest(date, LocalTime.of(8, 0), LocalTime.of(9, 40), room.getId(), teacher.getId(), "REGULAR", null),
                 headAcademic.getId());
         classSessionService.cancelSession(schoolClass.id(), session.id(), new CancelClassSessionRequest(null), headAcademic.getId());
 
@@ -299,7 +336,7 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
 
         BulkCreateClassSessionResponse response = classSessionService.bulkCreateSessions(schoolClass.id(),
                 new BulkCreateClassSessionRequest(startDate, endDate, List.of("MONDAY", "WEDNESDAY"),
-                        LocalTime.of(8, 0), LocalTime.of(9, 40), room.getId(), teacher.getId(), "REGULAR"),
+                        LocalTime.of(8, 0), LocalTime.of(9, 40), room.getId(), teacher.getId(), "REGULAR", null),
                 headAcademic.getId());
 
         assertThat(response.totalDates()).isEqualTo(4);
@@ -317,12 +354,12 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
 
         // Đã có sẵn 1 buổi khác trùng phòng đúng khung giờ vào conflictDate.
         classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(conflictDate, LocalTime.of(8, 0), LocalTime.of(9, 40), room.getId(), teacher.getId(), "REGULAR"),
+                new CreateClassSessionRequest(conflictDate, LocalTime.of(8, 0), LocalTime.of(9, 40), room.getId(), teacher.getId(), "REGULAR", null),
                 headAcademic.getId());
 
         BulkCreateClassSessionResponse response = classSessionService.bulkCreateSessions(schoolClass.id(),
                 new BulkCreateClassSessionRequest(startDate, endDate, List.of("MONDAY"),
-                        LocalTime.of(8, 0), LocalTime.of(9, 40), room.getId(), teacher.getId(), "REGULAR"),
+                        LocalTime.of(8, 0), LocalTime.of(9, 40), room.getId(), teacher.getId(), "REGULAR", null),
                 headAcademic.getId());
 
         assertThat(response.totalDates()).isEqualTo(2); // 2 Monday trong khoảng 14 ngày
@@ -331,11 +368,85 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
         assertThat(response.skipped().get(0).get("date")).isEqualTo(conflictDate.toString());
     }
 
+    /** Bổ sung (đã xác nhận với người dùng 2026-07-29): 1 giá trị teacherType dùng chung cho cả lô sinh lịch. */
+    @Test
+    void bulkCreateSessions_boSung_appliesTeacherTypeToAllCreatedSessions() {
+        LocalDate startDate = nextWeekday(LocalDate.now().plusDays(100), DayOfWeek.MONDAY);
+        LocalDate endDate = startDate.plusDays(13);
+
+        BulkCreateClassSessionResponse response = classSessionService.bulkCreateSessions(schoolClass.id(),
+                new BulkCreateClassSessionRequest(startDate, endDate, List.of("MONDAY"),
+                        LocalTime.of(8, 0), LocalTime.of(9, 40), room.getId(), teacher.getId(), "REGULAR", "VIETNAMESE"),
+                headAcademic.getId());
+
+        assertThat(response.created()).hasSize(2)
+                .allSatisfy(s -> assertThat(s.teacherType()).isEqualTo("VIETNAMESE"));
+    }
+
+    /**
+     * Bổ sung (đã xác nhận với người dùng 2026-07-29): sessionNumber đếm
+     * mọi buổi theo thứ tự session_date, kể cả CANCELLED — buổi bị hủy
+     * vẫn giữ đúng số của nó, không làm dồn số các buổi sau.
+     */
+    @Test
+    void listSessions_boSung_sessionNumberCountsAllSessionsInDateOrderIncludingCancelled() {
+        LocalDate base = LocalDate.now().plusDays(200);
+        ClassSessionResponse session1 = classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(base, LocalTime.of(8, 0), LocalTime.of(9, 40), room.getId(), teacher.getId(), "REGULAR", null),
+                headAcademic.getId());
+        ClassSessionResponse session2 = classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(base.plusDays(2), LocalTime.of(8, 0), LocalTime.of(9, 40), room.getId(), teacher.getId(), "REGULAR", null),
+                headAcademic.getId());
+        ClassSessionResponse session3 = classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(base.plusDays(4), LocalTime.of(8, 0), LocalTime.of(9, 40), room.getId(), teacher.getId(), "REGULAR", null),
+                headAcademic.getId());
+
+        classSessionService.cancelSession(schoolClass.id(), session2.id(), new CancelClassSessionRequest(null), headAcademic.getId());
+
+        List<ClassSessionResponse> sessions = classSessionService.listSessions(schoolClass.id(), headAcademic.getId());
+        assertThat(sessions).filteredOn(s -> s.id().equals(session1.id())).extracting(ClassSessionResponse::sessionNumber).containsExactly(1);
+        assertThat(sessions).filteredOn(s -> s.id().equals(session2.id())).extracting(ClassSessionResponse::sessionNumber).containsExactly(2);
+        assertThat(sessions).filteredOn(s -> s.id().equals(session3.id())).extracting(ClassSessionResponse::sessionNumber).containsExactly(3);
+    }
+
+    /** Bổ sung (đã xác nhận với người dùng 2026-07-29): tab Nhận xét tự chọn buổi hôm nay. */
+    @Test
+    void listTodaySessions_boSung_returnsSessionScheduledToday() {
+        ClassSessionResponse today = classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(LocalDate.now(), LocalTime.of(8, 0), LocalTime.of(9, 40), room.getId(), teacher.getId(), "REGULAR", null),
+                headAcademic.getId());
+        classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(LocalDate.now().plusDays(1), LocalTime.of(8, 0), LocalTime.of(9, 40), room.getId(), teacher.getId(), "REGULAR", null),
+                headAcademic.getId());
+
+        assertThat(classSessionService.listTodaySessions(schoolClass.id(), headAcademic.getId()))
+                .extracting(ClassSessionResponse::id).containsExactly(today.id());
+    }
+
+    @Test
+    void listTodaySessions_boSung_returnsEmptyWhenNoSessionToday() {
+        classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(LocalDate.now().plusDays(1), LocalTime.of(8, 0), LocalTime.of(9, 40), room.getId(), teacher.getId(), "REGULAR", null),
+                headAcademic.getId());
+
+        assertThat(classSessionService.listTodaySessions(schoolClass.id(), headAcademic.getId())).isEmpty();
+    }
+
+    @Test
+    void listTodaySessions_boSung_excludesCancelledSessionToday() {
+        ClassSessionResponse today = classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(LocalDate.now(), LocalTime.of(8, 0), LocalTime.of(9, 40), room.getId(), teacher.getId(), "REGULAR", null),
+                headAcademic.getId());
+        classSessionService.cancelSession(schoolClass.id(), today.id(), new CancelClassSessionRequest(null), headAcademic.getId());
+
+        assertThat(classSessionService.listTodaySessions(schoolClass.id(), headAcademic.getId())).isEmpty();
+    }
+
     @Test
     void listMySessions_UC58_MainFlow_returnsSessionsAcrossAllClassesForActorOnly() {
         ClassSessionResponse session1 = classSessionService.createSession(schoolClass.id(),
                 new CreateClassSessionRequest(LocalDate.now().plusDays(60), LocalTime.of(8, 0), LocalTime.of(9, 40),
-                        room.getId(), teacher.getId(), "REGULAR"),
+                        room.getId(), teacher.getId(), "REGULAR", null),
                 headAcademic.getId());
 
         Site site2 = newSite();
@@ -344,14 +455,14 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
         Room room2 = newRoom(site2, false);
         ClassSessionResponse session2 = classSessionService.createSession(class2.id(),
                 new CreateClassSessionRequest(LocalDate.now().plusDays(61), LocalTime.of(10, 0), LocalTime.of(11, 40),
-                        room2.getId(), teacher.getId(), "REGULAR"),
+                        room2.getId(), teacher.getId(), "REGULAR", null),
                 headAcademic.getId());
 
         User otherTeacher = newUser("teacher.other.myschedule");
         assignRole(otherTeacher, "TEACHER");
         classSessionService.createSession(schoolClass.id(),
                 new CreateClassSessionRequest(LocalDate.now().plusDays(62), LocalTime.of(8, 0), LocalTime.of(9, 40),
-                        room.getId(), otherTeacher.getId(), "REGULAR"),
+                        room.getId(), otherTeacher.getId(), "REGULAR", null),
                 headAcademic.getId());
 
         List<ClassSessionResponse> mySessions = classSessionService.listMySessions(teacher.getId(), null, null);
@@ -364,11 +475,11 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
     void listMySessions_UC58_filtersByFromDateToDate() {
         ClassSessionResponse early = classSessionService.createSession(schoolClass.id(),
                 new CreateClassSessionRequest(LocalDate.now().plusDays(70), LocalTime.of(8, 0), LocalTime.of(9, 40),
-                        room.getId(), teacher.getId(), "REGULAR"),
+                        room.getId(), teacher.getId(), "REGULAR", null),
                 headAcademic.getId());
         ClassSessionResponse late = classSessionService.createSession(schoolClass.id(),
                 new CreateClassSessionRequest(LocalDate.now().plusDays(80), LocalTime.of(8, 0), LocalTime.of(9, 40),
-                        room.getId(), teacher.getId(), "REGULAR"),
+                        room.getId(), teacher.getId(), "REGULAR", null),
                 headAcademic.getId());
 
         List<ClassSessionResponse> filtered = classSessionService.listMySessions(teacher.getId(),
@@ -381,7 +492,7 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
     void listMySessionsForStudent_UC59_MainFlow_returnsSessionsAcrossAllEnrolledClasses() {
         ClassSessionResponse session1 = classSessionService.createSession(schoolClass.id(),
                 new CreateClassSessionRequest(LocalDate.now().plusDays(90), LocalTime.of(8, 0), LocalTime.of(9, 40),
-                        room.getId(), teacher.getId(), "REGULAR"),
+                        room.getId(), teacher.getId(), "REGULAR", null),
                 headAcademic.getId());
 
         Site site2 = newSite();
@@ -390,7 +501,7 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
         Room room2 = newRoom(site2, false);
         ClassSessionResponse session2 = classSessionService.createSession(class2.id(),
                 new CreateClassSessionRequest(LocalDate.now().plusDays(91), LocalTime.of(10, 0), LocalTime.of(11, 40),
-                        room2.getId(), teacher.getId(), "REGULAR"),
+                        room2.getId(), teacher.getId(), "REGULAR", null),
                 headAcademic.getId());
 
         // Buổi của 1 lớp khác mà học sinh KHÔNG ghi danh -- không được xuất hiện.
@@ -400,7 +511,7 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
         Room room3 = newRoom(site3, false);
         ClassSessionResponse otherClassSession = classSessionService.createSession(class3.id(),
                 new CreateClassSessionRequest(LocalDate.now().plusDays(92), LocalTime.of(8, 0), LocalTime.of(9, 40),
-                        room3.getId(), teacher.getId(), "REGULAR"),
+                        room3.getId(), teacher.getId(), "REGULAR", null),
                 headAcademic.getId());
 
         Student student = enrollStudentIn(schoolClass.id());
@@ -418,7 +529,7 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
     void listMySessionsForStudent_UC59_A1_filtersToSelectedClassWhenClassIdProvided() {
         ClassSessionResponse session1 = classSessionService.createSession(schoolClass.id(),
                 new CreateClassSessionRequest(LocalDate.now().plusDays(93), LocalTime.of(8, 0), LocalTime.of(9, 40),
-                        room.getId(), teacher.getId(), "REGULAR"),
+                        room.getId(), teacher.getId(), "REGULAR", null),
                 headAcademic.getId());
         Site site2 = newSite();
         ClassResponse class2 = classService.create(new CreateClassRequest(classCode(), "9A1", site2.getId(),
@@ -426,7 +537,7 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
         Room room2 = newRoom(site2, false);
         ClassSessionResponse session2 = classSessionService.createSession(class2.id(),
                 new CreateClassSessionRequest(LocalDate.now().plusDays(94), LocalTime.of(10, 0), LocalTime.of(11, 40),
-                        room2.getId(), teacher.getId(), "REGULAR"),
+                        room2.getId(), teacher.getId(), "REGULAR", null),
                 headAcademic.getId());
         Student student = enrollStudentIn(schoolClass.id());
         classService.enroll(class2.id(), new EnrollStudentRequest(student.getId(), LocalDate.now()), headAcademic.getId());
