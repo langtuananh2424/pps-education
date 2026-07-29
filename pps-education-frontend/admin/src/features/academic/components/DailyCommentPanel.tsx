@@ -13,6 +13,7 @@ import {
   listClassEnrollments,
   listClassSessions,
   listComments,
+  listTodaySessions,
   submitComments,
   updateComment,
   writeComment
@@ -109,6 +110,23 @@ export default function DailyCommentPanel() {
     listClassSessions(selectedClassId)
       .then(setSessions)
       .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách buổi học."));
+    // UC-48 (2026-07-29): tự chọn buổi hôm nay khi vào tab, đỡ GV phải tự tìm trong dropdown — chỉ tự
+    // chọn nếu buổi đã tới giờ bắt đầu (đúng nguyên tắc "đến giờ học mới nhận xét" ở dưới), buổi hôm
+    // nay chưa bắt đầu hoặc không có buổi nào thì báo rõ, để GV tự chọn buổi khác nếu cần.
+    listTodaySessions(selectedClassId)
+      .then((todaySessions) => {
+        const started = todaySessions.find((s) => new Date(`${s.sessionDate}T${s.startTime}`) <= new Date());
+        if (started) {
+          setSelectedSessionId(started.id);
+        } else if (todaySessions.length > 0) {
+          setNotification(`📅 Buổi học hôm nay (${todaySessions[0].startTime}–${todaySessions[0].endTime}) chưa bắt đầu — chưa thể nhận xét, có thể tự chọn buổi khác ở trên.`);
+          setTimeout(() => setNotification(null), 6000);
+        } else {
+          setNotification("📅 Hôm nay không có buổi học nào của lớp này — vui lòng tự chọn buổi ở trên.");
+          setTimeout(() => setNotification(null), 6000);
+        }
+      })
+      .catch(() => undefined);
     // BTVN ngữ pháp ONLINE chỉ chọn được từ đề ĐÃ giao lớp này (status=ACTIVE, API tự lọc sẵn);
     // BTVN Video Ôn tập chỉ chọn được bộ đã CÔNG BỐ (PUBLISHED) — khớp đúng điều kiện buildTemplate ở BE.
     listAssignmentsForClass(selectedClassId).then(setGrammarOptions).catch(() => undefined);
@@ -328,7 +346,7 @@ export default function DailyCommentPanel() {
               <option value="">-- Chọn buổi học --</option>
               {selectableSessions.map((s) => (
                 <option key={s.id} value={s.id}>
-                  {s.sessionDate} ({s.startTime}–{s.endTime})
+                  Buổi {s.sessionNumber} — {s.sessionDate} ({s.startTime}–{s.endTime})
                 </option>
               ))}
             </Select>

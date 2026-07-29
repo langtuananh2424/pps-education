@@ -274,6 +274,10 @@ export interface ClassSessionResponse {
   status: string;
   cancellationReason: string | null;
   rescheduledToSessionId: number | null;
+  // V60 (bổ sung ngoài SDD gốc, 2026-07-29): loại GV (VIETNAMESE/FOREIGN, null nếu chưa xác định) —
+  // chỉ ở cấp buổi học, không đụng hồ sơ nhân sự. sessionNumber tính động (1-based, đếm cả CANCELLED).
+  teacherType: "VIETNAMESE" | "FOREIGN" | null;
+  sessionNumber: number;
 }
 
 export interface CreateClassSessionRequest {
@@ -283,6 +287,7 @@ export interface CreateClassSessionRequest {
   roomId?: number;
   primaryTeacherId: number;
   sessionType: string;
+  teacherType?: "VIETNAMESE" | "FOREIGN";
 }
 
 export interface RescheduleClassSessionRequest {
@@ -310,6 +315,11 @@ export function rescheduleClassSession(classId: number, sessionId: number, reque
   return apiRequest<ClassSessionResponse>(`/classes/${classId}/sessions/${sessionId}/reschedule`, { method: "POST", body: JSON.stringify(request) });
 }
 
+/** UC-48 (bổ sung ngoài SDD gốc, 2026-07-29): buổi học hôm nay của lớp — dùng để tự chọn buổi khi vào tab Nhận xét học viên. Loại CANCELLED/RESCHEDULED, trả rỗng nếu hôm nay không có buổi. */
+export function listTodaySessions(classId: number): Promise<ClassSessionResponse[]> {
+  return apiRequest<ClassSessionResponse[]>(`/classes/${classId}/sessions/today`);
+}
+
 // ===================== Sinh lịch hàng loạt (UC-56) =====================
 
 /** daysOfWeek dùng đúng tên hằng số java.time.DayOfWeek: MONDAY..SUNDAY. */
@@ -322,6 +332,8 @@ export interface BulkCreateClassSessionRequest {
   roomId?: number;
   primaryTeacherId: number;
   sessionType: string;
+  /** Dùng chung cho cả lô buổi tạo trong lời gọi này — muốn khác nhau theo thứ thì gọi bulkCreateClassSessions nhiều lần. */
+  teacherType?: "VIETNAMESE" | "FOREIGN";
 }
 
 export interface BulkCreateClassSessionResponse {

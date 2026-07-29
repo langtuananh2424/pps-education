@@ -38,6 +38,7 @@ export default function BulkGenerateSessionsForm({ classId, siteId, onDone, onCa
   const [endTime, setEndTime] = useState("19:30");
   const [roomId, setRoomId] = useState("");
   const [sessionType, setSessionType] = useState("REGULAR");
+  const [teacherType, setTeacherType] = useState("");
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<UserListItemResponse[]>([]);
   const [teacher, setTeacher] = useState<UserListItemResponse | null>(null);
@@ -84,7 +85,8 @@ export default function BulkGenerateSessionsForm({ classId, siteId, onDone, onCa
         endTime,
         roomId: roomId ? Number(roomId) : undefined,
         primaryTeacherId: teacher.id,
-        sessionType
+        sessionType,
+        teacherType: teacherType ? (teacherType as "VIETNAMESE" | "FOREIGN") : undefined
       };
       const res = await bulkCreateClassSessions(classId, request);
       setResult(res);
@@ -161,6 +163,15 @@ export default function BulkGenerateSessionsForm({ classId, siteId, onDone, onCa
             <option value="MAKEUP">Học bù</option>
           </Select>
         </div>
+      </div>
+
+      <div>
+        <label className={labelClass}>Loại giáo viên (áp dụng chung cho cả lô buổi)</label>
+        <Select value={teacherType} onChange={(e) => setTeacherType(e.target.value)} className={inputClass}>
+          <option value="">-- Chưa xác định --</option>
+          <option value="VIETNAMESE">GV Việt Nam</option>
+          <option value="FOREIGN">GV nước ngoài</option>
+        </Select>
       </div>
 
       <div>

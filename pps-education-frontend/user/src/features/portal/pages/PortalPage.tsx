@@ -220,7 +220,9 @@ export default function PortalPage() {
                     label="Lớp đang học"
                     value={selectedClassId ?? 0}
                     onChange={(v) => setSelectedClassId(v)}
-                    options={classOptions.map((c) => ({ value: c.classId, label: c.className }))}
+                    // UC-13 (2026-07-29): học sinh/phụ huynh xem được cả lớp cũ (đã chuyển đi) — gắn nhãn
+                    // rõ để không nhầm là lớp đang học, dữ liệu hiển thị (điểm/nhận xét/điểm danh/BTVN) vẫn xem đủ.
+                    options={classOptions.map((c) => ({ value: c.classId, label: c.status === "ACTIVE" ? c.className : `${c.className} (Lớp cũ)` }))}
                   />
                 )}
 

@@ -659,6 +659,8 @@ export const sessionStatusVariants: Record<string, "success" | "warning" | "dang
   RESCHEDULED: "warning"
 };
 
+const teacherTypeLabels: Record<string, string> = { VIETNAMESE: "GV Việt Nam", FOREIGN: "GV nước ngoài" };
+
 const attendanceStatusLabels: Record<string, string> = { DRAFT: "Đã lưu nháp", SUBMITTED: "Đã nộp", LOCKED: "Đã khóa" };
 const attendanceStatusVariants: Record<string, "success" | "warning" | "danger" | "info" | "neutral" | "brand"> = {
   DRAFT: "warning",
@@ -759,6 +761,7 @@ function SessionsTab({
             <div key={s.id} className="border border-slate-200 rounded-lg p-3 text-xs space-y-1.5">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-slate-400 font-mono">Buổi {s.sessionNumber}</span>
                   <span className="font-bold text-slate-800">{s.sessionDate}</span>
                   <span className="text-slate-500">{s.startTime}–{s.endTime}</span>
                   <Badge variant={sessionStatusVariants[s.status] ?? "neutral"}>{s.status}</Badge>
@@ -791,7 +794,10 @@ function SessionsTab({
                   )}
                 </div>
               </div>
-              <p className="text-slate-400">GV: {s.primaryTeacherName} · Phòng: {s.roomName ?? "Chưa gán"} · {s.sessionType}</p>
+              <p className="text-slate-400">
+                GV: {s.primaryTeacherName}
+                {s.teacherType && ` (${teacherTypeLabels[s.teacherType]})`} · Phòng: {s.roomName ?? "Chưa gán"} · {s.sessionType}
+              </p>
               {s.status === "CANCELLED" && s.cancellationReason && <p className="text-rose-500">Lý do hủy: {s.cancellationReason}</p>}
             </div>
           ))}
@@ -843,7 +849,7 @@ function CreateSessionForm({ classId, siteId, onDone, onCancel }: { classId: num
   const [teacher, setTeacher] = useState<UserListItemResponse | null>(null);
   const [rooms, setRooms] = useState<RoomResponse[]>([]);
   const [roomId, setRoomId] = useState("");
-  const [form, setForm] = useState({ sessionDate: "", startTime: "", endTime: "", sessionType: "REGULAR" });
+  const [form, setForm] = useState({ sessionDate: "", startTime: "", endTime: "", sessionType: "REGULAR", teacherType: "" });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -875,7 +881,8 @@ function CreateSessionForm({ classId, siteId, onDone, onCancel }: { classId: num
         endTime: form.endTime,
         roomId: roomId ? Number(roomId) : undefined,
         primaryTeacherId: teacher.id,
-        sessionType: form.sessionType
+        sessionType: form.sessionType,
+        teacherType: form.teacherType ? (form.teacherType as "VIETNAMESE" | "FOREIGN") : undefined
       };
       await createClassSession(classId, request);
       onDone();
@@ -905,7 +912,7 @@ function CreateSessionForm({ classId, siteId, onDone, onCancel }: { classId: num
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-3 gap-2">
         <div>
           <label className={labelClass}>Loại buổi học</label>
           <Select value={form.sessionType} onChange={(e) => setForm({ ...form, sessionType: e.target.value })} className={inputClass}>
@@ -913,6 +920,14 @@ function CreateSessionForm({ classId, siteId, onDone, onCancel }: { classId: num
             <option value="REVIEW">Ôn tập</option>
             <option value="EXAM">Kiểm tra</option>
             <option value="MAKEUP">Học bù</option>
+          </Select>
+        </div>
+        <div>
+          <label className={labelClass}>Loại giáo viên</label>
+          <Select value={form.teacherType} onChange={(e) => setForm({ ...form, teacherType: e.target.value })} className={inputClass}>
+            <option value="">-- Chưa xác định --</option>
+            <option value="VIETNAMESE">GV Việt Nam</option>
+            <option value="FOREIGN">GV nước ngoài</option>
           </Select>
         </div>
         <div>
