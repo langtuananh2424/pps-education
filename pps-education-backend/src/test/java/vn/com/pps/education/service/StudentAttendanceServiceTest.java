@@ -145,7 +145,7 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
         teacher = newUser("teacher");
         assignRole(teacher, "TEACHER");
         session = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(LocalDate.now(), LocalTime.of(8, 0), LocalTime.of(9, 40), null, teacher.getId(), "REGULAR"),
+                new CreateClassSessionRequest(LocalDate.now(), LocalTime.of(8, 0), LocalTime.of(9, 40), null, teacher.getId(), "REGULAR", null),
                 headAcademic.getId());
 
         student1 = newStudent();
@@ -414,7 +414,7 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
                         LocalDate.now(), null, null, null), headAcademic.getId());
         classService.enroll(schoolClass.id(), new EnrollStudentRequest(student1.getId(), LocalDate.now()), headAcademic.getId());
         ClassSessionResponse newSession = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(LocalDate.now(), LocalTime.of(8, 0), LocalTime.of(9, 40), null, teacher.getId(), "REGULAR"),
+                new CreateClassSessionRequest(LocalDate.now(), LocalTime.of(8, 0), LocalTime.of(9, 40), null, teacher.getId(), "REGULAR", null),
                 headAcademic.getId());
         studentAttendanceService.markAttendance(newSession.id(),
                 new MarkAttendanceRequest("SESSION_LEVEL", List.of(

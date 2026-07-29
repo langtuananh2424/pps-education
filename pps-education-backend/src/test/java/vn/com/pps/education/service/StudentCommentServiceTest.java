@@ -188,7 +188,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         Room room = newRoom(site);
         classSession = classSessionService.createSession(schoolClass.id(),
                 new CreateClassSessionRequest(LocalDate.now(), LocalTime.of(8, 0), LocalTime.of(9, 40),
-                        room.getId(), teacher.getId(), "REGULAR"),
+                        room.getId(), teacher.getId(), "REGULAR", null),
                 headAcademic.getId());
         classService.enroll(schoolClass.id(), new EnrollStudentRequest(student.getId(), LocalDate.now()), headAcademic.getId());
 
@@ -262,7 +262,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         Room room = newRoom(siteOf(schoolClass));
         ClassSessionResponse oldSession = classSessionService.createSession(schoolClass.id(),
                 new CreateClassSessionRequest(LocalDate.now().minusDays(8), LocalTime.of(8, 0), LocalTime.of(9, 40),
-                        room.getId(), teacher.getId(), "REGULAR"),
+                        room.getId(), teacher.getId(), "REGULAR", null),
                 headAcademic.getId());
 
         assertThatThrownBy(() -> studentCommentService.writeComment(schoolClass.id(),
@@ -277,7 +277,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         Room room = newRoom(siteOf(schoolClass));
         ClassSessionResponse oldSession = classSessionService.createSession(schoolClass.id(),
                 new CreateClassSessionRequest(LocalDate.now().minusDays(8), LocalTime.of(8, 0), LocalTime.of(9, 40),
-                        room.getId(), teacher.getId(), "REGULAR"),
+                        room.getId(), teacher.getId(), "REGULAR", null),
                 headAcademic.getId());
 
         StudentCommentResponse comment = studentCommentService.writeComment(schoolClass.id(),
@@ -719,7 +719,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         Room room2 = newRoom(siteOf(schoolClass));
         return classSessionService.createSession(schoolClass.id(),
                 new CreateClassSessionRequest(classSession.sessionDate().plusDays(1), LocalTime.of(8, 0), LocalTime.of(9, 40),
-                        room2.getId(), teacher.getId(), "REGULAR"),
+                        room2.getId(), teacher.getId(), "REGULAR", null),
                 headAcademic.getId());
     }
 

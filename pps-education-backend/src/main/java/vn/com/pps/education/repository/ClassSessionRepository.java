@@ -74,4 +74,20 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, Long
     List<ClassSession> findBySchoolClassIdInAndDateRange(@Param("classIds") List<Long> classIds,
                                                           @Param("fromDate") LocalDate fromDate,
                                                           @Param("toDate") LocalDate toDate);
+
+    /**
+     * "Buổi N" hiển thị FE: đếm số buổi đứng TRƯỚC buổi này (theo
+     * sessionDate rồi id), kể cả CANCELLED — bổ sung ngoài SDD gốc, đã
+     * xác nhận với người dùng 2026-07-29.
+     */
+    @Query("""
+            SELECT COUNT(s) FROM ClassSession s
+            WHERE s.schoolClass.id = :classId
+            AND (s.sessionDate < :sessionDate OR (s.sessionDate = :sessionDate AND s.id < :sessionId))
+            """)
+    long countEarlierSessions(@Param("classId") Long classId, @Param("sessionDate") LocalDate sessionDate,
+                               @Param("sessionId") Long sessionId);
+
+    /** Buổi học hôm nay của 1 lớp (tab Nhận xét, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-29). */
+    List<ClassSession> findBySchoolClassIdAndSessionDate(Long classId, LocalDate sessionDate);
 }

@@ -24,6 +24,8 @@ public class ClassSession extends BaseAuditEntity {
 
     public enum Status { SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED, RESCHEDULED }
 
+    public enum TeacherType { VIETNAMESE, FOREIGN }
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -63,6 +65,17 @@ public class ClassSession extends BaseAuditEntity {
 
     @Column(name = "cancellation_reason", columnDefinition = "TEXT")
     private String cancellationReason;
+
+    /**
+     * Loại giáo viên (Việt Nam/nước ngoài) dạy buổi này, hiển thị cho Học
+     * sinh/Phụ huynh (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+     * 2026-07-29) — tùy chọn (nullable), buổi cũ để trống. Chỉ ở cấp buổi
+     * học, KHÔNG liên quan hồ sơ nhân sự (1 giáo viên có thể dạy cả 2 loại
+     * buổi tùy lịch).
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "teacher_type", length = 20)
+    private TeacherType teacherType;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "rescheduled_to_session_id")

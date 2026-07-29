@@ -116,6 +116,22 @@ public class ClassSessionService {
                 .map(this::toResponse).toList();
     }
 
+    /**
+     * Buổi học hôm nay của 1 lớp (tab Nhận xét học viên, bổ sung ngoài SDD
+     * gốc, đã xác nhận với người dùng 2026-07-29) — GV vào tab nhận xét,
+     * nếu hôm nay có lịch thì FE tự chọn buổi này, không thì báo "hôm nay
+     * không có buổi học" và để GV tự chọn buổi khác. Loại CANCELLED/
+     * RESCHEDULED vì không còn là buổi "đang diễn ra hôm nay" nữa.
+     */
+    @Transactional(readOnly = true)
+    public List<ClassSessionResponse> listTodaySessions(Long classId, Long actorUserId) {
+        List<Long> allowedSiteIds = resolveAllowedSiteIds(actorUserId);
+        return classSessionRepository.findBySchoolClassIdAndSessionDate(classId, LocalDate.now()).stream()
+                .filter(s -> isSiteAllowed(s.getSchoolClass().getSite().getId(), allowedSiteIds))
+                .filter(s -> s.getStatus() != ClassSession.Status.CANCELLED && s.getStatus() != ClassSession.Status.RESCHEDULED)
+                .map(this::toResponse).toList();
+    }
+
     @Transactional(readOnly = true)
     public List<SessionPeriodResponse> listPeriods(Long classSessionId, Long actorUserId) {
         List<Long> allowedSiteIds = resolveAllowedSiteIds(actorUserId);
@@ -158,7 +174,7 @@ public class ClassSessionService {
         Room room = request.roomId() == null ? null : getRoomOrThrow(request.roomId());
 
         ClassSession session = createSessionEntity(schoolClass, request.sessionDate(), request.startTime(), request.endTime(),
-                room, teacher, ClassSession.SessionType.valueOf(request.sessionType()), actor);
+                room, teacher, ClassSession.SessionType.valueOf(request.sessionType()), actor, parseTeacherType(request.teacherType()));
 
         return toResponse(session);
     }
@@ -188,6 +204,7 @@ public class ClassSessionService {
         User actor = getUserOrThrow(actorUserId);
         Room room = request.roomId() == null ? null : getRoomOrThrow(request.roomId());
         ClassSession.SessionType sessionType = ClassSession.SessionType.valueOf(request.sessionType());
+        ClassSession.TeacherType teacherType = parseTeacherType(request.teacherType());
 
         int totalDates = 0;
         List<ClassSessionResponse> created = new ArrayList<>();
@@ -199,7 +216,7 @@ public class ClassSessionService {
             totalDates++;
             try {
                 ClassSession session = createSessionEntity(schoolClass, date, request.startTime(), request.endTime(),
-                        room, teacher, sessionType, actor);
+                        room, teacher, sessionType, actor, teacherType);
                 created.add(toResponse(session));
             } catch (RoomConflictException ex) {
                 Map<String, Object> reason = new LinkedHashMap<>();
@@ -232,8 +249,9 @@ public class ClassSessionService {
         User actor = getUserOrThrow(actorUserId);
         Room room = roomId == null ? null : getRoomOrThrow(roomId);
 
+        // teacherType chưa có trong luồng Excel import (UC-57) — ngoài phạm vi yêu cầu bổ sung này.
         ClassSession session = createSessionEntity(schoolClass, sessionDate, startTime, endTime, room, teacher,
-                ClassSession.SessionType.valueOf(sessionType), actor);
+                ClassSession.SessionType.valueOf(sessionType), actor, null);
         return toResponse(session);
     }
 
@@ -270,7 +288,8 @@ public class ClassSessionService {
 
     /** Lõi dùng chung: đã resolve đủ entity, chỉ check trùng phòng + save + history + sinh session_periods. */
     private ClassSession createSessionEntity(SchoolClass schoolClass, LocalDate sessionDate, LocalTime startTime, LocalTime endTime,
-                                              Room room, User teacher, ClassSession.SessionType sessionType, User actor) {
+                                              Room room, User teacher, ClassSession.SessionType sessionType, User actor,
+                                              ClassSession.TeacherType teacherType) {
         if (room != null) {
             checkRoomConflict(room, sessionDate, startTime, endTime, null);
         }
@@ -283,12 +302,18 @@ public class ClassSessionService {
         session.setRoom(room);
         session.setPrimaryTeacher(teacher);
         session.setSessionType(sessionType);
+        session.setTeacherType(teacherType);
         session.setCreatedBy(actor);
         session = classSessionRepository.save(session);
 
         writeClassSessionHistory(session, actor, ClassSessionHistory.Action.CREATED);
         generateDefaultPeriods(session, actor);
         return session;
+    }
+
+    /** teacherType tùy chọn (nullable) — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-29. */
+    private ClassSession.TeacherType parseTeacherType(String teacherType) {
+        return teacherType == null ? null : ClassSession.TeacherType.valueOf(teacherType);
     }
 
     private SchoolClass getSchoolClassOrThrow(Long classId) {
@@ -336,6 +361,7 @@ public class ClassSessionService {
         newSession.setRoom(newRoom);
         newSession.setPrimaryTeacher(newTeacher);
         newSession.setSessionType(oldSession.getSessionType());
+        newSession.setTeacherType(oldSession.getTeacherType());
         newSession.setCreatedBy(actor);
         newSession = classSessionRepository.save(newSession);
         writeClassSessionHistory(newSession, actor, ClassSessionHistory.Action.CREATED);
@@ -437,13 +463,15 @@ public class ClassSessionService {
     }
 
     private ClassSessionResponse toResponse(ClassSession s) {
+        int sessionNumber = (int) classSessionRepository.countEarlierSessions(
+                s.getSchoolClass().getId(), s.getSessionDate(), s.getId()) + 1;
         return new ClassSessionResponse(
                 s.getId(), s.getSchoolClass().getId(), s.getSessionDate(), s.getStartTime(), s.getEndTime(),
                 s.getRoom() == null ? null : s.getRoom().getId(), s.getRoom() == null ? null : s.getRoom().getName(),
                 s.getPrimaryTeacher().getId(), s.getPrimaryTeacher().getFullName(),
                 s.getSessionType().name(), s.getStatus().name(),
                 s.getCancellationReason(), s.getRescheduledToSession() == null ? null : s.getRescheduledToSession().getId(),
-                s.getLessonContent());
+                s.getLessonContent(), s.getTeacherType() == null ? null : s.getTeacherType().name(), sessionNumber);
     }
 
     private SessionPeriodResponse toResponse(SessionPeriod p) {

@@ -56,6 +56,13 @@ public class ClassSessionController {
         return ResponseEntity.ok(classSessionService.bulkCreateSessions(classId, request, actor.userId()));
     }
 
+    /** Buổi học hôm nay của lớp (tab Nhận xét học viên, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-29). */
+    @GetMapping("/today")
+    public ResponseEntity<List<ClassSessionResponse>> listTodaySessions(@PathVariable Long classId,
+                                                                         @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(classSessionService.listTodaySessions(classId, actor.userId()));
+    }
+
     @GetMapping("/{classSessionId}/periods")
     public ResponseEntity<List<SessionPeriodResponse>> listPeriods(@PathVariable Long classId, @PathVariable Long classSessionId,
                                                                     @AuthenticationPrincipal AuthenticatedUser actor) {

@@ -23,5 +23,7 @@ public record BulkCreateClassSessionRequest(
         @NotNull LocalTime endTime,
         Long roomId,
         @NotNull Long primaryTeacherId,
-        @NotBlank String sessionType
+        @NotBlank String sessionType,
+        /** Loại giáo viên (VIETNAMESE/FOREIGN) — tùy chọn, dùng chung cho cả lô buổi tạo trong lời gọi này. */
+        String teacherType
 ) {}
