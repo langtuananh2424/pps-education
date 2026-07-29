@@ -81,12 +81,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * UC-21: Viết nhận xét học sinh + UC-22: Duyệt nhận xét. Xem
  * docs/uc/phan-he-06-hoc-thuat.md.
  *
- * Nhận xét Hàng ngày kiểu mới (comment_type=DAILY — bổ sung ngoài SDD gốc,
- * đã xác nhận với người dùng 2026-07-24): ghi xong tự động chuyển
- * PENDING (Giáo viên thường, chờ Quản lý điểm trường — UC-22 không đổi)
- * hoặc APPROVED ngay (actor có academic.comment.approve), không còn bước
- * DRAFT→submit riêng. Giữa/Cuối kỳ (MID_TERM/END_TERM) giữ nguyên 100%
- * luồng DRAFT→submit→PENDING cũ.
+ * Nhận xét Hàng ngày (comment_type=DAILY — bổ sung ngoài SDD gốc, đã xác
+ * nhận với người dùng 2026-07-29, thay quyết định 2026-07-24): dùng chung
+ * 100% luồng DRAFT→submit→PENDING→duyệt với Giữa/Cuối kỳ (MID_TERM/
+ * END_TERM) — không còn tự động route trạng thái khi ghi/sửa/import Excel.
  */
 @Transactional
 class StudentCommentServiceTest extends AbstractIntegrationTest {
@@ -194,24 +192,23 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void writeComment_UC21_MainFlow_dailyCommentAutoRoutesToPendingForTeacherAndNotifiesSiteManager() {
+    void writeComment_UC21_MainFlow_dailyCommentSavesAsDraft() {
         StudentCommentResponse comment = writeDailyComment(teacher, "Chăm chỉ, tích cực phát biểu.");
 
-        assertThat(comment.status()).isEqualTo("PENDING");
+        assertThat(comment.status()).isEqualTo("DRAFT");
         assertThat(comment.commentType()).isEqualTo("DAILY");
         assertThat(comment.classSessionId()).isEqualTo(classSession.id());
         assertThat(comment.severity()).isEqualTo("NORMAL");
         assertThat(studentCommentService.listPendingForSite(siteManagerUser.getId()))
-                .extracting(StudentCommentResponse::id).contains(comment.id());
+                .extracting(StudentCommentResponse::id).doesNotContain(comment.id());
     }
 
     @Test
-    void writeComment_UC21_dailyCommentAutoApprovedForActorWithApprovePermission() {
+    void writeComment_UC21_dailyCommentSavesAsDraftEvenForActorWithApprovePermission() {
         StudentCommentResponse comment = writeDailyComment(siteManagerUser, "Nội dung do quản lý nhập.");
 
-        assertThat(comment.status()).isEqualTo("APPROVED");
-        assertThat(comment.visibleToParentAt()).isNotNull();
-        assertThat(studentCommentService.listPendingForSite(siteManagerUser.getId())).isEmpty();
+        assertThat(comment.status()).isEqualTo("DRAFT");
+        assertThat(comment.visibleToParentAt()).isNull();
     }
 
     @Test
@@ -283,25 +280,36 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
                         oldSession.sessionDate(), "Nội dung do quản lý nhập ngoài hạn.", null, null, false, null, null, null, null, null, null, null),
                 siteManagerUser.getId());
 
-        assertThat(comment.status()).isEqualTo("APPROVED");
+        assertThat(comment.status()).isEqualTo("DRAFT");
     }
 
     @Test
-    void updateComment_UC21_dailyCommentEditableEvenWhenPendingWithinWindow() {
+    void updateComment_UC21_MainFlow_editableWhileDraft() {
         StudentCommentResponse comment = writeDailyComment(teacher, "Nội dung ban đầu.");
-        assertThat(comment.status()).isEqualTo("PENDING");
+        assertThat(comment.status()).isEqualTo("DRAFT");
 
         StudentCommentResponse edited = studentCommentService.updateComment(comment.id(),
                 new UpdateStudentCommentRequest("Nội dung đã sửa.", null, null, false, "GOOD", "80%", "60%", "Unit 4", null, null, "Ghi chú"),
                 teacher.getId());
 
-        assertThat(edited.status()).isEqualTo("PENDING");
+        assertThat(edited.status()).isEqualTo("DRAFT");
         assertThat(edited.content()).isEqualTo("Nội dung đã sửa.");
         assertThat(edited.attitude()).isEqualTo("GOOD");
         assertThat(edited.homeworkPreviousScore()).isEqualTo("80%");
         assertThat(edited.homeworkPreviousSpeakingScore()).isEqualTo("60%");
         assertThat(edited.homeworkNext()).isEqualTo("Unit 4");
         assertThat(edited.note()).isEqualTo("Ghi chú");
+    }
+
+    @Test
+    void updateComment_UC21_rejectsWhenDailyCommentPending() {
+        StudentCommentResponse comment = writeDailyComment(teacher, "Nội dung ban đầu.");
+        studentCommentService.submitComments(schoolClass.id(), new SubmitCommentsRequest(List.of(comment.id())), teacher.getId());
+
+        assertThatThrownBy(() -> studentCommentService.updateComment(comment.id(),
+                new UpdateStudentCommentRequest("Sửa khi đang chờ duyệt.", null, null, false, null, null, null, null, null, null, null),
+                teacher.getId()))
+                .isInstanceOf(StudentCommentNotEditableException.class);
     }
 
     @Test
@@ -339,9 +347,26 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
                 .isInstanceOf(StudentCommentNotEditableException.class);
     }
 
+    /**
+     * Hệ quả của quyết định 2026-07-29 (bỏ hẳn bypass duyệt-thẳng khi ghi):
+     * Quản lý điểm trường không kiêm GV lớp đó tự viết 1 nhận xét DAILY
+     * (DRAFT) thì KHÔNG tự Gửi được — submitComments() luôn yêu cầu actor
+     * là GV được phân công lớp (requireAssignedTeacher, dùng chung với
+     * MID_TERM/END_TERM, không mở rào riêng cho DAILY).
+     */
+    @Test
+    void submitComments_UC21_rejectsWhenActorNotAssignedTeacherForDaily() {
+        StudentCommentResponse comment = writeDailyComment(siteManagerUser, "Nội dung do quản lý tự viết.");
+
+        assertThatThrownBy(() -> studentCommentService.submitComments(schoolClass.id(),
+                new SubmitCommentsRequest(List.of(comment.id())), siteManagerUser.getId()))
+                .isInstanceOf(NotAssignedTeacherForClassException.class);
+    }
+
     @Test
     void decideComments_UC22_MainFlow_approvedMakesVisibleToParent() {
         StudentCommentResponse comment = writeDailyComment(teacher, "Nội dung nhận xét.");
+        studentCommentService.submitComments(schoolClass.id(), new SubmitCommentsRequest(List.of(comment.id())), teacher.getId());
 
         List<StudentCommentResponse> decided = studentCommentService.decideComments(
                 new DecideCommentsRequest(List.of(comment.id()), "APPROVED", "Đạt"), siteManagerUser.getId());
@@ -358,6 +383,8 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
                 new CreateStudentCommentRequest(student2.getId(), "DAILY", classSession.id(), null,
                         LocalDate.now(), "Nhận xét HS2.", null, null, false, null, null, null, null, null, null, null),
                 teacher.getId());
+        studentCommentService.submitComments(schoolClass.id(),
+                new SubmitCommentsRequest(List.of(comment1.id(), comment2.id())), teacher.getId());
 
         List<StudentCommentResponse> decided = studentCommentService.decideComments(
                 new DecideCommentsRequest(List.of(comment1.id(), comment2.id()), "APPROVED", null), siteManagerUser.getId());
@@ -370,17 +397,18 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
     @Test
     void decideComments_UC22_MainFlow_rejectedReturnsToTeacherWithReasonAndUC21_A1_editableAgain() {
         StudentCommentResponse comment = writeDailyComment(teacher, "Nội dung ban đầu.");
+        studentCommentService.submitComments(schoolClass.id(), new SubmitCommentsRequest(List.of(comment.id())), teacher.getId());
 
         List<StudentCommentResponse> decided = studentCommentService.decideComments(
                 new DecideCommentsRequest(List.of(comment.id()), "REJECTED", "Nội dung chưa rõ ràng"), siteManagerUser.getId());
         assertThat(decided.get(0).status()).isEqualTo("REJECTED");
         assertThat(decided.get(0).visibleToParentAt()).isNull();
 
-        // DAILY: sửa lại sau khi bị từ chối -- tự động quay lại PENDING ngay (không còn bước submit riêng).
+        // DAILY: sửa lại sau khi bị từ chối -- quay lại DRAFT (dùng chung logic MID_TERM/END_TERM), phải Gửi lại mới sang PENDING.
         StudentCommentResponse edited = studentCommentService.updateComment(comment.id(),
                 new UpdateStudentCommentRequest("Nội dung đã sửa lại.", null, null, false, null, null, null, null, null, null, null),
                 teacher.getId());
-        assertThat(edited.status()).isEqualTo("PENDING");
+        assertThat(edited.status()).isEqualTo("DRAFT");
     }
 
     @Test
@@ -408,6 +436,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
     @Test
     void decideComments_rejectsWhenAlreadyDecided() {
         StudentCommentResponse comment = writeDailyComment(teacher, "Nội dung.");
+        studentCommentService.submitComments(schoolClass.id(), new SubmitCommentsRequest(List.of(comment.id())), teacher.getId());
         studentCommentService.decideComments(new DecideCommentsRequest(List.of(comment.id()), "APPROVED", null), siteManagerUser.getId());
 
         assertThatThrownBy(() -> studentCommentService.decideComments(
@@ -455,7 +484,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void importComments_UC21_MainFlow_teacherImportRoutesToPending() throws IOException {
+    void importComments_UC21_MainFlow_teacherImportSavesAsDraft() throws IOException {
         studentAttendanceService.markAttendance(classSession.id(),
                 new MarkAttendanceRequest("SESSION_LEVEL", List.of(
                         new EnterAttendanceMarkRequest(student.getId(), "PRESENT", null, null, null))),
@@ -471,13 +500,13 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         assertThat(result.successRows()).isEqualTo(1);
         List<StudentCommentResponse> comments = studentCommentService.listComments(schoolClass.id(), student.getId());
         assertThat(comments).hasSize(1);
-        assertThat(comments.get(0).status()).isEqualTo("PENDING");
+        assertThat(comments.get(0).status()).isEqualTo("DRAFT");
         assertThat(comments.get(0).attitude()).isEqualTo("GOOD");
         assertThat(comments.get(0).homeworkPreviousScore()).isEqualTo("80%");
     }
 
     @Test
-    void importComments_UC21_approverImportAutoApproves() throws IOException {
+    void importComments_UC21_approverImportAlsoSavesAsDraft() throws IOException {
         studentAttendanceService.markAttendance(classSession.id(),
                 new MarkAttendanceRequest("SESSION_LEVEL", List.of(
                         new EnterAttendanceMarkRequest(student.getId(), "PRESENT", null, null, null))),
@@ -490,8 +519,8 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
                 new MockMultipartFile("file", "nhanxet.xlsx", "application/vnd.openxmlformats", file), siteManagerUser.getId());
 
         List<StudentCommentResponse> comments = studentCommentService.listComments(schoolClass.id(), student.getId());
-        assertThat(comments.get(0).status()).isEqualTo("APPROVED");
-        assertThat(comments.get(0).visibleToParentAt()).isNotNull();
+        assertThat(comments.get(0).status()).isEqualTo("DRAFT");
+        assertThat(comments.get(0).visibleToParentAt()).isNull();
     }
 
     @Test
@@ -580,8 +609,52 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         assertThat(result.successRows()).isEqualTo(1);
         assertThat(result.failedRows()).isEqualTo(1);
         assertThat(result.errorSummary().get(0).get("reason").toString()).contains("Không sửa được điểm danh");
-        // student2 (không đổi điểm danh) vẫn được duyệt luôn vì actor là approver.
-        assertThat(studentCommentService.listComments(schoolClass.id(), student2.getId()).get(0).status()).isEqualTo("APPROVED");
+        // student2 (không đổi điểm danh) vẫn được lưu Nháp bình thường (import không còn tự động duyệt).
+        assertThat(studentCommentService.listComments(schoolClass.id(), student2.getId()).get(0).status()).isEqualTo("DRAFT");
+    }
+
+    /** Excel import khôi phục DRAFT + submitComments() dùng lại nguyên -- 2 mảnh ghép phải ăn khớp thành luồng hoàn chỉnh. */
+    @Test
+    void importComments_UC21_MainFlow_thenSubmitTransitionsToPending() throws IOException {
+        studentAttendanceService.markAttendance(classSession.id(),
+                new MarkAttendanceRequest("SESSION_LEVEL", List.of(
+                        new EnterAttendanceMarkRequest(student.getId(), "PRESENT", null, null, null))),
+                teacher.getId());
+        byte[] file = buildCommentWorkbook(new String[][]{
+                {classSession.sessionDate().toString(), student.getStudentCode(), "", "Có mặt", "", "", "", "Rất tốt.", "", "", ""}
+        });
+        studentCommentService.importComments(classSession.id(),
+                new MockMultipartFile("file", "nhanxet.xlsx", "application/vnd.openxmlformats", file), teacher.getId());
+        StudentCommentResponse imported = studentCommentService.listComments(schoolClass.id(), student.getId()).get(0);
+        assertThat(imported.status()).isEqualTo("DRAFT");
+
+        List<StudentCommentResponse> submitted = studentCommentService.submitComments(schoolClass.id(),
+                new SubmitCommentsRequest(List.of(imported.id())), teacher.getId());
+
+        assertThat(submitted.get(0).status()).isEqualTo("PENDING");
+    }
+
+    /** Excel không được âm thầm ghi đè 1 dòng đã PENDING/APPROVED -- chỉ sửa được khi DRAFT/REJECTED (giống hệt updateComment). */
+    @Test
+    void importComments_rejectsReimportWhenExistingCommentPending() throws IOException {
+        studentAttendanceService.markAttendance(classSession.id(),
+                new MarkAttendanceRequest("SESSION_LEVEL", List.of(
+                        new EnterAttendanceMarkRequest(student.getId(), "PRESENT", null, null, null))),
+                teacher.getId());
+        byte[] file = buildCommentWorkbook(new String[][]{
+                {classSession.sessionDate().toString(), student.getStudentCode(), "", "Có mặt", "", "", "", "Rất tốt.", "", "", ""}
+        });
+        studentCommentService.importComments(classSession.id(),
+                new MockMultipartFile("file", "nhanxet.xlsx", "application/vnd.openxmlformats", file), teacher.getId());
+        StudentCommentResponse imported = studentCommentService.listComments(schoolClass.id(), student.getId()).get(0);
+        studentCommentService.submitComments(schoolClass.id(), new SubmitCommentsRequest(List.of(imported.id())), teacher.getId());
+
+        DailyCommentImportResponse result = studentCommentService.importComments(classSession.id(),
+                new MockMultipartFile("file", "nhanxet.xlsx", "application/vnd.openxmlformats", file), teacher.getId());
+
+        assertThat(result.status()).isEqualTo("PARTIAL_SUCCESS");
+        assertThat(result.failedRows()).isEqualTo(1);
+        assertThat(result.errorSummary().get(0).get("reason").toString()).contains("chỉ sửa được khi DRAFT hoặc REJECTED");
     }
 
     // ===================== V55: BTVN online/offline theo học sinh =====================

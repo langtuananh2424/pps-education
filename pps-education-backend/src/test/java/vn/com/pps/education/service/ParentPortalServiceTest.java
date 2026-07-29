@@ -34,6 +34,7 @@ import vn.com.pps.education.dto.GradePeriodResultResponse;
 import vn.com.pps.education.dto.MarkAttendanceRequest;
 import vn.com.pps.education.dto.PublishGradesRequest;
 import vn.com.pps.education.dto.StudentCommentResponse;
+import vn.com.pps.education.dto.SubmitCommentsRequest;
 import vn.com.pps.education.dto.UpdateCurriculumRequest;
 import vn.com.pps.education.exception.NotAuthorizedForPortalAccessException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
@@ -222,13 +223,14 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
 
     @Test
     void listComments_UC25_A1_onlyApprovedCommentsVisible() {
-        // DAILY: ghi xong tự động chuyển PENDING ngay (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-24) -- không còn bước submit riêng.
+        // DAILY dùng chung luồng DRAFT->Gửi->PENDING->duyệt với MID_TERM/END_TERM (2026-07-29).
         StudentCommentResponse approved = studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), "DAILY", session.id(), null,
                         LocalDate.now(), "Chăm chỉ.", null, null, false, null, null, null, null, null, null, null), teacher.getId());
+        studentCommentService.submitComments(schoolClass.id(), new SubmitCommentsRequest(List.of(approved.id())), teacher.getId());
         studentCommentService.decideComments(new DecideCommentsRequest(List.of(approved.id()), "APPROVED", null), siteManagerUser.getId());
 
-        // A1 -- nhận xét khác vẫn PENDING (chưa duyệt).
+        // A1 -- nhận xét khác vẫn DRAFT (chưa gửi/chưa duyệt).
         studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), "DAILY", session.id(), null,
                         LocalDate.now(), "Nội dung chưa duyệt.", null, null, false, null, null, null, null, null, null, null), teacher.getId());
