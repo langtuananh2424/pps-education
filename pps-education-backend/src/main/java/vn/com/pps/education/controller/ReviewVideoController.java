@@ -77,6 +77,19 @@ public class ReviewVideoController {
         return ResponseEntity.ok(reviewVideoService.listVideos(setId, actor.userId()));
     }
 
+    @PostMapping("/api/review-videos/{videoId}/questions")
+    public ResponseEntity<ReviewVideoQuestionResponse> addQuestion(@PathVariable Long videoId,
+                                                                      @Valid @RequestBody AddReviewVideoQuestionRequest request,
+                                                                      @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(reviewVideoService.addQuestion(videoId, request, actor.userId()));
+    }
+
+    @GetMapping("/api/review-videos/{videoId}/questions")
+    public ResponseEntity<List<ReviewVideoQuestionResponse>> listQuestions(@PathVariable Long videoId,
+                                                                             @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(reviewVideoService.listQuestions(videoId, actor.userId()));
+    }
+
     @PostMapping("/api/review-videos/{videoId}/watch-sessions")
     public ResponseEntity<StartWatchSessionResponse> startWatchSession(@PathVariable Long videoId,
                                                                           @AuthenticationPrincipal AuthenticatedUser actor) {

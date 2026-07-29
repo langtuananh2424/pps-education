@@ -296,10 +296,10 @@ trên review_video_progress: watched_seconds = max mọi session,
 view_count = đếm session is_qualified=true, is_completed = view_count >=
 required_view_count.
 
-d)  Bảng review_video_submissions --- Audio Học sinh nộp cho Video Phản
-xạ + Giáo viên chấm điểm (MỚI HOÀN TOÀN, UC-23b, 2026-07-27, bổ sung
-ngoài SDD gốc đã xác nhận với người dùng — thiếu sót thật sự trong thiết
-kế gốc của UC-23/23a)
+d)  Bảng review_video_questions --- Câu hỏi theo mốc thời gian trong 1
+video Phản xạ (MỚI HOÀN TOÀN, V57, 2026-07-28, bổ sung ngoài SDD gốc đã
+xác nhận với người dùng — THAY THẾ thiết kế "1 video = 1 audio duy nhất"
+ban đầu của UC-23b, 2026-07-27)
 
   ------------------------------------------------------------------------
   **Cột**                 **Kiểu**       **Ràng buộc**    **Ghi chú**

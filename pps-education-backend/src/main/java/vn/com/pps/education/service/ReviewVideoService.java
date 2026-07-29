@@ -11,7 +11,6 @@ import vn.com.pps.education.domain.ReviewVideoQuestion;
 import vn.com.pps.education.domain.ReviewVideoQuestionSubmission;
 import vn.com.pps.education.domain.ReviewVideoSet;
 import vn.com.pps.education.domain.ReviewVideoSetHistory;
-import vn.com.pps.education.domain.ReviewVideoSubmission;
 import vn.com.pps.education.domain.ReviewVideoWatchSession;
 import vn.com.pps.education.domain.SchoolClass;
 import vn.com.pps.education.domain.Student;
@@ -44,7 +43,6 @@ import vn.com.pps.education.repository.ReviewVideoQuestionSubmissionRepository;
 import vn.com.pps.education.repository.ReviewVideoRepository;
 import vn.com.pps.education.repository.ReviewVideoSetHistoryRepository;
 import vn.com.pps.education.repository.ReviewVideoSetRepository;
-import vn.com.pps.education.repository.ReviewVideoSubmissionRepository;
 import vn.com.pps.education.repository.ReviewVideoWatchSessionRepository;
 import vn.com.pps.education.repository.SchoolClassRepository;
 import vn.com.pps.education.repository.StudentRepository;
@@ -80,7 +78,8 @@ public class ReviewVideoService {
     private final ReviewVideoRepository reviewVideoRepository;
     private final ReviewVideoSetHistoryRepository reviewVideoSetHistoryRepository;
     private final ReviewVideoProgressRepository reviewVideoProgressRepository;
-    private final ReviewVideoSubmissionRepository reviewVideoSubmissionRepository;
+    private final ReviewVideoQuestionRepository reviewVideoQuestionRepository;
+    private final ReviewVideoQuestionSubmissionRepository reviewVideoQuestionSubmissionRepository;
     private final ReviewVideoWatchSessionRepository reviewVideoWatchSessionRepository;
     private final CurriculumRepository curriculumRepository;
     private final SchoolClassRepository schoolClassRepository;
@@ -94,7 +93,8 @@ public class ReviewVideoService {
                                ReviewVideoRepository reviewVideoRepository,
                                ReviewVideoSetHistoryRepository reviewVideoSetHistoryRepository,
                                ReviewVideoProgressRepository reviewVideoProgressRepository,
-                               ReviewVideoSubmissionRepository reviewVideoSubmissionRepository,
+                               ReviewVideoQuestionRepository reviewVideoQuestionRepository,
+                               ReviewVideoQuestionSubmissionRepository reviewVideoQuestionSubmissionRepository,
                                ReviewVideoWatchSessionRepository reviewVideoWatchSessionRepository,
                                CurriculumRepository curriculumRepository,
                                SchoolClassRepository schoolClassRepository,
@@ -107,7 +107,8 @@ public class ReviewVideoService {
         this.reviewVideoRepository = reviewVideoRepository;
         this.reviewVideoSetHistoryRepository = reviewVideoSetHistoryRepository;
         this.reviewVideoProgressRepository = reviewVideoProgressRepository;
-        this.reviewVideoSubmissionRepository = reviewVideoSubmissionRepository;
+        this.reviewVideoQuestionRepository = reviewVideoQuestionRepository;
+        this.reviewVideoQuestionSubmissionRepository = reviewVideoQuestionSubmissionRepository;
         this.reviewVideoWatchSessionRepository = reviewVideoWatchSessionRepository;
         this.curriculumRepository = curriculumRepository;
         this.schoolClassRepository = schoolClassRepository;
@@ -230,6 +231,41 @@ public class ReviewVideoService {
             requireStudentCanViewSet(set, actorUserId);
         }
         return reviewVideoRepository.findByReviewVideoSetIdOrderByDisplayOrder(setId).stream().map(this::toResponse).toList();
+    }
+
+    /**
+     * UC-23b (V57): giáo viên thêm 1 câu hỏi gắn mốc thời gian vào video
+     * REFLEX khi soạn — thời lượng ghi âm/số lần nộp lại tối đa đặt riêng
+     * theo TỪNG câu hỏi (đã xác nhận với người dùng, không dùng chung 1
+     * giá trị cho cả video). Chỉ áp dụng videoType=REFLEX (cùng rào A1
+     * với submitQuestionAudio).
+     */
+    @Transactional
+    public ReviewVideoQuestionResponse addQuestion(Long videoId, AddReviewVideoQuestionRequest request, Long actorUserId) {
+        ReviewVideo video = getVideoOrThrow(videoId);
+        requireOwnerScope(video.getReviewVideoSet(), actorUserId);
+        if (video.getReviewVideoSet().getVideoType() != ReviewVideoSet.VideoType.REFLEX) {
+            throw new IllegalArgumentException("Video id=" + videoId + " không phải loại Video phản xạ (REFLEX) — không nhận câu hỏi.");
+        }
+
+        ReviewVideoQuestion question = new ReviewVideoQuestion();
+        question.setReviewVideo(video);
+        question.setTimestampSeconds(request.timestampSeconds());
+        question.setPrompt(request.prompt());
+        question.setMaxRecordingSeconds(request.maxRecordingSeconds());
+        question.setMaxAttempts(request.maxAttempts());
+        question.setDisplayOrder(request.displayOrder() == null ? 0 : request.displayOrder());
+        question = reviewVideoQuestionRepository.save(question);
+        return toResponse(question);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReviewVideoQuestionResponse> listQuestions(Long videoId, Long actorUserId) {
+        ReviewVideo video = getVideoOrThrow(videoId);
+        if (isStudent(actorUserId)) {
+            requireStudentCanViewSet(video.getReviewVideoSet(), actorUserId);
+        }
+        return reviewVideoQuestionRepository.findByReviewVideoIdOrderByDisplayOrder(videoId).stream().map(this::toResponse).toList();
     }
 
     /**

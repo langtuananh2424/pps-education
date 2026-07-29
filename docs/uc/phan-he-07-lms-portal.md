@@ -181,13 +181,14 @@ UC-23b: Nộp & Chấm điểm Audio cho Video Phản xạ
 +-----------------+----------------------------------------------------+
 | **Mô tả tóm     | Bổ sung ngoài SDD gốc, đã xác nhận với người dùng  |
 | tắt**           | (2026-07-27, cập nhật 2026-07-28 — V57, THAY THẾ   |
-|                 | thiết kế UC-23b gốc) — video loại "Video phản xạ"  |
-|                 | (REFLEX) chia thành NHIỀU câu hỏi, mỗi câu gắn 1    |
-|                 | mốc thời gian trong video (timestamp), thời lượng  |
-|                 | ghi âm tối đa và số lần nộp lại tối đa RIÊNG theo   |
-|                 | từng câu hỏi. Học sinh nộp audio cho TỪNG câu hỏi,  |
-|                 | nộp lại GIỮ LỊCH SỬ (không ghi đè); Giáo viên chấm  |
-|                 | điểm + nhận xét cho attempt mới nhất mỗi câu.       |
+|                 | thiết kế "1 video = 1 audio duy nhất" ban đầu) —    |
+|                 | video loại "Video phản xạ" (REFLEX) chia thành     |
+|                 | NHIỀU câu hỏi, mỗi câu gắn 1 mốc thời gian trong    |
+|                 | video (timestamp), thời lượng ghi âm tối đa và số  |
+|                 | lần nộp lại tối đa RIÊNG theo từng câu hỏi. Học     |
+|                 | sinh nộp audio cho TỪNG câu hỏi, nộp lại GIỮ LỊCH   |
+|                 | SỬ (không ghi đè); Giáo viên chấm điểm + nhận xét   |
+|                 | cho attempt mới nhất mỗi câu.                       |
 +-----------------+----------------------------------------------------+
 | **Sự kiện kích  | Giáo viên soạn câu hỏi khi tạo video Phản xạ; Học   |
 | hoạt**          | sinh bấm vào 1 câu hỏi, ghi âm câu trả lời; Giáo    |
