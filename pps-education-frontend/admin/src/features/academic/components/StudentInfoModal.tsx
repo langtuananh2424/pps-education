@@ -16,6 +16,7 @@ import {
 } from "../api";
 import Modal from "@/components/ui/Modal";
 import Badge from "@/components/ui/Badge";
+import Select from "@/components/ui/Select";
 
 const inputClass = "bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
@@ -136,7 +137,7 @@ export default function StudentInfoModal({ enrollment, classId, curriculumId, on
           <div className="flex items-center justify-between mb-2">
             <span className="text-[10px] font-bold uppercase text-slate-500">Điểm số</span>
             {gradePeriods.length > 0 && (
-              <select
+              <Select
                 value={selectedPeriodId ?? ""}
                 onChange={(e) => setSelectedPeriodId(e.target.value ? Number(e.target.value) : null)}
                 className={inputClass}
@@ -146,7 +147,7 @@ export default function StudentInfoModal({ enrollment, classId, curriculumId, on
                     {p.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             )}
           </div>
           {gradePeriods.length === 0 ? (

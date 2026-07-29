@@ -7,6 +7,7 @@ import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
+import Select from "@/components/ui/Select";
 
 type GrammarMode = "OFFLINE" | "ONLINE";
 
@@ -42,6 +43,7 @@ export default function CommentHistoryList({ classId, history, onChanged, showSt
   const [editIsWarning, setEditIsWarning] = useState(false);
   const [editAttitude, setEditAttitude] = useState<"" | NonNullable<StudentCommentResponse["attitude"]>>("");
   const [editHomeworkPreviousScore, setEditHomeworkPreviousScore] = useState("");
+  const [editHomeworkPreviousSpeakingScore, setEditHomeworkPreviousSpeakingScore] = useState("");
   const [editGrammarMode, setEditGrammarMode] = useState<GrammarMode>("OFFLINE");
   const [editHomeworkNext, setEditHomeworkNext] = useState("");
   const [editHomeworkNextExerciseAssignmentId, setEditHomeworkNextExerciseAssignmentId] = useState<number | "">("");
@@ -68,6 +70,7 @@ export default function CommentHistoryList({ classId, history, onChanged, showSt
     setEditIsWarning(h.isWarning);
     setEditAttitude(h.attitude ?? "");
     setEditHomeworkPreviousScore(h.homeworkPreviousScore ?? "");
+    setEditHomeworkPreviousSpeakingScore(h.homeworkPreviousSpeakingScore ?? "");
     setEditGrammarMode(h.homeworkNextExerciseAssignmentId != null ? "ONLINE" : "OFFLINE");
     setEditHomeworkNext(h.homeworkNext ?? "");
     setEditHomeworkNextExerciseAssignmentId(h.homeworkNextExerciseAssignmentId ?? "");
@@ -104,6 +107,7 @@ export default function CommentHistoryList({ classId, history, onChanged, showSt
         isWarning: editIsWarning,
         attitude: editAttitude || undefined,
         homeworkPreviousScore: editHomeworkPreviousScore.trim() || undefined,
+        homeworkPreviousSpeakingScore: editHomeworkPreviousSpeakingScore.trim() || undefined,
         homeworkNext: editGrammarMode === "OFFLINE" ? editHomeworkNext.trim() || undefined : undefined,
         homeworkNextExerciseAssignmentId: editGrammarMode === "ONLINE" && editHomeworkNextExerciseAssignmentId !== "" ? editHomeworkNextExerciseAssignmentId : undefined,
         homeworkNextReviewVideoSetId: editHomeworkNextReviewVideoSetId !== "" ? editHomeworkNextReviewVideoSetId : undefined,
@@ -138,16 +142,27 @@ export default function CommentHistoryList({ classId, history, onChanged, showSt
           {editingId === h.id ? (
             <div className="space-y-2 pt-1">
               {h.commentType === "DAILY" && (
-                <div className="grid grid-cols-2 gap-2">
-                  <select value={editAttitude} onChange={(e) => setEditAttitude(e.target.value as typeof editAttitude)} className={inputClass}>
+                <div className="grid grid-cols-3 gap-2">
+                  <Select value={editAttitude} onChange={(e) => setEditAttitude(e.target.value as typeof editAttitude)} className={inputClass}>
                     <option value="">-- Thái độ học tập --</option>
                     {Object.entries(attitudeLabels).map(([value, label]) => (
                       <option key={value} value={value}>
                         {label}
                       </option>
                     ))}
-                  </select>
-                  <input value={editHomeworkPreviousScore} onChange={(e) => setEditHomeworkPreviousScore(e.target.value)} placeholder="BTVN buổi trước" className={inputClass} />
+                  </Select>
+                  <input
+                    value={editHomeworkPreviousScore}
+                    onChange={(e) => setEditHomeworkPreviousScore(e.target.value)}
+                    placeholder="BTVN Ngữ pháp buổi trước"
+                    className={inputClass}
+                  />
+                  <input
+                    value={editHomeworkPreviousSpeakingScore}
+                    onChange={(e) => setEditHomeworkPreviousSpeakingScore(e.target.value)}
+                    placeholder="BTVN Nghe-nói buổi trước"
+                    className={inputClass}
+                  />
                 </div>
               )}
               <textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} rows={3} className={inputClass} />
@@ -183,7 +198,7 @@ export default function CommentHistoryList({ classId, history, onChanged, showSt
                     {editGrammarMode === "OFFLINE" ? (
                       <input value={editHomeworkNext} onChange={(e) => setEditHomeworkNext(e.target.value)} placeholder="VD: Unit 2 trang 10" className={inputClass} />
                     ) : (
-                      <select
+                      <Select
                         value={editHomeworkNextExerciseAssignmentId}
                         onChange={(e) => setEditHomeworkNextExerciseAssignmentId(e.target.value ? Number(e.target.value) : "")}
                         className={inputClass}
@@ -194,11 +209,11 @@ export default function CommentHistoryList({ classId, history, onChanged, showSt
                             {a.exerciseTitle} ({a.exerciseCode})
                           </option>
                         ))}
-                      </select>
+                      </Select>
                     )}
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    <select
+                    <Select
                       value={editHomeworkNextReviewVideoSetId}
                       onChange={(e) => setEditHomeworkNextReviewVideoSetId(e.target.value ? Number(e.target.value) : "")}
                       className={inputClass}
@@ -209,18 +224,18 @@ export default function CommentHistoryList({ classId, history, onChanged, showSt
                           {s.title} ({s.code})
                         </option>
                       ))}
-                    </select>
+                    </Select>
                     <input value={editNote} onChange={(e) => setEditNote(e.target.value)} placeholder="Ghi chú" className={inputClass} />
                   </div>
                 </>
               )}
               <div className="grid grid-cols-2 gap-2">
-                <select value={editSeverity} onChange={(e) => setEditSeverity(e.target.value as NonNullable<StudentCommentResponse["severity"]>)} className={inputClass}>
+                <Select value={editSeverity} onChange={(e) => setEditSeverity(e.target.value as NonNullable<StudentCommentResponse["severity"]>)} className={inputClass}>
                   <option value="POSITIVE">Tích cực</option>
                   <option value="NORMAL">Bình thường</option>
                   <option value="CONCERN">Cần lưu ý</option>
                   <option value="WARNING">Cảnh báo</option>
-                </select>
+                </Select>
                 <label className="flex items-center gap-1.5 text-[10px] font-semibold text-slate-600">
                   <input type="checkbox" checked={editIsWarning} onChange={(e) => setEditIsWarning(e.target.checked)} />
                   <Flag className="w-3 h-3 text-rose-500" />
@@ -239,17 +254,20 @@ export default function CommentHistoryList({ classId, history, onChanged, showSt
             </div>
           ) : (
             <>
-              {h.commentType === "DAILY" && (h.attitude || h.homeworkPreviousScore || h.grammarPreviousProgress || h.videoPreviousProgress) && (
-                <p className="text-slate-500">
-                  {h.attitude && `Thái độ: ${attitudeLabels[h.attitude]}`}
-                  {h.attitude && h.homeworkPreviousScore && " · "}
-                  {h.homeworkPreviousScore && `BTVN buổi trước: ${h.homeworkPreviousScore}`}
-                  {(h.attitude || h.homeworkPreviousScore) && (h.grammarPreviousProgress || h.videoPreviousProgress) && " · "}
-                  {h.grammarPreviousProgress && `% Ngữ pháp (tự động): ${h.grammarPreviousProgress}`}
-                  {h.grammarPreviousProgress && h.videoPreviousProgress && " · "}
-                  {h.videoPreviousProgress && `% Video (tự động): ${h.videoPreviousProgress}`}
-                </p>
-              )}
+              {h.commentType === "DAILY" &&
+                (h.attitude || h.homeworkPreviousScore || h.homeworkPreviousSpeakingScore || h.grammarPreviousProgress || h.videoPreviousProgress) && (
+                  <p className="text-slate-500">
+                    {h.attitude && `Thái độ: ${attitudeLabels[h.attitude]}`}
+                    {h.attitude && h.homeworkPreviousScore && " · "}
+                    {h.homeworkPreviousScore && `BTVN Ngữ pháp buổi trước: ${h.homeworkPreviousScore}`}
+                    {(h.attitude || h.homeworkPreviousScore) && h.homeworkPreviousSpeakingScore && " · "}
+                    {h.homeworkPreviousSpeakingScore && `BTVN Nghe-nói buổi trước: ${h.homeworkPreviousSpeakingScore}`}
+                    {(h.attitude || h.homeworkPreviousScore || h.homeworkPreviousSpeakingScore) && (h.grammarPreviousProgress || h.videoPreviousProgress) && " · "}
+                    {h.grammarPreviousProgress && `% Ngữ pháp (tự động): ${h.grammarPreviousProgress}`}
+                    {h.grammarPreviousProgress && h.videoPreviousProgress && " · "}
+                    {h.videoPreviousProgress && `% Video (tự động): ${h.videoPreviousProgress}`}
+                  </p>
+                )}
               <p className="text-slate-700">{h.content}</p>
               {h.commentType === "DAILY" && (h.homeworkNext || h.homeworkNextExerciseTitle || h.homeworkNextReviewVideoSetTitle || h.note) && (
                 <p className="text-slate-500">

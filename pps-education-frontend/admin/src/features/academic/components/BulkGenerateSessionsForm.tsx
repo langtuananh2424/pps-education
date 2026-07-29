@@ -6,6 +6,7 @@ import { searchUsers, UserListItemResponse } from "@/features/system-admin/api";
 import { RoomResponse, listRoomsBySite } from "@/features/facility/api";
 import { BulkCreateClassSessionRequest, BulkCreateClassSessionResponse, bulkCreateClassSessions } from "../api";
 import DatePicker from "@/components/ui/DatePicker";
+import Select from "@/components/ui/Select";
 
 const inputClass = "w-full bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
@@ -142,23 +143,23 @@ export default function BulkGenerateSessionsForm({ classId, siteId, onDone, onCa
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className={labelClass}>Phòng học</label>
-          <select value={roomId} onChange={(e) => setRoomId(e.target.value)} className={inputClass}>
+          <Select value={roomId} onChange={(e) => setRoomId(e.target.value)} className={inputClass}>
             <option value="">-- Không gán --</option>
             {rooms.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.code} — {r.name}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
         <div>
           <label className={labelClass}>Loại buổi học</label>
-          <select value={sessionType} onChange={(e) => setSessionType(e.target.value)} className={inputClass}>
+          <Select value={sessionType} onChange={(e) => setSessionType(e.target.value)} className={inputClass}>
             <option value="REGULAR">Buổi học thường</option>
             <option value="REVIEW">Ôn tập</option>
             <option value="EXAM">Kiểm tra</option>
             <option value="MAKEUP">Học bù</option>
-          </select>
+          </Select>
         </div>
       </div>
 

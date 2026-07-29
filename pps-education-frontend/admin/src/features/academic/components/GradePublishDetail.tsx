@@ -14,6 +14,7 @@ import {
   publishGrades
 } from "../api";
 import GradeSheetTable from "./GradeSheetTable";
+import Select from "@/components/ui/Select";
 
 interface GradePublishDetailProps {
   classId: number | null;
@@ -96,7 +97,7 @@ export default function GradePublishDetail({ classId, classLabel, teacherName, o
           <p className="text-[10px] text-slate-400 mt-0.5">GV: {teacherName ?? "Chưa rõ"}</p>
         </div>
         {periods.length > 1 && (
-          <select
+          <Select
             value={selectedPeriodId ?? ""}
             onChange={(e) => setSelectedPeriodId(e.target.value ? Number(e.target.value) : null)}
             className="bg-white border border-slate-200 text-xs p-1.5 rounded-lg focus:outline-none"
@@ -106,7 +107,7 @@ export default function GradePublishDetail({ classId, classLabel, teacherName, o
                 {p.name}
               </option>
             ))}
-          </select>
+          </Select>
         )}
       </div>
 

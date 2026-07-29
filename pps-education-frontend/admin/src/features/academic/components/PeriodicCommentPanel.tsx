@@ -6,6 +6,7 @@ import { useEligibleClasses } from "../hooks/useEligibleClasses";
 import Card from "@/components/ui/Card";
 import CommentForm from "./CommentForm";
 import CommentHistoryList from "./CommentHistoryList";
+import Select from "@/components/ui/Select";
 
 const inputClass = "bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none";
 
@@ -46,7 +47,7 @@ export default function PeriodicCommentPanel() {
           <p className="text-xs font-bold text-slate-700">
             {selectedClass ? `Lớp: ${selectedClass.classCode} — ${selectedClass.name}` : "Chưa chọn lớp — chọn ở góc trên bên phải (Header)"}
           </p>
-          <select
+          <Select
             value={selectedStudentId ?? ""}
             onChange={(e) => setSelectedStudentId(e.target.value ? Number(e.target.value) : null)}
             disabled={!selectedClassId}
@@ -60,7 +61,7 @@ export default function PeriodicCommentPanel() {
                   {en.studentFullName} ({en.studentCode})
                 </option>
               ))}
-          </select>
+          </Select>
         </div>
 
         {selectedClass && selectedStudentId ? (

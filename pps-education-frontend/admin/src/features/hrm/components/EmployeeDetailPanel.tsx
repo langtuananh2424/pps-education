@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Award, BookOpen, FileText, Save } from "lucide-react";
+import { Award, BookOpen, FileText, Plus, Save } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import {
   addCommendation,
@@ -22,12 +22,14 @@ import {
 } from "../api";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
+import Modal from "@/components/ui/Modal";
 import { employeeStatusLabels, employeeStatusVariants } from "./EmployeeListPanel";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import DatePicker from "@/components/ui/DatePicker";
 import AvatarUploadField from "@/components/ui/AvatarUploadField";
 import { uploadMedia } from "@/features/lms/api";
+import Select from "@/components/ui/Select";
 
 const TODAY_ISO = new Date().toISOString().slice(0, 10);
 
@@ -162,11 +164,11 @@ function ProfileTab({
         </div>
         <div>
           <label className={labelClass}>Loại nhân sự *</label>
-          <select value={form.employeeType} onChange={(e) => setForm({ ...form, employeeType: e.target.value as UpdateEmployeeRequest["employeeType"] })} className={inputClass}>
+          <Select value={form.employeeType} onChange={(e) => setForm({ ...form, employeeType: e.target.value as UpdateEmployeeRequest["employeeType"] })} className={inputClass}>
             <option value="TEACHER">Giáo viên</option>
             <option value="STAFF">Nhân viên</option>
             <option value="MANAGER">Quản lý</option>
-          </select>
+          </Select>
         </div>
         <div>
           <label className={labelClass}>Số CCCD</label>
@@ -206,7 +208,7 @@ function ProfileTab({
         </div>
         <div>
           <label className={labelClass}>Chức vụ</label>
-          <select
+          <Select
             value={form.positionId ?? ""}
             onChange={(e) => setForm({ ...form, positionId: e.target.value ? Number(e.target.value) : null })}
             className={inputClass}
@@ -217,11 +219,11 @@ function ProfileTab({
                 {p.name}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
         <div>
           <label className={labelClass}>Phòng ban</label>
-          <select
+          <Select
             value={form.departmentId ?? ""}
             onChange={(e) => setForm({ ...form, departmentId: e.target.value ? Number(e.target.value) : undefined })}
             className={inputClass}
@@ -232,15 +234,15 @@ function ProfileTab({
                 {d.name}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
         <div>
           <label className={labelClass}>Trạng thái *</label>
-          <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as UpdateEmployeeRequest["status"] })} className={inputClass}>
+          <Select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as UpdateEmployeeRequest["status"] })} className={inputClass}>
             <option value="ACTIVE">Đang làm việc</option>
             <option value="ON_LEAVE">Đang nghỉ phép dài hạn</option>
             <option value="TERMINATED">Đã nghỉ việc</option>
-          </select>
+          </Select>
         </div>
         {form.status === "TERMINATED" && (
           <div>
@@ -296,6 +298,7 @@ function QualificationsTab({ employeeId, showToast }: { employeeId: number; show
   const [form, setForm] = useState({ qualificationType: "DEGREE", title: "", issuer: "", issuedDate: "", expiryDate: "" });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -322,6 +325,7 @@ function QualificationsTab({ employeeId, showToast }: { employeeId: number; show
         expiryDate: form.expiryDate || undefined
       });
       setForm({ qualificationType: "DEGREE", title: "", issuer: "", issuedDate: "", expiryDate: "" });
+      setShowForm(false);
       load();
       showToast("Đã thêm bằng cấp/chứng chỉ thành công!");
     } catch (err) {
@@ -333,23 +337,33 @@ function QualificationsTab({ employeeId, showToast }: { employeeId: number; show
 
   return (
     <div className="space-y-4">
-      <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
-        <div className="grid grid-cols-2 gap-3">
-          <select value={form.qualificationType} onChange={(e) => setForm({ ...form, qualificationType: e.target.value })} className={inputClass}>
-            <option value="DEGREE">Bằng cấp</option>
-            <option value="PEDAGOGY_CERT">Chứng chỉ nghiệp vụ sư phạm</option>
-            <option value="LANGUAGE_CERT">Chứng chỉ ngoại ngữ</option>
-            <option value="OTHER">Khác</option>
-          </select>
-          <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Tên bằng cấp/chứng chỉ *" className={inputClass} />
-          <input value={form.issuer} onChange={(e) => setForm({ ...form, issuer: e.target.value })} placeholder="Đơn vị cấp" className={inputClass} />
-          <DatePicker value={form.issuedDate} onChange={(v) => setForm({ ...form, issuedDate: v })} max={TODAY_ISO} />
-        </div>
-        <Button type="submit" size="sm" variant="primary" disabled={submitting}>
-          {submitting ? "Đang lưu..." : "Thêm bằng cấp/chứng chỉ"}
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-bold uppercase text-slate-500">Bằng cấp/Chứng chỉ ({items.length})</span>
+        <Button size="sm" variant="secondary" onClick={() => setShowForm(true)}>
+          <Plus className="w-3.5 h-3.5" />
+          Thêm bằng cấp/chứng chỉ
         </Button>
-      </form>
+      </div>
+
+      <Modal open={showForm} onClose={() => setShowForm(false)} title="Thêm bằng cấp/chứng chỉ">
+        <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+          {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
+          <div className="grid grid-cols-2 gap-3">
+            <Select value={form.qualificationType} onChange={(e) => setForm({ ...form, qualificationType: e.target.value })} className={inputClass}>
+              <option value="DEGREE">Bằng cấp</option>
+              <option value="PEDAGOGY_CERT">Chứng chỉ nghiệp vụ sư phạm</option>
+              <option value="LANGUAGE_CERT">Chứng chỉ ngoại ngữ</option>
+              <option value="OTHER">Khác</option>
+            </Select>
+            <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Tên bằng cấp/chứng chỉ *" className={inputClass} />
+            <input value={form.issuer} onChange={(e) => setForm({ ...form, issuer: e.target.value })} placeholder="Đơn vị cấp" className={inputClass} />
+            <DatePicker value={form.issuedDate} onChange={(v) => setForm({ ...form, issuedDate: v })} max={TODAY_ISO} />
+          </div>
+          <Button type="submit" size="sm" variant="primary" disabled={submitting}>
+            {submitting ? "Đang lưu..." : "Thêm bằng cấp/chứng chỉ"}
+          </Button>
+        </form>
+      </Modal>
 
       {loading ? (
         <p className="text-xs text-slate-500">Đang tải...</p>
@@ -376,6 +390,7 @@ function CommendationsTab({ employeeId, showToast }: { employeeId: number; showT
   const [form, setForm] = useState({ recordType: "COMMENDATION", recordDate: "", title: "", amount: "" });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -401,6 +416,7 @@ function CommendationsTab({ employeeId, showToast }: { employeeId: number; showT
         amount: form.amount ? Number(form.amount) : undefined
       });
       setForm({ recordType: "COMMENDATION", recordDate: "", title: "", amount: "" });
+      setShowForm(false);
       load();
       showToast("Đã ghi nhận khen thưởng/kỷ luật thành công!");
     } catch (err) {
@@ -412,37 +428,47 @@ function CommendationsTab({ employeeId, showToast }: { employeeId: number; showT
 
   return (
     <div className="space-y-4">
-      <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="grid grid-cols-2 gap-2 col-span-2">
-            <button
-              type="button"
-              onClick={() => setForm({ ...form, recordType: "COMMENDATION" })}
-              className={`py-1.5 text-xs font-bold rounded-lg border ${
-                form.recordType === "COMMENDATION" ? "bg-emerald-50 text-emerald-600 border-emerald-200" : "bg-white border-slate-200 text-slate-500"
-              }`}
-            >
-              Khen thưởng
-            </button>
-            <button
-              type="button"
-              onClick={() => setForm({ ...form, recordType: "DISCIPLINE" })}
-              className={`py-1.5 text-xs font-bold rounded-lg border ${
-                form.recordType === "DISCIPLINE" ? "bg-rose-50 text-rose-600 border-rose-200" : "bg-white border-slate-200 text-slate-500"
-              }`}
-            >
-              Kỷ luật
-            </button>
-          </div>
-          <DatePicker value={form.recordDate} onChange={(v) => setForm({ ...form, recordDate: v })} max={TODAY_ISO} />
-          <input value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value.replace(/[^0-9]/g, "") })} placeholder="Số tiền (nếu có)" className={inputClass} />
-          <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Tiêu đề quyết định *" className={`${inputClass} col-span-2`} />
-        </div>
-        <Button type="submit" size="sm" variant="primary" disabled={submitting}>
-          {submitting ? "Đang lưu..." : "Ghi nhận"}
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-bold uppercase text-slate-500">Khen thưởng/Kỷ luật ({items.length})</span>
+        <Button size="sm" variant="secondary" onClick={() => setShowForm(true)}>
+          <Plus className="w-3.5 h-3.5" />
+          Ghi nhận mới
         </Button>
-      </form>
+      </div>
+
+      <Modal open={showForm} onClose={() => setShowForm(false)} title="Ghi nhận khen thưởng/kỷ luật">
+        <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+          {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2 col-span-2">
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, recordType: "COMMENDATION" })}
+                className={`py-1.5 text-xs font-bold rounded-lg border ${
+                  form.recordType === "COMMENDATION" ? "bg-emerald-50 text-emerald-600 border-emerald-200" : "bg-white border-slate-200 text-slate-500"
+                }`}
+              >
+                Khen thưởng
+              </button>
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, recordType: "DISCIPLINE" })}
+                className={`py-1.5 text-xs font-bold rounded-lg border ${
+                  form.recordType === "DISCIPLINE" ? "bg-rose-50 text-rose-600 border-rose-200" : "bg-white border-slate-200 text-slate-500"
+                }`}
+              >
+                Kỷ luật
+              </button>
+            </div>
+            <DatePicker value={form.recordDate} onChange={(v) => setForm({ ...form, recordDate: v })} max={TODAY_ISO} />
+            <input value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value.replace(/[^0-9]/g, "") })} placeholder="Số tiền (nếu có)" className={inputClass} />
+            <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Tiêu đề quyết định *" className={`${inputClass} col-span-2`} />
+          </div>
+          <Button type="submit" size="sm" variant="primary" disabled={submitting}>
+            {submitting ? "Đang lưu..." : "Ghi nhận"}
+          </Button>
+        </form>
+      </Modal>
 
       {loading ? (
         <p className="text-xs text-slate-500">Đang tải...</p>
@@ -471,6 +497,7 @@ function ContractsTab({ employeeId, showToast }: { employeeId: number; showToast
   const [form, setForm] = useState({ contractNumber: "", contractType: "PROBATION", startDate: "", endDate: "", baseSalary: "", salaryType: "MONTHLY", status: "ACTIVE" });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -499,6 +526,7 @@ function ContractsTab({ employeeId, showToast }: { employeeId: number; showToast
         status: form.status as EmploymentContractResponse["status"]
       });
       setForm({ contractNumber: "", contractType: "PROBATION", startDate: "", endDate: "", baseSalary: "", salaryType: "MONTHLY", status: "ACTIVE" });
+      setShowForm(false);
       load();
       showToast("Đã thêm hợp đồng thành công!");
     } catch (err) {
@@ -528,34 +556,44 @@ function ContractsTab({ employeeId, showToast }: { employeeId: number; showToast
 
   return (
     <div className="space-y-4">
-      <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
-        <div className="grid grid-cols-2 gap-3">
-          <input value={form.contractNumber} onChange={(e) => setForm({ ...form, contractNumber: e.target.value })} placeholder="Số hợp đồng *" className={inputClass} />
-          <select value={form.contractType} onChange={(e) => setForm({ ...form, contractType: e.target.value })} className={inputClass}>
-            <option value="PROBATION">Thử việc</option>
-            <option value="FIXED_TERM">Xác định thời hạn</option>
-            <option value="INDEFINITE">Không xác định thời hạn</option>
-            <option value="SEASONAL">Thời vụ</option>
-          </select>
-          <div>
-            <label className={labelClass}>Ngày bắt đầu *</label>
-            <DatePicker value={form.startDate} onChange={(v) => setForm({ ...form, startDate: v })} max={form.endDate || undefined} />
-          </div>
-          <div>
-            <label className={labelClass}>Ngày kết thúc (bỏ trống nếu vô thời hạn)</label>
-            <DatePicker value={form.endDate} onChange={(v) => setForm({ ...form, endDate: v })} min={form.startDate || undefined} />
-          </div>
-          <input value={form.baseSalary} onChange={(e) => setForm({ ...form, baseSalary: e.target.value.replace(/[^0-9]/g, "") })} placeholder="Lương cơ bản *" className={inputClass} />
-          <select value={form.salaryType} onChange={(e) => setForm({ ...form, salaryType: e.target.value })} className={inputClass}>
-            <option value="MONTHLY">Theo tháng</option>
-            <option value="HOURLY">Theo giờ</option>
-          </select>
-        </div>
-        <Button type="submit" size="sm" variant="primary" disabled={submitting}>
-          {submitting ? "Đang lưu..." : "Thêm hợp đồng"}
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-bold uppercase text-slate-500">Hợp đồng lao động ({items.length})</span>
+        <Button size="sm" variant="secondary" onClick={() => setShowForm(true)}>
+          <Plus className="w-3.5 h-3.5" />
+          Thêm hợp đồng
         </Button>
-      </form>
+      </div>
+
+      <Modal open={showForm} onClose={() => setShowForm(false)} title="Thêm hợp đồng">
+        <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+          {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
+          <div className="grid grid-cols-2 gap-3">
+            <input value={form.contractNumber} onChange={(e) => setForm({ ...form, contractNumber: e.target.value })} placeholder="Số hợp đồng *" className={inputClass} />
+            <Select value={form.contractType} onChange={(e) => setForm({ ...form, contractType: e.target.value })} className={inputClass}>
+              <option value="PROBATION">Thử việc</option>
+              <option value="FIXED_TERM">Xác định thời hạn</option>
+              <option value="INDEFINITE">Không xác định thời hạn</option>
+              <option value="SEASONAL">Thời vụ</option>
+            </Select>
+            <div>
+              <label className={labelClass}>Ngày bắt đầu *</label>
+              <DatePicker value={form.startDate} onChange={(v) => setForm({ ...form, startDate: v })} max={form.endDate || undefined} />
+            </div>
+            <div>
+              <label className={labelClass}>Ngày kết thúc (bỏ trống nếu vô thời hạn)</label>
+              <DatePicker value={form.endDate} onChange={(v) => setForm({ ...form, endDate: v })} min={form.startDate || undefined} />
+            </div>
+            <input value={form.baseSalary} onChange={(e) => setForm({ ...form, baseSalary: e.target.value.replace(/[^0-9]/g, "") })} placeholder="Lương cơ bản *" className={inputClass} />
+            <Select value={form.salaryType} onChange={(e) => setForm({ ...form, salaryType: e.target.value })} className={inputClass}>
+              <option value="MONTHLY">Theo tháng</option>
+              <option value="HOURLY">Theo giờ</option>
+            </Select>
+          </div>
+          <Button type="submit" size="sm" variant="primary" disabled={submitting}>
+            {submitting ? "Đang lưu..." : "Thêm hợp đồng"}
+          </Button>
+        </form>
+      </Modal>
 
       {loading ? (
         <p className="text-xs text-slate-500">Đang tải...</p>

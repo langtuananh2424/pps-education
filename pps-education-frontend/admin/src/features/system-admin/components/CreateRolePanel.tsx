@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Save, X } from "lucide-react";
+import { Save } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { toCodeSlug } from "@/lib/slugify";
 import { createRole, listPermissions, PermissionCatalogItem, updateRolePermissions } from "../api";
@@ -14,7 +14,7 @@ interface CreateRolePanelProps {
   onCreated: (roleId: number) => void;
 }
 
-/** UC-03 bổ sung — tạo vai trò tùy chỉnh mới NGAY TRONG panel (không dùng modal), nhập thông tin + tick quyền ban đầu rồi Lưu 1 lần — đúng flow gốc. */
+/** UC-03 bổ sung — tạo vai trò tùy chỉnh mới trong popup (Modal), nhập thông tin + tick quyền ban đầu rồi Lưu 1 lần. */
 export default function CreateRolePanel({ onCancel, onCreated }: CreateRolePanelProps) {
   const [name, setName] = useState("");
   const code = useMemo(() => toCodeSlug(name), [name]);
@@ -70,51 +70,48 @@ export default function CreateRolePanel({ onCancel, onCreated }: CreateRolePanel
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full">
-      <div className="p-6 border-b border-slate-200 space-y-4 bg-slate-50/20">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold text-slate-800">Tạo vai trò tùy chỉnh mới (UC-03)</h2>
-          <button onClick={onCancel} className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        <div>
-          <label className={labelClass}>Tên vai trò *</label>
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="VD: Trưởng nhóm Marketing" className={inputClass} autoFocus />
-          {code && (
-            <p className="text-[10px] text-slate-400 mt-1">
-              Mã vai trò (tự sinh): <code className="font-mono font-bold text-brand-red">{code}</code>
-            </p>
-          )}
-        </div>
-        <div>
-          <label className={labelClass}>Mô tả</label>
-          <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} className={inputClass} />
-        </div>
+    <div className="space-y-4">
+      <div>
+        <label className={labelClass}>Tên vai trò *</label>
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="VD: Trưởng nhóm Marketing" className={inputClass} autoFocus />
+        {code && (
+          <p className="text-[10px] text-slate-400 mt-1">
+            Mã vai trò (tự sinh): <code className="font-mono font-bold text-brand-red">{code}</code>
+          </p>
+        )}
+      </div>
+      <div>
+        <label className={labelClass}>Mô tả</label>
+        <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} className={inputClass} />
       </div>
 
-      <div className="flex-1 p-6 overflow-y-auto max-h-[460px] space-y-4">
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
-        <div className="flex items-center justify-between">
-          <span className="text-[10px] uppercase font-bold text-slate-500">Tick chọn quyền ban đầu ({selectedIds.size} đã chọn) — có thể để trống, cấu hình sau</span>
-          <Button variant="primary" size="sm" onClick={handleSave} disabled={saving || loading}>
-            <Save className="w-3.5 h-3.5" />
-            {saving ? "Đang tạo..." : "Lưu vai trò mới"}
-          </Button>
-        </div>
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] uppercase font-bold text-slate-500">Tick chọn quyền ban đầu ({selectedIds.size} đã chọn) — có thể để trống, cấu hình sau</span>
+      </div>
 
-        {loading ? (
-          <p className="text-xs text-slate-500">Đang tải danh mục quyền...</p>
-        ) : (
+      {loading ? (
+        <p className="text-xs text-slate-500">Đang tải danh mục quyền...</p>
+      ) : (
+        <div className="max-h-[360px] overflow-y-auto">
           <PermissionChecklist
             items={permissions.map((p) => ({ permissionId: p.id, code: p.code, name: p.name, module: p.module }))}
             selectedIds={selectedIds}
             onToggle={toggle}
             onToggleModuleAll={toggleModuleAll}
           />
-        )}
+        </div>
+      )}
+
+      <div className="flex gap-2 pt-1">
+        <Button type="button" variant="secondary" size="sm" onClick={onCancel}>
+          Hủy
+        </Button>
+        <Button type="button" variant="primary" size="sm" onClick={handleSave} disabled={saving || loading}>
+          <Save className="w-3.5 h-3.5" />
+          {saving ? "Đang tạo..." : "Lưu vai trò mới"}
+        </Button>
       </div>
     </div>
   );

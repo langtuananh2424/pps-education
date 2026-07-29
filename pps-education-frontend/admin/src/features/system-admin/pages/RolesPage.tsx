@@ -8,6 +8,7 @@ import RoleDetailPanel, { RoleDetailTab } from "../components/RoleDetailPanel";
 import CreateRolePanel from "../components/CreateRolePanel";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
+import Modal from "@/components/ui/Modal";
 
 export default function RolesPage() {
   const { hasPermission } = useApp();
@@ -83,25 +84,13 @@ export default function RolesPage() {
             setCreatingNew(false);
             setRightActiveTab("permissions");
           }}
-          onAddNew={() => {
-            setCreatingNew(true);
-            setSelectedRoleId(null);
-          }}
+          onAddNew={() => setCreatingNew(true)}
           searchQuery={roleSearchQuery}
           onSearchChange={setRoleSearchQuery}
         />
 
         <div className="flex-1 flex flex-col bg-white">
-          {creatingNew ? (
-            <CreateRolePanel
-              onCancel={() => setCreatingNew(false)}
-              onCreated={(id) => {
-                setCreatingNew(false);
-                loadRoles(id);
-                showToast("Đã tạo vai trò mới thành công!");
-              }}
-            />
-          ) : activeRole ? (
+          {activeRole ? (
             <RoleDetailPanel
               role={activeRole}
               canAssignMembers={canAssignMembers}
@@ -123,6 +112,17 @@ export default function RolesPage() {
           )}
         </div>
       </div>
+
+      <Modal open={creatingNew} onClose={() => setCreatingNew(false)} title="Tạo vai trò tùy chỉnh mới (UC-03)" size="lg">
+        <CreateRolePanel
+          onCancel={() => setCreatingNew(false)}
+          onCreated={(id) => {
+            setCreatingNew(false);
+            loadRoles(id);
+            showToast("Đã tạo vai trò mới thành công!");
+          }}
+        />
+      </Modal>
 
       <Toast message={toastMessage} />
     </div>

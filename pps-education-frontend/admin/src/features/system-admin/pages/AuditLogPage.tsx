@@ -16,6 +16,7 @@ import Badge, { BadgeVariant } from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import EmptyState from "@/components/ui/EmptyState";
 import DatePicker from "@/components/ui/DatePicker";
+import Select from "@/components/ui/Select";
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 const TODAY_ISO = new Date().toISOString().slice(0, 10);
@@ -134,14 +135,14 @@ export default function AuditLogPage() {
         <UserPicker label="Đối tượng bị ảnh hưởng" value={targetUser} onChange={setTargetUser} candidates={allUsers} />
         <div>
           <label className={labelClass}>Hành động</label>
-          <select value={action} onChange={(e) => setAction(e.target.value)} className={inputClass}>
+          <Select value={action} onChange={(e) => setAction(e.target.value)} className={inputClass}>
             <option value="">-- Tất cả --</option>
             {Object.entries(actionLabels).map(([value, label]) => (
               <option key={value} value={value}>
                 {label}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
         <div className="grid grid-cols-2 gap-2">
           <div>
@@ -216,7 +217,7 @@ export default function AuditLogPage() {
               <span className="text-slate-300">|</span>
               <label className="flex items-center gap-1.5">
                 Số dòng/trang:
-                <select
+                <Select
                   value={pageSize}
                   onChange={(e) => {
                     setPageSize(Number(e.target.value));
@@ -229,7 +230,7 @@ export default function AuditLogPage() {
                       {size}
                     </option>
                   ))}
-                </select>
+                </Select>
               </label>
             </div>
             {totalPages > 1 && (

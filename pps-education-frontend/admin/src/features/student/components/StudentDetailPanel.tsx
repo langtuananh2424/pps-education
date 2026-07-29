@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { ArrowRightLeft, FileText, History, Save, UserPlus, Users, X } from "lucide-react";
+import { ArrowRightLeft, FileText, History, Plus, Save, UserPlus, Users, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import AccountSelector, { AccountSelection } from "@/features/system-admin/components/AccountSelector";
 import {
@@ -24,12 +24,14 @@ import {
 } from "../api";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
+import Modal from "@/components/ui/Modal";
 import { studentStatusLabels, studentStatusVariants } from "./StudentListPanel";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import DatePicker from "@/components/ui/DatePicker";
 import AvatarUploadField from "@/components/ui/AvatarUploadField";
 import { uploadMedia } from "@/features/lms/api";
+import Select from "@/components/ui/Select";
 
 const TODAY_ISO = new Date().toISOString().slice(0, 10);
 
@@ -158,12 +160,12 @@ function ProfileTab({
         </div>
         <div>
           <label className={labelClass}>Giới tính</label>
-          <select value={form.gender ?? ""} onChange={(e) => setForm({ ...form, gender: (e.target.value || undefined) as UpdateStudentRequest["gender"] })} className={inputClass}>
+          <Select value={form.gender ?? ""} onChange={(e) => setForm({ ...form, gender: (e.target.value || undefined) as UpdateStudentRequest["gender"] })} className={inputClass}>
             <option value="">-- Chưa rõ --</option>
             <option value="MALE">Nam</option>
             <option value="FEMALE">Nữ</option>
             <option value="OTHER">Khác</option>
-          </select>
+          </Select>
         </div>
         <div>
           <label className={labelClass}>Trường gốc</label>
@@ -294,16 +296,21 @@ function ParentsTab({ studentId, showToast }: { studentId: number; showToast: (m
         </div>
       )}
 
-      {addingNew ? (
+      <Button variant="secondary" size="sm" onClick={() => setAddingNew(true)}>
+        <UserPlus className="w-3.5 h-3.5" />
+        Liên kết phụ huynh
+      </Button>
+
+      <Modal open={addingNew} onClose={() => setAddingNew(false)} title="Liên kết phụ huynh">
         <form onSubmit={handleAdd} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
           <AccountSelector value={account} onChange={setAccount} submitAttempted={submitAttempted} />
           <div className="grid grid-cols-3 gap-2 items-end">
-            <select value={info.relationship} onChange={(e) => setInfo({ ...info, relationship: e.target.value })} className={inputClass}>
+            <Select value={info.relationship} onChange={(e) => setInfo({ ...info, relationship: e.target.value })} className={inputClass}>
               <option value="FATHER">Bố</option>
               <option value="MOTHER">Mẹ</option>
               <option value="GUARDIAN">Người giám hộ</option>
               <option value="OTHER">Khác</option>
-            </select>
+            </Select>
             <label className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 pb-2.5">
               <input type="checkbox" checked={info.isPrimaryContact} onChange={(e) => setInfo({ ...info, isPrimaryContact: e.target.checked })} />
               Liên hệ chính
@@ -322,12 +329,7 @@ function ParentsTab({ studentId, showToast }: { studentId: number; showToast: (m
             </Button>
           </div>
         </form>
-      ) : (
-        <Button variant="secondary" size="sm" onClick={() => setAddingNew(true)}>
-          <UserPlus className="w-3.5 h-3.5" />
-          Liên kết phụ huynh
-        </Button>
-      )}
+      </Modal>
     </div>
   );
 }
@@ -339,6 +341,7 @@ function TransferTab({ studentId, onChanged, showToast }: { studentId: number; o
   const [form, setForm] = useState({ transferType: "SITE_CHANGE", toSiteId: "", fromClassId: "", toClassId: "", effectiveDate: "", reason: "" });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -370,6 +373,7 @@ function TransferTab({ studentId, onChanged, showToast }: { studentId: number; o
       };
       await recordTransfer(studentId, request);
       setForm({ transferType: "SITE_CHANGE", toSiteId: "", fromClassId: "", toClassId: "", effectiveDate: "", reason: "" });
+      setShowForm(false);
       load();
       onChanged();
       showToast("Đã ghi nhận chuyển lớp/điểm trường thành công!");
@@ -385,50 +389,60 @@ function TransferTab({ studentId, onChanged, showToast }: { studentId: number; o
 
   return (
     <div className="space-y-4">
-      <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
-        <select value={form.transferType} onChange={(e) => setForm({ ...form, transferType: e.target.value })} className={inputClass}>
-          <option value="SITE_CHANGE">Chuyển điểm trường</option>
-          <option value="CLASS_CHANGE">Chuyển lớp</option>
-          <option value="BOTH">Chuyển cả điểm trường lẫn lớp</option>
-        </select>
-        <div className="grid grid-cols-2 gap-3">
-          {needsSite && (
-            <select value={form.toSiteId} onChange={(e) => setForm({ ...form, toSiteId: e.target.value })} className={inputClass}>
-              <option value="">-- Chọn điểm trường mới --</option>
-              {sites.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          )}
-          {needsClass && (
-            <>
-              <input
-                value={form.fromClassId}
-                onChange={(e) => setForm({ ...form, fromClassId: e.target.value.replace(/[^0-9]/g, "") })}
-                placeholder="ID lớp đang học (fromClassId) *"
-                className={inputClass}
-              />
-              <input
-                value={form.toClassId}
-                onChange={(e) => setForm({ ...form, toClassId: e.target.value.replace(/[^0-9]/g, "") })}
-                placeholder="ID lớp mới (toClassId) *"
-                className={inputClass}
-              />
-            </>
-          )}
-          <div>
-            <label className={labelClass}>Ngày hiệu lực *</label>
-            <DatePicker value={form.effectiveDate} onChange={(v) => setForm({ ...form, effectiveDate: v })} />
-          </div>
-          <input value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} placeholder="Lý do" className={inputClass} />
-        </div>
-        <Button type="submit" size="sm" variant="primary" disabled={submitting}>
-          {submitting ? "Đang lưu..." : "Ghi nhận chuyển"}
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-bold uppercase text-slate-500">Lịch sử chuyển lớp/điểm trường ({history.length})</span>
+        <Button size="sm" variant="secondary" onClick={() => setShowForm(true)}>
+          <Plus className="w-3.5 h-3.5" />
+          Ghi nhận chuyển
         </Button>
-      </form>
+      </div>
+
+      <Modal open={showForm} onClose={() => setShowForm(false)} title="Ghi nhận chuyển lớp/điểm trường">
+        <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+          {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
+          <Select value={form.transferType} onChange={(e) => setForm({ ...form, transferType: e.target.value })} className={inputClass}>
+            <option value="SITE_CHANGE">Chuyển điểm trường</option>
+            <option value="CLASS_CHANGE">Chuyển lớp</option>
+            <option value="BOTH">Chuyển cả điểm trường lẫn lớp</option>
+          </Select>
+          <div className="grid grid-cols-2 gap-3">
+            {needsSite && (
+              <Select value={form.toSiteId} onChange={(e) => setForm({ ...form, toSiteId: e.target.value })} className={inputClass}>
+                <option value="">-- Chọn điểm trường mới --</option>
+                {sites.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </Select>
+            )}
+            {needsClass && (
+              <>
+                <input
+                  value={form.fromClassId}
+                  onChange={(e) => setForm({ ...form, fromClassId: e.target.value.replace(/[^0-9]/g, "") })}
+                  placeholder="ID lớp đang học (fromClassId) *"
+                  className={inputClass}
+                />
+                <input
+                  value={form.toClassId}
+                  onChange={(e) => setForm({ ...form, toClassId: e.target.value.replace(/[^0-9]/g, "") })}
+                  placeholder="ID lớp mới (toClassId) *"
+                  className={inputClass}
+                />
+              </>
+            )}
+            <div>
+              <label className={labelClass}>Ngày hiệu lực *</label>
+              <DatePicker value={form.effectiveDate} onChange={(v) => setForm({ ...form, effectiveDate: v })} />
+            </div>
+            <input value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} placeholder="Lý do" className={inputClass} />
+          </div>
+          <Button type="submit" size="sm" variant="primary" disabled={submitting}>
+            {submitting ? "Đang lưu..." : "Ghi nhận chuyển"}
+          </Button>
+        </form>
+      </Modal>
 
       {loading ? (
         <p className="text-xs text-slate-500">Đang tải...</p>
@@ -489,13 +503,13 @@ function StatusTab({ student, onChanged, showToast }: { student: StudentResponse
       <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
         {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
         <div className="grid grid-cols-2 gap-3">
-          <select value={form.newStatus} onChange={(e) => setForm({ ...form, newStatus: e.target.value as StudentResponse["status"] })} className={inputClass}>
+          <Select value={form.newStatus} onChange={(e) => setForm({ ...form, newStatus: e.target.value as StudentResponse["status"] })} className={inputClass}>
             {Object.entries(studentStatusLabels).map(([value, label]) => (
               <option key={value} value={value}>
                 {label}
               </option>
             ))}
-          </select>
+          </Select>
           <DatePicker value={form.effectiveDate} onChange={(v) => setForm({ ...form, effectiveDate: v })} />
           <input value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} placeholder="Lý do" className={`${inputClass} col-span-2`} />
         </div>

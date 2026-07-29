@@ -18,6 +18,7 @@ import {
 } from "../api";
 import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
 import Badge, { BadgeVariant } from "@/components/ui/Badge";
+import Select from "@/components/ui/Select";
 
 const statusLabels: Record<GradeStatus, string> = {
   DRAFT: "Nháp",
@@ -321,7 +322,7 @@ export default function GradeSheetTable({ classId, gradePeriodId, components, en
                       {readOnly ? (
                         <span className="text-[11px] font-semibold text-slate-700">{scaleLabels[result?.scaleType ?? "NUMERIC"]}</span>
                       ) : (
-                        <select
+                        <Select
                           value={scaleInput[en.studentId] ?? result?.scaleType ?? "NUMERIC"}
                           onChange={(e) => setScaleInput((prev) => ({ ...prev, [en.studentId]: e.target.value }))}
                           onBlur={() => handleBlurResult(en.studentId)}
@@ -332,7 +333,7 @@ export default function GradeSheetTable({ classId, gradePeriodId, components, en
                               {label}
                             </option>
                           ))}
-                        </select>
+                        </Select>
                       )}
                     </Td>
                     <Td className="text-center">

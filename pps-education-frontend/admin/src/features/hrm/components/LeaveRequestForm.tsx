@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { PlusCircle } from "lucide-react";
 import DatePicker from "@/components/ui/DatePicker";
+import Select from "@/components/ui/Select";
 
 interface LeaveRequestFormProps {
   onSubmit: (input: { type: "LEAVE" | "LATE" | "EARLY"; startDate: string; endDate: string; reason: string }) => void;
@@ -29,11 +30,11 @@ export default function LeaveRequestForm({ onSubmit }: LeaveRequestFormProps) {
       <form onSubmit={handleSubmit} className="space-y-3.5">
         <div className="space-y-1">
           <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Hình thức nộp</label>
-          <select value={type} onChange={(e) => setType(e.target.value as "LEAVE" | "LATE" | "EARLY")} className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none">
+          <Select value={type} onChange={(e) => setType(e.target.value as "LEAVE" | "LATE" | "EARLY")} className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none">
             <option value="LEAVE">Nghỉ phép thường niên (Full-day)</option>
             <option value="LATE">Đi trễ có lý do (Late morning)</option>
             <option value="EARLY">Về sớm cá nhân (Early leave)</option>
-          </select>
+          </Select>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
