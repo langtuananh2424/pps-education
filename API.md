@@ -282,6 +282,7 @@
 | GET | `/api/classes/{classId}/sessions` | JWT | — | mảng [ClassSessionResponse](#classsessionresponse) |
 | POST | `/api/classes/{classId}/sessions` | JWT + `academic.class.manage` | Body: [CreateClassSessionRequest](#createclasssessionrequest) | [ClassSessionResponse](#classsessionresponse) |
 | POST | `/api/classes/{classId}/sessions/bulk` | JWT + `academic.class.manage` | Body: [BulkCreateClassSessionRequest](#bulkcreateclasssessionrequest) | [BulkCreateClassSessionResponse](#bulkcreateclasssessionresponse) |
+| GET | `/api/classes/{classId}/sessions/today` | JWT | — | mảng [ClassSessionResponse](#classsessionresponse) |
 | POST | `/api/classes/{classId}/sessions/{classSessionId}/cancel` | JWT + `academic.class.manage` | Body: [CancelClassSessionRequest](#cancelclasssessionrequest) | [ClassSessionResponse](#classsessionresponse) |
 | GET | `/api/classes/{classId}/sessions/{classSessionId}/periods` | JWT | — | mảng [SessionPeriodResponse](#sessionperiodresponse) |
 | POST | `/api/classes/{classId}/sessions/{classSessionId}/reschedule` | JWT + `academic.class.manage` | Body: [RescheduleClassSessionRequest](#rescheduleclasssessionrequest) | [ClassSessionResponse](#classsessionresponse) |
@@ -388,6 +389,7 @@
 | GET | `/api/portal/parent/children/{studentId}/classes/{classId}/attendance` | JWT | — | mảng [AttendanceMarkResponse](#attendancemarkresponse) |
 | GET | `/api/portal/parent/children/{studentId}/classes/{classId}/comments` | JWT | — | mảng [StudentCommentResponse](#studentcommentresponse) |
 | GET | `/api/portal/parent/children/{studentId}/classes/{classId}/grades` | JWT | — | mảng [GradeEntryResponse](#gradeentryresponse) |
+| GET | `/api/portal/parent/children/{studentId}/classes/{classId}/homework` | JWT | — | mảng [HomeworkProgressResponse](#homeworkprogressresponse) |
 | GET | `/api/portal/parent/children/{studentId}/classes/{classId}/periods/{gradePeriodId}/result` | JWT | — | [GradePeriodResultResponse](#gradeperiodresultresponse) |
 | GET | `/api/portal/parent/children/{studentId}/classes/{classId}/schedule` | JWT | — | mảng [ClassSessionResponse](#classsessionresponse) |
 
@@ -671,6 +673,8 @@
 |---|---|---|---|---|
 | GET | `/api/students/me` | JWT | — | [StudentResponse](#studentresponse) |
 | PUT | `/api/students/me` | JWT | Body: [UpdateOwnStudentProfileRequest](#updateownstudentprofilerequest) | [StudentResponse](#studentresponse) |
+| GET | `/api/students/me/classes/{classId}/attendance` | JWT | — | mảng [AttendanceMarkResponse](#attendancemarkresponse) |
+| GET | `/api/students/me/classes/{classId}/comments` | JWT | — | mảng [StudentCommentResponse](#studentcommentresponse) |
 | GET | `/api/students/me/classes/{classId}/periods/{gradePeriodId}/result` | JWT | — | [GradePeriodResultResponse](#gradeperiodresultresponse) |
 | GET | `/api/students/me/documents` | JWT | Query: `curriculumId`? | mảng [CurriculumDocumentResponse](#curriculumdocumentresponse) |
 | GET | `/api/students/me/exercises` | JWT | Query: `classId`? | mảng [AssignedExerciseResponse](#assignedexerciseresponse) |
@@ -920,6 +924,7 @@
 | `sessionType` | string | ✔ |
 | `startDate` | string (date) | ✔ |
 | `startTime` | [LocalTime](#localtime) | ✔ |
+| `teacherType` | string |  |
 
 ### BulkCreateClassSessionResponse
 
@@ -1038,9 +1043,11 @@
 | `roomId` | integer (int64) |  |
 | `roomName` | string |  |
 | `sessionDate` | string (date) |  |
+| `sessionNumber` | integer |  |
 | `sessionType` | string |  |
 | `startTime` | [LocalTime](#localtime) |  |
 | `status` | string |  |
+| `teacherType` | string |  |
 
 ### ClassTeacherResponse
 
@@ -1105,6 +1112,7 @@
 | `sessionDate` | string (date) | ✔ |
 | `sessionType` | string | ✔ |
 | `startTime` | [LocalTime](#localtime) | ✔ |
+| `teacherType` | string |  |
 
 ### CreateCommendationRequest
 
@@ -2043,6 +2051,21 @@
 | `feedback` | string |  |
 | `maxScore` | number | ✔ |
 | `score` | number | ✔ |
+
+### HomeworkProgressResponse
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `classSessionId` | integer (int64) |  |
+| `commentDate` | string (date) |  |
+| `commentId` | integer (int64) |  |
+| `grammarAssignmentId` | integer (int64) |  |
+| `grammarOfflineText` | string |  |
+| `grammarProgress` | string |  |
+| `grammarTitle` | string |  |
+| `videoProgress` | string |  |
+| `videoSetId` | integer (int64) |  |
+| `videoTitle` | string |  |
 
 ### InvoiceItemResponse
 
