@@ -16,6 +16,7 @@ import {
   listQuestionBanksByCurriculum,
   listQuestions
 } from "../api";
+import Select from "@/components/ui/Select";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
@@ -272,7 +273,7 @@ function ExerciseQuestionsStep({
           rồi quay lại đây để chọn.
         </div>
       ) : (
-        <select
+        <Select
           value={selectedBankId ?? ""}
           onChange={(e) => setSelectedBankId(e.target.value ? Number(e.target.value) : null)}
           className={inputClass}
@@ -283,7 +284,7 @@ function ExerciseQuestionsStep({
               {b.code} — {b.name}
             </option>
           ))}
-        </select>
+        </Select>
       )}
 
       {selectedBankId && bankQuestions.length > 0 && (

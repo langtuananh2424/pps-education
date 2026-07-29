@@ -5,6 +5,7 @@ import Button from "@/components/ui/Button";
 import { ApiError } from "@/lib/apiClient";
 import { searchUsers, UserListItemResponse } from "@/features/system-admin/api";
 import { CreateTaskRequest, TaskPriority, TaskResponse, TaskType, createTask } from "../api";
+import Select from "@/components/ui/Select";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
@@ -164,23 +165,23 @@ export default function CreateTaskModal({ onClose, onCreated }: CreateTaskModalP
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className={labelClass}>Loại việc</label>
-            <select value={taskType} onChange={(e) => setTaskType(e.target.value as TaskType)} className={inputClass}>
+            <Select value={taskType} onChange={(e) => setTaskType(e.target.value as TaskType)} className={inputClass}>
               {Object.entries(TASK_TYPE_LABEL).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
           <div>
             <label className={labelClass}>Độ ưu tiên</label>
-            <select value={priority} onChange={(e) => setPriority(e.target.value as TaskPriority)} className={inputClass}>
+            <Select value={priority} onChange={(e) => setPriority(e.target.value as TaskPriority)} className={inputClass}>
               {Object.entries(TASK_PRIORITY_LABEL).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
         </div>
 

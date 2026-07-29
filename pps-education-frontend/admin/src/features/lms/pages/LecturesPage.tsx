@@ -29,6 +29,7 @@ import Modal from "@/components/ui/Modal";
 import FileUploadField from "@/components/ui/FileUploadField";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
+import Select from "@/components/ui/Select";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
@@ -353,23 +354,23 @@ export default function LecturesPage() {
           </div>
 
           {scopeType === "CLASS" ? (
-            <select value={localClassId ?? ""} onChange={(e) => setLocalClassId(e.target.value ? Number(e.target.value) : null)} className={`${inputClass} w-64`}>
+            <Select value={localClassId ?? ""} onChange={(e) => setLocalClassId(e.target.value ? Number(e.target.value) : null)} className={`${inputClass} w-64`}>
               <option value="">-- Chọn lớp --</option>
               {classes.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.classCode} — {c.name}
                 </option>
               ))}
-            </select>
+            </Select>
           ) : (
-            <select value={selectedCurriculumId ?? ""} onChange={(e) => setSelectedCurriculumId(e.target.value ? Number(e.target.value) : null)} className={`${inputClass} w-64`}>
+            <Select value={selectedCurriculumId ?? ""} onChange={(e) => setSelectedCurriculumId(e.target.value ? Number(e.target.value) : null)} className={`${inputClass} w-64`}>
               <option value="">-- Chọn khung chương trình --</option>
               {curriculums.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.code} — {c.name}
                 </option>
               ))}
-            </select>
+            </Select>
           )}
 
           <Button
@@ -566,14 +567,14 @@ function CreateSetModal({
         <div className="grid grid-cols-2 gap-3 items-end">
           <div>
             <label className={labelClass}>Học phần (tùy chọn)</label>
-            <select value={form.subjectId} onChange={(e) => setForm({ ...form, subjectId: e.target.value })} className={inputClass}>
+            <Select value={form.subjectId} onChange={(e) => setForm({ ...form, subjectId: e.target.value })} className={inputClass}>
               <option value="">-- Không gán --</option>
               {subjects.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
           <div>
             <label className={labelClass}>Thứ tự</label>
@@ -653,24 +654,24 @@ function EditSetModal({
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className={labelClass}>Học phần (tùy chọn)</label>
-            <select value={form.subjectId} onChange={(e) => setForm({ ...form, subjectId: e.target.value })} className={inputClass}>
+            <Select value={form.subjectId} onChange={(e) => setForm({ ...form, subjectId: e.target.value })} className={inputClass}>
               <option value="">-- Không gán --</option>
               {subjects.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
           <div>
             <label className={labelClass}>Trạng thái</label>
-            <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as ReviewVideoSetStatus })} className={inputClass}>
+            <Select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as ReviewVideoSetStatus })} className={inputClass}>
               {Object.entries(statusLabels).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
         </div>
         <div>
@@ -839,14 +840,14 @@ function StatsModal({
         {set.classId == null && (
           <div>
             <label className={labelClass}>Xem thống kê theo lớp *</label>
-            <select value={classId ?? ""} onChange={(e) => setClassId(e.target.value ? Number(e.target.value) : null)} className={`${inputClass} w-64`}>
+            <Select value={classId ?? ""} onChange={(e) => setClassId(e.target.value ? Number(e.target.value) : null)} className={`${inputClass} w-64`}>
               <option value="">-- Chọn lớp --</option>
               {classesInCurriculum.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.classCode} — {c.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
         )}
 

@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { ChevronDown, ChevronUp, Search } from "lucide-react";
 import { permissionGroupsByModule } from "../constants/permissionGroups";
+import Select from "@/components/ui/Select";
 
 export interface ChecklistItem {
   permissionId: number;
@@ -41,7 +42,7 @@ export default function PermissionChecklist({ items, selectedIds, onToggle, onTo
           />
         </div>
 
-        <select
+        <Select
           value={moduleFilter}
           onChange={(e) => setModuleFilter(e.target.value)}
           className="bg-white border border-slate-200 text-xs px-2 py-1.5 rounded-lg focus:outline-none text-slate-700 font-semibold w-full sm:w-auto cursor-pointer"
@@ -52,7 +53,7 @@ export default function PermissionChecklist({ items, selectedIds, onToggle, onTo
               {mod}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
 
       {modules

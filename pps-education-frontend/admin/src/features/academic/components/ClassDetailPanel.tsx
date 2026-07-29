@@ -27,6 +27,7 @@ import {
 } from "../api";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
+import Modal from "@/components/ui/Modal";
 import { classStatusLabels, classStatusVariants } from "./ClassListPanel";
 import BulkGenerateSessionsForm from "./BulkGenerateSessionsForm";
 import ImportScheduleForm from "./ImportScheduleForm";
@@ -35,6 +36,7 @@ import StudentInfoModal from "./StudentInfoModal";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import DatePicker from "@/components/ui/DatePicker";
+import Select from "@/components/ui/Select";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-xs p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
@@ -185,13 +187,13 @@ function ProfileTab({
         </div>
         <div>
           <label className={labelClass}>Trạng thái *</label>
-          <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as ClassResponse["status"] })} className={inputClass}>
+          <Select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as ClassResponse["status"] })} className={inputClass}>
             {Object.entries(classStatusLabels).map(([value, label]) => (
               <option key={value} value={value}>
                 {label}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
         <div>
           <label className={labelClass}>Sĩ số tối đa *</label>
@@ -382,11 +384,11 @@ function AssignTeacherForm({ classId, onDone, onCancel }: { classId: number; onD
         </div>
       )}
 
-      <select value={teacherRole} onChange={(e) => setTeacherRole(e.target.value as AssignTeacherRequest["teacherRole"])} className={inputClass}>
+      <Select value={teacherRole} onChange={(e) => setTeacherRole(e.target.value as AssignTeacherRequest["teacherRole"])} className={inputClass}>
         <option value="PRIMARY">Giáo viên chính</option>
         <option value="ASSISTANT">Trợ giảng</option>
         <option value="SUBSTITUTE">Dạy thay</option>
-      </select>
+      </Select>
 
       <div className="flex gap-2">
         <Button type="button" variant="secondary" size="sm" onClick={onCancel}>
@@ -727,7 +729,7 @@ function SessionsTab({
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <span className="text-[10px] font-bold uppercase text-slate-500">Buổi học ({sessions.length})</span>
-        {canManage && !creating && (
+        {canManage && (
           <div className="flex items-center gap-1.5">
             <Button size="sm" variant="secondary" onClick={() => setCreating("single")}>
               <UserPlus className="w-3.5 h-3.5" />
@@ -796,7 +798,7 @@ function SessionsTab({
         </div>
       )}
 
-      {creating === "single" && (
+      <Modal open={creating === "single"} onClose={() => setCreating(null)} title="Xếp buổi học mới" size="lg">
         <CreateSessionForm
           classId={classId}
           siteId={siteId}
@@ -807,8 +809,8 @@ function SessionsTab({
           }}
           onCancel={() => setCreating(null)}
         />
-      )}
-      {creating === "bulk" && (
+      </Modal>
+      <Modal open={creating === "bulk"} onClose={() => setCreating(null)} title="Sinh lịch hàng loạt" size="lg">
         <BulkGenerateSessionsForm
           classId={classId}
           siteId={siteId}
@@ -819,8 +821,8 @@ function SessionsTab({
           }}
           onCancel={() => setCreating(null)}
         />
-      )}
-      {creating === "excel" && (
+      </Modal>
+      <Modal open={creating === "excel"} onClose={() => setCreating(null)} title="Nhập lịch từ Excel">
         <ImportScheduleForm
           classId={classId}
           onDone={() => {
@@ -830,7 +832,7 @@ function SessionsTab({
           }}
           onCancel={() => setCreating(null)}
         />
-      )}
+      </Modal>
     </div>
   );
 }
@@ -906,23 +908,23 @@ function CreateSessionForm({ classId, siteId, onDone, onCancel }: { classId: num
       <div className="grid grid-cols-2 gap-2">
         <div>
           <label className={labelClass}>Loại buổi học</label>
-          <select value={form.sessionType} onChange={(e) => setForm({ ...form, sessionType: e.target.value })} className={inputClass}>
+          <Select value={form.sessionType} onChange={(e) => setForm({ ...form, sessionType: e.target.value })} className={inputClass}>
             <option value="REGULAR">Buổi học thường</option>
             <option value="REVIEW">Ôn tập</option>
             <option value="EXAM">Kiểm tra</option>
             <option value="MAKEUP">Học bù</option>
-          </select>
+          </Select>
         </div>
         <div>
           <label className={labelClass}>Phòng học</label>
-          <select value={roomId} onChange={(e) => setRoomId(e.target.value)} className={inputClass}>
+          <Select value={roomId} onChange={(e) => setRoomId(e.target.value)} className={inputClass}>
             <option value="">-- Không gán --</option>
             {rooms.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.code} — {r.name}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
       </div>
 

@@ -1,5 +1,23 @@
-import React, { useState } from "react";
-import { Award, Calendar, ChevronDown, Clock, Download, ExternalLink, FileCheck, MessageSquareText, ShieldCheck, Sparkles, TrendingUp, Video } from "lucide-react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Award,
+  Calendar,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  Download,
+  ExternalLink,
+  FileCheck,
+  MessageSquareText,
+  ShieldCheck,
+  Sparkles,
+  TrendingUp,
+  Video
+} from "lucide-react";
+
+const WEEKDAY_LABELS = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
+const pad2 = (n: number) => String(n).padStart(2, "0");
 
 type AttitudeType = "Tốt" | "Khá" | "TB Khá" | "TB" | "Yếu" | "Kém";
 
@@ -124,6 +142,69 @@ export default function DailyLearningProgressTab({ studentName, studentCode }: D
   const logs = MOCK_LOGS;
   const filteredLogs = logs.filter((log) => selectedSessionId === "ALL" || log.id === selectedSessionId);
   const displayCode = studentCode || logs[0]?.studentCode || "";
+  const selectedLog = logs.find((log) => log.id === selectedSessionId) ?? null;
+
+  // Datepicker chọn buổi học theo ngày — thay cho <select> gốc vì danh sách dropdown mặc định của
+  // trình duyệt hiện tràn/xấu (đã báo trong ảnh chụp). Vẫn lọc theo session.id như cũ, chỉ đổi cách chọn.
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [viewMonth, setViewMonth] = useState<Date>(() => new Date((selectedLog ?? logs[0])?.date ?? Date.now()));
+  const [multiDayLogs, setMultiDayLogs] = useState<SessionFeedbackLog[] | null>(null);
+  const calendarRef = useRef<HTMLDivElement>(null);
+
+  const logsByDate = useMemo(() => {
+    const map = new Map<string, SessionFeedbackLog[]>();
+    for (const log of logs) {
+      const existing = map.get(log.date) ?? [];
+      existing.push(log);
+      map.set(log.date, existing);
+    }
+    return map;
+  }, [logs]);
+
+  useEffect(() => {
+    if (!calendarOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (calendarRef.current && !calendarRef.current.contains(e.target as Node)) {
+        setCalendarOpen(false);
+        setMultiDayLogs(null);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [calendarOpen]);
+
+  const toggleCalendar = () => {
+    setCalendarOpen((v) => !v);
+    setMultiDayLogs(null);
+  };
+
+  const closeCalendar = () => {
+    setCalendarOpen(false);
+    setMultiDayLogs(null);
+  };
+
+  const year = viewMonth.getFullYear();
+  const month = viewMonth.getMonth();
+  const firstWeekday = (new Date(year, month, 1).getDay() + 6) % 7;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const calendarCells: (number | null)[] = [...Array.from({ length: firstWeekday }, () => null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)];
+  const dateStrFor = (day: number) => `${year}-${pad2(month + 1)}-${pad2(day)}`;
+
+  const handleDayClick = (day: number) => {
+    const dayLogs = logsByDate.get(dateStrFor(day));
+    if (!dayLogs || dayLogs.length === 0) return;
+    if (dayLogs.length === 1) {
+      setSelectedSessionId(dayLogs[0].id);
+      closeCalendar();
+    } else {
+      setMultiDayLogs(dayLogs);
+    }
+  };
+
+  const triggerLabel =
+    selectedSessionId === "ALL" || !selectedLog
+      ? `Tất cả các buổi học (${logs.length})`
+      : `${selectedLog.date} · ${selectedLog.sessionName.split(":")[0]}`;
 
   const getAttitudeStyle = (attitude: AttitudeType) => {
     switch (attitude) {
@@ -145,9 +226,9 @@ export default function DailyLearningProgressTab({ studentName, studentCode }: D
   };
 
   return (
-    <div className="space-y-6">
+    <div className="bg-white rounded-[24px] border border-line shadow-sm p-4 md:p-6 space-y-6">
       {/* Header Bar */}
-      <div className="bg-slate-50/80 p-5 rounded-2xl border border-line/80 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
+      <div className="bg-slate-50/80 p-5 rounded-2xl border border-line/80 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-lg md:text-xl font-black text-ink font-display">Nhận xét hàng ngày theo buổi học</h2>
@@ -162,28 +243,120 @@ export default function DailyLearningProgressTab({ studentName, studentCode }: D
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <div className="relative">
-            <select
-              value={selectedSessionId}
-              onChange={(e) => setSelectedSessionId(e.target.value)}
-              className="appearance-none bg-white border border-line rounded-xl px-3.5 py-2 pr-8 text-xs font-bold text-ink focus:outline-none focus:ring-2 focus:ring-teal/50 shadow-sm cursor-pointer"
+          <div className="relative" ref={calendarRef}>
+            <button
+              type="button"
+              onClick={toggleCalendar}
+              aria-label="Lọc theo buổi học"
+              aria-haspopup="dialog"
+              aria-expanded={calendarOpen}
+              className="flex items-center gap-2 min-h-[44px] bg-white border border-line rounded-xl pl-3.5 pr-3 py-2.5 text-xs font-bold text-ink focus:outline-none focus:ring-2 focus:ring-teal/50 shadow-sm cursor-pointer"
             >
-              <option value="ALL">🗓️ Tất cả các buổi học ({logs.length})</option>
-              {logs.map((log) => (
-                <option key={log.id} value={log.id}>
-                  {log.date} ({log.timeSlot}) - {log.sessionName.split(":")[0]}
-                </option>
-              ))}
-            </select>
-            <Calendar size={14} className="absolute right-2.5 top-2.5 text-muted pointer-events-none" />
+              <Calendar size={14} className="text-teal shrink-0" aria-hidden="true" />
+              <span className="max-w-[180px] truncate">{triggerLabel}</span>
+              <ChevronDown size={14} className={`text-muted shrink-0 transition-transform ${calendarOpen ? "rotate-180" : ""}`} aria-hidden="true" />
+            </button>
+
+            {calendarOpen && (
+              <div
+                role="dialog"
+                aria-label="Chọn buổi học theo ngày"
+                className="absolute right-0 top-full mt-2 z-30 w-[300px] bg-white border border-line rounded-2xl shadow-lg p-3 space-y-3"
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedSessionId("ALL");
+                    closeCalendar();
+                  }}
+                  className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold border transition-colors ${selectedSessionId === "ALL" ? "bg-teal text-white border-teal" : "bg-slate-50 text-ink border-line/80 hover:bg-sky-2"
+                    }`}
+                >
+                  Tất cả các buổi học ({logs.length})
+                </button>
+
+                <div className="flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => setViewMonth(new Date(year, month - 1, 1))}
+                    aria-label="Tháng trước"
+                    className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-sky-2 text-muted"
+                  >
+                    <ChevronLeft size={16} aria-hidden="true" />
+                  </button>
+                  <span className="text-xs font-black text-ink capitalize">
+                    {viewMonth.toLocaleDateString("vi-VN", { month: "long", year: "numeric" })}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setViewMonth(new Date(year, month + 1, 1))}
+                    aria-label="Tháng sau"
+                    className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-sky-2 text-muted"
+                  >
+                    <ChevronRight size={16} aria-hidden="true" />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-7 gap-1 text-center">
+                  {WEEKDAY_LABELS.map((w) => (
+                    <span key={w} className="text-[10px] font-bold text-muted py-1">
+                      {w}
+                    </span>
+                  ))}
+                  {calendarCells.map((day, i) => {
+                    if (day == null) return <span key={`blank-${i}`} />;
+                    const dayLogs = logsByDate.get(dateStrFor(day));
+                    const hasLogs = !!dayLogs && dayLogs.length > 0;
+                    const isSelected = !!dayLogs && dayLogs.some((l) => l.id === selectedSessionId);
+                    return (
+                      <button
+                        key={day}
+                        type="button"
+                        disabled={!hasLogs}
+                        onClick={() => handleDayClick(day)}
+                        aria-label={hasLogs ? `Buổi học ngày ${day}/${month + 1}` : undefined}
+                        className={`relative w-9 h-9 mx-auto flex items-center justify-center rounded-lg text-xs font-bold transition-colors ${isSelected
+                          ? "bg-teal text-white"
+                          : hasLogs
+                            ? "bg-teal/10 text-teal hover:bg-teal hover:text-white cursor-pointer"
+                            : "text-slate-300 cursor-default"
+                          }`}
+                      >
+                        {day}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {multiDayLogs && (
+                  <div className="border-t border-line/60 pt-2 space-y-1">
+                    <p className="text-[10px] font-bold text-muted uppercase">Chọn đúng buổi học trong ngày</p>
+                    {multiDayLogs.map((log) => (
+                      <button
+                        key={log.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedSessionId(log.id);
+                          closeCalendar();
+                        }}
+                        className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-bold bg-slate-50 hover:bg-sky-2 text-ink"
+                      >
+                        {log.timeSlot} — {log.sessionName.split(":")[0]}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <button
             onClick={() => alert("Đã xuất báo cáo quá trình học tập ra file Excel (.xlsx) thành công!")}
-            className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-100 border border-line rounded-xl text-xs font-bold text-ink transition-colors shadow-sm cursor-pointer"
+            aria-label="Tải báo cáo nhật ký học tập ra file Excel"
             title="Tải báo cáo nhật ký học tập"
+            className="flex items-center justify-center gap-1.5 min-h-[44px] px-3.5 py-2.5 bg-white hover:bg-slate-100 border border-line rounded-xl text-xs font-bold text-ink transition-colors shadow-sm cursor-pointer"
           >
-            <Download size={14} className="text-teal" />
+            <Download size={14} className="text-teal shrink-0" aria-hidden="true" />
             <span className="hidden sm:inline">Tải Excel (.xlsx)</span>
           </button>
         </div>
@@ -193,27 +366,27 @@ export default function DailyLearningProgressTab({ studentName, studentCode }: D
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="p-4 bg-sky-2 rounded-2xl border border-line/60 flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-teal/10 text-teal flex items-center justify-center shrink-0">
-            <TrendingUp size={20} />
+            <TrendingUp size={20} aria-hidden="true" />
           </div>
           <div>
             <p className="text-[10px] text-muted font-extrabold uppercase">Thái độ chung</p>
-            <p className="text-sm font-black text-ink">Đạt Loại Tốt (95%)</p>
+            <p className="text-sm font-black text-ink tabular-nums">Đạt Loại Tốt (95%)</p>
           </div>
         </div>
 
         <div className="p-4 bg-sky-2 rounded-2xl border border-line/60 flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-            <ShieldCheck size={20} />
+            <ShieldCheck size={20} aria-hidden="true" />
           </div>
           <div>
             <p className="text-[10px] text-muted font-extrabold uppercase">Tỷ lệ hoàn thành BTVN</p>
-            <p className="text-sm font-black text-emerald-600">92% Trung Bình</p>
+            <p className="text-sm font-black text-emerald-600 tabular-nums">92% Trung Bình</p>
           </div>
         </div>
 
         <div className="p-4 bg-sky-2 rounded-2xl border border-line/60 flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
-            <Award size={20} />
+            <Award size={20} aria-hidden="true" />
           </div>
           <div>
             <p className="text-[10px] text-muted font-extrabold uppercase">Buổi học ghi nhận</p>
@@ -223,20 +396,20 @@ export default function DailyLearningProgressTab({ studentName, studentCode }: D
 
         <div className="p-4 bg-sky-2 rounded-2xl border border-line/60 flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
-            <Sparkles size={20} />
+            <Sparkles size={20} aria-hidden="true" />
           </div>
           <div>
             <p className="text-[10px] text-muted font-extrabold uppercase">Tình trạng chuyên cần</p>
-            <p className="text-sm font-black text-purple-600">Đạt Chuẩn (100%)</p>
+            <p className="text-sm font-black text-purple-600 tabular-nums">Đạt Chuẩn (100%)</p>
           </div>
         </div>
       </div>
 
       {/* Main Table */}
-      <div className="bg-white border border-line rounded-2xl shadow-sm overflow-hidden">
+      <div className="border border-line/80 rounded-2xl overflow-hidden">
         <div className="p-4 border-b border-line bg-slate-50/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <div className="flex items-center gap-2">
-            <MessageSquareText size={18} className="text-teal" />
+            <MessageSquareText size={18} className="text-teal" aria-hidden="true" />
             <h3 className="text-sm font-black text-ink font-display uppercase tracking-wider">
               Bảng theo dõi nhật ký học tập học viên {studentName}
             </h3>
@@ -253,9 +426,9 @@ export default function DailyLearningProgressTab({ studentName, studentCode }: D
                 <th className="p-3.5 pl-4">Mã ID</th>
                 <th className="p-3.5">Buổi Học &amp; Thời Gian</th>
                 <th className="p-3.5 min-w-[120px]">Thái Độ Học Tập</th>
-                <th className="p-3.5 min-w-[180px]">BTVN Ngữ Pháp Buổi Trước</th>
-                <th className="p-3.5 min-w-[180px]">BTVN Nghe-Nói Buổi Trước</th>
-                <th className="p-3.5 min-w-[320px]">Nhận Xét Học Sinh</th>
+                <th className="p-3.5 min-w-[140px]">BTVN Ngữ Pháp Buổi Trước</th>
+                <th className="p-3.5 min-w-[140px]">BTVN Nghe-Nói Buổi Trước</th>
+                <th className="p-3.5 min-w-[220px]">Nhận Xét Học Sinh</th>
                 <th className="p-3.5 min-w-[280px]">BTVN Buổi Sau (Link &amp; Bài Tập)</th>
                 <th className="p-3.5 pr-4">Ghi Chú</th>
               </tr>
@@ -268,9 +441,9 @@ export default function DailyLearningProgressTab({ studentName, studentCode }: D
 
                   {/* Buổi Học & Thời Gian */}
                   <td className="p-3.5 pt-4">
-                    <div className="font-bold text-teal-deep text-xs leading-tight min-w-[140px]">{log.sessionName}</div>
+                    <div className="font-bold text-teal-deep text-xs leading-tight min-w-[120px] max-w-[160px]">{log.sessionName}</div>
                     <div className="text-[10px] text-muted font-mono flex items-center gap-1 mt-1">
-                      <Clock size={10} /> {log.date} ({log.timeSlot})
+                      <Clock size={10} aria-hidden="true" /> {log.date} ({log.timeSlot})
                     </div>
                   </td>
 
@@ -280,25 +453,27 @@ export default function DailyLearningProgressTab({ studentName, studentCode }: D
                       className={`w-full flex items-center justify-between gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-black shadow-sm select-none ${getAttitudeStyle(log.attitude)}`}
                     >
                       <span>{log.attitude}</span>
-                      <ChevronDown size={13} className="opacity-50" />
+                      <ChevronDown size={13} className="opacity-50" aria-hidden="true" />
                     </div>
                   </td>
 
                   {/* BTVN Ngữ Pháp Buổi Trước */}
                   <td className="p-3.5 pt-3">
-                    <div className="w-full bg-slate-50 border border-line rounded-xl px-2.5 py-1.5 text-xs font-bold text-ink">{log.prevGrammarHW || "—"}</div>
+                    <div className="w-full bg-slate-50 border border-line rounded-xl px-2.5 py-1.5 text-xs font-bold text-ink tabular-nums">{log.prevGrammarHW || "—"}</div>
                   </td>
 
                   {/* BTVN Nghe-Nói Buổi Trước */}
                   <td className="p-3.5 pt-3">
-                    <div className="w-full bg-purple-50/50 border border-purple-200 rounded-xl px-2.5 py-1.5 text-xs font-bold text-purple-900">
+                    <div className="w-full bg-purple-50/50 border border-purple-200 rounded-xl px-2.5 py-1.5 text-xs font-bold text-purple-900 tabular-nums">
                       {log.prevSpeakingHW || "—"}
                     </div>
                   </td>
 
-                  {/* Nhận Xét Học Sinh */}
+                  {/* Nhận Xét Học Sinh — hiện đủ nguyên văn (khớp UI gốc Google AI Studio, không cắt dòng). */}
                   <td className="p-3.5 pt-3">
-                    <div className="p-2.5 bg-slate-50 rounded-xl border border-line/60 text-xs text-ink/90 leading-relaxed font-sans italic">"{log.teacherComment}"</div>
+                    <div className="p-2.5 bg-slate-50 rounded-xl border border-line/60 text-xs text-ink/90 leading-relaxed font-sans italic">
+                      "{log.teacherComment}"
+                    </div>
                   </td>
 
                   {/* BTVN Buổi Sau (Link & Bài Tập gộp 1 cột) */}
@@ -306,16 +481,18 @@ export default function DailyLearningProgressTab({ studentName, studentCode }: D
                     <div className="p-3 bg-slate-50/80 rounded-2xl border border-line/80 space-y-2.5 shadow-2xs">
                       <div className="space-y-1">
                         <div className="flex items-center gap-1 text-[10px] font-black text-blue-700 uppercase tracking-wider">
-                          <Video size={11} className="text-blue-600" /> Link bài giảng buổi sau
+                          <Video size={11} className="text-blue-600" aria-hidden="true" /> Link bài giảng buổi sau
                         </div>
-                        <div className="w-full bg-blue-50/70 border border-blue-200 rounded-xl px-2 py-1 text-xs font-bold text-blue-900">{log.nextLectureLabel}</div>
+                        <div className="w-full bg-blue-50/70 border border-blue-200 rounded-xl px-2 py-1 text-xs font-bold text-blue-900">
+                          {log.nextLectureLabel}
+                        </div>
                         <a
                           href={log.nextLectureLink}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1 text-[11px] font-extrabold text-blue-600 hover:text-blue-800 hover:underline pt-0.5"
                         >
-                          <ExternalLink size={11} /> Mở link video bài giảng
+                          <ExternalLink size={11} aria-hidden="true" /> Mở link video bài giảng
                         </a>
                       </div>
 
@@ -323,9 +500,11 @@ export default function DailyLearningProgressTab({ studentName, studentCode }: D
 
                       <div className="space-y-1">
                         <div className="flex items-center gap-1 text-[10px] font-black text-amber-800 uppercase tracking-wider">
-                          <FileCheck size={11} className="text-amber-600" /> Bài tập buổi sau
+                          <FileCheck size={11} className="text-amber-600" aria-hidden="true" /> Bài tập buổi sau
                         </div>
-                        <div className="w-full bg-amber-50/80 border border-amber-200 rounded-xl px-2 py-1 text-xs font-bold text-amber-950">{log.nextHomework}</div>
+                        <div className="w-full bg-amber-50/80 border border-amber-200 rounded-xl px-2 py-1 text-xs font-bold text-amber-950">
+                          {log.nextHomework}
+                        </div>
                       </div>
                     </div>
                   </td>

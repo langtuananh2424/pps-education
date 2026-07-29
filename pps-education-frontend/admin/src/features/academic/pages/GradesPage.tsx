@@ -25,6 +25,7 @@ import GradePublishDetail from "../components/GradePublishDetail";
 import GradePublishGroupList, { GradePublishGroup } from "../components/GradePublishGroupList";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
+import Select from "@/components/ui/Select";
 
 const inputClass = "bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none";
 
@@ -183,7 +184,7 @@ export default function GradesPage() {
               <span className="text-xs font-bold text-slate-700">
                 {selectedClass ? `Lớp: ${selectedClass.classCode} — ${selectedClass.name}` : "Chưa chọn lớp — chọn ở góc trên bên phải (Header)"}
               </span>
-              <select
+              <Select
                 value={selectedPeriodId ?? ""}
                 onChange={(e) => setSelectedPeriodId(e.target.value ? Number(e.target.value) : null)}
                 disabled={!selectedClassId}
@@ -195,7 +196,7 @@ export default function GradesPage() {
                     {p.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
             {selectedClassId && selectedPeriodId ? (
               gradeComponents.length === 0 ? (

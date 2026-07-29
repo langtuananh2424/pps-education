@@ -16,6 +16,7 @@ import {
 import { useEligibleClasses } from "@/features/academic/hooks/useEligibleClasses";
 import NotificationBanner from "../components/NotificationBanner";
 import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
+import Select from "@/components/ui/Select";
 
 type SimpleStatus = "PRESENT" | "ABSENT" | "LATE";
 
@@ -172,7 +173,7 @@ export default function AttendancePage() {
             </div>
             <div className="flex items-center gap-2">
               {selectedClass && (
-                <select
+                <Select
                   value={selectedSessionId ?? ""}
                   onChange={(e) => pickSession(e.target.value)}
                   className="bg-white border text-[10px] font-bold text-slate-700 px-2 py-1 rounded focus:outline-none"
@@ -183,9 +184,9 @@ export default function AttendancePage() {
                       {s.sessionDate} ({s.startTime}–{s.endTime})
                     </option>
                   ))}
-                </select>
+                </Select>
               )}
-              <select
+              <Select
                 value={attendanceMode}
                 onChange={(e) => setAttendanceMode(e.target.value as "SESSION_LEVEL" | "PERIOD_LEVEL")}
                 disabled={locked}
@@ -193,7 +194,7 @@ export default function AttendancePage() {
               >
                 <option value="SESSION_LEVEL">Mức cả Buổi (SESSION)</option>
                 <option value="PERIOD_LEVEL">Mức từng Tiết (PERIOD)</option>
-              </select>
+              </Select>
             </div>
           </div>
 

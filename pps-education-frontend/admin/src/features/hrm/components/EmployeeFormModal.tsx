@@ -8,6 +8,7 @@ import Button from "@/components/ui/Button";
 import DatePicker from "@/components/ui/DatePicker";
 import AvatarUploadField from "@/components/ui/AvatarUploadField";
 import { uploadMedia } from "@/features/lms/api";
+import Select from "@/components/ui/Select";
 
 const TODAY_ISO = new Date().toISOString().slice(0, 10);
 
@@ -136,11 +137,11 @@ export default function EmployeeFormModal({ onClose, onCreated }: EmployeeFormMo
             </div>
             <div>
               <label className={labelClass}>Loại nhân sự *</label>
-              <select value={form.employeeType} onChange={(e) => setForm({ ...form, employeeType: e.target.value })} className={inputClass}>
+              <Select value={form.employeeType} onChange={(e) => setForm({ ...form, employeeType: e.target.value })} className={inputClass}>
                 <option value="TEACHER">Giáo viên</option>
                 <option value="STAFF">Nhân viên</option>
                 <option value="MANAGER">Quản lý</option>
-              </select>
+              </Select>
             </div>
             <div>
               <label className={labelClass}>Ngày sinh *</label>
@@ -169,28 +170,28 @@ export default function EmployeeFormModal({ onClose, onCreated }: EmployeeFormMo
             </div>
             <div>
               <label className={labelClass}>Chức vụ</label>
-              <select value={form.positionId} onChange={(e) => setForm({ ...form, positionId: e.target.value })} className={inputClass}>
+              <Select value={form.positionId} onChange={(e) => setForm({ ...form, positionId: e.target.value })} className={inputClass}>
                 <option value="">-- Chưa gán --</option>
                 {positions.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
                   </option>
                 ))}
-              </select>
+              </Select>
               {positions.length === 0 && (
                 <p className="text-[10px] text-slate-400 mt-1">Chưa có chức vụ nào — tạo tại "Phòng ban & Chức vụ".</p>
               )}
             </div>
             <div>
               <label className={labelClass}>Phòng ban</label>
-              <select value={form.departmentId} onChange={(e) => setForm({ ...form, departmentId: e.target.value })} className={inputClass}>
+              <Select value={form.departmentId} onChange={(e) => setForm({ ...form, departmentId: e.target.value })} className={inputClass}>
                 <option value="">-- Chưa gán --</option>
                 {departments.map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
             <div>
               <label className={labelClass}>Số CCCD</label>

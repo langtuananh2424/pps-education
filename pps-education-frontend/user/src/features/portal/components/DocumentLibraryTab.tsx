@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Download, FileText, FolderOpen, Music, Play, Search, Video, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { CurriculumDocumentResponse, getPortalClass, listMyDocuments } from "../api";
+import { clampLines } from "@/lib/textClamp";
 
 const documentTypeLabels: Record<CurriculumDocumentResponse["documentType"], string> = {
   VIDEO: "Video",
@@ -157,8 +158,14 @@ export default function DocumentLibraryTab({ classId }: DocumentLibraryTabProps)
                   )}
                 </div>
                 <div className="p-3.5 flex-1 min-w-0 space-y-1">
-                  <p className="font-extrabold text-ink text-sm leading-snug line-clamp-2">{doc.title}</p>
-                  {doc.description && <p className="text-[10px] text-muted font-bold line-clamp-2">{doc.description}</p>}
+                  <p title={doc.title} style={clampLines(2)} className="font-extrabold text-ink text-sm leading-snug">
+                    {doc.title}
+                  </p>
+                  {doc.description && (
+                    <p title={doc.description} style={clampLines(2)} className="text-[10px] text-muted font-bold">
+                      {doc.description}
+                    </p>
+                  )}
                 </div>
                 <div className="p-3.5 pt-0">
                   {youtubeVideoId ? (

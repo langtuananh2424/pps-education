@@ -21,6 +21,7 @@ import {
   UserDetailResponse,
   UserListItemResponse
 } from "../api";
+import Select from "@/components/ui/Select";
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
@@ -129,13 +130,13 @@ export default function UsersPage() {
             className="w-full bg-slate-50 border border-slate-200 text-xs pl-8 pr-3 py-2.5 rounded-lg focus:outline-none"
           />
         </div>
-        <select value={status} onChange={(e) => setStatus(e.target.value as typeof status)} className="bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none">
+        <Select value={status} onChange={(e) => setStatus(e.target.value as typeof status)} className="bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none">
           <option value="">-- Mọi trạng thái --</option>
           <option value="ACTIVE">Đang hoạt động</option>
           <option value="INACTIVE">Ngừng hoạt động</option>
           <option value="SUSPENDED">Tạm khóa</option>
-        </select>
-        <select
+        </Select>
+        <Select
           value={departmentId}
           onChange={(e) => setDepartmentId(e.target.value)}
           className="w-48 bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
@@ -146,8 +147,8 @@ export default function UsersPage() {
               {d.name}
             </option>
           ))}
-        </select>
-        <select
+        </Select>
+        <Select
           value={roleCode}
           onChange={(e) => setRoleCode(e.target.value)}
           className="w-48 bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
@@ -158,7 +159,7 @@ export default function UsersPage() {
               {r.name}
             </option>
           ))}
-        </select>
+        </Select>
         <Button type="submit" variant="dark">
           Tìm kiếm
         </Button>
@@ -222,7 +223,7 @@ export default function UsersPage() {
               <span className="text-slate-300">|</span>
               <label className="flex items-center gap-1.5">
                 Số dòng/trang:
-                <select
+                <Select
                   value={pageSize}
                   onChange={(e) => {
                     setPageSize(Number(e.target.value));
@@ -235,7 +236,7 @@ export default function UsersPage() {
                       {size}
                     </option>
                   ))}
-                </select>
+                </Select>
               </label>
             </div>
             {totalPages > 1 && (

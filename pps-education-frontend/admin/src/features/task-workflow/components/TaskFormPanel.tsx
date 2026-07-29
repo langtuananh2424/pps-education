@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { AlertCircle } from "lucide-react";
 import { Employee } from "@/types";
 import DatePicker from "@/components/ui/DatePicker";
+import Select from "@/components/ui/Select";
 
 interface TaskFormPanelProps {
   employees: Employee[];
@@ -58,7 +59,7 @@ export default function TaskFormPanel({ employees, onSubmit, onCancel }: TaskFor
 
         <div className="space-y-1">
           <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Nhân sự nhận việc</label>
-          <select
+          <Select
             value={assignedToId}
             onChange={(e) => setAssignedToId(e.target.value)}
             className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none"
@@ -68,7 +69,7 @@ export default function TaskFormPanel({ employees, onSubmit, onCancel }: TaskFor
                 {emp.fullName} ({emp.role})
               </option>
             ))}
-          </select>
+          </Select>
         </div>
       </div>
 

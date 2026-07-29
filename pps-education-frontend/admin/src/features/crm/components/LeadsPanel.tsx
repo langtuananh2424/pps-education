@@ -3,6 +3,7 @@ import { AlertCircle, PhoneCall, UserPlus } from "lucide-react";
 import { Lead } from "@/types";
 import Badge, { BadgeVariant } from "@/components/ui/Badge";
 import { cn } from "@/lib/cn";
+import Select from "@/components/ui/Select";
 
 const statusLabels: Record<Lead["status"], string> = {
   NEW: "Mới đổ về",
@@ -123,7 +124,7 @@ export default function LeadsPanel({ leads, onAddCallLog, onConvertToStudent }: 
             <form onSubmit={handleSubmit} className="space-y-3 pt-2">
               <div className="space-y-1">
                 <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Cập nhật trạng thái Leads</label>
-                <select
+                <Select
                   value={leadStatus}
                   onChange={(e) => setLeadStatus(e.target.value as Lead["status"])}
                   className="w-full bg-slate-50 border border-slate-200 text-xs px-2.5 py-1.5 rounded-lg focus:outline-none"
@@ -132,7 +133,7 @@ export default function LeadsPanel({ leads, onAddCallLog, onConvertToStudent }: 
                   <option value="CONTACTED">Đã gọi điện tư vấn (CONTACTED)</option>
                   <option value="QUALIFIED">Đủ điều kiện & Muốn tham quan (QUALIFIED)</option>
                   <option value="LOST">Từ chối học / Thất bại (LOST)</option>
-                </select>
+                </Select>
               </div>
 
               <div className="space-y-1">

@@ -28,6 +28,7 @@ import QuestionEditorForm from "../components/QuestionEditorForm";
 import Button from "@/components/ui/Button";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
+import Select from "@/components/ui/Select";
 
 interface FlatQuestionRow {
   question: QuestionResponse;
@@ -161,7 +162,7 @@ export default function QuestionBankPage() {
                   className="w-full bg-white border border-slate-200 text-xs pl-9 pr-3 py-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-red"
                 />
               </div>
-              <select
+              <Select
                 value={typeFilter}
                 onChange={(e) => setTypeFilter(e.target.value as QuestionType | "ALL")}
                 className="w-full bg-white border border-slate-200 text-xs px-3 py-2.5 rounded-lg focus:outline-none"
@@ -172,8 +173,8 @@ export default function QuestionBankPage() {
                     {meta.label}
                   </option>
                 ))}
-              </select>
-              <select
+              </Select>
+              <Select
                 value={difficultyFilter}
                 onChange={(e) => setDifficultyFilter(e.target.value as QuestionDifficulty | "ALL")}
                 className="w-full bg-white border border-slate-200 text-xs px-3 py-2.5 rounded-lg focus:outline-none"
@@ -184,7 +185,7 @@ export default function QuestionBankPage() {
                     {label}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
 
             {levels.length > 0 && (
@@ -510,7 +511,7 @@ function CreateQuestionModal({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Khung chương trình</label>
-              <select
+              <Select
                 value={curriculumId ?? ""}
                 onChange={(e) => setCurriculumId(e.target.value ? Number(e.target.value) : null)}
                 className="w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
@@ -520,11 +521,11 @@ function CreateQuestionModal({
                     {c.code} — {c.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
             <div>
               <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Ngân hàng</label>
-              <select
+              <Select
                 value={bankId ?? ""}
                 onChange={(e) => setBankId(e.target.value ? Number(e.target.value) : null)}
                 className="w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
@@ -535,7 +536,7 @@ function CreateQuestionModal({
                     {b.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
           </div>
 

@@ -3,6 +3,7 @@ import { Plus } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { PermissionCatalogItem } from "../api";
 import DatePicker from "@/components/ui/DatePicker";
+import Select from "@/components/ui/Select";
 
 const TODAY_ISO = new Date().toISOString().slice(0, 10);
 
@@ -51,14 +52,14 @@ export default function CreateOverrideForm({ permissions, onSubmit }: CreateOver
 
         <div className="space-y-1">
           <label className="text-[10px] uppercase font-bold text-slate-500 block">Chọn Mã Quyền hạt nhân</label>
-          <select value={permissionId} onChange={(e) => setPermissionId(e.target.value)} required className="w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none">
+          <Select value={permissionId} onChange={(e) => setPermissionId(e.target.value)} required className="w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none">
             <option value="">-- Chọn mã quyền --</option>
             {permissions.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.code} - {p.name}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
 
         <div className="space-y-1">

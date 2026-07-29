@@ -15,9 +15,11 @@ import {
 } from "../api";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
+import Modal from "@/components/ui/Modal";
 import { curriculumStatusLabels, curriculumStatusVariants } from "./CurriculumListPanel";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
+import Select from "@/components/ui/Select";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
@@ -188,11 +190,11 @@ function ProfileTab({
           {!isCustom && (
             <div>
               <label className={labelClass}>Trạng thái</label>
-              <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className={inputClass}>
+              <Select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className={inputClass}>
                 <option value="DRAFT">Nháp</option>
                 <option value="ACTIVE">Đang áp dụng</option>
                 <option value="ARCHIVED">Lưu trữ</option>
-              </select>
+              </Select>
             </div>
           )}
         </div>
@@ -213,21 +215,21 @@ function ProfileTab({
 
       {!isCustom && (
         <div className="border-t border-slate-100 pt-4 space-y-3">
-          {!showCustomForm ? (
-            <Button type="button" variant="secondary" size="sm" onClick={() => setShowCustomForm(true)}>
-              <Plus className="w-3.5 h-3.5" />
-              Tạo bản tùy biến cho điểm trường (UC-16b)
-            </Button>
-          ) : (
+          <Button type="button" variant="secondary" size="sm" onClick={() => setShowCustomForm(true)}>
+            <Plus className="w-3.5 h-3.5" />
+            Tạo bản tùy biến cho điểm trường (UC-16b)
+          </Button>
+          <Modal open={showCustomForm} onClose={() => setShowCustomForm(false)} title="Tạo bản tùy biến cho điểm trường (UC-16b)">
             <CreateCustomForm
               parentCurriculumId={curriculum.id}
               onDone={() => {
+                setShowCustomForm(false);
                 onChanged();
                 showToast("Đã tạo bản tùy biến thành công!");
               }}
               onCancel={() => setShowCustomForm(false)}
             />
-          )}
+          </Modal>
         </div>
       )}
     </div>
@@ -267,14 +269,14 @@ function CreateCustomForm({ parentCurriculumId, onDone, onCancel }: { parentCurr
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
       <div className="grid grid-cols-2 gap-2">
         <input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="Mã bản tùy biến" className={`${inputClass} font-mono`} />
-        <select value={form.siteId} onChange={(e) => setForm({ ...form, siteId: e.target.value })} className={inputClass}>
+        <Select value={form.siteId} onChange={(e) => setForm({ ...form, siteId: e.target.value })} className={inputClass}>
           <option value="">-- Chọn điểm trường liên kết --</option>
           {sites.map((s) => (
             <option key={s.id} value={s.id}>
               {s.name}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
       <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Tên riêng (không bắt buộc, mặc định lấy theo bản gốc)" className={inputClass} />
       <div className="flex gap-2">
@@ -308,12 +310,10 @@ function SubjectsTab({ curriculumId, showToast }: { curriculumId: number; showTo
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <span className="text-[10px] font-bold uppercase text-slate-500">Học phần ({subjects.length})</span>
-        {!adding && (
-          <Button size="sm" variant="secondary" onClick={() => setAdding(true)}>
-            <Plus className="w-3.5 h-3.5" />
-            Thêm học phần
-          </Button>
-        )}
+        <Button size="sm" variant="secondary" onClick={() => setAdding(true)}>
+          <Plus className="w-3.5 h-3.5" />
+          Thêm học phần
+        </Button>
       </div>
 
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
@@ -339,7 +339,7 @@ function SubjectsTab({ curriculumId, showToast }: { curriculumId: number; showTo
         </div>
       )}
 
-      {adding && (
+      <Modal open={adding} onClose={() => setAdding(false)} title="Thêm học phần">
         <AddSubjectForm
           curriculumId={curriculumId}
           onDone={() => {
@@ -349,7 +349,7 @@ function SubjectsTab({ curriculumId, showToast }: { curriculumId: number; showTo
           }}
           onCancel={() => setAdding(false)}
         />
-      )}
+      </Modal>
     </div>
   );
 }

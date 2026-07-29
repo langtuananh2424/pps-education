@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Send } from "lucide-react";
 import { Task } from "@/types";
 import Modal from "@/components/ui/Modal";
+import Select from "@/components/ui/Select";
 
 interface TaskDetailModalProps {
   task: Task;
@@ -31,7 +32,7 @@ export default function TaskDetailModal({ task, onClose, onChangeStatus, onAddCo
         <div className="grid grid-cols-2 gap-4 bg-slate-50 p-3.5 rounded-lg border border-slate-100">
           <div>
             <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block font-display">Cập nhật Trạng thái (UC-07)</span>
-            <select
+            <Select
               value={task.status}
               onChange={(e) => onChangeStatus(e.target.value as Task["status"])}
               className="mt-1 w-full bg-white border border-slate-200 text-xs px-2.5 py-1.5 rounded-lg focus:outline-none font-semibold text-slate-700"
@@ -40,7 +41,7 @@ export default function TaskDetailModal({ task, onClose, onChangeStatus, onAddCo
               <option value="IN_PROGRESS">Đang làm (In Progress)</option>
               <option value="WAITING_APPROVAL">Chờ duyệt (Waiting Approval)</option>
               <option value="COMPLETED">Đã Hoàn thành (Completed)</option>
-            </select>
+            </Select>
           </div>
 
           <div className="text-right flex flex-col justify-end">

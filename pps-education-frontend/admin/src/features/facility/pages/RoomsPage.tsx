@@ -26,6 +26,7 @@ import Modal from "@/components/ui/Modal";
 import { cn } from "@/lib/cn";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
+import Select from "@/components/ui/Select";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
@@ -227,13 +228,13 @@ function CreateRoomModal({
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className={labelClass}>Điểm trường *</label>
-            <select value={form.siteId} onChange={(e) => setForm({ ...form, siteId: e.target.value })} className={inputClass}>
+            <Select value={form.siteId} onChange={(e) => setForm({ ...form, siteId: e.target.value })} className={inputClass}>
               {sites.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
           <div>
             <label className={labelClass}>Mã phòng *</label>
@@ -247,13 +248,13 @@ function CreateRoomModal({
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className={labelClass}>Loại phòng *</label>
-            <select value={form.roomType} onChange={(e) => setForm({ ...form, roomType: e.target.value as RoomType })} className={inputClass}>
+            <Select value={form.roomType} onChange={(e) => setForm({ ...form, roomType: e.target.value as RoomType })} className={inputClass}>
               {Object.entries(roomTypeLabels).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
           <div>
             <label className={labelClass}>Sức chứa *</label>
@@ -378,13 +379,13 @@ function EquipmentModal({ room, onClose }: { room: RoomResponse; onClose: () => 
             </div>
             <div>
               <label className={labelClass}>Loại thiết bị *</label>
-              <select value={form.equipmentType} onChange={(e) => setForm({ ...form, equipmentType: e.target.value as EquipmentType })} className={inputClass}>
+              <Select value={form.equipmentType} onChange={(e) => setForm({ ...form, equipmentType: e.target.value as EquipmentType })} className={inputClass}>
                 {Object.entries(equipmentTypeLabels).map(([value, label]) => (
                   <option key={value} value={value}>
                     {label}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
             <div className="flex justify-end gap-2">
               <Button type="button" variant="secondary" onClick={() => setShowAddForm(false)}>

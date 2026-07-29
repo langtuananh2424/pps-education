@@ -698,6 +698,9 @@ export interface StudentCommentResponse {
   // POOR/AVERAGE/GOOD của 3 mức cũ, thêm WEAK/ABOVE_AVERAGE/FAIR.
   attitude: "POOR" | "WEAK" | "AVERAGE" | "ABOVE_AVERAGE" | "FAIR" | "GOOD" | null;
   homeworkPreviousScore: string | null;
+  // BTVN Nghe-nói buổi trước (V56, nhập tay, đối xứng với homeworkPreviousScore ở trên) — độc lập với
+  // videoPreviousProgress (tự tính) bên dưới.
+  homeworkPreviousSpeakingScore: string | null;
   homeworkNext: string | null;
   // BTVN online/offline theo từng học sinh (V55, PR UC-21-giao-btvn-online-offline, 2026-07-28) —
   // kênh ngữ pháp ONLINE (homeworkNextExerciseAssignmentId khác null) hoặc OFFLINE (dùng homeworkNext
@@ -725,6 +728,7 @@ export interface CreateStudentCommentRequest {
   // Chỉ áp dụng khi commentType=DAILY — bỏ qua với MID_TERM/END_TERM.
   attitude?: NonNullable<StudentCommentResponse["attitude"]>;
   homeworkPreviousScore?: string;
+  homeworkPreviousSpeakingScore?: string;
   homeworkNext?: string;
   /** Kênh ngữ pháp ONLINE — để trống nếu dùng homeworkNext (OFFLINE) hoặc không giao gì. */
   homeworkNextExerciseAssignmentId?: number;
@@ -740,6 +744,7 @@ export interface UpdateStudentCommentRequest {
   isWarning: boolean;
   attitude?: NonNullable<StudentCommentResponse["attitude"]>;
   homeworkPreviousScore?: string;
+  homeworkPreviousSpeakingScore?: string;
   homeworkNext?: string;
   homeworkNextExerciseAssignmentId?: number;
   homeworkNextReviewVideoSetId?: number;

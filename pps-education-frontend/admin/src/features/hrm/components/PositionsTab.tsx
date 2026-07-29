@@ -13,6 +13,7 @@ import {
 } from "../api";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
+import Modal from "@/components/ui/Modal";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 
@@ -61,17 +62,15 @@ export default function PositionsTab() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <span className="text-[10px] font-bold uppercase text-slate-500">Danh mục Chức vụ ({positions.length})</span>
-          {!creating && (
-            <Button size="sm" variant="secondary" onClick={() => setCreating(true)}>
-              <Plus className="w-3.5 h-3.5" />
-              Thêm chức vụ
-            </Button>
-          )}
+          <Button size="sm" variant="secondary" onClick={() => setCreating(true)}>
+            <Plus className="w-3.5 h-3.5" />
+            Thêm chức vụ
+          </Button>
         </div>
 
         {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
-        {creating && (
+        <Modal open={creating} onClose={() => setCreating(false)} title="Thêm chức vụ">
           <PositionForm
             onDone={() => {
               setCreating(false);
@@ -80,7 +79,7 @@ export default function PositionsTab() {
             }}
             onCancel={() => setCreating(false)}
           />
-        )}
+        </Modal>
 
         {loading ? (
           <p className="text-xs text-slate-500">Đang tải...</p>

@@ -17,10 +17,12 @@ import {
   listGradePeriods
 } from "../api";
 import Button from "@/components/ui/Button";
+import Modal from "@/components/ui/Modal";
 import GradeSheetTable from "./GradeSheetTable";
 import GradeExcelImportPanel from "./GradeExcelImportPanel";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
+import Select from "@/components/ui/Select";
 
 const inputClass = "bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none";
 
@@ -101,7 +103,7 @@ export default function ClassGradeSheetPanel({ classId, curriculumId, readOnly =
 
       <div className="flex items-center justify-between flex-wrap gap-2">
         <span className="text-xs font-bold text-slate-700 font-display">Bảng nhập điểm (UC-19)</span>
-        <select
+        <Select
           value={selectedPeriodId ?? ""}
           onChange={(e) => setSelectedPeriodId(e.target.value ? Number(e.target.value) : null)}
           className={inputClass}
@@ -112,7 +114,7 @@ export default function ClassGradeSheetPanel({ classId, curriculumId, readOnly =
               {p.name}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
 
       {canManage && !readOnly && (
@@ -147,7 +149,7 @@ export default function ClassGradeSheetPanel({ classId, curriculumId, readOnly =
           ))}
         </div>
       )}
-      {showPeriodForm && (
+      <Modal open={showPeriodForm} onClose={() => setShowPeriodForm(false)} title="Thêm kỳ điểm">
         <CreatePeriodForm
           curriculumId={curriculumId}
           onDone={(p) => {
@@ -157,18 +159,20 @@ export default function ClassGradeSheetPanel({ classId, curriculumId, readOnly =
           }}
           onCancel={() => setShowPeriodForm(false)}
         />
-      )}
-      {showComponentForm && selectedPeriodId && (
-        <CreateComponentForm
-          gradePeriodId={selectedPeriodId}
-          onDone={(c) => {
-            setGradeComponents((prev) => [...prev, c]);
-            setShowComponentForm(false);
-            showToast("Đã tạo đầu điểm thành công!");
-          }}
-          onCancel={() => setShowComponentForm(false)}
-        />
-      )}
+      </Modal>
+      <Modal open={showComponentForm && !!selectedPeriodId} onClose={() => setShowComponentForm(false)} title="Thêm đầu điểm">
+        {selectedPeriodId && (
+          <CreateComponentForm
+            gradePeriodId={selectedPeriodId}
+            onDone={(c) => {
+              setGradeComponents((prev) => [...prev, c]);
+              setShowComponentForm(false);
+              showToast("Đã tạo đầu điểm thành công!");
+            }}
+            onCancel={() => setShowComponentForm(false)}
+          />
+        )}
+      </Modal>
 
       {selectedPeriodId ? (
         gradeComponents.length === 0 ? (
@@ -235,13 +239,13 @@ function CreatePeriodForm({ curriculumId, onDone, onCancel }: { curriculumId: nu
     <form onSubmit={handleSubmit} className="bg-white border border-slate-200 rounded-lg p-3 space-y-2">
       {error && <div className="text-[11px] text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
       <div className="grid grid-cols-3 gap-2">
-        <select value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} className={inputClass}>
+        <Select value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} className={inputClass}>
           <option value="MID_1">MID_1 — Giữa kỳ 1</option>
           <option value="END_1">END_1 — Cuối kỳ 1</option>
           <option value="MID_2">MID_2 — Giữa kỳ 2</option>
           <option value="END_2">END_2 — Cuối kỳ 2</option>
           <option value="OTHER">OTHER — Khác</option>
-        </select>
+        </Select>
         <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Tên kỳ điểm" className={inputClass} />
         <input type="number" step="0.01" value={form.weightInFinal} onChange={(e) => setForm({ ...form, weightInFinal: e.target.value })} placeholder="Điểm kỳ vọng" className={inputClass} />
       </div>
@@ -289,7 +293,7 @@ function CreateComponentForm({ gradePeriodId, onDone, onCancel }: { gradePeriodI
     <form onSubmit={handleSubmit} className="bg-white border border-slate-200 rounded-lg p-3 space-y-2">
       {error && <div className="text-[11px] text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
       <div className="grid grid-cols-3 gap-2">
-        <select value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} className={inputClass}>
+        <Select value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} className={inputClass}>
           <option value="SPEAKING">Speaking</option>
           <option value="WRITING">Writing</option>
           <option value="LISTENING">Listening</option>
@@ -297,7 +301,7 @@ function CreateComponentForm({ gradePeriodId, onDone, onCancel }: { gradePeriodI
           <option value="GRAMMAR">Grammar</option>
           <option value="PROJECT">Project</option>
           <option value="OTHER">Khác</option>
-        </select>
+        </Select>
         <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Tên đầu điểm" className={inputClass} />
         <input type="number" step="0.01" value={form.maxScore} onChange={(e) => setForm({ ...form, maxScore: e.target.value })} placeholder="Điểm tối đa" className={inputClass} />
       </div>

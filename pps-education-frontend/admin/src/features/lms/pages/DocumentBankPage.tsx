@@ -20,6 +20,7 @@ import Modal from "@/components/ui/Modal";
 import FileUploadField from "@/components/ui/FileUploadField";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
+import Select from "@/components/ui/Select";
 
 /** Khớp DOCUMENT_CONTENT_TYPES + audio/image/video của module CURRICULUM_DOCUMENT (xem MediaStorageService.java). */
 const DOCUMENT_UPLOAD_ACCEPT =
@@ -87,14 +88,14 @@ export default function DocumentBankPage() {
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       <Card className="flex flex-wrap items-center gap-3">
-        <select value={selectedCurriculumId ?? ""} onChange={(e) => setSelectedCurriculumId(e.target.value ? Number(e.target.value) : null)} className={`${inputClass} w-72`}>
+        <Select value={selectedCurriculumId ?? ""} onChange={(e) => setSelectedCurriculumId(e.target.value ? Number(e.target.value) : null)} className={`${inputClass} w-72`}>
           <option value="">-- Chọn khung chương trình --</option>
           {curriculums.map((c) => (
             <option key={c.id} value={c.id}>
               {c.code} — {c.name}
             </option>
           ))}
-        </select>
+        </Select>
         <Button variant="primary" disabled={!selectedCurriculumId} onClick={() => setShowCreateForm(true)} className="ml-auto">
           <Plus className="w-4 h-4" />
           <span>Thêm tài liệu</span>
@@ -210,13 +211,13 @@ function CreateDocumentModal({ curriculumId, onClose, onCreated }: { curriculumI
           </div>
           <div>
             <label className={labelClass}>Loại tệp *</label>
-            <select value={form.documentType} onChange={(e) => setForm({ ...form, documentType: e.target.value as CurriculumDocumentType })} className={inputClass}>
+            <Select value={form.documentType} onChange={(e) => setForm({ ...form, documentType: e.target.value as CurriculumDocumentType })} className={inputClass}>
               {Object.entries(documentTypeLabels).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
         </div>
         <div>
@@ -334,13 +335,13 @@ function EditDocumentModal({
           </div>
           <div>
             <label className={labelClass}>Trạng thái</label>
-            <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as CurriculumDocumentStatus })} className={inputClass}>
+            <Select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as CurriculumDocumentStatus })} className={inputClass}>
               {Object.entries(statusLabels).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
         </div>
         <p className="text-[10px] text-slate-400 italic">Loại tệp/URL không sửa được sau khi tạo — xoá bằng cách chuyển trạng thái "Đã gỡ" (ARCHIVED), tạo bản ghi mới nếu cần đổi tệp.</p>

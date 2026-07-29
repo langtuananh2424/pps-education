@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Download, FileText } from "lucide-react";
 import Card from "@/components/ui/Card";
 import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
+import Select from "@/components/ui/Select";
 
 const teachingPlans = [
   { week: "Tuần 1", topic: "Alphabet & Phonetics Basic", hours: "4 Giờ", objectives: "Nhận biết âm đơn, bảng chữ cái" },
@@ -37,10 +38,10 @@ export default function PartnerPortalPage() {
 
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold text-slate-500">Đại diện đơn vị:</span>
-          <select value={partnerFilter} onChange={(e) => setPartnerFilter(e.target.value)} className="bg-white border text-xs font-bold text-slate-700 px-3 py-1.5 rounded-lg focus:outline-none">
+          <Select value={partnerFilter} onChange={(e) => setPartnerFilter(e.target.value)} className="bg-white border text-xs font-bold text-slate-700 px-3 py-1.5 rounded-lg focus:outline-none">
             <option value="CAMP-03">Tiểu học Nghĩa Tân (TH Nghĩa Tân)</option>
             <option value="CAMP-04">Mầm non Hoa Hồng (MN Hoa Hồng)</option>
-          </select>
+          </Select>
         </div>
       </div>
 

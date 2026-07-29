@@ -4,6 +4,7 @@ import { ApiError } from "@/lib/apiClient";
 import { CreateCurriculumRequest, CurriculumResponse, createCurriculum } from "../api";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
+import Select from "@/components/ui/Select";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-xs p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
@@ -72,12 +73,12 @@ export default function CurriculumFormModal({ onClose, onCreated }: CurriculumFo
           </div>
           <div>
             <label className={labelClass}>Nhóm lớp *</label>
-            <select value={form.classCategory} onChange={(e) => setForm({ ...form, classCategory: e.target.value })} className={inputClass}>
+            <Select value={form.classCategory} onChange={(e) => setForm({ ...form, classCategory: e.target.value })} className={inputClass}>
               <option value="MAIN">Chính khóa</option>
               <option value="SUPPLEMENTARY">Bổ trợ</option>
               <option value="EXAM_PREP">Luyện thi</option>
               <option value="OTHER">Khác</option>
-            </select>
+            </Select>
           </div>
           <div className="col-span-2">
             <label className={labelClass}>Tên khung chương trình *</label>

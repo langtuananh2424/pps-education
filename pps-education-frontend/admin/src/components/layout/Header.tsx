@@ -115,6 +115,10 @@ export default function Header() {
 
   const lockToManagedSites = managedSites.length > 0;
   const showUnassignedWarning = !managedSitesLoading && isSiteScopedRole && managedSites.length === 0;
+  const currentCampusLabel =
+    !lockToManagedSites && selectedCampusId === "ALL"
+      ? "Tất cả cơ sở & Trường liên kết"
+      : (lockToManagedSites ? managedSites : sites).find((s) => String(s.id) === selectedCampusId)?.name ?? "-- Chọn điểm trường --";
 
   // Chỉ hiện "Lớp" cho vai trò thật sự cần lọc theo lớp ở 1 trong các màn: Sổ điểm (UC-19/20,
   // SITE_MANAGER không có permission điểm nhưng vẫn cần lọc lớp để "xem lại sổ điểm"), Điểm danh
@@ -138,6 +142,7 @@ export default function Header() {
   // chọn lớp cho nhóm tài khoản này (VD Kho Video Ôn tập UC-23) tự có bộ chọn lớp riêng trong trang.
   const showClassSelector =
     loadingEligibleClasses || myAssignedClassCount > 0 || (isGenuineSiteManager && eligibleClasses.length > 0);
+  const selectedEligibleClass = eligibleClasses.find((cls) => cls.id === selectedClassId) ?? null;
 
   return (
     <header className="h-16 bg-transparent px-2 md:px-0 flex items-center justify-between z-30 mb-4 shrink-0">
@@ -149,70 +154,100 @@ export default function Header() {
           <Menu className="w-5 h-5" />
         </button>
 
-        <div
-          className={`hidden sm:flex items-center gap-2 text-xs font-medium px-4 py-2 rounded-full shadow-soft border ${
-            showUnassignedWarning ? "bg-amber-50 border-amber-200 text-amber-700" : "bg-white border-slate-200/50 text-slate-500"
-          }`}
-        >
-          {showUnassignedWarning ? (
+        {showUnassignedWarning ? (
+          <div className="hidden sm:flex items-center gap-2 text-xs font-medium px-4 py-2 rounded-full shadow-soft border bg-amber-50 border-amber-200 text-amber-700">
             <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-          ) : (
-            <MapPin className="w-3.5 h-3.5 text-brand-orange shrink-0" />
-          )}
-          <span className={`font-semibold ${showUnassignedWarning ? "text-amber-700" : "text-slate-700"}`}>Điểm trường:</span>
-          {showUnassignedWarning ? (
+            <span className="font-semibold text-amber-700">Điểm trường:</span>
             <span className="text-amber-700 font-semibold">Chưa được gán điểm trường — liên hệ quản trị viên</span>
-          ) : lockToManagedSites ? (
-            managedSites.length === 1 ? (
-              <span className="flex items-center gap-1.5 text-slate-800 font-semibold">
-                {managedSites[0].name}
-                <Lock className="w-3 h-3 text-slate-400" />
-              </span>
-            ) : (
-              <select
-                value={selectedCampusId}
-                onChange={(e) => setSelectedCampusId(e.target.value)}
-                className="bg-transparent border-none text-slate-800 font-semibold focus:outline-none focus:ring-0 cursor-pointer pr-1"
-              >
-                {managedSites.map((site) => (
-                  <option key={site.id} value={site.id}>
-                    {site.name}
-                  </option>
-                ))}
-              </select>
-            )
-          ) : (
-            <select
-              value={selectedCampusId}
-              onChange={(e) => setSelectedCampusId(e.target.value)}
-              className="bg-transparent border-none text-slate-800 font-semibold focus:outline-none focus:ring-0 cursor-pointer pr-1"
+          </div>
+        ) : lockToManagedSites && managedSites.length === 1 ? (
+          <div className="hidden sm:flex items-center gap-2 text-xs font-medium px-4 py-2 rounded-full shadow-soft border bg-white border-slate-200/50 text-slate-500">
+            <MapPin className="w-3.5 h-3.5 text-brand-orange shrink-0" />
+            <span className="font-semibold text-slate-700">Điểm trường:</span>
+            <span className="flex items-center gap-1.5 text-slate-800 font-semibold">
+              {managedSites[0].name}
+              <Lock className="w-3 h-3 text-slate-400" />
+            </span>
+          </div>
+        ) : (
+          <div className="hidden sm:block">
+            <Dropdown
+              align="left"
+              panelClassName="w-64 py-1.5 max-h-80 overflow-y-auto"
+              trigger={
+                <button className="flex items-center gap-2 text-xs font-medium px-4 py-2 rounded-full shadow-soft border bg-white border-slate-200/50 hover:bg-slate-50 hover:border-brand-orange/30 text-slate-500 transition-all cursor-pointer">
+                  <MapPin className="w-3.5 h-3.5 text-brand-orange shrink-0" />
+                  <span className="font-semibold text-slate-700">Điểm trường:</span>
+                  <span className="font-semibold text-slate-800 max-w-[200px] truncate">{currentCampusLabel}</span>
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                </button>
+              }
             >
-              <option value="ALL">Tất cả cơ sở & Trường liên kết</option>
-              {sites.map((site) => (
-                <option key={site.id} value={site.id}>
-                  {site.name}
-                </option>
-              ))}
-            </select>
-          )}
-        </div>
+              <div className="p-1.5">
+                {!lockToManagedSites && (
+                  <button
+                    onClick={() => setSelectedCampusId("ALL")}
+                    className={`w-full px-3 py-2.5 text-left text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+                      selectedCampusId === "ALL" ? "bg-brand-orange/10 text-brand-orange" : "text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    Tất cả cơ sở & Trường liên kết
+                  </button>
+                )}
+                {(lockToManagedSites ? managedSites : sites).map((site) => (
+                  <button
+                    key={site.id}
+                    onClick={() => setSelectedCampusId(String(site.id))}
+                    className={`w-full px-3 py-2.5 text-left text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+                      selectedCampusId === String(site.id) ? "bg-brand-orange/10 text-brand-orange" : "text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    {site.name}
+                  </button>
+                ))}
+              </div>
+            </Dropdown>
+          </div>
+        )}
 
         {showClassSelector && (
-          <div className="hidden sm:flex items-center gap-2 text-xs font-medium px-4 py-2 rounded-full shadow-soft border bg-white border-slate-200/50 text-slate-500">
-            <GraduationCap className="w-3.5 h-3.5 text-brand-orange shrink-0" />
-            <span className="font-semibold text-slate-700">Lớp:</span>
-            <select
-              value={selectedClassId ?? ""}
-              onChange={(e) => setSelectedClassId(e.target.value ? Number(e.target.value) : null)}
-              className="bg-transparent border-none text-slate-800 font-semibold focus:outline-none focus:ring-0 cursor-pointer pr-1"
+          <div className="hidden sm:block">
+            <Dropdown
+              align="left"
+              panelClassName="w-64 py-1.5 max-h-80 overflow-y-auto"
+              trigger={
+                <button className="flex items-center gap-2 text-xs font-medium px-4 py-2 rounded-full shadow-soft border bg-white border-slate-200/50 hover:bg-slate-50 hover:border-brand-orange/30 text-slate-500 transition-all cursor-pointer">
+                  <GraduationCap className="w-3.5 h-3.5 text-brand-orange shrink-0" />
+                  <span className="font-semibold text-slate-700">Lớp:</span>
+                  <span className="font-semibold text-slate-800 max-w-[160px] truncate">
+                    {selectedEligibleClass ? `${selectedEligibleClass.classCode} — ${selectedEligibleClass.name}` : "-- Chọn lớp --"}
+                  </span>
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                </button>
+              }
             >
-              <option value="">-- Chọn lớp --</option>
-              {eligibleClasses.map((cls) => (
-                <option key={cls.id} value={cls.id}>
-                  {cls.classCode} — {cls.name}
-                </option>
-              ))}
-            </select>
+              <div className="p-1.5">
+                <button
+                  onClick={() => setSelectedClassId(null)}
+                  className={`w-full px-3 py-2.5 text-left text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+                    !selectedClassId ? "bg-brand-orange/10 text-brand-orange" : "text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  -- Chọn lớp --
+                </button>
+                {eligibleClasses.map((cls) => (
+                  <button
+                    key={cls.id}
+                    onClick={() => setSelectedClassId(cls.id)}
+                    className={`w-full px-3 py-2.5 text-left text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+                      selectedClassId === cls.id ? "bg-brand-orange/10 text-brand-orange" : "text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    {cls.classCode} — {cls.name}
+                  </button>
+                ))}
+              </div>
+            </Dropdown>
           </div>
         )}
       </div>

@@ -4,11 +4,13 @@ import { ApiError } from "@/lib/apiClient";
 import { getParentById, linkParent, listStudents, ParentResponse, StudentResponse, unlinkParent, updateParent } from "../api";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
+import Modal from "@/components/ui/Modal";
 import type { ParentAggregate } from "../pages/ParentsPage";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import AvatarUploadField from "@/components/ui/AvatarUploadField";
 import { uploadMedia } from "@/features/lms/api";
+import Select from "@/components/ui/Select";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
@@ -215,12 +217,10 @@ function ChildrenSection({
     <div className="space-y-3 border-t border-slate-100 pt-4">
       <div className="flex items-center justify-between">
         <span className="text-[10px] font-bold uppercase text-slate-500">Con em đã liên kết ({parent.children.length})</span>
-        {!linking && (
-          <Button size="sm" variant="secondary" onClick={() => setLinking(true)}>
-            <UserPlus className="w-3.5 h-3.5" />
-            Liên kết học sinh
-          </Button>
-        )}
+        <Button size="sm" variant="secondary" onClick={() => setLinking(true)}>
+          <UserPlus className="w-3.5 h-3.5" />
+          Liên kết học sinh
+        </Button>
       </div>
 
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
@@ -246,7 +246,7 @@ function ChildrenSection({
         </div>
       )}
 
-      {linking && (
+      <Modal open={linking} onClose={() => setLinking(false)} title="Liên kết học sinh">
         <form onSubmit={handleLink} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
           {selectedStudent ? (
             <div className="flex items-center justify-between bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs font-semibold px-3 py-2 rounded-lg">
@@ -280,12 +280,12 @@ function ChildrenSection({
           )}
 
           <div className="grid grid-cols-3 gap-2 items-end">
-            <select value={relationship} onChange={(e) => setRelationship(e.target.value)} className={inputClass}>
+            <Select value={relationship} onChange={(e) => setRelationship(e.target.value)} className={inputClass}>
               <option value="FATHER">Bố</option>
               <option value="MOTHER">Mẹ</option>
               <option value="GUARDIAN">Người giám hộ</option>
               <option value="OTHER">Khác</option>
-            </select>
+            </Select>
             <label className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 pb-2.5">
               <input type="checkbox" checked={isPrimaryContact} onChange={(e) => setIsPrimaryContact(e.target.checked)} />
               Liên hệ chính
@@ -305,7 +305,7 @@ function ChildrenSection({
             </Button>
           </div>
         </form>
-      )}
+      </Modal>
     </div>
   );
 }
