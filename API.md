@@ -642,12 +642,20 @@
 |---|---|---|---|---|
 | GET | `/api/classes/{classId}/review-video-sets` | JWT | — | mảng [ReviewVideoSetResponse](#reviewvideosetresponse) |
 | GET | `/api/curriculums/{curriculumId}/review-video-sets` | JWT | — | mảng [ReviewVideoSetResponse](#reviewvideosetresponse) |
+| PUT | `/api/review-video-questions/{questionId}/submissions` | JWT | Body: [SubmitReviewVideoAudioRequest](#submitreviewvideoaudiorequest) | [ReviewVideoSubmissionResponse](#reviewvideosubmissionresponse) |
+| GET | `/api/review-video-questions/{questionId}/submissions/history` | JWT | — | mảng [ReviewVideoSubmissionResponse](#reviewvideosubmissionresponse) |
+| GET | `/api/review-video-questions/{questionId}/submissions/latest` | JWT | — | [ReviewVideoSubmissionResponse](#reviewvideosubmissionresponse) |
 | POST | `/api/review-video-sets` | JWT | Body: [CreateReviewVideoSetRequest](#createreviewvideosetrequest) | [ReviewVideoSetResponse](#reviewvideosetresponse) |
 | PUT | `/api/review-video-sets/{id}` | JWT | Body: [UpdateReviewVideoSetRequest](#updatereviewvideosetrequest) | [ReviewVideoSetResponse](#reviewvideosetresponse) |
 | GET | `/api/review-video-sets/{setId}/stats` | JWT | Query: `classId`? | [ReviewVideoSetStatsResponse](#reviewvideosetstatsresponse) |
+| GET | `/api/review-video-sets/{setId}/submissions` | JWT | Query: `classId`? | mảng [ReviewVideoSubmissionResponse](#reviewvideosubmissionresponse) |
 | GET | `/api/review-video-sets/{setId}/videos` | JWT | — | mảng [ReviewVideoResponse](#reviewvideoresponse) |
 | POST | `/api/review-video-sets/{setId}/videos` | JWT | Body: [AddReviewVideoRequest](#addreviewvideorequest) | [ReviewVideoResponse](#reviewvideoresponse) |
+| POST | `/api/review-video-submissions/{submissionId}/grade` | JWT | Body: [GradeReviewVideoSubmissionRequest](#gradereviewvideosubmissionrequest) | [ReviewVideoSubmissionResponse](#reviewvideosubmissionresponse) |
 | PUT | `/api/review-videos/{videoId}/progress` | JWT | Body: [ReportVideoProgressRequest](#reportvideoprogressrequest) | [ReviewVideoProgressResponse](#reviewvideoprogressresponse) |
+| GET | `/api/review-videos/{videoId}/questions` | JWT | — | mảng [ReviewVideoQuestionResponse](#reviewvideoquestionresponse) |
+| POST | `/api/review-videos/{videoId}/questions` | JWT | Body: [AddReviewVideoQuestionRequest](#addreviewvideoquestionrequest) | [ReviewVideoQuestionResponse](#reviewvideoquestionresponse) |
+| POST | `/api/review-videos/{videoId}/watch-sessions` | JWT | — | [StartWatchSessionResponse](#startwatchsessionresponse) |
 
 ## skill-controller
 
@@ -715,14 +723,26 @@
 |---|---|---|
 | `note` | string | ✔ |
 
-### AddReviewVideoRequest
+### AddReviewVideoQuestionRequest
 
 | Trường | Kiểu | Bắt buộc |
 |---|---|---|
 | `displayOrder` | integer |  |
+| `maxAttempts` | integer |  |
+| `maxRecordingSeconds` | integer | ✔ |
+| `prompt` | string |  |
+| `timestampSeconds` | integer | ✔ |
+
+### AddReviewVideoRequest
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `completionThresholdPercent` | integer |  |
+| `displayOrder` | integer |  |
 | `durationSeconds` | integer | ✔ |
 | `fileSizeBytes` | integer (int64) |  |
 | `fileUrl` | string | ✔ |
+| `requiredViewCount` | integer |  |
 | `sourceType` | string | ✔ |
 | `title` | string | ✔ |
 
@@ -1359,6 +1379,7 @@
 | `audioUrl` | string |  |
 | `choices` | mảng [QuestionChoiceRequest](#questionchoicerequest) |  |
 | `content` | string | ✔ |
+| `correctAnswerText` | string |  |
 | `defaultPoints` | number |  |
 | `difficulty` | string |  |
 | `explanation` | string |  |
@@ -1449,7 +1470,10 @@
 | `content` | string | ✔ |
 | `gradePeriodId` | integer (int64) |  |
 | `homeworkNext` | string |  |
+| `homeworkNextExerciseAssignmentId` | integer (int64) |  |
+| `homeworkNextReviewVideoSetId` | integer (int64) |  |
 | `homeworkPreviousScore` | string |  |
+| `homeworkPreviousSpeakingScore` | string |  |
 | `isWarning` | boolean |  |
 | `note` | string |  |
 | `severity` | string |  |
@@ -1768,12 +1792,15 @@
 | `availableFrom` | string (date-time) |  |
 | `classId` | integer (int64) |  |
 | `dueAt` | string (date-time) |  |
+| `exerciseCode` | string |  |
 | `exerciseId` | integer (int64) |  |
+| `exerciseTitle` | string |  |
 | `id` | integer (int64) |  |
 | `latePenaltyPercent` | number |  |
 | `lateSubmissionAllowed` | boolean |  |
 | `status` | string |  |
 | `targetStudentIds` | mảng integer (int64) |  |
+| `uuid` | string (uuid) |  |
 
 ### ExerciseAttemptResponse
 
@@ -2008,6 +2035,14 @@
 | `studentCode` | string |  |
 | `studentFullName` | string |  |
 | `studentId` | integer (int64) |  |
+
+### GradeReviewVideoSubmissionRequest
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `feedback` | string |  |
+| `maxScore` | number | ✔ |
+| `score` | number | ✔ |
 
 ### InvoiceItemResponse
 
@@ -2626,6 +2661,7 @@
 | `audioUrl` | string |  |
 | `choices` | mảng [QuestionChoiceResponse](#questionchoiceresponse) |  |
 | `content` | string |  |
+| `correctAnswerText` | string |  |
 | `createdBy` | integer (int64) |  |
 | `defaultPoints` | number |  |
 | `difficulty` | string |  |
@@ -2685,6 +2721,7 @@
 
 | Trường | Kiểu | Bắt buộc |
 |---|---|---|
+| `watchSessionId` | integer (int64) | ✔ |
 | `watchedSeconds` | integer | ✔ |
 
 ### RescheduleClassSessionRequest
@@ -2710,19 +2747,35 @@
 |---|---|---|
 | `completed` | boolean |  |
 | `durationSeconds` | integer |  |
+| `requiredViewCount` | integer |  |
 | `reviewVideoId` | integer (int64) |  |
+| `viewCount` | integer |  |
 | `watchedPercent` | integer |  |
 | `watchedSeconds` | integer |  |
+
+### ReviewVideoQuestionResponse
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `displayOrder` | integer |  |
+| `id` | integer (int64) |  |
+| `maxAttempts` | integer |  |
+| `maxRecordingSeconds` | integer |  |
+| `prompt` | string |  |
+| `reviewVideoId` | integer (int64) |  |
+| `timestampSeconds` | integer |  |
 
 ### ReviewVideoResponse
 
 | Trường | Kiểu | Bắt buộc |
 |---|---|---|
+| `completionThresholdPercent` | integer |  |
 | `displayOrder` | integer |  |
 | `durationSeconds` | integer |  |
 | `fileSizeBytes` | integer (int64) |  |
 | `fileUrl` | string |  |
 | `id` | integer (int64) |  |
+| `requiredViewCount` | integer |  |
 | `reviewVideoSetId` | integer (int64) |  |
 | `sourceType` | string |  |
 | `title` | string |  |
@@ -2741,6 +2794,7 @@
 | `status` | string |  |
 | `subjectId` | integer (int64) |  |
 | `title` | string |  |
+| `uuid` | string (uuid) |  |
 | `videoType` | string |  |
 
 ### ReviewVideoSetStatsResponse
@@ -2749,6 +2803,23 @@
 |---|---|---|
 | `cells` | mảng [StatsCell](#statscell) |  |
 | `videos` | mảng [VideoHeader](#videoheader) |  |
+
+### ReviewVideoSubmissionResponse
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `attemptNumber` | integer |  |
+| `audioUrl` | string |  |
+| `feedback` | string |  |
+| `gradedAt` | string (date-time) |  |
+| `gradedByUserId` | integer (int64) |  |
+| `id` | integer (int64) |  |
+| `maxScore` | number |  |
+| `reviewVideoQuestionId` | integer (int64) |  |
+| `score` | number |  |
+| `studentFullName` | string |  |
+| `studentId` | integer (int64) |  |
+| `submittedAt` | string (date-time) |  |
 
 ### RolePermissionMatrixResponse
 
@@ -2873,6 +2944,12 @@
 | `nullHandling` | string |  |
 | `property` | string |  |
 
+### StartWatchSessionResponse
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `sessionId` | integer (int64) |  |
+
 ### StatsCell
 
 | Trường | Kiểu | Bắt buộc |
@@ -2880,6 +2957,7 @@
 | `completed` | boolean |  |
 | `studentId` | integer (int64) |  |
 | `videoId` | integer (int64) |  |
+| `viewCount` | integer |  |
 | `watchedPercent` | integer |  |
 | `watchedSeconds` | integer |  |
 
@@ -2902,6 +2980,7 @@
 | `answerText` | string |  |
 | `audioAnswerUrl` | string |  |
 | `autoScore` | number |  |
+| `correctAnswerText` | string |  |
 | `correctChoiceIds` | mảng integer (int64) |  |
 | `exerciseAttemptId` | integer (int64) |  |
 | `explanation` | string |  |
@@ -2937,8 +3016,14 @@
 | `commentType` | string |  |
 | `content` | string |  |
 | `gradePeriodId` | integer (int64) |  |
+| `grammarPreviousProgress` | string |  |
 | `homeworkNext` | string |  |
+| `homeworkNextExerciseAssignmentId` | integer (int64) |  |
+| `homeworkNextExerciseTitle` | string |  |
+| `homeworkNextReviewVideoSetId` | integer (int64) |  |
+| `homeworkNextReviewVideoSetTitle` | string |  |
 | `homeworkPreviousScore` | string |  |
+| `homeworkPreviousSpeakingScore` | string |  |
 | `id` | integer (int64) |  |
 | `isWarning` | boolean |  |
 | `note` | string |  |
@@ -2950,6 +3035,7 @@
 | `studentId` | integer (int64) |  |
 | `submittedAt` | string (date-time) |  |
 | `teacherId` | integer (int64) |  |
+| `videoPreviousProgress` | string |  |
 | `visibleToParentAt` | string (date-time) |  |
 
 ### StudentResponse
@@ -3028,6 +3114,12 @@
 | `content` | string | ✔ |
 | `feedbackType` | string | ✔ |
 | `priority` | string |  |
+
+### SubmitReviewVideoAudioRequest
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `audioUrl` | string | ✔ |
 
 ### TaskAssignmentResponse
 
@@ -3403,6 +3495,7 @@
 | `audioUrl` | string |  |
 | `choices` | mảng [QuestionChoiceRequest](#questionchoicerequest) |  |
 | `content` | string | ✔ |
+| `correctAnswerText` | string |  |
 | `defaultPoints` | number |  |
 | `explanation` | string |  |
 | `imageUrl` | string |  |
@@ -3466,7 +3559,10 @@
 | `attitude` | string |  |
 | `content` | string | ✔ |
 | `homeworkNext` | string |  |
+| `homeworkNextExerciseAssignmentId` | integer (int64) |  |
+| `homeworkNextReviewVideoSetId` | integer (int64) |  |
 | `homeworkPreviousScore` | string |  |
+| `homeworkPreviousSpeakingScore` | string |  |
 | `isWarning` | boolean |  |
 | `note` | string |  |
 | `severity` | string |  |
@@ -3616,6 +3712,7 @@
 | Trường | Kiểu | Bắt buộc |
 |---|---|---|
 | `durationSeconds` | integer |  |
+| `requiredViewCount` | integer |  |
 | `title` | string |  |
 | `videoId` | integer (int64) |  |
 
