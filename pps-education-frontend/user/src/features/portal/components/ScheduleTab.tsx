@@ -3,6 +3,8 @@ import { AlertCircle, Calendar, CheckCircle2, FileSpreadsheet, XCircle } from "l
 import { ApiError } from "@/lib/apiClient";
 import { AttendanceMarkResponse, ClassSessionResponse, listAttendance, listSchedule } from "../api";
 
+const teacherTypeLabels: Record<string, string> = { VIETNAMESE: "GV Việt Nam", FOREIGN: "GV nước ngoài" };
+
 const ATTENDANCE_META: Record<string, { label: string; icon: React.ReactNode; bg: string }> = {
   PRESENT: { label: "Đi học", icon: <CheckCircle2 className="text-teal" size={18} />, bg: "bg-teal/5 border-teal/10" },
   LATE: { label: "Đi muộn", icon: <AlertCircle className="text-gold" size={18} />, bg: "bg-gold/5 border-gold/10" },
@@ -78,16 +80,17 @@ export default function ScheduleTab({ studentId, classId }: ScheduleTabProps) {
                 className="border border-line/80 p-5 rounded-[20px] flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-sky-2"
               >
                 <div className="space-y-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="px-3 py-1 bg-teal border border-teal-deep/30 text-white text-xs font-extrabold rounded-full">
                       {new Date(s.sessionDate).toLocaleDateString("vi-VN", { weekday: "long" }).replace(/^./, (c) => c.toUpperCase())}
                     </span>
                     <span className="text-xs text-muted font-bold">
-                      {s.sessionDate} · {s.startTime}–{s.endTime}
+                      Buổi {s.sessionNumber} · {s.sessionDate} · {s.startTime}–{s.endTime}
                     </span>
                   </div>
                   <p className="text-xs text-muted font-bold">
                     Giáo viên: <span className="font-extrabold text-ink">{s.primaryTeacherName ?? "—"}</span>
+                    {s.teacherType && <span className="text-[10px] text-teal-deep font-bold"> ({teacherTypeLabels[s.teacherType]})</span>}
                   </p>
                   {s.status !== "SCHEDULED" && (
                     <span className="text-[10px] font-extrabold text-coral uppercase">

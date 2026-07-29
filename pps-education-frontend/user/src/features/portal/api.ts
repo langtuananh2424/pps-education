@@ -287,6 +287,10 @@ export interface ClassSessionResponse {
   status: string;
   cancellationReason: string | null;
   rescheduledToSessionId: number | null;
+  // V60 (bổ sung ngoài SDD gốc, 2026-07-29): loại GV (VIETNAMESE/FOREIGN, null nếu chưa xác định).
+  // sessionNumber tính động (1-based, đếm cả CANCELLED) — dùng hiện "Buổi N".
+  teacherType: "VIETNAMESE" | "FOREIGN" | null;
+  sessionNumber: number;
 }
 
 /** UC-30 — khớp InvoiceResponse thật. */

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { ApiError } from "@/lib/apiClient";
+import { useApp } from "@/context/AppContext";
 import {
   ClassEnrollmentResponse,
   EnterGradePeriodResultRequest,
@@ -57,10 +58,17 @@ interface GradeSheetTableProps {
  * UC-19/UC-53 (V43 — 4 trạng thái + phúc khảo UC-62): sổ điểm đầy đủ theo lớp + kỳ đánh
  * giá, mỗi thành phần điểm là 1 cột, cộng Overall/Thang/Level (UC-53). Sửa/xoá được khi
  * DRAFT (không giới hạn thời gian) hoặc APPEAL (đã tiếp nhận đúng yêu cầu phúc khảo) —
- * PROVISIONAL_PUBLISHED/OFFICIAL bị chặn với actor thường. Không tự đoán trạng thái
- * editable ở FE — luôn để input hiện, backend là nguồn chân lý, chặn thì báo lỗi rõ.
+ * PROVISIONAL_PUBLISHED/OFFICIAL bị chặn với actor thường, trừ actor có quyền
+ * academic.grade.edit.override. Khoá ô nhập (read-only) ngay ở FE cho PROVISIONAL_
+ * PUBLISHED/OFFICIAL khi không có quyền override — trước đây luôn để input hiện (chờ
+ * backend từ chối) gây hiểu nhầm bấm sửa được, đã xác nhận với người dùng 2026-07-29 nên
+ * đổi sang khoá rõ ràng, khớp đúng luồng "sent-row lockout" đã áp dụng ở DailyCommentPanel.
+ * Riêng APPEAL vẫn để input hiện (backend mới biết chính xác actor có phải người đã tiếp
+ * nhận yêu cầu phúc khảo hay không).
  */
 export default function GradeSheetTable({ classId, gradePeriodId, components, enrollments, onLoaded, readOnly = false }: GradeSheetTableProps) {
+  const { hasPermission } = useApp();
+  const canOverride = hasPermission("academic.grade.edit.override");
   const [entriesByStudent, setEntriesByStudent] = useState<Map<number, Map<number, GradeEntryResponse>>>(new Map());
   const [resultsByStudent, setResultsByStudent] = useState<Map<number, GradePeriodResultResponse>>(new Map());
   const [editWindow, setEditWindow] = useState<GradeEditWindowResponse | null>(null);
@@ -266,6 +274,7 @@ export default function GradeSheetTable({ classId, gradePeriodId, components, en
               activeStudents.map((en) => {
                 const result = resultsByStudent.get(en.studentId);
                 const status = rowStatus(en.studentId);
+                const resultLocked = !canOverride && (result?.status === "PROVISIONAL_PUBLISHED" || result?.status === "OFFICIAL");
                 return (
                   <tr key={en.studentId} className="hover:bg-slate-50/40 transition-colors">
                     <Td className="font-mono font-bold text-slate-500 whitespace-nowrap">{en.studentCode}</Td>
@@ -274,10 +283,13 @@ export default function GradeSheetTable({ classId, gradePeriodId, components, en
                       const existing = entriesByStudent.get(en.studentId)?.get(c.id);
                       const key = `${en.studentId}:${c.id}`;
                       const underAppeal = existing?.status === "APPEAL";
+                      const locked = !canOverride && (existing?.status === "PROVISIONAL_PUBLISHED" || existing?.status === "OFFICIAL");
                       return (
                         <Td key={c.id} className="text-center">
-                          {readOnly ? (
-                            <span className="text-xs font-semibold text-slate-700">{existing ? existing.score : "—"}</span>
+                          {readOnly || locked ? (
+                            <span className="text-xs font-semibold text-slate-700" title={locked ? "Đã công bố/chính thức — không sửa được nữa." : undefined}>
+                              {existing ? existing.score : "—"}
+                            </span>
                           ) : (
                             <div className="inline-flex flex-col items-center gap-0.5">
                               <input
@@ -299,8 +311,10 @@ export default function GradeSheetTable({ classId, gradePeriodId, components, en
                       );
                     })}
                     <Td className="text-center">
-                      {readOnly ? (
-                        <span className="text-xs font-semibold text-slate-700">{result?.overallScore ?? "—"}</span>
+                      {readOnly || resultLocked ? (
+                        <span className="text-xs font-semibold text-slate-700" title={resultLocked ? "Đã công bố/chính thức — không sửa được nữa." : undefined}>
+                          {result?.overallScore ?? "—"}
+                        </span>
                       ) : (
                         <div className="inline-flex flex-col items-center gap-0.5">
                           <input
@@ -319,7 +333,7 @@ export default function GradeSheetTable({ classId, gradePeriodId, components, en
                       )}
                     </Td>
                     <Td className="text-center">
-                      {readOnly ? (
+                      {readOnly || resultLocked ? (
                         <span className="text-[11px] font-semibold text-slate-700">{scaleLabels[result?.scaleType ?? "NUMERIC"]}</span>
                       ) : (
                         <Select
@@ -337,7 +351,7 @@ export default function GradeSheetTable({ classId, gradePeriodId, components, en
                       )}
                     </Td>
                     <Td className="text-center">
-                      {readOnly ? (
+                      {readOnly || resultLocked ? (
                         <span className="text-xs font-semibold text-slate-700">{result?.level ?? "—"}</span>
                       ) : (
                         <input
