@@ -242,6 +242,34 @@ export interface StudentCommentResponse {
   approvedBy: number | null;
   visibleToParentAt: string | null;
   rejectionReason: string | null;
+  /** Nhận xét Hàng ngày kiểu mới (chỉ có ý nghĩa khi commentType=DAILY) — bổ sung ngoài SDD gốc. */
+  attitude: "POOR" | "WEAK" | "AVERAGE" | "ABOVE_AVERAGE" | "FAIR" | "GOOD" | null;
+  homeworkPreviousScore: string | null;
+  homeworkPreviousSpeakingScore: string | null;
+  homeworkNext: string | null;
+  homeworkNextExerciseAssignmentId: number | null;
+  homeworkNextExerciseTitle: string | null;
+  homeworkNextReviewVideoSetId: number | null;
+  homeworkNextReviewVideoSetTitle: string | null;
+  /** % tự tính từ exercise_attempts của buổi trước — không nhập tay được. */
+  grammarPreviousProgress: string | null;
+  /** % tự tính từ review_video_progress/submissions của buổi trước — không nhập tay được. */
+  videoPreviousProgress: string | null;
+  note: string | null;
+}
+
+/** UC-64 (bổ sung ngoài SDD gốc, 2026-07-29) — Cổng phụ huynh xem tiến độ BTVN đã giao cho con, chỉ xem không phải giao diện làm bài. */
+export interface HomeworkProgressResponse {
+  commentId: number;
+  classSessionId: number | null;
+  commentDate: string;
+  grammarAssignmentId: number | null;
+  grammarTitle: string | null;
+  grammarOfflineText: string | null;
+  grammarProgress: string | null;
+  videoSetId: number | null;
+  videoTitle: string | null;
+  videoProgress: string | null;
 }
 
 /** UC-18 — khớp ClassSessionResponse thật. */
@@ -328,6 +356,21 @@ export function listSchedule(studentId: number, classId: number): Promise<ClassS
   return apiRequest<ClassSessionResponse[]>(`/portal/parent/children/${studentId}/classes/${classId}/schedule`);
 }
 
+/** UC-64 (2026-07-29): Cổng phụ huynh xem tiến độ BTVN đã giao cho con (chỉ các buổi có giao BTVN). */
+export function listHomeworkProgress(studentId: number, classId: number): Promise<HomeworkProgressResponse[]> {
+  return apiRequest<HomeworkProgressResponse[]>(`/portal/parent/children/${studentId}/classes/${classId}/homework`);
+}
+
+/** UC-64 (2026-07-29): Học sinh tự xem điểm danh của chính mình theo lớp (self-service, suy studentId từ JWT) — khác listAttendance (Phụ huynh xem theo con+lớp cụ thể). */
+export function listMyAttendance(classId: number): Promise<AttendanceMarkResponse[]> {
+  return apiRequest<AttendanceMarkResponse[]>(`/students/me/classes/${classId}/attendance`);
+}
+
+/** UC-64 (2026-07-29): Học sinh tự xem nhận xét ĐÃ DUYỆT của chính mình theo lớp (self-service, suy studentId từ JWT) — khác listComments (Phụ huynh xem theo con+lớp cụ thể). */
+export function listMyComments(classId: number): Promise<StudentCommentResponse[]> {
+  return apiRequest<StudentCommentResponse[]>(`/students/me/classes/${classId}/comments`);
+}
+
 /** UC-59: Học sinh tự xem lịch học của chính mình (self-service, không cần studentId/classId — suy từ JWT) — khác listSchedule (Phụ huynh xem theo con+lớp cụ thể). */
 export function listMySessions(fromDate?: string, toDate?: string, classId?: number): Promise<ClassSessionResponse[]> {
   const params = new URLSearchParams();
@@ -344,6 +387,10 @@ export function listMyInvoices(): Promise<InvoiceResponse[]> {
 
 export function listMyNotifications(page = 0, size = 20): Promise<Page<NotificationResponse>> {
   return apiRequest<Page<NotificationResponse>>(`/notifications?page=${page}&size=${size}`);
+}
+
+export function markNotificationRead(id: number): Promise<NotificationResponse> {
+  return apiRequest<NotificationResponse>(`/notifications/${id}/read`, { method: "POST" });
 }
 
 /**
@@ -375,6 +422,10 @@ export interface ReviewVideoResponse {
   fileSizeBytes: number | null;
   durationSeconds: number;
   displayOrder: number;
+  /** V59 — chỉ có ý nghĩa với videoType=CONNECTION, mặc định 80. */
+  completionThresholdPercent: number;
+  /** V59 — chỉ có ý nghĩa với videoType=CONNECTION, mặc định 1. */
+  requiredViewCount: number;
 }
 
 export interface ReviewVideoProgressResponse {
@@ -383,6 +434,9 @@ export interface ReviewVideoProgressResponse {
   durationSeconds: number;
   watchedPercent: number;
   completed: boolean;
+  /** V59 — số lượt xem đã đạt completionThresholdPercent (rollup từ review_video_watch_sessions). */
+  viewCount: number;
+  requiredViewCount: number;
 }
 
 export function listReviewVideoSetsByClass(classId: number): Promise<ReviewVideoSetResponse[]> {
@@ -393,18 +447,44 @@ export function listReviewVideos(setId: number): Promise<ReviewVideoResponse[]> 
   return apiRequest<ReviewVideoResponse[]>(`/review-video-sets/${setId}/videos`);
 }
 
-/** UC-23a Main Flow bước 3: báo tiến độ xem (giây) — BE tự lấy max(cũ, mới), không bao giờ giảm dù báo giá trị thấp hơn. */
-export function reportReviewVideoProgress(videoId: number, watchedSeconds: number): Promise<ReviewVideoProgressResponse> {
+/** UC-23a (V59): mở 1 LƯỢT xem mới — gọi khi mở/mở lại video CONNECTION, TRƯỚC lần reportProgress đầu tiên. sessionId dùng cho mọi lần reportProgress tiếp theo của lượt này. */
+export interface StartWatchSessionResponse {
+  sessionId: number;
+}
+
+export function startReviewVideoWatchSession(videoId: number): Promise<StartWatchSessionResponse> {
+  return apiRequest<StartWatchSessionResponse>(`/review-videos/${videoId}/watch-sessions`, { method: "POST" });
+}
+
+/** UC-23a Main Flow bước 3 (V59): báo tiến độ xem (giây) cho ĐÚNG 1 lượt xem (watchSessionId) — BE tự lấy max(cũ, mới) trong phạm vi lượt đó, không bao giờ giảm. */
+export function reportReviewVideoProgress(videoId: number, watchSessionId: number, watchedSeconds: number): Promise<ReviewVideoProgressResponse> {
   return apiRequest<ReviewVideoProgressResponse>(`/review-videos/${videoId}/progress`, {
     method: "PUT",
-    body: JSON.stringify({ watchedSeconds })
+    body: JSON.stringify({ watchSessionId, watchedSeconds })
   });
 }
 
-/** UC-23b — khớp ReviewVideoSubmissionResponse thật (dùng chung Học sinh xem bài của mình + Giáo viên chấm). */
-export interface ReviewVideoSubmissionResponse {
+/** UC-23b (V57) — câu hỏi gắn 1 mốc thời gian trong video REFLEX, mỗi câu tự có thời lượng ghi âm/số lần nộp lại riêng. */
+export interface ReviewVideoQuestionResponse {
   id: number;
   reviewVideoId: number;
+  timestampSeconds: number;
+  prompt: string | null;
+  maxRecordingSeconds: number;
+  /** null = không giới hạn số lần nộp lại. */
+  maxAttempts: number | null;
+  displayOrder: number;
+}
+
+export function listReviewVideoQuestions(videoId: number): Promise<ReviewVideoQuestionResponse[]> {
+  return apiRequest<ReviewVideoQuestionResponse[]>(`/review-videos/${videoId}/questions`);
+}
+
+/** UC-23b (V57) — khớp ReviewVideoSubmissionResponse thật (dùng chung Học sinh xem bài của mình + Giáo viên chấm). 1 dòng = 1 attempt, giữ lịch sử. */
+export interface ReviewVideoSubmissionResponse {
+  id: number;
+  reviewVideoQuestionId: number;
+  attemptNumber: number;
   studentId: number;
   studentFullName: string;
   audioUrl: string;
@@ -416,17 +496,22 @@ export interface ReviewVideoSubmissionResponse {
   gradedAt: string | null;
 }
 
-/** UC-23b Main Flow bước 3: nộp/nộp lại audio trả lời cho video REFLEX — nộp lại xoá sạch điểm cũ (BE tự xử lý), chỉ nhận videoType=REFLEX. */
-export function submitReviewVideoAudio(videoId: number, audioUrl: string): Promise<ReviewVideoSubmissionResponse> {
-  return apiRequest<ReviewVideoSubmissionResponse>(`/review-videos/${videoId}/submission`, {
+/** UC-23b Main Flow bước 3 (V57): nộp audio trả lời cho 1 CÂU HỎI — nộp lại tạo attempt MỚI, giữ lịch sử (không ghi đè); từ chối nếu đã hết maxAttempts của câu hỏi đó (409/422 từ BE). */
+export function submitReviewVideoQuestionAudio(questionId: number, audioUrl: string): Promise<ReviewVideoSubmissionResponse> {
+  return apiRequest<ReviewVideoSubmissionResponse>(`/review-video-questions/${questionId}/submissions`, {
     method: "PUT",
     body: JSON.stringify({ audioUrl })
   });
 }
 
-/** Trả về undefined (204) nếu học sinh chưa nộp bài cho video này. */
-export function getMyReviewVideoSubmission(videoId: number): Promise<ReviewVideoSubmissionResponse | undefined> {
-  return apiRequest<ReviewVideoSubmissionResponse | undefined>(`/review-videos/${videoId}/submission`);
+/** Attempt MỚI NHẤT đã nộp cho 1 câu hỏi — trả về undefined (204) nếu chưa nộp lần nào. */
+export function getMyLatestReviewVideoSubmission(questionId: number): Promise<ReviewVideoSubmissionResponse | undefined> {
+  return apiRequest<ReviewVideoSubmissionResponse | undefined>(`/review-video-questions/${questionId}/submissions/latest`);
+}
+
+/** Toàn bộ lịch sử các lần đã nộp cho 1 câu hỏi (mới nhất trước). */
+export function listMyReviewVideoSubmissionHistory(questionId: number): Promise<ReviewVideoSubmissionResponse[]> {
+  return apiRequest<ReviewVideoSubmissionResponse[]>(`/review-video-questions/${questionId}/submissions/history`);
 }
 
 /**

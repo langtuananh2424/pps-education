@@ -8,6 +8,8 @@ import PortalDropdown from "../components/PortalDropdown";
 import ScheduleTab from "../components/ScheduleTab";
 import StudentScheduleTab from "../components/StudentScheduleTab";
 import AssignmentsTab from "../components/AssignmentsTab";
+import ParentHomeworkProgressTab from "../components/ParentHomeworkProgressTab";
+import NotificationBell from "../components/NotificationBell";
 import GradesTab from "../components/GradesTab";
 import BillingTab from "../components/BillingTab";
 import DailyLearningProgressTab from "../components/DailyLearningProgressTab";
@@ -28,13 +30,11 @@ const TABS: { key: Tab; label: string; icon: React.ComponentType<{ size?: number
 ];
 
 /**
- * UC-42 mở self-access cho học sinh ở /portal/students/{id}/class-options,
- * /auth/me (studentId), và giờ có thêm /students/me/sessions (UC-59, lịch học
- * — xem StudentScheduleTab). 4 API còn lại (grades/attendance/comments/
- * invoices/my, thuộc ParentPortalService/InvoiceService) vẫn chỉ chấp nhận
- * Phụ huynh (requireLinkedParent/parentOrThrow), gọi bằng tài khoản Học sinh
- * sẽ 403 — các tab đó vẫn hiện ComingSoon, chờ BE áp dụng cùng pattern
- * requireOwnerOrLinkedParent cho các Service đó.
+ * UC-42 mở self-access cho học sinh ở /portal/students/{id}/class-options, /auth/me (studentId),
+ * /students/me/sessions (UC-59, lịch học), và từ UC-64 (2026-07-29, PR #112) thêm
+ * /students/me/classes/{classId}/attendance + /comments (điểm danh + nhận xét đã duyệt của chính
+ * mình — xem StudentScheduleTab/DailyLearningProgressTab/HomeTab). Riêng "Học phí & Dịch vụ"
+ * (InvoiceService) vẫn chỉ chấp nhận Phụ huynh — tab đó vẫn hiện ComingSoon cho Học sinh.
  */
 export default function PortalPage() {
   const { currentUser, isParent, isStudent, logout } = useApp();
@@ -127,6 +127,7 @@ export default function PortalPage() {
             </div>
           </div>
           <div className="flex items-center gap-4">
+            {!noViewerData && !loading && <NotificationBell />}
             {selectedChildId && (
               <button
                 onClick={() => setProfileOpen(true)}
@@ -254,14 +255,9 @@ export default function PortalPage() {
                 <>
                   {activeTab === "home" &&
                     (isParent && selectedChild ? (
-                      <HomeTab
-                        studentName={selectedChild.studentFullName}
-                        commentsSource={{ studentId: selectedChild.studentId, classId: selectedClassId }}
-                      />
+                      <HomeTab studentName={selectedChild.studentFullName} classId={selectedClassId} parentStudentId={selectedChild.studentId} />
                     ) : isStudent ? (
-                      // Thông báo (GET /notifications) đã self-service thật cho mọi vai trò — hiện được ngay.
-                      // Nhận xét/cảnh báo giáo viên vẫn chưa có API tự xem (commentsSource=null, xem HomeTab).
-                      <HomeTab studentName={viewerName} commentsSource={null} />
+                      <HomeTab studentName={viewerName} classId={selectedClassId} />
                     ) : (
                       <ComingSoon title="Trang chủ & Bảng tin" description="Không có hồ sơ Học sinh hoặc Phụ huynh liên kết với tài khoản này." />
                     ))}
@@ -271,16 +267,22 @@ export default function PortalPage() {
                     ) : isStudent ? (
                       <StudentScheduleTab classId={selectedClassId} />
                     ) : (
-                      <ComingSoon
-                        title="Lịch học & Chuyên cần"
-                        description="Đang chờ Backend mở API cho Học sinh tự xem lịch học/chuyên cần của chính mình (hiện chỉ Phụ huynh xem được)."
-                      />
+                      <ComingSoon title="Lịch học & Chuyên cần" description="Không có hồ sơ Học sinh hoặc Phụ huynh liên kết với tài khoản này." />
                     ))}
                   {activeTab === "learning-progress" &&
                     (isParent && selectedChild ? (
-                      <DailyLearningProgressTab studentName={selectedChild.studentFullName} studentCode={selectedChild.studentCode} />
+                      <DailyLearningProgressTab
+                        studentName={selectedChild.studentFullName}
+                        studentCode={selectedChild.studentCode}
+                        classId={selectedClassId}
+                        parentStudentId={selectedChild.studentId}
+                      />
                     ) : isStudent ? (
-                      <DailyLearningProgressTab studentName={viewerName} studentCode={currentUser?.studentId ? String(currentUser.studentId) : ""} />
+                      <DailyLearningProgressTab
+                        studentName={viewerName}
+                        studentCode={currentUser?.studentId ? String(currentUser.studentId) : ""}
+                        classId={selectedClassId}
+                      />
                     ) : (
                       <ComingSoon title="Quá trình học tập" description="Không có hồ sơ Học sinh hoặc Phụ huynh liên kết với tài khoản này." />
                     ))}
@@ -289,11 +291,11 @@ export default function PortalPage() {
                       // GET /students/me/exercises tra theo userId của chính người gọi — chỉ hoạt động cho Học sinh tự
                       // đăng nhập, Phụ huynh gọi sẽ 404 "không có hồ sơ học sinh".
                       <AssignmentsTab classId={selectedClassId} />
+                    ) : isParent && selectedChild ? (
+                      // UC-64 (2026-07-29): Phụ huynh chỉ XEM tiến độ BTVN của con (không phải giao diện làm bài — con tự làm ở Portal Học sinh).
+                      <ParentHomeworkProgressTab studentId={selectedChild.studentId} classId={selectedClassId} />
                     ) : (
-                      <ComingSoon
-                        title="Bài tập về nhà (BTVN)"
-                        description="Đang chờ Backend mở API cho Phụ huynh xem bài tập của con (hiện chỉ Học sinh tự làm được)."
-                      />
+                      <ComingSoon title="Bài tập về nhà (BTVN)" description="Không có hồ sơ Học sinh hoặc Phụ huynh liên kết với tài khoản này." />
                     ))}
                   {activeTab === "documents" && <DocumentLibraryTab classId={selectedClassId} />}
                   {activeTab === "grades" &&

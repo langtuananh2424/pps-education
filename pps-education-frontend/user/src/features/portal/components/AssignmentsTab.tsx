@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { Bell, CheckCircle2, ChevronRight, Clock, Link2, MessageCircle, Play } from "lucide-react";
+import { Bell, BookOpen, CheckCircle2, ChevronRight, Clock, Link2, MessageCircle, Play, Video } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import {
   AssignedExerciseResponse,
   ReviewVideoResponse,
-  ReviewVideoSubmissionResponse,
-  getMyReviewVideoSubmission,
+  getMyLatestReviewVideoSubmission,
   listMyAssignedExercises,
+  listReviewVideoQuestions,
   listReviewVideoSetsByClass,
   listReviewVideos
 } from "../api";
@@ -27,13 +27,25 @@ function isExercisePending(item: AssignedExerciseResponse): boolean {
   return item.myLatestAttemptStatus == null || item.myLatestAttemptStatus === "IN_PROGRESS";
 }
 
+/** Video REFLEX chưa có câu hỏi nào (giáo viên chưa soạn xong) — chưa có gì để tính "hoàn thành", giống CONNECTION không tham gia lọc Pending/Graded. */
+function isReflexAnswerable(item: ReviewVideoHomeworkItem): boolean {
+  return item.videoType === "REFLEX" && !!item.reflexStats && item.reflexStats.totalQuestions > 0;
+}
+
+/** "Hoàn thành" (V57) = đã nộp đủ mọi câu hỏi trong video — REFLEX không qua khâu giáo viên chấm điểm nữa (đã xác nhận với người dùng 2026-07-29), nộp đủ là xong. */
+function isReflexFullyAnswered(item: ReviewVideoHomeworkItem): boolean {
+  return !!item.reflexStats && item.reflexStats.answeredQuestions >= item.reflexStats.totalQuestions;
+}
+
 type FilterStatus = "ALL" | "PENDING" | "GRADED";
+type FilterType = "ALL" | "EXERCISE" | "VIDEO";
 
 interface ReviewVideoHomeworkItem {
   video: ReviewVideoResponse;
   videoType: "CONNECTION" | "REFLEX";
   setTitle: string;
-  submission?: ReviewVideoSubmissionResponse;
+  /** REFLEX only (V57 — video giờ có nhiều câu hỏi, mỗi câu tự nộp riêng) — dùng tính trạng thái tổng hợp cho cả video. */
+  reflexStats?: { totalQuestions: number; answeredQuestions: number };
 }
 
 /**
@@ -43,11 +55,12 @@ interface ReviewVideoHomeworkItem {
  * danh sách để không bỏ sót (đã xác nhận với người dùng 2026-07-27) — "Kho Video Ôn tập" trước đây
  * nằm trong "E-Learning & LMS" đã CHUYỂN HẲN sang đây, không hiển thị lại ở LMS nữa.
  *
- * Video từ kết nối (CONNECTION): "đạt" = xem ≥ 80% (ReviewVideoService.COMPLETION_THRESHOLD), theo
- * dõi qua PUT progress. Video phản xạ (REFLEX): "đạt" = đã nộp audio trả lời (UC-23b), giáo viên
- * chấm điểm sau. LƯU Ý: backend chưa có API đọc lại tiến độ xem đã lưu cho CONNECTION (chỉ có PUT
- * report, không có GET) nên KHÔNG thể hiện đúng trạng thái "đã xem xong" trong danh sách này — các
- * mục CONNECTION vì vậy không tính vào bộ đếm "Cần hoàn thành"/"Đã chấm", chỉ hiện ở tab "Tất cả".
+ * Video từ kết nối (CONNECTION): "đạt" = xem ≥ ngưỡng % cấu hình theo lượt (UC-23a). Video phản xạ
+ * (REFLEX): "đạt" = đã nộp đủ audio trả lời cho mọi câu hỏi (UC-23b) — KHÔNG qua khâu giáo viên chấm
+ * điểm (đã bỏ theo yêu cầu người dùng 2026-07-29, nộp bài là hoàn thành ngay). LƯU Ý: backend chưa có
+ * API đọc lại tiến độ xem đã lưu cho CONNECTION (chỉ có PUT report, không có GET) nên KHÔNG thể hiện
+ * đúng trạng thái "đã xem xong" trong danh sách này — các mục CONNECTION vì vậy không tính vào bộ đếm
+ * "Cần hoàn thành"/"Đã nộp", chỉ hiện ở tab "Tất cả".
  */
 export default function AssignmentsTab({ classId }: AssignmentsTabProps) {
   const [exercises, setExercises] = useState<AssignedExerciseResponse[]>([]);
@@ -55,6 +68,7 @@ export default function AssignmentsTab({ classId }: AssignmentsTabProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("ALL");
+  const [filterType, setFilterType] = useState<FilterType>("ALL");
   const [takingExercise, setTakingExercise] = useState<AssignedExerciseResponse | null>(null);
   const [openReviewItem, setOpenReviewItem] = useState<ReviewVideoHomeworkItem | null>(null);
 
@@ -72,9 +86,18 @@ export default function AssignmentsTab({ classId }: AssignmentsTabProps) {
         );
         const flat = perSet.flat();
         const reflexItems = flat.filter((x) => x.videoType === "REFLEX");
-        const submissions = await Promise.all(reflexItems.map((x) => getMyReviewVideoSubmission(x.video.id).catch(() => undefined)));
-        const submissionByVideoId = new Map(reflexItems.map((x, i) => [x.video.id, submissions[i]]));
-        return flat.map((x) => ({ ...x, submission: submissionByVideoId.get(x.video.id) }));
+        const reflexStatsList = await Promise.all(
+          reflexItems.map(async (x) => {
+            const questions = await listReviewVideoQuestions(x.video.id).catch(() => []);
+            const submissions = await Promise.all(questions.map((q) => getMyLatestReviewVideoSubmission(q.id).catch(() => undefined)));
+            return {
+              totalQuestions: questions.length,
+              answeredQuestions: submissions.filter((s) => s != null).length
+            };
+          })
+        );
+        const statsByVideoId = new Map(reflexItems.map((x, i) => [x.video.id, reflexStatsList[i]]));
+        return flat.map((x) => ({ ...x, reflexStats: statsByVideoId.get(x.video.id) }));
       })
     ])
       .then(([exerciseRes, reviewRes]) => {
@@ -89,19 +112,21 @@ export default function AssignmentsTab({ classId }: AssignmentsTabProps) {
 
   if (loading) return <p className="text-sm text-muted font-bold">Đang tải...</p>;
 
-  const pendingCount = exercises.filter(isExercisePending).length + reviewItems.filter((x) => x.videoType === "REFLEX" && !x.submission).length;
-  const gradedCount = exercises.filter((e) => !isExercisePending(e)).length + reviewItems.filter((x) => x.videoType === "REFLEX" && x.submission).length;
+  const pendingCount = exercises.filter(isExercisePending).length + reviewItems.filter((x) => isReflexAnswerable(x) && !isReflexFullyAnswered(x)).length;
+  const gradedCount = exercises.filter((e) => !isExercisePending(e)).length + reviewItems.filter((x) => isReflexAnswerable(x) && isReflexFullyAnswered(x)).length;
 
   const filteredExercises = exercises.filter((e) => {
+    if (filterType === "VIDEO") return false;
     if (filterStatus === "PENDING") return isExercisePending(e);
     if (filterStatus === "GRADED") return !isExercisePending(e);
     return true;
   });
   const filteredReviewItems = reviewItems.filter((x) => {
+    if (filterType === "EXERCISE") return false;
     if (filterStatus === "ALL") return true;
-    if (x.videoType === "CONNECTION") return false; // chưa có API đọc lại tiến độ — không tham gia lọc Pending/Graded
-    if (filterStatus === "PENDING") return !x.submission;
-    return !!x.submission;
+    if (x.videoType === "CONNECTION" || !isReflexAnswerable(x)) return false; // CONNECTION không có ngưỡng "hoàn thành" đơn lẻ; REFLEX chưa có câu hỏi thì chưa tham gia lọc
+    if (filterStatus === "PENDING") return !isReflexFullyAnswered(x);
+    return isReflexFullyAnswered(x);
   });
 
   return (
@@ -138,31 +163,60 @@ export default function AssignmentsTab({ classId }: AssignmentsTabProps) {
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-2 border-b border-line pb-3">
-        <button
-          onClick={() => setFilterStatus("ALL")}
-          className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
-            filterStatus === "ALL" ? "bg-teal text-white shadow-sm" : "bg-slate-100 hover:bg-slate-200 text-muted"
-          }`}
-        >
-          Tất cả bài tập ({exercises.length + reviewItems.length})
-        </button>
-        <button
-          onClick={() => setFilterStatus("PENDING")}
-          className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
-            filterStatus === "PENDING" ? "bg-orange-500 text-white shadow-sm" : "bg-slate-100 hover:bg-slate-200 text-muted"
-          }`}
-        >
-          <Clock size={14} /> Cần hoàn thành ({pendingCount})
-        </button>
-        <button
-          onClick={() => setFilterStatus("GRADED")}
-          className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
-            filterStatus === "GRADED" ? "bg-teal text-white shadow-sm" : "bg-slate-100 hover:bg-slate-200 text-muted"
-          }`}
-        >
-          <CheckCircle2 size={14} /> Đã nộp &amp; Đã chấm ({gradedCount})
-        </button>
+      <div className="space-y-2.5 border-b border-line pb-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => setFilterStatus("ALL")}
+            className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
+              filterStatus === "ALL" ? "bg-teal text-white shadow-sm" : "bg-slate-100 hover:bg-slate-200 text-muted"
+            }`}
+          >
+            Tất cả bài tập ({exercises.length + reviewItems.length})
+          </button>
+          <button
+            onClick={() => setFilterStatus("PENDING")}
+            className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+              filterStatus === "PENDING" ? "bg-orange-500 text-white shadow-sm" : "bg-slate-100 hover:bg-slate-200 text-muted"
+            }`}
+          >
+            <Clock size={14} /> Cần hoàn thành ({pendingCount})
+          </button>
+          <button
+            onClick={() => setFilterStatus("GRADED")}
+            className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+              filterStatus === "GRADED" ? "bg-teal text-white shadow-sm" : "bg-slate-100 hover:bg-slate-200 text-muted"
+            }`}
+          >
+            <CheckCircle2 size={14} /> Đã nộp &amp; Đã chấm ({gradedCount})
+          </button>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => setFilterType("ALL")}
+            className={`px-3.5 py-1.5 rounded-lg border text-[11px] font-bold transition-all cursor-pointer ${
+              filterType === "ALL" ? "bg-ink text-white border-ink" : "bg-white border-line text-muted hover:bg-slate-50"
+            }`}
+          >
+            Tất cả loại bài
+          </button>
+          <button
+            onClick={() => setFilterType("EXERCISE")}
+            className={`px-3.5 py-1.5 rounded-lg border text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              filterType === "EXERCISE" ? "bg-ink text-white border-ink" : "bg-white border-line text-muted hover:bg-slate-50"
+            }`}
+          >
+            <BookOpen size={12} /> Bài ngữ pháp ({exercises.length})
+          </button>
+          <button
+            onClick={() => setFilterType("VIDEO")}
+            className={`px-3.5 py-1.5 rounded-lg border text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              filterType === "VIDEO" ? "bg-ink text-white border-ink" : "bg-white border-line text-muted hover:bg-slate-50"
+            }`}
+          >
+            <Video size={12} /> Video Kết nối - Phản xạ ({reviewItems.length})
+          </button>
+        </div>
       </div>
 
       {filteredExercises.length === 0 && filteredReviewItems.length === 0 ? (
@@ -195,8 +249,13 @@ export default function AssignmentsTab({ classId }: AssignmentsTabProps) {
         <ReviewVideoTaskModal
           video={openReviewItem.video}
           videoType={openReviewItem.videoType}
-          onClose={() => setOpenReviewItem(null)}
-          onSubmitted={load}
+          // Chỉ tải lại danh sách khi ĐÓNG popup (không phải mỗi lần nộp 1 câu) — trước đây gọi load()
+          // ngay sau khi nộp khiến cả tab set loading=true và unmount luôn cả popup đang mở, nhìn như
+          // trang bị tải lại giữa chừng. Trạng thái "vừa nộp" giờ tự hiện ngay trong popup (justSubmitted).
+          onClose={() => {
+            setOpenReviewItem(null);
+            load();
+          }}
         />
       )}
     </div>
@@ -267,9 +326,10 @@ function ExerciseCard({ item, onOpen }: { item: AssignedExerciseResponse; onOpen
 }
 
 function ReviewVideoCard({ item, onOpen }: { item: ReviewVideoHomeworkItem; onOpen: () => void }) {
-  const { video, videoType, setTitle, submission } = item;
+  const { video, videoType, setTitle, reflexStats } = item;
   const isConnection = videoType === "CONNECTION";
-  const graded = submission?.score != null;
+  const answerable = isReflexAnswerable(item);
+  const fullyAnswered = isReflexFullyAnswered(item);
 
   let statusBadge: React.ReactNode;
   if (isConnection) {
@@ -278,28 +338,28 @@ function ReviewVideoCard({ item, onOpen }: { item: ReviewVideoHomeworkItem; onOp
         <Play size={12} /> Xem để ôn tập
       </span>
     );
-  } else if (graded) {
+  } else if (!answerable) {
     statusBadge = (
-      <span className="px-2.5 py-0.5 rounded-lg bg-teal/10 text-teal-deep text-[11px] font-black flex items-center gap-1">
-        <CheckCircle2 size={12} /> Điểm: {submission!.score}/{submission!.maxScore}
+      <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-muted text-[11px] font-black flex items-center gap-1">
+        <Clock size={12} /> Chưa có câu hỏi
       </span>
     );
-  } else if (submission) {
+  } else if (fullyAnswered) {
     statusBadge = (
-      <span className="px-2.5 py-0.5 rounded-lg bg-sky text-teal-deep text-[11px] font-black flex items-center gap-1">
-        <CheckCircle2 size={12} /> Đã nộp — chờ chấm
+      <span className="px-2.5 py-0.5 rounded-lg bg-teal/10 text-teal-deep text-[11px] font-black flex items-center gap-1">
+        <CheckCircle2 size={12} /> Đã nộp bài
       </span>
     );
   } else {
     statusBadge = (
       <span className="px-2.5 py-0.5 rounded-lg bg-amber-100 text-amber-800 border border-amber-300 text-[11px] font-black flex items-center gap-1">
-        <Clock size={12} /> Chưa nộp bài
+        <Clock size={12} /> Đã nộp {reflexStats!.answeredQuestions}/{reflexStats!.totalQuestions} câu
       </span>
     );
   }
 
-  const pending = !isConnection && !submission;
-  const actionLabel = isConnection ? "Xem video" : submission ? "Xem bài đã nộp" : "Ghi âm trả lời";
+  const pending = answerable && !fullyAnswered;
+  const actionLabel = isConnection ? "Xem video" : !answerable ? "Xem video" : fullyAnswered ? "Xem bài đã nộp" : "Trả lời câu hỏi";
 
   return (
     <div className={`p-5 bg-white border rounded-2xl transition-all shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 ${pending ? "border-orange-200 bg-orange-50/20" : "border-line/80"}`}>
@@ -318,7 +378,7 @@ function ReviewVideoCard({ item, onOpen }: { item: ReviewVideoHomeworkItem; onOp
         <button
           onClick={onOpen}
           className={`w-full md:w-auto flex items-center justify-center gap-1.5 px-5 py-2.5 font-extrabold text-xs rounded-xl shadow-sm transition-all cursor-pointer ${
-            graded ? "bg-slate-100 hover:bg-slate-200 text-ink border border-line" : "bg-teal hover:bg-teal-deep text-white"
+            fullyAnswered ? "bg-slate-100 hover:bg-slate-200 text-ink border border-line" : "bg-teal hover:bg-teal-deep text-white"
           }`}
         >
           {actionLabel} <ChevronRight size={14} />

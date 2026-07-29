@@ -2,161 +2,250 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Award,
   Calendar,
+  Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   Clock,
-  Download,
-  ExternalLink,
-  FileCheck,
+  Filter,
   MessageSquareText,
   ShieldCheck,
   Sparkles,
   TrendingUp,
   Video
 } from "lucide-react";
+import { ApiError } from "@/lib/apiClient";
+import {
+  AttendanceMarkResponse,
+  ClassSessionResponse,
+  StudentCommentResponse,
+  listAttendance,
+  listMyAttendance,
+  listMyComments,
+  listComments,
+  listMySessions,
+  listSchedule
+} from "../api";
 
 const WEEKDAY_LABELS = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
-type AttitudeType = "Tốt" | "Khá" | "TB Khá" | "TB" | "Yếu" | "Kém";
+const sessionTypeLabels: Record<string, string> = {
+  REGULAR: "Buổi học thường",
+  REVIEW: "Ôn tập",
+  EXAM: "Kiểm tra",
+  MAKEUP: "Học bù"
+};
+
+const attitudeLabels: Record<NonNullable<StudentCommentResponse["attitude"]>, string> = {
+  POOR: "Kém",
+  WEAK: "Yếu",
+  AVERAGE: "Trung bình",
+  ABOVE_AVERAGE: "Trung bình khá",
+  FAIR: "Khá",
+  GOOD: "Tốt"
+};
+
+const attitudeStyles: Record<NonNullable<StudentCommentResponse["attitude"]>, string> = {
+  GOOD: "bg-emerald-50 text-emerald-800 border-emerald-300",
+  FAIR: "bg-teal-50 text-teal-800 border-teal-300",
+  ABOVE_AVERAGE: "bg-sky-50 text-sky-800 border-sky-300",
+  AVERAGE: "bg-amber-50 text-amber-800 border-amber-300",
+  WEAK: "bg-orange-50 text-orange-800 border-orange-300",
+  POOR: "bg-rose-50 text-rose-800 border-rose-300"
+};
+
+/** "NN%" -> NN; "Chưa làm bài" -> 0 (chưa làm, tính vào tỷ lệ); null/"Đang chờ chấm" -> null (chưa rõ, không tính vào trung bình). */
+function parseProgressPercent(text: string | null): number | null {
+  if (!text) return null;
+  if (text === "Chưa làm bài") return 0;
+  const match = text.match(/(\d+)%/);
+  return match ? Number(match[1]) : null;
+}
 
 interface SessionFeedbackLog {
   id: string;
-  studentCode: string;
-  sessionName: string;
-  date: string;
-  timeSlot: string;
-  attitude: AttitudeType;
-  prevGrammarHW: string;
-  prevSpeakingHW: string;
-  teacherComment: string;
-  nextLectureLabel: string;
-  nextLectureLink: string;
-  nextHomework: string;
-  notes: string | null;
+  commentDate: string;
+  timeSlot: string | null;
+  sessionTypeLabel: string | null;
+  attitude: StudentCommentResponse["attitude"];
+  homeworkPreviousScore: string | null;
+  homeworkPreviousSpeakingScore: string | null;
+  grammarPreviousProgress: string | null;
+  videoPreviousProgress: string | null;
+  content: string;
+  homeworkNextGrammarLabel: string | null;
+  homeworkNextVideoLabel: string | null;
+  note: string | null;
 }
 
 interface DailyLearningProgressTabProps {
   studentName: string;
   studentCode: string;
+  classId: number;
+  /** UC-64 (2026-07-29) — chỉ set khi xem qua Cổng Phụ huynh (dùng API .../parent/children/{studentId}/...). Không set thì Học sinh tự xem (self-service /students/me/...). */
+  parentStudentId?: number;
 }
 
 /**
- * UC-21 (phía học sinh xem lại) — bản chuyển thể từ thiết kế Google AI Studio
- * (form nhập liệu của giáo viên) thành màn CHỈ XEM cho học sinh: bỏ hết
- * select/input chỉnh sửa (thái độ, % BTVN, chọn link/bài tập) vì học sinh
- * không được phép tự sửa nhận xét/thái độ do giáo viên chấm — ô "Thái độ học
- * tập" vẫn giữ NGUYÊN kiểu dáng như 1 dropdown (có mũi tên ChevronDown) để
- * khớp đúng UI gốc, nhưng là <div> tĩnh, không có onChange/focus được.
+ * UC-21 (phía học sinh/phụ huynh xem lại) — bản chuyển thể từ thiết kế Google AI Studio (form nhập
+ * liệu của giáo viên) thành màn CHỈ XEM: bỏ hết select/input chỉnh sửa (thái độ, % BTVN, chọn link/bài
+ * tập) vì không được tự sửa nhận xét/thái độ do giáo viên chấm — ô "Thái độ học tập" vẫn giữ kiểu dáng
+ * dropdown (có mũi tên ChevronDown) để khớp UI gốc, nhưng là <div> tĩnh.
  *
- * DỮ LIỆU MẪU — CHƯA nối API thật. Endpoint hiện có
- * (GET /api/classes/{classId}/comments?studentId=) không có @PreAuthorize và
- * không kiểm tra quyền sở hữu (bất kỳ ai đăng nhập cũng đọc được nhận xét của
- * BẤT KỲ studentId nào) — nối thẳng vào Portal học sinh sẽ lộ dữ liệu nhận
- * xét của học sinh khác. Cần Backend bổ sung endpoint self-service riêng
- * (VD GET /api/students/me/classes/{classId}/comments, suy studentId từ JWT
- * như StudentPortalController đã làm cho sessions/exercises/grades) trước
- * khi nối data thật — đã xác nhận với người dùng 2026-07-27.
+ * Nối API thật từ UC-64 (2026-07-29, PR #112) — GET /students/me/classes/{classId}/comments (Học sinh
+ * tự xem, suy studentId từ JWT) hoặc GET /portal/parent/children/{studentId}/classes/{classId}/comments
+ * (Phụ huynh xem con), chỉ trả nhận xét ĐÃ DUYỆT (status=APPROVED). Ghép thêm buổi học (để lấy giờ bắt
+ * đầu/kết thúc + loại buổi) và điểm danh (để tính KPI "Tình trạng chuyên cần") từ 2 API self-service/
+ * phụ huynh tương ứng đã có sẵn.
  */
-const MOCK_LOGS: SessionFeedbackLog[] = [
-  {
-    id: "1",
-    studentCode: "HS-20260710",
-    sessionName: "Buổi 15: Thuyết trình con vật yêu thích (My Favorite Pet)",
-    date: "2026-07-27",
-    timeSlot: "09:47:00 - 09:52:00",
-    attitude: "Tốt",
-    prevGrammarHW: "100%",
-    prevSpeakingHW: "100% - Video xuất sắc",
-    teacherComment: "Gia Bảo hôm nay rất chủ động xung phong lên thuyết trình bài về bạn Kỳ lam ma thuật. Phát âm rành rọt, tự tin tương tác với cô Ms. Emily. Rất đáng khen!",
-    nextLectureLabel: "🎬 Bài giảng Unit 16: Past Simple & Regular Verbs",
-    nextLectureLink: "https://elearning.cse.edu.vn/lecture/unit-16-past-simple",
-    nextHomework: "Quay video ngắn 1 phút nói về màu sắc yêu thích (Unit 3 trang 12)",
-    notes: null
-  },
-  {
-    id: "2",
-    studentCode: "HS-20260710",
-    sessionName: "Buổi 14: Kể chuyện Tấm Cám bằng tiếng Anh (Storytelling)",
-    date: "2026-07-25",
-    timeSlot: "17:30:00 - 19:00:00",
-    attitude: "Khá",
-    prevGrammarHW: "90%",
-    prevSpeakingHW: "85% - Ghi âm ngữ điệu",
-    teacherComment: "Con nhớ từ vựng nhân vật tốt. Giọng đọc truyền cảm. Cần rèn luyện thêm cách nối âm giữa các ngữ điệu trong câu dài.",
-    nextLectureLabel: "🎬 Bài giảng Unit 15: Storytelling & Intonation",
-    nextLectureLink: "https://elearning.cse.edu.vn/lecture/unit-15-storytelling",
-    nextHomework: "Hoàn thành bài tập nối từ vựng trang 10 sách Workbook Phonics",
-    notes: "Khen thưởng"
-  },
-  {
-    id: "3",
-    studentCode: "HS-20260710",
-    sessionName: "Buổi 13: Luyện phát âm phụ âm kép /s/ & /z/ Sounds",
-    date: "2026-07-17",
-    timeSlot: "16:35:00 - 16:50:00",
-    attitude: "Tốt",
-    prevGrammarHW: "100%",
-    prevSpeakingHW: "100% - Đã ghi âm phát",
-    teacherComment: "Tập trung lắng nghe hướng dẫn khẩu hình, phát âm 2 âm /s/ và /z/ đã rõ và chuẩn hơn hẳn tuần trước.",
-    nextLectureLabel: "🎬 Bài giảng Unit 14: Phonics /s/ & /z/ Sounds",
-    nextLectureLink: "https://elearning.cse.edu.vn/lecture/unit-14-phonics-sz",
-    nextHomework: "Luyện đọc 5 câu ghi âm trên ứng dụng E-Learning",
-    notes: null
-  },
-  {
-    id: "4",
-    studentCode: "HS-20260710",
-    sessionName: "Buổi 12: Roleplay tại siêu thị (Roleplay at Supermarket)",
-    date: "2026-07-10",
-    timeSlot: "17:30:00 - 19:00:00",
-    attitude: "TB Khá",
-    prevGrammarHW: "70%",
-    prevSpeakingHW: "75% - TB Khá",
-    teacherComment: "Con còn rụt rè khi nhập vai, cần luyện tập thêm mẫu câu hỏi giá và số đếm ở nhà.",
-    nextLectureLabel: "🎬 Bài giảng Unit 13: Roleplay at Supermarket",
-    nextLectureLink: "https://elearning.cse.edu.vn/lecture/unit-13-roleplay-market",
-    nextHomework: "Xem lại video bài giảng \"Supermarket Vocab\" & viết 3 câu",
-    notes: null
-  },
-  {
-    id: "5",
-    studentCode: "HS-20260710",
-    sessionName: "Buổi 11: Ôn tập giữa kỳ - Grammar & Speaking Review",
-    date: "2026-07-03",
-    timeSlot: "17:30:00 - 19:00:00",
-    attitude: "Tốt",
-    prevGrammarHW: "95%",
-    prevSpeakingHW: "95% - Tốt",
-    teacherComment: "Con nắm chắc kiến thức ngữ pháp giữa kỳ, sẵn sàng cho bài thi nói tuần sau.",
-    nextLectureLabel: "🎬 Bài giảng Midterm Grammar & Speaking Review",
-    nextLectureLink: "https://elearning.cse.edu.vn/lecture/midterm-review",
-    nextHomework: "Chuẩn bị cho bài thi nói giữa kỳ tuần sau",
-    notes: null
-  }
-];
+export default function DailyLearningProgressTab({ studentName, studentCode, classId, parentStudentId }: DailyLearningProgressTabProps) {
+  const [comments, setComments] = useState<StudentCommentResponse[]>([]);
+  const [sessions, setSessions] = useState<ClassSessionResponse[]>([]);
+  const [attendance, setAttendance] = useState<AttendanceMarkResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-export default function DailyLearningProgressTab({ studentName, studentCode }: DailyLearningProgressTabProps) {
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+    const commentsPromise = parentStudentId != null ? listComments(parentStudentId, classId) : listMyComments(classId);
+    const sessionsPromise = parentStudentId != null ? listSchedule(parentStudentId, classId) : listMySessions(undefined, undefined, classId);
+    const attendancePromise = parentStudentId != null ? listAttendance(parentStudentId, classId) : listMyAttendance(classId);
+    Promise.all([commentsPromise, sessionsPromise, attendancePromise])
+      .then(([commentRes, sessionRes, attendanceRes]) => {
+        setComments(commentRes.filter((c) => c.commentType === "DAILY"));
+        setSessions(sessionRes);
+        setAttendance(attendanceRes);
+      })
+      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được quá trình học tập."))
+      .finally(() => setLoading(false));
+  }, [classId, parentStudentId]);
+
+  const sessionById = useMemo(() => new Map(sessions.map((s) => [s.id, s])), [sessions]);
+
+  const logs: SessionFeedbackLog[] = useMemo(
+    () =>
+      comments
+        .slice()
+        .sort((a, b) => (a.commentDate < b.commentDate ? 1 : -1))
+        .map((c) => {
+          const session = c.classSessionId != null ? sessionById.get(c.classSessionId) : undefined;
+          return {
+            id: String(c.id),
+            commentDate: session?.sessionDate ?? c.commentDate,
+            timeSlot: session ? `${session.startTime} - ${session.endTime}` : null,
+            sessionTypeLabel: session ? sessionTypeLabels[session.sessionType] ?? session.sessionType : null,
+            attitude: c.attitude,
+            homeworkPreviousScore: c.homeworkPreviousScore,
+            homeworkPreviousSpeakingScore: c.homeworkPreviousSpeakingScore,
+            grammarPreviousProgress: c.grammarPreviousProgress,
+            videoPreviousProgress: c.videoPreviousProgress,
+            content: c.content,
+            homeworkNextGrammarLabel: c.homeworkNext ?? c.homeworkNextExerciseTitle,
+            homeworkNextVideoLabel: c.homeworkNextReviewVideoSetTitle,
+            note: c.note
+          };
+        }),
+    [comments, sessionById]
+  );
+
   const [selectedSessionId, setSelectedSessionId] = useState<string>("ALL");
-  const logs = MOCK_LOGS;
-  const filteredLogs = logs.filter((log) => selectedSessionId === "ALL" || log.id === selectedSessionId);
-  const displayCode = studentCode || logs[0]?.studentCode || "";
+  // Filter theo Thái độ học tập (2026-07-29) — độc lập với filter theo buổi/ngày ở trên, áp dụng cùng lúc (AND).
+  const [attitudeFilter, setAttitudeFilter] = useState<"ALL" | NonNullable<StudentCommentResponse["attitude"]>>("ALL");
+  const [attitudeOpen, setAttitudeOpen] = useState(false);
+  const attitudeRef = useRef<HTMLDivElement>(null);
+  // Lọc theo khoảng thời gian (Từ ngày - Đến ngày, 2026-07-29) — độc lập với chọn 1 buổi cụ thể ở
+  // trên, cả 2 cùng áp dụng (AND); dùng để xem nhiều buổi trong 1 khoảng ngày thay vì từng buổi lẻ.
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [rangeOpen, setRangeOpen] = useState(false);
+  const [rangeViewMonth, setRangeViewMonth] = useState<Date>(() => new Date());
+  const rangeRef = useRef<HTMLDivElement>(null);
+  const filteredLogs = logs.filter((log) => {
+    if (selectedSessionId !== "ALL" && log.id !== selectedSessionId) return false;
+    if (attitudeFilter !== "ALL" && log.attitude !== attitudeFilter) return false;
+    if (dateFrom && log.commentDate < dateFrom) return false;
+    if (dateTo && log.commentDate > dateTo) return false;
+    return true;
+  });
+  const displayCode = studentCode || "";
   const selectedLog = logs.find((log) => log.id === selectedSessionId) ?? null;
 
+  useEffect(() => {
+    if (!attitudeOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (attitudeRef.current && !attitudeRef.current.contains(e.target as Node)) setAttitudeOpen(false);
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [attitudeOpen]);
+
+  useEffect(() => {
+    if (!rangeOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (rangeRef.current && !rangeRef.current.contains(e.target as Node)) setRangeOpen(false);
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [rangeOpen]);
+
+  const rangeLabel = dateFrom || dateTo ? `${dateFrom || "…"} → ${dateTo || "…"}` : "Khoảng thời gian";
+
+  const toggleRange = () => {
+    setRangeOpen((v) => {
+      const next = !v;
+      if (next) setRangeViewMonth(new Date(dateFrom || dateTo || Date.now()));
+      return next;
+    });
+  };
+
+  const rYear = rangeViewMonth.getFullYear();
+  const rMonth = rangeViewMonth.getMonth();
+  const rFirstWeekday = (new Date(rYear, rMonth, 1).getDay() + 6) % 7;
+  const rDaysInMonth = new Date(rYear, rMonth + 1, 0).getDate();
+  const rangeCalendarCells: (number | null)[] = [
+    ...Array.from({ length: rFirstWeekday }, () => null),
+    ...Array.from({ length: rDaysInMonth }, (_, i) => i + 1)
+  ];
+  const rDateStrFor = (day: number) => `${rYear}-${pad2(rMonth + 1)}-${pad2(day)}`;
+
+  /** Bấm 1: đặt Từ ngày. Bấm 2 (sau ngày Từ): đặt Đến ngày. Bấm khi đã đủ cặp hoặc bấm ngày trước "Từ": bắt đầu chọn lại từ đầu. */
+  const handleRangeDayClick = (day: number) => {
+    const dateStr = rDateStrFor(day);
+    if (!dateFrom || dateTo || dateStr < dateFrom) {
+      setDateFrom(dateStr);
+      setDateTo("");
+    } else {
+      setDateTo(dateStr);
+    }
+  };
+
+  const rangeCellState = (dateStr: string): "start" | "end" | "single" | "in-range" | "none" => {
+    if (dateFrom === dateStr && dateTo === dateStr) return "single";
+    if (dateFrom === dateStr) return dateTo ? "start" : "single";
+    if (dateTo === dateStr) return "end";
+    if (dateFrom && dateTo && dateStr > dateFrom && dateStr < dateTo) return "in-range";
+    return "none";
+  };
+
   // Datepicker chọn buổi học theo ngày — thay cho <select> gốc vì danh sách dropdown mặc định của
-  // trình duyệt hiện tràn/xấu (đã báo trong ảnh chụp). Vẫn lọc theo session.id như cũ, chỉ đổi cách chọn.
+  // trình duyệt hiện tràn/xấu. Vẫn lọc theo session.id như cũ, chỉ đổi cách chọn.
   const [calendarOpen, setCalendarOpen] = useState(false);
-  const [viewMonth, setViewMonth] = useState<Date>(() => new Date((selectedLog ?? logs[0])?.date ?? Date.now()));
+  const [viewMonth, setViewMonth] = useState<Date>(() => new Date());
   const [multiDayLogs, setMultiDayLogs] = useState<SessionFeedbackLog[] | null>(null);
   const calendarRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (logs[0]) setViewMonth(new Date(logs[0].commentDate));
+  }, [logs]);
 
   const logsByDate = useMemo(() => {
     const map = new Map<string, SessionFeedbackLog[]>();
     for (const log of logs) {
-      const existing = map.get(log.date) ?? [];
+      const existing = map.get(log.commentDate) ?? [];
       existing.push(log);
-      map.set(log.date, existing);
+      map.set(log.commentDate, existing);
     }
     return map;
   }, [logs]);
@@ -204,26 +293,34 @@ export default function DailyLearningProgressTab({ studentName, studentCode }: D
   const triggerLabel =
     selectedSessionId === "ALL" || !selectedLog
       ? `Tất cả các buổi học (${logs.length})`
-      : `${selectedLog.date} · ${selectedLog.sessionName.split(":")[0]}`;
+      : `${selectedLog.commentDate}${selectedLog.timeSlot ? ` · ${selectedLog.timeSlot}` : ""}`;
 
-  const getAttitudeStyle = (attitude: AttitudeType) => {
-    switch (attitude) {
-      case "Tốt":
-        return "bg-emerald-50 text-emerald-800 border-emerald-300";
-      case "Khá":
-        return "bg-teal-50 text-teal-800 border-teal-300";
-      case "TB Khá":
-        return "bg-sky-50 text-sky-800 border-sky-300";
-      case "TB":
-        return "bg-amber-50 text-amber-800 border-amber-300";
-      case "Yếu":
-        return "bg-orange-50 text-orange-800 border-orange-300";
-      case "Kém":
-        return "bg-rose-50 text-rose-800 border-rose-300";
-      default:
-        return "bg-slate-50 text-slate-800 border-slate-300";
+  // ===== KPI: tính từ dữ liệu thật =====
+  const ratedLogs = logs.filter((l) => l.attitude);
+  const attitudeFrequency = new Map<NonNullable<StudentCommentResponse["attitude"]>, number>();
+  ratedLogs.forEach((l) => attitudeFrequency.set(l.attitude!, (attitudeFrequency.get(l.attitude!) ?? 0) + 1));
+  let mostCommonAttitude: NonNullable<StudentCommentResponse["attitude"]> | null = null;
+  let mostCommonCount = 0;
+  attitudeFrequency.forEach((count, key) => {
+    if (count > mostCommonCount) {
+      mostCommonCount = count;
+      mostCommonAttitude = key;
     }
-  };
+  });
+  const positiveAttitudeShare = ratedLogs.length
+    ? Math.round((ratedLogs.filter((l) => l.attitude === "GOOD" || l.attitude === "FAIR").length / ratedLogs.length) * 100)
+    : null;
+
+  const progressValues = logs
+    .flatMap((l) => [parseProgressPercent(l.grammarPreviousProgress), parseProgressPercent(l.videoPreviousProgress)])
+    .filter((v): v is number => v != null);
+  const avgHomeworkCompletion = progressValues.length ? Math.round(progressValues.reduce((a, b) => a + b, 0) / progressValues.length) : null;
+
+  const attendanceRate = attendance.length
+    ? Math.round((attendance.filter((a) => a.status === "PRESENT" || a.status === "LATE").length / attendance.length) * 100)
+    : null;
+
+  if (loading) return <p className="text-sm text-muted font-bold">Đang tải...</p>;
 
   return (
     <div className="bg-white rounded-[24px] border border-line shadow-sm p-4 md:p-6 space-y-6">
@@ -341,7 +438,7 @@ export default function DailyLearningProgressTab({ studentName, studentCode }: D
                         }}
                         className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-bold bg-slate-50 hover:bg-sky-2 text-ink"
                       >
-                        {log.timeSlot} — {log.sessionName.split(":")[0]}
+                        {log.timeSlot ?? log.commentDate} — {log.sessionTypeLabel ?? "Buổi học"}
                       </button>
                     ))}
                   </div>
@@ -350,17 +447,158 @@ export default function DailyLearningProgressTab({ studentName, studentCode }: D
             )}
           </div>
 
-          <button
-            onClick={() => alert("Đã xuất báo cáo quá trình học tập ra file Excel (.xlsx) thành công!")}
-            aria-label="Tải báo cáo nhật ký học tập ra file Excel"
-            title="Tải báo cáo nhật ký học tập"
-            className="flex items-center justify-center gap-1.5 min-h-[44px] px-3.5 py-2.5 bg-white hover:bg-slate-100 border border-line rounded-xl text-xs font-bold text-ink transition-colors shadow-sm cursor-pointer"
-          >
-            <Download size={14} className="text-teal shrink-0" aria-hidden="true" />
-            <span className="hidden sm:inline">Tải Excel (.xlsx)</span>
-          </button>
+          <div className="relative" ref={rangeRef}>
+            <button
+              type="button"
+              onClick={toggleRange}
+              aria-label="Lọc theo khoảng thời gian"
+              aria-haspopup="dialog"
+              aria-expanded={rangeOpen}
+              className="flex items-center gap-2 min-h-[44px] bg-white border border-line rounded-xl pl-3.5 pr-3 py-2.5 text-xs font-bold text-ink focus:outline-none focus:ring-2 focus:ring-teal/50 shadow-sm cursor-pointer"
+            >
+              <Clock size={14} className="text-teal shrink-0" aria-hidden="true" />
+              <span className="max-w-[180px] truncate">{rangeLabel}</span>
+              <ChevronDown size={14} className={`text-muted shrink-0 transition-transform ${rangeOpen ? "rotate-180" : ""}`} aria-hidden="true" />
+            </button>
+
+            {rangeOpen && (
+              <div
+                role="dialog"
+                aria-label="Chọn khoảng thời gian"
+                className="absolute right-0 top-full mt-2 z-30 w-[300px] bg-white border border-line rounded-2xl shadow-lg p-3 space-y-3"
+              >
+                <p className="text-[10px] font-bold text-muted">
+                  {!dateFrom ? "Chọn ngày bắt đầu" : !dateTo ? "Chọn ngày kết thúc" : `${dateFrom} → ${dateTo}`}
+                </p>
+
+                <div className="flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => setRangeViewMonth(new Date(rYear, rMonth - 1, 1))}
+                    aria-label="Tháng trước"
+                    className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-sky-2 text-muted"
+                  >
+                    <ChevronLeft size={16} aria-hidden="true" />
+                  </button>
+                  <span className="text-xs font-black text-ink capitalize">
+                    {rangeViewMonth.toLocaleDateString("vi-VN", { month: "long", year: "numeric" })}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setRangeViewMonth(new Date(rYear, rMonth + 1, 1))}
+                    aria-label="Tháng sau"
+                    className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-sky-2 text-muted"
+                  >
+                    <ChevronRight size={16} aria-hidden="true" />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-7 gap-1 text-center">
+                  {WEEKDAY_LABELS.map((w) => (
+                    <span key={w} className="text-[10px] font-bold text-muted py-1">
+                      {w}
+                    </span>
+                  ))}
+                  {rangeCalendarCells.map((day, i) => {
+                    if (day == null) return <span key={`blank-${i}`} />;
+                    const dateStr = rDateStrFor(day);
+                    const state = rangeCellState(dateStr);
+                    return (
+                      <button
+                        key={day}
+                        type="button"
+                        onClick={() => handleRangeDayClick(day)}
+                        aria-label={`Chọn ngày ${day}/${rMonth + 1}`}
+                        className={`relative w-9 h-9 mx-auto flex items-center justify-center text-xs font-bold transition-colors cursor-pointer ${state === "start" || state === "end" || state === "single"
+                          ? "bg-teal text-white rounded-full"
+                          : state === "in-range"
+                            ? "bg-teal/15 text-teal-deep rounded-none"
+                            : "text-ink hover:bg-teal/10 rounded-full"
+                          }`}
+                      >
+                        {day}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="flex items-center justify-between gap-2 pt-1 border-t border-line/60">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDateFrom("");
+                      setDateTo("");
+                    }}
+                    className="text-[11px] font-bold text-muted hover:text-ink"
+                  >
+                    Xóa lọc
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRangeOpen(false)}
+                    className="px-3 py-1.5 bg-teal text-white text-[11px] font-bold rounded-lg hover:bg-teal-deep"
+                  >
+                    Xong
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* <div className="relative" ref={attitudeRef}>
+            <button
+              type="button"
+              onClick={() => setAttitudeOpen((v) => !v)}
+              aria-label="Lọc theo thái độ học tập"
+              aria-haspopup="dialog"
+              aria-expanded={attitudeOpen}
+              className="flex items-center gap-2 min-h-[44px] bg-white border border-line rounded-xl pl-3.5 pr-3 py-2.5 text-xs font-bold text-ink focus:outline-none focus:ring-2 focus:ring-teal/50 shadow-sm cursor-pointer"
+            >
+              <Filter size={14} className="text-teal shrink-0" aria-hidden="true" />
+              <span className="max-w-[140px] truncate">{attitudeFilter === "ALL" ? "Tất cả thái độ học tập" : attitudeLabels[attitudeFilter]}</span>
+              <ChevronDown size={14} className={`text-muted shrink-0 transition-transform ${attitudeOpen ? "rotate-180" : ""}`} aria-hidden="true" />
+            </button>
+
+            {attitudeOpen && (
+              <div
+                role="dialog"
+                aria-label="Chọn thái độ học tập"
+                className="absolute right-0 top-full mt-2 z-30 w-[220px] bg-white border border-line rounded-2xl shadow-lg p-1.5 space-y-0.5"
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAttitudeFilter("ALL");
+                    setAttitudeOpen(false);
+                  }}
+                  className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-xs font-bold text-left transition-colors ${attitudeFilter === "ALL" ? "bg-teal/10 text-teal-deep font-extrabold" : "text-ink hover:bg-sky-2"
+                    }`}
+                >
+                  <span>Tất cả thái độ</span>
+                  {attitudeFilter === "ALL" && <Check size={14} className="text-teal-deep shrink-0" aria-hidden="true" />}
+                </button>
+                {(Object.entries(attitudeLabels) as [NonNullable<StudentCommentResponse["attitude"]>, string][]).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => {
+                      setAttitudeFilter(value);
+                      setAttitudeOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-xs font-bold text-left transition-colors ${attitudeFilter === value ? "bg-teal/10 text-teal-deep font-extrabold" : "text-ink hover:bg-sky-2"
+                      }`}
+                  >
+                    <span>{label}</span>
+                    {attitudeFilter === value && <Check size={14} className="text-teal-deep shrink-0" aria-hidden="true" />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div> */}
         </div>
       </div>
+
+      {error && <div className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-xl">{error}</div>}
 
       {/* Summary KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -370,7 +608,9 @@ export default function DailyLearningProgressTab({ studentName, studentCode }: D
           </div>
           <div>
             <p className="text-[10px] text-muted font-extrabold uppercase">Thái độ chung</p>
-            <p className="text-sm font-black text-ink tabular-nums">Đạt Loại Tốt (95%)</p>
+            <p className="text-sm font-black text-ink tabular-nums">
+              {mostCommonAttitude && positiveAttitudeShare != null ? `Đạt loại ${attitudeLabels[mostCommonAttitude]} (${positiveAttitudeShare}%)` : "Chưa có dữ liệu"}
+            </p>
           </div>
         </div>
 
@@ -380,7 +620,7 @@ export default function DailyLearningProgressTab({ studentName, studentCode }: D
           </div>
           <div>
             <p className="text-[10px] text-muted font-extrabold uppercase">Tỷ lệ hoàn thành BTVN</p>
-            <p className="text-sm font-black text-emerald-600 tabular-nums">92% Trung Bình</p>
+            <p className="text-sm font-black text-emerald-600 tabular-nums">{avgHomeworkCompletion != null ? `${avgHomeworkCompletion}% Trung bình` : "Chưa có dữ liệu"}</p>
           </div>
         </div>
 
@@ -390,7 +630,7 @@ export default function DailyLearningProgressTab({ studentName, studentCode }: D
           </div>
           <div>
             <p className="text-[10px] text-muted font-extrabold uppercase">Buổi học ghi nhận</p>
-            <p className="text-sm font-black text-ink">{logs.length} Buổi gần nhất</p>
+            <p className="text-sm font-black text-ink">{logs.length} Buổi</p>
           </div>
         </div>
 
@@ -400,7 +640,9 @@ export default function DailyLearningProgressTab({ studentName, studentCode }: D
           </div>
           <div>
             <p className="text-[10px] text-muted font-extrabold uppercase">Tình trạng chuyên cần</p>
-            <p className="text-sm font-black text-purple-600 tabular-nums">Đạt Chuẩn (100%)</p>
+            <p className="text-sm font-black text-purple-600 tabular-nums">
+              {attendanceRate != null ? `${attendanceRate >= 90 ? "Đạt Chuẩn" : "Cần cải thiện"} (${attendanceRate}%)` : "Chưa có dữ liệu"}
+            </p>
           </div>
         </div>
       </div>
@@ -419,109 +661,100 @@ export default function DailyLearningProgressTab({ studentName, studentCode }: D
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-100/80 border-b border-line text-[11px] font-black uppercase text-[#6e7c93] tracking-wider whitespace-nowrap">
-                <th className="p-3.5 pl-4">Mã ID</th>
-                <th className="p-3.5">Buổi Học &amp; Thời Gian</th>
-                <th className="p-3.5 min-w-[120px]">Thái Độ Học Tập</th>
-                <th className="p-3.5 min-w-[140px]">BTVN Ngữ Pháp Buổi Trước</th>
-                <th className="p-3.5 min-w-[140px]">BTVN Nghe-Nói Buổi Trước</th>
-                <th className="p-3.5 min-w-[220px]">Nhận Xét Học Sinh</th>
-                <th className="p-3.5 min-w-[280px]">BTVN Buổi Sau (Link &amp; Bài Tập)</th>
-                <th className="p-3.5 pr-4">Ghi Chú</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line/60 text-xs font-semibold text-ink">
-              {filteredLogs.map((log) => (
-                <tr key={log.id} className="hover:bg-slate-50/80 transition-colors align-top">
-                  {/* Mã ID */}
-                  <td className="p-3.5 pl-4 font-mono font-bold text-slate-700 whitespace-nowrap pt-4">{log.studentCode}</td>
-
-                  {/* Buổi Học & Thời Gian */}
-                  <td className="p-3.5 pt-4">
-                    <div className="font-bold text-teal-deep text-xs leading-tight min-w-[120px] max-w-[160px]">{log.sessionName}</div>
-                    <div className="text-[10px] text-muted font-mono flex items-center gap-1 mt-1">
-                      <Clock size={10} aria-hidden="true" /> {log.date} ({log.timeSlot})
-                    </div>
-                  </td>
-
-                  {/* Thái Độ Học Tập — kiểu dáng dropdown nhưng KHÔNG chỉnh sửa được (học sinh chỉ xem) */}
-                  <td className="p-3.5 pt-3">
-                    <div
-                      className={`w-full flex items-center justify-between gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-black shadow-sm select-none ${getAttitudeStyle(log.attitude)}`}
-                    >
-                      <span>{log.attitude}</span>
-                      <ChevronDown size={13} className="opacity-50" aria-hidden="true" />
-                    </div>
-                  </td>
-
-                  {/* BTVN Ngữ Pháp Buổi Trước */}
-                  <td className="p-3.5 pt-3">
-                    <div className="w-full bg-slate-50 border border-line rounded-xl px-2.5 py-1.5 text-xs font-bold text-ink tabular-nums">{log.prevGrammarHW || "—"}</div>
-                  </td>
-
-                  {/* BTVN Nghe-Nói Buổi Trước */}
-                  <td className="p-3.5 pt-3">
-                    <div className="w-full bg-purple-50/50 border border-purple-200 rounded-xl px-2.5 py-1.5 text-xs font-bold text-purple-900 tabular-nums">
-                      {log.prevSpeakingHW || "—"}
-                    </div>
-                  </td>
-
-                  {/* Nhận Xét Học Sinh — hiện đủ nguyên văn (khớp UI gốc Google AI Studio, không cắt dòng). */}
-                  <td className="p-3.5 pt-3">
-                    <div className="p-2.5 bg-slate-50 rounded-xl border border-line/60 text-xs text-ink/90 leading-relaxed font-sans italic">
-                      "{log.teacherComment}"
-                    </div>
-                  </td>
-
-                  {/* BTVN Buổi Sau (Link & Bài Tập gộp 1 cột) */}
-                  <td className="p-3.5 pt-3">
-                    <div className="p-3 bg-slate-50/80 rounded-2xl border border-line/80 space-y-2.5 shadow-2xs">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-1 text-[10px] font-black text-blue-700 uppercase tracking-wider">
-                          <Video size={11} className="text-blue-600" aria-hidden="true" /> Link bài giảng buổi sau
-                        </div>
-                        <div className="w-full bg-blue-50/70 border border-blue-200 rounded-xl px-2 py-1 text-xs font-bold text-blue-900">
-                          {log.nextLectureLabel}
-                        </div>
-                        <a
-                          href={log.nextLectureLink}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-[11px] font-extrabold text-blue-600 hover:text-blue-800 hover:underline pt-0.5"
-                        >
-                          <ExternalLink size={11} aria-hidden="true" /> Mở link video bài giảng
-                        </a>
-                      </div>
-
-                      <hr className="border-line/60 my-1" />
-
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-1 text-[10px] font-black text-amber-800 uppercase tracking-wider">
-                          <FileCheck size={11} className="text-amber-600" aria-hidden="true" /> Bài tập buổi sau
-                        </div>
-                        <div className="w-full bg-amber-50/80 border border-amber-200 rounded-xl px-2 py-1 text-xs font-bold text-amber-950">
-                          {log.nextHomework}
-                        </div>
-                      </div>
-                    </div>
-                  </td>
-
-                  {/* Ghi Chú */}
-                  <td className="p-3.5 pr-4 whitespace-nowrap pt-4">
-                    {log.notes ? (
-                      <span className="text-[11px] font-bold text-teal bg-teal/10 px-2 py-1 rounded-md border border-teal/20 inline-block">{log.notes}</span>
-                    ) : (
-                      <span className="text-muted text-[11px] italic">--</span>
-                    )}
-                  </td>
+        {filteredLogs.length === 0 ? (
+          <p className="text-xs text-muted font-bold italic text-center py-10">Chưa có nhận xét nào được duyệt cho lớp này.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-100/80 border-b border-line text-[11px] font-black uppercase text-[#6e7c93] tracking-wider whitespace-nowrap">
+                  <th className="p-3.5 pl-4">Buổi Học &amp; Thời Gian</th>
+                  <th className="p-3.5 min-w-[120px]">Thái Độ Học Tập</th>
+                  <th className="p-3.5 min-w-[140px]">BTVN Ngữ Pháp Buổi Trước</th>
+                  <th className="p-3.5 min-w-[140px]">BTVN Nghe-Nói Buổi Trước</th>
+                  <th className="p-3.5 min-w-[220px]">Nhận Xét Học Sinh</th>
+                  <th className="p-3.5 min-w-[240px]">BTVN Buổi Sau</th>
+                  <th className="p-3.5 pr-4">Ghi Chú</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-line/60 text-xs font-semibold text-ink">
+                {filteredLogs.map((log) => (
+                  <tr key={log.id} className="hover:bg-slate-50/80 transition-colors align-top">
+                    {/* Buổi Học & Thời Gian */}
+                    <td className="p-3.5 pl-4 pt-4">
+                      <div className="font-bold text-teal-deep text-xs leading-tight min-w-[120px] max-w-[160px]">{log.sessionTypeLabel ?? "Buổi học"}</div>
+                      <div className="text-[10px] text-muted font-mono flex items-center gap-1 mt-1">
+                        <Clock size={10} aria-hidden="true" /> {log.commentDate} {log.timeSlot ? `(${log.timeSlot})` : ""}
+                      </div>
+                    </td>
+
+                    {/* Thái Độ Học Tập — kiểu dáng dropdown nhưng KHÔNG chỉnh sửa được (chỉ xem) */}
+                    <td className="p-3.5 pt-3">
+                      <div
+                        className={`w-full flex items-center justify-between gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-black shadow-sm select-none ${log.attitude ? attitudeStyles[log.attitude] : "bg-slate-50 text-slate-500 border-slate-300"
+                          }`}
+                      >
+                        <span>{log.attitude ? attitudeLabels[log.attitude] : "—"}</span>
+                        <ChevronDown size={13} className="opacity-50" aria-hidden="true" />
+                      </div>
+                    </td>
+
+                    {/* BTVN Ngữ Pháp Buổi Trước */}
+                    <td className="p-3.5 pt-3">
+                      <div className="w-full bg-slate-50 border border-line rounded-xl px-2.5 py-1.5 text-xs font-bold text-ink tabular-nums">
+                        {log.homeworkPreviousScore || log.grammarPreviousProgress || "—"}
+                      </div>
+                    </td>
+
+                    {/* BTVN Nghe-Nói Buổi Trước */}
+                    <td className="p-3.5 pt-3">
+                      <div className="w-full bg-purple-50/50 border border-purple-200 rounded-xl px-2.5 py-1.5 text-xs font-bold text-purple-900 tabular-nums">
+                        {log.homeworkPreviousSpeakingScore || log.videoPreviousProgress || "—"}
+                      </div>
+                    </td>
+
+                    {/* Nhận Xét Học Sinh — hiện đủ nguyên văn, không cắt dòng. */}
+                    <td className="p-3.5 pt-3">
+                      <div className="p-2.5 bg-slate-50 rounded-xl border border-line/60 text-xs text-ink/90 leading-relaxed font-sans italic">"{log.content}"</div>
+                    </td>
+
+                    {/* BTVN Buổi Sau (Ngữ pháp + Video ôn tập gộp 1 cột) */}
+                    <td className="p-3.5 pt-3">
+                      <div className="p-3 bg-slate-50/80 rounded-2xl border border-line/80 space-y-2.5 shadow-2xs">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1 text-[10px] font-black text-blue-700 uppercase tracking-wider">Ngữ pháp</div>
+                          <div className="w-full bg-blue-50/70 border border-blue-200 rounded-xl px-2 py-1 text-xs font-bold text-blue-900">
+                            {log.homeworkNextGrammarLabel || "—"}
+                          </div>
+                        </div>
+
+                        <hr className="border-line/60 my-1" />
+
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1 text-[10px] font-black text-amber-800 uppercase tracking-wider">
+                            <Video size={11} className="text-amber-600" aria-hidden="true" /> Video ôn tập
+                          </div>
+                          <div className="w-full bg-amber-50/80 border border-amber-200 rounded-xl px-2 py-1 text-xs font-bold text-amber-950">
+                            {log.homeworkNextVideoLabel || "—"}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* Ghi Chú */}
+                    <td className="p-3.5 pr-4 whitespace-nowrap pt-4">
+                      {log.note ? (
+                        <span className="text-[11px] font-bold text-teal bg-teal/10 px-2 py-1 rounded-md border border-teal/20 inline-block">{log.note}</span>
+                      ) : (
+                        <span className="text-muted text-[11px] italic">--</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

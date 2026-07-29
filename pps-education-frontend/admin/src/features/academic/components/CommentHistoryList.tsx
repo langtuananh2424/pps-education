@@ -8,6 +8,7 @@ import Button from "@/components/ui/Button";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import Select from "@/components/ui/Select";
+import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
 
 type GrammarMode = "OFFLINE" | "ONLINE";
 
@@ -33,10 +34,14 @@ interface CommentHistoryListProps {
   history: StudentCommentResponse[];
   onChanged: () => void;
   showStudentName?: boolean;
+  /** "table": hiện dạng bảng cùng bố cục cột với màn nhập trực tiếp (UC-21 DAILY) — mặc định "card" (dùng cho UC-21 MID_TERM/END_TERM, danh sách 1 học sinh). */
+  layout?: "card" | "table";
+  /** Chỉ cần khi layout="table" — StudentCommentResponse không có studentCode, lấy từ danh sách enrollment ở component cha. */
+  studentCodeById?: Record<number, string>;
 }
 
 /** UC-21 A1: nhận xét bị Quản lý điểm trường từ chối (kèm lý do) — Giáo viên sửa lại nội dung rồi gửi lại thẳng lên hàng chờ duyệt. */
-export default function CommentHistoryList({ classId, history, onChanged, showStudentName }: CommentHistoryListProps) {
+export default function CommentHistoryList({ classId, history, onChanged, showStudentName, layout = "card", studentCodeById }: CommentHistoryListProps) {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editContent, setEditContent] = useState("");
   const [editSeverity, setEditSeverity] = useState<NonNullable<StudentCommentResponse["severity"]>>("NORMAL");
@@ -113,6 +118,9 @@ export default function CommentHistoryList({ classId, history, onChanged, showSt
         homeworkNextReviewVideoSetId: editHomeworkNextReviewVideoSetId !== "" ? editHomeworkNextReviewVideoSetId : undefined,
         note: editNote.trim() || undefined
       });
+      // UC-21 (2026-07-29, BE PR #113 khôi phục DRAFT cho DAILY): updateComment() giờ luôn giữ ở DRAFT,
+      // dùng chung 100% với MID_TERM/END_TERM — mọi commentType đều cần gọi thêm submitComments() để
+      // chuyển DRAFT → PENDING.
       await submitComments(classId, [commentId]);
       setEditingId(null);
       onChanged();
@@ -128,20 +136,9 @@ export default function CommentHistoryList({ classId, history, onChanged, showSt
     return <p className="text-xs text-slate-400 italic">Chưa có nhận xét nào.</p>;
   }
 
-  return (
-    <div className="space-y-2">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
-      {history.map((h) => (
-        <div key={h.id} className="border border-slate-200 rounded-lg p-2.5 text-[11px] space-y-1.5">
-          <div className="flex items-center justify-between gap-2">
-            {showStudentName && <span className="font-bold text-slate-800">{h.studentFullName}</span>}
-            <span className="text-slate-400">{h.commentDate}</span>
-            <Badge variant={statusVariants[h.status]}>{statusLabels[h.status]}</Badge>
-          </div>
-
-          {editingId === h.id ? (
-            <div className="space-y-2 pt-1">
-              {h.commentType === "DAILY" && (
+  const renderEditForm = (h: StudentCommentResponse) => (
+    <div className="space-y-2 pt-1">
+      {h.commentType === "DAILY" && (
                 <div className="grid grid-cols-3 gap-2">
                   <Select value={editAttitude} onChange={(e) => setEditAttitude(e.target.value as typeof editAttitude)} className={inputClass}>
                     <option value="">-- Thái độ học tập --</option>
@@ -252,47 +249,131 @@ export default function CommentHistoryList({ classId, history, onChanged, showSt
                 </Button>
               </div>
             </div>
+  );
+
+  const renderReadOnlyExtras = (h: StudentCommentResponse) => (
+    <>
+      {h.commentType === "DAILY" &&
+        (h.attitude || h.homeworkPreviousScore || h.homeworkPreviousSpeakingScore || h.grammarPreviousProgress || h.videoPreviousProgress) && (
+          <p className="text-slate-500">
+            {h.attitude && `Thái độ: ${attitudeLabels[h.attitude]}`}
+            {h.attitude && h.homeworkPreviousScore && " · "}
+            {h.homeworkPreviousScore && `BTVN Ngữ pháp buổi trước: ${h.homeworkPreviousScore}`}
+            {(h.attitude || h.homeworkPreviousScore) && h.homeworkPreviousSpeakingScore && " · "}
+            {h.homeworkPreviousSpeakingScore && `BTVN Nghe-nói buổi trước: ${h.homeworkPreviousSpeakingScore}`}
+            {(h.attitude || h.homeworkPreviousScore || h.homeworkPreviousSpeakingScore) && (h.grammarPreviousProgress || h.videoPreviousProgress) && " · "}
+            {h.grammarPreviousProgress && `% Ngữ pháp (tự động): ${h.grammarPreviousProgress}`}
+            {h.grammarPreviousProgress && h.videoPreviousProgress && " · "}
+            {h.videoPreviousProgress && `% Video (tự động): ${h.videoPreviousProgress}`}
+          </p>
+        )}
+      <p className="text-slate-700">{h.content}</p>
+      {h.commentType === "DAILY" && (h.homeworkNext || h.homeworkNextExerciseTitle || h.homeworkNextReviewVideoSetTitle || h.note) && (
+        <p className="text-slate-500">
+          {h.homeworkNext && `BTVN Ngữ pháp buổi sau (offline): ${h.homeworkNext}`}
+          {h.homeworkNextExerciseTitle && `BTVN Ngữ pháp buổi sau (online): ${h.homeworkNextExerciseTitle}`}
+          {(h.homeworkNext || h.homeworkNextExerciseTitle) && h.homeworkNextReviewVideoSetTitle && " · "}
+          {h.homeworkNextReviewVideoSetTitle && `Video ôn tập buổi sau: ${h.homeworkNextReviewVideoSetTitle}`}
+          {(h.homeworkNext || h.homeworkNextExerciseTitle || h.homeworkNextReviewVideoSetTitle) && h.note && " · "}
+          {h.note && `Ghi chú: ${h.note}`}
+        </p>
+      )}
+      {h.status === "REJECTED" && h.rejectionReason && <p className="text-rose-500">Lý do từ chối: {h.rejectionReason}</p>}
+    </>
+  );
+
+  const renderActions = (h: StudentCommentResponse) => (
+    <>
+      {h.status === "DRAFT" && (
+        <Button size="sm" variant="secondary" onClick={() => handleSubmitDraft(h.id)} disabled={submittingId === h.id}>
+          <Save className="w-3.5 h-3.5" />
+          {submittingId === h.id ? "Đang nộp..." : "Nộp duyệt"}
+        </Button>
+      )}
+      {h.status === "REJECTED" && (
+        <Button size="sm" variant="secondary" onClick={() => startEdit(h)}>
+          Sửa & Gửi lại
+        </Button>
+      )}
+    </>
+  );
+
+  if (layout === "table") {
+    return (
+      <div className="space-y-2">
+        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        <TableContainer>
+          <thead>
+            <tr>
+              <Th className="min-w-[120px]">Mã ID</Th>
+              <Th>Họ và tên</Th>
+              <Th>Thái độ học tập</Th>
+              <Th>BTVN Ngữ pháp buổi trước</Th>
+              <Th>BTVN Nghe-nói buổi trước</Th>
+              <Th>Nhận xét học sinh</Th>
+              <Th>BTVN Ngữ pháp buổi sau</Th>
+              <Th>BTVN Video ôn tập buổi sau</Th>
+              <Th>Ghi chú</Th>
+              <Th>Trạng thái</Th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {history.map((h) => (
+              <React.Fragment key={h.id}>
+                <tr className="hover:bg-slate-50/40">
+                  <Td className="font-mono font-bold text-slate-500">{studentCodeById?.[h.studentId] ?? "—"}</Td>
+                  <Td className="font-bold text-slate-900 whitespace-nowrap">{h.studentFullName}</Td>
+                  <Td className="min-w-[110px]">{h.attitude ? attitudeLabels[h.attitude] : "—"}</Td>
+                  <Td className="min-w-[130px]">{h.homeworkPreviousScore || "—"}</Td>
+                  <Td className="min-w-[130px]">{h.homeworkPreviousSpeakingScore || "—"}</Td>
+                  <Td className="min-w-[260px] whitespace-pre-wrap">{h.content}</Td>
+                  <Td className="min-w-[180px]">{h.homeworkNext || h.homeworkNextExerciseTitle || "—"}</Td>
+                  <Td className="min-w-[180px]">{h.homeworkNextReviewVideoSetTitle || "—"}</Td>
+                  <Td className="min-w-[120px]">{h.note || "—"}</Td>
+                  <Td className="min-w-[150px] whitespace-nowrap space-y-1.5">
+                    <Badge variant={statusVariants[h.status]}>{statusLabels[h.status]}</Badge>
+                    <div>{renderActions(h)}</div>
+                  </Td>
+                </tr>
+                {h.status === "REJECTED" && h.rejectionReason && editingId !== h.id && (
+                  <tr>
+                    <td colSpan={10} className="px-4 pb-2 -mt-2 text-[11px] text-rose-500">
+                      Lý do từ chối: {h.rejectionReason}
+                    </td>
+                  </tr>
+                )}
+                {editingId === h.id && (
+                  <tr>
+                    <td colSpan={10} className="px-4 pb-3 bg-slate-50/60">
+                      {renderEditForm(h)}
+                    </td>
+                  </tr>
+                )}
+              </React.Fragment>
+            ))}
+          </tbody>
+        </TableContainer>
+        <Toast message={toastMessage} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {history.map((h) => (
+        <div key={h.id} className="border border-slate-200 rounded-lg p-2.5 text-[11px] space-y-1.5">
+          <div className="flex items-center justify-between gap-2">
+            {showStudentName && <span className="font-bold text-slate-800">{h.studentFullName}</span>}
+            <span className="text-slate-400">{h.commentDate}</span>
+            <Badge variant={statusVariants[h.status]}>{statusLabels[h.status]}</Badge>
+          </div>
+          {editingId === h.id ? (
+            renderEditForm(h)
           ) : (
             <>
-              {h.commentType === "DAILY" &&
-                (h.attitude || h.homeworkPreviousScore || h.homeworkPreviousSpeakingScore || h.grammarPreviousProgress || h.videoPreviousProgress) && (
-                  <p className="text-slate-500">
-                    {h.attitude && `Thái độ: ${attitudeLabels[h.attitude]}`}
-                    {h.attitude && h.homeworkPreviousScore && " · "}
-                    {h.homeworkPreviousScore && `BTVN Ngữ pháp buổi trước: ${h.homeworkPreviousScore}`}
-                    {(h.attitude || h.homeworkPreviousScore) && h.homeworkPreviousSpeakingScore && " · "}
-                    {h.homeworkPreviousSpeakingScore && `BTVN Nghe-nói buổi trước: ${h.homeworkPreviousSpeakingScore}`}
-                    {(h.attitude || h.homeworkPreviousScore || h.homeworkPreviousSpeakingScore) && (h.grammarPreviousProgress || h.videoPreviousProgress) && " · "}
-                    {h.grammarPreviousProgress && `% Ngữ pháp (tự động): ${h.grammarPreviousProgress}`}
-                    {h.grammarPreviousProgress && h.videoPreviousProgress && " · "}
-                    {h.videoPreviousProgress && `% Video (tự động): ${h.videoPreviousProgress}`}
-                  </p>
-                )}
-              <p className="text-slate-700">{h.content}</p>
-              {h.commentType === "DAILY" && (h.homeworkNext || h.homeworkNextExerciseTitle || h.homeworkNextReviewVideoSetTitle || h.note) && (
-                <p className="text-slate-500">
-                  {h.homeworkNext && `BTVN Ngữ pháp buổi sau (offline): ${h.homeworkNext}`}
-                  {h.homeworkNextExerciseTitle && `BTVN Ngữ pháp buổi sau (online): ${h.homeworkNextExerciseTitle}`}
-                  {(h.homeworkNext || h.homeworkNextExerciseTitle) && h.homeworkNextReviewVideoSetTitle && " · "}
-                  {h.homeworkNextReviewVideoSetTitle && `Video ôn tập buổi sau: ${h.homeworkNextReviewVideoSetTitle}`}
-                  {(h.homeworkNext || h.homeworkNextExerciseTitle || h.homeworkNextReviewVideoSetTitle) && h.note && " · "}
-                  {h.note && `Ghi chú: ${h.note}`}
-                </p>
-              )}
-              {h.status === "REJECTED" && h.rejectionReason && (
-                <p className="text-rose-500">Lý do từ chối: {h.rejectionReason}</p>
-              )}
-              {h.status === "DRAFT" && (
-                <Button size="sm" variant="secondary" onClick={() => handleSubmitDraft(h.id)} disabled={submittingId === h.id}>
-                  <Save className="w-3.5 h-3.5" />
-                  {submittingId === h.id ? "Đang nộp..." : "Nộp duyệt"}
-                </Button>
-              )}
-              {h.status === "REJECTED" && (
-                <Button size="sm" variant="secondary" onClick={() => startEdit(h)}>
-                  Sửa & Gửi lại
-                </Button>
-              )}
+              {renderReadOnlyExtras(h)}
+              {renderActions(h)}
             </>
           )}
         </div>
