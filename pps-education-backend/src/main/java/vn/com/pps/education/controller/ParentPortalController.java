@@ -11,6 +11,7 @@ import vn.com.pps.education.dto.ChildResponse;
 import vn.com.pps.education.dto.ClassSessionResponse;
 import vn.com.pps.education.dto.GradeEntryResponse;
 import vn.com.pps.education.dto.GradePeriodResultResponse;
+import vn.com.pps.education.dto.HomeworkProgressResponse;
 import vn.com.pps.education.dto.StudentCommentResponse;
 import vn.com.pps.education.security.AuthenticatedUser;
 import vn.com.pps.education.service.ParentPortalService;
@@ -62,5 +63,12 @@ public class ParentPortalController {
     public ResponseEntity<List<ClassSessionResponse>> listSchedule(@PathVariable Long studentId, @PathVariable Long classId,
                                                                      @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(parentPortalService.listSchedule(studentId, classId, actor.userId()));
+    }
+
+    @GetMapping("/children/{studentId}/classes/{classId}/homework")
+    public ResponseEntity<List<HomeworkProgressResponse>> listHomeworkProgress(
+            @PathVariable Long studentId, @PathVariable Long classId,
+            @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(parentPortalService.listHomeworkProgress(studentId, classId, actor.userId()));
     }
 }

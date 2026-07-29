@@ -434,6 +434,26 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
                 .isInstanceOf(NotSiteManagerForSiteException.class);
     }
 
+    @Test
+    void listMyAttendance_UC64_MainFlow_returnsOwnAttendanceForEnrolledClass() {
+        classService.enroll(session.classId(), new EnrollStudentRequest(student1.getId(), LocalDate.now()), headAcademic.getId());
+        studentAttendanceService.markAttendance(session.id(),
+                new MarkAttendanceRequest("SESSION_LEVEL", List.of(
+                        new EnterAttendanceMarkRequest(student1.getId(), "ABSENT", null, null, "Ốm"))),
+                teacher.getId());
+
+        List<AttendanceMarkResponse> result = studentAttendanceService.listMyAttendance(session.classId(), student1.getUser().getId());
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).status()).isEqualTo("ABSENT");
+    }
+
+    @Test
+    void listMyAttendance_rejectsWhenNotEnrolledInClass() {
+        assertThatThrownBy(() -> studentAttendanceService.listMyAttendance(session.classId(), student1.getUser().getId()))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
     private SiteManager newSiteManager(User user, Site site) {
         SiteManager siteManager = new SiteManager();
         siteManager.setSite(site);

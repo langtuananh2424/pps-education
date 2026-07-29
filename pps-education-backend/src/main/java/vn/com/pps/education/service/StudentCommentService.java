@@ -13,15 +13,10 @@ import vn.com.pps.education.domain.AttendanceMark;
 import vn.com.pps.education.domain.AttendanceSession;
 import vn.com.pps.education.domain.ClassEnrollment;
 import vn.com.pps.education.domain.ClassSession;
-import vn.com.pps.education.domain.Exercise;
 import vn.com.pps.education.domain.ExerciseAssignment;
-import vn.com.pps.education.domain.ExerciseAttempt;
 import vn.com.pps.education.domain.GradePeriod;
 import vn.com.pps.education.domain.ImportJob;
 import vn.com.pps.education.domain.Notification;
-import vn.com.pps.education.domain.ReviewVideo;
-import vn.com.pps.education.domain.ReviewVideoQuestion;
-import vn.com.pps.education.domain.ReviewVideoQuestionSubmission;
 import vn.com.pps.education.domain.ReviewVideoSet;
 import vn.com.pps.education.domain.SchoolClass;
 import vn.com.pps.education.domain.SiteManager;
@@ -49,13 +44,8 @@ import vn.com.pps.education.repository.AttendanceSessionRepository;
 import vn.com.pps.education.repository.ClassEnrollmentRepository;
 import vn.com.pps.education.repository.ClassSessionRepository;
 import vn.com.pps.education.repository.ExerciseAssignmentRepository;
-import vn.com.pps.education.repository.ExerciseAttemptRepository;
 import vn.com.pps.education.repository.GradePeriodRepository;
 import vn.com.pps.education.repository.ImportJobRepository;
-import vn.com.pps.education.repository.ReviewVideoProgressRepository;
-import vn.com.pps.education.repository.ReviewVideoQuestionRepository;
-import vn.com.pps.education.repository.ReviewVideoQuestionSubmissionRepository;
-import vn.com.pps.education.repository.ReviewVideoRepository;
 import vn.com.pps.education.repository.ReviewVideoSetRepository;
 import vn.com.pps.education.repository.SchoolClassRepository;
 import vn.com.pps.education.repository.ClassTeacherRepository;
@@ -67,8 +57,6 @@ import vn.com.pps.education.repository.UserRepository;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
@@ -146,12 +134,8 @@ public class StudentCommentService {
     private final ImportJobRepository importJobRepository;
     private final StudentAttendanceService studentAttendanceService;
     private final ExerciseAssignmentRepository exerciseAssignmentRepository;
-    private final ExerciseAttemptRepository exerciseAttemptRepository;
     private final ReviewVideoSetRepository reviewVideoSetRepository;
-    private final ReviewVideoRepository reviewVideoRepository;
-    private final ReviewVideoProgressRepository reviewVideoProgressRepository;
-    private final ReviewVideoQuestionRepository reviewVideoQuestionRepository;
-    private final ReviewVideoQuestionSubmissionRepository reviewVideoQuestionSubmissionRepository;
+    private final HomeworkProgressService homeworkProgressService;
 
     public StudentCommentService(StudentCommentRepository studentCommentRepository,
                                   StudentCommentHistoryRepository studentCommentHistoryRepository,
@@ -172,12 +156,8 @@ public class StudentCommentService {
                                   ImportJobRepository importJobRepository,
                                   StudentAttendanceService studentAttendanceService,
                                   ExerciseAssignmentRepository exerciseAssignmentRepository,
-                                  ExerciseAttemptRepository exerciseAttemptRepository,
                                   ReviewVideoSetRepository reviewVideoSetRepository,
-                                  ReviewVideoRepository reviewVideoRepository,
-                                  ReviewVideoProgressRepository reviewVideoProgressRepository,
-                                  ReviewVideoQuestionRepository reviewVideoQuestionRepository,
-                                  ReviewVideoQuestionSubmissionRepository reviewVideoQuestionSubmissionRepository) {
+                                  HomeworkProgressService homeworkProgressService) {
         this.studentCommentRepository = studentCommentRepository;
         this.studentCommentHistoryRepository = studentCommentHistoryRepository;
         this.approvalFlowRepository = approvalFlowRepository;
@@ -197,12 +177,8 @@ public class StudentCommentService {
         this.importJobRepository = importJobRepository;
         this.studentAttendanceService = studentAttendanceService;
         this.exerciseAssignmentRepository = exerciseAssignmentRepository;
-        this.exerciseAttemptRepository = exerciseAttemptRepository;
         this.reviewVideoSetRepository = reviewVideoSetRepository;
-        this.reviewVideoRepository = reviewVideoRepository;
-        this.reviewVideoProgressRepository = reviewVideoProgressRepository;
-        this.reviewVideoQuestionRepository = reviewVideoQuestionRepository;
-        this.reviewVideoQuestionSubmissionRepository = reviewVideoQuestionSubmissionRepository;
+        this.homeworkProgressService = homeworkProgressService;
     }
 
     // ===================== UC-21: Viết nhận xét (TEACHER) =====================
@@ -304,6 +280,34 @@ public class StudentCommentService {
     public List<StudentCommentResponse> listComments(Long classId, Long studentId) {
         return studentCommentRepository.findBySchoolClassIdAndStudentIdOrderByCommentDateDesc(classId, studentId)
                 .stream().map(this::toResponse).toList();
+    }
+
+    /**
+     * UC-64 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-29):
+     * học sinh tự xem nhận xét đã duyệt (APPROVED — UC-22) của chính mình
+     * theo lớp đang/đã ghi danh — mirror ParentPortalService.listComments,
+     * chỉ khác scope là chính học sinh thay vì quan hệ phụ huynh-con.
+     */
+    @Transactional(readOnly = true)
+    public List<StudentCommentResponse> listMyComments(Long classId, Long actorUserId) {
+        Student student = studentOrThrow(actorUserId);
+        requireEnrolled(student.getId(), classId);
+        return studentCommentRepository
+                .findBySchoolClassIdAndStudentIdAndStatusOrderByCommentDateDesc(classId, student.getId(), StudentComment.Status.APPROVED)
+                .stream().map(this::toResponse).toList();
+    }
+
+    private Student studentOrThrow(Long actorUserId) {
+        return studentRepository.findByUserId(actorUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản id=" + actorUserId + " không có hồ sơ học sinh."));
+    }
+
+    private void requireEnrolled(Long studentId, Long classId) {
+        boolean enrolled = classEnrollmentRepository.findBySchoolClassIdAndStudentIdAndStatus(
+                classId, studentId, ClassEnrollment.Status.ACTIVE).isPresent();
+        if (!enrolled) {
+            throw new ResourceNotFoundException("Không tìm thấy lớp học id=" + classId);
+        }
     }
 
     /** Main Flow bước 4-5 (chỉ còn ý nghĩa với MID_TERM/END_TERM — DAILY tự route ngay khi ghi, xem Javadoc lớp). */
@@ -781,75 +785,16 @@ public class StudentCommentService {
                 .orElse(null);
     }
 
-    /** % bài ngữ pháp online đã giao ở buổi trước — "Chưa làm bài"/"Đang chờ chấm" nếu chưa có điểm cuối cùng. */
+    /** % bài ngữ pháp online đã giao ở buổi trước — xem HomeworkProgressService.grammarProgressLabel. */
     private String grammarPreviousProgressLabel(StudentComment previous) {
-        if (previous == null || previous.getHomeworkNextExerciseAssignment() == null) {
-            return null;
-        }
-        Exercise exercise = previous.getHomeworkNextExerciseAssignment().getExercise();
-        List<ExerciseAttempt> attempts = exerciseAttemptRepository
-                .findByExerciseIdAndStudentIdOrderByAttemptNumberDesc(exercise.getId(), previous.getStudent().getId());
-        if (attempts.isEmpty()) {
-            return "Chưa làm bài";
-        }
-        ExerciseAttempt latest = attempts.get(0);
-        if (latest.getTotalScore() == null) {
-            return "Đang chờ chấm";
-        }
-        if (exercise.getTotalPoints() == null || exercise.getTotalPoints().signum() <= 0) {
-            return null;
-        }
-        int percent = latest.getTotalScore().divide(exercise.getTotalPoints(), 4, RoundingMode.HALF_UP)
-                .multiply(BigDecimal.valueOf(100)).setScale(0, RoundingMode.HALF_UP).intValue();
-        return percent + "%";
+        return previous == null ? null
+                : homeworkProgressService.grammarProgressLabel(previous.getHomeworkNextExerciseAssignment(), previous.getStudent().getId());
     }
 
-    /** % video ôn tập đã giao ở buổi trước — trung bình % từng video trong bộ (watched% cho CONNECTION, score/maxScore cho REFLEX). */
+    /** % video ôn tập đã giao ở buổi trước — xem HomeworkProgressService.videoProgressLabel. */
     private String videoPreviousProgressLabel(StudentComment previous) {
-        if (previous == null || previous.getHomeworkNextReviewVideoSet() == null) {
-            return null;
-        }
-        ReviewVideoSet set = previous.getHomeworkNextReviewVideoSet();
-        List<ReviewVideo> videos = reviewVideoRepository.findByReviewVideoSetIdOrderByDisplayOrder(set.getId());
-        if (videos.isEmpty()) {
-            return null;
-        }
-        Long studentId = previous.getStudent().getId();
-        int total = 0;
-        for (ReviewVideo v : videos) {
-            total += set.getVideoType() == ReviewVideoSet.VideoType.CONNECTION
-                    ? connectionPercent(v, studentId) : reflexPercent(v, studentId);
-        }
-        return Math.round(total / (float) videos.size()) + "%";
-    }
-
-    private int connectionPercent(ReviewVideo v, Long studentId) {
-        return reviewVideoProgressRepository.findByReviewVideoIdAndStudentId(v.getId(), studentId)
-                .map(p -> Math.min(100, Math.round(p.getWatchedSeconds() * 100f / v.getDurationSeconds())))
-                .orElse(0);
-    }
-
-    /** V57: video REFLEX nay có nhiều câu hỏi — % là trung bình % (điểm/điểm tối đa của attempt MỚI NHẤT) trên từng câu hỏi trong video. */
-    private int reflexPercent(ReviewVideo v, Long studentId) {
-        List<ReviewVideoQuestion> questions = reviewVideoQuestionRepository.findByReviewVideoIdOrderByDisplayOrder(v.getId());
-        if (questions.isEmpty()) {
-            return 0;
-        }
-        int total = 0;
-        for (ReviewVideoQuestion q : questions) {
-            List<ReviewVideoQuestionSubmission> attempts = reviewVideoQuestionSubmissionRepository
-                    .findByReviewVideoQuestionIdAndStudentIdOrderByAttemptNumberDesc(q.getId(), studentId);
-            total += attempts.isEmpty() ? 0 : latestAttemptPercent(attempts.get(0));
-        }
-        return Math.round(total / (float) questions.size());
-    }
-
-    private int latestAttemptPercent(ReviewVideoQuestionSubmission latest) {
-        if (latest.getScore() == null || latest.getMaxScore() == null || latest.getMaxScore().signum() <= 0) {
-            return 0;
-        }
-        return latest.getScore().divide(latest.getMaxScore(), 4, RoundingMode.HALF_UP)
-                .multiply(BigDecimal.valueOf(100)).intValue();
+        return previous == null ? null
+                : homeworkProgressService.videoProgressLabel(previous.getHomeworkNextReviewVideoSet(), previous.getStudent().getId());
     }
 
     /**
