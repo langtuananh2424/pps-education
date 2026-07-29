@@ -29,6 +29,7 @@ import vn.com.pps.education.dto.EnrollStudentRequest;
 import vn.com.pps.education.dto.EnterAttendanceMarkRequest;
 import vn.com.pps.education.dto.MarkAttendanceRequest;
 import vn.com.pps.education.dto.PartnerAttendanceSummaryResponse;
+import vn.com.pps.education.dto.RecordTransferRequest;
 import vn.com.pps.education.dto.UpdateCurriculumRequest;
 import vn.com.pps.education.dto.UpdatePeriodMarkRequest;
 import vn.com.pps.education.exception.AttendanceSessionNotEditableException;
@@ -78,6 +79,9 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
 
     @Autowired
     private CurriculumService curriculumService;
+
+    @Autowired
+    private StudentService studentService;
 
     @Autowired
     private UserRepository userRepository;
@@ -452,6 +456,30 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
     void listMyAttendance_rejectsWhenNotEnrolledInClass() {
         assertThatThrownBy(() -> studentAttendanceService.listMyAttendance(session.classId(), student1.getUser().getId()))
                 .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    /** Bổ sung (đã xác nhận với người dùng 2026-07-29): điểm danh lớp cũ vẫn tự xem được sau khi chuyển lớp. */
+    @Test
+    void listMyAttendance_boSung_stillVisibleAfterTransferToAnotherClass() {
+        classService.enroll(session.classId(), new EnrollStudentRequest(student1.getId(), LocalDate.now()), headAcademic.getId());
+        studentAttendanceService.markAttendance(session.id(),
+                new MarkAttendanceRequest("SESSION_LEVEL", List.of(
+                        new EnterAttendanceMarkRequest(student1.getId(), "ABSENT", null, null, "Ốm"))),
+                teacher.getId());
+        CurriculumResponse curriculum = curriculumService.create(
+                new CreateCurriculumRequest(curriculumCode(), "Chuẩn", "MAIN", null, null, null), headAcademic.getId());
+        CurriculumResponse activeCurriculum = curriculumService.update(curriculum.id(),
+                new UpdateCurriculumRequest("Chuẩn", null, null, null, "ACTIVE", false), headAcademic.getId());
+        ClassResponse otherClass = classService.create(
+                new CreateClassRequest(classCode(), "8A3", newSite().getId(), activeCurriculum.id(), "OPEN", 20, null,
+                        LocalDate.now(), null, null, null), headAcademic.getId());
+        studentService.recordTransfer(student1.getId(),
+                new RecordTransferRequest("CLASS_CHANGE", session.classId(), otherClass.id(), null, LocalDate.now(), "Chuyển lớp test"),
+                headAcademic.getId());
+
+        List<AttendanceMarkResponse> result = studentAttendanceService.listMyAttendance(session.classId(), student1.getUser().getId());
+
+        assertThat(result).hasSize(1);
     }
 
     private SiteManager newSiteManager(User user, Site site) {

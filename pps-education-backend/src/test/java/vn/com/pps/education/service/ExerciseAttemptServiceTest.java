@@ -26,6 +26,7 @@ import vn.com.pps.education.dto.ExerciseResponse;
 import vn.com.pps.education.dto.QuestionBankResponse;
 import vn.com.pps.education.dto.QuestionChoiceRequest;
 import vn.com.pps.education.dto.QuestionResponse;
+import vn.com.pps.education.dto.RecordTransferRequest;
 import vn.com.pps.education.dto.SaveAnswerRequest;
 import vn.com.pps.education.dto.StudentAnswerResponse;
 import vn.com.pps.education.dto.UpdateCurriculumRequest;
@@ -73,6 +74,9 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
 
     @Autowired
     private CurriculumService curriculumService;
+
+    @Autowired
+    private StudentService studentService;
 
     @Autowired
     private UserRepository userRepository;
@@ -414,6 +418,40 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         List<AssignedExerciseResponse> filteredOut = exerciseAttemptService.listMyAssignedExercises(studentUser.getId(), 999_999L);
 
         assertThat(filteredOut).isEmpty();
+    }
+
+    /** Bổ sung (đã xác nhận với người dùng 2026-07-29): bài đã giao ở lớp cũ vẫn XEM được sau khi chuyển lớp. */
+    @Test
+    void listMyAssignedExercises_boSung_stillVisibleAfterTransferToAnotherClass() {
+        QuestionResponse mc = createMcQuestion();
+        ExerciseResponse exercise = assignedExerciseWithQuestions(List.of(mc), null, false, true);
+        ClassResponse otherClass = classService.create(new CreateClassRequest(classCode(), "9B1", newSite().getId(),
+                activeCurriculum.id(), "OPEN", 20, null, LocalDate.now(), null, null, null), headAcademic.getId());
+        studentService.recordTransfer(student.getId(),
+                new RecordTransferRequest("CLASS_CHANGE", schoolClass.id(), otherClass.id(), null, LocalDate.now(), "Chuyển lớp test"),
+                headAcademic.getId());
+
+        List<AssignedExerciseResponse> assigned = exerciseAttemptService.listMyAssignedExercises(studentUser.getId(), null);
+
+        assertThat(assigned).extracting(AssignedExerciseResponse::exerciseId).contains(exercise.id());
+    }
+
+    /**
+     * Bổ sung (đã xác nhận với người dùng 2026-07-29): CHỈ mở lại xem, KHÔNG
+     * mở lại làm bài mới cho lớp cũ — startAttempt vẫn chặn như trước.
+     */
+    @Test
+    void startAttempt_boSung_stillBlockedForOldClassExerciseAfterTransfer() {
+        QuestionResponse mc = createMcQuestion();
+        ExerciseResponse exercise = assignedExerciseWithQuestions(List.of(mc), null, false, true);
+        ClassResponse otherClass = classService.create(new CreateClassRequest(classCode(), "9B2", newSite().getId(),
+                activeCurriculum.id(), "OPEN", 20, null, LocalDate.now(), null, null, null), headAcademic.getId());
+        studentService.recordTransfer(student.getId(),
+                new RecordTransferRequest("CLASS_CHANGE", schoolClass.id(), otherClass.id(), null, LocalDate.now(), "Chuyển lớp test"),
+                headAcademic.getId());
+
+        assertThatThrownBy(() -> exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId()))
+                .isInstanceOf(ExerciseNotAvailableException.class);
     }
 
     private QuestionResponse createMcQuestion() {

@@ -245,18 +245,24 @@ public class ExerciseAttemptService {
     }
 
     /**
-     * Bổ sung: Học sinh tự tra cứu đề đã được giao cho (các) lớp mình
-     * đang ghi danh ACTIVE — trước đây không có API nào cho việc này, HS
-     * phải biết trước exerciseId mới gọi được startAttempt/getExercise.
-     * classIdFilter tùy chọn (ngữ cảnh "lớp đang xem" — UC-42).
+     * Bổ sung: Học sinh tự tra cứu đề đã được giao cho (các) lớp mình đang
+     * hoặc đã TỪNG ghi danh (kể cả lớp cũ sau khi chuyển lớp — bổ sung
+     * ngoài SDD gốc, đã xác nhận với người dùng 2026-07-29; CHỈ xem, không
+     * mở lại khả năng làm bài mới ở lớp cũ — startAttempt vẫn chặn theo
+     * ACTIVE như cũ, xem findActiveAssignmentForStudent) — trước đây
+     * không có API nào cho việc này, HS phải biết trước exerciseId mới
+     * gọi được startAttempt/getExercise. classIdFilter tùy chọn (ngữ cảnh
+     * "lớp đang xem" — UC-42). Dedupe theo classId vì 1 học sinh có thể
+     * có nhiều dòng enrollment cho CÙNG 1 lớp theo thời gian (chuyển đi
+     * rồi quay lại).
      */
     @Transactional(readOnly = true)
     public List<AssignedExerciseResponse> listMyAssignedExercises(Long actorUserId, Long classIdFilter) {
         Student student = studentOrThrow(actorUserId);
         List<ClassEnrollment> enrollments = classEnrollmentRepository.findByStudentId(student.getId()).stream()
-                .filter(e -> e.getStatus() == ClassEnrollment.Status.ACTIVE)
                 .filter(e -> classIdFilter == null || e.getSchoolClass().getId().equals(classIdFilter))
-                .toList();
+                .collect(Collectors.toMap(e -> e.getSchoolClass().getId(), e -> e, (a, b) -> a))
+                .values().stream().toList();
 
         List<AssignedExerciseResponse> result = new java.util.ArrayList<>();
         for (ClassEnrollment enrollment : enrollments) {
