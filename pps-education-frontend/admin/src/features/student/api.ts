@@ -1,4 +1,4 @@
-import { apiRequest } from "@/lib/apiClient";
+import { apiRequest, apiRequestBlob } from "@/lib/apiClient";
 import type { CreateUserRequest } from "@/features/system-admin/api";
 
 /** Khớp StudentResponse thật của backend — xem UC-13 (Quản lý hồ sơ học sinh). */
@@ -224,6 +224,13 @@ export function listSites(): Promise<SiteOption[]> {
   return apiRequest<SiteOption[]>("/sites");
 }
 
+/** Khớp AccountExportRequest.AccountEntry thật — dùng chung cho export tài khoản Student/Parent. */
+export interface AccountExportEntry {
+  username: string;
+  temporaryPassword: string;
+  fullName?: string;
+}
+
 /** UC-35: Nhập học sinh theo lô (FR-CRM-04) — khớp StudentBatchImportResponse thật. */
 export interface StudentBatchImportResponse {
   id: number;
@@ -233,12 +240,33 @@ export interface StudentBatchImportResponse {
   failedRows: number;
   status: string;
   errorSummary: { row: number; reason: string }[];
+  /** Mật khẩu tạm — CHỈ có trong response của chính lần gọi import này (BE không lưu plaintext). */
+  generatedCredentials: { row: number; username: string; temporaryPassword: string; fullName: string }[];
 }
 
 export function importStudents(file: File): Promise<StudentBatchImportResponse> {
   const formData = new FormData();
   formData.append("file", file);
   return apiRequest<StudentBatchImportResponse>("/student-imports", { method: "POST", body: formData });
+}
+
+/**
+ * UC-35 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-24): mẫu
+ * Excel THẬT từ backend (StudentBatchImportService.buildTemplate, đúng 8
+ * cột cố định vị trí — trước đây FE tự dựng mẫu riêng thiếu hẳn cột
+ * Username, lệch cột so với backend đọc, đã sửa 2026-07-30).
+ */
+export function downloadStudentImportTemplate(): Promise<Blob> {
+  return apiRequestBlob("/student-imports/template");
+}
+
+/** Xuất Excel danh sách tài khoản học sinh vừa tạo qua import (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-24). */
+export function exportStudentAccounts(accounts: AccountExportEntry[]): Promise<Blob> {
+  return apiRequestBlob("/student-imports/accounts-export", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ accounts })
+  });
 }
 
 /** UC-50: Nhập phụ huynh theo lô (FR-STU-04) — khớp ParentBatchImportResponse thật. */
@@ -250,10 +278,26 @@ export interface ParentBatchImportResponse {
   failedRows: number;
   status: string;
   errorSummary: { row: number; reason: string }[];
+  /** Mật khẩu tạm — CHỈ điền khi có tài khoản MỚI tạo trong đúng lần gọi import này. */
+  generatedCredentials: { row: number; username: string; temporaryPassword: string; fullName: string }[];
 }
 
 export function importParents(file: File): Promise<ParentBatchImportResponse> {
   const formData = new FormData();
   formData.append("file", file);
   return apiRequest<ParentBatchImportResponse>("/parent-imports", { method: "POST", body: formData });
+}
+
+/** UC-50 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng): mẫu Excel THẬT từ backend — xem downloadStudentImportTemplate(). */
+export function downloadParentImportTemplate(): Promise<Blob> {
+  return apiRequestBlob("/parent-imports/template");
+}
+
+/** Xuất Excel danh sách tài khoản phụ huynh vừa tạo qua import — xem exportStudentAccounts(). */
+export function exportParentAccounts(accounts: AccountExportEntry[]): Promise<Blob> {
+  return apiRequestBlob("/parent-imports/accounts-export", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ accounts })
+  });
 }
