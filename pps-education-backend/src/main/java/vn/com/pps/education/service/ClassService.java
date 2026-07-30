@@ -136,16 +136,23 @@ public class ClassService {
     }
 
     /**
-     * null = không giới hạn (actor có academic.class.manage); danh sách rỗng
-     * = không thấy lớp nào. Hợp nhất site_teachers (Giáo viên) VÀ
-     * site_managers (Quản lý điểm trường — bổ sung ngoài SDD gốc, đã xác
-     * nhận với người dùng; trước đây bỏ sót khiến Quản lý điểm trường
-     * không kiêm giáo viên luôn nhận danh sách rỗng dù có quyền xem lớp
-     * thuộc site mình phụ trách, khớp Precondition UC-19 "Quản lý điểm
-     * trường phụ trách đúng điểm trường của lớp").
+     * null = không giới hạn (actor có academic.class.manage HOẶC
+     * academic.class.view-all); danh sách rỗng = không thấy lớp nào. Hợp
+     * nhất site_teachers (Giáo viên) VÀ site_managers (Quản lý điểm trường
+     * — bổ sung ngoài SDD gốc, đã xác nhận với người dùng; trước đây bỏ sót
+     * khiến Quản lý điểm trường không kiêm giáo viên luôn nhận danh sách
+     * rỗng dù có quyền xem lớp thuộc site mình phụ trách, khớp Precondition
+     * UC-19 "Quản lý điểm trường phụ trách đúng điểm trường của lớp").
+     *
+     * academic.class.view-all (V64, bổ sung ngoài SDD gốc, đã xác nhận với
+     * người dùng 2026-07-30) — permission RIÊNG cho "được xem mọi lớp",
+     * tách khỏi academic.class.manage (UC-18, ý nghĩa gốc là "được xếp
+     * lớp") để không phải cấp nhầm quyền thao tác UC-18 chỉ để xem danh
+     * sách lớp ở các màn khác (Sổ điểm/Điểm danh/Nhận xét/Soạn & giao đề).
      */
     private List<Long> resolveAllowedSiteIds(Long actorUserId) {
-        if (permissionEvaluationService.hasPermission(actorUserId, "academic.class.manage")) {
+        if (permissionEvaluationService.hasPermission(actorUserId, "academic.class.manage")
+                || permissionEvaluationService.hasPermission(actorUserId, "academic.class.view-all")) {
             return null;
         }
         return Stream.concat(

@@ -14,8 +14,11 @@ import { ClassResponse, listClasses, listClassTeachers } from "../api";
  *   rộng phạm vi của 1 tài khoản đã có phân công cụ thể — mỗi người chỉ thao tác đúng phạm vi
  *   điểm trường + lớp học được phân, không tự nhiên thấy thêm lớp khác.
  * - Không có phân công thật nào (VD HEAD_ACADEMIC/SYS_ADMIN thuần, hoặc SITE_MANAGER không đứng
- *   lớp): academic.class.manage hoặc SITE_MANAGER mới cho thấy hết lớp thuộc site đang chọn
- *   (SITE_MANAGER cần xem lại sổ điểm bất kỳ lớp nào mình quản lý — UC-20).
+ *   lớp): academic.class.manage, academic.class.view-all (V64, bổ sung ngoài SDD gốc, đã xác
+ *   nhận với người dùng 2026-07-30 — dành riêng cho Trưởng phòng đào tạo/Quản trị viên, tách
+ *   khỏi academic.class.manage vốn mang nghĩa UC-18 "xếp lớp"), hoặc SITE_MANAGER mới cho thấy
+ *   hết lớp thuộc site đang chọn (SITE_MANAGER cần xem lại sổ điểm bất kỳ lớp nào mình quản lý
+ *   — UC-20).
  *
  * `myAssignedClassCount` LUÔN tính riêng theo class_teachers thật, tách biệt khỏi `classes` — dùng
  * ở Header để quyết định hiện/ẩn pill "Lớp" theo đúng có-được-phân-công-hay-không, không dựa vào quyền.
@@ -23,7 +26,7 @@ import { ClassResponse, listClasses, listClassTeachers } from "../api";
 export function useEligibleClasses() {
   const { hasPermission, currentUser, selectedCampusId } = useApp();
   const isSiteManager = currentUser?.roleCodes?.includes(UserRole.SITE_MANAGER) ?? false;
-  const canSeeAllClasses = hasPermission("academic.class.manage") || isSiteManager;
+  const canSeeAllClasses = hasPermission("academic.class.manage") || hasPermission("academic.class.view-all") || isSiteManager;
 
   const [classes, setClasses] = useState<ClassResponse[]>([]);
   const [myAssignedClassCount, setMyAssignedClassCount] = useState(0);
