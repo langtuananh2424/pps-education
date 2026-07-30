@@ -2,6 +2,7 @@ package vn.com.pps.education.controller;
 
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -29,7 +30,16 @@ import vn.com.pps.education.service.ReviewVideoService;
 
 import java.util.List;
 
-/** UC-23/UC-23a: Kho Video Ôn tập (FR-LMS-01) — xem Javadoc ReviewVideoService. */
+/**
+ * UC-23/UC-23a: Kho Video Ôn tập (FR-LMS-01) — xem Javadoc ReviewVideoService.
+ *
+ * Permission (V63, bổ sung ngoài SDD gốc — đã xác nhận với người dùng
+ * 2026-07-30): chỉ gate thao tác quản lý của Giáo viên
+ * (lms.review-video.create/update/view + lms.grading.manage cho chấm
+ * điểm). Các endpoint GET dùng chung Học sinh không gate permission.
+ * requireAssignedTeacher trong Service vẫn là lớp kiểm soát chính theo
+ * Precondition UC-23 — permission chỉ là lớp bổ sung, không thay thế.
+ */
 @RestController
 public class ReviewVideoController {
 
@@ -39,12 +49,14 @@ public class ReviewVideoController {
         this.reviewVideoService = reviewVideoService;
     }
 
+    @PreAuthorize("hasPermission(null, 'lms.review-video.create')")
     @PostMapping("/api/review-video-sets")
     public ResponseEntity<ReviewVideoSetResponse> createSet(@Valid @RequestBody CreateReviewVideoSetRequest request,
                                                               @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(reviewVideoService.createSet(request, actor.userId()));
     }
 
+    @PreAuthorize("hasPermission(null, 'lms.review-video.update')")
     @PutMapping("/api/review-video-sets/{id}")
     public ResponseEntity<ReviewVideoSetResponse> updateSet(@PathVariable Long id,
                                                               @Valid @RequestBody UpdateReviewVideoSetRequest request,
@@ -64,6 +76,7 @@ public class ReviewVideoController {
         return ResponseEntity.ok(reviewVideoService.listByCurriculum(curriculumId, actor.userId()));
     }
 
+    @PreAuthorize("hasPermission(null, 'lms.review-video.update')")
     @PostMapping("/api/review-video-sets/{setId}/videos")
     public ResponseEntity<ReviewVideoResponse> addVideo(@PathVariable Long setId,
                                                           @Valid @RequestBody AddReviewVideoRequest request,
@@ -77,6 +90,7 @@ public class ReviewVideoController {
         return ResponseEntity.ok(reviewVideoService.listVideos(setId, actor.userId()));
     }
 
+    @PreAuthorize("hasPermission(null, 'lms.review-video.update')")
     @PostMapping("/api/review-videos/{videoId}/questions")
     public ResponseEntity<ReviewVideoQuestionResponse> addQuestion(@PathVariable Long videoId,
                                                                       @Valid @RequestBody AddReviewVideoQuestionRequest request,
@@ -103,6 +117,7 @@ public class ReviewVideoController {
         return ResponseEntity.ok(reviewVideoService.reportProgress(videoId, request, actor.userId()));
     }
 
+    @PreAuthorize("hasPermission(null, 'lms.review-video.view')")
     @GetMapping("/api/review-video-sets/{setId}/stats")
     public ResponseEntity<ReviewVideoSetStatsResponse> getStats(@PathVariable Long setId,
                                                                   @RequestParam(required = false) Long classId,
@@ -130,6 +145,7 @@ public class ReviewVideoController {
         return ResponseEntity.ok(reviewVideoService.listMySubmissionHistory(questionId, actor.userId()));
     }
 
+    @PreAuthorize("hasPermission(null, 'lms.grading.manage')")
     @GetMapping("/api/review-video-sets/{setId}/submissions")
     public ResponseEntity<List<ReviewVideoSubmissionResponse>> listSubmissions(@PathVariable Long setId,
                                                                                   @RequestParam(required = false) Long classId,
@@ -137,6 +153,7 @@ public class ReviewVideoController {
         return ResponseEntity.ok(reviewVideoService.listSubmissionsForTeacher(setId, classId, actor.userId()));
     }
 
+    @PreAuthorize("hasPermission(null, 'lms.grading.manage')")
     @PostMapping("/api/review-video-submissions/{submissionId}/grade")
     public ResponseEntity<ReviewVideoSubmissionResponse> gradeSubmission(@PathVariable Long submissionId,
                                                                             @Valid @RequestBody GradeReviewVideoSubmissionRequest request,

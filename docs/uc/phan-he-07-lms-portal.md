@@ -28,8 +28,12 @@ UC-23: Quản lý Kho Video Ôn tập
 +-----------------+----------------------------------------------------+
 | **Điều kiện     | -   Giáo viên được phân công giảng dạy lớp/khung   |
 | tiên quyết      |     chương trình liên quan.                        |
-| (               |                                                    |
-| Precondition)** |                                                    |
+| (               | -   Tài khoản có quyền lms.review-video.create/    |
+| Precondition)** |     update/view (mặc định gán cho TEACHER — bổ     |
+|                 |     sung ngoài SDD gốc, đã xác nhận với người dùng |
+|                 |     2026-07-30, V63). Quyền chỉ mở được vào màn    |
+|                 |     hình — thao tác trên 1 lớp cụ thể vẫn phải qua |
+|                 |     điều kiện phân công giảng dạy ở trên.          |
 +-----------------+----------------------------------------------------+
 | **Luồng sự kiện | 1.  Giáo viên mở Kho Video Ôn tập, tạo bộ mới —    |
 | chính (Main     |     nhập tiêu đề, chọn loại (Video từ kết nối/     |

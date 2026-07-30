@@ -126,6 +126,16 @@ dùng chung theo curriculum, chỉ lọc theo class_id) đã được sửa trư
 tái cấu trúc, giữ nguyên logic đã fix. Học sinh gọi phải có
 class_enrollments ACTIVE khớp lớp/khung đang truy vấn.
 
+Permission riêng `lms.review-video.create/update/view` cho quản lý bộ/
+video + xem thống kê (gán mặc định TEACHER, bổ sung V63 — trước đó
+ReviewVideoController không hề gate permission nào, chỉ dựa
+requireAssignedTeacher) — chấm điểm audio (UC-23b) tái dùng đúng
+`lms.grading.manage` đã có sẵn từ V28 (mô tả gốc "Chấm bài thủ công" đủ
+tổng quát, review-video là domain thứ 3 dùng chung sau UC-41/UC-26,
+KHÔNG tách riêng vì không có khía cạnh create/update/delete để tách theo
+hành động — cùng lý do đã áp dụng cho listening-practice grading bên
+dưới).
+
 b)  Bảng review_videos --- Video/audio trong 1 bộ
 
   --------------------------------------------------------------------------

@@ -647,16 +647,16 @@
 | PUT | `/api/review-video-questions/{questionId}/submissions` | JWT | Body: [SubmitReviewVideoAudioRequest](#submitreviewvideoaudiorequest) | [ReviewVideoSubmissionResponse](#reviewvideosubmissionresponse) |
 | GET | `/api/review-video-questions/{questionId}/submissions/history` | JWT | — | mảng [ReviewVideoSubmissionResponse](#reviewvideosubmissionresponse) |
 | GET | `/api/review-video-questions/{questionId}/submissions/latest` | JWT | — | [ReviewVideoSubmissionResponse](#reviewvideosubmissionresponse) |
-| POST | `/api/review-video-sets` | JWT | Body: [CreateReviewVideoSetRequest](#createreviewvideosetrequest) | [ReviewVideoSetResponse](#reviewvideosetresponse) |
-| PUT | `/api/review-video-sets/{id}` | JWT | Body: [UpdateReviewVideoSetRequest](#updatereviewvideosetrequest) | [ReviewVideoSetResponse](#reviewvideosetresponse) |
-| GET | `/api/review-video-sets/{setId}/stats` | JWT | Query: `classId`? | [ReviewVideoSetStatsResponse](#reviewvideosetstatsresponse) |
-| GET | `/api/review-video-sets/{setId}/submissions` | JWT | Query: `classId`? | mảng [ReviewVideoSubmissionResponse](#reviewvideosubmissionresponse) |
+| POST | `/api/review-video-sets` | JWT + `lms.review-video.create` | Body: [CreateReviewVideoSetRequest](#createreviewvideosetrequest) | [ReviewVideoSetResponse](#reviewvideosetresponse) |
+| PUT | `/api/review-video-sets/{id}` | JWT + `lms.review-video.update` | Body: [UpdateReviewVideoSetRequest](#updatereviewvideosetrequest) | [ReviewVideoSetResponse](#reviewvideosetresponse) |
+| GET | `/api/review-video-sets/{setId}/stats` | JWT + `lms.review-video.view` | Query: `classId`? | [ReviewVideoSetStatsResponse](#reviewvideosetstatsresponse) |
+| GET | `/api/review-video-sets/{setId}/submissions` | JWT + `lms.grading.manage` | Query: `classId`? | mảng [ReviewVideoSubmissionResponse](#reviewvideosubmissionresponse) |
 | GET | `/api/review-video-sets/{setId}/videos` | JWT | — | mảng [ReviewVideoResponse](#reviewvideoresponse) |
-| POST | `/api/review-video-sets/{setId}/videos` | JWT | Body: [AddReviewVideoRequest](#addreviewvideorequest) | [ReviewVideoResponse](#reviewvideoresponse) |
-| POST | `/api/review-video-submissions/{submissionId}/grade` | JWT | Body: [GradeReviewVideoSubmissionRequest](#gradereviewvideosubmissionrequest) | [ReviewVideoSubmissionResponse](#reviewvideosubmissionresponse) |
+| POST | `/api/review-video-sets/{setId}/videos` | JWT + `lms.review-video.update` | Body: [AddReviewVideoRequest](#addreviewvideorequest) | [ReviewVideoResponse](#reviewvideoresponse) |
+| POST | `/api/review-video-submissions/{submissionId}/grade` | JWT + `lms.grading.manage` | Body: [GradeReviewVideoSubmissionRequest](#gradereviewvideosubmissionrequest) | [ReviewVideoSubmissionResponse](#reviewvideosubmissionresponse) |
 | PUT | `/api/review-videos/{videoId}/progress` | JWT | Body: [ReportVideoProgressRequest](#reportvideoprogressrequest) | [ReviewVideoProgressResponse](#reviewvideoprogressresponse) |
 | GET | `/api/review-videos/{videoId}/questions` | JWT | — | mảng [ReviewVideoQuestionResponse](#reviewvideoquestionresponse) |
-| POST | `/api/review-videos/{videoId}/questions` | JWT | Body: [AddReviewVideoQuestionRequest](#addreviewvideoquestionrequest) | [ReviewVideoQuestionResponse](#reviewvideoquestionresponse) |
+| POST | `/api/review-videos/{videoId}/questions` | JWT + `lms.review-video.update` | Body: [AddReviewVideoQuestionRequest](#addreviewvideoquestionrequest) | [ReviewVideoQuestionResponse](#reviewvideoquestionresponse) |
 | POST | `/api/review-videos/{videoId}/watch-sessions` | JWT | — | [StartWatchSessionResponse](#startwatchsessionresponse) |
 
 ## skill-controller

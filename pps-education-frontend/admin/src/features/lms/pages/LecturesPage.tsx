@@ -399,8 +399,10 @@ function ContentSourceField({ value, onChange }: { value: ContentSourceValue; on
 }
 
 /**
- * UC-23/UC-23a: Kho Video Ôn tập — chỉ Giáo viên được phân công dạy đúng lớp/khung chương trình mới
- * tạo/sửa/xem thống kê được (BE tự chặn theo class_teachers, không qua permission).
+ * UC-23/UC-23a: Kho Video Ôn tập — 2 lớp kiểm soát (V63): vào được trang này cần quyền
+ * lms.review-video.create/update/view (mặc định chỉ TEACHER); tạo/sửa/xem thống kê cho 1 lớp CỤ THỂ
+ * vẫn cần tài khoản có mặt trong class_teachers của đúng lớp/khung đó (requireAssignedTeacher, BE tự
+ * chặn 403 theo Precondition UC-23, không phải theo permission).
  *
  * Chọn lớp cho trang này dùng state RIÊNG của trang (localClassId), KHÔNG dùng selectedClassId dùng
  * chung ở Header — đã xác nhận với người dùng 2026-07-27: Header chỉ hiện pill "Lớp" cho tài khoản
