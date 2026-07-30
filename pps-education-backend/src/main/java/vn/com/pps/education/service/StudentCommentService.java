@@ -24,6 +24,7 @@ import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.StudentComment;
 import vn.com.pps.education.domain.StudentCommentHistory;
 import vn.com.pps.education.domain.User;
+import vn.com.pps.education.dto.ClassSessionLessonContentResponse;
 import vn.com.pps.education.dto.CreateStudentCommentRequest;
 import vn.com.pps.education.dto.DailyCommentImportResponse;
 import vn.com.pps.education.dto.DecideCommentsRequest;
@@ -34,6 +35,7 @@ import vn.com.pps.education.dto.SubmitCommentsRequest;
 import vn.com.pps.education.dto.UpdateStudentCommentRequest;
 import vn.com.pps.education.exception.ApprovalAlreadyDecidedException;
 import vn.com.pps.education.exception.InvalidCommentContextException;
+import vn.com.pps.education.exception.MissingLessonContentException;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
 import vn.com.pps.education.exception.NotSiteManagerForSiteException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
@@ -66,6 +68,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 
@@ -115,18 +118,20 @@ import java.util.function.Function;
 @Service
 public class StudentCommentService {
 
-    private static final int COLUMN_COUNT = 11;
+    private static final int COLUMN_COUNT = 12;
     private static final int COL_DATE = 0;
     private static final int COL_STUDENT_CODE = 1;
     private static final int COL_FULL_NAME = 2;
-    private static final int COL_ATTENDANCE = 3;
-    private static final int COL_ATTITUDE = 4;
-    private static final int COL_HOMEWORK_GRAMMAR_PREVIOUS = 5;
-    private static final int COL_HOMEWORK_SPEAKING_PREVIOUS = 6;
-    private static final int COL_CONTENT = 7;
-    private static final int COL_HOMEWORK_GRAMMAR_NEXT = 8;
-    private static final int COL_HOMEWORK_VIDEO_NEXT = 9;
-    private static final int COL_NOTE = 10;
+    /** "Bài học hôm nay" — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-29 (chuyển từ Điểm danh sang Nhận xét). */
+    private static final int COL_LESSON_CONTENT = 3;
+    private static final int COL_ATTENDANCE = 4;
+    private static final int COL_ATTITUDE = 5;
+    private static final int COL_HOMEWORK_GRAMMAR_PREVIOUS = 6;
+    private static final int COL_HOMEWORK_SPEAKING_PREVIOUS = 7;
+    private static final int COL_CONTENT = 8;
+    private static final int COL_HOMEWORK_GRAMMAR_NEXT = 9;
+    private static final int COL_HOMEWORK_VIDEO_NEXT = 10;
+    private static final int COL_NOTE = 11;
 
     private final StudentCommentRepository studentCommentRepository;
     private final StudentCommentHistoryRepository studentCommentHistoryRepository;
@@ -328,6 +333,11 @@ public class StudentCommentService {
                 throw new StudentCommentNotEditableException(
                         "Nhận xét id=" + comment.getId() + " đang ở trạng thái " + comment.getStatus() + " — chỉ submit được khi DRAFT.");
             }
+            if (comment.getCommentType() == StudentComment.CommentType.DAILY
+                    && (comment.getClassSession().getLessonContent() == null || comment.getClassSession().getLessonContent().isBlank())) {
+                throw new MissingLessonContentException("Buổi học id=" + comment.getClassSession().getId()
+                        + " chưa điền bài học hôm nay — không thể gửi duyệt.");
+            }
             ApprovalFlow flow = new ApprovalFlow();
             flow.setEntityType(ApprovalFlow.EntityType.STUDENT_COMMENT);
             flow.setEntityId(comment.getId());
@@ -409,6 +419,21 @@ public class StudentCommentService {
     // ===================== Nhận xét Hàng ngày kiểu mới — Excel round-trip =====================
 
     /**
+     * "Bài học hôm nay" — chuyển từ Điểm danh sang Nhận xét (bổ sung ngoài
+     * SDD gốc, đã xác nhận với người dùng 2026-07-29). Dùng chung rào
+     * requireCanWriteDailyComment (GV được phân công + hạn X ngày, bỏ qua
+     * nếu có academic.comment.approve) thay vì rào điểm danh cũ.
+     */
+    @Transactional
+    public ClassSessionLessonContentResponse updateLessonContent(Long classSessionId, String lessonContent, Long actorUserId) {
+        ClassSession classSession = getClassSessionOrThrow(classSessionId);
+        requireCanWriteDailyComment(classSession, actorUserId);
+        classSession.setLessonContent(lessonContent);
+        classSession = classSessionRepository.save(classSession);
+        return new ClassSessionLessonContentResponse(classSession.getId(), classSession.getLessonContent());
+    }
+
+    /**
      * File mẫu để nhận xét theo buổi (bổ sung ngoài SDD gốc, đã xác nhận
      * với người dùng 2026-07-24) — điền sẵn học sinh ACTIVE của lớp, ngày
      * buổi học, điểm danh hiện có (nếu đã điểm danh) và nội dung nhận xét
@@ -429,7 +454,7 @@ public class StudentCommentService {
         List<ReviewVideoSet> videoOptions = reviewVideoSetRepository.findVisibleForClass(
                 classId, classSession.getSchoolClass().getCurriculum().getId(), ReviewVideoSet.Status.PUBLISHED);
 
-        List<String> headers = List.of("Ngày*", "Mã học viên*", "Họ và tên", "Điểm danh*",
+        List<String> headers = List.of("Ngày*", "Mã học viên*", "Họ và tên", "Bài học hôm nay", "Điểm danh*",
                 "Thái độ học tập", "BTVN Ngữ pháp buổi trước", "BTVN Nghe-nói buổi trước",
                 "Nhận xét học sinh*", "BTVN Ngữ pháp buổi sau", "BTVN Nghe-nói buổi sau", "Ghi chú");
         List<List<Object>> rows = new ArrayList<>();
@@ -444,6 +469,7 @@ public class StudentCommentService {
             row.add(classSession.getSessionDate().toString());
             row.add(student.getStudentCode());
             row.add(student.getUser().getFullName());
+            row.add(classSession.getLessonContent());
             row.add(attendance == null ? null : attendanceLabel(attendance));
             row.add(existing == null || existing.getAttitude() == null ? null : attitudeLabel(existing.getAttitude()));
             row.add(resolvedGrammarPrevious(existing, previous));
@@ -545,6 +571,21 @@ public class StudentCommentService {
                 }
             }
 
+            // "Bài học hôm nay" dùng CHUNG cả buổi (không phải theo từng học sinh) — mọi dòng có
+            // điền phải khớp giá trị nhau, dòng để trống bỏ qua (case 3: chưa điền cả UI lẫn Excel,
+            // validate ở submitComments). Khác 0/khác nhau → chặn TOÀN BỘ file, không import dòng
+            // nào (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-29).
+            Set<String> lessonContentValues = parsedRows.stream()
+                    .map(ParsedRow::lessonContent).filter(v -> v != null && !v.isBlank())
+                    .collect(java.util.stream.Collectors.toSet());
+            if (lessonContentValues.size() > 1) {
+                return failJob(job, "Bài học hôm nay không đồng nhất giữa các học sinh trong lớp — mọi học sinh phải học cùng 1 bài.");
+            }
+            if (lessonContentValues.size() == 1) {
+                classSession.setLessonContent(lessonContentValues.iterator().next());
+                classSessionRepository.save(classSession);
+            }
+
             // Gom các dòng có điểm danh KHÁC giá trị hiện có thành 1 lần gọi markAttendance
             // duy nhất — tái dùng nguyên rào UC-15 (chỉ trong ngày diễn ra buổi học, trừ khi
             // actor có quyền quản trị điểm danh). Rào này KHÁC hạn 7 ngày của nhận xét — không đổi.
@@ -610,12 +651,13 @@ public class StudentCommentService {
     private record ParsedRow(int rowNumber, Student student, AttendanceMark.Status attendance, String attitude,
                               String homeworkPrevious, String content, String homeworkNext,
                               ExerciseAssignment grammarAssignment, ReviewVideoSet videoSet, String note,
-                              String homeworkPreviousSpeaking) {}
+                              String homeworkPreviousSpeaking, String lessonContent) {}
 
     private ParsedRow parseRow(Row row, DataFormatter formatter, int rowIndex, ClassSession classSession,
                                 Map<String, ExerciseAssignment> grammarByLabel, Map<String, ReviewVideoSet> videoByLabel) {
         String dateText = cell(row, formatter, COL_DATE);
         String studentCode = cell(row, formatter, COL_STUDENT_CODE);
+        String lessonContentText = cell(row, formatter, COL_LESSON_CONTENT);
         String attendanceText = cell(row, formatter, COL_ATTENDANCE);
         String attitudeText = cell(row, formatter, COL_ATTITUDE);
         String homeworkPrevious = cell(row, formatter, COL_HOMEWORK_GRAMMAR_PREVIOUS);
@@ -644,7 +686,7 @@ public class StudentCommentService {
         Student student = studentRepository.findByStudentCode(studentCode.trim())
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy học sinh mã=" + studentCode));
         if (attendanceText == null || attendanceText.isBlank()) {
-            throw new IllegalArgumentException("Thiếu điểm danh (cột D).");
+            throw new IllegalArgumentException("Thiếu điểm danh (cột E).");
         }
         AttendanceMark.Status attendance = parseAttendanceStatus(attendanceText.trim());
 
@@ -659,7 +701,8 @@ public class StudentCommentService {
                 reviewVideoSetRepository::findByUuid, "bộ video");
         return new ParsedRow(rowIndex, student, attendance, attitude,
                 blankToNull(homeworkPrevious), blankToNull(content), homeworkNext,
-                grammarAssignment, videoSet, blankToNull(note), blankToNull(homeworkPreviousSpeaking));
+                grammarAssignment, videoSet, blankToNull(note), blankToNull(homeworkPreviousSpeaking),
+                blankToNull(lessonContentText));
     }
 
     /** Cột "BTVN Ngữ pháp buổi sau" gộp: khớp uuid/nhãn đề thì trả về đề đó, không khớp trả null (KHÔNG throw) để caller fallback text offline. */
@@ -690,7 +733,7 @@ public class StudentCommentService {
             return;
         }
         if (content == null || content.isBlank()) {
-            throw new IllegalArgumentException("Thiếu nhận xét (cột H) — bắt buộc trừ khi học sinh vắng/có phép.");
+            throw new IllegalArgumentException("Thiếu nhận xét (cột I) — bắt buộc trừ khi học sinh vắng/có phép.");
         }
 
         StudentComment comment = studentCommentRepository
@@ -1012,6 +1055,6 @@ public class StudentCommentService {
                 videoNext == null ? null : videoNext.getId(),
                 videoNext == null ? null : videoNext.getTitle(),
                 grammarPreviousProgressLabel(previous), videoPreviousProgressLabel(previous),
-                c.getNote());
+                c.getNote(), c.getClassSession() == null ? null : c.getClassSession().getLessonContent());
     }
 }

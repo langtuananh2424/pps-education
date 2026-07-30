@@ -36,5 +36,7 @@ public record StudentCommentResponse(
         String homeworkNextReviewVideoSetTitle,
         String grammarPreviousProgress,
         String videoPreviousProgress,
-        String note
+        String note,
+        /** "Bài học hôm nay" của buổi (class_sessions.lesson_content) — null nếu không phải DAILY. Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-29. */
+        String lessonContent
 ) {}

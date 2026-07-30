@@ -145,7 +145,7 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
         teacher = newUser("teacher");
         assignRole(teacher, "TEACHER");
         session = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(LocalDate.now(), LocalTime.of(8, 0), LocalTime.of(9, 40), null, teacher.getId(), "REGULAR", null),
+                new CreateClassSessionRequest(LocalDate.now(), LocalTime.of(8, 0), LocalTime.of(9, 40), null, teacher.getId(), "REGULAR", null, null),
                 headAcademic.getId());
 
         student1 = newStudent();
@@ -191,23 +191,6 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
                 new MarkAttendanceRequest("SESSION_LEVEL", List.of(
                         new EnterAttendanceMarkRequest(student1.getId(), "PRESENT", null, null, null))),
                 outsider.getId()))
-                .isInstanceOf(NotAssignedTeacherForSessionException.class);
-    }
-
-    @Test
-    void updateLessonContent_savesLessonContentForSession() {
-        var result = studentAttendanceService.updateLessonContent(session.id(), "Unit 4: Present simple tense.", teacher.getId());
-
-        assertThat(result.classSessionId()).isEqualTo(session.id());
-        assertThat(result.lessonContent()).isEqualTo("Unit 4: Present simple tense.");
-    }
-
-    @Test
-    void updateLessonContent_rejectsWhenActorNotAssignedTeacher() {
-        User outsider = newUser("outsider.teacher");
-        assignRole(outsider, "TEACHER");
-
-        assertThatThrownBy(() -> studentAttendanceService.updateLessonContent(session.id(), "Nội dung", outsider.getId()))
                 .isInstanceOf(NotAssignedTeacherForSessionException.class);
     }
 
@@ -414,7 +397,7 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
                         LocalDate.now(), null, null, null), headAcademic.getId());
         classService.enroll(schoolClass.id(), new EnrollStudentRequest(student1.getId(), LocalDate.now()), headAcademic.getId());
         ClassSessionResponse newSession = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(LocalDate.now(), LocalTime.of(8, 0), LocalTime.of(9, 40), null, teacher.getId(), "REGULAR", null),
+                new CreateClassSessionRequest(LocalDate.now(), LocalTime.of(8, 0), LocalTime.of(9, 40), null, teacher.getId(), "REGULAR", null, null),
                 headAcademic.getId());
         studentAttendanceService.markAttendance(newSession.id(),
                 new MarkAttendanceRequest("SESSION_LEVEL", List.of(

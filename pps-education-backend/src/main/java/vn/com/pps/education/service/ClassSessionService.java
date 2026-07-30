@@ -19,6 +19,7 @@ import vn.com.pps.education.dto.CreateClassSessionRequest;
 import vn.com.pps.education.dto.RescheduleClassSessionRequest;
 import vn.com.pps.education.dto.SessionPeriodResponse;
 import vn.com.pps.education.exception.InvalidClassSessionStatusTransitionException;
+import vn.com.pps.education.exception.MakeupSessionAlreadyLinkedException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.exception.RoomConflictException;
 import vn.com.pps.education.repository.ClassEnrollmentRepository;
@@ -132,6 +133,20 @@ public class ClassSessionService {
                 .map(this::toResponse).toList();
     }
 
+    /**
+     * Danh sách buổi CANCELLED của lớp CHƯA có buổi bù nào liên kết (Case
+     * 1, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-29) —
+     * phục vụ màn hình chọn "buổi cần bù" khi tạo buổi MAKEUP.
+     */
+    @Transactional(readOnly = true)
+    public List<ClassSessionResponse> listCancelledSessionsPendingMakeup(Long classId, Long actorUserId) {
+        List<Long> allowedSiteIds = resolveAllowedSiteIds(actorUserId);
+        return classSessionRepository.findBySchoolClassIdAndStatus(classId, ClassSession.Status.CANCELLED).stream()
+                .filter(s -> isSiteAllowed(s.getSchoolClass().getSite().getId(), allowedSiteIds))
+                .filter(s -> !classSessionRepository.existsByMakeupForSessionId(s.getId()))
+                .map(this::toResponse).toList();
+    }
+
     @Transactional(readOnly = true)
     public List<SessionPeriodResponse> listPeriods(Long classSessionId, Long actorUserId) {
         List<Long> allowedSiteIds = resolveAllowedSiteIds(actorUserId);
@@ -172,11 +187,47 @@ public class ClassSessionService {
         User teacher = getUserOrThrow(request.primaryTeacherId());
         User actor = getUserOrThrow(actorUserId);
         Room room = request.roomId() == null ? null : getRoomOrThrow(request.roomId());
+        ClassSession.SessionType sessionType = ClassSession.SessionType.valueOf(request.sessionType());
+        ClassSession makeupForSession = resolveMakeupForSession(sessionType, request.makeupForSessionId(), classId);
 
         ClassSession session = createSessionEntity(schoolClass, request.sessionDate(), request.startTime(), request.endTime(),
-                room, teacher, ClassSession.SessionType.valueOf(request.sessionType()), actor, parseTeacherType(request.teacherType()));
+                room, teacher, sessionType, actor, parseTeacherType(request.teacherType()), makeupForSession);
 
         return toResponse(session);
+    }
+
+    /**
+     * Liên kết buổi hủy↔bù (bổ sung ngoài SDD gốc, đã xác nhận với người
+     * dùng 2026-07-29): sessionType=MAKEUP bắt buộc makeupForSessionId
+     * (bù cho buổi nào), loại khác phải để trống. Buổi tham chiếu phải
+     * cùng lớp, đang CANCELLED, và chưa có buổi bù nào khác (UNIQUE ở DB,
+     * V61 — check tường minh ở đây để báo lỗi rõ ràng thay vì lỗi
+     * constraint thô). Chỉ áp dụng UC-48 (tạo 1 buổi) — không áp dụng
+     * bulk (UC-56) hay Excel import (UC-57), ngoài phạm vi yêu cầu.
+     */
+    private ClassSession resolveMakeupForSession(ClassSession.SessionType sessionType, Long makeupForSessionId, Long classId) {
+        if (sessionType != ClassSession.SessionType.MAKEUP) {
+            if (makeupForSessionId != null) {
+                throw new IllegalArgumentException("makeupForSessionId chỉ áp dụng khi sessionType=MAKEUP.");
+            }
+            return null;
+        }
+        if (makeupForSessionId == null) {
+            throw new IllegalArgumentException("sessionType=MAKEUP phải có makeupForSessionId (bù cho buổi nào).");
+        }
+        ClassSession cancelledSession = classSessionRepository.findById(makeupForSessionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy buổi học id=" + makeupForSessionId));
+        if (!cancelledSession.getSchoolClass().getId().equals(classId)) {
+            throw new ResourceNotFoundException("Không tìm thấy buổi học id=" + makeupForSessionId + " thuộc lớp id=" + classId);
+        }
+        if (cancelledSession.getStatus() != ClassSession.Status.CANCELLED) {
+            throw new InvalidClassSessionStatusTransitionException("Chỉ có thể chọn buổi đang CANCELLED để bù (buổi id="
+                    + makeupForSessionId + " hiện tại: " + cancelledSession.getStatus() + ").");
+        }
+        if (classSessionRepository.existsByMakeupForSessionId(makeupForSessionId)) {
+            throw new MakeupSessionAlreadyLinkedException("Buổi hủy id=" + makeupForSessionId + " đã có buổi bù khác liên kết.");
+        }
+        return cancelledSession;
     }
 
     /**
@@ -215,8 +266,9 @@ public class ClassSessionService {
             }
             totalDates++;
             try {
+                // makeupForSessionId không áp dụng cho sinh lịch hàng loạt — chỉ có nghĩa cho 1 buổi tạo lẻ (UC-48), ngoài phạm vi UC-56.
                 ClassSession session = createSessionEntity(schoolClass, date, request.startTime(), request.endTime(),
-                        room, teacher, sessionType, actor, teacherType);
+                        room, teacher, sessionType, actor, teacherType, null);
                 created.add(toResponse(session));
             } catch (RoomConflictException ex) {
                 Map<String, Object> reason = new LinkedHashMap<>();
@@ -249,9 +301,9 @@ public class ClassSessionService {
         User actor = getUserOrThrow(actorUserId);
         Room room = roomId == null ? null : getRoomOrThrow(roomId);
 
-        // teacherType chưa có trong luồng Excel import (UC-57) — ngoài phạm vi yêu cầu bổ sung này.
+        // teacherType/makeupForSessionId chưa có trong luồng Excel import (UC-57) — ngoài phạm vi yêu cầu bổ sung này.
         ClassSession session = createSessionEntity(schoolClass, sessionDate, startTime, endTime, room, teacher,
-                ClassSession.SessionType.valueOf(sessionType), actor, null);
+                ClassSession.SessionType.valueOf(sessionType), actor, null, null);
         return toResponse(session);
     }
 
@@ -289,7 +341,7 @@ public class ClassSessionService {
     /** Lõi dùng chung: đã resolve đủ entity, chỉ check trùng phòng + save + history + sinh session_periods. */
     private ClassSession createSessionEntity(SchoolClass schoolClass, LocalDate sessionDate, LocalTime startTime, LocalTime endTime,
                                               Room room, User teacher, ClassSession.SessionType sessionType, User actor,
-                                              ClassSession.TeacherType teacherType) {
+                                              ClassSession.TeacherType teacherType, ClassSession makeupForSession) {
         if (room != null) {
             checkRoomConflict(room, sessionDate, startTime, endTime, null);
         }
@@ -303,6 +355,7 @@ public class ClassSessionService {
         session.setPrimaryTeacher(teacher);
         session.setSessionType(sessionType);
         session.setTeacherType(teacherType);
+        session.setMakeupForSession(makeupForSession);
         session.setCreatedBy(actor);
         session = classSessionRepository.save(session);
 
@@ -353,6 +406,16 @@ public class ClassSessionService {
             checkRoomConflict(newRoom, request.newSessionDate(), request.newStartTime(), request.newEndTime(), oldSession.getId());
         }
 
+        // Chuyển liên kết bù (nếu buổi đang dời lịch chính là 1 buổi MAKEUP đã liên kết) sang buổi
+        // mới — phải gỡ khỏi buổi cũ VÀ flush ngay, vì UNIQUE constraint (V61) không cho 2 buổi
+        // cùng trỏ 1 buổi hủy, và ClassSession dùng IDENTITY nên save(newSession) insert ngay
+        // lập tức chứ không đợi flush cuối transaction.
+        ClassSession makeupForSession = oldSession.getMakeupForSession();
+        if (makeupForSession != null) {
+            oldSession.setMakeupForSession(null);
+            classSessionRepository.saveAndFlush(oldSession);
+        }
+
         ClassSession newSession = new ClassSession();
         newSession.setSchoolClass(oldSession.getSchoolClass());
         newSession.setSessionDate(request.newSessionDate());
@@ -362,6 +425,7 @@ public class ClassSessionService {
         newSession.setPrimaryTeacher(newTeacher);
         newSession.setSessionType(oldSession.getSessionType());
         newSession.setTeacherType(oldSession.getTeacherType());
+        newSession.setMakeupForSession(makeupForSession);
         newSession.setCreatedBy(actor);
         newSession = classSessionRepository.save(newSession);
         writeClassSessionHistory(newSession, actor, ClassSessionHistory.Action.CREATED);
@@ -471,7 +535,8 @@ public class ClassSessionService {
                 s.getPrimaryTeacher().getId(), s.getPrimaryTeacher().getFullName(),
                 s.getSessionType().name(), s.getStatus().name(),
                 s.getCancellationReason(), s.getRescheduledToSession() == null ? null : s.getRescheduledToSession().getId(),
-                s.getLessonContent(), s.getTeacherType() == null ? null : s.getTeacherType().name(), sessionNumber);
+                s.getLessonContent(), s.getTeacherType() == null ? null : s.getTeacherType().name(), sessionNumber,
+                s.getMakeupForSession() == null ? null : s.getMakeupForSession().getId());
     }
 
     private SessionPeriodResponse toResponse(SessionPeriod p) {

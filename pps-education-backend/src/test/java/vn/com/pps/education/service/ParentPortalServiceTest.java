@@ -183,8 +183,11 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
         parentStudentRepository.save(link);
 
         session = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(LocalDate.now(), LocalTime.of(8, 0), LocalTime.of(9, 40), null, teacher.getId(), "REGULAR", null),
+                new CreateClassSessionRequest(LocalDate.now(), LocalTime.of(8, 0), LocalTime.of(9, 40), null, teacher.getId(), "REGULAR", null, null),
                 headAcademic.getId());
+        // Bắt buộc để submitComments() cho DAILY không bị chặn bởi MissingLessonContentException
+        // (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-29).
+        studentCommentService.updateLessonContent(session.id(), "Unit 1: Present simple tense.", teacher.getId());
     }
 
     @Test
@@ -291,7 +294,7 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
     void listSchedule_boSung_includesTeacherType() {
         ClassSessionResponse foreignSession = classSessionService.createSession(schoolClass.id(),
                 new CreateClassSessionRequest(LocalDate.now().plusDays(1), LocalTime.of(8, 0), LocalTime.of(9, 40),
-                        null, teacher.getId(), "REGULAR", "FOREIGN"),
+                        null, teacher.getId(), "REGULAR", "FOREIGN", null),
                 headAcademic.getId());
 
         List<ClassSessionResponse> schedule = parentPortalService.listSchedule(student.getId(), schoolClass.id(), parentUser.getId());
@@ -305,7 +308,7 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
     void listSchedule_boSung_includesSessionNumber() {
         ClassSessionResponse secondSession = classSessionService.createSession(schoolClass.id(),
                 new CreateClassSessionRequest(session.sessionDate().plusDays(2), LocalTime.of(8, 0), LocalTime.of(9, 40),
-                        null, teacher.getId(), "REGULAR", null),
+                        null, teacher.getId(), "REGULAR", null, null),
                 headAcademic.getId());
 
         List<ClassSessionResponse> schedule = parentPortalService.listSchedule(student.getId(), schoolClass.id(), parentUser.getId());

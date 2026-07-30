@@ -67,7 +67,7 @@ public class GlobalExceptionHandler {
             SiteTeacherAlreadyAssignedException.class, DuplicateDepartmentCodeException.class,
             DuplicatePositionCodeException.class, DuplicateSkillCodeException.class,
             AppealAlreadyOpenException.class, AppealAlreadyAcceptedException.class,
-            TaskAssigneeAlreadyAssignedException.class})
+            TaskAssigneeAlreadyAssignedException.class, MakeupSessionAlreadyLinkedException.class})
     public ResponseEntity<Object> handleConflict(RuntimeException ex) {
         return error(HttpStatus.CONFLICT, ex.getMessage());
     }
@@ -93,7 +93,8 @@ public class GlobalExceptionHandler {
             OperatingExpenseAlreadyDecidedException.class, PartnerContractNotDeletableException.class,
             TuitionPlanNotActiveException.class, RoleNotDeletableException.class,
             DepartmentNotDeletableException.class, PositionNotDeletableException.class,
-            GradeComponentNotDeletableException.class, GradePeriodNotDeletableException.class})
+            GradeComponentNotDeletableException.class, GradePeriodNotDeletableException.class,
+            MissingLessonContentException.class})
     public ResponseEntity<Object> handleClassSetupRejected(RuntimeException ex) {
         return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
     }
