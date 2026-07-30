@@ -18,6 +18,12 @@ interface ClassGradeComparisonTableProps {
   classId: number;
   curriculumId: number;
   enrollments: ClassEnrollmentResponse[];
+  /**
+   * true: bỏ qua lọc ACTIVE, hiện đúng danh sách `enrollments` truyền vào — dùng khi nhúng bảng này cho
+   * 1 học sinh cụ thể (kể cả đã rút lớp) ở StudentInfoModal. Bảng tổng hợp cả lớp (ClassGradeSheetPanel)
+   * KHÔNG truyền cờ này, vẫn giữ nguyên chỉ hiện học sinh ACTIVE như trước (2026-07-30).
+   */
+  includeAllStatuses?: boolean;
 }
 
 /**
@@ -27,7 +33,7 @@ interface ClassGradeComparisonTableProps {
  * theo từng kỳ để Giáo viên so sánh 1 học sinh có tiến bộ qua các kỳ không. CHỈ XEM — nhập/sửa điểm
  * vẫn làm ở GradeSheetTable (theo từng kỳ riêng lẻ) như cũ.
  */
-export default function ClassGradeComparisonTable({ classId, curriculumId, enrollments }: ClassGradeComparisonTableProps) {
+export default function ClassGradeComparisonTable({ classId, curriculumId, enrollments, includeAllStatuses }: ClassGradeComparisonTableProps) {
   const [periods, setPeriods] = useState<GradePeriodResponse[]>([]);
   const [componentsByPeriod, setComponentsByPeriod] = useState<Map<number, GradeComponentResponse[]>>(new Map());
   const [entriesByComponent, setEntriesByComponent] = useState<Map<number, GradeEntryResponse[]>>(new Map());
@@ -74,7 +80,7 @@ export default function ClassGradeComparisonTable({ classId, curriculumId, enrol
     }));
   }, [componentsByPeriod]);
 
-  const activeStudents = enrollments.filter((en) => en.status === "ACTIVE");
+  const activeStudents = includeAllStatuses ? enrollments : enrollments.filter((en) => en.status === "ACTIVE");
 
   const scoreFor = (componentId: number | undefined, studentId: number): number | null => {
     if (componentId == null) return null;
