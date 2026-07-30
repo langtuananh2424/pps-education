@@ -372,6 +372,32 @@ class ClassServiceTest extends AbstractIntegrationTest {
         assertThat(result).extracting(ClassResponse::id).containsExactly(classAtA.id());
     }
 
+    /**
+     * V64 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30):
+     * academic.class.view-all cho Trưởng phòng đào tạo/Quản trị viên xem
+     * mọi lớp không cần đứng tên class_teachers/site_managers — tách riêng
+     * khỏi academic.class.manage (UC-18 "xếp lớp"). SYS_ADMIN có quyền này
+     * (V64) nhưng KHÔNG có academic.class.manage (loại trừ cố ý từ V28) nên
+     * test này cô lập đúng permission mới, không lẫn với academic.class.manage.
+     */
+    @Test
+    void search_userWithClassViewAllPermission_seesClassesAcrossAllSites() {
+        Site siteA = newSite(Site.SiteType.OWNED);
+        Site siteB = newSite(Site.SiteType.OWNED);
+        ClassResponse classAtA = classService.create(
+                new CreateClassRequest(classCode(), "Lớp A", siteA.getId(), activeCurriculum.id(), "OPEN", 20, null,
+                        LocalDate.now(), null, null, null), headAcademic.getId());
+        ClassResponse classAtB = classService.create(
+                new CreateClassRequest(classCode(), "Lớp B", siteB.getId(), activeCurriculum.id(), "OPEN", 20, null,
+                        LocalDate.now(), null, null, null), headAcademic.getId());
+        User sysAdminUser = newUser("sysadmin.viewall");
+        assignRole(sysAdminUser, "SYS_ADMIN");
+
+        var result = classService.search(null, null, null, null, sysAdminUser.getId());
+
+        assertThat(result).extracting(ClassResponse::id).containsExactlyInAnyOrder(classAtA.id(), classAtB.id());
+    }
+
     private CurriculumResponse activeCurriculumWithCategory(String classCategory) {
         CurriculumResponse curriculum = curriculumService.create(
                 new CreateCurriculumRequest(curriculumCode(), classCategory, classCategory, null, null, null),

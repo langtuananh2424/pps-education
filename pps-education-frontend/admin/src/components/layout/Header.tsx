@@ -131,6 +131,16 @@ export default function Header() {
   // site nào (managedSites rỗng) — dùng roleCodes suông sẽ lại hiện nhầm pill cho tài khoản đó.
   const isGenuineSiteManager = (currentUser?.roleCodes?.includes(UserRole.SITE_MANAGER) ?? false) && managedSites.length > 0;
   const { classes: eligibleClasses, myAssignedClassCount, loading: loadingEligibleClasses } = useEligibleClasses();
+  // academic.class.view-all (V64, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30):
+  // permission RIÊNG cho "được xem/chọn mọi lớp", dành cho Trưởng phòng đào tạo/Quản trị viên —
+  // trước đây nhóm tài khoản này (HEAD_ACADEMIC/SYS_ADMIN thuần, không đứng lớp/site nào thật)
+  // hoàn toàn không thấy pill "Lớp" (xem lịch sử quyết định cũ ngay dưới), khiến các trang phụ
+  // thuộc selectedClassId dùng chung ở Header (Sổ điểm UC-19/20, Điểm danh UC-15, Nhận xét
+  // UC-21/22, Soạn & giao đề UC-40 — khác Kho Video Ôn tập UC-23 đã có bộ chọn lớp riêng trong
+  // trang) không dùng được với tài khoản quản trị dù đã cấp quyền, vì quyền cũ dùng để loại trừ
+  // (academic.class.manage) không phản ánh đúng nhu cầu "được xem mọi lớp" — permission mới tách
+  // riêng để không phải cấp nhầm quyền UC-18 "xếp lớp" chỉ để xem danh sách lớp.
+  const canViewAllClasses = hasPermission("academic.class.view-all");
   // Dùng myAssignedClassCount (đứng tên thật trong class_teachers) để quyết định hiện pill — KHÔNG
   // dùng quyền academic.class.manage để loại trừ (đã dính bug: 1 tài khoản Giáo viên demo vừa có
   // quyền quản trị vừa thật sự đứng lớp bị ẩn nhầm pill, vì quyền đó không phản ánh có được phân
@@ -138,10 +148,12 @@ export default function Header() {
   // nhưng vẫn cần thấy pill để "xem lại sổ điểm" (UC-20) — xét riêng qua eligibleClasses.
   //
   // Tài khoản chỉ có quyền quản trị rộng (academic.class.manage) như HEAD_ACADEMIC/SYS_ADMIN/"Super
-  // Admin" demo KHÔNG hiện pill này ở Header (đã xác nhận với người dùng 2026-07-27) — các trang cần
-  // chọn lớp cho nhóm tài khoản này (VD Kho Video Ôn tập UC-23) tự có bộ chọn lớp riêng trong trang.
+  // Admin" demo KHÔNG hiện pill này ở Header theo quyết định 2026-07-27 — nhưng tài khoản được cấp
+  // RIÊNG academic.class.view-all (2026-07-30) thì có, xem eligibleClasses (đã unrestricted qua
+  // ClassService.resolveAllowedSiteIds khi có quyền này).
   const showClassSelector =
-    loadingEligibleClasses || myAssignedClassCount > 0 || (isGenuineSiteManager && eligibleClasses.length > 0);
+    loadingEligibleClasses || myAssignedClassCount > 0 || (isGenuineSiteManager && eligibleClasses.length > 0) ||
+    (canViewAllClasses && eligibleClasses.length > 0);
   const selectedEligibleClass = eligibleClasses.find((cls) => cls.id === selectedClassId) ?? null;
 
   return (
