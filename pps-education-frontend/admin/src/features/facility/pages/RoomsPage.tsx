@@ -97,7 +97,7 @@ export default function RoomsPage() {
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Quản Lý Điểm Trường, Phòng Học & Đối Tác</h1>
-        <p className="text-xs text-slate-500 mt-1">Quản lý phòng học và thiết bị dạy học (UC-37).</p>
+        <p className="text-xs text-slate-500 mt-1">Quản lý phòng học và thiết bị dạy học.</p>
       </div>
 
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
@@ -222,7 +222,7 @@ function CreateRoomModal({
   };
 
   return (
-    <Modal open onClose={onClose} title="Thêm phòng học mới (UC-37)" size="lg">
+    <Modal open onClose={onClose} title="Thêm phòng học mới" size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
         <div className="grid grid-cols-2 gap-3">

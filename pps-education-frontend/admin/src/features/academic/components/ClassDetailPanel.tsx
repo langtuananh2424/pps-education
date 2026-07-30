@@ -4,7 +4,8 @@ import { Calendar, FileSpreadsheet, FileText, Save, Search, Sparkles, UserPlus, 
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import { UserRole } from "@/types";
-import { searchUsers, UserListItemResponse } from "@/features/system-admin/api";
+import { UserListItemResponse } from "@/features/system-admin/api";
+import UserSearchCombobox from "@/features/system-admin/components/UserSearchCombobox";
 import { listStudents, StudentResponse } from "@/features/student/api";
 import { RoomResponse, listRoomsBySite } from "@/features/facility/api";
 import {
@@ -19,6 +20,7 @@ import {
   createClassSession,
   enrollStudent,
   getAttendanceSession,
+  listCancelledSessionsPendingMakeup,
   listClassEnrollments,
   listClassSessions,
   listClassTeachers,
@@ -316,21 +318,10 @@ function TeachersTab({ classId, canManage, showToast }: { classId: number; canMa
 }
 
 function AssignTeacherForm({ classId, onDone, onCancel }: { classId: number; onDone: () => void; onCancel: () => void }) {
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<UserListItemResponse[]>([]);
   const [selected, setSelected] = useState<UserListItemResponse | null>(null);
   const [teacherRole, setTeacherRole] = useState<AssignTeacherRequest["teacherRole"]>("PRIMARY");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const handleSearch = (q: string) => {
-    setQuery(q);
-    if (!q.trim()) {
-      setResults([]);
-      return;
-    }
-    searchUsers({ keyword: q.trim() }, 0, 8).then((res) => setResults(res.content));
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -353,36 +344,7 @@ function AssignTeacherForm({ classId, onDone, onCancel }: { classId: number; onD
   return (
     <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
-      {selected ? (
-        <div className="flex items-center justify-between bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs font-semibold px-3 py-2 rounded-lg">
-          <span>{selected.fullName} ({selected.username})</span>
-          <button type="button" onClick={() => setSelected(null)} className="text-emerald-600 hover:text-rose-600">
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      ) : (
-        <div className="relative">
-          <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400" />
-          <input value={query} onChange={(e) => handleSearch(e.target.value)} placeholder="Tìm theo họ tên / email / username..." className={`${inputClass} pl-8`} />
-          {results.length > 0 && (
-            <div className="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg divide-y divide-slate-100 max-h-56 overflow-y-auto">
-              {results.map((u) => (
-                <button
-                  key={u.id}
-                  type="button"
-                  onClick={() => {
-                    setSelected(u);
-                    setResults([]);
-                  }}
-                  className="w-full text-left px-3 py-2 hover:bg-slate-50 text-xs"
-                >
-                  {u.fullName} <span className="text-slate-400">({u.username} · {u.email})</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      <UserSearchCombobox value={selected} onChange={setSelected} roleFilter="TEACHER" placeholder="Bấm để xem danh sách hoặc gõ để tìm giáo viên..." />
 
       <Select value={teacherRole} onChange={(e) => setTeacherRole(e.target.value as AssignTeacherRequest["teacherRole"])} className={inputClass}>
         <option value="PRIMARY">Giáo viên chính</option>
@@ -799,6 +761,15 @@ function SessionsTab({
                 {s.teacherType && ` (${teacherTypeLabels[s.teacherType]})`} · Phòng: {s.roomName ?? "Chưa gán"} · {s.sessionType}
               </p>
               {s.status === "CANCELLED" && s.cancellationReason && <p className="text-rose-500">Lý do hủy: {s.cancellationReason}</p>}
+              {s.makeupForSessionId != null &&
+                (() => {
+                  const target = sessions.find((x) => x.id === s.makeupForSessionId);
+                  return (
+                    <p className="text-amber-600">
+                      Bù cho Buổi {target?.sessionNumber ?? "?"}{target ? ` (${target.sessionDate})` : ` (id=${s.makeupForSessionId})`}
+                    </p>
+                  );
+                })()}
             </div>
           ))}
         </div>
@@ -844,12 +815,12 @@ function SessionsTab({
 }
 
 function CreateSessionForm({ classId, siteId, onDone, onCancel }: { classId: number; siteId: number; onDone: () => void; onCancel: () => void }) {
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<UserListItemResponse[]>([]);
   const [teacher, setTeacher] = useState<UserListItemResponse | null>(null);
   const [rooms, setRooms] = useState<RoomResponse[]>([]);
   const [roomId, setRoomId] = useState("");
   const [form, setForm] = useState({ sessionDate: "", startTime: "", endTime: "", sessionType: "REGULAR", teacherType: "" });
+  const [makeupForSessionId, setMakeupForSessionId] = useState("");
+  const [cancelledPendingMakeup, setCancelledPendingMakeup] = useState<ClassSessionResponse[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -857,19 +828,27 @@ function CreateSessionForm({ classId, siteId, onDone, onCancel }: { classId: num
     listRoomsBySite(siteId).then(setRooms).catch(() => undefined);
   }, [siteId]);
 
-  const handleSearch = (q: string) => {
-    setQuery(q);
-    if (!q.trim()) {
-      setResults([]);
+  // V61 (2026-07-29): tạo buổi MAKEUP bắt buộc chỉ định buổi CANCELLED nó bù cho — chỉ tải danh sách
+  // khi thực sự cần (chọn "Học bù"), tránh gọi API thừa cho các loại buổi khác.
+  useEffect(() => {
+    setMakeupForSessionId("");
+    if (form.sessionType !== "MAKEUP") {
+      setCancelledPendingMakeup([]);
       return;
     }
-    searchUsers({ keyword: q.trim() }, 0, 8).then((res) => setResults(res.content));
-  };
+    listCancelledSessionsPendingMakeup(classId)
+      .then(setCancelledPendingMakeup)
+      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách buổi đã hủy."));
+  }, [form.sessionType, classId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!teacher || !form.sessionDate || !form.startTime || !form.endTime) {
       setError("Vui lòng điền đủ ngày/giờ và chọn giáo viên phụ trách.");
+      return;
+    }
+    if (form.sessionType === "MAKEUP" && !makeupForSessionId) {
+      setError("Buổi Học bù bắt buộc chọn buổi đã hủy mà nó bù cho.");
       return;
     }
     setSubmitting(true);
@@ -882,7 +861,8 @@ function CreateSessionForm({ classId, siteId, onDone, onCancel }: { classId: num
         roomId: roomId ? Number(roomId) : undefined,
         primaryTeacherId: teacher.id,
         sessionType: form.sessionType,
-        teacherType: form.teacherType ? (form.teacherType as "VIETNAMESE" | "FOREIGN") : undefined
+        teacherType: form.teacherType ? (form.teacherType as "VIETNAMESE" | "FOREIGN") : undefined,
+        makeupForSessionId: form.sessionType === "MAKEUP" ? Number(makeupForSessionId) : undefined
       };
       await createClassSession(classId, request);
       onDone();
@@ -943,38 +923,26 @@ function CreateSessionForm({ classId, siteId, onDone, onCancel }: { classId: num
         </div>
       </div>
 
+      {form.sessionType === "MAKEUP" && (
+        <div>
+          <label className={labelClass}>Bù cho buổi đã hủy nào? *</label>
+          <Select value={makeupForSessionId} onChange={(e) => setMakeupForSessionId(e.target.value)} className={inputClass}>
+            <option value="">-- Chọn buổi đã hủy --</option>
+            {cancelledPendingMakeup.map((s) => (
+              <option key={s.id} value={s.id}>
+                Buổi {s.sessionNumber} — {s.sessionDate} ({s.startTime}–{s.endTime})
+              </option>
+            ))}
+          </Select>
+          {cancelledPendingMakeup.length === 0 && (
+            <p className="text-[10px] text-slate-400 italic mt-1">Lớp này chưa có buổi nào bị hủy mà chưa có buổi bù.</p>
+          )}
+        </div>
+      )}
+
       <div>
         <label className={labelClass}>Giáo viên phụ trách buổi này</label>
-        {teacher ? (
-          <div className="flex items-center justify-between bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs font-semibold px-3 py-2 rounded-lg">
-            <span>{teacher.fullName} ({teacher.username})</span>
-            <button type="button" onClick={() => setTeacher(null)} className="text-emerald-600 hover:text-rose-600">
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        ) : (
-          <div className="relative">
-            <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400" />
-            <input value={query} onChange={(e) => handleSearch(e.target.value)} placeholder="Tìm theo họ tên / email / username..." className={`${inputClass} pl-8`} />
-            {results.length > 0 && (
-              <div className="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg divide-y divide-slate-100 max-h-56 overflow-y-auto">
-                {results.map((u) => (
-                  <button
-                    key={u.id}
-                    type="button"
-                    onClick={() => {
-                      setTeacher(u);
-                      setResults([]);
-                    }}
-                    className="w-full text-left px-3 py-2 hover:bg-slate-50 text-xs"
-                  >
-                    {u.fullName} <span className="text-slate-400">({u.username} · {u.email})</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+        <UserSearchCombobox value={teacher} onChange={setTeacher} roleFilter="TEACHER" placeholder="Bấm để xem danh sách hoặc gõ để tìm giáo viên..." />
       </div>
 
       <div className="flex gap-2">

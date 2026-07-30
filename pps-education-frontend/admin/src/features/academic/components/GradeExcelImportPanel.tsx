@@ -62,7 +62,7 @@ export default function GradeExcelImportPanel({ classId, gradePeriodId, componen
   return (
     <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
       <div className="px-5 py-4 border-b border-slate-100">
-        <h3 className="text-sm font-bold text-slate-800 font-display">Nhập điểm thi qua Excel (UC-53)</h3>
+        <h3 className="text-sm font-bold text-slate-800 font-display">Nhập điểm thi qua Excel</h3>
         <p className="text-xs text-slate-500 mt-1">
           Tải lên bảng điểm đã hoàn thiện (cột A = mã học viên, các cột sau = tên kỹ năng/thành phần điểm khớp đúng tên đã cấu hình cho kỳ
           này, cộng 2 cột tùy chọn "Overall"/"Tổng điểm" và "Level"/"Cấp độ"). Hệ thống chỉ lưu lại giá trị Overall/Level bạn đã tự tính —

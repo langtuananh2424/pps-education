@@ -14,7 +14,7 @@ export default function DepartmentsPositionsPage() {
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Phòng ban & Chức vụ</h1>
         <p className="text-xs text-slate-500 mt-1">
-          Cấu hình danh mục Phòng ban, Chức vụ và role mặc định theo chức vụ — cần cấu hình ở đây trước khi chọn được trong hồ sơ nhân sự (UC-08).
+          Cấu hình danh mục Phòng ban, Chức vụ và role mặc định theo chức vụ — cần cấu hình ở đây trước khi chọn được trong hồ sơ nhân sự.
         </p>
       </div>
 

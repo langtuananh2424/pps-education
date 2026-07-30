@@ -284,7 +284,11 @@ export default function CommentHistoryList({ classId, history, onChanged, showSt
 
   const renderActions = (h: StudentCommentResponse) => (
     <>
-      {h.status === "DRAFT" && (
+      {/* layout="table" (DAILY, DailyCommentPanel) đã gộp Ghi+Gửi vào đúng 1 nút "Gửi nhận xét" ở màn
+          nhập trực tiếp (kể cả dòng đang DRAFT) — nút "Nộp duyệt" riêng ở đây thành thừa/dễ gây nộp 2
+          lần, chỉ giữ cho layout="card" (MID_TERM/END_TERM, PeriodicCommentPanel — CommentForm chỉ lưu
+          nháp, "Nộp duyệt" ở đây là cách DUY NHẤT để gửi duyệt) — đã xác nhận với người dùng 2026-07-30. */}
+      {h.status === "DRAFT" && layout !== "table" && (
         <Button size="sm" variant="secondary" onClick={() => handleSubmitDraft(h.id)} disabled={submittingId === h.id}>
           <Save className="w-3.5 h-3.5" />
           {submittingId === h.id ? "Đang nộp..." : "Nộp duyệt"}

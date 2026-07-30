@@ -78,7 +78,7 @@ export default function RoleMembersPanel({ roleId, roleName, canAssign, canRevok
       <div className="flex items-center justify-between">
         <div>
           <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider block">Thành viên gán vai trò này</h4>
-          <p className="text-[10px] text-slate-400 mt-0.5">Quản lý trực tiếp các tài khoản được áp dụng cấu hình vai trò này (UC-46).</p>
+          <p className="text-[10px] text-slate-400 mt-0.5">Quản lý trực tiếp các tài khoản được áp dụng cấu hình vai trò này.</p>
         </div>
 
         {canAssign && (

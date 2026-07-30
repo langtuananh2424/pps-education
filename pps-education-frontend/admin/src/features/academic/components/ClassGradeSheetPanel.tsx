@@ -107,7 +107,7 @@ export default function ClassGradeSheetPanel({ classId, curriculumId, readOnly =
 
       <div className="flex items-center justify-between flex-wrap gap-2">
         <span className="text-xs font-bold text-slate-700 font-display">
-          {showComparison ? "Tổng hợp điểm qua các kỳ" : "Bảng nhập điểm (UC-19)"}
+          {showComparison ? "Tổng hợp điểm qua các kỳ" : "Bảng nhập điểm"}
         </span>
         <div className="flex items-center gap-2">
           {!showComparison && (

@@ -15,10 +15,10 @@ export default function ExamsPage() {
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Tài Liệu & Khảo Thí LMS (E-Learning)</h1>
-        <p className="text-xs text-slate-500 mt-1">Chấm bài thủ công kỹ năng Nghe-Nói (UC-40/41).</p>
+        <p className="text-xs text-slate-500 mt-1">Chấm bài thủ công kỹ năng Nghe-Nói.</p>
       </div>
 
-      <UnderDevelopment title="Hàng chờ chấm bài (UC-41)" />
+      <UnderDevelopment title="Hàng chờ chấm bài" />
     </div>
   );
 }

@@ -100,7 +100,7 @@ export default function CreateTaskModal({ onClose, onCreated }: CreateTaskModalP
   };
 
   return (
-    <Modal open onClose={onClose} title="Giao việc mới (UC-06)" description="Chỉ giao được cho nhân sự trong phạm vi phòng ban mình phụ trách." size="lg">
+    <Modal open onClose={onClose} title="Giao việc mới" description="Chỉ giao được cho nhân sự trong phạm vi phòng ban mình phụ trách." size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 

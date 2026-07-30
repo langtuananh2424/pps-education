@@ -93,7 +93,7 @@ export default function GradePublishDetail({ classId, classLabel, teacherName, o
     <div className="bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden">
       <div className="px-5 py-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between flex-wrap gap-3">
         <div>
-          <span className="text-xs font-bold text-slate-700 font-display">Chi tiết điểm chờ công bố (UC-20) — {classLabel}</span>
+          <span className="text-xs font-bold text-slate-700 font-display">Chi tiết điểm chờ công bố — {classLabel}</span>
           <p className="text-[10px] text-slate-400 mt-0.5">GV: {teacherName ?? "Chưa rõ"}</p>
         </div>
         {periods.length > 1 && (

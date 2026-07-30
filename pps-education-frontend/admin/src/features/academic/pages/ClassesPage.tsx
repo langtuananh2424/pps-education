@@ -60,7 +60,7 @@ export default function ClassesPage() {
   return (
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Quản lý lớp học (UC-18)</h1>
+        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Quản lý lớp học</h1>
         <p className="text-xs text-slate-500 mt-1">
           Xếp lớp & gán khóa học, điều phối giáo viên, ghi danh học sinh, xếp buổi học và điểm danh. Lọc theo điểm trường ở dropdown trên đầu trang.
         </p>

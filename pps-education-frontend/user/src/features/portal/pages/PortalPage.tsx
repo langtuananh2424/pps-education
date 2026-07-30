@@ -227,8 +227,10 @@ export default function PortalPage() {
                 )}
 
                 <div className="space-y-3">
-                  {/* Học phí & Dịch vụ (invoices/thanh toán) chỉ dành Phụ huynh — Học sinh không cần/không nên xem thông tin tài chính của gia đình. */}
-                  {TABS.filter((tab) => tab.key !== "billing" || isParent).map(({ key, label, icon: Icon }) => (
+                  {/* Học phí & Dịch vụ (invoices/thanh toán) chỉ dành Phụ huynh — Học sinh không cần/không nên xem thông tin tài chính của gia đình.
+                      Kho dữ liệu (Sách, TLTK) ngược lại: GET /students/me/documents chỉ tự truy cập được cho chính Học sinh — Phụ huynh
+                      gọi sẽ 404 "không có hồ sơ học sinh" (2026-07-30), nên ẩn hẳn tab này với Phụ huynh thay vì hiện rồi báo lỗi. */}
+                  {TABS.filter((tab) => (tab.key !== "billing" || isParent) && (tab.key !== "documents" || isStudent)).map(({ key, label, icon: Icon }) => (
                     <button
                       key={key}
                       onClick={() => {
@@ -299,7 +301,7 @@ export default function PortalPage() {
                     ) : (
                       <ComingSoon title="Bài tập về nhà (BTVN)" description="Không có hồ sơ Học sinh hoặc Phụ huynh liên kết với tài khoản này." />
                     ))}
-                  {activeTab === "documents" && <DocumentLibraryTab classId={selectedClassId} />}
+                  {activeTab === "documents" && isStudent && <DocumentLibraryTab classId={selectedClassId} />}
                   {activeTab === "grades" &&
                     (isParent && selectedChild ? (
                       <GradesTab studentId={selectedChild.studentId} classId={selectedClassId} />

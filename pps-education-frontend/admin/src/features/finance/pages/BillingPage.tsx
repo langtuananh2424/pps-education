@@ -16,10 +16,10 @@ export default function BillingPage() {
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Quản Lý Tài Chính & Sổ Cái Kế Toán</h1>
-        <p className="text-xs text-slate-500 mt-1">Xuất hóa đơn học phí, quét mã QR gạch nợ tự động trực tuyến (UC-30).</p>
+        <p className="text-xs text-slate-500 mt-1">Xuất hóa đơn học phí, quét mã QR gạch nợ tự động trực tuyến.</p>
       </div>
 
-      <UnderDevelopment title="Thu phí & hóa đơn (UC-30)" />
+      <UnderDevelopment title="Thu phí & hóa đơn" />
     </div>
   );
 }

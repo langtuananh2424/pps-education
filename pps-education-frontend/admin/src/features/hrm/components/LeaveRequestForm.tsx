@@ -23,7 +23,7 @@ export default function LeaveRequestForm({ onSubmit }: LeaveRequestFormProps) {
   return (
     <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-soft space-y-4">
       <h3 className="text-xs font-bold text-slate-400 block uppercase tracking-wider font-display border-b border-slate-100 pb-2">
-        Nộp Đơn Nghỉ Phép / Đi Muộn (UC-10)
+        Nộp Đơn Nghỉ Phép / Đi Muộn
       </h3>
       <p className="text-xs text-slate-500">Nhân viên gõ lý do xin nghỉ để tạo quy trình xét duyệt tự động 1-2 bước tương ứng.</p>
 

@@ -49,7 +49,7 @@ export default function MyTeachingSchedulePage() {
   return (
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Lịch của tôi (UC-58)</h1>
+        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Lịch của tôi</h1>
         <p className="text-xs text-slate-500 mt-1">Tổng hợp mọi buổi dạy của bạn qua tất cả các lớp đang phụ trách.</p>
       </div>
 

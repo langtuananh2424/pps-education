@@ -153,7 +153,7 @@ export default function AssignmentDetailModal({ assignment, onClose, onChanged }
 
           {(allowedTargets.length > 0 || declineTarget) && (
             <div className="space-y-2 border border-slate-100 rounded-lg p-3">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block font-display">Cập nhật tiến độ (UC-07)</span>
+              <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block font-display">Cập nhật tiến độ</span>
               {declineTarget === "DECLINED" ? (
                 <div className="space-y-2">
                   <textarea

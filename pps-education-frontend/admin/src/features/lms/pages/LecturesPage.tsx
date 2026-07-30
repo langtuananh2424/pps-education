@@ -459,7 +459,7 @@ export default function LecturesPage() {
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Tài Liệu & Khảo Thí LMS (E-Learning)</h1>
         <p className="text-xs text-slate-500 mt-1">
-          Kho Video Ôn tập (UC-23/23a) — 2 loại: "Video từ kết nối" (ôn từ vựng buổi học) và "Video phản xạ" (hỏi-đáp luyện nói). Mỗi bộ gồm
+          Kho Video Ôn tập — 2 loại: "Video từ kết nối" (ôn từ vựng buổi học) và "Video phản xạ" (hỏi-đáp luyện nói). Mỗi bộ gồm
           nhiều video/audio; học sinh xem sau khi bộ được công bố, hệ thống tự theo dõi % đã xem thật.
         </p>
       </div>
@@ -692,7 +692,7 @@ function CreateSetModal({
   };
 
   return (
-    <Modal open onClose={onClose} title="Tạo bộ video ôn tập mới (UC-23)" size="lg">
+    <Modal open onClose={onClose} title="Tạo bộ video ôn tập mới" size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
         <div className="grid grid-cols-2 gap-3">

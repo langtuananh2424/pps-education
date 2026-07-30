@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
-import { Search, Sparkles, X } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import Button from "@/components/ui/Button";
-import { searchUsers, UserListItemResponse } from "@/features/system-admin/api";
+import { UserListItemResponse } from "@/features/system-admin/api";
+import UserSearchCombobox from "@/features/system-admin/components/UserSearchCombobox";
 import { RoomResponse, listRoomsBySite } from "@/features/facility/api";
 import { BulkCreateClassSessionRequest, BulkCreateClassSessionResponse, bulkCreateClassSessions } from "../api";
 import DatePicker from "@/components/ui/DatePicker";
@@ -39,8 +40,6 @@ export default function BulkGenerateSessionsForm({ classId, siteId, onDone, onCa
   const [roomId, setRoomId] = useState("");
   const [sessionType, setSessionType] = useState("REGULAR");
   const [teacherType, setTeacherType] = useState("");
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<UserListItemResponse[]>([]);
   const [teacher, setTeacher] = useState<UserListItemResponse | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,15 +56,6 @@ export default function BulkGenerateSessionsForm({ classId, siteId, onDone, onCa
       else next.add(day);
       return next;
     });
-  };
-
-  const handleSearch = (q: string) => {
-    setQuery(q);
-    if (!q.trim()) {
-      setResults([]);
-      return;
-    }
-    searchUsers({ keyword: q.trim() }, 0, 8).then((res) => setResults(res.content));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -176,36 +166,7 @@ export default function BulkGenerateSessionsForm({ classId, siteId, onDone, onCa
 
       <div>
         <label className={labelClass}>Giáo viên phụ trách *</label>
-        {teacher ? (
-          <div className="flex items-center justify-between bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs font-semibold px-3 py-2 rounded-lg">
-            <span>{teacher.fullName} ({teacher.username})</span>
-            <button type="button" onClick={() => setTeacher(null)} className="text-emerald-600 hover:text-rose-600">
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        ) : (
-          <div className="relative">
-            <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400" />
-            <input value={query} onChange={(e) => handleSearch(e.target.value)} placeholder="Tìm theo họ tên / email / username..." className={`${inputClass} pl-8`} />
-            {results.length > 0 && (
-              <div className="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg divide-y divide-slate-100 max-h-56 overflow-y-auto">
-                {results.map((u) => (
-                  <button
-                    key={u.id}
-                    type="button"
-                    onClick={() => {
-                      setTeacher(u);
-                      setResults([]);
-                    }}
-                    className="w-full text-left px-3 py-2 hover:bg-slate-50 text-xs"
-                  >
-                    {u.fullName} <span className="text-slate-400">({u.username} · {u.email})</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+        <UserSearchCombobox value={teacher} onChange={setTeacher} roleFilter="TEACHER" placeholder="Bấm để xem danh sách hoặc gõ để tìm giáo viên..." />
       </div>
 
       {result && (

@@ -38,7 +38,7 @@ export default function ClassListPanel({ classes, loading, selectedId, onSelect,
       <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3 bg-slate-50 shrink-0">
         <div className="space-y-0.5">
           <span className="text-xs font-bold text-slate-700 font-display block">Danh sách Lớp học</span>
-          <p className="text-[10px] text-slate-400">Xếp lớp & gán khóa học (UC-18)</p>
+          <p className="text-[10px] text-slate-400">Xếp lớp & gán khóa học</p>
         </div>
         {canManage && (
           <Button variant="primary" size="sm" onClick={onCreate}>

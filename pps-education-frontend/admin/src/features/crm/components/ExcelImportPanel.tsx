@@ -32,7 +32,7 @@ export default function ExcelImportPanel({ onImport }: ExcelImportPanelProps) {
   return (
     <div className="space-y-6">
       <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-soft space-y-4">
-        <h3 className="text-sm font-bold text-slate-800 font-display">Nhập học theo lô từ Trường liên kết (UC-35)</h3>
+        <h3 className="text-sm font-bold text-slate-800 font-display">Nhập học theo lô từ Trường liên kết</h3>
         <p className="text-xs text-slate-500 leading-normal">
           Khi nhận danh sách học sinh theo lớp từ các trường liên kết (như Tiểu học Nghĩa Tân), hệ thống hỗ trợ import file Excel để tự
           động kiểm duyệt trùng lặp (trùng mã học sinh hoặc họ tên trùng ngày sinh) trước khi gán lớp hàng loạt.

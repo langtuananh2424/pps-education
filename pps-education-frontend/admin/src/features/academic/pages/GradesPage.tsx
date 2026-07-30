@@ -140,10 +140,10 @@ export default function GradesPage() {
   return (
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Sổ điểm hệ thống (UC-19/20)</h1>
+        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Sổ điểm hệ thống</h1>
         <p className="text-xs text-slate-500 mt-1">
           Giáo viên nhập điểm theo lớp, sửa/xoá tự do khi còn Nháp. Quản lý điểm trường công bố dự kiến cho Phụ huynh xem — sau đó chỉ sửa
-          được qua yêu cầu phúc khảo (UC-62) trong hạn quy định, hết hạn tự khoá Chính thức.
+          được qua yêu cầu phúc khảo trong hạn quy định, hết hạn tự khoá Chính thức.
         </p>
       </div>
 
@@ -152,7 +152,7 @@ export default function GradesPage() {
       {isSiteManager && (
         <div className="space-y-4">
           <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider font-display border-b border-slate-200 pb-2">
-            Công bố điểm học phần (UC-20)
+            Công bố điểm học phần
           </h2>
           <GradePublishDetail
             classId={selectedPendingClassId}
@@ -221,7 +221,7 @@ export default function GradesPage() {
       {!isSiteManager && (pendingAppeals.length > 0 || loadingAppeals) && (
         <Card padded={false} className="overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-100 bg-slate-50">
-            <span className="text-xs font-bold text-slate-700 font-display">Hàng chờ phúc khảo (UC-62)</span>
+            <span className="text-xs font-bold text-slate-700 font-display">Hàng chờ phúc khảo</span>
             <p className="text-[10px] text-slate-400 mt-0.5">
               Học sinh/Phụ huynh gửi yêu cầu — tiếp nhận rồi mới sửa được điểm của đúng học sinh đó trong bảng nhập điểm bên dưới.
             </p>

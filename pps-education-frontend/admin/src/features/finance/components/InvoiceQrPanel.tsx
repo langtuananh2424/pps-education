@@ -12,7 +12,7 @@ export default function InvoiceQrPanel({ invoice, onSimulatePayment }: InvoiceQr
     return (
       <div className="h-64 border border-dashed rounded-xl flex flex-col items-center justify-center text-slate-400 text-xs italic gap-1.5 text-center p-4">
         <Wallet className="w-6 h-6 text-slate-300 animate-bounce" />
-        <span>Nhấp chọn mã QR trên danh sách hóa đơn học phí để xuất QR đóng học trực tuyến (UC-30).</span>
+        <span>Nhấp chọn mã QR trên danh sách hóa đơn học phí để xuất QR đóng học trực tuyến.</span>
       </div>
     );
   }
@@ -20,7 +20,7 @@ export default function InvoiceQrPanel({ invoice, onSimulatePayment }: InvoiceQr
   return (
     <div className="space-y-4 text-center">
       <div className="border-b pb-2 text-left">
-        <span className="text-[10px] font-mono font-bold text-slate-400">CHI TIẾT THANH TOÁN (UC-30)</span>
+        <span className="text-[10px] font-mono font-bold text-slate-400">CHI TIẾT THANH TOÁN</span>
         <h3 className="text-xs font-bold text-slate-800">
           {invoice.id} - {invoice.studentName}
         </h3>

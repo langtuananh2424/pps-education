@@ -56,7 +56,7 @@ export default function ExerciseAssignPage() {
   return (
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Soạn & giao đề (UC-40)</h1>
+        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Soạn & giao đề</h1>
         <p className="text-xs text-slate-500 mt-1">Chọn 1 lớp để xem lịch sử đề đã giao, hoặc giao đề bài tập mới cho lớp đó.</p>
       </div>
 

@@ -39,7 +39,7 @@ export default function CommentsPage() {
   return (
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Nhận xét học viên (UC-21/22)</h1>
+        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Nhận xét học viên</h1>
         <p className="text-xs text-slate-500 mt-1">Giáo viên viết nhận xét hàng ngày/định kỳ, Quản lý điểm trường duyệt trước khi hiển thị Portal phụ huynh.</p>
       </div>
 

@@ -125,7 +125,7 @@ export default function AuditLogPage() {
     <div className="space-y-4 animate-in fade-in duration-200">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div>
-          <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider block">Nhật ký thay đổi quyền (UC-05)</h2>
+          <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider block">Nhật ký thay đổi quyền</h2>
           <p className="text-[10px] text-slate-400 mt-0.5">Truy vết ai gán/thu hồi vai trò, cấp/tước ngoại lệ quyền, cho ai, khi nào.</p>
         </div>
       </div>

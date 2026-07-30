@@ -157,7 +157,7 @@ export default function AttendancePage() {
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Điểm Danh Chuyên Cần (SMS)</h1>
-        <p className="text-xs text-slate-500 mt-1">Giảng viên lưu chuyên cần, vắng học tự động cảnh báo phụ huynh (UC-15).</p>
+        <p className="text-xs text-slate-500 mt-1">Giảng viên lưu chuyên cần, vắng học tự động cảnh báo phụ huynh.</p>
       </div>
 
       <NotificationBanner message={notification} onClose={() => setNotification(null)} />
@@ -166,7 +166,7 @@ export default function AttendancePage() {
       <div className="bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50">
             <div>
-              <span className="text-xs font-bold text-slate-700 font-display">Điểm danh Chuyên cần đầu giờ (UC-15)</span>
+              <span className="text-xs font-bold text-slate-700 font-display">Điểm danh Chuyên cần đầu giờ</span>
               <p className="text-[10px] text-slate-400 mt-0.5">
                 {selectedClass ? `${selectedClass.name} (${selectedClass.classCode})` : "Chưa chọn lớp — chọn ở góc trên bên phải (Header) để bắt đầu điểm danh."}
               </p>
@@ -270,7 +270,7 @@ export default function AttendancePage() {
                 className="bg-brand-orange hover:bg-brand-orange/90 text-white font-semibold text-xs px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-soft transition-all disabled:opacity-50"
               >
                 <Save className="w-4 h-4 text-white" />
-                <span>{saving ? "Đang lưu..." : "Xác nhận & Lưu điểm danh (UC-15)"}</span>
+                <span>{saving ? "Đang lưu..." : "Xác nhận & Lưu điểm danh"}</span>
               </button>
             </div>
           )}

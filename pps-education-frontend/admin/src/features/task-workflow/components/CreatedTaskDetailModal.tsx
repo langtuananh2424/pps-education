@@ -217,7 +217,7 @@ export default function CreatedTaskDetailModal({ task, onClose, onTaskChanged }:
           </div>
 
           <div className="space-y-2">
-            <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block font-display">Người nhận & tiến độ (UC-07)</span>
+            <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block font-display">Người nhận & tiến độ</span>
             <div className="space-y-2">
               {assignments.map((a) => {
                 const meta = ASSIGNMENT_STATUS_META[a.assignmentStatus];

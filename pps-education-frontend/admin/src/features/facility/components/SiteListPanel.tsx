@@ -23,7 +23,7 @@ export default function SiteListPanel({ sites, loading, selectedId, onSelect, on
       <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3 bg-slate-50 shrink-0">
         <div className="space-y-0.5">
           <span className="text-xs font-bold text-slate-700 font-display block">Danh sách Điểm trường</span>
-          <p className="text-[10px] text-slate-400">Cơ sở tự vận hành & Trường liên kết (UC-36)</p>
+          <p className="text-[10px] text-slate-400">Cơ sở tự vận hành & Trường liên kết</p>
         </div>
         <Button variant="primary" size="sm" onClick={onCreate}>
           <Plus className="w-3.5 h-3.5" />

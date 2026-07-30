@@ -131,7 +131,7 @@ export default function QuestionBankPage() {
         <div>
           <h1 className="text-xl font-bold font-display tracking-tight text-slate-900 flex items-center gap-2">
             <Database className="w-5 h-5 text-brand-red" />
-            Ngân hàng câu hỏi (UC-40)
+            Ngân hàng câu hỏi
           </h1>
           <p className="text-xs text-slate-500 mt-1">
             Soạn sẵn câu hỏi đa phương thức (Trắc nghiệm, Nghe, Tự luận, Speaking) theo khung chương trình — khi giao bài ở "Soạn & giao đề" chỉ cần chọn lại từ đây.
@@ -425,7 +425,7 @@ function QuestionPreview({ row, onEdit, canManage }: { row: FlatQuestionRow; onE
         <div className="bg-white p-4 rounded-xl border border-slate-100 space-y-2">
           {question.referencePassage && <p className="text-[11px] text-slate-600 bg-slate-50 p-2 rounded-lg">{question.referencePassage}</p>}
           <p className="text-[10px] text-slate-500 italic bg-amber-50/50 p-2 border border-amber-100 rounded">
-            Học viên nộp bài viết/scan để chấm tay ở Hàng chờ chấm bài (UC-41).
+            Học viên nộp bài viết/scan để chấm tay ở Hàng chờ chấm bài.
           </p>
         </div>
       )}

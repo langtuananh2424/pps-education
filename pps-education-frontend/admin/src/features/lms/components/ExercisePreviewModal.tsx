@@ -110,10 +110,10 @@ export default function ExercisePreviewModal({ exercise, onClose }: ExercisePrev
                 )}
 
                 {eq.questionType === "SPEAKING" && (
-                  <p className="text-[11px] text-slate-400 italic">Học viên ghi âm trả lời — chấm tay ở Hàng chờ chấm bài (UC-41).</p>
+                  <p className="text-[11px] text-slate-400 italic">Học viên ghi âm trả lời — chấm tay ở Hàng chờ chấm bài.</p>
                 )}
                 {eq.questionType === "ESSAY" && (
-                  <p className="text-[11px] text-slate-400 italic">Học viên trả lời tự luận — chấm tay ở Hàng chờ chấm bài (UC-41).</p>
+                  <p className="text-[11px] text-slate-400 italic">Học viên trả lời tự luận — chấm tay ở Hàng chờ chấm bài.</p>
                 )}
 
                 {q?.explanation && <p className="text-[11px] text-slate-500 mt-2 italic">Giải thích: {q.explanation}</p>}

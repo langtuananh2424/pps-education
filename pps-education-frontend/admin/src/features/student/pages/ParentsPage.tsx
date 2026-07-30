@@ -93,13 +93,13 @@ export default function ParentsPage() {
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4 flex flex-col sm:flex-row sm:items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Quản lý phụ huynh (UC-13)</h1>
+          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Quản lý phụ huynh</h1>
           <p className="text-xs text-slate-500 mt-1">
             Toàn bộ hồ sơ phụ huynh (kể cả chưa liên kết con em) — khởi tạo hồ sơ độc lập, liên kết/gỡ liên kết học sinh.
           </p>
         </div>
         <ImportExcelButton
-          title="Nhập phụ huynh theo lô (UC-50)"
+          title="Nhập phụ huynh theo lô"
           templateFileName="mau-import-phu-huynh.xlsx"
           templateHeaders={PARENT_IMPORT_HEADERS}
           templateSampleRow={PARENT_IMPORT_SAMPLE}

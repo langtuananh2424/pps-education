@@ -111,7 +111,7 @@ export default function LeadsPanel({ leads, onAddCallLog, onConvertToStudent }: 
             </div>
 
             <div className="space-y-2">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block font-display">Lịch sử cuộc gọi (UC-33)</span>
+              <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block font-display">Lịch sử cuộc gọi</span>
               <div className="space-y-2 max-h-48 overflow-y-auto bg-slate-50 p-2.5 rounded-lg border">
                 {selectedLead.history.map((hist, idx) => (
                   <div key={idx} className="text-[11px] text-slate-600 border-b border-dashed pb-1.5 last:border-b-0 leading-normal">
@@ -162,7 +162,7 @@ export default function LeadsPanel({ leads, onAddCallLog, onConvertToStudent }: 
                   className="w-full bg-brand-gradient text-white font-bold text-xs py-2 rounded-lg shadow-glow flex items-center justify-center gap-1.5"
                 >
                   <UserPlus className="w-4 h-4" />
-                  Chuyển đổi hồ sơ chính thức (UC-34)
+                  Chuyển đổi hồ sơ chính thức
                 </button>
               </div>
             )}

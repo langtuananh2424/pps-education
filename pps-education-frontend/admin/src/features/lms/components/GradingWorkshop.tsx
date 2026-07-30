@@ -16,7 +16,7 @@ export default function GradingWorkshop({ submission, onClose, onSave }: Grading
     return (
       <div className="h-64 border border-dashed rounded-xl flex flex-col items-center justify-center text-slate-400 text-xs italic gap-1.5 text-center p-4">
         <Award className="w-6 h-6 text-slate-300 animate-bounce" />
-        <span>Nhấp chọn một học sinh trong hàng chờ bên cạnh để kiểm tra bài ghi âm kỹ năng Nói và chấm điểm thủ công (UC-41).</span>
+        <span>Nhấp chọn một học sinh trong hàng chờ bên cạnh để kiểm tra bài ghi âm kỹ năng Nói và chấm điểm thủ công.</span>
       </div>
     );
   }

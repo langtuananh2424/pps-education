@@ -112,7 +112,7 @@ export default function UsersPage() {
     <div className="space-y-4 animate-in fade-in duration-200">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div>
-          <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider block">Quản lý người dùng (UC-44/47/49)</h2>
+          <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider block">Quản lý người dùng</h2>
           <p className="text-[10px] text-slate-400 mt-0.5">
             Danh sách tài khoản toàn hệ thống — tra cứu, cập nhật hồ sơ, khóa/mở khóa. Tài khoản được khởi tạo từ Quản lý nhân sự /
             Quản lý học sinh.
@@ -406,7 +406,7 @@ function UserDetailModal({
 
           <form onSubmit={handleSaveProfile} className="space-y-3 border-t border-slate-100 pt-4">
             <div>
-              <span className="text-[10px] font-bold uppercase text-slate-500">Cập nhật hồ sơ (UC-49)</span>
+              <span className="text-[10px] font-bold uppercase text-slate-500">Cập nhật hồ sơ</span>
               <p className="text-[10px] text-slate-400">Chỉ đổi họ tên/số điện thoại hiển thị của tài khoản này.</p>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -427,7 +427,7 @@ function UserDetailModal({
           <form onSubmit={handleChangePassword} className="space-y-2 border-t border-slate-100 pt-4">
             <div>
               <span className="text-[10px] font-bold uppercase text-slate-500 flex items-center gap-1">
-                <KeyRound className="w-3 h-3" /> Đặt lại mật khẩu (UC-45)
+                <KeyRound className="w-3 h-3" /> Đặt lại mật khẩu
               </span>
               <p className="text-[10px] text-slate-400">Admin đặt thẳng mật khẩu mới cho tài khoản này, có hiệu lực ngay — không cần biết mật khẩu cũ (dùng khi người dùng quên mật khẩu).</p>
             </div>
@@ -447,7 +447,7 @@ function UserDetailModal({
 
           <div className="border-t border-slate-100 pt-4 flex flex-wrap gap-2">
             <div className="w-full">
-              <span className="text-[10px] font-bold uppercase text-slate-500">Khóa/Mở khóa (UC-47)</span>
+              <span className="text-[10px] font-bold uppercase text-slate-500">Khóa/Mở khóa</span>
               <p className="text-[10px] text-slate-400">Đổi trạng thái đăng nhập của tài khoản — ngừng/tạm khóa sẽ chặn đăng nhập ngay.</p>
             </div>
             {detail.status !== "ACTIVE" && (

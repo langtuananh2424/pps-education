@@ -69,7 +69,7 @@ export default function SiteFormModal({ onClose, onCreated }: SiteFormModalProps
   };
 
   return (
-    <Modal open onClose={onClose} title="Thêm điểm trường mới (UC-36)" size="lg">
+    <Modal open onClose={onClose} title="Thêm điểm trường mới" size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
         <div className="grid grid-cols-2 gap-3">

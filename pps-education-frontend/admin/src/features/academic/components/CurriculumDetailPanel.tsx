@@ -208,7 +208,7 @@ function ProfileTab({
         <div className="border-t border-slate-100 pt-4">
           <Button type="button" variant="dark" size="sm" onClick={handleSubmitForApproval}>
             <Send className="w-3.5 h-3.5" />
-            Nộp duyệt tùy biến lên Trưởng phòng đào tạo (UC-16b)
+            Nộp duyệt tùy biến lên Trưởng phòng đào tạo
           </Button>
         </div>
       )}
@@ -217,9 +217,9 @@ function ProfileTab({
         <div className="border-t border-slate-100 pt-4 space-y-3">
           <Button type="button" variant="secondary" size="sm" onClick={() => setShowCustomForm(true)}>
             <Plus className="w-3.5 h-3.5" />
-            Tạo bản tùy biến cho điểm trường (UC-16b)
+            Tạo bản tùy biến cho điểm trường
           </Button>
-          <Modal open={showCustomForm} onClose={() => setShowCustomForm(false)} title="Tạo bản tùy biến cho điểm trường (UC-16b)">
+          <Modal open={showCustomForm} onClose={() => setShowCustomForm(false)} title="Tạo bản tùy biến cho điểm trường">
             <CreateCustomForm
               parentCurriculumId={curriculum.id}
               onDone={() => {
