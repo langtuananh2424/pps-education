@@ -9,6 +9,7 @@ import {
   AssignExerciseRequest,
   ExerciseResponse,
   QuestionBankResponse,
+  QuestionImportedRow,
   QuestionResponse,
   addExerciseQuestion,
   assignExercise,
@@ -17,6 +18,8 @@ import {
   listQuestions
 } from "../api";
 import Select from "@/components/ui/Select";
+import QuestionEditorForm from "./QuestionEditorForm";
+import QuestionImportPanel from "./QuestionImportPanel";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
@@ -183,6 +186,15 @@ function ExerciseInfoStep({
   );
 }
 
+type QuestionSourceMode = "existing" | "compose" | "import";
+
+interface AttachedQuestion {
+  id: number;
+  content: string;
+  points: number;
+}
+
+/** UC-40 Main Flow bước 1: 3 nguồn câu hỏi — chọn có sẵn / soạn câu hỏi mới / nhập hàng loạt Excel-Word (bổ sung 2026-07-30, đã xác nhận với người dùng). */
 function ExerciseQuestionsStep({
   exercise,
   onDone,
@@ -192,12 +204,18 @@ function ExerciseQuestionsStep({
   onDone: () => void;
   onError: (message: string | null) => void;
 }) {
+  const [mode, setMode] = useState<QuestionSourceMode>("existing");
   const [banks, setBanks] = useState<QuestionBankResponse[]>([]);
   const [selectedBankId, setSelectedBankId] = useState<number | null>(null);
   const [bankQuestions, setBankQuestions] = useState<QuestionResponse[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selected, setSelected] = useState<SelectedQuestion[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  // Câu hỏi soạn mới/import hàng loạt được gắn vào đề NGAY khi tạo xong (đã ghi
+  // thật vào ngân hàng câu hỏi) — khác "selected" (tab chọn có sẵn) vẫn chỉ là
+  // staged, chờ bấm "Tiếp tục" mới thật sự gắn — nên không thể "bỏ chọn" được nữa.
+  const [attached, setAttached] = useState<AttachedQuestion[]>([]);
+  const [composeFormKey, setComposeFormKey] = useState(0);
 
   useEffect(() => {
     if (!exercise.curriculumId) return;
@@ -237,16 +255,52 @@ function ExerciseQuestionsStep({
     setSelected((prev) => prev.map((s) => (s.question.id === questionId ? { ...s, points } : s)));
   };
 
+  const handleComposeCreated = async (question: QuestionResponse) => {
+    onError(null);
+    try {
+      const points = question.defaultPoints ?? 0;
+      await addExerciseQuestion(exercise.id, { questionId: question.id, displayOrder: attached.length + 1, points });
+      setAttached((prev) => [...prev, { id: question.id, content: question.content, points }]);
+      setComposeFormKey((k) => k + 1); // remount QuestionEditorForm rỗng để soạn tiếp câu khác
+    } catch (err) {
+      onError(err instanceof ApiError ? err.message : "Gắn câu hỏi vừa soạn vào đề thất bại.");
+    }
+  };
+
+  const handleImportCompleted = async (createdQuestions: QuestionImportedRow[]) => {
+    onError(null);
+    try {
+      let order = attached.length;
+      const newlyAttached: AttachedQuestion[] = [];
+      for (const q of createdQuestions) {
+        order += 1;
+        await addExerciseQuestion(exercise.id, { questionId: q.id, displayOrder: order, points: q.defaultPoints });
+        newlyAttached.push({ id: q.id, content: q.content, points: q.defaultPoints });
+      }
+      setAttached((prev) => [...prev, ...newlyAttached]);
+    } catch (err) {
+      onError(err instanceof ApiError ? err.message : "Gắn câu hỏi vừa nhập vào đề thất bại.");
+    }
+  };
+
   const handleContinue = async () => {
     onError(null);
-    if (selected.length === 0) {
+    if (selected.length === 0 && attached.length === 0) {
       onError("Cần gắn tối thiểu 1 câu hỏi vào đề.");
+      return;
+    }
+    if (selected.length === 0) {
+      onDone();
       return;
     }
     setSubmitting(true);
     try {
       for (let i = 0; i < selected.length; i++) {
-        await addExerciseQuestion(exercise.id, { questionId: selected[i].question.id, displayOrder: i + 1, points: selected[i].points });
+        await addExerciseQuestion(exercise.id, {
+          questionId: selected[i].question.id,
+          displayOrder: attached.length + i + 1,
+          points: selected[i].points
+        });
       }
       onDone();
     } catch (err) {
@@ -254,6 +308,12 @@ function ExerciseQuestionsStep({
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const modeLabels: Record<QuestionSourceMode, string> = {
+    existing: "Chọn có sẵn",
+    compose: "Soạn câu hỏi mới",
+    import: "Nhập Excel/Word"
   };
 
   return (
@@ -273,69 +333,123 @@ function ExerciseQuestionsStep({
           rồi quay lại đây để chọn.
         </div>
       ) : (
-        <Select
-          value={selectedBankId ?? ""}
-          onChange={(e) => setSelectedBankId(e.target.value ? Number(e.target.value) : null)}
-          className={inputClass}
-        >
-          <option value="">-- Chọn ngân hàng câu hỏi --</option>
-          {banks.map((b) => (
-            <option key={b.id} value={b.id}>
-              {b.code} — {b.name}
-            </option>
-          ))}
-        </Select>
-      )}
+        <>
+          <Select
+            value={selectedBankId ?? ""}
+            onChange={(e) => setSelectedBankId(e.target.value ? Number(e.target.value) : null)}
+            className={inputClass}
+          >
+            <option value="">-- Chọn ngân hàng câu hỏi --</option>
+            {banks.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.code} — {b.name}
+              </option>
+            ))}
+          </Select>
 
-      {selectedBankId && bankQuestions.length > 0 && (
-        <div className="relative">
-          <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400" />
-          <input
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Tìm theo nội dung câu hỏi, mã ID..."
-            className={`${inputClass} pl-8`}
-          />
-        </div>
-      )}
+          <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-lg w-fit">
+            {(Object.keys(modeLabels) as QuestionSourceMode[]).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setMode(m)}
+                className={`text-[11px] font-bold px-3 py-1.5 rounded-md transition-all ${
+                  mode === m ? "bg-white text-brand-red shadow-xs" : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                {modeLabels[m]}
+              </button>
+            ))}
+          </div>
 
-      {selectedBankId && (
-        <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 max-h-56 overflow-y-auto">
-          {bankQuestions.length === 0 ? (
-            <p className="text-xs text-slate-500 p-3">
-              Ngân hàng này chưa có câu hỏi nào.{" "}
-              <Link to="/lms/question-banks" className="text-brand-red font-bold hover:underline">
-                Soạn câu hỏi trước
-              </Link>{" "}
-              rồi quay lại đây.
-            </p>
-          ) : filteredQuestions.length === 0 ? (
-            <p className="text-xs text-slate-400 italic p-3 text-center">Không tìm thấy câu hỏi nào khớp tìm kiếm.</p>
-          ) : (
-            filteredQuestions.map((q) => (
-              <label key={q.id} className="flex items-center gap-2 px-3 py-2 text-xs cursor-pointer hover:bg-slate-50">
-                <input type="checkbox" checked={isSelected(q.id)} onChange={() => toggleQuestion(q)} />
-                <span className="flex-1 truncate">{q.content}</span>
-                <span className="text-[10px] text-slate-400 uppercase">{q.questionType}</span>
-                {isSelected(q.id) && (
+          {mode === "existing" && (
+            <div className="space-y-3">
+              {bankQuestions.length > 0 && (
+                <div className="relative">
+                  <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400" />
                   <input
-                    type="number"
-                    min={0}
-                    value={selected.find((s) => s.question.id === q.id)?.points ?? 0}
-                    onChange={(e) => updatePoints(q.id, Number(e.target.value))}
-                    onClick={(e) => e.stopPropagation()}
-                    className="w-16 bg-white border border-slate-200 text-xs p-1 rounded"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Tìm theo nội dung câu hỏi, mã ID..."
+                    className={`${inputClass} pl-8`}
                   />
+                </div>
+              )}
+
+              <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 max-h-56 overflow-y-auto">
+                {!selectedBankId ? (
+                  <p className="text-xs text-slate-400 italic p-3 text-center">Chọn 1 ngân hàng câu hỏi ở trên.</p>
+                ) : bankQuestions.length === 0 ? (
+                  <p className="text-xs text-slate-500 p-3">
+                    Ngân hàng này chưa có câu hỏi nào.{" "}
+                    <Link to="/lms/question-banks" className="text-brand-red font-bold hover:underline">
+                      Soạn câu hỏi trước
+                    </Link>{" "}
+                    rồi quay lại đây, hoặc chuyển sang tab "Soạn câu hỏi mới"/"Nhập Excel/Word" ở trên.
+                  </p>
+                ) : filteredQuestions.length === 0 ? (
+                  <p className="text-xs text-slate-400 italic p-3 text-center">Không tìm thấy câu hỏi nào khớp tìm kiếm.</p>
+                ) : (
+                  filteredQuestions.map((q) => (
+                    <label key={q.id} className="flex items-center gap-2 px-3 py-2 text-xs cursor-pointer hover:bg-slate-50">
+                      <input type="checkbox" checked={isSelected(q.id)} onChange={() => toggleQuestion(q)} />
+                      <span className="flex-1 truncate">{q.content}</span>
+                      <span className="text-[10px] text-slate-400 uppercase">{q.questionType}</span>
+                      {isSelected(q.id) && (
+                        <input
+                          type="number"
+                          min={0}
+                          value={selected.find((s) => s.question.id === q.id)?.points ?? 0}
+                          onChange={(e) => updatePoints(q.id, Number(e.target.value))}
+                          onClick={(e) => e.stopPropagation()}
+                          className="w-16 bg-white border border-slate-200 text-xs p-1 rounded"
+                        />
+                      )}
+                    </label>
+                  ))
                 )}
-              </label>
-            ))
+              </div>
+            </div>
           )}
+
+          {mode === "compose" &&
+            (selectedBankId ? (
+              <QuestionEditorForm
+                key={composeFormKey}
+                questionBankId={selectedBankId}
+                onCreated={handleComposeCreated}
+                onCancel={() => setMode("existing")}
+              />
+            ) : (
+              <p className="text-xs text-slate-400 italic p-3 text-center">Chọn 1 ngân hàng câu hỏi ở trên để soạn câu hỏi mới.</p>
+            ))}
+
+          {mode === "import" &&
+            (selectedBankId ? (
+              <QuestionImportPanel bankId={selectedBankId} onImported={handleImportCompleted} />
+            ) : (
+              <p className="text-xs text-slate-400 italic p-3 text-center">Chọn 1 ngân hàng câu hỏi ở trên để nhập hàng loạt.</p>
+            ))}
+        </>
+      )}
+
+      {attached.length > 0 && (
+        <div className="border border-emerald-100 bg-emerald-50/50 rounded-lg divide-y divide-emerald-100 max-h-40 overflow-y-auto">
+          <div className="px-3 py-1.5 text-[10px] font-bold text-emerald-700 uppercase">Đã gắn vào đề (soạn mới/nhập file)</div>
+          {attached.map((a) => (
+            <div key={a.id} className="px-3 py-1.5 text-xs flex items-center justify-between gap-2">
+              <span className="flex-1 truncate">{a.content}</span>
+              <span className="text-[10px] text-slate-500 shrink-0">{a.points} đ</span>
+            </div>
+          ))}
         </div>
       )}
 
       <div className="flex justify-between items-center pt-2">
-        <span className="text-[11px] text-slate-500">Đã chọn: {selected.length} câu</span>
-        <Button type="button" variant="primary" size="sm" onClick={handleContinue} disabled={submitting || selected.length === 0}>
+        <span className="text-[11px] text-slate-500">
+          Đã gắn vào đề: {selected.length + attached.length} câu
+        </span>
+        <Button type="button" variant="primary" size="sm" onClick={handleContinue} disabled={submitting || selected.length + attached.length === 0}>
           {submitting ? "Đang lưu..." : "Tiếp tục — chọn hạn nộp"}
         </Button>
       </div>

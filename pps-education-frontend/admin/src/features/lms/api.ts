@@ -1,4 +1,4 @@
-import { apiRequest } from "@/lib/apiClient";
+import { apiRequest, apiRequestBlob } from "@/lib/apiClient";
 
 /**
  * Khớp MediaModule thật của backend — mỗi module quy định content-type/size limit riêng
@@ -153,6 +153,42 @@ export function getQuestion(id: number): Promise<QuestionResponse> {
  */
 export function createQuestion(request: CreateQuestionRequest): Promise<QuestionResponse> {
   return apiRequest<QuestionResponse>("/questions", { method: "POST", body: JSON.stringify(request) });
+}
+
+// ===================== Soạn đề nhanh: import Excel/Word (UC-40, bổ sung ngoài SDD gốc) =====================
+
+export interface QuestionImportedRow {
+  id: number;
+  content: string;
+  defaultPoints: number;
+}
+
+export interface QuestionImportResponse {
+  id: number;
+  sourceFileName: string;
+  totalRows: number | null;
+  successRows: number;
+  failedRows: number;
+  status: string;
+  errorSummary: { row: number; reason: string }[];
+  createdQuestions: QuestionImportedRow[];
+}
+
+/**
+ * UC-40 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30):
+ * soạn đề nhanh — nhập hàng loạt câu hỏi vào 1 ngân hàng qua file .xlsx
+ * hoặc .docx theo mẫu cứng (xem QuestionImportService — đúng 5 loại UI mà
+ * QuestionEditorForm hỗ trợ, KHÔNG dùng AI/OCR nhận diện tự do).
+ */
+export function importQuestions(bankId: number, file: File): Promise<QuestionImportResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return apiRequest<QuestionImportResponse>(`/question-banks/${bankId}/questions/import`, { method: "POST", body: formData });
+}
+
+/** File mẫu Word (.docx) — sinh ở backend (không cá nhân hoá theo bank, dùng chung cho mọi ngân hàng). Mẫu Excel dựng client-side, xem QuestionImportPanel.tsx. */
+export function downloadQuestionImportWordTemplate(): Promise<Blob> {
+  return apiRequestBlob("/question-imports/template.docx");
 }
 
 // ===================== Đề (Exercise) — UC-40 bước 2-4 =====================
