@@ -58,6 +58,20 @@ export default function ClassDetailPanel({ schoolClass, onChanged }: ClassDetail
   // SITE_MANAGER thấy được tab "Sổ điểm" (đủ quyền quản trị lớp) nhưng KHÔNG được tự nhập/sửa điểm
   // thay giáo viên ở đây — chỉ xem, khớp đúng hành vi readOnly đã có sẵn ở trang Sổ điểm hệ thống cũ.
   const isSiteManagerRole = currentUser?.roleCodes?.includes(UserRole.SITE_MANAGER) ?? false;
+  // TEACHER cũng có sẵn academic.class.manage (dùng chung cho các thao tác khác trong tab này) nhưng
+  // KHÔNG được tự xếp/sinh/nhập lịch buổi học (việc này thuộc Trưởng phòng đào tạo/Nhân viên/Quản trị
+  // viên) — ẩn riêng 3 nút ở tab "Buổi học & Điểm danh", không đụng canManage dùng chung cho các tab
+  // khác (đã xác nhận với người dùng 2026-07-30).
+  // Dùng allow-list (role NÀO được thấy) thay vì loại trừ theo "có role TEACHER" — tài khoản test
+  // "superadmin" được gán CẢ 8 role (kể cả TEACHER) để test full quyền, loại trừ theo TEACHER sẽ ẩn
+  // luôn cả tài khoản này dù nó cũng có SYS_ADMIN/HEAD_ACADEMIC (phát hiện qua QA 2026-07-30). Theo DB
+  // role_permissions, academic.class.manage hiện gán cho đúng 3 role: HEAD_ACADEMIC/STAFF/TEACHER —
+  // chỉ 2 role đầu (+ SYS_ADMIN, luôn coi là đủ quyền quản trị) được thấy nút xếp lịch.
+  const canScheduleAdminRole =
+    (currentUser?.roleCodes?.includes(UserRole.HEAD_ACADEMIC) ||
+      currentUser?.roleCodes?.includes(UserRole.STAFF) ||
+      currentUser?.roleCodes?.includes(UserRole.SYS_ADMIN)) ??
+    false;
   const { message: toastMessage, showToast } = useToast();
 
   return (
@@ -111,7 +125,15 @@ export default function ClassDetailPanel({ schoolClass, onChanged }: ClassDetail
             showToast={showToast}
           />
         )}
-        {tab === "sessions" && <SessionsTab classId={schoolClass.id} siteId={schoolClass.siteId} canManage={canManage} showToast={showToast} />}
+        {tab === "sessions" && (
+          <SessionsTab
+            classId={schoolClass.id}
+            siteId={schoolClass.siteId}
+            canManage={canManage}
+            canCreateSessions={canManage && canScheduleAdminRole}
+            showToast={showToast}
+          />
+        )}
         {tab === "grades" && <ClassGradeSheetPanel classId={schoolClass.id} curriculumId={schoolClass.curriculumId} readOnly={isSiteManagerRole} />}
       </div>
 
@@ -410,7 +432,7 @@ function StudentsTab({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <span className="text-[10px] font-bold uppercase text-slate-500">Học sinh đã ghi danh ({enrollments.length})</span>
-        {canManage && !enrolling && (
+        {canManage && (
           <Button size="sm" variant="secondary" onClick={() => setEnrolling(true)}>
             <UserPlus className="w-3.5 h-3.5" />
             Ghi danh học sinh
@@ -449,7 +471,7 @@ function StudentsTab({
         </div>
       )}
 
-      {enrolling && (
+      <Modal open={enrolling} onClose={() => setEnrolling(false)} title="Ghi danh học sinh" size="lg">
         <EnrollStudentForm
           classId={classId}
           siteId={siteId}
@@ -462,7 +484,7 @@ function StudentsTab({
           }}
           onCancel={() => setEnrolling(false)}
         />
-      )}
+      </Modal>
 
       {viewingEnrollment && (
         <StudentInfoModal
@@ -644,11 +666,13 @@ function SessionsTab({
   classId,
   siteId,
   canManage,
+  canCreateSessions,
   showToast
 }: {
   classId: number;
   siteId: number;
   canManage: boolean;
+  canCreateSessions: boolean;
   showToast: (msg: string) => void;
 }) {
   const navigate = useNavigate();
@@ -693,7 +717,7 @@ function SessionsTab({
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <span className="text-[10px] font-bold uppercase text-slate-500">Buổi học ({sessions.length})</span>
-        {canManage && (
+        {canCreateSessions && (
           <div className="flex items-center gap-1.5">
             <Button size="sm" variant="secondary" onClick={() => setCreating("single")}>
               <UserPlus className="w-3.5 h-3.5" />
