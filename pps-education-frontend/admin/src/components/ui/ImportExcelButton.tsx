@@ -14,6 +14,7 @@ export interface ImportCredentialRow {
   row: number;
   username: string;
   temporaryPassword: string;
+  fullName?: string;
 }
 
 export interface ImportResultLike {
@@ -28,23 +29,54 @@ export interface ImportResultLike {
 interface ImportExcelButtonProps {
   title: string;
   templateFileName: string;
-  templateHeaders: string[];
+  /** Bỏ qua nếu truyền {@link fetchTemplate} — chỉ dùng khi dựng mẫu client-side. */
+  templateHeaders?: string[];
   templateSampleRow?: string[];
+  /**
+   * Tải mẫu THẬT từ backend thay vì tự dựng ở FE — bắt buộc dùng khi backend
+   * đọc file theo VỊ TRÍ CỘT CỐ ĐỊNH (VD Student/Parent/Employee batch
+   * import): mẫu tự dựng ở FE dễ lệch cột so với backend nếu 2 bên sửa
+   * không đồng bộ (đã xảy ra thật với Student/Parent — thiếu cột Username,
+   * 2026-07-30) — dùng fetchTemplate để mẫu LUÔN khớp đúng những gì backend
+   * đọc, không cần đồng bộ tay 2 nơi nữa.
+   */
+  fetchTemplate?: () => Promise<Blob>;
   uploadFn: (file: File) => Promise<ImportResultLike>;
+  /**
+   * Xuất file Excel danh sách tài khoản (username + mật khẩu tạm) vừa tạo
+   * qua import — chỉ hiện nút khi có, dùng cho các import tạo tài khoản mới
+   * (Student/Parent/Employee). Backend không lưu mật khẩu plaintext nên FE
+   * phải gửi lại nguyên `result.generatedCredentials` vừa nhận.
+   */
+  exportAccounts?: (accounts: { username: string; temporaryPassword: string; fullName?: string }[]) => Promise<Blob>;
+  accountsExportFileName?: string;
   onImported?: () => void;
 }
 
 /**
- * Nút Import Excel dùng chung — tải mẫu (.xlsx tự dựng, không dùng thư viện
- * đọc/ghi Excel ngoài vì bản trên npm đều có lỗ hổng chưa vá), chọn file,
- * gọi thẳng API import thật (BE tự parse), hiển thị kết quả từng dòng.
+ * Nút Import Excel dùng chung — tải mẫu (mặc định .xlsx tự dựng client-side,
+ * không dùng thư viện đọc/ghi Excel ngoài vì bản trên npm đều có lỗ hổng
+ * chưa vá — hoặc tải mẫu thật từ backend qua `fetchTemplate`, xem Javadoc
+ * prop), chọn file, gọi thẳng API import thật (BE tự parse), hiển thị kết
+ * quả từng dòng + tùy chọn tải lại danh sách tài khoản vừa tạo.
  * Không có bước "preview nội dung file trước khi gửi" — đã xác nhận với
  * người dùng đánh đổi lấy việc không phải thêm dependency rủi ro.
  */
-export default function ImportExcelButton({ title, templateFileName, templateHeaders, templateSampleRow, uploadFn, onImported }: ImportExcelButtonProps) {
+export default function ImportExcelButton({
+  title,
+  templateFileName,
+  templateHeaders,
+  templateSampleRow,
+  fetchTemplate,
+  uploadFn,
+  exportAccounts,
+  accountsExportFileName,
+  onImported
+}: ImportExcelButtonProps) {
   const [open, setOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [downloadingTemplate, setDownloadingTemplate] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ImportResultLike | null>(null);
 
@@ -59,9 +91,35 @@ export default function ImportExcelButton({ title, templateFileName, templateHea
     reset();
   };
 
-  const handleDownloadTemplate = () => {
-    const blob = buildXlsxTemplateBlob(templateHeaders, templateSampleRow ? [templateSampleRow] : []);
-    downloadBlob(blob, templateFileName);
+  const handleDownloadTemplate = async () => {
+    setError(null);
+    if (!fetchTemplate) {
+      const blob = buildXlsxTemplateBlob(templateHeaders ?? [], templateSampleRow ? [templateSampleRow] : []);
+      downloadBlob(blob, templateFileName);
+      return;
+    }
+    setDownloadingTemplate(true);
+    try {
+      const blob = await fetchTemplate();
+      downloadBlob(blob, templateFileName);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Tải file mẫu thất bại.");
+    } finally {
+      setDownloadingTemplate(false);
+    }
+  };
+
+  const handleDownloadAccounts = async () => {
+    if (!exportAccounts || !result?.generatedCredentials?.length) return;
+    setError(null);
+    try {
+      const blob = await exportAccounts(
+        result.generatedCredentials.map((c) => ({ username: c.username, temporaryPassword: c.temporaryPassword, fullName: c.fullName }))
+      );
+      downloadBlob(blob, accountsExportFileName ?? "tai-khoan.xlsx");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Tải danh sách tài khoản thất bại.");
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -104,10 +162,11 @@ export default function ImportExcelButton({ title, templateFileName, templateHea
             <button
               type="button"
               onClick={handleDownloadTemplate}
-              className="w-full flex items-center justify-center gap-2 border border-dashed border-slate-300 rounded-lg py-3 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+              disabled={downloadingTemplate}
+              className="w-full flex items-center justify-center gap-2 border border-dashed border-slate-300 rounded-lg py-3 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
             >
               <Download className="w-4 h-4" />
-              Tải file mẫu (.xlsx)
+              {downloadingTemplate ? "Đang tải..." : "Tải file mẫu (.xlsx)"}
             </button>
 
             <div>
@@ -155,8 +214,18 @@ export default function ImportExcelButton({ title, templateFileName, templateHea
 
                 {result.generatedCredentials && result.generatedCredentials.length > 0 && (
                   <div className="border border-amber-200 rounded-lg overflow-hidden">
-                    <div className="bg-amber-50 px-3 py-1.5 text-[10px] font-bold text-amber-700 uppercase">
-                      Mật khẩu tạm — chỉ hiển thị 1 lần, lưu lại ngay
+                    <div className="bg-amber-50 px-3 py-1.5 text-[10px] font-bold text-amber-700 uppercase flex items-center justify-between gap-2">
+                      <span>Mật khẩu tạm — chỉ hiển thị 1 lần, lưu lại ngay</span>
+                      {exportAccounts && (
+                        <button
+                          type="button"
+                          onClick={handleDownloadAccounts}
+                          className="normal-case font-bold text-amber-800 hover:underline flex items-center gap-1 shrink-0"
+                        >
+                          <Download className="w-3 h-3" />
+                          Tải danh sách (.xlsx)
+                        </button>
+                      )}
                     </div>
                     <div className="max-h-48 overflow-y-auto divide-y divide-slate-100">
                       {result.generatedCredentials.map((c, i) => (

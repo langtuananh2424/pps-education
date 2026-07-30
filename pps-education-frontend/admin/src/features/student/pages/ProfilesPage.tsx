@@ -3,15 +3,12 @@ import { GraduationCap } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import ImportExcelButton from "@/components/ui/ImportExcelButton";
-import { importStudents, listStudents, StudentResponse } from "../api";
+import { downloadStudentImportTemplate, exportStudentAccounts, importStudents, listStudents, StudentResponse } from "../api";
 import StudentListPanel from "../components/StudentListPanel";
 import StudentDetailPanel from "../components/StudentDetailPanel";
 import StudentFormModal from "../components/StudentFormModal";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
-
-const STUDENT_IMPORT_HEADERS = ["Họ và tên *", "Ngày sinh (dd/MM/yyyy)", "Giới tính (Nam/Nữ/Khác)", "Trường đang học", "Lớp đang học", "Mã lớp PPS *", "Mã học sinh *"];
-const STUDENT_IMPORT_SAMPLE = ["Nguyễn Văn A", "01/01/2015", "Nam", "TH Kim Đồng", "5A", "TA-501", "HS-0001"];
 
 export default function ProfilesPage() {
   const { selectedCampusId } = useApp();
@@ -51,9 +48,10 @@ export default function ProfilesPage() {
         <ImportExcelButton
           title="Nhập học sinh theo lô (UC-35)"
           templateFileName="mau-import-hoc-sinh.xlsx"
-          templateHeaders={STUDENT_IMPORT_HEADERS}
-          templateSampleRow={STUDENT_IMPORT_SAMPLE}
+          fetchTemplate={downloadStudentImportTemplate}
           uploadFn={importStudents}
+          exportAccounts={exportStudentAccounts}
+          accountsExportFileName="tai-khoan-hoc-sinh.xlsx"
           onImported={load}
         />
       </div>
