@@ -10,6 +10,7 @@ import {
   Search,
   Sparkles,
   Type as TypeIcon,
+  UploadCloud,
   Volume2,
   X
 } from "lucide-react";
@@ -25,6 +26,7 @@ import {
   listQuestions
 } from "../api";
 import QuestionEditorForm from "../components/QuestionEditorForm";
+import QuestionImportPanel from "../components/QuestionImportPanel";
 import Button from "@/components/ui/Button";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
@@ -75,6 +77,7 @@ export default function QuestionBankPage() {
 
   const [selectedQuestionId, setSelectedQuestionId] = useState<number | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [editingRow, setEditingRow] = useState<FlatQuestionRow | null>(null);
   const { message: toastMessage, showToast } = useToast();
 
@@ -138,10 +141,16 @@ export default function QuestionBankPage() {
           </p>
         </div>
         {canManage && (
-          <Button variant="primary" size="sm" onClick={() => setShowCreateModal(true)}>
-            <Plus className="w-3.5 h-3.5" />
-            Thêm câu hỏi mới
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" size="sm" onClick={() => setShowImportModal(true)}>
+              <UploadCloud className="w-3.5 h-3.5" />
+              Nhập câu hỏi hàng loạt
+            </Button>
+            <Button variant="primary" size="sm" onClick={() => setShowCreateModal(true)}>
+              <Plus className="w-3.5 h-3.5" />
+              Thêm câu hỏi mới
+            </Button>
+          </div>
         )}
       </div>
 
@@ -332,6 +341,16 @@ export default function QuestionBankPage() {
             upsertRow(question, bank, curriculum);
             setShowCreateModal(false);
             showToast("Đã tạo câu hỏi thành công!");
+          }}
+        />
+      )}
+
+      {showImportModal && (
+        <ImportQuestionsModal
+          onClose={() => setShowImportModal(false)}
+          onImported={(count) => {
+            loadAll();
+            showToast(`Đã nhập ${count} câu hỏi thành công!`);
           }}
         />
       )}
@@ -562,6 +581,91 @@ function CreateQuestionModal({
             <QuestionEditorForm questionBankId={bankId} onCreated={(q) => onCreated(q, bank, curriculum)} onCancel={onClose} />
           ) : (
             <p className="text-xs text-slate-400 italic py-4 text-center">Chọn hoặc tạo 1 ngân hàng để bắt đầu soạn câu hỏi.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * UC-40 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30):
+ * soạn đề nhanh — chọn 1 ngân hàng rồi nhập hàng loạt qua Excel/Word, xem
+ * QuestionImportPanel.tsx. Chọn khung chương trình/ngân hàng giống hệt
+ * CreateQuestionModal ở trên (không tách chung vì mỗi modal cần callback
+ * khác nhau khi hoàn tất).
+ */
+function ImportQuestionsModal({ onClose, onImported }: { onClose: () => void; onImported: (count: number) => void }) {
+  const [curriculums, setCurriculums] = useState<CurriculumResponse[]>([]);
+  const [curriculumId, setCurriculumId] = useState<number | null>(null);
+  const [banks, setBanks] = useState<QuestionBankResponse[]>([]);
+  const [bankId, setBankId] = useState<number | null>(null);
+
+  useEffect(() => {
+    listCurriculums().then((res) => {
+      setCurriculums(res);
+      if (res.length > 0) setCurriculumId(res[0].id);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!curriculumId) return;
+    listQuestionBanksByCurriculum(curriculumId).then((res) => {
+      setBanks(res);
+      setBankId(res.length > 0 ? res[0].id : null);
+    });
+  }, [curriculumId]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs" onClick={onClose} />
+      <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl border border-slate-200 shadow-xl">
+        <div className="sticky top-0 bg-white px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+          <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+            <Database className="w-4 h-4 text-brand-red" />
+            Nhập câu hỏi hàng loạt (UC-40)
+          </h3>
+          <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="p-6 space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Khung chương trình</label>
+              <Select
+                value={curriculumId ?? ""}
+                onChange={(e) => setCurriculumId(e.target.value ? Number(e.target.value) : null)}
+                className="w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
+              >
+                {curriculums.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.code} — {c.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Ngân hàng</label>
+              <Select
+                value={bankId ?? ""}
+                onChange={(e) => setBankId(e.target.value ? Number(e.target.value) : null)}
+                className="w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
+              >
+                <option value="">-- Chọn --</option>
+                {banks.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          </div>
+
+          {bankId ? (
+            <QuestionImportPanel bankId={bankId} onImported={(created) => onImported(created.length)} />
+          ) : (
+            <p className="text-xs text-slate-400 italic py-4 text-center">Chọn 1 ngân hàng để bắt đầu nhập câu hỏi.</p>
           )}
         </div>
       </div>

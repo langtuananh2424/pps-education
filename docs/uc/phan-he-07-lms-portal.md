@@ -939,6 +939,48 @@ UC-40: Soạn & giao đề kiểm tra
 > video/audio, từ chối PDF/Word/Excel/PowerPoint). Key R2 tương ứng:
 > `lms/curriculum-documents/{category}/` và `lms/review-videos/{category}/`
 > (`category` = `audio`/`images`/`video`/`documents` theo content-type).
+>
+> **Soạn đề nhanh (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+> 2026-07-30):**
+>
+> 1. **FE "Soạn & giao đề" giờ hiện thực đúng Main Flow bước 1** — trước
+>    đây `CreateAndAssignExerciseModal.tsx` chỉ cho chọn câu hỏi có sẵn từ
+>    ngân hàng. Bước "Soạn đề" giờ có 3 nguồn (tab), tất cả đều tự tạo câu
+>    hỏi vào ngân hàng TRƯỚC rồi mới gắn vào đề (`exercise_questions`) —
+>    khớp đúng Main Flow bước 1: *"cả 2 [nguồn có sẵn/soạn mới] đều được
+>    lưu vào ngân hàng câu hỏi"*:
+>    - **Chọn có sẵn** — hành vi cũ, không đổi.
+>    - **Soạn câu hỏi mới** — nhúng thẳng `QuestionEditorForm` (form soạn
+>      tay đã có sẵn ở trang Ngân hàng câu hỏi); mỗi câu tạo xong tự động
+>      gọi API gắn vào đề đang soạn ngay lập tức.
+>    - **Nhập Excel/Word** — xem mục 2.
+> 2. **Import hàng loạt câu hỏi qua file mẫu** (`QuestionImportService`,
+>    `QuestionImportController` — `POST /api/question-banks/{bankId}/
+>    questions/import`) — dùng cả ở trang Ngân hàng câu hỏi (import độc
+>    lập vào 1 bank) lẫn trong bước Soạn đề (import rồi tự gắn luôn vào đề
+>    đang soạn). Hỗ trợ 2 định dạng, mẫu CỨNG (không AI/OCR nhận diện tự
+>    do — đã đánh giá đổi lấy độ chính xác, tránh sai sót khó kiểm soát):
+>    - `.xlsx` — cột cố định vị trí A→N (Loại câu hỏi/Độ khó/Nội dung/
+>      Đáp án A-D/Đáp án đúng/URL Audio/URL Hình ảnh/Transcript-Từ khóa
+>      phát âm/Điểm/Giải thích/Tags). Mẫu dựng client-side (không endpoint
+>      backend), theo đúng tiền lệ `ImportExcelButton.tsx`/
+>      `GradeExcelImportPanel.tsx` (tránh phụ thuộc thư viện đọc/ghi Excel
+>      ngoài có lỗ hổng chưa vá).
+>    - `.docx` — mỗi câu hỏi 1 block, các block cách nhau 1 dòng `---`,
+>      dòng đầu block dạng `[LOAI_CAU_HOI]`, các dòng sau `Nhãn: giá trị`
+>      (so khớp không phân biệt hoa/thường/dấu) hoặc `A.`-`D.` cho đáp án.
+>      Mẫu sinh ở backend bằng Apache POI (`GET /api/question-imports/
+>      template.docx`, `QuestionImportService.buildWordTemplate()`).
+>    - Phạm vi loại câu hỏi: CHỈ 5 loại UI mà `QuestionEditorForm.tsx` hỗ
+>      trợ (`TRAC_NGHIEM`/`TRAC_NGHIEM_VOICE`/`DIEN_TU`/`TU_LUAN`/
+>      `SPEAKING`) — KHÔNG mở rộng sang `TRUE_FALSE`/`MULTIPLE_ANSWER` dù
+>      `Question.QuestionType` có 6 giá trị, để câu hỏi tạo qua import
+>      luôn sửa lại được bằng form tay sẵn có.
+>    - Lỗi từng dòng/block không chặn phần còn lại của file (mirror UC-53
+>      Nhập điểm qua Excel); file đọc hỏng hoàn toàn → job `FAILED` ngay.
+>      Dùng chung bảng `import_jobs` (`ImportJob.ImportType.QUESTIONS`,
+>      không cần migration — cột `import_type` là `VARCHAR` tự do).
+>    - Quyền: dùng chung `lms.question-bank.create` (không có quyền mới).
 
 ---
 
