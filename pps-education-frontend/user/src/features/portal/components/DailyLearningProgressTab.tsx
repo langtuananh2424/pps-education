@@ -343,7 +343,7 @@ export default function DailyLearningProgressTab({ studentName, studentCode, cla
           <div className="flex items-center gap-2">
             <h2 className="text-lg md:text-xl font-black text-ink font-display">Bảng Tổng Quan Nhật Ký Học Tập</h2>
             <span className="px-2.5 py-0.5 rounded-full bg-teal/10 text-teal text-xs font-bold border border-teal/20">
-              {parentStudentId != null ? "Phụ Huynh Theo Dõi" : "UC-21"}
+              {parentStudentId != null ? "Phụ Huynh Theo Dõi" : "-"}
             </span>
           </div>
           <p className="text-xs text-muted font-bold mt-1">
