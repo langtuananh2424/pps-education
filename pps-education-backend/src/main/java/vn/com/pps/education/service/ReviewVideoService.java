@@ -5,7 +5,9 @@ import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.ClassEnrollment;
 import vn.com.pps.education.domain.Curriculum;
 import vn.com.pps.education.domain.CurriculumSubject;
+import vn.com.pps.education.domain.Notification;
 import vn.com.pps.education.domain.ReviewVideo;
+import vn.com.pps.education.domain.ReviewVideoAssignment;
 import vn.com.pps.education.domain.ReviewVideoProgress;
 import vn.com.pps.education.domain.ReviewVideoQuestion;
 import vn.com.pps.education.domain.ReviewVideoQuestionSubmission;
@@ -37,6 +39,7 @@ import vn.com.pps.education.repository.ClassEnrollmentRepository;
 import vn.com.pps.education.repository.ClassTeacherRepository;
 import vn.com.pps.education.repository.CurriculumRepository;
 import vn.com.pps.education.repository.CurriculumSubjectRepository;
+import vn.com.pps.education.repository.ReviewVideoAssignmentRepository;
 import vn.com.pps.education.repository.ReviewVideoProgressRepository;
 import vn.com.pps.education.repository.ReviewVideoQuestionRepository;
 import vn.com.pps.education.repository.ReviewVideoQuestionSubmissionRepository;
@@ -50,9 +53,11 @@ import vn.com.pps.education.repository.UserRepository;
 
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -70,6 +75,15 @@ import java.util.stream.Collectors;
  * MediaStorageService module REVIEW_VIDEO) hoặc là link YouTube — Service
  * chỉ nhận URL + thời lượng (giây) đã có sẵn, không tự làm multipart
  * upload, không tự dò thời lượng (FE tự phát hiện trước khi gọi API).
+ *
+ * V65 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30):
+ * Publish (status=PUBLISHED) giờ chỉ đánh dấu bộ "đủ điều kiện dùng làm
+ * nguồn" — KHÔNG còn tự động cho học sinh xem ngay (áp dụng cho CẢ
+ * CONNECTION lẫn REFLEX). Học sinh chỉ xem được khi có
+ * {@link ReviewVideoAssignment} ACTIVE giao cho lớp mình — tạo qua
+ * {@code deliverToClass}, gọi TỪ StudentCommentService khi Giáo viên chọn
+ * bộ này làm "BTVN buổi sau" ở Nhận xét (UC-21), không còn tự phát sinh
+ * từ hành động publish nữa.
  */
 @Service
 public class ReviewVideoService {
@@ -81,6 +95,7 @@ public class ReviewVideoService {
     private final ReviewVideoQuestionRepository reviewVideoQuestionRepository;
     private final ReviewVideoQuestionSubmissionRepository reviewVideoQuestionSubmissionRepository;
     private final ReviewVideoWatchSessionRepository reviewVideoWatchSessionRepository;
+    private final ReviewVideoAssignmentRepository reviewVideoAssignmentRepository;
     private final CurriculumRepository curriculumRepository;
     private final SchoolClassRepository schoolClassRepository;
     private final CurriculumSubjectRepository curriculumSubjectRepository;
@@ -88,6 +103,7 @@ public class ReviewVideoService {
     private final ClassEnrollmentRepository classEnrollmentRepository;
     private final StudentRepository studentRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     public ReviewVideoService(ReviewVideoSetRepository reviewVideoSetRepository,
                                ReviewVideoRepository reviewVideoRepository,
@@ -96,13 +112,15 @@ public class ReviewVideoService {
                                ReviewVideoQuestionRepository reviewVideoQuestionRepository,
                                ReviewVideoQuestionSubmissionRepository reviewVideoQuestionSubmissionRepository,
                                ReviewVideoWatchSessionRepository reviewVideoWatchSessionRepository,
+                               ReviewVideoAssignmentRepository reviewVideoAssignmentRepository,
                                CurriculumRepository curriculumRepository,
                                SchoolClassRepository schoolClassRepository,
                                CurriculumSubjectRepository curriculumSubjectRepository,
                                ClassTeacherRepository classTeacherRepository,
                                ClassEnrollmentRepository classEnrollmentRepository,
                                StudentRepository studentRepository,
-                               UserRepository userRepository) {
+                               UserRepository userRepository,
+                               NotificationService notificationService) {
         this.reviewVideoSetRepository = reviewVideoSetRepository;
         this.reviewVideoRepository = reviewVideoRepository;
         this.reviewVideoSetHistoryRepository = reviewVideoSetHistoryRepository;
@@ -110,6 +128,7 @@ public class ReviewVideoService {
         this.reviewVideoQuestionRepository = reviewVideoQuestionRepository;
         this.reviewVideoQuestionSubmissionRepository = reviewVideoQuestionSubmissionRepository;
         this.reviewVideoWatchSessionRepository = reviewVideoWatchSessionRepository;
+        this.reviewVideoAssignmentRepository = reviewVideoAssignmentRepository;
         this.curriculumRepository = curriculumRepository;
         this.schoolClassRepository = schoolClassRepository;
         this.curriculumSubjectRepository = curriculumSubjectRepository;
@@ -117,6 +136,7 @@ public class ReviewVideoService {
         this.classEnrollmentRepository = classEnrollmentRepository;
         this.studentRepository = studentRepository;
         this.userRepository = userRepository;
+        this.notificationService = notificationService;
     }
 
     /** UC-23 Main Flow bước 1: tạo bộ mới (metadata), gán vào khung chương trình hoặc lớp cụ thể. */
@@ -177,31 +197,116 @@ public class ReviewVideoService {
     }
 
     /**
-     * UC-23a: HS trong lớp X xem được bộ riêng lớp X HOẶC bộ dùng chung
-     * theo khung của lớp X (logic OR — copy nguyên văn từ
-     * Lesson.findVisibleForClass, đã có lịch sử sửa 1 bug thật trước đây).
+     * UC-23a: GV xem TẤT CẢ bộ riêng lớp X HOẶC bộ dùng chung theo khung
+     * của lớp X, mọi trạng thái (logic OR — copy nguyên văn từ
+     * Lesson.findVisibleForClass, đã có lịch sử sửa 1 bug thật trước đây)
+     * — để chọn nguồn khi soạn "BTVN buổi sau". HS chỉ thấy bộ đã có
+     * {@link ReviewVideoAssignment} ACTIVE giao cho lớp mình (V65, bổ
+     * sung ngoài SDD gốc, đã xác nhận với người dùng — publish không còn
+     * đồng nghĩa xem được ngay).
      */
     @Transactional(readOnly = true)
     public List<ReviewVideoSetResponse> listByClass(Long classId, Long actorUserId) {
         SchoolClass schoolClass = getClassOrThrow(classId);
-        ReviewVideoSet.Status statusFilter = null;
         if (isStudent(actorUserId)) {
+            Student student = studentRepository.findByUserId(actorUserId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học id=" + classId));
             requireStudentEnrolledInClass(classId, actorUserId);
-            statusFilter = ReviewVideoSet.Status.PUBLISHED;
+            Set<Long> assignedSetIds = assignedSetIdsForStudentInClasses(List.of(classId), student.getId());
+            return reviewVideoSetRepository.findVisibleForClass(classId, schoolClass.getCurriculum().getId(), ReviewVideoSet.Status.PUBLISHED)
+                    .stream().filter(s -> assignedSetIds.contains(s.getId())).map(this::toResponse).toList();
         }
-        return reviewVideoSetRepository.findVisibleForClass(classId, schoolClass.getCurriculum().getId(), statusFilter)
+        return reviewVideoSetRepository.findVisibleForClass(classId, schoolClass.getCurriculum().getId(), null)
                 .stream().map(this::toResponse).toList();
     }
 
+    /** HS xem theo khung chương trình (nhiều lớp có thể học chung 1 khung) — hợp nhất bộ đã giao qua mọi lớp ACTIVE của HS thuộc đúng khung đó. */
     @Transactional(readOnly = true)
     public List<ReviewVideoSetResponse> listByCurriculum(Long curriculumId, Long actorUserId) {
         if (isStudent(actorUserId)) {
+            Student student = studentRepository.findByUserId(actorUserId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy khung chương trình id=" + curriculumId));
             requireStudentEnrolledInCurriculum(curriculumId, actorUserId);
+            List<Long> classIds = classEnrollmentRepository.findByStudentIdAndStatus(student.getId(), ClassEnrollment.Status.ACTIVE)
+                    .stream()
+                    .filter(e -> e.getSchoolClass().getCurriculum() != null
+                            && e.getSchoolClass().getCurriculum().getId().equals(curriculumId))
+                    .map(e -> e.getSchoolClass().getId()).toList();
+            Set<Long> assignedSetIds = assignedSetIdsForStudentInClasses(classIds, student.getId());
             return reviewVideoSetRepository.findByCurriculumIdOrderByDisplayOrder(curriculumId).stream()
-                    .filter(s -> s.getStatus() == ReviewVideoSet.Status.PUBLISHED)
+                    .filter(s -> s.getStatus() == ReviewVideoSet.Status.PUBLISHED && assignedSetIds.contains(s.getId()))
                     .map(this::toResponse).toList();
         }
         return reviewVideoSetRepository.findByCurriculumIdOrderByDisplayOrder(curriculumId).stream().map(this::toResponse).toList();
+    }
+
+    /**
+     * V65 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30):
+     * giao 1 bộ Video Ôn tập (CONNECTION hoặc REFLEX) cho TOÀN BỘ học
+     * sinh ACTIVE của 1 lớp, hạn nộp = tham số dueAt (buổi kế tiếp, tính
+     * ở StudentCommentService). Gọi TỪ StudentCommentService khi Giáo
+     * viên chọn bộ này làm "BTVN buổi sau" — KHÔNG expose qua Controller.
+     * Validate bộ đang PUBLISHED + đúng scope (curriculum/lớp) của lớp
+     * được giao, dùng lại findVisibleForClass để không lặp logic OR.
+     */
+    @Transactional
+    public ReviewVideoAssignment deliverToClass(Long setId, Long classId, OffsetDateTime dueAt, Long actorUserId) {
+        ReviewVideoSet set = getSetOrThrow(setId);
+        if (set.getStatus() != ReviewVideoSet.Status.PUBLISHED) {
+            throw new IllegalArgumentException("Bộ video id=" + setId + " chưa Publish — không giao lớp được.");
+        }
+        requireAssignedTeacher(classId, actorUserId);
+        SchoolClass schoolClass = getClassOrThrow(classId);
+        boolean inScope = reviewVideoSetRepository
+                .findVisibleForClass(classId, schoolClass.getCurriculum().getId(), ReviewVideoSet.Status.PUBLISHED)
+                .stream().anyMatch(s -> s.getId().equals(setId));
+        if (!inScope) {
+            throw new IllegalArgumentException("Bộ video id=" + setId + " không thuộc phạm vi lớp id=" + classId + ".");
+        }
+        User actor = getUserOrThrow(actorUserId);
+
+        ReviewVideoAssignment assignment = new ReviewVideoAssignment();
+        assignment.setReviewVideoSet(set);
+        assignment.setSchoolClass(schoolClass);
+        assignment.setAssignedBy(actor);
+        assignment.setDueAt(dueAt);
+        assignment = reviewVideoAssignmentRepository.save(assignment);
+
+        notifyAssignedStudents(schoolClass, set, assignment);
+        return assignment;
+    }
+
+    /** Hủy 1 bản giao (VD Giáo viên đổi lựa chọn "BTVN buổi sau" ở Nhận xét khi comment còn DRAFT — V65). */
+    @Transactional
+    public void cancelAssignment(ReviewVideoAssignment assignment) {
+        assignment.setStatus(ReviewVideoAssignment.Status.CANCELLED);
+        reviewVideoAssignmentRepository.save(assignment);
+    }
+
+    private void notifyAssignedStudents(SchoolClass schoolClass, ReviewVideoSet set, ReviewVideoAssignment assignment) {
+        List<ClassEnrollment> enrollments = classEnrollmentRepository
+                .findBySchoolClassIdAndStatus(schoolClass.getId(), ClassEnrollment.Status.ACTIVE);
+        String title = "Video ôn tập mới được giao";
+        String content = "Bộ video \"" + set.getTitle() + "\" đã được giao cho lớp " + schoolClass.getName() + ".";
+        for (ClassEnrollment enrollment : enrollments) {
+            notificationService.notify(enrollment.getStudent().getUser().getId(),
+                    Notification.NotificationType.OTHER, title, content,
+                    null, "REVIEW_VIDEO_ASSIGNMENT", assignment.getId(),
+                    Notification.Priority.NORMAL, null);
+        }
+    }
+
+    /** Hợp nhất id các bộ đã giao ACTIVE cho HS qua danh sách lớp (target_student_ids null = cả lớp, hoặc có chứa studentId). */
+    private Set<Long> assignedSetIdsForStudentInClasses(List<Long> classIds, Long studentId) {
+        Set<Long> setIds = new HashSet<>();
+        for (Long classId : classIds) {
+            for (ReviewVideoAssignment a : reviewVideoAssignmentRepository.findBySchoolClassIdAndStatus(classId, ReviewVideoAssignment.Status.ACTIVE)) {
+                if (a.getTargetStudentIds() == null || a.getTargetStudentIds().contains(studentId)) {
+                    setIds.add(a.getReviewVideoSet().getId());
+                }
+            }
+        }
+        return setIds;
     }
 
     /** UC-23 Main Flow bước 2-3: đính kèm 1 video/audio (đã upload CDN hoặc link YouTube) vào bộ. */
@@ -493,10 +598,13 @@ public class ReviewVideoService {
     }
 
     /**
-     * UC-23a: HS chỉ xem/báo tiến độ được bộ PUBLISHED và (đúng lớp mình
-     * học HOẶC đúng khung của lớp mình học). Trả về Student để tái dùng ở
-     * reportProgress (tránh query lại). 404 (không 403) cho mọi trường hợp
-     * không hợp lệ — không lộ sự tồn tại của bộ/video ngoài phạm vi.
+     * V65 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30):
+     * HS chỉ xem/báo tiến độ được bộ đã có {@link ReviewVideoAssignment}
+     * ACTIVE giao cho 1 trong các lớp mình đang học ACTIVE (target_student_ids
+     * null hoặc chứa đúng học sinh này) — publish không còn đồng nghĩa
+     * xem được ngay. Trả về Student để tái dùng ở reportProgress (tránh
+     * query lại). 404 (không 403) cho mọi trường hợp không hợp lệ — không
+     * lộ sự tồn tại của bộ/video ngoài phạm vi.
      */
     private Student requireStudentCanViewSet(ReviewVideoSet set, Long actorUserId) {
         if (set.getStatus() != ReviewVideoSet.Status.PUBLISHED) {
@@ -507,14 +615,12 @@ public class ReviewVideoService {
             throw new ResourceNotFoundException("Không tìm thấy bộ video id=" + set.getId());
         }
         Student student = studentOpt.get();
-        boolean visible;
-        if (set.getSchoolClass() != null) {
-            visible = classEnrollmentRepository.findBySchoolClassIdAndStudentIdAndStatus(
-                    set.getSchoolClass().getId(), student.getId(), ClassEnrollment.Status.ACTIVE).isPresent();
-        } else {
-            visible = classEnrollmentRepository.existsByStudentIdAndSchoolClass_CurriculumIdAndStatus(
-                    student.getId(), set.getCurriculum().getId(), ClassEnrollment.Status.ACTIVE);
-        }
+        List<Long> classIds = classEnrollmentRepository.findByStudentIdAndStatus(student.getId(), ClassEnrollment.Status.ACTIVE)
+                .stream().map(e -> e.getSchoolClass().getId()).toList();
+        boolean visible = classIds.stream().anyMatch(classId ->
+                reviewVideoAssignmentRepository.findByReviewVideoSetIdAndSchoolClassIdAndStatus(
+                                set.getId(), classId, ReviewVideoAssignment.Status.ACTIVE)
+                        .stream().anyMatch(a -> a.getTargetStudentIds() == null || a.getTargetStudentIds().contains(student.getId())));
         if (!visible) {
             throw new ResourceNotFoundException("Không tìm thấy bộ video id=" + set.getId());
         }

@@ -10,7 +10,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import vn.com.pps.education.dto.AddExerciseQuestionRequest;
-import vn.com.pps.education.dto.AssignExerciseRequest;
 import vn.com.pps.education.dto.CreateExerciseRequest;
 import vn.com.pps.education.dto.ExerciseAssignmentResponse;
 import vn.com.pps.education.dto.ExerciseQuestionResponse;
@@ -63,17 +62,11 @@ public class ExerciseController {
         return ResponseEntity.ok(exerciseService.listAssignmentsForClass(classId, actor.userId()));
     }
 
+    /** V65 — Publish giờ chỉ đánh dấu đề "đủ điều kiện dùng làm nguồn", không còn giao lớp (xem Javadoc ExerciseService). */
     @PreAuthorize("hasPermission(null, 'lms.exercise.publish')")
     @PostMapping("/api/exercises/{id}/publish")
     public ResponseEntity<ExerciseResponse> publishExercise(@PathVariable Long id,
                                                               @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(exerciseService.publishExercise(id, actor.userId()));
-    }
-
-    @PostMapping("/api/exercises/{id}/assign")
-    public ResponseEntity<ExerciseAssignmentResponse> assignExercise(@PathVariable Long id,
-                                                                       @Valid @RequestBody AssignExerciseRequest request,
-                                                                       @AuthenticationPrincipal AuthenticatedUser actor) {
-        return ResponseEntity.ok(exerciseService.assignExercise(id, request, actor.userId()));
     }
 }

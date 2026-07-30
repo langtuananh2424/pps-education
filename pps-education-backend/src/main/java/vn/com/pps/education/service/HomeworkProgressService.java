@@ -5,6 +5,7 @@ import vn.com.pps.education.domain.Exercise;
 import vn.com.pps.education.domain.ExerciseAssignment;
 import vn.com.pps.education.domain.ExerciseAttempt;
 import vn.com.pps.education.domain.ReviewVideo;
+import vn.com.pps.education.domain.ReviewVideoAssignment;
 import vn.com.pps.education.domain.ReviewVideoQuestion;
 import vn.com.pps.education.domain.ReviewVideoQuestionSubmission;
 import vn.com.pps.education.domain.ReviewVideoSet;
@@ -69,11 +70,18 @@ public class HomeworkProgressService {
         return percent + "%";
     }
 
-    /** % video ôn tập đã giao — trung bình % từng video trong bộ (watched% cho CONNECTION, score/maxScore cho REFLEX). */
-    public String videoProgressLabel(ReviewVideoSet set, Long studentId) {
-        if (set == null) {
+    /**
+     * % video ôn tập đã giao — trung bình % từng video trong bộ (watched%
+     * cho CONNECTION, score/maxScore cho REFLEX). V65 (bổ sung ngoài SDD
+     * gốc, đã xác nhận với người dùng): nhận {@link ReviewVideoAssignment}
+     * thay vì {@code ReviewVideoSet} trực tiếp — chỉ cần
+     * {@code getReviewVideoSet()} bên trong, cách tính % không đổi.
+     */
+    public String videoProgressLabel(ReviewVideoAssignment assignment, Long studentId) {
+        if (assignment == null) {
             return null;
         }
+        ReviewVideoSet set = assignment.getReviewVideoSet();
         List<ReviewVideo> videos = reviewVideoRepository.findByReviewVideoSetIdOrderByDisplayOrder(set.getId());
         if (videos.isEmpty()) {
             return null;

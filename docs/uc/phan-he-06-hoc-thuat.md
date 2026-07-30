@@ -1200,7 +1200,59 @@ DAILY, Giữa/Cuối kỳ giữ nguyên 100% luồng ở trên)
     exercise.total_points`, video qua `review_video_progress.watched_
     seconds` (CONNECTION) hoặc `review_video_submissions.score/max_score`
     (REFLEX, UC-23b).
--   Excel round-trip theo buổi học: `GET
+-   **Bổ sung V65 (2026-07-30, đã xác nhận với người dùng) — điểm giao
+    bài "Ngữ pháp Online"/"Video Ôn tập" chuyển hẳn từ Soạn & Giao đề
+    (UC-40)/Kho Video Ôn tập (UC-23) sang ĐÂY, đảo ngược thiết kế "theo
+    từng học sinh, không theo cả lớp" của V55 ngay trên:** GV chọn 1
+    `Exercise` (kênh ngữ pháp, field request đổi tên
+    `homework_next_exercise_id` — trỏ THẲNG `exercises.id`, KHÔNG còn trỏ
+    `exercise_assignments.id` như V55) hoặc 1 `ReviewVideoSet` (kênh
+    Video, `homework_next_review_video_set_id`, ý nghĩa không đổi) làm
+    "BTVN buổi sau" cho BẤT KỲ 1 học sinh nào trong 1 buổi DAILY → hệ
+    thống TỰ ĐỘNG tạo bản giao (`ExerciseAssignment`/`ReviewVideoAssignment`
+    mới — bảng `review_video_assignments` mới, mirror
+    `exercise_assignments`) cho TOÀN BỘ học sinh ACTIVE của lớp
+    (`target_student_ids = NULL`), hạn nộp = ngày/giờ buổi học KẾ TIẾP
+    của lớp (tính từ `session_date` của buổi đang nhận xét, không phải
+    "hôm nay" — GV nhập bù buổi cũ vẫn tính đúng). Cột lưu trên
+    `student_comments` đổi tên tương ứng:
+    `homework_next_review_video_set_id` →
+    `homework_next_review_video_assignment_id` (đối xứng với
+    `homework_next_exercise_assignment_id` sẵn có — cả 2 đều trỏ BẢN
+    GIAO, không trỏ nguồn). Hệ quả trực tiếp: "Soạn & Giao đề" (UC-40) bỏ
+    hẳn bước "Giao bài tập" (không còn `classId`/`dueAt`/`targetStudentIds`
+    ở màn đó — xem UC-40 phân hệ 7); "Kho Video Ôn tập" (UC-23) publish
+    "Video phản xạ" không còn tự động hiển thị cho học sinh (xem UC-23
+    phân hệ 7) — cả 2 nơi Publish giờ CHỈ có nghĩa "đủ điều kiện dùng làm
+    nguồn" (hiện trong dropdown ở đây), không còn tác dụng giao bài. 5
+    quy tắc đã chốt cùng đợt:
+    1.  **Xung đột cùng buổi**: mọi dòng DAILY cùng 1 `class_session`
+        phải chọn CÙNG 1 đề/video cho mỗi kênh (độc lập nhau) — dòng đầu
+        tiên khóa lựa chọn, dòng khác chọn khác bị chặn 409
+        (`HomeworkNextConflictException`).
+    2.  **Sửa lựa chọn khi còn DRAFT**: hủy bản giao cũ
+        (`status=CANCELLED`), tạo/gắn bản giao mới NGAY — kể cả khi học
+        sinh đã mở bài dở; KHÔNG cascade sang các dòng comment khác cùng
+        buổi (dòng đó phát hiện lệch và bị chặn 409 khi chính GV lưu lại
+        dòng đó).
+    3.  **Comment bị REJECTED (UC-22)**: KHÔNG ảnh hưởng bài đã giao —
+        giao bài và duyệt nhận xét vẫn hoàn toàn tách biệt như trước.
+    4.  **Lớp chưa có buổi kế tiếp**: chặn hẳn, báo lỗi rõ
+        (`NoUpcomingClassSessionException`) — không cho chọn đề/video làm
+        BTVN buổi sau.
+    5.  **Chỉ áp dụng DAILY**: MID_TERM/END_TERM (gắn `gradePeriod`,
+        không có "buổi kế tiếp") điền 1 trong 2 field này bị chặn ngay
+        (`InvalidCommentContextException`) — phải để trống.
+
+    Kênh Video áp dụng cho CẢ `CONNECTION` lẫn `REFLEX` (không chỉ REFLEX
+    dù tên gọi "Video phản xạ" gợi ý — xem UC-23). Đề/video Publish nhưng
+    chưa từng được chọn: không cần màn theo dõi riêng, chỉ dùng cho
+    dropdown ở đây.
+
+-   Excel round-trip theo buổi học (**V65: dropdown cột Ngữ pháp đổi
+    nguồn từ "bài đã giao sẵn cho lớp" sang mọi `Exercise` loại ASSIGNED
+    đang PUBLISHED trong khung chương trình của lớp — chọn ở đây mới là
+    hành động giao; dropdown cột Video không đổi**): `GET
     /api/class-sessions/{classSessionId}/comments/template` tải file mẫu
     điền sẵn học sinh ACTIVE của lớp (Ngày/Mã học viên/Họ và tên/Điểm
     danh hiện có/nhận xét đã nhập trước đó nếu có) — mở rộng 9→13 cột từ

@@ -134,8 +134,16 @@ public class StudentComment {
 
     /**
      * BTVN ngữ pháp ONLINE giao cho buổi sau — NULL = kênh này đang
-     * OFFLINE (dùng homeworkNext) hoặc không giao gì cho học sinh này.
-     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng — xem V55.
+     * OFFLINE (dùng homeworkNext) hoặc không giao gì. Bổ sung ngoài SDD
+     * gốc, đã xác nhận với người dùng — xem V55.
+     *
+     * V65 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30):
+     * việc set field này giờ là ĐIỂM PHÁT SINH giao bài — chọn 1 Exercise
+     * ở đây khiến {@code StudentCommentService} tự tạo/tái dùng 1
+     * {@link ExerciseAssignment} giao cho TOÀN BỘ học sinh ACTIVE của
+     * lớp (không chỉ học sinh đang được nhận xét — đảo ngược ý "theo từng
+     * học sinh" của V55), hạn nộp = buổi học kế tiếp. Xem
+     * StudentCommentService#resolveExerciseHomework.
      */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "homework_next_exercise_assignment_id")
@@ -143,12 +151,15 @@ public class StudentComment {
 
     /**
      * BTVN Video Ôn tập giao cho buổi sau — luôn ONLINE, NULL = không
-     * giao video cho học sinh này. Bổ sung ngoài SDD gốc, đã xác nhận với
-     * người dùng — xem V55.
+     * giao video. V65 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+     * 2026-07-30): đổi từ trỏ thẳng {@code ReviewVideoSet} (V55) sang trỏ
+     * {@link ReviewVideoAssignment} — cùng cơ chế giao cả lớp + hạn nộp =
+     * buổi kế tiếp như kênh Ngữ pháp ở trên, xem
+     * StudentCommentService#resolveVideoHomework.
      */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "homework_next_review_video_set_id")
-    private ReviewVideoSet homeworkNextReviewVideoSet;
+    @JoinColumn(name = "homework_next_review_video_assignment_id")
+    private ReviewVideoAssignment homeworkNextReviewVideoAssignment;
 
     @Column(columnDefinition = "TEXT")
     private String note;

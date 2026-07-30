@@ -4,13 +4,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
+import vn.com.pps.education.domain.ExerciseAssignment;
 import vn.com.pps.education.domain.Role;
 import vn.com.pps.education.domain.Site;
 import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.domain.UserRole;
 import vn.com.pps.education.dto.AddExerciseQuestionRequest;
-import vn.com.pps.education.dto.AssignExerciseRequest;
 import vn.com.pps.education.dto.AssignTeacherRequest;
 import vn.com.pps.education.dto.ClassResponse;
 import vn.com.pps.education.dto.CreateClassRequest;
@@ -204,7 +204,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void assignExercise_UC40_MainFlow_assignsToClassAndPublishes() {
+    void deliverToClass_UC40_MainFlow_assignsToClassAndPublishes() {
         Student student = enrollStudent();
         QuestionResponse mc = createMcQuestion();
         ExerciseResponse exercise = exerciseService.createExercise(
@@ -213,15 +213,14 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
                 teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("10")), teacher.getId());
 
-        ExerciseAssignmentResponse assignment = exerciseService.assignExercise(exercise.id(),
-                new AssignExerciseRequest(schoolClass.id(), null, null, false, null, null), teacher.getId());
+        ExerciseAssignment assignment = exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId());
 
-        assertThat(assignment.classId()).isEqualTo(schoolClass.id());
+        assertThat(assignment.getSchoolClass().getId()).isEqualTo(schoolClass.id());
         assertThat(exerciseService.getExercise(exercise.id(), teacher.getId()).status()).isEqualTo("PUBLISHED");
     }
 
     @Test
-    void assignExercise_rejectsWhenExerciseIsNotAssignedType() {
+    void deliverToClass_rejectsWhenExerciseIsNotAssignedType() {
         QuestionResponse mc = createMcQuestion();
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Bài tự luyện", activeCurriculum.id(), null, "SELF_PRACTICE",
@@ -229,13 +228,12 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
                 teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("10")), teacher.getId());
 
-        assertThatThrownBy(() -> exerciseService.assignExercise(exercise.id(),
-                new AssignExerciseRequest(schoolClass.id(), null, null, false, null, null), teacher.getId()))
+        assertThatThrownBy(() -> exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId()))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
-    void assignExercise_rejectsWhenActorNotAssignedTeacherForClass() {
+    void deliverToClass_rejectsWhenActorNotAssignedTeacherForClass() {
         User outsider = newUser("outsider.teacher");
         assignRole(outsider, "TEACHER");
         QuestionResponse mc = createMcQuestion();
@@ -245,8 +243,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
                 teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("10")), teacher.getId());
 
-        assertThatThrownBy(() -> exerciseService.assignExercise(exercise.id(),
-                new AssignExerciseRequest(schoolClass.id(), null, null, false, null, null), outsider.getId()))
+        assertThatThrownBy(() -> exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, outsider.getId()))
                 .isInstanceOf(NotAssignedTeacherForClassException.class);
     }
 
@@ -257,8 +254,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
                 new CreateExerciseRequest(exerciseCode(), "Kiểm tra", activeCurriculum.id(), null, "ASSIGNED",
                         new BigDecimal("10"), null, false, 1, true), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("10")), teacher.getId());
-        exerciseService.assignExercise(exercise.id(),
-                new AssignExerciseRequest(schoolClass.id(), null, null, false, null, null), teacher.getId());
+        exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId());
 
         List<ExerciseAssignmentResponse> assignments = exerciseService.listAssignmentsForClass(schoolClass.id(), teacher.getId());
 
@@ -282,7 +278,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
                 new CreateExerciseRequest(exerciseCode(), "Kiểm tra", activeCurriculum.id(), null, "ASSIGNED",
                         new BigDecimal("10"), null, false, 1, true), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("10")), teacher.getId());
-        // chưa gọi assignExercise cho lớp của student -> chưa được giao
+        // chưa gọi deliverToClass cho lớp của student -> chưa được giao
 
         assertThatThrownBy(() -> exerciseService.getExercise(exercise.id(), student.getUser().getId()))
                 .isInstanceOf(ResourceNotFoundException.class);
@@ -298,8 +294,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
                 new CreateExerciseRequest(exerciseCode(), "Kiểm tra", activeCurriculum.id(), null, "ASSIGNED",
                         new BigDecimal("10"), null, false, 1, true), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("10")), teacher.getId());
-        exerciseService.assignExercise(exercise.id(),
-                new AssignExerciseRequest(schoolClass.id(), null, null, false, null, null), teacher.getId());
+        exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId());
 
         ExerciseResponse viewed = exerciseService.getExercise(exercise.id(), student.getUser().getId());
 

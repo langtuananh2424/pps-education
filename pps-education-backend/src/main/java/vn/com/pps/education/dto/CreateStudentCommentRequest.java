@@ -13,6 +13,14 @@ import java.util.Map;
  * attitude/homeworkPreviousScore/homeworkNext/note chỉ có ý nghĩa khi
  * commentType=DAILY (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
  * 2026-07-24) — bỏ qua nếu MID_TERM/END_TERM.
+ *
+ * V65 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30):
+ * {@code homeworkNextExerciseId} là id của {@code Exercise} (KHÔNG phải
+ * id của 1 bản đã giao sẵn như trước V65) — chọn khác null tự động giao
+ * đề cho CẢ LỚP, hạn nộp = buổi kế tiếp. {@code homeworkNextReviewVideoSetId}
+ * giữ nguyên ý nghĩa (id của {@code ReviewVideoSet} — chọn nguồn), cũng
+ * tự động giao cả lớp tương tự. Chỉ hợp lệ khi commentType=DAILY (xem
+ * Javadoc StudentCommentService).
  */
 public record CreateStudentCommentRequest(
         @NotNull Long studentId,
@@ -28,7 +36,7 @@ public record CreateStudentCommentRequest(
         String homeworkPreviousScore,
         String homeworkPreviousSpeakingScore,
         String homeworkNext,
-        Long homeworkNextExerciseAssignmentId,
+        Long homeworkNextExerciseId,
         Long homeworkNextReviewVideoSetId,
         String note
 ) {}
