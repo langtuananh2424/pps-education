@@ -14,7 +14,6 @@ import vn.com.pps.education.domain.QuestionChoice;
 import vn.com.pps.education.domain.SchoolClass;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.dto.AddExerciseQuestionRequest;
-import vn.com.pps.education.dto.AssignExerciseRequest;
 import vn.com.pps.education.dto.CreateExerciseRequest;
 import vn.com.pps.education.dto.ExerciseAssignmentResponse;
 import vn.com.pps.education.dto.ExerciseQuestionChoiceResponse;
@@ -35,18 +34,27 @@ import vn.com.pps.education.repository.SchoolClassRepository;
 import vn.com.pps.education.repository.StudentRepository;
 import vn.com.pps.education.repository.UserRepository;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Set;
 
 /**
- * UC-40: Soạn & giao đề kiểm tra (FR-LMS-10) — phần lắp đề + giao đề.
+ * UC-40: Soạn & giao đề kiểm tra (FR-LMS-10) — phần lắp đề + publish.
  * Xem docs/uc/phan-he-07-lms-portal.md. Dùng chung Question (ngân hàng)
  * từ QuestionBankService, không gộp 2 Service (xem Javadoc đó).
  *
  * createExercise/addQuestion/publishExercise (TEACHER) qua
  * @PreAuthorize("hasPermission(null,'lms.exercise.create/update/publish')")
- * ở ExerciseController (Hybrid PBAC — V28/V62). assignExercise vẫn dùng
- * requireAssignedTeacher — row-level scope check (đúng lớp cụ thể).
+ * ở ExerciseController (Hybrid PBAC — V28/V62).
+ *
+ * V65 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30):
+ * "Soạn & Giao đề" KHÔNG còn bước giao lớp/deadline/target students —
+ * publishExercise() giờ chỉ đánh dấu đề "đủ điều kiện dùng làm nguồn".
+ * Việc giao thật cho lớp (tạo {@link ExerciseAssignment}) chuyển hẳn sang
+ * {@code deliverToClass}, gọi TỪ StudentCommentService khi Giáo viên chọn
+ * đề này làm "BTVN buổi sau" ở Nhận xét (UC-21) — không còn expose qua
+ * ExerciseController nữa (endpoint POST /api/exercises/{id}/assign đã bị
+ * xóa). requireAssignedTeacher vẫn giữ nguyên làm row-level scope check.
  */
 @Service
 public class ExerciseService {
@@ -175,49 +183,54 @@ public class ExerciseService {
         return toResponse(exercise, exerciseQuestionRepository.findByExerciseIdOrderByDisplayOrder(id));
     }
 
-    /** Main Flow bước 3-4 (ASSIGNED): giao đề cho lớp kèm deadline, publish đề, thông báo Học sinh. */
+    /**
+     * V65 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30):
+     * giao đề ASSIGNED cho TOÀN BỘ học sinh ACTIVE của 1 lớp (không còn
+     * target_student_ids cá nhân hóa — luôn cả lớp), publish đề, thông
+     * báo học sinh. Gọi TỪ {@code StudentCommentService} khi Giáo viên
+     * chọn đề này làm "BTVN buổi sau" — KHÔNG expose qua Controller,
+     * requireAssignedTeacher vẫn là rào chặn duy nhất (đúng tinh thần
+     * assignExercise cũ, chỉ khác điểm gọi).
+     */
     @Transactional
-    public ExerciseAssignmentResponse assignExercise(Long exerciseId, AssignExerciseRequest request, Long actorUserId) {
+    public ExerciseAssignment deliverToClass(Long exerciseId, Long classId, OffsetDateTime dueAt, Long actorUserId) {
         Exercise exercise = getExerciseOrThrow(exerciseId);
         if (exercise.getExerciseType() != Exercise.ExerciseType.ASSIGNED) {
             throw new IllegalArgumentException("Đề id=" + exerciseId + " không phải loại ASSIGNED — không giao lớp được.");
         }
-        requireAssignedTeacher(request.classId(), actorUserId);
-        SchoolClass schoolClass = getClassOrThrow(request.classId());
+        requireAssignedTeacher(classId, actorUserId);
+        SchoolClass schoolClass = getClassOrThrow(classId);
         User actor = getUserOrThrow(actorUserId);
 
         ExerciseAssignment assignment = new ExerciseAssignment();
         assignment.setExercise(exercise);
         assignment.setSchoolClass(schoolClass);
         assignment.setAssignedBy(actor);
-        if (request.availableFrom() != null) {
-            assignment.setAvailableFrom(request.availableFrom());
-        }
-        assignment.setDueAt(request.dueAt());
-        assignment.setLateSubmissionAllowed(request.lateSubmissionAllowed());
-        assignment.setLatePenaltyPercent(request.latePenaltyPercent());
-        assignment.setTargetStudentIds(request.targetStudentIds());
+        assignment.setDueAt(dueAt);
         assignment = exerciseAssignmentRepository.save(assignment);
 
         exercise.setStatus(Exercise.Status.PUBLISHED);
         exerciseRepository.save(exercise);
 
-        notifyAssignedStudents(schoolClass, exercise, assignment, request.targetStudentIds());
-        return toResponse(assignment);
+        notifyAssignedStudents(schoolClass, exercise, assignment);
+        return assignment;
+    }
+
+    /** Hủy 1 bản giao (VD Giáo viên đổi lựa chọn "BTVN buổi sau" ở Nhận xét khi comment còn DRAFT — V65). */
+    @Transactional
+    public void cancelAssignment(ExerciseAssignment assignment) {
+        assignment.setStatus(ExerciseAssignment.Status.CANCELLED);
+        exerciseAssignmentRepository.save(assignment);
     }
 
     // ===================== Helpers =====================
 
-    private void notifyAssignedStudents(SchoolClass schoolClass, Exercise exercise, ExerciseAssignment assignment, List<Long> targetStudentIds) {
+    private void notifyAssignedStudents(SchoolClass schoolClass, Exercise exercise, ExerciseAssignment assignment) {
         List<ClassEnrollment> enrollments = classEnrollmentRepository
                 .findBySchoolClassIdAndStatus(schoolClass.getId(), ClassEnrollment.Status.ACTIVE);
         String title = "Bài kiểm tra mới được giao";
-        String content = "Đề \"" + exercise.getTitle() + "\" đã được giao cho lớp " + schoolClass.getName()
-                + (exercise.getStatus() == Exercise.Status.PUBLISHED ? "." : ".");
+        String content = "Đề \"" + exercise.getTitle() + "\" đã được giao cho lớp " + schoolClass.getName() + ".";
         for (ClassEnrollment enrollment : enrollments) {
-            if (targetStudentIds != null && !targetStudentIds.contains(enrollment.getStudent().getId())) {
-                continue;
-            }
             notificationService.notify(enrollment.getStudent().getUser().getId(),
                     Notification.NotificationType.OTHER, title, content,
                     null, "EXERCISE_ASSIGNMENT", assignment.getId(),
@@ -282,7 +295,7 @@ public class ExerciseService {
                 eq.getQuestion().getQuestionType() == Question.QuestionType.ESSAY
                         || eq.getQuestion().getQuestionType() == Question.QuestionType.SPEAKING);
         return new ExerciseResponse(
-                e.getId(), e.getCode(), e.getTitle(),
+                e.getId(), e.getUuid(), e.getCode(), e.getTitle(),
                 e.getCurriculum() == null ? null : e.getCurriculum().getId(),
                 e.getSubject() == null ? null : e.getSubject().getId(),
                 e.getExerciseType().name(), e.getTotalPoints(), e.getTimeLimitMinutes(), e.isAllowRetake(),

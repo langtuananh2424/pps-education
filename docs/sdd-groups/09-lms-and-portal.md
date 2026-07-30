@@ -421,6 +421,69 @@ score/max_score/feedback theo đúng shape đã có tiền lệ ở
 listening_practice_gradings (UC-26) để nhất quán convention chấm điểm
 dạng luyện tập trong dự án.
 
+f)  Bảng review_video_assignments --- Giao bộ video cho lớp (MỚI HOÀN
+TOÀN, V65, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30)
+
+Mirror `exercise_assignments` (mục f nhóm Ngân hàng câu hỏi & Bài tập
+dưới) --- KHÔNG có `late_submission_allowed`/`late_penalty_percent` (không
+áp dụng cho video).
+
+  ----------------------------------------------------------------------------
+  **Cột**                   **Kiểu**          **Ràng buộc**    **Ghi chú**
+  ------------------------- ----------------- ---------------- ---------------
+  id                        BIGSERIAL         PK
+
+  uuid                      UUID              UNIQUE, NOT NULL
+
+  review_video_set_id       BIGINT            FK →
+                                              review_video_
+                                              sets(id), NOT NULL
+
+  class_id                  BIGINT            FK →
+                                              classes(id), NOT
+                                              NULL
+
+  assigned_by               BIGINT            FK → users(id),
+                                              NOT NULL
+
+  available_from            TIMESTAMPTZ       NOT NULL,
+                                              DEFAULT NOW()
+
+  due_at                    TIMESTAMPTZ       NULL             Hạn nộp = buổi
+                                                               học kế tiếp
+                                                               của lớp (tính
+                                                               ở StudentComment
+                                                               Service, xem
+                                                               UC-21)
+
+  target_student_ids        JSONB             NULL             NULL = cả lớp
+                                                               (V65: LUÔN
+                                                               NULL --- không
+                                                               còn cá nhân
+                                                               hóa như V55)
+
+  status                    VARCHAR(20)       NOT NULL,        ACTIVE /
+                                              DEFAULT          CANCELLED /
+                                              'ACTIVE'         COMPLETED
+  ----------------------------------------------------------------------------
+
+**Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (V65, 2026-07-30):**
+tạo qua `ReviewVideoService.deliverToClass()`, gọi TỪ
+`StudentCommentService` khi Giáo viên chọn 1 `ReviewVideoSet` làm "BTVN
+buổi sau" ở Nhận xét học viên (UC-21) --- KHÔNG expose qua Controller
+riêng (không có endpoint `POST /api/review-video-sets/{id}/assign`).
+Trước V65, Kho Video Ôn tập không hề có khái niệm "giao theo lớp" ---
+`status=PUBLISHED` trên `review_video_sets` là đủ để học sinh xem. V65
+thêm bảng này làm điều kiện thứ 2 bắt buộc (PUBLISHED **VÀ** có
+`review_video_assignments` ACTIVE cho lớp) --- xem
+`ReviewVideoService.requireStudentCanViewSet()`/`listByClass()`. Áp dụng
+cho CẢ `CONNECTION` lẫn `REFLEX`. Đồng thời đổi cột
+`student_comments.homework_next_review_video_set_id` (FK thẳng
+`review_video_sets`) → `homework_next_review_video_assignment_id` (FK →
+bảng này) để đối xứng với `homework_next_exercise_assignment_id` sẵn có
+(cả 2 đều trỏ BẢN GIAO, không trỏ nguồn) --- xem chi tiết nhóm 6 (Học
+thuật), bảng `student_comments`.
+
 ### Kho tài liệu tham khảo (UC-60, FR-LMS-13 — bổ sung ngoài SDD gốc, đã xác nhận với người dùng)
 
 Khái niệm độc lập với review_video_sets/review_videos ở trên — không gắn

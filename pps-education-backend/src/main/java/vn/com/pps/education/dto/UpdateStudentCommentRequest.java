@@ -9,6 +9,11 @@ import java.util.Map;
  * dung, không đổi comment_type/liên kết ngữ cảnh. attitude/
  * homeworkPreviousScore/homeworkNext/note chỉ có ý nghĩa khi commentType=
  * DAILY (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-24).
+ *
+ * V65 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30):
+ * đổi lựa chọn {@code homeworkNextExerciseId}/{@code homeworkNextReviewVideoSetId}
+ * khi comment còn DRAFT/REJECTED hủy bản giao cũ + tạo bản mới ngay — xem
+ * Javadoc CreateStudentCommentRequest + StudentCommentService.
  */
 public record UpdateStudentCommentRequest(
         @NotBlank String content,
@@ -19,7 +24,7 @@ public record UpdateStudentCommentRequest(
         String homeworkPreviousScore,
         String homeworkPreviousSpeakingScore,
         String homeworkNext,
-        Long homeworkNextExerciseAssignmentId,
+        Long homeworkNextExerciseId,
         Long homeworkNextReviewVideoSetId,
         String note
 ) {}

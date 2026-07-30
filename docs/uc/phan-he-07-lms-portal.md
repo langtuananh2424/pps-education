@@ -71,10 +71,23 @@ UC-23: Quản lý Kho Video Ôn tập
 |                 |     tự nhập tay thời lượng (giây).                 |
 +-----------------+----------------------------------------------------+
 | **Hậu điều kiện | -   Bộ video ôn tập được lưu trữ ổn định trên CDN/ |
-| (P              |     YouTube và hiển thị cho Học sinh thuộc lớp/    |
-| ostcondition)** |     khung chương trình tương ứng khi PUBLISHED     |
-|                 |     (UC-23a).                                      |
+| (P              |     YouTube, sẵn sàng dùng làm nguồn khi PUBLISHED |
+| ostcondition)** |     --- V65: KHÔNG còn tự hiển thị cho Học sinh    |
+|                 |     ngay khi PUBLISHED, xem bổ sung dưới đây.      |
 +-----------------+----------------------------------------------------+
+
+**Bổ sung V65 (2026-07-30, đã xác nhận với người dùng) --- Publish đổi ý
+nghĩa, học sinh không còn tự thấy ngay:** trước V65, PUBLISHED = hiển thị
+ngay cho học sinh thuộc lớp/khung chương trình tương ứng (UC-23a). Từ
+V65, Publish chỉ còn nghĩa "đủ điều kiện dùng làm nguồn" (đề/video xuất
+hiện trong dropdown "BTVN buổi sau" ở Nhận xét học viên, UC-21) --- áp
+dụng cho CẢ 2 loại video (`CONNECTION` lẫn `REFLEX`, không chỉ REFLEX).
+Học sinh chỉ thực sự xem/làm được khi 1 Giáo viên chọn bộ đó làm "BTVN
+buổi sau" cho lớp qua UC-21 (tự động tạo `ReviewVideoAssignment` cho CẢ
+LỚP đang ghi danh ACTIVE, hạn nộp = buổi kế tiếp). Xem đầy đủ cơ chế mới
+(5 quy tắc: xung đột cùng buổi, sửa lựa chọn, REJECTED không ảnh hưởng,
+lớp không có buổi kế tiếp, chỉ áp dụng DAILY) tại UC-21 (`docs/uc/
+phan-he-06-hoc-thuat.md`).
 
 ---
 
@@ -111,15 +124,22 @@ UC-23a: Xem & Theo dõi Kho Video Ôn tập
 | **Điều kiện     | -   Học sinh đã đăng nhập, có class_enrollment     |
 | tiên quyết      |     ACTIVE tại lớp đang xem.                       |
 | (               |                                                    |
-| Precondition)** | -   Bộ video đã được Giáo viên publish (UC-23).    |
+| Precondition)** | -   Bộ video đã được Giáo viên publish (UC-23) VÀ  |
+|                 |     đã được giao cho lớp qua Nhận xét học viên     |
+|                 |     (UC-21, V65 --- `ReviewVideoAssignment` ACTIVE |
+|                 |     cho đúng lớp).                                 |
 +-----------------+----------------------------------------------------+
 | **Luồng sự kiện | 1.  Học sinh chọn 1 lớp đang ghi danh (UC-42), mở  |
 | chính (Main     |     tab "Kho Video Ôn tập".                        |
 | Flow)**         |                                                    |
-|                 | 2.  Hệ thống trả về mọi bộ có status=PUBLISHED và  |
+|                 | 2.  Hệ thống trả về mọi bộ có status=PUBLISHED,     |
 |                 |     (gắn riêng đúng lớp này HOẶC gắn chung theo    |
-|                 |     khung chương trình của lớp này) — đúng logic   |
-|                 |     OR đã thiết kế trong SDD.                      |
+|                 |     khung chương trình của lớp này --- đúng logic  |
+|                 |     OR đã thiết kế trong SDD), VÀ có                |
+|                 |     `ReviewVideoAssignment` ACTIVE cho lớp học sinh |
+|                 |     đang ghi danh ACTIVE (V65, UC-21 --- publish    |
+|                 |     đơn thuần không còn đủ, xem bổ sung V65 ở       |
+|                 |     UC-23).                                        |
 |                 |                                                    |
 |                 | 3.  Học sinh chọn 1 bộ, xem danh sách video, bắt   |
 |                 |     đầu phát 1 video — hệ thống mở 1 LƯỢT XEM mới  |
@@ -154,8 +174,10 @@ UC-23a: Xem & Theo dõi Kho Video Ôn tập
 |                 |     của video ngoài phạm vi lớp học sinh đang học. |
 +-----------------+----------------------------------------------------+
 | **Hậu điều kiện | -   Học sinh chỉ thấy bộ PUBLISHED thuộc đúng      |
-| (P              |     phạm vi lớp/khung chương trình mình đang học — |
-| ostcondition)** |     không thấy bộ DRAFT hay bộ của lớp/khung khác. |
+| (P              |     phạm vi lớp/khung chương trình mình đang học    |
+| ostcondition)** |     VÀ đã được giao qua UC-21 (V65) — không thấy    |
+|                 |     bộ DRAFT, bộ của lớp/khung khác, hay bộ đã      |
+|                 |     Publish nhưng chưa từng được GV chọn giao.      |
 |                 |                                                    |
 |                 | -   Mỗi lượt xem lưu riêng — trong 1 lượt, tiến độ |
 |                 |     không giảm theo thời gian; lượt hợp lệ được    |
@@ -201,8 +223,9 @@ UC-23b: Nộp & Chấm điểm Audio cho Video Phản xạ
 +-----------------+----------------------------------------------------+
 | **Điều kiện     | -   Học sinh đã đăng nhập, có class_enrollment     |
 | tiên quyết      |     ACTIVE tại lớp đang xem, bộ video đã PUBLISHED |
-| (               |     (UC-23), video thuộc bộ có video_type=REFLEX.  |
-| Precondition)** |                                                    |
+| (               |     VÀ đã được giao cho lớp qua UC-21 (V65, xem bổ |
+| Precondition)** |     sung ở UC-23), video thuộc bộ có                |
+|                 |     video_type=REFLEX.                              |
 |                 | -   Giáo viên được phân công giảng dạy lớp/khung   |
 |                 |     chương trình sở hữu bộ video đó.               |
 +-----------------+----------------------------------------------------+
@@ -876,13 +899,14 @@ UC-40: Soạn & giao đề kiểm tra
 |                 |     do, dùng cho UC-27) hoặc ASSIGNED (giao có     |
 |                 |     deadline, dùng cho UC-24).                     |
 |                 |                                                    |
-|                 | 3.  Nếu chọn ASSIGNED: Giáo viên chọn lớp cụ thể   |
-|                 |     để giao đề, đặt deadline; hệ thống tạo bản ghi |
-|                 |     exercise_assignments liên kết đề với           |
-|                 |     lớp/deadline.                                  |
+|                 | 3.  Giáo viên xác nhận Publish đề --- V65: KHÔNG   |
+|                 |     còn bước chọn lớp/deadline ở màn này (kể cả    |
+|                 |     đề ASSIGNED); Publish chỉ đánh dấu đề đủ điều  |
+|                 |     kiện dùng làm nguồn.                           |
 |                 |                                                    |
-|                 | 4.  Giáo viên xác nhận lưu/giao đề; hệ thống thông |
-|                 |     báo cho Học sinh trong lớp (nếu là ASSIGNED).  |
+|                 | 4.  Việc chọn lớp/đặt deadline/giao đề + thông báo |
+|                 |     Học sinh chuyển hẳn sang Nhận xét học viên     |
+|                 |     (UC-21, V65) --- xem bổ sung dưới đây.         |
 +-----------------+----------------------------------------------------+
 | **Luồng thay    | ***A1 --- Đề có câu tự luận/Nói***                 |
 | thế / ngoại lệ  |                                                    |
@@ -892,9 +916,9 @@ UC-40: Soạn & giao đề kiểm tra
 |                 |     động.                                          |
 +-----------------+----------------------------------------------------+
 | **Hậu điều kiện | -   Đề kiểm tra được lưu vào ngân hàng câu hỏi;    |
-| (P              |     nếu là ASSIGNED, được giao đúng lớp với        |
-| ostcondition)** |     deadline xác định, sẵn sàng cho Học sinh làm   |
-|                 |     bài (UC-24).                                   |
+| (P              |     nếu Publish, đủ điều kiện dùng làm nguồn ---   |
+| ostcondition)** |     V65: CHƯA sẵn sàng cho Học sinh làm bài (UC-24)|
+|                 |     cho tới khi được giao qua UC-21.               |
 +-----------------+----------------------------------------------------+
 
 > **Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (2026-07-21, cập
@@ -981,6 +1005,24 @@ UC-40: Soạn & giao đề kiểm tra
 >      Dùng chung bảng `import_jobs` (`ImportJob.ImportType.QUESTIONS`,
 >      không cần migration — cột `import_type` là `VARCHAR` tự do).
 >    - Quyền: dùng chung `lms.question-bank.create` (không có quyền mới).
+>
+> **Bổ sung V65 (2026-07-30, đã xác nhận với người dùng) --- bỏ hẳn bước
+> "Giao bài tập" khỏi Soạn & Giao đề:** endpoint `POST
+> /api/exercises/{id}/assign` (tạo `ExerciseAssignment` + publish + thông
+> báo học sinh trong 1 lần gọi) đã bị XÓA. Publish (`POST
+> /api/exercises/{id}/publish`, giữ nguyên) giờ là hành động DUY NHẤT ở
+> màn này cho MỌI loại đề (SELF_PRACTICE lẫn ASSIGNED) --- chỉ đổi
+> `status=PUBLISHED`, không tạo assignment, không thông báo ai. Với đề
+> ASSIGNED: việc tạo `ExerciseAssignment` (giao cho lớp, đặt deadline,
+> thông báo học sinh) chuyển hẳn sang Nhận xét học viên (UC-21) --- Giáo
+> viên chọn đề này làm "BTVN buổi sau" cho 1 học sinh trong 1 buổi DAILY
+> thì hệ thống tự động giao cho TOÀN BỘ học sinh ACTIVE của lớp, hạn nộp =
+> buổi kế tiếp (xem đầy đủ cơ chế + 5 quy tắc tại UC-21,
+> `docs/uc/phan-he-06-hoc-thuat.md`). `listAssignmentsForClass` (xem lại
+> lịch sử đã giao) giữ nguyên, không đổi. Lý do đổi: PM xác nhận điểm
+> phát sinh giao bài nên gắn liền với buổi học/nhận xét thay vì tách rời
+> ở màn soạn đề, tránh Giáo viên quên giao hoặc giao nhầm lớp không liên
+> quan tới buổi đang dạy.
 
 ---
 

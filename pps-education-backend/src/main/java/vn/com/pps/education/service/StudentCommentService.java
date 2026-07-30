@@ -13,10 +13,12 @@ import vn.com.pps.education.domain.AttendanceMark;
 import vn.com.pps.education.domain.AttendanceSession;
 import vn.com.pps.education.domain.ClassEnrollment;
 import vn.com.pps.education.domain.ClassSession;
+import vn.com.pps.education.domain.Exercise;
 import vn.com.pps.education.domain.ExerciseAssignment;
 import vn.com.pps.education.domain.GradePeriod;
 import vn.com.pps.education.domain.ImportJob;
 import vn.com.pps.education.domain.Notification;
+import vn.com.pps.education.domain.ReviewVideoAssignment;
 import vn.com.pps.education.domain.ReviewVideoSet;
 import vn.com.pps.education.domain.SchoolClass;
 import vn.com.pps.education.domain.SiteManager;
@@ -34,8 +36,10 @@ import vn.com.pps.education.dto.StudentCommentResponse;
 import vn.com.pps.education.dto.SubmitCommentsRequest;
 import vn.com.pps.education.dto.UpdateStudentCommentRequest;
 import vn.com.pps.education.exception.ApprovalAlreadyDecidedException;
+import vn.com.pps.education.exception.HomeworkNextConflictException;
 import vn.com.pps.education.exception.InvalidCommentContextException;
 import vn.com.pps.education.exception.MissingLessonContentException;
+import vn.com.pps.education.exception.NoUpcomingClassSessionException;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
 import vn.com.pps.education.exception.NotSiteManagerForSiteException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
@@ -45,9 +49,10 @@ import vn.com.pps.education.repository.AttendanceMarkRepository;
 import vn.com.pps.education.repository.AttendanceSessionRepository;
 import vn.com.pps.education.repository.ClassEnrollmentRepository;
 import vn.com.pps.education.repository.ClassSessionRepository;
-import vn.com.pps.education.repository.ExerciseAssignmentRepository;
+import vn.com.pps.education.repository.ExerciseRepository;
 import vn.com.pps.education.repository.GradePeriodRepository;
 import vn.com.pps.education.repository.ImportJobRepository;
+import vn.com.pps.education.repository.ReviewVideoAssignmentRepository;
 import vn.com.pps.education.repository.ReviewVideoSetRepository;
 import vn.com.pps.education.repository.SchoolClassRepository;
 import vn.com.pps.education.repository.ClassTeacherRepository;
@@ -61,6 +66,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -113,6 +119,23 @@ import java.util.function.Function;
  *       điền sẵn học sinh ACTIVE của lớp, cột Điểm danh cho phép sửa luôn
  *       điểm danh khi import lại (tái dùng nguyên StudentAttendanceService.
  *       markAttendance, không viết lại logic điểm danh).</li>
+ *   <li><b>V65 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+ *       2026-07-30) — điểm giao bài duy nhất:</b> chọn 1 Exercise/
+ *       ReviewVideoSet làm "BTVN buổi sau" khi viết/sửa comment DAILY
+ *       (writeComment/updateComment/importRow) không còn là chọn lại 1
+ *       bản đã giao sẵn (V55) — giờ TỰ ĐỘNG tạo bản giao
+ *       ({@code ExerciseAssignment}/{@code ReviewVideoAssignment}) cho
+ *       TOÀN BỘ học sinh ACTIVE của lớp, hạn nộp = buổi học kế tiếp
+ *       ({@code resolveNextSessionDueAt}). Mọi comment DAILY cùng 1 buổi
+ *       học phải chọn CÙNG 1 lựa chọn mỗi kênh
+ *       ({@code requireNoHomeworkConflict}, 409 nếu khác); sửa lựa chọn
+ *       khi còn DRAFT hủy bản cũ + tạo bản mới ngay; comment bị từ chối
+ *       (REJECTED, UC-22) KHÔNG ảnh hưởng bài đã giao (2 việc độc lập,
+ *       không đổi). CHỈ áp dụng commentType=DAILY — MID_TERM/END_TERM
+ *       không có "buổi kế tiếp" nên không cho chọn (xem
+ *       requireNoHomeworkNextForNonDaily). "Soạn & Giao đề" (UC-40) và
+ *       "Kho Video Ôn tập" (UC-23) không còn tự giao lớp — xem Javadoc
+ *       ExerciseService/ReviewVideoService.</li>
  * </ul>
  */
 @Service
@@ -151,9 +174,12 @@ public class StudentCommentService {
     private final AttendanceMarkRepository attendanceMarkRepository;
     private final ImportJobRepository importJobRepository;
     private final StudentAttendanceService studentAttendanceService;
-    private final ExerciseAssignmentRepository exerciseAssignmentRepository;
     private final ReviewVideoSetRepository reviewVideoSetRepository;
     private final HomeworkProgressService homeworkProgressService;
+    private final ExerciseRepository exerciseRepository;
+    private final ReviewVideoAssignmentRepository reviewVideoAssignmentRepository;
+    private final ExerciseService exerciseService;
+    private final ReviewVideoService reviewVideoService;
 
     public StudentCommentService(StudentCommentRepository studentCommentRepository,
                                   StudentCommentHistoryRepository studentCommentHistoryRepository,
@@ -173,9 +199,12 @@ public class StudentCommentService {
                                   AttendanceMarkRepository attendanceMarkRepository,
                                   ImportJobRepository importJobRepository,
                                   StudentAttendanceService studentAttendanceService,
-                                  ExerciseAssignmentRepository exerciseAssignmentRepository,
                                   ReviewVideoSetRepository reviewVideoSetRepository,
-                                  HomeworkProgressService homeworkProgressService) {
+                                  HomeworkProgressService homeworkProgressService,
+                                  ExerciseRepository exerciseRepository,
+                                  ReviewVideoAssignmentRepository reviewVideoAssignmentRepository,
+                                  ExerciseService exerciseService,
+                                  ReviewVideoService reviewVideoService) {
         this.studentCommentRepository = studentCommentRepository;
         this.studentCommentHistoryRepository = studentCommentHistoryRepository;
         this.approvalFlowRepository = approvalFlowRepository;
@@ -194,9 +223,12 @@ public class StudentCommentService {
         this.attendanceMarkRepository = attendanceMarkRepository;
         this.importJobRepository = importJobRepository;
         this.studentAttendanceService = studentAttendanceService;
-        this.exerciseAssignmentRepository = exerciseAssignmentRepository;
         this.reviewVideoSetRepository = reviewVideoSetRepository;
         this.homeworkProgressService = homeworkProgressService;
+        this.exerciseRepository = exerciseRepository;
+        this.reviewVideoAssignmentRepository = reviewVideoAssignmentRepository;
+        this.exerciseService = exerciseService;
+        this.reviewVideoService = reviewVideoService;
     }
 
     // ===================== UC-21: Viết nhận xét (TEACHER) =====================
@@ -222,6 +254,7 @@ public class StudentCommentService {
                 throw new InvalidCommentContextException(
                         "commentType=" + commentType + " phải có gradePeriodId và không được có classSessionId.");
             }
+            requireNoHomeworkNextForNonDaily(request.homeworkNextExerciseId(), request.homeworkNextReviewVideoSetId());
             gradePeriod = gradePeriodRepository.findById(request.gradePeriodId())
                     .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy kỳ đánh giá id=" + request.gradePeriodId()));
             requireAssignedTeacher(classId, actorUserId);
@@ -237,10 +270,14 @@ public class StudentCommentService {
         comment.setClassSession(classSession);
         comment.setGradePeriod(gradePeriod);
         comment.setCommentDate(request.commentDate());
+
+        ExerciseAssignment grammarAssignment = classSession == null ? null
+                : resolveExerciseHomework(classSession, null, request.homeworkNextExerciseId(), null, actorUserId);
+        ReviewVideoAssignment videoAssignment = classSession == null ? null
+                : resolveVideoHomework(classSession, null, request.homeworkNextReviewVideoSetId(), null, actorUserId);
         applyContent(comment, request.content(), request.structuredContent(), request.severity(), request.isWarning(),
                 request.attitude(), request.homeworkPreviousScore(), request.homeworkPreviousSpeakingScore(),
-                request.homeworkNext(), exerciseAssignmentOrNull(request.homeworkNextExerciseAssignmentId()),
-                reviewVideoSetOrNull(request.homeworkNextReviewVideoSetId()), request.note());
+                request.homeworkNext(), grammarAssignment, videoAssignment, request.note());
         comment = studentCommentRepository.save(comment);
         writeHistory(comment, actor, StudentCommentHistory.Action.CREATED);
         return toResponse(comment);
@@ -262,6 +299,7 @@ public class StudentCommentService {
         if (isDaily) {
             requireCanWriteDailyComment(comment.getClassSession(), actorUserId);
         } else {
+            requireNoHomeworkNextForNonDaily(request.homeworkNextExerciseId(), request.homeworkNextReviewVideoSetId());
             requireAssignedTeacher(comment.getSchoolClass().getId(), actorUserId);
         }
         if (comment.getStatus() != StudentComment.Status.DRAFT && comment.getStatus() != StudentComment.Status.REJECTED) {
@@ -269,11 +307,18 @@ public class StudentCommentService {
                     "Nhận xét id=" + id + " đang ở trạng thái " + comment.getStatus() + " — chỉ sửa được khi DRAFT hoặc REJECTED.");
         }
 
+        ExerciseAssignment grammarAssignment = isDaily
+                ? resolveExerciseHomework(comment.getClassSession(), comment.getId(), request.homeworkNextExerciseId(),
+                        comment.getHomeworkNextExerciseAssignment(), actorUserId)
+                : null;
+        ReviewVideoAssignment videoAssignment = isDaily
+                ? resolveVideoHomework(comment.getClassSession(), comment.getId(), request.homeworkNextReviewVideoSetId(),
+                        comment.getHomeworkNextReviewVideoAssignment(), actorUserId)
+                : null;
         comment.setApprovalFlow(null);
         applyContent(comment, request.content(), request.structuredContent(), request.severity(), request.isWarning(),
                 request.attitude(), request.homeworkPreviousScore(), request.homeworkPreviousSpeakingScore(),
-                request.homeworkNext(), exerciseAssignmentOrNull(request.homeworkNextExerciseAssignmentId()),
-                reviewVideoSetOrNull(request.homeworkNextReviewVideoSetId()), request.note());
+                request.homeworkNext(), grammarAssignment, videoAssignment, request.note());
         comment.setStatus(StudentComment.Status.DRAFT);
         comment = studentCommentRepository.save(comment);
         writeHistory(comment, actor, StudentCommentHistory.Action.UPDATED);
@@ -449,10 +494,11 @@ public class StudentCommentService {
         Map<Long, AttendanceMark.Status> attendanceByStudent = currentAttendanceByStudent(classSessionId);
         List<ClassEnrollment> enrollments = classEnrollmentRepository
                 .findBySchoolClassIdAndStatus(classId, ClassEnrollment.Status.ACTIVE);
-        List<ExerciseAssignment> grammarOptions = exerciseAssignmentRepository
-                .findBySchoolClassIdAndStatus(classId, ExerciseAssignment.Status.ACTIVE);
+        Long curriculumId = classSession.getSchoolClass().getCurriculum().getId();
+        List<Exercise> grammarOptions = exerciseRepository.findByCurriculumIdAndExerciseTypeAndStatus(
+                curriculumId, Exercise.ExerciseType.ASSIGNED, Exercise.Status.PUBLISHED);
         List<ReviewVideoSet> videoOptions = reviewVideoSetRepository.findVisibleForClass(
-                classId, classSession.getSchoolClass().getCurriculum().getId(), ReviewVideoSet.Status.PUBLISHED);
+                classId, curriculumId, ReviewVideoSet.Status.PUBLISHED);
 
         List<String> headers = List.of("Ngày*", "Mã học viên*", "Họ và tên", "Bài học hôm nay", "Điểm danh*",
                 "Thái độ học tập", "BTVN Ngữ pháp buổi trước", "BTVN Nghe-nói buổi trước",
@@ -476,8 +522,8 @@ public class StudentCommentService {
             row.add(resolvedSpeakingPrevious(existing, previous));
             row.add(existing == null ? null : existing.getContent());
             row.add(resolvedGrammarNext(existing));
-            row.add(existing == null || existing.getHomeworkNextReviewVideoSet() == null ? null
-                    : videoLabel(existing.getHomeworkNextReviewVideoSet()));
+            row.add(existing == null || existing.getHomeworkNextReviewVideoAssignment() == null ? null
+                    : videoLabel(existing.getHomeworkNextReviewVideoAssignment().getReviewVideoSet()));
             row.add(existing == null ? null : existing.getNote());
             rows.add(row);
         }
@@ -511,7 +557,7 @@ public class StudentCommentService {
             return null;
         }
         if (existing.getHomeworkNextExerciseAssignment() != null) {
-            return grammarLabel(existing.getHomeworkNextExerciseAssignment());
+            return grammarLabel(existing.getHomeworkNextExerciseAssignment().getExercise());
         }
         return existing.getHomeworkNext();
     }
@@ -540,11 +586,12 @@ public class StudentCommentService {
         job = importJobRepository.save(job);
 
         Long classId = classSession.getSchoolClass().getId();
-        Map<String, ExerciseAssignment> grammarByLabel = exerciseAssignmentRepository
-                .findBySchoolClassIdAndStatus(classId, ExerciseAssignment.Status.ACTIVE).stream()
-                .collect(java.util.stream.Collectors.toMap(this::grammarLabel, a -> a, (a, b) -> a));
+        Long curriculumId = classSession.getSchoolClass().getCurriculum().getId();
+        Map<String, Exercise> grammarByLabel = exerciseRepository
+                .findByCurriculumIdAndExerciseTypeAndStatus(curriculumId, Exercise.ExerciseType.ASSIGNED, Exercise.Status.PUBLISHED).stream()
+                .collect(java.util.stream.Collectors.toMap(this::grammarLabel, e -> e, (a, b) -> a));
         Map<String, ReviewVideoSet> videoByLabel = reviewVideoSetRepository.findVisibleForClass(
-                classId, classSession.getSchoolClass().getCurriculum().getId(), ReviewVideoSet.Status.PUBLISHED).stream()
+                classId, curriculumId, ReviewVideoSet.Status.PUBLISHED).stream()
                 .collect(java.util.stream.Collectors.toMap(this::videoLabel, s -> s, (a, b) -> a));
 
         List<Map<String, Object>> errors = new ArrayList<>();
@@ -627,7 +674,7 @@ public class StudentCommentService {
                     }
                     importRow(classSession, parsed.student(), effectiveAttendance, parsed.attitude(),
                             parsed.homeworkPrevious(), parsed.content(), parsed.homeworkNext(),
-                            parsed.grammarAssignment(), parsed.videoSet(), parsed.note(),
+                            parsed.grammarExercise(), parsed.videoSet(), parsed.note(),
                             parsed.homeworkPreviousSpeaking(), actor);
                     successRows++;
                 } catch (RuntimeException ex) {
@@ -650,11 +697,11 @@ public class StudentCommentService {
 
     private record ParsedRow(int rowNumber, Student student, AttendanceMark.Status attendance, String attitude,
                               String homeworkPrevious, String content, String homeworkNext,
-                              ExerciseAssignment grammarAssignment, ReviewVideoSet videoSet, String note,
+                              Exercise grammarExercise, ReviewVideoSet videoSet, String note,
                               String homeworkPreviousSpeaking, String lessonContent) {}
 
     private ParsedRow parseRow(Row row, DataFormatter formatter, int rowIndex, ClassSession classSession,
-                                Map<String, ExerciseAssignment> grammarByLabel, Map<String, ReviewVideoSet> videoByLabel) {
+                                Map<String, Exercise> grammarByLabel, Map<String, ReviewVideoSet> videoByLabel) {
         String dateText = cell(row, formatter, COL_DATE);
         String studentCode = cell(row, formatter, COL_STUDENT_CODE);
         String lessonContentText = cell(row, formatter, COL_LESSON_CONTENT);
@@ -694,22 +741,22 @@ public class StudentCommentService {
         // Cột gộp "BTVN Ngữ pháp buổi sau": khớp đề trong kho (nhãn dropdown hoặc uuid) thì giao ONLINE,
         // không khớp thì coi là text offline — KHÔNG báo lỗi (khác cột Video vẫn báo lỗi nếu không khớp).
         String grammarNextRaw = blankToNull(grammarNextText);
-        ExerciseAssignment grammarAssignment = grammarNextRaw == null ? null
-                : resolveGrammarAssignmentSoft(grammarNextRaw, grammarByLabel);
-        String homeworkNext = (grammarNextRaw != null && grammarAssignment == null) ? grammarNextRaw : null;
+        Exercise grammarExercise = grammarNextRaw == null ? null
+                : resolveGrammarExerciseSoft(grammarNextRaw, grammarByLabel);
+        String homeworkNext = (grammarNextRaw != null && grammarExercise == null) ? grammarNextRaw : null;
         ReviewVideoSet videoSet = resolveByUuidOrLabel(blankToNull(videoText), videoByLabel,
                 reviewVideoSetRepository::findByUuid, "bộ video");
         return new ParsedRow(rowIndex, student, attendance, attitude,
                 blankToNull(homeworkPrevious), blankToNull(content), homeworkNext,
-                grammarAssignment, videoSet, blankToNull(note), blankToNull(homeworkPreviousSpeaking),
+                grammarExercise, videoSet, blankToNull(note), blankToNull(homeworkPreviousSpeaking),
                 blankToNull(lessonContentText));
     }
 
     /** Cột "BTVN Ngữ pháp buổi sau" gộp: khớp uuid/nhãn đề thì trả về đề đó, không khớp trả null (KHÔNG throw) để caller fallback text offline. */
-    private ExerciseAssignment resolveGrammarAssignmentSoft(String text, Map<String, ExerciseAssignment> byLabel) {
+    private Exercise resolveGrammarExerciseSoft(String text, Map<String, Exercise> byLabel) {
         UUID uuid = tryParseUuid(text);
         if (uuid != null) {
-            return exerciseAssignmentRepository.findByUuid(uuid).orElse(null);
+            return exerciseRepository.findByUuid(uuid).orElse(null);
         }
         return byLabel.get(text);
     }
@@ -723,11 +770,11 @@ public class StudentCommentService {
      */
     private void importRow(ClassSession classSession, Student student, AttendanceMark.Status attendance,
                             String attitude, String homeworkPrevious, String content, String homeworkNext,
-                            ExerciseAssignment grammarAssignment, ReviewVideoSet videoSet, String note,
+                            Exercise grammarExercise, ReviewVideoSet videoSet, String note,
                             String homeworkPreviousSpeaking, User actor) {
         boolean absent = attendance == AttendanceMark.Status.ABSENT || attendance == AttendanceMark.Status.EXCUSED;
         boolean allBlank = attitude == null && homeworkPrevious == null && content == null
-                && homeworkNext == null && grammarAssignment == null && videoSet == null && note == null
+                && homeworkNext == null && grammarExercise == null && videoSet == null && note == null
                 && homeworkPreviousSpeaking == null;
         if (absent && allBlank) {
             return;
@@ -752,10 +799,16 @@ public class StudentCommentService {
                     "Nhận xét học sinh mã=" + student.getStudentCode() + " đang ở trạng thái "
                             + comment.getStatus() + " — chỉ sửa được khi DRAFT hoặc REJECTED.");
         }
+        ExerciseAssignment grammarAssignment = resolveExerciseHomework(classSession, comment.getId(),
+                grammarExercise == null ? null : grammarExercise.getId(),
+                comment.getHomeworkNextExerciseAssignment(), actor.getId());
+        ReviewVideoAssignment videoAssignment = resolveVideoHomework(classSession, comment.getId(),
+                videoSet == null ? null : videoSet.getId(),
+                comment.getHomeworkNextReviewVideoAssignment(), actor.getId());
         comment.setTeacher(actor);
         comment.setApprovalFlow(null);
         applyContent(comment, content, null, null, false,
-                attitude, homeworkPrevious, homeworkPreviousSpeaking, homeworkNext, grammarAssignment, videoSet, note);
+                attitude, homeworkPrevious, homeworkPreviousSpeaking, homeworkNext, grammarAssignment, videoAssignment, note);
         comment.setStatus(StudentComment.Status.DRAFT);
         comment = studentCommentRepository.save(comment);
         writeHistory(comment, actor, StudentCommentHistory.Action.UPDATED);
@@ -767,7 +820,7 @@ public class StudentCommentService {
                                String severity, boolean isWarning, String attitude, String homeworkPreviousScore,
                                String homeworkPreviousSpeakingScore, String homeworkNext,
                                ExerciseAssignment homeworkNextExerciseAssignment,
-                               ReviewVideoSet homeworkNextReviewVideoSet, String note) {
+                               ReviewVideoAssignment homeworkNextReviewVideoAssignment, String note) {
         comment.setContent(content);
         comment.setStructuredContent(structuredContent);
         if (severity != null) {
@@ -779,20 +832,125 @@ public class StudentCommentService {
         comment.setHomeworkPreviousSpeakingScore(homeworkPreviousSpeakingScore);
         comment.setHomeworkNext(homeworkNext);
         comment.setHomeworkNextExerciseAssignment(homeworkNextExerciseAssignment);
-        comment.setHomeworkNextReviewVideoSet(homeworkNextReviewVideoSet);
+        comment.setHomeworkNextReviewVideoAssignment(homeworkNextReviewVideoAssignment);
         comment.setNote(note);
     }
 
-    // ===================== BTVN online/offline theo học sinh (UC-21 mở rộng, V55) =====================
+    // ===================== BTVN buổi sau — điểm giao bài (UC-21 mở rộng, V65) =====================
+    // Thay thế cơ chế "chọn lại 1 bản đã giao sẵn" (V55) — chọn 1 Exercise/
+    // ReviewVideoSet ở đây giờ TỰ ĐỘNG giao cho cả lớp, xem Javadoc lớp.
 
-    private ExerciseAssignment exerciseAssignmentOrNull(Long id) {
-        return id == null ? null : exerciseAssignmentRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bài tập đã giao id=" + id));
+    private void requireNoHomeworkNextForNonDaily(Long exerciseId, Long videoSetId) {
+        if (exerciseId != null || videoSetId != null) {
+            throw new InvalidCommentContextException(
+                    "BTVN buổi sau (Ngữ pháp/Video Ôn tập) chỉ áp dụng cho nhận xét Hàng ngày (DAILY) — "
+                            + "không có khái niệm \"buổi kế tiếp\" cho nhận xét theo kỳ (MID_TERM/END_TERM).");
+        }
     }
 
-    private ReviewVideoSet reviewVideoSetOrNull(Long id) {
-        return id == null ? null : reviewVideoSetRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bộ video id=" + id));
+    /**
+     * V65: chọn 1 Exercise làm "BTVN Ngữ pháp buổi sau" — tự động giao đề
+     * cho TOÀN BỘ học sinh ACTIVE của lớp (không chỉ học sinh đang được
+     * nhận xét), hạn nộp = buổi học kế tiếp. exerciseId=null → hủy bản
+     * giao cũ (nếu có), không giao gì. Không đổi so với previous (cùng
+     * Exercise) → giữ nguyên, không tạo lại.
+     *
+     * @param excludeCommentId null khi đang tạo comment mới (writeComment/
+     *                         importRow dòng mới) — loại trừ chính dòng
+     *                         đang sửa khỏi kiểm tra xung đột cùng buổi.
+     */
+    private ExerciseAssignment resolveExerciseHomework(ClassSession session, Long excludeCommentId, Long exerciseId,
+                                                        ExerciseAssignment previous, Long actorUserId) {
+        if (exerciseId == null) {
+            if (previous != null) {
+                exerciseService.cancelAssignment(previous);
+            }
+            return null;
+        }
+        if (previous != null && previous.getExercise().getId().equals(exerciseId)) {
+            return previous;
+        }
+        Exercise exercise = exerciseRepository.findById(exerciseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đề id=" + exerciseId));
+        requireNoHomeworkConflict(session, excludeCommentId, "Ngữ pháp",
+                c -> c.getHomeworkNextExerciseAssignment() == null ? null : c.getHomeworkNextExerciseAssignment().getExercise().getId(),
+                c -> c.getHomeworkNextExerciseAssignment() == null ? null : c.getHomeworkNextExerciseAssignment().getExercise().getTitle(),
+                exerciseId, exercise.getTitle());
+        OffsetDateTime dueAt = resolveNextSessionDueAt(session);
+        ExerciseAssignment assignment = exerciseService.deliverToClass(exerciseId, session.getSchoolClass().getId(), dueAt, actorUserId);
+        if (previous != null) {
+            exerciseService.cancelAssignment(previous);
+        }
+        return assignment;
+    }
+
+    /** V65: mirror resolveExerciseHomework cho kênh Video Ôn tập — xem Javadoc đó. */
+    private ReviewVideoAssignment resolveVideoHomework(ClassSession session, Long excludeCommentId, Long videoSetId,
+                                                        ReviewVideoAssignment previous, Long actorUserId) {
+        if (videoSetId == null) {
+            if (previous != null) {
+                reviewVideoService.cancelAssignment(previous);
+            }
+            return null;
+        }
+        if (previous != null && previous.getReviewVideoSet().getId().equals(videoSetId)) {
+            return previous;
+        }
+        ReviewVideoSet set = reviewVideoSetRepository.findById(videoSetId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bộ video id=" + videoSetId));
+        requireNoHomeworkConflict(session, excludeCommentId, "Video Ôn tập",
+                c -> c.getHomeworkNextReviewVideoAssignment() == null ? null : c.getHomeworkNextReviewVideoAssignment().getReviewVideoSet().getId(),
+                c -> c.getHomeworkNextReviewVideoAssignment() == null ? null : c.getHomeworkNextReviewVideoAssignment().getReviewVideoSet().getTitle(),
+                videoSetId, set.getTitle());
+        OffsetDateTime dueAt = resolveNextSessionDueAt(session);
+        ReviewVideoAssignment assignment = reviewVideoService.deliverToClass(videoSetId, session.getSchoolClass().getId(), dueAt, actorUserId);
+        if (previous != null) {
+            reviewVideoService.cancelAssignment(previous);
+        }
+        return assignment;
+    }
+
+    /**
+     * Câu hỏi mở #1 (đã chốt với người dùng 2026-07-30): mọi nhận xét
+     * DAILY cùng 1 buổi học phải chọn CÙNG 1 lựa chọn cho mỗi kênh —
+     * dòng đầu tiên chọn X thì các dòng sau (học sinh khác, cùng buổi)
+     * chỉ được chọn đúng X hoặc để trống, không được chọn khác X.
+     */
+    private void requireNoHomeworkConflict(ClassSession session, Long excludeCommentId, String channelLabel,
+                                            Function<StudentComment, Long> existingChoiceId,
+                                            Function<StudentComment, String> existingChoiceLabel,
+                                            Long newChoiceId, String newChoiceLabel) {
+        for (StudentComment sibling : studentCommentRepository.findByClassSessionId(session.getId())) {
+            if (excludeCommentId != null && sibling.getId().equals(excludeCommentId)) {
+                continue;
+            }
+            Long siblingChoiceId = existingChoiceId.apply(sibling);
+            if (siblingChoiceId != null && !siblingChoiceId.equals(newChoiceId)) {
+                throw new HomeworkNextConflictException(
+                        "BTVN " + channelLabel + " buổi này đã khóa theo lựa chọn \"" + existingChoiceLabel.apply(sibling)
+                                + "\" (chọn cho học sinh " + sibling.getStudent().getUser().getFullName()
+                                + ") — không thể đổi sang \"" + newChoiceLabel + "\" cho học sinh khác trong cùng buổi.");
+            }
+        }
+    }
+
+    /**
+     * Câu hỏi mở #4 (đã chốt với người dùng 2026-07-30): hạn nộp BTVN
+     * buổi sau = ngày/giờ buổi học KẾ TIẾP của lớp (tính từ sessionDate
+     * của buổi đang nhận xét, không phải "hôm nay" — GV có thể nhập bù
+     * buổi cũ). Lớp chưa có buổi kế tiếp → chặn hẳn, không cho giao.
+     */
+    private OffsetDateTime resolveNextSessionDueAt(ClassSession session) {
+        List<ClassSession> upcoming = classSessionRepository.findUpcomingSessions(
+                session.getSchoolClass().getId(), session.getSessionDate(),
+                List.of(ClassSession.Status.CANCELLED, ClassSession.Status.RESCHEDULED));
+        if (upcoming.isEmpty()) {
+            throw new NoUpcomingClassSessionException(
+                    "Lớp id=" + session.getSchoolClass().getId() + " chưa có buổi học kế tiếp trong lịch — "
+                            + "không thể đặt hạn nộp cho BTVN buổi sau.");
+        }
+        ClassSession next = upcoming.get(0);
+        return next.getSessionDate().atTime(next.getStartTime()).atZone(ZoneId.systemDefault()).toOffsetDateTime();
     }
 
     /** Chấp nhận dán uuid (không giới hạn theo lớp) HOẶC chọn đúng nhãn dropdown (giới hạn theo bài đã gán cho lớp). */
@@ -821,8 +979,8 @@ public class StudentCommentService {
         }
     }
 
-    private String grammarLabel(ExerciseAssignment a) {
-        return a.getExercise().getTitle() + " (" + a.getExercise().getCode() + ")";
+    private String grammarLabel(Exercise e) {
+        return e.getTitle() + " (" + e.getCode() + ")";
     }
 
     private String videoLabel(ReviewVideoSet s) {
@@ -846,7 +1004,7 @@ public class StudentCommentService {
     /** % video ôn tập đã giao ở buổi trước — xem HomeworkProgressService.videoProgressLabel. */
     private String videoPreviousProgressLabel(StudentComment previous) {
         return previous == null ? null
-                : homeworkProgressService.videoProgressLabel(previous.getHomeworkNextReviewVideoSet(), previous.getStudent().getId());
+                : homeworkProgressService.videoProgressLabel(previous.getHomeworkNextReviewVideoAssignment(), previous.getStudent().getId());
     }
 
     /**
@@ -1038,7 +1196,7 @@ public class StudentCommentService {
         StudentComment previous = c.getCommentType() == StudentComment.CommentType.DAILY && c.getClassSession() != null
                 ? previousComment(c.getClassSession(), c.getStudent().getId()) : null;
         ExerciseAssignment grammarNext = c.getHomeworkNextExerciseAssignment();
-        ReviewVideoSet videoNext = c.getHomeworkNextReviewVideoSet();
+        ReviewVideoAssignment videoNext = c.getHomeworkNextReviewVideoAssignment();
         return new StudentCommentResponse(
                 c.getId(), c.getStudent().getId(), c.getStudent().getUser().getFullName(), c.getSchoolClass().getId(),
                 c.getTeacher().getId(), c.getCommentType().name(),
@@ -1053,7 +1211,7 @@ public class StudentCommentService {
                 grammarNext == null ? null : grammarNext.getId(),
                 grammarNext == null ? null : grammarNext.getExercise().getTitle(),
                 videoNext == null ? null : videoNext.getId(),
-                videoNext == null ? null : videoNext.getTitle(),
+                videoNext == null ? null : videoNext.getReviewVideoSet().getTitle(),
                 grammarPreviousProgressLabel(previous), videoPreviousProgressLabel(previous),
                 c.getNote(), c.getClassSession() == null ? null : c.getClassSession().getLessonContent());
     }

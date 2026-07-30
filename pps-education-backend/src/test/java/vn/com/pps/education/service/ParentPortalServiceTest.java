@@ -13,7 +13,6 @@ import vn.com.pps.education.domain.User;
 import vn.com.pps.education.domain.UserRole;
 import vn.com.pps.education.dto.AddExerciseQuestionRequest;
 import vn.com.pps.education.dto.AddReviewVideoRequest;
-import vn.com.pps.education.dto.AssignExerciseRequest;
 import vn.com.pps.education.dto.AssignTeacherRequest;
 import vn.com.pps.education.dto.AttendanceMarkResponse;
 import vn.com.pps.education.dto.ClassResponse;
@@ -34,7 +33,6 @@ import vn.com.pps.education.dto.EnrollStudentRequest;
 import vn.com.pps.education.dto.EnterAttendanceMarkRequest;
 import vn.com.pps.education.dto.EnterGradePeriodResultRequest;
 import vn.com.pps.education.dto.EnterGradeRequest;
-import vn.com.pps.education.dto.ExerciseAssignmentResponse;
 import vn.com.pps.education.dto.ExerciseResponse;
 import vn.com.pps.education.dto.GradeComponentResponse;
 import vn.com.pps.education.dto.GradeEntryResponse;
@@ -321,9 +319,8 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
 
     // ===================== Xem tiến độ BTVN của con (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-29) =====================
 
-    private record GrammarFixture(ExerciseAssignmentResponse assignment) {}
-
-    private GrammarFixture createGrammarOnlineAssignment() {
+    /** V65: chỉ tạo + thêm câu hỏi, KHÔNG giao lớp nữa — việc giao (deliverToClass) giờ chỉ xảy ra khi GV chọn làm "BTVN buổi sau" ở writeDailyComment. */
+    private ExerciseResponse createGrammarOnlineExercise() {
         QuestionBankResponse bank = questionBankService.createBank(
                 new CreateQuestionBankRequest(bankCode(), "Ngân hàng homework", null, null, null), teacher.getId());
         QuestionResponse question = questionBankService.createQuestion(
@@ -335,9 +332,15 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
                 new CreateExerciseRequest(exerciseCode(), "Bài ngữ pháp homework", schoolClass.curriculumId(), null,
                         "ASSIGNED", new BigDecimal("1"), null, false, 1, true), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(question.id(), 1, new BigDecimal("1.0")), teacher.getId());
-        ExerciseAssignmentResponse assignment = exerciseService.assignExercise(exercise.id(),
-                new AssignExerciseRequest(schoolClass.id(), null, null, false, null, null), teacher.getId());
-        return new GrammarFixture(assignment);
+        return exercise;
+    }
+
+    /** V65: hạn nộp BTVN buổi sau = buổi kế tiếp — cần 1 buổi trong tương lai để resolveNextSessionDueAt không chặn. */
+    private void createNextSession() {
+        classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(session.sessionDate().plusDays(2), LocalTime.of(8, 0), LocalTime.of(9, 40),
+                        null, teacher.getId(), "REGULAR", null, null),
+                headAcademic.getId());
     }
 
     private ReviewVideoSetResponse createConnectionVideoAssignedToClass() {
@@ -353,15 +356,20 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
         return published;
     }
 
-    /** DAILY nay dùng chung luồng DRAFT->Gửi->PENDING->duyệt (2026-07-29) -- ghi rồi phải Gửi+duyệt mới APPROVED để lộ ra Cổng phụ huynh. */
-    private void writeDailyComment(Long grammarAssignmentId, Long videoSetId, String homeworkNext) {
+    /**
+     * DAILY nay dùng chung luồng DRAFT->Gửi->PENDING->duyệt (2026-07-29) -- ghi rồi phải Gửi+duyệt mới APPROVED để lộ ra Cổng phụ huynh.
+     * V65: grammarExerciseId/videoSetId khác null tự động giao (deliverToClass) cho cả lớp ngay khi writeComment.
+     * Trả về comment lúc tạo (DRAFT) vì homeworkNext*AssignmentId không đổi qua submit/decide (không cascade).
+     */
+    private StudentCommentResponse writeDailyComment(Long grammarExerciseId, Long videoSetId, String homeworkNext) {
         StudentCommentResponse comment = studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), "DAILY", session.id(), null,
                         session.sessionDate(), "Nội dung buổi.", null, null, false, null, null, null,
-                        homeworkNext, grammarAssignmentId, videoSetId, null),
+                        homeworkNext, grammarExerciseId, videoSetId, null),
                 teacher.getId());
         studentCommentService.submitComments(schoolClass.id(), new SubmitCommentsRequest(List.of(comment.id())), teacher.getId());
         studentCommentService.decideComments(new DecideCommentsRequest(List.of(comment.id()), "APPROVED", null), siteManagerUser.getId());
+        return comment;
     }
 
     @Test
@@ -378,13 +386,15 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
 
     @Test
     void listHomeworkProgress_MainFlow_onlineGrammarNotYetAttemptedShowsChuaLamBai() {
-        GrammarFixture fixture = createGrammarOnlineAssignment();
-        writeDailyComment(fixture.assignment().id(), null, null);
+        ExerciseResponse exercise = createGrammarOnlineExercise();
+        createNextSession();
+        StudentCommentResponse comment = writeDailyComment(exercise.id(), null, null);
 
         List<HomeworkProgressResponse> result = parentPortalService.listHomeworkProgress(student.getId(), schoolClass.id(), parentUser.getId());
 
         assertThat(result).hasSize(1);
-        assertThat(result.get(0).grammarAssignmentId()).isEqualTo(fixture.assignment().id());
+        assertThat(comment.homeworkNextExerciseAssignmentId()).isNotNull();
+        assertThat(result.get(0).grammarAssignmentId()).isEqualTo(comment.homeworkNextExerciseAssignmentId());
         assertThat(result.get(0).grammarOfflineText()).isNull();
         assertThat(result.get(0).grammarProgress()).isEqualTo("Chưa làm bài");
     }
@@ -392,12 +402,14 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
     @Test
     void listHomeworkProgress_MainFlow_connectionVideoShowsWatchPercent() {
         ReviewVideoSetResponse set = createConnectionVideoAssignedToClass();
-        writeDailyComment(null, set.id(), null);
+        createNextSession();
+        StudentCommentResponse comment = writeDailyComment(null, set.id(), null);
 
         List<HomeworkProgressResponse> result = parentPortalService.listHomeworkProgress(student.getId(), schoolClass.id(), parentUser.getId());
 
         assertThat(result).hasSize(1);
-        assertThat(result.get(0).videoSetId()).isEqualTo(set.id());
+        assertThat(comment.homeworkNextReviewVideoAssignmentId()).isNotNull();
+        assertThat(result.get(0).videoAssignmentId()).isEqualTo(comment.homeworkNextReviewVideoAssignmentId());
         assertThat(result.get(0).videoProgress()).isEqualTo("0%");
     }
 

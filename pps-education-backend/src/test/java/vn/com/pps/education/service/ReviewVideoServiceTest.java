@@ -230,10 +230,12 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
                 new CreateReviewVideoSetRequest(setCode(), "Bộ riêng lớp", "CONNECTION", null, schoolClass.id(), null, 1),
                 teacher.getId());
         reviewVideoService.updateSet(classScoped.id(), new UpdateReviewVideoSetRequest(classScoped.title(), null, 1, "PUBLISHED"), teacher.getId());
+        reviewVideoService.deliverToClass(classScoped.id(), schoolClass.id(), null, teacher.getId());
         ReviewVideoSetResponse curriculumScoped = reviewVideoService.createSet(
                 new CreateReviewVideoSetRequest(setCode(), "Bộ chung khung", "REFLEX", activeCurriculum.id(), null, null, 2),
                 teacher.getId());
         reviewVideoService.updateSet(curriculumScoped.id(), new UpdateReviewVideoSetRequest(curriculumScoped.title(), null, 2, "PUBLISHED"), teacher.getId());
+        reviewVideoService.deliverToClass(curriculumScoped.id(), schoolClass.id(), null, teacher.getId());
         Student student = enrollStudent(schoolClass.id());
 
         List<ReviewVideoSetResponse> visible = reviewVideoService.listByClass(schoolClass.id(), student.getUser().getId());
@@ -345,6 +347,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         ReviewVideoResponse videoA = createPublishedSetWithVideo(100);
         ReviewVideoSetResponse setB = createClassScopedSet();
         reviewVideoService.updateSet(setB.id(), new UpdateReviewVideoSetRequest(setB.title(), null, 1, "PUBLISHED"), teacher.getId());
+        reviewVideoService.deliverToClass(setB.id(), schoolClass.id(), null, teacher.getId());
         ReviewVideoResponse videoB = reviewVideoService.addVideo(setB.id(),
                 new AddReviewVideoRequest("R2_VIDEO", "Video B", "https://media.pps.edu.vn/lms/review-videos/video/b.mp4", 1_000_000L, 100, 1, null, null),
                 teacher.getId());
@@ -610,11 +613,20 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
                 new AddReviewVideoQuestionRequest(timestampSeconds, null, maxRecordingSeconds, maxAttempts, null), teacher.getId());
     }
 
+    /**
+     * V65 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30):
+     * Publish giờ chỉ là "đủ điều kiện dùng làm nguồn" — học sinh chỉ xem/
+     * làm được khi có thêm 1 ReviewVideoAssignment ACTIVE cho lớp (giao
+     * qua deliverToClass, bình thường gọi TỪ StudentCommentService khi GV
+     * chọn làm "BTVN buổi sau"). Test gọi thẳng deliverToClass ở đây để mô
+     * phỏng "đã được giao" mà không cần dựng lại toàn bộ luồng nhận xét.
+     */
     private ReviewVideoResponse createPublishedReflexSetWithVideo(int durationSeconds) {
         ReviewVideoSetResponse set = reviewVideoService.createSet(
                 new CreateReviewVideoSetRequest(setCode(), "Bài 1: Video phản xạ", "REFLEX", null, schoolClass.id(), null, 1),
                 teacher.getId());
         reviewVideoService.updateSet(set.id(), new UpdateReviewVideoSetRequest(set.title(), null, 1, "PUBLISHED"), teacher.getId());
+        reviewVideoService.deliverToClass(set.id(), schoolClass.id(), null, teacher.getId());
         return reviewVideoService.addVideo(set.id(),
                 new AddReviewVideoRequest("R2_AUDIO", "Audio", "https://media.pps.edu.vn/lms/review-videos/audio/x.mp3", 1_000_000L, durationSeconds, 1, null, null),
                 teacher.getId());
@@ -624,9 +636,11 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         return createPublishedSetWithVideo(durationSeconds, null, null);
     }
 
+    /** V65: xem Javadoc createPublishedReflexSetWithVideo — publish + deliverToClass để học sinh xem/làm được. */
     private ReviewVideoResponse createPublishedSetWithVideo(int durationSeconds, Integer completionThresholdPercent, Integer requiredViewCount) {
         ReviewVideoSetResponse set = createClassScopedSet();
         reviewVideoService.updateSet(set.id(), new UpdateReviewVideoSetRequest(set.title(), null, 1, "PUBLISHED"), teacher.getId());
+        reviewVideoService.deliverToClass(set.id(), schoolClass.id(), null, teacher.getId());
         return reviewVideoService.addVideo(set.id(),
                 new AddReviewVideoRequest("R2_VIDEO", "Video", "https://media.pps.edu.vn/lms/review-videos/video/x.mp4", 1_000_000L,
                         durationSeconds, 1, completionThresholdPercent, requiredViewCount),

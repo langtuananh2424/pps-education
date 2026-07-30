@@ -17,6 +17,25 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, Long
     /** UC-21 mở rộng (BTVN theo buổi, V55): buổi học liền TRƯỚC 1 buổi, cùng lớp — tra lại FK "sẽ giao gì" đã ghi ở dòng student_comments của buổi trước. */
     Optional<ClassSession> findFirstBySchoolClassIdAndSessionDateLessThanOrderBySessionDateDescIdDesc(Long classId, LocalDate sessionDate);
 
+    /**
+     * V65 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng): buổi học
+     * liền SAU 1 buổi, cùng lớp — dùng tính hạn nộp (dueAt) khi Giáo viên
+     * chọn 1 đề/video làm "BTVN buổi sau" ở Nhận xét. Loại trừ
+     * CANCELLED/RESCHEDULED (buổi đã dời không tính là "buổi kế tiếp" —
+     * buổi thay thế nó mới là buổi thật, tự nhiên nằm trong kết quả vì có
+     * sessionDate riêng), mirror cách loại trừ trạng thái ở
+     * findOverlappingForClass.
+     */
+    @Query("""
+            SELECT cs FROM ClassSession cs
+            WHERE cs.schoolClass.id = :classId
+            AND cs.sessionDate > :sessionDate
+            AND cs.status NOT IN (:excludedStatuses)
+            ORDER BY cs.sessionDate ASC, cs.startTime ASC
+            """)
+    List<ClassSession> findUpcomingSessions(@Param("classId") Long classId, @Param("sessionDate") LocalDate sessionDate,
+                                             @Param("excludedStatuses") List<ClassSession.Status> excludedStatuses);
+
     /** UC-09 A12/A13 (Chấm công GV — cửa sổ theo lịch dạy): tiết dạy trong ngày của 1 GV. */
     List<ClassSession> findByPrimaryTeacherIdAndSessionDateAndStatusNotIn(
             Long primaryTeacherId, LocalDate sessionDate, List<ClassSession.Status> excludedStatuses);

@@ -26,13 +26,16 @@ public record StudentCommentResponse(
         String rejectionReason,
         // Nhận xét Hàng ngày kiểu mới (chỉ có ý nghĩa khi commentType=DAILY) —
         // bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-24.
+        // homeworkNext*AssignmentId (V65): id của BẢN GIAO (ExerciseAssignment/
+        // ReviewVideoAssignment) tự động tạo cho cả lớp — không phải id của
+        // Exercise/ReviewVideoSet nguồn (dùng kèm *Title để hiện tên nguồn đó).
         String attitude,
         String homeworkPreviousScore,
         String homeworkPreviousSpeakingScore,
         String homeworkNext,
         Long homeworkNextExerciseAssignmentId,
         String homeworkNextExerciseTitle,
-        Long homeworkNextReviewVideoSetId,
+        Long homeworkNextReviewVideoAssignmentId,
         String homeworkNextReviewVideoSetTitle,
         String grammarPreviousProgress,
         String videoPreviousProgress,

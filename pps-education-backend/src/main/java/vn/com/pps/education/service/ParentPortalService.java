@@ -5,11 +5,11 @@ import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.AttendanceMark;
 import vn.com.pps.education.domain.ClassSession;
 import vn.com.pps.education.domain.ExerciseAssignment;
+import vn.com.pps.education.domain.ReviewVideoAssignment;
 import vn.com.pps.education.domain.GradeEntry;
 import vn.com.pps.education.domain.GradePeriodResult;
 import vn.com.pps.education.domain.Parent;
 import vn.com.pps.education.domain.ParentStudent;
-import vn.com.pps.education.domain.ReviewVideoSet;
 import vn.com.pps.education.domain.StudentComment;
 import vn.com.pps.education.dto.AttendanceMarkResponse;
 import vn.com.pps.education.dto.ChildResponse;
@@ -150,7 +150,7 @@ public class ParentPortalService {
                 .findBySchoolClassIdAndStudentIdAndStatusOrderByCommentDateDesc(classId, studentId, StudentComment.Status.APPROVED)
                 .stream()
                 .filter(c -> c.getHomeworkNext() != null || c.getHomeworkNextExerciseAssignment() != null
-                        || c.getHomeworkNextReviewVideoSet() != null)
+                        || c.getHomeworkNextReviewVideoAssignment() != null)
                 .map(this::toHomeworkProgressResponse)
                 .toList();
     }
@@ -239,7 +239,7 @@ public class ParentPortalService {
 
     private HomeworkProgressResponse toHomeworkProgressResponse(StudentComment c) {
         ExerciseAssignment grammar = c.getHomeworkNextExerciseAssignment();
-        ReviewVideoSet video = c.getHomeworkNextReviewVideoSet();
+        ReviewVideoAssignment video = c.getHomeworkNextReviewVideoAssignment();
         return new HomeworkProgressResponse(
                 c.getId(), c.getClassSession().getId(), c.getCommentDate(),
                 grammar == null ? null : grammar.getId(),
@@ -247,7 +247,7 @@ public class ParentPortalService {
                 grammar == null ? c.getHomeworkNext() : null,
                 homeworkProgressService.grammarProgressLabel(grammar, c.getStudent().getId()),
                 video == null ? null : video.getId(),
-                video == null ? null : video.getTitle(),
+                video == null ? null : video.getReviewVideoSet().getTitle(),
                 homeworkProgressService.videoProgressLabel(video, c.getStudent().getId()));
     }
 

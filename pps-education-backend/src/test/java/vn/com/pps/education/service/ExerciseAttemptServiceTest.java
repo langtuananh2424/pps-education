@@ -4,13 +4,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
+import vn.com.pps.education.domain.ExerciseAssignment;
 import vn.com.pps.education.domain.Role;
 import vn.com.pps.education.domain.Site;
 import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.domain.UserRole;
 import vn.com.pps.education.dto.AddExerciseQuestionRequest;
-import vn.com.pps.education.dto.AssignExerciseRequest;
 import vn.com.pps.education.dto.AssignTeacherRequest;
 import vn.com.pps.education.dto.AssignedExerciseResponse;
 import vn.com.pps.education.dto.ClassResponse;
@@ -34,6 +34,7 @@ import vn.com.pps.education.exception.AttemptNotEditableException;
 import vn.com.pps.education.exception.ExerciseNotAvailableException;
 import vn.com.pps.education.exception.RetakeNotAllowedException;
 import vn.com.pps.education.exception.SubmissionPastDeadlineException;
+import vn.com.pps.education.repository.ExerciseAssignmentRepository;
 import vn.com.pps.education.repository.RoleRepository;
 import vn.com.pps.education.repository.SiteRepository;
 import vn.com.pps.education.repository.StudentRepository;
@@ -93,6 +94,9 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
     @Autowired
     private StudentRepository studentRepository;
 
+    @Autowired
+    private ExerciseAssignmentRepository exerciseAssignmentRepository;
+
     private User headAcademic;
     private User teacher;
     private CurriculumResponse activeCurriculum;
@@ -151,7 +155,7 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
                 new CreateExerciseRequest(exerciseCode(), "Kiểm tra", activeCurriculum.id(), null, "ASSIGNED",
                         new BigDecimal("10"), null, true, null, true), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("10")), teacher.getId());
-        // chưa gọi assignExercise -> chưa giao cho lớp nào
+        // chưa gọi deliverToClass -> chưa giao cho lớp nào
 
         assertThatThrownBy(() -> exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId()))
                 .isInstanceOf(ExerciseNotAvailableException.class);
@@ -402,8 +406,7 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
                 activeCurriculum.id(), "OPEN", 20, null, LocalDate.now(), null, null, null), headAcademic.getId());
         classService.assignTeacher(otherClass.id(),
                 new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now()), headAcademic.getId());
-        exerciseService.assignExercise(exercise.id(),
-                new AssignExerciseRequest(otherClass.id(), null, null, false, null, null), teacher.getId());
+        exerciseService.deliverToClass(exercise.id(), otherClass.id(), null, teacher.getId());
 
         List<AssignedExerciseResponse> assigned = exerciseAttemptService.listMyAssignedExercises(studentUser.getId(), null);
 
@@ -495,8 +498,11 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
             exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(q.id(), order++, new BigDecimal("1.0")), teacher.getId());
         }
         if (publish) {
-            exerciseService.assignExercise(exercise.id(),
-                    new AssignExerciseRequest(schoolClass.id(), null, dueAt, lateAllowed, null, null), teacher.getId());
+            ExerciseAssignment assignment = exerciseService.deliverToClass(exercise.id(), schoolClass.id(), dueAt, teacher.getId());
+            if (lateAllowed) {
+                assignment.setLateSubmissionAllowed(true);
+                exerciseAssignmentRepository.save(assignment);
+            }
         }
         return exercise;
     }
