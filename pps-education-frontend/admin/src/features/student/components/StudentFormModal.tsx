@@ -110,7 +110,7 @@ export default function StudentFormModal({ onClose, onCreated }: StudentFormModa
   };
 
   return (
-    <Modal open onClose={onClose} title="Thêm học sinh mới (UC-13)" size="lg">
+    <Modal open onClose={onClose} title="Thêm học sinh mới" size="lg">
       <form onSubmit={handleSubmit} className="space-y-5">
         {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 

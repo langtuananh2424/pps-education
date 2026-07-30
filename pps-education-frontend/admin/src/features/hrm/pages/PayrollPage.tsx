@@ -13,10 +13,10 @@ export default function PayrollPage() {
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Phân hệ Quản lý Nhân sự & Tiền lương (HRM)</h1>
-        <p className="text-xs text-slate-500 mt-1">Tính toán bảng lương tự động dựa trên hợp đồng và ngày công (UC-12).</p>
+        <p className="text-xs text-slate-500 mt-1">Tính toán bảng lương tự động dựa trên hợp đồng và ngày công.</p>
       </div>
 
-      <UnderDevelopment title="Tính toán bảng lương (UC-12)" />
+      <UnderDevelopment title="Tính toán bảng lương" />
     </div>
   );
 }

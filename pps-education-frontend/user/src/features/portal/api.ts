@@ -256,6 +256,8 @@ export interface StudentCommentResponse {
   /** % tự tính từ review_video_progress/submissions của buổi trước — không nhập tay được. */
   videoPreviousProgress: string | null;
   note: string | null;
+  /** "Bài học hôm nay" của buổi (chỉ có ý nghĩa khi commentType=DAILY) — bổ sung ngoài SDD gốc, 2026-07-29. */
+  lessonContent: string | null;
 }
 
 /** UC-64 (bổ sung ngoài SDD gốc, 2026-07-29) — Cổng phụ huynh xem tiến độ BTVN đã giao cho con, chỉ xem không phải giao diện làm bài. */

@@ -1,17 +1,21 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Award,
+  BookOpen,
   Calendar,
   Check,
+  CheckCircle2,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   Clock,
   Filter,
-  MessageSquareText,
+  LayoutGrid,
+  MapPin,
   ShieldCheck,
   Sparkles,
-  TrendingUp,
+  Table as TableIcon,
+  UserCheck,
   Video
 } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
@@ -68,6 +72,9 @@ interface SessionFeedbackLog {
   commentDate: string;
   timeSlot: string | null;
   sessionTypeLabel: string | null;
+  sessionNumber: number | null;
+  roomName: string | null;
+  lessonContent: string | null;
   attitude: StudentCommentResponse["attitude"];
   homeworkPreviousScore: string | null;
   homeworkPreviousSpeakingScore: string | null;
@@ -136,6 +143,9 @@ export default function DailyLearningProgressTab({ studentName, studentCode, cla
             commentDate: session?.sessionDate ?? c.commentDate,
             timeSlot: session ? `${session.startTime} - ${session.endTime}` : null,
             sessionTypeLabel: session ? sessionTypeLabels[session.sessionType] ?? session.sessionType : null,
+            sessionNumber: session?.sessionNumber ?? null,
+            roomName: session?.roomName ?? null,
+            lessonContent: c.lessonContent,
             attitude: c.attitude,
             homeworkPreviousScore: c.homeworkPreviousScore,
             homeworkPreviousSpeakingScore: c.homeworkPreviousSpeakingScore,
@@ -150,6 +160,9 @@ export default function DailyLearningProgressTab({ studentName, studentCode, cla
     [comments, sessionById]
   );
 
+  // Xem dạng Bảng tổng quan (mặc định, tiện lướt nhanh nhiều buổi) hoặc Dạng thẻ (1 buổi/thẻ, dễ đọc
+  // chi tiết từng buổi hơn) — thiết kế mới 2026-07-30, dữ liệu dùng chung, chỉ đổi cách trình bày.
+  const [viewMode, setViewMode] = useState<"TABLE" | "CARDS">("TABLE");
   const [selectedSessionId, setSelectedSessionId] = useState<string>("ALL");
   // Filter theo Thái độ học tập (2026-07-29) — độc lập với filter theo buổi/ngày ở trên, áp dụng cùng lúc (AND).
   const [attitudeFilter, setAttitudeFilter] = useState<"ALL" | NonNullable<StudentCommentResponse["attitude"]>>("ALL");
@@ -190,7 +203,7 @@ export default function DailyLearningProgressTab({ studentName, studentCode, cla
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [rangeOpen]);
 
-  const rangeLabel = dateFrom || dateTo ? `${dateFrom || "…"} → ${dateTo || "…"}` : "Khoảng thời gian";
+  const rangeLabel = dateFrom || dateTo ? `${dateFrom || "…"} → ${dateTo || "…"}` : "Thời gian";
 
   const toggleRange = () => {
     setRangeOpen((v) => {
@@ -328,11 +341,13 @@ export default function DailyLearningProgressTab({ studentName, studentCode, cla
       <div className="bg-slate-50/80 p-5 rounded-2xl border border-line/80 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-lg md:text-xl font-black text-ink font-display">Nhận xét hàng ngày theo buổi học</h2>
-            <span className="px-2.5 py-0.5 rounded-full bg-teal/10 text-teal text-xs font-bold border border-teal/20">UC-21</span>
+            <h2 className="text-lg md:text-xl font-black text-ink font-display">Bảng Tổng Quan Nhật Ký Học Tập</h2>
+            <span className="px-2.5 py-0.5 rounded-full bg-teal/10 text-teal text-xs font-bold border border-teal/20">
+              {parentStudentId != null ? "Phụ Huynh Theo Dõi" : "UC-21"}
+            </span>
           </div>
           <p className="text-xs text-muted font-bold mt-1">
-            Quá trình rèn luyện &amp; Đánh giá phản xạ ngôn ngữ của học viên{" "}
+            Theo dõi thái độ, bài tập &amp; nhận xét từng buổi học của{" "}
             <span className="text-teal font-extrabold">
               {studentName} ({displayCode})
             </span>
@@ -340,6 +355,25 @@ export default function DailyLearningProgressTab({ studentName, studentCode, cla
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center p-1 bg-white rounded-xl border border-line shrink-0">
+            <button
+              type="button"
+              onClick={() => setViewMode("TABLE")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${viewMode === "TABLE" ? "bg-teal text-white shadow-2xs" : "text-muted hover:text-ink"
+                }`}
+            >
+              <TableIcon size={13} aria-hidden="true" /> Bảng
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("CARDS")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${viewMode === "CARDS" ? "bg-teal text-white shadow-2xs" : "text-muted hover:text-ink"
+                }`}
+            >
+              <LayoutGrid size={13} aria-hidden="true" /> Thẻ
+            </button>
+          </div>
+
           <div className="relative" ref={calendarRef}>
             <button
               type="button"
@@ -602,160 +636,225 @@ export default function DailyLearningProgressTab({ studentName, studentCode, cla
 
       {/* Summary KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="p-4 bg-sky-2 rounded-2xl border border-line/60 flex items-center gap-3">
+        <div className="p-4 bg-white rounded-2xl border border-line shadow-2xs flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-teal/10 text-teal flex items-center justify-center shrink-0">
-            <TrendingUp size={20} aria-hidden="true" />
+            <UserCheck size={20} aria-hidden="true" />
           </div>
           <div>
-            <p className="text-[10px] text-muted font-extrabold uppercase">Thái độ chung</p>
+            <p className="text-[10px] text-muted font-extrabold uppercase tracking-wider">Chuyên cần</p>
+            <p className="text-sm font-black text-teal tabular-nums">
+              {attendanceRate != null ? `${attendanceRate >= 90 ? "Đạt Chuẩn" : "Cần cải thiện"} (${attendanceRate}%)` : "Chưa có dữ liệu"}
+            </p>
+          </div>
+        </div>
+
+        <div className="p-4 bg-white rounded-2xl border border-line shadow-2xs flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+            <ShieldCheck size={20} aria-hidden="true" />
+          </div>
+          <div>
+            <p className="text-[10px] text-muted font-extrabold uppercase tracking-wider">Thái độ học tập</p>
             <p className="text-sm font-black text-ink tabular-nums">
               {mostCommonAttitude && positiveAttitudeShare != null ? `Đạt loại ${attitudeLabels[mostCommonAttitude]} (${positiveAttitudeShare}%)` : "Chưa có dữ liệu"}
             </p>
           </div>
         </div>
 
-        <div className="p-4 bg-sky-2 rounded-2xl border border-line/60 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-            <ShieldCheck size={20} aria-hidden="true" />
-          </div>
-          <div>
-            <p className="text-[10px] text-muted font-extrabold uppercase">Tỷ lệ hoàn thành BTVN</p>
-            <p className="text-sm font-black text-emerald-600 tabular-nums">{avgHomeworkCompletion != null ? `${avgHomeworkCompletion}% Trung bình` : "Chưa có dữ liệu"}</p>
-          </div>
-        </div>
-
-        <div className="p-4 bg-sky-2 rounded-2xl border border-line/60 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+        <div className="p-4 bg-white rounded-2xl border border-line shadow-2xs flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center shrink-0">
             <Award size={20} aria-hidden="true" />
           </div>
           <div>
-            <p className="text-[10px] text-muted font-extrabold uppercase">Buổi học ghi nhận</p>
-            <p className="text-sm font-black text-ink">{logs.length} Buổi</p>
+            <p className="text-[10px] text-muted font-extrabold uppercase tracking-wider">BTVN Hoàn thành</p>
+            <p className="text-sm font-black text-amber-800 tabular-nums">{avgHomeworkCompletion != null ? `${avgHomeworkCompletion}% Trung bình` : "Chưa có dữ liệu"}</p>
           </div>
         </div>
 
-        <div className="p-4 bg-sky-2 rounded-2xl border border-line/60 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
+        <div className="p-4 bg-white rounded-2xl border border-line shadow-2xs flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center shrink-0">
             <Sparkles size={20} aria-hidden="true" />
           </div>
           <div>
-            <p className="text-[10px] text-muted font-extrabold uppercase">Tình trạng chuyên cần</p>
-            <p className="text-sm font-black text-purple-600 tabular-nums">
-              {attendanceRate != null ? `${attendanceRate >= 90 ? "Đạt Chuẩn" : "Cần cải thiện"} (${attendanceRate}%)` : "Chưa có dữ liệu"}
-            </p>
+            <p className="text-[10px] text-muted font-extrabold uppercase tracking-wider">Số buổi đã học</p>
+            <p className="text-sm font-black text-purple-800">{logs.length} Buổi ghi nhận</p>
           </div>
         </div>
       </div>
 
-      {/* Main Table */}
-      <div className="border border-line/80 rounded-2xl overflow-hidden">
-        <div className="p-4 border-b border-line bg-slate-50/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-          <div className="flex items-center gap-2">
-            <MessageSquareText size={18} className="text-teal" aria-hidden="true" />
-            <h3 className="text-sm font-black text-ink font-display uppercase tracking-wider">
-              Bảng theo dõi nhật ký học tập học viên {studentName}
-            </h3>
+      {/* Main content: Bảng tổng quan (mặc định) hoặc Dạng thẻ */}
+      {viewMode === "TABLE" ? (
+        <div className="bg-white border border-line rounded-2xl shadow-2xs overflow-hidden">
+          <div className="p-4 border-b border-line bg-slate-50/80 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div className="flex items-center gap-2">
+              <TableIcon size={16} className="text-teal" aria-hidden="true" />
+              <h3 className="text-xs font-black text-ink uppercase tracking-wider font-display">Bảng Tổng Quan Nhật Ký Học Tập</h3>
+            </div>
+            <span className="text-xs font-bold text-muted">
+              Đang hiển thị <span className="text-teal font-black">{filteredLogs.length}</span> buổi học
+            </span>
           </div>
-          <div className="text-xs font-bold text-muted">
-            Hiển thị <span className="text-teal font-black">{filteredLogs.length}</span> nhật ký buổi học
-          </div>
-        </div>
 
-        {filteredLogs.length === 0 ? (
-          <p className="text-xs text-muted font-bold italic text-center py-10">Chưa có nhận xét nào được duyệt cho lớp này.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-100/80 border-b border-line text-[11px] font-black uppercase text-[#6e7c93] tracking-wider whitespace-nowrap">
-                  <th className="p-3.5 pl-4">Buổi Học &amp; Thời Gian</th>
-                  <th className="p-3.5 min-w-[120px]">Thái Độ Học Tập</th>
-                  <th className="p-3.5 min-w-[140px]">BTVN Ngữ Pháp Buổi Trước</th>
-                  <th className="p-3.5 min-w-[140px]">BTVN Nghe-Nói Buổi Trước</th>
-                  <th className="p-3.5 min-w-[220px]">Nhận Xét Học Sinh</th>
-                  <th className="p-3.5 min-w-[240px]">BTVN Buổi Sau</th>
-                  <th className="p-3.5 pr-4">Ghi Chú</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line/60 text-xs font-semibold text-ink">
-                {filteredLogs.map((log) => (
-                  <tr key={log.id} className="hover:bg-slate-50/80 transition-colors align-top">
-                    {/* Buổi Học & Thời Gian */}
-                    <td className="p-3.5 pl-4 pt-4">
-                      <div className="font-bold text-teal-deep text-xs leading-tight min-w-[120px] max-w-[160px]">{log.sessionTypeLabel ?? "Buổi học"}</div>
-                      <div className="text-[10px] text-muted font-mono flex items-center gap-1 mt-1">
-                        <Clock size={10} aria-hidden="true" /> {log.commentDate} {log.timeSlot ? `(${log.timeSlot})` : ""}
-                      </div>
-                    </td>
-
-                    {/* Thái Độ Học Tập — kiểu dáng dropdown nhưng KHÔNG chỉnh sửa được (chỉ xem) */}
-                    <td className="p-3.5 pt-3">
-                      <div
-                        className={`w-full flex items-center justify-between gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-black shadow-sm select-none ${log.attitude ? attitudeStyles[log.attitude] : "bg-slate-50 text-slate-500 border-slate-300"
-                          }`}
-                      >
-                        <span>{log.attitude ? attitudeLabels[log.attitude] : "—"}</span>
-                        <ChevronDown size={13} className="opacity-50" aria-hidden="true" />
-                      </div>
-                    </td>
-
-                    {/* BTVN Ngữ Pháp Buổi Trước */}
-                    <td className="p-3.5 pt-3">
-                      <div className="w-full bg-slate-50 border border-line rounded-xl px-2.5 py-1.5 text-xs font-bold text-ink tabular-nums">
-                        {log.homeworkPreviousScore || log.grammarPreviousProgress || "—"}
-                      </div>
-                    </td>
-
-                    {/* BTVN Nghe-Nói Buổi Trước */}
-                    <td className="p-3.5 pt-3">
-                      <div className="w-full bg-purple-50/50 border border-purple-200 rounded-xl px-2.5 py-1.5 text-xs font-bold text-purple-900 tabular-nums">
-                        {log.homeworkPreviousSpeakingScore || log.videoPreviousProgress || "—"}
-                      </div>
-                    </td>
-
-                    {/* Nhận Xét Học Sinh — hiện đủ nguyên văn, không cắt dòng. */}
-                    <td className="p-3.5 pt-3">
-                      <div className="p-2.5 bg-slate-50 rounded-xl border border-line/60 text-xs text-ink/90 leading-relaxed font-sans italic">"{log.content}"</div>
-                    </td>
-
-                    {/* BTVN Buổi Sau (Ngữ pháp + Video ôn tập gộp 1 cột) */}
-                    <td className="p-3.5 pt-3">
-                      <div className="p-3 bg-slate-50/80 rounded-2xl border border-line/80 space-y-2.5 shadow-2xs">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-1 text-[10px] font-black text-blue-700 uppercase tracking-wider">Ngữ pháp</div>
-                          <div className="w-full bg-blue-50/70 border border-blue-200 rounded-xl px-2 py-1 text-xs font-bold text-blue-900">
-                            {log.homeworkNextGrammarLabel || "—"}
-                          </div>
-                        </div>
-
-                        <hr className="border-line/60 my-1" />
-
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-1 text-[10px] font-black text-amber-800 uppercase tracking-wider">
-                            <Video size={11} className="text-amber-600" aria-hidden="true" /> Video ôn tập
-                          </div>
-                          <div className="w-full bg-amber-50/80 border border-amber-200 rounded-xl px-2 py-1 text-xs font-bold text-amber-950">
-                            {log.homeworkNextVideoLabel || "—"}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-
-                    {/* Ghi Chú */}
-                    <td className="p-3.5 pr-4 whitespace-nowrap pt-4">
-                      {log.note ? (
-                        <span className="text-[11px] font-bold text-teal bg-teal/10 px-2 py-1 rounded-md border border-teal/20 inline-block">{log.note}</span>
-                      ) : (
-                        <span className="text-muted text-[11px] italic">--</span>
-                      )}
-                    </td>
+          {filteredLogs.length === 0 ? (
+            <p className="text-xs text-muted font-bold italic text-center py-10">Chưa có nhận xét nào được duyệt cho lớp này.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse min-w-[1200px]">
+                <thead>
+                  <tr className="bg-slate-100 border-b border-line text-[11px] font-black uppercase text-slate-700 tracking-wider">
+                    <th className="p-3 border-r border-line/60 w-28 whitespace-nowrap">Ngày</th>
+                    <th className="p-3 border-r border-line/60 min-w-[200px]">Bài học hôm nay</th>
+                    <th className="p-3 border-r border-line/60 w-28 whitespace-nowrap text-center">Thái độ</th>
+                    <th className="p-3 border-r border-line/60 w-36 whitespace-nowrap">BTVN Ngữ pháp (Trước)</th>
+                    <th className="p-3 border-r border-line/60 w-40 whitespace-nowrap">BTVN Nghe-nói (Trước)</th>
+                    <th className="p-3 border-r border-line/60 min-w-[220px]">Nhận xét học sinh</th>
+                    <th className="p-3 border-r border-line/60 min-w-[160px]">BTVN Ngữ pháp (Sau)</th>
+                    <th className="p-3 border-r border-line/60 min-w-[160px]">BTVN Video ôn tập (Sau)</th>
+                    <th className="p-3 min-w-[140px]">Ghi chú</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+                </thead>
+                <tbody className="divide-y divide-line text-xs font-medium text-ink">
+                  {filteredLogs.map((log) => (
+                    <tr key={log.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="p-3 border-r border-line/60 font-mono font-bold text-slate-700 whitespace-nowrap align-top">{log.commentDate}</td>
+                      <td className="p-3 border-r border-line/60 align-top">
+                        <div className="font-bold text-teal-deep">
+                          {log.sessionNumber != null ? `Buổi ${log.sessionNumber}` : log.sessionTypeLabel ?? "Buổi học"}
+                          {log.lessonContent && <span className="font-bold text-teal-deep">: {log.lessonContent}</span>}
+                        </div>
+                        <div className="text-[10px] text-muted font-mono flex items-center gap-1 mt-1">
+                          <Clock size={10} aria-hidden="true" /> {log.timeSlot ?? "—"}
+                          {log.roomName && (
+                            <>
+                              <span className="text-line">·</span>
+                              <MapPin size={10} aria-hidden="true" /> {log.roomName}
+                            </>
+                          )}
+                        </div>
+                      </td>
+                      <td className="p-3 border-r border-line/60 text-center whitespace-nowrap align-top">
+                        <span className={`px-2 py-0.5 rounded text-[10px] border ${log.attitude ? attitudeStyles[log.attitude] : "bg-slate-100 text-slate-700 border-slate-200"}`}>
+                          {log.attitude ? attitudeLabels[log.attitude] : "—"}
+                        </span>
+                      </td>
+                      <td className="p-3 border-r border-line/60 font-bold text-slate-800 align-top">{log.homeworkPreviousScore || log.grammarPreviousProgress || "—"}</td>
+                      <td className="p-3 border-r border-line/60 font-bold text-purple-900 align-top">{log.homeworkPreviousSpeakingScore || log.videoPreviousProgress || "—"}</td>
+                      <td className="p-3 border-r border-line/60 text-slate-700 italic align-top">"{log.content}"</td>
+                      <td className="p-3 border-r border-line/60 text-slate-800 font-semibold align-top">{log.homeworkNextGrammarLabel || "—"}</td>
+                      <td className="p-3 border-r border-line/60 text-slate-800 font-semibold align-top">{log.homeworkNextVideoLabel || "—"}</td>
+                      <td className="p-3 text-slate-600 text-[11px] align-top">{log.note || "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      ) : (
+        /* Dạng thẻ — mỗi buổi 1 thẻ, cùng dữ liệu như bảng nhưng dễ đọc chi tiết từng buổi hơn (2026-07-30). */
+        <div className="space-y-4">
+          {filteredLogs.length === 0 ? (
+            <p className="text-xs text-muted font-bold italic text-center py-10 border border-line/80 rounded-2xl">
+              Chưa có nhận xét nào được duyệt cho lớp này.
+            </p>
+          ) : (
+            filteredLogs.map((log) => {
+              const prevGrammarDisplay = log.homeworkPreviousScore || log.grammarPreviousProgress;
+              const prevSpeakingDisplay = log.homeworkPreviousSpeakingScore || log.videoPreviousProgress;
+              const prevGrammarPercent = parseProgressPercent(prevGrammarDisplay ?? null);
+              return (
+                <div key={log.id} className="bg-white border border-line rounded-2xl p-5 shadow-2xs hover:shadow-xs transition-all space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-line/70 pb-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-800 text-[11px] font-black font-mono border border-slate-200">
+                          {log.commentDate}
+                        </span>
+                        <span className="text-xs font-extrabold text-muted flex items-center gap-1">
+                          <Clock size={12} className="text-teal" aria-hidden="true" /> {log.timeSlot ?? "—"}
+                        </span>
+                        {log.roomName && (
+                          <span className="text-xs font-extrabold text-muted flex items-center gap-1">
+                            <MapPin size={12} className="text-teal" aria-hidden="true" /> {log.roomName}
+                          </span>
+                        )}
+                      </div>
+                      <h3 className="text-base font-black text-ink font-display">
+                        {log.sessionNumber != null ? `Buổi ${log.sessionNumber}` : log.sessionTypeLabel ?? "Buổi học"}
+                        {log.lessonContent && <span className="text-muted font-bold"> — {log.lessonContent}</span>}
+                      </h3>
+                    </div>
+
+                    <span
+                      className={`px-2.5 py-0.5 rounded-full text-xs font-bold border shrink-0 ${log.attitude ? attitudeStyles[log.attitude] : "bg-slate-100 text-slate-700 border-slate-200"
+                        }`}
+                    >
+                      Thái độ: {log.attitude ? attitudeLabels[log.attitude] : "—"}
+                    </span>
+                  </div>
+
+                  <div className="p-3.5 bg-slate-50/80 rounded-xl border-l-4 border-teal text-xs text-ink/90 font-medium leading-relaxed italic">
+                    <span className="font-extrabold not-italic text-slate-700 block mb-0.5">💬 Nhận xét của Giáo viên:</span>"{log.content}"
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                    <div className="p-3.5 bg-slate-50 rounded-xl border border-line/80 space-y-2">
+                      <div className="flex items-center justify-between font-black text-slate-800 uppercase tracking-wider text-[11px]">
+                        <span className="flex items-center gap-1">
+                          <CheckCircle2 size={13} className="text-emerald-600" aria-hidden="true" /> Kết quả BTVN buổi trước
+                        </span>
+                        {prevGrammarPercent != null && <span className="text-emerald-700 font-extrabold">{prevGrammarPercent}% Đạt</span>}
+                      </div>
+
+                      <div className="space-y-1.5 pt-1">
+                        <div className="flex justify-between text-[11px]">
+                          <span className="text-slate-600 font-semibold">BTVN Ngữ Pháp:</span>
+                          <span className="font-bold text-slate-900">{prevGrammarDisplay || "—"}</span>
+                        </div>
+                        {prevGrammarPercent != null && (
+                          <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                            <div className="bg-emerald-500 h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(100, Math.max(0, prevGrammarPercent))}%` }} />
+                          </div>
+                        )}
+                        <div className="flex justify-between text-[11px] pt-1">
+                          <span className="text-slate-600 font-semibold">BTVN Nghe - Nói:</span>
+                          <span className="font-bold text-purple-900">{prevSpeakingDisplay || "—"}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-3.5 bg-slate-50 rounded-xl border border-line/80 space-y-2">
+                      <div className="flex items-center justify-between font-black text-slate-800 uppercase tracking-wider text-[11px]">
+                        <span className="flex items-center gap-1">
+                          <BookOpen size={13} className="text-blue-600" aria-hidden="true" /> Chuẩn bị cho buổi học sau
+                        </span>
+                      </div>
+
+                      <div className="space-y-2 pt-1">
+                        <div className="flex items-start justify-between gap-2 text-[11px]">
+                          <span className="flex items-center gap-1.5 font-bold text-slate-800 shrink-0">
+                            <Video size={12} className="text-amber-600 shrink-0" aria-hidden="true" /> Video ôn tập:
+                          </span>
+                          <span className="font-semibold text-slate-700 text-right">{log.homeworkNextVideoLabel || "—"}</span>
+                        </div>
+                        <div className="pt-1 border-t border-line/60 flex items-start justify-between gap-2 text-[11px]">
+                          <span className="font-bold text-slate-800 shrink-0">Ngữ pháp:</span>
+                          <span className="font-semibold text-slate-700 text-right">{log.homeworkNextGrammarLabel || "—"}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {log.note && (
+                    <p className="text-[11px] font-bold text-teal bg-teal/10 px-3 py-1.5 rounded-lg border border-teal/20 inline-block">
+                      Ghi chú: {log.note}
+                    </p>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
     </div>
   );
 }

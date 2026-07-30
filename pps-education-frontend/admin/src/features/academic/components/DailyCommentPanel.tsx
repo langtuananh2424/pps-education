@@ -16,6 +16,7 @@ import {
   listTodaySessions,
   submitComments,
   updateComment,
+  updateLessonContent,
   writeComment
 } from "../api";
 import { ExerciseAssignmentResponse, ReviewVideoSetResponse, listAssignmentsForClass, listReviewVideoSetsByClass } from "@/features/lms/api";
@@ -92,6 +93,10 @@ export default function DailyCommentPanel() {
   const [grammarOptions, setGrammarOptions] = useState<ExerciseAssignmentResponse[]>([]);
   const [videoOptions, setVideoOptions] = useState<ReviewVideoSetResponse[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // "Bài học hôm nay" (2026-07-29, chuyển từ Điểm danh sang đây) — bắt buộc điền trước khi Gửi nhận
+  // xét DAILY (backend chặn 422 nếu trống), nên đặt ngay đầu màn hình để giáo viên điền trước tiên.
+  const [lessonContentInput, setLessonContentInput] = useState("");
+  const [savingLessonContent, setSavingLessonContent] = useState(false);
 
   const selectedClass = classes.find((c) => c.id === selectedClassId) ?? null;
   const selectedSession = sessions.find((s) => s.id === selectedSessionId) ?? null;
@@ -134,6 +139,10 @@ export default function DailyCommentPanel() {
       .then((sets) => setVideoOptions(sets.filter((s) => s.status === "PUBLISHED")))
       .catch(() => undefined);
   }, [selectedClassId]);
+
+  useEffect(() => {
+    setLessonContentInput(selectedSession?.lessonContent ?? "");
+  }, [selectedSession?.id, selectedSession?.lessonContent]);
 
   useEffect(() => {
     if (!selectedClassId || !selectedSessionId) {
@@ -205,6 +214,22 @@ export default function DailyCommentPanel() {
     }
   };
 
+  const handleSaveLessonContent = async () => {
+    if (!selectedSessionId || !lessonContentInput.trim()) return;
+    setSavingLessonContent(true);
+    setError(null);
+    try {
+      const updated = await updateLessonContent(selectedSessionId, lessonContentInput.trim());
+      setSessions((prev) => prev.map((s) => (s.id === selectedSessionId ? { ...s, lessonContent: updated.lessonContent } : s)));
+      setNotification("✅ Đã lưu Bài học hôm nay.");
+      setTimeout(() => setNotification(null), 4000);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Lưu Bài học hôm nay thất bại.");
+    } finally {
+      setSavingLessonContent(false);
+    }
+  };
+
   const handleSend = async () => {
     if (!selectedClassId || !selectedSession) return;
     const filled = rows.filter((r) => r.content.trim());
@@ -252,17 +277,17 @@ export default function DailyCommentPanel() {
       // Nút "Gửi nhận xét" ở đây gộp cả 2 bước (ghi nháp + gửi duyệt) trong 1 lần bấm, không tách riêng
       // bước "Lưu nháp" — nếu bước gửi thất bại (hiếm), dữ liệu vẫn an toàn ở DRAFT, có thể "Nộp duyệt"
       // lại ở "Lịch sử nhận xét" bên dưới.
-      let submitFailed = false;
+      let submitFailedMessage: string | null = null;
       if (succeededIds.length > 0) {
         try {
           await submitComments(selectedClassId, succeededIds);
-        } catch {
-          submitFailed = true;
+        } catch (err) {
+          submitFailedMessage = err instanceof ApiError ? err.message : "Gửi duyệt thất bại.";
         }
       }
 
-      let message = submitFailed
-        ? `⚠️ Đã lưu nháp ${succeededIds.length} nhận xét nhưng gửi duyệt thất bại — vào "Lịch sử nhận xét" bên dưới bấm "Nộp duyệt" để thử lại.`
+      let message = submitFailedMessage
+        ? `⚠️ Đã lưu nháp ${succeededIds.length} nhận xét nhưng gửi duyệt thất bại: ${submitFailedMessage} — vào "Lịch sử nhận xét" bên dưới bấm "Nộp duyệt" để thử lại.`
         : `🔔 Đã gửi nhận xét ${succeededIds.length} học sinh lên Quản lý điểm trường rà soát duyệt.`;
       if (failedCount > 0) message += `\n- ${failedCount} học sinh bị lỗi khi ghi nhận xét, thử lại sau.`;
       setNotification(message);
@@ -332,7 +357,7 @@ export default function DailyCommentPanel() {
       <div className="bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50">
           <div>
-            <span className="text-xs font-bold text-slate-700 font-display">Nhận xét hàng ngày theo buổi học (UC-21)</span>
+            <span className="text-xs font-bold text-slate-700 font-display">Nhận xét hàng ngày theo buổi học</span>
             <p className="text-[10px] text-slate-400 mt-0.5">
               {selectedClass ? `${selectedClass.name} (${selectedClass.classCode})` : "Chưa chọn lớp — chọn ở góc trên bên phải (Header) để bắt đầu."}
             </p>
@@ -352,6 +377,31 @@ export default function DailyCommentPanel() {
             </Select>
           )}
         </div>
+
+        {selectedSessionId && (
+          <div className="px-5 py-3 border-b border-slate-100 bg-amber-50/50 flex flex-wrap items-center gap-2">
+            <label className="text-[11px] font-bold text-slate-600 shrink-0">Bài học hôm nay *</label>
+            <input
+              value={lessonContentInput}
+              onChange={(e) => setLessonContentInput(e.target.value)}
+              placeholder="VD: Unit 3 - Free time activities"
+              className="flex-1 min-w-[220px] bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
+            />
+            <button
+              type="button"
+              onClick={handleSaveLessonContent}
+              disabled={savingLessonContent || !lessonContentInput.trim() || lessonContentInput.trim() === (selectedSession?.lessonContent ?? "")}
+              className="px-3 py-2 bg-slate-800 hover:bg-slate-900 text-white text-[11px] font-bold rounded-lg disabled:opacity-40"
+            >
+              {savingLessonContent ? "Đang lưu..." : "Lưu"}
+            </button>
+            {!selectedSession?.lessonContent && (
+              <p className="w-full text-[10px] text-amber-700 italic">
+                Chưa điền bài học hôm nay — bắt buộc điền trước khi Gửi nhận xét (buổi chưa điền sẽ bị từ chối khi gửi duyệt).
+              </p>
+            )}
+          </div>
+        )}
 
         {selectedSessionId && (
           <div className="px-5 py-3 border-b border-slate-100 bg-slate-50/60 flex flex-wrap items-center gap-2">
@@ -595,13 +645,15 @@ export default function DailyCommentPanel() {
 
         {selectedSessionId && rows.length > 0 && (
           <div className="px-6 py-4 bg-slate-50 border-t flex justify-end">
+            {/* Không còn dòng nào có nội dung để gửi (VD cả lớp đã Gửi nhận xét xong, mọi dòng đều
+                khoá/rỗng) — tự disable thay vì để bấm được rồi báo lỗi "chưa nhập gì" (2026-07-30). */}
             <button
               onClick={handleSend}
-              disabled={sending}
+              disabled={sending || !rows.some((r) => r.content.trim())}
               className="bg-brand-orange hover:bg-brand-orange/90 text-white font-semibold text-xs px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-soft transition-all disabled:opacity-50"
             >
               <Send className="w-4 h-4 text-white" />
-              <span>{sending ? "Đang gửi..." : "Gửi nhận xét (UC-21)"}</span>
+              <span>{sending ? "Đang gửi..." : rows.some((r) => r.content.trim()) ? "Gửi nhận xét" : "Đã gửi hết nhận xét buổi này"}</span>
             </button>
           </div>
         )}

@@ -278,6 +278,10 @@ export interface ClassSessionResponse {
   // chỉ ở cấp buổi học, không đụng hồ sơ nhân sự. sessionNumber tính động (1-based, đếm cả CANCELLED).
   teacherType: "VIETNAMESE" | "FOREIGN" | null;
   sessionNumber: number;
+  /** "Bài học hôm nay" (đã có từ V50, chưa từng lộ ra FE) — nhập ở tab Nhận xét học viên (UC-21), không phải Điểm danh. */
+  lessonContent: string | null;
+  /** V61 (bổ sung ngoài SDD gốc, 2026-07-29) — chỉ có ý nghĩa khi sessionType=MAKEUP: id buổi CANCELLED mà buổi này bù cho. */
+  makeupForSessionId: number | null;
 }
 
 export interface CreateClassSessionRequest {
@@ -288,6 +292,8 @@ export interface CreateClassSessionRequest {
   primaryTeacherId: number;
   sessionType: string;
   teacherType?: "VIETNAMESE" | "FOREIGN";
+  /** Bắt buộc khi sessionType=MAKEUP (buổi này bù cho buổi nào) — phải để trống với loại khác. Chỉ áp dụng tạo 1 buổi lẻ, không áp dụng bulk/Excel. */
+  makeupForSessionId?: number;
 }
 
 export interface RescheduleClassSessionRequest {
@@ -318,6 +324,11 @@ export function rescheduleClassSession(classId: number, sessionId: number, reque
 /** UC-48 (bổ sung ngoài SDD gốc, 2026-07-29): buổi học hôm nay của lớp — dùng để tự chọn buổi khi vào tab Nhận xét học viên. Loại CANCELLED/RESCHEDULED, trả rỗng nếu hôm nay không có buổi. */
 export function listTodaySessions(classId: number): Promise<ClassSessionResponse[]> {
   return apiRequest<ClassSessionResponse[]>(`/classes/${classId}/sessions/today`);
+}
+
+/** V61 (bổ sung ngoài SDD gốc, 2026-07-29): buổi CANCELLED của lớp chưa có buổi bù nào liên kết — phục vụ chọn "buổi cần bù" khi tạo buổi MAKEUP. */
+export function listCancelledSessionsPendingMakeup(classId: number): Promise<ClassSessionResponse[]> {
+  return apiRequest<ClassSessionResponse[]>(`/classes/${classId}/sessions/cancelled-pending-makeup`);
 }
 
 // ===================== Sinh lịch hàng loạt (UC-56) =====================
@@ -725,6 +736,8 @@ export interface StudentCommentResponse {
   grammarPreviousProgress: string | null;
   videoPreviousProgress: string | null;
   note: string | null;
+  /** "Bài học hôm nay" của buổi (class_sessions.lesson_content) — null nếu không phải DAILY. Bổ sung ngoài SDD gốc, 2026-07-29 — chuyển từ Điểm danh sang Nhận xét. */
+  lessonContent: string | null;
 }
 
 export interface CreateStudentCommentRequest {
@@ -787,6 +800,11 @@ export interface DailyCommentImportResponse {
   failedRows: number;
   status: string;
   errorSummary: { row: number; reason: string }[];
+}
+
+/** "Bài học hôm nay" (2026-07-29, chuyển từ Điểm danh sang đây) — dùng chung rào ghi nhận xét DAILY (requireCanWriteDailyComment). */
+export function updateLessonContent(classSessionId: number, lessonContent: string): Promise<{ classSessionId: number; lessonContent: string }> {
+  return apiRequest(`/class-sessions/${classSessionId}/comments/lesson-content`, { method: "PUT", body: JSON.stringify({ lessonContent }) });
 }
 
 /** UC-21 (bổ sung): tải mẫu Excel theo buổi học — điền sẵn điểm danh + nhận xét Hàng ngày hiện có của từng học sinh ACTIVE. */

@@ -59,7 +59,7 @@ export default function ParentCreateModal({ onClose, onCreated }: ParentCreateMo
       <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs" onClick={onClose} />
       <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto bg-white rounded-2xl border border-slate-200 shadow-xl">
         <div className="sticky top-0 bg-white px-5 py-4 border-b border-slate-100">
-          <h3 className="text-sm font-bold font-display text-slate-900">Thêm phụ huynh mới (UC-13)</h3>
+          <h3 className="text-sm font-bold font-display text-slate-900">Thêm phụ huynh mới</h3>
           <p className="text-[11px] text-slate-500 mt-1">Tạo hồ sơ phụ huynh trước, liên kết con em sau tại màn chi tiết.</p>
         </div>
         <form onSubmit={handleSubmit} className="p-5 space-y-4">

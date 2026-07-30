@@ -60,7 +60,7 @@ export default function ChangePasswordModal({ onClose }: ChangePasswordModalProp
       <form onSubmit={handleSubmit} className="space-y-3">
         <span className="text-[10px] font-bold uppercase text-slate-500 flex items-center gap-1.5">
           <KeyRound className="w-3.5 h-3.5" />
-          Đổi mật khẩu (UC-45)
+          Đổi mật khẩu
         </span>
 
         {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}

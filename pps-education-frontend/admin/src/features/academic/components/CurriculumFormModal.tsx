@@ -56,7 +56,7 @@ export default function CurriculumFormModal({ onClose, onCreated }: CurriculumFo
   };
 
   return (
-    <Modal open onClose={onClose} title="Thêm khung chương trình mới (UC-16)" size="md">
+    <Modal open onClose={onClose} title="Thêm khung chương trình mới" size="md">
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 

@@ -40,13 +40,13 @@ export default function ProfilesPage() {
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4 flex flex-col sm:flex-row sm:items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Quản lý hồ sơ học sinh (UC-13)</h1>
+          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Quản lý hồ sơ học sinh</h1>
           <p className="text-xs text-slate-500 mt-1">
             Lưu hồ sơ học sinh, liên kết phụ huynh, theo dõi chuyển lớp/điểm trường và trạng thái học tập — khởi tạo kèm tài khoản đăng nhập.
           </p>
         </div>
         <ImportExcelButton
-          title="Nhập học sinh theo lô (UC-35)"
+          title="Nhập học sinh theo lô"
           templateFileName="mau-import-hoc-sinh.xlsx"
           fetchTemplate={downloadStudentImportTemplate}
           uploadFn={importStudents}

@@ -105,7 +105,7 @@ export default function EmployeeFormModal({ onClose, onCreated }: EmployeeFormMo
   };
 
   return (
-    <Modal open onClose={onClose} title="Thêm nhân sự mới (UC-08)" size="lg">
+    <Modal open onClose={onClose} title="Thêm nhân sự mới" size="lg">
       <form onSubmit={handleSubmit} className="space-y-5">
         {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
         <div className="space-y-2 border-t border-slate-100 pt-4">

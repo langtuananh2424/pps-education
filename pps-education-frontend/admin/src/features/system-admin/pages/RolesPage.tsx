@@ -66,9 +66,9 @@ export default function RolesPage() {
         <div>
           <h1 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
             <Shield className="w-6 h-6 text-brand-red" />
-            <span>Nhóm vai trò (UC-03)</span>
+            <span>Nhóm vai trò</span>
           </h1>
-          <p className="text-xs text-slate-500 mt-1">Cấu hình ma trận quyền theo vai trò và gán/thu hồi vai trò cho tài khoản (UC-46).</p>
+          <p className="text-xs text-slate-500 mt-1">Cấu hình ma trận quyền theo vai trò và gán/thu hồi vai trò cho tài khoản.</p>
         </div>
       </div>
 
@@ -113,7 +113,7 @@ export default function RolesPage() {
         </div>
       </div>
 
-      <Modal open={creatingNew} onClose={() => setCreatingNew(false)} title="Tạo vai trò tùy chỉnh mới (UC-03)" size="lg">
+      <Modal open={creatingNew} onClose={() => setCreatingNew(false)} title="Tạo vai trò tùy chỉnh mới" size="lg">
         <CreateRolePanel
           onCancel={() => setCreatingNew(false)}
           onCreated={(id) => {

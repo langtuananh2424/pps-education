@@ -31,7 +31,7 @@ export default function TaskDetailModal({ task, onClose, onChangeStatus, onAddCo
 
         <div className="grid grid-cols-2 gap-4 bg-slate-50 p-3.5 rounded-lg border border-slate-100">
           <div>
-            <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block font-display">Cập nhật Trạng thái (UC-07)</span>
+            <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block font-display">Cập nhật Trạng thái</span>
             <Select
               value={task.status}
               onChange={(e) => onChangeStatus(e.target.value as Task["status"])}

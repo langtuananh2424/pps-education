@@ -91,7 +91,7 @@ export default function ClassFormModal({ onClose, onCreated }: ClassFormModalPro
   };
 
   return (
-    <Modal open onClose={onClose} title="Thêm lớp học mới (UC-18)" size="lg">
+    <Modal open onClose={onClose} title="Thêm lớp học mới" size="lg">
       <form onSubmit={handleSubmit} className="space-y-5">
         {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
@@ -128,7 +128,7 @@ export default function ClassFormModal({ onClose, onCreated }: ClassFormModalPro
               <option value="LINKED">Lớp liên kết trường</option>
             </Select>
             {form.classType === "LINKED" && (
-              <p className="text-[10px] text-slate-400 mt-1">Bắt buộc chọn Điểm trường loại "Trường liên kết" (UC-18 A2).</p>
+              <p className="text-[10px] text-slate-400 mt-1">Bắt buộc chọn Điểm trường loại "Trường liên kết".</p>
             )}
           </div>
           <div>

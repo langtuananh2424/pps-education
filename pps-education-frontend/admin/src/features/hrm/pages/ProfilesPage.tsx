@@ -52,13 +52,13 @@ export default function ProfilesPage() {
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4 flex flex-col sm:flex-row sm:items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Quản lý hồ sơ nhân sự (UC-08)</h1>
+          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Quản lý hồ sơ nhân sự</h1>
           <p className="text-xs text-slate-500 mt-1">
             Lưu hồ sơ cán bộ, bằng cấp/chứng chỉ, hợp đồng lao động, khen thưởng/kỷ luật — khởi tạo kèm tài khoản đăng nhập.
           </p>
         </div>
         <ImportExcelButton
-          title="Nhập nhân sự theo lô (UC-51)"
+          title="Nhập nhân sự theo lô"
           templateFileName="mau-import-nhan-su.xlsx"
           templateHeaders={EMPLOYEE_IMPORT_HEADERS}
           templateSampleRow={EMPLOYEE_IMPORT_SAMPLE}

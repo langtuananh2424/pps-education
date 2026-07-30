@@ -18,10 +18,10 @@ export default function LeavesPage() {
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Phân hệ Quản lý Nhân sự & Tiền lương (HRM)</h1>
-        <p className="text-xs text-slate-500 mt-1">Nộp đơn nghỉ phép/đi muộn và xét duyệt theo luồng phân cấp (UC-10/11).</p>
+        <p className="text-xs text-slate-500 mt-1">Nộp đơn nghỉ phép/đi muộn và xét duyệt theo luồng phân cấp.</p>
       </div>
 
-      <UnderDevelopment title="Phê duyệt đơn từ (UC-11)" />
+      <UnderDevelopment title="Phê duyệt đơn từ" />
     </div>
   );
 }

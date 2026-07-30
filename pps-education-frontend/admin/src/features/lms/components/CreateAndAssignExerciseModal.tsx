@@ -52,7 +52,7 @@ export default function CreateAndAssignExerciseModal({ classId, onClose, onAssig
     <Modal
       open
       onClose={onClose}
-      title="Giao bài tập mới (UC-40)"
+      title="Giao bài tập mới"
       description={schoolClass ? `Lớp: ${schoolClass.name} (${schoolClass.classCode})` : undefined}
       size="lg"
     >
@@ -320,7 +320,7 @@ function ExerciseQuestionsStep({
     <div className="space-y-3">
       {exercise.hasEssayOrSpeaking && (
         <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-100 p-2.5 rounded-lg">
-          Đề có câu Tự luận/Nói — sau khi học sinh nộp bài sẽ cần chấm tay ở màn "Hàng chờ chấm bài (UC-41)".
+          Đề có câu Tự luận/Nói — sau khi học sinh nộp bài sẽ cần chấm tay ở màn "Hàng chờ chấm bài".
         </div>
       )}
 

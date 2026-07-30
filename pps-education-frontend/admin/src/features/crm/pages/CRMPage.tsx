@@ -82,14 +82,14 @@ export default function CRMPage() {
         <div>
           <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Tuyển Sinh & Quản Lý Khách Hàng (CRM)</h1>
           <p className="text-xs text-slate-500 mt-1">
-            Ghi nhận thông tin Lead đa kênh, chăm sóc khách hàng và đồng bộ tự động hóa thông tin nhập học chính thức (UC-33/34/35).
+            Ghi nhận thông tin Lead đa kênh, chăm sóc khách hàng và đồng bộ tự động hóa thông tin nhập học chính thức.
           </p>
         </div>
 
         <Tabs
           items={[
-            { id: "leads", label: "Data Khách hàng & Leads (UC-33)" },
-            { id: "import", label: "Nhập Học Theo Lô - Excel (UC-35)" }
+            { id: "leads", label: "Data Khách hàng & Leads" },
+            { id: "import", label: "Nhập Học Theo Lô - Excel" }
           ]}
           activeId={activeSubTab}
           onChange={(id) => setActiveSubTab(id as "leads" | "import")}
@@ -98,9 +98,9 @@ export default function CRMPage() {
       </div>
 
       {activeSubTab === "leads" ? (
-        <UnderDevelopment title="Data Khách hàng & Leads (UC-33)" />
+        <UnderDevelopment title="Data Khách hàng & Leads" />
       ) : (
-        <UnderDevelopment title="Nhập Học Theo Lô - Excel (UC-35)" />
+        <UnderDevelopment title="Nhập Học Theo Lô - Excel" />
       )}
     </div>
   );

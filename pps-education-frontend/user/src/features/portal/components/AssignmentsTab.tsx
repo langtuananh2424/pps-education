@@ -134,22 +134,22 @@ export default function AssignmentsTab({ classId }: AssignmentsTabProps) {
       {error && <div className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-xl">{error}</div>}
 
       {pendingCount > 0 ? (
-        <div className="p-5 bg-gradient-to-r from-orange-500 via-amber-500 to-coral rounded-2xl text-white shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="p-5 bg-amber-50 border border-amber-200 rounded-2xl text-amber-900 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center shrink-0">
-              <Bell size={24} className="text-white" />
+            <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
+              <Bell size={24} className="text-amber-600" />
             </div>
             <div>
-              <span className="px-2.5 py-0.5 rounded-full bg-white/25 text-[10px] font-black uppercase tracking-wider">Thông Báo BTVN</span>
-              <h3 className="text-base md:text-lg font-black font-display mt-0.5">
+              <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-black uppercase tracking-wider">Thông Báo BTVN</span>
+              <h3 className="text-base md:text-lg font-black font-display mt-0.5 text-amber-900">
                 Bạn có <span className="underline decoration-wavy underline-offset-4">{pendingCount} bài tập về nhà</span> chưa hoàn thành!
               </h3>
-              <p className="text-xs text-white/90 font-semibold mt-0.5">Hãy làm bài sớm trước hạn nộp để duy trì kết quả học tập tốt nhé.</p>
+              <p className="text-xs text-amber-800/80 font-semibold mt-0.5">Hãy làm bài sớm trước hạn nộp để duy trì kết quả học tập tốt nhé.</p>
             </div>
           </div>
           <button
             onClick={() => setFilterStatus("PENDING")}
-            className="px-5 py-2.5 bg-white text-orange-600 hover:bg-slate-100 font-extrabold text-xs rounded-xl shadow-sm transition-all shrink-0 cursor-pointer"
+            className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-xs rounded-xl shadow-sm transition-all shrink-0 cursor-pointer"
           >
             Làm bài ngay
           </button>

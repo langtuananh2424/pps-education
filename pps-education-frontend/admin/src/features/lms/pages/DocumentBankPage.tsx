@@ -79,7 +79,7 @@ export default function DocumentBankPage() {
   return (
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Kho tài liệu tham khảo (UC-60)</h1>
+        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Kho tài liệu tham khảo</h1>
         <p className="text-xs text-slate-500 mt-1">
           Tài liệu chia sẻ chung theo khung chương trình, không gắn với 1 bài giảng cụ thể nào — Học sinh xem để tự học thêm.
         </p>
@@ -201,7 +201,7 @@ function CreateDocumentModal({ curriculumId, onClose, onCreated }: { curriculumI
   };
 
   return (
-    <Modal open onClose={onClose} title="Thêm tài liệu tham khảo (UC-60)" size="lg">
+    <Modal open onClose={onClose} title="Thêm tài liệu tham khảo" size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
         <div className="grid grid-cols-2 gap-3">

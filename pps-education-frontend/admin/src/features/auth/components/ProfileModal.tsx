@@ -133,7 +133,7 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
           <form onSubmit={handleSaveProfile} className="space-y-3 border-t border-slate-100 pt-4">
             <span className="text-[10px] font-bold uppercase text-slate-500 flex items-center gap-1.5">
               <MapPin className="w-3.5 h-3.5" />
-              Cập nhật hồ sơ (UC-63)
+              Cập nhật hồ sơ
             </span>
 
             {profileError && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{profileError}</div>}

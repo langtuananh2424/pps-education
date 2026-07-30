@@ -175,7 +175,7 @@ export default function ExecutiveDashboard({ totalPaid, totalExpenses, profit, a
         <div className="flex items-start gap-3">
           <AlertTriangle className="w-5 h-5 text-brand-orange mt-0.5 shrink-0" />
           <div>
-            <h4 className="text-xs font-bold text-slate-800 font-display">Thông báo Gia hạn Hợp tác Trường liên kết (UC-36b)</h4>
+            <h4 className="text-xs font-bold text-slate-800 font-display">Thông báo Gia hạn Hợp tác Trường liên kết</h4>
             <p className="text-[11px] text-slate-600 mt-1">
               Hợp đồng liên kết với <strong>Trường THCS Lê Quý Đôn</strong> sắp đến ngày gia hạn <strong>(31/08/2026)</strong>. Hệ
               thống tự động khóa xếp lịch nếu quá hạn.
