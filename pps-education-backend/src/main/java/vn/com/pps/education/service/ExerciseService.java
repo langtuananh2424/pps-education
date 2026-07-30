@@ -44,8 +44,8 @@ import java.util.Set;
  * từ QuestionBankService, không gộp 2 Service (xem Javadoc đó).
  *
  * createExercise/addQuestion/publishExercise (TEACHER) qua
- * @PreAuthorize("hasPermission(null,'lms.exercise.manage')") ở
- * ExerciseController (Hybrid PBAC — V28). assignExercise vẫn dùng
+ * @PreAuthorize("hasPermission(null,'lms.exercise.create/update/publish')")
+ * ở ExerciseController (Hybrid PBAC — V28/V62). assignExercise vẫn dùng
  * requireAssignedTeacher — row-level scope check (đúng lớp cụ thể).
  */
 @Service
@@ -141,7 +141,7 @@ public class ExerciseService {
         return toResponse(eq);
     }
 
-    /** UC-24/UC-27: HS chỉ xem được đề ASSIGNED nếu có assignment ACTIVE khớp lớp đang học; SELF_PRACTICE/MOCK_TEST/SKILL_PRACTICE mở tự do khi đã PUBLISHED. Staff (lms.exercise.manage) xem được mọi đề. */
+    /** UC-24/UC-27: HS chỉ xem được đề ASSIGNED nếu có assignment ACTIVE khớp lớp đang học; SELF_PRACTICE/MOCK_TEST/SKILL_PRACTICE mở tự do khi đã PUBLISHED. Actor không phải học sinh (GV/Staff) xem được mọi đề. */
     @Transactional(readOnly = true)
     public ExerciseResponse getExercise(Long id, Long actorUserId) {
         Exercise exercise = getExerciseOrThrow(id);
@@ -232,7 +232,7 @@ public class ExerciseService {
         }
     }
 
-    /** Staff (đã qua @PreAuthorize lms.exercise.manage ở phần lệnh khác) luôn xem được; HS chỉ xem đề mình được phép làm. */
+    /** Actor không phải học sinh (GV/Staff — đã qua @PreAuthorize lms.exercise.x / lms.question-bank.x ở phần lệnh khác) luôn xem được; HS chỉ xem đề mình được phép làm. */
     private void requireCanViewExercise(Exercise exercise, Long actorUserId) {
         var student = studentRepository.findByUserId(actorUserId);
         if (student.isEmpty()) {

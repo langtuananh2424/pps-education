@@ -31,14 +31,14 @@ public class ListeningPracticeController {
         this.listeningPracticeService = listeningPracticeService;
     }
 
-    @PreAuthorize("hasPermission(null, 'lms.listening-practice.manage')")
+    @PreAuthorize("hasPermission(null, 'lms.listening-practice.create')")
     @PostMapping("/api/listening-practice-items")
     public ResponseEntity<ListeningPracticeItemResponse> createItem(@Valid @RequestBody CreateListeningPracticeItemRequest request,
                                                                        @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(listeningPracticeService.createItem(request, actor.userId()));
     }
 
-    @PreAuthorize("hasPermission(null, 'lms.listening-practice.manage')")
+    @PreAuthorize("hasPermission(null, 'lms.listening-practice.update')")
     @PutMapping("/api/listening-practice-items/{id}")
     public ResponseEntity<ListeningPracticeItemResponse> updateItem(@PathVariable Long id,
                                                                        @Valid @RequestBody UpdateListeningPracticeItemRequest request,
@@ -46,7 +46,7 @@ public class ListeningPracticeController {
         return ResponseEntity.ok(listeningPracticeService.updateItem(id, request, actor.userId()));
     }
 
-    @PreAuthorize("hasPermission(null, 'lms.listening-practice.manage')")
+    @PreAuthorize("hasPermission(null, 'lms.listening-practice.view')")
     @GetMapping("/api/curriculums/{curriculumId}/listening-practice-items")
     public ResponseEntity<List<ListeningPracticeItemResponse>> listByCurriculum(@PathVariable Long curriculumId) {
         return ResponseEntity.ok(listeningPracticeService.listByCurriculum(curriculumId));

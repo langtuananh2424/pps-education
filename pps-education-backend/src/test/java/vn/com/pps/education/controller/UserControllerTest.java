@@ -22,8 +22,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * UC-43 + UC-45 A4: xác nhận user.manage (Hybrid PBAC) chặn/cho phép đúng
- * qua HTTP thật cho cả tạo tài khoản và đổi mật khẩu tài khoản khác.
+ * UC-43 + UC-45 A4: xác nhận user.create/user.update (Hybrid PBAC, tách từ
+ * user.manage ở V62) chặn/cho phép đúng qua HTTP thật cho cả tạo tài
+ * khoản và đổi mật khẩu tài khoản khác.
  */
 @Transactional
 class UserControllerTest extends AbstractControllerTest {

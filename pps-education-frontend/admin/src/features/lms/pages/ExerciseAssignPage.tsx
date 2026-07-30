@@ -24,7 +24,8 @@ const assignmentStatusLabels: Record<ExerciseAssignmentResponse["status"], strin
 /** UC-40: Soạn & giao đề kiểm tra — chọn 1 lớp trước, xem lịch sử đề đã giao, giao đề mới. */
 export default function ExerciseAssignPage() {
   const { hasPermission, selectedClassId } = useApp();
-  const canManage = hasPermission("lms.exercise.manage");
+  // lms.exercise.manage đã bị tách nhỏ (hạt nhân hóa V62) — trang này chỉ giao bài tập mới (create).
+  const canManage = hasPermission("lms.exercise.create");
 
   const { classes } = useEligibleClasses();
   const [rows, setRows] = useState<AssignmentRow[]>([]);

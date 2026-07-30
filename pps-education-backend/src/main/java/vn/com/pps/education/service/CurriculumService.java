@@ -60,8 +60,8 @@ import java.util.Map;
  * trong curriculums.status — lý do từ chối lưu ở approval_flows.comment).
  *
  * HEAD_ACADEMIC (create/update/addSubject/listPendingApprovals/decideApproval)
- * qua @PreAuthorize("hasPermission(null,'academic.curriculum.manage')") ở
- * CurriculumController (Hybrid PBAC — V28). SITE_MANAGER (createCustomCopy/
+ * qua @PreAuthorize("hasPermission(null,'academic.curriculum.create/update/approve')")
+ * ở CurriculumController (Hybrid PBAC — V28/V62). SITE_MANAGER (createCustomCopy/
  * updateCustomCopy/submitForApproval) vẫn giữ requireSiteManagerForSite —
  * đây là row-level scope check (site cụ thể), không phải role-hardcode nên
  * hasPermission(null,...) không thay thế được (tham số object luôn null).

@@ -48,14 +48,14 @@ public class UserController {
         this.userAccountService = userAccountService;
     }
 
-    @PreAuthorize("hasPermission(null, 'user.manage')")
+    @PreAuthorize("hasPermission(null, 'user.create')")
     @PostMapping
     public ResponseEntity<UserResponse> create(@Valid @RequestBody CreateUserRequest request) {
         return ResponseEntity.ok(userAccountService.create(request));
     }
 
     /** UC-44 Main Flow bước 1-2: danh sách tài khoản, tìm kiếm/lọc tùy chọn. */
-    @PreAuthorize("hasPermission(null, 'user.manage')")
+    @PreAuthorize("hasPermission(null, 'user.view')")
     @GetMapping
     public ResponseEntity<Page<UserListItemResponse>> search(
             @RequestParam(required = false) String keyword,
@@ -67,14 +67,14 @@ public class UserController {
     }
 
     /** UC-44 Main Flow bước 3: chi tiết đầy đủ 1 tài khoản. */
-    @PreAuthorize("hasPermission(null, 'user.manage')")
+    @PreAuthorize("hasPermission(null, 'user.view')")
     @GetMapping("/{userId}")
     public ResponseEntity<UserDetailResponse> getDetail(@PathVariable Long userId) {
         return ResponseEntity.ok(userAccountService.getDetail(userId));
     }
 
     /** UC-49: cập nhật hồ sơ tài khoản (họ tên/SĐT/phòng ban/is_management). */
-    @PreAuthorize("hasPermission(null, 'user.manage')")
+    @PreAuthorize("hasPermission(null, 'user.update')")
     @PutMapping("/{userId}")
     public ResponseEntity<UserResponse> update(@PathVariable Long userId,
                                                 @Valid @RequestBody UpdateUserRequest request) {
@@ -82,7 +82,7 @@ public class UserController {
     }
 
     /** UC-45 A4: Quản trị viên đổi mật khẩu cho một tài khoản khác. */
-    @PreAuthorize("hasPermission(null, 'user.manage')")
+    @PreAuthorize("hasPermission(null, 'user.update')")
     @PutMapping("/{userId}/password")
     public ResponseEntity<Void> changePassword(@PathVariable Long userId,
                                                 @Valid @RequestBody AdminChangePasswordRequest request) {
@@ -91,7 +91,7 @@ public class UserController {
     }
 
     /** UC-55: Quản trị viên cập nhật email tài khoản (bổ sung ngoài SDD gốc, đã xác nhận với người dùng). */
-    @PreAuthorize("hasPermission(null, 'user.manage')")
+    @PreAuthorize("hasPermission(null, 'user.update')")
     @PutMapping("/{userId}/email")
     public ResponseEntity<UserResponse> updateEmail(@PathVariable Long userId,
                                                      @Valid @RequestBody UpdateUserEmailRequest request) {
@@ -99,7 +99,7 @@ public class UserController {
     }
 
     /** UC-47: khóa/mở khóa tài khoản (ACTIVE/INACTIVE/SUSPENDED). */
-    @PreAuthorize("hasPermission(null, 'user.manage')")
+    @PreAuthorize("hasPermission(null, 'user.update')")
     @PutMapping("/{userId}/status")
     public ResponseEntity<UserResponse> updateStatus(@PathVariable Long userId,
                                                        @Valid @RequestBody UpdateUserStatusRequest request,

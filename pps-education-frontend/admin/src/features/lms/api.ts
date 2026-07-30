@@ -136,7 +136,7 @@ export function updateQuestion(id: number, request: UpdateQuestionRequest): Prom
 
 /**
  * Trả về cả `choices[].isCorrect` — CHỈ dành cho GV/quản lý ngân hàng câu hỏi
- * (quyền lms.exercise.manage), dùng để GV tự xem lại đề kèm đáp án trước khi
+ * (quyền lms.question-bank.view), dùng để GV tự xem lại đề kèm đáp án trước khi
  * giao. Học viên KHÔNG được gọi endpoint này (đáp án chỉ lộ ra cho học viên
  * qua luồng nộp bài riêng, có kiểm soát show_correct_answers).
  */
@@ -453,7 +453,7 @@ export interface UpdateCurriculumDocumentRequest {
   coverImageUrl?: string;
 }
 
-/** UC-60: chỉ tài khoản có quyền lms.document.manage (mặc định gán cho TEACHER) mới tạo/sửa được. */
+/** UC-60: chỉ tài khoản có quyền lms.document.create/update (mặc định gán cho TEACHER) mới tạo/sửa được. */
 export function createCurriculumDocument(curriculumId: number, request: CreateCurriculumDocumentRequest): Promise<CurriculumDocumentResponse> {
   return apiRequest<CurriculumDocumentResponse>(`/curriculums/${curriculumId}/documents`, { method: "POST", body: JSON.stringify(request) });
 }

@@ -30,7 +30,7 @@ public class ExerciseController {
         this.exerciseService = exerciseService;
     }
 
-    @PreAuthorize("hasPermission(null, 'lms.exercise.manage')")
+    @PreAuthorize("hasPermission(null, 'lms.exercise.create')")
     @PostMapping("/api/exercises")
     public ResponseEntity<ExerciseResponse> createExercise(@Valid @RequestBody CreateExerciseRequest request,
                                                              @AuthenticationPrincipal AuthenticatedUser actor) {
@@ -43,7 +43,7 @@ public class ExerciseController {
         return ResponseEntity.ok(exerciseService.getExercise(id, actor.userId()));
     }
 
-    @PreAuthorize("hasPermission(null, 'lms.exercise.manage')")
+    @PreAuthorize("hasPermission(null, 'lms.exercise.update')")
     @PostMapping("/api/exercises/{id}/questions")
     public ResponseEntity<ExerciseQuestionResponse> addQuestion(@PathVariable Long id,
                                                                   @Valid @RequestBody AddExerciseQuestionRequest request,
@@ -63,7 +63,7 @@ public class ExerciseController {
         return ResponseEntity.ok(exerciseService.listAssignmentsForClass(classId, actor.userId()));
     }
 
-    @PreAuthorize("hasPermission(null, 'lms.exercise.manage')")
+    @PreAuthorize("hasPermission(null, 'lms.exercise.publish')")
     @PostMapping("/api/exercises/{id}/publish")
     public ResponseEntity<ExerciseResponse> publishExercise(@PathVariable Long id,
                                                               @AuthenticationPrincipal AuthenticatedUser actor) {

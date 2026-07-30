@@ -64,7 +64,7 @@ export const navSections: NavSection[] = [
     title: "BẢNG ĐIỀU KHIỂN",
     items: [
       { id: "dash-all", label: "Dashboard Tổng hợp", path: "/dashboard", icon: LayoutDashboard },
-      // { id: "dash-acad", label: "Dashboard Học thuật", path: "/dashboard", icon: GraduationCap, requiredPermission: "academic.curriculum.manage" },
+      // { id: "dash-acad", label: "Dashboard Học thuật", path: "/dashboard", icon: GraduationCap, requiredPermission: "academic.curriculum.create" },
       // { id: "dash-campus", label: "Dashboard Điểm trường", path: "/dashboard", icon: School }
     ]
   },
@@ -72,7 +72,10 @@ export const navSections: NavSection[] = [
     id: "system",
     title: "QUẢN TRỊ HỆ THỐNG",
     items: [
-      { id: "sys-users", label: "Quản lý người dùng", path: "/system-admin/users", icon: Users, requiredPermission: "user.manage" },
+      // user.manage đã bị tách nhỏ (hạt nhân hóa V62) thành user.view/create/update — mã gộp cũ
+      // không còn tồn tại. Gate theo .view (thấp nhất) để vào trang; nút Tạo/Sửa bên trong tự ẩn
+      // theo đúng quyền con nếu thiếu.
+      { id: "sys-users", label: "Quản lý người dùng", path: "/system-admin/users", icon: Users, requiredPermission: "user.view" },
       // permission.role.manage/permission.override.manage đã bị tách nhỏ (hạt nhân hóa PR #94/#98)
       // thành permission.role.view/create/update/delete và permission.override.view/set/delete —
       // 2 mã "manage" gộp cũ KHÔNG còn tồn tại trong bảng permissions nữa. Gate theo mã cũ khiến
@@ -119,7 +122,10 @@ export const navSections: NavSection[] = [
   {
     id: "crm",
     title: "TUYỂN SINH & CRM",
-    items: [{ id: "crm-leads", label: "Khách hàng tiềm năng (UC-33)", path: "/crm/leads", icon: PhoneCall, requiredPermission: "crm.lead.manage" }]
+    // crm.lead.manage đã bị tách nhỏ (hạt nhân hóa V62) thành crm.lead.create/update/convert — mã
+    // gộp cũ không còn tồn tại. Gate theo .create (STAFF luôn có cả 3, không có mã .view riêng vì
+    // GET /api/leads/* chưa từng gate quyền ở backend).
+    items: [{ id: "crm-leads", label: "Khách hàng tiềm năng (UC-33)", path: "/crm/leads", icon: PhoneCall, requiredPermission: "crm.lead.create" }]
   },
   {
     id: "student",
@@ -140,7 +146,11 @@ export const navSections: NavSection[] = [
     items: [
       // academic.class.manage: TEACHER/HEAD_ACADEMIC đều có sẵn permission này (xem UC-18) — không cần gate thêm role.
       { id: "acad-classes", label: "Quản lý lớp học (UC-18)", path: "/academic/classes", icon: GraduationCap, requiredPermission: "academic.class.manage" },
-      { id: "acad-syllabus", label: "Khung chương trình (UC-16/17)", path: "/academic/syllabus", icon: GraduationCap, requiredPermission: "academic.curriculum.manage" },
+      // academic.curriculum.manage đã bị tách nhỏ (hạt nhân hóa V62) thành
+      // academic.curriculum.create/update/approve — mã gộp cũ không còn tồn tại. Gate theo
+      // .create (thấp nhất) để vào trang; khối duyệt tùy biến (UC-17) bên trong tự gate riêng
+      // theo .approve (xem SyllabusPage.tsx).
+      { id: "acad-syllabus", label: "Khung chương trình (UC-16/17)", path: "/academic/syllabus", icon: GraduationCap, requiredPermission: "academic.curriculum.create" },
       // GV thuần giờ nhập điểm ngay ở tab "Sổ điểm" trong Quản lý lớp học (UC-18, ClassDetailPanel) nên
       // KHÔNG còn hiện mục này với TEACHER nữa — chỉ gate theo role quản trị (không dùng requiredPermission
       // academic.grade.manage vì TEACHER cũng có permission đó, sẽ lại lọt vào nếu gate theo permission).
@@ -154,15 +164,21 @@ export const navSections: NavSection[] = [
     id: "lms",
     title: "TÀI LIỆU & KHẢO THÍ LMS",
     items: [
-      { id: "lms-question-banks", label: "Ngân hàng câu hỏi (UC-40)", path: "/lms/question-banks", icon: BookOpen, requiredPermission: "lms.exercise.manage" },
-      { id: "lms-exercises", label: "Soạn & giao đề (UC-40)", path: "/lms/exercises", icon: BookOpen, requiredPermission: "lms.exercise.manage" },
+      // lms.exercise.manage đã bị tách nhỏ (hạt nhân hóa V62) thành 2 nhóm KHÁC NHAU theo resource:
+      // lms.question-bank.create/update/view (Ngân hàng câu hỏi) và lms.exercise.create/update/
+      // publish (Soạn & giao đề, không có mã .view riêng vì GET /api/exercises/* chưa từng gate
+      // quyền ở backend) — mã gộp cũ không còn tồn tại.
+      { id: "lms-question-banks", label: "Ngân hàng câu hỏi (UC-40)", path: "/lms/question-banks", icon: BookOpen, requiredPermission: "lms.question-bank.view" },
+      { id: "lms-exercises", label: "Soạn & giao đề (UC-40)", path: "/lms/exercises", icon: BookOpen, requiredPermission: "lms.exercise.create" },
       // Không dùng requiredPermission: từ khi tái cấu trúc thành Kho Video Ôn tập (2026-07-27),
       // ReviewVideoService không còn check @PreAuthorize permission nào — chỉ check "giáo viên có
       // được phân công dạy đúng lớp/khung không" qua class_teachers (requireAssignedTeacher). Gate
       // theo role TEACHER ở đây chỉ để ẩn mục khỏi vai trò rõ ràng không liên quan; quyền thật vẫn do
       // backend tự chặn 403 theo phân công, không phải theo role.
       { id: "lms-lectures", label: "Kho Video Ôn tập (UC-23)", path: "/lms/lectures", icon: BookOpen, requiredRoleAny: [UserRole.TEACHER] },
-      { id: "lms-documents", label: "Kho tài liệu tham khảo (UC-60)", path: "/lms/documents", icon: BookOpen, requiredPermission: "lms.document.manage" },
+      // lms.document.manage đã bị tách nhỏ (hạt nhân hóa V62) thành lms.document.create/update/
+      // view — mã gộp cũ không còn tồn tại. Gate theo .view (thấp nhất) để vào trang.
+      { id: "lms-documents", label: "Kho tài liệu tham khảo (UC-60)", path: "/lms/documents", icon: BookOpen, requiredPermission: "lms.document.view" },
       { id: "lms-exams", label: "Hàng chờ chấm bài (UC-41)", path: "/lms/exams", icon: BookOpen, requiredPermission: "lms.grading.manage" }
     ]
   },
@@ -170,9 +186,11 @@ export const navSections: NavSection[] = [
     id: "finance",
     title: "QUẢN LÝ TÀI CHÍNH",
     items: [
-      // finance.manage đã bị tách nhỏ thành finance.invoice.manage/finance.expense.*/finance.scholarship.manage/
-      // finance.tuition-plan.manage — mã gộp cũ không còn tồn tại.
-      { id: "fin-billing", label: "Thu phí & hóa đơn (UC-30)", path: "/finance/billing", icon: DollarSign, requiredPermission: "finance.invoice.manage" },
+      // finance.manage đã bị tách nhỏ thành finance.invoice.*/finance.expense.*/finance.scholarship.*/
+      // finance.tuition-plan.* — mã gộp cũ không còn tồn tại. finance.invoice.manage (V51) tự nó lại
+      // bị tách tiếp (V62) thành finance.invoice.generate/payment.record — không có mã .view riêng
+      // vì GET /api/finance/invoices/* chưa từng gate quyền ở backend.
+      { id: "fin-billing", label: "Thu phí & hóa đơn (UC-30)", path: "/finance/billing", icon: DollarSign, requiredPermission: "finance.invoice.generate" },
       // finance.expense.create (STAFF, người tạo) và finance.expense.approve (EXECUTIVE, người duyệt)
       // là 2 role KHÁC nhau hoàn toàn (không có 1 permission chung nào) — OperatingExpenseController
       // GET dùng "finance.expense.create' or 'finance.expense.approve'". requiredPermission không hỗ
@@ -188,7 +206,10 @@ export const navSections: NavSection[] = [
       // facility.manage đã bị tách nhỏ thành facility.site.create/facility.site.update (cùng gán cho
       // OPS_MANAGER + SYS_ADMIN nên không có vấn đề role-split như finance.expense ở trên).
       { id: "fac-campuses", label: "Điểm trường & HĐ (UC-36/36b)", path: "/facility/campuses", icon: Building2, requiredPermission: "facility.site.update" },
-      { id: "fac-rooms", label: "Phòng học & thiết bị (UC-37)", path: "/facility/rooms", icon: Building2, requiredPermission: "facility.room.manage" },
+      // facility.room.manage đã bị tách nhỏ (hạt nhân hóa V62) thành facility.room.create/update
+      // (phòng học) và facility.equipment.create/update (thiết bị) — cùng gán cho STAFF+HEAD_ACADEMIC
+      // nên gate theo 1 mã đại diện (facility.room.create) là đủ, không có vấn đề role-split.
+      { id: "fac-rooms", label: "Phòng học & thiết bị (UC-37)", path: "/facility/rooms", icon: Building2, requiredPermission: "facility.room.create" },
       // Không có permission riêng — quyền xem/xử lý được backend tính qua bảng site_managers (đúng site đang phụ trách), không qua permission nào.
       { id: "fac-feedback", label: "Ý kiến phản hồi (UC-38/39)", path: "/facility/feedback", icon: Building2, requiredRoleAny: [UserRole.SITE_MANAGER] }
     ]

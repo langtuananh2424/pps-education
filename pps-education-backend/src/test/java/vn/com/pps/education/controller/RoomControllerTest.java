@@ -18,8 +18,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * UC-37: xác nhận facility.room.manage (Hybrid PBAC — V28) chặn/cho phép
- * đúng qua HTTP thật, thay cho test Service-level cũ gọi thẳng
+ * UC-37: xác nhận facility.room.create/update (Hybrid PBAC — V28, tách từ
+ * facility.room.manage ở V62) chặn/cho phép đúng qua HTTP thật, thay cho
+ * test Service-level cũ gọi thẳng
  * createRoom_rejectsWhenActorNotAuthorized (đã xoá khỏi RoomServiceTest).
  */
 @Transactional

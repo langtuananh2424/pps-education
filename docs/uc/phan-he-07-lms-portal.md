@@ -297,8 +297,8 @@ UC-60: Kho tài liệu tham khảo
 |                 | chương trình, không gắn với 1 bài giảng cụ thể     |
 |                 | nào; hoặc Học sinh mở kho tài liệu để tự học thêm. |
 +-----------------+----------------------------------------------------+
-| **Điều kiện     | -   Người upload có quyền lms.document.manage.     |
-| tiên quyết      |                                                    |
+| **Điều kiện     | -   Người upload có quyền lms.document.create      |
+| tiên quyết      |     hoặc lms.document.update.                      |
 | (               | -   Tệp đã upload lên CDN từ trước (NFR-TECH-07),  |
 | Precondition)** |     Service chỉ nhận URL.                          |
 |                 |                                                    |
@@ -322,7 +322,7 @@ UC-60: Kho tài liệu tham khảo
 | (P              |     đúng curriculum của lớp mình đang học — không  |
 | ostcondition)** |     thấy tài liệu DRAFT hay của curriculum khác.   |
 |                 |                                                    |
-|                 | -   Người có quyền lms.document.manage xem được    |
+|                 | -   Người có quyền lms.document.view xem được      |
 |                 |     mọi trạng thái để quản lý.                     |
 +-----------------+----------------------------------------------------+
 

@@ -20,7 +20,6 @@ import java.util.List;
 
 /** UC-60: Kho tài liệu tham khảo (FR-LMS-13) — xem Javadoc CurriculumDocumentService. */
 @RestController
-@PreAuthorize("hasPermission(null, 'lms.document.manage')")
 public class CurriculumDocumentController {
 
     private final CurriculumDocumentService curriculumDocumentService;
@@ -29,6 +28,7 @@ public class CurriculumDocumentController {
         this.curriculumDocumentService = curriculumDocumentService;
     }
 
+    @PreAuthorize("hasPermission(null, 'lms.document.create')")
     @PostMapping("/api/curriculums/{curriculumId}/documents")
     public ResponseEntity<CurriculumDocumentResponse> createDocument(@PathVariable Long curriculumId,
                                                                         @Valid @RequestBody CreateCurriculumDocumentRequest request,
@@ -39,6 +39,7 @@ public class CurriculumDocumentController {
         return ResponseEntity.ok(curriculumDocumentService.createDocument(merged, actor.userId()));
     }
 
+    @PreAuthorize("hasPermission(null, 'lms.document.update')")
     @PutMapping("/api/documents/{id}")
     public ResponseEntity<CurriculumDocumentResponse> updateDocument(@PathVariable Long id,
                                                                         @Valid @RequestBody UpdateCurriculumDocumentRequest request,
@@ -46,6 +47,7 @@ public class CurriculumDocumentController {
         return ResponseEntity.ok(curriculumDocumentService.updateDocument(id, request, actor.userId()));
     }
 
+    @PreAuthorize("hasPermission(null, 'lms.document.view')")
     @GetMapping("/api/curriculums/{curriculumId}/documents")
     public ResponseEntity<List<CurriculumDocumentResponse>> listByCurriculum(@PathVariable Long curriculumId) {
         return ResponseEntity.ok(curriculumDocumentService.listByCurriculum(curriculumId));

@@ -100,13 +100,13 @@
 
 | Method | Path | Auth | Input | Output |
 |---|---|---|---|---|
-| GET | `/api/users` | JWT + `user.manage` | Query: `keyword`?, `departmentId`?, `status`?, `pageable` | [PageUserListItemResponse](#pageuserlistitemresponse) |
-| POST | `/api/users` | JWT + `user.manage` | Body: [CreateUserRequest](#createuserrequest) | [UserResponse](#userresponse) |
-| GET | `/api/users/{userId}` | JWT + `user.manage` | — | [UserDetailResponse](#userdetailresponse) |
-| PUT | `/api/users/{userId}` | JWT + `user.manage` | Body: [UpdateUserRequest](#updateuserrequest) | [UserResponse](#userresponse) |
-| PUT | `/api/users/{userId}/email` | JWT + `user.manage` | Body: [UpdateUserEmailRequest](#updateuseremailrequest) | [UserResponse](#userresponse) |
-| PUT | `/api/users/{userId}/password` | JWT + `user.manage` | Body: [AdminChangePasswordRequest](#adminchangepasswordrequest) | 200 (không có body) |
-| PUT | `/api/users/{userId}/status` | JWT + `user.manage` | Body: [UpdateUserStatusRequest](#updateuserstatusrequest) | [UserResponse](#userresponse) |
+| GET | `/api/users` | JWT + `user.view` | Query: `keyword`?, `departmentId`?, `status`?, `pageable` | [PageUserListItemResponse](#pageuserlistitemresponse) |
+| POST | `/api/users` | JWT + `user.create` | Body: [CreateUserRequest](#createuserrequest) | [UserResponse](#userresponse) |
+| GET | `/api/users/{userId}` | JWT + `user.view` | — | [UserDetailResponse](#userdetailresponse) |
+| PUT | `/api/users/{userId}` | JWT + `user.update` | Body: [UpdateUserRequest](#updateuserrequest) | [UserResponse](#userresponse) |
+| PUT | `/api/users/{userId}/email` | JWT + `user.update` | Body: [UpdateUserEmailRequest](#updateuseremailrequest) | [UserResponse](#userresponse) |
+| PUT | `/api/users/{userId}/password` | JWT + `user.update` | Body: [AdminChangePasswordRequest](#adminchangepasswordrequest) | 200 (không có body) |
+| PUT | `/api/users/{userId}/status` | JWT + `user.update` | Body: [UpdateUserStatusRequest](#updateuserstatusrequest) | [UserResponse](#userresponse) |
 
 ## Danh mục quyền (UC-02)
 
@@ -250,16 +250,16 @@
 | Method | Path | Auth | Input | Output |
 |---|---|---|---|---|
 | GET | `/api/curriculums` | JWT | — | mảng [CurriculumResponse](#curriculumresponse) |
-| POST | `/api/curriculums` | JWT + `academic.curriculum.manage` | Body: [CreateCurriculumRequest](#createcurriculumrequest) | [CurriculumResponse](#curriculumresponse) |
-| GET | `/api/curriculums/approvals/pending` | JWT + `academic.curriculum.manage` | — | mảng [CurriculumApprovalResponse](#curriculumapprovalresponse) |
-| POST | `/api/curriculums/approvals/{approvalFlowId}/decision` | JWT + `academic.curriculum.manage` | Body: [DecideCurriculumApprovalRequest](#decidecurriculumapprovalrequest) | [CurriculumApprovalResponse](#curriculumapprovalresponse) |
+| POST | `/api/curriculums` | JWT + `academic.curriculum.create` | Body: [CreateCurriculumRequest](#createcurriculumrequest) | [CurriculumResponse](#curriculumresponse) |
+| GET | `/api/curriculums/approvals/pending` | JWT + `academic.curriculum.approve` | — | mảng [CurriculumApprovalResponse](#curriculumapprovalresponse) |
+| POST | `/api/curriculums/approvals/{approvalFlowId}/decision` | JWT + `academic.curriculum.approve` | Body: [DecideCurriculumApprovalRequest](#decidecurriculumapprovalrequest) | [CurriculumApprovalResponse](#curriculumapprovalresponse) |
 | POST | `/api/curriculums/custom` | JWT | Body: [CreateCustomCurriculumRequest](#createcustomcurriculumrequest) | [CurriculumResponse](#curriculumresponse) |
 | PUT | `/api/curriculums/custom/{id}` | JWT | Body: [UpdateCustomCurriculumRequest](#updatecustomcurriculumrequest) | [CurriculumResponse](#curriculumresponse) |
 | POST | `/api/curriculums/custom/{id}/submit` | JWT | — | [CurriculumApprovalResponse](#curriculumapprovalresponse) |
 | GET | `/api/curriculums/{id}` | JWT | — | [CurriculumResponse](#curriculumresponse) |
-| PUT | `/api/curriculums/{id}` | JWT + `academic.curriculum.manage` | Body: [UpdateCurriculumRequest](#updatecurriculumrequest) | [CurriculumResponse](#curriculumresponse) |
+| PUT | `/api/curriculums/{id}` | JWT + `academic.curriculum.update` | Body: [UpdateCurriculumRequest](#updatecurriculumrequest) | [CurriculumResponse](#curriculumresponse) |
 | GET | `/api/curriculums/{id}/subjects` | JWT | — | mảng [CurriculumSubjectResponse](#curriculumsubjectresponse) |
-| POST | `/api/curriculums/{id}/subjects` | JWT + `academic.curriculum.manage` | Body: [CreateCurriculumSubjectRequest](#createcurriculumsubjectrequest) | [CurriculumSubjectResponse](#curriculumsubjectresponse) |
+| POST | `/api/curriculums/{id}/subjects` | JWT + `academic.curriculum.update` | Body: [CreateCurriculumSubjectRequest](#createcurriculumsubjectrequest) | [CurriculumSubjectResponse](#curriculumsubjectresponse) |
 
 ## Lớp học, giáo viên, ghi danh (UC-18)
 
@@ -326,24 +326,24 @@
 | Method | Path | Auth | Input | Output |
 |---|---|---|---|---|
 | GET | `/api/curriculums/{curriculumId}/question-banks` | JWT | — | mảng [QuestionBankResponse](#questionbankresponse) |
-| POST | `/api/question-banks` | JWT + `lms.exercise.manage` | Body: [CreateQuestionBankRequest](#createquestionbankrequest) | [QuestionBankResponse](#questionbankresponse) |
-| GET | `/api/question-banks/{bankId}/questions` | JWT + `lms.exercise.manage` | — | mảng [QuestionResponse](#questionresponse) |
-| PUT | `/api/question-banks/{id}/status` | JWT + `lms.exercise.manage` | Body: [UpdateQuestionBankStatusRequest](#updatequestionbankstatusrequest) | [QuestionBankResponse](#questionbankresponse) |
-| POST | `/api/questions` | JWT + `lms.exercise.manage` | Body: [CreateQuestionRequest](#createquestionrequest) | [QuestionResponse](#questionresponse) |
-| GET | `/api/questions/{id}` | JWT + `lms.exercise.manage` | — | [QuestionResponse](#questionresponse) |
-| PUT | `/api/questions/{id}` | JWT + `lms.exercise.manage` | Body: [UpdateQuestionRequest](#updatequestionrequest) | [QuestionResponse](#questionresponse) |
+| POST | `/api/question-banks` | JWT + `lms.question-bank.create` | Body: [CreateQuestionBankRequest](#createquestionbankrequest) | [QuestionBankResponse](#questionbankresponse) |
+| GET | `/api/question-banks/{bankId}/questions` | JWT + `lms.question-bank.view` | — | mảng [QuestionResponse](#questionresponse) |
+| PUT | `/api/question-banks/{id}/status` | JWT + `lms.question-bank.update` | Body: [UpdateQuestionBankStatusRequest](#updatequestionbankstatusrequest) | [QuestionBankResponse](#questionbankresponse) |
+| POST | `/api/questions` | JWT + `lms.question-bank.create` | Body: [CreateQuestionRequest](#createquestionrequest) | [QuestionResponse](#questionresponse) |
+| GET | `/api/questions/{id}` | JWT + `lms.question-bank.view` | — | [QuestionResponse](#questionresponse) |
+| PUT | `/api/questions/{id}` | JWT + `lms.question-bank.update` | Body: [UpdateQuestionRequest](#updatequestionrequest) | [QuestionResponse](#questionresponse) |
 
 ## Soạn & giao đề (UC-40)
 
 | Method | Path | Auth | Input | Output |
 |---|---|---|---|---|
 | GET | `/api/classes/{classId}/exercises` | JWT | — | mảng [ExerciseAssignmentResponse](#exerciseassignmentresponse) |
-| POST | `/api/exercises` | JWT + `lms.exercise.manage` | Body: [CreateExerciseRequest](#createexerciserequest) | [ExerciseResponse](#exerciseresponse) |
+| POST | `/api/exercises` | JWT + `lms.exercise.create` | Body: [CreateExerciseRequest](#createexerciserequest) | [ExerciseResponse](#exerciseresponse) |
 | GET | `/api/exercises/{id}` | JWT | — | [ExerciseResponse](#exerciseresponse) |
 | POST | `/api/exercises/{id}/assign` | JWT | Body: [AssignExerciseRequest](#assignexerciserequest) | [ExerciseAssignmentResponse](#exerciseassignmentresponse) |
-| POST | `/api/exercises/{id}/publish` | JWT + `lms.exercise.manage` | — | [ExerciseResponse](#exerciseresponse) |
+| POST | `/api/exercises/{id}/publish` | JWT + `lms.exercise.publish` | — | [ExerciseResponse](#exerciseresponse) |
 | GET | `/api/exercises/{id}/questions` | JWT | — | mảng [ExerciseQuestionResponse](#exercisequestionresponse) |
-| POST | `/api/exercises/{id}/questions` | JWT + `lms.exercise.manage` | Body: [AddExerciseQuestionRequest](#addexercisequestionrequest) | [ExerciseQuestionResponse](#exercisequestionresponse) |
+| POST | `/api/exercises/{id}/questions` | JWT + `lms.exercise.update` | Body: [AddExerciseQuestionRequest](#addexercisequestionrequest) | [ExerciseQuestionResponse](#exercisequestionresponse) |
 
 ## Làm bài & nộp bài (LMS)
 
@@ -406,26 +406,26 @@
 
 | Method | Path | Auth | Input | Output |
 |---|---|---|---|---|
-| POST | `/api/finance/tuition-plan-assignments` | JWT + `finance.tuition-plan.manage` | Body: [AssignTuitionPlanRequest](#assigntuitionplanrequest) | [TuitionPlanAssignmentResponse](#tuitionplanassignmentresponse) |
-| POST | `/api/finance/tuition-plans` | JWT + `finance.tuition-plan.manage` | Body: [CreateTuitionPlanRequest](#createtuitionplanrequest) | [TuitionPlanResponse](#tuitionplanresponse) |
-| GET | `/api/finance/tuition-plans/{id}` | JWT + `finance.tuition-plan.manage` | — | [TuitionPlanResponse](#tuitionplanresponse) |
-| PUT | `/api/finance/tuition-plans/{id}/status` | JWT + `finance.tuition-plan.manage` | Body: [UpdateTuitionPlanStatusRequest](#updatetuitionplanstatusrequest) | [TuitionPlanResponse](#tuitionplanresponse) |
+| POST | `/api/finance/tuition-plan-assignments` | JWT + `finance.tuition-plan.assign` | Body: [AssignTuitionPlanRequest](#assigntuitionplanrequest) | [TuitionPlanAssignmentResponse](#tuitionplanassignmentresponse) |
+| POST | `/api/finance/tuition-plans` | JWT + `finance.tuition-plan.create` | Body: [CreateTuitionPlanRequest](#createtuitionplanrequest) | [TuitionPlanResponse](#tuitionplanresponse) |
+| GET | `/api/finance/tuition-plans/{id}` | JWT + `finance.tuition-plan.view` | — | [TuitionPlanResponse](#tuitionplanresponse) |
+| PUT | `/api/finance/tuition-plans/{id}/status` | JWT + `finance.tuition-plan.update` | Body: [UpdateTuitionPlanStatusRequest](#updatetuitionplanstatusrequest) | [TuitionPlanResponse](#tuitionplanresponse) |
 
 ## Học bổng
 
 | Method | Path | Auth | Input | Output |
 |---|---|---|---|---|
-| POST | `/api/finance/scholarships` | JWT + `finance.scholarship.manage` | Body: [CreateScholarshipRequest](#createscholarshiprequest) | [ScholarshipResponse](#scholarshipresponse) |
-| POST | `/api/finance/scholarships/{id}/revoke` | JWT + `finance.scholarship.manage` | — | [ScholarshipResponse](#scholarshipresponse) |
+| POST | `/api/finance/scholarships` | JWT + `finance.scholarship.create` | Body: [CreateScholarshipRequest](#createscholarshiprequest) | [ScholarshipResponse](#scholarshipresponse) |
+| POST | `/api/finance/scholarships/{id}/revoke` | JWT + `finance.scholarship.revoke` | — | [ScholarshipResponse](#scholarshipresponse) |
 
 ## Hóa đơn & thanh toán (UC-30)
 
 | Method | Path | Auth | Input | Output |
 |---|---|---|---|---|
-| POST | `/api/finance/invoices/generate` | JWT + `finance.invoice.manage` | Body: [GenerateInvoicesRequest](#generateinvoicesrequest) | mảng [InvoiceResponse](#invoiceresponse) |
+| POST | `/api/finance/invoices/generate` | JWT + `finance.invoice.generate` | Body: [GenerateInvoicesRequest](#generateinvoicesrequest) | mảng [InvoiceResponse](#invoiceresponse) |
 | GET | `/api/finance/invoices/my` | JWT | — | mảng [InvoiceResponse](#invoiceresponse) |
 | GET | `/api/finance/invoices/{id}` | JWT | — | [InvoiceResponse](#invoiceresponse) |
-| POST | `/api/finance/invoices/{id}/payments` | JWT + `finance.invoice.manage` | Body: [RecordManualPaymentRequest](#recordmanualpaymentrequest) | [PaymentResponse](#paymentresponse) |
+| POST | `/api/finance/invoices/{id}/payments` | JWT + `finance.invoice.payment.record` | Body: [RecordManualPaymentRequest](#recordmanualpaymentrequest) | [PaymentResponse](#paymentresponse) |
 | POST | `/api/webhooks/bank-payment` | Header `X-Webhook-Secret` | Body: [BankWebhookPaymentRequest](#bankwebhookpaymentrequest)<br>Header: `X-Webhook-Secret` | [PaymentResponse](#paymentresponse) |
 
 ## Chi phí vận hành (UC-31)
@@ -447,13 +447,13 @@
 
 | Method | Path | Auth | Input | Output |
 |---|---|---|---|---|
-| POST | `/api/leads` | JWT + `crm.lead.manage` | Body: [CreateLeadRequest](#createleadrequest) | [LeadResponse](#leadresponse) |
+| POST | `/api/leads` | JWT + `crm.lead.create` | Body: [CreateLeadRequest](#createleadrequest) | [LeadResponse](#leadresponse) |
 | GET | `/api/leads/my-leads` | JWT | — | mảng [LeadResponse](#leadresponse) |
 | GET | `/api/leads/open` | JWT | — | mảng [LeadResponse](#leadresponse) |
 | GET | `/api/leads/{id}` | JWT | — | [LeadResponse](#leadresponse) |
 | PUT | `/api/leads/{id}/assign` | JWT + `crm.lead.assign` | Body: [AssignLeadRequest](#assignleadrequest) | [LeadResponse](#leadresponse) |
-| POST | `/api/leads/{id}/convert` | JWT + `crm.lead.manage` | Body: [ConvertLeadRequest](#convertleadrequest) | [LeadResponse](#leadresponse) |
-| PUT | `/api/leads/{id}/status` | JWT + `crm.lead.manage` | Body: [UpdateLeadStatusRequest](#updateleadstatusrequest) | [LeadResponse](#leadresponse) |
+| POST | `/api/leads/{id}/convert` | JWT + `crm.lead.convert` | Body: [ConvertLeadRequest](#convertleadrequest) | [LeadResponse](#leadresponse) |
+| PUT | `/api/leads/{id}/status` | JWT + `crm.lead.update` | Body: [UpdateLeadStatusRequest](#updateleadstatusrequest) | [LeadResponse](#leadresponse) |
 
 ## Điểm trường (UC-36)
 
@@ -484,16 +484,16 @@
 
 | Method | Path | Auth | Input | Output |
 |---|---|---|---|---|
-| POST | `/api/rooms` | JWT + `facility.room.manage` | Body: [CreateRoomRequest](#createroomrequest) | [RoomResponse](#roomresponse) |
-| PUT | `/api/rooms/{id}` | JWT + `facility.room.manage` | Body: [UpdateRoomRequest](#updateroomrequest) | [RoomResponse](#roomresponse) |
+| POST | `/api/rooms` | JWT + `facility.room.create` | Body: [CreateRoomRequest](#createroomrequest) | [RoomResponse](#roomresponse) |
+| PUT | `/api/rooms/{id}` | JWT + `facility.room.update` | Body: [UpdateRoomRequest](#updateroomrequest) | [RoomResponse](#roomresponse) |
 | GET | `/api/sites/{siteId}/rooms` | JWT | — | mảng [RoomResponse](#roomresponse) |
 
 ## Thiết bị dạy học (UC-37)
 
 | Method | Path | Auth | Input | Output |
 |---|---|---|---|---|
-| POST | `/api/equipment` | JWT + `facility.room.manage` | Body: [CreateEquipmentRequest](#createequipmentrequest) | [EquipmentResponse](#equipmentresponse) |
-| PUT | `/api/equipment/{id}/status` | JWT + `facility.room.manage` | Body: [UpdateEquipmentStatusRequest](#updateequipmentstatusrequest) | [EquipmentResponse](#equipmentresponse) |
+| POST | `/api/equipment` | JWT + `facility.equipment.create` | Body: [CreateEquipmentRequest](#createequipmentrequest) | [EquipmentResponse](#equipmentresponse) |
+| PUT | `/api/equipment/{id}/status` | JWT + `facility.equipment.update` | Body: [UpdateEquipmentStatusRequest](#updateequipmentstatusrequest) | [EquipmentResponse](#equipmentresponse) |
 | GET | `/api/rooms/{roomId}/equipment` | JWT | — | mảng [EquipmentResponse](#equipmentresponse) |
 | GET | `/api/sites/{siteId}/equipment` | JWT | — | mảng [EquipmentResponse](#equipmentresponse) |
 
@@ -541,9 +541,9 @@
 
 | Method | Path | Auth | Input | Output |
 |---|---|---|---|---|
-| GET | `/api/curriculums/{curriculumId}/documents` | JWT + `lms.document.manage` | — | mảng [CurriculumDocumentResponse](#curriculumdocumentresponse) |
-| POST | `/api/curriculums/{curriculumId}/documents` | JWT + `lms.document.manage` | Body: [CreateCurriculumDocumentRequest](#createcurriculumdocumentrequest) | [CurriculumDocumentResponse](#curriculumdocumentresponse) |
-| PUT | `/api/documents/{id}` | JWT + `lms.document.manage` | Body: [UpdateCurriculumDocumentRequest](#updatecurriculumdocumentrequest) | [CurriculumDocumentResponse](#curriculumdocumentresponse) |
+| GET | `/api/curriculums/{curriculumId}/documents` | JWT + `lms.document.view` | — | mảng [CurriculumDocumentResponse](#curriculumdocumentresponse) |
+| POST | `/api/curriculums/{curriculumId}/documents` | JWT + `lms.document.create` | Body: [CreateCurriculumDocumentRequest](#createcurriculumdocumentrequest) | [CurriculumDocumentResponse](#curriculumdocumentresponse) |
+| PUT | `/api/documents/{id}` | JWT + `lms.document.update` | Body: [UpdateCurriculumDocumentRequest](#updatecurriculumdocumentrequest) | [CurriculumDocumentResponse](#curriculumdocumentresponse) |
 
 ## department-controller
 
@@ -585,12 +585,12 @@
 
 | Method | Path | Auth | Input | Output |
 |---|---|---|---|---|
-| GET | `/api/curriculums/{curriculumId}/listening-practice-items` | JWT + `lms.listening-practice.manage` | — | mảng [ListeningPracticeItemResponse](#listeningpracticeitemresponse) |
+| GET | `/api/curriculums/{curriculumId}/listening-practice-items` | JWT + `lms.listening-practice.view` | — | mảng [ListeningPracticeItemResponse](#listeningpracticeitemresponse) |
 | GET | `/api/listening-practice-attempts/{id}` | JWT | — | [ListeningPracticeAttemptResponse](#listeningpracticeattemptresponse) |
 | POST | `/api/listening-practice-attempts/{id}/pause` | JWT | Body: [PauseListeningPracticeAttemptRequest](#pauselisteningpracticeattemptrequest) | [ListeningPracticeAttemptResponse](#listeningpracticeattemptresponse) |
 | POST | `/api/listening-practice-attempts/{id}/submit` | JWT | Body: [SubmitListeningPracticeAttemptRequest](#submitlisteningpracticeattemptrequest) | [ListeningPracticeAttemptResponse](#listeningpracticeattemptresponse) |
-| POST | `/api/listening-practice-items` | JWT + `lms.listening-practice.manage` | Body: [CreateListeningPracticeItemRequest](#createlisteningpracticeitemrequest) | [ListeningPracticeItemResponse](#listeningpracticeitemresponse) |
-| PUT | `/api/listening-practice-items/{id}` | JWT + `lms.listening-practice.manage` | Body: [UpdateListeningPracticeItemRequest](#updatelisteningpracticeitemrequest) | [ListeningPracticeItemResponse](#listeningpracticeitemresponse) |
+| POST | `/api/listening-practice-items` | JWT + `lms.listening-practice.create` | Body: [CreateListeningPracticeItemRequest](#createlisteningpracticeitemrequest) | [ListeningPracticeItemResponse](#listeningpracticeitemresponse) |
+| PUT | `/api/listening-practice-items/{id}` | JWT + `lms.listening-practice.update` | Body: [UpdateListeningPracticeItemRequest](#updatelisteningpracticeitemrequest) | [ListeningPracticeItemResponse](#listeningpracticeitemresponse) |
 | POST | `/api/listening-practice-items/{id}/attempts` | JWT | — | [ListeningPracticeAttemptResponse](#listeningpracticeattemptresponse) |
 
 ## listening-practice-grading-controller
