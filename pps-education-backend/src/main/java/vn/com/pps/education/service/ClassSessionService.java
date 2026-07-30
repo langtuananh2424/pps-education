@@ -18,10 +18,12 @@ import vn.com.pps.education.dto.ClassSessionResponse;
 import vn.com.pps.education.dto.CreateClassSessionRequest;
 import vn.com.pps.education.dto.RescheduleClassSessionRequest;
 import vn.com.pps.education.dto.SessionPeriodResponse;
+import vn.com.pps.education.exception.ClassScheduleConflictException;
 import vn.com.pps.education.exception.InvalidClassSessionStatusTransitionException;
 import vn.com.pps.education.exception.MakeupSessionAlreadyLinkedException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.exception.RoomConflictException;
+import vn.com.pps.education.exception.TeacherScheduleConflictException;
 import vn.com.pps.education.repository.ClassEnrollmentRepository;
 import vn.com.pps.education.repository.ClassSessionHistoryRepository;
 import vn.com.pps.education.repository.ClassSessionRepository;
@@ -234,10 +236,11 @@ public class ClassSessionService {
      * UC-56: Sinh lịch học hàng loạt theo mẫu lặp (FR-ACA-05, bổ sung
      * ngoài SDD gốc, đã xác nhận với người dùng). Với mỗi ngày trong
      * [startDate, endDate] khớp 1 trong các daysOfWeek yêu cầu, thử tạo 1
-     * buổi — tái dùng đúng createSessionEntity (room-conflict-check +
-     * sinh session_periods) của createSession/rescheduleSession, không
-     * viết lại logic. Ngày nào trùng phòng bị bỏ qua (ghi lý do), các
-     * ngày khác trong lô vẫn tiếp tục tạo bình thường (giống pattern
+     * buổi — tái dùng đúng createSessionEntity (room/teacher/class-conflict-
+     * check + sinh session_periods) của createSession/rescheduleSession,
+     * không viết lại logic. Ngày nào trùng phòng/trùng giờ GV/trùng giờ
+     * lớp bị bỏ qua (ghi lý do), các ngày khác trong lô vẫn tiếp tục tạo
+     * bình thường (giống pattern
      * lỗi-từng-dòng của batch import UC-35/50/51/53 — không có preview
      * phòng trống trước, chỉ báo lỗi/bỏ qua sau khi thử tạo).
      */
@@ -270,7 +273,7 @@ public class ClassSessionService {
                 ClassSession session = createSessionEntity(schoolClass, date, request.startTime(), request.endTime(),
                         room, teacher, sessionType, actor, teacherType, null);
                 created.add(toResponse(session));
-            } catch (RoomConflictException ex) {
+            } catch (RoomConflictException | TeacherScheduleConflictException | ClassScheduleConflictException ex) {
                 Map<String, Object> reason = new LinkedHashMap<>();
                 reason.put("date", date.toString());
                 reason.put("reason", ex.getMessage());
@@ -285,8 +288,10 @@ public class ClassSessionService {
      * thẳng ID để ClassScheduleImportService (khác Service, cùng package)
      * gọi theo từng dòng Excel. KHÔNG @Transactional — luôn chạy trong
      * transaction bao ngoài của ClassScheduleImportService.importSchedule;
-     * nếu ném RoomConflictException/ResourceNotFoundException cho 1 dòng,
-     * caller bắt lỗi rồi tiếp tục dòng khác mà KHÔNG khiến Spring đánh dấu
+     * nếu ném RoomConflictException/TeacherScheduleConflictException/
+     * ClassScheduleConflictException/ResourceNotFoundException cho 1 dòng,
+     * caller bắt lỗi (catch RuntimeException chung, không cần liệt kê từng
+     * loại) rồi tiếp tục dòng khác mà KHÔNG khiến Spring đánh dấu
      * rollbackOnly cho cả giao dịch (tránh bẫy: 1 method @Transactional
      * khác bean ném lỗi dù caller có bắt lại vẫn làm rollback cả giao
      * dịch bao ngoài).
@@ -338,13 +343,20 @@ public class ClassSessionService {
                 .map(this::toResponse).toList();
     }
 
-    /** Lõi dùng chung: đã resolve đủ entity, chỉ check trùng phòng + save + history + sinh session_periods. */
+    /**
+     * Lõi dùng chung: đã resolve đủ entity, chỉ check trùng phòng + trùng
+     * giờ Giáo viên + trùng giờ trong cùng Lớp (2 chặn cuối bổ sung ngoài
+     * SDD gốc, đã xác nhận với người dùng 2026-07-30) + save + history +
+     * sinh session_periods.
+     */
     private ClassSession createSessionEntity(SchoolClass schoolClass, LocalDate sessionDate, LocalTime startTime, LocalTime endTime,
                                               Room room, User teacher, ClassSession.SessionType sessionType, User actor,
                                               ClassSession.TeacherType teacherType, ClassSession makeupForSession) {
         if (room != null) {
             checkRoomConflict(room, sessionDate, startTime, endTime, null);
         }
+        checkTeacherConflict(teacher, sessionDate, startTime, endTime, null);
+        checkClassConflict(schoolClass.getId(), sessionDate, startTime, endTime, null);
 
         ClassSession session = new ClassSession();
         session.setSchoolClass(schoolClass);
@@ -405,6 +417,9 @@ public class ClassSessionService {
             newRoom = getRoomOrThrow(request.newRoomId());
             checkRoomConflict(newRoom, request.newSessionDate(), request.newStartTime(), request.newEndTime(), oldSession.getId());
         }
+        checkTeacherConflict(newTeacher, request.newSessionDate(), request.newStartTime(), request.newEndTime(), oldSession.getId());
+        checkClassConflict(oldSession.getSchoolClass().getId(), request.newSessionDate(), request.newStartTime(), request.newEndTime(),
+                oldSession.getId());
 
         // Chuyển liên kết bù (nếu buổi đang dời lịch chính là 1 buổi MAKEUP đã liên kết) sang buổi
         // mới — phải gỡ khỏi buổi cũ VÀ flush ngay, vì UNIQUE constraint (V61) không cho 2 buổi
@@ -449,6 +464,36 @@ public class ClassSessionService {
                 List.of(ClassSession.Status.CANCELLED, ClassSession.Status.RESCHEDULED));
         if (!overlapping.isEmpty()) {
             throw new RoomConflictException("Phòng id=" + room.getId() + " đã có buổi học khác trùng khung giờ ngày " + date + ".");
+        }
+    }
+
+    /**
+     * Chặn trùng giờ Giáo viên (bổ sung ngoài SDD gốc, đã xác nhận với
+     * người dùng 2026-07-30) — 1 giáo viên không thể bị xếp 2 buổi chồng
+     * giờ dù khác lớp/phòng. Không có nhánh bỏ qua (khác checkRoomConflict
+     * bỏ qua khi room.isFlexible()) — luôn kiểm tra.
+     */
+    private void checkTeacherConflict(User teacher, LocalDate date, LocalTime startTime, LocalTime endTime, Long editingSessionId) {
+        List<ClassSession> overlapping = classSessionRepository.findOverlappingForTeacher(
+                teacher.getId(), date, startTime, endTime, editingSessionId,
+                List.of(ClassSession.Status.CANCELLED, ClassSession.Status.RESCHEDULED));
+        if (!overlapping.isEmpty()) {
+            throw new TeacherScheduleConflictException("Giáo viên id=" + teacher.getId() + " đã có buổi dạy khác trùng khung giờ ngày " + date + ".");
+        }
+    }
+
+    /**
+     * Chặn trùng giờ trong cùng 1 Lớp (bổ sung ngoài SDD gốc, đã xác nhận
+     * với người dùng 2026-07-30) — VD lỡ tạo 2 buổi chồng giờ cho cùng 1
+     * lớp, kể cả khi không gán phòng/phòng khác nhau (room-check không
+     * bắt được trường hợp này).
+     */
+    private void checkClassConflict(Long classId, LocalDate date, LocalTime startTime, LocalTime endTime, Long editingSessionId) {
+        List<ClassSession> overlapping = classSessionRepository.findOverlappingForClass(
+                classId, date, startTime, endTime, editingSessionId,
+                List.of(ClassSession.Status.CANCELLED, ClassSession.Status.RESCHEDULED));
+        if (!overlapping.isEmpty()) {
+            throw new ClassScheduleConflictException("Lớp id=" + classId + " đã có buổi học khác trùng khung giờ ngày " + date + ".");
         }
     }
 

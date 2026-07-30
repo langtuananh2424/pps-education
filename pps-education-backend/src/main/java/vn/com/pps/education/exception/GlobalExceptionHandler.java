@@ -60,6 +60,7 @@ public class GlobalExceptionHandler {
             ParentStudentLinkAlreadyExistsException.class, StudentContactRoleConflictException.class,
             DuplicateCurriculumCodeException.class, DuplicateClassCodeException.class,
             ClassEnrollmentAlreadyActiveException.class, RoomConflictException.class,
+            TeacherScheduleConflictException.class, ClassScheduleConflictException.class,
             DuplicateSiteCodeException.class, DuplicateLeadPhoneException.class,
             DuplicatePartnerContractNumberException.class, ActivePartnerContractAlreadyExistsException.class,
             DuplicateRoomCodeException.class, DuplicateEquipmentCodeException.class,

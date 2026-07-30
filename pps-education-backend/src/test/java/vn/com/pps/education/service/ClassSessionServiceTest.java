@@ -171,8 +171,21 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
                 new CreateClassSessionRequest(date, LocalTime.of(8, 0), LocalTime.of(9, 40), flexibleRoom.getId(), teacher.getId(), "REGULAR", null, null),
                 headAcademic.getId());
 
-        ClassSessionResponse second = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(date, LocalTime.of(9, 0), LocalTime.of(10, 30), flexibleRoom.getId(), teacher.getId(), "REGULAR", null, null),
+        // GV và lớp khác buổi đầu — cô lập đúng hành vi "phòng flexible bỏ qua room-conflict" đang
+        // test, không lẫn với chặn trùng giờ GV/Lớp (bổ sung ngoài SDD gốc, đã xác nhận với người
+        // dùng 2026-07-30): cùng GV/lớp chồng giờ phải bị chặn dù phòng flexible.
+        User otherTeacher = newUser("teacher2");
+        assignRole(otherTeacher, "TEACHER");
+        CurriculumResponse otherCurriculum = curriculumService.create(
+                new CreateCurriculumRequest(curriculumCode(), "Chuẩn", "MAIN", null, null, null), headAcademic.getId());
+        CurriculumResponse otherActiveCurriculum = curriculumService.update(otherCurriculum.id(),
+                new UpdateCurriculumRequest("Chuẩn", null, null, null, "ACTIVE", false), headAcademic.getId());
+        ClassResponse otherClass = classService.create(
+                new CreateClassRequest(classCode(), "8A3", site.getId(), otherActiveCurriculum.id(), "OPEN", 20, null,
+                        LocalDate.now(), null, null, null), headAcademic.getId());
+
+        ClassSessionResponse second = classSessionService.createSession(otherClass.id(),
+                new CreateClassSessionRequest(date, LocalTime.of(9, 0), LocalTime.of(10, 30), flexibleRoom.getId(), otherTeacher.getId(), "REGULAR", null, null),
                 headAcademic.getId());
 
         assertThat(second.id()).isNotNull();

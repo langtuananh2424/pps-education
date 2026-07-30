@@ -41,6 +41,45 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, Long
                                               @Param("excludedStatuses") List<ClassSession.Status> excludedStatuses);
 
     /**
+     * Chặn trùng giờ Giáo viên (bổ sung ngoài SDD gốc, đã xác nhận với
+     * người dùng 2026-07-30): cùng primary_teacher_id, cùng ngày, khung
+     * giờ giao nhau, loại trừ CANCELLED/RESCHEDULED và chính session đang
+     * sửa. Áp dụng mọi lớp, không giới hạn 1 lớp — khác findOverlappingInRoom
+     * chỉ xét trong phạm vi 1 phòng.
+     */
+    @Query("""
+            SELECT cs FROM ClassSession cs
+            WHERE cs.primaryTeacher.id = :teacherId
+            AND cs.sessionDate = :date
+            AND cs.status NOT IN (:excludedStatuses)
+            AND :startTime < cs.endTime AND :endTime > cs.startTime
+            AND (:editingSessionId IS NULL OR cs.id <> :editingSessionId)
+            """)
+    List<ClassSession> findOverlappingForTeacher(@Param("teacherId") Long teacherId, @Param("date") LocalDate date,
+                                                  @Param("startTime") LocalTime startTime, @Param("endTime") LocalTime endTime,
+                                                  @Param("editingSessionId") Long editingSessionId,
+                                                  @Param("excludedStatuses") List<ClassSession.Status> excludedStatuses);
+
+    /**
+     * Chặn trùng giờ trong cùng 1 Lớp (bổ sung ngoài SDD gốc, đã xác nhận
+     * với người dùng 2026-07-30) — VD lỡ tạo 2 buổi chồng giờ cho cùng 1
+     * lớp, kể cả khi không gán phòng hoặc phòng khác nhau (room-check
+     * không bắt được trường hợp này).
+     */
+    @Query("""
+            SELECT cs FROM ClassSession cs
+            WHERE cs.schoolClass.id = :classId
+            AND cs.sessionDate = :date
+            AND cs.status NOT IN (:excludedStatuses)
+            AND :startTime < cs.endTime AND :endTime > cs.startTime
+            AND (:editingSessionId IS NULL OR cs.id <> :editingSessionId)
+            """)
+    List<ClassSession> findOverlappingForClass(@Param("classId") Long classId, @Param("date") LocalDate date,
+                                                @Param("startTime") LocalTime startTime, @Param("endTime") LocalTime endTime,
+                                                @Param("editingSessionId") Long editingSessionId,
+                                                @Param("excludedStatuses") List<ClassSession.Status> excludedStatuses);
+
+    /**
      * UC-58: "Lịch của tôi" — mọi buổi học của 1 Giáo viên qua MỌI lớp,
      * lọc theo khoảng ngày tùy chọn (null = không giới hạn). Tận dụng
      * index có sẵn idx_class_sessions_teacher_date (primary_teacher_id,
