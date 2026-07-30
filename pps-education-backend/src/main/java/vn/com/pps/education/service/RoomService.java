@@ -34,8 +34,9 @@ import java.util.Map;
  * FR-FAC-03 kiểm tra trùng phòng) nhưng chưa có CRUD Service/Controller —
  * bổ sung ở đây. Equipment hoàn toàn mới (bảng có sẵn từ V2, chưa có code).
  *
- * Authorization qua @PreAuthorize("hasPermission(null,'facility.room.manage')")
- * ở RoomController/EquipmentController (Hybrid PBAC — V28), không còn
+ * Authorization qua @PreAuthorize("hasPermission(null,'facility.room.
+ * create/update')") ở RoomController và ('facility.equipment.create/
+ * update') ở EquipmentController (Hybrid PBAC — V28/V62), không còn
  * role-check trong Service.
  */
 @Service

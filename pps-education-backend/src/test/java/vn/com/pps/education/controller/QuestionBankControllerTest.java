@@ -22,9 +22,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * UC-40: xác nhận lms.exercise.manage (Hybrid PBAC — V28) chặn/cho phép
- * đúng qua HTTP thật cho cả 2 Controller dùng chung permission này
- * (QuestionBankController + ExerciseController).
+ * UC-40: xác nhận lms.question-bank.* (QuestionBankController) và
+ * lms.exercise.* (ExerciseController) — Hybrid PBAC V28, tách thành 2
+ * nhóm permission riêng ở V62 (2 resource khác nhau) — chặn/cho phép đúng
+ * qua HTTP thật cho cả 2 Controller.
  */
 @Transactional
 class QuestionBankControllerTest extends AbstractControllerTest {
@@ -92,7 +93,7 @@ class QuestionBankControllerTest extends AbstractControllerTest {
     /**
      * Bổ sung: GET /api/questions/{id} trước đây không gate quyền — bất
      * kỳ ai đăng nhập (kể cả học viên) đều xem được is_correct của mọi
-     * câu hỏi. Đã thêm lms.exercise.manage — xác nhận qua HTTP thật.
+     * câu hỏi. Đã thêm lms.question-bank.view — xác nhận qua HTTP thật.
      */
     @Test
     void getQuestion_deniedForRoleWithoutLmsExerciseManage_returns403() throws Exception {

@@ -55,8 +55,8 @@ import java.util.stream.Collectors;
  * Không gán role lúc tạo (Main Flow bước 4) — tài khoản mới đăng nhập được
  * nhưng danh sách quyền hiệu lực rỗng cho tới khi được gán qua UC-03/UC-04.
  *
- * Authorization qua @PreAuthorize("hasPermission(null,'user.manage')") ở
- * UserController (Hybrid PBAC). Riêng luồng UC-08 (tạo hồ sơ nhân sự kèm
+ * Authorization qua @PreAuthorize("hasPermission(null,'user.view/create/
+ * update')") ở UserController (Hybrid PBAC — V62). Riêng luồng UC-08 (tạo hồ sơ nhân sự kèm
  * tài khoản, quyền hrm.manage) gọi thẳng createAccount(...) từ
  * EmployeeService trong cùng transaction — xem ghi chú trong UC-08 và
  * "Cơ chế khởi tạo tài khoản" trong docs/sdd-groups/02-nen-tang.md.
@@ -151,7 +151,7 @@ public class UserAccountService {
 
     /**
      * UC-45: Đổi mật khẩu (FR-USR-02), luồng A4 — Quản trị viên (quyền
-     * user.manage) đổi mật khẩu cho một tài khoản khác, không cần biết mật
+     * user.update) đổi mật khẩu cho một tài khoản khác, không cần biết mật
      * khẩu hiện tại của tài khoản đó. A2 chặn bằng bean validation ở
      * AdminChangePasswordRequest.
      */

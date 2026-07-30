@@ -60,7 +60,9 @@ const difficultyLabels: Record<QuestionDifficulty, string> = { EASY: "Dễ (Easy
  */
 export default function QuestionBankPage() {
   const { hasPermission } = useApp();
-  const canManage = hasPermission("lms.exercise.manage");
+  // lms.exercise.manage đã bị tách nhỏ (hạt nhân hóa V62) thành lms.question-bank.create/update/view
+  // — trang này thao tác cả tạo (ngân hàng/câu hỏi) lẫn sửa (trạng thái ngân hàng/câu hỏi).
+  const canManage = hasPermission("lms.question-bank.create") || hasPermission("lms.question-bank.update");
 
   const [rows, setRows] = useState<FlatQuestionRow[]>([]);
   const [loading, setLoading] = useState(true);

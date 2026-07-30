@@ -230,7 +230,7 @@ nhân đó mới được thao tác.*
         khẩu của chính mình, phải xác thực bằng mật khẩu hiện tại (trừ
         tài khoản đang chỉ đăng nhập Google — chưa có mật khẩu — đặt mật
         khẩu lần đầu không cần xác thực); (2) Quản trị viên (quyền
-        user.manage) đổi mật khẩu cho một tài khoản khác, không cần biết
+        user.update) đổi mật khẩu cho một tài khoản khác, không cần biết
         mật khẩu hiện tại của tài khoản đó. Cả 2 luồng: mật khẩu mới tối
         thiểu 8 ký tự, sau khi đổi thành công hệ thống thu hồi toàn bộ
         refresh token đang hoạt động của tài khoản đó (đăng xuất khỏi mọi

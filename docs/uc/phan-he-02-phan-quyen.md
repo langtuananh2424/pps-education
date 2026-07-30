@@ -25,7 +25,7 @@ UC-02: Quản lý danh mục quyền
 +-----------------+----------------------------------------------------+
 | **Điều kiện     | -   Người dùng đã đăng nhập với vai trò Quản trị   |
 | tiên quyết      |     viên (role SYS_ADMIN) và có quyền              |
-| (               |     user.manage/permission tương ứng.              |
+| (               |     user.view/create/update/permission tương ứng.  |
 | Precondition)** |                                                    |
 +-----------------+----------------------------------------------------+
 | **Luồng sự kiện | 1.  Quản trị viên mở màn hình danh mục quyền, hệ   |
@@ -293,7 +293,7 @@ UC-43: Khởi tạo tài khoản người dùng
 | **Sự kiện kích  | Có người dùng mới cần truy cập hệ thống nhưng chưa |
 | hoạt**          | được cấp tài khoản.                                |
 +-----------------+----------------------------------------------------+
-| **Điều kiện     | -   Người thao tác có quyền user.manage.           |
+| **Điều kiện     | -   Người thao tác có quyền user.create.           |
 | tiên quyết      |                                                    |
 | (               |                                                    |
 | Precondition)** |                                                    |
@@ -364,7 +364,7 @@ UC-44: Xem/tra cứu danh sách tài khoản
 |                 | mật khẩu, gán vai trò, tùy chỉnh quyền, khóa/mở    |
 |                 | khóa).                                             |
 +-----------------+----------------------------------------------------+
-| **Điều kiện     | Người thao tác có quyền user.manage.               |
+| **Điều kiện     | Người thao tác có quyền user.view.                 |
 | tiên quyết      |                                                    |
 | (               |                                                    |
 | Precondition)** |                                                    |
@@ -426,7 +426,7 @@ UC-45: Đổi mật khẩu
 |                 | khác (quên mật khẩu, nghi ngờ bị lộ...).           |
 +-----------------+----------------------------------------------------+
 | **Điều kiện     | -   Đã đăng nhập (JWT hợp lệ). Riêng luồng đổi cho |
-| tiên quyết      |     tài khoản khác: có quyền user.manage.          |
+| tiên quyết      |     tài khoản khác: có quyền user.update.          |
 | (               |                                                    |
 | Precondition)** |                                                    |
 +-----------------+----------------------------------------------------+
@@ -464,7 +464,7 @@ UC-45: Đổi mật khẩu
 |                 | ***A4 --- Quản trị viên đổi mật khẩu cho tài khoản |
 |                 | khác***                                            |
 |                 |                                                    |
-|                 | 1.  Quản trị viên (quyền user.manage) chọn đích    |
+|                 | 1.  Quản trị viên (quyền user.update) chọn đích    |
 |                 |     danh 1 tài khoản, nhập mật khẩu mới — không    |
 |                 |     cần biết/nhập mật khẩu hiện tại của tài khoản  |
 |                 |     đó. Tiếp tục từ bước 3 (A2 vẫn áp dụng).       |
@@ -581,7 +581,7 @@ UC-47: Khóa/Mở khóa tài khoản
 |                 | bảo mật cần tạm khóa ngay; hoặc cần khôi phục 1    |
 |                 | tài khoản đã khóa.                                 |
 +-----------------+----------------------------------------------------+
-| **Điều kiện     | - Người thao tác có quyền user.manage.             |
+| **Điều kiện     | - Người thao tác có quyền user.update.             |
 | tiên quyết      |                                                    |
 | (               | - Tài khoản đích tồn tại trong bảng users (tra cứu |
 | Precondition)** | qua UC-44).                                        |
@@ -653,7 +653,7 @@ UC-49: Cập nhật thông tin tài khoản
 | **Sự kiện kích  | Thông tin hồ sơ của 1 tài khoản (VD SĐT) đã lỗi    |
 | hoạt**          | thời hoặc cần điều chỉnh.                          |
 +-----------------+----------------------------------------------------+
-| **Điều kiện     | -   Người thao tác có quyền user.manage.           |
+| **Điều kiện     | -   Người thao tác có quyền user.update.           |
 | tiên quyết      | -   Tài khoản đích tồn tại (tra cứu qua UC-44).    |
 | (               |                                                    |
 | Precondition)** |                                                    |
@@ -710,7 +710,7 @@ UC-55: Cập nhật email tài khoản
 |                 | đăng nhập Google được; hoặc email hồ sơ đã lỗi     |
 |                 | thời cần sửa.                                      |
 +-----------------+----------------------------------------------------+
-| **Điều kiện     | -   Người thao tác có quyền user.manage.           |
+| **Điều kiện     | -   Người thao tác có quyền user.update.           |
 | tiên quyết      |                                                    |
 | (               | -   Tài khoản đích tồn tại (tra cứu qua UC-44).    |
 | Precondition)** |                                                    |

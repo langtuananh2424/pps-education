@@ -57,7 +57,13 @@ export const permissionGroupsByModule: Record<string, PermissionGroupDef[]> = {
       codes: ["student.parent.link.create", "student.parent.link.delete"]
     }
   ],
-  CRM: [{ key: "lead", label: "Khách hàng tiềm năng (Lead)", codes: ["crm.lead.manage", "crm.lead.assign"] }],
+  CRM: [
+    {
+      key: "lead",
+      label: "Khách hàng tiềm năng (Lead)",
+      codes: ["crm.lead.create", "crm.lead.update", "crm.lead.convert", "crm.lead.assign"]
+    }
+  ],
   USER: [
     {
       key: "permission-catalog",

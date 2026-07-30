@@ -46,14 +46,14 @@ public class CurriculumController {
         return ResponseEntity.ok(curriculumService.getById(id));
     }
 
-    @PreAuthorize("hasPermission(null, 'academic.curriculum.manage')")
+    @PreAuthorize("hasPermission(null, 'academic.curriculum.create')")
     @PostMapping
     public ResponseEntity<CurriculumResponse> create(@Valid @RequestBody CreateCurriculumRequest request,
                                                         @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(curriculumService.create(request, actor.userId()));
     }
 
-    @PreAuthorize("hasPermission(null, 'academic.curriculum.manage')")
+    @PreAuthorize("hasPermission(null, 'academic.curriculum.update')")
     @PutMapping("/{id}")
     public ResponseEntity<CurriculumResponse> update(@PathVariable Long id,
                                                         @Valid @RequestBody UpdateCurriculumRequest request,
@@ -66,7 +66,7 @@ public class CurriculumController {
         return ResponseEntity.ok(curriculumService.listSubjects(id));
     }
 
-    @PreAuthorize("hasPermission(null, 'academic.curriculum.manage')")
+    @PreAuthorize("hasPermission(null, 'academic.curriculum.update')")
     @PostMapping("/{id}/subjects")
     public ResponseEntity<CurriculumSubjectResponse> addSubject(@PathVariable Long id,
                                                                     @Valid @RequestBody CreateCurriculumSubjectRequest request,
@@ -97,14 +97,14 @@ public class CurriculumController {
     }
 
     /** UC-17 Main Flow bước 1. */
-    @PreAuthorize("hasPermission(null, 'academic.curriculum.manage')")
+    @PreAuthorize("hasPermission(null, 'academic.curriculum.approve')")
     @GetMapping("/approvals/pending")
     public ResponseEntity<List<CurriculumApprovalResponse>> listPendingApprovals(@AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(curriculumService.listPendingApprovals(actor.userId()));
     }
 
     /** UC-17 Main Flow bước 3-5. */
-    @PreAuthorize("hasPermission(null, 'academic.curriculum.manage')")
+    @PreAuthorize("hasPermission(null, 'academic.curriculum.approve')")
     @PostMapping("/approvals/{approvalFlowId}/decision")
     public ResponseEntity<CurriculumApprovalResponse> decideApproval(@PathVariable Long approvalFlowId,
                                                                          @Valid @RequestBody DecideCurriculumApprovalRequest request,

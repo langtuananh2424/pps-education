@@ -15,9 +15,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * UC-16: xác nhận academic.curriculum.manage (Hybrid PBAC — V28) chặn/cho
- * phép đúng qua HTTP thật, thay cho test Service-level cũ gọi thẳng
- * requireHeadAcademic() (đã xoá khỏi CurriculumService).
+ * UC-16: xác nhận academic.curriculum.create/update (Hybrid PBAC — V28,
+ * tách từ academic.curriculum.manage ở V62) chặn/cho phép đúng qua HTTP
+ * thật, thay cho test Service-level cũ gọi thẳng requireHeadAcademic()
+ * (đã xoá khỏi CurriculumService).
  */
 @Transactional
 class CurriculumControllerTest extends AbstractControllerTest {

@@ -20,9 +20,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * UC-33/34: xác nhận crm.lead.manage/crm.lead.assign (Hybrid PBAC — V28)
- * chặn/cho phép đúng qua HTTP thật — 2 permission khác nhau vì createLead
- * (STAFF only) và assignLead (STAFF+SITE_MANAGER) có tập role khác nhau.
+ * UC-33/34: xác nhận crm.lead.create/update/convert/crm.lead.assign
+ * (Hybrid PBAC — V28, crm.lead.* tách từ crm.lead.manage ở V62) chặn/cho
+ * phép đúng qua HTTP thật — permission assign khác nhóm create/update/
+ * convert vì createLead (STAFF only) và assignLead (STAFF+SITE_MANAGER)
+ * có tập role khác nhau.
  */
 @Transactional
 class LeadControllerTest extends AbstractControllerTest {

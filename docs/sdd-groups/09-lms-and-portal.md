@@ -488,10 +488,11 @@ có ràng buộc downstream nào cần bất biến, khác questions/review_vide
 curriculum X xem được curriculum_documents WHERE curriculum_id=X AND
 status=PUBLISHED.
 
-Permission riêng `lms.document.manage` (gán mặc định TEACHER, có thể
-gán thêm cho HEAD_ACADEMIC/SITE_MANAGER qua UC-04 override) — không tái
-dùng `lms.exercise.manage` vì mô tả permission đó đã khai rõ "ngân hàng
-câu hỏi & đề kiểm tra", khác ngữ nghĩa.
+Permission riêng `lms.document.create/update/view` (gán mặc định TEACHER,
+có thể gán thêm cho HEAD_ACADEMIC/SITE_MANAGER qua UC-04 override, tách
+từ `lms.document.manage` ở V62) — không tái dùng `lms.exercise.*`/
+`lms.question-bank.*` vì mô tả permission đó đã khai rõ "đề kiểm tra" /
+"ngân hàng câu hỏi", khác ngữ nghĩa.
 
 **Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (2026-07-22, theo
 yêu cầu FE):** `lesson_materials.file_url` (nay là `review_videos.
@@ -1179,9 +1180,11 @@ không có nhiều câu hỏi con như student_answer_grading).
 Không history — sửa điểm chấm update tại chỗ (khác student_answer_grading
 vì chỉ 1 điểm/attempt, không cần versioning is_final).
 
-Permission riêng `lms.listening-practice.manage` cho quản lý nội dung
-(gán mặc định TEACHER) — chấm điểm tái dùng đúng `lms.grading.manage`
-đã có sẵn (mô tả gốc "Chấm bài thủ công" đủ tổng quát cho cả 2 domain).
+Permission riêng `lms.listening-practice.create/update/view` cho quản lý
+nội dung (gán mặc định TEACHER, tách từ `lms.listening-practice.manage`
+ở V62) — chấm điểm tái dùng đúng `lms.grading.manage` đã có sẵn (mô tả
+gốc "Chấm bài thủ công" đủ tổng quát cho cả 2 domain, KHÔNG tách ở V62 vì
+không có khía cạnh create/update/delete để tách theo hành động).
 
 ### Portal Phụ huynh
 

@@ -28,14 +28,14 @@ public class RoomController {
         this.roomService = roomService;
     }
 
-    @PreAuthorize("hasPermission(null, 'facility.room.manage')")
+    @PreAuthorize("hasPermission(null, 'facility.room.create')")
     @PostMapping("/api/rooms")
     public ResponseEntity<RoomResponse> createRoom(@Valid @RequestBody CreateRoomRequest request,
                                                       @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(roomService.createRoom(request, actor.userId()));
     }
 
-    @PreAuthorize("hasPermission(null, 'facility.room.manage')")
+    @PreAuthorize("hasPermission(null, 'facility.room.update')")
     @PutMapping("/api/rooms/{id}")
     public ResponseEntity<RoomResponse> updateRoom(@PathVariable Long id, @Valid @RequestBody UpdateRoomRequest request,
                                                       @AuthenticationPrincipal AuthenticatedUser actor) {

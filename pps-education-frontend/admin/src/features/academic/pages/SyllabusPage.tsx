@@ -13,9 +13,10 @@ import Toast from "@/components/ui/Toast";
 
 export default function SyllabusPage() {
   const { hasPermission } = useApp();
-  // Duyệt tùy biến (UC-17) yêu cầu academic.curriculum.manage ở backend (@PreAuthorize) —
-  // ẩn hẳn khối này với tài khoản không có quyền để tránh hiện lỗi 403 vô nghĩa.
-  const canApproveCurriculum = hasPermission("academic.curriculum.manage");
+  // Duyệt tùy biến (UC-17) yêu cầu academic.curriculum.approve ở backend (@PreAuthorize —
+  // academic.curriculum.manage đã bị tách nhỏ ở V62) — ẩn hẳn khối này với tài khoản không có
+  // quyền để tránh hiện lỗi 403 vô nghĩa.
+  const canApproveCurriculum = hasPermission("academic.curriculum.approve");
   const [curriculums, setCurriculums] = useState<CurriculumResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

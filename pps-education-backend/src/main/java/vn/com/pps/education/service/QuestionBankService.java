@@ -44,9 +44,10 @@ import java.util.Objects;
  * đã làm (status...). Muốn đổi nội dung phải tạo câu hỏi mới (createQuestion)
  * rồi tự archive câu cũ.
  *
- * Authorization qua @PreAuthorize("hasPermission(null,'lms.exercise.manage')")
- * ở QuestionBankController (Hybrid PBAC — V28, dùng chung permission với
- * ExerciseService vì cùng UC-40 + cùng role TEACHER).
+ * Authorization qua @PreAuthorize("hasPermission(null,'lms.question-bank.
+ * create/update/view')") ở QuestionBankController (Hybrid PBAC — V28,
+ * tách riêng khỏi lms.exercise.* ở V62 vì là resource khác nhau — ngân
+ * hàng câu hỏi dùng chung nhiều đề, không thuộc 1 đề cụ thể nào).
  */
 @Service
 public class QuestionBankService {
