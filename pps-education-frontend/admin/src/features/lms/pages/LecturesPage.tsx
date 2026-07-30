@@ -460,7 +460,8 @@ export default function LecturesPage() {
         <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Tài Liệu & Khảo Thí LMS (E-Learning)</h1>
         <p className="text-xs text-slate-500 mt-1">
           Kho Video Ôn tập — 2 loại: "Video từ kết nối" (ôn từ vựng buổi học) và "Video phản xạ" (hỏi-đáp luyện nói). Mỗi bộ gồm
-          nhiều video/audio; học sinh xem sau khi bộ được công bố, hệ thống tự theo dõi % đã xem thật.
+          nhiều video/audio; Công bố chỉ đánh dấu bộ đủ điều kiện dùng làm nguồn — Giáo viên chọn bộ đã công bố làm "BTVN buổi
+          sau" ở Nhận xét học viên mới thật sự giao cho lớp xem, hệ thống tự theo dõi % đã xem thật.
         </p>
       </div>
 
@@ -840,8 +841,9 @@ function EditSetModal({
           <input type="number" value={form.displayOrder} onChange={(e) => setForm({ ...form, displayOrder: e.target.value })} className={inputClass} />
         </div>
         <p className="text-[10px] text-slate-400 italic">
-          Chuyển trạng thái sang "Đã công bố" để học sinh xem được (chỉ set 1 lần thời điểm công bố). Chuyển "Đã gỡ" (ARCHIVED) để gỡ khỏi kho —
-          không xoá hẳn bản ghi.
+          Chuyển trạng thái sang "Đã công bố" để đủ điều kiện dùng làm nguồn (chỉ set 1 lần thời điểm công bố) — học sinh CHƯA xem
+          được ngay, chỉ xem sau khi Giáo viên chọn bộ này làm "BTVN buổi sau" ở Nhận xét học viên. Chuyển "Đã gỡ" (ARCHIVED) để gỡ
+          khỏi kho — không xoá hẳn bản ghi.
         </p>
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="secondary" onClick={onClose}>

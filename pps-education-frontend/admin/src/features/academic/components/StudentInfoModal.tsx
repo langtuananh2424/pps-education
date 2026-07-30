@@ -17,6 +17,7 @@ import {
 import Modal from "@/components/ui/Modal";
 import Badge from "@/components/ui/Badge";
 import Select from "@/components/ui/Select";
+import ClassGradeComparisonTable from "./ClassGradeComparisonTable";
 
 const inputClass = "bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
@@ -173,6 +174,17 @@ export default function StudentInfoModal({ enrollment, classId, curriculumId, on
               )}
             </div>
           )}
+        </div>
+
+        <div>
+          <span className="text-[10px] font-bold uppercase text-slate-500 block mb-2">So sánh điểm số qua các kỳ</span>
+          {/* Tái dùng nguyên bảng tổng hợp cả lớp (ClassGradeSheetPanel dùng để so sánh tiến bộ qua các
+              kỳ) nhưng chỉ truyền đúng 1 học sinh này — tránh viết lại logic gộp component theo `code`
+              xuyên suốt các kỳ + icon xu hướng tăng/giảm đã có sẵn (2026-07-30). includeAllStatuses để
+              vẫn hiện được kể cả học sinh đã rút lớp (enrollment.status !== ACTIVE). */}
+          <div className="border border-slate-200 rounded-lg overflow-hidden">
+            <ClassGradeComparisonTable classId={classId} curriculumId={curriculumId} enrollments={[enrollment]} includeAllStatuses />
+          </div>
         </div>
 
         <div>

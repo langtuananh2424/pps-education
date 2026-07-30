@@ -16,6 +16,7 @@ import vn.com.pps.education.dto.AddReviewVideoRequest;
 import vn.com.pps.education.dto.CreateReviewVideoSetRequest;
 import vn.com.pps.education.dto.GradeReviewVideoSubmissionRequest;
 import vn.com.pps.education.dto.ReportVideoProgressRequest;
+import vn.com.pps.education.dto.ReviewVideoAssignmentResponse;
 import vn.com.pps.education.dto.ReviewVideoProgressResponse;
 import vn.com.pps.education.dto.ReviewVideoQuestionResponse;
 import vn.com.pps.education.dto.ReviewVideoResponse;
@@ -74,6 +75,13 @@ public class ReviewVideoController {
     public ResponseEntity<List<ReviewVideoSetResponse>> listByCurriculum(@PathVariable Long curriculumId,
                                                                           @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(reviewVideoService.listByCurriculum(curriculumId, actor.userId()));
+    }
+
+    /** V65 — GV xem bản giao ACTIVE của lớp (tra ngược id bản giao → ReviewVideoSet cho FE Nhận xét học viên). */
+    @GetMapping("/api/classes/{classId}/review-video-assignments")
+    public ResponseEntity<List<ReviewVideoAssignmentResponse>> listAssignmentsForClass(@PathVariable Long classId,
+                                                                                        @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(reviewVideoService.listAssignmentsForClass(classId, actor.userId()));
     }
 
     @PreAuthorize("hasPermission(null, 'lms.review-video.update')")

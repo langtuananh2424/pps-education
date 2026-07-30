@@ -174,6 +174,43 @@ public class ExerciseService {
                 .stream().map(this::toResponse).toList();
     }
 
+    /**
+     * V65 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30):
+     * GV xem lại mọi đề ASSIGNED (mọi status, kể cả DRAFT chưa Publish) đã
+     * soạn trong 1 khung chương trình — "Soạn & Giao đề" không còn gắn
+     * theo 1 lớp cụ thể nữa (bỏ bước giao lớp), nên trang quản lý đề đổi
+     * từ "chọn lớp, xem lịch sử giao" sang "chọn khung chương trình, xem
+     * mọi đề đã soạn" (giống cách Ngân hàng câu hỏi tổ chức theo khung
+     * chương trình). Không gate permission thêm — createExercise/
+     * publishExercise đã có PreAuthorize riêng, đây chỉ là list xem lại.
+     */
+    @Transactional(readOnly = true)
+    public List<ExerciseResponse> listForCurriculum(Long curriculumId, Long actorUserId) {
+        return exerciseRepository.findByCurriculumIdAndExerciseType(curriculumId, Exercise.ExerciseType.ASSIGNED)
+                .stream()
+                .map(e -> toResponse(e, exerciseQuestionRepository.findByExerciseIdOrderByDisplayOrder(e.getId())))
+                .toList();
+    }
+
+    /**
+     * V65 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30):
+     * danh sách Exercise loại ASSIGNED đã Publish trong đúng khung chương
+     * trình của lớp — nguồn cho dropdown "BTVN Ngữ pháp buổi sau" ở Nhận
+     * xét học viên (UC-21). exercise_assignments không còn dùng làm danh
+     * sách nguồn khả dụng nữa (đã đổi ý nghĩa sang "bản giao" từ V65).
+     */
+    @Transactional(readOnly = true)
+    public List<ExerciseResponse> listPublishedForClass(Long classId, Long actorUserId) {
+        requireAssignedTeacher(classId, actorUserId);
+        SchoolClass schoolClass = getClassOrThrow(classId);
+        Long curriculumId = schoolClass.getCurriculum().getId();
+        return exerciseRepository.findByCurriculumIdAndExerciseTypeAndStatus(
+                        curriculumId, Exercise.ExerciseType.ASSIGNED, Exercise.Status.PUBLISHED)
+                .stream()
+                .map(e -> toResponse(e, exerciseQuestionRepository.findByExerciseIdOrderByDisplayOrder(e.getId())))
+                .toList();
+    }
+
     /** Main Flow bước 4 (SELF_PRACTICE): xác nhận lưu đề, không cần giao lớp. */
     @Transactional
     public ExerciseResponse publishExercise(Long id, Long actorUserId) {

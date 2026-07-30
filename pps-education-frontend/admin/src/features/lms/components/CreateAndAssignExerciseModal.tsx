@@ -1,21 +1,19 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Search } from "lucide-react";
+import { CheckCircle2, Search } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
-import { ClassEnrollmentResponse, ClassResponse, getClass, listClassEnrollments } from "@/features/academic/api";
 import {
-  AssignExerciseRequest,
   ExerciseResponse,
   QuestionBankResponse,
   QuestionImportedRow,
   QuestionResponse,
   addExerciseQuestion,
-  assignExercise,
   createExercise,
   listQuestionBanksByCurriculum,
-  listQuestions
+  listQuestions,
+  publishExercise
 } from "../api";
 import Select from "@/components/ui/Select";
 import QuestionEditorForm from "./QuestionEditorForm";
@@ -24,7 +22,7 @@ import QuestionImportPanel from "./QuestionImportPanel";
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
 
-type Step = "info" | "questions" | "assign";
+type Step = "info" | "questions" | "publish";
 
 interface SelectedQuestion {
   question: QuestionResponse;
@@ -32,35 +30,30 @@ interface SelectedQuestion {
 }
 
 interface CreateAndAssignExerciseModalProps {
-  classId: number;
+  curriculumId: number | null;
   onClose: () => void;
-  onAssigned: () => void;
+  onDone: () => void;
 }
 
-/** UC-40 Main Flow bước 1-4: tạo đề mới → gắn câu hỏi → giao ngay cho 1 lớp cố định (classId truyền vào từ trang cha). */
-export default function CreateAndAssignExerciseModal({ classId, onClose, onAssigned }: CreateAndAssignExerciseModalProps) {
+/**
+ * UC-40 Main Flow bước 1-2 + Publish (V65, bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+ * 2026-07-30): tạo đề mới → gắn câu hỏi → Publish (đánh dấu "đủ điều kiện dùng làm nguồn") hoặc để
+ * DRAFT publish sau. KHÔNG còn bước giao lớp/hạn nộp ở đây nữa — việc giao (tự động cho cả lớp, hạn
+ * nộp = buổi kế tiếp) chuyển hẳn sang lúc Giáo viên chọn đề này làm "BTVN Ngữ pháp buổi sau" ở Nhận
+ * xét học viên (UC-21, xem DailyCommentPanel.tsx).
+ */
+export default function CreateAndAssignExerciseModal({ curriculumId, onClose, onDone }: CreateAndAssignExerciseModalProps) {
   const [step, setStep] = useState<Step>("info");
-  const [schoolClass, setSchoolClass] = useState<ClassResponse | null>(null);
   const [exercise, setExercise] = useState<ExerciseResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    getClass(classId).then(setSchoolClass).catch(() => undefined);
-  }, [classId]);
-
   return (
-    <Modal
-      open
-      onClose={onClose}
-      title="Giao bài tập mới"
-      description={schoolClass ? `Lớp: ${schoolClass.name} (${schoolClass.classCode})` : undefined}
-      size="lg"
-    >
+    <Modal open onClose={onClose} title="Soạn đề mới" size="lg">
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
 
       {step === "info" && (
         <ExerciseInfoStep
-          curriculumId={schoolClass?.curriculumId ?? null}
+          curriculumId={curriculumId}
           onCreated={(created) => {
             setExercise(created);
             setStep("questions");
@@ -72,17 +65,16 @@ export default function CreateAndAssignExerciseModal({ classId, onClose, onAssig
       {step === "questions" && exercise && (
         <ExerciseQuestionsStep
           exercise={exercise}
-          onDone={() => setStep("assign")}
+          onDone={() => setStep("publish")}
           onError={setError}
         />
       )}
 
-      {step === "assign" && exercise && (
-        <ExerciseAssignStep
-          exerciseId={exercise.id}
-          classId={classId}
-          onAssigned={() => {
-            onAssigned();
+      {step === "publish" && exercise && (
+        <ExercisePublishStep
+          exercise={exercise}
+          onDone={() => {
+            onDone();
             onClose();
           }}
           onError={setError}
@@ -457,117 +449,57 @@ function ExerciseQuestionsStep({
   );
 }
 
-function ExerciseAssignStep({
-  exerciseId,
-  classId,
-  onAssigned,
+/**
+ * V65: bước cuối chỉ còn Publish (đánh dấu đề "đủ điều kiện dùng làm nguồn") hoặc để DRAFT publish
+ * sau — không còn chọn lớp/hạn nộp/target students ở đây. Giao bài thật (tự động cho cả lớp, hạn nộp
+ * = buổi kế tiếp) chỉ xảy ra khi Giáo viên chọn đề này ở "BTVN Ngữ pháp buổi sau" trong Nhận xét học viên.
+ */
+function ExercisePublishStep({
+  exercise,
+  onDone,
   onError
 }: {
-  exerciseId: number;
-  classId: number;
-  onAssigned: () => void;
+  exercise: ExerciseResponse;
+  onDone: () => void;
   onError: (message: string | null) => void;
 }) {
-  const [dueAt, setDueAt] = useState("");
-  const [availableFrom, setAvailableFrom] = useState("");
-  const [lateSubmissionAllowed, setLateSubmissionAllowed] = useState(false);
-  const [latePenaltyPercent, setLatePenaltyPercent] = useState("");
-  const [restrictStudents, setRestrictStudents] = useState(false);
-  const [enrollments, setEnrollments] = useState<ClassEnrollmentResponse[]>([]);
-  const [targetStudentIds, setTargetStudentIds] = useState<Set<number>>(new Set());
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (!restrictStudents) return;
-    listClassEnrollments(classId).then(setEnrollments).catch(() => undefined);
-  }, [restrictStudents, classId]);
-
-  const toggleStudent = (studentId: number) => {
-    setTargetStudentIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(studentId)) next.delete(studentId);
-      else next.add(studentId);
-      return next;
-    });
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handlePublish = async () => {
     onError(null);
-    if (!dueAt) {
-      onError("Vui lòng chọn Hạn nộp.");
-      return;
-    }
-    if (restrictStudents && targetStudentIds.size === 0) {
-      onError("Đã chọn 'chỉ giao 1 số học sinh' — vui lòng tích chọn tối thiểu 1 học sinh.");
-      return;
-    }
     setSubmitting(true);
     try {
-      const request: AssignExerciseRequest = {
-        classId,
-        dueAt: new Date(dueAt).toISOString(),
-        availableFrom: availableFrom ? new Date(availableFrom).toISOString() : undefined,
-        lateSubmissionAllowed,
-        latePenaltyPercent: lateSubmissionAllowed && latePenaltyPercent ? Number(latePenaltyPercent) : undefined,
-        targetStudentIds: restrictStudents ? Array.from(targetStudentIds) : undefined
-      };
-      await assignExercise(exerciseId, request);
-      onAssigned();
+      await publishExercise(exercise.id);
+      onDone();
     } catch (err) {
-      onError(err instanceof ApiError ? err.message : "Giao bài tập thất bại.");
+      onError(err instanceof ApiError ? err.message : "Publish đề thất bại.");
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className={labelClass}>Hạn nộp *</label>
-          <input type="datetime-local" value={dueAt} onChange={(e) => setDueAt(e.target.value)} className={inputClass} />
-        </div>
-        <div>
-          <label className={labelClass}>Mở bài từ (không bắt buộc, mặc định ngay)</label>
-          <input type="datetime-local" value={availableFrom} onChange={(e) => setAvailableFrom(e.target.value)} className={inputClass} />
+    <div className="space-y-4">
+      <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 flex items-start gap-3">
+        <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+        <div className="text-xs text-emerald-800">
+          <p className="font-bold">Đề "{exercise.title}" ({exercise.code}) đã soạn xong.</p>
+          <p className="mt-1 text-emerald-700">
+            Publish để đánh dấu đề này <strong>đủ điều kiện dùng làm nguồn</strong> — sau đó Giáo viên chọn đề này làm
+            "BTVN Ngữ pháp buổi sau" ở Nhận xét học viên (UC-21) sẽ tự động giao cho cả lớp, hạn nộp = buổi học kế tiếp.
+            Chưa Publish thì đề vẫn ở dạng nháp, không chọn được ở Nhận xét.
+          </p>
         </div>
       </div>
 
-      <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
-        <input type="checkbox" checked={lateSubmissionAllowed} onChange={(e) => setLateSubmissionAllowed(e.target.checked)} />
-        Cho phép nộp muộn
-      </label>
-      {lateSubmissionAllowed && (
-        <div className="w-1/2">
-          <label className={labelClass}>Phần trăm trừ điểm khi nộp muộn</label>
-          <input type="number" min={0} max={100} value={latePenaltyPercent} onChange={(e) => setLatePenaltyPercent(e.target.value)} className={inputClass} />
-        </div>
-      )}
-
-      <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
-        <input type="checkbox" checked={restrictStudents} onChange={(e) => setRestrictStudents(e.target.checked)} />
-        Chỉ giao cho 1 số học sinh (bỏ trống = giao cả lớp)
-      </label>
-      {restrictStudents && (
-        <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 max-h-48 overflow-y-auto">
-          {enrollments
-            .filter((en) => en.status === "ACTIVE")
-            .map((en) => (
-              <label key={en.studentId} className="flex items-center gap-2 px-3 py-2 text-xs cursor-pointer hover:bg-slate-50">
-                <input type="checkbox" checked={targetStudentIds.has(en.studentId)} onChange={() => toggleStudent(en.studentId)} />
-                <span>{en.studentFullName}</span>
-                <span className="text-slate-400 font-mono">{en.studentCode}</span>
-              </label>
-            ))}
-        </div>
-      )}
-
-      <div className="flex justify-end pt-2">
-        <Button type="submit" variant="primary" size="sm" disabled={submitting}>
-          {submitting ? "Đang giao..." : "Giao bài tập"}
+      <div className="flex justify-end gap-2 pt-2">
+        <Button type="button" variant="secondary" size="sm" onClick={onDone} disabled={submitting}>
+          Để nháp, publish sau
+        </Button>
+        <Button type="button" variant="primary" size="sm" onClick={handlePublish} disabled={submitting}>
+          {submitting ? "Đang publish..." : "Publish ngay"}
         </Button>
       </div>
-    </form>
+    </div>
   );
 }
