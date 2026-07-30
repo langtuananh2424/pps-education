@@ -396,14 +396,19 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
                 new CreateClassRequest(classCode(), "8A2", site.getId(), activeCurriculum.id(), "OPEN", 20, null,
                         LocalDate.now(), null, null, null), headAcademic.getId());
         classService.enroll(schoolClass.id(), new EnrollStudentRequest(student1.getId(), LocalDate.now()), headAcademic.getId());
+        // Giáo viên riêng (không phải `teacher` của fixture setUp) — session của setUp() đã chiếm
+        // đúng khung giờ 8:00-9:40 hôm nay với `teacher`, dùng lại sẽ bị chặn trùng giờ GV (bổ sung
+        // ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30), không liên quan gì tới UC-15b đang test.
+        User siteTeacher = newUser("teacher.site.summary");
+        assignRole(siteTeacher, "TEACHER");
         ClassSessionResponse newSession = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(LocalDate.now(), LocalTime.of(8, 0), LocalTime.of(9, 40), null, teacher.getId(), "REGULAR", null, null),
+                new CreateClassSessionRequest(LocalDate.now(), LocalTime.of(8, 0), LocalTime.of(9, 40), null, siteTeacher.getId(), "REGULAR", null, null),
                 headAcademic.getId());
         studentAttendanceService.markAttendance(newSession.id(),
                 new MarkAttendanceRequest("SESSION_LEVEL", List.of(
                         new EnterAttendanceMarkRequest(student1.getId(), "PRESENT", null, null, null))),
-                teacher.getId());
-        studentAttendanceService.submitAttendance(newSession.id(), teacher.getId());
+                siteTeacher.getId());
+        studentAttendanceService.submitAttendance(newSession.id(), siteTeacher.getId());
         User siteManagerUser = newUser("site.manager.attendance");
         newSiteManager(siteManagerUser, site);
 
