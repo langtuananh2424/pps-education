@@ -22,6 +22,7 @@ import vn.com.pps.education.dto.AddReviewVideoRequest;
 import vn.com.pps.education.dto.CreateReviewVideoSetRequest;
 import vn.com.pps.education.dto.GradeReviewVideoSubmissionRequest;
 import vn.com.pps.education.dto.ReportVideoProgressRequest;
+import vn.com.pps.education.dto.ReviewVideoAssignmentResponse;
 import vn.com.pps.education.dto.ReviewVideoProgressResponse;
 import vn.com.pps.education.dto.ReviewVideoQuestionResponse;
 import vn.com.pps.education.dto.ReviewVideoResponse;
@@ -281,6 +282,28 @@ public class ReviewVideoService {
     public void cancelAssignment(ReviewVideoAssignment assignment) {
         assignment.setStatus(ReviewVideoAssignment.Status.CANCELLED);
         reviewVideoAssignmentRepository.save(assignment);
+    }
+
+    /**
+     * V65 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30):
+     * GV xem lại danh sách bản giao ACTIVE của 1 lớp — mirror
+     * ExerciseService.listAssignmentsForClass. FE dùng để tra ngược
+     * "bản giao id X ứng với ReviewVideoSet nào" khi tải lại 1 comment
+     * DAILY đã chọn sẵn kênh Video (StudentCommentResponse chỉ trả id
+     * bản giao, không trả thẳng reviewVideoSetId).
+     */
+    @Transactional(readOnly = true)
+    public List<ReviewVideoAssignmentResponse> listAssignmentsForClass(Long classId, Long actorUserId) {
+        requireAssignedTeacher(classId, actorUserId);
+        return reviewVideoAssignmentRepository.findBySchoolClassIdAndStatus(classId, ReviewVideoAssignment.Status.ACTIVE)
+                .stream().map(this::toAssignmentResponse).toList();
+    }
+
+    private ReviewVideoAssignmentResponse toAssignmentResponse(ReviewVideoAssignment a) {
+        return new ReviewVideoAssignmentResponse(
+                a.getId(), a.getUuid(), a.getReviewVideoSet().getId(), a.getReviewVideoSet().getTitle(),
+                a.getSchoolClass().getId(), a.getAssignedBy().getId(),
+                a.getAvailableFrom(), a.getDueAt(), a.getTargetStudentIds(), a.getStatus().name());
     }
 
     private void notifyAssignedStudents(SchoolClass schoolClass, ReviewVideoSet set, ReviewVideoAssignment assignment) {

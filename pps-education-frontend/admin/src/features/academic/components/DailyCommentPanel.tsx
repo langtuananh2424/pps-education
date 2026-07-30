@@ -19,7 +19,16 @@ import {
   updateLessonContent,
   writeComment
 } from "../api";
-import { ExerciseAssignmentResponse, ReviewVideoSetResponse, listAssignmentsForClass, listReviewVideoSetsByClass } from "@/features/lms/api";
+import {
+  ExerciseAssignmentResponse,
+  ExerciseResponse,
+  ReviewVideoAssignmentResponse,
+  ReviewVideoSetResponse,
+  listAssignmentsForClass,
+  listPublishedExercisesForClass,
+  listReviewVideoAssignmentsForClass,
+  listReviewVideoSetsByClass
+} from "@/features/lms/api";
 import { useEligibleClasses } from "../hooks/useEligibleClasses";
 import NotificationBanner from "@/features/student/components/NotificationBanner";
 import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
@@ -42,15 +51,17 @@ interface Row {
   content: string;
   grammarMode: GrammarMode;
   homeworkNext: string;
-  homeworkNextExerciseAssignmentId: number | "";
+  /** V65: id của Exercise NGUỒN đã Publish (không phải id bản giao như trước V65) — chọn từ grammarOptions. */
+  homeworkNextExerciseId: number | "";
+  /** id của ReviewVideoSet NGUỒN đã Publish — không đổi tên qua V65 (request field vẫn nhận thẳng set id). */
   homeworkNextReviewVideoSetId: number | "";
   note: string;
 }
 
-const EMPTY_ROW_HOMEWORK: Pick<Row, "grammarMode" | "homeworkNext" | "homeworkNextExerciseAssignmentId" | "homeworkNextReviewVideoSetId"> = {
+const EMPTY_ROW_HOMEWORK: Pick<Row, "grammarMode" | "homeworkNext" | "homeworkNextExerciseId" | "homeworkNextReviewVideoSetId"> = {
   grammarMode: "OFFLINE",
   homeworkNext: "",
-  homeworkNextExerciseAssignmentId: "",
+  homeworkNextExerciseId: "",
   homeworkNextReviewVideoSetId: ""
 };
 
@@ -61,7 +72,7 @@ const isRowBlank = (r: Row) =>
   !r.homeworkPreviousScore.trim() &&
   !r.homeworkPreviousSpeakingScore.trim() &&
   !r.homeworkNext.trim() &&
-  r.homeworkNextExerciseAssignmentId === "" &&
+  r.homeworkNextExerciseId === "" &&
   r.homeworkNextReviewVideoSetId === "" &&
   !r.note.trim();
 
@@ -90,8 +101,21 @@ export default function DailyCommentPanel() {
   const [downloadingTemplate, setDownloadingTemplate] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<DailyCommentImportResponse | null>(null);
-  const [grammarOptions, setGrammarOptions] = useState<ExerciseAssignmentResponse[]>([]);
+  /** V65: nguồn khả dụng cho dropdown "BTVN Ngữ pháp buổi sau" — Exercise đã Publish (không phải bản giao). */
+  const [grammarOptions, setGrammarOptions] = useState<ExerciseResponse[]>([]);
   const [videoOptions, setVideoOptions] = useState<ReviewVideoSetResponse[]>([]);
+  /**
+   * V65: bản giao ACTIVE hiện có của lớp — CHỈ dùng để tra ngược "comment đã lưu trước đó chọn đề/
+   * video nguồn nào" (response StudentCommentResponse chỉ trả id bản giao, không trả thẳng id nguồn),
+   * KHÔNG dùng làm nguồn dropdown (đã đổi sang grammarOptions/videoOptions ở trên).
+   */
+  const [grammarAssignments, setGrammarAssignments] = useState<ExerciseAssignmentResponse[]>([]);
+  const [videoAssignments, setVideoAssignments] = useState<ReviewVideoAssignmentResponse[]>([]);
+  // Trạng thái "đã nhận xét chưa" của TỪNG buổi trong lớp (không riêng buổi đang chọn) — phục vụ đẩy
+  // buổi chưa nhận xét lên đầu dropdown + hiện dấu ✓/◐ (2026-07-30). Tính số học sinh ACTIVE đã có ít
+  // nhất 1 comment DAILY (bất kể DRAFT/PENDING/APPROVED/REJECTED — chỉ cần "đã động tới") / tổng học
+  // sinh ACTIVE của lớp.
+  const [sessionCommentStats, setSessionCommentStats] = useState<Record<number, { commented: number; total: number }>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   // "Bài học hôm nay" (2026-07-29, chuyển từ Điểm danh sang đây) — bắt buộc điền trước khi Gửi nhận
   // xét DAILY (backend chặn 422 nếu trống), nên đặt ngay đầu màn hình để giáo viên điền trước tiên.
@@ -100,14 +124,63 @@ export default function DailyCommentPanel() {
 
   const selectedClass = classes.find((c) => c.id === selectedClassId) ?? null;
   const selectedSession = sessions.find((s) => s.id === selectedSessionId) ?? null;
-  /** UC-21 áp cùng nguyên tắc "đến giờ học mới nhận xét" như UC-15 (Điểm danh) — chặn chọn buổi tương lai. */
-  const selectableSessions = sessions.filter((s) => new Date(`${s.sessionDate}T${s.startTime}`) <= new Date());
+
+  /** "NONE" (chưa ai được nhận xét) / "PARTIAL" (dở dang) / "DONE" (đủ toàn bộ học sinh ACTIVE). */
+  const getSessionCommentStatus = (sessionId: number): "NONE" | "PARTIAL" | "DONE" => {
+    const stat = sessionCommentStats[sessionId];
+    if (!stat || stat.commented === 0) return "NONE";
+    return stat.commented >= stat.total ? "DONE" : "PARTIAL";
+  };
+
+  /**
+   * UC-21 áp cùng nguyên tắc "đến giờ học mới nhận xét" như UC-15 (Điểm danh) — chặn chọn buổi tương lai.
+   * Đẩy buổi CHƯA nhận xét đủ (NONE/PARTIAL) lên trước buổi đã DONE — sort ổn định (giữ nguyên thứ tự
+   * theo ngày trong từng nhóm), đỡ Giáo viên phải dò cả danh sách dài mới thấy buổi còn thiếu (2026-07-30).
+   */
+  const selectableSessions = sessions
+    .filter((s) => new Date(`${s.sessionDate}T${s.startTime}`) <= new Date())
+    .map((s, index) => ({ s, index, rank: getSessionCommentStatus(s.id) === "DONE" ? 1 : 0 }))
+    .sort((a, b) => a.rank - b.rank || a.index - b.index)
+    .map((x) => x.s);
+
+  // Tính "buổi nào đã nhận xét" cho CẢ LỚP (không chỉ buổi đang chọn) — tái dùng listComments(classId,
+  // studentId) đã trả về TOÀN BỘ comment của học sinh đó (mọi buổi/mọi loại), lọc DAILY rồi gom theo
+  // classSessionId, không cần thêm endpoint mới bên BE. Gọi lại sau khi gửi/nhập Excel để dropdown cập
+  // nhật ngay dấu ✓/◐ của buổi vừa nhận xét, không phải đổi lớp mới thấy (2026-07-30).
+  const refreshSessionCommentStats = (classId: number) => {
+    listClassEnrollments(classId)
+      .then((enrollments) => {
+        const activeIds = enrollments.filter((en) => en.status === "ACTIVE").map((en) => en.studentId);
+        if (activeIds.length === 0) return;
+        return Promise.allSettled(activeIds.map((studentId) => listComments(classId, studentId))).then((results) => {
+          const commentedBySession: Record<number, Set<number>> = {};
+          results.forEach((r) => {
+            if (r.status !== "fulfilled") return;
+            r.value
+              .filter((c) => c.commentType === "DAILY" && c.classSessionId != null)
+              .forEach((c) => {
+                const sessionId = c.classSessionId as number;
+                (commentedBySession[sessionId] ??= new Set()).add(c.studentId);
+              });
+          });
+          const stats: Record<number, { commented: number; total: number }> = {};
+          Object.entries(commentedBySession).forEach(([sessionId, studentSet]) => {
+            stats[Number(sessionId)] = { commented: studentSet.size, total: activeIds.length };
+          });
+          setSessionCommentStats(stats);
+        });
+      })
+      .catch(() => undefined);
+  };
 
   useEffect(() => {
     setSelectedSessionId(null);
     setRows([]);
     setGrammarOptions([]);
     setVideoOptions([]);
+    setGrammarAssignments([]);
+    setVideoAssignments([]);
+    setSessionCommentStats({});
     if (!selectedClassId) {
       setSessions([]);
       return;
@@ -115,6 +188,7 @@ export default function DailyCommentPanel() {
     listClassSessions(selectedClassId)
       .then(setSessions)
       .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách buổi học."));
+    refreshSessionCommentStats(selectedClassId);
     // UC-48 (2026-07-29): tự chọn buổi hôm nay khi vào tab, đỡ GV phải tự tìm trong dropdown — chỉ tự
     // chọn nếu buổi đã tới giờ bắt đầu (đúng nguyên tắc "đến giờ học mới nhận xét" ở dưới), buổi hôm
     // nay chưa bắt đầu hoặc không có buổi nào thì báo rõ, để GV tự chọn buổi khác nếu cần.
@@ -132,12 +206,16 @@ export default function DailyCommentPanel() {
         }
       })
       .catch(() => undefined);
-    // BTVN ngữ pháp ONLINE chỉ chọn được từ đề ĐÃ giao lớp này (status=ACTIVE, API tự lọc sẵn);
-    // BTVN Video Ôn tập chỉ chọn được bộ đã CÔNG BỐ (PUBLISHED) — khớp đúng điều kiện buildTemplate ở BE.
-    listAssignmentsForClass(selectedClassId).then(setGrammarOptions).catch(() => undefined);
+    // V65: BTVN Ngữ pháp ONLINE chọn từ Exercise đã Publish đúng khung chương trình của lớp (nguồn,
+    // KHÔNG phải bản giao sẵn có như trước V65); BTVN Video Ôn tập chọn từ bộ đã CÔNG BỐ (PUBLISHED)
+    // — khớp đúng điều kiện buildTemplate ở BE.
+    listPublishedExercisesForClass(selectedClassId).then(setGrammarOptions).catch(() => undefined);
     listReviewVideoSetsByClass(selectedClassId)
       .then((sets) => setVideoOptions(sets.filter((s) => s.status === "PUBLISHED")))
       .catch(() => undefined);
+    // Bản giao ACTIVE hiện có — chỉ để tra ngược lựa chọn đã lưu trước đó ra id nguồn khi prefill (xem loadHistory).
+    listAssignmentsForClass(selectedClassId).then(setGrammarAssignments).catch(() => undefined);
+    listReviewVideoAssignmentsForClass(selectedClassId).then(setVideoAssignments).catch(() => undefined);
   }, [selectedClassId]);
 
   useEffect(() => {
@@ -195,6 +273,18 @@ export default function DailyCommentPanel() {
         prev.map((r) => {
           const draft = filtered.find((h) => h.studentId === r.studentId && (h.status === "DRAFT" || h.status === "REJECTED"));
           if (!draft || !isRowBlank(r)) return r;
+          // V65: response chỉ trả id BẢN GIAO (homeworkNextExerciseAssignmentId/homeworkNextReviewVideoAssignmentId)
+          // — tra ngược qua grammarAssignments/videoAssignments (đã tải sẵn theo lớp) để lấy đúng id NGUỒN
+          // (Exercise/ReviewVideoSet) cần hiện chọn sẵn trong dropdown. Không tìm thấy (VD bản giao đã bị huỷ,
+          // hoặc chưa tải xong danh sách) thì để trống — Giáo viên tự chọn lại.
+          const exerciseId =
+            draft.homeworkNextExerciseAssignmentId != null
+              ? grammarAssignments.find((a) => a.id === draft.homeworkNextExerciseAssignmentId)?.exerciseId ?? ""
+              : "";
+          const videoSetId =
+            draft.homeworkNextReviewVideoAssignmentId != null
+              ? videoAssignments.find((a) => a.id === draft.homeworkNextReviewVideoAssignmentId)?.reviewVideoSetId ?? ""
+              : "";
           return {
             ...r,
             attitude: draft.attitude ?? "",
@@ -203,8 +293,8 @@ export default function DailyCommentPanel() {
             content: draft.content ?? "",
             grammarMode: draft.homeworkNextExerciseAssignmentId != null ? "ONLINE" : "OFFLINE",
             homeworkNext: draft.homeworkNext ?? "",
-            homeworkNextExerciseAssignmentId: draft.homeworkNextExerciseAssignmentId ?? "",
-            homeworkNextReviewVideoSetId: draft.homeworkNextReviewVideoSetId ?? "",
+            homeworkNextExerciseId: exerciseId,
+            homeworkNextReviewVideoSetId: videoSetId,
             note: draft.note ?? ""
           };
         })
@@ -250,7 +340,7 @@ export default function DailyCommentPanel() {
             homeworkPreviousScore: r.homeworkPreviousScore.trim() || undefined,
             homeworkPreviousSpeakingScore: r.homeworkPreviousSpeakingScore.trim() || undefined,
             homeworkNext: r.grammarMode === "OFFLINE" ? r.homeworkNext.trim() || undefined : undefined,
-            homeworkNextExerciseAssignmentId: r.grammarMode === "ONLINE" && r.homeworkNextExerciseAssignmentId !== "" ? r.homeworkNextExerciseAssignmentId : undefined,
+            homeworkNextExerciseId: r.grammarMode === "ONLINE" && r.homeworkNextExerciseId !== "" ? r.homeworkNextExerciseId : undefined,
             homeworkNextReviewVideoSetId: r.homeworkNextReviewVideoSetId !== "" ? r.homeworkNextReviewVideoSetId : undefined,
             note: r.note.trim() || undefined
           };
@@ -298,6 +388,10 @@ export default function DailyCommentPanel() {
         )
       );
       await loadHistory(selectedClassId, selectedSession.id, rows.map((r) => r.studentId));
+      refreshSessionCommentStats(selectedClassId);
+      // Gửi xong có thể vừa tạo bản giao mới (chọn đề/video Online) — tải lại map tra ngược để lần sửa kế tiếp resolve đúng.
+      listAssignmentsForClass(selectedClassId).then(setGrammarAssignments).catch(() => undefined);
+      listReviewVideoAssignmentsForClass(selectedClassId).then(setVideoAssignments).catch(() => undefined);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Gửi nhận xét thất bại.");
     } finally {
@@ -340,6 +434,9 @@ export default function DailyCommentPanel() {
       if (res.successRows > 0) {
         const active = rows.map((r) => r.studentId);
         await loadHistory(selectedClassId, selectedSessionId, active);
+        refreshSessionCommentStats(selectedClassId);
+        listAssignmentsForClass(selectedClassId).then(setGrammarAssignments).catch(() => undefined);
+        listReviewVideoAssignmentsForClass(selectedClassId).then(setVideoAssignments).catch(() => undefined);
       }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Nhập từ Excel thất bại.");
@@ -369,11 +466,17 @@ export default function DailyCommentPanel() {
               className="bg-white border text-[10px] font-bold text-slate-700 px-2 py-1 rounded focus:outline-none"
             >
               <option value="">-- Chọn buổi học --</option>
-              {selectableSessions.map((s) => (
-                <option key={s.id} value={s.id}>
-                  Buổi {s.sessionNumber} — {s.sessionDate} ({s.startTime}–{s.endTime})
-                </option>
-              ))}
+              {selectableSessions.map((s) => {
+                const status = getSessionCommentStatus(s.id);
+                const stat = sessionCommentStats[s.id];
+                return (
+                  <option key={s.id} value={s.id}>
+                    {status === "DONE" ? "✓ " : status === "PARTIAL" ? "◐ " : ""}
+                    Buổi {s.sessionNumber} — {s.sessionDate} ({s.startTime}–{s.endTime})
+                    {status === "PARTIAL" && stat ? ` (${stat.commented}/${stat.total})` : ""}
+                  </option>
+                );
+              })}
             </Select>
           )}
         </div>
@@ -568,7 +671,7 @@ export default function DailyCommentPanel() {
                           <div className="flex gap-1 mb-1.5">
                             <button
                               type="button"
-                              onClick={() => updateRow({ grammarMode: "OFFLINE", homeworkNextExerciseAssignmentId: "" })}
+                              onClick={() => updateRow({ grammarMode: "OFFLINE", homeworkNextExerciseId: "" })}
                               className={`flex-1 text-[10px] font-bold py-1.5 rounded-lg border ${r.grammarMode === "OFFLINE" ? "bg-brand-orange border-brand-orange text-white" : "bg-slate-50 border-slate-200 text-slate-500"
                                 }`}
                             >
@@ -592,14 +695,14 @@ export default function DailyCommentPanel() {
                             />
                           ) : (
                             <Select
-                              value={r.homeworkNextExerciseAssignmentId}
-                              onChange={(e) => updateRow({ homeworkNextExerciseAssignmentId: e.target.value ? Number(e.target.value) : "" })}
+                              value={r.homeworkNextExerciseId}
+                              onChange={(e) => updateRow({ homeworkNextExerciseId: e.target.value ? Number(e.target.value) : "" })}
                               className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
                             >
-                              <option value="">-- Chọn đề đã giao lớp --</option>
-                              {grammarOptions.map((a) => (
-                                <option key={a.id} value={a.id}>
-                                  {a.exerciseTitle} ({a.exerciseCode})
+                              <option value="">-- Chọn đề đã Publish --</option>
+                              {grammarOptions.map((ex) => (
+                                <option key={ex.id} value={ex.id}>
+                                  {ex.title} ({ex.code})
                                 </option>
                               ))}
                             </Select>

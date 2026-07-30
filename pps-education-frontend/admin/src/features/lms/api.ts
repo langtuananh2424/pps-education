@@ -211,6 +211,8 @@ export interface CreateExerciseRequest {
 
 export interface ExerciseResponse {
   id: number;
+  /** V65 — dùng để dán trực tiếp vào Excel BTVN thay cho chọn dropdown khi danh sách quá dài. */
+  uuid: string;
   code: string;
   title: string;
   curriculumId: number | null;
@@ -233,6 +235,16 @@ export function createExercise(request: CreateExerciseRequest): Promise<Exercise
 
 export function getExercise(id: number): Promise<ExerciseResponse> {
   return apiRequest<ExerciseResponse>(`/exercises/${id}`);
+}
+
+/** V65: GV quản lý mọi đề ASSIGNED (mọi status, kể cả DRAFT) đã soạn trong 1 khung chương trình — "Soạn & Giao đề" tổ chức theo khung chương trình thay vì theo lớp. */
+export function listForCurriculum(curriculumId: number): Promise<ExerciseResponse[]> {
+  return apiRequest<ExerciseResponse[]>(`/curriculums/${curriculumId}/exercises`);
+}
+
+/** V65 — Publish giờ chỉ đánh dấu đề "đủ điều kiện dùng làm nguồn", không còn giao lớp (xem Javadoc ExerciseService). */
+export function publishExercise(id: number): Promise<ExerciseResponse> {
+  return apiRequest<ExerciseResponse>(`/exercises/${id}/publish`, { method: "POST" });
 }
 
 export interface AddExerciseQuestionRequest {
@@ -259,19 +271,17 @@ export function listExerciseQuestions(exerciseId: number): Promise<ExerciseQuest
   return apiRequest<ExerciseQuestionResponse[]>(`/exercises/${exerciseId}/questions`);
 }
 
-export interface AssignExerciseRequest {
-  classId: number;
-  availableFrom?: string;
-  dueAt?: string;
-  lateSubmissionAllowed: boolean;
-  latePenaltyPercent?: number;
-  /** Để trống (undefined) = giao cả lớp (mọi học sinh ACTIVE) — chỉ gửi khi giao riêng 1 số học sinh. */
-  targetStudentIds?: number[];
-}
-
+/**
+ * V65 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30): giao đề không còn thao tác
+ * riêng ở "Soạn & Giao đề" nữa — id (bản giao) giờ tự động phát sinh khi Giáo viên chọn 1 Exercise
+ * làm "BTVN Ngữ pháp buổi sau" ở Nhận xét học viên (xem academic/api.ts CreateStudentCommentRequest.
+ * homeworkNextExerciseId). Interface/hàm dưới đây CHỈ còn dùng để GV xem lại bản giao đã phát sinh
+ * (lịch sử) hoặc để DailyCommentPanel tra ngược "bản giao này ứng với Exercise nào" khi tải lại 1
+ * comment đã chọn sẵn — không còn cách nào tạo bản giao thủ công từ FE nữa (endpoint POST .../assign
+ * đã bị xóa bên BE).
+ */
 export interface ExerciseAssignmentResponse {
   id: number;
-  /** V55 — dùng để dán trực tiếp vào Excel BTVN thay cho chọn dropdown khi danh sách quá dài. */
   uuid: string;
   exerciseId: number;
   exerciseTitle: string;
@@ -286,14 +296,14 @@ export interface ExerciseAssignmentResponse {
   status: "ACTIVE" | "CANCELLED" | "COMPLETED";
 }
 
-/** UC-40 Main Flow bước 3-4: giao đề cho 1 lớp + hạn nộp — tự chuyển đề sang PUBLISHED, báo học sinh ACTIVE trong lớp (hoặc targetStudentIds). */
-export function assignExercise(exerciseId: number, request: AssignExerciseRequest): Promise<ExerciseAssignmentResponse> {
-  return apiRequest<ExerciseAssignmentResponse>(`/exercises/${exerciseId}/assign`, { method: "POST", body: JSON.stringify(request) });
-}
-
-/** Giáo viên xem lại đã giao đề gì cho 1 lớp — API lọc sẵn status=ACTIVE. */
+/** Giáo viên xem lại các bản giao (tự động phát sinh từ Nhận xét học viên, V65) của 1 lớp — API lọc sẵn status=ACTIVE. */
 export function listAssignmentsForClass(classId: number): Promise<ExerciseAssignmentResponse[]> {
   return apiRequest<ExerciseAssignmentResponse[]>(`/classes/${classId}/exercises`);
+}
+
+/** V65: nguồn cho dropdown "BTVN Ngữ pháp buổi sau" ở Nhận xét học viên — đề ASSIGNED đã Publish đúng khung chương trình của lớp. */
+export function listPublishedExercisesForClass(classId: number): Promise<ExerciseResponse[]> {
+  return apiRequest<ExerciseResponse[]>(`/classes/${classId}/exercises/published`);
 }
 
 // ===================== Kho Video Ôn tập (UC-23/UC-23a) =====================
@@ -352,6 +362,30 @@ export function listReviewVideoSetsByClass(classId: number): Promise<ReviewVideo
 
 export function listReviewVideoSetsByCurriculum(curriculumId: number): Promise<ReviewVideoSetResponse[]> {
   return apiRequest<ReviewVideoSetResponse[]>(`/curriculums/${curriculumId}/review-video-sets`);
+}
+
+/**
+ * V65 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30): giao Video Ôn tập không còn
+ * xảy ra khi Publish nữa — bản giao (ReviewVideoAssignment) tự động phát sinh khi Giáo viên chọn 1
+ * bộ làm "BTVN buổi sau" ở Nhận xét học viên. Dùng để DailyCommentPanel tra ngược "bản giao này ứng
+ * với bộ video nào" khi tải lại 1 comment đã chọn sẵn (StudentCommentResponse chỉ trả id bản giao).
+ */
+export interface ReviewVideoAssignmentResponse {
+  id: number;
+  uuid: string;
+  reviewVideoSetId: number;
+  reviewVideoSetTitle: string;
+  classId: number;
+  assignedBy: number;
+  availableFrom: string;
+  dueAt: string | null;
+  targetStudentIds: number[] | null;
+  status: "ACTIVE" | "CANCELLED" | "COMPLETED";
+}
+
+/** Giáo viên xem lại các bản giao Video Ôn tập ACTIVE của 1 lớp (V65). */
+export function listReviewVideoAssignmentsForClass(classId: number): Promise<ReviewVideoAssignmentResponse[]> {
+  return apiRequest<ReviewVideoAssignmentResponse[]>(`/classes/${classId}/review-video-assignments`);
 }
 
 /** Khớp ReviewVideo.SourceType thật. */

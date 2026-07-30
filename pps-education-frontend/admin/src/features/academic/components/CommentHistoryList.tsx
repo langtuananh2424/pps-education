@@ -2,7 +2,16 @@ import React, { useEffect, useState } from "react";
 import { Flag, Save, Send } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { StudentCommentResponse, submitComments, updateComment } from "../api";
-import { ExerciseAssignmentResponse, ReviewVideoSetResponse, listAssignmentsForClass, listReviewVideoSetsByClass } from "@/features/lms/api";
+import {
+  ExerciseAssignmentResponse,
+  ExerciseResponse,
+  ReviewVideoAssignmentResponse,
+  ReviewVideoSetResponse,
+  listAssignmentsForClass,
+  listPublishedExercisesForClass,
+  listReviewVideoAssignmentsForClass,
+  listReviewVideoSetsByClass
+} from "@/features/lms/api";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import { useToast } from "@/lib/useToast";
@@ -51,21 +60,28 @@ export default function CommentHistoryList({ classId, history, onChanged, showSt
   const [editHomeworkPreviousSpeakingScore, setEditHomeworkPreviousSpeakingScore] = useState("");
   const [editGrammarMode, setEditGrammarMode] = useState<GrammarMode>("OFFLINE");
   const [editHomeworkNext, setEditHomeworkNext] = useState("");
-  const [editHomeworkNextExerciseAssignmentId, setEditHomeworkNextExerciseAssignmentId] = useState<number | "">("");
+  /** V65: id của Exercise NGUỒN đã Publish (không phải id bản giao) — chọn từ grammarOptions. */
+  const [editHomeworkNextExerciseId, setEditHomeworkNextExerciseId] = useState<number | "">("");
   const [editHomeworkNextReviewVideoSetId, setEditHomeworkNextReviewVideoSetId] = useState<number | "">("");
   const [editNote, setEditNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [submittingId, setSubmittingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [grammarOptions, setGrammarOptions] = useState<ExerciseAssignmentResponse[]>([]);
+  /** V65: nguồn khả dụng cho dropdown — Exercise đã Publish (không phải bản giao). */
+  const [grammarOptions, setGrammarOptions] = useState<ExerciseResponse[]>([]);
   const [videoOptions, setVideoOptions] = useState<ReviewVideoSetResponse[]>([]);
+  /** V65: bản giao ACTIVE hiện có của lớp — chỉ dùng để tra ngược "comment đã lưu chọn nguồn nào" khi bắt đầu sửa. */
+  const [grammarAssignments, setGrammarAssignments] = useState<ExerciseAssignmentResponse[]>([]);
+  const [videoAssignments, setVideoAssignments] = useState<ReviewVideoAssignmentResponse[]>([]);
   const { message: toastMessage, showToast } = useToast();
 
   useEffect(() => {
-    listAssignmentsForClass(classId).then(setGrammarOptions).catch(() => undefined);
+    listPublishedExercisesForClass(classId).then(setGrammarOptions).catch(() => undefined);
     listReviewVideoSetsByClass(classId)
       .then((sets) => setVideoOptions(sets.filter((s) => s.status === "PUBLISHED")))
       .catch(() => undefined);
+    listAssignmentsForClass(classId).then(setGrammarAssignments).catch(() => undefined);
+    listReviewVideoAssignmentsForClass(classId).then(setVideoAssignments).catch(() => undefined);
   }, [classId]);
 
   const startEdit = (h: StudentCommentResponse) => {
@@ -78,8 +94,17 @@ export default function CommentHistoryList({ classId, history, onChanged, showSt
     setEditHomeworkPreviousSpeakingScore(h.homeworkPreviousSpeakingScore ?? "");
     setEditGrammarMode(h.homeworkNextExerciseAssignmentId != null ? "ONLINE" : "OFFLINE");
     setEditHomeworkNext(h.homeworkNext ?? "");
-    setEditHomeworkNextExerciseAssignmentId(h.homeworkNextExerciseAssignmentId ?? "");
-    setEditHomeworkNextReviewVideoSetId(h.homeworkNextReviewVideoSetId ?? "");
+    // V65: response chỉ trả id bản giao — tra ngược qua grammarAssignments/videoAssignments để lấy đúng id nguồn.
+    setEditHomeworkNextExerciseId(
+      h.homeworkNextExerciseAssignmentId != null
+        ? grammarAssignments.find((a) => a.id === h.homeworkNextExerciseAssignmentId)?.exerciseId ?? ""
+        : ""
+    );
+    setEditHomeworkNextReviewVideoSetId(
+      h.homeworkNextReviewVideoAssignmentId != null
+        ? videoAssignments.find((a) => a.id === h.homeworkNextReviewVideoAssignmentId)?.reviewVideoSetId ?? ""
+        : ""
+    );
     setEditNote(h.note ?? "");
     setError(null);
   };
@@ -114,7 +139,7 @@ export default function CommentHistoryList({ classId, history, onChanged, showSt
         homeworkPreviousScore: editHomeworkPreviousScore.trim() || undefined,
         homeworkPreviousSpeakingScore: editHomeworkPreviousSpeakingScore.trim() || undefined,
         homeworkNext: editGrammarMode === "OFFLINE" ? editHomeworkNext.trim() || undefined : undefined,
-        homeworkNextExerciseAssignmentId: editGrammarMode === "ONLINE" && editHomeworkNextExerciseAssignmentId !== "" ? editHomeworkNextExerciseAssignmentId : undefined,
+        homeworkNextExerciseId: editGrammarMode === "ONLINE" && editHomeworkNextExerciseId !== "" ? editHomeworkNextExerciseId : undefined,
         homeworkNextReviewVideoSetId: editHomeworkNextReviewVideoSetId !== "" ? editHomeworkNextReviewVideoSetId : undefined,
         note: editNote.trim() || undefined
       });
@@ -171,7 +196,7 @@ export default function CommentHistoryList({ classId, history, onChanged, showSt
                         type="button"
                         onClick={() => {
                           setEditGrammarMode("OFFLINE");
-                          setEditHomeworkNextExerciseAssignmentId("");
+                          setEditHomeworkNextExerciseId("");
                         }}
                         className={`flex-1 text-[10px] font-bold py-1.5 rounded-lg border ${
                           editGrammarMode === "OFFLINE" ? "bg-brand-orange border-brand-orange text-white" : "bg-slate-50 border-slate-200 text-slate-500"
@@ -196,14 +221,14 @@ export default function CommentHistoryList({ classId, history, onChanged, showSt
                       <input value={editHomeworkNext} onChange={(e) => setEditHomeworkNext(e.target.value)} placeholder="VD: Unit 2 trang 10" className={inputClass} />
                     ) : (
                       <Select
-                        value={editHomeworkNextExerciseAssignmentId}
-                        onChange={(e) => setEditHomeworkNextExerciseAssignmentId(e.target.value ? Number(e.target.value) : "")}
+                        value={editHomeworkNextExerciseId}
+                        onChange={(e) => setEditHomeworkNextExerciseId(e.target.value ? Number(e.target.value) : "")}
                         className={inputClass}
                       >
-                        <option value="">-- Chọn đề đã giao lớp --</option>
-                        {grammarOptions.map((a) => (
-                          <option key={a.id} value={a.id}>
-                            {a.exerciseTitle} ({a.exerciseCode})
+                        <option value="">-- Chọn đề đã Publish --</option>
+                        {grammarOptions.map((ex) => (
+                          <option key={ex.id} value={ex.id}>
+                            {ex.title} ({ex.code})
                           </option>
                         ))}
                       </Select>

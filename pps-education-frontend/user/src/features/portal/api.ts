@@ -247,9 +247,11 @@ export interface StudentCommentResponse {
   homeworkPreviousScore: string | null;
   homeworkPreviousSpeakingScore: string | null;
   homeworkNext: string | null;
+  /** V65 (2026-07-30, bổ sung ngoài SDD gốc): id BẢN GIAO (ExerciseAssignment), không phải id Exercise nguồn. */
   homeworkNextExerciseAssignmentId: number | null;
   homeworkNextExerciseTitle: string | null;
-  homeworkNextReviewVideoSetId: number | null;
+  /** V65: id BẢN GIAO (ReviewVideoAssignment, đổi tên từ homeworkNextReviewVideoSetId — trước V65 trỏ thẳng ReviewVideoSet). */
+  homeworkNextReviewVideoAssignmentId: number | null;
   homeworkNextReviewVideoSetTitle: string | null;
   /** % tự tính từ exercise_attempts của buổi trước — không nhập tay được. */
   grammarPreviousProgress: string | null;
@@ -269,7 +271,8 @@ export interface HomeworkProgressResponse {
   grammarTitle: string | null;
   grammarOfflineText: string | null;
   grammarProgress: string | null;
-  videoSetId: number | null;
+  /** V65 (2026-07-30, bổ sung ngoài SDD gốc): đổi tên từ videoSetId — giờ là id bản giao (ReviewVideoAssignment), không phải id ReviewVideoSet nguồn. */
+  videoAssignmentId: number | null;
   videoTitle: string | null;
   videoProgress: string | null;
 }

@@ -729,9 +729,13 @@ export interface StudentCommentResponse {
   // kênh ngữ pháp ONLINE (homeworkNextExerciseAssignmentId khác null) hoặc OFFLINE (dùng homeworkNext
   // ở trên); kênh Video Ôn tập luôn ONLINE. grammarPreviousProgress/videoPreviousProgress tự tính từ
   // exercise_attempts/review_video_progress|submissions của buổi TRƯỚC, không nhập tay được.
+  // V65 (2026-07-30, bổ sung ngoài SDD gốc): 2 field *AssignmentId đều là id BẢN GIAO (ExerciseAssignment/
+  // ReviewVideoAssignment) tự động phát sinh khi chọn nguồn ở Nhận xét — không phải id nguồn (Exercise/
+  // ReviewVideoSet), dùng kèm *Title để hiện tên nguồn. Muốn tra ngược ra id nguồn phải gọi thêm
+  // listAssignmentsForClass (Ngữ pháp)/listReviewVideoAssignmentsForClass (Video) bên lms/api.ts.
   homeworkNextExerciseAssignmentId: number | null;
   homeworkNextExerciseTitle: string | null;
-  homeworkNextReviewVideoSetId: number | null;
+  homeworkNextReviewVideoAssignmentId: number | null;
   homeworkNextReviewVideoSetTitle: string | null;
   grammarPreviousProgress: string | null;
   videoPreviousProgress: string | null;
@@ -755,9 +759,14 @@ export interface CreateStudentCommentRequest {
   homeworkPreviousScore?: string;
   homeworkPreviousSpeakingScore?: string;
   homeworkNext?: string;
-  /** Kênh ngữ pháp ONLINE — để trống nếu dùng homeworkNext (OFFLINE) hoặc không giao gì. */
-  homeworkNextExerciseAssignmentId?: number;
-  /** Kênh Video Ôn tập (luôn ONLINE) — để trống nếu không giao. */
+  /**
+   * V65 (2026-07-30, bổ sung ngoài SDD gốc): kênh ngữ pháp ONLINE — id của Exercise NGUỒN (đã
+   * Publish), KHÔNG phải id bản giao như trước V65. Chọn khác null tự động giao đề cho CẢ LỚP ACTIVE,
+   * hạn nộp = buổi học kế tiếp — để trống nếu dùng homeworkNext (OFFLINE) hoặc không giao gì (hủy bản
+   * giao cũ nếu đang sửa 1 comment DRAFT đã chọn trước đó).
+   */
+  homeworkNextExerciseId?: number;
+  /** Kênh Video Ôn tập (luôn ONLINE) — id của ReviewVideoSet NGUỒN (đã Publish), tự động giao cả lớp tương tự. Để trống nếu không giao. */
   homeworkNextReviewVideoSetId?: number;
   note?: string;
 }
@@ -771,7 +780,8 @@ export interface UpdateStudentCommentRequest {
   homeworkPreviousScore?: string;
   homeworkPreviousSpeakingScore?: string;
   homeworkNext?: string;
-  homeworkNextExerciseAssignmentId?: number;
+  /** V65 — xem Javadoc CreateStudentCommentRequest.homeworkNextExerciseId. */
+  homeworkNextExerciseId?: number;
   homeworkNextReviewVideoSetId?: number;
   note?: string;
 }
