@@ -170,12 +170,13 @@ export const navSections: NavSection[] = [
       // quyền ở backend) — mã gộp cũ không còn tồn tại.
       { id: "lms-question-banks", label: "Ngân hàng câu hỏi (UC-40)", path: "/lms/question-banks", icon: BookOpen, requiredPermission: "lms.question-bank.view" },
       { id: "lms-exercises", label: "Soạn & giao đề (UC-40)", path: "/lms/exercises", icon: BookOpen, requiredPermission: "lms.exercise.create" },
-      // Không dùng requiredPermission: từ khi tái cấu trúc thành Kho Video Ôn tập (2026-07-27),
-      // ReviewVideoService không còn check @PreAuthorize permission nào — chỉ check "giáo viên có
-      // được phân công dạy đúng lớp/khung không" qua class_teachers (requireAssignedTeacher). Gate
-      // theo role TEACHER ở đây chỉ để ẩn mục khỏi vai trò rõ ràng không liên quan; quyền thật vẫn do
-      // backend tự chặn 403 theo phân công, không phải theo role.
-      { id: "lms-lectures", label: "Kho Video Ôn tập (UC-23)", path: "/lms/lectures", icon: BookOpen, requiredRoleAny: [UserRole.TEACHER] },
+      // ReviewVideoController có permission từ V63 (bổ sung, trước đó không hề gate permission nào —
+      // đã fix bug 2026-07-30: cấp "full quyền" cho sysadmin không có tác dụng vì quyền chưa tồn tại
+      // trong catalog). Gate theo .create (thấp nhất trong 3 quyền TEACHER được gán mặc định), giống
+      // cách "Soạn & giao đề" bên dưới. Lưu ý: có quyền chỉ vào được trang — thao tác tạo/sửa cho 1
+      // lớp cụ thể vẫn cần tài khoản có mặt trong class_teachers của lớp đó (requireAssignedTeacher,
+      // Precondition UC-23, backend tự chặn 403 nếu không đúng phân công).
+      { id: "lms-lectures", label: "Kho Video Ôn tập (UC-23)", path: "/lms/lectures", icon: BookOpen, requiredPermission: "lms.review-video.create" },
       // lms.document.manage đã bị tách nhỏ (hạt nhân hóa V62) thành lms.document.create/update/
       // view — mã gộp cũ không còn tồn tại. Gate theo .view (thấp nhất) để vào trang.
       { id: "lms-documents", label: "Kho tài liệu tham khảo (UC-60)", path: "/lms/documents", icon: BookOpen, requiredPermission: "lms.document.view" },
