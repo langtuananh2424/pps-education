@@ -478,7 +478,8 @@ public class StudentAttendanceService {
 
     private AttendanceMarkResponse toResponse(AttendanceMark m) {
         return new AttendanceMarkResponse(
-                m.getId(), m.getAttendanceSession().getId(), m.getStudent().getId(), m.getStudent().getUser().getFullName(),
+                m.getId(), m.getAttendanceSession().getId(), m.getAttendanceSession().getClassSession().getId(),
+                m.getStudent().getId(), m.getStudent().getUser().getFullName(),
                 m.getStudent().getStudentCode(), m.getStatus().name(), m.getMinutesLate(), m.getMinutesEarlyLeave(),
                 m.getAbsenceReason(), m.getNotifiedParentAt());
     }
