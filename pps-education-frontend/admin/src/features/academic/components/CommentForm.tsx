@@ -5,6 +5,7 @@ import { CreateStudentCommentRequest, GradePeriodResponse, StudentCommentRespons
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import DatePicker from "@/components/ui/DatePicker";
+import Select from "@/components/ui/Select";
 
 const TODAY_ISO = new Date().toISOString().slice(0, 10);
 
@@ -74,22 +75,22 @@ export default function CommentForm({ classId, studentId, curriculumId, onSubmit
 
       <div className="space-y-1">
         <label className={labelClass}>Hình thức nhận xét</label>
-        <select value={commentType} onChange={(e) => setCommentType(e.target.value as Exclude<CreateStudentCommentRequest["commentType"], "DAILY">)} className={inputClass}>
+        <Select value={commentType} onChange={(e) => setCommentType(e.target.value as Exclude<CreateStudentCommentRequest["commentType"], "DAILY">)} className={inputClass}>
           <option value="MID_TERM">Định kỳ giữa kỳ</option>
           <option value="END_TERM">Tổng kết cuối kỳ</option>
-        </select>
+        </Select>
       </div>
 
       <div className="space-y-1">
         <label className={labelClass}>Kỳ điểm</label>
-        <select value={gradePeriodId} onChange={(e) => setGradePeriodId(e.target.value)} className={inputClass}>
+        <Select value={gradePeriodId} onChange={(e) => setGradePeriodId(e.target.value)} className={inputClass}>
           <option value="">-- Chọn kỳ điểm --</option>
           {periods.map((p) => (
             <option key={p.id} value={p.id}>
               {p.name}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
 
       <div className="space-y-1">
@@ -99,12 +100,12 @@ export default function CommentForm({ classId, studentId, curriculumId, onSubmit
 
       <div className="space-y-1">
         <label className={labelClass}>Mức độ</label>
-        <select value={severity} onChange={(e) => setSeverity(e.target.value as NonNullable<CreateStudentCommentRequest["severity"]>)} className={inputClass}>
+        <Select value={severity} onChange={(e) => setSeverity(e.target.value as NonNullable<CreateStudentCommentRequest["severity"]>)} className={inputClass}>
           <option value="POSITIVE">Tích cực</option>
           <option value="NORMAL">Bình thường</option>
           <option value="CONCERN">Cần lưu ý</option>
           <option value="WARNING">Cảnh báo</option>
-        </select>
+        </Select>
       </div>
 
       <div className="space-y-1">

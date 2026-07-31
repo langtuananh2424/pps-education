@@ -1,7 +1,12 @@
-import { apiRequest } from "@/lib/apiClient";
+import { apiRequest, apiRequestBlob } from "@/lib/apiClient";
+import type { ClassResponse } from "@/features/academic/api";
 
-/** Khớp MediaModule thật của backend — mỗi module quy định content-type/size limit riêng (xem MediaStorageService.java). */
-export type MediaUploadModule = "LMS_QUESTION" | "CURRICULUM_DOCUMENT" | "LESSON_MATERIAL";
+/**
+ * Khớp MediaModule thật của backend — mỗi module quy định content-type/size limit riêng
+ * (xem MediaStorageService.java). STUDENT/PARENT/EMPLOYEE (V48): chỉ nhận ảnh, dùng cho
+ * ảnh đại diện — path riêng trên R2 ("profiles/students|parents|employees").
+ */
+export type MediaUploadModule = "LMS_QUESTION" | "CURRICULUM_DOCUMENT" | "REVIEW_VIDEO" | "STUDENT" | "PARENT" | "EMPLOYEE";
 
 /** UC-60/UC-23a: upload file thật lên Cloudflare R2 qua API dùng chung, trả về URL public để lưu vào field fileUrl/audioUrl/imageUrl. */
 export function uploadMedia(file: File, module: MediaUploadModule): Promise<{ url: string }> {
@@ -75,6 +80,8 @@ export interface CreateQuestionRequest {
   imageUrl?: string;
   referencePassage?: string;
   explanation?: string;
+  /** V54 — chỉ dùng khi questionType=FILL_IN_BLANK, so khớp case-insensitive + trim khi tự chấm. */
+  correctAnswerText?: string;
   defaultPoints?: number;
   tags?: string[];
   /** Bắt buộc khi questionType thuộc MULTIPLE_CHOICE/MULTIPLE_ANSWER/TRUE_FALSE — để trống với ESSAY/SPEAKING/FILL_IN_BLANK. */
@@ -92,6 +99,7 @@ export interface QuestionResponse {
   imageUrl: string | null;
   referencePassage: string | null;
   explanation: string | null;
+  correctAnswerText: string | null;
   defaultPoints: number | null;
   tags: string[] | null;
   status: string;
@@ -109,6 +117,7 @@ export interface UpdateQuestionRequest {
   imageUrl?: string;
   referencePassage?: string;
   explanation?: string;
+  correctAnswerText?: string;
   defaultPoints?: number;
   tags?: string[];
   choices?: QuestionChoiceRequest[];
@@ -128,7 +137,7 @@ export function updateQuestion(id: number, request: UpdateQuestionRequest): Prom
 
 /**
  * Trả về cả `choices[].isCorrect` — CHỈ dành cho GV/quản lý ngân hàng câu hỏi
- * (quyền lms.exercise.manage), dùng để GV tự xem lại đề kèm đáp án trước khi
+ * (quyền lms.question-bank.view), dùng để GV tự xem lại đề kèm đáp án trước khi
  * giao. Học viên KHÔNG được gọi endpoint này (đáp án chỉ lộ ra cho học viên
  * qua luồng nộp bài riêng, có kiểm soát show_correct_answers).
  */
@@ -147,7 +156,103 @@ export function createQuestion(request: CreateQuestionRequest): Promise<Question
   return apiRequest<QuestionResponse>("/questions", { method: "POST", body: JSON.stringify(request) });
 }
 
-// ===================== Đề (Exercise) — UC-40 bước 2-4 =====================
+// ===================== Soạn đề nhanh: import Excel/Word (UC-40, bổ sung ngoài SDD gốc) =====================
+
+export interface QuestionImportedRow {
+  id: number;
+  content: string;
+  defaultPoints: number;
+}
+
+export interface QuestionImportResponse {
+  id: number;
+  sourceFileName: string;
+  totalRows: number | null;
+  successRows: number;
+  failedRows: number;
+  status: string;
+  errorSummary: { row: number; reason: string }[];
+  createdQuestions: QuestionImportedRow[];
+}
+
+/**
+ * UC-40 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30):
+ * soạn đề nhanh — nhập hàng loạt câu hỏi vào 1 ngân hàng qua file .xlsx
+ * hoặc .docx theo mẫu cứng (xem QuestionImportService — đúng 5 loại UI mà
+ * QuestionEditorForm hỗ trợ, KHÔNG dùng AI/OCR nhận diện tự do).
+ */
+export function importQuestions(bankId: number, file: File): Promise<QuestionImportResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return apiRequest<QuestionImportResponse>(`/question-banks/${bankId}/questions/import`, { method: "POST", body: formData });
+}
+
+/** File mẫu Word (.docx) — sinh ở backend (không cá nhân hoá theo bank, dùng chung cho mọi ngân hàng). Mẫu Excel dựng client-side, xem QuestionImportPanel.tsx. */
+export function downloadQuestionImportWordTemplate(): Promise<Blob> {
+  return apiRequestBlob("/question-imports/template.docx");
+}
+
+// ===================== Kho đề (Exam) — "Đề" cha, VD: IELTS Grade 6 =====================
+// Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30: tái cấu trúc UC-40 thành 2 cấp
+// Đề (Exam)/Bài (Exercise). Đề gán 1 khung chương trình CHỈ để lọc/tìm kiếm trong Kho đề, gán được
+// NHIỀU lớp (exam_class_assignments) — đây mới là điều kiện hiển thị DUY NHẤT cho học sinh xem/làm
+// được các Bài thuộc Đề. Xem ExamService.java.
+
+export interface CreateExamRequest {
+  code: string;
+  title: string;
+  curriculumId: number;
+}
+
+export interface UpdateExamRequest {
+  title: string;
+}
+
+export interface ExamResponse {
+  id: number;
+  uuid: string;
+  code: string;
+  title: string;
+  curriculumId: number;
+  curriculumCode: string;
+  createdBy: number;
+}
+
+export function createExam(request: CreateExamRequest): Promise<ExamResponse> {
+  return apiRequest<ExamResponse>("/exams", { method: "POST", body: JSON.stringify(request) });
+}
+
+export function updateExam(id: number, request: UpdateExamRequest): Promise<ExamResponse> {
+  return apiRequest<ExamResponse>(`/exams/${id}`, { method: "PUT", body: JSON.stringify(request) });
+}
+
+export function getExam(id: number): Promise<ExamResponse> {
+  return apiRequest<ExamResponse>(`/exams/${id}`);
+}
+
+/** Bỏ trống curriculumId để xem TẤT CẢ Đề (mọi khung chương trình). */
+export function listExams(curriculumId?: number): Promise<ExamResponse[]> {
+  const query = curriculumId ? `?curriculumId=${curriculumId}` : "";
+  return apiRequest<ExamResponse[]>(`/exams${query}`);
+}
+
+export function listExercisesByExam(examId: number): Promise<ExerciseResponse[]> {
+  return apiRequest<ExerciseResponse[]>(`/exams/${examId}/exercises`);
+}
+
+export function assignExamToClass(examId: number, classId: number): Promise<void> {
+  return apiRequest<void>(`/exams/${examId}/classes/${classId}`, { method: "POST" });
+}
+
+export function unassignExamFromClass(examId: number, classId: number): Promise<void> {
+  return apiRequest<void>(`/exams/${examId}/classes/${classId}`, { method: "DELETE" });
+}
+
+export function listExamAssignedClasses(examId: number): Promise<ClassResponse[]> {
+  return apiRequest<ClassResponse[]>(`/exams/${examId}/classes`);
+}
+
+// ===================== Bài (Exercise) — UC-40 bước 2-4, thuộc 1 Đề (Exam) =====================
 
 /** FE chỉ dùng 2 giá trị đúng phạm vi UC-40 (SDD có thêm MOCK_TEST/SKILL_PRACTICE thuộc UC khác, không đưa vào đây). */
 export type ExerciseType = "SELF_PRACTICE" | "ASSIGNED";
@@ -155,7 +260,7 @@ export type ExerciseType = "SELF_PRACTICE" | "ASSIGNED";
 export interface CreateExerciseRequest {
   code: string;
   title: string;
-  curriculumId?: number;
+  examId: number;
   subjectId?: number;
   exerciseType: ExerciseType;
   totalPoints: number;
@@ -167,9 +272,14 @@ export interface CreateExerciseRequest {
 
 export interface ExerciseResponse {
   id: number;
+  /** V65 — dùng để dán trực tiếp vào Excel BTVN thay cho chọn dropdown khi danh sách quá dài. */
+  uuid: string;
   code: string;
   title: string;
-  curriculumId: number | null;
+  examId: number;
+  /** Denormalize từ Đề cha — render nhãn "Mã Đề - Tên bài" không cần round-trip thêm. */
+  examCode: string;
+  examTitle: string;
   subjectId: number | null;
   exerciseType: ExerciseType;
   totalPoints: number;
@@ -189,6 +299,11 @@ export function createExercise(request: CreateExerciseRequest): Promise<Exercise
 
 export function getExercise(id: number): Promise<ExerciseResponse> {
   return apiRequest<ExerciseResponse>(`/exercises/${id}`);
+}
+
+/** V65 — Publish giờ chỉ đánh dấu đề "đủ điều kiện dùng làm nguồn", không còn giao lớp (xem Javadoc ExerciseService). */
+export function publishExercise(id: number): Promise<ExerciseResponse> {
+  return apiRequest<ExerciseResponse>(`/exercises/${id}/publish`, { method: "POST" });
 }
 
 export interface AddExerciseQuestionRequest {
@@ -215,19 +330,21 @@ export function listExerciseQuestions(exerciseId: number): Promise<ExerciseQuest
   return apiRequest<ExerciseQuestionResponse[]>(`/exercises/${exerciseId}/questions`);
 }
 
-export interface AssignExerciseRequest {
-  classId: number;
-  availableFrom?: string;
-  dueAt?: string;
-  lateSubmissionAllowed: boolean;
-  latePenaltyPercent?: number;
-  /** Để trống (undefined) = giao cả lớp (mọi học sinh ACTIVE) — chỉ gửi khi giao riêng 1 số học sinh. */
-  targetStudentIds?: number[];
-}
-
+/**
+ * V65 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30): giao đề không còn thao tác
+ * riêng ở "Soạn & Giao đề" nữa — id (bản giao) giờ tự động phát sinh khi Giáo viên chọn 1 Exercise
+ * làm "BTVN Ngữ pháp buổi sau" ở Nhận xét học viên (xem academic/api.ts CreateStudentCommentRequest.
+ * homeworkNextExerciseId). Interface/hàm dưới đây CHỈ còn dùng để GV xem lại bản giao đã phát sinh
+ * (lịch sử) hoặc để DailyCommentPanel tra ngược "bản giao này ứng với Exercise nào" khi tải lại 1
+ * comment đã chọn sẵn — không còn cách nào tạo bản giao thủ công từ FE nữa (endpoint POST .../assign
+ * đã bị xóa bên BE).
+ */
 export interface ExerciseAssignmentResponse {
   id: number;
+  uuid: string;
   exerciseId: number;
+  exerciseTitle: string;
+  exerciseCode: string;
   classId: number;
   assignedBy: number;
   availableFrom: string;
@@ -238,104 +355,194 @@ export interface ExerciseAssignmentResponse {
   status: "ACTIVE" | "CANCELLED" | "COMPLETED";
 }
 
-/** UC-40 Main Flow bước 3-4: giao đề cho 1 lớp + hạn nộp — tự chuyển đề sang PUBLISHED, báo học sinh ACTIVE trong lớp (hoặc targetStudentIds). */
-export function assignExercise(exerciseId: number, request: AssignExerciseRequest): Promise<ExerciseAssignmentResponse> {
-  return apiRequest<ExerciseAssignmentResponse>(`/exercises/${exerciseId}/assign`, { method: "POST", body: JSON.stringify(request) });
-}
-
-/** Giáo viên xem lại đã giao đề gì cho 1 lớp — API lọc sẵn status=ACTIVE. */
+/** Giáo viên xem lại các bản giao (tự động phát sinh từ Nhận xét học viên, V65) của 1 lớp — API lọc sẵn status=ACTIVE. */
 export function listAssignmentsForClass(classId: number): Promise<ExerciseAssignmentResponse[]> {
   return apiRequest<ExerciseAssignmentResponse[]>(`/classes/${classId}/exercises`);
 }
 
-// ===================== Kho bài giảng (UC-23) =====================
+/** Kho đề: nguồn cho dropdown "BTVN buổi sau" ở Nhận xét học viên — mọi loại Bài đã Publish, thuộc 1 Đề đã gán cho lớp (không còn theo khung chương trình). */
+export function listPublishedExercisesForClass(classId: number): Promise<ExerciseResponse[]> {
+  return apiRequest<ExerciseResponse[]>(`/classes/${classId}/exercises/published`);
+}
 
-export type LessonType = "VIDEO_LECTURE" | "PDF_DOCUMENT" | "MIXED" | "LIVE_RECORDING";
-export type LessonStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
+// ===================== Kho Video Ôn tập (UC-23/UC-23a) =====================
 
-/** Khớp LessonResponse thật — đúng 1 trong 2 curriculumId/classId khác null (không cả hai, không cái nào). */
-export interface LessonResponse {
+/** Khớp ReviewVideoSet.VideoType thật — CONNECTION: ôn từ vựng buổi học; REFLEX: hỏi-đáp luyện nói. */
+export type ReviewVideoType = "CONNECTION" | "REFLEX";
+export type ReviewVideoSetStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
+
+/** Khớp ReviewVideoSetResponse thật — đúng 1 trong 2 curriculumId/classId khác null (không cả hai, không cái nào). */
+export interface ReviewVideoSetResponse {
   id: number;
+  /** V55 — dùng để dán trực tiếp vào Excel BTVN thay cho chọn dropdown khi danh sách quá dài. */
+  uuid: string;
   code: string;
   title: string;
+  videoType: ReviewVideoType;
   curriculumId: number | null;
   classId: number | null;
   subjectId: number | null;
-  lessonOrder: number | null;
-  lessonType: LessonType;
-  durationMinutes: number | null;
-  status: LessonStatus;
+  displayOrder: number;
+  status: ReviewVideoSetStatus;
   publishedAt: string | null;
   createdBy: number;
 }
 
-export interface CreateLessonRequest {
+export interface CreateReviewVideoSetRequest {
   code: string;
   title: string;
+  videoType: ReviewVideoType;
   curriculumId?: number;
   classId?: number;
   subjectId?: number;
-  lessonOrder?: number;
-  lessonType: LessonType;
-  durationMinutes?: number;
+  displayOrder?: number;
 }
 
-export interface UpdateLessonRequest {
+/** Khớp UpdateReviewVideoSetRequest thật — không đổi được code/scope (curriculumId/classId) sau khi tạo, chỉ đổi status để công bố (PUBLISHED, publishedAt chỉ set 1 lần) hoặc gỡ (ARCHIVED, soft-remove). */
+export interface UpdateReviewVideoSetRequest {
   title: string;
   subjectId?: number;
-  lessonOrder?: number;
-  durationMinutes?: number;
-  status: LessonStatus;
+  displayOrder?: number;
+  status: ReviewVideoSetStatus;
 }
 
-/** UC-23 Main Flow bước 3-4: chỉ Giáo viên được phân công dạy đúng lớp/khung mới tạo được — BE tự chặn (403), không bypass qua permission. */
-export function createLesson(request: CreateLessonRequest): Promise<LessonResponse> {
-  return apiRequest<LessonResponse>("/lessons", { method: "POST", body: JSON.stringify(request) });
+/** UC-23 Main Flow bước 1-4: chỉ Giáo viên được phân công dạy đúng lớp/khung mới tạo/sửa được — BE tự chặn theo class_teachers, không phải theo permission. */
+export function createReviewVideoSet(request: CreateReviewVideoSetRequest): Promise<ReviewVideoSetResponse> {
+  return apiRequest<ReviewVideoSetResponse>("/review-video-sets", { method: "POST", body: JSON.stringify(request) });
 }
 
-export function updateLesson(id: number, request: UpdateLessonRequest): Promise<LessonResponse> {
-  return apiRequest<LessonResponse>(`/lessons/${id}`, { method: "PUT", body: JSON.stringify(request) });
+export function updateReviewVideoSet(id: number, request: UpdateReviewVideoSetRequest): Promise<ReviewVideoSetResponse> {
+  return apiRequest<ReviewVideoSetResponse>(`/review-video-sets/${id}`, { method: "PUT", body: JSON.stringify(request) });
 }
 
-export function listLessonsByClass(classId: number): Promise<LessonResponse[]> {
-  return apiRequest<LessonResponse[]>(`/classes/${classId}/lessons`);
+export function listReviewVideoSetsByClass(classId: number): Promise<ReviewVideoSetResponse[]> {
+  return apiRequest<ReviewVideoSetResponse[]>(`/classes/${classId}/review-video-sets`);
 }
 
-export function listLessonsByCurriculum(curriculumId: number): Promise<LessonResponse[]> {
-  return apiRequest<LessonResponse[]>(`/curriculums/${curriculumId}/lessons`);
+export function listReviewVideoSetsByCurriculum(curriculumId: number): Promise<ReviewVideoSetResponse[]> {
+  return apiRequest<ReviewVideoSetResponse[]>(`/curriculums/${curriculumId}/review-video-sets`);
 }
 
-export type LessonMaterialType = "VIDEO" | "PDF" | "AUDIO" | "SLIDE" | "IMAGE" | "OTHER";
+/**
+ * V65 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30): giao Video Ôn tập không còn
+ * xảy ra khi Publish nữa — bản giao (ReviewVideoAssignment) tự động phát sinh khi Giáo viên chọn 1
+ * bộ làm "BTVN buổi sau" ở Nhận xét học viên. Dùng để DailyCommentPanel tra ngược "bản giao này ứng
+ * với bộ video nào" khi tải lại 1 comment đã chọn sẵn (StudentCommentResponse chỉ trả id bản giao).
+ */
+export interface ReviewVideoAssignmentResponse {
+  id: number;
+  uuid: string;
+  reviewVideoSetId: number;
+  reviewVideoSetTitle: string;
+  classId: number;
+  assignedBy: number;
+  availableFrom: string;
+  dueAt: string | null;
+  targetStudentIds: number[] | null;
+  status: "ACTIVE" | "CANCELLED" | "COMPLETED";
+}
 
-/** Khớp AddLessonMaterialRequest thật — fileUrl lấy từ URL trả về sau khi upload thật qua uploadMedia (module LESSON_MATERIAL). */
-export interface AddLessonMaterialRequest {
-  materialType: LessonMaterialType;
+/** Giáo viên xem lại các bản giao Video Ôn tập ACTIVE của 1 lớp (V65). */
+export function listReviewVideoAssignmentsForClass(classId: number): Promise<ReviewVideoAssignmentResponse[]> {
+  return apiRequest<ReviewVideoAssignmentResponse[]>(`/classes/${classId}/review-video-assignments`);
+}
+
+/** Khớp ReviewVideo.SourceType thật. */
+export type ReviewVideoSourceType = "YOUTUBE_URL" | "R2_VIDEO" | "R2_AUDIO";
+
+/** Khớp AddReviewVideoRequest thật — durationSeconds BẮT BUỘC cho cả 3 nguồn, FE phải tự dò trước khi gọi (BE không tự dò). fileUrl lấy từ uploadMedia (module REVIEW_VIDEO) hoặc dán trực tiếp link YouTube. */
+export interface AddReviewVideoRequest {
+  sourceType: ReviewVideoSourceType;
   title: string;
   fileUrl: string;
   fileSizeBytes?: number;
-  durationSeconds?: number;
+  durationSeconds: number;
   displayOrder?: number;
-  isDownloadable: boolean;
+  /** V59 — chỉ có ý nghĩa với videoType=CONNECTION, để trống dùng mặc định 80. */
+  completionThresholdPercent?: number;
+  /** V59 — chỉ có ý nghĩa với videoType=CONNECTION, để trống dùng mặc định 1. */
+  requiredViewCount?: number;
 }
 
-export interface LessonMaterialResponse {
+export interface ReviewVideoResponse {
   id: number;
-  lessonId: number;
-  materialType: LessonMaterialType;
+  reviewVideoSetId: number;
+  sourceType: ReviewVideoSourceType;
   title: string;
   fileUrl: string;
   fileSizeBytes: number | null;
-  durationSeconds: number | null;
+  durationSeconds: number;
   displayOrder: number;
-  isDownloadable: boolean;
+  completionThresholdPercent: number;
+  requiredViewCount: number;
 }
 
-export function addLessonMaterial(lessonId: number, request: AddLessonMaterialRequest): Promise<LessonMaterialResponse> {
-  return apiRequest<LessonMaterialResponse>(`/lessons/${lessonId}/materials`, { method: "POST", body: JSON.stringify(request) });
+export function addReviewVideo(setId: number, request: AddReviewVideoRequest): Promise<ReviewVideoResponse> {
+  return apiRequest<ReviewVideoResponse>(`/review-video-sets/${setId}/videos`, { method: "POST", body: JSON.stringify(request) });
 }
 
-export function listLessonMaterials(lessonId: number): Promise<LessonMaterialResponse[]> {
-  return apiRequest<LessonMaterialResponse[]>(`/lessons/${lessonId}/materials`);
+export function listReviewVideos(setId: number): Promise<ReviewVideoResponse[]> {
+  return apiRequest<ReviewVideoResponse[]>(`/review-video-sets/${setId}/videos`);
+}
+
+/** Khớp VideoHeader/StatsCell thật — ma trận học sinh × video (roster LEFT JOIN tiến độ, học sinh chưa xem gì vẫn hiện 0%). */
+export interface ReviewVideoStatsHeader {
+  videoId: number;
+  title: string;
+  durationSeconds: number;
+  /** V59 — chỉ có ý nghĩa với video CONNECTION. */
+  requiredViewCount: number;
+}
+
+export interface ReviewVideoStatsCell {
+  studentId: number;
+  videoId: number;
+  watchedSeconds: number;
+  watchedPercent: number;
+  completed: boolean;
+  /** V59 — số lượt xem đã đạt ngưỡng %, chỉ có ý nghĩa với video CONNECTION. */
+  viewCount: number;
+}
+
+export interface ReviewVideoSetStatsResponse {
+  videos: ReviewVideoStatsHeader[];
+  cells: ReviewVideoStatsCell[];
+}
+
+/** UC-23a Main Flow bước 4: chỉ Giáo viên được phân công (requireOwnerScope) mới xem được — classId bắt buộc nếu bộ gán theo khung chương trình. */
+export function getReviewVideoSetStats(setId: number, classId?: number): Promise<ReviewVideoSetStatsResponse> {
+  const query = classId ? `?classId=${classId}` : "";
+  return apiRequest<ReviewVideoSetStatsResponse>(`/review-video-sets/${setId}/stats${query}`);
+}
+
+// ===================== Kho Video Ôn tập — Câu hỏi Video phản xạ (UC-23b, V57) =====================
+
+/** Câu hỏi gắn 1 mốc thời gian trong video REFLEX — thời lượng ghi âm/số lần nộp lại đặt riêng theo TỪNG câu hỏi. */
+export interface ReviewVideoQuestionResponse {
+  id: number;
+  reviewVideoId: number;
+  timestampSeconds: number;
+  prompt: string | null;
+  maxRecordingSeconds: number;
+  /** null = không giới hạn số lần nộp lại. */
+  maxAttempts: number | null;
+  displayOrder: number;
+}
+
+export interface AddReviewVideoQuestionRequest {
+  timestampSeconds: number;
+  prompt?: string;
+  maxRecordingSeconds: number;
+  maxAttempts?: number;
+  displayOrder?: number;
+}
+
+export function addReviewVideoQuestion(videoId: number, request: AddReviewVideoQuestionRequest): Promise<ReviewVideoQuestionResponse> {
+  return apiRequest<ReviewVideoQuestionResponse>(`/review-videos/${videoId}/questions`, { method: "POST", body: JSON.stringify(request) });
+}
+
+export function listReviewVideoQuestions(videoId: number): Promise<ReviewVideoQuestionResponse[]> {
+  return apiRequest<ReviewVideoQuestionResponse[]>(`/review-videos/${videoId}/questions`);
 }
 
 // ===================== Kho tài liệu tham khảo (UC-60) =====================
@@ -343,7 +550,7 @@ export function listLessonMaterials(lessonId: number): Promise<LessonMaterialRes
 export type CurriculumDocumentType = "VIDEO" | "PDF" | "AUDIO" | "SLIDE" | "IMAGE" | "OTHER";
 export type CurriculumDocumentStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
 
-/** Khớp CurriculumDocumentResponse thật — độc lập với Lesson (UC-23), chỉ gắn theo curriculum, không gắn 1 bài giảng cụ thể nào. */
+/** Khớp CurriculumDocumentResponse thật — độc lập với Kho Video Ôn tập (UC-23), chỉ gắn theo curriculum, không gắn 1 bộ video cụ thể nào. */
 export interface CurriculumDocumentResponse {
   id: number;
   curriculumId: number;
@@ -354,6 +561,8 @@ export interface CurriculumDocumentResponse {
   displayOrder: number;
   status: CurriculumDocumentStatus;
   createdBy: number;
+  /** V48: ảnh bìa hiển thị ở card, upload qua POST /api/media/upload (module CURRICULUM_DOCUMENT). */
+  coverImageUrl: string | null;
 }
 
 export interface CreateCurriculumDocumentRequest {
@@ -362,6 +571,7 @@ export interface CreateCurriculumDocumentRequest {
   documentType: CurriculumDocumentType;
   fileUrl: string;
   displayOrder?: number;
+  coverImageUrl?: string;
 }
 
 export interface UpdateCurriculumDocumentRequest {
@@ -369,9 +579,10 @@ export interface UpdateCurriculumDocumentRequest {
   description?: string;
   displayOrder?: number;
   status: CurriculumDocumentStatus;
+  coverImageUrl?: string;
 }
 
-/** UC-60: chỉ tài khoản có quyền lms.document.manage (mặc định gán cho TEACHER) mới tạo/sửa được. */
+/** UC-60: chỉ tài khoản có quyền lms.document.create/update (mặc định gán cho TEACHER) mới tạo/sửa được. */
 export function createCurriculumDocument(curriculumId: number, request: CreateCurriculumDocumentRequest): Promise<CurriculumDocumentResponse> {
   return apiRequest<CurriculumDocumentResponse>(`/curriculums/${curriculumId}/documents`, { method: "POST", body: JSON.stringify(request) });
 }

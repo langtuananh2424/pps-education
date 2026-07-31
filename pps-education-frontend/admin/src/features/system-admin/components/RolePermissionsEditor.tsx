@@ -6,6 +6,7 @@ import Button from "@/components/ui/Button";
 import PermissionChecklist from "./PermissionChecklist";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
+import { useDialog } from "@/components/ui/DialogProvider";
 
 interface RolePermissionsEditorProps {
   roleId: number;
@@ -19,6 +20,7 @@ export default function RolePermissionsEditor({ roleId, roleName }: RolePermissi
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { message: toastMessage, showToast } = useToast();
+  const { confirmDialog } = useDialog();
 
   useEffect(() => {
     setLoading(true);
@@ -58,7 +60,7 @@ export default function RolePermissionsEditor({ roleId, roleName }: RolePermissi
       showToast("Đã lưu quyền hạn thành công!");
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
-        const proceed = window.confirm(`${err.message}\n\nBạn có chắc chắn muốn tiếp tục?`);
+        const proceed = await confirmDialog(`${err.message}\n\nBạn có chắc chắn muốn tiếp tục?`, { danger: true });
         if (!proceed) {
           setSaving(false);
           return;

@@ -378,6 +378,24 @@ public class StudentAttendanceService {
                 schoolClass.getId(), schoolClass.getName(), present, absent, excused, late, earlyLeave, total, rate);
     }
 
+    /**
+     * UC-64 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-29):
+     * học sinh tự xem điểm danh của chính mình theo lớp đang/đã TỪNG ghi
+     * danh (kể cả lớp cũ sau khi chuyển lớp) — mirror
+     * ParentPortalService.listAttendance, chỉ khác scope là chính học
+     * sinh thay vì quan hệ phụ huynh-con.
+     */
+    @Transactional(readOnly = true)
+    public List<AttendanceMarkResponse> listMyAttendance(Long classId, Long actorUserId) {
+        Student student = studentRepository.findByUserId(actorUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản id=" + actorUserId + " không có hồ sơ học sinh."));
+        if (!classEnrollmentRepository.existsByStudentIdAndSchoolClassId(student.getId(), classId)) {
+            throw new ResourceNotFoundException("Không tìm thấy lớp học id=" + classId);
+        }
+        return attendanceMarkRepository.findByStudentIdAndClassId(student.getId(), classId).stream()
+                .map(this::toResponse).toList();
+    }
+
     private void requireAssignedTeacher(ClassSession classSession, Long actorUserId) {
         if (!classSession.getPrimaryTeacher().getId().equals(actorUserId)) {
             throw new NotAssignedTeacherForSessionException(
@@ -405,6 +423,27 @@ public class StudentAttendanceService {
                     "Chỉ điểm danh/sửa được trong ngày diễn ra buổi học (" + classSession.getSessionDate()
                             + "); hôm nay là " + today + ". Cần quyền quản trị điểm danh để thao tác buổi khác ngày.");
         }
+    }
+
+    /**
+     * Kiểm tra TRƯỚC (không throw) actor có ghi được điểm danh buổi này
+     * không — dùng cho StudentCommentService.importComments() để tránh gọi
+     * markAttendance() (bean @Transactional khác) rồi bắt exception: exception
+     * xuyên qua ranh giới @Transactional của lời gọi lồng nhau đánh dấu
+     * transaction NGOÀI rollback-only ngay tại proxy, dù caller có catch
+     * cũng không "gỡ" được — commit sau đó ném UnexpectedRollbackException.
+     * Cùng đúng rào với requireCanWriteAttendance, chỉ khác không throw.
+     */
+    @Transactional(readOnly = true)
+    public boolean canWriteAttendance(Long classSessionId, Long actorUserId) {
+        ClassSession classSession = getClassSessionOrThrow(classSessionId);
+        if (permissionEvaluationService.hasPermission(actorUserId, PERM_ATTENDANCE_CREATE)) {
+            return true;
+        }
+        if (!classSession.getPrimaryTeacher().getId().equals(actorUserId)) {
+            return false;
+        }
+        return LocalDate.now().equals(classSession.getSessionDate());
     }
 
     private ClassSession getClassSessionOrThrow(Long id) {
@@ -439,7 +478,8 @@ public class StudentAttendanceService {
 
     private AttendanceMarkResponse toResponse(AttendanceMark m) {
         return new AttendanceMarkResponse(
-                m.getId(), m.getAttendanceSession().getId(), m.getStudent().getId(), m.getStudent().getUser().getFullName(),
+                m.getId(), m.getAttendanceSession().getId(), m.getAttendanceSession().getClassSession().getId(),
+                m.getStudent().getId(), m.getStudent().getUser().getFullName(),
                 m.getStudent().getStudentCode(), m.getStatus().name(), m.getMinutesLate(), m.getMinutesEarlyLeave(),
                 m.getAbsenceReason(), m.getNotifiedParentAt());
     }

@@ -29,6 +29,7 @@ import vn.com.pps.education.dto.EnrollStudentRequest;
 import vn.com.pps.education.dto.EnterAttendanceMarkRequest;
 import vn.com.pps.education.dto.MarkAttendanceRequest;
 import vn.com.pps.education.dto.PartnerAttendanceSummaryResponse;
+import vn.com.pps.education.dto.RecordTransferRequest;
 import vn.com.pps.education.dto.UpdateCurriculumRequest;
 import vn.com.pps.education.dto.UpdatePeriodMarkRequest;
 import vn.com.pps.education.exception.AttendanceSessionNotEditableException;
@@ -78,6 +79,9 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
 
     @Autowired
     private CurriculumService curriculumService;
+
+    @Autowired
+    private StudentService studentService;
 
     @Autowired
     private UserRepository userRepository;
@@ -141,7 +145,7 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
         teacher = newUser("teacher");
         assignRole(teacher, "TEACHER");
         session = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(LocalDate.now(), LocalTime.of(8, 0), LocalTime.of(9, 40), null, teacher.getId(), "REGULAR"),
+                new CreateClassSessionRequest(LocalDate.now(), LocalTime.of(8, 0), LocalTime.of(9, 40), null, teacher.getId(), "REGULAR", null, null),
                 headAcademic.getId());
 
         student1 = newStudent();
@@ -392,14 +396,19 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
                 new CreateClassRequest(classCode(), "8A2", site.getId(), activeCurriculum.id(), "OPEN", 20, null,
                         LocalDate.now(), null, null, null), headAcademic.getId());
         classService.enroll(schoolClass.id(), new EnrollStudentRequest(student1.getId(), LocalDate.now()), headAcademic.getId());
+        // Giáo viên riêng (không phải `teacher` của fixture setUp) — session của setUp() đã chiếm
+        // đúng khung giờ 8:00-9:40 hôm nay với `teacher`, dùng lại sẽ bị chặn trùng giờ GV (bổ sung
+        // ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30), không liên quan gì tới UC-15b đang test.
+        User siteTeacher = newUser("teacher.site.summary");
+        assignRole(siteTeacher, "TEACHER");
         ClassSessionResponse newSession = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(LocalDate.now(), LocalTime.of(8, 0), LocalTime.of(9, 40), null, teacher.getId(), "REGULAR"),
+                new CreateClassSessionRequest(LocalDate.now(), LocalTime.of(8, 0), LocalTime.of(9, 40), null, siteTeacher.getId(), "REGULAR", null, null),
                 headAcademic.getId());
         studentAttendanceService.markAttendance(newSession.id(),
                 new MarkAttendanceRequest("SESSION_LEVEL", List.of(
                         new EnterAttendanceMarkRequest(student1.getId(), "PRESENT", null, null, null))),
-                teacher.getId());
-        studentAttendanceService.submitAttendance(newSession.id(), teacher.getId());
+                siteTeacher.getId());
+        studentAttendanceService.submitAttendance(newSession.id(), siteTeacher.getId());
         User siteManagerUser = newUser("site.manager.attendance");
         newSiteManager(siteManagerUser, site);
 
@@ -415,6 +424,50 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
 
         assertThatThrownBy(() -> studentAttendanceService.getSiteSummary(site.getId(), outsider.getId()))
                 .isInstanceOf(NotSiteManagerForSiteException.class);
+    }
+
+    @Test
+    void listMyAttendance_UC64_MainFlow_returnsOwnAttendanceForEnrolledClass() {
+        classService.enroll(session.classId(), new EnrollStudentRequest(student1.getId(), LocalDate.now()), headAcademic.getId());
+        studentAttendanceService.markAttendance(session.id(),
+                new MarkAttendanceRequest("SESSION_LEVEL", List.of(
+                        new EnterAttendanceMarkRequest(student1.getId(), "ABSENT", null, null, "Ốm"))),
+                teacher.getId());
+
+        List<AttendanceMarkResponse> result = studentAttendanceService.listMyAttendance(session.classId(), student1.getUser().getId());
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).status()).isEqualTo("ABSENT");
+    }
+
+    @Test
+    void listMyAttendance_rejectsWhenNotEnrolledInClass() {
+        assertThatThrownBy(() -> studentAttendanceService.listMyAttendance(session.classId(), student1.getUser().getId()))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    /** Bổ sung (đã xác nhận với người dùng 2026-07-29): điểm danh lớp cũ vẫn tự xem được sau khi chuyển lớp. */
+    @Test
+    void listMyAttendance_boSung_stillVisibleAfterTransferToAnotherClass() {
+        classService.enroll(session.classId(), new EnrollStudentRequest(student1.getId(), LocalDate.now()), headAcademic.getId());
+        studentAttendanceService.markAttendance(session.id(),
+                new MarkAttendanceRequest("SESSION_LEVEL", List.of(
+                        new EnterAttendanceMarkRequest(student1.getId(), "ABSENT", null, null, "Ốm"))),
+                teacher.getId());
+        CurriculumResponse curriculum = curriculumService.create(
+                new CreateCurriculumRequest(curriculumCode(), "Chuẩn", "MAIN", null, null, null), headAcademic.getId());
+        CurriculumResponse activeCurriculum = curriculumService.update(curriculum.id(),
+                new UpdateCurriculumRequest("Chuẩn", null, null, null, "ACTIVE", false), headAcademic.getId());
+        ClassResponse otherClass = classService.create(
+                new CreateClassRequest(classCode(), "8A3", newSite().getId(), activeCurriculum.id(), "OPEN", 20, null,
+                        LocalDate.now(), null, null, null), headAcademic.getId());
+        studentService.recordTransfer(student1.getId(),
+                new RecordTransferRequest("CLASS_CHANGE", session.classId(), otherClass.id(), null, LocalDate.now(), "Chuyển lớp test"),
+                headAcademic.getId());
+
+        List<AttendanceMarkResponse> result = studentAttendanceService.listMyAttendance(session.classId(), student1.getUser().getId());
+
+        assertThat(result).hasSize(1);
     }
 
     private SiteManager newSiteManager(User user, Site site) {

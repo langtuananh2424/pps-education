@@ -25,8 +25,8 @@ import java.util.List;
  *
  * Độc lập với LessonService (UC-23/23a) — tài liệu gắn theo curriculum,
  * không gắn 1 bài giảng cụ thể nào. Authorization qua
- * @PreAuthorize("hasPermission(null,'lms.document.manage')") ở
- * CurriculumDocumentController cho thao tác ghi (Hybrid PBAC — V41);
+ * @PreAuthorize("hasPermission(null,'lms.document.create/update/view')") ở
+ * CurriculumDocumentController cho thao tác ghi (Hybrid PBAC — V41/V62);
  * đọc tự-xem của Học sinh check quyền ngay trong Service (giống pattern
  * LessonService.listByClass).
  */
@@ -85,7 +85,7 @@ public class CurriculumDocumentService {
         return toResponse(document);
     }
 
-    /** Staff (lms.document.manage) — quản lý, xem mọi status của 1 curriculum. */
+    /** Staff (lms.document.view) — xem mọi status của 1 curriculum. */
     @Transactional(readOnly = true)
     public List<CurriculumDocumentResponse> listByCurriculum(Long curriculumId) {
         return curriculumDocumentRepository.findByCurriculumIdOrderByDisplayOrder(curriculumId).stream()

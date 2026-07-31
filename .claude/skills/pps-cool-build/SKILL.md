@@ -25,7 +25,7 @@ trần Maximum Processor State xuống 90% + tắt Turbo Boost trong lúc build,
 
 ## Power Plan đã tạo sẵn
 
-- **"PPS Build - Giảm nhiệt"** — GUID `663f57f7-e25a-44e5-95f9-3552373cff3a`
+- **"PPS Build - Giảm nhiệt"** — GUID `f7682512-e618-4890-8cdc-f28f885f1839`
   - Maximum processor state = 90% (AC + DC)
   - Turbo Boost (PerfBoostMode) = Disabled (AC + DC)
 - **"Balanced"** (plan mặc định hàng ngày) — GUID
@@ -37,7 +37,7 @@ Bật trước khi chạy `mvn clean compile`, `mvn test`, `mvn spring-boot:run`
 kéo dài, đặc biệt khi Docker Desktop đang chạy Postgres cùng lúc:
 
 ```powershell
-powercfg /setactive 663f57f7-e25a-44e5-95f9-3552373cff3a
+powercfg /setactive f7682512-e618-4890-8cdc-f28f885f1839
 ```
 
 ## Sau khi build/test xong — chuyển lại Balanced
@@ -56,7 +56,7 @@ build sẽ làm giảm hiệu năng máy không cần thiết cho việc khác.
 powercfg /getactivescheme
 
 # Xác nhận plan giảm nhiệt còn nguyên cấu hình (kỳ vọng thấy 0x0000005a = 90%)
-powercfg /query 663f57f7-e25a-44e5-95f9-3552373cff3a SUB_PROCESSOR PROCTHROTTLEMAX
+powercfg /query f7682512-e618-4890-8cdc-f28f885f1839 SUB_PROCESSOR PROCTHROTTLEMAX
 ```
 
 ## Nếu GUID không còn tồn tại (Windows Update có thể reset power plan)
@@ -78,7 +78,7 @@ powercfg /setdcvalueindex $newGuid SUB_PROCESSOR PERFBOOSTMODE 0
 ```
 
 Ghi lại GUID mới (`$newGuid`) và cập nhật vào skill này (thay thế
-`663f57f7-e25a-44e5-95f9-3552373cff3a` ở các lệnh phía trên) vì GUID đổi
+`f7682512-e618-4890-8cdc-f28f885f1839` ở các lệnh phía trên) vì GUID đổi
 mỗi lần tạo lại.
 
 ## Dùng chủ động trong project này

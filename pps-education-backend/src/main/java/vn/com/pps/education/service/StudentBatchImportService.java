@@ -8,6 +8,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import vn.com.pps.education.common.ExcelExportHelper;
 import vn.com.pps.education.domain.ClassEnrollment;
 import vn.com.pps.education.domain.ImportJob;
 import vn.com.pps.education.domain.Role;
@@ -15,6 +16,7 @@ import vn.com.pps.education.domain.SchoolClass;
 import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.domain.UserRole;
+import vn.com.pps.education.dto.AccountExportRequest;
 import vn.com.pps.education.dto.EnrollStudentRequest;
 import vn.com.pps.education.dto.StudentBatchImportResponse;
 import vn.com.pps.education.exception.ResourceNotFoundException;
@@ -154,6 +156,7 @@ public class StudentBatchImportService {
                     entry.put("row", rowIndex + 1);
                     entry.put("username", credential.username());
                     entry.put("temporaryPassword", credential.temporaryPassword());
+                    entry.put("fullName", credential.fullName());
                     credentials.add(entry);
                 } catch (RuntimeException ex) {
                     errors.add(rowError(rowIndex + 1, ex.getMessage()));
@@ -180,8 +183,37 @@ public class StudentBatchImportService {
         return toResponse(job, List.of());
     }
 
+    /**
+     * File mẫu để nhập học theo lô (bổ sung ngoài SDD gốc, đã xác nhận với
+     * người dùng 2026-07-24) — đúng 8 cột theo thứ tự importRow() đọc phía
+     * trên, trường bắt buộc đánh dấu {@code *} cuối tên cột. Không có mật
+     * khẩu (hệ thống tự sinh, xem importRow()). Chỉ header, không data mẫu.
+     */
+    public byte[] buildTemplate() {
+        List<String> headers = List.of(
+                "Họ và tên*", "Username*", "Ngày sinh (dd/MM/yyyy)*", "Giới tính (Nam/Nữ/Khác)",
+                "Trường đang học", "Lớp đang học", "Mã lớp PPS*", "Mã học sinh*");
+        return ExcelExportHelper.buildWorkbook("Nhập học", headers, List.of());
+    }
+
+    /**
+     * Xuất danh sách tài khoản vừa tạo (username + mật khẩu tạm) ra Excel
+     * (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-24) — FE
+     * gửi lại nguyên {@code generatedCredentials} đã nhận từ importStudents(),
+     * BE không lưu/tra cứu lại từ DB (không có nơi nào lưu mật khẩu
+     * plaintext) nên chỉ xuất được trong cùng phiên vừa import.
+     */
+    public byte[] buildAccountsExport(AccountExportRequest request) {
+        List<String> headers = List.of("Họ và tên", "Username", "Mật khẩu tạm");
+        List<List<Object>> rows = request.accounts().stream()
+                .<List<Object>>map(a -> List.of(
+                        a.fullName() == null ? "" : a.fullName(), a.username(), a.temporaryPassword()))
+                .toList();
+        return ExcelExportHelper.buildWorkbook("Tài khoản học sinh", headers, rows);
+    }
+
     /** Mật khẩu tạm (plaintext, 1 lần) sinh ra khi tạo tài khoản học sinh cho 1 dòng hợp lệ. */
-    private record RowCredential(String username, String temporaryPassword) {}
+    private record RowCredential(String username, String temporaryPassword, String fullName) {}
 
     // ===================== Helpers =====================
 
@@ -271,7 +303,7 @@ public class StudentBatchImportService {
         enrollmentEntity.setImportJobId(job.getId());
         classEnrollmentRepository.save(enrollmentEntity);
 
-        return new RowCredential(studentUser.getUsername(), tempPassword);
+        return new RowCredential(studentUser.getUsername(), tempPassword, studentUser.getFullName());
     }
 
     private String generateTempPassword() {

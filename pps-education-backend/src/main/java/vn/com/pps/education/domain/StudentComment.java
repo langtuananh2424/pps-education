@@ -29,6 +29,15 @@ public class StudentComment {
 
     public enum Status { DRAFT, PENDING, APPROVED, REJECTED }
 
+    /**
+     * Thái độ học tập buổi đó (chỉ dùng khi commentType=DAILY, bổ sung
+     * ngoài SDD gốc, đã xác nhận với người dùng 2026-07-24, mở rộng từ 3
+     * lên 6 mức 2026-07-27) — Kém/Yếu/Trung bình/Trung bình khá/Khá/Tốt.
+     * Giữ nguyên tên hằng số POOR/AVERAGE/GOOD của 3 mức cũ (dữ liệu đã
+     * lưu qua EnumType.STRING vẫn đọc được, không cần migration backfill).
+     */
+    public enum Attitude { POOR, WEAK, AVERAGE, ABOVE_AVERAGE, FAIR, GOOD }
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -103,4 +112,55 @@ public class StudentComment {
 
     @Column(name = "rejection_reason", columnDefinition = "TEXT")
     private String rejectionReason;
+
+    // ===== Nhận xét Hàng ngày kiểu mới (chỉ dùng khi commentType=DAILY) =====
+    // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-24.
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private Attitude attitude;
+
+    /** VD "80%", hoặc nhãn tự động "Chưa làm bài"/"Đang chờ chấm" khi chưa nhập tay (V68, xem StudentCommentService.resolvedGrammarPrevious). */
+    @Column(name = "homework_previous_score", length = 30)
+    private String homeworkPreviousScore;
+
+    /** VD "80%" — chấm BTVN Nghe-nói (Video Ôn tập) buổi TRƯỚC buổi này, nhập tay độc lập với homeworkPreviousScore (Ngữ pháp). Bổ sung V56, nới độ dài V68. */
+    @Column(name = "homework_previous_speaking_score", length = 30)
+    private String homeworkPreviousSpeakingScore;
+
+    /** VD "Unit 4 Trang 18" — BTVN giao cho buổi SAU, hạn nộp ngầm hiểu là ngày buổi học kế tiếp. Chỉ còn dùng cho kênh ngữ pháp OFFLINE (V55) — kênh ONLINE dùng homeworkNextExerciseAssignment. */
+    @Column(name = "homework_next", columnDefinition = "TEXT")
+    private String homeworkNext;
+
+    /**
+     * BTVN ngữ pháp ONLINE giao cho buổi sau — NULL = kênh này đang
+     * OFFLINE (dùng homeworkNext) hoặc không giao gì. Bổ sung ngoài SDD
+     * gốc, đã xác nhận với người dùng — xem V55.
+     *
+     * V65 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30):
+     * việc set field này giờ là ĐIỂM PHÁT SINH giao bài — chọn 1 Exercise
+     * ở đây khiến {@code StudentCommentService} tự tạo/tái dùng 1
+     * {@link ExerciseAssignment} giao cho TOÀN BỘ học sinh ACTIVE của
+     * lớp (không chỉ học sinh đang được nhận xét — đảo ngược ý "theo từng
+     * học sinh" của V55), hạn nộp = buổi học kế tiếp. Xem
+     * StudentCommentService#resolveExerciseHomework.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "homework_next_exercise_assignment_id")
+    private ExerciseAssignment homeworkNextExerciseAssignment;
+
+    /**
+     * BTVN Video Ôn tập giao cho buổi sau — luôn ONLINE, NULL = không
+     * giao video. V65 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+     * 2026-07-30): đổi từ trỏ thẳng {@code ReviewVideoSet} (V55) sang trỏ
+     * {@link ReviewVideoAssignment} — cùng cơ chế giao cả lớp + hạn nộp =
+     * buổi kế tiếp như kênh Ngữ pháp ở trên, xem
+     * StudentCommentService#resolveVideoHomework.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "homework_next_review_video_assignment_id")
+    private ReviewVideoAssignment homeworkNextReviewVideoAssignment;
+
+    @Column(columnDefinition = "TEXT")
+    private String note;
 }

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Award, Mic, Play, Save } from "lucide-react";
 import { StudentExamSubmission } from "@/types";
+import { useDialog } from "@/components/ui/DialogProvider";
 
 interface GradingWorkshopProps {
   submission: StudentExamSubmission | null;
@@ -11,12 +12,13 @@ interface GradingWorkshopProps {
 export default function GradingWorkshop({ submission, onClose, onSave }: GradingWorkshopProps) {
   const [score, setScore] = useState("8.5");
   const [feedback, setFeedback] = useState("");
+  const { alertDialog } = useDialog();
 
   if (!submission) {
     return (
       <div className="h-64 border border-dashed rounded-xl flex flex-col items-center justify-center text-slate-400 text-xs italic gap-1.5 text-center p-4">
         <Award className="w-6 h-6 text-slate-300 animate-bounce" />
-        <span>Nhấp chọn một học sinh trong hàng chờ bên cạnh để kiểm tra bài ghi âm kỹ năng Nói và chấm điểm thủ công (UC-41).</span>
+        <span>Nhấp chọn một học sinh trong hàng chờ bên cạnh để kiểm tra bài ghi âm kỹ năng Nói và chấm điểm thủ công.</span>
       </div>
     );
   }
@@ -47,7 +49,7 @@ export default function GradingWorkshop({ submission, onClose, onSave }: Grading
 
         <div className="p-2 bg-slate-900 text-white rounded flex items-center justify-between text-xs">
           <span className="font-mono text-[10px]">audiotrack_speech_sample.mp3</span>
-          <button onClick={() => alert("🔈 Đang phát audio ghi âm phản xạ của học sinh...")} className="p-1 rounded bg-brand-gradient hover:opacity-90 font-bold">
+          <button onClick={() => alertDialog("🔈 Đang phát audio ghi âm phản xạ của học sinh...")} className="p-1 rounded bg-brand-gradient hover:opacity-90 font-bold">
             <Play className="w-3 h-3 text-white fill-white" />
           </button>
         </div>

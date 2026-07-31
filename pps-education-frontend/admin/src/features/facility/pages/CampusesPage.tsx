@@ -35,7 +35,7 @@ export default function CampusesPage() {
   return (
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Quản lý Điểm trường & Hợp đồng (UC-36/36b)</h1>
+        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Quản lý Điểm trường & Hợp đồng</h1>
         <p className="text-xs text-slate-500 mt-1">
           Khai báo cơ sở tự vận hành và trường liên kết, gán Quản lý điểm trường, quản lý hợp đồng hợp tác.
         </p>

@@ -36,7 +36,7 @@ public class TaskController {
     }
 
     @PostMapping("/api/tasks")
-    @PreAuthorize("hasPermission(null, 'task.assign') or hasPermission(null, 'task.manage')")
+    @PreAuthorize("hasPermission(null, 'task.assign')")
     public ResponseEntity<TaskResponse> createTask(@Valid @RequestBody CreateTaskRequest request,
                                                      @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(taskService.createTask(request, actor.userId()));
@@ -44,7 +44,7 @@ public class TaskController {
 
     /** UC-06/07 (bổ sung): hủy công việc (CANCELLED thay vì xóa) rồi giao việc mới — người giao hoặc task.manage. */
     @PostMapping("/api/tasks/{id}/cancel")
-    @PreAuthorize("hasPermission(null, 'task.assign') or hasPermission(null, 'task.manage')")
+    @PreAuthorize("hasPermission(null, 'task.assign')")
     public ResponseEntity<TaskResponse> cancelTask(@PathVariable Long id,
                                                     @RequestBody(required = false) CancelTaskRequest request,
                                                     @AuthenticationPrincipal AuthenticatedUser actor) {
@@ -72,7 +72,7 @@ public class TaskController {
     }
 
     @GetMapping("/api/tasks/my-assignments")
-    @PreAuthorize("hasPermission(null, 'task.receive') or hasPermission(null, 'task.manage')")
+    @PreAuthorize("hasPermission(null, 'task.receive')")
     public ResponseEntity<List<TaskAssignmentResponse>> listMyAssignments(@AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(taskService.listMyAssignments(actor.userId()));
     }
@@ -84,7 +84,7 @@ public class TaskController {
     }
 
     @PutMapping("/api/task-assignments/{id}/status")
-    @PreAuthorize("hasPermission(null, 'task.receive') or hasPermission(null, 'task.assign') or hasPermission(null, 'task.manage')")
+    @PreAuthorize("hasPermission(null, 'task.receive') or hasPermission(null, 'task.assign')")
     public ResponseEntity<TaskAssignmentResponse> updateAssignmentStatus(@PathVariable Long id,
                                                                           @Valid @RequestBody UpdateAssignmentStatusRequest request,
                                                                           @AuthenticationPrincipal AuthenticatedUser actor) {
@@ -93,7 +93,7 @@ public class TaskController {
 
     /** UC-07 A3: người giao việc giao lại phân công đã bị từ chối cho nhân sự khác. */
     @PostMapping("/api/tasks/{id}/reassign")
-    @PreAuthorize("hasPermission(null, 'task.assign') or hasPermission(null, 'task.manage')")
+    @PreAuthorize("hasPermission(null, 'task.assign')")
     public ResponseEntity<TaskAssignmentResponse> reassign(@PathVariable Long id,
                                                             @Valid @RequestBody ReassignTaskRequest request,
                                                             @AuthenticationPrincipal AuthenticatedUser actor) {

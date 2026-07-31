@@ -3,6 +3,8 @@ import { ArrowLeft, Check, FileText } from "lucide-react";
 import { UserRole } from "@/types";
 import { mockEmployees, mockLeaveRequests } from "@/data/mockData";
 import DatePicker from "@/components/ui/DatePicker";
+import Select from "@/components/ui/Select";
+import { useDialog } from "@/components/ui/DialogProvider";
 
 interface PublicLeaveRequestFormProps {
   onClose: () => void;
@@ -15,11 +17,12 @@ export default function PublicLeaveRequestForm({ onClose }: PublicLeaveRequestFo
   const [endDate, setEndDate] = useState("2026-07-16");
   const [reason, setReason] = useState("");
   const [success, setSuccess] = useState(false);
+  const { alertDialog } = useDialog();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!reason.trim()) {
-      alert("Vui lòng điền đầy đủ lý do nghỉ phép.");
+      await alertDialog("Vui lòng điền đầy đủ lý do nghỉ phép.");
       return;
     }
 
@@ -109,7 +112,7 @@ export default function PublicLeaveRequestForm({ onClose }: PublicLeaveRequestFo
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="space-y-1">
             <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500 block">Chọn Cán bộ / Giảng viên nộp đơn</label>
-            <select
+            <Select
               value={empId}
               onChange={(e) => setEmpId(e.target.value)}
               className="w-full bg-slate-50/50 border border-slate-200 text-xs px-4 py-2.5 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#EA580C]"
@@ -119,12 +122,12 @@ export default function PublicLeaveRequestForm({ onClose }: PublicLeaveRequestFo
                   {emp.fullName} ({emp.role === UserRole.TEACHER ? "Giáo viên" : "Hành chính"})
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
 
           <div className="space-y-1">
             <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500 block">Hình thức xin nghỉ</label>
-            <select
+            <Select
               value={leaveType}
               onChange={(e) => setLeaveType(e.target.value as "LEAVE" | "LATE" | "EARLY")}
               className="w-full bg-slate-50/50 border border-slate-200 text-xs px-4 py-2.5 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#EA580C]"
@@ -132,7 +135,7 @@ export default function PublicLeaveRequestForm({ onClose }: PublicLeaveRequestFo
               <option value="LEAVE">Nghỉ phép thường niên (Full-day)</option>
               <option value="LATE">Đi trễ có lý do (Late morning)</option>
               <option value="EARLY">Về sớm cá nhân (Early leave)</option>
-            </select>
+            </Select>
           </div>
 
           <div className="grid grid-cols-2 gap-2">

@@ -10,7 +10,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import vn.com.pps.education.dto.AddExerciseQuestionRequest;
-import vn.com.pps.education.dto.AssignExerciseRequest;
 import vn.com.pps.education.dto.CreateExerciseRequest;
 import vn.com.pps.education.dto.ExerciseAssignmentResponse;
 import vn.com.pps.education.dto.ExerciseQuestionResponse;
@@ -30,7 +29,7 @@ public class ExerciseController {
         this.exerciseService = exerciseService;
     }
 
-    @PreAuthorize("hasPermission(null, 'lms.exercise.manage')")
+    @PreAuthorize("hasPermission(null, 'lms.exercise.create')")
     @PostMapping("/api/exercises")
     public ResponseEntity<ExerciseResponse> createExercise(@Valid @RequestBody CreateExerciseRequest request,
                                                              @AuthenticationPrincipal AuthenticatedUser actor) {
@@ -43,7 +42,7 @@ public class ExerciseController {
         return ResponseEntity.ok(exerciseService.getExercise(id, actor.userId()));
     }
 
-    @PreAuthorize("hasPermission(null, 'lms.exercise.manage')")
+    @PreAuthorize("hasPermission(null, 'lms.exercise.update')")
     @PostMapping("/api/exercises/{id}/questions")
     public ResponseEntity<ExerciseQuestionResponse> addQuestion(@PathVariable Long id,
                                                                   @Valid @RequestBody AddExerciseQuestionRequest request,
@@ -63,17 +62,18 @@ public class ExerciseController {
         return ResponseEntity.ok(exerciseService.listAssignmentsForClass(classId, actor.userId()));
     }
 
-    @PreAuthorize("hasPermission(null, 'lms.exercise.manage')")
+    /** Kho đề — nguồn cho dropdown "BTVN buổi sau" ở Nhận xét học viên: Bài đã Publish, thuộc 1 Đề đã gán cho lớp. */
+    @GetMapping("/api/classes/{classId}/exercises/published")
+    public ResponseEntity<List<ExerciseResponse>> listPublishedForClass(@PathVariable Long classId,
+                                                                          @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(exerciseService.listPublishedForClass(classId, actor.userId()));
+    }
+
+    /** V65 — Publish giờ chỉ đánh dấu đề "đủ điều kiện dùng làm nguồn", không còn giao lớp (xem Javadoc ExerciseService). */
+    @PreAuthorize("hasPermission(null, 'lms.exercise.publish')")
     @PostMapping("/api/exercises/{id}/publish")
     public ResponseEntity<ExerciseResponse> publishExercise(@PathVariable Long id,
                                                               @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(exerciseService.publishExercise(id, actor.userId()));
-    }
-
-    @PostMapping("/api/exercises/{id}/assign")
-    public ResponseEntity<ExerciseAssignmentResponse> assignExercise(@PathVariable Long id,
-                                                                       @Valid @RequestBody AssignExerciseRequest request,
-                                                                       @AuthenticationPrincipal AuthenticatedUser actor) {
-        return ResponseEntity.ok(exerciseService.assignExercise(id, request, actor.userId()));
     }
 }

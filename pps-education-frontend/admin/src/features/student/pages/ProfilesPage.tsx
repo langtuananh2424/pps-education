@@ -3,15 +3,12 @@ import { GraduationCap } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import ImportExcelButton from "@/components/ui/ImportExcelButton";
-import { importStudents, listStudents, StudentResponse } from "../api";
+import { downloadStudentImportTemplate, exportStudentAccounts, importStudents, listStudents, StudentResponse } from "../api";
 import StudentListPanel from "../components/StudentListPanel";
 import StudentDetailPanel from "../components/StudentDetailPanel";
 import StudentFormModal from "../components/StudentFormModal";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
-
-const STUDENT_IMPORT_HEADERS = ["Họ và tên *", "Ngày sinh (dd/MM/yyyy)", "Giới tính (Nam/Nữ/Khác)", "Trường đang học", "Lớp đang học", "Mã lớp PPS *", "Mã học sinh *"];
-const STUDENT_IMPORT_SAMPLE = ["Nguyễn Văn A", "01/01/2015", "Nam", "TH Kim Đồng", "5A", "TA-501", "HS-0001"];
 
 export default function ProfilesPage() {
   const { selectedCampusId } = useApp();
@@ -43,17 +40,18 @@ export default function ProfilesPage() {
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4 flex flex-col sm:flex-row sm:items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Quản lý hồ sơ học sinh (UC-13)</h1>
+          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Quản lý hồ sơ học sinh</h1>
           <p className="text-xs text-slate-500 mt-1">
             Lưu hồ sơ học sinh, liên kết phụ huynh, theo dõi chuyển lớp/điểm trường và trạng thái học tập — khởi tạo kèm tài khoản đăng nhập.
           </p>
         </div>
         <ImportExcelButton
-          title="Nhập học sinh theo lô (UC-35)"
+          title="Nhập học sinh theo lô"
           templateFileName="mau-import-hoc-sinh.xlsx"
-          templateHeaders={STUDENT_IMPORT_HEADERS}
-          templateSampleRow={STUDENT_IMPORT_SAMPLE}
+          fetchTemplate={downloadStudentImportTemplate}
           uploadFn={importStudents}
+          exportAccounts={exportStudentAccounts}
+          accountsExportFileName="tai-khoan-hoc-sinh.xlsx"
           onImported={load}
         />
       </div>

@@ -89,7 +89,7 @@ export default function FeedbackPage() {
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Quản Lý Điểm Trường, Phòng Học & Đối Tác</h1>
-        <p className="text-xs text-slate-500 mt-1">Giải quyết phản hồi kiến nghị từ trường liên kết (UC-38/39).</p>
+        <p className="text-xs text-slate-500 mt-1">Giải quyết phản hồi kiến nghị từ trường liên kết.</p>
       </div>
 
       {error && <div className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-xl">{error}</div>}
@@ -97,7 +97,7 @@ export default function FeedbackPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card padded={false} className="lg:col-span-2 overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-100 bg-slate-50">
-            <span className="text-xs font-bold text-slate-700 font-display">Kênh giải quyết ý kiến phản hồi đối tác (UC-39)</span>
+            <span className="text-xs font-bold text-slate-700 font-display">Kênh giải quyết ý kiến phản hồi đối tác</span>
           </div>
 
           {loading ? (
@@ -211,7 +211,7 @@ export default function FeedbackPage() {
           ) : (
             <div className="h-64 border border-dashed rounded-xl flex flex-col items-center justify-center text-slate-400 text-xs italic gap-1.5 text-center p-4">
               <HelpCircle className="w-6 h-6 text-slate-300 animate-bounce" />
-              <span>Nhấp chọn một Ticket kiến nghị đối tác từ hàng chờ để rà soát và ghi nội dung khắc phục (UC-39).</span>
+              <span>Nhấp chọn một Ticket kiến nghị đối tác từ hàng chờ để rà soát và ghi nội dung khắc phục.</span>
             </div>
           )}
         </Card>

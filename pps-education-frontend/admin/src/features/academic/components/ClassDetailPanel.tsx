@@ -3,7 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { Calendar, FileSpreadsheet, FileText, Save, Search, Sparkles, UserPlus, Users, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
-import { searchUsers, UserListItemResponse } from "@/features/system-admin/api";
+import { UserRole } from "@/types";
+import { UserListItemResponse } from "@/features/system-admin/api";
+import UserSearchCombobox from "@/features/system-admin/components/UserSearchCombobox";
 import { listStudents, StudentResponse } from "@/features/student/api";
 import { RoomResponse, listRoomsBySite } from "@/features/facility/api";
 import {
@@ -18,6 +20,7 @@ import {
   createClassSession,
   enrollStudent,
   getAttendanceSession,
+  listCancelledSessionsPendingMakeup,
   listClassEnrollments,
   listClassSessions,
   listClassTeachers,
@@ -26,18 +29,23 @@ import {
 } from "../api";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
+import Modal from "@/components/ui/Modal";
+import { useDialog } from "@/components/ui/DialogProvider";
 import { classStatusLabels, classStatusVariants } from "./ClassListPanel";
 import BulkGenerateSessionsForm from "./BulkGenerateSessionsForm";
 import ImportScheduleForm from "./ImportScheduleForm";
+import ClassGradeSheetPanel from "./ClassGradeSheetPanel";
+import StudentInfoModal from "./StudentInfoModal";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import DatePicker from "@/components/ui/DatePicker";
+import Select from "@/components/ui/Select";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-xs p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
 
-type Tab = "profile" | "teachers" | "students" | "sessions";
+type Tab = "profile" | "teachers" | "students" | "sessions" | "grades";
 
 interface ClassDetailPanelProps {
   schoolClass: ClassResponse;
@@ -46,8 +54,25 @@ interface ClassDetailPanelProps {
 
 export default function ClassDetailPanel({ schoolClass, onChanged }: ClassDetailPanelProps) {
   const [tab, setTab] = useState<Tab>("profile");
-  const { hasPermission } = useApp();
+  const { hasPermission, currentUser } = useApp();
   const canManage = hasPermission("academic.class.manage");
+  // SITE_MANAGER thấy được tab "Sổ điểm" (đủ quyền quản trị lớp) nhưng KHÔNG được tự nhập/sửa điểm
+  // thay giáo viên ở đây — chỉ xem, khớp đúng hành vi readOnly đã có sẵn ở trang Sổ điểm hệ thống cũ.
+  const isSiteManagerRole = currentUser?.roleCodes?.includes(UserRole.SITE_MANAGER) ?? false;
+  // TEACHER cũng có sẵn academic.class.manage (dùng chung cho các thao tác khác trong tab này) nhưng
+  // KHÔNG được tự xếp/sinh/nhập lịch buổi học (việc này thuộc Trưởng phòng đào tạo/Nhân viên/Quản trị
+  // viên) — ẩn riêng 3 nút ở tab "Buổi học & Điểm danh", không đụng canManage dùng chung cho các tab
+  // khác (đã xác nhận với người dùng 2026-07-30).
+  // Dùng allow-list (role NÀO được thấy) thay vì loại trừ theo "có role TEACHER" — tài khoản test
+  // "superadmin" được gán CẢ 8 role (kể cả TEACHER) để test full quyền, loại trừ theo TEACHER sẽ ẩn
+  // luôn cả tài khoản này dù nó cũng có SYS_ADMIN/HEAD_ACADEMIC (phát hiện qua QA 2026-07-30). Theo DB
+  // role_permissions, academic.class.manage hiện gán cho đúng 3 role: HEAD_ACADEMIC/STAFF/TEACHER —
+  // chỉ 2 role đầu (+ SYS_ADMIN, luôn coi là đủ quyền quản trị) được thấy nút xếp lịch.
+  const canScheduleAdminRole =
+    (currentUser?.roleCodes?.includes(UserRole.HEAD_ACADEMIC) ||
+      currentUser?.roleCodes?.includes(UserRole.STAFF) ||
+      currentUser?.roleCodes?.includes(UserRole.SYS_ADMIN)) ??
+    false;
   const { message: toastMessage, showToast } = useToast();
 
   return (
@@ -70,7 +95,8 @@ export default function ClassDetailPanel({ schoolClass, onChanged }: ClassDetail
               ["profile", "Hồ sơ", FileText],
               ["teachers", "Giáo viên", Users],
               ["students", "Học sinh", Users],
-              ["sessions", "Buổi học & Điểm danh", Calendar]
+              ["sessions", "Buổi học & Điểm danh", Calendar],
+              ["grades", "Sổ điểm", FileSpreadsheet]
             ] as const
           ).map(([key, label, Icon]) => (
             <button
@@ -90,8 +116,26 @@ export default function ClassDetailPanel({ schoolClass, onChanged }: ClassDetail
       <div className="flex-1 p-5 overflow-y-auto max-h-[560px]">
         {tab === "profile" && <ProfileTab schoolClass={schoolClass} onChanged={onChanged} canManage={canManage} showToast={showToast} />}
         {tab === "teachers" && <TeachersTab classId={schoolClass.id} canManage={canManage} showToast={showToast} />}
-        {tab === "students" && <StudentsTab classId={schoolClass.id} siteId={schoolClass.siteId} siteName={schoolClass.siteName} canManage={canManage} showToast={showToast} />}
-        {tab === "sessions" && <SessionsTab classId={schoolClass.id} siteId={schoolClass.siteId} canManage={canManage} showToast={showToast} />}
+        {tab === "students" && (
+          <StudentsTab
+            classId={schoolClass.id}
+            curriculumId={schoolClass.curriculumId}
+            siteId={schoolClass.siteId}
+            siteName={schoolClass.siteName}
+            canManage={canManage}
+            showToast={showToast}
+          />
+        )}
+        {tab === "sessions" && (
+          <SessionsTab
+            classId={schoolClass.id}
+            siteId={schoolClass.siteId}
+            canManage={canManage}
+            canCreateSessions={canManage && canScheduleAdminRole}
+            showToast={showToast}
+          />
+        )}
+        {tab === "grades" && <ClassGradeSheetPanel classId={schoolClass.id} curriculumId={schoolClass.curriculumId} readOnly={isSiteManagerRole} />}
       </div>
 
       <Toast message={toastMessage} />
@@ -168,13 +212,13 @@ function ProfileTab({
         </div>
         <div>
           <label className={labelClass}>Trạng thái *</label>
-          <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as ClassResponse["status"] })} className={inputClass}>
+          <Select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as ClassResponse["status"] })} className={inputClass}>
             {Object.entries(classStatusLabels).map(([value, label]) => (
               <option key={value} value={value}>
                 {label}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
         <div>
           <label className={labelClass}>Sĩ số tối đa *</label>
@@ -297,21 +341,10 @@ function TeachersTab({ classId, canManage, showToast }: { classId: number; canMa
 }
 
 function AssignTeacherForm({ classId, onDone, onCancel }: { classId: number; onDone: () => void; onCancel: () => void }) {
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<UserListItemResponse[]>([]);
   const [selected, setSelected] = useState<UserListItemResponse | null>(null);
   const [teacherRole, setTeacherRole] = useState<AssignTeacherRequest["teacherRole"]>("PRIMARY");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const handleSearch = (q: string) => {
-    setQuery(q);
-    if (!q.trim()) {
-      setResults([]);
-      return;
-    }
-    searchUsers({ keyword: q.trim() }, 0, 8).then((res) => setResults(res.content));
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -334,42 +367,13 @@ function AssignTeacherForm({ classId, onDone, onCancel }: { classId: number; onD
   return (
     <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
-      {selected ? (
-        <div className="flex items-center justify-between bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs font-semibold px-3 py-2 rounded-lg">
-          <span>{selected.fullName} ({selected.username})</span>
-          <button type="button" onClick={() => setSelected(null)} className="text-emerald-600 hover:text-rose-600">
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      ) : (
-        <div className="relative">
-          <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400" />
-          <input value={query} onChange={(e) => handleSearch(e.target.value)} placeholder="Tìm theo họ tên / email / username..." className={`${inputClass} pl-8`} />
-          {results.length > 0 && (
-            <div className="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg divide-y divide-slate-100 max-h-56 overflow-y-auto">
-              {results.map((u) => (
-                <button
-                  key={u.id}
-                  type="button"
-                  onClick={() => {
-                    setSelected(u);
-                    setResults([]);
-                  }}
-                  className="w-full text-left px-3 py-2 hover:bg-slate-50 text-xs"
-                >
-                  {u.fullName} <span className="text-slate-400">({u.username} · {u.email})</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      <UserSearchCombobox value={selected} onChange={setSelected} roleFilter="TEACHER" placeholder="Bấm để xem danh sách hoặc gõ để tìm giáo viên..." />
 
-      <select value={teacherRole} onChange={(e) => setTeacherRole(e.target.value as AssignTeacherRequest["teacherRole"])} className={inputClass}>
+      <Select value={teacherRole} onChange={(e) => setTeacherRole(e.target.value as AssignTeacherRequest["teacherRole"])} className={inputClass}>
         <option value="PRIMARY">Giáo viên chính</option>
         <option value="ASSISTANT">Trợ giảng</option>
         <option value="SUBSTITUTE">Dạy thay</option>
-      </select>
+      </Select>
 
       <div className="flex gap-2">
         <Button type="button" variant="secondary" size="sm" onClick={onCancel}>
@@ -385,12 +389,14 @@ function AssignTeacherForm({ classId, onDone, onCancel }: { classId: number; onD
 
 function StudentsTab({
   classId,
+  curriculumId,
   siteId,
   siteName,
   canManage,
   showToast
 }: {
   classId: number;
+  curriculumId: number;
   siteId: number;
   siteName: string;
   canManage: boolean;
@@ -400,6 +406,8 @@ function StudentsTab({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [enrolling, setEnrolling] = useState(false);
+  const [viewingEnrollment, setViewingEnrollment] = useState<ClassEnrollmentResponse | null>(null);
+  const { promptDialog, confirmDialog } = useDialog();
 
   const load = () => {
     setLoading(true);
@@ -411,8 +419,8 @@ function StudentsTab({
   useEffect(load, [classId]);
 
   const handleWithdraw = async (enrollmentId: number) => {
-    const reason = window.prompt("Lý do rút lớp (không bắt buộc):") ?? "";
-    if (!window.confirm("Xác nhận rút học sinh khỏi lớp này?")) return;
+    const reason = (await promptDialog("Lý do rút lớp (không bắt buộc):")) ?? "";
+    if (!(await confirmDialog("Xác nhận rút học sinh khỏi lớp này?"))) return;
     try {
       await withdrawEnrollment(classId, enrollmentId, { withdrawnDate: new Date().toISOString().slice(0, 10), reason: reason.trim() || undefined });
       load();
@@ -426,7 +434,7 @@ function StudentsTab({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <span className="text-[10px] font-bold uppercase text-slate-500">Học sinh đã ghi danh ({enrollments.length})</span>
-        {canManage && !enrolling && (
+        {canManage && (
           <Button size="sm" variant="secondary" onClick={() => setEnrolling(true)}>
             <UserPlus className="w-3.5 h-3.5" />
             Ghi danh học sinh
@@ -445,7 +453,13 @@ function StudentsTab({
           {enrollments.map((en) => (
             <div key={en.id} className="border border-slate-200 rounded-lg p-3 text-xs flex items-center justify-between">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-bold text-slate-800">{en.studentFullName}</span>
+                <button
+                  type="button"
+                  onClick={() => setViewingEnrollment(en)}
+                  className="font-bold text-slate-800 hover:text-brand-red hover:underline"
+                >
+                  {en.studentFullName}
+                </button>
                 <span className="font-mono text-slate-400">{en.studentCode}</span>
                 <Badge variant={en.status === "ACTIVE" ? "success" : "neutral"}>{en.status}</Badge>
               </div>
@@ -459,7 +473,7 @@ function StudentsTab({
         </div>
       )}
 
-      {enrolling && (
+      <Modal open={enrolling} onClose={() => setEnrolling(false)} title="Ghi danh học sinh" size="lg">
         <EnrollStudentForm
           classId={classId}
           siteId={siteId}
@@ -471,6 +485,15 @@ function StudentsTab({
             showToast("Đã ghi danh học sinh thành công!");
           }}
           onCancel={() => setEnrolling(false)}
+        />
+      </Modal>
+
+      {viewingEnrollment && (
+        <StudentInfoModal
+          enrollment={viewingEnrollment}
+          classId={classId}
+          curriculumId={curriculumId}
+          onClose={() => setViewingEnrollment(null)}
         />
       )}
     </div>
@@ -622,6 +645,8 @@ export const sessionStatusVariants: Record<string, "success" | "warning" | "dang
   RESCHEDULED: "warning"
 };
 
+const teacherTypeLabels: Record<string, string> = { VIETNAMESE: "GV Việt Nam", FOREIGN: "GV nước ngoài" };
+
 const attendanceStatusLabels: Record<string, string> = { DRAFT: "Đã lưu nháp", SUBMITTED: "Đã nộp", LOCKED: "Đã khóa" };
 const attendanceStatusVariants: Record<string, "success" | "warning" | "danger" | "info" | "neutral" | "brand"> = {
   DRAFT: "warning",
@@ -643,15 +668,18 @@ function SessionsTab({
   classId,
   siteId,
   canManage,
+  canCreateSessions,
   showToast
 }: {
   classId: number;
   siteId: number;
   canManage: boolean;
+  canCreateSessions: boolean;
   showToast: (msg: string) => void;
 }) {
   const navigate = useNavigate();
   const { hasPermission } = useApp();
+  const { promptDialog } = useDialog();
   const hasAttendanceOverride = hasPermission("academic.attendance.create") || hasPermission("academic.attendance.update");
   const [sessions, setSessions] = useState<ClassSessionResponse[]>([]);
   const [attendanceStatusBySession, setAttendanceStatusBySession] = useState<Record<number, string>>({});
@@ -677,8 +705,8 @@ function SessionsTab({
   useEffect(load, [classId]);
 
   const handleCancel = async (sessionId: number) => {
-    const reason = window.prompt("Lý do hủy buổi học:") ?? "";
-    if (!reason.trim()) return;
+    const reason = await promptDialog("Lý do hủy buổi học:", { required: true });
+    if (!reason?.trim()) return;
     try {
       await cancelClassSession(classId, sessionId, reason.trim());
       load();
@@ -692,7 +720,7 @@ function SessionsTab({
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <span className="text-[10px] font-bold uppercase text-slate-500">Buổi học ({sessions.length})</span>
-        {canManage && !creating && (
+        {canCreateSessions && (
           <div className="flex items-center gap-1.5">
             <Button size="sm" variant="secondary" onClick={() => setCreating("single")}>
               <UserPlus className="w-3.5 h-3.5" />
@@ -722,6 +750,7 @@ function SessionsTab({
             <div key={s.id} className="border border-slate-200 rounded-lg p-3 text-xs space-y-1.5">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-slate-400 font-mono">Buổi {s.sessionNumber}</span>
                   <span className="font-bold text-slate-800">{s.sessionDate}</span>
                   <span className="text-slate-500">{s.startTime}–{s.endTime}</span>
                   <Badge variant={sessionStatusVariants[s.status] ?? "neutral"}>{s.status}</Badge>
@@ -754,14 +783,26 @@ function SessionsTab({
                   )}
                 </div>
               </div>
-              <p className="text-slate-400">GV: {s.primaryTeacherName} · Phòng: {s.roomName ?? "Chưa gán"} · {s.sessionType}</p>
+              <p className="text-slate-400">
+                GV: {s.primaryTeacherName}
+                {s.teacherType && ` (${teacherTypeLabels[s.teacherType]})`} · Phòng: {s.roomName ?? "Chưa gán"} · {s.sessionType}
+              </p>
               {s.status === "CANCELLED" && s.cancellationReason && <p className="text-rose-500">Lý do hủy: {s.cancellationReason}</p>}
+              {s.makeupForSessionId != null &&
+                (() => {
+                  const target = sessions.find((x) => x.id === s.makeupForSessionId);
+                  return (
+                    <p className="text-amber-600">
+                      Bù cho Buổi {target?.sessionNumber ?? "?"}{target ? ` (${target.sessionDate})` : ` (id=${s.makeupForSessionId})`}
+                    </p>
+                  );
+                })()}
             </div>
           ))}
         </div>
       )}
 
-      {creating === "single" && (
+      <Modal open={creating === "single"} onClose={() => setCreating(null)} title="Xếp buổi học mới" size="lg">
         <CreateSessionForm
           classId={classId}
           siteId={siteId}
@@ -772,8 +813,8 @@ function SessionsTab({
           }}
           onCancel={() => setCreating(null)}
         />
-      )}
-      {creating === "bulk" && (
+      </Modal>
+      <Modal open={creating === "bulk"} onClose={() => setCreating(null)} title="Sinh lịch hàng loạt" size="lg">
         <BulkGenerateSessionsForm
           classId={classId}
           siteId={siteId}
@@ -784,8 +825,8 @@ function SessionsTab({
           }}
           onCancel={() => setCreating(null)}
         />
-      )}
-      {creating === "excel" && (
+      </Modal>
+      <Modal open={creating === "excel"} onClose={() => setCreating(null)} title="Nhập lịch từ Excel">
         <ImportScheduleForm
           classId={classId}
           onDone={() => {
@@ -795,18 +836,18 @@ function SessionsTab({
           }}
           onCancel={() => setCreating(null)}
         />
-      )}
+      </Modal>
     </div>
   );
 }
 
 function CreateSessionForm({ classId, siteId, onDone, onCancel }: { classId: number; siteId: number; onDone: () => void; onCancel: () => void }) {
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<UserListItemResponse[]>([]);
   const [teacher, setTeacher] = useState<UserListItemResponse | null>(null);
   const [rooms, setRooms] = useState<RoomResponse[]>([]);
   const [roomId, setRoomId] = useState("");
-  const [form, setForm] = useState({ sessionDate: "", startTime: "", endTime: "", sessionType: "REGULAR" });
+  const [form, setForm] = useState({ sessionDate: "", startTime: "", endTime: "", sessionType: "REGULAR", teacherType: "" });
+  const [makeupForSessionId, setMakeupForSessionId] = useState("");
+  const [cancelledPendingMakeup, setCancelledPendingMakeup] = useState<ClassSessionResponse[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -814,19 +855,27 @@ function CreateSessionForm({ classId, siteId, onDone, onCancel }: { classId: num
     listRoomsBySite(siteId).then(setRooms).catch(() => undefined);
   }, [siteId]);
 
-  const handleSearch = (q: string) => {
-    setQuery(q);
-    if (!q.trim()) {
-      setResults([]);
+  // V61 (2026-07-29): tạo buổi MAKEUP bắt buộc chỉ định buổi CANCELLED nó bù cho — chỉ tải danh sách
+  // khi thực sự cần (chọn "Học bù"), tránh gọi API thừa cho các loại buổi khác.
+  useEffect(() => {
+    setMakeupForSessionId("");
+    if (form.sessionType !== "MAKEUP") {
+      setCancelledPendingMakeup([]);
       return;
     }
-    searchUsers({ keyword: q.trim() }, 0, 8).then((res) => setResults(res.content));
-  };
+    listCancelledSessionsPendingMakeup(classId)
+      .then(setCancelledPendingMakeup)
+      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách buổi đã hủy."));
+  }, [form.sessionType, classId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!teacher || !form.sessionDate || !form.startTime || !form.endTime) {
       setError("Vui lòng điền đủ ngày/giờ và chọn giáo viên phụ trách.");
+      return;
+    }
+    if (form.sessionType === "MAKEUP" && !makeupForSessionId) {
+      setError("Buổi Học bù bắt buộc chọn buổi đã hủy mà nó bù cho.");
       return;
     }
     setSubmitting(true);
@@ -838,7 +887,9 @@ function CreateSessionForm({ classId, siteId, onDone, onCancel }: { classId: num
         endTime: form.endTime,
         roomId: roomId ? Number(roomId) : undefined,
         primaryTeacherId: teacher.id,
-        sessionType: form.sessionType
+        sessionType: form.sessionType,
+        teacherType: form.teacherType ? (form.teacherType as "VIETNAMESE" | "FOREIGN") : undefined,
+        makeupForSessionId: form.sessionType === "MAKEUP" ? Number(makeupForSessionId) : undefined
       };
       await createClassSession(classId, request);
       onDone();
@@ -868,61 +919,57 @@ function CreateSessionForm({ classId, siteId, onDone, onCancel }: { classId: num
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-3 gap-2">
         <div>
           <label className={labelClass}>Loại buổi học</label>
-          <select value={form.sessionType} onChange={(e) => setForm({ ...form, sessionType: e.target.value })} className={inputClass}>
+          <Select value={form.sessionType} onChange={(e) => setForm({ ...form, sessionType: e.target.value })} className={inputClass}>
             <option value="REGULAR">Buổi học thường</option>
             <option value="REVIEW">Ôn tập</option>
             <option value="EXAM">Kiểm tra</option>
             <option value="MAKEUP">Học bù</option>
-          </select>
+          </Select>
+        </div>
+        <div>
+          <label className={labelClass}>Loại giáo viên</label>
+          <Select value={form.teacherType} onChange={(e) => setForm({ ...form, teacherType: e.target.value })} className={inputClass}>
+            <option value="">-- Chưa xác định --</option>
+            <option value="VIETNAMESE">GV Việt Nam</option>
+            <option value="FOREIGN">GV nước ngoài</option>
+          </Select>
         </div>
         <div>
           <label className={labelClass}>Phòng học</label>
-          <select value={roomId} onChange={(e) => setRoomId(e.target.value)} className={inputClass}>
+          <Select value={roomId} onChange={(e) => setRoomId(e.target.value)} className={inputClass}>
             <option value="">-- Không gán --</option>
             {rooms.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.code} — {r.name}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
       </div>
 
+      {form.sessionType === "MAKEUP" && (
+        <div>
+          <label className={labelClass}>Bù cho buổi đã hủy nào? *</label>
+          <Select value={makeupForSessionId} onChange={(e) => setMakeupForSessionId(e.target.value)} className={inputClass}>
+            <option value="">-- Chọn buổi đã hủy --</option>
+            {cancelledPendingMakeup.map((s) => (
+              <option key={s.id} value={s.id}>
+                Buổi {s.sessionNumber} — {s.sessionDate} ({s.startTime}–{s.endTime})
+              </option>
+            ))}
+          </Select>
+          {cancelledPendingMakeup.length === 0 && (
+            <p className="text-[10px] text-slate-400 italic mt-1">Lớp này chưa có buổi nào bị hủy mà chưa có buổi bù.</p>
+          )}
+        </div>
+      )}
+
       <div>
         <label className={labelClass}>Giáo viên phụ trách buổi này</label>
-        {teacher ? (
-          <div className="flex items-center justify-between bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs font-semibold px-3 py-2 rounded-lg">
-            <span>{teacher.fullName} ({teacher.username})</span>
-            <button type="button" onClick={() => setTeacher(null)} className="text-emerald-600 hover:text-rose-600">
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        ) : (
-          <div className="relative">
-            <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400" />
-            <input value={query} onChange={(e) => handleSearch(e.target.value)} placeholder="Tìm theo họ tên / email / username..." className={`${inputClass} pl-8`} />
-            {results.length > 0 && (
-              <div className="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg divide-y divide-slate-100 max-h-56 overflow-y-auto">
-                {results.map((u) => (
-                  <button
-                    key={u.id}
-                    type="button"
-                    onClick={() => {
-                      setTeacher(u);
-                      setResults([]);
-                    }}
-                    className="w-full text-left px-3 py-2 hover:bg-slate-50 text-xs"
-                  >
-                    {u.fullName} <span className="text-slate-400">({u.username} · {u.email})</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+        <UserSearchCombobox value={teacher} onChange={setTeacher} roleFilter="TEACHER" placeholder="Bấm để xem danh sách hoặc gõ để tìm giáo viên..." />
       </div>
 
       <div className="flex gap-2">

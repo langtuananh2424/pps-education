@@ -11,10 +11,15 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+import vn.com.pps.education.common.ExcelHttpResponses;
+import vn.com.pps.education.dto.ClassSessionLessonContentResponse;
 import vn.com.pps.education.dto.CreateStudentCommentRequest;
+import vn.com.pps.education.dto.DailyCommentImportResponse;
 import vn.com.pps.education.dto.DecideCommentsRequest;
 import vn.com.pps.education.dto.StudentCommentResponse;
 import vn.com.pps.education.dto.SubmitCommentsRequest;
+import vn.com.pps.education.dto.UpdateLessonContentRequest;
 import vn.com.pps.education.dto.UpdateStudentCommentRequest;
 import vn.com.pps.education.security.AuthenticatedUser;
 import vn.com.pps.education.service.StudentCommentService;
@@ -75,5 +80,32 @@ public class StudentCommentController {
     public ResponseEntity<List<StudentCommentResponse>> decideComments(@Valid @RequestBody DecideCommentsRequest request,
                                                                          @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(studentCommentService.decideComments(request, actor.userId()));
+    }
+
+    // ---- Nhận xét Hàng ngày kiểu mới — Excel round-trip (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-24) ----
+
+    /** "Bài học hôm nay" (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-29 — chuyển từ Điểm danh sang Nhận xét). */
+    @PreAuthorize("hasPermission(null, 'academic.comment.write') or hasPermission(null, 'academic.comment.approve')")
+    @PutMapping("/api/class-sessions/{classSessionId}/comments/lesson-content")
+    public ResponseEntity<ClassSessionLessonContentResponse> updateLessonContent(@PathVariable Long classSessionId,
+                                                                                  @Valid @RequestBody UpdateLessonContentRequest request,
+                                                                                  @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(studentCommentService.updateLessonContent(classSessionId, request.lessonContent(), actor.userId()));
+    }
+
+    @PreAuthorize("hasPermission(null, 'academic.comment.write') or hasPermission(null, 'academic.comment.approve')")
+    @GetMapping("/api/class-sessions/{classSessionId}/comments/template")
+    public ResponseEntity<byte[]> downloadTemplate(@PathVariable Long classSessionId,
+                                                    @AuthenticationPrincipal AuthenticatedUser actor) {
+        byte[] content = studentCommentService.buildTemplate(classSessionId, actor.userId());
+        return ExcelHttpResponses.attachment(content, "mau-nhan-xet-buoi-" + classSessionId + ".xlsx");
+    }
+
+    @PreAuthorize("hasPermission(null, 'academic.comment.write') or hasPermission(null, 'academic.comment.approve')")
+    @PostMapping(value = "/api/class-sessions/{classSessionId}/comments/import", consumes = "multipart/form-data")
+    public ResponseEntity<DailyCommentImportResponse> importComments(@PathVariable Long classSessionId,
+                                                                       @RequestParam("file") MultipartFile file,
+                                                                       @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(studentCommentService.importComments(classSessionId, file, actor.userId()));
     }
 }

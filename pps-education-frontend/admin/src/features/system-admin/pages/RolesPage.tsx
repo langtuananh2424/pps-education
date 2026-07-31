@@ -8,10 +8,16 @@ import RoleDetailPanel, { RoleDetailTab } from "../components/RoleDetailPanel";
 import CreateRolePanel from "../components/CreateRolePanel";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
+import Modal from "@/components/ui/Modal";
+import { useDialog } from "@/components/ui/DialogProvider";
 
 export default function RolesPage() {
   const { hasPermission } = useApp();
-  const canManageMembers = hasPermission("user.role.manage");
+  // user.role.manage đã bị tách nhỏ thành user.role.assign/revoke/view (hạt nhân hóa) — mã gộp cũ
+  // không còn tồn tại trong bảng permissions, gate theo mã đó khiến nút "Gán thành viên"/"Gỡ bỏ"
+  // không bao giờ hiện với bất kỳ ai (xem UserRoleController: 2 endpoint dùng 2 mã khác nhau).
+  const canAssignMembers = hasPermission("user.role.assign");
+  const canRevokeMembers = hasPermission("user.role.revoke");
 
   const [roles, setRoles] = useState<RoleResponse[]>([]);
   const [loading, setLoading] = useState(false);
@@ -21,6 +27,7 @@ export default function RolesPage() {
   const [roleSearchQuery, setRoleSearchQuery] = useState("");
   const [creatingNew, setCreatingNew] = useState(false);
   const { message: toastMessage, showToast } = useToast();
+  const { confirmDialog, alertDialog } = useDialog();
 
   const loadRoles = (selectId?: number) => {
     setLoading(true);
@@ -44,14 +51,14 @@ export default function RolesPage() {
 
   const handleDeleteRole = async () => {
     if (!activeRole) return;
-    if (!window.confirm(`Bạn có chắc chắn muốn xóa vai trò "${activeRole.name}"?`)) return;
+    if (!(await confirmDialog(`Bạn có chắc chắn muốn xóa vai trò "${activeRole.name}"?`, { danger: true }))) return;
     try {
       await deleteRole(activeRole.id);
       setSelectedRoleId(null);
       loadRoles();
       showToast("Đã xoá vai trò thành công!");
     } catch (err) {
-      alert(err instanceof ApiError ? err.message : "Xóa vai trò thất bại.");
+      await alertDialog(err instanceof ApiError ? err.message : "Xóa vai trò thất bại.");
     }
   };
 
@@ -61,9 +68,9 @@ export default function RolesPage() {
         <div>
           <h1 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
             <Shield className="w-6 h-6 text-brand-red" />
-            <span>Nhóm vai trò (UC-03)</span>
+            <span>Nhóm vai trò</span>
           </h1>
-          <p className="text-xs text-slate-500 mt-1">Cấu hình ma trận quyền theo vai trò và gán/thu hồi vai trò cho tài khoản (UC-46).</p>
+          <p className="text-xs text-slate-500 mt-1">Cấu hình ma trận quyền theo vai trò và gán/thu hồi vai trò cho tài khoản.</p>
         </div>
       </div>
 
@@ -79,28 +86,17 @@ export default function RolesPage() {
             setCreatingNew(false);
             setRightActiveTab("permissions");
           }}
-          onAddNew={() => {
-            setCreatingNew(true);
-            setSelectedRoleId(null);
-          }}
+          onAddNew={() => setCreatingNew(true)}
           searchQuery={roleSearchQuery}
           onSearchChange={setRoleSearchQuery}
         />
 
         <div className="flex-1 flex flex-col bg-white">
-          {creatingNew ? (
-            <CreateRolePanel
-              onCancel={() => setCreatingNew(false)}
-              onCreated={(id) => {
-                setCreatingNew(false);
-                loadRoles(id);
-                showToast("Đã tạo vai trò mới thành công!");
-              }}
-            />
-          ) : activeRole ? (
+          {activeRole ? (
             <RoleDetailPanel
               role={activeRole}
-              canManageMembers={canManageMembers}
+              canAssignMembers={canAssignMembers}
+              canRevokeMembers={canRevokeMembers}
               onDelete={handleDeleteRole}
               rightActiveTab={rightActiveTab}
               onTabChange={setRightActiveTab}
@@ -118,6 +114,17 @@ export default function RolesPage() {
           )}
         </div>
       </div>
+
+      <Modal open={creatingNew} onClose={() => setCreatingNew(false)} title="Tạo vai trò tùy chỉnh mới" size="lg">
+        <CreateRolePanel
+          onCancel={() => setCreatingNew(false)}
+          onCreated={(id) => {
+            setCreatingNew(false);
+            loadRoles(id);
+            showToast("Đã tạo vai trò mới thành công!");
+          }}
+        />
+      </Modal>
 
       <Toast message={toastMessage} />
     </div>

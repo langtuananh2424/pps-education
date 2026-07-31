@@ -4,9 +4,14 @@ import { ApiError } from "@/lib/apiClient";
 import { getParentById, linkParent, listStudents, ParentResponse, StudentResponse, unlinkParent, updateParent } from "../api";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
+import Modal from "@/components/ui/Modal";
 import type { ParentAggregate } from "../pages/ParentsPage";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
+import { useDialog } from "@/components/ui/DialogProvider";
+import AvatarUploadField from "@/components/ui/AvatarUploadField";
+import { uploadMedia } from "@/features/lms/api";
+import Select from "@/components/ui/Select";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
@@ -41,7 +46,7 @@ function ProfileSection({ parentId, showToast }: { parentId: number; showToast: 
   const [profile, setProfile] = useState<ParentResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ occupation: "", workplace: "", address: "", notes: "" });
+  const [form, setForm] = useState({ occupation: "", workplace: "", address: "", notes: "", portraitUrl: "" });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -59,7 +64,8 @@ function ProfileSection({ parentId, showToast }: { parentId: number; showToast: 
       occupation: profile?.occupation ?? "",
       workplace: profile?.workplace ?? "",
       address: profile?.address ?? "",
-      notes: profile?.notes ?? ""
+      notes: profile?.notes ?? "",
+      portraitUrl: profile?.portraitUrl ?? ""
     });
     setEditing(true);
   };
@@ -73,7 +79,8 @@ function ProfileSection({ parentId, showToast }: { parentId: number; showToast: 
         occupation: form.occupation.trim() || undefined,
         workplace: form.workplace.trim() || undefined,
         address: form.address.trim() || undefined,
-        notes: form.notes.trim() || undefined
+        notes: form.notes.trim() || undefined,
+        portraitUrl: form.portraitUrl || undefined
       });
       setProfile(updated);
       setEditing(false);
@@ -99,6 +106,9 @@ function ProfileSection({ parentId, showToast }: { parentId: number; showToast: 
           </Button>
         </div>
         {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        {profile?.portraitUrl && (
+          <img src={profile.portraitUrl} alt="" className="w-16 h-16 rounded-full object-cover border-2 border-white shadow-soft" />
+        )}
         <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-lg p-3">
           <span>Nghề nghiệp: <strong>{profile?.occupation || "—"}</strong></span>
           <span>Nơi làm việc: <strong>{profile?.workplace || "—"}</strong></span>
@@ -113,6 +123,12 @@ function ProfileSection({ parentId, showToast }: { parentId: number; showToast: 
     <form onSubmit={handleSubmit} className="space-y-3">
       <span className="text-[10px] font-bold uppercase text-slate-500">Sửa thông tin phụ huynh</span>
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
+      <AvatarUploadField
+        value={form.portraitUrl}
+        onChange={(url) => setForm({ ...form, portraitUrl: url })}
+        onUpload={(file) => uploadMedia(file, "PARENT")}
+        fallbackName={profile?.fullName ?? "Phụ huynh"}
+      />
       <div className="grid grid-cols-2 gap-3">
         <input value={form.occupation} onChange={(e) => setForm({ ...form, occupation: e.target.value })} placeholder="Nghề nghiệp" className={inputClass} />
         <input value={form.workplace} onChange={(e) => setForm({ ...form, workplace: e.target.value })} placeholder="Nơi làm việc" className={inputClass} />
@@ -150,6 +166,7 @@ function ChildrenSection({
   const [isFinancialResponsible, setIsFinancialResponsible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { confirmDialog } = useDialog();
 
   const handleSearch = (q: string) => {
     setQuery(q);
@@ -188,7 +205,7 @@ function ChildrenSection({
   };
 
   const handleUnlink = async (studentId: number, parentStudentId: number) => {
-    if (!window.confirm("Gỡ liên kết học sinh này khỏi phụ huynh?")) return;
+    if (!(await confirmDialog("Gỡ liên kết học sinh này khỏi phụ huynh?", { danger: true }))) return;
     try {
       await unlinkParent(studentId, parentStudentId);
       onChanged();
@@ -202,12 +219,10 @@ function ChildrenSection({
     <div className="space-y-3 border-t border-slate-100 pt-4">
       <div className="flex items-center justify-between">
         <span className="text-[10px] font-bold uppercase text-slate-500">Con em đã liên kết ({parent.children.length})</span>
-        {!linking && (
-          <Button size="sm" variant="secondary" onClick={() => setLinking(true)}>
-            <UserPlus className="w-3.5 h-3.5" />
-            Liên kết học sinh
-          </Button>
-        )}
+        <Button size="sm" variant="secondary" onClick={() => setLinking(true)}>
+          <UserPlus className="w-3.5 h-3.5" />
+          Liên kết học sinh
+        </Button>
       </div>
 
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
@@ -233,7 +248,7 @@ function ChildrenSection({
         </div>
       )}
 
-      {linking && (
+      <Modal open={linking} onClose={() => setLinking(false)} title="Liên kết học sinh">
         <form onSubmit={handleLink} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
           {selectedStudent ? (
             <div className="flex items-center justify-between bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs font-semibold px-3 py-2 rounded-lg">
@@ -267,12 +282,12 @@ function ChildrenSection({
           )}
 
           <div className="grid grid-cols-3 gap-2 items-end">
-            <select value={relationship} onChange={(e) => setRelationship(e.target.value)} className={inputClass}>
+            <Select value={relationship} onChange={(e) => setRelationship(e.target.value)} className={inputClass}>
               <option value="FATHER">Bố</option>
               <option value="MOTHER">Mẹ</option>
               <option value="GUARDIAN">Người giám hộ</option>
               <option value="OTHER">Khác</option>
-            </select>
+            </Select>
             <label className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 pb-2.5">
               <input type="checkbox" checked={isPrimaryContact} onChange={(e) => setIsPrimaryContact(e.target.checked)} />
               Liên hệ chính
@@ -292,7 +307,7 @@ function ChildrenSection({
             </Button>
           </div>
         </form>
-      )}
+      </Modal>
     </div>
   );
 }

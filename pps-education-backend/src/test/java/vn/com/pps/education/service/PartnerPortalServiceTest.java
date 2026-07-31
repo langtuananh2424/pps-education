@@ -173,7 +173,7 @@ class PartnerPortalServiceTest extends AbstractIntegrationTest {
     @Test
     void getAttendanceSummary_UC29_MainFlow_computesAttendanceRate() {
         ClassSessionResponse session = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(LocalDate.now(), LocalTime.of(8, 0), LocalTime.of(9, 40), null, teacher.getId(), "REGULAR"),
+                new CreateClassSessionRequest(LocalDate.now(), LocalTime.of(8, 0), LocalTime.of(9, 40), null, teacher.getId(), "REGULAR", null, null),
                 headAcademic.getId());
         studentAttendanceService.markAttendance(session.id(),
                 new MarkAttendanceRequest("SESSION_LEVEL", List.of(
@@ -238,7 +238,7 @@ class PartnerPortalServiceTest extends AbstractIntegrationTest {
                 new CreateGradePeriodRequest("MID_1", "Giữa kỳ 1", 1, new BigDecimal("50"), null, null), headAcademic.getId());
         StudentCommentResponse approvedComment = studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), "MID_TERM", null, period.id(),
-                        LocalDate.now(), "Chăm chỉ, tiến bộ rõ rệt.", null, "POSITIVE", false),
+                        LocalDate.now(), "Chăm chỉ, tiến bộ rõ rệt.", null, "POSITIVE", false, null, null, null, null, null, null, null),
                 teacher.getId());
         studentCommentService.submitComments(schoolClass.id(), new SubmitCommentsRequest(List.of(approvedComment.id())), teacher.getId());
         studentCommentService.decideComments(
@@ -247,7 +247,7 @@ class PartnerPortalServiceTest extends AbstractIntegrationTest {
         // Nhan xet con DRAFT (chua submit/duyet) -- khong duoc hien thi cho Doi tac.
         studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), "MID_TERM", null, period.id(),
-                        LocalDate.now(), "Nhận xét nháp chưa gửi duyệt.", null, "NORMAL", false),
+                        LocalDate.now(), "Nhận xét nháp chưa gửi duyệt.", null, "NORMAL", false, null, null, null, null, null, null, null),
                 teacher.getId());
 
         List<StudentCommentResponse> comments = partnerPortalService.getApprovedComments(partnerRepUser.getId());

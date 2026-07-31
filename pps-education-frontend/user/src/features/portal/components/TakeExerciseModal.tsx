@@ -37,6 +37,9 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Thay window.confirm() bằng popup nội tuyến khớp giao diện app — không có Modal dùng chung ở
+  // app này (chỉ 1 chỗ dùng), nên làm bước xác nhận ngay trong modal đang mở thay vì Modal lồng Modal.
+  const [confirmingSubmit, setConfirmingSubmit] = useState(false);
 
   const readOnly = attempt != null && attempt.status !== "IN_PROGRESS";
 
@@ -103,7 +106,6 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
 
   const handleSubmit = async () => {
     if (!attempt) return;
-    if (!window.confirm("Nộp bài ngay? Sau khi nộp sẽ không sửa được câu trả lời nữa.")) return;
     setSubmitting(true);
     setError(null);
     try {
@@ -163,10 +165,34 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
           )}
         </div>
 
-        {!readOnly && (
+        {!readOnly && confirmingSubmit && (
+          <div className="px-4 py-3 border-t border-line/60 bg-amber-50 flex flex-wrap items-center justify-between gap-2 shrink-0">
+            <span className="text-xs font-bold text-amber-800">Nộp bài ngay? Sau khi nộp sẽ không sửa được câu trả lời nữa.</span>
+            <div className="flex gap-2 shrink-0">
+              <button
+                onClick={() => setConfirmingSubmit(false)}
+                className="text-xs font-extrabold text-slate-600 bg-white border border-slate-200 px-4 py-2 rounded-xl"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={() => {
+                  setConfirmingSubmit(false);
+                  handleSubmit();
+                }}
+                disabled={submitting}
+                className="text-xs font-extrabold text-white bg-teal px-4 py-2 rounded-xl disabled:opacity-50"
+              >
+                {submitting ? "Đang nộp..." : "Xác nhận nộp"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {!readOnly && !confirmingSubmit && (
           <div className="p-4 border-t border-line/60 flex justify-end shrink-0">
             <button
-              onClick={handleSubmit}
+              onClick={() => setConfirmingSubmit(true)}
               disabled={submitting || loading}
               className="text-xs font-extrabold text-white bg-teal px-5 py-2.5 rounded-xl disabled:opacity-50"
             >
@@ -199,10 +225,18 @@ function QuestionBlock({
   onChoiceToggle: (choiceIds: number[]) => void;
 }) {
   const isChoiceQuestion = CHOICE_TYPES.has(question.questionType) && question.choices.length > 0;
+  const isFillInBlank = question.questionType === "FILL_IN_BLANK";
   const isMultiSelect = question.questionType === "MULTIPLE_ANSWER";
   const selected = new Set(answer?.selectedChoiceIds ?? []);
   const correctIds = new Set(answer?.correctChoiceIds ?? []);
-  const showFeedback = answer?.correctChoiceIds != null;
+  /**
+   * "Đã nộp bài + showCorrectAnswers=true" — BE chỉ điền 1 trong các field này khi điều kiện đó
+   * đúng (xem Javadoc StudentAnswerResponse), nên chỉ cần kiểm tra correctChoiceIds cho câu trắc
+   * nghiệm là KHÔNG đủ: câu Điền từ không có choices (correctChoiceIds luôn null) nên trước đây
+   * không bao giờ hiện đáp án/giải thích dù đã tự chấm xong — sửa lại dùng chung 1 điều kiện cho
+   * mọi loại câu hỏi.
+   */
+  const showFeedback = answer != null && (answer.correctChoiceIds != null || answer.correctAnswerText != null || answer.isCorrect != null || answer.explanation != null);
 
   const toggleChoice = (choiceId: number) => {
     if (readOnly || saving) return;
@@ -258,15 +292,23 @@ function QuestionBlock({
       ) : question.questionType === "SPEAKING" ? (
         <p className="text-xs text-muted font-bold italic">Câu hỏi dạng Nói chưa hỗ trợ ghi âm trực tiếp trên Portal — giáo viên sẽ chấm theo cách khác.</p>
       ) : (
-        <textarea
-          value={textValue ?? answer?.answerText ?? ""}
-          onChange={(e) => onTextChange(e.target.value)}
-          onBlur={onTextBlur}
-          disabled={readOnly || saving}
-          rows={3}
-          placeholder="Nhập câu trả lời..."
-          className="w-full bg-sky-2 border border-line/70 text-xs p-3 rounded-xl focus:outline-none disabled:opacity-70"
-        />
+        <div className="space-y-2">
+          <textarea
+            value={textValue ?? answer?.answerText ?? ""}
+            onChange={(e) => onTextChange(e.target.value)}
+            onBlur={onTextBlur}
+            disabled={readOnly || saving}
+            rows={isFillInBlank ? 1 : 3}
+            placeholder="Nhập câu trả lời..."
+            className="w-full bg-sky-2 border border-line/70 text-xs p-3 rounded-xl focus:outline-none disabled:opacity-70"
+          />
+          {isFillInBlank && showFeedback && (
+            <div className={`flex items-center gap-1.5 text-xs font-bold ${answer?.isCorrect ? "text-teal-deep" : "text-coral"}`}>
+              {answer?.isCorrect ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
+              {answer?.isCorrect ? "Chính xác" : `Đáp án đúng: ${answer?.correctAnswerText ?? "—"}`}
+            </div>
+          )}
+        </div>
       )}
 
       {answer?.explanation && showFeedback && <p className="text-[11px] text-muted font-bold italic border-t border-line/50 pt-2">Giải thích: {answer.explanation}</p>}

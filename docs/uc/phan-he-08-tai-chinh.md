@@ -106,8 +106,8 @@ UC-31: Ghi nhận chi vận hành
 | hoạt**          | thống.                                             |
 +-----------------+----------------------------------------------------+
 | **Điều kiện     | -   Người dùng có role STAFF thuộc bộ phận Kế      |
-| tiên quyết      |     toán, có quyền finance.manage.                 |
-| (               |                                                    |
+| tiên quyết      |     toán, có quyền finance.expense.create (V51,    |
+| (               |     tách từ finance.manage).                       |
 | Precondition)** |                                                    |
 +-----------------+----------------------------------------------------+
 | **Luồng sự kiện | 1.  Kế toán mở màn hình Quản lý chi vận hành, chọn |

@@ -11,6 +11,8 @@ import vn.com.pps.education.domain.Site;
 import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.domain.UserRole;
+import vn.com.pps.education.dto.AddExerciseQuestionRequest;
+import vn.com.pps.education.dto.AddReviewVideoRequest;
 import vn.com.pps.education.dto.AssignTeacherRequest;
 import vn.com.pps.education.dto.AttendanceMarkResponse;
 import vn.com.pps.education.dto.ClassResponse;
@@ -18,8 +20,13 @@ import vn.com.pps.education.dto.ClassSessionResponse;
 import vn.com.pps.education.dto.CreateClassRequest;
 import vn.com.pps.education.dto.CreateClassSessionRequest;
 import vn.com.pps.education.dto.CreateCurriculumRequest;
+import vn.com.pps.education.dto.CreateExamRequest;
+import vn.com.pps.education.dto.CreateExerciseRequest;
 import vn.com.pps.education.dto.CreateGradeComponentRequest;
 import vn.com.pps.education.dto.CreateGradePeriodRequest;
+import vn.com.pps.education.dto.CreateQuestionBankRequest;
+import vn.com.pps.education.dto.CreateQuestionRequest;
+import vn.com.pps.education.dto.CreateReviewVideoSetRequest;
 import vn.com.pps.education.dto.CreateStudentCommentRequest;
 import vn.com.pps.education.dto.CurriculumResponse;
 import vn.com.pps.education.dto.DecideCommentsRequest;
@@ -27,15 +34,23 @@ import vn.com.pps.education.dto.EnrollStudentRequest;
 import vn.com.pps.education.dto.EnterAttendanceMarkRequest;
 import vn.com.pps.education.dto.EnterGradePeriodResultRequest;
 import vn.com.pps.education.dto.EnterGradeRequest;
+import vn.com.pps.education.dto.ExerciseResponse;
 import vn.com.pps.education.dto.GradeComponentResponse;
 import vn.com.pps.education.dto.GradeEntryResponse;
 import vn.com.pps.education.dto.GradePeriodResponse;
 import vn.com.pps.education.dto.GradePeriodResultResponse;
+import vn.com.pps.education.dto.HomeworkProgressResponse;
 import vn.com.pps.education.dto.MarkAttendanceRequest;
 import vn.com.pps.education.dto.PublishGradesRequest;
+import vn.com.pps.education.dto.QuestionBankResponse;
+import vn.com.pps.education.dto.QuestionChoiceRequest;
+import vn.com.pps.education.dto.QuestionResponse;
+import vn.com.pps.education.dto.ReviewVideoResponse;
+import vn.com.pps.education.dto.ReviewVideoSetResponse;
 import vn.com.pps.education.dto.StudentCommentResponse;
 import vn.com.pps.education.dto.SubmitCommentsRequest;
 import vn.com.pps.education.dto.UpdateCurriculumRequest;
+import vn.com.pps.education.dto.UpdateReviewVideoSetRequest;
 import vn.com.pps.education.exception.NotAuthorizedForPortalAccessException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.repository.ParentRepository;
@@ -83,6 +98,18 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
 
     @Autowired
     private StudentAttendanceService studentAttendanceService;
+
+    @Autowired
+    private QuestionBankService questionBankService;
+
+    @Autowired
+    private ExerciseService exerciseService;
+
+    @Autowired
+    private ExamService examService;
+
+    @Autowired
+    private ReviewVideoService reviewVideoService;
 
     @Autowired
     private UserRepository userRepository;
@@ -158,8 +185,11 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
         parentStudentRepository.save(link);
 
         session = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(LocalDate.now(), LocalTime.of(8, 0), LocalTime.of(9, 40), null, teacher.getId(), "REGULAR"),
+                new CreateClassSessionRequest(LocalDate.now(), LocalTime.of(8, 0), LocalTime.of(9, 40), null, teacher.getId(), "REGULAR", null, null),
                 headAcademic.getId());
+        // Bắt buộc để submitComments() cho DAILY không bị chặn bởi MissingLessonContentException
+        // (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-29).
+        studentCommentService.updateLessonContent(session.id(), "Unit 1: Present simple tense.", teacher.getId());
     }
 
     @Test
@@ -223,16 +253,17 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
 
     @Test
     void listComments_UC25_A1_onlyApprovedCommentsVisible() {
+        // DAILY dùng chung luồng DRAFT->Gửi->PENDING->duyệt với MID_TERM/END_TERM (2026-07-29).
         StudentCommentResponse approved = studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), "DAILY", session.id(), null,
-                        LocalDate.now(), "Chăm chỉ.", null, null, false), teacher.getId());
+                        LocalDate.now(), "Chăm chỉ.", null, null, false, null, null, null, null, null, null, null), teacher.getId());
         studentCommentService.submitComments(schoolClass.id(), new SubmitCommentsRequest(List.of(approved.id())), teacher.getId());
         studentCommentService.decideComments(new DecideCommentsRequest(List.of(approved.id()), "APPROVED", null), siteManagerUser.getId());
 
-        // A1 -- nhận xét khác vẫn DRAFT.
+        // A1 -- nhận xét khác vẫn DRAFT (chưa gửi/chưa duyệt).
         studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), "DAILY", session.id(), null,
-                        LocalDate.now(), "Nội dung chưa gửi.", null, null, false), teacher.getId());
+                        LocalDate.now(), "Nội dung chưa duyệt.", null, null, false, null, null, null, null, null, null, null), teacher.getId());
 
         List<StudentCommentResponse> comments = parentPortalService.listComments(student.getId(), schoolClass.id(), parentUser.getId());
 
@@ -258,6 +289,169 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
         List<ClassSessionResponse> schedule = parentPortalService.listSchedule(student.getId(), schoolClass.id(), parentUser.getId());
 
         assertThat(schedule).extracting(ClassSessionResponse::id).contains(session.id());
+    }
+
+    /** Bổ sung (đã xác nhận với người dùng 2026-07-29): mapper riêng của Cổng phụ huynh cũng phải trả đúng teacherType. */
+    @Test
+    void listSchedule_boSung_includesTeacherType() {
+        ClassSessionResponse foreignSession = classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(LocalDate.now().plusDays(1), LocalTime.of(8, 0), LocalTime.of(9, 40),
+                        null, teacher.getId(), "REGULAR", "FOREIGN", null),
+                headAcademic.getId());
+
+        List<ClassSessionResponse> schedule = parentPortalService.listSchedule(student.getId(), schoolClass.id(), parentUser.getId());
+
+        assertThat(schedule).filteredOn(s -> s.id().equals(foreignSession.id()))
+                .extracting(ClassSessionResponse::teacherType).containsExactly("FOREIGN");
+    }
+
+    /** Bổ sung (đã xác nhận với người dùng 2026-07-29): mapper riêng của Cổng phụ huynh cũng phải trả đúng sessionNumber. */
+    @Test
+    void listSchedule_boSung_includesSessionNumber() {
+        ClassSessionResponse secondSession = classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(session.sessionDate().plusDays(2), LocalTime.of(8, 0), LocalTime.of(9, 40),
+                        null, teacher.getId(), "REGULAR", null, null),
+                headAcademic.getId());
+
+        List<ClassSessionResponse> schedule = parentPortalService.listSchedule(student.getId(), schoolClass.id(), parentUser.getId());
+
+        assertThat(schedule).filteredOn(s -> s.id().equals(session.id()))
+                .extracting(ClassSessionResponse::sessionNumber).containsExactly(1);
+        assertThat(schedule).filteredOn(s -> s.id().equals(secondSession.id()))
+                .extracting(ClassSessionResponse::sessionNumber).containsExactly(2);
+    }
+
+    // ===================== Xem tiến độ BTVN của con (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-29) =====================
+
+    /**
+     * V65: chỉ tạo + thêm câu hỏi, KHÔNG giao lớp nữa — việc giao (deliverToClass) giờ chỉ xảy ra khi GV chọn làm "BTVN buổi sau" ở writeDailyComment.
+     * Kho đề (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30):
+     * Bài giờ thuộc 1 Đề (Exam) — tạo Đề mới + gán cho schoolClass ngay ở
+     * đây (deliverToClass gọi sau này bên trong StudentCommentService cần
+     * Đề đã gán lớp mới thành công).
+     */
+    private ExerciseResponse createGrammarOnlineExercise() {
+        var exam = examService.createExam(
+                new CreateExamRequest(examCode(), "Đề Ngữ pháp homework", schoolClass.curriculumId()), teacher.getId());
+        examService.assignToClass(exam.id(), schoolClass.id(), teacher.getId());
+        QuestionBankResponse bank = questionBankService.createBank(
+                new CreateQuestionBankRequest(bankCode(), "Ngân hàng homework", null, null, null), teacher.getId());
+        QuestionResponse question = questionBankService.createQuestion(
+                new CreateQuestionRequest(bank.id(), "MULTIPLE_CHOICE", "GRAMMAR", "EASY", "She ___ to school.",
+                        null, null, null, null, null, new BigDecimal("1.0"), null,
+                        List.of(new QuestionChoiceRequest("A", "go", false, 1), new QuestionChoiceRequest("B", "goes", true, 2))),
+                teacher.getId());
+        ExerciseResponse exercise = exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "Bài ngữ pháp homework", exam.id(), null,
+                        "ASSIGNED", new BigDecimal("1"), null, false, 1, true), teacher.getId());
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(question.id(), 1, new BigDecimal("1.0")), teacher.getId());
+        return exercise;
+    }
+
+    /** V65: hạn nộp BTVN buổi sau = buổi kế tiếp — cần 1 buổi trong tương lai để resolveNextSessionDueAt không chặn. */
+    private void createNextSession() {
+        classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(session.sessionDate().plusDays(2), LocalTime.of(8, 0), LocalTime.of(9, 40),
+                        null, teacher.getId(), "REGULAR", null, null),
+                headAcademic.getId());
+    }
+
+    private ReviewVideoSetResponse createConnectionVideoAssignedToClass() {
+        ReviewVideoSetResponse set = reviewVideoService.createSet(
+                new CreateReviewVideoSetRequest(setCode(), "Video homework", "CONNECTION", null, schoolClass.id(), null, 1),
+                teacher.getId());
+        ReviewVideoSetResponse published = reviewVideoService.updateSet(set.id(),
+                new UpdateReviewVideoSetRequest(set.title(), null, 1, "PUBLISHED"), teacher.getId());
+        reviewVideoService.addVideo(set.id(),
+                new AddReviewVideoRequest("R2_VIDEO", "Video", "https://media.pps.edu.vn/lms/review-videos/video/homework.mp4",
+                        1_000_000L, 100, 1, null, null),
+                teacher.getId());
+        return published;
+    }
+
+    /**
+     * DAILY nay dùng chung luồng DRAFT->Gửi->PENDING->duyệt (2026-07-29) -- ghi rồi phải Gửi+duyệt mới APPROVED để lộ ra Cổng phụ huynh.
+     * V65: grammarExerciseId/videoSetId khác null tự động giao (deliverToClass) cho cả lớp ngay khi writeComment.
+     * Trả về comment lúc tạo (DRAFT) vì homeworkNext*AssignmentId không đổi qua submit/decide (không cascade).
+     */
+    private StudentCommentResponse writeDailyComment(Long grammarExerciseId, Long videoSetId, String homeworkNext) {
+        StudentCommentResponse comment = studentCommentService.writeComment(schoolClass.id(),
+                new CreateStudentCommentRequest(student.getId(), "DAILY", session.id(), null,
+                        session.sessionDate(), "Nội dung buổi.", null, null, false, null, null, null,
+                        homeworkNext, grammarExerciseId, videoSetId, null),
+                teacher.getId());
+        studentCommentService.submitComments(schoolClass.id(), new SubmitCommentsRequest(List.of(comment.id())), teacher.getId());
+        studentCommentService.decideComments(new DecideCommentsRequest(List.of(comment.id()), "APPROVED", null), siteManagerUser.getId());
+        return comment;
+    }
+
+    @Test
+    void listHomeworkProgress_MainFlow_offlineGrammarHasTextButNoProgress() {
+        writeDailyComment(null, null, "Ôn lại Unit 3 ở nhà");
+
+        List<HomeworkProgressResponse> result = parentPortalService.listHomeworkProgress(student.getId(), schoolClass.id(), parentUser.getId());
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).grammarOfflineText()).isEqualTo("Ôn lại Unit 3 ở nhà");
+        assertThat(result.get(0).grammarAssignmentId()).isNull();
+        assertThat(result.get(0).grammarProgress()).isNull();
+    }
+
+    @Test
+    void listHomeworkProgress_MainFlow_onlineGrammarNotYetAttemptedShowsChuaLamBai() {
+        ExerciseResponse exercise = createGrammarOnlineExercise();
+        createNextSession();
+        StudentCommentResponse comment = writeDailyComment(exercise.id(), null, null);
+
+        List<HomeworkProgressResponse> result = parentPortalService.listHomeworkProgress(student.getId(), schoolClass.id(), parentUser.getId());
+
+        assertThat(result).hasSize(1);
+        assertThat(comment.homeworkNextExerciseAssignmentId()).isNotNull();
+        assertThat(result.get(0).grammarAssignmentId()).isEqualTo(comment.homeworkNextExerciseAssignmentId());
+        assertThat(result.get(0).grammarOfflineText()).isNull();
+        assertThat(result.get(0).grammarProgress()).isEqualTo("Chưa làm bài");
+    }
+
+    @Test
+    void listHomeworkProgress_MainFlow_connectionVideoShowsWatchPercent() {
+        ReviewVideoSetResponse set = createConnectionVideoAssignedToClass();
+        createNextSession();
+        StudentCommentResponse comment = writeDailyComment(null, set.id(), null);
+
+        List<HomeworkProgressResponse> result = parentPortalService.listHomeworkProgress(student.getId(), schoolClass.id(), parentUser.getId());
+
+        assertThat(result).hasSize(1);
+        assertThat(comment.homeworkNextReviewVideoAssignmentId()).isNotNull();
+        assertThat(result.get(0).videoAssignmentId()).isEqualTo(comment.homeworkNextReviewVideoAssignmentId());
+        assertThat(result.get(0).videoProgress()).isEqualTo("0%");
+    }
+
+    @Test
+    void listHomeworkProgress_skipsSessionsWithNoHomeworkAssigned() {
+        studentCommentService.writeComment(schoolClass.id(),
+                new CreateStudentCommentRequest(student.getId(), "DAILY", session.id(), null,
+                        session.sessionDate(), "Nội dung buổi, không giao BTVN.", null, null, false, null, null, null, null, null, null, null),
+                siteManagerUser.getId());
+
+        List<HomeworkProgressResponse> result = parentPortalService.listHomeworkProgress(student.getId(), schoolClass.id(), parentUser.getId());
+
+        assertThat(result).isEmpty();
+    }
+
+    private String bankCode() {
+        return "QB-" + SEQ.incrementAndGet();
+    }
+
+    private String exerciseCode() {
+        return "EX-" + SEQ.incrementAndGet();
+    }
+
+    private String examCode() {
+        return "KD-" + SEQ.incrementAndGet();
+    }
+
+    private String setCode() {
+        return "RVS-" + SEQ.incrementAndGet();
     }
 
     @Test

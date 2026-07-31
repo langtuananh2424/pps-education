@@ -47,53 +47,68 @@ erDiagram
     }
 ```
 
-a)  Bảng lessons --- Bài giảng
+**Tái cấu trúc 2026-07-27 (đã xác nhận với người dùng):** "Bài giảng &
+Kho học liệu" (UC-23/UC-23a) đổi thành "Kho Video Ôn tập" — bỏ hẳn
+PDF/Slide/Word/Image, chỉ còn video/audio ôn tập (Video từ kết nối/Video
+phản xạ), tổ chức theo "bộ" (`review_video_sets`, trước là `lessons`),
+mỗi bộ chứa nhiều video (`review_videos`, trước là `lesson_materials`),
+thêm bảng hoàn toàn mới `review_video_progress` theo dõi % thời lượng
+từng học sinh đã xem. Migration V52 (thay thế toàn bộ V16, DB dev xác
+nhận 0 dòng dữ liệu tại thời điểm tái cấu trúc nên chọn DROP+CREATE thay
+vì ALTER).
 
-Bài giảng có thể thuộc curriculum (dùng chung nhiều lớp) hoặc thuộc 1
-class cụ thể (riêng).
+a)  Bảng review_video_sets --- "Bộ" video ôn tập
+
+Bộ có thể thuộc curriculum (dùng chung nhiều lớp) hoặc thuộc 1 class cụ
+thể (riêng).
 
   --------------------------------------------------------------------------------
   **Cột**            **Kiểu**        **Ràng buộc**              **Ghi chú**
   ------------------ --------------- -------------------------- ------------------
-  id                 BIGSERIAL       PK                          
+  id                 BIGSERIAL       PK
 
-  uuid               UUID            UNIQUE, NOT NULL           
+  uuid               UUID            UNIQUE, NOT NULL
 
-  code               VARCHAR(50)     NOT NULL                    
+  code               VARCHAR(50)     NOT NULL
 
-  title              VARCHAR(500)    NOT NULL                   
+  title              VARCHAR(500)    NOT NULL
 
-  curriculum_id      BIGINT          FK → curriculums(id), NULL Nếu là bài chung
+  video_type         VARCHAR(20)     NOT NULL                   CONNECTION
+                                                                 (Video từ kết
+                                                                 nối) / REFLEX
+                                                                 (Video phản
+                                                                 xạ)
 
-  class_id           BIGINT          FK → classes(id), NULL     Nếu là bài riêng
-                                                                lớp
+  curriculum_id      BIGINT          FK → curriculums(id), NULL Nếu là bộ chung
 
-  subject_id         BIGINT          FK →                        
-                                     curriculum_subjects(id),   
-                                     NULL                       
+  class_id           BIGINT          FK → classes(id), NULL     Nếu là bộ riêng
+                                                                 lớp
 
-  lesson_order       INT             NULL                       
+  subject_id         BIGINT          FK →
+                                     curriculum_subjects(id),
+                                     NULL
 
-  lesson_type        VARCHAR(30)     NOT NULL                   VIDEO_LECTURE /
-                                                                PDF_DOCUMENT /
-                                                                MIXED /
-                                                                LIVE_RECORDING
-
-  duration_minutes   INT             NULL                       
+  display_order      INT             NULL
 
   status             VARCHAR(20)     NOT NULL, DEFAULT          DRAFT / PUBLISHED
-                                     \'DRAFT\'                  / ARCHIVED
+                                     'DRAFT'                     / ARCHIVED
 
-  published_at       TIMESTAMPTZ     NULL                       
+  published_at       TIMESTAMPTZ     NULL
 
-  created_by         BIGINT          FK → users(id), NOT NULL    
+  created_by         BIGINT          FK → users(id), NOT NULL
+
+  created_at,        TIMESTAMPTZ     NOT NULL                   BaseAuditEntity —
+  updated_at                                                     bảng lessons cũ
+                                                                 thiếu 2 cột này,
+                                                                 bổ sung khi tái
+                                                                 cấu trúc
   --------------------------------------------------------------------------------
 
-Có lessons_history.
+Có review_video_sets_history.
 
 Ràng buộc:
 
-ALTER TABLE lessons ADD CONSTRAINT chk_lesson_scope CHECK (
+ALTER TABLE review_video_sets ADD CONSTRAINT chk_review_video_set_scope CHECK (
 
 (curriculum_id IS NOT NULL AND class_id IS NULL) OR
 
@@ -101,55 +116,378 @@ ALTER TABLE lessons ADD CONSTRAINT chk_lesson_scope CHECK (
 
 );
 
-*Logic HS xem được bài gì:* HS trong lớp X xem được lessons WHERE
-class_id=X OR curriculum_id=(curriculum của lớp X).
+*Logic HS xem được bộ gì:* HS trong lớp X xem được review_video_sets
+WHERE class_id=X OR curriculum_id=(curriculum của lớp X).
 
-*Ghi chú sửa lỗi (UC-23a):* logic OR ở trên đã có sẵn trong thiết kế từ
-đầu (repository method `findVisibleForClass`) nhưng trước đây chưa được
-`LessonService.listByClass` gọi tới (chỉ lọc theo class_id, bỏ sót bài
-dùng chung theo curriculum) — đã nối dây lại đúng, đồng thời bổ sung
-kiểm tra Học sinh gọi phải có class_enrollments ACTIVE khớp lớp/khung
-đang truy vấn (trước đây API không kiểm tra ghi danh).
+*Ghi chú kế thừa (từ lessons cũ, UC-23a):* logic OR ở trên copy nguyên
+văn từ `Lesson.findVisibleForClass` (repository method, đổi tên thành
+`ReviewVideoSet.findVisibleForClass`) — bản gốc từng có 1 bug (bỏ sót bộ
+dùng chung theo curriculum, chỉ lọc theo class_id) đã được sửa trước khi
+tái cấu trúc, giữ nguyên logic đã fix. Học sinh gọi phải có
+class_enrollments ACTIVE khớp lớp/khung đang truy vấn.
 
-b)  Bảng lesson_materials --- Tệp đính kèm
+Permission riêng `lms.review-video.create/update/view` cho quản lý bộ/
+video + xem thống kê (gán mặc định TEACHER, bổ sung V63 — trước đó
+ReviewVideoController không hề gate permission nào, chỉ dựa
+requireAssignedTeacher) — chấm điểm audio (UC-23b) tái dùng đúng
+`lms.grading.manage` đã có sẵn từ V28 (mô tả gốc "Chấm bài thủ công" đủ
+tổng quát, review-video là domain thứ 3 dùng chung sau UC-41/UC-26,
+KHÔNG tách riêng vì không có khía cạnh create/update/delete để tách theo
+hành động — cùng lý do đã áp dụng cho listening-practice grading bên
+dưới).
+
+b)  Bảng review_videos --- Video/audio trong 1 bộ
 
   --------------------------------------------------------------------------
   **Cột**               **Kiểu**                **Ràng buộc**  **Ghi chú**
   --------------------- ----------------------- -------------- -------------
-  id                    BIGSERIAL               PK              
+  id                    BIGSERIAL               PK
 
-  lesson_id             BIGINT                  FK →           
-                                                lessons(id),   
-                                                NOT NULL       
+  review_video_set_id   BIGINT                  FK →
+                                                 review_video_
+                                                 sets(id), NOT
+                                                 NULL
 
-  material_type         VARCHAR(30)             NOT NULL       VIDEO / PDF /
-                                                               AUDIO / SLIDE
-                                                               / IMAGE /
-                                                               OTHER
+  source_type           VARCHAR(20)             NOT NULL       YOUTUBE_URL /
+                                                                R2_VIDEO /
+                                                                R2_AUDIO
 
-  title                 VARCHAR(300)            NOT NULL       
+  title                 VARCHAR(300)            NOT NULL
 
-  file_url              VARCHAR(1000)           NOT NULL       Bắt buộc qua
-                                                               CDN
-                                                               (FR-LMS-01)
+  file_url              VARCHAR(1000)           NOT NULL       Link YouTube
+                                                                hoặc URL CDN
+                                                                (Cloudflare R2,
+                                                                FR-LMS-01)
 
-  file_size_bytes       BIGINT                  NULL           
+  file_size_bytes       BIGINT                  NULL           NULL với
+                                                                YOUTUBE_URL
 
-  duration_seconds      INT                     NULL            
+  duration_seconds      INT                     NOT NULL       Bắt buộc cho
+                                                                cả 3 nguồn —
+                                                                FE tự phát
+                                                                hiện trước khi
+                                                                gọi API, dùng
+                                                                tính % xem
+                                                                (UC-23a)
 
-  display_order         INT                     NOT NULL,      
-                                                DEFAULT 0      
+  display_order         INT                     NOT NULL,
+                                                 DEFAULT 0
 
-  is_downloadable       BOOLEAN                 NOT NULL,       
-                                                DEFAULT FALSE  
+  completion_threshold_ INT                     NOT NULL,      Chỉ có ý nghĩa
+  percent                                       DEFAULT 80     videoType=
+                                                                CONNECTION —
+                                                                % ngưỡng để 1
+                                                                LƯỢT xem được
+                                                                tính "hợp lệ"
+                                                                (V59, bổ sung
+                                                                ngoài SDD gốc)
+
+  required_view_count   INT                     NOT NULL,      Chỉ có ý nghĩa
+                                                 DEFAULT 1      videoType=
+                                                                CONNECTION —
+                                                                số lượt hợp lệ
+                                                                tối thiểu để
+                                                                video được
+                                                                tính "đạt"
+                                                                (V59)
+
+  created_at,           TIMESTAMPTZ             NOT NULL       BaseAuditEntity
+  updated_at
   --------------------------------------------------------------------------
 
-Không history, thay đổi tài liệu tạo bản mới.
+Không history, thay đổi video tạo bản ghi mới. Bỏ `material_type` (thay
+bằng `source_type`) và `is_downloadable` so với `lesson_materials` cũ —
+cho tải xuống sẽ phá mục đích theo dõi % xem, không có yêu cầu nào cần
+giữ.
+
+c)  Bảng review_video_progress --- Theo dõi tiến độ xem (MỚI HOÀN TOÀN,
+UC-23a, 2026-07-27, bổ sung ngoài SDD gốc đã xác nhận với người dùng —
+chưa từng tồn tại cơ chế này trước khi tái cấu trúc)
+
+  --------------------------------------------------------------------------
+  **Cột**               **Kiểu**                **Ràng buộc**  **Ghi chú**
+  --------------------- ----------------------- -------------- -------------
+  id                    BIGSERIAL               PK
+
+  review_video_id       BIGINT                  FK →
+                                                 review_videos
+                                                 (id), NOT NULL
+
+  student_id            BIGINT                  FK →
+                                                 students(id),
+                                                 NOT NULL
+
+  watched_seconds       INT                     NOT NULL,      Mốc giây CAO
+                                                 DEFAULT 0      NHẤT từng đạt
+                                                                — server lấy
+                                                                max(cũ, mới),
+                                                                không giảm khi
+                                                                tua tới
+
+  is_completed          BOOLEAN                 NOT NULL,      V59, đổi ý
+                                                 DEFAULT FALSE  nghĩa: tính lại
+                                                                ở Service =
+                                                                view_count >=
+                                                                review_video.
+                                                                required_view_
+                                                                count (trước
+                                                                đây tính trực
+                                                                tiếp từ
+                                                                watched_seconds)
+
+  view_count             INT                     NOT NULL,      V59, bổ sung
+                                                 DEFAULT 0      ngoài SDD gốc
+                                                                — số LƯỢT xem
+                                                                (review_video_
+                                                                watch_sessions)
+                                                                đã đạt
+                                                                completion_
+                                                                threshold_
+                                                                percent, rollup
+                                                                tính lại mỗi
+                                                                lần có session
+                                                                mới cập nhật
+
+  created_at,           TIMESTAMPTZ             NOT NULL       BaseAuditEntity
+  updated_at
+  --------------------------------------------------------------------------
+
+Ràng buộc: UNIQUE (review_video_id, student_id) — 1 dòng/học sinh/video,
+là bảng TỔNG HỢP (rollup) từ review_video_watch_sessions, không phải bảng
+ghi trực tiếp nữa (V59). Giáo viên xem thống kê theo bộ + lớp qua API
+riêng (GET /api/review-video-sets/{setId}/stats), ghép ma trận học sinh
+× video ở tầng Service (roster lớp LEFT JOIN video LEFT JOIN tiến độ —
+học sinh chưa xem gì vẫn hiện 0%, không biến mất khỏi ma trận).
+
+c2)  Bảng review_video_watch_sessions --- Từng LƯỢT xem (MỚI HOÀN TOÀN,
+V59, 2026-07-28, bổ sung ngoài SDD gốc đã xác nhận với người dùng — thay
+thế cơ chế watermark suốt đời không phân biệt được "lần" nào với "lần"
+nào của review_video_progress ban đầu)
+
+  --------------------------------------------------------------------------
+  **Cột**               **Kiểu**                **Ràng buộc**  **Ghi chú**
+  --------------------- ----------------------- -------------- -------------
+  id                    BIGSERIAL               PK
+
+  review_video_id       BIGINT                  FK →
+                                                 review_videos
+                                                 (id), NOT NULL
+
+  student_id            BIGINT                  FK →
+                                                 students(id),
+                                                 NOT NULL
+
+  watched_seconds       INT                     NOT NULL,      Mốc giây CAO
+                                                 DEFAULT 0      NHẤT trong
+                                                                CHÍNH lượt
+                                                                này (không
+                                                                phải suốt
+                                                                đời) — server
+                                                                lấy max(cũ,
+                                                                mới) trong
+                                                                phạm vi lượt
+
+  is_qualified           BOOLEAN                 NOT NULL,      Đã đạt
+                                                 DEFAULT FALSE  completion_
+                                                                threshold_
+                                                                percent của
+                                                                video trong
+                                                                lượt này
+
+  started_at,             TIMESTAMPTZ             NOT NULL       BaseAuditEntity
+  updated_at
+  --------------------------------------------------------------------------
+
+Mở 1 lượt mới (POST /api/review-videos/{videoId}/watch-sessions) khi học
+sinh bắt đầu/mở lại video; các lần báo tiến độ tiếp theo
+(PUT /api/review-videos/{videoId}/progress, kèm watchSessionId trong
+body) cập nhật ĐÚNG session đó. Mỗi lần cập nhật, Service tính lại rollup
+trên review_video_progress: watched_seconds = max mọi session,
+view_count = đếm session is_qualified=true, is_completed = view_count >=
+required_view_count.
+
+d)  Bảng review_video_questions --- Câu hỏi theo mốc thời gian trong 1
+video Phản xạ (MỚI HOÀN TOÀN, V57, 2026-07-28, bổ sung ngoài SDD gốc đã
+xác nhận với người dùng — THAY THẾ thiết kế "1 video = 1 audio duy nhất"
+ban đầu của UC-23b, 2026-07-27)
+
+  ------------------------------------------------------------------------
+  **Cột**                 **Kiểu**       **Ràng buộc**    **Ghi chú**
+  ----------------------- -------------- ---------------- -----------------
+  id                      BIGSERIAL      PK
+
+  review_video_id         BIGINT         FK →             Chỉ hợp lệ khi
+                                          review_videos    video thuộc bộ
+                                          (id), NOT NULL   có video_type=
+                                                            REFLEX — kiểm
+                                                            tra ở Service
+
+  timestamp_seconds       INT            NOT NULL         Mốc giây trong
+                                                            video — FE
+                                                            seek video tới
+                                                            đây khi HS bấm
+                                                            câu hỏi
+
+  prompt                  VARCHAR(500)   NULL             Nội dung câu
+                                                            hỏi (tuỳ chọn)
+
+  max_recording_seconds   INT            NOT NULL         Thời lượng ghi
+                                                            âm tối đa —
+                                                            RIÊNG từng câu
+                                                            hỏi (đã xác
+                                                            nhận, không
+                                                            dùng chung 1
+                                                            giá trị/video)
+
+  max_attempts            INT            NULL             NULL = không
+                                                            giới hạn số
+                                                            lần nộp lại —
+                                                            RIÊNG từng
+                                                            câu hỏi
+
+  display_order           INT            NOT NULL
+
+  created_at, updated_at  TIMESTAMPTZ    NOT NULL         BaseAuditEntity
+  ------------------------------------------------------------------------
+
+e)  Bảng review_video_question_submissions --- Audio Học sinh nộp cho 1
+câu hỏi + Giáo viên chấm điểm (thay thế review_video_submissions cũ, V57)
+
+  --------------------------------------------------------------------------
+  **Cột**                  **Kiểu**       **Ràng buộc**     **Ghi chú**
+  ------------------------- -------------- ----------------- -----------------
+  id                        BIGSERIAL      PK
+
+  review_video_question_id  BIGINT         FK →              
+                                            review_video_
+                                            questions(id),
+                                            NOT NULL
+
+  student_id                 BIGINT         FK →
+                                            students(id),
+                                            NOT NULL
+
+  attempt_number              INT            NOT NULL          Tăng dần mỗi
+                                                                lần nộp lại
+                                                                — GIỮ LỊCH
+                                                                SỬ (khác
+                                                                hẳn cơ chế
+                                                                ghi đè cũ)
+
+  audio_url                    VARCHAR(1000)  NOT NULL          URL CDN
+                                                                (Cloudflare
+                                                                R2, module
+                                                                REVIEW_VIDEO_
+                                                                SUBMISSION)
+
+  submitted_at                  TIMESTAMPTZ    NOT NULL
+
+  score                          DECIMAL(5,2)   NULL              NULL = chưa
+                                                                chấm — attempt
+                                                                mới KHÔNG kế
+                                                                thừa điểm
+                                                                attempt trước
+
+  max_score                       DECIMAL(5,2)   NULL
+
+  feedback                         TEXT           NULL
+
+  graded_by                         BIGINT         FK → users(id),
+                                                    NULL
+
+  graded_at                         TIMESTAMPTZ    NULL
+
+  created_at, updated_at             TIMESTAMPTZ    NOT NULL          BaseAuditEntity
+  --------------------------------------------------------------------------
+
+Ràng buộc: UNIQUE (review_video_question_id, student_id, attempt_number)
+— GIỮ LỊCH SỬ mọi lần nộp (khác hẳn UNIQUE(review_video_id, student_id)
++ upsert-ghi-đè của thiết kế cũ). Vượt quá max_attempts của câu hỏi →
+từ chối tạo attempt mới (RetakeNotAllowedException, tái dùng nguyên cơ
+chế giới hạn lượt làm lại của Exercise/UC-24/27). Giáo viên chấm điểm
+mặc định trên attempt MỚI NHẤT (listSubmissionsForTeacher chỉ trả 1
+dòng/câu hỏi/học sinh — attempt có attempt_number lớn nhất).
+
+Migration V57 (DROP review_video_submissions cũ sau khi migrate dữ liệu:
+mỗi video REFLEX có sẵn → 1 câu hỏi mặc định timestamp=0 phủ cả video,
+submission cũ → attempt_number=1 của câu hỏi đó — không mất dữ liệu học
+sinh đã nộp trước khi tái cấu trúc).
+
+KHÔNG tái dùng grade_entries/GradeEntry (gắn sổ điểm chính thức, luồng
+DRAFT→PROVISIONAL_PUBLISHED→APPEAL→OFFICIAL quá nặng cho audio ôn tập tự
+nguyện) và KHÔNG tái dùng StudentAnswerGrading (gắn UC-40/41, có
+versioning is_final/latest + partial unique index không cần thiết ở đây).
+score/max_score/feedback theo đúng shape đã có tiền lệ ở
+listening_practice_gradings (UC-26) để nhất quán convention chấm điểm
+dạng luyện tập trong dự án.
+
+f)  Bảng review_video_assignments --- Giao bộ video cho lớp (MỚI HOÀN
+TOÀN, V65, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30)
+
+Mirror `exercise_assignments` (mục f nhóm Ngân hàng câu hỏi & Bài tập
+dưới) --- KHÔNG có `late_submission_allowed`/`late_penalty_percent` (không
+áp dụng cho video).
+
+  ----------------------------------------------------------------------------
+  **Cột**                   **Kiểu**          **Ràng buộc**    **Ghi chú**
+  ------------------------- ----------------- ---------------- ---------------
+  id                        BIGSERIAL         PK
+
+  uuid                      UUID              UNIQUE, NOT NULL
+
+  review_video_set_id       BIGINT            FK →
+                                              review_video_
+                                              sets(id), NOT NULL
+
+  class_id                  BIGINT            FK →
+                                              classes(id), NOT
+                                              NULL
+
+  assigned_by               BIGINT            FK → users(id),
+                                              NOT NULL
+
+  available_from            TIMESTAMPTZ       NOT NULL,
+                                              DEFAULT NOW()
+
+  due_at                    TIMESTAMPTZ       NULL             Hạn nộp = buổi
+                                                               học kế tiếp
+                                                               của lớp (tính
+                                                               ở StudentComment
+                                                               Service, xem
+                                                               UC-21)
+
+  target_student_ids        JSONB             NULL             NULL = cả lớp
+                                                               (V65: LUÔN
+                                                               NULL --- không
+                                                               còn cá nhân
+                                                               hóa như V55)
+
+  status                    VARCHAR(20)       NOT NULL,        ACTIVE /
+                                              DEFAULT          CANCELLED /
+                                              'ACTIVE'         COMPLETED
+  ----------------------------------------------------------------------------
+
+**Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (V65, 2026-07-30):**
+tạo qua `ReviewVideoService.deliverToClass()`, gọi TỪ
+`StudentCommentService` khi Giáo viên chọn 1 `ReviewVideoSet` làm "BTVN
+buổi sau" ở Nhận xét học viên (UC-21) --- KHÔNG expose qua Controller
+riêng (không có endpoint `POST /api/review-video-sets/{id}/assign`).
+Trước V65, Kho Video Ôn tập không hề có khái niệm "giao theo lớp" ---
+`status=PUBLISHED` trên `review_video_sets` là đủ để học sinh xem. V65
+thêm bảng này làm điều kiện thứ 2 bắt buộc (PUBLISHED **VÀ** có
+`review_video_assignments` ACTIVE cho lớp) --- xem
+`ReviewVideoService.requireStudentCanViewSet()`/`listByClass()`. Áp dụng
+cho CẢ `CONNECTION` lẫn `REFLEX`. Đồng thời đổi cột
+`student_comments.homework_next_review_video_set_id` (FK thẳng
+`review_video_sets`) → `homework_next_review_video_assignment_id` (FK →
+bảng này) để đối xứng với `homework_next_exercise_assignment_id` sẵn có
+(cả 2 đều trỏ BẢN GIAO, không trỏ nguồn) --- xem chi tiết nhóm 6 (Học
+thuật), bảng `student_comments`.
 
 ### Kho tài liệu tham khảo (UC-60, FR-LMS-13 — bổ sung ngoài SDD gốc, đã xác nhận với người dùng)
 
-Khái niệm độc lập với lessons/lesson_materials ở trên — không gắn 1 bài
-giảng cụ thể nào, chỉ gắn theo curriculum. Migration V41.
+Khái niệm độc lập với review_video_sets/review_videos ở trên — không gắn
+1 bộ video ôn tập cụ thể nào, chỉ gắn theo curriculum. Migration V41.
 
 ```mermaid
 erDiagram
@@ -217,29 +555,36 @@ a)  Bảng curriculum_documents --- Tài liệu tham khảo
   --------------------------------------------------------------------------------
 
 Không có bảng history — sửa metadata/trạng thái update tại chỗ (không
-có ràng buộc downstream nào cần bất biến, khác questions/lessons).
+có ràng buộc downstream nào cần bất biến, khác questions/review_video_sets).
 
 *Logic HS xem được tài liệu gì:* HS ghi danh ACTIVE tại lớp thuộc
 curriculum X xem được curriculum_documents WHERE curriculum_id=X AND
 status=PUBLISHED.
 
-Permission riêng `lms.document.manage` (gán mặc định TEACHER, có thể
-gán thêm cho HEAD_ACADEMIC/SITE_MANAGER qua UC-04 override) — không tái
-dùng `lms.exercise.manage` vì mô tả permission đó đã khai rõ "ngân hàng
-câu hỏi & đề kiểm tra", khác ngữ nghĩa.
+Permission riêng `lms.document.create/update/view` (gán mặc định TEACHER,
+có thể gán thêm cho HEAD_ACADEMIC/SITE_MANAGER qua UC-04 override, tách
+từ `lms.document.manage` ở V62) — không tái dùng `lms.exercise.*`/
+`lms.question-bank.*` vì mô tả permission đó đã khai rõ "đề kiểm tra" /
+"ngân hàng câu hỏi", khác ngữ nghĩa.
 
 **Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (2026-07-22, theo
-yêu cầu FE):** `lesson_materials.file_url` và `curriculum_documents.
-file_url` ở trên vốn quy ước "Bắt buộc qua CDN" nhưng thực tế là field
-nhập tay URL, không qua upload thật. Đã thêm 2 module `LESSON_MATERIAL`
-và `CURRICULUM_DOCUMENT` vào `MediaModule` (dùng chung
+yêu cầu FE):** `lesson_materials.file_url` (nay là `review_videos.
+file_url`, xem ghi chú tái cấu trúc 2026-07-27 ở mục Kho Video Ôn tập
+phía trên) và `curriculum_documents.file_url` ở trên vốn quy ước "Bắt
+buộc qua CDN" nhưng thực tế là field nhập tay URL, không qua upload
+thật. Đã thêm 2 module `LESSON_MATERIAL` (nay là `REVIEW_VIDEO`) và
+`CURRICULUM_DOCUMENT` vào `MediaModule` (dùng chung
 `POST /api/media/upload` với `LMS_QUESTION`, xem ghi chú ở mục Ngân hàng
-câu hỏi bên dưới) — 2 module này được nhận thêm PDF/Word/Excel/
+câu hỏi bên dưới) — 2 module này ban đầu được nhận thêm PDF/Word/Excel/
 PowerPoint (≤20MB) và `video/*` (≤200MB) ngoài audio/ảnh, khớp với miền
 giá trị `material_type`/`document_type` (VIDEO/PDF/AUDIO/SLIDE/IMAGE/
 OTHER) đã thiết kế ở 2 bảng trên — cột `material_type`/`document_type`
 vẫn do người dùng tự chọn trong form, không suy ra tự động từ
-Content-Type file upload.
+Content-Type file upload. **Từ 2026-07-27:** `REVIEW_VIDEO` (Kho Video
+Ôn tập) chỉ còn nhận video/audio, không còn PDF/Word/Excel/PowerPoint —
+cờ `acceptsDocuments()` được tách thành `acceptsVideo()`/
+`acceptsOfficeDocuments()` độc lập để hỗ trợ riêng trường hợp này;
+`CURRICULUM_DOCUMENT`/`LMS_QUESTION` không đổi hành vi.
 
 **Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (2026-07-23, V48):**
 thêm cột `cover_image_url` cho `curriculum_documents` — ảnh bìa hiển thị
@@ -292,6 +637,7 @@ erDiagram
         VARCHAR audio_url
         TEXT reference_passage
         TEXT explanation
+        TEXT correct_answer_text
         DECIMAL default_points
         JSONB tags
         VARCHAR status
@@ -447,6 +793,21 @@ b)  Bảng questions --- Câu hỏi
 
   explanation         TEXT             NULL                   
 
+  correct_answer_text TEXT             NULL                  Chỉ dùng khi
+                                                             question_type=
+                                                             FILL_IN_BLANK
+                                                             — so khớp
+                                                             CHÍNH XÁC
+                                                             (case-
+                                                             insensitive +
+                                                             trim) khi tự
+                                                             chấm (V54, bổ
+                                                             sung ngoài SDD
+                                                             gốc, đã xác
+                                                             nhận với người
+                                                             dùng
+                                                             2026-07-27)
+
   default_points      DECIMAL(5,2)     NOT NULL, DEFAULT 1.0 
 
   tags                JSONB            NULL                   
@@ -459,7 +820,8 @@ b)  Bảng questions --- Câu hỏi
 
 Có questions_history.\
 Bảo vệ khi sửa: Nếu câu hỏi đã có student_answers, không cho sửa nội
-dung/đáp án đúng. Tạo bản mới, archive bản cũ.
+dung/đáp án đúng (bao gồm cả `correct_answer_text`). Tạo bản mới, archive
+bản cũ.
 
 **Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (2026-07-21, cập nhật
 2026-07-22):** `audio_url`/`image_url` trước đây quy ước "đã upload sẵn
@@ -505,7 +867,8 @@ c)  Bảng question_choices --- Đáp án trắc nghiệm
                                        DEFAULT 0        
   -----------------------------------------------------------------------
 
-d)  Bảng exercises --- Đề ôn tập / Bài tập
+d)  Bảng exercises --- "Bài" trong 1 "Đề" (Kho đề, bổ sung ngoài SDD gốc,
+    đã xác nhận với người dùng 2026-07-30 --- xem mục j) Bảng exams)
 
   ----------------------------------------------------------------------------------
   **Cột**                **Kiểu**       **Ràng buộc**              **Ghi chú**
@@ -518,7 +881,9 @@ d)  Bảng exercises --- Đề ôn tập / Bài tập
 
   title                  VARCHAR(500)   NOT NULL                   
 
-  curriculum_id          BIGINT         FK → curriculums(id), NULL  
+  exam_id                BIGINT         FK → exams(id), NOT NULL   Thay cho         
+                                                                   curriculum_id cũ 
+                                                                   (V66, xem mục j) 
 
   subject_id             BIGINT         FK →                       
                                         curriculum_subjects(id),   
@@ -555,6 +920,18 @@ nhưng trước đây chưa được `ExerciseAttemptService` đọc/áp dụng 
 `show_correct_answers=true`, response `student_answers` trả thêm đáp án
 đúng (correct_choice_ids) và giải thích (questions.explanation, cột đã
 có sẵn nhưng trước đây cũng chưa từng được dùng).
+
+**Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (V54, 2026-07-27):**
+FILL_IN_BLANK giờ tự chấm được (thêm vào `AUTO_GRADABLE_TYPES` của
+`ExerciseAttemptService`, so khớp CHÍNH XÁC case-insensitive + trim với
+`correct_answer_text`) — trước đây luôn rơi vào hàng chờ Giáo viên chấm
+tay giống ESSAY/SPEAKING. Đồng thời thu hẹp phạm vi hiển thị
+`explanation`: câu **tự chấm được** (MULTIPLE_CHOICE/MULTIPLE_ANSWER/
+TRUE_FALSE/FILL_IN_BLANK) chỉ trả `explanation` khi học sinh trả lời
+SAI; câu **chấm tay** (ESSAY/SPEAKING) giữ nguyên hành vi cũ — luôn trả
+`explanation` khi `revealAnswer=true` (vì `ManualGradingService` không
+set cờ `student_answers.is_correct`, không có tín hiệu đúng/sai đáng tin
+cậy để lọc theo).
 
 e)  Bảng exercise_questions --- Câu hỏi thuộc đề
 
@@ -712,6 +1089,71 @@ i)  Bảng student_answer_grading --- GV chấm tự luận/nói
   --------------------------------------------------------------------------
 
 Không history, sửa điểm chấm tạo record mới thay vì sửa.
+
+j)  Bảng exams --- "Đề" (Kho đề, MỚI HOÀN TOÀN, V66, 2026-07-30, bổ
+sung ngoài SDD gốc, đã xác nhận với người dùng — gộp nhiều "Bài"
+(exercises) theo 1 khung chương trình, gán được nhiều lớp)
+
+  ----------------------------------------------------------------------------------
+  **Cột**                **Kiểu**       **Ràng buộc**              **Ghi chú**      
+  ---------------------- -------------- -------------------------- -----------------
+  id                     BIGSERIAL      PK                                          
+
+  uuid                   UUID           UNIQUE, NOT NULL                            
+
+  code                   VARCHAR(50)    UNIQUE, NOT NULL                            
+
+  title                  VARCHAR(500)   NOT NULL                                    
+
+  curriculum_id          BIGINT         FK → curriculums(id), NOT  Chỉ để lọc/duyệt 
+                                        NULL                       trong Kho đề,    
+                                                                   KHÔNG phải điều  
+                                                                   kiện hiển thị    
+                                                                   (xem k)          
+
+  created_by             BIGINT         FK → users(id), NOT NULL   Giáo viên tạo Đề 
+
+  created_at,            TIMESTAMPTZ    NOT NULL                   BaseAuditEntity  
+  updated_at                                                                        
+
+  ----------------------------------------------------------------------------------
+
+Không có cột `status` riêng (không tự thêm state ngoài yêu cầu đã
+chốt với người dùng — nếu sau này cần "ẩn Đề" thì hỏi lại trước).
+`curriculum_id` CHỈ dùng lọc/duyệt trong UI Kho đề — điều kiện hiển
+thị/giao bài thật sự nằm ở bảng `exam_class_assignments` (mục k),
+theo đúng quyết định đã chốt: gán lớp là điều kiện DUY NHẤT, khung
+chương trình không phải điều kiện thứ 2 (kể cả khi lớp và Đề khác
+khung chương trình).
+
+k)  Bảng exam_class_assignments --- Gán "Đề" cho lớp (MỚI HOÀN TOÀN,
+V66, 2026-07-30, bổ sung ngoài SDD gốc, đã xác nhận với người dùng)
+
+  ----------------------------------------------------------------------------------
+  **Cột**                **Kiểu**       **Ràng buộc**              **Ghi chú**      
+  ---------------------- -------------- -------------------------- -----------------
+  id                     BIGSERIAL      PK                                          
+
+  exam_id                BIGINT         FK → exams(id), NOT NULL                    
+
+  class_id               BIGINT         FK → classes(id), NOT NULL                  
+
+  assigned_by            BIGINT         FK → users(id), NOT NULL                    
+
+  assigned_at            TIMESTAMPTZ    NOT NULL, DEFAULT NOW()                     
+
+  ----------------------------------------------------------------------------------
+
+`UNIQUE(exam_id, class_id)`. Join thuần (mirror `class_teachers`),
+KHÔNG có `uuid`/`status` — gỡ lớp = DELETE cứng, không soft-cancel.
+Có 1 dòng ở đây là điều kiện hiển thị DUY NHẤT cho MỌI "Bài"
+(`exercises`) thuộc Đề này, áp dụng như nhau cho CẢ 4
+`exercise_type` (SELF_PRACTICE/ASSIGNED/MOCK_TEST/SKILL_PRACTICE) —
+từ V66, SELF_PRACTICE không còn "mở tự do sau khi Publish" như
+trước (xem UC-27 Precondition cập nhật tại
+`docs/uc/phan-he-07-lms-portal.md`). Giáo viên vẫn giao "Bài" cụ thể
+cho lớp qua Nhận xét học viên (UC-21) như cũ — gán Đề cho lớp ở đây
+chỉ mở ĐIỀU KIỆN, không tự động giao bất kỳ "Bài" nào.
 
 ### Luyện Nghe – Nói (UC-26, FR-LMS-04 — bổ sung ngoài SDD gốc, đã xác nhận với người dùng)
 
@@ -879,9 +1321,11 @@ không có nhiều câu hỏi con như student_answer_grading).
 Không history — sửa điểm chấm update tại chỗ (khác student_answer_grading
 vì chỉ 1 điểm/attempt, không cần versioning is_final).
 
-Permission riêng `lms.listening-practice.manage` cho quản lý nội dung
-(gán mặc định TEACHER) — chấm điểm tái dùng đúng `lms.grading.manage`
-đã có sẵn (mô tả gốc "Chấm bài thủ công" đủ tổng quát cho cả 2 domain).
+Permission riêng `lms.listening-practice.create/update/view` cho quản lý
+nội dung (gán mặc định TEACHER, tách từ `lms.listening-practice.manage`
+ở V62) — chấm điểm tái dùng đúng `lms.grading.manage` đã có sẵn (mô tả
+gốc "Chấm bài thủ công" đủ tổng quát cho cả 2 domain, KHÔNG tách ở V62 vì
+không có khía cạnh create/update/delete để tách theo hành động).
 
 ### Portal Phụ huynh
 

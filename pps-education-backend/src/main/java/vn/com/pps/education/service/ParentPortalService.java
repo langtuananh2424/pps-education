@@ -4,6 +4,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.AttendanceMark;
 import vn.com.pps.education.domain.ClassSession;
+import vn.com.pps.education.domain.ExerciseAssignment;
+import vn.com.pps.education.domain.ReviewVideoAssignment;
 import vn.com.pps.education.domain.GradeEntry;
 import vn.com.pps.education.domain.GradePeriodResult;
 import vn.com.pps.education.domain.Parent;
@@ -14,6 +16,7 @@ import vn.com.pps.education.dto.ChildResponse;
 import vn.com.pps.education.dto.ClassSessionResponse;
 import vn.com.pps.education.dto.GradeEntryResponse;
 import vn.com.pps.education.dto.GradePeriodResultResponse;
+import vn.com.pps.education.dto.HomeworkProgressResponse;
 import vn.com.pps.education.dto.StudentCommentResponse;
 import vn.com.pps.education.exception.NotAuthorizedForPortalAccessException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
@@ -57,6 +60,7 @@ public class ParentPortalService {
     private final AttendanceMarkRepository attendanceMarkRepository;
     private final StudentCommentRepository studentCommentRepository;
     private final ClassSessionRepository classSessionRepository;
+    private final HomeworkProgressService homeworkProgressService;
 
     public ParentPortalService(ParentRepository parentRepository,
                                 ParentStudentRepository parentStudentRepository,
@@ -66,7 +70,8 @@ public class ParentPortalService {
                                 GradePeriodResultRepository gradePeriodResultRepository,
                                 AttendanceMarkRepository attendanceMarkRepository,
                                 StudentCommentRepository studentCommentRepository,
-                                ClassSessionRepository classSessionRepository) {
+                                ClassSessionRepository classSessionRepository,
+                                HomeworkProgressService homeworkProgressService) {
         this.parentRepository = parentRepository;
         this.parentStudentRepository = parentStudentRepository;
         this.studentRepository = studentRepository;
@@ -76,6 +81,7 @@ public class ParentPortalService {
         this.attendanceMarkRepository = attendanceMarkRepository;
         this.studentCommentRepository = studentCommentRepository;
         this.classSessionRepository = classSessionRepository;
+        this.homeworkProgressService = homeworkProgressService;
     }
 
     /** Main Flow bước 2: nếu Phụ huynh có nhiều con, hiển thị lựa chọn tách riêng dữ liệu. */
@@ -127,6 +133,26 @@ public class ParentPortalService {
         return studentCommentRepository
                 .findBySchoolClassIdAndStudentIdAndStatusOrderByCommentDateDesc(classId, studentId, StudentComment.Status.APPROVED)
                 .stream().map(this::toResponse).toList();
+    }
+
+    /**
+     * UC-25 bước 4 ("tình trạng bài tập" — trước đây chưa có endpoint
+     * riêng, đã xác nhận với người dùng 2026-07-29): tiến độ BTVN
+     * (Ngữ pháp online/offline + Video Kết nối/Phản xạ) đã giao qua nhận
+     * xét hàng ngày đã duyệt — CHỈ xem tiến độ, không phải giao diện làm
+     * bài (việc đó thuộc về học sinh — xem StudentPortalController). Mỗi
+     * dòng ứng với 1 buổi có giao BTVN (bỏ qua buổi không giao gì).
+     */
+    @Transactional(readOnly = true)
+    public List<HomeworkProgressResponse> listHomeworkProgress(Long studentId, Long classId, Long actorUserId) {
+        requireAccessToChildClass(studentId, classId, actorUserId);
+        return studentCommentRepository
+                .findBySchoolClassIdAndStudentIdAndStatusOrderByCommentDateDesc(classId, studentId, StudentComment.Status.APPROVED)
+                .stream()
+                .filter(c -> c.getHomeworkNext() != null || c.getHomeworkNextExerciseAssignment() != null
+                        || c.getHomeworkNextReviewVideoAssignment() != null)
+                .map(this::toHomeworkProgressResponse)
+                .toList();
     }
 
     /** Main Flow bước 3: lịch học của con. */
@@ -189,7 +215,8 @@ public class ParentPortalService {
 
     private AttendanceMarkResponse toResponse(AttendanceMark m) {
         return new AttendanceMarkResponse(
-                m.getId(), m.getAttendanceSession().getId(), m.getStudent().getId(), m.getStudent().getUser().getFullName(),
+                m.getId(), m.getAttendanceSession().getId(), m.getAttendanceSession().getClassSession().getId(),
+                m.getStudent().getId(), m.getStudent().getUser().getFullName(),
                 m.getStudent().getStudentCode(), m.getStatus().name(), m.getMinutesLate(), m.getMinutesEarlyLeave(),
                 m.getAbsenceReason(), m.getNotifiedParentAt());
     }
@@ -202,14 +229,37 @@ public class ParentPortalService {
                 c.getGradePeriod() == null ? null : c.getGradePeriod().getId(),
                 c.getCommentDate(), c.getContent(), c.getStructuredContent(), c.getSeverity().name(), c.isWarning(),
                 c.getStatus().name(), c.getSubmittedAt(), c.getApprovedAt(),
-                c.getApprovedBy() == null ? null : c.getApprovedBy().getId(), c.getVisibleToParentAt(), c.getRejectionReason());
+                c.getApprovedBy() == null ? null : c.getApprovedBy().getId(), c.getVisibleToParentAt(), c.getRejectionReason(),
+                c.getAttitude() == null ? null : c.getAttitude().name(), c.getHomeworkPreviousScore(),
+                c.getHomeworkPreviousSpeakingScore(),
+                // Portal Phụ huynh chưa cần hiển thị chi tiết BTVN online (UC-21 mở rộng, V55) — để trống, bổ sung khi có yêu cầu.
+                c.getHomeworkNext(), null, null, null, null, null, null, c.getNote(),
+                c.getClassSession() == null ? null : c.getClassSession().getLessonContent());
+    }
+
+    private HomeworkProgressResponse toHomeworkProgressResponse(StudentComment c) {
+        ExerciseAssignment grammar = c.getHomeworkNextExerciseAssignment();
+        ReviewVideoAssignment video = c.getHomeworkNextReviewVideoAssignment();
+        return new HomeworkProgressResponse(
+                c.getId(), c.getClassSession().getId(), c.getCommentDate(),
+                grammar == null ? null : grammar.getId(),
+                grammar == null ? null : grammar.getExercise().getTitle(),
+                grammar == null ? c.getHomeworkNext() : null,
+                homeworkProgressService.grammarProgressLabel(grammar, c.getStudent().getId()),
+                video == null ? null : video.getId(),
+                video == null ? null : video.getReviewVideoSet().getTitle(),
+                homeworkProgressService.videoProgressLabel(video, c.getStudent().getId()));
     }
 
     private ClassSessionResponse toResponse(ClassSession s) {
+        int sessionNumber = (int) classSessionRepository.countEarlierSessions(
+                s.getSchoolClass().getId(), s.getSessionDate(), s.getId()) + 1;
         return new ClassSessionResponse(
                 s.getId(), s.getSchoolClass().getId(), s.getSessionDate(), s.getStartTime(), s.getEndTime(),
                 s.getRoom() == null ? null : s.getRoom().getId(), s.getRoom() == null ? null : s.getRoom().getName(),
                 s.getPrimaryTeacher().getId(), s.getPrimaryTeacher().getFullName(), s.getSessionType().name(), s.getStatus().name(),
-                s.getCancellationReason(), s.getRescheduledToSession() == null ? null : s.getRescheduledToSession().getId());
+                s.getCancellationReason(), s.getRescheduledToSession() == null ? null : s.getRescheduledToSession().getId(),
+                s.getLessonContent(), s.getTeacherType() == null ? null : s.getTeacherType().name(), sessionNumber,
+                s.getMakeupForSession() == null ? null : s.getMakeupForSession().getId());
     }
 }

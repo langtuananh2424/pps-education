@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from "react";
-import { Search, Sparkles, X } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import Button from "@/components/ui/Button";
-import { searchUsers, UserListItemResponse } from "@/features/system-admin/api";
+import { UserListItemResponse } from "@/features/system-admin/api";
+import UserSearchCombobox from "@/features/system-admin/components/UserSearchCombobox";
 import { RoomResponse, listRoomsBySite } from "@/features/facility/api";
 import { BulkCreateClassSessionRequest, BulkCreateClassSessionResponse, bulkCreateClassSessions } from "../api";
 import DatePicker from "@/components/ui/DatePicker";
+import Select from "@/components/ui/Select";
 
 const inputClass = "w-full bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
@@ -37,8 +39,7 @@ export default function BulkGenerateSessionsForm({ classId, siteId, onDone, onCa
   const [endTime, setEndTime] = useState("19:30");
   const [roomId, setRoomId] = useState("");
   const [sessionType, setSessionType] = useState("REGULAR");
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<UserListItemResponse[]>([]);
+  const [teacherType, setTeacherType] = useState("");
   const [teacher, setTeacher] = useState<UserListItemResponse | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -55,15 +56,6 @@ export default function BulkGenerateSessionsForm({ classId, siteId, onDone, onCa
       else next.add(day);
       return next;
     });
-  };
-
-  const handleSearch = (q: string) => {
-    setQuery(q);
-    if (!q.trim()) {
-      setResults([]);
-      return;
-    }
-    searchUsers({ keyword: q.trim() }, 0, 8).then((res) => setResults(res.content));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -83,7 +75,8 @@ export default function BulkGenerateSessionsForm({ classId, siteId, onDone, onCa
         endTime,
         roomId: roomId ? Number(roomId) : undefined,
         primaryTeacherId: teacher.id,
-        sessionType
+        sessionType,
+        teacherType: teacherType ? (teacherType as "VIETNAMESE" | "FOREIGN") : undefined
       };
       const res = await bulkCreateClassSessions(classId, request);
       setResult(res);
@@ -142,58 +135,38 @@ export default function BulkGenerateSessionsForm({ classId, siteId, onDone, onCa
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className={labelClass}>Phòng học</label>
-          <select value={roomId} onChange={(e) => setRoomId(e.target.value)} className={inputClass}>
+          <Select value={roomId} onChange={(e) => setRoomId(e.target.value)} className={inputClass}>
             <option value="">-- Không gán --</option>
             {rooms.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.code} — {r.name}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
         <div>
           <label className={labelClass}>Loại buổi học</label>
-          <select value={sessionType} onChange={(e) => setSessionType(e.target.value)} className={inputClass}>
+          <Select value={sessionType} onChange={(e) => setSessionType(e.target.value)} className={inputClass}>
             <option value="REGULAR">Buổi học thường</option>
             <option value="REVIEW">Ôn tập</option>
             <option value="EXAM">Kiểm tra</option>
             <option value="MAKEUP">Học bù</option>
-          </select>
+          </Select>
         </div>
       </div>
 
       <div>
+        <label className={labelClass}>Loại giáo viên (áp dụng chung cho cả lô buổi)</label>
+        <Select value={teacherType} onChange={(e) => setTeacherType(e.target.value)} className={inputClass}>
+          <option value="">-- Chưa xác định --</option>
+          <option value="VIETNAMESE">GV Việt Nam</option>
+          <option value="FOREIGN">GV nước ngoài</option>
+        </Select>
+      </div>
+
+      <div>
         <label className={labelClass}>Giáo viên phụ trách *</label>
-        {teacher ? (
-          <div className="flex items-center justify-between bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs font-semibold px-3 py-2 rounded-lg">
-            <span>{teacher.fullName} ({teacher.username})</span>
-            <button type="button" onClick={() => setTeacher(null)} className="text-emerald-600 hover:text-rose-600">
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        ) : (
-          <div className="relative">
-            <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400" />
-            <input value={query} onChange={(e) => handleSearch(e.target.value)} placeholder="Tìm theo họ tên / email / username..." className={`${inputClass} pl-8`} />
-            {results.length > 0 && (
-              <div className="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg divide-y divide-slate-100 max-h-56 overflow-y-auto">
-                {results.map((u) => (
-                  <button
-                    key={u.id}
-                    type="button"
-                    onClick={() => {
-                      setTeacher(u);
-                      setResults([]);
-                    }}
-                    className="w-full text-left px-3 py-2 hover:bg-slate-50 text-xs"
-                  >
-                    {u.fullName} <span className="text-slate-400">({u.username} · {u.email})</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+        <UserSearchCombobox value={teacher} onChange={setTeacher} roleFilter="TEACHER" placeholder="Bấm để xem danh sách hoặc gõ để tìm giáo viên..." />
       </div>
 
       {result && (

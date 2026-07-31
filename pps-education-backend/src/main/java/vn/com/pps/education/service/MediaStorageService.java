@@ -27,9 +27,12 @@ import java.util.UUID;
  * upload, key R2 sinh bằng UUID là nguồn dữ liệu duy nhất.
  *
  * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (2026-07-22, theo yêu
- * cầu FE): module có `acceptsDocuments()=true` (CURRICULUM_DOCUMENT,
- * LESSON_MATERIAL, và LMS_QUESTION từ 2026-07-22) được nhận thêm PDF/Word/
- * Excel/PowerPoint (≤20MB) và video/* (≤200MB) ngoài audio/ảnh.
+ * cầu FE; tách 2 cờ độc lập 2026-07-27): module có `acceptsVideo()=true`
+ * (CURRICULUM_DOCUMENT, REVIEW_VIDEO, LMS_QUESTION) được nhận thêm video/*
+ * (≤200MB); module có `acceptsOfficeDocuments()=true` (CURRICULUM_DOCUMENT,
+ * LMS_QUESTION — KHÔNG có REVIEW_VIDEO, Kho Video Ôn tập chỉ nhận video/
+ * audio) được nhận thêm PDF/Word/Excel/PowerPoint (≤20MB). Cả 2 độc lập
+ * với audio/ảnh (luôn được phép mọi module).
  */
 @Service
 public class MediaStorageService {
@@ -80,10 +83,10 @@ public class MediaStorageService {
         } else if (contentType.startsWith("image/")) {
             category = "images";
             maxBytes = MAX_IMAGE_BYTES;
-        } else if (module.acceptsDocuments() && contentType.startsWith("video/")) {
+        } else if (module.acceptsVideo() && contentType.startsWith("video/")) {
             category = "video";
             maxBytes = MAX_VIDEO_BYTES;
-        } else if (module.acceptsDocuments() && DOCUMENT_CONTENT_TYPES.contains(contentType)) {
+        } else if (module.acceptsOfficeDocuments() && DOCUMENT_CONTENT_TYPES.contains(contentType)) {
             category = "documents";
             maxBytes = MAX_DOCUMENT_BYTES;
         } else {

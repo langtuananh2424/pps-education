@@ -8,6 +8,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import vn.com.pps.education.common.ExcelExportHelper;
 import vn.com.pps.education.domain.ImportJob;
 import vn.com.pps.education.domain.Parent;
 import vn.com.pps.education.domain.Role;
@@ -15,6 +16,7 @@ import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.domain.UserRole;
 import vn.com.pps.education.domain.ParentStudent;
+import vn.com.pps.education.dto.AccountExportRequest;
 import vn.com.pps.education.dto.CreateParentRequest;
 import vn.com.pps.education.dto.LinkParentRequest;
 import vn.com.pps.education.dto.ParentBatchImportResponse;
@@ -191,6 +193,7 @@ public class ParentBatchImportService {
                         entry.put("row", rowIndex + 1);
                         entry.put("username", credential.username());
                         entry.put("temporaryPassword", credential.temporaryPassword());
+                        entry.put("fullName", credential.fullName());
                         credentials.add(entry);
                     }
                 } catch (RuntimeException ex) {
@@ -218,10 +221,43 @@ public class ParentBatchImportService {
         return toResponse(job, List.of());
     }
 
+    /**
+     * File mẫu để nhập phụ huynh theo lô (bổ sung ngoài SDD gốc, đã xác
+     * nhận với người dùng 2026-07-24) — đúng 7 cột theo thứ tự importRow()
+     * đọc phía trên. Sheet "Hướng dẫn" giải thích thêm trường hợp cột A/B
+     * không bắt buộc (dùng lại phụ huynh có sẵn theo SĐT).
+     */
+    public byte[] buildTemplate() {
+        List<String> headers = List.of(
+                "Họ và tên phụ huynh*", "Username*", "Số điện thoại*",
+                "Quan hệ (Cha/Mẹ/Người giám hộ/Khác)*", "Mã học sinh*",
+                "Là người liên hệ chính (Có/Không)", "Chịu trách nhiệm tài chính (Có/Không)");
+        List<String> notes = List.of(
+                "Cột A (Họ và tên phụ huynh) và cột B (Username) chỉ THỰC SỰ bắt buộc khi",
+                "số điện thoại (cột C) CHƯA từng nhập cho phụ huynh nào trước đó.",
+                "Nếu số điện thoại đã tồn tại, hệ thống dùng lại đúng tài khoản phụ huynh đó",
+                "(liên kết thêm 1 học sinh nữa) và bỏ qua giá trị ở cột A/B của dòng này.");
+        return ExcelExportHelper.buildWorkbook("Nhập phụ huynh", headers, List.of(), notes);
+    }
+
+    /**
+     * Xuất danh sách tài khoản phụ huynh vừa tạo ra Excel (bổ sung ngoài
+     * SDD gốc, đã xác nhận với người dùng 2026-07-24) — xem Javadoc tương
+     * ứng ở StudentBatchImportService.buildAccountsExport().
+     */
+    public byte[] buildAccountsExport(AccountExportRequest request) {
+        List<String> headers = List.of("Họ và tên", "Username", "Mật khẩu tạm");
+        List<List<Object>> rows = request.accounts().stream()
+                .<List<Object>>map(a -> List.of(
+                        a.fullName() == null ? "" : a.fullName(), a.username(), a.temporaryPassword()))
+                .toList();
+        return ExcelExportHelper.buildWorkbook("Tài khoản phụ huynh", headers, rows);
+    }
+
     // ===================== Helpers =====================
 
     /** Mật khẩu tạm (plaintext, 1 lần) sinh ra khi dòng này tạo User phụ huynh MỚI. */
-    private record RowCredential(String username, String temporaryPassword) {}
+    private record RowCredential(String username, String temporaryPassword, String fullName) {}
 
     /** A2: 1 dòng lỗi/trùng lặp không chặn các dòng khác. Trả về credential nếu dòng này tạo User mới, null nếu dùng lại Parent đã tồn tại. */
     private RowCredential importRow(Row row, DataFormatter formatter, User actor, Long actorUserId) {
@@ -263,11 +299,12 @@ public class ParentBatchImportService {
         studentService.linkParent(student.getId(), new LinkParentRequest(
                 result.parent().getId(), relationship.name(), primaryContact, financialResponsible, null));
 
-        return result.temporaryPassword() == null ? null : new RowCredential(result.username(), result.temporaryPassword());
+        return result.temporaryPassword() == null ? null
+                : new RowCredential(result.username(), result.temporaryPassword(), result.fullName());
     }
 
-    /** parent + username luôn có; temporaryPassword chỉ khác null khi vừa tạo User MỚI ở nhánh orElseGet bên dưới. */
-    private record ParentAndCredential(Parent parent, String username, String temporaryPassword) {}
+    /** parent + username luôn có; temporaryPassword/fullName chỉ khác null khi vừa tạo User MỚI ở nhánh orElseGet bên dưới. */
+    private record ParentAndCredential(Parent parent, String username, String temporaryPassword, String fullName) {}
 
     /**
      * Tái dùng NGUYÊN XI cơ chế LeadService.findOrCreateParent (UC-34) để
@@ -306,7 +343,8 @@ public class ParentBatchImportService {
                             new CreateParentRequest(parentUser.getId(), null, null, null, null, null, null), actorUserId);
                     return parentRepository.findById(response.id()).orElseThrow();
                 });
-        return new ParentAndCredential(parent, parentUser.getUsername(), tempPasswordHolder[0]);
+        String newAccountFullName = tempPasswordHolder[0] == null ? null : parentUser.getFullName();
+        return new ParentAndCredential(parent, parentUser.getUsername(), tempPasswordHolder[0], newAccountFullName);
     }
 
     private String generateTempPassword() {

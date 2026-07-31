@@ -1,4 +1,4 @@
-import { apiRequest } from "@/lib/apiClient";
+import { apiRequest, apiRequestBlob } from "@/lib/apiClient";
 
 // ===================== Khung chương trình (UC-16/17) =====================
 
@@ -274,6 +274,14 @@ export interface ClassSessionResponse {
   status: string;
   cancellationReason: string | null;
   rescheduledToSessionId: number | null;
+  // V60 (bổ sung ngoài SDD gốc, 2026-07-29): loại GV (VIETNAMESE/FOREIGN, null nếu chưa xác định) —
+  // chỉ ở cấp buổi học, không đụng hồ sơ nhân sự. sessionNumber tính động (1-based, đếm cả CANCELLED).
+  teacherType: "VIETNAMESE" | "FOREIGN" | null;
+  sessionNumber: number;
+  /** "Bài học hôm nay" (đã có từ V50, chưa từng lộ ra FE) — nhập ở tab Nhận xét học viên (UC-21), không phải Điểm danh. */
+  lessonContent: string | null;
+  /** V61 (bổ sung ngoài SDD gốc, 2026-07-29) — chỉ có ý nghĩa khi sessionType=MAKEUP: id buổi CANCELLED mà buổi này bù cho. */
+  makeupForSessionId: number | null;
 }
 
 export interface CreateClassSessionRequest {
@@ -283,6 +291,9 @@ export interface CreateClassSessionRequest {
   roomId?: number;
   primaryTeacherId: number;
   sessionType: string;
+  teacherType?: "VIETNAMESE" | "FOREIGN";
+  /** Bắt buộc khi sessionType=MAKEUP (buổi này bù cho buổi nào) — phải để trống với loại khác. Chỉ áp dụng tạo 1 buổi lẻ, không áp dụng bulk/Excel. */
+  makeupForSessionId?: number;
 }
 
 export interface RescheduleClassSessionRequest {
@@ -310,6 +321,16 @@ export function rescheduleClassSession(classId: number, sessionId: number, reque
   return apiRequest<ClassSessionResponse>(`/classes/${classId}/sessions/${sessionId}/reschedule`, { method: "POST", body: JSON.stringify(request) });
 }
 
+/** UC-48 (bổ sung ngoài SDD gốc, 2026-07-29): buổi học hôm nay của lớp — dùng để tự chọn buổi khi vào tab Nhận xét học viên. Loại CANCELLED/RESCHEDULED, trả rỗng nếu hôm nay không có buổi. */
+export function listTodaySessions(classId: number): Promise<ClassSessionResponse[]> {
+  return apiRequest<ClassSessionResponse[]>(`/classes/${classId}/sessions/today`);
+}
+
+/** V61 (bổ sung ngoài SDD gốc, 2026-07-29): buổi CANCELLED của lớp chưa có buổi bù nào liên kết — phục vụ chọn "buổi cần bù" khi tạo buổi MAKEUP. */
+export function listCancelledSessionsPendingMakeup(classId: number): Promise<ClassSessionResponse[]> {
+  return apiRequest<ClassSessionResponse[]>(`/classes/${classId}/sessions/cancelled-pending-makeup`);
+}
+
 // ===================== Sinh lịch hàng loạt (UC-56) =====================
 
 /** daysOfWeek dùng đúng tên hằng số java.time.DayOfWeek: MONDAY..SUNDAY. */
@@ -322,6 +343,8 @@ export interface BulkCreateClassSessionRequest {
   roomId?: number;
   primaryTeacherId: number;
   sessionType: string;
+  /** Dùng chung cho cả lô buổi tạo trong lời gọi này — muốn khác nhau theo thứ thì gọi bulkCreateClassSessions nhiều lần. */
+  teacherType?: "VIETNAMESE" | "FOREIGN";
 }
 
 export interface BulkCreateClassSessionResponse {
@@ -612,6 +635,23 @@ export function updateGradeEditWindow(days: number): Promise<GradeEditWindowResp
   return apiRequest<GradeEditWindowResponse>("/academic/settings/grade-edit-window-days", { method: "PUT", body: JSON.stringify({ days }) });
 }
 
+/**
+ * V43: hạn phúc khảo (UC-62) tính từ lúc "Công bố dự kiến" (publishedAt) — hết hạn thì
+ * GradeSchedulerService tự khoá OFFICIAL bất kể còn PROVISIONAL_PUBLISHED hay APPEAL.
+ * Khác hẳn GradeEditWindowResponse (X ngày = độ trễ tự động CÔNG BỐ, không phải khoá).
+ */
+export interface GradeAppealWindowResponse {
+  days: number;
+}
+
+export function getGradeAppealWindow(): Promise<GradeAppealWindowResponse> {
+  return apiRequest<GradeAppealWindowResponse>("/academic/settings/grade-appeal-window-days");
+}
+
+export function updateGradeAppealWindow(days: number): Promise<GradeAppealWindowResponse> {
+  return apiRequest<GradeAppealWindowResponse>("/academic/settings/grade-appeal-window-days", { method: "PUT", body: JSON.stringify({ days }) });
+}
+
 /** UC-20: Quản lý điểm trường xem điểm chưa công bố (DRAFT) — của (các) site mình phụ trách. */
 export function listUnpublishedGrades(): Promise<GradeEntryResponse[]> {
   return apiRequest<GradeEntryResponse[]>("/grades/pending");
@@ -676,6 +716,32 @@ export interface StudentCommentResponse {
   approvedBy: number | null;
   visibleToParentAt: string | null;
   rejectionReason: string | null;
+  // Nhận xét Hàng ngày kiểu mới (chỉ có ý nghĩa khi commentType=DAILY) — bổ sung ngoài SDD gốc.
+  // Attitude mở rộng từ 3 lên 6 mức 2026-07-27 (StudentComment.Attitude) — giữ nguyên tên hằng số
+  // POOR/AVERAGE/GOOD của 3 mức cũ, thêm WEAK/ABOVE_AVERAGE/FAIR.
+  attitude: "POOR" | "WEAK" | "AVERAGE" | "ABOVE_AVERAGE" | "FAIR" | "GOOD" | null;
+  homeworkPreviousScore: string | null;
+  // BTVN Nghe-nói buổi trước (V56, nhập tay, đối xứng với homeworkPreviousScore ở trên) — độc lập với
+  // videoPreviousProgress (tự tính) bên dưới.
+  homeworkPreviousSpeakingScore: string | null;
+  homeworkNext: string | null;
+  // BTVN online/offline theo từng học sinh (V55, PR UC-21-giao-btvn-online-offline, 2026-07-28) —
+  // kênh ngữ pháp ONLINE (homeworkNextExerciseAssignmentId khác null) hoặc OFFLINE (dùng homeworkNext
+  // ở trên); kênh Video Ôn tập luôn ONLINE. grammarPreviousProgress/videoPreviousProgress tự tính từ
+  // exercise_attempts/review_video_progress|submissions của buổi TRƯỚC, không nhập tay được.
+  // V65 (2026-07-30, bổ sung ngoài SDD gốc): 2 field *AssignmentId đều là id BẢN GIAO (ExerciseAssignment/
+  // ReviewVideoAssignment) tự động phát sinh khi chọn nguồn ở Nhận xét — không phải id nguồn (Exercise/
+  // ReviewVideoSet), dùng kèm *Title để hiện tên nguồn. Muốn tra ngược ra id nguồn phải gọi thêm
+  // listAssignmentsForClass (Ngữ pháp)/listReviewVideoAssignmentsForClass (Video) bên lms/api.ts.
+  homeworkNextExerciseAssignmentId: number | null;
+  homeworkNextExerciseTitle: string | null;
+  homeworkNextReviewVideoAssignmentId: number | null;
+  homeworkNextReviewVideoSetTitle: string | null;
+  grammarPreviousProgress: string | null;
+  videoPreviousProgress: string | null;
+  note: string | null;
+  /** "Bài học hôm nay" của buổi (class_sessions.lesson_content) — null nếu không phải DAILY. Bổ sung ngoài SDD gốc, 2026-07-29 — chuyển từ Điểm danh sang Nhận xét. */
+  lessonContent: string | null;
 }
 
 export interface CreateStudentCommentRequest {
@@ -688,6 +754,21 @@ export interface CreateStudentCommentRequest {
   structuredContent?: Record<string, unknown>;
   severity?: StudentCommentResponse["severity"];
   isWarning: boolean;
+  // Chỉ áp dụng khi commentType=DAILY — bỏ qua với MID_TERM/END_TERM.
+  attitude?: NonNullable<StudentCommentResponse["attitude"]>;
+  homeworkPreviousScore?: string;
+  homeworkPreviousSpeakingScore?: string;
+  homeworkNext?: string;
+  /**
+   * V65 (2026-07-30, bổ sung ngoài SDD gốc): kênh ngữ pháp ONLINE — id của Exercise NGUỒN (đã
+   * Publish), KHÔNG phải id bản giao như trước V65. Chọn khác null tự động giao đề cho CẢ LỚP ACTIVE,
+   * hạn nộp = buổi học kế tiếp — để trống nếu dùng homeworkNext (OFFLINE) hoặc không giao gì (hủy bản
+   * giao cũ nếu đang sửa 1 comment DRAFT đã chọn trước đó).
+   */
+  homeworkNextExerciseId?: number;
+  /** Kênh Video Ôn tập (luôn ONLINE) — id của ReviewVideoSet NGUỒN (đã Publish), tự động giao cả lớp tương tự. Để trống nếu không giao. */
+  homeworkNextReviewVideoSetId?: number;
+  note?: string;
 }
 
 export interface UpdateStudentCommentRequest {
@@ -695,6 +776,14 @@ export interface UpdateStudentCommentRequest {
   structuredContent?: Record<string, unknown>;
   severity?: StudentCommentResponse["severity"];
   isWarning: boolean;
+  attitude?: NonNullable<StudentCommentResponse["attitude"]>;
+  homeworkPreviousScore?: string;
+  homeworkPreviousSpeakingScore?: string;
+  homeworkNext?: string;
+  /** V65 — xem Javadoc CreateStudentCommentRequest.homeworkNextExerciseId. */
+  homeworkNextExerciseId?: number;
+  homeworkNextReviewVideoSetId?: number;
+  note?: string;
 }
 
 export function listComments(classId: number, studentId: number): Promise<StudentCommentResponse[]> {
@@ -711,6 +800,33 @@ export function updateComment(id: number, request: UpdateStudentCommentRequest):
 
 export function submitComments(classId: number, commentIds: number[]): Promise<StudentCommentResponse[]> {
   return apiRequest<StudentCommentResponse[]>(`/classes/${classId}/comments/submit`, { method: "POST", body: JSON.stringify({ commentIds }) });
+}
+
+export interface DailyCommentImportResponse {
+  id: number;
+  sourceFileName: string;
+  totalRows: number | null;
+  successRows: number;
+  failedRows: number;
+  status: string;
+  errorSummary: { row: number; reason: string }[];
+}
+
+/** "Bài học hôm nay" (2026-07-29, chuyển từ Điểm danh sang đây) — dùng chung rào ghi nhận xét DAILY (requireCanWriteDailyComment). */
+export function updateLessonContent(classSessionId: number, lessonContent: string): Promise<{ classSessionId: number; lessonContent: string }> {
+  return apiRequest(`/class-sessions/${classSessionId}/comments/lesson-content`, { method: "PUT", body: JSON.stringify({ lessonContent }) });
+}
+
+/** UC-21 (bổ sung): tải mẫu Excel theo buổi học — điền sẵn điểm danh + nhận xét Hàng ngày hiện có của từng học sinh ACTIVE. */
+export function downloadDailyCommentTemplate(classSessionId: number): Promise<Blob> {
+  return apiRequestBlob(`/class-sessions/${classSessionId}/comments/template`);
+}
+
+/** UC-21 (bổ sung): nhập lại file đã sửa — cập nhật cả điểm danh lẫn nhận xét Hàng ngày trong 1 lần. */
+export function importDailyComments(classSessionId: number, file: File): Promise<DailyCommentImportResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return apiRequest<DailyCommentImportResponse>(`/class-sessions/${classSessionId}/comments/import`, { method: "POST", body: formData });
 }
 
 /** UC-22: Quản lý điểm trường duyệt nhận xét — hàng chờ của (các) site mình phụ trách. */

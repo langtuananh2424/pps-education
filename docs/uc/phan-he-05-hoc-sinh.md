@@ -395,4 +395,18 @@ UC-50: Nhập phụ huynh theo lô
 |                 |     qua UC-55.                                     |
 +-----------------+----------------------------------------------------+
 
+Mở rộng --- File mẫu + xuất danh sách tài khoản (bổ sung ngoài SDD gốc, đã
+xác nhận với người dùng 2026-07-24)
+
+-   Trước bước 1, Nhân viên giáo vụ có thể gọi `GET
+    /api/parent-imports/template` để tải file Excel mẫu đầy đủ 7 cột theo
+    đúng thứ tự Main Flow đọc, trường bắt buộc đánh dấu `*` cuối tên cột;
+    kèm sheet "Hướng dẫn" giải thích cột Họ và tên/Username chỉ thực sự
+    bắt buộc khi số điện thoại chưa từng tồn tại (bước 4 — dòng dùng lại
+    Parent có sẵn thì bỏ qua 2 cột đó).
+-   Sau bước 6, có thể gọi `POST /api/parent-imports/accounts-export` với
+    đúng danh sách username + mật khẩu tạm vừa nhận được để lấy file
+    Excel giao lại cho phụ huynh — chỉ dùng được trong cùng phiên vừa
+    import (không lưu mật khẩu tạm lại để tra cứu sau).
+
 Phân hệ 6 --- Quản lý học thuật và đào tạo

@@ -1,23 +1,27 @@
 import React, { useState } from "react";
-import { Check, CheckSquare, FileText, Mic, Volume2 } from "lucide-react";
+import { Check, CheckSquare, FileText, Mic, PenLine, Volume2 } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import Button from "@/components/ui/Button";
 import FileUploadField from "@/components/ui/FileUploadField";
 import { CreateQuestionRequest, QuestionChoiceRequest, QuestionDifficulty, QuestionResponse, QuestionType, createQuestion, updateQuestion, uploadMedia } from "../api";
+import Select from "@/components/ui/Select";
 
 const inputClass = "w-full bg-white border border-slate-200 text-xs px-3.5 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-red";
 const labelClass = "block font-bold text-slate-700 mb-1 uppercase tracking-wider text-[10px]";
 
 /**
- * Đúng 4 loại theo bản thiết kế tham chiếu — KHÔNG thêm loại nào ngoài 4 loại
- * này. "Trắc nghiệm Voice" không phải 1 giá trị enum riêng ở backend — là
- * MULTIPLE_CHOICE + skill=LISTENING (bắt buộc kèm audioUrl).
+ * 5 loại (4 loại gốc theo bản thiết kế tham chiếu + Điền từ) — "Điền từ" bổ
+ * sung 2026-07-28 sau khi backend thêm tự chấm FILL_IN_BLANK (V54, so khớp
+ * case-insensitive + trim), trước đó chưa có UI vì chỉ chấm tay thủ công,
+ * đã xác nhận với người dùng. "Trắc nghiệm Voice" không phải 1 giá trị enum
+ * riêng ở backend — là MULTIPLE_CHOICE + skill=LISTENING (bắt buộc kèm audioUrl).
  */
-type UiQuestionKind = "MULTIPLE_CHOICE" | "VOICE_MULTIPLE_CHOICE" | "ESSAY" | "SPEAKING";
+type UiQuestionKind = "MULTIPLE_CHOICE" | "VOICE_MULTIPLE_CHOICE" | "FILL_IN_BLANK" | "ESSAY" | "SPEAKING";
 
 const kindMeta: Record<UiQuestionKind, { label: string; icon: typeof CheckSquare; activeClass: string; iconClass: string }> = {
   MULTIPLE_CHOICE: { label: "Trắc nghiệm", icon: CheckSquare, activeClass: "bg-emerald-50 border-emerald-400 text-emerald-800 ring-1 ring-emerald-300", iconClass: "text-emerald-600" },
   VOICE_MULTIPLE_CHOICE: { label: "Trắc nghiệm Voice", icon: Volume2, activeClass: "bg-blue-50 border-blue-400 text-blue-800 ring-1 ring-blue-300", iconClass: "text-blue-600" },
+  FILL_IN_BLANK: { label: "Điền từ", icon: PenLine, activeClass: "bg-amber-50 border-amber-400 text-amber-800 ring-1 ring-amber-300", iconClass: "text-amber-600" },
   ESSAY: { label: "Tự luận file/ảnh", icon: FileText, activeClass: "bg-purple-50 border-purple-400 text-purple-800 ring-1 ring-purple-300", iconClass: "text-purple-600" },
   SPEAKING: { label: "Speaking oral", icon: Mic, activeClass: "bg-rose-50 border-rose-400 text-rose-800 ring-1 ring-rose-300", iconClass: "text-rose-600" }
 };
@@ -28,6 +32,7 @@ function toKind(question?: QuestionResponse): UiQuestionKind {
   if (!question) return "MULTIPLE_CHOICE";
   if (question.questionType === "ESSAY") return "ESSAY";
   if (question.questionType === "SPEAKING") return "SPEAKING";
+  if (question.questionType === "FILL_IN_BLANK") return "FILL_IN_BLANK";
   return question.skill === "LISTENING" ? "VOICE_MULTIPLE_CHOICE" : "MULTIPLE_CHOICE";
 }
 
@@ -39,7 +44,7 @@ interface QuestionEditorFormProps {
   onCancel: () => void;
 }
 
-/** UC-40 Main Flow bước 1: soạn hoặc sửa 1 câu hỏi trong ngân hàng — đúng 4 loại theo thiết kế tham chiếu. */
+/** UC-40 Main Flow bước 1: soạn hoặc sửa 1 câu hỏi trong ngân hàng — 5 loại theo thiết kế tham chiếu + Điền từ. */
 export default function QuestionEditorForm({ questionBankId, existingQuestion, onCreated, onCancel }: QuestionEditorFormProps) {
   const isEditing = !!existingQuestion;
   const [kind, setKind] = useState<UiQuestionKind>(toKind(existingQuestion));
@@ -54,6 +59,9 @@ export default function QuestionEditorForm({ questionBankId, existingQuestion, o
   // Trắc nghiệm Voice: file audio + transcript (referencePassage).
   const [audioUrl, setAudioUrl] = useState(existingQuestion?.audioUrl ?? "");
   const [transcript, setTranscript] = useState(existingQuestion?.referencePassage ?? "");
+
+  // Điền từ: đáp án đúng duy nhất, BE so khớp case-insensitive + trim khi tự chấm (V54).
+  const [correctAnswerText, setCorrectAnswerText] = useState(existingQuestion?.correctAnswerText ?? "");
 
   // Tự luận: ảnh/tài liệu scan đề bài (imageUrl).
   const [imageUrl, setImageUrl] = useState(existingQuestion?.imageUrl ?? "");
@@ -86,6 +94,10 @@ export default function QuestionEditorForm({ questionBankId, existingQuestion, o
       setError("Trắc nghiệm Voice cần có URL audio mẫu.");
       return;
     }
+    if (kind === "FILL_IN_BLANK" && !correctAnswerText.trim()) {
+      setError("Điền từ cần có đáp án đúng để hệ thống tự chấm.");
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -97,6 +109,7 @@ export default function QuestionEditorForm({ questionBankId, existingQuestion, o
           imageUrl: kind === "ESSAY" ? imageUrl.trim() || undefined : undefined,
           referencePassage: kind === "VOICE_MULTIPLE_CHOICE" ? transcript.trim() || undefined : kind === "SPEAKING" ? phoneticKeywords.trim() || undefined : undefined,
           explanation: explanation.trim() || undefined,
+          correctAnswerText: kind === "FILL_IN_BLANK" ? correctAnswerText.trim() || undefined : undefined,
           choices
         });
       } else {
@@ -111,6 +124,7 @@ export default function QuestionEditorForm({ questionBankId, existingQuestion, o
           imageUrl: kind === "ESSAY" ? imageUrl.trim() || undefined : undefined,
           referencePassage: kind === "VOICE_MULTIPLE_CHOICE" ? transcript.trim() || undefined : kind === "SPEAKING" ? phoneticKeywords.trim() || undefined : undefined,
           explanation: explanation.trim() || undefined,
+          correctAnswerText: kind === "FILL_IN_BLANK" ? correctAnswerText.trim() || undefined : undefined,
           choices
         };
         result = await createQuestion(request);
@@ -133,7 +147,7 @@ export default function QuestionEditorForm({ questionBankId, existingQuestion, o
 
       <div>
         <label className={labelClass}>Loại câu hỏi tiếng Anh *{isEditing && <span className="text-slate-400 font-normal"> (không sửa được sau khi tạo)</span>}</label>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
           {(Object.entries(kindMeta) as [UiQuestionKind, (typeof kindMeta)[UiQuestionKind]][]).map(([value, meta]) => {
             const Icon = meta.icon;
             const active = kind === value;
@@ -158,13 +172,13 @@ export default function QuestionEditorForm({ questionBankId, existingQuestion, o
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className={labelClass}>Độ khó khảo thí *</label>
-          <select value={difficulty} onChange={(e) => setDifficulty(e.target.value as QuestionDifficulty)} disabled={isEditing} className={`${inputClass} disabled:opacity-60 font-bold`}>
+          <Select value={difficulty} onChange={(e) => setDifficulty(e.target.value as QuestionDifficulty)} disabled={isEditing} className={`${inputClass} disabled:opacity-60 font-bold`}>
             {Object.entries(difficultyLabels).map(([value, label]) => (
               <option key={value} value={value}>
                 {label}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
       </div>
 
@@ -226,6 +240,28 @@ export default function QuestionEditorForm({ questionBankId, existingQuestion, o
               <label className="block font-bold text-slate-600 mb-1 text-[9px] uppercase">Ghi chú phát âm / Transcript</label>
               <input value={transcript} onChange={(e) => setTranscript(e.target.value)} placeholder="Nội dung đọc trong tệp audio giúp kiểm tra..." className={inputClass} />
             </div>
+          </div>
+        </div>
+      )}
+
+      {kind === "FILL_IN_BLANK" && (
+        <div className="bg-amber-50/40 p-4 rounded-xl border border-amber-200 space-y-3">
+          <div className="text-amber-950 font-bold uppercase tracking-wider text-[9px] flex items-center gap-1">
+            <PenLine className="w-4 h-4 text-amber-600" />
+            <span>Đáp án đúng (hệ thống tự chấm)</span>
+          </div>
+          <div>
+            <label className="block font-bold text-slate-600 mb-1 text-[9px] uppercase">Đáp án đúng *</label>
+            <input
+              required
+              value={correctAnswerText}
+              onChange={(e) => setCorrectAnswerText(e.target.value)}
+              placeholder="VD: went"
+              className={inputClass}
+            />
+            <p className="text-[9px] text-slate-400 mt-1">
+              So khớp không phân biệt hoa/thường, tự bỏ khoảng trắng thừa đầu-cuối khi chấm — chỉ nhận đúng 1 đáp án.
+            </p>
           </div>
         </div>
       )}

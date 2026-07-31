@@ -30,6 +30,7 @@ import vn.com.pps.education.dto.GradeEntryResponse;
 import vn.com.pps.education.dto.GradePeriodResponse;
 import vn.com.pps.education.dto.GradePeriodResultResponse;
 import vn.com.pps.education.dto.PublishGradesRequest;
+import vn.com.pps.education.dto.RecordTransferRequest;
 import vn.com.pps.education.dto.SubmitGradeAppealRequest;
 import vn.com.pps.education.dto.UpdateCurriculumRequest;
 import vn.com.pps.education.dto.UpdateGradeComponentRequest;
@@ -85,6 +86,9 @@ class GradeServiceTest extends AbstractIntegrationTest {
 
     @Autowired
     private GradeService gradeService;
+
+    @Autowired
+    private StudentService studentService;
 
     @Autowired
     private GradeAppealService gradeAppealService;
@@ -618,6 +622,44 @@ class GradeServiceTest extends AbstractIntegrationTest {
 
         assertThatThrownBy(() -> gradeService.getMyPeriodResult(student.getUser().getId(), schoolClass.id(), gradePeriod.id()))
                 .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    /** Bổ sung (đã xác nhận với người dùng 2026-07-29): điểm lớp cũ vẫn tự xem được sau khi chuyển lớp. */
+    @Test
+    void listMyGrades_boSung_stillVisibleAfterTransferToAnotherClass() {
+        classService.enroll(schoolClass.id(), new EnrollStudentRequest(student.getId(), LocalDate.now()), headAcademic.getId());
+        GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
+                new EnterGradeRequest(student.getId(), new BigDecimal("8"), false, null), teacher.getId());
+        gradeService.publishGrades(new PublishGradesRequest(List.of(entry.id()), null), siteManagerUser.getId());
+        ClassResponse otherClass = classService.create(
+                new CreateClassRequest(classCode(), "8A3", newSite().getId(), gradePeriod.curriculumId(), "OPEN", 20, null,
+                        LocalDate.now(), null, null, null), headAcademic.getId());
+        studentService.recordTransfer(student.getId(),
+                new RecordTransferRequest("CLASS_CHANGE", schoolClass.id(), otherClass.id(), null, LocalDate.now(), "Chuyển lớp test"),
+                headAcademic.getId());
+
+        List<GradeEntryResponse> myGrades = gradeService.listMyGrades(student.getUser().getId(), null);
+
+        assertThat(myGrades).extracting(GradeEntryResponse::id).contains(entry.id());
+    }
+
+    /** Bổ sung (đã xác nhận với người dùng 2026-07-29): Overall/Level lớp cũ vẫn tự xem được sau khi chuyển lớp. */
+    @Test
+    void getMyPeriodResult_boSung_stillVisibleAfterTransferToAnotherClass() {
+        classService.enroll(schoolClass.id(), new EnrollStudentRequest(student.getId(), LocalDate.now()), headAcademic.getId());
+        GradePeriodResultResponse result = gradeService.enterPeriodResult(schoolClass.id(), student.getId(), gradePeriod.id(),
+                new EnterGradePeriodResultRequest(new BigDecimal("7.5"), "BAND", "B2"), teacher.getId());
+        gradeService.publishGrades(new PublishGradesRequest(null, List.of(result.id())), siteManagerUser.getId());
+        ClassResponse otherClass = classService.create(
+                new CreateClassRequest(classCode(), "8A3", newSite().getId(), gradePeriod.curriculumId(), "OPEN", 20, null,
+                        LocalDate.now(), null, null, null), headAcademic.getId());
+        studentService.recordTransfer(student.getId(),
+                new RecordTransferRequest("CLASS_CHANGE", schoolClass.id(), otherClass.id(), null, LocalDate.now(), "Chuyển lớp test"),
+                headAcademic.getId());
+
+        GradePeriodResultResponse myResult = gradeService.getMyPeriodResult(student.getUser().getId(), schoolClass.id(), gradePeriod.id());
+
+        assertThat(myResult.status()).isEqualTo("PROVISIONAL_PUBLISHED");
     }
 
     @Test

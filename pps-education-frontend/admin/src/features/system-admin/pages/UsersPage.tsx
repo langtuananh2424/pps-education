@@ -8,6 +8,7 @@ import EmptyState from "@/components/ui/EmptyState";
 import { ApiError } from "@/lib/apiClient";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
+import { useDialog } from "@/components/ui/DialogProvider";
 import { DepartmentResponse, listDepartments } from "@/features/hrm/api";
 import {
   changeUserPassword,
@@ -21,6 +22,7 @@ import {
   UserDetailResponse,
   UserListItemResponse
 } from "../api";
+import Select from "@/components/ui/Select";
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
@@ -111,7 +113,7 @@ export default function UsersPage() {
     <div className="space-y-4 animate-in fade-in duration-200">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div>
-          <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider block">Quản lý người dùng (UC-44/47/49)</h2>
+          <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider block">Quản lý người dùng</h2>
           <p className="text-[10px] text-slate-400 mt-0.5">
             Danh sách tài khoản toàn hệ thống — tra cứu, cập nhật hồ sơ, khóa/mở khóa. Tài khoản được khởi tạo từ Quản lý nhân sự /
             Quản lý học sinh.
@@ -129,13 +131,13 @@ export default function UsersPage() {
             className="w-full bg-slate-50 border border-slate-200 text-xs pl-8 pr-3 py-2.5 rounded-lg focus:outline-none"
           />
         </div>
-        <select value={status} onChange={(e) => setStatus(e.target.value as typeof status)} className="bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none">
+        <Select value={status} onChange={(e) => setStatus(e.target.value as typeof status)} className="bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none">
           <option value="">-- Mọi trạng thái --</option>
           <option value="ACTIVE">Đang hoạt động</option>
           <option value="INACTIVE">Ngừng hoạt động</option>
           <option value="SUSPENDED">Tạm khóa</option>
-        </select>
-        <select
+        </Select>
+        <Select
           value={departmentId}
           onChange={(e) => setDepartmentId(e.target.value)}
           className="w-48 bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
@@ -146,8 +148,8 @@ export default function UsersPage() {
               {d.name}
             </option>
           ))}
-        </select>
-        <select
+        </Select>
+        <Select
           value={roleCode}
           onChange={(e) => setRoleCode(e.target.value)}
           className="w-48 bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
@@ -158,7 +160,7 @@ export default function UsersPage() {
               {r.name}
             </option>
           ))}
-        </select>
+        </Select>
         <Button type="submit" variant="dark">
           Tìm kiếm
         </Button>
@@ -222,7 +224,7 @@ export default function UsersPage() {
               <span className="text-slate-300">|</span>
               <label className="flex items-center gap-1.5">
                 Số dòng/trang:
-                <select
+                <Select
                   value={pageSize}
                   onChange={(e) => {
                     setPageSize(Number(e.target.value));
@@ -235,7 +237,7 @@ export default function UsersPage() {
                       {size}
                     </option>
                   ))}
-                </select>
+                </Select>
               </label>
             </div>
             {totalPages > 1 && (
@@ -285,6 +287,7 @@ function UserDetailModal({
   const [changingPassword, setChangingPassword] = useState(false);
   const [changingStatus, setChangingStatus] = useState(false);
   const { message: toastMessage, showToast } = useToast();
+  const { confirmDialog } = useDialog();
 
   const loadDetail = (id: number) => {
     setLoading(true);
@@ -331,7 +334,7 @@ function UserDetailModal({
 
   const handleToggleStatus = async (newStatus: "ACTIVE" | "INACTIVE" | "SUSPENDED") => {
     if (!detail) return;
-    if (newStatus !== "ACTIVE" && !window.confirm(`Xác nhận chuyển tài khoản "${detail.username}" sang trạng thái ${statusLabels[newStatus]}?`)) {
+    if (newStatus !== "ACTIVE" && !(await confirmDialog(`Xác nhận chuyển tài khoản "${detail.username}" sang trạng thái ${statusLabels[newStatus]}?`, { danger: true }))) {
       return;
     }
     setChangingStatus(true);
@@ -354,7 +357,12 @@ function UserDetailModal({
       setError("Mật khẩu mới phải từ 8 ký tự trở lên.");
       return;
     }
-    if (!window.confirm(`Xác nhận đặt mật khẩu mới cho tài khoản "${detail.username}"? Tài khoản này có thể đăng nhập ngay bằng mật khẩu mới, mật khẩu cũ sẽ không còn dùng được.`)) {
+    if (
+      !(await confirmDialog(
+        `Xác nhận đặt mật khẩu mới cho tài khoản "${detail.username}"? Tài khoản này có thể đăng nhập ngay bằng mật khẩu mới, mật khẩu cũ sẽ không còn dùng được.`,
+        { danger: true }
+      ))
+    ) {
       return;
     }
     setChangingPassword(true);
@@ -405,7 +413,7 @@ function UserDetailModal({
 
           <form onSubmit={handleSaveProfile} className="space-y-3 border-t border-slate-100 pt-4">
             <div>
-              <span className="text-[10px] font-bold uppercase text-slate-500">Cập nhật hồ sơ (UC-49)</span>
+              <span className="text-[10px] font-bold uppercase text-slate-500">Cập nhật hồ sơ</span>
               <p className="text-[10px] text-slate-400">Chỉ đổi họ tên/số điện thoại hiển thị của tài khoản này.</p>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -426,7 +434,7 @@ function UserDetailModal({
           <form onSubmit={handleChangePassword} className="space-y-2 border-t border-slate-100 pt-4">
             <div>
               <span className="text-[10px] font-bold uppercase text-slate-500 flex items-center gap-1">
-                <KeyRound className="w-3 h-3" /> Đặt lại mật khẩu (UC-45)
+                <KeyRound className="w-3 h-3" /> Đặt lại mật khẩu
               </span>
               <p className="text-[10px] text-slate-400">Admin đặt thẳng mật khẩu mới cho tài khoản này, có hiệu lực ngay — không cần biết mật khẩu cũ (dùng khi người dùng quên mật khẩu).</p>
             </div>
@@ -446,7 +454,7 @@ function UserDetailModal({
 
           <div className="border-t border-slate-100 pt-4 flex flex-wrap gap-2">
             <div className="w-full">
-              <span className="text-[10px] font-bold uppercase text-slate-500">Khóa/Mở khóa (UC-47)</span>
+              <span className="text-[10px] font-bold uppercase text-slate-500">Khóa/Mở khóa</span>
               <p className="text-[10px] text-slate-400">Đổi trạng thái đăng nhập của tài khoản — ngừng/tạm khóa sẽ chặn đăng nhập ngay.</p>
             </div>
             {detail.status !== "ACTIVE" && (

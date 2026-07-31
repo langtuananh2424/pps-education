@@ -20,6 +20,7 @@ import Modal from "@/components/ui/Modal";
 import FileUploadField from "@/components/ui/FileUploadField";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
+import Select from "@/components/ui/Select";
 
 /** Khớp DOCUMENT_CONTENT_TYPES + audio/image/video của module CURRICULUM_DOCUMENT (xem MediaStorageService.java). */
 const DOCUMENT_UPLOAD_ACCEPT =
@@ -78,7 +79,7 @@ export default function DocumentBankPage() {
   return (
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Kho tài liệu tham khảo (UC-60)</h1>
+        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Kho tài liệu tham khảo</h1>
         <p className="text-xs text-slate-500 mt-1">
           Tài liệu chia sẻ chung theo khung chương trình, không gắn với 1 bài giảng cụ thể nào — Học sinh xem để tự học thêm.
         </p>
@@ -87,14 +88,14 @@ export default function DocumentBankPage() {
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       <Card className="flex flex-wrap items-center gap-3">
-        <select value={selectedCurriculumId ?? ""} onChange={(e) => setSelectedCurriculumId(e.target.value ? Number(e.target.value) : null)} className={`${inputClass} w-72`}>
+        <Select value={selectedCurriculumId ?? ""} onChange={(e) => setSelectedCurriculumId(e.target.value ? Number(e.target.value) : null)} className={`${inputClass} w-72`}>
           <option value="">-- Chọn khung chương trình --</option>
           {curriculums.map((c) => (
             <option key={c.id} value={c.id}>
               {c.code} — {c.name}
             </option>
           ))}
-        </select>
+        </Select>
         <Button variant="primary" disabled={!selectedCurriculumId} onClick={() => setShowCreateForm(true)} className="ml-auto">
           <Plus className="w-4 h-4" />
           <span>Thêm tài liệu</span>
@@ -110,12 +111,16 @@ export default function DocumentBankPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {documents.map((doc) => (
-            <Card key={doc.id} className="flex flex-col justify-between">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="p-2 rounded-lg bg-amber-50 text-brand-orange shrink-0">
-                    <FileText className="w-4 h-4" />
-                  </span>
+            <Card key={doc.id} padded={false} className="flex flex-col justify-between overflow-hidden">
+              {doc.coverImageUrl ? (
+                <img src={doc.coverImageUrl} alt="" className="w-full h-28 object-cover" />
+              ) : (
+                <div className="w-full h-28 bg-amber-50 flex items-center justify-center text-brand-orange">
+                  <FileText className="w-8 h-8" />
+                </div>
+              )}
+              <div className="p-4 space-y-2 flex-1">
+                <div className="flex items-center justify-end">
                   <Badge variant={statusVariants[doc.status]}>{statusLabels[doc.status]}</Badge>
                 </div>
                 <div>
@@ -124,7 +129,7 @@ export default function DocumentBankPage() {
                 </div>
                 <p className="text-[11px] text-slate-400 break-all bg-slate-50 p-2 rounded border">{doc.fileUrl}</p>
               </div>
-              <div className="border-t border-slate-100 pt-3 mt-3 flex items-center justify-between">
+              <div className="border-t border-slate-100 px-4 py-3 flex items-center justify-between">
                 <span className="text-[10px] font-bold text-brand-orange">{documentTypeLabels[doc.documentType]}</span>
                 <Button size="sm" variant="secondary" onClick={() => setEditingDocument(doc)}>
                   Sửa
@@ -165,7 +170,7 @@ export default function DocumentBankPage() {
 }
 
 function CreateDocumentModal({ curriculumId, onClose, onCreated }: { curriculumId: number; onClose: () => void; onCreated: () => void }) {
-  const [form, setForm] = useState({ title: "", description: "", documentType: "PDF" as CurriculumDocumentType, fileUrl: "", displayOrder: "" });
+  const [form, setForm] = useState({ title: "", description: "", documentType: "PDF" as CurriculumDocumentType, fileUrl: "", displayOrder: "", coverImageUrl: "" });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -183,7 +188,8 @@ function CreateDocumentModal({ curriculumId, onClose, onCreated }: { curriculumI
         description: form.description.trim() || undefined,
         documentType: form.documentType,
         fileUrl: form.fileUrl.trim(),
-        displayOrder: form.displayOrder ? Number(form.displayOrder) : undefined
+        displayOrder: form.displayOrder ? Number(form.displayOrder) : undefined,
+        coverImageUrl: form.coverImageUrl || undefined
       };
       await createCurriculumDocument(curriculumId, request);
       onCreated();
@@ -195,7 +201,7 @@ function CreateDocumentModal({ curriculumId, onClose, onCreated }: { curriculumI
   };
 
   return (
-    <Modal open onClose={onClose} title="Thêm tài liệu tham khảo (UC-60)" size="lg">
+    <Modal open onClose={onClose} title="Thêm tài liệu tham khảo" size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
         <div className="grid grid-cols-2 gap-3">
@@ -205,13 +211,13 @@ function CreateDocumentModal({ curriculumId, onClose, onCreated }: { curriculumI
           </div>
           <div>
             <label className={labelClass}>Loại tệp *</label>
-            <select value={form.documentType} onChange={(e) => setForm({ ...form, documentType: e.target.value as CurriculumDocumentType })} className={inputClass}>
+            <Select value={form.documentType} onChange={(e) => setForm({ ...form, documentType: e.target.value as CurriculumDocumentType })} className={inputClass}>
               {Object.entries(documentTypeLabels).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
         </div>
         <div>
@@ -226,6 +232,16 @@ function CreateDocumentModal({ curriculumId, onClose, onCreated }: { curriculumI
             onUpload={(file) => uploadMedia(file, "CURRICULUM_DOCUMENT")}
             accept={DOCUMENT_UPLOAD_ACCEPT}
             placeholder="Chọn PDF/Word/Excel/ảnh/audio/video..."
+          />
+        </div>
+        <div>
+          <label className={labelClass}>Ảnh bìa hiển thị (tùy chọn)</label>
+          <FileUploadField
+            value={form.coverImageUrl}
+            onChange={(url) => setForm({ ...form, coverImageUrl: url })}
+            onUpload={(file) => uploadMedia(file, "CURRICULUM_DOCUMENT")}
+            accept="image/*"
+            placeholder="Chọn ảnh bìa..."
           />
         </div>
         <div>
@@ -259,7 +275,8 @@ function EditDocumentModal({
     title: doc.title,
     description: doc.description ?? "",
     displayOrder: String(doc.displayOrder),
-    status: doc.status
+    status: doc.status,
+    coverImageUrl: doc.coverImageUrl ?? ""
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -277,7 +294,8 @@ function EditDocumentModal({
         title: form.title.trim(),
         description: form.description.trim() || undefined,
         displayOrder: form.displayOrder ? Number(form.displayOrder) : undefined,
-        status: form.status
+        status: form.status,
+        coverImageUrl: form.coverImageUrl || undefined
       };
       await updateCurriculumDocument(doc.id, request);
       onSaved();
@@ -300,6 +318,16 @@ function EditDocumentModal({
           <label className={labelClass}>Mô tả</label>
           <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} className={inputClass} />
         </div>
+        <div>
+          <label className={labelClass}>Ảnh bìa hiển thị (tùy chọn)</label>
+          <FileUploadField
+            value={form.coverImageUrl}
+            onChange={(url) => setForm({ ...form, coverImageUrl: url })}
+            onUpload={(file) => uploadMedia(file, "CURRICULUM_DOCUMENT")}
+            accept="image/*"
+            placeholder="Chọn ảnh bìa..."
+          />
+        </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className={labelClass}>Thứ tự hiển thị</label>
@@ -307,13 +335,13 @@ function EditDocumentModal({
           </div>
           <div>
             <label className={labelClass}>Trạng thái</label>
-            <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as CurriculumDocumentStatus })} className={inputClass}>
+            <Select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as CurriculumDocumentStatus })} className={inputClass}>
               {Object.entries(statusLabels).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
         </div>
         <p className="text-[10px] text-slate-400 italic">Loại tệp/URL không sửa được sau khi tạo — xoá bằng cách chuyển trạng thái "Đã gỡ" (ARCHIVED), tạo bản ghi mới nếu cần đổi tệp.</p>

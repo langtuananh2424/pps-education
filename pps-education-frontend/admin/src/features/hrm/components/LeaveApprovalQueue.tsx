@@ -3,6 +3,7 @@ import { Check, Clock } from "lucide-react";
 import { LeaveRequest } from "@/types";
 import Badge from "@/components/ui/Badge";
 import { cn } from "@/lib/cn";
+import { useDialog } from "@/components/ui/DialogProvider";
 
 interface LeaveApprovalQueueProps {
   leaveRequests: LeaveRequest[];
@@ -15,6 +16,7 @@ const statusLabels = { APPROVED: "Đã duyệt", REJECTED: "Từ chối", PENDIN
 export default function LeaveApprovalQueue({ leaveRequests, onVote }: LeaveApprovalQueueProps) {
   const [filter, setFilter] = useState<"pending" | "history">("pending");
   const [opinionNotes, setOpinionNotes] = useState<Record<string, string>>({});
+  const { alertDialog } = useDialog();
 
   const filtered = leaveRequests.filter((req) => (filter === "pending" ? req.status === "PENDING" : req.status !== "PENDING"));
 
@@ -114,10 +116,10 @@ export default function LeaveApprovalQueue({ leaveRequests, onVote }: LeaveAppro
 
                   <div className="flex gap-2 justify-end">
                     <button
-                      onClick={() => {
+                      onClick={async () => {
                         const notes = opinionNotes[req.id]?.trim();
                         if (!notes) {
-                          alert("Lỗi: Bạn phải điền lý do từ chối vào ô ý kiến phản hồi!");
+                          await alertDialog("Lỗi: Bạn phải điền lý do từ chối vào ô ý kiến phản hồi!");
                           return;
                         }
                         onVote(req.id, "REJECTED", notes);

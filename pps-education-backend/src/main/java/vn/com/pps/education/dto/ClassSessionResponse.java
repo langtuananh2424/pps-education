@@ -16,5 +16,12 @@ public record ClassSessionResponse(
         String sessionType,
         String status,
         String cancellationReason,
-        Long rescheduledToSessionId
+        Long rescheduledToSessionId,
+        String lessonContent,
+        /** Loại giáo viên (VIETNAMESE/FOREIGN) dạy buổi này — null nếu chưa xác định. */
+        String teacherType,
+        /** Số thứ tự buổi học trong lớp (1-based, đếm cả CANCELLED) — tính động, không lưu DB. */
+        Integer sessionNumber,
+        /** Chỉ có ý nghĩa khi sessionType=MAKEUP — id buổi CANCELLED mà buổi này bù cho, null nếu chưa liên kết. */
+        Long makeupForSessionId
 ) {}

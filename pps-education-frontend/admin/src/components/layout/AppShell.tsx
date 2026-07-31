@@ -14,7 +14,7 @@ export default function AppShell() {
 
       <Sidebar />
 
-      <div className="flex-1 flex flex-col lg:pl-[320px] min-h-screen lg:pr-4 lg:py-4 overflow-x-hidden">
+      <div className="flex-1 flex flex-col lg:pl-[288px] min-h-screen lg:pr-4 lg:py-4 overflow-x-hidden">
         <Header />
 
         <main className="flex-1 bg-white rounded-3xl border border-slate-200/40 shadow-soft p-4 md:p-8 animate-in fade-in duration-300">

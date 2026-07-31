@@ -1,24 +1,23 @@
 import React, { useEffect, useState } from "react";
-import { Bell, Clock, MessageSquareCode, ShieldAlert } from "lucide-react";
+import { Bell, MessageSquareCode, ShieldAlert } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
-import { listComments, listMyNotifications, NotificationResponse, StudentCommentResponse } from "../api";
+import { listComments, listMyComments, listMyNotifications, NotificationResponse, StudentCommentResponse } from "../api";
 
 const COMMENT_TYPE_LABEL: Record<string, string> = { DAILY: "Hàng ngày", MID_TERM: "Giữa kỳ", END_TERM: "Cuối kỳ" };
 
 interface HomeTabProps {
   studentName: string;
+  classId: number | null;
   /**
-   * Nguồn xem nhận xét/cảnh báo giáo viên — Phụ huynh xem con qua
-   * `/portal/parent/children/{studentId}/classes/{classId}/comments` (đã có, self-owner
-   * check trong ParentPortalService). Học sinh CHƯA có API tự xem nhận xét của chính mình
-   * (chưa có `/students/me/classes/{classId}/comments` tương tự các API self-service khác
-   * — GET /students/me/grades, /sessions...) — truyền `null` để ẩn gọn 2 khối này, không
-   * gọi API/không tự chế cách né quyền.
+   * UC-64 (2026-07-29) — chỉ set khi xem qua Cổng Phụ huynh, dùng
+   * `/portal/parent/children/{studentId}/classes/{classId}/comments`. Không set (Học sinh tự
+   * xem) thì dùng self-service `/students/me/classes/{classId}/comments` (listMyComments,
+   * suy studentId từ JWT) — cả 2 endpoint giờ đã có, không còn ẩn khối nhận xét nữa.
    */
-  commentsSource: { studentId: number; classId: number } | null;
+  parentStudentId?: number;
 }
 
-export default function HomeTab({ studentName, commentsSource }: HomeTabProps) {
+export default function HomeTab({ studentName, classId, parentStudentId }: HomeTabProps) {
   const [notifications, setNotifications] = useState<NotificationResponse[]>([]);
   const [comments, setComments] = useState<StudentCommentResponse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -26,14 +25,15 @@ export default function HomeTab({ studentName, commentsSource }: HomeTabProps) {
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([listMyNotifications(), commentsSource ? listComments(commentsSource.studentId, commentsSource.classId) : Promise.resolve([])])
+    const commentsPromise = classId == null ? Promise.resolve([]) : parentStudentId != null ? listComments(parentStudentId, classId) : listMyComments(classId);
+    Promise.all([listMyNotifications(), commentsPromise])
       .then(([notif, cmt]) => {
         setNotifications(notif.content);
         setComments(cmt);
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được bảng tin."))
       .finally(() => setLoading(false));
-  }, [commentsSource?.studentId, commentsSource?.classId]);
+  }, [classId, parentStudentId]);
 
   const warned = comments.filter((c) => c.isWarning);
   const regular = comments.filter((c) => !c.isWarning);
@@ -54,8 +54,8 @@ export default function HomeTab({ studentName, commentsSource }: HomeTabProps) {
 
       {error && <div className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-xl">{error}</div>}
 
-      <div className={`grid grid-cols-1 gap-6 ${commentsSource ? "lg:grid-cols-3" : ""}`}>
-        <div className={`${commentsSource ? "lg:col-span-2" : ""} bg-white border border-line/80 p-6 rounded-[20px] shadow-[0_8px_30px_rgba(30,42,69,0.03)] space-y-4`}>
+      <div className={`grid grid-cols-1 gap-6 ${classId != null ? "lg:grid-cols-3" : ""}`}>
+        <div className={`${classId != null ? "lg:col-span-2" : ""} bg-white border border-line/80 p-6 rounded-[20px] shadow-[0_8px_30px_rgba(30,42,69,0.03)] space-y-4`}>
           <h2 className="text-xl font-extrabold text-ink flex items-center gap-2">
             <Bell className="text-teal" /> Thông báo
           </h2>
@@ -77,16 +77,7 @@ export default function HomeTab({ studentName, commentsSource }: HomeTabProps) {
           )}
         </div>
 
-        {!commentsSource && (
-          <div className="bg-white border border-dashed border-line/80 p-6 rounded-[20px] flex items-center gap-3 text-muted">
-            <Clock size={18} className="shrink-0" />
-            <p className="text-xs font-bold italic">
-              Nhận xét & cảnh báo từ giáo viên: đang chờ Backend mở API cho Học sinh tự xem của chính mình (hiện chỉ Phụ huynh xem được).
-            </p>
-          </div>
-        )}
-
-        {commentsSource && (
+        {classId != null && (
         <div className="lg:col-span-1 space-y-6">
           {warned.length > 0 && (
             <div className="bg-[#ff7a59]/5 border border-[#ff7a59]/20 p-5 rounded-[20px] space-y-3">

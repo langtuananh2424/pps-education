@@ -5,10 +5,17 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.transaction.annotation.Transactional;
+import vn.com.pps.education.domain.User;
+import vn.com.pps.education.dto.CreateCurriculumRequest;
+import vn.com.pps.education.dto.CreateExamRequest;
 import vn.com.pps.education.dto.CreateExerciseRequest;
 import vn.com.pps.education.dto.CreateQuestionBankRequest;
 import vn.com.pps.education.dto.CreateQuestionRequest;
+import vn.com.pps.education.dto.CurriculumResponse;
 import vn.com.pps.education.dto.QuestionResponse;
+import vn.com.pps.education.dto.UpdateCurriculumRequest;
+import vn.com.pps.education.service.CurriculumService;
+import vn.com.pps.education.service.ExamService;
 import vn.com.pps.education.service.QuestionBankService;
 import vn.com.pps.education.support.AbstractControllerTest;
 
@@ -22,9 +29,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * UC-40: xác nhận lms.exercise.manage (Hybrid PBAC — V28) chặn/cho phép
- * đúng qua HTTP thật cho cả 2 Controller dùng chung permission này
- * (QuestionBankController + ExerciseController).
+ * UC-40: xác nhận lms.question-bank.* (QuestionBankController) và
+ * lms.exercise.* (ExerciseController) — Hybrid PBAC V28, tách thành 2
+ * nhóm permission riêng ở V62 (2 resource khác nhau) — chặn/cho phép đúng
+ * qua HTTP thật cho cả 2 Controller.
  */
 @Transactional
 class QuestionBankControllerTest extends AbstractControllerTest {
@@ -36,6 +44,22 @@ class QuestionBankControllerTest extends AbstractControllerTest {
 
     @Autowired
     private QuestionBankService questionBankService;
+
+    @Autowired
+    private CurriculumService curriculumService;
+
+    @Autowired
+    private ExamService examService;
+
+    /** Kho đề (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30): examId nay bắt buộc trên CreateExerciseRequest — cần 1 Đề thật, không còn dùng null. */
+    private Long createExam(User actor) {
+        CurriculumResponse curriculum = curriculumService.create(
+                new CreateCurriculumRequest("CUR-" + SEQ.incrementAndGet(), "Chuẩn", "MAIN", null, null, null), actor.getId());
+        CurriculumResponse active = curriculumService.update(curriculum.id(),
+                new UpdateCurriculumRequest("Chuẩn", null, null, null, "ACTIVE", false), actor.getId());
+        return examService.createExam(
+                new CreateExamRequest("KD-" + SEQ.incrementAndGet(), "Đề test", active.id()), actor.getId()).id();
+    }
 
     @Test
     void createBank_deniedForRoleWithoutLmsExerciseManage_returns403() throws Exception {
@@ -65,12 +89,13 @@ class QuestionBankControllerTest extends AbstractControllerTest {
     @Test
     void createExercise_deniedForRoleWithoutLmsExerciseManage_returns403() throws Exception {
         var staff = userWithRole("staff.noaccess2", "STAFF");
+        Long examId = createExam(staff);
 
         mockMvc.perform(post("/api/exercises")
                         .header("Authorization", bearerToken(staff, "STAFF"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
-                                new CreateExerciseRequest("EX-" + SEQ.incrementAndGet(), "Đề test", null, null,
+                                new CreateExerciseRequest("EX-" + SEQ.incrementAndGet(), "Đề test", examId, null,
                                         "SELF_PRACTICE", new BigDecimal("100"), null, false, null, true))))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.message").value("Tài khoản không có quyền thực hiện thao tác này."));
@@ -79,12 +104,13 @@ class QuestionBankControllerTest extends AbstractControllerTest {
     @Test
     void createExercise_allowedForTeacher_returns200() throws Exception {
         var teacher = userWithRole("teacher.access2", "TEACHER");
+        Long examId = createExam(teacher);
 
         mockMvc.perform(post("/api/exercises")
                         .header("Authorization", bearerToken(teacher, "TEACHER"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
-                                new CreateExerciseRequest("EX-" + SEQ.incrementAndGet(), "Đề test", null, null,
+                                new CreateExerciseRequest("EX-" + SEQ.incrementAndGet(), "Đề test", examId, null,
                                         "SELF_PRACTICE", new BigDecimal("100"), null, false, null, true))))
                 .andExpect(status().isOk());
     }
@@ -92,7 +118,7 @@ class QuestionBankControllerTest extends AbstractControllerTest {
     /**
      * Bổ sung: GET /api/questions/{id} trước đây không gate quyền — bất
      * kỳ ai đăng nhập (kể cả học viên) đều xem được is_correct của mọi
-     * câu hỏi. Đã thêm lms.exercise.manage — xác nhận qua HTTP thật.
+     * câu hỏi. Đã thêm lms.question-bank.view — xác nhận qua HTTP thật.
      */
     @Test
     void getQuestion_deniedForRoleWithoutLmsExerciseManage_returns403() throws Exception {
@@ -101,7 +127,7 @@ class QuestionBankControllerTest extends AbstractControllerTest {
                 new CreateQuestionBankRequest("QB-" + SEQ.incrementAndGet(), "Ngân hàng test", null, null, null), teacher.getId());
         QuestionResponse question = questionBankService.createQuestion(
                 new CreateQuestionRequest(bank.id(), "MULTIPLE_CHOICE", "GRAMMAR", "EASY", "She ___ to school.",
-                        null, null, null, null, new BigDecimal("1.0"), null, List.of()),
+                        null, null, null, null, null, new BigDecimal("1.0"), null, List.of()),
                 teacher.getId());
         var staff = userWithRole("staff.getq", "STAFF");
 
@@ -118,7 +144,7 @@ class QuestionBankControllerTest extends AbstractControllerTest {
                 new CreateQuestionBankRequest("QB-" + SEQ.incrementAndGet(), "Ngân hàng test", null, null, null), teacher.getId());
         QuestionResponse question = questionBankService.createQuestion(
                 new CreateQuestionRequest(bank.id(), "MULTIPLE_CHOICE", "GRAMMAR", "EASY", "She ___ to school.",
-                        null, null, null, null, new BigDecimal("1.0"), null, List.of()),
+                        null, null, null, null, null, new BigDecimal("1.0"), null, List.of()),
                 teacher.getId());
 
         mockMvc.perform(get("/api/questions/" + question.id())

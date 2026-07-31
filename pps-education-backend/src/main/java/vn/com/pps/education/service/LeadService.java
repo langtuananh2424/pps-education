@@ -62,10 +62,11 @@ import java.util.Map;
  * nhận phí khi 2 nguồn tài liệu chi tiết hơn đều không mô tả.
  *
  * createLead/updateStatus/convertToStudent (STAFF) qua
- * @PreAuthorize("hasPermission(null,'crm.lead.manage')"); assignLead
- * (STAFF+SITE_MANAGER, khớp UC-33 Main Flow bước 2) qua permission riêng
- * 'crm.lead.assign' — 2 permission khác nhau vì tập role khác nhau (Hybrid
- * PBAC — V28), không dùng chung 1 permission để tránh cấp nhầm quyền.
+ * @PreAuthorize("hasPermission(null,'crm.lead.create/update/convert')");
+ * assignLead (STAFF+SITE_MANAGER, khớp UC-33 Main Flow bước 2) qua
+ * permission riêng 'crm.lead.assign' — permission khác nhau vì tập role
+ * khác nhau (Hybrid PBAC — V28/V62), không dùng chung 1 permission để
+ * tránh cấp nhầm quyền.
  */
 @Service
 public class LeadService {

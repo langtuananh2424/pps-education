@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { Download, FileText } from "lucide-react";
 import Card from "@/components/ui/Card";
 import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
+import Select from "@/components/ui/Select";
+import { useDialog } from "@/components/ui/DialogProvider";
 
 const teachingPlans = [
   { week: "Tuần 1", topic: "Alphabet & Phonetics Basic", hours: "4 Giờ", objectives: "Nhận biết âm đơn, bảng chữ cái" },
@@ -18,9 +20,10 @@ const stats: Record<string, { name: string; gpa: string; attendance: string; tot
 export default function PartnerPortalPage() {
   const [partnerFilter, setPartnerFilter] = useState("CAMP-03");
   const activeStats = stats[partnerFilter] || stats["CAMP-03"];
+  const { alertDialog } = useDialog();
 
-  const handleDownloadReport = () => {
-    alert(
+  const handleDownloadReport = async () => {
+    await alertDialog(
       `Đang khởi tạo tệp tin PDF Báo cáo liên kết định kỳ cho ${activeStats.name}...\n- Tổng số học sinh: ${activeStats.totalStuds} em\n- Điểm số trung bình: ${activeStats.gpa}\n- Tỷ lệ chuyên cần: ${activeStats.attendance}\nXuất file thành công!`
     );
   };
@@ -31,16 +34,16 @@ export default function PartnerPortalPage() {
         <div>
           <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Cổng Tra Cứu Đối Tác Liên Kết (Partner Portal)</h1>
           <p className="text-xs text-slate-500 mt-1">
-            Giao diện dành riêng cho Đại diện Ban giám hiệu trường liên kết phối hợp xem kế hoạch giảng dạy định kỳ và báo cáo chất lượng (UC-28/29).
+            Giao diện dành riêng cho Đại diện Ban giám hiệu trường liên kết phối hợp xem kế hoạch giảng dạy định kỳ và báo cáo chất lượng.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold text-slate-500">Đại diện đơn vị:</span>
-          <select value={partnerFilter} onChange={(e) => setPartnerFilter(e.target.value)} className="bg-white border text-xs font-bold text-slate-700 px-3 py-1.5 rounded-lg focus:outline-none">
+          <Select value={partnerFilter} onChange={(e) => setPartnerFilter(e.target.value)} className="bg-white border text-xs font-bold text-slate-700 px-3 py-1.5 rounded-lg focus:outline-none">
             <option value="CAMP-03">Tiểu học Nghĩa Tân (TH Nghĩa Tân)</option>
             <option value="CAMP-04">Mầm non Hoa Hồng (MN Hoa Hồng)</option>
-          </select>
+          </Select>
         </div>
       </div>
 
@@ -81,7 +84,7 @@ export default function PartnerPortalPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card padded={false} className="lg:col-span-2 overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-700 font-display">Kế hoạch & Đề cương giảng dạy (UC-28)</span>
+            <span className="text-xs font-bold text-slate-700 font-display">Kế hoạch & Đề cương giảng dạy</span>
             <span className="text-[10px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded font-bold font-mono">Syllabus Approved</span>
           </div>
 
@@ -108,7 +111,7 @@ export default function PartnerPortalPage() {
         </Card>
 
         <Card className="space-y-4">
-          <h3 className="text-xs font-bold text-slate-400 block uppercase tracking-wider font-display border-b border-slate-100 pb-2">Báo cáo hợp tác giáo dục (UC-29)</h3>
+          <h3 className="text-xs font-bold text-slate-400 block uppercase tracking-wider font-display border-b border-slate-100 pb-2">Báo cáo hợp tác giáo dục</h3>
           <p className="text-xs text-slate-500 leading-relaxed">
             Hệ thống tự động biên soạn báo cáo phân tích định kỳ gồm: cơ cấu điểm số, tỷ lệ chuyên cần chuyên sâu để nhà trường kịp thời nắm bắt hiệu quả học tập.
           </p>
@@ -124,7 +127,7 @@ export default function PartnerPortalPage() {
 
             <button onClick={handleDownloadReport} className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs py-2 rounded-lg flex items-center justify-center gap-1.5 shadow-soft">
               <Download className="w-3.5 h-3.5 text-brand-yellow" />
-              Xuất báo cáo PDF (UC-29)
+              Xuất báo cáo PDF
             </button>
           </div>
         </Card>

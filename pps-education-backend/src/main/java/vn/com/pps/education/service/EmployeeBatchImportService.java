@@ -8,11 +8,13 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import vn.com.pps.education.common.ExcelExportHelper;
 import vn.com.pps.education.domain.Department;
 import vn.com.pps.education.domain.Employee;
 import vn.com.pps.education.domain.ImportJob;
 import vn.com.pps.education.domain.Position;
 import vn.com.pps.education.domain.User;
+import vn.com.pps.education.dto.AccountExportRequest;
 import vn.com.pps.education.dto.EmployeeBatchImportResponse;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.repository.DepartmentRepository;
@@ -130,6 +132,7 @@ public class EmployeeBatchImportService {
                     credential.put("row", rowIndex + 1);
                     credential.put("username", cell(row, formatter, 1));
                     credential.put("temporaryPassword", tempPassword);
+                    credential.put("fullName", cell(row, formatter, 0));
                     credentials.add(credential);
                 } catch (RuntimeException ex) {
                     errors.add(rowError(rowIndex + 1, ex.getMessage()));
@@ -154,6 +157,33 @@ public class EmployeeBatchImportService {
         ImportJob job = importJobRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy import job id=" + id));
         return toResponse(job, List.of());
+    }
+
+    /**
+     * File mẫu để nhập nhân sự theo lô (bổ sung ngoài SDD gốc, đã xác nhận
+     * với người dùng 2026-07-24) — đúng 10 cột theo thứ tự importRow() đọc
+     * phía trên. Không có cột mật khẩu (hệ thống tự sinh).
+     */
+    public byte[] buildTemplate() {
+        List<String> headers = List.of(
+                "Họ và tên*", "Username*", "Email", "Ngày sinh (dd/MM/yyyy)*", "Mã nhân sự*",
+                "Loại nhân sự (Giáo viên/Nhân viên/Quản lý)*", "Mã chức vụ", "Mã phòng ban",
+                "Miễn trừ chấm công/duyệt đơn (Có/Không)", "Ngày vào làm (dd/MM/yyyy)*");
+        return ExcelExportHelper.buildWorkbook("Nhập nhân sự", headers, List.of());
+    }
+
+    /**
+     * Xuất danh sách tài khoản nhân sự vừa tạo ra Excel (bổ sung ngoài SDD
+     * gốc, đã xác nhận với người dùng 2026-07-24) — xem Javadoc tương ứng ở
+     * StudentBatchImportService.buildAccountsExport().
+     */
+    public byte[] buildAccountsExport(AccountExportRequest request) {
+        List<String> headers = List.of("Họ và tên", "Username", "Mật khẩu tạm");
+        List<List<Object>> rows = request.accounts().stream()
+                .<List<Object>>map(a -> List.of(
+                        a.fullName() == null ? "" : a.fullName(), a.username(), a.temporaryPassword()))
+                .toList();
+        return ExcelExportHelper.buildWorkbook("Tài khoản nhân sự", headers, rows);
     }
 
     // ===================== Helpers =====================

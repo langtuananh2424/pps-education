@@ -418,6 +418,7 @@ erDiagram
         TEXT cancellation_reason
         BIGINT rescheduled_to_session_id FK
         BIGINT created_by FK
+        TEXT lesson_content
     }
 
     session_periods {
@@ -498,6 +499,23 @@ a)  Bảng class_sessions --- Buổi học
                                                                      CANCELLED /
                                                                      RESCHEDULED
 
+  teacher_type                VARCHAR(20)      NULL                  VIETNAMESE /
+                                                                     FOREIGN — HS/
+                                                                     PH xem GV
+                                                                     buổi này là
+                                                                     người Việt
+                                                                     hay nước
+                                                                     ngoài, tùy
+                                                                     chọn (bổ sung
+                                                                     ngoài SDD
+                                                                     gốc, đã xác
+                                                                     nhận với
+                                                                     người dùng
+                                                                     2026-07-29).
+                                                                     KHÔNG liên
+                                                                     quan hồ sơ
+                                                                     nhân sự.
+
   cancellation_reason         TEXT             NULL
 
   rescheduled_to_session_id   BIGINT           FK →                  Tự tham chiếu
@@ -506,6 +524,27 @@ a)  Bảng class_sessions --- Buổi học
 
   created_by                  BIGINT           FK → users(id)        Nhân viên
                                                                      giáo vụ tạo
+
+  lesson_content               TEXT             NULL                  "Bài học hôm
+                                                                     nay" — 1 giá
+                                                                     trị dùng
+                                                                     chung cả lớp,
+                                                                     GV điền cùng
+                                                                     lúc điểm danh
+                                                                     (V50, bổ sung
+                                                                     ngoài SDD
+                                                                     gốc, đã xác
+                                                                     nhận với
+                                                                     người dùng
+                                                                     2026-07-24).
+                                                                     KHÁC
+                                                                     session_periods.
+                                                                     content_note
+                                                                     (per-tiết,
+                                                                     chưa có code
+                                                                     nào dùng) —
+                                                                     đây là giá
+                                                                     trị per-buổi.
 
   created_at, updated_at      TIMESTAMPTZ
   --------------------------------------------------------------------------------
@@ -1385,6 +1424,13 @@ erDiagram
         BIGINT approved_by FK
         TIMESTAMPTZ visible_to_parent_at
         TEXT rejection_reason
+        VARCHAR attitude
+        VARCHAR homework_previous_score
+        VARCHAR homework_previous_speaking_score
+        TEXT homework_next
+        BIGINT homework_next_exercise_assignment_id FK
+        BIGINT homework_next_review_video_set_id FK
+        TEXT note
     }
 ```
 
@@ -1449,7 +1495,92 @@ a)  Bảng student_comments --- Nhận xét học sinh
   visible_to_parent_at     TIMESTAMPTZ   NULL
 
   rejection_reason         TEXT          NULL
+
+  attitude                 VARCHAR(20)   NULL                  Chỉ dùng khi comment_type=
+                                                                DAILY (V50, bổ sung ngoài SDD
+                                                                gốc, đã xác nhận với người
+                                                                dùng 2026-07-24) — Kém/Yếu/
+                                                                Trung bình/Trung bình khá/
+                                                                Khá/Tốt (mở rộng từ 3 lên 6
+                                                                mức 2026-07-27), cột phẳng
+                                                                RIÊNG với structured_content.
+                                                                attitude (JSONB, chỉ dùng cho
+                                                                Giữa/Cuối kỳ) — 2 cơ chế khác
+                                                                nhau cho 2 nhóm biểu mẫu khác
+                                                                nhau
+
+  homework_previous_score  VARCHAR(30)   NULL                  Chỉ DAILY (V50) — VD "80%",
+                                                                chấm BTVN Ngữ pháp buổi TRƯỚC
+                                                                buổi này, nhập tay HOẶC tự
+                                                                điền nhãn "Chưa làm bài"/"Đang
+                                                                chờ chấm" khi round-trip qua
+                                                                Excel chưa bị ghi đè tay (nới
+                                                                từ VARCHAR(10) ở V68, bug phát
+                                                                hiện khi verify Kho đề
+                                                                2026-07-30 — nhãn tự động dài
+                                                                hơn 10 ký tự)
+
+  homework_previous_       VARCHAR(30)   NULL                  Chỉ DAILY (V56, bổ sung ngoài
+  speaking_score                                               SDD gốc, đã xác nhận với người
+                                                                dùng 2026-07-28) — VD "80%",
+                                                                chấm BTVN Nghe-nói (Video Ôn
+                                                                tập) buổi TRƯỚC buổi này, nhập
+                                                                tay ĐỘC LẬP với
+                                                                homework_previous_score (Ngữ
+                                                                pháp); khác với
+                                                                videoPreviousProgress (response
+                                                                field, % tự động tính từ FK
+                                                                homework_next_review_video_
+                                                                set_id buổi trước, V55) — 2 cơ
+                                                                chế song song, không thay thế
+                                                                nhau; nới độ dài VARCHAR(10)→
+                                                                VARCHAR(30) cùng đợt V68
+
+  homework_next            TEXT          NULL                  Chỉ DAILY (V50) — BTVN ngữ
+                                                                pháp OFFLINE giao cho buổi
+                                                                SAU (kênh ONLINE dùng
+                                                                homework_next_exercise_
+                                                                assignment_id, V55), hạn nộp
+                                                                ngầm hiểu là ngày buổi học kế
+                                                                tiếp
+
+  homework_next_           BIGINT        FK →                  Chỉ DAILY (V55, bổ sung ngoài
+  exercise_assignment_id                 exercise_             SDD gốc, đã xác nhận với
+                                          assignments(id),      người dùng 2026-07-28) — BTVN
+                                          NULL                  ngữ pháp ONLINE giao cho buổi
+                                                                SAU; NULL = kênh này đang
+                                                                OFFLINE (dùng homework_next)
+                                                                hoặc không giao cho học sinh
+                                                                này
+
+  homework_next_review_    BIGINT        FK →                  Chỉ DAILY (V55, bổ sung ngoài
+  video_set_id                           review_video_         SDD gốc, đã xác nhận với
+                                          sets(id), NULL        người dùng 2026-07-28) — Video
+                                                                Ôn tập (Kết nối/Phản xạ) giao
+                                                                cho buổi SAU, luôn ONLINE;
+                                                                NULL = không giao video cho
+                                                                học sinh này
+
+  note                     TEXT          NULL                  Chỉ DAILY (V50) — ghi chú thêm
   -------------------------------------------------------------------------------------------
+
+**Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (V55, 2026-07-28):**
+2 cột `homework_next_exercise_assignment_id`/`homework_next_review_video_set_id`
+theo TỪNG học sinh (không theo cả lớp) để có thể không giao bài cho 1 số
+học sinh cụ thể. Dòng của buổi N lưu "sẽ giao gì cho buổi N+1"; % buổi
+trước của buổi N+1 tính NGƯỢC lại từ FK trên dòng buổi N của CHÍNH học
+sinh đó — join `exercise_attempts` (ngữ pháp, % = total_score/
+exercise.total_points) hoặc `review_video_progress`/`review_video_
+submissions` (video, tuỳ video_type CONNECTION/REFLEX) — không lưu %
+trùng lặp, tính lại mỗi lần hiển thị/xuất Excel. Xem
+`StudentCommentService`.
+
+**Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (V56, 2026-07-28):**
+cột `homework_previous_speaking_score` tách "BTVN Nghe-nói buổi trước"
+khỏi "BTVN Ngữ pháp buổi trước" (`homework_previous_score`) — đối xứng
+với việc "BTVN buổi sau" đã tách 2 kênh ở V55, nhưng vẫn là text nhập
+tay (không FK, không dropdown), không liên quan tới
+`videoPreviousProgress` tự động tính.
 
 Có student_comments_history.
 

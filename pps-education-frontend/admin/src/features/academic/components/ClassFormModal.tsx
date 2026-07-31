@@ -6,6 +6,7 @@ import { ClassResponse, CreateClassRequest, createClass, CurriculumResponse, lis
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import DatePicker from "@/components/ui/DatePicker";
+import Select from "@/components/ui/Select";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-xs p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
@@ -90,7 +91,7 @@ export default function ClassFormModal({ onClose, onCreated }: ClassFormModalPro
   };
 
   return (
-    <Modal open onClose={onClose} title="Thêm lớp học mới (UC-18)" size="lg">
+    <Modal open onClose={onClose} title="Thêm lớp học mới" size="lg">
       <form onSubmit={handleSubmit} className="space-y-5">
         {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
@@ -118,21 +119,21 @@ export default function ClassFormModal({ onClose, onCreated }: ClassFormModalPro
 
           <div>
             <label className={labelClass}>Loại hình lớp *</label>
-            <select
+            <Select
               value={form.classType}
               onChange={(e) => setForm({ ...form, classType: e.target.value as CreateClassRequest["classType"], siteId: "" })}
               className={inputClass}
             >
               <option value="OPEN">Lớp mở tại trung tâm</option>
               <option value="LINKED">Lớp liên kết trường</option>
-            </select>
+            </Select>
             {form.classType === "LINKED" && (
-              <p className="text-[10px] text-slate-400 mt-1">Bắt buộc chọn Điểm trường loại "Trường liên kết" (UC-18 A2).</p>
+              <p className="text-[10px] text-slate-400 mt-1">Bắt buộc chọn Điểm trường loại "Trường liên kết".</p>
             )}
           </div>
           <div>
             <label className={labelClass}>Điểm trường {form.classType === "LINKED" ? "liên kết" : ""} *</label>
-            <select
+            <Select
               value={form.siteId}
               onChange={(e) => setForm({ ...form, siteId: e.target.value, curriculumId: "" })}
               onBlur={() => markTouched("siteId")}
@@ -144,13 +145,13 @@ export default function ClassFormModal({ onClose, onCreated }: ClassFormModalPro
                   {s.name} ({s.siteType === "PARTNER" ? "Liên kết" : "Trực thuộc"})
                 </option>
               ))}
-            </select>
+            </Select>
             {invalid.siteId && <p className="text-[10px] text-rose-600 mt-1">Vui lòng chọn Điểm trường.</p>}
           </div>
 
           <div className="col-span-2">
             <label className={labelClass}>Khung chương trình *</label>
-            <select
+            <Select
               value={form.curriculumId}
               onChange={(e) => setForm({ ...form, curriculumId: e.target.value })}
               onBlur={() => markTouched("curriculumId")}
@@ -162,7 +163,7 @@ export default function ClassFormModal({ onClose, onCreated }: ClassFormModalPro
                   {c.code} — {c.name}
                 </option>
               ))}
-            </select>
+            </Select>
             {invalid.curriculumId && <p className="text-[10px] text-rose-600 mt-1">Vui lòng chọn Khung chương trình.</p>}
           </div>
 

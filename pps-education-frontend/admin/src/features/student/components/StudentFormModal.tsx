@@ -6,6 +6,9 @@ import { createParent, createStudent, CreateStudentRequest, linkParent, listSite
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import DatePicker from "@/components/ui/DatePicker";
+import AvatarUploadField from "@/components/ui/AvatarUploadField";
+import { uploadMedia } from "@/features/lms/api";
+import Select from "@/components/ui/Select";
 
 const TODAY_ISO = new Date().toISOString().slice(0, 10);
 
@@ -30,7 +33,8 @@ export default function StudentFormModal({ onClose, onCreated }: StudentFormModa
     originalSchool: "",
     originalClass: "",
     enrollmentDate: "",
-    notes: ""
+    notes: "",
+    portraitUrl: ""
   });
 
   const [addParent, setAddParent] = useState(false);
@@ -79,7 +83,8 @@ export default function StudentFormModal({ onClose, onCreated }: StudentFormModa
         originalSchool: form.originalSchool.trim() || undefined,
         originalClass: form.originalClass.trim() || undefined,
         enrollmentDate: form.enrollmentDate,
-        notes: form.notes.trim() || undefined
+        notes: form.notes.trim() || undefined,
+        portraitUrl: form.portraitUrl || undefined
       };
       const student = await createStudent(request);
 
@@ -105,9 +110,19 @@ export default function StudentFormModal({ onClose, onCreated }: StudentFormModa
   };
 
   return (
-    <Modal open onClose={onClose} title="Thêm học sinh mới (UC-13)" size="lg">
+    <Modal open onClose={onClose} title="Thêm học sinh mới" size="lg">
       <form onSubmit={handleSubmit} className="space-y-5">
         {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+
+        <div className="space-y-2 border-t border-slate-100 pt-4">
+          <span className="text-[10px] font-bold uppercase text-slate-500">Ảnh đại diện</span>
+          <AvatarUploadField
+            value={form.portraitUrl}
+            onChange={(url) => setForm({ ...form, portraitUrl: url })}
+            onUpload={(file) => uploadMedia(file, "STUDENT")}
+            fallbackName={account.newAccount?.fullName || "Học sinh"}
+          />
+        </div>
 
         <div className="space-y-2">
           <span className="text-[10px] font-bold uppercase text-slate-500">Tài khoản học sinh</span>
@@ -129,12 +144,12 @@ export default function StudentFormModal({ onClose, onCreated }: StudentFormModa
             </div>
             <div>
               <label className={labelClass}>Giới tính</label>
-              <select value={form.gender} onChange={(e) => setForm({ ...form, gender: e.target.value })} className={inputClass}>
+              <Select value={form.gender} onChange={(e) => setForm({ ...form, gender: e.target.value })} className={inputClass}>
                 <option value="">-- Chưa rõ --</option>
                 <option value="MALE">Nam</option>
                 <option value="FEMALE">Nữ</option>
                 <option value="OTHER">Khác</option>
-              </select>
+              </Select>
             </div>
             <div>
               <label className={labelClass}>Ngày sinh *</label>
@@ -163,14 +178,14 @@ export default function StudentFormModal({ onClose, onCreated }: StudentFormModa
             </div>
             <div>
               <label className={labelClass}>Điểm trường chính</label>
-              <select value={form.primarySiteId} onChange={(e) => setForm({ ...form, primarySiteId: e.target.value })} className={inputClass}>
+              <Select value={form.primarySiteId} onChange={(e) => setForm({ ...form, primarySiteId: e.target.value })} className={inputClass}>
                 <option value="">-- Chưa gán --</option>
                 {sites.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
             <div>
               <label className={labelClass}>Trường gốc</label>
@@ -198,12 +213,12 @@ export default function StudentFormModal({ onClose, onCreated }: StudentFormModa
               <div className="grid grid-cols-3 gap-2 items-end">
                 <div>
                   <label className={labelClass}>Quan hệ</label>
-                  <select value={parentInfo.relationship} onChange={(e) => setParentInfo({ ...parentInfo, relationship: e.target.value })} className={inputClass}>
+                  <Select value={parentInfo.relationship} onChange={(e) => setParentInfo({ ...parentInfo, relationship: e.target.value })} className={inputClass}>
                     <option value="FATHER">Bố</option>
                     <option value="MOTHER">Mẹ</option>
                     <option value="GUARDIAN">Người giám hộ</option>
                     <option value="OTHER">Khác</option>
-                  </select>
+                  </Select>
                 </div>
                 <label className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 pb-2.5">
                   <input type="checkbox" checked={parentInfo.isPrimaryContact} onChange={(e) => setParentInfo({ ...parentInfo, isPrimaryContact: e.target.checked })} />

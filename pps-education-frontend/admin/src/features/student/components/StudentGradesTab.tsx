@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Save } from "lucide-react";
 import { GradeEntry } from "@/types";
+import { useDialog } from "@/components/ui/DialogProvider";
 
 interface StudentGradesTabProps {
   grade: GradeEntry | null;
@@ -11,13 +12,14 @@ export default function StudentGradesTab({ grade, onSave }: StudentGradesTabProp
   const [midterm, setMidterm] = useState(grade?.midtermScore?.toString() || "");
   const [final, setFinal] = useState(grade?.finalScore?.toString() || "");
   const [comments, setComments] = useState(grade?.teacherComments || "");
+  const { alertDialog } = useDialog();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const midtermNum = parseFloat(midterm);
     const finalNum = parseFloat(final);
     if (isNaN(midtermNum) || midtermNum < 0 || midtermNum > 10 || isNaN(finalNum) || finalNum < 0 || finalNum > 10) {
-      alert("Lỗi: Điểm số giữa kỳ và cuối kỳ phải là số hợp lệ từ 0 đến 10!");
+      await alertDialog("Lỗi: Điểm số giữa kỳ và cuối kỳ phải là số hợp lệ từ 0 đến 10!");
       return;
     }
     onSave(midtermNum, finalNum, comments);

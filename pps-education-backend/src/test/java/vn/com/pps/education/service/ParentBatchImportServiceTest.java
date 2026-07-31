@@ -235,6 +235,25 @@ class ParentBatchImportServiceTest extends AbstractIntegrationTest {
         assertThat(result.status()).isEqualTo("FAILED");
     }
 
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-24 — file mẫu tải xuống. */
+    @Test
+    void buildTemplate_hasAllColumnsWithRequiredFieldsMarked() throws IOException {
+        byte[] template = parentBatchImportService.buildTemplate();
+
+        try (var workbook = new XSSFWorkbook(new java.io.ByteArrayInputStream(template))) {
+            Row header = workbook.getSheetAt(0).getRow(0);
+            java.util.List<String> headers = new java.util.ArrayList<>();
+            for (int i = 0; i < header.getLastCellNum(); i++) {
+                headers.add(header.getCell(i).getStringCellValue());
+            }
+            assertThat(headers).containsExactly(
+                    "Họ và tên phụ huynh*", "Username*", "Số điện thoại*",
+                    "Quan hệ (Cha/Mẹ/Người giám hộ/Khác)*", "Mã học sinh*",
+                    "Là người liên hệ chính (Có/Không)", "Chịu trách nhiệm tài chính (Có/Không)");
+            assertThat(workbook.getSheet("Hướng dẫn")).isNotNull();
+        }
+    }
+
     private byte[] buildWorkbook(String[][] rows) throws IOException {
         try (XSSFWorkbook workbook = new XSSFWorkbook()) {
             Sheet sheet = workbook.createSheet("PhuHuynh");

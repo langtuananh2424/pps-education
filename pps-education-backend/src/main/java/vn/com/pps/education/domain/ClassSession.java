@@ -24,6 +24,8 @@ public class ClassSession extends BaseAuditEntity {
 
     public enum Status { SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED, RESCHEDULED }
 
+    public enum TeacherType { VIETNAMESE, FOREIGN }
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -64,11 +66,40 @@ public class ClassSession extends BaseAuditEntity {
     @Column(name = "cancellation_reason", columnDefinition = "TEXT")
     private String cancellationReason;
 
+    /**
+     * Loại giáo viên (Việt Nam/nước ngoài) dạy buổi này, hiển thị cho Học
+     * sinh/Phụ huynh (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+     * 2026-07-29) — tùy chọn (nullable), buổi cũ để trống. Chỉ ở cấp buổi
+     * học, KHÔNG liên quan hồ sơ nhân sự (1 giáo viên có thể dạy cả 2 loại
+     * buổi tùy lịch).
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "teacher_type", length = 20)
+    private TeacherType teacherType;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "rescheduled_to_session_id")
     private ClassSession rescheduledToSession;
 
+    /**
+     * Chỉ có ý nghĩa khi sessionType=MAKEUP — buổi CANCELLED mà buổi này
+     * bù cho (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+     * 2026-07-29). UNIQUE ở DB (V61) đảm bảo 1 buổi hủy chỉ có đúng 1
+     * buổi bù.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "makeup_for_session_id")
+    private ClassSession makeupForSession;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "created_by", nullable = false)
     private User createdBy;
+
+    /**
+     * "Bài học hôm nay" (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+     * 2026-07-24) — 1 giá trị dùng chung cho cả lớp trong buổi này, Giáo
+     * viên điền cùng lúc điểm danh (xem StudentAttendanceService.updateLessonContent).
+     */
+    @Column(name = "lesson_content", columnDefinition = "TEXT")
+    private String lessonContent;
 }

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { FileText, Save, Search, ShieldCheck, UserCog, X } from "lucide-react";
+import { FileText, Plus, Save, Search, ShieldCheck, UserCog, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { searchUsers, UserListItemResponse } from "@/features/system-admin/api";
 import {
@@ -16,10 +16,13 @@ import {
 } from "../api";
 import Badge, { BadgeVariant } from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
+import Modal from "@/components/ui/Modal";
 import { siteStatusLabels, siteStatusVariants, siteTypeLabels } from "./SiteListPanel";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
+import { useDialog } from "@/components/ui/DialogProvider";
 import DatePicker from "@/components/ui/DatePicker";
+import Select from "@/components/ui/Select";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
@@ -97,13 +100,14 @@ function ProfileTab({
   const [form, setForm] = useState<UpdateSiteRequest>(() => toForm(site));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { confirmDialog } = useDialog();
 
   useEffect(() => setForm(toForm(site)), [site]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (form.siteType === "OWNED" && site.siteType === "PARTNER") {
-      if (!window.confirm("Đổi sang 'Cơ sở tự vận hành' sẽ XÓA thông tin liên hệ đầu mối trường liên kết hiện có. Tiếp tục?")) return;
+      if (!(await confirmDialog("Đổi sang 'Cơ sở tự vận hành' sẽ XÓA thông tin liên hệ đầu mối trường liên kết hiện có. Tiếp tục?", { danger: true }))) return;
     }
     setSaving(true);
     setError(null);
@@ -128,10 +132,10 @@ function ProfileTab({
         </div>
         <div>
           <label className={labelClass}>Loại hình *</label>
-          <select value={form.siteType} onChange={(e) => setForm({ ...form, siteType: e.target.value as "OWNED" | "PARTNER" })} className={inputClass}>
+          <Select value={form.siteType} onChange={(e) => setForm({ ...form, siteType: e.target.value as "OWNED" | "PARTNER" })} className={inputClass}>
             <option value="OWNED">Cơ sở tự vận hành</option>
             <option value="PARTNER">Trường liên kết</option>
-          </select>
+          </Select>
         </div>
         <div>
           <label className={labelClass}>Địa chỉ</label>
@@ -147,11 +151,11 @@ function ProfileTab({
         </div>
         <div>
           <label className={labelClass}>Trạng thái</label>
-          <select value={form.status ?? "ACTIVE"} onChange={(e) => setForm({ ...form, status: e.target.value as UpdateSiteRequest["status"] })} className={inputClass}>
+          <Select value={form.status ?? "ACTIVE"} onChange={(e) => setForm({ ...form, status: e.target.value as UpdateSiteRequest["status"] })} className={inputClass}>
             <option value="ACTIVE">Đang hoạt động</option>
             <option value="INACTIVE">Ngừng hoạt động</option>
             <option value="PENDING">Chờ kích hoạt</option>
-          </select>
+          </Select>
         </div>
       </div>
 
@@ -296,6 +300,8 @@ function ContractsTab({ siteId, showToast }: { siteId: number; showToast: (msg: 
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({ contractType: "INITIAL", startDate: "", endDate: "", termsSummary: "" });
   const [submitting, setSubmitting] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const { confirmDialog } = useDialog();
 
   const load = () => {
     setLoading(true);
@@ -323,6 +329,7 @@ function ContractsTab({ siteId, showToast }: { siteId: number; showToast: (msg: 
       };
       await createPartnerContract(request);
       setForm({ contractType: "INITIAL", startDate: "", endDate: "", termsSummary: "" });
+      setShowForm(false);
       load();
       showToast("Đã tạo hợp đồng thành công!");
     } catch (err) {
@@ -333,7 +340,7 @@ function ContractsTab({ siteId, showToast }: { siteId: number; showToast: (msg: 
   };
 
   const handleTerminate = async (c: PartnerContractResponse) => {
-    if (!window.confirm(`Chấm dứt hợp đồng ${c.contractNumber}?`)) return;
+    if (!(await confirmDialog(`Chấm dứt hợp đồng ${c.contractNumber}?`, { danger: true }))) return;
     try {
       await terminatePartnerContract(c.id);
       load();
@@ -344,7 +351,7 @@ function ContractsTab({ siteId, showToast }: { siteId: number; showToast: (msg: 
   };
 
   const handleDelete = async (c: PartnerContractResponse) => {
-    if (!window.confirm(`Xóa hợp đồng ${c.contractNumber}? Chỉ xóa được khi đang ở trạng thái Nháp.`)) return;
+    if (!(await confirmDialog(`Xóa hợp đồng ${c.contractNumber}? Chỉ xóa được khi đang ở trạng thái Nháp.`, { danger: true }))) return;
     try {
       await deletePartnerContract(c.id);
       load();
@@ -356,35 +363,45 @@ function ContractsTab({ siteId, showToast }: { siteId: number; showToast: (msg: 
 
   return (
     <div className="space-y-4">
-      <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
-        <div className="grid grid-cols-2 gap-3">
-          <select value={form.contractType} onChange={(e) => setForm({ ...form, contractType: e.target.value })} className={inputClass}>
-            <option value="INITIAL">Hợp đồng gốc</option>
-            <option value="RENEWAL">Gia hạn</option>
-            <option value="AMENDMENT">Phụ lục/Sửa đổi</option>
-          </select>
-          <div />
-          <div>
-            <label className={labelClass}>Ngày bắt đầu *</label>
-            <DatePicker value={form.startDate} onChange={(v) => setForm({ ...form, startDate: v })} max={form.endDate || undefined} />
-          </div>
-          <div>
-            <label className={labelClass}>Ngày kết thúc *</label>
-            <DatePicker value={form.endDate} onChange={(v) => setForm({ ...form, endDate: v })} min={form.startDate || undefined} />
-          </div>
-          <textarea
-            value={form.termsSummary}
-            onChange={(e) => setForm({ ...form, termsSummary: e.target.value })}
-            placeholder="Tóm tắt điều khoản"
-            rows={2}
-            className={`${inputClass} col-span-2`}
-          />
-        </div>
-        <Button type="submit" size="sm" variant="primary" disabled={submitting}>
-          {submitting ? "Đang lưu..." : "Thêm hợp đồng"}
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-bold uppercase text-slate-500">Hợp đồng liên kết ({items.length})</span>
+        <Button size="sm" variant="secondary" onClick={() => setShowForm(true)}>
+          <Plus className="w-3.5 h-3.5" />
+          Thêm hợp đồng
         </Button>
-      </form>
+      </div>
+
+      <Modal open={showForm} onClose={() => setShowForm(false)} title="Thêm hợp đồng">
+        <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+          {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
+          <div className="grid grid-cols-2 gap-3">
+            <Select value={form.contractType} onChange={(e) => setForm({ ...form, contractType: e.target.value })} className={inputClass}>
+              <option value="INITIAL">Hợp đồng gốc</option>
+              <option value="RENEWAL">Gia hạn</option>
+              <option value="AMENDMENT">Phụ lục/Sửa đổi</option>
+            </Select>
+            <div />
+            <div>
+              <label className={labelClass}>Ngày bắt đầu *</label>
+              <DatePicker value={form.startDate} onChange={(v) => setForm({ ...form, startDate: v })} max={form.endDate || undefined} />
+            </div>
+            <div>
+              <label className={labelClass}>Ngày kết thúc *</label>
+              <DatePicker value={form.endDate} onChange={(v) => setForm({ ...form, endDate: v })} min={form.startDate || undefined} />
+            </div>
+            <textarea
+              value={form.termsSummary}
+              onChange={(e) => setForm({ ...form, termsSummary: e.target.value })}
+              placeholder="Tóm tắt điều khoản"
+              rows={2}
+              className={`${inputClass} col-span-2`}
+            />
+          </div>
+          <Button type="submit" size="sm" variant="primary" disabled={submitting}>
+            {submitting ? "Đang lưu..." : "Thêm hợp đồng"}
+          </Button>
+        </form>
+      </Modal>
 
       {loading ? (
         <p className="text-xs text-slate-500">Đang tải...</p>

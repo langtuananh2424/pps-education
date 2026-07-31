@@ -10,6 +10,7 @@ import {
   Search,
   Sparkles,
   Type as TypeIcon,
+  UploadCloud,
   Volume2,
   X
 } from "lucide-react";
@@ -25,9 +26,11 @@ import {
   listQuestions
 } from "../api";
 import QuestionEditorForm from "../components/QuestionEditorForm";
+import QuestionImportPanel from "../components/QuestionImportPanel";
 import Button from "@/components/ui/Button";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
+import Select from "@/components/ui/Select";
 
 interface FlatQuestionRow {
   question: QuestionResponse;
@@ -59,7 +62,9 @@ const difficultyLabels: Record<QuestionDifficulty, string> = { EASY: "Dễ (Easy
  */
 export default function QuestionBankPage() {
   const { hasPermission } = useApp();
-  const canManage = hasPermission("lms.exercise.manage");
+  // lms.exercise.manage đã bị tách nhỏ (hạt nhân hóa V62) thành lms.question-bank.create/update/view
+  // — trang này thao tác cả tạo (ngân hàng/câu hỏi) lẫn sửa (trạng thái ngân hàng/câu hỏi).
+  const canManage = hasPermission("lms.question-bank.create") || hasPermission("lms.question-bank.update");
 
   const [rows, setRows] = useState<FlatQuestionRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -72,6 +77,7 @@ export default function QuestionBankPage() {
 
   const [selectedQuestionId, setSelectedQuestionId] = useState<number | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [editingRow, setEditingRow] = useState<FlatQuestionRow | null>(null);
   const { message: toastMessage, showToast } = useToast();
 
@@ -128,17 +134,23 @@ export default function QuestionBankPage() {
         <div>
           <h1 className="text-xl font-bold font-display tracking-tight text-slate-900 flex items-center gap-2">
             <Database className="w-5 h-5 text-brand-red" />
-            Ngân hàng câu hỏi (UC-40)
+            Ngân hàng câu hỏi
           </h1>
           <p className="text-xs text-slate-500 mt-1">
             Soạn sẵn câu hỏi đa phương thức (Trắc nghiệm, Nghe, Tự luận, Speaking) theo khung chương trình — khi giao bài ở "Soạn & giao đề" chỉ cần chọn lại từ đây.
           </p>
         </div>
         {canManage && (
-          <Button variant="primary" size="sm" onClick={() => setShowCreateModal(true)}>
-            <Plus className="w-3.5 h-3.5" />
-            Thêm câu hỏi mới
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" size="sm" onClick={() => setShowImportModal(true)}>
+              <UploadCloud className="w-3.5 h-3.5" />
+              Nhập câu hỏi hàng loạt
+            </Button>
+            <Button variant="primary" size="sm" onClick={() => setShowCreateModal(true)}>
+              <Plus className="w-3.5 h-3.5" />
+              Thêm câu hỏi mới
+            </Button>
+          </div>
         )}
       </div>
 
@@ -161,7 +173,7 @@ export default function QuestionBankPage() {
                   className="w-full bg-white border border-slate-200 text-xs pl-9 pr-3 py-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-red"
                 />
               </div>
-              <select
+              <Select
                 value={typeFilter}
                 onChange={(e) => setTypeFilter(e.target.value as QuestionType | "ALL")}
                 className="w-full bg-white border border-slate-200 text-xs px-3 py-2.5 rounded-lg focus:outline-none"
@@ -172,8 +184,8 @@ export default function QuestionBankPage() {
                     {meta.label}
                   </option>
                 ))}
-              </select>
-              <select
+              </Select>
+              <Select
                 value={difficultyFilter}
                 onChange={(e) => setDifficultyFilter(e.target.value as QuestionDifficulty | "ALL")}
                 className="w-full bg-white border border-slate-200 text-xs px-3 py-2.5 rounded-lg focus:outline-none"
@@ -184,7 +196,7 @@ export default function QuestionBankPage() {
                     {label}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
 
             {levels.length > 0 && (
@@ -333,6 +345,16 @@ export default function QuestionBankPage() {
         />
       )}
 
+      {showImportModal && (
+        <ImportQuestionsModal
+          onClose={() => setShowImportModal(false)}
+          onImported={(count) => {
+            loadAll();
+            showToast(`Đã nhập ${count} câu hỏi thành công!`);
+          }}
+        />
+      )}
+
       {editingRow && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs" onClick={() => setEditingRow(null)} />
@@ -422,7 +444,7 @@ function QuestionPreview({ row, onEdit, canManage }: { row: FlatQuestionRow; onE
         <div className="bg-white p-4 rounded-xl border border-slate-100 space-y-2">
           {question.referencePassage && <p className="text-[11px] text-slate-600 bg-slate-50 p-2 rounded-lg">{question.referencePassage}</p>}
           <p className="text-[10px] text-slate-500 italic bg-amber-50/50 p-2 border border-amber-100 rounded">
-            Học viên nộp bài viết/scan để chấm tay ở Hàng chờ chấm bài (UC-41).
+            Học viên nộp bài viết/scan để chấm tay ở Hàng chờ chấm bài.
           </p>
         </div>
       )}
@@ -510,7 +532,7 @@ function CreateQuestionModal({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Khung chương trình</label>
-              <select
+              <Select
                 value={curriculumId ?? ""}
                 onChange={(e) => setCurriculumId(e.target.value ? Number(e.target.value) : null)}
                 className="w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
@@ -520,11 +542,11 @@ function CreateQuestionModal({
                     {c.code} — {c.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
             <div>
               <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Ngân hàng</label>
-              <select
+              <Select
                 value={bankId ?? ""}
                 onChange={(e) => setBankId(e.target.value ? Number(e.target.value) : null)}
                 className="w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
@@ -535,7 +557,7 @@ function CreateQuestionModal({
                     {b.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
           </div>
 
@@ -559,6 +581,91 @@ function CreateQuestionModal({
             <QuestionEditorForm questionBankId={bankId} onCreated={(q) => onCreated(q, bank, curriculum)} onCancel={onClose} />
           ) : (
             <p className="text-xs text-slate-400 italic py-4 text-center">Chọn hoặc tạo 1 ngân hàng để bắt đầu soạn câu hỏi.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * UC-40 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30):
+ * soạn đề nhanh — chọn 1 ngân hàng rồi nhập hàng loạt qua Excel/Word, xem
+ * QuestionImportPanel.tsx. Chọn khung chương trình/ngân hàng giống hệt
+ * CreateQuestionModal ở trên (không tách chung vì mỗi modal cần callback
+ * khác nhau khi hoàn tất).
+ */
+function ImportQuestionsModal({ onClose, onImported }: { onClose: () => void; onImported: (count: number) => void }) {
+  const [curriculums, setCurriculums] = useState<CurriculumResponse[]>([]);
+  const [curriculumId, setCurriculumId] = useState<number | null>(null);
+  const [banks, setBanks] = useState<QuestionBankResponse[]>([]);
+  const [bankId, setBankId] = useState<number | null>(null);
+
+  useEffect(() => {
+    listCurriculums().then((res) => {
+      setCurriculums(res);
+      if (res.length > 0) setCurriculumId(res[0].id);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!curriculumId) return;
+    listQuestionBanksByCurriculum(curriculumId).then((res) => {
+      setBanks(res);
+      setBankId(res.length > 0 ? res[0].id : null);
+    });
+  }, [curriculumId]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs" onClick={onClose} />
+      <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl border border-slate-200 shadow-xl">
+        <div className="sticky top-0 bg-white px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+          <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+            <Database className="w-4 h-4 text-brand-red" />
+            Nhập câu hỏi hàng loạt (UC-40)
+          </h3>
+          <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="p-6 space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Khung chương trình</label>
+              <Select
+                value={curriculumId ?? ""}
+                onChange={(e) => setCurriculumId(e.target.value ? Number(e.target.value) : null)}
+                className="w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
+              >
+                {curriculums.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.code} — {c.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Ngân hàng</label>
+              <Select
+                value={bankId ?? ""}
+                onChange={(e) => setBankId(e.target.value ? Number(e.target.value) : null)}
+                className="w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
+              >
+                <option value="">-- Chọn --</option>
+                {banks.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          </div>
+
+          {bankId ? (
+            <QuestionImportPanel bankId={bankId} onImported={(created) => onImported(created.length)} />
+          ) : (
+            <p className="text-xs text-slate-400 italic py-4 text-center">Chọn 1 ngân hàng để bắt đầu nhập câu hỏi.</p>
           )}
         </div>
       </div>

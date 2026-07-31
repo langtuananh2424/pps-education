@@ -230,7 +230,7 @@ nhân đó mới được thao tác.*
         khẩu của chính mình, phải xác thực bằng mật khẩu hiện tại (trừ
         tài khoản đang chỉ đăng nhập Google — chưa có mật khẩu — đặt mật
         khẩu lần đầu không cần xác thực); (2) Quản trị viên (quyền
-        user.manage) đổi mật khẩu cho một tài khoản khác, không cần biết
+        user.update) đổi mật khẩu cho một tài khoản khác, không cần biết
         mật khẩu hiện tại của tài khoản đó. Cả 2 luồng: mật khẩu mới tối
         thiểu 8 ký tự, sau khi đổi thành công hệ thống thu hồi toàn bộ
         refresh token đang hoạt động của tài khoản đó (đăng xuất khỏi mọi
@@ -288,7 +288,9 @@ nhân đó mới được thao tác.*
         nghiệp vụ của chính mình (Nhân viên: địa chỉ thường trú/hiện tại;
         Học sinh: chỉ ảnh đại diện; Phụ huynh: nghề nghiệp, nơi làm việc,
         địa chỉ) — không cần quyền quản lý hồ sơ người khác
-        (hrm.manage/student.profile.update/student.parent.manage). Tách
+        (hrm.employee.update/student.profile.update/student.parent.update
+        — V51: hrm.employee.update/student.parent.update tách từ
+        hrm.manage/student.parent.manage). Tách
         biệt hẳn khỏi FR-HRM-01 (UC-08)/FR-STU-01 (UC-13): các field
         nghiệp vụ/hành chính (chức vụ, phòng ban, trạng thái, mã số,
         ghi chú nội bộ...) vẫn chỉ Admin/Nhân viên Giáo vụ sửa được qua 2
@@ -367,7 +369,12 @@ nhân đó mới được thao tác.*
         Excel danh sách nhân sự để tạo tài khoản (username bắt buộc,
         email tùy chọn, mật khẩu tạm hệ thống tự sinh) + hồ sơ nhân sự
         hàng loạt, thay vì nhập tay từng người. Kiểm tra trùng lặp theo
-        mã nhân sự/username/email trước khi tạo mới.
+        mã nhân sự/username/email trước khi tạo mới. Hệ thống cung cấp
+        API tải file Excel mẫu (đầy đủ mọi trường trừ mật khẩu, trường
+        bắt buộc đánh dấu `*` cuối tên cột) và API xuất Excel danh sách
+        tài khoản vừa tạo (username + mật khẩu tạm) ngay sau khi import,
+        để tải về giao lại cho nhân sự (bổ sung ngoài SDD gốc, đã xác
+        nhận với người dùng 2026-07-24 — xem UC-51).
 
     -   **FR-HRM-06: Danh mục chức vụ & tự động gán vai trò theo chức vụ -**
         Quản lý nhân sự duy trì danh mục chức vụ (VD Giáo viên, Trưởng
@@ -416,7 +423,10 @@ nhân đó mới được thao tác.*
         xác nhận với người dùng) được sinh kèm mật khẩu tạm ngẫu nhiên,
         trả về 1 lần trong kết quả import (giống FR-HRM-05) — dùng đăng
         nhập được ngay; sửa lại email placeholder sang email thật qua
-        FR-USR-06 nếu muốn dùng thêm được đăng nhập Google.
+        FR-USR-06 nếu muốn dùng thêm được đăng nhập Google. Cũng có API
+        tải file Excel mẫu và API xuất Excel danh sách tài khoản vừa tạo,
+        giống hệt FR-HRM-05 (bổ sung ngoài SDD gốc, đã xác nhận với người
+        dùng 2026-07-24 — xem UC-50).
 
 **PHÂN HỆ 6: QUẢN LÝ HỌC THUẬT VÀ ĐÀO TẠO**
 
@@ -464,7 +474,12 @@ nhân đó mới được thao tác.*
         (UC-16/A2). Ngoài Giáo viên được phân công, Trưởng phòng đào tạo
         hoặc Quản lý điểm trường phụ trách đúng điểm trường của lớp cũng
         được phép nhập tay/import Excel thay giáo viên khi cần hỗ trợ
-        (bổ sung ngoài SDD gốc, đã xác nhận với người dùng).
+        (bổ sung ngoài SDD gốc, đã xác nhận với người dùng). Trước khi
+        import, có thể tải API file Excel mẫu điền sẵn danh sách học
+        sinh đang ghi danh của lớp (mã học sinh/họ tên/lớp) kèm đúng cột
+        theo từng thành phần điểm của kỳ đánh giá đó, cột điểm để trống
+        sẵn sàng nhập rồi tải lên lại (bổ sung ngoài SDD gốc, đã xác nhận
+        với người dùng 2026-07-24 — xem UC-53).
 
         **Luồng 4 trạng thái + Công bố điểm dự kiến + Phúc khảo (V43, bổ
         sung ngoài SDD gốc, đã xác nhận với người dùng — sửa đổi lần 2
@@ -496,6 +511,24 @@ nhân đó mới được thao tác.*
     -   **FR-ACA-04: Sổ nhận xét định kỳ -** Giáo viên viết nhận xét cho
         học sinh theo 3 biểu mẫu: Hàng ngày (thái độ), Giữa kỳ, và Cuối
         kỳ (tổng kết năng lực).
+
+        **Nhận xét Hàng ngày kiểu mới (bổ sung ngoài SDD gốc, đã xác nhận
+        với người dùng 2026-07-24 — kết luận họp, CHỈ áp dụng biểu mẫu
+        Hàng ngày, Giữa/Cuối kỳ giữ nguyên):** Giáo viên điểm danh buổi
+        học → điền "bài học hôm nay" (TEXT, dùng chung cả lớp, thuộc buổi
+        học) → nhận xét từng học sinh (Thái độ học tập: Kém/Yếu/Trung
+        bình/Trung bình khá/Khá/Tốt — mở rộng từ 3 lên 6 mức 2026-07-27;
+        chấm BTVN buổi trước dạng %; nhận xét; giao BTVN buổi
+        sau; ghi chú) — có thể làm trực tiếp hoặc tải file Excel mẫu theo
+        buổi học (điền sẵn mã HS/họ tên/ngày/điểm danh), điền xong tải
+        lên lại (cột điểm danh trong file cho phép sửa luôn điểm danh).
+        Chỉ nhập/sửa được trong vòng X ngày kể từ ngày buổi học diễn ra
+        (mặc định 7, cấu hình qua system_settings). Giáo viên nhập vẫn
+        qua quy trình duyệt của Quản lý điểm trường như cũ (UC-22); actor
+        có quyền `academic.comment.approve` (Quản lý điểm trường/Quản trị
+        viên) nhập trực tiếp thì bỏ qua bước chờ duyệt (và bỏ qua luôn hạn
+        X ngày) — không tạo permission mới, tái dùng đúng
+        `academic.comment.write`/`academic.comment.approve` đã có.
 
     -   **FR-ACA-05: Xếp lịch buổi học -** Nhân viên giáo vụ/Trưởng phòng
         đào tạo xếp lịch từng buổi học cụ thể (ngày, khung giờ, phòng,
@@ -539,11 +572,18 @@ CDN)**
 
 -   **Yêu cầu chức năng:**
 
-    -   **FR-LMS-01: Kho bài giảng phân phối qua CDN -** Giáo viên tải
-        lên bài giảng video, tài liệu PDF. Toàn bộ các tệp tin này bắt
-        buộc phải lưu trữ và phân phối thông qua mạng mạng **CDN** để
-        bảo đảm Học sinh tải/xem video mượt mà, không giật lag kể cả khi
-        mạng yếu.
+    -   **FR-LMS-01: Kho Video Ôn tập phân phối qua CDN -** (tái cấu
+        trúc 2026-07-27 từ "Kho bài giảng phân phối qua CDN", đã xác
+        nhận với người dùng — bỏ hẳn tài liệu PDF, chỉ còn video/audio)
+        Giáo viên tổ chức video ôn tập theo "bộ" (Video từ kết nối/Video
+        phản xạ), thêm video qua link YouTube hoặc upload video/audio
+        lên **Cloudflare R2 (CDN)** để bảo đảm Học sinh xem mượt mà,
+        không giật lag kể cả khi mạng yếu. Hệ thống theo dõi % thời
+        lượng Học sinh đã xem (≥80% = "đã xem"), Giáo viên xem thống kê
+        theo lớp (UC-23a). Riêng video Phản xạ (REFLEX), Học sinh ghi
+        âm/upload audio trả lời, được nộp lại (ghi đè, không giữ lịch
+        sử); Giáo viên chấm điểm + nhận xét (UC-23b, bổ sung ngoài SDD
+        gốc, đã xác nhận với người dùng 2026-07-27).
 
     -   **FR-LMS-02: Thi & Kiểm tra trực tuyến -** Hệ thống cho phép học
         sinh làm bài tập trắc nghiệm/tự luận trực tuyến. Tự động chấm
@@ -661,8 +701,9 @@ CDN)**
         Bổ sung: Ban giám đốc duyệt/từ chối từng khoản chi đã ghi nhận —
         khớp mô tả tác nhân Ban giám đốc "phê duyệt các quyết định quan
         trọng có tính chiến lược (chi phí lớn...)"; dùng quyền riêng
-        finance.expense.approve (khác finance.manage của Kế toán). Từ
-        chối bắt buộc kèm lý do (rejection_reason).
+        finance.expense.approve (khác finance.expense.create của Kế toán —
+        V51, tách từ finance.manage). Từ chối bắt buộc kèm lý do
+        (rejection_reason).
 
     -   **FR-FIN-04: Báo cáo doanh thu phân cấp -** Quản lý điểm trường
         xem được báo cáo Thu/Chi/Công nợ của cơ sở mình. Ban giám đốc có
@@ -698,7 +739,10 @@ CDN)**
         tên + ngày sinh) trước khi tạo mới. Mỗi tài khoản học sinh MỚI
         tạo (bổ sung ngoài SDD gốc, đã xác nhận với người dùng) được
         sinh kèm mật khẩu tạm ngẫu nhiên, trả về 1 lần trong kết quả
-        import (giống FR-HRM-05) — dùng đăng nhập được ngay.
+        import (giống FR-HRM-05) — dùng đăng nhập được ngay. Cũng có API
+        tải file Excel mẫu và API xuất Excel danh sách tài khoản vừa tạo,
+        giống hệt FR-HRM-05 (bổ sung ngoài SDD gốc, đã xác nhận với người
+        dùng 2026-07-24 — xem UC-35).
 
 **PHÂN HỆ 10: QUẢN LÝ ĐIỂM TRƯỜNG & CƠ SỞ VẬT CHẤT**
 
@@ -852,10 +896,15 @@ CDN)**
 
   UC-22             Duyệt nhận xét    FR-LMS-09         6, 7
 
-  UC-23             Quản lý bài giảng FR-LMS-01         7
+  UC-23             Quản lý Kho Video FR-LMS-01         7
+                    Ôn tập                              
 
-  UC-23a            Xem bài giảng     FR-LMS-01         7
-                    (Học sinh)                          
+  UC-23a            Xem & Theo dõi    FR-LMS-01         7
+                    Kho Video Ôn tập                    
+
+  UC-23b            Nộp & Chấm điểm   FR-LMS-01         7
+                    Audio Video Phản                    
+                    xạ                                  
 
   UC-60             Kho tài liệu tham FR-LMS-13         7
                     khảo                                

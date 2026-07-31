@@ -1,11 +1,11 @@
 # phan-he-07-lms-portal
 
-UC-23: Quản lý bài giảng
+UC-23: Quản lý Kho Video Ôn tập
 
 +-----------------+----------------------------------------------------+
 | **Mã Use Case** | UC-23                                              |
 +-----------------+----------------------------------------------------+
-| **Tên Use       | Quản lý bài giảng                                  |
+| **Tên Use       | Quản lý Kho Video Ôn tập                           |
 | Case**          |                                                    |
 +-----------------+----------------------------------------------------+
 | **Phân hệ**     | Phân hệ 7                                          |
@@ -15,56 +15,88 @@ UC-23: Quản lý bài giảng
 +-----------------+----------------------------------------------------+
 | **Tác nhân**    | Giáo viên                                          |
 |                 |                                                    |
-|                 | (Liên quan/hỗ trợ: CDN/Object Storage)             |
+|                 | (Liên quan/hỗ trợ: CDN/Object Storage, YouTube)    |
 +-----------------+----------------------------------------------------+
-| **Mô tả tóm     | Giáo viên tải lên bài giảng video, tài liệu PDF;   |
-| tắt**           | toàn bộ tệp tin được lưu trữ và phân phối qua CDN  |
-|                 | đảm bảo tải/xem mượt mà.                           |
+| **Mô tả tóm     | Tái cấu trúc 2026-07-27 từ "Kho bài giảng" — đã    |
+| tắt**           | xác nhận với người dùng: bỏ hẳn PDF/Slide/Word,    |
+|                 | chỉ còn video/audio ôn tập, tổ chức theo "bộ"      |
+|                 | (Video từ kết nối/Video phản xạ), theo dõi % thời  |
+|                 | lượng học sinh đã xem (UC-23a).                    |
 +-----------------+----------------------------------------------------+
-| **Sự kiện kích  | Giáo viên cần bổ sung/cập nhật học liệu cho lớp    |
-| hoạt**          | phụ trách.                                         |
+| **Sự kiện kích  | Giáo viên cần bổ sung/cập nhật video ôn tập cho    |
+| hoạt**          | lớp phụ trách.                                     |
 +-----------------+----------------------------------------------------+
-| **Điều kiện     | -   Giáo viên được phân công giảng dạy lớp/khóa    |
-| tiên quyết      |     học liên quan.                                 |
-| (               |                                                    |
-| Precondition)** |                                                    |
+| **Điều kiện     | -   Giáo viên được phân công giảng dạy lớp/khung   |
+| tiên quyết      |     chương trình liên quan.                        |
+| (               | -   Tài khoản có quyền lms.review-video.create/    |
+| Precondition)** |     update/view (mặc định gán cho TEACHER — bổ     |
+|                 |     sung ngoài SDD gốc, đã xác nhận với người dùng |
+|                 |     2026-07-30, V63). Quyền chỉ mở được vào màn    |
+|                 |     hình — thao tác trên 1 lớp cụ thể vẫn phải qua |
+|                 |     điều kiện phân công giảng dạy ở trên.          |
 +-----------------+----------------------------------------------------+
-| **Luồng sự kiện | 1.  Giáo viên mở Kho bài giảng, chọn Thêm mới, tải |
-| chính (Main     |     lên tệp video hoặc tài liệu PDF.               |
-| Flow)**         |                                                    |
-|                 | 2.  Hệ thống upload tệp lên CDN/Object Storage     |
-|                 |     (không lưu trực tiếp trên server ứng dụng ---  |
-|                 |     NFR-TECH-07), trả về URL phân phối.            |
+| **Luồng sự kiện | 1.  Giáo viên mở Kho Video Ôn tập, tạo bộ mới —    |
+| chính (Main     |     nhập tiêu đề, chọn loại (Video từ kết nối/     |
+| Flow)**         |     Video phản xạ), gán vào 1 lớp cụ thể hoặc 1    |
+|                 |     khung chương trình.                            |
 |                 |                                                    |
-|                 | 3.  Giáo viên nhập metadata: tiêu đề, mô tả, gán   |
-|                 |     vào khóa học/lớp học liên quan, thứ tự hiển    |
-|                 |     thị.                                           |
+|                 | 2.  Giáo viên thêm từng video vào bộ — chọn 1      |
+|                 |     trong 3 nguồn: dán link YouTube, upload file   |
+|                 |     video, hoặc upload file audio. Với file upload,|
+|                 |     hệ thống đẩy lên Cloudflare R2 (không lưu trực |
+|                 |     tiếp trên server ứng dụng --- NFR-TECH-07),    |
+|                 |     trả về URL phân phối.                          |
 |                 |                                                    |
-|                 | 4.  Hệ thống lưu bản ghi bài giảng, liên kết URL   |
-|                 |     CDN.                                           |
+|                 | 3.  Hệ thống lưu URL + thời lượng (giây) của video |
+|                 |     — thời lượng do phía Giáo viên (FE) tự phát    |
+|                 |     hiện và gửi kèm, hệ thống không tự dò.         |
 |                 |                                                    |
-|                 | 5.  Giáo viên có thể chỉnh sửa metadata hoặc gỡ    |
-|                 |     bài giảng khỏi kho khi cần.                    |
+|                 | 4.  Giáo viên sắp thứ tự video trong bộ, công bố   |
+|                 |     (PUBLISHED) khi sẵn sàng cho học sinh xem.     |
+|                 |                                                    |
+|                 | 5.  Giáo viên có thể sửa metadata hoặc gỡ (chuyển  |
+|                 |     ARCHIVED — soft-remove, không xóa cứng) bộ/    |
+|                 |     video khi cần.                                 |
 +-----------------+----------------------------------------------------+
 | **Luồng thay    | ***A1 --- Upload thất bại/tệp quá lớn***           |
 | thế / ngoại lệ  |                                                    |
 | (Alternate      | 1.  Hệ thống báo lỗi upload, cho phép Giáo viên    |
 | Flow)**         |     thử lại hoặc nén/giảm dung lượng tệp trước khi |
 |                 |     tải lên lại.                                   |
+|                 |                                                    |
+|                 | ***A2 --- Không phát hiện được thời lượng video*** |
+|                 |                                                    |
+|                 | 1.  Nếu trình phát (YouTube IFrame Player) hoặc    |
+|                 |     tệp lỗi không đọc được thời lượng, Giáo viên   |
+|                 |     tự nhập tay thời lượng (giây).                 |
 +-----------------+----------------------------------------------------+
-| **Hậu điều kiện | -   Bài giảng được lưu trữ ổn định trên CDN và     |
-| (P              |     hiển thị cho Học sinh thuộc lớp/khóa học tương |
-| ostcondition)** |     ứng (UC-25, UC-27).                            |
+| **Hậu điều kiện | -   Bộ video ôn tập được lưu trữ ổn định trên CDN/ |
+| (P              |     YouTube, sẵn sàng dùng làm nguồn khi PUBLISHED |
+| ostcondition)** |     --- V65: KHÔNG còn tự hiển thị cho Học sinh    |
+|                 |     ngay khi PUBLISHED, xem bổ sung dưới đây.      |
 +-----------------+----------------------------------------------------+
+
+**Bổ sung V65 (2026-07-30, đã xác nhận với người dùng) --- Publish đổi ý
+nghĩa, học sinh không còn tự thấy ngay:** trước V65, PUBLISHED = hiển thị
+ngay cho học sinh thuộc lớp/khung chương trình tương ứng (UC-23a). Từ
+V65, Publish chỉ còn nghĩa "đủ điều kiện dùng làm nguồn" (đề/video xuất
+hiện trong dropdown "BTVN buổi sau" ở Nhận xét học viên, UC-21) --- áp
+dụng cho CẢ 2 loại video (`CONNECTION` lẫn `REFLEX`, không chỉ REFLEX).
+Học sinh chỉ thực sự xem/làm được khi 1 Giáo viên chọn bộ đó làm "BTVN
+buổi sau" cho lớp qua UC-21 (tự động tạo `ReviewVideoAssignment` cho CẢ
+LỚP đang ghi danh ACTIVE, hạn nộp = buổi kế tiếp). Xem đầy đủ cơ chế mới
+(5 quy tắc: xung đột cùng buổi, sửa lựa chọn, REJECTED không ảnh hưởng,
+lớp không có buổi kế tiếp, chỉ áp dụng DAILY) tại UC-21 (`docs/uc/
+phan-he-06-hoc-thuat.md`).
 
 ---
 
-UC-23a: Xem bài giảng (Học sinh)
+UC-23a: Xem & Theo dõi Kho Video Ôn tập
 
 +-----------------+----------------------------------------------------+
 | **Mã Use Case** | UC-23a                                             |
 +-----------------+----------------------------------------------------+
-| **Tên Use       | Xem bài giảng (Học sinh)                           |
+| **Tên Use       | Xem & Theo dõi Kho Video Ôn tập                    |
 | Case**          |                                                    |
 +-----------------+----------------------------------------------------+
 | **Phân hệ**     | Phân hệ 7                                          |
@@ -72,53 +104,192 @@ UC-23a: Xem bài giảng (Học sinh)
 | **Yêu cầu chức  | FR-LMS-01                                          |
 | năng gốc**      |                                                    |
 +-----------------+----------------------------------------------------+
-| **Tác nhân**    | Học sinh                                           |
+| **Tác nhân**    | Học sinh (xem + báo tiến độ), Giáo viên (xem       |
+|                 | thống kê)                                          |
 +-----------------+----------------------------------------------------+
-| **Mô tả tóm     | Học sinh xem kho bài giảng (lessons +              |
-| tắt**           | lesson_materials) của (các) lớp mình đang ghi danh |
-|                 | — đã có tên trong sơ đồ actor                      |
-|                 | (UseCase-HocSinh.mmd) và được UC-42 dẫn chiếu từ   |
-|                 | trước nhưng chưa từng có Main Flow/Postcondition   |
-|                 | riêng; bổ sung đầy đủ nhân dịp sửa lại đúng logic  |
-|                 | hiển thị theo SDD (bổ sung ngoài SDD gốc, đã xác   |
-|                 | nhận với người dùng).                              |
+| **Mô tả tóm     | Học sinh xem kho video ôn tập (review_video_sets + |
+| tắt**           | review_videos) của (các) lớp mình đang ghi danh;   |
+|                 | hệ thống theo dõi TỪNG LƯỢT xem (bổ sung V59,       |
+|                 | 2026-07-28, đã xác nhận với người dùng — thay thế   |
+|                 | cơ chế watermark suốt đời ban đầu), "đạt yêu cầu"   |
+|                 | video CONNECTION cần cả 2 điều kiện, đều cấu hình   |
+|                 | được khi Giáo viên tạo video: (1) % ngưỡng xem cho  |
+|                 | 1 lượt (mặc định 80%), (2) số lượt đạt ngưỡng đó    |
+|                 | tối thiểu (mặc định 1). Giáo viên xem thống kê học  |
+|                 | sinh đã xem/chưa xem theo từng bộ + lớp.            |
 +-----------------+----------------------------------------------------+
-| **Sự kiện kích  | Học sinh mở kho bài giảng của 1 lớp mình đang học. |
-| hoạt**          |                                                    |
+| **Sự kiện kích  | Học sinh mở kho video ôn tập của 1 lớp mình đang   |
+| hoạt**          | học; Giáo viên mở màn hình thống kê 1 bộ.          |
 +-----------------+----------------------------------------------------+
 | **Điều kiện     | -   Học sinh đã đăng nhập, có class_enrollment     |
 | tiên quyết      |     ACTIVE tại lớp đang xem.                       |
 | (               |                                                    |
-| Precondition)** | -   Bài giảng đã được Giáo viên publish (UC-23).   |
+| Precondition)** | -   Bộ video đã được Giáo viên publish (UC-23) VÀ  |
+|                 |     đã được giao cho lớp qua Nhận xét học viên     |
+|                 |     (UC-21, V65 --- `ReviewVideoAssignment` ACTIVE |
+|                 |     cho đúng lớp).                                 |
 +-----------------+----------------------------------------------------+
 | **Luồng sự kiện | 1.  Học sinh chọn 1 lớp đang ghi danh (UC-42), mở  |
-| chính (Main     |     tab "Kho bài giảng".                           |
+| chính (Main     |     tab "Kho Video Ôn tập".                        |
 | Flow)**         |                                                    |
-|                 | 2.  Hệ thống trả về mọi lessons có                 |
-|                 |     status=PUBLISHED và (gắn riêng đúng lớp này    |
-|                 |     HOẶC gắn chung theo khung chương trình của lớp |
-|                 |     này) — đúng logic OR đã thiết kế trong SDD     |
-|                 |     ("HS trong lớp X xem được lessons WHERE        |
-|                 |     class_id=X OR curriculum_id=curriculum của lớp |
-|                 |     X").                                           |
+|                 | 2.  Hệ thống trả về mọi bộ có status=PUBLISHED,     |
+|                 |     (gắn riêng đúng lớp này HOẶC gắn chung theo    |
+|                 |     khung chương trình của lớp này --- đúng logic  |
+|                 |     OR đã thiết kế trong SDD), VÀ có                |
+|                 |     `ReviewVideoAssignment` ACTIVE cho lớp học sinh |
+|                 |     đang ghi danh ACTIVE (V65, UC-21 --- publish    |
+|                 |     đơn thuần không còn đủ, xem bổ sung V65 ở       |
+|                 |     UC-23).                                        |
 |                 |                                                    |
-|                 | 3.  Học sinh chọn 1 bài giảng, xem danh sách       |
-|                 |     lesson_materials đính kèm (video/PDF/audio...) |
-|                 |     để phát/tải về.                                |
+|                 | 3.  Học sinh chọn 1 bộ, xem danh sách video, bắt   |
+|                 |     đầu phát 1 video — hệ thống mở 1 LƯỢT XEM mới  |
+|                 |     (watch session).                               |
+|                 |                                                    |
+|                 | 4.  Trong lúc xem, hệ thống ghi nhận định kỳ số    |
+|                 |     giây đã xem CHO ĐÚNG lượt đang mở — lấy mốc    |
+|                 |     giây CAO NHẤT trong lượt đó, không tính lùi    |
+|                 |     khi học sinh tua tới; lượt đạt % ngưỡng của    |
+|                 |     video được đánh dấu "hợp lệ".                  |
+|                 |                                                    |
+|                 | 5.  "Đạt yêu cầu" (đã xem) = số lượt hợp lệ ≥ số   |
+|                 |     lượt tối thiểu cấu hình cho video đó.          |
+|                 |                                                    |
+|                 | 6.  Giáo viên xem thống kê theo bộ + lớp — từng    |
+|                 |     học sinh đã xem bao nhiêu % + bao nhiêu lượt   |
+|                 |     hợp lệ mỗi video, đạt yêu cầu hay chưa (kể cả  |
+|                 |     học sinh chưa từng mở video nào, hiển thị 0%). |
 +-----------------+----------------------------------------------------+
 | **Luồng thay    | ***A1 --- Học sinh chưa/không còn ghi danh lớp     |
 | thế / ngoại lệ  | đang gọi***                                        |
 | (Alternate      |                                                    |
 | Flow)**         | 1.  Nếu không có class_enrollment ACTIVE khớp lớp  |
 |                 |     đang truy vấn, hệ thống từ chối truy cập (404, |
-|                 |     không lộ thông tin bài giảng của lớp không     |
+|                 |     không lộ thông tin bộ video của lớp không      |
 |                 |     thuộc về mình).                                |
+|                 |                                                    |
+|                 | ***A2 --- Học sinh mở lượt xem/báo tiến độ cho     |
+|                 | video ngoài phạm vi lớp mình***                    |
+|                 |                                                    |
+|                 | 1.  Cùng cơ chế 404 như A1 — không lộ sự tồn tại   |
+|                 |     của video ngoài phạm vi lớp học sinh đang học. |
 +-----------------+----------------------------------------------------+
-| **Hậu điều kiện | -   Học sinh chỉ thấy bài giảng PUBLISHED thuộc    |
-| (P              |     đúng phạm vi lớp/khung chương trình mình đang  |
-| ostcondition)** |     học — không thấy bài DRAFT hay bài của         |
-|                 |     lớp/khung khác.                                |
+| **Hậu điều kiện | -   Học sinh chỉ thấy bộ PUBLISHED thuộc đúng      |
+| (P              |     phạm vi lớp/khung chương trình mình đang học    |
+| ostcondition)** |     VÀ đã được giao qua UC-21 (V65) — không thấy    |
+|                 |     bộ DRAFT, bộ của lớp/khung khác, hay bộ đã      |
+|                 |     Publish nhưng chưa từng được GV chọn giao.      |
+|                 |                                                    |
+|                 | -   Mỗi lượt xem lưu riêng — trong 1 lượt, tiến độ |
+|                 |     không giảm theo thời gian; lượt hợp lệ được    |
+|                 |     cộng dồn vào số lượt đạt của video.            |
+|                 |                                                    |
+|                 | -   Giáo viên xem được thống kê chính xác (%+số    |
+|                 |     lượt) kể cả học sinh chưa từng mở video nào    |
+|                 |     (hiện 0%, không biến mất khỏi danh sách).      |
 +-----------------+----------------------------------------------------+
+
+---
+
+UC-23b: Nộp & Chấm điểm Audio cho Video Phản xạ
+
++-----------------+----------------------------------------------------+
+| **Mã Use Case** | UC-23b                                             |
++-----------------+----------------------------------------------------+
+| **Tên Use       | Nộp & Chấm điểm Audio cho Video Phản xạ            |
+| Case**          |                                                    |
++-----------------+----------------------------------------------------+
+| **Phân hệ**     | Phân hệ 7                                          |
++-----------------+----------------------------------------------------+
+| **Yêu cầu chức  | FR-LMS-01                                          |
+| năng gốc**      |                                                    |
++-----------------+----------------------------------------------------+
+| **Tác nhân**    | Học sinh (nộp audio), Giáo viên (chấm điểm)        |
++-----------------+----------------------------------------------------+
+| **Mô tả tóm     | Bổ sung ngoài SDD gốc, đã xác nhận với người dùng  |
+| tắt**           | (2026-07-27, cập nhật 2026-07-28 — V57, THAY THẾ   |
+|                 | thiết kế "1 video = 1 audio duy nhất" ban đầu) —    |
+|                 | video loại "Video phản xạ" (REFLEX) chia thành     |
+|                 | NHIỀU câu hỏi, mỗi câu gắn 1 mốc thời gian trong    |
+|                 | video (timestamp), thời lượng ghi âm tối đa và số  |
+|                 | lần nộp lại tối đa RIÊNG theo từng câu hỏi. Học     |
+|                 | sinh nộp audio cho TỪNG câu hỏi, nộp lại GIỮ LỊCH   |
+|                 | SỬ (không ghi đè); Giáo viên chấm điểm + nhận xét   |
+|                 | cho attempt mới nhất mỗi câu.                       |
++-----------------+----------------------------------------------------+
+| **Sự kiện kích  | Giáo viên soạn câu hỏi khi tạo video Phản xạ; Học   |
+| hoạt**          | sinh bấm vào 1 câu hỏi, ghi âm câu trả lời; Giáo    |
+|                 | viên mở danh sách bài audio đã nộp của 1 bộ + lớp   |
+|                 | để chấm.                                            |
++-----------------+----------------------------------------------------+
+| **Điều kiện     | -   Học sinh đã đăng nhập, có class_enrollment     |
+| tiên quyết      |     ACTIVE tại lớp đang xem, bộ video đã PUBLISHED |
+| (               |     VÀ đã được giao cho lớp qua UC-21 (V65, xem bổ |
+| Precondition)** |     sung ở UC-23), video thuộc bộ có                |
+|                 |     video_type=REFLEX.                              |
+|                 | -   Giáo viên được phân công giảng dạy lớp/khung   |
+|                 |     chương trình sở hữu bộ video đó.               |
++-----------------+----------------------------------------------------+
+| **Luồng sự kiện | 1.  Giáo viên soạn video REFLEX, thêm từng câu hỏi |
+| chính (Main     |     kèm mốc thời gian (timestampSeconds), thời     |
+| Flow)**         |     lượng ghi âm tối đa (maxRecordingSeconds) và    |
+|                 |     số lần cho phép nộp lại (maxAttempts, để trống  |
+|                 |     = không giới hạn) — riêng cho câu hỏi đó.       |
+|                 |                                                    |
+|                 | 2.  Học sinh bấm 1 câu hỏi, ghi âm (hoặc chọn file  |
+|                 |     có sẵn), upload qua API upload media chung, gửi |
+|                 |     audioUrl — hệ thống tạo 1 ATTEMPT MỚI (tăng dần |
+|                 |     attemptNumber), KHÔNG xoá các attempt trước.    |
+|                 |                                                    |
+|                 | 3.  Giáo viên mở danh sách bài audio đã nộp theo bộ|
+|                 |     + lớp cụ thể — chỉ hiện ATTEMPT MỚI NHẤT mỗi   |
+|                 |     (câu hỏi, học sinh).                            |
+|                 |                                                    |
+|                 | 4.  Giáo viên nghe audio, chấm điểm (score/maxScore|
+|                 |     ) và ghi nhận xét (feedback) cho attempt đó.    |
++-----------------+----------------------------------------------------+
+| **Luồng thay    | ***A1 --- Nộp audio cho video không phải REFLEX*** |
+| thế / ngoại lệ  |                                                    |
+| (Alternate      | 1.  Hệ thống từ chối (400) — chỉ video Phản xạ mới |
+| Flow)**         |     nhận câu hỏi/audio trả lời, video Kết nối       |
+|                 |     (CONNECTION) không áp dụng.                     |
+|                 |                                                    |
+|                 | ***A2 --- Học sinh ngoài phạm vi lớp/bộ chưa        |
+|                 | PUBLISHED***                                       |
+|                 |                                                    |
+|                 | 1.  Cùng cơ chế 404 như UC-23a (A1/A2) — không lộ  |
+|                 |     sự tồn tại của video/câu hỏi ngoài phạm vi lớp  |
+|                 |     mình.                                           |
+|                 |                                                    |
+|                 | ***A3 --- Giáo viên không được phân công lớp/khung |
+|                 | sở hữu bộ video***                                 |
+|                 |                                                    |
+|                 | 1.  Hệ thống từ chối (403) khi xem danh sách hoặc  |
+|                 |     chấm điểm.                                     |
+|                 |                                                    |
+|                 | ***A4 --- Chấm điểm cho bài nộp không tồn tại***   |
+|                 |                                                    |
+|                 | 1.  Hệ thống báo lỗi (404).                        |
+|                 |                                                    |
+|                 | ***A5 --- Học sinh nộp lại khi đã hết lượt          |
+|                 | (maxAttempts)***                                    |
+|                 |                                                    |
+|                 | 1.  Hệ thống từ chối, không tạo attempt mới (tái    |
+|                 |     dùng nguyên cơ chế `RetakeNotAllowedException`  |
+|                 |     của UC-24/27 bài tập ngữ pháp).                 |
++-----------------+----------------------------------------------------+
+| **Hậu điều kiện | -   Mỗi lần nộp tạo 1 attempt MỚI, GIỮ LỊCH SỬ mọi |
+| (P              |     attempt trước (không ghi đè, không xoá) — học   |
+| ostcondition)** |     sinh xem lại được toàn bộ lịch sử đã nộp.       |
+|                 |                                                    |
+|                 | -   Giáo viên chấm được điểm (score/maxScore) +    |
+|                 |     nhận xét cho TỪNG attempt (mặc định thao tác    |
+|                 |     trên attempt mới nhất).                         |
++-----------------+----------------------------------------------------+
+
+> **Lưu ý phân biệt:** UC-23b khác hoàn toàn với luồng "ghi âm phản xạ"
+> ở FR-LMS-04 (chế độ Nói trong Luyện Nghe — Nói, UC-26, chấm qua
+> `ListeningPracticeGradingService`) — 2 domain tách biệt, không dùng
+> chung bảng/Service, chỉ trùng tên gọi thông thường "phản xạ".
 
 ---
 
@@ -138,8 +309,8 @@ UC-60: Kho tài liệu tham khảo
 | **Tác nhân**    | Giáo viên, Trưởng phòng đào tạo/Quản lý điểm       |
 |                 | trường, Học sinh                                   |
 +-----------------+----------------------------------------------------+
-| **Mô tả tóm     | Kho tài liệu tham khảo độc lập với bài giảng       |
-| tắt**           | (UC-23/23a) — không gắn 1 bài giảng cụ thể nào,    |
+| **Mô tả tóm     | Kho tài liệu tham khảo độc lập với Kho Video Ôn    |
+| tắt**           | tập (UC-23/23a) — không gắn 1 bộ video cụ thể nào, |
 |                 | chỉ gắn theo khung chương trình (curriculum). Giáo |
 |                 | viên/Trưởng phòng đào tạo/Quản lý điểm trường      |
 |                 | upload tài liệu (PDF/video/audio/slide/ảnh...),    |
@@ -153,8 +324,8 @@ UC-60: Kho tài liệu tham khảo
 |                 | chương trình, không gắn với 1 bài giảng cụ thể     |
 |                 | nào; hoặc Học sinh mở kho tài liệu để tự học thêm. |
 +-----------------+----------------------------------------------------+
-| **Điều kiện     | -   Người upload có quyền lms.document.manage.     |
-| tiên quyết      |                                                    |
+| **Điều kiện     | -   Người upload có quyền lms.document.create      |
+| tiên quyết      |     hoặc lms.document.update.                      |
 | (               | -   Tệp đã upload lên CDN từ trước (NFR-TECH-07),  |
 | Precondition)** |     Service chỉ nhận URL.                          |
 |                 |                                                    |
@@ -178,7 +349,7 @@ UC-60: Kho tài liệu tham khảo
 | (P              |     đúng curriculum của lớp mình đang học — không  |
 | ostcondition)** |     thấy tài liệu DRAFT hay của curriculum khác.   |
 |                 |                                                    |
-|                 | -   Người có quyền lms.document.manage xem được    |
+|                 | -   Người có quyền lms.document.view xem được      |
 |                 |     mọi trạng thái để quản lý.                     |
 +-----------------+----------------------------------------------------+
 
@@ -311,9 +482,13 @@ UC-25: Xem Portal Phụ huynh
 |                 | xét giáo viên đã duyệt (UC-22).                    |
 |                 |                                                    |
 |                 | 4.  Phụ huynh xem hồ sơ tổng hợp: kết quả học tập, |
-|                 |     chuyên cần, tình trạng bài tập, cảnh báo (ý    |
-|                 |     thức trên lớp + bài tập về nhà), tổng kết điểm |
-|                 |     theo từng giai đoạn.                           |
+|                 |     chuyên cần, tình trạng bài tập (chỉ xem tiến   |
+|                 |     độ — Ngữ pháp online/offline + Video Kết nối/  |
+|                 |     Phản xạ theo từng buổi có giao BTVN; endpoint   |
+|                 |     riêng bổ sung 2026-07-29, trước đó chỉ có sẵn   |
+|                 |     dữ liệu ẩn trong nhận xét chưa lộ ra), cảnh báo |
+|                 |     (ý thức trên lớp + bài tập về nhà), tổng kết    |
+|                 |     điểm theo từng giai đoạn.                       |
 |                 |                                                    |
 |                 | 5.  Phụ huynh nhận các thông báo khẩn từ nhà       |
 |                 |     trường (thông báo vắng mặt --- UC-15, thông    |
@@ -390,6 +565,53 @@ UC-61: Xem điểm của tôi (Học sinh)
 | **Hậu điều kiện | -   Học sinh chỉ thấy điểm/Overall-Level đã        |
 | (P              |     PUBLISHED của đúng (các) lớp mình đang ghi     |
 | ostcondition)** |     danh — không thấy điểm DRAFT hay của lớp khác. |
++-----------------+----------------------------------------------------+
+
+---
+
+UC-64: Xem chuyên cần & nhận xét của tôi (Học sinh)
+
++-----------------+----------------------------------------------------+
+| **Mã Use Case** | UC-64                                              |
++-----------------+----------------------------------------------------+
+| **Tên Use       | Xem chuyên cần & nhận xét của tôi (Học sinh)       |
+| Case**          |                                                    |
++-----------------+----------------------------------------------------+
+| **Phân hệ**     | Phân hệ 7                                          |
++-----------------+----------------------------------------------------+
+| **Yêu cầu chức  | FR-LMS-03, FR-LMS-07                               |
+| năng gốc**      |                                                    |
++-----------------+----------------------------------------------------+
+| **Tác nhân**    | Học sinh                                           |
++-----------------+----------------------------------------------------+
+| **Mô tả tóm     | Học sinh tự xem điểm danh (UC-15) và nhận xét giáo |
+| tắt**           | viên đã duyệt (UC-22) của chính mình theo (các) lớp|
+|                 | đang/đã ghi danh — đối xứng với phần xem điểm danh |
+|                 | + nhận xét trong UC-25 (Portal Phụ huynh) và với   |
+|                 | UC-61 (xem điểm của tôi), khác ở chỗ tác nhân là   |
+|                 | chính Học sinh, không cần qua Phụ huynh (bổ sung   |
+|                 | ngoài SDD gốc, đã xác nhận với người dùng          |
+|                 | 2026-07-29).                                       |
++-----------------+----------------------------------------------------+
+| **Sự kiện kích  | Học sinh mở mục "Quá trình học tập" trong Portal.  |
+| hoạt**          |                                                    |
++-----------------+----------------------------------------------------+
+| **Điều kiện     | -   Học sinh đã đăng nhập, có class_enrollment     |
+| tiên quyết      |     ACTIVE tại lớp đang xem.                       |
+| (Precondition)**|                                                    |
++-----------------+----------------------------------------------------+
+| **Luồng sự kiện | 1.  Học sinh chọn 1 lớp đang ghi danh (UC-42), xem |
+| chính (Main     |     toàn bộ bản ghi điểm danh của mình tại lớp đó. |
+| Flow)**         |                                                    |
+|                 | 2.  Học sinh xem nhận xét giáo viên của mình tại   |
+|                 |     lớp đó — chỉ nhận xét đã APPROVED (UC-22),     |
+|                 |     bao gồm cảnh báo (is_warning) và chi tiết BTVN |
+|                 |     (buổi trước/buổi sau, online lẫn offline).     |
++-----------------+----------------------------------------------------+
+| **Hậu điều kiện | -   Học sinh chỉ thấy điểm danh/nhận xét đã duyệt  |
+| (Postcondition)**|    của đúng (các) lớp mình đang/đã ghi danh —      |
+|                 |     không thấy dữ liệu của lớp khác hay nhận xét    |
+|                 |     đang PENDING/REJECTED.                          |
 +-----------------+----------------------------------------------------+
 
 ---
@@ -488,16 +710,29 @@ UC-27: Làm bài tập/đề ôn tập
 | **Sự kiện kích  | Học sinh chọn 1 bài tập/đề ôn tập từ ngân hàng để  |
 | hoạt**          | tự luyện.                                          |
 +-----------------+----------------------------------------------------+
-| **Điều kiện     | -   Ngân hàng bài tập/đề ôn tập đã có nội dung (do |
-| tiên quyết      |     Giáo viên biên soạn --- liên quan UC-40).      |
-| (               |                                                    |
-| Precondition)** |                                                    |
+| **Điều kiện     | -   Bài tập/đề ôn tập (SELF_PRACTICE) đã được Giáo |
+| tiên quyết      |     viên biên soạn, gắn vào 1 "Đề" (Kho đề, xem    |
+| (               |     UC-40) --- **V65 (bổ sung ngoài SDD gốc, đã    |
+| Precondition)** |     xác nhận với người dùng 2026-07-30):** khác    |
+|                 |     với thiết kế ban đầu (mở tự do ngay khi        |
+|                 |     Publish), SELF_PRACTICE giờ CŨNG cần (a) Đề    |
+|                 |     của bài đã được gán cho lớp học sinh đang học  |
+|                 |     (Kho đề) VÀ (b) được Giáo viên chọn làm "BTVN  |
+|                 |     buổi sau" ở Nhận xét học viên (UC-21) --- hệ    |
+|                 |     thống tự động giao (tạo ExerciseAssignment) cho|
+|                 |     TOÀN BỘ học sinh ACTIVE của lớp khi đó, hạn nộp|
+|                 |     ngầm định = buổi học kế tiếp (dù bài tự luyện  |
+|                 |     không có khái niệm "trễ hạn" thật sự). Publish |
+|                 |     đơn thuần (không qua UC-21) KHÔNG còn đủ để    |
+|                 |     học sinh thấy/làm được bài.                    |
 +-----------------+----------------------------------------------------+
-| **Luồng sự kiện | 1.  Học sinh duyệt ngân hàng bài tập & đề ôn tập,  |
-| chính (Main     |     chọn 1 đề theo chuyên đề/cấp độ phù hợp.       |
-| Flow)**         |                                                    |
-|                 | 2.  Học sinh làm bài (SELF_PRACTICE --- mở tự do,  |
-|                 |     không deadline).                               |
+| **Luồng sự kiện | 1.  Học sinh duyệt danh sách bài tập/đề ôn tập ĐÃ  |
+| chính (Main     |     ĐƯỢC GIAO cho lớp mình (xem Precondition),     |
+| Flow)**         |     chọn 1 đề theo chuyên đề/cấp độ phù hợp.       |
+|                 |                                                    |
+|                 | 2.  Học sinh làm bài (SELF_PRACTICE --- không có   |
+|                 |     deadline chặn nộp muộn như ASSIGNED, nhưng vẫn |
+|                 |     cần đã được giao như Precondition).            |
 |                 |                                                    |
 |                 | 3.  Học sinh nộp bài khi hoàn tất.                 |
 |                 |                                                    |
@@ -656,9 +891,11 @@ UC-40: Soạn & giao đề kiểm tra
 +-----------------+----------------------------------------------------+
 | **Tác nhân**    | Giáo viên                                          |
 +-----------------+----------------------------------------------------+
-| **Mô tả tóm     | Giáo viên soạn đề kiểm tra (từ ngân hàng câu hỏi   |
-| tắt**           | có sẵn hoặc tạo mới), giao đề cho lớp cụ thể kèm   |
-|                 | thời hạn nộp nếu cần.                              |
+| **Mô tả tóm     | Giáo viên tổ chức Kho đề 2 cấp: "Đề" (VD IELTS     |
+| tắt**           | Grade 6) chứa nhiều "Bài" (VD Unit 1, soạn từ ngân |
+|                 | hàng câu hỏi có sẵn hoặc tạo mới), gán Đề cho lớp  |
+|                 | cụ thể --- điều kiện hiển thị DUY NHẤT cho học sinh|
+|                 | lớp đó (bổ sung Kho đề, 2026-07-30, xem dưới đây). |
 +-----------------+----------------------------------------------------+
 | **Sự kiện kích  | Giáo viên cần tạo bài kiểm tra/bài tập giao cho    |
 | hoạt**          | lớp phụ trách.                                     |
@@ -668,35 +905,75 @@ UC-40: Soạn & giao đề kiểm tra
 | (               |                                                    |
 | Precondition)** |                                                    |
 +-----------------+----------------------------------------------------+
-| **Luồng sự kiện | 1.  Giáo viên mở màn hình Soạn đề, chọn nguồn câu  |
-| chính (Main     |     hỏi: từ ngân hàng có sẵn hoặc soạn câu hỏi mới |
-| Flow)**         |     --- cả 2 đều được lưu vào ngân hàng câu hỏi    |
-|                 |     (exercise_questions).                          |
+| **Luồng sự kiện | 1.  Giáo viên tạo/chọn 1 "Đề" (Exam) trong Kho đề  |
+| chính (Main     |     --- mã, tên, gán 1 khung chương trình (CHỈ để |
+| Flow)**         |     lọc/tìm kiếm trong Kho đề, không phải điều     |
+|                 |     kiện hiển thị cho lớp).                        |
 |                 |                                                    |
-|                 | 2.  Giáo viên chọn Loại đề: SELF_PRACTICE (mở tự   |
-|                 |     do, dùng cho UC-27) hoặc ASSIGNED (giao có     |
-|                 |     deadline, dùng cho UC-24).                     |
+|                 | 2.  Giáo viên gán Đề cho 1 hoặc nhiều lớp --- đây   |
+|                 |     là điều kiện hiển thị DUY NHẤT: học sinh của   |
+|                 |     lớp đã gán mới xem/làm được các Bài thuộc Đề,  |
+|                 |     kể cả lớp khác khung chương trình với Đề.       |
 |                 |                                                    |
-|                 | 3.  Nếu chọn ASSIGNED: Giáo viên chọn lớp cụ thể   |
-|                 |     để giao đề, đặt deadline; hệ thống tạo bản ghi |
-|                 |     exercise_assignments liên kết đề với           |
-|                 |     lớp/deadline.                                  |
+|                 | 3.  Giáo viên mở màn hình Soạn Bài (trong Đề), chọn|
+|                 |     nguồn câu hỏi: từ ngân hàng có sẵn hoặc soạn    |
+|                 |     câu hỏi mới --- cả 2 đều được lưu vào ngân hàng |
+|                 |     câu hỏi (exercise_questions).                  |
 |                 |                                                    |
-|                 | 4.  Giáo viên xác nhận lưu/giao đề; hệ thống thông |
-|                 |     báo cho Học sinh trong lớp (nếu là ASSIGNED).  |
+|                 | 4.  Giáo viên chọn Loại Bài: SELF_PRACTICE (dùng   |
+|                 |     cho UC-27) hoặc ASSIGNED (dùng cho UC-24) ---  |
+|                 |     V65: cả 2 loại đều cùng 1 cơ chế giao (không   |
+|                 |     còn phân biệt ở bước giao bài, xem Postcondition|
+|                 |     và bổ sung Kho đề dưới đây).                    |
+|                 |                                                    |
+|                 | 5.  Giáo viên xác nhận Publish Bài --- V65: KHÔNG   |
+|                 |     còn bước chọn lớp/deadline ở màn này; Publish   |
+|                 |     chỉ đánh dấu Bài đủ điều kiện dùng làm nguồn.   |
+|                 |                                                    |
+|                 | 6.  Việc thật sự giao Bài (chọn lớp/đặt deadline/   |
+|                 |     thông báo Học sinh) chuyển hẳn sang Nhận xét    |
+|                 |     học viên (UC-21, V65) --- xem bổ sung dưới đây. |
 +-----------------+----------------------------------------------------+
 | **Luồng thay    | ***A1 --- Đề có câu tự luận/Nói***                 |
 | thế / ngoại lệ  |                                                    |
-| (Alternate      | 1.  Hệ thống đánh dấu đề cần bước chấm thủ công bổ |
+| (Alternate      | 1.  Hệ thống đánh dấu Bài cần bước chấm thủ công bổ|
 | Flow)**         |     sung sau khi Học sinh nộp bài (dẫn tới UC-41), |
-|                 |     khác với đề thuần trắc nghiệm chỉ cần chấm tự  |
+|                 |     khác với Bài thuần trắc nghiệm chỉ cần chấm tự |
 |                 |     động.                                          |
 +-----------------+----------------------------------------------------+
-| **Hậu điều kiện | -   Đề kiểm tra được lưu vào ngân hàng câu hỏi;    |
-| (P              |     nếu là ASSIGNED, được giao đúng lớp với        |
-| ostcondition)** |     deadline xác định, sẵn sàng cho Học sinh làm   |
-|                 |     bài (UC-24).                                   |
+| **Hậu điều kiện | -   Bài kiểm tra được lưu vào ngân hàng câu hỏi,   |
+| (P              |     gắn vào đúng 1 Đề; nếu Publish, đủ điều kiện   |
+| ostcondition)** |     dùng làm nguồn --- CHƯA sẵn sàng cho Học sinh   |
+|                 |     làm bài (UC-24/27) cho tới khi Đề của Bài đó    |
+|                 |     đã gán cho lớp (bước 2) VÀ Bài được chọn giao   |
+|                 |     qua UC-21 (bước 6) --- cả 2 điều kiện đều bắt   |
+|                 |     buộc, thiếu 1 trong 2 vẫn chặn.                 |
 +-----------------+----------------------------------------------------+
+
+> **Bổ sung Kho đề (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+> 2026-07-30) --- tái cấu trúc UC-40 thành 2 cấp Đề/Bài:** trước đây
+> `Exercise` (Bài) gán trực tiếp 1 khung chương trình; giờ mỗi Bài thuộc 1
+> "Đề" (`Exam`, bảng `exams`, gán 1 khung chương trình CHỈ để lọc/tìm
+> kiếm trong Kho đề) và 1 Đề gán được NHIỀU lớp (bảng `exam_class_
+> assignments`, nhiều-nhiều) --- đây là điều kiện hiển thị DUY NHẤT cho
+> học sinh, thay thế hoàn toàn "khớp khung chương trình của lớp" trước
+> đây. 5 hệ quả:
+> 1. **Áp dụng cho MỌI loại Bài** (SELF_PRACTICE/ASSIGNED/MOCK_TEST/
+>    SKILL_PRACTICE), không riêng ASSIGNED như thiết kế V65 ban đầu ---
+>    SELF_PRACTICE mất hẳn cơ chế "mở tự do sau khi Publish", giờ CŨNG
+>    cần Đề đã gán lớp + được giao qua UC-21 như ASSIGNED (thay đổi hành
+>    vi thật sự cho UC-27, xem Precondition UC-27).
+> 2. Endpoint `GET /api/curriculums/{curriculumId}/exercises` (do PR
+>    #128 tự bổ sung để GV duyệt đề theo khung chương trình) đã bị XÓA,
+>    thay bằng duyệt qua `GET /api/exams` (lọc theo `curriculumId`) →
+>    `GET /api/exams/{id}/exercises` (Bài trong 1 Đề).
+> 3. `POST/DELETE /api/exams/{id}/classes/{classId}` (gán/gỡ lớp, quyền
+>    `lms.exam.assign`) thay cho việc đặt scope trực tiếp trên từng Bài.
+> 4. Dữ liệu Exercise cũ (Sprint 0/1, dữ liệu test) được migration tự
+>    động bọc vào 1 Đề mặc định 1-1, không mất dữ liệu.
+> 5. Dropdown "BTVN buổi sau" ở Nhận xét học viên (UC-21) đổi nhãn từ
+>    `Tên bài (Mã bài)` sang **`Mã Đề - Tên bài`** để phân biệt khi 1 lớp
+>    được gán nhiều Đề cùng lúc.
 
 > **Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (2026-07-21, cập
 > nhật 2026-07-22):** `Question.audioUrl` (trắc nghiệm Voice) và
@@ -721,15 +998,85 @@ UC-40: Soạn & giao đề kiểm tra
 >
 > **Mở rộng, đã xác nhận với người dùng (2026-07-22, theo yêu cầu FE):**
 > thêm 2 module `CURRICULUM_DOCUMENT` (`curriculum_documents.file_url`,
-> UC-60) và `LESSON_MATERIAL` (`lesson_materials.file_url`, mục "Tệp đính
-> kèm" ở trên) vào `MediaModule` — 2 field này trước đây cũng là nhập tay
-> URL, giờ upload thật qua cùng API `POST /api/media/upload`. 2 module
-> này được nhận thêm PDF/Word/Excel/PowerPoint (≤20MB) và `video/*`
-> (≤200MB) ngoài audio/ảnh (xem `MediaModule.acceptsDocuments()`/
-> `MediaStorageService`) — `LMS_QUESTION` giữ nguyên hành vi cũ (chỉ
-> audio/ảnh). Key R2 tương ứng: `lms/curriculum-documents/{category}/` và
-> `lms/lesson-materials/{category}/` (`category` = `audio`/`images`/
-> `video`/`documents` theo content-type).
+> UC-60) và `LESSON_MATERIAL` (`lesson_materials.file_url`, xem UC-23 —
+> đã đổi tên thành `REVIEW_VIDEO` từ 2026-07-27, xem ghi chú ngay dưới)
+> vào `MediaModule` — 2 field này trước đây cũng là nhập tay URL, giờ
+> upload thật qua cùng API `POST /api/media/upload`. `LMS_QUESTION` cũng
+> được bật nhận PDF/ảnh cho câu tự luận cùng đợt này.
+>
+> **Tái cấu trúc 2026-07-27 (Kho Video Ôn tập, đã xác nhận với người
+> dùng):** `LESSON_MATERIAL` đổi tên thành `REVIEW_VIDEO`
+> (`review_videos.file_url`, xem UC-23 ở trên) — Kho Video Ôn tập đã bỏ
+> hẳn PDF/Slide/Word, chỉ còn video/audio, nên cờ `acceptsDocuments()`
+> (1 cờ duy nhất gộp cả video lẫn tài liệu văn phòng) được tách thành 2
+> cờ độc lập `acceptsVideo()`/`acceptsOfficeDocuments()` trên
+> `MediaModule` để có thể "cho video, cấm PDF" riêng cho `REVIEW_VIDEO`.
+> `CURRICULUM_DOCUMENT`/`LMS_QUESTION` giữ nguyên hành vi kết hợp cũ (cả
+> 2 cờ đều bật — nhận PDF/Word/Excel/PowerPoint ≤20MB và `video/*`
+> ≤200MB ngoài audio/ảnh); `REVIEW_VIDEO` chỉ bật `acceptsVideo()` (nhận
+> video/audio, từ chối PDF/Word/Excel/PowerPoint). Key R2 tương ứng:
+> `lms/curriculum-documents/{category}/` và `lms/review-videos/{category}/`
+> (`category` = `audio`/`images`/`video`/`documents` theo content-type).
+>
+> **Soạn đề nhanh (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+> 2026-07-30):**
+>
+> 1. **FE "Soạn & giao đề" giờ hiện thực đúng Main Flow bước 1** — trước
+>    đây `CreateAndAssignExerciseModal.tsx` chỉ cho chọn câu hỏi có sẵn từ
+>    ngân hàng. Bước "Soạn đề" giờ có 3 nguồn (tab), tất cả đều tự tạo câu
+>    hỏi vào ngân hàng TRƯỚC rồi mới gắn vào đề (`exercise_questions`) —
+>    khớp đúng Main Flow bước 1: *"cả 2 [nguồn có sẵn/soạn mới] đều được
+>    lưu vào ngân hàng câu hỏi"*:
+>    - **Chọn có sẵn** — hành vi cũ, không đổi.
+>    - **Soạn câu hỏi mới** — nhúng thẳng `QuestionEditorForm` (form soạn
+>      tay đã có sẵn ở trang Ngân hàng câu hỏi); mỗi câu tạo xong tự động
+>      gọi API gắn vào đề đang soạn ngay lập tức.
+>    - **Nhập Excel/Word** — xem mục 2.
+> 2. **Import hàng loạt câu hỏi qua file mẫu** (`QuestionImportService`,
+>    `QuestionImportController` — `POST /api/question-banks/{bankId}/
+>    questions/import`) — dùng cả ở trang Ngân hàng câu hỏi (import độc
+>    lập vào 1 bank) lẫn trong bước Soạn đề (import rồi tự gắn luôn vào đề
+>    đang soạn). Hỗ trợ 2 định dạng, mẫu CỨNG (không AI/OCR nhận diện tự
+>    do — đã đánh giá đổi lấy độ chính xác, tránh sai sót khó kiểm soát):
+>    - `.xlsx` — cột cố định vị trí A→N (Loại câu hỏi/Độ khó/Nội dung/
+>      Đáp án A-D/Đáp án đúng/URL Audio/URL Hình ảnh/Transcript-Từ khóa
+>      phát âm/Điểm/Giải thích/Tags). Mẫu dựng client-side (không endpoint
+>      backend), theo đúng tiền lệ `ImportExcelButton.tsx`/
+>      `GradeExcelImportPanel.tsx` (tránh phụ thuộc thư viện đọc/ghi Excel
+>      ngoài có lỗ hổng chưa vá).
+>    - `.docx` — mỗi câu hỏi 1 block, các block cách nhau 1 dòng `---`,
+>      dòng đầu block dạng `[LOAI_CAU_HOI]`, các dòng sau `Nhãn: giá trị`
+>      (so khớp không phân biệt hoa/thường/dấu) hoặc `A.`-`D.` cho đáp án.
+>      Mẫu sinh ở backend bằng Apache POI (`GET /api/question-imports/
+>      template.docx`, `QuestionImportService.buildWordTemplate()`).
+>    - Phạm vi loại câu hỏi: CHỈ 5 loại UI mà `QuestionEditorForm.tsx` hỗ
+>      trợ (`TRAC_NGHIEM`/`TRAC_NGHIEM_VOICE`/`DIEN_TU`/`TU_LUAN`/
+>      `SPEAKING`) — KHÔNG mở rộng sang `TRUE_FALSE`/`MULTIPLE_ANSWER` dù
+>      `Question.QuestionType` có 6 giá trị, để câu hỏi tạo qua import
+>      luôn sửa lại được bằng form tay sẵn có.
+>    - Lỗi từng dòng/block không chặn phần còn lại của file (mirror UC-53
+>      Nhập điểm qua Excel); file đọc hỏng hoàn toàn → job `FAILED` ngay.
+>      Dùng chung bảng `import_jobs` (`ImportJob.ImportType.QUESTIONS`,
+>      không cần migration — cột `import_type` là `VARCHAR` tự do).
+>    - Quyền: dùng chung `lms.question-bank.create` (không có quyền mới).
+>
+> **Bổ sung V65 (2026-07-30, đã xác nhận với người dùng) --- bỏ hẳn bước
+> "Giao bài tập" khỏi Soạn & Giao đề:** endpoint `POST
+> /api/exercises/{id}/assign` (tạo `ExerciseAssignment` + publish + thông
+> báo học sinh trong 1 lần gọi) đã bị XÓA. Publish (`POST
+> /api/exercises/{id}/publish`, giữ nguyên) giờ là hành động DUY NHẤT ở
+> màn này cho MỌI loại đề (SELF_PRACTICE lẫn ASSIGNED) --- chỉ đổi
+> `status=PUBLISHED`, không tạo assignment, không thông báo ai. Với đề
+> ASSIGNED: việc tạo `ExerciseAssignment` (giao cho lớp, đặt deadline,
+> thông báo học sinh) chuyển hẳn sang Nhận xét học viên (UC-21) --- Giáo
+> viên chọn đề này làm "BTVN buổi sau" cho 1 học sinh trong 1 buổi DAILY
+> thì hệ thống tự động giao cho TOÀN BỘ học sinh ACTIVE của lớp, hạn nộp =
+> buổi kế tiếp (xem đầy đủ cơ chế + 5 quy tắc tại UC-21,
+> `docs/uc/phan-he-06-hoc-thuat.md`). `listAssignmentsForClass` (xem lại
+> lịch sử đã giao) giữ nguyên, không đổi. Lý do đổi: PM xác nhận điểm
+> phát sinh giao bài nên gắn liền với buổi học/nhận xét thay vì tách rời
+> ở màn soạn đề, tránh Giáo viên quên giao hoặc giao nhầm lớp không liên
+> quan tới buổi đang dạy.
 
 ---
 

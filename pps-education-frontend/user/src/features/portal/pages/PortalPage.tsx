@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { BookOpen, Calendar, CreditCard, Home, LogOut, Award, School, Users } from "lucide-react";
+import { Calendar, ClipboardList, CreditCard, FolderOpen, Home, LogOut, Award, NotebookPen, School, Users, Menu, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import { ChildResponse, listClassOptions, listMyChildren, PortalClassOptionResponse } from "../api";
@@ -8,34 +8,37 @@ import PortalDropdown from "../components/PortalDropdown";
 import ScheduleTab from "../components/ScheduleTab";
 import StudentScheduleTab from "../components/StudentScheduleTab";
 import AssignmentsTab from "../components/AssignmentsTab";
+import ParentHomeworkProgressTab from "../components/ParentHomeworkProgressTab";
+import NotificationBell from "../components/NotificationBell";
 import GradesTab from "../components/GradesTab";
 import BillingTab from "../components/BillingTab";
-import LmsTab from "../components/LmsTab";
+import DailyLearningProgressTab from "../components/DailyLearningProgressTab";
+import DocumentLibraryTab from "../components/DocumentLibraryTab";
 import ComingSoon from "../components/ComingSoon";
 import ProfileModal from "../components/ProfileModal";
 
-type Tab = "home" | "schedule" | "lms" | "grades" | "billing";
+type Tab = "home" | "schedule" | "learning-progress" | "homework" | "documents" | "grades" | "billing";
 
 const TABS: { key: Tab; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
   { key: "home", label: "Trang chủ & Bảng tin", icon: Home },
   { key: "schedule", label: "Lịch học & Chuyên cần", icon: Calendar },
-  { key: "lms", label: "E-Learning & LMS", icon: BookOpen },
+  { key: "learning-progress", label: "Quá trình học tập", icon: NotebookPen },
+  { key: "homework", label: "Bài tập về nhà (BTVN)", icon: ClipboardList },
+  { key: "documents", label: "Kho dữ liệu (Sách, TLTK)", icon: FolderOpen },
   { key: "grades", label: "Khảo thí & Điểm số", icon: Award },
   { key: "billing", label: "Học phí & Dịch vụ", icon: CreditCard }
 ];
 
 /**
- * UC-42 mở self-access cho học sinh ở /portal/students/{id}/class-options,
- * /auth/me (studentId), và giờ có thêm /students/me/sessions (UC-59, lịch học
- * — xem StudentScheduleTab). 4 API còn lại (grades/attendance/comments/
- * invoices/my, thuộc ParentPortalService/InvoiceService) vẫn chỉ chấp nhận
- * Phụ huynh (requireLinkedParent/parentOrThrow), gọi bằng tài khoản Học sinh
- * sẽ 403 — các tab đó vẫn hiện ComingSoon, chờ BE áp dụng cùng pattern
- * requireOwnerOrLinkedParent cho các Service đó.
+ * UC-42 mở self-access cho học sinh ở /portal/students/{id}/class-options, /auth/me (studentId),
+ * /students/me/sessions (UC-59, lịch học), và từ UC-64 (2026-07-29, PR #112) thêm
+ * /students/me/classes/{classId}/attendance + /comments (điểm danh + nhận xét đã duyệt của chính
+ * mình — xem StudentScheduleTab/DailyLearningProgressTab/HomeTab). Riêng "Học phí & Dịch vụ"
+ * (InvoiceService) vẫn chỉ chấp nhận Phụ huynh — tab đó vẫn hiện ComingSoon cho Học sinh.
  */
 export default function PortalPage() {
   const { currentUser, isParent, isStudent, logout } = useApp();
-  const [activeTab, setActiveTab] = useState<Tab>(() => (isParent ? "home" : "lms"));
+  const [activeTab, setActiveTab] = useState<Tab>(() => (isParent ? "home" : "homework"));
 
   const [children, setChildren] = useState<ChildResponse[]>([]);
   const [selectedChildId, setSelectedChildId] = useState<number | null>(null);
@@ -44,6 +47,7 @@ export default function PortalPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     if (isParent) {
@@ -103,6 +107,15 @@ export default function PortalPage() {
       <nav className="bg-white border-b border-line sticky top-0 z-50 shadow-sm w-full py-2.5">
         <div className="w-full max-w-[1560px] mx-auto px-4 md:px-8 xl:px-12 flex items-center justify-between">
           <div className="flex items-center gap-3">
+            {!noViewerData && !loading && (
+              <button
+                onClick={() => setMobileMenuOpen(true)}
+                className="lg:hidden shrink-0 w-9 h-9 rounded-xl bg-sky-2 border border-line flex items-center justify-center text-ink hover:bg-sky transition-colors"
+                aria-label="Mở menu"
+              >
+                <Menu size={18} />
+              </button>
+            )}
             <div className="w-10 h-10 rounded-xl bg-teal border-2 border-teal-deep flex items-center justify-center shadow-[0_3px_0_var(--teal-deep)]">
               <span className="font-display font-extrabold text-white text-xl">P</span>
             </div>
@@ -114,6 +127,7 @@ export default function PortalPage() {
             </div>
           </div>
           <div className="flex items-center gap-4">
+            {!noViewerData && !loading && <NotificationBell />}
             {selectedChildId && (
               <button
                 onClick={() => setProfileOpen(true)}
@@ -149,6 +163,8 @@ export default function PortalPage() {
           enrollmentStatus={currentClass?.status ?? null}
           parentName={isParent ? currentUser?.fullName ?? null : null}
           parentPhone={isParent ? currentUser?.phone ?? null : null}
+          isStudent={isStudent}
+          isParent={isParent}
           onClose={() => setProfileOpen(false)}
         />
       )}
@@ -164,42 +180,73 @@ export default function PortalPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            <div className="lg:col-span-3 bg-white border border-line/80 rounded-[24px] p-6 shadow-[0_8px_30px_rgba(30,42,69,0.03)] space-y-6">
-              {children.length > 1 && (
-                <PortalDropdown
-                  icon={Users}
-                  label="Học viên"
-                  value={selectedChildId ?? 0}
-                  onChange={(v) => setSelectedChildId(v)}
-                  options={children.map((c) => ({ value: c.studentId, label: `${c.studentFullName} (${c.studentCode})` }))}
-                />
-              )}
+            {mobileMenuOpen && (
+              <div
+                className="fixed inset-0 z-[70] bg-ink/40 backdrop-blur-[1px] lg:hidden"
+                onClick={() => setMobileMenuOpen(false)}
+              />
+            )}
 
-              {classOptions.length > 1 && (
-                <PortalDropdown
-                  icon={School}
-                  label="Lớp đang học"
-                  value={selectedClassId ?? 0}
-                  onChange={(v) => setSelectedClassId(v)}
-                  options={classOptions.map((c) => ({ value: c.classId, label: c.className }))}
-                />
-              )}
+            <div
+              className={`fixed inset-y-0 left-0 z-[80] w-[82%] max-w-[320px] overflow-y-auto bg-white p-6 shadow-[0_8px_40px_rgba(30,42,69,0.18)] transition-transform duration-300 ease-in-out
+                lg:sticky lg:top-[76px] lg:z-auto lg:col-span-3 lg:w-auto lg:max-w-none lg:translate-x-0 lg:shadow-[0_8px_30px_rgba(30,42,69,0.03)] lg:rounded-[24px] lg:border lg:border-line/80
+                ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full"}`}
+            >
+              <div className="flex items-center justify-between mb-5 lg:hidden">
+                <span className="text-xs font-extrabold uppercase tracking-wide text-muted">Menu</span>
+                <button
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="w-8 h-8 rounded-full bg-sky-2 border border-line flex items-center justify-center text-ink hover:bg-sky transition-colors"
+                  aria-label="Đóng menu"
+                >
+                  <X size={16} />
+                </button>
+              </div>
 
-              <div className="space-y-3">
-                {/* Học phí & Dịch vụ (invoices/thanh toán) chỉ dành Phụ huynh — Học sinh không cần/không nên xem thông tin tài chính của gia đình. */}
-                {TABS.filter((tab) => tab.key !== "billing" || isParent).map(({ key, label, icon: Icon }) => (
-                  <button
-                    key={key}
-                    onClick={() => setActiveTab(key)}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-[16px] font-bold text-sm transition-all border ${
-                      activeTab === key
-                        ? "bg-teal text-white border-teal-deep shadow-[0_4px_12px_rgba(23,166,160,0.2)]"
-                        : "bg-slate-50/50 hover:bg-slate-50 text-muted border-line/60"
-                    }`}
-                  >
-                    <Icon size={18} /> {label}
-                  </button>
-                ))}
+              <div className="space-y-6">
+                {children.length > 1 && (
+                  <PortalDropdown
+                    icon={Users}
+                    label="Học viên"
+                    value={selectedChildId ?? 0}
+                    onChange={(v) => setSelectedChildId(v)}
+                    options={children.map((c) => ({ value: c.studentId, label: `${c.studentFullName} (${c.studentCode})` }))}
+                  />
+                )}
+
+                {classOptions.length > 1 && (
+                  <PortalDropdown
+                    icon={School}
+                    label="Lớp đang học"
+                    value={selectedClassId ?? 0}
+                    onChange={(v) => setSelectedClassId(v)}
+                    // UC-13 (2026-07-29): học sinh/phụ huynh xem được cả lớp cũ (đã chuyển đi) — gắn nhãn
+                    // rõ để không nhầm là lớp đang học, dữ liệu hiển thị (điểm/nhận xét/điểm danh/BTVN) vẫn xem đủ.
+                    options={classOptions.map((c) => ({ value: c.classId, label: c.status === "ACTIVE" ? c.className : `${c.className} (Lớp cũ)` }))}
+                  />
+                )}
+
+                <div className="space-y-3">
+                  {/* Học phí & Dịch vụ (invoices/thanh toán) chỉ dành Phụ huynh — Học sinh không cần/không nên xem thông tin tài chính của gia đình.
+                      Kho dữ liệu (Sách, TLTK) ngược lại: GET /students/me/documents chỉ tự truy cập được cho chính Học sinh — Phụ huynh
+                      gọi sẽ 404 "không có hồ sơ học sinh" (2026-07-30), nên ẩn hẳn tab này với Phụ huynh thay vì hiện rồi báo lỗi. */}
+                  {TABS.filter((tab) => (tab.key !== "billing" || isParent) && (tab.key !== "documents" || isStudent)).map(({ key, label, icon: Icon }) => (
+                    <button
+                      key={key}
+                      onClick={() => {
+                        setActiveTab(key);
+                        setMobileMenuOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-[16px] font-bold text-sm transition-all border ${
+                        activeTab === key
+                          ? "bg-teal text-white border-teal-deep shadow-[0_4px_12px_rgba(23,166,160,0.2)]"
+                          : "bg-slate-50/50 hover:bg-slate-50 text-muted border-line/60"
+                      }`}
+                    >
+                      <Icon size={18} /> {label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -212,14 +259,9 @@ export default function PortalPage() {
                 <>
                   {activeTab === "home" &&
                     (isParent && selectedChild ? (
-                      <HomeTab
-                        studentName={selectedChild.studentFullName}
-                        commentsSource={{ studentId: selectedChild.studentId, classId: selectedClassId }}
-                      />
+                      <HomeTab studentName={selectedChild.studentFullName} classId={selectedClassId} parentStudentId={selectedChild.studentId} />
                     ) : isStudent ? (
-                      // Thông báo (GET /notifications) đã self-service thật cho mọi vai trò — hiện được ngay.
-                      // Nhận xét/cảnh báo giáo viên vẫn chưa có API tự xem (commentsSource=null, xem HomeTab).
-                      <HomeTab studentName={viewerName} commentsSource={null} />
+                      <HomeTab studentName={viewerName} classId={selectedClassId} />
                     ) : (
                       <ComingSoon title="Trang chủ & Bảng tin" description="Không có hồ sơ Học sinh hoặc Phụ huynh liên kết với tài khoản này." />
                     ))}
@@ -227,20 +269,39 @@ export default function PortalPage() {
                     (isParent && selectedChild ? (
                       <ScheduleTab studentId={selectedChild.studentId} classId={selectedClassId} />
                     ) : isStudent ? (
-                      <StudentScheduleTab />
+                      <StudentScheduleTab classId={selectedClassId} />
                     ) : (
-                      <ComingSoon
-                        title="Lịch học & Chuyên cần"
-                        description="Đang chờ Backend mở API cho Học sinh tự xem lịch học/chuyên cần của chính mình (hiện chỉ Phụ huynh xem được)."
-                      />
+                      <ComingSoon title="Lịch học & Chuyên cần" description="Không có hồ sơ Học sinh hoặc Phụ huynh liên kết với tài khoản này." />
                     ))}
-                  {activeTab === "lms" && (
-                    <div className="space-y-6">
-                      {/* GET /students/me/exercises tra theo userId của chính người gọi — chỉ hoạt động cho Học sinh tự đăng nhập, Phụ huynh gọi sẽ 404 "không có hồ sơ học sinh" nên chỉ hiện với isStudent. */}
-                      {isStudent && <AssignmentsTab classId={selectedClassId} />}
-                      <LmsTab classId={selectedClassId} />
-                    </div>
-                  )}
+                  {activeTab === "learning-progress" &&
+                    (isParent && selectedChild ? (
+                      <DailyLearningProgressTab
+                        studentName={selectedChild.studentFullName}
+                        studentCode={selectedChild.studentCode}
+                        classId={selectedClassId}
+                        parentStudentId={selectedChild.studentId}
+                      />
+                    ) : isStudent ? (
+                      <DailyLearningProgressTab
+                        studentName={viewerName}
+                        studentCode={currentUser?.studentId ? String(currentUser.studentId) : ""}
+                        classId={selectedClassId}
+                      />
+                    ) : (
+                      <ComingSoon title="Quá trình học tập" description="Không có hồ sơ Học sinh hoặc Phụ huynh liên kết với tài khoản này." />
+                    ))}
+                  {activeTab === "homework" &&
+                    (isStudent ? (
+                      // GET /students/me/exercises tra theo userId của chính người gọi — chỉ hoạt động cho Học sinh tự
+                      // đăng nhập, Phụ huynh gọi sẽ 404 "không có hồ sơ học sinh".
+                      <AssignmentsTab classId={selectedClassId} />
+                    ) : isParent && selectedChild ? (
+                      // UC-64 (2026-07-29): Phụ huynh chỉ XEM tiến độ BTVN của con (không phải giao diện làm bài — con tự làm ở Portal Học sinh).
+                      <ParentHomeworkProgressTab studentId={selectedChild.studentId} classId={selectedClassId} />
+                    ) : (
+                      <ComingSoon title="Bài tập về nhà (BTVN)" description="Không có hồ sơ Học sinh hoặc Phụ huynh liên kết với tài khoản này." />
+                    ))}
+                  {activeTab === "documents" && isStudent && <DocumentLibraryTab classId={selectedClassId} />}
                   {activeTab === "grades" &&
                     (isParent && selectedChild ? (
                       <GradesTab studentId={selectedChild.studentId} classId={selectedClassId} />

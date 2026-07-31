@@ -20,7 +20,6 @@ import vn.com.pps.education.service.UserPermissionOverrideService;
 /** UC-04: Tùy chỉnh quyền riêng cho tài khoản (FR-PER-03). */
 @RestController
 @RequestMapping("/api/users/{userId}")
-@PreAuthorize("hasPermission(null, 'permission.override.manage')")
 public class UserPermissionOverrideController {
 
     private final UserPermissionOverrideService userPermissionOverrideService;
@@ -29,11 +28,13 @@ public class UserPermissionOverrideController {
         this.userPermissionOverrideService = userPermissionOverrideService;
     }
 
+    @PreAuthorize("hasPermission(null, 'permission.override.view')")
     @GetMapping("/effective-permissions")
     public ResponseEntity<EffectivePermissionsResponse> getEffectivePermissions(@PathVariable Long userId) {
         return ResponseEntity.ok(userPermissionOverrideService.getEffectivePermissions(userId));
     }
 
+    @PreAuthorize("hasPermission(null, 'permission.override.set')")
     @PutMapping("/permission-overrides/{permissionId}")
     public ResponseEntity<Void> upsertOverride(@PathVariable Long userId,
                                                 @PathVariable Long permissionId,
@@ -44,6 +45,7 @@ public class UserPermissionOverrideController {
         return ResponseEntity.noContent().build();
     }
 
+    @PreAuthorize("hasPermission(null, 'permission.override.delete')")
     @DeleteMapping("/permission-overrides/{permissionId}")
     public ResponseEntity<Void> removeOverride(@PathVariable Long userId,
                                                 @PathVariable Long permissionId,

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { AlertTriangle, PlusCircle } from "lucide-react";
 import { CommentEntry } from "@/types";
+import Select from "@/components/ui/Select";
 
 interface StudentCommentsTabProps {
   comments: CommentEntry[];
@@ -26,11 +27,11 @@ export default function StudentCommentsTab({ comments, onAddComment }: StudentCo
         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Gửi Đánh Giá Học Tập Mới</span>
 
         <div className="flex gap-2">
-          <select value={type} onChange={(e) => setType(e.target.value as CommentEntry["type"])} className="bg-white border text-[10px] font-semibold text-slate-700 px-2 py-1 rounded">
+          <Select value={type} onChange={(e) => setType(e.target.value as CommentEntry["type"])} className="bg-white border text-[10px] font-semibold text-slate-700 px-2 py-1 rounded">
             <option value="DAILY">Hàng ngày</option>
             <option value="MIDTERM">Giữa kỳ</option>
             <option value="FINAL">Cuối kỳ</option>
-          </select>
+          </Select>
 
           <label className="flex items-center gap-1.5 ml-auto text-[10px] font-bold text-rose-600 cursor-pointer">
             <input type="checkbox" checked={isWarning} onChange={(e) => setIsWarning(e.target.checked)} className="h-3.5 w-3.5 rounded border-slate-300 text-rose-600 focus:ring-rose-500" />

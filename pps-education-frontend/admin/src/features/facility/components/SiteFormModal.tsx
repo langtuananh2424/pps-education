@@ -4,6 +4,7 @@ import { ApiError } from "@/lib/apiClient";
 import { createSite, CreateSiteRequest } from "../api";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
+import Select from "@/components/ui/Select";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
@@ -68,7 +69,7 @@ export default function SiteFormModal({ onClose, onCreated }: SiteFormModalProps
   };
 
   return (
-    <Modal open onClose={onClose} title="Thêm điểm trường mới (UC-36)" size="lg">
+    <Modal open onClose={onClose} title="Thêm điểm trường mới" size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
         <div className="grid grid-cols-2 gap-3">
@@ -78,10 +79,10 @@ export default function SiteFormModal({ onClose, onCreated }: SiteFormModalProps
           </div>
           <div>
             <label className={labelClass}>Loại hình *</label>
-            <select value={form.siteType} onChange={(e) => setForm({ ...form, siteType: e.target.value as "OWNED" | "PARTNER" })} className={inputClass}>
+            <Select value={form.siteType} onChange={(e) => setForm({ ...form, siteType: e.target.value as "OWNED" | "PARTNER" })} className={inputClass}>
               <option value="OWNED">Cơ sở tự vận hành</option>
               <option value="PARTNER">Trường liên kết</option>
-            </select>
+            </Select>
           </div>
           <div className="col-span-2">
             <label className={labelClass}>Tên điểm trường *</label>

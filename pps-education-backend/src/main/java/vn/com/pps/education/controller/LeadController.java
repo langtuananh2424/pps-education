@@ -30,7 +30,7 @@ public class LeadController {
         this.leadService = leadService;
     }
 
-    @PreAuthorize("hasPermission(null, 'crm.lead.manage')")
+    @PreAuthorize("hasPermission(null, 'crm.lead.create')")
     @PostMapping("/api/leads")
     public ResponseEntity<LeadResponse> createLead(@Valid @RequestBody CreateLeadRequest request,
                                                       @AuthenticationPrincipal AuthenticatedUser actor) {
@@ -59,14 +59,14 @@ public class LeadController {
         return ResponseEntity.ok(leadService.assignLead(id, request, actor.userId()));
     }
 
-    @PreAuthorize("hasPermission(null, 'crm.lead.manage')")
+    @PreAuthorize("hasPermission(null, 'crm.lead.update')")
     @PutMapping("/api/leads/{id}/status")
     public ResponseEntity<LeadResponse> updateStatus(@PathVariable Long id, @Valid @RequestBody UpdateLeadStatusRequest request,
                                                         @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(leadService.updateStatus(id, request, actor.userId()));
     }
 
-    @PreAuthorize("hasPermission(null, 'crm.lead.manage')")
+    @PreAuthorize("hasPermission(null, 'crm.lead.convert')")
     @PostMapping("/api/leads/{id}/convert")
     public ResponseEntity<LeadResponse> convertToStudent(@PathVariable Long id,
                                                              @Valid @RequestBody ConvertLeadRequest request,

@@ -37,7 +37,7 @@ public class InvoiceController {
 
     /** Main Flow bước 1 — endpoint thủ công cho Kế toán/STAFF, bổ sung cho cron tự động (FinanceSchedulerService). */
     @PostMapping("/api/finance/invoices/generate")
-    @PreAuthorize("hasPermission(null, 'finance.manage')")
+    @PreAuthorize("hasPermission(null, 'finance.invoice.generate')")
     public ResponseEntity<List<InvoiceResponse>> generateInvoices(@Valid @RequestBody GenerateInvoicesRequest request,
                                                                      @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(invoiceService.generateInvoices(request, actor.userId()));
@@ -55,7 +55,7 @@ public class InvoiceController {
 
     /** A2: Kế toán ghi nhận thanh toán thủ công (tiền mặt/chuyển khoản thông thường). */
     @PostMapping("/api/finance/invoices/{id}/payments")
-    @PreAuthorize("hasPermission(null, 'finance.manage')")
+    @PreAuthorize("hasPermission(null, 'finance.invoice.payment.record')")
     public ResponseEntity<PaymentResponse> recordManualPayment(@PathVariable Long id,
                                                                   @Valid @RequestBody RecordManualPaymentRequest request,
                                                                   @AuthenticationPrincipal AuthenticatedUser actor) {

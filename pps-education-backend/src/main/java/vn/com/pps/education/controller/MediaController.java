@@ -16,7 +16,7 @@ import vn.com.pps.education.service.MediaStorageService;
  * sau này cũng dùng API dùng chung này. Chỉ yêu cầu đã đăng nhập
  * (anyRequest().authenticated() ở SecurityConfig) - không gate permission
  * riêng, vì API ghi dữ liệu thật (VD POST /api/questions) đã tự gate qua
- * lms.exercise.manage.
+ * lms.question-bank.create/update.
  */
 @RestController
 public class MediaController {

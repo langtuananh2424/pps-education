@@ -97,7 +97,7 @@ export default function TaskWorkflowPage() {
   return (
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Điều Hành & Luồng Giao Việc (UC-06/07)</h1>
+        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Điều Hành & Luồng Giao Việc</h1>
         <p className="text-xs text-slate-500 mt-1">Theo dõi tiến độ công việc được giao — xem dạng Kanban hoặc bảng chi tiết.</p>
       </div>
 

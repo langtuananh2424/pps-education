@@ -4,8 +4,11 @@ import { ApiError } from "@/lib/apiClient";
 import { searchUsers, UserListItemResponse } from "@/features/system-admin/api";
 import { createDepartment, deleteDepartment, DepartmentResponse, listDepartments, updateDepartment } from "../api";
 import Button from "@/components/ui/Button";
+import Modal from "@/components/ui/Modal";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
+import { useDialog } from "@/components/ui/DialogProvider";
+import Select from "@/components/ui/Select";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-xs p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
@@ -19,6 +22,7 @@ export default function DepartmentsTab() {
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const { message: toastMessage, showToast } = useToast();
+  const { confirmDialog } = useDialog();
 
   const load = () => {
     setLoading(true);
@@ -30,7 +34,7 @@ export default function DepartmentsTab() {
   useEffect(load, []);
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm("Xóa phòng ban này? Chỉ xóa được nếu chưa có nhân sự nào gán vào.")) return;
+    if (!(await confirmDialog("Xóa phòng ban này? Chỉ xóa được nếu chưa có nhân sự nào gán vào.", { danger: true }))) return;
     setError(null);
     try {
       await deleteDepartment(id);
@@ -55,17 +59,15 @@ export default function DepartmentsTab() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <span className="text-[10px] font-bold uppercase text-slate-500">Sơ đồ tổ chức — Phòng ban ({departments.length})</span>
-        {!creating && (
-          <Button size="sm" variant="secondary" onClick={() => setCreating(true)}>
-            <Plus className="w-3.5 h-3.5" />
-            Thêm phòng ban
-          </Button>
-        )}
+        <Button size="sm" variant="secondary" onClick={() => setCreating(true)}>
+          <Plus className="w-3.5 h-3.5" />
+          Thêm phòng ban
+        </Button>
       </div>
 
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
-      {creating && (
+      <Modal open={creating} onClose={() => setCreating(false)} title="Thêm phòng ban">
         <DepartmentForm
           departments={departments}
           onDone={() => {
@@ -75,7 +77,7 @@ export default function DepartmentsTab() {
           }}
           onCancel={() => setCreating(false)}
         />
-      )}
+      </Modal>
 
       {loading ? (
         <p className="text-xs text-slate-500">Đang tải...</p>
@@ -252,7 +254,7 @@ function DepartmentForm({
 
       <div>
         <label className={labelClass}>Phòng ban cấp trên</label>
-        <select value={parentDepartmentId} onChange={(e) => setParentDepartmentId(e.target.value)} className={inputClass}>
+        <Select value={parentDepartmentId} onChange={(e) => setParentDepartmentId(e.target.value)} className={inputClass}>
           <option value="">-- Không có (phòng ban gốc) --</option>
           {departments
             .filter((d) => d.id !== initial?.id)
@@ -261,7 +263,7 @@ function DepartmentForm({
                 {d.name}
               </option>
             ))}
-        </select>
+        </Select>
       </div>
 
       <div>

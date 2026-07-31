@@ -2,15 +2,12 @@ import React, { useEffect, useState } from "react";
 import { Users } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import ImportExcelButton from "@/components/ui/ImportExcelButton";
-import { importParents, listStudentParents, listStudents, ParentStudentResponse, searchParents } from "../api";
+import { downloadParentImportTemplate, exportParentAccounts, importParents, listStudentParents, listStudents, ParentStudentResponse, searchParents } from "../api";
 import ParentListPanel from "../components/ParentListPanel";
 import ParentDetailPanel from "../components/ParentDetailPanel";
 import ParentCreateModal from "../components/ParentCreateModal";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
-
-const PARENT_IMPORT_HEADERS = ["Họ và tên phụ huynh *", "Số điện thoại *", "Quan hệ (Cha/Mẹ/Người giám hộ/Khác)", "Mã học sinh *", "Là người liên hệ chính (Có/Không)", "Chịu trách nhiệm tài chính (Có/Không)"];
-const PARENT_IMPORT_SAMPLE = ["Nguyễn Văn B", "0901234567", "Cha", "HS-0001", "Có", "Có"];
 
 export interface ParentAggregateChild {
   studentId: number;
@@ -93,17 +90,18 @@ export default function ParentsPage() {
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4 flex flex-col sm:flex-row sm:items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Quản lý phụ huynh (UC-13)</h1>
+          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Quản lý phụ huynh</h1>
           <p className="text-xs text-slate-500 mt-1">
             Toàn bộ hồ sơ phụ huynh (kể cả chưa liên kết con em) — khởi tạo hồ sơ độc lập, liên kết/gỡ liên kết học sinh.
           </p>
         </div>
         <ImportExcelButton
-          title="Nhập phụ huynh theo lô (UC-50)"
+          title="Nhập phụ huynh theo lô"
           templateFileName="mau-import-phu-huynh.xlsx"
-          templateHeaders={PARENT_IMPORT_HEADERS}
-          templateSampleRow={PARENT_IMPORT_SAMPLE}
+          fetchTemplate={downloadParentImportTemplate}
           uploadFn={importParents}
+          exportAccounts={exportParentAccounts}
+          accountsExportFileName="tai-khoan-phu-huynh.xlsx"
           onImported={load}
         />
       </div>

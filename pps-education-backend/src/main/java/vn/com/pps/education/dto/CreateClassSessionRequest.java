@@ -13,5 +13,9 @@ public record CreateClassSessionRequest(
         @NotNull LocalTime endTime,
         Long roomId,
         @NotNull Long primaryTeacherId,
-        @NotBlank String sessionType
+        @NotBlank String sessionType,
+        /** Loại giáo viên (VIETNAMESE/FOREIGN) — tùy chọn, hiển thị cho Học sinh/Phụ huynh. */
+        String teacherType,
+        /** Bắt buộc khi sessionType=MAKEUP (buổi này bù cho buổi nào); phải để trống với loại khác. */
+        Long makeupForSessionId
 ) {}

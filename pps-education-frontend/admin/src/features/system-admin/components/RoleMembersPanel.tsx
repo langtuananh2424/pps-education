@@ -7,6 +7,7 @@ import Badge, { BadgeVariant } from "@/components/ui/Badge";
 import AssignUserModal from "./AssignUserModal";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
+import { useDialog } from "@/components/ui/DialogProvider";
 
 const statusVariants: Record<string, BadgeVariant> = {
   ACTIVE: "success",
@@ -17,16 +18,18 @@ const statusVariants: Record<string, BadgeVariant> = {
 interface RoleMembersPanelProps {
   roleId: number;
   roleName: string;
-  canManage: boolean;
+  canAssign: boolean;
+  canRevoke: boolean;
 }
 
-export default function RoleMembersPanel({ roleId, roleName, canManage }: RoleMembersPanelProps) {
+export default function RoleMembersPanel({ roleId, roleName, canAssign, canRevoke }: RoleMembersPanelProps) {
   const [allUsers, setAllUsers] = useState<UserListItemResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [busyUserId, setBusyUserId] = useState<number | null>(null);
   const { message: toastMessage, showToast } = useToast();
+  const { confirmDialog } = useDialog();
 
   const loadUsers = () => {
     setLoading(true);
@@ -58,7 +61,7 @@ export default function RoleMembersPanel({ roleId, roleName, canManage }: RoleMe
   };
 
   const handleRemove = async (user: UserListItemResponse) => {
-    if (!window.confirm(`Bạn có chắc muốn gỡ "${user.fullName}" khỏi vai trò "${roleName}"?`)) return;
+    if (!(await confirmDialog(`Bạn có chắc muốn gỡ "${user.fullName}" khỏi vai trò "${roleName}"?`, { danger: true }))) return;
     setBusyUserId(user.id);
     setError(null);
     try {
@@ -77,10 +80,10 @@ export default function RoleMembersPanel({ roleId, roleName, canManage }: RoleMe
       <div className="flex items-center justify-between">
         <div>
           <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider block">Thành viên gán vai trò này</h4>
-          <p className="text-[10px] text-slate-400 mt-0.5">Quản lý trực tiếp các tài khoản được áp dụng cấu hình vai trò này (UC-46).</p>
+          <p className="text-[10px] text-slate-400 mt-0.5">Quản lý trực tiếp các tài khoản được áp dụng cấu hình vai trò này.</p>
         </div>
 
-        {canManage && (
+        {canAssign && (
           <button
             onClick={() => setShowAssignModal(true)}
             className="bg-brand-gradient hover:opacity-90 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm"
@@ -118,7 +121,7 @@ export default function RoleMembersPanel({ roleId, roleName, canManage }: RoleMe
               <Th>Họ và tên</Th>
               <Th>Email tài khoản</Th>
               <Th>Trạng thái</Th>
-              {canManage && <Th className="text-center">Gỡ bỏ</Th>}
+              {canRevoke && <Th className="text-center">Gỡ bỏ</Th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -130,7 +133,7 @@ export default function RoleMembersPanel({ roleId, roleName, canManage }: RoleMe
                 <Td>
                   <Badge variant={statusVariants[u.status]}>{u.status}</Badge>
                 </Td>
-                {canManage && (
+                {canRevoke && (
                   <Td className="text-center">
                     <button
                       onClick={() => handleRemove(u)}

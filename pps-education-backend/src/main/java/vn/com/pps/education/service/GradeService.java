@@ -540,16 +540,18 @@ public class GradeService {
      * FR-LMS-03/FR-LMS-07 giống UC-25, chỉ khác actor là Học sinh thay vì
      * Phụ huynh). Trả về mọi grade_entries đã công bố dự kiến trở lên
      * (khác DRAFT — V43: PROVISIONAL_PUBLISHED/APPEAL/OFFICIAL đều hiển
-     * thị, kể cả đang phúc khảo), theo (các) lớp học sinh đang ghi danh
-     * ACTIVE — mirror đúng ParentPortalService.listGrades, không tự tính
-     * lại điểm gì. classIdFilter tùy chọn (ngữ cảnh "lớp đang xem" — UC-42).
+     * thị, kể cả đang phúc khảo), theo (các) lớp học sinh ĐÃ TỪNG ghi danh
+     * (kể cả lớp cũ sau khi chuyển lớp — bổ sung ngoài SDD gốc, đã xác
+     * nhận với người dùng 2026-07-29, mirror đúng
+     * ParentPortalService.listGrades/requireAccessToChildClass, không tự
+     * tính lại điểm gì). classIdFilter tùy chọn (ngữ cảnh "lớp đang xem" — UC-42).
      */
     @Transactional(readOnly = true)
     public List<GradeEntryResponse> listMyGrades(Long actorUserId, Long classIdFilter) {
         Student student = studentOrThrow(actorUserId);
         List<Long> classIds = classEnrollmentRepository.findByStudentId(student.getId()).stream()
-                .filter(e -> e.getStatus() == ClassEnrollment.Status.ACTIVE)
                 .map(e -> e.getSchoolClass().getId())
+                .distinct()
                 .filter(id -> classIdFilter == null || id.equals(classIdFilter))
                 .toList();
         return classIds.stream()
@@ -561,16 +563,15 @@ public class GradeService {
     /**
      * UC-61: Overall/Level đã công bố dự kiến trở lên (khác DRAFT — V43)
      * của 1 kỳ đánh giá, tự xem — mirror đúng
-     * ParentPortalService.getPeriodResult. Bắt buộc học sinh phải có
-     * class_enrollment ACTIVE tại đúng classId truy vấn (không lộ dữ
-     * liệu của lớp không thuộc về mình).
+     * ParentPortalService.getPeriodResult. Bắt buộc học sinh phải ĐÃ TỪNG
+     * có class_enrollment tại đúng classId truy vấn (không lộ dữ liệu của
+     * lớp không thuộc về mình) — kể cả lớp cũ sau khi chuyển lớp (bổ sung
+     * ngoài SDD gốc, đã xác nhận với người dùng 2026-07-29).
      */
     @Transactional(readOnly = true)
     public GradePeriodResultResponse getMyPeriodResult(Long actorUserId, Long classId, Long gradePeriodId) {
         Student student = studentOrThrow(actorUserId);
-        boolean enrolled = classEnrollmentRepository.findBySchoolClassIdAndStudentIdAndStatus(
-                classId, student.getId(), ClassEnrollment.Status.ACTIVE).isPresent();
-        if (!enrolled) {
+        if (!classEnrollmentRepository.existsByStudentIdAndSchoolClassId(student.getId(), classId)) {
             throw new ResourceNotFoundException("Không tìm thấy lớp học id=" + classId);
         }
         GradePeriodResult result = gradePeriodResultRepository

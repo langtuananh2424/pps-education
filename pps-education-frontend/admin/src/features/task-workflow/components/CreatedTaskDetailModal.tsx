@@ -21,6 +21,7 @@ import {
 import { ASSIGNER_TRANSITIONS, ASSIGNMENT_STATUS_META } from "../statusMeta";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
+import { useDialog } from "@/components/ui/DialogProvider";
 
 const TASK_STATUS_LABEL: Record<string, string> = { OPEN: "Đang mở", IN_PROGRESS: "Đang làm", COMPLETED: "Hoàn thành", CANCELLED: "Đã hủy", OVERDUE: "Quá hạn" };
 
@@ -59,6 +60,7 @@ export default function CreatedTaskDetailModal({ task, onClose, onTaskChanged }:
   const [attachUrl, setAttachUrl] = useState("");
   const [attachName, setAttachName] = useState("");
   const { message: toastMessage, showToast } = useToast();
+  const { confirmDialog, promptDialog } = useDialog();
 
   const load = () => {
     setLoading(true);
@@ -75,8 +77,14 @@ export default function CreatedTaskDetailModal({ task, onClose, onTaskChanged }:
   useEffect(load, [task.id]);
 
   const handleCancelTask = async () => {
-    if (!window.confirm(`Hủy công việc "${task.title}"? Việc sẽ chuyển sang trạng thái Đã hủy, người nhận đang mở sẽ được thông báo. Không xóa lịch sử, không thể hoàn tác.`)) return;
-    const reason = window.prompt("Lý do hủy (tùy chọn, để trống nếu không cần):") ?? undefined;
+    if (
+      !(await confirmDialog(
+        `Hủy công việc "${task.title}"? Việc sẽ chuyển sang trạng thái Đã hủy, người nhận đang mở sẽ được thông báo. Không xóa lịch sử, không thể hoàn tác.`,
+        { danger: true }
+      ))
+    )
+      return;
+    const reason = (await promptDialog("Lý do hủy (tùy chọn, để trống nếu không cần):", { multiline: true })) ?? undefined;
     setBusy(true);
     setError(null);
     try {
@@ -217,7 +225,7 @@ export default function CreatedTaskDetailModal({ task, onClose, onTaskChanged }:
           </div>
 
           <div className="space-y-2">
-            <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block font-display">Người nhận & tiến độ (UC-07)</span>
+            <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block font-display">Người nhận & tiến độ</span>
             <div className="space-y-2">
               {assignments.map((a) => {
                 const meta = ASSIGNMENT_STATUS_META[a.assignmentStatus];

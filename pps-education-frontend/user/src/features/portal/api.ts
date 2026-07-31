@@ -1,6 +1,61 @@
 import { apiRequest } from "@/lib/apiClient";
 import type { Page } from "@/types";
 
+/** Khớp MediaModule thật của backend. REVIEW_VIDEO_SUBMISSION (UC-23b): audio Học sinh nộp trả lời video REFLEX. */
+export type MediaUploadModule = "STUDENT" | "PARENT" | "REVIEW_VIDEO_SUBMISSION";
+
+/** UC-63: upload ảnh đại diện thật lên Cloudflare R2 qua API dùng chung, trả về URL public để lưu vào portraitUrl. */
+export function uploadMedia(file: File, module: MediaUploadModule): Promise<{ url: string }> {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("module", module);
+  return apiRequest<{ url: string }>("/media/upload", { method: "POST", body: formData });
+}
+
+/** UC-63: Học sinh tự xem/sửa hồ sơ của chính mình — chỉ portraitUrl được phép sửa (field khác vẫn do Giáo vụ quản lý). */
+export interface MyStudentProfileResponse {
+  id: number;
+  fullName: string;
+  portraitUrl: string | null;
+}
+
+export interface UpdateOwnStudentProfileRequest {
+  portraitUrl?: string;
+}
+
+export function getMyStudentProfile(): Promise<MyStudentProfileResponse> {
+  return apiRequest<MyStudentProfileResponse>("/students/me");
+}
+
+export function updateMyStudentProfile(request: UpdateOwnStudentProfileRequest): Promise<MyStudentProfileResponse> {
+  return apiRequest<MyStudentProfileResponse>("/students/me", { method: "PUT", body: JSON.stringify(request) });
+}
+
+/** UC-63: Phụ huynh tự xem/sửa hồ sơ của chính mình (khác hồ sơ con em — xem ChildResponse). */
+export interface MyParentProfileResponse {
+  id: number;
+  fullName: string;
+  occupation: string | null;
+  workplace: string | null;
+  address: string | null;
+  portraitUrl: string | null;
+}
+
+export interface UpdateOwnParentProfileRequest {
+  occupation?: string;
+  workplace?: string;
+  address?: string;
+  portraitUrl?: string;
+}
+
+export function getMyParentProfile(): Promise<MyParentProfileResponse> {
+  return apiRequest<MyParentProfileResponse>("/parents/me");
+}
+
+export function updateMyParentProfile(request: UpdateOwnParentProfileRequest): Promise<MyParentProfileResponse> {
+  return apiRequest<MyParentProfileResponse>("/parents/me", { method: "PUT", body: JSON.stringify(request) });
+}
+
 /** UC-25 Main Flow bước 2 — khớp ChildResponse thật. */
 export interface ChildResponse {
   studentId: number;
@@ -187,6 +242,39 @@ export interface StudentCommentResponse {
   approvedBy: number | null;
   visibleToParentAt: string | null;
   rejectionReason: string | null;
+  /** Nhận xét Hàng ngày kiểu mới (chỉ có ý nghĩa khi commentType=DAILY) — bổ sung ngoài SDD gốc. */
+  attitude: "POOR" | "WEAK" | "AVERAGE" | "ABOVE_AVERAGE" | "FAIR" | "GOOD" | null;
+  homeworkPreviousScore: string | null;
+  homeworkPreviousSpeakingScore: string | null;
+  homeworkNext: string | null;
+  /** V65 (2026-07-30, bổ sung ngoài SDD gốc): id BẢN GIAO (ExerciseAssignment), không phải id Exercise nguồn. */
+  homeworkNextExerciseAssignmentId: number | null;
+  homeworkNextExerciseTitle: string | null;
+  /** V65: id BẢN GIAO (ReviewVideoAssignment, đổi tên từ homeworkNextReviewVideoSetId — trước V65 trỏ thẳng ReviewVideoSet). */
+  homeworkNextReviewVideoAssignmentId: number | null;
+  homeworkNextReviewVideoSetTitle: string | null;
+  /** % tự tính từ exercise_attempts của buổi trước — không nhập tay được. */
+  grammarPreviousProgress: string | null;
+  /** % tự tính từ review_video_progress/submissions của buổi trước — không nhập tay được. */
+  videoPreviousProgress: string | null;
+  note: string | null;
+  /** "Bài học hôm nay" của buổi (chỉ có ý nghĩa khi commentType=DAILY) — bổ sung ngoài SDD gốc, 2026-07-29. */
+  lessonContent: string | null;
+}
+
+/** UC-64 (bổ sung ngoài SDD gốc, 2026-07-29) — Cổng phụ huynh xem tiến độ BTVN đã giao cho con, chỉ xem không phải giao diện làm bài. */
+export interface HomeworkProgressResponse {
+  commentId: number;
+  classSessionId: number | null;
+  commentDate: string;
+  grammarAssignmentId: number | null;
+  grammarTitle: string | null;
+  grammarOfflineText: string | null;
+  grammarProgress: string | null;
+  /** V65 (2026-07-30, bổ sung ngoài SDD gốc): đổi tên từ videoSetId — giờ là id bản giao (ReviewVideoAssignment), không phải id ReviewVideoSet nguồn. */
+  videoAssignmentId: number | null;
+  videoTitle: string | null;
+  videoProgress: string | null;
 }
 
 /** UC-18 — khớp ClassSessionResponse thật. */
@@ -204,6 +292,10 @@ export interface ClassSessionResponse {
   status: string;
   cancellationReason: string | null;
   rescheduledToSessionId: number | null;
+  // V60 (bổ sung ngoài SDD gốc, 2026-07-29): loại GV (VIETNAMESE/FOREIGN, null nếu chưa xác định).
+  // sessionNumber tính động (1-based, đếm cả CANCELLED) — dùng hiện "Buổi N".
+  teacherType: "VIETNAMESE" | "FOREIGN" | null;
+  sessionNumber: number;
 }
 
 /** UC-30 — khớp InvoiceResponse thật. */
@@ -273,6 +365,21 @@ export function listSchedule(studentId: number, classId: number): Promise<ClassS
   return apiRequest<ClassSessionResponse[]>(`/portal/parent/children/${studentId}/classes/${classId}/schedule`);
 }
 
+/** UC-64 (2026-07-29): Cổng phụ huynh xem tiến độ BTVN đã giao cho con (chỉ các buổi có giao BTVN). */
+export function listHomeworkProgress(studentId: number, classId: number): Promise<HomeworkProgressResponse[]> {
+  return apiRequest<HomeworkProgressResponse[]>(`/portal/parent/children/${studentId}/classes/${classId}/homework`);
+}
+
+/** UC-64 (2026-07-29): Học sinh tự xem điểm danh của chính mình theo lớp (self-service, suy studentId từ JWT) — khác listAttendance (Phụ huynh xem theo con+lớp cụ thể). */
+export function listMyAttendance(classId: number): Promise<AttendanceMarkResponse[]> {
+  return apiRequest<AttendanceMarkResponse[]>(`/students/me/classes/${classId}/attendance`);
+}
+
+/** UC-64 (2026-07-29): Học sinh tự xem nhận xét ĐÃ DUYỆT của chính mình theo lớp (self-service, suy studentId từ JWT) — khác listComments (Phụ huynh xem theo con+lớp cụ thể). */
+export function listMyComments(classId: number): Promise<StudentCommentResponse[]> {
+  return apiRequest<StudentCommentResponse[]>(`/students/me/classes/${classId}/comments`);
+}
+
 /** UC-59: Học sinh tự xem lịch học của chính mình (self-service, không cần studentId/classId — suy từ JWT) — khác listSchedule (Phụ huynh xem theo con+lớp cụ thể). */
 export function listMySessions(fromDate?: string, toDate?: string, classId?: number): Promise<ClassSessionResponse[]> {
   const params = new URLSearchParams();
@@ -291,40 +398,129 @@ export function listMyNotifications(page = 0, size = 20): Promise<Page<Notificat
   return apiRequest<Page<NotificationResponse>>(`/notifications?page=${page}&size=${size}`);
 }
 
-/** UC-23 — khớp LessonResponse thật. Chỉ hiển thị status=PUBLISHED ở phía Portal (lọc client-side). */
-export interface LessonResponse {
+export function markNotificationRead(id: number): Promise<NotificationResponse> {
+  return apiRequest<NotificationResponse>(`/notifications/${id}/read`, { method: "POST" });
+}
+
+/**
+ * UC-23a — khớp ReviewVideoSetResponse thật. GET /api/classes/{classId}/review-video-sets tự trả
+ * đúng phạm vi nhìn thấy của học sinh (findVisibleForClass — bộ riêng lớp NÀY HOẶC bộ dùng chung
+ * theo khung của lớp NÀY, chỉ status=PUBLISHED — BE tự lọc, Portal không cần gọi thêm endpoint
+ * theo curriculum). 404 (không 403) nếu học sinh không thuộc lớp — không lộ tồn tại ngoài phạm vi.
+ */
+export interface ReviewVideoSetResponse {
   id: number;
   code: string;
   title: string;
-  curriculumId: number;
-  classId: number;
+  videoType: "CONNECTION" | "REFLEX";
+  curriculumId: number | null;
+  classId: number | null;
   subjectId: number | null;
-  lessonOrder: number;
-  lessonType: string;
-  durationMinutes: number | null;
+  displayOrder: number;
   status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
   publishedAt: string | null;
   createdBy: number;
 }
 
-export interface LessonMaterialResponse {
+export interface ReviewVideoResponse {
   id: number;
-  lessonId: number;
-  materialType: string;
+  reviewVideoSetId: number;
+  sourceType: "YOUTUBE_URL" | "R2_VIDEO" | "R2_AUDIO";
   title: string;
   fileUrl: string;
   fileSizeBytes: number | null;
-  durationSeconds: number | null;
+  durationSeconds: number;
   displayOrder: number;
-  isDownloadable: boolean;
+  /** V59 — chỉ có ý nghĩa với videoType=CONNECTION, mặc định 80. */
+  completionThresholdPercent: number;
+  /** V59 — chỉ có ý nghĩa với videoType=CONNECTION, mặc định 1. */
+  requiredViewCount: number;
 }
 
-export function listLessonsByClass(classId: number): Promise<LessonResponse[]> {
-  return apiRequest<LessonResponse[]>(`/classes/${classId}/lessons`);
+export interface ReviewVideoProgressResponse {
+  reviewVideoId: number;
+  watchedSeconds: number;
+  durationSeconds: number;
+  watchedPercent: number;
+  completed: boolean;
+  /** V59 — số lượt xem đã đạt completionThresholdPercent (rollup từ review_video_watch_sessions). */
+  viewCount: number;
+  requiredViewCount: number;
 }
 
-export function listLessonMaterials(lessonId: number): Promise<LessonMaterialResponse[]> {
-  return apiRequest<LessonMaterialResponse[]>(`/lessons/${lessonId}/materials`);
+export function listReviewVideoSetsByClass(classId: number): Promise<ReviewVideoSetResponse[]> {
+  return apiRequest<ReviewVideoSetResponse[]>(`/classes/${classId}/review-video-sets`);
+}
+
+export function listReviewVideos(setId: number): Promise<ReviewVideoResponse[]> {
+  return apiRequest<ReviewVideoResponse[]>(`/review-video-sets/${setId}/videos`);
+}
+
+/** UC-23a (V59): mở 1 LƯỢT xem mới — gọi khi mở/mở lại video CONNECTION, TRƯỚC lần reportProgress đầu tiên. sessionId dùng cho mọi lần reportProgress tiếp theo của lượt này. */
+export interface StartWatchSessionResponse {
+  sessionId: number;
+}
+
+export function startReviewVideoWatchSession(videoId: number): Promise<StartWatchSessionResponse> {
+  return apiRequest<StartWatchSessionResponse>(`/review-videos/${videoId}/watch-sessions`, { method: "POST" });
+}
+
+/** UC-23a Main Flow bước 3 (V59): báo tiến độ xem (giây) cho ĐÚNG 1 lượt xem (watchSessionId) — BE tự lấy max(cũ, mới) trong phạm vi lượt đó, không bao giờ giảm. */
+export function reportReviewVideoProgress(videoId: number, watchSessionId: number, watchedSeconds: number): Promise<ReviewVideoProgressResponse> {
+  return apiRequest<ReviewVideoProgressResponse>(`/review-videos/${videoId}/progress`, {
+    method: "PUT",
+    body: JSON.stringify({ watchSessionId, watchedSeconds })
+  });
+}
+
+/** UC-23b (V57) — câu hỏi gắn 1 mốc thời gian trong video REFLEX, mỗi câu tự có thời lượng ghi âm/số lần nộp lại riêng. */
+export interface ReviewVideoQuestionResponse {
+  id: number;
+  reviewVideoId: number;
+  timestampSeconds: number;
+  prompt: string | null;
+  maxRecordingSeconds: number;
+  /** null = không giới hạn số lần nộp lại. */
+  maxAttempts: number | null;
+  displayOrder: number;
+}
+
+export function listReviewVideoQuestions(videoId: number): Promise<ReviewVideoQuestionResponse[]> {
+  return apiRequest<ReviewVideoQuestionResponse[]>(`/review-videos/${videoId}/questions`);
+}
+
+/** UC-23b (V57) — khớp ReviewVideoSubmissionResponse thật (dùng chung Học sinh xem bài của mình + Giáo viên chấm). 1 dòng = 1 attempt, giữ lịch sử. */
+export interface ReviewVideoSubmissionResponse {
+  id: number;
+  reviewVideoQuestionId: number;
+  attemptNumber: number;
+  studentId: number;
+  studentFullName: string;
+  audioUrl: string;
+  submittedAt: string;
+  score: number | null;
+  maxScore: number | null;
+  feedback: string | null;
+  gradedByUserId: number | null;
+  gradedAt: string | null;
+}
+
+/** UC-23b Main Flow bước 3 (V57): nộp audio trả lời cho 1 CÂU HỎI — nộp lại tạo attempt MỚI, giữ lịch sử (không ghi đè); từ chối nếu đã hết maxAttempts của câu hỏi đó (409/422 từ BE). */
+export function submitReviewVideoQuestionAudio(questionId: number, audioUrl: string): Promise<ReviewVideoSubmissionResponse> {
+  return apiRequest<ReviewVideoSubmissionResponse>(`/review-video-questions/${questionId}/submissions`, {
+    method: "PUT",
+    body: JSON.stringify({ audioUrl })
+  });
+}
+
+/** Attempt MỚI NHẤT đã nộp cho 1 câu hỏi — trả về undefined (204) nếu chưa nộp lần nào. */
+export function getMyLatestReviewVideoSubmission(questionId: number): Promise<ReviewVideoSubmissionResponse | undefined> {
+  return apiRequest<ReviewVideoSubmissionResponse | undefined>(`/review-video-questions/${questionId}/submissions/latest`);
+}
+
+/** Toàn bộ lịch sử các lần đã nộp cho 1 câu hỏi (mới nhất trước). */
+export function listMyReviewVideoSubmissionHistory(questionId: number): Promise<ReviewVideoSubmissionResponse[]> {
+  return apiRequest<ReviewVideoSubmissionResponse[]>(`/review-video-questions/${questionId}/submissions/history`);
 }
 
 /**
@@ -411,7 +607,11 @@ export interface SaveAnswerRequest {
   audioAnswerUrl?: string;
 }
 
-/** correctChoiceIds/explanation chỉ được điền khi attempt đã nộp (không còn IN_PROGRESS) và exercise.showCorrectAnswers=true. */
+/**
+ * correctChoiceIds/correctAnswerText chỉ được điền khi attempt đã nộp (không còn IN_PROGRESS) VÀ
+ * exercise.showCorrectAnswers=true. explanation điền thêm khi: câu KHÔNG tự chấm được (ESSAY/SPEAKING,
+ * luôn hiện) HOẶC câu tự chấm được nhưng trả lời SAI (isCorrect=false) — V54.
+ */
 export interface StudentAnswerResponse {
   id: number;
   exerciseAttemptId: number;
@@ -423,6 +623,8 @@ export interface StudentAnswerResponse {
   autoScore: number | null;
   isCorrect: boolean | null;
   correctChoiceIds: number[] | null;
+  /** V54 — chỉ có ý nghĩa với câu FILL_IN_BLANK. */
+  correctAnswerText: string | null;
   explanation: string | null;
 }
 
@@ -451,6 +653,7 @@ export interface CurriculumDocumentResponse {
   description: string | null;
   documentType: "VIDEO" | "PDF" | "AUDIO" | "SLIDE" | "IMAGE" | "OTHER";
   fileUrl: string;
+  coverImageUrl: string | null;
   displayOrder: number;
   status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
   createdBy: number;

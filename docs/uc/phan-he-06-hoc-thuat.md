@@ -332,7 +332,12 @@ UC-48: Xếp lịch buổi học
 | chính (Main     | bắt đầu/kết thúc, loại buổi                        |
 | Flow)**         | (REGULAR/MAKEUP/EXAM/SPECIAL), giáo viên phụ trách |
 |                 | buổi (có thể khác giáo viên chính của lớp — VD dạy |
-|                 | thay), và phòng học (tùy chọn).                    |
+|                 | thay), phòng học (tùy chọn), và tùy chọn loại giáo |
+|                 | viên (VIETNAMESE/FOREIGN — chỉ để hiển thị cho Học |
+|                 | sinh/Phụ huynh biết buổi này GV Việt Nam hay nước  |
+|                 | ngoài dạy, KHÔNG liên quan hồ sơ nhân sự — bổ sung |
+|                 | ngoài SDD gốc, đã xác nhận với người dùng          |
+|                 | 2026-07-29).                                       |
 |                 |                                                    |
 |                 | 2. Nếu có chỉ định phòng và phòng không đánh dấu   |
 |                 | linh hoạt: hệ thống kiểm tra trùng khung giờ với   |
@@ -369,6 +374,23 @@ UC-48: Xếp lịch buổi học
 |                 | cũ sang trạng thái RESCHEDULED và liên kết sang    |
 |                 | buổi mới vừa tạo. Chỉ áp dụng cho buổi đang        |
 |                 | SCHEDULED.                                          |
+|                 |                                                    |
+|                 | ***A4 --- Tạo buổi bù cho 1 buổi đã hủy (bổ sung   |
+|                 | ngoài SDD gốc, đã xác nhận với người dùng          |
+|                 | 2026-07-29)***                                      |
+|                 |                                                    |
+|                 | 1. Người dùng chọn loại buổi MAKEUP ở bước 1 Main  |
+|                 | Flow, BẮT BUỘC chỉ định buổi đã hủy (đang           |
+|                 | CANCELLED) mà buổi này bù cho. Hệ thống liên kết    |
+|                 | 1-1 (1 buổi hủy chỉ được đúng 1 buổi bù — từ chối   |
+|                 | nếu buổi hủy đã có buổi bù khác, hoặc buổi tham     |
+|                 | chiếu không phải CANCELLED/khác lớp). Dời lịch 1    |
+|                 | buổi bù (A3) giữ nguyên liên kết sang buổi mới.     |
+|                 | GET /api/classes/{classId}/sessions/cancelled-      |
+|                 | pending-makeup trả danh sách buổi hủy chưa có buổi  |
+|                 | bù, phục vụ màn hình chọn buổi khi tạo buổi bù.     |
+|                 | Chỉ áp dụng tạo 1 buổi lẻ (UC-48) — không áp dụng   |
+|                 | sinh lịch hàng loạt (UC-56) hay nhập Excel (UC-57). |
 +-----------------+----------------------------------------------------+
 | **Hậu điều kiện | - class_sessions/session_periods phản ánh đúng     |
 | (P              | lịch học hiện hành của lớp, là dữ liệu tham chiếu  |
@@ -377,6 +399,18 @@ UC-48: Xếp lịch buổi học
 |                 |                                                    |
 |                 | - class_sessions_history/session_periods_history   |
 |                 | lưu đầy đủ lịch sử tạo/hủy/dời lịch.               |
+|                 |                                                    |
+|                 | - Mọi response buổi học (ClassSessionResponse) trả |
+|                 | kèm sessionNumber — số thứ tự buổi trong lớp       |
+|                 | (1-based, đếm theo session_date rồi id, TÍNH ĐỘNG   |
+|                 | không lưu cột DB, đếm cả buổi CANCELLED — bổ sung  |
+|                 | ngoài SDD gốc, đã xác nhận với người dùng          |
+|                 | 2026-07-29), phục vụ FE hiển thị "Buổi N + ngày".  |
+|                 |                                                    |
+|                 | - Buổi MAKEUP (A4) trả kèm makeupForSessionId — id |
+|                 | buổi CANCELLED nó bù cho (null nếu không phải      |
+|                 | MAKEUP) — bổ sung ngoài SDD gốc, đã xác nhận với   |
+|                 | người dùng 2026-07-29.                             |
 +-----------------+----------------------------------------------------+
 
 ---
@@ -419,7 +453,13 @@ UC-56: Sinh lịch học hàng loạt theo mẫu lặp
 | chính (Main     |     ngày, đến ngày), danh sách thứ trong tuần lặp  |
 | Flow)**         |     lại (VD Thứ 2/4/6), khung giờ bắt đầu/kết thúc |
 |                 |     chung, loại buổi, giáo viên phụ trách, phòng   |
-|                 |     học (tùy chọn).                                |
+|                 |     học (tùy chọn), và tùy chọn loại giáo viên      |
+|                 |     (VIETNAMESE/FOREIGN — dùng chung cho cả lô;    |
+|                 |     muốn 1 tuần có ngày GV Việt Nam, ngày GV nước  |
+|                 |     ngoài thì gọi UC-56 riêng cho từng nhóm thứ,   |
+|                 |     VD Thứ 2 gọi 1 lần với FOREIGN, Thứ 5 gọi 1    |
+|                 |     lần khác với VIETNAMESE — bổ sung ngoài SDD    |
+|                 |     gốc, đã xác nhận với người dùng 2026-07-29).   |
 |                 |                                                    |
 |                 | 2.  Với mỗi ngày trong khoảng khớp 1 trong các thứ |
 |                 |     đã chọn, hệ thống thử tạo 1 buổi học — áp dụng |
@@ -1112,6 +1152,169 @@ UC-21: Viết nhận xét học sinh
 | ostcondition)** |     thị cho Phụ huynh.                             |
 +-----------------+----------------------------------------------------+
 
+Mở rộng --- Nhận xét Hàng ngày kiểu mới (bổ sung ngoài SDD gốc, đã xác
+nhận với người dùng 2026-07-24, kết luận họp — CHỈ áp dụng comment_type=
+DAILY, Giữa/Cuối kỳ giữ nguyên 100% luồng ở trên)
+
+-   Luồng thao tác: Giáo viên điểm danh buổi học (UC-15) → nhận xét từng
+    học sinh của buổi đó. Học sinh Vắng/Có phép thì không cần điền các
+    trường nhận xét.
+-   **Sửa lại 2026-07-29 (đã xác nhận với người dùng) — "bài học hôm nay"
+    chuyển từ Điểm danh sang Nhận xét:** `class_sessions.lesson_content`
+    (TEXT, dùng chung cả lớp, không đổi) nay điền qua
+    `PUT /api/class-sessions/{classSessionId}/comments/lesson-content`
+    (rào giống ghi nhận xét — `requireCanWriteDailyComment`), KHÔNG còn
+    endpoint ở Điểm danh (`PUT .../attendance/lesson-content` đã bỏ). Trên
+    UI hiển thị 1 field chung theo lớp (không phải cột trong bảng), phục
+    vụ hiển thị xuống GV/Phụ huynh (`ClassSessionResponse.lessonContent`)
+    và Quản lý điểm trường lúc duyệt (`StudentCommentResponse.lessonContent`).
+    Excel: cột "Bài học hôm nay" nằm NGAY TRƯỚC cột Điểm danh trong file
+    mẫu (không bắt buộc điền) — điền sẵn từ giá trị đã nhập ở UI (nếu có);
+    khi import, mọi dòng có điền phải khớp giá trị nhau (học sinh trong
+    lớp học cùng 1 bài) — khác nhau thì CHẶN TOÀN BỘ file, không import
+    dòng nào; để trống hết thì giữ nguyên giá trị hiện có (không xóa nhầm
+    giá trị đã điền qua UI). Gửi duyệt (`submitComments`) 1 nhận xét DAILY
+    mà buổi chưa có `lesson_content` thì bị từ chối (422,
+    "chưa điền bài học hôm nay").
+-   4 cột mới trên `student_comments` (chỉ có ý nghĩa khi comment_type=
+    DAILY): `attitude` (VARCHAR(20), enum Kém/Yếu/Trung bình/Trung bình
+    khá/Khá/Tốt — mở rộng từ 3 lên 6 mức 2026-07-27),
+    `homework_previous_score` (VARCHAR(10), VD "80%" —
+    chấm BTVN buổi TRƯỚC ngay trong dòng của buổi này, nay chỉ còn dùng
+    khi kênh ngữ pháp OFFLINE — xem bổ sung V55 dưới), `homework_next`
+    (TEXT, VD "Unit 4 Trang 18" — giao BTVN ngữ pháp OFFLINE cho buổi
+    SAU, hạn nộp ngầm hiểu là ngày buổi học kế tiếp, không lưu cột
+    deadline riêng), `note` (TEXT).
+-   **Bổ sung V55 (2026-07-28, đã xác nhận với người dùng) — giao BTVN
+    linh hoạt ONLINE/OFFLINE theo TỪNG học sinh:** thêm 2 cột FK
+    `homework_next_exercise_assignment_id` (→ `exercise_assignments`,
+    kênh ngữ pháp ONLINE — tái dùng thẳng UC-40's `assignExercise()`,
+    không dựng kho bài tập riêng) và `homework_next_review_video_set_id`
+    (→ `review_video_sets`, kênh Video Ôn tập — LUÔN online, không có
+    khái niệm offline cho kênh này). Cả 2 đều lưu TRÊN TỪNG DÒNG học
+    sinh (không theo cả lớp) — NULL = kênh đó đang OFFLINE hoặc không
+    giao gì cho đúng học sinh này, cho phép có học sinh không cần giao
+    bài. Dòng của buổi N lưu "sẽ giao gì cho buổi N+1"; % hoàn thành của
+    buổi N+1 tự tính NGƯỢC lại từ FK trên dòng buổi N (không nhập tay,
+    không lưu trùng lặp) — ngữ pháp qua `exercise_attempts.total_score/
+    exercise.total_points`, video qua `review_video_progress.watched_
+    seconds` (CONNECTION) hoặc `review_video_submissions.score/max_score`
+    (REFLEX, UC-23b).
+-   **Bổ sung V65 (2026-07-30, đã xác nhận với người dùng) — điểm giao
+    bài "Ngữ pháp Online"/"Video Ôn tập" chuyển hẳn từ Soạn & Giao đề
+    (UC-40)/Kho Video Ôn tập (UC-23) sang ĐÂY, đảo ngược thiết kế "theo
+    từng học sinh, không theo cả lớp" của V55 ngay trên:** GV chọn 1
+    `Exercise` (kênh ngữ pháp, field request đổi tên
+    `homework_next_exercise_id` — trỏ THẲNG `exercises.id`, KHÔNG còn trỏ
+    `exercise_assignments.id` như V55) hoặc 1 `ReviewVideoSet` (kênh
+    Video, `homework_next_review_video_set_id`, ý nghĩa không đổi) làm
+    "BTVN buổi sau" cho BẤT KỲ 1 học sinh nào trong 1 buổi DAILY → hệ
+    thống TỰ ĐỘNG tạo bản giao (`ExerciseAssignment`/`ReviewVideoAssignment`
+    mới — bảng `review_video_assignments` mới, mirror
+    `exercise_assignments`) cho TOÀN BỘ học sinh ACTIVE của lớp
+    (`target_student_ids = NULL`), hạn nộp = ngày/giờ buổi học KẾ TIẾP
+    của lớp (tính từ `session_date` của buổi đang nhận xét, không phải
+    "hôm nay" — GV nhập bù buổi cũ vẫn tính đúng). Cột lưu trên
+    `student_comments` đổi tên tương ứng:
+    `homework_next_review_video_set_id` →
+    `homework_next_review_video_assignment_id` (đối xứng với
+    `homework_next_exercise_assignment_id` sẵn có — cả 2 đều trỏ BẢN
+    GIAO, không trỏ nguồn). Hệ quả trực tiếp: "Soạn & Giao đề" (UC-40) bỏ
+    hẳn bước "Giao bài tập" (không còn `classId`/`dueAt`/`targetStudentIds`
+    ở màn đó — xem UC-40 phân hệ 7); "Kho Video Ôn tập" (UC-23) publish
+    "Video phản xạ" không còn tự động hiển thị cho học sinh (xem UC-23
+    phân hệ 7) — cả 2 nơi Publish giờ CHỈ có nghĩa "đủ điều kiện dùng làm
+    nguồn" (hiện trong dropdown ở đây), không còn tác dụng giao bài. 5
+    quy tắc đã chốt cùng đợt:
+    1.  **Xung đột cùng buổi**: mọi dòng DAILY cùng 1 `class_session`
+        phải chọn CÙNG 1 đề/video cho mỗi kênh (độc lập nhau) — dòng đầu
+        tiên khóa lựa chọn, dòng khác chọn khác bị chặn 409
+        (`HomeworkNextConflictException`).
+    2.  **Sửa lựa chọn khi còn DRAFT**: hủy bản giao cũ
+        (`status=CANCELLED`), tạo/gắn bản giao mới NGAY — kể cả khi học
+        sinh đã mở bài dở; KHÔNG cascade sang các dòng comment khác cùng
+        buổi (dòng đó phát hiện lệch và bị chặn 409 khi chính GV lưu lại
+        dòng đó).
+    3.  **Comment bị REJECTED (UC-22)**: KHÔNG ảnh hưởng bài đã giao —
+        giao bài và duyệt nhận xét vẫn hoàn toàn tách biệt như trước.
+    4.  **Lớp chưa có buổi kế tiếp**: chặn hẳn, báo lỗi rõ
+        (`NoUpcomingClassSessionException`) — không cho chọn đề/video làm
+        BTVN buổi sau.
+    5.  **Chỉ áp dụng DAILY**: MID_TERM/END_TERM (gắn `gradePeriod`,
+        không có "buổi kế tiếp") điền 1 trong 2 field này bị chặn ngay
+        (`InvalidCommentContextException`) — phải để trống.
+
+    Kênh Video áp dụng cho CẢ `CONNECTION` lẫn `REFLEX` (không chỉ REFLEX
+    dù tên gọi "Video phản xạ" gợi ý — xem UC-23). Đề/video Publish nhưng
+    chưa từng được chọn: không cần màn theo dõi riêng, chỉ dùng cho
+    dropdown ở đây.
+
+-   Excel round-trip theo buổi học (**V65: dropdown cột Ngữ pháp đổi
+    nguồn từ "bài đã giao sẵn cho lớp" sang mọi `Exercise` loại ASSIGNED
+    đang PUBLISHED trong khung chương trình của lớp — chọn ở đây mới là
+    hành động giao; dropdown cột Video không đổi**): `GET
+    /api/class-sessions/{classSessionId}/comments/template` tải file mẫu
+    điền sẵn học sinh ACTIVE của lớp (Ngày/Mã học viên/Họ và tên/Điểm
+    danh hiện có/nhận xét đã nhập trước đó nếu có) — mở rộng 9→13 cột từ
+    V55: thêm 2 cột đọc-only "% Ngữ pháp/Video buổi trước (tự động)" và 2
+    cột nhập liệu "Giao BTVN ngữ pháp ONLINE/Video ôn tập (buổi sau)" —
+    dropdown ĐỘNG theo lớp (chỉ hiện bài/video đã gán cho đúng lớp đang
+    xuất, named-range nếu danh sách dài vượt ~255 ký tự) CỘNG THÊM chấp
+    nhận dán trực tiếp `uuid` làm phương án thay dropdown (không giới
+    hạn theo lớp khi dán uuid); mở rộng tiếp 13→14 cột ở V56: thêm 1 cột
+    nhập tay "BTVN Nghe-nói buổi trước" (`homework_previous_speaking_
+    score`, độc lập với cột "BTVN buổi trước" cũ vốn chỉ dùng cho kênh
+    Ngữ pháp — không phải dropdown, không tự tính, khác với 2 cột %
+    đọc-only nói trên); điền xong gọi `POST
+    /api/class-sessions/{classSessionId}/comments/import` — cột Điểm danh
+    trong file CHO PHÉP sửa luôn điểm danh khi import lại (tái dùng
+    nguyên StudentAttendanceService.markAttendance — rào "chỉ trong ngày
+    diễn ra buổi học" của UC-15 không đổi, KHÁC hạn X ngày của nhận xét
+    bên dưới). Lỗi 1 dòng không chặn dòng khác (đúng pattern UC-35/50/51/53).
+-   **Bổ sung 2026-07-29 (đã xác nhận với người dùng) — tự chọn buổi hôm
+    nay khi vào tab Nhận xét:** `GET /api/classes/{classId}/sessions/today`
+    trả buổi học của lớp có `session_date` = hôm nay (loại
+    CANCELLED/RESCHEDULED — không còn là buổi "đang diễn ra hôm nay"). FE
+    gọi khi Giáo viên vào tab Nhận xét học viên: có buổi thì tự hiển thị
+    nhận xét của buổi đó, danh sách rỗng thì báo "hôm nay không có buổi
+    học" và để Giáo viên tự chọn buổi khác từ `GET
+    /api/classes/{classId}/sessions`.
+-   Hạn nhập/sửa: mặc định 7 ngày kể từ NGÀY BUỔI HỌC diễn ra
+    (`system_settings.academic.comment_edit_window_days`, cấu hình qua
+    `GET`/`PUT /api/academic/settings/comment-edit-window-days`).
+-   Quy trình duyệt (**SỬA LẠI 2026-07-29, thay quyết định ngay dưới đây
+    — đã dùng thực tế, phát hiện thiếu bước xem lại trước khi gửi
+    duyệt**): DAILY dùng lại NGUYÊN luồng Nháp (DRAFT) → Gửi (submit,
+    `POST /api/classes/{classId}/comments/submit` — đã có sẵn, dùng
+    chung với Giữa/Cuối kỳ) → Chờ duyệt (PENDING) → Duyệt (UC-22) ở Main
+    Flow UC-21 gốc phía trên — không còn khác biệt gì so với Giữa/Cuối
+    kỳ ở khâu này. `writeComment`/`updateComment`/Excel import chỉ
+    tạo/sửa ở trạng thái DRAFT, không tự động chuyển trạng thái nào nữa.
+    Actor có `academic.comment.approve` KHÔNG còn được ghi/sửa trực tiếp
+    ra APPROVED bỏ qua chờ duyệt — muốn Gửi phải qua đúng
+    `submitComments()`, vốn luôn yêu cầu actor là Giáo viên được phân
+    công lớp (không đổi) — nghĩa là Quản lý điểm trường không kiêm giáo
+    viên lớp đó tự viết 1 nhận xét DAILY thì không tự Gửi được, phải nhờ
+    đúng Giáo viên lớp Gửi hộ (đánh đổi đã xác nhận với người dùng, giữ
+    luồng đơn giản/đồng nhất với Giữa/Cuối kỳ thay vì mở lại rào riêng
+    cho DAILY). Excel import cùng logic: dòng ứng với nhận xét đang
+    DRAFT/REJECTED thì sửa được (về lại DRAFT); dòng ứng với nhận xét đã
+    PENDING/APPROVED thì báo lỗi riêng dòng đó (không chặn dòng khác,
+    đúng pattern UC-35/50/51/53) — không cho Excel âm thầm ghi đè, bỏ qua
+    quy trình duyệt. Riêng việc actor có `academic.comment.approve` bỏ
+    qua hạn X ngày khi GHI/SỬA (bullet phía trên) — KHÔNG đổi, đây là
+    quyền quản trị độc lập với chuyện route trạng thái.
+
+    ~~Quyết định 2026-07-24 (đã thay thế)~~: Giáo viên (chỉ có
+    `academic.comment.write`) ghi xong tự động chuyển Chờ duyệt (PENDING)
+    ngay — không còn bước Nháp (DRAFT) rồi submit riêng cho biểu mẫu Hàng
+    ngày, kể cả sửa lại sau khi bị từ chối (UC-21 A1). Actor có
+    `academic.comment.approve` (Quản lý điểm trường/Quản trị viên —
+    permission đã có sẵn từ V44, không tạo permission mới) ghi trực tiếp
+    thì bỏ qua bước chờ duyệt (APPROVED ngay, hiển thị Phụ huynh luôn) VÀ
+    bỏ qua luôn hạn X ngày ở trên (cùng 1 permission gánh cả 2 "quyền
+    quản trị").
+
 ---
 
 UC-22: Duyệt nhận xét
@@ -1277,6 +1480,20 @@ người dùng)
 |                 | -   import_jobs lưu lại kết quả (thành công/lỗi    |
 |                 |     từng dòng) để Giáo viên đối chiếu.             |
 +-----------------+----------------------------------------------------+
+
+Mở rộng --- File mẫu (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+2026-07-24)
+
+-   Trước bước 1, Giáo viên có thể gọi `GET
+    /api/classes/{classId}/grade-periods/{gradePeriodId}/grades/import-template`
+    để tải file Excel mẫu điền sẵn: cột A = mã học viên (giữ nguyên vị trí
+    để import lại đúng bước 1), cột B/C = họ tên/lớp (chỉ để đọc, hệ thống
+    tự bỏ qua khi so khớp header ở bước 2 — không tính là "cột không khớp"
+    của A1), các cột sau đúng tên từng thành phần điểm đã cấu hình cho kỳ
+    đánh giá + Overall/Level — 1 dòng cho mỗi học sinh đang ghi danh
+    (ACTIVE) của lớp, cột điểm để trống sẵn sàng nhập. Cùng điều kiện tiên
+    quyết với bước tải lên (Giáo viên được phân công/Trưởng phòng đào
+    tạo/Quản lý điểm trường phụ trách site).
 
 ---
 

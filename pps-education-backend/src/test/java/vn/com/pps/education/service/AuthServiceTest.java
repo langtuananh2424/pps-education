@@ -225,8 +225,8 @@ class AuthServiceTest extends AbstractIntegrationTest {
 
         CurrentUserResponse response = authService.getCurrentUser(activeUser.getId());
 
-        // lms.exercise.manage được gán mặc định cho TEACHER từ V28 -- xác nhận field permissions phản ánh đúng DB thật.
-        assertThat(response.permissions()).contains("lms.exercise.manage");
+        // lms.exercise.create được gán mặc định cho TEACHER từ V28/V62 -- xác nhận field permissions phản ánh đúng DB thật.
+        assertThat(response.permissions()).contains("lms.exercise.create");
     }
 
     @Test

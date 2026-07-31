@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import vn.com.pps.education.common.ExcelHttpResponses;
 import vn.com.pps.education.dto.GradeImportResponse;
 import vn.com.pps.education.security.AuthenticatedUser;
 import vn.com.pps.education.service.GradeImportService;
@@ -41,5 +42,18 @@ public class GradeImportController {
     @GetMapping("/api/grade-imports/{id}")
     public ResponseEntity<GradeImportResponse> getJob(@PathVariable Long id) {
         return ResponseEntity.ok(gradeImportService.getJob(id));
+    }
+
+    /**
+     * File mẫu để nhập điểm qua Excel (bổ sung ngoài SDD gốc, đã xác nhận
+     * với người dùng 2026-07-24) — điền sẵn học sinh của lớp + cột điểm để
+     * trống. Quyền: giống importGrades (xem Javadoc GradeImportService).
+     */
+    @GetMapping("/api/classes/{classId}/grade-periods/{gradePeriodId}/grades/import-template")
+    public ResponseEntity<byte[]> downloadTemplate(@PathVariable Long classId,
+                                                    @PathVariable Long gradePeriodId,
+                                                    @AuthenticationPrincipal AuthenticatedUser actor) {
+        byte[] content = gradeImportService.buildTemplate(classId, gradePeriodId, actor.userId());
+        return ExcelHttpResponses.attachment(content, "mau-nhap-diem-lop-" + classId + ".xlsx");
     }
 }

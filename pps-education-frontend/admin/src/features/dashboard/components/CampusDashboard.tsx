@@ -48,7 +48,7 @@ export default function CampusDashboard({ totalOutstanding }: CampusDashboardPro
 
       <Card>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-bold text-slate-800 font-display">Hòm thư phản hồi đối tác liên kết mới nhất (UC-39)</h3>
+          <h3 className="text-sm font-bold text-slate-800 font-display">Hòm thư phản hồi đối tác liên kết mới nhất</h3>
           <button onClick={() => navigate("/facility/feedback")} className="text-xs text-brand-orange hover:text-brand-red font-bold">
             Xem tất cả phản hồi
           </button>

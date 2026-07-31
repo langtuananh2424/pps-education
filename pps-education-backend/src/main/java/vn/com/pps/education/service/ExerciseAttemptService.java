@@ -50,9 +50,12 @@ import java.util.stream.Collectors;
  * .claude/rules/solid.md — không tách khi cùng 1 nghiệp vụ lõi).
  *
  * Auto-gradable = MULTIPLE_CHOICE/MULTIPLE_ANSWER/TRUE_FALSE (so khớp
- * question_choices.is_correct); FILL_IN_BLANK/ESSAY/SPEAKING KHÔNG tự
- * chấm được vì SDD không có cột đáp án tham khảo dạng chấm được cho các
- * loại này — luôn chờ Giáo viên chấm thủ công (UC-41).
+ * question_choices.is_correct) và FILL_IN_BLANK (so khớp CHÍNH XÁC,
+ * case-insensitive + trim, với questions.correct_answer_text — V54, bổ
+ * sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-27).
+ * ESSAY/SPEAKING KHÔNG tự chấm được vì SDD không có cột đáp án tham
+ * khảo dạng chấm được cho 2 loại này — luôn chờ Giáo viên chấm thủ công
+ * (UC-41).
  *
  * GAP đã biết (không tự bịa hướng xử lý — xem .claude/rules/business-fidelity.md):
  * UC-24 Postcondition "kết quả cuối cùng được đồng bộ vào sổ điểm" nhưng
@@ -77,7 +80,8 @@ public class ExerciseAttemptService {
     private final UserRepository userRepository;
 
     private static final Set<Question.QuestionType> AUTO_GRADABLE_TYPES = Set.of(
-            Question.QuestionType.MULTIPLE_CHOICE, Question.QuestionType.MULTIPLE_ANSWER, Question.QuestionType.TRUE_FALSE);
+            Question.QuestionType.MULTIPLE_CHOICE, Question.QuestionType.MULTIPLE_ANSWER, Question.QuestionType.TRUE_FALSE,
+            Question.QuestionType.FILL_IN_BLANK);
 
     public ExerciseAttemptService(ExerciseAttemptRepository exerciseAttemptRepository,
                                    ExerciseAttemptHistoryRepository exerciseAttemptHistoryRepository,
@@ -110,14 +114,15 @@ public class ExerciseAttemptService {
             throw new ExerciseNotAvailableException("Đề id=" + exerciseId + " chưa được publish.");
         }
 
-        ExerciseAssignment assignment = null;
-        if (exercise.getExerciseType() == Exercise.ExerciseType.ASSIGNED) {
-            assignment = findActiveAssignmentForStudent(exercise, student)
-                    .orElseThrow(() -> new ExerciseNotAvailableException(
-                            "Đề id=" + exerciseId + " chưa được giao cho học sinh id=" + student.getId() + "."));
-            if (assignment.getAvailableFrom().isAfter(OffsetDateTime.now())) {
-                throw new ExerciseNotAvailableException("Đề id=" + exerciseId + " chưa tới thời gian mở làm bài.");
-            }
+        // Kho đề (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30):
+        // bỏ nhánh rẽ theo exerciseType — MỌI loại đề (kể cả SELF_PRACTICE/
+        // MOCK_TEST/SKILL_PRACTICE) giờ đều cần ExerciseAssignment ACTIVE, không
+        // còn "mở tự do sau khi Publish" (mirror ExerciseService#requireCanViewExercise).
+        ExerciseAssignment assignment = findActiveAssignmentForStudent(exercise, student)
+                .orElseThrow(() -> new ExerciseNotAvailableException(
+                        "Đề id=" + exerciseId + " chưa được giao cho học sinh id=" + student.getId() + "."));
+        if (assignment.getAvailableFrom().isAfter(OffsetDateTime.now())) {
+            throw new ExerciseNotAvailableException("Đề id=" + exerciseId + " chưa tới thời gian mở làm bài.");
         }
 
         long previousAttempts = exerciseAttemptRepository.countByExerciseIdAndStudentId(exerciseId, student.getId());
@@ -241,18 +246,24 @@ public class ExerciseAttemptService {
     }
 
     /**
-     * Bổ sung: Học sinh tự tra cứu đề đã được giao cho (các) lớp mình
-     * đang ghi danh ACTIVE — trước đây không có API nào cho việc này, HS
-     * phải biết trước exerciseId mới gọi được startAttempt/getExercise.
-     * classIdFilter tùy chọn (ngữ cảnh "lớp đang xem" — UC-42).
+     * Bổ sung: Học sinh tự tra cứu đề đã được giao cho (các) lớp mình đang
+     * hoặc đã TỪNG ghi danh (kể cả lớp cũ sau khi chuyển lớp — bổ sung
+     * ngoài SDD gốc, đã xác nhận với người dùng 2026-07-29; CHỈ xem, không
+     * mở lại khả năng làm bài mới ở lớp cũ — startAttempt vẫn chặn theo
+     * ACTIVE như cũ, xem findActiveAssignmentForStudent) — trước đây
+     * không có API nào cho việc này, HS phải biết trước exerciseId mới
+     * gọi được startAttempt/getExercise. classIdFilter tùy chọn (ngữ cảnh
+     * "lớp đang xem" — UC-42). Dedupe theo classId vì 1 học sinh có thể
+     * có nhiều dòng enrollment cho CÙNG 1 lớp theo thời gian (chuyển đi
+     * rồi quay lại).
      */
     @Transactional(readOnly = true)
     public List<AssignedExerciseResponse> listMyAssignedExercises(Long actorUserId, Long classIdFilter) {
         Student student = studentOrThrow(actorUserId);
         List<ClassEnrollment> enrollments = classEnrollmentRepository.findByStudentId(student.getId()).stream()
-                .filter(e -> e.getStatus() == ClassEnrollment.Status.ACTIVE)
                 .filter(e -> classIdFilter == null || e.getSchoolClass().getId().equals(classIdFilter))
-                .toList();
+                .collect(Collectors.toMap(e -> e.getSchoolClass().getId(), e -> e, (a, b) -> a))
+                .values().stream().toList();
 
         List<AssignedExerciseResponse> result = new java.util.ArrayList<>();
         for (ClassEnrollment enrollment : enrollments) {
@@ -271,7 +282,13 @@ public class ExerciseAttemptService {
     // ===================== Helpers =====================
 
     private boolean isAnswerCorrect(StudentAnswer answer) {
-        List<QuestionChoice> choices = questionChoiceRepository.findByQuestionIdOrderByDisplayOrder(answer.getQuestion().getId());
+        Question question = answer.getQuestion();
+        if (question.getQuestionType() == Question.QuestionType.FILL_IN_BLANK) {
+            String correct = question.getCorrectAnswerText();
+            String given = answer.getAnswerText();
+            return correct != null && given != null && correct.trim().equalsIgnoreCase(given.trim());
+        }
+        List<QuestionChoice> choices = questionChoiceRepository.findByQuestionIdOrderByDisplayOrder(question.getId());
         Set<Long> correctChoiceIds = choices.stream().filter(QuestionChoice::isCorrect).map(QuestionChoice::getId).collect(Collectors.toSet());
         Set<Long> selected = answer.getSelectedChoiceIds() == null ? Set.of() : Set.copyOf(answer.getSelectedChoiceIds());
         return selected.equals(correctChoiceIds);
@@ -352,15 +369,22 @@ public class ExerciseAttemptService {
         boolean revealAnswer = attempt.getStatus() != ExerciseAttempt.Status.IN_PROGRESS
                 && attempt.getExercise().isShowCorrectAnswers();
         List<Long> correctChoiceIds = null;
+        String correctAnswerText = null;
         String explanation = null;
         if (revealAnswer) {
             correctChoiceIds = questionChoiceRepository.findByQuestionIdOrderByDisplayOrder(a.getQuestion().getId())
                     .stream().filter(QuestionChoice::isCorrect).map(QuestionChoice::getId).toList();
-            explanation = a.getQuestion().getExplanation();
+            correctAnswerText = a.getQuestion().getCorrectAnswerText();
+            // Câu tự chấm (MCQ/TRUE_FALSE/FILL_IN_BLANK) chỉ hiện giải thích khi trả lời SAI;
+            // câu chấm tay (ESSAY/SPEAKING) không có cờ correct tin cậy (ManualGradingService
+            // không set StudentAnswer.correct) nên giữ nguyên hành vi cũ — luôn hiện khi reveal.
+            if (!a.isAutoGradable() || Boolean.FALSE.equals(a.getCorrect())) {
+                explanation = a.getQuestion().getExplanation();
+            }
         }
         return new StudentAnswerResponse(
                 a.getId(), attempt.getId(), a.getQuestion().getId(), a.getAnswerText(),
                 a.getSelectedChoiceIds(), a.getAudioAnswerUrl(), a.isAutoGradable(), a.getAutoScore(), a.getCorrect(),
-                correctChoiceIds, explanation);
+                correctChoiceIds, correctAnswerText, explanation);
     }
 }

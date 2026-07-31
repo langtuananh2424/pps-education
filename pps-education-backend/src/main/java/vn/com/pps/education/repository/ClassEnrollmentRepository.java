@@ -23,4 +23,7 @@ public interface ClassEnrollmentRepository extends JpaRepository<ClassEnrollment
 
     /** UC-23a/UC-60: HS gọi thẳng theo curriculumId (không qua 1 lớp cụ thể) — kiểm tra có học lớp nào thuộc khung này không. */
     boolean existsByStudentIdAndSchoolClass_CurriculumIdAndStatus(Long studentId, Long curriculumId, ClassEnrollment.Status status);
+
+    /** Đã TỪNG ghi danh lớp này hay chưa — bất kể status (ACTIVE/WITHDRAWN/TRANSFERRED/COMPLETED). Dùng cho self-service HS tự xem dữ liệu lớp cũ sau khi chuyển lớp. */
+    boolean existsByStudentIdAndSchoolClassId(Long studentId, Long schoolClassId);
 }

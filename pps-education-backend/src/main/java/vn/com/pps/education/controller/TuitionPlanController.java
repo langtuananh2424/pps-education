@@ -29,27 +29,27 @@ public class TuitionPlanController {
     }
 
     @PostMapping("/api/finance/tuition-plans")
-    @PreAuthorize("hasPermission(null, 'finance.manage')")
+    @PreAuthorize("hasPermission(null, 'finance.tuition-plan.create')")
     public ResponseEntity<TuitionPlanResponse> createPlan(@Valid @RequestBody CreateTuitionPlanRequest request,
                                                              @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(tuitionPlanService.createPlan(request, actor.userId()));
     }
 
     @GetMapping("/api/finance/tuition-plans/{id}")
-    @PreAuthorize("hasPermission(null, 'finance.manage')")
+    @PreAuthorize("hasPermission(null, 'finance.tuition-plan.view')")
     public ResponseEntity<TuitionPlanResponse> getPlan(@PathVariable Long id) {
         return ResponseEntity.ok(tuitionPlanService.getPlan(id));
     }
 
     @PostMapping("/api/finance/tuition-plan-assignments")
-    @PreAuthorize("hasPermission(null, 'finance.manage')")
+    @PreAuthorize("hasPermission(null, 'finance.tuition-plan.assign')")
     public ResponseEntity<TuitionPlanAssignmentResponse> assignToClass(@Valid @RequestBody AssignTuitionPlanRequest request,
                                                                           @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(tuitionPlanService.assignToClass(request, actor.userId()));
     }
 
     @PutMapping("/api/finance/tuition-plans/{id}/status")
-    @PreAuthorize("hasPermission(null, 'finance.manage')")
+    @PreAuthorize("hasPermission(null, 'finance.tuition-plan.update')")
     public ResponseEntity<TuitionPlanResponse> updateStatus(@PathVariable Long id,
                                                                @Valid @RequestBody UpdateTuitionPlanStatusRequest request,
                                                                @AuthenticationPrincipal AuthenticatedUser actor) {

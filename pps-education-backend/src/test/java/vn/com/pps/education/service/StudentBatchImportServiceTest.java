@@ -201,6 +201,27 @@ class StudentBatchImportServiceTest extends AbstractIntegrationTest {
         assertThat(result.status()).isEqualTo("FAILED");
     }
 
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-24 — file mẫu tải xuống. */
+    @Test
+    void buildTemplate_hasAllColumnsWithRequiredFieldsMarked() throws IOException {
+        byte[] template = studentBatchImportService.buildTemplate();
+
+        assertThat(readHeaders(template)).containsExactly(
+                "Họ và tên*", "Username*", "Ngày sinh (dd/MM/yyyy)*", "Giới tính (Nam/Nữ/Khác)",
+                "Trường đang học", "Lớp đang học", "Mã lớp PPS*", "Mã học sinh*");
+    }
+
+    private java.util.List<String> readHeaders(byte[] xlsx) throws IOException {
+        try (var workbook = new XSSFWorkbook(new java.io.ByteArrayInputStream(xlsx))) {
+            Row header = workbook.getSheetAt(0).getRow(0);
+            java.util.List<String> headers = new java.util.ArrayList<>();
+            for (int i = 0; i < header.getLastCellNum(); i++) {
+                headers.add(header.getCell(i).getStringCellValue());
+            }
+            return headers;
+        }
+    }
+
     private byte[] buildWorkbook(String[][] rows) throws IOException {
         try (XSSFWorkbook workbook = new XSSFWorkbook()) {
             Sheet sheet = workbook.createSheet("HocSinh");

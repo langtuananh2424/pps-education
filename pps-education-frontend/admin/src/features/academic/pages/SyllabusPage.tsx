@@ -13,9 +13,10 @@ import Toast from "@/components/ui/Toast";
 
 export default function SyllabusPage() {
   const { hasPermission } = useApp();
-  // Duyệt tùy biến (UC-17) yêu cầu academic.curriculum.manage ở backend (@PreAuthorize) —
-  // ẩn hẳn khối này với tài khoản không có quyền để tránh hiện lỗi 403 vô nghĩa.
-  const canApproveCurriculum = hasPermission("academic.curriculum.manage");
+  // Duyệt tùy biến (UC-17) yêu cầu academic.curriculum.approve ở backend (@PreAuthorize —
+  // academic.curriculum.manage đã bị tách nhỏ ở V62) — ẩn hẳn khối này với tài khoản không có
+  // quyền để tránh hiện lỗi 403 vô nghĩa.
+  const canApproveCurriculum = hasPermission("academic.curriculum.approve");
   const [curriculums, setCurriculums] = useState<CurriculumResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +44,7 @@ export default function SyllabusPage() {
   return (
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Khung chương trình (UC-16/16b/17)</h1>
+        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Khung chương trình</h1>
         <p className="text-xs text-slate-500 mt-1">
           Quản lý khung chương trình chuẩn, học phần, và bản tùy biến theo điểm trường liên kết.
         </p>
@@ -78,7 +79,7 @@ export default function SyllabusPage() {
       {canApproveCurriculum && (
         <Card className="space-y-4">
           <h3 className="text-xs font-bold text-slate-400 block uppercase tracking-wider font-display border-b border-slate-100 pb-2">
-            Duyệt tùy biến khung chương trình (UC-17)
+            Duyệt tùy biến khung chương trình
           </h3>
           <CurriculumApprovalPanel />
         </Card>

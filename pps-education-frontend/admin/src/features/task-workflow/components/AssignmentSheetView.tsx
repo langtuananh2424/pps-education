@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { TaskAssignmentResponse } from "../api";
 import { ASSIGNMENT_STATUS_META, ASSIGNMENT_STATUS_ORDER } from "../statusMeta";
+import Select from "@/components/ui/Select";
 
 interface AssignmentSheetViewProps {
   assignments: TaskAssignmentResponse[];
@@ -28,7 +29,7 @@ export default function AssignmentSheetView({ assignments, onSelect }: Assignmen
           placeholder="Tìm theo tiêu đề công việc..."
           className="flex-1 bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none max-w-xs"
         />
-        <select
+        <Select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
           className="bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
@@ -39,7 +40,7 @@ export default function AssignmentSheetView({ assignments, onSelect }: Assignmen
               {ASSIGNMENT_STATUS_META[s].label}
             </option>
           ))}
-        </select>
+        </Select>
         <span className="text-[11px] text-slate-400 ml-auto">Tổng {filtered.length} việc</span>
       </div>
 

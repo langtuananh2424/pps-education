@@ -24,9 +24,10 @@ UC-08: Quản lý hồ sơ nhân sự
 | hoạt**          | hoặc cập nhật hồ sơ hiện có.                       |
 +-----------------+----------------------------------------------------+
 | **Điều kiện     | -   Người dùng có role HR_MANAGER và quyền         |
-| tiên quyết      |     hrm.manage.                                    |
-| (               |                                                    |
-| Precondition)** |                                                    |
+| tiên quyết      |     hrm.employee.view/create/update tương ứng theo |
+| (               |     thao tác (V51, tách từ hrm.manage — bổ sung    |
+| Precondition)** |     ngoài SDD gốc, đã xác nhận với người dùng      |
+|                 |     2026-07-24).                                   |
 +-----------------+----------------------------------------------------+
 | **Luồng sự kiện | 1.  Quản lý nhân sự mở màn hình Hồ sơ nhân sự,     |
 | chính (Main     |     chọn Thêm mới hoặc tìm một nhân sự hiện có.    |
@@ -34,8 +35,8 @@ UC-08: Quản lý hồ sơ nhân sự
 |                 |     đăng nhập, hệ thống cho phép khởi tạo tài      |
 |                 |     khoản người dùng kèm hồ sơ trong cùng một      |
 |                 |     giao dịch (cơ chế khởi tạo tài khoản theo      |
-|                 |     UC-43/FR-USR-01, dưới thẩm quyền hrm.manage    |
-|                 |     của luồng này).                                |
+|                 |     UC-43/FR-USR-01, dưới thẩm quyền                |
+|                 |     hrm.employee.create của luồng này).            |
 |                 |                                                    |
 |                 | 2.  Nhập/cập nhật thông tin cá nhân, bằng cấp,     |
 |                 |     chứng chỉ sư phạm, phòng ban (tùy chọn) và cờ  |
@@ -419,10 +420,10 @@ UC-51: Nhập nhân sự theo lô
 | **Sự kiện kích  | Quản lý nhân sự cần khởi tạo hàng loạt tài khoản + |
 | hoạt**          | hồ sơ nhân sự (VD chuyển dữ liệu từ hệ thống cũ).  |
 +-----------------+----------------------------------------------------+
-| **Điều kiện     | -   Người dùng có quyền hrm.manage.                |
-| tiên quyết      | -   Có file Excel danh sách nhân sự đúng định dạng |
-| (               |     mẫu.                                           |
-| Precondition)** |                                                    |
+| **Điều kiện     | -   Người dùng có quyền hrm.employee.import (V51,  |
+| tiên quyết      |     tách từ hrm.manage).                           |
+| (               | -   Có file Excel danh sách nhân sự đúng định dạng |
+| Precondition)** |     mẫu.                                           |
 +-----------------+----------------------------------------------------+
 | **Luồng sự kiện | 1.  Quản lý nhân sự tải file Excel lên.            |
 | chính (Main     |                                                    |
@@ -485,6 +486,18 @@ UC-51: Nhập nhân sự theo lô
 |                 |     thấy mật khẩu tạm.                              |
 +-----------------+----------------------------------------------------+
 
+Mở rộng --- File mẫu + xuất danh sách tài khoản (bổ sung ngoài SDD gốc, đã
+xác nhận với người dùng 2026-07-24)
+
+-   Trước bước 1, Quản lý nhân sự có thể gọi `GET
+    /api/employee-imports/template` để tải file Excel mẫu đầy đủ 10 cột
+    theo đúng thứ tự Main Flow đọc, trường bắt buộc đánh dấu `*` cuối tên
+    cột, không có cột mật khẩu.
+-   Sau bước 6, có thể gọi `POST /api/employee-imports/accounts-export`
+    với đúng danh sách username + mật khẩu tạm vừa nhận được để lấy file
+    Excel giao lại cho từng nhân sự — chỉ dùng được trong cùng phiên vừa
+    import (không lưu mật khẩu tạm lại để tra cứu sau).
+
 ---
 
 UC-52: Danh mục chức vụ & tự động gán vai trò theo chức vụ
@@ -512,9 +525,9 @@ UC-52: Danh mục chức vụ & tự động gán vai trò theo chức vụ
 | **Sự kiện kích  | Quản lý nhân sự cần thêm/sửa chức vụ, hoặc cấu     |
 | hoạt**          | hình lại vai trò mặc định của 1 chức vụ.           |
 +-----------------+----------------------------------------------------+
-| **Điều kiện     | -   Người dùng có quyền hrm.manage.                |
-| tiên quyết      |                                                    |
-| (               |                                                    |
+| **Điều kiện     | -   Người dùng có quyền hrm.position.create/update/ |
+| tiên quyết      |     delete tương ứng theo thao tác (đã có sẵn từ    |
+| (               |     V49, tách từ hrm.manage).                       |
 | Precondition)** |                                                    |
 +-----------------+----------------------------------------------------+
 | **Luồng sự kiện | 1.  Quản lý nhân sự tạo/sửa 1 chức vụ (mã, tên).   |

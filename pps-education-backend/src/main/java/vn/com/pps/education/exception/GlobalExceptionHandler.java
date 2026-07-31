@@ -60,6 +60,7 @@ public class GlobalExceptionHandler {
             ParentStudentLinkAlreadyExistsException.class, StudentContactRoleConflictException.class,
             DuplicateCurriculumCodeException.class, DuplicateClassCodeException.class,
             ClassEnrollmentAlreadyActiveException.class, RoomConflictException.class,
+            TeacherScheduleConflictException.class, ClassScheduleConflictException.class,
             DuplicateSiteCodeException.class, DuplicateLeadPhoneException.class,
             DuplicatePartnerContractNumberException.class, ActivePartnerContractAlreadyExistsException.class,
             DuplicateRoomCodeException.class, DuplicateEquipmentCodeException.class,
@@ -67,7 +68,7 @@ public class GlobalExceptionHandler {
             SiteTeacherAlreadyAssignedException.class, DuplicateDepartmentCodeException.class,
             DuplicatePositionCodeException.class, DuplicateSkillCodeException.class,
             AppealAlreadyOpenException.class, AppealAlreadyAcceptedException.class,
-            TaskAssigneeAlreadyAssignedException.class})
+            TaskAssigneeAlreadyAssignedException.class, MakeupSessionAlreadyLinkedException.class})
     public ResponseEntity<Object> handleConflict(RuntimeException ex) {
         return error(HttpStatus.CONFLICT, ex.getMessage());
     }
@@ -83,7 +84,7 @@ public class GlobalExceptionHandler {
             CurriculumNotEditableException.class, CurriculumNotAvailableForSiteException.class,
             InvalidGradeScoreException.class, GradeNotEditableException.class,
             AttendanceSessionNotEditableException.class, StudentCommentNotEditableException.class,
-            InvalidCommentContextException.class, InvalidLessonScopeException.class, QuestionLockedException.class,
+            InvalidCommentContextException.class, InvalidReviewVideoSetScopeException.class, QuestionLockedException.class,
             ExerciseNotAvailableException.class, RetakeNotAllowedException.class,
             SubmissionPastDeadlineException.class, AttemptNotEditableException.class,
             AnswerNotManuallyGradableException.class, InvalidTeachingPlanPeriodException.class,
@@ -93,7 +94,9 @@ public class GlobalExceptionHandler {
             OperatingExpenseAlreadyDecidedException.class, PartnerContractNotDeletableException.class,
             TuitionPlanNotActiveException.class, RoleNotDeletableException.class,
             DepartmentNotDeletableException.class, PositionNotDeletableException.class,
-            GradeComponentNotDeletableException.class, GradePeriodNotDeletableException.class})
+            GradeComponentNotDeletableException.class, GradePeriodNotDeletableException.class,
+            MissingLessonContentException.class, HomeworkNextConflictException.class,
+            NoUpcomingClassSessionException.class})
     public ResponseEntity<Object> handleClassSetupRejected(RuntimeException ex) {
         return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
     }
