@@ -62,14 +62,7 @@ public class ExerciseController {
         return ResponseEntity.ok(exerciseService.listAssignmentsForClass(classId, actor.userId()));
     }
 
-    /** V65 — GV quản lý đề đã soạn theo khung chương trình (thay cho "chọn lớp, xem lịch sử giao" cũ — Soạn & Giao đề không còn gắn lớp). */
-    @GetMapping("/api/curriculums/{curriculumId}/exercises")
-    public ResponseEntity<List<ExerciseResponse>> listForCurriculum(@PathVariable Long curriculumId,
-                                                                      @AuthenticationPrincipal AuthenticatedUser actor) {
-        return ResponseEntity.ok(exerciseService.listForCurriculum(curriculumId, actor.userId()));
-    }
-
-    /** V65 — nguồn cho dropdown "BTVN Ngữ pháp buổi sau" ở Nhận xét học viên: đề ASSIGNED đã Publish đúng khung chương trình của lớp. */
+    /** Kho đề — nguồn cho dropdown "BTVN buổi sau" ở Nhận xét học viên: Bài đã Publish, thuộc 1 Đề đã gán cho lớp. */
     @GetMapping("/api/classes/{classId}/exercises/published")
     public ResponseEntity<List<ExerciseResponse>> listPublishedForClass(@PathVariable Long classId,
                                                                           @AuthenticationPrincipal AuthenticatedUser actor) {

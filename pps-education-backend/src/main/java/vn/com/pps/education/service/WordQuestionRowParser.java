@@ -7,7 +7,6 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
-import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -19,10 +18,12 @@ import java.util.regex.Pattern;
  * nhanh — mẫu CỨNG (không AI/OCR nhận diện tự do, đã xác nhận đánh đổi độ
  * phức tạp/rủi ro sai sót). Mỗi câu hỏi là 1 block, các block cách nhau 1
  * dòng chỉ chứa "---". Dòng đầu block bắt buộc dạng "[LOAI_CAU_HOI]"; các
- * dòng sau là "Nhãn: giá trị" (nhãn so khớp không phân biệt hoa/thường/dấu
- * — xem normalize()) hoặc dòng đáp án "A. ..." .. "D. ...". Dòng không
- * khớp nhãn/đáp án nào được nối thêm vào field đang đọc dở gần nhất (cho
- * phép 1 đoạn văn/nội dung trải nhiều paragraph Word).
+ * dòng sau là "Nhãn: giá trị" (nhãn so khớp không phân biệt hoa/thường/dấu,
+ * chấp nhận cả tiếng Việt lẫn tiếng Anh — xem
+ * {@link QuestionImportFieldAliases}, Kho đề bổ sung 2026-07-30) hoặc dòng
+ * đáp án "A. ..." .. "D. ...". Dòng không khớp nhãn/đáp án nào được nối
+ * thêm vào field đang đọc dở gần nhất (cho phép 1 đoạn văn/nội dung trải
+ * nhiều paragraph Word).
  */
 @Service
 public class WordQuestionRowParser implements QuestionRowParser {
@@ -93,21 +94,10 @@ public class WordQuestionRowParser implements QuestionRowParser {
         }
         Matcher labelMatcher = LABEL_PATTERN.matcher(text);
         if (labelMatcher.matches()) {
-            String label = normalize(labelMatcher.group(1));
             String value = labelMatcher.group(2).trim();
-            String field = switch (label) {
-                case "noi dung" -> "content";
-                case "dap an dung" -> "correctAnswer";
-                case "do kho" -> "difficulty";
-                case "diem" -> "defaultPoints";
-                case "giai thich" -> "explanation";
-                case "url audio" -> "audioUrl";
-                case "url hinh anh" -> "imageUrl";
-                case "transcript", "tu khoa phat am" -> "referencePassage";
-                case "tags" -> "tags";
-                default -> null;
-            };
-            if (field != null) {
+            // choiceA-D không nhận qua nhãn "Nhãn: giá trị" (chỉ qua dòng "A. ..."-"D. ..." ở trên) nên bỏ qua ở đây dù có trong alias map.
+            String field = QuestionImportFieldAliases.resolveField(labelMatcher.group(1));
+            if (field != null && !field.startsWith("choice")) {
                 row.set(field, value);
                 row.lastField = field;
                 return;
@@ -115,13 +105,6 @@ public class WordQuestionRowParser implements QuestionRowParser {
             // Nhãn lạ (VD người dùng gõ sai chính tả) — coi như dòng nối tiếp field gần nhất thay vì mất trắng nội dung.
         }
         row.append(row.lastField, text);
-    }
-
-    /** Chuẩn hoá so khớp nhãn: trim, lowercase, gộp khoảng trắng, bỏ dấu tiếng Việt — mirror GradeImportService.normalize(). */
-    private String normalize(String text) {
-        String lowered = text.trim().toLowerCase(Locale.ROOT).replaceAll("\\s+", " ");
-        String decomposed = Normalizer.normalize(lowered, Normalizer.Form.NFD).replaceAll("\\p{M}", "");
-        return decomposed.replace('đ', 'd');
     }
 
     private static final class MutableRow {

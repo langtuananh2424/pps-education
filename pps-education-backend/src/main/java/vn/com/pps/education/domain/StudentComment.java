@@ -120,12 +120,12 @@ public class StudentComment {
     @Column(length = 20)
     private Attitude attitude;
 
-    /** VD "80%" — chấm BTVN buổi TRƯỚC buổi này (yêu cầu kiểu dữ liệu tường minh từ người dùng). */
-    @Column(name = "homework_previous_score", length = 10)
+    /** VD "80%", hoặc nhãn tự động "Chưa làm bài"/"Đang chờ chấm" khi chưa nhập tay (V68, xem StudentCommentService.resolvedGrammarPrevious). */
+    @Column(name = "homework_previous_score", length = 30)
     private String homeworkPreviousScore;
 
-    /** VD "80%" — chấm BTVN Nghe-nói (Video Ôn tập) buổi TRƯỚC buổi này, nhập tay độc lập với homeworkPreviousScore (Ngữ pháp). Bổ sung V56. */
-    @Column(name = "homework_previous_speaking_score", length = 10)
+    /** VD "80%" — chấm BTVN Nghe-nói (Video Ôn tập) buổi TRƯỚC buổi này, nhập tay độc lập với homeworkPreviousScore (Ngữ pháp). Bổ sung V56, nới độ dài V68. */
+    @Column(name = "homework_previous_speaking_score", length = 30)
     private String homeworkPreviousSpeakingScore;
 
     /** VD "Unit 4 Trang 18" — BTVN giao cho buổi SAU, hạn nộp ngầm hiểu là ngày buổi học kế tiếp. Chỉ còn dùng cho kênh ngữ pháp OFFLINE (V55) — kênh ONLINE dùng homeworkNextExerciseAssignment. */

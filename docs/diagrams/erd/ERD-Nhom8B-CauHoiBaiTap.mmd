@@ -6,7 +6,11 @@ erDiagram
 
     exercises ||--o{ exercise_questions : "cau hoi thuoc de"
     questions ||--o{ exercise_questions : ""
-    curriculums ||--o{ exercises : ""
+    curriculums ||--o{ exams : "loc/duyet (Kho de)"
+    users ||--o{ exams : "GV tao de"
+    exams ||--o{ exercises : "bai thuoc de"
+    classes ||--o{ exam_class_assignments : "gan de cho lop"
+    exams ||--o{ exam_class_assignments : ""
     classes ||--o{ exercise_assignments : "giao cho lop"
     exercises ||--o{ exercise_assignments : ""
     exercise_assignments ||--o{ exercise_attempts : "luot lam"
@@ -51,12 +55,29 @@ erDiagram
         INT display_order
     }
 
-    exercises {
+    exams {
         BIGSERIAL id PK
         UUID uuid UK
         VARCHAR code UK
         VARCHAR title
         BIGINT curriculum_id FK
+        BIGINT created_by FK
+    }
+
+    exam_class_assignments {
+        BIGSERIAL id PK
+        BIGINT exam_id FK
+        BIGINT class_id FK
+        BIGINT assigned_by FK
+        TIMESTAMPTZ assigned_at
+    }
+
+    exercises {
+        BIGSERIAL id PK
+        UUID uuid UK
+        VARCHAR code UK
+        VARCHAR title
+        BIGINT exam_id FK
         VARCHAR exercise_type
         DECIMAL total_points
         INT time_limit_minutes

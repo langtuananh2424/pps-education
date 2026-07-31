@@ -137,6 +137,59 @@ class QuestionImportServiceTest extends AbstractIntegrationTest {
         assertThat(speaking.referencePassage()).isEqualTo("enthusiasm, literature");
     }
 
+    /**
+     * Kho đề (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30):
+     * nhận diện header theo TÊN (không còn vị trí cố định) — cột toàn tiếng
+     * Anh, thứ tự XÁO TRỘN so với mẫu Việt vẫn đọc đúng.
+     */
+    @Test
+    void importQuestions_boSung_acceptsEnglishHeadersInShuffledOrder() throws IOException {
+        byte[] file = buildExcelWithHeaders(
+                new String[]{"Content", "Correct Answer", "Question Type", "Answer B", "Answer A", "Answer D", "Answer C", "Points"},
+                new String[][]{
+                        {"What is the capital of France?", "B", "TRAC_NGHIEM", "Paris", "London", "Madrid", "Berlin", "1"}
+                });
+
+        QuestionImportResponse result = questionImportService.importQuestions(bank.id(),
+                new MockMultipartFile("file", "cau-hoi-en.xlsx", "application/vnd.openxmlformats", file), teacher.getId());
+
+        assertThat(result.status()).isEqualTo("COMPLETED");
+        assertThat(result.successRows()).isEqualTo(1);
+        QuestionResponse saved = questionBankService.listQuestions(bank.id()).get(0);
+        assertThat(saved.questionType()).isEqualTo("MULTIPLE_CHOICE");
+        assertThat(saved.choices()).filteredOn(c -> c.content().equals("Paris")).extracting(c -> c.isCorrect()).containsExactly(true);
+    }
+
+    /** Trộn header tiếng Việt lẫn tiếng Anh trong CÙNG 1 file vẫn đọc đúng từng cột theo alias riêng của nó. */
+    @Test
+    void importQuestions_boSung_acceptsMixedVietnameseAndEnglishHeaders() throws IOException {
+        byte[] file = buildExcelWithHeaders(
+                new String[]{"Nội dung", "Question Type", "Đáp án đúng", "Answer A", "Đáp án B", "Answer C", "Đáp án D"},
+                new String[][]{
+                        {"What is the capital of France?", "TRAC_NGHIEM", "B", "London", "Paris", "Berlin", "Madrid"}
+                });
+
+        QuestionImportResponse result = questionImportService.importQuestions(bank.id(),
+                new MockMultipartFile("file", "cau-hoi-mix.xlsx", "application/vnd.openxmlformats", file), teacher.getId());
+
+        assertThat(result.status()).isEqualTo("COMPLETED");
+        assertThat(result.successRows()).isEqualTo(1);
+    }
+
+    /** Thiếu cột bắt buộc (Nội dung/Content) trong header → không đọc được dòng nào, báo lỗi rõ ngay từ đầu file. */
+    @Test
+    void importQuestions_boSung_rejectsFileMissingRequiredContentHeader() throws IOException {
+        byte[] file = buildExcelWithHeaders(
+                new String[]{"Question Type", "Correct Answer"},
+                new String[][]{{"TRAC_NGHIEM", "B"}});
+
+        QuestionImportResponse result = questionImportService.importQuestions(bank.id(),
+                new MockMultipartFile("file", "thieu-cot.xlsx", "application/vnd.openxmlformats", file), teacher.getId());
+
+        assertThat(result.status()).isEqualTo("FAILED");
+        assertThat(result.errorSummary().get(0).get("reason").toString()).contains("Thiếu cột bắt buộc");
+    }
+
     @Test
     void importQuestions_UC40_A2_oneInvalidExcelRowDoesNotBlockOthers() throws IOException {
         byte[] file = buildExcel(new String[][]{
@@ -202,6 +255,32 @@ class QuestionImportServiceTest extends AbstractIntegrationTest {
         assertThat(questionBankService.listQuestions(bank.id())).hasSize(1);
     }
 
+    /** Word — nhãn "Nhãn: giá trị" chấp nhận tiếng Anh song song tiếng Việt (VD "Content:"/"Correct Answer:"). */
+    @Test
+    void importQuestions_boSung_acceptsEnglishLabelsInWordBlock() throws IOException {
+        byte[] file = buildWordDocx(List.of(
+                "[TRAC_NGHIEM]",
+                "Content: What is the capital of France?",
+                "A. London",
+                "B. Paris",
+                "C. Berlin",
+                "D. Madrid",
+                "Correct Answer: B",
+                "Difficulty: EASY",
+                "---"
+        ));
+
+        QuestionImportResponse result = questionImportService.importQuestions(bank.id(),
+                new MockMultipartFile("file", "cau-hoi-en.docx",
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document", file), teacher.getId());
+
+        assertThat(result.status()).isEqualTo("COMPLETED");
+        assertThat(result.successRows()).isEqualTo(1);
+        QuestionResponse saved = questionBankService.listQuestions(bank.id()).get(0);
+        assertThat(saved.difficulty()).isEqualTo("EASY");
+        assertThat(saved.choices()).filteredOn(c -> c.content().equals("Paris")).extracting(c -> c.isCorrect()).containsExactly(true);
+    }
+
     /**
      * Round-trip: file mẫu Word tự sinh (buildWordTemplate) phải tự đọc lại
      * được đúng cả 5 loại — bảo vệ khỏi mẫu và parser lệch cú pháp nhau
@@ -231,6 +310,28 @@ class QuestionImportServiceTest extends AbstractIntegrationTest {
             Sheet sheet = workbook.createSheet("CauHoi");
             String[] headers = {"Loại câu hỏi", "Độ khó", "Nội dung", "Đáp án A", "Đáp án B", "Đáp án C", "Đáp án D",
                     "Đáp án đúng", "URL Audio", "URL Hình ảnh", "Transcript/Từ khóa", "Điểm", "Giải thích", "Tags"};
+            Row header = sheet.createRow(0);
+            for (int i = 0; i < headers.length; i++) {
+                header.createCell(i).setCellValue(headers[i]);
+            }
+            for (int r = 0; r < rows.length; r++) {
+                Row row = sheet.createRow(r + 1);
+                for (int c = 0; c < rows[r].length; c++) {
+                    if (rows[r][c] != null) {
+                        row.createCell(c).setCellValue(rows[r][c]);
+                    }
+                }
+            }
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            workbook.write(out);
+            return out.toByteArray();
+        }
+    }
+
+    /** Kho đề — dựng file Excel với header TÙY CHỌN (tên + thứ tự bất kỳ) để test nhận diện theo tên thay vì vị trí cố định. */
+    private byte[] buildExcelWithHeaders(String[] headers, String[][] rows) throws IOException {
+        try (XSSFWorkbook workbook = new XSSFWorkbook()) {
+            Sheet sheet = workbook.createSheet("CauHoi");
             Row header = sheet.createRow(0);
             for (int i = 0; i < headers.length; i++) {
                 header.createCell(i).setCellValue(headers[i]);

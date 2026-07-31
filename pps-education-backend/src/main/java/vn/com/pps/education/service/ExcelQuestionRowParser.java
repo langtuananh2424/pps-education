@@ -10,22 +10,25 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
- * UC-40 (bổ sung, đã xác nhận với người dùng): đọc file mẫu Excel soạn đề
- * nhanh — cột CỐ ĐỊNH theo vị trí (không so khớp theo tên header như
- * GradeImportService, vì bộ cột câu hỏi không đổi theo ngữ cảnh như
- * grade_components đổi theo từng kỳ đánh giá): A=Loại câu hỏi, B=Độ khó,
- * C=Nội dung, D-G=Đáp án A-D, H=Đáp án đúng, I=URL Audio, J=URL Hình ảnh,
- * K=Transcript/Từ khóa phát âm, L=Điểm mặc định, M=Giải thích, N=Tags.
- * Dòng 1 = header (bỏ qua khi đọc), dữ liệu từ dòng 2.
+ * UC-40 (bổ sung, đã xác nhận với người dùng) — đọc file mẫu Excel soạn đề
+ * nhanh. Kho đề (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+ * 2026-07-30): đổi từ đọc theo VỊ TRÍ cột cố định sang đọc theo TÊN
+ * header (dòng 1) — chấp nhận cả tiếng Việt lẫn tiếng Anh (xem
+ * {@link QuestionImportFieldAliases}), thứ tự cột không còn quan trọng.
+ * Thiếu header "Nội dung"/"Loại câu hỏi" (bắt buộc để biết đọc cột nào) →
+ * lỗi ngay cả file, không đọc được dòng nào. Header khác thiếu → field đó
+ * luôn null mọi dòng (validate hiện có ở QuestionImportService xử lý).
  */
 @Service
 public class ExcelQuestionRowParser implements QuestionRowParser {
 
+    private static final int HEADER_ROW_INDEX = 0;
     private static final int FIRST_DATA_ROW_INDEX = 1;
-    private static final int COLUMN_COUNT = 14;
 
     @Override
     public boolean supports(String filename) {
@@ -37,28 +40,39 @@ public class ExcelQuestionRowParser implements QuestionRowParser {
         try (XSSFWorkbook workbook = new XSSFWorkbook(inputStream)) {
             Sheet sheet = workbook.getSheetAt(0);
             DataFormatter formatter = new DataFormatter();
+            Row headerRow = sheet.getRow(HEADER_ROW_INDEX);
+            if (headerRow == null) {
+                throw new IllegalArgumentException("File rỗng hoặc thiếu dòng tiêu đề (header).");
+            }
+            Map<String, Integer> fieldToColumn = resolveHeaderColumns(headerRow, formatter);
+            if (!fieldToColumn.containsKey("content") || !fieldToColumn.containsKey("kind")) {
+                throw new IllegalArgumentException(
+                        "Thiếu cột bắt buộc: \"Nội dung\"/\"Content\" hoặc \"Loại câu hỏi\"/\"Question Type\" — "
+                                + "không xác định được cột nào chứa dữ liệu gì.");
+            }
+
             List<ParsedQuestionRow> rows = new ArrayList<>();
             for (int rowIndex = FIRST_DATA_ROW_INDEX; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
                 Row row = sheet.getRow(rowIndex);
-                if (row == null || isBlankRow(row, formatter)) {
+                if (row == null || isBlankRow(row, formatter, fieldToColumn)) {
                     continue;
                 }
                 rows.add(new ParsedQuestionRow(
                         rowIndex + 1,
-                        cell(row, formatter, 0),
-                        cell(row, formatter, 1),
-                        cell(row, formatter, 2),
-                        cell(row, formatter, 3),
-                        cell(row, formatter, 4),
-                        cell(row, formatter, 5),
-                        cell(row, formatter, 6),
-                        cell(row, formatter, 7),
-                        cell(row, formatter, 8),
-                        cell(row, formatter, 9),
-                        cell(row, formatter, 10),
-                        cell(row, formatter, 11),
-                        cell(row, formatter, 12),
-                        cell(row, formatter, 13)
+                        field(row, formatter, fieldToColumn, "kind"),
+                        field(row, formatter, fieldToColumn, "difficulty"),
+                        field(row, formatter, fieldToColumn, "content"),
+                        field(row, formatter, fieldToColumn, "choiceA"),
+                        field(row, formatter, fieldToColumn, "choiceB"),
+                        field(row, formatter, fieldToColumn, "choiceC"),
+                        field(row, formatter, fieldToColumn, "choiceD"),
+                        field(row, formatter, fieldToColumn, "correctAnswer"),
+                        field(row, formatter, fieldToColumn, "audioUrl"),
+                        field(row, formatter, fieldToColumn, "imageUrl"),
+                        field(row, formatter, fieldToColumn, "referencePassage"),
+                        field(row, formatter, fieldToColumn, "defaultPoints"),
+                        field(row, formatter, fieldToColumn, "explanation"),
+                        field(row, formatter, fieldToColumn, "tags")
                 ));
             }
             return rows;
@@ -67,7 +81,28 @@ public class ExcelQuestionRowParser implements QuestionRowParser {
         }
     }
 
-    private String cell(Row row, DataFormatter formatter, int index) {
+    /** Map tên field nội bộ -> chỉ số cột, tra theo header thực tế (bỏ qua header lạ không nhận diện được). */
+    private Map<String, Integer> resolveHeaderColumns(Row headerRow, DataFormatter formatter) {
+        Map<String, Integer> fieldToColumn = new HashMap<>();
+        for (int col = 0; col < headerRow.getLastCellNum(); col++) {
+            String headerText = cellRaw(headerRow, formatter, col);
+            if (headerText == null) {
+                continue;
+            }
+            String field = QuestionImportFieldAliases.resolveField(headerText);
+            if (field != null) {
+                fieldToColumn.putIfAbsent(field, col);
+            }
+        }
+        return fieldToColumn;
+    }
+
+    private String field(Row row, DataFormatter formatter, Map<String, Integer> fieldToColumn, String field) {
+        Integer col = fieldToColumn.get(field);
+        return col == null ? null : cellRaw(row, formatter, col);
+    }
+
+    private String cellRaw(Row row, DataFormatter formatter, int index) {
         var c = row.getCell(index);
         if (c == null) {
             return null;
@@ -76,9 +111,9 @@ public class ExcelQuestionRowParser implements QuestionRowParser {
         return value.isEmpty() ? null : value;
     }
 
-    private boolean isBlankRow(Row row, DataFormatter formatter) {
-        for (int i = 0; i < COLUMN_COUNT; i++) {
-            if (cell(row, formatter, i) != null) {
+    private boolean isBlankRow(Row row, DataFormatter formatter, Map<String, Integer> fieldToColumn) {
+        for (Integer col : fieldToColumn.values()) {
+            if (cellRaw(row, formatter, col) != null) {
                 return false;
             }
         }

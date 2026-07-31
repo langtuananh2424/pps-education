@@ -495,8 +495,7 @@ public class StudentCommentService {
         List<ClassEnrollment> enrollments = classEnrollmentRepository
                 .findBySchoolClassIdAndStatus(classId, ClassEnrollment.Status.ACTIVE);
         Long curriculumId = classSession.getSchoolClass().getCurriculum().getId();
-        List<Exercise> grammarOptions = exerciseRepository.findByCurriculumIdAndExerciseTypeAndStatus(
-                curriculumId, Exercise.ExerciseType.ASSIGNED, Exercise.Status.PUBLISHED);
+        List<Exercise> grammarOptions = exerciseRepository.findAvailableForClass(classId, Exercise.Status.PUBLISHED);
         List<ReviewVideoSet> videoOptions = reviewVideoSetRepository.findVisibleForClass(
                 classId, curriculumId, ReviewVideoSet.Status.PUBLISHED);
 
@@ -588,7 +587,7 @@ public class StudentCommentService {
         Long classId = classSession.getSchoolClass().getId();
         Long curriculumId = classSession.getSchoolClass().getCurriculum().getId();
         Map<String, Exercise> grammarByLabel = exerciseRepository
-                .findByCurriculumIdAndExerciseTypeAndStatus(curriculumId, Exercise.ExerciseType.ASSIGNED, Exercise.Status.PUBLISHED).stream()
+                .findAvailableForClass(classId, Exercise.Status.PUBLISHED).stream()
                 .collect(java.util.stream.Collectors.toMap(this::grammarLabel, e -> e, (a, b) -> a));
         Map<String, ReviewVideoSet> videoByLabel = reviewVideoSetRepository.findVisibleForClass(
                 classId, curriculumId, ReviewVideoSet.Status.PUBLISHED).stream()
@@ -979,8 +978,9 @@ public class StudentCommentService {
         }
     }
 
+    /** Kho đề (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30): "Mã Đề - Tên bài" — phân biệt khi 1 lớp có nhiều Đề. */
     private String grammarLabel(Exercise e) {
-        return e.getTitle() + " (" + e.getCode() + ")";
+        return e.getExam().getCode() + " - " + e.getTitle();
     }
 
     private String videoLabel(ReviewVideoSet s) {
