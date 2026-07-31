@@ -18,7 +18,7 @@ import NotificationBanner from "../components/NotificationBanner";
 import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
 import Select from "@/components/ui/Select";
 
-type SimpleStatus = "PRESENT" | "ABSENT" | "LATE";
+type SimpleStatus = "PRESENT" | "ABSENT" | "EXCUSED" | "LATE";
 
 interface Row {
   studentId: number;
@@ -29,6 +29,7 @@ interface Row {
 
 function toSimpleStatus(status: EnterAttendanceMarkRequest["status"]): SimpleStatus {
   if (status === "PRESENT") return "PRESENT";
+  if (status === "EXCUSED") return "EXCUSED";
   if (status === "LATE" || status === "EARLY_LEAVE") return "LATE";
   return "ABSENT";
 }
@@ -133,15 +134,21 @@ export default function AttendancePage() {
       setSessionStatus(result.status);
 
       const absentStudents = rows.filter((r) => r.status === "ABSENT");
+      const excusedStudents = rows.filter((r) => r.status === "EXCUSED");
       const lateStudents = rows.filter((r) => r.status === "LATE");
       let message = "🔔 BÁO CÁO CHUYÊN CẦN:\n- Hệ thống đã lưu điểm danh lớp học.\n";
       if (absentStudents.length > 0) {
         message += `- ĐÃ TỰ ĐỘNG GỬI thông báo khẩn qua SMS & Zalo tới phụ huynh học sinh vắng mặt: ${absentStudents.map((s) => s.studentFullName).join(", ")}.\n`;
       }
+      if (excusedStudents.length > 0) {
+        // Backend chỉ gửi thông báo cho ABSENT/LATE (StudentAttendanceService.notifyParents) — nghỉ có
+        // phép không gửi, vì phụ huynh đã chủ động xin nghỉ nên không cần cảnh báo khẩn.
+        message += `- Nghỉ có phép (không gửi thông báo khẩn): ${excusedStudents.map((s) => s.studentFullName).join(", ")}.\n`;
+      }
       if (lateStudents.length > 0) {
         message += `- Đã gửi tin nhắn đi muộn tới phụ huynh các em: ${lateStudents.map((s) => s.studentFullName).join(", ")}.\n`;
       }
-      if (absentStudents.length === 0 && lateStudents.length === 0) {
+      if (absentStudents.length === 0 && excusedStudents.length === 0 && lateStudents.length === 0) {
         message = "✅ Điểm danh thành công! Toàn bộ học sinh trong lớp đã có mặt đầy đủ.";
       }
       setNotification(message);
@@ -211,25 +218,26 @@ export default function AttendancePage() {
                 <Th>Họ và tên</Th>
                 <Th className="text-center">Có mặt</Th>
                 <Th className="text-center">Vắng mặt (ABSENT)</Th>
+                <Th className="text-center">Nghỉ có phép (EXCUSED)</Th>
                 <Th className="text-center">Đi trễ (LATE)</Th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {!selectedSessionId ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-xs text-slate-400 italic">
+                  <td colSpan={6} className="px-6 py-12 text-center text-xs text-slate-400 italic">
                     {selectedClass ? "Chọn buổi học ở trên để tải danh sách học sinh." : "Chọn 1 lớp ở Header (góc trên bên phải)."}
                   </td>
                 </tr>
               ) : loadingRows ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-xs text-slate-400">
+                  <td colSpan={6} className="px-6 py-12 text-center text-xs text-slate-400">
                     Đang tải...
                   </td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-xs text-slate-400 italic">
+                  <td colSpan={6} className="px-6 py-12 text-center text-xs text-slate-400 italic">
                     Không tìm thấy học sinh nào thuộc lớp học này.
                   </td>
                 </tr>
@@ -238,7 +246,7 @@ export default function AttendancePage() {
                   <tr key={stud.studentId} className="hover:bg-slate-50/40 transition-colors">
                     <Td className="font-mono font-bold text-slate-500">{stud.studentCode}</Td>
                     <Td className="font-bold text-slate-900">{stud.studentFullName}</Td>
-                    {(["PRESENT", "ABSENT", "LATE"] as const).map((statusOption) => (
+                    {(["PRESENT", "ABSENT", "EXCUSED", "LATE"] as const).map((statusOption) => (
                       <Td key={statusOption} className="text-center">
                         <input
                           type="radio"
@@ -251,7 +259,9 @@ export default function AttendancePage() {
                               ? "text-emerald-600 focus:ring-emerald-500"
                               : statusOption === "ABSENT"
                                 ? "text-rose-600 focus:ring-rose-500"
-                                : "text-amber-500 focus:ring-amber-500"
+                                : statusOption === "EXCUSED"
+                                  ? "text-sky-600 focus:ring-sky-500"
+                                  : "text-amber-500 focus:ring-amber-500"
                           }`}
                         />
                       </Td>

@@ -45,6 +45,7 @@ interface Row {
   studentId: number;
   studentFullName: string;
   studentCode: string;
+  studentDateOfBirth: string | null;
   attitude: "" | NonNullable<StudentCommentResponse["attitude"]>;
   homeworkPreviousScore: string;
   homeworkPreviousSpeakingScore: string;
@@ -251,6 +252,7 @@ export default function DailyCommentPanel() {
             studentId: en.studentId,
             studentFullName: en.studentFullName,
             studentCode: en.studentCode,
+            studentDateOfBirth: en.studentDateOfBirth,
             attitude: "",
             homeworkPreviousScore: "",
             homeworkPreviousSpeakingScore: "",
@@ -594,6 +596,7 @@ export default function DailyCommentPanel() {
             <tr>
               <Th className="min-w-[120px]">Mã ID</Th>
               <Th>Họ và tên</Th>
+              <Th>Ngày sinh</Th>
               <Th>Thái độ học tập</Th>
               <Th>BTVN Ngữ pháp buổi trước</Th>
               <Th>BTVN Nghe-nói buổi trước</Th>
@@ -606,19 +609,19 @@ export default function DailyCommentPanel() {
           <tbody className="divide-y divide-slate-100">
             {!selectedSessionId ? (
               <tr>
-                <td colSpan={9} className="px-6 py-12 text-center text-xs text-slate-400 italic">
+                <td colSpan={10} className="px-6 py-12 text-center text-xs text-slate-400 italic">
                   {selectedClass ? "Chọn buổi học ở trên để tải danh sách học sinh." : "Chọn 1 lớp ở Header (góc trên bên phải)."}
                 </td>
               </tr>
             ) : loadingRows ? (
               <tr>
-                <td colSpan={9} className="px-6 py-12 text-center text-xs text-slate-400">
+                <td colSpan={10} className="px-6 py-12 text-center text-xs text-slate-400">
                   Đang tải...
                 </td>
               </tr>
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={9} className="px-6 py-12 text-center text-xs text-slate-400 italic">
+                <td colSpan={10} className="px-6 py-12 text-center text-xs text-slate-400 italic">
                   Không tìm thấy học sinh nào thuộc lớp học này.
                 </td>
               </tr>
@@ -641,6 +644,7 @@ export default function DailyCommentPanel() {
                   >
                     <Td className="font-mono font-bold text-slate-500">{r.studentCode}</Td>
                     <Td className="font-bold text-slate-900 whitespace-nowrap">{r.studentFullName}</Td>
+                    <Td className="whitespace-nowrap text-slate-500">{r.studentDateOfBirth ?? "—"}</Td>
                     <Td className="min-w-[130px]">
                       {locked ? (
                         <div className={readOnlyFieldClass}>{sent!.attitude ? attitudeLabels[sent!.attitude!] : "—"}</div>

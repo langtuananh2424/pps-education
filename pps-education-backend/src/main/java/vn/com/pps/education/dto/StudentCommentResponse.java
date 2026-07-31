@@ -8,6 +8,7 @@ public record StudentCommentResponse(
         Long id,
         Long studentId,
         String studentFullName,
+        LocalDate studentDateOfBirth,
         Long classId,
         Long teacherId,
         String commentType,

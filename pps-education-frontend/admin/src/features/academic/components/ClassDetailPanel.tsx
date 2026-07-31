@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Calendar, FileSpreadsheet, FileText, Save, Search, Sparkles, UserPlus, Users, X } from "lucide-react";
+import { Calendar, Download, FileSpreadsheet, FileText, Save, Search, Sparkles, UploadCloud, UserPlus, Users, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
+import { downloadBlob } from "@/lib/xlsxTemplate";
 import { useApp } from "@/context/AppContext";
 import { UserRole } from "@/types";
 import { UserListItemResponse } from "@/features/system-admin/api";
@@ -10,6 +11,7 @@ import { listStudents, StudentResponse } from "@/features/student/api";
 import { RoomResponse, listRoomsBySite } from "@/features/facility/api";
 import {
   AssignTeacherRequest,
+  ClassEnrollmentBatchImportResponse,
   ClassEnrollmentResponse,
   ClassResponse,
   ClassSessionResponse,
@@ -18,8 +20,10 @@ import {
   assignClassTeacher,
   cancelClassSession,
   createClassSession,
+  downloadEnrollmentImportTemplate,
   enrollStudent,
   getAttendanceSession,
+  importClassEnrollments,
   listCancelledSessionsPendingMakeup,
   listClassEnrollments,
   listClassSessions,
@@ -407,6 +411,10 @@ function StudentsTab({
   const [error, setError] = useState<string | null>(null);
   const [enrolling, setEnrolling] = useState(false);
   const [viewingEnrollment, setViewingEnrollment] = useState<ClassEnrollmentResponse | null>(null);
+  const [downloadingTemplate, setDownloadingTemplate] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<ClassEnrollmentBatchImportResponse | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { promptDialog, confirmDialog } = useDialog();
 
   const load = () => {
@@ -430,17 +438,102 @@ function StudentsTab({
     }
   };
 
+  /** UC-65 (bổ sung ngoài SDD gốc): ghi danh hàng loạt qua Excel — mã học sinh phải khớp học sinh đã tồn tại sẵn. */
+  const handleDownloadTemplate = async () => {
+    setDownloadingTemplate(true);
+    setError(null);
+    try {
+      const blob = await downloadEnrollmentImportTemplate(classId);
+      downloadBlob(blob, `mau-ghi-danh-lop-${classId}.xlsx`);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Tải file mẫu thất bại.");
+    } finally {
+      setDownloadingTemplate(false);
+    }
+  };
+
+  const handleImportFile = async (file: File | null) => {
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith(".xlsx")) {
+      setError("Chỉ hỗ trợ file .xlsx.");
+      return;
+    }
+    setImporting(true);
+    setError(null);
+    setImportResult(null);
+    try {
+      const res = await importClassEnrollments(classId, file);
+      setImportResult(res);
+      if (res.successRows > 0) {
+        load();
+        showToast(`Đã ghi danh ${res.successRows} học sinh từ file Excel!`);
+      }
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Nhập từ Excel thất bại.");
+    } finally {
+      setImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <span className="text-[10px] font-bold uppercase text-slate-500">Học sinh đã ghi danh ({enrollments.length})</span>
         {canManage && (
-          <Button size="sm" variant="secondary" onClick={() => setEnrolling(true)}>
-            <UserPlus className="w-3.5 h-3.5" />
-            Ghi danh học sinh
-          </Button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button size="sm" variant="secondary" onClick={() => setEnrolling(true)}>
+              <UserPlus className="w-3.5 h-3.5" />
+              Ghi danh học sinh
+            </Button>
+            <button
+              type="button"
+              onClick={handleDownloadTemplate}
+              disabled={downloadingTemplate}
+              className="flex items-center gap-1.5 border border-dashed border-slate-300 rounded-lg px-3 py-1.5 text-[11px] font-semibold text-slate-600 hover:bg-white disabled:opacity-50"
+            >
+              <Download className="w-3.5 h-3.5" />
+              {downloadingTemplate ? "Đang tải..." : "Tải mẫu Excel"}
+            </button>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={importing}
+              className="flex items-center gap-1.5 border-2 border-dashed border-slate-200 rounded-lg px-3 py-1.5 text-[11px] font-semibold text-slate-600 hover:border-brand-orange hover:bg-orange-50/30 disabled:opacity-50"
+            >
+              <UploadCloud className="w-3.5 h-3.5 text-brand-orange" />
+              {importing ? "Đang nhập..." : "Ghi danh theo lô (.xlsx)"}
+            </button>
+            <input ref={fileInputRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => handleImportFile(e.target.files?.[0] ?? null)} />
+          </div>
         )}
       </div>
+
+      {importResult && (
+        <div className="w-full flex flex-wrap items-center gap-2 text-[11px]">
+          <span className="bg-slate-100 border border-slate-200 text-slate-700 font-semibold px-2 py-1 rounded-lg">
+            Tổng: {importResult.totalRows ?? "—"}
+          </span>
+          <span className="bg-emerald-50 border border-emerald-100 text-emerald-600 font-semibold px-2 py-1 rounded-lg">
+            Thành công: {importResult.successRows}
+          </span>
+          <span className="bg-rose-50 border border-rose-100 text-rose-600 font-semibold px-2 py-1 rounded-lg">
+            Lỗi: {importResult.failedRows}
+          </span>
+          {importResult.errorSummary.length > 0 && (
+            <div className="w-full border border-rose-100 rounded-lg overflow-hidden">
+              <div className="max-h-40 overflow-y-auto divide-y divide-slate-100">
+                {importResult.errorSummary.map((e, i) => (
+                  <div key={i} className="px-3 py-1.5 flex gap-2 bg-white">
+                    <span className="font-mono font-bold text-slate-400 shrink-0">Dòng {String(e.row)}</span>
+                    <span className="text-slate-600">{String(e.reason)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 

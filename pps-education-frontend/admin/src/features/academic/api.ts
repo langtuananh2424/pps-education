@@ -230,6 +230,7 @@ export interface ClassEnrollmentResponse {
   studentId: number;
   studentFullName: string;
   studentCode: string;
+  studentDateOfBirth: string | null;
   enrolledDate: string;
   withdrawnDate: string | null;
   status: string;
@@ -256,6 +257,29 @@ export function enrollStudent(classId: number, request: EnrollStudentRequest): P
 
 export function withdrawEnrollment(classId: number, enrollmentId: number, request: WithdrawEnrollmentRequest): Promise<ClassEnrollmentResponse> {
   return apiRequest<ClassEnrollmentResponse>(`/classes/${classId}/enrollments/${enrollmentId}/withdraw`, { method: "POST", body: JSON.stringify(request) });
+}
+
+/** Khớp ClassEnrollmentBatchImportResponse thật (UC-65, bổ sung ngoài SDD gốc). Ghi danh học sinh ĐÃ TỒN TẠI SẴN theo lô — không tạo học sinh mới. */
+export interface ClassEnrollmentBatchImportResponse {
+  id: number;
+  sourceFileName: string;
+  totalRows: number | null;
+  successRows: number;
+  failedRows: number;
+  status: string;
+  errorSummary: Record<string, unknown>[];
+}
+
+/** UC-65 (bổ sung): tải file mẫu ghi danh học sinh theo lô — 2 cột (mã học sinh*, ngày ghi danh). */
+export function downloadEnrollmentImportTemplate(classId: number): Promise<Blob> {
+  return apiRequestBlob(`/classes/${classId}/enrollments/import-template`);
+}
+
+/** UC-65 (bổ sung): nhập file đã điền -- ghi danh hàng loạt học sinh có sẵn vào ĐÚNG lớp classId. */
+export function importClassEnrollments(classId: number, file: File): Promise<ClassEnrollmentBatchImportResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return apiRequest<ClassEnrollmentBatchImportResponse>(`/classes/${classId}/enrollments/import`, { method: "POST", body: formData });
 }
 
 // ===================== Buổi học (UC-48) =====================
@@ -700,6 +724,7 @@ export interface StudentCommentResponse {
   id: number;
   studentId: number;
   studentFullName: string;
+  studentDateOfBirth: string | null;
   classId: number;
   teacherId: number;
   commentType: "DAILY" | "MID_TERM" | "END_TERM";

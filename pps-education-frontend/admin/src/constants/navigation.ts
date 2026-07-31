@@ -3,6 +3,7 @@ import {
   Building2,
   CalendarDays,
   CheckSquare,
+  ClipboardCheck,
   DollarSign,
   ExternalLink,
   GraduationCap,
@@ -133,11 +134,10 @@ export const navSections: NavSection[] = [
     items: [
       { id: "stu-profile", label: "Hồ sơ học sinh", path: "/student/profile", icon: Users, requiredPermission: "student.profile.view" },
       { id: "stu-parents", label: "Quản lý phụ huynh", path: "/student/parents", icon: Users, requiredPermission: "student.parent.view" }
-      // Ẩn khỏi sidebar theo yêu cầu người dùng (2026-07-24) — giờ vào bằng nút "Điểm danh" ở tab
-      // "Buổi học & Điểm danh" trong Quản lý lớp học (UC-18, ClassDetailPanel), deep-link kèm
-      // classId/sessionId. CHỈ ẩn khỏi menu, không xoá route (App.tsx vẫn giữ /student/attendance,
-      // vào qua nút ở UC-18 vẫn dùng được bình thường).
-      // { id: "stu-attendance", label: "Điểm danh nhanh (UC-15)", path: "/student/attendance", icon: Users, requiredPermission: "academic.attendance.mark" }
+      // Mục "Điểm danh nhanh" đã chuyển sang section QUẢN LÝ HỌC THUẬT bên dưới (yêu cầu người dùng
+      // 2026-07-31, đảo lại quyết định ẩn hẳn khỏi sidebar ngày 2026-07-24) — xem "acad-attendance".
+      // Vẫn giữ nguyên nút "Điểm danh" deep-link kèm classId/sessionId ở tab "Buổi học & Điểm danh"
+      // trong Quản lý lớp học (UC-18, ClassDetailPanel) — 2 lối vào cùng 1 route /student/attendance.
     ]
   },
   {
@@ -146,6 +146,10 @@ export const navSections: NavSection[] = [
     items: [
       // academic.class.manage: TEACHER/HEAD_ACADEMIC đều có sẵn permission này (xem UC-18) — không cần gate thêm role.
       { id: "acad-classes", label: "Quản lý lớp học", path: "/academic/classes", icon: GraduationCap, requiredPermission: "academic.class.manage" },
+      // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31 — trước đó chỉ vào được qua nút
+      // deep-link trong Quản lý lớp học (xem ghi chú "stu-attendance" cũ ở section QUẢN LÝ HỌC SINH).
+      // Lọc theo lớp lấy từ lớp đang chọn ở Header (đã có sẵn, không đổi gì ở AttendancePage.tsx).
+      { id: "acad-attendance", label: "Điểm danh (UC-15)", path: "/student/attendance", icon: ClipboardCheck, requiredPermission: "academic.attendance.mark" },
       // academic.curriculum.manage đã bị tách nhỏ (hạt nhân hóa V62) thành
       // academic.curriculum.create/update/approve — mã gộp cũ không còn tồn tại. Gate theo
       // .create (thấp nhất) để vào trang; khối duyệt tùy biến (UC-17) bên trong tự gate riêng

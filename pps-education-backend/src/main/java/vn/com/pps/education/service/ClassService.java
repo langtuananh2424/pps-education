@@ -407,7 +407,7 @@ public class ClassService {
     private ClassEnrollmentResponse toResponse(ClassEnrollment e) {
         return new ClassEnrollmentResponse(
                 e.getId(), e.getSchoolClass().getId(), e.getStudent().getId(), e.getStudent().getUser().getFullName(),
-                e.getStudent().getStudentCode(), e.getEnrolledDate(), e.getWithdrawnDate(), e.getStatus().name(),
-                e.getWithdrawReason());
+                e.getStudent().getStudentCode(), e.getStudent().getDateOfBirth(), e.getEnrolledDate(), e.getWithdrawnDate(),
+                e.getStatus().name(), e.getWithdrawReason());
     }
 }
