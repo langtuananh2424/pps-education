@@ -18,6 +18,7 @@ import vn.com.pps.education.dto.CurriculumDocumentResponse;
 import vn.com.pps.education.dto.GradeEntryResponse;
 import vn.com.pps.education.dto.GradePeriodResultResponse;
 import vn.com.pps.education.dto.ListeningPracticeItemResponse;
+import vn.com.pps.education.dto.MyReviewVideoAssignmentResponse;
 import vn.com.pps.education.dto.StudentCommentResponse;
 import vn.com.pps.education.dto.StudentResponse;
 import vn.com.pps.education.dto.UpdateOwnStudentProfileRequest;
@@ -27,6 +28,7 @@ import vn.com.pps.education.service.CurriculumDocumentService;
 import vn.com.pps.education.service.ExerciseAttemptService;
 import vn.com.pps.education.service.GradeService;
 import vn.com.pps.education.service.ListeningPracticeService;
+import vn.com.pps.education.service.ReviewVideoService;
 import vn.com.pps.education.service.StudentAttendanceService;
 import vn.com.pps.education.service.StudentCommentService;
 import vn.com.pps.education.service.StudentService;
@@ -48,6 +50,7 @@ public class StudentPortalController {
     private final ExerciseAttemptService exerciseAttemptService;
     private final CurriculumDocumentService curriculumDocumentService;
     private final ListeningPracticeService listeningPracticeService;
+    private final ReviewVideoService reviewVideoService;
     private final GradeService gradeService;
     private final StudentService studentService;
     private final StudentAttendanceService studentAttendanceService;
@@ -57,6 +60,7 @@ public class StudentPortalController {
                                     ExerciseAttemptService exerciseAttemptService,
                                     CurriculumDocumentService curriculumDocumentService,
                                     ListeningPracticeService listeningPracticeService,
+                                    ReviewVideoService reviewVideoService,
                                     GradeService gradeService,
                                     StudentService studentService,
                                     StudentAttendanceService studentAttendanceService,
@@ -65,6 +69,7 @@ public class StudentPortalController {
         this.exerciseAttemptService = exerciseAttemptService;
         this.curriculumDocumentService = curriculumDocumentService;
         this.listeningPracticeService = listeningPracticeService;
+        this.reviewVideoService = reviewVideoService;
         this.gradeService = gradeService;
         this.studentService = studentService;
         this.studentAttendanceService = studentAttendanceService;
@@ -100,6 +105,14 @@ public class StudentPortalController {
             @RequestParam(required = false) Long classId,
             @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(exerciseAttemptService.listMyAssignedExercises(actor.userId(), classId));
+    }
+
+    /** Bổ sung: hạn nộp (dueAt) bộ Video Ôn tập đã được giao cho (các) lớp tôi đang học ACTIVE — xem Javadoc ReviewVideoService.listMyAssignments. */
+    @GetMapping("/review-video-assignments")
+    public ResponseEntity<List<MyReviewVideoAssignmentResponse>> listMyReviewVideoAssignments(
+            @RequestParam(required = false) Long classId,
+            @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(reviewVideoService.listMyAssignments(actor.userId(), classId));
     }
 
     /** UC-60: kho tài liệu tham khảo theo curriculum của (các) lớp tôi đang học. */

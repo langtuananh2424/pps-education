@@ -3,6 +3,7 @@ package vn.com.pps.education.service;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.ExerciseAssignment;
 import vn.com.pps.education.domain.Role;
@@ -34,6 +35,7 @@ import vn.com.pps.education.dto.UpdateQuestionRequest;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
 import vn.com.pps.education.exception.QuestionLockedException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
+import vn.com.pps.education.repository.NotificationRepository;
 import vn.com.pps.education.repository.RoleRepository;
 import vn.com.pps.education.repository.SiteRepository;
 import vn.com.pps.education.repository.StudentAnswerRepository;
@@ -44,6 +46,7 @@ import vn.com.pps.education.support.AbstractIntegrationTest;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -97,6 +100,9 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
 
     @Autowired
     private vn.com.pps.education.repository.ExerciseAttemptRepository exerciseAttemptRepository;
+
+    @Autowired
+    private NotificationRepository notificationRepository;
 
     private User headAcademic;
     private User teacher;
@@ -227,6 +233,38 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
 
         assertThat(assignment.getSchoolClass().getId()).isEqualTo(schoolClass.id());
         assertThat(exerciseService.getExercise(exercise.id(), teacher.getId()).status()).isEqualTo("PUBLISHED");
+    }
+
+    /**
+     * V70 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31) —
+     * fix bug thật: "Gửi nhận xét" hàng loạt cho N học sinh CÙNG buổi,
+     * CÙNG chọn 1 Bài → StudentCommentService gọi deliverToClass N lần
+     * với CÙNG (exerciseId, classId, dueAt) → trước đây tạo N
+     * ExerciseAssignment trùng lặp, mỗi bản ghi lại thông báo lại cho
+     * TOÀN BỘ học sinh lớp → 1 học sinh nhận N thông báo giống hệt nhau.
+     */
+    @Test
+    void deliverToClass_V70_boSung_reusesExistingAssignmentForSameSessionInsteadOfDuplicating() {
+        Student student = enrollStudent();
+        QuestionResponse mc = createMcQuestion();
+        ExerciseResponse exercise = exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "Kiểm tra 15 phút", defaultExam.id(), null, "ASSIGNED",
+                        new BigDecimal("10"), 15, false, 1, true),
+                teacher.getId());
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("10")), teacher.getId());
+        examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
+        OffsetDateTime dueAt = OffsetDateTime.now().plusDays(2);
+
+        // Mô phỏng N=3 request riêng biệt (3 học sinh khác nhau CÙNG chọn Bài này CÙNG buổi).
+        ExerciseAssignment first = exerciseService.deliverToClass(exercise.id(), schoolClass.id(), dueAt, teacher.getId());
+        ExerciseAssignment second = exerciseService.deliverToClass(exercise.id(), schoolClass.id(), dueAt, teacher.getId());
+        ExerciseAssignment third = exerciseService.deliverToClass(exercise.id(), schoolClass.id(), dueAt, teacher.getId());
+
+        assertThat(second.getId()).as("tái dùng đúng bản ghi cũ, không tạo mới").isEqualTo(first.getId());
+        assertThat(third.getId()).isEqualTo(first.getId());
+        assertThat(notificationRepository.findByRecipientUserIdOrderByCreatedAtDesc(student.getUser().getId(), PageRequest.of(0, 10)))
+                .as("chỉ nhận đúng 1 thông báo dù deliverToClass bị gọi 3 lần cho cùng buổi")
+                .hasSize(1);
     }
 
     /**

@@ -188,6 +188,18 @@ UC-23a: Xem & Theo dõi Kho Video Ôn tập
 |                 |     (hiện 0%, không biến mất khỏi danh sách).      |
 +-----------------+----------------------------------------------------+
 
+> **Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31** — fix
+> bug Portal không hiển thị hạn nộp (dueAt) cho BTVN Video: trước đây API
+> duy nhất đọc được `availableFrom`/`dueAt` của `ReviewVideoAssignment` là
+> `GET /api/classes/{classId}/review-video-assignments`, bị khoá
+> `requireAssignedTeacher` — chỉ Giáo viên gọi được, Học sinh gọi sẽ bị
+> chặn. Portal trước đó chỉ đọc được cấp Set (`GET /api/classes/{classId}/
+> review-video-sets`, không có `dueAt`) nên không có gì để hiển thị. Thêm
+> endpoint self-service `GET /api/students/me/review-video-assignments`
+> (tùy chọn `?classId=`) — mirror `listMyAssignedExercises` (bài ngữ
+> pháp) — trả `availableFrom`/`dueAt`/`videoType`/tiêu đề bộ theo đúng
+> phạm vi (các) lớp học sinh đang ghi danh ACTIVE.
+
 ---
 
 UC-23b: Nộp & Chấm điểm Audio cho Video Phản xạ
@@ -278,8 +290,10 @@ UC-23b: Nộp & Chấm điểm Audio cho Video Phản xạ
 |                 |     của UC-24/27 bài tập ngữ pháp).                 |
 +-----------------+----------------------------------------------------+
 | **Hậu điều kiện | -   Mỗi lần nộp tạo 1 attempt MỚI, GIỮ LỊCH SỬ mọi |
-| (P              |     attempt trước (không ghi đè, không xoá) — học   |
-| ostcondition)** |     sinh xem lại được toàn bộ lịch sử đã nộp.       |
+| (P              |     attempt trước TRONG CÙNG 1 lần giao (không ghi  |
+| ostcondition)** |     đè, không xoá) — học sinh xem lại được toàn bộ  |
+|                 |     lịch sử đã nộp của lần giao hiện tại (V69, xem  |
+|                 |     bổ sung dưới đây).                              |
 |                 |                                                    |
 |                 | -   Giáo viên chấm được điểm (score/maxScore) +    |
 |                 |     nhận xét cho TỪNG attempt (mặc định thao tác    |
@@ -290,6 +304,36 @@ UC-23b: Nộp & Chấm điểm Audio cho Video Phản xạ
 > ở FR-LMS-04 (chế độ Nói trong Luyện Nghe — Nói, UC-26, chấm qua
 > `ListeningPracticeGradingService`) — 2 domain tách biệt, không dùng
 > chung bảng/Service, chỉ trùng tên gọi thông thường "phản xạ".
+
+> **Bổ sung V69 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+> 2026-07-31) — fix bug "Đã nộp bài" hiện sai khi giao lại:** trước đây
+> `review_video_question_submissions` không liên kết với
+> `ReviewVideoAssignment` nào — khi Giáo viên giao LẠI đúng 1 bộ REFLEX
+> cho lớp đã từng làm ở buổi trước, hệ thống vẫn thấy "đã có câu trả lời
+> cũ" nên hiện nhầm trạng thái "Đã nộp bài" cho lần giao mới. 3 thay đổi:
+> 1. Bảng `review_video_question_submissions` thêm cột
+>    `review_video_assignment_id` (NULL cho dữ liệu trước V69, không xác
+>    định được lần giao nào — coi như không thuộc lần giao hiện tại nào).
+>    `attemptNumber`/`maxAttempts`/lịch sử nộp giờ tính THEO ĐÚNG 1 lần
+>    giao, không còn xuyên suốt mọi lần giao trong quá khứ.
+> 2. `deliverToClass` (giao lại) tự động hủy (CANCELLED) mọi lần giao
+>    ACTIVE cũ của ĐÚNG (bộ, lớp) đó trước khi tạo lần giao mới — tại mọi
+>    thời điểm chỉ có TỐI ĐA 1 lần giao ACTIVE cho 1 (bộ, lớp), khớp đúng
+>    quy tắc "giao lại = 1 lượt hoàn toàn mới, học sinh phải làm lại".
+> 3. % tiến độ Video Phản xạ hiện ở Nhận xét học viên (UC-21,
+>    `HomeworkProgressService.videoProgressLabel`) cũng tính lại theo
+>    ĐÚNG lần giao đang báo cáo, cùng lý do.
+
+> **Bổ sung V70 (2026-07-31, đã xác nhận với người dùng) — fix bug thông
+> báo bị gửi lặp nhiều lần cho toàn bộ học sinh trong lớp:** "Gửi nhận
+> xét" hàng loạt cho nhiều học sinh cùng buổi khiến `deliverToClass` bị
+> gọi nhiều lần với ĐÚNG CÙNG (bộ, lớp, hạn nộp) — trước đây mỗi lần gọi
+> tạo mới hẳn 1 `ReviewVideoAssignment` rồi thông báo lại cho TOÀN BỘ học
+> sinh lớp. `deliverToClass` giờ tái dùng bản ghi ACTIVE đã khớp đúng cả 3
+> field thay vì tạo mới/thông báo lại — chỉ khi `dueAt` KHÁC (giao lại ở
+> buổi sau) mới áp dụng quy tắc hủy-cũ-tạo-mới của V69 ở trên. Chi tiết
+> đầy đủ (áp dụng cho cả kênh Ngữ pháp Online) xem UC-21
+> (`docs/uc/phan-he-06-hoc-thuat.md`).
 
 ---
 
