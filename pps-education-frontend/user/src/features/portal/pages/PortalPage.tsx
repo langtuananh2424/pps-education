@@ -85,6 +85,9 @@ export default function PortalPage() {
   const noViewerData = isParent ? children.length === 0 : !selectedChildId;
   const currentClass = classOptions.find((c) => c.classId === selectedClassId) ?? null;
   const viewerName = isParent ? selectedChild?.studentFullName ?? "" : currentUser?.fullName ?? "";
+  // Sidebar mobile (chứa Menu) chỉ render khi có dữ liệu viewer — dùng chung điều kiện để quyết định
+  // logo/nút Thoát ở top bar có nên "chuyển hẳn vào sidebar" (ẩn ở top bar) hay phải giữ tại chỗ.
+  const hasMobileDrawer = !noViewerData && !loading;
 
   if (!isParent && !isStudent) {
     return (
@@ -104,39 +107,64 @@ export default function PortalPage() {
 
   return (
     <div className="min-h-screen flex flex-col font-sans antialiased text-ink bg-[--sky]">
-      <nav className="bg-white border-b border-line sticky top-0 z-50 shadow-sm w-full py-2.5">
+      <nav className="bg-teal-deep lg:bg-white border-b border-white/10 lg:border-line sticky top-0 z-50 shadow-sm w-full py-2.5">
         <div className="w-full max-w-[1560px] mx-auto px-4 md:px-8 xl:px-12 flex items-center justify-between">
           <div className="flex items-center gap-3">
             {!noViewerData && !loading && (
               <button
                 onClick={() => setMobileMenuOpen(true)}
-                className="lg:hidden shrink-0 w-9 h-9 rounded-xl bg-sky-2 border border-line flex items-center justify-center text-ink hover:bg-sky transition-colors"
+                className="lg:hidden shrink-0 w-9 h-9 rounded-xl bg-white/15 border border-white/20 flex items-center justify-center text-white hover:bg-white/25 transition-colors"
                 aria-label="Mở menu"
               >
                 <Menu size={18} />
               </button>
             )}
-            <div className="w-10 h-10 rounded-xl bg-teal border-2 border-teal-deep flex items-center justify-center shadow-[0_3px_0_var(--teal-deep)]">
-              <span className="font-display font-extrabold text-white text-xl">P</span>
-            </div>
-            <div className="leading-tight">
-              <div className="font-extrabold text-[15.5px] text-ink">PPS Education</div>
-              <div className="text-[11px] tracking-[0.14em] text-teal-deep font-extrabold">
-                {isParent ? "PORTAL PHỤ HUYNH" : "PORTAL HỌC SINH"}
+            {/* Logo/brand — trên mobile chuyển hẳn vào sidebar (xem header "MENU" bên dưới) để đỡ chật
+                thanh top bar, chỉ giữ nút hamburger ở đây; desktop vẫn hiện như cũ. Sidebar chỉ tồn tại
+                khi có dữ liệu viewer (noViewerData=false) — không có sidebar thì phải hiện logo ở đây
+                luôn, không được giấu hẳn (mất branding + không có chỗ khác thay thế). Nav chỉ nền
+                teal-deep ở mobile (desktop vẫn nền trắng như cũ) — nên hộp logo cần 2 bộ màu viền/bóng/
+                chữ tùy breakpoint (viền/chữ màu teal-deep gốc sẽ biến mất nếu nền cũng teal-deep). */}
+            <div className={`items-center gap-3 ${hasMobileDrawer ? "hidden lg:flex" : "flex"}`}>
+              <div className="w-10 h-10 rounded-xl bg-teal border-2 border-white/30 lg:border-teal-deep flex items-center justify-center shadow-[0_3px_0_rgba(0,0,0,0.15)] lg:shadow-[0_3px_0_var(--teal-deep)]">
+                <span className="font-display font-extrabold text-white text-xl">P</span>
+              </div>
+              <div className="leading-tight">
+                <div className="font-extrabold text-[15.5px] text-white lg:text-ink">PPS Education</div>
+                <div className="text-[11px] tracking-[0.14em] text-white/80 lg:text-teal-deep font-extrabold">
+                  {isParent ? "PORTAL PHỤ HUYNH" : "PORTAL HỌC SINH"}
+                </div>
               </div>
             </div>
+
+            {/* Chỗ trống bỏ lại sau khi ẩn logo trên mobile nhìn trống trải — thay bằng lời chào +
+                avatar (bấm mở hồ sơ), giống mẫu tham khảo người dùng gửi, thay vì để trống hẳn. */}
+            {hasMobileDrawer && selectedChildId && (
+              <button onClick={() => setProfileOpen(true)} className="flex lg:hidden items-center gap-2.5 min-w-0">
+                <div className="w-9 h-9 rounded-full bg-white/20 border border-white/30 flex items-center justify-center text-white font-extrabold text-xs shrink-0">
+                  {(viewerName || "?").charAt(0).toUpperCase()}
+                </div>
+                <div className="text-left leading-tight min-w-0">
+                  <div className="text-[11px] text-white/75 font-bold">Chào mừng,</div>
+                  <div className="text-sm font-extrabold text-white truncate max-w-[130px]">{viewerName || "Bạn"}</div>
+                </div>
+              </button>
+            )}
           </div>
           <div className="flex items-center gap-4">
             {!noViewerData && !loading && <NotificationBell />}
+            {/* Bản đầy đủ (avatar + nhãn vai trò + tên) chỉ còn ở desktop (nền trắng, giữ nguyên màu
+                gốc) — mobile đã có bản gọn nền teal-deep ở bên trái (lời chào) để không lặp 2 avatar
+                cùng mở chung 1 ProfileModal. */}
             {selectedChildId && (
               <button
                 onClick={() => setProfileOpen(true)}
-                className="flex items-center gap-2.5 pl-2 pr-3.5 py-1.5 bg-sky-2 hover:bg-sky border border-line rounded-[16px] transition-colors"
+                className="hidden lg:flex items-center gap-2.5 pl-2 pr-3.5 py-1.5 bg-sky-2 hover:bg-sky border border-line rounded-[16px] transition-colors"
               >
                 <div className="w-7 h-7 rounded-full bg-teal/15 border border-teal/30 flex items-center justify-center text-teal-deep font-extrabold text-xs shrink-0">
                   {(viewerName || "?").charAt(0).toUpperCase()}
                 </div>
-                <div className="text-left leading-tight hidden sm:block">
+                <div className="text-left leading-tight">
                   <div className="text-[9px] text-muted font-extrabold uppercase tracking-wide">
                     {isParent ? "Học viên" : "Học sinh"}
                   </div>
@@ -144,9 +172,13 @@ export default function PortalPage() {
                 </div>
               </button>
             )}
+            {/* Nút "Thoát" — trên mobile chuyển vào cuối sidebar (khi sidebar tồn tại), desktop vẫn giữ
+                ở đây. Không có sidebar (noViewerData) thì phải giữ ở đây luôn, không thì mất lối thoát. */}
             <button
               onClick={() => logout()}
-              className="flex items-center gap-1.5 px-4 py-1.5 bg-white border-2 border-coral text-coral font-bold text-xs rounded-[16px]"
+              className={`items-center gap-1.5 px-4 py-1.5 bg-white border-2 border-coral text-coral font-bold text-xs rounded-[16px] ${
+                hasMobileDrawer ? "hidden lg:flex" : "flex"
+              }`}
             >
               <LogOut size={14} /> Thoát
             </button>
@@ -193,10 +225,20 @@ export default function PortalPage() {
                 ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full"}`}
             >
               <div className="flex items-center justify-between mb-5 lg:hidden">
-                <span className="text-xs font-extrabold uppercase tracking-wide text-muted">Menu</span>
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-teal border-2 border-teal-deep flex items-center justify-center shadow-[0_2px_0_var(--teal-deep)] shrink-0">
+                    <span className="font-display font-extrabold text-white text-lg">P</span>
+                  </div>
+                  <div className="leading-tight">
+                    <div className="font-extrabold text-[13px] text-ink">PPS Education</div>
+                    <div className="text-[9px] tracking-[0.12em] text-teal-deep font-extrabold">
+                      {isParent ? "PORTAL PHỤ HUYNH" : "PORTAL HỌC SINH"}
+                    </div>
+                  </div>
+                </div>
                 <button
                   onClick={() => setMobileMenuOpen(false)}
-                  className="w-8 h-8 rounded-full bg-sky-2 border border-line flex items-center justify-center text-ink hover:bg-sky transition-colors"
+                  className="w-8 h-8 rounded-full bg-sky-2 border border-line flex items-center justify-center text-ink hover:bg-sky transition-colors shrink-0"
                   aria-label="Đóng menu"
                 >
                   <X size={16} />
@@ -247,6 +289,15 @@ export default function PortalPage() {
                     </button>
                   ))}
                 </div>
+
+                {/* "Thoát" chuyển vào đây trên mobile (top bar chỉ giữ hamburger để đỡ chật) — desktop
+                    vẫn dùng nút ở top bar, không lặp lại 2 chỗ. */}
+                <button
+                  onClick={() => logout()}
+                  className="lg:hidden w-full flex items-center justify-center gap-1.5 px-4 py-3 bg-white border-2 border-coral text-coral font-bold text-sm rounded-[16px]"
+                >
+                  <LogOut size={16} /> Thoát
+                </button>
               </div>
             </div>
 

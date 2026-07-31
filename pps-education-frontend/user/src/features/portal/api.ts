@@ -454,6 +454,27 @@ export function listReviewVideoSetsByClass(classId: number): Promise<ReviewVideo
   return apiRequest<ReviewVideoSetResponse[]>(`/classes/${classId}/review-video-sets`);
 }
 
+/**
+ * V65/V70 self-service (fix bug thiếu hạn nộp ở Portal, 2026-07-31) — hạn nộp (dueAt) của (các)
+ * bộ Video Ôn tập đã được giao "BTVN buổi sau" cho lớp tôi đang học ACTIVE. Trước đây chỉ có
+ * GET /api/classes/{classId}/review-video-assignments (yêu cầu quyền Giáo viên, Học sinh gọi bị
+ * chặn) — không có nguồn nào đọc được dueAt cho Portal. Mirror AssignedExerciseResponse (bài ngữ pháp).
+ */
+export interface MyReviewVideoAssignmentResponse {
+  assignmentId: number;
+  reviewVideoSetId: number;
+  reviewVideoSetTitle: string;
+  videoType: "CONNECTION" | "REFLEX";
+  classId: number;
+  className: string;
+  availableFrom: string;
+  dueAt: string;
+}
+
+export function listMyReviewVideoAssignments(classId?: number): Promise<MyReviewVideoAssignmentResponse[]> {
+  return apiRequest<MyReviewVideoAssignmentResponse[]>(`/students/me/review-video-assignments${classId ? `?classId=${classId}` : ""}`);
+}
+
 export function listReviewVideos(setId: number): Promise<ReviewVideoResponse[]> {
   return apiRequest<ReviewVideoResponse[]>(`/review-video-sets/${setId}/videos`);
 }
