@@ -10,8 +10,12 @@ import java.util.UUID;
 
 /**
  * Bảng exercises (SDD > LMS & Portal > Ngân hàng câu hỏi & Bài tập > d) —
- * đề ôn tập/bài tập (UC-40 FR-LMS-10). exercise_type SELF_PRACTICE (UC-27,
- * mở tự do) hoặc ASSIGNED (UC-24, có deadline qua exercise_assignments).
+ * "Bài" trong 1 "Đề" ({@link Exam}, UC-40, bổ sung ngoài SDD gốc, đã xác
+ * nhận với người dùng 2026-07-30 — tái cấu trúc Kho đề 2 cấp). exercise_type
+ * SELF_PRACTICE/ASSIGNED/MOCK_TEST/SKILL_PRACTICE không còn quyết định
+ * việc học sinh có xem/làm được hay không — MỌI loại đều cần Đề của Bài
+ * đó đã gán cho lớp (xem {@link ExamClassAssignment}) VÀ được giao qua
+ * Nhận xét học viên (UC-21, xem ExerciseService#deliverToClass).
  */
 @Getter
 @Setter
@@ -36,9 +40,9 @@ public class Exercise extends BaseAuditEntity {
     @Column(nullable = false, length = 500)
     private String title;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "curriculum_id")
-    private Curriculum curriculum;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "exam_id", nullable = false)
+    private Exam exam;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "subject_id")

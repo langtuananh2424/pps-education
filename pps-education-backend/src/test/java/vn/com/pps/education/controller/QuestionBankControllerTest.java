@@ -5,10 +5,17 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.transaction.annotation.Transactional;
+import vn.com.pps.education.domain.User;
+import vn.com.pps.education.dto.CreateCurriculumRequest;
+import vn.com.pps.education.dto.CreateExamRequest;
 import vn.com.pps.education.dto.CreateExerciseRequest;
 import vn.com.pps.education.dto.CreateQuestionBankRequest;
 import vn.com.pps.education.dto.CreateQuestionRequest;
+import vn.com.pps.education.dto.CurriculumResponse;
 import vn.com.pps.education.dto.QuestionResponse;
+import vn.com.pps.education.dto.UpdateCurriculumRequest;
+import vn.com.pps.education.service.CurriculumService;
+import vn.com.pps.education.service.ExamService;
 import vn.com.pps.education.service.QuestionBankService;
 import vn.com.pps.education.support.AbstractControllerTest;
 
@@ -38,6 +45,22 @@ class QuestionBankControllerTest extends AbstractControllerTest {
     @Autowired
     private QuestionBankService questionBankService;
 
+    @Autowired
+    private CurriculumService curriculumService;
+
+    @Autowired
+    private ExamService examService;
+
+    /** Kho đề (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30): examId nay bắt buộc trên CreateExerciseRequest — cần 1 Đề thật, không còn dùng null. */
+    private Long createExam(User actor) {
+        CurriculumResponse curriculum = curriculumService.create(
+                new CreateCurriculumRequest("CUR-" + SEQ.incrementAndGet(), "Chuẩn", "MAIN", null, null, null), actor.getId());
+        CurriculumResponse active = curriculumService.update(curriculum.id(),
+                new UpdateCurriculumRequest("Chuẩn", null, null, null, "ACTIVE", false), actor.getId());
+        return examService.createExam(
+                new CreateExamRequest("KD-" + SEQ.incrementAndGet(), "Đề test", active.id()), actor.getId()).id();
+    }
+
     @Test
     void createBank_deniedForRoleWithoutLmsExerciseManage_returns403() throws Exception {
         var staff = userWithRole("staff.noaccess", "STAFF");
@@ -66,12 +89,13 @@ class QuestionBankControllerTest extends AbstractControllerTest {
     @Test
     void createExercise_deniedForRoleWithoutLmsExerciseManage_returns403() throws Exception {
         var staff = userWithRole("staff.noaccess2", "STAFF");
+        Long examId = createExam(staff);
 
         mockMvc.perform(post("/api/exercises")
                         .header("Authorization", bearerToken(staff, "STAFF"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
-                                new CreateExerciseRequest("EX-" + SEQ.incrementAndGet(), "Đề test", null, null,
+                                new CreateExerciseRequest("EX-" + SEQ.incrementAndGet(), "Đề test", examId, null,
                                         "SELF_PRACTICE", new BigDecimal("100"), null, false, null, true))))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.message").value("Tài khoản không có quyền thực hiện thao tác này."));
@@ -80,12 +104,13 @@ class QuestionBankControllerTest extends AbstractControllerTest {
     @Test
     void createExercise_allowedForTeacher_returns200() throws Exception {
         var teacher = userWithRole("teacher.access2", "TEACHER");
+        Long examId = createExam(teacher);
 
         mockMvc.perform(post("/api/exercises")
                         .header("Authorization", bearerToken(teacher, "TEACHER"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
-                                new CreateExerciseRequest("EX-" + SEQ.incrementAndGet(), "Đề test", null, null,
+                                new CreateExerciseRequest("EX-" + SEQ.incrementAndGet(), "Đề test", examId, null,
                                         "SELF_PRACTICE", new BigDecimal("100"), null, false, null, true))))
                 .andExpect(status().isOk());
     }

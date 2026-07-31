@@ -867,7 +867,8 @@ c)  Bảng question_choices --- Đáp án trắc nghiệm
                                        DEFAULT 0        
   -----------------------------------------------------------------------
 
-d)  Bảng exercises --- Đề ôn tập / Bài tập
+d)  Bảng exercises --- "Bài" trong 1 "Đề" (Kho đề, bổ sung ngoài SDD gốc,
+    đã xác nhận với người dùng 2026-07-30 --- xem mục j) Bảng exams)
 
   ----------------------------------------------------------------------------------
   **Cột**                **Kiểu**       **Ràng buộc**              **Ghi chú**
@@ -880,7 +881,9 @@ d)  Bảng exercises --- Đề ôn tập / Bài tập
 
   title                  VARCHAR(500)   NOT NULL                   
 
-  curriculum_id          BIGINT         FK → curriculums(id), NULL  
+  exam_id                BIGINT         FK → exams(id), NOT NULL   Thay cho         
+                                                                   curriculum_id cũ 
+                                                                   (V66, xem mục j) 
 
   subject_id             BIGINT         FK →                       
                                         curriculum_subjects(id),   
@@ -1086,6 +1089,71 @@ i)  Bảng student_answer_grading --- GV chấm tự luận/nói
   --------------------------------------------------------------------------
 
 Không history, sửa điểm chấm tạo record mới thay vì sửa.
+
+j)  Bảng exams --- "Đề" (Kho đề, MỚI HOÀN TOÀN, V66, 2026-07-30, bổ
+sung ngoài SDD gốc, đã xác nhận với người dùng — gộp nhiều "Bài"
+(exercises) theo 1 khung chương trình, gán được nhiều lớp)
+
+  ----------------------------------------------------------------------------------
+  **Cột**                **Kiểu**       **Ràng buộc**              **Ghi chú**      
+  ---------------------- -------------- -------------------------- -----------------
+  id                     BIGSERIAL      PK                                          
+
+  uuid                   UUID           UNIQUE, NOT NULL                            
+
+  code                   VARCHAR(50)    UNIQUE, NOT NULL                            
+
+  title                  VARCHAR(500)   NOT NULL                                    
+
+  curriculum_id          BIGINT         FK → curriculums(id), NOT  Chỉ để lọc/duyệt 
+                                        NULL                       trong Kho đề,    
+                                                                   KHÔNG phải điều  
+                                                                   kiện hiển thị    
+                                                                   (xem k)          
+
+  created_by             BIGINT         FK → users(id), NOT NULL   Giáo viên tạo Đề 
+
+  created_at,            TIMESTAMPTZ    NOT NULL                   BaseAuditEntity  
+  updated_at                                                                        
+
+  ----------------------------------------------------------------------------------
+
+Không có cột `status` riêng (không tự thêm state ngoài yêu cầu đã
+chốt với người dùng — nếu sau này cần "ẩn Đề" thì hỏi lại trước).
+`curriculum_id` CHỈ dùng lọc/duyệt trong UI Kho đề — điều kiện hiển
+thị/giao bài thật sự nằm ở bảng `exam_class_assignments` (mục k),
+theo đúng quyết định đã chốt: gán lớp là điều kiện DUY NHẤT, khung
+chương trình không phải điều kiện thứ 2 (kể cả khi lớp và Đề khác
+khung chương trình).
+
+k)  Bảng exam_class_assignments --- Gán "Đề" cho lớp (MỚI HOÀN TOÀN,
+V66, 2026-07-30, bổ sung ngoài SDD gốc, đã xác nhận với người dùng)
+
+  ----------------------------------------------------------------------------------
+  **Cột**                **Kiểu**       **Ràng buộc**              **Ghi chú**      
+  ---------------------- -------------- -------------------------- -----------------
+  id                     BIGSERIAL      PK                                          
+
+  exam_id                BIGINT         FK → exams(id), NOT NULL                    
+
+  class_id               BIGINT         FK → classes(id), NOT NULL                  
+
+  assigned_by            BIGINT         FK → users(id), NOT NULL                    
+
+  assigned_at            TIMESTAMPTZ    NOT NULL, DEFAULT NOW()                     
+
+  ----------------------------------------------------------------------------------
+
+`UNIQUE(exam_id, class_id)`. Join thuần (mirror `class_teachers`),
+KHÔNG có `uuid`/`status` — gỡ lớp = DELETE cứng, không soft-cancel.
+Có 1 dòng ở đây là điều kiện hiển thị DUY NHẤT cho MỌI "Bài"
+(`exercises`) thuộc Đề này, áp dụng như nhau cho CẢ 4
+`exercise_type` (SELF_PRACTICE/ASSIGNED/MOCK_TEST/SKILL_PRACTICE) —
+từ V66, SELF_PRACTICE không còn "mở tự do sau khi Publish" như
+trước (xem UC-27 Precondition cập nhật tại
+`docs/uc/phan-he-07-lms-portal.md`). Giáo viên vẫn giao "Bài" cụ thể
+cho lớp qua Nhận xét học viên (UC-21) như cũ — gán Đề cho lớp ở đây
+chỉ mở ĐIỀU KIỆN, không tự động giao bất kỳ "Bài" nào.
 
 ### Luyện Nghe – Nói (UC-26, FR-LMS-04 — bổ sung ngoài SDD gốc, đã xác nhận với người dùng)
 

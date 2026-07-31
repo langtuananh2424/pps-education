@@ -15,11 +15,13 @@ import vn.com.pps.education.dto.AssignTeacherRequest;
 import vn.com.pps.education.dto.ClassResponse;
 import vn.com.pps.education.dto.CreateClassRequest;
 import vn.com.pps.education.dto.CreateCurriculumRequest;
+import vn.com.pps.education.dto.CreateExamRequest;
 import vn.com.pps.education.dto.CreateExerciseRequest;
 import vn.com.pps.education.dto.CreateQuestionBankRequest;
 import vn.com.pps.education.dto.CreateQuestionRequest;
 import vn.com.pps.education.dto.CurriculumResponse;
 import vn.com.pps.education.dto.EnrollStudentRequest;
+import vn.com.pps.education.dto.ExamResponse;
 import vn.com.pps.education.dto.ExerciseAssignmentResponse;
 import vn.com.pps.education.dto.ExerciseQuestionChoiceResponse;
 import vn.com.pps.education.dto.ExerciseResponse;
@@ -61,6 +63,9 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
     private ExerciseService exerciseService;
 
     @Autowired
+    private ExamService examService;
+
+    @Autowired
     private ClassService classService;
 
     @Autowired
@@ -98,6 +103,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
     private CurriculumResponse activeCurriculum;
     private ClassResponse schoolClass;
     private QuestionBankResponse bank;
+    private ExamResponse defaultExam;
 
     @BeforeEach
     void setUp() {
@@ -121,6 +127,9 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
         bank = questionBankService.createBank(
                 new CreateQuestionBankRequest(bankCode(), "Ngân hàng Ngữ pháp", activeCurriculum.id(), null, "A1"),
                 teacher.getId());
+
+        defaultExam = examService.createExam(
+                new CreateExamRequest(examCode(), "Đề mặc định", activeCurriculum.id()), teacher.getId());
     }
 
     @Test
@@ -178,7 +187,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
                 teacher.getId());
 
         ExerciseResponse exercise = exerciseService.createExercise(
-                new CreateExerciseRequest(exerciseCode(), "Đề ôn tập Ngữ pháp 1", activeCurriculum.id(), null,
+                new CreateExerciseRequest(exerciseCode(), "Đề ôn tập Ngữ pháp 1", defaultExam.id(), null,
                         "SELF_PRACTICE", new BigDecimal("10"), 30, true, null, true),
                 teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("1.0")), teacher.getId());
@@ -193,7 +202,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
     void addQuestion_rejectsDuplicateQuestionInSameExercise() {
         QuestionResponse mc = createMcQuestion();
         ExerciseResponse exercise = exerciseService.createExercise(
-                new CreateExerciseRequest(exerciseCode(), "Đề X", activeCurriculum.id(), null, "SELF_PRACTICE",
+                new CreateExerciseRequest(exerciseCode(), "Đề X", defaultExam.id(), null, "SELF_PRACTICE",
                         new BigDecimal("1"), null, true, null, true),
                 teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("1.0")), teacher.getId());
@@ -208,10 +217,11 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
         Student student = enrollStudent();
         QuestionResponse mc = createMcQuestion();
         ExerciseResponse exercise = exerciseService.createExercise(
-                new CreateExerciseRequest(exerciseCode(), "Kiểm tra 15 phút", activeCurriculum.id(), null, "ASSIGNED",
+                new CreateExerciseRequest(exerciseCode(), "Kiểm tra 15 phút", defaultExam.id(), null, "ASSIGNED",
                         new BigDecimal("10"), 15, false, 1, true),
                 teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("10")), teacher.getId());
+        examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
 
         ExerciseAssignment assignment = exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId());
 
@@ -219,14 +229,21 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
         assertThat(exerciseService.getExercise(exercise.id(), teacher.getId()).status()).isEqualTo("PUBLISHED");
     }
 
+    /**
+     * Kho đề (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30):
+     * thay cho deliverToClass_rejectsWhenExerciseIsNotAssignedType cũ (hành
+     * vi "chỉ ASSIGNED mới giao được" đã bị bỏ — MỌI loại đề đều giao được).
+     * Rào mới: Đề của Bài phải đã gán cho lớp — kể cả SELF_PRACTICE.
+     */
     @Test
-    void deliverToClass_rejectsWhenExerciseIsNotAssignedType() {
+    void deliverToClass_rejectsWhenExamNotAssignedToClass() {
         QuestionResponse mc = createMcQuestion();
         ExerciseResponse exercise = exerciseService.createExercise(
-                new CreateExerciseRequest(exerciseCode(), "Bài tự luyện", activeCurriculum.id(), null, "SELF_PRACTICE",
+                new CreateExerciseRequest(exerciseCode(), "Bài tự luyện", defaultExam.id(), null, "SELF_PRACTICE",
                         new BigDecimal("10"), null, true, null, true),
                 teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("10")), teacher.getId());
+        // Chưa gọi examService.assignToClass -> Đề chưa được gán cho lớp.
 
         assertThatThrownBy(() -> exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId()))
                 .isInstanceOf(IllegalArgumentException.class);
@@ -238,7 +255,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
         assignRole(outsider, "TEACHER");
         QuestionResponse mc = createMcQuestion();
         ExerciseResponse exercise = exerciseService.createExercise(
-                new CreateExerciseRequest(exerciseCode(), "Kiểm tra", activeCurriculum.id(), null, "ASSIGNED",
+                new CreateExerciseRequest(exerciseCode(), "Kiểm tra", defaultExam.id(), null, "ASSIGNED",
                         new BigDecimal("10"), null, false, 1, true),
                 teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("10")), teacher.getId());
@@ -251,9 +268,10 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
     void listAssignmentsForClass_boSung_teacherSeesExercisesAssignedToTheirClass() {
         QuestionResponse mc = createMcQuestion();
         ExerciseResponse exercise = exerciseService.createExercise(
-                new CreateExerciseRequest(exerciseCode(), "Kiểm tra", activeCurriculum.id(), null, "ASSIGNED",
+                new CreateExerciseRequest(exerciseCode(), "Kiểm tra", defaultExam.id(), null, "ASSIGNED",
                         new BigDecimal("10"), null, false, 1, true), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("10")), teacher.getId());
+        examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
         exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId());
 
         List<ExerciseAssignmentResponse> assignments = exerciseService.listAssignmentsForClass(schoolClass.id(), teacher.getId());
@@ -275,7 +293,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
         Student student = enrollStudent();
         QuestionResponse mc = createMcQuestion();
         ExerciseResponse exercise = exerciseService.createExercise(
-                new CreateExerciseRequest(exerciseCode(), "Kiểm tra", activeCurriculum.id(), null, "ASSIGNED",
+                new CreateExerciseRequest(exerciseCode(), "Kiểm tra", defaultExam.id(), null, "ASSIGNED",
                         new BigDecimal("10"), null, false, 1, true), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("10")), teacher.getId());
         // chưa gọi deliverToClass cho lớp của student -> chưa được giao
@@ -291,9 +309,10 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
         Student student = enrollStudent();
         QuestionResponse mc = createMcQuestion();
         ExerciseResponse exercise = exerciseService.createExercise(
-                new CreateExerciseRequest(exerciseCode(), "Kiểm tra", activeCurriculum.id(), null, "ASSIGNED",
+                new CreateExerciseRequest(exerciseCode(), "Kiểm tra", defaultExam.id(), null, "ASSIGNED",
                         new BigDecimal("10"), null, false, 1, true), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("10")), teacher.getId());
+        examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
         exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId());
 
         ExerciseResponse viewed = exerciseService.getExercise(exercise.id(), student.getUser().getId());
@@ -302,15 +321,38 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
         assertThat(exerciseService.listQuestions(exercise.id(), student.getUser().getId())).hasSize(1);
     }
 
+    /**
+     * Kho đề (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30):
+     * thay cho getExercise_boSung_allowsAnyStudentForPublishedSelfPractice cũ
+     * — SELF_PRACTICE hết cơ chế "mở tự do sau khi Publish", giờ CŨNG cần
+     * Đề đã gán lớp + ExerciseAssignment ACTIVE như mọi loại khác (unified
+     * gate, xem ExerciseService#requireCanViewExercise).
+     */
     @Test
-    void getExercise_boSung_allowsAnyStudentForPublishedSelfPractice() {
+    void getExercise_boSung_rejectsSelfPracticeWithoutActiveAssignment() {
         Student student = enrollStudent();
         QuestionResponse mc = createMcQuestion();
         ExerciseResponse exercise = exerciseService.createExercise(
-                new CreateExerciseRequest(exerciseCode(), "Ôn tập tự do", activeCurriculum.id(), null, "SELF_PRACTICE",
+                new CreateExerciseRequest(exerciseCode(), "Ôn tập tự do", defaultExam.id(), null, "SELF_PRACTICE",
                         new BigDecimal("1"), null, true, null, true), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("1.0")), teacher.getId());
         exerciseService.publishExercise(exercise.id(), teacher.getId());
+        // Publish rồi nhưng chưa gán Đề cho lớp + chưa deliverToClass -> vẫn chặn.
+
+        assertThatThrownBy(() -> exerciseService.getExercise(exercise.id(), student.getUser().getId()))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void getExercise_boSung_allowsSelfPracticeWithActiveAssignment() {
+        Student student = enrollStudent();
+        QuestionResponse mc = createMcQuestion();
+        ExerciseResponse exercise = exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "Ôn tập tự do", defaultExam.id(), null, "SELF_PRACTICE",
+                        new BigDecimal("1"), null, true, null, true), teacher.getId());
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("1.0")), teacher.getId());
+        examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
+        exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId());
 
         ExerciseResponse viewed = exerciseService.getExercise(exercise.id(), student.getUser().getId());
 
@@ -328,10 +370,11 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
         Student student = enrollStudent();
         QuestionResponse mc = createMcQuestion();
         ExerciseResponse exercise = exerciseService.createExercise(
-                new CreateExerciseRequest(exerciseCode(), "Ôn tập trắc nghiệm", activeCurriculum.id(), null,
+                new CreateExerciseRequest(exerciseCode(), "Ôn tập trắc nghiệm", defaultExam.id(), null,
                         "SELF_PRACTICE", new BigDecimal("1"), null, true, null, true), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("1.0")), teacher.getId());
-        exerciseService.publishExercise(exercise.id(), teacher.getId());
+        examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
+        exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId());
 
         var questions = exerciseService.listQuestions(exercise.id(), student.getUser().getId());
 
@@ -351,10 +394,11 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
                 new CreateQuestionRequest(bank.id(), "ESSAY", "WRITING", "MEDIUM", "Viết đoạn văn 50 từ.",
                         null, null, null, null, null, new BigDecimal("2.0"), null, null), teacher.getId());
         ExerciseResponse exercise = exerciseService.createExercise(
-                new CreateExerciseRequest(exerciseCode(), "Đề tự luận", activeCurriculum.id(), null, "SELF_PRACTICE",
+                new CreateExerciseRequest(exerciseCode(), "Đề tự luận", defaultExam.id(), null, "SELF_PRACTICE",
                         new BigDecimal("2"), null, true, null, true), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(essay.id(), 1, new BigDecimal("2.0")), teacher.getId());
-        exerciseService.publishExercise(exercise.id(), teacher.getId());
+        examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
+        exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId());
 
         var questions = exerciseService.listQuestions(exercise.id(), student.getUser().getId());
 
@@ -377,7 +421,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
     private void markQuestionAsAnswered(Long questionId) {
         vn.com.pps.education.domain.Exercise exercise = exerciseRepository.findById(
                 exerciseService.createExercise(
-                        new CreateExerciseRequest(exerciseCode(), "Đề dùng để test khóa câu hỏi", activeCurriculum.id(), null,
+                        new CreateExerciseRequest(exerciseCode(), "Đề dùng để test khóa câu hỏi", defaultExam.id(), null,
                                 "SELF_PRACTICE", new BigDecimal("1"), null, true, null, true),
                         teacher.getId()).id())
                 .orElseThrow();
@@ -420,6 +464,10 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
 
     private String exerciseCode() {
         return "EX-" + SEQ.incrementAndGet();
+    }
+
+    private String examCode() {
+        return "KD-" + SEQ.incrementAndGet();
     }
 
     private void assignRole(User user, String roleCode) {

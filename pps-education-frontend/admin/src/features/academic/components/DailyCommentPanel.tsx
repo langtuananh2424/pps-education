@@ -702,7 +702,7 @@ export default function DailyCommentPanel() {
                               <option value="">-- Chọn đề đã Publish --</option>
                               {grammarOptions.map((ex) => (
                                 <option key={ex.id} value={ex.id}>
-                                  {ex.title} ({ex.code})
+                                  {ex.examCode} - {ex.title}
                                 </option>
                               ))}
                             </Select>

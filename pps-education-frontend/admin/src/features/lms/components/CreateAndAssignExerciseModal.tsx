@@ -30,30 +30,33 @@ interface SelectedQuestion {
 }
 
 interface CreateAndAssignExerciseModalProps {
-  curriculumId: number | null;
+  examId: number;
+  /** Khung chương trình của Đề cha — chỉ để browse Ngân hàng câu hỏi ở bước soạn Bài, không gửi lên BE. */
+  curriculumId: number;
   onClose: () => void;
   onDone: () => void;
 }
 
 /**
  * UC-40 Main Flow bước 1-2 + Publish (V65, bổ sung ngoài SDD gốc, đã xác nhận với người dùng
- * 2026-07-30): tạo đề mới → gắn câu hỏi → Publish (đánh dấu "đủ điều kiện dùng làm nguồn") hoặc để
- * DRAFT publish sau. KHÔNG còn bước giao lớp/hạn nộp ở đây nữa — việc giao (tự động cho cả lớp, hạn
- * nộp = buổi kế tiếp) chuyển hẳn sang lúc Giáo viên chọn đề này làm "BTVN Ngữ pháp buổi sau" ở Nhận
- * xét học viên (UC-21, xem DailyCommentPanel.tsx).
+ * 2026-07-30): tạo Bài mới trong 1 Đề → gắn câu hỏi → Publish (đánh dấu "đủ điều kiện dùng làm nguồn")
+ * hoặc để DRAFT publish sau. KHÔNG còn bước giao lớp/hạn nộp ở đây nữa — việc giao (tự động cho cả lớp,
+ * hạn nộp = buổi kế tiếp) chuyển hẳn sang lúc Giáo viên chọn Bài này làm "BTVN buổi sau" ở Nhận xét học
+ * viên (UC-21, xem DailyCommentPanel.tsx). Kho đề (2026-07-30): Bài giờ thuộc 1 Đề (examId) thay vì
+ * gán khung chương trình trực tiếp — khung chương trình chỉ còn dùng để browse Ngân hàng câu hỏi.
  */
-export default function CreateAndAssignExerciseModal({ curriculumId, onClose, onDone }: CreateAndAssignExerciseModalProps) {
+export default function CreateAndAssignExerciseModal({ examId, curriculumId, onClose, onDone }: CreateAndAssignExerciseModalProps) {
   const [step, setStep] = useState<Step>("info");
   const [exercise, setExercise] = useState<ExerciseResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   return (
-    <Modal open onClose={onClose} title="Soạn đề mới" size="lg">
+    <Modal open onClose={onClose} title="Soạn Bài mới" size="lg">
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
 
       {step === "info" && (
         <ExerciseInfoStep
-          curriculumId={curriculumId}
+          examId={examId}
           onCreated={(created) => {
             setExercise(created);
             setStep("questions");
@@ -65,6 +68,7 @@ export default function CreateAndAssignExerciseModal({ curriculumId, onClose, on
       {step === "questions" && exercise && (
         <ExerciseQuestionsStep
           exercise={exercise}
+          curriculumId={curriculumId}
           onDone={() => setStep("publish")}
           onError={setError}
         />
@@ -85,11 +89,11 @@ export default function CreateAndAssignExerciseModal({ curriculumId, onClose, on
 }
 
 function ExerciseInfoStep({
-  curriculumId,
+  examId,
   onCreated,
   onError
 }: {
-  curriculumId: number | null;
+  examId: number;
   onCreated: (exercise: ExerciseResponse) => void;
   onError: (message: string | null) => void;
 }) {
@@ -106,7 +110,7 @@ function ExerciseInfoStep({
     e.preventDefault();
     onError(null);
     if (!code.trim() || !title.trim() || !totalPoints) {
-      onError("Vui lòng điền Mã đề, Tên đề và Tổng điểm.");
+      onError("Vui lòng điền Mã Bài, Tên Bài và Tổng điểm.");
       return;
     }
     setSubmitting(true);
@@ -114,7 +118,7 @@ function ExerciseInfoStep({
       const created = await createExercise({
         code: code.trim(),
         title: title.trim(),
-        curriculumId: curriculumId ?? undefined,
+        examId,
         exerciseType: "ASSIGNED",
         totalPoints: Number(totalPoints),
         timeLimitMinutes: timeLimitMinutes ? Number(timeLimitMinutes) : undefined,
@@ -124,7 +128,7 @@ function ExerciseInfoStep({
       });
       onCreated(created);
     } catch (err) {
-      onError(err instanceof ApiError ? err.message : "Tạo đề thất bại.");
+      onError(err instanceof ApiError ? err.message : "Tạo Bài thất bại.");
     } finally {
       setSubmitting(false);
     }
@@ -134,7 +138,7 @@ function ExerciseInfoStep({
     <form onSubmit={handleSubmit} className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className={labelClass}>Mã đề *</label>
+          <label className={labelClass}>Mã Bài *</label>
           <input value={code} onChange={(e) => setCode(e.target.value)} className={`${inputClass} font-mono`} />
         </div>
         <div>
@@ -142,7 +146,7 @@ function ExerciseInfoStep({
           <input type="number" min={0} value={totalPoints} onChange={(e) => setTotalPoints(e.target.value)} className={inputClass} />
         </div>
         <div className="col-span-2">
-          <label className={labelClass}>Tên đề *</label>
+          <label className={labelClass}>Tên Bài *</label>
           <input value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} />
         </div>
         <div>
@@ -171,7 +175,7 @@ function ExerciseInfoStep({
 
       <div className="flex justify-end gap-2 pt-2">
         <Button type="submit" variant="primary" size="sm" disabled={submitting}>
-          {submitting ? "Đang tạo..." : "Tạo đề — tiếp tục gắn câu hỏi"}
+          {submitting ? "Đang tạo..." : "Tạo Bài — tiếp tục gắn câu hỏi"}
         </Button>
       </div>
     </form>
@@ -189,10 +193,12 @@ interface AttachedQuestion {
 /** UC-40 Main Flow bước 1: 3 nguồn câu hỏi — chọn có sẵn / soạn câu hỏi mới / nhập hàng loạt Excel-Word (bổ sung 2026-07-30, đã xác nhận với người dùng). */
 function ExerciseQuestionsStep({
   exercise,
+  curriculumId,
   onDone,
   onError
 }: {
   exercise: ExerciseResponse;
+  curriculumId: number;
   onDone: () => void;
   onError: (message: string | null) => void;
 }) {
@@ -210,14 +216,13 @@ function ExerciseQuestionsStep({
   const [composeFormKey, setComposeFormKey] = useState(0);
 
   useEffect(() => {
-    if (!exercise.curriculumId) return;
-    listQuestionBanksByCurriculum(exercise.curriculumId)
+    listQuestionBanksByCurriculum(curriculumId)
       .then((res) => {
         setBanks(res);
         if (res.length > 0) setSelectedBankId(res[0].id);
       })
       .catch(() => undefined);
-  }, [exercise.curriculumId]);
+  }, [curriculumId]);
 
   useEffect(() => {
     setSearchTerm("");
@@ -450,9 +455,9 @@ function ExerciseQuestionsStep({
 }
 
 /**
- * V65: bước cuối chỉ còn Publish (đánh dấu đề "đủ điều kiện dùng làm nguồn") hoặc để DRAFT publish
+ * V65: bước cuối chỉ còn Publish (đánh dấu Bài "đủ điều kiện dùng làm nguồn") hoặc để DRAFT publish
  * sau — không còn chọn lớp/hạn nộp/target students ở đây. Giao bài thật (tự động cho cả lớp, hạn nộp
- * = buổi kế tiếp) chỉ xảy ra khi Giáo viên chọn đề này ở "BTVN Ngữ pháp buổi sau" trong Nhận xét học viên.
+ * = buổi kế tiếp) chỉ xảy ra khi Giáo viên chọn Bài này ở "BTVN buổi sau" trong Nhận xét học viên.
  */
 function ExercisePublishStep({
   exercise,
@@ -472,7 +477,7 @@ function ExercisePublishStep({
       await publishExercise(exercise.id);
       onDone();
     } catch (err) {
-      onError(err instanceof ApiError ? err.message : "Publish đề thất bại.");
+      onError(err instanceof ApiError ? err.message : "Publish Bài thất bại.");
     } finally {
       setSubmitting(false);
     }
@@ -483,11 +488,11 @@ function ExercisePublishStep({
       <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 flex items-start gap-3">
         <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
         <div className="text-xs text-emerald-800">
-          <p className="font-bold">Đề "{exercise.title}" ({exercise.code}) đã soạn xong.</p>
+          <p className="font-bold">Bài "{exercise.title}" ({exercise.code}) đã soạn xong.</p>
           <p className="mt-1 text-emerald-700">
-            Publish để đánh dấu đề này <strong>đủ điều kiện dùng làm nguồn</strong> — sau đó Giáo viên chọn đề này làm
-            "BTVN Ngữ pháp buổi sau" ở Nhận xét học viên (UC-21) sẽ tự động giao cho cả lớp, hạn nộp = buổi học kế tiếp.
-            Chưa Publish thì đề vẫn ở dạng nháp, không chọn được ở Nhận xét.
+            Publish để đánh dấu Bài này <strong>đủ điều kiện dùng làm nguồn</strong> — sau đó Giáo viên chọn Bài này làm
+            "BTVN buổi sau" ở Nhận xét học viên (UC-21) sẽ tự động giao cho cả lớp, hạn nộp = buổi học kế tiếp.
+            Chưa Publish thì Bài vẫn ở dạng nháp, không chọn được ở Nhận xét.
           </p>
         </div>
       </div>

@@ -114,14 +114,15 @@ public class ExerciseAttemptService {
             throw new ExerciseNotAvailableException("Đề id=" + exerciseId + " chưa được publish.");
         }
 
-        ExerciseAssignment assignment = null;
-        if (exercise.getExerciseType() == Exercise.ExerciseType.ASSIGNED) {
-            assignment = findActiveAssignmentForStudent(exercise, student)
-                    .orElseThrow(() -> new ExerciseNotAvailableException(
-                            "Đề id=" + exerciseId + " chưa được giao cho học sinh id=" + student.getId() + "."));
-            if (assignment.getAvailableFrom().isAfter(OffsetDateTime.now())) {
-                throw new ExerciseNotAvailableException("Đề id=" + exerciseId + " chưa tới thời gian mở làm bài.");
-            }
+        // Kho đề (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30):
+        // bỏ nhánh rẽ theo exerciseType — MỌI loại đề (kể cả SELF_PRACTICE/
+        // MOCK_TEST/SKILL_PRACTICE) giờ đều cần ExerciseAssignment ACTIVE, không
+        // còn "mở tự do sau khi Publish" (mirror ExerciseService#requireCanViewExercise).
+        ExerciseAssignment assignment = findActiveAssignmentForStudent(exercise, student)
+                .orElseThrow(() -> new ExerciseNotAvailableException(
+                        "Đề id=" + exerciseId + " chưa được giao cho học sinh id=" + student.getId() + "."));
+        if (assignment.getAvailableFrom().isAfter(OffsetDateTime.now())) {
+            throw new ExerciseNotAvailableException("Đề id=" + exerciseId + " chưa tới thời gian mở làm bài.");
         }
 
         long previousAttempts = exerciseAttemptRepository.countByExerciseIdAndStudentId(exerciseId, student.getId());

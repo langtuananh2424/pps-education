@@ -20,6 +20,7 @@ import vn.com.pps.education.dto.ClassSessionResponse;
 import vn.com.pps.education.dto.CreateClassRequest;
 import vn.com.pps.education.dto.CreateClassSessionRequest;
 import vn.com.pps.education.dto.CreateCurriculumRequest;
+import vn.com.pps.education.dto.CreateExamRequest;
 import vn.com.pps.education.dto.CreateExerciseRequest;
 import vn.com.pps.education.dto.CreateGradeComponentRequest;
 import vn.com.pps.education.dto.CreateGradePeriodRequest;
@@ -103,6 +104,9 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
 
     @Autowired
     private ExerciseService exerciseService;
+
+    @Autowired
+    private ExamService examService;
 
     @Autowired
     private ReviewVideoService reviewVideoService;
@@ -319,8 +323,17 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
 
     // ===================== Xem tiến độ BTVN của con (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-29) =====================
 
-    /** V65: chỉ tạo + thêm câu hỏi, KHÔNG giao lớp nữa — việc giao (deliverToClass) giờ chỉ xảy ra khi GV chọn làm "BTVN buổi sau" ở writeDailyComment. */
+    /**
+     * V65: chỉ tạo + thêm câu hỏi, KHÔNG giao lớp nữa — việc giao (deliverToClass) giờ chỉ xảy ra khi GV chọn làm "BTVN buổi sau" ở writeDailyComment.
+     * Kho đề (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30):
+     * Bài giờ thuộc 1 Đề (Exam) — tạo Đề mới + gán cho schoolClass ngay ở
+     * đây (deliverToClass gọi sau này bên trong StudentCommentService cần
+     * Đề đã gán lớp mới thành công).
+     */
     private ExerciseResponse createGrammarOnlineExercise() {
+        var exam = examService.createExam(
+                new CreateExamRequest(examCode(), "Đề Ngữ pháp homework", schoolClass.curriculumId()), teacher.getId());
+        examService.assignToClass(exam.id(), schoolClass.id(), teacher.getId());
         QuestionBankResponse bank = questionBankService.createBank(
                 new CreateQuestionBankRequest(bankCode(), "Ngân hàng homework", null, null, null), teacher.getId());
         QuestionResponse question = questionBankService.createQuestion(
@@ -329,7 +342,7 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
                         List.of(new QuestionChoiceRequest("A", "go", false, 1), new QuestionChoiceRequest("B", "goes", true, 2))),
                 teacher.getId());
         ExerciseResponse exercise = exerciseService.createExercise(
-                new CreateExerciseRequest(exerciseCode(), "Bài ngữ pháp homework", schoolClass.curriculumId(), null,
+                new CreateExerciseRequest(exerciseCode(), "Bài ngữ pháp homework", exam.id(), null,
                         "ASSIGNED", new BigDecimal("1"), null, false, 1, true), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(question.id(), 1, new BigDecimal("1.0")), teacher.getId());
         return exercise;
@@ -431,6 +444,10 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
 
     private String exerciseCode() {
         return "EX-" + SEQ.incrementAndGet();
+    }
+
+    private String examCode() {
+        return "KD-" + SEQ.incrementAndGet();
     }
 
     private String setCode() {

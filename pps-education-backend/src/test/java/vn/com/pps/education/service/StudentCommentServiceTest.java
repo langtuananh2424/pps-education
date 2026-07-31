@@ -25,6 +25,7 @@ import vn.com.pps.education.dto.ClassSessionResponse;
 import vn.com.pps.education.dto.CreateClassRequest;
 import vn.com.pps.education.dto.CreateClassSessionRequest;
 import vn.com.pps.education.dto.CreateCurriculumRequest;
+import vn.com.pps.education.dto.CreateExamRequest;
 import vn.com.pps.education.dto.CreateExerciseRequest;
 import vn.com.pps.education.dto.CreateGradePeriodRequest;
 import vn.com.pps.education.dto.CreateQuestionBankRequest;
@@ -118,6 +119,9 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
 
     @Autowired
     private ExerciseService exerciseService;
+
+    @Autowired
+    private ExamService examService;
 
     @Autowired
     private ExerciseAttemptService exerciseAttemptService;
@@ -785,8 +789,16 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
      * hiện trong dropdown "BTVN buổi sau") — KHÔNG còn giao lớp ở đây nữa.
      * Việc giao (deliverToClass) giờ chỉ xảy ra khi GV chọn đề này làm
      * "BTVN buổi sau" cho 1 học sinh (writeDailyCommentWithHomeworkNext).
+     *
+     * Kho đề (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30):
+     * Bài giờ thuộc 1 Đề (Exam) — tạo Đề mới + gán cho schoolClass ngay ở
+     * đây (deliverToClass gọi sau này bên trong resolveExerciseHomework sẽ
+     * cần Đề đã gán lớp mới thành công).
      */
     private GrammarFixture createGrammarOnlineExercise() {
+        var exam = examService.createExam(
+                new CreateExamRequest(examCode(), "Đề Ngữ pháp V55", schoolClass.curriculumId()), teacher.getId());
+        examService.assignToClass(exam.id(), schoolClass.id(), teacher.getId());
         QuestionBankResponse bank = questionBankService.createBank(
                 new CreateQuestionBankRequest(bankCode(), "Ngân hàng V55", null, null, null), teacher.getId());
         QuestionResponse question = questionBankService.createQuestion(
@@ -795,7 +807,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
                         List.of(new QuestionChoiceRequest("A", "go", false, 1), new QuestionChoiceRequest("B", "goes", true, 2))),
                 teacher.getId());
         ExerciseResponse exercise = exerciseService.createExercise(
-                new CreateExerciseRequest(exerciseCode(), "Bài ngữ pháp V55", schoolClass.curriculumId(), null,
+                new CreateExerciseRequest(exerciseCode(), "Bài ngữ pháp V55", exam.id(), null,
                         "ASSIGNED", new BigDecimal("1"), null, false, 1, true), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(question.id(), 1, new BigDecimal("1.0")), teacher.getId());
         ExerciseResponse published = exerciseService.publishExercise(exercise.id(), teacher.getId());
@@ -1066,7 +1078,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         byte[] template = studentCommentService.buildTemplate(classSession.id(), teacher.getId());
 
         assertThat(dropdownValues(template, 9))
-                .containsExactly(fixture.exercise().title() + " (" + fixture.exercise().code() + ")");
+                .containsExactly(fixture.exercise().examCode() + " - " + fixture.exercise().title());
         assertThat(dropdownValues(template, 10))
                 .containsExactly(video.set().title() + " (" + video.set().code() + ")");
     }
@@ -1103,7 +1115,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
                 new MarkAttendanceRequest("SESSION_LEVEL", List.of(
                         new EnterAttendanceMarkRequest(student.getId(), "PRESENT", null, null, null))),
                 teacher.getId());
-        String label = fixture.exercise().title() + " (" + fixture.exercise().code() + ")";
+        String label = fixture.exercise().examCode() + " - " + fixture.exercise().title();
         byte[] file = buildCommentWorkbook(new String[][]{
                 {classSession.sessionDate().toString(), student.getStudentCode(), "", "", "Có mặt", "", "", "",
                         "Nội dung.", label, "", ""}
@@ -1295,6 +1307,10 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
 
     private String exerciseCode() {
         return "EX-" + SEQ.incrementAndGet();
+    }
+
+    private String examCode() {
+        return "KD-" + SEQ.incrementAndGet();
     }
 
     private String bankCode() {

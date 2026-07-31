@@ -1,4 +1,5 @@
 import { apiRequest, apiRequestBlob } from "@/lib/apiClient";
+import type { ClassResponse } from "@/features/academic/api";
 
 /**
  * Khớp MediaModule thật của backend — mỗi module quy định content-type/size limit riêng
@@ -191,7 +192,67 @@ export function downloadQuestionImportWordTemplate(): Promise<Blob> {
   return apiRequestBlob("/question-imports/template.docx");
 }
 
-// ===================== Đề (Exercise) — UC-40 bước 2-4 =====================
+// ===================== Kho đề (Exam) — "Đề" cha, VD: IELTS Grade 6 =====================
+// Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30: tái cấu trúc UC-40 thành 2 cấp
+// Đề (Exam)/Bài (Exercise). Đề gán 1 khung chương trình CHỈ để lọc/tìm kiếm trong Kho đề, gán được
+// NHIỀU lớp (exam_class_assignments) — đây mới là điều kiện hiển thị DUY NHẤT cho học sinh xem/làm
+// được các Bài thuộc Đề. Xem ExamService.java.
+
+export interface CreateExamRequest {
+  code: string;
+  title: string;
+  curriculumId: number;
+}
+
+export interface UpdateExamRequest {
+  title: string;
+}
+
+export interface ExamResponse {
+  id: number;
+  uuid: string;
+  code: string;
+  title: string;
+  curriculumId: number;
+  curriculumCode: string;
+  createdBy: number;
+}
+
+export function createExam(request: CreateExamRequest): Promise<ExamResponse> {
+  return apiRequest<ExamResponse>("/exams", { method: "POST", body: JSON.stringify(request) });
+}
+
+export function updateExam(id: number, request: UpdateExamRequest): Promise<ExamResponse> {
+  return apiRequest<ExamResponse>(`/exams/${id}`, { method: "PUT", body: JSON.stringify(request) });
+}
+
+export function getExam(id: number): Promise<ExamResponse> {
+  return apiRequest<ExamResponse>(`/exams/${id}`);
+}
+
+/** Bỏ trống curriculumId để xem TẤT CẢ Đề (mọi khung chương trình). */
+export function listExams(curriculumId?: number): Promise<ExamResponse[]> {
+  const query = curriculumId ? `?curriculumId=${curriculumId}` : "";
+  return apiRequest<ExamResponse[]>(`/exams${query}`);
+}
+
+export function listExercisesByExam(examId: number): Promise<ExerciseResponse[]> {
+  return apiRequest<ExerciseResponse[]>(`/exams/${examId}/exercises`);
+}
+
+export function assignExamToClass(examId: number, classId: number): Promise<void> {
+  return apiRequest<void>(`/exams/${examId}/classes/${classId}`, { method: "POST" });
+}
+
+export function unassignExamFromClass(examId: number, classId: number): Promise<void> {
+  return apiRequest<void>(`/exams/${examId}/classes/${classId}`, { method: "DELETE" });
+}
+
+export function listExamAssignedClasses(examId: number): Promise<ClassResponse[]> {
+  return apiRequest<ClassResponse[]>(`/exams/${examId}/classes`);
+}
+
+// ===================== Bài (Exercise) — UC-40 bước 2-4, thuộc 1 Đề (Exam) =====================
 
 /** FE chỉ dùng 2 giá trị đúng phạm vi UC-40 (SDD có thêm MOCK_TEST/SKILL_PRACTICE thuộc UC khác, không đưa vào đây). */
 export type ExerciseType = "SELF_PRACTICE" | "ASSIGNED";
@@ -199,7 +260,7 @@ export type ExerciseType = "SELF_PRACTICE" | "ASSIGNED";
 export interface CreateExerciseRequest {
   code: string;
   title: string;
-  curriculumId?: number;
+  examId: number;
   subjectId?: number;
   exerciseType: ExerciseType;
   totalPoints: number;
@@ -215,7 +276,10 @@ export interface ExerciseResponse {
   uuid: string;
   code: string;
   title: string;
-  curriculumId: number | null;
+  examId: number;
+  /** Denormalize từ Đề cha — render nhãn "Mã Đề - Tên bài" không cần round-trip thêm. */
+  examCode: string;
+  examTitle: string;
   subjectId: number | null;
   exerciseType: ExerciseType;
   totalPoints: number;
@@ -235,11 +299,6 @@ export function createExercise(request: CreateExerciseRequest): Promise<Exercise
 
 export function getExercise(id: number): Promise<ExerciseResponse> {
   return apiRequest<ExerciseResponse>(`/exercises/${id}`);
-}
-
-/** V65: GV quản lý mọi đề ASSIGNED (mọi status, kể cả DRAFT) đã soạn trong 1 khung chương trình — "Soạn & Giao đề" tổ chức theo khung chương trình thay vì theo lớp. */
-export function listForCurriculum(curriculumId: number): Promise<ExerciseResponse[]> {
-  return apiRequest<ExerciseResponse[]>(`/curriculums/${curriculumId}/exercises`);
 }
 
 /** V65 — Publish giờ chỉ đánh dấu đề "đủ điều kiện dùng làm nguồn", không còn giao lớp (xem Javadoc ExerciseService). */
@@ -301,7 +360,7 @@ export function listAssignmentsForClass(classId: number): Promise<ExerciseAssign
   return apiRequest<ExerciseAssignmentResponse[]>(`/classes/${classId}/exercises`);
 }
 
-/** V65: nguồn cho dropdown "BTVN Ngữ pháp buổi sau" ở Nhận xét học viên — đề ASSIGNED đã Publish đúng khung chương trình của lớp. */
+/** Kho đề: nguồn cho dropdown "BTVN buổi sau" ở Nhận xét học viên — mọi loại Bài đã Publish, thuộc 1 Đề đã gán cho lớp (không còn theo khung chương trình). */
 export function listPublishedExercisesForClass(classId: number): Promise<ExerciseResponse[]> {
   return apiRequest<ExerciseResponse[]>(`/classes/${classId}/exercises/published`);
 }

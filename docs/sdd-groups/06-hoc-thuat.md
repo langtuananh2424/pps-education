@@ -1509,11 +1509,18 @@ a)  Bảng student_comments --- Nhận xét học sinh
                                                                 nhau cho 2 nhóm biểu mẫu khác
                                                                 nhau
 
-  homework_previous_score  VARCHAR(10)   NULL                  Chỉ DAILY (V50) — VD "80%",
+  homework_previous_score  VARCHAR(30)   NULL                  Chỉ DAILY (V50) — VD "80%",
                                                                 chấm BTVN Ngữ pháp buổi TRƯỚC
-                                                                buổi này, nhập tay
+                                                                buổi này, nhập tay HOẶC tự
+                                                                điền nhãn "Chưa làm bài"/"Đang
+                                                                chờ chấm" khi round-trip qua
+                                                                Excel chưa bị ghi đè tay (nới
+                                                                từ VARCHAR(10) ở V68, bug phát
+                                                                hiện khi verify Kho đề
+                                                                2026-07-30 — nhãn tự động dài
+                                                                hơn 10 ký tự)
 
-  homework_previous_       VARCHAR(10)   NULL                  Chỉ DAILY (V56, bổ sung ngoài
+  homework_previous_       VARCHAR(30)   NULL                  Chỉ DAILY (V56, bổ sung ngoài
   speaking_score                                               SDD gốc, đã xác nhận với người
                                                                 dùng 2026-07-28) — VD "80%",
                                                                 chấm BTVN Nghe-nói (Video Ôn
@@ -1526,7 +1533,8 @@ a)  Bảng student_comments --- Nhận xét học sinh
                                                                 homework_next_review_video_
                                                                 set_id buổi trước, V55) — 2 cơ
                                                                 chế song song, không thay thế
-                                                                nhau
+                                                                nhau; nới độ dài VARCHAR(10)→
+                                                                VARCHAR(30) cùng đợt V68
 
   homework_next            TEXT          NULL                  Chỉ DAILY (V50) — BTVN ngữ
                                                                 pháp OFFLINE giao cho buổi

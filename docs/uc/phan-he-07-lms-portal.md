@@ -710,16 +710,29 @@ UC-27: Làm bài tập/đề ôn tập
 | **Sự kiện kích  | Học sinh chọn 1 bài tập/đề ôn tập từ ngân hàng để  |
 | hoạt**          | tự luyện.                                          |
 +-----------------+----------------------------------------------------+
-| **Điều kiện     | -   Ngân hàng bài tập/đề ôn tập đã có nội dung (do |
-| tiên quyết      |     Giáo viên biên soạn --- liên quan UC-40).      |
-| (               |                                                    |
-| Precondition)** |                                                    |
+| **Điều kiện     | -   Bài tập/đề ôn tập (SELF_PRACTICE) đã được Giáo |
+| tiên quyết      |     viên biên soạn, gắn vào 1 "Đề" (Kho đề, xem    |
+| (               |     UC-40) --- **V65 (bổ sung ngoài SDD gốc, đã    |
+| Precondition)** |     xác nhận với người dùng 2026-07-30):** khác    |
+|                 |     với thiết kế ban đầu (mở tự do ngay khi        |
+|                 |     Publish), SELF_PRACTICE giờ CŨNG cần (a) Đề    |
+|                 |     của bài đã được gán cho lớp học sinh đang học  |
+|                 |     (Kho đề) VÀ (b) được Giáo viên chọn làm "BTVN  |
+|                 |     buổi sau" ở Nhận xét học viên (UC-21) --- hệ    |
+|                 |     thống tự động giao (tạo ExerciseAssignment) cho|
+|                 |     TOÀN BỘ học sinh ACTIVE của lớp khi đó, hạn nộp|
+|                 |     ngầm định = buổi học kế tiếp (dù bài tự luyện  |
+|                 |     không có khái niệm "trễ hạn" thật sự). Publish |
+|                 |     đơn thuần (không qua UC-21) KHÔNG còn đủ để    |
+|                 |     học sinh thấy/làm được bài.                    |
 +-----------------+----------------------------------------------------+
-| **Luồng sự kiện | 1.  Học sinh duyệt ngân hàng bài tập & đề ôn tập,  |
-| chính (Main     |     chọn 1 đề theo chuyên đề/cấp độ phù hợp.       |
-| Flow)**         |                                                    |
-|                 | 2.  Học sinh làm bài (SELF_PRACTICE --- mở tự do,  |
-|                 |     không deadline).                               |
+| **Luồng sự kiện | 1.  Học sinh duyệt danh sách bài tập/đề ôn tập ĐÃ  |
+| chính (Main     |     ĐƯỢC GIAO cho lớp mình (xem Precondition),     |
+| Flow)**         |     chọn 1 đề theo chuyên đề/cấp độ phù hợp.       |
+|                 |                                                    |
+|                 | 2.  Học sinh làm bài (SELF_PRACTICE --- không có   |
+|                 |     deadline chặn nộp muộn như ASSIGNED, nhưng vẫn |
+|                 |     cần đã được giao như Precondition).            |
 |                 |                                                    |
 |                 | 3.  Học sinh nộp bài khi hoàn tất.                 |
 |                 |                                                    |
@@ -878,9 +891,11 @@ UC-40: Soạn & giao đề kiểm tra
 +-----------------+----------------------------------------------------+
 | **Tác nhân**    | Giáo viên                                          |
 +-----------------+----------------------------------------------------+
-| **Mô tả tóm     | Giáo viên soạn đề kiểm tra (từ ngân hàng câu hỏi   |
-| tắt**           | có sẵn hoặc tạo mới), giao đề cho lớp cụ thể kèm   |
-|                 | thời hạn nộp nếu cần.                              |
+| **Mô tả tóm     | Giáo viên tổ chức Kho đề 2 cấp: "Đề" (VD IELTS     |
+| tắt**           | Grade 6) chứa nhiều "Bài" (VD Unit 1, soạn từ ngân |
+|                 | hàng câu hỏi có sẵn hoặc tạo mới), gán Đề cho lớp  |
+|                 | cụ thể --- điều kiện hiển thị DUY NHẤT cho học sinh|
+|                 | lớp đó (bổ sung Kho đề, 2026-07-30, xem dưới đây). |
 +-----------------+----------------------------------------------------+
 | **Sự kiện kích  | Giáo viên cần tạo bài kiểm tra/bài tập giao cho    |
 | hoạt**          | lớp phụ trách.                                     |
@@ -890,36 +905,75 @@ UC-40: Soạn & giao đề kiểm tra
 | (               |                                                    |
 | Precondition)** |                                                    |
 +-----------------+----------------------------------------------------+
-| **Luồng sự kiện | 1.  Giáo viên mở màn hình Soạn đề, chọn nguồn câu  |
-| chính (Main     |     hỏi: từ ngân hàng có sẵn hoặc soạn câu hỏi mới |
-| Flow)**         |     --- cả 2 đều được lưu vào ngân hàng câu hỏi    |
-|                 |     (exercise_questions).                          |
+| **Luồng sự kiện | 1.  Giáo viên tạo/chọn 1 "Đề" (Exam) trong Kho đề  |
+| chính (Main     |     --- mã, tên, gán 1 khung chương trình (CHỈ để |
+| Flow)**         |     lọc/tìm kiếm trong Kho đề, không phải điều     |
+|                 |     kiện hiển thị cho lớp).                        |
 |                 |                                                    |
-|                 | 2.  Giáo viên chọn Loại đề: SELF_PRACTICE (mở tự   |
-|                 |     do, dùng cho UC-27) hoặc ASSIGNED (giao có     |
-|                 |     deadline, dùng cho UC-24).                     |
+|                 | 2.  Giáo viên gán Đề cho 1 hoặc nhiều lớp --- đây   |
+|                 |     là điều kiện hiển thị DUY NHẤT: học sinh của   |
+|                 |     lớp đã gán mới xem/làm được các Bài thuộc Đề,  |
+|                 |     kể cả lớp khác khung chương trình với Đề.       |
 |                 |                                                    |
-|                 | 3.  Giáo viên xác nhận Publish đề --- V65: KHÔNG   |
-|                 |     còn bước chọn lớp/deadline ở màn này (kể cả    |
-|                 |     đề ASSIGNED); Publish chỉ đánh dấu đề đủ điều  |
-|                 |     kiện dùng làm nguồn.                           |
+|                 | 3.  Giáo viên mở màn hình Soạn Bài (trong Đề), chọn|
+|                 |     nguồn câu hỏi: từ ngân hàng có sẵn hoặc soạn    |
+|                 |     câu hỏi mới --- cả 2 đều được lưu vào ngân hàng |
+|                 |     câu hỏi (exercise_questions).                  |
 |                 |                                                    |
-|                 | 4.  Việc chọn lớp/đặt deadline/giao đề + thông báo |
-|                 |     Học sinh chuyển hẳn sang Nhận xét học viên     |
-|                 |     (UC-21, V65) --- xem bổ sung dưới đây.         |
+|                 | 4.  Giáo viên chọn Loại Bài: SELF_PRACTICE (dùng   |
+|                 |     cho UC-27) hoặc ASSIGNED (dùng cho UC-24) ---  |
+|                 |     V65: cả 2 loại đều cùng 1 cơ chế giao (không   |
+|                 |     còn phân biệt ở bước giao bài, xem Postcondition|
+|                 |     và bổ sung Kho đề dưới đây).                    |
+|                 |                                                    |
+|                 | 5.  Giáo viên xác nhận Publish Bài --- V65: KHÔNG   |
+|                 |     còn bước chọn lớp/deadline ở màn này; Publish   |
+|                 |     chỉ đánh dấu Bài đủ điều kiện dùng làm nguồn.   |
+|                 |                                                    |
+|                 | 6.  Việc thật sự giao Bài (chọn lớp/đặt deadline/   |
+|                 |     thông báo Học sinh) chuyển hẳn sang Nhận xét    |
+|                 |     học viên (UC-21, V65) --- xem bổ sung dưới đây. |
 +-----------------+----------------------------------------------------+
 | **Luồng thay    | ***A1 --- Đề có câu tự luận/Nói***                 |
 | thế / ngoại lệ  |                                                    |
-| (Alternate      | 1.  Hệ thống đánh dấu đề cần bước chấm thủ công bổ |
+| (Alternate      | 1.  Hệ thống đánh dấu Bài cần bước chấm thủ công bổ|
 | Flow)**         |     sung sau khi Học sinh nộp bài (dẫn tới UC-41), |
-|                 |     khác với đề thuần trắc nghiệm chỉ cần chấm tự  |
+|                 |     khác với Bài thuần trắc nghiệm chỉ cần chấm tự |
 |                 |     động.                                          |
 +-----------------+----------------------------------------------------+
-| **Hậu điều kiện | -   Đề kiểm tra được lưu vào ngân hàng câu hỏi;    |
-| (P              |     nếu Publish, đủ điều kiện dùng làm nguồn ---   |
-| ostcondition)** |     V65: CHƯA sẵn sàng cho Học sinh làm bài (UC-24)|
-|                 |     cho tới khi được giao qua UC-21.               |
+| **Hậu điều kiện | -   Bài kiểm tra được lưu vào ngân hàng câu hỏi,   |
+| (P              |     gắn vào đúng 1 Đề; nếu Publish, đủ điều kiện   |
+| ostcondition)** |     dùng làm nguồn --- CHƯA sẵn sàng cho Học sinh   |
+|                 |     làm bài (UC-24/27) cho tới khi Đề của Bài đó    |
+|                 |     đã gán cho lớp (bước 2) VÀ Bài được chọn giao   |
+|                 |     qua UC-21 (bước 6) --- cả 2 điều kiện đều bắt   |
+|                 |     buộc, thiếu 1 trong 2 vẫn chặn.                 |
 +-----------------+----------------------------------------------------+
+
+> **Bổ sung Kho đề (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+> 2026-07-30) --- tái cấu trúc UC-40 thành 2 cấp Đề/Bài:** trước đây
+> `Exercise` (Bài) gán trực tiếp 1 khung chương trình; giờ mỗi Bài thuộc 1
+> "Đề" (`Exam`, bảng `exams`, gán 1 khung chương trình CHỈ để lọc/tìm
+> kiếm trong Kho đề) và 1 Đề gán được NHIỀU lớp (bảng `exam_class_
+> assignments`, nhiều-nhiều) --- đây là điều kiện hiển thị DUY NHẤT cho
+> học sinh, thay thế hoàn toàn "khớp khung chương trình của lớp" trước
+> đây. 5 hệ quả:
+> 1. **Áp dụng cho MỌI loại Bài** (SELF_PRACTICE/ASSIGNED/MOCK_TEST/
+>    SKILL_PRACTICE), không riêng ASSIGNED như thiết kế V65 ban đầu ---
+>    SELF_PRACTICE mất hẳn cơ chế "mở tự do sau khi Publish", giờ CŨNG
+>    cần Đề đã gán lớp + được giao qua UC-21 như ASSIGNED (thay đổi hành
+>    vi thật sự cho UC-27, xem Precondition UC-27).
+> 2. Endpoint `GET /api/curriculums/{curriculumId}/exercises` (do PR
+>    #128 tự bổ sung để GV duyệt đề theo khung chương trình) đã bị XÓA,
+>    thay bằng duyệt qua `GET /api/exams` (lọc theo `curriculumId`) →
+>    `GET /api/exams/{id}/exercises` (Bài trong 1 Đề).
+> 3. `POST/DELETE /api/exams/{id}/classes/{classId}` (gán/gỡ lớp, quyền
+>    `lms.exam.assign`) thay cho việc đặt scope trực tiếp trên từng Bài.
+> 4. Dữ liệu Exercise cũ (Sprint 0/1, dữ liệu test) được migration tự
+>    động bọc vào 1 Đề mặc định 1-1, không mất dữ liệu.
+> 5. Dropdown "BTVN buổi sau" ở Nhận xét học viên (UC-21) đổi nhãn từ
+>    `Tên bài (Mã bài)` sang **`Mã Đề - Tên bài`** để phân biệt khi 1 lớp
+>    được gán nhiều Đề cùng lúc.
 
 > **Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (2026-07-21, cập
 > nhật 2026-07-22):** `Question.audioUrl` (trắc nghiệm Voice) và
