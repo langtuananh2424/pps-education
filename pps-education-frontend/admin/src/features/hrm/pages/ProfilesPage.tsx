@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Users } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import ImportExcelButton from "@/components/ui/ImportExcelButton";
-import { EmployeeResponse, importEmployees, listEmployees } from "../api";
+import { EmployeeResponse, exportEmployeeAccounts, importEmployees, listEmployees } from "../api";
 import EmployeeListPanel from "../components/EmployeeListPanel";
 import EmployeeDetailPanel from "../components/EmployeeDetailPanel";
 import EmployeeFormModal from "../components/EmployeeFormModal";
@@ -63,6 +63,8 @@ export default function ProfilesPage() {
           templateHeaders={EMPLOYEE_IMPORT_HEADERS}
           templateSampleRow={EMPLOYEE_IMPORT_SAMPLE}
           uploadFn={importEmployees}
+          exportAccounts={exportEmployeeAccounts}
+          accountsExportFileName="tai-khoan-nhan-su.xlsx"
           onImported={load}
         />
       </div>
