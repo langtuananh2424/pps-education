@@ -37,6 +37,7 @@ import vn.com.pps.education.repository.UserRepository;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -230,6 +231,17 @@ public class ExerciseService {
      * 2026-07-30): bỏ hẳn rào exerciseType==ASSIGNED — ÁP DỤNG CHO MỌI
      * loại đề. Thay bằng rào phạm vi mới: Đề của Bài này phải đã được gán
      * cho lớp (mirror ReviewVideoService#deliverToClass's inScope check).
+     *
+     * V70 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31,
+     * fix bug thông báo bị gửi lặp N lần): "Gửi nhận xét" hàng loạt cho
+     * nhiều học sinh CÙNG buổi, CÙNG chọn 1 Bài → FE gửi N request riêng
+     * biệt, mỗi request gọi ĐÚNG đây với CÙNG (exerciseId, classId,
+     * dueAt) — dueAt tính từ buổi học (resolveNextSessionDueAt), giống
+     * hệt nhau cho mọi học sinh trong cùng buổi. Nếu đã có 1 lần giao
+     * ACTIVE khớp CHÍNH XÁC (Bài, lớp, dueAt) — request TRÙNG LẶP trong
+     * CÙNG 1 đợt gửi — tái dùng nguyên bản ghi đó, KHÔNG tạo mới, KHÔNG
+     * gọi lại notifyAssignedStudents (tránh N thông báo giống hệt nhau
+     * cho toàn bộ học sinh lớp). Mirror ReviewVideoService#deliverToClass.
      */
     @Transactional
     public ExerciseAssignment deliverToClass(Long exerciseId, Long classId, OffsetDateTime dueAt, Long actorUserId) {
@@ -240,6 +252,13 @@ public class ExerciseService {
         if (!examClassAssignmentRepository.existsByExamIdAndSchoolClassId(exercise.getExam().getId(), classId)) {
             throw new IllegalArgumentException(
                     "Đề của bài id=" + exerciseId + " chưa được gán cho lớp id=" + classId + " — vào Kho đề để gán trước.");
+        }
+
+        var sameSession = exerciseAssignmentRepository
+                .findByExerciseIdAndSchoolClassIdAndStatus(exerciseId, classId, ExerciseAssignment.Status.ACTIVE)
+                .stream().filter(a -> Objects.equals(a.getDueAt(), dueAt)).findFirst();
+        if (sameSession.isPresent()) {
+            return sameSession.get();
         }
 
         ExerciseAssignment assignment = new ExerciseAssignment();

@@ -14,9 +14,16 @@ import java.time.OffsetDateTime;
  * (bổ sung ngoài SDD gốc đã xác nhận với người dùng): Học sinh nộp audio
  * trả lời cho 1 câu hỏi (ReviewVideoQuestion), GIỮ LỊCH SỬ mỗi lần nộp
  * (attemptNumber tăng dần, UNIQUE review_video_question_id+student_id+
- * attempt_number — khác hẳn cơ chế ghi đè cũ). Giáo viên chấm điểm/nhận
- * xét cho TỪNG attempt riêng (không xoá điểm attempt trước khi nộp attempt
- * mới, khác cơ chế cũ).
+ * review_video_assignment_id+attempt_number — khác hẳn cơ chế ghi đè cũ).
+ * Giáo viên chấm điểm/nhận xét cho TỪNG attempt riêng (không xoá điểm
+ * attempt trước khi nộp attempt mới, khác cơ chế cũ).
+ *
+ * V69 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31, fix
+ * bug "Đã nộp bài" hiện sai khi giao lại): thêm liên kết tới
+ * {@link ReviewVideoAssignment} — mỗi attempt gắn với ĐÚNG 1 lần giao đã
+ * cấp quyền nộp (không còn tính lịch sử xuyên suốt mọi lần giao). NULL cho
+ * dữ liệu trước V69 (không xác định được lần giao nào), coi như không
+ * thuộc lần giao hiện tại nào — xem Javadoc ReviewVideoService.
  */
 @Getter
 @Setter
@@ -35,6 +42,11 @@ public class ReviewVideoQuestionSubmission extends BaseAuditEntity {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "student_id", nullable = false)
     private Student student;
+
+    /** V69 — NULL cho dữ liệu trước V69 (xem Javadoc lớp). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "review_video_assignment_id")
+    private ReviewVideoAssignment reviewVideoAssignment;
 
     @Column(name = "attempt_number", nullable = false)
     private int attemptNumber;

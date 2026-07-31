@@ -367,6 +367,14 @@ câu hỏi + Giáo viên chấm điểm (thay thế review_video_submissions cũ
                                             students(id),
                                             NOT NULL
 
+  review_video_assignment_id  BIGINT         FK →              V69 -- NULL
+                                            review_video_      cho dữ liệu
+                                            assignments(id),   trước V69
+                                            NULL               (không xác
+                                                                định được
+                                                                lần giao
+                                                                nào)
+
   attempt_number              INT            NOT NULL          Tăng dần mỗi
                                                                 lần nộp lại
                                                                 — GIỮ LỊCH
@@ -400,13 +408,27 @@ câu hỏi + Giáo viên chấm điểm (thay thế review_video_submissions cũ
   created_at, updated_at             TIMESTAMPTZ    NOT NULL          BaseAuditEntity
   --------------------------------------------------------------------------
 
-Ràng buộc: UNIQUE (review_video_question_id, student_id, attempt_number)
-— GIỮ LỊCH SỬ mọi lần nộp (khác hẳn UNIQUE(review_video_id, student_id)
-+ upsert-ghi-đè của thiết kế cũ). Vượt quá max_attempts của câu hỏi →
-từ chối tạo attempt mới (RetakeNotAllowedException, tái dùng nguyên cơ
-chế giới hạn lượt làm lại của Exercise/UC-24/27). Giáo viên chấm điểm
-mặc định trên attempt MỚI NHẤT (listSubmissionsForTeacher chỉ trả 1
-dòng/câu hỏi/học sinh — attempt có attempt_number lớn nhất).
+Ràng buộc: UNIQUE (review_video_question_id, student_id,
+review_video_assignment_id, attempt_number) — GIỮ LỊCH SỬ mọi lần nộp
+(khác hẳn UNIQUE(review_video_id, student_id) + upsert-ghi-đè của thiết
+kế cũ). Vượt quá max_attempts của câu hỏi → từ chối tạo attempt mới
+(RetakeNotAllowedException, tái dùng nguyên cơ chế giới hạn lượt làm lại
+của Exercise/UC-24/27). Giáo viên chấm điểm mặc định trên attempt MỚI
+NHẤT (listSubmissionsForTeacher chỉ trả 1 dòng/câu hỏi/học sinh — attempt
+có attempt_number lớn nhất, KHÔNG lọc theo review_video_assignment_id —
+Giáo viên vẫn cần thấy lịch sử cũ để chấm dù học sinh đã được giao lại).
+
+**Bổ sung V69 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+2026-07-31) — fix bug "Đã nộp bài" hiện sai khi giao lại:** thêm cột
+`review_video_assignment_id` + đổi UNIQUE constraint để `attempt_number`
+tính lại từ đầu ở MỖI lần giao (không còn tính dồn lịch sử xuyên suốt mọi
+lần giao trong quá khứ) — `submitQuestionAudio`/`getMyLatestSubmission`/
+`listMySubmissionHistory` (phía Học sinh) đều lọc theo ĐÚNG
+`review_video_assignment_id` hiện tại. `ReviewVideoService.deliverToClass`
+(giao lại) tự hủy (CANCELLED) mọi lần giao ACTIVE cũ của cùng (bộ, lớp)
+trước khi tạo lần giao mới, đảm bảo tại mọi thời điểm chỉ có TỐI ĐA 1 lần
+giao ACTIVE cho 1 (bộ, lớp) — không còn mơ hồ khi tra "lần giao nào đang
+hiệu lực".
 
 Migration V57 (DROP review_video_submissions cũ sau khi migrate dữ liệu:
 mỗi video REFLEX có sẵn → 1 câu hỏi mặc định timestamp=0 phủ cả video,

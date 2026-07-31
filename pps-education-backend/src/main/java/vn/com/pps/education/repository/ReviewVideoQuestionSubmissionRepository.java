@@ -7,13 +7,19 @@ import java.util.List;
 
 public interface ReviewVideoQuestionSubmissionRepository extends JpaRepository<ReviewVideoQuestionSubmission, Long> {
 
-    /** Mới nhất trước — dùng .get(0) để lấy attempt mới nhất, cùng pattern với ExerciseAttemptRepository. */
-    List<ReviewVideoQuestionSubmission> findByReviewVideoQuestionIdAndStudentIdOrderByAttemptNumberDesc(
-            Long reviewVideoQuestionId, Long studentId);
+    /**
+     * V69: scoped theo ĐÚNG lần giao (ReviewVideoAssignment) hiện tại —
+     * mới nhất trước, dùng .get(0) để lấy attempt mới nhất, cùng pattern
+     * với ExerciseAttemptRepository. Không còn tính lịch sử xuyên suốt
+     * mọi lần giao (fix bug "Đã nộp bài" hiện sai khi giao lại).
+     */
+    List<ReviewVideoQuestionSubmission> findByReviewVideoQuestionIdAndStudentIdAndReviewVideoAssignmentIdOrderByAttemptNumberDesc(
+            Long reviewVideoQuestionId, Long studentId, Long reviewVideoAssignmentId);
 
-    int countByReviewVideoQuestionIdAndStudentId(Long reviewVideoQuestionId, Long studentId);
+    int countByReviewVideoQuestionIdAndStudentIdAndReviewVideoAssignmentId(
+            Long reviewVideoQuestionId, Long studentId, Long reviewVideoAssignmentId);
 
-    /** UC-23b: Giáo viên xem danh sách bài đã nộp — trả TẤT CẢ attempt (Service tự lọc lấy mới nhất mỗi cặp question+student). */
+    /** UC-23b: Giáo viên xem danh sách bài đã nộp — trả TẤT CẢ attempt (Service tự lọc lấy mới nhất mỗi cặp question+student), không lọc theo lần giao (GV cần thấy cả lịch sử cũ để chấm). */
     List<ReviewVideoQuestionSubmission> findByReviewVideoQuestionIdInAndStudentIdIn(
             List<Long> reviewVideoQuestionIds, List<Long> studentIds);
 }
