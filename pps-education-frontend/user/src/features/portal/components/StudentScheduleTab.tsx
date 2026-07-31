@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { AlertCircle, Calendar, CheckCircle2, FileSpreadsheet, XCircle } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
+import { formatHm } from "@/lib/format";
 import { AttendanceMarkResponse, ClassSessionResponse, listMyAttendance, listMySessions } from "../api";
 
 const teacherTypeLabels: Record<string, string> = { VIETNAMESE: "GV Việt Nam", FOREIGN: "GV nước ngoài" };
@@ -144,17 +145,26 @@ export default function StudentScheduleTab({ classId }: StudentScheduleTabProps)
               return (
               <div
                 key={s.id}
-                className="border border-line/80 p-5 rounded-[20px] flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-sky-2"
+                className="relative border border-line/80 p-5 rounded-[20px] flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-sky-2"
               >
+                {/* Badge tuyệt đối (absolute) không chiếm chỗ trong flow trên mobile, nên KHÔNG cần chừa
+                    padding-phải cho cả khối — pill "Thứ ..." đã tự xuống dòng riêng do flex-wrap (không
+                    đủ chỗ đứng cùng hàng với "Buổi N · ngày · giờ"), badge nổi đúng ngang hàng pill mà
+                    không đụng nhau vì pill ngắn, nằm bên trái. Thêm padding sẽ chỉ vô cớ bóp hẹp dòng
+                    "Buổi N..." (đã ở dưới, ngoài tầm badge) khiến nó vỡ thêm 1 dòng nữa (bug đã gặp). */}
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="px-3 py-1 bg-teal border border-teal-deep/30 text-white text-xs font-extrabold rounded-full">
                       {new Date(s.sessionDate).toLocaleDateString("vi-VN", { weekday: "long" }).replace(/^./, (c) => c.toUpperCase())}
                     </span>
                     <span className="text-xs text-muted font-bold">
-                      Buổi {s.sessionNumber} · {s.sessionDate} · {s.startTime}–{s.endTime}
+                      Buổi {s.sessionNumber} · {s.sessionDate} · {formatHm(s.startTime)}–{formatHm(s.endTime)}
                     </span>
-                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold border ${badge.className}`}>
+                    {/* Mobile: neo cố định góc trên-phải của thẻ (theo yêu cầu người dùng, 2026-07-31).
+                        Desktop (md+) trả về static, nằm đúng vị trí cũ trong hàng cùng nhãn thứ/ngày giờ. */}
+                    <span
+                      className={`absolute top-3 right-3 md:static md:top-auto md:right-auto inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold border ${badge.className}`}
+                    >
                       {badge.icon} {badge.label}
                     </span>
                   </div>
@@ -195,7 +205,7 @@ export default function StudentScheduleTab({ classId }: StudentScheduleTabProps)
                     {a.minutesLate ? <span className="text-[10px] text-muted font-bold">Muộn {a.minutesLate} phút</span> : null}
                   </div>
                   <p className="text-[11px] text-muted font-bold">
-                    {session ? `Buổi ${session.sessionNumber} · ${session.sessionDate} · ${session.startTime}–${session.endTime}` : "Không rõ buổi học"}
+                    {session ? `Buổi ${session.sessionNumber} · ${session.sessionDate} · ${formatHm(session.startTime)}–${formatHm(session.endTime)}` : "Không rõ buổi học"}
                   </p>
                   {a.absenceReason && <p className="text-[11px] italic text-muted font-bold border-t border-line/50 pt-1 mt-1">* Lý do: {a.absenceReason}</p>}
                 </div>

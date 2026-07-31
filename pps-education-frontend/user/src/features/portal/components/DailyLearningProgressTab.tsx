@@ -19,6 +19,7 @@ import {
   Video
 } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
+import { formatHm } from "@/lib/format";
 import {
   AttendanceMarkResponse,
   ClassSessionResponse,
@@ -141,7 +142,7 @@ export default function DailyLearningProgressTab({ studentName, studentCode, cla
           return {
             id: String(c.id),
             commentDate: session?.sessionDate ?? c.commentDate,
-            timeSlot: session ? `${session.startTime} - ${session.endTime}` : null,
+            timeSlot: session ? `${formatHm(session.startTime)} - ${formatHm(session.endTime)}` : null,
             sessionTypeLabel: session ? sessionTypeLabels[session.sessionType] ?? session.sessionType : null,
             sessionNumber: session?.sessionNumber ?? null,
             roomName: session?.roomName ?? null,
@@ -309,6 +310,29 @@ export default function DailyLearningProgressTab({ studentName, studentCode, cla
       ? `Các buổi (${logs.length})`
       : `${selectedLog.commentDate}${selectedLog.timeSlot ? ` · ${selectedLog.timeSlot}` : ""}`;
 
+  /**
+   * Mobile: gộp 2 nút lọc "Các buổi"/"Từ ngày - Đến ngày" thành 1 nút dropdown chọn loại lọc, đỡ
+   * chiếm 2 hàng riêng trên màn hẹp (theo yêu cầu người dùng, 2026-07-31) — desktop (md+) vẫn giữ 2
+   * nút riêng như cũ (xem 2 khối "hidden md:block" bên dưới). Dùng chung state lọc thật
+   * (selectedSessionId/dateFrom/dateTo) với 2 nút desktop, chỉ khác UI trigger + panel gộp lại.
+   */
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
+  const [mobileFilterMode, setMobileFilterMode] = useState<"SESSION" | "RANGE">("SESSION");
+  const mobileFilterRef = useRef<HTMLDivElement>(null);
+  const mobileFilterLabel = mobileFilterMode === "SESSION" ? triggerLabel : `${dateFrom ? formatDateVN(dateFrom) : "Từ ngày"} → ${dateTo ? formatDateVN(dateTo) : "Đến ngày"}`;
+
+  useEffect(() => {
+    if (!mobileFilterOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (mobileFilterRef.current && !mobileFilterRef.current.contains(e.target as Node)) {
+        setMobileFilterOpen(false);
+        setMultiDayLogs(null);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [mobileFilterOpen]);
+
   // ===== KPI: tính từ dữ liệu thật =====
   const ratedLogs = logs.filter((l) => l.attitude);
   const attitudeFrequency = new Map<NonNullable<StudentCommentResponse["attitude"]>, number>();
@@ -336,16 +360,302 @@ export default function DailyLearningProgressTab({ studentName, studentCode, cla
 
   if (loading) return <p className="text-sm text-muted font-bold">Đang tải...</p>;
 
+  /** Nội dung panel chọn buổi — dùng chung cho nút desktop riêng lẫn dropdown gộp trên mobile. */
+  const renderSessionPickerBody = (closeAll: () => void) => (
+    <>
+      <button
+        type="button"
+        onClick={() => {
+          setSelectedSessionId("ALL");
+          closeCalendar();
+          closeAll();
+        }}
+        className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold border transition-colors ${selectedSessionId === "ALL" ? "bg-teal text-white border-teal" : "bg-slate-50 text-ink border-line/80 hover:bg-sky-2"
+          }`}
+      >
+        Tất cả các buổi học ({logs.length})
+      </button>
+
+      <div className="flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => setViewMonth(new Date(year, month - 1, 1))}
+          aria-label="Tháng trước"
+          className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-sky-2 text-muted"
+        >
+          <ChevronLeft size={16} aria-hidden="true" />
+        </button>
+        <span className="text-xs font-black text-ink capitalize">{viewMonth.toLocaleDateString("vi-VN", { month: "long", year: "numeric" })}</span>
+        <button
+          type="button"
+          onClick={() => setViewMonth(new Date(year, month + 1, 1))}
+          aria-label="Tháng sau"
+          className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-sky-2 text-muted"
+        >
+          <ChevronRight size={16} aria-hidden="true" />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-7 gap-1 text-center">
+        {WEEKDAY_LABELS.map((w) => (
+          <span key={w} className="text-[10px] font-bold text-muted py-1">
+            {w}
+          </span>
+        ))}
+        {calendarCells.map((day, i) => {
+          if (day == null) return <span key={`blank-${i}`} />;
+          const dayLogs = logsByDate.get(dateStrFor(day));
+          const hasLogs = !!dayLogs && dayLogs.length > 0;
+          const isSelected = !!dayLogs && dayLogs.some((l) => l.id === selectedSessionId);
+          return (
+            <button
+              key={day}
+              type="button"
+              disabled={!hasLogs}
+              onClick={() => handleDayClick(day)}
+              aria-label={hasLogs ? `Buổi học ngày ${day}/${month + 1}` : undefined}
+              className={`relative w-9 h-9 mx-auto flex items-center justify-center rounded-lg text-xs font-bold transition-colors ${isSelected
+                ? "bg-teal text-white"
+                : hasLogs
+                  ? "bg-teal/10 text-teal hover:bg-teal hover:text-white cursor-pointer"
+                  : "text-slate-300 cursor-default"
+                }`}
+            >
+              {day}
+            </button>
+          );
+        })}
+      </div>
+
+      {multiDayLogs && (
+        <div className="border-t border-line/60 pt-2 space-y-1">
+          <p className="text-[10px] font-bold text-muted uppercase">Chọn đúng buổi học trong ngày</p>
+          {multiDayLogs.map((log) => (
+            <button
+              key={log.id}
+              type="button"
+              onClick={() => {
+                setSelectedSessionId(log.id);
+                closeAll();
+              }}
+              className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-bold bg-slate-50 hover:bg-sky-2 text-ink"
+            >
+              {log.timeSlot ?? log.commentDate} — {log.sessionTypeLabel ?? "Buổi học"}
+            </button>
+          ))}
+        </div>
+      )}
+    </>
+  );
+
+  /** Nội dung panel chọn khoảng ngày — dùng chung cho nút desktop riêng lẫn dropdown gộp trên mobile. */
+  const renderRangePickerBody = (onDone: () => void) => (
+    <>
+      <p className="text-[11px] font-bold text-muted">
+        {!dateFrom ? "Chọn ngày bắt đầu" : !dateTo ? "Chọn ngày kết thúc" : `${formatDateVN(dateFrom)} → ${formatDateVN(dateTo)}`}
+      </p>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {[0, 1].map((offset) => {
+          const panelDate = new Date(rangeViewMonth.getFullYear(), rangeViewMonth.getMonth() + offset, 1);
+          const pYear = panelDate.getFullYear();
+          const pMonth = panelDate.getMonth();
+          const cells = buildMonthCells(pYear, pMonth);
+          return (
+            <div key={offset} className="space-y-2">
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => setRangeViewMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}
+                  aria-label="Tháng trước"
+                  className={`w-7 h-7 flex items-center justify-center rounded-lg hover:bg-sky-2 text-muted ${offset === 1 ? "invisible" : ""}`}
+                >
+                  <ChevronLeft size={15} aria-hidden="true" />
+                </button>
+                <span className="text-xs font-black text-ink capitalize">{panelDate.toLocaleDateString("vi-VN", { month: "long", year: "numeric" })}</span>
+                <button
+                  type="button"
+                  onClick={() => setRangeViewMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}
+                  aria-label="Tháng sau"
+                  className={`w-7 h-7 flex items-center justify-center rounded-lg hover:bg-sky-2 text-muted ${offset === 0 ? "invisible" : ""}`}
+                >
+                  <ChevronRight size={15} aria-hidden="true" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-7 gap-1 text-center">
+                {WEEKDAY_LABELS.map((w) => (
+                  <span key={w} className="text-[10px] font-bold text-muted py-1">
+                    {w}
+                  </span>
+                ))}
+                {cells.map((day, i) => {
+                  if (day == null) return <span key={`blank-${offset}-${i}`} />;
+                  const dateStr = dateStrForYM(pYear, pMonth, day);
+                  const state = rangeCellState(dateStr);
+                  return (
+                    <button
+                      key={day}
+                      type="button"
+                      onClick={() => handleRangeDayClick(dateStr)}
+                      aria-label={`Chọn ngày ${day}/${pMonth + 1}`}
+                      className={`relative w-8 h-8 mx-auto flex items-center justify-center text-xs font-bold transition-colors cursor-pointer ${state === "start" || state === "end" || state === "single"
+                        ? "bg-teal text-white rounded-full"
+                        : state === "in-range"
+                          ? "bg-teal/15 text-teal-deep rounded-none"
+                          : "text-ink hover:bg-teal/10 rounded-full"
+                        }`}
+                    >
+                      {day}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="flex items-center justify-between gap-2 pt-1 border-t border-line/60">
+        <button
+          type="button"
+          onClick={() => {
+            setDateFrom("");
+            setDateTo("");
+          }}
+          className="text-[11px] font-bold text-muted hover:text-ink"
+        >
+          Xóa lọc
+        </button>
+        <button type="button" onClick={onDone} className="px-3 py-1.5 bg-teal text-white text-[11px] font-bold rounded-lg hover:bg-teal-deep">
+          Xong
+        </button>
+      </div>
+    </>
+  );
+
+  /**
+   * Dạng thẻ — mỗi buổi 1 thẻ, cùng dữ liệu như bảng nhưng dễ đọc chi tiết từng buổi hơn (2026-07-30).
+   * Tách thành biến dùng chung: mobile LUÔN ép hiện dạng này (bảng min-w-[1200px] không cách nào co vừa
+   * màn hình hẹp, kể cả cuộn ngang cũng khó dùng — theo phản hồi người dùng "để trưng à?", 2026-07-31),
+   * desktop vẫn theo đúng lựa chọn Bảng/Thẻ như cũ.
+   */
+  const cardsView = (
+    <div className="space-y-4">
+      {filteredLogs.length === 0 ? (
+        <p className="text-xs text-muted font-bold italic text-center py-10 border border-line/80 rounded-2xl">
+          Chưa có nhận xét nào được duyệt cho lớp này.
+        </p>
+      ) : (
+        filteredLogs.map((log) => {
+          const prevGrammarDisplay = log.homeworkPreviousScore || log.grammarPreviousProgress;
+          const prevSpeakingDisplay = log.homeworkPreviousSpeakingScore || log.videoPreviousProgress;
+          const prevGrammarPercent = parseProgressPercent(prevGrammarDisplay ?? null);
+          return (
+            <div key={log.id} className="bg-white border border-line rounded-2xl p-5 shadow-2xs hover:shadow-xs transition-all space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-line/70 pb-3">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-800 text-[11px] font-black font-mono border border-slate-200">
+                      {log.commentDate}
+                    </span>
+                    <span className="text-xs font-extrabold text-muted flex items-center gap-1">
+                      <Clock size={12} className="text-teal" aria-hidden="true" /> {log.timeSlot ?? "—"}
+                    </span>
+                    {log.roomName && (
+                      <span className="text-xs font-extrabold text-muted flex items-center gap-1">
+                        <MapPin size={12} className="text-teal" aria-hidden="true" /> {log.roomName}
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="text-base font-black text-ink font-display">
+                    {log.sessionNumber != null ? `Buổi ${log.sessionNumber}` : log.sessionTypeLabel ?? "Buổi học"}
+                    {log.lessonContent && <span className="text-muted font-bold"> — {log.lessonContent}</span>}
+                  </h3>
+                </div>
+
+                <span
+                  className={`px-2.5 py-0.5 rounded-full text-xs font-bold border shrink-0 ${log.attitude ? attitudeStyles[log.attitude] : "bg-slate-100 text-slate-700 border-slate-200"
+                    }`}
+                >
+                  Thái độ: {log.attitude ? attitudeLabels[log.attitude] : "—"}
+                </span>
+              </div>
+
+              <div className="p-3.5 bg-slate-50/80 rounded-xl border-l-4 border-teal text-xs text-ink/90 font-medium leading-relaxed italic">
+                <span className="font-extrabold not-italic text-slate-700 block mb-0.5">💬 Nhận xét của Giáo viên:</span>"{log.content}"
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                <div className="p-3.5 bg-slate-50 rounded-xl border border-line/80 space-y-2">
+                  <div className="flex items-center justify-between font-black text-slate-800 uppercase tracking-wider text-[11px]">
+                    <span className="flex items-center gap-1">
+                      <CheckCircle2 size={13} className="text-emerald-600" aria-hidden="true" /> Kết quả BTVN buổi trước
+                    </span>
+                    {prevGrammarPercent != null && <span className="text-emerald-700 font-extrabold">{prevGrammarPercent}% Đạt</span>}
+                  </div>
+
+                  <div className="space-y-1.5 pt-1">
+                    <div className="flex justify-between text-[11px]">
+                      <span className="text-slate-600 font-semibold">BTVN Ngữ Pháp:</span>
+                      <span className="font-bold text-slate-900">{prevGrammarDisplay || "—"}</span>
+                    </div>
+                    {prevGrammarPercent != null && (
+                      <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                        <div className="bg-emerald-500 h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(100, Math.max(0, prevGrammarPercent))}%` }} />
+                      </div>
+                    )}
+                    <div className="flex justify-between text-[11px] pt-1">
+                      <span className="text-slate-600 font-semibold">BTVN Nghe - Nói:</span>
+                      <span className="font-bold text-purple-900">{prevSpeakingDisplay || "—"}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-3.5 bg-slate-50 rounded-xl border border-line/80 space-y-2">
+                  <div className="flex items-center justify-between font-black text-slate-800 uppercase tracking-wider text-[11px]">
+                    <span className="flex items-center gap-1">
+                      <BookOpen size={13} className="text-blue-600" aria-hidden="true" /> Chuẩn bị cho buổi học sau
+                    </span>
+                  </div>
+
+                  <div className="space-y-2 pt-1">
+                    <div className="flex items-start justify-between gap-2 text-[11px]">
+                      <span className="flex items-center gap-1.5 font-bold text-slate-800 shrink-0">
+                        <Video size={12} className="text-amber-600 shrink-0" aria-hidden="true" /> Video ôn tập:
+                      </span>
+                      <span className="font-semibold text-slate-700 text-right">{log.homeworkNextVideoLabel || "—"}</span>
+                    </div>
+                    <div className="pt-1 border-t border-line/60 flex items-start justify-between gap-2 text-[11px]">
+                      <span className="font-bold text-slate-800 shrink-0">Ngữ pháp:</span>
+                      <span className="font-semibold text-slate-700 text-right">{log.homeworkNextGrammarLabel || "—"}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {log.note && (
+                <p className="text-[11px] font-bold text-teal bg-teal/10 px-3 py-1.5 rounded-lg border border-teal/20 inline-block">
+                  Ghi chú: {log.note}
+                </p>
+              )}
+            </div>
+          );
+        })
+      )}
+    </div>
+  );
+
   return (
     <div className="bg-white rounded-[24px] border border-line shadow-sm p-4 md:p-6 space-y-6">
-      {/* Header Bar */}
-      <div className="bg-slate-50/80 p-5 rounded-2xl border border-line/80 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* Header Bar — padding gọn hơn trên mobile (p-4 thay vì p-5), giữ nguyên desktop. */}
+      <div className="bg-slate-50/80 p-4 md:p-5 rounded-2xl border border-line/80 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-lg md:text-xl font-black text-ink font-display">Bảng Tổng Quan Nhật Ký Học Tập</h2>
-            <span className="px-2.5 py-0.5 rounded-full bg-teal/10 text-teal text-xs font-bold border border-teal/20">
-              {parentStudentId != null ? "Phụ Huynh Theo Dõi" : "-"}
-            </span>
+            <h2 className="text-lg md:text-xl font-black text-ink font-display">Quá trình học tập</h2>
+            {parentStudentId != null ? <span className="px-2.5 py-0.5 rounded-full bg-teal/10 text-teal text-xs font-bold border border-teal/20">
+              Phụ Huynh Theo Dõi
+            </span> : null}
           </div>
           <p className="text-xs text-muted font-bold mt-1">
             Theo dõi thái độ, bài tập &amp; nhận xét từng buổi học của{" "}
@@ -360,22 +670,85 @@ export default function DailyLearningProgressTab({ studentName, studentCode, cla
             <button
               type="button"
               onClick={() => setViewMode("TABLE")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${viewMode === "TABLE" ? "bg-teal text-white shadow-2xs" : "text-muted hover:text-ink"
+              aria-label="Xem dạng bảng"
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${viewMode === "TABLE" ? "bg-teal text-white shadow-2xs" : "text-muted hover:text-ink"
                 }`}
             >
-              <TableIcon size={13} aria-hidden="true" /> Bảng
+              <TableIcon size={13} aria-hidden="true" /> <span className="hidden md:inline">Bảng</span>
             </button>
             <button
               type="button"
               onClick={() => setViewMode("CARDS")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${viewMode === "CARDS" ? "bg-teal text-white shadow-2xs" : "text-muted hover:text-ink"
+              aria-label="Xem dạng thẻ"
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${viewMode === "CARDS" ? "bg-teal text-white shadow-2xs" : "text-muted hover:text-ink"
                 }`}
             >
-              <LayoutGrid size={13} aria-hidden="true" /> Thẻ
+              <LayoutGrid size={13} aria-hidden="true" /> <span className="hidden md:inline">Thẻ</span>
             </button>
           </div>
 
-          <div className="relative" ref={calendarRef}>
+          {/* Mobile: 1 dropdown gộp chọn LOẠI lọc (Các buổi / Từ ngày - Đến ngày) rồi hiện đúng panel
+              tương ứng bên trong, thay vì 2 nút riêng chiếm 2 hàng (theo yêu cầu người dùng,
+              2026-07-31). Desktop (md+) vẫn 2 nút riêng như cũ — xem 2 khối "hidden md:block" dưới đây.
+              "ml-auto" khóa nút này vào SÁT GÓC PHẢI của hàng — nếu để trôi nổi bên trái (vị trí tự
+              nhiên sau khi "Bảng/Thẻ" chiếm chỗ) thì panel neo "right-0" theo nút sẽ tràn hẳn ra ngoài
+              mép trái màn hình do nút cách mép phải màn hình quá xa (bug đã gặp, 2026-07-31). */}
+          <div className="relative md:hidden ml-auto" ref={mobileFilterRef}>
+            <button
+              type="button"
+              onClick={() => setMobileFilterOpen((v) => !v)}
+              aria-label="Lọc theo buổi học hoặc khoảng thời gian"
+              aria-haspopup="dialog"
+              aria-expanded={mobileFilterOpen}
+              className="flex items-center gap-1.5 bg-white border border-line rounded-lg px-3 py-2 text-xs font-bold text-ink focus:outline-none focus:ring-2 focus:ring-teal/50 shadow-sm cursor-pointer"
+            >
+              {mobileFilterMode === "SESSION" ? (
+                <Calendar size={14} className="text-teal shrink-0" aria-hidden="true" />
+              ) : (
+                <Clock size={14} className="text-teal shrink-0" aria-hidden="true" />
+              )}
+              {/* min-w-0 bắt buộc phải có — flex item mặc định có min-width:auto (co theo nội dung),
+                  nếu thiếu thì "truncate" (ellipsis) không tác dụng, nút cứ giãn rộng theo text dài
+                  thay vì cắt bớt (lỗi flexbox truncation kinh điển, đã gặp thực tế 2026-07-31). Giới
+                  hạn hẹp hơn (100px) để nhãn khoảng ngày dài luôn cắt còn "01/07/2026 ..." thay vì hiện
+                  vừa đủ cả "→ 15/08/2026" (theo đúng ví dụ người dùng mô tả). */}
+              <span className="max-w-[100px] min-w-0 truncate">{mobileFilterLabel}</span>
+              <ChevronDown size={14} className={`text-muted shrink-0 transition-transform ${mobileFilterOpen ? "rotate-180" : ""}`} aria-hidden="true" />
+            </button>
+
+            {mobileFilterOpen && (
+              <div
+                role="dialog"
+                aria-label="Chọn loại lọc"
+                className="absolute right-0 top-full mt-2 z-30 w-[min(280px,calc(100vw-2.5rem))] bg-white border border-line rounded-2xl shadow-lg p-3 space-y-3"
+              >
+                <div className="flex items-center p-1 bg-slate-100 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={() => setMobileFilterMode("SESSION")}
+                    className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-bold transition-all ${mobileFilterMode === "SESSION" ? "bg-white text-teal-deep shadow-2xs" : "text-muted"
+                      }`}
+                  >
+                    <Calendar size={12} aria-hidden="true" /> Các buổi
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMobileFilterMode("RANGE")}
+                    className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-bold transition-all ${mobileFilterMode === "RANGE" ? "bg-white text-teal-deep shadow-2xs" : "text-muted"
+                      }`}
+                  >
+                    <Clock size={12} aria-hidden="true" /> Từ - Đến
+                  </button>
+                </div>
+
+                {mobileFilterMode === "SESSION"
+                  ? renderSessionPickerBody(() => setMobileFilterOpen(false))
+                  : renderRangePickerBody(() => setMobileFilterOpen(false))}
+              </div>
+            )}
+          </div>
+
+          <div className="hidden md:block relative" ref={calendarRef}>
             <button
               type="button"
               onClick={toggleCalendar}
@@ -395,94 +768,12 @@ export default function DailyLearningProgressTab({ studentName, studentCode, cla
                 aria-label="Chọn buổi học theo ngày"
                 className="absolute right-0 top-full mt-2 z-30 w-[300px] bg-white border border-line rounded-2xl shadow-lg p-3 space-y-3"
               >
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedSessionId("ALL");
-                    closeCalendar();
-                  }}
-                  className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold border transition-colors ${selectedSessionId === "ALL" ? "bg-teal text-white border-teal" : "bg-slate-50 text-ink border-line/80 hover:bg-sky-2"
-                    }`}
-                >
-                  Tất cả các buổi học ({logs.length})
-                </button>
-
-                <div className="flex items-center justify-between">
-                  <button
-                    type="button"
-                    onClick={() => setViewMonth(new Date(year, month - 1, 1))}
-                    aria-label="Tháng trước"
-                    className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-sky-2 text-muted"
-                  >
-                    <ChevronLeft size={16} aria-hidden="true" />
-                  </button>
-                  <span className="text-xs font-black text-ink capitalize">
-                    {viewMonth.toLocaleDateString("vi-VN", { month: "long", year: "numeric" })}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setViewMonth(new Date(year, month + 1, 1))}
-                    aria-label="Tháng sau"
-                    className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-sky-2 text-muted"
-                  >
-                    <ChevronRight size={16} aria-hidden="true" />
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-7 gap-1 text-center">
-                  {WEEKDAY_LABELS.map((w) => (
-                    <span key={w} className="text-[10px] font-bold text-muted py-1">
-                      {w}
-                    </span>
-                  ))}
-                  {calendarCells.map((day, i) => {
-                    if (day == null) return <span key={`blank-${i}`} />;
-                    const dayLogs = logsByDate.get(dateStrFor(day));
-                    const hasLogs = !!dayLogs && dayLogs.length > 0;
-                    const isSelected = !!dayLogs && dayLogs.some((l) => l.id === selectedSessionId);
-                    return (
-                      <button
-                        key={day}
-                        type="button"
-                        disabled={!hasLogs}
-                        onClick={() => handleDayClick(day)}
-                        aria-label={hasLogs ? `Buổi học ngày ${day}/${month + 1}` : undefined}
-                        className={`relative w-9 h-9 mx-auto flex items-center justify-center rounded-lg text-xs font-bold transition-colors ${isSelected
-                          ? "bg-teal text-white"
-                          : hasLogs
-                            ? "bg-teal/10 text-teal hover:bg-teal hover:text-white cursor-pointer"
-                            : "text-slate-300 cursor-default"
-                          }`}
-                      >
-                        {day}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {multiDayLogs && (
-                  <div className="border-t border-line/60 pt-2 space-y-1">
-                    <p className="text-[10px] font-bold text-muted uppercase">Chọn đúng buổi học trong ngày</p>
-                    {multiDayLogs.map((log) => (
-                      <button
-                        key={log.id}
-                        type="button"
-                        onClick={() => {
-                          setSelectedSessionId(log.id);
-                          closeCalendar();
-                        }}
-                        className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-bold bg-slate-50 hover:bg-sky-2 text-ink"
-                      >
-                        {log.timeSlot ?? log.commentDate} — {log.sessionTypeLabel ?? "Buổi học"}
-                      </button>
-                    ))}
-                  </div>
-                )}
+                {renderSessionPickerBody(closeCalendar)}
               </div>
             )}
           </div>
 
-          <div className="relative" ref={rangeRef}>
+          <div className="hidden md:block relative" ref={rangeRef}>
             <button
               type="button"
               onClick={toggleRange}
@@ -506,94 +797,7 @@ export default function DailyLearningProgressTab({ studentName, studentCode, cla
                 aria-label="Chọn khoảng thời gian"
                 className="absolute right-0 top-full mt-2 z-30 w-[min(92vw,580px)] bg-white border border-line rounded-2xl shadow-lg p-4 space-y-3"
               >
-                <p className="text-[11px] font-bold text-muted">
-                  {!dateFrom ? "Chọn ngày bắt đầu" : !dateTo ? "Chọn ngày kết thúc" : `${formatDateVN(dateFrom)} → ${formatDateVN(dateTo)}`}
-                </p>
-
-                {/* 2 tháng liền kề cạnh nhau (như RangePicker chuẩn) thay vì 1 tháng chật hẹp — mũi tên
-                    lùi tháng chỉ ở panel trái, tiến tháng chỉ ở panel phải, cùng dịch chung rangeViewMonth. */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {[0, 1].map((offset) => {
-                    const panelDate = new Date(rangeViewMonth.getFullYear(), rangeViewMonth.getMonth() + offset, 1);
-                    const pYear = panelDate.getFullYear();
-                    const pMonth = panelDate.getMonth();
-                    const cells = buildMonthCells(pYear, pMonth);
-                    return (
-                      <div key={offset} className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <button
-                            type="button"
-                            onClick={() => setRangeViewMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}
-                            aria-label="Tháng trước"
-                            className={`w-7 h-7 flex items-center justify-center rounded-lg hover:bg-sky-2 text-muted ${offset === 1 ? "invisible" : ""}`}
-                          >
-                            <ChevronLeft size={15} aria-hidden="true" />
-                          </button>
-                          <span className="text-xs font-black text-ink capitalize">
-                            {panelDate.toLocaleDateString("vi-VN", { month: "long", year: "numeric" })}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => setRangeViewMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}
-                            aria-label="Tháng sau"
-                            className={`w-7 h-7 flex items-center justify-center rounded-lg hover:bg-sky-2 text-muted ${offset === 0 ? "invisible" : ""}`}
-                          >
-                            <ChevronRight size={15} aria-hidden="true" />
-                          </button>
-                        </div>
-
-                        <div className="grid grid-cols-7 gap-1 text-center">
-                          {WEEKDAY_LABELS.map((w) => (
-                            <span key={w} className="text-[10px] font-bold text-muted py-1">
-                              {w}
-                            </span>
-                          ))}
-                          {cells.map((day, i) => {
-                            if (day == null) return <span key={`blank-${offset}-${i}`} />;
-                            const dateStr = dateStrForYM(pYear, pMonth, day);
-                            const state = rangeCellState(dateStr);
-                            return (
-                              <button
-                                key={day}
-                                type="button"
-                                onClick={() => handleRangeDayClick(dateStr)}
-                                aria-label={`Chọn ngày ${day}/${pMonth + 1}`}
-                                className={`relative w-8 h-8 mx-auto flex items-center justify-center text-xs font-bold transition-colors cursor-pointer ${state === "start" || state === "end" || state === "single"
-                                  ? "bg-teal text-white rounded-full"
-                                  : state === "in-range"
-                                    ? "bg-teal/15 text-teal-deep rounded-none"
-                                    : "text-ink hover:bg-teal/10 rounded-full"
-                                  }`}
-                              >
-                                {day}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <div className="flex items-center justify-between gap-2 pt-1 border-t border-line/60">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setDateFrom("");
-                      setDateTo("");
-                    }}
-                    className="text-[11px] font-bold text-muted hover:text-ink"
-                  >
-                    Xóa lọc
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRangeOpen(false)}
-                    className="px-3 py-1.5 bg-teal text-white text-[11px] font-bold rounded-lg hover:bg-teal-deep"
-                  >
-                    Xong
-                  </button>
-                </div>
+                {renderRangePickerBody(() => setRangeOpen(false))}
               </div>
             )}
           </div>
@@ -653,62 +857,148 @@ export default function DailyLearningProgressTab({ studentName, studentCode, cla
 
       {error && <div className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-xl">{error}</div>}
 
-      {/* Summary KPI Cards */}
+      {/**
+       * Summary KPI Cards — bố cục ngang cũ (icon trái, câu số liệu gộp bên phải) dễ vỡ dòng giữa chừng
+       * khi chật (VD "Đạt Chuẩn (100%)" vỡ thành "Đạt Chuẩn\n(100%)" trên grid-cols-2 mobile). CHỈ đổi
+       * bố cục cho MOBILE (thẻ thống kê: icon nhỏ+nhãn 1 hàng, SỐ LIỆU LỚN riêng dòng, chú thích dưới —
+       * số liệu không còn bị cắt giữa chừng) — desktop (lg+) giữ nguyên bố cục ngang gốc, không đổi
+       * (theo yêu cầu người dùng, 2026-07-31: mọi chỉnh UI mặc định chỉ áp dụng mobile).
+       */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="p-4 bg-white rounded-2xl border border-line shadow-2xs flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-teal/10 text-teal flex items-center justify-center shrink-0">
-            <UserCheck size={20} aria-hidden="true" />
+        <div className="p-4 bg-white rounded-2xl border border-line shadow-sm border-l-4 border-l-teal lg:border-l lg:border-l-line lg:shadow-2xs">
+          {/* Mobile — nhãn rút gọn 1 dòng để đồng đều chiều cao 4 thẻ (bản đủ chữ giữ nguyên ở desktop).
+              Viền trái nhấn màu + shadow đậm hơn CHỈ trên mobile — card trắng viền xám mảnh + shadow-2xs
+              gần như vô hình trên nền sáng của trang, nhìn phẳng/"không đẹp" (đã dùng skill UI-UX kiểm
+              chứng, 2026-07-31). Desktop giữ nguyên border/shadow gốc. */}
+          <div className="lg:hidden space-y-1.5">
+            <div className="flex items-center gap-1.5">
+              <div className="w-7 h-7 rounded-lg bg-teal/10 text-teal flex items-center justify-center shrink-0">
+                <UserCheck size={14} aria-hidden="true" />
+              </div>
+              <p className="text-[10px] text-muted font-extrabold uppercase tracking-wider whitespace-nowrap">Chuyên cần</p>
+            </div>
+            {attendanceRate != null ? (
+              <div>
+                <p className="text-xl font-black text-teal tabular-nums leading-tight">{attendanceRate}%</p>
+                <p className="text-xs text-muted font-bold truncate">{attendanceRate >= 90 ? "Đạt chuẩn" : "Cần cải thiện"}</p>
+              </div>
+            ) : (
+              <p className="text-xs text-muted font-bold">Chưa có dữ liệu</p>
+            )}
           </div>
-          <div>
-            <p className="text-[10px] text-muted font-extrabold uppercase tracking-wider">Chuyên cần</p>
-            <p className="text-sm font-black text-teal tabular-nums">
-              {attendanceRate != null ? `${attendanceRate >= 90 ? "Đạt Chuẩn" : "Cần cải thiện"} (${attendanceRate}%)` : "Chưa có dữ liệu"}
-            </p>
+          {/* Desktop */}
+          <div className="hidden lg:flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-teal/10 text-teal flex items-center justify-center shrink-0">
+              <UserCheck size={20} aria-hidden="true" />
+            </div>
+            <div>
+              <p className="text-[10px] text-muted font-extrabold uppercase tracking-wider">Chuyên cần</p>
+              <p className="text-sm font-black text-teal tabular-nums">
+                {attendanceRate != null ? `${attendanceRate >= 90 ? "Đạt Chuẩn" : "Cần cải thiện"} (${attendanceRate}%)` : "Chưa có dữ liệu"}
+              </p>
+            </div>
           </div>
         </div>
 
-        <div className="p-4 bg-white rounded-2xl border border-line shadow-2xs flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
-            <ShieldCheck size={20} aria-hidden="true" />
+        <div className="p-4 bg-white rounded-2xl border border-line shadow-sm border-l-4 border-l-emerald-500 lg:border-l lg:border-l-line lg:shadow-2xs">
+          {/* Mobile — nhãn rút gọn 1 dòng để đồng đều chiều cao 4 thẻ (bản đủ chữ giữ nguyên ở desktop). */}
+          <div className="lg:hidden space-y-1.5">
+            <div className="flex items-center gap-1.5">
+              <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+                <ShieldCheck size={14} aria-hidden="true" />
+              </div>
+              <p className="text-[11px] text-muted font-extrabold uppercase tracking-wider whitespace-nowrap">Thái độ</p>
+            </div>
+            {mostCommonAttitude && positiveAttitudeShare != null ? (
+              <div>
+                <p className="text-xl font-black text-ink tabular-nums leading-tight">{positiveAttitudeShare}%</p>
+                <p className="text-xs text-muted font-bold truncate">Đạt loại {attitudeLabels[mostCommonAttitude]}</p>
+              </div>
+            ) : (
+              <p className="text-xs text-muted font-bold">Chưa có dữ liệu</p>
+            )}
           </div>
-          <div>
-            <p className="text-[10px] text-muted font-extrabold uppercase tracking-wider">Thái độ học tập</p>
-            <p className="text-sm font-black text-ink tabular-nums">
-              {mostCommonAttitude && positiveAttitudeShare != null ? `Đạt loại ${attitudeLabels[mostCommonAttitude]} (${positiveAttitudeShare}%)` : "Chưa có dữ liệu"}
-            </p>
+          {/* Desktop */}
+          <div className="hidden lg:flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+              <ShieldCheck size={20} aria-hidden="true" />
+            </div>
+            <div>
+              <p className="text-[11px] text-muted font-extrabold uppercase tracking-wider">Thái độ học tập</p>
+              <p className="text-sm font-black text-ink tabular-nums">
+                {mostCommonAttitude && positiveAttitudeShare != null ? `Đạt loại ${attitudeLabels[mostCommonAttitude]} (${positiveAttitudeShare}%)` : "Chưa có dữ liệu"}
+              </p>
+            </div>
           </div>
         </div>
 
-        <div className="p-4 bg-white rounded-2xl border border-line shadow-2xs flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center shrink-0">
-            <Award size={20} aria-hidden="true" />
+        <div className="p-4 bg-white rounded-2xl border border-line shadow-sm border-l-4 border-l-amber-500 lg:border-l lg:border-l-line lg:shadow-2xs">
+          {/* Mobile — nhãn rút gọn 1 dòng để đồng đều chiều cao 4 thẻ (bản đủ chữ giữ nguyên ở desktop). */}
+          <div className="lg:hidden space-y-1.5">
+            <div className="flex items-center gap-1.5">
+              <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center shrink-0">
+                <Award size={14} aria-hidden="true" />
+              </div>
+              <p className="text-[11px] text-muted font-extrabold uppercase tracking-wider whitespace-nowrap">BTVN</p>
+            </div>
+            {avgHomeworkCompletion != null ? (
+              <div>
+                <p className="text-xl font-black text-amber-800 tabular-nums leading-tight">{avgHomeworkCompletion}%</p>
+                <p className="text-xs text-muted font-bold truncate">Trung bình</p>
+              </div>
+            ) : (
+              <p className="text-xs text-muted font-bold">Chưa có dữ liệu</p>
+            )}
           </div>
-          <div>
-            <p className="text-[10px] text-muted font-extrabold uppercase tracking-wider">BTVN Hoàn thành</p>
-            <p className="text-sm font-black text-amber-800 tabular-nums">{avgHomeworkCompletion != null ? `${avgHomeworkCompletion}% Trung bình` : "Chưa có dữ liệu"}</p>
+          {/* Desktop */}
+          <div className="hidden lg:flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center shrink-0">
+              <Award size={20} aria-hidden="true" />
+            </div>
+            <div>
+              <p className="text-[11px] text-muted font-extrabold uppercase tracking-wider">BTVN Hoàn thành</p>
+              <p className="text-sm font-black text-amber-800 tabular-nums">{avgHomeworkCompletion != null ? `${avgHomeworkCompletion}% Trung bình` : "Chưa có dữ liệu"}</p>
+            </div>
           </div>
         </div>
 
-        <div className="p-4 bg-white rounded-2xl border border-line shadow-2xs flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center shrink-0">
-            <Sparkles size={20} aria-hidden="true" />
+        <div className="p-4 bg-white rounded-2xl border border-line shadow-sm border-l-4 border-l-purple-500 lg:border-l lg:border-l-line lg:shadow-2xs">
+          {/* Mobile — nhãn rút gọn 1 dòng để đồng đều chiều cao 4 thẻ (bản đủ chữ giữ nguyên ở desktop). */}
+          <div className="lg:hidden space-y-1.5">
+            <div className="flex items-center gap-1.5">
+              <div className="w-7 h-7 rounded-lg bg-purple-50 text-purple-700 flex items-center justify-center shrink-0">
+                <Sparkles size={14} aria-hidden="true" />
+              </div>
+              <p className="text-[11px] text-muted font-extrabold uppercase tracking-wider whitespace-nowrap">Số buổi</p>
+            </div>
+            <div>
+              <p className="text-xl font-black text-purple-800 tabular-nums leading-tight">{logs.length}</p>
+              <p className="text-xs text-muted font-bold truncate">Đã ghi nhận</p>
+            </div>
           </div>
-          <div>
-            <p className="text-[10px] text-muted font-extrabold uppercase tracking-wider">Số buổi đã học</p>
-            <p className="text-sm font-black text-purple-800">{logs.length} Buổi ghi nhận</p>
+          {/* Desktop */}
+          <div className="hidden lg:flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center shrink-0">
+              <Sparkles size={20} aria-hidden="true" />
+            </div>
+            <div>
+              <p className="text-[10px] text-muted font-extrabold uppercase tracking-wider">Số buổi đã học</p>
+              <p className="text-sm font-black text-purple-800">{logs.length} Buổi ghi nhận</p>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Main content: Bảng tổng quan (mặc định) hoặc Dạng thẻ */}
+      {/* Main content: Bảng tổng quan (mặc định) hoặc Dạng thẻ — người dùng tự chọn ở toggle trên, kể
+          cả trên mobile (bảng có overflow-x-auto để cuộn ngang khi cần). */}
       {viewMode === "TABLE" ? (
         <div className="bg-white border border-line rounded-2xl shadow-2xs overflow-hidden">
           <div className="p-4 border-b border-line bg-slate-50/80 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <div className="flex items-center gap-2">
               <TableIcon size={16} className="text-teal" aria-hidden="true" />
-              <h3 className="text-xs font-black text-ink uppercase tracking-wider font-display">Bảng Tổng Quan Nhật Ký Học Tập</h3>
+              <h3 className="text-sm md:text-xs font-black text-ink uppercase tracking-wider font-display">Bảng Tổng Quan Nhật Ký Học Tập</h3>
             </div>
-            <span className="text-xs font-bold text-muted">
+            <span className="text-sm md:text-xs font-bold text-muted">
               Đang hiển thị <span className="text-teal font-black">{filteredLogs.length}</span> buổi học
             </span>
           </div>
@@ -719,7 +1009,9 @@ export default function DailyLearningProgressTab({ studentName, studentCode, cla
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse min-w-[1200px]">
                 <thead>
-                  <tr className="bg-slate-100 border-b border-line text-[11px] font-black uppercase text-slate-700 tracking-wider">
+                  {/* Cỡ chữ bảng tăng trên mobile (đọc rõ hơn theo phản hồi người dùng, 2026-07-31) —
+                        desktop (md+) giữ nguyên cỡ gốc qua md:text-*. */}
+                  <tr className="bg-slate-100 border-b border-line text-xs md:text-[11px] font-black uppercase text-slate-700 tracking-wider">
                     <th className="p-3 border-r border-line/60 w-28 whitespace-nowrap">Ngày</th>
                     <th className="p-3 border-r border-line/60 min-w-[200px]">Bài học hôm nay</th>
                     <th className="p-3 border-r border-line/60 w-28 whitespace-nowrap text-center">Thái độ</th>
@@ -731,7 +1023,7 @@ export default function DailyLearningProgressTab({ studentName, studentCode, cla
                     <th className="p-3 min-w-[140px]">Ghi chú</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-line text-xs font-medium text-ink">
+                <tbody className="divide-y divide-line text-sm md:text-xs font-medium text-ink">
                   {filteredLogs.map((log) => (
                     <tr key={log.id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="p-3 border-r border-line/60 font-mono font-bold text-slate-700 whitespace-nowrap align-top">{log.commentDate}</td>
@@ -740,7 +1032,7 @@ export default function DailyLearningProgressTab({ studentName, studentCode, cla
                           {log.sessionNumber != null ? `Buổi ${log.sessionNumber}` : log.sessionTypeLabel ?? "Buổi học"}
                           {log.lessonContent && <span className="font-bold text-teal-deep">: {log.lessonContent}</span>}
                         </div>
-                        <div className="text-[10px] text-muted font-mono flex items-center gap-1 mt-1">
+                        <div className="text-xs md:text-[10px] text-muted font-mono flex items-center gap-1 mt-1">
                           <Clock size={10} aria-hidden="true" /> {log.timeSlot ?? "—"}
                           {log.roomName && (
                             <>
@@ -751,7 +1043,7 @@ export default function DailyLearningProgressTab({ studentName, studentCode, cla
                         </div>
                       </td>
                       <td className="p-3 border-r border-line/60 text-center whitespace-nowrap align-top">
-                        <span className={`px-2 py-0.5 rounded text-[10px] border ${log.attitude ? attitudeStyles[log.attitude] : "bg-slate-100 text-slate-700 border-slate-200"}`}>
+                        <span className={`px-2 py-0.5 rounded text-xs md:text-[10px] border ${log.attitude ? attitudeStyles[log.attitude] : "bg-slate-100 text-slate-700 border-slate-200"}`}>
                           {log.attitude ? attitudeLabels[log.attitude] : "—"}
                         </span>
                       </td>
@@ -760,7 +1052,7 @@ export default function DailyLearningProgressTab({ studentName, studentCode, cla
                       <td className="p-3 border-r border-line/60 text-slate-700 italic align-top">"{log.content}"</td>
                       <td className="p-3 border-r border-line/60 text-slate-800 font-semibold align-top">{log.homeworkNextGrammarLabel || "—"}</td>
                       <td className="p-3 border-r border-line/60 text-slate-800 font-semibold align-top">{log.homeworkNextVideoLabel || "—"}</td>
-                      <td className="p-3 text-slate-600 text-[11px] align-top">{log.note || "—"}</td>
+                      <td className="p-3 text-slate-600 text-xs md:text-[11px] align-top">{log.note || "—"}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -769,110 +1061,7 @@ export default function DailyLearningProgressTab({ studentName, studentCode, cla
           )}
         </div>
       ) : (
-        /* Dạng thẻ — mỗi buổi 1 thẻ, cùng dữ liệu như bảng nhưng dễ đọc chi tiết từng buổi hơn (2026-07-30). */
-        <div className="space-y-4">
-          {filteredLogs.length === 0 ? (
-            <p className="text-xs text-muted font-bold italic text-center py-10 border border-line/80 rounded-2xl">
-              Chưa có nhận xét nào được duyệt cho lớp này.
-            </p>
-          ) : (
-            filteredLogs.map((log) => {
-              const prevGrammarDisplay = log.homeworkPreviousScore || log.grammarPreviousProgress;
-              const prevSpeakingDisplay = log.homeworkPreviousSpeakingScore || log.videoPreviousProgress;
-              const prevGrammarPercent = parseProgressPercent(prevGrammarDisplay ?? null);
-              return (
-                <div key={log.id} className="bg-white border border-line rounded-2xl p-5 shadow-2xs hover:shadow-xs transition-all space-y-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-line/70 pb-3">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-800 text-[11px] font-black font-mono border border-slate-200">
-                          {log.commentDate}
-                        </span>
-                        <span className="text-xs font-extrabold text-muted flex items-center gap-1">
-                          <Clock size={12} className="text-teal" aria-hidden="true" /> {log.timeSlot ?? "—"}
-                        </span>
-                        {log.roomName && (
-                          <span className="text-xs font-extrabold text-muted flex items-center gap-1">
-                            <MapPin size={12} className="text-teal" aria-hidden="true" /> {log.roomName}
-                          </span>
-                        )}
-                      </div>
-                      <h3 className="text-base font-black text-ink font-display">
-                        {log.sessionNumber != null ? `Buổi ${log.sessionNumber}` : log.sessionTypeLabel ?? "Buổi học"}
-                        {log.lessonContent && <span className="text-muted font-bold"> — {log.lessonContent}</span>}
-                      </h3>
-                    </div>
-
-                    <span
-                      className={`px-2.5 py-0.5 rounded-full text-xs font-bold border shrink-0 ${log.attitude ? attitudeStyles[log.attitude] : "bg-slate-100 text-slate-700 border-slate-200"
-                        }`}
-                    >
-                      Thái độ: {log.attitude ? attitudeLabels[log.attitude] : "—"}
-                    </span>
-                  </div>
-
-                  <div className="p-3.5 bg-slate-50/80 rounded-xl border-l-4 border-teal text-xs text-ink/90 font-medium leading-relaxed italic">
-                    <span className="font-extrabold not-italic text-slate-700 block mb-0.5">💬 Nhận xét của Giáo viên:</span>"{log.content}"
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                    <div className="p-3.5 bg-slate-50 rounded-xl border border-line/80 space-y-2">
-                      <div className="flex items-center justify-between font-black text-slate-800 uppercase tracking-wider text-[11px]">
-                        <span className="flex items-center gap-1">
-                          <CheckCircle2 size={13} className="text-emerald-600" aria-hidden="true" /> Kết quả BTVN buổi trước
-                        </span>
-                        {prevGrammarPercent != null && <span className="text-emerald-700 font-extrabold">{prevGrammarPercent}% Đạt</span>}
-                      </div>
-
-                      <div className="space-y-1.5 pt-1">
-                        <div className="flex justify-between text-[11px]">
-                          <span className="text-slate-600 font-semibold">BTVN Ngữ Pháp:</span>
-                          <span className="font-bold text-slate-900">{prevGrammarDisplay || "—"}</span>
-                        </div>
-                        {prevGrammarPercent != null && (
-                          <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
-                            <div className="bg-emerald-500 h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(100, Math.max(0, prevGrammarPercent))}%` }} />
-                          </div>
-                        )}
-                        <div className="flex justify-between text-[11px] pt-1">
-                          <span className="text-slate-600 font-semibold">BTVN Nghe - Nói:</span>
-                          <span className="font-bold text-purple-900">{prevSpeakingDisplay || "—"}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="p-3.5 bg-slate-50 rounded-xl border border-line/80 space-y-2">
-                      <div className="flex items-center justify-between font-black text-slate-800 uppercase tracking-wider text-[11px]">
-                        <span className="flex items-center gap-1">
-                          <BookOpen size={13} className="text-blue-600" aria-hidden="true" /> Chuẩn bị cho buổi học sau
-                        </span>
-                      </div>
-
-                      <div className="space-y-2 pt-1">
-                        <div className="flex items-start justify-between gap-2 text-[11px]">
-                          <span className="flex items-center gap-1.5 font-bold text-slate-800 shrink-0">
-                            <Video size={12} className="text-amber-600 shrink-0" aria-hidden="true" /> Video ôn tập:
-                          </span>
-                          <span className="font-semibold text-slate-700 text-right">{log.homeworkNextVideoLabel || "—"}</span>
-                        </div>
-                        <div className="pt-1 border-t border-line/60 flex items-start justify-between gap-2 text-[11px]">
-                          <span className="font-bold text-slate-800 shrink-0">Ngữ pháp:</span>
-                          <span className="font-semibold text-slate-700 text-right">{log.homeworkNextGrammarLabel || "—"}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {log.note && (
-                    <p className="text-[11px] font-bold text-teal bg-teal/10 px-3 py-1.5 rounded-lg border border-teal/20 inline-block">
-                      Ghi chú: {log.note}
-                    </p>
-                  )}
-                </div>
-              );
-            })
-          )}
-        </div>
+        cardsView
       )}
     </div>
   );

@@ -743,3 +743,13 @@ h1.headline .accent {
     display: none;
   }
 }
+
+/* Ẩn thanh cuộn cho các dải filter/carousel cuộn ngang trên mobile — vẫn cuộn được bình thường
+   (touch/scroll), chỉ ẩn thanh cuộn để trông gọn như carousel thay vì 1 thanh scroll web thô. */
+.scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
