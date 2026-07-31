@@ -81,6 +81,11 @@ export interface UpdateUserRequest {
   phone?: string;
 }
 
+/** Khớp UpdateUserEmailRequest thật (UC-55) — tách riêng khỏi UC-49, xem updateUserEmail. */
+export interface UpdateUserEmailRequest {
+  newEmail: string;
+}
+
 /** UC-44 Main Flow bước 1-2: danh sách + tìm kiếm/lọc tài khoản. */
 export function searchUsers(filter: UserSearchFilter, page: number, size: number): Promise<Page<UserListItemResponse>> {
   const params = new URLSearchParams();
@@ -105,6 +110,16 @@ export function createUser(request: CreateUserRequest): Promise<UserResponse> {
 /** UC-49: cập nhật hồ sơ tài khoản (họ tên/SĐT/phòng ban/is_management). */
 export function updateUser(userId: number, request: UpdateUserRequest): Promise<UserResponse> {
   return apiRequest<UserResponse>(`/users/${userId}`, { method: "PUT", body: JSON.stringify(request) });
+}
+
+/**
+ * UC-55: sửa email tài khoản — tách riêng khỏi UC-49 (Postcondition UC-49
+ * quy định email giữ nguyên không đổi qua updateUser). Phục vụ chủ yếu sửa
+ * email placeholder của tài khoản Phụ huynh/Học sinh (UC-34/UC-35/UC-50)
+ * sang email Google thật để đăng nhập Google (UC-01 bước 4) khớp được.
+ */
+export function updateUserEmail(userId: number, request: UpdateUserEmailRequest): Promise<UserResponse> {
+  return apiRequest<UserResponse>(`/users/${userId}/email`, { method: "PUT", body: JSON.stringify(request) });
 }
 
 /** UC-47: khóa/mở khóa tài khoản (chuyển status). */

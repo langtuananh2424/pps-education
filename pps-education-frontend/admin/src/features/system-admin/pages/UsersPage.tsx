@@ -17,6 +17,7 @@ import {
   RoleResponse,
   searchUsers,
   updateUser,
+  updateUserEmail,
   UpdateUserRequest,
   updateUserStatus,
   UserDetailResponse,
@@ -286,6 +287,8 @@ function UserDetailModal({
   const [newPassword, setNewPassword] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
   const [changingStatus, setChangingStatus] = useState(false);
+  const [newEmail, setNewEmail] = useState("");
+  const [changingEmail, setChangingEmail] = useState(false);
   const { message: toastMessage, showToast } = useToast();
   const { confirmDialog } = useDialog();
 
@@ -296,6 +299,7 @@ function UserDetailModal({
       .then((d) => {
         setDetail(d);
         setProfileForm({ fullName: d.fullName, phone: d.phone ?? "" });
+        setNewEmail(d.email);
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được chi tiết tài khoản."))
       .finally(() => setLoading(false));
@@ -305,6 +309,7 @@ function UserDetailModal({
     if (userId != null) {
       loadDetail(userId);
       setNewPassword("");
+      setNewEmail("");
     } else {
       setDetail(null);
     }
@@ -348,6 +353,24 @@ function UserDetailModal({
       setError(err instanceof ApiError ? err.message : "Đổi trạng thái thất bại.");
     } finally {
       setChangingStatus(false);
+    }
+  };
+
+  /** UC-55: tách riêng khỏi handleSaveProfile (UC-49) — backend coi 2 luồng độc lập, xem docs/uc/phan-he-02-phan-quyen.md. */
+  const handleChangeEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!detail || newEmail.trim() === detail.email) return;
+    setChangingEmail(true);
+    setError(null);
+    try {
+      await updateUserEmail(detail.id, { newEmail: newEmail.trim() });
+      loadDetail(detail.id);
+      onChanged();
+      showToast("Đã cập nhật email thành công!");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Cập nhật email thất bại.");
+    } finally {
+      setChangingEmail(false);
     }
   };
 
@@ -429,6 +452,35 @@ function UserDetailModal({
             <Button type="submit" variant="primary" size="sm" disabled={savingProfile}>
               {savingProfile ? "Đang lưu..." : "Lưu hồ sơ"}
             </Button>
+          </form>
+
+          <form onSubmit={handleChangeEmail} className="space-y-2 border-t border-slate-100 pt-4">
+            <div>
+              <span className="text-[10px] font-bold uppercase text-slate-500">Sửa email</span>
+              <p className="text-[10px] text-slate-400">
+                Dùng khi email hiện tại chỉ là placeholder (tài khoản Học sinh/Phụ huynh tạo tự động) — đổi sang
+                email Google thật để đăng nhập Google (UC-01) khớp được.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="email"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                placeholder="email@example.com"
+                className={inputClass}
+                required
+              />
+              <Button
+                type="submit"
+                variant="secondary"
+                size="sm"
+                disabled={changingEmail || newEmail.trim() === detail.email}
+                className="whitespace-nowrap"
+              >
+                {changingEmail ? "Đang lưu..." : "Lưu email"}
+              </Button>
+            </div>
           </form>
 
           <form onSubmit={handleChangePassword} className="space-y-2 border-t border-slate-100 pt-4">
