@@ -28,6 +28,7 @@ import Modal from "@/components/ui/Modal";
 import { studentStatusLabels, studentStatusVariants } from "./StudentListPanel";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
+import { useDialog } from "@/components/ui/DialogProvider";
 import DatePicker from "@/components/ui/DatePicker";
 import AvatarUploadField from "@/components/ui/AvatarUploadField";
 import { uploadMedia } from "@/features/lms/api";
@@ -213,6 +214,7 @@ function ParentsTab({ studentId, showToast }: { studentId: number; showToast: (m
   const [info, setInfo] = useState({ relationship: "MOTHER", isPrimaryContact: false, isFinancialResponsible: false });
   const [submitting, setSubmitting] = useState(false);
   const [submitAttempted, setSubmitAttempted] = useState(false);
+  const { confirmDialog } = useDialog();
 
   const load = () => {
     setLoading(true);
@@ -260,7 +262,7 @@ function ParentsTab({ studentId, showToast }: { studentId: number; showToast: (m
   };
 
   const handleUnlink = async (link: ParentStudentResponse) => {
-    if (!window.confirm(`Gỡ liên kết phụ huynh "${link.parentFullName}" khỏi học sinh này?`)) return;
+    if (!(await confirmDialog(`Gỡ liên kết phụ huynh "${link.parentFullName}" khỏi học sinh này?`, { danger: true }))) return;
     try {
       await unlinkParent(studentId, link.id);
       load();

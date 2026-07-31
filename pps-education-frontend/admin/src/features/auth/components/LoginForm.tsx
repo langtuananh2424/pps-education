@@ -3,6 +3,7 @@ import { Eye, EyeOff } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { ApiError } from "@/lib/apiClient";
 import GoogleSignInButton from "./GoogleSignInButton";
+import { useDialog } from "@/components/ui/DialogProvider";
 
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
@@ -19,6 +20,7 @@ export default function LoginForm({ usernameOrEmail, onUsernameOrEmailChange, on
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const { alertDialog } = useDialog();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -122,7 +124,7 @@ export default function LoginForm({ usernameOrEmail, onUsernameOrEmailChange, on
             href="#forgot"
             onClick={(e) => {
               e.preventDefault();
-              alert("Tính năng Khôi phục mật khẩu đang khóa. Vui lòng liên hệ Admin qua admin@pps.edu.vn.");
+              alertDialog("Tính năng Khôi phục mật khẩu đang khóa. Vui lòng liên hệ Admin qua admin@pps.edu.vn.");
             }}
             className="text-xs font-semibold text-slate-500 hover:text-[#EA580C] transition-colors"
           >

@@ -85,6 +85,7 @@ export default function UserSearchCombobox({ value, onChange, placeholder, roleF
         <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400" />
         <input
           value={query}
+          autoComplete="off"
           onFocus={() => {
             setOpen(true);
             if (results.length === 0) runSearch(query);

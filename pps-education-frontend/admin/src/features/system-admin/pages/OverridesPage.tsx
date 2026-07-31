@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Info, Search, ShieldQuestion, UserCheck } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { Info, ShieldQuestion, UserCheck } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import {
   EffectivePermissionsResponse,
@@ -8,21 +8,19 @@ import {
   listPermissions,
   PermissionCatalogItem,
   removeUserPermissionOverride,
-  searchUsers,
   upsertUserPermissionOverride,
   UserDetailResponse,
   UserListItemResponse
 } from "../api";
 import CreateOverrideForm from "../components/CreateOverrideForm";
 import OverridesTable from "../components/OverridesTable";
+import UserSearchCombobox from "../components/UserSearchCombobox";
 import EmptyState from "@/components/ui/EmptyState";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 
 export default function OverridesPage() {
-  const [allUsers, setAllUsers] = useState<UserListItemResponse[]>([]);
-  const [userSearchQuery, setUserSearchQuery] = useState("");
-  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [selectedUser, setSelectedUser] = useState<UserListItemResponse | null>(null);
 
   const [permissions, setPermissions] = useState<PermissionCatalogItem[]>([]);
   const [userDetail, setUserDetail] = useState<UserDetailResponse | null>(null);
@@ -30,9 +28,9 @@ export default function OverridesPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { message: toastMessage, showToast } = useToast();
+  const selectedUserId = selectedUser?.id ?? null;
 
   useEffect(() => {
-    searchUsers({}, 0, 1000).then((res) => setAllUsers(res.content)).catch(() => undefined);
     listPermissions().then(setPermissions).catch(() => undefined);
   }, []);
 
@@ -55,14 +53,6 @@ export default function OverridesPage() {
       setEffective(null);
     }
   }, [selectedUserId]);
-
-  const filteredUsers = useMemo(() => {
-    const q = userSearchQuery.trim().toLowerCase();
-    if (!q) return [];
-    return allUsers
-      .filter((u) => u.username.toLowerCase().includes(q) || u.fullName.toLowerCase().includes(q) || u.email.toLowerCase().includes(q))
-      .slice(0, 8);
-  }, [allUsers, userSearchQuery]);
 
   // Override còn hiệu lực: backend không xóa cứng khi gỡ (chỉ set expiresAt = lúc gỡ) — phải tự lọc phía FE (UC-04 A1).
   const activeOverrides = (userDetail?.permissionOverrides ?? []).filter(
@@ -98,33 +88,8 @@ export default function OverridesPage() {
 
       <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-3">
         <label className="text-[10px] uppercase font-bold text-slate-500 block">Bước 1 — Tìm và chọn tài khoản</label>
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400" />
-          <input
-            value={userSearchQuery}
-            onChange={(e) => setUserSearchQuery(e.target.value)}
-            placeholder="Tìm theo username / họ tên / email..."
-            className="w-full bg-slate-50 border border-slate-200 text-xs pl-8 pr-3 py-2.5 rounded-lg focus:outline-none"
-          />
-          {filteredUsers.length > 0 && (
-            <div className="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg divide-y divide-slate-100 max-h-64 overflow-y-auto">
-              {filteredUsers.map((u) => (
-                <button
-                  key={u.id}
-                  onClick={() => {
-                    setSelectedUserId(u.id);
-                    setUserSearchQuery("");
-                  }}
-                  className="w-full text-left px-3 py-2 hover:bg-slate-50 text-xs"
-                >
-                  <span className="font-bold text-slate-800">{u.fullName}</span>{" "}
-                  <span className="text-slate-400">
-                    ({u.username} · {u.email})
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
+        <div className="max-w-md">
+          <UserSearchCombobox value={selectedUser} onChange={setSelectedUser} placeholder="Bấm để xem danh sách hoặc gõ để tìm tài khoản..." />
         </div>
 
         {userDetail && (

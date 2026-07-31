@@ -37,6 +37,9 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Thay window.confirm() bằng popup nội tuyến khớp giao diện app — không có Modal dùng chung ở
+  // app này (chỉ 1 chỗ dùng), nên làm bước xác nhận ngay trong modal đang mở thay vì Modal lồng Modal.
+  const [confirmingSubmit, setConfirmingSubmit] = useState(false);
 
   const readOnly = attempt != null && attempt.status !== "IN_PROGRESS";
 
@@ -103,7 +106,6 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
 
   const handleSubmit = async () => {
     if (!attempt) return;
-    if (!window.confirm("Nộp bài ngay? Sau khi nộp sẽ không sửa được câu trả lời nữa.")) return;
     setSubmitting(true);
     setError(null);
     try {
@@ -163,10 +165,34 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
           )}
         </div>
 
-        {!readOnly && (
+        {!readOnly && confirmingSubmit && (
+          <div className="px-4 py-3 border-t border-line/60 bg-amber-50 flex flex-wrap items-center justify-between gap-2 shrink-0">
+            <span className="text-xs font-bold text-amber-800">Nộp bài ngay? Sau khi nộp sẽ không sửa được câu trả lời nữa.</span>
+            <div className="flex gap-2 shrink-0">
+              <button
+                onClick={() => setConfirmingSubmit(false)}
+                className="text-xs font-extrabold text-slate-600 bg-white border border-slate-200 px-4 py-2 rounded-xl"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={() => {
+                  setConfirmingSubmit(false);
+                  handleSubmit();
+                }}
+                disabled={submitting}
+                className="text-xs font-extrabold text-white bg-teal px-4 py-2 rounded-xl disabled:opacity-50"
+              >
+                {submitting ? "Đang nộp..." : "Xác nhận nộp"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {!readOnly && !confirmingSubmit && (
           <div className="p-4 border-t border-line/60 flex justify-end shrink-0">
             <button
-              onClick={handleSubmit}
+              onClick={() => setConfirmingSubmit(true)}
               disabled={submitting || loading}
               className="text-xs font-extrabold text-white bg-teal px-5 py-2.5 rounded-xl disabled:opacity-50"
             >

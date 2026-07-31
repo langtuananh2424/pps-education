@@ -30,6 +30,7 @@ import {
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
+import { useDialog } from "@/components/ui/DialogProvider";
 import { classStatusLabels, classStatusVariants } from "./ClassListPanel";
 import BulkGenerateSessionsForm from "./BulkGenerateSessionsForm";
 import ImportScheduleForm from "./ImportScheduleForm";
@@ -406,6 +407,7 @@ function StudentsTab({
   const [error, setError] = useState<string | null>(null);
   const [enrolling, setEnrolling] = useState(false);
   const [viewingEnrollment, setViewingEnrollment] = useState<ClassEnrollmentResponse | null>(null);
+  const { promptDialog, confirmDialog } = useDialog();
 
   const load = () => {
     setLoading(true);
@@ -417,8 +419,8 @@ function StudentsTab({
   useEffect(load, [classId]);
 
   const handleWithdraw = async (enrollmentId: number) => {
-    const reason = window.prompt("Lý do rút lớp (không bắt buộc):") ?? "";
-    if (!window.confirm("Xác nhận rút học sinh khỏi lớp này?")) return;
+    const reason = (await promptDialog("Lý do rút lớp (không bắt buộc):")) ?? "";
+    if (!(await confirmDialog("Xác nhận rút học sinh khỏi lớp này?"))) return;
     try {
       await withdrawEnrollment(classId, enrollmentId, { withdrawnDate: new Date().toISOString().slice(0, 10), reason: reason.trim() || undefined });
       load();
@@ -677,6 +679,7 @@ function SessionsTab({
 }) {
   const navigate = useNavigate();
   const { hasPermission } = useApp();
+  const { promptDialog } = useDialog();
   const hasAttendanceOverride = hasPermission("academic.attendance.create") || hasPermission("academic.attendance.update");
   const [sessions, setSessions] = useState<ClassSessionResponse[]>([]);
   const [attendanceStatusBySession, setAttendanceStatusBySession] = useState<Record<number, string>>({});
@@ -702,8 +705,8 @@ function SessionsTab({
   useEffect(load, [classId]);
 
   const handleCancel = async (sessionId: number) => {
-    const reason = window.prompt("Lý do hủy buổi học:") ?? "";
-    if (!reason.trim()) return;
+    const reason = await promptDialog("Lý do hủy buổi học:", { required: true });
+    if (!reason?.trim()) return;
     try {
       await cancelClassSession(classId, sessionId, reason.trim());
       load();

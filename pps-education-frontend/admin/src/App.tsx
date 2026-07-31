@@ -1,6 +1,7 @@
 import React from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AppProvider } from "@/context/AppContext";
+import { DialogProvider } from "@/components/ui/DialogProvider";
 import AppShell from "@/components/layout/AppShell";
 import ProtectedRoute from "@/components/layout/ProtectedRoute";
 import LoginPage from "@/features/auth/pages/LoginPage";
@@ -41,6 +42,7 @@ import PartnerPortalPage from "@/features/partner-portal/pages/PartnerPortalPage
 export default function App() {
   return (
     <AppProvider>
+      <DialogProvider>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
 
@@ -92,6 +94,7 @@ export default function App() {
 
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
+      </DialogProvider>
     </AppProvider>
   );
 }

@@ -4,6 +4,7 @@ import { UserRole } from "@/types";
 import { mockEmployees, mockLeaveRequests } from "@/data/mockData";
 import DatePicker from "@/components/ui/DatePicker";
 import Select from "@/components/ui/Select";
+import { useDialog } from "@/components/ui/DialogProvider";
 
 interface PublicLeaveRequestFormProps {
   onClose: () => void;
@@ -16,11 +17,12 @@ export default function PublicLeaveRequestForm({ onClose }: PublicLeaveRequestFo
   const [endDate, setEndDate] = useState("2026-07-16");
   const [reason, setReason] = useState("");
   const [success, setSuccess] = useState(false);
+  const { alertDialog } = useDialog();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!reason.trim()) {
-      alert("Vui lòng điền đầy đủ lý do nghỉ phép.");
+      await alertDialog("Vui lòng điền đầy đủ lý do nghỉ phép.");
       return;
     }
 

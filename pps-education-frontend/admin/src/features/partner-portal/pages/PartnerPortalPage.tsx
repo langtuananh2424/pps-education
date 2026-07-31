@@ -3,6 +3,7 @@ import { Download, FileText } from "lucide-react";
 import Card from "@/components/ui/Card";
 import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
 import Select from "@/components/ui/Select";
+import { useDialog } from "@/components/ui/DialogProvider";
 
 const teachingPlans = [
   { week: "Tuần 1", topic: "Alphabet & Phonetics Basic", hours: "4 Giờ", objectives: "Nhận biết âm đơn, bảng chữ cái" },
@@ -19,9 +20,10 @@ const stats: Record<string, { name: string; gpa: string; attendance: string; tot
 export default function PartnerPortalPage() {
   const [partnerFilter, setPartnerFilter] = useState("CAMP-03");
   const activeStats = stats[partnerFilter] || stats["CAMP-03"];
+  const { alertDialog } = useDialog();
 
-  const handleDownloadReport = () => {
-    alert(
+  const handleDownloadReport = async () => {
+    await alertDialog(
       `Đang khởi tạo tệp tin PDF Báo cáo liên kết định kỳ cho ${activeStats.name}...\n- Tổng số học sinh: ${activeStats.totalStuds} em\n- Điểm số trung bình: ${activeStats.gpa}\n- Tỷ lệ chuyên cần: ${activeStats.attendance}\nXuất file thành công!`
     );
   };

@@ -20,6 +20,7 @@ import Modal from "@/components/ui/Modal";
 import { siteStatusLabels, siteStatusVariants, siteTypeLabels } from "./SiteListPanel";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
+import { useDialog } from "@/components/ui/DialogProvider";
 import DatePicker from "@/components/ui/DatePicker";
 import Select from "@/components/ui/Select";
 
@@ -99,13 +100,14 @@ function ProfileTab({
   const [form, setForm] = useState<UpdateSiteRequest>(() => toForm(site));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { confirmDialog } = useDialog();
 
   useEffect(() => setForm(toForm(site)), [site]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (form.siteType === "OWNED" && site.siteType === "PARTNER") {
-      if (!window.confirm("Đổi sang 'Cơ sở tự vận hành' sẽ XÓA thông tin liên hệ đầu mối trường liên kết hiện có. Tiếp tục?")) return;
+      if (!(await confirmDialog("Đổi sang 'Cơ sở tự vận hành' sẽ XÓA thông tin liên hệ đầu mối trường liên kết hiện có. Tiếp tục?", { danger: true }))) return;
     }
     setSaving(true);
     setError(null);
@@ -299,6 +301,7 @@ function ContractsTab({ siteId, showToast }: { siteId: number; showToast: (msg: 
   const [form, setForm] = useState({ contractType: "INITIAL", startDate: "", endDate: "", termsSummary: "" });
   const [submitting, setSubmitting] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const { confirmDialog } = useDialog();
 
   const load = () => {
     setLoading(true);
@@ -337,7 +340,7 @@ function ContractsTab({ siteId, showToast }: { siteId: number; showToast: (msg: 
   };
 
   const handleTerminate = async (c: PartnerContractResponse) => {
-    if (!window.confirm(`Chấm dứt hợp đồng ${c.contractNumber}?`)) return;
+    if (!(await confirmDialog(`Chấm dứt hợp đồng ${c.contractNumber}?`, { danger: true }))) return;
     try {
       await terminatePartnerContract(c.id);
       load();
@@ -348,7 +351,7 @@ function ContractsTab({ siteId, showToast }: { siteId: number; showToast: (msg: 
   };
 
   const handleDelete = async (c: PartnerContractResponse) => {
-    if (!window.confirm(`Xóa hợp đồng ${c.contractNumber}? Chỉ xóa được khi đang ở trạng thái Nháp.`)) return;
+    if (!(await confirmDialog(`Xóa hợp đồng ${c.contractNumber}? Chỉ xóa được khi đang ở trạng thái Nháp.`, { danger: true }))) return;
     try {
       await deletePartnerContract(c.id);
       load();

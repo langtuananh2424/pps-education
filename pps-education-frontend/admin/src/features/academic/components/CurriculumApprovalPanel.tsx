@@ -4,6 +4,7 @@ import { ApiError } from "@/lib/apiClient";
 import { CurriculumApprovalResponse, decideCurriculumApproval, listPendingCurriculumApprovals } from "../api";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
+import { useDialog } from "@/components/ui/DialogProvider";
 
 /** UC-17: Trưởng phòng đào tạo duyệt/từ chối bản tùy biến khung chương trình. */
 export default function CurriculumApprovalPanel() {
@@ -12,6 +13,7 @@ export default function CurriculumApprovalPanel() {
   const [error, setError] = useState<string | null>(null);
   const [decidingId, setDecidingId] = useState<number | null>(null);
   const { message: toastMessage, showToast } = useToast();
+  const { promptDialog } = useDialog();
 
   const load = () => {
     setLoading(true);
@@ -25,7 +27,7 @@ export default function CurriculumApprovalPanel() {
   const handleDecide = async (id: number, decision: "APPROVED" | "REJECTED") => {
     let comment: string | undefined;
     if (decision === "REJECTED") {
-      comment = window.prompt("Lý do từ chối (không bắt buộc):") ?? undefined;
+      comment = (await promptDialog("Lý do từ chối (không bắt buộc):", { multiline: true })) ?? undefined;
     }
     setDecidingId(id);
     setError(null);

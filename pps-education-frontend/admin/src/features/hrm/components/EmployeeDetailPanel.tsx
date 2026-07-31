@@ -26,6 +26,7 @@ import Modal from "@/components/ui/Modal";
 import { employeeStatusLabels, employeeStatusVariants } from "./EmployeeListPanel";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
+import { useDialog } from "@/components/ui/DialogProvider";
 import DatePicker from "@/components/ui/DatePicker";
 import AvatarUploadField from "@/components/ui/AvatarUploadField";
 import { uploadMedia } from "@/features/lms/api";
@@ -498,6 +499,7 @@ function ContractsTab({ employeeId, showToast }: { employeeId: number; showToast
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const { confirmDialog } = useDialog();
 
   const load = () => {
     setLoading(true);
@@ -537,7 +539,7 @@ function ContractsTab({ employeeId, showToast }: { employeeId: number; showToast
   };
 
   const handleTerminate = async (contract: EmploymentContractResponse) => {
-    if (!window.confirm(`Chấm dứt hợp đồng ${contract.contractNumber}?`)) return;
+    if (!(await confirmDialog(`Chấm dứt hợp đồng ${contract.contractNumber}?`, { danger: true }))) return;
     try {
       await updateContract(employeeId, contract.id, {
         contractType: contract.contractType,

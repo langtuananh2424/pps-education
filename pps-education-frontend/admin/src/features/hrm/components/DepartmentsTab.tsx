@@ -7,6 +7,7 @@ import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
+import { useDialog } from "@/components/ui/DialogProvider";
 import Select from "@/components/ui/Select";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
@@ -21,6 +22,7 @@ export default function DepartmentsTab() {
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const { message: toastMessage, showToast } = useToast();
+  const { confirmDialog } = useDialog();
 
   const load = () => {
     setLoading(true);
@@ -32,7 +34,7 @@ export default function DepartmentsTab() {
   useEffect(load, []);
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm("Xóa phòng ban này? Chỉ xóa được nếu chưa có nhân sự nào gán vào.")) return;
+    if (!(await confirmDialog("Xóa phòng ban này? Chỉ xóa được nếu chưa có nhân sự nào gán vào.", { danger: true }))) return;
     setError(null);
     try {
       await deleteDepartment(id);

@@ -16,6 +16,7 @@ import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
+import { useDialog } from "@/components/ui/DialogProvider";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-xs p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
@@ -29,6 +30,7 @@ export default function PositionsTab() {
   const [creating, setCreating] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const { message: toastMessage, showToast } = useToast();
+  const { confirmDialog } = useDialog();
 
   const load = () => {
     setLoading(true);
@@ -45,7 +47,7 @@ export default function PositionsTab() {
   const selected = positions.find((p) => p.id === selectedId) ?? null;
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm("Xóa chức vụ này? Chỉ xóa được nếu chưa có nhân sự nào gán vào.")) return;
+    if (!(await confirmDialog("Xóa chức vụ này? Chỉ xóa được nếu chưa có nhân sự nào gán vào.", { danger: true }))) return;
     setError(null);
     try {
       await deletePosition(id);

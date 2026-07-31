@@ -18,6 +18,7 @@ import {
 } from "../api";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
+import { useDialog } from "@/components/ui/DialogProvider";
 import GradeSheetTable from "./GradeSheetTable";
 import ClassGradeComparisonTable from "./ClassGradeComparisonTable";
 import GradeExcelImportPanel from "./GradeExcelImportPanel";
@@ -53,6 +54,7 @@ export default function ClassGradeSheetPanel({ classId, curriculumId, readOnly =
   // tách khỏi màn nhập điểm theo từng kỳ ở dưới (đổi qua đổi lại bằng nút này, không hiện đồng thời).
   const [showComparison, setShowComparison] = useState(false);
   const { message: toastMessage, showToast } = useToast();
+  const { confirmDialog } = useDialog();
 
   useEffect(() => {
     listClassEnrollments(classId).then(setEnrollments).catch(() => undefined);
@@ -76,7 +78,7 @@ export default function ClassGradeSheetPanel({ classId, curriculumId, readOnly =
   const handleDeletePeriod = async () => {
     if (!selectedPeriodId) return;
     const period = gradePeriods.find((p) => p.id === selectedPeriodId);
-    if (!window.confirm(`Xoá kỳ điểm "${period?.name ?? selectedPeriodId}"? Chỉ xoá được khi kỳ này còn rỗng (chưa có đầu điểm/điểm tổng kết).`)) return;
+    if (!(await confirmDialog(`Xoá kỳ điểm "${period?.name ?? selectedPeriodId}"? Chỉ xoá được khi kỳ này còn rỗng (chưa có đầu điểm/điểm tổng kết).`, { danger: true }))) return;
     setError(null);
     try {
       await deleteGradePeriod(selectedPeriodId);
@@ -90,7 +92,7 @@ export default function ClassGradeSheetPanel({ classId, curriculumId, readOnly =
 
   /** UC-19 (bổ sung): chỉ xoá được đầu điểm CHƯA có điểm nhập nào — BE tự chặn 422 nếu đã có điểm. */
   const handleDeleteComponent = async (component: GradeComponentResponse) => {
-    if (!window.confirm(`Xoá đầu điểm "${component.name}"? Chỉ xoá được khi đầu điểm này chưa có điểm nhập nào.`)) return;
+    if (!(await confirmDialog(`Xoá đầu điểm "${component.name}"? Chỉ xoá được khi đầu điểm này chưa có điểm nhập nào.`, { danger: true }))) return;
     setError(null);
     try {
       await deleteGradeComponent(component.id);

@@ -8,6 +8,7 @@ import Modal from "@/components/ui/Modal";
 import type { ParentAggregate } from "../pages/ParentsPage";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
+import { useDialog } from "@/components/ui/DialogProvider";
 import AvatarUploadField from "@/components/ui/AvatarUploadField";
 import { uploadMedia } from "@/features/lms/api";
 import Select from "@/components/ui/Select";
@@ -165,6 +166,7 @@ function ChildrenSection({
   const [isFinancialResponsible, setIsFinancialResponsible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { confirmDialog } = useDialog();
 
   const handleSearch = (q: string) => {
     setQuery(q);
@@ -203,7 +205,7 @@ function ChildrenSection({
   };
 
   const handleUnlink = async (studentId: number, parentStudentId: number) => {
-    if (!window.confirm("Gỡ liên kết học sinh này khỏi phụ huynh?")) return;
+    if (!(await confirmDialog("Gỡ liên kết học sinh này khỏi phụ huynh?", { danger: true }))) return;
     try {
       await unlinkParent(studentId, parentStudentId);
       onChanged();

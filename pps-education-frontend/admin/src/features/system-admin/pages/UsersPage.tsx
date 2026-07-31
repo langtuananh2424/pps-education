@@ -8,6 +8,7 @@ import EmptyState from "@/components/ui/EmptyState";
 import { ApiError } from "@/lib/apiClient";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
+import { useDialog } from "@/components/ui/DialogProvider";
 import { DepartmentResponse, listDepartments } from "@/features/hrm/api";
 import {
   changeUserPassword,
@@ -286,6 +287,7 @@ function UserDetailModal({
   const [changingPassword, setChangingPassword] = useState(false);
   const [changingStatus, setChangingStatus] = useState(false);
   const { message: toastMessage, showToast } = useToast();
+  const { confirmDialog } = useDialog();
 
   const loadDetail = (id: number) => {
     setLoading(true);
@@ -332,7 +334,7 @@ function UserDetailModal({
 
   const handleToggleStatus = async (newStatus: "ACTIVE" | "INACTIVE" | "SUSPENDED") => {
     if (!detail) return;
-    if (newStatus !== "ACTIVE" && !window.confirm(`Xác nhận chuyển tài khoản "${detail.username}" sang trạng thái ${statusLabels[newStatus]}?`)) {
+    if (newStatus !== "ACTIVE" && !(await confirmDialog(`Xác nhận chuyển tài khoản "${detail.username}" sang trạng thái ${statusLabels[newStatus]}?`, { danger: true }))) {
       return;
     }
     setChangingStatus(true);
@@ -355,7 +357,12 @@ function UserDetailModal({
       setError("Mật khẩu mới phải từ 8 ký tự trở lên.");
       return;
     }
-    if (!window.confirm(`Xác nhận đặt mật khẩu mới cho tài khoản "${detail.username}"? Tài khoản này có thể đăng nhập ngay bằng mật khẩu mới, mật khẩu cũ sẽ không còn dùng được.`)) {
+    if (
+      !(await confirmDialog(
+        `Xác nhận đặt mật khẩu mới cho tài khoản "${detail.username}"? Tài khoản này có thể đăng nhập ngay bằng mật khẩu mới, mật khẩu cũ sẽ không còn dùng được.`,
+        { danger: true }
+      ))
+    ) {
       return;
     }
     setChangingPassword(true);

@@ -5,6 +5,7 @@ import { ClassResponse, StudentCommentResponse, decideComments, listClassEnrollm
 import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
 import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
+import { useDialog } from "@/components/ui/DialogProvider";
 
 const commentTypeLabels: Record<StudentCommentResponse["commentType"], string> = { DAILY: "Hàng ngày", MID_TERM: "Giữa kỳ", END_TERM: "Cuối kỳ" };
 const attitudeLabels: Record<NonNullable<StudentCommentResponse["attitude"]>, string> = {
@@ -33,6 +34,7 @@ export default function CommentApprovalByClass({ items, loading, onDecided }: Co
   const [decidingId, setDecidingId] = useState<number | null>(null);
   const [decidingAllClassId, setDecidingAllClassId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { promptDialog } = useDialog();
 
   useEffect(() => {
     listClasses()
@@ -61,7 +63,7 @@ export default function CommentApprovalByClass({ items, loading, onDecided }: Co
   const handleDecide = async (comment: StudentCommentResponse, decision: "APPROVED" | "REJECTED") => {
     let reason: string | undefined;
     if (decision === "REJECTED") {
-      reason = window.prompt("Lý do từ chối (bắt buộc — giáo viên sẽ dựa vào đây để sửa lại):") ?? undefined;
+      reason = (await promptDialog("Lý do từ chối (bắt buộc — giáo viên sẽ dựa vào đây để sửa lại):", { required: true, multiline: true })) ?? undefined;
       if (!reason?.trim()) return;
     }
     setDecidingId(comment.id);

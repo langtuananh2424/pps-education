@@ -8,6 +8,7 @@ import Avatar from "@/components/ui/Avatar";
 import Dropdown from "@/components/ui/Dropdown";
 import ProfileModal from "@/features/auth/components/ProfileModal";
 import ChangePasswordModal from "@/features/auth/components/ChangePasswordModal";
+import { useDialog } from "@/components/ui/DialogProvider";
 
 const notifications = [
   { id: "1", text: "Trường Tiểu học Nghĩa Tân gửi ý kiến đóng góp mới (Cô Hiệu Trưởng)", time: "10 phút trước", type: "urgent" },
@@ -31,6 +32,7 @@ export default function Header() {
   const [sites, setSites] = useState<SiteResponse[]>([]);
   const [profileOpen, setProfileOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+  const { alertDialog } = useDialog();
 
   useEffect(() => {
     listSites().then(setSites).catch(() => undefined);
@@ -334,7 +336,7 @@ export default function Header() {
               <span>Đổi mật khẩu</span>
             </button>
             <button
-              onClick={() => alert("Tính năng Cài đặt đang được phát triển.")}
+              onClick={() => alertDialog("Tính năng Cài đặt đang được phát triển.")}
               className="w-full px-3 py-2.5 flex items-center gap-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer"
             >
               <Settings className="w-4 h-4 text-slate-400 shrink-0" />

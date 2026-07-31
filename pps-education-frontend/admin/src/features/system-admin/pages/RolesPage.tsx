@@ -9,6 +9,7 @@ import CreateRolePanel from "../components/CreateRolePanel";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import Modal from "@/components/ui/Modal";
+import { useDialog } from "@/components/ui/DialogProvider";
 
 export default function RolesPage() {
   const { hasPermission } = useApp();
@@ -26,6 +27,7 @@ export default function RolesPage() {
   const [roleSearchQuery, setRoleSearchQuery] = useState("");
   const [creatingNew, setCreatingNew] = useState(false);
   const { message: toastMessage, showToast } = useToast();
+  const { confirmDialog, alertDialog } = useDialog();
 
   const loadRoles = (selectId?: number) => {
     setLoading(true);
@@ -49,14 +51,14 @@ export default function RolesPage() {
 
   const handleDeleteRole = async () => {
     if (!activeRole) return;
-    if (!window.confirm(`Bạn có chắc chắn muốn xóa vai trò "${activeRole.name}"?`)) return;
+    if (!(await confirmDialog(`Bạn có chắc chắn muốn xóa vai trò "${activeRole.name}"?`, { danger: true }))) return;
     try {
       await deleteRole(activeRole.id);
       setSelectedRoleId(null);
       loadRoles();
       showToast("Đã xoá vai trò thành công!");
     } catch (err) {
-      alert(err instanceof ApiError ? err.message : "Xóa vai trò thất bại.");
+      await alertDialog(err instanceof ApiError ? err.message : "Xóa vai trò thất bại.");
     }
   };
 

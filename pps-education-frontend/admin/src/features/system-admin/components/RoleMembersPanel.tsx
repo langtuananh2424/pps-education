@@ -7,6 +7,7 @@ import Badge, { BadgeVariant } from "@/components/ui/Badge";
 import AssignUserModal from "./AssignUserModal";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
+import { useDialog } from "@/components/ui/DialogProvider";
 
 const statusVariants: Record<string, BadgeVariant> = {
   ACTIVE: "success",
@@ -28,6 +29,7 @@ export default function RoleMembersPanel({ roleId, roleName, canAssign, canRevok
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [busyUserId, setBusyUserId] = useState<number | null>(null);
   const { message: toastMessage, showToast } = useToast();
+  const { confirmDialog } = useDialog();
 
   const loadUsers = () => {
     setLoading(true);
@@ -59,7 +61,7 @@ export default function RoleMembersPanel({ roleId, roleName, canAssign, canRevok
   };
 
   const handleRemove = async (user: UserListItemResponse) => {
-    if (!window.confirm(`Bạn có chắc muốn gỡ "${user.fullName}" khỏi vai trò "${roleName}"?`)) return;
+    if (!(await confirmDialog(`Bạn có chắc muốn gỡ "${user.fullName}" khỏi vai trò "${roleName}"?`, { danger: true }))) return;
     setBusyUserId(user.id);
     setError(null);
     try {
