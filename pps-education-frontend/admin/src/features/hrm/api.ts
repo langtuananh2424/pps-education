@@ -1,4 +1,4 @@
-import { apiRequest } from "@/lib/apiClient";
+import { apiRequest, apiRequestBlob } from "@/lib/apiClient";
 import type { CreateUserRequest } from "@/features/system-admin/api";
 
 /** Khớp EmployeeResponse thật của backend — xem UC-08 (Quản lý hồ sơ nhân sự). */
@@ -356,4 +356,15 @@ export function importEmployees(file: File): Promise<EmployeeBatchImportResponse
   const formData = new FormData();
   formData.append("file", file);
   return apiRequest<EmployeeBatchImportResponse>("/employee-imports", { method: "POST", body: formData });
+}
+
+/** Xuất Excel danh sách tài khoản nhân sự vừa tạo qua import — khớp AccountExportRequest thật, cùng cơ chế Student/Parent. */
+export function exportEmployeeAccounts(
+  accounts: { username: string; temporaryPassword: string; fullName?: string }[]
+): Promise<Blob> {
+  return apiRequestBlob("/employee-imports/accounts-export", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ accounts })
+  });
 }
