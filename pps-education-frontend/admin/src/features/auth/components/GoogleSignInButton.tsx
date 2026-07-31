@@ -19,6 +19,14 @@ export default function GoogleSignInButton({ onSuccess, onError }: GoogleSignInB
         size="large"
         shape="pill"
         text="continue_with"
+        // Chế độ popup mặc định (ux_mode="popup") dựa vào 1 trang relay
+        // (accounts.google.com/gsi/transform) đọc cookie bên thứ 3 để trả
+        // credential về cho tab gốc — trình duyệt chặn cookie bên thứ 3
+        // (mặc định ở Safari/Brave, đang rollout ở Chrome) làm trang này
+        // treo vĩnh viễn sau khi chọn tài khoản. FedCM (trình duyệt làm
+        // trung gian trực tiếp, không qua cookie/relay) là hướng thay thế
+        // Google khuyến nghị, tránh hẳn lỗi treo này.
+        use_fedcm_for_button
         onSuccess={async (credentialResponse) => {
           if (!credentialResponse.credential) {
             onError("Không nhận được thông tin xác thực từ Google.");

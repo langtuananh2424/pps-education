@@ -16,6 +16,24 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Nhiều exception ở BE (VD SubmissionPastDeadlineException — xem ExerciseAttemptService.java)
+ * viết message kỹ thuật cho log/debug, kèm "id=123" nội bộ và mốc giờ ISO thô (UTC "Z") — không
+ * có ý nghĩa với học sinh/phụ huynh khi hiện thẳng lên UI. Không sửa message gốc ở BE (đội khác
+ * phụ trách), format lại ở đây trước khi hiển thị: bỏ "id=N", đổi giờ ISO trong ngoặc sang giờ
+ * địa phương dễ đọc.
+ */
+export function friendlyApiErrorMessage(err: unknown, fallback: string): string {
+  if (!(err instanceof ApiError)) return fallback;
+  const deadlineMatch = err.message.match(/(quá hạn nộp) \(([^)]+)\)/);
+  if (deadlineMatch) {
+    const deadline = new Date(deadlineMatch[2]);
+    const formatted = Number.isNaN(deadline.getTime()) ? deadlineMatch[2] : deadline.toLocaleString("vi-VN");
+    return `Bài đã quá hạn nộp (hạn nộp: ${formatted}) — đề này không cho phép nộp trễ.`;
+  }
+  return err.message.replace(/\bid=\d+\s*/g, "").replace(/\s{2,}/g, " ").trim();
+}
+
 const API_BASE = "/api";
 
 interface RequestOptions extends RequestInit {

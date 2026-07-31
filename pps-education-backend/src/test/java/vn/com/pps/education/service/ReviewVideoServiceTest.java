@@ -3,6 +3,7 @@ package vn.com.pps.education.service;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.Role;
 import vn.com.pps.education.domain.Site;
@@ -18,8 +19,11 @@ import vn.com.pps.education.dto.CreateCurriculumRequest;
 import vn.com.pps.education.dto.CreateReviewVideoSetRequest;
 import vn.com.pps.education.dto.CurriculumResponse;
 import vn.com.pps.education.dto.EnrollStudentRequest;
+import vn.com.pps.education.domain.ReviewVideoAssignment;
 import vn.com.pps.education.dto.GradeReviewVideoSubmissionRequest;
+import vn.com.pps.education.dto.MyReviewVideoAssignmentResponse;
 import vn.com.pps.education.dto.ReportVideoProgressRequest;
+import vn.com.pps.education.dto.ReviewVideoAssignmentResponse;
 import vn.com.pps.education.dto.ReviewVideoProgressResponse;
 import vn.com.pps.education.dto.ReviewVideoQuestionResponse;
 import vn.com.pps.education.dto.ReviewVideoResponse;
@@ -33,6 +37,7 @@ import vn.com.pps.education.exception.InvalidReviewVideoSetScopeException;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.exception.RetakeNotAllowedException;
+import vn.com.pps.education.repository.NotificationRepository;
 import vn.com.pps.education.repository.RoleRepository;
 import vn.com.pps.education.repository.SiteRepository;
 import vn.com.pps.education.repository.StudentRepository;
@@ -42,6 +47,7 @@ import vn.com.pps.education.support.AbstractIntegrationTest;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -86,6 +92,9 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
 
     @Autowired
     private StudentRepository studentRepository;
+
+    @Autowired
+    private NotificationRepository notificationRepository;
 
     private User headAcademic;
     private User teacher;
@@ -606,6 +615,137 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         assertThatThrownBy(() -> reviewVideoService.gradeSubmission(999_999L,
                 new GradeReviewVideoSubmissionRequest(new BigDecimal("5"), new BigDecimal("10"), null), teacher.getId()))
                 .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    /**
+     * V69 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31) —
+     * fix bug thật: "Đã nộp bài" hiện sai khi giao lại đúng bộ REFLEX cho
+     * lớp đã từng làm rồi (VD buổi 3 giao, học sinh đã trả lời xong; buổi
+     * 7 giao LẠI đúng bộ đó — hệ thống vẫn thấy "đã có câu trả lời cũ" nên
+     * hiện nhầm "Đã nộp bài"). Giao lại phải là 1 lượt HOÀN TOÀN MỚI.
+     */
+    @Test
+    void deliverToClass_V69_MainFlow_redeliveringResetsSubmissionStatusToNotSubmitted() {
+        ReviewVideoResponse video = createPublishedReflexSetWithVideo(100);
+        ReviewVideoQuestionResponse question = addQuestion(video.id(), 53, 15, null);
+        Student student = enrollStudent(schoolClass.id());
+        // Buổi 3: học sinh đã nộp và được chấm xong.
+        ReviewVideoSubmissionResponse oldSubmission = reviewVideoService.submitQuestionAudio(question.id(),
+                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/old.mp3"), student.getUser().getId());
+        reviewVideoService.gradeSubmission(oldSubmission.id(),
+                new GradeReviewVideoSubmissionRequest(new BigDecimal("9.00"), new BigDecimal("10.00"), "Tốt"), teacher.getId());
+
+        // Buổi 7: giao LẠI đúng bộ này cho đúng lớp này ở 1 buổi KHÁC (dueAt khác) — lượt giao mới (V70: dueAt
+        // trùng nhau mới coi là request trùng lặp cùng 1 buổi, dueAt khác nhau vẫn là redeliver thật).
+        reviewVideoService.deliverToClass(video.reviewVideoSetId(), schoolClass.id(), OffsetDateTime.now().plusDays(7), teacher.getId());
+
+        ReviewVideoSubmissionResponse mine = reviewVideoService.getMyLatestSubmission(question.id(), student.getUser().getId());
+        assertThat(mine).as("chưa nộp gì cho lượt giao MỚI dù đã nộp ở lượt giao cũ").isNull();
+        assertThat(reviewVideoService.listMySubmissionHistory(question.id(), student.getUser().getId()))
+                .as("lịch sử của lượt giao MỚI phải rỗng, không kéo theo lịch sử lượt giao cũ")
+                .isEmpty();
+    }
+
+    /** V69: maxAttempts áp dụng lại từ đầu ở lượt giao mới — không bị tính dồn từ lượt giao cũ. */
+    @Test
+    void submitQuestionAudio_V69_MainFlow_maxAttemptsResetsOnRedelivery() {
+        ReviewVideoResponse video = createPublishedReflexSetWithVideo(100);
+        ReviewVideoQuestionResponse question = addQuestion(video.id(), 53, 15, 1);
+        Student student = enrollStudent(schoolClass.id());
+        reviewVideoService.submitQuestionAudio(question.id(),
+                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/old.mp3"), student.getUser().getId());
+        // Đã hết lượt (maxAttempts=1) ở lượt giao cũ.
+        assertThatThrownBy(() -> reviewVideoService.submitQuestionAudio(question.id(),
+                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/old2.mp3"), student.getUser().getId()))
+                .isInstanceOf(RetakeNotAllowedException.class);
+
+        // Redeliver ở buổi KHÁC (dueAt khác) — V70 chỉ tái dùng khi dueAt trùng (cùng 1 đợt gửi).
+        reviewVideoService.deliverToClass(video.reviewVideoSetId(), schoolClass.id(), OffsetDateTime.now().plusDays(7), teacher.getId());
+
+        ReviewVideoSubmissionResponse afterRedeliver = reviewVideoService.submitQuestionAudio(question.id(),
+                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/new.mp3"), student.getUser().getId());
+        assertThat(afterRedeliver.attemptNumber()).isEqualTo(1);
+    }
+
+    /**
+     * V69: giao lại cùng (bộ, lớp) hủy (CANCELLED) lần giao ACTIVE cũ — tại mọi thời điểm chỉ tối đa 1 lần giao
+     * ACTIVE cho 1 (bộ, lớp). V70: điều này chỉ đúng khi 2 lần giao khác buổi (dueAt khác) — dueAt trùng nhau
+     * (cùng 1 buổi) nay được coi là request trùng lặp trong cùng 1 đợt gửi, xem
+     * deliverToClass_V70_boSung_reusesExistingAssignmentForSameSessionInsteadOfDuplicating.
+     */
+    @Test
+    void deliverToClass_V69_MainFlow_cancelsPreviousActiveAssignmentForSameSetAndClass() {
+        ReviewVideoSetResponse set = createClassScopedSet();
+        reviewVideoService.updateSet(set.id(), new UpdateReviewVideoSetRequest(set.title(), null, 1, "PUBLISHED"), teacher.getId());
+
+        ReviewVideoAssignment first = reviewVideoService.deliverToClass(set.id(), schoolClass.id(), OffsetDateTime.now().plusDays(3), teacher.getId());
+        ReviewVideoAssignment second = reviewVideoService.deliverToClass(set.id(), schoolClass.id(), OffsetDateTime.now().plusDays(7), teacher.getId());
+
+        List<ReviewVideoAssignmentResponse> active = reviewVideoService.listAssignmentsForClass(schoolClass.id(), teacher.getId());
+        assertThat(active).extracting(ReviewVideoAssignmentResponse::id).containsExactly(second.getId());
+        assertThat(first.getId()).isNotEqualTo(second.getId());
+    }
+
+    /**
+     * V70 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31) —
+     * fix bug thật: "Gửi nhận xét" hàng loạt cho N học sinh CÙNG buổi,
+     * CÙNG chọn 1 video ôn tập → StudentCommentService gọi deliverToClass
+     * N lần với CÙNG (setId, classId, dueAt) → trước đây tạo N
+     * ReviewVideoAssignment trùng lặp, mỗi bản ghi lại thông báo lại cho
+     * TOÀN BỘ học sinh lớp → 1 học sinh nhận N thông báo giống hệt nhau.
+     */
+    @Test
+    void deliverToClass_V70_boSung_reusesExistingAssignmentForSameSessionInsteadOfDuplicating() {
+        ReviewVideoSetResponse set = createClassScopedSet();
+        reviewVideoService.updateSet(set.id(), new UpdateReviewVideoSetRequest(set.title(), null, 1, "PUBLISHED"), teacher.getId());
+        Student student = enrollStudent(schoolClass.id());
+        OffsetDateTime dueAt = OffsetDateTime.now().plusDays(2);
+
+        // Mô phỏng N=3 request riêng biệt (3 học sinh khác nhau CÙNG chọn video này CÙNG buổi).
+        ReviewVideoAssignment first = reviewVideoService.deliverToClass(set.id(), schoolClass.id(), dueAt, teacher.getId());
+        ReviewVideoAssignment second = reviewVideoService.deliverToClass(set.id(), schoolClass.id(), dueAt, teacher.getId());
+        ReviewVideoAssignment third = reviewVideoService.deliverToClass(set.id(), schoolClass.id(), dueAt, teacher.getId());
+
+        assertThat(second.getId()).as("tái dùng đúng bản ghi cũ, không tạo mới").isEqualTo(first.getId());
+        assertThat(third.getId()).isEqualTo(first.getId());
+        assertThat(notificationRepository.findByRecipientUserIdOrderByCreatedAtDesc(student.getUser().getId(), PageRequest.of(0, 10)))
+                .as("chỉ nhận đúng 1 thông báo dù deliverToClass bị gọi 3 lần cho cùng buổi")
+                .hasSize(1);
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31 — fix
+     * bug thật: Portal không hiển thị hạn nộp (dueAt) cho BTVN Video vì
+     * chưa có API self-service nào cho Học sinh đọc field này
+     * (listAssignmentsForClass bị khoá requireAssignedTeacher).
+     */
+    @Test
+    void listMyAssignments_boSung_MainFlow_returnsDueAtForAssignedSet() {
+        ReviewVideoResponse video = createPublishedReflexSetWithVideo(100);
+        Student student = enrollStudent(schoolClass.id());
+        OffsetDateTime dueAt = OffsetDateTime.now().plusDays(3);
+        reviewVideoService.deliverToClass(video.reviewVideoSetId(), schoolClass.id(), dueAt, teacher.getId());
+
+        List<MyReviewVideoAssignmentResponse> mine = reviewVideoService.listMyAssignments(student.getUser().getId(), null);
+
+        assertThat(mine).hasSize(1);
+        assertThat(mine.get(0).reviewVideoSetId()).isEqualTo(video.reviewVideoSetId());
+        assertThat(mine.get(0).videoType()).isEqualTo("REFLEX");
+        assertThat(mine.get(0).classId()).isEqualTo(schoolClass.id());
+        assertThat(mine.get(0).dueAt()).isEqualToIgnoringNanos(dueAt);
+        assertThat(mine.get(0).availableFrom()).isNotNull();
+    }
+
+    /** Bổ sung: bộ đã Publish nhưng CHƯA deliverToClass cho lớp nào — học sinh chưa thấy gì (Publish đơn thuần không đủ, đúng V65). */
+    @Test
+    void listMyAssignments_boSung_A_returnsEmptyWhenSetPublishedButNotYetDelivered() {
+        Student student = enrollStudent(schoolClass.id());
+        ReviewVideoSetResponse set = createClassScopedSet();
+        reviewVideoService.updateSet(set.id(), new UpdateReviewVideoSetRequest(set.title(), null, 1, "PUBLISHED"), teacher.getId());
+
+        List<MyReviewVideoAssignmentResponse> mine = reviewVideoService.listMyAssignments(student.getUser().getId(), null);
+
+        assertThat(mine).isEmpty();
     }
 
     private ReviewVideoQuestionResponse addQuestion(Long videoId, int timestampSeconds, int maxRecordingSeconds, Integer maxAttempts) {

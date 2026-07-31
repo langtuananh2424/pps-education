@@ -1249,6 +1249,25 @@ DAILY, Giữa/Cuối kỳ giữ nguyên 100% luồng ở trên)
     chưa từng được chọn: không cần màn theo dõi riêng, chỉ dùng cho
     dropdown ở đây.
 
+-   **Bổ sung V70 (2026-07-31, đã xác nhận với người dùng) — fix bug
+    thông báo bị gửi lặp nhiều lần cho toàn bộ học sinh trong lớp khi
+    "Gửi nhận xét" hàng loạt:** UI "Gửi nhận xét" gửi N request riêng biệt
+    khi Giáo viên submit hàng loạt cho N học sinh cùng 1 buổi. Vì quy tắc
+    1 "Xung đột cùng buổi" ở trên bắt buộc mọi dòng DAILY cùng buổi phải
+    chọn CÙNG 1 đề/video mỗi kênh, cả N request đều gọi
+    `deliverToClass()` với ĐÚNG CÙNG (`exerciseId`/`reviewVideoSetId`,
+    `classId`, `dueAt`) — trước đây mỗi lần gọi tạo mới hẳn 1
+    `ExerciseAssignment`/`ReviewVideoAssignment` rồi thông báo lại cho
+    TOÀN BỘ học sinh ACTIVE của lớp, nên 1 học sinh nhận N thông báo giống
+    hệt nhau (kể cả học sinh không liên quan gì tới N request đó). Fix:
+    `deliverToClass()` (cả 2 kênh) tìm bản ghi Assignment ACTIVE đã tồn
+    tại cho ĐÚNG (`classId`, `videoSetId`/`exerciseId`, `dueAt`) trước khi
+    tạo mới — có thì trả về nguyên bản ghi cũ, KHÔNG tạo bản ghi mới,
+    KHÔNG thông báo lại. Với kênh Video, bước tái dùng này chạy TRƯỚC quy
+    tắc hủy-giao-cũ của V69 (giao lại ở buổi SAU, `dueAt` khác, vẫn hủy
+    ACTIVE cũ + tạo mới + thông báo lại như V69 — chỉ N request trùng
+    `dueAt` trong CÙNG 1 đợt gửi mới được tái dùng).
+
 -   Excel round-trip theo buổi học (**V65: dropdown cột Ngữ pháp đổi
     nguồn từ "bài đã giao sẵn cho lớp" sang mọi `Exercise` loại ASSIGNED
     đang PUBLISHED trong khung chương trình của lớp — chọn ở đây mới là

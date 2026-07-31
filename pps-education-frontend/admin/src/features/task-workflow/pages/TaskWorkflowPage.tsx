@@ -11,6 +11,7 @@ import CreatedTaskDetailModal from "../components/CreatedTaskDetailModal";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import DatePicker from "@/components/ui/DatePicker";
+import Pagination from "@/components/ui/Pagination";
 
 type Tab = "assigned-to-me" | "assigned-by-me";
 type ViewMode = "kanban" | "sheet";
@@ -83,6 +84,14 @@ export default function TaskWorkflowPage() {
       .finally(() => setCreatedLoading(false));
   };
   useEffect(loadCreated, [canCreateTask]);
+
+  // "Việc tôi giao" khi isOverviewScope=true là tổng quan toàn phòng ban/công ty, tích lũy theo thời
+  // gian — backend GET /tasks/overview chưa hỗ trợ phân trang, phân trang phía client. loadCreated()
+  // luôn tải lại toàn bộ (không patch tại chỗ) nên reset trang theo identity createdTasks là an toàn.
+  const [createdPage, setCreatedPage] = useState(0);
+  const [createdPageSize, setCreatedPageSize] = useState(20);
+  useEffect(() => setCreatedPage(0), [createdTasks]);
+  const pageCreatedTasks = createdTasks.slice(createdPage * createdPageSize, (createdPage + 1) * createdPageSize);
 
   const filteredAssignments = useMemo(() => {
     if (!dateFrom && !dateTo) return assignments;
@@ -202,25 +211,40 @@ export default function TaskWorkflowPage() {
               Chưa giao việc nào — bấm "Giao việc mới" để bắt đầu.
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {createdTasks.map((t) => {
-                const meta = TASK_STATUS_META[t.status];
-                return (
-                  <button
-                    key={t.id}
-                    onClick={() => setSelectedTask(t)}
-                    className="text-left bg-white border border-slate-200 hover:border-brand-red/40 rounded-xl p-4 space-y-1.5 transition-colors"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-bold text-slate-800 text-sm">{t.title}</span>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${meta.badge}`}>{meta.label}</span>
-                    </div>
-                    <p className="text-[11px] text-slate-400 font-mono">{t.taskCode}</p>
-                    {t.dueAt && <p className="text-[11px] text-slate-500">Hạn: {new Date(t.dueAt).toLocaleString("vi-VN")}</p>}
-                  </button>
-                );
-              })}
-            </div>
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {pageCreatedTasks.map((t) => {
+                  const meta = TASK_STATUS_META[t.status];
+                  return (
+                    <button
+                      key={t.id}
+                      onClick={() => setSelectedTask(t)}
+                      className="text-left bg-white border border-slate-200 hover:border-brand-red/40 rounded-xl p-4 space-y-1.5 transition-colors"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-bold text-slate-800 text-sm">{t.title}</span>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${meta.badge}`}>{meta.label}</span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 font-mono">{t.taskCode}</p>
+                      {t.dueAt && <p className="text-[11px] text-slate-500">Hạn: {new Date(t.dueAt).toLocaleString("vi-VN")}</p>}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+                <Pagination
+                  page={createdPage}
+                  pageSize={createdPageSize}
+                  totalElements={createdTasks.length}
+                  itemLabel="việc"
+                  onPageChange={setCreatedPage}
+                  onPageSizeChange={(size) => {
+                    setCreatedPageSize(size);
+                    setCreatedPage(0);
+                  }}
+                />
+              </div>
+            </>
           )}
         </>
       )}

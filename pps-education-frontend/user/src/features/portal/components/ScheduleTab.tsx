@@ -12,6 +12,49 @@ const ATTENDANCE_META: Record<string, { label: string; icon: React.ReactNode; bg
   EXCUSED: { label: "Vắng có phép", icon: <AlertCircle className="text-muted" size={18} />, bg: "bg-slate-100 border-slate-200" }
 };
 
+/**
+ * BE chỉ tự set CANCELLED/RESCHEDULED (xem ClassSessionService) — KHÔNG tự chuyển SCHEDULED ->
+ * COMPLETED khi buổi đã qua giờ. Vì vậy phải tự tính "Đã học/Đang diễn ra/Sắp diễn ra" ở FE bằng
+ * cách so ngày giờ buổi với thời điểm hiện tại, để phân biệt trực quan buổi đã qua và buổi sắp tới
+ * (2026-07-31, theo yêu cầu người dùng — trước đây buổi đã học và sắp học hiện giống hệt nhau).
+ */
+function getSessionStatusBadge(s: ClassSessionResponse): { label: string; icon: React.ReactNode; className: string } {
+  if (s.status === "CANCELLED") {
+    return { label: "Đã hủy", icon: <XCircle size={12} />, className: "bg-coral/10 text-coral border-coral/20" };
+  }
+  if (s.status === "RESCHEDULED") {
+    return { label: "Đã dời lịch", icon: <AlertCircle size={12} />, className: "bg-slate-100 text-muted border-slate-200" };
+  }
+  const now = new Date();
+  const start = new Date(`${s.sessionDate}T${s.startTime}`);
+  const end = new Date(`${s.sessionDate}T${s.endTime}`);
+  if (now > end) {
+    return { label: "Đã học", icon: <CheckCircle2 size={12} />, className: "bg-teal/10 text-teal-deep border-teal/20" };
+  }
+  if (now >= start && now <= end) {
+    return { label: "Đang diễn ra", icon: <AlertCircle size={12} />, className: "bg-gold/10 text-gold border-gold/20" };
+  }
+  return { label: "Sắp diễn ra", icon: <Calendar size={12} />, className: "bg-sky text-teal-deep border-teal/20" };
+}
+
+/**
+ * Đẩy buổi sắp diễn ra gần nhất lên đầu danh sách (theo yêu cầu người dùng, 2026-07-31) — nhóm
+ * buổi chưa kết thúc (kể cả đang diễn ra) xếp trước, gần nhất trước; nhóm buổi đã qua xếp sau,
+ * mới qua nhất trước, để vẫn xem được lịch sử ngay bên dưới thay vì phải cuộn hết danh sách.
+ */
+function sortSessionsForDisplay(sessions: ClassSessionResponse[]): ClassSessionResponse[] {
+  const now = Date.now();
+  return [...sessions]
+    .map((s) => ({ s, end: new Date(`${s.sessionDate}T${s.endTime}`).getTime() }))
+    .sort((a, b) => {
+      const aUpcoming = a.end >= now;
+      const bUpcoming = b.end >= now;
+      if (aUpcoming !== bUpcoming) return aUpcoming ? -1 : 1;
+      return aUpcoming ? a.end - b.end : b.end - a.end;
+    })
+    .map((x) => x.s);
+}
+
 interface ScheduleTabProps {
   studentId: number;
   classId: number;
@@ -27,7 +70,7 @@ export default function ScheduleTab({ studentId, classId }: ScheduleTabProps) {
     setLoading(true);
     Promise.all([listSchedule(studentId, classId), listAttendance(studentId, classId)])
       .then(([sc, at]) => {
-        setSchedule(sc);
+        setSchedule(sortSessionsForDisplay(sc));
         setAttendance(at);
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được lịch học/chuyên cần."))
@@ -39,6 +82,16 @@ export default function ScheduleTab({ studentId, classId }: ScheduleTabProps) {
   const late = attendance.filter((a) => a.status === "LATE").length;
   const absent = attendance.filter((a) => a.status === "ABSENT").length;
   const rate = total > 0 ? (((present + late * 0.5) / total) * 100).toFixed(0) : "0";
+
+  // Tra ngược classSessionId -> buổi học cụ thể (ngày/giờ/số buổi) để hiện rõ trong "Nhật ký chuyên
+  // cần" — trước đây chỉ hiện mỗi trạng thái (Đi học/Vắng mặt), không rõ của buổi nào (2026-07-31).
+  const sessionById = new Map(schedule.map((s) => [s.id, s]));
+  const sortedAttendance = [...attendance].sort((a, b) => {
+    const sa = sessionById.get(a.classSessionId);
+    const sb = sessionById.get(b.classSessionId);
+    if (!sa || !sb) return 0;
+    return `${sb.sessionDate}T${sb.startTime}`.localeCompare(`${sa.sessionDate}T${sa.startTime}`);
+  });
 
   if (loading) return <p className="text-sm text-muted font-bold">Đang tải...</p>;
 
@@ -74,7 +127,9 @@ export default function ScheduleTab({ studentId, classId }: ScheduleTabProps) {
             <Calendar className="text-teal" /> Lịch buổi học
           </h2>
           <div className="space-y-4 max-h-[480px] overflow-y-auto pr-1">
-            {schedule.map((s) => (
+            {schedule.map((s) => {
+              const badge = getSessionStatusBadge(s);
+              return (
               <div
                 key={s.id}
                 className="border border-line/80 p-5 rounded-[20px] flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-sky-2"
@@ -87,15 +142,16 @@ export default function ScheduleTab({ studentId, classId }: ScheduleTabProps) {
                     <span className="text-xs text-muted font-bold">
                       Buổi {s.sessionNumber} · {s.sessionDate} · {s.startTime}–{s.endTime}
                     </span>
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold border ${badge.className}`}>
+                      {badge.icon} {badge.label}
+                    </span>
                   </div>
                   <p className="text-xs text-muted font-bold">
                     Giáo viên: <span className="font-extrabold text-ink">{s.primaryTeacherName ?? "—"}</span>
                     {s.teacherType && <span className="text-[10px] text-teal-deep font-bold"> ({teacherTypeLabels[s.teacherType]})</span>}
                   </p>
-                  {s.status !== "SCHEDULED" && (
-                    <span className="text-[10px] font-extrabold text-coral uppercase">
-                      {s.status === "CANCELLED" ? `Đã hủy${s.cancellationReason ? `: ${s.cancellationReason}` : ""}` : s.status}
-                    </span>
+                  {s.status === "CANCELLED" && s.cancellationReason && (
+                    <span className="text-[10px] font-extrabold text-coral">Lý do hủy: {s.cancellationReason}</span>
                   )}
                 </div>
                 <div className="bg-white border border-line/80 px-4 py-2 rounded-xl text-center shadow-sm w-full md:w-auto shrink-0">
@@ -103,7 +159,8 @@ export default function ScheduleTab({ studentId, classId }: ScheduleTabProps) {
                   <span className="text-sm font-extrabold text-teal-deep">{s.roomName ?? "—"}</span>
                 </div>
               </div>
-            ))}
+              );
+            })}
             {schedule.length === 0 && <p className="text-xs text-muted font-bold italic">Chưa có buổi học nào.</p>}
           </div>
         </div>
@@ -113,8 +170,9 @@ export default function ScheduleTab({ studentId, classId }: ScheduleTabProps) {
             <FileSpreadsheet className="text-teal" /> Nhật ký chuyên cần
           </h3>
           <div className="space-y-4">
-            {attendance.map((a) => {
+            {sortedAttendance.map((a) => {
               const meta = ATTENDANCE_META[a.status] ?? ATTENDANCE_META.PRESENT;
+              const session = sessionById.get(a.classSessionId);
               return (
                 <div key={a.id} className={`p-4 rounded-xl border ${meta.bg} shadow-sm space-y-2`}>
                   <div className="flex justify-between items-center">
@@ -124,6 +182,9 @@ export default function ScheduleTab({ studentId, classId }: ScheduleTabProps) {
                     </div>
                     {a.minutesLate ? <span className="text-[10px] text-muted font-bold">Muộn {a.minutesLate} phút</span> : null}
                   </div>
+                  <p className="text-[11px] text-muted font-bold">
+                    {session ? `Buổi ${session.sessionNumber} · ${session.sessionDate} · ${session.startTime}–${session.endTime}` : "Không rõ buổi học"}
+                  </p>
                   {a.absenceReason && <p className="text-[11px] italic text-muted font-bold border-t border-line/50 pt-1 mt-1">* Lý do: {a.absenceReason}</p>}
                 </div>
               );

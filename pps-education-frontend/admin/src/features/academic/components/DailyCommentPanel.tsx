@@ -124,6 +124,14 @@ export default function DailyCommentPanel() {
 
   const selectedClass = classes.find((c) => c.id === selectedClassId) ?? null;
   const selectedSession = sessions.find((s) => s.id === selectedSessionId) ?? null;
+  // Mirror đúng điều kiện findUpcomingSessions() bên BE (ClassSessionRepository) — buổi có sessionDate
+  // SAU buổi đang chọn, loại CANCELLED/RESCHEDULED — để báo TRƯỚC cho Giáo viên biết lớp chưa có buổi
+  // kế tiếp trong lịch (thay vì để họ chọn Online/Video xong bấm Gửi mới gặp lỗi 422, đã xác nhận với
+  // người dùng 2026-07-31: đây là buổi học CUỐI CÙNG đã lên lịch của lớp).
+  const hasUpcomingSession =
+    !!selectedSession &&
+    sessions.some((s) => s.sessionDate > selectedSession.sessionDate && s.status !== "CANCELLED" && s.status !== "RESCHEDULED");
+  const isLastScheduledSession = !!selectedSession && !hasUpcomingSession;
 
   /** "NONE" (chưa ai được nhận xét) / "PARTIAL" (dở dang) / "DONE" (đủ toàn bộ học sinh ACTIVE). */
   const getSessionCommentStatus = (sessionId: number): "NONE" | "PARTIAL" | "DONE" => {
@@ -360,6 +368,17 @@ export default function DailyCommentPanel() {
         })
       );
       const succeededIds = created.filter((r): r is PromiseFulfilledResult<Awaited<ReturnType<typeof writeComment>>> => r.status === "fulfilled").map((r) => r.value.id);
+      // Gom lý do lỗi thật từ từng promise bị reject (VD 422 "Lớp id=X chưa có buổi học kế tiếp...")
+      // theo đúng học sinh — trước đây chỉ đếm failedCount, không hiện rõ NGUYÊN NHÂN khiến Giáo viên
+      // không biết sửa gì để thử lại (2026-07-31). Gộp theo message giống nhau (thường cùng 1 lý do,
+      // VD cả lớp cùng chọn 1 đề Online mà lớp chưa có buổi sau) để không lặp lại dài dòng.
+      const failedByMessage = new Map<string, string[]>();
+      created.forEach((r, i) => {
+        if (r.status !== "rejected") return;
+        const msg = r.reason instanceof ApiError ? r.reason.message : "Lỗi không xác định.";
+        const studentName = filled[i]?.studentFullName ?? "?";
+        failedByMessage.set(msg, [...(failedByMessage.get(msg) ?? []), studentName]);
+      });
       const failedCount = created.length - succeededIds.length;
 
       // UC-21 (2026-07-29, BE PR #113 khôi phục DRAFT cho DAILY): writeComment() giờ chỉ lưu DRAFT —
@@ -379,9 +398,14 @@ export default function DailyCommentPanel() {
       let message = submitFailedMessage
         ? `⚠️ Đã lưu nháp ${succeededIds.length} nhận xét nhưng gửi duyệt thất bại: ${submitFailedMessage} — vào "Lịch sử nhận xét" bên dưới bấm "Nộp duyệt" để thử lại.`
         : `🔔 Đã gửi nhận xét ${succeededIds.length} học sinh lên Quản lý điểm trường rà soát duyệt.`;
-      if (failedCount > 0) message += `\n- ${failedCount} học sinh bị lỗi khi ghi nhận xét, thử lại sau.`;
+      if (failedCount > 0) {
+        failedByMessage.forEach((students, msg) => {
+          message += `\n- ${msg} (${students.join(", ")})`;
+        });
+      }
       setNotification(message);
-      setTimeout(() => setNotification(null), 6000);
+      // Thông báo có kèm lý do lỗi chi tiết (dài hơn) cần thời gian đọc lâu hơn bình thường.
+      setTimeout(() => setNotification(null), failedCount > 0 ? 12000 : 6000);
       setRows((prev) =>
         prev.map((r) =>
           r.content.trim() ? { ...r, attitude: "", homeworkPreviousScore: "", homeworkPreviousSpeakingScore: "", content: "", ...EMPTY_ROW_HOMEWORK, note: "" } : r
@@ -503,6 +527,15 @@ export default function DailyCommentPanel() {
                 Chưa điền bài học hôm nay — bắt buộc điền trước khi Gửi nhận xét (buổi chưa điền sẽ bị từ chối khi gửi duyệt).
               </p>
             )}
+          </div>
+        )}
+
+        {selectedSessionId && isLastScheduledSession && (
+          <div className="px-5 py-2.5 border-b border-slate-100 bg-rose-50/60 text-[11px] text-rose-700">
+            ⚠️ Đây là buổi học cuối cùng đã lên lịch của lớp — lớp chưa có buổi kế tiếp nào trong lịch nên
+            chưa thể giao BTVN Ngữ pháp (Online)/Video ôn tập buổi sau (cần hạn nộp = buổi kế tiếp). Vui
+            lòng lên lịch thêm buổi học cho lớp trước, hoặc chỉ nhập BTVN Ngữ pháp Offline (chữ tự do,
+            không cần hạn nộp).
           </div>
         )}
 
@@ -680,7 +713,9 @@ export default function DailyCommentPanel() {
                             <button
                               type="button"
                               onClick={() => updateRow({ grammarMode: "ONLINE", homeworkNext: "" })}
-                              className={`flex-1 text-[10px] font-bold py-1.5 rounded-lg border ${r.grammarMode === "ONLINE" ? "bg-brand-orange border-brand-orange text-white" : "bg-slate-50 border-slate-200 text-slate-500"
+                              disabled={isLastScheduledSession}
+                              title={isLastScheduledSession ? "Lớp chưa có buổi kế tiếp trong lịch — chưa thể giao Online (cần hạn nộp)." : undefined}
+                              className={`flex-1 text-[10px] font-bold py-1.5 rounded-lg border disabled:opacity-40 disabled:cursor-not-allowed ${r.grammarMode === "ONLINE" ? "bg-brand-orange border-brand-orange text-white" : "bg-slate-50 border-slate-200 text-slate-500"
                                 }`}
                             >
                               Online
@@ -717,7 +752,9 @@ export default function DailyCommentPanel() {
                         <Select
                           value={r.homeworkNextReviewVideoSetId}
                           onChange={(e) => updateRow({ homeworkNextReviewVideoSetId: e.target.value ? Number(e.target.value) : "" })}
-                          className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
+                          disabled={isLastScheduledSession}
+                          aria-label={isLastScheduledSession ? "Lớp chưa có buổi kế tiếp trong lịch — chưa thể giao Video ôn tập (cần hạn nộp)." : undefined}
+                          className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           <option value="">-- Không giao --</option>
                           {videoOptions.map((s) => (

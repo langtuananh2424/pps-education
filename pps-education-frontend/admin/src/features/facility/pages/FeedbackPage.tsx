@@ -15,6 +15,7 @@ import Badge, { BadgeVariant } from "@/components/ui/Badge";
 import { cn } from "@/lib/cn";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
+import Pagination from "@/components/ui/Pagination";
 
 const feedbackTypeLabels: Record<PartnerFeedbackResponse["feedbackType"], string> = {
   TEACHER: "Giáo viên",
@@ -55,6 +56,7 @@ export default function FeedbackPage() {
       .then(([siteRes, ticketRes]) => {
         setSites(siteRes);
         setTickets(ticketRes);
+        setPage(0);
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được hàng chờ phản hồi."))
       .finally(() => setLoading(false));
@@ -64,6 +66,13 @@ export default function FeedbackPage() {
 
   const siteName = (siteId: number) => sites.find((s) => s.id === siteId)?.name ?? `Điểm trường #${siteId}`;
   const selectedTicket = tickets.find((t) => t.id === selectedId) ?? null;
+
+  // Ticket tích lũy theo thời gian giống Audit Log, backend GET /partner-feedbacks chưa hỗ trợ phân
+  // trang — phân trang phía client. CHỈ reset về trang 1 khi tải lại toàn bộ danh sách (load()), không
+  // reset khi 1 ticket đổi trạng thái tại chỗ (runAction) — tránh giật về trang 1 giữa lúc đang xử lý.
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
+  const pageTickets = tickets.slice(page * pageSize, (page + 1) * pageSize);
 
   const runAction = async (action: () => Promise<PartnerFeedbackResponse>, successMessage: string) => {
     setSubmitting(true);
@@ -108,7 +117,7 @@ export default function FeedbackPage() {
             </p>
           ) : (
             <div className="divide-y divide-slate-100 max-h-[500px] overflow-y-auto">
-              {tickets.map((tkt) => (
+              {pageTickets.map((tkt) => (
                 <div
                   key={tkt.id}
                   onClick={() => setSelectedId(tkt.id)}
@@ -133,6 +142,19 @@ export default function FeedbackPage() {
                 </div>
               ))}
             </div>
+          )}
+          {!loading && tickets.length > 0 && (
+            <Pagination
+              page={page}
+              pageSize={pageSize}
+              totalElements={tickets.length}
+              itemLabel="ticket"
+              onPageChange={setPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setPage(0);
+              }}
+            />
           )}
         </Card>
 

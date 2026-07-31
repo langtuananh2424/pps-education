@@ -25,6 +25,7 @@ import Modal from "@/components/ui/Modal";
 import Select from "@/components/ui/Select";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
+import Pagination from "@/components/ui/Pagination";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
@@ -79,6 +80,13 @@ export default function ExerciseAssignPage() {
 
   const selectedExam = exams.find((e) => e.id === selectedExamId) ?? null;
 
+  // "Kho đề" toàn khung chương trình có thể tăng lên hàng trăm Đề theo thời gian — backend GET
+  // /exams chưa hỗ trợ phân trang, phân trang phía client. Reset về trang 1 mỗi khi đổi bộ lọc/tải lại.
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
+  useEffect(() => setPage(0), [exams]);
+  const pageExams = exams.slice(page * pageSize, (page + 1) * pageSize);
+
   return (
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4 flex items-start justify-between flex-wrap gap-3">
@@ -124,18 +132,31 @@ export default function ExerciseAssignPage() {
               <p className="text-xs text-slate-400">Chưa có Đề nào{curriculumFilter ? " trong khung chương trình này" : ""}.</p>
             </div>
           ) : (
-            <div className="divide-y divide-slate-100 overflow-y-auto">
-              {exams.map((exam) => (
-                <button
-                  key={exam.id}
-                  onClick={() => setSelectedExamId(exam.id)}
-                  className={`w-full text-left px-4 py-3 hover:bg-slate-50/60 ${selectedExamId === exam.id ? "bg-brand-red/5 border-l-2 border-brand-red" : ""}`}
-                >
-                  <p className="text-xs font-bold text-slate-800">{exam.title}</p>
-                  <p className="text-[10px] text-slate-400 mt-0.5 font-mono">{exam.code} · {exam.curriculumCode}</p>
-                </button>
-              ))}
-            </div>
+            <>
+              <div className="divide-y divide-slate-100 overflow-y-auto">
+                {pageExams.map((exam) => (
+                  <button
+                    key={exam.id}
+                    onClick={() => setSelectedExamId(exam.id)}
+                    className={`w-full text-left px-4 py-3 hover:bg-slate-50/60 ${selectedExamId === exam.id ? "bg-brand-red/5 border-l-2 border-brand-red" : ""}`}
+                  >
+                    <p className="text-xs font-bold text-slate-800">{exam.title}</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5 font-mono">{exam.code} · {exam.curriculumCode}</p>
+                  </button>
+                ))}
+              </div>
+              <Pagination
+                page={page}
+                pageSize={pageSize}
+                totalElements={exams.length}
+                itemLabel="Đề"
+                onPageChange={setPage}
+                onPageSizeChange={(size) => {
+                  setPageSize(size);
+                  setPage(0);
+                }}
+              />
+            </>
           )}
         </div>
 

@@ -23,6 +23,9 @@ export default function GoogleSignInButton({ onSuccess, onError }: GoogleSignInB
         size="large"
         shape="pill"
         text="continue_with"
+        // Xem giải thích ở admin/src/features/auth/components/GoogleSignInButton.tsx —
+        // FedCM tránh lỗi treo ở accounts.google.com/gsi/transform khi trình duyệt chặn cookie bên thứ 3.
+        use_fedcm_for_button
         onSuccess={async (credentialResponse) => {
           if (!credentialResponse.credential) {
             onError("Không nhận được thông tin xác thực từ Google.");

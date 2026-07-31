@@ -89,7 +89,7 @@ public class HomeworkProgressService {
         int total = 0;
         for (ReviewVideo v : videos) {
             total += set.getVideoType() == ReviewVideoSet.VideoType.CONNECTION
-                    ? connectionPercent(v, studentId) : reflexPercent(v, studentId);
+                    ? connectionPercent(v, studentId) : reflexPercent(v, studentId, assignment.getId());
         }
         return Math.round(total / (float) videos.size()) + "%";
     }
@@ -100,8 +100,15 @@ public class HomeworkProgressService {
                 .orElse(0);
     }
 
-    /** V57: video REFLEX nay có nhiều câu hỏi — % là trung bình % (điểm/điểm tối đa của attempt MỚI NHẤT) trên từng câu hỏi trong video. */
-    private int reflexPercent(ReviewVideo v, Long studentId) {
+    /**
+     * V57: video REFLEX nay có nhiều câu hỏi — % là trung bình % (điểm/điểm
+     * tối đa của attempt MỚI NHẤT) trên từng câu hỏi trong video. V69 (bổ
+     * sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31): chỉ tính
+     * attempt trong phạm vi ĐÚNG lần giao (assignmentId) đang báo cáo —
+     * không tính lịch sử của lần giao TRƯỚC (khác lần giao = "làm lại từ
+     * đầu", xem Javadoc ReviewVideoService.submitQuestionAudio).
+     */
+    private int reflexPercent(ReviewVideo v, Long studentId, Long assignmentId) {
         List<ReviewVideoQuestion> questions = reviewVideoQuestionRepository.findByReviewVideoIdOrderByDisplayOrder(v.getId());
         if (questions.isEmpty()) {
             return 0;
@@ -109,7 +116,8 @@ public class HomeworkProgressService {
         int total = 0;
         for (ReviewVideoQuestion q : questions) {
             List<ReviewVideoQuestionSubmission> attempts = reviewVideoQuestionSubmissionRepository
-                    .findByReviewVideoQuestionIdAndStudentIdOrderByAttemptNumberDesc(q.getId(), studentId);
+                    .findByReviewVideoQuestionIdAndStudentIdAndReviewVideoAssignmentIdOrderByAttemptNumberDesc(
+                            q.getId(), studentId, assignmentId);
             total += attempts.isEmpty() ? 0 : latestAttemptPercent(attempts.get(0));
         }
         return Math.round(total / (float) questions.size());
