@@ -211,6 +211,8 @@ export function listMyGradeAppeals(): Promise<GradeAppealResponse[]> {
 export interface AttendanceMarkResponse {
   id: number;
   attendanceSessionId: number;
+  /** UC-64: nối đúng điểm danh vào buổi học cụ thể — BE đã trả sẵn, dùng để hiện ngày/giờ/số buổi ở "Nhật ký chuyên cần". */
+  classSessionId: number;
   studentId: number;
   studentFullName: string;
   studentCode: string;

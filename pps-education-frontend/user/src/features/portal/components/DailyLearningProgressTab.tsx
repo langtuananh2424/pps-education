@@ -203,8 +203,6 @@ export default function DailyLearningProgressTab({ studentName, studentCode, cla
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [rangeOpen]);
 
-  const rangeLabel = dateFrom || dateTo ? `${dateFrom || "…"} → ${dateTo || "…"}` : "Thời gian";
-
   const toggleRange = () => {
     setRangeOpen((v) => {
       const next = !v;
@@ -213,19 +211,22 @@ export default function DailyLearningProgressTab({ studentName, studentCode, cla
     });
   };
 
-  const rYear = rangeViewMonth.getFullYear();
-  const rMonth = rangeViewMonth.getMonth();
-  const rFirstWeekday = (new Date(rYear, rMonth, 1).getDay() + 6) % 7;
-  const rDaysInMonth = new Date(rYear, rMonth + 1, 0).getDate();
-  const rangeCalendarCells: (number | null)[] = [
-    ...Array.from({ length: rFirstWeekday }, () => null),
-    ...Array.from({ length: rDaysInMonth }, (_, i) => i + 1)
-  ];
-  const rDateStrFor = (day: number) => `${rYear}-${pad2(rMonth + 1)}-${pad2(day)}`;
+  const formatDateVN = (dateStr: string) => {
+    const [y, m, d] = dateStr.split("-");
+    return `${d}/${m}/${y}`;
+  };
+
+  /** Panel hiện 2 tháng liền kề cạnh nhau (giống RangePicker chuẩn) thay vì 1 tháng chật hẹp — mỗi
+   * tháng tự tính lưới ngày riêng theo (year, month) truyền vào, không còn cố định vào rangeViewMonth. */
+  const buildMonthCells = (year: number, month: number): (number | null)[] => {
+    const firstWeekday = (new Date(year, month, 1).getDay() + 6) % 7;
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    return [...Array.from({ length: firstWeekday }, () => null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)];
+  };
+  const dateStrForYM = (year: number, month: number, day: number) => `${year}-${pad2(month + 1)}-${pad2(day)}`;
 
   /** Bấm 1: đặt Từ ngày. Bấm 2 (sau ngày Từ): đặt Đến ngày. Bấm khi đã đủ cặp hoặc bấm ngày trước "Từ": bắt đầu chọn lại từ đầu. */
-  const handleRangeDayClick = (day: number) => {
-    const dateStr = rDateStrFor(day);
+  const handleRangeDayClick = (dateStr: string) => {
     if (!dateFrom || dateTo || dateStr < dateFrom) {
       setDateFrom(dateStr);
       setDateTo("");
@@ -305,7 +306,7 @@ export default function DailyLearningProgressTab({ studentName, studentCode, cla
 
   const triggerLabel =
     selectedSessionId === "ALL" || !selectedLog
-      ? `Tất cả các buổi học (${logs.length})`
+      ? `Các buổi (${logs.length})`
       : `${selectedLog.commentDate}${selectedLog.timeSlot ? ` · ${selectedLog.timeSlot}` : ""}`;
 
   // ===== KPI: tính từ dữ liệu thật =====
@@ -491,7 +492,11 @@ export default function DailyLearningProgressTab({ studentName, studentCode, cla
               className="flex items-center gap-2 min-h-[44px] bg-white border border-line rounded-xl pl-3.5 pr-3 py-2.5 text-xs font-bold text-ink focus:outline-none focus:ring-2 focus:ring-teal/50 shadow-sm cursor-pointer"
             >
               <Clock size={14} className="text-teal shrink-0" aria-hidden="true" />
-              <span className="max-w-[180px] truncate">{rangeLabel}</span>
+              <span className="whitespace-nowrap">
+                <span className={dateFrom ? "text-ink" : "text-muted"}>{dateFrom ? formatDateVN(dateFrom) : "Từ ngày"}</span>
+                <span className="text-muted mx-1">→</span>
+                <span className={dateTo ? "text-ink" : "text-muted"}>{dateTo ? formatDateVN(dateTo) : "Đến ngày"}</span>
+              </span>
               <ChevronDown size={14} className={`text-muted shrink-0 transition-transform ${rangeOpen ? "rotate-180" : ""}`} aria-hidden="true" />
             </button>
 
@@ -499,59 +504,73 @@ export default function DailyLearningProgressTab({ studentName, studentCode, cla
               <div
                 role="dialog"
                 aria-label="Chọn khoảng thời gian"
-                className="absolute right-0 top-full mt-2 z-30 w-[300px] bg-white border border-line rounded-2xl shadow-lg p-3 space-y-3"
+                className="absolute right-0 top-full mt-2 z-30 w-[min(92vw,580px)] bg-white border border-line rounded-2xl shadow-lg p-4 space-y-3"
               >
-                <p className="text-[10px] font-bold text-muted">
-                  {!dateFrom ? "Chọn ngày bắt đầu" : !dateTo ? "Chọn ngày kết thúc" : `${dateFrom} → ${dateTo}`}
+                <p className="text-[11px] font-bold text-muted">
+                  {!dateFrom ? "Chọn ngày bắt đầu" : !dateTo ? "Chọn ngày kết thúc" : `${formatDateVN(dateFrom)} → ${formatDateVN(dateTo)}`}
                 </p>
 
-                <div className="flex items-center justify-between">
-                  <button
-                    type="button"
-                    onClick={() => setRangeViewMonth(new Date(rYear, rMonth - 1, 1))}
-                    aria-label="Tháng trước"
-                    className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-sky-2 text-muted"
-                  >
-                    <ChevronLeft size={16} aria-hidden="true" />
-                  </button>
-                  <span className="text-xs font-black text-ink capitalize">
-                    {rangeViewMonth.toLocaleDateString("vi-VN", { month: "long", year: "numeric" })}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setRangeViewMonth(new Date(rYear, rMonth + 1, 1))}
-                    aria-label="Tháng sau"
-                    className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-sky-2 text-muted"
-                  >
-                    <ChevronRight size={16} aria-hidden="true" />
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-7 gap-1 text-center">
-                  {WEEKDAY_LABELS.map((w) => (
-                    <span key={w} className="text-[10px] font-bold text-muted py-1">
-                      {w}
-                    </span>
-                  ))}
-                  {rangeCalendarCells.map((day, i) => {
-                    if (day == null) return <span key={`blank-${i}`} />;
-                    const dateStr = rDateStrFor(day);
-                    const state = rangeCellState(dateStr);
+                {/* 2 tháng liền kề cạnh nhau (như RangePicker chuẩn) thay vì 1 tháng chật hẹp — mũi tên
+                    lùi tháng chỉ ở panel trái, tiến tháng chỉ ở panel phải, cùng dịch chung rangeViewMonth. */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {[0, 1].map((offset) => {
+                    const panelDate = new Date(rangeViewMonth.getFullYear(), rangeViewMonth.getMonth() + offset, 1);
+                    const pYear = panelDate.getFullYear();
+                    const pMonth = panelDate.getMonth();
+                    const cells = buildMonthCells(pYear, pMonth);
                     return (
-                      <button
-                        key={day}
-                        type="button"
-                        onClick={() => handleRangeDayClick(day)}
-                        aria-label={`Chọn ngày ${day}/${rMonth + 1}`}
-                        className={`relative w-9 h-9 mx-auto flex items-center justify-center text-xs font-bold transition-colors cursor-pointer ${state === "start" || state === "end" || state === "single"
-                          ? "bg-teal text-white rounded-full"
-                          : state === "in-range"
-                            ? "bg-teal/15 text-teal-deep rounded-none"
-                            : "text-ink hover:bg-teal/10 rounded-full"
-                          }`}
-                      >
-                        {day}
-                      </button>
+                      <div key={offset} className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <button
+                            type="button"
+                            onClick={() => setRangeViewMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}
+                            aria-label="Tháng trước"
+                            className={`w-7 h-7 flex items-center justify-center rounded-lg hover:bg-sky-2 text-muted ${offset === 1 ? "invisible" : ""}`}
+                          >
+                            <ChevronLeft size={15} aria-hidden="true" />
+                          </button>
+                          <span className="text-xs font-black text-ink capitalize">
+                            {panelDate.toLocaleDateString("vi-VN", { month: "long", year: "numeric" })}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setRangeViewMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}
+                            aria-label="Tháng sau"
+                            className={`w-7 h-7 flex items-center justify-center rounded-lg hover:bg-sky-2 text-muted ${offset === 0 ? "invisible" : ""}`}
+                          >
+                            <ChevronRight size={15} aria-hidden="true" />
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-7 gap-1 text-center">
+                          {WEEKDAY_LABELS.map((w) => (
+                            <span key={w} className="text-[10px] font-bold text-muted py-1">
+                              {w}
+                            </span>
+                          ))}
+                          {cells.map((day, i) => {
+                            if (day == null) return <span key={`blank-${offset}-${i}`} />;
+                            const dateStr = dateStrForYM(pYear, pMonth, day);
+                            const state = rangeCellState(dateStr);
+                            return (
+                              <button
+                                key={day}
+                                type="button"
+                                onClick={() => handleRangeDayClick(dateStr)}
+                                aria-label={`Chọn ngày ${day}/${pMonth + 1}`}
+                                className={`relative w-8 h-8 mx-auto flex items-center justify-center text-xs font-bold transition-colors cursor-pointer ${state === "start" || state === "end" || state === "single"
+                                  ? "bg-teal text-white rounded-full"
+                                  : state === "in-range"
+                                    ? "bg-teal/15 text-teal-deep rounded-none"
+                                    : "text-ink hover:bg-teal/10 rounded-full"
+                                  }`}
+                              >
+                                {day}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
                     );
                   })}
                 </div>

@@ -31,6 +31,7 @@ import Button from "@/components/ui/Button";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import Select from "@/components/ui/Select";
+import Pagination from "@/components/ui/Pagination";
 
 interface FlatQuestionRow {
   question: QuestionResponse;
@@ -116,6 +117,14 @@ export default function QuestionBankPage() {
     const matchesLevel = levelFilter === "ALL" || bank.level === levelFilter;
     return matchesSearch && matchesType && matchesDifficulty && matchesLevel;
   });
+
+  // Toàn bộ câu hỏi của MỌI khung chương trình được tải hết 1 lần (loadAll flatten nested), có thể
+  // lên tới hàng trăm/nghìn câu — backend chưa hỗ trợ phân trang endpoint này, phân trang phía client
+  // theo đúng kết quả ĐÃ lọc. Reset về trang 1 mỗi khi bộ lọc/dữ liệu đổi để không kẹt ở trang rỗng.
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
+  useEffect(() => setPage(0), [rows, searchTerm, typeFilter, difficultyFilter, levelFilter]);
+  const pageRows = filteredRows.slice(page * pageSize, (page + 1) * pageSize);
 
   const selectedRow = rows.find((r) => r.question.id === selectedQuestionId) ?? null;
 
@@ -252,7 +261,7 @@ export default function QuestionBankPage() {
                       </td>
                     </tr>
                   ) : (
-                    filteredRows.map((row) => {
+                    pageRows.map((row) => {
                       const { question, bank } = row;
                       const meta = typeBadge[question.questionType];
                       const Icon = meta.icon;
@@ -310,6 +319,19 @@ export default function QuestionBankPage() {
                 </tbody>
               </table>
             </div>
+            {!loading && filteredRows.length > 0 && (
+              <Pagination
+                page={page}
+                pageSize={pageSize}
+                totalElements={filteredRows.length}
+                itemLabel="câu hỏi"
+                onPageChange={setPage}
+                onPageSizeChange={(size) => {
+                  setPageSize(size);
+                  setPage(0);
+                }}
+              />
+            )}
           </div>
         </div>
 
