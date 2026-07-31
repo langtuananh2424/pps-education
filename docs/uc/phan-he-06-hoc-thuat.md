@@ -296,6 +296,97 @@ UC-18: Xếp lớp & gán khóa học
 
 ---
 
+UC-65: Ghi danh học sinh theo lô
+
+> ⚠️ Bổ sung ngoài SDD gốc (mở rộng phạm vi FR-ACA-02, xác nhận với người
+> dùng ngày 2026-07-31) — UC-18 gốc chỉ có ghi danh TỪNG học sinh (tích
+> chọn tay qua danh sách toàn hệ thống, `ClassService.enroll`). UC-65 bổ
+> sung kênh Excel cho thao tác ghi danh HÀNG LOẠT, tái dùng NGUYÊN VẸN
+> validate của `enroll()` cho từng dòng — không đổi bất kỳ điều gì ở UC-18.
+
++-----------------+----------------------------------------------------+
+| **Mã Use Case** | UC-65                                              |
++-----------------+----------------------------------------------------+
+| **Tên Use       | Ghi danh học sinh theo lô                          |
+| Case**          |                                                    |
++-----------------+----------------------------------------------------+
+| **Phân hệ**     | Phân hệ 6                                          |
++-----------------+----------------------------------------------------+
+| **Yêu cầu chức  | FR-ACA-02 (bổ sung)                                |
+| năng gốc**      |                                                    |
++-----------------+----------------------------------------------------+
+| **Tác nhân**    | Nhân viên (Giáo vụ), Trưởng phòng đào tạo          |
++-----------------+----------------------------------------------------+
+| **Mô tả tóm     | Ghi danh nhiều học sinh ĐÃ TỒN TẠI SẴN trong hệ    |
+| tắt**           | thống vào 1 lớp cùng lúc qua file Excel, thay vì   |
+|                 | tích chọn tay từng em — khác UC-35/UC-50: KHÔNG    |
+|                 | tạo học sinh/tài khoản mới, chỉ tạo class_enroll-  |
+|                 | ments cho học sinh có sẵn (tra theo mã học sinh).  |
++-----------------+----------------------------------------------------+
+| **Sự kiện kích  | Lớp cần ghi danh nhiều học sinh cùng lúc (VD nhập  |
+| hoạt**          | danh sách từ hệ thống cũ, hoặc lớp mới mở đã có    |
+|                 | sẵn danh sách học sinh xác định trước).            |
++-----------------+----------------------------------------------------+
+| **Điều kiện     | -   Người thao tác có quyền academic.class.manage  |
+| tiên quyết      |     (khớp đúng quyền ghi danh từng học sinh, UC-18).|
+| (               |                                                    |
+| Precondition)** | -   Lớp đích đã tồn tại (UC-18).                   |
+|                 |                                                    |
+|                 | -   Học sinh cần ghi danh đã có hồ sơ sẵn trong hệ |
+|                 |     thống (tra theo mã học sinh, UC-13).           |
++-----------------+----------------------------------------------------+
+| **Luồng sự kiện | 1.  Người dùng mở tab Học sinh trong Quản lý lớp   |
+| chính (Main     |     học (UC-18), tải file Excel mẫu (2 cột: mã học |
+| Flow)**         |     sinh*, ngày ghi danh).                         |
+|                 |                                                    |
+|                 | 2.  Người dùng điền mã học sinh cho từng dòng, tải |
+|                 |     file lên.                                      |
+|                 |                                                    |
+|                 | 3.  Với từng dòng: tra mã học sinh — không tìm     |
+|                 |     thấy thì đánh dấu dòng lỗi, bỏ qua. Ngày ghi   |
+|                 |     danh để trống thì mặc định ngày hôm nay.       |
+|                 |                                                    |
+|                 | 4.  Hệ thống gọi đúng `ClassService.enroll()` cho  |
+|                 |     dòng hợp lệ — tái dùng nguyên vẹn validate đã  |
+|                 |     có (học sinh đã ghi danh ACTIVE trong lớp thì  |
+|                 |     báo lỗi dòng đó, không tạo trùng).             |
+|                 |                                                    |
+|                 | 5.  Hệ thống cập nhật total_rows/success_rows/     |
+|                 |     failed_rows/error_summary, trạng thái COMPLETED|
+|                 |     hoặc PARTIAL_SUCCESS. Người dùng xem kết quả + |
+|                 |     danh sách dòng lỗi (nếu có) ngay trong response.|
++-----------------+----------------------------------------------------+
+| **Luồng thay    | ***A1 --- File sai định dạng***                    |
+| thế / ngoại lệ  |                                                    |
+| (Alternate      | 1.  File rỗng hoặc thiếu dòng tiêu đề — hệ thống   |
+| Flow)**         |     từ chối xử lý toàn bộ, đánh dấu                |
+|                 |     import_jobs.status=FAILED ngay, không tạo bản  |
+|                 |     ghi ghi danh nào.                              |
+|                 |                                                    |
+|                 | ***A2 --- Một phần dòng lỗi***                     |
+|                 |                                                    |
+|                 | 1.  1 hoặc nhiều dòng lỗi (mã học sinh không tồn   |
+|                 |     tại, học sinh đã ghi danh ACTIVE sẵn trong lớp |
+|                 |     này) — hệ thống vẫn ghi danh dòng hợp lệ, bỏ   |
+|                 |     qua dòng lỗi, đánh dấu status=PARTIAL_SUCCESS, |
+|                 |     liệt kê chi tiết từng dòng lỗi.                |
+|                 |                                                    |
+|                 | ***A3 --- Lớp đích không tồn tại***                |
+|                 |                                                    |
+|                 | 1.  Đây là lỗi của chính request (classId sai),    |
+|                 |     không phải lỗi 1 dòng trong file — hệ thống    |
+|                 |     báo lỗi 404 ngay, không tạo import_jobs nào.   |
++-----------------+----------------------------------------------------+
+| **Hậu điều kiện | -   class_enrollments được tạo cho từng dòng hợp   |
+| (P              |     lệ, trạng thái ACTIVE — không tạo học sinh/tài |
+| ostcondition)** |     khoản mới nào (khác UC-35/UC-50).              |
+|                 |                                                    |
+|                 | -   Người dùng biết chính xác dòng nào thành công/ |
+|                 |     thất bại và lý do, không cần đoán.             |
++-----------------+----------------------------------------------------+
+
+---
+
 UC-48: Xếp lịch buổi học
 
 +-----------------+----------------------------------------------------+

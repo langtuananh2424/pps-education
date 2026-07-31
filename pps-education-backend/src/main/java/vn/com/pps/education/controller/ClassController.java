@@ -12,7 +12,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+import vn.com.pps.education.common.ExcelHttpResponses;
 import vn.com.pps.education.dto.AssignTeacherRequest;
+import vn.com.pps.education.dto.ClassEnrollmentBatchImportResponse;
 import vn.com.pps.education.dto.ClassEnrollmentResponse;
 import vn.com.pps.education.dto.ClassResponse;
 import vn.com.pps.education.dto.ClassTeacherResponse;
@@ -21,6 +24,7 @@ import vn.com.pps.education.dto.EnrollStudentRequest;
 import vn.com.pps.education.dto.UpdateClassRequest;
 import vn.com.pps.education.dto.WithdrawEnrollmentRequest;
 import vn.com.pps.education.security.AuthenticatedUser;
+import vn.com.pps.education.service.ClassEnrollmentBatchImportService;
 import vn.com.pps.education.service.ClassService;
 
 import java.util.List;
@@ -31,9 +35,11 @@ import java.util.List;
 public class ClassController {
 
     private final ClassService classService;
+    private final ClassEnrollmentBatchImportService classEnrollmentBatchImportService;
 
-    public ClassController(ClassService classService) {
+    public ClassController(ClassService classService, ClassEnrollmentBatchImportService classEnrollmentBatchImportService) {
         this.classService = classService;
+        this.classEnrollmentBatchImportService = classEnrollmentBatchImportService;
     }
 
     /**
@@ -104,5 +110,21 @@ public class ClassController {
                                                                 @Valid @RequestBody WithdrawEnrollmentRequest request,
                                                                 @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(classService.withdraw(id, enrollmentId, request, actor.userId()));
+    }
+
+    /** UC-65: ghi danh học sinh (đã tồn tại sẵn) theo lô qua Excel — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31. */
+    @PreAuthorize("hasPermission(null, 'academic.class.manage')")
+    @PostMapping(value = "/{id}/enrollments/import", consumes = "multipart/form-data")
+    public ResponseEntity<ClassEnrollmentBatchImportResponse> importEnrollments(@PathVariable Long id,
+                                                                                 @RequestParam("file") MultipartFile file,
+                                                                                 @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(classEnrollmentBatchImportService.importEnrollments(id, file, actor.userId()));
+    }
+
+    /** File mẫu ghi danh học sinh theo lô (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31). */
+    @PreAuthorize("hasPermission(null, 'academic.class.manage')")
+    @GetMapping("/{id}/enrollments/import-template")
+    public ResponseEntity<byte[]> downloadEnrollmentImportTemplate(@PathVariable Long id) {
+        return ExcelHttpResponses.attachment(classEnrollmentBatchImportService.buildTemplate(), "mau-ghi-danh-hoc-sinh.xlsx");
     }
 }
