@@ -1,9 +1,10 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Plus, Search, Users } from "lucide-react";
 import { StudentResponse } from "../api";
 import Badge, { BadgeVariant } from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import EmptyState from "@/components/ui/EmptyState";
+import Pagination from "@/components/ui/Pagination";
 
 export const studentStatusLabels: Record<string, string> = {
   ACTIVE: "Đang học",
@@ -35,6 +36,14 @@ interface StudentListPanelProps {
 }
 
 export default function StudentListPanel({ students, loading, selectedId, onSelect, onCreate, query, onQueryChange, onSearch }: StudentListPanelProps) {
+  // Backend GET /students chưa hỗ trợ phân trang (trả nguyên mảng) — phân trang phía client để danh
+  // sách không dài vô hạn khi xem "Tất cả điểm trường". Reset về trang 1 mỗi khi kết quả tải mới
+  // (đổi điểm trường/tìm kiếm) để không kẹt ở 1 trang rỗng.
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
+  useEffect(() => setPage(0), [students]);
+  const pageStudents = students.slice(page * pageSize, (page + 1) * pageSize);
+
   return (
     <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden flex flex-col h-full">
       <div className="px-5 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 shrink-0">
@@ -70,7 +79,7 @@ export default function StudentListPanel({ students, loading, selectedId, onSele
         ) : students.length === 0 ? (
           <EmptyState icon={Users} title="Không tìm thấy học sinh nào" description="Thử nới lỏng từ khóa tìm kiếm." />
         ) : (
-          students.map((s) => {
+          pageStudents.map((s) => {
             const isSelected = s.id === selectedId;
             return (
               <button
@@ -105,6 +114,20 @@ export default function StudentListPanel({ students, loading, selectedId, onSele
           })
         )}
       </div>
+
+      {!loading && students.length > 0 && (
+        <Pagination
+          page={page}
+          pageSize={pageSize}
+          totalElements={students.length}
+          itemLabel="học sinh"
+          onPageChange={setPage}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(0);
+          }}
+        />
+      )}
     </div>
   );
 }

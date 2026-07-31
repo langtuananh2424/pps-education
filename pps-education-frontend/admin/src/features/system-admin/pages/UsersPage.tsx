@@ -60,8 +60,8 @@ export default function UsersPage() {
 
   useEffect(() => {
     // GET /api/departments không yêu cầu quyền riêng — chỉ dùng để đổi ID sang tên hiển thị, không dùng để sửa.
-    listDepartments().then(setDepartments).catch(() => {});
-    listRoles().then(setRoles).catch(() => {});
+    listDepartments().then(setDepartments).catch(() => { });
+    listRoles().then(setRoles).catch(() => { });
   }, []);
 
   const departmentName = (id: number | null): string => departments.find((d) => d.id === id)?.name ?? "—";
@@ -223,7 +223,7 @@ export default function UsersPage() {
               <span>Tổng {totalElements} tài khoản</span>
               <span className="text-slate-300">|</span>
               <label className="flex items-center gap-1.5">
-                Số dòng/trang:
+                Dòng/trang:
                 <Select
                   value={pageSize}
                   onChange={(e) => {

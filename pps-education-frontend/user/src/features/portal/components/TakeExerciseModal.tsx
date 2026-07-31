@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { CheckCircle2, Loader2, XCircle } from "lucide-react";
-import { ApiError } from "@/lib/apiClient";
+import { friendlyApiErrorMessage } from "@/lib/apiClient";
 import {
   AssignedExerciseResponse,
   ExerciseAttemptResponse,
@@ -69,7 +69,7 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
         setQuestions([...questionRes].sort((a, b) => a.displayOrder - b.displayOrder));
         loadAnswers(attemptRes.id);
       })
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không mở được đề để làm bài."))
+      .catch((err) => setError(friendlyApiErrorMessage(err, "Không mở được đề để làm bài.")))
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item.exerciseId, item.myLatestAttemptId]);
@@ -82,7 +82,7 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
       const res = await saveAnswer(attempt.id, { questionId, selectedChoiceIds: choiceIds });
       setAnswersByQuestion((prev) => new Map(prev).set(questionId, res));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Lưu câu trả lời thất bại.");
+      setError(friendlyApiErrorMessage(err, "Lưu câu trả lời thất bại."));
     } finally {
       setSavingQuestionId(null);
     }
@@ -98,7 +98,7 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
       const res = await saveAnswer(attempt.id, { questionId, answerText: text });
       setAnswersByQuestion((prev) => new Map(prev).set(questionId, res));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Lưu câu trả lời thất bại.");
+      setError(friendlyApiErrorMessage(err, "Lưu câu trả lời thất bại."));
     } finally {
       setSavingQuestionId(null);
     }
@@ -114,7 +114,7 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
       loadAnswers(updated.id);
       onFinished();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Nộp bài thất bại.");
+      setError(friendlyApiErrorMessage(err, "Nộp bài thất bại."));
     } finally {
       setSubmitting(false);
     }

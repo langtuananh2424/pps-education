@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { CheckCircle2, Clock, History, Mic, Square, Upload, X } from "lucide-react";
-import { ApiError } from "@/lib/apiClient";
+import { friendlyApiErrorMessage } from "@/lib/apiClient";
 import {
   ReviewVideoQuestionResponse,
   ReviewVideoResponse,
@@ -364,7 +364,7 @@ export default function ReviewVideoTaskModal({ video, videoType, onClose, onSubm
     setQuestionsError(null);
     listReviewVideoQuestions(video.id)
       .then((qs) => setQuestions(qs.slice().sort((a, b) => a.displayOrder - b.displayOrder)))
-      .catch((err) => setQuestionsError(err instanceof ApiError ? err.message : "Không tải được danh sách câu hỏi."))
+      .catch((err) => setQuestionsError(friendlyApiErrorMessage(err, "Không tải được danh sách câu hỏi.")))
       .finally(() => setLoadingQuestions(false));
   }, [video.id, videoType]);
 
@@ -540,7 +540,7 @@ function ReflexQuestionCard({
       handleDiscardDraft();
       setJustSubmitted(true);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Nộp bài thất bại — thử lại.");
+      setError(friendlyApiErrorMessage(err, "Nộp bài thất bại — thử lại."));
     } finally {
       setSubmitting(false);
     }

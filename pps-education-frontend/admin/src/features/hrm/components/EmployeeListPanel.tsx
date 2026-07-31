@@ -1,9 +1,10 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Plus, Search, Users } from "lucide-react";
 import { EmployeeResponse } from "../api";
 import Badge, { BadgeVariant } from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import EmptyState from "@/components/ui/EmptyState";
+import Pagination from "@/components/ui/Pagination";
 
 export const employeeTypeLabels: Record<string, string> = { TEACHER: "Giáo viên", STAFF: "Nhân viên", MANAGER: "Quản lý" };
 export const employeeStatusLabels: Record<string, string> = { ACTIVE: "Đang làm việc", ON_LEAVE: "Đang nghỉ phép dài hạn", TERMINATED: "Đã nghỉ việc" };
@@ -21,6 +22,13 @@ interface EmployeeListPanelProps {
 }
 
 export default function EmployeeListPanel({ employees, loading, selectedId, onSelect, onCreate, query, onQueryChange, onSearch }: EmployeeListPanelProps) {
+  // Backend GET /employees chưa hỗ trợ phân trang (trả nguyên mảng) — phân trang phía client. Reset
+  // về trang 1 mỗi khi kết quả tải mới (đổi tìm kiếm) để không kẹt ở 1 trang rỗng.
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
+  useEffect(() => setPage(0), [employees]);
+  const pageEmployees = employees.slice(page * pageSize, (page + 1) * pageSize);
+
   return (
     <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden flex flex-col h-full">
       <div className="px-5 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 shrink-0">
@@ -56,7 +64,7 @@ export default function EmployeeListPanel({ employees, loading, selectedId, onSe
         ) : employees.length === 0 ? (
           <EmptyState icon={Users} title="Không tìm thấy nhân sự nào" description="Thử nới lỏng từ khóa tìm kiếm." />
         ) : (
-          employees.map((emp) => {
+          pageEmployees.map((emp) => {
             const isSelected = emp.id === selectedId;
             return (
               <button
@@ -93,6 +101,20 @@ export default function EmployeeListPanel({ employees, loading, selectedId, onSe
           })
         )}
       </div>
+
+      {!loading && employees.length > 0 && (
+        <Pagination
+          page={page}
+          pageSize={pageSize}
+          totalElements={employees.length}
+          itemLabel="nhân sự"
+          onPageChange={setPage}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(0);
+          }}
+        />
+      )}
     </div>
   );
 }

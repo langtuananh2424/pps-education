@@ -216,7 +216,7 @@ export default function AuditLogPage() {
               <span>Tổng {totalElements} bản ghi</span>
               <span className="text-slate-300">|</span>
               <label className="flex items-center gap-1.5">
-                Số dòng/trang:
+                Dòng/trang:
                 <Select
                   value={pageSize}
                   onChange={(e) => {
