@@ -212,6 +212,7 @@ function SessionGroup({
             <tr>
               <Th className="min-w-[110px]">Mã ID</Th>
               <Th>Họ và tên</Th>
+              <Th>Ngày sinh</Th>
               <Th>Loại</Th>
               <Th className="min-w-[260px]">Nhận xét</Th>
               <Th>Trạng thái</Th>
@@ -224,6 +225,7 @@ function SessionGroup({
               <tr key={cm.id} className="hover:bg-slate-50/40">
                 <Td className="font-mono font-bold text-slate-500">{studentCodeByStudent[cm.studentId] ?? "—"}</Td>
                 <Td className="font-bold text-slate-900 whitespace-nowrap">{cm.studentFullName}</Td>
+                <Td className="whitespace-nowrap text-slate-500">{cm.studentDateOfBirth ?? "—"}</Td>
                 <Td>
                   <Badge variant="info">{commentTypeLabels[cm.commentType]}</Badge>
                 </Td>

@@ -223,8 +223,8 @@ public class ParentPortalService {
 
     private StudentCommentResponse toResponse(StudentComment c) {
         return new StudentCommentResponse(
-                c.getId(), c.getStudent().getId(), c.getStudent().getUser().getFullName(), c.getSchoolClass().getId(),
-                c.getTeacher().getId(), c.getCommentType().name(),
+                c.getId(), c.getStudent().getId(), c.getStudent().getUser().getFullName(), c.getStudent().getDateOfBirth(),
+                c.getSchoolClass().getId(), c.getTeacher().getId(), c.getCommentType().name(),
                 c.getClassSession() == null ? null : c.getClassSession().getId(),
                 c.getGradePeriod() == null ? null : c.getGradePeriod().getId(),
                 c.getCommentDate(), c.getContent(), c.getStructuredContent(), c.getSeverity().name(), c.isWarning(),

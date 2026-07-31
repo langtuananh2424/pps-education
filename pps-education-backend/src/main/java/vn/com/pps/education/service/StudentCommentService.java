@@ -141,20 +141,22 @@ import java.util.function.Function;
 @Service
 public class StudentCommentService {
 
-    private static final int COLUMN_COUNT = 12;
+    private static final int COLUMN_COUNT = 13;
     private static final int COL_DATE = 0;
     private static final int COL_STUDENT_CODE = 1;
     private static final int COL_FULL_NAME = 2;
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31 — hiển thị đối chiếu, không đọc lại khi import. */
+    private static final int COL_DOB = 3;
     /** "Bài học hôm nay" — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-29 (chuyển từ Điểm danh sang Nhận xét). */
-    private static final int COL_LESSON_CONTENT = 3;
-    private static final int COL_ATTENDANCE = 4;
-    private static final int COL_ATTITUDE = 5;
-    private static final int COL_HOMEWORK_GRAMMAR_PREVIOUS = 6;
-    private static final int COL_HOMEWORK_SPEAKING_PREVIOUS = 7;
-    private static final int COL_CONTENT = 8;
-    private static final int COL_HOMEWORK_GRAMMAR_NEXT = 9;
-    private static final int COL_HOMEWORK_VIDEO_NEXT = 10;
-    private static final int COL_NOTE = 11;
+    private static final int COL_LESSON_CONTENT = 4;
+    private static final int COL_ATTENDANCE = 5;
+    private static final int COL_ATTITUDE = 6;
+    private static final int COL_HOMEWORK_GRAMMAR_PREVIOUS = 7;
+    private static final int COL_HOMEWORK_SPEAKING_PREVIOUS = 8;
+    private static final int COL_CONTENT = 9;
+    private static final int COL_HOMEWORK_GRAMMAR_NEXT = 10;
+    private static final int COL_HOMEWORK_VIDEO_NEXT = 11;
+    private static final int COL_NOTE = 12;
 
     private final StudentCommentRepository studentCommentRepository;
     private final StudentCommentHistoryRepository studentCommentHistoryRepository;
@@ -499,7 +501,7 @@ public class StudentCommentService {
         List<ReviewVideoSet> videoOptions = reviewVideoSetRepository.findVisibleForClass(
                 classId, curriculumId, ReviewVideoSet.Status.PUBLISHED);
 
-        List<String> headers = List.of("Ngày*", "Mã học viên*", "Họ và tên", "Bài học hôm nay", "Điểm danh*",
+        List<String> headers = List.of("Ngày*", "Mã học viên*", "Họ và tên", "Ngày sinh", "Bài học hôm nay", "Điểm danh*",
                 "Thái độ học tập", "BTVN Ngữ pháp buổi trước", "BTVN Nghe-nói buổi trước",
                 "Nhận xét học sinh*", "BTVN Ngữ pháp buổi sau", "BTVN Nghe-nói buổi sau", "Ghi chú");
         List<List<Object>> rows = new ArrayList<>();
@@ -514,6 +516,7 @@ public class StudentCommentService {
             row.add(classSession.getSessionDate().toString());
             row.add(student.getStudentCode());
             row.add(student.getUser().getFullName());
+            row.add(student.getDateOfBirth() == null ? null : student.getDateOfBirth().toString());
             row.add(classSession.getLessonContent());
             row.add(attendance == null ? null : attendanceLabel(attendance));
             row.add(existing == null || existing.getAttitude() == null ? null : attitudeLabel(existing.getAttitude()));
@@ -1198,8 +1201,8 @@ public class StudentCommentService {
         ExerciseAssignment grammarNext = c.getHomeworkNextExerciseAssignment();
         ReviewVideoAssignment videoNext = c.getHomeworkNextReviewVideoAssignment();
         return new StudentCommentResponse(
-                c.getId(), c.getStudent().getId(), c.getStudent().getUser().getFullName(), c.getSchoolClass().getId(),
-                c.getTeacher().getId(), c.getCommentType().name(),
+                c.getId(), c.getStudent().getId(), c.getStudent().getUser().getFullName(), c.getStudent().getDateOfBirth(),
+                c.getSchoolClass().getId(), c.getTeacher().getId(), c.getCommentType().name(),
                 c.getClassSession() == null ? null : c.getClassSession().getId(),
                 c.getGradePeriod() == null ? null : c.getGradePeriod().getId(),
                 c.getCommentDate(), c.getContent(), c.getStructuredContent(), c.getSeverity().name(), c.isWarning(),

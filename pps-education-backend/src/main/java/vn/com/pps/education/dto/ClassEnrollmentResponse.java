@@ -8,6 +8,7 @@ public record ClassEnrollmentResponse(
         Long studentId,
         String studentFullName,
         String studentCode,
+        LocalDate studentDateOfBirth,
         LocalDate enrolledDate,
         LocalDate withdrawnDate,
         String status,

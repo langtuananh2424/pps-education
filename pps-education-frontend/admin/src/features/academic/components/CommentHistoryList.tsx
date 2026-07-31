@@ -336,6 +336,7 @@ export default function CommentHistoryList({ classId, history, onChanged, showSt
             <tr>
               <Th className="min-w-[120px]">Mã ID</Th>
               <Th>Họ và tên</Th>
+              <Th>Ngày sinh</Th>
               <Th>Thái độ học tập</Th>
               <Th>BTVN Ngữ pháp buổi trước</Th>
               <Th>BTVN Nghe-nói buổi trước</Th>
@@ -352,6 +353,7 @@ export default function CommentHistoryList({ classId, history, onChanged, showSt
                 <tr className="hover:bg-slate-50/40">
                   <Td className="font-mono font-bold text-slate-500">{studentCodeById?.[h.studentId] ?? "—"}</Td>
                   <Td className="font-bold text-slate-900 whitespace-nowrap">{h.studentFullName}</Td>
+                  <Td className="whitespace-nowrap text-slate-500">{h.studentDateOfBirth ?? "—"}</Td>
                   <Td className="min-w-[110px]">{h.attitude ? attitudeLabels[h.attitude] : "—"}</Td>
                   <Td className="min-w-[130px]">{h.homeworkPreviousScore || "—"}</Td>
                   <Td className="min-w-[130px]">{h.homeworkPreviousSpeakingScore || "—"}</Td>
@@ -366,14 +368,14 @@ export default function CommentHistoryList({ classId, history, onChanged, showSt
                 </tr>
                 {h.status === "REJECTED" && h.rejectionReason && editingId !== h.id && (
                   <tr>
-                    <td colSpan={10} className="px-4 pb-2 -mt-2 text-[11px] text-rose-500">
+                    <td colSpan={11} className="px-4 pb-2 -mt-2 text-[11px] text-rose-500">
                       Lý do từ chối: {h.rejectionReason}
                     </td>
                   </tr>
                 )}
                 {editingId === h.id && (
                   <tr>
-                    <td colSpan={10} className="px-4 pb-3 bg-slate-50/60">
+                    <td colSpan={11} className="px-4 pb-3 bg-slate-50/60">
                       {renderEditForm(h)}
                     </td>
                   </tr>
