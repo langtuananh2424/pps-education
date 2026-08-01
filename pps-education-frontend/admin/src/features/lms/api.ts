@@ -330,6 +330,11 @@ export function listExerciseQuestions(exerciseId: number): Promise<ExerciseQuest
   return apiRequest<ExerciseQuestionResponse[]>(`/exercises/${exerciseId}/questions`);
 }
 
+/** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31 — chỉ gỡ được khi Bài còn DRAFT (backend tự chặn 400 nếu đã Publish). */
+export function removeExerciseQuestion(exerciseId: number, exerciseQuestionId: number): Promise<void> {
+  return apiRequest<void>(`/exercises/${exerciseId}/questions/${exerciseQuestionId}`, { method: "DELETE" });
+}
+
 /**
  * V65 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30): giao đề không còn thao tác
  * riêng ở "Soạn & Giao đề" nữa — id (bản giao) giờ tự động phát sinh khi Giáo viên chọn 1 Exercise

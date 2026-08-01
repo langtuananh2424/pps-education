@@ -1121,6 +1121,30 @@ UC-40: Soạn & giao đề kiểm tra
 > phát sinh giao bài nên gắn liền với buổi học/nhận xét thay vì tách rời
 > ở màn soạn đề, tránh Giáo viên quên giao hoặc giao nhầm lớp không liên
 > quan tới buổi đang dạy.
+>
+> **Gỡ câu hỏi khỏi Bài + Lưu trữ (ẩn) câu hỏi trong Ngân hàng (bổ sung
+> ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31):**
+>
+> 1. **Gỡ câu hỏi khỏi Bài** — `DELETE /api/exercises/{id}/questions/
+>    {exerciseQuestionId}` (`ExerciseService.removeQuestion`). Chỉ cho
+>    phép khi Bài còn `DRAFT` (chưa Publish) — tránh gỡ câu hỏi khỏi Bài
+>    đã giao học sinh làm (có thể đã phát sinh `StudentAnswer` cho câu
+>    đó). Xóa cứng dòng `exercise_questions`, không soft-delete/lịch sử
+>    (mirror `class_teachers`/join thuần — không phải "bản giao" cần lưu
+>    vết như `ExerciseAssignment`). FE: nút gỡ (X) trên từng câu hỏi trong
+>    danh sách câu hỏi của Bài, chỉ hiện khi Bài còn DRAFT
+>    (`ExerciseAssignPage.tsx`).
+> 2. **Lưu trữ (ẩn) câu hỏi trong Ngân hàng** — dùng lại cơ chế
+>    `Question.status` (`ACTIVE`/`ARCHIVED`) và trường `status` trong
+>    `UpdateQuestionRequest`/`QuestionBankService.updateQuestion` **đã có
+>    sẵn từ trước** (không cần đổi backend) — chỉ bổ sung nút "Lưu trữ" ở
+>    FE (`QuestionBankPage.tsx`, PUT lại đủ các field hiện có kèm
+>    `status=ARCHIVED`, vì endpoint là full-update không phải PATCH).
+>    Danh sách Ngân hàng lọc ẩn câu `ARCHIVED` ngay khi lưu trữ thành
+>    công. Câu đã `ARCHIVED` vẫn giữ nguyên trong các Bài đã gắn từ trước
+>    (không xóa `exercise_questions` liên quan) — chỉ ẩn khỏi việc chọn
+>    thêm câu mới. Chưa có chức năng khôi phục lại qua giao diện (chỉ có
+>    thể sửa tay qua DB nếu cần) — sẽ bổ sung sau nếu phát sinh nhu cầu.
 
 ---
 

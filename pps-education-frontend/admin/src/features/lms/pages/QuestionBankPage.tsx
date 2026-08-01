@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  Archive,
   CheckSquare,
   Database,
   Edit3,
@@ -23,15 +24,18 @@ import {
   QuestionType,
   createQuestionBank,
   listQuestionBanksByCurriculum,
-  listQuestions
+  listQuestions,
+  updateQuestion
 } from "../api";
 import QuestionEditorForm from "../components/QuestionEditorForm";
 import QuestionImportPanel from "../components/QuestionImportPanel";
 import Button from "@/components/ui/Button";
+import { ApiError } from "@/lib/apiClient";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import Select from "@/components/ui/Select";
 import Pagination from "@/components/ui/Pagination";
+import { useDialog } from "@/components/ui/DialogProvider";
 
 interface FlatQuestionRow {
   question: QuestionResponse;
@@ -81,6 +85,7 @@ export default function QuestionBankPage() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [editingRow, setEditingRow] = useState<FlatQuestionRow | null>(null);
   const { message: toastMessage, showToast } = useToast();
+  const { confirmDialog } = useDialog();
 
   const loadAll = () => {
     setLoading(true);
@@ -135,6 +140,40 @@ export default function QuestionBankPage() {
       return [{ question: updated, bank, curriculum }, ...prev];
     });
     setSelectedQuestionId(updated.id);
+  };
+
+  /**
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31 — ẩn câu hỏi khỏi Ngân hàng.
+   * listQuestions() ở backend chỉ trả câu hỏi ACTIVE nên câu vừa ẩn biến mất khỏi danh sách ngay —
+   * trang này chưa có bộ lọc "xem câu đã ẩn" nào để khôi phục lại qua UI, nên cảnh báo rõ trước khi ẩn.
+   */
+  const handleArchive = async (row: FlatQuestionRow) => {
+    if (
+      !(await confirmDialog(
+        `Ẩn câu hỏi Q-${row.question.id}? Câu hỏi sẽ biến mất khỏi danh sách này (không ảnh hưởng Bài đã dùng câu hỏi này trước đó) — hiện chưa có cách khôi phục lại qua giao diện.`,
+        { danger: true }
+      ))
+    ) {
+      return;
+    }
+    try {
+      await updateQuestion(row.question.id, {
+        content: row.question.content,
+        audioUrl: row.question.audioUrl ?? undefined,
+        imageUrl: row.question.imageUrl ?? undefined,
+        referencePassage: row.question.referencePassage ?? undefined,
+        explanation: row.question.explanation ?? undefined,
+        correctAnswerText: row.question.correctAnswerText ?? undefined,
+        defaultPoints: row.question.defaultPoints ?? undefined,
+        tags: row.question.tags ?? undefined,
+        status: "ARCHIVED"
+      });
+      setRows((prev) => prev.filter((r) => r.question.id !== row.question.id));
+      if (selectedQuestionId === row.question.id) setSelectedQuestionId(null);
+      showToast("Đã ẩn câu hỏi thành công!");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Ẩn câu hỏi thất bại.");
+    }
   };
 
   return (
@@ -300,16 +339,28 @@ export default function QuestionBankPage() {
                           <td className="px-4 py-3.5 text-center font-bold text-slate-700 text-[11px]">{bank.level ?? bank.name}</td>
                           <td className="px-4 py-3.5 text-center">
                             {canManage && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setEditingRow(row);
-                                }}
-                                className="p-1 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded transition-all"
-                                title="Chỉnh sửa câu hỏi"
-                              >
-                                <Edit3 className="w-3.5 h-3.5" />
-                              </button>
+                              <div className="flex items-center justify-center gap-1">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingRow(row);
+                                  }}
+                                  className="p-1 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded transition-all"
+                                  title="Chỉnh sửa câu hỏi"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleArchive(row);
+                                  }}
+                                  className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-all"
+                                  title="Ẩn câu hỏi"
+                                >
+                                  <Archive className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
                             )}
                           </td>
                         </tr>
@@ -695,7 +746,7 @@ function ImportQuestionsModal({ onClose, onImported }: { onClose: () => void; on
   );
 }
 
-function QuickBankForm({ curriculumId, onCreated, onCancel }: { curriculumId: number | null; onCreated: (bank: QuestionBankResponse) => void; onCancel: () => void }) {
+export function QuickBankForm({ curriculumId, onCreated, onCancel }: { curriculumId: number | null; onCreated: (bank: QuestionBankResponse) => void; onCancel: () => void }) {
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
   const [level, setLevel] = useState("");

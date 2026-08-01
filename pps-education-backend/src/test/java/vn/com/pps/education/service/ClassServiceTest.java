@@ -17,6 +17,7 @@ import vn.com.pps.education.dto.CreateCurriculumRequest;
 import vn.com.pps.education.dto.CreateCustomCurriculumRequest;
 import vn.com.pps.education.dto.CurriculumResponse;
 import vn.com.pps.education.dto.DecideCurriculumApprovalRequest;
+import vn.com.pps.education.dto.EndTeacherAssignmentRequest;
 import vn.com.pps.education.dto.EnrollStudentRequest;
 import vn.com.pps.education.dto.UpdateCurriculumRequest;
 import vn.com.pps.education.dto.WithdrawEnrollmentRequest;
@@ -213,6 +214,43 @@ class ClassServiceTest extends AbstractIntegrationTest {
 
         assertThat(siteTeacherRepository.findByTeacherIdAndAssignedToIsNull(teacher.getId()))
                 .hasSize(1); // khong tao ban ghi trung cho cung 1 site
+    }
+
+    @Test
+    void endTeacherAssignment_boSung_MainFlow_setsAssignedToAndWritesHistory() {
+        Site site = newSite(Site.SiteType.OWNED);
+        ClassResponse schoolClass = classService.create(
+                new CreateClassRequest(classCode(), "Đổi giáo viên theo kỳ", site.getId(), activeCurriculum.id(), "OPEN", 20,
+                        null, LocalDate.now(), null, null, null), headAcademic.getId());
+        User teacher = newUser("teacher.ended");
+        assignRole(teacher, "TEACHER");
+        var assignment = classService.assignTeacher(schoolClass.id(),
+                new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now().minusMonths(1)), headAcademic.getId());
+        LocalDate endDate = LocalDate.now();
+
+        var ended = classService.endTeacherAssignment(schoolClass.id(), assignment.id(),
+                new EndTeacherAssignmentRequest(endDate), headAcademic.getId());
+
+        assertThat(ended.assignedTo()).isEqualTo(endDate);
+        assertThat(classService.listTeachers(schoolClass.id())).containsExactly(ended);
+    }
+
+    @Test
+    void endTeacherAssignment_boSung_A1_rejectsWhenAlreadyEnded() {
+        Site site = newSite(Site.SiteType.OWNED);
+        ClassResponse schoolClass = classService.create(
+                new CreateClassRequest(classCode(), "Kết thúc 2 lần", site.getId(), activeCurriculum.id(), "OPEN", 20,
+                        null, LocalDate.now(), null, null, null), headAcademic.getId());
+        User teacher = newUser("teacher.doubleend");
+        assignRole(teacher, "TEACHER");
+        var assignment = classService.assignTeacher(schoolClass.id(),
+                new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now().minusMonths(1)), headAcademic.getId());
+        classService.endTeacherAssignment(schoolClass.id(), assignment.id(),
+                new EndTeacherAssignmentRequest(LocalDate.now()), headAcademic.getId());
+
+        assertThatThrownBy(() -> classService.endTeacherAssignment(schoolClass.id(), assignment.id(),
+                new EndTeacherAssignmentRequest(LocalDate.now()), headAcademic.getId()))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test

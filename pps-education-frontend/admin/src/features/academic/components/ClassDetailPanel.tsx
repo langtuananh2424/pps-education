@@ -21,6 +21,7 @@ import {
   cancelClassSession,
   createClassSession,
   downloadEnrollmentImportTemplate,
+  endClassTeacherAssignment,
   enrollStudent,
   getAttendanceSession,
   importClassEnrollments,
@@ -287,6 +288,8 @@ function TeachersTab({ classId, canManage, showToast }: { classId: number; canMa
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [assigning, setAssigning] = useState(false);
+  const [endingId, setEndingId] = useState<number | null>(null);
+  const { confirmDialog } = useDialog();
 
   const load = () => {
     setLoading(true);
@@ -296,6 +299,20 @@ function TeachersTab({ classId, canManage, showToast }: { classId: number; canMa
       .finally(() => setLoading(false));
   };
   useEffect(load, [classId]);
+
+  const handleEndAssignment = async (t: ClassTeacherResponse) => {
+    if (!(await confirmDialog(`Kết thúc phụ trách của ${t.teacherFullName} với lớp này?`))) return;
+    setEndingId(t.id);
+    try {
+      await endClassTeacherAssignment(classId, t.id, { assignedTo: new Date().toISOString().slice(0, 10) });
+      load();
+      showToast("Đã kết thúc phụ trách!");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Kết thúc phụ trách thất bại.");
+    } finally {
+      setEndingId(null);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -324,6 +341,15 @@ function TeachersTab({ classId, canManage, showToast }: { classId: number; canMa
                 <Badge variant="info">{teacherRoleLabels[t.teacherRole]}</Badge>
                 {t.assignedTo && <Badge variant="neutral">Đã kết thúc {t.assignedTo}</Badge>}
               </div>
+              {canManage && !t.assignedTo && (
+                <button
+                  onClick={() => handleEndAssignment(t)}
+                  disabled={endingId === t.id}
+                  className="text-rose-500 hover:text-rose-700 text-[11px] font-semibold disabled:opacity-50"
+                >
+                  {endingId === t.id ? "Đang xử lý..." : "Kết thúc phụ trách"}
+                </button>
+              )}
             </div>
           ))}
         </div>

@@ -218,6 +218,41 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31 — gỡ câu hỏi khỏi Bài còn DRAFT. */
+    @Test
+    void removeQuestion_boSung_MainFlow_removesQuestionFromDraftExercise() {
+        QuestionResponse mc1 = createMcQuestion();
+        QuestionResponse mc2 = createMcQuestion();
+        ExerciseResponse exercise = exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "Đề gỡ câu hỏi", defaultExam.id(), null, "SELF_PRACTICE",
+                        new BigDecimal("2"), null, true, null, true),
+                teacher.getId());
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc1.id(), 1, new BigDecimal("1.0")), teacher.getId());
+        var eq2 = exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc2.id(), 2, new BigDecimal("1.0")), teacher.getId());
+
+        exerciseService.removeQuestion(exercise.id(), eq2.id(), teacher.getId());
+
+        assertThat(exerciseService.listQuestions(exercise.id(), teacher.getId()))
+                .extracting(q -> q.questionId()).containsExactly(mc1.id());
+    }
+
+    /** A: đề đã Publish thì không gỡ câu hỏi được nữa, theo đúng quyết định đã chốt. */
+    @Test
+    void removeQuestion_boSung_A_rejectsWhenExerciseAlreadyPublished() {
+        QuestionResponse mc = createMcQuestion();
+        ExerciseResponse exercise = exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "Kiểm tra", defaultExam.id(), null, "ASSIGNED",
+                        new BigDecimal("10"), 15, false, 1, true),
+                teacher.getId());
+        var eq = exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("10")), teacher.getId());
+        examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
+        exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId());
+
+        assertThatThrownBy(() -> exerciseService.removeQuestion(exercise.id(), eq.id(), teacher.getId()))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(exerciseService.listQuestions(exercise.id(), teacher.getId())).hasSize(1);
+    }
+
     @Test
     void deliverToClass_UC40_MainFlow_assignsToClassAndPublishes() {
         Student student = enrollStudent();

@@ -15,6 +15,7 @@ import {
   listExerciseQuestions,
   listExams,
   publishExercise,
+  removeExerciseQuestion,
   unassignExamFromClass
 } from "../api";
 import CreateAndAssignExerciseModal from "../components/CreateAndAssignExerciseModal";
@@ -26,6 +27,7 @@ import Select from "@/components/ui/Select";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import Pagination from "@/components/ui/Pagination";
+import { useDialog } from "@/components/ui/DialogProvider";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
@@ -370,7 +372,9 @@ function ExerciseRow({
   const [loading, setLoading] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [removingId, setRemovingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { confirmDialog } = useDialog();
 
   const toggle = () => {
     setExpanded((v) => !v);
@@ -380,6 +384,22 @@ function ExerciseRow({
         .then(setQuestions)
         .catch(() => setQuestions([]))
         .finally(() => setLoading(false));
+    }
+  };
+
+  /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31 — chỉ hiện nút này khi Bài còn DRAFT (xem điều kiện render bên dưới). */
+  const handleRemoveQuestion = async (q: ExerciseQuestionResponse) => {
+    if (!(await confirmDialog(`Gỡ câu hỏi "${q.questionContent}" khỏi Bài này?`, { danger: true }))) return;
+    setRemovingId(q.id);
+    setError(null);
+    try {
+      await removeExerciseQuestion(exercise.id, q.id);
+      setQuestions((prev) => (prev ? prev.filter((x) => x.id !== q.id) : prev));
+      showToast("Đã gỡ câu hỏi khỏi Bài!");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Gỡ câu hỏi thất bại.");
+    } finally {
+      setRemovingId(null);
     }
   };
 
@@ -452,8 +472,20 @@ function ExerciseRow({
                     <span className="truncate">
                       {q.displayOrder}. {q.questionContent}
                     </span>
-                    <span className="text-slate-400 shrink-0">
-                      {q.questionType} · {q.points} đ
+                    <span className="flex items-center gap-2 shrink-0">
+                      <span className="text-slate-400">
+                        {q.questionType} · {q.points} đ
+                      </span>
+                      {canManage && exercise.status === "DRAFT" && (
+                        <button
+                          onClick={() => handleRemoveQuestion(q)}
+                          disabled={removingId === q.id}
+                          className="p-0.5 text-slate-300 hover:text-rose-600 disabled:opacity-50"
+                          title="Gỡ câu hỏi (chỉ khi còn Nháp)"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
                     </span>
                   </div>
                 ))}

@@ -161,6 +161,27 @@ public class ExerciseService {
         return toResponse(eq);
     }
 
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31 — gỡ 1
+     * câu hỏi khỏi Bài. Chỉ cho phép khi Bài còn DRAFT (chưa Publish) —
+     * theo đúng quyết định đã chốt, tránh gỡ câu hỏi khỏi Bài đã giao cho
+     * học sinh làm (có thể đã có StudentAnswer cho câu đó).
+     */
+    @Transactional
+    public void removeQuestion(Long exerciseId, Long exerciseQuestionId, Long actorUserId) {
+        Exercise exercise = getExerciseOrThrow(exerciseId);
+        if (exercise.getStatus() != Exercise.Status.DRAFT) {
+            throw new IllegalArgumentException(
+                    "Đề id=" + exerciseId + " đã Publish — không gỡ câu hỏi được nữa, chỉ gỡ được khi còn Nháp (DRAFT).");
+        }
+        ExerciseQuestion eq = exerciseQuestionRepository.findById(exerciseQuestionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy câu hỏi id=" + exerciseQuestionId + " trong đề."));
+        if (!eq.getExercise().getId().equals(exerciseId)) {
+            throw new ResourceNotFoundException("Không tìm thấy câu hỏi id=" + exerciseQuestionId + " trong đề id=" + exerciseId);
+        }
+        exerciseQuestionRepository.delete(eq);
+    }
+
     /** UC-24/UC-27: HS chỉ xem được đề ASSIGNED nếu có assignment ACTIVE khớp lớp đang học; SELF_PRACTICE/MOCK_TEST/SKILL_PRACTICE mở tự do khi đã PUBLISHED. Actor không phải học sinh (GV/Staff) xem được mọi đề. */
     @Transactional(readOnly = true)
     public ExerciseResponse getExercise(Long id, Long actorUserId) {

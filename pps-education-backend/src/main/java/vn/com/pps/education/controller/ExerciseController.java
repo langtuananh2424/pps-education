@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -54,6 +55,16 @@ public class ExerciseController {
     public ResponseEntity<List<ExerciseQuestionResponse>> listQuestions(@PathVariable Long id,
                                                                           @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(exerciseService.listQuestions(id, actor.userId()));
+    }
+
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31 — gỡ câu hỏi khỏi Bài, chỉ khi còn DRAFT. */
+    @PreAuthorize("hasPermission(null, 'lms.exercise.update')")
+    @DeleteMapping("/api/exercises/{id}/questions/{exerciseQuestionId}")
+    public ResponseEntity<Void> removeQuestion(@PathVariable Long id,
+                                                @PathVariable Long exerciseQuestionId,
+                                                @AuthenticationPrincipal AuthenticatedUser actor) {
+        exerciseService.removeQuestion(id, exerciseQuestionId, actor.userId());
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/api/classes/{classId}/exercises")
