@@ -280,8 +280,6 @@ c)  Bảng classes --- Lớp học thực tế
 
   academic_year    VARCHAR(20)       NULL
 
-  semester         VARCHAR(20)       NULL               S1 / S2 / SUMMER
-
   status           VARCHAR(20)       NOT NULL, DEFAULT  PLANNED /
                                       'PLANNED'          OPEN_ENROLLMENT /
                                                          IN_PROGRESS /
@@ -300,6 +298,50 @@ Có classes_history.
 *Logic nghiệp vụ:* Trưởng phòng đào tạo quyết định sắp xếp lớp/điều phối
 giáo viên; Nhân viên giáo vụ thực hiện nhập liệu hành chính trên bảng
 này theo quyết định đó.
+
+> **Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-07-31):** cột
+> `semester` (VARCHAR tự do, không có business logic đọc/ghi có ý nghĩa)
+> đã bị XÓA (migration V71) — thay bằng bảng `academic_terms` riêng, xem
+> mục c-bis) dưới đây. `classes` KHÔNG có FK tới `academic_terms` — 1 lớp
+> không thuộc cố định 1 kỳ.
+
+c-bis)  Bảng academic_terms --- Giai đoạn/Học kỳ (bổ sung ngoài SDD gốc,
+đã xác nhận với người dùng 2026-07-31, migration V71)
+
+  ---------------------------------------------------------------------------
+  **Cột**          **Kiểu**          **Ràng buộc**      **Ghi chú**
+  ---------------- ----------------- ------------------ ---------------------
+  id               BIGSERIAL         PK
+
+  uuid             UUID              UNIQUE, NOT NULL
+
+  site_id          BIGINT            FK → sites(id),    Giới hạn theo điểm
+                                      NOT NULL           trường, độc lập lớp
+
+  code             VARCHAR(50)       NOT NULL           UNIQUE theo
+                                                          (site_id, code)
+
+  name             VARCHAR(200)      NOT NULL           VD "Giữa kỳ 1
+                                                          (2026-2027)"
+
+  start_date,      DATE              NOT NULL
+  end_date
+
+  created_by       BIGINT            FK → users(id)
+
+  created_at,      TIMESTAMPTZ
+  updated_at
+  ---------------------------------------------------------------------------
+
+*Logic nghiệp vụ:* độc lập với `classes` — 1 lớp tồn tại xuyên suốt nhiều
+kỳ (sĩ số/giáo viên có thể đổi giữa các kỳ do sắp xếp lại học sinh theo
+trình độ). "Hồ sơ lớp/học sinh theo kỳ" là dữ liệu TÍNH RA (derived) từ
+các bảng đã có ngày tháng sẵn (`class_enrollments`,
+`class_teachers.assigned_from/assigned_to`, `class_sessions.session_date`,
+`student_comments.comment_date`...) lọc theo `[start_date, end_date]` của
+kỳ — không có bảng snapshot/join riêng. Xem
+docs/uc/phan-he-06-hoc-thuat.md (UC-18) để biết đầy đủ bối cảnh quyết
+định.
 
 d)  Bảng class_teachers --- Gán GV cho lớp
 

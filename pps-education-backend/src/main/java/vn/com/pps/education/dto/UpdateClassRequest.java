@@ -13,6 +13,5 @@ public record UpdateClassRequest(
         @NotNull LocalDate startDate,
         LocalDate endDate,
         String academicYear,
-        String semester,
         @NotBlank String status
 ) {}

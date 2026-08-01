@@ -158,7 +158,7 @@ class GradeServiceTest extends AbstractIntegrationTest {
         Site site = newSite();
         schoolClass = classService.create(
                 new CreateClassRequest(classCode(), "8A2", site.getId(), activeCurriculum.id(), "OPEN", 20, null,
-                        LocalDate.now(), null, null, null), headAcademic.getId());
+                        LocalDate.now(), null, null), headAcademic.getId());
 
         teacher = newUser("teacher");
         assignRole(teacher, "TEACHER");
@@ -633,7 +633,7 @@ class GradeServiceTest extends AbstractIntegrationTest {
         gradeService.publishGrades(new PublishGradesRequest(List.of(entry.id()), null), siteManagerUser.getId());
         ClassResponse otherClass = classService.create(
                 new CreateClassRequest(classCode(), "8A3", newSite().getId(), gradePeriod.curriculumId(), "OPEN", 20, null,
-                        LocalDate.now(), null, null, null), headAcademic.getId());
+                        LocalDate.now(), null, null), headAcademic.getId());
         studentService.recordTransfer(student.getId(),
                 new RecordTransferRequest("CLASS_CHANGE", schoolClass.id(), otherClass.id(), null, LocalDate.now(), "Chuyển lớp test"),
                 headAcademic.getId());
@@ -652,7 +652,7 @@ class GradeServiceTest extends AbstractIntegrationTest {
         gradeService.publishGrades(new PublishGradesRequest(null, List.of(result.id())), siteManagerUser.getId());
         ClassResponse otherClass = classService.create(
                 new CreateClassRequest(classCode(), "8A3", newSite().getId(), gradePeriod.curriculumId(), "OPEN", 20, null,
-                        LocalDate.now(), null, null, null), headAcademic.getId());
+                        LocalDate.now(), null, null), headAcademic.getId());
         studentService.recordTransfer(student.getId(),
                 new RecordTransferRequest("CLASS_CHANGE", schoolClass.id(), otherClass.id(), null, LocalDate.now(), "Chuyển lớp test"),
                 headAcademic.getId());

@@ -184,7 +184,6 @@ function ProfileTab({
         startDate: form.startDate,
         endDate: form.endDate || undefined,
         academicYear: form.academicYear.trim() || undefined,
-        semester: form.semester.trim() || undefined,
         status: form.status as ClassResponse["status"]
       });
       onChanged();
@@ -253,10 +252,6 @@ function ProfileTab({
           <label className={labelClass}>Năm học</label>
           <input value={form.academicYear} onChange={(e) => setForm({ ...form, academicYear: e.target.value })} className={inputClass} />
         </div>
-        <div>
-          <label className={labelClass}>Học kỳ</label>
-          <input value={form.semester} onChange={(e) => setForm({ ...form, semester: e.target.value })} className={inputClass} />
-        </div>
       </fieldset>
       {canManage && (
         <Button type="submit" variant="primary" size="sm" disabled={saving}>
@@ -276,7 +271,6 @@ function toForm(c: ClassResponse) {
     startDate: c.startDate,
     endDate: c.endDate ?? "",
     academicYear: c.academicYear ?? "",
-    semester: c.semester ?? "",
     status: c.status
   };
 }

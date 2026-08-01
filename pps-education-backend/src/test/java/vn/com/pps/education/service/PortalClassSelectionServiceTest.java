@@ -216,7 +216,7 @@ class PortalClassSelectionServiceTest extends AbstractIntegrationTest {
     private ClassResponse newOpenClass() {
         return classService.create(
                 new CreateClassRequest(classCode(), "Lớp test", site.getId(), activeCurriculum.id(), "OPEN",
-                        20, null, LocalDate.now().minusYears(1), null, null, null),
+                        20, null, LocalDate.now().minusYears(1), null, null),
                 headAcademic.getId());
     }
 

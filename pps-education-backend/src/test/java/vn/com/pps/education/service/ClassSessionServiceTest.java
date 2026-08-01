@@ -107,7 +107,7 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
         Site site = newSite();
         schoolClass = classService.create(
                 new CreateClassRequest(classCode(), "8A2", site.getId(), activeCurriculum.id(), "OPEN", 20, null,
-                        LocalDate.now(), null, null, null), headAcademic.getId());
+                        LocalDate.now(), null, null), headAcademic.getId());
         teacher = newUser("teacher");
         assignRole(teacher, "TEACHER");
         room = newRoom(site, false);
@@ -182,7 +182,7 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
                 new UpdateCurriculumRequest("Chuẩn", null, null, null, "ACTIVE", false), headAcademic.getId());
         ClassResponse otherClass = classService.create(
                 new CreateClassRequest(classCode(), "8A3", site.getId(), otherActiveCurriculum.id(), "OPEN", 20, null,
-                        LocalDate.now(), null, null, null), headAcademic.getId());
+                        LocalDate.now(), null, null), headAcademic.getId());
 
         ClassSessionResponse second = classSessionService.createSession(otherClass.id(),
                 new CreateClassSessionRequest(date, LocalTime.of(9, 0), LocalTime.of(10, 30), flexibleRoom.getId(), otherTeacher.getId(), "REGULAR", null, null),
@@ -573,7 +573,7 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
 
         Site site2 = newSite();
         ClassResponse class2 = classService.create(new CreateClassRequest(classCode(), "9A1", site2.getId(),
-                schoolClass.curriculumId(), "OPEN", 20, null, LocalDate.now(), null, null, null), headAcademic.getId());
+                schoolClass.curriculumId(), "OPEN", 20, null, LocalDate.now(), null, null), headAcademic.getId());
         Room room2 = newRoom(site2, false);
         ClassSessionResponse session2 = classSessionService.createSession(class2.id(),
                 new CreateClassSessionRequest(LocalDate.now().plusDays(61), LocalTime.of(10, 0), LocalTime.of(11, 40),
@@ -619,7 +619,7 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
 
         Site site2 = newSite();
         ClassResponse class2 = classService.create(new CreateClassRequest(classCode(), "9A1", site2.getId(),
-                schoolClass.curriculumId(), "OPEN", 20, null, LocalDate.now(), null, null, null), headAcademic.getId());
+                schoolClass.curriculumId(), "OPEN", 20, null, LocalDate.now(), null, null), headAcademic.getId());
         Room room2 = newRoom(site2, false);
         ClassSessionResponse session2 = classSessionService.createSession(class2.id(),
                 new CreateClassSessionRequest(LocalDate.now().plusDays(91), LocalTime.of(10, 0), LocalTime.of(11, 40),
@@ -629,7 +629,7 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
         // Buổi của 1 lớp khác mà học sinh KHÔNG ghi danh -- không được xuất hiện.
         Site site3 = newSite();
         ClassResponse class3 = classService.create(new CreateClassRequest(classCode(), "10A1", site3.getId(),
-                schoolClass.curriculumId(), "OPEN", 20, null, LocalDate.now(), null, null, null), headAcademic.getId());
+                schoolClass.curriculumId(), "OPEN", 20, null, LocalDate.now(), null, null), headAcademic.getId());
         Room room3 = newRoom(site3, false);
         ClassSessionResponse otherClassSession = classSessionService.createSession(class3.id(),
                 new CreateClassSessionRequest(LocalDate.now().plusDays(92), LocalTime.of(8, 0), LocalTime.of(9, 40),
@@ -655,7 +655,7 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
                 headAcademic.getId());
         Site site2 = newSite();
         ClassResponse class2 = classService.create(new CreateClassRequest(classCode(), "9A1", site2.getId(),
-                schoolClass.curriculumId(), "OPEN", 20, null, LocalDate.now(), null, null, null), headAcademic.getId());
+                schoolClass.curriculumId(), "OPEN", 20, null, LocalDate.now(), null, null), headAcademic.getId());
         Room room2 = newRoom(site2, false);
         ClassSessionResponse session2 = classSessionService.createSession(class2.id(),
                 new CreateClassSessionRequest(LocalDate.now().plusDays(94), LocalTime.of(10, 0), LocalTime.of(11, 40),
