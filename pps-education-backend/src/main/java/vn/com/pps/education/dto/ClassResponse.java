@@ -17,6 +17,5 @@ public record ClassResponse(
         LocalDate startDate,
         LocalDate endDate,
         String academicYear,
-        String semester,
         String status
 ) {}

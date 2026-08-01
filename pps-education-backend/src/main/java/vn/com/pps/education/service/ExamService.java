@@ -180,6 +180,6 @@ public class ExamService {
                 c.getCurriculum().getId(), c.getCurriculum().getCode(),
                 c.getClassType().name(), c.getClassCategory(),
                 c.getMaxStudents(), c.getMinStudents(), c.getStartDate(), c.getEndDate(),
-                c.getAcademicYear(), c.getSemester(), c.getStatus().name());
+                c.getAcademicYear(), c.getStatus().name());
     }
 }

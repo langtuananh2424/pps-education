@@ -1,12 +1,15 @@
 import React, { useEffect, useState } from "react";
-import { GraduationCap } from "lucide-react";
+import { CalendarRange, GraduationCap } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import { UserRole } from "@/types";
 import { ClassResponse, listClassTeachers, listClasses } from "../api";
+import { SiteResponse, listSites } from "@/features/facility/api";
 import ClassListPanel from "../components/ClassListPanel";
 import ClassDetailPanel from "../components/ClassDetailPanel";
 import ClassFormModal from "../components/ClassFormModal";
+import AcademicTermManagerModal from "../components/AcademicTermManagerModal";
+import Button from "@/components/ui/Button";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 
@@ -26,8 +29,15 @@ export default function ClassesPage() {
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [termsOpen, setTermsOpen] = useState(false);
+  const [sites, setSites] = useState<SiteResponse[]>([]);
   const { message: toastMessage, showToast } = useToast();
   const effectiveSelectedId = isClassAdmin ? selectedId : globalClassId;
+  const selectedSite = selectedCampusId !== "ALL" ? sites.find((s) => s.id === Number(selectedCampusId)) ?? null : null;
+
+  useEffect(() => {
+    listSites().then(setSites).catch(() => undefined);
+  }, []);
 
   /**
    * UC-18 Precondition: GV chỉ xếp/xem lớp mình được phân công dạy (class_teachers),
@@ -59,11 +69,25 @@ export default function ClassesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Quản lý lớp học</h1>
-        <p className="text-xs text-slate-500 mt-1">
-          Xếp lớp & gán khóa học, điều phối giáo viên, ghi danh học sinh, xếp buổi học và điểm danh. Lọc theo điểm trường ở dropdown trên đầu trang.
-        </p>
+      <div className="border-b border-slate-200 pb-4 flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Quản lý lớp học</h1>
+          <p className="text-xs text-slate-500 mt-1">
+            Xếp lớp & gán khóa học, điều phối giáo viên, ghi danh học sinh, xếp buổi học và điểm danh. Lọc theo điểm trường ở dropdown trên đầu trang.
+          </p>
+        </div>
+        {canManage && (
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => setTermsOpen(true)}
+            disabled={!selectedSite}
+            title={selectedSite ? undefined : "Chọn 1 điểm trường cụ thể ở dropdown trên đầu trang để quản lý học kỳ"}
+          >
+            <CalendarRange className="w-3.5 h-3.5" />
+            Quản lý học kỳ
+          </Button>
+        )}
       </div>
 
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
@@ -108,6 +132,8 @@ export default function ClassesPage() {
           }}
         />
       )}
+
+      {termsOpen && selectedSite && <AcademicTermManagerModal siteId={selectedSite.id} siteName={selectedSite.name} onClose={() => setTermsOpen(false)} />}
 
       <Toast message={toastMessage} />
     </div>
