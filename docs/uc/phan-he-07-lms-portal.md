@@ -335,6 +335,22 @@ UC-23b: Nộp & Chấm điểm Audio cho Video Phản xạ
 > đầy đủ (áp dụng cho cả kênh Ngữ pháp Online) xem UC-21
 > (`docs/uc/phan-he-06-hoc-thuat.md`).
 
+> **Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31 — giám
+> sát học sinh thoát ra ngoài khi làm bài (khóa màn hình thật không khả
+> thi trên web, xem UC-24):** bảng mới `attempt_integrity_events`
+> (migration V70) ghi nhận sự kiện đổi tab/thu nhỏ/thoát fullscreen, báo
+> phụ huynh + giáo viên phụ trách lớp khi vượt ngưỡng
+> (`system_settings.integrity.*`). Khác UC-24/27: UC-23b KHÔNG có "phiên
+> bắt đầu ghi âm" nào ở backend (học sinh ghi âm hoàn toàn client-side,
+> chỉ tạo bản ghi `ReviewVideoQuestionSubmission` lúc nộp) nên KHÔNG gửi
+> sự kiện real-time được — sự kiện được đệm ở client trong lúc ghi âm 1
+> câu hỏi rồi gửi KÈM CÙNG LÚC với `submitQuestionAudio` (field
+> `integrityEvents` tùy chọn trong `SubmitReviewVideoAudioRequest`), cùng
+> 1 transaction với bản ghi submission vừa tạo. Nếu học sinh mở câu hỏi
+> rồi bỏ dở không nộp, sự kiện đó mất — chấp nhận được vì cũng không có
+> gì để giáo viên chấm trong trường hợp đó. Xem đầy đủ cơ chế (bao gồm
+> ngưỡng báo, khác biệt real-time vs đệm-rồi-gửi) tại UC-24 bên dưới.
+
 ---
 
 UC-60: Kho tài liệu tham khảo
@@ -476,6 +492,52 @@ UC-24: Làm bài kiểm tra trực tuyến
 |                 | -   Kết quả cuối cùng được đồng bộ vào sổ điểm khi |
 |                 |     hoàn tất chấm.                                 |
 +-----------------+----------------------------------------------------+
+
+> **Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31 — giám
+> sát học sinh thoát ra ngoài khi làm bài (áp dụng chung UC-24/UC-27/
+> UC-23b):** người dùng hỏi có khóa được màn hình học sinh lúc làm bài
+> không — **không khả thi** từ 1 web app (không có API trình duyệt nào
+> cho phép website chặn chuyển app/khóa thiết bị, cần app native + hồ sơ
+> MDM/kiosk). Hướng thay thế đã chốt: ép toàn màn hình (Fullscreen API,
+> best-effort) + phát hiện thoát ra ngoài (Page Visibility API/window
+> blur) + ghi nhận + báo phụ huynh VÀ giáo viên phụ trách lớp khi vượt
+> ngưỡng.
+>
+> **Ràng buộc mobile (học sinh chủ yếu làm bài trên mobile web):** iOS
+> Safari KHÔNG hỗ trợ Fullscreen API cho phần tử DOM thường (giới hạn
+> WebKit lâu năm) — bước ép fullscreen tự bỏ qua êm khi không hỗ trợ,
+> KHÔNG chặn luồng làm bài. Page Visibility API (`visibilitychange`) +
+> `window blur/focus` mới là tín hiệu chính, hoạt động ổn định trên cả
+> iOS/Android/desktop — đây là tín hiệu CHỦ ĐẠO, fullscreen chỉ là lớp
+> răn đe phụ trên platform hỗ trợ.
+>
+> **Cơ chế:** bảng mới `attempt_integrity_events` (migration V70, khóa đa
+> hình `attempt_type`/`attempt_id` — `EXERCISE` cho UC-24/27,
+> `REVIEW_VIDEO_QUESTION` cho UC-23b) ghi các khoảng thời gian thoát ra
+> ngoài ĐÃ KẾT THÚC (học sinh đã quay lại), lọc bỏ sự kiện ngắn hơn
+> `system_settings.integrity.min_violation_duration_seconds` (nhiễu — VD
+> popup xin quyền). Khi tổng số lần HOẶC tổng thời lượng vượt ngưỡng
+> (`integrity.notify_violation_count_threshold`/
+> `integrity.notify_cumulative_duration_seconds_threshold`) VÀ chưa từng
+> báo cho đúng lượt làm bài đó, hệ thống báo TẤT CẢ phụ huynh liên kết
+> VÀ TẤT CẢ giáo viên đang phụ trách lớp (không chỉ phụ huynh như câu hỏi
+> ban đầu — đã xác nhận mở rộng) đúng 1 lần
+> (`Notification.NotificationType.EXAM_INTEGRITY_VIOLATION`, mirror đúng
+> cơ chế báo phụ huynh học sinh vắng mặt ở UC-15). Endpoint:
+> `POST /api/attempts/{id}/integrity-events` (học sinh gửi theo lô, real-
+> time trong lúc làm — chỉ áp dụng Exercise, có "phiên bắt đầu" thật ở
+> backend) và `GET /api/attempts/{id}/integrity-summary` (giáo viên xem
+> khi chấm, quyền `lms.grading.manage`). UC-23b dùng cơ chế khác (đệm
+> rồi gửi kèm lúc nộp) — xem blockquote riêng ở UC-23b.
+>
+> **Cân nhắc nhưng KHÔNG làm trong lần này:** áp dụng `Exercise.
+> timeLimitMinutes` (trường có sẵn từ trước nhưng chưa từng được thực
+> thi ở đâu) để tự nộp bài khi hết giờ — đã xác nhận với người dùng
+> 2026-07-31: chỉ tập trung đúng phạm vi giám sát thoát màn hình, việc
+> này để làm sau, cần chốt lại cách xử lý bài dở khi triển khai. Cũng
+> KHÔNG làm giám sát qua webcam — học sinh là trẻ vị thành niên, rủi ro
+> pháp lý về quyền riêng tư/lưu trữ dữ liệu không tương xứng với nhu cầu
+> (bài tập, không phải thi tốt nghiệp).
 
 ---
 
@@ -800,6 +862,11 @@ UC-27: Làm bài tập/đề ôn tập
 | ostcondition)** |     chính thức (khác với bài kiểm tra ASSIGNED ở   |
 |                 |     UC-24).                                        |
 +-----------------+----------------------------------------------------+
+
+> **Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31:** giám
+> sát thoát màn hình khi làm bài áp dụng CHUNG cho UC-27 và UC-24 (cùng
+> `ExerciseAttempt`, `attempt_type=EXERCISE`, không tách theo
+> exerciseType) — xem đầy đủ cơ chế ở blockquote sau Postcondition UC-24.
 
 ---
 

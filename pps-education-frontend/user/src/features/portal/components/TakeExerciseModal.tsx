@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { CheckCircle2, Loader2, XCircle } from "lucide-react";
+import { CheckCircle2, Loader2, ShieldAlert, XCircle } from "lucide-react";
 import { friendlyApiErrorMessage } from "@/lib/apiClient";
 import {
   AssignedExerciseResponse,
@@ -9,10 +9,12 @@ import {
   getAttempt,
   listExerciseQuestions,
   listAnswers,
+  recordIntegrityEvents,
   saveAnswer,
   startAttempt,
   submitAttempt
 } from "../api";
+import { useIntegrityMonitor } from "../hooks/useIntegrityMonitor";
 
 interface TakeExerciseModalProps {
   item: AssignedExerciseResponse;
@@ -73,6 +75,18 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item.exerciseId, item.myLatestAttemptId]);
+
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31 — xem Javadoc useIntegrityMonitor.
+  const attemptId = attempt?.id;
+  const { violationCount, isMonitoringActive } = useIntegrityMonitor({
+    enabled: !readOnly && attemptId != null,
+    autoFlushIntervalMs: 20000,
+    onFlush: (events) => {
+      if (attemptId != null) {
+        recordIntegrityEvents(attemptId, { events }).catch(() => undefined);
+      }
+    }
+  });
 
   const handleChoiceAnswer = async (questionId: number, choiceIds: number[]) => {
     if (!attempt || readOnly) return;
@@ -138,6 +152,16 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
             Đóng
           </button>
         </div>
+
+        {isMonitoringActive && (
+          <div className="px-6 py-2 bg-amber-50 border-b border-amber-100 flex items-center gap-1.5 shrink-0">
+            <ShieldAlert size={13} className="text-amber-600 shrink-0" />
+            <span className="text-[11px] font-bold text-amber-800">
+              Đang giám sát quá trình làm bài — thoát ra ngoài (đổi tab/thu nhỏ) sẽ được ghi nhận.
+              {violationCount > 0 && ` Đã ghi nhận ${violationCount} lần.`}
+            </span>
+          </div>
+        )}
 
         <div className="p-6 overflow-y-auto flex-1 space-y-5">
           {error && <div className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-xl">{error}</div>}

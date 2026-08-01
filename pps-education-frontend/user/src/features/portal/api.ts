@@ -528,11 +528,22 @@ export interface ReviewVideoSubmissionResponse {
   gradedAt: string | null;
 }
 
-/** UC-23b Main Flow bước 3 (V57): nộp audio trả lời cho 1 CÂU HỎI — nộp lại tạo attempt MỚI, giữ lịch sử (không ghi đè); từ chối nếu đã hết maxAttempts của câu hỏi đó (409/422 từ BE). */
-export function submitReviewVideoQuestionAudio(questionId: number, audioUrl: string): Promise<ReviewVideoSubmissionResponse> {
+/**
+ * UC-23b Main Flow bước 3 (V57): nộp audio trả lời cho 1 CÂU HỎI — nộp lại tạo attempt MỚI, giữ lịch sử
+ * (không ghi đè); từ chối nếu đã hết maxAttempts của câu hỏi đó (409/422 từ BE).
+ * integrityEvents (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31, tùy chọn): UC-23b không có
+ * "phiên bắt đầu ghi âm" ở backend nên sự kiện giám sát thoát ra ngoài trong lúc ghi âm được đệm ở client
+ * (xem useIntegrityMonitor) rồi gửi kèm cùng lúc nộp, thay vì real-time như Exercise — xem
+ * recordIntegrityEvents cho nhánh Exercise.
+ */
+export function submitReviewVideoQuestionAudio(
+  questionId: number,
+  audioUrl: string,
+  integrityEvents?: RecordIntegrityEventsRequest
+): Promise<ReviewVideoSubmissionResponse> {
   return apiRequest<ReviewVideoSubmissionResponse>(`/review-video-questions/${questionId}/submissions`, {
     method: "PUT",
-    body: JSON.stringify({ audioUrl })
+    body: JSON.stringify({ audioUrl, integrityEvents: integrityEvents ?? null })
   });
 }
 
@@ -663,6 +674,38 @@ export function listAnswers(attemptId: number): Promise<StudentAnswerResponse[]>
 /** Main Flow bước 3-4: nộp bài — BE tự chấm trắc nghiệm ngay, chuyển AUTO_GRADED (còn câu tự luận/nói chờ chấm) hoặc FULLY_GRADED (toàn trắc nghiệm). */
 export function submitAttempt(attemptId: number): Promise<ExerciseAttemptResponse> {
   return apiRequest<ExerciseAttemptResponse>(`/attempts/${attemptId}/submit`, { method: "POST" });
+}
+
+// ===================== Giám sát thoát màn hình khi làm bài (bổ sung ngoài SDD gốc, xác nhận 2026-07-31) =====================
+
+/** Khớp AttemptIntegrityEvent.EventType thật ở backend. */
+export type IntegrityEventType = "OUT_OF_FOCUS" | "FULLSCREEN_EXITED";
+
+export interface IntegrityEventInput {
+  eventType: IntegrityEventType;
+  startedAt: string;
+  endedAt: string;
+  userAgent?: string;
+}
+
+/** Khớp RecordIntegrityEventsRequest thật — chỉ gửi khoảng "thoát ra ngoài" ĐÃ KẾT THÚC, không gửi trạng thái đang diễn ra. */
+export interface RecordIntegrityEventsRequest {
+  events: IntegrityEventInput[];
+}
+
+export interface IntegrityEventBatchResponse {
+  savedCount: number;
+  totalViolationCount: number;
+  totalViolationDurationSeconds: number;
+  notifiedByThisBatch: boolean;
+}
+
+/** Học sinh gửi theo lô các sự kiện thoát ra ngoài khi đang làm 1 lượt Exercise — dùng chung với useIntegrityMonitor. */
+export function recordIntegrityEvents(attemptId: number, request: RecordIntegrityEventsRequest): Promise<IntegrityEventBatchResponse> {
+  return apiRequest<IntegrityEventBatchResponse>(`/attempts/${attemptId}/integrity-events`, {
+    method: "POST",
+    body: JSON.stringify(request)
+  });
 }
 
 /**
