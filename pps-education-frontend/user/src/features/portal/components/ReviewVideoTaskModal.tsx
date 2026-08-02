@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
-import { CheckCircle2, Clock, History, Mic, Square, Upload, X } from "lucide-react";
+import { CheckCircle2, Clock, History, Mic, ShieldAlert, Square, Upload, X } from "lucide-react";
 import { friendlyApiErrorMessage } from "@/lib/apiClient";
 import {
+  IntegrityEventInput,
   ReviewVideoQuestionResponse,
   ReviewVideoResponse,
   ReviewVideoSubmissionResponse,
@@ -13,6 +14,7 @@ import {
   submitReviewVideoQuestionAudio,
   uploadMedia
 } from "../api";
+import { useIntegrityMonitor } from "../hooks/useIntegrityMonitor";
 
 const SEEK_TOLERANCE_SECONDS = 2;
 const PROGRESS_REPORT_INTERVAL_SECONDS = 5;
@@ -370,6 +372,15 @@ export default function ReviewVideoTaskModal({ video, videoType, onClose, onSubm
 
   const { seekTo: seekYouTubeReflex } = useYouTubeSeekPlayer(iframeId, videoType === "REFLEX" && isYouTube);
 
+  /**
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31 — chỉ áp dụng REFLEX (có câu trả lời để
+   * chấm, khác CONNECTION chỉ xem không có "attempt"). 1 hook dùng chung cho CẢ modal (không phải mỗi
+   * câu hỏi 1 hook riêng) để tránh nhiều listener/yêu cầu fullscreen trùng lặp khi video có nhiều câu hỏi
+   * cùng hiển thị — flush() truyền xuống từng ReflexQuestionCard, gọi ngay trước khi nộp (xem
+   * useIntegrityMonitor — UC-23b không có "phiên bắt đầu ghi âm" ở backend để gửi real-time).
+   */
+  const { isMonitoringActive, flush: flushIntegrityEvents } = useIntegrityMonitor({ enabled: videoType === "REFLEX" });
+
   const handleSeekReflexMedia = (timestampSeconds: number) => {
     if (isYouTube) {
       seekYouTubeReflex(timestampSeconds);
@@ -459,13 +470,23 @@ export default function ReviewVideoTaskModal({ video, videoType, onClose, onSubm
 
         {videoType === "REFLEX" && (
           <div className="space-y-3">
+            {isMonitoringActive && (
+              <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2">
+                <ShieldAlert size={13} className="text-amber-600 shrink-0" />
+                <span className="text-[11px] font-bold text-amber-800">
+                  Đang giám sát quá trình làm bài — thoát ra ngoài (đổi tab/thu nhỏ) sẽ được ghi nhận.
+                </span>
+              </div>
+            )}
             {questionsError && <div className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-xl">{questionsError}</div>}
             {loadingQuestions ? (
               <p className="text-xs text-muted font-bold">Đang tải câu hỏi...</p>
             ) : questions.length === 0 ? (
               <p className="text-xs text-muted font-bold italic">Video này chưa có câu hỏi nào.</p>
             ) : (
-              questions.map((q, i) => <ReflexQuestionCard key={q.id} index={i + 1} question={q} onSeek={handleSeekReflexMedia} />)
+              questions.map((q, i) => (
+                <ReflexQuestionCard key={q.id} index={i + 1} question={q} onSeek={handleSeekReflexMedia} flushIntegrityEvents={flushIntegrityEvents} />
+              ))
             )}
           </div>
         )}
@@ -477,11 +498,13 @@ export default function ReviewVideoTaskModal({ video, videoType, onClose, onSubm
 function ReflexQuestionCard({
   index,
   question,
-  onSeek
+  onSeek,
+  flushIntegrityEvents
 }: {
   index: number;
   question: ReviewVideoQuestionResponse;
   onSeek: (timestampSeconds: number) => void;
+  flushIntegrityEvents: () => IntegrityEventInput[];
 }) {
   const [submission, setSubmission] = useState<ReviewVideoSubmissionResponse | undefined>(undefined);
   const [loadingSubmission, setLoadingSubmission] = useState(true);
@@ -533,7 +556,8 @@ function ReflexQuestionCard({
     try {
       const file = answerBlob instanceof File ? answerBlob : new File([answerBlob], "reflex-answer.webm", { type: answerBlob.type || "audio/webm" });
       const { url } = await uploadMedia(file, "REVIEW_VIDEO_SUBMISSION");
-      const updated = await submitReviewVideoQuestionAudio(question.id, url);
+      const events = flushIntegrityEvents();
+      const updated = await submitReviewVideoQuestionAudio(question.id, url, events.length > 0 ? { events } : undefined);
       setSubmission(updated);
       setHistory(null);
       setShowHistory(false);

@@ -2,6 +2,7 @@ package vn.com.pps.education.service;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.com.pps.education.domain.AttemptIntegrityEvent;
 import vn.com.pps.education.domain.ClassEnrollment;
 import vn.com.pps.education.domain.Curriculum;
 import vn.com.pps.education.domain.CurriculumSubject;
@@ -52,6 +53,7 @@ import vn.com.pps.education.repository.ReviewVideoWatchSessionRepository;
 import vn.com.pps.education.repository.SchoolClassRepository;
 import vn.com.pps.education.repository.StudentRepository;
 import vn.com.pps.education.repository.UserRepository;
+import vn.com.pps.education.service.integrity.AttemptIntegrityService;
 
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
@@ -107,6 +109,7 @@ public class ReviewVideoService {
     private final StudentRepository studentRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final AttemptIntegrityService attemptIntegrityService;
 
     public ReviewVideoService(ReviewVideoSetRepository reviewVideoSetRepository,
                                ReviewVideoRepository reviewVideoRepository,
@@ -123,7 +126,8 @@ public class ReviewVideoService {
                                ClassEnrollmentRepository classEnrollmentRepository,
                                StudentRepository studentRepository,
                                UserRepository userRepository,
-                               NotificationService notificationService) {
+                               NotificationService notificationService,
+                               AttemptIntegrityService attemptIntegrityService) {
         this.reviewVideoSetRepository = reviewVideoSetRepository;
         this.reviewVideoRepository = reviewVideoRepository;
         this.reviewVideoSetHistoryRepository = reviewVideoSetHistoryRepository;
@@ -140,6 +144,7 @@ public class ReviewVideoService {
         this.studentRepository = studentRepository;
         this.userRepository = userRepository;
         this.notificationService = notificationService;
+        this.attemptIntegrityService = attemptIntegrityService;
     }
 
     /** UC-23 Main Flow bước 1: tạo bộ mới (metadata), gán vào khung chương trình hoặc lớp cụ thể. */
@@ -561,6 +566,13 @@ public class ReviewVideoService {
         submission.setAudioUrl(request.audioUrl());
         submission.setSubmittedAt(OffsetDateTime.now());
         submission = reviewVideoQuestionSubmissionRepository.save(submission);
+
+        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31 — sự kiện thoát ra ngoài lúc ghi âm
+        // được client đệm rồi gửi kèm cùng lúc nộp (không có "phiên bắt đầu ghi âm" ở backend để gửi real-time).
+        if (request.integrityEvents() != null && !request.integrityEvents().events().isEmpty()) {
+            attemptIntegrityService.recordEvents(AttemptIntegrityEvent.AttemptType.REVIEW_VIDEO_QUESTION,
+                    submission.getId(), request.integrityEvents(), actorUserId);
+        }
         return toResponse(submission);
     }
 

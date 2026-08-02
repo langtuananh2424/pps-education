@@ -1177,6 +1177,65 @@ trước (xem UC-27 Precondition cập nhật tại
 cho lớp qua Nhận xét học viên (UC-21) như cũ — gán Đề cho lớp ở đây
 chỉ mở ĐIỀU KIỆN, không tự động giao bất kỳ "Bài" nào.
 
+l)  Bảng attempt_integrity_events --- Giám sát thoát màn hình khi làm
+bài (MỚI HOÀN TOÀN, V70, 2026-07-31, bổ sung ngoài SDD gốc, đã xác
+nhận với người dùng — xem UC-24 phía trên để biết đầy đủ ngữ cảnh)
+
+  ----------------------------------------------------------------------------------
+  **Cột**                **Kiểu**       **Ràng buộc**              **Ghi chú**      
+  ---------------------- -------------- -------------------------- -----------------
+  id                     BIGSERIAL      PK                                          
+
+  attempt_type           VARCHAR(30)    NOT NULL                   EXERCISE /       
+                                                                    REVIEW_VIDEO_    
+                                                                    QUESTION         
+
+  attempt_id             BIGINT         NOT NULL                   Khóa đa hình,    
+                                                                    KHÔNG FK DB thật  
+                                                                    (trỏ 2 bảng      
+                                                                    khác nhau tùy    
+                                                                    attempt_type)    
+
+  student_id             BIGINT         FK → students(id), NOT                      
+                                        NULL                                        
+
+  school_class_id        BIGINT         FK → classes(id), NULL     NULL nếu chưa    
+                                                                    xác định được    
+                                                                    lớp              
+
+  event_type             VARCHAR(30)    NOT NULL                   OUT_OF_FOCUS /   
+                                                                    FULLSCREEN_      
+                                                                    EXITED           
+
+  started_at, ended_at   TIMESTAMPTZ    NOT NULL                   Chỉ lưu khoảng   
+                                                                    ĐÃ KẾT THÚC      
+
+  duration_seconds       INT            NOT NULL                                    
+
+  client_reported_at     TIMESTAMPTZ    NOT NULL                                    
+
+  user_agent             VARCHAR(500)   NULL                                        
+
+  notified_at            TIMESTAMPTZ    NULL                       Set ở đúng 1     
+                                                                    dòng đầu tiên    
+                                                                    vượt ngưỡng cho  
+                                                                    1 (attempt_type, 
+                                                                    attempt_id)      
+
+  created_at             TIMESTAMPTZ    NOT NULL, DEFAULT NOW()                     
+
+  ----------------------------------------------------------------------------------
+
+Log bất biến (không có history riêng, giống `exercise_attempts_history`
+nhưng bản thân bảng này KHÔNG cần history vì chỉ thêm dòng, không
+sửa/xóa). `attempt_type`/`event_type` VARCHAR tự do (không CHECK
+constraint) — mirror đúng quy ước `notification_type`/`import_type`,
+thêm giá trị enum mới (VD `LISTENING_PRACTICE`) sau này không cần
+migration. 4 ngưỡng cấu hình ở `system_settings` (category `SECURITY`):
+`integrity.monitoring_enabled`, `integrity.min_violation_duration_seconds`,
+`integrity.notify_violation_count_threshold`,
+`integrity.notify_cumulative_duration_seconds_threshold`.
+
 ### Luyện Nghe – Nói (UC-26, FR-LMS-04 — bổ sung ngoài SDD gốc, đã xác nhận với người dùng)
 
 UC-26 đã có đặc tả Main Flow/Postcondition đầy đủ từ trước nhưng SDD
