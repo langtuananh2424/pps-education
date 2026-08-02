@@ -294,6 +294,20 @@ UC-18: Xếp lớp & gán khóa học
 |                 |     bắt đầu giám sát triển khai và thực thi lớp.   |
 +-----------------+----------------------------------------------------+
 
+> **Đa giáo viên + kết thúc phụ trách theo kỳ (bổ sung ngoài SDD gốc, đã
+> xác nhận với người dùng 2026-07-31):** `class_teachers` vốn đã hỗ trợ
+> NHIỀU giáo viên/lớp cùng lúc (`teacherRole` PRIMARY/ASSISTANT/
+> SUBSTITUTE, không ràng buộc unique 1-giáo-viên-1-lớp) và lưu lịch sử
+> qua `assignedFrom`/`assignedTo` (`NULL` = đang phụ trách) — chỉ thiếu
+> thao tác SET `assignedTo` khi giáo viên đổi/nghỉ phụ trách (giáo viên
+> lớp thường đổi theo kỳ). Bổ sung `PUT /api/classes/{id}/teachers/
+> {classTeacherId}/end` (`ClassService.endTeacherAssignment`, quyền
+> `academic.class.manage`) — đặt `assignedTo`, KHÔNG xóa cứng bản ghi
+> (giữ nguyên lịch sử phụ trách trước đó), ghi `class_teachers_history`
+> (`Action.UPDATED`). Từ chối nếu phân công đã kết thúc từ trước (không
+> kết thúc 2 lần). FE: nút "Kết thúc phụ trách" trên mỗi dòng giáo viên
+> đang ACTIVE (`assignedTo == null`) ở `ClassDetailPanel.tsx`.
+
 ---
 
 UC-65: Ghi danh học sinh theo lô

@@ -20,6 +20,7 @@ import vn.com.pps.education.dto.ClassEnrollmentResponse;
 import vn.com.pps.education.dto.ClassResponse;
 import vn.com.pps.education.dto.ClassTeacherResponse;
 import vn.com.pps.education.dto.CreateClassRequest;
+import vn.com.pps.education.dto.EndTeacherAssignmentRequest;
 import vn.com.pps.education.dto.EnrollStudentRequest;
 import vn.com.pps.education.dto.UpdateClassRequest;
 import vn.com.pps.education.dto.WithdrawEnrollmentRequest;
@@ -88,6 +89,16 @@ public class ClassController {
                                                                   @Valid @RequestBody AssignTeacherRequest request,
                                                                   @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(classService.assignTeacher(id, request, actor.userId()));
+    }
+
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31 — kết thúc phụ trách của 1 giáo viên với lớp. */
+    @PreAuthorize("hasPermission(null, 'academic.class.manage')")
+    @PutMapping("/{id}/teachers/{classTeacherId}/end")
+    public ResponseEntity<ClassTeacherResponse> endTeacherAssignment(@PathVariable Long id,
+                                                                        @PathVariable Long classTeacherId,
+                                                                        @Valid @RequestBody EndTeacherAssignmentRequest request,
+                                                                        @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(classService.endTeacherAssignment(id, classTeacherId, request, actor.userId()));
     }
 
     @GetMapping("/{id}/enrollments")

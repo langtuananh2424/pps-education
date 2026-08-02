@@ -224,6 +224,22 @@ export function assignClassTeacher(classId: number, request: AssignTeacherReques
   return apiRequest<ClassTeacherResponse>(`/classes/${classId}/teachers`, { method: "POST", body: JSON.stringify(request) });
 }
 
+export interface EndTeacherAssignmentRequest {
+  assignedTo: string;
+}
+
+/** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31 — kết thúc phụ trách (giáo viên lớp đổi theo kỳ). */
+export function endClassTeacherAssignment(
+  classId: number,
+  classTeacherId: number,
+  request: EndTeacherAssignmentRequest
+): Promise<ClassTeacherResponse> {
+  return apiRequest<ClassTeacherResponse>(`/classes/${classId}/teachers/${classTeacherId}/end`, {
+    method: "PUT",
+    body: JSON.stringify(request)
+  });
+}
+
 export interface ClassEnrollmentResponse {
   id: number;
   classId: number;

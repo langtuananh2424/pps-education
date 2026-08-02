@@ -18,6 +18,7 @@ import {
 import Select from "@/components/ui/Select";
 import QuestionEditorForm from "./QuestionEditorForm";
 import QuestionImportPanel from "./QuestionImportPanel";
+import { QuickBankForm } from "../pages/QuestionBankPage";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
@@ -71,6 +72,7 @@ export default function CreateAndAssignExerciseModal({ examId, curriculumId, onC
           curriculumId={curriculumId}
           onDone={() => setStep("publish")}
           onError={setError}
+          onClose={onClose}
         />
       )}
 
@@ -195,12 +197,14 @@ function ExerciseQuestionsStep({
   exercise,
   curriculumId,
   onDone,
-  onError
+  onError,
+  onClose
 }: {
   exercise: ExerciseResponse;
   curriculumId: number;
   onDone: () => void;
   onError: (message: string | null) => void;
+  onClose: () => void;
 }) {
   const [mode, setMode] = useState<QuestionSourceMode>("existing");
   const [banks, setBanks] = useState<QuestionBankResponse[]>([]);
@@ -322,12 +326,17 @@ function ExerciseQuestionsStep({
       )}
 
       {banks.length === 0 ? (
-        <div className="text-xs text-slate-500 bg-slate-50 border border-slate-200 p-3 rounded-lg">
-          Khung chương trình này chưa có ngân hàng câu hỏi nào.{" "}
-          <Link to="/lms/question-banks" className="text-brand-red font-bold hover:underline">
-            Soạn ngân hàng câu hỏi trước
-          </Link>{" "}
-          rồi quay lại đây để chọn.
+        <div className="space-y-2">
+          <p className="text-xs text-slate-500">Khung chương trình này chưa có ngân hàng câu hỏi nào — tạo nhanh 1 ngân hàng để bắt đầu soạn câu hỏi ngay dưới đây.</p>
+          <QuickBankForm
+            curriculumId={curriculumId}
+            onCreated={(created) => {
+              setBanks((prev) => [...prev, created]);
+              setSelectedBankId(created.id);
+              setMode("compose");
+            }}
+            onCancel={onClose}
+          />
         </div>
       ) : (
         <>
