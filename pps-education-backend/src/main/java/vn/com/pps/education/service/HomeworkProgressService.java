@@ -71,11 +71,13 @@ public class HomeworkProgressService {
     }
 
     /**
-     * % video ôn tập đã giao — trung bình % từng video trong bộ (watched%
-     * cho CONNECTION, score/maxScore cho REFLEX). V65 (bổ sung ngoài SDD
-     * gốc, đã xác nhận với người dùng): nhận {@link ReviewVideoAssignment}
-     * thay vì {@code ReviewVideoSet} trực tiếp — chỉ cần
-     * {@code getReviewVideoSet()} bên trong, cách tính % không đổi.
+     * % video ôn tập đã giao — trung bình % từng video trong bộ (số lượt
+     * xem ĐẠT/số lượt yêu cầu cho CONNECTION, số câu ĐÃ TRẢ LỜI/tổng số
+     * câu cho REFLEX — xem Javadoc connectionPercent/reflexPercent). V65
+     * (bổ sung ngoài SDD gốc, đã xác nhận với người dùng): nhận
+     * {@link ReviewVideoAssignment} thay vì {@code ReviewVideoSet} trực
+     * tiếp — chỉ cần {@code getReviewVideoSet()} bên trong, cách tính %
+     * không đổi.
      */
     public String videoProgressLabel(ReviewVideoAssignment assignment, Long studentId) {
         if (assignment == null) {
@@ -94,40 +96,52 @@ public class HomeworkProgressService {
         return Math.round(total / (float) videos.size()) + "%";
     }
 
+    /**
+     * V71 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-03,
+     * sửa lại công thức tính % — trước đây dùng watchedSeconds/duration,
+     * SAI vì không phản ánh đúng khái niệm nghiệp vụ "lượt xem": xem 99%
+     * thời lượng ở 1 lượt duy nhất vẫn chỉ tính là 1/{@code requiredViewCount}
+     * lượt ĐẠT, không phải gần 100%). % = số lượt xem ĐÃ ĐẠT ngưỡng
+     * (viewCount, chỉ đếm lượt qualified — xem ReviewVideoService#reportProgress)
+     * chia cho số lượt YÊU CẦU của video (requiredViewCount). VD yêu cầu 3
+     * lượt, mới đạt 1 lượt → 33%, không phải % thời lượng đã xem.
+     */
     private int connectionPercent(ReviewVideo v, Long studentId) {
+        if (v.getRequiredViewCount() <= 0) {
+            return 0;
+        }
         return reviewVideoProgressRepository.findByReviewVideoIdAndStudentId(v.getId(), studentId)
-                .map(p -> Math.min(100, Math.round(p.getWatchedSeconds() * 100f / v.getDurationSeconds())))
+                .map(p -> Math.min(100, Math.round(p.getViewCount() * 100f / v.getRequiredViewCount())))
                 .orElse(0);
     }
 
     /**
-     * V57: video REFLEX nay có nhiều câu hỏi — % là trung bình % (điểm/điểm
-     * tối đa của attempt MỚI NHẤT) trên từng câu hỏi trong video. V69 (bổ
-     * sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31): chỉ tính
-     * attempt trong phạm vi ĐÚNG lần giao (assignmentId) đang báo cáo —
-     * không tính lịch sử của lần giao TRƯỚC (khác lần giao = "làm lại từ
-     * đầu", xem Javadoc ReviewVideoService.submitQuestionAudio).
+     * V57: video REFLEX nay có nhiều câu hỏi. V71 (bổ sung ngoài SDD gốc,
+     * đã xác nhận với người dùng 2026-08-03, sửa lại công thức tính % —
+     * trước đây lấy TRUNG BÌNH ĐIỂM (score/maxScore) từng câu đã chấm,
+     * SAI vì trộn lẫn 2 khái niệm khác nhau "đã làm bao nhiêu %" và "làm
+     * đúng bao nhiêu %"): % = số câu ĐÃ TRẢ LỜI (có ít nhất 1 submission,
+     * không quan tâm điểm chấm cao hay thấp) chia cho tổng số câu. VD 5
+     * câu, trả lời 3 → 60%. V69 (bổ sung ngoài SDD gốc, đã xác nhận với
+     * người dùng 2026-07-31): chỉ tính submission trong phạm vi ĐÚNG lần
+     * giao (assignmentId) đang báo cáo — không tính lịch sử của lần giao
+     * TRƯỚC (khác lần giao = "làm lại từ đầu", xem Javadoc
+     * ReviewVideoService.submitQuestionAudio).
      */
     private int reflexPercent(ReviewVideo v, Long studentId, Long assignmentId) {
         List<ReviewVideoQuestion> questions = reviewVideoQuestionRepository.findByReviewVideoIdOrderByDisplayOrder(v.getId());
         if (questions.isEmpty()) {
             return 0;
         }
-        int total = 0;
+        int answeredCount = 0;
         for (ReviewVideoQuestion q : questions) {
-            List<ReviewVideoQuestionSubmission> attempts = reviewVideoQuestionSubmissionRepository
+            List<ReviewVideoQuestionSubmission> submissions = reviewVideoQuestionSubmissionRepository
                     .findByReviewVideoQuestionIdAndStudentIdAndReviewVideoAssignmentIdOrderByAttemptNumberDesc(
                             q.getId(), studentId, assignmentId);
-            total += attempts.isEmpty() ? 0 : latestAttemptPercent(attempts.get(0));
+            if (!submissions.isEmpty()) {
+                answeredCount++;
+            }
         }
-        return Math.round(total / (float) questions.size());
-    }
-
-    private int latestAttemptPercent(ReviewVideoQuestionSubmission latest) {
-        if (latest.getScore() == null || latest.getMaxScore() == null || latest.getMaxScore().signum() <= 0) {
-            return 0;
-        }
-        return latest.getScore().divide(latest.getMaxScore(), 4, RoundingMode.HALF_UP)
-                .multiply(BigDecimal.valueOf(100)).intValue();
+        return Math.round(answeredCount * 100f / questions.size());
     }
 }
