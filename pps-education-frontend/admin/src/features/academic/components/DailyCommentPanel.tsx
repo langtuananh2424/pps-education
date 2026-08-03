@@ -316,8 +316,11 @@ export default function DailyCommentPanel() {
           return {
             ...r,
             attitude: draft.attitude ?? "",
-            homeworkPreviousScore: draft.homeworkPreviousScore ?? "",
-            homeworkPreviousSpeakingScore: draft.homeworkPreviousSpeakingScore ?? "",
+            // Ưu tiên % TỰ ĐỘNG (grammarPreviousProgress/videoPreviousProgress, BE đã tính sẵn) khi mở
+            // lại 1 nhận xét DRAFT/REJECTED — chỉ fallback về giá trị nhập tay cũ khi tự động = null
+            // (VD giao Offline). Vẫn là input thường, GV có thể sửa đè trước khi Gửi.
+            homeworkPreviousScore: draft.grammarPreviousProgress ?? draft.homeworkPreviousScore ?? "",
+            homeworkPreviousSpeakingScore: draft.videoPreviousProgress ?? draft.homeworkPreviousSpeakingScore ?? "",
             content: draft.content ?? "",
             grammarMode: draft.homeworkNextExerciseAssignmentId != null ? "ONLINE" : "OFFLINE",
             homeworkNext: draft.homeworkNext ?? "",
