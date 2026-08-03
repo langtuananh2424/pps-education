@@ -876,6 +876,16 @@ export function updateComment(id: number, request: UpdateStudentCommentRequest):
   return apiRequest<StudentCommentResponse>(`/comments/${id}`, { method: "PUT", body: JSON.stringify(request) });
 }
 
+export interface UpdateStudentCommentContentRequest {
+  content: string;
+  structuredContent?: Record<string, unknown>;
+}
+
+/** UC-22 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-02): Quản lý điểm trường sửa trực tiếp nội dung nhận xét đang chờ duyệt. */
+export function updatePendingCommentContent(id: number, request: UpdateStudentCommentContentRequest): Promise<StudentCommentResponse> {
+  return apiRequest<StudentCommentResponse>(`/comments/pending/${id}/content`, { method: "PUT", body: JSON.stringify(request) });
+}
+
 export function submitComments(classId: number, commentIds: number[]): Promise<StudentCommentResponse[]> {
   return apiRequest<StudentCommentResponse[]>(`/classes/${classId}/comments/submit`, { method: "POST", body: JSON.stringify({ commentIds }) });
 }

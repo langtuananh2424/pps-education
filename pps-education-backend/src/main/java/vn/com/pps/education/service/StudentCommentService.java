@@ -34,6 +34,7 @@ import vn.com.pps.education.dto.EnterAttendanceMarkRequest;
 import vn.com.pps.education.dto.MarkAttendanceRequest;
 import vn.com.pps.education.dto.StudentCommentResponse;
 import vn.com.pps.education.dto.SubmitCommentsRequest;
+import vn.com.pps.education.dto.UpdateStudentCommentContentRequest;
 import vn.com.pps.education.dto.UpdateStudentCommentRequest;
 import vn.com.pps.education.exception.ApprovalAlreadyDecidedException;
 import vn.com.pps.education.exception.HomeworkNextConflictException;
@@ -461,6 +462,38 @@ public class StudentCommentService {
             saved.forEach(this::notifyTeacherRejected);
         }
         return saved.stream().map(this::toResponse).toList();
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-02) —
+     * Quản lý điểm trường sửa trực tiếp nội dung nhận xét đang PENDING thay
+     * vì phải Trả về cho Giáo viên. CHỈ cập nhật content, phớt lờ các
+     * trường khác (BTVN buổi sau) để tránh side-effect.
+     */
+    @Transactional
+    public StudentCommentResponse updatePendingCommentContent(Long id, UpdateStudentCommentContentRequest request, Long actorUserId) {
+        StudentComment comment = getCommentOrThrow(id);
+        User actor = getUserOrThrow(actorUserId);
+
+        // Kiểm tra quyền nghiêm ngặt giống decideComments
+        if (!permissionEvaluationService.hasPermission(actorUserId, "academic.comment.approve")) {
+            throw new NotSiteManagerForSiteException("Tài khoản không có quyền duyệt nhận xét.");
+        }
+        requireSiteManagerForSite(comment.getSchoolClass().getSite().getId(), actorUserId);
+
+        if (comment.getStatus() != StudentComment.Status.PENDING) {
+            throw new StudentCommentNotEditableException(
+                    "Nhận xét id=" + id + " đang ở trạng thái " + comment.getStatus() + " — chỉ quản lý mới được sửa khi PENDING.");
+        }
+
+        comment.setContent(request.content());
+        if (request.structuredContent() != null) {
+            comment.setStructuredContent(request.structuredContent());
+        }
+
+        comment = studentCommentRepository.save(comment);
+        writeHistory(comment, actor, StudentCommentHistory.Action.UPDATED);
+        return toResponse(comment);
     }
 
     // ===================== Nhận xét Hàng ngày kiểu mới — Excel round-trip =====================
