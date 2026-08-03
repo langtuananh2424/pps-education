@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { ChevronDown, ChevronRight, ClipboardList, Layers, Plus, Users, X } from "lucide-react";
+import { ChevronDown, ChevronRight, ClipboardList, Layers, Pencil, Plus, Users, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import { useEligibleClasses } from "@/features/academic/hooks/useEligibleClasses";
@@ -8,6 +8,7 @@ import {
   ExamResponse,
   ExerciseQuestionResponse,
   ExerciseResponse,
+  UpdateExamRequest,
   assignExamToClass,
   createExam,
   listExamAssignedClasses,
@@ -16,7 +17,8 @@ import {
   listExams,
   publishExercise,
   removeExerciseQuestion,
-  unassignExamFromClass
+  unassignExamFromClass,
+  updateExam
 } from "../api";
 import CreateAndAssignExerciseModal from "../components/CreateAndAssignExerciseModal";
 import ExercisePreviewModal from "../components/ExercisePreviewModal";
@@ -169,7 +171,12 @@ export default function ExerciseAssignPage() {
               <p className="text-xs text-slate-400">Chọn 1 Đề bên trái để xem chi tiết, hoặc tạo Đề mới.</p>
             </div>
           ) : (
-            <ExamDetailPanel exam={selectedExam} canManage={canManage} showToast={showToast} />
+            <ExamDetailPanel
+              exam={selectedExam}
+              canManage={canManage}
+              showToast={showToast}
+              onUpdated={(updated) => setExams((prev) => prev.map((e) => (e.id === updated.id ? updated : e)))}
+            />
           )}
         </div>
       </div>
@@ -258,19 +265,78 @@ function CreateExamModal({
   );
 }
 
+function EditExamModal({
+  exam,
+  onClose,
+  onUpdated
+}: {
+  exam: ExamResponse;
+  onClose: () => void;
+  onUpdated: (exam: ExamResponse) => void;
+}) {
+  const [title, setTitle] = useState(exam.title);
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim()) {
+      setError("Vui lòng điền Tên Đề.");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      const request: UpdateExamRequest = { title: title.trim() };
+      const updated = await updateExam(exam.id, request);
+      onUpdated(updated);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Cập nhật Đề thất bại.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Modal open onClose={onClose} title={`Sửa Đề — ${exam.code}`} size="md">
+      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <div>
+          <label className={labelClass}>Tên Đề *</label>
+          <input value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} placeholder="VD: IELTS Grade 6" />
+        </div>
+        <p className="text-[10px] text-slate-400 italic">
+          Mã Đề ({exam.code}) và Khung chương trình ({exam.curriculumCode}) không sửa được sau khi tạo.
+        </p>
+        <div className="flex justify-end gap-2 pt-2">
+          <Button type="button" variant="secondary" size="sm" onClick={onClose}>
+            Hủy
+          </Button>
+          <Button type="submit" variant="primary" size="sm" disabled={submitting}>
+            {submitting ? "Đang lưu..." : "Lưu thay đổi"}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
 function ExamDetailPanel({
   exam,
   canManage,
-  showToast
+  showToast,
+  onUpdated
 }: {
   exam: ExamResponse;
   canManage: boolean;
   showToast: (msg: string) => void;
+  onUpdated: (exam: ExamResponse) => void;
 }) {
   const [exercises, setExercises] = useState<ExerciseResponse[]>([]);
   const [loadingExercises, setLoadingExercises] = useState(false);
   const [createExerciseOpen, setCreateExerciseOpen] = useState(false);
   const [assignClassOpen, setAssignClassOpen] = useState(false);
+  const [editExamOpen, setEditExamOpen] = useState(false);
   const [assignedClassCount, setAssignedClassCount] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -295,9 +361,16 @@ function ExamDetailPanel({
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden">
       <div className="px-5 py-4 border-b border-slate-100 bg-slate-50 space-y-3">
-        <div>
-          <p className="text-sm font-bold text-slate-800">{exam.title}</p>
-          <p className="text-[10px] text-slate-400 font-mono mt-0.5">{exam.code} · {exam.curriculumCode}</p>
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <p className="text-sm font-bold text-slate-800">{exam.title}</p>
+            <p className="text-[10px] text-slate-400 font-mono mt-0.5">{exam.code} · {exam.curriculumCode}</p>
+          </div>
+          {canManage && (
+            <button onClick={() => setEditExamOpen(true)} title="Sửa tên Đề" className="text-slate-400 hover:text-brand-red shrink-0">
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
         <div className="flex items-center justify-between flex-wrap gap-2">
           <button
@@ -315,6 +388,18 @@ function ExamDetailPanel({
           )}
         </div>
       </div>
+
+      {editExamOpen && (
+        <EditExamModal
+          exam={exam}
+          onClose={() => setEditExamOpen(false)}
+          onUpdated={(updated) => {
+            onUpdated(updated);
+            setEditExamOpen(false);
+            showToast("Đã cập nhật Đề thành công!");
+          }}
+        />
+      )}
 
       {error && <p className="px-5 pt-3 text-[11px] text-rose-600">{error}</p>}
 

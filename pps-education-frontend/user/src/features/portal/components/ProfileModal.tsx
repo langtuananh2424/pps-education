@@ -30,6 +30,9 @@ interface ProfileModalProps {
   /** UC-63: true khi Phụ huynh đang xem hồ sơ con — hồ sơ CỦA CHÍNH Phụ huynh (khác con) sửa ở khối "Liên hệ gia đình". */
   isParent: boolean;
   onClose: () => void;
+  /** UC-63: báo cho Header (PortalPage) biết ảnh đại diện vừa đổi — trước đây Header không hay biết
+   * gì, đóng modal xong avatar ngoài Header vẫn hiện chữ cái thay vì ảnh vừa tải lên. */
+  onPortraitUpdated?: (portraitUrl: string | null) => void;
 }
 
 /**
@@ -48,7 +51,8 @@ export default function ProfileModal({
   parentPhone,
   isStudent,
   isParent,
-  onClose
+  onClose,
+  onPortraitUpdated
 }: ProfileModalProps) {
   const [studentPortraitUrl, setStudentPortraitUrl] = useState<string | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -84,6 +88,7 @@ export default function ProfileModal({
       const { url } = await uploadMedia(file, "STUDENT");
       const updated = await updateMyStudentProfile({ portraitUrl: url });
       setStudentPortraitUrl(updated.portraitUrl);
+      onPortraitUpdated?.(updated.portraitUrl);
     } catch (err) {
       setAvatarError(err instanceof ApiError ? err.message : "Đổi ảnh đại diện thất bại.");
     } finally {
