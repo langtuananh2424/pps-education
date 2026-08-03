@@ -650,7 +650,7 @@ export default function DailyLearningProgressTab({ studentName, studentCode, cla
     <div className="bg-white rounded-[24px] border border-line shadow-sm p-4 md:p-6 space-y-6">
       {/* Header Bar — padding gọn hơn trên mobile (p-4 thay vì p-5), giữ nguyên desktop. */}
       <div className="bg-slate-50/80 p-4 md:p-5 rounded-2xl border border-line/80 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
+        <div className="md:w-80 md:shrink-0">
           <div className="flex items-center gap-2">
             <h2 className="text-lg md:text-xl font-black text-ink font-display">Quá trình học tập</h2>
             {parentStudentId != null ? <span className="px-2.5 py-0.5 rounded-full bg-teal/10 text-teal text-xs font-bold border border-teal/20">
@@ -784,9 +784,9 @@ export default function DailyLearningProgressTab({ studentName, studentCode, cla
             >
               <Clock size={14} className="text-teal shrink-0" aria-hidden="true" />
               <span className="whitespace-nowrap">
-                <span className={dateFrom ? "text-ink" : "text-muted"}>{dateFrom ? formatDateVN(dateFrom) : "Từ ngày"}</span>
+                <span className={dateFrom ? "text-ink" : "text-muted"}>{dateFrom ? formatDateVN(dateFrom) : "Từ"}</span>
                 <span className="text-muted mx-1">→</span>
-                <span className={dateTo ? "text-ink" : "text-muted"}>{dateTo ? formatDateVN(dateTo) : "Đến ngày"}</span>
+                <span className={dateTo ? "text-ink" : "text-muted"}>{dateTo ? formatDateVN(dateTo) : "Đến"}</span>
               </span>
               <ChevronDown size={14} className={`text-muted shrink-0 transition-transform ${rangeOpen ? "rotate-180" : ""}`} aria-hidden="true" />
             </button>
