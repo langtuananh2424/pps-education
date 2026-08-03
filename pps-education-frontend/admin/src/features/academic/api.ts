@@ -145,7 +145,6 @@ export interface ClassResponse {
   startDate: string;
   endDate: string | null;
   academicYear: string | null;
-  semester: string | null;
   status: "PLANNED" | "OPEN_ENROLLMENT" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
 }
 
@@ -160,7 +159,6 @@ export interface CreateClassRequest {
   startDate: string;
   endDate?: string;
   academicYear?: string;
-  semester?: string;
 }
 
 export interface UpdateClassRequest {
@@ -170,7 +168,6 @@ export interface UpdateClassRequest {
   startDate: string;
   endDate?: string;
   academicYear?: string;
-  semester?: string;
   status: ClassResponse["status"];
 }
 
@@ -222,6 +219,62 @@ export function listClassTeachers(classId: number): Promise<ClassTeacherResponse
 /** UC-18 A3: nếu giáo viên chưa được gán vào điểm trường của lớp, backend tự tạo liên kết site_teachers, không chặn thao tác. */
 export function assignClassTeacher(classId: number, request: AssignTeacherRequest): Promise<ClassTeacherResponse> {
   return apiRequest<ClassTeacherResponse>(`/classes/${classId}/teachers`, { method: "POST", body: JSON.stringify(request) });
+}
+
+export interface EndTeacherAssignmentRequest {
+  assignedTo: string;
+}
+
+/** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31 — kết thúc phụ trách (giáo viên lớp đổi theo kỳ). */
+export function endClassTeacherAssignment(
+  classId: number,
+  classTeacherId: number,
+  request: EndTeacherAssignmentRequest
+): Promise<ClassTeacherResponse> {
+  return apiRequest<ClassTeacherResponse>(`/classes/${classId}/teachers/${classTeacherId}/end`, {
+    method: "PUT",
+    body: JSON.stringify(request)
+  });
+}
+
+// ===================== Giai đoạn/Học kỳ (UC-18, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31) =====================
+// Giới hạn theo điểm trường (site), độc lập với lớp học — 1 lớp tồn tại xuyên suốt nhiều kỳ. Hồ sơ lớp/học
+// sinh theo kỳ (báo cáo & thống kê) là dữ liệu tính ra từ các bảng đã có ngày tháng, chưa triển khai ở đây.
+
+export interface AcademicTermResponse {
+  id: number;
+  siteId: number;
+  siteName: string;
+  code: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+}
+
+export interface CreateAcademicTermRequest {
+  siteId: number;
+  code: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+}
+
+export interface UpdateAcademicTermRequest {
+  name: string;
+  startDate: string;
+  endDate: string;
+}
+
+export function listAcademicTerms(siteId: number): Promise<AcademicTermResponse[]> {
+  return apiRequest<AcademicTermResponse[]>(`/academic-terms?siteId=${siteId}`);
+}
+
+export function createAcademicTerm(request: CreateAcademicTermRequest): Promise<AcademicTermResponse> {
+  return apiRequest<AcademicTermResponse>("/academic-terms", { method: "POST", body: JSON.stringify(request) });
+}
+
+export function updateAcademicTerm(id: number, request: UpdateAcademicTermRequest): Promise<AcademicTermResponse> {
+  return apiRequest<AcademicTermResponse>(`/academic-terms/${id}`, { method: "PUT", body: JSON.stringify(request) });
 }
 
 export interface ClassEnrollmentResponse {

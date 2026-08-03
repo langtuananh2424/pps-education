@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Bell, MessageSquareCode, ShieldAlert } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
+import { clampLines } from "@/lib/textClamp";
 import { listComments, listMyComments, listMyNotifications, NotificationResponse, StudentCommentResponse } from "../api";
 
 const COMMENT_TYPE_LABEL: Record<string, string> = { DAILY: "Hàng ngày", MID_TERM: "Giữa kỳ", END_TERM: "Cuối kỳ" };
@@ -22,6 +23,36 @@ export default function HomeTab({ studentName, classId, parentStudentId }: HomeT
   const [comments, setComments] = useState<StudentCommentResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Mobile: carousel "Thông báo" tự trượt ngang (theo yêu cầu người dùng, 2026-07-31) — desktop giữ
+  // nguyên danh sách dọc. cardRefs dùng scrollIntoView theo từng thẻ thay vì tự tính pixel scroll
+  // (bề rộng thẻ co giãn theo % nên tính tay dễ sai). pausedRef (không phải state) để interval đọc
+  // giá trị mới nhất ngay lập tức khi người dùng chạm/kéo tay, không cần re-tạo interval mỗi lần.
+  const [carouselIndex, setCarouselIndex] = useState(0);
+  const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const pausedRef = useRef(false);
+
+  useEffect(() => {
+    if (notifications.length <= 1) return;
+    const timer = setInterval(() => {
+      if (pausedRef.current) return;
+      setCarouselIndex((prev) => {
+        const next = (prev + 1) % notifications.length;
+        cardRefs.current[next]?.scrollIntoView({ behavior: "smooth", inline: "start", block: "nearest" });
+        return next;
+      });
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [notifications.length]);
+
+  const pauseCarousel = () => {
+    pausedRef.current = true;
+  };
+  const resumeCarouselSoon = () => {
+    setTimeout(() => {
+      pausedRef.current = false;
+    }, 3000);
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -62,18 +93,60 @@ export default function HomeTab({ studentName, classId, parentStudentId }: HomeT
           {notifications.length === 0 ? (
             <p className="text-xs text-muted font-bold italic">Chưa có thông báo nào.</p>
           ) : (
-            <div className="space-y-3">
-              {notifications.map((n) => (
-                <div key={n.id} className="bg-slate-50/50 border border-line/60 p-4 rounded-[16px] space-y-1">
-                  <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-bold text-teal uppercase">{n.notificationType}</span>
-                    <span className="text-xs text-muted font-semibold">{new Date(n.createdAt).toLocaleString("vi-VN")}</span>
-                  </div>
-                  <h4 className="font-extrabold text-ink text-sm">{n.title}</h4>
-                  <p className="text-xs text-muted font-semibold">{n.content}</p>
+            <>
+              {/* Mobile: carousel trượt ngang TỰ ĐỘNG (theo yêu cầu người dùng, 2026-07-31) — dừng lại
+                  khi người dùng đang chạm/kéo tay, tự chạy tiếp sau 3s không thao tác. Không dùng mẹo
+                  bleed lề (-mx/px) — đã từng gây lệch mép với card phía trên, để carousel nằm nguyên
+                  trong padding p-6 sẵn có của card, chỉ cho từng thẻ "ngó" ra 1 phần (w-[85%]). */}
+              <div className="md:hidden">
+                <div
+                  onTouchStart={pauseCarousel}
+                  onTouchEnd={resumeCarouselSoon}
+                  onMouseDown={pauseCarousel}
+                  onMouseUp={resumeCarouselSoon}
+                  className="flex gap-3 overflow-x-auto scrollbar-hide snap-x snap-mandatory"
+                >
+                  {notifications.map((n, i) => (
+                    <div
+                      key={n.id}
+                      ref={(el) => {
+                        cardRefs.current[i] = el;
+                      }}
+                      className="shrink-0 w-[85%] snap-start bg-slate-50/50 border border-line/60 p-4 rounded-[16px] space-y-1"
+                    >
+                      <div className="flex justify-between items-center">
+                        <span className="text-[10px] font-bold text-teal uppercase">{n.notificationType}</span>
+                        <span className="text-xs text-muted font-semibold">{new Date(n.createdAt).toLocaleString("vi-VN")}</span>
+                      </div>
+                      <h4 className="font-extrabold text-ink text-sm">{n.title}</h4>
+                      <p className="text-xs text-muted font-semibold" style={clampLines(3)}>
+                        {n.content}
+                      </p>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+                {notifications.length > 1 && (
+                  <div className="flex items-center justify-center gap-1.5 mt-3">
+                    {notifications.map((_, i) => (
+                      <span key={i} className={`h-1.5 rounded-full transition-all ${i === carouselIndex ? "w-4 bg-teal" : "w-1.5 bg-line"}`} />
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="hidden md:block space-y-3">
+                {notifications.map((n) => (
+                  <div key={n.id} className="bg-slate-50/50 border border-line/60 p-4 rounded-[16px] space-y-1">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] font-bold text-teal uppercase">{n.notificationType}</span>
+                      <span className="text-xs text-muted font-semibold">{new Date(n.createdAt).toLocaleString("vi-VN")}</span>
+                    </div>
+                    <h4 className="font-extrabold text-ink text-sm">{n.title}</h4>
+                    <p className="text-xs text-muted font-semibold">{n.content}</p>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
         </div>
 

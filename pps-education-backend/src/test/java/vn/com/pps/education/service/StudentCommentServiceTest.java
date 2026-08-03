@@ -182,7 +182,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         Site site = newSite();
         schoolClass = classService.create(
                 new CreateClassRequest(classCode(), "8A2", site.getId(), activeCurriculum.id(), "OPEN", 20, null,
-                        LocalDate.now(), null, null, null), headAcademic.getId());
+                        LocalDate.now(), null, null), headAcademic.getId());
 
         teacher = newUser("teacher");
         assignRole(teacher, "TEACHER");
@@ -1272,7 +1272,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
     void listMyComments_rejectsWhenNotEnrolledInClass() {
         ClassResponse otherClass = classService.create(
                 new CreateClassRequest(classCode(), "9A1", siteOf(schoolClass).getId(), schoolClass.curriculumId(), "OPEN", 20, null,
-                        LocalDate.now(), null, null, null), headAcademic.getId());
+                        LocalDate.now(), null, null), headAcademic.getId());
 
         assertThatThrownBy(() -> studentCommentService.listMyComments(otherClass.id(), student.getUser().getId()))
                 .isInstanceOf(ResourceNotFoundException.class);
@@ -1289,7 +1289,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         studentCommentService.decideComments(new DecideCommentsRequest(List.of(toApprove.id()), "APPROVED", null), siteManagerUser.getId());
         ClassResponse otherClass = classService.create(
                 new CreateClassRequest(classCode(), "9A2", siteOf(schoolClass).getId(), schoolClass.curriculumId(), "OPEN", 20, null,
-                        LocalDate.now(), null, null, null), headAcademic.getId());
+                        LocalDate.now(), null, null), headAcademic.getId());
         studentService.recordTransfer(student.getId(),
                 new RecordTransferRequest("CLASS_CHANGE", schoolClass.id(), otherClass.id(), null, LocalDate.now(), "Chuyển lớp test"),
                 headAcademic.getId());

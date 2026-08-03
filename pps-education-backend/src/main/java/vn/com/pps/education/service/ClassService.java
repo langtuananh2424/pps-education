@@ -20,6 +20,7 @@ import vn.com.pps.education.dto.ClassEnrollmentResponse;
 import vn.com.pps.education.dto.ClassResponse;
 import vn.com.pps.education.dto.ClassTeacherResponse;
 import vn.com.pps.education.dto.CreateClassRequest;
+import vn.com.pps.education.dto.EndTeacherAssignmentRequest;
 import vn.com.pps.education.dto.EnrollStudentRequest;
 import vn.com.pps.education.dto.UpdateClassRequest;
 import vn.com.pps.education.dto.WithdrawEnrollmentRequest;
@@ -212,7 +213,6 @@ public class ClassService {
         schoolClass.setStartDate(request.startDate());
         schoolClass.setEndDate(request.endDate());
         schoolClass.setAcademicYear(request.academicYear());
-        schoolClass.setSemester(request.semester());
         schoolClass.setCreatedBy(actor);
         schoolClass = schoolClassRepository.save(schoolClass);
 
@@ -233,7 +233,6 @@ public class ClassService {
         schoolClass.setStartDate(request.startDate());
         schoolClass.setEndDate(request.endDate());
         schoolClass.setAcademicYear(request.academicYear());
-        schoolClass.setSemester(request.semester());
         schoolClass.setStatus(SchoolClass.Status.valueOf(request.status()));
         schoolClass = schoolClassRepository.save(schoolClass);
 
@@ -293,6 +292,43 @@ public class ClassService {
         link.setAssignedFrom(LocalDate.now());
         link.setAssignedBy(actor);
         siteTeacherRepository.save(link);
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-07-31, UC-18)
+     * — kết thúc phụ trách của 1 giáo viên với lớp (giáo viên lớp đổi
+     * theo kỳ). Không xóa cứng bản ghi `class_teachers` — chỉ đặt
+     * `assignedTo`, giữ nguyên lịch sử phụ trách trước đó (mirror cách
+     * `StudentService.recordTransfer` không xóa `ClassEnrollment` cũ).
+     */
+    @Transactional
+    public ClassTeacherResponse endTeacherAssignment(Long classId, Long classTeacherId,
+                                                        EndTeacherAssignmentRequest request, Long actorUserId) {
+        getClassOrThrow(classId);
+        User actor = userRepository.findById(actorUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
+        ClassTeacher classTeacher = classTeacherRepository.findById(classTeacherId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phân công giáo viên id=" + classTeacherId));
+        if (!classTeacher.getSchoolClass().getId().equals(classId)) {
+            throw new ResourceNotFoundException("Không tìm thấy phân công giáo viên id=" + classTeacherId + " trong lớp id=" + classId);
+        }
+        if (classTeacher.getAssignedTo() != null) {
+            throw new IllegalArgumentException("Phân công giáo viên id=" + classTeacherId + " đã kết thúc từ " + classTeacher.getAssignedTo());
+        }
+
+        classTeacher.setAssignedTo(request.assignedTo());
+        classTeacher = classTeacherRepository.save(classTeacher);
+
+        ClassTeacherHistory history = new ClassTeacherHistory();
+        history.setClassTeacher(classTeacher);
+        history.setChangedBy(actor);
+        history.setAction(ClassTeacherHistory.Action.UPDATED);
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("assignedTo", classTeacher.getAssignedTo().toString());
+        history.setDetails(snapshot);
+        classTeacherHistoryRepository.save(history);
+
+        return toResponse(classTeacher);
     }
 
     @Transactional(readOnly = true)
@@ -394,7 +430,7 @@ public class ClassService {
                 c.getCurriculum().getId(), c.getCurriculum().getCode(),
                 c.getClassType().name(), c.getClassCategory(),
                 c.getMaxStudents(), c.getMinStudents(), c.getStartDate(), c.getEndDate(),
-                c.getAcademicYear(), c.getSemester(), c.getStatus().name());
+                c.getAcademicYear(), c.getStatus().name());
     }
 
     private ClassTeacherResponse toResponse(ClassTeacher t) {

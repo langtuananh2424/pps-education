@@ -117,14 +117,19 @@ export default function DocumentLibraryTab({ classId }: DocumentLibraryTabProps)
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
+      {/* Mobile: 1 hàng cuộn ngang kiểu carousel thay vì tự vỡ thành lưới 2x2 (theo yêu cầu người dùng,
+          2026-07-31). Không dùng mẹo bleed "-mx-4 px-4" (kéo tràn lề rồi bù lại padding) — nút đầu tiên
+          sẽ không thẳng hàng với card gradient phía trên (đã gặp, khoảng cách lệch nhau); để nguyên
+          trong container hiện có thì mép trái tự khớp đúng với card phía trên. Desktop (md+) giữ nguyên
+          flex-wrap như cũ. */}
+      <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide snap-x snap-proximity md:flex-wrap">
         {CATEGORY_FILTERS.map((c) => {
           const count = c.types.length === 0 ? documents.length : documents.filter((doc) => c.types.includes(doc.documentType)).length;
           return (
             <button
               key={c.key}
               onClick={() => setCategoryFilter(c.key)}
-              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-colors ${
+              className={`shrink-0 snap-start px-3.5 py-2 rounded-xl text-xs font-bold transition-colors ${
                 categoryFilter === c.key ? "bg-teal text-white shadow-sm" : "bg-white border border-line/80 text-muted hover:bg-sky-2"
               }`}
             >

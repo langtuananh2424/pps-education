@@ -1,11 +1,13 @@
-import React, { useEffect, useState } from "react";
-import { Bell, BookOpen, CheckCircle2, ChevronRight, Clock, Link2, MessageCircle, Play, Video } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import { Bell, BookOpen, Check, CheckCircle2, ChevronRight, Clock, Filter, Link2, MessageCircle, Play, Video } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
+import { formatDateTimeHm } from "@/lib/format";
 import {
   AssignedExerciseResponse,
   ReviewVideoResponse,
   getMyLatestReviewVideoSubmission,
   listMyAssignedExercises,
+  listMyReviewVideoAssignments,
   listReviewVideoQuestions,
   listReviewVideoSetsByClass,
   listReviewVideos
@@ -46,6 +48,8 @@ interface ReviewVideoHomeworkItem {
   setTitle: string;
   /** REFLEX only (V57 — video giờ có nhiều câu hỏi, mỗi câu tự nộp riêng) — dùng tính trạng thái tổng hợp cho cả video. */
   reflexStats?: { totalQuestions: number; answeredQuestions: number };
+  /** Hạn nộp của bộ (nếu bộ này đang được giao "BTVN buổi sau" ACTIVE cho lớp) — undefined nếu chỉ nằm trong Kho, không phải BTVN đang giao. */
+  dueAt?: string;
 }
 
 /**
@@ -71,17 +75,33 @@ export default function AssignmentsTab({ classId }: AssignmentsTabProps) {
   const [filterType, setFilterType] = useState<FilterType>("ALL");
   const [takingExercise, setTakingExercise] = useState<AssignedExerciseResponse | null>(null);
   const [openReviewItem, setOpenReviewItem] = useState<ReviewVideoHomeworkItem | null>(null);
+  // Dropdown icon lọc "loại bài" thay cho hàng nút riêng — đỡ chiếm thêm 1 hàng, gộp chung hàng với
+  // 3 nút trạng thái, dùng chung cho mọi kích thước màn hình (theo yêu cầu người dùng, 2026-08-01).
+  const [filterTypeOpen, setFilterTypeOpen] = useState(false);
+  const filterTypeRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!filterTypeOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (filterTypeRef.current && !filterTypeRef.current.contains(e.target as Node)) setFilterTypeOpen(false);
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [filterTypeOpen]);
 
   const load = () => {
     setLoading(true);
     setError(null);
     Promise.all([
       listMyAssignedExercises(classId),
-      listReviewVideoSetsByClass(classId).then(async (sets) => {
+      Promise.all([listReviewVideoSetsByClass(classId), listMyReviewVideoAssignments(classId).catch(() => [])]).then(async ([sets, assignments]) => {
+        const dueAtBySetId = new Map(assignments.map((a) => [a.reviewVideoSetId, a.dueAt]));
         const perSet = await Promise.all(
           sets.map(async (set) => {
             const videos = await listReviewVideos(set.id);
-            return videos.map((video) => ({ video, videoType: set.videoType, setTitle: set.title }) as ReviewVideoHomeworkItem);
+            return videos.map(
+              (video) => ({ video, videoType: set.videoType, setTitle: set.title, dueAt: dueAtBySetId.get(set.id) }) as ReviewVideoHomeworkItem
+            );
           })
         );
         const flat = perSet.flat();
@@ -164,58 +184,84 @@ export default function AssignmentsTab({ classId }: AssignmentsTabProps) {
       )}
 
       <div className="space-y-2.5 border-b border-line pb-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => setFilterStatus("ALL")}
-            className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
-              filterStatus === "ALL" ? "bg-teal text-white shadow-sm" : "bg-slate-100 hover:bg-slate-200 text-muted"
-            }`}
-          >
-            Tất cả bài tập ({exercises.length + reviewItems.length})
-          </button>
-          <button
-            onClick={() => setFilterStatus("PENDING")}
-            className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
-              filterStatus === "PENDING" ? "bg-orange-500 text-white shadow-sm" : "bg-slate-100 hover:bg-slate-200 text-muted"
-            }`}
-          >
-            <Clock size={14} /> Cần hoàn thành ({pendingCount})
-          </button>
-          <button
-            onClick={() => setFilterStatus("GRADED")}
-            className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
-              filterStatus === "GRADED" ? "bg-teal text-white shadow-sm" : "bg-slate-100 hover:bg-slate-200 text-muted"
-            }`}
-          >
-            <CheckCircle2 size={14} /> Đã nộp &amp; Đã chấm ({gradedCount})
-          </button>
-        </div>
+        {/* 1 hàng — 3 nút trạng thái tự cuộn ngang kiểu carousel, cuối hàng là icon dropdown lọc
+            "loại bài" — dùng chung cho mọi kích thước màn hình (theo yêu cầu người dùng, 2026-08-01;
+            trước đó desktop có 1 khối riêng 2 hàng nút đầy đủ, nay bỏ để đồng nhất với mobile). */}
+        <div className="flex items-center gap-2">
+          <div className="flex-1 min-w-0 flex items-center gap-2 overflow-x-auto scrollbar-hide snap-x snap-proximity">
+            <button
+              onClick={() => setFilterStatus("ALL")}
+              className={`shrink-0 snap-start px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                filterStatus === "ALL" ? "bg-teal text-white shadow-sm" : "bg-slate-100 hover:bg-slate-200 text-muted"
+              }`}
+            >
+              Tất cả bài tập ({exercises.length + reviewItems.length})
+            </button>
+            <button
+              onClick={() => setFilterStatus("PENDING")}
+              className={`shrink-0 snap-start px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+                filterStatus === "PENDING" ? "bg-orange-500 text-white shadow-sm" : "bg-slate-100 hover:bg-slate-200 text-muted"
+              }`}
+            >
+              <Clock size={14} /> Cần hoàn thành ({pendingCount})
+            </button>
+            <button
+              onClick={() => setFilterStatus("GRADED")}
+              className={`shrink-0 snap-start px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+                filterStatus === "GRADED" ? "bg-teal text-white shadow-sm" : "bg-slate-100 hover:bg-slate-200 text-muted"
+              }`}
+            >
+              <CheckCircle2 size={14} /> Đã nộp &amp; Đã chấm ({gradedCount})
+            </button>
+          </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => setFilterType("ALL")}
-            className={`px-3.5 py-1.5 rounded-lg border text-[11px] font-bold transition-all cursor-pointer ${
-              filterType === "ALL" ? "bg-ink text-white border-ink" : "bg-white border-line text-muted hover:bg-slate-50"
-            }`}
-          >
-            Tất cả loại bài
-          </button>
-          <button
-            onClick={() => setFilterType("EXERCISE")}
-            className={`px-3.5 py-1.5 rounded-lg border text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-              filterType === "EXERCISE" ? "bg-ink text-white border-ink" : "bg-white border-line text-muted hover:bg-slate-50"
-            }`}
-          >
-            <BookOpen size={12} /> Bài ngữ pháp ({exercises.length})
-          </button>
-          <button
-            onClick={() => setFilterType("VIDEO")}
-            className={`px-3.5 py-1.5 rounded-lg border text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-              filterType === "VIDEO" ? "bg-ink text-white border-ink" : "bg-white border-line text-muted hover:bg-slate-50"
-            }`}
-          >
-            <Video size={12} /> Video Kết nối - Phản xạ ({reviewItems.length})
-          </button>
+          <div className="relative shrink-0" ref={filterTypeRef}>
+            <button
+              type="button"
+              onClick={() => setFilterTypeOpen((v) => !v)}
+              aria-label="Lọc theo loại bài"
+              aria-haspopup="dialog"
+              aria-expanded={filterTypeOpen}
+              className={`w-10 h-10 rounded-xl border flex items-center justify-center transition-all cursor-pointer ${
+                filterType !== "ALL" ? "bg-ink text-white border-ink" : "bg-white border-line text-muted hover:bg-slate-50"
+              }`}
+            >
+              <Filter size={16} aria-hidden="true" />
+            </button>
+
+            {filterTypeOpen && (
+              <div
+                role="dialog"
+                aria-label="Chọn loại bài"
+                className="absolute right-0 top-full mt-2 z-30 w-56 bg-white border border-line rounded-2xl shadow-lg p-1.5 space-y-0.5"
+              >
+                {(
+                  [
+                    ["ALL", "Tất cả loại bài", null] as const,
+                    ["EXERCISE", `Bài ngữ pháp (${exercises.length})`, BookOpen] as const,
+                    ["VIDEO", `Video Kết nối - Phản xạ (${reviewItems.length})`, Video] as const
+                  ]
+                ).map(([value, label, Icon]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => {
+                      setFilterType(value);
+                      setFilterTypeOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-xs font-bold text-left transition-colors ${
+                      filterType === value ? "bg-ink/5 text-ink font-black" : "text-muted hover:bg-slate-50"
+                    }`}
+                  >
+                    <span className="flex items-center gap-1.5">
+                      {Icon && <Icon size={13} aria-hidden="true" />} {label}
+                    </span>
+                    {filterType === value && <Check size={14} className="shrink-0" aria-hidden="true" />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -297,7 +343,7 @@ function ExerciseCard({ item, onOpen }: { item: AssignedExerciseResponse; onOpen
                 isOverdue ? "bg-coral/10 text-coral border-coral/20" : "bg-amber-100 text-amber-800 border-amber-300"
               }`}
             >
-              <Clock size={12} /> {isOverdue ? "Đã quá hạn — chưa làm" : `Hạn nộp: ${item.dueAt ? new Date(item.dueAt).toLocaleString("vi-VN") : "Không giới hạn"}`}
+              <Clock size={12} /> {isOverdue ? "Đã quá hạn — chưa làm" : `Hạn nộp: ${item.dueAt ? formatDateTimeHm(item.dueAt) : "Không giới hạn"}`}
             </span>
           )}
         </div>
@@ -326,10 +372,11 @@ function ExerciseCard({ item, onOpen }: { item: AssignedExerciseResponse; onOpen
 }
 
 function ReviewVideoCard({ item, onOpen }: { item: ReviewVideoHomeworkItem; onOpen: () => void }) {
-  const { video, videoType, setTitle, reflexStats } = item;
+  const { video, videoType, setTitle, reflexStats, dueAt } = item;
   const isConnection = videoType === "CONNECTION";
   const answerable = isReflexAnswerable(item);
   const fullyAnswered = isReflexFullyAnswered(item);
+  const isOverdue = dueAt != null && new Date(dueAt) < new Date();
 
   let statusBadge: React.ReactNode;
   if (isConnection) {
@@ -370,6 +417,15 @@ function ReviewVideoCard({ item, onOpen }: { item: ReviewVideoHomeworkItem; onOp
           </span>
           <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-muted text-[11px] font-bold truncate max-w-[200px]">{setTitle}</span>
           {statusBadge}
+          {dueAt && (
+            <span
+              className={`px-2.5 py-0.5 rounded-lg border text-[11px] font-black flex items-center gap-1 ${
+                isOverdue ? "bg-coral/10 text-coral border-coral/20" : "bg-amber-100 text-amber-800 border-amber-300"
+              }`}
+            >
+              <Clock size={12} /> {isOverdue ? "Đã quá hạn nộp" : `Hạn nộp: ${formatDateTimeHm(dueAt)}`}
+            </span>
+          )}
         </div>
         <h3 className="text-base font-black text-ink font-display truncate">{video.title}</h3>
       </div>

@@ -68,9 +68,6 @@ public class SchoolClass extends BaseAuditEntity {
     @Column(name = "academic_year", length = 20)
     private String academicYear;
 
-    @Column(length = 20)
-    private String semester;
-
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private Status status = Status.PLANNED;

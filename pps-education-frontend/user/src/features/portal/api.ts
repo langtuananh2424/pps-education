@@ -454,6 +454,27 @@ export function listReviewVideoSetsByClass(classId: number): Promise<ReviewVideo
   return apiRequest<ReviewVideoSetResponse[]>(`/classes/${classId}/review-video-sets`);
 }
 
+/**
+ * V65/V70 self-service (fix bug thiếu hạn nộp ở Portal, 2026-07-31) — hạn nộp (dueAt) của (các)
+ * bộ Video Ôn tập đã được giao "BTVN buổi sau" cho lớp tôi đang học ACTIVE. Trước đây chỉ có
+ * GET /api/classes/{classId}/review-video-assignments (yêu cầu quyền Giáo viên, Học sinh gọi bị
+ * chặn) — không có nguồn nào đọc được dueAt cho Portal. Mirror AssignedExerciseResponse (bài ngữ pháp).
+ */
+export interface MyReviewVideoAssignmentResponse {
+  assignmentId: number;
+  reviewVideoSetId: number;
+  reviewVideoSetTitle: string;
+  videoType: "CONNECTION" | "REFLEX";
+  classId: number;
+  className: string;
+  availableFrom: string;
+  dueAt: string;
+}
+
+export function listMyReviewVideoAssignments(classId?: number): Promise<MyReviewVideoAssignmentResponse[]> {
+  return apiRequest<MyReviewVideoAssignmentResponse[]>(`/students/me/review-video-assignments${classId ? `?classId=${classId}` : ""}`);
+}
+
 export function listReviewVideos(setId: number): Promise<ReviewVideoResponse[]> {
   return apiRequest<ReviewVideoResponse[]>(`/review-video-sets/${setId}/videos`);
 }
@@ -507,11 +528,22 @@ export interface ReviewVideoSubmissionResponse {
   gradedAt: string | null;
 }
 
-/** UC-23b Main Flow bước 3 (V57): nộp audio trả lời cho 1 CÂU HỎI — nộp lại tạo attempt MỚI, giữ lịch sử (không ghi đè); từ chối nếu đã hết maxAttempts của câu hỏi đó (409/422 từ BE). */
-export function submitReviewVideoQuestionAudio(questionId: number, audioUrl: string): Promise<ReviewVideoSubmissionResponse> {
+/**
+ * UC-23b Main Flow bước 3 (V57): nộp audio trả lời cho 1 CÂU HỎI — nộp lại tạo attempt MỚI, giữ lịch sử
+ * (không ghi đè); từ chối nếu đã hết maxAttempts của câu hỏi đó (409/422 từ BE).
+ * integrityEvents (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31, tùy chọn): UC-23b không có
+ * "phiên bắt đầu ghi âm" ở backend nên sự kiện giám sát thoát ra ngoài trong lúc ghi âm được đệm ở client
+ * (xem useIntegrityMonitor) rồi gửi kèm cùng lúc nộp, thay vì real-time như Exercise — xem
+ * recordIntegrityEvents cho nhánh Exercise.
+ */
+export function submitReviewVideoQuestionAudio(
+  questionId: number,
+  audioUrl: string,
+  integrityEvents?: RecordIntegrityEventsRequest
+): Promise<ReviewVideoSubmissionResponse> {
   return apiRequest<ReviewVideoSubmissionResponse>(`/review-video-questions/${questionId}/submissions`, {
     method: "PUT",
-    body: JSON.stringify({ audioUrl })
+    body: JSON.stringify({ audioUrl, integrityEvents: integrityEvents ?? null })
   });
 }
 
@@ -642,6 +674,38 @@ export function listAnswers(attemptId: number): Promise<StudentAnswerResponse[]>
 /** Main Flow bước 3-4: nộp bài — BE tự chấm trắc nghiệm ngay, chuyển AUTO_GRADED (còn câu tự luận/nói chờ chấm) hoặc FULLY_GRADED (toàn trắc nghiệm). */
 export function submitAttempt(attemptId: number): Promise<ExerciseAttemptResponse> {
   return apiRequest<ExerciseAttemptResponse>(`/attempts/${attemptId}/submit`, { method: "POST" });
+}
+
+// ===================== Giám sát thoát màn hình khi làm bài (bổ sung ngoài SDD gốc, xác nhận 2026-07-31) =====================
+
+/** Khớp AttemptIntegrityEvent.EventType thật ở backend. */
+export type IntegrityEventType = "OUT_OF_FOCUS" | "FULLSCREEN_EXITED";
+
+export interface IntegrityEventInput {
+  eventType: IntegrityEventType;
+  startedAt: string;
+  endedAt: string;
+  userAgent?: string;
+}
+
+/** Khớp RecordIntegrityEventsRequest thật — chỉ gửi khoảng "thoát ra ngoài" ĐÃ KẾT THÚC, không gửi trạng thái đang diễn ra. */
+export interface RecordIntegrityEventsRequest {
+  events: IntegrityEventInput[];
+}
+
+export interface IntegrityEventBatchResponse {
+  savedCount: number;
+  totalViolationCount: number;
+  totalViolationDurationSeconds: number;
+  notifiedByThisBatch: boolean;
+}
+
+/** Học sinh gửi theo lô các sự kiện thoát ra ngoài khi đang làm 1 lượt Exercise — dùng chung với useIntegrityMonitor. */
+export function recordIntegrityEvents(attemptId: number, request: RecordIntegrityEventsRequest): Promise<IntegrityEventBatchResponse> {
+  return apiRequest<IntegrityEventBatchResponse>(`/attempts/${attemptId}/integrity-events`, {
+    method: "POST",
+    body: JSON.stringify(request)
+  });
 }
 
 /**

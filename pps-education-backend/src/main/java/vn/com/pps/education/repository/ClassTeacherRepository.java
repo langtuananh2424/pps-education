@@ -17,4 +17,7 @@ public interface ClassTeacherRepository extends JpaRepository<ClassTeacher, Long
 
     /** UC-23: GV được coi là "phụ trách khung chương trình" nếu đang dạy ít nhất 1 lớp dùng khung đó. */
     boolean existsBySchoolClass_CurriculumIdAndTeacherIdAndAssignedToIsNull(Long curriculumId, Long teacherId);
+
+    /** Chỉ giáo viên ĐANG phụ trách (không lấy cả giáo viên cũ đã thôi phụ trách) — dùng khi báo thông báo. */
+    List<ClassTeacher> findBySchoolClassIdAndAssignedToIsNull(Long classId);
 }

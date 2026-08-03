@@ -601,7 +601,7 @@ class StudentServiceTest extends AbstractIntegrationTest {
     private ClassResponse newClass(Site site, CurriculumResponse curriculum, String codePrefix) {
         return classService.create(
                 new CreateClassRequest(codePrefix + "-" + SEQ.incrementAndGet(), codePrefix, site.getId(),
-                        curriculum.id(), "OPEN", 25, 10, LocalDate.now(), null, "2026-2027", "S1"),
+                        curriculum.id(), "OPEN", 25, 10, LocalDate.now(), null, "2026-2027"),
                 staff.getId());
     }
 

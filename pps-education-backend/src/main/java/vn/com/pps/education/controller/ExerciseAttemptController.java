@@ -2,17 +2,23 @@ package vn.com.pps.education.controller;
 
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
+import vn.com.pps.education.domain.AttemptIntegrityEvent.AttemptType;
 import vn.com.pps.education.dto.ExerciseAttemptResponse;
+import vn.com.pps.education.dto.IntegrityEventBatchResponse;
+import vn.com.pps.education.dto.IntegritySummaryResponse;
+import vn.com.pps.education.dto.RecordIntegrityEventsRequest;
 import vn.com.pps.education.dto.SaveAnswerRequest;
 import vn.com.pps.education.dto.StudentAnswerResponse;
 import vn.com.pps.education.security.AuthenticatedUser;
 import vn.com.pps.education.service.ExerciseAttemptService;
+import vn.com.pps.education.service.integrity.AttemptIntegrityService;
 
 import java.util.List;
 
@@ -21,9 +27,11 @@ import java.util.List;
 public class ExerciseAttemptController {
 
     private final ExerciseAttemptService exerciseAttemptService;
+    private final AttemptIntegrityService attemptIntegrityService;
 
-    public ExerciseAttemptController(ExerciseAttemptService exerciseAttemptService) {
+    public ExerciseAttemptController(ExerciseAttemptService exerciseAttemptService, AttemptIntegrityService attemptIntegrityService) {
         this.exerciseAttemptService = exerciseAttemptService;
+        this.attemptIntegrityService = attemptIntegrityService;
     }
 
     @PostMapping("/api/exercises/{exerciseId}/attempts")
@@ -61,5 +69,20 @@ public class ExerciseAttemptController {
     public ResponseEntity<ExerciseAttemptResponse> submitAttempt(@PathVariable Long id,
                                                                    @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(exerciseAttemptService.submitAttempt(id, actor.userId()));
+    }
+
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31 — xem Javadoc AttemptIntegrityService. */
+    @PostMapping("/api/attempts/{id}/integrity-events")
+    public ResponseEntity<IntegrityEventBatchResponse> recordIntegrityEvents(@PathVariable Long id,
+                                                                               @Valid @RequestBody RecordIntegrityEventsRequest request,
+                                                                               @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(attemptIntegrityService.recordEvents(AttemptType.EXERCISE, id, request, actor.userId()));
+    }
+
+    /** Giáo viên xem tổng hợp vi phạm của 1 lượt làm bài khi chấm. */
+    @PreAuthorize("hasPermission(null, 'lms.grading.manage')")
+    @GetMapping("/api/attempts/{id}/integrity-summary")
+    public ResponseEntity<IntegritySummaryResponse> getIntegritySummary(@PathVariable Long id) {
+        return ResponseEntity.ok(attemptIntegrityService.getSummary(AttemptType.EXERCISE, id));
     }
 }

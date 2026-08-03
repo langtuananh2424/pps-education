@@ -113,7 +113,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         Site site = newSite();
         schoolClass = classService.create(
                 new CreateClassRequest(classCode(), "8A2", site.getId(), activeCurriculum.id(), "OPEN", 20, null,
-                        LocalDate.now(), null, null, null), headAcademic.getId());
+                        LocalDate.now(), null, null), headAcademic.getId());
 
         teacher = newUser("teacher");
         assignRole(teacher, "TEACHER");
@@ -448,7 +448,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         Student student = enrollStudent(schoolClass.id());
 
         ReviewVideoSubmissionResponse submission = reviewVideoService.submitQuestionAudio(question.id(),
-                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/lms/review-video-submissions/audio/a.mp3"),
+                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/lms/review-video-submissions/audio/a.mp3", null),
                 student.getUser().getId());
 
         assertThat(submission.audioUrl()).isEqualTo("https://media.pps.edu.vn/lms/review-video-submissions/audio/a.mp3");
@@ -466,7 +466,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         newStudent(outsiderStudentUser);
 
         assertThatThrownBy(() -> reviewVideoService.submitQuestionAudio(question.id(),
-                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/a.mp3"), outsiderStudentUser.getId()))
+                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/a.mp3", null), outsiderStudentUser.getId()))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 
@@ -476,12 +476,12 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         ReviewVideoQuestionResponse question = addQuestion(video.id(), 53, 15, null);
         Student student = enrollStudent(schoolClass.id());
         ReviewVideoSubmissionResponse first = reviewVideoService.submitQuestionAudio(question.id(),
-                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/first.mp3"), student.getUser().getId());
+                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/first.mp3", null), student.getUser().getId());
         reviewVideoService.gradeSubmission(first.id(),
                 new GradeReviewVideoSubmissionRequest(new BigDecimal("8.00"), new BigDecimal("10.00"), "Tốt"), teacher.getId());
 
         ReviewVideoSubmissionResponse second = reviewVideoService.submitQuestionAudio(question.id(),
-                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/second.mp3"), student.getUser().getId());
+                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/second.mp3", null), student.getUser().getId());
 
         assertThat(second.id()).isNotEqualTo(first.id());
         assertThat(second.attemptNumber()).isEqualTo(2);
@@ -500,10 +500,10 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         ReviewVideoQuestionResponse question = addQuestion(video.id(), 53, 15, 1);
         Student student = enrollStudent(schoolClass.id());
         reviewVideoService.submitQuestionAudio(question.id(),
-                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/first.mp3"), student.getUser().getId());
+                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/first.mp3", null), student.getUser().getId());
 
         assertThatThrownBy(() -> reviewVideoService.submitQuestionAudio(question.id(),
-                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/second.mp3"), student.getUser().getId()))
+                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/second.mp3", null), student.getUser().getId()))
                 .isInstanceOf(RetakeNotAllowedException.class);
     }
 
@@ -513,9 +513,9 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         ReviewVideoQuestionResponse question = addQuestion(video.id(), 53, 15, null);
         Student student = enrollStudent(schoolClass.id());
         reviewVideoService.submitQuestionAudio(question.id(),
-                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/first.mp3"), student.getUser().getId());
+                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/first.mp3", null), student.getUser().getId());
         reviewVideoService.submitQuestionAudio(question.id(),
-                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/second.mp3"), student.getUser().getId());
+                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/second.mp3", null), student.getUser().getId());
 
         ReviewVideoSubmissionResponse mine = reviewVideoService.getMyLatestSubmission(question.id(), student.getUser().getId());
 
@@ -553,9 +553,9 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         Student submitted = enrollStudent(schoolClass.id());
         Student notSubmitted = enrollStudent(schoolClass.id());
         reviewVideoService.submitQuestionAudio(question.id(),
-                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/first.mp3"), submitted.getUser().getId());
+                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/first.mp3", null), submitted.getUser().getId());
         reviewVideoService.submitQuestionAudio(question.id(),
-                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/second.mp3"), submitted.getUser().getId());
+                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/second.mp3", null), submitted.getUser().getId());
 
         List<ReviewVideoSubmissionResponse> submissions = reviewVideoService.listSubmissionsForTeacher(setId, schoolClass.id(), teacher.getId());
 
@@ -582,7 +582,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         ReviewVideoQuestionResponse question = addQuestion(video.id(), 53, 15, null);
         Student student = enrollStudent(schoolClass.id());
         ReviewVideoSubmissionResponse submission = reviewVideoService.submitQuestionAudio(question.id(),
-                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/a.mp3"), student.getUser().getId());
+                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/a.mp3", null), student.getUser().getId());
 
         ReviewVideoSubmissionResponse graded = reviewVideoService.gradeSubmission(submission.id(),
                 new GradeReviewVideoSubmissionRequest(new BigDecimal("8.50"), new BigDecimal("10.00"), "Phát âm tốt"),
@@ -601,7 +601,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         ReviewVideoQuestionResponse question = addQuestion(video.id(), 53, 15, null);
         Student student = enrollStudent(schoolClass.id());
         ReviewVideoSubmissionResponse submission = reviewVideoService.submitQuestionAudio(question.id(),
-                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/a.mp3"), student.getUser().getId());
+                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/a.mp3", null), student.getUser().getId());
         User outsider = newUser("outsider.grade");
         assignRole(outsider, "TEACHER");
 
@@ -631,7 +631,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         Student student = enrollStudent(schoolClass.id());
         // Buổi 3: học sinh đã nộp và được chấm xong.
         ReviewVideoSubmissionResponse oldSubmission = reviewVideoService.submitQuestionAudio(question.id(),
-                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/old.mp3"), student.getUser().getId());
+                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/old.mp3", null), student.getUser().getId());
         reviewVideoService.gradeSubmission(oldSubmission.id(),
                 new GradeReviewVideoSubmissionRequest(new BigDecimal("9.00"), new BigDecimal("10.00"), "Tốt"), teacher.getId());
 
@@ -653,17 +653,17 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         ReviewVideoQuestionResponse question = addQuestion(video.id(), 53, 15, 1);
         Student student = enrollStudent(schoolClass.id());
         reviewVideoService.submitQuestionAudio(question.id(),
-                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/old.mp3"), student.getUser().getId());
+                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/old.mp3", null), student.getUser().getId());
         // Đã hết lượt (maxAttempts=1) ở lượt giao cũ.
         assertThatThrownBy(() -> reviewVideoService.submitQuestionAudio(question.id(),
-                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/old2.mp3"), student.getUser().getId()))
+                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/old2.mp3", null), student.getUser().getId()))
                 .isInstanceOf(RetakeNotAllowedException.class);
 
         // Redeliver ở buổi KHÁC (dueAt khác) — V70 chỉ tái dùng khi dueAt trùng (cùng 1 đợt gửi).
         reviewVideoService.deliverToClass(video.reviewVideoSetId(), schoolClass.id(), OffsetDateTime.now().plusDays(7), teacher.getId());
 
         ReviewVideoSubmissionResponse afterRedeliver = reviewVideoService.submitQuestionAudio(question.id(),
-                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/new.mp3"), student.getUser().getId());
+                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/new.mp3", null), student.getUser().getId());
         assertThat(afterRedeliver.attemptNumber()).isEqualTo(1);
     }
 
