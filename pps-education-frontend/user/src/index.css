@@ -753,3 +753,31 @@ h1.headline .accent {
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+/* Popup cảnh báo tức thời khi phát hiện học sinh thoát ra ngoài lúc làm bài (useIntegrityMonitor) —
+   tự hiện rồi tự mờ dần, không cần học sinh bấm tắt. */
+@keyframes alert-pop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -12px) scale(0.95);
+  }
+
+  8% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+
+  88% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -8px) scale(0.97);
+  }
+}
+
+.animate-alert-pop {
+  animation: alert-pop 3.5s ease-in-out forwards;
+}
