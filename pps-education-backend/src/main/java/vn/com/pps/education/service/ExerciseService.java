@@ -1,7 +1,11 @@
 package vn.com.pps.education.service;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import vn.com.pps.education.domain.ClassEnrollment;
 import vn.com.pps.education.domain.CurriculumSubject;
 import vn.com.pps.education.domain.Exam;
@@ -88,6 +92,9 @@ public class ExerciseService {
     private final StudentRepository studentRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    /** V71: xem Javadoc tương tự ở ReviewVideoService — chạy riêng 1 giao dịch lồng khi thử tạo bản
+     * giao, để race thua (bắt DataIntegrityViolationException) chỉ rollback đúng giao dịch con này. */
+    private final TransactionTemplate requiresNewTransactionTemplate;
 
     public ExerciseService(ExerciseRepository exerciseRepository,
                             ExerciseQuestionRepository exerciseQuestionRepository,
@@ -102,7 +109,8 @@ public class ExerciseService {
                             ClassEnrollmentRepository classEnrollmentRepository,
                             StudentRepository studentRepository,
                             UserRepository userRepository,
-                            NotificationService notificationService) {
+                            NotificationService notificationService,
+                            PlatformTransactionManager transactionManager) {
         this.exerciseRepository = exerciseRepository;
         this.exerciseQuestionRepository = exerciseQuestionRepository;
         this.exerciseAssignmentRepository = exerciseAssignmentRepository;
@@ -117,6 +125,8 @@ public class ExerciseService {
         this.studentRepository = studentRepository;
         this.userRepository = userRepository;
         this.notificationService = notificationService;
+        this.requiresNewTransactionTemplate = new TransactionTemplate(transactionManager);
+        this.requiresNewTransactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
 
     /** Main Flow bước 2: soạn Bài (DRAFT) trong 1 Đề, chọn loại SELF_PRACTICE/ASSIGNED/... */
@@ -263,6 +273,15 @@ public class ExerciseService {
      * CÙNG 1 đợt gửi — tái dùng nguyên bản ghi đó, KHÔNG tạo mới, KHÔNG
      * gọi lại notifyAssignedStudents (tránh N thông báo giống hệt nhau
      * cho toàn bộ học sinh lớp). Mirror ReviewVideoService#deliverToClass.
+     *
+     * V71 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-03,
+     * fix race condition của chính cơ chế chống trùng V70): xem Javadoc
+     * chi tiết ở ReviewVideoService#deliverToClass — check-rồi-insert ở
+     * tầng ứng dụng KHÔNG atomic, đã tái hiện thực tế 2 request đồng thời
+     * cùng tạo được 2 bản giao trùng. UNIQUE index DB (exercise_id,
+     * class_id, due_at) WHERE status='ACTIVE' làm chốt chặn cuối cùng;
+     * INSERT chạy trong giao dịch lồng PROPAGATION_REQUIRES_NEW để thua
+     * race chỉ rollback giao dịch con, không kéo theo giao dịch ngoài.
      */
     @Transactional
     public ExerciseAssignment deliverToClass(Long exerciseId, Long classId, OffsetDateTime dueAt, Long actorUserId) {
@@ -282,12 +301,24 @@ public class ExerciseService {
             return sameSession.get();
         }
 
-        ExerciseAssignment assignment = new ExerciseAssignment();
-        assignment.setExercise(exercise);
-        assignment.setSchoolClass(schoolClass);
-        assignment.setAssignedBy(actor);
-        assignment.setDueAt(dueAt);
-        assignment = exerciseAssignmentRepository.save(assignment);
+        ExerciseAssignment assignment;
+        try {
+            assignment = requiresNewTransactionTemplate.execute(status -> {
+                ExerciseAssignment a = new ExerciseAssignment();
+                a.setExercise(exercise);
+                a.setSchoolClass(schoolClass);
+                a.setAssignedBy(actor);
+                a.setDueAt(dueAt);
+                return exerciseAssignmentRepository.saveAndFlush(a);
+            });
+        } catch (DataIntegrityViolationException e) {
+            // Race condition (V71) — xem Javadoc ReviewVideoService#deliverToClass. Đọc lại bản ghi đã
+            // thắng, KHÔNG tạo mới/không báo lại.
+            return exerciseAssignmentRepository
+                    .findByExerciseIdAndSchoolClassIdAndStatus(exerciseId, classId, ExerciseAssignment.Status.ACTIVE)
+                    .stream().filter(a -> Objects.equals(a.getDueAt(), dueAt)).findFirst()
+                    .orElseThrow(() -> e);
+        }
 
         exercise.setStatus(Exercise.Status.PUBLISHED);
         exerciseRepository.save(exercise);
