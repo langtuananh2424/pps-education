@@ -1,7 +1,11 @@
 package vn.com.pps.education.service;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import vn.com.pps.education.domain.AttemptIntegrityEvent;
 import vn.com.pps.education.domain.ClassEnrollment;
 import vn.com.pps.education.domain.Curriculum;
@@ -110,6 +114,10 @@ public class ReviewVideoService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final AttemptIntegrityService attemptIntegrityService;
+    /** V71: chạy riêng 1 giao dịch lồng (PROPAGATION_REQUIRES_NEW) khi thử tạo bản giao — race thua (bắt
+     * DataIntegrityViolationException do UNIQUE index) chỉ rollback đúng giao dịch con này, không kéo
+     * theo giao dịch ngoài (đang cần đọc lại bản ghi đã thắng) — xem Javadoc deliverToClass. */
+    private final TransactionTemplate requiresNewTransactionTemplate;
 
     public ReviewVideoService(ReviewVideoSetRepository reviewVideoSetRepository,
                                ReviewVideoRepository reviewVideoRepository,
@@ -127,7 +135,8 @@ public class ReviewVideoService {
                                StudentRepository studentRepository,
                                UserRepository userRepository,
                                NotificationService notificationService,
-                               AttemptIntegrityService attemptIntegrityService) {
+                               AttemptIntegrityService attemptIntegrityService,
+                               PlatformTransactionManager transactionManager) {
         this.reviewVideoSetRepository = reviewVideoSetRepository;
         this.reviewVideoRepository = reviewVideoRepository;
         this.reviewVideoSetHistoryRepository = reviewVideoSetHistoryRepository;
@@ -145,6 +154,8 @@ public class ReviewVideoService {
         this.userRepository = userRepository;
         this.notificationService = notificationService;
         this.attemptIntegrityService = attemptIntegrityService;
+        this.requiresNewTransactionTemplate = new TransactionTemplate(transactionManager);
+        this.requiresNewTransactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
 
     /** UC-23 Main Flow bước 1: tạo bộ mới (metadata), gán vào khung chương trình hoặc lớp cụ thể. */
@@ -275,6 +286,20 @@ public class ReviewVideoService {
      * KHÁC (dueAt sẽ khác) — tái dùng nguyên bản ghi đó, KHÔNG tạo mới,
      * KHÔNG gọi lại notifyAssignedStudents (tránh N thông báo giống hệt
      * nhau cho toàn bộ học sinh lớp).
+     *
+     * V71 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-03,
+     * fix race condition của chính cơ chế chống trùng V70): check-rồi-
+     * insert ở tầng ứng dụng KHÔNG atomic — 2 request tới gần như đồng
+     * thời có thể cùng thấy "chưa có bản giao" (bước check) TRƯỚC KHI 1
+     * trong 2 kịp INSERT xong, dẫn tới vẫn tạo ra 2 bản giao + 2 thông báo
+     * trùng (đã tái hiện thực tế). Thêm UNIQUE index DB
+     * (review_video_set_id, class_id, due_at) WHERE status='ACTIVE' làm
+     * chốt chặn cuối cùng — INSERT chạy trong giao dịch lồng
+     * PROPAGATION_REQUIRES_NEW để nếu thua race (bắt
+     * DataIntegrityViolationException do vi phạm UNIQUE) chỉ giao dịch
+     * con rollback, giao dịch ngoài (đang cancel bản giao cũ) không bị
+     * kéo theo — sau đó đọc lại bản ghi đã thắng, KHÔNG tạo mới/không báo
+     * lại đúng như tinh thần V70.
      */
     @Transactional
     public ReviewVideoAssignment deliverToClass(Long setId, Long classId, OffsetDateTime dueAt, Long actorUserId) {
@@ -300,12 +325,27 @@ public class ReviewVideoService {
         }
         activeForSetAndClass.forEach(this::cancelAssignment);
 
-        ReviewVideoAssignment assignment = new ReviewVideoAssignment();
-        assignment.setReviewVideoSet(set);
-        assignment.setSchoolClass(schoolClass);
-        assignment.setAssignedBy(actor);
-        assignment.setDueAt(dueAt);
-        assignment = reviewVideoAssignmentRepository.save(assignment);
+        ReviewVideoAssignment assignment;
+        try {
+            assignment = requiresNewTransactionTemplate.execute(status -> {
+                ReviewVideoAssignment a = new ReviewVideoAssignment();
+                a.setReviewVideoSet(set);
+                a.setSchoolClass(schoolClass);
+                a.setAssignedBy(actor);
+                a.setDueAt(dueAt);
+                return reviewVideoAssignmentRepository.saveAndFlush(a);
+            });
+        } catch (DataIntegrityViolationException e) {
+            // Race condition (V71): request khác đã tạo xong bản giao ACTIVE trùng (setId, classId, dueAt)
+            // trong lúc request này đang xử lý — "Gửi nhận xét" hàng loạt cho nhiều học sinh CÙNG buổi,
+            // CÙNG chọn 1 nguồn gửi N request đồng thời (Promise.allSettled ở FE). Chạy trong giao dịch
+            // lồng REQUIRES_NEW để chỉ giao dịch con này rollback khi thua race (UNIQUE index chặn), giao
+            // dịch ngoài không bị ảnh hưởng — đọc lại bản ghi đã thắng, KHÔNG tạo mới/không báo lại.
+            return reviewVideoAssignmentRepository
+                    .findByReviewVideoSetIdAndSchoolClassIdAndStatus(set.getId(), schoolClass.getId(), ReviewVideoAssignment.Status.ACTIVE)
+                    .stream().filter(a -> Objects.equals(a.getDueAt(), dueAt)).findFirst()
+                    .orElseThrow(() -> e);
+        }
 
         notifyAssignedStudents(schoolClass, set, assignment);
         return assignment;

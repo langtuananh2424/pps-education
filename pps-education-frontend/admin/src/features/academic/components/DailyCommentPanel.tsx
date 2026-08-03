@@ -86,6 +86,24 @@ const attitudeLabels: Record<NonNullable<StudentCommentResponse["attitude"]>, st
   GOOD: "Tốt"
 };
 
+/**
+ * Ô hiện "BTVN buổi trước" cho dòng ĐÃ GỬI (locked) — ưu tiên % TỰ ĐỘNG (grammarPreviousProgress/
+ * videoPreviousProgress, backend tính từ exercise_attempts/review_video_progress|submissions thật —
+ * xem HomeworkProgressService), chỉ fallback về giá trị nhập tay khi tự động = null (VD BTVN Ngữ pháp
+ * giao Offline thì không có gì để tự tính, video luôn Online nên hầu như luôn có % tự động).
+ */
+function PreviousProgressCell({ auto, manual }: { auto: string | null; manual: string | null }) {
+  if (auto) {
+    return (
+      <div className={`${readOnlyFieldClass} flex items-center justify-between gap-1.5`}>
+        <span>{auto}</span>
+        <span className="text-[9px] font-bold text-emerald-600 uppercase tracking-wide shrink-0">Tự động</span>
+      </div>
+    );
+  }
+  return <div className={readOnlyFieldClass}>{manual || "—"}</div>;
+}
+
 /** UC-21 Main Flow (nhánh DAILY): viết nhận xét hàng ngày theo buổi học — cùng khuôn thao tác với Điểm danh nhanh. */
 export default function DailyCommentPanel() {
   const { selectedClassId } = useApp();
@@ -298,8 +316,11 @@ export default function DailyCommentPanel() {
           return {
             ...r,
             attitude: draft.attitude ?? "",
-            homeworkPreviousScore: draft.homeworkPreviousScore ?? "",
-            homeworkPreviousSpeakingScore: draft.homeworkPreviousSpeakingScore ?? "",
+            // Ưu tiên % TỰ ĐỘNG (grammarPreviousProgress/videoPreviousProgress, BE đã tính sẵn) khi mở
+            // lại 1 nhận xét DRAFT/REJECTED — chỉ fallback về giá trị nhập tay cũ khi tự động = null
+            // (VD giao Offline). Vẫn là input thường, GV có thể sửa đè trước khi Gửi.
+            homeworkPreviousScore: draft.grammarPreviousProgress ?? draft.homeworkPreviousScore ?? "",
+            homeworkPreviousSpeakingScore: draft.videoPreviousProgress ?? draft.homeworkPreviousSpeakingScore ?? "",
             content: draft.content ?? "",
             grammarMode: draft.homeworkNextExerciseAssignmentId != null ? "ONLINE" : "OFFLINE",
             homeworkNext: draft.homeworkNext ?? "",
@@ -665,24 +686,24 @@ export default function DailyCommentPanel() {
                     </Td>
                     <Td className="min-w-[150px]">
                       {locked ? (
-                        <div className={readOnlyFieldClass}>{sent!.homeworkPreviousScore || "—"}</div>
+                        <PreviousProgressCell auto={sent!.grammarPreviousProgress} manual={sent!.homeworkPreviousScore} />
                       ) : (
                         <input
                           value={r.homeworkPreviousScore}
                           onChange={(e) => updateRow({ homeworkPreviousScore: e.target.value })}
-                          placeholder="VD: Đã thực hiện 90%"
+                          placeholder="VD: Đã thực hiện 90% (chỉ cần điền tay nếu buổi trước giao Offline)"
                           className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
                         />
                       )}
                     </Td>
                     <Td className="min-w-[150px]">
                       {locked ? (
-                        <div className={readOnlyFieldClass}>{sent!.homeworkPreviousSpeakingScore || "—"}</div>
+                        <PreviousProgressCell auto={sent!.videoPreviousProgress} manual={sent!.homeworkPreviousSpeakingScore} />
                       ) : (
                         <input
                           value={r.homeworkPreviousSpeakingScore}
                           onChange={(e) => updateRow({ homeworkPreviousSpeakingScore: e.target.value })}
-                          placeholder="VD: Đã thực hiện 85%"
+                          placeholder="VD: Đã thực hiện 85% (kênh Video luôn Online — % tự động sẽ hiện sau khi Gửi)"
                           className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
                         />
                       )}
