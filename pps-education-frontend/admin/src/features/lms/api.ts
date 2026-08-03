@@ -44,6 +44,11 @@ export function createQuestionBank(request: CreateQuestionBankRequest): Promise<
   return apiRequest<QuestionBankResponse>("/question-banks", { method: "POST", body: JSON.stringify(request) });
 }
 
+/** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-03 — ẩn/kích hoạt lại CẢ 1 ngân hàng câu hỏi (khác archive từng câu hỏi riêng lẻ đã có sẵn). */
+export function updateQuestionBankStatus(id: number, isActive: boolean): Promise<QuestionBankResponse> {
+  return apiRequest<QuestionBankResponse>(`/question-banks/${id}/status`, { method: "PUT", body: JSON.stringify({ isActive }) });
+}
+
 // ===================== Câu hỏi =====================
 
 /** Khớp Question.QuestionType thật — 6 loại, không phải 3 (choices chỉ bắt buộc với 3 loại trắc nghiệm/đúng-sai đầu). */

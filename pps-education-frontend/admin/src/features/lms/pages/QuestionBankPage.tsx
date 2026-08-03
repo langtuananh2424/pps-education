@@ -25,7 +25,8 @@ import {
   createQuestionBank,
   listQuestionBanksByCurriculum,
   listQuestions,
-  updateQuestion
+  updateQuestion,
+  updateQuestionBankStatus
 } from "../api";
 import QuestionEditorForm from "../components/QuestionEditorForm";
 import QuestionImportPanel from "../components/QuestionImportPanel";
@@ -72,6 +73,10 @@ export default function QuestionBankPage() {
   const canManage = hasPermission("lms.question-bank.create") || hasPermission("lms.question-bank.update");
 
   const [rows, setRows] = useState<FlatQuestionRow[]>([]);
+  // Danh sách ngân hàng kèm khung chương trình — tách riêng khỏi `rows` (vốn chỉ có bank của những câu
+  // hỏi đang tồn tại) vì cần hiện được cả ngân hàng CHƯA có câu hỏi nào để quản lý/ẩn (2026-08-03).
+  const [allBanks, setAllBanks] = useState<{ bank: QuestionBankResponse; curriculum: CurriculumResponse }[]>([]);
+  const [showManageBanksModal, setShowManageBanksModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -101,10 +106,11 @@ export default function QuestionBankPage() {
                 return questions.map((question) => ({ question, bank, curriculum }));
               })
             );
-            return perBank.flat();
+            return { rows: perBank.flat(), banks: banks.map((bank) => ({ bank, curriculum })) };
           })
         );
-        setRows(perCurriculum.flat());
+        setRows(perCurriculum.flatMap((x) => x.rows));
+        setAllBanks(perCurriculum.flatMap((x) => x.banks));
       })
       .catch(() => setError("Không tải được ngân hàng câu hỏi."))
       .finally(() => setLoading(false));
@@ -190,6 +196,10 @@ export default function QuestionBankPage() {
         </div>
         {canManage && (
           <div className="flex items-center gap-2">
+            <Button variant="secondary" size="sm" onClick={() => setShowManageBanksModal(true)}>
+              <Archive className="w-3.5 h-3.5" />
+              Quản lý ngân hàng
+            </Button>
             <Button variant="secondary" size="sm" onClick={() => setShowImportModal(true)}>
               <UploadCloud className="w-3.5 h-3.5" />
               Nhập câu hỏi hàng loạt
@@ -424,6 +434,18 @@ export default function QuestionBankPage() {
           onImported={(count) => {
             loadAll();
             showToast(`Đã nhập ${count} câu hỏi thành công!`);
+          }}
+        />
+      )}
+
+      {showManageBanksModal && (
+        <ManageBanksModal
+          banks={allBanks}
+          onClose={() => setShowManageBanksModal(false)}
+          onChanged={(updated) => {
+            setAllBanks((prev) => prev.map((x) => (x.bank.id === updated.id ? { ...x, bank: updated } : x)));
+            setRows((prev) => prev.map((r) => (r.bank.id === updated.id ? { ...r, bank: updated } : r)));
+            showToast(updated.isActive ? "Đã kích hoạt lại ngân hàng câu hỏi!" : "Đã ẩn ngân hàng câu hỏi!");
           }}
         />
       )}
@@ -739,6 +761,77 @@ function ImportQuestionsModal({ onClose, onImported }: { onClose: () => void; on
             <QuestionImportPanel bankId={bankId} onImported={(created) => onImported(created.length)} />
           ) : (
             <p className="text-xs text-slate-400 italic py-4 text-center">Chọn 1 ngân hàng để bắt đầu nhập câu hỏi.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-03 — ẩn/kích hoạt lại CẢ 1 ngân hàng câu
+ * hỏi (khác nút "Ẩn câu hỏi" đã có sẵn, vốn chỉ tác động 1 câu hỏi riêng lẻ). Ẩn 1 ngân hàng không xóa
+ * câu hỏi bên trong — chỉ để ngân hàng đó không còn hiện lên dropdown chọn nguồn khi soạn câu hỏi/đề mới. */
+function ManageBanksModal({
+  banks,
+  onClose,
+  onChanged
+}: {
+  banks: { bank: QuestionBankResponse; curriculum: CurriculumResponse }[];
+  onClose: () => void;
+  onChanged: (bank: QuestionBankResponse) => void;
+}) {
+  const [error, setError] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<number | null>(null);
+
+  const handleToggle = async (bank: QuestionBankResponse) => {
+    setTogglingId(bank.id);
+    setError(null);
+    try {
+      const updated = await updateQuestionBankStatus(bank.id, !bank.isActive);
+      onChanged(updated);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Cập nhật trạng thái ngân hàng thất bại.");
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs" onClick={onClose} />
+      <div className="relative w-full max-w-xl max-h-[85vh] overflow-y-auto bg-white rounded-2xl border border-slate-200 shadow-xl">
+        <div className="sticky top-0 bg-white px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+          <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+            <Archive className="w-4 h-4 text-brand-red" />
+            Quản lý ngân hàng câu hỏi
+          </h3>
+          <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="p-6 space-y-2">
+          {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-2">{error}</div>}
+          {banks.length === 0 ? (
+            <p className="text-xs text-slate-400 italic text-center py-6">Chưa có ngân hàng câu hỏi nào.</p>
+          ) : (
+            banks.map(({ bank, curriculum }) => (
+              <div key={bank.id} className="border border-slate-200 rounded-lg p-3 flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-xs font-bold text-slate-800">{bank.name}</p>
+                  <p className="text-[10px] text-slate-400 font-mono mt-0.5">
+                    {bank.code} · {curriculum.code} — {curriculum.name}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant={bank.isActive ? "secondary" : "primary"}
+                  disabled={togglingId === bank.id}
+                  onClick={() => handleToggle(bank)}
+                >
+                  {togglingId === bank.id ? "Đang lưu..." : bank.isActive ? "Ẩn ngân hàng" : "Kích hoạt lại"}
+                </Button>
+              </div>
+            ))
           )}
         </div>
       </div>

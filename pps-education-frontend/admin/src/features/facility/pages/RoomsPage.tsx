@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Plus, Wrench } from "lucide-react";
+import { Pencil, Plus, Wrench } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import {
@@ -11,6 +11,7 @@ import {
   RoomStatus,
   RoomType,
   SiteResponse,
+  UpdateRoomRequest,
   createEquipment,
   createRoom,
   listEquipmentByRoom,
@@ -48,6 +49,7 @@ export default function RoomsPage() {
   const [error, setError] = useState<string | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [equipmentRoom, setEquipmentRoom] = useState<RoomResponse | null>(null);
+  const [editingRoom, setEditingRoom] = useState<RoomResponse | null>(null);
   const { message: toastMessage, showToast } = useToast();
 
   const siteName = (id: number) => sites.find((s) => s.id === id)?.name ?? `Site #${id}`;
@@ -134,10 +136,15 @@ export default function RoomsPage() {
                   </div>
                 </div>
 
-                <div className="border-t border-slate-100 pt-3 flex items-center justify-between gap-2">
-                  <button onClick={() => setEquipmentRoom(room)} className="text-[10px] font-bold text-slate-500 hover:text-brand-orange flex items-center gap-1">
-                    <Wrench className="w-3 h-3" /> Thiết bị
-                  </button>
+                <div className="border-t border-slate-100 pt-3 flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2.5">
+                    <button onClick={() => setEditingRoom(room)} className="text-[10px] font-bold text-slate-500 hover:text-brand-orange flex items-center gap-1">
+                      <Pencil className="w-3 h-3" /> Sửa
+                    </button>
+                    <button onClick={() => setEquipmentRoom(room)} className="text-[10px] font-bold text-slate-500 hover:text-brand-orange flex items-center gap-1">
+                      <Wrench className="w-3 h-3" /> Thiết bị
+                    </button>
+                  </div>
                   <button
                     onClick={() => handleToggleFlexibility(room)}
                     className={cn("px-3 py-1 rounded text-[10px] font-bold transition-all", room.flexible ? "bg-brand-gradient text-white shadow-soft" : "bg-slate-100 text-slate-600 hover:bg-slate-200")}
@@ -165,6 +172,18 @@ export default function RoomsPage() {
       )}
 
       {equipmentRoom && <EquipmentModal room={equipmentRoom} onClose={() => setEquipmentRoom(null)} />}
+
+      {editingRoom && (
+        <EditRoomModal
+          room={editingRoom}
+          onClose={() => setEditingRoom(null)}
+          onUpdated={(updated) => {
+            setRooms((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+            setEditingRoom(null);
+            showToast("Đã cập nhật phòng học thành công!");
+          }}
+        />
+      )}
 
       <Toast message={toastMessage} />
     </div>
@@ -277,6 +296,101 @@ function CreateRoomModal({
           </Button>
           <Button type="submit" variant="primary" disabled={submitting}>
             {submitting ? "Đang lưu..." : "Tạo phòng học"}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+function EditRoomModal({ room, onClose, onUpdated }: { room: RoomResponse; onClose: () => void; onUpdated: (room: RoomResponse) => void }) {
+  const [form, setForm] = useState({
+    name: room.name,
+    capacity: String(room.capacity),
+    flexible: room.flexible,
+    managedByCenter: room.managedByCenter,
+    status: room.status as RoomStatus,
+    notes: room.notes ?? ""
+  });
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.capacity) {
+      setError("Vui lòng điền sức chứa.");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      const request: UpdateRoomRequest = {
+        name: form.name.trim() || undefined,
+        capacity: Number(form.capacity),
+        flexible: form.flexible,
+        managedByCenter: form.managedByCenter,
+        status: form.status,
+        notes: form.notes.trim() || undefined
+      };
+      const updated = await updateRoom(room.id, request);
+      onUpdated(updated);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Cập nhật phòng học thất bại.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Modal open onClose={onClose} title={`Sửa phòng học — ${room.code}`} size="lg">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className={labelClass}>Tên phòng</label>
+            <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="VD: Phòng 201 (Lý thuyết)" className={inputClass} />
+          </div>
+          <div>
+            <label className={labelClass}>Sức chứa *</label>
+            <input type="number" min={1} value={form.capacity} onChange={(e) => setForm({ ...form, capacity: e.target.value })} className={inputClass} required />
+          </div>
+        </div>
+        <div>
+          <label className={labelClass}>Trạng thái *</label>
+          <Select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as RoomStatus })} className={inputClass}>
+            {Object.entries(roomStatusLabels).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div>
+          <label className={labelClass}>Ghi chú</label>
+          <textarea
+            value={form.notes}
+            onChange={(e) => setForm({ ...form, notes: e.target.value })}
+            rows={2}
+            className={inputClass}
+            placeholder="VD: Đang chờ sửa điều hòa"
+          />
+        </div>
+        <div className="flex gap-4">
+          <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+            <input type="checkbox" checked={form.flexible} onChange={(e) => setForm({ ...form, flexible: e.target.checked })} />
+            Phòng linh hoạt (loại khỏi kiểm tra trùng giờ)
+          </label>
+          <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+            <input type="checkbox" checked={form.managedByCenter} onChange={(e) => setForm({ ...form, managedByCenter: e.target.checked })} />
+            Trung tâm quản lý phòng này
+          </label>
+        </div>
+        <div className="flex justify-end gap-2 pt-2">
+          <Button type="button" variant="secondary" onClick={onClose}>
+            Hủy
+          </Button>
+          <Button type="submit" variant="primary" disabled={submitting}>
+            {submitting ? "Đang lưu..." : "Lưu thay đổi"}
           </Button>
         </div>
       </form>

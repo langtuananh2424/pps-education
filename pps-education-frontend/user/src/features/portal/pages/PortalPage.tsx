@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Calendar, ClipboardList, CreditCard, FolderOpen, Home, LogOut, Award, NotebookPen, School, Users, Menu, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
-import { ChildResponse, listClassOptions, listMyChildren, PortalClassOptionResponse } from "../api";
+import { ChildResponse, getMyStudentProfile, listClassOptions, listMyChildren, PortalClassOptionResponse } from "../api";
 import HomeTab from "../components/HomeTab";
 import PortalDropdown from "../components/PortalDropdown";
 import ScheduleTab from "../components/ScheduleTab";
@@ -48,6 +48,11 @@ export default function PortalPage() {
   const [loading, setLoading] = useState(true);
   const [profileOpen, setProfileOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  // Ảnh đại diện (UC-63) hiện ở avatar Header — trước đây chỉ ProfileModal tự fetch/tự giữ state
+  // riêng, nên đổi ảnh xong đóng modal ra ngoài Header vẫn thấy chữ cái thay vì ảnh vừa tải lên (đã
+  // báo lỗi 2026-08-03). Chỉ áp dụng khi Học sinh tự xem (isStudent) — Phụ huynh xem con thì
+  // ChildResponse chưa có portraitUrl, giữ chữ cái như cũ.
+  const [viewerPortraitUrl, setViewerPortraitUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (isParent) {
@@ -67,6 +72,13 @@ export default function PortalPage() {
     }
     setLoading(false);
   }, [isParent, isStudent, currentUser]);
+
+  useEffect(() => {
+    if (!isStudent) return;
+    getMyStudentProfile()
+      .then((p) => setViewerPortraitUrl(p.portraitUrl))
+      .catch(() => undefined);
+  }, [isStudent]);
 
   useEffect(() => {
     setSelectedClassId(null);
@@ -141,8 +153,12 @@ export default function PortalPage() {
                 avatar (bấm mở hồ sơ), giống mẫu tham khảo người dùng gửi, thay vì để trống hẳn. */}
             {hasMobileDrawer && selectedChildId && (
               <button onClick={() => setProfileOpen(true)} className="flex lg:hidden items-center gap-2.5 min-w-0">
-                <div className="w-9 h-9 rounded-full bg-white/20 border border-white/30 flex items-center justify-center text-white font-extrabold text-xs shrink-0">
-                  {(viewerName || "?").charAt(0).toUpperCase()}
+                <div className="w-9 h-9 rounded-full bg-white/20 border border-white/30 flex items-center justify-center text-white font-extrabold text-xs shrink-0 overflow-hidden">
+                  {viewerPortraitUrl ? (
+                    <img src={viewerPortraitUrl} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    (viewerName || "?").charAt(0).toUpperCase()
+                  )}
                 </div>
                 <div className="text-left leading-tight min-w-0">
                   <div className="text-[11px] text-white/75 font-bold">Chào mừng,</div>
@@ -161,8 +177,12 @@ export default function PortalPage() {
                 onClick={() => setProfileOpen(true)}
                 className="hidden lg:flex items-center gap-2.5 pl-2 pr-3.5 py-1.5 bg-sky-2 hover:bg-sky border border-line rounded-[16px] transition-colors"
               >
-                <div className="w-7 h-7 rounded-full bg-teal/15 border border-teal/30 flex items-center justify-center text-teal-deep font-extrabold text-xs shrink-0">
-                  {(viewerName || "?").charAt(0).toUpperCase()}
+                <div className="w-7 h-7 rounded-full bg-teal/15 border border-teal/30 flex items-center justify-center text-teal-deep font-extrabold text-xs shrink-0 overflow-hidden">
+                  {viewerPortraitUrl ? (
+                    <img src={viewerPortraitUrl} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    (viewerName || "?").charAt(0).toUpperCase()
+                  )}
                 </div>
                 <div className="text-left leading-tight">
                   <div className="text-[9px] text-muted font-extrabold uppercase tracking-wide">
@@ -198,6 +218,7 @@ export default function PortalPage() {
           isStudent={isStudent}
           isParent={isParent}
           onClose={() => setProfileOpen(false)}
+          onPortraitUpdated={isStudent ? setViewerPortraitUrl : undefined}
         />
       )}
 

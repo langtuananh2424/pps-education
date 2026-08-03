@@ -140,6 +140,13 @@ export default function DailyCommentPanel() {
   // xét DAILY (backend chặn 422 nếu trống), nên đặt ngay đầu màn hình để giáo viên điền trước tiên.
   const [lessonContentInput, setLessonContentInput] = useState("");
   const [savingLessonContent, setSavingLessonContent] = useState(false);
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-03 — trước đây bấm "Gửi nhận xét" khi
+  // quên điền Bài học hôm nay vẫn cứ gửi lên backend, bị từ chối rồi báo lỗi qua banner đen tự ẩn sau
+  // vài giây (dễ bỏ lỡ) + xóa sạch nội dung đang gõ dở trên các dòng học sinh (loadHistory tải lại).
+  // Giờ chặn NGAY ở FE trước khi gọi API nào — không đụng `rows`, không tải lại gì cả, chỉ hiện viền đỏ
+  // + cảnh báo ngay tại ô nhập, giáo viên điền xong bấm Gửi lại là xong, không mất nội dung đã gõ.
+  const [lessonContentMissingError, setLessonContentMissingError] = useState(false);
+  const lessonContentInputRef = useRef<HTMLInputElement>(null);
 
   const selectedClass = classes.find((c) => c.id === selectedClassId) ?? null;
   const selectedSession = sessions.find((s) => s.id === selectedSessionId) ?? null;
@@ -247,6 +254,7 @@ export default function DailyCommentPanel() {
 
   useEffect(() => {
     setLessonContentInput(selectedSession?.lessonContent ?? "");
+    setLessonContentMissingError(false);
   }, [selectedSession?.id, selectedSession?.lessonContent]);
 
   useEffect(() => {
@@ -353,6 +361,12 @@ export default function DailyCommentPanel() {
 
   const handleSend = async () => {
     if (!selectedClassId || !selectedSession) return;
+    if (!selectedSession.lessonContent?.trim()) {
+      setLessonContentMissingError(true);
+      lessonContentInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      lessonContentInputRef.current?.focus();
+      return;
+    }
     const filled = rows.filter((r) => r.content.trim());
     if (filled.length === 0) {
       setError("Vui lòng nhập nhận xét cho ít nhất 1 học sinh.");
@@ -498,8 +512,12 @@ export default function DailyCommentPanel() {
       <NotificationBanner message={notification} onClose={() => setNotification(null)} />
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50">
+      {/* Bỏ overflow-hidden ở đây (trước dùng để bo góc rounded-xl cho header bg-slate-50 bên dưới) —
+          overflow-hidden trên tổ tiên sẽ VÔ HIỆU HÓA position:sticky của khối "Bài học hôm nay" bên
+          trong (đã gặp thực tế 2026-08-03: sticky không ghim dù đặt đúng top-0). Bo góc header trực
+          tiếp bằng rounded-t-xl thay thế — hiệu ứng thị giác giống hệt, không cần overflow-hidden. */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-soft">
+        <div className="px-5 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50 rounded-t-xl">
           <div>
             <span className="text-xs font-bold text-slate-700 font-display">Nhận xét hàng ngày theo buổi học</span>
             <p className="text-[10px] text-slate-400 mt-0.5">
@@ -529,13 +547,23 @@ export default function DailyCommentPanel() {
         </div>
 
         {selectedSessionId && (
-          <div className="px-5 py-3 border-b border-slate-100 bg-amber-50/50 flex flex-wrap items-center gap-2">
+          <div
+            className={`sticky top-0 z-20 px-5 py-3 border-b flex flex-wrap items-center gap-2 shadow-sm ${
+              lessonContentMissingError ? "bg-rose-50 border-rose-200" : "bg-amber-50 border-slate-100"
+            }`}
+          >
             <label className="text-[11px] font-bold text-slate-600 shrink-0">Bài học hôm nay *</label>
             <input
+              ref={lessonContentInputRef}
               value={lessonContentInput}
-              onChange={(e) => setLessonContentInput(e.target.value)}
+              onChange={(e) => {
+                setLessonContentInput(e.target.value);
+                setLessonContentMissingError(false);
+              }}
               placeholder="VD: Unit 3 - Free time activities"
-              className="flex-1 min-w-[220px] bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
+              className={`flex-1 min-w-[220px] bg-white border text-xs p-2 rounded-lg focus:outline-none ${
+                lessonContentMissingError ? "border-rose-400 ring-1 ring-rose-300" : "border-slate-200"
+              }`}
             />
             <button
               type="button"
@@ -545,10 +573,16 @@ export default function DailyCommentPanel() {
             >
               {savingLessonContent ? "Đang lưu..." : "Lưu"}
             </button>
-            {!selectedSession?.lessonContent && (
-              <p className="w-full text-[10px] text-amber-700 italic">
-                Chưa điền bài học hôm nay — bắt buộc điền trước khi Gửi nhận xét (buổi chưa điền sẽ bị từ chối khi gửi duyệt).
+            {lessonContentMissingError ? (
+              <p className="w-full text-[10px] text-rose-600 font-bold">
+                ⚠️ Bắt buộc điền + Lưu Bài học hôm nay trước khi Gửi nhận xét — nội dung học sinh bạn đã gõ vẫn còn nguyên, điền xong bấm "Gửi nhận xét" lại là được.
               </p>
+            ) : (
+              !selectedSession?.lessonContent && (
+                <p className="w-full text-[10px] text-amber-700 italic">
+                  Chưa điền bài học hôm nay — bắt buộc điền trước khi Gửi nhận xét (buổi chưa điền sẽ bị từ chối khi gửi duyệt).
+                </p>
+              )
             )}
           </div>
         )}
