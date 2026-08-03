@@ -17,6 +17,7 @@ import vn.com.pps.education.dto.QuestionChoiceResponse;
 import vn.com.pps.education.dto.QuestionResponse;
 import vn.com.pps.education.dto.UpdateQuestionBankStatusRequest;
 import vn.com.pps.education.dto.UpdateQuestionRequest;
+import vn.com.pps.education.exception.DuplicateQuestionContentException;
 import vn.com.pps.education.exception.QuestionLockedException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.repository.CurriculumRepository;
@@ -116,12 +117,23 @@ public class QuestionBankService {
         return toResponse(bank);
     }
 
-    /** Main Flow bước 1: soạn câu hỏi mới, lưu vào ngân hàng. */
+    /**
+     * Main Flow bước 1: soạn câu hỏi mới, lưu vào ngân hàng. Bổ sung ngoài
+     * SDD gốc, đã xác nhận với người dùng 2026-08-03 — cấm tạo trùng nội
+     * dung câu hỏi trong CÙNG 1 ngân hàng (soạn tay lẫn import hàng loạt
+     * đều đi qua đây, xem QuestionImportService — dòng import trùng chỉ
+     * lỗi đúng dòng đó, không chặn cả file, nhờ cơ chế bắt lỗi từng dòng
+     * sẵn có ở đó).
+     */
     @Transactional
     public QuestionResponse createQuestion(CreateQuestionRequest request, Long actorUserId) {
         User actor = getUserOrThrow(actorUserId);
         QuestionBank bank = questionBankRepository.findById(request.questionBankId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ngân hàng câu hỏi id=" + request.questionBankId()));
+        if (questionRepository.existsByQuestionBankIdAndContent(bank.getId(), request.content())) {
+            throw new DuplicateQuestionContentException(
+                    "Câu hỏi này đã tồn tại trong ngân hàng câu hỏi \"" + bank.getName() + "\" (trùng nội dung) — không thể tạo trùng.");
+        }
 
         Question question = new Question();
         question.setQuestionBank(bank);
