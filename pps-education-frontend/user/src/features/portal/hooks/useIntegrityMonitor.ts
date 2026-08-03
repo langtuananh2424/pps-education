@@ -35,20 +35,26 @@ export interface UseIntegrityMonitorOptions {
 export interface UseIntegrityMonitorResult {
   violationCount: number;
   isMonitoringActive: boolean;
+  /** True trong ít giây ngay sau khi vừa phát hiện 1 lần vi phạm mới — dùng để bật popup cảnh báo tức
+   * thời cho học sinh (khác banner tĩnh vốn chỉ hiện số đếm, dễ bị bỏ qua). Tự tắt lại sau JUST_VIOLATED_MS. */
+  justViolated: boolean;
   /** Lấy + xóa hàng đợi hiện có, đồng thời gọi onFlush (nếu có) — dùng ở chế độ "đệm rồi gửi tay". */
   flush: () => IntegrityEventInput[];
 }
 
 const DEFAULT_MIN_VIOLATION_DURATION_MS = 1000;
+const JUST_VIOLATED_MS = 3500;
 
 export function useIntegrityMonitor(options: UseIntegrityMonitorOptions): UseIntegrityMonitorResult {
   const { enabled, minViolationDurationMs = DEFAULT_MIN_VIOLATION_DURATION_MS, autoFlushIntervalMs, onFlush } = options;
   const [violationCount, setViolationCount] = useState(0);
   const [isMonitoringActive, setIsMonitoringActive] = useState(false);
+  const [justViolated, setJustViolated] = useState(false);
 
   const pendingEventsRef = useRef<IntegrityEventInput[]>([]);
   const outOfFocusSinceRef = useRef<number | null>(null);
   const everEnteredFullscreenRef = useRef(false);
+  const justViolatedTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const onFlushRef = useRef(onFlush);
   onFlushRef.current = onFlush;
 
@@ -75,6 +81,10 @@ export function useIntegrityMonitor(options: UseIntegrityMonitorOptions): UseInt
       }
     ];
     setViolationCount((c) => c + 1);
+
+    setJustViolated(true);
+    if (justViolatedTimeoutRef.current) clearTimeout(justViolatedTimeoutRef.current);
+    justViolatedTimeoutRef.current = setTimeout(() => setJustViolated(false), JUST_VIOLATED_MS);
   };
 
   useEffect(() => {
@@ -132,6 +142,7 @@ export function useIntegrityMonitor(options: UseIntegrityMonitorOptions): UseInt
       window.removeEventListener("focus", handleFocus);
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
       if (intervalId) clearInterval(intervalId);
+      if (justViolatedTimeoutRef.current) clearTimeout(justViolatedTimeoutRef.current);
       flush();
       if (document.fullscreenElement) {
         document.exitFullscreen().catch(() => undefined);
@@ -141,5 +152,5 @@ export function useIntegrityMonitor(options: UseIntegrityMonitorOptions): UseInt
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled]);
 
-  return { violationCount, isMonitoringActive, flush };
+  return { violationCount, isMonitoringActive, justViolated, flush };
 }

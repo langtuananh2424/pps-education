@@ -379,7 +379,9 @@ export default function ReviewVideoTaskModal({ video, videoType, onClose, onSubm
    * cùng hiển thị — flush() truyền xuống từng ReflexQuestionCard, gọi ngay trước khi nộp (xem
    * useIntegrityMonitor — UC-23b không có "phiên bắt đầu ghi âm" ở backend để gửi real-time).
    */
-  const { isMonitoringActive, flush: flushIntegrityEvents } = useIntegrityMonitor({ enabled: videoType === "REFLEX" });
+  const { violationCount, isMonitoringActive, justViolated, flush: flushIntegrityEvents } = useIntegrityMonitor({
+    enabled: videoType === "REFLEX"
+  });
 
   const handleSeekReflexMedia = (timestampSeconds: number) => {
     if (isYouTube) {
@@ -392,6 +394,19 @@ export default function ReviewVideoTaskModal({ video, videoType, onClose, onSubm
 
   return (
     <div className="fixed inset-0 bg-ink/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={onClose}>
+      {/* Popup cảnh báo tức thời — xem Javadoc tương tự ở TakeExerciseModal.tsx. */}
+      {justViolated && (
+        <div
+          key={violationCount}
+          role="alert"
+          className="fixed top-6 left-1/2 z-[110] flex items-center gap-2 bg-rose-600 text-white pl-3 pr-4 py-2.5 rounded-2xl shadow-xl animate-alert-pop"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <ShieldAlert size={18} className="shrink-0" />
+          <span className="text-xs font-black">Đã ghi nhận: bạn vừa thoát ra ngoài khi đang làm bài!</span>
+        </div>
+      )}
+
       <div className="bg-white rounded-[24px] max-w-2xl w-full max-h-[92vh] overflow-y-auto shadow-2xl p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between gap-3">
           <div>

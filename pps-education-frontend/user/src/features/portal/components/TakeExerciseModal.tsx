@@ -78,7 +78,7 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
 
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31 — xem Javadoc useIntegrityMonitor.
   const attemptId = attempt?.id;
-  const { violationCount, isMonitoringActive } = useIntegrityMonitor({
+  const { violationCount, isMonitoringActive, justViolated } = useIntegrityMonitor({
     enabled: !readOnly && attemptId != null,
     autoFlushIntervalMs: 20000,
     onFlush: (events) => {
@@ -136,6 +136,20 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+      {/* Popup cảnh báo tức thời — hiện ngay lúc phát hiện vi phạm mới, tự mờ dần sau ~3.5s, khác banner
+          tĩnh bên dưới (chỉ đổi số đếm, học sinh dễ không để ý). Neo "fixed" ở gốc modal để luôn nổi
+          trên cùng bất kể đang cuộn tới đâu bên trong nội dung đề. */}
+      {justViolated && (
+        <div
+          key={violationCount}
+          role="alert"
+          className="fixed top-6 left-1/2 z-[60] flex items-center gap-2 bg-rose-600 text-white pl-3 pr-4 py-2.5 rounded-2xl shadow-xl animate-alert-pop"
+        >
+          <ShieldAlert size={18} className="shrink-0" />
+          <span className="text-xs font-black">Đã ghi nhận: bạn vừa thoát ra ngoài khi đang làm bài!</span>
+        </div>
+      )}
+
       <div className="bg-white rounded-[20px] w-full max-w-2xl max-h-[85vh] flex flex-col shadow-xl">
         <div className="p-6 border-b border-line/60 flex items-center justify-between gap-3 shrink-0">
           <div>
