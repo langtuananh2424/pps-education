@@ -75,8 +75,8 @@ export default function AssignmentsTab({ classId }: AssignmentsTabProps) {
   const [filterType, setFilterType] = useState<FilterType>("ALL");
   const [takingExercise, setTakingExercise] = useState<AssignedExerciseResponse | null>(null);
   const [openReviewItem, setOpenReviewItem] = useState<ReviewVideoHomeworkItem | null>(null);
-  // Mobile: dropdown icon lọc "loại bài" thay cho hàng nút riêng — đỡ chiếm thêm 1 hàng, gộp chung
-  // hàng với 3 nút trạng thái (theo yêu cầu người dùng, 2026-07-31).
+  // Dropdown icon lọc "loại bài" thay cho hàng nút riêng — đỡ chiếm thêm 1 hàng, gộp chung hàng với
+  // 3 nút trạng thái, dùng chung cho mọi kích thước màn hình (theo yêu cầu người dùng, 2026-08-01).
   const [filterTypeOpen, setFilterTypeOpen] = useState(false);
   const filterTypeRef = useRef<HTMLDivElement>(null);
 
@@ -184,10 +184,10 @@ export default function AssignmentsTab({ classId }: AssignmentsTabProps) {
       )}
 
       <div className="space-y-2.5 border-b border-line pb-3">
-        {/* Mobile: 1 hàng — 3 nút trạng thái tự cuộn ngang kiểu carousel, cuối hàng là icon dropdown lọc
-            "loại bài" (thay vì 1 hàng nút riêng) — theo yêu cầu người dùng, 2026-07-31. Desktop (md+)
-            giữ nguyên 2 hàng nút đầy đủ như cũ — xem khối "hidden md:block" bên dưới. */}
-        <div className="md:hidden flex items-center gap-2">
+        {/* 1 hàng — 3 nút trạng thái tự cuộn ngang kiểu carousel, cuối hàng là icon dropdown lọc
+            "loại bài" — dùng chung cho mọi kích thước màn hình (theo yêu cầu người dùng, 2026-08-01;
+            trước đó desktop có 1 khối riêng 2 hàng nút đầy đủ, nay bỏ để đồng nhất với mobile). */}
+        <div className="flex items-center gap-2">
           <div className="flex-1 min-w-0 flex items-center gap-2 overflow-x-auto scrollbar-hide snap-x snap-proximity">
             <button
               onClick={() => setFilterStatus("ALL")}
@@ -261,62 +261,6 @@ export default function AssignmentsTab({ classId }: AssignmentsTabProps) {
                 ))}
               </div>
             )}
-          </div>
-        </div>
-
-        <div className="hidden md:block space-y-2.5">
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => setFilterStatus("ALL")}
-              className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                filterStatus === "ALL" ? "bg-teal text-white shadow-sm" : "bg-slate-100 hover:bg-slate-200 text-muted"
-              }`}
-            >
-              Tất cả bài tập ({exercises.length + reviewItems.length})
-            </button>
-            <button
-              onClick={() => setFilterStatus("PENDING")}
-              className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
-                filterStatus === "PENDING" ? "bg-orange-500 text-white shadow-sm" : "bg-slate-100 hover:bg-slate-200 text-muted"
-              }`}
-            >
-              <Clock size={14} /> Cần hoàn thành ({pendingCount})
-            </button>
-            <button
-              onClick={() => setFilterStatus("GRADED")}
-              className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
-                filterStatus === "GRADED" ? "bg-teal text-white shadow-sm" : "bg-slate-100 hover:bg-slate-200 text-muted"
-              }`}
-            >
-              <CheckCircle2 size={14} /> Đã nộp &amp; Đã chấm ({gradedCount})
-            </button>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => setFilterType("ALL")}
-              className={`px-3.5 py-1.5 rounded-lg border text-[11px] font-bold transition-all cursor-pointer ${
-                filterType === "ALL" ? "bg-ink text-white border-ink" : "bg-white border-line text-muted hover:bg-slate-50"
-              }`}
-            >
-              Tất cả loại bài
-            </button>
-            <button
-              onClick={() => setFilterType("EXERCISE")}
-              className={`px-3.5 py-1.5 rounded-lg border text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                filterType === "EXERCISE" ? "bg-ink text-white border-ink" : "bg-white border-line text-muted hover:bg-slate-50"
-              }`}
-            >
-              <BookOpen size={12} /> Bài ngữ pháp ({exercises.length})
-            </button>
-            <button
-              onClick={() => setFilterType("VIDEO")}
-              className={`px-3.5 py-1.5 rounded-lg border text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                filterType === "VIDEO" ? "bg-ink text-white border-ink" : "bg-white border-line text-muted hover:bg-slate-50"
-              }`}
-            >
-              <Video size={12} /> Video Kết nối - Phản xạ ({reviewItems.length})
-            </button>
           </div>
         </div>
       </div>
