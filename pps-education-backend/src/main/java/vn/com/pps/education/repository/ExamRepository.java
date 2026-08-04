@@ -13,4 +13,8 @@ public interface ExamRepository extends JpaRepository<Exam, Long> {
     Optional<Exam> findByUuid(UUID uuid);
 
     List<Exam> findByCurriculumId(Long curriculumId);
+
+    List<Exam> findByCurriculumIdAndTeacherType(Long curriculumId, Exam.TeacherType teacherType);
+
+    List<Exam> findByTeacherType(Exam.TeacherType teacherType);
 }

@@ -58,7 +58,7 @@ class QuestionBankControllerTest extends AbstractControllerTest {
         CurriculumResponse active = curriculumService.update(curriculum.id(),
                 new UpdateCurriculumRequest("Chuẩn", null, null, null, "ACTIVE", false), actor.getId());
         return examService.createExam(
-                new CreateExamRequest("KD-" + SEQ.incrementAndGet(), "Đề test", active.id()), actor.getId()).id();
+                new CreateExamRequest("KD-" + SEQ.incrementAndGet(), "Đề test", active.id(), "VIETNAMESE", "HOMEWORK"), actor.getId()).id();
     }
 
     @Test

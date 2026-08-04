@@ -180,7 +180,7 @@ class AttemptIntegrityServiceTest extends AbstractIntegrationTest {
         parentUser = userRepository.findById(parent.userId()).orElseThrow();
 
         defaultExam = examService.createExam(
-                new CreateExamRequest(examCode(), "Đề mặc định", activeCurriculum.id()), teacher.getId());
+                new CreateExamRequest(examCode(), "Đề mặc định", activeCurriculum.id(), "VIETNAMESE", "HOMEWORK"), teacher.getId());
     }
 
     @Test

@@ -6,6 +6,8 @@ import { useEligibleClasses } from "@/features/academic/hooks/useEligibleClasses
 import { CurriculumResponse, listCurriculums } from "@/features/academic/api";
 import {
   ExamResponse,
+  ExamTeacherType,
+  ExamType,
   ExerciseQuestionResponse,
   ExerciseResponse,
   QuestionResponse,
@@ -44,6 +46,10 @@ const statusVariants: Record<ExerciseResponse["status"], "neutral" | "success" |
   ARCHIVED: "danger"
 };
 
+/** V74, đã xác nhận với người dùng 2026-08-04: bắt buộc chọn khi tạo/sửa Đề, dùng để lọc khi giao bài. */
+const teacherTypeLabels: Record<ExamTeacherType, string> = { VIETNAMESE: "Giáo viên Việt Nam", FOREIGN: "Giáo viên nước ngoài" };
+const examTypeLabels: Record<ExamType, string> = { REVIEW: "Ôn tập", HOMEWORK: "Bài tập về nhà" };
+
 /**
  * Kho đề (UC-40, bổ sung ngoài SDD gốc, đã xác nhận với người dùng
  * 2026-07-30) — tái cấu trúc "Soạn & Giao đề" thành 2 cấp: "Đề" (Exam, VD
@@ -60,6 +66,7 @@ export default function ExerciseAssignPage() {
 
   const [curriculums, setCurriculums] = useState<CurriculumResponse[]>([]);
   const [curriculumFilter, setCurriculumFilter] = useState<number | null>(null);
+  const [teacherTypeFilter, setTeacherTypeFilter] = useState<ExamTeacherType | null>(null);
   const [exams, setExams] = useState<ExamResponse[]>([]);
   const [loadingExams, setLoadingExams] = useState(false);
   const [selectedExamId, setSelectedExamId] = useState<number | null>(null);
@@ -73,7 +80,7 @@ export default function ExerciseAssignPage() {
 
   const loadExams = () => {
     setLoadingExams(true);
-    listExams(curriculumFilter ?? undefined)
+    listExams(curriculumFilter ?? undefined, teacherTypeFilter ?? undefined)
       .then((res) => {
         setExams(res);
         if (!res.some((e) => e.id === selectedExamId)) setSelectedExamId(res[0]?.id ?? null);
@@ -83,7 +90,7 @@ export default function ExerciseAssignPage() {
   };
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(loadExams, [curriculumFilter]);
+  useEffect(loadExams, [curriculumFilter, teacherTypeFilter]);
 
   const selectedExam = exams.find((e) => e.id === selectedExamId) ?? null;
 
@@ -116,7 +123,7 @@ export default function ExerciseAssignPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         <div className="lg:col-span-5 bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden flex flex-col">
-          <div className="px-4 py-3 border-b border-slate-100 bg-slate-50">
+          <div className="px-4 py-3 border-b border-slate-100 bg-slate-50 space-y-2">
             <Select
               value={curriculumFilter ?? ""}
               onChange={(e) => setCurriculumFilter(e.target.value ? Number(e.target.value) : null)}
@@ -126,6 +133,18 @@ export default function ExerciseAssignPage() {
               {curriculums.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.code} — {c.name}
+                </option>
+              ))}
+            </Select>
+            <Select
+              value={teacherTypeFilter ?? ""}
+              onChange={(e) => setTeacherTypeFilter(e.target.value ? (e.target.value as ExamTeacherType) : null)}
+              className={inputClass}
+            >
+              <option value="">Tất cả loại giáo viên</option>
+              {(Object.keys(teacherTypeLabels) as ExamTeacherType[]).map((t) => (
+                <option key={t} value={t}>
+                  {teacherTypeLabels[t]}
                 </option>
               ))}
             </Select>
@@ -149,6 +168,9 @@ export default function ExerciseAssignPage() {
                   >
                     <p className="text-xs font-bold text-slate-800">{exam.title}</p>
                     <p className="text-[10px] text-slate-400 mt-0.5 font-mono">{exam.code} · {exam.curriculumCode}</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">
+                      {teacherTypeLabels[exam.teacherType]} · {examTypeLabels[exam.examType]}
+                    </p>
                   </button>
                 ))}
               </div>
@@ -213,19 +235,21 @@ function CreateExamModal({
   const [code, setCode] = useState("");
   const [title, setTitle] = useState("");
   const [curriculumId, setCurriculumId] = useState<number | null>(curriculums[0]?.id ?? null);
+  const [teacherType, setTeacherType] = useState<ExamTeacherType | "">("");
+  const [examType, setExamType] = useState<ExamType | "">("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!code.trim() || !title.trim() || !curriculumId) {
-      setError("Vui lòng điền Mã Đề, Tên Đề và chọn Khung chương trình.");
+    if (!code.trim() || !title.trim() || !curriculumId || !teacherType || !examType) {
+      setError("Vui lòng điền Mã Đề, Tên Đề, chọn Khung chương trình, Loại giáo viên và Loại đề.");
       return;
     }
     setSubmitting(true);
     try {
-      const created = await createExam({ code: code.trim(), title: title.trim(), curriculumId });
+      const created = await createExam({ code: code.trim(), title: title.trim(), curriculumId, teacherType, examType });
       onCreated(created);
       onClose();
     } catch (err) {
@@ -258,6 +282,28 @@ function CreateExamModal({
             ))}
           </Select>
         </div>
+        <div>
+          <label className={labelClass}>Loại giáo viên * (dùng lọc khi giao bài)</label>
+          <Select value={teacherType} onChange={(e) => setTeacherType(e.target.value as ExamTeacherType | "")} className={inputClass}>
+            <option value="">-- Chọn loại giáo viên --</option>
+            {(Object.keys(teacherTypeLabels) as ExamTeacherType[]).map((t) => (
+              <option key={t} value={t}>
+                {teacherTypeLabels[t]}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div>
+          <label className={labelClass}>Loại đề *</label>
+          <Select value={examType} onChange={(e) => setExamType(e.target.value as ExamType | "")} className={inputClass}>
+            <option value="">-- Chọn loại đề --</option>
+            {(Object.keys(examTypeLabels) as ExamType[]).map((t) => (
+              <option key={t} value={t}>
+                {examTypeLabels[t]}
+              </option>
+            ))}
+          </Select>
+        </div>
         <div className="flex justify-end gap-2 pt-2">
           <Button type="submit" variant="primary" size="sm" disabled={submitting}>
             {submitting ? "Đang tạo..." : "Tạo Đề"}
@@ -278,6 +324,8 @@ function EditExamModal({
   onUpdated: (exam: ExamResponse) => void;
 }) {
   const [title, setTitle] = useState(exam.title);
+  const [teacherType, setTeacherType] = useState<ExamTeacherType>(exam.teacherType);
+  const [examType, setExamType] = useState<ExamType>(exam.examType);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -290,7 +338,7 @@ function EditExamModal({
     setSubmitting(true);
     setError(null);
     try {
-      const request: UpdateExamRequest = { title: title.trim() };
+      const request: UpdateExamRequest = { title: title.trim(), teacherType, examType };
       const updated = await updateExam(exam.id, request);
       onUpdated(updated);
     } catch (err) {
@@ -307,6 +355,26 @@ function EditExamModal({
         <div>
           <label className={labelClass}>Tên Đề *</label>
           <input value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} placeholder="VD: IELTS Grade 6" />
+        </div>
+        <div>
+          <label className={labelClass}>Loại giáo viên * (dùng lọc khi giao bài)</label>
+          <Select value={teacherType} onChange={(e) => setTeacherType(e.target.value as ExamTeacherType)} className={inputClass}>
+            {(Object.keys(teacherTypeLabels) as ExamTeacherType[]).map((t) => (
+              <option key={t} value={t}>
+                {teacherTypeLabels[t]}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div>
+          <label className={labelClass}>Loại đề *</label>
+          <Select value={examType} onChange={(e) => setExamType(e.target.value as ExamType)} className={inputClass}>
+            {(Object.keys(examTypeLabels) as ExamType[]).map((t) => (
+              <option key={t} value={t}>
+                {examTypeLabels[t]}
+              </option>
+            ))}
+          </Select>
         </div>
         <p className="text-[10px] text-slate-400 italic">
           Mã Đề ({exam.code}) và Khung chương trình ({exam.curriculumCode}) không sửa được sau khi tạo.

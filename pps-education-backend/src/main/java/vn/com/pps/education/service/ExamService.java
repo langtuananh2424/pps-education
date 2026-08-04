@@ -75,15 +75,23 @@ public class ExamService {
         exam.setTitle(request.title());
         exam.setCurriculum(curriculum);
         exam.setCreatedBy(actor);
+        exam.setTeacherType(Exam.TeacherType.valueOf(request.teacherType()));
+        exam.setExamType(Exam.ExamType.valueOf(request.examType()));
         exam = examRepository.save(exam);
         return toResponse(exam);
     }
 
-    /** Chỉ sửa tiêu đề — khung chương trình bất biến sau khi tạo (xem Javadoc UpdateExamRequest). */
+    /**
+     * Sửa tiêu đề + teacherType/examType (V74, đã xác nhận với người dùng
+     * 2026-08-04) — khung chương trình bất biến sau khi tạo (xem Javadoc
+     * UpdateExamRequest).
+     */
     @Transactional
     public ExamResponse updateExam(Long id, UpdateExamRequest request, Long actorUserId) {
         Exam exam = getExamOrThrow(id);
         exam.setTitle(request.title());
+        exam.setTeacherType(Exam.TeacherType.valueOf(request.teacherType()));
+        exam.setExamType(Exam.ExamType.valueOf(request.examType()));
         exam = examRepository.save(exam);
         return toResponse(exam);
     }
@@ -93,9 +101,20 @@ public class ExamService {
         return toResponse(getExamOrThrow(id));
     }
 
+    /** teacherType (VIETNAMESE/FOREIGN) tùy chọn — lọc theo GV VN/nước ngoài khi giao bài (V74, đã xác nhận với người dùng 2026-08-04). */
     @Transactional(readOnly = true)
-    public List<ExamResponse> listExams(Long curriculumId, Long actorUserId) {
-        List<Exam> exams = curriculumId == null ? examRepository.findAll() : examRepository.findByCurriculumId(curriculumId);
+    public List<ExamResponse> listExams(Long curriculumId, String teacherType, Long actorUserId) {
+        Exam.TeacherType type = teacherType == null ? null : Exam.TeacherType.valueOf(teacherType);
+        List<Exam> exams;
+        if (curriculumId != null && type != null) {
+            exams = examRepository.findByCurriculumIdAndTeacherType(curriculumId, type);
+        } else if (curriculumId != null) {
+            exams = examRepository.findByCurriculumId(curriculumId);
+        } else if (type != null) {
+            exams = examRepository.findByTeacherType(type);
+        } else {
+            exams = examRepository.findAll();
+        }
         return exams.stream().map(this::toResponse).toList();
     }
 
@@ -171,7 +190,8 @@ public class ExamService {
 
     private ExamResponse toResponse(Exam exam) {
         return new ExamResponse(exam.getId(), exam.getUuid(), exam.getCode(), exam.getTitle(),
-                exam.getCurriculum().getId(), exam.getCurriculum().getCode(), exam.getCreatedBy().getId());
+                exam.getCurriculum().getId(), exam.getCurriculum().getCode(), exam.getCreatedBy().getId(),
+                exam.getTeacherType().name(), exam.getExamType().name());
     }
 
     private ClassResponse toResponse(SchoolClass c) {
