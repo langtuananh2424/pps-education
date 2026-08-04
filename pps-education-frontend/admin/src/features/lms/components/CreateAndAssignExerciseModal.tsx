@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { CheckCircle2, Pencil, Search } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
@@ -11,7 +11,6 @@ import {
   QuestionResponse,
   addExerciseQuestion,
   createExercise,
-  listExamQuestions,
   listExerciseQuestions,
   publishExercise
 } from "../api";
@@ -23,11 +22,6 @@ const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rou
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
 
 type Step = "info" | "questions" | "publish";
-
-interface SelectedQuestion {
-  question: QuestionResponse;
-  points: number;
-}
 
 interface CreateAndAssignExerciseModalProps {
   examId: number;
@@ -192,7 +186,7 @@ function ExerciseInfoStep({
   );
 }
 
-type QuestionSourceMode = "existing" | "compose" | "import";
+type QuestionSourceMode = "compose" | "import";
 
 interface AttachedQuestion {
   id: number;
@@ -201,12 +195,13 @@ interface AttachedQuestion {
 }
 
 /**
- * UC-40 Main Flow bước 1: nguồn câu hỏi — chọn có sẵn trong Đề / soạn câu hỏi mới / nhập hàng loạt
- * Excel-Word. V75 (merge từ develop, 2026-08-04): "Chọn có sẵn" giờ nghĩa là chọn lại câu hỏi ĐÃ CÓ
- * trong chính Đề này (ngân hàng nội bộ theo examId) — dùng để tái sử dụng câu hỏi giữa các Bài cùng 1
- * Đề, khác hẳn ý nghĩa cũ (V77: duyệt ngân hàng câu hỏi theo khung chương trình, đã bỏ vì trang Ngân
- * hàng câu hỏi độc lập bị ẩn khỏi sidebar). Đề FOREIGN chỉ còn "Chọn có sẵn"/"Soạn câu hỏi mới", giới
- * hạn đúng 2 loại Trắc nghiệm Voice/Nghe & nộp audio qua allowedKinds của QuestionEditorForm.
+ * UC-40 Main Flow bước 1: nguồn câu hỏi — soạn câu hỏi mới / nhập hàng loạt Excel-Word. V84 (bổ sung
+ * ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05): bỏ hẳn tab "Chọn có sẵn" — dù V75 (merge từ
+ * develop) đổi ý nghĩa thành "câu hỏi đã có trong chính Đề này" (khác ý nghĩa V77 cũ là duyệt ngân
+ * hàng theo khung chương trình), test thực tế cho thấy vẫn gây rối cho luồng soạn Bài ĐẦU TIÊN của 1
+ * Đề (Đề trống → tab mặc định hiện "chưa có câu hỏi", phải tự chuyển tab). "Sửa câu hỏi" cho câu ĐÃ
+ * gắn vào Bài vẫn làm được bình thường ở trang Soạn & giao đề (ExerciseAssignPage — click mở rộng 1
+ * Bài, có nút bút chì riêng), không mất tính năng.
  */
 /**
  * Xuất công khai để tái dùng ở ExerciseAssignPage.tsx — "+ Thêm câu hỏi" cho 1 Bài ĐÃ TỒN TẠI (bổ
@@ -226,15 +221,11 @@ export function ExerciseQuestionsStep({
   onError: (message: string | null) => void;
   onClose: () => void;
 }) {
-  const availableModes: QuestionSourceMode[] = teacherType === "FOREIGN" ? ["existing", "compose"] : ["existing", "import", "compose"];
-  const [mode, setMode] = useState<QuestionSourceMode>("existing");
+  const availableModes: QuestionSourceMode[] = teacherType === "FOREIGN" ? ["compose"] : ["import", "compose"];
+  const [mode, setMode] = useState<QuestionSourceMode>(availableModes[0]);
   // V78: VIETNAMESE trong tab "Soạn câu hỏi mới" có thêm lựa chọn "Bài đọc hiểu — Lưới" (composite
   // nhiều câu hỏi/1 lần, xem GridQuestionBuilder) bên cạnh soạn từng câu đơn (QuestionEditorForm).
   const [composeSubMode, setComposeSubMode] = useState<"single" | "grid">("single");
-  const [bankQuestions, setBankQuestions] = useState<QuestionResponse[]>([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selected, setSelected] = useState<SelectedQuestion[]>([]);
-  const [submitting, setSubmitting] = useState(false);
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04 — Bài có thể ĐÃ có sẵn câu hỏi (mở
   // lại để thêm tiếp, không chỉ lúc soạn mới) — cần biết số câu đã có để displayOrder câu mới không
   // trùng câu cũ (trước đây luôn giả định Bài trống, bắt đầu từ 1).
@@ -245,38 +236,10 @@ export function ExerciseQuestionsStep({
       .then((res) => setExistingCount(res.length))
       .catch(() => undefined);
   }, [exercise.id]);
-  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-03 — cho sửa câu hỏi NGAY tại đây (trước
-  // đây phải rời màn, qua trang Ngân hàng câu hỏi mới sửa được), tái dùng đúng QuestionEditorForm đã có.
-  const [editingQuestion, setEditingQuestion] = useState<QuestionResponse | null>(null);
-  // Câu hỏi soạn mới/import hàng loạt được gắn vào đề NGAY khi tạo xong (đã ghi
-  // thật vào ngân hàng câu hỏi) — khác "selected" (tab chọn có sẵn) vẫn chỉ là
-  // staged, chờ bấm "Tiếp tục" mới thật sự gắn — nên không thể "bỏ chọn" được nữa.
+  // Câu hỏi soạn mới/import hàng loạt được gắn vào đề NGAY khi tạo xong (đã ghi thật vào ngân hàng
+  // câu hỏi) — không thể "bỏ chọn" được nữa, chỉ có thể gỡ lại ở trang Soạn & giao đề.
   const [attached, setAttached] = useState<AttachedQuestion[]>([]);
   const [composeFormKey, setComposeFormKey] = useState(0);
-
-  useEffect(() => {
-    setSearchTerm("");
-    listExamQuestions(exercise.examId).then(setBankQuestions).catch(() => undefined);
-  }, [exercise.examId]);
-
-  const filteredQuestions = bankQuestions.filter((q) => {
-    const term = searchTerm.trim().toLowerCase();
-    return !term || q.content.toLowerCase().includes(term) || String(q.id).includes(term);
-  });
-
-  const isSelected = (questionId: number) => selected.some((s) => s.question.id === questionId);
-
-  const toggleQuestion = (question: QuestionResponse) => {
-    setSelected((prev) =>
-      prev.some((s) => s.question.id === question.id)
-        ? prev.filter((s) => s.question.id !== question.id)
-        : [...prev, { question, points: question.defaultPoints ?? 0 }]
-    );
-  };
-
-  const updatePoints = (questionId: number, points: number) => {
-    setSelected((prev) => prev.map((s) => (s.question.id === questionId ? { ...s, points } : s)));
-  };
 
   const handleComposeCreated = async (question: QuestionResponse) => {
     onError(null);
@@ -325,35 +288,16 @@ export function ExerciseQuestionsStep({
     }
   };
 
-  const handleContinue = async () => {
+  const handleContinue = () => {
     onError(null);
-    if (selected.length === 0 && attached.length === 0 && existingCount === 0) {
+    if (attached.length === 0 && existingCount === 0) {
       onError("Cần gắn tối thiểu 1 câu hỏi vào đề.");
       return;
     }
-    if (selected.length === 0) {
-      onDone();
-      return;
-    }
-    setSubmitting(true);
-    try {
-      for (let i = 0; i < selected.length; i++) {
-        await addExerciseQuestion(exercise.id, {
-          questionId: selected[i].question.id,
-          displayOrder: existingCount + attached.length + i + 1,
-          points: selected[i].points
-        });
-      }
-      onDone();
-    } catch (err) {
-      onError(err instanceof ApiError ? err.message : "Gắn câu hỏi vào đề thất bại.");
-    } finally {
-      setSubmitting(false);
-    }
+    onDone();
   };
 
   const modeLabels: Record<QuestionSourceMode, string> = {
-    existing: "Chọn có sẵn",
     compose: "Soạn câu hỏi mới",
     import: "Nhập Excel/Word"
   };
@@ -391,62 +335,6 @@ export function ExerciseQuestionsStep({
         ))}
       </div>
 
-      {mode === "existing" && (
-        <div className="space-y-3">
-          {bankQuestions.length > 0 && (
-            <div className="relative">
-              <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400" />
-              <input
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Tìm câu hỏi có sẵn trong Đề..."
-                className={`${inputClass} pl-8`}
-              />
-            </div>
-          )}
-
-          <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 max-h-56 overflow-y-auto">
-            {bankQuestions.length === 0 ? (
-              <p className="text-xs text-slate-500 p-3">
-                Đề này chưa có câu hỏi. Chuyển sang tab "Soạn câu hỏi mới"{teacherType === "VIETNAMESE" ? ' hoặc "Nhập Excel/Word"' : ""} ở trên.
-              </p>
-            ) : filteredQuestions.length === 0 ? (
-              <p className="text-xs text-slate-400 italic p-3 text-center">Không tìm thấy câu hỏi nào khớp tìm kiếm.</p>
-            ) : (
-              filteredQuestions.map((q) => (
-                <label key={q.id} className="flex items-center gap-2 px-3 py-2 text-xs cursor-pointer hover:bg-slate-50">
-                  <input type="checkbox" checked={isSelected(q.id)} onChange={() => toggleQuestion(q)} />
-                  <span className="flex-1 truncate">{q.content}</span>
-                  <span className="text-[10px] text-slate-400 uppercase">{q.questionType}</span>
-                  <button
-                    type="button"
-                    title="Sửa câu hỏi"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setEditingQuestion(q);
-                    }}
-                    className="text-slate-400 hover:text-brand-red shrink-0"
-                  >
-                    <Pencil className="w-3.5 h-3.5" />
-                  </button>
-                  {isSelected(q.id) && (
-                    <input
-                      type="number"
-                      min={0}
-                      value={selected.find((s) => s.question.id === q.id)?.points ?? 0}
-                      onChange={(e) => updatePoints(q.id, Number(e.target.value))}
-                      onClick={(e) => e.stopPropagation()}
-                      className="w-16 bg-white border border-slate-200 text-xs p-1 rounded"
-                    />
-                  )}
-                </label>
-              ))
-            )}
-          </div>
-        </div>
-      )}
-
       {mode === "compose" && teacherType === "VIETNAMESE" && (
         <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-lg w-fit">
           {(["single", "grid"] as const).map((m) => (
@@ -481,7 +369,7 @@ export function ExerciseQuestionsStep({
                 : ["MULTIPLE_CHOICE", "VOICE_MULTIPLE_CHOICE", "INLINE_CHOICE", "FILL_IN_BLANK", "WORD_BANK", "SENTENCE_BUILDING", "ESSAY"]
             }
             onCreated={handleComposeCreated}
-            onCancel={() => setMode("existing")}
+            onCancel={() => setMode(availableModes[0])}
           />
         ))}
 
@@ -500,34 +388,11 @@ export function ExerciseQuestionsStep({
       )}
 
       <div className="flex justify-between items-center pt-2">
-        <span className="text-[11px] text-slate-500">
-          Đã gắn vào Bài: {existingCount + selected.length + attached.length} câu
-        </span>
-        <Button
-          type="button"
-          variant="primary"
-          size="sm"
-          onClick={handleContinue}
-          disabled={submitting || (selected.length + attached.length === 0 && existingCount === 0)}
-        >
-          {submitting ? "Đang lưu..." : "Lưu câu hỏi vào Bài"}
+        <span className="text-[11px] text-slate-500">Đã gắn vào Bài: {existingCount + attached.length} câu</span>
+        <Button type="button" variant="primary" size="sm" onClick={handleContinue} disabled={attached.length === 0 && existingCount === 0}>
+          Tiếp tục
         </Button>
       </div>
-
-      {editingQuestion && (
-        <Modal open onClose={() => setEditingQuestion(null)} title={`Sửa câu hỏi Q-${editingQuestion.id}`} size="lg">
-          <QuestionEditorForm
-            examId={exercise.examId}
-            existingQuestion={editingQuestion}
-            onCreated={(updated) => {
-              setBankQuestions((prev) => prev.map((bq) => (bq.id === updated.id ? updated : bq)));
-              setSelected((prev) => prev.map((s) => (s.question.id === updated.id ? { ...s, question: updated } : s)));
-              setEditingQuestion(null);
-            }}
-            onCancel={() => setEditingQuestion(null)}
-          />
-        </Modal>
-      )}
     </div>
   );
 }
