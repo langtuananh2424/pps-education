@@ -153,9 +153,9 @@ UC-23a: Xem & Theo dõi Kho Video Ôn tập
 |                 |                                                    |
 |                 | 5.  "Đạt yêu cầu" (đã xem) = số lượt hợp lệ ≥ số   |
 |                 |     lượt tối thiểu cấu hình cho video đó. Video    |
-|                 |     CONNECTION: "lượt hợp lệ" từ V76 cần thêm điều |
+|                 |     CONNECTION: "lượt hợp lệ" từ V83 cần thêm điều |
 |                 |     kiện trả lời hết câu hỏi trắc nghiệm cho ĐÚNG  |
-|                 |     lượt đó (xem blockquote V76 bên dưới).         |
+|                 |     lượt đó (xem blockquote V83 bên dưới).         |
 |                 |                                                    |
 |                 | 6.  Giáo viên xem thống kê theo bộ + lớp — từng    |
 |                 |     học sinh đã xem bao nhiêu % + bao nhiêu lượt   |
@@ -203,10 +203,10 @@ UC-23a: Xem & Theo dõi Kho Video Ôn tập
 > pháp) — trả `availableFrom`/`dueAt`/`videoType`/tiêu đề bộ theo đúng
 > phạm vi (các) lớp học sinh đang ghi danh ACTIVE.
 
-> **Bổ sung V76 (2026-08-04, đã xác nhận với người dùng) — Video Kết nối
+> **Bổ sung V83 (2026-08-04, đã xác nhận với người dùng) — Video Kết nối
 > (CONNECTION) bắt buộc có câu hỏi trắc nghiệm tự chấm, "lượt hợp lệ" đổi
-> nghĩa:** trước V76, bước 4-5 ở trên (lượt đạt % ngưỡng → cộng luôn vào số
-> lượt đạt) là ĐỦ để tính "đạt yêu cầu". Từ V76, "lượt hợp lệ" (tính vào số
+> nghĩa:** trước V83, bước 4-5 ở trên (lượt đạt % ngưỡng → cộng luôn vào số
+> lượt đạt) là ĐỦ để tính "đạt yêu cầu". Từ V83, "lượt hợp lệ" (tính vào số
 > lượt đạt của video) đòi hỏi **CẢ 2** điều kiện cho **CÙNG 1 lượt xem**
 > (khớp cặp 1-1 qua watch session, không cộng dồn rời rạc):
 >
@@ -1054,10 +1054,14 @@ UC-40: Soạn & giao đề kiểm tra
 |                 |     lớp đã gán mới xem/làm được các Bài thuộc Đề,  |
 |                 |     kể cả lớp khác khung chương trình với Đề.       |
 |                 |                                                    |
-|                 | 3.  Giáo viên mở màn hình Soạn Bài (trong Đề), chọn|
-|                 |     nguồn câu hỏi: từ ngân hàng có sẵn hoặc soạn    |
-|                 |     câu hỏi mới --- cả 2 đều được lưu vào ngân hàng |
-|                 |     câu hỏi (exercise_questions).                  |
+|                 | 3.  Hệ thống tự tạo đúng 1 Ngân hàng câu hỏi ngầm  |
+|                 |     khi tạo Đề. Giáo viên mở màn hình Soạn Bài     |
+|                 |     (trong Đề), chọn câu có sẵn của chính Đề, soạn |
+|                 |     câu mới hoặc import Excel/Word. Giáo viên không|
+|                 |     thấy/chọn mã, tên hay ID ngân hàng; hệ thống tự |
+|                 |     lưu câu vào ngân hàng ngầm của Đề rồi gắn qua  |
+|                 |     exercise_questions. Import là create-only,     |
+|                 |     không có question_id và cho phép trùng nội dung.|
 |                 |                                                    |
 |                 | 4.  Giáo viên chọn Loại Bài: SELF_PRACTICE (dùng   |
 |                 |     cho UC-27) hoặc ASSIGNED (dùng cho UC-24) ---  |
@@ -1114,8 +1118,20 @@ UC-40: Soạn & giao đề kiểm tra
 > 5. Dropdown "BTVN buổi sau" ở Nhận xét học viên (UC-21) đổi nhãn từ
 >    `Tên bài (Mã bài)` sang **`Mã Đề - Tên bài`** để phân biệt khi 1 lớp
 >    được gán nhiều Đề cùng lúc.
+>
+> **Bổ sung Ngân hàng câu hỏi ngầm (2026-08-04, đã xác nhận với người
+> dùng):** mỗi `Exam` sở hữu đúng 1 `QuestionBank` nội bộ được tạo tự động
+> cùng transaction. Giáo viên chỉ thao tác qua API/màn hình theo `examId`,
+> không thấy/chọn `bankId`, mã hay tên ngân hàng; nguồn “Chọn có sẵn” chỉ
+> lấy câu ACTIVE của chính Đề, không lấy câu từ ngân hàng legacy. Import
+> Excel/Word là create-only, không nhận `question_id`, và cho phép nhiều câu
+> ACTIVE trùng nội dung. Ngân hàng legacy tiếp tục tồn tại để giữ tương
+> thích dữ liệu cũ và chỉ `HEAD_ACADEMIC`/`SYS_ADMIN`/`SUPER_ADMIN` được
+> quản lý độc lập; ngân hàng nội bộ không xuất hiện trong danh sách chung
+> với bất kỳ vai trò nào. Không chuyển bank/xóa/clone câu cũ; các liên kết
+> `exercise_questions`/`student_answers` cũ giữ nguyên.
 
-> **Bổ sung V77 (2026-08-04, đã xác nhận với người dùng) — Soạn Bài đổi
+> **Bổ sung V84 (2026-08-04, đã xác nhận với người dùng) — Soạn Bài đổi
 > hẳn theo `teacher_type` của Đề, thêm loại Bài "Video phản xạ":**
 > `teacher_type` (V74) từ chỗ chỉ là filter tìm kiếm, nay quyết định luôn
 > hình dạng màn hình Soạn Bài (bước 3 Main Flow):
@@ -1143,7 +1159,7 @@ UC-40: Soạn & giao đề kiểm tra
 >      hạn nộp — Portal lọc bỏ Bài loại này khỏi danh sách "Bài ngữ pháp"
 >      để không hiện trùng 2 lần.
 >
->      **Sửa lại ở V78 (2026-08-04, đã xác nhận với người dùng):** mô tả
+>      **Sửa lại ở V85 (2026-08-04, đã xác nhận với người dùng):** mô tả
 >      "MỚI HOÀN TOÀN" ở trên ban đầu tạo `ReviewVideoSet` NGAY TRONG modal
 >      Soạn Bài (`ReflexVideoExerciseStep`) — người dùng phản hồi không hợp
 >      lý (tách rời khỏi luồng quản lý video chung). Đã thống nhất lại:
@@ -1157,7 +1173,7 @@ UC-40: Soạn & giao đề kiểm tra
 >      `ExerciseRepository.existsByReviewVideoSetId` — chặn chọn 1 bộ REFLEX
 >      đã liên kết Bài khác.
 >
->      **Rollback HẲN ở V79 (2026-08-04, đã xác nhận với người dùng, cùng
+>      **Rollback HẲN ở V86 (2026-08-04, đã xác nhận với người dùng, cùng
 >      ngày):** người dùng phản hồi tiếp — kể cả bản "chọn set có sẵn" ở
 >      trên vẫn không hợp lý, quyết định bỏ HẲN "Video phản xạ" khỏi màn
 >      Soạn Bài. Lý do: Video phản xạ (REFLEX) vốn ĐÃ giao lớp được hoàn
@@ -1165,11 +1181,11 @@ UC-40: Soạn & giao đề kiểm tra
 >      viên" chọn `homeworkNextReviewVideoSetId` → `StudentCommentService
 >      #resolveVideoHomework` gọi thẳng `ReviewVideoService#deliverToClass`,
 >      không phân biệt CONNECTION/REFLEX, không phụ thuộc gì vào `Exercise`.
->      Việc bọc REFLEX vào 1 `Exercise` (V77) chỉ tạo thêm 1 đường giao KÉP
+>      Việc bọc REFLEX vào 1 `Exercise` (V84) chỉ tạo thêm 1 đường giao KÉP
 >      dư thừa. Đã gỡ SẠCH: `Exercise.ExerciseType.REFLEX_VIDEO`,
 >      `exercises.review_video_set_id` (migration
->      `V79__revert_exercise_reflex_video_link.sql` — DROP COLUMN, không
->      sửa migration V77 cũ), endpoint `POST /exercises/reflex-video`,
+>      `V86__revert_exercise_reflex_video_link.sql` — DROP COLUMN, không
+>      sửa migration V84 cũ), endpoint `POST /exercises/reflex-video`,
 >      `ExerciseService#createReflexVideoExercise` và mọi nhánh REFLEX_VIDEO
 >      trong `addQuestion`/`publishExercise`/`deliverToClass`/`toResponse`,
 >      `ReviewVideoService#publishSet` (mồ côi sau khi gỡ, không còn nơi nào
@@ -1180,7 +1196,7 @@ UC-40: Soạn & giao đề kiểm tra
 >      KHÔNG mất khả năng giao Video phản xạ — vẫn giao được y hệt Video
 >      kết nối qua Nhận xét học viên như trước giờ.
 
-> **Bổ sung V80/V81 (2026-08-04, đã xác nhận với người dùng) — đủ CRUD cho
+> **Bổ sung V87/V88 (2026-08-04, đã xác nhận với người dùng) — đủ CRUD cho
 > Kho đề (thêm "Xóa Bài" + "Xóa Đề", trước đó chỉ có Create/Read/Update):**
 > - **"Xóa Bài"** (`DELETE /api/exercises/{id}`, quyền `lms.exercise.update`
 >   — tái dùng, không phải hành động phá hủy) = chuyển `exercises.status`
@@ -1192,7 +1208,7 @@ UC-40: Soạn & giao đề kiểm tra
 >   `status=PUBLISHED`, không cần sửa gì thêm) — `listByExam` (Kho đề GV
 >   xem) cũng lọc bỏ Bài `ARCHIVED`.
 > - **"Xóa Đề"** (`DELETE /api/exams/{id}`, quyền mới `lms.exam.delete` —
->   migration `V80__exam_delete_soft_and_permission.sql`) = soft-delete qua
+>   migration `V87__exam_delete_soft_and_permission.sql`) = soft-delete qua
 >   cột mới `exams.deleted_at` (cùng pattern `PartnerContract`/`SchoolClass`
 >   đã dùng trong dự án). Chỉ xóa được khi **mọi Bài thuộc Đề đã "xóa"
 >   (ARCHIVED) trước** — chặn ở `ExamService#deleteExam` bằng
@@ -1201,24 +1217,24 @@ UC-40: Soạn & giao đề kiểm tra
 >   ở dropdown "gán lớp" để giao Bài mới) — không ảnh hưởng bài đã giao/
 >   đang làm dở (xem Javadoc `requireCanViewExercise` ở trên, không re-check
 >   `exam_class_assignments` mỗi lần học sinh mở bài).
-> - **V81** (`V81__grant_exam_delete_to_sys_admin.sql`) — sửa 1 lỗ hổng
->   phát hiện ngay sau khi V80 chạy: cách cấp quyền mới cho user override
+> - **V88** (`V88__grant_exam_delete_to_sys_admin.sql`) — sửa 1 lỗ hổng
+>   phát hiện ngay sau khi V87 chạy: cách cấp quyền mới cho user override
 >   (mirror V72) không phủ được role `SYS_ADMIN` (vốn có sẵn
 >   `lms.exam.create/update/assign` qua `role_permissions` trực tiếp, không
 >   qua override cá nhân) — sysadmin không tự động có `lms.exam.delete`.
->   V81 cấp bổ sung `lms.exam.delete` cho MỌI role đã có `lms.exam.create`
+>   V88 cấp bổ sung `lms.exam.delete` cho MỌI role đã có `lms.exam.create`
 >   qua `role_permissions` (không riêng SYS_ADMIN).
 
-> **Bổ sung V78 (2026-08-04, đã xác nhận với người dùng) — Đề FOREIGN có
-> thêm lựa chọn thứ 3 (SAU ĐÓ ĐÃ ROLLBACK Ở V79, xem trên — chỉ còn 2 lựa
+> **Bổ sung V85 (2026-08-04, đã xác nhận với người dùng) — Đề FOREIGN có
+> thêm lựa chọn thứ 3 (SAU ĐÓ ĐÃ ROLLBACK Ở V86, xem trên — chỉ còn 2 lựa
 > chọn), Đề VIETNAMESE có thêm 5 dạng bài (dựa trên 1 đề tiếng Anh mẫu
 > người dùng cung cấp):**
 > - **Đề FOREIGN — thêm "Nghe & nộp audio"** (bên cạnh "Audio bài nghe"/
->   "Video phản xạ" ở V77): học sinh nghe 1 file audio rồi tự ghi âm nộp
+>   "Video phản xạ" ở V84): học sinh nghe 1 file audio rồi tự ghi âm nộp
 >   lại — tái dùng NGUYÊN cơ chế `SPEAKING` đã có sẵn (`audio_answer_url`),
 >   chỉ khác `skill=LISTENING` + `Question.audioUrl` chứa file nghe (thay
 >   `referencePassage` chứa từ khóa phát âm như Speaking oral gốc) —
->   KHÔNG cần đổi schema. Tiện thể vá gap tồn đọng: trước V78, Portal
+>   KHÔNG cần đổi schema. Tiện thể vá gap tồn đọng: trước V85, Portal
 >   (`TakeExerciseModal.tsx`) chưa có UI ghi âm/upload thật cho SPEAKING dù
 >   backend đã sẵn sàng — nay cả Speaking oral gốc lẫn "Nghe & nộp audio"
 >   đều nộp được audio thật qua `POST /api/media/upload`
@@ -1261,7 +1277,7 @@ UC-40: Soạn & giao đề kiểm tra
 >      học sinh làm bài (`TakeExerciseModal.tsx` nhóm theo `group_key`).
 >   5. **Điền từ tự do** (Ex3 của đề mẫu) đã được hỗ trợ 100% từ trước bởi
 >      `FILL_IN_BLANK` (V54) — không cần thêm gì.
-> Migration `V78__question_word_bank_sentence_building.sql`.
+> Migration `V85__question_word_bank_sentence_building.sql`.
 
 > **Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (2026-07-21, cập
 > nhật 2026-07-22):** `Question.audioUrl` (trắc nghiệm Voice) và

@@ -7,21 +7,17 @@ import Button from "@/components/ui/Button";
 import {
   ExamTeacherType,
   ExerciseResponse,
-  QuestionBankResponse,
   QuestionImportedRow,
   QuestionResponse,
   addExerciseQuestion,
   createExercise,
+  listExamQuestions,
   listExerciseQuestions,
-  listQuestionBanksByCurriculum,
-  listQuestions,
   publishExercise
 } from "../api";
-import Select from "@/components/ui/Select";
 import QuestionEditorForm from "./QuestionEditorForm";
 import QuestionImportPanel from "./QuestionImportPanel";
 import GridQuestionBuilder from "./GridQuestionBuilder";
-import { QuickBankForm } from "../pages/QuestionBankPage";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
@@ -35,18 +31,16 @@ interface SelectedQuestion {
 
 interface CreateAndAssignExerciseModalProps {
   examId: number;
-  /** Khung chương trình của Đề cha — chỉ để browse Ngân hàng câu hỏi ở bước soạn Bài, không gửi lên BE. */
-  curriculumId: number;
   /**
    * V77-V83 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04): VIETNAMESE giữ luồng câu
-   * hỏi thường (bỏ "Chọn có sẵn", ưu tiên "Nhập Excel/Word", V78 thêm toggle "Bài đọc hiểu — Lưới").
-   * FOREIGN (V83, sửa lại lần cuối): không còn MÀN HÌNH riêng để chọn loại Bài ("Audio bài nghe"/"Nghe
-   * & nộp audio") — kể cả gắn ở bước "gắn câu hỏi" như V82 người dùng vẫn thấy đó là "1 bước ngoài"
-   * thừa. Giờ FOREIGN đi đúng 1 luồng DUY NHẤT như VIETNAMESE: soạn info Bài → sang thẳng
-   * ExerciseQuestionsStep → chọn loại câu hỏi NGAY TRONG kind-picker của QuestionEditorForm (cùng chỗ
-   * VIETNAMESE chọn giữa 7 kind), chỉ khác là danh sách kind cho phép bị giới hạn còn 2 (Trắc nghiệm
-   * Voice / Nghe & nộp audio). "Video phản xạ" đã bị bỏ khỏi màn này từ trước (V79) — Video phản xạ
-   * (REFLEX) giao lớp trực tiếp ở Kho Video Ôn tập, y hệt Video kết nối.
+   * hỏi thường (ưu tiên "Nhập Excel/Word", V78 thêm toggle "Bài đọc hiểu — Lưới"). FOREIGN (V83, sửa
+   * lại lần cuối): không còn MÀN HÌNH riêng để chọn loại Bài ("Audio bài nghe"/"Nghe & nộp audio") —
+   * kể cả gắn ở bước "gắn câu hỏi" như V82 người dùng vẫn thấy đó là "1 bước ngoài" thừa. Giờ FOREIGN
+   * đi đúng 1 luồng DUY NHẤT như VIETNAMESE: soạn info Bài → sang thẳng ExerciseQuestionsStep → chọn
+   * loại câu hỏi NGAY TRONG kind-picker của QuestionEditorForm (cùng chỗ VIETNAMESE chọn giữa 7 kind),
+   * chỉ khác là danh sách kind cho phép bị giới hạn còn 2 (Trắc nghiệm Voice / Nghe & nộp audio).
+   * "Video phản xạ" đã bị bỏ khỏi màn này từ trước (V79) — Video phản xạ (REFLEX) giao lớp trực tiếp
+   * ở Kho Video Ôn tập, y hệt Video kết nối.
    */
   teacherType: ExamTeacherType;
   onClose: () => void;
@@ -59,12 +53,14 @@ interface CreateAndAssignExerciseModalProps {
  * hoặc để DRAFT publish sau. KHÔNG còn bước giao lớp/hạn nộp ở đây nữa — việc giao (tự động cho cả lớp,
  * hạn nộp = buổi kế tiếp) chuyển hẳn sang lúc Giáo viên chọn Bài này làm "BTVN buổi sau" ở Nhận xét học
  * viên (UC-21, xem DailyCommentPanel.tsx). Kho đề (2026-07-30): Bài giờ thuộc 1 Đề (examId) thay vì
- * gán khung chương trình trực tiếp — khung chương trình chỉ còn dùng để browse Ngân hàng câu hỏi.
+ * gán khung chương trình trực tiếp — khung chương trình chỉ còn dùng để lọc/duyệt trong Kho đề.
  *
  * V82: info step giờ giống HỆT nhau cho VIETNAMESE/FOREIGN (ExerciseInfoStep không còn phân biệt
  * teacherType) — chỉ bước "gắn câu hỏi" (ExerciseQuestionsStep) mới khác nhau theo teacherType.
+ * V75 (merge từ develop, 2026-08-04): câu hỏi giờ thuộc thẳng ngân hàng nội bộ của Đề (examId) — không
+ * còn khái niệm chọn/tạo ngân hàng theo khung chương trình nữa.
  */
-export default function CreateAndAssignExerciseModal({ examId, curriculumId, teacherType, onClose, onDone }: CreateAndAssignExerciseModalProps) {
+export default function CreateAndAssignExerciseModal({ examId, teacherType, onClose, onDone }: CreateAndAssignExerciseModalProps) {
   const [step, setStep] = useState<Step>("info");
   const [exercise, setExercise] = useState<ExerciseResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -87,7 +83,6 @@ export default function CreateAndAssignExerciseModal({ examId, curriculumId, tea
       {step === "questions" && exercise && (
         <ExerciseQuestionsStep
           exercise={exercise}
-          curriculumId={curriculumId}
           teacherType={teacherType}
           onDone={() => setStep("publish")}
           onError={setError}
@@ -206,11 +201,12 @@ interface AttachedQuestion {
 }
 
 /**
- * UC-40 Main Flow bước 1: nguồn câu hỏi — soạn câu hỏi mới / nhập hàng loạt Excel-Word (bổ sung
- * 2026-07-30, đã xác nhận với người dùng). V77 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
- * 2026-08-04): bỏ hẳn "Chọn có sẵn" (Ngân hàng câu hỏi đã ẩn khỏi sidebar, không còn ý nghĩa) — Đề
- * VIETNAMESE ưu tiên "Nhập Excel/Word" làm mặc định; Đề FOREIGN (nhánh Audio bài nghe) chỉ còn
- * "Soạn câu hỏi mới", giới hạn đúng loại Trắc nghiệm Voice qua allowedKinds của QuestionEditorForm.
+ * UC-40 Main Flow bước 1: nguồn câu hỏi — chọn có sẵn trong Đề / soạn câu hỏi mới / nhập hàng loạt
+ * Excel-Word. V75 (merge từ develop, 2026-08-04): "Chọn có sẵn" giờ nghĩa là chọn lại câu hỏi ĐÃ CÓ
+ * trong chính Đề này (ngân hàng nội bộ theo examId) — dùng để tái sử dụng câu hỏi giữa các Bài cùng 1
+ * Đề, khác hẳn ý nghĩa cũ (V77: duyệt ngân hàng câu hỏi theo khung chương trình, đã bỏ vì trang Ngân
+ * hàng câu hỏi độc lập bị ẩn khỏi sidebar). Đề FOREIGN chỉ còn "Chọn có sẵn"/"Soạn câu hỏi mới", giới
+ * hạn đúng 2 loại Trắc nghiệm Voice/Nghe & nộp audio qua allowedKinds của QuestionEditorForm.
  */
 /**
  * Xuất công khai để tái dùng ở ExerciseAssignPage.tsx — "+ Thêm câu hỏi" cho 1 Bài ĐÃ TỒN TẠI (bổ
@@ -219,26 +215,22 @@ interface AttachedQuestion {
  */
 export function ExerciseQuestionsStep({
   exercise,
-  curriculumId,
   teacherType,
   onDone,
   onError,
   onClose
 }: {
   exercise: ExerciseResponse;
-  curriculumId: number;
   teacherType: ExamTeacherType;
   onDone: () => void;
   onError: (message: string | null) => void;
   onClose: () => void;
 }) {
-  const availableModes: QuestionSourceMode[] = teacherType === "FOREIGN" ? ["compose"] : ["import", "compose"];
-  const [mode, setMode] = useState<QuestionSourceMode>(availableModes[0]);
+  const availableModes: QuestionSourceMode[] = teacherType === "FOREIGN" ? ["existing", "compose"] : ["existing", "import", "compose"];
+  const [mode, setMode] = useState<QuestionSourceMode>("existing");
   // V78: VIETNAMESE trong tab "Soạn câu hỏi mới" có thêm lựa chọn "Bài đọc hiểu — Lưới" (composite
   // nhiều câu hỏi/1 lần, xem GridQuestionBuilder) bên cạnh soạn từng câu đơn (QuestionEditorForm).
   const [composeSubMode, setComposeSubMode] = useState<"single" | "grid">("single");
-  const [banks, setBanks] = useState<QuestionBankResponse[]>([]);
-  const [selectedBankId, setSelectedBankId] = useState<number | null>(null);
   const [bankQuestions, setBankQuestions] = useState<QuestionResponse[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selected, setSelected] = useState<SelectedQuestion[]>([]);
@@ -263,22 +255,9 @@ export function ExerciseQuestionsStep({
   const [composeFormKey, setComposeFormKey] = useState(0);
 
   useEffect(() => {
-    listQuestionBanksByCurriculum(curriculumId)
-      .then((res) => {
-        setBanks(res);
-        if (res.length > 0) setSelectedBankId(res[0].id);
-      })
-      .catch(() => undefined);
-  }, [curriculumId]);
-
-  useEffect(() => {
     setSearchTerm("");
-    if (!selectedBankId) {
-      setBankQuestions([]);
-      return;
-    }
-    listQuestions(selectedBankId).then(setBankQuestions).catch(() => undefined);
-  }, [selectedBankId]);
+    listExamQuestions(exercise.examId).then(setBankQuestions).catch(() => undefined);
+  }, [exercise.examId]);
 
   const filteredQuestions = bankQuestions.filter((q) => {
     const term = searchTerm.trim().toLowerCase();
@@ -397,163 +376,116 @@ export function ExerciseQuestionsStep({
         </p>
       )}
 
-      {banks.length === 0 ? (
-        <div className="space-y-2">
-          <p className="text-xs text-slate-500">Khung chương trình này chưa có ngân hàng câu hỏi nào — tạo nhanh 1 ngân hàng để bắt đầu soạn câu hỏi ngay dưới đây.</p>
-          <QuickBankForm
-            curriculumId={curriculumId}
-            onCreated={(created) => {
-              setBanks((prev) => [...prev, created]);
-              setSelectedBankId(created.id);
-              setMode("compose");
-            }}
-            onCancel={onClose}
-          />
-        </div>
-      ) : (
-        <>
-          <Select
-            value={selectedBankId ?? ""}
-            onChange={(e) => setSelectedBankId(e.target.value ? Number(e.target.value) : null)}
-            className={inputClass}
+      <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-lg w-fit">
+        {availableModes.map((m) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => setMode(m)}
+            className={`text-[11px] font-bold px-3 py-1.5 rounded-md transition-all ${
+              mode === m ? "bg-white text-brand-red shadow-xs" : "text-slate-500 hover:text-slate-700"
+            }`}
           >
-            <option value="">-- Chọn ngân hàng câu hỏi --</option>
-            {banks.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.code} — {b.name}
-              </option>
-            ))}
-          </Select>
+            {modeLabels[m]}
+          </button>
+        ))}
+      </div>
 
-          {availableModes.length > 1 && (
-            <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-lg w-fit">
-              {availableModes.map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => setMode(m)}
-                  className={`text-[11px] font-bold px-3 py-1.5 rounded-md transition-all ${
-                    mode === m ? "bg-white text-brand-red shadow-xs" : "text-slate-500 hover:text-slate-700"
-                  }`}
-                >
-                  {modeLabels[m]}
-                </button>
-              ))}
+      {mode === "existing" && (
+        <div className="space-y-3">
+          {bankQuestions.length > 0 && (
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400" />
+              <input
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Tìm câu hỏi có sẵn trong Đề..."
+                className={`${inputClass} pl-8`}
+              />
             </div>
           )}
 
-          {mode === "existing" && (
-            <div className="space-y-3">
-              {bankQuestions.length > 0 && (
-                <div className="relative">
-                  <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400" />
-                  <input
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Tìm theo nội dung câu hỏi, mã ID..."
-                    className={`${inputClass} pl-8`}
-                  />
-                </div>
-              )}
-
-              <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 max-h-56 overflow-y-auto">
-                {!selectedBankId ? (
-                  <p className="text-xs text-slate-400 italic p-3 text-center">Chọn 1 ngân hàng câu hỏi ở trên.</p>
-                ) : bankQuestions.length === 0 ? (
-                  <p className="text-xs text-slate-500 p-3">
-                    Ngân hàng này chưa có câu hỏi nào.{" "}
-                    <Link to="/lms/question-banks" className="text-brand-red font-bold hover:underline">
-                      Soạn câu hỏi trước
-                    </Link>{" "}
-                    rồi quay lại đây, hoặc chuyển sang tab "Soạn câu hỏi mới"/"Nhập Excel/Word" ở trên.
-                  </p>
-                ) : filteredQuestions.length === 0 ? (
-                  <p className="text-xs text-slate-400 italic p-3 text-center">Không tìm thấy câu hỏi nào khớp tìm kiếm.</p>
-                ) : (
-                  filteredQuestions.map((q) => (
-                    <label key={q.id} className="flex items-center gap-2 px-3 py-2 text-xs cursor-pointer hover:bg-slate-50">
-                      <input type="checkbox" checked={isSelected(q.id)} onChange={() => toggleQuestion(q)} />
-                      <span className="flex-1 truncate">{q.content}</span>
-                      <span className="text-[10px] text-slate-400 uppercase">{q.questionType}</span>
-                      <button
-                        type="button"
-                        title="Sửa câu hỏi"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          setEditingQuestion(q);
-                        }}
-                        className="text-slate-400 hover:text-brand-red shrink-0"
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                      </button>
-                      {isSelected(q.id) && (
-                        <input
-                          type="number"
-                          min={0}
-                          value={selected.find((s) => s.question.id === q.id)?.points ?? 0}
-                          onChange={(e) => updatePoints(q.id, Number(e.target.value))}
-                          onClick={(e) => e.stopPropagation()}
-                          className="w-16 bg-white border border-slate-200 text-xs p-1 rounded"
-                        />
-                      )}
-                    </label>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
-
-          {mode === "compose" && selectedBankId && teacherType === "VIETNAMESE" && (
-            <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-lg w-fit">
-              {(["single", "grid"] as const).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => setComposeSubMode(m)}
-                  className={`text-[11px] font-bold px-3 py-1.5 rounded-md transition-all ${
-                    composeSubMode === m ? "bg-white text-brand-red shadow-xs" : "text-slate-500 hover:text-slate-700"
-                  }`}
-                >
-                  {m === "single" ? "Câu hỏi đơn" : "Bài đọc hiểu — Lưới"}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {mode === "compose" &&
-            (selectedBankId ? (
-              composeSubMode === "grid" && teacherType === "VIETNAMESE" ? (
-                <GridQuestionBuilder questionBankId={selectedBankId} onCreated={handleGridCreated} onCancel={() => setComposeSubMode("single")} />
-              ) : (
-                <QuestionEditorForm
-                  key={composeFormKey}
-                  questionBankId={selectedBankId}
-                  allowedKinds={
-                    // V83 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04): FOREIGN chọn
-                    // trực tiếp giữa 2 kind ngay trong kind-picker này — không còn màn chọn riêng trước
-                    // đó (V78 GV Việt Nam không soạn Speaking oral/"Nghe & nộp audio", 2 kind này chỉ
-                    // dành cho FOREIGN).
-                    teacherType === "FOREIGN"
-                      ? ["VOICE_MULTIPLE_CHOICE", "LISTENING_AUDIO_SUBMISSION"]
-                      : ["MULTIPLE_CHOICE", "VOICE_MULTIPLE_CHOICE", "INLINE_CHOICE", "FILL_IN_BLANK", "WORD_BANK", "SENTENCE_BUILDING", "ESSAY"]
-                  }
-                  onCreated={handleComposeCreated}
-                  onCancel={() => setMode(availableModes[0])}
-                />
-              )
+          <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 max-h-56 overflow-y-auto">
+            {bankQuestions.length === 0 ? (
+              <p className="text-xs text-slate-500 p-3">
+                Đề này chưa có câu hỏi. Chuyển sang tab "Soạn câu hỏi mới"{teacherType === "VIETNAMESE" ? ' hoặc "Nhập Excel/Word"' : ""} ở trên.
+              </p>
+            ) : filteredQuestions.length === 0 ? (
+              <p className="text-xs text-slate-400 italic p-3 text-center">Không tìm thấy câu hỏi nào khớp tìm kiếm.</p>
             ) : (
-              <p className="text-xs text-slate-400 italic p-3 text-center">Chọn 1 ngân hàng câu hỏi ở trên để soạn câu hỏi mới.</p>
-            ))}
-
-          {mode === "import" &&
-            (selectedBankId ? (
-              <QuestionImportPanel bankId={selectedBankId} onImported={handleImportCompleted} />
-            ) : (
-              <p className="text-xs text-slate-400 italic p-3 text-center">Chọn 1 ngân hàng câu hỏi ở trên để nhập hàng loạt.</p>
-            ))}
-        </>
+              filteredQuestions.map((q) => (
+                <label key={q.id} className="flex items-center gap-2 px-3 py-2 text-xs cursor-pointer hover:bg-slate-50">
+                  <input type="checkbox" checked={isSelected(q.id)} onChange={() => toggleQuestion(q)} />
+                  <span className="flex-1 truncate">{q.content}</span>
+                  <span className="text-[10px] text-slate-400 uppercase">{q.questionType}</span>
+                  <button
+                    type="button"
+                    title="Sửa câu hỏi"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setEditingQuestion(q);
+                    }}
+                    className="text-slate-400 hover:text-brand-red shrink-0"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                  {isSelected(q.id) && (
+                    <input
+                      type="number"
+                      min={0}
+                      value={selected.find((s) => s.question.id === q.id)?.points ?? 0}
+                      onChange={(e) => updatePoints(q.id, Number(e.target.value))}
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-16 bg-white border border-slate-200 text-xs p-1 rounded"
+                    />
+                  )}
+                </label>
+              ))
+            )}
+          </div>
+        </div>
       )}
+
+      {mode === "compose" && teacherType === "VIETNAMESE" && (
+        <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-lg w-fit">
+          {(["single", "grid"] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setComposeSubMode(m)}
+              className={`text-[11px] font-bold px-3 py-1.5 rounded-md transition-all ${
+                composeSubMode === m ? "bg-white text-brand-red shadow-xs" : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              {m === "single" ? "Câu hỏi đơn" : "Bài đọc hiểu — Lưới"}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {mode === "compose" &&
+        (composeSubMode === "grid" && teacherType === "VIETNAMESE" ? (
+          <GridQuestionBuilder examId={exercise.examId} onCreated={handleGridCreated} onCancel={() => setComposeSubMode("single")} />
+        ) : (
+          <QuestionEditorForm
+            key={composeFormKey}
+            examId={exercise.examId}
+            allowedKinds={
+              // V83 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04): FOREIGN chọn
+              // trực tiếp giữa 2 kind ngay trong kind-picker này — không còn màn chọn riêng trước
+              // đó (V78 GV Việt Nam không soạn Speaking oral/"Nghe & nộp audio", 2 kind này chỉ
+              // dành cho FOREIGN).
+              teacherType === "FOREIGN"
+                ? ["VOICE_MULTIPLE_CHOICE", "LISTENING_AUDIO_SUBMISSION"]
+                : ["MULTIPLE_CHOICE", "VOICE_MULTIPLE_CHOICE", "INLINE_CHOICE", "FILL_IN_BLANK", "WORD_BANK", "SENTENCE_BUILDING", "ESSAY"]
+            }
+            onCreated={handleComposeCreated}
+            onCancel={() => setMode("existing")}
+          />
+        ))}
+
+      {mode === "import" && <QuestionImportPanel examId={exercise.examId} onImported={handleImportCompleted} />}
 
       {attached.length > 0 && (
         <div className="border border-emerald-100 bg-emerald-50/50 rounded-lg divide-y divide-emerald-100 max-h-40 overflow-y-auto">
@@ -582,10 +514,10 @@ export function ExerciseQuestionsStep({
         </Button>
       </div>
 
-      {editingQuestion && selectedBankId && (
+      {editingQuestion && (
         <Modal open onClose={() => setEditingQuestion(null)} title={`Sửa câu hỏi Q-${editingQuestion.id}`} size="lg">
           <QuestionEditorForm
-            questionBankId={selectedBankId}
+            examId={exercise.examId}
             existingQuestion={editingQuestion}
             onCreated={(updated) => {
               setBankQuestions((prev) => prev.map((bq) => (bq.id === updated.id ? updated : bq)));

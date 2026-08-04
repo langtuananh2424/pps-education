@@ -17,7 +17,7 @@ import {
   createExam,
   deleteExam,
   deleteExercise,
-  getQuestion,
+  getExamQuestion,
   listExamAssignedClasses,
   listExercisesByExam,
   listExerciseQuestions,
@@ -494,13 +494,11 @@ function EditExerciseModal({
  */
 function AddQuestionsModal({
   exercise,
-  curriculumId,
   teacherType,
   onClose,
   onDone
 }: {
   exercise: ExerciseResponse;
-  curriculumId: number;
   teacherType: ExamTeacherType;
   onClose: () => void;
   onDone: () => void;
@@ -510,14 +508,7 @@ function AddQuestionsModal({
   return (
     <Modal open onClose={onClose} title={`Thêm câu hỏi — ${exercise.code}`} size="lg">
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
-      <ExerciseQuestionsStep
-        exercise={exercise}
-        curriculumId={curriculumId}
-        teacherType={teacherType}
-        onDone={onDone}
-        onError={setError}
-        onClose={onClose}
-      />
+      <ExerciseQuestionsStep exercise={exercise} teacherType={teacherType} onDone={onDone} onError={setError} onClose={onClose} />
     </Modal>
   );
 }
@@ -641,7 +632,6 @@ function ExamDetailPanel({
             <ExerciseRow
               key={exercise.id}
               exercise={exercise}
-              curriculumId={exam.curriculumId}
               teacherType={exam.teacherType}
               canManage={canManage}
               onChanged={loadExercises}
@@ -654,7 +644,6 @@ function ExamDetailPanel({
       {createExerciseOpen && (
         <CreateAndAssignExerciseModal
           examId={exam.id}
-          curriculumId={exam.curriculumId}
           teacherType={exam.teacherType}
           onClose={() => setCreateExerciseOpen(false)}
           onDone={() => {
@@ -680,14 +669,12 @@ function ExamDetailPanel({
 /** Click dòng để mở rộng xem nhanh danh sách câu hỏi; nút riêng để xem trước Bài đầy đủ kèm đáp án. */
 function ExerciseRow({
   exercise,
-  curriculumId,
   teacherType,
   canManage,
   onChanged,
   showToast
 }: {
   exercise: ExerciseResponse;
-  curriculumId: number;
   teacherType: ExamTeacherType;
   canManage: boolean;
   onChanged: () => void;
@@ -715,7 +702,7 @@ function ExerciseRow({
     setLoadingEditQuestionId(q.id);
     setError(null);
     try {
-      const full = await getQuestion(q.questionId);
+      const full = await getExamQuestion(exercise.examId, q.questionId);
       setEditingQuestion(full);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Không tải được câu hỏi để sửa.");
@@ -865,7 +852,6 @@ function ExerciseRow({
       {addQuestionsOpen && (
         <AddQuestionsModal
           exercise={exercise}
-          curriculumId={curriculumId}
           teacherType={teacherType}
           onClose={() => setAddQuestionsOpen(false)}
           onDone={() => {
@@ -888,7 +874,7 @@ function ExerciseRow({
       {editingQuestion && (
         <Modal open onClose={() => setEditingQuestion(null)} title={`Sửa câu hỏi Q-${editingQuestion.id}`} size="lg">
           <QuestionEditorForm
-            questionBankId={editingQuestion.questionBankId}
+            examId={exercise.examId}
             existingQuestion={editingQuestion}
             onCreated={(updated) => {
               setQuestions((prev) =>

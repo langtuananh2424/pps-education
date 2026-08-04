@@ -20,6 +20,7 @@ import vn.com.pps.education.dto.GradeEntryResponse;
 import vn.com.pps.education.dto.GradePeriodResponse;
 import vn.com.pps.education.dto.GradePeriodResultResponse;
 import vn.com.pps.education.dto.PublishGradesRequest;
+import vn.com.pps.education.dto.SubmitGradesRequest;
 import vn.com.pps.education.dto.UpdateGradeComponentRequest;
 import vn.com.pps.education.dto.UpdateGradePeriodRequest;
 import vn.com.pps.education.security.AuthenticatedUser;
@@ -27,7 +28,7 @@ import vn.com.pps.education.service.GradeService;
 
 import java.util.List;
 
-/** UC-19: Nhập điểm (FR-ACA-03) + UC-20: Công bố điểm (FR-ACA-03) — xem Javadoc GradeService. */
+/** UC-19: Nhập điểm (FR-ACA-03) + UC-20: Duyệt/Từ chối điểm (FR-ACA-03) — xem Javadoc GradeService. */
 @RestController
 public class GradeController {
 
@@ -122,6 +123,13 @@ public class GradeController {
         return ResponseEntity.noContent().build();
     }
 
+    /** UC-19 Main Flow bước 4 (V44): Giáo viên gửi duyệt — DRAFT/REJECTED -> SUBMITTED, chờ Quản lý điểm trường duyệt qua UC-20. */
+    @PostMapping("/api/grades/submit")
+    public ResponseEntity<List<GradeEntryResponse>> submitGradesForApproval(@Valid @RequestBody SubmitGradesRequest request,
+                                                                              @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(gradeService.submitGradesForApproval(request, actor.userId()));
+    }
+
     // ---- UC-53: Overall/Level theo kỳ đánh giá (TEACHER + HEAD_ACADEMIC/SITE_MANAGER hỗ trợ) ----
 
     @PostMapping("/api/classes/{classId}/grades/students/{studentId}/periods/{gradePeriodId}/result")
@@ -148,7 +156,7 @@ public class GradeController {
         return ResponseEntity.noContent().build();
     }
 
-    // ---- UC-20: Công bố điểm (SITE_MANAGER + HEAD_ACADEMIC) ----
+    // ---- UC-20: Duyệt/Từ chối điểm (SITE_MANAGER + HEAD_ACADEMIC) ----
 
     @GetMapping("/api/grades/pending")
     public ResponseEntity<List<GradeEntryResponse>> listUnpublishedForSite(@AuthenticationPrincipal AuthenticatedUser actor) {

@@ -17,7 +17,7 @@ public interface ExerciseAssignmentRepository extends JpaRepository<ExerciseAssi
     /** UC-21 mở rộng (BTVN online — dán uuid làm phương án thay dropdown, V55). */
     Optional<ExerciseAssignment> findByUuid(UUID uuid);
 
-    /** V75: quét job hết hạn — due_at NULL (bài tự luyện) tự động không khớp phép so sánh <=. */
+    /** V82: quét job hết hạn — due_at NULL (bài tự luyện) tự động không khớp phép so sánh <=. */
     List<ExerciseAssignment> findByStatusAndDueAtLessThanEqualAndTeacherNotifiedAtIsNull(
             ExerciseAssignment.Status status, OffsetDateTime cutoff);
 }

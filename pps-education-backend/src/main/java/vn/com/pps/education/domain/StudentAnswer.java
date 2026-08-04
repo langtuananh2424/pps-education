@@ -46,7 +46,7 @@ public class StudentAnswer {
     private String audioAnswerUrl;
 
     /**
-     * V78 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04) — WORD_BANK/SENTENCE_BUILDING.
+     * V85 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04) — WORD_BANK/SENTENCE_BUILDING.
      * WORD_BANK: đáp án HS chọn theo đúng thứ tự chỗ trống. SENTENCE_BUILDING: thứ tự khối từ/cụm HS
      * đã chọn. So khớp elementwise (case-insensitive + trim) với Question.structuredContent khi chấm
      * — xem ExerciseAttemptService.isAnswerCorrect().

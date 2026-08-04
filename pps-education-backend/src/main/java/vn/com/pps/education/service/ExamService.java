@@ -6,6 +6,7 @@ import vn.com.pps.education.domain.Curriculum;
 import vn.com.pps.education.domain.Exam;
 import vn.com.pps.education.domain.ExamClassAssignment;
 import vn.com.pps.education.domain.SchoolClass;
+import vn.com.pps.education.domain.QuestionBank;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.dto.ClassResponse;
 import vn.com.pps.education.dto.CreateExamRequest;
@@ -18,6 +19,7 @@ import vn.com.pps.education.repository.ClassTeacherRepository;
 import vn.com.pps.education.repository.CurriculumRepository;
 import vn.com.pps.education.repository.ExamClassAssignmentRepository;
 import vn.com.pps.education.repository.ExamRepository;
+import vn.com.pps.education.repository.QuestionBankRepository;
 import vn.com.pps.education.repository.SchoolClassRepository;
 import vn.com.pps.education.repository.UserRepository;
 
@@ -44,6 +46,7 @@ public class ExamService {
 
     private final ExamRepository examRepository;
     private final ExamClassAssignmentRepository examClassAssignmentRepository;
+    private final QuestionBankRepository questionBankRepository;
     private final ExerciseService exerciseService;
     private final CurriculumRepository curriculumRepository;
     private final SchoolClassRepository schoolClassRepository;
@@ -52,6 +55,7 @@ public class ExamService {
 
     public ExamService(ExamRepository examRepository,
                         ExamClassAssignmentRepository examClassAssignmentRepository,
+                        QuestionBankRepository questionBankRepository,
                         ExerciseService exerciseService,
                         CurriculumRepository curriculumRepository,
                         SchoolClassRepository schoolClassRepository,
@@ -59,6 +63,7 @@ public class ExamService {
                         UserRepository userRepository) {
         this.examRepository = examRepository;
         this.examClassAssignmentRepository = examClassAssignmentRepository;
+        this.questionBankRepository = questionBankRepository;
         this.exerciseService = exerciseService;
         this.curriculumRepository = curriculumRepository;
         this.schoolClassRepository = schoolClassRepository;
@@ -78,6 +83,16 @@ public class ExamService {
         exam.setCreatedBy(actor);
         exam.setTeacherType(Exam.TeacherType.valueOf(request.teacherType()));
         exam.setExamType(Exam.ExamType.valueOf(request.examType()));
+
+        // V75: UUID đã sinh ngay khi new Exam(), nên tạo bank trước để INSERT
+        // Exam luôn có FK NOT NULL — lỗi bất kỳ rollback cả bank lẫn Exam.
+        QuestionBank bank = new QuestionBank();
+        bank.setCode("EXAM-" + exam.getUuid());
+        bank.setName("Câu hỏi nội bộ - " + exam.getCode());
+        bank.setCurriculum(curriculum);
+        bank = questionBankRepository.save(bank);
+        exam.setQuestionBank(bank);
+
         exam = examRepository.save(exam);
         return toResponse(exam);
     }
@@ -161,7 +176,7 @@ public class ExamService {
     }
 
     /**
-     * V80 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04) — "Xóa Đề": soft-delete qua
+     * V87 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04) — "Xóa Đề": soft-delete qua
      * deleted_at (không xóa cứng — Bài thuộc Đề có thể đã có exercise_assignments/exercise_attempts/
      * student_answers, dữ liệu bài làm thật của học sinh). Chỉ xóa được khi mọi Bài thuộc Đề đã được
      * "xóa" (lưu trữ) trước — {@link ExerciseService#listByExam} đã tự lọc bỏ Bài ARCHIVED, nên rỗng

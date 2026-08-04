@@ -12,7 +12,7 @@ import java.util.Map;
  * ESSAY/SPEAKING/FILL_IN_BLANK/WORD_BANK/SENTENCE_BUILDING (không có
  * phương án chọn sẵn).
  *
- * skill/audioUrl/referencePassage/structuredContent/groupKey (V78, bổ
+ * skill/audioUrl/referencePassage/structuredContent/groupKey (V85, bổ
  * sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04): Portal cần
  * để render Điền từ - Hộp từ vựng/Sắp xếp câu (structuredContent), audio
  * prompt của Nghe (SPEAKING skill=LISTENING), và gộp "Đọc hiểu — lưới"

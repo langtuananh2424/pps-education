@@ -12,7 +12,7 @@ import java.util.Map;
  * trong điều kiện đó khi: câu KHÔNG tự chấm được (ESSAY/SPEAKING, luôn
  * hiện) HOẶC câu tự chấm được nhưng trả lời SAI (isCorrect=false).
  *
- * structuredAnswer/correctStructuredContent (V78, bổ sung ngoài SDD gốc,
+ * structuredAnswer/correctStructuredContent (V85, bổ sung ngoài SDD gốc,
  * đã xác nhận với người dùng 2026-08-04): WORD_BANK/SENTENCE_BUILDING.
  */
 public record StudentAnswerResponse(

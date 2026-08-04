@@ -535,7 +535,7 @@ public class ReviewVideoService {
     }
 
     /**
-     * V76 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng): giáo viên
+     * V83 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng): giáo viên
      * thêm 1 câu hỏi trắc nghiệm tự chấm vào video CONNECTION (mirror
      * addQuestion của REFLEX nhưng gate NGƯỢC LẠI — chỉ áp dụng CONNECTION).
      * Video CONNECTION giờ bắt buộc có câu hỏi trước khi Publish được (xem
@@ -571,7 +571,7 @@ public class ReviewVideoService {
     }
 
     /**
-     * V76: xem danh sách câu hỏi trắc nghiệm CONNECTION — ẩn đáp án đúng
+     * V83: xem danh sách câu hỏi trắc nghiệm CONNECTION — ẩn đáp án đúng
      * (isCorrect=null) khi actor là học sinh, mirror cách
      * ExerciseQuestionChoiceResponse không lộ isCorrect trước khi nộp bài.
      */
@@ -616,7 +616,7 @@ public class ReviewVideoService {
      * của video (đã xác nhận với người dùng — bổ sung ngoài SDD gốc,
      * 2 tiêu chí ĐỘC LẬP, cả 2 đều cấu hình được khi tạo video).
      *
-     * V76 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng): với video
+     * V83 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng): với video
      * CONNECTION, "qualified" ở đây MỚI chỉ là điều kiện CẦN — lượt xem chỉ
      * thật sự tính vào viewCount khi HỌC SINH nộp đủ câu hỏi trắc nghiệm
      * CHO ĐÚNG lượt này qua {@link #submitConnectionAnswers}. Xem
@@ -645,7 +645,7 @@ public class ReviewVideoService {
     }
 
     /**
-     * V76 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng): học sinh nộp
+     * V83 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng): học sinh nộp
      * TOÀN BỘ câu trả lời trắc nghiệm cho ĐÚNG 1 lượt xem (watchSessionId) —
      * khớp cặp 1-1 "xem lượt nào, trả lời lượt đó". Chặn nếu lượt CHƯA đạt
      * ngưỡng xem (chưa xem xong thì chưa được làm câu hỏi) hoặc lượt đó ĐÃ
@@ -1010,7 +1010,7 @@ public class ReviewVideoService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy câu hỏi id=" + id));
     }
 
-    /** V76: gate bắt buộc khi Publish 1 bộ CONNECTION — mọi video trong bộ phải có ít nhất 1 câu hỏi trắc nghiệm. */
+    /** V83: gate bắt buộc khi Publish 1 bộ CONNECTION — mọi video trong bộ phải có ít nhất 1 câu hỏi trắc nghiệm. */
     private void requireConnectionVideosHaveQuestions(ReviewVideoSet set) {
         if (set.getVideoType() != ReviewVideoSet.VideoType.CONNECTION) {
             return;
@@ -1036,7 +1036,7 @@ public class ReviewVideoService {
     }
 
     /**
-     * V76 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng): tách từ
+     * V83 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng): tách từ
      * reportProgress thành helper dùng chung cho CẢ reportProgress LẪN
      * submitConnectionAnswers — video CONNECTION tính viewCount theo lượt
      * xem VỪA đạt ngưỡng VỪA đã nộp đủ câu hỏi (quizCompletedAt khác NULL);

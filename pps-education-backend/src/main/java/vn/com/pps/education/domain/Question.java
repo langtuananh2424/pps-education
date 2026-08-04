@@ -78,7 +78,7 @@ public class Question {
     private String correctAnswerText;
 
     /**
-     * V78 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04) — dữ liệu riêng theo
+     * V85 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04) — dữ liệu riêng theo
      * questionType: WORD_BANK dùng key "blanks" (mảng đáp án đúng theo đúng thứ tự chỗ trống trong
      * content); SENTENCE_BUILDING dùng key "chunks" (mảng khối từ/cụm theo ĐÚNG thứ tự câu hoàn
      * chỉnh — FE tự xáo trộn lúc hiển thị cho học sinh). Rỗng với mọi questionType khác.
@@ -88,7 +88,7 @@ public class Question {
     private Map<String, Object> structuredContent;
 
     /**
-     * V78 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04) — dạng "Đọc hiểu — lưới":
+     * V85 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04) — dạng "Đọc hiểu — lưới":
      * nhiều câu MULTIPLE_CHOICE cùng 1 groupKey được gộp hiển thị chung 1 referencePassage (cả lúc
      * soạn lẫn lúc học sinh làm bài) — xem GridQuestionBuilder (FE) / TakeExerciseModal (Portal).
      */

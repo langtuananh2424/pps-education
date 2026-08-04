@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { BookOpen, Plus, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import Button from "@/components/ui/Button";
-import { QuestionResponse, createQuestion } from "../api";
+import { QuestionResponse, createExamQuestion } from "../api";
 
 const inputClass = "w-full bg-white border border-slate-200 text-xs px-3.5 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-red";
 const labelClass = "block font-bold text-slate-700 mb-1 uppercase tracking-wider text-[10px]";
@@ -29,11 +29,11 @@ const emptyQuestion = (): QuestionRow => ({ content: "", correctIndex: 0 });
  * NHIỀU Question cùng lúc.
  */
 export default function GridQuestionBuilder({
-  questionBankId,
+  examId,
   onCreated,
   onCancel
 }: {
-  questionBankId: number;
+  examId: number;
   onCreated: (questions: QuestionResponse[]) => void;
   onCancel: () => void;
 }) {
@@ -80,8 +80,7 @@ export default function GridQuestionBuilder({
     try {
       for (let i = 0; i < questions.length; i++) {
         const q = questions[i];
-        const result = await createQuestion({
-          questionBankId,
+        const result = await createExamQuestion(examId, {
           questionType: "MULTIPLE_CHOICE",
           skill: "READING",
           difficulty: "MEDIUM",

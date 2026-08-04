@@ -16,11 +16,11 @@ import java.util.UUID;
  * tính (band IELTS / % / thang riêng). Khác grade_final_summaries (tổng
  * kết toàn học phần, hệ thống tự tính — chưa triển khai).
  *
- * V43 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng — sửa đổi lần 2
- * sau V39): cùng luồng 4 trạng thái với grade_entries — DRAFT →
- * PROVISIONAL_PUBLISHED → APPEAL → OFFICIAL, khoá sửa theo TRẠNG THÁI
- * (không còn theo hạn X ngày) — xem Javadoc {@link GradeEntry} để biết
- * chi tiết từng trạng thái, áp dụng y hệt ở đây.
+ * V44 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng — thay hẳn luồng
+ * "công bố dự kiến + phúc khảo" UC-62 cũ): cùng luồng 4 trạng thái với
+ * grade_entries — DRAFT → SUBMITTED → OFFICIAL / REJECTED, khoá sửa theo
+ * TRẠNG THÁI — xem Javadoc {@link GradeEntry} để biết chi tiết từng trạng
+ * thái, áp dụng y hệt ở đây.
  */
 @Getter
 @Setter
@@ -32,7 +32,7 @@ public class GradePeriodResult {
 
     public enum Source { MANUAL, EXCEL_IMPORT }
 
-    public enum Status { DRAFT, PROVISIONAL_PUBLISHED, APPEAL, OFFICIAL }
+    public enum Status { DRAFT, SUBMITTED, OFFICIAL, REJECTED }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -15,7 +15,7 @@ import java.util.Map;
  * khớp chính xác khi tự chấm — xem ExerciseAttemptService), để trống với
  * các loại khác.
  *
- * structuredContent/groupKey (V78, bổ sung ngoài SDD gốc, đã xác nhận với
+ * structuredContent/groupKey (V85, bổ sung ngoài SDD gốc, đã xác nhận với
  * người dùng 2026-08-04): structuredContent bắt buộc key "blanks" khi
  * questionType=WORD_BANK, key "chunks" khi questionType=SENTENCE_BUILDING
  * (xem QuestionBankService.requireStructuredContentIfNeeded); groupKey

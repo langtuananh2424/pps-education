@@ -44,6 +44,14 @@ public class Exam extends BaseAuditEntity {
     @JoinColumn(name = "curriculum_id", nullable = false)
     private Curriculum curriculum;
 
+    /**
+     * V75: Ngân hàng câu hỏi nội bộ 1-1, tạo tự động cùng Đề. Đây là chi
+     * tiết lưu trữ — API Giáo viên chỉ làm việc theo examId.
+     */
+    @OneToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "question_bank_id", nullable = false, unique = true)
+    private QuestionBank questionBank;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "created_by", nullable = false)
     private User createdBy;
@@ -59,7 +67,7 @@ public class Exam extends BaseAuditEntity {
     private ExamType examType;
 
     /**
-     * V80 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04) — soft-delete "Xóa Đề", cùng
+     * V87 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04) — soft-delete "Xóa Đề", cùng
      * pattern PartnerContract/SchoolClass đã dùng (không xóa cứng vì exercises có thể đã tham chiếu).
      */
     @Column(name = "deleted_at")

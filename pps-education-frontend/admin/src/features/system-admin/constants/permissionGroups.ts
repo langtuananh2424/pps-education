@@ -27,7 +27,7 @@ export const permissionGroupsByModule: Record<string, PermissionGroupDef[]> = {
       codes: ["academic.attendance.mark", "academic.attendance.create", "academic.attendance.update", "academic.attendance.delete"]
     },
     { key: "comment", label: "Nhận xét học viên", codes: ["academic.comment.write", "academic.comment.approve"] },
-    { key: "grade", label: "Sổ điểm", codes: ["academic.grade.manage", "academic.grade.publish", "academic.grade.edit.override"] },
+    { key: "grade", label: "Sổ điểm", codes: ["academic.grade.manage", "academic.grade.approve", "academic.grade.edit.override"] },
     {
       key: "grade-period",
       label: "Sổ điểm — Kỳ đánh giá",

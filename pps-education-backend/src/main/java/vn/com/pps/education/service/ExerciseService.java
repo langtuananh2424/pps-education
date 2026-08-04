@@ -177,7 +177,7 @@ public class ExerciseService {
     }
 
     /**
-     * V80 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04) — "Xóa Bài" = lưu trữ
+     * V87 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04) — "Xóa Bài" = lưu trữ
      * (status=ARCHIVED, đã có sẵn trong enum từ đầu nhưng chưa từng có đường gọi tới). KHÔNG xóa cứng
      * vì exercise_questions/exercise_assignments/exercise_attempts/student_answers có thể đã tham
      * chiếu (dữ liệu bài làm thật của học sinh). ARCHIVED tự động chặn học sinh xem/làm tiếp qua
@@ -197,6 +197,10 @@ public class ExerciseService {
         Exercise exercise = getExerciseOrThrow(exerciseId);
         Question question = questionRepository.findById(request.questionId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy câu hỏi id=" + request.questionId()));
+        if (!question.getQuestionBank().getId().equals(exercise.getExam().getQuestionBank().getId())) {
+            throw new IllegalArgumentException(
+                    "Câu hỏi id=" + request.questionId() + " không thuộc Đề id=" + exercise.getExam().getId() + ".");
+        }
         if (exerciseQuestionRepository.existsByExerciseIdAndQuestionId(exerciseId, request.questionId())) {
             throw new IllegalArgumentException("Câu hỏi id=" + request.questionId() + " đã có trong đề id=" + exerciseId + ".");
         }
@@ -430,8 +434,9 @@ public class ExerciseService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + id));
     }
 
+    /** V87 — không lộ Đề đã "xóa" (deleted_at), cùng pattern ExamService#getExamOrThrow. */
     private Exam examOrThrow(Long id) {
-        return examRepository.findById(id)
+        return examRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Đề id=" + id));
     }
 
@@ -479,7 +484,7 @@ public class ExerciseService {
     }
 
     /**
-     * V78 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04) — QUAN TRỌNG: Question.
+     * V85 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04) — QUAN TRỌNG: Question.
      * structuredContent của WORD_BANK/SENTENCE_BUILDING lưu ĐÚNG thứ tự đáp án (chính là đáp án
      * đúng). Endpoint này (GET /api/exercises/{id}/questions) là endpoint HỌC SINH gọi để làm bài
      * (TakeExerciseModal) — TUYỆT ĐỐI không được trả nguyên thứ tự gốc, dù UI có tự xáo trộn hiển thị

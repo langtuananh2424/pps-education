@@ -7,6 +7,6 @@ public interface ReviewVideoWatchSessionRepository extends JpaRepository<ReviewV
 
     int countByReviewVideoIdAndStudentIdAndQualifiedTrue(Long reviewVideoId, Long studentId);
 
-    /** V76: CONNECTION giờ cần cả xem đạt ngưỡng LẪN đã trả lời đủ câu hỏi CHO ĐÚNG lượt đó mới tính vào viewCount. */
+    /** V83: CONNECTION giờ cần cả xem đạt ngưỡng LẪN đã trả lời đủ câu hỏi CHO ĐÚNG lượt đó mới tính vào viewCount. */
     int countByReviewVideoIdAndStudentIdAndQualifiedTrueAndQuizCompletedAtIsNotNull(Long reviewVideoId, Long studentId);
 }

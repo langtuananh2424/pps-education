@@ -18,7 +18,7 @@ WHERE p.code = 'lms.exam.delete' AND r.code = 'TEACHER';
 -- sau khi thêm quyền mới.
 INSERT INTO user_permission_overrides (user_id, permission_id, override_type, reason, granted_by, granted_at)
 SELECT DISTINCT eo.user_id, dp.id, 'GRANT',
-       'Tự động cấp kèm lms.exam.create — bổ sung Xóa Đề (V80)',
+       'Tự động cấp kèm lms.exam.create — bổ sung Xóa Đề (V87)',
        eo.granted_by, now()
 FROM user_permission_overrides eo
 JOIN permissions ep ON ep.id = eo.permission_id AND ep.code = 'lms.exam.create'

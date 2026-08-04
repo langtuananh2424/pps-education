@@ -31,7 +31,7 @@ package vn.com.pps.education.service;
  * nhận audio (mọi module đã được nhận audio/* mặc định, xem MediaStorageService).
  *
  * EXERCISE_ANSWER_SUBMISSION: bổ sung ngoài SDD gốc, đã xác nhận với
- * người dùng (2026-08-04, V78) - audio Học sinh nộp cho câu hỏi SPEAKING
+ * người dùng (2026-08-04, V85) - audio Học sinh nộp cho câu hỏi SPEAKING
  * (Speaking oral gốc lẫn "Nghe & nộp audio" mới, student_answers.
  * audio_answer_url) — tách folder khỏi LMS_QUESTION (audio mẫu GV tạo,
  * questions.audio_url) cùng lý do với REVIEW_VIDEO_SUBMISSION ở trên.

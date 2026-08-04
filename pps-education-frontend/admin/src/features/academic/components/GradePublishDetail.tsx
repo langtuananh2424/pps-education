@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { ClipboardList, Megaphone } from "lucide-react";
+import { CheckCircle2, ClipboardList, XCircle } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import {
   ClassEnrollmentResponse,
@@ -15,6 +15,8 @@ import {
 } from "../api";
 import GradeSheetTable from "./GradeSheetTable";
 import Select from "@/components/ui/Select";
+import Button from "@/components/ui/Button";
+import Modal from "@/components/ui/Modal";
 
 interface GradePublishDetailProps {
   classId: number | null;
@@ -23,7 +25,7 @@ interface GradePublishDetailProps {
   onPublished: () => void;
 }
 
-/** UC-20 bước 2-5: chi tiết 1 lớp đã chọn từ danh sách — cùng bảng điểm như màn Giáo viên nhập, Công bố tất cả bản ghi Nháp trong 1 lần. */
+/** UC-20 bước 2-5 (V44): chi tiết 1 lớp đã chọn từ danh sách — cùng bảng điểm như màn Giáo viên nhập, Duyệt hoặc Từ chối tất cả bản ghi Chờ duyệt (SUBMITTED) trong 1 lần. */
 export default function GradePublishDetail({ classId, classLabel, teacherName, onPublished }: GradePublishDetailProps) {
   const [enrollments, setEnrollments] = useState<ClassEnrollmentResponse[]>([]);
   const [periods, setPeriods] = useState<GradePeriodResponse[]>([]);
@@ -32,7 +34,9 @@ export default function GradePublishDetail({ classId, classLabel, teacherName, o
   const [loadedEntries, setLoadedEntries] = useState<GradeEntryResponse[]>([]);
   const [loadedResults, setLoadedResults] = useState<GradePeriodResultResponse[]>([]);
   const [sheetVersion, setSheetVersion] = useState(0);
-  const [publishing, setPublishing] = useState(false);
+  const [deciding, setDeciding] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -58,22 +62,44 @@ export default function GradePublishDetail({ classId, classLabel, teacherName, o
     listGradeComponents(selectedPeriodId).then(setComponents).catch(() => undefined);
   }, [selectedPeriodId]);
 
-  const draftEntryIds = loadedEntries.filter((e) => e.status === "DRAFT").map((e) => e.id);
-  const draftResultIds = loadedResults.filter((r) => r.status === "DRAFT").map((r) => r.id);
-  const draftCount = draftEntryIds.length + draftResultIds.length;
+  const submittedEntryIds = loadedEntries.filter((e) => e.status === "SUBMITTED").map((e) => e.id);
+  const submittedResultIds = loadedResults.filter((r) => r.status === "SUBMITTED").map((r) => r.id);
+  const submittedCount = submittedEntryIds.length + submittedResultIds.length;
 
-  const handlePublishAll = async () => {
-    if (draftCount === 0) return;
-    setPublishing(true);
+  const handleApproveAll = async () => {
+    if (submittedCount === 0) return;
+    setDeciding(true);
     setError(null);
     try {
-      await publishGrades({ gradeEntryIds: draftEntryIds, gradePeriodResultIds: draftResultIds });
+      await publishGrades({ action: "APPROVE", gradeEntryIds: submittedEntryIds, gradePeriodResultIds: submittedResultIds });
       setSheetVersion((v) => v + 1);
       onPublished();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Công bố điểm thất bại.");
+      setError(err instanceof ApiError ? err.message : "Duyệt điểm thất bại.");
     } finally {
-      setPublishing(false);
+      setDeciding(false);
+    }
+  };
+
+  const handleRejectAll = async () => {
+    if (submittedCount === 0) return;
+    setDeciding(true);
+    setError(null);
+    try {
+      await publishGrades({
+        action: "REJECT",
+        gradeEntryIds: submittedEntryIds,
+        gradePeriodResultIds: submittedResultIds,
+        rejectReason: rejectReason.trim() || undefined
+      });
+      setSheetVersion((v) => v + 1);
+      setShowRejectModal(false);
+      setRejectReason("");
+      onPublished();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Từ chối điểm thất bại.");
+    } finally {
+      setDeciding(false);
     }
   };
 
@@ -93,7 +119,7 @@ export default function GradePublishDetail({ classId, classLabel, teacherName, o
     <div className="bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden">
       <div className="px-5 py-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between flex-wrap gap-3">
         <div>
-          <span className="text-xs font-bold text-slate-700 font-display">Chi tiết điểm chờ công bố — {classLabel}</span>
+          <span className="text-xs font-bold text-slate-700 font-display">Chi tiết điểm chờ duyệt — {classLabel}</span>
           <p className="text-[10px] text-slate-400 mt-0.5">GV: {teacherName ?? "Chưa rõ"}</p>
         </div>
         {periods.length > 1 && (
@@ -129,16 +155,44 @@ export default function GradePublishDetail({ classId, classLabel, teacherName, o
         <p className="text-xs text-slate-400 italic p-6 text-center">Lớp này chưa có đầu điểm nào được cấu hình.</p>
       )}
 
-      <div className="px-5 py-3 border-t border-slate-100 flex justify-end">
-        <button
-          onClick={handlePublishAll}
-          disabled={publishing || draftCount === 0}
-          className="px-4 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 disabled:opacity-50"
-        >
-          <Megaphone className="w-3.5 h-3.5 text-brand-yellow" />
-          {publishing ? "Đang công bố..." : draftCount === 0 ? "Không còn điểm nháp" : `Công bố tất cả (${draftCount})`}
-        </button>
+      <div className="px-5 py-3 border-t border-slate-100 flex justify-end gap-2">
+        <Button variant="danger" size="sm" disabled={deciding || submittedCount === 0} onClick={() => setShowRejectModal(true)}>
+          <XCircle className="w-3.5 h-3.5" />
+          Từ chối tất cả
+        </Button>
+        <Button variant="dark" size="sm" disabled={deciding || submittedCount === 0} onClick={handleApproveAll}>
+          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+          {deciding ? "Đang xử lý..." : submittedCount === 0 ? "Không còn điểm chờ duyệt" : `Duyệt tất cả (${submittedCount})`}
+        </Button>
       </div>
+
+      <Modal
+        open={showRejectModal}
+        onClose={() => setShowRejectModal(false)}
+        title={`Từ chối ${submittedCount} bản ghi điểm chờ duyệt`}
+        footer={
+          <>
+            <Button variant="secondary" size="sm" onClick={() => setShowRejectModal(false)}>
+              Huỷ
+            </Button>
+            <Button variant="danger" size="sm" disabled={deciding} onClick={handleRejectAll}>
+              {deciding ? "Đang từ chối..." : "Xác nhận từ chối"}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-2">
+          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Lý do (tuỳ chọn)</label>
+          <textarea
+            value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value)}
+            rows={3}
+            placeholder="VD: Điểm Speaking chưa khớp với biên bản chấm..."
+            className="w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
+          />
+          <p className="text-[10px] text-slate-400">Giáo viên sẽ nhận thông báo kèm lý do (nếu có) và có thể sửa lại rồi gửi duyệt lại.</p>
+        </div>
+      </Modal>
     </div>
   );
 }

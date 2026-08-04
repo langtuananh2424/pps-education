@@ -8,7 +8,7 @@ import vn.com.pps.education.common.BaseAuditEntity;
 import java.time.OffsetDateTime;
 
 /**
- * Bảng review_video_connection_answers (V76, bổ sung ngoài SDD gốc, đã xác nhận với người dùng):
+ * Bảng review_video_connection_answers (V83, bổ sung ngoài SDD gốc, đã xác nhận với người dùng):
  * câu trả lời của học sinh cho 1 câu hỏi CONNECTION, gắn ĐÚNG 1 lượt xem
  * ({@link ReviewVideoWatchSession}) — đây là liên kết khớp cặp 1-1 "xem lượt nào, trả lời lượt
  * đó" quyết định lượt xem đó có tính vào viewCount hay không (xem

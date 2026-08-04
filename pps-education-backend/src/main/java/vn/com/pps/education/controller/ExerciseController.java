@@ -52,7 +52,7 @@ public class ExerciseController {
         return ResponseEntity.ok(exerciseService.updateExercise(id, request, actor.userId()));
     }
 
-    /** V80 — "Xóa Bài" (lưu trữ, status=ARCHIVED) — xem Javadoc ExerciseService#deleteExercise. */
+    /** V87 — "Xóa Bài" (lưu trữ, status=ARCHIVED) — xem Javadoc ExerciseService#deleteExercise. */
     @PreAuthorize("hasPermission(null, 'lms.exercise.update')")
     @DeleteMapping("/api/exercises/{id}")
     public ResponseEntity<Void> deleteExercise(@PathVariable Long id, @AuthenticationPrincipal AuthenticatedUser actor) {

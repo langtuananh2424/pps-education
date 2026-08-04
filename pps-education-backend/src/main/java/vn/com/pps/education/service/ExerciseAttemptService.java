@@ -302,7 +302,7 @@ public class ExerciseAttemptService {
     }
 
     /**
-     * WORD_BANK/SENTENCE_BUILDING (V78, bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+     * WORD_BANK/SENTENCE_BUILDING (V85, bổ sung ngoài SDD gốc, đã xác nhận với người dùng
      * 2026-08-04): so khớp elementwise (case-insensitive + trim), ĐÚNG thứ tự — student phải chọn
      * đúng thứ tự (khớp key "blanks"/"chunks" trong Question.structuredContent).
      */

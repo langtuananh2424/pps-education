@@ -11,28 +11,19 @@ import java.util.UUID;
 /**
  * Bảng grade_entries (SDD > Học thuật > Sổ điểm & Điểm tổng kết > c) —
  * điểm cụ thể của 1 học sinh cho 1 thành phần điểm (UC-19 nhập điểm,
- * UC-20 công bố điểm dự kiến, UC-62 phúc khảo). V43 (bổ sung ngoài SDD
- * gốc, đã xác nhận với người dùng — sửa đổi lần 2 sau V39): luồng 4
- * trạng thái DRAFT → PROVISIONAL_PUBLISHED → APPEAL → OFFICIAL, khoá sửa
- * hoàn toàn theo TRẠNG THÁI (không còn theo hạn X ngày như V39):
+ * UC-20 duyệt/từ chối điểm). V44 (bổ sung ngoài SDD gốc, đã xác nhận với
+ * người dùng — thay hẳn luồng "công bố dự kiến + phúc khảo" UC-62 cũ):
+ * luồng 4 trạng thái DRAFT → SUBMITTED → OFFICIAL / REJECTED:
  * <ul>
  *   <li>DRAFT: GV toàn quyền sửa/xoá, không giới hạn thời gian.</li>
- *   <li>PROVISIONAL_PUBLISHED: khoá, GV thường không sửa/xoá được.</li>
- *   <li>APPEAL: chỉ sửa được nếu actor là người đã "tiếp nhận"
- *       ({@code grade_appeal_requests.status=ACCEPTED}) yêu cầu phúc
- *       khảo tương ứng — xem GradeAppealService/GradeService#requireEditableState.
- *       Sửa xong tự động quay lại PROVISIONAL_PUBLISHED (giữ nguyên
- *       publishedAt gốc, hạn Y ngày không bị reset).</li>
- *   <li>OFFICIAL: khoá vĩnh viễn, chỉ hệ thống tự động gán qua
- *       GradeSchedulerService sau khi hết hạn Y ngày
- *       (system_settings.academic.grade_appeal_window_days) kể từ
- *       publishedAt.</li>
+ *   <li>SUBMITTED: chờ Quản lý điểm trường duyệt, không sửa được.</li>
+ *   <li>OFFICIAL: duyệt xong, hiển thị cho phụ huynh ngay, khoá vĩnh viễn
+ *       (chỉ override bỏ qua).</li>
+ *   <li>REJECTED: bị từ chối, GV hoặc Quản lý có thể sửa lại → gửi duyệt
+ *       lại (SUBMITTED) hoặc Quản lý duyệt trực tiếp (OFFICIAL).</li>
  * </ul>
- * Actor có quyền academic.grade.edit.override bỏ qua mọi ràng buộc trên
+ * Actor có quyền academic.grade.edit.override bỏ qua mọi ràng buộc sửa/xoá
  * (thêm/sửa/xoá bất kể trạng thái nào).
- *
- * Cột submitted_at/approval_flow_id vẫn còn trong DB (lịch sử luồng
- * duyệt cũ trước V39) nhưng không còn map ở entity.
  */
 @Getter
 @Setter
@@ -40,7 +31,7 @@ import java.util.UUID;
 @Table(name = "grade_entries")
 public class GradeEntry {
 
-    public enum Status { DRAFT, PROVISIONAL_PUBLISHED, APPEAL, OFFICIAL }
+    public enum Status { DRAFT, SUBMITTED, OFFICIAL, REJECTED }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

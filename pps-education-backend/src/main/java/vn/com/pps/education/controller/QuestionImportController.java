@@ -31,7 +31,7 @@ public class QuestionImportController {
         this.questionImportService = questionImportService;
     }
 
-    @PreAuthorize("hasPermission(null, 'lms.question-bank.create')")
+    @PreAuthorize("hasAnyRole('HEAD_ACADEMIC','SYS_ADMIN','SUPER_ADMIN') and hasPermission(null, 'lms.question-bank.create')")
     @PostMapping(value = "/api/question-banks/{bankId}/questions/import", consumes = "multipart/form-data")
     public ResponseEntity<QuestionImportResponse> importQuestions(@PathVariable Long bankId,
                                                                     @RequestParam("file") MultipartFile file,
@@ -39,14 +39,14 @@ public class QuestionImportController {
         return ResponseEntity.ok(questionImportService.importQuestions(bankId, file, actor.userId()));
     }
 
-    @PreAuthorize("hasPermission(null, 'lms.question-bank.create')")
+    @PreAuthorize("hasAnyRole('HEAD_ACADEMIC','SYS_ADMIN','SUPER_ADMIN') and hasPermission(null, 'lms.question-bank.create')")
     @GetMapping("/api/question-imports/{id}")
     public ResponseEntity<QuestionImportResponse> getJob(@PathVariable Long id) {
         return ResponseEntity.ok(questionImportService.getJob(id));
     }
 
     /** File mẫu Word (.docx) tĩnh — không cá nhân hoá theo bank, xem Javadoc buildWordTemplate(). */
-    @PreAuthorize("hasPermission(null, 'lms.question-bank.create')")
+    @PreAuthorize("hasAnyRole('HEAD_ACADEMIC','SYS_ADMIN','SUPER_ADMIN') and hasPermission(null, 'lms.question-bank.create')")
     @GetMapping("/api/question-imports/template.docx")
     public ResponseEntity<byte[]> downloadWordTemplate() {
         byte[] content = questionImportService.buildWordTemplate();

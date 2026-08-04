@@ -6,7 +6,7 @@ import lombok.Setter;
 import vn.com.pps.education.common.BaseAuditEntity;
 
 /**
- * Bảng review_video_connection_questions (V76, bổ sung ngoài SDD gốc, đã xác nhận với người
+ * Bảng review_video_connection_questions (V83, bổ sung ngoài SDD gốc, đã xác nhận với người
  * dùng): câu hỏi trắc nghiệm tự chấm cho video CONNECTION — chỉ có ý nghĩa khi
  * reviewVideo.reviewVideoSet.videoType = CONNECTION (kiểm tra ở Service, không CHECK trên bảng
  * này, giống cách ReviewVideoQuestion REFLEX kiểm tra videoType). Khác ReviewVideoQuestion

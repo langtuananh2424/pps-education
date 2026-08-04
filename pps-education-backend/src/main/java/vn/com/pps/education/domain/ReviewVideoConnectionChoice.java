@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
-/** Bảng review_video_connection_choices (V76) — đáp án trắc nghiệm của 1 câu hỏi CONNECTION, mirror QuestionChoice. */
+/** Bảng review_video_connection_choices (V83) — đáp án trắc nghiệm của 1 câu hỏi CONNECTION, mirror QuestionChoice. */
 @Getter
 @Setter
 @Entity

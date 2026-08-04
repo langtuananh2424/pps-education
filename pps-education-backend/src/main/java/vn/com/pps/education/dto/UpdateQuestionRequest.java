@@ -12,7 +12,7 @@ import java.util.Map;
  * từ chối sửa content/đáp án đúng (QuestionLockedException) — GV phải
  * dùng createQuestion để tạo bản mới, bản cũ tự ARCHIVED.
  *
- * structuredContent (V78, bổ sung ngoài SDD gốc, đã xác nhận với người
+ * structuredContent (V85, bổ sung ngoài SDD gốc, đã xác nhận với người
  * dùng 2026-08-04): đáp án WORD_BANK/SENTENCE_BUILDING, tính vào phần
  * "đáp án đúng" của quy tắc khóa sửa ở trên.
  */

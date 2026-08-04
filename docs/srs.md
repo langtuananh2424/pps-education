@@ -484,32 +484,26 @@ nhân đó mới được thao tác.*
         sẵn sàng nhập rồi tải lên lại (bổ sung ngoài SDD gốc, đã xác nhận
         với người dùng 2026-07-24 — xem UC-53).
 
-        **Luồng 4 trạng thái + Công bố điểm dự kiến + Phúc khảo (V43, bổ
-        sung ngoài SDD gốc, đã xác nhận với người dùng — sửa đổi lần 2
-        sau V39) —** thay hẳn cơ chế "hạn X ngày toàn quyền sửa" của V39
-        bằng luồng 4 trạng thái theo UC-19/20/62: **Nháp (DRAFT)** — Giáo
-        viên toàn quyền thêm/sửa/xoá, không giới hạn thời gian → **Công
-        bố dự kiến (PROVISIONAL_PUBLISHED)** — Quản lý điểm trường/Trưởng
-        phòng đào tạo công bố (yêu cầu quyền `academic.grade.publish`,
-        đổi tên từ `academic.grade.approve` ở V39) hoặc hệ thống tự động
-        công bố sau X ngày kể từ lần đầu nhập điểm nếu không ai công bố
-        tay (`system_settings.academic.grade_edit_window_days`, mặc định
-        7 — X ngày giờ CHỈ còn ý nghĩa độ trễ tự động công bố dự kiến,
-        không còn là hạn chỉnh sửa); Giáo viên KHÔNG tự sửa/xoá được nữa
-        → **Phúc khảo (APPEAL)** — Học sinh/Phụ huynh liên kết gửi yêu
-        cầu phúc khảo trong hạn Y ngày kể từ lúc công bố dự kiến
-        (`system_settings.academic.grade_appeal_window_days`, mặc định
-        7), Giáo viên phụ trách lớp nhận thông báo và phải tiếp nhận
-        (accept) trước khi được sửa điểm của đúng học sinh đó; sửa xong
-        tự động quay lại Công bố dự kiến (UC-62) → **Chính thức
-        (OFFICIAL)** — hệ thống tự động khoá vĩnh viễn khi hết hạn Y
-        ngày, kể cả khi còn yêu cầu phúc khảo dở dang. Actor có quyền
+        **Luồng 4 trạng thái Gửi duyệt + Duyệt/Từ chối (V44, bổ sung
+        ngoài SDD gốc, đã xác nhận với người dùng — thay hẳn luồng "công
+        bố dự kiến + phúc khảo" V43, xoá UC-62) —** **Nháp (DRAFT)** —
+        Giáo viên toàn quyền thêm/sửa/xoá, không giới hạn thời gian →
+        Giáo viên gửi duyệt → **Chờ duyệt (SUBMITTED)** — không sửa/xoá
+        được, chờ Quản lý điểm trường/Trưởng phòng đào tạo xét duyệt
+        (yêu cầu quyền `academic.grade.approve`) → nếu **Duyệt**: chuyển
+        **Chính thức (OFFICIAL)**, hiển thị ngay cho Phụ huynh/Học sinh
+        qua Portal, khoá vĩnh viễn; nếu **Từ chối**: chuyển **Từ chối
+        (REJECTED)**, không hiển thị cho Phụ huynh/Học sinh, Giáo viên
+        nhận thông báo (kèm lý do nếu có) — Giáo viên hoặc Quản lý sửa
+        lại rồi gửi duyệt lại (quay về SUBMITTED) hoặc Quản lý duyệt
+        thẳng REJECTED → OFFICIAL không cần gửi lại. Actor có quyền
         `academic.grade.edit.override` (mặc định HEAD_ACADEMIC +
         SITE_MANAGER, gán thêm được qua UC-04) toàn quyền thêm/sửa/xoá
-        bất kể trạng thái nào. Phụ huynh/Học sinh xem được điểm ngay từ
-        lúc Công bố dự kiến (không chỉ khi Chính thức), kể cả đang Phúc
-        khảo. Xem chi tiết UC-19 (nhập/sửa/xoá), UC-20 (công bố dự kiến),
-        UC-62 (phúc khảo).
+        bất kể trạng thái nào. Phụ huynh/Học sinh CHỈ xem được điểm khi
+        đã Chính thức (OFFICIAL) — không còn khái niệm "công bố dự kiến"
+        hay phúc khảo. Lịch sử gửi/duyệt/từ chối lưu trong bảng dùng
+        chung `approval_flows` (V1, cùng cơ chế UC-17). Xem chi tiết
+        UC-19 (nhập điểm + gửi duyệt), UC-20 (duyệt/từ chối).
 
     -   **FR-ACA-04: Sổ nhận xét định kỳ -** Giáo viên viết nhận xét cho
         học sinh theo 3 biểu mẫu: Hàng ngày (thái độ), Giữa kỳ, và Cuối
@@ -883,10 +877,8 @@ CDN)**
 
   UC-19             Nhập điểm         FR-ACA-03         6
 
-  UC-20             Công bố điểm dự   FR-ACA-03         6
-                    kiến                                
-
-  UC-62             Phúc khảo điểm    FR-ACA-03         6
+  UC-20             Duyệt/Từ chối     FR-ACA-03         6
+                    điểm                                
 
   UC-53             Nhập điểm thi qua FR-ACA-03         6
                     Excel                               

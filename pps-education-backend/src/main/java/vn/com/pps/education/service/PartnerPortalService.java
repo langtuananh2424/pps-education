@@ -101,11 +101,11 @@ public class PartnerPortalService {
                 .toList();
     }
 
-    /** Main Flow bước 2: kết quả học tập — điểm đã công bố dự kiến trở lên (UC-20; V43 — khác DRAFT, hiển thị cả lúc đang phúc khảo) của học sinh trường mình. */
+    /** Main Flow bước 2: kết quả học tập — điểm đã duyệt (UC-20 V44 — chỉ OFFICIAL) của học sinh trường mình. */
     @Transactional(readOnly = true)
     public List<GradeEntryResponse> getPublishedGrades(Long actorUserId) {
         Site site = requirePartnerSite(actorUserId);
-        return gradeEntryRepository.findByStatusNotAndSiteId(GradeEntry.Status.DRAFT, site.getId())
+        return gradeEntryRepository.findByStatusInAndSiteId(List.of(GradeEntry.Status.OFFICIAL), site.getId())
                 .stream().map(this::toResponse).toList();
     }
 

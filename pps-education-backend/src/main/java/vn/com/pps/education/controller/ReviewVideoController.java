@@ -116,7 +116,7 @@ public class ReviewVideoController {
         return ResponseEntity.ok(reviewVideoService.listQuestions(videoId, actor.userId()));
     }
 
-    /** V76 — mirror addQuestion/listQuestions của REFLEX, dành cho câu hỏi trắc nghiệm của video CONNECTION. */
+    /** V83 — mirror addQuestion/listQuestions của REFLEX, dành cho câu hỏi trắc nghiệm của video CONNECTION. */
     @PreAuthorize("hasPermission(null, 'lms.review-video.update')")
     @PostMapping("/api/review-videos/{videoId}/connection-questions")
     public ResponseEntity<ReviewVideoConnectionQuestionResponse> addConnectionQuestion(
@@ -144,7 +144,7 @@ public class ReviewVideoController {
         return ResponseEntity.ok(reviewVideoService.reportProgress(videoId, request, actor.userId()));
     }
 
-    /** V76 — học sinh nộp toàn bộ câu trả lời trắc nghiệm cho 1 lượt xem cụ thể (khớp cặp 1-1 qua watchSessionId). */
+    /** V83 — học sinh nộp toàn bộ câu trả lời trắc nghiệm cho 1 lượt xem cụ thể (khớp cặp 1-1 qua watchSessionId). */
     @PutMapping("/api/review-video-watch-sessions/{watchSessionId}/connection-answers")
     public ResponseEntity<ReviewVideoConnectionQuizResultResponse> submitConnectionAnswers(
             @PathVariable Long watchSessionId, @Valid @RequestBody SubmitConnectionAnswersRequest request,

@@ -3,7 +3,7 @@ import { Blocks, Check, CheckSquare, FileText, Headphones, ListOrdered, Mic, Pen
 import { ApiError } from "@/lib/apiClient";
 import Button from "@/components/ui/Button";
 import FileUploadField from "@/components/ui/FileUploadField";
-import { CreateQuestionRequest, QuestionChoiceRequest, QuestionDifficulty, QuestionResponse, QuestionType, createQuestion, updateQuestion, uploadMedia } from "../api";
+import { CreateExamQuestionRequest, CreateQuestionRequest, QuestionChoiceRequest, QuestionDifficulty, QuestionResponse, QuestionType, createExamQuestion, createQuestion, updateExamQuestion, updateQuestion, uploadMedia } from "../api";
 import Select from "@/components/ui/Select";
 
 const inputClass = "w-full bg-white border border-slate-200 text-xs px-3.5 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-red";
@@ -54,7 +54,10 @@ function toKind(question?: QuestionResponse): UiQuestionKind {
 }
 
 interface QuestionEditorFormProps {
-  questionBankId: number;
+  /** Generic legacy mode cho trang quản lý ngân hàng độc lập. */
+  questionBankId?: number;
+  /** V75: Teacher flow theo Đề — backend tự resolve ngân hàng nội bộ. */
+  examId?: number;
   /** Truyền vào để chuyển form sang chế độ Sửa — loại câu hỏi không sửa được sau khi tạo. */
   existingQuestion?: QuestionResponse;
   /**
@@ -67,8 +70,8 @@ interface QuestionEditorFormProps {
   onCancel: () => void;
 }
 
-/** UC-40 Main Flow bước 1: soạn hoặc sửa 1 câu hỏi trong ngân hàng — 5 loại theo thiết kế tham chiếu + Điền từ. */
-export default function QuestionEditorForm({ questionBankId, existingQuestion, allowedKinds, onCreated, onCancel }: QuestionEditorFormProps) {
+/** UC-40 Main Flow bước 1: soạn/sửa câu hỏi theo Đề (examId) hoặc generic legacy bank (questionBankId). */
+export default function QuestionEditorForm({ questionBankId, examId, existingQuestion, allowedKinds, onCreated, onCancel }: QuestionEditorFormProps) {
   const isEditing = !!existingQuestion;
   const visibleKinds = allowedKinds ?? (Object.keys(kindMeta) as UiQuestionKind[]);
   const [kind, setKind] = useState<UiQuestionKind>(
@@ -170,7 +173,7 @@ export default function QuestionEditorForm({ questionBankId, existingQuestion, a
     try {
       let result: QuestionResponse;
       if (isEditing && existingQuestion) {
-        result = await updateQuestion(existingQuestion.id, {
+        const updateRequest = {
           content: content.trim(),
           audioUrl: isVoiceOrListeningAudio ? audioUrl.trim() || undefined : undefined,
           imageUrl: kind === "ESSAY" ? imageUrl.trim() || undefined : undefined,
@@ -179,12 +182,14 @@ export default function QuestionEditorForm({ questionBankId, existingQuestion, a
           correctAnswerText: kind === "FILL_IN_BLANK" ? correctAnswerText.trim() || undefined : undefined,
           structuredContent,
           choices
-        });
+        };
+        result = examId
+          ? await updateExamQuestion(examId, existingQuestion.id, updateRequest)
+          : await updateQuestion(existingQuestion.id, updateRequest);
       } else {
         const questionType: QuestionType =
           kind === "VOICE_MULTIPLE_CHOICE" || kind === "INLINE_CHOICE" ? "MULTIPLE_CHOICE" : kind === "LISTENING_AUDIO_SUBMISSION" ? "SPEAKING" : kind;
-        const request: CreateQuestionRequest = {
-          questionBankId,
+        const request: CreateExamQuestionRequest = {
           questionType,
           skill: isVoiceOrListeningAudio ? "LISTENING" : kind === "SPEAKING" ? "SPEAKING" : undefined,
           difficulty,
@@ -197,7 +202,14 @@ export default function QuestionEditorForm({ questionBankId, existingQuestion, a
           structuredContent,
           choices
         };
-        result = await createQuestion(request);
+        if (examId) {
+          result = await createExamQuestion(examId, request);
+        } else if (questionBankId) {
+          const legacyRequest: CreateQuestionRequest = { ...request, questionBankId };
+          result = await createQuestion(legacyRequest);
+        } else {
+          throw new Error("Thiếu ngữ cảnh Đề/Ngân hàng câu hỏi.");
+        }
       }
       onCreated(result);
     } catch (err) {

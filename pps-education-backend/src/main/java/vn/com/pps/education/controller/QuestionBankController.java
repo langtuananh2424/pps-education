@@ -31,19 +31,20 @@ public class QuestionBankController {
         this.questionBankService = questionBankService;
     }
 
-    @PreAuthorize("hasPermission(null, 'lms.question-bank.create')")
+    @PreAuthorize("hasAnyRole('HEAD_ACADEMIC','SYS_ADMIN','SUPER_ADMIN') and hasPermission(null, 'lms.question-bank.create')")
     @PostMapping("/api/question-banks")
     public ResponseEntity<QuestionBankResponse> createBank(@Valid @RequestBody CreateQuestionBankRequest request,
                                                              @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(questionBankService.createBank(request, actor.userId()));
     }
 
+    @PreAuthorize("hasAnyRole('HEAD_ACADEMIC','SYS_ADMIN','SUPER_ADMIN') and hasPermission(null, 'lms.question-bank.view')")
     @GetMapping("/api/curriculums/{curriculumId}/question-banks")
     public ResponseEntity<List<QuestionBankResponse>> listBanksByCurriculum(@PathVariable Long curriculumId) {
         return ResponseEntity.ok(questionBankService.listBanksByCurriculum(curriculumId));
     }
 
-    @PreAuthorize("hasPermission(null, 'lms.question-bank.update')")
+    @PreAuthorize("hasAnyRole('HEAD_ACADEMIC','SYS_ADMIN','SUPER_ADMIN') and hasPermission(null, 'lms.question-bank.update')")
     @PutMapping("/api/question-banks/{id}/status")
     public ResponseEntity<QuestionBankResponse> updateBankStatus(@PathVariable Long id,
                                                                     @Valid @RequestBody UpdateQuestionBankStatusRequest request,
@@ -51,14 +52,14 @@ public class QuestionBankController {
         return ResponseEntity.ok(questionBankService.updateBankStatus(id, request, actor.userId()));
     }
 
-    @PreAuthorize("hasPermission(null, 'lms.question-bank.create')")
+    @PreAuthorize("hasAnyRole('HEAD_ACADEMIC','SYS_ADMIN','SUPER_ADMIN') and hasPermission(null, 'lms.question-bank.create')")
     @PostMapping("/api/questions")
     public ResponseEntity<QuestionResponse> createQuestion(@Valid @RequestBody CreateQuestionRequest request,
                                                              @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(questionBankService.createQuestion(request, actor.userId()));
     }
 
-    @PreAuthorize("hasPermission(null, 'lms.question-bank.update')")
+    @PreAuthorize("hasAnyRole('HEAD_ACADEMIC','SYS_ADMIN','SUPER_ADMIN') and hasPermission(null, 'lms.question-bank.update')")
     @PutMapping("/api/questions/{id}")
     public ResponseEntity<QuestionResponse> updateQuestion(@PathVariable Long id,
                                                              @Valid @RequestBody UpdateQuestionRequest request,
@@ -66,7 +67,7 @@ public class QuestionBankController {
         return ResponseEntity.ok(questionBankService.updateQuestion(id, request, actor.userId()));
     }
 
-    @PreAuthorize("hasPermission(null, 'lms.question-bank.view')")
+    @PreAuthorize("hasAnyRole('HEAD_ACADEMIC','SYS_ADMIN','SUPER_ADMIN') and hasPermission(null, 'lms.question-bank.view')")
     @GetMapping("/api/question-banks/{bankId}/questions")
     public ResponseEntity<List<QuestionResponse>> listQuestions(@PathVariable Long bankId) {
         return ResponseEntity.ok(questionBankService.listQuestions(bankId));
@@ -78,7 +79,7 @@ public class QuestionBankController {
      * cho Học viên qua ExerciseAttemptService sau khi nộp bài, có kiểm
      * soát show_correct_answers — xem Javadoc ExerciseAttemptService).
      */
-    @PreAuthorize("hasPermission(null, 'lms.question-bank.view')")
+    @PreAuthorize("hasAnyRole('HEAD_ACADEMIC','SYS_ADMIN','SUPER_ADMIN') and hasPermission(null, 'lms.question-bank.view')")
     @GetMapping("/api/questions/{id}")
     public ResponseEntity<QuestionResponse> getQuestion(@PathVariable Long id) {
         return ResponseEntity.ok(questionBankService.getQuestion(id));
