@@ -16,7 +16,7 @@ public interface ReviewVideoAssignmentRepository extends JpaRepository<ReviewVid
 
     Optional<ReviewVideoAssignment> findByUuid(UUID uuid);
 
-    /** V73: quét job hết hạn — due_at NULL (không hạn nộp) tự động không khớp phép so sánh <=. */
+    /** V75: quét job hết hạn — due_at NULL (không hạn nộp) tự động không khớp phép so sánh <=. */
     List<ReviewVideoAssignment> findByStatusAndDueAtLessThanEqualAndTeacherNotifiedAtIsNull(
             ReviewVideoAssignment.Status status, OffsetDateTime cutoff);
 }

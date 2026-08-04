@@ -61,7 +61,7 @@ public class ReviewVideoAssignment {
     @Column(nullable = false, length = 20)
     private Status status = Status.ACTIVE;
 
-    /** V73 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng): NULL = chưa báo GV % hoàn thành khi hết hạn. */
+    /** V75 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng): NULL = chưa báo GV % hoàn thành khi hết hạn. */
     @Column(name = "teacher_notified_at")
     private OffsetDateTime teacherNotifiedAt;
 }

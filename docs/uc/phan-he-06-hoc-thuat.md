@@ -1406,7 +1406,7 @@ DAILY, Giữa/Cuối kỳ giữ nguyên 100% luồng ở trên)
     ACTIVE cũ + tạo mới + thông báo lại như V69 — chỉ N request trùng
     `dueAt` trong CÙNG 1 đợt gửi mới được tái dùng).
 
--   **Bổ sung V73 (2026-08-04, đã xác nhận với người dùng) — báo Giáo viên
+-   **Bổ sung V75 (2026-08-04, đã xác nhận với người dùng) — báo Giáo viên
     % hoàn thành cả lớp khi hết hạn BTVN:** áp dụng cho CẢ 2 kênh (Ngữ
     pháp `ExerciseAssignment` lẫn Video Ôn tập `ReviewVideoAssignment`).
     Job `HomeworkDeadlineSchedulerService` quét mỗi 5 phút các bản giao

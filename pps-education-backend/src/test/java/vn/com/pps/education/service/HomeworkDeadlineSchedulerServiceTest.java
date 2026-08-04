@@ -119,7 +119,7 @@ class HomeworkDeadlineSchedulerServiceTest extends AbstractIntegrationTest {
         Site site = newSite();
         schoolClass = classService.create(
                 new CreateClassRequest(classCode(), "8A2", site.getId(), activeCurriculum.id(), "OPEN", 20, null,
-                        LocalDate.now(), null, null, null), headAcademic.getId());
+                        LocalDate.now(), null, null), headAcademic.getId());
 
         teacher = newUser("teacher.hw");
         assignRole(teacher, "TEACHER");
@@ -129,7 +129,7 @@ class HomeworkDeadlineSchedulerServiceTest extends AbstractIntegrationTest {
         bank = questionBankService.createBank(
                 new CreateQuestionBankRequest(bankCode(), "Ngân hàng", activeCurriculum.id(), null, "A1"), teacher.getId());
         defaultExam = examService.createExam(
-                new CreateExamRequest(examCode(), "Đề mặc định", activeCurriculum.id()), teacher.getId());
+                new CreateExamRequest(examCode(), "Đề mặc định", activeCurriculum.id(), "VIETNAMESE", "HOMEWORK"), teacher.getId());
 
         studentDoneUser = enrollNewStudent("student.hw.done");
         studentNotDoneUser = enrollNewStudent("student.hw.notdone");

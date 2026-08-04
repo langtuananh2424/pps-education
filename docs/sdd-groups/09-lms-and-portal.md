@@ -488,7 +488,7 @@ dưới) --- KHÔNG có `late_submission_allowed`/`late_penalty_percent` (không
                                               DEFAULT          CANCELLED /
                                               'ACTIVE'         COMPLETED
 
-  teacher_notified_at       TIMESTAMPTZ       NULL             V73: NULL =
+  teacher_notified_at       TIMESTAMPTZ       NULL             V75: NULL =
                                                                chưa báo GV %
                                                                hoàn thành khi
                                                                hết hạn
@@ -1022,7 +1022,7 @@ ASSIGNED (có deadline).
                                               DEFAULT          CANCELLED /
                                               \'ACTIVE\'       COMPLETED
 
-  teacher_notified_at       TIMESTAMPTZ       NULL             V73: NULL =
+  teacher_notified_at       TIMESTAMPTZ       NULL             V75: NULL =
                                                                chưa báo GV %
                                                                hoàn thành khi
                                                                hết hạn
