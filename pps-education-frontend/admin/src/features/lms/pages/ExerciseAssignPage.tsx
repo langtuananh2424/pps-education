@@ -8,9 +8,11 @@ import {
   ExamResponse,
   ExerciseQuestionResponse,
   ExerciseResponse,
+  QuestionResponse,
   UpdateExamRequest,
   assignExamToClass,
   createExam,
+  getQuestion,
   listExamAssignedClasses,
   listExercisesByExam,
   listExerciseQuestions,
@@ -22,6 +24,7 @@ import {
 } from "../api";
 import CreateAndAssignExerciseModal from "../components/CreateAndAssignExerciseModal";
 import ExercisePreviewModal from "../components/ExercisePreviewModal";
+import QuestionEditorForm from "../components/QuestionEditorForm";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
@@ -460,6 +463,25 @@ function ExerciseRow({
   const [removingId, setRemovingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { confirmDialog } = useDialog();
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-03 — cho sửa câu hỏi ngay tại đây (trước
+  // đây phải rời màn Soạn & giao đề, qua trang Ngân hàng câu hỏi mới sửa được). Không giới hạn theo
+  // exercise.status=DRAFT như nút "Gỡ" — updateQuestion ở BE đã tự chặn khi câu hỏi có student_answers
+  // (QuestionLockedException), không cần lặp lại điều kiện ở FE.
+  const [editingQuestion, setEditingQuestion] = useState<QuestionResponse | null>(null);
+  const [loadingEditQuestionId, setLoadingEditQuestionId] = useState<number | null>(null);
+
+  const handleEditQuestion = async (q: ExerciseQuestionResponse) => {
+    setLoadingEditQuestionId(q.id);
+    setError(null);
+    try {
+      const full = await getQuestion(q.questionId);
+      setEditingQuestion(full);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Không tải được câu hỏi để sửa.");
+    } finally {
+      setLoadingEditQuestionId(null);
+    }
+  };
 
   const toggle = () => {
     setExpanded((v) => !v);
@@ -542,6 +564,24 @@ function ExerciseRow({
 
       {previewOpen && <ExercisePreviewModal exercise={exercise} onClose={() => setPreviewOpen(false)} />}
 
+      {editingQuestion && (
+        <Modal open onClose={() => setEditingQuestion(null)} title={`Sửa câu hỏi Q-${editingQuestion.id}`} size="lg">
+          <QuestionEditorForm
+            questionBankId={editingQuestion.questionBankId}
+            existingQuestion={editingQuestion}
+            onCreated={(updated) => {
+              setQuestions((prev) =>
+                prev
+                  ? prev.map((x) => (x.questionId === updated.id ? { ...x, questionContent: updated.content, questionType: updated.questionType } : x))
+                  : prev
+              );
+              setEditingQuestion(null);
+            }}
+            onCancel={() => setEditingQuestion(null)}
+          />
+        </Modal>
+      )}
+
       {expanded && (
         <div className="px-5 pb-3.5 pl-11">
           {loading ? (
@@ -561,6 +601,16 @@ function ExerciseRow({
                       <span className="text-slate-400">
                         {q.questionType} · {q.points} đ
                       </span>
+                      {canManage && (
+                        <button
+                          onClick={() => handleEditQuestion(q)}
+                          disabled={loadingEditQuestionId === q.id}
+                          className="p-0.5 text-slate-300 hover:text-brand-red disabled:opacity-50"
+                          title="Sửa câu hỏi"
+                        >
+                          <Pencil className="w-3 h-3" />
+                        </button>
+                      )}
                       {canManage && exercise.status === "DRAFT" && (
                         <button
                           onClick={() => handleRemoveQuestion(q)}

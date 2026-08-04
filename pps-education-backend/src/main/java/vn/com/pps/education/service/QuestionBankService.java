@@ -123,14 +123,18 @@ public class QuestionBankService {
      * dung câu hỏi trong CÙNG 1 ngân hàng (soạn tay lẫn import hàng loạt
      * đều đi qua đây, xem QuestionImportService — dòng import trùng chỉ
      * lỗi đúng dòng đó, không chặn cả file, nhờ cơ chế bắt lỗi từng dòng
-     * sẵn có ở đó).
+     * sẵn có ở đó). CHỈ so với câu ACTIVE (không tính câu đã ARCHIVED) —
+     * không thì sẽ chặn nhầm luồng sửa hợp lệ: câu đã có student_answers
+     * bị cấm sửa content/đáp án (xem updateQuestion), buộc phải archive
+     * câu cũ rồi tạo câu mới thay thế, có thể trùng NGUYÊN VĂN câu hỏi
+     * nếu chỉ sửa đáp án sai chứ không đổi câu hỏi.
      */
     @Transactional
     public QuestionResponse createQuestion(CreateQuestionRequest request, Long actorUserId) {
         User actor = getUserOrThrow(actorUserId);
         QuestionBank bank = questionBankRepository.findById(request.questionBankId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ngân hàng câu hỏi id=" + request.questionBankId()));
-        if (questionRepository.existsByQuestionBankIdAndContent(bank.getId(), request.content())) {
+        if (questionRepository.existsByQuestionBankIdAndContentAndStatus(bank.getId(), request.content(), Question.Status.ACTIVE)) {
             throw new DuplicateQuestionContentException(
                     "Câu hỏi này đã tồn tại trong ngân hàng câu hỏi \"" + bank.getName() + "\" (trùng nội dung) — không thể tạo trùng.");
         }
