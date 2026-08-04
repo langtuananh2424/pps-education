@@ -487,6 +487,11 @@ dưới) --- KHÔNG có `late_submission_allowed`/`late_penalty_percent` (không
   status                    VARCHAR(20)       NOT NULL,        ACTIVE /
                                               DEFAULT          CANCELLED /
                                               'ACTIVE'         COMPLETED
+
+  teacher_notified_at       TIMESTAMPTZ       NULL             V73: NULL =
+                                                               chưa báo GV %
+                                                               hoàn thành khi
+                                                               hết hạn
   ----------------------------------------------------------------------------
 
 **Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (V65, 2026-07-30):**
@@ -1016,6 +1021,11 @@ ASSIGNED (có deadline).
   status                    VARCHAR(20)       NOT NULL,        ACTIVE /
                                               DEFAULT          CANCELLED /
                                               \'ACTIVE\'       COMPLETED
+
+  teacher_notified_at       TIMESTAMPTZ       NULL             V73: NULL =
+                                                               chưa báo GV %
+                                                               hoàn thành khi
+                                                               hết hạn
   ----------------------------------------------------------------------------
 
 g)  Bảng exercise_attempts --- Lượt học sinh làm bài
