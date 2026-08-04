@@ -76,11 +76,12 @@ export interface PortalClassOptionResponse {
 }
 
 /**
- * UC-20 (V43 — 4 trạng thái + phúc khảo UC-62, thay hẳn DRAFT/PUBLISHED của V39) —
- * khớp GradeEntryResponse thật (chỉ điểm khác DRAFT được BE lọc sẵn ở portal, tức
- * PROVISIONAL_PUBLISHED/APPEAL/OFFICIAL đều xem được, không chỉ "đã công bố xong").
+ * UC-20 (V44 — 4 trạng thái, thay hẳn luồng "công bố dự kiến + phúc khảo" V43) —
+ * khớp GradeEntryResponse thật. Portal (listMyGrades/listGrades) chỉ trả về bản ghi
+ * đã OFFICIAL (Quản lý điểm trường đã duyệt) — DRAFT/SUBMITTED/REJECTED không hiển
+ * thị cho Phụ huynh/Học sinh.
  */
-export type GradeStatus = "DRAFT" | "PROVISIONAL_PUBLISHED" | "APPEAL" | "OFFICIAL";
+export type GradeStatus = "DRAFT" | "SUBMITTED" | "OFFICIAL" | "REJECTED";
 
 export interface GradeEntryResponse {
   id: number;
@@ -160,7 +161,7 @@ export function listGradePeriods(curriculumId: number): Promise<GradePeriodRespo
   return apiRequest<GradePeriodResponse[]>(`/curriculums/${curriculumId}/grade-periods`);
 }
 
-/** UC-53/UC-25: Overall/Level đã công bố — 404 nếu chưa có/chưa công bố (bắt ở nơi gọi, không phải lỗi thật). */
+/** UC-53/UC-25: Overall/Level đã duyệt (OFFICIAL) — 404 nếu chưa có/chưa duyệt (bắt ở nơi gọi, không phải lỗi thật). */
 export function getPeriodResult(studentId: number, classId: number, gradePeriodId: number): Promise<GradePeriodResultResponse> {
   return apiRequest<GradePeriodResultResponse>(`/portal/parent/children/${studentId}/classes/${classId}/periods/${gradePeriodId}/result`);
 }
@@ -170,41 +171,9 @@ export function listMyGrades(classId?: number): Promise<GradeEntryResponse[]> {
   return apiRequest<GradeEntryResponse[]>(`/students/me/grades${classId ? `?classId=${classId}` : ""}`);
 }
 
-/** UC-61: Overall/Level của chính mình — 404 nếu chưa có/chưa công bố (bắt ở nơi gọi, không phải lỗi thật). */
+/** UC-61: Overall/Level của chính mình — 404 nếu chưa có/chưa duyệt (bắt ở nơi gọi, không phải lỗi thật). */
 export function getMyPeriodResult(classId: number, gradePeriodId: number): Promise<GradePeriodResultResponse> {
   return apiRequest<GradePeriodResultResponse>(`/students/me/classes/${classId}/periods/${gradePeriodId}/result`);
-}
-
-/** UC-62: Phúc khảo điểm — Học sinh/Phụ huynh gửi yêu cầu trên 1 bản ghi đang PROVISIONAL_PUBLISHED. */
-export interface GradeAppealResponse {
-  id: number;
-  entityType: "GRADE_ENTRY" | "GRADE_PERIOD_RESULT";
-  entityId: number;
-  classId: number;
-  studentId: number;
-  studentFullName: string;
-  requestedByUserId: number;
-  reason: string | null;
-  status: "PENDING" | "ACCEPTED" | "RESOLVED";
-  acceptedByUserId: number | null;
-  acceptedAt: string | null;
-  resolvedAt: string | null;
-  createdAt: string;
-}
-
-export interface SubmitGradeAppealRequest {
-  entityType: "GRADE_ENTRY" | "GRADE_PERIOD_RESULT";
-  entityId: number;
-  reason?: string;
-}
-
-export function submitGradeAppeal(request: SubmitGradeAppealRequest): Promise<GradeAppealResponse> {
-  return apiRequest<GradeAppealResponse>("/grade-appeals", { method: "POST", body: JSON.stringify(request) });
-}
-
-/** Lịch sử phúc khảo đã gửi (Học sinh/Phụ huynh, tự-phục vụ theo actor đang đăng nhập). */
-export function listMyGradeAppeals(): Promise<GradeAppealResponse[]> {
-  return apiRequest<GradeAppealResponse[]>("/grade-appeals/me");
 }
 
 /** UC-15 — khớp AttendanceMarkResponse thật. */

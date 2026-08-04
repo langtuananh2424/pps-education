@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { LineChart, Plus, X } from "lucide-react";
+import { LineChart, Plus, Send, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import {
@@ -7,14 +7,17 @@ import {
   CreateGradeComponentRequest,
   CreateGradePeriodRequest,
   GradeComponentResponse,
+  GradeEntryResponse,
   GradePeriodResponse,
+  GradePeriodResultResponse,
   addGradeComponent,
   createGradePeriod,
   deleteGradeComponent,
   deleteGradePeriod,
   listClassEnrollments,
   listGradeComponents,
-  listGradePeriods
+  listGradePeriods,
+  submitGradesForApproval
 } from "../api";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
@@ -50,6 +53,9 @@ export default function ClassGradeSheetPanel({ classId, curriculumId, readOnly =
   const [showPeriodForm, setShowPeriodForm] = useState(false);
   const [showComponentForm, setShowComponentForm] = useState(false);
   const [sheetVersion, setSheetVersion] = useState(0);
+  const [loadedEntries, setLoadedEntries] = useState<GradeEntryResponse[]>([]);
+  const [loadedResults, setLoadedResults] = useState<GradePeriodResultResponse[]>([]);
+  const [submittingGrades, setSubmittingGrades] = useState(false);
   // UC-19/20 (bổ sung, 2026-07-29): xem tổng hợp điểm cả lớp qua mọi kỳ để so sánh tiến bộ — CHỈ XEM,
   // tách khỏi màn nhập điểm theo từng kỳ ở dưới (đổi qua đổi lại bằng nút này, không hiện đồng thời).
   const [showComparison, setShowComparison] = useState(false);
@@ -100,6 +106,26 @@ export default function ClassGradeSheetPanel({ classId, curriculumId, readOnly =
       showToast("Đã xoá đầu điểm thành công!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Xoá đầu điểm thất bại.");
+    }
+  };
+
+  const submittableEntryIds = loadedEntries.filter((e) => e.status === "DRAFT" || e.status === "REJECTED").map((e) => e.id);
+  const submittableResultIds = loadedResults.filter((r) => r.status === "DRAFT" || r.status === "REJECTED").map((r) => r.id);
+  const submittableCount = submittableEntryIds.length + submittableResultIds.length;
+
+  /** UC-19 Main Flow bước 4 (V44): Giáo viên gửi duyệt tất cả điểm Nháp/Bị từ chối của kỳ đang xem — chuyển sang Chờ duyệt (SUBMITTED). */
+  const handleSubmitForApproval = async () => {
+    if (submittableCount === 0) return;
+    setSubmittingGrades(true);
+    setError(null);
+    try {
+      await submitGradesForApproval({ gradeEntryIds: submittableEntryIds, gradePeriodResultIds: submittableResultIds });
+      setSheetVersion((v) => v + 1);
+      showToast("Đã gửi duyệt điểm thành công!");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Gửi duyệt điểm thất bại.");
+    } finally {
+      setSubmittingGrades(false);
     }
   };
 
@@ -207,10 +233,23 @@ export default function ClassGradeSheetPanel({ classId, curriculumId, readOnly =
             components={gradeComponents}
             enrollments={enrollments}
             readOnly={readOnly}
+            onLoaded={(entries, results) => {
+              setLoadedEntries(entries);
+              setLoadedResults(results);
+            }}
           />
         )
       ) : (
         <p className="text-xs text-slate-400 italic p-6 text-center">Chọn kỳ điểm để bắt đầu nhập điểm.</p>
+      )}
+
+      {!readOnly && selectedPeriodId && gradeComponents.length > 0 && (
+        <div className="flex justify-end">
+          <Button type="button" size="sm" variant="primary" disabled={submittingGrades || submittableCount === 0} onClick={handleSubmitForApproval}>
+            <Send className="w-3.5 h-3.5" />
+            {submittingGrades ? "Đang gửi duyệt..." : submittableCount === 0 ? "Không còn điểm cần gửi duyệt" : `Gửi duyệt (${submittableCount})`}
+          </Button>
+        </div>
       )}
 
       {!readOnly && selectedPeriodId && gradeComponents.length > 0 && (

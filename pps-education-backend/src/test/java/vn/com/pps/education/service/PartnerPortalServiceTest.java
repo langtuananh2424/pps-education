@@ -32,6 +32,7 @@ import vn.com.pps.education.dto.MarkAttendanceRequest;
 import vn.com.pps.education.dto.PartnerAttendanceSummaryResponse;
 import vn.com.pps.education.dto.PartnerSiteResponse;
 import vn.com.pps.education.dto.PublishGradesRequest;
+import vn.com.pps.education.dto.SubmitGradesRequest;
 import vn.com.pps.education.dto.StudentCommentResponse;
 import vn.com.pps.education.dto.SubmitCommentsRequest;
 import vn.com.pps.education.dto.TeachingPlanResponse;
@@ -197,7 +198,7 @@ class PartnerPortalServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void getPublishedGrades_UC29_MainFlow_returnsOnlyPublishedGrades() {
+    void getPublishedGrades_UC29_MainFlow_returnsOnlyOfficialGrades() {
         GradePeriodResponse period = gradeService.createGradePeriod(activeCurriculum.id(),
                 new CreateGradePeriodRequest("MID_1", "Giữa kỳ 1", 1, new BigDecimal("50"), null, null), headAcademic.getId());
         GradeComponentResponse component = gradeService.addGradeComponent(period.id(),
@@ -205,12 +206,13 @@ class PartnerPortalServiceTest extends AbstractIntegrationTest {
                 headAcademic.getId());
         GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), component.id(),
                 new EnterGradeRequest(student.getId(), new BigDecimal("9"), false, null), teacher.getId());
-        gradeService.publishGrades(new PublishGradesRequest(List.of(entry.id()), null), siteManagerUser.getId());
+        gradeService.submitGradesForApproval(new SubmitGradesRequest(List.of(entry.id()), null), teacher.getId());
+        gradeService.publishGrades(new PublishGradesRequest("APPROVE", List.of(entry.id()), null, null), siteManagerUser.getId());
 
         List<GradeEntryResponse> grades = partnerPortalService.getPublishedGrades(partnerRepUser.getId());
 
         assertThat(grades).hasSize(1);
-        assertThat(grades.get(0).status()).isEqualTo("PROVISIONAL_PUBLISHED");
+        assertThat(grades.get(0).status()).isEqualTo("OFFICIAL");
     }
 
     @Test

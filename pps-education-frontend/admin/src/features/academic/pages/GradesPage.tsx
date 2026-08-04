@@ -4,21 +4,17 @@ import { useApp } from "@/context/AppContext";
 import { UserRole } from "@/types";
 import {
   ClassEnrollmentResponse,
-  GradeAppealResponse,
   GradeComponentResponse,
   GradePeriodResponse,
-  acceptGradeAppeal,
   getClass,
   listClassEnrollments,
   listClassTeachers,
   listGradeComponents,
   listGradePeriods,
-  listPendingGradeAppeals,
   listUnpublishedGrades
 } from "../api";
 import { useEligibleClasses } from "../hooks/useEligibleClasses";
 import Card from "@/components/ui/Card";
-import Button from "@/components/ui/Button";
 import ClassGradeSheetPanel from "../components/ClassGradeSheetPanel";
 import GradeSheetTable from "../components/GradeSheetTable";
 import GradePublishDetail from "../components/GradePublishDetail";
@@ -48,10 +44,6 @@ export default function GradesPage() {
   const [pendingGroups, setPendingGroups] = useState<GradePublishGroup[]>([]);
   const [loadingPendingGroups, setLoadingPendingGroups] = useState(true);
   const [selectedPendingClassId, setSelectedPendingClassId] = useState<number | null>(null);
-
-  const [pendingAppeals, setPendingAppeals] = useState<GradeAppealResponse[]>([]);
-  const [loadingAppeals, setLoadingAppeals] = useState(true);
-  const [acceptingAppealId, setAcceptingAppealId] = useState<number | null>(null);
   const { message: toastMessage, showToast } = useToast();
 
   const selectedClass = classes.find((c) => c.id === selectedClassId) ?? null;
@@ -80,7 +72,7 @@ export default function GradesPage() {
         );
         setPendingGroups(groups);
       })
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách lớp chờ công bố."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách lớp chờ duyệt."))
       .finally(() => setLoadingPendingGroups(false));
   };
 
@@ -88,34 +80,6 @@ export default function GradesPage() {
     if (isSiteManager) loadPendingGroups();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSiteManager]);
-
-  /** UC-62: hàng chờ phúc khảo của (các) lớp Giáo viên đang phụ trách — không có ý nghĩa với Quản lý điểm trường (không dạy lớp nào). */
-  const loadPendingAppeals = () => {
-    setLoadingAppeals(true);
-    listPendingGradeAppeals()
-      .then(setPendingAppeals)
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được hàng chờ phúc khảo."))
-      .finally(() => setLoadingAppeals(false));
-  };
-
-  useEffect(() => {
-    if (!isSiteManager) loadPendingAppeals();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSiteManager]);
-
-  const handleAcceptAppeal = async (id: number) => {
-    setAcceptingAppealId(id);
-    setError(null);
-    try {
-      await acceptGradeAppeal(id);
-      loadPendingAppeals();
-      showToast("Đã tiếp nhận yêu cầu phúc khảo thành công!");
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Tiếp nhận yêu cầu phúc khảo thất bại.");
-    } finally {
-      setAcceptingAppealId(null);
-    }
-  };
 
   useEffect(() => {
     if (!selectedClassId) return;
@@ -142,8 +106,8 @@ export default function GradesPage() {
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Sổ điểm hệ thống</h1>
         <p className="text-xs text-slate-500 mt-1">
-          Giáo viên nhập điểm theo lớp, sửa/xoá tự do khi còn Nháp. Quản lý điểm trường công bố dự kiến cho Phụ huynh xem — sau đó chỉ sửa
-          được qua yêu cầu phúc khảo trong hạn quy định, hết hạn tự khoá Chính thức.
+          Giáo viên nhập điểm theo lớp, sửa/xoá tự do khi còn Nháp, gửi duyệt khi sẵn sàng. Quản lý điểm trường duyệt hoặc từ chối — chỉ khi
+          Duyệt điểm mới hiển thị cho Phụ huynh xem. Bị từ chối thì sửa lại rồi gửi/duyệt lại.
         </p>
       </div>
 
@@ -152,7 +116,7 @@ export default function GradesPage() {
       {isSiteManager && (
         <div className="space-y-4">
           <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider font-display border-b border-slate-200 pb-2">
-            Công bố điểm học phần
+            Duyệt/Từ chối điểm học phần
           </h2>
           <GradePublishDetail
             classId={selectedPendingClassId}
@@ -161,12 +125,12 @@ export default function GradesPage() {
             onPublished={() => {
               setSelectedPendingClassId(null);
               loadPendingGroups();
-              showToast("Đã công bố điểm thành công!");
+              showToast("Đã xử lý điểm thành công!");
             }}
           />
           <Card padded={false} className="overflow-hidden">
             <div className="px-5 py-4 border-b border-slate-100 bg-slate-50">
-              <span className="text-xs font-bold text-slate-700 font-display">Danh sách lớp chờ công bố ({pendingGroups.length})</span>
+              <span className="text-xs font-bold text-slate-700 font-display">Danh sách lớp chờ duyệt ({pendingGroups.length})</span>
             </div>
             <GradePublishGroupList
               groups={pendingGroups}
@@ -177,7 +141,7 @@ export default function GradesPage() {
           </Card>
 
           <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider font-display border-b border-slate-200 pb-2 pt-2">
-            Xem lại sổ điểm theo lớp (đã công bố)
+            Xem lại sổ điểm theo lớp
           </h2>
           <Card padded={false} className="overflow-hidden">
             <div className="px-5 py-4 border-b border-slate-100 bg-slate-50 grid grid-cols-1 sm:grid-cols-2 gap-2 items-center">
@@ -212,40 +176,10 @@ export default function GradesPage() {
                 />
               )
             ) : (
-              <p className="text-xs text-slate-400 italic p-6 text-center">Chọn lớp (Header) → kỳ điểm để xem lại điểm (Nháp + Đã công bố).</p>
+              <p className="text-xs text-slate-400 italic p-6 text-center">Chọn lớp (Header) → kỳ điểm để xem lại điểm (mọi trạng thái).</p>
             )}
           </Card>
         </div>
-      )}
-
-      {!isSiteManager && (pendingAppeals.length > 0 || loadingAppeals) && (
-        <Card padded={false} className="overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-100 bg-slate-50">
-            <span className="text-xs font-bold text-slate-700 font-display">Hàng chờ phúc khảo</span>
-            <p className="text-[10px] text-slate-400 mt-0.5">
-              Học sinh/Phụ huynh gửi yêu cầu — tiếp nhận rồi mới sửa được điểm của đúng học sinh đó trong bảng nhập điểm bên dưới.
-            </p>
-          </div>
-          {loadingAppeals ? (
-            <p className="text-xs text-slate-500 p-4">Đang tải...</p>
-          ) : (
-            <div className="divide-y divide-slate-100">
-              {pendingAppeals.map((a) => (
-                <div key={a.id} className="px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
-                  <div className="min-w-0">
-                    <span className="text-xs font-bold text-slate-800 block">{a.studentFullName}</span>
-                    <span className="text-[10px] text-slate-400 block mt-0.5">
-                      {a.reason || "(không ghi lý do)"} · {new Date(a.createdAt).toLocaleString("vi-VN")}
-                    </span>
-                  </div>
-                  <Button size="sm" variant="primary" disabled={acceptingAppealId === a.id} onClick={() => handleAcceptAppeal(a.id)}>
-                    {acceptingAppealId === a.id ? "Đang tiếp nhận..." : "Tiếp nhận"}
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
       )}
 
       {!isSiteManager && (
