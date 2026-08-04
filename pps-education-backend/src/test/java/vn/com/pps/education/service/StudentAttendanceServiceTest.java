@@ -454,7 +454,7 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
                 new UpdateCurriculumRequest("Chuẩn", null, null, null, "ACTIVE", false), headAcademic.getId());
         ClassResponse schoolClass = classService.create(
                 new CreateClassRequest(classCode(), "8A3", site.getId(), activeCurriculum.id(), "OPEN", 20, null,
-                        LocalDate.now(), null, null, null), headAcademic.getId());
+                        LocalDate.now(), null, null), headAcademic.getId());
         classService.enroll(schoolClass.id(), new EnrollStudentRequest(student1.getId(), LocalDate.now()), headAcademic.getId());
         User siteTeacher = newUser("teacher.site.rate");
         assignRole(siteTeacher, "TEACHER");
