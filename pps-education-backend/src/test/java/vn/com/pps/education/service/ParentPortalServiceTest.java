@@ -332,7 +332,7 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
      */
     private ExerciseResponse createGrammarOnlineExercise() {
         var exam = examService.createExam(
-                new CreateExamRequest(examCode(), "Đề Ngữ pháp homework", schoolClass.curriculumId()), teacher.getId());
+                new CreateExamRequest(examCode(), "Đề Ngữ pháp homework", schoolClass.curriculumId(), "VIETNAMESE", "HOMEWORK"), teacher.getId());
         examService.assignToClass(exam.id(), schoolClass.id(), teacher.getId());
         QuestionBankResponse bank = questionBankService.createBank(
                 new CreateQuestionBankRequest(bankCode(), "Ngân hàng homework", null, null, null), teacher.getId());

@@ -1133,12 +1133,30 @@ sung ngoài SDD gốc, đã xác nhận với người dùng — gộp nhiều "
                                                                    kiện hiển thị    
                                                                    (xem k)          
 
+  teacher_type           VARCHAR(20)    NOT NULL                   VIETNAMESE /
+                                                                   FOREIGN — bắt
+                                                                   buộc chọn khi
+                                                                   tạo, dùng lọc Đề
+                                                                   khi giao bài
+
+  exam_type              VARCHAR(20)    NOT NULL                   REVIEW (Ôn tập) /
+                                                                   HOMEWORK (Bài tập
+                                                                   về nhà) — độc lập
+                                                                   với exercises.
+                                                                   exercise_type
+
   created_by             BIGINT         FK → users(id), NOT NULL   Giáo viên tạo Đề 
 
   created_at,            TIMESTAMPTZ    NOT NULL                   BaseAuditEntity  
   updated_at                                                                        
 
   ----------------------------------------------------------------------------------
+
+**Bổ sung V74 (2026-08-04, đã xác nhận với người dùng):** `teacher_type`
+và `exam_type` bắt buộc chọn 1 trong 2 khi tạo Đề; cả hai sửa được cùng
+`title`. `teacher_type` dùng làm tiêu chí lọc Đề theo giáo viên Việt Nam/
+nước ngoài khi giao bài. `exam_type` là phân loại hoàn toàn mới ở cấp
+`Exam`, KHÔNG thay thế/đổi ý nghĩa `exercises.exercise_type` hiện có.
 
 Không có cột `status` riêng (không tự thêm state ngoài yêu cầu đã
 chốt với người dùng — nếu sau này cần "ẩn Đề" thì hỏi lại trước).

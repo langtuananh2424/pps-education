@@ -798,7 +798,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
      */
     private GrammarFixture createGrammarOnlineExercise() {
         var exam = examService.createExam(
-                new CreateExamRequest(examCode(), "Đề Ngữ pháp V55", schoolClass.curriculumId()), teacher.getId());
+                new CreateExamRequest(examCode(), "Đề Ngữ pháp V55", schoolClass.curriculumId(), "VIETNAMESE", "HOMEWORK"), teacher.getId());
         examService.assignToClass(exam.id(), schoolClass.id(), teacher.getId());
         QuestionBankResponse bank = questionBankService.createBank(
                 new CreateQuestionBankRequest(bankCode(), "Ngân hàng V55", null, null, null), teacher.getId());

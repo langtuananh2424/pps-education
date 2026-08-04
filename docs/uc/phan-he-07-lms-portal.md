@@ -1017,9 +1017,12 @@ UC-40: Soạn & giao đề kiểm tra
 | Precondition)** |                                                    |
 +-----------------+----------------------------------------------------+
 | **Luồng sự kiện | 1.  Giáo viên tạo/chọn 1 "Đề" (Exam) trong Kho đề  |
-| chính (Main     |     --- mã, tên, gán 1 khung chương trình (CHỈ để |
-| Flow)**         |     lọc/tìm kiếm trong Kho đề, không phải điều     |
-|                 |     kiện hiển thị cho lớp).                        |
+| chính (Main     |     --- nhập mã, tên, chọn bắt buộc Loại giáo viên |
+| Flow)**         |     (VIETNAMESE/FOREIGN), Loại đề (REVIEW/HOMEWORK)|
+|                 |     và gán 1 khung chương trình (CHỈ để lọc/tìm    |
+|                 |     kiếm trong Kho đề, không phải điều kiện hiển   |
+|                 |     thị cho lớp). Loại giáo viên dùng để lọc Đề   |
+|                 |     khi giao bài; cả 2 loại sửa được cùng tên Đề.  |
 |                 |                                                    |
 |                 | 2.  Giáo viên gán Đề cho 1 hoặc nhiều lớp --- đây   |
 |                 |     là điều kiện hiển thị DUY NHẤT: học sinh của   |
@@ -1076,8 +1079,9 @@ UC-40: Soạn & giao đề kiểm tra
 >    vi thật sự cho UC-27, xem Precondition UC-27).
 > 2. Endpoint `GET /api/curriculums/{curriculumId}/exercises` (do PR
 >    #128 tự bổ sung để GV duyệt đề theo khung chương trình) đã bị XÓA,
->    thay bằng duyệt qua `GET /api/exams` (lọc theo `curriculumId`) →
->    `GET /api/exams/{id}/exercises` (Bài trong 1 Đề).
+>    thay bằng duyệt qua `GET /api/exams` (lọc theo `curriculumId` và tùy
+>    chọn `teacherType=VIETNAMESE|FOREIGN`) → `GET /api/exams/{id}/
+>    exercises` (Bài trong 1 Đề).
 > 3. `POST/DELETE /api/exams/{id}/classes/{classId}` (gán/gỡ lớp, quyền
 >    `lms.exam.assign`) thay cho việc đặt scope trực tiếp trên từng Bài.
 > 4. Dữ liệu Exercise cũ (Sprint 0/1, dữ liệu test) được migration tự

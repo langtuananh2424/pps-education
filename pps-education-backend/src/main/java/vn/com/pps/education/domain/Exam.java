@@ -20,6 +20,12 @@ import java.util.UUID;
 @Table(name = "exams")
 public class Exam extends BaseAuditEntity {
 
+    /** Đề dành cho GV Việt Nam hay GV nước ngoài — dùng để lọc khi giao bài (V74, bổ sung ngoài SDD gốc, 2026-08-04). */
+    public enum TeacherType { VIETNAMESE, FOREIGN }
+
+    /** "Loại đề" — độc lập với {@link Exercise#getExerciseType()}, không thay thế (V74, bổ sung ngoài SDD gốc, 2026-08-04). */
+    public enum ExamType { REVIEW, HOMEWORK }
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -40,4 +46,14 @@ public class Exam extends BaseAuditEntity {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "created_by", nullable = false)
     private User createdBy;
+
+    /** Bắt buộc chọn 1 trong 2 khi tạo Đề — sửa được cùng title (V74). */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "teacher_type", nullable = false, length = 20)
+    private TeacherType teacherType;
+
+    /** Bắt buộc chọn 1 trong 2 khi tạo Đề — sửa được cùng title (V74). */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "exam_type", nullable = false, length = 20)
+    private ExamType examType;
 }

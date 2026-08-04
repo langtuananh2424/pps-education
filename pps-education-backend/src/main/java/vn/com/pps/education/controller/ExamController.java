@@ -41,8 +41,9 @@ public class ExamController {
 
     @GetMapping("/api/exams")
     public ResponseEntity<List<ExamResponse>> listExams(@RequestParam(required = false) Long curriculumId,
+                                                          @RequestParam(required = false) String teacherType,
                                                           @AuthenticationPrincipal AuthenticatedUser actor) {
-        return ResponseEntity.ok(examService.listExams(curriculumId, actor.userId()));
+        return ResponseEntity.ok(examService.listExams(curriculumId, teacherType, actor.userId()));
     }
 
     @GetMapping("/api/exams/{id}")
