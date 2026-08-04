@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { CheckCircle2, Search } from "lucide-react";
+import { CheckCircle2, Pencil, Search } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
@@ -213,6 +213,9 @@ function ExerciseQuestionsStep({
   const [searchTerm, setSearchTerm] = useState("");
   const [selected, setSelected] = useState<SelectedQuestion[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-03 — cho sửa câu hỏi NGAY tại đây (trước
+  // đây phải rời màn, qua trang Ngân hàng câu hỏi mới sửa được), tái dùng đúng QuestionEditorForm đã có.
+  const [editingQuestion, setEditingQuestion] = useState<QuestionResponse | null>(null);
   // Câu hỏi soạn mới/import hàng loạt được gắn vào đề NGAY khi tạo xong (đã ghi
   // thật vào ngân hàng câu hỏi) — khác "selected" (tab chọn có sẵn) vẫn chỉ là
   // staged, chờ bấm "Tiếp tục" mới thật sự gắn — nên không thể "bỏ chọn" được nữa.
@@ -401,6 +404,18 @@ function ExerciseQuestionsStep({
                       <input type="checkbox" checked={isSelected(q.id)} onChange={() => toggleQuestion(q)} />
                       <span className="flex-1 truncate">{q.content}</span>
                       <span className="text-[10px] text-slate-400 uppercase">{q.questionType}</span>
+                      <button
+                        type="button"
+                        title="Sửa câu hỏi"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setEditingQuestion(q);
+                        }}
+                        className="text-slate-400 hover:text-brand-red shrink-0"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
                       {isSelected(q.id) && (
                         <input
                           type="number"
@@ -459,6 +474,21 @@ function ExerciseQuestionsStep({
           {submitting ? "Đang lưu..." : "Tiếp tục — chọn hạn nộp"}
         </Button>
       </div>
+
+      {editingQuestion && selectedBankId && (
+        <Modal open onClose={() => setEditingQuestion(null)} title={`Sửa câu hỏi Q-${editingQuestion.id}`} size="lg">
+          <QuestionEditorForm
+            questionBankId={selectedBankId}
+            existingQuestion={editingQuestion}
+            onCreated={(updated) => {
+              setBankQuestions((prev) => prev.map((bq) => (bq.id === updated.id ? updated : bq)));
+              setSelected((prev) => prev.map((s) => (s.question.id === updated.id ? { ...s, question: updated } : s)));
+              setEditingQuestion(null);
+            }}
+            onCancel={() => setEditingQuestion(null)}
+          />
+        </Modal>
+      )}
     </div>
   );
 }

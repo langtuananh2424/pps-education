@@ -172,7 +172,13 @@ export const navSections: NavSection[] = [
       // lms.question-bank.create/update/view (Ngân hàng câu hỏi) và lms.exercise.create/update/
       // publish (Soạn & giao đề, không có mã .view riêng vì GET /api/exercises/* chưa từng gate
       // quyền ở backend) — mã gộp cũ không còn tồn tại.
-      { id: "lms-question-banks", label: "Ngân hàng câu hỏi", path: "/lms/question-banks", icon: BookOpen, requiredPermission: "lms.question-bank.view" },
+      // Tạm ẩn "Ngân hàng câu hỏi" khỏi sidebar (yêu cầu người dùng 2026-08-03) — toàn bộ thao tác
+      // soạn/sửa/nhập hàng loạt/archive câu hỏi đã chuyển hẳn vào trong "Soạn & giao đề"
+      // (CreateAndAssignExerciseModal.tsx tab "Chọn có sẵn" + ExerciseRow, xem V72 bổ sung quyền
+      // lms.exam.* kèm lms.question-bank.* để không ai mất quyền thao tác). CHỈ ẩn khỏi menu, không
+      // xoá route — /lms/question-banks vẫn dùng được nếu gõ thẳng URL (còn dùng riêng cho tính năng
+      // "Quản lý ngân hàng" — ẩn/kích hoạt cả 1 ngân hàng — chưa có lối vào khác).
+      // { id: "lms-question-banks", label: "Ngân hàng câu hỏi", path: "/lms/question-banks", icon: BookOpen, requiredPermission: "lms.question-bank.view" },
       { id: "lms-exercises", label: "Soạn & giao đề", path: "/lms/exercises", icon: BookOpen, requiredPermission: "lms.exercise.create" },
       // ReviewVideoController có permission từ V63 (bổ sung, trước đó không hề gate permission nào —
       // đã fix bug 2026-07-30: cấp "full quyền" cho sysadmin không có tác dụng vì quyền chưa tồn tại
