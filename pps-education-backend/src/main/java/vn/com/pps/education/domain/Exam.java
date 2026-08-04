@@ -43,6 +43,14 @@ public class Exam extends BaseAuditEntity {
     @JoinColumn(name = "curriculum_id", nullable = false)
     private Curriculum curriculum;
 
+    /**
+     * V75: Ngân hàng câu hỏi nội bộ 1-1, tạo tự động cùng Đề. Đây là chi
+     * tiết lưu trữ — API Giáo viên chỉ làm việc theo examId.
+     */
+    @OneToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "question_bank_id", nullable = false, unique = true)
+    private QuestionBank questionBank;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "created_by", nullable = false)
     private User createdBy;

@@ -14,7 +14,7 @@ import {
   UpdateExamRequest,
   assignExamToClass,
   createExam,
-  getQuestion,
+  getExamQuestion,
   listExamAssignedClasses,
   listExercisesByExam,
   listExerciseQuestions,
@@ -489,7 +489,6 @@ function ExamDetailPanel({
       {createExerciseOpen && (
         <CreateAndAssignExerciseModal
           examId={exam.id}
-          curriculumId={exam.curriculumId}
           onClose={() => setCreateExerciseOpen(false)}
           onDone={() => {
             loadExercises();
@@ -542,7 +541,7 @@ function ExerciseRow({
     setLoadingEditQuestionId(q.id);
     setError(null);
     try {
-      const full = await getQuestion(q.questionId);
+      const full = await getExamQuestion(exercise.examId, q.questionId);
       setEditingQuestion(full);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Không tải được câu hỏi để sửa.");
@@ -635,7 +634,7 @@ function ExerciseRow({
       {editingQuestion && (
         <Modal open onClose={() => setEditingQuestion(null)} title={`Sửa câu hỏi Q-${editingQuestion.id}`} size="lg">
           <QuestionEditorForm
-            questionBankId={editingQuestion.questionBankId}
+            examId={exercise.examId}
             existingQuestion={editingQuestion}
             onCreated={(updated) => {
               setQuestions((prev) =>

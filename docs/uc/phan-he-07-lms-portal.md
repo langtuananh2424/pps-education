@@ -1029,10 +1029,14 @@ UC-40: Soạn & giao đề kiểm tra
 |                 |     lớp đã gán mới xem/làm được các Bài thuộc Đề,  |
 |                 |     kể cả lớp khác khung chương trình với Đề.       |
 |                 |                                                    |
-|                 | 3.  Giáo viên mở màn hình Soạn Bài (trong Đề), chọn|
-|                 |     nguồn câu hỏi: từ ngân hàng có sẵn hoặc soạn    |
-|                 |     câu hỏi mới --- cả 2 đều được lưu vào ngân hàng |
-|                 |     câu hỏi (exercise_questions).                  |
+|                 | 3.  Hệ thống tự tạo đúng 1 Ngân hàng câu hỏi ngầm  |
+|                 |     khi tạo Đề. Giáo viên mở màn hình Soạn Bài     |
+|                 |     (trong Đề), chọn câu có sẵn của chính Đề, soạn |
+|                 |     câu mới hoặc import Excel/Word. Giáo viên không|
+|                 |     thấy/chọn mã, tên hay ID ngân hàng; hệ thống tự |
+|                 |     lưu câu vào ngân hàng ngầm của Đề rồi gắn qua  |
+|                 |     exercise_questions. Import là create-only,     |
+|                 |     không có question_id và cho phép trùng nội dung.|
 |                 |                                                    |
 |                 | 4.  Giáo viên chọn Loại Bài: SELF_PRACTICE (dùng   |
 |                 |     cho UC-27) hoặc ASSIGNED (dùng cho UC-24) ---  |
@@ -1089,6 +1093,18 @@ UC-40: Soạn & giao đề kiểm tra
 > 5. Dropdown "BTVN buổi sau" ở Nhận xét học viên (UC-21) đổi nhãn từ
 >    `Tên bài (Mã bài)` sang **`Mã Đề - Tên bài`** để phân biệt khi 1 lớp
 >    được gán nhiều Đề cùng lúc.
+>
+> **Bổ sung Ngân hàng câu hỏi ngầm (2026-08-04, đã xác nhận với người
+> dùng):** mỗi `Exam` sở hữu đúng 1 `QuestionBank` nội bộ được tạo tự động
+> cùng transaction. Giáo viên chỉ thao tác qua API/màn hình theo `examId`,
+> không thấy/chọn `bankId`, mã hay tên ngân hàng; nguồn “Chọn có sẵn” chỉ
+> lấy câu ACTIVE của chính Đề, không lấy câu từ ngân hàng legacy. Import
+> Excel/Word là create-only, không nhận `question_id`, và cho phép nhiều câu
+> ACTIVE trùng nội dung. Ngân hàng legacy tiếp tục tồn tại để giữ tương
+> thích dữ liệu cũ và chỉ `HEAD_ACADEMIC`/`SYS_ADMIN`/`SUPER_ADMIN` được
+> quản lý độc lập; ngân hàng nội bộ không xuất hiện trong danh sách chung
+> với bất kỳ vai trò nào. Không chuyển bank/xóa/clone câu cũ; các liên kết
+> `exercise_questions`/`student_answers` cũ giữ nguyên.
 
 > **Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (2026-07-21, cập
 > nhật 2026-07-22):** `Question.audioUrl` (trắc nghiệm Voice) và

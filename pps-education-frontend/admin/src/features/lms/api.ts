@@ -161,6 +161,25 @@ export function createQuestion(request: CreateQuestionRequest): Promise<Question
   return apiRequest<QuestionResponse>("/questions", { method: "POST", body: JSON.stringify(request) });
 }
 
+/** V75: request theo Đề, backend tự resolve bank nội bộ — không gửi questionBankId. */
+export type CreateExamQuestionRequest = Omit<CreateQuestionRequest, "questionBankId">;
+
+export function listExamQuestions(examId: number): Promise<QuestionResponse[]> {
+  return apiRequest<QuestionResponse[]>(`/exams/${examId}/questions`);
+}
+
+export function getExamQuestion(examId: number, questionId: number): Promise<QuestionResponse> {
+  return apiRequest<QuestionResponse>(`/exams/${examId}/questions/${questionId}`);
+}
+
+export function createExamQuestion(examId: number, request: CreateExamQuestionRequest): Promise<QuestionResponse> {
+  return apiRequest<QuestionResponse>(`/exams/${examId}/questions`, { method: "POST", body: JSON.stringify(request) });
+}
+
+export function updateExamQuestion(examId: number, questionId: number, request: UpdateQuestionRequest): Promise<QuestionResponse> {
+  return apiRequest<QuestionResponse>(`/exams/${examId}/questions/${questionId}`, { method: "PUT", body: JSON.stringify(request) });
+}
+
 // ===================== Soạn đề nhanh: import Excel/Word (UC-40, bổ sung ngoài SDD gốc) =====================
 
 export interface QuestionImportedRow {
@@ -192,9 +211,20 @@ export function importQuestions(bankId: number, file: File): Promise<QuestionImp
   return apiRequest<QuestionImportResponse>(`/question-banks/${bankId}/questions/import`, { method: "POST", body: formData });
 }
 
-/** File mẫu Word (.docx) — sinh ở backend (không cá nhân hoá theo bank, dùng chung cho mọi ngân hàng). Mẫu Excel dựng client-side, xem QuestionImportPanel.tsx. */
+export function importExamQuestions(examId: number, file: File): Promise<QuestionImportResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return apiRequest<QuestionImportResponse>(`/exams/${examId}/questions/import`, { method: "POST", body: formData });
+}
+
+/** File mẫu Word generic legacy. */
 export function downloadQuestionImportWordTemplate(): Promise<Blob> {
   return apiRequestBlob("/question-imports/template.docx");
+}
+
+/** V75: File mẫu Word cho luồng Giáo viên theo Đề. */
+export function downloadExamQuestionImportWordTemplate(): Promise<Blob> {
+  return apiRequestBlob("/exams/question-imports/template.docx");
 }
 
 // ===================== Kho đề (Exam) — "Đề" cha, VD: IELTS Grade 6 =====================

@@ -15,4 +15,6 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
      * sửa đáp án chứ không sửa câu hỏi — xem QuestionBankService#updateQuestion/QuestionLockedException).
      */
     boolean existsByQuestionBankIdAndContentAndStatus(Long questionBankId, String content, Question.Status status);
+
+    java.util.Optional<Question> findByIdAndQuestionBankId(Long id, Long questionBankId);
 }

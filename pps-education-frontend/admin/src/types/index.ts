@@ -13,6 +13,7 @@ export enum UserRole {
   HR_MANAGER = "HR_MANAGER", // Quản lý nhân sự
   STAFF = "STAFF", // Nhân viên (tuyển sinh/CSKH/giáo vụ)
   SYS_ADMIN = "SYS_ADMIN", // Quản trị viên
+  SUPER_ADMIN = "SUPER_ADMIN", // Siêu quản trị viên
   PARTNER_REP = "PARTNER_REP", // Đại diện trường liên kết
   OPS_MANAGER = "OPS_MANAGER", // Quản lý vận hành
   EXECUTIVE = "EXECUTIVE" // Ban giám đốc
