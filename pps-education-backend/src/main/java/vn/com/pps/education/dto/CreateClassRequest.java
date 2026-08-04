@@ -16,6 +16,5 @@ public record CreateClassRequest(
         Integer minStudents,
         @NotNull LocalDate startDate,
         LocalDate endDate,
-        String academicYear,
-        String semester
+        String academicYear
 ) {}

@@ -31,8 +31,7 @@ export default function ClassFormModal({ onClose, onCreated }: ClassFormModalPro
     minStudents: "",
     startDate: "",
     endDate: "",
-    academicYear: "",
-    semester: ""
+    academicYear: ""
   });
   const [touched, setTouched] = useState({ classCode: false, name: false, siteId: false, curriculumId: false, maxStudents: false, startDate: false });
   const [submitAttempted, setSubmitAttempted] = useState(false);
@@ -78,8 +77,7 @@ export default function ClassFormModal({ onClose, onCreated }: ClassFormModalPro
         minStudents: form.minStudents ? Number(form.minStudents) : undefined,
         startDate: form.startDate,
         endDate: form.endDate || undefined,
-        academicYear: form.academicYear.trim() || undefined,
-        semester: form.semester.trim() || undefined
+        academicYear: form.academicYear.trim() || undefined
       };
       const created = await createClass(request);
       onCreated(created);
@@ -205,10 +203,6 @@ export default function ClassFormModal({ onClose, onCreated }: ClassFormModalPro
           <div>
             <label className={labelClass}>Năm học</label>
             <input value={form.academicYear} onChange={(e) => setForm({ ...form, academicYear: e.target.value })} placeholder="VD: 2026-2027" className={inputClass} />
-          </div>
-          <div>
-            <label className={labelClass}>Học kỳ</label>
-            <input value={form.semester} onChange={(e) => setForm({ ...form, semester: e.target.value })} placeholder="VD: HK1" className={inputClass} />
           </div>
         </div>
 

@@ -96,7 +96,7 @@ class ClassServiceTest extends AbstractIntegrationTest {
 
         ClassResponse response = classService.create(
                 new CreateClassRequest(classCode(), "8A2", site.getId(), activeCurriculum.id(), "OPEN",
-                        25, 10, LocalDate.now(), null, "2026-2027", "S1"),
+                        25, 10, LocalDate.now(), null, "2026-2027"),
                 headAcademic.getId());
 
         assertThat(response.id()).isNotNull();
@@ -112,7 +112,7 @@ class ClassServiceTest extends AbstractIntegrationTest {
 
         assertThatThrownBy(() -> classService.create(
                 new CreateClassRequest(classCode(), "X", site.getId(), draft.id(), "OPEN", 20, null,
-                        LocalDate.now(), null, null, null), headAcademic.getId()))
+                        LocalDate.now(), null, null), headAcademic.getId()))
                 .isInstanceOf(CurriculumNotActiveException.class);
     }
 
@@ -122,7 +122,7 @@ class ClassServiceTest extends AbstractIntegrationTest {
 
         assertThatThrownBy(() -> classService.create(
                 new CreateClassRequest(classCode(), "Lớp liên kết", ownedSite.getId(), activeCurriculum.id(), "LINKED",
-                        20, null, LocalDate.now(), null, null, null), headAcademic.getId()))
+                        20, null, LocalDate.now(), null, null), headAcademic.getId()))
                 .isInstanceOf(LinkedClassRequiresPartnerSiteException.class);
     }
 
@@ -132,7 +132,7 @@ class ClassServiceTest extends AbstractIntegrationTest {
 
         ClassResponse response = classService.create(
                 new CreateClassRequest(classCode(), "Lớp liên kết hợp lệ", partnerSite.getId(), activeCurriculum.id(),
-                        "LINKED", 20, null, LocalDate.now(), null, null, null),
+                        "LINKED", 20, null, LocalDate.now(), null, null),
                 headAcademic.getId());
 
         assertThat(response.classType()).isEqualTo("LINKED");
@@ -160,7 +160,7 @@ class ClassServiceTest extends AbstractIntegrationTest {
 
         assertThatThrownBy(() -> classService.create(
                 new CreateClassRequest(classCode(), "Sai site", otherSite.getId(), customCurriculum.id(), "OPEN",
-                        20, null, LocalDate.now(), null, null, null), headAcademic.getId()))
+                        20, null, LocalDate.now(), null, null), headAcademic.getId()))
                 .isInstanceOf(CurriculumNotAvailableForSiteException.class);
     }
 
@@ -169,7 +169,7 @@ class ClassServiceTest extends AbstractIntegrationTest {
         Site site = newSite(Site.SiteType.OWNED);
         ClassResponse schoolClass = classService.create(
                 new CreateClassRequest(classCode(), "Có GV", site.getId(), activeCurriculum.id(), "OPEN", 20, null,
-                        LocalDate.now(), null, null, null), headAcademic.getId());
+                        LocalDate.now(), null, null), headAcademic.getId());
         User teacher = newUser("teacher.assigned");
         assignRole(teacher, "TEACHER");
 
@@ -184,7 +184,7 @@ class ClassServiceTest extends AbstractIntegrationTest {
         Site site = newSite(Site.SiteType.OWNED);
         ClassResponse schoolClass = classService.create(
                 new CreateClassRequest(classCode(), "Tự động gán site", site.getId(), activeCurriculum.id(), "OPEN", 20,
-                        null, LocalDate.now(), null, null, null), headAcademic.getId());
+                        null, LocalDate.now(), null, null), headAcademic.getId());
         User teacher = newUser("teacher.newsite");
         assignRole(teacher, "TEACHER");
         assertThat(siteTeacherRepository.existsBySiteIdAndTeacherIdAndAssignedToIsNull(site.getId(), teacher.getId())).isFalse();
@@ -200,10 +200,10 @@ class ClassServiceTest extends AbstractIntegrationTest {
         Site site = newSite(Site.SiteType.OWNED);
         ClassResponse class1 = classService.create(
                 new CreateClassRequest(classCode(), "Lớp 1", site.getId(), activeCurriculum.id(), "OPEN", 20, null,
-                        LocalDate.now(), null, null, null), headAcademic.getId());
+                        LocalDate.now(), null, null), headAcademic.getId());
         ClassResponse class2 = classService.create(
                 new CreateClassRequest(classCode(), "Lớp 2", site.getId(), activeCurriculum.id(), "OPEN", 20, null,
-                        LocalDate.now(), null, null, null), headAcademic.getId());
+                        LocalDate.now(), null, null), headAcademic.getId());
         User teacher = newUser("teacher.samesite");
         assignRole(teacher, "TEACHER");
         classService.assignTeacher(class1.id(),
@@ -221,7 +221,7 @@ class ClassServiceTest extends AbstractIntegrationTest {
         Site site = newSite(Site.SiteType.OWNED);
         ClassResponse schoolClass = classService.create(
                 new CreateClassRequest(classCode(), "Đổi giáo viên theo kỳ", site.getId(), activeCurriculum.id(), "OPEN", 20,
-                        null, LocalDate.now(), null, null, null), headAcademic.getId());
+                        null, LocalDate.now(), null, null), headAcademic.getId());
         User teacher = newUser("teacher.ended");
         assignRole(teacher, "TEACHER");
         var assignment = classService.assignTeacher(schoolClass.id(),
@@ -240,7 +240,7 @@ class ClassServiceTest extends AbstractIntegrationTest {
         Site site = newSite(Site.SiteType.OWNED);
         ClassResponse schoolClass = classService.create(
                 new CreateClassRequest(classCode(), "Kết thúc 2 lần", site.getId(), activeCurriculum.id(), "OPEN", 20,
-                        null, LocalDate.now(), null, null, null), headAcademic.getId());
+                        null, LocalDate.now(), null, null), headAcademic.getId());
         User teacher = newUser("teacher.doubleend");
         assignRole(teacher, "TEACHER");
         var assignment = classService.assignTeacher(schoolClass.id(),
@@ -258,7 +258,7 @@ class ClassServiceTest extends AbstractIntegrationTest {
         Site site = newSite(Site.SiteType.OWNED);
         ClassResponse schoolClass = classService.create(
                 new CreateClassRequest(classCode(), "Có HS", site.getId(), activeCurriculum.id(), "OPEN", 20, null,
-                        LocalDate.now(), null, null, null), headAcademic.getId());
+                        LocalDate.now(), null, null), headAcademic.getId());
         Student student = newStudent();
 
         var enrollment = classService.enroll(schoolClass.id(),
@@ -273,7 +273,7 @@ class ClassServiceTest extends AbstractIntegrationTest {
         Site site = newSite(Site.SiteType.OWNED);
         ClassResponse schoolClass = classService.create(
                 new CreateClassRequest(classCode(), "Trùng ghi danh", site.getId(), activeCurriculum.id(), "OPEN",
-                        20, null, LocalDate.now(), null, null, null), headAcademic.getId());
+                        20, null, LocalDate.now(), null, null), headAcademic.getId());
         Student student = newStudent();
         classService.enroll(schoolClass.id(), new EnrollStudentRequest(student.getId(), LocalDate.now()), headAcademic.getId());
 
@@ -287,7 +287,7 @@ class ClassServiceTest extends AbstractIntegrationTest {
         Site site = newSite(Site.SiteType.OWNED);
         ClassResponse schoolClass = classService.create(
                 new CreateClassRequest(classCode(), "Rút lớp", site.getId(), activeCurriculum.id(), "OPEN", 20, null,
-                        LocalDate.now(), null, null, null), headAcademic.getId());
+                        LocalDate.now(), null, null), headAcademic.getId());
         Student student = newStudent();
         var enrollment = classService.enroll(schoolClass.id(),
                 new EnrollStudentRequest(student.getId(), LocalDate.now()), headAcademic.getId());
@@ -305,10 +305,10 @@ class ClassServiceTest extends AbstractIntegrationTest {
         Site siteB = newSite(Site.SiteType.OWNED);
         ClassResponse classAtA = classService.create(
                 new CreateClassRequest(classCode(), "Lớp A", siteA.getId(), activeCurriculum.id(), "OPEN", 20, null,
-                        LocalDate.now(), null, null, null), headAcademic.getId());
+                        LocalDate.now(), null, null), headAcademic.getId());
         classService.create(
                 new CreateClassRequest(classCode(), "Lớp B", siteB.getId(), activeCurriculum.id(), "OPEN", 20, null,
-                        LocalDate.now(), null, null, null), headAcademic.getId());
+                        LocalDate.now(), null, null), headAcademic.getId());
 
         var result = classService.search(null, siteA.getId(), null, null, headAcademic.getId());
 
@@ -321,10 +321,10 @@ class ClassServiceTest extends AbstractIntegrationTest {
         CurriculumResponse otherCurriculum = activeCurriculumWithCategory("MAIN");
         ClassResponse classOfActive = classService.create(
                 new CreateClassRequest(classCode(), "Lớp chuẩn", site.getId(), activeCurriculum.id(), "OPEN", 20, null,
-                        LocalDate.now(), null, null, null), headAcademic.getId());
+                        LocalDate.now(), null, null), headAcademic.getId());
         classService.create(
                 new CreateClassRequest(classCode(), "Lớp khác", site.getId(), otherCurriculum.id(), "OPEN", 20, null,
-                        LocalDate.now(), null, null, null), headAcademic.getId());
+                        LocalDate.now(), null, null), headAcademic.getId());
 
         var result = classService.search(null, null, activeCurriculum.id(), null, headAcademic.getId());
 
@@ -337,10 +337,10 @@ class ClassServiceTest extends AbstractIntegrationTest {
         CurriculumResponse supplementaryCurriculum = activeCurriculumWithCategory("SUPPLEMENTARY");
         ClassResponse mainClass = classService.create(
                 new CreateClassRequest(classCode(), "Lớp chuẩn", site.getId(), activeCurriculum.id(), "OPEN", 20, null,
-                        LocalDate.now(), null, null, null), headAcademic.getId());
+                        LocalDate.now(), null, null), headAcademic.getId());
         classService.create(
                 new CreateClassRequest(classCode(), "Lớp bổ trợ", site.getId(), supplementaryCurriculum.id(), "OPEN",
-                        20, null, LocalDate.now(), null, null, null), headAcademic.getId());
+                        20, null, LocalDate.now(), null, null), headAcademic.getId());
 
         var result = classService.search(null, null, null, "MAIN", headAcademic.getId());
 
@@ -352,7 +352,7 @@ class ClassServiceTest extends AbstractIntegrationTest {
         Site site = newSite(Site.SiteType.OWNED);
         classService.create(
                 new CreateClassRequest(classCode(), "Lớp bất kỳ", site.getId(), activeCurriculum.id(), "OPEN", 20, null,
-                        LocalDate.now(), null, null, null), headAcademic.getId());
+                        LocalDate.now(), null, null), headAcademic.getId());
         User teacher = newUser("teacher.nosite");
         assignRole(teacher, "TEACHER");
 
@@ -365,10 +365,10 @@ class ClassServiceTest extends AbstractIntegrationTest {
         Site siteB = newSite(Site.SiteType.OWNED);
         ClassResponse classAtA = classService.create(
                 new CreateClassRequest(classCode(), "Lớp A", siteA.getId(), activeCurriculum.id(), "OPEN", 20, null,
-                        LocalDate.now(), null, null, null), headAcademic.getId());
+                        LocalDate.now(), null, null), headAcademic.getId());
         classService.create(
                 new CreateClassRequest(classCode(), "Lớp B", siteB.getId(), activeCurriculum.id(), "OPEN", 20, null,
-                        LocalDate.now(), null, null, null), headAcademic.getId());
+                        LocalDate.now(), null, null), headAcademic.getId());
         User teacher = newUser("teacher.ownsite");
         assignRole(teacher, "TEACHER");
         classService.assignTeacher(classAtA.id(),
@@ -392,10 +392,10 @@ class ClassServiceTest extends AbstractIntegrationTest {
         Site siteB = newSite(Site.SiteType.OWNED);
         ClassResponse classAtA = classService.create(
                 new CreateClassRequest(classCode(), "Lớp A", siteA.getId(), activeCurriculum.id(), "OPEN", 20, null,
-                        LocalDate.now(), null, null, null), headAcademic.getId());
+                        LocalDate.now(), null, null), headAcademic.getId());
         classService.create(
                 new CreateClassRequest(classCode(), "Lớp B", siteB.getId(), activeCurriculum.id(), "OPEN", 20, null,
-                        LocalDate.now(), null, null, null), headAcademic.getId());
+                        LocalDate.now(), null, null), headAcademic.getId());
         User siteManagerUser = newUser("site.manager.search");
         assignRole(siteManagerUser, "SITE_MANAGER");
         SiteManager siteManager = new SiteManager();
@@ -424,10 +424,10 @@ class ClassServiceTest extends AbstractIntegrationTest {
         Site siteB = newSite(Site.SiteType.OWNED);
         ClassResponse classAtA = classService.create(
                 new CreateClassRequest(classCode(), "Lớp A", siteA.getId(), activeCurriculum.id(), "OPEN", 20, null,
-                        LocalDate.now(), null, null, null), headAcademic.getId());
+                        LocalDate.now(), null, null), headAcademic.getId());
         ClassResponse classAtB = classService.create(
                 new CreateClassRequest(classCode(), "Lớp B", siteB.getId(), activeCurriculum.id(), "OPEN", 20, null,
-                        LocalDate.now(), null, null, null), headAcademic.getId());
+                        LocalDate.now(), null, null), headAcademic.getId());
         User sysAdminUser = newUser("sysadmin.viewall");
         assignRole(sysAdminUser, "SYS_ADMIN");
 

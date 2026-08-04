@@ -145,7 +145,6 @@ export interface ClassResponse {
   startDate: string;
   endDate: string | null;
   academicYear: string | null;
-  semester: string | null;
   status: "PLANNED" | "OPEN_ENROLLMENT" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
 }
 
@@ -160,7 +159,6 @@ export interface CreateClassRequest {
   startDate: string;
   endDate?: string;
   academicYear?: string;
-  semester?: string;
 }
 
 export interface UpdateClassRequest {
@@ -170,7 +168,6 @@ export interface UpdateClassRequest {
   startDate: string;
   endDate?: string;
   academicYear?: string;
-  semester?: string;
   status: ClassResponse["status"];
 }
 
@@ -238,6 +235,46 @@ export function endClassTeacherAssignment(
     method: "PUT",
     body: JSON.stringify(request)
   });
+}
+
+// ===================== Giai đoạn/Học kỳ (UC-18, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31) =====================
+// Giới hạn theo điểm trường (site), độc lập với lớp học — 1 lớp tồn tại xuyên suốt nhiều kỳ. Hồ sơ lớp/học
+// sinh theo kỳ (báo cáo & thống kê) là dữ liệu tính ra từ các bảng đã có ngày tháng, chưa triển khai ở đây.
+
+export interface AcademicTermResponse {
+  id: number;
+  siteId: number;
+  siteName: string;
+  code: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+}
+
+export interface CreateAcademicTermRequest {
+  siteId: number;
+  code: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+}
+
+export interface UpdateAcademicTermRequest {
+  name: string;
+  startDate: string;
+  endDate: string;
+}
+
+export function listAcademicTerms(siteId: number): Promise<AcademicTermResponse[]> {
+  return apiRequest<AcademicTermResponse[]>(`/academic-terms?siteId=${siteId}`);
+}
+
+export function createAcademicTerm(request: CreateAcademicTermRequest): Promise<AcademicTermResponse> {
+  return apiRequest<AcademicTermResponse>("/academic-terms", { method: "POST", body: JSON.stringify(request) });
+}
+
+export function updateAcademicTerm(id: number, request: UpdateAcademicTermRequest): Promise<AcademicTermResponse> {
+  return apiRequest<AcademicTermResponse>(`/academic-terms/${id}`, { method: "PUT", body: JSON.stringify(request) });
 }
 
 export interface ClassEnrollmentResponse {
@@ -837,6 +874,16 @@ export function writeComment(classId: number, request: CreateStudentCommentReque
 
 export function updateComment(id: number, request: UpdateStudentCommentRequest): Promise<StudentCommentResponse> {
   return apiRequest<StudentCommentResponse>(`/comments/${id}`, { method: "PUT", body: JSON.stringify(request) });
+}
+
+export interface UpdateStudentCommentContentRequest {
+  content: string;
+  structuredContent?: Record<string, unknown>;
+}
+
+/** UC-22 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-02): Quản lý điểm trường sửa trực tiếp nội dung nhận xét đang chờ duyệt. */
+export function updatePendingCommentContent(id: number, request: UpdateStudentCommentContentRequest): Promise<StudentCommentResponse> {
+  return apiRequest<StudentCommentResponse>(`/comments/pending/${id}/content`, { method: "PUT", body: JSON.stringify(request) });
 }
 
 export function submitComments(classId: number, commentIds: number[]): Promise<StudentCommentResponse[]> {

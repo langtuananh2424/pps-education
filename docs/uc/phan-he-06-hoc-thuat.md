@@ -307,6 +307,39 @@ UC-18: Xếp lớp & gán khóa học
 > (`Action.UPDATED`). Từ chối nếu phân công đã kết thúc từ trước (không
 > kết thúc 2 lần). FE: nút "Kết thúc phụ trách" trên mỗi dòng giáo viên
 > đang ACTIVE (`assignedTo == null`) ở `ClassDetailPanel.tsx`.
+>
+> **Giai đoạn/Học kỳ — `academic_terms` (bổ sung ngoài SDD gốc, đã xác
+> nhận với người dùng 2026-07-31):** trước đây `classes.semester` là
+> VARCHAR tự do, không có business logic nào đọc/ghi có ý nghĩa. Người
+> dùng xác nhận **bỏ hẳn `classes.semester`** (không thay bằng FK trên
+> `classes`) — thay vào đó "Giai đoạn/Học kỳ" (VD: Giữa kỳ 1, Cuối kỳ 1,
+> Giữa kỳ 2, Cuối kỳ 2) là bảng riêng `academic_terms` (site/code/name/
+> startDate/endDate), **giới hạn theo điểm trường** ("Học kỳ sẽ giới hạn
+> theo điểm trường. Mỗi trường mỗi khác" — nguyên văn người dùng), **độc
+> lập với lớp học**: 1 lớp tồn tại xuyên suốt nhiều kỳ, KHÔNG gán cứng 1
+> kỳ. Lý do: qua từng kỳ sĩ số lớp thay đổi do sắp xếp lại học sinh theo
+> trình độ (VD học sinh học 8A-1 ở Giữa kỳ 1, chuyển 8A-2 ở Cuối kỳ 1,
+> quay lại 8A-1 ở Giữa kỳ 2 — `StudentService.recordTransfer`, UC-14, đã
+> hỗ trợ đúng kịch bản này qua lịch sử `class_enrollments`, không cần sửa
+> gì thêm). "Hồ sơ lớp/học sinh theo kỳ" (sĩ số, giáo viên phụ trách,
+> điểm danh, nhận xét, bài tập trong 1 kỳ) vì vậy là dữ liệu **TÍNH RA**
+> (derived) bằng cách lọc các bảng đã có sẵn ngày tháng
+> (`class_enrollments`, `class_teachers.assignedFrom/assignedTo`,
+> `class_sessions.sessionDate`, `student_comments.commentDate`...) theo
+> khoảng `[startDate, endDate]` của kỳ — KHÔNG cần bảng snapshot/join
+> riêng. CRUD kỳ học: `AcademicTermService`/`AcademicTermController`
+> (`POST/GET/PUT /api/academic-terms`, quyền `academic.class.manage` cho
+> create/update, GET mở cho mọi actor đã đăng nhập), FE: nút "Quản lý học
+> kỳ" ở `ClassesPage.tsx` (chỉ bật khi đã chọn 1 điểm trường cụ thể ở
+> dropdown Header, không phải "Tất cả điểm trường"). Migration: dữ liệu
+> lớp cũ (`semester` cũ) để trống hoàn toàn, không tự động convert — giáo
+> vụ gán tay lại nếu cần (đã xác nhận với người dùng). **Phạm vi CHƯA làm
+> ở đây**: màn hình báo cáo/thống kê tổng hợp theo kỳ (VD "kỳ I sĩ số lớp
+> X là bao nhiêu, giáo viên nào dạy") — người dùng xác định đây là 1
+> **phân hệ Báo cáo & Thống kê riêng sẽ triển khai sau**; phạm vi hiện tại
+> chỉ đảm bảo mô hình dữ liệu (ngày tháng trên các bảng liên quan + khái
+> niệm kỳ theo site) đã đủ chặt chẽ để phân hệ đó dùng được ngay khi triển
+> khai, không cần retrofit lại schema.
 
 ---
 
@@ -1514,6 +1547,27 @@ UC-22: Duyệt nhận xét
 | (Alternate      | 1.  Quản lý điểm trường chọn nhiều nhận xét theo   |
 | Flow)**         |     lớp/ngày, duyệt hàng loạt trong 1 thao tác để  |
 |                 |     tăng tốc độ xử lý.                             |
+|                 |                                                    |
+|                 | ***A2 --- Sửa trực tiếp nội dung trước khi duyệt   |
+|                 | (bổ sung ngoài SDD gốc, đã xác nhận với người      |
+|                 | dùng 2026-08-02)***                                |
+|                 |                                                    |
+|                 | 1.  Nếu nội dung nhận xét (Chờ duyệt) có lỗi        |
+|                 |     chính tả/câu chữ nhỏ, Quản lý điểm trường có   |
+|                 |     thể tự sửa trực tiếp thay vì Từ chối bắt Giáo   |
+|                 |     viên sửa lại — giảm tải qua lại không cần       |
+|                 |     thiết.                                         |
+|                 |                                                    |
+|                 | 2.  Chỉ sửa được phần nội dung câu chữ (content) —  |
+|                 |     KHÔNG sửa được Thái độ học tập/BTVN buổi        |
+|                 |     trước-sau/Ghi chú (để tránh vô tình kích hoạt   |
+|                 |     lại cơ chế tự động giao bài cho cả lớp của      |
+|                 |     V65 nếu đổi BTVN buổi sau).                     |
+|                 |                                                    |
+|                 | 3.  Sau khi Lưu, nhận xét vẫn ở trạng thái Chờ      |
+|                 |     duyệt (PENDING) — Quản lý điểm trường vẫn phải  |
+|                 |     bấm Duyệt/Từ chối riêng ở bước 3 Main Flow,     |
+|                 |     Sửa và Duyệt là 2 thao tác tách biệt.           |
 +-----------------+----------------------------------------------------+
 | **Hậu điều kiện | -   Nhận xét APPROVED được công khai đúng đối      |
 | (P              |     tượng xem (Phụ huynh; thêm Đại diện trường     |
@@ -1522,6 +1576,23 @@ UC-22: Duyệt nhận xét
 |                 | -   Nhận xét REJECTED quay về Giáo viên, chưa hiển |
 |                 |     thị cho bất kỳ ai bên ngoài.                   |
 +-----------------+----------------------------------------------------+
+
+> **A2 — Sửa trực tiếp nội dung (bổ sung ngoài SDD gốc, đã xác nhận với
+> người dùng 2026-08-02):** endpoint mới `PUT /api/comments/pending/{id}/content`
+> (`StudentCommentService#updatePendingCommentContent`), quyền
+> `academic.comment.approve` (dùng lại, không tạo quyền mới) + kiểm tra
+> đúng Quản lý điểm trường của site chứa lớp
+> (`requireSiteManagerForSite`). Chỉ chấp nhận khi nhận xét đang PENDING —
+> ném `StudentCommentNotEditableException` nếu không. Dùng DTO RIÊNG
+> `UpdateStudentCommentContentRequest` (chỉ có `content`/`structuredContent`)
+> — KHÔNG dùng chung `UpdateStudentCommentRequest` (của Giáo viên) vì DTO
+> đó có các trường BTVN buổi sau (`homeworkNextExerciseId`...) sẽ tự động
+> tạo/đổi bản giao bài cho CẢ LỚP (V65) nếu vô tình truyền vào. Ghi lịch sử
+> qua `student_comments_history` (`Action.UPDATED`) như các lần sửa khác —
+> không có badge/thông báo riêng cho Giáo viên biết nội dung đã bị sửa
+> (đã xác nhận với người dùng, không cần thiết ở giai đoạn này). FE: nút
+> "Sửa" cạnh nút Duyệt/Từ chối ở `CommentApprovalByClass.tsx`, mở
+> `<textarea>` inline tại dòng, có nút Lưu/Hủy riêng.
 
 ---
 

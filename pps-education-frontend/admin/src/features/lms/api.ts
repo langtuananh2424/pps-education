@@ -203,14 +203,24 @@ export function downloadQuestionImportWordTemplate(): Promise<Blob> {
 // NHIỀU lớp (exam_class_assignments) — đây mới là điều kiện hiển thị DUY NHẤT cho học sinh xem/làm
 // được các Bài thuộc Đề. Xem ExamService.java.
 
+/** V74, đã xác nhận với người dùng 2026-08-04: Đề dành cho GV Việt Nam hay GV nước ngoài — dùng lọc khi giao bài. */
+export type ExamTeacherType = "VIETNAMESE" | "FOREIGN";
+
+/** V74, đã xác nhận với người dùng 2026-08-04: "Loại đề" — độc lập với ExerciseType, không thay thế. */
+export type ExamType = "REVIEW" | "HOMEWORK";
+
 export interface CreateExamRequest {
   code: string;
   title: string;
   curriculumId: number;
+  teacherType: ExamTeacherType;
+  examType: ExamType;
 }
 
 export interface UpdateExamRequest {
   title: string;
+  teacherType: ExamTeacherType;
+  examType: ExamType;
 }
 
 export interface ExamResponse {
@@ -221,6 +231,8 @@ export interface ExamResponse {
   curriculumId: number;
   curriculumCode: string;
   createdBy: number;
+  teacherType: ExamTeacherType;
+  examType: ExamType;
 }
 
 export function createExam(request: CreateExamRequest): Promise<ExamResponse> {
@@ -235,9 +247,12 @@ export function getExam(id: number): Promise<ExamResponse> {
   return apiRequest<ExamResponse>(`/exams/${id}`);
 }
 
-/** Bỏ trống curriculumId để xem TẤT CẢ Đề (mọi khung chương trình). */
-export function listExams(curriculumId?: number): Promise<ExamResponse[]> {
-  const query = curriculumId ? `?curriculumId=${curriculumId}` : "";
+/** Bỏ trống curriculumId/teacherType để không lọc theo tiêu chí đó. */
+export function listExams(curriculumId?: number, teacherType?: ExamTeacherType): Promise<ExamResponse[]> {
+  const params = new URLSearchParams();
+  if (curriculumId) params.set("curriculumId", String(curriculumId));
+  if (teacherType) params.set("teacherType", teacherType);
+  const query = params.toString() ? `?${params.toString()}` : "";
   return apiRequest<ExamResponse[]>(`/exams${query}`);
 }
 

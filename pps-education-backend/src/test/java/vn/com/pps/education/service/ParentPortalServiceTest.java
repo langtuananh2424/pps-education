@@ -155,7 +155,7 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
         Site site = newSite();
         schoolClass = classService.create(
                 new CreateClassRequest(classCode(), "8A2", site.getId(), activeCurriculum.id(), "OPEN", 20, null,
-                        LocalDate.now(), null, null, null), headAcademic.getId());
+                        LocalDate.now(), null, null), headAcademic.getId());
 
         teacher = newUser("teacher");
         assignRole(teacher, "TEACHER");
@@ -332,7 +332,7 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
      */
     private ExerciseResponse createGrammarOnlineExercise() {
         var exam = examService.createExam(
-                new CreateExamRequest(examCode(), "Đề Ngữ pháp homework", schoolClass.curriculumId()), teacher.getId());
+                new CreateExamRequest(examCode(), "Đề Ngữ pháp homework", schoolClass.curriculumId(), "VIETNAMESE", "HOMEWORK"), teacher.getId());
         examService.assignToClass(exam.id(), schoolClass.id(), teacher.getId());
         QuestionBankResponse bank = questionBankService.createBank(
                 new CreateQuestionBankRequest(bankCode(), "Ngân hàng homework", null, null, null), teacher.getId());
@@ -470,7 +470,7 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
         Site otherSite = newSite();
         ClassResponse otherClass = classService.create(
                 new CreateClassRequest(classCode(), "9B1", otherSite.getId(), schoolClass.curriculumId(), "OPEN", 20, null,
-                        LocalDate.now(), null, null, null), headAcademic.getId());
+                        LocalDate.now(), null, null), headAcademic.getId());
 
         assertThatThrownBy(() -> parentPortalService.listGrades(student.getId(), otherClass.id(), parentUser.getId()))
                 .isInstanceOf(ResourceNotFoundException.class);

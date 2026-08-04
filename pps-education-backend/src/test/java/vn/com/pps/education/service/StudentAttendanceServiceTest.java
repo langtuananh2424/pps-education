@@ -141,7 +141,7 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
         Site site = newSite();
         ClassResponse schoolClass = classService.create(
                 new CreateClassRequest(classCode(), "8A2", site.getId(), activeCurriculum.id(), "OPEN", 20, null,
-                        LocalDate.now(), null, null, null), headAcademic.getId());
+                        LocalDate.now(), null, null), headAcademic.getId());
 
         teacher = newUser("teacher");
         assignRole(teacher, "TEACHER");
@@ -417,7 +417,7 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
                 new UpdateCurriculumRequest("Chuẩn", null, null, null, "ACTIVE", false), headAcademic.getId());
         ClassResponse schoolClass = classService.create(
                 new CreateClassRequest(classCode(), "8A2", site.getId(), activeCurriculum.id(), "OPEN", 20, null,
-                        LocalDate.now(), null, null, null), headAcademic.getId());
+                        LocalDate.now(), null, null), headAcademic.getId());
         classService.enroll(schoolClass.id(), new EnrollStudentRequest(student1.getId(), LocalDate.now()), headAcademic.getId());
         // Giáo viên riêng (không phải `teacher` của fixture setUp) — session của setUp() đã chiếm
         // đúng khung giờ 8:00-9:40 hôm nay với `teacher`, dùng lại sẽ bị chặn trùng giờ GV (bổ sung
@@ -520,7 +520,7 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
                 new UpdateCurriculumRequest("Chuẩn", null, null, null, "ACTIVE", false), headAcademic.getId());
         ClassResponse otherClass = classService.create(
                 new CreateClassRequest(classCode(), "8A3", newSite().getId(), activeCurriculum.id(), "OPEN", 20, null,
-                        LocalDate.now(), null, null, null), headAcademic.getId());
+                        LocalDate.now(), null, null), headAcademic.getId());
         studentService.recordTransfer(student1.getId(),
                 new RecordTransferRequest("CLASS_CHANGE", session.classId(), otherClass.id(), null, LocalDate.now(), "Chuyển lớp test"),
                 headAcademic.getId());

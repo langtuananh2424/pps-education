@@ -213,7 +213,6 @@ public class ClassService {
         schoolClass.setStartDate(request.startDate());
         schoolClass.setEndDate(request.endDate());
         schoolClass.setAcademicYear(request.academicYear());
-        schoolClass.setSemester(request.semester());
         schoolClass.setCreatedBy(actor);
         schoolClass = schoolClassRepository.save(schoolClass);
 
@@ -234,7 +233,6 @@ public class ClassService {
         schoolClass.setStartDate(request.startDate());
         schoolClass.setEndDate(request.endDate());
         schoolClass.setAcademicYear(request.academicYear());
-        schoolClass.setSemester(request.semester());
         schoolClass.setStatus(SchoolClass.Status.valueOf(request.status()));
         schoolClass = schoolClassRepository.save(schoolClass);
 
@@ -432,7 +430,7 @@ public class ClassService {
                 c.getCurriculum().getId(), c.getCurriculum().getCode(),
                 c.getClassType().name(), c.getClassCategory(),
                 c.getMaxStudents(), c.getMinStudents(), c.getStartDate(), c.getEndDate(),
-                c.getAcademicYear(), c.getSemester(), c.getStatus().name());
+                c.getAcademicYear(), c.getStatus().name());
     }
 
     private ClassTeacherResponse toResponse(ClassTeacher t) {

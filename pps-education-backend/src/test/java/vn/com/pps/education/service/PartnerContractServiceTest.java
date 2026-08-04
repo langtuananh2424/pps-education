@@ -147,7 +147,7 @@ class PartnerContractServiceTest extends AbstractIntegrationTest {
     void terminateContract_UC36b_A2_marksTerminatedAndNotifiesSiteManagerWithActiveClasses() {
         Long curriculumId = createActiveCurriculumId();
         classService.create(new CreateClassRequest(classCode(), "Lop lien ket", partnerSite.getId(), curriculumId,
-                "LINKED", 20, null, LocalDate.now(), null, null, null), headAcademic.getId());
+                "LINKED", 20, null, LocalDate.now(), null, null), headAcademic.getId());
 
         PartnerContractResponse contract = partnerContractService.createContract(baseRequest(), opsManager.getId());
         partnerContractService.updateContract(contract.id(),

@@ -9,5 +9,7 @@ public record ExamResponse(
         String title,
         Long curriculumId,
         String curriculumCode,
-        Long createdBy
+        Long createdBy,
+        String teacherType,
+        String examType
 ) {}
