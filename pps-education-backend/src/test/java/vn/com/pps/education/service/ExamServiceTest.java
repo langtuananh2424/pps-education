@@ -26,6 +26,7 @@ import vn.com.pps.education.dto.QuestionResponse;
 import vn.com.pps.education.dto.UpdateCurriculumRequest;
 import vn.com.pps.education.dto.UpdateExamRequest;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
+import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.repository.RoleRepository;
 import vn.com.pps.education.repository.SiteRepository;
 import vn.com.pps.education.repository.UserRepository;
@@ -254,7 +255,7 @@ class ExamServiceTest extends AbstractIntegrationTest {
         QuestionResponse mc = questionBankService.createQuestion(
                 new CreateQuestionRequest(bank.id(), "MULTIPLE_CHOICE", "GRAMMAR", "EASY", "She ___ to school.",
                         null, null, null, null, null, new BigDecimal("1.0"), null,
-                        List.of(new QuestionChoiceRequest("A", "go", false, 1), new QuestionChoiceRequest("B", "goes", true, 2))),
+                        List.of(new QuestionChoiceRequest("A", "go", false, 1), new QuestionChoiceRequest("B", "goes", true, 2)), null, null),
                 teacher.getId());
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Unit 1", exam.id(), null, "ASSIGNED",
@@ -265,6 +266,43 @@ class ExamServiceTest extends AbstractIntegrationTest {
 
         assertThat(exercises).extracting(ExerciseResponse::id).containsExactly(exercise.id());
         assertThat(exercises.get(0).examCode()).isEqualTo(exam.code());
+    }
+
+    /** V80 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04) — "Xóa Đề": soft-delete, ẩn khỏi getExam/listExams. */
+    @Test
+    void deleteExam_MainFlow_softDeletesAndHidesFromListing() {
+        ExamResponse exam = examService.createExam(
+                new CreateExamRequest(examCode(), "IELTS Grade 6", curriculumA.id(), "VIETNAMESE", "HOMEWORK"), teacher.getId());
+
+        examService.deleteExam(exam.id(), teacher.getId());
+
+        assertThatThrownBy(() -> examService.getExam(exam.id(), teacher.getId())).isInstanceOf(ResourceNotFoundException.class);
+        assertThat(examService.listExams(null, null, teacher.getId())).extracting(ExamResponse::id).doesNotContain(exam.id());
+    }
+
+    @Test
+    void deleteExam_A_rejectsWhenExamHasActiveExercise() {
+        ExamResponse exam = examService.createExam(
+                new CreateExamRequest(examCode(), "IELTS Grade 6", curriculumA.id(), "VIETNAMESE", "HOMEWORK"), teacher.getId());
+        exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "Unit 1", exam.id(), null, "ASSIGNED",
+                        new BigDecimal("1"), null, false, null, true), teacher.getId());
+
+        assertThatThrownBy(() -> examService.deleteExam(exam.id(), teacher.getId())).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void deleteExam_MainFlow_allowsWhenAllExercisesArchived() {
+        ExamResponse exam = examService.createExam(
+                new CreateExamRequest(examCode(), "IELTS Grade 6", curriculumA.id(), "VIETNAMESE", "HOMEWORK"), teacher.getId());
+        ExerciseResponse exercise = exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "Unit 1", exam.id(), null, "ASSIGNED",
+                        new BigDecimal("1"), null, false, null, true), teacher.getId());
+        exerciseService.deleteExercise(exercise.id(), teacher.getId());
+
+        examService.deleteExam(exam.id(), teacher.getId());
+
+        assertThatThrownBy(() -> examService.getExam(exam.id(), teacher.getId())).isInstanceOf(ResourceNotFoundException.class);
     }
 
     private String curriculumCode() {

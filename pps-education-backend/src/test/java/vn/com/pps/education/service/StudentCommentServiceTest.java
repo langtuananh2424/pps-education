@@ -840,7 +840,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         QuestionResponse question = questionBankService.createQuestion(
                 new CreateQuestionRequest(bank.id(), "MULTIPLE_CHOICE", "GRAMMAR", "EASY", "She ___ to school.",
                         null, null, null, null, null, new BigDecimal("1.0"), null,
-                        List.of(new QuestionChoiceRequest("A", "go", false, 1), new QuestionChoiceRequest("B", "goes", true, 2))),
+                        List.of(new QuestionChoiceRequest("A", "go", false, 1), new QuestionChoiceRequest("B", "goes", true, 2)), null, null),
                 teacher.getId());
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Bài ngữ pháp V55", exam.id(), null,
@@ -854,7 +854,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         var attempt = exerciseAttemptService.startAttempt(fixture.exercise().id(), student.getUser().getId());
         Long correctChoiceId = fixture.question().choices().stream().filter(c -> c.isCorrect()).findFirst().orElseThrow().id();
         exerciseAttemptService.saveAnswer(attempt.id(),
-                new SaveAnswerRequest(fixture.question().id(), null, List.of(correctChoiceId), null), student.getUser().getId());
+                new SaveAnswerRequest(fixture.question().id(), null, List.of(correctChoiceId), null, null), student.getUser().getId());
         exerciseAttemptService.submitAttempt(attempt.id(), student.getUser().getId());
     }
 

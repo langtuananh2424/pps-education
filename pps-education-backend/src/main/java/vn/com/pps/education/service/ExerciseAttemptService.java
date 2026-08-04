@@ -81,7 +81,7 @@ public class ExerciseAttemptService {
 
     private static final Set<Question.QuestionType> AUTO_GRADABLE_TYPES = Set.of(
             Question.QuestionType.MULTIPLE_CHOICE, Question.QuestionType.MULTIPLE_ANSWER, Question.QuestionType.TRUE_FALSE,
-            Question.QuestionType.FILL_IN_BLANK);
+            Question.QuestionType.FILL_IN_BLANK, Question.QuestionType.WORD_BANK, Question.QuestionType.SENTENCE_BUILDING);
 
     public ExerciseAttemptService(ExerciseAttemptRepository exerciseAttemptRepository,
                                    ExerciseAttemptHistoryRepository exerciseAttemptHistoryRepository,
@@ -171,6 +171,7 @@ public class ExerciseAttemptService {
         answer.setAnswerText(request.answerText());
         answer.setSelectedChoiceIds(request.selectedChoiceIds());
         answer.setAudioAnswerUrl(request.audioAnswerUrl());
+        answer.setStructuredAnswer(request.structuredAnswer());
         answer = studentAnswerRepository.save(answer);
         return toResponse(answer);
     }
@@ -288,10 +289,39 @@ public class ExerciseAttemptService {
             String given = answer.getAnswerText();
             return correct != null && given != null && correct.trim().equalsIgnoreCase(given.trim());
         }
+        if (question.getQuestionType() == Question.QuestionType.WORD_BANK) {
+            return structuredAnswerMatches(question, "blanks", answer.getStructuredAnswer());
+        }
+        if (question.getQuestionType() == Question.QuestionType.SENTENCE_BUILDING) {
+            return structuredAnswerMatches(question, "chunks", answer.getStructuredAnswer());
+        }
         List<QuestionChoice> choices = questionChoiceRepository.findByQuestionIdOrderByDisplayOrder(question.getId());
         Set<Long> correctChoiceIds = choices.stream().filter(QuestionChoice::isCorrect).map(QuestionChoice::getId).collect(Collectors.toSet());
         Set<Long> selected = answer.getSelectedChoiceIds() == null ? Set.of() : Set.copyOf(answer.getSelectedChoiceIds());
         return selected.equals(correctChoiceIds);
+    }
+
+    /**
+     * WORD_BANK/SENTENCE_BUILDING (V85, bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+     * 2026-08-04): so khớp elementwise (case-insensitive + trim), ĐÚNG thứ tự — student phải chọn
+     * đúng thứ tự (khớp key "blanks"/"chunks" trong Question.structuredContent).
+     */
+    private boolean structuredAnswerMatches(Question question, String key, List<String> given) {
+        if (given == null || question.getStructuredContent() == null) {
+            return false;
+        }
+        Object raw = question.getStructuredContent().get(key);
+        if (!(raw instanceof List<?> correctList) || correctList.size() != given.size()) {
+            return false;
+        }
+        for (int i = 0; i < correctList.size(); i++) {
+            String correct = String.valueOf(correctList.get(i));
+            String submitted = given.get(i);
+            if (submitted == null || !correct.trim().equalsIgnoreCase(submitted.trim())) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private java.util.Optional<ExerciseAssignment> findActiveAssignmentForStudent(Exercise exercise, Student student) {
@@ -371,10 +401,12 @@ public class ExerciseAttemptService {
         List<Long> correctChoiceIds = null;
         String correctAnswerText = null;
         String explanation = null;
+        Map<String, Object> correctStructuredContent = null;
         if (revealAnswer) {
             correctChoiceIds = questionChoiceRepository.findByQuestionIdOrderByDisplayOrder(a.getQuestion().getId())
                     .stream().filter(QuestionChoice::isCorrect).map(QuestionChoice::getId).toList();
             correctAnswerText = a.getQuestion().getCorrectAnswerText();
+            correctStructuredContent = a.getQuestion().getStructuredContent();
             // Câu tự chấm (MCQ/TRUE_FALSE/FILL_IN_BLANK) chỉ hiện giải thích khi trả lời SAI;
             // câu chấm tay (ESSAY/SPEAKING) không có cờ correct tin cậy (ManualGradingService
             // không set StudentAnswer.correct) nên giữ nguyên hành vi cũ — luôn hiện khi reveal.
@@ -385,6 +417,6 @@ public class ExerciseAttemptService {
         return new StudentAnswerResponse(
                 a.getId(), attempt.getId(), a.getQuestion().getId(), a.getAnswerText(),
                 a.getSelectedChoiceIds(), a.getAudioAnswerUrl(), a.isAutoGradable(), a.getAutoScore(), a.getCorrect(),
-                correctChoiceIds, correctAnswerText, explanation);
+                correctChoiceIds, correctAnswerText, explanation, a.getStructuredAnswer(), correctStructuredContent);
     }
 }

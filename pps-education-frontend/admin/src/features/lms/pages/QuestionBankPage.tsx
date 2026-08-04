@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Archive,
+  Blocks,
   CheckSquare,
   Database,
   Edit3,
   Filter,
   HelpCircle,
+  ListOrdered,
   Mic,
   Plus,
   Search,
@@ -50,7 +52,9 @@ const typeBadge: Record<QuestionType, { label: string; icon: typeof CheckSquare;
   TRUE_FALSE: { label: "Đúng — Sai", icon: CheckSquare, className: "text-cyan-700 bg-cyan-50 border-cyan-100" },
   ESSAY: { label: "Tự luận", icon: Edit3, className: "text-purple-700 bg-purple-50 border-purple-100" },
   SPEAKING: { label: "Speaking", icon: Mic, className: "text-rose-700 bg-rose-50 border-rose-100" },
-  FILL_IN_BLANK: { label: "Điền từ", icon: TypeIcon, className: "text-amber-700 bg-amber-50 border-amber-100" }
+  FILL_IN_BLANK: { label: "Điền từ", icon: TypeIcon, className: "text-amber-700 bg-amber-50 border-amber-100" },
+  WORD_BANK: { label: "Điền từ - Hộp từ vựng", icon: Blocks, className: "text-orange-700 bg-orange-50 border-orange-100" },
+  SENTENCE_BUILDING: { label: "Sắp xếp câu", icon: ListOrdered, className: "text-cyan-700 bg-cyan-50 border-cyan-100" }
 };
 
 const difficultyBadge: Record<QuestionDifficulty, string> = {

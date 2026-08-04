@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { ChevronDown, ChevronRight, ClipboardList, Layers, Pencil, Plus, Users, X } from "lucide-react";
+import { ChevronDown, ChevronRight, ClipboardList, Layers, Pencil, Plus, Trash2, Users, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import { useEligibleClasses } from "@/features/academic/hooks/useEligibleClasses";
@@ -12,8 +12,11 @@ import {
   ExerciseResponse,
   QuestionResponse,
   UpdateExamRequest,
+  UpdateExerciseRequest,
   assignExamToClass,
   createExam,
+  deleteExam,
+  deleteExercise,
   getExamQuestion,
   listExamAssignedClasses,
   listExercisesByExam,
@@ -22,9 +25,10 @@ import {
   publishExercise,
   removeExerciseQuestion,
   unassignExamFromClass,
-  updateExam
+  updateExam,
+  updateExercise
 } from "../api";
-import CreateAndAssignExerciseModal from "../components/CreateAndAssignExerciseModal";
+import CreateAndAssignExerciseModal, { ExerciseQuestionsStep } from "../components/CreateAndAssignExerciseModal";
 import ExercisePreviewModal from "../components/ExercisePreviewModal";
 import QuestionEditorForm from "../components/QuestionEditorForm";
 import Button from "@/components/ui/Button";
@@ -201,6 +205,7 @@ export default function ExerciseAssignPage() {
               canManage={canManage}
               showToast={showToast}
               onUpdated={(updated) => setExams((prev) => prev.map((e) => (e.id === updated.id ? updated : e)))}
+              onDeleted={loadExams}
             />
           )}
         </div>
@@ -392,16 +397,134 @@ function EditExamModal({
   );
 }
 
+/** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04 — sửa lại thông tin 1 Bài đã soạn (trước đây chỉ tạo được, không sửa được). */
+function EditExerciseModal({
+  exercise,
+  onClose,
+  onUpdated
+}: {
+  exercise: ExerciseResponse;
+  onClose: () => void;
+  onUpdated: (exercise: ExerciseResponse) => void;
+}) {
+  const [title, setTitle] = useState(exercise.title);
+  const [totalPoints, setTotalPoints] = useState(String(exercise.totalPoints));
+  const [allowRetake, setAllowRetake] = useState(exercise.allowRetake);
+  const [maxAttempts, setMaxAttempts] = useState(exercise.maxAttempts != null ? String(exercise.maxAttempts) : "");
+  const [showCorrectAnswers, setShowCorrectAnswers] = useState(exercise.showCorrectAnswers);
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim() || !totalPoints) {
+      setError("Vui lòng điền Tên Bài và Tổng điểm.");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      const request: UpdateExerciseRequest = {
+        title: title.trim(),
+        subjectId: exercise.subjectId ?? undefined,
+        totalPoints: Number(totalPoints),
+        allowRetake,
+        maxAttempts: allowRetake && maxAttempts ? Number(maxAttempts) : undefined,
+        showCorrectAnswers
+      };
+      const updated = await updateExercise(exercise.id, request);
+      onUpdated(updated);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Cập nhật Bài thất bại.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Modal open onClose={onClose} title={`Sửa Bài — ${exercise.code}`} size="md">
+      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <div>
+          <label className={labelClass}>Tên Bài *</label>
+          <input value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} />
+        </div>
+        <div>
+          <label className={labelClass}>Tổng điểm *</label>
+          <input type="number" min={0} value={totalPoints} onChange={(e) => setTotalPoints(e.target.value)} className={inputClass} />
+        </div>
+        <div>
+          <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
+            <input type="checkbox" checked={showCorrectAnswers} onChange={(e) => setShowCorrectAnswers(e.target.checked)} />
+            Hiện đáp án đúng sau khi nộp (phần trắc nghiệm)
+          </label>
+        </div>
+        <div>
+          <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
+            <input type="checkbox" checked={allowRetake} onChange={(e) => setAllowRetake(e.target.checked)} />
+            Cho phép làm lại
+          </label>
+        </div>
+        {allowRetake && (
+          <div>
+            <label className={labelClass}>Số lần làm tối đa</label>
+            <input type="number" min={1} value={maxAttempts} onChange={(e) => setMaxAttempts(e.target.value)} className={inputClass} />
+          </div>
+        )}
+        <p className="text-[10px] text-slate-400 italic">Mã Bài ({exercise.code}) không sửa được sau khi tạo.</p>
+        <div className="flex justify-end gap-2 pt-2">
+          <Button type="button" variant="secondary" size="sm" onClick={onClose}>
+            Hủy
+          </Button>
+          <Button type="submit" variant="primary" size="sm" disabled={submitting}>
+            {submitting ? "Đang lưu..." : "Lưu thay đổi"}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+/**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04 — vá gap: trước đây soạn xong 1 Bài
+ * (hoặc đóng modal giữa chừng, tạo Bài "trống" như ảnh chụp người dùng gửi) thì không còn cách nào
+ * gắn thêm câu hỏi. Tái dùng nguyên ExerciseQuestionsStep đã có (soạn câu hỏi mới/nhập Excel-Word/
+ * lưới đọc hiểu) — V83: không còn cần suy luận/hỏi lại loại câu hỏi FOREIGN ở đây nữa, kind-picker
+ * của QuestionEditorForm bên trong ExerciseQuestionsStep đã tự giới hạn đúng 2 kind cho FOREIGN.
+ */
+function AddQuestionsModal({
+  exercise,
+  teacherType,
+  onClose,
+  onDone
+}: {
+  exercise: ExerciseResponse;
+  teacherType: ExamTeacherType;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const [error, setError] = useState<string | null>(null);
+
+  return (
+    <Modal open onClose={onClose} title={`Thêm câu hỏi — ${exercise.code}`} size="lg">
+      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
+      <ExerciseQuestionsStep exercise={exercise} teacherType={teacherType} onDone={onDone} onError={setError} onClose={onClose} />
+    </Modal>
+  );
+}
+
 function ExamDetailPanel({
   exam,
   canManage,
   showToast,
-  onUpdated
+  onUpdated,
+  onDeleted
 }: {
   exam: ExamResponse;
   canManage: boolean;
   showToast: (msg: string) => void;
   onUpdated: (exam: ExamResponse) => void;
+  onDeleted: () => void;
 }) {
   const [exercises, setExercises] = useState<ExerciseResponse[]>([]);
   const [loadingExercises, setLoadingExercises] = useState(false);
@@ -409,7 +532,9 @@ function ExamDetailPanel({
   const [assignClassOpen, setAssignClassOpen] = useState(false);
   const [editExamOpen, setEditExamOpen] = useState(false);
   const [assignedClassCount, setAssignedClassCount] = useState<number | null>(null);
+  const [deletingExam, setDeletingExam] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { confirmDialog } = useDialog();
 
   const loadExercises = () => {
     setLoadingExercises(true);
@@ -429,6 +554,24 @@ function ExamDetailPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exam.id]);
 
+  /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04 — "Xóa Đề" (soft-delete), backend tự chặn nếu còn Bài chưa lưu trữ. */
+  const handleDeleteExam = async () => {
+    if (!(await confirmDialog(`Xóa Đề "${exam.title}" (${exam.code})? Chỉ xóa được khi mọi Bài thuộc Đề đã được lưu trữ.`, { danger: true }))) {
+      return;
+    }
+    setDeletingExam(true);
+    setError(null);
+    try {
+      await deleteExam(exam.id);
+      showToast("Đã xóa Đề thành công!");
+      onDeleted();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Xóa Đề thất bại.");
+    } finally {
+      setDeletingExam(false);
+    }
+  };
+
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden">
       <div className="px-5 py-4 border-b border-slate-100 bg-slate-50 space-y-3">
@@ -438,9 +581,14 @@ function ExamDetailPanel({
             <p className="text-[10px] text-slate-400 font-mono mt-0.5">{exam.code} · {exam.curriculumCode}</p>
           </div>
           {canManage && (
-            <button onClick={() => setEditExamOpen(true)} title="Sửa tên Đề" className="text-slate-400 hover:text-brand-red shrink-0">
-              <Pencil className="w-3.5 h-3.5" />
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <button onClick={() => setEditExamOpen(true)} title="Sửa tên Đề" className="text-slate-400 hover:text-brand-red">
+                <Pencil className="w-3.5 h-3.5" />
+              </button>
+              <button onClick={handleDeleteExam} disabled={deletingExam} title="Xóa Đề" className="text-slate-400 hover:text-rose-600 disabled:opacity-50">
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
           )}
         </div>
         <div className="flex items-center justify-between flex-wrap gap-2">
@@ -481,7 +629,14 @@ function ExamDetailPanel({
       ) : (
         <div className="divide-y divide-slate-100">
           {exercises.map((exercise) => (
-            <ExerciseRow key={exercise.id} exercise={exercise} canManage={canManage} onChanged={loadExercises} showToast={showToast} />
+            <ExerciseRow
+              key={exercise.id}
+              exercise={exercise}
+              teacherType={exam.teacherType}
+              canManage={canManage}
+              onChanged={loadExercises}
+              showToast={showToast}
+            />
           ))}
         </div>
       )}
@@ -489,6 +644,7 @@ function ExamDetailPanel({
       {createExerciseOpen && (
         <CreateAndAssignExerciseModal
           examId={exam.id}
+          teacherType={exam.teacherType}
           onClose={() => setCreateExerciseOpen(false)}
           onDone={() => {
             loadExercises();
@@ -513,11 +669,13 @@ function ExamDetailPanel({
 /** Click dòng để mở rộng xem nhanh danh sách câu hỏi; nút riêng để xem trước Bài đầy đủ kèm đáp án. */
 function ExerciseRow({
   exercise,
+  teacherType,
   canManage,
   onChanged,
   showToast
 }: {
   exercise: ExerciseResponse;
+  teacherType: ExamTeacherType;
   canManage: boolean;
   onChanged: () => void;
   showToast: (msg: string) => void;
@@ -526,7 +684,10 @@ function ExerciseRow({
   const [questions, setQuestions] = useState<ExerciseQuestionResponse[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [editExerciseOpen, setEditExerciseOpen] = useState(false);
+  const [addQuestionsOpen, setAddQuestionsOpen] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [deletingExercise, setDeletingExercise] = useState(false);
   const [removingId, setRemovingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { confirmDialog } = useDialog();
@@ -592,6 +753,23 @@ function ExerciseRow({
     }
   };
 
+  /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04 — "Xóa Bài" (lưu trữ, không xóa cứng — xem Javadoc ExerciseService#deleteExercise). */
+  const handleDeleteExercise = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!(await confirmDialog(`Xóa Bài "${exercise.title}" (${exercise.code})?`, { danger: true }))) return;
+    setDeletingExercise(true);
+    setError(null);
+    try {
+      await deleteExercise(exercise.id);
+      onChanged();
+      showToast("Đã xóa Bài thành công!");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Xóa Bài thất bại.");
+    } finally {
+      setDeletingExercise(false);
+    }
+  };
+
   return (
     <div>
       <div className="w-full px-5 py-3.5 flex items-center justify-between gap-3 flex-wrap hover:bg-slate-50/60">
@@ -605,6 +783,34 @@ function ExerciseRow({
           </div>
         </button>
         <div className="flex items-center gap-2 shrink-0">
+          {canManage && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setEditExerciseOpen(true);
+              }}
+              title="Sửa Bài"
+              className="text-slate-400 hover:text-brand-red shrink-0"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
+          )}
+          {canManage && (
+            <button onClick={handleDeleteExercise} disabled={deletingExercise} title="Xóa Bài" className="text-slate-400 hover:text-rose-600 shrink-0 disabled:opacity-50">
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          )}
+          {canManage && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setAddQuestionsOpen(true);
+              }}
+              className="text-[10px] font-bold text-brand-red hover:underline whitespace-nowrap"
+            >
+              + Thêm câu hỏi
+            </button>
+          )}
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -630,6 +836,40 @@ function ExerciseRow({
       {error && <p className="px-5 pb-2 text-[11px] text-rose-600">{error}</p>}
 
       {previewOpen && <ExercisePreviewModal exercise={exercise} onClose={() => setPreviewOpen(false)} />}
+
+      {editExerciseOpen && (
+        <EditExerciseModal
+          exercise={exercise}
+          onClose={() => setEditExerciseOpen(false)}
+          onUpdated={() => {
+            setEditExerciseOpen(false);
+            onChanged();
+            showToast("Đã cập nhật Bài thành công!");
+          }}
+        />
+      )}
+
+      {addQuestionsOpen && (
+        <AddQuestionsModal
+          exercise={exercise}
+          teacherType={teacherType}
+          onClose={() => setAddQuestionsOpen(false)}
+          onDone={() => {
+            setAddQuestionsOpen(false);
+            if (expanded) {
+              setLoading(true);
+              listExerciseQuestions(exercise.id)
+                .then(setQuestions)
+                .catch(() => setQuestions([]))
+                .finally(() => setLoading(false));
+            } else {
+              setQuestions(null);
+            }
+            onChanged();
+            showToast("Đã thêm câu hỏi vào Bài!");
+          }}
+        />
+      )}
 
       {editingQuestion && (
         <Modal open onClose={() => setEditingQuestion(null)} title={`Sửa câu hỏi Q-${editingQuestion.id}`} size="lg">

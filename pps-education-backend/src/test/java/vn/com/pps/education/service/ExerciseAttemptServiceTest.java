@@ -48,6 +48,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -212,14 +213,14 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         QuestionResponse mc = createMcQuestion();
         QuestionResponse essay = questionBankService.createQuestion(
                 new CreateQuestionRequest(bank.id(), "ESSAY", "WRITING", "MEDIUM", "Viết đoạn văn.", null, null, null,
-                        null, null, new BigDecimal("2.0"), null, null),
+                        null, null, new BigDecimal("2.0"), null, null, null, null),
                 teacher.getId());
         ExerciseResponse exercise = assignedExerciseWithQuestions(List.of(mc, essay), null, false, true);
         ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
 
         answerCorrectly(attempt.id(), mc);
         exerciseAttemptService.saveAnswer(attempt.id(),
-                new SaveAnswerRequest(essay.id(), "Bài làm của em...", null, null), studentUser.getId());
+                new SaveAnswerRequest(essay.id(), "Bài làm của em...", null, null, null), studentUser.getId());
         ExerciseAttemptResponse submitted = exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
 
         assertThat(submitted.status()).isEqualTo("AUTO_GRADED");
@@ -282,7 +283,7 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
 
         assertThatThrownBy(() -> exerciseAttemptService.saveAnswer(attempt.id(),
-                new SaveAnswerRequest(mc.id(), null, List.of(mc.choices().get(1).id()), null), studentUser.getId()))
+                new SaveAnswerRequest(mc.id(), null, List.of(mc.choices().get(1).id()), null, null), studentUser.getId()))
                 .isInstanceOf(AttemptNotEditableException.class);
     }
 
@@ -292,7 +293,7 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
                 new CreateQuestionRequest(bank.id(), "MULTIPLE_CHOICE", "GRAMMAR", "EASY",
                         "She ___ to school.", null, null, null, "Vì chủ ngữ số ít nên dùng 'goes'.", null,
                         new BigDecimal("1.0"), null,
-                        List.of(new QuestionChoiceRequest("A", "go", false, 1), new QuestionChoiceRequest("B", "goes", true, 2))),
+                        List.of(new QuestionChoiceRequest("A", "go", false, 1), new QuestionChoiceRequest("B", "goes", true, 2)), null, null),
                 teacher.getId());
         ExerciseResponse exercise = assignedExerciseWithQuestions(List.of(mc), null, false, true, true);
         ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
@@ -313,13 +314,13 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
                 new CreateQuestionRequest(bank.id(), "MULTIPLE_CHOICE", "GRAMMAR", "EASY",
                         "She ___ to school.", null, null, null, "Vì chủ ngữ số ít nên dùng 'goes'.", null,
                         new BigDecimal("1.0"), null,
-                        List.of(new QuestionChoiceRequest("A", "go", false, 1), new QuestionChoiceRequest("B", "goes", true, 2))),
+                        List.of(new QuestionChoiceRequest("A", "go", false, 1), new QuestionChoiceRequest("B", "goes", true, 2)), null, null),
                 teacher.getId());
         ExerciseResponse exercise = assignedExerciseWithQuestions(List.of(mc), null, false, true, true);
         ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
         Long wrongChoiceId = mc.choices().stream().filter(c -> !c.isCorrect()).findFirst().orElseThrow().id();
         exerciseAttemptService.saveAnswer(attempt.id(),
-                new SaveAnswerRequest(mc.id(), null, List.of(wrongChoiceId), null), studentUser.getId());
+                new SaveAnswerRequest(mc.id(), null, List.of(wrongChoiceId), null, null), studentUser.getId());
         exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
 
         StudentAnswerResponse answer = exerciseAttemptService.listAnswers(attempt.id(), studentUser.getId()).get(0);
@@ -332,12 +333,12 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
     void submitAttempt_UC24_MainFlow_essayExplanationAlwaysShownRegardlessOfCorrectness() {
         QuestionResponse essay = questionBankService.createQuestion(
                 new CreateQuestionRequest(bank.id(), "ESSAY", "WRITING", "MEDIUM", "Viết đoạn văn.", null, null, null,
-                        "Chú ý thì hiện tại đơn.", null, new BigDecimal("2.0"), null, null),
+                        "Chú ý thì hiện tại đơn.", null, new BigDecimal("2.0"), null, null, null, null),
                 teacher.getId());
         ExerciseResponse exercise = assignedExerciseWithQuestions(List.of(essay), null, false, true, true);
         ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
         exerciseAttemptService.saveAnswer(attempt.id(),
-                new SaveAnswerRequest(essay.id(), "Bài làm của em...", null, null), studentUser.getId());
+                new SaveAnswerRequest(essay.id(), "Bài làm của em...", null, null, null), studentUser.getId());
         exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
 
         StudentAnswerResponse answer = exerciseAttemptService.listAnswers(attempt.id(), studentUser.getId()).get(0);
@@ -351,12 +352,12 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         QuestionResponse fillIn = questionBankService.createQuestion(
                 new CreateQuestionRequest(bank.id(), "FILL_IN_BLANK", "GRAMMAR", "EASY",
                         "Thủ đô nước Pháp là ___.", null, null, null, null, "Paris",
-                        new BigDecimal("1.0"), null, null),
+                        new BigDecimal("1.0"), null, null, null, null),
                 teacher.getId());
         ExerciseResponse exercise = assignedExerciseWithQuestions(List.of(fillIn), null, false, true, true);
         ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
         exerciseAttemptService.saveAnswer(attempt.id(),
-                new SaveAnswerRequest(fillIn.id(), " paris ", null, null), studentUser.getId());
+                new SaveAnswerRequest(fillIn.id(), " paris ", null, null, null), studentUser.getId());
 
         ExerciseAttemptResponse submitted = exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
 
@@ -372,12 +373,12 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         QuestionResponse fillIn = questionBankService.createQuestion(
                 new CreateQuestionRequest(bank.id(), "FILL_IN_BLANK", "GRAMMAR", "EASY",
                         "Thủ đô nước Pháp là ___.", null, null, null, null, "Paris",
-                        new BigDecimal("1.0"), null, null),
+                        new BigDecimal("1.0"), null, null, null, null),
                 teacher.getId());
         ExerciseResponse exercise = assignedExerciseWithQuestions(List.of(fillIn), null, false, true, true);
         ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
         exerciseAttemptService.saveAnswer(attempt.id(),
-                new SaveAnswerRequest(fillIn.id(), "Pariss", null, null), studentUser.getId());
+                new SaveAnswerRequest(fillIn.id(), "Pariss", null, null, null), studentUser.getId());
 
         ExerciseAttemptResponse submitted = exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
 
@@ -385,6 +386,97 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         assertThat(submitted.totalScore()).isEqualByComparingTo("0");
         StudentAnswerResponse answer = exerciseAttemptService.listAnswers(attempt.id(), studentUser.getId()).get(0);
         assertThat(answer.isCorrect()).isFalse();
+    }
+
+    /** V78 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04): Điền từ - Hộp từ vựng. */
+    @Test
+    void submitAttempt_MainFlow_wordBankGradesCorrectOrderedAnswers() {
+        QuestionResponse wordBank = questionBankService.createQuestion(
+                new CreateQuestionRequest(bank.id(), "WORD_BANK", "GRAMMAR", "EASY",
+                        "She ___ ___ school every day.", null, null, null, null, null,
+                        new BigDecimal("1.0"), null, null,
+                        Map.of("blanks", List.of("goes", "to")), null),
+                teacher.getId());
+        ExerciseResponse exercise = assignedExerciseWithQuestions(List.of(wordBank), null, false, true, true);
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
+        exerciseAttemptService.saveAnswer(attempt.id(),
+                new SaveAnswerRequest(wordBank.id(), null, null, null, List.of("goes", "to")), studentUser.getId());
+
+        ExerciseAttemptResponse submitted = exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
+
+        assertThat(submitted.status()).isEqualTo("FULLY_GRADED");
+        assertThat(submitted.totalScore()).isEqualByComparingTo("1.0");
+        StudentAnswerResponse answer = exerciseAttemptService.listAnswers(attempt.id(), studentUser.getId()).get(0);
+        assertThat(answer.isCorrect()).isTrue();
+        assertThat(answer.correctStructuredContent()).containsEntry("blanks", List.of("goes", "to"));
+    }
+
+    @Test
+    void submitAttempt_A_wordBankGradesIncorrectWhenOrderWrong() {
+        QuestionResponse wordBank = questionBankService.createQuestion(
+                new CreateQuestionRequest(bank.id(), "WORD_BANK", "GRAMMAR", "EASY",
+                        "She ___ ___ school every day.", null, null, null, null, null,
+                        new BigDecimal("1.0"), null, null,
+                        Map.of("blanks", List.of("goes", "to")), null),
+                teacher.getId());
+        ExerciseResponse exercise = assignedExerciseWithQuestions(List.of(wordBank), null, false, true, true);
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
+        exerciseAttemptService.saveAnswer(attempt.id(),
+                new SaveAnswerRequest(wordBank.id(), null, null, null, List.of("to", "goes")), studentUser.getId());
+
+        ExerciseAttemptResponse submitted = exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
+
+        assertThat(submitted.status()).isEqualTo("FULLY_GRADED");
+        assertThat(submitted.totalScore()).isEqualByComparingTo("0");
+        StudentAnswerResponse answer = exerciseAttemptService.listAnswers(attempt.id(), studentUser.getId()).get(0);
+        assertThat(answer.isCorrect()).isFalse();
+    }
+
+    /** V78 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04): Sắp xếp câu. */
+    @Test
+    void submitAttempt_MainFlow_sentenceBuildingGradesCorrectOrder() {
+        QuestionResponse sentence = questionBankService.createQuestion(
+                new CreateQuestionRequest(bank.id(), "SENTENCE_BUILDING", "GRAMMAR", "EASY",
+                        "Sắp xếp thành câu hoàn chỉnh.", null, null, null, null, null,
+                        new BigDecimal("1.0"), null, null,
+                        Map.of("chunks", List.of("This", "is", "a test")), null),
+                teacher.getId());
+        ExerciseResponse exercise = assignedExerciseWithQuestions(List.of(sentence), null, false, true, true);
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
+        exerciseAttemptService.saveAnswer(attempt.id(),
+                new SaveAnswerRequest(sentence.id(), null, null, null, List.of("This", "is", "a test")), studentUser.getId());
+
+        ExerciseAttemptResponse submitted = exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
+
+        assertThat(submitted.status()).isEqualTo("FULLY_GRADED");
+        assertThat(submitted.totalScore()).isEqualByComparingTo("1.0");
+    }
+
+    /**
+     * V78 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04): "Nghe & nộp audio" (FOREIGN)
+     * tái dùng questionType=SPEAKING + skill=LISTENING — vẫn PHẢI chờ chấm tay như Speaking oral gốc,
+     * KHÔNG được lọt vào auto-grade dù skill khác nhau (xem AUTO_GRADABLE_TYPES).
+     */
+    @Test
+    void submitAttempt_MainFlow_listeningAudioSubmissionStaysManuallyGraded() {
+        QuestionResponse listening = questionBankService.createQuestion(
+                new CreateQuestionRequest(bank.id(), "SPEAKING", "LISTENING", "MEDIUM", "Nghe và ghi âm trả lời.",
+                        "https://media.pps.edu.vn/lms/questions/audio/prompt.mp3", null, null, null, null,
+                        new BigDecimal("2.0"), null, null, null, null),
+                teacher.getId());
+        ExerciseResponse exercise = assignedExerciseWithQuestions(List.of(listening), null, false, true, true);
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
+        exerciseAttemptService.saveAnswer(attempt.id(),
+                new SaveAnswerRequest(listening.id(), null, null,
+                        "https://media.pps.edu.vn/lms/exercise-answer-submissions/audio/answer.mp3", null),
+                studentUser.getId());
+
+        ExerciseAttemptResponse submitted = exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
+
+        assertThat(submitted.status()).isEqualTo("AUTO_GRADED");
+        assertThat(submitted.totalScore()).isNull();
+        StudentAnswerResponse answer = exerciseAttemptService.listAnswers(attempt.id(), studentUser.getId()).get(0);
+        assertThat(answer.isAutoGradable()).isFalse();
     }
 
     @Test
@@ -492,14 +584,14 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         return questionBankService.createQuestion(
                 new CreateQuestionRequest(bank.id(), "MULTIPLE_CHOICE", "GRAMMAR", "EASY",
                         "She ___ to school.", null, null, null, null, null, new BigDecimal("1.0"), null,
-                        List.of(new QuestionChoiceRequest("A", "go", false, 1), new QuestionChoiceRequest("B", "goes", true, 2))),
+                        List.of(new QuestionChoiceRequest("A", "go", false, 1), new QuestionChoiceRequest("B", "goes", true, 2)), null, null),
                 teacher.getId());
     }
 
     private void answerCorrectly(Long attemptId, QuestionResponse question) {
         Long correctChoiceId = question.choices().stream().filter(c -> c.isCorrect()).findFirst().orElseThrow().id();
         exerciseAttemptService.saveAnswer(attemptId,
-                new SaveAnswerRequest(question.id(), null, List.of(correctChoiceId), null), studentUser.getId());
+                new SaveAnswerRequest(question.id(), null, List.of(correctChoiceId), null, null), studentUser.getId());
     }
 
     /**

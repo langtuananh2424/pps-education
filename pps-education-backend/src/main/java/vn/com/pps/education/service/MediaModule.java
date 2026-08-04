@@ -29,12 +29,19 @@ package vn.com.pps.education.service;
  * (file Giáo viên upload) dù cùng module Kho Video Ôn tập, để không trộn
  * lẫn nội dung GV tạo với nội dung HS nộp trên R2. Cả 2 cờ `false` vì chỉ
  * nhận audio (mọi module đã được nhận audio/* mặc định, xem MediaStorageService).
+ *
+ * EXERCISE_ANSWER_SUBMISSION: bổ sung ngoài SDD gốc, đã xác nhận với
+ * người dùng (2026-08-04, V85) - audio Học sinh nộp cho câu hỏi SPEAKING
+ * (Speaking oral gốc lẫn "Nghe & nộp audio" mới, student_answers.
+ * audio_answer_url) — tách folder khỏi LMS_QUESTION (audio mẫu GV tạo,
+ * questions.audio_url) cùng lý do với REVIEW_VIDEO_SUBMISSION ở trên.
  */
 public enum MediaModule {
     LMS_QUESTION("lms/questions", true, true),
     CURRICULUM_DOCUMENT("lms/curriculum-documents", true, true),
     REVIEW_VIDEO("lms/review-videos", true, false),
     REVIEW_VIDEO_SUBMISSION("lms/review-video-submissions", false, false),
+    EXERCISE_ANSWER_SUBMISSION("lms/exercise-answer-submissions", false, false),
     STUDENT("profiles/students", false, false),
     PARENT("profiles/parents", false, false),
     EMPLOYEE("profiles/employees", false, false);

@@ -57,7 +57,7 @@ public class ExamQuestionService {
                 exam.getQuestionBank().getId(), request.questionType(), request.skill(), request.difficulty(),
                 request.content(), request.audioUrl(), request.imageUrl(), request.referencePassage(),
                 request.explanation(), request.correctAnswerText(), request.defaultPoints(), request.tags(),
-                request.choices());
+                request.choices(), request.structuredContent(), request.groupKey());
         return questionBankService.createQuestionInBank(
                 exam.getQuestionBank(), resolved, actorUserId, false);
     }
@@ -80,8 +80,9 @@ public class ExamQuestionService {
         return questionImportService.buildWordTemplate();
     }
 
+    /** V87 (merge từ develop 2026-08-04) — không lộ Đề đã "xóa" (deleted_at), cùng pattern ExamService. */
     private Exam examOrThrow(Long id) {
-        return examRepository.findById(id)
+        return examRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Đề id=" + id));
     }
 

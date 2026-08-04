@@ -164,7 +164,7 @@ UC-15: Điểm danh học sinh
 +-----------------+----------------------------------------------------+
 | **Mô tả tóm     | Giáo viên điểm danh học sinh đầu mỗi tiết học; hệ  |
 | tắt**           | thống tự động tổng hợp tỷ lệ nghỉ học và gửi thông |
-|                 | báo vắng mặt ngay lập tức cho Phụ huynh.           |
+|                 | báo vắng không phép ngay lập tức cho Phụ huynh.    |
 +-----------------+----------------------------------------------------+
 | **Sự kiện kích  | Đến giờ bắt đầu tiết học, Giáo viên thực hiện điểm |
 | hoạt**          | danh.                                              |
@@ -188,11 +188,12 @@ UC-15: Điểm danh học sinh
 |                 | 4.  Giáo viên xác nhận Lưu điểm danh; hệ thống ghi |
 |                 |     nhận bản ghi điểm danh.                        |
 |                 |                                                    |
-|                 | 5.  Nếu có học sinh ABSENT hoặc LATE, hệ thống     |
-|                 |     kích hoạt background job gửi thông báo         |
+|                 | 5.  Nếu có học sinh ABSENT (vắng không phép), hệ   |
+|                 |     thống kích hoạt background job gửi thông báo   |
 |                 |     (Email/thông báo trong Portal) cho Phụ huynh   |
 |                 |     --- tiến trình này chạy bất đồng bộ, độc lập   |
-|                 |     với thao tác của Giáo viên.                    |
+|                 |     với thao tác của Giáo viên. LATE (đi muộn)     |
+|                 |     KHÔNG kích hoạt gửi thông báo.                 |
 |                 |                                                    |
 |                 | 6.  Background job gửi thông báo; nếu thất bại, tự |
 |                 |     động thử lại (retry) tối đa số lần cấu hình    |
@@ -205,20 +206,21 @@ UC-15: Điểm danh học sinh
 |                 |     thất bại để Quản lý điểm trường có thể xử lý   |
 |                 |     thủ công hoặc tra soát sau.                    |
 |                 |                                                    |
-|                 | ***A2 --- Toàn bộ học sinh có mặt***               |
+|                 | ***A2 --- Không có học sinh vắng không phép***     |
 |                 |                                                    |
-|                 | 1.  Không có học sinh ABSENT/LATE nào, hệ thống    |
-|                 |     không kích hoạt luồng gửi thông báo, chỉ lưu   |
-|                 |     bản ghi điểm danh.                             |
+|                 | 1.  Không có học sinh ABSENT nào (kể cả khi có     |
+|                 |     LATE), hệ thống không kích hoạt luồng gửi      |
+|                 |     thông báo, chỉ lưu bản ghi điểm danh.          |
 +-----------------+----------------------------------------------------+
 | **Hậu điều kiện | -   Bản ghi điểm danh của tiết/buổi học được lưu   |
 | (P              |     chính xác.                                     |
 | ostcondition)** |                                                    |
-|                 | -   Tỷ lệ chuyên cần của học sinh được cập nhật,   |
-|                 |     dùng cho báo cáo (UC-25, UC-29).               |
+|                 | -   Tỷ lệ chuyên cần của học sinh được cập nhật    |
+|                 |     (LATE tính là đi học đầy đủ, không trừ vào tỷ  |
+|                 |     lệ), dùng cho báo cáo (UC-25, UC-29).          |
 |                 |                                                    |
-|                 | -   Thông báo vắng mặt (nếu có) được gửi hoặc ghi  |
-|                 |     nhận trạng thái gửi.                           |
+|                 | -   Thông báo vắng không phép (nếu có) được gửi    |
+|                 |     hoặc ghi nhận trạng thái gửi.                  |
 +-----------------+----------------------------------------------------+
 
 > **Bổ sung ngoài đặc tả gốc — đã xác nhận với người dùng (2026-07-22).**
@@ -230,8 +232,17 @@ UC-15: Điểm danh học sinh
 >   diễn ra buổi học**. Được sửa lại **kể cả sau khi Lưu/submit**, cho tới
 >   **hết ngày hôm đó**; sang ngày hôm sau thì khóa (không sửa được nữa qua
 >   quyền `academic.attendance.mark`). Submit lại trong ngày là idempotent —
->   không gửi trùng thông báo cho Phụ huynh (chỉ gửi cho học sinh ABSENT/LATE
+>   không gửi trùng thông báo cho Phụ huynh (chỉ gửi cho học sinh ABSENT
 >   chưa từng được thông báo).
+>
+> - **Sửa đổi nghiệp vụ ngày 2026-08-04 (đã xác nhận với người dùng):**
+>   1. **LATE (đi muộn) được tính là đi học đầy đủ** trong tỷ lệ chuyên cần
+>      — không trừ điểm/không chỉ tính nửa buổi. Áp dụng cho cả báo cáo
+>      chuyên cần điểm trường (UC-15b) lẫn tỷ lệ chuyên cần Phụ huynh/Học
+>      sinh tự xem (UC-59/UC-64).
+>   2. **Chỉ ABSENT (vắng không phép) mới kích hoạt gửi thông báo cho Phụ
+>      huynh** — LATE không còn gửi thông báo (khác với bản gốc trước đây
+>      gửi cho cả ABSENT và LATE).
 >
 > - **Quyền quản trị (vượt rào Giáo viên):** 3 quyền chi tiết mới cho phép
 >   gán 1 tài khoản thao tác điểm danh **buổi bất kỳ, ngày bất kỳ** (không

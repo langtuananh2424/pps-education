@@ -23,6 +23,7 @@ import vn.com.pps.education.repository.QuestionBankRepository;
 import vn.com.pps.education.repository.SchoolClassRepository;
 import vn.com.pps.education.repository.UserRepository;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 
 /**
@@ -122,13 +123,13 @@ public class ExamService {
         Exam.TeacherType type = teacherType == null ? null : Exam.TeacherType.valueOf(teacherType);
         List<Exam> exams;
         if (curriculumId != null && type != null) {
-            exams = examRepository.findByCurriculumIdAndTeacherType(curriculumId, type);
+            exams = examRepository.findByCurriculumIdAndTeacherTypeAndDeletedAtIsNull(curriculumId, type);
         } else if (curriculumId != null) {
-            exams = examRepository.findByCurriculumId(curriculumId);
+            exams = examRepository.findByCurriculumIdAndDeletedAtIsNull(curriculumId);
         } else if (type != null) {
-            exams = examRepository.findByTeacherType(type);
+            exams = examRepository.findByTeacherTypeAndDeletedAtIsNull(type);
         } else {
-            exams = examRepository.findAll();
+            exams = examRepository.findByDeletedAtIsNull();
         }
         return exams.stream().map(this::toResponse).toList();
     }
@@ -174,6 +175,28 @@ public class ExamService {
                 .toList();
     }
 
+    /**
+     * V87 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04) — "Xóa Đề": soft-delete qua
+     * deleted_at (không xóa cứng — Bài thuộc Đề có thể đã có exercise_assignments/exercise_attempts/
+     * student_answers, dữ liệu bài làm thật của học sinh). Chỉ xóa được khi mọi Bài thuộc Đề đã được
+     * "xóa" (lưu trữ) trước — {@link ExerciseService#listByExam} đã tự lọc bỏ Bài ARCHIVED, nên rỗng
+     * nghĩa là không còn Bài nào đang hoạt động. Gỡ luôn mọi exam_class_assignments — Đề đã xóa không
+     * còn hiện ở dropdown "gán lớp" để giao Bài mới (không ảnh hưởng bài đã giao/đang làm dở, xem
+     * Javadoc ExerciseService#requireCanViewExercise — chỉ dựa vào ExerciseAssignment, không re-check
+     * lại exam_class_assignments mỗi lần học sinh mở bài).
+     */
+    @Transactional
+    public void deleteExam(Long id, Long actorUserId) {
+        Exam exam = getExamOrThrow(id);
+        if (!exerciseService.listByExam(id, actorUserId).isEmpty()) {
+            throw new IllegalArgumentException(
+                    "Đề id=" + id + " còn Bài chưa lưu trữ — lưu trữ (xóa) hết Bài trước khi xóa Đề.");
+        }
+        examClassAssignmentRepository.deleteAll(examClassAssignmentRepository.findByExamId(id));
+        exam.setDeletedAt(OffsetDateTime.now());
+        examRepository.save(exam);
+    }
+
     // ===================== Helpers =====================
 
     private void requireAssignedTeacher(Long classId, Long actorUserId) {
@@ -199,7 +222,7 @@ public class ExamService {
     }
 
     private Exam getExamOrThrow(Long id) {
-        return examRepository.findById(id)
+        return examRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Đề id=" + id));
     }
 

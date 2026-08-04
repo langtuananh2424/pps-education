@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.Setter;
 import vn.com.pps.education.common.BaseAuditEntity;
 
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 /**
@@ -64,4 +65,11 @@ public class Exam extends BaseAuditEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "exam_type", nullable = false, length = 20)
     private ExamType examType;
+
+    /**
+     * V87 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04) — soft-delete "Xóa Đề", cùng
+     * pattern PartnerContract/SchoolClass đã dùng (không xóa cứng vì exercises có thể đã tham chiếu).
+     */
+    @Column(name = "deleted_at")
+    private OffsetDateTime deletedAt;
 }

@@ -172,10 +172,10 @@ export const navSections: NavSection[] = [
       // lms.question-bank.create/update/view (Ngân hàng câu hỏi) và lms.exercise.create/update/
       // publish (Soạn & giao đề, không có mã .view riêng vì GET /api/exercises/* chưa từng gate
       // quyền ở backend) — mã gộp cũ không còn tồn tại.
-      // V75/V76: Giáo viên không thấy/quản lý ngân hàng; họ soạn câu hỏi theo Đề. Trang này chỉ quản lý
-      // bank legacy độc lập cho phòng đào tạo/quản trị; backend luôn loại bank nội bộ của Exam khỏi list.
-      { id: "lms-question-banks", label: "Ngân hàng câu hỏi", path: "/lms/question-banks", icon: BookOpen,
-        requiredRoleAny: [UserRole.HEAD_ACADEMIC, UserRole.SYS_ADMIN, UserRole.SUPER_ADMIN] },
+      // V82 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04) — ẩn hẳn "Ngân hàng câu
+      // hỏi" khỏi sidebar cho MỌI role (kể cả HEAD_ACADEMIC/SYS_ADMIN/SUPER_ADMIN, trước đó vẫn còn
+      // thấy) — câu hỏi giờ soạn thẳng theo Đề (examId), trang bank legacy không còn cần thiết. Route
+      // /lms/question-banks vẫn còn (chưa xóa hẳn) để không phá link cũ, chỉ không còn hiện ở menu.
       { id: "lms-exercises", label: "Soạn & giao đề", path: "/lms/exercises", icon: BookOpen, requiredPermission: "lms.exercise.create" },
       // ReviewVideoController có permission từ V63 (bổ sung, trước đó không hề gate permission nào —
       // đã fix bug 2026-07-30: cấp "full quyền" cho sysadmin không có tác dụng vì quyền chưa tồn tại

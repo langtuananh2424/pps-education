@@ -51,8 +51,22 @@ export function updateQuestionBankStatus(id: number, isActive: boolean): Promise
 
 // ===================== Câu hỏi =====================
 
-/** Khớp Question.QuestionType thật — 6 loại, không phải 3 (choices chỉ bắt buộc với 3 loại trắc nghiệm/đúng-sai đầu). */
-export type QuestionType = "MULTIPLE_CHOICE" | "MULTIPLE_ANSWER" | "TRUE_FALSE" | "ESSAY" | "SPEAKING" | "FILL_IN_BLANK";
+/**
+ * Khớp Question.QuestionType thật — 8 loại (choices chỉ bắt buộc với 3 loại trắc nghiệm/đúng-sai
+ * đầu). WORD_BANK/SENTENCE_BUILDING (V78, bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+ * 2026-08-04) dùng structuredContent thay vì choices/correctAnswerText.
+ */
+export type QuestionType = "MULTIPLE_CHOICE" | "MULTIPLE_ANSWER" | "TRUE_FALSE" | "ESSAY" | "SPEAKING" | "FILL_IN_BLANK" | "WORD_BANK" | "SENTENCE_BUILDING";
+
+/**
+ * V78 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04) — dữ liệu riêng theo
+ * questionType: WORD_BANK dùng "blanks" (đáp án đúng theo đúng thứ tự chỗ trống trong content),
+ * SENTENCE_BUILDING dùng "chunks" (khối từ/cụm theo ĐÚNG thứ tự câu hoàn chỉnh).
+ */
+export interface QuestionStructuredContent {
+  blanks?: string[];
+  chunks?: string[];
+}
 
 /** Khớp Question.Skill thật (Question.java) — KHÔNG phải free-text, backend chỉ nhận đúng 1 trong 6 giá trị này. */
 export type QuestionSkill = "LISTENING" | "READING" | "WRITING" | "SPEAKING" | "GRAMMAR" | "OTHER";
@@ -91,6 +105,10 @@ export interface CreateQuestionRequest {
   tags?: string[];
   /** Bắt buộc khi questionType thuộc MULTIPLE_CHOICE/MULTIPLE_ANSWER/TRUE_FALSE — để trống với ESSAY/SPEAKING/FILL_IN_BLANK. */
   choices?: QuestionChoiceRequest[];
+  /** V78 — bắt buộc khi questionType=WORD_BANK/SENTENCE_BUILDING. */
+  structuredContent?: QuestionStructuredContent;
+  /** V78 — dạng "Đọc hiểu — lưới": nhiều câu MULTIPLE_CHOICE cùng groupKey gộp hiển thị 1 referencePassage. */
+  groupKey?: string;
 }
 
 export interface QuestionResponse {
@@ -110,6 +128,8 @@ export interface QuestionResponse {
   status: string;
   createdBy: number;
   choices: QuestionChoiceResponse[];
+  structuredContent: QuestionStructuredContent | null;
+  groupKey: string | null;
 }
 
 export function listQuestions(bankId: number): Promise<QuestionResponse[]> {
@@ -123,6 +143,7 @@ export interface UpdateQuestionRequest {
   referencePassage?: string;
   explanation?: string;
   correctAnswerText?: string;
+  structuredContent?: QuestionStructuredContent;
   defaultPoints?: number;
   tags?: string[];
   choices?: QuestionChoiceRequest[];
@@ -302,9 +323,19 @@ export function listExamAssignedClasses(examId: number): Promise<ClassResponse[]
   return apiRequest<ClassResponse[]>(`/exams/${examId}/classes`);
 }
 
+/** V80 — "Xóa Đề" (soft-delete), chỉ xóa được khi mọi Bài thuộc Đề đã lưu trữ (xem deleteExercise). */
+export function deleteExam(id: number): Promise<void> {
+  return apiRequest<void>(`/exams/${id}`, { method: "DELETE" });
+}
+
 // ===================== Bài (Exercise) — UC-40 bước 2-4, thuộc 1 Đề (Exam) =====================
 
-/** FE chỉ dùng 2 giá trị đúng phạm vi UC-40 (SDD có thêm MOCK_TEST/SKILL_PRACTICE thuộc UC khác, không đưa vào đây). */
+/**
+ * FE chỉ dùng các giá trị đúng phạm vi UC-40 (SDD có thêm MOCK_TEST/SKILL_PRACTICE thuộc UC khác,
+ * không đưa vào đây). REFLEX_VIDEO (V77, đã rollback ở V79 — bổ sung ngoài SDD gốc, đã xác nhận với
+ * người dùng 2026-08-04): Video phản xạ không còn bọc trong Exercise nữa — giao lớp trực tiếp ở Kho
+ * Video Ôn tập, y hệt Video kết nối.
+ */
 export type ExerciseType = "SELF_PRACTICE" | "ASSIGNED";
 
 export interface CreateExerciseRequest {
@@ -347,6 +378,25 @@ export function createExercise(request: CreateExerciseRequest): Promise<Exercise
   return apiRequest<ExerciseResponse>("/exercises", { method: "POST", body: JSON.stringify(request) });
 }
 
+/** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04 — sửa lại thông tin 1 Bài đã soạn (không sửa được code/examId/exerciseType). */
+export interface UpdateExerciseRequest {
+  title: string;
+  subjectId?: number;
+  totalPoints: number;
+  allowRetake: boolean;
+  maxAttempts?: number;
+  showCorrectAnswers: boolean;
+}
+
+export function updateExercise(id: number, request: UpdateExerciseRequest): Promise<ExerciseResponse> {
+  return apiRequest<ExerciseResponse>(`/exercises/${id}`, { method: "PUT", body: JSON.stringify(request) });
+}
+
+/** V80 — "Xóa Bài" = lưu trữ (status=ARCHIVED), ẩn khỏi Kho đề nhưng không xóa cứng. */
+export function deleteExercise(id: number): Promise<void> {
+  return apiRequest<void>(`/exercises/${id}`, { method: "DELETE" });
+}
+
 export function getExercise(id: number): Promise<ExerciseResponse> {
   return apiRequest<ExerciseResponse>(`/exercises/${id}`);
 }
@@ -370,6 +420,11 @@ export interface ExerciseQuestionResponse {
   questionContent: string;
   displayOrder: number;
   points: number;
+  skill: QuestionSkill | null;
+  audioUrl: string | null;
+  referencePassage: string | null;
+  structuredContent: QuestionStructuredContent | null;
+  groupKey: string | null;
 }
 
 export function addExerciseQuestion(exerciseId: number, request: AddExerciseQuestionRequest): Promise<ExerciseQuestionResponse> {
@@ -598,6 +653,52 @@ export function addReviewVideoQuestion(videoId: number, request: AddReviewVideoQ
 
 export function listReviewVideoQuestions(videoId: number): Promise<ReviewVideoQuestionResponse[]> {
   return apiRequest<ReviewVideoQuestionResponse[]>(`/review-videos/${videoId}/questions`);
+}
+
+// ===================== Kho Video Ôn tập — Câu hỏi trắc nghiệm Video Kết nối (V76) =====================
+
+export interface ConnectionChoiceRequest {
+  choiceLabel: string;
+  content: string;
+  isCorrect: boolean;
+  displayOrder: number;
+}
+
+/** isCorrect = null khi trả về cho HỌC SINH (chưa nộp bài) — chỉ Giáo viên soạn bài mới thấy giá trị thật. */
+export interface ReviewVideoConnectionChoiceResponse {
+  id: number;
+  choiceLabel: string;
+  content: string;
+  isCorrect: boolean | null;
+  displayOrder: number;
+}
+
+export interface ReviewVideoConnectionQuestionResponse {
+  id: number;
+  reviewVideoId: number;
+  prompt: string;
+  displayOrder: number;
+  choices: ReviewVideoConnectionChoiceResponse[];
+}
+
+export interface AddReviewVideoConnectionQuestionRequest {
+  prompt: string;
+  displayOrder?: number;
+  choices: ConnectionChoiceRequest[];
+}
+
+export function addReviewVideoConnectionQuestion(
+  videoId: number,
+  request: AddReviewVideoConnectionQuestionRequest
+): Promise<ReviewVideoConnectionQuestionResponse> {
+  return apiRequest<ReviewVideoConnectionQuestionResponse>(`/review-videos/${videoId}/connection-questions`, {
+    method: "POST",
+    body: JSON.stringify(request)
+  });
+}
+
+export function listReviewVideoConnectionQuestions(videoId: number): Promise<ReviewVideoConnectionQuestionResponse[]> {
+  return apiRequest<ReviewVideoConnectionQuestionResponse[]>(`/review-videos/${videoId}/connection-questions`);
 }
 
 // ===================== Kho tài liệu tham khảo (UC-60) =====================

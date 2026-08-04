@@ -1245,6 +1245,23 @@ DAILY, Giữa/Cuối kỳ giữ nguyên 100% luồng ở trên)
     ACTIVE cũ + tạo mới + thông báo lại như V69 — chỉ N request trùng
     `dueAt` trong CÙNG 1 đợt gửi mới được tái dùng).
 
+-   **Bổ sung V82 (2026-08-04, đã xác nhận với người dùng) — báo Giáo viên
+    % hoàn thành cả lớp khi hết hạn BTVN:** áp dụng cho CẢ 2 kênh (Ngữ
+    pháp `ExerciseAssignment` lẫn Video Ôn tập `ReviewVideoAssignment`).
+    Job `HomeworkDeadlineSchedulerService` quét mỗi 5 phút các bản giao
+    `ACTIVE` có `due_at` đã qua và `teacher_notified_at IS NULL`, gửi
+    thông báo (Portal + Email, loại `HOMEWORK_DEADLINE_SUMMARY`) cho đúng
+    Giáo viên đã giao (`assigned_by`), nội dung gồm: tỷ lệ học sinh **đã
+    làm bài** trên tổng số học sinh được giao (VD "10 em 7 em làm thì
+    70%") + danh sách % hoàn thành từng em (tái dùng
+    `HomeworkProgressService.grammarProgressLabel`/`videoProgressLabel`).
+    "Đã làm bài" = khác `Chưa làm bài` (Ngữ pháp: đã nộp ít nhất 1 lần, kể
+    cả đang chờ chấm cũng tính) hoặc tiến độ > 0% (Video: label luôn dạng
+    "NN%", 0% coi là chưa làm) — không yêu cầu hoàn thành 100%. Đánh dấu
+    `teacher_notified_at` ngay sau khi gửi để không gửi trùng khi job
+    chạy lại. Bài KHÔNG có hạn nộp (`due_at IS NULL`, "bài tự luyện")
+    không bao giờ khớp điều kiện quét — không bao giờ kích hoạt.
+
 -   Excel round-trip theo buổi học (**V65: dropdown cột Ngữ pháp đổi
     nguồn từ "bài đã giao sẵn cho lớp" sang mọi `Exercise` loại ASSIGNED
     đang PUBLISHED trong khung chương trình của lớp — chọn ở đây mới là

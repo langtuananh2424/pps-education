@@ -152,10 +152,12 @@ public class QuestionBankService {
             throw new DuplicateQuestionContentException(
                     "Câu hỏi này đã tồn tại trong ngân hàng câu hỏi \"" + bank.getName() + "\" (trùng nội dung) — không thể tạo trùng.");
         }
+        Question.QuestionType questionType = Question.QuestionType.valueOf(request.questionType());
+        requireStructuredContentIfNeeded(questionType, request.structuredContent());
 
         Question question = new Question();
         question.setQuestionBank(bank);
-        question.setQuestionType(Question.QuestionType.valueOf(request.questionType()));
+        question.setQuestionType(questionType);
         if (request.skill() != null) {
             question.setSkill(Question.Skill.valueOf(request.skill()));
         }
@@ -168,6 +170,8 @@ public class QuestionBankService {
         question.setReferencePassage(request.referencePassage());
         question.setExplanation(request.explanation());
         question.setCorrectAnswerText(request.correctAnswerText());
+        question.setStructuredContent(request.structuredContent());
+        question.setGroupKey(request.groupKey());
         if (request.defaultPoints() != null) {
             question.setDefaultPoints(request.defaultPoints());
         }
@@ -200,11 +204,13 @@ public class QuestionBankService {
         Long id = question.getId();
 
         boolean changesContent = !Objects.equals(question.getContent(), request.content()) || request.choices() != null
-                || !Objects.equals(question.getCorrectAnswerText(), request.correctAnswerText());
+                || !Objects.equals(question.getCorrectAnswerText(), request.correctAnswerText())
+                || !Objects.equals(question.getStructuredContent(), request.structuredContent());
         if (changesContent && studentAnswerRepository.existsByQuestionId(id)) {
             throw new QuestionLockedException(
                     "Câu hỏi id=" + id + " đã có học sinh trả lời — không sửa được nội dung/đáp án. Hãy tạo câu hỏi mới rồi archive câu này.");
         }
+        requireStructuredContentIfNeeded(question.getQuestionType(), request.structuredContent());
 
         question.setContent(request.content());
         question.setAudioUrl(request.audioUrl());
@@ -212,6 +218,7 @@ public class QuestionBankService {
         question.setReferencePassage(request.referencePassage());
         question.setExplanation(request.explanation());
         question.setCorrectAnswerText(request.correctAnswerText());
+        question.setStructuredContent(request.structuredContent());
         if (request.defaultPoints() != null) {
             question.setDefaultPoints(request.defaultPoints());
         }
@@ -255,6 +262,24 @@ public class QuestionBankService {
     }
 
     // ===================== Helpers =====================
+
+    /**
+     * V85 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04) — WORD_BANK/SENTENCE_BUILDING
+     * bắt buộc có structuredContent (key "blanks"/"chunks" tương ứng) để tự chấm được, giống cách
+     * FILL_IN_BLANK bắt buộc correctAnswerText.
+     */
+    private void requireStructuredContentIfNeeded(Question.QuestionType questionType, Map<String, Object> structuredContent) {
+        if (questionType != Question.QuestionType.WORD_BANK && questionType != Question.QuestionType.SENTENCE_BUILDING) {
+            return;
+        }
+        String key = questionType == Question.QuestionType.WORD_BANK ? "blanks" : "chunks";
+        Object values = structuredContent == null ? null : structuredContent.get(key);
+        if (!(values instanceof List<?> list) || list.isEmpty()) {
+            throw new IllegalArgumentException(
+                    (questionType == Question.QuestionType.WORD_BANK ? "Điền từ - Hộp từ vựng" : "Sắp xếp câu")
+                            + " cần có ít nhất 1 phần tử \"" + key + "\" để hệ thống tự chấm.");
+        }
+    }
 
     private void saveChoices(Question question, List<QuestionChoiceRequest> choices) {
         if (choices == null) {
@@ -329,7 +354,8 @@ public class QuestionBankService {
                 q.getDifficulty() == null ? null : q.getDifficulty().name(),
                 q.getContent(), q.getAudioUrl(), q.getImageUrl(), q.getReferencePassage(), q.getExplanation(),
                 q.getCorrectAnswerText(),
-                q.getDefaultPoints(), q.getTags(), q.getStatus().name(), q.getCreatedBy().getId(), choices);
+                q.getDefaultPoints(), q.getTags(), q.getStatus().name(), q.getCreatedBy().getId(), choices,
+                q.getStructuredContent(), q.getGroupKey());
     }
 
     private QuestionChoiceResponse toResponse(QuestionChoice c) {

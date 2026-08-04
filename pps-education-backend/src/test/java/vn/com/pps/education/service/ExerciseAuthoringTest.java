@@ -30,6 +30,7 @@ import vn.com.pps.education.dto.QuestionBankResponse;
 import vn.com.pps.education.dto.QuestionChoiceRequest;
 import vn.com.pps.education.dto.QuestionResponse;
 import vn.com.pps.education.dto.UpdateCurriculumRequest;
+import vn.com.pps.education.dto.UpdateExerciseRequest;
 import vn.com.pps.education.dto.UpdateQuestionBankStatusRequest;
 import vn.com.pps.education.dto.UpdateQuestionRequest;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
@@ -48,6 +49,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -147,13 +149,35 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
         assertThat(question.choices()).anySatisfy(c -> assertThat(c.isCorrect()).isTrue());
     }
 
+    /** V78 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04): Điền từ - Hộp từ vựng. */
+    @Test
+    void createQuestion_A_rejectsWordBankWithoutStructuredContent() {
+        assertThatThrownBy(() -> questionBankService.createQuestion(
+                new CreateQuestionRequest(bank.id(), "WORD_BANK", "GRAMMAR", "EASY",
+                        "She ___ to school.", null, null, null, null, null,
+                        new BigDecimal("1.0"), null, null, null, null),
+                teacher.getId()))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    /** V78 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04): Sắp xếp câu. */
+    @Test
+    void createQuestion_A_rejectsSentenceBuildingWithoutStructuredContent() {
+        assertThatThrownBy(() -> questionBankService.createQuestion(
+                new CreateQuestionRequest(bank.id(), "SENTENCE_BUILDING", "GRAMMAR", "EASY",
+                        "Sắp xếp thành câu.", null, null, null, null, null,
+                        new BigDecimal("1.0"), null, null, null, null),
+                teacher.getId()))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
     @Test
     void updateQuestion_rejectsWhenAlreadyHasStudentAnswers() {
         QuestionResponse question = createMcQuestion();
         markQuestionAsAnswered(question.id());
 
         assertThatThrownBy(() -> questionBankService.updateQuestion(question.id(),
-                new UpdateQuestionRequest("Nội dung mới", null, null, null, null, null, null, null, null, null), teacher.getId()))
+                new UpdateQuestionRequest("Nội dung mới", null, null, null, null, null, null, null, null, null, null), teacher.getId()))
                 .isInstanceOf(QuestionLockedException.class);
     }
 
@@ -164,7 +188,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
 
         QuestionResponse archived = questionBankService.updateQuestion(question.id(),
                 new UpdateQuestionRequest(question.content(), question.audioUrl(), question.imageUrl(),
-                        question.referencePassage(), question.explanation(), question.correctAnswerText(), question.defaultPoints(),
+                        question.referencePassage(), question.explanation(), question.correctAnswerText(), null, question.defaultPoints(),
                         question.tags(), null, "ARCHIVED"),
                 teacher.getId());
 
@@ -189,7 +213,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
         QuestionResponse mc = createMcQuestion();
         QuestionResponse essay = questionBankService.createQuestion(
                 new CreateQuestionRequest(bank.id(), "ESSAY", "WRITING", "MEDIUM", "Viết đoạn văn 50 từ.",
-                        null, null, null, null, null, new BigDecimal("2.0"), null, null),
+                        null, null, null, null, null, new BigDecimal("2.0"), null, null, null, null),
                 teacher.getId());
 
         ExerciseResponse exercise = exerciseService.createExercise(
@@ -202,6 +226,77 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
         ExerciseResponse withQuestions = exerciseService.getExercise(exercise.id(), teacher.getId());
         assertThat(withQuestions.hasEssayOrSpeaking()).isTrue();
         assertThat(exerciseService.listQuestions(exercise.id(), teacher.getId())).hasSize(2);
+    }
+
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04 — sửa lại thông tin 1 Bài đã soạn. */
+    @Test
+    void updateExercise_MainFlow_savesNewTitleAndPoints() {
+        ExerciseResponse exercise = exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "Đề cũ", defaultExam.id(), null,
+                        "SELF_PRACTICE", new BigDecimal("10"), 30, false, null, true),
+                teacher.getId());
+
+        ExerciseResponse updated = exerciseService.updateExercise(exercise.id(),
+                new UpdateExerciseRequest("Đề mới", null, new BigDecimal("20"), true, 3, false),
+                teacher.getId());
+
+        assertThat(updated.title()).isEqualTo("Đề mới");
+        assertThat(updated.totalPoints()).isEqualByComparingTo("20");
+        assertThat(updated.allowRetake()).isTrue();
+        assertThat(updated.maxAttempts()).isEqualTo(3);
+        assertThat(updated.showCorrectAnswers()).isFalse();
+    }
+
+    /**
+     * V80 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04) — "Xóa Bài" = lưu trữ
+     * (status=ARCHIVED), ẩn khỏi listByExam (Kho đề) nhưng vẫn xem được qua getExercise (không xóa cứng).
+     */
+    @Test
+    void deleteExercise_MainFlow_archivesAndHidesFromExamListing() {
+        ExerciseResponse exercise = exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "Unit 1", defaultExam.id(), null,
+                        "SELF_PRACTICE", new BigDecimal("10"), null, false, null, true),
+                teacher.getId());
+
+        exerciseService.deleteExercise(exercise.id(), teacher.getId());
+
+        assertThat(exerciseService.getExercise(exercise.id(), teacher.getId()).status()).isEqualTo("ARCHIVED");
+        assertThat(exerciseService.listByExam(defaultExam.id(), teacher.getId()))
+                .extracting(ExerciseResponse::id).doesNotContain(exercise.id());
+    }
+
+    /**
+     * V78 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04) — BẢO MẬT: structuredContent
+     * của WORD_BANK lưu ĐÚNG thứ tự đáp án đúng. listQuestions (dùng bởi Portal TakeExerciseModal) phải
+     * KHÔNG BAO GIỜ trả nguyên thứ tự gốc cho học sinh (lộ đáp án) — chỉ trả tập hợp từ đã xáo trộn.
+     * Gọi lặp lại nhiều lần để hạ xác suất false-negative (thứ tự xáo trộn trùng ngẫu nhiên thứ tự gốc).
+     */
+    @Test
+    void listQuestions_A_neverExposesWordBankAnswersInOriginalOrder() {
+        List<String> correctOrder = List.of("went", "to", "school", "yesterday");
+        QuestionResponse wordBank = questionBankService.createQuestion(
+                new CreateQuestionRequest(bank.id(), "WORD_BANK", "GRAMMAR", "EASY",
+                        "She ___ ___ ___ ___.", null, null, null, null, null,
+                        new BigDecimal("1.0"), null, null,
+                        Map.of("blanks", correctOrder), null),
+                teacher.getId());
+        ExerciseResponse exercise = exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "Đề Word Bank", defaultExam.id(), null, "SELF_PRACTICE",
+                        new BigDecimal("1"), null, true, null, true),
+                teacher.getId());
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(wordBank.id(), 1, new BigDecimal("1.0")), teacher.getId());
+
+        boolean everDifferedFromOriginalOrder = false;
+        for (int i = 0; i < 30; i++) {
+            var questions = exerciseService.listQuestions(exercise.id(), teacher.getId());
+            @SuppressWarnings("unchecked")
+            List<String> exposedOrder = (List<String>) questions.get(0).structuredContent().get("blanks");
+            assertThat(exposedOrder).containsExactlyInAnyOrderElementsOf(correctOrder);
+            if (!exposedOrder.equals(correctOrder)) {
+                everDifferedFromOriginalOrder = true;
+            }
+        }
+        assertThat(everDifferedFromOriginalOrder).as("structuredContent phải được xáo trộn, không trả nguyên thứ tự đáp án đúng").isTrue();
     }
 
     @Test
@@ -465,7 +560,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
         Student student = enrollStudent();
         QuestionResponse essay = questionBankService.createQuestion(
                 new CreateQuestionRequest(bank.id(), "ESSAY", "WRITING", "MEDIUM", "Viết đoạn văn 50 từ.",
-                        null, null, null, null, null, new BigDecimal("2.0"), null, null), teacher.getId());
+                        null, null, null, null, null, new BigDecimal("2.0"), null, null, null, null), teacher.getId());
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Đề tự luận", defaultExam.id(), null, "SELF_PRACTICE",
                         new BigDecimal("2"), null, true, null, true), teacher.getId());
@@ -486,7 +581,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
                         "She ___ to school every day.", null, null, null, null, null, new BigDecimal("1.0"), null,
                         List.of(
                                 new QuestionChoiceRequest("A", "go", false, 1),
-                                new QuestionChoiceRequest("B", "goes", true, 2))),
+                                new QuestionChoiceRequest("B", "goes", true, 2)), null, null),
                 teacher.getId());
     }
 
