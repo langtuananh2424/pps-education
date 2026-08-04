@@ -1530,6 +1530,27 @@ UC-22: Duyệt nhận xét
 | (Alternate      | 1.  Quản lý điểm trường chọn nhiều nhận xét theo   |
 | Flow)**         |     lớp/ngày, duyệt hàng loạt trong 1 thao tác để  |
 |                 |     tăng tốc độ xử lý.                             |
+|                 |                                                    |
+|                 | ***A2 --- Sửa trực tiếp nội dung trước khi duyệt   |
+|                 | (bổ sung ngoài SDD gốc, đã xác nhận với người      |
+|                 | dùng 2026-08-02)***                                |
+|                 |                                                    |
+|                 | 1.  Nếu nội dung nhận xét (Chờ duyệt) có lỗi        |
+|                 |     chính tả/câu chữ nhỏ, Quản lý điểm trường có   |
+|                 |     thể tự sửa trực tiếp thay vì Từ chối bắt Giáo   |
+|                 |     viên sửa lại — giảm tải qua lại không cần       |
+|                 |     thiết.                                         |
+|                 |                                                    |
+|                 | 2.  Chỉ sửa được phần nội dung câu chữ (content) —  |
+|                 |     KHÔNG sửa được Thái độ học tập/BTVN buổi        |
+|                 |     trước-sau/Ghi chú (để tránh vô tình kích hoạt   |
+|                 |     lại cơ chế tự động giao bài cho cả lớp của      |
+|                 |     V65 nếu đổi BTVN buổi sau).                     |
+|                 |                                                    |
+|                 | 3.  Sau khi Lưu, nhận xét vẫn ở trạng thái Chờ      |
+|                 |     duyệt (PENDING) — Quản lý điểm trường vẫn phải  |
+|                 |     bấm Duyệt/Từ chối riêng ở bước 3 Main Flow,     |
+|                 |     Sửa và Duyệt là 2 thao tác tách biệt.           |
 +-----------------+----------------------------------------------------+
 | **Hậu điều kiện | -   Nhận xét APPROVED được công khai đúng đối      |
 | (P              |     tượng xem (Phụ huynh; thêm Đại diện trường     |
@@ -1538,6 +1559,23 @@ UC-22: Duyệt nhận xét
 |                 | -   Nhận xét REJECTED quay về Giáo viên, chưa hiển |
 |                 |     thị cho bất kỳ ai bên ngoài.                   |
 +-----------------+----------------------------------------------------+
+
+> **A2 — Sửa trực tiếp nội dung (bổ sung ngoài SDD gốc, đã xác nhận với
+> người dùng 2026-08-02):** endpoint mới `PUT /api/comments/pending/{id}/content`
+> (`StudentCommentService#updatePendingCommentContent`), quyền
+> `academic.comment.approve` (dùng lại, không tạo quyền mới) + kiểm tra
+> đúng Quản lý điểm trường của site chứa lớp
+> (`requireSiteManagerForSite`). Chỉ chấp nhận khi nhận xét đang PENDING —
+> ném `StudentCommentNotEditableException` nếu không. Dùng DTO RIÊNG
+> `UpdateStudentCommentContentRequest` (chỉ có `content`/`structuredContent`)
+> — KHÔNG dùng chung `UpdateStudentCommentRequest` (của Giáo viên) vì DTO
+> đó có các trường BTVN buổi sau (`homeworkNextExerciseId`...) sẽ tự động
+> tạo/đổi bản giao bài cho CẢ LỚP (V65) nếu vô tình truyền vào. Ghi lịch sử
+> qua `student_comments_history` (`Action.UPDATED`) như các lần sửa khác —
+> không có badge/thông báo riêng cho Giáo viên biết nội dung đã bị sửa
+> (đã xác nhận với người dùng, không cần thiết ở giai đoạn này). FE: nút
+> "Sửa" cạnh nút Duyệt/Từ chối ở `CommentApprovalByClass.tsx`, mở
+> `<textarea>` inline tại dòng, có nút Lưu/Hủy riêng.
 
 ---
 

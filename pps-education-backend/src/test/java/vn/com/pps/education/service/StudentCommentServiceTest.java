@@ -52,6 +52,7 @@ import vn.com.pps.education.dto.StudentCommentResponse;
 import vn.com.pps.education.dto.SubmitCommentsRequest;
 import vn.com.pps.education.dto.UpdateCurriculumRequest;
 import vn.com.pps.education.dto.UpdateReviewVideoSetRequest;
+import vn.com.pps.education.dto.UpdateStudentCommentContentRequest;
 import vn.com.pps.education.dto.UpdateStudentCommentRequest;
 import vn.com.pps.education.exception.ApprovalAlreadyDecidedException;
 import vn.com.pps.education.exception.HomeworkNextConflictException;
@@ -466,6 +467,40 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         assertThatThrownBy(() -> studentCommentService.decideComments(
                 new DecideCommentsRequest(List.of(comment.id()), "APPROVED", null), siteManagerUser.getId()))
                 .isInstanceOf(ApprovalAlreadyDecidedException.class);
+    }
+
+    @Test
+    void updatePendingCommentContent_UC22_boSung_MainFlow_updatesContentAndKeepsPending() {
+        StudentCommentResponse comment = writeDailyComment(teacher, "Nội dung cũ.");
+        studentCommentService.submitComments(schoolClass.id(), new SubmitCommentsRequest(List.of(comment.id())), teacher.getId());
+
+        StudentCommentResponse updated = studentCommentService.updatePendingCommentContent(comment.id(),
+                new UpdateStudentCommentContentRequest("Nội dung đã sửa bởi QLĐT", null), siteManagerUser.getId());
+
+        assertThat(updated.content()).isEqualTo("Nội dung đã sửa bởi QLĐT");
+        assertThat(updated.status()).isEqualTo("PENDING");
+        assertThat(studentCommentService.listPendingForSite(siteManagerUser.getId())).extracting(StudentCommentResponse::id).contains(comment.id());
+    }
+
+    @Test
+    void updatePendingCommentContent_UC22_boSung_A1_rejectsWhenNotPending() {
+        StudentCommentResponse comment = writeDailyComment(teacher, "Nội dung cũ.");
+
+        assertThatThrownBy(() -> studentCommentService.updatePendingCommentContent(comment.id(),
+                new UpdateStudentCommentContentRequest("Sửa thử khi DRAFT", null), siteManagerUser.getId()))
+                .isInstanceOf(StudentCommentNotEditableException.class);
+    }
+
+    @Test
+    void updatePendingCommentContent_UC22_boSung_A2_rejectsWhenNotSiteManagerForSite() {
+        StudentCommentResponse comment = writeDailyComment(teacher, "Nội dung cũ.");
+        studentCommentService.submitComments(schoolClass.id(), new SubmitCommentsRequest(List.of(comment.id())), teacher.getId());
+        User outsiderManager = newUser("outsider.sitemanager");
+        assignRole(outsiderManager, "SITE_MANAGER");
+
+        assertThatThrownBy(() -> studentCommentService.updatePendingCommentContent(comment.id(),
+                new UpdateStudentCommentContentRequest("Thử sửa chui", null), outsiderManager.getId()))
+                .isInstanceOf(NotSiteManagerForSiteException.class);
     }
 
     // ===================== Case 3: "Bài học hôm nay" chuyển sang Nhận xét (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-29) =====================
