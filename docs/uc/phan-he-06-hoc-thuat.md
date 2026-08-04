@@ -828,23 +828,20 @@ UC-19: Nhập điểm
 | **Tác nhân**    | Giáo viên                                          |
 +-----------------+----------------------------------------------------+
 | **Mô tả tóm     | Giáo viên nhập điểm thành phần cho học sinh, ghi   |
-| tắt**           | nhận ngay ở trạng thái nháp, không qua bước gửi    |
-|                 | duyệt riêng (V39 — bổ sung ngoài SDD gốc, đã xác   |
-|                 | nhận với người dùng, thay thế luồng Submit/Chờ     |
-|                 | duyệt cũ). Điểm tổng kết/Overall hiển thị cho Phụ  |
-|                 | huynh do Giáo viên tự nhập hoặc import Excel       |
-|                 | (UC-53), hệ thống không tự tính từ điểm thành phần |
-|                 | (V40 — bổ sung ngoài SDD gốc, đã xác nhận với      |
-|                 | người dùng). Từ trạng thái điểm ở mức Nháp, Giáo   |
-|                 | viên còn toàn quyền sửa/xoá không giới hạn thời    |
-|                 | gian; sau khi công bố dự kiến (UC-20) chỉ sửa lại  |
-|                 | được qua luồng phúc khảo (UC-62) — V43, bổ sung    |
-|                 | ngoài SDD gốc, đã xác nhận với người dùng, thay    |
-|                 | thế hẳn cơ chế "hạn X ngày toàn quyền sửa" của V39. |
+| tắt**           | nhận ở trạng thái nháp (DRAFT), có thể sửa/xoá tự  |
+|                 | do; khi sẵn sàng, gửi duyệt lên Quản lý điểm       |
+|                 | trường (SUBMITTED). Điểm chỉ hiển thị cho Phụ huynh |
+|                 | sau khi Quản lý điểm trường duyệt (OFFICIAL).      |
+|                 | Điểm tổng kết/Overall được Giáo viên nhập hoặc    |
+|                 | import riêng qua UC-53, hệ thống không tự tính từ  |
+|                 | điểm thành phần. V44 — bổ sung ngoài SDD gốc,     |
+|                 | thay thế luồng "công bố dự kiến + phúc khảo" cũ,   |
+|                 | áp dụng quy trình duyệt/từ chối với 2 hướng xử lý  |
+|                 | (giáo viên sửa lại hoặc quản lý sửa).              |
 +-----------------+----------------------------------------------------+
 | **Sự kiện kích  | Đến kỳ nhập điểm cho lớp học phụ trách; hoặc cần   |
-| hoạt**          | sửa/xoá lại điểm còn Nháp; hoặc đã tiếp nhận 1 yêu |
-|                 | cầu phúc khảo (UC-62) cho học sinh cụ thể.         |
+| hoạt**          | sửa/xoá lại điểm còn Nháp hoặc REJECTED; hoặc      |
+|                 | cần gửi duyệt lên Quản lý điểm trường.             |
 +-----------------+----------------------------------------------------+
 | **Điều kiện     | -   Giáo viên được phân công giảng dạy lớp cần     |
 | tiên quyết      |     nhập điểm (UC-18); HOẶC Trưởng phòng đào tạo   |
@@ -854,17 +851,15 @@ UC-19: Nhập điểm
 |                 |     (bổ sung ngoài SDD gốc, đã xác nhận với người  |
 |                 |     dùng).                                         |
 |                 |                                                    |
-|                 | -   Để sửa/xoá 1 bản ghi đã tồn tại (V43 — bổ sung |
-|                 |     ngoài SDD gốc, đã xác nhận với người dùng, sửa |
-|                 |     đổi lần 2 sau V39): bản ghi phải đang ở trạng  |
-|                 |     thái Nháp (DRAFT, không giới hạn thời gian),   |
-|                 |     HOẶC đang Phúc khảo (APPEAL) và actor chính là |
-|                 |     giáo viên đã tiếp nhận (UC-62) đúng yêu cầu    |
-|                 |     phúc khảo của bản ghi đó — HOẶC actor có quyền |
-|                 |     academic.grade.edit.override (ngoại lệ, gán    |
-|                 |     được cho bất kỳ ai qua UC-04 — mặc định gán    |
-|                 |     sẵn cho HEAD_ACADEMIC và SITE_MANAGER — bỏ qua |
-|                 |     mọi ràng buộc trạng thái ở trên).              |
+|                 | -   Để sửa/xoá 1 bản ghi đã tồn tại: bản ghi phải  |
+|                 |     đang ở trạng thái Nháp (DRAFT) hoặc Từ chối     |
+|                 |     (REJECTED), không giới hạn thời gian —         |
+|                 |     HOẶC actor có quyền academic.grade.edit.override|
+|                 |     (ngoại lệ — mặc định gán sẵn cho HEAD_ACADEMIC |
+|                 |     và SITE_MANAGER — bỏ qua ràng buộc trạng thái).  |
+|                 |                                                    |
+|                 | -   Để gửi duyệt: bản ghi đang DRAFT, không quá    |
+|                 |     giới hạn (nếu có) của kỳ duyệt.                |
 +-----------------+----------------------------------------------------+
 | **Luồng sự kiện | 1.  Giáo viên (hoặc người hỗ trợ hợp lệ ở trên) mở |
 | chính (Main     |     Sổ điểm của lớp, chọn cột điểm thành phần cần  |
@@ -875,17 +870,20 @@ UC-19: Nhập điểm
 |                 |     max_score) ngay khi nhập, chặn lưu nếu không   |
 |                 |     hợp lệ.                                        |
 |                 |                                                    |
-|                 | 3.  Hệ thống ghi nhận điểm ngay ở trạng thái nháp  |
-|                 |     (DRAFT) — không có bước gửi duyệt riêng; Giáo  |
-|                 |     viên có thể nhập/sửa/xoá rải rác nhiều lần,    |
-|                 |     không giới hạn thời gian (V43).                |
+|                 | 3.  Hệ thống ghi nhận điểm ở trạng thái nháp       |
+|                 |     (DRAFT); Giáo viên có thể nhập/sửa/xoá rải     |
+|                 |     rác nhiều lần, không giới hạn thời gian.       |
 |                 |                                                    |
-|                 | 4.  Nếu đây là lần đầu tiên (lớp, kỳ đánh giá) này |
-|                 |     có điểm được nhập, hệ thống ghi nhận mốc “lần  |
-|                 |     đầu nhập” (grade_period_edit_windows) — làm    |
-|                 |     gốc tính hạn X ngày tự động công bố dự kiến    |
-|                 |     nếu không ai công bố tay (UC-20 A3; X ngày KHÔNG |
-|                 |     còn là hạn chỉnh sửa như V39 — V43).           |
+|                 | 4.  Khi sẵn sàng, Giáo viên gửi duyệt — hệ thống   |
+|                 |     chuyển điểm từ DRAFT sang SUBMITTED (chờ duyệt |
+|                 |     của Quản lý điểm trường). Nếu đây là lần đầu   |
+|                 |     tiên gửi lên, hệ thống ghi nhận mốc thời gian  |
+|                 |     (để tính thời gian chờ duyệt nếu cần).         |
+|                 |                                                    |
+|                 | 5.  Quản lý điểm trường duyệt hoặc từ chối qua     |
+|                 |     UC-20; nếu duyệt → OFFICIAL (hiển thị phụ      |
+|                 |     huynh); nếu từ chối → REJECTED (Giáo viên      |
+|                 |     hoặc Quản lý có thể sửa & gửi lại/duyệt).      |
 +-----------------+----------------------------------------------------+
 | **Luồng thay    | ***A1 --- Điểm nhập không hợp lệ***                |
 | thế / ngoại lệ  |                                                    |
@@ -894,41 +892,35 @@ UC-19: Nhập điểm
 |                 |     để lọt xuống database.                         |
 |                 |                                                    |
 |                 | ***A2 --- Sửa/xoá bản ghi không ở trạng thái cho   |
-|                 | phép (V43, bổ sung ngoài SDD gốc, đã xác nhận với  |
-|                 | người dùng — thay hẳn A2 cũ "hết hạn X ngày")***   |
+|                 | phép***                                            |
 |                 |                                                    |
 |                 | 1.  Nếu actor không có quyền                       |
 |                 |     academic.grade.edit.override và bản ghi đang   |
-|                 |     Công bố dự kiến (PROVISIONAL_PUBLISHED) hoặc   |
-|                 |     Chính thức (OFFICIAL), hệ thống chặn sửa/xoá.  |
+|                 |     SUBMITTED hoặc OFFICIAL, hệ thống chặn sửa/xoá.|
 |                 |                                                    |
-|                 | 2.  Nếu bản ghi đang Phúc khảo (APPEAL) nhưng actor |
-|                 |     không phải giáo viên đã tiếp nhận đúng yêu cầu |
-|                 |     phúc khảo đó (UC-62), hệ thống chặn sửa/xoá.   |
+|                 | 2.  Nếu bản ghi REJECTED, Giáo viên hoặc Quản lý    |
+|                 |     (có quyền academic.grade.edit.override) có thể  |
+|                 |     sửa không giới hạn.                             |
 |                 |                                                    |
-|                 | 3.  Sửa xong 1 bản ghi đang Phúc khảo (đã tiếp     |
-|                 |     nhận): hệ thống tự động chuyển bản ghi về Công |
-|                 |     bố dự kiến (PROVISIONAL_PUBLISHED) và đóng yêu |
-|                 |     cầu phúc khảo (RESOLVED) — không cần thao tác  |
-|                 |     "hoàn tất phúc khảo" riêng (UC-62).            |
+|                 | ***A3 --- Gửi duyệt thất bại***                    |
+|                 |                                                    |
+|                 | 1.  Nếu có lỗi validate ở server hoặc bản ghi     |
+|                 |     không còn ở DRAFT, hệ thống báo lỗi không cho  |
+|                 |     gửi duyệt.                                     |
 +-----------------+----------------------------------------------------+
-| **Hậu điều kiện | -   Bản ghi điểm được lưu ngay — DRAFT nếu là lần  |
-| (P              |     nhập đầu tiên; giữ nguyên trạng thái Nháp nếu  |
-| ostcondition)** |     sửa/xoá 1 bản ghi Nháp; hoặc quay về Công bố   |
-|                 |     dự kiến (đóng yêu cầu phúc khảo) nếu sửa xong  |
-|                 |     1 bản ghi đang Phúc khảo (V43).                |
+| **Hậu điều kiện | -   Sau khi nhập/sửa: Bản ghi ở DRAFT, giáo viên    |
+| (P              |     có thể tiếp tục nhập/sửa/xoá không giới hạn.   |
+| ostcondition)** |                                                    |
+|                 | -   Sau khi gửi duyệt: Bản ghi ở SUBMITTED, chờ    |
+|                 |     Quản lý điểm trường duyệt qua UC-20.           |
 |                 |                                                    |
-|                 | -   Điểm tổng kết/Overall theo kỳ đánh giá         |
-|                 |     (grade_period_results) là 1 thao tác nhập liệu |
-|                 |     riêng của Giáo viên (UC-53) — hệ thống không   |
-|                 |     tự tính lại từ điểm thành phần vừa nhập ở đây  |
-|                 |     (V40 — bổ sung ngoài SDD gốc, đã xác nhận với  |
-|                 |     người dùng).                                   |
+|                 | -   Bản ghi SUBMITTED/OFFICIAL KHÔNG được Giáo     |
+|                 |     viên sửa/xoá trực tiếp — chờ Quản lý duyệt     |
+|                 |     (OFFICIAL) hoặc từ chối (REJECTED → có thể sửa |
+|                 |     lại).                                          |
 |                 |                                                    |
-|                 | -   Bản ghi đã Công bố dự kiến/Chính thức KHÔNG    |
-|                 |     sửa/xoá trực tiếp được nữa — muốn sửa phải qua |
-|                 |     luồng phúc khảo (UC-62), khác V39 (trước đây   |
-|                 |     sửa trực tiếp được trong hạn X ngày).          |
+|                 | -   Điểm tổng kết/Overall (UC-53) được Giáo viên   |
+|                 |     nhập riêng, không tự tính từ thành phần.       |
 +-----------------+----------------------------------------------------+
 
 > **Bổ sung ngoài đặc tả gốc — đã xác nhận với người dùng (2026-07-22).**
@@ -953,12 +945,12 @@ UC-19: Nhập điểm
 
 ---
 
-UC-20: Công bố điểm
+UC-20: Duyệt/Từ chối điểm
 
 +-----------------+----------------------------------------------------+
 | **Mã Use Case** | UC-20                                              |
 +-----------------+----------------------------------------------------+
-| **Tên Use       | Công bố điểm dự kiến                               |
+| **Tên Use       | Duyệt/Từ chối điểm                                 |
 | Case**          |                                                    |
 +-----------------+----------------------------------------------------+
 | **Phân hệ**     | Phân hệ 6                                          |
@@ -966,270 +958,117 @@ UC-20: Công bố điểm
 | **Yêu cầu chức  | FR-ACA-03                                          |
 | năng gốc**      |                                                    |
 +-----------------+----------------------------------------------------+
-| **Tác nhân**    | Quản lý điểm trường (đúng site phụ trách); Trưởng  |
-|                 | phòng đào tạo (mọi site — bổ sung ngoài SDD gốc,   |
-|                 | đã xác nhận với người dùng)                        |
+| **Tác nhân**    | Quản lý điểm trường (đúng site phụ trách);        |
+|                 | Trưởng phòng đào tạo (mọi site)                   |
 |                 |                                                    |
-|                 | (Liên quan/hỗ trợ: Giáo viên (người nhập))         |
+|                 | (Liên quan/hỗ trợ: Giáo viên (có thể sửa lại nếu  |
+|                 | từ chối))                                          |
 +-----------------+----------------------------------------------------+
-| **Mô tả tóm     | Quản lý điểm trường/Trưởng phòng đào tạo quyết     |
-| tắt**           | định thời điểm công bố điểm DỰ KIẾN cho Phụ         |
-|                 | huynh/Học sinh xem qua Portal — không còn kiểm     |
-|                 | duyệt đúng/sai như trước, chỉ là mốc công khai dữ  |
-|                 | liệu (V39 — bổ sung ngoài SDD gốc, đã xác nhận với |
-|                 | người dùng, thay thế hoàn toàn khái niệm “Duyệt    |
-|                 | điểm” và luồng Approved/Rejected cũ). Gọi là "dự    |
-|                 | kiến" vì sau khi công bố còn mở cửa sổ Y ngày cho   |
-|                 | Học sinh/Phụ huynh gửi phúc khảo (UC-62) trước khi  |
-|                 | tự động chuyển Chính thức (V43 — bổ sung ngoài SDD |
-|                 | gốc, đã xác nhận với người dùng, sửa đổi lần 2 sau |
-|                 | V39). Nếu không ai công bố thủ công, hệ thống tự   |
-|                 | động công bố dự kiến khi hết hạn X ngày kể từ lần  |
-|                 | đầu nhập điểm (UC-19) — 2 cơ chế chạy song song,   |
-|                 | không cái nào thay thế cái nào.                    |
+| **Mô tả tóm     | Quản lý điểm trường/Trưởng phòng đào tạo xem xét  |
+| tắt**           | và duyệt/từ chối điểm mà Giáo viên gửi (SUBMITTED).|
+|                 | Nếu duyệt → OFFICIAL, hiển thị ngay cho Phụ huynh |
+|                 | qua Portal. Nếu từ chối → REJECTED, Giáo viên     |
+|                 | hoặc Quản lý có thể sửa & gửi lại hoặc duyệt. V44  |
+|                 | — bổ sung ngoài SDD gốc, thay thế luồng “công bố   |
+|                 | dự kiến + phúc khảo” cũ.                          |
 +-----------------+----------------------------------------------------+
-| **Sự kiện kích  | Có bản ghi điểm ở trạng thái chưa công bố (DRAFT)  |
-| hoạt**          | thuộc điểm trường phụ trách, đã sẵn sàng công khai |
-|                 | cho Phụ huynh.                                     |
+| **Sự kiện kích  | Có bản ghi điểm chờ duyệt (SUBMITTED) thuộc điểm   |
+| hoạt**          | trường phụ trách; hoặc cần tiếp tục duyệt sau khi  |
+|                 | Giáo viên sửa lại bản ghi từ chối (REJECTED).      |
 +-----------------+----------------------------------------------------+
-| **Điều kiện     | -   Actor có quyền academic.grade.publish (bổ sung |
-| tiên quyết      |     ngoài SDD gốc, đã xác nhận với người dùng —    |
-| (               |     mặc định gán cho role SITE_MANAGER và          |
-| Precondition)** |     HEAD_ACADEMIC).                                |
+| **Điều kiện     | -   Actor có quyền academic.grade.approve (mặc     |
+| tiên quyết      |     định gán cho SITE_MANAGER, HEAD_ACADEMIC).     |
+| (               |                                                    |
+| Precondition)** | -   Bản ghi đang SUBMITTED (chờ duyệt) hoặc bản    |
+|                 |     ghi REJECTED được Giáo viên sửa → tự động     |
+|                 |     quay lại SUBMITTED để duyệt tiếp.             |
 |                 |                                                    |
-|                 | -   Quản lý điểm trường còn phải được gán phụ      |
-|                 |     trách đúng điểm trường của lớp (site_managers, |
-|                 |     row-level); Trưởng phòng đào tạo (có thêm      |
-|                 |     quyền academic.grade.manage) thì không bị giới |
-|                 |     hạn theo site.                                 |
+|                 | -   Quản lý điểm trường phải được gán phụ trách    |
+|                 |     đúng site của lớp; Trưởng phòng đào tạo không  |
+|                 |     bị giới hạn.                                   |
 +-----------------+----------------------------------------------------+
 | **Luồng sự kiện | 1.  Quản lý điểm trường (hoặc Trưởng phòng đào     |
-| chính (Main     |     tạo) mở danh sách điểm chưa công bố — của điểm |
-| Flow)**         |     trường mình phụ trách, hoặc của MỌI điểm       |
-|                 |     trường nếu là Trưởng phòng đào tạo.            |
+| chính (Main     |     tạo) mở danh sách điểm chờ duyệt (SUBMITTED)   |
+| Flow)**         |     — của điểm trường mình phụ trách, hoặc của MỌI  |
+|                 |     điểm trường nếu là Trưởng phòng.               |
 |                 |                                                    |
-|                 | 2.  Quản lý điểm trường chọn cách công bố: Công bố |
-|                 |     từng bản ghi (xem chi tiết 1 học sinh cụ thể)  |
-|                 |     hoặc Công bố theo lô (nhiều bản ghi cùng lúc). |
+|                 | 2.  Quản lý chọn bản ghi từng cái hoặc theo lô để  |
+|                 |     duyệt/từ chối.                                 |
 |                 |                                                    |
-|                 | 3.  Quản lý điểm trường xác nhận công bố dự kiến — |
-|                 |     không còn quyết định Đúng/Sai như trước, chỉ   |
-|                 |     có 1 hành động duy nhất: Công bố dự kiến.      |
+|                 | 3.  Quản lý chọn hành động: **Duyệt** hoặc          |
+|                 |     **Từ chối**.                                    |
 |                 |                                                    |
-|                 | 4.  Hệ thống chuyển các bản ghi đã chọn từ DRAFT   |
-|                 |     sang PROVISIONAL_PUBLISHED, ghi nhận người và  |
-|                 |     thời điểm công bố (mốc bắt đầu tính hạn Y ngày |
-|                 |     phúc khảo — UC-62), công khai điểm cho Phụ     |
-|                 |     huynh xem ngay qua Portal (UC-25), đồng thời   |
-|                 |     gửi thông báo (notification) cho từng Phụ      |
-|                 |     huynh liên kết với học sinh có điểm vừa công   |
-|                 |     bố (bổ sung ngoài SDD gốc, đã xác nhận với     |
-|                 |     người dùng).                                   |
+|                 | 4a. Nếu **Duyệt**: Hệ thống chuyển từ SUBMITTED →  |
+|                 |     OFFICIAL, công khai điểm cho Phụ huynh ngay    |
+|                 |     qua Portal (UC-25), gửi thông báo              |
+|                 |     (notification) cho từng Phụ huynh có học sinh  |
+|                 |     vừa được duyệt.                                |
+|                 |                                                    |
+|                 | 4b. Nếu **Từ chối**: Hệ thống chuyển từ SUBMITTED  |
+|                 |     → REJECTED, ghi nhận người từ chối & thời điểm,|
+|                 |     không công khai cho Phụ huynh (A1).            |
 +-----------------+----------------------------------------------------+
-| **Luồng thay    | ***A1 --- Công bố tách lẻ 1 bản ghi trong lô***    |
+| **Luồng thay    | ***A1 --- Quản lý từ chối***                        |
 | thế / ngoại lệ  |                                                    |
-| (Alternate      | 1.  Quản lý điểm trường có thể mở riêng 1 bản ghi  |
-| Flow)**         |     trong 1 lô để công bố độc lập với phần còn lại |
-|                 |     — không bắt buộc công bố cả lô cùng lúc.       |
+| (Alternate      | 1.  Nếu chọn "Từ chối", bản ghi chuyển SUBMITTED → |
+| Flow)**         |     REJECTED. Giáo viên nhận thông báo (notification|
+|                 |     ) điểm bị từ chối (tuỳ chọn có ghi lý do       |
+|                 |     không).                                        |
 |                 |                                                    |
-|                 | ***A2 --- Công bố lại 1 bản ghi không còn DRAFT    |
-|                 | (bổ sung ngoài SDD gốc, đã xác nhận với người      |
-|                 | dùng)***                                           |
+|                 | 2.  Giáo viên (hoặc Quản lý) có 2 hướng xử lý:     |
+|                 |     - **Hướng 1:** Giáo viên sửa → gửi duyệt lại   |
+|                 |       (SUBMITTED), quản lý duyệt lần 2.            |
+|                 |     - **Hướng 2:** Quản lý sửa luôn → vẫn REJECTED, |
+|                 |       rồi duyệt riêng (bước 4a).                   |
 |                 |                                                    |
-|                 | 1.  Nếu bản ghi được chọn không còn ở trạng thái   |
-|                 |     DRAFT (đã PROVISIONAL_PUBLISHED, đang APPEAL,  |
-|                 |     hoặc đã OFFICIAL), hệ thống báo lỗi (đã công   |
-|                 |     bố dự kiến trước đó), không cho công bố lại    |
-|                 |     (V43 — trước đây V39 chỉ chặn khi PUBLISHED).  |
+|                 | ***A2 --- Quản lý sửa bản ghi REJECTED rồi duyệt***|
 |                 |                                                    |
-|                 | ***A3 --- Tự động công bố dự kiến khi hết hạn X    |
-|                 | ngày, không ai công bố tay (bổ sung ngoài SDD gốc, |
-|                 | đã xác nhận với người dùng)***                     |
+|                 | 1.  Quản lý có quyền academic.grade.edit.override  |
+|                 |     có thể sửa 1 bản ghi REJECTED mà không cần Giáo|
+|                 |     viên gửi lại.                                  |
 |                 |                                                    |
-|                 | 1.  Mỗi đêm, hệ thống quét mọi (lớp, kỳ đánh giá)  |
-|                 |     đã hết hạn X ngày kể từ lần đầu nhập điểm      |
-|                 |     (UC-19, grade_period_edit_windows) — dùng đúng |
-|                 |     1 giá trị X ngày cấu hình chung với độ trễ tự  |
-|                 |     động công bố dự kiến                            |
-|                 |     (system_settings.academic.grade_edit_window_days). |
+|                 | 2.  Sau khi sửa xong, bản ghi vẫn ở REJECTED. Quản |
+|                 |     lý chọn "Duyệt" → chuyển REJECTED → OFFICIAL    |
+|                 |     ngay (không cần giáo viên xác nhận).           |
 |                 |                                                    |
-|                 | 2.  Mọi grade_entries/grade_period_results còn     |
-|                 |     DRAFT thuộc (lớp, kỳ đánh giá) đó được tự động |
-|                 |     chuyển sang PROVISIONAL_PUBLISHED — không cần  |
-|                 |     Quản lý điểm trường xác nhận. Bản ghi đã công  |
-|                 |     bố dự kiến thủ công từ trước không bị ảnh      |
-|                 |     hưởng.                                         |
+|                 | ***A3 --- Bản ghi không còn ở SUBMITTED***         |
 |                 |                                                    |
-|                 | 3.  published_by để trống (không gán người công    |
-|                 |     bố) để phân biệt với công bố thủ công —        |
-|                 |     published_at vẫn ghi nhận đúng thời điểm (mốc  |
-|                 |     tính hạn Y ngày phúc khảo — UC-62); Phụ huynh  |
-|                 |     vẫn nhận được thông báo như công bố thủ công,  |
-|                 |     chỉ khác triggered_by để trống (hệ thống tự    |
-|                 |     động, không có actor con người).               |
+|                 | 1.  Nếu bản ghi không còn ở SUBMITTED (đã OFFICIAL |
+|                 |     hoặc REJECTED được chỉnh sửa), hệ thống báo    |
+|                 |     lỗi không cho duyệt lại.                       |
 +-----------------+----------------------------------------------------+
-| **Hậu điều kiện | -   Trạng thái điểm được cập nhật chính xác (DRAFT |
-| (P              |     → PROVISIONAL_PUBLISHED).                      |
-| ostcondition)** |                                                    |
-|                 | -   Điểm công bố dự kiến được công khai cho Phụ    |
-|                 |     huynh ngay lập tức qua Portal (UC-25).         |
+| **Hậu điều kiện | -   **Nếu duyệt:** Bản ghi SUBMITTED → OFFICIAL,    |
+| (P              |     công khai cho Phụ huynh qua Portal ngay, không  |
+| ostcondition)** |     còn sửa được (trừ Quản lý có override).        |
 |                 |                                                    |
-|                 | -   Bắt đầu tính hạn Y ngày phúc khảo kể từ         |
-|                 |     publishedAt (UC-62) — Giáo viên KHÔNG còn tự   |
-|                 |     sửa trực tiếp được bản ghi nữa (khác V39), chỉ |
-|                 |     sửa được qua luồng phúc khảo nếu Học sinh/Phụ  |
-|                 |     huynh gửi yêu cầu và Giáo viên tiếp nhận.       |
-|                 |                                                    |
-|                 | -   Nếu không ai công bố thủ công trong hạn X      |
-|                 |     ngày, hệ thống tự động chuyển DRAFT →          |
-|                 |     PROVISIONAL_PUBLISHED cho toàn bộ bản ghi còn  |
-|                 |     lại của (lớp, kỳ đánh giá) đó ngay sau khi hết |
-|                 |     hạn (A3) — Phụ huynh không phải chờ vô thời    |
-|                 |     hạn nếu Quản lý điểm trường quên công bố.       |
-|                 |                                                    |
-|                 | -   Hết hạn Y ngày phúc khảo mà không có (hoặc đã  |
-|                 |     xử lý xong) yêu cầu phúc khảo nào, hệ thống tự |
-|                 |     động chuyển bản ghi sang Chính thức (OFFICIAL,  |
-|                 |     UC-62 A3) — khoá vĩnh viễn, không sửa/xoá được  |
-|                 |     nữa kể cả qua phúc khảo.                        |
+|                 | -   **Nếu từ chối:** Bản ghi SUBMITTED → REJECTED,  |
+|                 |     không công khai cho Phụ huynh. Giáo viên nhận   |
+|                 |     thông báo, có thể sửa & gửi duyệt lại hoặc để  |
+|                 |     Quản lý sửa.                                   |
 |                 |                                                    |
 |                 | -   Phụ huynh nhận được thông báo (notification)   |
-|                 |     ngay khi điểm/Overall-Level được công bố dự    |
-|                 |     kiến — cả công bố thủ công lẫn tự động (A3),   |
-|                 |     không cần tự vào Portal kiểm tra (bổ sung ngoài |
-|                 |     SDD gốc, đã xác nhận với người dùng).          |
+|                 |     ngay khi bản ghi được duyệt (OFFICIAL).        |
+|                 |                                                    |
+|                 | -   Bản ghi OFFICIAL không được sửa/xoá trực tiếp  |
+|                 |     (chỉ Quản lý có quyền override nếu cần chỉnh    |
+|                 |     sửa).                                          |
 +-----------------+----------------------------------------------------+
 
 ---
 
-UC-62: Phúc khảo điểm (bổ sung ngoài SDD gốc, đã xác nhận với người dùng)
+UC-62: Phúc khảo điểm — ĐÃ GỠ BỎ (V44, xem UC-19/UC-20)
 
-+-----------------+----------------------------------------------------+
-| **Mã Use Case** | UC-62                                              |
-+-----------------+----------------------------------------------------+
-| **Tên Use       | Phúc khảo điểm                                     |
-| Case**          |                                                    |
-+-----------------+----------------------------------------------------+
-| **Phân hệ**     | Phân hệ 6                                          |
-+-----------------+----------------------------------------------------+
-| **Yêu cầu chức  | FR-ACA-03 (V43, bổ sung ngoài SDD gốc, đã xác nhận |
-| năng gốc**      | với người dùng)                                    |
-+-----------------+----------------------------------------------------+
-| **Tác nhân**    | Học sinh; Phụ huynh (gửi yêu cầu phúc khảo)         |
-|                 |                                                    |
-|                 | Giáo viên (tiếp nhận yêu cầu, sửa điểm)             |
-+-----------------+----------------------------------------------------+
-| **Mô tả tóm     | Sau khi điểm được công bố dự kiến (UC-20), Học     |
-| tắt**           | sinh hoặc Phụ huynh liên kết có thể gửi yêu cầu     |
-|                 | phúc khảo trong hạn Y ngày. Bản ghi điểm chuyển     |
-|                 | sang trạng thái Phúc khảo (APPEAL); Giáo viên phụ   |
-|                 | trách lớp nhận thông báo, tiếp nhận yêu cầu rồi     |
-|                 | mới được sửa điểm của đúng học sinh đó. Sửa xong,   |
-|                 | bản ghi tự động quay lại Công bố dự kiến. Hết hạn Y |
-|                 | ngày (dù còn yêu cầu phúc khảo dở dang hay không),  |
-|                 | hệ thống tự động khoá bản ghi sang Chính thức       |
-|                 | (OFFICIAL).                                        |
-+-----------------+----------------------------------------------------+
-| **Sự kiện kích  | Học sinh/Phụ huynh không đồng ý với điểm đã công    |
-| hoạt**          | bố dự kiến, còn trong hạn Y ngày kể từ lúc công bố. |
-+-----------------+----------------------------------------------------+
-| **Điều kiện     | -   Bản ghi điểm (grade_entries hoặc               |
-| tiên quyết      |     grade_period_results) đang ở trạng thái Công   |
-| (               |     bố dự kiến (PROVISIONAL_PUBLISHED) — chưa hết  |
-| Precondition)** |     hạn Y ngày (system_settings.academic.          |
-|                 |     grade_appeal_window_days, mặc định 7 ngày) và  |
-|                 |     chưa có yêu cầu phúc khảo nào khác đang mở.    |
-|                 |                                                    |
-|                 | -   Actor gửi yêu cầu phải là chính học sinh sở     |
-|                 |     hữu bản ghi, hoặc Phụ huynh liên kết            |
-|                 |     (parent_student) với học sinh đó.              |
-|                 |                                                    |
-|                 | -   Actor tiếp nhận/sửa điểm phải là Giáo viên được |
-|                 |     phân công giảng dạy đúng lớp của bản ghi (bất   |
-|                 |     kỳ giáo viên nào của lớp, không riêng người đã |
-|                 |     nhập điểm ban đầu).                             |
-+-----------------+----------------------------------------------------+
-| **Luồng sự kiện | 1.  Học sinh hoặc Phụ huynh mở bảng điểm đã công   |
-| chính (Main     |     bố dự kiến, chọn 1 bản ghi và gửi yêu cầu phúc |
-| Flow)**         |     khảo (kèm lý do, tuỳ chọn).                    |
-|                 |                                                    |
-|                 | 2.  Hệ thống tạo yêu cầu phúc khảo (PENDING), đổi   |
-|                 |     trạng thái bản ghi điểm sang Phúc khảo (APPEAL) |
-|                 |     ngay lập tức, gửi thông báo cho TẤT CẢ giáo     |
-|                 |     viên phụ trách lớp.                             |
-|                 |                                                    |
-|                 | 3.  1 Giáo viên phụ trách lớp tiếp nhận yêu cầu —   |
-|                 |     yêu cầu chuyển ACCEPTED, ghi nhận người và thời |
-|                 |     điểm tiếp nhận.                                |
-|                 |                                                    |
-|                 | 4.  Giáo viên đã tiếp nhận sửa lại điểm của đúng    |
-|                 |     học sinh đó (UC-19, enterGrade) — đây là        |
-|                 |     trường hợp duy nhất Giáo viên sửa được bản ghi  |
-|                 |     không còn ở trạng thái Nháp.                    |
-|                 |                                                    |
-|                 | 5.  Sửa xong, hệ thống tự động: đóng yêu cầu phúc   |
-|                 |     khảo (RESOLVED) và chuyển bản ghi điểm về Công  |
-|                 |     bố dự kiến (PROVISIONAL_PUBLISHED) — publishedAt |
-|                 |     GIỮ NGUYÊN mốc gốc, hạn Y ngày KHÔNG bị gia hạn |
-|                 |     lại. Không cần thao tác "hoàn tất phúc khảo"    |
-|                 |     riêng.                                          |
-+-----------------+----------------------------------------------------+
-| **Luồng thay    | ***A1 --- Gửi phúc khảo khi không đủ điều kiện***  |
-| thế / ngoại lệ  |                                                    |
-| (Alternate      | 1.  Nếu bản ghi còn Nháp (chưa công bố), hệ thống  |
-| Flow)**         |     báo không tìm thấy (chưa công khai).           |
-|                 |                                                    |
-|                 | 2.  Nếu bản ghi đang có 1 yêu cầu phúc khảo khác    |
-|                 |     chưa xử lý xong (PENDING/ACCEPTED), hệ thống    |
-|                 |     báo lỗi, không cho gửi thêm.                   |
-|                 |                                                    |
-|                 | 3.  Nếu bản ghi đã Chính thức (OFFICIAL — hết hạn Y |
-|                 |     ngày), hệ thống báo đã hết hạn phúc khảo.       |
-|                 |                                                    |
-|                 | ***A2 --- Giáo viên khác cố tiếp nhận/sửa***       |
-|                 |                                                    |
-|                 | 1.  Nếu yêu cầu phúc khảo đã được 1 Giáo viên khác  |
-|                 |     tiếp nhận (hoặc đã RESOLVED), hệ thống chặn     |
-|                 |     tiếp nhận lại.                                 |
-|                 |                                                    |
-|                 | 2.  Nếu 1 Giáo viên khác (chưa tiếp nhận yêu cầu    |
-|                 |     này) cố sửa điểm của bản ghi đang Phúc khảo, hệ |
-|                 |     thống chặn sửa (UC-19 A2) — chỉ Giáo viên đã    |
-|                 |     tiếp nhận đúng yêu cầu đó mới sửa được.         |
-|                 |                                                    |
-|                 | ***A3 --- Hết hạn Y ngày, kể cả đang phúc khảo dở   |
-|                 | dang***                                            |
-|                 |                                                    |
-|                 | 1.  Mỗi đêm, hệ thống quét mọi bản ghi còn Công bố  |
-|                 |     dự kiến hoặc đang Phúc khảo mà đã quá hạn Y     |
-|                 |     ngày kể từ publishedAt.                        |
-|                 |                                                    |
-|                 | 2.  Chuyển các bản ghi đó sang Chính thức (OFFICIAL, |
-|                 |     ghi nhận finalizedAt) — kể cả bản ghi đang Phúc |
-|                 |     khảo dở dang (Giáo viên đã tiếp nhận nhưng chưa |
-|                 |     sửa xong): khoá lại luôn, không chờ xử lý xong  |
-|                 |     (đã xác nhận với người dùng — chỉ Trưởng phòng  |
-|                 |     đào tạo/người có academic.grade.edit.override   |
-|                 |     mới sửa tiếp được sau mốc này).                |
-+-----------------+----------------------------------------------------+
-| **Hậu điều kiện | -   Yêu cầu phúc khảo được ghi nhận đầy đủ vòng đời |
-| (P              |     PENDING → ACCEPTED → RESOLVED (hoặc dừng ở      |
-| ostcondition)** |     PENDING/ACCEPTED nếu hết hạn Y ngày trước khi   |
-|                 |     xử lý xong).                                    |
-|                 |                                                    |
-|                 | -   Trạng thái bản ghi điểm phản ánh đúng vòng đời: |
-|                 |     PROVISIONAL_PUBLISHED → APPEAL → (sửa xong)     |
-|                 |     PROVISIONAL_PUBLISHED, hoặc → OFFICIAL (hết hạn |
-|                 |     Y ngày).                                        |
-|                 |                                                    |
-|                 | -   Giáo viên phụ trách lớp nhận được thông báo     |
-|                 |     (notification, loại GRADE_APPEAL_REQUESTED)     |
-|                 |     ngay khi có yêu cầu phúc khảo mới.              |
-|                 |                                                    |
-|                 | -   Bản ghi Chính thức (OFFICIAL) không sửa/xoá     |
-|                 |     được nữa dưới bất kỳ hình thức nào (trừ actor   |
-|                 |     có academic.grade.edit.override).               |
-+-----------------+----------------------------------------------------+
+> **V44 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng): UC-62 (Phúc
+> khảo điểm, V43) đã bị gỡ bỏ hoàn toàn khỏi hệ thống** — thay bằng luồng
+> Duyệt/Từ chối ở UC-20. Lý do: nghiệp vụ không cần "công bố dự kiến rồi
+> chờ phúc khảo" nữa — điểm chỉ hiển thị cho Phụ huynh/Học sinh SAU KHI
+> Quản lý điểm trường duyệt (OFFICIAL); nếu điểm sai, Quản lý từ chối
+> (REJECTED) và Giáo viên sửa lại trước khi công khai, thay vì để lộ điểm
+> sai rồi mới xử lý phúc khảo. Đã xoá: `GradeAppealService`,
+> `GradeAppealController`, entity/bảng `grade_appeal_requests`, permission
+> phái sinh, 2 job đêm trong `GradeSchedulerService` (tự động công bố dự
+> kiến + tự động khoá Chính thức sau hạn phúc khảo), cấu hình hạn Y ngày
+> phúc khảo (`academic.grade_appeal_window_days`). Xem migration V77.
 
 ---
 

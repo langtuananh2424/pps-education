@@ -15,10 +15,10 @@ interface GradePublishGroupListProps {
   onSelect: (classId: number) => void;
 }
 
-/** UC-20 bước 1: danh sách lớp (+ giáo viên) đã nhập điểm và còn bản ghi chưa công bố — bấm vào 1 lớp mới xem chi tiết. */
+/** UC-20 bước 1 (V44): danh sách lớp (+ giáo viên) có bản ghi điểm đang chờ duyệt (SUBMITTED) — bấm vào 1 lớp mới xem chi tiết. */
 export default function GradePublishGroupList({ groups, loading, selectedClassId, onSelect }: GradePublishGroupListProps) {
   if (loading) return <p className="text-xs text-slate-500 p-4">Đang tải...</p>;
-  if (groups.length === 0) return <p className="text-xs text-slate-400 italic text-center py-6">Chưa có lớp nào gửi điểm chờ công bố.</p>;
+  if (groups.length === 0) return <p className="text-xs text-slate-400 italic text-center py-6">Chưa có lớp nào gửi điểm chờ duyệt.</p>;
 
   return (
     <div className="divide-y divide-slate-100">

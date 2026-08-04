@@ -5,7 +5,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.GradePeriodEditWindow;
-import vn.com.pps.education.domain.Notification;
 import vn.com.pps.education.domain.Parent;
 import vn.com.pps.education.domain.ParentStudent;
 import vn.com.pps.education.domain.Role;
@@ -24,14 +23,13 @@ import vn.com.pps.education.dto.CurriculumResponse;
 import vn.com.pps.education.dto.EnrollStudentRequest;
 import vn.com.pps.education.dto.EnterGradePeriodResultRequest;
 import vn.com.pps.education.dto.EnterGradeRequest;
-import vn.com.pps.education.dto.GradeAppealResponse;
 import vn.com.pps.education.dto.GradeComponentResponse;
 import vn.com.pps.education.dto.GradeEntryResponse;
 import vn.com.pps.education.dto.GradePeriodResponse;
 import vn.com.pps.education.dto.GradePeriodResultResponse;
 import vn.com.pps.education.dto.PublishGradesRequest;
 import vn.com.pps.education.dto.RecordTransferRequest;
-import vn.com.pps.education.dto.SubmitGradeAppealRequest;
+import vn.com.pps.education.dto.SubmitGradesRequest;
 import vn.com.pps.education.dto.UpdateCurriculumRequest;
 import vn.com.pps.education.dto.UpdateGradeComponentRequest;
 import vn.com.pps.education.exception.GradeAlreadyPublishedException;
@@ -69,15 +67,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * UC-19: Nhập điểm — Main Flow (bước 1-3), A1 (điểm không hợp lệ), A2 (sửa/xoá
- * bản ghi không ở trạng thái cho phép) + UC-20: Công bố điểm dự kiến — Main
- * Flow (bước 1-5), A1 (công bố tách lẻ), A2 (công bố lại bản ghi không còn
- * DRAFT). V43 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng — sửa đổi
- * lần 2 sau V39): luồng 4 trạng thái DRAFT → PROVISIONAL_PUBLISHED → APPEAL
- * → OFFICIAL, khoá sửa/xoá theo TRẠNG THÁI (không còn theo hạn X ngày như
- * V39). Test UC-62 (phúc khảo, GradeAppealService) nằm ở GradeAppealServiceTest
- * riêng — file này chỉ test phần "sửa điểm trong lúc APPEAL" thuộc GradeService.
- * Xem docs/uc/phan-he-06-hoc-thuat.md.
+ * UC-19: Nhập điểm — Main Flow (bước 1-4), A1 (điểm không hợp lệ), A2 (sửa/xoá
+ * bản ghi không ở trạng thái cho phép), A3 (gửi duyệt thất bại) + UC-20:
+ * Duyệt/Từ chối điểm — Main Flow (bước 1-5), A1 (từ chối), A2 (Quản lý sửa
+ * bản ghi REJECTED rồi duyệt thẳng), A3 (duyệt/từ chối bản ghi không còn ở
+ * trạng thái phù hợp). V44 (bổ sung ngoài SDD gốc, đã xác nhận với người
+ * dùng — thay hẳn luồng "công bố dự kiến + phúc khảo" cũ): luồng 4 trạng
+ * thái DRAFT → SUBMITTED → OFFICIAL / REJECTED. Xem docs/uc/phan-he-06-hoc-thuat.md.
  */
 @Transactional
 class GradeServiceTest extends AbstractIntegrationTest {
@@ -89,9 +85,6 @@ class GradeServiceTest extends AbstractIntegrationTest {
 
     @Autowired
     private StudentService studentService;
-
-    @Autowired
-    private GradeAppealService gradeAppealService;
 
     @Autowired
     private ClassService classService;
@@ -314,7 +307,7 @@ class GradeServiceTest extends AbstractIntegrationTest {
 
     @Test
     void enterGrade_UC19_MainFlow_draftEditableWithNoTimeLimit() {
-        // V43: bỏ hẳn hạn X ngày làm giới hạn sửa -- DRAFT sửa được vô thời hạn, kể cả sau mốc X ngày cũ.
+        // V43+: bỏ hẳn hạn X ngày làm giới hạn sửa -- DRAFT sửa được vô thời hạn, kể cả sau mốc X ngày cũ.
         GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
                 new EnterGradeRequest(student.getId(), new BigDecimal("8"), false, null), teacher.getId());
         expireEditWindow(schoolClass.id(), gradePeriod.id());
@@ -328,10 +321,10 @@ class GradeServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void enterGrade_UC19_A2_rejectsEditWhenProvisionalPublishedWithoutOverride() {
+    void enterGrade_UC19_A2_rejectsEditWhenSubmittedWithoutOverride() {
         GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
                 new EnterGradeRequest(student.getId(), new BigDecimal("8"), false, null), teacher.getId());
-        gradeService.publishGrades(new PublishGradesRequest(List.of(entry.id()), null), siteManagerUser.getId());
+        submitEntries(entry.id());
 
         assertThatThrownBy(() -> gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
                 new EnterGradeRequest(student.getId(), new BigDecimal("9"), false, null), teacher.getId()))
@@ -339,59 +332,33 @@ class GradeServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void enterGrade_allowsEditingProvisionalPublishedWithOverridePermission() {
+    void enterGrade_allowsEditingOfficialWithOverridePermission() {
         GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
                 new EnterGradeRequest(student.getId(), new BigDecimal("8"), false, null), teacher.getId());
-        gradeService.publishGrades(new PublishGradesRequest(List.of(entry.id()), null), siteManagerUser.getId());
+        submitEntries(entry.id());
+        approveEntries(siteManagerUser.getId(), entry.id());
 
-        // siteManagerUser có quyền academic.grade.edit.override mặc định (V39) -- bỏ qua mọi ràng buộc trạng thái (V43).
+        // siteManagerUser có quyền academic.grade.edit.override mặc định (V39) -- bỏ qua mọi ràng buộc trạng thái (V44).
         GradeEntryResponse edited = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
                 new EnterGradeRequest(student.getId(), new BigDecimal("9.5"), false, "Sửa bởi HEAD"), siteManagerUser.getId());
 
         assertThat(edited.score()).isEqualByComparingTo("9.5");
-        assertThat(edited.status()).isEqualTo("PROVISIONAL_PUBLISHED");
+        assertThat(edited.status()).isEqualTo("OFFICIAL");
     }
 
     @Test
-    void enterGrade_UC62_MainFlow_editableDuringAcceptedAppealAndResolvesAppeal() {
+    void enterGrade_UC20_A2_editableWhenRejectedByTeacherAndStaysRejected() {
         GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
                 new EnterGradeRequest(student.getId(), new BigDecimal("8"), false, null), teacher.getId());
-        gradeService.publishGrades(new PublishGradesRequest(List.of(entry.id()), null), siteManagerUser.getId());
-        classService.enroll(schoolClass.id(), new EnrollStudentRequest(student.getId(), LocalDate.now()), headAcademic.getId());
+        submitEntries(entry.id());
+        rejectEntries(siteManagerUser.getId(), "Điểm chưa hợp lý", entry.id());
 
-        GradeAppealResponse appeal = gradeAppealService.submitAppeal(
-                new SubmitGradeAppealRequest("GRADE_ENTRY", entry.id(), "Nghĩ là chấm sai"), student.getUser().getId());
-        gradeAppealService.acceptAppeal(appeal.id(), teacher.getId());
-
+        // Sửa lúc REJECTED KHÔNG tự đổi trạng thái (UC-20 A2) -- vẫn REJECTED cho tới khi gửi duyệt lại hoặc Quản lý duyệt thẳng.
         GradeEntryResponse edited = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
-                new EnterGradeRequest(student.getId(), new BigDecimal("9"), false, "Chấm lại sau phúc khảo"), teacher.getId());
+                new EnterGradeRequest(student.getId(), new BigDecimal("9"), false, "Sửa lại sau khi bị từ chối"), teacher.getId());
 
-        assertThat(edited.status()).isEqualTo("PROVISIONAL_PUBLISHED");
+        assertThat(edited.status()).isEqualTo("REJECTED");
         assertThat(edited.score()).isEqualByComparingTo("9");
-        assertThat(gradeAppealService.listMyAppeals(student.getUser().getId()))
-                .filteredOn(a -> a.id().equals(appeal.id()))
-                .extracting(GradeAppealResponse::status)
-                .containsExactly("RESOLVED");
-    }
-
-    @Test
-    void enterGrade_UC62_A2_rejectsAppealEditByTeacherWhoDidNotAccept() {
-        GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
-                new EnterGradeRequest(student.getId(), new BigDecimal("8"), false, null), teacher.getId());
-        gradeService.publishGrades(new PublishGradesRequest(List.of(entry.id()), null), siteManagerUser.getId());
-        classService.enroll(schoolClass.id(), new EnrollStudentRequest(student.getId(), LocalDate.now()), headAcademic.getId());
-        gradeAppealService.submitAppeal(
-                new SubmitGradeAppealRequest("GRADE_ENTRY", entry.id(), null), student.getUser().getId());
-
-        User otherTeacher = newUser("teacher.other");
-        assignRole(otherTeacher, "TEACHER");
-        classService.assignTeacher(schoolClass.id(),
-                new AssignTeacherRequest(otherTeacher.getId(), "ASSISTANT", null, LocalDate.now()), headAcademic.getId());
-
-        // otherTeacher là GV của lớp nhưng chưa tiếp nhận yêu cầu phúc khảo này -- không sửa được.
-        assertThatThrownBy(() -> gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
-                new EnterGradeRequest(student.getId(), new BigDecimal("9"), false, null), otherTeacher.getId()))
-                .isInstanceOf(GradeNotEditableException.class);
     }
 
     @Test
@@ -409,7 +376,7 @@ class GradeServiceTest extends AbstractIntegrationTest {
     void deleteGradeEntry_rejectsWhenNotDraft() {
         GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
                 new EnterGradeRequest(student.getId(), new BigDecimal("8"), false, null), teacher.getId());
-        gradeService.publishGrades(new PublishGradesRequest(List.of(entry.id()), null), siteManagerUser.getId());
+        submitEntries(entry.id());
 
         assertThatThrownBy(() -> gradeService.deleteGradeEntry(schoolClass.id(), gradeComponent.id(), student.getId(), teacher.getId()))
                 .isInstanceOf(GradeNotEditableException.class);
@@ -431,7 +398,7 @@ class GradeServiceTest extends AbstractIntegrationTest {
     void deletePeriodResult_rejectsWhenNotDraft() {
         GradePeriodResultResponse result = gradeService.enterPeriodResult(schoolClass.id(), student.getId(), gradePeriod.id(),
                 new EnterGradePeriodResultRequest(new BigDecimal("6.5"), "BAND", "B2"), teacher.getId());
-        gradeService.publishGrades(new PublishGradesRequest(null, List.of(result.id())), siteManagerUser.getId());
+        submitResults(result.id());
 
         assertThatThrownBy(() -> gradeService.deletePeriodResult(schoolClass.id(), student.getId(), gradePeriod.id(), teacher.getId()))
                 .isInstanceOf(GradeNotEditableException.class);
@@ -465,40 +432,126 @@ class GradeServiceTest extends AbstractIntegrationTest {
                 .isInstanceOf(NotAssignedTeacherForClassException.class);
     }
 
+    // ===================== UC-19 Main Flow bước 4: Gửi duyệt =====================
+
     @Test
-    void publishGrades_UC20_MainFlow_publishesGradeAsProvisional() {
+    void submitGradesForApproval_UC19_MainFlow_movesDraftEntryToSubmitted() {
         GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
-                new EnterGradeRequest(student.getId(), new BigDecimal("9"), false, null), teacher.getId());
+                new EnterGradeRequest(student.getId(), new BigDecimal("8"), false, null), teacher.getId());
 
-        List<GradeEntryResponse> published = gradeService.publishGrades(
-                new PublishGradesRequest(List.of(entry.id()), null), siteManagerUser.getId());
+        List<GradeEntryResponse> submitted = gradeService.submitGradesForApproval(
+                new SubmitGradesRequest(List.of(entry.id()), null), teacher.getId());
 
-        assertThat(published.get(0).status()).isEqualTo("PROVISIONAL_PUBLISHED");
-        assertThat(published.get(0).publishedBy()).isEqualTo(siteManagerUser.getId());
-        assertThat(published.get(0).publishedAt()).isNotNull();
+        assertThat(submitted.get(0).status()).isEqualTo("SUBMITTED");
     }
 
     @Test
-    void publishGrades_UC53_publishesPeriodResultAsProvisional() {
+    void submitGradesForApproval_UC19_A3_rejectsWhenAlreadySubmitted() {
+        GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
+                new EnterGradeRequest(student.getId(), new BigDecimal("8"), false, null), teacher.getId());
+        submitEntries(entry.id());
+
+        assertThatThrownBy(() -> submitEntries(entry.id()))
+                .isInstanceOf(GradeAlreadyPublishedException.class);
+    }
+
+    @Test
+    void submitGradesForApproval_UC19_MainFlow_resubmitsRejectedEntry() {
+        GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
+                new EnterGradeRequest(student.getId(), new BigDecimal("8"), false, null), teacher.getId());
+        submitEntries(entry.id());
+        rejectEntries(siteManagerUser.getId(), null, entry.id());
+
+        List<GradeEntryResponse> resubmitted = gradeService.submitGradesForApproval(
+                new SubmitGradesRequest(List.of(entry.id()), null), teacher.getId());
+
+        assertThat(resubmitted.get(0).status()).isEqualTo("SUBMITTED");
+    }
+
+    // ===================== UC-20: Duyệt/Từ chối điểm =====================
+
+    @Test
+    void publishGrades_UC20_MainFlow_approvesSubmittedEntryToOfficial() {
+        GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
+                new EnterGradeRequest(student.getId(), new BigDecimal("9"), false, null), teacher.getId());
+        submitEntries(entry.id());
+
+        List<GradeEntryResponse> approved = approveEntries(siteManagerUser.getId(), entry.id());
+
+        assertThat(approved.get(0).status()).isEqualTo("OFFICIAL");
+        assertThat(approved.get(0).publishedBy()).isEqualTo(siteManagerUser.getId());
+        assertThat(approved.get(0).publishedAt()).isNotNull();
+    }
+
+    @Test
+    void publishGrades_UC53_approvesPeriodResultToOfficial() {
         GradePeriodResultResponse result = gradeService.enterPeriodResult(schoolClass.id(), student.getId(), gradePeriod.id(),
                 new EnterGradePeriodResultRequest(new BigDecimal("6.5"), "BAND", "B2"), teacher.getId());
+        submitResults(result.id());
 
-        gradeService.publishGrades(new PublishGradesRequest(null, List.of(result.id())), siteManagerUser.getId());
+        approveResults(siteManagerUser.getId(), result.id());
 
         assertThat(gradeService.listPeriodResults(schoolClass.id(), gradePeriod.id()))
                 .filteredOn(r -> r.id().equals(result.id()))
                 .extracting(GradePeriodResultResponse::status)
-                .containsExactly("PROVISIONAL_PUBLISHED");
+                .containsExactly("OFFICIAL");
     }
 
     @Test
-    void publishGrades_UC20_A2_rejectsWhenAlreadyPublished() {
+    void publishGrades_UC20_A1_rejectsSubmittedEntryAndNotifiesTeacher() {
         GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
                 new EnterGradeRequest(student.getId(), new BigDecimal("8"), false, null), teacher.getId());
-        gradeService.publishGrades(new PublishGradesRequest(List.of(entry.id()), null), siteManagerUser.getId());
+        submitEntries(entry.id());
 
-        assertThatThrownBy(() -> gradeService.publishGrades(
-                new PublishGradesRequest(List.of(entry.id()), null), siteManagerUser.getId()))
+        List<GradeEntryResponse> rejected = rejectEntries(siteManagerUser.getId(), "Điểm chưa đúng", entry.id());
+
+        assertThat(rejected.get(0).status()).isEqualTo("REJECTED");
+        var notifications = notificationService.listMine(teacher.getId(), PageRequest.of(0, 10));
+        assertThat(notifications.getContent())
+                .anySatisfy(n -> {
+                    assertThat(n.notificationType()).isEqualTo("GRADE_REJECTED");
+                    assertThat(n.entityType()).isEqualTo("GRADE_ENTRY");
+                    assertThat(n.entityId()).isEqualTo(entry.id());
+                });
+    }
+
+    @Test
+    void publishGrades_UC20_A2_managerEditsRejectedEntryThenApprovesDirectly() {
+        GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
+                new EnterGradeRequest(student.getId(), new BigDecimal("8"), false, null), teacher.getId());
+        submitEntries(entry.id());
+        rejectEntries(siteManagerUser.getId(), "Sai điểm", entry.id());
+
+        // Quản lý có quyền academic.grade.edit.override -- tự sửa bản ghi REJECTED (vẫn REJECTED sau khi sửa).
+        GradeEntryResponse edited = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
+                new EnterGradeRequest(student.getId(), new BigDecimal("9"), false, "Quản lý tự sửa"), siteManagerUser.getId());
+        assertThat(edited.status()).isEqualTo("REJECTED");
+
+        // Duyệt thẳng REJECTED -> OFFICIAL, không cần Giáo viên gửi duyệt lại.
+        List<GradeEntryResponse> approved = approveEntries(siteManagerUser.getId(), entry.id());
+
+        assertThat(approved.get(0).status()).isEqualTo("OFFICIAL");
+        assertThat(approved.get(0).score()).isEqualByComparingTo("9");
+    }
+
+    @Test
+    void publishGrades_UC20_A3_rejectsApprovingAlreadyOfficialEntry() {
+        GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
+                new EnterGradeRequest(student.getId(), new BigDecimal("8"), false, null), teacher.getId());
+        submitEntries(entry.id());
+        approveEntries(siteManagerUser.getId(), entry.id());
+
+        assertThatThrownBy(() -> approveEntries(siteManagerUser.getId(), entry.id()))
+                .isInstanceOf(GradeAlreadyPublishedException.class);
+    }
+
+    @Test
+    void publishGrades_UC20_A3_rejectsRejectingEntryNotSubmitted() {
+        GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
+                new EnterGradeRequest(student.getId(), new BigDecimal("8"), false, null), teacher.getId());
+        // Vẫn còn DRAFT -- chưa gửi duyệt.
+
+        assertThatThrownBy(() -> rejectEntries(siteManagerUser.getId(), null, entry.id()))
                 .isInstanceOf(GradeAlreadyPublishedException.class);
     }
 
@@ -509,9 +562,10 @@ class GradeServiceTest extends AbstractIntegrationTest {
                 new EnterGradeRequest(student.getId(), new BigDecimal("8"), false, null), teacher.getId());
         GradeEntryResponse entry2 = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
                 new EnterGradeRequest(student2.getId(), new BigDecimal("6"), false, null), teacher.getId());
+        submitEntries(entry1.id(), entry2.id());
 
-        // A1 -- công bố tách lẻ chỉ entry1, entry2 vẫn DRAFT (chưa công bố).
-        gradeService.publishGrades(new PublishGradesRequest(List.of(entry1.id()), null), siteManagerUser.getId());
+        // A1 -- duyệt tách lẻ chỉ entry1, entry2 vẫn SUBMITTED (chưa duyệt).
+        approveEntries(siteManagerUser.getId(), entry1.id());
 
         assertThat(gradeService.listUnpublishedForSite(siteManagerUser.getId()))
                 .extracting(GradeEntryResponse::id).containsExactly(entry2.id());
@@ -521,58 +575,60 @@ class GradeServiceTest extends AbstractIntegrationTest {
     void publishGrades_rejectsWhenActorNotSiteManagerForSite() {
         GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
                 new EnterGradeRequest(student.getId(), new BigDecimal("8"), false, null), teacher.getId());
+        submitEntries(entry.id());
         User outsiderManager = newUser("outsider.sitemanager");
         assignRole(outsiderManager, "SITE_MANAGER");
 
-        assertThatThrownBy(() -> gradeService.publishGrades(
-                new PublishGradesRequest(List.of(entry.id()), null), outsiderManager.getId()))
+        assertThatThrownBy(() -> approveEntries(outsiderManager.getId(), entry.id()))
                 .isInstanceOf(NotSiteManagerForSiteException.class);
     }
 
     @Test
-    void publishGrades_UC20_Precondition_rejectsWhenActorHasNoGradePublishPermission() {
+    void publishGrades_UC20_Precondition_rejectsWhenActorHasNoGradeApprovePermission() {
         GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
                 new EnterGradeRequest(student.getId(), new BigDecimal("8"), false, null), teacher.getId());
-        // TEACHER không được cấp academic.grade.publish (V38/V39 chỉ gán cho SITE_MANAGER/HEAD_ACADEMIC).
+        submitEntries(entry.id());
+        // TEACHER không được cấp academic.grade.approve (V38/V77 chỉ gán cho SITE_MANAGER/HEAD_ACADEMIC).
 
-        assertThatThrownBy(() -> gradeService.publishGrades(
-                new PublishGradesRequest(List.of(entry.id()), null), teacher.getId()))
+        assertThatThrownBy(() -> approveEntries(teacher.getId(), entry.id()))
                 .isInstanceOf(NotSiteManagerForSiteException.class);
     }
 
     @Test
-    void publishGrades_UC20_Precondition_supportsHeadAcademicPublishingAnySite() {
-        // Mở rộng ngoài SDD gốc, đã xác nhận với người dùng: HEAD_ACADEMIC (academic.grade.publish
-        // + academic.grade.manage) công bố được dù không có bản ghi site_managers cho site của lớp.
+    void publishGrades_UC20_Precondition_supportsHeadAcademicApprovingAnySite() {
+        // Mở rộng ngoài SDD gốc, đã xác nhận với người dùng: HEAD_ACADEMIC (academic.grade.approve
+        // + academic.grade.manage) duyệt được dù không có bản ghi site_managers cho site của lớp.
         GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
                 new EnterGradeRequest(student.getId(), new BigDecimal("8"), false, null), teacher.getId());
+        submitEntries(entry.id());
 
-        List<GradeEntryResponse> published = gradeService.publishGrades(
-                new PublishGradesRequest(List.of(entry.id()), null), headAcademic.getId());
+        List<GradeEntryResponse> approved = approveEntries(headAcademic.getId(), entry.id());
 
-        assertThat(published.get(0).status()).isEqualTo("PROVISIONAL_PUBLISHED");
+        assertThat(approved.get(0).status()).isEqualTo("OFFICIAL");
     }
 
     @Test
     void listUnpublishedForSite_UC20_Precondition_headAcademicSeesAllSitesNotJustOwnAssignment() {
         GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
                 new EnterGradeRequest(student.getId(), new BigDecimal("8"), false, null), teacher.getId());
+        submitEntries(entry.id());
 
         assertThat(gradeService.listUnpublishedForSite(headAcademic.getId()))
                 .extracting(GradeEntryResponse::id).contains(entry.id());
     }
 
     @Test
-    void listMyGrades_UC61_MainFlow_returnsProvisionalPublishedEntriesForEnrolledClass() {
+    void listMyGrades_UC61_MainFlow_returnsOfficialEntriesForEnrolledClass() {
         classService.enroll(schoolClass.id(), new EnrollStudentRequest(student.getId(), LocalDate.now()), headAcademic.getId());
         GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
                 new EnterGradeRequest(student.getId(), new BigDecimal("8"), false, null), teacher.getId());
-        gradeService.publishGrades(new PublishGradesRequest(List.of(entry.id()), null), siteManagerUser.getId());
+        submitEntries(entry.id());
+        approveEntries(siteManagerUser.getId(), entry.id());
 
         List<GradeEntryResponse> myGrades = gradeService.listMyGrades(student.getUser().getId(), null);
 
         assertThat(myGrades).extracting(GradeEntryResponse::id).contains(entry.id());
-        assertThat(myGrades).extracting(GradeEntryResponse::status).containsOnly("PROVISIONAL_PUBLISHED");
+        assertThat(myGrades).extracting(GradeEntryResponse::status).containsOnly("OFFICIAL");
     }
 
     @Test
@@ -587,29 +643,29 @@ class GradeServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void listMyGrades_UC61_boSung_stillVisibleWhileUnderAppeal() {
+    void listMyGrades_UC20_boSung_excludesRejectedEntries() {
         classService.enroll(schoolClass.id(), new EnrollStudentRequest(student.getId(), LocalDate.now()), headAcademic.getId());
         GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
                 new EnterGradeRequest(student.getId(), new BigDecimal("8"), false, null), teacher.getId());
-        gradeService.publishGrades(new PublishGradesRequest(List.of(entry.id()), null), siteManagerUser.getId());
-        gradeAppealService.submitAppeal(new SubmitGradeAppealRequest("GRADE_ENTRY", entry.id(), null), student.getUser().getId());
+        submitEntries(entry.id());
+        rejectEntries(siteManagerUser.getId(), null, entry.id());
 
         List<GradeEntryResponse> myGrades = gradeService.listMyGrades(student.getUser().getId(), null);
 
-        assertThat(myGrades).filteredOn(e -> e.id().equals(entry.id()))
-                .extracting(GradeEntryResponse::status).containsExactly("APPEAL");
+        assertThat(myGrades).extracting(GradeEntryResponse::id).doesNotContain(entry.id());
     }
 
     @Test
-    void getMyPeriodResult_UC61_MainFlow_returnsProvisionalPublishedResult() {
+    void getMyPeriodResult_UC61_MainFlow_returnsOfficialResult() {
         classService.enroll(schoolClass.id(), new EnrollStudentRequest(student.getId(), LocalDate.now()), headAcademic.getId());
         GradePeriodResultResponse result = gradeService.enterPeriodResult(schoolClass.id(), student.getId(), gradePeriod.id(),
                 new EnterGradePeriodResultRequest(new BigDecimal("7.5"), "BAND", "B2"), teacher.getId());
-        gradeService.publishGrades(new PublishGradesRequest(null, List.of(result.id())), siteManagerUser.getId());
+        submitResults(result.id());
+        approveResults(siteManagerUser.getId(), result.id());
 
         GradePeriodResultResponse myResult = gradeService.getMyPeriodResult(student.getUser().getId(), schoolClass.id(), gradePeriod.id());
 
-        assertThat(myResult.status()).isEqualTo("PROVISIONAL_PUBLISHED");
+        assertThat(myResult.status()).isEqualTo("OFFICIAL");
         assertThat(myResult.level()).isEqualTo("B2");
         assertThat(myResult.overallScore()).isEqualByComparingTo("7.5");
     }
@@ -630,7 +686,8 @@ class GradeServiceTest extends AbstractIntegrationTest {
         classService.enroll(schoolClass.id(), new EnrollStudentRequest(student.getId(), LocalDate.now()), headAcademic.getId());
         GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
                 new EnterGradeRequest(student.getId(), new BigDecimal("8"), false, null), teacher.getId());
-        gradeService.publishGrades(new PublishGradesRequest(List.of(entry.id()), null), siteManagerUser.getId());
+        submitEntries(entry.id());
+        approveEntries(siteManagerUser.getId(), entry.id());
         ClassResponse otherClass = classService.create(
                 new CreateClassRequest(classCode(), "8A3", newSite().getId(), gradePeriod.curriculumId(), "OPEN", 20, null,
                         LocalDate.now(), null, null), headAcademic.getId());
@@ -649,7 +706,8 @@ class GradeServiceTest extends AbstractIntegrationTest {
         classService.enroll(schoolClass.id(), new EnrollStudentRequest(student.getId(), LocalDate.now()), headAcademic.getId());
         GradePeriodResultResponse result = gradeService.enterPeriodResult(schoolClass.id(), student.getId(), gradePeriod.id(),
                 new EnterGradePeriodResultRequest(new BigDecimal("7.5"), "BAND", "B2"), teacher.getId());
-        gradeService.publishGrades(new PublishGradesRequest(null, List.of(result.id())), siteManagerUser.getId());
+        submitResults(result.id());
+        approveResults(siteManagerUser.getId(), result.id());
         ClassResponse otherClass = classService.create(
                 new CreateClassRequest(classCode(), "8A3", newSite().getId(), gradePeriod.curriculumId(), "OPEN", 20, null,
                         LocalDate.now(), null, null), headAcademic.getId());
@@ -659,14 +717,15 @@ class GradeServiceTest extends AbstractIntegrationTest {
 
         GradePeriodResultResponse myResult = gradeService.getMyPeriodResult(student.getUser().getId(), schoolClass.id(), gradePeriod.id());
 
-        assertThat(myResult.status()).isEqualTo("PROVISIONAL_PUBLISHED");
+        assertThat(myResult.status()).isEqualTo("OFFICIAL");
     }
 
     @Test
     void getMyPeriodResult_UC61_rejectsWhenStudentNotEnrolledInClass() {
         GradePeriodResultResponse result = gradeService.enterPeriodResult(schoolClass.id(), student.getId(), gradePeriod.id(),
                 new EnterGradePeriodResultRequest(new BigDecimal("7.5"), "BAND", "B2"), teacher.getId());
-        gradeService.publishGrades(new PublishGradesRequest(null, List.of(result.id())), siteManagerUser.getId());
+        submitResults(result.id());
+        approveResults(siteManagerUser.getId(), result.id());
         // Cố tình KHÔNG gọi classService.enroll -- học sinh chưa ghi danh lớp này.
 
         assertThatThrownBy(() -> gradeService.getMyPeriodResult(student.getUser().getId(), schoolClass.id(), gradePeriod.id()))
@@ -682,8 +741,9 @@ class GradeServiceTest extends AbstractIntegrationTest {
         linkParent(parent, student);
         GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
                 new EnterGradeRequest(student.getId(), new BigDecimal("8.5"), false, null), teacher.getId());
+        submitEntries(entry.id());
 
-        gradeService.publishGrades(new PublishGradesRequest(List.of(entry.id()), null), siteManagerUser.getId());
+        approveEntries(siteManagerUser.getId(), entry.id());
 
         var notifications = notificationService.listMine(parentUser.getId(), PageRequest.of(0, 10));
         assertThat(notifications.getContent())
@@ -703,8 +763,9 @@ class GradeServiceTest extends AbstractIntegrationTest {
         linkParent(parent, student);
         GradePeriodResultResponse result = gradeService.enterPeriodResult(schoolClass.id(), student.getId(), gradePeriod.id(),
                 new EnterGradePeriodResultRequest(new BigDecimal("7.5"), "BAND", "B2"), teacher.getId());
+        submitResults(result.id());
 
-        gradeService.publishGrades(new PublishGradesRequest(null, List.of(result.id())), siteManagerUser.getId());
+        approveResults(siteManagerUser.getId(), result.id());
 
         var notifications = notificationService.listMine(parentUser.getId(), PageRequest.of(0, 10));
         assertThat(notifications.getContent())
@@ -719,10 +780,11 @@ class GradeServiceTest extends AbstractIntegrationTest {
     void publishGrades_UC20_boSung_doesNotFailWhenStudentHasNoLinkedParent() {
         GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), gradeComponent.id(),
                 new EnterGradeRequest(student.getId(), new BigDecimal("8.5"), false, null), teacher.getId());
+        submitEntries(entry.id());
 
-        var published = gradeService.publishGrades(new PublishGradesRequest(List.of(entry.id()), null), siteManagerUser.getId());
+        var approved = approveEntries(siteManagerUser.getId(), entry.id());
 
-        assertThat(published).extracting(GradeEntryResponse::id).containsExactly(entry.id());
+        assertThat(approved).extracting(GradeEntryResponse::id).containsExactly(entry.id());
     }
 
     private void linkParent(Parent parent, Student student) {
@@ -733,7 +795,27 @@ class GradeServiceTest extends AbstractIntegrationTest {
         parentStudentRepository.save(link);
     }
 
-    /** Đẩy lùi mốc "lần đầu nhập" (grade_period_edit_windows) quá hạn X ngày hiện hành -- dùng để mô phỏng độ trễ tự động công bố dự kiến (UC-20 A3) hết hạn. */
+    private List<GradeEntryResponse> submitEntries(Long... entryIds) {
+        return gradeService.submitGradesForApproval(new SubmitGradesRequest(List.of(entryIds), null), teacher.getId());
+    }
+
+    private void submitResults(Long... resultIds) {
+        gradeService.submitGradesForApproval(new SubmitGradesRequest(null, List.of(resultIds)), teacher.getId());
+    }
+
+    private List<GradeEntryResponse> approveEntries(Long actorId, Long... entryIds) {
+        return gradeService.publishGrades(new PublishGradesRequest("APPROVE", List.of(entryIds), null, null), actorId);
+    }
+
+    private void approveResults(Long actorId, Long... resultIds) {
+        gradeService.publishGrades(new PublishGradesRequest("APPROVE", null, List.of(resultIds), null), actorId);
+    }
+
+    private List<GradeEntryResponse> rejectEntries(Long actorId, String reason, Long... entryIds) {
+        return gradeService.publishGrades(new PublishGradesRequest("REJECT", List.of(entryIds), null, reason), actorId);
+    }
+
+    /** Đẩy lùi mốc "lần đầu nhập" (grade_period_edit_windows) quá hạn X ngày hiện hành -- dùng để mô phỏng mốc X ngày (thông tin, V39) hết hạn. */
     private void expireEditWindow(Long classId, Long gradePeriodId) {
         GradePeriodEditWindow window = gradePeriodEditWindowRepository
                 .findBySchoolClassIdAndGradePeriodId(classId, gradePeriodId).orElseThrow();

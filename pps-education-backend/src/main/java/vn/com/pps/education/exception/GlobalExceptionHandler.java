@@ -67,7 +67,6 @@ public class GlobalExceptionHandler {
             DuplicateUserAccountException.class, DuplicateRoleCodeException.class,
             SiteTeacherAlreadyAssignedException.class, DuplicateDepartmentCodeException.class,
             DuplicatePositionCodeException.class, DuplicateSkillCodeException.class,
-            AppealAlreadyOpenException.class, AppealAlreadyAcceptedException.class,
             TaskAssigneeAlreadyAssignedException.class, MakeupSessionAlreadyLinkedException.class,
             DuplicateQuestionContentException.class})
     public ResponseEntity<Object> handleConflict(RuntimeException ex) {
