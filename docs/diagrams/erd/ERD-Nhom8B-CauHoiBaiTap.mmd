@@ -1,5 +1,6 @@
 erDiagram
     question_banks ||--o{ questions : ""
+    exams ||--|| question_banks : "ngan hang noi bo"
     curriculums ||--o{ question_banks : ""
     questions ||--o{ question_choices : "dap an (trac nghiem)"
     questions ||--o{ questions_history : ""
@@ -61,6 +62,7 @@ erDiagram
         VARCHAR code UK
         VARCHAR title
         BIGINT curriculum_id FK
+        BIGINT question_bank_id FK,UK
         BIGINT created_by FK
     }
 

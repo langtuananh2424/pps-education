@@ -17,4 +17,8 @@ public interface ExamRepository extends JpaRepository<Exam, Long> {
     List<Exam> findByCurriculumIdAndTeacherType(Long curriculumId, Exam.TeacherType teacherType);
 
     List<Exam> findByTeacherType(Exam.TeacherType teacherType);
+
+    Optional<Exam> findByQuestionBankId(Long questionBankId);
+
+    boolean existsByQuestionBankId(Long questionBankId);
 }

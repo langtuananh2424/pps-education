@@ -158,6 +158,10 @@ public class ExerciseService {
         Exercise exercise = getExerciseOrThrow(exerciseId);
         Question question = questionRepository.findById(request.questionId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy câu hỏi id=" + request.questionId()));
+        if (!question.getQuestionBank().getId().equals(exercise.getExam().getQuestionBank().getId())) {
+            throw new IllegalArgumentException(
+                    "Câu hỏi id=" + request.questionId() + " không thuộc Đề id=" + exercise.getExam().getId() + ".");
+        }
         if (exerciseQuestionRepository.existsByExerciseIdAndQuestionId(exerciseId, request.questionId())) {
             throw new IllegalArgumentException("Câu hỏi id=" + request.questionId() + " đã có trong đề id=" + exerciseId + ".");
         }

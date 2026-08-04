@@ -1133,6 +1133,12 @@ sung ngoài SDD gốc, đã xác nhận với người dùng — gộp nhiều "
                                                                    kiện hiển thị    
                                                                    (xem k)          
 
+  question_bank_id       BIGINT         FK → question_banks(id),  Ngân hàng nội bộ
+                                        UNIQUE, NOT NULL            1-1, tạo tự động;
+                                                                   không hiển thị
+                                                                   trong màn quản lý
+                                                                   ngân hàng chung
+
   teacher_type           VARCHAR(20)    NOT NULL                   VIETNAMESE /
                                                                    FOREIGN — bắt
                                                                    buộc chọn khi
@@ -1157,6 +1163,15 @@ và `exam_type` bắt buộc chọn 1 trong 2 khi tạo Đề; cả hai sửa đ
 `title`. `teacher_type` dùng làm tiêu chí lọc Đề theo giáo viên Việt Nam/
 nước ngoài khi giao bài. `exam_type` là phân loại hoàn toàn mới ở cấp
 `Exam`, KHÔNG thay thế/đổi ý nghĩa `exercises.exercise_type` hiện có.
+
+**Bổ sung V75 (2026-08-04, đã xác nhận với người dùng):** mỗi `Exam` có
+đúng 1 `QuestionBank` nội bộ qua `question_bank_id`, tạo tự động cùng
+transaction tạo Đề. Quan hệ FK UNIQUE/NOT NULL là nguồn xác định bank nội
+bộ — không thêm cờ boolean dễ lệch trạng thái. Bank nội bộ không xuất hiện
+trong danh sách quản lý chung với bất kỳ vai trò nào; Giáo viên chỉ thao
+tác câu hỏi qua `examId`. Migration chỉ tạo/link bank mới cho Exam cũ,
+không đổi `questions.question_bank_id`, không xóa/clone bank/câu legacy,
+không tác động các liên kết `exercise_questions`/`student_answers` cũ.
 
 Không có cột `status` riêng (không tự thêm state ngoài yêu cầu đã
 chốt với người dùng — nếu sau này cần "ẩn Đề" thì hỏi lại trước).

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { CheckCircle2 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
-import { ExerciseQuestionResponse, ExerciseResponse, QuestionResponse, getQuestion, listExerciseQuestions } from "../api";
+import { ExerciseQuestionResponse, ExerciseResponse, QuestionResponse, getExamQuestion, listExerciseQuestions } from "../api";
 
 const questionTypeLabels: Record<QuestionResponse["questionType"], string> = {
   MULTIPLE_CHOICE: "Trắc nghiệm 1 đáp án",
@@ -36,7 +36,7 @@ export default function ExercisePreviewModal({ exercise, onClose }: ExercisePrev
       .then(async (eqs) => {
         const sorted = [...eqs].sort((a, b) => a.displayOrder - b.displayOrder);
         setExerciseQuestions(sorted);
-        const fulls = await Promise.all(sorted.map((eq) => getQuestion(eq.questionId).catch(() => null)));
+        const fulls = await Promise.all(sorted.map((eq) => getExamQuestion(exercise.examId, eq.questionId).catch(() => null)));
         const map: Record<number, QuestionResponse> = {};
         fulls.forEach((q, i) => {
           if (q) map[sorted[i].questionId] = q;
@@ -44,7 +44,7 @@ export default function ExercisePreviewModal({ exercise, onClose }: ExercisePrev
         setFullQuestions(map);
       })
       .finally(() => setLoading(false));
-  }, [exercise.id]);
+  }, [exercise.id, exercise.examId]);
 
   return (
     <Modal

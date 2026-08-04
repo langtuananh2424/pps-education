@@ -22,6 +22,7 @@ import vn.com.pps.education.exception.QuestionLockedException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.repository.CurriculumRepository;
 import vn.com.pps.education.repository.CurriculumSubjectRepository;
+import vn.com.pps.education.repository.ExamRepository;
 import vn.com.pps.education.repository.QuestionBankRepository;
 import vn.com.pps.education.repository.QuestionChoiceRepository;
 import vn.com.pps.education.repository.QuestionHistoryRepository;
@@ -54,6 +55,7 @@ import java.util.Objects;
 public class QuestionBankService {
 
     private final QuestionBankRepository questionBankRepository;
+    private final ExamRepository examRepository;
     private final QuestionRepository questionRepository;
     private final QuestionChoiceRepository questionChoiceRepository;
     private final QuestionHistoryRepository questionHistoryRepository;
@@ -63,6 +65,7 @@ public class QuestionBankService {
     private final UserRepository userRepository;
 
     public QuestionBankService(QuestionBankRepository questionBankRepository,
+                                ExamRepository examRepository,
                                 QuestionRepository questionRepository,
                                 QuestionChoiceRepository questionChoiceRepository,
                                 QuestionHistoryRepository questionHistoryRepository,
@@ -71,6 +74,7 @@ public class QuestionBankService {
                                 CurriculumSubjectRepository curriculumSubjectRepository,
                                 UserRepository userRepository) {
         this.questionBankRepository = questionBankRepository;
+        this.examRepository = examRepository;
         this.questionRepository = questionRepository;
         this.questionChoiceRepository = questionChoiceRepository;
         this.questionHistoryRepository = questionHistoryRepository;
@@ -98,7 +102,7 @@ public class QuestionBankService {
 
     @Transactional(readOnly = true)
     public List<QuestionBankResponse> listBanksByCurriculum(Long curriculumId) {
-        return questionBankRepository.findByCurriculumId(curriculumId).stream().map(this::toResponse).toList();
+        return questionBankRepository.findLegacyByCurriculumId(curriculumId).stream().map(this::toResponse).toList();
     }
 
     /**
@@ -110,8 +114,7 @@ public class QuestionBankService {
      */
     @Transactional
     public QuestionBankResponse updateBankStatus(Long id, UpdateQuestionBankStatusRequest request, Long actorUserId) {
-        QuestionBank bank = questionBankRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ngân hàng câu hỏi id=" + id));
+        QuestionBank bank = getLegacyBankOrThrow(id);
         bank.setActive(request.isActive());
         bank = questionBankRepository.save(bank);
         return toResponse(bank);
@@ -131,10 +134,21 @@ public class QuestionBankService {
      */
     @Transactional
     public QuestionResponse createQuestion(CreateQuestionRequest request, Long actorUserId) {
+        QuestionBank bank = getLegacyBankOrThrow(request.questionBankId());
+        return createQuestionInBank(bank, request, actorUserId, true);
+    }
+
+    /**
+     * Primitive dùng chung cho generic bank và ExamQuestionService. Generic
+     * bank chặn duplicate; bank nội bộ của Exam cho phép duplicate theo
+     * quyết định 2026-08-04.
+     */
+    @Transactional
+    QuestionResponse createQuestionInBank(QuestionBank bank, CreateQuestionRequest request,
+                                          Long actorUserId, boolean rejectActiveDuplicate) {
         User actor = getUserOrThrow(actorUserId);
-        QuestionBank bank = questionBankRepository.findById(request.questionBankId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ngân hàng câu hỏi id=" + request.questionBankId()));
-        if (questionRepository.existsByQuestionBankIdAndContentAndStatus(bank.getId(), request.content(), Question.Status.ACTIVE)) {
+        if (rejectActiveDuplicate && questionRepository.existsByQuestionBankIdAndContentAndStatus(
+                bank.getId(), request.content(), Question.Status.ACTIVE)) {
             throw new DuplicateQuestionContentException(
                     "Câu hỏi này đã tồn tại trong ngân hàng câu hỏi \"" + bank.getName() + "\" (trùng nội dung) — không thể tạo trùng.");
         }
@@ -175,7 +189,15 @@ public class QuestionBankService {
     public QuestionResponse updateQuestion(Long id, UpdateQuestionRequest request, Long actorUserId) {
         Question question = questionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy câu hỏi id=" + id));
+        requireLegacyBank(question.getQuestionBank().getId());
+        return updateResolvedQuestion(question, request, actorUserId);
+    }
+
+    /** Primitive dùng chung sau khi caller đã verify ownership của câu hỏi. */
+    @Transactional
+    QuestionResponse updateResolvedQuestion(Question question, UpdateQuestionRequest request, Long actorUserId) {
         User actor = getUserOrThrow(actorUserId);
+        Long id = question.getId();
 
         boolean changesContent = !Objects.equals(question.getContent(), request.content()) || request.choices() != null
                 || !Objects.equals(question.getCorrectAnswerText(), request.correctAnswerText());
@@ -209,14 +231,27 @@ public class QuestionBankService {
 
     @Transactional(readOnly = true)
     public List<QuestionResponse> listQuestions(Long questionBankId) {
+        requireLegacyBank(questionBankId);
+        return listQuestionsInBank(questionBankId);
+    }
+
+    @Transactional(readOnly = true)
+    List<QuestionResponse> listQuestionsInBank(Long questionBankId) {
         return questionRepository.findByQuestionBankIdAndStatus(questionBankId, Question.Status.ACTIVE)
                 .stream().map(this::toResponse).toList();
     }
 
     @Transactional(readOnly = true)
     public QuestionResponse getQuestion(Long id) {
-        return toResponse(questionRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy câu hỏi id=" + id)));
+        Question question = questionRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy câu hỏi id=" + id));
+        requireLegacyBank(question.getQuestionBank().getId());
+        return toResponse(question);
+    }
+
+    @Transactional(readOnly = true)
+    QuestionResponse toResponseForResolvedQuestion(Question question) {
+        return toResponse(question);
     }
 
     // ===================== Helpers =====================
@@ -233,6 +268,19 @@ public class QuestionBankService {
             choice.setCorrect(c.isCorrect());
             choice.setDisplayOrder(c.displayOrder());
             questionChoiceRepository.save(choice);
+        }
+    }
+
+    private QuestionBank getLegacyBankOrThrow(Long id) {
+        QuestionBank bank = questionBankRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ngân hàng câu hỏi id=" + id));
+        requireLegacyBank(id);
+        return bank;
+    }
+
+    private void requireLegacyBank(Long bankId) {
+        if (examRepository.existsByQuestionBankId(bankId)) {
+            throw new ResourceNotFoundException("Không tìm thấy ngân hàng câu hỏi id=" + bankId);
         }
     }
 

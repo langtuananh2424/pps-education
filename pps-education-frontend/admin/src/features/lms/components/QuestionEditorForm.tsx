@@ -3,7 +3,7 @@ import { Check, CheckSquare, FileText, Mic, PenLine, Volume2 } from "lucide-reac
 import { ApiError } from "@/lib/apiClient";
 import Button from "@/components/ui/Button";
 import FileUploadField from "@/components/ui/FileUploadField";
-import { CreateQuestionRequest, QuestionChoiceRequest, QuestionDifficulty, QuestionResponse, QuestionType, createQuestion, updateQuestion, uploadMedia } from "../api";
+import { CreateExamQuestionRequest, CreateQuestionRequest, QuestionChoiceRequest, QuestionDifficulty, QuestionResponse, QuestionType, createExamQuestion, createQuestion, updateExamQuestion, updateQuestion, uploadMedia } from "../api";
 import Select from "@/components/ui/Select";
 
 const inputClass = "w-full bg-white border border-slate-200 text-xs px-3.5 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-red";
@@ -37,15 +37,18 @@ function toKind(question?: QuestionResponse): UiQuestionKind {
 }
 
 interface QuestionEditorFormProps {
-  questionBankId: number;
+  /** Generic legacy mode cho trang quản lý ngân hàng độc lập. */
+  questionBankId?: number;
+  /** V75: Teacher flow theo Đề — backend tự resolve ngân hàng nội bộ. */
+  examId?: number;
   /** Truyền vào để chuyển form sang chế độ Sửa — loại câu hỏi không sửa được sau khi tạo. */
   existingQuestion?: QuestionResponse;
   onCreated: (question: QuestionResponse) => void;
   onCancel: () => void;
 }
 
-/** UC-40 Main Flow bước 1: soạn hoặc sửa 1 câu hỏi trong ngân hàng — 5 loại theo thiết kế tham chiếu + Điền từ. */
-export default function QuestionEditorForm({ questionBankId, existingQuestion, onCreated, onCancel }: QuestionEditorFormProps) {
+/** UC-40 Main Flow bước 1: soạn/sửa câu hỏi theo Exam hoặc generic legacy bank. */
+export default function QuestionEditorForm({ questionBankId, examId, existingQuestion, onCreated, onCancel }: QuestionEditorFormProps) {
   const isEditing = !!existingQuestion;
   const [kind, setKind] = useState<UiQuestionKind>(toKind(existingQuestion));
   const [content, setContent] = useState(existingQuestion?.content ?? "");
@@ -103,7 +106,7 @@ export default function QuestionEditorForm({ questionBankId, existingQuestion, o
     try {
       let result: QuestionResponse;
       if (isEditing && existingQuestion) {
-        result = await updateQuestion(existingQuestion.id, {
+        const updateRequest = {
           content: content.trim(),
           audioUrl: kind === "VOICE_MULTIPLE_CHOICE" ? audioUrl.trim() || undefined : undefined,
           imageUrl: kind === "ESSAY" ? imageUrl.trim() || undefined : undefined,
@@ -111,11 +114,13 @@ export default function QuestionEditorForm({ questionBankId, existingQuestion, o
           explanation: explanation.trim() || undefined,
           correctAnswerText: kind === "FILL_IN_BLANK" ? correctAnswerText.trim() || undefined : undefined,
           choices
-        });
+        };
+        result = examId
+          ? await updateExamQuestion(examId, existingQuestion.id, updateRequest)
+          : await updateQuestion(existingQuestion.id, updateRequest);
       } else {
         const questionType: QuestionType = kind === "VOICE_MULTIPLE_CHOICE" ? "MULTIPLE_CHOICE" : kind;
-        const request: CreateQuestionRequest = {
-          questionBankId,
+        const request: CreateExamQuestionRequest = {
           questionType,
           skill: kind === "VOICE_MULTIPLE_CHOICE" ? "LISTENING" : kind === "SPEAKING" ? "SPEAKING" : undefined,
           difficulty,
@@ -127,7 +132,14 @@ export default function QuestionEditorForm({ questionBankId, existingQuestion, o
           correctAnswerText: kind === "FILL_IN_BLANK" ? correctAnswerText.trim() || undefined : undefined,
           choices
         };
-        result = await createQuestion(request);
+        if (examId) {
+          result = await createExamQuestion(examId, request);
+        } else if (questionBankId) {
+          const legacyRequest: CreateQuestionRequest = { ...request, questionBankId };
+          result = await createQuestion(legacyRequest);
+        } else {
+          throw new Error("Thiếu ngữ cảnh Đề/Ngân hàng câu hỏi.");
+        }
       }
       onCreated(result);
     } catch (err) {
