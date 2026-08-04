@@ -23,6 +23,7 @@ import vn.com.pps.education.dto.ExerciseAssignmentResponse;
 import vn.com.pps.education.dto.ExerciseQuestionChoiceResponse;
 import vn.com.pps.education.dto.ExerciseQuestionResponse;
 import vn.com.pps.education.dto.ExerciseResponse;
+import vn.com.pps.education.dto.UpdateExerciseRequest;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.repository.ClassEnrollmentRepository;
@@ -39,8 +40,13 @@ import vn.com.pps.education.repository.SchoolClassRepository;
 import vn.com.pps.education.repository.StudentRepository;
 import vn.com.pps.education.repository.UserRepository;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -152,6 +158,39 @@ public class ExerciseService {
         return toResponse(exercise, List.of());
     }
 
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04 — sửa lại thông tin 1 Bài đã soạn
+     * (trước đây chỉ tạo được, không sửa được nữa). Không sửa code/examId/exerciseType (cố định từ
+     * lúc tạo, giống quy ước ExamService#updateExam) — không giới hạn theo status, mirror updateExam.
+     */
+    @Transactional
+    public ExerciseResponse updateExercise(Long id, UpdateExerciseRequest request, Long actorUserId) {
+        Exercise exercise = getExerciseOrThrow(id);
+        exercise.setTitle(request.title());
+        exercise.setSubject(request.subjectId() == null ? null : curriculumSubjectOrThrow(request.subjectId()));
+        exercise.setTotalPoints(request.totalPoints());
+        exercise.setAllowRetake(request.allowRetake());
+        exercise.setMaxAttempts(request.allowRetake() ? request.maxAttempts() : null);
+        exercise.setShowCorrectAnswers(request.showCorrectAnswers());
+        exercise = exerciseRepository.save(exercise);
+        return toResponse(exercise, exerciseQuestionRepository.findByExerciseIdOrderByDisplayOrder(id));
+    }
+
+    /**
+     * V80 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04) — "Xóa Bài" = lưu trữ
+     * (status=ARCHIVED, đã có sẵn trong enum từ đầu nhưng chưa từng có đường gọi tới). KHÔNG xóa cứng
+     * vì exercise_questions/exercise_assignments/exercise_attempts/student_answers có thể đã tham
+     * chiếu (dữ liệu bài làm thật của học sinh). ARCHIVED tự động chặn học sinh xem/làm tiếp qua
+     * {@link #requireCanViewExercise} (yêu cầu status=PUBLISHED) — không cần sửa gì thêm ở đó;
+     * {@link #listByExam} cũng đã lọc bỏ Bài ARCHIVED khỏi danh sách GV xem trong Kho đề.
+     */
+    @Transactional
+    public void deleteExercise(Long id, Long actorUserId) {
+        Exercise exercise = getExerciseOrThrow(id);
+        exercise.setStatus(Exercise.Status.ARCHIVED);
+        exerciseRepository.save(exercise);
+    }
+
     /** Main Flow bước 1: gắn câu hỏi (từ ngân hàng hoặc vừa soạn) vào đề. */
     @Transactional
     public ExerciseQuestionResponse addQuestion(Long exerciseId, AddExerciseQuestionRequest request, Long actorUserId) {
@@ -236,6 +275,7 @@ public class ExerciseService {
     @Transactional(readOnly = true)
     public List<ExerciseResponse> listByExam(Long examId, Long actorUserId) {
         return exerciseRepository.findByExamId(examId).stream()
+                .filter(e -> e.getStatus() != Exercise.Status.ARCHIVED)
                 .map(e -> toResponse(e, exerciseQuestionRepository.findByExerciseIdOrderByDisplayOrder(e.getId())))
                 .toList();
     }
@@ -432,7 +472,37 @@ public class ExerciseService {
         return new ExerciseQuestionResponse(
                 eq.getId(), eq.getExercise().getId(), question.getId(),
                 question.getQuestionType().name(), question.getContent(),
-                eq.getDisplayOrder(), eq.getPoints(), choices);
+                eq.getDisplayOrder(), eq.getPoints(), choices,
+                question.getSkill() == null ? null : question.getSkill().name(),
+                question.getAudioUrl(), question.getReferencePassage(),
+                shuffledStructuredContent(question), question.getGroupKey());
+    }
+
+    /**
+     * V78 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04) — QUAN TRỌNG: Question.
+     * structuredContent của WORD_BANK/SENTENCE_BUILDING lưu ĐÚNG thứ tự đáp án (chính là đáp án
+     * đúng). Endpoint này (GET /api/exercises/{id}/questions) là endpoint HỌC SINH gọi để làm bài
+     * (TakeExerciseModal) — TUYỆT ĐỐI không được trả nguyên thứ tự gốc, dù UI có tự xáo trộn hiển thị
+     * (network response vẫn lộ qua devtools). Trả về bản sao đã xáo trộn ngẫu nhiên mỗi lần gọi —
+     * word bank/khối câu chỉ cần lộ TẬP hợp từ, không lộ thứ tự đúng. Cùng nguyên tắc với choices ở
+     * trên (không kèm isCorrect) — xem Javadoc ExerciseQuestionResponse.
+     */
+    private Map<String, Object> shuffledStructuredContent(Question question) {
+        Map<String, Object> raw = question.getStructuredContent();
+        if (raw == null) {
+            return null;
+        }
+        Map<String, Object> shuffled = new LinkedHashMap<>();
+        for (Map.Entry<String, Object> entry : raw.entrySet()) {
+            if (entry.getValue() instanceof List<?> list) {
+                List<Object> copy = new ArrayList<>(list);
+                Collections.shuffle(copy);
+                shuffled.put(entry.getKey(), copy);
+            } else {
+                shuffled.put(entry.getKey(), entry.getValue());
+            }
+        }
+        return shuffled;
     }
 
     /** Map phương án cho HS chọn — KHÔNG lộ is_correct (xem ExerciseQuestionChoiceResponse). */

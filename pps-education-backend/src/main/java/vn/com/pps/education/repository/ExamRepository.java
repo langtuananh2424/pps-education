@@ -12,9 +12,14 @@ public interface ExamRepository extends JpaRepository<Exam, Long> {
 
     Optional<Exam> findByUuid(UUID uuid);
 
-    List<Exam> findByCurriculumId(Long curriculumId);
+    /** V80 — dùng thay findById ở mọi nơi đọc/sửa 1 Đề, không lộ Đề đã "xóa" (deleted_at). */
+    Optional<Exam> findByIdAndDeletedAtIsNull(Long id);
 
-    List<Exam> findByCurriculumIdAndTeacherType(Long curriculumId, Exam.TeacherType teacherType);
+    List<Exam> findByDeletedAtIsNull();
 
-    List<Exam> findByTeacherType(Exam.TeacherType teacherType);
+    List<Exam> findByCurriculumIdAndDeletedAtIsNull(Long curriculumId);
+
+    List<Exam> findByCurriculumIdAndTeacherTypeAndDeletedAtIsNull(Long curriculumId, Exam.TeacherType teacherType);
+
+    List<Exam> findByTeacherTypeAndDeletedAtIsNull(Exam.TeacherType teacherType);
 }

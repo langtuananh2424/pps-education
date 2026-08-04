@@ -8,9 +8,11 @@ import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.ExerciseAssignment;
 import vn.com.pps.education.domain.Notification;
 import vn.com.pps.education.domain.ReviewVideoAssignment;
+import vn.com.pps.education.domain.Role;
 import vn.com.pps.education.domain.Site;
 import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.User;
+import vn.com.pps.education.domain.UserRole;
 import vn.com.pps.education.dto.AddExerciseQuestionRequest;
 import vn.com.pps.education.dto.AddReviewVideoRequest;
 import vn.com.pps.education.dto.AssignTeacherRequest;
@@ -258,14 +260,14 @@ class HomeworkDeadlineSchedulerServiceTest extends AbstractIntegrationTest {
         return questionBankService.createQuestion(
                 new CreateQuestionRequest(bank.id(), "MULTIPLE_CHOICE", "GRAMMAR", "EASY",
                         "She ___ to school.", null, null, null, null, null, new BigDecimal("1.0"), null,
-                        List.of(new QuestionChoiceRequest("A", "go", false, 1), new QuestionChoiceRequest("B", "goes", true, 2))),
+                        List.of(new QuestionChoiceRequest("A", "go", false, 1), new QuestionChoiceRequest("B", "goes", true, 2)), null, null),
                 teacher.getId());
     }
 
     private void answerCorrectly(Long attemptId, QuestionResponse question) {
         Long correctChoiceId = question.choices().stream().filter(c -> c.isCorrect()).findFirst().orElseThrow().id();
         exerciseAttemptService.saveAnswer(attemptId,
-                new SaveAnswerRequest(question.id(), null, List.of(correctChoiceId), null), studentDoneUser.getId());
+                new SaveAnswerRequest(question.id(), null, List.of(correctChoiceId), null, null), studentDoneUser.getId());
     }
 
     private String curriculumCode() {
@@ -290,5 +292,31 @@ class HomeworkDeadlineSchedulerServiceTest extends AbstractIntegrationTest {
 
     private String setCode() {
         return "RVS-HW-" + SEQ.incrementAndGet();
+    }
+
+    private void assignRole(User user, String roleCode) {
+        Role role = roleRepository.findByCode(roleCode).orElseThrow();
+        UserRole userRole = new UserRole();
+        userRole.setUser(user);
+        userRole.setRole(role);
+        userRole.setAssignedBy(user);
+        userRoleRepository.save(userRole);
+    }
+
+    private Site newSite() {
+        Site s = new Site();
+        s.setCode("SITE-HW-" + SEQ.incrementAndGet());
+        s.setName("Test Site");
+        s.setSiteType(Site.SiteType.OWNED);
+        return siteRepository.save(s);
+    }
+
+    private User newUser(String prefix) {
+        User user = new User();
+        user.setUsername(prefix + "." + System.nanoTime());
+        user.setEmail(prefix + "." + System.nanoTime() + "@pps.edu.vn");
+        user.setFullName("Test " + prefix);
+        user.setStatus(User.Status.ACTIVE);
+        return userRepository.save(user);
     }
 }

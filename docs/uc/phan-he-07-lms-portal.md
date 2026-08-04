@@ -152,7 +152,10 @@ UC-23a: Xem & Theo dõi Kho Video Ôn tập
 |                 |     video được đánh dấu "hợp lệ".                  |
 |                 |                                                    |
 |                 | 5.  "Đạt yêu cầu" (đã xem) = số lượt hợp lệ ≥ số   |
-|                 |     lượt tối thiểu cấu hình cho video đó.          |
+|                 |     lượt tối thiểu cấu hình cho video đó. Video    |
+|                 |     CONNECTION: "lượt hợp lệ" từ V76 cần thêm điều |
+|                 |     kiện trả lời hết câu hỏi trắc nghiệm cho ĐÚNG  |
+|                 |     lượt đó (xem blockquote V76 bên dưới).         |
 |                 |                                                    |
 |                 | 6.  Giáo viên xem thống kê theo bộ + lớp — từng    |
 |                 |     học sinh đã xem bao nhiêu % + bao nhiêu lượt   |
@@ -199,6 +202,28 @@ UC-23a: Xem & Theo dõi Kho Video Ôn tập
 > (tùy chọn `?classId=`) — mirror `listMyAssignedExercises` (bài ngữ
 > pháp) — trả `availableFrom`/`dueAt`/`videoType`/tiêu đề bộ theo đúng
 > phạm vi (các) lớp học sinh đang ghi danh ACTIVE.
+
+> **Bổ sung V76 (2026-08-04, đã xác nhận với người dùng) — Video Kết nối
+> (CONNECTION) bắt buộc có câu hỏi trắc nghiệm tự chấm, "lượt hợp lệ" đổi
+> nghĩa:** trước V76, bước 4-5 ở trên (lượt đạt % ngưỡng → cộng luôn vào số
+> lượt đạt) là ĐỦ để tính "đạt yêu cầu". Từ V76, "lượt hợp lệ" (tính vào số
+> lượt đạt của video) đòi hỏi **CẢ 2** điều kiện cho **CÙNG 1 lượt xem**
+> (khớp cặp 1-1 qua watch session, không cộng dồn rời rạc):
+>
+> 1. Xem đạt % ngưỡng như cũ (bước 4).
+> 2. **MỚI**: ngay sau khi đạt ngưỡng, hệ thống hiện bộ câu hỏi trắc nghiệm
+>    (2-5 câu, tự chấm) gắn với video đó; học sinh phải trả lời hết bộ câu
+>    hỏi CHO ĐÚNG lượt xem vừa đạt ngưỡng mới được tính là "lượt hợp lệ".
+>    Đóng tab/chuyển thiết bị trước khi làm xong câu hỏi = lượt đó KHÔNG
+>    tính, phải mở lượt xem mới (`startWatchSession`) và xem lại từ đầu.
+>
+> Giáo viên soạn video CONNECTION giờ **bắt buộc** thêm ≥ 1 câu hỏi trắc
+> nghiệm trước khi Publish được (chặn ở `updateSet`, báo lỗi rõ video nào
+> còn thiếu) — mirror hoàn toàn cơ chế câu hỏi của UC-23b (REFLEX) nhưng
+> khác định dạng (trắc nghiệm tự chấm, không phải audio/GV chấm tay) và
+> khác vị trí (hiện SAU KHI xem xong 1 lượt, không phải tại 1 mốc giữa
+> video). REFLEX không thay đổi gì. Bảng mới: `review_video_connection_
+> questions`/`_choices`/`_answers` — xem `docs/sdd-groups/09-lms-and-portal.md`.
 
 ---
 
@@ -1089,6 +1114,154 @@ UC-40: Soạn & giao đề kiểm tra
 > 5. Dropdown "BTVN buổi sau" ở Nhận xét học viên (UC-21) đổi nhãn từ
 >    `Tên bài (Mã bài)` sang **`Mã Đề - Tên bài`** để phân biệt khi 1 lớp
 >    được gán nhiều Đề cùng lúc.
+
+> **Bổ sung V77 (2026-08-04, đã xác nhận với người dùng) — Soạn Bài đổi
+> hẳn theo `teacher_type` của Đề, thêm loại Bài "Video phản xạ":**
+> `teacher_type` (V74) từ chỗ chỉ là filter tìm kiếm, nay quyết định luôn
+> hình dạng màn hình Soạn Bài (bước 3 Main Flow):
+> - **Đề VIETNAMESE**: giữ nguyên 2 nguồn câu hỏi "Soạn câu hỏi mới"/"Nhập
+>   Excel-Word" — bỏ hẳn "Chọn có sẵn" (Ngân hàng câu hỏi đã ẩn khỏi menu
+>   điều hướng, không còn ý nghĩa duyệt riêng), "Nhập Excel-Word" là nguồn
+>   mặc định khi mở màn.
+> - **Đề FOREIGN**: màn Soạn Bài đổi hẳn — chỉ còn 2 lựa chọn loại Bài:
+>   1. **Audio bài nghe**: vẫn là `Exercise` thường (`exercise_questions`),
+>      nhưng chỉ được soạn câu hỏi dạng "Trắc nghiệm Voice" (MULTIPLE_CHOICE
+>      + skill=LISTENING + audioUrl bắt buộc, đã có sẵn từ trước) — không
+>      soạn được câu hỏi loại khác.
+>   2. **Video phản xạ** (MỚI HOÀN TOÀN): 1 Bài đại diện 1
+>      `ReviewVideoSet` loại REFLEX (Kho Video Ôn tập, UC-23) — `exercises`
+>      thêm `exercise_type=REFLEX_VIDEO` + cột `review_video_set_id` (FK,
+>      NULL với mọi loại Bài khác). Bài loại này KHÔNG nhận
+>      `exercise_questions` (chặn ở `addQuestion`), Publish/giao lớp đồng
+>      thời publish/giao luôn `ReviewVideoSet` liên kết (transaction chung
+>      — xem `ExerciseService#publishExercise`/`deliverToClass`,
+>      `ReviewVideoService#publishSet`). Học sinh mở Bài này KHÔNG qua
+>      `ExerciseAttemptService` (chặn cứng ở `startAttempt`) — nội dung
+>      thật hiển thị qua chính luồng Kho Video Ôn tập sẵn có ở Portal
+>      (`ReviewVideoAssignment`/`ReviewVideoTaskModal`), vì giao lớp cho
+>      Bài REFLEX_VIDEO tự động tạo kèm `ReviewVideoAssignment` cùng lớp/
+>      hạn nộp — Portal lọc bỏ Bài loại này khỏi danh sách "Bài ngữ pháp"
+>      để không hiện trùng 2 lần.
+>
+>      **Sửa lại ở V78 (2026-08-04, đã xác nhận với người dùng):** mô tả
+>      "MỚI HOÀN TOÀN" ở trên ban đầu tạo `ReviewVideoSet` NGAY TRONG modal
+>      Soạn Bài (`ReflexVideoExerciseStep`) — người dùng phản hồi không hợp
+>      lý (tách rời khỏi luồng quản lý video chung). Đã thống nhất lại:
+>      TẠO 1 `ReviewVideoSet` REFLEX (video + câu hỏi) CHỈ làm ở Kho Video
+>      Ôn tập (`LecturesPage.tsx`, đã hỗ trợ sẵn cả CONNECTION lẫn REFLEX
+>      qua `CreateSetModal` — cùng 1 khuôn mẫu, không cần thêm UI mới ở đó)
+>      — màn Soạn Bài giờ chỉ CHỌN 1 bộ REFLEX đã tồn tại sẵn
+>      (`SelectReflexVideoSetStep`, lọc theo khung chương trình của Đề) rồi
+>      liên kết qua `createReflexVideoExercise`. Bổ sung ràng buộc 1-1 ở
+>      tầng service (trước đây thiết kế là 1-1 nhưng không có gì chặn):
+>      `ExerciseRepository.existsByReviewVideoSetId` — chặn chọn 1 bộ REFLEX
+>      đã liên kết Bài khác.
+>
+>      **Rollback HẲN ở V79 (2026-08-04, đã xác nhận với người dùng, cùng
+>      ngày):** người dùng phản hồi tiếp — kể cả bản "chọn set có sẵn" ở
+>      trên vẫn không hợp lý, quyết định bỏ HẲN "Video phản xạ" khỏi màn
+>      Soạn Bài. Lý do: Video phản xạ (REFLEX) vốn ĐÃ giao lớp được hoàn
+>      toàn độc lập, y hệt Video kết nối (CONNECTION) — qua "Nhận xét học
+>      viên" chọn `homeworkNextReviewVideoSetId` → `StudentCommentService
+>      #resolveVideoHomework` gọi thẳng `ReviewVideoService#deliverToClass`,
+>      không phân biệt CONNECTION/REFLEX, không phụ thuộc gì vào `Exercise`.
+>      Việc bọc REFLEX vào 1 `Exercise` (V77) chỉ tạo thêm 1 đường giao KÉP
+>      dư thừa. Đã gỡ SẠCH: `Exercise.ExerciseType.REFLEX_VIDEO`,
+>      `exercises.review_video_set_id` (migration
+>      `V79__revert_exercise_reflex_video_link.sql` — DROP COLUMN, không
+>      sửa migration V77 cũ), endpoint `POST /exercises/reflex-video`,
+>      `ExerciseService#createReflexVideoExercise` và mọi nhánh REFLEX_VIDEO
+>      trong `addQuestion`/`publishExercise`/`deliverToClass`/`toResponse`,
+>      `ReviewVideoService#publishSet` (mồ côi sau khi gỡ, không còn nơi nào
+>      gọi), file test `ExerciseReflexVideoTest.java`, component FE
+>      `SelectReflexVideoSetStep`/`ReflexVideoExerciseStep`. Màn Soạn Bài
+>      FOREIGN giờ CHỈ còn 2 lựa chọn ("Audio bài nghe"/"Nghe & nộp audio"),
+>      kèm 1 dòng hướng dẫn trỏ sang Kho Video Ôn tập cho Video phản xạ.
+>      KHÔNG mất khả năng giao Video phản xạ — vẫn giao được y hệt Video
+>      kết nối qua Nhận xét học viên như trước giờ.
+
+> **Bổ sung V80/V81 (2026-08-04, đã xác nhận với người dùng) — đủ CRUD cho
+> Kho đề (thêm "Xóa Bài" + "Xóa Đề", trước đó chỉ có Create/Read/Update):**
+> - **"Xóa Bài"** (`DELETE /api/exercises/{id}`, quyền `lms.exercise.update`
+>   — tái dùng, không phải hành động phá hủy) = chuyển `exercises.status`
+>   sang `ARCHIVED` (đã có sẵn trong enum từ đầu nhưng chưa từng có đường
+>   gọi tới) — KHÔNG xóa cứng vì `exercise_questions`/`exercise_assignments`/
+>   `exercise_attempts`/`student_answers` có thể đã tham chiếu (dữ liệu bài
+>   làm thật của học sinh). `ARCHIVED` tự động chặn học sinh xem/làm tiếp
+>   qua `ExerciseService#requireCanViewExercise` (đã yêu cầu sẵn
+>   `status=PUBLISHED`, không cần sửa gì thêm) — `listByExam` (Kho đề GV
+>   xem) cũng lọc bỏ Bài `ARCHIVED`.
+> - **"Xóa Đề"** (`DELETE /api/exams/{id}`, quyền mới `lms.exam.delete` —
+>   migration `V80__exam_delete_soft_and_permission.sql`) = soft-delete qua
+>   cột mới `exams.deleted_at` (cùng pattern `PartnerContract`/`SchoolClass`
+>   đã dùng trong dự án). Chỉ xóa được khi **mọi Bài thuộc Đề đã "xóa"
+>   (ARCHIVED) trước** — chặn ở `ExamService#deleteExam` bằng
+>   `exerciseService.listByExam(...).isEmpty()` (đã tự lọc ARCHIVED). Gỡ
+>   luôn toàn bộ `exam_class_assignments` của Đề (Đề đã xóa không còn hiện
+>   ở dropdown "gán lớp" để giao Bài mới) — không ảnh hưởng bài đã giao/
+>   đang làm dở (xem Javadoc `requireCanViewExercise` ở trên, không re-check
+>   `exam_class_assignments` mỗi lần học sinh mở bài).
+> - **V81** (`V81__grant_exam_delete_to_sys_admin.sql`) — sửa 1 lỗ hổng
+>   phát hiện ngay sau khi V80 chạy: cách cấp quyền mới cho user override
+>   (mirror V72) không phủ được role `SYS_ADMIN` (vốn có sẵn
+>   `lms.exam.create/update/assign` qua `role_permissions` trực tiếp, không
+>   qua override cá nhân) — sysadmin không tự động có `lms.exam.delete`.
+>   V81 cấp bổ sung `lms.exam.delete` cho MỌI role đã có `lms.exam.create`
+>   qua `role_permissions` (không riêng SYS_ADMIN).
+
+> **Bổ sung V78 (2026-08-04, đã xác nhận với người dùng) — Đề FOREIGN có
+> thêm lựa chọn thứ 3 (SAU ĐÓ ĐÃ ROLLBACK Ở V79, xem trên — chỉ còn 2 lựa
+> chọn), Đề VIETNAMESE có thêm 5 dạng bài (dựa trên 1 đề tiếng Anh mẫu
+> người dùng cung cấp):**
+> - **Đề FOREIGN — thêm "Nghe & nộp audio"** (bên cạnh "Audio bài nghe"/
+>   "Video phản xạ" ở V77): học sinh nghe 1 file audio rồi tự ghi âm nộp
+>   lại — tái dùng NGUYÊN cơ chế `SPEAKING` đã có sẵn (`audio_answer_url`),
+>   chỉ khác `skill=LISTENING` + `Question.audioUrl` chứa file nghe (thay
+>   `referencePassage` chứa từ khóa phát âm như Speaking oral gốc) —
+>   KHÔNG cần đổi schema. Tiện thể vá gap tồn đọng: trước V78, Portal
+>   (`TakeExerciseModal.tsx`) chưa có UI ghi âm/upload thật cho SPEAKING dù
+>   backend đã sẵn sàng — nay cả Speaking oral gốc lẫn "Nghe & nộp audio"
+>   đều nộp được audio thật qua `POST /api/media/upload`
+>   (`module=EXERCISE_ANSWER_SUBMISSION`, tách folder khỏi `LMS_QUESTION`).
+> - **Đề VIETNAMESE — thêm 4 dạng câu hỏi** (`questions.question_type`
+>   thêm `WORD_BANK`/`SENTENCE_BUILDING`; `INLINE_CHOICE`/"Đọc hiểu — lưới"
+>   tái dùng `MULTIPLE_CHOICE` sẵn có, không thêm enum). **Sửa lại cùng
+>   ngày (đã xác nhận với người dùng)**: màn Soạn Bài GV Việt Nam KHÔNG
+>   hiện "Speaking oral"/"Nghe & nộp audio" — 2 kind này chỉ dành riêng
+>   cho Đề FOREIGN (`allowedKinds` của `QuestionEditorForm` giới hạn còn 7
+>   loại cho VIETNAMESE: Trắc nghiệm, Trắc nghiệm Voice, Chọn từ trong câu,
+>   Điền từ, Điền từ - Hộp từ vựng, Sắp xếp câu, Tự luận file/ảnh):
+>   1. **Điền từ - Hộp từ vựng** (`WORD_BANK`): đoạn văn nhiều chỗ trống
+>      (marker `___`), đáp án đúng theo thứ tự lưu ở cột mới
+>      `questions.structured_content` (jsonb, key `blanks`) — học sinh chọn
+>      qua dropdown mỗi chỗ trống, dropdown loại trừ từ đã chọn ở chỗ khác
+>      (mỗi từ dùng đúng 1 lần). **Bảo mật quan trọng**: `structured_content`
+>      lưu ĐÚNG thứ tự đáp án (chính là đáp án đúng) — endpoint học sinh
+>      gọi để làm bài (`GET /api/exercises/{id}/questions`) KHÔNG BAO GIỜ
+>      trả nguyên thứ tự gốc, luôn trả bản sao đã xáo trộn ngẫu nhiên (xem
+>      `ExerciseService#shuffledStructuredContent`) — cùng nguyên tắc với
+>      `choices` (không kèm `isCorrect`) ở endpoint này.
+>   2. **Sắp xếp câu** (`SENTENCE_BUILDING`): khối từ/cụm theo ĐÚNG thứ tự
+>      câu hoàn chỉnh, lưu ở `structured_content` (key `chunks`) — Portal
+>      xáo trộn hiển thị, học sinh CHẠM từng khối theo thứ tự muốn chọn
+>      (tap-to-order — thay cho kéo-thả vật lý, ổn định hơn trên thiết bị
+>      cảm ứng, không cần thư viện DnD, cùng kết quả tự động chấm chính
+>      xác thứ tự). `student_answers` thêm cột `structured_answer` (jsonb)
+>      lưu thứ tự học sinh đã chọn — chấm bằng so khớp elementwise
+>      case-insensitive + trim với `structured_content`, cả 2 dạng đều tự
+>      chấm được (`AUTO_GRADABLE_TYPES`).
+>   3. **Chọn từ trong câu** (`INLINE_CHOICE`, kind ảo ở FE): `MULTIPLE_CHOICE`
+>      với đúng 2 `choices` thay vì 4 — không đổi backend, giống cách
+>      "Trắc nghiệm Voice" đã là kind ảo từ trước.
+>   4. **Đọc hiểu — lưới**: N câu `MULTIPLE_CHOICE` (thường 3 lựa chọn)
+>      dùng chung 1 `referencePassage` (gộp nhiều đoạn văn ngắn) + cột mới
+>      `questions.group_key` — nhiều câu cùng `group_key` được gộp hiển thị
+>      thành 1 bảng (đoạn văn hiện 1 lần, N dòng câu hỏi × cột đáp án) ở cả
+>      màn soạn (`GridQuestionBuilder.tsx`, tạo N Question 1 lần) lẫn màn
+>      học sinh làm bài (`TakeExerciseModal.tsx` nhóm theo `group_key`).
+>   5. **Điền từ tự do** (Ex3 của đề mẫu) đã được hỗ trợ 100% từ trước bởi
+>      `FILL_IN_BLANK` (V54) — không cần thêm gì.
+> Migration `V78__question_word_bank_sentence_building.sql`.
 
 > **Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (2026-07-21, cập
 > nhật 2026-07-22):** `Question.audioUrl` (trắc nghiệm Voice) và

@@ -8,6 +8,7 @@ import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -21,7 +22,7 @@ import java.util.UUID;
 @Table(name = "questions")
 public class Question {
 
-    public enum QuestionType { MULTIPLE_CHOICE, MULTIPLE_ANSWER, TRUE_FALSE, FILL_IN_BLANK, ESSAY, SPEAKING }
+    public enum QuestionType { MULTIPLE_CHOICE, MULTIPLE_ANSWER, TRUE_FALSE, FILL_IN_BLANK, ESSAY, SPEAKING, WORD_BANK, SENTENCE_BUILDING }
 
     public enum Skill { LISTENING, READING, WRITING, SPEAKING, GRAMMAR, OTHER }
 
@@ -75,6 +76,24 @@ public class Question {
      */
     @Column(name = "correct_answer_text", columnDefinition = "TEXT")
     private String correctAnswerText;
+
+    /**
+     * V78 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04) — dữ liệu riêng theo
+     * questionType: WORD_BANK dùng key "blanks" (mảng đáp án đúng theo đúng thứ tự chỗ trống trong
+     * content); SENTENCE_BUILDING dùng key "chunks" (mảng khối từ/cụm theo ĐÚNG thứ tự câu hoàn
+     * chỉnh — FE tự xáo trộn lúc hiển thị cho học sinh). Rỗng với mọi questionType khác.
+     */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "structured_content", columnDefinition = "jsonb")
+    private Map<String, Object> structuredContent;
+
+    /**
+     * V78 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04) — dạng "Đọc hiểu — lưới":
+     * nhiều câu MULTIPLE_CHOICE cùng 1 groupKey được gộp hiển thị chung 1 referencePassage (cả lúc
+     * soạn lẫn lúc học sinh làm bài) — xem GridQuestionBuilder (FE) / TakeExerciseModal (Portal).
+     */
+    @Column(name = "group_key", length = 64)
+    private String groupKey;
 
     @Column(name = "default_points", nullable = false, precision = 5, scale = 2)
     private BigDecimal defaultPoints = new BigDecimal("1.0");

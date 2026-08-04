@@ -127,7 +127,7 @@ class QuestionBankControllerTest extends AbstractControllerTest {
                 new CreateQuestionBankRequest("QB-" + SEQ.incrementAndGet(), "Ngân hàng test", null, null, null), teacher.getId());
         QuestionResponse question = questionBankService.createQuestion(
                 new CreateQuestionRequest(bank.id(), "MULTIPLE_CHOICE", "GRAMMAR", "EASY", "She ___ to school.",
-                        null, null, null, null, null, new BigDecimal("1.0"), null, List.of()),
+                        null, null, null, null, null, new BigDecimal("1.0"), null, List.of(), null, null),
                 teacher.getId());
         var staff = userWithRole("staff.getq", "STAFF");
 
@@ -144,7 +144,7 @@ class QuestionBankControllerTest extends AbstractControllerTest {
                 new CreateQuestionBankRequest("QB-" + SEQ.incrementAndGet(), "Ngân hàng test", null, null, null), teacher.getId());
         QuestionResponse question = questionBankService.createQuestion(
                 new CreateQuestionRequest(bank.id(), "MULTIPLE_CHOICE", "GRAMMAR", "EASY", "She ___ to school.",
-                        null, null, null, null, null, new BigDecimal("1.0"), null, List.of()),
+                        null, null, null, null, null, new BigDecimal("1.0"), null, List.of(), null, null),
                 teacher.getId());
 
         mockMvc.perform(get("/api/questions/" + question.id())

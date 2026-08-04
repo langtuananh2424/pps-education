@@ -44,4 +44,8 @@ public class ReviewVideoWatchSession extends BaseAuditEntity {
 
     @Column(name = "started_at", nullable = false)
     private OffsetDateTime startedAt = OffsetDateTime.now();
+
+    /** V76 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng): NULL = chưa trả lời đủ bộ câu hỏi CONNECTION cho lượt này. */
+    @Column(name = "quiz_completed_at")
+    private OffsetDateTime quizCompletedAt;
 }

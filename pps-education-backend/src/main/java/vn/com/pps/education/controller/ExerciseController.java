@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import vn.com.pps.education.dto.AddExerciseQuestionRequest;
@@ -15,6 +16,7 @@ import vn.com.pps.education.dto.CreateExerciseRequest;
 import vn.com.pps.education.dto.ExerciseAssignmentResponse;
 import vn.com.pps.education.dto.ExerciseQuestionResponse;
 import vn.com.pps.education.dto.ExerciseResponse;
+import vn.com.pps.education.dto.UpdateExerciseRequest;
 import vn.com.pps.education.security.AuthenticatedUser;
 import vn.com.pps.education.service.ExerciseService;
 
@@ -41,6 +43,21 @@ public class ExerciseController {
     public ResponseEntity<ExerciseResponse> getExercise(@PathVariable Long id,
                                                           @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(exerciseService.getExercise(id, actor.userId()));
+    }
+
+    @PreAuthorize("hasPermission(null, 'lms.exercise.update')")
+    @PutMapping("/api/exercises/{id}")
+    public ResponseEntity<ExerciseResponse> updateExercise(@PathVariable Long id, @Valid @RequestBody UpdateExerciseRequest request,
+                                                             @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(exerciseService.updateExercise(id, request, actor.userId()));
+    }
+
+    /** V80 — "Xóa Bài" (lưu trữ, status=ARCHIVED) — xem Javadoc ExerciseService#deleteExercise. */
+    @PreAuthorize("hasPermission(null, 'lms.exercise.update')")
+    @DeleteMapping("/api/exercises/{id}")
+    public ResponseEntity<Void> deleteExercise(@PathVariable Long id, @AuthenticationPrincipal AuthenticatedUser actor) {
+        exerciseService.deleteExercise(id, actor.userId());
+        return ResponseEntity.noContent().build();
     }
 
     @PreAuthorize("hasPermission(null, 'lms.exercise.update')")

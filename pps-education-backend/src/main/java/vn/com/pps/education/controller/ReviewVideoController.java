@@ -11,12 +11,15 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import vn.com.pps.education.dto.AddReviewVideoConnectionQuestionRequest;
 import vn.com.pps.education.dto.AddReviewVideoQuestionRequest;
 import vn.com.pps.education.dto.AddReviewVideoRequest;
 import vn.com.pps.education.dto.CreateReviewVideoSetRequest;
 import vn.com.pps.education.dto.GradeReviewVideoSubmissionRequest;
 import vn.com.pps.education.dto.ReportVideoProgressRequest;
 import vn.com.pps.education.dto.ReviewVideoAssignmentResponse;
+import vn.com.pps.education.dto.ReviewVideoConnectionQuestionResponse;
+import vn.com.pps.education.dto.ReviewVideoConnectionQuizResultResponse;
 import vn.com.pps.education.dto.ReviewVideoProgressResponse;
 import vn.com.pps.education.dto.ReviewVideoQuestionResponse;
 import vn.com.pps.education.dto.ReviewVideoResponse;
@@ -24,6 +27,7 @@ import vn.com.pps.education.dto.ReviewVideoSetResponse;
 import vn.com.pps.education.dto.ReviewVideoSetStatsResponse;
 import vn.com.pps.education.dto.ReviewVideoSubmissionResponse;
 import vn.com.pps.education.dto.StartWatchSessionResponse;
+import vn.com.pps.education.dto.SubmitConnectionAnswersRequest;
 import vn.com.pps.education.dto.SubmitReviewVideoAudioRequest;
 import vn.com.pps.education.dto.UpdateReviewVideoSetRequest;
 import vn.com.pps.education.security.AuthenticatedUser;
@@ -112,6 +116,21 @@ public class ReviewVideoController {
         return ResponseEntity.ok(reviewVideoService.listQuestions(videoId, actor.userId()));
     }
 
+    /** V76 — mirror addQuestion/listQuestions của REFLEX, dành cho câu hỏi trắc nghiệm của video CONNECTION. */
+    @PreAuthorize("hasPermission(null, 'lms.review-video.update')")
+    @PostMapping("/api/review-videos/{videoId}/connection-questions")
+    public ResponseEntity<ReviewVideoConnectionQuestionResponse> addConnectionQuestion(
+            @PathVariable Long videoId, @Valid @RequestBody AddReviewVideoConnectionQuestionRequest request,
+            @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(reviewVideoService.addConnectionQuestion(videoId, request, actor.userId()));
+    }
+
+    @GetMapping("/api/review-videos/{videoId}/connection-questions")
+    public ResponseEntity<List<ReviewVideoConnectionQuestionResponse>> listConnectionQuestions(
+            @PathVariable Long videoId, @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(reviewVideoService.listConnectionQuestions(videoId, actor.userId()));
+    }
+
     @PostMapping("/api/review-videos/{videoId}/watch-sessions")
     public ResponseEntity<StartWatchSessionResponse> startWatchSession(@PathVariable Long videoId,
                                                                           @AuthenticationPrincipal AuthenticatedUser actor) {
@@ -123,6 +142,14 @@ public class ReviewVideoController {
                                                                         @Valid @RequestBody ReportVideoProgressRequest request,
                                                                         @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(reviewVideoService.reportProgress(videoId, request, actor.userId()));
+    }
+
+    /** V76 — học sinh nộp toàn bộ câu trả lời trắc nghiệm cho 1 lượt xem cụ thể (khớp cặp 1-1 qua watchSessionId). */
+    @PutMapping("/api/review-video-watch-sessions/{watchSessionId}/connection-answers")
+    public ResponseEntity<ReviewVideoConnectionQuizResultResponse> submitConnectionAnswers(
+            @PathVariable Long watchSessionId, @Valid @RequestBody SubmitConnectionAnswersRequest request,
+            @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(reviewVideoService.submitConnectionAnswers(watchSessionId, request, actor.userId()));
     }
 
     @PreAuthorize("hasPermission(null, 'lms.review-video.view')")

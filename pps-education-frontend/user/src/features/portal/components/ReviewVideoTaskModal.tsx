@@ -1,16 +1,20 @@
 import React, { useEffect, useRef, useState } from "react";
-import { CheckCircle2, Clock, History, Mic, ShieldAlert, Square, Upload, X } from "lucide-react";
+import { Check, CheckCircle2, Clock, History, Mic, ShieldAlert, Square, Upload, X, XCircle } from "lucide-react";
 import { friendlyApiErrorMessage } from "@/lib/apiClient";
 import {
+  ConnectionAnswerResult,
   IntegrityEventInput,
+  ReviewVideoConnectionQuestionResponse,
   ReviewVideoQuestionResponse,
   ReviewVideoResponse,
   ReviewVideoSubmissionResponse,
   getMyLatestReviewVideoSubmission,
   listMyReviewVideoSubmissionHistory,
+  listReviewVideoConnectionQuestions,
   listReviewVideoQuestions,
   reportReviewVideoProgress,
   startReviewVideoWatchSession,
+  submitReviewVideoConnectionAnswers,
   submitReviewVideoQuestionAudio,
   uploadMedia
 } from "../api";
@@ -330,17 +334,56 @@ export default function ReviewVideoTaskModal({ video, videoType, onClose, onSubm
   const [watchSessionId, setWatchSessionId] = useState<number | null>(null);
   const [progressSummary, setProgressSummary] = useState<{ viewCount: number; requiredViewCount: number; completed: boolean } | null>(null);
 
+  // V76: câu hỏi trắc nghiệm cuối mỗi lượt xem CONNECTION — bắt buộc trả lời khớp ĐÚNG lượt vừa mở
+  // (watchSessionId) mới tính vào viewCount. Reset khi mở lượt xem mới, giống watchSessionId/progressSummary.
+  const [connectionQuestions, setConnectionQuestions] = useState<ReviewVideoConnectionQuestionResponse[]>([]);
+  const [loadingConnectionQuestions, setLoadingConnectionQuestions] = useState(videoType === "CONNECTION");
+  const [connectionQuestionsError, setConnectionQuestionsError] = useState<string | null>(null);
+  const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number>>({});
+  const [quizResult, setQuizResult] = useState<ConnectionAnswerResult[] | null>(null);
+  const [submittingQuiz, setSubmittingQuiz] = useState(false);
+  const [quizError, setQuizError] = useState<string | null>(null);
+
   useEffect(() => {
     if (videoType !== "CONNECTION") return;
     setWatchSessionId(null);
     setProgressSummary(null);
+    setSelectedAnswers({});
+    setQuizResult(null);
+    setQuizError(null);
     startReviewVideoWatchSession(video.id)
       .then((r) => setWatchSessionId(r.sessionId))
       .catch(() => undefined);
   }, [video.id, videoType]);
 
+  useEffect(() => {
+    if (videoType !== "CONNECTION") return;
+    setLoadingConnectionQuestions(true);
+    setConnectionQuestionsError(null);
+    listReviewVideoConnectionQuestions(video.id)
+      .then((qs) => setConnectionQuestions(qs.slice().sort((a, b) => a.displayOrder - b.displayOrder)))
+      .catch((err) => setConnectionQuestionsError(friendlyApiErrorMessage(err, "Không tải được câu hỏi.")))
+      .finally(() => setLoadingConnectionQuestions(false));
+  }, [video.id, videoType]);
+
   const handleProgress = (r: { viewCount: number; requiredViewCount: number; completed: boolean }) =>
     setProgressSummary({ viewCount: r.viewCount, requiredViewCount: r.requiredViewCount, completed: r.completed });
+
+  const handleSubmitConnectionQuiz = async () => {
+    if (!watchSessionId || connectionQuestions.some((q) => selectedAnswers[q.id] == null)) return;
+    setSubmittingQuiz(true);
+    setQuizError(null);
+    try {
+      const answers = connectionQuestions.map((q) => ({ questionId: q.id, selectedChoiceId: selectedAnswers[q.id] }));
+      const result = await submitReviewVideoConnectionAnswers(watchSessionId, answers);
+      setQuizResult(result.results);
+      handleProgress(result.progress);
+    } catch (err) {
+      setQuizError(friendlyApiErrorMessage(err, "Nộp câu trả lời thất bại — thử lại."));
+    } finally {
+      setSubmittingQuiz(false);
+    }
+  };
 
   const { iframeId, watchedPercent: youTubeWatchedPercent } = useYouTubeWatchProgress(
     videoType === "CONNECTION" && isYouTube ? video : null,
@@ -480,6 +523,84 @@ export default function ReviewVideoTaskModal({ video, videoType, onClose, onSubm
                 {progressSummary?.completed && " ✓"}
               </span>
             </div>
+          </div>
+        )}
+
+        {/* V76: câu hỏi trắc nghiệm cuối lượt xem — chỉ hiện SAU KHI lượt hiện tại đạt ngưỡng, và chỉ tới khi đã nộp xong (quizResult != null). */}
+        {videoType === "CONNECTION" && sessionQualified && (
+          <div className="bg-emerald-50/60 border border-emerald-200 rounded-[14px] p-4 space-y-3">
+            <p className="text-[10px] font-extrabold text-emerald-700 uppercase tracking-wide">
+              Trả lời câu hỏi để tính lượt xem này
+            </p>
+            {connectionQuestionsError && (
+              <div className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-xl">{connectionQuestionsError}</div>
+            )}
+            {quizError && <div className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-xl">{quizError}</div>}
+            {loadingConnectionQuestions ? (
+              <p className="text-xs text-muted font-bold">Đang tải câu hỏi...</p>
+            ) : connectionQuestions.length === 0 ? (
+              <p className="text-xs text-muted font-bold italic">Video này chưa có câu hỏi — liên hệ Giáo viên.</p>
+            ) : (
+              <>
+                {connectionQuestions.map((q, i) => {
+                  const result = quizResult?.find((r) => r.questionId === q.id);
+                  return (
+                    <div key={q.id} className="space-y-2">
+                      <p className="text-sm font-bold text-ink">
+                        Câu {i + 1}. {q.prompt}
+                      </p>
+                      <div className="space-y-1.5">
+                        {q.choices.map((c) => {
+                          const picked = selectedAnswers[q.id] === c.id;
+                          const isAnsweredCorrect = result && c.id === result.correctChoiceId;
+                          const isAnsweredWrongPick = result && picked && !result.correct;
+                          return (
+                            <button
+                              key={c.id}
+                              type="button"
+                              disabled={!!quizResult}
+                              onClick={() => setSelectedAnswers((prev) => ({ ...prev, [q.id]: c.id }))}
+                              className={`w-full flex items-center gap-2 text-left px-3 py-2 rounded-xl border text-xs font-bold transition-colors ${
+                                result
+                                  ? isAnsweredCorrect
+                                    ? "bg-emerald-50 border-emerald-300 text-emerald-700"
+                                    : isAnsweredWrongPick
+                                      ? "bg-rose-50 border-rose-300 text-rose-700"
+                                      : "bg-white border-line text-ink"
+                                  : picked
+                                    ? "bg-teal text-white border-teal"
+                                    : "bg-white border-line text-ink hover:border-teal/50"
+                              }`}
+                            >
+                              <span className="flex-1">{c.choiceLabel}. {c.content}</span>
+                              {result && isAnsweredCorrect && <CheckCircle2 size={14} className="shrink-0" />}
+                              {result && isAnsweredWrongPick && <XCircle size={14} className="shrink-0" />}
+                              {!result && picked && <Check size={14} className="shrink-0" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {quizResult ? (
+                  <div className="flex items-center gap-1.5 text-xs font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 p-2.5 rounded-xl">
+                    <CheckCircle2 size={14} className="shrink-0" />
+                    Đã nộp — {quizResult.filter((r) => r.correct).length}/{quizResult.length} câu đúng. Lượt này đã được tính.
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleSubmitConnectionQuiz}
+                    disabled={submittingQuiz || connectionQuestions.some((q) => selectedAnswers[q.id] == null)}
+                    className="w-full px-3 py-2 bg-teal hover:bg-teal-deep text-white rounded-xl text-xs font-extrabold disabled:opacity-50"
+                  >
+                    {submittingQuiz ? "Đang nộp..." : "Nộp câu trả lời"}
+                  </button>
+                )}
+              </>
+            )}
           </div>
         )}
 

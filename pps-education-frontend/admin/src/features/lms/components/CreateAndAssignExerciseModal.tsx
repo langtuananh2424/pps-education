@@ -5,12 +5,14 @@ import { ApiError } from "@/lib/apiClient";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import {
+  ExamTeacherType,
   ExerciseResponse,
   QuestionBankResponse,
   QuestionImportedRow,
   QuestionResponse,
   addExerciseQuestion,
   createExercise,
+  listExerciseQuestions,
   listQuestionBanksByCurriculum,
   listQuestions,
   publishExercise
@@ -18,6 +20,7 @@ import {
 import Select from "@/components/ui/Select";
 import QuestionEditorForm from "./QuestionEditorForm";
 import QuestionImportPanel from "./QuestionImportPanel";
+import GridQuestionBuilder from "./GridQuestionBuilder";
 import { QuickBankForm } from "../pages/QuestionBankPage";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
@@ -34,6 +37,18 @@ interface CreateAndAssignExerciseModalProps {
   examId: number;
   /** Khung chương trình của Đề cha — chỉ để browse Ngân hàng câu hỏi ở bước soạn Bài, không gửi lên BE. */
   curriculumId: number;
+  /**
+   * V77-V83 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04): VIETNAMESE giữ luồng câu
+   * hỏi thường (bỏ "Chọn có sẵn", ưu tiên "Nhập Excel/Word", V78 thêm toggle "Bài đọc hiểu — Lưới").
+   * FOREIGN (V83, sửa lại lần cuối): không còn MÀN HÌNH riêng để chọn loại Bài ("Audio bài nghe"/"Nghe
+   * & nộp audio") — kể cả gắn ở bước "gắn câu hỏi" như V82 người dùng vẫn thấy đó là "1 bước ngoài"
+   * thừa. Giờ FOREIGN đi đúng 1 luồng DUY NHẤT như VIETNAMESE: soạn info Bài → sang thẳng
+   * ExerciseQuestionsStep → chọn loại câu hỏi NGAY TRONG kind-picker của QuestionEditorForm (cùng chỗ
+   * VIETNAMESE chọn giữa 7 kind), chỉ khác là danh sách kind cho phép bị giới hạn còn 2 (Trắc nghiệm
+   * Voice / Nghe & nộp audio). "Video phản xạ" đã bị bỏ khỏi màn này từ trước (V79) — Video phản xạ
+   * (REFLEX) giao lớp trực tiếp ở Kho Video Ôn tập, y hệt Video kết nối.
+   */
+  teacherType: ExamTeacherType;
   onClose: () => void;
   onDone: () => void;
 }
@@ -45,8 +60,11 @@ interface CreateAndAssignExerciseModalProps {
  * hạn nộp = buổi kế tiếp) chuyển hẳn sang lúc Giáo viên chọn Bài này làm "BTVN buổi sau" ở Nhận xét học
  * viên (UC-21, xem DailyCommentPanel.tsx). Kho đề (2026-07-30): Bài giờ thuộc 1 Đề (examId) thay vì
  * gán khung chương trình trực tiếp — khung chương trình chỉ còn dùng để browse Ngân hàng câu hỏi.
+ *
+ * V82: info step giờ giống HỆT nhau cho VIETNAMESE/FOREIGN (ExerciseInfoStep không còn phân biệt
+ * teacherType) — chỉ bước "gắn câu hỏi" (ExerciseQuestionsStep) mới khác nhau theo teacherType.
  */
-export default function CreateAndAssignExerciseModal({ examId, curriculumId, onClose, onDone }: CreateAndAssignExerciseModalProps) {
+export default function CreateAndAssignExerciseModal({ examId, curriculumId, teacherType, onClose, onDone }: CreateAndAssignExerciseModalProps) {
   const [step, setStep] = useState<Step>("info");
   const [exercise, setExercise] = useState<ExerciseResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -70,6 +88,7 @@ export default function CreateAndAssignExerciseModal({ examId, curriculumId, onC
         <ExerciseQuestionsStep
           exercise={exercise}
           curriculumId={curriculumId}
+          teacherType={teacherType}
           onDone={() => setStep("publish")}
           onError={setError}
           onClose={onClose}
@@ -102,7 +121,6 @@ function ExerciseInfoStep({
   const [code, setCode] = useState("");
   const [title, setTitle] = useState("");
   const [totalPoints, setTotalPoints] = useState("10");
-  const [timeLimitMinutes, setTimeLimitMinutes] = useState("");
   const [allowRetake, setAllowRetake] = useState(false);
   const [maxAttempts, setMaxAttempts] = useState("");
   const [showCorrectAnswers, setShowCorrectAnswers] = useState(true);
@@ -123,7 +141,6 @@ function ExerciseInfoStep({
         examId,
         exerciseType: "ASSIGNED",
         totalPoints: Number(totalPoints),
-        timeLimitMinutes: timeLimitMinutes ? Number(timeLimitMinutes) : undefined,
         allowRetake,
         maxAttempts: allowRetake && maxAttempts ? Number(maxAttempts) : undefined,
         showCorrectAnswers
@@ -152,10 +169,6 @@ function ExerciseInfoStep({
           <input value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} />
         </div>
         <div>
-          <label className={labelClass}>Thời gian làm bài (phút)</label>
-          <input type="number" min={0} value={timeLimitMinutes} onChange={(e) => setTimeLimitMinutes(e.target.value)} className={inputClass} />
-        </div>
-        <div className="flex items-end">
           <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
             <input type="checkbox" checked={showCorrectAnswers} onChange={(e) => setShowCorrectAnswers(e.target.checked)} />
             Hiện đáp án đúng sau khi nộp (phần trắc nghiệm)
@@ -192,27 +205,54 @@ interface AttachedQuestion {
   points: number;
 }
 
-/** UC-40 Main Flow bước 1: 3 nguồn câu hỏi — chọn có sẵn / soạn câu hỏi mới / nhập hàng loạt Excel-Word (bổ sung 2026-07-30, đã xác nhận với người dùng). */
-function ExerciseQuestionsStep({
+/**
+ * UC-40 Main Flow bước 1: nguồn câu hỏi — soạn câu hỏi mới / nhập hàng loạt Excel-Word (bổ sung
+ * 2026-07-30, đã xác nhận với người dùng). V77 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+ * 2026-08-04): bỏ hẳn "Chọn có sẵn" (Ngân hàng câu hỏi đã ẩn khỏi sidebar, không còn ý nghĩa) — Đề
+ * VIETNAMESE ưu tiên "Nhập Excel/Word" làm mặc định; Đề FOREIGN (nhánh Audio bài nghe) chỉ còn
+ * "Soạn câu hỏi mới", giới hạn đúng loại Trắc nghiệm Voice qua allowedKinds của QuestionEditorForm.
+ */
+/**
+ * Xuất công khai để tái dùng ở ExerciseAssignPage.tsx — "+ Thêm câu hỏi" cho 1 Bài ĐÃ TỒN TẠI (bổ
+ * sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04, vá gap: trước đây soạn xong 1 Bài rồi
+ * đóng modal thì không còn cách nào gắn thêm câu hỏi nữa).
+ */
+export function ExerciseQuestionsStep({
   exercise,
   curriculumId,
+  teacherType,
   onDone,
   onError,
   onClose
 }: {
   exercise: ExerciseResponse;
   curriculumId: number;
+  teacherType: ExamTeacherType;
   onDone: () => void;
   onError: (message: string | null) => void;
   onClose: () => void;
 }) {
-  const [mode, setMode] = useState<QuestionSourceMode>("existing");
+  const availableModes: QuestionSourceMode[] = teacherType === "FOREIGN" ? ["compose"] : ["import", "compose"];
+  const [mode, setMode] = useState<QuestionSourceMode>(availableModes[0]);
+  // V78: VIETNAMESE trong tab "Soạn câu hỏi mới" có thêm lựa chọn "Bài đọc hiểu — Lưới" (composite
+  // nhiều câu hỏi/1 lần, xem GridQuestionBuilder) bên cạnh soạn từng câu đơn (QuestionEditorForm).
+  const [composeSubMode, setComposeSubMode] = useState<"single" | "grid">("single");
   const [banks, setBanks] = useState<QuestionBankResponse[]>([]);
   const [selectedBankId, setSelectedBankId] = useState<number | null>(null);
   const [bankQuestions, setBankQuestions] = useState<QuestionResponse[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selected, setSelected] = useState<SelectedQuestion[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04 — Bài có thể ĐÃ có sẵn câu hỏi (mở
+  // lại để thêm tiếp, không chỉ lúc soạn mới) — cần biết số câu đã có để displayOrder câu mới không
+  // trùng câu cũ (trước đây luôn giả định Bài trống, bắt đầu từ 1).
+  const [existingCount, setExistingCount] = useState(0);
+
+  useEffect(() => {
+    listExerciseQuestions(exercise.id)
+      .then((res) => setExistingCount(res.length))
+      .catch(() => undefined);
+  }, [exercise.id]);
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-03 — cho sửa câu hỏi NGAY tại đây (trước
   // đây phải rời màn, qua trang Ngân hàng câu hỏi mới sửa được), tái dùng đúng QuestionEditorForm đã có.
   const [editingQuestion, setEditingQuestion] = useState<QuestionResponse | null>(null);
@@ -263,7 +303,7 @@ function ExerciseQuestionsStep({
     onError(null);
     try {
       const points = question.defaultPoints ?? 0;
-      await addExerciseQuestion(exercise.id, { questionId: question.id, displayOrder: attached.length + 1, points });
+      await addExerciseQuestion(exercise.id, { questionId: question.id, displayOrder: existingCount + attached.length + 1, points });
       setAttached((prev) => [...prev, { id: question.id, content: question.content, points }]);
       setComposeFormKey((k) => k + 1); // remount QuestionEditorForm rỗng để soạn tiếp câu khác
     } catch (err) {
@@ -271,10 +311,29 @@ function ExerciseQuestionsStep({
     }
   };
 
+  /** V78 — Bài đọc hiểu "Lưới": GridQuestionBuilder đã tạo xong N Question, gắn hết vào đề rồi quay lại soạn đơn. */
+  const handleGridCreated = async (createdQuestions: QuestionResponse[]) => {
+    onError(null);
+    try {
+      let order = existingCount + attached.length;
+      const newlyAttached: AttachedQuestion[] = [];
+      for (const q of createdQuestions) {
+        order += 1;
+        const points = q.defaultPoints ?? 0;
+        await addExerciseQuestion(exercise.id, { questionId: q.id, displayOrder: order, points });
+        newlyAttached.push({ id: q.id, content: q.content, points });
+      }
+      setAttached((prev) => [...prev, ...newlyAttached]);
+      setComposeSubMode("single");
+    } catch (err) {
+      onError(err instanceof ApiError ? err.message : "Gắn các câu hỏi đọc hiểu vào đề thất bại.");
+    }
+  };
+
   const handleImportCompleted = async (createdQuestions: QuestionImportedRow[]) => {
     onError(null);
     try {
-      let order = attached.length;
+      let order = existingCount + attached.length;
       const newlyAttached: AttachedQuestion[] = [];
       for (const q of createdQuestions) {
         order += 1;
@@ -289,7 +348,7 @@ function ExerciseQuestionsStep({
 
   const handleContinue = async () => {
     onError(null);
-    if (selected.length === 0 && attached.length === 0) {
+    if (selected.length === 0 && attached.length === 0 && existingCount === 0) {
       onError("Cần gắn tối thiểu 1 câu hỏi vào đề.");
       return;
     }
@@ -302,7 +361,7 @@ function ExerciseQuestionsStep({
       for (let i = 0; i < selected.length; i++) {
         await addExerciseQuestion(exercise.id, {
           questionId: selected[i].question.id,
-          displayOrder: attached.length + i + 1,
+          displayOrder: existingCount + attached.length + i + 1,
           points: selected[i].points
         });
       }
@@ -326,6 +385,16 @@ function ExerciseQuestionsStep({
         <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-100 p-2.5 rounded-lg">
           Đề có câu Tự luận/Nói — sau khi học sinh nộp bài sẽ cần chấm tay ở màn "Hàng chờ chấm bài".
         </div>
+      )}
+
+      {teacherType === "FOREIGN" && (
+        <p className="text-[11px] text-slate-400 italic">
+          Cần giao Video phản xạ? Vào{" "}
+          <Link to="/lms/lectures" target="_blank" rel="noreferrer" className="text-brand-red font-bold hover:underline">
+            Kho Video Ôn tập
+          </Link>{" "}
+          — tạo/giao lớp trực tiếp ở đó, giống Video kết nối.
+        </p>
       )}
 
       {banks.length === 0 ? (
@@ -356,20 +425,22 @@ function ExerciseQuestionsStep({
             ))}
           </Select>
 
-          <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-lg w-fit">
-            {(Object.keys(modeLabels) as QuestionSourceMode[]).map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => setMode(m)}
-                className={`text-[11px] font-bold px-3 py-1.5 rounded-md transition-all ${
-                  mode === m ? "bg-white text-brand-red shadow-xs" : "text-slate-500 hover:text-slate-700"
-                }`}
-              >
-                {modeLabels[m]}
-              </button>
-            ))}
-          </div>
+          {availableModes.length > 1 && (
+            <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-lg w-fit">
+              {availableModes.map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setMode(m)}
+                  className={`text-[11px] font-bold px-3 py-1.5 rounded-md transition-all ${
+                    mode === m ? "bg-white text-brand-red shadow-xs" : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  {modeLabels[m]}
+                </button>
+              ))}
+            </div>
+          )}
 
           {mode === "existing" && (
             <div className="space-y-3">
@@ -433,14 +504,44 @@ function ExerciseQuestionsStep({
             </div>
           )}
 
+          {mode === "compose" && selectedBankId && teacherType === "VIETNAMESE" && (
+            <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-lg w-fit">
+              {(["single", "grid"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setComposeSubMode(m)}
+                  className={`text-[11px] font-bold px-3 py-1.5 rounded-md transition-all ${
+                    composeSubMode === m ? "bg-white text-brand-red shadow-xs" : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  {m === "single" ? "Câu hỏi đơn" : "Bài đọc hiểu — Lưới"}
+                </button>
+              ))}
+            </div>
+          )}
+
           {mode === "compose" &&
             (selectedBankId ? (
-              <QuestionEditorForm
-                key={composeFormKey}
-                questionBankId={selectedBankId}
-                onCreated={handleComposeCreated}
-                onCancel={() => setMode("existing")}
-              />
+              composeSubMode === "grid" && teacherType === "VIETNAMESE" ? (
+                <GridQuestionBuilder questionBankId={selectedBankId} onCreated={handleGridCreated} onCancel={() => setComposeSubMode("single")} />
+              ) : (
+                <QuestionEditorForm
+                  key={composeFormKey}
+                  questionBankId={selectedBankId}
+                  allowedKinds={
+                    // V83 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04): FOREIGN chọn
+                    // trực tiếp giữa 2 kind ngay trong kind-picker này — không còn màn chọn riêng trước
+                    // đó (V78 GV Việt Nam không soạn Speaking oral/"Nghe & nộp audio", 2 kind này chỉ
+                    // dành cho FOREIGN).
+                    teacherType === "FOREIGN"
+                      ? ["VOICE_MULTIPLE_CHOICE", "LISTENING_AUDIO_SUBMISSION"]
+                      : ["MULTIPLE_CHOICE", "VOICE_MULTIPLE_CHOICE", "INLINE_CHOICE", "FILL_IN_BLANK", "WORD_BANK", "SENTENCE_BUILDING", "ESSAY"]
+                  }
+                  onCreated={handleComposeCreated}
+                  onCancel={() => setMode(availableModes[0])}
+                />
+              )
             ) : (
               <p className="text-xs text-slate-400 italic p-3 text-center">Chọn 1 ngân hàng câu hỏi ở trên để soạn câu hỏi mới.</p>
             ))}
@@ -468,10 +569,16 @@ function ExerciseQuestionsStep({
 
       <div className="flex justify-between items-center pt-2">
         <span className="text-[11px] text-slate-500">
-          Đã gắn vào đề: {selected.length + attached.length} câu
+          Đã gắn vào Bài: {existingCount + selected.length + attached.length} câu
         </span>
-        <Button type="button" variant="primary" size="sm" onClick={handleContinue} disabled={submitting || selected.length + attached.length === 0}>
-          {submitting ? "Đang lưu..." : "Tiếp tục — chọn hạn nộp"}
+        <Button
+          type="button"
+          variant="primary"
+          size="sm"
+          onClick={handleContinue}
+          disabled={submitting || (selected.length + attached.length === 0 && existingCount === 0)}
+        >
+          {submitting ? "Đang lưu..." : "Lưu câu hỏi vào Bài"}
         </Button>
       </div>
 

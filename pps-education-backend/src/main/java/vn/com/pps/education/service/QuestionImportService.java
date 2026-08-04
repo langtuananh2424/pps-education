@@ -268,7 +268,7 @@ public class QuestionImportService {
                 : kind.equals("TU_LUAN") ? "ESSAY" : "SPEAKING";
 
         return new CreateQuestionRequest(bankId, questionType, skill, difficulty, row.content().trim(),
-                audioUrl, imageUrl, referencePassage, explanation, correctAnswerText, defaultPoints, tags, choices);
+                audioUrl, imageUrl, referencePassage, explanation, correctAnswerText, defaultPoints, tags, choices, null, null);
     }
 
     private List<QuestionChoiceRequest> buildChoices(QuestionRowParser.ParsedQuestionRow row) {

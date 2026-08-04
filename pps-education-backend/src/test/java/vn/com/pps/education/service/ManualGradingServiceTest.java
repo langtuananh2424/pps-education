@@ -122,11 +122,11 @@ class ManualGradingServiceTest extends AbstractIntegrationTest {
         mcQuestion = questionBankService.createQuestion(
                 new CreateQuestionRequest(bank.id(), "MULTIPLE_CHOICE", "GRAMMAR", "EASY", "She ___ to school.",
                         null, null, null, null, null, new BigDecimal("1.0"), null,
-                        List.of(new QuestionChoiceRequest("A", "go", false, 1), new QuestionChoiceRequest("B", "goes", true, 2))),
+                        List.of(new QuestionChoiceRequest("A", "go", false, 1), new QuestionChoiceRequest("B", "goes", true, 2)), null, null),
                 teacher.getId());
         essayQuestion = questionBankService.createQuestion(
                 new CreateQuestionRequest(bank.id(), "ESSAY", "WRITING", "MEDIUM", "Viết đoạn văn 50 từ.",
-                        null, null, null, null, null, new BigDecimal("2.0"), null, null),
+                        null, null, null, null, null, new BigDecimal("2.0"), null, null, null, null),
                 teacher.getId());
 
         studentUser = newUser("student");
@@ -152,8 +152,8 @@ class ManualGradingServiceTest extends AbstractIntegrationTest {
 
         attempt = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
         Long correctChoiceId = mcQuestion.choices().stream().filter(c -> c.isCorrect()).findFirst().orElseThrow().id();
-        exerciseAttemptService.saveAnswer(attempt.id(), new SaveAnswerRequest(mcQuestion.id(), null, List.of(correctChoiceId), null), studentUser.getId());
-        exerciseAttemptService.saveAnswer(attempt.id(), new SaveAnswerRequest(essayQuestion.id(), "Bài làm của em.", null, null), studentUser.getId());
+        exerciseAttemptService.saveAnswer(attempt.id(), new SaveAnswerRequest(mcQuestion.id(), null, List.of(correctChoiceId), null, null), studentUser.getId());
+        exerciseAttemptService.saveAnswer(attempt.id(), new SaveAnswerRequest(essayQuestion.id(), "Bài làm của em.", null, null, null), studentUser.getId());
         attempt = exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
     }
 
