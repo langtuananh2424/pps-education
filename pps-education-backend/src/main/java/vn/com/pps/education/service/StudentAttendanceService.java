@@ -225,9 +225,11 @@ public class StudentAttendanceService {
     }
 
     /**
-     * Main Flow bước 4-6, A2: xác nhận Lưu điểm danh. Nếu có ABSENT/LATE,
-     * kích hoạt thông báo cho tất cả phụ huynh liên kết (bất đồng bộ, dùng
-     * lại NotificationService/NotificationDispatchService — xem Javadoc lớp).
+     * Main Flow bước 4-6, A2: xác nhận Lưu điểm danh. Nếu có ABSENT (vắng
+     * không phép), kích hoạt thông báo cho tất cả phụ huynh liên kết (bất
+     * đồng bộ, dùng lại NotificationService/NotificationDispatchService —
+     * xem Javadoc lớp). Sửa đổi nghiệp vụ 2026-08-04 (đã xác nhận với người
+     * dùng, xem UC-15): LATE không còn kích hoạt gửi thông báo.
      */
     @Transactional
     public AttendanceSessionResponse submitAttendance(Long classSessionId, Long actorUserId) {
@@ -245,10 +247,9 @@ public class StudentAttendanceService {
 
         List<AttendanceMark> marks = attendanceMarkRepository.findByAttendanceSessionId(attendanceSession.getId());
         for (AttendanceMark mark : marks) {
-            // Main Flow bước 5 / A2 -- chỉ ABSENT/LATE CHƯA gửi mới kích hoạt thông báo.
+            // Main Flow bước 5 / A2 -- chỉ ABSENT (vắng không phép) CHƯA gửi mới kích hoạt thông báo.
             // Guard notifiedParentAt: submit lại trong ngày (sau khi sửa) không gửi trùng cho PH.
-            if ((mark.getStatus() == AttendanceMark.Status.ABSENT || mark.getStatus() == AttendanceMark.Status.LATE)
-                    && mark.getNotifiedParentAt() == null) {
+            if (mark.getStatus() == AttendanceMark.Status.ABSENT && mark.getNotifiedParentAt() == null) {
                 notifyParents(mark, classSession, actor);
             }
         }
@@ -282,8 +283,7 @@ public class StudentAttendanceService {
         if (links.isEmpty()) {
             return;
         }
-        String title = "Học sinh " + mark.getStudent().getUser().getFullName()
-                + (mark.getStatus() == AttendanceMark.Status.ABSENT ? " vắng học" : " đi muộn");
+        String title = "Học sinh " + mark.getStudent().getUser().getFullName() + " vắng học";
         String content = "Buổi học ngày " + classSession.getSessionDate() + " (" + classSession.getStartTime()
                 + " - " + classSession.getEndTime() + "): " + mark.getStudent().getUser().getFullName()
                 + " được ghi nhận " + mark.getStatus() + ".";
@@ -369,8 +369,10 @@ public class StudentAttendanceService {
         long late = marks.stream().filter(m -> m.getStatus() == AttendanceMark.Status.LATE).count();
         long earlyLeave = marks.stream().filter(m -> m.getStatus() == AttendanceMark.Status.EARLY_LEAVE).count();
         long total = marks.size();
+        // Sửa đổi nghiệp vụ 2026-08-04 (đã xác nhận với người dùng, xem UC-15): LATE tính là đi học
+        // đầy đủ trong tỷ lệ chuyên cần, không trừ điểm như trước đây (chỉ đếm PRESENT).
         BigDecimal rate = total == 0 ? BigDecimal.ZERO
-                : BigDecimal.valueOf(present).multiply(new BigDecimal("100"))
+                : BigDecimal.valueOf(present + late).multiply(new BigDecimal("100"))
                         .divide(BigDecimal.valueOf(total), 2, RoundingMode.HALF_UP);
 
         return new PartnerAttendanceSummaryResponse(

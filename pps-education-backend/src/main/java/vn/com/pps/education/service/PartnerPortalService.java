@@ -151,8 +151,10 @@ public class PartnerPortalService {
         long late = marks.stream().filter(m -> m.getStatus() == AttendanceMark.Status.LATE).count();
         long earlyLeave = marks.stream().filter(m -> m.getStatus() == AttendanceMark.Status.EARLY_LEAVE).count();
         long total = marks.size();
+        // Sửa đổi nghiệp vụ 2026-08-04 (đã xác nhận với người dùng, xem UC-15): LATE tính là đi học
+        // đầy đủ trong tỷ lệ chuyên cần, không trừ điểm như trước đây (chỉ đếm PRESENT).
         BigDecimal rate = total == 0 ? BigDecimal.ZERO
-                : BigDecimal.valueOf(present).multiply(new BigDecimal("100"))
+                : BigDecimal.valueOf(present + late).multiply(new BigDecimal("100"))
                         .divide(BigDecimal.valueOf(total), 2, RoundingMode.HALF_UP);
 
         return new PartnerAttendanceSummaryResponse(

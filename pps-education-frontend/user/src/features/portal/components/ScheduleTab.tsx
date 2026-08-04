@@ -82,7 +82,8 @@ export default function ScheduleTab({ studentId, classId }: ScheduleTabProps) {
   const present = attendance.filter((a) => a.status === "PRESENT").length;
   const late = attendance.filter((a) => a.status === "LATE").length;
   const absent = attendance.filter((a) => a.status === "ABSENT").length;
-  const rate = total > 0 ? (((present + late * 0.5) / total) * 100).toFixed(0) : "0";
+  // Đi trễ vẫn tính là đi học (nghiệp vụ xác nhận 2026-08-04) — cộng nguyên late vào rate, không nhân 0.5.
+  const rate = total > 0 ? (((present + late) / total) * 100).toFixed(0) : "0";
 
   // Tra ngược classSessionId -> buổi học cụ thể (ngày/giờ/số buổi) để hiện rõ trong "Nhật ký chuyên
   // cần" — trước đây chỉ hiện mỗi trạng thái (Đi học/Vắng mặt), không rõ của buổi nào (2026-07-31).
