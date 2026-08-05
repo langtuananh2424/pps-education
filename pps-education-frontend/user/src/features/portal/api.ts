@@ -652,6 +652,20 @@ export function listExerciseQuestions(exerciseId: number): Promise<ExerciseQuest
   return apiRequest<ExerciseQuestionResponse[]>(`/exercises/${exerciseId}/questions`);
 }
 
+/**
+ * UC-24/A4, UC-27/A2: chỉ cần maxAttempts để tính học sinh còn bao nhiêu lượt trước khi đáp án được
+ * mở khóa — GET /api/exercises/{id} trả về ExerciseResponse đầy đủ (DTO của Admin), interface này chỉ
+ * khai field cần dùng ở Portal (typing cấu trúc, các field khác của response bị bỏ qua).
+ */
+export interface ExerciseAttemptLimitResponse {
+  id: number;
+  maxAttempts: number | null;
+}
+
+export function getExerciseAttemptLimit(exerciseId: number): Promise<ExerciseAttemptLimitResponse> {
+  return apiRequest<ExerciseAttemptLimitResponse>(`/exercises/${exerciseId}`);
+}
+
 // ===================== UC-24/UC-27: Làm bài + nộp bài =====================
 
 export interface ExerciseAttemptResponse {
@@ -693,6 +707,12 @@ export interface SaveAnswerRequest {
  * tự chấm được (ESSAY/SPEAKING, luôn hiện) HOẶC câu tự chấm được nhưng trả lời SAI (isCorrect=false)
  * — V54. structuredAnswer/correctStructuredContent (V78, bổ sung ngoài SDD gốc, đã xác nhận với
  * người dùng 2026-08-04): WORD_BANK/SENTENCE_BUILDING.
+ *
+ * UC-24/A4, UC-27/A2 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05): nếu đề có
+ * exercises.max_attempts, 3 field correctChoiceIds/correctAnswerText/correctStructuredContent (và
+ * explanation cho câu tự chấm) CHỈ được điền từ lượt làm CUỐI CÙNG (attemptNumber == maxAttempts)
+ * trở đi — các lượt trước dù isAutoGradable đã có isCorrect vẫn null hết 3 field trên. Chỉ áp dụng
+ * cho câu tự chấm được (isAutoGradable=true) — ESSAY/SPEAKING không bị gate, giữ hành vi cũ.
  */
 export interface StudentAnswerResponse {
   id: number;

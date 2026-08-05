@@ -7,7 +7,7 @@ import { useEligibleClasses } from "../hooks/useEligibleClasses";
 import { ExerciseAssignmentStatsResponse, listExerciseAssignmentStats } from "../api";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
-import Badge from "@/components/ui/Badge";
+import Badge, { BadgeVariant } from "@/components/ui/Badge";
 import TableContainer, { Th, Td } from "@/components/ui/TableContainer";
 import EmptyState from "@/components/ui/EmptyState";
 

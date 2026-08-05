@@ -342,6 +342,67 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void submitAttempt_UC24_A4_hidesCorrectAnswersBeforeLastAllowedAttemptWhenMaxAttemptsConfigured() {
+        QuestionResponse mc = createMcQuestion();
+        ExerciseResponse exercise = createSelfPracticeExerciseWithOneMcQuestion(true, 2, mc);
+
+        ExerciseAttemptResponse firstAttempt = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
+        answerCorrectly(firstAttempt.id(), mc);
+        exerciseAttemptService.submitAttempt(firstAttempt.id(), studentUser.getId());
+
+        StudentAnswerResponse firstAnswer = exerciseAttemptService.listAnswers(firstAttempt.id(), studentUser.getId()).get(0);
+        // Còn lượt làm lại (attemptNumber=1 < maxAttempts=2) — đáp án đúng/giải thích PHẢI ẩn dù đã nộp bài.
+        assertThat(firstAnswer.correctChoiceIds()).isNull();
+        assertThat(firstAnswer.correctAnswerText()).isNull();
+    }
+
+    @Test
+    void submitAttempt_UC24_A4_showsCorrectAnswersOnLastAllowedAttemptWhenMaxAttemptsConfigured() {
+        QuestionResponse mc = createMcQuestion();
+        ExerciseResponse exercise = createSelfPracticeExerciseWithOneMcQuestion(true, 2, mc);
+
+        // Lượt 1 trả lời SAI (V89: bản giao chỉ đóng khi ĐẠT ngưỡng — cần giữ ACTIVE để còn lượt 2).
+        ExerciseAttemptResponse firstAttempt = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
+        Long wrongChoiceId = mc.choices().stream().filter(c -> !c.isCorrect()).findFirst().orElseThrow().id();
+        exerciseAttemptService.saveAnswer(firstAttempt.id(),
+                new SaveAnswerRequest(mc.id(), null, List.of(wrongChoiceId), null, null), studentUser.getId());
+        exerciseAttemptService.submitAttempt(firstAttempt.id(), studentUser.getId());
+
+        ExerciseAttemptResponse secondAttempt = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
+        answerCorrectly(secondAttempt.id(), mc);
+        exerciseAttemptService.submitAttempt(secondAttempt.id(), studentUser.getId());
+
+        StudentAnswerResponse secondAnswer = exerciseAttemptService.listAnswers(secondAttempt.id(), studentUser.getId()).get(0);
+        // Lượt làm cuối cùng (attemptNumber=2 == maxAttempts=2) — đáp án đúng PHẢI hiện.
+        Long correctChoiceId = mc.choices().stream().filter(c -> c.isCorrect()).findFirst().orElseThrow().id();
+        assertThat(secondAnswer.correctChoiceIds()).containsExactly(correctChoiceId);
+    }
+
+    @Test
+    void submitAttempt_UC24_A4_essayAnswersIgnoreMaxAttemptsGate() {
+        QuestionResponse essay = examQuestionService.createQuestion(defaultExam.id(),
+                new CreateExamQuestionRequest("ESSAY", "WRITING", "MEDIUM", "Viết đoạn văn.", null, null, null,
+                        "Chú ý thì hiện tại đơn.", null, new BigDecimal("2.0"), null, null, null, null),
+                teacher.getId());
+        ExerciseResponse exercise = exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "Ôn tập", defaultExam.id(), null, "SELF_PRACTICE",
+                        new BigDecimal("2"), null, true, 2, true), teacher.getId());
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(essay.id(), 1, new BigDecimal("2.0")), teacher.getId());
+        examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
+        commitCurrentTransactionAndStartNew();
+        exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId());
+
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
+        exerciseAttemptService.saveAnswer(attempt.id(),
+                new SaveAnswerRequest(essay.id(), "Bài làm của em...", null, null, null), studentUser.getId());
+        exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
+
+        StudentAnswerResponse answer = exerciseAttemptService.listAnswers(attempt.id(), studentUser.getId()).get(0);
+        // Câu tự luận/Nói chưa áp dụng quy tắc ẩn theo max_attempts — vẫn hiện explanation dù còn lượt làm lại (attemptNumber=1 < maxAttempts=2).
+        assertThat(answer.explanation()).isEqualTo("Chú ý thì hiện tại đơn.");
+    }
+
+    @Test
     void submitAttempt_UC27_MainFlow_fillInBlankAutoGradesCaseInsensitively() {
         QuestionResponse fillIn = examQuestionService.createQuestion(defaultExam.id(),
                 new CreateExamQuestionRequest("FILL_IN_BLANK", "GRAMMAR", "EASY",

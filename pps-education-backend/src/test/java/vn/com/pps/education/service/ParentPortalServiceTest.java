@@ -20,6 +20,7 @@ import vn.com.pps.education.dto.ClassSessionResponse;
 import vn.com.pps.education.dto.CreateClassRequest;
 import vn.com.pps.education.dto.CreateClassSessionRequest;
 import vn.com.pps.education.dto.CreateCurriculumRequest;
+import vn.com.pps.education.dto.CreateExamQuestionRequest;
 import vn.com.pps.education.dto.CreateExamRequest;
 import vn.com.pps.education.dto.CreateExerciseRequest;
 import vn.com.pps.education.dto.CreateGradeComponentRequest;
@@ -105,6 +106,9 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
 
     @Autowired
     private ExerciseService exerciseService;
+
+    @Autowired
+    private ExamQuestionService examQuestionService;
 
     @Autowired
     private ExamService examService;
@@ -337,10 +341,11 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
         var exam = examService.createExam(
                 new CreateExamRequest(examCode(), "Đề Ngữ pháp homework", schoolClass.curriculumId(), "VIETNAMESE", "HOMEWORK"), teacher.getId());
         examService.assignToClass(exam.id(), schoolClass.id(), teacher.getId());
-        QuestionBankResponse bank = questionBankService.createBank(
-                new CreateQuestionBankRequest(bankCode(), "Ngân hàng homework", null, null, null), teacher.getId());
-        QuestionResponse question = questionBankService.createQuestion(
-                new CreateQuestionRequest(bank.id(), "MULTIPLE_CHOICE", "GRAMMAR", "EASY", "She ___ to school.",
+        // V75 (Kho đề): mỗi Exam tự sinh 1 QuestionBank nội bộ riêng, không nhận câu hỏi qua
+        // QuestionBankService#createQuestion (chỉ dành cho bank "legacy" độc lập) — phải qua
+        // ExamQuestionService#createQuestion (tự resolve bank nội bộ theo examId).
+        QuestionResponse question = examQuestionService.createQuestion(exam.id(),
+                new CreateExamQuestionRequest("MULTIPLE_CHOICE", "GRAMMAR", "EASY", "She ___ to school.",
                         null, null, null, null, null, new BigDecimal("1.0"), null,
                         List.of(new QuestionChoiceRequest("A", "go", false, 1), new QuestionChoiceRequest("B", "goes", true, 2)), null, null),
                 teacher.getId());
@@ -348,6 +353,9 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
                 new CreateExerciseRequest(exerciseCode(), "Bài ngữ pháp homework", exam.id(), null,
                         "ASSIGNED", new BigDecimal("1"), null, false, 1, true), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(question.id(), 1, new BigDecimal("1.0")), teacher.getId());
+        // V71: writeComment gọi deliverToClass bên trong bằng PROPAGATION_REQUIRES_NEW — phải
+        // commit Đề/Bài vừa tạo trước.
+        commitCurrentTransactionAndStartNew();
         return exercise;
     }
 
@@ -369,6 +377,9 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
                 new AddReviewVideoRequest("R2_VIDEO", "Video", "https://media.pps.edu.vn/lms/review-videos/video/homework.mp4",
                         1_000_000L, 100, 1, null, null),
                 teacher.getId());
+        // V71: writeComment gọi deliverToClass bên trong bằng PROPAGATION_REQUIRES_NEW — phải
+        // commit Bộ video vừa tạo trước.
+        commitCurrentTransactionAndStartNew();
         return published;
     }
 
