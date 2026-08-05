@@ -189,7 +189,7 @@ public class PartnerPortalService {
                 c.getAttitude() == null ? null : c.getAttitude().name(), c.getHomeworkPreviousScore(),
                 c.getHomeworkPreviousSpeakingScore(),
                 // Portal trường liên kết chưa cần hiển thị chi tiết BTVN online (UC-21 mở rộng, V55) — để trống, bổ sung khi có yêu cầu.
-                c.getHomeworkNext(), null, null, null, null, null, null, c.getNote(),
+                c.getHomeworkNext(), null, null, null, null, null, null, null, null, c.getNote(),
                 c.getClassSession() == null ? null : c.getClassSession().getLessonContent());
     }
 }

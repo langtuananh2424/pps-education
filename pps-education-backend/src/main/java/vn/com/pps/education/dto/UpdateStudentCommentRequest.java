@@ -2,6 +2,7 @@ package vn.com.pps.education.dto;
 
 import jakarta.validation.constraints.NotBlank;
 
+import java.time.LocalDateTime;
 import java.util.Map;
 
 /**
@@ -26,5 +27,7 @@ public record UpdateStudentCommentRequest(
         String homeworkNext,
         Long homeworkNextExerciseId,
         Long homeworkNextReviewVideoSetId,
+        /** Nhận xét học viên (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05) — xem Javadoc CreateStudentCommentRequest. */
+        LocalDateTime homeworkNextDueDate,
         String note
 ) {}

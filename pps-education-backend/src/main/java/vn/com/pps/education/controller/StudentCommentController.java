@@ -14,12 +14,16 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import vn.com.pps.education.common.ExcelHttpResponses;
 import vn.com.pps.education.dto.ClassSessionLessonContentResponse;
+import vn.com.pps.education.dto.ClassSessionTeacherNameResponse;
+import vn.com.pps.education.dto.ClassSessionTeacherTypeResponse;
 import vn.com.pps.education.dto.CreateStudentCommentRequest;
 import vn.com.pps.education.dto.DailyCommentImportResponse;
 import vn.com.pps.education.dto.DecideCommentsRequest;
 import vn.com.pps.education.dto.StudentCommentResponse;
 import vn.com.pps.education.dto.SubmitCommentsRequest;
+import vn.com.pps.education.dto.UpdateActualTeacherNameRequest;
 import vn.com.pps.education.dto.UpdateLessonContentRequest;
+import vn.com.pps.education.dto.UpdateSessionTeacherTypeRequest;
 import vn.com.pps.education.dto.UpdateStudentCommentContentRequest;
 import vn.com.pps.education.dto.UpdateStudentCommentRequest;
 import vn.com.pps.education.security.AuthenticatedUser;
@@ -101,6 +105,24 @@ public class StudentCommentController {
                                                                                   @Valid @RequestBody UpdateLessonContentRequest request,
                                                                                   @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(studentCommentService.updateLessonContent(classSessionId, request.lessonContent(), actor.userId()));
+    }
+
+    /** "Loại giáo viên" của buổi học (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05). */
+    @PreAuthorize("hasPermission(null, 'academic.comment.write') or hasPermission(null, 'academic.comment.approve')")
+    @PutMapping("/api/class-sessions/{classSessionId}/comments/teacher-type")
+    public ResponseEntity<ClassSessionTeacherTypeResponse> updateSessionTeacherType(@PathVariable Long classSessionId,
+                                                                                      @Valid @RequestBody UpdateSessionTeacherTypeRequest request,
+                                                                                      @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(studentCommentService.updateSessionTeacherType(classSessionId, request.teacherType(), actor.userId()));
+    }
+
+    /** "Tên giáo viên giảng dạy" thực tế của buổi học (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06). */
+    @PreAuthorize("hasPermission(null, 'academic.comment.write') or hasPermission(null, 'academic.comment.approve')")
+    @PutMapping("/api/class-sessions/{classSessionId}/comments/teacher-name")
+    public ResponseEntity<ClassSessionTeacherNameResponse> updateActualTeacherName(@PathVariable Long classSessionId,
+                                                                                     @Valid @RequestBody UpdateActualTeacherNameRequest request,
+                                                                                     @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(studentCommentService.updateActualTeacherName(classSessionId, request.actualTeacherName(), actor.userId()));
     }
 
     @PreAuthorize("hasPermission(null, 'academic.comment.write') or hasPermission(null, 'academic.comment.approve')")

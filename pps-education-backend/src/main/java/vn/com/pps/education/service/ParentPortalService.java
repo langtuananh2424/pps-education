@@ -232,7 +232,7 @@ public class ParentPortalService {
                 c.getAttitude() == null ? null : c.getAttitude().name(), c.getHomeworkPreviousScore(),
                 c.getHomeworkPreviousSpeakingScore(),
                 // Portal Phụ huynh chưa cần hiển thị chi tiết BTVN online (UC-21 mở rộng, V55) — để trống, bổ sung khi có yêu cầu.
-                c.getHomeworkNext(), null, null, null, null, null, null, c.getNote(),
+                c.getHomeworkNext(), null, null, null, null, null, null, null, null, c.getNote(),
                 c.getClassSession() == null ? null : c.getClassSession().getLessonContent());
     }
 
@@ -258,7 +258,8 @@ public class ParentPortalService {
                 s.getRoom() == null ? null : s.getRoom().getId(), s.getRoom() == null ? null : s.getRoom().getName(),
                 s.getPrimaryTeacher().getId(), s.getPrimaryTeacher().getFullName(), s.getSessionType().name(), s.getStatus().name(),
                 s.getCancellationReason(), s.getRescheduledToSession() == null ? null : s.getRescheduledToSession().getId(),
-                s.getLessonContent(), s.getTeacherType() == null ? null : s.getTeacherType().name(), sessionNumber,
+                s.getLessonContent(), s.getTeacherType() == null ? null : s.getTeacherType().name(),
+                s.getActualTeacherName(), sessionNumber,
                 s.getMakeupForSession() == null ? null : s.getMakeupForSession().getId());
     }
 }

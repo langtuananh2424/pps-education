@@ -228,10 +228,14 @@ export interface StudentCommentResponse {
   /** V65: id BẢN GIAO (ReviewVideoAssignment, đổi tên từ homeworkNextReviewVideoSetId — trước V65 trỏ thẳng ReviewVideoSet). */
   homeworkNextReviewVideoAssignmentId: number | null;
   homeworkNextReviewVideoSetTitle: string | null;
+  /** Hạn nộp BTVN buổi sau (lấy từ dueAt của bản giao) — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05. */
+  homeworkNextDueAt: string | null;
   /** % tự tính từ exercise_attempts của buổi trước — không nhập tay được. */
   grammarPreviousProgress: string | null;
   /** % tự tính từ review_video_progress/submissions của buổi trước — không nhập tay được. */
   videoPreviousProgress: string | null;
+  /** BTVN buổi trước từng giao Offline (chữ tự do) — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06, phân biệt "BTVN buổi trước" có 3 loại (Offline/kênh Bài/kênh Video). Loại trừ với grammarPreviousProgress. */
+  homeworkPreviousOfflineText: string | null;
   note: string | null;
   /** "Bài học hôm nay" của buổi (chỉ có ý nghĩa khi commentType=DAILY) — bổ sung ngoài SDD gốc, 2026-07-29. */
   lessonContent: string | null;

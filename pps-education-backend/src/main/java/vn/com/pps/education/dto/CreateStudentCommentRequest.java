@@ -4,6 +4,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Map;
 
 /**
@@ -21,6 +22,14 @@ import java.util.Map;
  * giữ nguyên ý nghĩa (id của {@code ReviewVideoSet} — chọn nguồn), cũng
  * tự động giao cả lớp tương tự. Chỉ hợp lệ khi commentType=DAILY (xem
  * Javadoc StudentCommentService).
+ *
+ * Nhận xét học viên (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+ * 2026-08-05, cho phép chọn GIỜ 2026-08-06): {@code homeworkNextDueDate}
+ * (ngày + giờ, VD "2026-08-10T17:00") cho phép Giáo viên tự chọn hạn nộp
+ * thay vì luôn khoá cứng = ngày buổi kế tiếp — để trống thì giữ nguyên hành
+ * vi cũ (resolveNextSessionDueAt). Chỉ có ý nghĩa khi có chọn
+ * homeworkNextExerciseId hoặc homeworkNextReviewVideoSetId; mọi nhận xét
+ * DAILY cùng 1 buổi phải khớp cùng 1 hạn nộp (StudentCommentService#requireNoDueDateConflict).
  */
 public record CreateStudentCommentRequest(
         @NotNull Long studentId,
@@ -38,5 +47,6 @@ public record CreateStudentCommentRequest(
         String homeworkNext,
         Long homeworkNextExerciseId,
         Long homeworkNextReviewVideoSetId,
+        LocalDateTime homeworkNextDueDate,
         String note
 ) {}
