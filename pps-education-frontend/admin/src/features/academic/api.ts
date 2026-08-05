@@ -892,3 +892,77 @@ export function listPendingComments(): Promise<StudentCommentResponse[]> {
 export function decideComments(commentIds: number[], decision: "APPROVED" | "REJECTED", comment?: string): Promise<StudentCommentResponse[]> {
   return apiRequest<StudentCommentResponse[]>("/comments/decision", { method: "POST", body: JSON.stringify({ commentIds, decision, comment }) });
 }
+
+// ===================== UC-66: Thống kê BTVN theo lớp (FR-ACA-07) =====================
+
+export interface ExerciseAssignmentStatsResponse {
+  assignmentId: number;
+  exerciseId: number;
+  exerciseCode: string;
+  exerciseTitle: string;
+  exerciseType: "SELF_PRACTICE" | "ASSIGNED" | "MOCK_TEST" | "SKILL_PRACTICE";
+  availableFrom: string;
+  dueAt: string | null;
+  status: "ACTIVE" | "COMPLETED";
+  totalStudents: number;
+  completedCount: number;
+  completionPercent: number;
+  passedCount: number;
+  passRatePercent: number;
+}
+
+export interface ExerciseAssignmentStudentRow {
+  studentId: number;
+  studentCode: string;
+  studentFullName: string;
+  status: "CHUA_LAM" | "DANG_LAM" | "DA_NOP" | "TRE_HAN";
+  totalScore: number | null;
+  totalPoints: number | null;
+  percentage: number | null;
+  passed: boolean | null;
+  submittedAt: string | null;
+  attemptNumber: number | null;
+}
+
+export interface ExerciseAssignmentStudentStatsResponse {
+  assignment: ExerciseAssignmentStatsResponse;
+  students: ExerciseAssignmentStudentRow[];
+}
+
+export interface ExerciseAssignmentWrongStudent {
+  studentId: number;
+  studentCode: string;
+  studentFullName: string;
+}
+
+export interface ExerciseAssignmentQuestionRow {
+  questionId: number;
+  displayOrder: number;
+  content: string;
+  questionType: string;
+  skill: string | null;
+  answeredCount: number;
+  wrongCount: number;
+  wrongRatePercent: number;
+  wrongStudents: ExerciseAssignmentWrongStudent[];
+}
+
+export interface ExerciseAssignmentQuestionStatsResponse {
+  questions: ExerciseAssignmentQuestionRow[];
+}
+
+export function listExerciseAssignmentStats(classId: number): Promise<ExerciseAssignmentStatsResponse[]> {
+  return apiRequest<ExerciseAssignmentStatsResponse[]>(`/classes/${classId}/exercise-assignments/stats`);
+}
+
+export function getExerciseAssignmentStudentStats(assignmentId: number): Promise<ExerciseAssignmentStudentStatsResponse> {
+  return apiRequest<ExerciseAssignmentStudentStatsResponse>(`/exercise-assignments/${assignmentId}/stats/students`);
+}
+
+export function getExerciseAssignmentQuestionStats(assignmentId: number): Promise<ExerciseAssignmentQuestionStatsResponse> {
+  return apiRequest<ExerciseAssignmentQuestionStatsResponse>(`/exercise-assignments/${assignmentId}/stats/questions`);
+}
+
+export function exportExerciseAssignmentStats(assignmentId: number): Promise<Blob> {
+  return apiRequestBlob(`/exercise-assignments/${assignmentId}/stats/export`);
+}

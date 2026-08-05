@@ -261,7 +261,8 @@ public class ExerciseAttemptService {
         return attempt;
     }
 
-    private BigDecimal percentageOf(BigDecimal score, BigDecimal totalPoints) {
+    /** package-private static: tái dùng ở ExerciseReportService (FR-ACA-07) để không lệch công thức làm tròn. */
+    static BigDecimal percentageOf(BigDecimal score, BigDecimal totalPoints) {
         if (totalPoints == null || totalPoints.signum() <= 0) {
             return null;
         }
