@@ -8,7 +8,9 @@ import {
   ExerciseAssignmentQuestionStatsResponse,
   ExerciseAssignmentStudentStatsResponse,
   ExerciseAssignmentStudentRow,
+  StudentAnswerRow,
   exportExerciseAssignmentStats,
+  getAttemptAnswers,
   getExerciseAssignmentQuestionStats,
   getExerciseAssignmentStudentStats
 } from "../api";
@@ -274,6 +276,20 @@ function QuestionRow({
 }
 
 function StudentDetailModal({ student, onClose }: { student: ExerciseAssignmentStudentRow; onClose: () => void }) {
+  const [answers, setAnswers] = React.useState<StudentAnswerRow[]>([]);
+  const [loadingAnswers, setLoadingAnswers] = React.useState(false);
+  const [answerError, setAnswerError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!student.attemptId) return;
+    setLoadingAnswers(true);
+    setAnswerError(null);
+    getAttemptAnswers(student.attemptId)
+      .then(setAnswers)
+      .catch((err) => setAnswerError(err instanceof ApiError ? err.message : "Không tải được lịch sử trả lời."))
+      .finally(() => setLoadingAnswers(false));
+  }, [student.attemptId]);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="bg-white rounded-lg shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto mx-4">
@@ -317,7 +333,7 @@ function StudentDetailModal({ student, onClose }: { student: ExerciseAssignmentS
               <div className="border border-slate-200 rounded-lg p-3">
                 <p className="text-xs text-slate-500">Kết quả</p>
                 <p className="font-semibold text-sm mt-1">
-                  {student.passed == null ? "—" : student.passed ? "✓ Đạt" : "✗ Chưa đạt"}
+                  {student.passed == null ? "—" : student.passed ? "Đạt" : "Chưa đạt"}
                 </p>
               </div>
             </div>
@@ -326,24 +342,67 @@ function StudentDetailModal({ student, onClose }: { student: ExerciseAssignmentS
           {/* Lịch sử trả lời câu hỏi */}
           <div>
             <h3 className="font-semibold text-sm mb-3 text-slate-900">Lịch sử trả lời câu hỏi</h3>
+            {answerError && (
+              <div className="mb-3 text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{answerError}</div>
+            )}
             <div className="border border-slate-200 rounded-lg overflow-hidden">
-              <table className="w-full text-xs">
-                <thead className="bg-slate-50">
-                  <tr>
-                    <th className="text-left p-2 border-b border-slate-200">Câu</th>
-                    <th className="text-left p-2 border-b border-slate-200">Câu hỏi</th>
-                    <th className="text-center p-2 border-b border-slate-200">Trả lời</th>
-                    <th className="text-center p-2 border-b border-slate-200">Kết quả</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  <tr>
-                    <td colSpan={4} className="text-center p-3 text-slate-500 text-[11px]">
-                      Dữ liệu lịch sử trả lời sẽ được hiển thị tại đây (cần API backend)
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+              {loadingAnswers ? (
+                <div className="text-center p-4 text-sm text-slate-500">Đang tải...</div>
+              ) : answers.length === 0 ? (
+                <div className="text-center p-4 text-sm text-slate-500">Không có dữ liệu.</div>
+              ) : (
+                <table className="w-full text-xs">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      <th className="text-center p-2 border-b border-slate-200 w-12">Câu</th>
+                      <th className="text-left p-2 border-b border-slate-200">ID Câu</th>
+                      <th className="text-left p-2 border-b border-slate-200">Trả lời của học sinh</th>
+                      <th className="text-left p-2 border-b border-slate-200">Đáp án đúng</th>
+                      <th className="text-center p-2 border-b border-slate-200 w-16">Kết quả</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {answers.map((answer, idx) => (
+                      <tr key={answer.id}>
+                        <td className="text-center p-2 font-semibold text-slate-900">{idx + 1}</td>
+                        <td className="p-2 text-slate-500 font-mono text-[10px]">{answer.questionId}</td>
+                        <td className="p-2 text-slate-600">
+                          {answer.answerText ? (
+                            <span className="break-words">{answer.answerText}</span>
+                          ) : answer.selectedChoiceIds && answer.selectedChoiceIds.length > 0 ? (
+                            <span>Chọn: {answer.selectedChoiceIds.join(", ")}</span>
+                          ) : (
+                            <span className="text-slate-400 italic">Không trả lời</span>
+                          )}
+                        </td>
+                        <td className="p-2 text-slate-600">
+                          {answer.correctAnswerText ? (
+                            <span className="break-words">{answer.correctAnswerText}</span>
+                          ) : answer.correctChoiceIds && answer.correctChoiceIds.length > 0 ? (
+                            <span>Chọn: {answer.correctChoiceIds.join(", ")}</span>
+                          ) : (
+                            <span className="text-slate-400">—</span>
+                          )}
+                          {answer.explanation && (
+                            <p className="text-[10px] text-slate-500 mt-1 italic">
+                              {answer.explanation}
+                            </p>
+                          )}
+                        </td>
+                        <td className="text-center p-2">
+                          {answer.isCorrect == null ? (
+                            <span className="text-slate-400">—</span>
+                          ) : answer.isCorrect ? (
+                            <span className="text-green-600 font-bold">✓</span>
+                          ) : (
+                            <span className="text-red-600 font-bold">✗</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
         </div>

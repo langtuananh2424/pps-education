@@ -178,7 +178,7 @@ public class ExerciseReportService {
         if (latest == null) {
             return new ExerciseAssignmentStudentStatsResponse.StudentRow(
                     student.getId(), student.getStudentCode(), student.getUser().getFullName(),
-                    "CHUA_LAM", null, null, null, null, null, null);
+                    "CHUA_LAM", null, null, null, null, null, null, null);
         }
         String status;
         if (latest.getStatus() == ExerciseAttempt.Status.IN_PROGRESS) {
@@ -193,7 +193,7 @@ public class ExerciseReportService {
         return new ExerciseAssignmentStudentStatsResponse.StudentRow(
                 student.getId(), student.getStudentCode(), student.getUser().getFullName(),
                 status, latest.getTotalScore(), exercise.getTotalPoints(), percentage,
-                latest.getPassed(), latest.getSubmittedAt(), latest.getAttemptNumber());
+                latest.getPassed(), latest.getSubmittedAt(), latest.getAttemptNumber(), latest.getId());
     }
 
     private ExerciseAssignmentQuestionStatsResponse.QuestionRow toQuestionRow(ExerciseQuestion eq, List<StudentAnswer> answers,
