@@ -96,6 +96,7 @@ export default function HomeworkStatsPage() {
                   <Th>Ngày giao</Th>
                   <Th>Hạn nộp</Th>
                   <Th className="text-center">% hoàn thành</Th>
+                  <Th className="text-center">% đạt</Th>
                   <Th />
                 </tr>
               </thead>
@@ -112,6 +113,9 @@ export default function HomeworkStatsPage() {
                     <Td>{formatDate(a.dueAt)}</Td>
                     <Td className="text-center">
                       {a.completedCount}/{a.totalStudents} ({a.completionPercent}%)
+                    </Td>
+                    <Td className="text-center">
+                      {a.passedCount}/{a.totalStudents} ({a.passRatePercent}%)
                     </Td>
                     <Td className="text-right">
                       <Button size="sm" onClick={() => navigate(`/academic/homework-stats/${a.assignmentId}`)}>

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, ChevronDown, ChevronRight, Download } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronRight, Download, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { downloadBlob } from "@/lib/xlsxTemplate";
 import {
@@ -42,6 +42,7 @@ export default function AssignmentStatsDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [expandedQuestionId, setExpandedQuestionId] = useState<number | null>(null);
+  const [expandedStudentId, setExpandedStudentId] = useState<number | null>(null);
 
   const numAssignmentId = assignmentId ? parseInt(assignmentId, 10) : null;
 
@@ -139,8 +140,10 @@ export default function AssignmentStatsDetailPage() {
                       <th className="text-left p-2 border border-slate-200 sticky left-0 bg-slate-50">Học sinh</th>
                       <th className="text-center p-2 border border-slate-200">Trạng thái</th>
                       <th className="text-center p-2 border border-slate-200">Điểm</th>
+                      <th className="text-center p-2 border border-slate-200">%</th>
                       <th className="text-center p-2 border border-slate-200">Đã hoàn thành</th>
                       <th className="text-center p-2 border border-slate-200">Số lần làm</th>
+                      <th className="text-center p-2 border border-slate-200"></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -156,6 +159,9 @@ export default function AssignmentStatsDetailPage() {
                           {s.totalScore != null ? `${s.totalScore}/${s.totalPoints}` : "—"}
                         </td>
                         <td className="text-center p-2 border border-slate-200">
+                          {s.percentage != null ? `${s.percentage}%` : "—"}
+                        </td>
+                        <td className="text-center p-2 border border-slate-200">
                           {s.status === "CHUA_LAM" ? (
                             <Badge variant="neutral">Chưa làm</Badge>
                           ) : s.passed == null ? (
@@ -167,7 +173,54 @@ export default function AssignmentStatsDetailPage() {
                         <td className="text-center p-2 border border-slate-200">
                           {s.attemptNumber ?? "—"}
                         </td>
+                        <td className="text-center p-2 border border-slate-200">
+                          {s.status !== "CHUA_LAM" && (
+                            <button
+                              onClick={() => setExpandedStudentId(expandedStudentId === s.studentId ? null : s.studentId)}
+                              className="text-xs text-blue-600 hover:underline"
+                            >
+                              {expandedStudentId === s.studentId ? "Ẩn" : "Xem"}
+                            </button>
+                          )}
+                        </td>
                       </tr>
+                      {expandedStudentId === s.studentId && (
+                        <tr className="bg-slate-50">
+                          <td colSpan={7} className="p-3 border border-slate-200">
+                            <div className="space-y-2">
+                              <h4 className="font-semibold text-sm">Chi tiết lịch sử trả lời</h4>
+                              <div className="grid grid-cols-3 gap-4 text-xs">
+                                <div>
+                                  <p className="text-slate-500">Trạng thái:</p>
+                                  <p className="font-semibold">{studentStatusLabels[s.status]}</p>
+                                </div>
+                                <div>
+                                  <p className="text-slate-500">Điểm số:</p>
+                                  <p className="font-semibold">{s.totalScore ?? "—"}/{s.totalPoints}</p>
+                                </div>
+                                <div>
+                                  <p className="text-slate-500">Tỉ lệ:</p>
+                                  <p className="font-semibold">{s.percentage ?? "—"}%</p>
+                                </div>
+                                <div>
+                                  <p className="text-slate-500">Lần làm:</p>
+                                  <p className="font-semibold">{s.attemptNumber ?? "—"}</p>
+                                </div>
+                                <div>
+                                  <p className="text-slate-500">Nộp lúc:</p>
+                                  <p className="font-semibold text-[11px]">{s.submittedAt ? new Date(s.submittedAt).toLocaleString("vi-VN") : "—"}</p>
+                                </div>
+                                <div>
+                                  <p className="text-slate-500">Kết quả:</p>
+                                  <p className="font-semibold">
+                                    {s.passed == null ? "—" : s.passed ? "✓ Đạt" : "✗ Chưa đạt"}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
                     ))}
                   </tbody>
                 </table>
