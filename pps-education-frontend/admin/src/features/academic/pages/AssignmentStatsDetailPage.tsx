@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, ChevronDown, ChevronRight, Download, X } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronRight, Download, Eye, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { downloadBlob } from "@/lib/xlsxTemplate";
 import {
   ExerciseAssignmentQuestionRow,
   ExerciseAssignmentQuestionStatsResponse,
   ExerciseAssignmentStudentStatsResponse,
+  ExerciseAssignmentStudentRow,
   exportExerciseAssignmentStats,
   getExerciseAssignmentQuestionStats,
   getExerciseAssignmentStudentStats
@@ -42,7 +43,7 @@ export default function AssignmentStatsDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [expandedQuestionId, setExpandedQuestionId] = useState<number | null>(null);
-  const [expandedStudentId, setExpandedStudentId] = useState<number | null>(null);
+  const [detailStudentId, setDetailStudentId] = useState<number | null>(null);
 
   const numAssignmentId = assignmentId ? parseInt(assignmentId, 10) : null;
 
@@ -75,6 +76,8 @@ export default function AssignmentStatsDetailPage() {
       setExporting(false);
     }
   };
+
+  const detailStudent = detailStudentId && studentStats ? studentStats.students.find(s => s.studentId === detailStudentId) : null;
 
   if (!studentStats) {
     return (
@@ -116,117 +119,77 @@ export default function AssignmentStatsDetailPage() {
 
       {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-lg">{error}</div>}
 
-      <Card>
-        <Tabs
-          items={[
-            { id: "students", label: "Kết quả học sinh" },
-            { id: "questions", label: "Phân tích câu hỏi" }
-          ]}
-          activeId={tab}
-          onChange={(id) => setTab(id as "students" | "questions")}
-        />
+      <Card padded={false} className="overflow-hidden">
+        <div className="px-5 py-4 border-b border-slate-100 bg-slate-50">
+          <Tabs
+            items={[
+              { id: "students", label: "Kết quả học sinh" },
+              { id: "questions", label: "Phân tích câu hỏi" }
+            ]}
+            activeId={tab}
+            onChange={(id) => setTab(id as "students" | "questions")}
+          />
+        </div>
 
-        <div className="mt-6">
+        <div className="p-5">
           {tab === "students" &&
             (loading ? (
               <p className="text-sm text-slate-500">Đang tải...</p>
             ) : !studentStats || studentStats.students.length === 0 ? (
               <p className="text-sm text-slate-400 italic">Chưa có dữ liệu để hiển thị.</p>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs border-collapse">
-                  <thead>
-                    <tr className="bg-slate-50">
-                      <th className="text-left p-2 border border-slate-200 sticky left-0 bg-slate-50">Học sinh</th>
-                      <th className="text-center p-2 border border-slate-200">Trạng thái</th>
-                      <th className="text-center p-2 border border-slate-200">Điểm</th>
-                      <th className="text-center p-2 border border-slate-200">%</th>
-                      <th className="text-center p-2 border border-slate-200">Đã hoàn thành</th>
-                      <th className="text-center p-2 border border-slate-200">Số lần làm</th>
-                      <th className="text-center p-2 border border-slate-200"></th>
+              <TableContainer className="border-0 rounded-none">
+                <thead>
+                  <tr>
+                    <Th>Học sinh</Th>
+                    <Th>Trạng thái</Th>
+                    <Th className="text-center">Điểm</Th>
+                    <Th className="text-center">%</Th>
+                    <Th className="text-center">Đã hoàn thành</Th>
+                    <Th className="text-center">Số lần làm</Th>
+                    <Th />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {studentStats.students.map((s) => (
+                    <tr key={s.studentId}>
+                      <Td className="font-semibold text-slate-900">
+                        {s.studentFullName} <span className="text-slate-400 font-mono text-[10px]">({s.studentCode})</span>
+                      </Td>
+                      <Td>
+                        <Badge variant={studentStatusVariants[s.status]}>{studentStatusLabels[s.status]}</Badge>
+                      </Td>
+                      <Td className="text-center">
+                        {s.totalScore != null ? `${s.totalScore}/${s.totalPoints}` : "—"}
+                      </Td>
+                      <Td className="text-center">
+                        {s.percentage != null ? `${s.percentage}%` : "—"}
+                      </Td>
+                      <Td className="text-center">
+                        {s.status === "CHUA_LAM" ? (
+                          <Badge variant="neutral">Chưa làm</Badge>
+                        ) : s.passed == null ? (
+                          <Badge variant="neutral">—</Badge>
+                        ) : (
+                          <Badge variant={s.passed ? "success" : "danger"}>{s.passed ? "Đạt" : "Chưa đạt"}</Badge>
+                        )}
+                      </Td>
+                      <Td className="text-center">{s.attemptNumber ?? "—"}</Td>
+                      <Td className="text-center">
+                        {s.status !== "CHUA_LAM" && (
+                          <button
+                            onClick={() => setDetailStudentId(s.studentId)}
+                            className="text-slate-600 hover:text-slate-900 inline-flex items-center justify-center"
+                            title="Xem chi tiết"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                        )}
+                      </Td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {studentStats.students.map((s) => (
-                      <>
-                      <tr key={s.studentId}>
-                        <td className="p-2 border border-slate-200 font-semibold sticky left-0 bg-white whitespace-nowrap">
-                          {s.studentFullName} <span className="text-slate-400 font-mono text-[10px]">({s.studentCode})</span>
-                        </td>
-                        <td className="text-center p-2 border border-slate-200">
-                          <Badge variant={studentStatusVariants[s.status]}>{studentStatusLabels[s.status]}</Badge>
-                        </td>
-                        <td className="text-center p-2 border border-slate-200">
-                          {s.totalScore != null ? `${s.totalScore}/${s.totalPoints}` : "—"}
-                        </td>
-                        <td className="text-center p-2 border border-slate-200">
-                          {s.percentage != null ? `${s.percentage}%` : "—"}
-                        </td>
-                        <td className="text-center p-2 border border-slate-200">
-                          {s.status === "CHUA_LAM" ? (
-                            <Badge variant="neutral">Chưa làm</Badge>
-                          ) : s.passed == null ? (
-                            <Badge variant="neutral">—</Badge>
-                          ) : (
-                            <Badge variant={s.passed ? "success" : "danger"}>{s.passed ? "Đạt" : "Chưa đạt"}</Badge>
-                          )}
-                        </td>
-                        <td className="text-center p-2 border border-slate-200">
-                          {s.attemptNumber ?? "—"}
-                        </td>
-                        <td className="text-center p-2 border border-slate-200">
-                          {s.status !== "CHUA_LAM" && (
-                            <button
-                              onClick={() => setExpandedStudentId(expandedStudentId === s.studentId ? null : s.studentId)}
-                              className="text-xs text-blue-600 hover:underline"
-                            >
-                              {expandedStudentId === s.studentId ? "Ẩn" : "Xem"}
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                      {expandedStudentId === s.studentId && (
-                        <tr className="bg-slate-50">
-                          <td colSpan={7} className="p-3 border border-slate-200">
-                            <div className="space-y-2">
-                              <h4 className="font-semibold text-sm">Chi tiết lịch sử trả lời</h4>
-                              <div className="grid grid-cols-3 gap-4 text-xs">
-                                <div>
-                                  <p className="text-slate-500">Trạng thái:</p>
-                                  <p className="font-semibold">{studentStatusLabels[s.status]}</p>
-                                </div>
-                                <div>
-                                  <p className="text-slate-500">Điểm số:</p>
-                                  <p className="font-semibold">{s.totalScore ?? "—"}/{s.totalPoints}</p>
-                                </div>
-                                <div>
-                                  <p className="text-slate-500">Tỉ lệ:</p>
-                                  <p className="font-semibold">{s.percentage ?? "—"}%</p>
-                                </div>
-                                <div>
-                                  <p className="text-slate-500">Lần làm:</p>
-                                  <p className="font-semibold">{s.attemptNumber ?? "—"}</p>
-                                </div>
-                                <div>
-                                  <p className="text-slate-500">Nộp lúc:</p>
-                                  <p className="font-semibold text-[11px]">{s.submittedAt ? new Date(s.submittedAt).toLocaleString("vi-VN") : "—"}</p>
-                                </div>
-                                <div>
-                                  <p className="text-slate-500">Kết quả:</p>
-                                  <p className="font-semibold">
-                                    {s.passed == null ? "—" : s.passed ? "✓ Đạt" : "✗ Chưa đạt"}
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                      </>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                  ))}
+                </tbody>
+              </TableContainer>
             ))}
 
           {tab === "questions" &&
@@ -252,11 +215,15 @@ export default function AssignmentStatsDetailPage() {
       </Card>
 
       {tab === "students" && (
-        <div className="flex justify-end gap-2">
+        <div className="flex justify-end">
           <Button variant="primary" size="sm" onClick={handleExport} disabled={exporting}>
             <Download className="w-3.5 h-3.5" /> {exporting ? "Đang xuất..." : "Xuất Excel"}
           </Button>
         </div>
+      )}
+
+      {detailStudent && (
+        <StudentDetailModal student={detailStudent} onClose={() => setDetailStudentId(null)} />
       )}
     </div>
   );
@@ -302,6 +269,91 @@ function QuestionRow({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function StudentDetailModal({ student, onClose }: { student: ExerciseAssignmentStudentRow; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="bg-white rounded-lg shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto mx-4">
+        <div className="sticky top-0 bg-white border-b border-slate-200 p-4 flex items-center justify-between">
+          <h2 className="font-semibold text-slate-900">Chi tiết kết quả - {student.studentFullName}</h2>
+          <button
+            onClick={onClose}
+            className="text-slate-500 hover:text-slate-700"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-6">
+          {/* Thông tin attempt */}
+          <div>
+            <h3 className="font-semibold text-sm mb-3 text-slate-900">Thông tin lần làm</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="border border-slate-200 rounded-lg p-3">
+                <p className="text-xs text-slate-500">Trạng thái</p>
+                <p className="font-semibold text-sm mt-1">{studentStatusLabels[student.status]}</p>
+              </div>
+              <div className="border border-slate-200 rounded-lg p-3">
+                <p className="text-xs text-slate-500">Điểm số</p>
+                <p className="font-semibold text-sm mt-1">{student.totalScore ?? "—"}/{student.totalPoints}</p>
+              </div>
+              <div className="border border-slate-200 rounded-lg p-3">
+                <p className="text-xs text-slate-500">Tỉ lệ</p>
+                <p className="font-semibold text-sm mt-1">{student.percentage ?? "—"}%</p>
+              </div>
+              <div className="border border-slate-200 rounded-lg p-3">
+                <p className="text-xs text-slate-500">Lần làm</p>
+                <p className="font-semibold text-sm mt-1">{student.attemptNumber ?? "—"}</p>
+              </div>
+              <div className="border border-slate-200 rounded-lg p-3">
+                <p className="text-xs text-slate-500">Nộp lúc</p>
+                <p className="font-semibold text-sm mt-1 text-[12px]">
+                  {student.submittedAt ? new Date(student.submittedAt).toLocaleString("vi-VN") : "—"}
+                </p>
+              </div>
+              <div className="border border-slate-200 rounded-lg p-3">
+                <p className="text-xs text-slate-500">Kết quả</p>
+                <p className="font-semibold text-sm mt-1">
+                  {student.passed == null ? "—" : student.passed ? "✓ Đạt" : "✗ Chưa đạt"}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Lịch sử trả lời câu hỏi */}
+          <div>
+            <h3 className="font-semibold text-sm mb-3 text-slate-900">Lịch sử trả lời câu hỏi</h3>
+            <div className="border border-slate-200 rounded-lg overflow-hidden">
+              <table className="w-full text-xs">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="text-left p-2 border-b border-slate-200">Câu</th>
+                    <th className="text-left p-2 border-b border-slate-200">Câu hỏi</th>
+                    <th className="text-center p-2 border-b border-slate-200">Trả lời</th>
+                    <th className="text-center p-2 border-b border-slate-200">Kết quả</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  <tr>
+                    <td colSpan={4} className="text-center p-3 text-slate-500 text-[11px]">
+                      Dữ liệu lịch sử trả lời sẽ được hiển thị tại đây (cần API backend)
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div className="border-t border-slate-200 bg-slate-50 p-4 flex justify-end gap-2">
+          <Button size="sm" onClick={onClose}>
+            Đóng
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
