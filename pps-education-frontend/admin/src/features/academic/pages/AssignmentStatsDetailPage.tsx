@@ -148,6 +148,7 @@ export default function AssignmentStatsDetailPage() {
                   </thead>
                   <tbody>
                     {studentStats.students.map((s) => (
+                      <>
                       <tr key={s.studentId}>
                         <td className="p-2 border border-slate-200 font-semibold sticky left-0 bg-white whitespace-nowrap">
                           {s.studentFullName} <span className="text-slate-400 font-mono text-[10px]">({s.studentCode})</span>
@@ -221,6 +222,7 @@ export default function AssignmentStatsDetailPage() {
                           </td>
                         </tr>
                       )}
+                      </>
                     ))}
                   </tbody>
                 </table>
