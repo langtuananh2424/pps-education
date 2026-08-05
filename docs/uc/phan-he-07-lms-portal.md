@@ -509,6 +509,30 @@ UC-24: Làm bài kiểm tra trực tuyến
 |                 |                                                    |
 |                 | 1.  Không có phần chờ Giáo viên chấm; Học sinh xem |
 |                 |     được điểm tổng kết ngay sau khi nộp.           |
+|                 |                                                    |
+|                 | ***A4 --- Đề có giới hạn số lần làm lại***         |
+|                 | (bổ sung ngoài SDD gốc, đã xác nhận với người dùng |
+|                 | 2026-08-05 --- áp dụng CHUNG cho UC-24/UC-27,      |
+|                 | KHÔNG áp dụng cho câu tự luận/Nói)                 |
+|                 |                                                    |
+|                 | 1.  Nếu đề có cấu hình số lần làm lại tối đa        |
+|                 |     (`exercises.max_attempts` khác NULL), Học sinh |
+|                 |     nút "Xem đáp án" chỉ khả dụng SAU KHI đã nộp   |
+|                 |     đủ số lần bằng đúng `max_attempts` (VD giới    |
+|                 |     hạn 5 lần thì phải nộp đến lượt thứ 5 mới xem  |
+|                 |     được đáp án) — các lượt nộp trước đó chỉ thấy  |
+|                 |     điểm trắc nghiệm, không thấy đáp án đúng/giải  |
+|                 |     thích.                                         |
+|                 |                                                    |
+|                 | 2.  Nếu đề KHÔNG cấu hình số lần làm lại tối đa    |
+|                 |     (`max_attempts` NULL --- không giới hạn), giữ  |
+|                 |     hành vi cũ: đáp án hiện ngay sau khi nộp (theo |
+|                 |     `exercises.show_correct_answers`).             |
+|                 |                                                    |
+|                 | 3.  Quy tắc này chỉ áp dụng cho câu hỏi tự chấm     |
+|                 |     được (trắc nghiệm/điền khuyết...) --- câu tự   |
+|                 |     luận/Nói chưa áp dụng, tiếp tục theo luồng chờ |
+|                 |     Giáo viên chấm thủ công hiện có (UC-41).        |
 +-----------------+----------------------------------------------------+
 | **Hậu điều kiện | -   Bài làm được lưu, phần trắc nghiệm có điểm     |
 | (P              |     ngay; phần tự luận/Nói (nếu có) chờ chấm thủ   |
@@ -516,6 +540,10 @@ UC-24: Làm bài kiểm tra trực tuyến
 |                 |                                                    |
 |                 | -   Kết quả cuối cùng được đồng bộ vào sổ điểm khi |
 |                 |     hoàn tất chấm.                                 |
+|                 |                                                    |
+|                 | -   Nếu đề có giới hạn số lần làm lại, đáp án đúng |
+|                 |     + giải thích chỉ hiển thị từ lượt làm cuối     |
+|                 |     cùng (bằng max_attempts) trở đi.                |
 +-----------------+----------------------------------------------------+
 
 > **Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31 — giám
@@ -881,6 +909,13 @@ UC-27: Làm bài tập/đề ôn tập
 | Flow)**         | 1.  Nếu đề ôn tập được cấu hình tự chấm hoàn toàn  |
 |                 |     (kèm đáp án tham khảo), Học sinh xem kết quả   |
 |                 |     ngay không cần chờ Giáo viên.                  |
+|                 |                                                    |
+|                 | ***A2 --- Đề có giới hạn số lần làm lại*** (áp     |
+|                 |     dụng chung quy tắc UC-24/A4: đáp án đúng +     |
+|                 |     giải thích chỉ hiện từ lượt làm cuối cùng bằng |
+|                 |     max_attempts trở đi; nếu không giới hạn thì    |
+|                 |     hiện ngay sau khi nộp; không áp dụng cho câu   |
+|                 |     tự luận/Nói --- xem chi tiết ở UC-24).          |
 +-----------------+----------------------------------------------------+
 | **Hậu điều kiện | -   Kết quả luyện tập được lưu vào lịch sử làm bài |
 | (P              |     của Học sinh, không ảnh hưởng tới sổ điểm      |

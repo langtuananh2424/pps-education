@@ -19,6 +19,7 @@ import vn.com.pps.education.dto.AssignTeacherRequest;
 import vn.com.pps.education.dto.ClassResponse;
 import vn.com.pps.education.dto.CreateClassRequest;
 import vn.com.pps.education.dto.CreateCurriculumRequest;
+import vn.com.pps.education.dto.CreateExamQuestionRequest;
 import vn.com.pps.education.dto.CreateExamRequest;
 import vn.com.pps.education.dto.CreateExerciseRequest;
 import vn.com.pps.education.dto.CreateParentRequest;
@@ -54,6 +55,7 @@ import vn.com.pps.education.repository.UserRepository;
 import vn.com.pps.education.repository.UserRoleRepository;
 import vn.com.pps.education.service.ClassService;
 import vn.com.pps.education.service.CurriculumService;
+import vn.com.pps.education.service.ExamQuestionService;
 import vn.com.pps.education.service.ExamService;
 import vn.com.pps.education.service.ExerciseAttemptService;
 import vn.com.pps.education.service.ExerciseService;
@@ -96,6 +98,9 @@ class AttemptIntegrityServiceTest extends AbstractIntegrationTest {
 
     @Autowired
     private ExamService examService;
+
+    @Autowired
+    private ExamQuestionService examQuestionService;
 
     @Autowired
     private ClassService classService;
@@ -271,6 +276,8 @@ class AttemptIntegrityServiceTest extends AbstractIntegrationTest {
                 new CreateReviewVideoSetRequest(setCode(), "Video phản xạ", "REFLEX", null, schoolClass.id(), null, 1),
                 teacher.getId());
         reviewVideoService.updateSet(set.id(), new UpdateReviewVideoSetRequest(set.title(), null, 1, "PUBLISHED"), teacher.getId());
+        // V71: deliverToClass dùng PROPAGATION_REQUIRES_NEW — phải commit set vừa tạo trước.
+        commitCurrentTransactionAndStartNew();
         reviewVideoService.deliverToClass(set.id(), schoolClass.id(), null, teacher.getId());
         ReviewVideoResponse video = reviewVideoService.addVideo(set.id(),
                 new AddReviewVideoRequest("R2_AUDIO", "Audio", "https://media.pps.edu.vn/lms/review-videos/audio/x.mp3",
@@ -290,8 +297,12 @@ class AttemptIntegrityServiceTest extends AbstractIntegrationTest {
     // ===================== Helpers =====================
 
     private ExerciseAttemptResponse startAssignedAttempt() {
-        QuestionResponse mc = questionBankService.createQuestion(
-                new CreateQuestionRequest(bank.id(), "MULTIPLE_CHOICE", "GRAMMAR", "EASY",
+        // V75 (Kho đề): mỗi Exam tự sinh 1 QuestionBank nội bộ riêng, không nhận câu hỏi qua
+        // QuestionBankService#createQuestion (chỉ dành cho bank "legacy" độc lập, xem
+        // QuestionBankService#getLegacyBankOrThrow) — phải qua ExamQuestionService#createQuestion
+        // (tự resolve bank nội bộ theo examId), không dùng "bank" ở setUp (không liên kết defaultExam).
+        QuestionResponse mc = examQuestionService.createQuestion(defaultExam.id(),
+                new CreateExamQuestionRequest("MULTIPLE_CHOICE", "GRAMMAR", "EASY",
                         "She ___ to school.", null, null, null, null, null, new BigDecimal("1.0"), null,
                         List.of(new QuestionChoiceRequest("A", "go", false, 1), new QuestionChoiceRequest("B", "goes", true, 2)), null, null),
                 teacher.getId());
@@ -300,6 +311,9 @@ class AttemptIntegrityServiceTest extends AbstractIntegrationTest {
                         new BigDecimal("1"), null, false, 1, true), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("1.0")), teacher.getId());
         examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
+        // V71: deliverToClass dùng PROPAGATION_REQUIRES_NEW (connection riêng) — phải commit fixture
+        // vừa tạo trước, nếu không giao dịch lồng không thấy được exercise/exam vừa tạo → FK fail.
+        commitCurrentTransactionAndStartNew();
         ExerciseAssignment assignment = exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId());
         exerciseAssignmentRepository.save(assignment);
         return exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());

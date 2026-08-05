@@ -247,11 +247,14 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
                 new CreateReviewVideoSetRequest(setCode(), "Bộ riêng lớp", "CONNECTION", null, schoolClass.id(), null, 1),
                 teacher.getId());
         reviewVideoService.updateSet(classScoped.id(), new UpdateReviewVideoSetRequest(classScoped.title(), null, 1, "PUBLISHED"), teacher.getId());
+        // V71: deliverToClass dùng PROPAGATION_REQUIRES_NEW — phải commit set vừa tạo trước.
+        commitCurrentTransactionAndStartNew();
         reviewVideoService.deliverToClass(classScoped.id(), schoolClass.id(), null, teacher.getId());
         ReviewVideoSetResponse curriculumScoped = reviewVideoService.createSet(
                 new CreateReviewVideoSetRequest(setCode(), "Bộ chung khung", "REFLEX", activeCurriculum.id(), null, null, 2),
                 teacher.getId());
         reviewVideoService.updateSet(curriculumScoped.id(), new UpdateReviewVideoSetRequest(curriculumScoped.title(), null, 2, "PUBLISHED"), teacher.getId());
+        commitCurrentTransactionAndStartNew();
         reviewVideoService.deliverToClass(curriculumScoped.id(), schoolClass.id(), null, teacher.getId());
         Student student = enrollStudent(schoolClass.id());
 
@@ -364,6 +367,8 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         ReviewVideoResponse videoA = createPublishedSetWithVideo(100);
         ReviewVideoSetResponse setB = createClassScopedSet();
         reviewVideoService.updateSet(setB.id(), new UpdateReviewVideoSetRequest(setB.title(), null, 1, "PUBLISHED"), teacher.getId());
+        // V71: deliverToClass dùng PROPAGATION_REQUIRES_NEW — phải commit set vừa tạo trước.
+        commitCurrentTransactionAndStartNew();
         reviewVideoService.deliverToClass(setB.id(), schoolClass.id(), null, teacher.getId());
         ReviewVideoResponse videoB = reviewVideoService.addVideo(setB.id(),
                 new AddReviewVideoRequest("R2_VIDEO", "Video B", "https://media.pps.edu.vn/lms/review-videos/video/b.mp4", 1_000_000L, 100, 1, null, null),
@@ -685,6 +690,8 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
     void deliverToClass_V69_MainFlow_cancelsPreviousActiveAssignmentForSameSetAndClass() {
         ReviewVideoSetResponse set = createClassScopedSet();
         reviewVideoService.updateSet(set.id(), new UpdateReviewVideoSetRequest(set.title(), null, 1, "PUBLISHED"), teacher.getId());
+        // V71: deliverToClass dùng PROPAGATION_REQUIRES_NEW — phải commit set vừa tạo trước.
+        commitCurrentTransactionAndStartNew();
 
         ReviewVideoAssignment first = reviewVideoService.deliverToClass(set.id(), schoolClass.id(), OffsetDateTime.now().plusDays(3), teacher.getId());
         ReviewVideoAssignment second = reviewVideoService.deliverToClass(set.id(), schoolClass.id(), OffsetDateTime.now().plusDays(7), teacher.getId());
@@ -708,6 +715,8 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         reviewVideoService.updateSet(set.id(), new UpdateReviewVideoSetRequest(set.title(), null, 1, "PUBLISHED"), teacher.getId());
         Student student = enrollStudent(schoolClass.id());
         OffsetDateTime dueAt = OffsetDateTime.now().plusDays(2);
+        // V71: deliverToClass dùng PROPAGATION_REQUIRES_NEW — phải commit set vừa tạo trước.
+        commitCurrentTransactionAndStartNew();
 
         // Mô phỏng N=3 request riêng biệt (3 học sinh khác nhau CÙNG chọn video này CÙNG buổi).
         ReviewVideoAssignment first = reviewVideoService.deliverToClass(set.id(), schoolClass.id(), dueAt, teacher.getId());
@@ -897,6 +906,8 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
                 new CreateReviewVideoSetRequest(setCode(), "Bài 1: Video phản xạ", "REFLEX", null, schoolClass.id(), null, 1),
                 teacher.getId());
         reviewVideoService.updateSet(set.id(), new UpdateReviewVideoSetRequest(set.title(), null, 1, "PUBLISHED"), teacher.getId());
+        // V71: deliverToClass dùng PROPAGATION_REQUIRES_NEW — phải commit set vừa tạo trước.
+        commitCurrentTransactionAndStartNew();
         reviewVideoService.deliverToClass(set.id(), schoolClass.id(), null, teacher.getId());
         return reviewVideoService.addVideo(set.id(),
                 new AddReviewVideoRequest("R2_AUDIO", "Audio", "https://media.pps.edu.vn/lms/review-videos/audio/x.mp3", 1_000_000L, durationSeconds, 1, null, null),
@@ -911,6 +922,8 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
     private ReviewVideoResponse createPublishedSetWithVideo(int durationSeconds, Integer completionThresholdPercent, Integer requiredViewCount) {
         ReviewVideoSetResponse set = createClassScopedSet();
         reviewVideoService.updateSet(set.id(), new UpdateReviewVideoSetRequest(set.title(), null, 1, "PUBLISHED"), teacher.getId());
+        // V71: deliverToClass dùng PROPAGATION_REQUIRES_NEW — phải commit set vừa tạo trước.
+        commitCurrentTransactionAndStartNew();
         reviewVideoService.deliverToClass(set.id(), schoolClass.id(), null, teacher.getId());
         return reviewVideoService.addVideo(set.id(),
                 new AddReviewVideoRequest("R2_VIDEO", "Video", "https://media.pps.edu.vn/lms/review-videos/video/x.mp4", 1_000_000L,

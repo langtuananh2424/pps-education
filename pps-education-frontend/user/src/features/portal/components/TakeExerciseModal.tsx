@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { CheckCircle2, Loader2, ShieldAlert, XCircle } from "lucide-react";
+import { CheckCircle2, Loader2, Lock, ShieldAlert, XCircle } from "lucide-react";
 import { friendlyApiErrorMessage } from "@/lib/apiClient";
 import {
   AssignedExerciseResponse,
@@ -7,6 +7,7 @@ import {
   ExerciseQuestionResponse,
   StudentAnswerResponse,
   getAttempt,
+  getExerciseAttemptLimit,
   listExerciseQuestions,
   listAnswers,
   recordIntegrityEvents,
@@ -52,6 +53,22 @@ function groupQuestionsByGroupKey(questions: ExerciseQuestionResponse[]): Render
 }
 
 /**
+ * UC-24/A4, UC-27/A2: đáp án đúng (correctChoiceIds/correctAnswerText/correctStructuredContent) đã
+ * thật sự lộ ra chưa — dùng chung cho mọi loại câu hỏi thay vì kiểm tra riêng lẻ isCorrect (field đó
+ * luôn có giá trị ngay khi tự chấm xong, không phụ thuộc gate làm lại). Câu tự luận/Nói (ESSAY/
+ * SPEAKING) không có 3 field trên, dựa vào explanation (luôn hiện khi revealAnswer=true, không bị
+ * gate làm lại — xem ExerciseAttemptService.toResponse).
+ */
+function isAnswerRevealed(answer: StudentAnswerResponse): boolean {
+  return (
+    answer.correctChoiceIds != null ||
+    answer.correctAnswerText != null ||
+    answer.correctStructuredContent != null ||
+    (!answer.isAutoGradable && answer.explanation != null)
+  );
+}
+
+/**
  * UC-24/UC-27: màn "Làm bài" thật — mở/tiếp tục lượt làm, trả lời từng câu, nộp bài.
  * Luôn ưu tiên tiếp tục/xem lại attempt đã có (item.myLatestAttemptId) qua getAttempt —
  * chỉ startAttempt khi CHƯA có attempt nào, tránh vô tình tạo thêm lượt làm mới lúc đang
@@ -59,6 +76,7 @@ function groupQuestionsByGroupKey(questions: ExerciseQuestionResponse[]): Render
  */
 export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExerciseModalProps) {
   const [attempt, setAttempt] = useState<ExerciseAttemptResponse | null>(null);
+  const [maxAttempts, setMaxAttempts] = useState<number | null>(null);
   const [questions, setQuestions] = useState<ExerciseQuestionResponse[]>([]);
   const [answersByQuestion, setAnswersByQuestion] = useState<Map<number, StudentAnswerResponse>>(new Map());
   const [textDraft, setTextDraft] = useState<Record<number, string>>({});
@@ -71,6 +89,13 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
   const [confirmingSubmit, setConfirmingSubmit] = useState(false);
 
   const readOnly = attempt != null && attempt.status !== "IN_PROGRESS";
+  /**
+   * UC-24/A4, UC-27/A2: đề có giới hạn số lần làm lại (maxAttempts khác NULL) — số lượt CÒN LẠI
+   * trước khi đáp án được mở khóa (mirror công thức BE: revealAnswer khi attemptNumber >= maxAttempts).
+   * null = đề không giới hạn số lần làm lại, không cần hiện thông báo khóa đáp án.
+   */
+  const attemptsRemainingBeforeAnswer =
+    maxAttempts != null && attempt != null ? Math.max(0, maxAttempts - attempt.attemptNumber) : null;
 
   const loadAnswers = (attemptId: number) => {
     listAnswers(attemptId)
@@ -92,10 +117,11 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
     setLoading(true);
     setError(null);
     const openAttempt = item.myLatestAttemptId != null ? getAttempt(item.myLatestAttemptId) : startAttempt(item.exerciseId);
-    Promise.all([openAttempt, listExerciseQuestions(item.exerciseId)])
-      .then(([attemptRes, questionRes]) => {
+    Promise.all([openAttempt, listExerciseQuestions(item.exerciseId), getExerciseAttemptLimit(item.exerciseId)])
+      .then(([attemptRes, questionRes, limitRes]) => {
         setAttempt(attemptRes);
         setQuestions([...questionRes].sort((a, b) => a.displayOrder - b.displayOrder));
+        setMaxAttempts(limitRes.maxAttempts);
         loadAnswers(attemptRes.id);
       })
       .catch((err) => setError(friendlyApiErrorMessage(err, "Không mở được đề để làm bài.")))
@@ -257,6 +283,7 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
                   answersByQuestion={answersByQuestion}
                   readOnly={readOnly}
                   savingQuestionId={savingQuestionId}
+                  attemptsRemainingBeforeAnswer={attemptsRemainingBeforeAnswer}
                   onChoiceToggle={handleChoiceAnswer}
                 />
               ) : (
@@ -266,6 +293,7 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
                   answer={answersByQuestion.get(block.question.questionId)}
                   readOnly={readOnly}
                   saving={savingQuestionId === block.question.questionId}
+                  attemptsRemainingBeforeAnswer={attemptsRemainingBeforeAnswer}
                   textValue={textDraft[block.question.questionId]}
                   onTextChange={(v) => setTextDraft((prev) => ({ ...prev, [block.question.questionId]: v }))}
                   onTextBlur={() => handleTextBlur(block.question.questionId)}
@@ -323,6 +351,7 @@ function QuestionBlock({
   answer,
   readOnly,
   saving,
+  attemptsRemainingBeforeAnswer,
   textValue,
   onTextChange,
   onTextBlur,
@@ -334,6 +363,7 @@ function QuestionBlock({
   answer: StudentAnswerResponse | undefined;
   readOnly: boolean;
   saving: boolean;
+  attemptsRemainingBeforeAnswer: number | null;
   textValue: string | undefined;
   onTextChange: (v: string) => void;
   onTextBlur: () => void;
@@ -353,7 +383,10 @@ function QuestionBlock({
    * không bao giờ hiện đáp án/giải thích dù đã tự chấm xong — sửa lại dùng chung 1 điều kiện cho
    * mọi loại câu hỏi.
    */
-  const showFeedback = answer != null && (answer.correctChoiceIds != null || answer.correctAnswerText != null || answer.isCorrect != null || answer.explanation != null);
+  const showFeedback = answer != null && isAnswerRevealed(answer);
+  // UC-24/A4, UC-27/A2: câu tự chấm đã có kết quả (isCorrect) nhưng đáp án chưa lộ — do đề còn
+  // giới hạn số lần làm lại và đây chưa phải lượt cuối cùng. Không áp dụng cho ESSAY/SPEAKING.
+  const answerLockedByRetake = answer != null && answer.isAutoGradable && answer.isCorrect != null && !showFeedback;
 
   const toggleChoice = (choiceId: number) => {
     if (readOnly || saving) return;
@@ -476,6 +509,24 @@ function QuestionBlock({
       )}
 
       {answer?.explanation && showFeedback && <p className="text-[11px] text-muted font-bold italic border-t border-line/50 pt-2">Giải thích: {answer.explanation}</p>}
+
+      {answerLockedByRetake && <LockedAnswerBanner attemptsRemainingBeforeAnswer={attemptsRemainingBeforeAnswer} />}
+    </div>
+  );
+}
+
+/** UC-24/A4, UC-27/A2: nút "Xem đáp án" luôn hiện — chỉ khóa (disabled) khi backend chưa lộ đáp án vì còn lượt làm lại. */
+function LockedAnswerBanner({ attemptsRemainingBeforeAnswer }: { attemptsRemainingBeforeAnswer: number | null }) {
+  return (
+    <div className="flex items-center justify-between gap-2 text-xs font-bold text-amber-800 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2">
+      <span>
+        {attemptsRemainingBeforeAnswer != null && attemptsRemainingBeforeAnswer > 0
+          ? `Còn ${attemptsRemainingBeforeAnswer} lượt làm — hoàn thành hết lượt để xem đáp án.`
+          : "Đáp án sẽ mở khóa ở lượt làm cuối cùng."}
+      </span>
+      <button type="button" disabled className="flex items-center gap-1 text-[11px] font-extrabold text-amber-700 bg-amber-100 px-2.5 py-1 rounded-lg opacity-70 cursor-not-allowed">
+        <Lock size={11} /> Xem đáp án
+      </button>
     </div>
   );
 }
@@ -621,14 +672,21 @@ function GridQuestionGroup({
   answersByQuestion,
   readOnly,
   savingQuestionId,
+  attemptsRemainingBeforeAnswer,
   onChoiceToggle
 }: {
   block: Extract<RenderBlock, { type: "grid" }>;
   answersByQuestion: Map<number, StudentAnswerResponse>;
   readOnly: boolean;
   savingQuestionId: number | null;
+  attemptsRemainingBeforeAnswer: number | null;
   onChoiceToggle: (questionId: number, choiceIds: number[]) => void;
 }) {
+  // UC-24/A4, UC-27/A2: mọi câu trong 1 nhóm lưới đều thuộc cùng 1 lượt làm — chỉ cần 1 banner khóa chung.
+  const anyLockedByRetake = block.questions.some((q) => {
+    const a = answersByQuestion.get(q.questionId);
+    return a != null && a.isAutoGradable && a.isCorrect != null && !isAnswerRevealed(a);
+  });
   return (
     <div className="border border-line/60 rounded-[16px] p-4 space-y-3">
       {block.referencePassage && <p className="text-xs text-ink whitespace-pre-wrap bg-sky-2 rounded-xl p-3">{block.referencePassage}</p>}
@@ -637,7 +695,7 @@ function GridQuestionGroup({
           const answer = answersByQuestion.get(q.questionId);
           const selected = new Set(answer?.selectedChoiceIds ?? []);
           const correctIds = new Set(answer?.correctChoiceIds ?? []);
-          const showFeedback = answer != null && (answer.correctChoiceIds != null || answer.isCorrect != null);
+          const showFeedback = answer != null && isAnswerRevealed(answer);
           const saving = savingQuestionId === q.questionId;
           return (
             <div key={q.id} className="py-2.5 flex items-center gap-2 flex-wrap">
@@ -672,6 +730,8 @@ function GridQuestionGroup({
           );
         })}
       </div>
+
+      {anyLockedByRetake && <LockedAnswerBanner attemptsRemainingBeforeAnswer={attemptsRemainingBeforeAnswer} />}
     </div>
   );
 }
