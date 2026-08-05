@@ -1,11 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
-import { BarChart3, Link2, MessageCircle, Music, Plus, Upload, Video, X } from "lucide-react";
+import { BarChart3, Check, Link2, MessageCircle, Music, Plus, Upload, Video, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { CurriculumResponse, CurriculumSubjectResponse, ClassEnrollmentResponse, listClassEnrollments, listCurriculums, listCurriculumSubjects } from "@/features/academic/api";
 import { useEligibleClasses } from "@/features/academic/hooks/useEligibleClasses";
 import {
   AddReviewVideoRequest,
+  ConnectionChoiceRequest,
   CreateReviewVideoSetRequest,
+  ReviewVideoConnectionQuestionResponse,
   ReviewVideoQuestionResponse,
   ReviewVideoResponse,
   ReviewVideoSetResponse,
@@ -15,9 +17,11 @@ import {
   ReviewVideoType,
   UpdateReviewVideoSetRequest,
   addReviewVideo,
+  addReviewVideoConnectionQuestion,
   addReviewVideoQuestion,
   createReviewVideoSet,
   getReviewVideoSetStats,
+  listReviewVideoConnectionQuestions,
   listReviewVideoQuestions,
   listReviewVideoSetsByClass,
   listReviewVideoSetsByCurriculum,
@@ -178,21 +182,22 @@ function ConnectionThresholdFields({ value, onChange }: { value: ConnectionThres
   );
 }
 
-interface PendingReflexQuestion {
+export interface PendingReflexQuestion {
   timestampSeconds: string;
   prompt: string;
   maxRecordingSeconds: string;
   maxAttempts: string;
 }
 
-const EMPTY_PENDING_QUESTION: PendingReflexQuestion = { timestampSeconds: "", prompt: "", maxRecordingSeconds: "60", maxAttempts: "" };
+export const EMPTY_PENDING_QUESTION: PendingReflexQuestion = { timestampSeconds: "", prompt: "", maxRecordingSeconds: "60", maxAttempts: "" };
 
 /**
  * UC-23b (V57) — soạn sẵn danh sách câu hỏi REFLEX ngay trong form tạo bộ video mới (không phải tạo
  * xong rồi mở lại "Video" → "Quản lý câu hỏi" mới thêm được câu đầu tiên, đã xác nhận với người dùng
  * 2026-07-29). Chỉ giữ ở state client — thật sự gọi addReviewVideoQuestion sau khi tạo xong Set+Video.
+ * Export (V77): tái dùng ở CreateAndAssignExerciseModal.tsx cho nhánh "Video phản xạ" (Đề FOREIGN).
  */
-function ReflexQuestionsBuilder({ value, onChange }: { value: PendingReflexQuestion[]; onChange: (v: PendingReflexQuestion[]) => void }) {
+export function ReflexQuestionsBuilder({ value, onChange }: { value: PendingReflexQuestion[]; onChange: (v: PendingReflexQuestion[]) => void }) {
   const [draft, setDraft] = useState<PendingReflexQuestion>(EMPTY_PENDING_QUESTION);
   const [draftError, setDraftError] = useState<string | null>(null);
 
@@ -272,15 +277,154 @@ function ReflexQuestionsBuilder({ value, onChange }: { value: PendingReflexQuest
   );
 }
 
-interface ContentSourceValue {
+interface PendingConnectionChoice {
+  content: string;
+  isCorrect: boolean;
+}
+
+interface PendingConnectionQuestion {
+  prompt: string;
+  choices: PendingConnectionChoice[];
+}
+
+const EMPTY_CONNECTION_CHOICES: PendingConnectionChoice[] = [
+  { content: "", isCorrect: true },
+  { content: "", isCorrect: false }
+];
+
+/**
+ * V76 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04) —
+ * soạn sẵn danh sách câu hỏi trắc nghiệm CONNECTION ngay trong form tạo bộ
+ * video mới, mirror ReflexQuestionsBuilder. Mỗi câu 2-5 lựa chọn tự chấm,
+ * thêm/bớt lựa chọn ĐỘNG (khác QuestionEditorForm cố định 4 lựa chọn).
+ */
+function ConnectionQuizBuilder({ value, onChange }: { value: PendingConnectionQuestion[]; onChange: (v: PendingConnectionQuestion[]) => void }) {
+  const [prompt, setPrompt] = useState("");
+  const [choices, setChoices] = useState<PendingConnectionChoice[]>(EMPTY_CONNECTION_CHOICES);
+  const [draftError, setDraftError] = useState<string | null>(null);
+
+  const handleChoiceContentChange = (idx: number, content: string) =>
+    setChoices((prev) => prev.map((c, i) => (i === idx ? { ...c, content } : c)));
+
+  const handleSetCorrect = (idx: number) => setChoices((prev) => prev.map((c, i) => ({ ...c, isCorrect: i === idx })));
+
+  const handleAddChoice = () => {
+    if (choices.length >= 5) return;
+    setChoices((prev) => [...prev, { content: "", isCorrect: false }]);
+  };
+
+  const handleRemoveChoice = (idx: number) => {
+    if (choices.length <= 2) return;
+    setChoices((prev) => {
+      const next = prev.filter((_, i) => i !== idx);
+      return next.some((c) => c.isCorrect) ? next : next.map((c, i) => (i === 0 ? { ...c, isCorrect: true } : c));
+    });
+  };
+
+  const handleAddQuestion = () => {
+    if (!prompt.trim()) {
+      setDraftError("Vui lòng nhập nội dung câu hỏi.");
+      return;
+    }
+    if (choices.some((c) => !c.content.trim())) {
+      setDraftError("Vui lòng điền đủ nội dung mọi lựa chọn.");
+      return;
+    }
+    setDraftError(null);
+    onChange([...value, { prompt, choices }]);
+    setPrompt("");
+    setChoices(EMPTY_CONNECTION_CHOICES);
+  };
+
+  const handleRemoveQuestion = (index: number) => onChange(value.filter((_, i) => i !== index));
+
+  return (
+    <div className="space-y-2 bg-emerald-50/40 border border-emerald-200 rounded-lg p-3">
+      <label className={labelClass}>Câu hỏi trắc nghiệm (2-5 lựa chọn) — ít nhất 1 câu, bắt buộc *</label>
+
+      {value.length > 0 && (
+        <div className="space-y-1.5">
+          {value.map((q, i) => (
+            <div key={i} className="flex items-center justify-between gap-2 bg-white border border-slate-200 rounded-lg p-2 text-[11px]">
+              <span className="text-slate-700">
+                Câu {i + 1} · {q.prompt} · {q.choices.length} lựa chọn
+              </span>
+              <button type="button" onClick={() => handleRemoveQuestion(i)} className="text-rose-500 hover:text-rose-700 shrink-0">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {draftError && <p className="text-[11px] text-rose-600 font-semibold">{draftError}</p>}
+
+      <input value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="Nội dung câu hỏi *" className={inputClass} />
+
+      <div className="space-y-1.5">
+        {choices.map((c, idx) => (
+          <div key={idx} className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => handleSetCorrect(idx)}
+              className={`w-6 h-6 rounded-full border flex items-center justify-center font-bold shrink-0 text-[10px] transition-all ${
+                c.isCorrect ? "bg-emerald-500 border-emerald-500 text-white" : "bg-white border-slate-300 text-slate-400 hover:border-slate-400"
+              }`}
+            >
+              {c.isCorrect ? <Check className="w-3.5 h-3.5 stroke-[3]" /> : String.fromCharCode(65 + idx)}
+            </button>
+            <input
+              value={c.content}
+              onChange={(e) => handleChoiceContentChange(idx, e.target.value)}
+              placeholder={`Đáp án ${String.fromCharCode(65 + idx)}...`}
+              className={`flex-1 ${inputClass}`}
+            />
+            {choices.length > 2 && (
+              <button type="button" onClick={() => handleRemoveChoice(idx)} className="text-rose-400 hover:text-rose-600 shrink-0">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div className="flex gap-2">
+        {choices.length < 5 && (
+          <Button type="button" variant="ghost" size="sm" onClick={handleAddChoice}>
+            <Plus className="w-3.5 h-3.5" /> Thêm lựa chọn
+          </Button>
+        )}
+        <Button type="button" variant="secondary" size="sm" onClick={handleAddQuestion}>
+          <Plus className="w-3.5 h-3.5" /> Thêm câu hỏi
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/** Chuyển PendingConnectionQuestion (state client) sang ConnectionChoiceRequest[] để gọi API — mirror pattern build choices của QuestionEditorForm. */
+function toConnectionChoiceRequests(choices: PendingConnectionChoice[]): ConnectionChoiceRequest[] {
+  return choices.map((c, i) => ({
+    choiceLabel: String.fromCharCode(65 + i),
+    content: c.content,
+    isCorrect: c.isCorrect,
+    displayOrder: i + 1
+  }));
+}
+
+export interface ContentSourceValue {
   sourceType: ReviewVideoSourceType;
   fileUrl: string;
   fileSizeBytes?: number;
   durationSeconds: number | null;
 }
 
-/** Nguồn nội dung dùng chung cho form Tạo bộ mới và modal Video — Video cho chọn Tải file lên hoặc Dán link YouTube, Audio chỉ Tải file lên. Cả 3 nguồn đều bắt buộc tự dò durationSeconds trước khi cho submit (API yêu cầu, BE không tự dò). */
-function ContentSourceField({ value, onChange }: { value: ContentSourceValue; onChange: (v: ContentSourceValue) => void }) {
+/**
+ * Nguồn nội dung dùng chung cho form Tạo bộ mới và modal Video — Video cho chọn Tải file lên hoặc
+ * Dán link YouTube, Audio chỉ Tải file lên. Cả 3 nguồn đều bắt buộc tự dò durationSeconds trước khi
+ * cho submit (API yêu cầu, BE không tự dò). Export (V77): tái dùng ở CreateAndAssignExerciseModal.tsx.
+ */
+export function ContentSourceField({ value, onChange }: { value: ContentSourceValue; onChange: (v: ContentSourceValue) => void }) {
   const contentKind: ContentKind = value.sourceType === "R2_AUDIO" ? "AUDIO" : "VIDEO";
   const videoSourceMode: "upload" | "youtube" = value.sourceType === "YOUTUBE_URL" ? "youtube" : "upload";
   const [youtubeUrlInput, setYoutubeUrlInput] = useState(value.sourceType === "YOUTUBE_URL" ? value.fileUrl : "");
@@ -619,6 +763,7 @@ function CreateSetModal({
   const [content, setContent] = useState<ContentSourceValue>({ sourceType: "R2_VIDEO", fileUrl: "", durationSeconds: null });
   const [connSettings, setConnSettings] = useState<ConnectionThresholdValue>({ completionThresholdPercent: "", requiredViewCount: "" });
   const [pendingQuestions, setPendingQuestions] = useState<PendingReflexQuestion[]>([]);
+  const [pendingConnectionQuestions, setPendingConnectionQuestions] = useState<PendingConnectionQuestion[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -634,6 +779,10 @@ function CreateSetModal({
     }
     if (form.videoType === "REFLEX" && pendingQuestions.length === 0) {
       setError("Video phản xạ cần ít nhất 1 câu hỏi — dùng \"Thêm câu\" ở khung câu hỏi bên dưới.");
+      return;
+    }
+    if (form.videoType === "CONNECTION" && pendingConnectionQuestions.length === 0) {
+      setError("Video kết nối bắt buộc có ít nhất 1 câu hỏi trắc nghiệm — dùng \"Thêm câu hỏi\" ở khung câu hỏi bên dưới.");
       return;
     }
     setSubmitting(true);
@@ -673,6 +822,16 @@ function CreateSetModal({
             maxRecordingSeconds: Number(q.maxRecordingSeconds),
             maxAttempts: q.maxAttempts ? Number(q.maxAttempts) : undefined,
             displayOrder: i
+          });
+        }
+      }
+      if (form.videoType === "CONNECTION") {
+        for (let i = 0; i < pendingConnectionQuestions.length; i++) {
+          const q = pendingConnectionQuestions[i];
+          await addReviewVideoConnectionQuestion(video.id, {
+            prompt: q.prompt.trim(),
+            displayOrder: i,
+            choices: toConnectionChoiceRequests(q.choices)
           });
         }
       }
@@ -724,7 +883,12 @@ function CreateSetModal({
           <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="VD: Unit 1: Greetings and Introduction" className={inputClass} required />
         </div>
         <ContentSourceField value={content} onChange={setContent} />
-        {form.videoType === "CONNECTION" && <ConnectionThresholdFields value={connSettings} onChange={setConnSettings} />}
+        {form.videoType === "CONNECTION" && (
+          <>
+            <ConnectionThresholdFields value={connSettings} onChange={setConnSettings} />
+            <ConnectionQuizBuilder value={pendingConnectionQuestions} onChange={setPendingConnectionQuestions} />
+          </>
+        )}
         {form.videoType === "REFLEX" && <ReflexQuestionsBuilder value={pendingQuestions} onChange={setPendingQuestions} />}
         <div className="grid grid-cols-2 gap-3 items-end">
           <div>
@@ -938,7 +1102,7 @@ function VideosModal({ set, onClose }: { set: ReviewVideoSetResponse; onClose: (
                   {v.fileSizeBytes ? `${(v.fileSizeBytes / 1024 / 1024).toFixed(1)} MB` : "—"} · {Math.round(v.durationSeconds / 60)} phút
                   {set.videoType === "CONNECTION" && ` · Ngưỡng ${v.completionThresholdPercent}%/lượt · Cần đạt ${v.requiredViewCount} lượt`}
                 </p>
-                {set.videoType === "REFLEX" && (
+                {(set.videoType === "REFLEX" || set.videoType === "CONNECTION") && (
                   <button
                     type="button"
                     onClick={() => setExpandedVideoId(expandedVideoId === v.id ? null : v.id)}
@@ -948,6 +1112,7 @@ function VideosModal({ set, onClose }: { set: ReviewVideoSetResponse; onClose: (
                   </button>
                 )}
                 {set.videoType === "REFLEX" && expandedVideoId === v.id && <VideoQuestionsPanel videoId={v.id} />}
+                {set.videoType === "CONNECTION" && expandedVideoId === v.id && <VideoMcqQuestionsPanel videoId={v.id} />}
               </div>
             ))}
           </div>
@@ -1091,6 +1256,145 @@ function VideoQuestionsPanel({ videoId }: { videoId: number }) {
             <Button type="submit" variant="primary" size="sm" disabled={submitting}>
               {submitting ? "Đang lưu..." : "Thêm câu hỏi"}
             </Button>
+          </div>
+        </form>
+      ) : (
+        <Button type="button" variant="secondary" size="sm" onClick={() => setShowAddForm(true)}>
+          <Plus className="w-3.5 h-3.5" /> Thêm câu hỏi
+        </Button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * V76 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04) —
+ * quản lý câu hỏi trắc nghiệm tự chấm của 1 video CONNECTION, mirror
+ * VideoQuestionsPanel (REFLEX). BE hiện chỉ có thêm mới + xem danh sách
+ * (chưa có sửa/xoá). Bắt buộc ≥ 1 câu trước khi Publish được cả bộ.
+ */
+function VideoMcqQuestionsPanel({ videoId }: { videoId: number }) {
+  const [questions, setQuestions] = useState<ReviewVideoConnectionQuestionResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [prompt, setPrompt] = useState("");
+  const [choices, setChoices] = useState<PendingConnectionChoice[]>(EMPTY_CONNECTION_CHOICES);
+  const [submitting, setSubmitting] = useState(false);
+
+  const load = () => {
+    setLoading(true);
+    setError(null);
+    listReviewVideoConnectionQuestions(videoId)
+      .then((qs) => setQuestions(qs.slice().sort((a, b) => a.displayOrder - b.displayOrder)))
+      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách câu hỏi."))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(load, [videoId]);
+
+  const handleSetCorrect = (idx: number) => setChoices((prev) => prev.map((c, i) => ({ ...c, isCorrect: i === idx })));
+  const handleAddChoice = () => choices.length < 5 && setChoices((prev) => [...prev, { content: "", isCorrect: false }]);
+  const handleRemoveChoice = (idx: number) => {
+    if (choices.length <= 2) return;
+    setChoices((prev) => {
+      const next = prev.filter((_, i) => i !== idx);
+      return next.some((c) => c.isCorrect) ? next : next.map((c, i) => (i === 0 ? { ...c, isCorrect: true } : c));
+    });
+  };
+
+  const handleAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!prompt.trim() || choices.some((c) => !c.content.trim())) {
+      setError("Vui lòng điền nội dung câu hỏi và mọi lựa chọn.");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      await addReviewVideoConnectionQuestion(videoId, {
+        prompt: prompt.trim(),
+        displayOrder: questions.length,
+        choices: toConnectionChoiceRequests(choices)
+      });
+      setPrompt("");
+      setChoices(EMPTY_CONNECTION_CHOICES);
+      setShowAddForm(false);
+      load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Thêm câu hỏi thất bại.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="border-t border-slate-100 mt-2 pt-2 space-y-2">
+      {error && <div className="text-[11px] text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
+      {loading ? (
+        <p className="text-slate-400">Đang tải câu hỏi...</p>
+      ) : questions.length === 0 ? (
+        <p className="text-slate-400 italic">Chưa có câu hỏi nào — bộ này KHÔNG Publish được tới khi có ít nhất 1 câu.</p>
+      ) : (
+        <div className="space-y-1.5">
+          {questions.map((q, i) => (
+            <div key={q.id} className="bg-slate-50 border border-slate-200 rounded-lg p-2">
+              <p className="font-bold text-slate-700">Câu {i + 1} · {q.prompt}</p>
+              <div className="mt-1 space-y-0.5">
+                {q.choices.map((c) => (
+                  <p key={c.id} className={c.isCorrect ? "text-emerald-600 font-semibold" : "text-slate-500"}>
+                    {c.choiceLabel}. {c.content} {c.isCorrect ? "✓" : ""}
+                  </p>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showAddForm ? (
+        <form onSubmit={handleAdd} className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-2">
+          <input value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="Nội dung câu hỏi *" className={inputClass} />
+          <div className="space-y-1.5">
+            {choices.map((c, idx) => (
+              <div key={idx} className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleSetCorrect(idx)}
+                  className={`w-6 h-6 rounded-full border flex items-center justify-center font-bold shrink-0 text-[10px] transition-all ${
+                    c.isCorrect ? "bg-emerald-500 border-emerald-500 text-white" : "bg-white border-slate-300 text-slate-400 hover:border-slate-400"
+                  }`}
+                >
+                  {c.isCorrect ? <Check className="w-3.5 h-3.5 stroke-[3]" /> : String.fromCharCode(65 + idx)}
+                </button>
+                <input
+                  value={c.content}
+                  onChange={(e) => setChoices((prev) => prev.map((x, i) => (i === idx ? { ...x, content: e.target.value } : x)))}
+                  placeholder={`Đáp án ${String.fromCharCode(65 + idx)}...`}
+                  className={`flex-1 ${inputClass}`}
+                />
+                {choices.length > 2 && (
+                  <button type="button" onClick={() => handleRemoveChoice(idx)} className="text-rose-400 hover:text-rose-600 shrink-0">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="flex justify-between items-center gap-2">
+            {choices.length < 5 ? (
+              <Button type="button" variant="ghost" size="sm" onClick={handleAddChoice}>
+                <Plus className="w-3.5 h-3.5" /> Thêm lựa chọn
+              </Button>
+            ) : <span />}
+            <div className="flex gap-2">
+              <Button type="button" variant="secondary" size="sm" onClick={() => setShowAddForm(false)}>
+                Hủy
+              </Button>
+              <Button type="submit" variant="primary" size="sm" disabled={submitting}>
+                {submitting ? "Đang lưu..." : "Thêm câu hỏi"}
+              </Button>
+            </div>
           </div>
         </form>
       ) : (

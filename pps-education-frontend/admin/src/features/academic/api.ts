@@ -594,10 +594,12 @@ export function deleteGradeComponent(id: number): Promise<void> {
 }
 
 /**
- * V43: 4 trạng thái DRAFT → PROVISIONAL_PUBLISHED → (APPEAL) → OFFICIAL (thay hẳn
- * DRAFT/PUBLISHED của V39) — xem GradeAppealResponse/UC-62 (phúc khảo) bên dưới.
+ * V44 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng — thay hẳn luồng "công bố dự
+ * kiến + phúc khảo" V43): 4 trạng thái DRAFT → SUBMITTED (Giáo viên gửi duyệt) →
+ * OFFICIAL (Quản lý duyệt, hiển thị ngay cho Phụ huynh) / REJECTED (Quản lý từ chối,
+ * Giáo viên/Quản lý sửa lại rồi gửi/duyệt lại).
  */
-export type GradeStatus = "DRAFT" | "PROVISIONAL_PUBLISHED" | "APPEAL" | "OFFICIAL";
+export type GradeStatus = "DRAFT" | "SUBMITTED" | "OFFICIAL" | "REJECTED";
 
 export interface GradeEntryResponse {
   id: number;
@@ -625,11 +627,10 @@ export interface EnterGradeRequest {
 
 /**
  * UC-19 Main Flow bước 1-3: Giáo viên nhập điểm 1 học sinh cho 1 đầu điểm của lớp.
- * V43: sửa/xoá được khi bản ghi DRAFT (không giới hạn thời gian), hoặc đang APPEAL
- * và chính actor là GV đã tiếp nhận yêu cầu phúc khảo đó (UC-62), hoặc actor có quyền
- * academic.grade.edit.override. PROVISIONAL_PUBLISHED/OFFICIAL luôn bị chặn với actor
- * thường — backend trả lỗi rõ (bắt qua ApiError như bình thường), FE không tự đoán
- * trước điều kiện editable, cứ để nhập rồi để BE quyết định.
+ * V44: sửa/xoá được khi bản ghi DRAFT hoặc REJECTED (không giới hạn thời gian), hoặc
+ * actor có quyền academic.grade.edit.override. SUBMITTED/OFFICIAL luôn bị chặn với
+ * actor thường — backend trả lỗi rõ (bắt qua ApiError như bình thường), FE không tự
+ * đoán trước điều kiện editable, cứ để nhập rồi để BE quyết định.
  */
 export function listGradeEntries(classId: number, gradeComponentId: number): Promise<GradeEntryResponse[]> {
   return apiRequest<GradeEntryResponse[]>(`/classes/${classId}/grades/components/${gradeComponentId}`);
@@ -696,9 +697,10 @@ export function importGrades(classId: number, gradePeriodId: number, file: File)
 }
 
 /**
- * V43: đổi nghĩa — X ngày này giờ CHỈ còn là độ trễ tự động "công bố dự kiến"
- * (DRAFT → PROVISIONAL_PUBLISHED, UC-20 A3) nếu không ai công bố tay, KHÔNG còn là
- * hạn chỉnh sửa như V39 (hạn sửa giờ theo TRẠNG THÁI — xem enterGrade).
+ * V44: X ngày này giờ CHỈ còn ý nghĩa THÔNG TIN — mốc "lần đầu nhập điểm" cho 1 lớp +
+ * kỳ đánh giá, không còn gắn job tự động nào (V43 dùng để tự động "công bố dự kiến",
+ * đã bỏ cùng lúc với luồng phúc khảo UC-62). Hạn sửa/xoá giờ hoàn toàn theo TRẠNG THÁI
+ * — xem enterGrade.
  */
 export interface GradeEditWindowResponse {
   days: number;
@@ -712,63 +714,28 @@ export function updateGradeEditWindow(days: number): Promise<GradeEditWindowResp
   return apiRequest<GradeEditWindowResponse>("/academic/settings/grade-edit-window-days", { method: "PUT", body: JSON.stringify({ days }) });
 }
 
-/**
- * V43: hạn phúc khảo (UC-62) tính từ lúc "Công bố dự kiến" (publishedAt) — hết hạn thì
- * GradeSchedulerService tự khoá OFFICIAL bất kể còn PROVISIONAL_PUBLISHED hay APPEAL.
- * Khác hẳn GradeEditWindowResponse (X ngày = độ trễ tự động CÔNG BỐ, không phải khoá).
- */
-export interface GradeAppealWindowResponse {
-  days: number;
+/** UC-19 Main Flow bước 4 (V44): Giáo viên gửi duyệt — DRAFT/REJECTED -> SUBMITTED, chờ Quản lý điểm trường duyệt qua UC-20. */
+export function submitGradesForApproval(request: { gradeEntryIds?: number[]; gradePeriodResultIds?: number[] }): Promise<GradeEntryResponse[]> {
+  return apiRequest<GradeEntryResponse[]>("/grades/submit", { method: "POST", body: JSON.stringify(request) });
 }
 
-export function getGradeAppealWindow(): Promise<GradeAppealWindowResponse> {
-  return apiRequest<GradeAppealWindowResponse>("/academic/settings/grade-appeal-window-days");
-}
-
-export function updateGradeAppealWindow(days: number): Promise<GradeAppealWindowResponse> {
-  return apiRequest<GradeAppealWindowResponse>("/academic/settings/grade-appeal-window-days", { method: "PUT", body: JSON.stringify({ days }) });
-}
-
-/** UC-20: Quản lý điểm trường xem điểm chưa công bố (DRAFT) — của (các) site mình phụ trách. */
+/** UC-20 Main Flow bước 1: Quản lý điểm trường xem điểm chờ duyệt (SUBMITTED) — của (các) site mình phụ trách. */
 export function listUnpublishedGrades(): Promise<GradeEntryResponse[]> {
   return apiRequest<GradeEntryResponse[]>("/grades/pending");
 }
 
 /**
- * UC-20: công bố điểm dự kiến (DRAFT → PROVISIONAL_PUBLISHED) — gradeEntryIds và/hoặc
- * gradePeriodResultIds, ít nhất 1 danh sách phải có phần tử. Bắt đầu tính hạn Y ngày
- * phúc khảo (UC-62) kể từ lúc này.
+ * UC-20 Main Flow bước 2-5 (V44): Duyệt (SUBMITTED/REJECTED -> OFFICIAL, hiển thị ngay
+ * cho Phụ huynh) hoặc Từ chối (SUBMITTED -> REJECTED, kèm lý do tuỳ chọn) — gradeEntryIds
+ * và/hoặc gradePeriodResultIds, ít nhất 1 danh sách phải có phần tử.
  */
-export function publishGrades(request: { gradeEntryIds?: number[]; gradePeriodResultIds?: number[] }): Promise<GradeEntryResponse[]> {
+export function publishGrades(request: {
+  action: "APPROVE" | "REJECT";
+  gradeEntryIds?: number[];
+  gradePeriodResultIds?: number[];
+  rejectReason?: string;
+}): Promise<GradeEntryResponse[]> {
   return apiRequest<GradeEntryResponse[]>("/grades/decision", { method: "POST", body: JSON.stringify(request) });
-}
-
-// ===================== UC-62: Phúc khảo điểm =====================
-
-export interface GradeAppealResponse {
-  id: number;
-  entityType: "GRADE_ENTRY" | "GRADE_PERIOD_RESULT";
-  entityId: number;
-  classId: number;
-  studentId: number;
-  studentFullName: string;
-  requestedByUserId: number;
-  reason: string | null;
-  status: "PENDING" | "ACCEPTED" | "RESOLVED";
-  acceptedByUserId: number | null;
-  acceptedAt: string | null;
-  resolvedAt: string | null;
-  createdAt: string;
-}
-
-/** Hàng chờ phúc khảo (PENDING) của (các) lớp Giáo viên đang phụ trách. */
-export function listPendingGradeAppeals(): Promise<GradeAppealResponse[]> {
-  return apiRequest<GradeAppealResponse[]>("/grade-appeals/pending");
-}
-
-/** Giáo viên tiếp nhận — sau khi tiếp nhận mới sửa được điểm của đúng học sinh này (UC-19, enterGrade). */
-export function acceptGradeAppeal(id: number): Promise<GradeAppealResponse> {
-  return apiRequest<GradeAppealResponse>(`/grade-appeals/${id}/accept`, { method: "POST" });
 }
 
 // ===================== Nhận xét học viên (UC-21/22) =====================
@@ -876,6 +843,16 @@ export function updateComment(id: number, request: UpdateStudentCommentRequest):
   return apiRequest<StudentCommentResponse>(`/comments/${id}`, { method: "PUT", body: JSON.stringify(request) });
 }
 
+export interface UpdateStudentCommentContentRequest {
+  content: string;
+  structuredContent?: Record<string, unknown>;
+}
+
+/** UC-22 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-02): Quản lý điểm trường sửa trực tiếp nội dung nhận xét đang chờ duyệt. */
+export function updatePendingCommentContent(id: number, request: UpdateStudentCommentContentRequest): Promise<StudentCommentResponse> {
+  return apiRequest<StudentCommentResponse>(`/comments/pending/${id}/content`, { method: "PUT", body: JSON.stringify(request) });
+}
+
 export function submitComments(classId: number, commentIds: number[]): Promise<StudentCommentResponse[]> {
   return apiRequest<StudentCommentResponse[]>(`/classes/${classId}/comments/submit`, { method: "POST", body: JSON.stringify({ commentIds }) });
 }
@@ -914,4 +891,98 @@ export function listPendingComments(): Promise<StudentCommentResponse[]> {
 
 export function decideComments(commentIds: number[], decision: "APPROVED" | "REJECTED", comment?: string): Promise<StudentCommentResponse[]> {
   return apiRequest<StudentCommentResponse[]>("/comments/decision", { method: "POST", body: JSON.stringify({ commentIds, decision, comment }) });
+}
+
+// ===================== UC-66: Thống kê BTVN theo lớp (FR-ACA-07) =====================
+
+export interface ExerciseAssignmentStatsResponse {
+  assignmentId: number;
+  exerciseId: number;
+  exerciseCode: string;
+  exerciseTitle: string;
+  exerciseType: "SELF_PRACTICE" | "ASSIGNED" | "MOCK_TEST" | "SKILL_PRACTICE";
+  availableFrom: string;
+  dueAt: string | null;
+  status: "ACTIVE" | "COMPLETED";
+  totalStudents: number;
+  completedCount: number;
+  completionPercent: number;
+  passedCount: number;
+  passRatePercent: number;
+}
+
+export interface ExerciseAssignmentStudentRow {
+  studentId: number;
+  studentCode: string;
+  studentFullName: string;
+  status: "CHUA_LAM" | "DANG_LAM" | "DA_NOP" | "TRE_HAN";
+  totalScore: number | null;
+  totalPoints: number | null;
+  percentage: number | null;
+  passed: boolean | null;
+  submittedAt: string | null;
+  attemptNumber: number | null;
+  attemptId: number | null;
+}
+
+export interface ExerciseAssignmentStudentStatsResponse {
+  assignment: ExerciseAssignmentStatsResponse;
+  students: ExerciseAssignmentStudentRow[];
+}
+
+export interface ExerciseAssignmentWrongStudent {
+  studentId: number;
+  studentCode: string;
+  studentFullName: string;
+}
+
+export interface ExerciseAssignmentQuestionRow {
+  questionId: number;
+  displayOrder: number;
+  content: string;
+  questionType: string;
+  skill: string | null;
+  answeredCount: number;
+  wrongCount: number;
+  wrongRatePercent: number;
+  wrongStudents: ExerciseAssignmentWrongStudent[];
+}
+
+export interface ExerciseAssignmentQuestionStatsResponse {
+  questions: ExerciseAssignmentQuestionRow[];
+}
+
+export function listExerciseAssignmentStats(classId: number): Promise<ExerciseAssignmentStatsResponse[]> {
+  return apiRequest<ExerciseAssignmentStatsResponse[]>(`/classes/${classId}/exercise-assignments/stats`);
+}
+
+export function getExerciseAssignmentStudentStats(assignmentId: number): Promise<ExerciseAssignmentStudentStatsResponse> {
+  return apiRequest<ExerciseAssignmentStudentStatsResponse>(`/exercise-assignments/${assignmentId}/stats/students`);
+}
+
+export function getExerciseAssignmentQuestionStats(assignmentId: number): Promise<ExerciseAssignmentQuestionStatsResponse> {
+  return apiRequest<ExerciseAssignmentQuestionStatsResponse>(`/exercise-assignments/${assignmentId}/stats/questions`);
+}
+
+export function exportExerciseAssignmentStats(assignmentId: number): Promise<Blob> {
+  return apiRequestBlob(`/exercise-assignments/${assignmentId}/stats/export`);
+}
+
+export interface StudentAnswerRow {
+  id: number;
+  exerciseAttemptId: number;
+  questionId: number;
+  answerText: string | null;
+  selectedChoiceIds: number[];
+  audioAnswerUrl: string | null;
+  isAutoGradable: boolean;
+  autoScore: number | null;
+  isCorrect: boolean | null;
+  correctChoiceIds: number[];
+  correctAnswerText: string | null;
+  explanation: string | null;
+}
+
+export function getAttemptAnswers(attemptId: number): Promise<StudentAnswerRow[]> {
+  return apiRequest<StudentAnswerRow[]>(`/attempts/${attemptId}/answers`);
 }

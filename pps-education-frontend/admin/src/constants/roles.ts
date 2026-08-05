@@ -2,6 +2,7 @@ import { UserRole } from "@/types";
 
 export const roleLabels: Record<UserRole, string> = {
   [UserRole.SYS_ADMIN]: "Quản trị viên (Admin)",
+  [UserRole.SUPER_ADMIN]: "Siêu quản trị viên",
   [UserRole.EXECUTIVE]: "Ban Giám Đốc",
   [UserRole.HEAD_ACADEMIC]: "Trưởng Phòng Đào Tạo",
   [UserRole.SITE_MANAGER]: "Quản Lý Điểm Trường",

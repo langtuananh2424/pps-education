@@ -152,7 +152,7 @@ class AttemptIntegrityServiceTest extends AbstractIntegrationTest {
         Site site = newSite();
         schoolClass = classService.create(
                 new CreateClassRequest(classCode(), "8A2", site.getId(), activeCurriculum.id(), "OPEN", 20, null,
-                        LocalDate.now(), null, null, null), headAcademic.getId());
+                        LocalDate.now(), null, null), headAcademic.getId());
 
         teacher = newUser("teacher");
         assignRole(teacher, "TEACHER");
@@ -180,7 +180,7 @@ class AttemptIntegrityServiceTest extends AbstractIntegrationTest {
         parentUser = userRepository.findById(parent.userId()).orElseThrow();
 
         defaultExam = examService.createExam(
-                new CreateExamRequest(examCode(), "Đề mặc định", activeCurriculum.id()), teacher.getId());
+                new CreateExamRequest(examCode(), "Đề mặc định", activeCurriculum.id(), "VIETNAMESE", "HOMEWORK"), teacher.getId());
     }
 
     @Test
@@ -293,7 +293,7 @@ class AttemptIntegrityServiceTest extends AbstractIntegrationTest {
         QuestionResponse mc = questionBankService.createQuestion(
                 new CreateQuestionRequest(bank.id(), "MULTIPLE_CHOICE", "GRAMMAR", "EASY",
                         "She ___ to school.", null, null, null, null, null, new BigDecimal("1.0"), null,
-                        List.of(new QuestionChoiceRequest("A", "go", false, 1), new QuestionChoiceRequest("B", "goes", true, 2))),
+                        List.of(new QuestionChoiceRequest("A", "go", false, 1), new QuestionChoiceRequest("B", "goes", true, 2)), null, null),
                 teacher.getId());
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Kiểm tra", defaultExam.id(), null, "ASSIGNED",

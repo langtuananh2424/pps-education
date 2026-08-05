@@ -294,6 +294,15 @@ nào của review_video_progress ban đầu)
                                                                 video trong
                                                                 lượt này
 
+  quiz_completed_at      TIMESTAMPTZ             NULL           V83: đã trả
+                                                                lời đủ bộ
+                                                                câu hỏi
+                                                                trắc nghiệm
+                                                                CONNECTION
+                                                                cho ĐÚNG
+                                                                lượt này
+                                                                (NULL = chưa)
+
   started_at,             TIMESTAMPTZ             NOT NULL       BaseAuditEntity
   updated_at
   --------------------------------------------------------------------------
@@ -303,8 +312,14 @@ sinh bắt đầu/mở lại video; các lần báo tiến độ tiếp theo
 (PUT /api/review-videos/{videoId}/progress, kèm watchSessionId trong
 body) cập nhật ĐÚNG session đó. Mỗi lần cập nhật, Service tính lại rollup
 trên review_video_progress: watched_seconds = max mọi session,
-view_count = đếm session is_qualified=true, is_completed = view_count >=
-required_view_count.
+is_completed = view_count >= required_view_count.
+
+**V83 (2026-08-04, đã xác nhận với người dùng):** `view_count` giờ đếm
+session thoả **CẢ 2** điều kiện thay vì chỉ `is_qualified=true` như trước
+— video CONNECTION: `is_qualified=true AND quiz_completed_at IS NOT NULL`
+(khớp cặp 1-1 "xem lượt nào, trả lời câu hỏi lượt đó" — xem
+`ReviewVideoService#recomputeProgress`); video khác (REFLEX, nếu từng gọi
+watch-session) giữ nguyên công thức cũ (chỉ `is_qualified=true`).
 
 d)  Bảng review_video_questions --- Câu hỏi theo mốc thời gian trong 1
 video Phản xạ (MỚI HOÀN TOÀN, V57, 2026-07-28, bổ sung ngoài SDD gốc đã
@@ -349,6 +364,49 @@ ban đầu của UC-23b, 2026-07-27)
 
   created_at, updated_at  TIMESTAMPTZ    NOT NULL         BaseAuditEntity
   ------------------------------------------------------------------------
+
+d2) Bảng review_video_connection_questions/_choices/_answers --- Câu hỏi
+trắc nghiệm tự chấm cho video Kết nối (MỚI HOÀN TOÀN, V83, 2026-08-04, bổ
+sung ngoài SDD gốc đã xác nhận với người dùng) — mirror cấu trúc d)/e) ở
+trên nhưng cho CONNECTION thay vì REFLEX, và KHÁC BẢN CHẤT: trắc nghiệm tự
+chấm (không phải audio/GV chấm tay), hiện SAU KHI xem xong 1 lượt (không
+gắn mốc thời gian giữa video), gắn ĐÚNG 1 lượt xem cụ thể thay vì 1 lần
+giao (assignment).
+
+  --------------------------------------------------------------------------
+  **Bảng**                              **Cột chính**            **Ghi chú**
+  -------------------------------------- ------------------------ -----------
+  review_video_connection_questions      review_video_id FK,      Chỉ hợp lệ
+                                          prompt TEXT NOT NULL,    khi video
+                                          display_order            thuộc bộ
+                                                                    video_type=
+                                                                    CONNECTION
+
+  review_video_connection_choices        review_video_connection_ Mirror
+                                          question_id FK,          question_
+                                          choice_label,            choices
+                                          content TEXT NOT NULL,
+                                          is_correct BOOLEAN,
+                                          display_order
+
+  review_video_connection_answers        review_video_connection_ UNIQUE
+                                          question_id FK,          (question_id,
+                                          watch_session_id FK →    watch_
+                                          review_video_watch_      session_id)
+                                          sessions(id), student_id — khớp cặp
+                                          FK, selected_choice_id   1-1, chặn
+                                          FK, is_correct BOOLEAN,  trả lời
+                                          answered_at              trùng trong
+                                                                    CÙNG 1 lượt
+  --------------------------------------------------------------------------
+
+`watch_session_id` là liên kết cốt lõi: 1 lượt xem chỉ được nộp trắc
+nghiệm SAU KHI `review_video_watch_sessions.is_qualified=true`, và chỉ
+nộp được 1 lần (`quiz_completed_at` set xong thì khoá, không cho nộp lại
+đổi đáp án cho lượt đó) — xem `ReviewVideoService#submitConnectionAnswers`.
+Publish 1 bộ CONNECTION giờ chặn nếu còn video chưa có ≥ 1 câu hỏi (xem
+`ReviewVideoService#requireConnectionVideosHaveQuestions`, gọi từ
+`updateSet`).
 
 e)  Bảng review_video_question_submissions --- Audio Học sinh nộp cho 1
 câu hỏi + Giáo viên chấm điểm (thay thế review_video_submissions cũ, V57)
@@ -487,6 +545,11 @@ dưới) --- KHÔNG có `late_submission_allowed`/`late_penalty_percent` (không
   status                    VARCHAR(20)       NOT NULL,        ACTIVE /
                                               DEFAULT          CANCELLED /
                                               'ACTIVE'         COMPLETED
+
+  teacher_notified_at       TIMESTAMPTZ       NULL             V82: NULL =
+                                                               chưa báo GV %
+                                                               hoàn thành khi
+                                                               hết hạn
   ----------------------------------------------------------------------------
 
 **Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (V65, 2026-07-30):**
@@ -796,7 +859,11 @@ b)  Bảng questions --- Câu hỏi
                                                              MULTIPLE_ANSWER /
                                                              TRUE_FALSE /
                                                              FILL_IN_BLANK /
-                                                             ESSAY / SPEAKING
+                                                             ESSAY / SPEAKING /
+                                                             WORD_BANK /
+                                                             SENTENCE_BUILDING
+                                                             (2 loại cuối —
+                                                             V85)
 
   skill               VARCHAR(20)      NULL                  LISTENING / READING
                                                              / WRITING / SPEAKING
@@ -832,6 +899,23 @@ b)  Bảng questions --- Câu hỏi
 
   default_points      DECIMAL(5,2)     NOT NULL, DEFAULT 1.0 
 
+  structured_content  JSONB            NULL                  V85 --- key
+                                                             "blanks" (WORD_
+                                                             BANK) / "chunks"
+                                                             (SENTENCE_
+                                                             BUILDING), lưu
+                                                             ĐÚNG thứ tự đáp
+                                                             án đúng
+
+  group_key           VARCHAR(64)      NULL                  V85 --- nhiều
+                                                             câu MULTIPLE_
+                                                             CHOICE cùng
+                                                             group_key gộp
+                                                             hiển thị 1
+                                                             reference_
+                                                             passage ("Đọc
+                                                             hiểu --- lưới")
+
   tags                JSONB            NULL                   
 
   status              VARCHAR(20)      NOT NULL, DEFAULT     ACTIVE / ARCHIVED
@@ -842,8 +926,19 @@ b)  Bảng questions --- Câu hỏi
 
 Có questions_history.\
 Bảo vệ khi sửa: Nếu câu hỏi đã có student_answers, không cho sửa nội
-dung/đáp án đúng (bao gồm cả `correct_answer_text`). Tạo bản mới, archive
-bản cũ.
+dung/đáp án đúng (bao gồm cả `correct_answer_text`/`structured_content`).
+Tạo bản mới, archive bản cũ.
+
+**Bổ sung V85 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+2026-08-04) --- BẢO MẬT quan trọng cho `structured_content`:** cột này
+lưu ĐÚNG thứ tự đáp án đúng cho WORD_BANK/SENTENCE_BUILDING (khác
+`correct_answer_text`/`question_choices.is_correct` vốn đã được thiết kế
+không lộ ra endpoint học sinh gọi). Endpoint học sinh dùng để làm bài
+(`GET /api/exercises/{id}/questions`) KHÔNG BAO GIỜ trả nguyên
+`structured_content` --- luôn trả 1 bản sao đã xáo trộn ngẫu nhiên mỗi
+lần gọi (`ExerciseService#shuffledStructuredContent`), chỉ endpoint Ngân
+hàng câu hỏi dành riêng GV (`GET /api/questions/{id}`, quyền
+`lms.question-bank.view`) mới trả nguyên thứ tự thật.
 
 **Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (2026-07-21, cập nhật
 2026-07-22):** `audio_url`/`image_url` trước đây quy ước "đã upload sẵn
@@ -936,6 +1031,28 @@ d)  Bảng exercises --- "Bài" trong 1 "Đề" (Kho đề, bổ sung ngoài SDD
   created_at, updated_at TIMESTAMPTZ    NOT NULL, DEFAULT NOW()    
   ----------------------------------------------------------------------------------
 
+**Bổ sung V84 (2026-08-04) rồi rollback HẲN ở V86 (cùng ngày, đã xác nhận
+với người dùng):** V84 từng thêm loại Bài `REFLEX_VIDEO` + cột
+`review_video_set_id` (FK `review_video_sets(id)`) để 1 Bài đại diện 1
+`review_video_sets` loại REFLEX. Người dùng phản hồi cách này không hợp
+lý — Video phản xạ (REFLEX) vốn đã giao lớp được độc lập, y hệt Video kết
+nối (CONNECTION), qua "Nhận xét học viên"
+(`homework_next_review_video_set_id` → `ReviewVideoService#deliverToClass`
+thẳng, không qua `Exercise`). Migration
+`V86__revert_exercise_reflex_video_link.sql` DROP cột `review_video_set_id`
+(không sửa migration V84 cũ theo đúng quy ước Flyway); enum
+`exercise_type` bỏ `REFLEX_VIDEO`. Video phản xạ giờ giao lớp hoàn toàn
+qua Kho Video Ôn tập, không còn liên quan gì tới `exercises`.
+
+**Bổ sung V87 (2026-08-04, đã xác nhận với người dùng) --- "Xóa Bài":**
+`status=ARCHIVED` có sẵn trong enum từ đầu nhưng chưa từng có đường gọi
+tới --- nay dùng làm cơ chế "Xóa Bài" (`ExerciseService#deleteExercise`,
+`DELETE /api/exercises/{id}`). KHÔNG xóa cứng (exercise_questions/
+exercise_assignments/exercise_attempts/student_answers có thể đã tham
+chiếu). `ARCHIVED` tự động chặn học sinh xem/làm tiếp qua
+`requireCanViewExercise` (đã yêu cầu sẵn `status=PUBLISHED`) --- không cần
+sửa gì thêm; `listByExam` (Kho đề GV xem) lọc bỏ Bài `ARCHIVED`.
+
 *Ghi chú sửa lỗi (UC-24):* cột `show_correct_answers` đã có sẵn từ đầu
 nhưng trước đây chưa được `ExerciseAttemptService` đọc/áp dụng ở đâu cả
 — đã nối dây lại: khi 1 lượt làm bài đã nộp (không còn IN_PROGRESS) và
@@ -1016,6 +1133,11 @@ ASSIGNED (có deadline).
   status                    VARCHAR(20)       NOT NULL,        ACTIVE /
                                               DEFAULT          CANCELLED /
                                               \'ACTIVE\'       COMPLETED
+
+  teacher_notified_at       TIMESTAMPTZ       NULL             V82: NULL =
+                                                               chưa báo GV %
+                                                               hoàn thành khi
+                                                               hết hạn
   ----------------------------------------------------------------------------
 
 g)  Bảng exercise_attempts --- Lượt học sinh làm bài
@@ -1076,6 +1198,11 @@ h)  Bảng student_answers --- Câu trả lời từng câu
 
   audio_answer_url      VARCHAR(1000)   NULL                          SPEAKING --- audio HS upload
 
+  structured_answer     JSONB           NULL                          V85 --- WORD_BANK (đáp án theo
+                                                                       đúng thứ tự chỗ trống) /
+                                                                       SENTENCE_BUILDING (thứ tự khối
+                                                                       đã chọn)
+
   is_auto_gradable      BOOLEAN         NOT NULL                       
 
   auto_score            DECIMAL(5,2)    NULL                          
@@ -1133,20 +1260,69 @@ sung ngoài SDD gốc, đã xác nhận với người dùng — gộp nhiều "
                                                                    kiện hiển thị    
                                                                    (xem k)          
 
+  question_bank_id       BIGINT         FK → question_banks(id),  Ngân hàng nội bộ
+                                        UNIQUE, NOT NULL            1-1, tạo tự động;
+                                                                   không hiển thị
+                                                                   trong màn quản lý
+                                                                   ngân hàng chung
+
+  teacher_type           VARCHAR(20)    NOT NULL                   VIETNAMESE /
+                                                                   FOREIGN — bắt
+                                                                   buộc chọn khi
+                                                                   tạo, dùng lọc Đề
+                                                                   khi giao bài
+
+  exam_type              VARCHAR(20)    NOT NULL                   REVIEW (Ôn tập) /
+                                                                   HOMEWORK (Bài tập
+                                                                   về nhà) — độc lập
+                                                                   với exercises.
+                                                                   exercise_type
+
   created_by             BIGINT         FK → users(id), NOT NULL   Giáo viên tạo Đề 
+
+  deleted_at             TIMESTAMPTZ    NULL                       V87 --- soft-
+                                                                   delete "Xóa Đề",
+                                                                   mirror
+                                                                   partner_
+                                                                   contracts/classes
 
   created_at,            TIMESTAMPTZ    NOT NULL                   BaseAuditEntity  
   updated_at                                                                        
 
   ----------------------------------------------------------------------------------
 
+**Bổ sung V74 (2026-08-04, đã xác nhận với người dùng):** `teacher_type`
+và `exam_type` bắt buộc chọn 1 trong 2 khi tạo Đề; cả hai sửa được cùng
+`title`. `teacher_type` dùng làm tiêu chí lọc Đề theo giáo viên Việt Nam/
+nước ngoài khi giao bài. `exam_type` là phân loại hoàn toàn mới ở cấp
+`Exam`, KHÔNG thay thế/đổi ý nghĩa `exercises.exercise_type` hiện có.
+
+**Bổ sung V75 (2026-08-04, đã xác nhận với người dùng):** mỗi `Exam` có
+đúng 1 `QuestionBank` nội bộ qua `question_bank_id`, tạo tự động cùng
+transaction tạo Đề. Quan hệ FK UNIQUE/NOT NULL là nguồn xác định bank nội
+bộ — không thêm cờ boolean dễ lệch trạng thái. Bank nội bộ không xuất hiện
+trong danh sách quản lý chung với bất kỳ vai trò nào; Giáo viên chỉ thao
+tác câu hỏi qua `examId`. Migration chỉ tạo/link bank mới cho Exam cũ,
+không đổi `questions.question_bank_id`, không xóa/clone bank/câu legacy,
+không tác động các liên kết `exercise_questions`/`student_answers` cũ.
+
 Không có cột `status` riêng (không tự thêm state ngoài yêu cầu đã
 chốt với người dùng — nếu sau này cần "ẩn Đề" thì hỏi lại trước).
+
 `curriculum_id` CHỈ dùng lọc/duyệt trong UI Kho đề — điều kiện hiển
 thị/giao bài thật sự nằm ở bảng `exam_class_assignments` (mục k),
 theo đúng quyết định đã chốt: gán lớp là điều kiện DUY NHẤT, khung
 chương trình không phải điều kiện thứ 2 (kể cả khi lớp và Đề khác
 khung chương trình).
+
+**Bổ sung V87 (2026-08-04, đã xác nhận với người dùng) --- "Xóa Đề":**
+không xóa cứng (Bài thuộc Đề có thể đã có exercise_assignments/
+exercise_attempts/student_answers) --- soft-delete qua `deleted_at`
+(cùng pattern `partner_contracts`/`classes` đã dùng). Chỉ xóa được khi
+mọi Bài thuộc Đề đã ở trạng thái `ARCHIVED` (xem "Xóa Bài" ở bảng
+`exercises`, mục d) --- `ExamService#deleteExam` chặn bằng
+`exerciseService.listByExam(...).isEmpty()`. Gỡ luôn mọi dòng
+`exam_class_assignments` của Đề khi xóa.
 
 k)  Bảng exam_class_assignments --- Gán "Đề" cho lớp (MỚI HOÀN TOÀN,
 V66, 2026-07-30, bổ sung ngoài SDD gốc, đã xác nhận với người dùng)

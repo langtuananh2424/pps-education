@@ -1,5 +1,6 @@
 import {
   Award,
+  BarChart3,
   Building2,
   CalendarDays,
   CheckSquare,
@@ -161,7 +162,9 @@ export const navSections: NavSection[] = [
       // Trang GradesPage vẫn giữ cho HEAD_ACADEMIC/SYS_ADMIN xem tổng quan + SITE_MANAGER công bố điểm (UC-20).
       { id: "acad-grades", label: "Sổ điểm hệ thống", path: "/academic/grades", icon: Award, requiredRoleAny: [UserRole.HEAD_ACADEMIC, UserRole.SYS_ADMIN, UserRole.SITE_MANAGER] },
       // academic.comment.write: TEACHER có sẵn (viết nhận xét). SITE_MANAGER duyệt nhận xét qua role check nội bộ trang, không có permission riêng.
-      { id: "acad-comments", label: "Nhận xét học viên", path: "/academic/comments", icon: Award, requiredPermission: "academic.comment.write", requiredRoleAny: [UserRole.SITE_MANAGER] }
+      { id: "acad-comments", label: "Nhận xét học viên", path: "/academic/comments", icon: Award, requiredPermission: "academic.comment.write", requiredRoleAny: [UserRole.SITE_MANAGER] },
+      // UC-66/FR-ACA-07: lms.exercise.report.view (V90) chỉ gán TEACHER + SITE_MANAGER — tự gate đúng audience, không cần requiredRoleAny.
+      { id: "acad-homework-stats", label: "Thống kê BTVN theo lớp", path: "/academic/homework-stats", icon: BarChart3, requiredPermission: "lms.exercise.report.view" }
     ]
   },
   {
@@ -172,7 +175,10 @@ export const navSections: NavSection[] = [
       // lms.question-bank.create/update/view (Ngân hàng câu hỏi) và lms.exercise.create/update/
       // publish (Soạn & giao đề, không có mã .view riêng vì GET /api/exercises/* chưa từng gate
       // quyền ở backend) — mã gộp cũ không còn tồn tại.
-      { id: "lms-question-banks", label: "Ngân hàng câu hỏi", path: "/lms/question-banks", icon: BookOpen, requiredPermission: "lms.question-bank.view" },
+      // V82 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04) — ẩn hẳn "Ngân hàng câu
+      // hỏi" khỏi sidebar cho MỌI role (kể cả HEAD_ACADEMIC/SYS_ADMIN/SUPER_ADMIN, trước đó vẫn còn
+      // thấy) — câu hỏi giờ soạn thẳng theo Đề (examId), trang bank legacy không còn cần thiết. Route
+      // /lms/question-banks vẫn còn (chưa xóa hẳn) để không phá link cũ, chỉ không còn hiện ở menu.
       { id: "lms-exercises", label: "Soạn & giao đề", path: "/lms/exercises", icon: BookOpen, requiredPermission: "lms.exercise.create" },
       // ReviewVideoController có permission từ V63 (bổ sung, trước đó không hề gate permission nào —
       // đã fix bug 2026-07-30: cấp "full quyền" cho sysadmin không có tác dụng vì quyền chưa tồn tại

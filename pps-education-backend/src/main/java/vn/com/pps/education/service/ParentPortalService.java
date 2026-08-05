@@ -36,17 +36,17 @@ import java.util.List;
  * UC-25: Xem Portal Phụ huynh (FR-LMS-03, FR-LMS-07). Xem
  * docs/uc/phan-he-07-lms-portal.md. Read-only, không có bảng riêng — mọi
  * dữ liệu lấy từ các Repository đã có (SDD > LMS & Portal > Portal Phụ
- * huynh): bảng điểm (grade_entries khác DRAFT — V43: hiển thị cả
- * PROVISIONAL_PUBLISHED/APPEAL/OFFICIAL, không chỉ PUBLISHED như V39),
- * chuyên cần (attendance_marks join class_sessions), nhận xét/cảnh báo
+ * huynh): bảng điểm (grade_entries — V44: chỉ hiển thị OFFICIAL, đã Quản
+ * lý điểm trường duyệt — xem GradeService lớp Javadoc), chuyên cần
+ * (attendance_marks join class_sessions), nhận xét/cảnh báo
  * (student_comments APPROVED), lịch học (class_sessions). Main Flow bước 5
  * (thông báo khẩn) không cần endpoint riêng — GET /api/notifications
  * (NotificationController) đã tự phục vụ mọi user kể cả Phụ huynh, không
  * viết lại.
  *
- * A1 (dữ liệu chưa công bố/chưa duyệt không hiển thị) đã nằm sẵn trong các
- * query WHERE status != DRAFT (điểm) / status=APPROVED (nhận xét) —
- * không cần nhánh riêng.
+ * A1 (dữ liệu chưa duyệt không hiển thị) đã nằm sẵn trong các query WHERE
+ * status = OFFICIAL (điểm) / status=APPROVED (nhận xét) — không cần
+ * nhánh riêng.
  */
 @Service
 public class ParentPortalService {
@@ -94,28 +94,27 @@ public class ParentPortalService {
                 .toList();
     }
 
-    /** Main Flow bước 3: bảng điểm đã công bố dự kiến trở lên (UC-20; V43 — hiển thị cả lúc đang phúc khảo). */
+    /** Main Flow bước 3: bảng điểm đã duyệt (UC-20 V44 — chỉ OFFICIAL, không hiển thị SUBMITTED/REJECTED). */
     @Transactional(readOnly = true)
     public List<GradeEntryResponse> listGrades(Long studentId, Long classId, Long actorUserId) {
         requireAccessToChildClass(studentId, classId, actorUserId);
-        return gradeEntryRepository.findBySchoolClassIdAndStudentIdAndStatusNot(classId, studentId, GradeEntry.Status.DRAFT)
+        return gradeEntryRepository.findBySchoolClassIdAndStudentIdAndStatusIn(classId, studentId, List.of(GradeEntry.Status.OFFICIAL))
                 .stream().map(this::toResponse).toList();
     }
 
     /**
      * UC-53 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng): Overall/Level
-     * đã công bố dự kiến trở lên (khác DRAFT — V43) của 1 kỳ đánh giá — gap
-     * trước đây Portal Phụ huynh chỉ có điểm thành phần (listGrades), chưa
-     * có Overall/Level.
+     * đã duyệt (OFFICIAL — V44) của 1 kỳ đánh giá — gap trước đây Portal
+     * Phụ huynh chỉ có điểm thành phần (listGrades), chưa có Overall/Level.
      */
     @Transactional(readOnly = true)
     public GradePeriodResultResponse getPeriodResult(Long studentId, Long classId, Long gradePeriodId, Long actorUserId) {
         requireAccessToChildClass(studentId, classId, actorUserId);
         GradePeriodResult result = gradePeriodResultRepository
                 .findBySchoolClassIdAndStudentIdAndGradePeriodId(classId, studentId, gradePeriodId)
-                .filter(r -> r.getStatus() != GradePeriodResult.Status.DRAFT)
+                .filter(r -> r.getStatus() == GradePeriodResult.Status.OFFICIAL)
                 .orElseThrow(() -> new ResourceNotFoundException(
-                        "Chưa có điểm tổng kết đã công bố cho học sinh id=" + studentId + ", kỳ đánh giá id=" + gradePeriodId + "."));
+                        "Chưa có điểm tổng kết đã duyệt cho học sinh id=" + studentId + ", kỳ đánh giá id=" + gradePeriodId + "."));
         return toResponse(result);
     }
 

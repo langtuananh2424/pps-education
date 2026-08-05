@@ -58,7 +58,7 @@ class QuestionBankControllerTest extends AbstractControllerTest {
         CurriculumResponse active = curriculumService.update(curriculum.id(),
                 new UpdateCurriculumRequest("Chuẩn", null, null, null, "ACTIVE", false), actor.getId());
         return examService.createExam(
-                new CreateExamRequest("KD-" + SEQ.incrementAndGet(), "Đề test", active.id()), actor.getId()).id();
+                new CreateExamRequest("KD-" + SEQ.incrementAndGet(), "Đề test", active.id(), "VIETNAMESE", "HOMEWORK"), actor.getId()).id();
     }
 
     @Test
@@ -127,7 +127,7 @@ class QuestionBankControllerTest extends AbstractControllerTest {
                 new CreateQuestionBankRequest("QB-" + SEQ.incrementAndGet(), "Ngân hàng test", null, null, null), teacher.getId());
         QuestionResponse question = questionBankService.createQuestion(
                 new CreateQuestionRequest(bank.id(), "MULTIPLE_CHOICE", "GRAMMAR", "EASY", "She ___ to school.",
-                        null, null, null, null, null, new BigDecimal("1.0"), null, List.of()),
+                        null, null, null, null, null, new BigDecimal("1.0"), null, List.of(), null, null),
                 teacher.getId());
         var staff = userWithRole("staff.getq", "STAFF");
 
@@ -144,7 +144,7 @@ class QuestionBankControllerTest extends AbstractControllerTest {
                 new CreateQuestionBankRequest("QB-" + SEQ.incrementAndGet(), "Ngân hàng test", null, null, null), teacher.getId());
         QuestionResponse question = questionBankService.createQuestion(
                 new CreateQuestionRequest(bank.id(), "MULTIPLE_CHOICE", "GRAMMAR", "EASY", "She ___ to school.",
-                        null, null, null, null, null, new BigDecimal("1.0"), null, List.of()),
+                        null, null, null, null, null, new BigDecimal("1.0"), null, List.of(), null, null),
                 teacher.getId());
 
         mockMvc.perform(get("/api/questions/" + question.id())

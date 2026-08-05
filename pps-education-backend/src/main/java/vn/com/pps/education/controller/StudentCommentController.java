@@ -20,6 +20,7 @@ import vn.com.pps.education.dto.DecideCommentsRequest;
 import vn.com.pps.education.dto.StudentCommentResponse;
 import vn.com.pps.education.dto.SubmitCommentsRequest;
 import vn.com.pps.education.dto.UpdateLessonContentRequest;
+import vn.com.pps.education.dto.UpdateStudentCommentContentRequest;
 import vn.com.pps.education.dto.UpdateStudentCommentRequest;
 import vn.com.pps.education.security.AuthenticatedUser;
 import vn.com.pps.education.service.StudentCommentService;
@@ -80,6 +81,15 @@ public class StudentCommentController {
     public ResponseEntity<List<StudentCommentResponse>> decideComments(@Valid @RequestBody DecideCommentsRequest request,
                                                                          @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(studentCommentService.decideComments(request, actor.userId()));
+    }
+
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-02 — Quản lý điểm trường sửa trực tiếp nội dung khi đang PENDING. */
+    @PreAuthorize("hasPermission(null, 'academic.comment.approve')")
+    @PutMapping("/api/comments/pending/{id}/content")
+    public ResponseEntity<StudentCommentResponse> updatePendingCommentContent(@PathVariable Long id,
+                                                                                @Valid @RequestBody UpdateStudentCommentContentRequest request,
+                                                                                @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(studentCommentService.updatePendingCommentContent(id, request, actor.userId()));
     }
 
     // ---- Nhận xét Hàng ngày kiểu mới — Excel round-trip (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-24) ----

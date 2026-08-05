@@ -1,8 +1,12 @@
 import { apiRequest } from "@/lib/apiClient";
 import type { Page } from "@/types";
 
-/** Khớp MediaModule thật của backend. REVIEW_VIDEO_SUBMISSION (UC-23b): audio Học sinh nộp trả lời video REFLEX. */
-export type MediaUploadModule = "STUDENT" | "PARENT" | "REVIEW_VIDEO_SUBMISSION";
+/**
+ * Khớp MediaModule thật của backend. REVIEW_VIDEO_SUBMISSION (UC-23b): audio Học sinh nộp trả lời
+ * video REFLEX. EXERCISE_ANSWER_SUBMISSION (V78, bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+ * 2026-08-04): audio Học sinh nộp cho câu hỏi SPEAKING (Speaking oral / "Nghe & nộp audio").
+ */
+export type MediaUploadModule = "STUDENT" | "PARENT" | "REVIEW_VIDEO_SUBMISSION" | "EXERCISE_ANSWER_SUBMISSION";
 
 /** UC-63: upload ảnh đại diện thật lên Cloudflare R2 qua API dùng chung, trả về URL public để lưu vào portraitUrl. */
 export function uploadMedia(file: File, module: MediaUploadModule): Promise<{ url: string }> {
@@ -76,11 +80,12 @@ export interface PortalClassOptionResponse {
 }
 
 /**
- * UC-20 (V43 — 4 trạng thái + phúc khảo UC-62, thay hẳn DRAFT/PUBLISHED của V39) —
- * khớp GradeEntryResponse thật (chỉ điểm khác DRAFT được BE lọc sẵn ở portal, tức
- * PROVISIONAL_PUBLISHED/APPEAL/OFFICIAL đều xem được, không chỉ "đã công bố xong").
+ * UC-20 (V44 — 4 trạng thái, thay hẳn luồng "công bố dự kiến + phúc khảo" V43) —
+ * khớp GradeEntryResponse thật. Portal (listMyGrades/listGrades) chỉ trả về bản ghi
+ * đã OFFICIAL (Quản lý điểm trường đã duyệt) — DRAFT/SUBMITTED/REJECTED không hiển
+ * thị cho Phụ huynh/Học sinh.
  */
-export type GradeStatus = "DRAFT" | "PROVISIONAL_PUBLISHED" | "APPEAL" | "OFFICIAL";
+export type GradeStatus = "DRAFT" | "SUBMITTED" | "OFFICIAL" | "REJECTED";
 
 export interface GradeEntryResponse {
   id: number;
@@ -160,7 +165,7 @@ export function listGradePeriods(curriculumId: number): Promise<GradePeriodRespo
   return apiRequest<GradePeriodResponse[]>(`/curriculums/${curriculumId}/grade-periods`);
 }
 
-/** UC-53/UC-25: Overall/Level đã công bố — 404 nếu chưa có/chưa công bố (bắt ở nơi gọi, không phải lỗi thật). */
+/** UC-53/UC-25: Overall/Level đã duyệt (OFFICIAL) — 404 nếu chưa có/chưa duyệt (bắt ở nơi gọi, không phải lỗi thật). */
 export function getPeriodResult(studentId: number, classId: number, gradePeriodId: number): Promise<GradePeriodResultResponse> {
   return apiRequest<GradePeriodResultResponse>(`/portal/parent/children/${studentId}/classes/${classId}/periods/${gradePeriodId}/result`);
 }
@@ -170,41 +175,9 @@ export function listMyGrades(classId?: number): Promise<GradeEntryResponse[]> {
   return apiRequest<GradeEntryResponse[]>(`/students/me/grades${classId ? `?classId=${classId}` : ""}`);
 }
 
-/** UC-61: Overall/Level của chính mình — 404 nếu chưa có/chưa công bố (bắt ở nơi gọi, không phải lỗi thật). */
+/** UC-61: Overall/Level của chính mình — 404 nếu chưa có/chưa duyệt (bắt ở nơi gọi, không phải lỗi thật). */
 export function getMyPeriodResult(classId: number, gradePeriodId: number): Promise<GradePeriodResultResponse> {
   return apiRequest<GradePeriodResultResponse>(`/students/me/classes/${classId}/periods/${gradePeriodId}/result`);
-}
-
-/** UC-62: Phúc khảo điểm — Học sinh/Phụ huynh gửi yêu cầu trên 1 bản ghi đang PROVISIONAL_PUBLISHED. */
-export interface GradeAppealResponse {
-  id: number;
-  entityType: "GRADE_ENTRY" | "GRADE_PERIOD_RESULT";
-  entityId: number;
-  classId: number;
-  studentId: number;
-  studentFullName: string;
-  requestedByUserId: number;
-  reason: string | null;
-  status: "PENDING" | "ACCEPTED" | "RESOLVED";
-  acceptedByUserId: number | null;
-  acceptedAt: string | null;
-  resolvedAt: string | null;
-  createdAt: string;
-}
-
-export interface SubmitGradeAppealRequest {
-  entityType: "GRADE_ENTRY" | "GRADE_PERIOD_RESULT";
-  entityId: number;
-  reason?: string;
-}
-
-export function submitGradeAppeal(request: SubmitGradeAppealRequest): Promise<GradeAppealResponse> {
-  return apiRequest<GradeAppealResponse>("/grade-appeals", { method: "POST", body: JSON.stringify(request) });
-}
-
-/** Lịch sử phúc khảo đã gửi (Học sinh/Phụ huynh, tự-phục vụ theo actor đang đăng nhập). */
-export function listMyGradeAppeals(): Promise<GradeAppealResponse[]> {
-  return apiRequest<GradeAppealResponse[]>("/grade-appeals/me");
 }
 
 /** UC-15 — khớp AttendanceMarkResponse thật. */
@@ -552,6 +525,62 @@ export function getMyLatestReviewVideoSubmission(questionId: number): Promise<Re
   return apiRequest<ReviewVideoSubmissionResponse | undefined>(`/review-video-questions/${questionId}/submissions/latest`);
 }
 
+/**
+ * V76 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04) — câu hỏi trắc nghiệm tự chấm
+ * của video CONNECTION, hiện SAU KHI xem xong 1 lượt (khác REFLEX gắn mốc thời gian giữa video).
+ * isCorrect luôn null ở đây (chưa nộp bài) — chỉ lộ đúng/sai sau khi submitReviewVideoConnectionAnswers.
+ */
+export interface ReviewVideoConnectionChoiceResponse {
+  id: number;
+  choiceLabel: string;
+  content: string;
+  isCorrect: boolean | null;
+  displayOrder: number;
+}
+
+export interface ReviewVideoConnectionQuestionResponse {
+  id: number;
+  reviewVideoId: number;
+  prompt: string;
+  displayOrder: number;
+  choices: ReviewVideoConnectionChoiceResponse[];
+}
+
+export function listReviewVideoConnectionQuestions(videoId: number): Promise<ReviewVideoConnectionQuestionResponse[]> {
+  return apiRequest<ReviewVideoConnectionQuestionResponse[]>(`/review-videos/${videoId}/connection-questions`);
+}
+
+export interface ConnectionAnswerItem {
+  questionId: number;
+  selectedChoiceId: number;
+}
+
+export interface ConnectionAnswerResult {
+  questionId: number;
+  selectedChoiceId: number;
+  correct: boolean;
+  correctChoiceId: number | null;
+}
+
+export interface ReviewVideoConnectionQuizResultResponse {
+  results: ConnectionAnswerResult[];
+  progress: ReviewVideoProgressResponse;
+}
+
+/**
+ * Nộp TOÀN BỘ câu trả lời cho ĐÚNG 1 lượt xem (watchSessionId) — khớp cặp 1-1 "xem lượt nào, trả
+ * lời lượt đó". BE chặn (422) nếu lượt chưa đạt ngưỡng xem hoặc lượt đó đã nộp đủ rồi.
+ */
+export function submitReviewVideoConnectionAnswers(
+  watchSessionId: number,
+  answers: ConnectionAnswerItem[]
+): Promise<ReviewVideoConnectionQuizResultResponse> {
+  return apiRequest<ReviewVideoConnectionQuizResultResponse>(`/review-video-watch-sessions/${watchSessionId}/connection-answers`, {
+    method: "PUT",
+    body: JSON.stringify({ answers })
+  });
+}
+
 /** Toàn bộ lịch sử các lần đã nộp cho 1 câu hỏi (mới nhất trước). */
 export function listMyReviewVideoSubmissionHistory(questionId: number): Promise<ReviewVideoSubmissionResponse[]> {
   return apiRequest<ReviewVideoSubmissionResponse[]>(`/review-video-questions/${questionId}/submissions/history`);
@@ -592,7 +621,13 @@ export interface ExerciseQuestionChoiceResponse {
   displayOrder: number;
 }
 
-/** choices chỉ có giá trị với câu MULTIPLE_CHOICE/MULTIPLE_ANSWER/TRUE_FALSE — rỗng với ESSAY/SPEAKING/FILL_IN_BLANK. */
+/**
+ * choices chỉ có giá trị với câu MULTIPLE_CHOICE/MULTIPLE_ANSWER/TRUE_FALSE — rỗng với
+ * ESSAY/SPEAKING/FILL_IN_BLANK/WORD_BANK/SENTENCE_BUILDING. skill/audioUrl/referencePassage/
+ * structuredContent/groupKey (V78, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04):
+ * dùng để render Điền từ - Hộp từ vựng/Sắp xếp câu (structuredContent), audio prompt của Nghe
+ * (skill=LISTENING), và gộp "Đọc hiểu — lưới" theo groupKey.
+ */
 export interface ExerciseQuestionResponse {
   id: number;
   exerciseId: number;
@@ -602,6 +637,11 @@ export interface ExerciseQuestionResponse {
   displayOrder: number;
   points: number;
   choices: ExerciseQuestionChoiceResponse[];
+  skill: string | null;
+  audioUrl: string | null;
+  referencePassage: string | null;
+  structuredContent: { blanks?: string[]; chunks?: string[] } | null;
+  groupKey: string | null;
 }
 
 export function listExerciseQuestions(exerciseId: number): Promise<ExerciseQuestionResponse[]> {
@@ -639,12 +679,16 @@ export interface SaveAnswerRequest {
   answerText?: string;
   selectedChoiceIds?: number[];
   audioAnswerUrl?: string;
+  /** V78 — WORD_BANK (đáp án theo đúng thứ tự chỗ trống) / SENTENCE_BUILDING (thứ tự khối đã chọn). */
+  structuredAnswer?: string[];
 }
 
 /**
- * correctChoiceIds/correctAnswerText chỉ được điền khi attempt đã nộp (không còn IN_PROGRESS) VÀ
- * exercise.showCorrectAnswers=true. explanation điền thêm khi: câu KHÔNG tự chấm được (ESSAY/SPEAKING,
- * luôn hiện) HOẶC câu tự chấm được nhưng trả lời SAI (isCorrect=false) — V54.
+ * correctChoiceIds/correctAnswerText/correctStructuredContent chỉ được điền khi attempt đã nộp
+ * (không còn IN_PROGRESS) VÀ exercise.showCorrectAnswers=true. explanation điền thêm khi: câu KHÔNG
+ * tự chấm được (ESSAY/SPEAKING, luôn hiện) HOẶC câu tự chấm được nhưng trả lời SAI (isCorrect=false)
+ * — V54. structuredAnswer/correctStructuredContent (V78, bổ sung ngoài SDD gốc, đã xác nhận với
+ * người dùng 2026-08-04): WORD_BANK/SENTENCE_BUILDING.
  */
 export interface StudentAnswerResponse {
   id: number;
@@ -660,6 +704,8 @@ export interface StudentAnswerResponse {
   /** V54 — chỉ có ý nghĩa với câu FILL_IN_BLANK. */
   correctAnswerText: string | null;
   explanation: string | null;
+  structuredAnswer: string[] | null;
+  correctStructuredContent: { blanks?: string[]; chunks?: string[] } | null;
 }
 
 /** Main Flow bước 2: trả lời 1 câu — ghi/ghi đè, gọi lại nhiều lần trong lúc attempt còn IN_PROGRESS. */

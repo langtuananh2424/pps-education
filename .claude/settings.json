@@ -1,0 +1,57 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c ' *)",
+      "Bash(git commit -m ' *)",
+      "Bash(cygpath -w /tmp/template.xlsx)",
+      "PowerShell(Stop-Process -Id 3068 -Force -ErrorAction SilentlyContinue)",
+      "Bash(curl -s http://localhost:8080/api/auth/me -H 'Authorization: Bearer __CMDSUB_OUTPUT__')",
+      "Bash(curl -s -X POST http://localhost:8080/api/classes/__TRACKED_VAR__/enrollments -H 'Authorization: Bearer __CMDSUB_OUTPUT__' -H 'Content-Type: application/json' -d '{\"studentId\":5,\"enrollmentDate\":\"__TRACKED_VAR__\"}')",
+      "Bash(curl -s -X POST http://localhost:8080/api/classes/__TRACKED_VAR__/sessions -H 'Authorization: Bearer __CMDSUB_OUTPUT__' -H 'Content-Type: application/json' -d '{\"sessionDate\":\"__TRACKED_VAR__\",\"startTime\":\"18:00:00\",\"endTime\":\"19:30:00\",\"primaryTeacherId\":9,\"sessionType\":\"REGULAR\"}')",
+      "Bash(curl -s -X POST http://localhost:8080/api/classes/__TRACKED_VAR__/enrollments -H 'Authorization: Bearer __CMDSUB_OUTPUT__' -H 'Content-Type: application/json' -d '{\"studentId\":5,\"enrolledDate\":\"__TRACKED_VAR__\"}')",
+      "Bash(curl -s -X POST http://localhost:8080/api/classes/__TRACKED_VAR__/comments -H 'Authorization: Bearer __CMDSUB_OUTPUT__' -H 'Content-Type: application/json' -d '{\"studentId\":5,\"commentType\":\"DAILY\",\"classSessionId\":22,\"commentDate\":\"__TRACKED_VAR__\",\"content\":\"Live test - kiem tra DRAFT\"}')",
+      "Bash(curl -s -X POST http://localhost:8080/api/classes/__TRACKED_VAR__/comments/submit -H 'Authorization: Bearer __CMDSUB_OUTPUT__' -H 'Content-Type: application/json' -d '{\"commentIds\":[7]}')",
+      "Bash(curl -s -X POST http://localhost:8080/api/comments/decision -H 'Authorization: Bearer __TRACKED_VAR__' -H 'Content-Type: application/json' -d '{\"commentIds\":[7],\"decision\":\"APPROVED\",\"comment\":\"Dat\"}')",
+      "Bash(git merge *)",
+      "Bash(echo \"exit=$?\")",
+      "Bash(curl -s -w '\\\\nHTTP=%{http_code}\\\\n' http://localhost:8080/api/students/me/classes/17/comments -H 'Authorization: Bearer __CMDSUB_OUTPUT__')",
+      "Bash(curl -s -w '\\\\nHTTP=%{http_code}\\\\n' http://localhost:8080/api/students/me/classes/17/attendance -H 'Authorization: Bearer __CMDSUB_OUTPUT__')",
+      "Bash(curl -s http://localhost:8080/api/students/me/grades -H 'Authorization: Bearer __CMDSUB_OUTPUT__')",
+      "Bash(curl -s http://localhost:8080/api/students/me/sessions?classId=18 -H 'Authorization: Bearer __CMDSUB_OUTPUT__')",
+      "Bash(git check-ignore *)",
+      "Bash(echo \"exit:$?\")",
+      "Bash(cd d:/pps-education/pps-education-backend/src/main/java/vn/com/pps/education && \\\\ *)",
+      "Read(//d/resources/db/**)",
+      "Bash(sort -t'V' -k2 -n)",
+      "Bash(python3 -)",
+      "Bash(mvn -o test-compile -q)",
+      "Bash(echo \"exit code: $?\")",
+      "Bash(mvn -o compile -q)",
+      "WebSearch",
+      "Bash(mvn -o clean verify)",
+      "Bash(echo \"EXIT_CODE:$?\")",
+      "Bash(mvn -o -q clean compile)",
+      "Bash(mvn -o -q test -Dtest=QuestionImportServiceTest)",
+      "Bash(mvn -o -q test -Dtest=ReviewVideoServiceTest)",
+      "Bash(mvn -o clean compile -q)",
+      "Bash(mvn -o clean test-compile -q)",
+      "Bash(tee /tmp/fe_lint.log)",
+      "PowerShell(powercfg /setactive f7682512-e618-4890-8cdc-f28f885f1839)",
+      "Bash(mvn -o -q test -Dtest=ExerciseAttemptServiceTest,ManualGradingServiceTest,ExerciseAuthoringTest)",
+      "Bash(perl -0777 -pi -e 's/questionBankService\\\\.createQuestion\\\\\\(\\\\n\\(\\\\s*\\)new CreateQuestionRequest\\\\\\(defaultExam\\\\.questionBankId\\\\\\(\\\\\\), /examQuestionService.createQuestion\\(defaultExam.id\\(\\),\\\\n$1new CreateExamQuestionRequest\\(/g' ExerciseAttemptServiceTest.java)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Read|Grep|Glob",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"systemMessage\": \"💡 Research mode: Consider running /model haiku (faster & cheaper for docs/code lookups). Switch back to /model sonnet when coding.\"}'"
+          }
+        ]
+      }
+    ]
+  }
+}

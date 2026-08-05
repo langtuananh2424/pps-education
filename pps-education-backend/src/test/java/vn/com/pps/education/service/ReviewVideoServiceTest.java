@@ -10,10 +10,13 @@ import vn.com.pps.education.domain.Site;
 import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.domain.UserRole;
+import vn.com.pps.education.dto.AddReviewVideoConnectionQuestionRequest;
 import vn.com.pps.education.dto.AddReviewVideoQuestionRequest;
 import vn.com.pps.education.dto.AddReviewVideoRequest;
 import vn.com.pps.education.dto.AssignTeacherRequest;
 import vn.com.pps.education.dto.ClassResponse;
+import vn.com.pps.education.dto.ConnectionAnswerItem;
+import vn.com.pps.education.dto.ConnectionChoiceRequest;
 import vn.com.pps.education.dto.CreateClassRequest;
 import vn.com.pps.education.dto.CreateCurriculumRequest;
 import vn.com.pps.education.dto.CreateReviewVideoSetRequest;
@@ -24,19 +27,24 @@ import vn.com.pps.education.dto.GradeReviewVideoSubmissionRequest;
 import vn.com.pps.education.dto.MyReviewVideoAssignmentResponse;
 import vn.com.pps.education.dto.ReportVideoProgressRequest;
 import vn.com.pps.education.dto.ReviewVideoAssignmentResponse;
+import vn.com.pps.education.dto.ReviewVideoConnectionQuestionResponse;
+import vn.com.pps.education.dto.ReviewVideoConnectionQuizResultResponse;
 import vn.com.pps.education.dto.ReviewVideoProgressResponse;
 import vn.com.pps.education.dto.ReviewVideoQuestionResponse;
 import vn.com.pps.education.dto.ReviewVideoResponse;
 import vn.com.pps.education.dto.ReviewVideoSetResponse;
 import vn.com.pps.education.dto.ReviewVideoSetStatsResponse;
 import vn.com.pps.education.dto.ReviewVideoSubmissionResponse;
+import vn.com.pps.education.dto.SubmitConnectionAnswersRequest;
 import vn.com.pps.education.dto.SubmitReviewVideoAudioRequest;
 import vn.com.pps.education.dto.UpdateCurriculumRequest;
 import vn.com.pps.education.dto.UpdateReviewVideoSetRequest;
 import vn.com.pps.education.exception.InvalidReviewVideoSetScopeException;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
+import vn.com.pps.education.exception.QuizAlreadyCompletedException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.exception.RetakeNotAllowedException;
+import vn.com.pps.education.exception.VideoNotYetQualifiedException;
 import vn.com.pps.education.repository.NotificationRepository;
 import vn.com.pps.education.repository.RoleRepository;
 import vn.com.pps.education.repository.SiteRepository;
@@ -746,6 +754,129 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         List<MyReviewVideoAssignmentResponse> mine = reviewVideoService.listMyAssignments(student.getUser().getId(), null);
 
         assertThat(mine).isEmpty();
+    }
+
+    /**
+     * V76 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04):
+     * Video Kết nối (CONNECTION) giờ bắt buộc có câu hỏi trắc nghiệm tự
+     * chấm — không gắn mã UC cụ thể (tính năng mới), đặt tên test theo mô
+     * tả luồng.
+     */
+    @Test
+    void addConnectionQuestion_MainFlow_savesQuestionWithChoices() {
+        ReviewVideoSetResponse set = createClassScopedSet();
+        ReviewVideoResponse video = reviewVideoService.addVideo(set.id(),
+                new AddReviewVideoRequest("R2_VIDEO", "Video", "https://media.pps.edu.vn/lms/review-videos/video/x.mp4",
+                        1_000_000L, 100, 1, null, null),
+                teacher.getId());
+
+        ReviewVideoConnectionQuestionResponse question = reviewVideoService.addConnectionQuestion(video.id(),
+                new AddReviewVideoConnectionQuestionRequest("2+2 = ?", 1, List.of(
+                        new ConnectionChoiceRequest("A", "3", false, 1),
+                        new ConnectionChoiceRequest("B", "4", true, 2))),
+                teacher.getId());
+
+        assertThat(question.prompt()).isEqualTo("2+2 = ?");
+        assertThat(question.choices()).hasSize(2);
+        assertThat(question.choices()).filteredOn(c -> c.isCorrect() != null && c.isCorrect())
+                .extracting("content").containsExactly("4");
+    }
+
+    @Test
+    void addConnectionQuestion_A_rejectsWhenVideoTypeIsReflex() {
+        ReviewVideoResponse video = createPublishedReflexSetWithVideo(100);
+
+        assertThatThrownBy(() -> reviewVideoService.addConnectionQuestion(video.id(),
+                new AddReviewVideoConnectionQuestionRequest("Câu hỏi?", 1, List.of(
+                        new ConnectionChoiceRequest("A", "X", true, 1),
+                        new ConnectionChoiceRequest("B", "Y", false, 2))),
+                teacher.getId()))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    /**
+     * Lõi nghiệp vụ khớp cặp 1-1: "1 lượt hoàn thành" = xem đạt ngưỡng VÀ
+     * trả lời hết bộ câu hỏi CHO ĐÚNG lượt xem đó — viewCount chỉ tăng khi
+     * CẢ 2 điều kiện cùng thoả cho CÙNG 1 watchSessionId.
+     */
+    @Test
+    void submitConnectionAnswers_MainFlow_pairsWithQualifiedSessionAndIncrementsViewCount() {
+        ReviewVideoResponse video = createPublishedSetWithVideo(100, 80, 1);
+        ReviewVideoConnectionQuestionResponse question = reviewVideoService.addConnectionQuestion(video.id(),
+                new AddReviewVideoConnectionQuestionRequest("2+2 = ?", 1, List.of(
+                        new ConnectionChoiceRequest("A", "3", false, 1),
+                        new ConnectionChoiceRequest("B", "4", true, 2))),
+                teacher.getId());
+        Long correctChoiceId = question.choices().stream().filter(c -> Boolean.TRUE.equals(c.isCorrect()))
+                .findFirst().orElseThrow().id();
+        Student student = enrollStudent(schoolClass.id());
+        Long sessionId = startSession(video.id(), student.getUser().getId());
+        reportProgress(video.id(), sessionId, 100, student.getUser().getId());
+
+        ReviewVideoConnectionQuizResultResponse result = reviewVideoService.submitConnectionAnswers(sessionId,
+                new SubmitConnectionAnswersRequest(List.of(new ConnectionAnswerItem(question.id(), correctChoiceId))),
+                student.getUser().getId());
+
+        assertThat(result.results()).hasSize(1);
+        assertThat(result.results().get(0).correct()).isTrue();
+        assertThat(result.progress().viewCount()).isEqualTo(1);
+        assertThat(result.progress().completed()).isTrue();
+    }
+
+    @Test
+    void submitConnectionAnswers_A_rejectsWhenSessionNotYetQualified() {
+        ReviewVideoResponse video = createPublishedSetWithVideo(100, 80, 1);
+        ReviewVideoConnectionQuestionResponse question = reviewVideoService.addConnectionQuestion(video.id(),
+                new AddReviewVideoConnectionQuestionRequest("2+2 = ?", 1, List.of(
+                        new ConnectionChoiceRequest("A", "3", false, 1),
+                        new ConnectionChoiceRequest("B", "4", true, 2))),
+                teacher.getId());
+        Long correctChoiceId = question.choices().stream().filter(c -> Boolean.TRUE.equals(c.isCorrect()))
+                .findFirst().orElseThrow().id();
+        Student student = enrollStudent(schoolClass.id());
+        Long sessionId = startSession(video.id(), student.getUser().getId());
+        reportProgress(video.id(), sessionId, 10, student.getUser().getId()); // 10% < ngưỡng 80%
+
+        assertThatThrownBy(() -> reviewVideoService.submitConnectionAnswers(sessionId,
+                new SubmitConnectionAnswersRequest(List.of(new ConnectionAnswerItem(question.id(), correctChoiceId))),
+                student.getUser().getId()))
+                .isInstanceOf(VideoNotYetQualifiedException.class);
+    }
+
+    @Test
+    void submitConnectionAnswers_A_rejectsWhenSessionAlreadyCompleted() {
+        ReviewVideoResponse video = createPublishedSetWithVideo(100, 80, 2);
+        ReviewVideoConnectionQuestionResponse question = reviewVideoService.addConnectionQuestion(video.id(),
+                new AddReviewVideoConnectionQuestionRequest("2+2 = ?", 1, List.of(
+                        new ConnectionChoiceRequest("A", "3", false, 1),
+                        new ConnectionChoiceRequest("B", "4", true, 2))),
+                teacher.getId());
+        Long correctChoiceId = question.choices().stream().filter(c -> Boolean.TRUE.equals(c.isCorrect()))
+                .findFirst().orElseThrow().id();
+        Student student = enrollStudent(schoolClass.id());
+        Long sessionId = startSession(video.id(), student.getUser().getId());
+        reportProgress(video.id(), sessionId, 100, student.getUser().getId());
+        reviewVideoService.submitConnectionAnswers(sessionId,
+                new SubmitConnectionAnswersRequest(List.of(new ConnectionAnswerItem(question.id(), correctChoiceId))),
+                student.getUser().getId());
+
+        assertThatThrownBy(() -> reviewVideoService.submitConnectionAnswers(sessionId,
+                new SubmitConnectionAnswersRequest(List.of(new ConnectionAnswerItem(question.id(), correctChoiceId))),
+                student.getUser().getId()))
+                .isInstanceOf(QuizAlreadyCompletedException.class);
+    }
+
+    @Test
+    void updateSet_A_rejectsPublishWhenConnectionVideoMissingQuestions() {
+        ReviewVideoSetResponse set = createClassScopedSet();
+        reviewVideoService.addVideo(set.id(),
+                new AddReviewVideoRequest("R2_VIDEO", "Video", "https://media.pps.edu.vn/lms/review-videos/video/x.mp4",
+                        1_000_000L, 100, 1, null, null),
+                teacher.getId());
+
+        assertThatThrownBy(() -> reviewVideoService.updateSet(set.id(),
+                new UpdateReviewVideoSetRequest(set.title(), null, 1, "PUBLISHED"), teacher.getId()))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     private ReviewVideoQuestionResponse addQuestion(Long videoId, int timestampSeconds, int maxRecordingSeconds, Integer maxAttempts) {

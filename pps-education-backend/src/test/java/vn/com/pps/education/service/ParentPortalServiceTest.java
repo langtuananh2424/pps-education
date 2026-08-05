@@ -42,6 +42,7 @@ import vn.com.pps.education.dto.GradePeriodResultResponse;
 import vn.com.pps.education.dto.HomeworkProgressResponse;
 import vn.com.pps.education.dto.MarkAttendanceRequest;
 import vn.com.pps.education.dto.PublishGradesRequest;
+import vn.com.pps.education.dto.SubmitGradesRequest;
 import vn.com.pps.education.dto.QuestionBankResponse;
 import vn.com.pps.education.dto.QuestionChoiceRequest;
 import vn.com.pps.education.dto.QuestionResponse;
@@ -200,7 +201,7 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void listGrades_UC25_A1_onlyPublishedGradesVisible() {
+    void listGrades_UC25_A1_onlyOfficialGradesVisible() {
         GradePeriodResponse period = gradeService.createGradePeriod(schoolClass.curriculumId(),
                 new CreateGradePeriodRequest("MID_1", "Giữa kỳ 1", 1, new BigDecimal("50"), null, null), headAcademic.getId());
         GradeComponentResponse component = gradeService.addGradeComponent(period.id(),
@@ -208,9 +209,10 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
                 headAcademic.getId());
         GradeEntryResponse publishedEntry = gradeService.enterGrade(schoolClass.id(), component.id(),
                 new EnterGradeRequest(student.getId(), new BigDecimal("9"), false, null), teacher.getId());
-        gradeService.publishGrades(new PublishGradesRequest(List.of(publishedEntry.id()), null), siteManagerUser.getId());
+        gradeService.submitGradesForApproval(new SubmitGradesRequest(List.of(publishedEntry.id()), null), teacher.getId());
+        gradeService.publishGrades(new PublishGradesRequest("APPROVE", List.of(publishedEntry.id()), null, null), siteManagerUser.getId());
 
-        // A1 -- 1 bản ghi khác vẫn DRAFT, chưa công bố.
+        // A1 -- 1 bản ghi khác vẫn DRAFT, chưa duyệt.
         GradeComponentResponse component2 = gradeService.addGradeComponent(period.id(),
                 new CreateGradeComponentRequest(null, null, "WRITING", "Viết", new BigDecimal("10.00"), null, null, 2),
                 headAcademic.getId());
@@ -220,21 +222,22 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
         List<GradeEntryResponse> grades = parentPortalService.listGrades(student.getId(), schoolClass.id(), parentUser.getId());
 
         assertThat(grades).hasSize(1);
-        assertThat(grades.get(0).status()).isEqualTo("PROVISIONAL_PUBLISHED");
+        assertThat(grades.get(0).status()).isEqualTo("OFFICIAL");
         assertThat(grades.get(0).id()).isEqualTo(publishedEntry.id());
     }
 
     @Test
-    void getPeriodResult_UC25_UC53_MainFlow_returnsPublishedOverallLevel() {
+    void getPeriodResult_UC25_UC53_MainFlow_returnsOfficialOverallLevel() {
         GradePeriodResponse period = gradeService.createGradePeriod(schoolClass.curriculumId(),
                 new CreateGradePeriodRequest("MID_1", "Giữa kỳ 1", 1, new BigDecimal("50"), null, null), headAcademic.getId());
         var enteredResult = gradeService.enterPeriodResult(schoolClass.id(), student.getId(), period.id(),
                 new EnterGradePeriodResultRequest(new BigDecimal("7.5"), "BAND", "B2"), teacher.getId());
-        gradeService.publishGrades(new PublishGradesRequest(null, List.of(enteredResult.id())), siteManagerUser.getId());
+        gradeService.submitGradesForApproval(new SubmitGradesRequest(null, List.of(enteredResult.id())), teacher.getId());
+        gradeService.publishGrades(new PublishGradesRequest("APPROVE", null, List.of(enteredResult.id()), null), siteManagerUser.getId());
 
         GradePeriodResultResponse result = parentPortalService.getPeriodResult(student.getId(), schoolClass.id(), period.id(), parentUser.getId());
 
-        assertThat(result.status()).isEqualTo("PROVISIONAL_PUBLISHED");
+        assertThat(result.status()).isEqualTo("OFFICIAL");
         assertThat(result.overallScore()).isEqualByComparingTo("7.5");
         assertThat(result.level()).isEqualTo("B2");
     }
@@ -332,14 +335,14 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
      */
     private ExerciseResponse createGrammarOnlineExercise() {
         var exam = examService.createExam(
-                new CreateExamRequest(examCode(), "Đề Ngữ pháp homework", schoolClass.curriculumId()), teacher.getId());
+                new CreateExamRequest(examCode(), "Đề Ngữ pháp homework", schoolClass.curriculumId(), "VIETNAMESE", "HOMEWORK"), teacher.getId());
         examService.assignToClass(exam.id(), schoolClass.id(), teacher.getId());
         QuestionBankResponse bank = questionBankService.createBank(
                 new CreateQuestionBankRequest(bankCode(), "Ngân hàng homework", null, null, null), teacher.getId());
         QuestionResponse question = questionBankService.createQuestion(
                 new CreateQuestionRequest(bank.id(), "MULTIPLE_CHOICE", "GRAMMAR", "EASY", "She ___ to school.",
                         null, null, null, null, null, new BigDecimal("1.0"), null,
-                        List.of(new QuestionChoiceRequest("A", "go", false, 1), new QuestionChoiceRequest("B", "goes", true, 2))),
+                        List.of(new QuestionChoiceRequest("A", "go", false, 1), new QuestionChoiceRequest("B", "goes", true, 2)), null, null),
                 teacher.getId());
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Bài ngữ pháp homework", exam.id(), null,

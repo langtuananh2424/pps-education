@@ -14,6 +14,7 @@ import vn.com.pps.education.dto.QuestionChoiceRequest;
 import vn.com.pps.education.dto.QuestionImportResponse;
 import vn.com.pps.education.dto.QuestionResponse;
 import vn.com.pps.education.exception.ResourceNotFoundException;
+import vn.com.pps.education.repository.ExamRepository;
 import vn.com.pps.education.repository.ImportJobRepository;
 import vn.com.pps.education.repository.QuestionBankRepository;
 import vn.com.pps.education.repository.UserRepository;
@@ -61,17 +62,20 @@ public class QuestionImportService {
 
     private final ImportJobRepository importJobRepository;
     private final QuestionBankRepository questionBankRepository;
+    private final ExamRepository examRepository;
     private final QuestionBankService questionBankService;
     private final UserRepository userRepository;
     private final List<QuestionRowParser> parsers;
 
     public QuestionImportService(ImportJobRepository importJobRepository,
                                   QuestionBankRepository questionBankRepository,
+                                  ExamRepository examRepository,
                                   QuestionBankService questionBankService,
                                   UserRepository userRepository,
                                   List<QuestionRowParser> parsers) {
         this.importJobRepository = importJobRepository;
         this.questionBankRepository = questionBankRepository;
+        this.examRepository = examRepository;
         this.questionBankService = questionBankService;
         this.userRepository = userRepository;
         this.parsers = parsers;
@@ -86,6 +90,16 @@ public class QuestionImportService {
     public QuestionImportResponse importQuestions(Long bankId, MultipartFile file, Long actorUserId) {
         QuestionBank bank = questionBankRepository.findById(bankId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ngân hàng câu hỏi id=" + bankId));
+        if (examRepository.existsByQuestionBankId(bankId)) {
+            throw new ResourceNotFoundException("Không tìm thấy ngân hàng câu hỏi id=" + bankId);
+        }
+        return importQuestionsIntoBank(bank, file, actorUserId, true);
+    }
+
+    /** Primitive dùng chung: Exam internal bank cho phép trùng; generic legacy bank chặn trùng. */
+    @Transactional
+    QuestionImportResponse importQuestionsIntoBank(QuestionBank bank, MultipartFile file,
+                                                   Long actorUserId, boolean rejectActiveDuplicate) {
         User actor = userRepository.findById(actorUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
         QuestionRowParser parser = parsers.stream()
@@ -105,7 +119,8 @@ public class QuestionImportService {
             for (QuestionRowParser.ParsedQuestionRow row : parsedRows) {
                 try {
                     CreateQuestionRequest request = mapToRequest(row, bank.getId());
-                    QuestionResponse created = questionBankService.createQuestion(request, actorUserId);
+                    QuestionResponse created = questionBankService.createQuestionInBank(
+                            bank, request, actorUserId, rejectActiveDuplicate);
                     Map<String, Object> summary = new LinkedHashMap<>();
                     summary.put("id", created.id());
                     summary.put("content", created.content());
@@ -268,7 +283,7 @@ public class QuestionImportService {
                 : kind.equals("TU_LUAN") ? "ESSAY" : "SPEAKING";
 
         return new CreateQuestionRequest(bankId, questionType, skill, difficulty, row.content().trim(),
-                audioUrl, imageUrl, referencePassage, explanation, correctAnswerText, defaultPoints, tags, choices);
+                audioUrl, imageUrl, referencePassage, explanation, correctAnswerText, defaultPoints, tags, choices, null, null);
     }
 
     private List<QuestionChoiceRequest> buildChoices(QuestionRowParser.ParsedQuestionRow row) {

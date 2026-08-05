@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { CheckCircle2 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
-import { ExerciseQuestionResponse, ExerciseResponse, QuestionResponse, getQuestion, listExerciseQuestions } from "../api";
+import { ExerciseQuestionResponse, ExerciseResponse, QuestionResponse, getExamQuestion, listExerciseQuestions } from "../api";
 
 const questionTypeLabels: Record<QuestionResponse["questionType"], string> = {
   MULTIPLE_CHOICE: "Trắc nghiệm 1 đáp án",
@@ -9,7 +9,9 @@ const questionTypeLabels: Record<QuestionResponse["questionType"], string> = {
   TRUE_FALSE: "Đúng — Sai",
   ESSAY: "Tự luận",
   SPEAKING: "Nói (ghi âm)",
-  FILL_IN_BLANK: "Điền vào chỗ trống"
+  FILL_IN_BLANK: "Điền vào chỗ trống",
+  WORD_BANK: "Điền từ - Hộp từ vựng",
+  SENTENCE_BUILDING: "Sắp xếp câu"
 };
 
 const choiceTypes: QuestionResponse["questionType"][] = ["MULTIPLE_CHOICE", "MULTIPLE_ANSWER", "TRUE_FALSE"];
@@ -36,7 +38,7 @@ export default function ExercisePreviewModal({ exercise, onClose }: ExercisePrev
       .then(async (eqs) => {
         const sorted = [...eqs].sort((a, b) => a.displayOrder - b.displayOrder);
         setExerciseQuestions(sorted);
-        const fulls = await Promise.all(sorted.map((eq) => getQuestion(eq.questionId).catch(() => null)));
+        const fulls = await Promise.all(sorted.map((eq) => getExamQuestion(exercise.examId, eq.questionId).catch(() => null)));
         const map: Record<number, QuestionResponse> = {};
         fulls.forEach((q, i) => {
           if (q) map[sorted[i].questionId] = q;
@@ -44,7 +46,7 @@ export default function ExercisePreviewModal({ exercise, onClose }: ExercisePrev
         setFullQuestions(map);
       })
       .finally(() => setLoading(false));
-  }, [exercise.id]);
+  }, [exercise.id, exercise.examId]);
 
   return (
     <Modal
@@ -114,6 +116,16 @@ export default function ExercisePreviewModal({ exercise, onClose }: ExercisePrev
                 )}
                 {eq.questionType === "ESSAY" && (
                   <p className="text-[11px] text-slate-400 italic">Học viên trả lời tự luận — chấm tay ở Hàng chờ chấm bài.</p>
+                )}
+                {eq.questionType === "WORD_BANK" && q?.structuredContent?.blanks && (
+                  <p className="text-[11px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 rounded-lg p-2">
+                    Đáp án đúng theo thứ tự chỗ trống: {q.structuredContent.blanks.join(" — ")}
+                  </p>
+                )}
+                {eq.questionType === "SENTENCE_BUILDING" && q?.structuredContent?.chunks && (
+                  <p className="text-[11px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 rounded-lg p-2">
+                    Thứ tự câu đúng: {q.structuredContent.chunks.join(" ")}
+                  </p>
                 )}
 
                 {q?.explanation && <p className="text-[11px] text-slate-500 mt-2 italic">Giải thích: {q.explanation}</p>}

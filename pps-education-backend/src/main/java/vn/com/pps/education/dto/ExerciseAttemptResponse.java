@@ -15,5 +15,8 @@ public record ExerciseAttemptResponse(
         BigDecimal manualGradeScore,
         BigDecimal totalScore,
         String status,
-        boolean isLateSubmission
+        boolean isLateSubmission,
+        /** V89, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05: NULL khi totalScore chưa có (chưa chấm xong). */
+        BigDecimal percentage,
+        Boolean passed
 ) {}

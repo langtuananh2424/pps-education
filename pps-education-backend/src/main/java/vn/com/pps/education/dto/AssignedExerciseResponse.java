@@ -17,5 +17,8 @@ public record AssignedExerciseResponse(
         boolean lateSubmissionAllowed,
         Long myLatestAttemptId,
         String myLatestAttemptStatus,
-        BigDecimal myLatestTotalScore
+        BigDecimal myLatestTotalScore,
+        /** V89, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05: BTVN <ngưỡng đạt phải làm lại — xem ExerciseAttemptService#applyPassOutcome. */
+        BigDecimal myLatestPercentage,
+        Boolean myLatestPassed
 ) {}

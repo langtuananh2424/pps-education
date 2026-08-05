@@ -1,5 +1,6 @@
 package vn.com.pps.education.service;
 
+import java.math.BigDecimal;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -226,6 +227,28 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
         assertThat(after).isEqualTo(before);
     }
 
+    /**
+     * Sửa đổi nghiệp vụ 2026-08-04 (đã xác nhận với người dùng, xem UC-15
+     * A2): trước đây LATE cũng kích hoạt thông báo, nay chỉ ABSENT (vắng
+     * không phép) mới gửi.
+     */
+    @Test
+    void submitAttendance_UC15_A2_lateDoesNotTriggerNotification() {
+        studentAttendanceService.markAttendance(session.id(),
+                new MarkAttendanceRequest("SESSION_LEVEL", List.of(
+                        new EnterAttendanceMarkRequest(student1.getId(), "LATE", null, null, null))),
+                teacher.getId());
+        long before = notificationRepository.findByRecipientUserIdOrderByCreatedAtDesc(parentUser.getId(), PageRequest.of(0, 10))
+                .getTotalElements();
+
+        AttendanceSessionResponse result = studentAttendanceService.submitAttendance(session.id(), teacher.getId());
+
+        assertThat(result.marks().get(0).notifiedParentAt()).isNull();
+        long after = notificationRepository.findByRecipientUserIdOrderByCreatedAtDesc(parentUser.getId(), PageRequest.of(0, 10))
+                .getTotalElements();
+        assertThat(after).isEqualTo(before);
+    }
+
     @Test
     void submitAttendance_UC15_MainFlow_notifiesLinkedParentsWhenAbsent() {
         studentAttendanceService.markAttendance(session.id(),
@@ -415,6 +438,43 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
         List<PartnerAttendanceSummaryResponse> result = studentAttendanceService.getSiteSummary(site.getId(), siteManagerUser.getId());
 
         assertThat(result).extracting(PartnerAttendanceSummaryResponse::studentId).contains(student1.getId());
+    }
+
+    /**
+     * Sửa đổi nghiệp vụ 2026-08-04 (đã xác nhận với người dùng, xem UC-15
+     * Postcondition): LATE tính là đi học đầy đủ trong tỷ lệ chuyên cần,
+     * không trừ điểm như trước đây (chỉ đếm PRESENT).
+     */
+    @Test
+    void getSiteSummary_UC15_lateCountsAsFullAttendanceInRate() {
+        Site site = newSite();
+        CurriculumResponse curriculum = curriculumService.create(
+                new CreateCurriculumRequest(curriculumCode(), "Chuẩn", "MAIN", null, null, null), headAcademic.getId());
+        CurriculumResponse activeCurriculum = curriculumService.update(curriculum.id(),
+                new UpdateCurriculumRequest("Chuẩn", null, null, null, "ACTIVE", false), headAcademic.getId());
+        ClassResponse schoolClass = classService.create(
+                new CreateClassRequest(classCode(), "8A3", site.getId(), activeCurriculum.id(), "OPEN", 20, null,
+                        LocalDate.now(), null, null), headAcademic.getId());
+        classService.enroll(schoolClass.id(), new EnrollStudentRequest(student1.getId(), LocalDate.now()), headAcademic.getId());
+        User siteTeacher = newUser("teacher.site.rate");
+        assignRole(siteTeacher, "TEACHER");
+        ClassSessionResponse newSession = classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(LocalDate.now(), LocalTime.of(8, 0), LocalTime.of(9, 40), null, siteTeacher.getId(), "REGULAR", null, null),
+                headAcademic.getId());
+        studentAttendanceService.markAttendance(newSession.id(),
+                new MarkAttendanceRequest("SESSION_LEVEL", List.of(
+                        new EnterAttendanceMarkRequest(student1.getId(), "LATE", null, null, null))),
+                siteTeacher.getId());
+        studentAttendanceService.submitAttendance(newSession.id(), siteTeacher.getId());
+        User siteManagerUser = newUser("site.manager.rate");
+        newSiteManager(siteManagerUser, site);
+
+        List<PartnerAttendanceSummaryResponse> result = studentAttendanceService.getSiteSummary(site.getId(), siteManagerUser.getId());
+
+        PartnerAttendanceSummaryResponse summary = result.stream()
+                .filter(r -> r.studentId().equals(student1.getId())).findFirst().orElseThrow();
+        assertThat(summary.lateCount()).isEqualTo(1);
+        assertThat(summary.attendanceRatePercent()).isEqualByComparingTo(new BigDecimal("100.00"));
     }
 
     @Test

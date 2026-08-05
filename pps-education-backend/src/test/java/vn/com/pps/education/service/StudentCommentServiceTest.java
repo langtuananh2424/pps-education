@@ -52,6 +52,7 @@ import vn.com.pps.education.dto.StudentCommentResponse;
 import vn.com.pps.education.dto.SubmitCommentsRequest;
 import vn.com.pps.education.dto.UpdateCurriculumRequest;
 import vn.com.pps.education.dto.UpdateReviewVideoSetRequest;
+import vn.com.pps.education.dto.UpdateStudentCommentContentRequest;
 import vn.com.pps.education.dto.UpdateStudentCommentRequest;
 import vn.com.pps.education.exception.ApprovalAlreadyDecidedException;
 import vn.com.pps.education.exception.HomeworkNextConflictException;
@@ -468,6 +469,40 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
                 .isInstanceOf(ApprovalAlreadyDecidedException.class);
     }
 
+    @Test
+    void updatePendingCommentContent_UC22_boSung_MainFlow_updatesContentAndKeepsPending() {
+        StudentCommentResponse comment = writeDailyComment(teacher, "Nội dung cũ.");
+        studentCommentService.submitComments(schoolClass.id(), new SubmitCommentsRequest(List.of(comment.id())), teacher.getId());
+
+        StudentCommentResponse updated = studentCommentService.updatePendingCommentContent(comment.id(),
+                new UpdateStudentCommentContentRequest("Nội dung đã sửa bởi QLĐT", null), siteManagerUser.getId());
+
+        assertThat(updated.content()).isEqualTo("Nội dung đã sửa bởi QLĐT");
+        assertThat(updated.status()).isEqualTo("PENDING");
+        assertThat(studentCommentService.listPendingForSite(siteManagerUser.getId())).extracting(StudentCommentResponse::id).contains(comment.id());
+    }
+
+    @Test
+    void updatePendingCommentContent_UC22_boSung_A1_rejectsWhenNotPending() {
+        StudentCommentResponse comment = writeDailyComment(teacher, "Nội dung cũ.");
+
+        assertThatThrownBy(() -> studentCommentService.updatePendingCommentContent(comment.id(),
+                new UpdateStudentCommentContentRequest("Sửa thử khi DRAFT", null), siteManagerUser.getId()))
+                .isInstanceOf(StudentCommentNotEditableException.class);
+    }
+
+    @Test
+    void updatePendingCommentContent_UC22_boSung_A2_rejectsWhenNotSiteManagerForSite() {
+        StudentCommentResponse comment = writeDailyComment(teacher, "Nội dung cũ.");
+        studentCommentService.submitComments(schoolClass.id(), new SubmitCommentsRequest(List.of(comment.id())), teacher.getId());
+        User outsiderManager = newUser("outsider.sitemanager");
+        assignRole(outsiderManager, "SITE_MANAGER");
+
+        assertThatThrownBy(() -> studentCommentService.updatePendingCommentContent(comment.id(),
+                new UpdateStudentCommentContentRequest("Thử sửa chui", null), outsiderManager.getId()))
+                .isInstanceOf(NotSiteManagerForSiteException.class);
+    }
+
     // ===================== Case 3: "Bài học hôm nay" chuyển sang Nhận xét (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-29) =====================
 
     @Test
@@ -798,14 +833,14 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
      */
     private GrammarFixture createGrammarOnlineExercise() {
         var exam = examService.createExam(
-                new CreateExamRequest(examCode(), "Đề Ngữ pháp V55", schoolClass.curriculumId()), teacher.getId());
+                new CreateExamRequest(examCode(), "Đề Ngữ pháp V55", schoolClass.curriculumId(), "VIETNAMESE", "HOMEWORK"), teacher.getId());
         examService.assignToClass(exam.id(), schoolClass.id(), teacher.getId());
         QuestionBankResponse bank = questionBankService.createBank(
                 new CreateQuestionBankRequest(bankCode(), "Ngân hàng V55", null, null, null), teacher.getId());
         QuestionResponse question = questionBankService.createQuestion(
                 new CreateQuestionRequest(bank.id(), "MULTIPLE_CHOICE", "GRAMMAR", "EASY", "She ___ to school.",
                         null, null, null, null, null, new BigDecimal("1.0"), null,
-                        List.of(new QuestionChoiceRequest("A", "go", false, 1), new QuestionChoiceRequest("B", "goes", true, 2))),
+                        List.of(new QuestionChoiceRequest("A", "go", false, 1), new QuestionChoiceRequest("B", "goes", true, 2)), null, null),
                 teacher.getId());
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Bài ngữ pháp V55", exam.id(), null,
@@ -819,7 +854,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         var attempt = exerciseAttemptService.startAttempt(fixture.exercise().id(), student.getUser().getId());
         Long correctChoiceId = fixture.question().choices().stream().filter(c -> c.isCorrect()).findFirst().orElseThrow().id();
         exerciseAttemptService.saveAnswer(attempt.id(),
-                new SaveAnswerRequest(fixture.question().id(), null, List.of(correctChoiceId), null), student.getUser().getId());
+                new SaveAnswerRequest(fixture.question().id(), null, List.of(correctChoiceId), null, null), student.getUser().getId());
         exerciseAttemptService.submitAttempt(attempt.id(), student.getUser().getId());
     }
 

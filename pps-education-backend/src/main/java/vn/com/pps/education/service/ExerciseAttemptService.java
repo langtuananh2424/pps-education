@@ -34,6 +34,7 @@ import vn.com.pps.education.repository.StudentRepository;
 import vn.com.pps.education.repository.UserRepository;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -81,7 +82,7 @@ public class ExerciseAttemptService {
 
     private static final Set<Question.QuestionType> AUTO_GRADABLE_TYPES = Set.of(
             Question.QuestionType.MULTIPLE_CHOICE, Question.QuestionType.MULTIPLE_ANSWER, Question.QuestionType.TRUE_FALSE,
-            Question.QuestionType.FILL_IN_BLANK);
+            Question.QuestionType.FILL_IN_BLANK, Question.QuestionType.WORD_BANK, Question.QuestionType.SENTENCE_BUILDING);
 
     public ExerciseAttemptService(ExerciseAttemptRepository exerciseAttemptRepository,
                                    ExerciseAttemptHistoryRepository exerciseAttemptHistoryRepository,
@@ -171,6 +172,7 @@ public class ExerciseAttemptService {
         answer.setAnswerText(request.answerText());
         answer.setSelectedChoiceIds(request.selectedChoiceIds());
         answer.setAudioAnswerUrl(request.audioAnswerUrl());
+        answer.setStructuredAnswer(request.structuredAnswer());
         answer = studentAnswerRepository.save(answer);
         return toResponse(answer);
     }
@@ -222,9 +224,50 @@ public class ExerciseAttemptService {
             attempt.setStatus(ExerciseAttempt.Status.AUTO_GRADED);
         }
         attempt = exerciseAttemptRepository.save(attempt);
+        attempt = applyPassOutcome(attempt);
 
         writeHistory(attempt, actorUserId, ExerciseAttemptHistory.Action.UPDATED);
         return toResponse(attempt);
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05: BTVN dưới
+     * ngưỡng đạt ({@code exercises.pass_threshold_percent}, mặc định 80%,
+     * cấu hình theo từng Bài) phải làm lại — áp dụng cho MỌI exerciseType học
+     * sinh làm (không riêng ASSIGNED). Tính % + đánh dấu passed ngay khi lượt
+     * làm bài về FULLY_GRADED (đã chấm xong toàn bộ, kể cả phần chấm tay —
+     * gọi lại từ ManualGradingService#recomputeAttemptTotals). Nếu ĐẠT: đóng
+     * bản giao ({@link ExerciseAssignment.Status#COMPLETED}) — học sinh không
+     * cần làm lại nữa; nếu CHƯA ĐẠT: giữ bản giao ACTIVE để học sinh vẫn thấy
+     * "cần làm lại" trong listMyAssignedExercises — chỉ giới hạn bởi
+     * allowRetake/maxAttempts giáo viên đã cấu hình sẵn (không tự nới thêm
+     * lượt để "ép" làm lại bằng mọi giá, xem RetakeNotAllowedException).
+     */
+    ExerciseAttempt applyPassOutcome(ExerciseAttempt attempt) {
+        if (attempt.getStatus() != ExerciseAttempt.Status.FULLY_GRADED || attempt.getTotalScore() == null) {
+            return attempt;
+        }
+        Exercise exercise = attempt.getExercise();
+        BigDecimal percentage = percentageOf(attempt.getTotalScore(), exercise.getTotalPoints());
+        boolean passed = percentage != null && percentage.compareTo(exercise.getPassThresholdPercent()) >= 0;
+        attempt.setPassed(passed);
+        attempt = exerciseAttemptRepository.save(attempt);
+
+        ExerciseAssignment assignment = attempt.getExerciseAssignment();
+        if (passed && assignment != null && assignment.getStatus() == ExerciseAssignment.Status.ACTIVE) {
+            assignment.setStatus(ExerciseAssignment.Status.COMPLETED);
+            exerciseAssignmentRepository.save(assignment);
+        }
+        return attempt;
+    }
+
+    /** package-private static: tái dùng ở ExerciseReportService (FR-ACA-07) để không lệch công thức làm tròn. */
+    static BigDecimal percentageOf(BigDecimal score, BigDecimal totalPoints) {
+        if (totalPoints == null || totalPoints.signum() <= 0) {
+            return null;
+        }
+        return score.divide(totalPoints, 4, RoundingMode.HALF_UP)
+                .multiply(BigDecimal.valueOf(100)).setScale(2, RoundingMode.HALF_UP);
     }
 
     @Transactional(readOnly = true)
@@ -288,10 +331,39 @@ public class ExerciseAttemptService {
             String given = answer.getAnswerText();
             return correct != null && given != null && correct.trim().equalsIgnoreCase(given.trim());
         }
+        if (question.getQuestionType() == Question.QuestionType.WORD_BANK) {
+            return structuredAnswerMatches(question, "blanks", answer.getStructuredAnswer());
+        }
+        if (question.getQuestionType() == Question.QuestionType.SENTENCE_BUILDING) {
+            return structuredAnswerMatches(question, "chunks", answer.getStructuredAnswer());
+        }
         List<QuestionChoice> choices = questionChoiceRepository.findByQuestionIdOrderByDisplayOrder(question.getId());
         Set<Long> correctChoiceIds = choices.stream().filter(QuestionChoice::isCorrect).map(QuestionChoice::getId).collect(Collectors.toSet());
         Set<Long> selected = answer.getSelectedChoiceIds() == null ? Set.of() : Set.copyOf(answer.getSelectedChoiceIds());
         return selected.equals(correctChoiceIds);
+    }
+
+    /**
+     * WORD_BANK/SENTENCE_BUILDING (V85, bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+     * 2026-08-04): so khớp elementwise (case-insensitive + trim), ĐÚNG thứ tự — student phải chọn
+     * đúng thứ tự (khớp key "blanks"/"chunks" trong Question.structuredContent).
+     */
+    private boolean structuredAnswerMatches(Question question, String key, List<String> given) {
+        if (given == null || question.getStructuredContent() == null) {
+            return false;
+        }
+        Object raw = question.getStructuredContent().get(key);
+        if (!(raw instanceof List<?> correctList) || correctList.size() != given.size()) {
+            return false;
+        }
+        for (int i = 0; i < correctList.size(); i++) {
+            String correct = String.valueOf(correctList.get(i));
+            String submitted = given.get(i);
+            if (submitted == null || !correct.trim().equalsIgnoreCase(submitted.trim())) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private java.util.Optional<ExerciseAssignment> findActiveAssignmentForStudent(Exercise exercise, Student student) {
@@ -344,11 +416,14 @@ public class ExerciseAttemptService {
     }
 
     private ExerciseAttemptResponse toResponse(ExerciseAttempt a) {
+        BigDecimal percentage = a.getTotalScore() == null ? null
+                : percentageOf(a.getTotalScore(), a.getExercise().getTotalPoints());
         return new ExerciseAttemptResponse(
                 a.getId(), a.getExercise().getId(),
                 a.getExerciseAssignment() == null ? null : a.getExerciseAssignment().getId(),
                 a.getStudent().getId(), a.getAttemptNumber(), a.getStartedAt(), a.getSubmittedAt(),
-                a.getAutoGradeScore(), a.getManualGradeScore(), a.getTotalScore(), a.getStatus().name(), a.isLateSubmission());
+                a.getAutoGradeScore(), a.getManualGradeScore(), a.getTotalScore(), a.getStatus().name(),
+                a.isLateSubmission(), percentage, a.getPassed());
     }
 
     private AssignedExerciseResponse toAssignedResponse(ExerciseAssignment assignment, ClassEnrollment enrollment, Student student) {
@@ -356,12 +431,15 @@ public class ExerciseAttemptService {
         List<ExerciseAttempt> myAttempts = exerciseAttemptRepository
                 .findByExerciseIdAndStudentIdOrderByAttemptNumberDesc(exercise.getId(), student.getId());
         ExerciseAttempt latest = myAttempts.isEmpty() ? null : myAttempts.get(0);
+        BigDecimal latestPercentage = latest == null || latest.getTotalScore() == null ? null
+                : percentageOf(latest.getTotalScore(), exercise.getTotalPoints());
         return new AssignedExerciseResponse(
                 exercise.getId(), exercise.getCode(), exercise.getTitle(), exercise.getExerciseType().name(),
                 assignment.getId(), enrollment.getSchoolClass().getId(), enrollment.getSchoolClass().getName(),
                 assignment.getAvailableFrom(), assignment.getDueAt(), assignment.isLateSubmissionAllowed(),
                 latest == null ? null : latest.getId(), latest == null ? null : latest.getStatus().name(),
-                latest == null ? null : latest.getTotalScore());
+                latest == null ? null : latest.getTotalScore(), latestPercentage,
+                latest == null ? null : latest.getPassed());
     }
 
     private StudentAnswerResponse toResponse(StudentAnswer a) {
@@ -371,10 +449,12 @@ public class ExerciseAttemptService {
         List<Long> correctChoiceIds = null;
         String correctAnswerText = null;
         String explanation = null;
+        Map<String, Object> correctStructuredContent = null;
         if (revealAnswer) {
             correctChoiceIds = questionChoiceRepository.findByQuestionIdOrderByDisplayOrder(a.getQuestion().getId())
                     .stream().filter(QuestionChoice::isCorrect).map(QuestionChoice::getId).toList();
             correctAnswerText = a.getQuestion().getCorrectAnswerText();
+            correctStructuredContent = a.getQuestion().getStructuredContent();
             // Câu tự chấm (MCQ/TRUE_FALSE/FILL_IN_BLANK) chỉ hiện giải thích khi trả lời SAI;
             // câu chấm tay (ESSAY/SPEAKING) không có cờ correct tin cậy (ManualGradingService
             // không set StudentAnswer.correct) nên giữ nguyên hành vi cũ — luôn hiện khi reveal.
@@ -385,6 +465,6 @@ public class ExerciseAttemptService {
         return new StudentAnswerResponse(
                 a.getId(), attempt.getId(), a.getQuestion().getId(), a.getAnswerText(),
                 a.getSelectedChoiceIds(), a.getAudioAnswerUrl(), a.isAutoGradable(), a.getAutoScore(), a.getCorrect(),
-                correctChoiceIds, correctAnswerText, explanation);
+                correctChoiceIds, correctAnswerText, explanation, a.getStructuredAnswer(), correctStructuredContent);
     }
 }

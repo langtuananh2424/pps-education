@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotNull;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 /**
  * UC-40 Main Flow bước 1: soạn câu hỏi mới vào ngân hàng. choices bắt
@@ -13,6 +14,13 @@ import java.util.List;
  * trống với ESSAY/SPEAKING. correctAnswerText dùng cho FILL_IN_BLANK (so
  * khớp chính xác khi tự chấm — xem ExerciseAttemptService), để trống với
  * các loại khác.
+ *
+ * structuredContent/groupKey (V85, bổ sung ngoài SDD gốc, đã xác nhận với
+ * người dùng 2026-08-04): structuredContent bắt buộc key "blanks" khi
+ * questionType=WORD_BANK, key "chunks" khi questionType=SENTENCE_BUILDING
+ * (xem QuestionBankService.requireStructuredContentIfNeeded); groupKey
+ * dùng cho dạng "Đọc hiểu — lưới" (nhiều câu MULTIPLE_CHOICE cùng 1
+ * groupKey gộp hiển thị chung referencePassage).
  */
 public record CreateQuestionRequest(
         @NotNull Long questionBankId,
@@ -27,5 +35,7 @@ public record CreateQuestionRequest(
         String correctAnswerText,
         BigDecimal defaultPoints,
         List<String> tags,
-        @Valid List<QuestionChoiceRequest> choices
+        @Valid List<QuestionChoiceRequest> choices,
+        Map<String, Object> structuredContent,
+        String groupKey
 ) {}

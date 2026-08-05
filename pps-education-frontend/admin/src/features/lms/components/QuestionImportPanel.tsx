@@ -2,7 +2,7 @@ import React, { useRef, useState } from "react";
 import { Download, UploadCloud } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { buildXlsxTemplateBlob, downloadBlob } from "@/lib/xlsxTemplate";
-import { QuestionImportResponse, QuestionImportedRow, downloadQuestionImportWordTemplate, importQuestions } from "../api";
+import { QuestionImportResponse, QuestionImportedRow, downloadExamQuestionImportWordTemplate, downloadQuestionImportWordTemplate, importExamQuestions, importQuestions } from "../api";
 
 type FileFormat = "xlsx" | "docx";
 
@@ -30,7 +30,8 @@ const EXCEL_SAMPLE_ROWS: string[][] = [
 ];
 
 interface QuestionImportPanelProps {
-  bankId: number;
+  bankId?: number;
+  examId?: number;
   onImported: (createdQuestions: QuestionImportedRow[]) => void;
 }
 
@@ -43,7 +44,7 @@ interface QuestionImportPanelProps {
  * định dạng .xlsx và đang dùng ở 7 nơi khác — hỗ trợ thêm .docx ở đây sẽ
  * phải sửa hành vi chung không cần thiết cho các nơi kia.
  */
-export default function QuestionImportPanel({ bankId, onImported }: QuestionImportPanelProps) {
+export default function QuestionImportPanel({ bankId, examId, onImported }: QuestionImportPanelProps) {
   const [format, setFormat] = useState<FileFormat>("xlsx");
   const inputRef = useRef<HTMLInputElement>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -60,7 +61,7 @@ export default function QuestionImportPanel({ bankId, onImported }: QuestionImpo
     }
     setDownloadingTemplate(true);
     try {
-      const blob = await downloadQuestionImportWordTemplate();
+      const blob = await (examId ? downloadExamQuestionImportWordTemplate() : downloadQuestionImportWordTemplate());
       downloadBlob(blob, "mau-soan-cau-hoi.docx");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Tải file mẫu thất bại.");
@@ -80,7 +81,11 @@ export default function QuestionImportPanel({ bankId, onImported }: QuestionImpo
     setError(null);
     setResult(null);
     try {
-      const res = await importQuestions(bankId, file);
+      const res = examId
+        ? await importExamQuestions(examId, file)
+        : bankId
+          ? await importQuestions(bankId, file)
+          : (() => { throw new Error("Thiếu ngữ cảnh Đề/Ngân hàng câu hỏi."); })();
       setResult(res);
       if (res.successRows > 0) onImported(res.createdQuestions);
     } catch (err) {

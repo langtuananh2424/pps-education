@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { Check, CheckCheck, Flag, X } from "lucide-react";
+import { Edit3, Check, CheckCheck, Flag, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
-import { ClassResponse, StudentCommentResponse, decideComments, listClassEnrollments, listClasses } from "../api";
+import { ClassResponse, StudentCommentResponse, decideComments, listClassEnrollments, listClasses, updatePendingCommentContent } from "../api";
 import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
 import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
@@ -33,6 +33,9 @@ export default function CommentApprovalByClass({ items, loading, onDecided }: Co
   const [studentCodeByClassAndStudent, setStudentCodeByClassAndStudent] = useState<Record<string, string>>({});
   const [decidingId, setDecidingId] = useState<number | null>(null);
   const [decidingAllClassId, setDecidingAllClassId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingContent, setEditingContent] = useState("");
+  const [savingEditId, setSavingEditId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { promptDialog } = useDialog();
 
@@ -88,6 +91,29 @@ export default function CommentApprovalByClass({ items, loading, onDecided }: Co
       setError(err instanceof ApiError ? err.message : "Duyệt tất cả thất bại.");
     } finally {
       setDecidingAllClassId(null);
+    }
+  };
+
+  const handleStartEdit = (cm: StudentCommentResponse) => {
+    setEditingId(cm.id);
+    setEditingContent(cm.content);
+  };
+
+  const handleSaveEdit = async (id: number) => {
+    if (!editingContent.trim()) {
+      setError("Nội dung nhận xét không được để trống.");
+      return;
+    }
+    setSavingEditId(id);
+    setError(null);
+    try {
+      await updatePendingCommentContent(id, { content: editingContent.trim() });
+      setEditingId(null);
+      onDecided();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Sửa nội dung thất bại.");
+    } finally {
+      setSavingEditId(null);
     }
   };
 
@@ -173,15 +199,51 @@ export default function CommentApprovalByClass({ items, loading, onDecided }: Co
                           <Td className="min-w-[110px]">{cm.attitude ? attitudeLabels[cm.attitude] : "—"}</Td>
                           <Td className="min-w-[130px]">{cm.homeworkPreviousScore || "—"}</Td>
                           <Td className="min-w-[130px]">{cm.homeworkPreviousSpeakingScore || "—"}</Td>
-                          <Td className="min-w-[260px] whitespace-pre-wrap">{cm.content}</Td>
+                          <Td className="min-w-[260px]">
+                            {editingId === cm.id ? (
+                              <div className="space-y-2">
+                                <textarea
+                                  value={editingContent}
+                                  onChange={(e) => setEditingContent(e.target.value)}
+                                  rows={4}
+                                  className="w-full bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-red"
+                                />
+                                <div className="flex justify-end gap-1.5">
+                                  <button
+                                    onClick={() => setEditingId(null)}
+                                    className="px-2 py-1 text-slate-500 hover:bg-slate-100 text-[10px] font-bold rounded-lg"
+                                  >
+                                    Hủy
+                                  </button>
+                                  <button
+                                    onClick={() => handleSaveEdit(cm.id)}
+                                    disabled={savingEditId === cm.id}
+                                    className="px-2 py-1 bg-brand-red hover:bg-red-700 text-white text-[10px] font-bold rounded-lg disabled:opacity-50"
+                                  >
+                                    {savingEditId === cm.id ? "Đang lưu..." : "Lưu sửa"}
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="whitespace-pre-wrap">{cm.content}</div>
+                            )}
+                          </Td>
                           <Td className="min-w-[180px]">{cm.homeworkNext || cm.homeworkNextExerciseTitle || "—"}</Td>
                           <Td className="min-w-[180px]">{cm.homeworkNextReviewVideoSetTitle || "—"}</Td>
                           <Td className="min-w-[120px]">{cm.note || "—"}</Td>
                           <Td className="min-w-[160px] whitespace-nowrap">
-                            <div className="flex gap-1.5">
+                            <div className="flex gap-1.5 flex-wrap">
+                              <button
+                                onClick={() => handleStartEdit(cm)}
+                                disabled={decidingId === cm.id || editingId === cm.id}
+                                className="px-2 py-1 text-slate-600 hover:bg-slate-100 border border-slate-200 text-[11px] font-bold rounded-lg disabled:opacity-50"
+                              >
+                                <Edit3 className="w-3 h-3 inline mr-0.5" />
+                                Sửa
+                              </button>
                               <button
                                 onClick={() => handleDecide(cm, "REJECTED")}
-                                disabled={decidingId === cm.id}
+                                disabled={decidingId === cm.id || editingId === cm.id}
                                 className="px-2 py-1 text-rose-600 hover:bg-rose-50 border border-rose-200 text-[11px] font-bold rounded-lg disabled:opacity-50"
                               >
                                 <X className="w-3 h-3 inline mr-0.5" />
@@ -189,7 +251,7 @@ export default function CommentApprovalByClass({ items, loading, onDecided }: Co
                               </button>
                               <button
                                 onClick={() => handleDecide(cm, "APPROVED")}
-                                disabled={decidingId === cm.id}
+                                disabled={decidingId === cm.id || editingId === cm.id}
                                 className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded-lg disabled:opacity-50"
                               >
                                 <Check className="w-3 h-3 inline mr-0.5" />

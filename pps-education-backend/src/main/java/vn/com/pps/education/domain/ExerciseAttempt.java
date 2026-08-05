@@ -68,4 +68,8 @@ public class ExerciseAttempt {
 
     @Column(name = "is_late_submission", nullable = false)
     private boolean lateSubmission = false;
+
+    /** V89: NULL = chưa chấm xong; xem ExerciseAttemptService#applyPassOutcome (UC-27, BTVN <ngưỡng phải làm lại). */
+    @Column(name = "passed")
+    private Boolean passed;
 }

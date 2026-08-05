@@ -1,7 +1,11 @@
 package vn.com.pps.education.service;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import vn.com.pps.education.domain.ClassEnrollment;
 import vn.com.pps.education.domain.CurriculumSubject;
 import vn.com.pps.education.domain.Exam;
@@ -19,6 +23,7 @@ import vn.com.pps.education.dto.ExerciseAssignmentResponse;
 import vn.com.pps.education.dto.ExerciseQuestionChoiceResponse;
 import vn.com.pps.education.dto.ExerciseQuestionResponse;
 import vn.com.pps.education.dto.ExerciseResponse;
+import vn.com.pps.education.dto.UpdateExerciseRequest;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.repository.ClassEnrollmentRepository;
@@ -35,8 +40,13 @@ import vn.com.pps.education.repository.SchoolClassRepository;
 import vn.com.pps.education.repository.StudentRepository;
 import vn.com.pps.education.repository.UserRepository;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -88,6 +98,9 @@ public class ExerciseService {
     private final StudentRepository studentRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    /** V71: xem Javadoc tương tự ở ReviewVideoService — chạy riêng 1 giao dịch lồng khi thử tạo bản
+     * giao, để race thua (bắt DataIntegrityViolationException) chỉ rollback đúng giao dịch con này. */
+    private final TransactionTemplate requiresNewTransactionTemplate;
 
     public ExerciseService(ExerciseRepository exerciseRepository,
                             ExerciseQuestionRepository exerciseQuestionRepository,
@@ -102,7 +115,8 @@ public class ExerciseService {
                             ClassEnrollmentRepository classEnrollmentRepository,
                             StudentRepository studentRepository,
                             UserRepository userRepository,
-                            NotificationService notificationService) {
+                            NotificationService notificationService,
+                            PlatformTransactionManager transactionManager) {
         this.exerciseRepository = exerciseRepository;
         this.exerciseQuestionRepository = exerciseQuestionRepository;
         this.exerciseAssignmentRepository = exerciseAssignmentRepository;
@@ -117,6 +131,8 @@ public class ExerciseService {
         this.studentRepository = studentRepository;
         this.userRepository = userRepository;
         this.notificationService = notificationService;
+        this.requiresNewTransactionTemplate = new TransactionTemplate(transactionManager);
+        this.requiresNewTransactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
 
     /** Main Flow bước 2: soạn Bài (DRAFT) trong 1 Đề, chọn loại SELF_PRACTICE/ASSIGNED/... */
@@ -137,9 +153,48 @@ public class ExerciseService {
         exercise.setAllowRetake(request.allowRetake());
         exercise.setMaxAttempts(request.maxAttempts());
         exercise.setShowCorrectAnswers(request.showCorrectAnswers());
+        if (request.passThresholdPercent() != null) {
+            exercise.setPassThresholdPercent(request.passThresholdPercent());
+        }
         exercise.setCreatedBy(actor);
         exercise = exerciseRepository.save(exercise);
         return toResponse(exercise, List.of());
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04 — sửa lại thông tin 1 Bài đã soạn
+     * (trước đây chỉ tạo được, không sửa được nữa). Không sửa code/examId/exerciseType (cố định từ
+     * lúc tạo, giống quy ước ExamService#updateExam) — không giới hạn theo status, mirror updateExam.
+     */
+    @Transactional
+    public ExerciseResponse updateExercise(Long id, UpdateExerciseRequest request, Long actorUserId) {
+        Exercise exercise = getExerciseOrThrow(id);
+        exercise.setTitle(request.title());
+        exercise.setSubject(request.subjectId() == null ? null : curriculumSubjectOrThrow(request.subjectId()));
+        exercise.setTotalPoints(request.totalPoints());
+        exercise.setAllowRetake(request.allowRetake());
+        exercise.setMaxAttempts(request.allowRetake() ? request.maxAttempts() : null);
+        exercise.setShowCorrectAnswers(request.showCorrectAnswers());
+        if (request.passThresholdPercent() != null) {
+            exercise.setPassThresholdPercent(request.passThresholdPercent());
+        }
+        exercise = exerciseRepository.save(exercise);
+        return toResponse(exercise, exerciseQuestionRepository.findByExerciseIdOrderByDisplayOrder(id));
+    }
+
+    /**
+     * V87 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04) — "Xóa Bài" = lưu trữ
+     * (status=ARCHIVED, đã có sẵn trong enum từ đầu nhưng chưa từng có đường gọi tới). KHÔNG xóa cứng
+     * vì exercise_questions/exercise_assignments/exercise_attempts/student_answers có thể đã tham
+     * chiếu (dữ liệu bài làm thật của học sinh). ARCHIVED tự động chặn học sinh xem/làm tiếp qua
+     * {@link #requireCanViewExercise} (yêu cầu status=PUBLISHED) — không cần sửa gì thêm ở đó;
+     * {@link #listByExam} cũng đã lọc bỏ Bài ARCHIVED khỏi danh sách GV xem trong Kho đề.
+     */
+    @Transactional
+    public void deleteExercise(Long id, Long actorUserId) {
+        Exercise exercise = getExerciseOrThrow(id);
+        exercise.setStatus(Exercise.Status.ARCHIVED);
+        exerciseRepository.save(exercise);
     }
 
     /** Main Flow bước 1: gắn câu hỏi (từ ngân hàng hoặc vừa soạn) vào đề. */
@@ -148,6 +203,10 @@ public class ExerciseService {
         Exercise exercise = getExerciseOrThrow(exerciseId);
         Question question = questionRepository.findById(request.questionId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy câu hỏi id=" + request.questionId()));
+        if (!question.getQuestionBank().getId().equals(exercise.getExam().getQuestionBank().getId())) {
+            throw new IllegalArgumentException(
+                    "Câu hỏi id=" + request.questionId() + " không thuộc Đề id=" + exercise.getExam().getId() + ".");
+        }
         if (exerciseQuestionRepository.existsByExerciseIdAndQuestionId(exerciseId, request.questionId())) {
             throw new IllegalArgumentException("Câu hỏi id=" + request.questionId() + " đã có trong đề id=" + exerciseId + ".");
         }
@@ -226,6 +285,7 @@ public class ExerciseService {
     @Transactional(readOnly = true)
     public List<ExerciseResponse> listByExam(Long examId, Long actorUserId) {
         return exerciseRepository.findByExamId(examId).stream()
+                .filter(e -> e.getStatus() != Exercise.Status.ARCHIVED)
                 .map(e -> toResponse(e, exerciseQuestionRepository.findByExerciseIdOrderByDisplayOrder(e.getId())))
                 .toList();
     }
@@ -263,6 +323,15 @@ public class ExerciseService {
      * CÙNG 1 đợt gửi — tái dùng nguyên bản ghi đó, KHÔNG tạo mới, KHÔNG
      * gọi lại notifyAssignedStudents (tránh N thông báo giống hệt nhau
      * cho toàn bộ học sinh lớp). Mirror ReviewVideoService#deliverToClass.
+     *
+     * V71 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-03,
+     * fix race condition của chính cơ chế chống trùng V70): xem Javadoc
+     * chi tiết ở ReviewVideoService#deliverToClass — check-rồi-insert ở
+     * tầng ứng dụng KHÔNG atomic, đã tái hiện thực tế 2 request đồng thời
+     * cùng tạo được 2 bản giao trùng. UNIQUE index DB (exercise_id,
+     * class_id, due_at) WHERE status='ACTIVE' làm chốt chặn cuối cùng;
+     * INSERT chạy trong giao dịch lồng PROPAGATION_REQUIRES_NEW để thua
+     * race chỉ rollback giao dịch con, không kéo theo giao dịch ngoài.
      */
     @Transactional
     public ExerciseAssignment deliverToClass(Long exerciseId, Long classId, OffsetDateTime dueAt, Long actorUserId) {
@@ -282,12 +351,24 @@ public class ExerciseService {
             return sameSession.get();
         }
 
-        ExerciseAssignment assignment = new ExerciseAssignment();
-        assignment.setExercise(exercise);
-        assignment.setSchoolClass(schoolClass);
-        assignment.setAssignedBy(actor);
-        assignment.setDueAt(dueAt);
-        assignment = exerciseAssignmentRepository.save(assignment);
+        ExerciseAssignment assignment;
+        try {
+            assignment = requiresNewTransactionTemplate.execute(status -> {
+                ExerciseAssignment a = new ExerciseAssignment();
+                a.setExercise(exercise);
+                a.setSchoolClass(schoolClass);
+                a.setAssignedBy(actor);
+                a.setDueAt(dueAt);
+                return exerciseAssignmentRepository.saveAndFlush(a);
+            });
+        } catch (DataIntegrityViolationException e) {
+            // Race condition (V71) — xem Javadoc ReviewVideoService#deliverToClass. Đọc lại bản ghi đã
+            // thắng, KHÔNG tạo mới/không báo lại.
+            return exerciseAssignmentRepository
+                    .findByExerciseIdAndSchoolClassIdAndStatus(exerciseId, classId, ExerciseAssignment.Status.ACTIVE)
+                    .stream().filter(a -> Objects.equals(a.getDueAt(), dueAt)).findFirst()
+                    .orElseThrow(() -> e);
+        }
 
         exercise.setStatus(Exercise.Status.PUBLISHED);
         exerciseRepository.save(exercise);
@@ -359,8 +440,9 @@ public class ExerciseService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + id));
     }
 
+    /** V87 — không lộ Đề đã "xóa" (deleted_at), cùng pattern ExamService#getExamOrThrow. */
     private Exam examOrThrow(Long id) {
-        return examRepository.findById(id)
+        return examRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Đề id=" + id));
     }
 
@@ -388,8 +470,8 @@ public class ExerciseService {
                 e.getExam().getId(), e.getExam().getCode(), e.getExam().getTitle(),
                 e.getSubject() == null ? null : e.getSubject().getId(),
                 e.getExerciseType().name(), e.getTotalPoints(), e.getTimeLimitMinutes(), e.isAllowRetake(),
-                e.getMaxAttempts(), e.isShowCorrectAnswers(), e.getStatus().name(), e.getCreatedBy().getId(),
-                hasEssayOrSpeaking);
+                e.getMaxAttempts(), e.isShowCorrectAnswers(), e.getPassThresholdPercent(), e.getStatus().name(),
+                e.getCreatedBy().getId(), hasEssayOrSpeaking);
     }
 
     private ExerciseQuestionResponse toResponse(ExerciseQuestion eq) {
@@ -401,7 +483,37 @@ public class ExerciseService {
         return new ExerciseQuestionResponse(
                 eq.getId(), eq.getExercise().getId(), question.getId(),
                 question.getQuestionType().name(), question.getContent(),
-                eq.getDisplayOrder(), eq.getPoints(), choices);
+                eq.getDisplayOrder(), eq.getPoints(), choices,
+                question.getSkill() == null ? null : question.getSkill().name(),
+                question.getAudioUrl(), question.getReferencePassage(),
+                shuffledStructuredContent(question), question.getGroupKey());
+    }
+
+    /**
+     * V85 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04) — QUAN TRỌNG: Question.
+     * structuredContent của WORD_BANK/SENTENCE_BUILDING lưu ĐÚNG thứ tự đáp án (chính là đáp án
+     * đúng). Endpoint này (GET /api/exercises/{id}/questions) là endpoint HỌC SINH gọi để làm bài
+     * (TakeExerciseModal) — TUYỆT ĐỐI không được trả nguyên thứ tự gốc, dù UI có tự xáo trộn hiển thị
+     * (network response vẫn lộ qua devtools). Trả về bản sao đã xáo trộn ngẫu nhiên mỗi lần gọi —
+     * word bank/khối câu chỉ cần lộ TẬP hợp từ, không lộ thứ tự đúng. Cùng nguyên tắc với choices ở
+     * trên (không kèm isCorrect) — xem Javadoc ExerciseQuestionResponse.
+     */
+    private Map<String, Object> shuffledStructuredContent(Question question) {
+        Map<String, Object> raw = question.getStructuredContent();
+        if (raw == null) {
+            return null;
+        }
+        Map<String, Object> shuffled = new LinkedHashMap<>();
+        for (Map.Entry<String, Object> entry : raw.entrySet()) {
+            if (entry.getValue() instanceof List<?> list) {
+                List<Object> copy = new ArrayList<>(list);
+                Collections.shuffle(copy);
+                shuffled.put(entry.getKey(), copy);
+            } else {
+                shuffled.put(entry.getKey(), entry.getValue());
+            }
+        }
+        return shuffled;
     }
 
     /** Map phương án cho HS chọn — KHÔNG lộ is_correct (xem ExerciseQuestionChoiceResponse). */

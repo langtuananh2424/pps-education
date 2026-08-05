@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Calendar, Download, FileSpreadsheet, FileText, Save, Search, Sparkles, UploadCloud, UserPlus, Users, X } from "lucide-react";
+import { Calendar, CalendarClock, Download, FileSpreadsheet, FileText, Save, Search, Sparkles, UploadCloud, UserPlus, Users, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { downloadBlob } from "@/lib/xlsxTemplate";
 import { useApp } from "@/context/AppContext";
@@ -17,6 +17,7 @@ import {
   ClassSessionResponse,
   ClassTeacherResponse,
   CreateClassSessionRequest,
+  RescheduleClassSessionRequest,
   assignClassTeacher,
   cancelClassSession,
   createClassSession,
@@ -29,6 +30,7 @@ import {
   listClassEnrollments,
   listClassSessions,
   listClassTeachers,
+  rescheduleClassSession,
   updateClass,
   withdrawEnrollment
 } from "../api";
@@ -799,6 +801,7 @@ function SessionsTab({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState<"single" | "bulk" | "excel" | null>(null);
+  const [reschedulingSession, setReschedulingSession] = useState<ClassSessionResponse | null>(null);
 
   const load = () => {
     setLoading(true);
@@ -890,7 +893,12 @@ function SessionsTab({
                     </Button>
                   )}
                   {canManage && s.status !== "CANCELLED" && (
-                    <button onClick={() => handleCancel(s.id)} className="text-rose-500 hover:text-rose-700">
+                    <button onClick={() => setReschedulingSession(s)} title="Dời lịch" className="text-slate-500 hover:text-slate-800">
+                      <CalendarClock className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                  {canManage && s.status !== "CANCELLED" && (
+                    <button onClick={() => handleCancel(s.id)} title="Hủy buổi" className="text-rose-500 hover:text-rose-700">
                       <X className="w-3.5 h-3.5" />
                     </button>
                   )}
@@ -950,7 +958,132 @@ function SessionsTab({
           onCancel={() => setCreating(null)}
         />
       </Modal>
+      <Modal open={reschedulingSession != null} onClose={() => setReschedulingSession(null)} title="Dời lịch buổi học" size="lg">
+        {reschedulingSession && (
+          <RescheduleSessionForm
+            classId={classId}
+            siteId={siteId}
+            session={reschedulingSession}
+            onDone={() => {
+              setReschedulingSession(null);
+              load();
+              showToast("Đã dời lịch buổi học thành công!");
+            }}
+            onCancel={() => setReschedulingSession(null)}
+          />
+        )}
+      </Modal>
     </div>
+  );
+}
+
+function RescheduleSessionForm({
+  classId,
+  siteId,
+  session,
+  onDone,
+  onCancel
+}: {
+  classId: number;
+  siteId: number;
+  session: ClassSessionResponse;
+  onDone: () => void;
+  onCancel: () => void;
+}) {
+  // UserSearchCombobox cần cả username (không chỉ id/fullName) để hiện đúng — ClassSessionResponse
+  // không trả username của GV phụ trách, nên không dựng sẵn được object giả — để trống, GV/GV vụ tự
+  // chọn lại (kể cả không đổi người, chỉ đổi ngày/giờ/phòng) thay vì hiện sai "undefined".
+  const [teacher, setTeacher] = useState<UserListItemResponse | null>(null);
+  const [rooms, setRooms] = useState<RoomResponse[]>([]);
+  const [roomId, setRoomId] = useState(session.roomId != null ? String(session.roomId) : "");
+  const [form, setForm] = useState({ sessionDate: session.sessionDate, startTime: session.startTime, endTime: session.endTime, reason: "" });
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    listRoomsBySite(siteId).then(setRooms).catch(() => undefined);
+  }, [siteId]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!teacher || !form.sessionDate || !form.startTime || !form.endTime) {
+      setError("Vui lòng điền đủ ngày/giờ mới và chọn giáo viên phụ trách.");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      const request: RescheduleClassSessionRequest = {
+        newSessionDate: form.sessionDate,
+        newStartTime: form.startTime,
+        newEndTime: form.endTime,
+        newRoomId: roomId ? Number(roomId) : undefined,
+        newPrimaryTeacherId: teacher.id,
+        reason: form.reason.trim() || undefined
+      };
+      await rescheduleClassSession(classId, session.id, request);
+      onDone();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Dời lịch buổi học thất bại.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <p className="text-[11px] text-slate-500">
+        Buổi {session.sessionNumber} — lịch hiện tại: <span className="font-bold text-slate-700">{session.sessionDate} {session.startTime}–{session.endTime}</span>
+      </p>
+
+      <div className="grid grid-cols-3 gap-2">
+        <div>
+          <label className={labelClass}>Ngày học mới</label>
+          <DatePicker value={form.sessionDate} onChange={(v) => setForm({ ...form, sessionDate: v })} />
+        </div>
+        <div>
+          <label className={labelClass}>Giờ bắt đầu mới</label>
+          <input type="time" value={form.startTime} onChange={(e) => setForm({ ...form, startTime: e.target.value })} className={inputClass} required />
+        </div>
+        <div>
+          <label className={labelClass}>Giờ kết thúc mới</label>
+          <input type="time" value={form.endTime} onChange={(e) => setForm({ ...form, endTime: e.target.value })} className={inputClass} required />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className={labelClass}>Phòng học mới</label>
+          <Select value={roomId} onChange={(e) => setRoomId(e.target.value)} className={inputClass}>
+            <option value="">-- Không gán --</option>
+            {rooms.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.code} — {r.name}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div>
+          <label className={labelClass}>Giáo viên phụ trách mới (hiện tại: {session.primaryTeacherName})</label>
+          <UserSearchCombobox value={teacher} onChange={setTeacher} roleFilter="TEACHER" placeholder="Bấm để chọn lại giáo viên (kể cả giữ nguyên người cũ)..." />
+        </div>
+      </div>
+
+      <div>
+        <label className={labelClass}>Lý do dời lịch (không bắt buộc)</label>
+        <input value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} className={inputClass} placeholder="VD: Phòng học bị trùng lịch" />
+      </div>
+
+      <div className="flex justify-end gap-2 pt-1">
+        <Button type="button" variant="secondary" size="sm" onClick={onCancel}>
+          Hủy
+        </Button>
+        <Button type="submit" size="sm" disabled={submitting}>
+          {submitting ? "Đang lưu..." : "Dời lịch"}
+        </Button>
+      </div>
+    </form>
   );
 }
 

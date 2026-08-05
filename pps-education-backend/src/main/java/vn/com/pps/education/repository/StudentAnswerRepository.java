@@ -13,6 +13,8 @@ public interface StudentAnswerRepository extends JpaRepository<StudentAnswer, Lo
 
     List<StudentAnswer> findByExerciseAttemptId(Long exerciseAttemptId);
 
+    List<StudentAnswer> findByExerciseAttemptIdIn(List<Long> exerciseAttemptIds);
+
     Optional<StudentAnswer> findByExerciseAttemptIdAndQuestionId(Long exerciseAttemptId, Long questionId);
 
     /** UC-41 Main Flow bước 1: câu tự luận/Nói đã nộp, chưa có bản chấm hiện hành. */

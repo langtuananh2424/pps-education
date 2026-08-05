@@ -9,4 +9,6 @@ public interface ExerciseAttemptRepository extends JpaRepository<ExerciseAttempt
     long countByExerciseIdAndStudentId(Long exerciseId, Long studentId);
 
     List<ExerciseAttempt> findByExerciseIdAndStudentIdOrderByAttemptNumberDesc(Long exerciseId, Long studentId);
+
+    List<ExerciseAttempt> findByExerciseAssignmentIdOrderByAttemptNumberDesc(Long exerciseAssignmentId);
 }

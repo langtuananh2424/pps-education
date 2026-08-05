@@ -117,6 +117,22 @@ export function listSiteTeachers(siteId: number): Promise<SiteTeacherResponse[]>
   return apiRequest<SiteTeacherResponse[]>(`/sites/${siteId}/teachers`);
 }
 
+export interface AssignSiteTeacherRequest {
+  teacherUserId: number;
+  assignedFrom: string;
+  notes?: string;
+}
+
+/** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-03 — gán 1 giáo viên vào điểm trường (UC-36). */
+export function assignSiteTeacher(siteId: number, request: AssignSiteTeacherRequest): Promise<SiteTeacherResponse> {
+  return apiRequest<SiteTeacherResponse>(`/sites/${siteId}/teachers`, { method: "POST", body: JSON.stringify(request) });
+}
+
+/** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-03 — gỡ 1 giáo viên khỏi điểm trường (UC-36). */
+export function removeSiteTeacher(siteId: number, siteTeacherId: number): Promise<void> {
+  return apiRequest<void>(`/sites/${siteId}/teachers/${siteTeacherId}`, { method: "DELETE" });
+}
+
 export type RoomType = "THEORY" | "COMPUTER" | "LAB" | "OTHER";
 export type RoomStatus = "AVAILABLE" | "MAINTENANCE" | "DISABLED";
 

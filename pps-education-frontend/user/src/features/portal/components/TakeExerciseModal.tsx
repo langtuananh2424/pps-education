@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { CheckCircle2, Loader2, ShieldAlert, XCircle } from "lucide-react";
 import { friendlyApiErrorMessage } from "@/lib/apiClient";
 import {
@@ -12,7 +12,8 @@ import {
   recordIntegrityEvents,
   saveAnswer,
   startAttempt,
-  submitAttempt
+  submitAttempt,
+  uploadMedia
 } from "../api";
 import { useIntegrityMonitor } from "../hooks/useIntegrityMonitor";
 
@@ -23,6 +24,32 @@ interface TakeExerciseModalProps {
 }
 
 const CHOICE_TYPES = new Set(["MULTIPLE_CHOICE", "MULTIPLE_ANSWER", "TRUE_FALSE"]);
+
+/**
+ * V78 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04) — dạng "Đọc hiểu — lưới": nhiều
+ * câu MULTIPLE_CHOICE liên tiếp cùng groupKey gộp hiển thị chung 1 referencePassage + 1 bảng câu hỏi,
+ * thay vì lặp lại đoạn văn ở mỗi câu. Chỉ gộp các câu LIÊN TIẾP nhau (đúng thứ tự displayOrder).
+ */
+type RenderBlock =
+  | { type: "single"; question: ExerciseQuestionResponse }
+  | { type: "grid"; groupKey: string; referencePassage: string | null; questions: ExerciseQuestionResponse[] };
+
+function groupQuestionsByGroupKey(questions: ExerciseQuestionResponse[]): RenderBlock[] {
+  const blocks: RenderBlock[] = [];
+  for (const q of questions) {
+    const last = blocks[blocks.length - 1];
+    if (q.groupKey && last && last.type === "grid" && last.groupKey === q.groupKey) {
+      last.questions.push(q);
+      continue;
+    }
+    if (q.groupKey) {
+      blocks.push({ type: "grid", groupKey: q.groupKey, referencePassage: q.referencePassage, questions: [q] });
+    } else {
+      blocks.push({ type: "single", question: q });
+    }
+  }
+  return blocks;
+}
 
 /**
  * UC-24/UC-27: màn "Làm bài" thật — mở/tiếp tục lượt làm, trả lời từng câu, nộp bài.
@@ -97,6 +124,41 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
       setAnswersByQuestion((prev) => new Map(prev).set(questionId, res));
     } catch (err) {
       setError(friendlyApiErrorMessage(err, "Lưu câu trả lời thất bại."));
+    } finally {
+      setSavingQuestionId(null);
+    }
+  };
+
+  /** V78 — WORD_BANK/SENTENCE_BUILDING: lưu ngay khi học sinh chọn đủ (không chờ blur như văn bản tự do). */
+  const handleStructuredAnswer = async (questionId: number, values: string[]) => {
+    if (!attempt || readOnly) return;
+    setSavingQuestionId(questionId);
+    setError(null);
+    try {
+      const res = await saveAnswer(attempt.id, { questionId, structuredAnswer: values });
+      setAnswersByQuestion((prev) => new Map(prev).set(questionId, res));
+    } catch (err) {
+      setError(friendlyApiErrorMessage(err, "Lưu câu trả lời thất bại."));
+    } finally {
+      setSavingQuestionId(null);
+    }
+  };
+
+  /**
+   * V78 — SPEAKING (Speaking oral gốc lẫn "Nghe & nộp audio" mới): học sinh upload file audio ghi âm
+   * câu trả lời, lưu URL qua saveAnswer.audioAnswerUrl — vá gap cũ (Portal trước đây không có UI nộp
+   * audio thật cho SPEAKING dù backend đã hỗ trợ).
+   */
+  const handleAudioAnswer = async (questionId: number, file: File) => {
+    if (!attempt || readOnly) return;
+    setSavingQuestionId(questionId);
+    setError(null);
+    try {
+      const { url } = await uploadMedia(file, "EXERCISE_ANSWER_SUBMISSION");
+      const res = await saveAnswer(attempt.id, { questionId, audioAnswerUrl: url });
+      setAnswersByQuestion((prev) => new Map(prev).set(questionId, res));
+    } catch (err) {
+      setError(friendlyApiErrorMessage(err, "Nộp audio thất bại."));
     } finally {
       setSavingQuestionId(null);
     }
@@ -187,19 +249,32 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
           ) : questions.length === 0 ? (
             <p className="text-xs text-muted font-bold italic">Đề này chưa có câu hỏi nào.</p>
           ) : (
-            questions.map((q) => (
-              <QuestionBlock
-                key={q.id}
-                question={q}
-                answer={answersByQuestion.get(q.questionId)}
-                readOnly={readOnly}
-                saving={savingQuestionId === q.questionId}
-                textValue={textDraft[q.questionId]}
-                onTextChange={(v) => setTextDraft((prev) => ({ ...prev, [q.questionId]: v }))}
-                onTextBlur={() => handleTextBlur(q.questionId)}
-                onChoiceToggle={(choiceIds) => handleChoiceAnswer(q.questionId, choiceIds)}
-              />
-            ))
+            groupQuestionsByGroupKey(questions).map((block) =>
+              block.type === "grid" ? (
+                <GridQuestionGroup
+                  key={block.groupKey}
+                  block={block}
+                  answersByQuestion={answersByQuestion}
+                  readOnly={readOnly}
+                  savingQuestionId={savingQuestionId}
+                  onChoiceToggle={handleChoiceAnswer}
+                />
+              ) : (
+                <QuestionBlock
+                  key={block.question.id}
+                  question={block.question}
+                  answer={answersByQuestion.get(block.question.questionId)}
+                  readOnly={readOnly}
+                  saving={savingQuestionId === block.question.questionId}
+                  textValue={textDraft[block.question.questionId]}
+                  onTextChange={(v) => setTextDraft((prev) => ({ ...prev, [block.question.questionId]: v }))}
+                  onTextBlur={() => handleTextBlur(block.question.questionId)}
+                  onChoiceToggle={(choiceIds) => handleChoiceAnswer(block.question.questionId, choiceIds)}
+                  onStructuredAnswer={(values) => handleStructuredAnswer(block.question.questionId, values)}
+                  onAudioUpload={(file) => handleAudioAnswer(block.question.questionId, file)}
+                />
+              )
+            )
           )}
         </div>
 
@@ -251,7 +326,9 @@ function QuestionBlock({
   textValue,
   onTextChange,
   onTextBlur,
-  onChoiceToggle
+  onChoiceToggle,
+  onStructuredAnswer,
+  onAudioUpload
 }: {
   question: ExerciseQuestionResponse;
   answer: StudentAnswerResponse | undefined;
@@ -261,6 +338,8 @@ function QuestionBlock({
   onTextChange: (v: string) => void;
   onTextBlur: () => void;
   onChoiceToggle: (choiceIds: number[]) => void;
+  onStructuredAnswer: (values: string[]) => void;
+  onAudioUpload: (file: File) => void;
 }) {
   const isChoiceQuestion = CHOICE_TYPES.has(question.questionType) && question.choices.length > 0;
   const isFillInBlank = question.questionType === "FILL_IN_BLANK";
@@ -328,7 +407,45 @@ function QuestionBlock({
           })}
         </div>
       ) : question.questionType === "SPEAKING" ? (
-        <p className="text-xs text-muted font-bold italic">Câu hỏi dạng Nói chưa hỗ trợ ghi âm trực tiếp trên Portal — giáo viên sẽ chấm theo cách khác.</p>
+        <div className="space-y-2">
+          {question.skill === "LISTENING" && question.audioUrl && (
+            <div className="space-y-1">
+              <p className="text-[10px] text-muted font-bold uppercase">Audio bài nghe</p>
+              {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+              <audio controls src={question.audioUrl} className="w-full" />
+            </div>
+          )}
+          <div className="space-y-1">
+            <p className="text-[10px] text-muted font-bold uppercase">Ghi âm câu trả lời của bạn</p>
+            <input
+              type="file"
+              accept="audio/*"
+              disabled={readOnly || saving}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) onAudioUpload(file);
+                e.target.value = "";
+              }}
+              className="text-xs font-bold text-ink file:mr-2 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-teal file:text-white file:text-xs file:font-extrabold disabled:opacity-70"
+            />
+            {answer?.audioAnswerUrl && (
+              // eslint-disable-next-line jsx-a11y/media-has-caption
+              <audio controls src={answer.audioAnswerUrl} className="w-full mt-1" />
+            )}
+          </div>
+          <p className="text-[10px] text-muted italic">Câu này sẽ được giáo viên chấm tay sau khi nộp bài.</p>
+        </div>
+      ) : question.questionType === "WORD_BANK" && question.structuredContent?.blanks ? (
+        <WordBankBlock
+          content={question.questionContent}
+          wordPool={question.structuredContent.blanks}
+          initialAnswer={answer?.structuredAnswer ?? undefined}
+          readOnly={readOnly}
+          saving={saving}
+          onChange={onStructuredAnswer}
+        />
+      ) : question.questionType === "SENTENCE_BUILDING" && question.structuredContent?.chunks ? (
+        <SentenceBuildingBlock chunkPool={question.structuredContent.chunks} readOnly={readOnly} saving={saving} onChange={onStructuredAnswer} />
       ) : (
         <div className="space-y-2">
           <textarea
@@ -349,7 +466,212 @@ function QuestionBlock({
         </div>
       )}
 
+      {(question.questionType === "WORD_BANK" || question.questionType === "SENTENCE_BUILDING") && showFeedback && (
+        <div className={`flex items-center gap-1.5 text-xs font-bold ${answer?.isCorrect ? "text-teal-deep" : "text-coral"}`}>
+          {answer?.isCorrect ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
+          {answer?.isCorrect
+            ? "Chính xác"
+            : `Đáp án đúng: ${(question.questionType === "WORD_BANK" ? answer?.correctStructuredContent?.blanks : answer?.correctStructuredContent?.chunks)?.join(" — ") ?? "—"}`}
+        </div>
+      )}
+
       {answer?.explanation && showFeedback && <p className="text-[11px] text-muted font-bold italic border-t border-line/50 pt-2">Giải thích: {answer.explanation}</p>}
+    </div>
+  );
+}
+
+/** V78 — Điền từ - Hộp từ vựng: content chứa marker "___" theo đúng số chỗ trống, mỗi dropdown liệt kê từ CÒN LẠI (chưa chọn ở chỗ trống khác). */
+function WordBankBlock({
+  content,
+  wordPool,
+  initialAnswer,
+  readOnly,
+  saving,
+  onChange
+}: {
+  content: string;
+  wordPool: string[];
+  initialAnswer: string[] | undefined;
+  readOnly: boolean;
+  saving: boolean;
+  onChange: (values: string[]) => void;
+}) {
+  const parts = content.split("___");
+  const blankCount = parts.length - 1;
+  const [selections, setSelections] = useState<string[]>(
+    initialAnswer && initialAnswer.length === blankCount ? initialAnswer : new Array(blankCount).fill("")
+  );
+
+  const handleSelect = (idx: number, value: string) => {
+    const next = selections.map((s, i) => (i === idx ? value : s));
+    setSelections(next);
+    if (next.every((s) => s)) onChange(next);
+  };
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-1.5 gap-y-2 text-sm font-bold text-ink leading-8">
+      {parts.map((part, idx) => (
+        <React.Fragment key={idx}>
+          {part && <span>{part}</span>}
+          {idx < blankCount && (
+            <select
+              value={selections[idx]}
+              disabled={readOnly || saving}
+              onChange={(e) => handleSelect(idx, e.target.value)}
+              className="bg-sky-2 border border-line/70 text-xs font-bold px-2 py-1.5 rounded-lg focus:outline-none disabled:opacity-70"
+            >
+              <option value="">— chọn —</option>
+              {wordPool
+                .filter((w) => w === selections[idx] || !selections.includes(w))
+                .map((w, wIdx) => (
+                  <option key={`${w}-${wIdx}`} value={w}>
+                    {w}
+                  </option>
+                ))}
+            </select>
+          )}
+        </React.Fragment>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * V78 — Sắp xếp câu: học sinh CHẠM từng khối theo thứ tự muốn chọn (thay cho kéo-thả vật lý — ổn định
+ * hơn trên thiết bị cảm ứng, không cần thư viện DnD, cùng kết quả tự động chấm chính xác thứ tự).
+ * Dùng index vào mảng đã xáo trộn (không dùng giá trị chuỗi) để xử lý đúng cả khi có khối trùng nội dung.
+ * Giới hạn đã biết: không khôi phục lại lựa chọn cũ khi mở lại đề (initialAnswer không dùng để seed lại
+ * usedIndices vì không có cách map ngược đáng tin cậy khi có khối trùng nội dung) — học sinh chọn lại
+ * từ đầu, submit sẽ ghi đè đúng answer mới.
+ */
+function SentenceBuildingBlock({
+  chunkPool,
+  readOnly,
+  saving,
+  onChange
+}: {
+  chunkPool: string[];
+  readOnly: boolean;
+  saving: boolean;
+  onChange: (values: string[]) => void;
+}) {
+  const shuffled = useMemo(() => {
+    const arr = chunkPool.map((text, idx) => ({ text, idx }));
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const [usedIndices, setUsedIndices] = useState<number[]>([]);
+
+  const built = usedIndices.map((i) => shuffled.find((s) => s.idx === i)?.text ?? "");
+  const available = shuffled.filter((s) => !usedIndices.includes(s.idx));
+
+  const addChunk = (idx: number) => {
+    if (readOnly || saving) return;
+    const next = [...usedIndices, idx];
+    setUsedIndices(next);
+    if (next.length === chunkPool.length) {
+      onChange(next.map((i) => shuffled.find((s) => s.idx === i)?.text ?? ""));
+    }
+  };
+  const removeChunk = (position: number) => {
+    if (readOnly || saving) return;
+    setUsedIndices((prev) => prev.filter((_, i) => i !== position));
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-1.5 min-h-[38px] p-2 bg-sky-2 rounded-xl border border-dashed border-line/70">
+        {built.length === 0 && <span className="text-[11px] text-muted italic px-1">Chạm các khối bên dưới theo đúng thứ tự để dựng câu...</span>}
+        {built.map((text, position) => (
+          <button
+            key={position}
+            type="button"
+            disabled={readOnly || saving}
+            onClick={() => removeChunk(position)}
+            className="px-2.5 py-1 rounded-lg bg-teal/10 border border-teal text-xs font-bold text-teal-deep disabled:opacity-70"
+          >
+            {text}
+          </button>
+        ))}
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {available.map((s) => (
+          <button
+            key={s.idx}
+            type="button"
+            disabled={readOnly || saving}
+            onClick={() => addChunk(s.idx)}
+            className="px-2.5 py-1 rounded-lg bg-white border border-line/70 text-xs font-bold text-ink hover:bg-sky disabled:opacity-70"
+          >
+            {s.text}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** V78 — "Đọc hiểu — lưới": 1 đoạn văn dùng chung + bảng N câu × 3 cột đáp án (radio từng dòng). */
+function GridQuestionGroup({
+  block,
+  answersByQuestion,
+  readOnly,
+  savingQuestionId,
+  onChoiceToggle
+}: {
+  block: Extract<RenderBlock, { type: "grid" }>;
+  answersByQuestion: Map<number, StudentAnswerResponse>;
+  readOnly: boolean;
+  savingQuestionId: number | null;
+  onChoiceToggle: (questionId: number, choiceIds: number[]) => void;
+}) {
+  return (
+    <div className="border border-line/60 rounded-[16px] p-4 space-y-3">
+      {block.referencePassage && <p className="text-xs text-ink whitespace-pre-wrap bg-sky-2 rounded-xl p-3">{block.referencePassage}</p>}
+      <div className="divide-y divide-line/50">
+        {block.questions.map((q) => {
+          const answer = answersByQuestion.get(q.questionId);
+          const selected = new Set(answer?.selectedChoiceIds ?? []);
+          const correctIds = new Set(answer?.correctChoiceIds ?? []);
+          const showFeedback = answer != null && (answer.correctChoiceIds != null || answer.isCorrect != null);
+          const saving = savingQuestionId === q.questionId;
+          return (
+            <div key={q.id} className="py-2.5 flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-bold text-ink flex-1 min-w-[160px]">
+                {q.displayOrder}. {q.questionContent}
+              </span>
+              <div className="flex gap-1.5 shrink-0">
+                {q.choices.map((c) => {
+                  const isSelected = selected.has(c.id);
+                  const isCorrectChoice = correctIds.has(c.id);
+                  let cls = "border-line/70 bg-sky-2";
+                  if (showFeedback) {
+                    if (isCorrectChoice) cls = "border-teal bg-teal/10 text-teal-deep";
+                    else if (isSelected) cls = "border-coral bg-coral/10 text-coral";
+                  } else if (isSelected) {
+                    cls = "border-teal bg-teal/10 text-teal-deep";
+                  }
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      disabled={readOnly || saving}
+                      onClick={() => onChoiceToggle(q.questionId, [c.id])}
+                      className={`w-8 h-8 rounded-lg border text-[11px] font-bold transition-colors disabled:cursor-default ${cls}`}
+                    >
+                      {c.choiceLabel}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

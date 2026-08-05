@@ -1,13 +1,18 @@
 import React, { useEffect, useState } from "react";
-import { FileText, Plus, Save, Search, ShieldCheck, UserCog, X } from "lucide-react";
+import { FileText, Plus, Save, Search, ShieldCheck, UserCog, Users, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { searchUsers, UserListItemResponse } from "@/features/system-admin/api";
 import {
+  AssignSiteTeacherRequest,
+  SiteTeacherResponse,
   assignSiteManager,
+  assignSiteTeacher,
   createPartnerContract,
   CreatePartnerContractRequest,
   listPartnerContractsBySite,
+  listSiteTeachers,
   PartnerContractResponse,
+  removeSiteTeacher,
   SiteResponse,
   terminatePartnerContract,
   deletePartnerContract,
@@ -27,7 +32,7 @@ import Select from "@/components/ui/Select";
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
 
-type Tab = "profile" | "manager" | "contracts";
+type Tab = "profile" | "manager" | "teachers" | "contracts";
 
 const contractStatusVariants: Record<string, BadgeVariant> = { DRAFT: "neutral", ACTIVE: "success", EXPIRED: "warning", TERMINATED: "danger" };
 const contractStatusLabels: Record<string, string> = { DRAFT: "Nháp", ACTIVE: "Đang hiệu lực", EXPIRED: "Đã hết hạn", TERMINATED: "Đã chấm dứt" };
@@ -60,6 +65,7 @@ export default function SiteDetailPanel({ site, onChanged }: SiteDetailPanelProp
             [
               ["profile", "Hồ sơ", FileText],
               ["manager", "Quản lý điểm trường", UserCog],
+              ["teachers", "Giáo viên phụ trách", Users],
               ...(site.siteType === "PARTNER" ? ([["contracts", "Hợp đồng liên kết", ShieldCheck]] as const) : [])
             ] as const
           ).map(([key, label, Icon]) => (
@@ -80,6 +86,7 @@ export default function SiteDetailPanel({ site, onChanged }: SiteDetailPanelProp
       <div className="flex-1 p-5 overflow-y-auto max-h-[560px]">
         {tab === "profile" && <ProfileTab site={site} onChanged={onChanged} showToast={showToast} />}
         {tab === "manager" && <ManagerTab site={site} onChanged={onChanged} showToast={showToast} />}
+        {tab === "teachers" && <SiteTeachersTab siteId={site.id} showToast={showToast} />}
         {tab === "contracts" && site.siteType === "PARTNER" && <ContractsTab siteId={site.id} showToast={showToast} />}
       </div>
 
@@ -290,6 +297,146 @@ function ManagerTab({
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-03 — gán/gỡ giáo viên vào điểm trường
+ * (site_teachers, UC-36 A2) — khác hẳn tab "Quản lý điểm trường" (site_managers, 1 người/site). 1
+ * giáo viên gán được nhiều điểm trường cùng lúc. */
+function SiteTeachersTab({ siteId, showToast }: { siteId: number; showToast: (msg: string) => void }) {
+  const [items, setItems] = useState<SiteTeacherResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<UserListItemResponse[]>([]);
+  const [assignedFrom, setAssignedFrom] = useState(new Date().toISOString().slice(0, 10));
+  const [notes, setNotes] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const { confirmDialog } = useDialog();
+
+  const load = () => {
+    setLoading(true);
+    listSiteTeachers(siteId)
+      .then(setItems)
+      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách giáo viên phụ trách."))
+      .finally(() => setLoading(false));
+  };
+  useEffect(load, [siteId]);
+
+  const handleSearch = (q: string) => {
+    setQuery(q);
+    if (!q.trim()) {
+      setResults([]);
+      return;
+    }
+    searchUsers({ keyword: q.trim() }, 0, 8).then((res) => setResults(res.content.filter((u) => u.roles.some((r) => r.code === "TEACHER"))));
+  };
+
+  const handleAssign = async (teacherUserId: number) => {
+    setSubmitting(true);
+    setError(null);
+    try {
+      const request: AssignSiteTeacherRequest = { teacherUserId, assignedFrom, notes: notes.trim() || undefined };
+      await assignSiteTeacher(siteId, request);
+      setQuery("");
+      setResults([]);
+      setNotes("");
+      setShowForm(false);
+      load();
+      showToast("Đã gán giáo viên vào điểm trường thành công!");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Gán giáo viên thất bại.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleRemove = async (item: SiteTeacherResponse) => {
+    if (!(await confirmDialog(`Gỡ giáo viên ${item.teacherFullName} khỏi điểm trường này?`, { danger: true }))) return;
+    try {
+      await removeSiteTeacher(siteId, item.id);
+      load();
+      showToast("Đã gỡ giáo viên khỏi điểm trường thành công!");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Gỡ giáo viên thất bại.");
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-bold uppercase text-slate-500">Giáo viên phụ trách ({items.length})</span>
+        <Button size="sm" variant="secondary" onClick={() => setShowForm(true)}>
+          <Plus className="w-3.5 h-3.5" />
+          Gán giáo viên
+        </Button>
+      </div>
+
+      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+
+      {loading ? (
+        <p className="text-xs text-slate-500">Đang tải...</p>
+      ) : items.length === 0 ? (
+        <p className="text-xs text-slate-400 italic">Chưa gán giáo viên nào vào điểm trường này.</p>
+      ) : (
+        <div className="space-y-2">
+          {items.map((item) => (
+            <div key={item.id} className="border border-slate-200 rounded-lg p-3 flex items-center justify-between gap-2">
+              <div>
+                <p className="text-xs font-bold text-slate-800">{item.teacherFullName}</p>
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  Từ {item.assignedFrom}
+                  {item.assignedTo ? ` — đến ${item.assignedTo}` : ""}
+                  {item.notes ? ` · ${item.notes}` : ""}
+                </p>
+              </div>
+              {!item.assignedTo && (
+                <button onClick={() => handleRemove(item)} className="text-rose-500 hover:text-rose-700 shrink-0">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <Modal open={showForm} onClose={() => setShowForm(false)} title="Gán giáo viên vào điểm trường">
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+          <div>
+            <label className={labelClass}>Tìm giáo viên *</label>
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400" />
+              <input
+                value={query}
+                onChange={(e) => handleSearch(e.target.value)}
+                placeholder="Tìm theo email / username / họ tên..."
+                className={`${inputClass} pl-8`}
+                disabled={submitting}
+              />
+              {results.length > 0 && (
+                <div className="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg divide-y divide-slate-100 max-h-56 overflow-y-auto">
+                  {results.map((u) => (
+                    <button key={u.id} type="button" onClick={() => handleAssign(u.id)} className="w-full text-left px-3 py-2 hover:bg-slate-50 text-xs">
+                      {u.fullName} <span className="text-slate-400">({u.username} · {u.email})</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          <div>
+            <label className={labelClass}>Phụ trách từ ngày *</label>
+            <DatePicker value={assignedFrom} onChange={setAssignedFrom} />
+          </div>
+          <div>
+            <label className={labelClass}>Ghi chú</label>
+            <input value={notes} onChange={(e) => setNotes(e.target.value)} className={inputClass} placeholder="VD: Phụ trách môn IELTS" />
+          </div>
+          <p className="text-[10px] text-slate-400 italic">Bấm chọn 1 giáo viên ở ô tìm kiếm bên trên để gán ngay.</p>
+        </div>
+      </Modal>
     </div>
   );
 }

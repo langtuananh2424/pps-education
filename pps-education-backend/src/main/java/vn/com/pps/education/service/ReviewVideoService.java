@@ -1,7 +1,11 @@
 package vn.com.pps.education.service;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import vn.com.pps.education.domain.AttemptIntegrityEvent;
 import vn.com.pps.education.domain.ClassEnrollment;
 import vn.com.pps.education.domain.Curriculum;
@@ -9,6 +13,9 @@ import vn.com.pps.education.domain.CurriculumSubject;
 import vn.com.pps.education.domain.Notification;
 import vn.com.pps.education.domain.ReviewVideo;
 import vn.com.pps.education.domain.ReviewVideoAssignment;
+import vn.com.pps.education.domain.ReviewVideoConnectionAnswer;
+import vn.com.pps.education.domain.ReviewVideoConnectionChoice;
+import vn.com.pps.education.domain.ReviewVideoConnectionQuestion;
 import vn.com.pps.education.domain.ReviewVideoProgress;
 import vn.com.pps.education.domain.ReviewVideoQuestion;
 import vn.com.pps.education.domain.ReviewVideoQuestionSubmission;
@@ -18,13 +25,19 @@ import vn.com.pps.education.domain.ReviewVideoWatchSession;
 import vn.com.pps.education.domain.SchoolClass;
 import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.User;
+import vn.com.pps.education.dto.AddReviewVideoConnectionQuestionRequest;
 import vn.com.pps.education.dto.AddReviewVideoQuestionRequest;
 import vn.com.pps.education.dto.AddReviewVideoRequest;
+import vn.com.pps.education.dto.ConnectionAnswerResult;
+import vn.com.pps.education.dto.ConnectionChoiceRequest;
 import vn.com.pps.education.dto.CreateReviewVideoSetRequest;
 import vn.com.pps.education.dto.GradeReviewVideoSubmissionRequest;
 import vn.com.pps.education.dto.MyReviewVideoAssignmentResponse;
 import vn.com.pps.education.dto.ReportVideoProgressRequest;
 import vn.com.pps.education.dto.ReviewVideoAssignmentResponse;
+import vn.com.pps.education.dto.ReviewVideoConnectionChoiceResponse;
+import vn.com.pps.education.dto.ReviewVideoConnectionQuestionResponse;
+import vn.com.pps.education.dto.ReviewVideoConnectionQuizResultResponse;
 import vn.com.pps.education.dto.ReviewVideoProgressResponse;
 import vn.com.pps.education.dto.ReviewVideoQuestionResponse;
 import vn.com.pps.education.dto.ReviewVideoResponse;
@@ -32,17 +45,23 @@ import vn.com.pps.education.dto.ReviewVideoSetResponse;
 import vn.com.pps.education.dto.ReviewVideoSetStatsResponse;
 import vn.com.pps.education.dto.ReviewVideoSubmissionResponse;
 import vn.com.pps.education.dto.StartWatchSessionResponse;
+import vn.com.pps.education.dto.SubmitConnectionAnswersRequest;
 import vn.com.pps.education.dto.SubmitReviewVideoAudioRequest;
 import vn.com.pps.education.dto.UpdateReviewVideoSetRequest;
 import vn.com.pps.education.exception.InvalidReviewVideoSetScopeException;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
+import vn.com.pps.education.exception.QuizAlreadyCompletedException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.exception.RetakeNotAllowedException;
+import vn.com.pps.education.exception.VideoNotYetQualifiedException;
 import vn.com.pps.education.repository.ClassEnrollmentRepository;
 import vn.com.pps.education.repository.ClassTeacherRepository;
 import vn.com.pps.education.repository.CurriculumRepository;
 import vn.com.pps.education.repository.CurriculumSubjectRepository;
 import vn.com.pps.education.repository.ReviewVideoAssignmentRepository;
+import vn.com.pps.education.repository.ReviewVideoConnectionAnswerRepository;
+import vn.com.pps.education.repository.ReviewVideoConnectionChoiceRepository;
+import vn.com.pps.education.repository.ReviewVideoConnectionQuestionRepository;
 import vn.com.pps.education.repository.ReviewVideoProgressRepository;
 import vn.com.pps.education.repository.ReviewVideoQuestionRepository;
 import vn.com.pps.education.repository.ReviewVideoQuestionSubmissionRepository;
@@ -101,6 +120,9 @@ public class ReviewVideoService {
     private final ReviewVideoQuestionSubmissionRepository reviewVideoQuestionSubmissionRepository;
     private final ReviewVideoWatchSessionRepository reviewVideoWatchSessionRepository;
     private final ReviewVideoAssignmentRepository reviewVideoAssignmentRepository;
+    private final ReviewVideoConnectionQuestionRepository reviewVideoConnectionQuestionRepository;
+    private final ReviewVideoConnectionChoiceRepository reviewVideoConnectionChoiceRepository;
+    private final ReviewVideoConnectionAnswerRepository reviewVideoConnectionAnswerRepository;
     private final CurriculumRepository curriculumRepository;
     private final SchoolClassRepository schoolClassRepository;
     private final CurriculumSubjectRepository curriculumSubjectRepository;
@@ -110,6 +132,10 @@ public class ReviewVideoService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final AttemptIntegrityService attemptIntegrityService;
+    /** V71: chạy riêng 1 giao dịch lồng (PROPAGATION_REQUIRES_NEW) khi thử tạo bản giao — race thua (bắt
+     * DataIntegrityViolationException do UNIQUE index) chỉ rollback đúng giao dịch con này, không kéo
+     * theo giao dịch ngoài (đang cần đọc lại bản ghi đã thắng) — xem Javadoc deliverToClass. */
+    private final TransactionTemplate requiresNewTransactionTemplate;
 
     public ReviewVideoService(ReviewVideoSetRepository reviewVideoSetRepository,
                                ReviewVideoRepository reviewVideoRepository,
@@ -119,6 +145,9 @@ public class ReviewVideoService {
                                ReviewVideoQuestionSubmissionRepository reviewVideoQuestionSubmissionRepository,
                                ReviewVideoWatchSessionRepository reviewVideoWatchSessionRepository,
                                ReviewVideoAssignmentRepository reviewVideoAssignmentRepository,
+                               ReviewVideoConnectionQuestionRepository reviewVideoConnectionQuestionRepository,
+                               ReviewVideoConnectionChoiceRepository reviewVideoConnectionChoiceRepository,
+                               ReviewVideoConnectionAnswerRepository reviewVideoConnectionAnswerRepository,
                                CurriculumRepository curriculumRepository,
                                SchoolClassRepository schoolClassRepository,
                                CurriculumSubjectRepository curriculumSubjectRepository,
@@ -127,7 +156,8 @@ public class ReviewVideoService {
                                StudentRepository studentRepository,
                                UserRepository userRepository,
                                NotificationService notificationService,
-                               AttemptIntegrityService attemptIntegrityService) {
+                               AttemptIntegrityService attemptIntegrityService,
+                               PlatformTransactionManager transactionManager) {
         this.reviewVideoSetRepository = reviewVideoSetRepository;
         this.reviewVideoRepository = reviewVideoRepository;
         this.reviewVideoSetHistoryRepository = reviewVideoSetHistoryRepository;
@@ -136,6 +166,9 @@ public class ReviewVideoService {
         this.reviewVideoQuestionSubmissionRepository = reviewVideoQuestionSubmissionRepository;
         this.reviewVideoWatchSessionRepository = reviewVideoWatchSessionRepository;
         this.reviewVideoAssignmentRepository = reviewVideoAssignmentRepository;
+        this.reviewVideoConnectionQuestionRepository = reviewVideoConnectionQuestionRepository;
+        this.reviewVideoConnectionChoiceRepository = reviewVideoConnectionChoiceRepository;
+        this.reviewVideoConnectionAnswerRepository = reviewVideoConnectionAnswerRepository;
         this.curriculumRepository = curriculumRepository;
         this.schoolClassRepository = schoolClassRepository;
         this.curriculumSubjectRepository = curriculumSubjectRepository;
@@ -145,6 +178,8 @@ public class ReviewVideoService {
         this.userRepository = userRepository;
         this.notificationService = notificationService;
         this.attemptIntegrityService = attemptIntegrityService;
+        this.requiresNewTransactionTemplate = new TransactionTemplate(transactionManager);
+        this.requiresNewTransactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
 
     /** UC-23 Main Flow bước 1: tạo bộ mới (metadata), gán vào khung chương trình hoặc lớp cụ thể. */
@@ -194,8 +229,11 @@ public class ReviewVideoService {
         }
         set.setDisplayOrder(request.displayOrder());
         ReviewVideoSet.Status newStatus = ReviewVideoSet.Status.valueOf(request.status());
-        if (newStatus == ReviewVideoSet.Status.PUBLISHED && set.getStatus() != ReviewVideoSet.Status.PUBLISHED) {
-            set.setPublishedAt(OffsetDateTime.now());
+        if (newStatus == ReviewVideoSet.Status.PUBLISHED) {
+            requireConnectionVideosHaveQuestions(set);
+            if (set.getStatus() != ReviewVideoSet.Status.PUBLISHED) {
+                set.setPublishedAt(OffsetDateTime.now());
+            }
         }
         set.setStatus(newStatus);
         set = reviewVideoSetRepository.save(set);
@@ -275,6 +313,20 @@ public class ReviewVideoService {
      * KHÁC (dueAt sẽ khác) — tái dùng nguyên bản ghi đó, KHÔNG tạo mới,
      * KHÔNG gọi lại notifyAssignedStudents (tránh N thông báo giống hệt
      * nhau cho toàn bộ học sinh lớp).
+     *
+     * V71 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-03,
+     * fix race condition của chính cơ chế chống trùng V70): check-rồi-
+     * insert ở tầng ứng dụng KHÔNG atomic — 2 request tới gần như đồng
+     * thời có thể cùng thấy "chưa có bản giao" (bước check) TRƯỚC KHI 1
+     * trong 2 kịp INSERT xong, dẫn tới vẫn tạo ra 2 bản giao + 2 thông báo
+     * trùng (đã tái hiện thực tế). Thêm UNIQUE index DB
+     * (review_video_set_id, class_id, due_at) WHERE status='ACTIVE' làm
+     * chốt chặn cuối cùng — INSERT chạy trong giao dịch lồng
+     * PROPAGATION_REQUIRES_NEW để nếu thua race (bắt
+     * DataIntegrityViolationException do vi phạm UNIQUE) chỉ giao dịch
+     * con rollback, giao dịch ngoài (đang cancel bản giao cũ) không bị
+     * kéo theo — sau đó đọc lại bản ghi đã thắng, KHÔNG tạo mới/không báo
+     * lại đúng như tinh thần V70.
      */
     @Transactional
     public ReviewVideoAssignment deliverToClass(Long setId, Long classId, OffsetDateTime dueAt, Long actorUserId) {
@@ -300,12 +352,27 @@ public class ReviewVideoService {
         }
         activeForSetAndClass.forEach(this::cancelAssignment);
 
-        ReviewVideoAssignment assignment = new ReviewVideoAssignment();
-        assignment.setReviewVideoSet(set);
-        assignment.setSchoolClass(schoolClass);
-        assignment.setAssignedBy(actor);
-        assignment.setDueAt(dueAt);
-        assignment = reviewVideoAssignmentRepository.save(assignment);
+        ReviewVideoAssignment assignment;
+        try {
+            assignment = requiresNewTransactionTemplate.execute(status -> {
+                ReviewVideoAssignment a = new ReviewVideoAssignment();
+                a.setReviewVideoSet(set);
+                a.setSchoolClass(schoolClass);
+                a.setAssignedBy(actor);
+                a.setDueAt(dueAt);
+                return reviewVideoAssignmentRepository.saveAndFlush(a);
+            });
+        } catch (DataIntegrityViolationException e) {
+            // Race condition (V71): request khác đã tạo xong bản giao ACTIVE trùng (setId, classId, dueAt)
+            // trong lúc request này đang xử lý — "Gửi nhận xét" hàng loạt cho nhiều học sinh CÙNG buổi,
+            // CÙNG chọn 1 nguồn gửi N request đồng thời (Promise.allSettled ở FE). Chạy trong giao dịch
+            // lồng REQUIRES_NEW để chỉ giao dịch con này rollback khi thua race (UNIQUE index chặn), giao
+            // dịch ngoài không bị ảnh hưởng — đọc lại bản ghi đã thắng, KHÔNG tạo mới/không báo lại.
+            return reviewVideoAssignmentRepository
+                    .findByReviewVideoSetIdAndSchoolClassIdAndStatus(set.getId(), schoolClass.getId(), ReviewVideoAssignment.Status.ACTIVE)
+                    .stream().filter(a -> Objects.equals(a.getDueAt(), dueAt)).findFirst()
+                    .orElseThrow(() -> e);
+        }
 
         notifyAssignedStudents(schoolClass, set, assignment);
         return assignment;
@@ -468,6 +535,60 @@ public class ReviewVideoService {
     }
 
     /**
+     * V83 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng): giáo viên
+     * thêm 1 câu hỏi trắc nghiệm tự chấm vào video CONNECTION (mirror
+     * addQuestion của REFLEX nhưng gate NGƯỢC LẠI — chỉ áp dụng CONNECTION).
+     * Video CONNECTION giờ bắt buộc có câu hỏi trước khi Publish được (xem
+     * requireConnectionVideosHaveQuestions ở updateSet).
+     */
+    @Transactional
+    public ReviewVideoConnectionQuestionResponse addConnectionQuestion(
+            Long videoId, AddReviewVideoConnectionQuestionRequest request, Long actorUserId) {
+        ReviewVideo video = getVideoOrThrow(videoId);
+        requireOwnerScope(video.getReviewVideoSet(), actorUserId);
+        if (video.getReviewVideoSet().getVideoType() != ReviewVideoSet.VideoType.CONNECTION) {
+            throw new IllegalArgumentException(
+                    "Video id=" + videoId + " không phải loại Video kết nối (CONNECTION) — không nhận câu hỏi trắc nghiệm.");
+        }
+
+        ReviewVideoConnectionQuestion question = new ReviewVideoConnectionQuestion();
+        question.setReviewVideo(video);
+        question.setPrompt(request.prompt());
+        question.setDisplayOrder(request.displayOrder() == null ? 0 : request.displayOrder());
+        question = reviewVideoConnectionQuestionRepository.save(question);
+
+        List<ReviewVideoConnectionChoice> choices = new ArrayList<>();
+        for (ConnectionChoiceRequest c : request.choices()) {
+            ReviewVideoConnectionChoice choice = new ReviewVideoConnectionChoice();
+            choice.setReviewVideoConnectionQuestion(question);
+            choice.setChoiceLabel(c.choiceLabel());
+            choice.setContent(c.content());
+            choice.setCorrect(c.isCorrect());
+            choice.setDisplayOrder(c.displayOrder());
+            choices.add(reviewVideoConnectionChoiceRepository.save(choice));
+        }
+        return toResponse(question, choices, true);
+    }
+
+    /**
+     * V83: xem danh sách câu hỏi trắc nghiệm CONNECTION — ẩn đáp án đúng
+     * (isCorrect=null) khi actor là học sinh, mirror cách
+     * ExerciseQuestionChoiceResponse không lộ isCorrect trước khi nộp bài.
+     */
+    @Transactional(readOnly = true)
+    public List<ReviewVideoConnectionQuestionResponse> listConnectionQuestions(Long videoId, Long actorUserId) {
+        ReviewVideo video = getVideoOrThrow(videoId);
+        boolean showAnswers = !isStudent(actorUserId);
+        if (!showAnswers) {
+            requireStudentCanViewSet(video.getReviewVideoSet(), actorUserId);
+        }
+        return reviewVideoConnectionQuestionRepository.findByReviewVideoIdOrderByDisplayOrder(videoId).stream()
+                .map(q -> toResponse(q, reviewVideoConnectionChoiceRepository
+                        .findByReviewVideoConnectionQuestionIdOrderByDisplayOrder(q.getId()), showAnswers))
+                .toList();
+    }
+
+    /**
      * UC-23a (V59): mở 1 LƯỢT xem mới cho video CONNECTION — gọi khi học
      * sinh bắt đầu/mở lại video. Trả sessionId để các lần reportProgress
      * tiếp theo của lượt này cập nhật đúng session, không lẫn với lượt
@@ -494,6 +615,12 @@ public class ReviewVideoService {
      * vào viewCount. "Đạt" (completed) = viewCount >= requiredViewCount
      * của video (đã xác nhận với người dùng — bổ sung ngoài SDD gốc,
      * 2 tiêu chí ĐỘC LẬP, cả 2 đều cấu hình được khi tạo video).
+     *
+     * V83 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng): với video
+     * CONNECTION, "qualified" ở đây MỚI chỉ là điều kiện CẦN — lượt xem chỉ
+     * thật sự tính vào viewCount khi HỌC SINH nộp đủ câu hỏi trắc nghiệm
+     * CHO ĐÚNG lượt này qua {@link #submitConnectionAnswers}. Xem
+     * {@link #recomputeProgress}.
      */
     @Transactional
     public ReviewVideoProgressResponse reportProgress(Long videoId, ReportVideoProgressRequest request, Long actorUserId) {
@@ -510,20 +637,78 @@ public class ReviewVideoService {
         session.setQualified(sessionWatchedSeconds >= video.getDurationSeconds() * (video.getCompletionThresholdPercent() / 100.0));
         reviewVideoWatchSessionRepository.save(session);
 
-        ReviewVideoProgress progress = reviewVideoProgressRepository
-                .findByReviewVideoIdAndStudentId(videoId, student.getId())
-                .orElseGet(() -> {
-                    ReviewVideoProgress p = new ReviewVideoProgress();
-                    p.setReviewVideo(video);
-                    p.setStudent(student);
-                    return p;
-                });
+        ReviewVideoProgress progress = getOrCreateProgress(video, student);
         progress.setWatchedSeconds(Math.max(progress.getWatchedSeconds(), sessionWatchedSeconds));
-        int viewCount = reviewVideoWatchSessionRepository.countByReviewVideoIdAndStudentIdAndQualifiedTrue(videoId, student.getId());
-        progress.setViewCount(viewCount);
-        progress.setCompleted(viewCount >= video.getRequiredViewCount());
-        progress = reviewVideoProgressRepository.save(progress);
+        reviewVideoProgressRepository.save(progress);
+        progress = recomputeProgress(video, student);
         return toResponse(progress, video);
+    }
+
+    /**
+     * V83 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng): học sinh nộp
+     * TOÀN BỘ câu trả lời trắc nghiệm cho ĐÚNG 1 lượt xem (watchSessionId) —
+     * khớp cặp 1-1 "xem lượt nào, trả lời lượt đó". Chặn nếu lượt CHƯA đạt
+     * ngưỡng xem (chưa xem xong thì chưa được làm câu hỏi) hoặc lượt đó ĐÃ
+     * nộp đủ rồi (không cho nộp lại/đổi đáp án). Trả kết quả tự chấm ngay +
+     * tiến độ mới nhất (viewCount có thể vừa tăng thêm 1).
+     */
+    @Transactional
+    public ReviewVideoConnectionQuizResultResponse submitConnectionAnswers(
+            Long watchSessionId, SubmitConnectionAnswersRequest request, Long actorUserId) {
+        ReviewVideoWatchSession session = reviewVideoWatchSessionRepository.findById(watchSessionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lượt xem id=" + watchSessionId));
+        ReviewVideo video = session.getReviewVideo();
+        Student student = requireStudentCanViewSet(video.getReviewVideoSet(), actorUserId);
+        if (!session.getStudent().getId().equals(student.getId())) {
+            throw new ResourceNotFoundException("Không tìm thấy lượt xem id=" + watchSessionId);
+        }
+        if (!session.isQualified()) {
+            throw new VideoNotYetQualifiedException(
+                    "Lượt xem id=" + watchSessionId + " chưa xem đạt ngưỡng — chưa thể làm câu hỏi.");
+        }
+        if (session.getQuizCompletedAt() != null) {
+            throw new QuizAlreadyCompletedException(
+                    "Lượt xem id=" + watchSessionId + " đã nộp đủ câu hỏi rồi, không thể nộp lại.");
+        }
+
+        List<ReviewVideoConnectionQuestion> questions = reviewVideoConnectionQuestionRepository
+                .findByReviewVideoIdOrderByDisplayOrder(video.getId());
+        Set<Long> questionIds = questions.stream().map(ReviewVideoConnectionQuestion::getId).collect(Collectors.toSet());
+        Set<Long> answeredQuestionIds = request.answers().stream().map(a -> a.questionId()).collect(Collectors.toSet());
+        if (!questionIds.equals(answeredQuestionIds)) {
+            throw new IllegalArgumentException(
+                    "Phải trả lời đúng bộ câu hỏi của video id=" + video.getId() + " — không thiếu, không thừa.");
+        }
+
+        List<ConnectionAnswerResult> results = new ArrayList<>();
+        for (var item : request.answers()) {
+            ReviewVideoConnectionQuestion question = questions.stream()
+                    .filter(q -> q.getId().equals(item.questionId())).findFirst().orElseThrow();
+            List<ReviewVideoConnectionChoice> choices = reviewVideoConnectionChoiceRepository
+                    .findByReviewVideoConnectionQuestionIdOrderByDisplayOrder(question.getId());
+            ReviewVideoConnectionChoice selected = choices.stream()
+                    .filter(c -> c.getId().equals(item.selectedChoiceId())).findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "Lựa chọn id=" + item.selectedChoiceId() + " không thuộc câu hỏi id=" + question.getId() + "."));
+            ReviewVideoConnectionChoice correctChoice = choices.stream().filter(ReviewVideoConnectionChoice::isCorrect)
+                    .findFirst().orElse(null);
+
+            ReviewVideoConnectionAnswer answer = new ReviewVideoConnectionAnswer();
+            answer.setReviewVideoConnectionQuestion(question);
+            answer.setWatchSession(session);
+            answer.setStudent(student);
+            answer.setSelectedChoice(selected);
+            answer.setCorrect(selected.isCorrect());
+            reviewVideoConnectionAnswerRepository.save(answer);
+
+            results.add(new ConnectionAnswerResult(question.getId(), selected.getId(), selected.isCorrect(),
+                    correctChoice == null ? null : correctChoice.getId()));
+        }
+
+        session.setQuizCompletedAt(OffsetDateTime.now());
+        reviewVideoWatchSessionRepository.save(session);
+        ReviewVideoProgress progress = recomputeProgress(video, student);
+        return new ReviewVideoConnectionQuizResultResponse(results, toResponse(progress, video));
     }
 
     /**
@@ -825,6 +1010,51 @@ public class ReviewVideoService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy câu hỏi id=" + id));
     }
 
+    /** V83: gate bắt buộc khi Publish 1 bộ CONNECTION — mọi video trong bộ phải có ít nhất 1 câu hỏi trắc nghiệm. */
+    private void requireConnectionVideosHaveQuestions(ReviewVideoSet set) {
+        if (set.getVideoType() != ReviewVideoSet.VideoType.CONNECTION) {
+            return;
+        }
+        List<ReviewVideo> videos = reviewVideoRepository.findByReviewVideoSetIdOrderByDisplayOrder(set.getId());
+        for (ReviewVideo video : videos) {
+            if (!reviewVideoConnectionQuestionRepository.existsByReviewVideoId(video.getId())) {
+                throw new IllegalArgumentException(
+                        "Video \"" + video.getTitle() + "\" (id=" + video.getId() + ") chưa có câu hỏi trắc nghiệm — " +
+                        "video Kết nối bắt buộc có câu hỏi trước khi Publish.");
+            }
+        }
+    }
+
+    private ReviewVideoProgress getOrCreateProgress(ReviewVideo video, Student student) {
+        return reviewVideoProgressRepository.findByReviewVideoIdAndStudentId(video.getId(), student.getId())
+                .orElseGet(() -> {
+                    ReviewVideoProgress p = new ReviewVideoProgress();
+                    p.setReviewVideo(video);
+                    p.setStudent(student);
+                    return p;
+                });
+    }
+
+    /**
+     * V83 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng): tách từ
+     * reportProgress thành helper dùng chung cho CẢ reportProgress LẪN
+     * submitConnectionAnswers — video CONNECTION tính viewCount theo lượt
+     * xem VỪA đạt ngưỡng VỪA đã nộp đủ câu hỏi (quizCompletedAt khác NULL);
+     * video khác (REFLEX, nếu có gọi watch-session) giữ nguyên công thức cũ
+     * (chỉ cần qualified) — không đổi hành vi REFLEX.
+     */
+    private ReviewVideoProgress recomputeProgress(ReviewVideo video, Student student) {
+        ReviewVideoProgress progress = getOrCreateProgress(video, student);
+        boolean requiresQuiz = video.getReviewVideoSet().getVideoType() == ReviewVideoSet.VideoType.CONNECTION;
+        int viewCount = requiresQuiz
+                ? reviewVideoWatchSessionRepository.countByReviewVideoIdAndStudentIdAndQualifiedTrueAndQuizCompletedAtIsNotNull(
+                        video.getId(), student.getId())
+                : reviewVideoWatchSessionRepository.countByReviewVideoIdAndStudentIdAndQualifiedTrue(video.getId(), student.getId());
+        progress.setViewCount(viewCount);
+        progress.setCompleted(viewCount >= video.getRequiredViewCount());
+        return reviewVideoProgressRepository.save(progress);
+    }
+
     private void writeHistory(ReviewVideoSet set, User actor, ReviewVideoSetHistory.Action action) {
         ReviewVideoSetHistory history = new ReviewVideoSetHistory();
         history.setReviewVideoSet(set);
@@ -871,6 +1101,17 @@ public class ReviewVideoService {
         return new ReviewVideoQuestionResponse(
                 q.getId(), q.getReviewVideo().getId(), q.getTimestampSeconds(), q.getPrompt(),
                 q.getMaxRecordingSeconds(), q.getMaxAttempts(), q.getDisplayOrder());
+    }
+
+    /** showAnswers=false (học sinh chưa nộp) -> isCorrect=null cho mọi lựa chọn, mirror ExerciseQuestionChoiceResponse. */
+    private ReviewVideoConnectionQuestionResponse toResponse(
+            ReviewVideoConnectionQuestion q, List<ReviewVideoConnectionChoice> choices, boolean showAnswers) {
+        List<ReviewVideoConnectionChoiceResponse> choiceResponses = choices.stream()
+                .map(c -> new ReviewVideoConnectionChoiceResponse(
+                        c.getId(), c.getChoiceLabel(), c.getContent(), showAnswers ? c.isCorrect() : null, c.getDisplayOrder()))
+                .toList();
+        return new ReviewVideoConnectionQuestionResponse(q.getId(), q.getReviewVideo().getId(), q.getPrompt(),
+                q.getDisplayOrder(), choiceResponses);
     }
 
     private ReviewVideoSubmissionResponse toResponse(ReviewVideoQuestionSubmission s) {

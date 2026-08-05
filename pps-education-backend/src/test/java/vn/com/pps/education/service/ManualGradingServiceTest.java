@@ -14,17 +14,15 @@ import vn.com.pps.education.dto.AssignTeacherRequest;
 import vn.com.pps.education.dto.ClassResponse;
 import vn.com.pps.education.dto.CreateClassRequest;
 import vn.com.pps.education.dto.CreateCurriculumRequest;
+import vn.com.pps.education.dto.CreateExamQuestionRequest;
 import vn.com.pps.education.dto.CreateExamRequest;
 import vn.com.pps.education.dto.CreateExerciseRequest;
-import vn.com.pps.education.dto.CreateQuestionBankRequest;
-import vn.com.pps.education.dto.CreateQuestionRequest;
 import vn.com.pps.education.dto.CurriculumResponse;
 import vn.com.pps.education.dto.EnrollStudentRequest;
 import vn.com.pps.education.dto.ExerciseAttemptResponse;
 import vn.com.pps.education.dto.ExerciseResponse;
 import vn.com.pps.education.dto.GradeAnswerRequest;
 import vn.com.pps.education.dto.PendingGradingResponse;
-import vn.com.pps.education.dto.QuestionBankResponse;
 import vn.com.pps.education.dto.QuestionChoiceRequest;
 import vn.com.pps.education.dto.QuestionResponse;
 import vn.com.pps.education.dto.SaveAnswerRequest;
@@ -59,7 +57,7 @@ class ManualGradingServiceTest extends AbstractIntegrationTest {
     private ExerciseAttemptService exerciseAttemptService;
 
     @Autowired
-    private QuestionBankService questionBankService;
+    private ExamQuestionService examQuestionService;
 
     @Autowired
     private ExerciseService exerciseService;
@@ -116,19 +114,6 @@ class ManualGradingServiceTest extends AbstractIntegrationTest {
         classService.assignTeacher(schoolClass.id(),
                 new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now()), headAcademic.getId());
 
-        QuestionBankResponse bank = questionBankService.createBank(
-                new CreateQuestionBankRequest(bankCode(), "Ngân hàng", activeCurriculum.id(), null, "A1"), teacher.getId());
-
-        mcQuestion = questionBankService.createQuestion(
-                new CreateQuestionRequest(bank.id(), "MULTIPLE_CHOICE", "GRAMMAR", "EASY", "She ___ to school.",
-                        null, null, null, null, null, new BigDecimal("1.0"), null,
-                        List.of(new QuestionChoiceRequest("A", "go", false, 1), new QuestionChoiceRequest("B", "goes", true, 2))),
-                teacher.getId());
-        essayQuestion = questionBankService.createQuestion(
-                new CreateQuestionRequest(bank.id(), "ESSAY", "WRITING", "MEDIUM", "Viết đoạn văn 50 từ.",
-                        null, null, null, null, null, new BigDecimal("2.0"), null, null),
-                teacher.getId());
-
         studentUser = newUser("student");
         Student student = new Student();
         student.setUser(studentUser);
@@ -139,7 +124,16 @@ class ManualGradingServiceTest extends AbstractIntegrationTest {
         classService.enroll(schoolClass.id(), new EnrollStudentRequest(student.getId(), LocalDate.now()), headAcademic.getId());
 
         var exam = examService.createExam(
-                new CreateExamRequest(examCode(), "Đề mặc định", activeCurriculum.id()), teacher.getId());
+                new CreateExamRequest(examCode(), "Đề mặc định", activeCurriculum.id(), "VIETNAMESE", "HOMEWORK"), teacher.getId());
+        mcQuestion = examQuestionService.createQuestion(exam.id(),
+                new CreateExamQuestionRequest("MULTIPLE_CHOICE", "GRAMMAR", "EASY", "She ___ to school.",
+                        null, null, null, null, null, new BigDecimal("1.0"), null,
+                        List.of(new QuestionChoiceRequest("A", "go", false, 1), new QuestionChoiceRequest("B", "goes", true, 2)), null, null),
+                teacher.getId());
+        essayQuestion = examQuestionService.createQuestion(exam.id(),
+                new CreateExamQuestionRequest("ESSAY", "WRITING", "MEDIUM", "Viết đoạn văn 50 từ.",
+                        null, null, null, null, null, new BigDecimal("2.0"), null, null, null, null),
+                teacher.getId());
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Kiểm tra", exam.id(), null, "SELF_PRACTICE",
                         new BigDecimal("3"), null, false, null, true), teacher.getId());
@@ -148,12 +142,13 @@ class ManualGradingServiceTest extends AbstractIntegrationTest {
         // Kho đề (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30):
         // SELF_PRACTICE giờ cũng cần Đề đã gán lớp + ExerciseAssignment ACTIVE (unified gate).
         examService.assignToClass(exam.id(), schoolClass.id(), teacher.getId());
+        commitCurrentTransactionAndStartNew();
         exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId());
 
         attempt = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
         Long correctChoiceId = mcQuestion.choices().stream().filter(c -> c.isCorrect()).findFirst().orElseThrow().id();
-        exerciseAttemptService.saveAnswer(attempt.id(), new SaveAnswerRequest(mcQuestion.id(), null, List.of(correctChoiceId), null), studentUser.getId());
-        exerciseAttemptService.saveAnswer(attempt.id(), new SaveAnswerRequest(essayQuestion.id(), "Bài làm của em.", null, null), studentUser.getId());
+        exerciseAttemptService.saveAnswer(attempt.id(), new SaveAnswerRequest(mcQuestion.id(), null, List.of(correctChoiceId), null, null), studentUser.getId());
+        exerciseAttemptService.saveAnswer(attempt.id(), new SaveAnswerRequest(essayQuestion.id(), "Bài làm của em.", null, null, null), studentUser.getId());
         attempt = exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
     }
 
@@ -181,6 +176,26 @@ class ManualGradingServiceTest extends AbstractIntegrationTest {
         assertThat(updated.totalScore()).isEqualByComparingTo("2.5");
         assertThat(manualGradingService.listPendingGrading(teacher.getId()))
                 .extracting(PendingGradingResponse::studentAnswerId).doesNotContain(essayAnswerId);
+    }
+
+    /**
+     * V89 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05): BTVN
+     * <ngưỡng đạt phải làm lại — chấm tay xong (allGraded) cũng phải tính lại
+     * passed/% giống nhánh tự chấm hoàn toàn (không chỉ ExerciseAttemptService#submitAttempt).
+     */
+    @Test
+    void gradeAnswer_boSung_computesPassedWhenManualGradingCompletesAttempt() {
+        Long essayAnswerId = manualGradingService.listPendingGrading(teacher.getId()).stream()
+                .filter(p -> p.questionId().equals(essayQuestion.id()))
+                .findFirst().orElseThrow().studentAnswerId();
+
+        manualGradingService.gradeAnswer(essayAnswerId,
+                new GradeAnswerRequest(new BigDecimal("1.5"), new BigDecimal("2.0"), "Khá tốt, cần thêm ví dụ."), teacher.getId());
+
+        ExerciseAttemptResponse updated = exerciseAttemptService.getAttempt(attempt.id(), studentUser.getId());
+        // total_score 2.5 / total_points 3 = 83.33% >= ngưỡng mặc định 80% -> đạt.
+        assertThat(updated.percentage()).isEqualByComparingTo("83.33");
+        assertThat(updated.passed()).isTrue();
     }
 
     @Test
@@ -216,10 +231,6 @@ class ManualGradingServiceTest extends AbstractIntegrationTest {
 
     private String classCode() {
         return "CLS-" + SEQ.incrementAndGet();
-    }
-
-    private String bankCode() {
-        return "QB-" + SEQ.incrementAndGet();
     }
 
     private String exerciseCode() {

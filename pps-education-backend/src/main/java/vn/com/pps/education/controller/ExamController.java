@@ -41,8 +41,9 @@ public class ExamController {
 
     @GetMapping("/api/exams")
     public ResponseEntity<List<ExamResponse>> listExams(@RequestParam(required = false) Long curriculumId,
+                                                          @RequestParam(required = false) String teacherType,
                                                           @AuthenticationPrincipal AuthenticatedUser actor) {
-        return ResponseEntity.ok(examService.listExams(curriculumId, actor.userId()));
+        return ResponseEntity.ok(examService.listExams(curriculumId, teacherType, actor.userId()));
     }
 
     @GetMapping("/api/exams/{id}")
@@ -84,5 +85,13 @@ public class ExamController {
     public ResponseEntity<List<ClassResponse>> listAssignedClasses(@PathVariable Long id,
                                                                      @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(examService.listAssignedClasses(id, actor.userId()));
+    }
+
+    /** V87 — "Xóa Đề" (soft-delete), chỉ xóa được khi mọi Bài thuộc Đề đã lưu trữ — xem Javadoc ExamService#deleteExam. */
+    @PreAuthorize("hasPermission(null, 'lms.exam.delete')")
+    @DeleteMapping("/api/exams/{id}")
+    public ResponseEntity<Void> deleteExam(@PathVariable Long id, @AuthenticationPrincipal AuthenticatedUser actor) {
+        examService.deleteExam(id, actor.userId());
+        return ResponseEntity.noContent().build();
     }
 }
