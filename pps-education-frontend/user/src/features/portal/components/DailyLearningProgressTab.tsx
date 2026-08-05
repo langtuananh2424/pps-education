@@ -1079,7 +1079,7 @@ export default function DailyLearningProgressTab({ studentName, studentCode, cla
                     <th className="p-3 border-r border-slate-300 w-32 whitespace-nowrap text-center">Bài ngữ pháp/nghe</th>
                     <th className="p-3 border-r border-slate-300 w-32 whitespace-nowrap text-center">Video TKN/PX</th>
                     <th className="p-3 border-r border-slate-300 min-w-[160px] text-center">Bài ngữ pháp/nghe</th>
-                    <th className="p-3 border-r border-slate-300 min-w-[160px] text-center">Video TKN/</th>
+                    <th className="p-3 border-r border-slate-300 min-w-[160px] text-center">Video TKN/PX</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-300 text-sm md:text-xs font-medium text-ink">
