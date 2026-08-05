@@ -16,16 +16,14 @@ import vn.com.pps.education.dto.AssignedExerciseResponse;
 import vn.com.pps.education.dto.ClassResponse;
 import vn.com.pps.education.dto.CreateClassRequest;
 import vn.com.pps.education.dto.CreateCurriculumRequest;
+import vn.com.pps.education.dto.CreateExamQuestionRequest;
 import vn.com.pps.education.dto.CreateExamRequest;
 import vn.com.pps.education.dto.CreateExerciseRequest;
-import vn.com.pps.education.dto.CreateQuestionBankRequest;
-import vn.com.pps.education.dto.CreateQuestionRequest;
 import vn.com.pps.education.dto.CurriculumResponse;
 import vn.com.pps.education.dto.EnrollStudentRequest;
 import vn.com.pps.education.dto.ExamResponse;
 import vn.com.pps.education.dto.ExerciseAttemptResponse;
 import vn.com.pps.education.dto.ExerciseResponse;
-import vn.com.pps.education.dto.QuestionBankResponse;
 import vn.com.pps.education.dto.QuestionChoiceRequest;
 import vn.com.pps.education.dto.QuestionResponse;
 import vn.com.pps.education.dto.RecordTransferRequest;
@@ -68,7 +66,7 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
     private ExerciseAttemptService exerciseAttemptService;
 
     @Autowired
-    private QuestionBankService questionBankService;
+    private ExamQuestionService examQuestionService;
 
     @Autowired
     private ExerciseService exerciseService;
@@ -107,7 +105,6 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
     private User teacher;
     private CurriculumResponse activeCurriculum;
     private ClassResponse schoolClass;
-    private QuestionBankResponse bank;
     private User studentUser;
     private Student student;
     private ExamResponse defaultExam;
@@ -130,9 +127,6 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         assignRole(teacher, "TEACHER");
         classService.assignTeacher(schoolClass.id(),
                 new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now()), headAcademic.getId());
-
-        bank = questionBankService.createBank(
-                new CreateQuestionBankRequest(bankCode(), "Ngân hàng", activeCurriculum.id(), null, "A1"), teacher.getId());
 
         studentUser = newUser("student");
         student = new Student();
@@ -211,8 +205,8 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
     @Test
     void submitAttempt_UC24_MainFlow_essayPendingLeavesTotalScoreNull() {
         QuestionResponse mc = createMcQuestion();
-        QuestionResponse essay = questionBankService.createQuestion(
-                new CreateQuestionRequest(bank.id(), "ESSAY", "WRITING", "MEDIUM", "Viết đoạn văn.", null, null, null,
+        QuestionResponse essay = examQuestionService.createQuestion(defaultExam.id(),
+                new CreateExamQuestionRequest("ESSAY", "WRITING", "MEDIUM", "Viết đoạn văn.", null, null, null,
                         null, null, new BigDecimal("2.0"), null, null, null, null),
                 teacher.getId());
         ExerciseResponse exercise = assignedExerciseWithQuestions(List.of(mc, essay), null, false, true);
@@ -289,8 +283,8 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
 
     @Test
     void submitAttempt_UC24_MainFlow_exposesCorrectAnswersButNoExplanationWhenAnsweredCorrectly() {
-        QuestionResponse mc = questionBankService.createQuestion(
-                new CreateQuestionRequest(bank.id(), "MULTIPLE_CHOICE", "GRAMMAR", "EASY",
+        QuestionResponse mc = examQuestionService.createQuestion(defaultExam.id(),
+                new CreateExamQuestionRequest("MULTIPLE_CHOICE", "GRAMMAR", "EASY",
                         "She ___ to school.", null, null, null, "Vì chủ ngữ số ít nên dùng 'goes'.", null,
                         new BigDecimal("1.0"), null,
                         List.of(new QuestionChoiceRequest("A", "go", false, 1), new QuestionChoiceRequest("B", "goes", true, 2)), null, null),
@@ -310,8 +304,8 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
 
     @Test
     void submitAttempt_UC24_MainFlow_exposesExplanationWhenAutoGradedQuestionAnsweredIncorrectly() {
-        QuestionResponse mc = questionBankService.createQuestion(
-                new CreateQuestionRequest(bank.id(), "MULTIPLE_CHOICE", "GRAMMAR", "EASY",
+        QuestionResponse mc = examQuestionService.createQuestion(defaultExam.id(),
+                new CreateExamQuestionRequest("MULTIPLE_CHOICE", "GRAMMAR", "EASY",
                         "She ___ to school.", null, null, null, "Vì chủ ngữ số ít nên dùng 'goes'.", null,
                         new BigDecimal("1.0"), null,
                         List.of(new QuestionChoiceRequest("A", "go", false, 1), new QuestionChoiceRequest("B", "goes", true, 2)), null, null),
@@ -331,8 +325,8 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
 
     @Test
     void submitAttempt_UC24_MainFlow_essayExplanationAlwaysShownRegardlessOfCorrectness() {
-        QuestionResponse essay = questionBankService.createQuestion(
-                new CreateQuestionRequest(bank.id(), "ESSAY", "WRITING", "MEDIUM", "Viết đoạn văn.", null, null, null,
+        QuestionResponse essay = examQuestionService.createQuestion(defaultExam.id(),
+                new CreateExamQuestionRequest("ESSAY", "WRITING", "MEDIUM", "Viết đoạn văn.", null, null, null,
                         "Chú ý thì hiện tại đơn.", null, new BigDecimal("2.0"), null, null, null, null),
                 teacher.getId());
         ExerciseResponse exercise = assignedExerciseWithQuestions(List.of(essay), null, false, true, true);
@@ -349,8 +343,8 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
 
     @Test
     void submitAttempt_UC27_MainFlow_fillInBlankAutoGradesCaseInsensitively() {
-        QuestionResponse fillIn = questionBankService.createQuestion(
-                new CreateQuestionRequest(bank.id(), "FILL_IN_BLANK", "GRAMMAR", "EASY",
+        QuestionResponse fillIn = examQuestionService.createQuestion(defaultExam.id(),
+                new CreateExamQuestionRequest("FILL_IN_BLANK", "GRAMMAR", "EASY",
                         "Thủ đô nước Pháp là ___.", null, null, null, null, "Paris",
                         new BigDecimal("1.0"), null, null, null, null),
                 teacher.getId());
@@ -370,8 +364,8 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
 
     @Test
     void submitAttempt_UC27_A_fillInBlankGradesZeroWhenAnswerDoesNotExactlyMatch() {
-        QuestionResponse fillIn = questionBankService.createQuestion(
-                new CreateQuestionRequest(bank.id(), "FILL_IN_BLANK", "GRAMMAR", "EASY",
+        QuestionResponse fillIn = examQuestionService.createQuestion(defaultExam.id(),
+                new CreateExamQuestionRequest("FILL_IN_BLANK", "GRAMMAR", "EASY",
                         "Thủ đô nước Pháp là ___.", null, null, null, null, "Paris",
                         new BigDecimal("1.0"), null, null, null, null),
                 teacher.getId());
@@ -391,8 +385,8 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
     /** V78 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04): Điền từ - Hộp từ vựng. */
     @Test
     void submitAttempt_MainFlow_wordBankGradesCorrectOrderedAnswers() {
-        QuestionResponse wordBank = questionBankService.createQuestion(
-                new CreateQuestionRequest(bank.id(), "WORD_BANK", "GRAMMAR", "EASY",
+        QuestionResponse wordBank = examQuestionService.createQuestion(defaultExam.id(),
+                new CreateExamQuestionRequest("WORD_BANK", "GRAMMAR", "EASY",
                         "She ___ ___ school every day.", null, null, null, null, null,
                         new BigDecimal("1.0"), null, null,
                         Map.of("blanks", List.of("goes", "to")), null),
@@ -413,8 +407,8 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
 
     @Test
     void submitAttempt_A_wordBankGradesIncorrectWhenOrderWrong() {
-        QuestionResponse wordBank = questionBankService.createQuestion(
-                new CreateQuestionRequest(bank.id(), "WORD_BANK", "GRAMMAR", "EASY",
+        QuestionResponse wordBank = examQuestionService.createQuestion(defaultExam.id(),
+                new CreateExamQuestionRequest("WORD_BANK", "GRAMMAR", "EASY",
                         "She ___ ___ school every day.", null, null, null, null, null,
                         new BigDecimal("1.0"), null, null,
                         Map.of("blanks", List.of("goes", "to")), null),
@@ -435,8 +429,8 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
     /** V78 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04): Sắp xếp câu. */
     @Test
     void submitAttempt_MainFlow_sentenceBuildingGradesCorrectOrder() {
-        QuestionResponse sentence = questionBankService.createQuestion(
-                new CreateQuestionRequest(bank.id(), "SENTENCE_BUILDING", "GRAMMAR", "EASY",
+        QuestionResponse sentence = examQuestionService.createQuestion(defaultExam.id(),
+                new CreateExamQuestionRequest("SENTENCE_BUILDING", "GRAMMAR", "EASY",
                         "Sắp xếp thành câu hoàn chỉnh.", null, null, null, null, null,
                         new BigDecimal("1.0"), null, null,
                         Map.of("chunks", List.of("This", "is", "a test")), null),
@@ -459,8 +453,8 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
      */
     @Test
     void submitAttempt_MainFlow_listeningAudioSubmissionStaysManuallyGraded() {
-        QuestionResponse listening = questionBankService.createQuestion(
-                new CreateQuestionRequest(bank.id(), "SPEAKING", "LISTENING", "MEDIUM", "Nghe và ghi âm trả lời.",
+        QuestionResponse listening = examQuestionService.createQuestion(defaultExam.id(),
+                new CreateExamQuestionRequest("SPEAKING", "LISTENING", "MEDIUM", "Nghe và ghi âm trả lời.",
                         "https://media.pps.edu.vn/lms/questions/audio/prompt.mp3", null, null, null, null,
                         new BigDecimal("2.0"), null, null, null, null),
                 teacher.getId());
@@ -529,6 +523,7 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         classService.assignTeacher(otherClass.id(),
                 new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now()), headAcademic.getId());
         examService.assignToClass(defaultExam.id(), otherClass.id(), teacher.getId());
+        commitCurrentTransactionAndStartNew();
         exerciseService.deliverToClass(exercise.id(), otherClass.id(), null, teacher.getId());
 
         List<AssignedExerciseResponse> assigned = exerciseAttemptService.listMyAssignedExercises(studentUser.getId(), null);
@@ -580,9 +575,99 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
                 .isInstanceOf(ExerciseNotAvailableException.class);
     }
 
+    /**
+     * V89 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05):
+     * BTVN dưới ngưỡng đạt (mặc định 80%) phải làm lại — bản giao vẫn ACTIVE
+     * (chưa COMPLETED) nên startAttempt còn cho làm lại lượt tiếp theo.
+     */
+    @Test
+    void submitAttempt_boSung_belowThresholdKeepsAssignmentActiveForRetake() {
+        QuestionResponse mc1 = createMcQuestion();
+        QuestionResponse mc2 = createMcQuestion();
+        ExerciseResponse exercise = exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "BTVN", defaultExam.id(), null, "SELF_PRACTICE",
+                        new BigDecimal("2"), null, true, null, true), teacher.getId());
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc1.id(), 1, new BigDecimal("1.0")), teacher.getId());
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc2.id(), 2, new BigDecimal("1.0")), teacher.getId());
+        examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
+        commitCurrentTransactionAndStartNew();
+        ExerciseAssignment assignment = exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId());
+
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
+        answerCorrectly(attempt.id(), mc1); // chỉ đúng 1/2 -> 50%, dưới ngưỡng mặc định 80%
+        ExerciseAttemptResponse submitted = exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
+
+        assertThat(submitted.percentage()).isEqualByComparingTo("50.00");
+        assertThat(submitted.passed()).isFalse();
+        ExerciseAssignment refreshed = exerciseAssignmentRepository.findById(assignment.getId()).orElseThrow();
+        assertThat(refreshed.getStatus()).isEqualTo(ExerciseAssignment.Status.ACTIVE);
+
+        ExerciseAttemptResponse retry = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
+        assertThat(retry.attemptNumber()).isEqualTo(2);
+    }
+
+    /** V89: đạt ngưỡng -> đóng bản giao (COMPLETED), không còn hiện "cần làm lại". */
+    @Test
+    void submitAttempt_boSung_atOrAboveThresholdMarksPassedAndCompletesAssignment() {
+        QuestionResponse mc1 = createMcQuestion();
+        QuestionResponse mc2 = createMcQuestion();
+        ExerciseResponse exercise = exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "BTVN", defaultExam.id(), null, "SELF_PRACTICE",
+                        new BigDecimal("2"), null, true, null, true), teacher.getId());
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc1.id(), 1, new BigDecimal("1.0")), teacher.getId());
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc2.id(), 2, new BigDecimal("1.0")), teacher.getId());
+        examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
+        commitCurrentTransactionAndStartNew();
+        ExerciseAssignment assignment = exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId());
+
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
+        answerCorrectly(attempt.id(), mc1);
+        answerCorrectly(attempt.id(), mc2);
+        ExerciseAttemptResponse submitted = exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
+
+        assertThat(submitted.percentage()).isEqualByComparingTo("100.00");
+        assertThat(submitted.passed()).isTrue();
+        ExerciseAssignment refreshed = exerciseAssignmentRepository.findById(assignment.getId()).orElseThrow();
+        assertThat(refreshed.getStatus()).isEqualTo(ExerciseAssignment.Status.COMPLETED);
+    }
+
+    /** V89: ngưỡng đạt cấu hình được theo từng Bài — không cố định 80% khi Giáo viên chọn khác. */
+    @Test
+    void submitAttempt_boSung_usesCustomPassThresholdWhenConfigured() {
+        QuestionResponse mc1 = createMcQuestion();
+        QuestionResponse mc2 = createMcQuestion();
+        ExerciseResponse exercise = exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "BTVN ngưỡng thấp", defaultExam.id(), null, "SELF_PRACTICE",
+                        new BigDecimal("2"), null, true, null, true, new BigDecimal("40")), teacher.getId());
+        assertThat(exercise.passThresholdPercent()).isEqualByComparingTo("40");
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc1.id(), 1, new BigDecimal("1.0")), teacher.getId());
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc2.id(), 2, new BigDecimal("1.0")), teacher.getId());
+        examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
+        commitCurrentTransactionAndStartNew();
+        ExerciseAssignment assignment = exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId());
+
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
+        answerCorrectly(attempt.id(), mc1); // 50% -> dưới 80% mặc định nhưng TRÊN ngưỡng 40% đã cấu hình
+        ExerciseAttemptResponse submitted = exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
+
+        assertThat(submitted.passed()).isTrue();
+        ExerciseAssignment refreshed = exerciseAssignmentRepository.findById(assignment.getId()).orElseThrow();
+        assertThat(refreshed.getStatus()).isEqualTo(ExerciseAssignment.Status.COMPLETED);
+    }
+
+    /** V89: không truyền passThresholdPercent khi tạo Bài -> mặc định 80%. */
+    @Test
+    void createExercise_boSung_defaultsPassThresholdTo80PercentWhenNotSpecified() {
+        ExerciseResponse exercise = exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "BTVN", defaultExam.id(), null, "SELF_PRACTICE",
+                        new BigDecimal("1"), null, true, null, true), teacher.getId());
+
+        assertThat(exercise.passThresholdPercent()).isEqualByComparingTo("80.00");
+    }
+
     private QuestionResponse createMcQuestion() {
-        return questionBankService.createQuestion(
-                new CreateQuestionRequest(bank.id(), "MULTIPLE_CHOICE", "GRAMMAR", "EASY",
+        return examQuestionService.createQuestion(defaultExam.id(),
+                new CreateExamQuestionRequest("MULTIPLE_CHOICE", "GRAMMAR", "EASY",
                         "She ___ to school.", null, null, null, null, null, new BigDecimal("1.0"), null,
                         List.of(new QuestionChoiceRequest("A", "go", false, 1), new QuestionChoiceRequest("B", "goes", true, 2)), null, null),
                 teacher.getId());
@@ -610,6 +695,7 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
                         new BigDecimal("1"), null, allowRetake, maxAttempts, true), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("1.0")), teacher.getId());
         examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
+        commitCurrentTransactionAndStartNew();
         exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId());
         return exercise;
     }
@@ -630,6 +716,7 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         }
         if (publish) {
             examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
+            commitCurrentTransactionAndStartNew();
             ExerciseAssignment assignment = exerciseService.deliverToClass(exercise.id(), schoolClass.id(), dueAt, teacher.getId());
             if (lateAllowed) {
                 assignment.setLateSubmissionAllowed(true);
@@ -645,10 +732,6 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
 
     private String classCode() {
         return "CLS-" + SEQ.incrementAndGet();
-    }
-
-    private String bankCode() {
-        return "QB-" + SEQ.incrementAndGet();
     }
 
     private String exerciseCode() {

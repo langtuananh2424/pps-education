@@ -2,6 +2,7 @@ package vn.com.pps.education.support;
 
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.test.context.transaction.TestTransaction;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
@@ -17,6 +18,11 @@ import org.testcontainers.utility.DockerImageName;
  * container đã bị class chạy trước dừng). Tự start 1 lần trong static block,
  * để JVM/Ryuk dọn dẹp khi test suite kết thúc — đúng pattern "singleton container"
  * khuyến nghị của Testcontainers khi chia sẻ 1 container cho nhiều test class.
+ *
+ * V71 (2026-08-03) thêm PROPAGATION_REQUIRES_NEW vào deliverToClass để chặn race
+ * condition tạo trùng bản giao. Giao dịch lồng dùng connection riêng → không thấy
+ * dữ liệu chưa commit từ test @Transactional → FK fail. Helper commitCurrentTransaction()
+ * dùng TestTransaction để commit giữa chừng (sau setUp, trước code gọi deliverToClass).
  */
 @SpringBootTest
 public abstract class AbstractIntegrationTest {
@@ -31,5 +37,22 @@ public abstract class AbstractIntegrationTest {
 
     static {
         POSTGRES.start();
+    }
+
+    /**
+     * V71 workaround: commit dữ liệu hiện tại (FK parental được tạo ở setUp sẽ commit),
+     * rồi tiếp tục giao dịch mới cho phần còn lại của test. Dùng trước khi gọi code
+     * sử dụng PROPAGATION_REQUIRES_NEW (deliverToClass, ...) — giao dịch lồng sẽ thấy
+     * được dữ liệu đã commit từ setupFixture nên không bị FK constraint fail.
+     *
+     * Tại cuối test, Spring tự rollback giao dịch cuối cùng (mặc định @Transactional),
+     * nên không có dữ liệu thực bị lưu vào DB test (như bình thường).
+     */
+    protected void commitCurrentTransactionAndStartNew() {
+        if (TestTransaction.isActive()) {
+            TestTransaction.flagForCommit();
+            TestTransaction.end();
+            TestTransaction.start();
+        }
     }
 }

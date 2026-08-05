@@ -4,6 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.ExerciseAssignment;
 import vn.com.pps.education.domain.Role;
@@ -16,6 +17,7 @@ import vn.com.pps.education.dto.AssignTeacherRequest;
 import vn.com.pps.education.dto.ClassResponse;
 import vn.com.pps.education.dto.CreateClassRequest;
 import vn.com.pps.education.dto.CreateCurriculumRequest;
+import vn.com.pps.education.dto.CreateExamQuestionRequest;
 import vn.com.pps.education.dto.CreateExamRequest;
 import vn.com.pps.education.dto.CreateExerciseRequest;
 import vn.com.pps.education.dto.CreateQuestionBankRequest;
@@ -63,6 +65,9 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
 
     @Autowired
     private QuestionBankService questionBankService;
+
+    @Autowired
+    private ExamQuestionService examQuestionService;
 
     @Autowired
     private ExerciseService exerciseService;
@@ -173,7 +178,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
 
     @Test
     void updateQuestion_rejectsWhenAlreadyHasStudentAnswers() {
-        QuestionResponse question = createMcQuestion();
+        QuestionResponse question = createLegacyMcQuestion();
         markQuestionAsAnswered(question.id());
 
         assertThatThrownBy(() -> questionBankService.updateQuestion(question.id(),
@@ -183,7 +188,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
 
     @Test
     void updateQuestion_allowsStatusChangeEvenWhenLocked() {
-        QuestionResponse question = createMcQuestion();
+        QuestionResponse question = createLegacyMcQuestion();
         markQuestionAsAnswered(question.id());
 
         QuestionResponse archived = questionBankService.updateQuestion(question.id(),
@@ -211,8 +216,8 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
     @Test
     void createExercise_UC40_MainFlow_assemblesQuestionsAndFlagsEssayA1() {
         QuestionResponse mc = createMcQuestion();
-        QuestionResponse essay = questionBankService.createQuestion(
-                new CreateQuestionRequest(bank.id(), "ESSAY", "WRITING", "MEDIUM", "Viết đoạn văn 50 từ.",
+        QuestionResponse essay = examQuestionService.createQuestion(defaultExam.id(),
+                new CreateExamQuestionRequest("ESSAY", "WRITING", "MEDIUM", "Viết đoạn văn 50 từ.",
                         null, null, null, null, null, new BigDecimal("2.0"), null, null, null, null),
                 teacher.getId());
 
@@ -274,8 +279,8 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
     @Test
     void listQuestions_A_neverExposesWordBankAnswersInOriginalOrder() {
         List<String> correctOrder = List.of("went", "to", "school", "yesterday");
-        QuestionResponse wordBank = questionBankService.createQuestion(
-                new CreateQuestionRequest(bank.id(), "WORD_BANK", "GRAMMAR", "EASY",
+        QuestionResponse wordBank = examQuestionService.createQuestion(defaultExam.id(),
+                new CreateExamQuestionRequest("WORD_BANK", "GRAMMAR", "EASY",
                         "She ___ ___ ___ ___.", null, null, null, null, null,
                         new BigDecimal("1.0"), null, null,
                         Map.of("blanks", correctOrder), null),
@@ -341,6 +346,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
                 teacher.getId());
         var eq = exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("10")), teacher.getId());
         examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
+        commitCurrentTransactionAndStartNew();
         exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId());
 
         assertThatThrownBy(() -> exerciseService.removeQuestion(exercise.id(), eq.id(), teacher.getId()))
@@ -359,6 +365,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("10")), teacher.getId());
         examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
 
+        commitCurrentTransactionAndStartNew();
         ExerciseAssignment assignment = exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId());
 
         assertThat(assignment.getSchoolClass().getId()).isEqualTo(schoolClass.id());
@@ -372,8 +379,14 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
      * với CÙNG (exerciseId, classId, dueAt) → trước đây tạo N
      * ExerciseAssignment trùng lặp, mỗi bản ghi lại thông báo lại cho
      * TOÀN BỘ học sinh lớp → 1 học sinh nhận N thông báo giống hệt nhau.
+     *
+     * V71 (REQUIRES_NEW): test này gọi deliverToClass 3 lần liên tiếp để test
+     * anti-duplicate logic. Không dùng @Transactional vì cần auto-commit giữa
+     * các lần gọi để anti-duplicate findByExerciseIdAndSchoolClassIdAndStatus
+     * thấy được assignment từ lần trước.
      */
     @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     void deliverToClass_V70_boSung_reusesExistingAssignmentForSameSessionInsteadOfDuplicating() {
         Student student = enrollStudent();
         QuestionResponse mc = createMcQuestion();
@@ -440,6 +453,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
                         new BigDecimal("10"), null, false, 1, true), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("10")), teacher.getId());
         examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
+        commitCurrentTransactionAndStartNew();
         exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId());
 
         List<ExerciseAssignmentResponse> assignments = exerciseService.listAssignmentsForClass(schoolClass.id(), teacher.getId());
@@ -481,6 +495,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
                         new BigDecimal("10"), null, false, 1, true), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("10")), teacher.getId());
         examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
+        commitCurrentTransactionAndStartNew();
         exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId());
 
         ExerciseResponse viewed = exerciseService.getExercise(exercise.id(), student.getUser().getId());
@@ -520,6 +535,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
                         new BigDecimal("1"), null, true, null, true), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("1.0")), teacher.getId());
         examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
+        commitCurrentTransactionAndStartNew();
         exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId());
 
         ExerciseResponse viewed = exerciseService.getExercise(exercise.id(), student.getUser().getId());
@@ -542,6 +558,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
                         "SELF_PRACTICE", new BigDecimal("1"), null, true, null, true), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("1.0")), teacher.getId());
         examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
+        commitCurrentTransactionAndStartNew();
         exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId());
 
         var questions = exerciseService.listQuestions(exercise.id(), student.getUser().getId());
@@ -558,14 +575,15 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
     @Test
     void listQuestions_UC24_MainFlow_nonChoiceQuestionHasEmptyChoices() {
         Student student = enrollStudent();
-        QuestionResponse essay = questionBankService.createQuestion(
-                new CreateQuestionRequest(bank.id(), "ESSAY", "WRITING", "MEDIUM", "Viết đoạn văn 50 từ.",
+        QuestionResponse essay = examQuestionService.createQuestion(defaultExam.id(),
+                new CreateExamQuestionRequest("ESSAY", "WRITING", "MEDIUM", "Viết đoạn văn 50 từ.",
                         null, null, null, null, null, new BigDecimal("2.0"), null, null, null, null), teacher.getId());
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Đề tự luận", defaultExam.id(), null, "SELF_PRACTICE",
                         new BigDecimal("2"), null, true, null, true), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(essay.id(), 1, new BigDecimal("2.0")), teacher.getId());
         examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
+        commitCurrentTransactionAndStartNew();
         exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId());
 
         var questions = exerciseService.listQuestions(exercise.id(), student.getUser().getId());
@@ -575,7 +593,19 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
         assertThat(questions.get(0).choices()).isEmpty();
     }
 
+    /** Câu hỏi soạn trực tiếp qua Đề (V75, Kho đề) — dùng cho mọi test cần addQuestion vào 1 Exercise. */
     private QuestionResponse createMcQuestion() {
+        return examQuestionService.createQuestion(defaultExam.id(),
+                new CreateExamQuestionRequest("MULTIPLE_CHOICE", "GRAMMAR", "EASY",
+                        "She ___ to school every day.", null, null, null, null, null, new BigDecimal("1.0"), null,
+                        List.of(
+                                new QuestionChoiceRequest("A", "go", false, 1),
+                                new QuestionChoiceRequest("B", "goes", true, 2)), null, null),
+                teacher.getId());
+    }
+
+    /** Câu hỏi trong Ngân hàng câu hỏi legacy (generic, tách khỏi Đề) — chỉ dùng cho test chạm thẳng QuestionBankService#updateQuestion (yêu cầu bank legacy). */
+    private QuestionResponse createLegacyMcQuestion() {
         return questionBankService.createQuestion(
                 new CreateQuestionRequest(bank.id(), "MULTIPLE_CHOICE", "GRAMMAR", "EASY",
                         "She ___ to school every day.", null, null, null, null, null, new BigDecimal("1.0"), null,

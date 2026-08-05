@@ -17,5 +17,12 @@ public record UpdateExerciseRequest(
         @NotNull BigDecimal totalPoints,
         boolean allowRetake,
         Integer maxAttempts,
-        boolean showCorrectAnswers
-) {}
+        boolean showCorrectAnswers,
+        /** V89, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05: NULL = giữ nguyên ngưỡng đã cấu hình. */
+        BigDecimal passThresholdPercent
+) {
+    public UpdateExerciseRequest(String title, Long subjectId, BigDecimal totalPoints, boolean allowRetake,
+                                  Integer maxAttempts, boolean showCorrectAnswers) {
+        this(title, subjectId, totalPoints, allowRetake, maxAttempts, showCorrectAnswers, null);
+    }
+}

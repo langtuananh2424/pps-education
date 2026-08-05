@@ -11,5 +11,7 @@ public record ExamResponse(
         String curriculumCode,
         Long createdBy,
         String teacherType,
-        String examType
+        String examType,
+        /** V75 (Kho đề): Ngân hàng câu hỏi nội bộ tự sinh cùng Đề — thêm câu hỏi qua QuestionBankService#createQuestion(questionBankId, ...). */
+        Long questionBankId
 ) {}

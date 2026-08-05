@@ -34,6 +34,7 @@ import vn.com.pps.education.repository.StudentRepository;
 import vn.com.pps.education.repository.UserRepository;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -223,9 +224,49 @@ public class ExerciseAttemptService {
             attempt.setStatus(ExerciseAttempt.Status.AUTO_GRADED);
         }
         attempt = exerciseAttemptRepository.save(attempt);
+        attempt = applyPassOutcome(attempt);
 
         writeHistory(attempt, actorUserId, ExerciseAttemptHistory.Action.UPDATED);
         return toResponse(attempt);
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05: BTVN dưới
+     * ngưỡng đạt ({@code exercises.pass_threshold_percent}, mặc định 80%,
+     * cấu hình theo từng Bài) phải làm lại — áp dụng cho MỌI exerciseType học
+     * sinh làm (không riêng ASSIGNED). Tính % + đánh dấu passed ngay khi lượt
+     * làm bài về FULLY_GRADED (đã chấm xong toàn bộ, kể cả phần chấm tay —
+     * gọi lại từ ManualGradingService#recomputeAttemptTotals). Nếu ĐẠT: đóng
+     * bản giao ({@link ExerciseAssignment.Status#COMPLETED}) — học sinh không
+     * cần làm lại nữa; nếu CHƯA ĐẠT: giữ bản giao ACTIVE để học sinh vẫn thấy
+     * "cần làm lại" trong listMyAssignedExercises — chỉ giới hạn bởi
+     * allowRetake/maxAttempts giáo viên đã cấu hình sẵn (không tự nới thêm
+     * lượt để "ép" làm lại bằng mọi giá, xem RetakeNotAllowedException).
+     */
+    ExerciseAttempt applyPassOutcome(ExerciseAttempt attempt) {
+        if (attempt.getStatus() != ExerciseAttempt.Status.FULLY_GRADED || attempt.getTotalScore() == null) {
+            return attempt;
+        }
+        Exercise exercise = attempt.getExercise();
+        BigDecimal percentage = percentageOf(attempt.getTotalScore(), exercise.getTotalPoints());
+        boolean passed = percentage != null && percentage.compareTo(exercise.getPassThresholdPercent()) >= 0;
+        attempt.setPassed(passed);
+        attempt = exerciseAttemptRepository.save(attempt);
+
+        ExerciseAssignment assignment = attempt.getExerciseAssignment();
+        if (passed && assignment != null && assignment.getStatus() == ExerciseAssignment.Status.ACTIVE) {
+            assignment.setStatus(ExerciseAssignment.Status.COMPLETED);
+            exerciseAssignmentRepository.save(assignment);
+        }
+        return attempt;
+    }
+
+    private BigDecimal percentageOf(BigDecimal score, BigDecimal totalPoints) {
+        if (totalPoints == null || totalPoints.signum() <= 0) {
+            return null;
+        }
+        return score.divide(totalPoints, 4, RoundingMode.HALF_UP)
+                .multiply(BigDecimal.valueOf(100)).setScale(2, RoundingMode.HALF_UP);
     }
 
     @Transactional(readOnly = true)
@@ -374,11 +415,14 @@ public class ExerciseAttemptService {
     }
 
     private ExerciseAttemptResponse toResponse(ExerciseAttempt a) {
+        BigDecimal percentage = a.getTotalScore() == null ? null
+                : percentageOf(a.getTotalScore(), a.getExercise().getTotalPoints());
         return new ExerciseAttemptResponse(
                 a.getId(), a.getExercise().getId(),
                 a.getExerciseAssignment() == null ? null : a.getExerciseAssignment().getId(),
                 a.getStudent().getId(), a.getAttemptNumber(), a.getStartedAt(), a.getSubmittedAt(),
-                a.getAutoGradeScore(), a.getManualGradeScore(), a.getTotalScore(), a.getStatus().name(), a.isLateSubmission());
+                a.getAutoGradeScore(), a.getManualGradeScore(), a.getTotalScore(), a.getStatus().name(),
+                a.isLateSubmission(), percentage, a.getPassed());
     }
 
     private AssignedExerciseResponse toAssignedResponse(ExerciseAssignment assignment, ClassEnrollment enrollment, Student student) {
@@ -386,12 +430,15 @@ public class ExerciseAttemptService {
         List<ExerciseAttempt> myAttempts = exerciseAttemptRepository
                 .findByExerciseIdAndStudentIdOrderByAttemptNumberDesc(exercise.getId(), student.getId());
         ExerciseAttempt latest = myAttempts.isEmpty() ? null : myAttempts.get(0);
+        BigDecimal latestPercentage = latest == null || latest.getTotalScore() == null ? null
+                : percentageOf(latest.getTotalScore(), exercise.getTotalPoints());
         return new AssignedExerciseResponse(
                 exercise.getId(), exercise.getCode(), exercise.getTitle(), exercise.getExerciseType().name(),
                 assignment.getId(), enrollment.getSchoolClass().getId(), enrollment.getSchoolClass().getName(),
                 assignment.getAvailableFrom(), assignment.getDueAt(), assignment.isLateSubmissionAllowed(),
                 latest == null ? null : latest.getId(), latest == null ? null : latest.getStatus().name(),
-                latest == null ? null : latest.getTotalScore());
+                latest == null ? null : latest.getTotalScore(), latestPercentage,
+                latest == null ? null : latest.getPassed());
     }
 
     private StudentAnswerResponse toResponse(StudentAnswer a) {

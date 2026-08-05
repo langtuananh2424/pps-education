@@ -42,17 +42,20 @@ public class ManualGradingService {
     private final ExerciseAttemptRepository exerciseAttemptRepository;
     private final ExerciseAttemptHistoryRepository exerciseAttemptHistoryRepository;
     private final UserRepository userRepository;
+    private final ExerciseAttemptService exerciseAttemptService;
 
     public ManualGradingService(StudentAnswerRepository studentAnswerRepository,
                                  StudentAnswerGradingRepository studentAnswerGradingRepository,
                                  ExerciseAttemptRepository exerciseAttemptRepository,
                                  ExerciseAttemptHistoryRepository exerciseAttemptHistoryRepository,
-                                 UserRepository userRepository) {
+                                 UserRepository userRepository,
+                                 ExerciseAttemptService exerciseAttemptService) {
         this.studentAnswerRepository = studentAnswerRepository;
         this.studentAnswerGradingRepository = studentAnswerGradingRepository;
         this.exerciseAttemptRepository = exerciseAttemptRepository;
         this.exerciseAttemptHistoryRepository = exerciseAttemptHistoryRepository;
         this.userRepository = userRepository;
+        this.exerciseAttemptService = exerciseAttemptService;
     }
 
     /** Main Flow bước 1, A1 (nhiều bài chờ chấm): danh sách câu tự luận/Nói đã nộp, chưa chấm. */
@@ -118,7 +121,10 @@ public class ManualGradingService {
             attempt.setTotalScore(autoGradeScore.add(manualGradeScore));
             attempt.setStatus(ExerciseAttempt.Status.FULLY_GRADED);
         }
-        exerciseAttemptRepository.save(attempt);
+        attempt = exerciseAttemptRepository.save(attempt);
+        // V89 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05): BTVN <ngưỡng đạt phải làm lại —
+        // chấm tay xong (allGraded) cũng phải tính lại passed/đóng bản giao giống nhánh auto-grade hoàn toàn.
+        attempt = exerciseAttemptService.applyPassOutcome(attempt);
 
         ExerciseAttemptHistory history = new ExerciseAttemptHistory();
         history.setExerciseAttempt(attempt);

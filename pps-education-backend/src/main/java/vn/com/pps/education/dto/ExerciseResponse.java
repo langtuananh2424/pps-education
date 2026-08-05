@@ -33,6 +33,7 @@ public record ExerciseResponse(
         boolean allowRetake,
         Integer maxAttempts,
         boolean showCorrectAnswers,
+        BigDecimal passThresholdPercent,
         String status,
         Long createdBy,
         boolean hasEssayOrSpeaking

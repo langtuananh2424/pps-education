@@ -153,6 +153,9 @@ public class ExerciseService {
         exercise.setAllowRetake(request.allowRetake());
         exercise.setMaxAttempts(request.maxAttempts());
         exercise.setShowCorrectAnswers(request.showCorrectAnswers());
+        if (request.passThresholdPercent() != null) {
+            exercise.setPassThresholdPercent(request.passThresholdPercent());
+        }
         exercise.setCreatedBy(actor);
         exercise = exerciseRepository.save(exercise);
         return toResponse(exercise, List.of());
@@ -172,6 +175,9 @@ public class ExerciseService {
         exercise.setAllowRetake(request.allowRetake());
         exercise.setMaxAttempts(request.allowRetake() ? request.maxAttempts() : null);
         exercise.setShowCorrectAnswers(request.showCorrectAnswers());
+        if (request.passThresholdPercent() != null) {
+            exercise.setPassThresholdPercent(request.passThresholdPercent());
+        }
         exercise = exerciseRepository.save(exercise);
         return toResponse(exercise, exerciseQuestionRepository.findByExerciseIdOrderByDisplayOrder(id));
     }
@@ -464,8 +470,8 @@ public class ExerciseService {
                 e.getExam().getId(), e.getExam().getCode(), e.getExam().getTitle(),
                 e.getSubject() == null ? null : e.getSubject().getId(),
                 e.getExerciseType().name(), e.getTotalPoints(), e.getTimeLimitMinutes(), e.isAllowRetake(),
-                e.getMaxAttempts(), e.isShowCorrectAnswers(), e.getStatus().name(), e.getCreatedBy().getId(),
-                hasEssayOrSpeaking);
+                e.getMaxAttempts(), e.isShowCorrectAnswers(), e.getPassThresholdPercent(), e.getStatus().name(),
+                e.getCreatedBy().getId(), hasEssayOrSpeaking);
     }
 
     private ExerciseQuestionResponse toResponse(ExerciseQuestion eq) {

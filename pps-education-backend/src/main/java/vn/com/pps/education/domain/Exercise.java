@@ -68,6 +68,10 @@ public class Exercise extends BaseAuditEntity {
     @Column(name = "show_correct_answers", nullable = false)
     private boolean showCorrectAnswers = true;
 
+    /** V89 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05): BTVN dưới ngưỡng này phải làm lại — xem ExerciseAttemptService#applyPassOutcome. */
+    @Column(name = "pass_threshold_percent", nullable = false, precision = 5, scale = 2)
+    private BigDecimal passThresholdPercent = new BigDecimal("80.00");
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private Status status = Status.DRAFT;

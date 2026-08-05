@@ -229,7 +229,7 @@ public class ExamService {
     private ExamResponse toResponse(Exam exam) {
         return new ExamResponse(exam.getId(), exam.getUuid(), exam.getCode(), exam.getTitle(),
                 exam.getCurriculum().getId(), exam.getCurriculum().getCode(), exam.getCreatedBy().getId(),
-                exam.getTeacherType().name(), exam.getExamType().name());
+                exam.getTeacherType().name(), exam.getExamType().name(), exam.getQuestionBank().getId());
     }
 
     private ClassResponse toResponse(SchoolClass c) {
