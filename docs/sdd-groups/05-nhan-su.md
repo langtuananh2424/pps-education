@@ -572,6 +572,11 @@ erDiagram
     leave_requests ||--o{ leave_requests_history : ""
     users ||--o{ leave_request_approvals : "nguoi duyet"
 
+    leave_requests ||--o{ leave_substitutions : "day thay (neu GV)"
+    class_sessions ||--o{ leave_substitutions : "buoi hoc bi thay"
+    class_teachers ||--o{ leave_substitutions : "dong SUBSTITUTE tuong ung"
+    users ||--o{ leave_substitutions : "GV goc + GV day thay"
+
     leave_requests {
         BIGSERIAL id PK
         UUID uuid UK
@@ -599,6 +604,18 @@ erDiagram
         VARCHAR decision
         TEXT comment
         TIMESTAMPTZ decided_at
+    }
+
+    leave_substitutions {
+        BIGSERIAL id PK
+        UUID uuid UK
+        BIGINT leave_request_id FK
+        BIGINT class_session_id FK
+        BIGINT class_teacher_id FK
+        BIGINT original_teacher_id FK
+        BIGINT substitute_teacher_id FK
+        TIMESTAMPTZ revoked_at
+        TIMESTAMPTZ created_at
     }
 ```
 
@@ -675,6 +692,63 @@ b)  Bảng leave_request_approvals --- Các bước duyệt
                                     UNIQUE(leave_request_id,    
                                     step_order)                
   ---------------------------------------------------------------------------------
+
+c)  Bảng leave_substitutions --- Giáo viên dạy thay theo đơn nghỉ (bổ
+sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05; xem UC-10 A/
+UC-11 A2)
+
+1 record = 1 buổi học (class_sessions) của 1 đơn nghỉ đã được gán giáo
+viên dạy thay.
+
+  ---------------------------------------------------------------------------------
+  **Cột**                 **Kiểu**       **Ràng buộc**              **Ghi chú**
+  ----------------------- -------------- -------------------------- ----------------
+  id                      BIGSERIAL      PK
+
+  uuid                    UUID           UNIQUE, NOT NULL
+
+  leave_request_id        BIGINT         FK → leave_requests(id),
+                                          NOT NULL
+
+  class_session_id        BIGINT         FK → class_sessions(id),
+                                          NOT NULL
+
+  class_teacher_id        BIGINT         FK → class_teachers(id),   Dòng
+                                          NOT NULL                  teacher_role=
+                                                                     SUBSTITUTE
+                                                                     tương ứng ở
+                                                                     lớp
+
+  original_teacher_id     BIGINT         FK → users(id), NOT NULL   GV chính của
+                                                                     buổi học tại
+                                                                     thời điểm gán,
+                                                                     để trả lại
+                                                                     khi thu hồi
+
+  substitute_teacher_id   BIGINT         FK → users(id), NOT NULL
+
+  revoked_at               TIMESTAMPTZ    NULL                      NULL = đang
+                                                                     dạy thay; có
+                                                                     giá trị = đã
+                                                                     bị scheduled
+                                                                     job thu hồi
+                                                                     (chính là log
+                                                                     thu hồi)
+
+  created_at               TIMESTAMPTZ
+  ---------------------------------------------------------------------------------
+
+Ràng buộc: partial unique index trên (class_session_id) WHERE
+revoked_at IS NULL --- 1 buổi học chỉ có đúng 1 lượt dạy thay ĐANG MỞ tại
+1 thời điểm (khác plain UNIQUE vì 1 buổi có thể có nhiều lượt dạy thay
+theo thời gian, miễn không trùng lúc đang mở).
+
+Logic nghiệp vụ: xem UC-10 bước 5 (ghi bản ghi + cập nhật
+class_sessions.primary_teacher_id/class_teachers NGAY khi nộp đơn, không
+đợi duyệt), UC-11 A2 (thu hồi ngay khi đơn bị Từ chối), và "Mở rộng" cuối
+UC-11 (scheduled job tự thu hồi sau end_date + 2 ngày nếu đơn Đã duyệt).
+UNIQUE(class_session_id) đảm bảo 1 buổi học chỉ có 1 lượt dạy thay đang mở
+tại 1 thời điểm.
 
 Logic workflow (business logic)
 

@@ -1,5 +1,6 @@
 import { apiRequest, apiRequestBlob } from "@/lib/apiClient";
 import type { CreateUserRequest } from "@/features/system-admin/api";
+import type { ClassSessionResponse } from "@/features/academic/api";
 
 /** Khớp EmployeeResponse thật của backend — xem UC-08 (Quản lý hồ sơ nhân sự). */
 export interface EmployeeResponse {
@@ -367,4 +368,116 @@ export function exportEmployeeAccounts(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ accounts })
   });
+}
+
+// ===================== Đơn từ (UC-10/UC-11, FR-HRM-03) =====================
+
+/** Khớp SubstituteAssignmentRequest thật — 1 buổi học + giáo viên dạy thay được chọn (UC-10 bước 3). */
+export interface SubstituteAssignmentRequest {
+  classSessionId: number;
+  substituteTeacherId: number;
+}
+
+/** Khớp CreateLeaveRequestRequest thật. substitutes: chỉ Giáo viên có buổi dạy trong khoảng nghỉ mới điền (UC-10 A3/A4). */
+export interface CreateLeaveRequestRequest {
+  leaveType: "ANNUAL" | "SICK" | "UNPAID" | "LATE" | "EARLY_LEAVE" | "PERSONAL";
+  startDate: string;
+  endDate: string;
+  startTime?: string;
+  endTime?: string;
+  reason: string;
+  attachmentUrl?: string;
+  substitutes?: SubstituteAssignmentRequest[] | null;
+}
+
+export interface DecideLeaveRequestRequest {
+  decision: "APPROVED" | "REJECTED";
+  comment?: string;
+}
+
+/** Khớp LeaveRequestResponse thật của backend. */
+export interface LeaveRequestResponse {
+  id: number;
+  employeeId: number;
+  employeeFullName: string;
+  employeeCode: string;
+  departmentName: string | null;
+  leaveType: "ANNUAL" | "SICK" | "UNPAID" | "LATE" | "EARLY_LEAVE" | "PERSONAL";
+  startDate: string;
+  endDate: string;
+  startTime: string | null;
+  endTime: string | null;
+  totalDays: number;
+  reason: string;
+  attachmentUrl: string | null;
+  status: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
+  currentStep: number;
+  currentApproverUserId: number | null;
+  submittedAt: string | null;
+  finalizedAt: string | null;
+}
+
+/** Khớp LeaveRequestApprovalResponse thật — 1 bước duyệt (UC-11). */
+export interface LeaveRequestApprovalResponse {
+  id: number;
+  stepOrder: number;
+  approverRole: "DEPARTMENT_HEAD" | "OPERATIONS_MANAGER" | "EXECUTIVE";
+  approverUserId: number | null;
+  approverName: string | null;
+  decision: "APPROVED" | "REJECTED" | null;
+  comment: string | null;
+  decidedAt: string | null;
+}
+
+/** UC-10 Main Flow bước 5: nộp đơn từ — nếu có substitutes, hệ thống gán dạy thay NGAY, không đợi duyệt. */
+export function submitLeaveRequest(request: CreateLeaveRequestRequest): Promise<LeaveRequestResponse> {
+  return apiRequest<LeaveRequestResponse>("/leave-requests", { method: "POST", body: JSON.stringify(request) });
+}
+
+/** UC-10 bước 3: buổi dạy của người gọi trong khoảng nghỉ dự kiến, để chọn giáo viên dạy thay trước khi nộp đơn. */
+export function listTeachingSessionsForSubstitution(startDate: string, endDate: string): Promise<ClassSessionResponse[]> {
+  return apiRequest<ClassSessionResponse[]>(`/leave-requests/teaching-sessions?startDate=${startDate}&endDate=${endDate}`);
+}
+
+/** Self-service: đơn từ đã nộp của chính người gọi. */
+export function listMyLeaveRequests(): Promise<LeaveRequestResponse[]> {
+  return apiRequest<LeaveRequestResponse[]>("/leave-requests/mine");
+}
+
+/** UC-11 Main Flow bước 1: danh sách đơn chờ duyệt thuộc thẩm quyền người gọi. */
+export function listPendingLeaveRequestsForApprover(): Promise<LeaveRequestResponse[]> {
+  return apiRequest<LeaveRequestResponse[]>("/leave-requests/pending-for-me");
+}
+
+export function getLeaveRequest(id: number): Promise<LeaveRequestResponse> {
+  return apiRequest<LeaveRequestResponse>(`/leave-requests/${id}`);
+}
+
+export function listLeaveRequestApprovals(id: number): Promise<LeaveRequestApprovalResponse[]> {
+  return apiRequest<LeaveRequestApprovalResponse[]>(`/leave-requests/${id}/approvals`);
+}
+
+/** UC-11 Main Flow bước 3-6: duyệt/từ chối 1 bước — nếu REJECTED và đơn có dạy thay, hệ thống thu hồi ngay (A2). */
+export function decideLeaveRequest(id: number, request: DecideLeaveRequestRequest): Promise<LeaveRequestResponse> {
+  return apiRequest<LeaveRequestResponse>(`/leave-requests/${id}/decision`, { method: "POST", body: JSON.stringify(request) });
+}
+
+/** UC-11 Mở rộng: trang lịch sử dạy thay (GV dạy thay theo đơn nghỉ, tự thu hồi sau end_date + 2 ngày). */
+export interface LeaveSubstitutionResponse {
+  id: number;
+  leaveRequestId: number;
+  classSessionId: number;
+  sessionDate: string;
+  classId: number;
+  className: string;
+  originalTeacherId: number;
+  originalTeacherName: string;
+  substituteTeacherId: number;
+  substituteTeacherName: string;
+  revokedAt: string | null;
+  createdAt: string;
+}
+
+export function listLeaveSubstitutionHistory(): Promise<LeaveSubstitutionResponse[]> {
+  return apiRequest<LeaveSubstitutionResponse[]>("/leave-substitutions");
 }

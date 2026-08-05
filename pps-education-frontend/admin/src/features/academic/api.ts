@@ -340,6 +340,7 @@ export function importClassEnrollments(classId: number, file: File): Promise<Cla
 export interface ClassSessionResponse {
   id: number;
   classId: number;
+  className: string;
   sessionDate: string;
   startTime: string;
   endTime: string;
