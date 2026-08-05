@@ -273,6 +273,36 @@ class ExerciseReportServiceTest extends AbstractIntegrationTest {
         assertThat(content).isNotEmpty();
     }
 
+    /** Test fixture: tạo dữ liệu StudentAnswer để test lịch sử trả lời câu hỏi ở frontend. */
+    @Test
+    void createFixtureWithStudentAnswerHistory_forManualFrontendTesting() {
+        QuestionResponse mc1 = createMcQuestion();
+        QuestionResponse mc2 = createMcQuestion();
+        ExerciseAssignment assignment = deliverSelfPracticeExerciseWithQuestions("BTVN Test Lịch sử trả lời", List.of(mc1, mc2));
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(assignment.getExercise().getId(), studentUser.getId());
+
+        // Trả lời câu 1 đúng
+        answerCorrectly(attempt.id(), mc1);
+
+        // Trả lời câu 2 sai
+        Long wrongChoiceId = mc2.choices().stream().filter(c -> !c.isCorrect()).findFirst().orElseThrow().id();
+        exerciseAttemptService.saveAnswer(attempt.id(),
+                new SaveAnswerRequest(mc2.id(), null, List.of(wrongChoiceId), null, null), studentUser.getId());
+
+        // Nộp bài → auto-grade → lưu vào exercise_attempts
+        ExerciseAttemptResponse submitted = exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
+
+        // Xác minh dữ liệu đã được tạo
+        assertThat(submitted.status()).isIn("SUBMITTED", "AUTO_GRADED", "FULLY_GRADED");
+        assertThat(submitted.totalScore()).isNotNull();
+
+        // Verify qua API report: xem lịch sử trả lời ở /api/attempts/{id}/answers (frontend gọi)
+        ExerciseAssignmentStudentStatsResponse stats = exerciseReportService.getStudentStats(assignment.getId(), teacher.getId());
+        assertThat(stats.students()).hasSize(1);
+        assertThat(stats.students().get(0).attemptId()).isNotNull();
+        System.out.println("✅ Fixture created: attempt " + submitted.id() + " with 2 answers (1 correct, 1 wrong)");
+    }
+
     private void answerCorrectly(Long attemptId, QuestionResponse question) {
         Long correctChoiceId = question.choices().stream().filter(c -> c.isCorrect()).findFirst().orElseThrow().id();
         exerciseAttemptService.saveAnswer(attemptId,
