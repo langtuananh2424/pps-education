@@ -6,6 +6,7 @@ import {
   AssignedExerciseResponse,
   ReviewVideoResponse,
   getMyLatestReviewVideoSubmission,
+  getReviewVideoProgress,
   listMyAssignedExercises,
   listMyReviewVideoAssignments,
   listReviewVideoQuestions,
@@ -25,18 +26,46 @@ const attemptStatusLabels: Record<string, { label: string; className: string }> 
   FULLY_GRADED: { label: "Đã có điểm", className: "bg-teal/10 text-teal-deep" }
 };
 
-function isExercisePending(item: AssignedExerciseResponse): boolean {
-  return item.myLatestAttemptStatus == null || item.myLatestAttemptStatus === "IN_PROGRESS";
+/**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05 (backend V89
+ * `ExerciseAttemptService#applyPassOutcome`) — BTVN đã chấm xong (FULLY_GRADED)
+ * nhưng dưới ngưỡng đạt (`myLatestPassed === false`) vẫn tính là "cần hoàn
+ * thành" (chưa xong thật sự), không phải "đã nộp & đã chấm" — bản giao vẫn
+ * ACTIVE ở backend đúng tinh thần này, FE trước đây chưa đồng bộ theo.
+ */
+function needsRetake(item: AssignedExerciseResponse): boolean {
+  return item.myLatestAttemptStatus === "FULLY_GRADED" && item.myLatestPassed === false;
 }
 
-/** Video REFLEX chưa có câu hỏi nào (giáo viên chưa soạn xong) — chưa có gì để tính "hoàn thành", giống CONNECTION không tham gia lọc Pending/Graded. */
+function isExercisePending(item: AssignedExerciseResponse): boolean {
+  return item.myLatestAttemptStatus == null || item.myLatestAttemptStatus === "IN_PROGRESS" || needsRetake(item);
+}
+
+/** Video REFLEX chưa có câu hỏi nào (giáo viên chưa soạn xong) — chưa có gì để tính "hoàn thành". */
 function isReflexAnswerable(item: ReviewVideoHomeworkItem): boolean {
   return item.videoType === "REFLEX" && !!item.reflexStats && item.reflexStats.totalQuestions > 0;
 }
 
-/** "Hoàn thành" (V57) = đã nộp đủ mọi câu hỏi trong video — REFLEX không qua khâu giáo viên chấm điểm nữa (đã xác nhận với người dùng 2026-07-29), nộp đủ là xong. */
+/** Ngưỡng % số câu đã trả lời để tính REFLEX "đạt" — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 (trước đây yêu cầu đủ 100%). */
+const REFLEX_PASS_THRESHOLD_PERCENT = 80;
+
+/** "Hoàn thành" (V57, sửa 2026-08-06) = trả lời đủ ngưỡng % câu hỏi trong video (mặc định 80%, không cần đủ 100%) — REFLEX không qua khâu giáo viên chấm điểm nữa (đã xác nhận với người dùng 2026-07-29), đạt ngưỡng là xong. */
 function isReflexFullyAnswered(item: ReviewVideoHomeworkItem): boolean {
-  return !!item.reflexStats && item.reflexStats.answeredQuestions >= item.reflexStats.totalQuestions;
+  if (!item.reflexStats || item.reflexStats.totalQuestions <= 0) return false;
+  return (item.reflexStats.answeredQuestions / item.reflexStats.totalQuestions) * 100 >= REFLEX_PASS_THRESHOLD_PERCENT;
+}
+
+/**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — CONNECTION giờ tính được vào bộ
+ * đếm Cần hoàn thành/Đã nộp nhờ API GET tiến độ mới (getReviewVideoProgress), trước đây không có
+ * API đọc lại nên phải loại hẳn khỏi mọi bộ lọc trạng thái.
+ */
+function isConnectionAnswerable(item: ReviewVideoHomeworkItem): boolean {
+  return item.videoType === "CONNECTION" && !!item.connectionStats;
+}
+
+function isConnectionCompleted(item: ReviewVideoHomeworkItem): boolean {
+  return !!item.connectionStats?.completed;
 }
 
 type FilterStatus = "ALL" | "PENDING" | "GRADED";
@@ -48,6 +77,8 @@ interface ReviewVideoHomeworkItem {
   setTitle: string;
   /** REFLEX only (V57 — video giờ có nhiều câu hỏi, mỗi câu tự nộp riêng) — dùng tính trạng thái tổng hợp cho cả video. */
   reflexStats?: { totalQuestions: number; answeredQuestions: number };
+  /** CONNECTION only, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — đọc từ GET progress mới, undefined nếu API lỗi (loại khỏi bộ đếm, không hiện sai). */
+  connectionStats?: { viewCount: number; requiredViewCount: number; completed: boolean };
   /** Hạn nộp của bộ (nếu bộ này đang được giao "BTVN buổi sau" ACTIVE cho lớp) — undefined nếu chỉ nằm trong Kho, không phải BTVN đang giao. */
   dueAt?: string;
 }
@@ -117,7 +148,23 @@ export default function AssignmentsTab({ classId }: AssignmentsTabProps) {
           })
         );
         const statsByVideoId = new Map(reflexItems.map((x, i) => [x.video.id, reflexStatsList[i]]));
-        return flat.map((x) => ({ ...x, reflexStats: statsByVideoId.get(x.video.id) }));
+
+        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — CONNECTION giờ đọc lại tiến
+        // độ đã lưu qua GET progress mới, mirror đúng cách REFLEX đọc reflexStats ở trên.
+        const connectionItems = flat.filter((x) => x.videoType === "CONNECTION");
+        const connectionProgressList = await Promise.all(connectionItems.map((x) => getReviewVideoProgress(x.video.id).catch(() => undefined)));
+        const connectionStatsByVideoId = new Map(
+          connectionItems.map((x, i) => [x.video.id, connectionProgressList[i]] as const)
+        );
+
+        return flat.map((x) => {
+          const p = connectionStatsByVideoId.get(x.video.id);
+          return {
+            ...x,
+            reflexStats: statsByVideoId.get(x.video.id),
+            connectionStats: p ? { viewCount: p.viewCount, requiredViewCount: p.requiredViewCount, completed: p.completed } : undefined
+          };
+        });
       })
     ])
       .then(([exerciseRes, reviewRes]) => {
@@ -132,8 +179,14 @@ export default function AssignmentsTab({ classId }: AssignmentsTabProps) {
 
   if (loading) return <p className="text-sm text-muted font-bold">Đang tải...</p>;
 
-  const pendingCount = exercises.filter(isExercisePending).length + reviewItems.filter((x) => isReflexAnswerable(x) && !isReflexFullyAnswered(x)).length;
-  const gradedCount = exercises.filter((e) => !isExercisePending(e)).length + reviewItems.filter((x) => isReflexAnswerable(x) && isReflexFullyAnswered(x)).length;
+  const pendingCount =
+    exercises.filter(isExercisePending).length +
+    reviewItems.filter((x) => isReflexAnswerable(x) && !isReflexFullyAnswered(x)).length +
+    reviewItems.filter((x) => isConnectionAnswerable(x) && !isConnectionCompleted(x)).length;
+  const gradedCount =
+    exercises.filter((e) => !isExercisePending(e)).length +
+    reviewItems.filter((x) => isReflexAnswerable(x) && isReflexFullyAnswered(x)).length +
+    reviewItems.filter((x) => isConnectionAnswerable(x) && isConnectionCompleted(x)).length;
 
   const filteredExercises = exercises.filter((e) => {
     if (filterType === "VIDEO") return false;
@@ -144,7 +197,11 @@ export default function AssignmentsTab({ classId }: AssignmentsTabProps) {
   const filteredReviewItems = reviewItems.filter((x) => {
     if (filterType === "EXERCISE") return false;
     if (filterStatus === "ALL") return true;
-    if (x.videoType === "CONNECTION" || !isReflexAnswerable(x)) return false; // CONNECTION không có ngưỡng "hoàn thành" đơn lẻ; REFLEX chưa có câu hỏi thì chưa tham gia lọc
+    if (x.videoType === "CONNECTION") {
+      if (!isConnectionAnswerable(x)) return false; // API tiến độ lỗi/chưa tải xong — chưa tham gia lọc
+      return filterStatus === "PENDING" ? !isConnectionCompleted(x) : isConnectionCompleted(x);
+    }
+    if (!isReflexAnswerable(x)) return false; // REFLEX chưa có câu hỏi — chưa tham gia lọc
     if (filterStatus === "PENDING") return !isReflexFullyAnswered(x);
     return isReflexFullyAnswered(x);
   });
@@ -310,12 +367,14 @@ export default function AssignmentsTab({ classId }: AssignmentsTabProps) {
 
 function ExerciseCard({ item, onOpen }: { item: AssignedExerciseResponse; onOpen: () => void }) {
   const isOverdue = item.dueAt != null && new Date(item.dueAt) < new Date();
-  const attemptMeta = item.myLatestAttemptStatus ? attemptStatusLabels[item.myLatestAttemptStatus] : null;
+  const retake = needsRetake(item);
+  const attemptMeta = retake ? null : item.myLatestAttemptStatus ? attemptStatusLabels[item.myLatestAttemptStatus] : null;
   const isFullyGraded = item.myLatestAttemptStatus === "FULLY_GRADED";
   const pending = isExercisePending(item);
 
-  const actionLabel =
-    item.myLatestAttemptStatus == null
+  const actionLabel = retake
+    ? "Làm lại bài"
+    : item.myLatestAttemptStatus == null
       ? "Làm bài ngay"
       : item.myLatestAttemptStatus === "IN_PROGRESS"
         ? "Tiếp tục làm bài"
@@ -333,7 +392,11 @@ function ExerciseCard({ item, onOpen }: { item: AssignedExerciseResponse; onOpen
         <div className="flex flex-wrap items-center gap-2">
           <span className="px-2.5 py-0.5 rounded-lg bg-teal/10 text-teal border border-teal/20 text-[11px] font-black">{item.exerciseCode}</span>
           <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-muted text-[11px] font-bold">{item.className}</span>
-          {attemptMeta ? (
+          {retake ? (
+            <span className="px-2.5 py-0.5 rounded-lg bg-coral/10 text-coral border border-coral/20 text-[11px] font-black flex items-center gap-1">
+              <Clock size={12} /> Chưa đạt {item.myLatestPercentage != null ? `(${item.myLatestPercentage}%)` : ""} — cần làm lại
+            </span>
+          ) : attemptMeta ? (
             <span className={`px-2.5 py-0.5 rounded-lg text-[11px] font-black flex items-center gap-1 ${attemptMeta.className}`}>
               <CheckCircle2 size={12} /> {attemptMeta.label}
             </span>
@@ -361,7 +424,7 @@ function ExerciseCard({ item, onOpen }: { item: AssignedExerciseResponse; onOpen
         <button
           onClick={onOpen}
           className={`w-full md:w-auto flex items-center justify-center gap-1.5 px-5 py-2.5 font-extrabold text-xs rounded-xl shadow-sm transition-all cursor-pointer ${
-            isFullyGraded ? "bg-slate-100 hover:bg-slate-200 text-ink border border-line" : "bg-teal hover:bg-teal-deep text-white"
+            isFullyGraded && !retake ? "bg-slate-100 hover:bg-slate-200 text-ink border border-line" : "bg-teal hover:bg-teal-deep text-white"
           }`}
         >
           {actionLabel} <ChevronRight size={14} />
@@ -374,15 +437,23 @@ function ExerciseCard({ item, onOpen }: { item: AssignedExerciseResponse; onOpen
 function ReviewVideoCard({ item, onOpen }: { item: ReviewVideoHomeworkItem; onOpen: () => void }) {
   const { video, videoType, setTitle, reflexStats, dueAt } = item;
   const isConnection = videoType === "CONNECTION";
-  const answerable = isReflexAnswerable(item);
-  const fullyAnswered = isReflexFullyAnswered(item);
+  const answerable = isConnection ? isConnectionAnswerable(item) : isReflexAnswerable(item);
+  const fullyAnswered = isConnection ? isConnectionCompleted(item) : isReflexFullyAnswered(item);
   const isOverdue = dueAt != null && new Date(dueAt) < new Date();
 
   let statusBadge: React.ReactNode;
   if (isConnection) {
-    statusBadge = (
+    statusBadge = !item.connectionStats ? (
       <span className="px-2.5 py-0.5 rounded-lg bg-sky text-teal-deep text-[11px] font-black flex items-center gap-1">
         <Play size={12} /> Xem để ôn tập
+      </span>
+    ) : fullyAnswered ? (
+      <span className="px-2.5 py-0.5 rounded-lg bg-teal/10 text-teal-deep text-[11px] font-black flex items-center gap-1">
+        <CheckCircle2 size={12} /> Đã đạt {item.connectionStats.viewCount}/{item.connectionStats.requiredViewCount} lượt
+      </span>
+    ) : (
+      <span className="px-2.5 py-0.5 rounded-lg bg-amber-100 text-amber-800 border border-amber-300 text-[11px] font-black flex items-center gap-1">
+        <Clock size={12} /> Đã đạt {item.connectionStats.viewCount}/{item.connectionStats.requiredViewCount} lượt
       </span>
     );
   } else if (!answerable) {

@@ -465,6 +465,15 @@ export function startReviewVideoWatchSession(videoId: number): Promise<StartWatc
   return apiRequest<StartWatchSessionResponse>(`/review-videos/${videoId}/watch-sessions`, { method: "POST" });
 }
 
+/**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — đọc lại tiến độ ĐÃ LƯU (không mở
+ * lượt xem mới) — dùng để hiện đúng trạng thái đạt/chưa đạt ngay khi mở modal (không đợi report
+ * sống) và để danh sách "Bài tập về nhà" tính đúng CONNECTION vào bộ đếm Cần hoàn thành/Đã nộp.
+ */
+export function getReviewVideoProgress(videoId: number): Promise<ReviewVideoProgressResponse> {
+  return apiRequest<ReviewVideoProgressResponse>(`/review-videos/${videoId}/progress`);
+}
+
 /** UC-23a Main Flow bước 3 (V59): báo tiến độ xem (giây) cho ĐÚNG 1 lượt xem (watchSessionId) — BE tự lấy max(cũ, mới) trong phạm vi lượt đó, không bao giờ giảm. */
 export function reportReviewVideoProgress(videoId: number, watchSessionId: number, watchedSeconds: number): Promise<ReviewVideoProgressResponse> {
   return apiRequest<ReviewVideoProgressResponse>(`/review-videos/${videoId}/progress`, {
@@ -611,10 +620,31 @@ export interface AssignedExerciseResponse {
   myLatestAttemptId: number | null;
   myLatestAttemptStatus: "IN_PROGRESS" | "AUTO_GRADED" | "FULLY_GRADED" | null;
   myLatestTotalScore: number | null;
+  /** V89, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05: BTVN <ngưỡng đạt phải làm lại — NULL khi chưa chấm xong (totalScore null). */
+  myLatestPercentage: number | null;
+  myLatestPassed: boolean | null;
 }
 
 export function listMyAssignedExercises(classId?: number): Promise<AssignedExerciseResponse[]> {
   return apiRequest<AssignedExerciseResponse[]>(`/students/me/exercises${classId ? `?classId=${classId}` : ""}`);
+}
+
+/**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — chỉ lấy
+ * allowRetake/maxAttempts/passThresholdPercent để hiện popup kết quả sau
+ * khi nộp bài (số lượt còn lại để làm lại). Học sinh xem được đề đã được
+ * giao cho mình (rào requireCanViewExercise ở BE, cùng rào listExerciseQuestions).
+ */
+export interface ExerciseMetaResponse {
+  id: number;
+  title: string;
+  allowRetake: boolean;
+  maxAttempts: number | null;
+  passThresholdPercent: number;
+}
+
+export function getExercise(exerciseId: number): Promise<ExerciseMetaResponse> {
+  return apiRequest<ExerciseMetaResponse>(`/exercises/${exerciseId}`);
 }
 
 /** UC-24/UC-27 (BE bổ sung): phương án chọn cho câu trắc nghiệm — CHỦ Ý không có isCorrect, chỉ lộ qua StudentAnswerResponse.correctChoiceIds sau khi nộp bài. */
@@ -652,20 +682,6 @@ export function listExerciseQuestions(exerciseId: number): Promise<ExerciseQuest
   return apiRequest<ExerciseQuestionResponse[]>(`/exercises/${exerciseId}/questions`);
 }
 
-/**
- * UC-24/A4, UC-27/A2: chỉ cần maxAttempts để tính học sinh còn bao nhiêu lượt trước khi đáp án được
- * mở khóa — GET /api/exercises/{id} trả về ExerciseResponse đầy đủ (DTO của Admin), interface này chỉ
- * khai field cần dùng ở Portal (typing cấu trúc, các field khác của response bị bỏ qua).
- */
-export interface ExerciseAttemptLimitResponse {
-  id: number;
-  maxAttempts: number | null;
-}
-
-export function getExerciseAttemptLimit(exerciseId: number): Promise<ExerciseAttemptLimitResponse> {
-  return apiRequest<ExerciseAttemptLimitResponse>(`/exercises/${exerciseId}`);
-}
-
 // ===================== UC-24/UC-27: Làm bài + nộp bài =====================
 
 export interface ExerciseAttemptResponse {
@@ -681,6 +697,9 @@ export interface ExerciseAttemptResponse {
   totalScore: number | null;
   status: "IN_PROGRESS" | "AUTO_GRADED" | "FULLY_GRADED";
   isLateSubmission: boolean;
+  /** V89, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05: NULL khi totalScore chưa có (chưa chấm xong). */
+  percentage: number | null;
+  passed: boolean | null;
 }
 
 /** Main Flow bước 1: mở lượt làm mới — LUÔN tạo attempt mới (không tự resume), chỉ gọi khi thật sự chưa có attempt nào hoặc muốn làm lại. */
@@ -768,6 +787,8 @@ export interface IntegrityEventBatchResponse {
   totalViolationCount: number;
   totalViolationDurationSeconds: number;
   notifiedByThisBatch: boolean;
+  /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — true = bài làm vừa bị hệ thống dừng ép do vượt ngưỡng vi phạm. */
+  attemptStopped: boolean;
 }
 
 /** Học sinh gửi theo lô các sự kiện thoát ra ngoài khi đang làm 1 lượt Exercise — dùng chung với useIntegrityMonitor. */

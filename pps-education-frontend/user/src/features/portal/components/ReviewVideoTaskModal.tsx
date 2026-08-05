@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Check, CheckCircle2, Clock, History, Mic, ShieldAlert, Square, Upload, X, XCircle } from "lucide-react";
+import { Check, CheckCircle2, Clock, History, Mic, ShieldAlert, Square, Upload, X } from "lucide-react";
 import { friendlyApiErrorMessage } from "@/lib/apiClient";
 import {
   ConnectionAnswerResult,
@@ -9,6 +9,7 @@ import {
   ReviewVideoResponse,
   ReviewVideoSubmissionResponse,
   getMyLatestReviewVideoSubmission,
+  getReviewVideoProgress,
   listMyReviewVideoSubmissionHistory,
   listReviewVideoConnectionQuestions,
   listReviewVideoQuestions,
@@ -354,6 +355,12 @@ export default function ReviewVideoTaskModal({ video, videoType, onClose, onSubm
     startReviewVideoWatchSession(video.id)
       .then((r) => setWatchSessionId(r.sessionId))
       .catch(() => undefined);
+    // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — đọc lại tiến độ ĐÃ LƯU ngay khi
+    // mở modal (trước đây "Tổng số lượt đã đạt" chỉ hiện SAU khi có report sống trong phiên đang mở,
+    // nên mở lần đầu luôn thấy trống dù đã có tiến độ từ trước).
+    getReviewVideoProgress(video.id)
+      .then((p) => setProgressSummary({ viewCount: p.viewCount, requiredViewCount: p.requiredViewCount, completed: p.completed }))
+      .catch(() => undefined);
   }, [video.id, videoType]);
 
   useEffect(() => {
@@ -397,6 +404,16 @@ export default function ReviewVideoTaskModal({ video, videoType, onClose, onSubm
   );
   const watchedPercent = isYouTube ? youTubeWatchedPercent : mediaWatchedPercent;
   const sessionQualified = watchedPercent >= video.completionThresholdPercent;
+
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — câu hỏi cuối lượt xem hiện dạng
+  // popup đè lên (thay vì nằm ở cuối, phải cuộn xuống mới thấy) — tự bật NGAY khi lượt xem vừa đạt
+  // ngưỡng (không bật lại nếu học sinh tự đóng, tránh làm phiền). Đóng popup không mất tiến độ — vẫn
+  // còn banner nhắc trong luồng chính để mở lại trả lời sau.
+  const [quizPopupOpen, setQuizPopupOpen] = useState(false);
+  useEffect(() => {
+    if (sessionQualified) setQuizPopupOpen(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionQualified]);
 
   const [questions, setQuestions] = useState<ReviewVideoQuestionResponse[]>([]);
   const [loadingQuestions, setLoadingQuestions] = useState(videoType === "REFLEX");
@@ -447,6 +464,82 @@ export default function ReviewVideoTaskModal({ video, videoType, onClose, onSubm
         >
           <ShieldAlert size={18} className="shrink-0" />
           <span className="text-xs font-black">Đã ghi nhận: bạn vừa thoát ra ngoài khi đang làm bài!</span>
+        </div>
+      )}
+
+      {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — câu hỏi cuối lượt xem hiện
+          dạng popup đè lên video/modal, thay vì nằm cuối luồng phải cuộn mới thấy. Đóng được (không
+          mất tiến độ xem) — banner ở luồng chính cho mở lại. */}
+      {videoType === "CONNECTION" && quizPopupOpen && !quizResult && (
+        <div
+          className="fixed inset-0 bg-ink/60 z-[105] flex items-center justify-center p-4"
+          onClick={(e) => {
+            e.stopPropagation();
+            setQuizPopupOpen(false);
+          }}
+        >
+          <div
+            className="bg-white rounded-[20px] max-w-lg w-full max-h-[85vh] overflow-y-auto shadow-2xl p-6 space-y-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <p className="text-xs font-extrabold text-emerald-700 uppercase tracking-wide pt-1">Trả lời câu hỏi để tính lượt xem này</p>
+              <button
+                onClick={() => setQuizPopupOpen(false)}
+                className="w-7 h-7 shrink-0 rounded-full bg-sky-2 hover:bg-sky flex items-center justify-center text-ink transition-colors"
+                aria-label="Đóng"
+              >
+                <X size={14} />
+              </button>
+            </div>
+            {connectionQuestionsError && (
+              <div className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-xl">{connectionQuestionsError}</div>
+            )}
+            {quizError && <div className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-xl">{quizError}</div>}
+            {loadingConnectionQuestions ? (
+              <p className="text-xs text-muted font-bold">Đang tải câu hỏi...</p>
+            ) : connectionQuestions.length === 0 ? (
+              <p className="text-xs text-muted font-bold italic">Video này chưa có câu hỏi — liên hệ Giáo viên.</p>
+            ) : (
+              <>
+                {/* Popup này chỉ hiện khi CHƯA nộp (quizResult == null — xem điều kiện render ở trên) nên không cần nhánh hiển thị kết quả đúng/sai ở đây. */}
+                {connectionQuestions.map((q, i) => (
+                  <div key={q.id} className="space-y-2">
+                    <p className="text-sm font-bold text-ink">
+                      Câu {i + 1}. {q.prompt}
+                    </p>
+                    <div className="space-y-1.5">
+                      {q.choices.map((c) => {
+                        const picked = selectedAnswers[q.id] === c.id;
+                        return (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => setSelectedAnswers((prev) => ({ ...prev, [q.id]: c.id }))}
+                            className={`w-full flex items-center gap-2 text-left px-3 py-2 rounded-xl border text-xs font-bold transition-colors ${
+                              picked ? "bg-teal text-white border-teal" : "bg-white border-line text-ink hover:border-teal/50"
+                            }`}
+                          >
+                            <span className="flex-1">{c.choiceLabel}. {c.content}</span>
+                            {picked && <Check size={14} className="shrink-0" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+
+                <button
+                  type="button"
+                  onClick={handleSubmitConnectionQuiz}
+                  disabled={submittingQuiz || connectionQuestions.some((q) => selectedAnswers[q.id] == null)}
+                  className="w-full px-3 py-2 bg-teal hover:bg-teal-deep text-white rounded-xl text-xs font-extrabold disabled:opacity-50"
+                >
+                  {submittingQuiz ? "Đang nộp..." : "Nộp câu trả lời"}
+                </button>
+              </>
+            )}
+          </div>
         </div>
       )}
 
@@ -526,82 +619,24 @@ export default function ReviewVideoTaskModal({ video, videoType, onClose, onSubm
           </div>
         )}
 
-        {/* V76: câu hỏi trắc nghiệm cuối lượt xem — chỉ hiện SAU KHI lượt hiện tại đạt ngưỡng, và chỉ tới khi đã nộp xong (quizResult != null). */}
-        {videoType === "CONNECTION" && sessionQualified && (
-          <div className="bg-emerald-50/60 border border-emerald-200 rounded-[14px] p-4 space-y-3">
-            <p className="text-[10px] font-extrabold text-emerald-700 uppercase tracking-wide">
-              Trả lời câu hỏi để tính lượt xem này
-            </p>
-            {connectionQuestionsError && (
-              <div className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-xl">{connectionQuestionsError}</div>
-            )}
-            {quizError && <div className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-xl">{quizError}</div>}
-            {loadingConnectionQuestions ? (
-              <p className="text-xs text-muted font-bold">Đang tải câu hỏi...</p>
-            ) : connectionQuestions.length === 0 ? (
-              <p className="text-xs text-muted font-bold italic">Video này chưa có câu hỏi — liên hệ Giáo viên.</p>
-            ) : (
-              <>
-                {connectionQuestions.map((q, i) => {
-                  const result = quizResult?.find((r) => r.questionId === q.id);
-                  return (
-                    <div key={q.id} className="space-y-2">
-                      <p className="text-sm font-bold text-ink">
-                        Câu {i + 1}. {q.prompt}
-                      </p>
-                      <div className="space-y-1.5">
-                        {q.choices.map((c) => {
-                          const picked = selectedAnswers[q.id] === c.id;
-                          const isAnsweredCorrect = result && c.id === result.correctChoiceId;
-                          const isAnsweredWrongPick = result && picked && !result.correct;
-                          return (
-                            <button
-                              key={c.id}
-                              type="button"
-                              disabled={!!quizResult}
-                              onClick={() => setSelectedAnswers((prev) => ({ ...prev, [q.id]: c.id }))}
-                              className={`w-full flex items-center gap-2 text-left px-3 py-2 rounded-xl border text-xs font-bold transition-colors ${
-                                result
-                                  ? isAnsweredCorrect
-                                    ? "bg-emerald-50 border-emerald-300 text-emerald-700"
-                                    : isAnsweredWrongPick
-                                      ? "bg-rose-50 border-rose-300 text-rose-700"
-                                      : "bg-white border-line text-ink"
-                                  : picked
-                                    ? "bg-teal text-white border-teal"
-                                    : "bg-white border-line text-ink hover:border-teal/50"
-                              }`}
-                            >
-                              <span className="flex-1">{c.choiceLabel}. {c.content}</span>
-                              {result && isAnsweredCorrect && <CheckCircle2 size={14} className="shrink-0" />}
-                              {result && isAnsweredWrongPick && <XCircle size={14} className="shrink-0" />}
-                              {!result && picked && <Check size={14} className="shrink-0" />}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
-
-                {quizResult ? (
-                  <div className="flex items-center gap-1.5 text-xs font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 p-2.5 rounded-xl">
-                    <CheckCircle2 size={14} className="shrink-0" />
-                    Đã nộp — {quizResult.filter((r) => r.correct).length}/{quizResult.length} câu đúng. Lượt này đã được tính.
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handleSubmitConnectionQuiz}
-                    disabled={submittingQuiz || connectionQuestions.some((q) => selectedAnswers[q.id] == null)}
-                    className="w-full px-3 py-2 bg-teal hover:bg-teal-deep text-white rounded-xl text-xs font-extrabold disabled:opacity-50"
-                  >
-                    {submittingQuiz ? "Đang nộp..." : "Nộp câu trả lời"}
-                  </button>
-                )}
-              </>
-            )}
+        {/* V76: câu hỏi trắc nghiệm cuối lượt xem — SAU KHI nộp xong, chỉ còn lại xác nhận gọn trong luồng chính (popup đã tự đóng vì quizResult != null). */}
+        {videoType === "CONNECTION" && quizResult && (
+          <div className="flex items-center gap-1.5 text-xs font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 p-3 rounded-[14px]">
+            <CheckCircle2 size={14} className="shrink-0" />
+            Đã nộp — {quizResult.filter((r) => r.correct).length}/{quizResult.length} câu đúng. Lượt này đã được tính.
           </div>
+        )}
+
+        {/* Banner nhắc mở lại popup — chỉ hiện khi đã đạt ngưỡng, chưa trả lời, VÀ học sinh vừa tự đóng popup. */}
+        {videoType === "CONNECTION" && sessionQualified && !quizResult && !quizPopupOpen && (
+          <button
+            type="button"
+            onClick={() => setQuizPopupOpen(true)}
+            className="w-full flex items-center justify-between gap-2 bg-emerald-50 border border-emerald-200 rounded-[14px] p-4 text-left hover:bg-emerald-100 transition-colors"
+          >
+            <span className="text-xs font-extrabold text-emerald-700">Cần trả lời câu hỏi để tính lượt xem này</span>
+            <span className="text-xs font-black text-emerald-700 shrink-0">Trả lời ngay →</span>
+          </button>
         )}
 
         {videoType === "REFLEX" && (
