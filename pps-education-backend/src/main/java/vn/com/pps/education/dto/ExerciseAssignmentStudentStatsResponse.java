@@ -18,6 +18,7 @@ public record ExerciseAssignmentStudentStatsResponse(
             BigDecimal percentage,
             Boolean passed,
             OffsetDateTime submittedAt,
-            Integer attemptNumber
+            Integer attemptNumber,
+            Long attemptId
     ) {}
 }

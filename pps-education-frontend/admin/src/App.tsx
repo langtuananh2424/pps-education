@@ -27,6 +27,7 @@ import SyllabusPage from "@/features/academic/pages/SyllabusPage";
 import GradesPage from "@/features/academic/pages/GradesPage";
 import CommentsPage from "@/features/academic/pages/CommentsPage";
 import HomeworkStatsPage from "@/features/academic/pages/HomeworkStatsPage";
+import AssignmentStatsDetailPage from "@/features/academic/pages/AssignmentStatsDetailPage";
 import QuestionBankPage from "@/features/lms/pages/QuestionBankPage";
 import ExerciseAssignPage from "@/features/lms/pages/ExerciseAssignPage";
 import LecturesPage from "@/features/lms/pages/LecturesPage";
@@ -77,6 +78,7 @@ export default function App() {
           <Route path="/academic/grades" element={<GradesPage />} />
           <Route path="/academic/comments" element={<CommentsPage />} />
           <Route path="/academic/homework-stats" element={<HomeworkStatsPage />} />
+          <Route path="/academic/homework-stats/:assignmentId" element={<AssignmentStatsDetailPage />} />
           <Route path="/lms/question-banks" element={<QuestionBankPage />} />
           <Route path="/lms/exercises" element={<ExerciseAssignPage />} />
           <Route path="/lms/lectures" element={<LecturesPage />} />

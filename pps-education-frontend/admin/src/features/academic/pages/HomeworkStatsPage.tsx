@@ -1,24 +1,13 @@
 import React, { useEffect, useState } from "react";
-import { BarChart3, ChevronDown, ChevronRight, Download } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { BarChart3 } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
-import { downloadBlob } from "@/lib/xlsxTemplate";
 import { useApp } from "@/context/AppContext";
 import { useEligibleClasses } from "../hooks/useEligibleClasses";
-import {
-  ExerciseAssignmentQuestionRow,
-  ExerciseAssignmentQuestionStatsResponse,
-  ExerciseAssignmentStatsResponse,
-  ExerciseAssignmentStudentStatsResponse,
-  exportExerciseAssignmentStats,
-  getExerciseAssignmentQuestionStats,
-  getExerciseAssignmentStudentStats,
-  listExerciseAssignmentStats
-} from "../api";
+import { ExerciseAssignmentStatsResponse, listExerciseAssignmentStats } from "../api";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
-import Badge, { BadgeVariant } from "@/components/ui/Badge";
-import Modal from "@/components/ui/Modal";
-import Tabs from "@/components/ui/Tabs";
+import Badge from "@/components/ui/Badge";
 import TableContainer, { Th, Td } from "@/components/ui/TableContainer";
 import EmptyState from "@/components/ui/EmptyState";
 
@@ -48,8 +37,9 @@ function formatDate(value: string | null): string {
   return new Date(value).toLocaleDateString("vi-VN");
 }
 
-/** UC-66: Thống kê BTVN theo lớp (FR-ACA-07) — Giáo viên/Quản lý điểm trường xem tiến độ và tỷ lệ đạt BTVN của 1 lớp. */
+/** UC-66: Thống kê BTVN theo lớp (FR-ACA-07) — Giáo viên/Quản lý điểm trường xem tiến độ BTVN của 1 lớp. */
 export default function HomeworkStatsPage() {
+  const navigate = useNavigate();
   const { selectedClassId } = useApp();
   const { classes } = useEligibleClasses();
   const selectedClass = classes.find((c) => c.id === selectedClassId) ?? null;
@@ -57,7 +47,6 @@ export default function HomeworkStatsPage() {
   const [assignments, setAssignments] = useState<ExerciseAssignmentStatsResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [detailAssignmentId, setDetailAssignmentId] = useState<number | null>(null);
 
   useEffect(() => {
     if (!selectedClassId) {
@@ -107,7 +96,7 @@ export default function HomeworkStatsPage() {
                   <Th>Ngày giao</Th>
                   <Th>Hạn nộp</Th>
                   <Th className="text-center">% hoàn thành</Th>
-                  <Th className="text-center">Tỷ lệ đạt</Th>
+                  <Th className="text-center">% đạt</Th>
                   <Th />
                 </tr>
               </thead>
@@ -129,7 +118,7 @@ export default function HomeworkStatsPage() {
                       {a.passedCount}/{a.totalStudents} ({a.passRatePercent}%)
                     </Td>
                     <Td className="text-right">
-                      <Button size="sm" onClick={() => setDetailAssignmentId(a.assignmentId)}>
+                      <Button size="sm" onClick={() => navigate(`/academic/homework-stats/${a.assignmentId}`)}>
                         Xem chi tiết
                       </Button>
                     </Td>
@@ -139,179 +128,6 @@ export default function HomeworkStatsPage() {
             </TableContainer>
           )}
         </Card>
-      )}
-
-      {detailAssignmentId && (
-        <AssignmentDetailModal assignmentId={detailAssignmentId} onClose={() => setDetailAssignmentId(null)} />
-      )}
-    </div>
-  );
-}
-
-function AssignmentDetailModal({ assignmentId, onClose }: { assignmentId: number; onClose: () => void }) {
-  const [tab, setTab] = useState<"students" | "questions">("students");
-  const [studentStats, setStudentStats] = useState<ExerciseAssignmentStudentStatsResponse | null>(null);
-  const [questionStats, setQuestionStats] = useState<ExerciseAssignmentQuestionStatsResponse | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [exporting, setExporting] = useState(false);
-  const [expandedQuestionId, setExpandedQuestionId] = useState<number | null>(null);
-
-  useEffect(() => {
-    setLoading(true);
-    setError(null);
-    getExerciseAssignmentStudentStats(assignmentId)
-      .then(setStudentStats)
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được kết quả BTVN."))
-      .finally(() => setLoading(false));
-  }, [assignmentId]);
-
-  useEffect(() => {
-    if (tab !== "questions" || questionStats) return;
-    getExerciseAssignmentQuestionStats(assignmentId)
-      .then(setQuestionStats)
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được phân tích câu hỏi."));
-  }, [tab, assignmentId, questionStats]);
-
-  const handleExport = async () => {
-    setExporting(true);
-    try {
-      const blob = await exportExerciseAssignmentStats(assignmentId);
-      downloadBlob(blob, `thong-ke-btvn-${assignmentId}.xlsx`);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Không xuất được file Excel.");
-    } finally {
-      setExporting(false);
-    }
-  };
-
-  return (
-    <Modal
-      open
-      onClose={onClose}
-      title={studentStats ? studentStats.assignment.exerciseTitle : "Chi tiết BTVN"}
-      size="lg"
-      footer={
-        <Button variant="primary" size="sm" onClick={handleExport} disabled={exporting || !studentStats}>
-          <Download className="w-3.5 h-3.5" /> {exporting ? "Đang xuất..." : "Xuất Excel"}
-        </Button>
-      }
-    >
-      <div className="space-y-4">
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
-
-        <Tabs
-          items={[
-            { id: "students", label: "Kết quả học sinh" },
-            { id: "questions", label: "Phân tích câu hỏi" }
-          ]}
-          activeId={tab}
-          onChange={(id) => setTab(id as "students" | "questions")}
-        />
-
-        {tab === "students" &&
-          (loading ? (
-            <p className="text-xs text-slate-500">Đang tải...</p>
-          ) : !studentStats || studentStats.students.length === 0 ? (
-            <p className="text-xs text-slate-400 italic">Chưa có dữ liệu để hiển thị.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs border-collapse">
-                <thead>
-                  <tr className="bg-slate-50">
-                    <th className="text-left p-2 border border-slate-200 sticky left-0 bg-slate-50">Học sinh</th>
-                    <th className="text-center p-2 border border-slate-200">Trạng thái</th>
-                    <th className="text-center p-2 border border-slate-200">Điểm</th>
-                    <th className="text-center p-2 border border-slate-200">%</th>
-                    <th className="text-center p-2 border border-slate-200">Đạt</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {studentStats.students.map((s) => (
-                    <tr key={s.studentId}>
-                      <td className="p-2 border border-slate-200 font-semibold sticky left-0 bg-white whitespace-nowrap">
-                        {s.studentFullName} <span className="text-slate-400 font-mono text-[10px]">({s.studentCode})</span>
-                      </td>
-                      <td className="text-center p-2 border border-slate-200">
-                        <Badge variant={studentStatusVariants[s.status]}>{studentStatusLabels[s.status]}</Badge>
-                      </td>
-                      <td className="text-center p-2 border border-slate-200">
-                        {s.totalScore != null ? `${s.totalScore}/${s.totalPoints}` : "—"}
-                      </td>
-                      <td className="text-center p-2 border border-slate-200">{s.percentage != null ? `${s.percentage}%` : "—"}</td>
-                      <td className="text-center p-2 border border-slate-200">
-                        {s.passed == null ? "—" : <Badge variant={s.passed ? "success" : "danger"}>{s.passed ? "Đạt" : "Chưa đạt"}</Badge>}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ))}
-
-        {tab === "questions" &&
-          (!questionStats ? (
-            <p className="text-xs text-slate-500">Đang tải...</p>
-          ) : questionStats.questions.length === 0 ? (
-            <p className="text-xs text-slate-400 italic">Chưa có dữ liệu để hiển thị.</p>
-          ) : (
-            <div className="space-y-2">
-              {[...questionStats.questions]
-                .sort((a, b) => b.wrongRatePercent - a.wrongRatePercent)
-                .map((q) => (
-                  <QuestionRow
-                    key={q.questionId}
-                    question={q}
-                    expanded={expandedQuestionId === q.questionId}
-                    onToggle={() => setExpandedQuestionId(expandedQuestionId === q.questionId ? null : q.questionId)}
-                  />
-                ))}
-            </div>
-          ))}
-      </div>
-    </Modal>
-  );
-}
-
-function QuestionRow({
-  question,
-  expanded,
-  onToggle
-}: {
-  question: ExerciseAssignmentQuestionRow;
-  expanded: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <div className="border border-slate-200 rounded-lg overflow-hidden">
-      <button
-        onClick={onToggle}
-        className="w-full flex items-center justify-between gap-3 p-2.5 text-left hover:bg-slate-50"
-      >
-        <div className="flex items-center gap-2 min-w-0">
-          {expanded ? <ChevronDown className="w-3.5 h-3.5 shrink-0 text-slate-400" /> : <ChevronRight className="w-3.5 h-3.5 shrink-0 text-slate-400" />}
-          <span className="text-xs text-slate-700 truncate">
-            Câu {question.displayOrder}: {question.content}
-          </span>
-        </div>
-        <Badge variant={question.wrongRatePercent >= 50 ? "danger" : question.wrongRatePercent > 0 ? "warning" : "success"} className="shrink-0">
-          Sai {question.wrongCount}/{question.answeredCount} ({question.wrongRatePercent}%)
-        </Badge>
-      </button>
-      {expanded && (
-        <div className="px-4 pb-3 pl-11">
-          {question.wrongStudents.length === 0 ? (
-            <p className="text-[11px] text-slate-400 italic">Không có học sinh nào trả lời sai.</p>
-          ) : (
-            <ul className="text-[11px] text-slate-600 space-y-1">
-              {question.wrongStudents.map((s) => (
-                <li key={s.studentId}>
-                  {s.studentFullName} <span className="text-slate-400 font-mono">({s.studentCode})</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
       )}
     </div>
   );

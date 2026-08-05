@@ -959,6 +959,7 @@ export interface ExerciseAssignmentStudentRow {
   passed: boolean | null;
   submittedAt: string | null;
   attemptNumber: number | null;
+  attemptId: number | null;
 }
 
 export interface ExerciseAssignmentStudentStatsResponse {
@@ -1002,4 +1003,23 @@ export function getExerciseAssignmentQuestionStats(assignmentId: number): Promis
 
 export function exportExerciseAssignmentStats(assignmentId: number): Promise<Blob> {
   return apiRequestBlob(`/exercise-assignments/${assignmentId}/stats/export`);
+}
+
+export interface StudentAnswerRow {
+  id: number;
+  exerciseAttemptId: number;
+  questionId: number;
+  answerText: string | null;
+  selectedChoiceIds: number[];
+  audioAnswerUrl: string | null;
+  isAutoGradable: boolean;
+  autoScore: number | null;
+  isCorrect: boolean | null;
+  correctChoiceIds: number[];
+  correctAnswerText: string | null;
+  explanation: string | null;
+}
+
+export function getAttemptAnswers(attemptId: number): Promise<StudentAnswerRow[]> {
+  return apiRequest<StudentAnswerRow[]>(`/attempts/${attemptId}/answers`);
 }
