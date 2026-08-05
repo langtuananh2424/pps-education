@@ -1600,4 +1600,72 @@ người dùng)
 | ostcondition)** |                                                    |
 +-----------------+----------------------------------------------------+
 
+---
+
+UC-66: Thống kê BTVN theo lớp
+
++-----------------+----------------------------------------------------+
+| **Mã Use Case** | UC-66                                              |
++-----------------+----------------------------------------------------+
+| **Tên Use       | Thống kê BTVN theo lớp                             |
+| Case**          |                                                    |
++-----------------+----------------------------------------------------+
+| **Phân hệ**     | Phân hệ 6                                          |
++-----------------+----------------------------------------------------+
+| **Yêu cầu chức  | FR-ACA-07 (bổ sung ngoài SDD gốc, đã xác nhận với  |
+| năng gốc**      | người dùng 2026-08-05)                             |
++-----------------+----------------------------------------------------+
+| **Tác nhân**    | Giáo viên, Quản lý điểm trường                     |
++-----------------+----------------------------------------------------+
+| **Mô tả tóm     | Giáo viên/Quản lý điểm trường xem thống kê tổng    |
+| tắt**           | hợp kết quả BTVN đã giao cho 1 lớp: % hoàn thành,  |
+|                 | tỷ lệ đạt, kết quả từng học sinh, và phân tích câu |
+|                 | hỏi hay bị sai — xuất được file Excel.             |
++-----------------+----------------------------------------------------+
+| **Sự kiện kích  | Giáo viên/Quản lý điểm trường cần đánh giá tiến độ |
+| hoạt**          | và chất lượng làm BTVN của 1 lớp.                  |
++-----------------+----------------------------------------------------+
+| **Điều kiện     | -   Giáo viên được phân công giảng dạy lớp (hoặc   |
+| tiên quyết      |     Quản lý điểm trường phụ trách điểm trường của  |
+| (               |     lớp).                                          |
+| Precondition)** | -   Lớp đã có ít nhất 1 BTVN được giao              |
+|                 |     (exercise_assignments, gồm cả ASSIGNED và       |
+|                 |     SELF_PRACTICE — xem UC-27 V65).                |
++-----------------+----------------------------------------------------+
+| **Luồng sự kiện | 1.  Actor chọn lớp cần xem — hệ thống hiển thị     |
+| chính (Main     |     danh sách BTVN đã giao cho lớp, mỗi BTVN kèm   |
+| Flow)**         |     % học sinh đã hoàn thành và tỷ lệ đạt (dựa     |
+|                 |     trên exercises.pass_threshold_percent, V89).   |
+|                 |                                                    |
+|                 | 2.  Actor chọn 1 BTVN → xem kết quả từng học sinh: |
+|                 |     trạng thái (chưa làm/đang làm/đã nộp/trễ hạn), |
+|                 |     điểm, phần trăm, đạt/chưa đạt — đọc trực tiếp  |
+|                 |     từ exercise_attempts.passed/total_score đã     |
+|                 |     được tính sẵn (ExerciseAttemptService#         |
+|                 |     applyPassOutcome), không tính lại.             |
+|                 |                                                    |
+|                 | 3.  Actor xem phân tích theo câu hỏi: câu nào bị   |
+|                 |     sai nhiều nhất và những học sinh nào sai câu   |
+|                 |     đó (câu tự luận/Nói chưa được Giáo viên chấm   |
+|                 |     tay bị loại khỏi thống kê này).                |
+|                 |                                                    |
+|                 | 4.  Actor xuất file Excel kết quả từng học sinh    |
+|                 |     của BTVN đang xem.                             |
++-----------------+----------------------------------------------------+
+| **Luồng thay    | ***A1 --- Lớp chưa có BTVN nào***                  |
+| thế / ngoại lệ  |                                                    |
+| (Alternate      | 1.  Hệ thống hiển thị danh sách rỗng, không báo    |
+| Flow)**         |     lỗi.                                           |
+|                 |                                                    |
+|                 | ***A2 --- Actor không có quyền xem lớp***          |
+|                 |                                                    |
+|                 | 1.  Nếu actor không được phân công giảng dạy lớp   |
+|                 |     và không phụ trách điểm trường của lớp, hệ     |
+|                 |     thống từ chối truy cập (403).                  |
++-----------------+----------------------------------------------------+
+| **Hậu điều kiện | -   Không thay đổi dữ liệu — UC thuần đọc/báo cáo. |
+| (P              |                                                    |
+| ostcondition)** |                                                    |
++-----------------+----------------------------------------------------+
+
 Phân hệ 7 --- Cổng thông tin và E-Learning (Portal & LMS)

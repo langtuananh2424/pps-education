@@ -1,5 +1,6 @@
 import {
   Award,
+  BarChart3,
   Building2,
   CalendarDays,
   CheckSquare,
@@ -161,7 +162,9 @@ export const navSections: NavSection[] = [
       // Trang GradesPage vẫn giữ cho HEAD_ACADEMIC/SYS_ADMIN xem tổng quan + SITE_MANAGER công bố điểm (UC-20).
       { id: "acad-grades", label: "Sổ điểm hệ thống", path: "/academic/grades", icon: Award, requiredRoleAny: [UserRole.HEAD_ACADEMIC, UserRole.SYS_ADMIN, UserRole.SITE_MANAGER] },
       // academic.comment.write: TEACHER có sẵn (viết nhận xét). SITE_MANAGER duyệt nhận xét qua role check nội bộ trang, không có permission riêng.
-      { id: "acad-comments", label: "Nhận xét học viên", path: "/academic/comments", icon: Award, requiredPermission: "academic.comment.write", requiredRoleAny: [UserRole.SITE_MANAGER] }
+      { id: "acad-comments", label: "Nhận xét học viên", path: "/academic/comments", icon: Award, requiredPermission: "academic.comment.write", requiredRoleAny: [UserRole.SITE_MANAGER] },
+      // UC-66/FR-ACA-07: lms.exercise.report.view (V90) chỉ gán TEACHER + SITE_MANAGER — tự gate đúng audience, không cần requiredRoleAny.
+      { id: "acad-homework-stats", label: "Thống kê BTVN theo lớp", path: "/academic/homework-stats", icon: BarChart3, requiredPermission: "lms.exercise.report.view" }
     ]
   },
   {

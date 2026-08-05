@@ -558,6 +558,20 @@ nhân đó mới được thao tác.*
         thi mới ngoài 6 giá trị gốc (Nghe/Nói/Đọc/Viết/Ngữ pháp/Dự án),
         không cần lập trình viên can thiệp (UC-54).
 
+    -   **FR-ACA-07: Thống kê BTVN theo lớp -** (bổ sung ngoài SDD gốc,
+        đã xác nhận với người dùng 2026-08-05) Giáo viên/Quản lý điểm
+        trường xem danh sách BTVN đã giao cho 1 lớp (`exercise_assignments`,
+        gồm cả loại có hạn nộp ASSIGNED và loại tự luyện không hạn
+        SELF_PRACTICE), mỗi BTVN hiển thị % học sinh đã hoàn thành và tỷ
+        lệ đạt (dựa trên `exercises.pass_threshold_percent`, V89). Xem
+        chi tiết 1 BTVN → kết quả từng học sinh (trạng thái chưa làm/
+        đang làm/đã nộp/trễ hạn, điểm, %, đạt/chưa đạt — đọc trực tiếp từ
+        `exercise_attempts.passed`/`total_score` đã tính sẵn, không tính
+        lại). Xem sâu hơn → phân tích theo từng câu hỏi: câu nào bị sai
+        nhiều nhất, học sinh nào sai câu nào (câu tự luận/Nói chưa được
+        Giáo viên chấm tay bị loại khỏi thống kê này). Có xuất file Excel
+        (kết quả từng học sinh) (UC-66).
+
 **PHÂN HỆ 7: CỔNG THÔNG TIN VÀ E-LEARNING (PORTAL & LMS - TÍCH HỢP
 CDN)**
 
@@ -885,6 +899,9 @@ CDN)**
 
   UC-54             Quản lý danh mục  FR-ACA-06         6
                     kỹ năng                             
+
+  UC-66             Thống kê BTVN     FR-ACA-07         6
+                    theo lớp                            
 
   UC-21             Viết nhận xét học FR-ACA-04         6
                     sinh                                
