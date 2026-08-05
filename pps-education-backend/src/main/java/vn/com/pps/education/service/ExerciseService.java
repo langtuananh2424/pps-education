@@ -426,11 +426,17 @@ public class ExerciseService {
         if (exercise.getStatus() != Exercise.Status.PUBLISHED) {
             throw new ResourceNotFoundException("Không tìm thấy đề id=" + exercise.getId());
         }
-        boolean hasActiveAssignment = classEnrollmentRepository.findByStudentId(student.get().getId()).stream()
+        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06: chấp nhận CẢ ACTIVE lẫn
+        // COMPLETED (không chỉ ACTIVE) — mirror ExerciseAttemptService#listMyAssignedExercises (V92).
+        // Trước đây học sinh ĐÃ ĐẠT (bản giao tự đóng COMPLETED, xem applyPassOutcome) bị chặn xem lại
+        // chính đề mình vừa làm/xem đáp án, dù danh sách BTVN vẫn hiện đúng bài đó.
+        boolean hasVisibleAssignment = classEnrollmentRepository.findByStudentId(student.get().getId()).stream()
                 .filter(e -> e.getStatus() == ClassEnrollment.Status.ACTIVE)
                 .anyMatch(e -> !exerciseAssignmentRepository.findByExerciseIdAndSchoolClassIdAndStatus(
-                        exercise.getId(), e.getSchoolClass().getId(), ExerciseAssignment.Status.ACTIVE).isEmpty());
-        if (!hasActiveAssignment) {
+                        exercise.getId(), e.getSchoolClass().getId(), ExerciseAssignment.Status.ACTIVE).isEmpty()
+                        || !exerciseAssignmentRepository.findByExerciseIdAndSchoolClassIdAndStatus(
+                        exercise.getId(), e.getSchoolClass().getId(), ExerciseAssignment.Status.COMPLETED).isEmpty());
+        if (!hasVisibleAssignment) {
             throw new ResourceNotFoundException("Không tìm thấy đề id=" + exercise.getId());
         }
     }

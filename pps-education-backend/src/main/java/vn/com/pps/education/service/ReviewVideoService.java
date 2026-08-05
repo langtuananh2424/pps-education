@@ -132,6 +132,7 @@ public class ReviewVideoService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final AttemptIntegrityService attemptIntegrityService;
+    private final ReviewVideoSettings reviewVideoSettings;
     /** V71: chạy riêng 1 giao dịch lồng (PROPAGATION_REQUIRES_NEW) khi thử tạo bản giao — race thua (bắt
      * DataIntegrityViolationException do UNIQUE index) chỉ rollback đúng giao dịch con này, không kéo
      * theo giao dịch ngoài (đang cần đọc lại bản ghi đã thắng) — xem Javadoc deliverToClass. */
@@ -157,6 +158,7 @@ public class ReviewVideoService {
                                UserRepository userRepository,
                                NotificationService notificationService,
                                AttemptIntegrityService attemptIntegrityService,
+                               ReviewVideoSettings reviewVideoSettings,
                                PlatformTransactionManager transactionManager) {
         this.reviewVideoSetRepository = reviewVideoSetRepository;
         this.reviewVideoRepository = reviewVideoRepository;
@@ -178,6 +180,7 @@ public class ReviewVideoService {
         this.userRepository = userRepository;
         this.notificationService = notificationService;
         this.attemptIntegrityService = attemptIntegrityService;
+        this.reviewVideoSettings = reviewVideoSettings;
         this.requiresNewTransactionTemplate = new TransactionTemplate(transactionManager);
         this.requiresNewTransactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
@@ -595,6 +598,27 @@ public class ReviewVideoService {
      * khác (khác cơ chế watermark suốt đời cũ, vốn không phân biệt được
      * "lần" nào với "lần" nào).
      */
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — đọc lại
+     * tiến độ ĐÃ LƯU (viewCount/completed) cho video CONNECTION mà KHÔNG mở
+     * lượt xem mới, dùng cho màn "Bài tập về nhà" (danh sách) hiển thị đúng
+     * trạng thái đã đạt/chưa đạt mà không cần học sinh mở video ra xem lại
+     * mới biết — trước đây không có API nào đọc lại được, chỉ có được qua
+     * report tiến độ SỐNG trong lúc đang xem (reportProgress).
+     *
+     * V93 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06):
+     * "đạt" (completed) của video CONNECTION đổi từ "đủ SỐ LƯỢT tuyệt đối"
+     * sang TỶ LỆ % (viewCount/requiredViewCount ≥ ngưỡng cấu hình, mặc định
+     * 80%) — xem {@link #recomputeProgress}. Ví dụ: yêu cầu 4 lượt, học sinh
+     * xem+nộp đúng 3 lượt = 75%, CHƯA đạt (cần ≥80%).
+     */
+    @Transactional(readOnly = true)
+    public ReviewVideoProgressResponse getProgress(Long videoId, Long actorUserId) {
+        ReviewVideo video = getVideoOrThrow(videoId);
+        Student student = requireStudentCanViewSet(video.getReviewVideoSet(), actorUserId);
+        return toResponse(getOrCreateProgress(video, student), video);
+    }
+
     @Transactional
     public StartWatchSessionResponse startWatchSession(Long videoId, Long actorUserId) {
         ReviewVideo video = getVideoOrThrow(videoId);
@@ -1042,6 +1066,14 @@ public class ReviewVideoService {
      * xem VỪA đạt ngưỡng VỪA đã nộp đủ câu hỏi (quizCompletedAt khác NULL);
      * video khác (REFLEX, nếu có gọi watch-session) giữ nguyên công thức cũ
      * (chỉ cần qualified) — không đổi hành vi REFLEX.
+     *
+     * V93 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06):
+     * "đạt" (completed) của CONNECTION đổi từ đủ SỐ LƯỢT tuyệt đối
+     * (viewCount >= requiredViewCount) sang TỶ LỆ %
+     * (viewCount/requiredViewCount >= ReviewVideoSettings#completionPassThresholdPercent,
+     * mặc định 80%) — VD yêu cầu 4 lượt, xem+nộp đúng 3 lượt = 75%, CHƯA
+     * đạt. REFLEX giữ nguyên công thức cũ (không đổi hành vi, xem ghi chú
+     * V83 phía trên).
      */
     private ReviewVideoProgress recomputeProgress(ReviewVideo video, Student student) {
         ReviewVideoProgress progress = getOrCreateProgress(video, student);
@@ -1051,7 +1083,10 @@ public class ReviewVideoService {
                         video.getId(), student.getId())
                 : reviewVideoWatchSessionRepository.countByReviewVideoIdAndStudentIdAndQualifiedTrue(video.getId(), student.getId());
         progress.setViewCount(viewCount);
-        progress.setCompleted(viewCount >= video.getRequiredViewCount());
+        boolean completed = requiresQuiz
+                ? viewCount * 100.0 / video.getRequiredViewCount() >= reviewVideoSettings.completionPassThresholdPercent()
+                : viewCount >= video.getRequiredViewCount();
+        progress.setCompleted(completed);
         return reviewVideoProgressRepository.save(progress);
     }
 

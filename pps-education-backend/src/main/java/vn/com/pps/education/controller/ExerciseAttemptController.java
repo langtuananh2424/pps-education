@@ -85,4 +85,20 @@ public class ExerciseAttemptController {
     public ResponseEntity<IntegritySummaryResponse> getIntegritySummary(@PathVariable Long id) {
         return ResponseEntity.ok(attemptIntegrityService.getSummary(AttemptType.EXERCISE, id));
     }
+
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — xem Javadoc ExerciseAttemptService#listAttemptsForGrading. */
+    @PreAuthorize("hasPermission(null, 'lms.grading.manage')")
+    @GetMapping("/api/exercises/{exerciseId}/students/{studentId}/attempts")
+    public ResponseEntity<List<ExerciseAttemptResponse>> listAttemptsForGrading(@PathVariable Long exerciseId,
+                                                                                  @PathVariable Long studentId) {
+        return ResponseEntity.ok(exerciseAttemptService.listAttemptsForGrading(exerciseId, studentId));
+    }
+
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — xem Javadoc ExerciseAttemptService#selectForGrading. */
+    @PreAuthorize("hasPermission(null, 'lms.grading.manage')")
+    @PostMapping("/api/attempts/{id}/select-for-grading")
+    public ResponseEntity<List<ExerciseAttemptResponse>> selectForGrading(@PathVariable Long id,
+                                                                             @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(exerciseAttemptService.selectForGrading(id, actor.userId()));
+    }
 }

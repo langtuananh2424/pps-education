@@ -6,6 +6,7 @@ import vn.com.pps.education.domain.ExerciseAssignment;
 import vn.com.pps.education.domain.ExerciseAttempt;
 import vn.com.pps.education.domain.ReviewVideo;
 import vn.com.pps.education.domain.ReviewVideoAssignment;
+import vn.com.pps.education.domain.ReviewVideoProgress;
 import vn.com.pps.education.domain.ReviewVideoQuestion;
 import vn.com.pps.education.domain.ReviewVideoQuestionSubmission;
 import vn.com.pps.education.domain.ReviewVideoSet;
@@ -94,6 +95,57 @@ public class HomeworkProgressService {
                     ? connectionPercent(v, studentId) : reflexPercent(v, studentId, assignment.getId());
         }
         return Math.round(total / (float) videos.size()) + "%";
+    }
+
+    /**
+     * "Đạt" BTVN Ngữ pháp online — bổ sung ngoài SDD gốc, đã xác nhận với
+     * người dùng 2026-08-06, dùng cho HomeworkAlertTrackingService (cảnh
+     * báo thiếu bài theo lộ trình). Tái dùng thẳng cờ {@code passed} đã
+     * tính sẵn lúc nộp bài ({@link ExerciseAttemptService#applyPassOutcome}),
+     * lượt mới nhất — chưa nộp lượt nào coi là chưa đạt.
+     */
+    public boolean grammarPassed(ExerciseAssignment assignment, Long studentId) {
+        if (assignment == null) {
+            return false;
+        }
+        List<ExerciseAttempt> attempts = exerciseAttemptRepository
+                .findByExerciseIdAndStudentIdOrderByAttemptNumberDesc(assignment.getExercise().getId(), studentId);
+        return !attempts.isEmpty() && Boolean.TRUE.equals(attempts.get(0).getPassed());
+    }
+
+    /**
+     * "Đạt" BTVN Video ôn tập — bổ sung ngoài SDD gốc, đã xác nhận với
+     * người dùng 2026-08-06, dùng cho HomeworkAlertTrackingService.
+     * CONNECTION: tái dùng thẳng {@link ReviewVideoProgress#isCompleted()}
+     * (= viewCount đã đạt requiredViewCount của TỪNG video, đã tính sẵn ở
+     * {@code ReviewVideoService#recomputeProgress}) — đạt buổi khi TẤT CẢ
+     * video trong bộ đều completed. REFLEX: chưa có cờ "đạt" tương đương
+     * có sẵn — tạm so % số câu đã trả lời với ngưỡng cấu hình
+     * (`homework_alert.reflex_pass_threshold_percent`).
+     */
+    public boolean videoPassed(ReviewVideoAssignment assignment, Long studentId, int reflexPassThresholdPercent) {
+        if (assignment == null) {
+            return false;
+        }
+        ReviewVideoSet set = assignment.getReviewVideoSet();
+        List<ReviewVideo> videos = reviewVideoRepository.findByReviewVideoSetIdOrderByDisplayOrder(set.getId());
+        if (videos.isEmpty()) {
+            return false;
+        }
+        if (set.getVideoType() == ReviewVideoSet.VideoType.CONNECTION) {
+            return videos.stream().allMatch(v -> reviewVideoProgressRepository
+                    .findByReviewVideoIdAndStudentId(v.getId(), studentId)
+                    .map(ReviewVideoProgress::isCompleted).orElse(false));
+        }
+        String label = videoProgressLabel(assignment, studentId);
+        if (label == null || !label.endsWith("%")) {
+            return false;
+        }
+        try {
+            return Integer.parseInt(label.substring(0, label.length() - 1)) >= reflexPassThresholdPercent;
+        } catch (NumberFormatException e) {
+            return false;
+        }
     }
 
     /**

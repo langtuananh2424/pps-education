@@ -61,10 +61,15 @@ import java.util.stream.Collectors;
  * GAP đã biết (không tự bịa hướng xử lý — xem .claude/rules/business-fidelity.md):
  * UC-24 Postcondition "kết quả cuối cùng được đồng bộ vào sổ điểm" nhưng
  * SDD không có cột nào liên kết exercise_attempts ↔ grade_entries/
- * grade_components — KHÔNG tự tạo liên kết. UC-27 A1 "đề tự chấm hoàn
- * toàn không cần chờ GV" cũng không có cột cấu hình tương ứng trong SDD —
- * hành vi mặc định (FILL_IN_BLANK/ESSAY/SPEAKING luôn chờ GV) áp dụng cho
- * mọi trường hợp.
+ * grade_components — KHÔNG tự tạo liên kết. V93 (2026-08-06) đã thêm
+ * {@code exercise_attempts.selected_for_grading} để Giáo viên đánh dấu 1
+ * lượt làm CHÍNH THỨC khi có nhiều lượt (xem {@link #selectForGrading}) —
+ * nhưng CHỈ dừng ở đánh dấu, CHƯA ghi tự động vào grade_entries vì còn
+ * thiếu quy tắc ánh xạ Bài tập → đầu điểm (gradeComponent) nào, cần xác
+ * nhận thêm với người dùng trước khi làm tiếp phần đó. UC-27 A1 "đề tự
+ * chấm hoàn toàn không cần chờ GV" cũng không có cột cấu hình tương ứng
+ * trong SDD — hành vi mặc định (FILL_IN_BLANK/ESSAY/SPEAKING luôn chờ GV)
+ * áp dụng cho mọi trường hợp.
  */
 @Service
 public class ExerciseAttemptService {
@@ -194,13 +199,43 @@ public class ExerciseAttemptService {
             attempt.setLateSubmission(true);
         }
 
+        attempt = gradeAndFinalize(attempt, now);
+        writeHistory(attempt, actorUserId, ExerciseAttemptHistory.Action.UPDATED);
+        return toResponse(attempt);
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06: hệ
+     * thống ép dừng bài khi giám sát thoát ra vượt ngưỡng
+     * (`integrity.notify_violation_count_threshold`, xem
+     * AttemptIntegrityService#recordEvents) — chấm ngay phần trả lời đã
+     * có (tái dùng {@link #gradeAndFinalize}, KHÔNG áp rào quá hạn nộp
+     * như submitAttempt vì đây là dừng ép giữa chừng, không phải học sinh
+     * tự nộp). Bỏ qua êm nếu attempt không còn IN_PROGRESS (đã nộp/dừng
+     * trước đó trong cùng đợt gửi sự kiện — tránh chấm đè 2 lần).
+     */
+    @Transactional
+    public ExerciseAttempt forceStopByIntegrityViolation(Long attemptId) {
+        ExerciseAttempt attempt = exerciseAttemptRepository.findById(attemptId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lượt làm bài id=" + attemptId));
+        if (attempt.getStatus() != ExerciseAttempt.Status.IN_PROGRESS) {
+            return attempt;
+        }
+        attempt.setStoppedByIntegrityViolation(true);
+        attempt = gradeAndFinalize(attempt, OffsetDateTime.now());
+        writeHistory(attempt, attempt.getStudent().getUser().getId(), ExerciseAttemptHistory.Action.UPDATED);
+        return attempt;
+    }
+
+    /** Tự chấm phần trắc nghiệm + chốt trạng thái — dùng chung cho submitAttempt (học sinh tự nộp) và forceStopByIntegrityViolation (hệ thống dừng ép). */
+    private ExerciseAttempt gradeAndFinalize(ExerciseAttempt attempt, OffsetDateTime now) {
         List<ExerciseQuestion> exerciseQuestions = exerciseQuestionRepository.findByExerciseIdOrderByDisplayOrder(attempt.getExercise().getId());
         Map<Long, BigDecimal> pointsByQuestionId = exerciseQuestions.stream()
                 .collect(Collectors.toMap(eq -> eq.getQuestion().getId(), ExerciseQuestion::getPoints));
         boolean allAutoGradable = exerciseQuestions.stream()
                 .allMatch(eq -> AUTO_GRADABLE_TYPES.contains(eq.getQuestion().getQuestionType()));
 
-        List<StudentAnswer> answers = studentAnswerRepository.findByExerciseAttemptId(attemptId);
+        List<StudentAnswer> answers = studentAnswerRepository.findByExerciseAttemptId(attempt.getId());
         BigDecimal autoGradeScore = BigDecimal.ZERO;
         for (StudentAnswer answer : answers) {
             if (!answer.isAutoGradable()) {
@@ -224,10 +259,7 @@ public class ExerciseAttemptService {
             attempt.setStatus(ExerciseAttempt.Status.AUTO_GRADED);
         }
         attempt = exerciseAttemptRepository.save(attempt);
-        attempt = applyPassOutcome(attempt);
-
-        writeHistory(attempt, actorUserId, ExerciseAttemptHistory.Action.UPDATED);
-        return toResponse(attempt);
+        return applyPassOutcome(attempt);
     }
 
     /**
@@ -289,6 +321,45 @@ public class ExerciseAttemptService {
     }
 
     /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06: Giáo
+     * viên xem toàn bộ lịch sử nhiều lượt làm bài của 1 học sinh (kèm cờ
+     * {@code stoppedByIntegrityViolation}/{@code selectedForGrading}) khi
+     * chấm, để tự chọn lượt phù hợp làm điểm chính thức qua
+     * {@link #selectForGrading}. Rào quyền ở Controller (lms.grading.manage).
+     */
+    @Transactional(readOnly = true)
+    public List<ExerciseAttemptResponse> listAttemptsForGrading(Long exerciseId, Long studentId) {
+        return exerciseAttemptRepository.findByExerciseIdAndStudentIdOrderByAttemptNumberDesc(exerciseId, studentId)
+                .stream().map(this::toResponse).toList();
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06: Giáo
+     * viên đánh dấu 1 lượt làm bài (trong nhiều lượt của cùng 1 học sinh)
+     * là kết quả CHÍNH THỨC — bỏ chọn mọi lượt khác của ĐÚNG (exercise,
+     * student) đó (tối đa 1 lượt được chọn tại 1 thời điểm). Chỉ đánh
+     * dấu, CHƯA tự ghi vào Sổ điểm (grade_entries) — SDD chưa có quy tắc
+     * ánh xạ Bài tập → đầu điểm cụ thể, cần xác nhận thêm trước khi làm
+     * (GAP đã biết, xem Javadoc lớp này). Rào quyền ở Controller.
+     */
+    @Transactional
+    public List<ExerciseAttemptResponse> selectForGrading(Long attemptId, Long actorUserId) {
+        ExerciseAttempt attempt = exerciseAttemptRepository.findById(attemptId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lượt làm bài id=" + attemptId));
+        List<ExerciseAttempt> siblings = exerciseAttemptRepository.findByExerciseIdAndStudentIdOrderByAttemptNumberDesc(
+                attempt.getExercise().getId(), attempt.getStudent().getId());
+        for (ExerciseAttempt sibling : siblings) {
+            boolean shouldBeSelected = sibling.getId().equals(attemptId);
+            if (sibling.isSelectedForGrading() != shouldBeSelected) {
+                sibling.setSelectedForGrading(shouldBeSelected);
+                exerciseAttemptRepository.save(sibling);
+            }
+        }
+        writeHistory(attempt, actorUserId, ExerciseAttemptHistory.Action.UPDATED);
+        return siblings.stream().map(this::toResponse).toList();
+    }
+
+    /**
      * Bổ sung: Học sinh tự tra cứu đề đã được giao cho (các) lớp mình đang
      * hoặc đã TỪNG ghi danh (kể cả lớp cũ sau khi chuyển lớp — bổ sung
      * ngoài SDD gốc, đã xác nhận với người dùng 2026-07-29; CHỈ xem, không
@@ -310,8 +381,12 @@ public class ExerciseAttemptService {
 
         List<AssignedExerciseResponse> result = new java.util.ArrayList<>();
         for (ClassEnrollment enrollment : enrollments) {
-            List<ExerciseAssignment> assignments = exerciseAssignmentRepository.findBySchoolClassIdAndStatus(
-                    enrollment.getSchoolClass().getId(), ExerciseAssignment.Status.ACTIVE);
+            // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06: lấy CẢ ACTIVE lẫn COMPLETED
+            // (không chỉ ACTIVE) — trước đây bản giao ĐÃ ĐẠT (applyPassOutcome tự đóng COMPLETED) biến
+            // mất hẳn khỏi danh sách BTVN của học sinh thay vì hiện dưới "Đã nộp & Đã chấm". CANCELLED
+            // (GV hủy) vẫn loại — không hiện.
+            List<ExerciseAssignment> assignments = exerciseAssignmentRepository.findBySchoolClassIdAndStatusIn(
+                    enrollment.getSchoolClass().getId(), List.of(ExerciseAssignment.Status.ACTIVE, ExerciseAssignment.Status.COMPLETED));
             for (ExerciseAssignment assignment : assignments) {
                 if (assignment.getTargetStudentIds() != null && !assignment.getTargetStudentIds().contains(student.getId())) {
                     continue;
@@ -423,7 +498,7 @@ public class ExerciseAttemptService {
                 a.getExerciseAssignment() == null ? null : a.getExerciseAssignment().getId(),
                 a.getStudent().getId(), a.getAttemptNumber(), a.getStartedAt(), a.getSubmittedAt(),
                 a.getAutoGradeScore(), a.getManualGradeScore(), a.getTotalScore(), a.getStatus().name(),
-                a.isLateSubmission(), percentage, a.getPassed());
+                a.isLateSubmission(), percentage, a.getPassed(), a.isStoppedByIntegrityViolation(), a.isSelectedForGrading());
     }
 
     private AssignedExerciseResponse toAssignedResponse(ExerciseAssignment assignment, ClassEnrollment enrollment, Student student) {
