@@ -361,6 +361,8 @@ export interface ExerciseResponse {
   /** Denormalize từ Đề cha — render nhãn "Mã Đề - Tên bài" không cần round-trip thêm. */
   examCode: string;
   examTitle: string;
+  /** Denormalize từ Exam.teacherType (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05) — dùng để lọc dropdown BTVN buổi sau ở Nhận xét học viên theo loại giáo viên. */
+  examTeacherType: ExamTeacherType;
   subjectId: number | null;
   exerciseType: ExerciseType;
   totalPoints: number;

@@ -354,6 +354,8 @@ export interface ClassSessionResponse {
   // V60 (bổ sung ngoài SDD gốc, 2026-07-29): loại GV (VIETNAMESE/FOREIGN, null nếu chưa xác định) —
   // chỉ ở cấp buổi học, không đụng hồ sơ nhân sự. sessionNumber tính động (1-based, đếm cả CANCELLED).
   teacherType: "VIETNAMESE" | "FOREIGN" | null;
+  /** Tên GV thực tế dạy buổi (nhập tay, khác primaryTeacherName là FK hệ thống — dùng khi GV nước ngoài không tự thao tác hệ thống) — bổ sung ngoài SDD gốc, 2026-08-06. */
+  actualTeacherName: string | null;
   sessionNumber: number;
   /** "Bài học hôm nay" (đã có từ V50, chưa từng lộ ra FE) — nhập ở tab Nhận xét học viên (UC-21), không phải Điểm danh. */
   lessonContent: string | null;
@@ -782,8 +784,12 @@ export interface StudentCommentResponse {
   homeworkNextExerciseTitle: string | null;
   homeworkNextReviewVideoAssignmentId: number | null;
   homeworkNextReviewVideoSetTitle: string | null;
+  /** Hạn nộp BTVN buổi sau (lấy từ dueAt của bản giao) — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05. */
+  homeworkNextDueAt: string | null;
   grammarPreviousProgress: string | null;
   videoPreviousProgress: string | null;
+  /** BTVN buổi trước từng giao Offline (chữ tự do) — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06, phân biệt "BTVN buổi trước" có 3 loại (Offline/kênh Bài/kênh Video). Loại trừ với grammarPreviousProgress. */
+  homeworkPreviousOfflineText: string | null;
   note: string | null;
   /** "Bài học hôm nay" của buổi (class_sessions.lesson_content) — null nếu không phải DAILY. Bổ sung ngoài SDD gốc, 2026-07-29 — chuyển từ Điểm danh sang Nhận xét. */
   lessonContent: string | null;
@@ -813,6 +819,15 @@ export interface CreateStudentCommentRequest {
   homeworkNextExerciseId?: number;
   /** Kênh Video Ôn tập (luôn ONLINE) — id của ReviewVideoSet NGUỒN (đã Publish), tự động giao cả lớp tương tự. Để trống nếu không giao. */
   homeworkNextReviewVideoSetId?: number;
+  /**
+   * Nhận xét học viên (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05, cho phép chọn
+   * GIỜ 2026-08-06): hạn nộp BTVN buổi sau (ngày + giờ, format "yyyy-MM-ddTHH:mm" — khớp value của
+   * <input type="datetime-local">/kết hợp DatePicker + input giờ) do Giáo viên tự chọn — để trống thì
+   * BE giữ hành vi cũ (khoá cứng = ngày buổi kế tiếp). Chỉ có ý nghĩa khi có homeworkNextExerciseId
+   * hoặc homeworkNextReviewVideoSetId. Mọi nhận xét DAILY cùng 1 buổi phải khớp cùng 1 hạn nộp (BE
+   * chặn 409 nếu khác).
+   */
+  homeworkNextDueDate?: string;
   note?: string;
 }
 
@@ -828,6 +843,8 @@ export interface UpdateStudentCommentRequest {
   /** V65 — xem Javadoc CreateStudentCommentRequest.homeworkNextExerciseId. */
   homeworkNextExerciseId?: number;
   homeworkNextReviewVideoSetId?: number;
+  /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05 — xem Javadoc CreateStudentCommentRequest.homeworkNextDueDate. */
+  homeworkNextDueDate?: string;
   note?: string;
 }
 
@@ -870,6 +887,26 @@ export interface DailyCommentImportResponse {
 /** "Bài học hôm nay" (2026-07-29, chuyển từ Điểm danh sang đây) — dùng chung rào ghi nhận xét DAILY (requireCanWriteDailyComment). */
 export function updateLessonContent(classSessionId: number, lessonContent: string): Promise<{ classSessionId: number; lessonContent: string }> {
   return apiRequest(`/class-sessions/${classSessionId}/comments/lesson-content`, { method: "PUT", body: JSON.stringify({ lessonContent }) });
+}
+
+/**
+ * "Loại giáo viên" của buổi học (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05) —
+ * Nhận xét học viên dùng để lọc/đổi nhãn BTVN buổi sau theo GV Việt Nam/nước ngoài. Dùng chung rào
+ * ghi nhận xét DAILY (requireCanWriteDailyComment), mirror updateLessonContent.
+ */
+export function updateSessionTeacherType(
+  classSessionId: number,
+  teacherType: "VIETNAMESE" | "FOREIGN"
+): Promise<{ classSessionId: number; teacherType: "VIETNAMESE" | "FOREIGN" }> {
+  return apiRequest(`/class-sessions/${classSessionId}/comments/teacher-type`, { method: "PUT", body: JSON.stringify({ teacherType }) });
+}
+
+/**
+ * "Tên giáo viên giảng dạy" thực tế của buổi (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+ * 2026-08-06) — nhập tay, dùng chung rào ghi nhận xét DAILY, mirror updateLessonContent.
+ */
+export function updateActualTeacherName(classSessionId: number, actualTeacherName: string): Promise<{ classSessionId: number; actualTeacherName: string }> {
+  return apiRequest(`/class-sessions/${classSessionId}/comments/teacher-name`, { method: "PUT", body: JSON.stringify({ actualTeacherName }) });
 }
 
 /** UC-21 (bổ sung): tải mẫu Excel theo buổi học — điền sẵn điểm danh + nhận xét Hàng ngày hiện có của từng học sinh ACTIVE. */

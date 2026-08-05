@@ -47,10 +47,22 @@ interface CommentHistoryListProps {
   layout?: "card" | "table";
   /** Chỉ cần khi layout="table" — StudentCommentResponse không có studentCode, lấy từ danh sách enrollment ở component cha. */
   studentCodeById?: Record<number, string>;
+  /** Chỉ cần khi layout="table" — nhãn 2 kênh BTVN theo Loại giáo viên của buổi, ăn theo state đã tính sẵn ở DailyCommentPanel (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06). */
+  grammarLabel?: string;
+  videoLabel?: string;
 }
 
 /** UC-21 A1: nhận xét bị Quản lý điểm trường từ chối (kèm lý do) — Giáo viên sửa lại nội dung rồi gửi lại thẳng lên hàng chờ duyệt. */
-export default function CommentHistoryList({ classId, history, onChanged, showStudentName, layout = "card", studentCodeById }: CommentHistoryListProps) {
+export default function CommentHistoryList({
+  classId,
+  history,
+  onChanged,
+  showStudentName,
+  layout = "card",
+  studentCodeById,
+  grammarLabel = "Bài",
+  videoLabel = "Video"
+}: CommentHistoryListProps) {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editContent, setEditContent] = useState("");
   const [editSeverity, setEditSeverity] = useState<NonNullable<StudentCommentResponse["severity"]>>("NORMAL");
@@ -328,39 +340,55 @@ export default function CommentHistoryList({ classId, history, onChanged, showSt
   );
 
   if (layout === "table") {
+    // Đồng bộ đúng bố cục/tên cột với bảng nhập trực tiếp ở trên + 2 màn Quản lý điểm trường (bổ sung
+    // ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06) — "BTVN buổi trước"/"buổi sau" đều tách 3
+    // kênh Offline/Bài/Video, thêm cột Hạn nộp bài, border rõ + căn giữa header.
+    const COLUMN_COUNT = 14;
     return (
       <div className="space-y-2">
         {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
         <TableContainer>
           <thead>
-            <tr>
-              <Th className="min-w-[120px]">Mã ID</Th>
-              <Th>Họ và tên</Th>
-              <Th>Ngày sinh</Th>
-              <Th>Thái độ học tập</Th>
-              <Th>BTVN Ngữ pháp buổi trước</Th>
-              <Th>BTVN Nghe-nói buổi trước</Th>
-              <Th>Nhận xét học sinh</Th>
-              <Th>BTVN Ngữ pháp buổi sau</Th>
-              <Th>BTVN Video ôn tập buổi sau</Th>
-              <Th>Ghi chú</Th>
-              <Th>Trạng thái</Th>
+            <tr className="border-b border-slate-300 [&>th]:text-center">
+              <Th rowSpan={2} className="min-w-[120px] border-r border-slate-300">Mã học viên</Th>
+              <Th rowSpan={2} className="border-r border-slate-300">Họ và tên</Th>
+              <Th rowSpan={2} className="border-r border-slate-300">Ngày sinh</Th>
+              <Th colSpan={3} className="text-center border-r border-slate-300">BTVN buổi trước</Th>
+              <Th rowSpan={2} className="border-r border-slate-300">BTVN offline</Th>
+              <Th colSpan={2} className="text-center border-r border-slate-300">BTVN online</Th>
+              <Th rowSpan={2} className="border-r border-slate-300">Hạn nộp bài</Th>
+              <Th rowSpan={2} className="border-r border-slate-300">Thái độ học tập</Th>
+              <Th rowSpan={2} className="border-r border-slate-300">Nhận xét học sinh</Th>
+              <Th rowSpan={2} className="border-r border-slate-300">Ghi chú</Th>
+              <Th rowSpan={2}>Trạng thái</Th>
+            </tr>
+            <tr className="border-b border-slate-300 [&>th]:text-center">
+              <Th className="border-r border-slate-300 text-center">Offline</Th>
+              <Th className="border-r border-slate-300 text-center">{grammarLabel}</Th>
+              <Th className="border-r border-slate-300 text-center">{videoLabel}</Th>
+              <Th className="border-r border-slate-300 text-center">{grammarLabel}</Th>
+              <Th className="text-center">{videoLabel}</Th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-slate-300">
             {history.map((h) => (
               <React.Fragment key={h.id}>
                 <tr className="hover:bg-slate-50/40">
-                  <Td className="font-mono font-bold text-slate-500">{studentCodeById?.[h.studentId] ?? "—"}</Td>
-                  <Td className="font-bold text-slate-900 whitespace-nowrap">{h.studentFullName}</Td>
-                  <Td className="whitespace-nowrap text-slate-500">{h.studentDateOfBirth ?? "—"}</Td>
-                  <Td className="min-w-[110px]">{h.attitude ? attitudeLabels[h.attitude] : "—"}</Td>
-                  <Td className="min-w-[130px]">{h.homeworkPreviousScore || "—"}</Td>
-                  <Td className="min-w-[130px]">{h.homeworkPreviousSpeakingScore || "—"}</Td>
-                  <Td className="min-w-[260px] whitespace-pre-wrap">{h.content}</Td>
-                  <Td className="min-w-[180px]">{h.homeworkNext || h.homeworkNextExerciseTitle || "—"}</Td>
-                  <Td className="min-w-[180px]">{h.homeworkNextReviewVideoSetTitle || "—"}</Td>
-                  <Td className="min-w-[120px]">{h.note || "—"}</Td>
+                  <Td className="font-mono font-bold text-slate-500 border-r border-slate-300">{studentCodeById?.[h.studentId] ?? "—"}</Td>
+                  <Td className="font-bold text-slate-900 whitespace-nowrap border-r border-slate-300">{h.studentFullName}</Td>
+                  <Td className="whitespace-nowrap text-slate-500 border-r border-slate-300">{h.studentDateOfBirth ?? "—"}</Td>
+                  <Td className="min-w-[110px] border-r border-slate-300">{h.homeworkPreviousOfflineText || "—"}</Td>
+                  <Td className="min-w-[130px] border-r border-slate-300">{h.homeworkPreviousScore || "—"}</Td>
+                  <Td className="min-w-[130px] border-r border-slate-300">{h.homeworkPreviousSpeakingScore || "—"}</Td>
+                  <Td className="min-w-[160px] border-r border-slate-300">{h.homeworkNext || "—"}</Td>
+                  <Td className="min-w-[180px] border-r border-slate-300">{h.homeworkNextExerciseTitle || "—"}</Td>
+                  <Td className="min-w-[180px] border-r border-slate-300">{h.homeworkNextReviewVideoSetTitle || "—"}</Td>
+                  <Td className="min-w-[120px] whitespace-nowrap border-r border-slate-300">
+                    {h.homeworkNextDueAt ? new Date(h.homeworkNextDueAt).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" }) : "—"}
+                  </Td>
+                  <Td className="min-w-[110px] border-r border-slate-300">{h.attitude ? attitudeLabels[h.attitude] : "—"}</Td>
+                  <Td className="min-w-[260px] whitespace-pre-wrap border-r border-slate-300">{h.content}</Td>
+                  <Td className="min-w-[120px] border-r border-slate-300">{h.note || "—"}</Td>
                   <Td className="min-w-[150px] whitespace-nowrap space-y-1.5">
                     <Badge variant={statusVariants[h.status]}>{statusLabels[h.status]}</Badge>
                     <div>{renderActions(h)}</div>
@@ -368,14 +396,14 @@ export default function CommentHistoryList({ classId, history, onChanged, showSt
                 </tr>
                 {h.status === "REJECTED" && h.rejectionReason && editingId !== h.id && (
                   <tr>
-                    <td colSpan={11} className="px-4 pb-2 -mt-2 text-[11px] text-rose-500">
+                    <td colSpan={COLUMN_COUNT} className="px-4 pb-2 -mt-2 text-[11px] text-rose-500">
                       Lý do từ chối: {h.rejectionReason}
                     </td>
                   </tr>
                 )}
                 {editingId === h.id && (
                   <tr>
-                    <td colSpan={11} className="px-4 pb-3 bg-slate-50/60">
+                    <td colSpan={COLUMN_COUNT} className="px-4 pb-3 bg-slate-50/60">
                       {renderEditForm(h)}
                     </td>
                   </tr>

@@ -1,12 +1,17 @@
 package vn.com.pps.education.common;
 
+import org.apache.poi.ss.usermodel.BorderStyle;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.DataValidation;
 import org.apache.poi.ss.usermodel.DataValidationConstraint;
 import org.apache.poi.ss.usermodel.DataValidationHelper;
 import org.apache.poi.ss.usermodel.Font;
+import org.apache.poi.ss.usermodel.HorizontalAlignment;
+import org.apache.poi.ss.usermodel.IndexedColors;
 import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.VerticalAlignment;
+import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.ss.util.CellRangeAddressList;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -16,6 +21,9 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /**
  * Dựng file .xlsx dùng chung cho các endpoint "tải file mẫu" (Student/
@@ -55,18 +63,80 @@ public final class ExcelExportHelper {
      */
     public static byte[] buildWorkbook(String sheetName, List<String> headers, List<List<Object>> rows,
                                         List<String> notes, Map<Integer, List<String>> columnDropdowns) {
+        return buildWorkbook(sheetName, headers, rows, notes, columnDropdowns, null);
+    }
+
+    /** Nhóm nhiều cột con dưới 1 header gộp (merge) ở dòng đầu — VD "BTVN online" trải trên 2 cột con "Ngữ pháp"/"Từ Vựng (TKN)". fromCol/toCol 0-based, theo {@code headers}. */
+    public record HeaderGroup(String label, int fromCol, int toCol) {
+    }
+
+    /**
+     * Như {@link #buildWorkbook(String, List, List, List, Map)}, cộng thêm
+     * {@code headerGroups} (bổ sung ngoài SDD gốc, đã xác nhận với người
+     * dùng 2026-08-06 — cho Nhận xét học viên nhìn giống bảng UI web) — khi
+     * khác null/rỗng, chèn thêm 1 DÒNG header gộp phía TRÊN dòng header
+     * hiện có (merge theo từng {@link HeaderGroup}, cột không thuộc nhóm
+     * nào để trống ở dòng này), dòng dữ liệu dời xuống tương ứng. Header cả
+     * 2 dòng được tô nền + kẻ viền cho giống bảng web hơn (khác
+     * {@code boldHeaderStyle} mặc định — CHỈ áp dụng khi dùng overload
+     * này, 7 luồng import khác gọi overload cũ giữ nguyên style cũ).
+     */
+    public static byte[] buildWorkbook(String sheetName, List<String> headers, List<List<Object>> rows,
+                                        List<String> notes, Map<Integer, List<String>> columnDropdowns,
+                                        List<HeaderGroup> headerGroups) {
         try (XSSFWorkbook workbook = new XSSFWorkbook()) {
-            CellStyle headerStyle = boldHeaderStyle(workbook);
+            boolean grouped = headerGroups != null && !headerGroups.isEmpty();
+            CellStyle headerStyle = grouped ? styledHeaderStyle(workbook) : boldHeaderStyle(workbook);
 
             XSSFSheet sheet = workbook.createSheet(sheetName);
-            Row headerRow = sheet.createRow(0);
-            for (int col = 0; col < headers.size(); col++) {
-                Cell cell = headerRow.createCell(col);
-                cell.setCellValue(headers.get(col));
-                cell.setCellStyle(headerStyle);
+            int headerRowIndex = 0;
+            if (grouped) {
+                // Cột KHÔNG thuộc nhóm nào — merge dọc 2 dòng (0:1) để tiêu đề trông liền 1 ô cao,
+                // giống hệt rowSpan=2 ở bảng UI web (thead 2 dòng: dòng nhóm + dòng cột con).
+                Set<Integer> groupedCols = headerGroups.stream()
+                        .flatMap(g -> IntStream.rangeClosed(g.fromCol(), g.toCol()).boxed())
+                        .collect(Collectors.toSet());
+                Row groupRow = sheet.createRow(0);
+                // Đủ cao để chữ wrap 2 dòng không bị cắt (VD "BTVN online" khi 2 cột con hẹp) — POI
+                // không tự tăng chiều cao dòng theo wrapText.
+                groupRow.setHeightInPoints(30f);
+                for (HeaderGroup group : headerGroups) {
+                    Cell cell = groupRow.createCell(group.fromCol());
+                    cell.setCellValue(group.label());
+                    cell.setCellStyle(headerStyle);
+                    if (group.toCol() > group.fromCol()) {
+                        sheet.addMergedRegion(new CellRangeAddress(0, 0, group.fromCol(), group.toCol()));
+                    }
+                }
+                for (int col = 0; col < headers.size(); col++) {
+                    if (groupedCols.contains(col)) {
+                        continue;
+                    }
+                    Cell cell = groupRow.createCell(col);
+                    cell.setCellValue(headers.get(col));
+                    cell.setCellStyle(headerStyle);
+                    sheet.addMergedRegion(new CellRangeAddress(0, 1, col, col));
+                }
+                Row subHeaderRow = sheet.createRow(1);
+                for (int col = 0; col < headers.size(); col++) {
+                    Cell cell = subHeaderRow.createCell(col);
+                    if (groupedCols.contains(col)) {
+                        cell.setCellValue(headers.get(col));
+                    }
+                    cell.setCellStyle(headerStyle);
+                }
+                headerRowIndex = 1;
+            } else {
+                Row headerRow = sheet.createRow(0);
+                for (int col = 0; col < headers.size(); col++) {
+                    Cell cell = headerRow.createCell(col);
+                    cell.setCellValue(headers.get(col));
+                    cell.setCellStyle(headerStyle);
+                }
             }
+            int dataStartRow = headerRowIndex + 1;
             for (int r = 0; r < rows.size(); r++) {
-                Row row = sheet.createRow(r + 1);
+                Row row = sheet.createRow(r + dataStartRow);
                 List<Object> rowValues = rows.get(r);
                 for (int col = 0; col < rowValues.size(); col++) {
                     // Bỏ trống hẳn (không tạo Cell) cho giá trị null — để lại ô thật sự
@@ -81,9 +151,22 @@ public final class ExcelExportHelper {
             for (int col = 0; col < headers.size(); col++) {
                 sheet.autoSizeColumn(col);
             }
+            if (grouped) {
+                // autoSizeColumn tính theo nội dung TỪNG cột riêng — không biết cột nào đang bị merge
+                // ngang ở dòng nhóm, nên nhãn nhóm dài (VD "BTVN online") có thể bị cắt nếu tổng bề
+                // rộng các cột con cộng lại chưa đủ. Nới cột cuối cùng của nhóm bù phần thiếu.
+                for (HeaderGroup group : headerGroups) {
+                    int combinedWidth = IntStream.rangeClosed(group.fromCol(), group.toCol())
+                            .map(sheet::getColumnWidth).sum();
+                    int requiredWidth = (group.label().length() + 4) * 256;
+                    if (combinedWidth < requiredWidth) {
+                        sheet.setColumnWidth(group.toCol(), sheet.getColumnWidth(group.toCol()) + (requiredWidth - combinedWidth));
+                    }
+                }
+            }
 
             if (columnDropdowns != null && !rows.isEmpty()) {
-                addColumnDropdowns(workbook, sheet, rows.size(), columnDropdowns);
+                addColumnDropdowns(workbook, sheet, dataStartRow, rows.size(), columnDropdowns);
             }
 
             if (notes != null && !notes.isEmpty()) {
@@ -105,7 +188,7 @@ public final class ExcelExportHelper {
     /** Ngưỡng an toàn dưới giới hạn ~255 ký tự tổng của Excel explicit list — vượt ngưỡng chuyển sang named-range (xem namedRangeConstraint). */
     private static final int EXPLICIT_LIST_SAFE_LENGTH = 200;
 
-    private static void addColumnDropdowns(XSSFWorkbook workbook, XSSFSheet sheet, int rowCount,
+    private static void addColumnDropdowns(XSSFWorkbook workbook, XSSFSheet sheet, int dataStartRow, int rowCount,
                                             Map<Integer, List<String>> columnDropdowns) {
         DataValidationHelper dvHelper = sheet.getDataValidationHelper();
         for (Map.Entry<Integer, List<String>> entry : columnDropdowns.entrySet()) {
@@ -114,7 +197,7 @@ public final class ExcelExportHelper {
             if (values.isEmpty()) {
                 continue;
             }
-            CellRangeAddressList range = new CellRangeAddressList(1, rowCount, col, col);
+            CellRangeAddressList range = new CellRangeAddressList(dataStartRow, dataStartRow + rowCount - 1, col, col);
             DataValidationConstraint constraint = String.join(",", values).length() > EXPLICIT_LIST_SAFE_LENGTH
                     ? namedRangeConstraint(workbook, dvHelper, col, values)
                     : dvHelper.createExplicitListConstraint(values.toArray(new String[0]));
@@ -160,6 +243,24 @@ public final class ExcelExportHelper {
         boldFont.setBold(true);
         CellStyle style = workbook.createCellStyle();
         style.setFont(boldFont);
+        return style;
+    }
+
+    /** Header tô nền + kẻ viền + căn giữa — chỉ dùng khi buildWorkbook được gọi kèm headerGroups (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06), cho gần giống bảng UI web hơn boldHeaderStyle mặc định. */
+    private static CellStyle styledHeaderStyle(XSSFWorkbook workbook) {
+        Font boldFont = workbook.createFont();
+        boldFont.setBold(true);
+        CellStyle style = workbook.createCellStyle();
+        style.setFont(boldFont);
+        style.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+        style.setFillPattern(org.apache.poi.ss.usermodel.FillPatternType.SOLID_FOREGROUND);
+        style.setAlignment(HorizontalAlignment.CENTER);
+        style.setVerticalAlignment(VerticalAlignment.CENTER);
+        style.setBorderTop(BorderStyle.THIN);
+        style.setBorderBottom(BorderStyle.THIN);
+        style.setBorderLeft(BorderStyle.THIN);
+        style.setBorderRight(BorderStyle.THIN);
+        style.setWrapText(true);
         return style;
     }
 }

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
-import { ClassResponse, StudentCommentResponse, listClassEnrollments, listComments } from "../api";
+import { ClassResponse, ClassSessionResponse, StudentCommentResponse, listClassEnrollments, listClassSessions, listComments } from "../api";
 import { useEligibleClasses } from "../hooks/useEligibleClasses";
 import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
@@ -10,6 +10,20 @@ import Select from "@/components/ui/Select";
 import DatePicker from "@/components/ui/DatePicker";
 
 const commentTypeLabels: Record<StudentCommentResponse["commentType"], string> = { DAILY: "Hàng ngày", MID_TERM: "Giữa kỳ", END_TERM: "Cuối kỳ" };
+const attitudeLabels: Record<NonNullable<StudentCommentResponse["attitude"]>, string> = {
+  POOR: "Kém",
+  WEAK: "Yếu",
+  AVERAGE: "Trung bình",
+  ABOVE_AVERAGE: "Trung bình khá",
+  FAIR: "Khá",
+  GOOD: "Tốt"
+};
+// Đồng bộ đúng bố cục/tên cột với form Giáo viên điền & gửi (DailyCommentPanel.tsx) — bổ sung ngoài
+// SDD gốc, đã xác nhận với người dùng 2026-08-06. Nhãn 2 kênh BTVN ăn theo "Loại giáo viên" của buổi
+// (ClassSession.teacherType) — mirror đúng object grammarChannelLabel/videoChannelLabel ở DailyCommentPanel.
+type TeacherType = "VIETNAMESE" | "FOREIGN";
+const grammarChannelLabel: Record<TeacherType, string> = { VIETNAMESE: "Ngữ pháp", FOREIGN: "Bài nghe" };
+const videoChannelLabel: Record<TeacherType, string> = { VIETNAMESE: "Từ Vựng (TKN)", FOREIGN: "Clip phản xạ" };
 
 /**
  * UC-22 bổ sung (2026-07-31, theo yêu cầu người dùng): Quản lý điểm trường xem lại LỊCH SỬ nhận xét
@@ -30,6 +44,9 @@ export default function CommentHistoryPanel() {
   const { classes, loading: loadingClasses } = useEligibleClasses();
   const [comments, setComments] = useState<StudentCommentResponse[]>([]);
   const [studentCodeByStudent, setStudentCodeByStudent] = useState<Record<number, string>>({});
+  // "Loại giáo viên" của từng buổi (ClassSession.teacherType) — để đổi nhãn 2 kênh BTVN đúng như
+  // DailyCommentPanel/CommentApprovalByClass (Ngữ pháp/Bài nghe, Từ Vựng (TKN)/Clip phản xạ), 2026-08-06.
+  const [sessionsById, setSessionsById] = useState<Record<number, ClassSessionResponse>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<"ALL" | "APPROVED" | "REJECTED">("ALL");
@@ -66,6 +83,22 @@ export default function CommentHistoryPanel() {
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được lịch sử nhận xét."))
       .finally(() => setLoading(false));
+  }, [classes]);
+
+  useEffect(() => {
+    if (classes.length === 0) return;
+    Promise.allSettled(classes.map((cls) => listClassSessions(cls.id)))
+      .then((results) => {
+        const map: Record<number, ClassSessionResponse> = {};
+        results.forEach((r) => {
+          if (r.status !== "fulfilled") return;
+          r.value.forEach((s) => {
+            map[s.id] = s;
+          });
+        });
+        setSessionsById(map);
+      })
+      .catch(() => undefined);
   }, [classes]);
 
   const filtered = comments.filter((c) => {
@@ -166,6 +199,7 @@ export default function CommentHistoryPanel() {
                     date={date}
                     items={classComments.filter((c) => c.commentDate === date)}
                     studentCodeByStudent={studentCodeByStudent}
+                    sessionsById={sessionsById}
                     formatDecidedAt={formatDecidedAt}
                   />
                 ))}
@@ -183,15 +217,22 @@ function SessionGroup({
   date,
   items,
   studentCodeByStudent,
+  sessionsById,
   formatDecidedAt
 }: {
   date: string;
   items: StudentCommentResponse[];
   studentCodeByStudent: Record<number, string>;
+  sessionsById: Record<number, ClassSessionResponse>;
   formatDecidedAt: (cm: StudentCommentResponse) => string;
 }) {
   const [expanded, setExpanded] = useState(false);
   const weekday = new Date(date).toLocaleDateString("vi-VN", { weekday: "long" }).replace(/^./, (c) => c.toUpperCase());
+  // Cả buổi chung 1 Loại giáo viên (ClassSession.teacherType) — lấy từ dòng đầu, mirror CommentApprovalByClass.
+  const sessionId = items[0]?.classSessionId;
+  const sessionTeacherType = (sessionId != null ? sessionsById[sessionId]?.teacherType : null) ?? null;
+  const grammarLabel = sessionTeacherType ? grammarChannelLabel[sessionTeacherType] : "Bài";
+  const videoLabel = sessionTeacherType ? videoChannelLabel[sessionTeacherType] : "Video";
 
   return (
     <div className="border-b border-slate-100 last:border-b-0">
@@ -209,32 +250,58 @@ function SessionGroup({
       {expanded && (
         <TableContainer className="rounded-none border-0">
           <thead>
-            <tr>
-              <Th className="min-w-[110px]">Mã ID</Th>
-              <Th>Họ và tên</Th>
-              <Th>Ngày sinh</Th>
-              <Th>Loại</Th>
-              <Th className="min-w-[260px]">Nhận xét</Th>
-              <Th>Trạng thái</Th>
-              <Th className="min-w-[140px]">Ngày duyệt</Th>
-              <Th className="min-w-[180px]">Lý do từ chối</Th>
+            {/* Border rõ giữa các cột/dòng header (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+                2026-08-06) — Th mặc định không có border. */}
+            <tr className="border-b border-slate-300 [&>th]:text-center">
+              <Th rowSpan={2} className="min-w-[110px] border-r border-slate-300">Mã học viên</Th>
+              <Th rowSpan={2} className="border-r border-slate-300">Họ và tên</Th>
+              <Th rowSpan={2} className="border-r border-slate-300">Loại</Th>
+              <Th rowSpan={2} className="border-r border-slate-300">Ngày sinh</Th>
+              <Th colSpan={3} className="text-center border-r border-slate-300">BTVN buổi trước</Th>
+              <Th rowSpan={2} className="border-r border-slate-300">BTVN offline</Th>
+              <Th colSpan={2} className="text-center border-r border-slate-300">BTVN online</Th>
+              <Th rowSpan={2} className="border-r border-slate-300">Hạn nộp bài</Th>
+              <Th rowSpan={2} className="border-r border-slate-300">Thái độ học tập</Th>
+              <Th rowSpan={2} className="min-w-[260px] border-r border-slate-300">Nhận xét</Th>
+              <Th rowSpan={2} className="border-r border-slate-300">Ghi chú</Th>
+              <Th rowSpan={2} className="border-r border-slate-300">Trạng thái</Th>
+              <Th rowSpan={2} className="min-w-[140px] border-r border-slate-300">Ngày duyệt</Th>
+              <Th rowSpan={2} className="min-w-[180px]">Lý do từ chối</Th>
+            </tr>
+            <tr className="border-b border-slate-300 [&>th]:text-center">
+              <Th className="border-r border-slate-300 text-center">Offline</Th>
+              <Th className="border-r border-slate-300 text-center">{grammarLabel}</Th>
+              <Th className="border-r border-slate-300 text-center">{videoLabel}</Th>
+              <Th className="border-r border-slate-300 text-center">{grammarLabel}</Th>
+              <Th className="text-center">{videoLabel}</Th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-slate-300">
             {items.map((cm) => (
               <tr key={cm.id} className="hover:bg-slate-50/40">
-                <Td className="font-mono font-bold text-slate-500">{studentCodeByStudent[cm.studentId] ?? "—"}</Td>
-                <Td className="font-bold text-slate-900 whitespace-nowrap">{cm.studentFullName}</Td>
-                <Td className="whitespace-nowrap text-slate-500">{cm.studentDateOfBirth ?? "—"}</Td>
-                <Td>
+                <Td className="font-mono font-bold text-slate-500 border-r border-slate-300">{studentCodeByStudent[cm.studentId] ?? "—"}</Td>
+                <Td className="font-bold text-slate-900 whitespace-nowrap border-r border-slate-300">{cm.studentFullName}</Td>
+                <Td className="border-r border-slate-300">
                   <Badge variant="info">{commentTypeLabels[cm.commentType]}</Badge>
                 </Td>
-                <Td className="min-w-[260px] whitespace-pre-wrap">{cm.content}</Td>
-                <Td>
+                <Td className="whitespace-nowrap text-slate-500 border-r border-slate-300">{cm.studentDateOfBirth ?? "—"}</Td>
+                <Td className="min-w-[110px] border-r border-slate-300">{cm.homeworkPreviousOfflineText || "—"}</Td>
+                <Td className="min-w-[130px] border-r border-slate-300">{cm.homeworkPreviousScore || "—"}</Td>
+                <Td className="min-w-[130px] border-r border-slate-300">{cm.homeworkPreviousSpeakingScore || "—"}</Td>
+                <Td className="min-w-[160px] border-r border-slate-300">{cm.homeworkNext || "—"}</Td>
+                <Td className="min-w-[180px] border-r border-slate-300">{cm.homeworkNextExerciseTitle || "—"}</Td>
+                <Td className="min-w-[180px] border-r border-slate-300">{cm.homeworkNextReviewVideoSetTitle || "—"}</Td>
+                <Td className="min-w-[120px] whitespace-nowrap border-r border-slate-300">
+                  {cm.homeworkNextDueAt ? new Date(cm.homeworkNextDueAt).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" }) : "—"}
+                </Td>
+                <Td className="min-w-[110px] border-r border-slate-300">{cm.attitude ? attitudeLabels[cm.attitude] : "—"}</Td>
+                <Td className="min-w-[260px] whitespace-pre-wrap border-r border-slate-300">{cm.content}</Td>
+                <Td className="min-w-[120px] border-r border-slate-300">{cm.note || "—"}</Td>
+                <Td className="border-r border-slate-300">
                   <Badge variant={cm.status === "APPROVED" ? "success" : "danger"}>{cm.status === "APPROVED" ? "Đã duyệt" : "Bị từ chối"}</Badge>
                 </Td>
-                <Td className="whitespace-nowrap">{formatDecidedAt(cm)}</Td>
-                <Td className="min-w-[180px] text-rose-600">{cm.rejectionReason || "—"}</Td>
+                <Td className="whitespace-nowrap border-r border-slate-300">{formatDecidedAt(cm)}</Td>
+                <Td className="min-w-[180px] text-rose-600 border-r border-slate-300">{cm.rejectionReason || "—"}</Td>
               </tr>
             ))}
           </tbody>

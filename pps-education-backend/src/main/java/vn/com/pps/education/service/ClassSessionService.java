@@ -580,7 +580,8 @@ public class ClassSessionService {
                 s.getPrimaryTeacher().getId(), s.getPrimaryTeacher().getFullName(),
                 s.getSessionType().name(), s.getStatus().name(),
                 s.getCancellationReason(), s.getRescheduledToSession() == null ? null : s.getRescheduledToSession().getId(),
-                s.getLessonContent(), s.getTeacherType() == null ? null : s.getTeacherType().name(), sessionNumber,
+                s.getLessonContent(), s.getTeacherType() == null ? null : s.getTeacherType().name(),
+                s.getActualTeacherName(), sessionNumber,
                 s.getMakeupForSession() == null ? null : s.getMakeupForSession().getId());
     }
 
