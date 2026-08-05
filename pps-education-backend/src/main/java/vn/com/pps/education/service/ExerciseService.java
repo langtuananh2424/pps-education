@@ -461,7 +461,7 @@ public class ExerciseService {
                         || eq.getQuestion().getQuestionType() == Question.QuestionType.SPEAKING);
         return new ExerciseResponse(
                 e.getId(), e.getUuid(), e.getCode(), e.getTitle(),
-                e.getExam().getId(), e.getExam().getCode(), e.getExam().getTitle(),
+                e.getExam().getId(), e.getExam().getCode(), e.getExam().getTitle(), e.getExam().getTeacherType().name(),
                 e.getSubject() == null ? null : e.getSubject().getId(),
                 e.getExerciseType().name(), e.getTotalPoints(), e.getTimeLimitMinutes(), e.isAllowRetake(),
                 e.getMaxAttempts(), e.isShowCorrectAnswers(), e.getStatus().name(), e.getCreatedBy().getId(),

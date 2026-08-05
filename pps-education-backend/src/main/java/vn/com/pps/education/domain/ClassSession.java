@@ -102,4 +102,14 @@ public class ClassSession extends BaseAuditEntity {
      */
     @Column(name = "lesson_content", columnDefinition = "TEXT")
     private String lessonContent;
+
+    /**
+     * Tên GV thực tế dạy buổi này (bổ sung ngoài SDD gốc, đã xác nhận với
+     * người dùng 2026-08-06) — KHÁC {@link #primaryTeacher} (FK tài khoản
+     * hệ thống): text nhập tay, dùng khi GV nước ngoài không tự thao tác
+     * hệ thống, nhân sự chăm sóc lớp nhập hộ qua Excel/UI để quản lý theo
+     * dõi buổi đó thực tế ai dạy.
+     */
+    @Column(name = "actual_teacher_name")
+    private String actualTeacherName;
 }
