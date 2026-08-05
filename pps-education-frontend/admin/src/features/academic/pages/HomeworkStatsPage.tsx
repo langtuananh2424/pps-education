@@ -222,8 +222,8 @@ function AssignmentDetailModal({ assignmentId, onClose }: { assignmentId: number
                     <th className="text-left p-2 border border-slate-200 sticky left-0 bg-slate-50">Học sinh</th>
                     <th className="text-center p-2 border border-slate-200">Trạng thái</th>
                     <th className="text-center p-2 border border-slate-200">Điểm</th>
-                    <th className="text-center p-2 border border-slate-200">%</th>
-                    <th className="text-center p-2 border border-slate-200">Đạt</th>
+                    <th className="text-center p-2 border border-slate-200">Đã hoàn thành</th>
+                    <th className="text-center p-2 border border-slate-200">Số lần làm</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -238,9 +238,17 @@ function AssignmentDetailModal({ assignmentId, onClose }: { assignmentId: number
                       <td className="text-center p-2 border border-slate-200">
                         {s.totalScore != null ? `${s.totalScore}/${s.totalPoints}` : "—"}
                       </td>
-                      <td className="text-center p-2 border border-slate-200">{s.percentage != null ? `${s.percentage}%` : "—"}</td>
                       <td className="text-center p-2 border border-slate-200">
-                        {s.passed == null ? "—" : <Badge variant={s.passed ? "success" : "danger"}>{s.passed ? "Đạt" : "Chưa đạt"}</Badge>}
+                        {s.status === "CHUA_LAM" ? (
+                          <Badge variant="neutral">Chưa làm</Badge>
+                        ) : s.passed == null ? (
+                          <Badge variant="neutral">—</Badge>
+                        ) : (
+                          <Badge variant={s.passed ? "success" : "danger"}>{s.passed ? "Đạt" : "Chưa đạt"}</Badge>
+                        )}
+                      </td>
+                      <td className="text-center p-2 border border-slate-200">
+                        {s.attemptNumber ?? "—"}
                       </td>
                     </tr>
                   ))}
