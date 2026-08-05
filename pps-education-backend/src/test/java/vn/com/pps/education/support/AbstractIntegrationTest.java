@@ -2,6 +2,7 @@ package vn.com.pps.education.support;
 
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.transaction.TestTransaction;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
@@ -23,8 +24,14 @@ import org.testcontainers.utility.DockerImageName;
  * condition tạo trùng bản giao. Giao dịch lồng dùng connection riêng → không thấy
  * dữ liệu chưa commit từ test @Transactional → FK fail. Helper commitCurrentTransaction()
  * dùng TestTransaction để commit giữa chừng (sau setUp, trước code gọi deliverToClass).
+ *
+ * V90+ (2026-08-05) thêm @DirtiesContext(classMode=AFTER_CLASS) để fix test data
+ * carryover khi singleton container chia sẻ giữa test classes — được committed từ
+ * test trước lọt sang test sau, gây duplicate key violations. Spring reload
+ * application context sau mỗi test class → fresh DB state.
  */
 @SpringBootTest
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 public abstract class AbstractIntegrationTest {
 
     @ServiceConnection
