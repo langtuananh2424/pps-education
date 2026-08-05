@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, ChevronDown, ChevronRight, Download, Eye, X } from "lucide-react";
+import { ArrowLeft, CheckCircle2, ChevronDown, ChevronRight, Download, Eye, ShieldAlert, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { downloadBlob } from "@/lib/xlsxTemplate";
 import {
@@ -8,11 +8,16 @@ import {
   ExerciseAssignmentQuestionStatsResponse,
   ExerciseAssignmentStudentStatsResponse,
   ExerciseAssignmentStudentRow,
+  ExerciseAttemptRow,
+  IntegritySummaryRow,
   StudentAnswerRow,
   exportExerciseAssignmentStats,
   getAttemptAnswers,
+  getAttemptIntegritySummary,
   getExerciseAssignmentQuestionStats,
-  getExerciseAssignmentStudentStats
+  getExerciseAssignmentStudentStats,
+  listStudentExerciseAttempts,
+  selectAttemptForGrading
 } from "../api";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
@@ -225,7 +230,7 @@ export default function AssignmentStatsDetailPage() {
       )}
 
       {detailStudent && (
-        <StudentDetailModal student={detailStudent} onClose={() => setDetailStudentId(null)} />
+        <StudentDetailModal student={detailStudent} exerciseId={studentStats.assignment.exerciseId} onClose={() => setDetailStudentId(null)} />
       )}
     </div>
   );
@@ -275,7 +280,15 @@ function QuestionRow({
   );
 }
 
-function StudentDetailModal({ student, onClose }: { student: ExerciseAssignmentStudentRow; onClose: () => void }) {
+function StudentDetailModal({
+  student,
+  exerciseId,
+  onClose
+}: {
+  student: ExerciseAssignmentStudentRow;
+  exerciseId: number;
+  onClose: () => void;
+}) {
   const [answers, setAnswers] = React.useState<StudentAnswerRow[]>([]);
   const [loadingAnswers, setLoadingAnswers] = React.useState(false);
   const [answerError, setAnswerError] = React.useState<string | null>(null);
@@ -289,6 +302,21 @@ function StudentDetailModal({ student, onClose }: { student: ExerciseAssignmentS
       .catch((err) => setAnswerError(err instanceof ApiError ? err.message : "Không tải được lịch sử trả lời."))
       .finally(() => setLoadingAnswers(false));
   }, [student.attemptId]);
+
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — xem toàn bộ lịch sử nhiều lượt
+  // làm bài (kể cả lượt bị hệ thống dừng ép do vi phạm giám sát) để Giáo viên tự chọn lượt phù hợp.
+  const [attempts, setAttempts] = React.useState<ExerciseAttemptRow[]>([]);
+  const [loadingAttempts, setLoadingAttempts] = React.useState(false);
+  const [attemptsError, setAttemptsError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    setLoadingAttempts(true);
+    setAttemptsError(null);
+    listStudentExerciseAttempts(exerciseId, student.studentId)
+      .then(setAttempts)
+      .catch((err) => setAttemptsError(err instanceof ApiError ? err.message : "Không tải được lịch sử làm bài."))
+      .finally(() => setLoadingAttempts(false));
+  }, [exerciseId, student.studentId]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
@@ -338,6 +366,46 @@ function StudentDetailModal({ student, onClose }: { student: ExerciseAssignmentS
               </div>
             </div>
           </div>
+
+          {/* Lịch sử nhiều lượt làm bài — bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+              2026-08-06, chỉ hiện khi có >1 lượt hoặc có lượt bị dừng ép, tránh rối màn với đề
+              chỉ cho làm 1 lần (trường hợp phổ biến nhất). */}
+          {(attempts.length > 1 || attempts.some((a) => a.stoppedByIntegrityViolation)) && (
+            <div>
+              <h3 className="font-semibold text-sm mb-3 text-slate-900">Lịch sử nhiều lượt làm bài</h3>
+              {attemptsError && (
+                <div className="mb-3 text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{attemptsError}</div>
+              )}
+              {loadingAttempts ? (
+                <p className="text-sm text-slate-500">Đang tải...</p>
+              ) : (
+                <div className="border border-slate-200 rounded-lg overflow-hidden">
+                  <table className="w-full text-xs">
+                    <thead className="bg-slate-50">
+                      <tr>
+                        <th className="text-center p-2 border-b border-slate-200 w-14">Lượt</th>
+                        <th className="text-left p-2 border-b border-slate-200">Bắt đầu</th>
+                        <th className="text-left p-2 border-b border-slate-200">Nộp lúc</th>
+                        <th className="text-center p-2 border-b border-slate-200">Điểm</th>
+                        <th className="text-center p-2 border-b border-slate-200">Kết quả</th>
+                        <th className="text-left p-2 border-b border-slate-200">Ghi chú</th>
+                        <th className="text-center p-2 border-b border-slate-200">Điểm chính thức</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {attempts.map((a) => (
+                        <AttemptHistoryRow
+                          key={a.id}
+                          attempt={a}
+                          onSelected={(updated) => setAttempts(updated)}
+                        />
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Lịch sử trả lời câu hỏi */}
           <div>
@@ -414,5 +482,112 @@ function StudentDetailModal({ student, onClose }: { student: ExerciseAssignmentS
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — 1 dòng lịch sử làm bài; lượt bị
+ * dừng ép do vi phạm giám sát hiện thêm badge + bấm để xem tổng hợp vi phạm (integrity-summary).
+ */
+function AttemptHistoryRow({
+  attempt,
+  onSelected
+}: {
+  attempt: ExerciseAttemptRow;
+  onSelected: (updated: ExerciseAttemptRow[]) => void;
+}) {
+  const [summary, setSummary] = React.useState<IntegritySummaryRow | null>(null);
+  const [showSummary, setShowSummary] = React.useState(false);
+  const [loadingSummary, setLoadingSummary] = React.useState(false);
+  const [selecting, setSelecting] = React.useState(false);
+
+  const toggleSummary = () => {
+    if (showSummary) {
+      setShowSummary(false);
+      return;
+    }
+    setShowSummary(true);
+    if (summary || loadingSummary) return;
+    setLoadingSummary(true);
+    getAttemptIntegritySummary(attempt.id)
+      .then(setSummary)
+      .catch(() => undefined)
+      .finally(() => setLoadingSummary(false));
+  };
+
+  const handleSelectForGrading = () => {
+    if (selecting || attempt.selectedForGrading) return;
+    setSelecting(true);
+    selectAttemptForGrading(attempt.id)
+      .then(onSelected)
+      .catch(() => undefined)
+      .finally(() => setSelecting(false));
+  };
+
+  return (
+    <React.Fragment>
+      <tr>
+        <td className="text-center p-2 font-semibold text-slate-900">#{attempt.attemptNumber}</td>
+        <td className="p-2 text-slate-600 text-[11px]">{new Date(attempt.startedAt).toLocaleString("vi-VN")}</td>
+        <td className="p-2 text-slate-600 text-[11px]">
+          {attempt.submittedAt ? new Date(attempt.submittedAt).toLocaleString("vi-VN") : "—"}
+        </td>
+        <td className="text-center p-2">
+          {attempt.totalScore != null ? `${attempt.totalScore}${attempt.percentage != null ? ` (${attempt.percentage}%)` : ""}` : "—"}
+        </td>
+        <td className="text-center p-2">
+          {attempt.passed == null ? (
+            <span className="text-slate-400">—</span>
+          ) : attempt.passed ? (
+            <span className="text-green-600 font-bold">Đạt</span>
+          ) : (
+            <span className="text-red-600 font-bold">Chưa đạt</span>
+          )}
+        </td>
+        <td className="p-2">
+          {attempt.stoppedByIntegrityViolation ? (
+            <button
+              onClick={toggleSummary}
+              className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded-md hover:bg-amber-100"
+            >
+              <ShieldAlert className="w-3 h-3" /> Bị dừng do vi phạm giám sát
+            </button>
+          ) : (
+            <span className="text-slate-300">—</span>
+          )}
+        </td>
+        <td className="text-center p-2">
+          {attempt.selectedForGrading ? (
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-md">
+              <CheckCircle2 className="w-3 h-3" /> Đã chọn
+            </span>
+          ) : (
+            <button
+              onClick={handleSelectForGrading}
+              disabled={selecting}
+              className="text-[10px] font-medium text-blue-700 bg-blue-50 border border-blue-200 px-2 py-1 rounded-md hover:bg-blue-100 disabled:opacity-50"
+            >
+              {selecting ? "Đang chọn..." : "Chọn làm điểm"}
+            </button>
+          )}
+        </td>
+      </tr>
+      {showSummary && (
+        <tr>
+          <td colSpan={7} className="p-2 bg-amber-50/60 text-[11px] text-amber-900">
+            {loadingSummary ? (
+              "Đang tải..."
+            ) : summary ? (
+              <>
+                Thoát ra {summary.violationCount} lần, tổng {summary.violationTotalDurationSeconds} giây.{" "}
+                {summary.parentAndTeacherNotified ? "Đã báo Phụ huynh + Giáo viên phụ trách lớp." : "Chưa vượt ngưỡng báo."}
+              </>
+            ) : (
+              "Không tải được tổng hợp vi phạm."
+            )}
+          </td>
+        </tr>
+      )}
+    </React.Fragment>
   );
 }

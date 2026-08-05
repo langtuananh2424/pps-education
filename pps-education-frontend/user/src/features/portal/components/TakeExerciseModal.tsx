@@ -1,13 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { CheckCircle2, Loader2, Lock, ShieldAlert, XCircle } from "lucide-react";
+import { CheckCircle2, Loader2, Lock, PartyPopper, RotateCcw, ShieldAlert, XCircle } from "lucide-react";
 import { friendlyApiErrorMessage } from "@/lib/apiClient";
 import {
   AssignedExerciseResponse,
   ExerciseAttemptResponse,
+  ExerciseMetaResponse,
   ExerciseQuestionResponse,
   StudentAnswerResponse,
   getAttempt,
-  getExerciseAttemptLimit,
+  getExercise,
   listExerciseQuestions,
   listAnswers,
   recordIntegrityEvents,
@@ -76,7 +77,6 @@ function isAnswerRevealed(answer: StudentAnswerResponse): boolean {
  */
 export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExerciseModalProps) {
   const [attempt, setAttempt] = useState<ExerciseAttemptResponse | null>(null);
-  const [maxAttempts, setMaxAttempts] = useState<number | null>(null);
   const [questions, setQuestions] = useState<ExerciseQuestionResponse[]>([]);
   const [answersByQuestion, setAnswersByQuestion] = useState<Map<number, StudentAnswerResponse>>(new Map());
   const [textDraft, setTextDraft] = useState<Record<number, string>>({});
@@ -87,15 +87,27 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
   // Thay window.confirm() bằng popup nội tuyến khớp giao diện app — không có Modal dùng chung ở
   // app này (chỉ 1 chỗ dùng), nên làm bước xác nhận ngay trong modal đang mở thay vì Modal lồng Modal.
   const [confirmingSubmit, setConfirmingSubmit] = useState(false);
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — bài bị hệ thống dừng ép do vượt
+  // ngưỡng vi phạm (khác banner "justViolated" nhỏ — đây là cảnh báo mạnh, chặn tương tác cho tới
+  // khi học sinh bấm "Đã hiểu"). Kết quả đã được ghi nhận ở server ngay lúc dừng — chỉ cần tải lại
+  // attempt để cập nhật trạng thái readOnly, học sinh làm lại qua nút "Làm lại" ở màn danh sách đề.
+  const [stoppedByViolation, setStoppedByViolation] = useState(false);
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — popup kết quả hiện đúng 1 lần
+  // ngay sau khi bấm "Nộp bài" (không hiện lại khi mở xem lại 1 lượt đã nộp từ trước — đó là lý do
+  // tách riêng justSubmitted thay vì suy từ attempt.status). exerciseMeta cho biết còn bao nhiêu
+  // lượt làm lại (allowRetake/maxAttempts) để hiện đúng câu "bạn còn N lần để làm lại".
+  const [justSubmitted, setJustSubmitted] = useState(false);
+  const [exerciseMeta, setExerciseMeta] = useState<ExerciseMetaResponse | null>(null);
 
   const readOnly = attempt != null && attempt.status !== "IN_PROGRESS";
   /**
-   * UC-24/A4, UC-27/A2: đề có giới hạn số lần làm lại (maxAttempts khác NULL) — số lượt CÒN LẠI
-   * trước khi đáp án được mở khóa (mirror công thức BE: revealAnswer khi attemptNumber >= maxAttempts).
-   * null = đề không giới hạn số lần làm lại, không cần hiện thông báo khóa đáp án.
+   * UC-24/A4, UC-27/A2: đề có giới hạn số lần làm lại (exerciseMeta.maxAttempts khác NULL) — số lượt
+   * CÒN LẠI trước khi đáp án được mở khóa (mirror công thức BE: revealAnswer khi attemptNumber >=
+   * maxAttempts). null = đề không giới hạn số lần làm lại HOẶC exerciseMeta chưa tải xong — không
+   * hiện thông báo khóa đáp án cho tới khi có dữ liệu chắc chắn.
    */
   const attemptsRemainingBeforeAnswer =
-    maxAttempts != null && attempt != null ? Math.max(0, maxAttempts - attempt.attemptNumber) : null;
+    exerciseMeta?.maxAttempts != null && attempt != null ? Math.max(0, exerciseMeta.maxAttempts - attempt.attemptNumber) : null;
 
   const loadAnswers = (attemptId: number) => {
     listAnswers(attemptId)
@@ -116,28 +128,45 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
     openedRef.current = true;
     setLoading(true);
     setError(null);
-    const openAttempt = item.myLatestAttemptId != null ? getAttempt(item.myLatestAttemptId) : startAttempt(item.exerciseId);
-    Promise.all([openAttempt, listExerciseQuestions(item.exerciseId), getExerciseAttemptLimit(item.exerciseId)])
-      .then(([attemptRes, questionRes, limitRes]) => {
+    // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05 — lượt gần nhất đã chấm xong
+    // (FULLY_GRADED) nhưng dưới ngưỡng đạt (myLatestPassed=false) thì mở LƯỢT MỚI (startAttempt,
+    // attemptNumber+1) thay vì xem lại lượt cũ đã chấm — khác các trạng thái khác (IN_PROGRESS/
+    // AUTO_GRADED/đã đạt) vẫn resume/xem lại lượt hiện có như cũ.
+    const needsRetake = item.myLatestAttemptStatus === "FULLY_GRADED" && item.myLatestPassed === false;
+    const openAttempt =
+      item.myLatestAttemptId != null && !needsRetake ? getAttempt(item.myLatestAttemptId) : startAttempt(item.exerciseId);
+    Promise.all([openAttempt, listExerciseQuestions(item.exerciseId)])
+      .then(([attemptRes, questionRes]) => {
         setAttempt(attemptRes);
         setQuestions([...questionRes].sort((a, b) => a.displayOrder - b.displayOrder));
-        setMaxAttempts(limitRes.maxAttempts);
         loadAnswers(attemptRes.id);
       })
       .catch((err) => setError(friendlyApiErrorMessage(err, "Không mở được đề để làm bài.")))
       .finally(() => setLoading(false));
+    // Không chặn màn làm bài nếu lỗi — dùng cho cả popup kết quả (allowRetake/passThresholdPercent)
+    // LẪN khóa đáp án theo số lần làm lại (maxAttempts, UC-24/A4-UC-27/A2) — 1 API duy nhất, thay vì
+    // gọi thêm getExerciseAttemptLimit() riêng (2 endpoint từng đọc cùng 1 field maxAttempts).
+    getExercise(item.exerciseId).then(setExerciseMeta).catch(() => undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item.exerciseId, item.myLatestAttemptId]);
 
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31 — xem Javadoc useIntegrityMonitor.
   const attemptId = attempt?.id;
   const { violationCount, isMonitoringActive, justViolated } = useIntegrityMonitor({
-    enabled: !readOnly && attemptId != null,
+    enabled: !readOnly && attemptId != null && !stoppedByViolation,
     autoFlushIntervalMs: 20000,
     onFlush: (events) => {
-      if (attemptId != null) {
-        recordIntegrityEvents(attemptId, { events }).catch(() => undefined);
-      }
+      if (attemptId == null) return;
+      recordIntegrityEvents(attemptId, { events })
+        .then((res) => {
+          if (res.attemptStopped) {
+            setStoppedByViolation(true);
+            // Không gọi onFinished() ở đây — cùng lý do đã sửa ở handleSubmit (xem comment ở đó):
+            // dời sang lúc học sinh bấm "Đã hiểu" đóng popup, tránh cha reload giữa chừng giật mất popup.
+            getAttempt(attemptId).then((updated) => setAttempt(updated)).catch(() => undefined);
+          }
+        })
+        .catch(() => undefined);
     }
   });
 
@@ -214,7 +243,11 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
       const updated = await submitAttempt(attempt.id);
       setAttempt(updated);
       loadAnswers(updated.id);
-      onFinished();
+      // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — KHÔNG gọi onFinished() ngay ở
+      // đây: AssignmentsTab.load() (cha) set loading=true, khiến toàn bộ tab (kể cả modal đang mở)
+      // bị unmount ngay lúc render "Đang tải..." — popup kết quả vừa hiện bị giật mất trước khi học
+      // sinh kịp đọc. Dời sang lúc bấm "Đã hiểu" đóng popup (xem onClose của SubmitResultPopup).
+      setJustSubmitted(true);
     } catch (err) {
       setError(friendlyApiErrorMessage(err, "Nộp bài thất bại."));
     } finally {
@@ -227,7 +260,7 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
       {/* Popup cảnh báo tức thời — hiện ngay lúc phát hiện vi phạm mới, tự mờ dần sau ~3.5s, khác banner
           tĩnh bên dưới (chỉ đổi số đếm, học sinh dễ không để ý). Neo "fixed" ở gốc modal để luôn nổi
           trên cùng bất kể đang cuộn tới đâu bên trong nội dung đề. */}
-      {justViolated && (
+      {justViolated && !stoppedByViolation && (
         <div
           key={violationCount}
           role="alert"
@@ -236,6 +269,44 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
           <ShieldAlert size={18} className="shrink-0" />
           <span className="text-xs font-black">Đã ghi nhận: bạn vừa thoát ra ngoài khi đang làm bài!</span>
         </div>
+      )}
+
+      {/* Cảnh báo mạnh — chặn tương tác, khác hẳn toast nhỏ ở trên — hiện đúng 1 lần khi vừa bị dừng ép. */}
+      {stoppedByViolation && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[70]">
+          <div className="bg-white rounded-[20px] w-full max-w-md p-6 space-y-4 text-center shadow-xl">
+            <ShieldAlert size={40} className="text-rose-600 mx-auto" />
+            <h3 className="text-base font-black text-ink">Bài làm đã bị dừng</h3>
+            <p className="text-xs font-bold text-muted leading-relaxed">
+              Bạn đã thoát ra ngoài quá số lần cho phép khi đang làm bài. Kết quả đã được ghi nhận theo phần đã trả lời.
+              Bạn có thể làm lại từ màn danh sách đề.
+            </p>
+            <button
+              onClick={() => {
+                setStoppedByViolation(false);
+                onClose();
+              }}
+              className="text-xs font-extrabold text-white bg-teal px-5 py-2.5 rounded-xl"
+            >
+              Đã hiểu
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Popup kết quả sau khi nộp bài — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06.
+          Chỉ hiện đúng 1 lần ngay sau khi bấm "Nộp bài" (justSubmitted), không hiện lại khi mở xem
+          lại 1 lượt đã nộp từ trước. */}
+      {justSubmitted && attempt && (
+        <SubmitResultPopup
+          attempt={attempt}
+          exerciseTitle={item.title}
+          exerciseMeta={exerciseMeta}
+          onClose={() => {
+            setJustSubmitted(false);
+            onFinished();
+          }}
+        />
       )}
 
       <div className="bg-white rounded-[20px] w-full max-w-2xl max-h-[85vh] flex flex-col shadow-xl">
@@ -341,6 +412,82 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
             </button>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — popup kết quả ngay sau khi nộp bài
+ * (mirror tinh thần popup "Bài làm đã bị dừng" ở trên). 3 nhánh nội dung:
+ * - Chưa chấm xong hết (còn tự luận/nói chờ GV chấm, status AUTO_GRADED): chỉ báo đã nộp, chưa có
+ *   kết luận đạt/không đạt.
+ * - FULLY_GRADED + đạt (passed=true): chúc mừng.
+ * - FULLY_GRADED + chưa đạt (passed=false): báo % + ngưỡng cần đạt + số lượt còn lại để làm lại
+ *   (suy từ exerciseMeta.allowRetake/maxAttempts — null maxAttempts = không giới hạn lượt).
+ */
+function SubmitResultPopup({
+  attempt,
+  exerciseTitle,
+  exerciseMeta,
+  onClose
+}: {
+  attempt: ExerciseAttemptResponse;
+  exerciseTitle: string;
+  exerciseMeta: ExerciseMetaResponse | null;
+  onClose: () => void;
+}) {
+  const fullyGraded = attempt.status === "FULLY_GRADED";
+  const passed = fullyGraded ? attempt.passed : null;
+
+  let remainingText: string | null = null;
+  if (fullyGraded && passed === false && exerciseMeta) {
+    if (!exerciseMeta.allowRetake) {
+      remainingText = "Đề này không cho làm lại — đây là kết quả cuối cùng.";
+    } else if (exerciseMeta.maxAttempts == null) {
+      remainingText = "Bạn có thể làm lại bài tập này khi sẵn sàng.";
+    } else {
+      const remaining = Math.max(0, exerciseMeta.maxAttempts - attempt.attemptNumber);
+      remainingText =
+        remaining > 0
+          ? `Bạn còn ${remaining} lần để làm lại bài tập này.`
+          : "Bạn đã dùng hết số lần làm lại cho phép của bài tập này.";
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[70]">
+      <div className="bg-white rounded-[20px] w-full max-w-md p-6 space-y-4 text-center shadow-xl">
+        {!fullyGraded ? (
+          <>
+            <CheckCircle2 size={40} className="text-teal mx-auto" />
+            <h3 className="text-base font-black text-ink">Đã nộp bài "{exerciseTitle}"!</h3>
+            <p className="text-xs font-bold text-muted leading-relaxed">
+              Phần trắc nghiệm đã được chấm tự động. Bài còn câu tự luận/nói cần giáo viên chấm tay — điểm cuối cùng sẽ có sau.
+            </p>
+          </>
+        ) : passed ? (
+          <>
+            <PartyPopper size={40} className="text-teal mx-auto" />
+            <h3 className="text-base font-black text-ink">Chúc mừng bạn đã hoàn thành bài "{exerciseTitle}"!</h3>
+            <p className="text-xs font-bold text-teal-deep leading-relaxed">
+              Kết quả: {attempt.percentage ?? "—"}% — Đạt yêu cầu.
+            </p>
+          </>
+        ) : (
+          <>
+            <RotateCcw size={40} className="text-coral mx-auto" />
+            <h3 className="text-base font-black text-ink">Bạn đã hoàn thành bài "{exerciseTitle}"</h3>
+            <p className="text-xs font-bold text-coral leading-relaxed">
+              Kết quả: {attempt.percentage ?? "—"}% — Chưa đạt yêu cầu
+              {exerciseMeta ? ` (cần ≥${exerciseMeta.passThresholdPercent}%)` : ""}, cần làm lại bài tập.
+            </p>
+            {remainingText && <p className="text-xs font-bold text-muted leading-relaxed">{remainingText}</p>}
+          </>
+        )}
+        <button onClick={onClose} className="text-xs font-extrabold text-white bg-teal px-5 py-2.5 rounded-xl">
+          Đã hiểu
+        </button>
       </div>
     </div>
   );

@@ -1023,3 +1023,47 @@ export interface StudentAnswerRow {
 export function getAttemptAnswers(attemptId: number): Promise<StudentAnswerRow[]> {
   return apiRequest<StudentAnswerRow[]>(`/attempts/${attemptId}/answers`);
 }
+
+/**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — Giáo viên xem TOÀN BỘ lịch sử
+ * nhiều lượt làm bài của 1 học sinh (kể cả lượt bị hệ thống dừng ép do vi phạm giám sát) để tự
+ * chọn lượt phù hợp, khác StudentAnswerRow (chỉ trả lời câu hỏi của ĐÚNG 1 lượt).
+ */
+export interface ExerciseAttemptRow {
+  id: number;
+  exerciseId: number;
+  exerciseAssignmentId: number | null;
+  studentId: number;
+  attemptNumber: number;
+  startedAt: string;
+  submittedAt: string | null;
+  autoGradeScore: number | null;
+  manualGradeScore: number | null;
+  totalScore: number | null;
+  status: "IN_PROGRESS" | "AUTO_GRADED" | "FULLY_GRADED" | "EXPIRED";
+  isLateSubmission: boolean;
+  percentage: number | null;
+  passed: boolean | null;
+  stoppedByIntegrityViolation: boolean;
+  /** V93, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06: Giáo viên đã chọn lượt này làm kết quả chính thức chưa. */
+  selectedForGrading: boolean;
+}
+
+export function listStudentExerciseAttempts(exerciseId: number, studentId: number): Promise<ExerciseAttemptRow[]> {
+  return apiRequest<ExerciseAttemptRow[]>(`/exercises/${exerciseId}/students/${studentId}/attempts`);
+}
+
+/** V93, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06: Giáo viên chọn 1 lượt làm điểm chính thức (loại trừ lẫn nhau trong cùng exercise+student). */
+export function selectAttemptForGrading(attemptId: number): Promise<ExerciseAttemptRow[]> {
+  return apiRequest<ExerciseAttemptRow[]>(`/attempts/${attemptId}/select-for-grading`, { method: "POST" });
+}
+
+export interface IntegritySummaryRow {
+  violationCount: number;
+  violationTotalDurationSeconds: number;
+  parentAndTeacherNotified: boolean;
+}
+
+export function getAttemptIntegritySummary(attemptId: number): Promise<IntegritySummaryRow> {
+  return apiRequest<IntegritySummaryRow>(`/attempts/${attemptId}/integrity-summary`);
+}
