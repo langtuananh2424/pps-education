@@ -273,7 +273,7 @@ function SessionGroup({
               <Th className="border-r border-slate-300 text-center">{grammarLabel}</Th>
               <Th className="border-r border-slate-300 text-center">{videoLabel}</Th>
               <Th className="border-r border-slate-300 text-center">{grammarLabel}</Th>
-              <Th className="text-center">{videoLabel}</Th>
+              <Th className="border-r border-slate-300 text-center">{videoLabel}</Th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-300">
