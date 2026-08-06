@@ -8,10 +8,10 @@ import java.util.Optional;
 public interface GradePeriodEditWindowRepository extends JpaRepository<GradePeriodEditWindow, Long> {
 
     /** Test-only lookup (mô phỏng đẩy lùi first_entered_at) + tiện tra cứu chung. */
-    Optional<GradePeriodEditWindow> findBySchoolClassIdAndGradePeriodId(Long classId, Long gradePeriodId);
+    Optional<GradePeriodEditWindow> findBySchoolClassIdAndGradeComponentSetupId(Long classId, Long gradeComponentSetupId);
 
-    boolean existsBySchoolClassIdAndGradePeriodId(Long classId, Long gradePeriodId);
+    boolean existsBySchoolClassIdAndGradeComponentSetupId(Long classId, Long gradeComponentSetupId);
 
-    /** UC-19 (xoá kỳ đánh giá): chặn xoá kỳ đã bắt đầu nhập điểm (đã có cửa sổ chỉnh sửa ở bất kỳ lớp nào). */
-    boolean existsByGradePeriodId(Long gradePeriodId);
+    /** UC-19 (xoá setup): chặn xoá setup đã bắt đầu nhập điểm (đã có cửa sổ chỉnh sửa ở bất kỳ lớp nào). */
+    boolean existsByGradeComponentSetupId(Long gradeComponentSetupId);
 }

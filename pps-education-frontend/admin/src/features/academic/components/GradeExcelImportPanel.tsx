@@ -2,12 +2,12 @@ import React, { useRef, useState } from "react";
 import { Download, UploadCloud } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { buildXlsxTemplateBlob, downloadBlob } from "@/lib/xlsxTemplate";
-import { ClassEnrollmentResponse, GradeComponentResponse, GradeImportResponse, importGrades } from "../api";
+import { ClassEnrollmentResponse, GradeEvaluationComponentResponse, GradeImportResponse, importGrades } from "../api";
 
 interface GradeExcelImportPanelProps {
   classId: number;
-  gradePeriodId: number;
-  components: GradeComponentResponse[];
+  setupId: number;
+  components: GradeEvaluationComponentResponse[];
   enrollments: ClassEnrollmentResponse[];
   onImported: () => void;
 }
@@ -21,21 +21,21 @@ interface GradeExcelImportPanelProps {
  * A = mã học viên của mọi học viên ACTIVE trong lớp, đảm bảo tải mẫu về rồi nộp lại chắc
  * chắn khớp header ngay từ đầu.
  */
-export default function GradeExcelImportPanel({ classId, gradePeriodId, components, enrollments, onImported }: GradeExcelImportPanelProps) {
+export default function GradeExcelImportPanel({ classId, setupId, components, enrollments, onImported }: GradeExcelImportPanelProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<GradeImportResponse | null>(null);
 
   const handleDownloadTemplate = () => {
-    // Cột B (họ tên) để trống ở dòng tiêu đề — GradeImportService.mapHeader bỏ qua hẳn cột
-    // không có tiêu đề, chỉ để tham khảo cho dễ điền, không bị BE hiểu nhầm là 1 cột điểm.
-    const headers = ["Mã học viên", "", ...components.map((c) => c.name), "Overall", "Level"];
+    // Cột A PHẢI là mã học viên (GradeImportService.importRow đọc cố định vị trí này) — các cột
+    // hiển thị (Học Kỳ/Họ tên/Lớp) đặt SAU, GradeImportService.mapHeader bỏ qua qua IGNORED_ALIASES.
+    const headers = ["Mã học viên", "", ...components.map((c) => c.name), "Overall", "Level", "Nhận xét", "Ghi chú"];
     const sampleRows = enrollments
       .filter((en) => en.status === "ACTIVE")
-      .map((en) => [en.studentCode, en.studentFullName, ...components.map(() => ""), "", ""]);
+      .map((en) => [en.studentCode, en.studentFullName, ...components.map(() => ""), "", "", "", ""]);
     const blob = buildXlsxTemplateBlob(headers, sampleRows);
-    downloadBlob(blob, `mau-nhap-diem-lop-${classId}-ky-${gradePeriodId}.xlsx`);
+    downloadBlob(blob, `mau-nhap-diem-lop-${classId}-setup-${setupId}.xlsx`);
   };
 
   const handleFile = async (file: File | null) => {
@@ -48,7 +48,7 @@ export default function GradeExcelImportPanel({ classId, gradePeriodId, componen
     setError(null);
     setResult(null);
     try {
-      const res = await importGrades(classId, gradePeriodId, file);
+      const res = await importGrades(classId, setupId, file);
       setResult(res);
       if (res.successRows > 0) onImported();
     } catch (err) {

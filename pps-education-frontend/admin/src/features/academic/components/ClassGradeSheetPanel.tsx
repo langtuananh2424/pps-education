@@ -3,20 +3,22 @@ import { LineChart, Plus, Send, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import {
+  AcademicTermResponse,
   ClassEnrollmentResponse,
-  CreateGradeComponentRequest,
-  CreateGradePeriodRequest,
-  GradeComponentResponse,
+  CreateGradeComponentSetupRequest,
+  CreateGradeEvaluationComponentRequest,
+  GradeComponentSetupResponse,
   GradeEntryResponse,
-  GradePeriodResponse,
-  GradePeriodResultResponse,
-  addGradeComponent,
-  createGradePeriod,
-  deleteGradeComponent,
-  deleteGradePeriod,
+  GradeEvaluationComponentResponse,
+  GradeEvaluationResultResponse,
+  addGradeEvaluationComponent,
+  createGradeComponentSetup,
+  deleteGradeComponentSetup,
+  deleteGradeEvaluationComponent,
+  listAcademicTerms,
   listClassEnrollments,
-  listGradeComponents,
-  listGradePeriods,
+  listGradeComponentSetups,
+  listGradeEvaluationComponents,
   submitGradesForApproval
 } from "../api";
 import Button from "@/components/ui/Button";
@@ -28,36 +30,43 @@ import GradeExcelImportPanel from "./GradeExcelImportPanel";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import Select from "@/components/ui/Select";
+import DatePicker from "@/components/ui/DatePicker";
 
 const inputClass = "bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none";
 
 interface ClassGradeSheetPanelProps {
   classId: number;
-  curriculumId: number;
+  siteId: number;
   /** SITE_MANAGER xem tab "Sổ điểm" ở Quản lý lớp học chỉ để tham khảo — không nhập/sửa điểm được (khác GradesPage cũ, đã bỏ sót readOnly khi tách component này). */
   readOnly?: boolean;
 }
 
+function setupLabel(s: GradeComponentSetupResponse): string {
+  return `${s.academicTermName} — ${s.evaluationType === "MID_TERM" ? "Giữa kỳ" : "Cuối kỳ"}`;
+}
+
 /**
  * "Bảng nhập điểm (UC-19)" của đúng 1 lớp — tách khỏi GradesPage để dùng lại được ở tab "Sổ điểm"
- * trong ClassDetailPanel (UC-18), tránh lặp lại toàn bộ logic kỳ điểm/đầu điểm/nhập điểm 2 nơi.
+ * trong ClassDetailPanel (UC-18), tránh lặp lại toàn bộ logic setup sổ điểm/đầu điểm/nhập điểm 2 nơi.
+ * V94 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng — consolidate vào academic_terms): "kỳ điểm"
+ * cũ theo curriculum đổi thành "setup sổ điểm" gắn trực tiếp (lớp, kỳ học, Giữa/Cuối kỳ).
  */
-export default function ClassGradeSheetPanel({ classId, curriculumId, readOnly = false }: ClassGradeSheetPanelProps) {
+export default function ClassGradeSheetPanel({ classId, siteId, readOnly = false }: ClassGradeSheetPanelProps) {
   const { hasPermission } = useApp();
-  const canManage = hasPermission("academic.grade.manage");
+  const canManage = hasPermission("academic.grade.setup.create") || hasPermission("academic.grade.manage");
   const [enrollments, setEnrollments] = useState<ClassEnrollmentResponse[]>([]);
-  const [gradePeriods, setGradePeriods] = useState<GradePeriodResponse[]>([]);
-  const [selectedPeriodId, setSelectedPeriodId] = useState<number | null>(null);
-  const [gradeComponents, setGradeComponents] = useState<GradeComponentResponse[]>([]);
+  const [setups, setSetups] = useState<GradeComponentSetupResponse[]>([]);
+  const [selectedSetupId, setSelectedSetupId] = useState<number | null>(null);
+  const [gradeComponents, setGradeComponents] = useState<GradeEvaluationComponentResponse[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [showPeriodForm, setShowPeriodForm] = useState(false);
+  const [showSetupForm, setShowSetupForm] = useState(false);
   const [showComponentForm, setShowComponentForm] = useState(false);
   const [sheetVersion, setSheetVersion] = useState(0);
   const [loadedEntries, setLoadedEntries] = useState<GradeEntryResponse[]>([]);
-  const [loadedResults, setLoadedResults] = useState<GradePeriodResultResponse[]>([]);
+  const [loadedResults, setLoadedResults] = useState<GradeEvaluationResultResponse[]>([]);
   const [submittingGrades, setSubmittingGrades] = useState(false);
   // UC-19/20 (bổ sung, 2026-07-29): xem tổng hợp điểm cả lớp qua mọi kỳ để so sánh tiến bộ — CHỈ XEM,
-  // tách khỏi màn nhập điểm theo từng kỳ ở dưới (đổi qua đổi lại bằng nút này, không hiện đồng thời).
+  // tách khỏi màn nhập điểm theo từng setup ở dưới (đổi qua đổi lại bằng nút này, không hiện đồng thời).
   const [showComparison, setShowComparison] = useState(false);
   const { message: toastMessage, showToast } = useToast();
   const { confirmDialog } = useDialog();
@@ -67,41 +76,41 @@ export default function ClassGradeSheetPanel({ classId, curriculumId, readOnly =
   }, [classId]);
 
   useEffect(() => {
-    setSelectedPeriodId(null);
+    setSelectedSetupId(null);
     setGradeComponents([]);
-    listGradePeriods(curriculumId).then(setGradePeriods).catch(() => undefined);
-  }, [curriculumId]);
+    listGradeComponentSetups(classId).then(setSetups).catch(() => undefined);
+  }, [classId]);
 
   useEffect(() => {
     setGradeComponents([]);
-    if (!selectedPeriodId) return;
-    listGradeComponents(selectedPeriodId)
+    if (!selectedSetupId) return;
+    listGradeEvaluationComponents(selectedSetupId)
       .then(setGradeComponents)
       .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được đầu điểm."));
-  }, [selectedPeriodId]);
+  }, [selectedSetupId]);
 
-  /** UC-19 (bổ sung): chỉ xoá được kỳ RỖNG (chưa có đầu điểm/điểm tổng kết/cửa sổ nhập điểm) — BE tự chặn 422 nếu không đủ điều kiện. */
-  const handleDeletePeriod = async () => {
-    if (!selectedPeriodId) return;
-    const period = gradePeriods.find((p) => p.id === selectedPeriodId);
-    if (!(await confirmDialog(`Xoá kỳ điểm "${period?.name ?? selectedPeriodId}"? Chỉ xoá được khi kỳ này còn rỗng (chưa có đầu điểm/điểm tổng kết).`, { danger: true }))) return;
+  /** UC-19 (bổ sung): chỉ xoá được setup RỖNG (chưa có đầu điểm/điểm tổng kết/cửa sổ nhập điểm) — BE tự chặn 422 nếu không đủ điều kiện. */
+  const handleDeleteSetup = async () => {
+    if (!selectedSetupId) return;
+    const setup = setups.find((s) => s.id === selectedSetupId);
+    if (!(await confirmDialog(`Xoá setup "${setup ? setupLabel(setup) : selectedSetupId}"? Chỉ xoá được khi setup này còn rỗng (chưa có đầu điểm/điểm tổng kết).`, { danger: true }))) return;
     setError(null);
     try {
-      await deleteGradePeriod(selectedPeriodId);
-      setGradePeriods((prev) => prev.filter((p) => p.id !== selectedPeriodId));
-      setSelectedPeriodId(null);
-      showToast("Đã xoá kỳ điểm thành công!");
+      await deleteGradeComponentSetup(selectedSetupId);
+      setSetups((prev) => prev.filter((s) => s.id !== selectedSetupId));
+      setSelectedSetupId(null);
+      showToast("Đã xoá setup sổ điểm thành công!");
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Xoá kỳ điểm thất bại.");
+      setError(err instanceof ApiError ? err.message : "Xoá setup sổ điểm thất bại.");
     }
   };
 
   /** UC-19 (bổ sung): chỉ xoá được đầu điểm CHƯA có điểm nhập nào — BE tự chặn 422 nếu đã có điểm. */
-  const handleDeleteComponent = async (component: GradeComponentResponse) => {
+  const handleDeleteComponent = async (component: GradeEvaluationComponentResponse) => {
     if (!(await confirmDialog(`Xoá đầu điểm "${component.name}"? Chỉ xoá được khi đầu điểm này chưa có điểm nhập nào.`, { danger: true }))) return;
     setError(null);
     try {
-      await deleteGradeComponent(component.id);
+      await deleteGradeEvaluationComponent(component.id);
       setGradeComponents((prev) => prev.filter((c) => c.id !== component.id));
       showToast("Đã xoá đầu điểm thành công!");
     } catch (err) {
@@ -113,13 +122,13 @@ export default function ClassGradeSheetPanel({ classId, curriculumId, readOnly =
   const submittableResultIds = loadedResults.filter((r) => r.status === "DRAFT" || r.status === "REJECTED").map((r) => r.id);
   const submittableCount = submittableEntryIds.length + submittableResultIds.length;
 
-  /** UC-19 Main Flow bước 4 (V44): Giáo viên gửi duyệt tất cả điểm Nháp/Bị từ chối của kỳ đang xem — chuyển sang Chờ duyệt (SUBMITTED). */
+  /** UC-19 Main Flow bước 4 (V44): Giáo viên gửi duyệt tất cả điểm Nháp/Bị từ chối của setup đang xem — chuyển sang Chờ duyệt (SUBMITTED). */
   const handleSubmitForApproval = async () => {
     if (submittableCount === 0) return;
     setSubmittingGrades(true);
     setError(null);
     try {
-      await submitGradesForApproval({ gradeEntryIds: submittableEntryIds, gradePeriodResultIds: submittableResultIds });
+      await submitGradesForApproval({ gradeEntryIds: submittableEntryIds, gradeEvaluationResultIds: submittableResultIds });
       setSheetVersion((v) => v + 1);
       showToast("Đã gửi duyệt điểm thành công!");
     } catch (err) {
@@ -140,14 +149,14 @@ export default function ClassGradeSheetPanel({ classId, curriculumId, readOnly =
         <div className="flex items-center gap-2">
           {!showComparison && (
             <Select
-              value={selectedPeriodId ?? ""}
-              onChange={(e) => setSelectedPeriodId(e.target.value ? Number(e.target.value) : null)}
+              value={selectedSetupId ?? ""}
+              onChange={(e) => setSelectedSetupId(e.target.value ? Number(e.target.value) : null)}
               className={inputClass}
             >
-              <option value="">-- Chọn kỳ điểm --</option>
-              {gradePeriods.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
+              <option value="">-- Chọn kỳ + Giữa/Cuối kỳ --</option>
+              {setups.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {setupLabel(s)}
                 </option>
               ))}
             </Select>
@@ -160,30 +169,30 @@ export default function ClassGradeSheetPanel({ classId, curriculumId, readOnly =
       </div>
 
       {showComparison ? (
-        <ClassGradeComparisonTable classId={classId} curriculumId={curriculumId} enrollments={enrollments} />
+        <ClassGradeComparisonTable classId={classId} enrollments={enrollments} />
       ) : (
         <>
       {canManage && !readOnly && (
         <div className="flex gap-2 flex-wrap items-center">
-          <Button type="button" size="sm" variant="secondary" onClick={() => setShowPeriodForm((v) => !v)}>
+          <Button type="button" size="sm" variant="secondary" onClick={() => setShowSetupForm((v) => !v)}>
             <Plus className="w-3.5 h-3.5" />
-            Thêm kỳ điểm
+            Thêm setup sổ điểm
           </Button>
-          {selectedPeriodId && (
+          {selectedSetupId && (
             <>
               <Button type="button" size="sm" variant="secondary" onClick={() => setShowComponentForm((v) => !v)}>
                 <Plus className="w-3.5 h-3.5" />
                 Thêm đầu điểm
               </Button>
-              <Button type="button" size="sm" variant="secondary" onClick={handleDeletePeriod} className="text-rose-600 hover:bg-rose-50">
+              <Button type="button" size="sm" variant="secondary" onClick={handleDeleteSetup} className="text-rose-600 hover:bg-rose-50">
                 <X className="w-3.5 h-3.5" />
-                Xoá kỳ điểm này
+                Xoá setup này
               </Button>
             </>
           )}
         </div>
       )}
-      {canManage && !readOnly && selectedPeriodId && gradeComponents.length > 0 && (
+      {canManage && !readOnly && selectedSetupId && gradeComponents.length > 0 && (
         <div className="flex gap-1.5 flex-wrap">
           {gradeComponents.map((c) => (
             <span key={c.id} className="flex items-center gap-1 bg-slate-100 border border-slate-200 text-slate-600 text-[11px] font-semibold px-2 py-1 rounded-lg">
@@ -195,21 +204,22 @@ export default function ClassGradeSheetPanel({ classId, curriculumId, readOnly =
           ))}
         </div>
       )}
-      <Modal open={showPeriodForm} onClose={() => setShowPeriodForm(false)} title="Thêm kỳ điểm">
-        <CreatePeriodForm
-          curriculumId={curriculumId}
-          onDone={(p) => {
-            setGradePeriods((prev) => [...prev, p]);
-            setShowPeriodForm(false);
-            showToast("Đã tạo kỳ điểm thành công!");
+      <Modal open={showSetupForm} onClose={() => setShowSetupForm(false)} title="Thêm setup sổ điểm">
+        <CreateSetupForm
+          classId={classId}
+          siteId={siteId}
+          onDone={(s) => {
+            setSetups((prev) => [...prev, s]);
+            setShowSetupForm(false);
+            showToast("Đã tạo setup sổ điểm thành công!");
           }}
-          onCancel={() => setShowPeriodForm(false)}
+          onCancel={() => setShowSetupForm(false)}
         />
       </Modal>
-      <Modal open={showComponentForm && !!selectedPeriodId} onClose={() => setShowComponentForm(false)} title="Thêm đầu điểm">
-        {selectedPeriodId && (
+      <Modal open={showComponentForm && !!selectedSetupId} onClose={() => setShowComponentForm(false)} title="Thêm đầu điểm">
+        {selectedSetupId && (
           <CreateComponentForm
-            gradePeriodId={selectedPeriodId}
+            setupId={selectedSetupId}
             onDone={(c) => {
               setGradeComponents((prev) => [...prev, c]);
               setShowComponentForm(false);
@@ -220,16 +230,16 @@ export default function ClassGradeSheetPanel({ classId, curriculumId, readOnly =
         )}
       </Modal>
 
-      {selectedPeriodId ? (
+      {selectedSetupId ? (
         gradeComponents.length === 0 ? (
           <p className="text-xs text-slate-400 italic p-6 text-center">
-            Kỳ điểm này chưa có đầu điểm nào được cấu hình{canManage ? " — dùng nút \"Thêm đầu điểm\" ở trên." : "."}
+            Setup sổ điểm này chưa có đầu điểm nào được cấu hình{canManage ? " — dùng nút \"Thêm đầu điểm\" ở trên." : "."}
           </p>
         ) : (
           <GradeSheetTable
-            key={`${classId}-${selectedPeriodId}-${sheetVersion}`}
+            key={`${classId}-${selectedSetupId}-${sheetVersion}`}
             classId={classId}
-            gradePeriodId={selectedPeriodId}
+            setupId={selectedSetupId}
             components={gradeComponents}
             enrollments={enrollments}
             readOnly={readOnly}
@@ -240,10 +250,10 @@ export default function ClassGradeSheetPanel({ classId, curriculumId, readOnly =
           />
         )
       ) : (
-        <p className="text-xs text-slate-400 italic p-6 text-center">Chọn kỳ điểm để bắt đầu nhập điểm.</p>
+        <p className="text-xs text-slate-400 italic p-6 text-center">Chọn setup sổ điểm để bắt đầu nhập điểm.</p>
       )}
 
-      {!readOnly && selectedPeriodId && gradeComponents.length > 0 && (
+      {!readOnly && selectedSetupId && gradeComponents.length > 0 && (
         <div className="flex justify-end">
           <Button type="button" size="sm" variant="primary" disabled={submittingGrades || submittableCount === 0} onClick={handleSubmitForApproval}>
             <Send className="w-3.5 h-3.5" />
@@ -252,10 +262,10 @@ export default function ClassGradeSheetPanel({ classId, curriculumId, readOnly =
         </div>
       )}
 
-      {!readOnly && selectedPeriodId && gradeComponents.length > 0 && (
+      {!readOnly && selectedSetupId && gradeComponents.length > 0 && (
         <GradeExcelImportPanel
           classId={classId}
-          gradePeriodId={selectedPeriodId}
+          setupId={selectedSetupId}
           components={gradeComponents}
           enrollments={enrollments}
           onImported={() => {
@@ -272,25 +282,42 @@ export default function ClassGradeSheetPanel({ classId, curriculumId, readOnly =
   );
 }
 
-function CreatePeriodForm({ curriculumId, onDone, onCancel }: { curriculumId: number; onDone: (p: GradePeriodResponse) => void; onCancel: () => void }) {
-  const [form, setForm] = useState({ code: "MID_1", name: "", weightInFinal: "" });
+function CreateSetupForm({ classId, siteId, onDone, onCancel }: { classId: number; siteId: number; onDone: (s: GradeComponentSetupResponse) => void; onCancel: () => void }) {
+  const [terms, setTerms] = useState<AcademicTermResponse[]>([]);
+  const [form, setForm] = useState({
+    academicTermId: "",
+    evaluationType: "MID_TERM" as CreateGradeComponentSetupRequest["evaluationType"],
+    weightInFinal: "",
+    rosterAsOfDate: new Date().toISOString().slice(0, 10),
+    commentRequired: false
+  });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    listAcademicTerms(siteId).then(setTerms).catch(() => undefined);
+  }, [siteId]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name.trim() || !form.weightInFinal) {
-      setError("Vui lòng điền đủ tên và điểm kỳ vọng");
+    if (!form.academicTermId) {
+      setError("Vui lòng chọn kỳ học.");
       return;
     }
     setSubmitting(true);
     setError(null);
     try {
-      const request: CreateGradePeriodRequest = { code: form.code, name: form.name.trim(), weightInFinal: Number(form.weightInFinal) };
-      const created = await createGradePeriod(curriculumId, request);
+      const request: CreateGradeComponentSetupRequest = {
+        academicTermId: Number(form.academicTermId),
+        evaluationType: form.evaluationType,
+        weightInFinal: form.weightInFinal ? Number(form.weightInFinal) : undefined,
+        rosterAsOfDate: form.rosterAsOfDate,
+        commentRequired: form.commentRequired
+      };
+      const created = await createGradeComponentSetup(classId, request);
       onDone(created);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Tạo kỳ điểm thất bại.");
+      setError(err instanceof ApiError ? err.message : "Tạo setup sổ điểm thất bại.");
     } finally {
       setSubmitting(false);
     }
@@ -299,30 +326,39 @@ function CreatePeriodForm({ curriculumId, onDone, onCancel }: { curriculumId: nu
   return (
     <form onSubmit={handleSubmit} className="bg-white border border-slate-200 rounded-lg p-3 space-y-2">
       {error && <div className="text-[11px] text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
-      <div className="grid grid-cols-3 gap-2">
-        <Select value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} className={inputClass}>
-          <option value="MID_1">MID_1 — Giữa kỳ 1</option>
-          <option value="END_1">END_1 — Cuối kỳ 1</option>
-          <option value="MID_2">MID_2 — Giữa kỳ 2</option>
-          <option value="END_2">END_2 — Cuối kỳ 2</option>
-          <option value="OTHER">OTHER — Khác</option>
+      <div className="grid grid-cols-2 gap-2">
+        <Select value={form.academicTermId} onChange={(e) => setForm({ ...form, academicTermId: e.target.value })} className={inputClass}>
+          <option value="">-- Chọn kỳ học --</option>
+          {terms.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.name}
+            </option>
+          ))}
         </Select>
-        <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Tên kỳ điểm" className={inputClass} />
-        <input type="number" step="0.01" value={form.weightInFinal} onChange={(e) => setForm({ ...form, weightInFinal: e.target.value })} placeholder="Điểm kỳ vọng" className={inputClass} />
+        <Select value={form.evaluationType} onChange={(e) => setForm({ ...form, evaluationType: e.target.value as CreateGradeComponentSetupRequest["evaluationType"] })} className={inputClass}>
+          <option value="MID_TERM">Giữa kỳ</option>
+          <option value="END_TERM">Cuối kỳ</option>
+        </Select>
+        <input type="number" step="0.01" value={form.weightInFinal} onChange={(e) => setForm({ ...form, weightInFinal: e.target.value })} placeholder="Trọng số (%)" className={inputClass} />
+        <DatePicker value={form.rosterAsOfDate} onChange={(v) => setForm({ ...form, rosterAsOfDate: v })} />
       </div>
+      <label className="flex items-center gap-2 text-[11px] text-slate-600 cursor-pointer">
+        <input type="checkbox" checked={form.commentRequired} onChange={(e) => setForm({ ...form, commentRequired: e.target.checked })} className="h-3.5 w-3.5" />
+        Bắt buộc nhập Nhận xét khi nhập Overall/Level
+      </label>
       <div className="flex gap-2">
         <Button type="button" size="sm" variant="secondary" onClick={onCancel}>
           Hủy
         </Button>
         <Button type="submit" size="sm" variant="primary" disabled={submitting}>
-          {submitting ? "Đang lưu..." : "Tạo kỳ điểm"}
+          {submitting ? "Đang lưu..." : "Tạo setup"}
         </Button>
       </div>
     </form>
   );
 }
 
-function CreateComponentForm({ gradePeriodId, onDone, onCancel }: { gradePeriodId: number; onDone: (c: GradeComponentResponse) => void; onCancel: () => void }) {
+function CreateComponentForm({ setupId, onDone, onCancel }: { setupId: number; onDone: (c: GradeEvaluationComponentResponse) => void; onCancel: () => void }) {
   const [form, setForm] = useState({ code: "OTHER", name: "", maxScore: "10" });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -336,12 +372,12 @@ function CreateComponentForm({ gradePeriodId, onDone, onCancel }: { gradePeriodI
     setSubmitting(true);
     setError(null);
     try {
-      const request: CreateGradeComponentRequest = {
+      const request: CreateGradeEvaluationComponentRequest = {
         code: form.code,
         name: form.name.trim(),
         maxScore: form.maxScore ? Number(form.maxScore) : undefined
       };
-      const created = await addGradeComponent(gradePeriodId, request);
+      const created = await addGradeEvaluationComponent(setupId, request);
       onDone(created);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Tạo đầu điểm thất bại.");

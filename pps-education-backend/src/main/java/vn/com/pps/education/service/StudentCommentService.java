@@ -15,7 +15,7 @@ import vn.com.pps.education.domain.ClassEnrollment;
 import vn.com.pps.education.domain.ClassSession;
 import vn.com.pps.education.domain.Exercise;
 import vn.com.pps.education.domain.ExerciseAssignment;
-import vn.com.pps.education.domain.GradePeriod;
+import vn.com.pps.education.domain.AcademicTerm;
 import vn.com.pps.education.domain.ImportJob;
 import vn.com.pps.education.domain.Notification;
 import vn.com.pps.education.domain.ReviewVideoAssignment;
@@ -53,7 +53,7 @@ import vn.com.pps.education.repository.AttendanceSessionRepository;
 import vn.com.pps.education.repository.ClassEnrollmentRepository;
 import vn.com.pps.education.repository.ClassSessionRepository;
 import vn.com.pps.education.repository.ExerciseRepository;
-import vn.com.pps.education.repository.GradePeriodRepository;
+import vn.com.pps.education.repository.AcademicTermRepository;
 import vn.com.pps.education.repository.ImportJobRepository;
 import vn.com.pps.education.repository.ReviewVideoAssignmentRepository;
 import vn.com.pps.education.repository.ReviewVideoSetRepository;
@@ -208,7 +208,7 @@ public class StudentCommentService {
     private final SchoolClassRepository schoolClassRepository;
     private final StudentRepository studentRepository;
     private final ClassSessionRepository classSessionRepository;
-    private final GradePeriodRepository gradePeriodRepository;
+    private final AcademicTermRepository academicTermRepository;
     private final ClassTeacherRepository classTeacherRepository;
     private final SiteManagerRepository siteManagerRepository;
     private final UserRepository userRepository;
@@ -233,7 +233,7 @@ public class StudentCommentService {
                                   SchoolClassRepository schoolClassRepository,
                                   StudentRepository studentRepository,
                                   ClassSessionRepository classSessionRepository,
-                                  GradePeriodRepository gradePeriodRepository,
+                                  AcademicTermRepository academicTermRepository,
                                   ClassTeacherRepository classTeacherRepository,
                                   SiteManagerRepository siteManagerRepository,
                                   UserRepository userRepository,
@@ -257,7 +257,7 @@ public class StudentCommentService {
         this.schoolClassRepository = schoolClassRepository;
         this.studentRepository = studentRepository;
         this.classSessionRepository = classSessionRepository;
-        this.gradePeriodRepository = gradePeriodRepository;
+        this.academicTermRepository = academicTermRepository;
         this.classTeacherRepository = classTeacherRepository;
         this.siteManagerRepository = siteManagerRepository;
         this.userRepository = userRepository;
@@ -287,22 +287,22 @@ public class StudentCommentService {
         StudentComment.CommentType commentType = StudentComment.CommentType.valueOf(request.commentType());
 
         ClassSession classSession = null;
-        GradePeriod gradePeriod = null;
+        AcademicTerm academicTerm = null;
         if (commentType == StudentComment.CommentType.DAILY) {
-            if (request.classSessionId() == null || request.gradePeriodId() != null) {
+            if (request.classSessionId() == null || request.academicTermId() != null) {
                 throw new InvalidCommentContextException(
-                        "commentType=DAILY phải có classSessionId và không được có gradePeriodId.");
+                        "commentType=DAILY phải có classSessionId và không được có academicTermId.");
             }
             classSession = getClassSessionOrThrow(request.classSessionId());
             requireCanWriteDailyComment(classSession, actorUserId);
         } else {
-            if (request.gradePeriodId() == null || request.classSessionId() != null) {
+            if (request.academicTermId() == null || request.classSessionId() != null) {
                 throw new InvalidCommentContextException(
-                        "commentType=" + commentType + " phải có gradePeriodId và không được có classSessionId.");
+                        "commentType=" + commentType + " phải có academicTermId và không được có classSessionId.");
             }
             requireNoHomeworkNextForNonDaily(request.homeworkNextExerciseId(), request.homeworkNextReviewVideoSetId());
-            gradePeriod = gradePeriodRepository.findById(request.gradePeriodId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy kỳ đánh giá id=" + request.gradePeriodId()));
+            academicTerm = academicTermRepository.findById(request.academicTermId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy kỳ học id=" + request.academicTermId()));
             requireAssignedTeacher(classId, actorUserId);
         }
         Student student = studentRepository.findByIdAndDeletedAtIsNull(request.studentId())
@@ -314,7 +314,7 @@ public class StudentCommentService {
         comment.setTeacher(actor);
         comment.setCommentType(commentType);
         comment.setClassSession(classSession);
-        comment.setGradePeriod(gradePeriod);
+        comment.setAcademicTerm(academicTerm);
         comment.setCommentDate(request.commentDate());
 
         ExerciseAssignment grammarAssignment = classSession == null ? null
@@ -1525,7 +1525,7 @@ public class StudentCommentService {
                 c.getId(), c.getStudent().getId(), c.getStudent().getUser().getFullName(), c.getStudent().getDateOfBirth(),
                 c.getSchoolClass().getId(), c.getTeacher().getId(), c.getCommentType().name(),
                 c.getClassSession() == null ? null : c.getClassSession().getId(),
-                c.getGradePeriod() == null ? null : c.getGradePeriod().getId(),
+                c.getAcademicTerm() == null ? null : c.getAcademicTerm().getId(),
                 c.getCommentDate(), c.getContent(), c.getStructuredContent(), c.getSeverity().name(), c.isWarning(),
                 c.getStatus().name(), c.getSubmittedAt(), c.getApprovedAt(),
                 c.getApprovedBy() == null ? null : c.getApprovedBy().getId(), c.getVisibleToParentAt(), c.getRejectionReason(),

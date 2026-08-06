@@ -6,8 +6,9 @@ import vn.com.pps.education.domain.AttendanceMark;
 import vn.com.pps.education.domain.ClassSession;
 import vn.com.pps.education.domain.ExerciseAssignment;
 import vn.com.pps.education.domain.ReviewVideoAssignment;
+import vn.com.pps.education.domain.GradeComponentSetup;
 import vn.com.pps.education.domain.GradeEntry;
-import vn.com.pps.education.domain.GradePeriodResult;
+import vn.com.pps.education.domain.GradeEvaluationResult;
 import vn.com.pps.education.domain.Parent;
 import vn.com.pps.education.domain.ParentStudent;
 import vn.com.pps.education.domain.StudentComment;
@@ -15,7 +16,7 @@ import vn.com.pps.education.dto.AttendanceMarkResponse;
 import vn.com.pps.education.dto.ChildResponse;
 import vn.com.pps.education.dto.ClassSessionResponse;
 import vn.com.pps.education.dto.GradeEntryResponse;
-import vn.com.pps.education.dto.GradePeriodResultResponse;
+import vn.com.pps.education.dto.GradeEvaluationResultResponse;
 import vn.com.pps.education.dto.HomeworkProgressResponse;
 import vn.com.pps.education.dto.StudentCommentResponse;
 import vn.com.pps.education.exception.NotAuthorizedForPortalAccessException;
@@ -24,7 +25,7 @@ import vn.com.pps.education.repository.AttendanceMarkRepository;
 import vn.com.pps.education.repository.ClassEnrollmentRepository;
 import vn.com.pps.education.repository.ClassSessionRepository;
 import vn.com.pps.education.repository.GradeEntryRepository;
-import vn.com.pps.education.repository.GradePeriodResultRepository;
+import vn.com.pps.education.repository.GradeEvaluationResultRepository;
 import vn.com.pps.education.repository.ParentRepository;
 import vn.com.pps.education.repository.ParentStudentRepository;
 import vn.com.pps.education.repository.StudentCommentRepository;
@@ -56,7 +57,7 @@ public class ParentPortalService {
     private final StudentRepository studentRepository;
     private final ClassEnrollmentRepository classEnrollmentRepository;
     private final GradeEntryRepository gradeEntryRepository;
-    private final GradePeriodResultRepository gradePeriodResultRepository;
+    private final GradeEvaluationResultRepository gradeEvaluationResultRepository;
     private final AttendanceMarkRepository attendanceMarkRepository;
     private final StudentCommentRepository studentCommentRepository;
     private final ClassSessionRepository classSessionRepository;
@@ -67,7 +68,7 @@ public class ParentPortalService {
                                 StudentRepository studentRepository,
                                 ClassEnrollmentRepository classEnrollmentRepository,
                                 GradeEntryRepository gradeEntryRepository,
-                                GradePeriodResultRepository gradePeriodResultRepository,
+                                GradeEvaluationResultRepository gradeEvaluationResultRepository,
                                 AttendanceMarkRepository attendanceMarkRepository,
                                 StudentCommentRepository studentCommentRepository,
                                 ClassSessionRepository classSessionRepository,
@@ -77,7 +78,7 @@ public class ParentPortalService {
         this.studentRepository = studentRepository;
         this.classEnrollmentRepository = classEnrollmentRepository;
         this.gradeEntryRepository = gradeEntryRepository;
-        this.gradePeriodResultRepository = gradePeriodResultRepository;
+        this.gradeEvaluationResultRepository = gradeEvaluationResultRepository;
         this.attendanceMarkRepository = attendanceMarkRepository;
         this.studentCommentRepository = studentCommentRepository;
         this.classSessionRepository = classSessionRepository;
@@ -104,17 +105,20 @@ public class ParentPortalService {
 
     /**
      * UC-53 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng): Overall/Level
-     * đã duyệt (OFFICIAL — V44) của 1 kỳ đánh giá — gap trước đây Portal
-     * Phụ huynh chỉ có điểm thành phần (listGrades), chưa có Overall/Level.
+     * + Nhận xét/Ghi chú (V95) đã duyệt (OFFICIAL — V44) của 1 (kỳ học,
+     * Giữa/Cuối kỳ) — gap trước đây Portal Phụ huynh chỉ có điểm thành
+     * phần (listGrades), chưa có Overall/Level.
      */
     @Transactional(readOnly = true)
-    public GradePeriodResultResponse getPeriodResult(Long studentId, Long classId, Long gradePeriodId, Long actorUserId) {
+    public GradeEvaluationResultResponse getEvaluationResult(Long studentId, Long classId, Long academicTermId,
+                                                              String evaluationType, Long actorUserId) {
         requireAccessToChildClass(studentId, classId, actorUserId);
-        GradePeriodResult result = gradePeriodResultRepository
-                .findBySchoolClassIdAndStudentIdAndGradePeriodId(classId, studentId, gradePeriodId)
-                .filter(r -> r.getStatus() == GradePeriodResult.Status.OFFICIAL)
+        GradeEvaluationResult result = gradeEvaluationResultRepository
+                .findBySchoolClassIdAndStudentIdAndAcademicTermIdAndEvaluationType(
+                        classId, studentId, academicTermId, GradeComponentSetup.EvaluationType.valueOf(evaluationType))
+                .filter(r -> r.getStatus() == GradeEvaluationResult.Status.OFFICIAL)
                 .orElseThrow(() -> new ResourceNotFoundException(
-                        "Chưa có điểm tổng kết đã duyệt cho học sinh id=" + studentId + ", kỳ đánh giá id=" + gradePeriodId + "."));
+                        "Chưa có điểm tổng kết đã duyệt cho học sinh id=" + studentId + ", kỳ học id=" + academicTermId + "."));
         return toResponse(result);
     }
 
@@ -197,16 +201,17 @@ public class ParentPortalService {
     private GradeEntryResponse toResponse(GradeEntry e) {
         return new GradeEntryResponse(
                 e.getId(), e.getSchoolClass().getId(), e.getStudent().getId(), e.getStudent().getUser().getFullName(),
-                e.getStudent().getStudentCode(), e.getGradeComponent().getId(), e.getScore(), e.isAbsenceFlag(),
-                e.getTeacherNote(), e.getStatus().name(), e.getEnteredBy().getId(),
+                e.getStudent().getStudentCode(), e.getGradeComponent().getId(), e.getAcademicTerm().getId(), e.getEvaluationType().name(),
+                e.getScore(), e.isAbsenceFlag(), e.getTeacherNote(), e.getStatus().name(), e.getEnteredBy().getId(),
                 e.getPublishedBy() == null ? null : e.getPublishedBy().getId(), e.getPublishedAt(), e.getFinalizedAt());
     }
 
-    private GradePeriodResultResponse toResponse(GradePeriodResult r) {
-        return new GradePeriodResultResponse(
+    private GradeEvaluationResultResponse toResponse(GradeEvaluationResult r) {
+        return new GradeEvaluationResultResponse(
                 r.getId(), r.getSchoolClass().getId(), r.getStudent().getId(),
                 r.getStudent().getUser().getFullName(), r.getStudent().getStudentCode(),
-                r.getGradePeriod().getId(), r.getOverallScore(), r.getScaleType().name(), r.getLevel(),
+                r.getAcademicTerm().getId(), r.getEvaluationType().name(), r.getOverallScore(), r.getScaleType().name(),
+                r.getLevel(), r.getComment(), r.getNote(),
                 r.getSource().name(), r.getImportJob() == null ? null : r.getImportJob().getId(),
                 r.getStatus().name(), r.getEnteredBy().getId(),
                 r.getPublishedBy() == null ? null : r.getPublishedBy().getId(), r.getPublishedAt(), r.getFinalizedAt());
@@ -225,7 +230,7 @@ public class ParentPortalService {
                 c.getId(), c.getStudent().getId(), c.getStudent().getUser().getFullName(), c.getStudent().getDateOfBirth(),
                 c.getSchoolClass().getId(), c.getTeacher().getId(), c.getCommentType().name(),
                 c.getClassSession() == null ? null : c.getClassSession().getId(),
-                c.getGradePeriod() == null ? null : c.getGradePeriod().getId(),
+                c.getAcademicTerm() == null ? null : c.getAcademicTerm().getId(),
                 c.getCommentDate(), c.getContent(), c.getStructuredContent(), c.getSeverity().name(), c.isWarning(),
                 c.getStatus().name(), c.getSubmittedAt(), c.getApprovedAt(),
                 c.getApprovedBy() == null ? null : c.getApprovedBy().getId(), c.getVisibleToParentAt(), c.getRejectionReason(),

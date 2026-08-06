@@ -1,5 +1,5 @@
 -- =====================================================================
--- V92: UC-10/UC-11 (Đơn từ) — leave_substitutions: giáo viên dạy thay
+-- V96: UC-10/UC-11 (Đơn từ) — leave_substitutions: giáo viên dạy thay
 -- theo đơn nghỉ (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
 -- 2026-08-05). Xem docs/uc/phan-he-04-nhan-su.md UC-10 bước 5 / UC-11 A2
 -- và docs/sdd-groups/05-nhan-su.md mục c) Đơn từ.

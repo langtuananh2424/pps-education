@@ -3,20 +3,19 @@ import { Minus, TrendingDown, TrendingUp } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import {
   ClassEnrollmentResponse,
-  GradeComponentResponse,
+  GradeComponentSetupResponse,
   GradeEntryResponse,
-  GradePeriodResponse,
-  GradePeriodResultResponse,
-  listGradeComponents,
+  GradeEvaluationComponentResponse,
+  GradeEvaluationResultResponse,
+  listEvaluationResults,
+  listGradeComponentSetups,
   listGradeEntries,
-  listGradePeriods,
-  listPeriodResults
+  listGradeEvaluationComponents
 } from "../api";
 import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
 
 interface ClassGradeComparisonTableProps {
   classId: number;
-  curriculumId: number;
   enrollments: ClassEnrollmentResponse[];
   /**
    * true: bỏ qua lọc ACTIVE, hiện đúng danh sách `enrollments` truyền vào — dùng khi nhúng bảng này cho
@@ -26,59 +25,63 @@ interface ClassGradeComparisonTableProps {
   includeAllStatuses?: boolean;
 }
 
+function setupLabel(s: GradeComponentSetupResponse): string {
+  return `${s.academicTermName} — ${s.evaluationType === "MID_TERM" ? "GK" : "CK"}`;
+}
+
 /**
- * UC-19/20 (bổ sung, đã xác nhận với người dùng 2026-07-29): tổng hợp điểm CẢ LỚP qua TẤT CẢ kỳ
- * điểm của khung chương trình, mỗi đầu điểm (gộp theo `code` — VD LISTENING/READING/... vì mỗi kỳ
- * tự tạo ra bản ghi GradeComponent riêng, không dùng chung id giữa các kỳ) tách thành nhiều cột con
- * theo từng kỳ để Giáo viên so sánh 1 học sinh có tiến bộ qua các kỳ không. CHỈ XEM — nhập/sửa điểm
- * vẫn làm ở GradeSheetTable (theo từng kỳ riêng lẻ) như cũ.
+ * UC-19/20 (bổ sung, đã xác nhận với người dùng 2026-07-29): tổng hợp điểm CẢ LỚP qua TẤT CẢ setup sổ
+ * điểm của lớp (V94 — trước đây là "kỳ điểm của khung chương trình"), mỗi đầu điểm (gộp theo `code` —
+ * VD LISTENING/READING/... vì mỗi setup tự tạo ra bản ghi GradeEvaluationComponent riêng, không dùng
+ * chung id giữa các setup) tách thành nhiều cột con theo từng setup để Giáo viên so sánh 1 học sinh có
+ * tiến bộ qua các kỳ không. CHỈ XEM — nhập/sửa điểm vẫn làm ở GradeSheetTable (theo từng setup riêng lẻ).
  */
-export default function ClassGradeComparisonTable({ classId, curriculumId, enrollments, includeAllStatuses }: ClassGradeComparisonTableProps) {
-  const [periods, setPeriods] = useState<GradePeriodResponse[]>([]);
-  const [componentsByPeriod, setComponentsByPeriod] = useState<Map<number, GradeComponentResponse[]>>(new Map());
+export default function ClassGradeComparisonTable({ classId, enrollments, includeAllStatuses }: ClassGradeComparisonTableProps) {
+  const [setups, setSetups] = useState<GradeComponentSetupResponse[]>([]);
+  const [componentsBySetup, setComponentsBySetup] = useState<Map<number, GradeEvaluationComponentResponse[]>>(new Map());
   const [entriesByComponent, setEntriesByComponent] = useState<Map<number, GradeEntryResponse[]>>(new Map());
-  const [resultsByPeriod, setResultsByPeriod] = useState<Map<number, GradePeriodResultResponse[]>>(new Map());
+  const [resultsBySetup, setResultsBySetup] = useState<Map<number, GradeEvaluationResultResponse[]>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
     setError(null);
-    listGradePeriods(curriculumId)
-      .then(async (periodList) => {
-        const sorted = [...periodList].sort((a, b) => a.displayOrder - b.displayOrder);
-        setPeriods(sorted);
-        const componentEntries = await Promise.all(sorted.map((p) => listGradeComponents(p.id).then((cs) => [p.id, cs] as const)));
-        setComponentsByPeriod(new Map(componentEntries));
+    listGradeComponentSetups(classId)
+      .then(async (setupList) => {
+        const sorted = [...setupList].sort((a, b) => a.academicTermId - b.academicTermId || a.evaluationType.localeCompare(b.evaluationType));
+        setSetups(sorted);
+        const componentEntries = await Promise.all(sorted.map((s) => listGradeEvaluationComponents(s.id).then((cs) => [s.id, cs] as const)));
+        setComponentsBySetup(new Map(componentEntries));
         const allComponents = componentEntries.flatMap(([, cs]) => cs);
-        const [entryResults, periodResults] = await Promise.all([
+        const [entryResults, setupResults] = await Promise.all([
           Promise.all(allComponents.map((c) => listGradeEntries(classId, c.id).then((es) => [c.id, es] as const))),
-          Promise.all(sorted.map((p) => listPeriodResults(classId, p.id).then((rs) => [p.id, rs] as const)))
+          Promise.all(sorted.map((s) => listEvaluationResults(classId, s.id).then((rs) => [s.id, rs] as const)))
         ]);
         setEntriesByComponent(new Map(entryResults));
-        setResultsByPeriod(new Map(periodResults));
+        setResultsBySetup(new Map(setupResults));
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được bảng tổng hợp điểm."))
       .finally(() => setLoading(false));
-  }, [classId, curriculumId]);
+  }, [classId]);
 
-  /** Gộp đầu điểm theo `code` xuyên suốt các kỳ — mỗi kỳ tự có bản ghi GradeComponent riêng (không chia sẻ id). */
+  /** Gộp đầu điểm theo `code` xuyên suốt các setup — mỗi setup tự có bản ghi GradeEvaluationComponent riêng (không chia sẻ id). */
   const codeGroups = useMemo(() => {
     const labelByCode = new Map<string, string>();
-    const componentByCodeAndPeriod = new Map<string, Map<number, number>>(); // code -> periodId -> componentId
-    componentsByPeriod.forEach((comps, periodId) => {
+    const componentByCodeAndSetup = new Map<string, Map<number, number>>(); // code -> setupId -> componentId
+    componentsBySetup.forEach((comps, setupId) => {
       comps.forEach((c) => {
         if (!labelByCode.has(c.code)) labelByCode.set(c.code, c.name);
-        if (!componentByCodeAndPeriod.has(c.code)) componentByCodeAndPeriod.set(c.code, new Map());
-        componentByCodeAndPeriod.get(c.code)!.set(periodId, c.id);
+        if (!componentByCodeAndSetup.has(c.code)) componentByCodeAndSetup.set(c.code, new Map());
+        componentByCodeAndSetup.get(c.code)!.set(setupId, c.id);
       });
     });
     return Array.from(labelByCode.entries()).map(([code, label]) => ({
       code,
       label,
-      componentIdByPeriod: componentByCodeAndPeriod.get(code)!
+      componentIdBySetup: componentByCodeAndSetup.get(code)!
     }));
-  }, [componentsByPeriod]);
+  }, [componentsBySetup]);
 
   const activeStudents = includeAllStatuses ? enrollments : enrollments.filter((en) => en.status === "ACTIVE");
 
@@ -88,8 +91,8 @@ export default function ClassGradeComparisonTable({ classId, curriculumId, enrol
     return entry ? entry.score : null;
   };
 
-  const overallFor = (periodId: number, studentId: number): number | null => {
-    const result = (resultsByPeriod.get(periodId) ?? []).find((r) => r.studentId === studentId);
+  const overallFor = (setupId: number, studentId: number): number | null => {
+    const result = (resultsBySetup.get(setupId) ?? []).find((r) => r.studentId === studentId);
     return result?.overallScore ?? null;
   };
 
@@ -101,7 +104,7 @@ export default function ClassGradeComparisonTable({ classId, curriculumId, enrol
   };
 
   if (loading) return <p className="text-xs text-slate-400 italic p-6 text-center">Đang tải bảng tổng hợp điểm...</p>;
-  if (periods.length === 0) return <p className="text-xs text-slate-400 italic p-6 text-center">Khung chương trình này chưa có kỳ điểm nào.</p>;
+  if (setups.length === 0) return <p className="text-xs text-slate-400 italic p-6 text-center">Lớp này chưa có setup sổ điểm nào.</p>;
 
   return (
     <div>
@@ -117,25 +120,25 @@ export default function ClassGradeComparisonTable({ classId, curriculumId, enrol
                 Học sinh
               </Th>
               {codeGroups.map((g) => (
-                <Th key={g.code} colSpan={periods.length} className="text-center whitespace-nowrap border-l border-slate-200">
+                <Th key={g.code} colSpan={setups.length} className="text-center whitespace-nowrap border-l border-slate-200">
                   {g.label.toUpperCase()}
                 </Th>
               ))}
-              <Th colSpan={periods.length} className="text-center whitespace-nowrap border-l border-slate-200">
+              <Th colSpan={setups.length} className="text-center whitespace-nowrap border-l border-slate-200">
                 OVERALL
               </Th>
             </tr>
             <tr>
               {codeGroups.map((g) =>
-                periods.map((p, i) => (
-                  <Th key={`${g.code}-${p.id}`} className={`text-center text-[10px] font-semibold whitespace-nowrap ${i === 0 ? "border-l border-slate-200" : ""}`}>
-                    {p.name}
+                setups.map((s, i) => (
+                  <Th key={`${g.code}-${s.id}`} className={`text-center text-[10px] font-semibold whitespace-nowrap ${i === 0 ? "border-l border-slate-200" : ""}`}>
+                    {setupLabel(s)}
                   </Th>
                 ))
               )}
-              {periods.map((p, i) => (
-                <Th key={`overall-${p.id}`} className={`text-center text-[10px] font-semibold whitespace-nowrap ${i === 0 ? "border-l border-slate-200" : ""}`}>
-                  {p.name}
+              {setups.map((s, i) => (
+                <Th key={`overall-${s.id}`} className={`text-center text-[10px] font-semibold whitespace-nowrap ${i === 0 ? "border-l border-slate-200" : ""}`}>
+                  {setupLabel(s)}
                 </Th>
               ))}
             </tr>
@@ -143,7 +146,7 @@ export default function ClassGradeComparisonTable({ classId, curriculumId, enrol
           <tbody className="divide-y divide-slate-100">
             {activeStudents.length === 0 ? (
               <tr>
-                <td colSpan={2 + (codeGroups.length + 1) * periods.length} className="px-6 py-12 text-center text-xs text-slate-400 italic">
+                <td colSpan={2 + (codeGroups.length + 1) * setups.length} className="px-6 py-12 text-center text-xs text-slate-400 italic">
                   Lớp chưa có học sinh nào đang ghi danh.
                 </td>
               </tr>
@@ -153,9 +156,9 @@ export default function ClassGradeComparisonTable({ classId, curriculumId, enrol
                   <Td className="font-mono font-bold text-slate-500 whitespace-nowrap">{en.studentCode}</Td>
                   <Td className="font-bold text-slate-900 whitespace-nowrap">{en.studentFullName}</Td>
                   {codeGroups.map((g) => {
-                    const scores = periods.map((p) => scoreFor(g.componentIdByPeriod.get(p.id), en.studentId));
-                    return periods.map((p, i) => (
-                      <Td key={`${g.code}-${p.id}`} className={`text-center whitespace-nowrap ${i === 0 ? "border-l border-slate-200" : ""}`}>
+                    const scores = setups.map((s) => scoreFor(g.componentIdBySetup.get(s.id), en.studentId));
+                    return setups.map((s, i) => (
+                      <Td key={`${g.code}-${s.id}`} className={`text-center whitespace-nowrap ${i === 0 ? "border-l border-slate-200" : ""}`}>
                         {scores[i] == null ? (
                           <span className="text-slate-300">—</span>
                         ) : (
@@ -167,10 +170,10 @@ export default function ClassGradeComparisonTable({ classId, curriculumId, enrol
                       </Td>
                     ));
                   })}
-                  {periods.map((p, i) => {
-                    const overalls = periods.map((pp) => overallFor(pp.id, en.studentId));
+                  {setups.map((s, i) => {
+                    const overalls = setups.map((ss) => overallFor(ss.id, en.studentId));
                     return (
-                      <Td key={`overall-${p.id}`} className={`text-center whitespace-nowrap ${i === 0 ? "border-l border-slate-200" : ""}`}>
+                      <Td key={`overall-${s.id}`} className={`text-center whitespace-nowrap ${i === 0 ? "border-l border-slate-200" : ""}`}>
                         {overalls[i] == null ? (
                           <span className="text-slate-300">—</span>
                         ) : (

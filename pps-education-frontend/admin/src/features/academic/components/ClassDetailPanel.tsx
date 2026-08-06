@@ -142,7 +142,7 @@ export default function ClassDetailPanel({ schoolClass, onChanged }: ClassDetail
             showToast={showToast}
           />
         )}
-        {tab === "grades" && <ClassGradeSheetPanel classId={schoolClass.id} curriculumId={schoolClass.curriculumId} readOnly={isSiteManagerRole} />}
+        {tab === "grades" && <ClassGradeSheetPanel classId={schoolClass.id} siteId={schoolClass.siteId} readOnly={isSiteManagerRole} />}
       </div>
 
       <Toast message={toastMessage} />
@@ -607,7 +607,6 @@ function StudentsTab({
         <StudentInfoModal
           enrollment={viewingEnrollment}
           classId={classId}
-          curriculumId={curriculumId}
           onClose={() => setViewingEnrollment(null)}
         />
       )}

@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.transaction.annotation.Transactional;
+import vn.com.pps.education.domain.AcademicTerm;
 import vn.com.pps.education.domain.Role;
 import vn.com.pps.education.domain.Site;
 import vn.com.pps.education.domain.Student;
@@ -17,17 +18,18 @@ import vn.com.pps.education.dto.AssignTeacherRequest;
 import vn.com.pps.education.dto.ClassResponse;
 import vn.com.pps.education.dto.CreateClassRequest;
 import vn.com.pps.education.dto.CreateCurriculumRequest;
-import vn.com.pps.education.dto.CreateGradeComponentRequest;
-import vn.com.pps.education.dto.CreateGradePeriodRequest;
+import vn.com.pps.education.dto.CreateGradeComponentSetupRequest;
+import vn.com.pps.education.dto.CreateGradeEvaluationComponentRequest;
 import vn.com.pps.education.dto.CurriculumResponse;
 import vn.com.pps.education.dto.EnrollStudentRequest;
-import vn.com.pps.education.dto.GradeComponentResponse;
+import vn.com.pps.education.dto.GradeComponentSetupResponse;
 import vn.com.pps.education.dto.GradeEntryResponse;
+import vn.com.pps.education.dto.GradeEvaluationComponentResponse;
+import vn.com.pps.education.dto.GradeEvaluationResultResponse;
 import vn.com.pps.education.dto.GradeImportResponse;
-import vn.com.pps.education.dto.GradePeriodResponse;
-import vn.com.pps.education.dto.GradePeriodResultResponse;
 import vn.com.pps.education.dto.UpdateCurriculumRequest;
 import vn.com.pps.education.exception.GradeImportColumnMismatchException;
+import vn.com.pps.education.repository.AcademicTermRepository;
 import vn.com.pps.education.repository.ImportJobRepository;
 import vn.com.pps.education.repository.SiteRepository;
 import vn.com.pps.education.repository.RoleRepository;
@@ -47,9 +49,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * UC-53: Nhập điểm thi qua Excel — Main Flow (map header theo tên, ghi
- * điểm + Overall/Level ở DRAFT), A1 (cột không khớp, dừng toàn bộ), A2
- * (lỗi 1 dòng không chặn dòng khác), A3 (file sai định dạng). Xem
- * docs/uc/phan-he-06-hoc-thuat.md.
+ * điểm + Overall/Level/Nhận xét/Ghi chú ở DRAFT), A1 (cột không khớp,
+ * dừng toàn bộ), A2 (lỗi 1 dòng không chặn dòng khác), A3 (file sai định
+ * dạng). V95 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng): gắn
+ * theo GradeComponentSetup (lớp + kỳ học + Giữa/Cuối kỳ) thay gradePeriodId
+ * theo curriculum; roster tính theo rosterAsOfDate thay vì chỉ lọc
+ * status=ACTIVE. Xem docs/uc/phan-he-06-hoc-thuat.md.
  */
 @Transactional
 class GradeImportServiceTest extends AbstractIntegrationTest {
@@ -81,6 +86,9 @@ class GradeImportServiceTest extends AbstractIntegrationTest {
     private SiteRepository siteRepository;
 
     @Autowired
+    private AcademicTermRepository academicTermRepository;
+
+    @Autowired
     private StudentRepository studentRepository;
 
     @Autowired
@@ -89,9 +97,9 @@ class GradeImportServiceTest extends AbstractIntegrationTest {
     private User headAcademic;
     private User teacher;
     private ClassResponse schoolClass;
-    private GradePeriodResponse gradePeriod;
-    private GradeComponentResponse speaking;
-    private GradeComponentResponse writing;
+    private GradeComponentSetupResponse gradeSetup;
+    private GradeEvaluationComponentResponse speaking;
+    private GradeEvaluationComponentResponse writing;
     private Student student1;
     private Student student2;
 
@@ -105,6 +113,7 @@ class GradeImportServiceTest extends AbstractIntegrationTest {
                 new UpdateCurriculumRequest("Chuẩn", null, null, null, "ACTIVE", false), headAcademic.getId());
 
         Site site = newSite();
+        AcademicTerm academicTerm = newAcademicTerm(site);
         schoolClass = classService.create(
                 new CreateClassRequest(classCode(), "8A2", site.getId(), activeCurriculum.id(), "OPEN", 20, null,
                         LocalDate.now(), null, null), headAcademic.getId());
@@ -114,13 +123,14 @@ class GradeImportServiceTest extends AbstractIntegrationTest {
         classService.assignTeacher(schoolClass.id(),
                 new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now()), headAcademic.getId());
 
-        gradePeriod = gradeService.createGradePeriod(activeCurriculum.id(),
-                new CreateGradePeriodRequest("MID_1", "Giữa kỳ 1", 1, new BigDecimal("50"), null, null), headAcademic.getId());
-        speaking = gradeService.addGradeComponent(gradePeriod.id(),
-                new CreateGradeComponentRequest(null, null, "SPEAKING", "Nói", new BigDecimal("10.00"), null, null, 1),
+        gradeSetup = gradeService.createGradeComponentSetup(schoolClass.id(),
+                new CreateGradeComponentSetupRequest(academicTerm.getId(), "MID_TERM", new BigDecimal("50"), LocalDate.now(), false),
                 headAcademic.getId());
-        writing = gradeService.addGradeComponent(gradePeriod.id(),
-                new CreateGradeComponentRequest(null, null, "WRITING", "Viết", new BigDecimal("10.00"), null, null, 2),
+        speaking = gradeService.addGradeEvaluationComponent(gradeSetup.id(),
+                new CreateGradeEvaluationComponentRequest(null, null, "SPEAKING", "Nói", new BigDecimal("10.00"), null, null, 1),
+                headAcademic.getId());
+        writing = gradeService.addGradeEvaluationComponent(gradeSetup.id(),
+                new CreateGradeEvaluationComponentRequest(null, null, "WRITING", "Viết", new BigDecimal("10.00"), null, null, 2),
                 headAcademic.getId());
 
         student1 = newStudent();
@@ -130,13 +140,13 @@ class GradeImportServiceTest extends AbstractIntegrationTest {
     @Test
     void importGrades_UC53_MainFlow_mapsHeaderAndSavesDraftEntriesAndOverall() throws IOException {
         byte[] file = buildWorkbook(
-                new String[]{"Ma hoc vien", "Nói", "Viết", "Tổng điểm", "Cấp độ"},
+                new String[]{"Ma hoc vien", "Nói", "Viết", "Tổng điểm", "Cấp độ", "Nhận xét"},
                 new String[][]{
-                        {student1.getStudentCode(), "8.5", "7.0", "7.6", "B2"},
-                        {student2.getStudentCode(), "6.0", "6.5", "6.2", "B1"},
+                        {student1.getStudentCode(), "8.5", "7.0", "7.6", "B2", "Tiến bộ"},
+                        {student2.getStudentCode(), "6.0", "6.5", "6.2", "B1", ""},
                 });
 
-        GradeImportResponse result = gradeImportService.importGrades(schoolClass.id(), gradePeriod.id(),
+        GradeImportResponse result = gradeImportService.importGrades(schoolClass.id(), gradeSetup.id(),
                 new MockMultipartFile("file", "diem.xlsx", "application/vnd.openxmlformats", file), teacher.getId());
 
         assertThat(result.status()).isEqualTo("COMPLETED");
@@ -149,15 +159,16 @@ class GradeImportServiceTest extends AbstractIntegrationTest {
                 .anySatisfy(s -> assertThat(s).isEqualByComparingTo("8.5"));
         assertThat(speakingEntries).allSatisfy(e -> assertThat(e.status()).isEqualTo("DRAFT"));
 
-        var results = gradeService.listPeriodResults(schoolClass.id(), gradePeriod.id());
+        var results = gradeService.listEvaluationResults(schoolClass.id(), gradeSetup.id());
         assertThat(results).hasSize(2);
         assertThat(results).allSatisfy(r -> {
             assertThat(r.status()).isEqualTo("DRAFT");
             assertThat(r.source()).isEqualTo("EXCEL_IMPORT");
         });
-        GradePeriodResultResponse r1 = results.stream().filter(r -> r.studentId().equals(student1.getId())).findFirst().orElseThrow();
+        GradeEvaluationResultResponse r1 = results.stream().filter(r -> r.studentId().equals(student1.getId())).findFirst().orElseThrow();
         assertThat(r1.overallScore()).isEqualByComparingTo("7.6");
         assertThat(r1.level()).isEqualTo("B2");
+        assertThat(r1.comment()).isEqualTo("Tiến bộ");
     }
 
     @Test
@@ -169,7 +180,7 @@ class GradeImportServiceTest extends AbstractIntegrationTest {
                         {student1.getStudentCode(), "8.5", "7.0", "9.0"},
                 });
 
-        assertThatThrownBy(() -> gradeImportService.importGrades(schoolClass.id(), gradePeriod.id(),
+        assertThatThrownBy(() -> gradeImportService.importGrades(schoolClass.id(), gradeSetup.id(),
                 new MockMultipartFile("file", "diem.xlsx", "application/vnd.openxmlformats", file), teacher.getId()))
                 .isInstanceOf(GradeImportColumnMismatchException.class)
                 .hasMessageContaining("Vocabulary");
@@ -187,7 +198,7 @@ class GradeImportServiceTest extends AbstractIntegrationTest {
                         {student2.getStudentCode(), "6.0", "6.5"},
                 });
 
-        GradeImportResponse result = gradeImportService.importGrades(schoolClass.id(), gradePeriod.id(),
+        GradeImportResponse result = gradeImportService.importGrades(schoolClass.id(), gradeSetup.id(),
                 new MockMultipartFile("file", "diem.xlsx", "application/vnd.openxmlformats", file), teacher.getId());
 
         assertThat(result.status()).isEqualTo("PARTIAL_SUCCESS");
@@ -203,36 +214,37 @@ class GradeImportServiceTest extends AbstractIntegrationTest {
     void importGrades_UC53_A3_marksFailedForCorruptFile() {
         byte[] garbage = "not an excel file".getBytes();
 
-        GradeImportResponse result = gradeImportService.importGrades(schoolClass.id(), gradePeriod.id(),
+        GradeImportResponse result = gradeImportService.importGrades(schoolClass.id(), gradeSetup.id(),
                 new MockMultipartFile("file", "broken.xlsx", "application/vnd.openxmlformats", garbage), teacher.getId());
 
         assertThat(result.status()).isEqualTo("FAILED");
     }
 
     /**
-     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-24 — file
-     * mẫu tải xuống điền sẵn học sinh ACTIVE của lớp, cột điểm để trống.
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng — file mẫu tải
+     * xuống điền sẵn học sinh theo roster (rosterAsOfDate của setup, V95),
+     * cột điểm/Nhận xét/Ghi chú để trống.
      */
     @Test
     void buildTemplate_hasOneRowPerActiveEnrolledStudentWithEmptyScoreColumns() throws IOException {
         classService.enroll(schoolClass.id(), new EnrollStudentRequest(student1.getId(), LocalDate.now()), headAcademic.getId());
         classService.enroll(schoolClass.id(), new EnrollStudentRequest(student2.getId(), LocalDate.now()), headAcademic.getId());
 
-        byte[] template = gradeImportService.buildTemplate(schoolClass.id(), gradePeriod.id(), teacher.getId());
+        byte[] template = gradeImportService.buildTemplate(schoolClass.id(), gradeSetup.id(), teacher.getId());
 
         try (var workbook = new XSSFWorkbook(new java.io.ByteArrayInputStream(template))) {
             Sheet sheet = workbook.getSheetAt(0);
             Row header = sheet.getRow(0);
-            assertThat(cellValues(header, 7)).containsExactly(
-                    "Mã học sinh*", "Họ và tên", "Lớp", "Nói", "Viết", "Overall", "Level");
+            assertThat(cellValues(header, 11)).containsExactly(
+                    "Mã HS*", "Học Kỳ", "Họ và tên", "Ngày sinh", "Lớp", "Nói", "Viết", "Overall", "Level", "Nhận xét", "Ghi chú");
 
             assertThat(sheet.getLastRowNum()).isEqualTo(2); // header + 2 học sinh
             java.util.List<String> studentCodesInTemplate = new java.util.ArrayList<>();
             for (int r = 1; r <= 2; r++) {
                 Row row = sheet.getRow(r);
                 studentCodesInTemplate.add(row.getCell(0).getStringCellValue());
-                assertThat(row.getCell(3)).isNull(); // cột "Nói" để trống
-                assertThat(row.getCell(4)).isNull(); // cột "Viết" để trống
+                assertThat(row.getCell(5)).isNull(); // cột "Nói" để trống
+                assertThat(row.getCell(6)).isNull(); // cột "Viết" để trống
             }
             assertThat(studentCodesInTemplate).containsExactlyInAnyOrder(
                     student1.getStudentCode(), student2.getStudentCode());
@@ -242,29 +254,29 @@ class GradeImportServiceTest extends AbstractIntegrationTest {
     /**
      * Round-trip: tải mẫu về, điền điểm vào đúng ô trống, upload lại — PHẢI
      * thành công, không được ném GradeImportColumnMismatchException dù mẫu
-     * có thêm 2 cột "Họ và tên"/"Lớp" mà mapHeader() vốn không biết trước
-     * đây (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-24).
+     * có thêm cột hiển thị (Học Kỳ/Họ và tên/Ngày sinh/Lớp) mà mapHeader()
+     * vốn không biết trước đây.
      */
     @Test
     void buildTemplate_roundTrip_reuploadingFilledTemplateImportsSuccessfully() throws IOException {
         classService.enroll(schoolClass.id(), new EnrollStudentRequest(student1.getId(), LocalDate.now()), headAcademic.getId());
         classService.enroll(schoolClass.id(), new EnrollStudentRequest(student2.getId(), LocalDate.now()), headAcademic.getId());
-        byte[] template = gradeImportService.buildTemplate(schoolClass.id(), gradePeriod.id(), teacher.getId());
+        byte[] template = gradeImportService.buildTemplate(schoolClass.id(), gradeSetup.id(), teacher.getId());
 
         byte[] filled;
         try (var workbook = new XSSFWorkbook(new java.io.ByteArrayInputStream(template))) {
             Sheet sheet = workbook.getSheetAt(0);
             for (int r = 1; r <= sheet.getLastRowNum(); r++) {
                 Row row = sheet.getRow(r);
-                row.createCell(3).setCellValue(8.0); // Nói
-                row.createCell(4).setCellValue(7.0); // Viết
+                row.createCell(5).setCellValue(8.0); // Nói
+                row.createCell(6).setCellValue(7.0); // Viết
             }
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             workbook.write(out);
             filled = out.toByteArray();
         }
 
-        GradeImportResponse result = gradeImportService.importGrades(schoolClass.id(), gradePeriod.id(),
+        GradeImportResponse result = gradeImportService.importGrades(schoolClass.id(), gradeSetup.id(),
                 new MockMultipartFile("file", "mau-da-dien.xlsx", "application/vnd.openxmlformats", filled), teacher.getId());
 
         assertThat(result.status()).isEqualTo("COMPLETED");
@@ -322,6 +334,17 @@ class GradeImportServiceTest extends AbstractIntegrationTest {
         s.setName("Test Site");
         s.setSiteType(Site.SiteType.OWNED);
         return siteRepository.save(s);
+    }
+
+    private AcademicTerm newAcademicTerm(Site site) {
+        AcademicTerm term = new AcademicTerm();
+        term.setSite(site);
+        term.setCode("TERM-IMP-" + SEQ.incrementAndGet());
+        term.setName("Kỳ test");
+        term.setStartDate(LocalDate.now().minusMonths(1));
+        term.setEndDate(LocalDate.now().plusMonths(2));
+        term.setCreatedBy(headAcademic);
+        return academicTermRepository.save(term);
     }
 
     private Student newStudent() {

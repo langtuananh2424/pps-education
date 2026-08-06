@@ -13,7 +13,7 @@ public record StudentCommentResponse(
         Long teacherId,
         String commentType,
         Long classSessionId,
-        Long gradePeriodId,
+        Long academicTermId,
         LocalDate commentDate,
         String content,
         Map<String, Object> structuredContent,

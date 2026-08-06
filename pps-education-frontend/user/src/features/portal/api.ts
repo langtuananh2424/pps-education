@@ -93,7 +93,9 @@ export interface GradeEntryResponse {
   studentId: number;
   studentFullName: string;
   studentCode: string;
-  gradeComponentId: number;
+  gradeEvaluationComponentId: number;
+  academicTermId: number;
+  evaluationType: "MID_TERM" | "END_TERM";
   score: number;
   absenceFlag: boolean;
   teacherNote: string | null;
@@ -104,17 +106,20 @@ export interface GradeEntryResponse {
   finalizedAt: string | null;
 }
 
-/** UC-53 — Overall/Level theo kỳ đánh giá, khác DRAFT mới trả về (BE lọc sẵn — xem GradeEntryResponse). */
-export interface GradePeriodResultResponse {
+/** UC-53 — Overall/Level/Nhận xét/Ghi chú (V94) theo (kỳ học, Giữa/Cuối kỳ), khác DRAFT mới trả về (BE lọc sẵn — xem GradeEntryResponse). */
+export interface GradeEvaluationResultResponse {
   id: number;
   classId: number;
   studentId: number;
   studentFullName: string;
   studentCode: string;
-  gradePeriodId: number;
+  academicTermId: number;
+  evaluationType: "MID_TERM" | "END_TERM";
   overallScore: number | null;
   scaleType: "NUMERIC" | "PERCENTAGE" | "BAND";
   level: string | null;
+  comment: string | null;
+  note: string | null;
   source: "MANUAL" | "EXCEL_IMPORT";
   importJobId: number | null;
   status: GradeStatus;
@@ -124,24 +129,28 @@ export interface GradePeriodResultResponse {
   finalizedAt: string | null;
 }
 
-/** Chỉ cần đúng field dùng ở Portal (tra curriculumId để lấy danh sách kỳ đánh giá). */
+/** Chỉ cần đúng field dùng ở Portal. */
 export interface PortalClassResponse {
   id: number;
   curriculumId: number;
 }
 
-export interface GradePeriodResponse {
+/** V94 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng — consolidate vào academic_terms): thay GradePeriodResponse, gắn (lớp, kỳ học, Giữa/Cuối kỳ) thay vì theo curriculum. */
+export interface GradeComponentSetupResponse {
   id: number;
-  curriculumId: number;
-  code: string;
-  name: string;
-  displayOrder: number;
+  classId: number;
+  academicTermId: number;
+  academicTermName: string;
+  evaluationType: "MID_TERM" | "END_TERM";
+  weightInFinal: number | null;
+  rosterAsOfDate: string;
+  commentRequired: boolean;
 }
 
-/** Tên đầu điểm (Listening/Reading/...) — GradeEntryResponse chỉ có gradeComponentId, phải tra tên qua đây để hiện đúng nhãn. */
-export interface GradeComponentResponse {
+/** Tên đầu điểm (Listening/Reading/...) — GradeEntryResponse chỉ có gradeEvaluationComponentId, phải tra tên qua đây để hiện đúng nhãn. */
+export interface GradeEvaluationComponentResponse {
   id: number;
-  gradePeriodId: number;
+  gradeComponentSetupId: number;
   subjectId: number | null;
   skillId: number | null;
   code: string;
@@ -156,18 +165,21 @@ export function getPortalClass(classId: number): Promise<PortalClassResponse> {
   return apiRequest<PortalClassResponse>(`/classes/${classId}`);
 }
 
-/** GET không gate quyền riêng (giống GradePeriodResponse) — Học sinh/Phụ huynh tự gọi được để tra tên đầu điểm. */
-export function listGradeComponents(gradePeriodId: number): Promise<GradeComponentResponse[]> {
-  return apiRequest<GradeComponentResponse[]>(`/grade-periods/${gradePeriodId}/components`);
+/** GET không gate quyền riêng — Học sinh/Phụ huynh tự gọi được để tra danh sách setup sổ điểm của lớp. */
+export function listGradeComponentSetups(classId: number): Promise<GradeComponentSetupResponse[]> {
+  return apiRequest<GradeComponentSetupResponse[]>(`/classes/${classId}/grade-component-setups`);
 }
 
-export function listGradePeriods(curriculumId: number): Promise<GradePeriodResponse[]> {
-  return apiRequest<GradePeriodResponse[]>(`/curriculums/${curriculumId}/grade-periods`);
+/** GET không gate quyền riêng — Học sinh/Phụ huynh tự gọi được để tra tên đầu điểm. */
+export function listGradeEvaluationComponents(setupId: number): Promise<GradeEvaluationComponentResponse[]> {
+  return apiRequest<GradeEvaluationComponentResponse[]>(`/grade-component-setups/${setupId}/components`);
 }
 
-/** UC-53/UC-25: Overall/Level đã duyệt (OFFICIAL) — 404 nếu chưa có/chưa duyệt (bắt ở nơi gọi, không phải lỗi thật). */
-export function getPeriodResult(studentId: number, classId: number, gradePeriodId: number): Promise<GradePeriodResultResponse> {
-  return apiRequest<GradePeriodResultResponse>(`/portal/parent/children/${studentId}/classes/${classId}/periods/${gradePeriodId}/result`);
+/** UC-53/UC-25: Overall/Level/Nhận xét/Ghi chú đã duyệt (OFFICIAL) — 404 nếu chưa có/chưa duyệt (bắt ở nơi gọi, không phải lỗi thật). */
+export function getEvaluationResult(studentId: number, classId: number, academicTermId: number, evaluationType: string): Promise<GradeEvaluationResultResponse> {
+  return apiRequest<GradeEvaluationResultResponse>(
+    `/portal/parent/children/${studentId}/classes/${classId}/academic-terms/${academicTermId}/evaluation/${evaluationType}/result`
+  );
 }
 
 /** UC-61: Học sinh tự xem điểm của chính mình (self-service, khác listGrades — Phụ huynh xem theo con+lớp cụ thể). */
@@ -175,9 +187,9 @@ export function listMyGrades(classId?: number): Promise<GradeEntryResponse[]> {
   return apiRequest<GradeEntryResponse[]>(`/students/me/grades${classId ? `?classId=${classId}` : ""}`);
 }
 
-/** UC-61: Overall/Level của chính mình — 404 nếu chưa có/chưa duyệt (bắt ở nơi gọi, không phải lỗi thật). */
-export function getMyPeriodResult(classId: number, gradePeriodId: number): Promise<GradePeriodResultResponse> {
-  return apiRequest<GradePeriodResultResponse>(`/students/me/classes/${classId}/periods/${gradePeriodId}/result`);
+/** UC-61: Overall/Level/Nhận xét/Ghi chú của chính mình — 404 nếu chưa có/chưa duyệt (bắt ở nơi gọi, không phải lỗi thật). */
+export function getMyEvaluationResult(classId: number, academicTermId: number, evaluationType: string): Promise<GradeEvaluationResultResponse> {
+  return apiRequest<GradeEvaluationResultResponse>(`/students/me/classes/${classId}/academic-terms/${academicTermId}/evaluation/${evaluationType}/result`);
 }
 
 /** UC-15 — khớp AttendanceMarkResponse thật. */
@@ -205,7 +217,7 @@ export interface StudentCommentResponse {
   teacherId: number;
   commentType: "DAILY" | "MID_TERM" | "END_TERM";
   classSessionId: number | null;
-  gradePeriodId: number | null;
+  academicTermId: number | null;
   commentDate: string;
   content: string;
   structuredContent: Record<string, unknown> | null;

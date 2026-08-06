@@ -3,17 +3,17 @@ import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import {
   ClassEnrollmentResponse,
-  EnterGradePeriodResultRequest,
-  GradeComponentResponse,
+  EnterGradeEvaluationResultRequest,
   GradeEditWindowResponse,
   GradeEntryResponse,
-  GradePeriodResultResponse,
+  GradeEvaluationComponentResponse,
+  GradeEvaluationResultResponse,
   GradeStatus,
+  enterEvaluationResult,
   enterGrade,
-  enterPeriodResult,
   getGradeEditWindow,
-  listGradeEntries,
-  listPeriodResults
+  listEvaluationResults,
+  listGradeEntries
 } from "../api";
 import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
 import Badge, { BadgeVariant } from "@/components/ui/Badge";
@@ -34,39 +34,37 @@ const statusVariants: Record<GradeStatus, BadgeVariant> = {
 /** Thứ tự "cần chú ý nhất trước" khi 1 dòng có nhiều bản ghi (nhiều đầu điểm + Overall) ở trạng thái khác nhau. */
 const statusPriority: GradeStatus[] = ["DRAFT", "REJECTED", "SUBMITTED", "OFFICIAL"];
 
-const scaleLabels: Record<GradePeriodResultResponse["scaleType"], string> = {
+const scaleLabels: Record<GradeEvaluationResultResponse["scaleType"], string> = {
   NUMERIC: "Số (0–10)",
   PERCENTAGE: "Phần trăm (%)",
   BAND: "Thang chữ (Band)"
 };
-const sourceLabels: Record<GradePeriodResultResponse["source"], string> = { MANUAL: "NHẬP TAY", EXCEL_IMPORT: "EXCEL" };
+const sourceLabels: Record<GradeEvaluationResultResponse["source"], string> = { MANUAL: "NHẬP TAY", EXCEL_IMPORT: "EXCEL" };
 
 interface GradeSheetTableProps {
   classId: number;
-  gradePeriodId: number;
-  components: GradeComponentResponse[];
+  setupId: number;
+  components: GradeEvaluationComponentResponse[];
   enrollments: ClassEnrollmentResponse[];
   /** Cho khối Công bố điểm (UC-20) đọc lại danh sách entries/results vừa tải, khỏi phải fetch lần 2. */
-  onLoaded?: (entries: GradeEntryResponse[], results: GradePeriodResultResponse[]) => void;
+  onLoaded?: (entries: GradeEntryResponse[], results: GradeEvaluationResultResponse[]) => void;
   /** Quản lý điểm trường xem lại điểm (kể cả đã công bố) — chỉ hiển thị, không cho sửa (họ không có quyền nhập điểm). */
   readOnly?: boolean;
 }
 
 /**
  * UC-19/UC-53 (V44 — 4 trạng thái, thay hẳn luồng "công bố dự kiến + phúc khảo" V43):
- * sổ điểm đầy đủ theo lớp + kỳ đánh giá, mỗi thành phần điểm là 1 cột, cộng
- * Overall/Thang/Level (UC-53). Sửa/xoá được khi DRAFT hoặc REJECTED (không giới hạn
- * thời gian) — SUBMITTED/OFFICIAL bị chặn với actor thường, trừ actor có quyền
- * academic.grade.edit.override. Khoá ô nhập (read-only) ngay ở FE cho SUBMITTED/OFFICIAL
- * khi không có quyền override — trước đây luôn để input hiện (chờ backend từ chối) gây
- * hiểu nhầm bấm sửa được, đã xác nhận với người dùng 2026-07-29 nên đổi sang khoá rõ
- * ràng, khớp đúng luồng "sent-row lockout" đã áp dụng ở DailyCommentPanel.
+ * sổ điểm đầy đủ theo lớp + setup sổ điểm, mỗi thành phần điểm là 1 cột, cộng
+ * Overall/Thang/Level/Nhận xét/Ghi chú (UC-53, V94). Sửa/xoá được khi DRAFT hoặc
+ * REJECTED (không giới hạn thời gian) — SUBMITTED/OFFICIAL bị chặn với actor thường,
+ * trừ actor có quyền academic.grade.edit.override. Khoá ô nhập (read-only) ngay ở FE
+ * cho SUBMITTED/OFFICIAL khi không có quyền override.
  */
-export default function GradeSheetTable({ classId, gradePeriodId, components, enrollments, onLoaded, readOnly = false }: GradeSheetTableProps) {
+export default function GradeSheetTable({ classId, setupId, components, enrollments, onLoaded, readOnly = false }: GradeSheetTableProps) {
   const { hasPermission } = useApp();
   const canOverride = hasPermission("academic.grade.edit.override");
   const [entriesByStudent, setEntriesByStudent] = useState<Map<number, Map<number, GradeEntryResponse>>>(new Map());
-  const [resultsByStudent, setResultsByStudent] = useState<Map<number, GradePeriodResultResponse>>(new Map());
+  const [resultsByStudent, setResultsByStudent] = useState<Map<number, GradeEvaluationResultResponse>>(new Map());
   const [editWindow, setEditWindow] = useState<GradeEditWindowResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -75,6 +73,8 @@ export default function GradeSheetTable({ classId, gradePeriodId, components, en
   const [overallInput, setOverallInput] = useState<Record<number, string>>({});
   const [scaleInput, setScaleInput] = useState<Record<number, string>>({});
   const [levelInput, setLevelInput] = useState<Record<number, string>>({});
+  const [commentInput, setCommentInput] = useState<Record<number, string>>({});
+  const [noteInput, setNoteInput] = useState<Record<number, string>>({});
   const [savingKey, setSavingKey] = useState<string | null>(null);
 
   const activeStudents = enrollments.filter((en) => en.status === "ACTIVE");
@@ -83,13 +83,13 @@ export default function GradeSheetTable({ classId, gradePeriodId, components, en
   const load = () => {
     setLoading(true);
     setError(null);
-    Promise.all([Promise.all(components.map((c) => listGradeEntries(classId, c.id))), listPeriodResults(classId, gradePeriodId)])
+    Promise.all([Promise.all(components.map((c) => listGradeEntries(classId, c.id))), listEvaluationResults(classId, setupId)])
       .then(([entriesByComponent, results]) => {
         const flatEntries = entriesByComponent.flat();
         const map = new Map<number, Map<number, GradeEntryResponse>>();
         flatEntries.forEach((entry) => {
           if (!map.has(entry.studentId)) map.set(entry.studentId, new Map());
-          map.get(entry.studentId)!.set(entry.gradeComponentId, entry);
+          map.get(entry.studentId)!.set(entry.gradeEvaluationComponentId, entry);
         });
         setEntriesByStudent(map);
         setResultsByStudent(new Map(results.map((r) => [r.studentId, r])));
@@ -99,7 +99,7 @@ export default function GradeSheetTable({ classId, gradePeriodId, components, en
       .finally(() => setLoading(false));
   };
 
-  useEffect(load, [classId, gradePeriodId, componentIdsKey]);
+  useEffect(load, [classId, setupId, componentIdsKey]);
   useEffect(() => {
     getGradeEditWindow().then(setEditWindow).catch(() => undefined);
   }, []);
@@ -156,10 +156,19 @@ export default function GradeSheetTable({ classId, gradePeriodId, components, en
   const handleBlurResult = async (studentId: number) => {
     const key = `overall:${studentId}`;
     const existing = resultsByStudent.get(studentId);
-    if (overallInput[studentId] === undefined && scaleInput[studentId] === undefined && levelInput[studentId] === undefined) return;
+    if (
+      overallInput[studentId] === undefined &&
+      scaleInput[studentId] === undefined &&
+      levelInput[studentId] === undefined &&
+      commentInput[studentId] === undefined &&
+      noteInput[studentId] === undefined
+    )
+      return;
     const overallRaw = overallInput[studentId] ?? (existing ? String(existing.overallScore ?? "") : "");
-    const scale = (scaleInput[studentId] ?? existing?.scaleType ?? "NUMERIC") as EnterGradePeriodResultRequest["scaleType"];
+    const scale = (scaleInput[studentId] ?? existing?.scaleType ?? "NUMERIC") as EnterGradeEvaluationResultRequest["scaleType"];
     const level = levelInput[studentId] ?? existing?.level ?? "";
+    const comment = commentInput[studentId] ?? existing?.comment ?? "";
+    const note = noteInput[studentId] ?? existing?.note ?? "";
     const overallScore = overallRaw.trim() === "" ? undefined : parseFloat(overallRaw);
     if (overallRaw.trim() !== "" && isNaN(Number(overallScore))) {
       setError("Overall không hợp lệ.");
@@ -168,7 +177,13 @@ export default function GradeSheetTable({ classId, gradePeriodId, components, en
     setSavingKey(key);
     setError(null);
     try {
-      const updated = await enterPeriodResult(classId, studentId, gradePeriodId, { overallScore, scaleType: scale, level: level.trim() || undefined });
+      const updated = await enterEvaluationResult(classId, studentId, setupId, {
+        overallScore,
+        scaleType: scale,
+        level: level.trim() || undefined,
+        comment: comment.trim() || undefined,
+        note: note.trim() || undefined
+      });
       setResultsByStudent((prev) => {
         const next = new Map(prev);
         next.set(studentId, updated);
@@ -189,8 +204,18 @@ export default function GradeSheetTable({ classId, gradePeriodId, components, en
         delete next[studentId];
         return next;
       });
+      setCommentInput((prev) => {
+        const next = { ...prev };
+        delete next[studentId];
+        return next;
+      });
+      setNoteInput((prev) => {
+        const next = { ...prev };
+        delete next[studentId];
+        return next;
+      });
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Lưu Overall/Level thất bại.");
+      setError(err instanceof ApiError ? err.message : "Lưu Overall/Level/Nhận xét thất bại.");
     } finally {
       setSavingKey(null);
     }
@@ -223,6 +248,8 @@ export default function GradeSheetTable({ classId, gradePeriodId, components, en
               <Th className="text-center">Overall</Th>
               <Th className="text-center">Thang</Th>
               <Th className="text-center">Level</Th>
+              <Th className="text-center whitespace-nowrap">Nhận xét</Th>
+              <Th className="text-center whitespace-nowrap">Ghi chú</Th>
               <Th className="text-center">Nguồn</Th>
               <Th className="text-center">Trạng thái</Th>
             </tr>
@@ -230,7 +257,7 @@ export default function GradeSheetTable({ classId, gradePeriodId, components, en
           <tbody className="divide-y divide-slate-100">
             {activeStudents.length === 0 ? (
               <tr>
-                <td colSpan={components.length + 6} className="px-6 py-12 text-center text-xs text-slate-400 italic">
+                <td colSpan={components.length + 8} className="px-6 py-12 text-center text-xs text-slate-400 italic">
                   Lớp chưa có học sinh nào đang ghi danh.
                 </td>
               </tr>
@@ -325,6 +352,34 @@ export default function GradeSheetTable({ classId, gradePeriodId, components, en
                           onChange={(e) => setLevelInput((prev) => ({ ...prev, [en.studentId]: e.target.value }))}
                           onBlur={() => handleBlurResult(en.studentId)}
                           className="w-20 bg-slate-50 text-center border rounded py-1 text-xs font-semibold focus:outline-none"
+                        />
+                      )}
+                    </Td>
+                    <Td className="text-center">
+                      {readOnly || resultLocked ? (
+                        <span className="text-xs text-slate-700 whitespace-pre-wrap">{result?.comment ?? "—"}</span>
+                      ) : (
+                        <input
+                          type="text"
+                          placeholder={result?.comment ?? "Nhận xét..."}
+                          value={commentInput[en.studentId] ?? ""}
+                          onChange={(e) => setCommentInput((prev) => ({ ...prev, [en.studentId]: e.target.value }))}
+                          onBlur={() => handleBlurResult(en.studentId)}
+                          className="w-32 bg-slate-50 border rounded py-1 px-1.5 text-xs focus:outline-none"
+                        />
+                      )}
+                    </Td>
+                    <Td className="text-center">
+                      {readOnly || resultLocked ? (
+                        <span className="text-xs text-slate-700 whitespace-pre-wrap">{result?.note ?? "—"}</span>
+                      ) : (
+                        <input
+                          type="text"
+                          placeholder={result?.note ?? "Ghi chú..."}
+                          value={noteInput[en.studentId] ?? ""}
+                          onChange={(e) => setNoteInput((prev) => ({ ...prev, [en.studentId]: e.target.value }))}
+                          onBlur={() => handleBlurResult(en.studentId)}
+                          className="w-28 bg-slate-50 border rounded py-1 px-1.5 text-xs focus:outline-none"
                         />
                       )}
                     </Td>

@@ -2,9 +2,9 @@ package vn.com.pps.education.dto;
 
 import java.math.BigDecimal;
 
-public record GradeComponentResponse(
+public record GradeEvaluationComponentResponse(
         Long id,
-        Long gradePeriodId,
+        Long gradeComponentSetupId,
         Long subjectId,
         Long skillId,
         String code,

@@ -11,5 +11,5 @@ import java.util.List;
  */
 public record SubmitGradesRequest(
         List<Long> gradeEntryIds,
-        List<Long> gradePeriodResultIds
+        List<Long> gradeEvaluationResultIds
 ) {}
