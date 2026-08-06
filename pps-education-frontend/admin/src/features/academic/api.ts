@@ -532,7 +532,7 @@ export interface GradeComponentSetupResponse {
   academicTermId: number;
   academicTermName: string;
   evaluationType: "MID_TERM" | "END_TERM";
-  weightInFinal: number | null;
+  scaleType: "POINT_10" | "PERCENT" | "IELTS";
   rosterAsOfDate: string;
   commentRequired: boolean;
 }
@@ -540,13 +540,13 @@ export interface GradeComponentSetupResponse {
 export interface CreateGradeComponentSetupRequest {
   academicTermId: number;
   evaluationType: GradeComponentSetupResponse["evaluationType"];
-  weightInFinal?: number;
+  scaleType: GradeComponentSetupResponse["scaleType"];
   rosterAsOfDate: string;
   commentRequired: boolean;
 }
 
+/** scaleType không sửa được sau khi tạo (V97) — component đã tạo theo maxScore của thang cũ. */
 export interface UpdateGradeComponentSetupRequest {
-  weightInFinal?: number;
   rosterAsOfDate: string;
   commentRequired: boolean;
 }

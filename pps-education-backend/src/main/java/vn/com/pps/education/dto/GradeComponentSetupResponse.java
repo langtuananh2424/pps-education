@@ -1,6 +1,5 @@
 package vn.com.pps.education.dto;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 
 public record GradeComponentSetupResponse(
@@ -9,7 +8,7 @@ public record GradeComponentSetupResponse(
         Long academicTermId,
         String academicTermName,
         String evaluationType,
-        BigDecimal weightInFinal,
+        String scaleType,
         LocalDate rosterAsOfDate,
         boolean commentRequired
 ) {}

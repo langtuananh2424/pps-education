@@ -4,7 +4,6 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -25,6 +24,9 @@ public class GradeComponentSetup {
 
     public enum EvaluationType { MID_TERM, END_TERM }
 
+    /** V97: thang điểm áp dụng cho toàn bộ thành phần điểm trong setup — POINT_10 max=10, PERCENT max=100, IELTS max=9 (band, cho phép lẻ). */
+    public enum ScaleType { POINT_10, PERCENT, IELTS }
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -44,9 +46,10 @@ public class GradeComponentSetup {
     @Column(name = "evaluation_type", nullable = false, length = 20)
     private EvaluationType evaluationType;
 
-    /** Trọng số trong điểm tổng kết (VD MID_TERM=30, END_TERM=70) — tổng theo (class, academicTerm) validate ở service <= 100. */
-    @Column(name = "weight_in_final", precision = 5, scale = 2)
-    private BigDecimal weightInFinal;
+    /** V97 (thay weight_in_final — hệ thống không tính OVERALL cả kỳ, hiển thị riêng Giữa/Cuối kỳ): thang điểm, ràng buộc maxScore của mọi component trong setup này. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "scale_type", nullable = false, length = 20)
+    private ScaleType scaleType = ScaleType.POINT_10;
 
     /** Ngày chốt danh sách học sinh — class_enrollments ACTIVE tại đúng ngày này (V95, xác nhận với người dùng). */
     @Column(name = "roster_as_of_date", nullable = false)

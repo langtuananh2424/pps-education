@@ -206,7 +206,7 @@ class PartnerPortalServiceTest extends AbstractIntegrationTest {
     void getPublishedGrades_UC29_MainFlow_returnsOnlyOfficialGrades() {
         AcademicTerm academicTerm = newAcademicTerm(partnerSite);
         GradeComponentSetupResponse setup = gradeService.createGradeComponentSetup(schoolClass.id(),
-                new CreateGradeComponentSetupRequest(academicTerm.getId(), "MID_TERM", new BigDecimal("50"), LocalDate.now(), false),
+                new CreateGradeComponentSetupRequest(academicTerm.getId(), "MID_TERM", "POINT_10", LocalDate.now(), false),
                 headAcademic.getId());
         GradeEvaluationComponentResponse component = gradeService.addGradeEvaluationComponent(setup.id(),
                 new CreateGradeEvaluationComponentRequest(null, null, "SPEAKING", "Nói", new BigDecimal("10.00"), null, null, 1),

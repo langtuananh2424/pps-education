@@ -37,7 +37,7 @@ import vn.com.pps.education.exception.GradeAlreadyPublishedException;
 import vn.com.pps.education.exception.GradeComponentLockedException;
 import vn.com.pps.education.exception.GradeComponentNotDeletableException;
 import vn.com.pps.education.exception.GradeComponentSetupNotDeletableException;
-import vn.com.pps.education.exception.GradeComponentSetupWeightExceededException;
+import vn.com.pps.education.exception.GradeComponentSetupScaleMismatchException;
 import vn.com.pps.education.exception.GradeNotEditableException;
 import vn.com.pps.education.exception.InvalidGradeScoreException;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
@@ -179,7 +179,7 @@ class GradeServiceTest extends AbstractIntegrationTest {
         siteManagerRepository.save(siteManager);
 
         gradeSetup = gradeService.createGradeComponentSetup(schoolClass.id(),
-                new CreateGradeComponentSetupRequest(academicTerm.getId(), "MID_TERM", new BigDecimal("50"), LocalDate.now(), false),
+                new CreateGradeComponentSetupRequest(academicTerm.getId(), "MID_TERM", "POINT_10", LocalDate.now(), false),
                 headAcademic.getId());
         gradeComponent = gradeService.addGradeEvaluationComponent(gradeSetup.id(),
                 new CreateGradeEvaluationComponentRequest(null, null, "SPEAKING", "Nói", new BigDecimal("10.00"), null, null, 1),
@@ -189,11 +189,19 @@ class GradeServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void createGradeComponentSetup_rejectsWhenWeightExceeds100() {
-        assertThatThrownBy(() -> gradeService.createGradeComponentSetup(schoolClass.id(),
-                new CreateGradeComponentSetupRequest(academicTerm.getId(), "END_TERM", new BigDecimal("60"), LocalDate.now(), false),
+    void addGradeEvaluationComponent_UC16_rejectsWhenMaxScoreDoesNotMatchSetupScale() {
+        // gradeSetup dùng scaleType POINT_10 (cận trên = 10) -- thêm component maxScore=100 (thang PERCENT) phải bị từ chối.
+        assertThatThrownBy(() -> gradeService.addGradeEvaluationComponent(gradeSetup.id(),
+                new CreateGradeEvaluationComponentRequest(null, null, "WRITING", "Viết", new BigDecimal("100.00"), null, null, 2),
                 headAcademic.getId()))
-                .isInstanceOf(GradeComponentSetupWeightExceededException.class);
+                .isInstanceOf(GradeComponentSetupScaleMismatchException.class);
+    }
+
+    @Test
+    void updateGradeEvaluationComponent_rejectsWhenNewMaxScoreDoesNotMatchSetupScale() {
+        assertThatThrownBy(() -> gradeService.updateGradeEvaluationComponent(gradeComponent.id(),
+                new UpdateGradeEvaluationComponentRequest("Nói", new BigDecimal("9.00"), null, 1), headAcademic.getId()))
+                .isInstanceOf(GradeComponentSetupScaleMismatchException.class);
     }
 
     @Test
@@ -236,7 +244,7 @@ class GradeServiceTest extends AbstractIntegrationTest {
     @Test
     void deleteGradeComponentSetup_UC19_blockedWhenHasResult() {
         GradeComponentSetupResponse emptySetup = gradeService.createGradeComponentSetup(schoolClass.id(),
-                new CreateGradeComponentSetupRequest(academicTerm.getId(), "END_TERM", new BigDecimal("20"), LocalDate.now(), false),
+                new CreateGradeComponentSetupRequest(academicTerm.getId(), "END_TERM", "POINT_10", LocalDate.now(), false),
                 headAcademic.getId());
         // Điểm tổng kết (Overall/Level) không cần thành phần điểm -> setup có result nhưng không có component.
         gradeService.enterEvaluationResult(schoolClass.id(), student.getId(), emptySetup.id(),
@@ -262,7 +270,7 @@ class GradeServiceTest extends AbstractIntegrationTest {
     void addGradeEvaluationComponent_UC16_A2_themThanhCongKhongCanDuyetKhung_thanhCong() {
         // Lớp đang có setup dùng rồi -- vẫn thêm được setup/thành phần mới, không cần qua UC-16b/17.
         GradeComponentSetupResponse newSetup = gradeService.createGradeComponentSetup(schoolClass.id(),
-                new CreateGradeComponentSetupRequest(academicTerm.getId(), "END_TERM", new BigDecimal("50"), LocalDate.now(), false),
+                new CreateGradeComponentSetupRequest(academicTerm.getId(), "END_TERM", "IELTS", LocalDate.now(), false),
                 headAcademic.getId());
 
         GradeEvaluationComponentResponse component = gradeService.addGradeEvaluationComponent(newSetup.id(),
