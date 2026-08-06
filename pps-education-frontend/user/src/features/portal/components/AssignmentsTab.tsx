@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Bell, BookOpen, Check, CheckCircle2, ChevronRight, Clock, Filter, Link2, MessageCircle, Play, Video } from "lucide-react";
+import { AlertCircle, Bell, BookOpen, Check, CheckCircle2, ChevronRight, Clock, Filter, Link2, MessageCircle, Play, Video } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { formatDateTimeHm } from "@/lib/format";
 import {
   AssignedExerciseResponse,
+  MyReviewVideoAssignmentResponse,
   ReviewVideoResponse,
   getMyLatestReviewVideoSubmission,
   getReviewVideoProgress,
@@ -21,6 +22,22 @@ const PAGE_SIZE = 10;
 
 interface AssignmentsTabProps {
   classId: number;
+  /**
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — bấm link "Bài ngữ pháp/nghe"/
+   * "Video TKN/PX" ở tab Quá trình học tập (DailyLearningProgressTab) nhảy sang đây, PortalPage set 2
+   * prop này để tự nhảy trang (nếu cần) + cuộn tới + nổi viền đúng card đó — KHÔNG tự mở modal làm bài
+   * (theo yêu cầu người dùng, chỉ cần định vị bằng mắt). Chỉ dùng 1 LẦN rồi phải gọi onAutoOpenHandled
+   * để PortalPage clear về null, tránh chạy lại mỗi khi load() chạy lại (VD sau khi đóng modal khác).
+   */
+  autoOpenExerciseAssignmentId?: number | null;
+  autoOpenReviewVideoAssignmentId?: number | null;
+  onAutoOpenHandled?: () => void;
+  /**
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — báo số "Cần hoàn thành" lên
+   * PortalPage để hiện badge cảnh báo trên mục "Bài tập về nhà (BTVN)" ở sidebar, kể cả khi đang xem
+   * tab khác (component này unmount khi rời tab — PortalPage tự giữ lại giá trị lần tính gần nhất).
+   */
+  onPendingCountChange?: (count: number) => void;
 }
 
 const attemptStatusLabels: Record<string, { label: string; className: string }> = {
@@ -100,9 +117,20 @@ interface ReviewVideoHomeworkItem {
  * đúng trạng thái "đã xem xong" trong danh sách này — các mục CONNECTION vì vậy không tính vào bộ đếm
  * "Cần hoàn thành"/"Đã nộp", chỉ hiện ở tab "Tất cả".
  */
-export default function AssignmentsTab({ classId }: AssignmentsTabProps) {
+export default function AssignmentsTab({
+  classId,
+  autoOpenExerciseAssignmentId,
+  autoOpenReviewVideoAssignmentId,
+  onAutoOpenHandled,
+  onPendingCountChange
+}: AssignmentsTabProps) {
   const [exercises, setExercises] = useState<AssignedExerciseResponse[]>([]);
   const [reviewItems, setReviewItems] = useState<ReviewVideoHomeworkItem[]>([]);
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — giữ lại danh sách bản giao Video Ôn
+  // tập thô (có assignmentId + reviewVideoSetId) để auto-mở đúng video theo assignmentId nhảy từ tab
+  // Quá trình học tập sang (xem effect "auto-open" bên dưới) — trước đây chỉ dùng inline trong load()
+  // để tính dueAtBySetId rồi bỏ, không giữ lại được.
+  const [videoAssignments, setVideoAssignments] = useState<MyReviewVideoAssignmentResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("ALL");
@@ -138,6 +166,7 @@ export default function AssignmentsTab({ classId }: AssignmentsTabProps) {
     Promise.all([
       listMyAssignedExercises(classId),
       Promise.all([listReviewVideoSetsByClass(classId), listMyReviewVideoAssignments(classId).catch(() => [])]).then(async ([sets, assignments]) => {
+        setVideoAssignments(assignments);
         const dueAtBySetId = new Map(assignments.map((a) => [a.reviewVideoSetId, a.dueAt]));
         const perSet = await Promise.all(
           sets.map(async (set) => {
@@ -189,6 +218,79 @@ export default function AssignmentsTab({ classId }: AssignmentsTabProps) {
 
   useEffect(load, [classId]);
 
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — nhảy từ tab Quá trình học tập sang
+  // KHÔNG mở modal làm bài luôn (yêu cầu ban đầu), chỉ cần focus/cuộn tới + nổi viền đúng card đó để
+  // nhận biết (giống hệt cách ParentHomeworkProgressTab highlight). 2 bước tách effect: (1) xác định
+  // "key" card cần tới (ex-<assignmentId>/rv-<videoId>) NGAY khi có id truyền vào — đồng thời reset bộ
+  // lọc trạng thái/loại về ALL để đảm bảo card không bị bộ lọc hiện tại ẩn mất; (2) khi đã có key, tính
+  // đúng TRANG chứa card đó (feedItems phụ thuộc filter, nên tính lại ở effect (2) sau khi filter đã về
+  // ALL), nhảy trang nếu cần rồi mới cuộn — phải tách 2 bước vì đổi trang cần 1 lượt render lại để
+  // pageItems chứa đúng card trước khi tìm được phần tử DOM. Cả 2 PHẢI đặt trước early-return
+  // `if (loading)` bên dưới (Rules of Hooks — bài học từ lỗi "Rendered more hooks than during the
+  // previous render" gặp trước đây ở chính file này).
+  const [pendingHighlightKey, setPendingHighlightKey] = useState<string | null>(null);
+  const [highlightKey, setHighlightKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (loading) return;
+    if (autoOpenExerciseAssignmentId == null && autoOpenReviewVideoAssignmentId == null) return;
+    setFilterStatus("ALL");
+    setFilterType("ALL");
+    let key: string | null = null;
+    if (autoOpenExerciseAssignmentId != null) {
+      const match = exercises.find((e) => e.assignmentId === autoOpenExerciseAssignmentId);
+      if (match) key = `ex-${match.assignmentId}`;
+    } else if (autoOpenReviewVideoAssignmentId != null) {
+      const assignment = videoAssignments.find((a) => a.assignmentId === autoOpenReviewVideoAssignmentId);
+      // 1 bộ có thể gồm nhiều video — chưa có khái niệm "đúng video nào" ứng với 1 lần giao (giao theo
+      // cả BỘ), nên focus vào video ĐẦU của bộ (videos giữ nguyên thứ tự server trả, xem load() ở trên).
+      const match = assignment ? reviewItems.find((x) => x.video.reviewVideoSetId === assignment.reviewVideoSetId) : undefined;
+      if (match) key = `rv-${match.video.id}`;
+    }
+    setPendingHighlightKey(key);
+    onAutoOpenHandled?.();
+    // onAutoOpenHandled cố tình không đưa vào deps — PortalPage truyền hàm inline (đổi identity mỗi
+    // render cha), đưa vào đây sẽ khiến effect chạy lại thừa mỗi khi cha re-render vì lý do khác, dù
+    // giá trị autoOpen*AssignmentId chưa đổi.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, autoOpenExerciseAssignmentId, autoOpenReviewVideoAssignmentId, exercises, reviewItems, videoAssignments]);
+
+  useEffect(() => {
+    if (loading || !pendingHighlightKey) return;
+    // Tính lại feedItems "ALL/ALL" (khớp đúng bộ lọc vừa reset ở effect trên) để tìm đúng vị trí/trang.
+    const allKeys = [...exercises.map((e) => `ex-${e.assignmentId}`), ...reviewItems.map((x) => `rv-${x.video.id}`)];
+    const idx = allKeys.indexOf(pendingHighlightKey);
+    if (idx === -1) {
+      setPendingHighlightKey(null);
+      return;
+    }
+    const targetPage = Math.floor(idx / PAGE_SIZE);
+    if (page !== targetPage) {
+      setPage(targetPage);
+      return; // đợi effect chạy lại sau khi page đổi (render lại pageItems đúng trang trước đã)
+    }
+    const el = document.getElementById(`assignment-card-${pendingHighlightKey}`);
+    if (!el) return; // card chưa kịp render (VD vừa đổi filter) — effect tự chạy lại khi deps đổi
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    setHighlightKey(pendingHighlightKey);
+    setPendingHighlightKey(null);
+    const timer = setTimeout(() => setHighlightKey(null), 2500);
+    return () => clearTimeout(timer);
+  }, [loading, pendingHighlightKey, page, exercises, reviewItems]);
+
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — báo pendingCount lên PortalPage
+  // (badge sidebar). Đặt TRƯỚC early-return `if (loading)` bên dưới (Rules of Hooks — cùng lý do đã
+  // ghi chú ở các effect khác trong file này).
+  useEffect(() => {
+    if (loading) return;
+    const count =
+      exercises.filter(isExercisePending).length +
+      reviewItems.filter((x) => isReflexAnswerable(x) && !isReflexFullyAnswered(x)).length +
+      reviewItems.filter((x) => isConnectionAnswerable(x) && !isConnectionCompleted(x)).length;
+    onPendingCountChange?.(count);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, exercises, reviewItems]);
+
   if (loading) return <p className="text-sm text-muted font-bold">Đang tải...</p>;
 
   const pendingCount =
@@ -239,7 +341,7 @@ export default function AssignmentsTab({ classId }: AssignmentsTabProps) {
             <div>
               <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-black uppercase tracking-wider">Thông Báo BTVN</span>
               <h3 className="text-base md:text-lg font-black font-display mt-0.5 text-amber-900">
-                Bạn có <span className="underline decoration-wavy underline-offset-4">{pendingCount} bài tập về nhà</span> chưa hoàn thành!
+                Bạn có <span className=" decoration-wavy underline-offset-4">{pendingCount} bài tập về nhà</span> chưa hoàn thành!
               </h3>
               <p className="text-xs text-amber-800/80 font-semibold mt-0.5">Hãy làm bài sớm trước hạn nộp để duy trì kết quả học tập tốt nhé.</p>
             </div>
@@ -349,9 +451,21 @@ export default function AssignmentsTab({ classId }: AssignmentsTabProps) {
           <div className="space-y-4">
             {pageItems.map((entry) =>
               entry.type === "exercise" ? (
-                <ExerciseCard key={entry.key} item={entry.item} onOpen={() => setTakingExercise(entry.item)} />
+                <ExerciseCard
+                  key={entry.key}
+                  item={entry.item}
+                  onOpen={() => setTakingExercise(entry.item)}
+                  domId={`assignment-card-${entry.key}`}
+                  highlighted={highlightKey === entry.key}
+                />
               ) : (
-                <ReviewVideoCard key={entry.key} item={entry.item} onOpen={() => setOpenReviewItem(entry.item)} />
+                <ReviewVideoCard
+                  key={entry.key}
+                  item={entry.item}
+                  onOpen={() => setOpenReviewItem(entry.item)}
+                  domId={`assignment-card-${entry.key}`}
+                  highlighted={highlightKey === entry.key}
+                />
               )
             )}
           </div>
@@ -396,7 +510,17 @@ export default function AssignmentsTab({ classId }: AssignmentsTabProps) {
   );
 }
 
-function ExerciseCard({ item, onOpen }: { item: AssignedExerciseResponse; onOpen: () => void }) {
+function ExerciseCard({
+  item,
+  onOpen,
+  domId,
+  highlighted
+}: {
+  item: AssignedExerciseResponse;
+  onOpen: () => void;
+  domId?: string;
+  highlighted?: boolean;
+}) {
   const isOverdue = item.dueAt != null && new Date(item.dueAt) < new Date();
   const retake = needsRetake(item);
   const attemptMeta = retake ? null : item.myLatestAttemptStatus ? attemptStatusLabels[item.myLatestAttemptStatus] : null;
@@ -415,8 +539,9 @@ function ExerciseCard({ item, onOpen }: { item: AssignedExerciseResponse; onOpen
 
   return (
     <div
+      id={domId}
       className={`p-5 bg-white border rounded-2xl transition-all shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 ${
-        pending ? "border-orange-200 bg-orange-50/20" : "border-line/80"
+        highlighted ? "border-teal ring-2 ring-teal/40" : pending ? "border-orange-200 bg-orange-50/20" : "border-line/80"
       }`}
     >
       <div className="space-y-2 flex-1 min-w-0">
@@ -445,9 +570,30 @@ function ExerciseCard({ item, onOpen }: { item: AssignedExerciseResponse; onOpen
         <h3 className="text-base font-black text-ink font-display truncate">{item.title}</h3>
 
         {item.myLatestTotalScore != null && (
-          <p className="text-xs text-muted font-bold">
-            Điểm: <span className="text-teal-deep font-black">{item.myLatestTotalScore}</span>
-          </p>
+          // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — trước đây chỉ hiện "Điểm: X"
+          // chữ nhỏ màu xám, không thấy % lẫn đạt/chưa đạt ở đây (dù data đã có sẵn qua
+          // myLatestPercentage/myLatestPassed) — gộp cả 3 vào 1 pill nổi bật, đổi màu theo kết quả để
+          // học sinh/phụ huynh (đọc qua ParentHomeworkProgressTab) nhận ra ngay không cần đọc kỹ.
+          <div
+            className={`inline-flex flex-wrap items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold ${
+              item.myLatestPassed === true
+                ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                : item.myLatestPassed === false
+                  ? "bg-rose-50 border-rose-200 text-rose-800"
+                  : "bg-slate-50 border-slate-200 text-slate-700"
+            }`}
+          >
+            <span>
+              Điểm: <span className="font-black">{item.myLatestTotalScore}</span>
+            </span>
+            {item.myLatestPercentage != null && <span className="font-black">({item.myLatestPercentage}%)</span>}
+            {item.myLatestPassed != null && (
+              <span className="flex items-center gap-1 font-black">
+                {item.myLatestPassed ? <CheckCircle2 size={13} aria-hidden="true" /> : <AlertCircle size={13} aria-hidden="true" />}
+                {item.myLatestPassed ? "Đạt" : "Chưa đạt"}
+              </span>
+            )}
+          </div>
         )}
       </div>
 
@@ -465,7 +611,17 @@ function ExerciseCard({ item, onOpen }: { item: AssignedExerciseResponse; onOpen
   );
 }
 
-function ReviewVideoCard({ item, onOpen }: { item: ReviewVideoHomeworkItem; onOpen: () => void }) {
+function ReviewVideoCard({
+  item,
+  onOpen,
+  domId,
+  highlighted
+}: {
+  item: ReviewVideoHomeworkItem;
+  onOpen: () => void;
+  domId?: string;
+  highlighted?: boolean;
+}) {
   const { video, videoType, setTitle, reflexStats, dueAt } = item;
   const isConnection = videoType === "CONNECTION";
   const answerable = isConnection ? isConnectionAnswerable(item) : isReflexAnswerable(item);
@@ -511,7 +667,12 @@ function ReviewVideoCard({ item, onOpen }: { item: ReviewVideoHomeworkItem; onOp
   const actionLabel = isConnection ? "Xem video" : !answerable ? "Xem video" : fullyAnswered ? "Xem bài đã nộp" : "Trả lời câu hỏi";
 
   return (
-    <div className={`p-5 bg-white border rounded-2xl transition-all shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 ${pending ? "border-orange-200 bg-orange-50/20" : "border-line/80"}`}>
+    <div
+      id={domId}
+      className={`p-5 bg-white border rounded-2xl transition-all shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 ${
+        highlighted ? "border-teal ring-2 ring-teal/40" : pending ? "border-orange-200 bg-orange-50/20" : "border-line/80"
+      }`}
+    >
       <div className="space-y-2 flex-1 min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <span className="px-2.5 py-0.5 rounded-lg bg-teal/10 text-teal border border-teal/20 text-[11px] font-black flex items-center gap-1">

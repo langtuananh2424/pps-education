@@ -131,7 +131,12 @@ public class ExerciseAttemptService {
             throw new ExerciseNotAvailableException("Đề id=" + exerciseId + " chưa tới thời gian mở làm bài.");
         }
 
-        long previousAttempts = exerciseAttemptRepository.countByExerciseIdAndStudentId(exerciseId, student.getId());
+        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — fix bug thật: đếm lượt đã làm
+        // CHỈ trong phạm vi bản giao hiện tại (không tính lượt đã làm ở bản giao TRƯỚC đó) — mirror
+        // ReviewVideoService#submitQuestionAudio (V69) "giao lại = 1 lượt MỚI", maxAttempts áp dụng
+        // lại từ đầu mỗi lần giao. Trước đây đếm theo exerciseId+studentId toàn cục nên 1 học sinh đã
+        // hết lượt (maxAttempts) ở bản giao cũ sẽ bị chặn làm luôn cả bản giao MỚI vừa được giao lại.
+        long previousAttempts = exerciseAttemptRepository.countByExerciseAssignmentIdAndStudentId(assignment.getId(), student.getId());
         int attemptNumber = (int) previousAttempts + 1;
         if (previousAttempts > 0) {
             if (!exercise.isAllowRetake()) {
@@ -396,12 +401,16 @@ public class ExerciseAttemptService {
 
         List<AssignedExerciseResponse> result = new java.util.ArrayList<>();
         for (ClassEnrollment enrollment : enrollments) {
-            // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06: lấy CẢ ACTIVE lẫn COMPLETED
-            // (không chỉ ACTIVE) — trước đây bản giao ĐÃ ĐẠT (applyPassOutcome tự đóng COMPLETED) biến
-            // mất hẳn khỏi danh sách BTVN của học sinh thay vì hiện dưới "Đã nộp & Đã chấm". CANCELLED
-            // (GV hủy) vẫn loại — không hiện.
+            // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06: lấy CẢ ACTIVE/COMPLETED/
+            // CANCELLED — trước đây bản giao ĐÃ ĐẠT (applyPassOutcome tự đóng COMPLETED) biến mất hẳn
+            // khỏi danh sách BTVN của học sinh thay vì hiện dưới "Đã nộp & Đã chấm" (đã sửa, không loại
+            // COMPLETED nữa). Từ khi thêm cơ chế "giao lại = 1 lượt MỚI, hủy bản giao ACTIVE cũ" ở
+            // deliverToClass (mirror ReviewVideoService V69), bản giao CŨ bị CANCELLED cũng KHÔNG được
+            // loại nữa — đã xác nhận lại với người dùng: bài đã làm hay chưa làm, học sinh vẫn phải xem
+            // được, không được biến mất khỏi tầm nhìn chỉ vì có 1 bản giao MỚI hơn thay thế nó.
             List<ExerciseAssignment> assignments = exerciseAssignmentRepository.findBySchoolClassIdAndStatusIn(
-                    enrollment.getSchoolClass().getId(), List.of(ExerciseAssignment.Status.ACTIVE, ExerciseAssignment.Status.COMPLETED));
+                    enrollment.getSchoolClass().getId(),
+                    List.of(ExerciseAssignment.Status.ACTIVE, ExerciseAssignment.Status.COMPLETED, ExerciseAssignment.Status.CANCELLED));
             for (ExerciseAssignment assignment : assignments) {
                 if (assignment.getTargetStudentIds() != null && !assignment.getTargetStudentIds().contains(student.getId())) {
                     continue;
@@ -519,8 +528,13 @@ public class ExerciseAttemptService {
 
     private AssignedExerciseResponse toAssignedResponse(ExerciseAssignment assignment, ClassEnrollment enrollment, Student student) {
         Exercise exercise = assignment.getExercise();
+        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — fix bug thật: trước đây lấy
+        // "lượt làm gần nhất của Bài này" theo exerciseId+studentId TOÀN CỤC, nên khi 1 Bài được giao
+        // LẠI (bản giao mới), thẻ BTVN mới vẫn hiển thị nhầm điểm/trạng thái "Đã có điểm" của lượt làm
+        // ở bản giao CŨ — học sinh tưởng không có gì mới. Lấy đúng phạm vi bản giao ĐANG hiển thị
+        // (assignment.getId()), mirror ReviewVideoService cách scope theo reviewVideoAssignmentId.
         List<ExerciseAttempt> myAttempts = exerciseAttemptRepository
-                .findByExerciseIdAndStudentIdOrderByAttemptNumberDesc(exercise.getId(), student.getId());
+                .findByExerciseAssignmentIdAndStudentIdOrderByAttemptNumberDesc(assignment.getId(), student.getId());
         ExerciseAttempt latest = myAttempts.isEmpty() ? null : myAttempts.get(0);
         BigDecimal latestPercentage = latest == null || latest.getTotalScore() == null ? null
                 : percentageOf(latest.getTotalScore(), exercise.getTotalPoints());

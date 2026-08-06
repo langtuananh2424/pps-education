@@ -497,7 +497,16 @@ export function listPublishedExercisesForClass(classId: number): Promise<Exercis
 export type ReviewVideoType = "CONNECTION" | "REFLEX";
 export type ReviewVideoSetStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
 
-/** Khớp ReviewVideoSetResponse thật — đúng 1 trong 2 curriculumId/classId khác null (không cả hai, không cái nào). */
+/** V98, đã xác nhận với người dùng 2026-08-06: Bộ dành cho GV Việt Nam hay GV nước ngoài — dùng lọc khi giao bài (mirror ExamTeacherType). */
+export type ReviewVideoTeacherType = "VIETNAMESE" | "FOREIGN";
+
+/**
+ * V98 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06) —
+ * đổi mô hình gán lớp giống hệt Kho đề: curriculumId luôn khác null
+ * (CHỈ dùng lọc/tìm kiếm trong Kho Video), điều kiện hiển thị cho lớp là
+ * gán tường minh riêng (xem assignReviewVideoSetToClass) — classId
+ * không còn trên response.
+ */
 export interface ReviewVideoSetResponse {
   id: number;
   /** V55 — dùng để dán trực tiếp vào Excel BTVN thay cho chọn dropdown khi danh sách quá dài. */
@@ -505,9 +514,10 @@ export interface ReviewVideoSetResponse {
   code: string;
   title: string;
   videoType: ReviewVideoType;
-  curriculumId: number | null;
-  classId: number | null;
+  curriculumId: number;
+  curriculumCode: string;
   subjectId: number | null;
+  teacherType: ReviewVideoTeacherType;
   displayOrder: number;
   status: ReviewVideoSetStatus;
   publishedAt: string | null;
@@ -518,21 +528,22 @@ export interface CreateReviewVideoSetRequest {
   code: string;
   title: string;
   videoType: ReviewVideoType;
-  curriculumId?: number;
-  classId?: number;
+  curriculumId: number;
+  teacherType: ReviewVideoTeacherType;
   subjectId?: number;
   displayOrder?: number;
 }
 
-/** Khớp UpdateReviewVideoSetRequest thật — không đổi được code/scope (curriculumId/classId) sau khi tạo, chỉ đổi status để công bố (PUBLISHED, publishedAt chỉ set 1 lần) hoặc gỡ (ARCHIVED, soft-remove). */
+/** Khớp UpdateReviewVideoSetRequest thật — không đổi được code/khung chương trình sau khi tạo, teacherType sửa được cùng title (V98). Đổi status để công bố (PUBLISHED, publishedAt chỉ set 1 lần) hoặc gỡ (ARCHIVED, soft-remove). */
 export interface UpdateReviewVideoSetRequest {
   title: string;
+  teacherType: ReviewVideoTeacherType;
   subjectId?: number;
   displayOrder?: number;
   status: ReviewVideoSetStatus;
 }
 
-/** UC-23 Main Flow bước 1-4: chỉ Giáo viên được phân công dạy đúng lớp/khung mới tạo/sửa được — BE tự chặn theo class_teachers, không phải theo permission. */
+/** UC-23 Main Flow bước 1: chỉ Giáo viên được phân công dạy 1 lớp thuộc đúng khung mới tạo được — BE tự chặn theo class_teachers, không phải theo permission. */
 export function createReviewVideoSet(request: CreateReviewVideoSetRequest): Promise<ReviewVideoSetResponse> {
   return apiRequest<ReviewVideoSetResponse>("/review-video-sets", { method: "POST", body: JSON.stringify(request) });
 }
@@ -545,8 +556,26 @@ export function listReviewVideoSetsByClass(classId: number): Promise<ReviewVideo
   return apiRequest<ReviewVideoSetResponse[]>(`/classes/${classId}/review-video-sets`);
 }
 
-export function listReviewVideoSetsByCurriculum(curriculumId: number): Promise<ReviewVideoSetResponse[]> {
-  return apiRequest<ReviewVideoSetResponse[]>(`/curriculums/${curriculumId}/review-video-sets`);
+/** Kho Video — lọc theo khung chương trình/loại giáo viên (V98, mirror listExams). Bỏ trống để không lọc theo tiêu chí đó. */
+export function listReviewVideoSets(curriculumId?: number, teacherType?: ReviewVideoTeacherType): Promise<ReviewVideoSetResponse[]> {
+  const params = new URLSearchParams();
+  if (curriculumId) params.set("curriculumId", String(curriculumId));
+  if (teacherType) params.set("teacherType", teacherType);
+  const query = params.toString() ? `?${params.toString()}` : "";
+  return apiRequest<ReviewVideoSetResponse[]>(`/review-video-sets${query}`);
+}
+
+/** V98 (mirror assignExamToClass) — gán Bộ cho 1 lớp, điều kiện hiển thị DUY NHẤT cho học sinh lớp đó. */
+export function assignReviewVideoSetToClass(setId: number, classId: number): Promise<void> {
+  return apiRequest<void>(`/review-video-sets/${setId}/classes/${classId}`, { method: "POST" });
+}
+
+export function unassignReviewVideoSetFromClass(setId: number, classId: number): Promise<void> {
+  return apiRequest<void>(`/review-video-sets/${setId}/classes/${classId}`, { method: "DELETE" });
+}
+
+export function listReviewVideoSetAssignedClasses(setId: number): Promise<ClassResponse[]> {
+  return apiRequest<ClassResponse[]>(`/review-video-sets/${setId}/classes`);
 }
 
 /**

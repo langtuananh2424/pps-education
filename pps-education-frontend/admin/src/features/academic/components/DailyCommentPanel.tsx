@@ -51,7 +51,6 @@ const teacherTypeLabels: Record<TeacherType, string> = { VIETNAMESE: "Giáo viê
 /** Đúng y nhãn cột đã chốt với người dùng 2026-08-05 — KHÔNG dùng lại "Video từ kết nối"/"Video phản xạ" của Kho Video Ôn tập (LecturesPage.tsx), 2 bộ nhãn độc lập. */
 const grammarChannelLabel: Record<TeacherType, string> = { VIETNAMESE: "Ngữ pháp", FOREIGN: "Bài nghe" };
 const videoChannelLabel: Record<TeacherType, string> = { VIETNAMESE: "Từ Vựng (TKN)", FOREIGN: "Clip phản xạ" };
-const videoTypeByTeacherType: Record<TeacherType, "CONNECTION" | "REFLEX"> = { VIETNAMESE: "CONNECTION", FOREIGN: "REFLEX" };
 
 interface Row {
   studentId: number;
@@ -194,7 +193,7 @@ export default function DailyCommentPanel() {
   // BE bỏ qua điều kiện "phải có buổi kế tiếp" (2026-08-05, xem StudentCommentService#resolveDueAt).
   const blockOnlineHomework = isLastScheduledSession && !dueDateTime;
   const filteredGrammarOptions = teacherType ? grammarOptions.filter((ex) => ex.examTeacherType === teacherType) : [];
-  const filteredVideoOptions = teacherType ? videoOptions.filter((s) => s.videoType === videoTypeByTeacherType[teacherType]) : [];
+  const filteredVideoOptions = teacherType ? videoOptions.filter((s) => s.teacherType === teacherType) : [];
   const grammarLabel = teacherType ? grammarChannelLabel[teacherType] : "Bài";
   const videoLabel = teacherType ? videoChannelLabel[teacherType] : "Video";
   // Buổi đã có ít nhất 1 nhận xét ĐANG chờ duyệt/ĐÃ duyệt (bổ sung ngoài SDD gốc, đã xác nhận với

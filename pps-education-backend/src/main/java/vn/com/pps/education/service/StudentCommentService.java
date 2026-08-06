@@ -627,11 +627,9 @@ public class StudentCommentService {
         Map<Long, AttendanceMark.Status> attendanceByStudent = currentAttendanceByStudent(classSessionId);
         List<ClassEnrollment> enrollments = classEnrollmentRepository
                 .findBySchoolClassIdAndStatus(classId, ClassEnrollment.Status.ACTIVE);
-        Long curriculumId = classSession.getSchoolClass().getCurriculum().getId();
         List<Exercise> grammarOptions = exerciseRepository.findAvailableForClass(classId, Exercise.Status.PUBLISHED)
                 .stream().filter(e -> matchesSessionTeacherType(e, sessionTeacherType)).toList();
-        List<ReviewVideoSet> videoOptions = reviewVideoSetRepository.findVisibleForClass(
-                classId, curriculumId, ReviewVideoSet.Status.PUBLISHED)
+        List<ReviewVideoSet> videoOptions = reviewVideoSetRepository.findAvailableForClass(classId, ReviewVideoSet.Status.PUBLISHED)
                 .stream().filter(s -> matchesSessionTeacherType(s, sessionTeacherType)).toList();
 
         String grammarLabelText = grammarChannelLabel(sessionTeacherType);
@@ -720,14 +718,14 @@ public class StudentCommentService {
         return sessionTeacherType == null || exercise.getExam().getTeacherType().name().equals(sessionTeacherType.name());
     }
 
-    /** Mirror {@link #matchesSessionTeacherType(Exercise, ClassSession.TeacherType)} cho kênh Video — CONNECTION=VIETNAMESE, REFLEX=FOREIGN. */
+    /**
+     * Mirror {@link #matchesSessionTeacherType(Exercise, ClassSession.TeacherType)} cho kênh Video. V98
+     * (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06) — so trực tiếp
+     * {@code ReviewVideoSet.teacherType} (field tường minh mới) thay vì suy diễn từ videoType
+     * (CONNECTION=VIETNAMESE/REFLEX=FOREIGN) như trước khi có field này.
+     */
     private boolean matchesSessionTeacherType(ReviewVideoSet set, ClassSession.TeacherType sessionTeacherType) {
-        if (sessionTeacherType == null) {
-            return true;
-        }
-        ReviewVideoSet.VideoType expected = sessionTeacherType == ClassSession.TeacherType.VIETNAMESE
-                ? ReviewVideoSet.VideoType.CONNECTION : ReviewVideoSet.VideoType.REFLEX;
-        return set.getVideoType() == expected;
+        return sessionTeacherType == null || set.getTeacherType().name().equals(sessionTeacherType.name());
     }
 
     /**
@@ -816,14 +814,12 @@ public class StudentCommentService {
         job = importJobRepository.save(job);
 
         Long classId = classSession.getSchoolClass().getId();
-        Long curriculumId = classSession.getSchoolClass().getCurriculum().getId();
         ClassSession.TeacherType sessionTeacherType = classSession.getTeacherType();
         Map<String, Exercise> grammarByLabel = exerciseRepository
                 .findAvailableForClass(classId, Exercise.Status.PUBLISHED).stream()
                 .filter(e -> matchesSessionTeacherType(e, sessionTeacherType))
                 .collect(java.util.stream.Collectors.toMap(this::grammarLabel, e -> e, (a, b) -> a));
-        Map<String, ReviewVideoSet> videoByLabel = reviewVideoSetRepository.findVisibleForClass(
-                classId, curriculumId, ReviewVideoSet.Status.PUBLISHED).stream()
+        Map<String, ReviewVideoSet> videoByLabel = reviewVideoSetRepository.findAvailableForClass(classId, ReviewVideoSet.Status.PUBLISHED).stream()
                 .filter(s -> matchesSessionTeacherType(s, sessionTeacherType))
                 .collect(java.util.stream.Collectors.toMap(this::videoLabel, s -> s, (a, b) -> a));
 

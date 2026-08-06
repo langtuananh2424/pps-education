@@ -262,10 +262,14 @@ export interface HomeworkProgressResponse {
   grammarTitle: string | null;
   grammarOfflineText: string | null;
   grammarProgress: string | null;
+  /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — null khi grammarAssignmentId null (chưa giao/giao offline), phân biệt "đạt"/"chưa đạt" thay vì chỉ nhìn %. */
+  grammarPassed: boolean | null;
   /** V65 (2026-07-30, bổ sung ngoài SDD gốc): đổi tên từ videoSetId — giờ là id bản giao (ReviewVideoAssignment), không phải id ReviewVideoSet nguồn. */
   videoAssignmentId: number | null;
   videoTitle: string | null;
   videoProgress: string | null;
+  /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — mirror grammarPassed. */
+  videoPassed: boolean | null;
 }
 
 /** UC-18 — khớp ClassSessionResponse thật. */
@@ -395,17 +399,18 @@ export function markNotificationRead(id: number): Promise<NotificationResponse> 
 
 /**
  * UC-23a — khớp ReviewVideoSetResponse thật. GET /api/classes/{classId}/review-video-sets tự trả
- * đúng phạm vi nhìn thấy của học sinh (findVisibleForClass — bộ riêng lớp NÀY HOẶC bộ dùng chung
- * theo khung của lớp NÀY, chỉ status=PUBLISHED — BE tự lọc, Portal không cần gọi thêm endpoint
- * theo curriculum). 404 (không 403) nếu học sinh không thuộc lớp — không lộ tồn tại ngoài phạm vi.
+ * đúng phạm vi nhìn thấy của học sinh (V98: bộ đã gán tường minh cho lớp NÀY qua
+ * ReviewVideoSetClassAssignment, chỉ status=PUBLISHED — BE tự lọc, Portal không cần gọi thêm
+ * endpoint theo curriculum). 404 (không 403) nếu học sinh không thuộc lớp — không lộ tồn tại ngoài
+ * phạm vi. curriculumId nay luôn khác null (V98, chỉ dùng lọc/tìm kiếm ở Kho Video, không phải điều
+ * kiện hiển thị) — classId không còn trên response.
  */
 export interface ReviewVideoSetResponse {
   id: number;
   code: string;
   title: string;
   videoType: "CONNECTION" | "REFLEX";
-  curriculumId: number | null;
-  classId: number | null;
+  curriculumId: number;
   subjectId: number | null;
   displayOrder: number;
   status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
