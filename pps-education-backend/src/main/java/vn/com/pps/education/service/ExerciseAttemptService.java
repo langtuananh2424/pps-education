@@ -335,6 +335,21 @@ public class ExerciseAttemptService {
 
     /**
      * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06: Giáo
+     * viên xem lịch sử trả lời câu hỏi của 1 lượt làm bài BẤT KỲ khi chấm
+     * (không giới hạn ở lượt của chính mình như {@link #listAnswers}) —
+     * mirror {@link #listAttemptsForGrading}, không check sở hữu, rào
+     * quyền ở Controller (lms.grading.manage).
+     */
+    @Transactional(readOnly = true)
+    public List<StudentAnswerResponse> listAnswersForGrading(Long attemptId) {
+        if (!exerciseAttemptRepository.existsById(attemptId)) {
+            throw new ResourceNotFoundException("Không tìm thấy lượt làm bài id=" + attemptId);
+        }
+        return studentAnswerRepository.findByExerciseAttemptId(attemptId).stream().map(this::toResponse).toList();
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06: Giáo
      * viên đánh dấu 1 lượt làm bài (trong nhiều lượt của cùng 1 học sinh)
      * là kết quả CHÍNH THỨC — bỏ chọn mọi lượt khác của ĐÚNG (exercise,
      * student) đó (tối đa 1 lượt được chọn tại 1 thời điểm). Chỉ đánh

@@ -94,6 +94,13 @@ public class ExerciseAttemptController {
         return ResponseEntity.ok(exerciseAttemptService.listAttemptsForGrading(exerciseId, studentId));
     }
 
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — xem Javadoc ExerciseAttemptService#listAnswersForGrading. */
+    @PreAuthorize("hasPermission(null, 'lms.grading.manage')")
+    @GetMapping("/api/attempts/{id}/answers/for-grading")
+    public ResponseEntity<List<StudentAnswerResponse>> listAnswersForGrading(@PathVariable Long id) {
+        return ResponseEntity.ok(exerciseAttemptService.listAnswersForGrading(id));
+    }
+
     /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — xem Javadoc ExerciseAttemptService#selectForGrading. */
     @PreAuthorize("hasPermission(null, 'lms.grading.manage')")
     @PostMapping("/api/attempts/{id}/select-for-grading")
