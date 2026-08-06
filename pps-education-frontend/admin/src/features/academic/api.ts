@@ -984,6 +984,9 @@ export interface ExerciseAssignmentQuestionRow {
   wrongCount: number;
   wrongRatePercent: number;
   wrongStudents: ExerciseAssignmentWrongStudent[];
+  /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — luôn 0 với câu không phải skill=LISTENING. */
+  hintUsedCount: number;
+  hintUsedStudentCount: number;
 }
 
 export interface ExerciseAssignmentQuestionStatsResponse {

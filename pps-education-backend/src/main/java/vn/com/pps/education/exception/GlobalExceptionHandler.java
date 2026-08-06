@@ -97,7 +97,7 @@ public class GlobalExceptionHandler {
             GradeComponentNotDeletableException.class, GradePeriodNotDeletableException.class,
             MissingLessonContentException.class, HomeworkNextConflictException.class,
             NoUpcomingClassSessionException.class, VideoNotYetQualifiedException.class,
-            QuizAlreadyCompletedException.class})
+            QuizAlreadyCompletedException.class, ListeningHintNotUnlockedException.class})
     public ResponseEntity<Object> handleClassSetupRejected(RuntimeException ex) {
         return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
     }

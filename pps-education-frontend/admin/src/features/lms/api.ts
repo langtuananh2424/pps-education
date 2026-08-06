@@ -414,6 +414,14 @@ export interface AddExerciseQuestionRequest {
   points: number;
 }
 
+/** Khớp backend ExerciseQuestionChoiceResponse — KHÔNG kèm isCorrect (endpoint dùng chung với học sinh, xem Javadoc backend). */
+export interface ExerciseQuestionChoiceResponse {
+  id: number;
+  choiceLabel: string;
+  content: string;
+  displayOrder: number;
+}
+
 export interface ExerciseQuestionResponse {
   id: number;
   exerciseId: number;
@@ -422,6 +430,12 @@ export interface ExerciseQuestionResponse {
   questionContent: string;
   displayOrder: number;
   points: number;
+  /**
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — trước đây thiếu field này trong
+   * type khai báo dù backend luôn trả kèm choices, khiến GV không tra được đáp án học sinh đã chọn
+   * (chỉ thấy raw choice id) ở màn "Chi tiết kết quả" — xem AssignmentStatsDetailPage.tsx.
+   */
+  choices: ExerciseQuestionChoiceResponse[];
   skill: QuestionSkill | null;
   audioUrl: string | null;
   referencePassage: string | null;

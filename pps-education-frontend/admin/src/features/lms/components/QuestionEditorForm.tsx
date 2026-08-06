@@ -26,7 +26,8 @@ type UiQuestionKind =
   | "SENTENCE_BUILDING"
   | "ESSAY"
   | "SPEAKING"
-  | "LISTENING_AUDIO_SUBMISSION";
+  | "LISTENING_AUDIO_SUBMISSION"
+  | "LISTENING_FILL_IN_BLANK";
 
 const kindMeta: Record<UiQuestionKind, { label: string; icon: typeof CheckSquare; activeClass: string; iconClass: string }> = {
   MULTIPLE_CHOICE: { label: "Trắc nghiệm", icon: CheckSquare, activeClass: "bg-emerald-50 border-emerald-400 text-emerald-800 ring-1 ring-emerald-300", iconClass: "text-emerald-600" },
@@ -37,7 +38,8 @@ const kindMeta: Record<UiQuestionKind, { label: string; icon: typeof CheckSquare
   SENTENCE_BUILDING: { label: "Sắp xếp câu", icon: ListOrdered, activeClass: "bg-cyan-50 border-cyan-400 text-cyan-800 ring-1 ring-cyan-300", iconClass: "text-cyan-600" },
   ESSAY: { label: "Tự luận file/ảnh", icon: FileText, activeClass: "bg-purple-50 border-purple-400 text-purple-800 ring-1 ring-purple-300", iconClass: "text-purple-600" },
   SPEAKING: { label: "Speaking oral", icon: Mic, activeClass: "bg-rose-50 border-rose-400 text-rose-800 ring-1 ring-rose-300", iconClass: "text-rose-600" },
-  LISTENING_AUDIO_SUBMISSION: { label: "Nghe & nộp audio", icon: Headphones, activeClass: "bg-sky-50 border-sky-400 text-sky-800 ring-1 ring-sky-300", iconClass: "text-sky-600" }
+  LISTENING_AUDIO_SUBMISSION: { label: "Nghe & nộp audio", icon: Headphones, activeClass: "bg-sky-50 border-sky-400 text-sky-800 ring-1 ring-sky-300", iconClass: "text-sky-600" },
+  LISTENING_FILL_IN_BLANK: { label: "Nghe điền từ", icon: PenLine, activeClass: "bg-violet-50 border-violet-400 text-violet-800 ring-1 ring-violet-300", iconClass: "text-violet-600" }
 };
 
 const difficultyLabels: Record<QuestionDifficulty, string> = { EASY: "Dễ (Easy)", MEDIUM: "Trung bình (Medium)", HARD: "Khó (Hard)" };
@@ -46,7 +48,7 @@ function toKind(question?: QuestionResponse): UiQuestionKind {
   if (!question) return "MULTIPLE_CHOICE";
   if (question.questionType === "ESSAY") return "ESSAY";
   if (question.questionType === "SPEAKING") return question.skill === "LISTENING" ? "LISTENING_AUDIO_SUBMISSION" : "SPEAKING";
-  if (question.questionType === "FILL_IN_BLANK") return "FILL_IN_BLANK";
+  if (question.questionType === "FILL_IN_BLANK") return question.skill === "LISTENING" ? "LISTENING_FILL_IN_BLANK" : "FILL_IN_BLANK";
   if (question.questionType === "WORD_BANK") return "WORD_BANK";
   if (question.questionType === "SENTENCE_BUILDING") return "SENTENCE_BUILDING";
   if (question.questionType === "MULTIPLE_CHOICE" && question.skill !== "LISTENING" && question.choices?.length === 2) return "INLINE_CHOICE";
@@ -125,7 +127,7 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
     }
   };
 
-  const isVoiceOrListeningAudio = kind === "VOICE_MULTIPLE_CHOICE" || kind === "LISTENING_AUDIO_SUBMISSION";
+  const isVoiceOrListeningAudio = kind === "VOICE_MULTIPLE_CHOICE" || kind === "LISTENING_AUDIO_SUBMISSION" || kind === "LISTENING_FILL_IN_BLANK";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -146,10 +148,16 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
       choices = options.map((content_, i) => ({ choiceLabel: String.fromCharCode(65 + i), content: content_.trim(), isCorrect: i === correctIndex, displayOrder: i + 1 }));
     }
     if (isVoiceOrListeningAudio && !audioUrl.trim()) {
-      setError(kind === "VOICE_MULTIPLE_CHOICE" ? "Trắc nghiệm Voice cần có URL audio mẫu." : "Nghe & nộp audio cần có URL audio bài nghe.");
+      setError(
+        kind === "VOICE_MULTIPLE_CHOICE"
+          ? "Trắc nghiệm Voice cần có URL audio mẫu."
+          : kind === "LISTENING_FILL_IN_BLANK"
+            ? "Nghe điền từ cần có URL audio bài nghe."
+            : "Nghe & nộp audio cần có URL audio bài nghe."
+      );
       return;
     }
-    if (kind === "FILL_IN_BLANK" && !correctAnswerText.trim()) {
+    if ((kind === "FILL_IN_BLANK" || kind === "LISTENING_FILL_IN_BLANK") && !correctAnswerText.trim()) {
       setError("Điền từ cần có đáp án đúng để hệ thống tự chấm.");
       return;
     }
@@ -179,7 +187,7 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
           imageUrl: kind === "ESSAY" ? imageUrl.trim() || undefined : undefined,
           referencePassage: isVoiceOrListeningAudio ? transcript.trim() || undefined : kind === "SPEAKING" ? phoneticKeywords.trim() || undefined : undefined,
           explanation: explanation.trim() || undefined,
-          correctAnswerText: kind === "FILL_IN_BLANK" ? correctAnswerText.trim() || undefined : undefined,
+          correctAnswerText: kind === "FILL_IN_BLANK" || kind === "LISTENING_FILL_IN_BLANK" ? correctAnswerText.trim() || undefined : undefined,
           structuredContent,
           choices
         };
@@ -188,7 +196,13 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
           : await updateQuestion(existingQuestion.id, updateRequest);
       } else {
         const questionType: QuestionType =
-          kind === "VOICE_MULTIPLE_CHOICE" || kind === "INLINE_CHOICE" ? "MULTIPLE_CHOICE" : kind === "LISTENING_AUDIO_SUBMISSION" ? "SPEAKING" : kind;
+          kind === "VOICE_MULTIPLE_CHOICE" || kind === "INLINE_CHOICE"
+            ? "MULTIPLE_CHOICE"
+            : kind === "LISTENING_AUDIO_SUBMISSION"
+              ? "SPEAKING"
+              : kind === "LISTENING_FILL_IN_BLANK"
+                ? "FILL_IN_BLANK"
+                : kind;
         const request: CreateExamQuestionRequest = {
           questionType,
           skill: isVoiceOrListeningAudio ? "LISTENING" : kind === "SPEAKING" ? "SPEAKING" : undefined,
@@ -198,7 +212,7 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
           imageUrl: kind === "ESSAY" ? imageUrl.trim() || undefined : undefined,
           referencePassage: isVoiceOrListeningAudio ? transcript.trim() || undefined : kind === "SPEAKING" ? phoneticKeywords.trim() || undefined : undefined,
           explanation: explanation.trim() || undefined,
-          correctAnswerText: kind === "FILL_IN_BLANK" ? correctAnswerText.trim() || undefined : undefined,
+          correctAnswerText: kind === "FILL_IN_BLANK" || kind === "LISTENING_FILL_IN_BLANK" ? correctAnswerText.trim() || undefined : undefined,
           structuredContent,
           choices
         };
@@ -229,7 +243,10 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
 
       <div>
         <label className={labelClass}>Loại câu hỏi tiếng Anh *{isEditing && <span className="text-slate-400 font-normal"> (không sửa được sau khi tạo)</span>}</label>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+        {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — số cột co theo số kind hiển
+            thị (vd. FOREIGN chỉ 3 kind) để các nút dàn đều hết chiều rộng, thay vì luôn cố định 5 cột
+            khiến picker bị hụt về bên trái khi ít lựa chọn. */}
+        <div className={`grid gap-2 ${visibleKinds.length <= 3 ? "grid-cols-3" : "grid-cols-2 md:grid-cols-5"}`}>
           {(Object.entries(kindMeta) as [UiQuestionKind, (typeof kindMeta)[UiQuestionKind]][])
             .filter(([value]) => visibleKinds.includes(value))
             .map(([value, meta]) => {
@@ -316,9 +333,23 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
       )}
 
       {isVoiceOrListeningAudio && (
-        <div className={`p-4 rounded-xl border space-y-3 ${kind === "VOICE_MULTIPLE_CHOICE" ? "bg-blue-50/40 border-blue-200" : "bg-sky-50/40 border-sky-200"}`}>
-          <div className={`flex items-center gap-1 font-bold uppercase tracking-wider text-[9px] ${kind === "VOICE_MULTIPLE_CHOICE" ? "text-blue-900" : "text-sky-900"}`}>
-            {kind === "VOICE_MULTIPLE_CHOICE" ? <Volume2 className="w-4 h-4 text-blue-600" /> : <Headphones className="w-4 h-4 text-sky-600" />}
+        <div
+          className={`p-4 rounded-xl border space-y-3 ${
+            kind === "VOICE_MULTIPLE_CHOICE" ? "bg-blue-50/40 border-blue-200" : kind === "LISTENING_FILL_IN_BLANK" ? "bg-violet-50/40 border-violet-200" : "bg-sky-50/40 border-sky-200"
+          }`}
+        >
+          <div
+            className={`flex items-center gap-1 font-bold uppercase tracking-wider text-[9px] ${
+              kind === "VOICE_MULTIPLE_CHOICE" ? "text-blue-900" : kind === "LISTENING_FILL_IN_BLANK" ? "text-violet-900" : "text-sky-900"
+            }`}
+          >
+            {kind === "VOICE_MULTIPLE_CHOICE" ? (
+              <Volume2 className="w-4 h-4 text-blue-600" />
+            ) : kind === "LISTENING_FILL_IN_BLANK" ? (
+              <PenLine className="w-4 h-4 text-violet-600" />
+            ) : (
+              <Headphones className="w-4 h-4 text-sky-600" />
+            )}
             <span>Cấu hình file âm thanh / Transcript</span>
           </div>
           {kind === "LISTENING_AUDIO_SUBMISSION" && (
@@ -326,6 +357,9 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
               Học sinh sẽ nghe file audio này rồi tự ghi âm nộp lại câu trả lời (chấm tay ở "Hàng chờ chấm bài") — khác Trắc nghiệm Voice
               (học sinh chỉ chọn đáp án có sẵn).
             </p>
+          )}
+          {kind === "LISTENING_FILL_IN_BLANK" && (
+            <p className="text-[9px] text-slate-400">Học sinh sẽ nghe file audio này rồi gõ đáp án — hệ thống tự chấm theo "Đáp án đúng" bên dưới.</p>
           )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
@@ -417,7 +451,7 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
         </div>
       )}
 
-      {kind === "FILL_IN_BLANK" && (
+      {(kind === "FILL_IN_BLANK" || kind === "LISTENING_FILL_IN_BLANK") && (
         <div className="bg-amber-50/40 p-4 rounded-xl border border-amber-200 space-y-3">
           <div className="text-amber-950 font-bold uppercase tracking-wider text-[9px] flex items-center gap-1">
             <PenLine className="w-4 h-4 text-amber-600" />

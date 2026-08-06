@@ -799,6 +799,34 @@ export function recordIntegrityEvents(attemptId: number, request: RecordIntegrit
   });
 }
 
+// ===================== Gợi ý tapescript khi Nghe (bổ sung ngoài SDD gốc, xác nhận 2026-08-06) =====================
+
+export interface ListeningPlayProgressResponse {
+  playCount: number;
+  hintUnlockThreshold: number;
+  hintUnlocked: boolean;
+}
+
+export interface ListeningHintResponse {
+  transcript: string | null;
+  correctAnswerText: string | null;
+  correctChoiceIds: number[];
+  explanation: string | null;
+}
+
+/** Gọi mỗi khi audio của 1 câu hỏi Nghe phát tới cuối (sự kiện `ended`) — KHÔNG gọi khi chỉ bấm Play/tạm dừng giữa chừng. */
+export function recordListeningPlay(attemptId: number, questionId: number): Promise<ListeningPlayProgressResponse> {
+  return apiRequest<ListeningPlayProgressResponse>(`/attempts/${attemptId}/listening-plays`, {
+    method: "POST",
+    body: JSON.stringify({ questionId })
+  });
+}
+
+/** Chỉ gọi khi hintUnlocked=true (từ recordListeningPlay) — gọi thành công sẽ được backend ghi 1 lượt dùng gợi ý để thống kê. */
+export function getListeningHint(attemptId: number, questionId: number): Promise<ListeningHintResponse> {
+  return apiRequest<ListeningHintResponse>(`/attempts/${attemptId}/listening-hint?questionId=${questionId}`);
+}
+
 /**
  * UC-60: Kho tài liệu tham khảo — độc lập với Kho bài giảng (UC-23, gắn 1 bài giảng cụ
  * thể), chỉ gắn theo khung chương trình để "tự học thêm", không qua bài giảng nào.

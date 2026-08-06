@@ -509,12 +509,19 @@ public class ExerciseService {
                 ? questionChoiceRepository.findByQuestionIdOrderByDisplayOrder(question.getId()).stream()
                         .map(this::toChoiceResponse).toList()
                 : List.of();
+        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06: referencePassage của câu Nghe
+        // (skill=LISTENING) là transcript/đáp án gợi ý — trước đây trả không điều kiện ở đây khiến học
+        // sinh đọc được ngay qua DevTools/Network dù FE chưa render ra UI. Giờ chỉ lộ qua endpoint
+        // GET /api/attempts/{id}/listening-hint sau khi đã nghe hết đủ số lần cấu hình (xem
+        // ListeningHintService). Giữ nguyên hành vi cũ cho câu KHÔNG phải LISTENING (VD đoạn văn Đọc
+        // hiểu — Lưới cần hiện ngay, không phải đáp án).
+        String referencePassage = question.getSkill() == Question.Skill.LISTENING ? null : question.getReferencePassage();
         return new ExerciseQuestionResponse(
                 eq.getId(), eq.getExercise().getId(), question.getId(),
                 question.getQuestionType().name(), question.getContent(),
                 eq.getDisplayOrder(), eq.getPoints(), choices,
                 question.getSkill() == null ? null : question.getSkill().name(),
-                question.getAudioUrl(), question.getReferencePassage(),
+                question.getAudioUrl(), referencePassage,
                 shuffledStructuredContent(question), question.getGroupKey());
     }
 

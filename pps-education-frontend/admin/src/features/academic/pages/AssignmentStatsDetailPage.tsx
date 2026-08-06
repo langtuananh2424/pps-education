@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, CheckCircle2, ChevronDown, ChevronRight, Download, Eye, ShieldAlert, X } from "lucide-react";
+import { ArrowLeft, CheckCircle2, ChevronDown, ChevronRight, Download, Eye, HelpCircle, ShieldAlert, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { downloadBlob } from "@/lib/xlsxTemplate";
 import {
@@ -19,6 +19,7 @@ import {
   listStudentExerciseAttempts,
   selectAttemptForGrading
 } from "../api";
+import { ExerciseQuestionChoiceResponse, ExerciseQuestionResponse, listExerciseQuestions } from "@/features/lms/api";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
@@ -39,6 +40,15 @@ const studentStatusVariants: Record<string, any> = {
   DA_NOP: "success",
   TRE_HAN: "warning"
 };
+
+/** Tra ID đáp án đã chọn → nhãn+nội dung dễ đọc ("A. Sat on the mat") — fallback về "#id" nếu chưa tải xong danh sách câu hỏi. */
+function formatChoiceIds(ids: number[] | null | undefined, choices: ExerciseQuestionChoiceResponse[] | undefined): string | null {
+  if (!ids || ids.length === 0) return null;
+  return ids.map((id) => {
+    const choice = choices?.find((c) => c.id === id);
+    return choice ? `${choice.choiceLabel}. ${choice.content}` : `#${id}`;
+  }).join("; ");
+}
 
 export default function AssignmentStatsDetailPage() {
   const { assignmentId } = useParams<{ assignmentId: string }>();
@@ -257,9 +267,20 @@ function QuestionRow({
             Câu {question.displayOrder}: {question.content}
           </span>
         </div>
-        <Badge variant={question.wrongRatePercent >= 50 ? "danger" : question.wrongRatePercent > 0 ? "warning" : "success"} className="shrink-0">
-          Sai {question.wrongCount}/{question.answeredCount} ({question.wrongRatePercent}%)
-        </Badge>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — thống kê số lượt học sinh
+              bấm "Gợi ý" tapescript của câu Nghe (skill=LISTENING), phục vụ GV biết câu nào học sinh
+              hay cần trợ giúp. Chỉ hiện khi có ít nhất 1 lượt dùng, tránh rối màn với câu khác. */}
+          {question.skill === "LISTENING" && question.hintUsedCount > 0 && (
+            <Badge variant="info" className="flex items-center gap-1">
+              <HelpCircle className="w-3 h-3" />
+              Gợi ý {question.hintUsedCount} lượt ({question.hintUsedStudentCount} học sinh)
+            </Badge>
+          )}
+          <Badge variant={question.wrongRatePercent >= 50 ? "danger" : question.wrongRatePercent > 0 ? "warning" : "success"}>
+            Sai {question.wrongCount}/{question.answeredCount} ({question.wrongRatePercent}%)
+          </Badge>
+        </div>
       </button>
       {expanded && (
         <div className="px-4 pb-3 pl-11">
@@ -289,19 +310,37 @@ function StudentDetailModal({
   exerciseId: number;
   onClose: () => void;
 }) {
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — trước đây LUÔN tải câu trả lời
+  // của lượt MỚI NHẤT (student.attemptId), dù học sinh có nhiều lượt làm — GV không xem lại được câu
+  // trả lời của các lượt CŨ (dữ liệu vẫn còn trong DB, chỉ là FE chưa cho chọn). Giờ mặc định vẫn hiện
+  // lượt mới nhất, nhưng GV bấm "Xem trả lời" ở bảng "Lịch sử nhiều lượt làm bài" bên dưới để đổi.
+  const [viewingAttemptId, setViewingAttemptId] = React.useState<number | null>(student.attemptId);
   const [answers, setAnswers] = React.useState<StudentAnswerRow[]>([]);
   const [loadingAnswers, setLoadingAnswers] = React.useState(false);
   const [answerError, setAnswerError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    if (!student.attemptId) return;
+    if (!viewingAttemptId) return;
     setLoadingAnswers(true);
     setAnswerError(null);
-    getAttemptAnswers(student.attemptId)
+    getAttemptAnswers(viewingAttemptId)
       .then(setAnswers)
       .catch((err) => setAnswerError(err instanceof ApiError ? err.message : "Không tải được lịch sử trả lời."))
       .finally(() => setLoadingAnswers(false));
-  }, [student.attemptId]);
+  }, [viewingAttemptId]);
+
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — StudentAnswerRow (từ
+  // /answers/for-grading) chỉ trả selectedChoiceIds/correctChoiceIds thô (ID) + questionId, không
+  // kèm nội dung câu hỏi lẫn nhãn/nội dung đáp án — trước đây hiện thẳng ID ("Chọn: 23") khiến GV
+  // không đọc được câu hỏi/học sinh chọn gì. Tải thêm danh sách câu hỏi của Bài (đã có sẵn
+  // questionContent + choices đầy đủ) để tra theo questionId.
+  const [questionsById, setQuestionsById] = React.useState<Map<number, ExerciseQuestionResponse>>(new Map());
+
+  React.useEffect(() => {
+    listExerciseQuestions(exerciseId)
+      .then((qs) => setQuestionsById(new Map(qs.map((q) => [q.questionId, q]))))
+      .catch(() => undefined);
+  }, [exerciseId]);
 
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — xem toàn bộ lịch sử nhiều lượt
   // làm bài (kể cả lượt bị hệ thống dừng ép do vi phạm giám sát) để Giáo viên tự chọn lượt phù hợp.
@@ -390,6 +429,7 @@ function StudentDetailModal({
                         <th className="text-center p-2 border-b border-slate-200">Kết quả</th>
                         <th className="text-left p-2 border-b border-slate-200">Ghi chú</th>
                         <th className="text-center p-2 border-b border-slate-200">Điểm chính thức</th>
+                        <th className="text-center p-2 border-b border-slate-200">Xem trả lời</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -398,6 +438,8 @@ function StudentDetailModal({
                           key={a.id}
                           attempt={a}
                           onSelected={(updated) => setAttempts(updated)}
+                          viewing={viewingAttemptId === a.id}
+                          onView={() => setViewingAttemptId(a.id)}
                         />
                       ))}
                     </tbody>
@@ -409,7 +451,15 @@ function StudentDetailModal({
 
           {/* Lịch sử trả lời câu hỏi */}
           <div>
-            <h3 className="font-semibold text-sm mb-3 text-slate-900">Lịch sử trả lời câu hỏi</h3>
+            <h3 className="font-semibold text-sm mb-3 text-slate-900">
+              Lịch sử trả lời câu hỏi
+              {attempts.length > 1 && viewingAttemptId != null && (
+                <span className="font-normal text-slate-500">
+                  {" — Lượt #"}
+                  {attempts.find((a) => a.id === viewingAttemptId)?.attemptNumber ?? "?"}
+                </span>
+              )}
+            </h3>
             {answerError && (
               <div className="mb-3 text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{answerError}</div>
             )}
@@ -423,22 +473,27 @@ function StudentDetailModal({
                   <thead className="bg-slate-50">
                     <tr>
                       <th className="text-center p-2 border-b border-slate-200 w-12">Câu</th>
-                      <th className="text-left p-2 border-b border-slate-200">ID Câu</th>
+                      <th className="text-left p-2 border-b border-slate-200">Câu hỏi</th>
                       <th className="text-left p-2 border-b border-slate-200">Trả lời của học sinh</th>
                       <th className="text-left p-2 border-b border-slate-200">Đáp án đúng</th>
                       <th className="text-center p-2 border-b border-slate-200 w-16">Kết quả</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {answers.map((answer, idx) => (
+                    {answers.map((answer, idx) => {
+                      const question = questionsById.get(answer.questionId);
+                      const choices = question?.choices;
+                      const selectedLabel = formatChoiceIds(answer.selectedChoiceIds, choices);
+                      const correctLabel = formatChoiceIds(answer.correctChoiceIds, choices);
+                      return (
                       <tr key={answer.id}>
                         <td className="text-center p-2 font-semibold text-slate-900">{idx + 1}</td>
-                        <td className="p-2 text-slate-500 font-mono text-[10px]">{answer.questionId}</td>
+                        <td className="p-2 text-slate-700 break-words max-w-[220px]">{question?.questionContent ?? "—"}</td>
                         <td className="p-2 text-slate-600">
                           {answer.answerText ? (
                             <span className="break-words">{answer.answerText}</span>
-                          ) : answer.selectedChoiceIds && answer.selectedChoiceIds.length > 0 ? (
-                            <span>Chọn: {answer.selectedChoiceIds.join(", ")}</span>
+                          ) : selectedLabel ? (
+                            <span className="break-words">{selectedLabel}</span>
                           ) : (
                             <span className="text-slate-400 italic">Không trả lời</span>
                           )}
@@ -446,8 +501,8 @@ function StudentDetailModal({
                         <td className="p-2 text-slate-600">
                           {answer.correctAnswerText ? (
                             <span className="break-words">{answer.correctAnswerText}</span>
-                          ) : answer.correctChoiceIds && answer.correctChoiceIds.length > 0 ? (
-                            <span>Chọn: {answer.correctChoiceIds.join(", ")}</span>
+                          ) : correctLabel ? (
+                            <span className="break-words">{correctLabel}</span>
                           ) : (
                             <span className="text-slate-400">—</span>
                           )}
@@ -467,7 +522,8 @@ function StudentDetailModal({
                           )}
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               )}
@@ -491,10 +547,14 @@ function StudentDetailModal({
  */
 function AttemptHistoryRow({
   attempt,
-  onSelected
+  onSelected,
+  viewing,
+  onView
 }: {
   attempt: ExerciseAttemptRow;
   onSelected: (updated: ExerciseAttemptRow[]) => void;
+  viewing: boolean;
+  onView: () => void;
 }) {
   const [summary, setSummary] = React.useState<IntegritySummaryRow | null>(null);
   const [showSummary, setShowSummary] = React.useState(false);
@@ -526,7 +586,7 @@ function AttemptHistoryRow({
 
   return (
     <React.Fragment>
-      <tr>
+      <tr className={viewing ? "bg-blue-50/60" : undefined}>
         <td className="text-center p-2 font-semibold text-slate-900">#{attempt.attemptNumber}</td>
         <td className="p-2 text-slate-600 text-[11px]">{new Date(attempt.startedAt).toLocaleString("vi-VN")}</td>
         <td className="p-2 text-slate-600 text-[11px]">
@@ -571,10 +631,24 @@ function AttemptHistoryRow({
             </button>
           )}
         </td>
+        <td className="text-center p-2">
+          {viewing ? (
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700">
+              <Eye className="w-3 h-3" /> Đang xem
+            </span>
+          ) : (
+            <button
+              onClick={onView}
+              className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-600 bg-slate-50 border border-slate-200 px-2 py-1 rounded-md hover:bg-slate-100"
+            >
+              <Eye className="w-3 h-3" /> Xem trả lời
+            </button>
+          )}
+        </td>
       </tr>
       {showSummary && (
         <tr>
-          <td colSpan={7} className="p-2 bg-amber-50/60 text-[11px] text-amber-900">
+          <td colSpan={8} className="p-2 bg-amber-50/60 text-[11px] text-amber-900">
             {loadingSummary ? (
               "Đang tải..."
             ) : summary ? (

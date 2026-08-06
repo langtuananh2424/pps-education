@@ -8,6 +8,7 @@ import vn.com.pps.education.domain.Exercise;
 import vn.com.pps.education.domain.ExerciseAssignment;
 import vn.com.pps.education.domain.ExerciseAttempt;
 import vn.com.pps.education.domain.ExerciseQuestion;
+import vn.com.pps.education.domain.Question;
 import vn.com.pps.education.domain.SchoolClass;
 import vn.com.pps.education.domain.SiteManager;
 import vn.com.pps.education.domain.Student;
@@ -22,6 +23,7 @@ import vn.com.pps.education.repository.ClassTeacherRepository;
 import vn.com.pps.education.repository.ExerciseAssignmentRepository;
 import vn.com.pps.education.repository.ExerciseAttemptRepository;
 import vn.com.pps.education.repository.ExerciseQuestionRepository;
+import vn.com.pps.education.repository.ListeningHintEventRepository;
 import vn.com.pps.education.repository.SchoolClassRepository;
 import vn.com.pps.education.repository.SiteManagerRepository;
 import vn.com.pps.education.repository.StudentAnswerRepository;
@@ -57,6 +59,7 @@ public class ExerciseReportService {
     private final ClassTeacherRepository classTeacherRepository;
     private final SiteManagerRepository siteManagerRepository;
     private final SchoolClassRepository schoolClassRepository;
+    private final ListeningHintEventRepository listeningHintEventRepository;
 
     public ExerciseReportService(ExerciseAssignmentRepository exerciseAssignmentRepository,
                                   ExerciseAttemptRepository exerciseAttemptRepository,
@@ -65,7 +68,8 @@ public class ExerciseReportService {
                                   ExerciseQuestionRepository exerciseQuestionRepository,
                                   ClassTeacherRepository classTeacherRepository,
                                   SiteManagerRepository siteManagerRepository,
-                                  SchoolClassRepository schoolClassRepository) {
+                                  SchoolClassRepository schoolClassRepository,
+                                  ListeningHintEventRepository listeningHintEventRepository) {
         this.exerciseAssignmentRepository = exerciseAssignmentRepository;
         this.exerciseAttemptRepository = exerciseAttemptRepository;
         this.studentAnswerRepository = studentAnswerRepository;
@@ -74,6 +78,7 @@ public class ExerciseReportService {
         this.classTeacherRepository = classTeacherRepository;
         this.siteManagerRepository = siteManagerRepository;
         this.schoolClassRepository = schoolClassRepository;
+        this.listeningHintEventRepository = listeningHintEventRepository;
     }
 
     @Transactional(readOnly = true)
@@ -104,12 +109,20 @@ public class ExerciseReportService {
         return new ExerciseAssignmentStudentStatsResponse(toAssignmentStats(assignment, roster), rows);
     }
 
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — phân tích "câu hay bị sai" tính
+     * theo LƯỢT LÀM ĐẦU TIÊN của mỗi học sinh (không phải lượt mới nhất): học sinh có thể làm lại
+     * nhiều lượt (allowRetake) và đã xem gợi ý tapescript (xem ListeningHintService) trước khi làm
+     * lại, nên lượt mới nhất trả lời đúng KHÔNG phản ánh đúng độ khó thật của câu hỏi — trước đây dùng
+     * latestAttemptByStudent khiến câu học sinh trả lời sai ở lượt 1 (chưa xem gợi ý) biến mất khỏi
+     * thống kê ngay khi lượt sau (đã xem gợi ý) trả lời đúng.
+     */
     @Transactional(readOnly = true)
     public ExerciseAssignmentQuestionStatsResponse getQuestionStats(Long assignmentId, Long actorUserId) {
         ExerciseAssignment assignment = getAssignmentOrThrow(assignmentId);
         requireReportScope(assignment.getSchoolClass().getId(), actorUserId);
 
-        Map<Long, Student> studentByAttemptId = latestAttemptByStudent(assignment.getId()).values().stream()
+        Map<Long, Student> studentByAttemptId = firstAttemptByStudent(assignment.getId()).values().stream()
                 .collect(Collectors.toMap(ExerciseAttempt::getId, ExerciseAttempt::getStudent));
         List<Long> attemptIds = studentByAttemptId.keySet().stream().toList();
 
@@ -207,11 +220,16 @@ public class ExerciseReportService {
                 .map(s -> new ExerciseAssignmentQuestionStatsResponse.WrongStudent(s.getId(), s.getStudentCode(), s.getUser().getFullName()))
                 .toList();
 
+        boolean isListening = eq.getQuestion().getSkill() == Question.Skill.LISTENING;
+        int hintUsedCount = isListening ? (int) listeningHintEventRepository.countByQuestionId(eq.getQuestion().getId()) : 0;
+        int hintUsedStudentCount = isListening ? (int) listeningHintEventRepository.countDistinctStudentByQuestionId(eq.getQuestion().getId()) : 0;
+
         return new ExerciseAssignmentQuestionStatsResponse.QuestionRow(
                 eq.getQuestion().getId(), eq.getDisplayOrder(), eq.getQuestion().getContent(),
                 eq.getQuestion().getQuestionType().name(),
                 eq.getQuestion().getSkill() == null ? null : eq.getQuestion().getSkill().name(),
-                graded.size(), wrong.size(), percentOf(wrong.size(), graded.size()), wrongStudents);
+                graded.size(), wrong.size(), percentOf(wrong.size(), graded.size()), wrongStudents,
+                hintUsedCount, hintUsedStudentCount);
     }
 
     private List<ClassEnrollment> rosterForAssignment(ExerciseAssignment assignment) {
@@ -233,6 +251,16 @@ public class ExerciseReportService {
             latest.putIfAbsent(attempt.getStudent().getId(), attempt);
         }
         return latest;
+    }
+
+    /** Lượt làm ĐẦU TIÊN mỗi học sinh (attemptNumber nhỏ nhất) — dùng riêng cho getQuestionStats, xem Javadoc ở đó. */
+    private Map<Long, ExerciseAttempt> firstAttemptByStudent(Long assignmentId) {
+        List<ExerciseAttempt> attempts = exerciseAttemptRepository.findByExerciseAssignmentIdOrderByAttemptNumberAsc(assignmentId);
+        Map<Long, ExerciseAttempt> first = new java.util.LinkedHashMap<>();
+        for (ExerciseAttempt attempt : attempts) {
+            first.putIfAbsent(attempt.getStudent().getId(), attempt);
+        }
+        return first;
     }
 
     private static BigDecimal percentOf(int numerator, int denominator) {
