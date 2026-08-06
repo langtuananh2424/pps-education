@@ -28,9 +28,10 @@ export default function GradeExcelImportPanel({ classId, setupId, components, en
   const [result, setResult] = useState<GradeImportResponse | null>(null);
 
   const handleDownloadTemplate = () => {
-    // Cột A PHẢI là mã học viên (GradeImportService.importRow đọc cố định vị trí này) — các cột
-    // hiển thị (Học Kỳ/Họ tên/Lớp) đặt SAU, GradeImportService.mapHeader bỏ qua qua IGNORED_ALIASES.
-    const headers = ["Mã học viên", "", ...components.map((c) => c.name), "Overall", "Level", "Nhận xét", "Ghi chú"];
+    // Cột A PHẢI là mã học viên (GradeImportService.importRow đọc cố định vị trí này) — cột B "Họ và
+    // tên" chỉ hiển thị, GradeImportService.mapHeader bỏ qua qua IGNORED_ALIASES (khớp đúng chuỗi
+    // "ho va ten" backend đã khai — không tự đổi chữ khác đi).
+    const headers = ["Mã học viên", "Họ và tên", ...components.map((c) => c.name), "Overall", "Level", "Nhận xét", "Ghi chú"];
     const sampleRows = enrollments
       .filter((en) => en.status === "ACTIVE")
       .map((en) => [en.studentCode, en.studentFullName, ...components.map(() => ""), "", "", "", ""]);
