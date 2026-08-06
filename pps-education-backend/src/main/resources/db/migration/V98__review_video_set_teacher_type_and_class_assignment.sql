@@ -1,5 +1,5 @@
 -- =====================================================================
--- V95: Kho Video On tap (UC-23/23a) - doi mo hinh gan lop giong het Kho de
+-- V98: Kho Video On tap (UC-23/23a) - doi mo hinh gan lop giong het Kho de
 -- (exams/exam_class_assignments, V66/V74) - bo sung ngoai SDD goc, da xac
 -- nhan voi nguoi dung 2026-08-06.
 --

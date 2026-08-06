@@ -14,7 +14,7 @@ public interface ReviewVideoSetRepository extends JpaRepository<ReviewVideoSet, 
     /** UC-21 mở rộng (BTVN online — dán uuid làm phương án thay dropdown, V55). */
     Optional<ReviewVideoSet> findByUuid(UUID uuid);
 
-    /** Kho Video — lọc theo khung chương trình/loại giáo viên (V95, mirror ExamRepository). */
+    /** Kho Video — lọc theo khung chương trình/loại giáo viên (V98, mirror ExamRepository). */
     List<ReviewVideoSet> findByCurriculumIdOrderByDisplayOrder(Long curriculumId);
 
     List<ReviewVideoSet> findByCurriculumIdAndTeacherTypeOrderByDisplayOrder(Long curriculumId, ReviewVideoSet.TeacherType teacherType);
@@ -26,7 +26,7 @@ public interface ReviewVideoSetRepository extends JpaRepository<ReviewVideoSet, 
     /**
      * UC-23a: bộ video HS/GV lớp X xem được — đã gán tường minh cho lớp X
      * qua {@link vn.com.pps.education.domain.ReviewVideoSetClassAssignment}
-     * (V95, mirror ExerciseRepository#findAvailableForClass). status=NULL
+     * (V98, mirror ExerciseRepository#findAvailableForClass). status=NULL
      * cho phép GV xem cả DRAFT khi quản lý; truyền PUBLISHED khi gọi cho
      * học viên/chọn nguồn giao bài.
      */

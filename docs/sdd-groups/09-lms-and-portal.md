@@ -59,11 +59,11 @@ vì ALTER).
 
 a)  Bảng review_video_sets --- "Bộ" video ôn tập
 
-**V95 (2026-08-06, bổ sung ngoài SDD gốc, đã xác nhận với người dùng)
---- đổi mô hình gán lớp giống hệt Kho đề (mục j/k):** trước V95, Bộ
+**V98 (2026-08-06, bổ sung ngoài SDD gốc, đã xác nhận với người dùng)
+--- đổi mô hình gán lớp giống hệt Kho đề (mục j/k):** trước V98, Bộ
 thuộc ĐÚNG 1 trong 2 (curriculum_id XOR class_id, CHECK
 `chk_review_video_set_scope`) — bộ dùng chung theo curriculum thì TỰ
-hiển thị cho MỌI lớp thuộc khung đó. Từ V95, `curriculum_id` LUÔN khác
+hiển thị cho MỌI lớp thuộc khung đó. Từ V98, `curriculum_id` LUÔN khác
 NULL nhưng CHỈ còn dùng lọc/tìm kiếm trong Kho Video (không còn là điều
 kiện hiển thị) — điều kiện hiển thị DUY NHẤT cho 1 lớp là đã được gán
 tường minh qua bảng mới `review_video_set_class_assignments` (mục a.1,
@@ -86,13 +86,13 @@ mirror `exam_class_assignments`). `class_id` bị xóa khỏi bảng.
                                                                  (Video phản
                                                                  xạ)
 
-  curriculum_id      BIGINT          FK → curriculums(id),      V95: CHỈ để lọc/
+  curriculum_id      BIGINT          FK → curriculums(id),      V98: CHỈ để lọc/
                                      NOT NULL                    tìm kiếm, KHÔNG
                                                                  phải điều kiện
                                                                  hiển thị (xem
                                                                  a.1)
 
-  teacher_type       VARCHAR(20)     NOT NULL                   V95: VIETNAMESE /
+  teacher_type       VARCHAR(20)     NOT NULL                   V98: VIETNAMESE /
                                                                  FOREIGN — bắt
                                                                  buộc chọn khi
                                                                  tạo, dùng lọc Bộ
@@ -123,14 +123,14 @@ mirror `exam_class_assignments`). `class_id` bị xóa khỏi bảng.
 
 Có review_video_sets_history.
 
-*Logic HS xem được bộ gì (V95):* HS trong lớp X xem được
+*Logic HS xem được bộ gì (V98):* HS trong lớp X xem được
 review_video_sets đã có 1 dòng review_video_set_class_assignments khớp
 class_id=X (thay hẳn logic OR curriculum/class cũ) VÀ có
 ReviewVideoAssignment ACTIVE giao cho lớp X (V65, không đổi — xem mục
 dưới). Học sinh gọi phải có class_enrollments ACTIVE khớp lớp đang
 truy vấn.
 
-**Backfill V95 (migrate dữ liệu Sprint 0/1 cũ, không có dữ liệu thật):**
+**Backfill V98 (migrate dữ liệu Sprint 0/1 cũ, không có dữ liệu thật):**
 Bộ trước đây riêng 1 lớp (class_id) → gán đúng lớp đó qua
 review_video_set_class_assignments; Bộ dùng chung theo curriculum → gán
 MỌI lớp đang thuộc đúng khung đó tại thời điểm migrate (giữ nguyên phạm
@@ -142,7 +142,7 @@ cũ ở StudentCommentService, giữ nguyên hành vi lọc buổi học cho d�
 cũ) rồi mới đổi StudentCommentService sang đọc trực tiếp cột mới.
 
 a.1)  Bảng review_video_set_class_assignments --- Gán "Bộ" cho lớp
-(MỚI HOÀN TOÀN, V95, 2026-08-06, bổ sung ngoài SDD gốc, đã xác nhận với
+(MỚI HOÀN TOÀN, V98, 2026-08-06, bổ sung ngoài SDD gốc, đã xác nhận với
 người dùng --- mirror `exam_class_assignments`, mục k)
 
   ----------------------------------------------------------------------------------
@@ -173,7 +173,7 @@ requireAssignedTeacher) — chấm điểm audio (UC-23b) tái dùng đúng
 tổng quát, review-video là domain thứ 3 dùng chung sau UC-41/UC-26,
 KHÔNG tách riêng vì không có khía cạnh create/update/delete để tách theo
 hành động — cùng lý do đã áp dụng cho listening-practice grading bên
-dưới). Gán/gỡ lớp (V95) dùng permission mới `lms.review-video.assign`
+dưới). Gán/gỡ lớp (V98) dùng permission mới `lms.review-video.assign`
 (mirror `lms.exam.assign`, V67), cũng chỉ gán TEACHER.
 
 b)  Bảng review_videos --- Video/audio trong 1 bộ

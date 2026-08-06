@@ -368,7 +368,7 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
     }
 
     /**
-     * V95 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06):
+     * V98 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06):
      * curriculum trên "bộ" giờ CHỈ dùng lọc/tìm kiếm — điều kiện hiển thị
      * DUY NHẤT cho 1 lớp là gán tường minh qua assignToClass (mirror Kho
      * đề), nên phải gán trước khi writeComment (gọi deliverToClass bên

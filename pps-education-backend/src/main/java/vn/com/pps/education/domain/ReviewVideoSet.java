@@ -14,7 +14,7 @@ import java.util.UUID;
  * "lessons" (Kho bài giảng) — đã xác nhận với người dùng: bỏ hẳn
  * PDF/Slide/Word, chỉ còn video/audio ôn tập.
  *
- * V95 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06) —
+ * V98 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06) —
  * đổi mô hình gán lớp giống hệt Kho đề (mirror {@link Exam}): curriculum
  * CHỈ dùng lọc/tìm kiếm trong Kho Video (không còn "bộ dùng chung theo
  * khung" tự động hiển thị mọi lớp), điều kiện hiển thị DUY NHẤT cho học
@@ -31,7 +31,7 @@ public class ReviewVideoSet extends BaseAuditEntity {
 
     public enum Status { DRAFT, PUBLISHED, ARCHIVED }
 
-    /** Bộ dành cho GV Việt Nam hay GV nước ngoài — dùng để lọc khi giao bài (V95, mirror Exam.TeacherType). */
+    /** Bộ dành cho GV Việt Nam hay GV nước ngoài — dùng để lọc khi giao bài (V98, mirror Exam.TeacherType). */
     public enum TeacherType { VIETNAMESE, FOREIGN }
 
     @Id
@@ -51,7 +51,7 @@ public class ReviewVideoSet extends BaseAuditEntity {
     @Column(name = "video_type", nullable = false, length = 20)
     private VideoType videoType;
 
-    /** V95: CHỈ dùng lọc/tìm kiếm trong Kho Video — không còn là điều kiện hiển thị (xem Javadoc lớp). */
+    /** V98: CHỈ dùng lọc/tìm kiếm trong Kho Video — không còn là điều kiện hiển thị (xem Javadoc lớp). */
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "curriculum_id", nullable = false)
     private Curriculum curriculum;
@@ -74,7 +74,7 @@ public class ReviewVideoSet extends BaseAuditEntity {
     @JoinColumn(name = "created_by", nullable = false)
     private User createdBy;
 
-    /** Bắt buộc chọn 1 trong 2 khi tạo Bộ — sửa được cùng title (V95). */
+    /** Bắt buộc chọn 1 trong 2 khi tạo Bộ — sửa được cùng title (V98). */
     @Enumerated(EnumType.STRING)
     @Column(name = "teacher_type", nullable = false, length = 20)
     private TeacherType teacherType;

@@ -387,10 +387,10 @@ export function markNotificationRead(id: number): Promise<NotificationResponse> 
 
 /**
  * UC-23a — khớp ReviewVideoSetResponse thật. GET /api/classes/{classId}/review-video-sets tự trả
- * đúng phạm vi nhìn thấy của học sinh (V95: bộ đã gán tường minh cho lớp NÀY qua
+ * đúng phạm vi nhìn thấy của học sinh (V98: bộ đã gán tường minh cho lớp NÀY qua
  * ReviewVideoSetClassAssignment, chỉ status=PUBLISHED — BE tự lọc, Portal không cần gọi thêm
  * endpoint theo curriculum). 404 (không 403) nếu học sinh không thuộc lớp — không lộ tồn tại ngoài
- * phạm vi. curriculumId nay luôn khác null (V95, chỉ dùng lọc/tìm kiếm ở Kho Video, không phải điều
+ * phạm vi. curriculumId nay luôn khác null (V98, chỉ dùng lọc/tìm kiếm ở Kho Video, không phải điều
  * kiện hiển thị) — classId không còn trên response.
  */
 export interface ReviewVideoSetResponse {

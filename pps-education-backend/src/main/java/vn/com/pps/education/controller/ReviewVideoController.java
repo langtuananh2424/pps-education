@@ -77,7 +77,7 @@ public class ReviewVideoController {
         return ResponseEntity.ok(reviewVideoService.listByClass(classId, actor.userId()));
     }
 
-    /** Kho Video — lọc theo khung chương trình/loại giáo viên (V95, mirror ExamController#listExams). */
+    /** Kho Video — lọc theo khung chương trình/loại giáo viên (V98, mirror ExamController#listExams). */
     @GetMapping("/api/review-video-sets")
     public ResponseEntity<List<ReviewVideoSetResponse>> listSets(@RequestParam(required = false) Long curriculumId,
                                                                    @RequestParam(required = false) String teacherType,
@@ -85,7 +85,7 @@ public class ReviewVideoController {
         return ResponseEntity.ok(reviewVideoService.listSets(curriculumId, teacherType, actor.userId()));
     }
 
-    /** V95 (mirror ExamController#assignToClass) — gán Bộ cho 1 lớp, điều kiện hiển thị DUY NHẤT cho học sinh lớp đó. */
+    /** V98 (mirror ExamController#assignToClass) — gán Bộ cho 1 lớp, điều kiện hiển thị DUY NHẤT cho học sinh lớp đó. */
     @PreAuthorize("hasPermission(null, 'lms.review-video.assign')")
     @PostMapping("/api/review-video-sets/{id}/classes/{classId}")
     public ResponseEntity<Void> assignToClass(@PathVariable Long id, @PathVariable Long classId,

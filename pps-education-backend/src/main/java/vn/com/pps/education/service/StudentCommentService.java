@@ -719,7 +719,7 @@ public class StudentCommentService {
     }
 
     /**
-     * Mirror {@link #matchesSessionTeacherType(Exercise, ClassSession.TeacherType)} cho kênh Video. V95
+     * Mirror {@link #matchesSessionTeacherType(Exercise, ClassSession.TeacherType)} cho kênh Video. V98
      * (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06) — so trực tiếp
      * {@code ReviewVideoSet.teacherType} (field tường minh mới) thay vì suy diễn từ videoType
      * (CONNECTION=VIETNAMESE/REFLEX=FOREIGN) như trước khi có field này.

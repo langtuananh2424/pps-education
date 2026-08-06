@@ -71,7 +71,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * không phải REFLEX), A2 (học sinh ngoài phạm vi), A3 (giáo viên không
  * phụ trách), A4 (chấm bài không tồn tại), A5 (nộp lại xoá điểm cũ).
  *
- * V95 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06): mô
+ * V98 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06): mô
  * hình gán lớp đổi giống hệt Kho đề (mirror ExamServiceTest) — curriculum
  * trên "bộ" giờ CHỈ dùng lọc/tìm kiếm (createSet không còn nhận classId),
  * điều kiện hiển thị DUY NHẤT cho học sinh của 1 lớp là
@@ -152,7 +152,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         assertThat(set.teacherType()).isEqualTo("VIETNAMESE");
     }
 
-    /** V95, mirror createExam_boSung_savesTeacherTypeAndExamType: teacherType bắt buộc chọn 1 trong 2, lưu đúng vào Bộ. */
+    /** V98, mirror createExam_boSung_savesTeacherTypeAndExamType: teacherType bắt buộc chọn 1 trong 2, lưu đúng vào Bộ. */
     @Test
     void createSet_boSung_savesTeacherType() {
         ReviewVideoSetResponse set = reviewVideoService.createSet(
@@ -171,7 +171,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
-    /** V95: curriculumId giờ bắt buộc (@NotNull ở DTO) VÀ service tự tra cứu — id không tồn tại thì 404, không tạo được bộ "vô chủ". */
+    /** V98: curriculumId giờ bắt buộc (@NotNull ở DTO) VÀ service tự tra cứu — id không tồn tại thì 404, không tạo được bộ "vô chủ". */
     @Test
     void createSet_rejectsWhenCurriculumNotFound() {
         assertThatThrownBy(() -> reviewVideoService.createSet(
@@ -209,7 +209,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         assertThat(republished.publishedAt()).isEqualTo(firstPublishedAt);
     }
 
-    /** V95, mirror updateExam_boSung_changesTeacherTypeAndExamTypeAlongWithTitle: teacherType sửa được cùng lúc với title. */
+    /** V98, mirror updateExam_boSung_changesTeacherTypeAndExamTypeAlongWithTitle: teacherType sửa được cùng lúc với title. */
     @Test
     void updateSet_boSung_changesTeacherTypeAlongWithTitle() {
         ReviewVideoSetResponse set = createSet();
@@ -258,7 +258,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         assertThat(videos).extracting(ReviewVideoResponse::id).contains(youtube.id(), r2Video.id(), r2Audio.id());
     }
 
-    // ===================== listSets (V95, mirror ExamService#listExams) =====================
+    // ===================== listSets (V98, mirror ExamService#listExams) =====================
 
     @Test
     void listSets_UC95_MainFlow_filtersByCurriculum() {
@@ -307,7 +307,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         assertThat(filtered).extracting(ReviewVideoSetResponse::id).contains(matching.id()).doesNotContain(wrongTeacherType.id());
     }
 
-    // ===================== assignToClass / unassignFromClass / listAssignedClasses (V95, mirror ExamService) =====================
+    // ===================== assignToClass / unassignFromClass / listAssignedClasses (V98, mirror ExamService) =====================
 
     @Test
     void assignToClass_UC95_MainFlow_addsClassVisibility() {
@@ -366,7 +366,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
     }
 
     /**
-     * V95: khác hành vi CŨ (curriculum dùng chung tự động hiển thị mọi lớp) — nay curriculum CHỈ
+     * V98: khác hành vi CŨ (curriculum dùng chung tự động hiển thị mọi lớp) — nay curriculum CHỈ
      * dùng lọc/tìm kiếm, 1 lớp khác dưới CÙNG khung chương trình KHÔNG tự thấy bộ nếu chưa được
      * assignToClass tường minh cho ĐÚNG lớp đó.
      */
@@ -550,7 +550,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
-    /** V95: classId truyền vào phải là 1 lớp ĐÃ được gán tường minh cho bộ (ReviewVideoSetClassAssignment), không chỉ cần cùng khung chương trình. */
+    /** V98: classId truyền vào phải là 1 lớp ĐÃ được gán tường minh cho bộ (ReviewVideoSetClassAssignment), không chỉ cần cùng khung chương trình. */
     @Test
     void getStats_A_rejectsWhenClassNotAssignedToSet() {
         ReviewVideoSetResponse set = createSet(); // curriculum đúng nhưng chưa assignToClass cho lớp nào
@@ -758,8 +758,8 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
     }
 
     /**
-     * V95: bộ đã Publish nhưng CHƯA assignToClass cho lớp nào — không giao (deliverToClass) được cho
-     * lớp đó, dù teacher phụ trách đúng lớp. Precondition MỚI, không tồn tại trước V95 (trước đây
+     * V98: bộ đã Publish nhưng CHƯA assignToClass cho lớp nào — không giao (deliverToClass) được cho
+     * lớp đó, dù teacher phụ trách đúng lớp. Precondition MỚI, không tồn tại trước V98 (trước đây
      * curriculum dùng chung hoặc classId lúc tạo là đủ).
      */
     @Test
@@ -1042,7 +1042,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
      * Publish giờ chỉ là "đủ điều kiện dùng làm nguồn" — học sinh chỉ xem/
      * làm được khi có thêm 1 ReviewVideoAssignment ACTIVE cho lớp (giao
      * qua deliverToClass, bình thường gọi TỪ StudentCommentService khi GV
-     * chọn làm "BTVN buổi sau"). V95: deliverToClass giờ ĐÒI HỎI bộ đã
+     * chọn làm "BTVN buổi sau"). V98: deliverToClass giờ ĐÒI HỎI bộ đã
      * được assignToClass tường minh cho lớp đó trước — gọi assignToClass ở
      * đây trước khi publish/deliver, mô phỏng "đã được giao" mà không cần
      * dựng lại toàn bộ luồng nhận xét.
@@ -1065,7 +1065,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         return createPublishedSetWithVideo(durationSeconds, null, null);
     }
 
-    /** V95: xem Javadoc createPublishedReflexSetWithVideo — assignToClass + publish + deliverToClass để học sinh xem/làm được. */
+    /** V98: xem Javadoc createPublishedReflexSetWithVideo — assignToClass + publish + deliverToClass để học sinh xem/làm được. */
     private ReviewVideoResponse createPublishedSetWithVideo(int durationSeconds, Integer completionThresholdPercent, Integer requiredViewCount) {
         ReviewVideoSetResponse set = createSet();
         reviewVideoService.assignToClass(set.id(), schoolClass.id(), teacher.getId());
@@ -1079,7 +1079,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
                 teacher.getId());
     }
 
-    /** V95: tạo "bộ" trơn — curriculum bắt buộc + teacherType mặc định VIETNAMESE, CHƯA gán lớp nào (gán qua assignToClass riêng khi cần). */
+    /** V98: tạo "bộ" trơn — curriculum bắt buộc + teacherType mặc định VIETNAMESE, CHƯA gán lớp nào (gán qua assignToClass riêng khi cần). */
     private ReviewVideoSetResponse createSet() {
         return reviewVideoService.createSet(
                 new CreateReviewVideoSetRequest(setCode(), "Bài 1: Video TKN", "CONNECTION", activeCurriculum.id(), "VIETNAMESE", null, 1),

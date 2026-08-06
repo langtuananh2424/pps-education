@@ -7,7 +7,7 @@ import lombok.Setter;
 import java.time.OffsetDateTime;
 
 /**
- * Bảng review_video_set_class_assignments (V95, bổ sung ngoài SDD gốc, đã
+ * Bảng review_video_set_class_assignments (V98, bổ sung ngoài SDD gốc, đã
  * xác nhận với người dùng 2026-08-06) — gán 1 {@link ReviewVideoSet} ("Bộ")
  * cho 1 lớp, nhiều-nhiều. Là điều kiện hiển thị DUY NHẤT cho học sinh của
  * lớp đó xem được các video trong Bộ — khung chương trình trên Bộ chỉ dùng

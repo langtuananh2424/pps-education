@@ -37,11 +37,11 @@ UC-23: Quản lý Kho Video Ôn tập
 +-----------------+----------------------------------------------------+
 | **Luồng sự kiện | 1.  Giáo viên mở Kho Video Ôn tập, tạo bộ mới —    |
 | chính (Main     |     nhập tiêu đề, chọn loại (Video từ kết nối/     |
-| Flow)**         |     Video phản xạ), gán 1 khung chương trình (V95: |
+| Flow)**         |     Video phản xạ), gán 1 khung chương trình (V98: |
 |                 |     chỉ dùng lọc/tìm kiếm, không phải điều kiện    |
 |                 |     hiển thị) + chọn Loại giáo viên, rồi gán tường |
-|                 |     minh cho (các) lớp cụ thể (V95: điều kiện      |
-|                 |     hiển thị DUY NHẤT, xem bổ sung V95 dưới đây).  |
+|                 |     minh cho (các) lớp cụ thể (V98: điều kiện      |
+|                 |     hiển thị DUY NHẤT, xem bổ sung V98 dưới đây).  |
 |                 |                                                    |
 |                 | 2.  Giáo viên thêm từng video vào bộ — chọn 1      |
 |                 |     trong 3 nguồn: dán link YouTube, upload file   |
@@ -92,11 +92,11 @@ LỚP đang ghi danh ACTIVE, hạn nộp = buổi kế tiếp). Xem đầy đủ
 lớp không có buổi kế tiếp, chỉ áp dụng DAILY) tại UC-21 (`docs/uc/
 phan-he-06-hoc-thuat.md`).
 
-**Bổ sung V95 (2026-08-06, đã xác nhận với người dùng) --- đổi mô hình
-gán lớp giống hệt Kho đề (UC-40):** trước V95, 1 bộ chỉ chọn được ĐÚNG 1
+**Bổ sung V98 (2026-08-06, đã xác nhận với người dùng) --- đổi mô hình
+gán lớp giống hệt Kho đề (UC-40):** trước V98, 1 bộ chỉ chọn được ĐÚNG 1
 trong 2 khi tạo: gán riêng 1 lớp cụ thể (chỉ lớp đó xem được), HOẶC gán
 1 khung chương trình (TỰ ĐỘNG dùng chung cho MỌI lớp thuộc khung đó,
-không chọn được tập con). Từ V95: mọi Bộ LUÔN gán 1 khung chương trình
+không chọn được tập con). Từ V98: mọi Bộ LUÔN gán 1 khung chương trình
 nhưng CHỈ để lọc/tìm kiếm trong Kho Video (không còn cấp quyền xem) —
 điều kiện hiển thị DUY NHẤT cho 1 lớp là được Giáo viên gán TƯỜNG MINH
 (chọn nhiều, `assignToClass`/`unassignFromClass`, mirror
@@ -155,12 +155,12 @@ UC-23a: Xem & Theo dõi Kho Video Ôn tập
 | chính (Main     |     tab "Kho Video Ôn tập".                        |
 | Flow)**         |                                                    |
 |                 | 2.  Hệ thống trả về mọi bộ có status=PUBLISHED, ĐÃ  |
-|                 |     ĐƯỢC GÁN TƯỜNG MINH cho lớp này (V95 ---        |
+|                 |     ĐƯỢC GÁN TƯỜNG MINH cho lớp này (V98 ---        |
 |                 |     `ReviewVideoSetClassAssignment`, thay logic OR  |
 |                 |     curriculum/lớp cũ), VÀ có `ReviewVideoAssignment`|
 |                 |     ACTIVE cho lớp học sinh đang ghi danh ACTIVE    |
 |                 |     (V65, UC-21 --- publish đơn thuần không còn đủ, |
-|                 |     xem bổ sung V65/V95 ở UC-23).                   |
+|                 |     xem bổ sung V65/V98 ở UC-23).                   |
 |                 |                                                    |
 |                 | 3.  Học sinh chọn 1 bộ, xem danh sách video, bắt   |
 |                 |     đầu phát 1 video — hệ thống mở 1 LƯỢT XEM mới  |

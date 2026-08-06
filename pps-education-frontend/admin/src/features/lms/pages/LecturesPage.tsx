@@ -548,7 +548,7 @@ export function ContentSourceField({ value, onChange }: { value: ContentSourceVa
 const reviewVideoTeacherTypeLabels: Record<ReviewVideoTeacherType, string> = { VIETNAMESE: "Giáo viên Việt Nam", FOREIGN: "Giáo viên nước ngoài" };
 
 /**
- * UC-23/UC-23a: Kho Video Ôn tập — V95 (bổ sung ngoài SDD gốc, đã xác
+ * UC-23/UC-23a: Kho Video Ôn tập — V98 (bổ sung ngoài SDD gốc, đã xác
  * nhận với người dùng 2026-08-06): đổi bố cục giống hệt "Kho đề" (xem
  * ExerciseAssignPage.tsx) — danh sách bên trái lọc theo khung chương
  * trình + loại giáo viên (curriculum CHỈ dùng lọc/tìm kiếm), chi tiết 1
@@ -811,7 +811,7 @@ function SetDetailPanel({
   );
 }
 
-/** "1 Bộ video sẽ gán được cho nhiều lớp" (V95, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06) — mirror AssignClassModal của Kho đề, toggle gán/gỡ tức thì từng lớp. */
+/** "1 Bộ video sẽ gán được cho nhiều lớp" (V98, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06) — mirror AssignClassModal của Kho đề, toggle gán/gỡ tức thì từng lớp. */
 function AssignClassModal({ setId, onClose }: { setId: number; onClose: () => void }) {
   const { classes } = useEligibleClasses();
   const [assignedIds, setAssignedIds] = useState<Set<number>>(new Set());
@@ -1599,7 +1599,7 @@ function VideoMcqQuestionsPanel({ videoId }: { videoId: number }) {
 }
 
 /** UC-23a Main Flow bước 4: ma trận học sinh × video — ghép studentId trong StatsCell với tên/mã học sinh qua listClassEnrollments (BE không trả tên, chỉ trả id). */
-/** V95: bộ không còn "classId cố định" — luôn chọn 1 trong các lớp ĐÃ GÁN tường minh cho bộ (xem AssignClassModal), tải qua listReviewVideoSetAssignedClasses. */
+/** V98: bộ không còn "classId cố định" — luôn chọn 1 trong các lớp ĐÃ GÁN tường minh cho bộ (xem AssignClassModal), tải qua listReviewVideoSetAssignedClasses. */
 function StatsModal({
   set,
   onClose

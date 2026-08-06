@@ -4,7 +4,7 @@ import jakarta.validation.constraints.NotBlank;
 
 /**
  * UC-23 Main Flow bước 5: sửa metadata hoặc gỡ bộ (status=ARCHIVED) khỏi
- * kho. teacherType sửa được cùng title (V95, mirror UpdateExamRequest) —
+ * kho. teacherType sửa được cùng title (V98, mirror UpdateExamRequest) —
  * khung chương trình bất biến sau khi tạo.
  */
 public record UpdateReviewVideoSetRequest(

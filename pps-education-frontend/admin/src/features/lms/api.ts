@@ -497,11 +497,11 @@ export function listPublishedExercisesForClass(classId: number): Promise<Exercis
 export type ReviewVideoType = "CONNECTION" | "REFLEX";
 export type ReviewVideoSetStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
 
-/** V95, đã xác nhận với người dùng 2026-08-06: Bộ dành cho GV Việt Nam hay GV nước ngoài — dùng lọc khi giao bài (mirror ExamTeacherType). */
+/** V98, đã xác nhận với người dùng 2026-08-06: Bộ dành cho GV Việt Nam hay GV nước ngoài — dùng lọc khi giao bài (mirror ExamTeacherType). */
 export type ReviewVideoTeacherType = "VIETNAMESE" | "FOREIGN";
 
 /**
- * V95 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06) —
+ * V98 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06) —
  * đổi mô hình gán lớp giống hệt Kho đề: curriculumId luôn khác null
  * (CHỈ dùng lọc/tìm kiếm trong Kho Video), điều kiện hiển thị cho lớp là
  * gán tường minh riêng (xem assignReviewVideoSetToClass) — classId
@@ -534,7 +534,7 @@ export interface CreateReviewVideoSetRequest {
   displayOrder?: number;
 }
 
-/** Khớp UpdateReviewVideoSetRequest thật — không đổi được code/khung chương trình sau khi tạo, teacherType sửa được cùng title (V95). Đổi status để công bố (PUBLISHED, publishedAt chỉ set 1 lần) hoặc gỡ (ARCHIVED, soft-remove). */
+/** Khớp UpdateReviewVideoSetRequest thật — không đổi được code/khung chương trình sau khi tạo, teacherType sửa được cùng title (V98). Đổi status để công bố (PUBLISHED, publishedAt chỉ set 1 lần) hoặc gỡ (ARCHIVED, soft-remove). */
 export interface UpdateReviewVideoSetRequest {
   title: string;
   teacherType: ReviewVideoTeacherType;
@@ -556,7 +556,7 @@ export function listReviewVideoSetsByClass(classId: number): Promise<ReviewVideo
   return apiRequest<ReviewVideoSetResponse[]>(`/classes/${classId}/review-video-sets`);
 }
 
-/** Kho Video — lọc theo khung chương trình/loại giáo viên (V95, mirror listExams). Bỏ trống để không lọc theo tiêu chí đó. */
+/** Kho Video — lọc theo khung chương trình/loại giáo viên (V98, mirror listExams). Bỏ trống để không lọc theo tiêu chí đó. */
 export function listReviewVideoSets(curriculumId?: number, teacherType?: ReviewVideoTeacherType): Promise<ReviewVideoSetResponse[]> {
   const params = new URLSearchParams();
   if (curriculumId) params.set("curriculumId", String(curriculumId));
@@ -565,7 +565,7 @@ export function listReviewVideoSets(curriculumId?: number, teacherType?: ReviewV
   return apiRequest<ReviewVideoSetResponse[]>(`/review-video-sets${query}`);
 }
 
-/** V95 (mirror assignExamToClass) — gán Bộ cho 1 lớp, điều kiện hiển thị DUY NHẤT cho học sinh lớp đó. */
+/** V98 (mirror assignExamToClass) — gán Bộ cho 1 lớp, điều kiện hiển thị DUY NHẤT cho học sinh lớp đó. */
 export function assignReviewVideoSetToClass(setId: number, classId: number): Promise<void> {
   return apiRequest<void>(`/review-video-sets/${setId}/classes/${classId}`, { method: "POST" });
 }

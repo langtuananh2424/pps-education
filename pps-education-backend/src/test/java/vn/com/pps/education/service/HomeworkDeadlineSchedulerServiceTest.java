@@ -229,7 +229,7 @@ class HomeworkDeadlineSchedulerServiceTest extends AbstractIntegrationTest {
         ReviewVideoSetResponse set = reviewVideoService.createSet(
                 new CreateReviewVideoSetRequest(setCode(), "Bài 1: Video TKN", "CONNECTION", schoolClass.curriculumId(), "VIETNAMESE", null, 1),
                 teacher.getId());
-        // V95 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06): curriculum trên "bộ" giờ
+        // V98 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06): curriculum trên "bộ" giờ
         // CHỈ dùng lọc/tìm kiếm — phải assignToClass tường minh trước khi deliverToClass mới thành công.
         reviewVideoService.assignToClass(set.id(), schoolClass.id(), teacher.getId());
         reviewVideoService.updateSet(set.id(), new UpdateReviewVideoSetRequest(set.title(), "VIETNAMESE", null, 1, "PUBLISHED"), teacher.getId());

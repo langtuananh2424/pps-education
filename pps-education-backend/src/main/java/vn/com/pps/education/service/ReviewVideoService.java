@@ -190,7 +190,7 @@ public class ReviewVideoService {
         this.requiresNewTransactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
 
-    /** UC-23 Main Flow bước 1: tạo bộ mới (metadata) — curriculum CHỈ dùng lọc/tìm kiếm (V95, xem Javadoc lớp). */
+    /** UC-23 Main Flow bước 1: tạo bộ mới (metadata) — curriculum CHỈ dùng lọc/tìm kiếm (V98, xem Javadoc lớp). */
     @Transactional
     public ReviewVideoSetResponse createSet(CreateReviewVideoSetRequest request, Long actorUserId) {
         User actor = getUserOrThrow(actorUserId);
@@ -242,7 +242,7 @@ public class ReviewVideoService {
         return toResponse(set);
     }
 
-    /** Kho Video — lọc theo khung chương trình/loại giáo viên (V95, mirror ExamService#listExams). */
+    /** Kho Video — lọc theo khung chương trình/loại giáo viên (V98, mirror ExamService#listExams). */
     @Transactional(readOnly = true)
     public List<ReviewVideoSetResponse> listSets(Long curriculumId, String teacherType, Long actorUserId) {
         ReviewVideoSet.TeacherType type = teacherType == null ? null : ReviewVideoSet.TeacherType.valueOf(teacherType);
@@ -259,7 +259,7 @@ public class ReviewVideoService {
         return sets.stream().map(this::toResponse).toList();
     }
 
-    /** V95 (mirror ExamService#assignToClass) — gán Bộ cho 1 lớp, điều kiện hiển thị DUY NHẤT cho học sinh lớp đó. Idempotent. */
+    /** V98 (mirror ExamService#assignToClass) — gán Bộ cho 1 lớp, điều kiện hiển thị DUY NHẤT cho học sinh lớp đó. Idempotent. */
     @Transactional
     public void assignToClass(Long setId, Long classId, Long actorUserId) {
         ReviewVideoSet set = getSetOrThrow(setId);
@@ -276,7 +276,7 @@ public class ReviewVideoService {
         reviewVideoSetClassAssignmentRepository.save(assignment);
     }
 
-    /** V95 (mirror ExamService#unassignFromClass) — gỡ Bộ khỏi 1 lớp, xóa cứng (join thuần, không phải bản giao). */
+    /** V98 (mirror ExamService#unassignFromClass) — gỡ Bộ khỏi 1 lớp, xóa cứng (join thuần, không phải bản giao). */
     @Transactional
     public void unassignFromClass(Long setId, Long classId, Long actorUserId) {
         getSetOrThrow(setId);
@@ -294,7 +294,7 @@ public class ReviewVideoService {
 
     /**
      * UC-23a: GV xem TẤT CẢ bộ đã gán tường minh cho lớp X (mọi trạng
-     * thái) — để chọn nguồn khi soạn "BTVN buổi sau" (V95, bổ sung ngoài
+     * thái) — để chọn nguồn khi soạn "BTVN buổi sau" (V98, bổ sung ngoài
      * SDD gốc, đã xác nhận với người dùng 2026-08-06 — thay logic OR
      * curriculum/lớp cũ bằng {@link ReviewVideoSetClassAssignment}, mirror
      * ExerciseRepository#findAvailableForClass). HS chỉ thấy bộ đã có
@@ -328,7 +328,7 @@ public class ReviewVideoService {
      * ở StudentCommentService). Gọi TỪ StudentCommentService khi Giáo
      * viên chọn bộ này làm "BTVN buổi sau" — KHÔNG expose qua Controller.
      * Validate bộ đang PUBLISHED + đã gán tường minh cho lớp được giao
-     * (V95: {@link ReviewVideoSetClassAssignment}).
+     * (V98: {@link ReviewVideoSetClassAssignment}).
      *
      * V69 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31,
      * fix bug "Đã nộp bài" hiện sai khi giao lại): 1 lần giao MỚI cho
@@ -375,7 +375,7 @@ public class ReviewVideoService {
         }
         requireAssignedTeacher(classId, actorUserId);
         SchoolClass schoolClass = getClassOrThrow(classId);
-        // V95: thay logic OR curriculum/lớp cũ bằng kiểm tra đã gán tường minh (ReviewVideoSetClassAssignment).
+        // V98: thay logic OR curriculum/lớp cũ bằng kiểm tra đã gán tường minh (ReviewVideoSetClassAssignment).
         if (!reviewVideoSetClassAssignmentRepository.existsByReviewVideoSetIdAndSchoolClassId(setId, classId)) {
             throw new IllegalArgumentException("Bộ video id=" + setId + " không thuộc phạm vi lớp id=" + classId + ".");
         }
@@ -1005,7 +1005,7 @@ public class ReviewVideoService {
         return resolveStudentAccess(set, actorUserId).student();
     }
 
-    /** V95: curriculum luôn khác NULL — không còn nhánh schoolClass (xem Javadoc lớp ReviewVideoSet). */
+    /** V98: curriculum luôn khác NULL — không còn nhánh schoolClass (xem Javadoc lớp ReviewVideoSet). */
     private void requireOwnerScope(ReviewVideoSet set, Long actorUserId) {
         requireAssignedTeacherForCurriculum(set.getCurriculum().getId(), actorUserId);
     }
@@ -1013,7 +1013,7 @@ public class ReviewVideoService {
     /**
      * Dùng chung cho getStats()/listSubmissionsForTeacher(): bắt buộc
      * truyền classId, phải là 1 lớp đã được gán tường minh cho bộ này
-     * (V95, mirror điều kiện visibility của {@link #listByClass}).
+     * (V98, mirror điều kiện visibility của {@link #listByClass}).
      */
     private Long resolveClassIdForSet(ReviewVideoSet set, Long classIdParam) {
         if (classIdParam == null) {
