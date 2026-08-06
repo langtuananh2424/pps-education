@@ -2,6 +2,8 @@ package vn.com.pps.education.service;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.com.pps.education.domain.ClassSession;
+import vn.com.pps.education.domain.ClassTeacher;
 import vn.com.pps.education.domain.Department;
 import vn.com.pps.education.domain.Employee;
 import vn.com.pps.education.domain.LeaveRequest;
@@ -9,9 +11,12 @@ import vn.com.pps.education.domain.LeaveRequestApproval;
 import vn.com.pps.education.domain.LeaveRequestHistory;
 import vn.com.pps.education.domain.Notification;
 import vn.com.pps.education.domain.User;
+import vn.com.pps.education.dto.ClassSessionResponse;
 import vn.com.pps.education.dto.CreateLeaveRequestRequest;
 import vn.com.pps.education.dto.DecideLeaveRequestRequest;
+import vn.com.pps.education.dto.LeaveRequestApprovalResponse;
 import vn.com.pps.education.dto.LeaveRequestResponse;
+import vn.com.pps.education.dto.SubstituteAssignmentRequest;
 import vn.com.pps.education.exception.ExecutiveExemptFromLeaveRequestException;
 import vn.com.pps.education.exception.LeaveRequestAlreadyFinalizedException;
 import vn.com.pps.education.exception.NotCurrentApproverException;
@@ -28,6 +33,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -60,6 +66,7 @@ public class LeaveRequestService {
     private final LeaveRequestApprovalRepository leaveRequestApprovalRepository;
     private final LeaveRequestHistoryRepository leaveRequestHistoryRepository;
     private final NotificationService notificationService;
+    private final LeaveSubstitutionService leaveSubstitutionService;
 
     public LeaveRequestService(EmployeeRepository employeeRepository,
                                 UserRepository userRepository,
@@ -68,7 +75,8 @@ public class LeaveRequestService {
                                 LeaveRequestRepository leaveRequestRepository,
                                 LeaveRequestApprovalRepository leaveRequestApprovalRepository,
                                 LeaveRequestHistoryRepository leaveRequestHistoryRepository,
-                                NotificationService notificationService) {
+                                NotificationService notificationService,
+                                LeaveSubstitutionService leaveSubstitutionService) {
         this.employeeRepository = employeeRepository;
         this.userRepository = userRepository;
         this.userRoleRepository = userRoleRepository;
@@ -77,6 +85,7 @@ public class LeaveRequestService {
         this.leaveRequestApprovalRepository = leaveRequestApprovalRepository;
         this.leaveRequestHistoryRepository = leaveRequestHistoryRepository;
         this.notificationService = notificationService;
+        this.leaveSubstitutionService = leaveSubstitutionService;
     }
 
     /** UC-10 Main Flow bước 1-4, A1 (Ban giám đốc), A2 (phòng ban không có trưởng phòng). */
@@ -103,6 +112,52 @@ public class LeaveRequestService {
             }
         } else if (request.endDate().isBefore(request.startDate())) {
             throw new IllegalArgumentException("endDate không được trước startDate.");
+        }
+
+        // Main Flow bước 3 (Giáo viên) / A3 / A4 -- xác định buổi dạy trong khoảng nghỉ, validate lựa chọn dạy thay.
+        Map<Long, ClassSession> teachingSessionsById = Map.of();
+        List<SubstituteAssignmentRequest> substitutes = request.substitutes() == null ? List.of() : request.substitutes();
+        if (employee.getEmployeeType() == Employee.EmployeeType.TEACHER) {
+            List<ClassSession> teachingSessions = leaveSubstitutionService.findTeachingSessions(
+                    actorUserId, request.startDate(), request.endDate());
+            if (!teachingSessions.isEmpty()) {
+                teachingSessionsById = teachingSessions.stream()
+                        .collect(Collectors.toMap(ClassSession::getId, s -> s));
+                if (substitutes.isEmpty()) {
+                    throw new IllegalArgumentException(
+                            "Bạn có buổi dạy trong khoảng nghỉ này, cần chọn giáo viên dạy thay.");
+                }
+
+                Long chosenClassId = null;
+                for (SubstituteAssignmentRequest sub : substitutes) {
+                    ClassSession session = teachingSessionsById.get(sub.classSessionId());
+                    if (session == null) {
+                        throw new IllegalArgumentException(
+                                "Buổi học id=" + sub.classSessionId() + " không thuộc lịch dạy của bạn trong khoảng nghỉ.");
+                    }
+                    if (chosenClassId == null) {
+                        chosenClassId = session.getSchoolClass().getId();
+                    } else if (!chosenClassId.equals(session.getSchoolClass().getId())) {
+                        // A3 -- 1 đơn chỉ xử lý dạy thay cho 1 lớp.
+                        throw new IllegalArgumentException(
+                                "1 đơn chỉ xử lý dạy thay cho 1 lớp; vui lòng nộp đơn riêng cho từng lớp còn lại.");
+                    }
+                }
+
+                Long finalChosenClassId = chosenClassId;
+                Set<Long> expectedSessionIds = teachingSessions.stream()
+                        .filter(s -> s.getSchoolClass().getId().equals(finalChosenClassId))
+                        .map(ClassSession::getId)
+                        .collect(Collectors.toSet());
+                Set<Long> providedSessionIds = substitutes.stream()
+                        .map(SubstituteAssignmentRequest::classSessionId)
+                        .collect(Collectors.toSet());
+                if (!providedSessionIds.equals(expectedSessionIds)) {
+                    throw new IllegalArgumentException(
+                            "Cần chọn giáo viên dạy thay cho TẤT CẢ buổi học của lớp trong khoảng nghỉ, không được bỏ trống.");
+                }
+            }
+            // A4 -- không có buổi dạy trong khoảng nghỉ: bỏ qua bước chọn dạy thay, xử lý như mẫu đơn thường.
         }
 
         LeaveRequest lr = new LeaveRequest();
@@ -142,6 +197,16 @@ public class LeaveRequestService {
             leaveRequestApprovalRepository.save(approval);
         }
 
+        // Bước 5 -- áp dụng dạy thay NGAY khi nộp đơn, không đợi duyệt (buổi dạy có thể diễn ra trước khi duyệt xong).
+        if (!substitutes.isEmpty()) {
+            Map<Long, ClassTeacher> classTeacherCache = new HashMap<>();
+            for (SubstituteAssignmentRequest sub : substitutes) {
+                ClassSession session = teachingSessionsById.get(sub.classSessionId());
+                User substituteTeacher = getUserOrThrow(sub.substituteTeacherId());
+                leaveSubstitutionService.apply(lr, session, substituteTeacher, actor, classTeacherCache);
+            }
+        }
+
         writeHistory(lr, actor, LeaveRequestHistory.Action.CREATED);
         notifyStepApprovers(lr, steps.get(0), lr.getCurrentApprover()); // Postcondition: người duyệt bước đầu nhận thông báo
         return toResponse(lr);
@@ -165,6 +230,35 @@ public class LeaveRequestService {
     @Transactional(readOnly = true)
     public LeaveRequestResponse getById(Long id) {
         return toResponse(getLeaveRequestOrThrow(id));
+    }
+
+    /** Self-service: danh sách đơn từ đã nộp của chính người dùng, để xem lại trạng thái. */
+    @Transactional(readOnly = true)
+    public List<LeaveRequestResponse> listMine(Long actorUserId) {
+        return leaveRequestRepository.findByEmployeeUserIdOrderBySubmittedAtDesc(actorUserId).stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    /** UC-11: các bước duyệt của 1 đơn, để FE hiển thị tiến trình duyệt. */
+    @Transactional(readOnly = true)
+    public List<LeaveRequestApprovalResponse> listApprovals(Long leaveRequestId) {
+        return leaveRequestApprovalRepository.findByLeaveRequestIdOrderByStepOrder(leaveRequestId).stream()
+                .map(a -> new LeaveRequestApprovalResponse(
+                        a.getId(), a.getStepOrder(), a.getApproverRole().name(),
+                        a.getApproverUser() == null ? null : a.getApproverUser().getId(),
+                        a.getApproverUser() == null ? null : a.getApproverUser().getFullName(),
+                        a.getDecision() == null ? null : a.getDecision().name(),
+                        a.getComment(),
+                        a.getDecidedAt()))
+                .toList();
+    }
+
+    /** UC-10 bước 3 (FE): buổi dạy của người nộp trong khoảng nghỉ, để chọn giáo viên dạy thay. */
+    @Transactional(readOnly = true)
+    public List<ClassSessionResponse> findTeachingSessions(
+            Long actorUserId, LocalDate startDate, LocalDate endDate) {
+        return leaveSubstitutionService.findTeachingSessionResponses(actorUserId, startDate, endDate);
     }
 
     /**
@@ -200,9 +294,12 @@ public class LeaveRequestService {
         Optional<LeaveRequestApproval> nextStep = Optional.empty();
         if (decision == LeaveRequestApproval.Decision.REJECTED) {
             // A1 -- từ chối giữa chừng, kết thúc ngay, không đi tiếp các bước còn lại.
+            OffsetDateTime now = OffsetDateTime.now();
             lr.setStatus(LeaveRequest.Status.REJECTED);
-            lr.setFinalizedAt(OffsetDateTime.now());
+            lr.setFinalizedAt(now);
             lr.setCurrentApprover(null);
+            // A2 -- đơn đã có giáo viên dạy thay (gán ngay từ lúc nộp, UC-10 bước 5) thì thu hồi ngay lập tức.
+            leaveSubstitutionService.revokeAllForLeaveRequest(lr.getId(), now);
         } else {
             nextStep = leaveRequestApprovalRepository
                     .findByLeaveRequestIdAndStepOrder(lr.getId(), lr.getCurrentStep() + 1);
@@ -309,9 +406,13 @@ public class LeaveRequestService {
     }
 
     private LeaveRequestResponse toResponse(LeaveRequest lr) {
+        Employee employee = lr.getEmployee();
         return new LeaveRequestResponse(
                 lr.getId(),
-                lr.getEmployee().getId(),
+                employee.getId(),
+                employee.getUser().getFullName(),
+                employee.getEmployeeCode(),
+                employee.getDepartment() == null ? null : employee.getDepartment().getName(),
                 lr.getLeaveType().name(),
                 lr.getStartDate(),
                 lr.getEndDate(),

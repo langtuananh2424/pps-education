@@ -6,6 +6,7 @@ import java.time.LocalTime;
 public record ClassSessionResponse(
         Long id,
         Long classId,
+        String className,
         LocalDate sessionDate,
         LocalTime startTime,
         LocalTime endTime,
