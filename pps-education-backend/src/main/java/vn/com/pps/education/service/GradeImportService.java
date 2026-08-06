@@ -355,9 +355,19 @@ public class GradeImportService {
         return (value == null || value.isBlank()) ? null : value;
     }
 
+    /**
+     * GV tự định dạng ô điểm thành "Phần trăm" trong Excel (VD setup dùng thang PERCENT) —
+     * DataFormatter trả về chuỗi có dấu "%" (VD "80,00%", giá trị lưu trong ô vẫn là 0.8
+     * nhưng DataFormatter đã tự nhân 100 lúc format hiển thị) — bỏ dấu "%" rồi parse tiếp,
+     * không cần nhân lại lần nữa.
+     */
     private BigDecimal parseScore(String raw, String columnName) {
+        String cleaned = raw.trim().replace(',', '.');
+        if (cleaned.endsWith("%")) {
+            cleaned = cleaned.substring(0, cleaned.length() - 1).trim();
+        }
         try {
-            return new BigDecimal(raw.trim().replace(',', '.'));
+            return new BigDecimal(cleaned);
         } catch (NumberFormatException ex) {
             throw new IllegalArgumentException("Điểm không hợp lệ ở cột '" + columnName + "': " + raw);
         }
