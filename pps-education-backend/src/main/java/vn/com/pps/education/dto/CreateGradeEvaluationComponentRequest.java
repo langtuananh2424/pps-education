@@ -4,7 +4,7 @@ import jakarta.validation.constraints.NotBlank;
 
 import java.math.BigDecimal;
 
-public record CreateGradeComponentRequest(
+public record CreateGradeEvaluationComponentRequest(
         Long subjectId,
         Long skillId,
         @NotBlank String code,

@@ -66,10 +66,10 @@ public class StudentComment {
     @JoinColumn(name = "class_session_id")
     private ClassSession classSession;
 
-    /** Chỉ set khi commentType=MID_TERM/END_TERM (SDD). */
+    /** Chỉ set khi commentType=MID_TERM/END_TERM. V95 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng): đổi từ GradePeriod (theo curriculum) sang AcademicTerm (theo kỳ học). */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "grade_period_id")
-    private GradePeriod gradePeriod;
+    @JoinColumn(name = "academic_term_id")
+    private AcademicTerm academicTerm;
 
     @Column(name = "comment_date", nullable = false)
     private LocalDate commentDate;

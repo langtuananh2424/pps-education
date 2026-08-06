@@ -9,12 +9,12 @@ import org.hibernate.type.SqlTypes;
 import java.time.OffsetDateTime;
 import java.util.Map;
 
-/** Bảng grade_components_history (SDD — "Có grade_components_history"). */
+/** Bảng grade_evaluation_components_history (V95, thay thế grade_components_history). */
 @Getter
 @Setter
 @Entity
-@Table(name = "grade_components_history")
-public class GradeComponentHistory {
+@Table(name = "grade_evaluation_components_history")
+public class GradeEvaluationComponentHistory {
 
     public enum Action { CREATED, UPDATED }
 
@@ -23,8 +23,8 @@ public class GradeComponentHistory {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "grade_component_id", nullable = false)
-    private GradeComponent gradeComponent;
+    @JoinColumn(name = "grade_evaluation_component_id", nullable = false)
+    private GradeEvaluationComponent gradeEvaluationComponent;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "changed_by", nullable = false)

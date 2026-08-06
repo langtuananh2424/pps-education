@@ -30,13 +30,13 @@ public class GradeImportController {
         this.gradeImportService = gradeImportService;
     }
 
-    @PostMapping(value = "/api/classes/{classId}/grade-periods/{gradePeriodId}/grades/import",
+    @PostMapping(value = "/api/classes/{classId}/grade-component-setups/{setupId}/grades/import",
             consumes = "multipart/form-data")
     public ResponseEntity<GradeImportResponse> importGrades(@PathVariable Long classId,
-                                                            @PathVariable Long gradePeriodId,
+                                                            @PathVariable Long setupId,
                                                             @RequestParam("file") MultipartFile file,
                                                             @AuthenticationPrincipal AuthenticatedUser actor) {
-        return ResponseEntity.ok(gradeImportService.importGrades(classId, gradePeriodId, file, actor.userId()));
+        return ResponseEntity.ok(gradeImportService.importGrades(classId, setupId, file, actor.userId()));
     }
 
     @GetMapping("/api/grade-imports/{id}")
@@ -46,14 +46,15 @@ public class GradeImportController {
 
     /**
      * File mẫu để nhập điểm qua Excel (bổ sung ngoài SDD gốc, đã xác nhận
-     * với người dùng 2026-07-24) — điền sẵn học sinh của lớp + cột điểm để
-     * trống. Quyền: giống importGrades (xem Javadoc GradeImportService).
+     * với người dùng) — điền sẵn học sinh theo roster của setup + cột
+     * điểm/Nhận xét/Ghi chú để trống (V95). Quyền: giống importGrades
+     * (xem Javadoc GradeImportService).
      */
-    @GetMapping("/api/classes/{classId}/grade-periods/{gradePeriodId}/grades/import-template")
+    @GetMapping("/api/classes/{classId}/grade-component-setups/{setupId}/grades/import-template")
     public ResponseEntity<byte[]> downloadTemplate(@PathVariable Long classId,
-                                                    @PathVariable Long gradePeriodId,
+                                                    @PathVariable Long setupId,
                                                     @AuthenticationPrincipal AuthenticatedUser actor) {
-        byte[] content = gradeImportService.buildTemplate(classId, gradePeriodId, actor.userId());
+        byte[] content = gradeImportService.buildTemplate(classId, setupId, actor.userId());
         return ExcelHttpResponses.attachment(content, "mau-nhap-diem-lop-" + classId + ".xlsx");
     }
 }

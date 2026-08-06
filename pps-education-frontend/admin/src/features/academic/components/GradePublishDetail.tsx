@@ -3,14 +3,13 @@ import { CheckCircle2, ClipboardList, XCircle } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import {
   ClassEnrollmentResponse,
-  GradeComponentResponse,
+  GradeComponentSetupResponse,
   GradeEntryResponse,
-  GradePeriodResponse,
-  GradePeriodResultResponse,
-  getClass,
+  GradeEvaluationComponentResponse,
+  GradeEvaluationResultResponse,
   listClassEnrollments,
-  listGradeComponents,
-  listGradePeriods,
+  listGradeComponentSetups,
+  listGradeEvaluationComponents,
   publishGrades
 } from "../api";
 import GradeSheetTable from "./GradeSheetTable";
@@ -25,14 +24,18 @@ interface GradePublishDetailProps {
   onPublished: () => void;
 }
 
+function setupLabel(s: GradeComponentSetupResponse): string {
+  return `${s.academicTermName} — ${s.evaluationType === "MID_TERM" ? "Giữa kỳ" : "Cuối kỳ"}`;
+}
+
 /** UC-20 bước 2-5 (V44): chi tiết 1 lớp đã chọn từ danh sách — cùng bảng điểm như màn Giáo viên nhập, Duyệt hoặc Từ chối tất cả bản ghi Chờ duyệt (SUBMITTED) trong 1 lần. */
 export default function GradePublishDetail({ classId, classLabel, teacherName, onPublished }: GradePublishDetailProps) {
   const [enrollments, setEnrollments] = useState<ClassEnrollmentResponse[]>([]);
-  const [periods, setPeriods] = useState<GradePeriodResponse[]>([]);
-  const [selectedPeriodId, setSelectedPeriodId] = useState<number | null>(null);
-  const [components, setComponents] = useState<GradeComponentResponse[]>([]);
+  const [setups, setSetups] = useState<GradeComponentSetupResponse[]>([]);
+  const [selectedSetupId, setSelectedSetupId] = useState<number | null>(null);
+  const [components, setComponents] = useState<GradeEvaluationComponentResponse[]>([]);
   const [loadedEntries, setLoadedEntries] = useState<GradeEntryResponse[]>([]);
-  const [loadedResults, setLoadedResults] = useState<GradePeriodResultResponse[]>([]);
+  const [loadedResults, setLoadedResults] = useState<GradeEvaluationResultResponse[]>([]);
   const [sheetVersion, setSheetVersion] = useState(0);
   const [deciding, setDeciding] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -40,27 +43,26 @@ export default function GradePublishDetail({ classId, classLabel, teacherName, o
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setPeriods([]);
-    setSelectedPeriodId(null);
+    setSetups([]);
+    setSelectedSetupId(null);
     setComponents([]);
     setEnrollments([]);
     setError(null);
     if (!classId) return;
     listClassEnrollments(classId).then(setEnrollments).catch(() => undefined);
-    getClass(classId)
-      .then((cls) => listGradePeriods(cls.curriculumId))
-      .then((p) => {
-        setPeriods(p);
-        if (p.length > 0) setSelectedPeriodId(p[0].id);
+    listGradeComponentSetups(classId)
+      .then((s) => {
+        setSetups(s);
+        if (s.length > 0) setSelectedSetupId(s[0].id);
       })
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được kỳ đánh giá của lớp."));
+      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được setup sổ điểm của lớp."));
   }, [classId]);
 
   useEffect(() => {
     setComponents([]);
-    if (!selectedPeriodId) return;
-    listGradeComponents(selectedPeriodId).then(setComponents).catch(() => undefined);
-  }, [selectedPeriodId]);
+    if (!selectedSetupId) return;
+    listGradeEvaluationComponents(selectedSetupId).then(setComponents).catch(() => undefined);
+  }, [selectedSetupId]);
 
   const submittedEntryIds = loadedEntries.filter((e) => e.status === "SUBMITTED").map((e) => e.id);
   const submittedResultIds = loadedResults.filter((r) => r.status === "SUBMITTED").map((r) => r.id);
@@ -71,7 +73,7 @@ export default function GradePublishDetail({ classId, classLabel, teacherName, o
     setDeciding(true);
     setError(null);
     try {
-      await publishGrades({ action: "APPROVE", gradeEntryIds: submittedEntryIds, gradePeriodResultIds: submittedResultIds });
+      await publishGrades({ action: "APPROVE", gradeEntryIds: submittedEntryIds, gradeEvaluationResultIds: submittedResultIds });
       setSheetVersion((v) => v + 1);
       onPublished();
     } catch (err) {
@@ -89,7 +91,7 @@ export default function GradePublishDetail({ classId, classLabel, teacherName, o
       await publishGrades({
         action: "REJECT",
         gradeEntryIds: submittedEntryIds,
-        gradePeriodResultIds: submittedResultIds,
+        gradeEvaluationResultIds: submittedResultIds,
         rejectReason: rejectReason.trim() || undefined
       });
       setSheetVersion((v) => v + 1);
@@ -122,15 +124,15 @@ export default function GradePublishDetail({ classId, classLabel, teacherName, o
           <span className="text-xs font-bold text-slate-700 font-display">Chi tiết điểm chờ duyệt — {classLabel}</span>
           <p className="text-[10px] text-slate-400 mt-0.5">GV: {teacherName ?? "Chưa rõ"}</p>
         </div>
-        {periods.length > 1 && (
+        {setups.length > 1 && (
           <Select
-            value={selectedPeriodId ?? ""}
-            onChange={(e) => setSelectedPeriodId(e.target.value ? Number(e.target.value) : null)}
+            value={selectedSetupId ?? ""}
+            onChange={(e) => setSelectedSetupId(e.target.value ? Number(e.target.value) : null)}
             className="bg-white border border-slate-200 text-xs p-1.5 rounded-lg focus:outline-none"
           >
-            {periods.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
+            {setups.map((s) => (
+              <option key={s.id} value={s.id}>
+                {setupLabel(s)}
               </option>
             ))}
           </Select>
@@ -139,11 +141,11 @@ export default function GradePublishDetail({ classId, classLabel, teacherName, o
 
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 m-4 rounded-lg">{error}</div>}
 
-      {selectedPeriodId && components.length > 0 ? (
+      {selectedSetupId && components.length > 0 ? (
         <GradeSheetTable
-          key={`${classId}-${selectedPeriodId}-${sheetVersion}`}
+          key={`${classId}-${selectedSetupId}-${sheetVersion}`}
           classId={classId}
-          gradePeriodId={selectedPeriodId}
+          setupId={selectedSetupId}
           components={components}
           enrollments={enrollments}
           onLoaded={(entries, results) => {

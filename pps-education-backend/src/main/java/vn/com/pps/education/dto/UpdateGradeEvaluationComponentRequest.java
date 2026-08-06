@@ -9,7 +9,7 @@ import java.math.BigDecimal;
  * đổi (GradeComponentLockedException) — chỉ name/displayOrder được sửa.
  * Vẫn truyền đủ field để Service so sánh có thay đổi hay không.
  */
-public record UpdateGradeComponentRequest(
+public record UpdateGradeEvaluationComponentRequest(
         @NotBlank String name,
         BigDecimal maxScore,
         BigDecimal passThreshold,

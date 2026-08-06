@@ -74,7 +74,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler({CurriculumUpdateConfirmationRequiredException.class, ApprovalAlreadyDecidedException.class,
-            GradePeriodWeightExceededException.class, GradeComponentLockedException.class,
+            GradeComponentSetupWeightExceededException.class, GradeComponentLockedException.class,
             GradeAlreadyPublishedException.class})
     public ResponseEntity<Object> handleConfirmationRequired(RuntimeException ex) {
         return error(HttpStatus.CONFLICT, ex.getMessage());
@@ -94,7 +94,7 @@ public class GlobalExceptionHandler {
             OperatingExpenseAlreadyDecidedException.class, PartnerContractNotDeletableException.class,
             TuitionPlanNotActiveException.class, RoleNotDeletableException.class,
             DepartmentNotDeletableException.class, PositionNotDeletableException.class,
-            GradeComponentNotDeletableException.class, GradePeriodNotDeletableException.class,
+            GradeComponentNotDeletableException.class, GradeComponentSetupNotDeletableException.class,
             MissingLessonContentException.class, HomeworkNextConflictException.class,
             NoUpcomingClassSessionException.class, VideoNotYetQualifiedException.class,
             QuizAlreadyCompletedException.class, ListeningHintNotUnlockedException.class})

@@ -5,37 +5,42 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 /**
- * Bảng grade_components (SDD > Học thuật > Sổ điểm & Điểm tổng kết > b)
- * — thành phần điểm trong 1 kỳ đánh giá. Code riêng (không dùng lại
- * CurriculumSubject.SubjectCode) vì danh sách khác nhau — grade_components
- * có thêm PROJECT mà curriculum_subjects không có (đúng theo SDD).
+ * Bảng grade_evaluation_components (SDD > Học thuật > Sổ điểm & Điểm tổng
+ * kết > b, V95 — thay thế grade_components) — thành phần điểm trong 1
+ * {@link GradeComponentSetup} (lớp + kỳ học + Giữa/Cuối kỳ). Code riêng
+ * (không dùng lại CurriculumSubject.SubjectCode) vì danh sách khác nhau —
+ * có thêm PROJECT mà curriculum_subjects không có.
  */
 @Getter
 @Setter
 @Entity
-@Table(name = "grade_components")
-public class GradeComponent {
+@Table(name = "grade_evaluation_components")
+public class GradeEvaluationComponent {
 
     public enum ComponentCode { SPEAKING, WRITING, LISTENING, READING, GRAMMAR, PROJECT, OTHER }
 
-    /** V37 — chỉ phục vụ hiển thị đúng định dạng ở FE; max_score vẫn là cận trên validate. */
+    /** Chỉ phục vụ hiển thị đúng định dạng ở FE; max_score vẫn là cận trên validate. */
     public enum ScaleType { NUMERIC, PERCENTAGE, BAND }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false, unique = true, updatable = false)
+    private UUID uuid = UUID.randomUUID();
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "grade_period_id", nullable = false)
-    private GradePeriod gradePeriod;
+    @JoinColumn(name = "grade_component_setup_id", nullable = false)
+    private GradeComponentSetup gradeComponentSetup;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "subject_id")
     private CurriculumSubject subject;
 
-    /** V37 — tham chiếu danh mục kỹ năng (UC-54), dùng khi code=OTHER cần kỹ năng ngoài enum gốc. */
+    /** Tham chiếu danh mục kỹ năng (UC-54), dùng khi code=OTHER cần kỹ năng ngoài enum gốc. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "skill_id")
     private Skill skill;

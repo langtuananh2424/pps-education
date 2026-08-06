@@ -3,16 +3,19 @@ package vn.com.pps.education.dto;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 
-public record GradePeriodResultResponse(
+public record GradeEvaluationResultResponse(
         Long id,
         Long classId,
         Long studentId,
         String studentFullName,
         String studentCode,
-        Long gradePeriodId,
+        Long academicTermId,
+        String evaluationType,
         BigDecimal overallScore,
         String scaleType,
         String level,
+        String comment,
+        String note,
         String source,
         Long importJobId,
         String status,

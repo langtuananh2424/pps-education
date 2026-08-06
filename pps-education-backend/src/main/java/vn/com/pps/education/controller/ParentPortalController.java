@@ -10,7 +10,7 @@ import vn.com.pps.education.dto.AttendanceMarkResponse;
 import vn.com.pps.education.dto.ChildResponse;
 import vn.com.pps.education.dto.ClassSessionResponse;
 import vn.com.pps.education.dto.GradeEntryResponse;
-import vn.com.pps.education.dto.GradePeriodResultResponse;
+import vn.com.pps.education.dto.GradeEvaluationResultResponse;
 import vn.com.pps.education.dto.HomeworkProgressResponse;
 import vn.com.pps.education.dto.StudentCommentResponse;
 import vn.com.pps.education.security.AuthenticatedUser;
@@ -40,11 +40,12 @@ public class ParentPortalController {
         return ResponseEntity.ok(parentPortalService.listGrades(studentId, classId, actor.userId()));
     }
 
-    @GetMapping("/children/{studentId}/classes/{classId}/periods/{gradePeriodId}/result")
-    public ResponseEntity<GradePeriodResultResponse> getPeriodResult(@PathVariable Long studentId, @PathVariable Long classId,
-                                                                      @PathVariable Long gradePeriodId,
+    @GetMapping("/children/{studentId}/classes/{classId}/academic-terms/{academicTermId}/evaluation/{evaluationType}/result")
+    public ResponseEntity<GradeEvaluationResultResponse> getEvaluationResult(@PathVariable Long studentId, @PathVariable Long classId,
+                                                                      @PathVariable Long academicTermId,
+                                                                      @PathVariable String evaluationType,
                                                                       @AuthenticationPrincipal AuthenticatedUser actor) {
-        return ResponseEntity.ok(parentPortalService.getPeriodResult(studentId, classId, gradePeriodId, actor.userId()));
+        return ResponseEntity.ok(parentPortalService.getEvaluationResult(studentId, classId, academicTermId, evaluationType, actor.userId()));
     }
 
     @GetMapping("/children/{studentId}/classes/{classId}/attendance")

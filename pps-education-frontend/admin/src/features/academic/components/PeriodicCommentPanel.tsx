@@ -65,7 +65,7 @@ export default function PeriodicCommentPanel() {
         </div>
 
         {selectedClass && selectedStudentId ? (
-          <CommentForm classId={selectedClass.id} studentId={selectedStudentId} curriculumId={selectedClass.curriculumId} onSubmitted={loadHistory} />
+          <CommentForm classId={selectedClass.id} studentId={selectedStudentId} siteId={selectedClass.siteId} onSubmitted={loadHistory} />
         ) : (
           <p className="text-xs text-slate-400 italic">Chọn lớp và học sinh để viết nhận xét.</p>
         )}

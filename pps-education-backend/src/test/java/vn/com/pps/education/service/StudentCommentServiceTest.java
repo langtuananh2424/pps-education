@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.transaction.annotation.Transactional;
+import vn.com.pps.education.domain.AcademicTerm;
 import vn.com.pps.education.domain.ExerciseAssignment;
 import vn.com.pps.education.domain.ReviewVideoAssignment;
 import vn.com.pps.education.domain.Role;
@@ -28,7 +29,6 @@ import vn.com.pps.education.dto.CreateCurriculumRequest;
 import vn.com.pps.education.dto.CreateExamQuestionRequest;
 import vn.com.pps.education.dto.CreateExamRequest;
 import vn.com.pps.education.dto.CreateExerciseRequest;
-import vn.com.pps.education.dto.CreateGradePeriodRequest;
 import vn.com.pps.education.dto.CreateQuestionBankRequest;
 import vn.com.pps.education.dto.CreateQuestionRequest;
 import vn.com.pps.education.dto.CreateReviewVideoSetRequest;
@@ -39,7 +39,6 @@ import vn.com.pps.education.dto.DecideCommentsRequest;
 import vn.com.pps.education.dto.EnrollStudentRequest;
 import vn.com.pps.education.dto.EnterAttendanceMarkRequest;
 import vn.com.pps.education.dto.ExerciseResponse;
-import vn.com.pps.education.dto.GradePeriodResponse;
 import vn.com.pps.education.dto.MarkAttendanceRequest;
 import vn.com.pps.education.dto.QuestionBankResponse;
 import vn.com.pps.education.dto.QuestionChoiceRequest;
@@ -64,6 +63,7 @@ import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
 import vn.com.pps.education.exception.NotSiteManagerForSiteException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.exception.StudentCommentNotEditableException;
+import vn.com.pps.education.repository.AcademicTermRepository;
 import vn.com.pps.education.repository.ExerciseAssignmentRepository;
 import vn.com.pps.education.repository.ReviewVideoAssignmentRepository;
 import vn.com.pps.education.repository.RoleRepository;
@@ -138,7 +138,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
     private CurriculumService curriculumService;
 
     @Autowired
-    private GradeService gradeService;
+    private AcademicTermRepository academicTermRepository;
 
     @Autowired
     private ExerciseService exerciseService;
@@ -194,7 +194,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
     private ClassResponse schoolClass;
     private Student student;
     private ClassSessionResponse classSession;
-    private GradePeriodResponse gradePeriod;
+    private AcademicTerm academicTerm;
 
     @BeforeEach
     void setUp() {
@@ -237,8 +237,18 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         studentCommentService.updateLessonContent(classSession.id(), "Unit 1: Present simple tense.", teacher.getId());
         classService.enroll(schoolClass.id(), new EnrollStudentRequest(student.getId(), LocalDate.now()), headAcademic.getId());
 
-        gradePeriod = gradeService.createGradePeriod(activeCurriculum.id(),
-                new CreateGradePeriodRequest("MID_1", "Giữa kỳ 1", 1, new BigDecimal("50"), null, null), headAcademic.getId());
+        academicTerm = newAcademicTerm(site);
+    }
+
+    private AcademicTerm newAcademicTerm(Site site) {
+        AcademicTerm term = new AcademicTerm();
+        term.setSite(site);
+        term.setCode("TERM-" + SEQ.incrementAndGet());
+        term.setName("Kỳ test");
+        term.setStartDate(LocalDate.now().minusMonths(1));
+        term.setEndDate(LocalDate.now().plusMonths(2));
+        term.setCreatedBy(headAcademic);
+        return academicTermRepository.save(term);
     }
 
     @Test
@@ -264,13 +274,13 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
     @Test
     void writeComment_UC21_MainFlow_savesMidTermCommentWithWarningFlag() {
         StudentCommentResponse comment = studentCommentService.writeComment(schoolClass.id(),
-                new CreateStudentCommentRequest(student.getId(), "MID_TERM", null, gradePeriod.id(),
+                new CreateStudentCommentRequest(student.getId(), "MID_TERM", null, academicTerm.getId(),
                         LocalDate.now(), "Cần cải thiện kỹ năng nghe.", null, "CONCERN", true, null, null, null, null, null, null, null, null),
                 teacher.getId());
 
         assertThat(comment.status()).isEqualTo("DRAFT");
         assertThat(comment.commentType()).isEqualTo("MID_TERM");
-        assertThat(comment.gradePeriodId()).isEqualTo(gradePeriod.id());
+        assertThat(comment.academicTermId()).isEqualTo(academicTerm.getId());
         assertThat(comment.severity()).isEqualTo("CONCERN");
         assertThat(comment.isWarning()).isTrue();
     }
@@ -1152,7 +1162,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         GrammarFixture fixture = createGrammarOnlineExercise();
 
         assertThatThrownBy(() -> studentCommentService.writeComment(schoolClass.id(),
-                new CreateStudentCommentRequest(student.getId(), "MID_TERM", null, gradePeriod.id(),
+                new CreateStudentCommentRequest(student.getId(), "MID_TERM", null, academicTerm.getId(),
                         LocalDate.now(), "Nội dung.", null, null, false, null, null, null, null,
                         fixture.exercise().id(), null, null, null),
                 teacher.getId()))
@@ -1489,7 +1499,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
 
     private StudentCommentResponse writeMidTermComment() {
         return studentCommentService.writeComment(schoolClass.id(),
-                new CreateStudentCommentRequest(student.getId(), "MID_TERM", null, gradePeriod.id(),
+                new CreateStudentCommentRequest(student.getId(), "MID_TERM", null, academicTerm.getId(),
                         LocalDate.now(), "Nội dung nhận xét giữa kỳ.", null, null, false, null, null, null, null, null, null, null, null),
                 teacher.getId());
     }
