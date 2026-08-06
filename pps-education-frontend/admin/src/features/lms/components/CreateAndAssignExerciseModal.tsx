@@ -17,6 +17,7 @@ import {
 import QuestionEditorForm from "./QuestionEditorForm";
 import QuestionImportPanel from "./QuestionImportPanel";
 import GridQuestionBuilder from "./GridQuestionBuilder";
+import ListeningGroupBuilder from "./ListeningGroupBuilder";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
@@ -225,7 +226,10 @@ export function ExerciseQuestionsStep({
   const [mode, setMode] = useState<QuestionSourceMode>(availableModes[0]);
   // V78: VIETNAMESE trong tab "Soạn câu hỏi mới" có thêm lựa chọn "Bài đọc hiểu — Lưới" (composite
   // nhiều câu hỏi/1 lần, xem GridQuestionBuilder) bên cạnh soạn từng câu đơn (QuestionEditorForm).
-  const [composeSubMode, setComposeSubMode] = useState<"single" | "grid">("single");
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — FOREIGN có thêm "listeningGroup"
+  // (ListeningGroupBuilder): 1 audio dùng chung cho nhiều câu hỏi (Trắc nghiệm Voice/Nghe & nộp
+  // audio/Nghe điền từ), song song với soạn 1 câu/1 audio như cũ.
+  const [composeSubMode, setComposeSubMode] = useState<"single" | "grid" | "listeningGroup">("single");
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04 — Bài có thể ĐÃ có sẵn câu hỏi (mở
   // lại để thêm tiếp, không chỉ lúc soạn mới) — cần biết số câu đã có để displayOrder câu mới không
   // trùng câu cũ (trước đây luôn giả định Bài trống, bắt đầu từ 1).
@@ -253,8 +257,11 @@ export function ExerciseQuestionsStep({
     }
   };
 
-  /** V78 — Bài đọc hiểu "Lưới": GridQuestionBuilder đã tạo xong N Question, gắn hết vào đề rồi quay lại soạn đơn. */
-  const handleGridCreated = async (createdQuestions: QuestionResponse[]) => {
+  /**
+   * V78/V85 — dùng chung cho mọi composite builder tạo N Question/1 lần (GridQuestionBuilder "Đọc
+   * hiểu — Lưới" lẫn ListeningGroupBuilder "1 audio nhiều câu"): gắn hết vào đề rồi quay lại soạn đơn.
+   */
+  const handleCompositeCreated = async (createdQuestions: QuestionResponse[]) => {
     onError(null);
     try {
       let order = existingCount + attached.length;
@@ -268,7 +275,7 @@ export function ExerciseQuestionsStep({
       setAttached((prev) => [...prev, ...newlyAttached]);
       setComposeSubMode("single");
     } catch (err) {
-      onError(err instanceof ApiError ? err.message : "Gắn các câu hỏi đọc hiểu vào đề thất bại.");
+      onError(err instanceof ApiError ? err.message : "Gắn các câu hỏi vừa soạn vào đề thất bại.");
     }
   };
 
@@ -352,9 +359,31 @@ export function ExerciseQuestionsStep({
         </div>
       )}
 
+      {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — FOREIGN chọn giữa soạn 1
+          câu/1 audio (như cũ) và "nhiều câu/1 audio" (ListeningGroupBuilder), y hệt tinh thần toggle
+          single/grid của VIETNAMESE ở trên. */}
+      {mode === "compose" && teacherType === "FOREIGN" && (
+        <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-lg w-fit">
+          {(["single", "listeningGroup"] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setComposeSubMode(m)}
+              className={`text-[11px] font-bold px-3 py-1.5 rounded-md transition-all ${
+                composeSubMode === m ? "bg-white text-brand-red shadow-xs" : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              {m === "single" ? "Câu hỏi đơn" : "Nhiều câu — 1 audio nghe"}
+            </button>
+          ))}
+        </div>
+      )}
+
       {mode === "compose" &&
         (composeSubMode === "grid" && teacherType === "VIETNAMESE" ? (
-          <GridQuestionBuilder examId={exercise.examId} onCreated={handleGridCreated} onCancel={() => setComposeSubMode("single")} />
+          <GridQuestionBuilder examId={exercise.examId} onCreated={handleCompositeCreated} onCancel={() => setComposeSubMode("single")} />
+        ) : composeSubMode === "listeningGroup" && teacherType === "FOREIGN" ? (
+          <ListeningGroupBuilder examId={exercise.examId} onCreated={handleCompositeCreated} onCancel={() => setComposeSubMode("single")} />
         ) : (
           <QuestionEditorForm
             key={composeFormKey}
@@ -365,7 +394,7 @@ export function ExerciseQuestionsStep({
               // đó (V78 GV Việt Nam không soạn Speaking oral/"Nghe & nộp audio", 2 kind này chỉ
               // dành cho FOREIGN).
               teacherType === "FOREIGN"
-                ? ["VOICE_MULTIPLE_CHOICE", "LISTENING_AUDIO_SUBMISSION"]
+                ? ["VOICE_MULTIPLE_CHOICE", "LISTENING_AUDIO_SUBMISSION", "LISTENING_FILL_IN_BLANK"]
                 : ["MULTIPLE_CHOICE", "VOICE_MULTIPLE_CHOICE", "INLINE_CHOICE", "FILL_IN_BLANK", "WORD_BANK", "SENTENCE_BUILDING", "ESSAY"]
             }
             onCreated={handleComposeCreated}

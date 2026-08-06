@@ -344,7 +344,14 @@ export default function AssignmentsTab({ classId }: AssignmentsTabProps) {
             setTakingExercise(null);
             load();
           }}
-          onFinished={load}
+          // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — trước đây chỉ load() lại
+          // danh sách, KHÔNG đóng modal: sau khi bấm "Đã hiểu" ở popup kết quả, modal làm bài (đã
+          // chuyển sang chỉ xem) vẫn còn hiện phía sau, trông như tự mở thêm 1 modal. Đóng luôn về
+          // màn danh sách — học sinh vẫn xem lại được bình thường qua "Xem lại bài đã làm".
+          onFinished={() => {
+            setTakingExercise(null);
+            load();
+          }}
         />
       )}
 

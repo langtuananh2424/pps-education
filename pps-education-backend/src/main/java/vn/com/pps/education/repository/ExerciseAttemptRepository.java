@@ -11,4 +11,7 @@ public interface ExerciseAttemptRepository extends JpaRepository<ExerciseAttempt
     List<ExerciseAttempt> findByExerciseIdAndStudentIdOrderByAttemptNumberDesc(Long exerciseId, Long studentId);
 
     List<ExerciseAttempt> findByExerciseAssignmentIdOrderByAttemptNumberDesc(Long exerciseAssignmentId);
+
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — dùng cho ExerciseReportService#getQuestionStats (phân tích câu hỏi theo LƯỢT ĐẦU TIÊN, không phải lượt mới nhất). */
+    List<ExerciseAttempt> findByExerciseAssignmentIdOrderByAttemptNumberAsc(Long exerciseAssignmentId);
 }

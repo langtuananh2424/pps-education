@@ -1,17 +1,23 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { CheckCircle2, Loader2, Lock, PartyPopper, RotateCcw, ShieldAlert, XCircle } from "lucide-react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { CheckCircle2, HelpCircle, Loader2, Lock, PartyPopper, RotateCcw, ShieldAlert, XCircle } from "lucide-react";
 import { friendlyApiErrorMessage } from "@/lib/apiClient";
 import {
   AssignedExerciseResponse,
   ExerciseAttemptResponse,
   ExerciseMetaResponse,
+  ExerciseQuestionChoiceResponse,
   ExerciseQuestionResponse,
+  ListeningHintResponse,
+  ListeningPlayProgressResponse,
   StudentAnswerResponse,
   getAttempt,
   getExercise,
+  getListeningHint,
   listExerciseQuestions,
   listAnswers,
   recordIntegrityEvents,
+  recordListeningPlay,
   saveAnswer,
   startAttempt,
   submitAttempt,
@@ -27,6 +33,11 @@ interface TakeExerciseModalProps {
 
 const CHOICE_TYPES = new Set(["MULTIPLE_CHOICE", "MULTIPLE_ANSWER", "TRUE_FALSE"]);
 
+/** Khớp ListeningHintService#listeningKeyOf (BE) — nhóm "1 audio nhiều câu" dùng chung groupKey, câu đơn dùng key riêng theo chính nó. */
+function listeningKeyOf(q: ExerciseQuestionResponse): string {
+  return q.groupKey ?? `Q${q.questionId}`;
+}
+
 /**
  * V78 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04) — dạng "Đọc hiểu — lưới": nhiều
  * câu MULTIPLE_CHOICE liên tiếp cùng groupKey gộp hiển thị chung 1 referencePassage + 1 bảng câu hỏi,
@@ -34,7 +45,7 @@ const CHOICE_TYPES = new Set(["MULTIPLE_CHOICE", "MULTIPLE_ANSWER", "TRUE_FALSE"
  */
 type RenderBlock =
   | { type: "single"; question: ExerciseQuestionResponse }
-  | { type: "grid"; groupKey: string; referencePassage: string | null; questions: ExerciseQuestionResponse[] };
+  | { type: "grid"; groupKey: string; referencePassage: string | null; audioUrl: string | null; questions: ExerciseQuestionResponse[] };
 
 function groupQuestionsByGroupKey(questions: ExerciseQuestionResponse[]): RenderBlock[] {
   const blocks: RenderBlock[] = [];
@@ -45,7 +56,10 @@ function groupQuestionsByGroupKey(questions: ExerciseQuestionResponse[]): Render
       continue;
     }
     if (q.groupKey) {
-      blocks.push({ type: "grid", groupKey: q.groupKey, referencePassage: q.referencePassage, questions: [q] });
+      // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — nhóm "1 audio nhiều câu" (GV
+      // nước ngoài, xem ListeningGroupBuilder) cùng dùng chung audioUrl như referencePassage: chỉ cần
+      // lấy từ câu hỏi đầu tiên của nhóm.
+      blocks.push({ type: "grid", groupKey: q.groupKey, referencePassage: q.referencePassage, audioUrl: q.audioUrl, questions: [q] });
     } else {
       blocks.push({ type: "single", question: q });
     }
@@ -81,6 +95,11 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
   const [answersByQuestion, setAnswersByQuestion] = useState<Map<number, StudentAnswerResponse>>(new Map());
   const [textDraft, setTextDraft] = useState<Record<number, string>>({});
   const [savingQuestionId, setSavingQuestionId] = useState<number | null>(null);
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — gợi ý tapescript câu hỏi Nghe, mở
+  // khóa sau khi nghe HẾT audio đủ số lần cấu hình. Key theo listeningKeyOf (groupKey nếu có, không
+  // thì "Q"+questionId) — khớp cách backend gộp bộ đếm cho nhóm "1 audio nhiều câu" (xem
+  // ListeningHintService, ListeningGroupBuilder ở Admin).
+  const [listeningProgress, setListeningProgress] = useState<Map<string, ListeningPlayProgressResponse>>(new Map());
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -216,6 +235,17 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
       setError(friendlyApiErrorMessage(err, "Nộp audio thất bại."));
     } finally {
       setSavingQuestionId(null);
+    }
+  };
+
+  /** Gọi khi audio của 1 câu hỏi Nghe phát tới cuối (sự kiện `ended`) — im lặng bỏ qua lỗi mạng, không chặn học sinh nghe/làm bài tiếp. */
+  const handleListeningEnded = async (q: ExerciseQuestionResponse) => {
+    if (!attempt || readOnly) return;
+    try {
+      const res = await recordListeningPlay(attempt.id, q.questionId);
+      setListeningProgress((prev) => new Map(prev).set(listeningKeyOf(q), res));
+    } catch {
+      // Không hiện lỗi — nghe lại vẫn hoạt động bình thường, chỉ là chưa ghi được lượt này.
     }
   };
 
@@ -356,6 +386,13 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
                   savingQuestionId={savingQuestionId}
                   attemptsRemainingBeforeAnswer={attemptsRemainingBeforeAnswer}
                   onChoiceToggle={handleChoiceAnswer}
+                  textDraft={textDraft}
+                  onTextChange={(questionId, v) => setTextDraft((prev) => ({ ...prev, [questionId]: v }))}
+                  onTextBlur={handleTextBlur}
+                  onAudioUpload={handleAudioAnswer}
+                  attemptId={attempt?.id}
+                  listeningProgress={listeningProgress}
+                  onListeningEnded={handleListeningEnded}
                 />
               ) : (
                 <QuestionBlock
@@ -371,6 +408,9 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
                   onChoiceToggle={(choiceIds) => handleChoiceAnswer(block.question.questionId, choiceIds)}
                   onStructuredAnswer={(values) => handleStructuredAnswer(block.question.questionId, values)}
                   onAudioUpload={(file) => handleAudioAnswer(block.question.questionId, file)}
+                  attemptId={attempt?.id}
+                  listeningProgress={listeningProgress}
+                  onListeningEnded={handleListeningEnded}
                 />
               )
             )
@@ -504,7 +544,10 @@ function QuestionBlock({
   onTextBlur,
   onChoiceToggle,
   onStructuredAnswer,
-  onAudioUpload
+  onAudioUpload,
+  attemptId,
+  listeningProgress,
+  onListeningEnded
 }: {
   question: ExerciseQuestionResponse;
   answer: StudentAnswerResponse | undefined;
@@ -517,6 +560,9 @@ function QuestionBlock({
   onChoiceToggle: (choiceIds: number[]) => void;
   onStructuredAnswer: (values: string[]) => void;
   onAudioUpload: (file: File) => void;
+  attemptId: number | undefined;
+  listeningProgress: Map<string, ListeningPlayProgressResponse>;
+  onListeningEnded: (q: ExerciseQuestionResponse) => void;
 }) {
   const isChoiceQuestion = CHOICE_TYPES.has(question.questionType) && question.choices.length > 0;
   const isFillInBlank = question.questionType === "FILL_IN_BLANK";
@@ -553,8 +599,21 @@ function QuestionBlock({
         <p className="text-sm font-bold text-ink">
           {question.displayOrder}. {question.questionContent}
         </p>
-        <span className="text-[10px] text-muted font-bold shrink-0">{question.points} đ</span>
+        <div className="flex items-center gap-2 shrink-0">
+          {question.skill === "LISTENING" && question.audioUrl && attemptId != null && (
+            <ListeningHintButton
+              attemptId={attemptId}
+              questionId={question.questionId}
+              choices={question.choices}
+              progress={listeningProgress.get(listeningKeyOf(question))}
+              readOnly={readOnly}
+            />
+          )}
+          <span className="text-[10px] text-muted font-bold">{question.points} đ</span>
+        </div>
       </div>
+
+      <ListeningAudioBlock question={question} onEnded={() => onListeningEnded(question)} />
 
       {isChoiceQuestion ? (
         <div className="space-y-2">
@@ -588,13 +647,6 @@ function QuestionBlock({
         </div>
       ) : question.questionType === "SPEAKING" ? (
         <div className="space-y-2">
-          {question.skill === "LISTENING" && question.audioUrl && (
-            <div className="space-y-1">
-              <p className="text-[10px] text-muted font-bold uppercase">Audio bài nghe</p>
-              {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-              <audio controls src={question.audioUrl} className="w-full" />
-            </div>
-          )}
           <div className="space-y-1">
             <p className="text-[10px] text-muted font-bold uppercase">Ghi âm câu trả lời của bạn</p>
             <input
@@ -674,6 +726,188 @@ function LockedAnswerBanner({ attemptsRemainingBeforeAnswer }: { attemptsRemaini
       <button type="button" disabled className="flex items-center gap-1 text-[11px] font-extrabold text-amber-700 bg-amber-100 px-2.5 py-1 rounded-lg opacity-70 cursor-not-allowed">
         <Lock size={11} /> Xem đáp án
       </button>
+    </div>
+  );
+}
+
+/**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — audio dùng chung cho MỌI câu hỏi
+ * Nghe (skill=LISTENING, không riêng SPEAKING), tách khỏi nút "?" gợi ý (nút gợi ý giờ đặt ở hàng
+ * tiêu đề câu hỏi, xem ListeningHintButton). Trước đây "Trắc nghiệm Voice"/"Nghe điền từ" đơn lẻ
+ * (không nhóm) hoàn toàn không phát audio cho học sinh (audio chỉ được render trong nhánh SPEAKING)
+ * — sửa cùng đợt vì cùng nằm trong luồng "Nghe" đang kiểm tra/xử lý, audio giờ luôn hiện 1 lần ở đây
+ * bất kể questionType, KHÔNG lặp lại trong nhánh SPEAKING nữa.
+ */
+function ListeningAudioBlock({ question, onEnded }: { question: ExerciseQuestionResponse; onEnded: () => void }) {
+  if (question.skill !== "LISTENING" || !question.audioUrl) return null;
+  return (
+    <div className="space-y-1.5">
+      <p className="text-[10px] text-muted font-bold uppercase">Audio bài nghe</p>
+      {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+      <audio controls src={question.audioUrl} className="w-full" onEnded={onEnded} />
+    </div>
+  );
+}
+
+/**
+ * Icon "?" gợi ý tapescript — khóa cho tới khi nghe hết audio đủ số lần cấu hình
+ * (progress.hintUnlocked). Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06: đặt ở góc
+ * phải hàng tiêu đề câu hỏi (song song với câu hỏi, không nằm dưới audio nữa), hiện dạng tooltip khi
+ * di chuột vào thay vì nút bấm có nhãn chữ.
+ */
+function ListeningHintButton({
+  attemptId,
+  questionId,
+  choices,
+  progress,
+  readOnly
+}: {
+  attemptId: number;
+  questionId: number;
+  choices: ExerciseQuestionChoiceResponse[];
+  progress: ListeningPlayProgressResponse | undefined;
+  readOnly: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [hint, setHint] = useState<ListeningHintResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — panel gợi ý trước đây `position:
+  // absolute` nằm bên trong vùng `overflow-y-auto` của modal làm bài (bao toàn bộ danh sách câu hỏi)
+  // nên câu hỏi ở gần cuối bị cắt mất phần tooltip tràn ra ngoài đáy vùng cuộn, không cách nào xem
+  // được. Render qua Portal ra document.body (mirror admin/src/components/ui/Select.tsx — cùng vấn đề
+  // dropdown bị overflow cha cắt), tự tính toạ độ `position: fixed` theo bounding rect của nút "?",
+  // tự lật lên trên khi không đủ chỗ bên dưới viewport.
+  const [placement, setPlacement] = useState<{ top?: number; bottom?: number; right: number; flipped: boolean } | null>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
+
+  const threshold = progress?.hintUnlockThreshold ?? 3;
+  const unlocked = progress?.hintUnlocked ?? false;
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — hiện thêm số lượt nghe hết CÒN
+  // THIẾU (không chỉ báo cố định "cần đủ N lần") để học sinh biết mình đã nghe được bao nhiêu, còn
+  // thiếu bao nhiêu lần nữa mới mở khóa.
+  const playCount = progress?.playCount ?? 0;
+  const remaining = Math.max(0, threshold - playCount);
+
+  const updatePlacement = () => {
+    const el = triggerRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    // Chỉ ước lượng chiều cao để QUYẾT ĐỊNH có lật hướng hay không — vị trí thật dùng CSS `bottom`
+    // khi lật (neo theo mép trên của nút) nên không cần đúng tuyệt đối chiều cao nội dung thật.
+    const estimatedHeight = unlocked ? 240 : 70;
+    const spaceBelow = window.innerHeight - r.bottom;
+    const flipped = spaceBelow < estimatedHeight && r.top > spaceBelow;
+    const right = Math.max(8, window.innerWidth - r.right);
+    setPlacement(flipped ? { bottom: window.innerHeight - r.top + 6, right, flipped } : { top: r.bottom + 6, right, flipped });
+  };
+
+  useLayoutEffect(() => {
+    if (open) updatePlacement();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, unlocked]);
+
+  useEffect(() => {
+    if (!open) return;
+    const reposition = () => updatePlacement();
+    window.addEventListener("scroll", reposition, true);
+    window.addEventListener("resize", reposition);
+    return () => {
+      window.removeEventListener("scroll", reposition, true);
+      window.removeEventListener("resize", reposition);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  const ensureLoaded = async () => {
+    if (!unlocked || hint || loading) return;
+    setLoading(true);
+    setError(null);
+    try {
+      setHint(await getListeningHint(attemptId, questionId));
+    } catch (err) {
+      setError(friendlyApiErrorMessage(err, "Chưa xem được gợi ý."));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOpen = () => {
+    if (readOnly) return;
+    setOpen(true);
+    ensureLoaded();
+  };
+
+  const correctChoiceContents = hint?.correctChoiceIds.length
+    ? choices.filter((c) => hint.correctChoiceIds.includes(c.id)).map((c) => `${c.choiceLabel}. ${c.content}`)
+    : [];
+
+  return (
+    <div ref={triggerRef} className="relative shrink-0" onMouseEnter={handleOpen} onMouseLeave={() => setOpen(false)}>
+      <button
+        type="button"
+        disabled={readOnly}
+        onClick={handleOpen}
+        aria-label="Gợi ý"
+        className="w-5 h-5 rounded-full border border-teal/50 bg-teal/10 text-teal-deep flex items-center justify-center disabled:opacity-60"
+      >
+        <HelpCircle size={12} />
+      </button>
+      {open &&
+        placement &&
+        createPortal(
+          !unlocked ? (
+            // Tooltip dạng bong bóng thoại — mũi nhọn trỏ về phía nút "?" (lên nếu tooltip nằm dưới,
+            // xuống nếu bị lật lên trên), màu theo đúng bảng màu hệ thống (teal-deep).
+            <div style={{ position: "fixed", top: placement.top, bottom: placement.bottom, right: placement.right }} className="z-[200]">
+              <div className={`absolute right-3 w-3 h-3 bg-teal-deep rotate-45 ${placement.flipped ? "-bottom-1.5" : "-top-1.5"}`} />
+              <div className="relative bg-teal-deep text-white text-[11px] font-bold rounded-lg px-3 py-2 max-w-[220px] shadow-lg">
+                Đã nghe {playCount}/{threshold} lần — còn {remaining} lần nữa để xem gợi ý
+              </div>
+            </div>
+          ) : (
+            <div
+              style={{ position: "fixed", top: placement.top, bottom: placement.bottom, right: placement.right }}
+              className="z-[200] w-72 max-w-[80vw] text-left text-xs bg-white border border-line/60 rounded-xl shadow-lg p-3 space-y-1.5"
+            >
+              {loading ? (
+                <p className="font-bold text-muted flex items-center gap-1.5">
+                  <Loader2 size={12} className="animate-spin" /> Đang tải gợi ý...
+                </p>
+              ) : error ? (
+                <p className="font-bold text-coral">{error}</p>
+              ) : hint ? (
+                <>
+                  {hint.transcript && (
+                    <p>
+                      <span className="font-bold">Transcript: </span>
+                      {hint.transcript}
+                    </p>
+                  )}
+                  {hint.correctAnswerText && (
+                    <p>
+                      <span className="font-bold">Đáp án đúng: </span>
+                      {hint.correctAnswerText}
+                    </p>
+                  )}
+                  {correctChoiceContents.length > 0 && (
+                    <p>
+                      <span className="font-bold">Đáp án đúng: </span>
+                      {correctChoiceContents.join(", ")}
+                    </p>
+                  )}
+                  {hint.explanation && (
+                    <p>
+                      <span className="font-bold">Giải thích: </span>
+                      {hint.explanation}
+                    </p>
+                  )}
+                </>
+              ) : null}
+            </div>
+          ),
+          document.body
+        )}
     </div>
   );
 }
@@ -813,14 +1047,27 @@ function SentenceBuildingBlock({
   );
 }
 
-/** V78 — "Đọc hiểu — lưới": 1 đoạn văn dùng chung + bảng N câu × 3 cột đáp án (radio từng dòng). */
+/**
+ * V78 — "Đọc hiểu — lưới": 1 đoạn văn dùng chung + bảng N câu × 3 cột đáp án (radio từng dòng).
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — cũng dùng cho nhóm "1 audio nhiều
+ * câu" của GV nước ngoài (ListeningGroupBuilder): phát audio dùng chung ở đầu khối, mỗi câu con rẽ
+ * nhánh theo questionType — MULTIPLE_CHOICE giữ nguyên dãy nút chọn đáp án như cũ, FILL_IN_BLANK
+ * thêm ô nhập text tự chấm, SPEAKING thêm control nộp audio (chấm tay).
+ */
 function GridQuestionGroup({
   block,
   answersByQuestion,
   readOnly,
   savingQuestionId,
   attemptsRemainingBeforeAnswer,
-  onChoiceToggle
+  onChoiceToggle,
+  textDraft,
+  onTextChange,
+  onTextBlur,
+  onAudioUpload,
+  attemptId,
+  listeningProgress,
+  onListeningEnded
 }: {
   block: Extract<RenderBlock, { type: "grid" }>;
   answersByQuestion: Map<number, StudentAnswerResponse>;
@@ -828,6 +1075,13 @@ function GridQuestionGroup({
   savingQuestionId: number | null;
   attemptsRemainingBeforeAnswer: number | null;
   onChoiceToggle: (questionId: number, choiceIds: number[]) => void;
+  textDraft: Record<number, string>;
+  onTextChange: (questionId: number, value: string) => void;
+  onTextBlur: (questionId: number) => void;
+  onAudioUpload: (questionId: number, file: File) => void;
+  attemptId: number | undefined;
+  listeningProgress: Map<string, ListeningPlayProgressResponse>;
+  onListeningEnded: (q: ExerciseQuestionResponse) => void;
 }) {
   // UC-24/A4, UC-27/A2: mọi câu trong 1 nhóm lưới đều thuộc cùng 1 lượt làm — chỉ cần 1 banner khóa chung.
   const anyLockedByRetake = block.questions.some((q) => {
@@ -837,6 +1091,10 @@ function GridQuestionGroup({
   return (
     <div className="border border-line/60 rounded-[16px] p-4 space-y-3">
       {block.referencePassage && <p className="text-xs text-ink whitespace-pre-wrap bg-sky-2 rounded-xl p-3">{block.referencePassage}</p>}
+      {block.audioUrl && (
+        // eslint-disable-next-line jsx-a11y/media-has-caption
+        <audio controls src={block.audioUrl} className="w-full" onEnded={() => onListeningEnded(block.questions[0])} />
+      )}
       <div className="divide-y divide-line/50">
         {block.questions.map((q) => {
           const answer = answersByQuestion.get(q.questionId);
@@ -844,35 +1102,91 @@ function GridQuestionGroup({
           const correctIds = new Set(answer?.correctChoiceIds ?? []);
           const showFeedback = answer != null && isAnswerRevealed(answer);
           const saving = savingQuestionId === q.questionId;
+          const isChoiceRow = CHOICE_TYPES.has(q.questionType) && q.choices.length > 0;
+          const isFillInBlankRow = q.questionType === "FILL_IN_BLANK";
+          const isSpeakingRow = q.questionType === "SPEAKING";
           return (
-            <div key={q.id} className="py-2.5 flex items-center gap-2 flex-wrap">
-              <span className="text-xs font-bold text-ink flex-1 min-w-[160px]">
-                {q.displayOrder}. {q.questionContent}
-              </span>
-              <div className="flex gap-1.5 shrink-0">
-                {q.choices.map((c) => {
-                  const isSelected = selected.has(c.id);
-                  const isCorrectChoice = correctIds.has(c.id);
-                  let cls = "border-line/70 bg-sky-2";
-                  if (showFeedback) {
-                    if (isCorrectChoice) cls = "border-teal bg-teal/10 text-teal-deep";
-                    else if (isSelected) cls = "border-coral bg-coral/10 text-coral";
-                  } else if (isSelected) {
-                    cls = "border-teal bg-teal/10 text-teal-deep";
-                  }
-                  return (
-                    <button
-                      key={c.id}
-                      type="button"
-                      disabled={readOnly || saving}
-                      onClick={() => onChoiceToggle(q.questionId, [c.id])}
-                      className={`w-8 h-8 rounded-lg border text-[11px] font-bold transition-colors disabled:cursor-default ${cls}`}
-                    >
-                      {c.choiceLabel}
-                    </button>
-                  );
-                })}
+            <div key={q.id} className="py-2.5 space-y-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-bold text-ink flex-1 min-w-[160px]">
+                  {q.displayOrder}. {q.questionContent}
+                </span>
+                {q.skill === "LISTENING" && attemptId != null && (
+                  <ListeningHintButton
+                    attemptId={attemptId}
+                    questionId={q.questionId}
+                    choices={q.choices}
+                    progress={listeningProgress.get(listeningKeyOf(q))}
+                    readOnly={readOnly || saving}
+                  />
+                )}
+                {isChoiceRow && (
+                  <div className="flex gap-1.5 shrink-0">
+                    {q.choices.map((c) => {
+                      const isSelected = selected.has(c.id);
+                      const isCorrectChoice = correctIds.has(c.id);
+                      let cls = "border-line/70 bg-sky-2";
+                      if (showFeedback) {
+                        if (isCorrectChoice) cls = "border-teal bg-teal/10 text-teal-deep";
+                        else if (isSelected) cls = "border-coral bg-coral/10 text-coral";
+                      } else if (isSelected) {
+                        cls = "border-teal bg-teal/10 text-teal-deep";
+                      }
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          disabled={readOnly || saving}
+                          onClick={() => onChoiceToggle(q.questionId, [c.id])}
+                          className={`w-8 h-8 rounded-lg border text-[11px] font-bold transition-colors disabled:cursor-default ${cls}`}
+                        >
+                          {c.choiceLabel}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
+
+              {isFillInBlankRow && (
+                <div className="space-y-1">
+                  <input
+                    value={textDraft[q.questionId] ?? answer?.answerText ?? ""}
+                    onChange={(e) => onTextChange(q.questionId, e.target.value)}
+                    onBlur={() => onTextBlur(q.questionId)}
+                    disabled={readOnly || saving}
+                    placeholder="Nhập câu trả lời..."
+                    className="w-full bg-sky-2 border border-line/70 text-xs p-2.5 rounded-xl focus:outline-none disabled:opacity-70"
+                  />
+                  {showFeedback && (
+                    <div className={`flex items-center gap-1.5 text-xs font-bold ${answer?.isCorrect ? "text-teal-deep" : "text-coral"}`}>
+                      {answer?.isCorrect ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
+                      {answer?.isCorrect ? "Chính xác" : `Đáp án đúng: ${answer?.correctAnswerText ?? "—"}`}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {isSpeakingRow && (
+                <div className="space-y-1">
+                  <input
+                    type="file"
+                    accept="audio/*"
+                    disabled={readOnly || saving}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) onAudioUpload(q.questionId, file);
+                      e.target.value = "";
+                    }}
+                    className="text-xs font-bold text-ink file:mr-2 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-teal file:text-white file:text-xs file:font-extrabold disabled:opacity-70"
+                  />
+                  {answer?.audioAnswerUrl && (
+                    // eslint-disable-next-line jsx-a11y/media-has-caption
+                    <audio controls src={answer.audioAnswerUrl} className="w-full mt-1" />
+                  )}
+                  <p className="text-[10px] text-muted italic">Câu này sẽ được giáo viên chấm tay sau khi nộp bài.</p>
+                </div>
+              )}
             </div>
           );
         })}

@@ -472,7 +472,8 @@ public class ExerciseAttemptService {
         return java.util.Optional.empty();
     }
 
-    private ExerciseAttempt attemptOwnedByActor(Long attemptId, Long actorUserId) {
+    /** Package-private (không private) — tái dùng ở ListeningHintService (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06). */
+    ExerciseAttempt attemptOwnedByActor(Long attemptId, Long actorUserId) {
         Student student = studentOrThrow(actorUserId);
         ExerciseAttempt attempt = exerciseAttemptRepository.findById(attemptId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lượt làm bài id=" + attemptId));
