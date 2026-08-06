@@ -131,6 +131,13 @@ public class ReviewVideoController {
         return ResponseEntity.ok(reviewVideoService.listConnectionQuestions(videoId, actor.userId()));
     }
 
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — xem Javadoc ReviewVideoService#getProgress. */
+    @GetMapping("/api/review-videos/{videoId}/progress")
+    public ResponseEntity<ReviewVideoProgressResponse> getProgress(@PathVariable Long videoId,
+                                                                      @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(reviewVideoService.getProgress(videoId, actor.userId()));
+    }
+
     @PostMapping("/api/review-videos/{videoId}/watch-sessions")
     public ResponseEntity<StartWatchSessionResponse> startWatchSession(@PathVariable Long videoId,
                                                                           @AuthenticationPrincipal AuthenticatedUser actor) {

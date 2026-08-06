@@ -19,4 +19,8 @@ public interface ReviewVideoAssignmentRepository extends JpaRepository<ReviewVid
     /** V82: quét job hết hạn — due_at NULL (không hạn nộp) tự động không khớp phép so sánh <=. */
     List<ReviewVideoAssignment> findByStatusAndDueAtLessThanEqualAndTeacherNotifiedAtIsNull(
             ReviewVideoAssignment.Status status, OffsetDateTime cutoff);
+
+    /** V92 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06): quét job nhắc Phụ huynh trước hạn nộp. */
+    List<ReviewVideoAssignment> findByStatusAndDueAtBetweenAndParentReminderSentAtIsNull(
+            ReviewVideoAssignment.Status status, OffsetDateTime from, OffsetDateTime to);
 }

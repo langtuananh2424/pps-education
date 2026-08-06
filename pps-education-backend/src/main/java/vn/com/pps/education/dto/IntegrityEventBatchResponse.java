@@ -5,5 +5,7 @@ public record IntegrityEventBatchResponse(
         int savedCount,
         int totalViolationCount,
         int totalViolationDurationSeconds,
-        boolean notifiedByThisBatch
+        boolean notifiedByThisBatch,
+        /** V92, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06: true = lượt làm bài vừa bị hệ thống dừng ép do vượt ngưỡng vi phạm (chỉ áp dụng attemptType=EXERCISE). */
+        boolean attemptStopped
 ) {}

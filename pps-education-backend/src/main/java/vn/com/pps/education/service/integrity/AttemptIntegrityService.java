@@ -14,6 +14,7 @@ import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.repository.AttemptIntegrityEventRepository;
 import vn.com.pps.education.repository.ClassTeacherRepository;
 import vn.com.pps.education.repository.ParentStudentRepository;
+import vn.com.pps.education.service.ExerciseAttemptService;
 import vn.com.pps.education.service.NotificationService;
 
 import java.time.Duration;
@@ -39,19 +40,22 @@ public class AttemptIntegrityService {
     private final NotificationService notificationService;
     private final ParentStudentRepository parentStudentRepository;
     private final ClassTeacherRepository classTeacherRepository;
+    private final ExerciseAttemptService exerciseAttemptService;
 
     public AttemptIntegrityService(List<AttemptIntegrityContextResolver> resolvers,
                                     AttemptIntegrityEventRepository attemptIntegrityEventRepository,
                                     IntegritySettings integritySettings,
                                     NotificationService notificationService,
                                     ParentStudentRepository parentStudentRepository,
-                                    ClassTeacherRepository classTeacherRepository) {
+                                    ClassTeacherRepository classTeacherRepository,
+                                    ExerciseAttemptService exerciseAttemptService) {
         this.resolvers = resolvers;
         this.attemptIntegrityEventRepository = attemptIntegrityEventRepository;
         this.integritySettings = integritySettings;
         this.notificationService = notificationService;
         this.parentStudentRepository = parentStudentRepository;
         this.classTeacherRepository = classTeacherRepository;
+        this.exerciseAttemptService = exerciseAttemptService;
     }
 
     /**
@@ -66,7 +70,7 @@ public class AttemptIntegrityService {
     public IntegrityEventBatchResponse recordEvents(AttemptType type, Long attemptId,
                                                       RecordIntegrityEventsRequest request, Long actorUserId) {
         if (!integritySettings.isMonitoringEnabled()) {
-            return new IntegrityEventBatchResponse(0, 0, 0, false);
+            return new IntegrityEventBatchResponse(0, 0, 0, false, false);
         }
         AttemptContext ctx = resolverFor(type).resolveForOwner(attemptId, actorUserId);
 
@@ -102,14 +106,23 @@ public class AttemptIntegrityService {
         boolean crossedThreshold = totalCount >= integritySettings.notifyViolationCountThreshold()
                 || totalDurationSeconds >= integritySettings.notifyCumulativeDurationSecondsThreshold();
         boolean notifyNow = !alreadyNotified && crossedThreshold && savedCount > 0;
+        boolean attemptStopped = false;
         if (notifyNow) {
             AttemptIntegrityEvent triggeringEvent = allEvents.get(allEvents.size() - 1);
             triggeringEvent.setNotifiedAt(now);
             attemptIntegrityEventRepository.save(triggeringEvent);
             notifyParentsAndTeachers(ctx, totalCount, totalDurationSeconds, actorUserId);
+
+            // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06: dừng bài ép khi vượt
+            // ngưỡng — chỉ áp dụng EXERCISE (Video REFLEX không có "đang làm dở" ở backend để dừng
+            // giữa chừng, xem Javadoc lớp này).
+            if (type == AttemptType.EXERCISE) {
+                exerciseAttemptService.forceStopByIntegrityViolation(attemptId);
+                attemptStopped = true;
+            }
         }
 
-        return new IntegrityEventBatchResponse(savedCount, totalCount, totalDurationSeconds, notifyNow);
+        return new IntegrityEventBatchResponse(savedCount, totalCount, totalDurationSeconds, notifyNow, attemptStopped);
     }
 
     @Transactional(readOnly = true)
