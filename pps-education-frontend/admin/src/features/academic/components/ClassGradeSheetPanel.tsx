@@ -347,7 +347,6 @@ function GradeSetupSection({
               classId={classId}
               setupId={setup.id}
               components={gradeComponents}
-              enrollments={enrollments}
               onImported={() => {
                 setSheetVersion((v) => v + 1);
                 showToast("Đã nhập điểm từ Excel thành công!");
