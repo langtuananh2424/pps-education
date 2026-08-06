@@ -146,6 +146,7 @@ export default function GradePublishDetail({ classId, classLabel, teacherName, o
           key={`${classId}-${selectedSetupId}-${sheetVersion}`}
           classId={classId}
           setupId={selectedSetupId}
+          scaleType={setups.find((s) => s.id === selectedSetupId)?.scaleType ?? "POINT_10"}
           components={components}
           enrollments={enrollments}
           onLoaded={(entries, results) => {

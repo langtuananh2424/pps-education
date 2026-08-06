@@ -170,6 +170,7 @@ export default function GradesPage() {
                   key={`view-${selectedClassId}-${selectedSetupId}`}
                   classId={selectedClassId}
                   setupId={selectedSetupId}
+                  scaleType={setups.find((s) => s.id === selectedSetupId)?.scaleType ?? "POINT_10"}
                   components={gradeComponents}
                   enrollments={enrollments}
                   readOnly

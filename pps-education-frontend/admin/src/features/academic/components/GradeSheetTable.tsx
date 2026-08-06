@@ -3,7 +3,6 @@ import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import {
   ClassEnrollmentResponse,
-  EnterGradeEvaluationResultRequest,
   GradeEditWindowResponse,
   GradeEntryResponse,
   GradeEvaluationComponentResponse,
@@ -17,7 +16,6 @@ import {
 } from "../api";
 import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
 import Badge, { BadgeVariant } from "@/components/ui/Badge";
-import Select from "@/components/ui/Select";
 
 const statusLabels: Record<GradeStatus, string> = {
   DRAFT: "Nháp",
@@ -34,16 +32,20 @@ const statusVariants: Record<GradeStatus, BadgeVariant> = {
 /** Thứ tự "cần chú ý nhất trước" khi 1 dòng có nhiều bản ghi (nhiều đầu điểm + Overall) ở trạng thái khác nhau. */
 const statusPriority: GradeStatus[] = ["DRAFT", "REJECTED", "SUBMITTED", "OFFICIAL"];
 
-const scaleLabels: Record<GradeEvaluationResultResponse["scaleType"], string> = {
-  NUMERIC: "Số (0–10)",
-  PERCENTAGE: "Phần trăm (%)",
-  BAND: "Thang chữ (Band)"
-};
 const sourceLabels: Record<GradeEvaluationResultResponse["source"], string> = { MANUAL: "NHẬP TAY", EXCEL_IMPORT: "EXCEL" };
+
+/** V97: setup đã có 1 thang điểm cố định (POINT_10/PERCENT/IELTS) — bỏ cột "Thang" cho GV chọn tay theo dòng, tự suy ra scaleType lưu vào GradeEvaluationResult theo đúng thang của setup. */
+const resultScaleTypeBySetupScale: Record<"POINT_10" | "PERCENT" | "IELTS", GradeEvaluationResultResponse["scaleType"]> = {
+  POINT_10: "NUMERIC",
+  PERCENT: "PERCENTAGE",
+  IELTS: "BAND"
+};
 
 interface GradeSheetTableProps {
   classId: number;
   setupId: number;
+  /** Thang điểm của setup (V97) — dùng để tự suy ra scaleType lưu vào Overall, không cho chọn tay theo dòng nữa. */
+  scaleType: "POINT_10" | "PERCENT" | "IELTS";
   components: GradeEvaluationComponentResponse[];
   enrollments: ClassEnrollmentResponse[];
   /** Cho khối Công bố điểm (UC-20) đọc lại danh sách entries/results vừa tải, khỏi phải fetch lần 2. */
@@ -60,7 +62,7 @@ interface GradeSheetTableProps {
  * trừ actor có quyền academic.grade.edit.override. Khoá ô nhập (read-only) ngay ở FE
  * cho SUBMITTED/OFFICIAL khi không có quyền override.
  */
-export default function GradeSheetTable({ classId, setupId, components, enrollments, onLoaded, readOnly = false }: GradeSheetTableProps) {
+export default function GradeSheetTable({ classId, setupId, scaleType, components, enrollments, onLoaded, readOnly = false }: GradeSheetTableProps) {
   const { hasPermission } = useApp();
   const canOverride = hasPermission("academic.grade.edit.override");
   const [entriesByStudent, setEntriesByStudent] = useState<Map<number, Map<number, GradeEntryResponse>>>(new Map());
@@ -71,7 +73,6 @@ export default function GradeSheetTable({ classId, setupId, components, enrollme
 
   const [scoreInput, setScoreInput] = useState<Record<string, string>>({});
   const [overallInput, setOverallInput] = useState<Record<number, string>>({});
-  const [scaleInput, setScaleInput] = useState<Record<number, string>>({});
   const [levelInput, setLevelInput] = useState<Record<number, string>>({});
   const [commentInput, setCommentInput] = useState<Record<number, string>>({});
   const [noteInput, setNoteInput] = useState<Record<number, string>>({});
@@ -158,14 +159,13 @@ export default function GradeSheetTable({ classId, setupId, components, enrollme
     const existing = resultsByStudent.get(studentId);
     if (
       overallInput[studentId] === undefined &&
-      scaleInput[studentId] === undefined &&
       levelInput[studentId] === undefined &&
       commentInput[studentId] === undefined &&
       noteInput[studentId] === undefined
     )
       return;
     const overallRaw = overallInput[studentId] ?? (existing ? String(existing.overallScore ?? "") : "");
-    const scale = (scaleInput[studentId] ?? existing?.scaleType ?? "NUMERIC") as EnterGradeEvaluationResultRequest["scaleType"];
+    const scale = resultScaleTypeBySetupScale[scaleType];
     const level = levelInput[studentId] ?? existing?.level ?? "";
     const comment = commentInput[studentId] ?? existing?.comment ?? "";
     const note = noteInput[studentId] ?? existing?.note ?? "";
@@ -190,11 +190,6 @@ export default function GradeSheetTable({ classId, setupId, components, enrollme
         return next;
       });
       setOverallInput((prev) => {
-        const next = { ...prev };
-        delete next[studentId];
-        return next;
-      });
-      setScaleInput((prev) => {
         const next = { ...prev };
         delete next[studentId];
         return next;
@@ -246,7 +241,6 @@ export default function GradeSheetTable({ classId, setupId, components, enrollme
                 </Th>
               ))}
               <Th className="text-center">Overall</Th>
-              <Th className="text-center">Thang</Th>
               <Th className="text-center">Level</Th>
               <Th className="text-center whitespace-nowrap">Nhận xét</Th>
               <Th className="text-center whitespace-nowrap">Ghi chú</Th>
@@ -257,7 +251,7 @@ export default function GradeSheetTable({ classId, setupId, components, enrollme
           <tbody className="divide-y divide-slate-100">
             {activeStudents.length === 0 ? (
               <tr>
-                <td colSpan={components.length + 8} className="px-6 py-12 text-center text-xs text-slate-400 italic">
+                <td colSpan={components.length + 7} className="px-6 py-12 text-center text-xs text-slate-400 italic">
                   Lớp chưa có học sinh nào đang ghi danh.
                 </td>
               </tr>
@@ -321,24 +315,6 @@ export default function GradeSheetTable({ classId, setupId, components, enrollme
                           />
                           {result?.status === "REJECTED" && <span className="text-[9px] font-bold text-rose-600 uppercase">Bị từ chối</span>}
                         </div>
-                      )}
-                    </Td>
-                    <Td className="text-center">
-                      {readOnly || resultLocked ? (
-                        <span className="text-[11px] font-semibold text-slate-700">{scaleLabels[result?.scaleType ?? "NUMERIC"]}</span>
-                      ) : (
-                        <Select
-                          value={scaleInput[en.studentId] ?? result?.scaleType ?? "NUMERIC"}
-                          onChange={(e) => setScaleInput((prev) => ({ ...prev, [en.studentId]: e.target.value }))}
-                          onBlur={() => handleBlurResult(en.studentId)}
-                          className="bg-slate-50 border rounded py-1 px-1.5 text-[11px] font-semibold focus:outline-none"
-                        >
-                          {Object.entries(scaleLabels).map(([value, label]) => (
-                            <option key={value} value={value}>
-                              {label}
-                            </option>
-                          ))}
-                        </Select>
                       )}
                     </Td>
                     <Td className="text-center">

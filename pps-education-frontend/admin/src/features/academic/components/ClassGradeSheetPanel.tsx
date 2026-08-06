@@ -323,6 +323,7 @@ function GradeSetupSection({
             key={`${classId}-${setup.id}-${sheetVersion}`}
             classId={classId}
             setupId={setup.id}
+            scaleType={setup.scaleType}
             components={gradeComponents}
             enrollments={enrollments}
             readOnly={readOnly}
