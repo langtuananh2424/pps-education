@@ -107,15 +107,23 @@ public abstract class AbstractIntegrationTest {
     }
 
     /**
-     * Chỉ chạy khi test này đã thật sự COMMIT dữ liệu (qua commitCurrentTransactionAndStartNew)
-     * — đa số test không gọi hàm đó, rollback mặc định của @Transactional đã đủ, không cần
-     * TRUNCATE (tốn thời gian) sau MỌI test. Phải end() giao dịch còn dở (nếu có) TRƯỚC khi
-     * TRUNCATE — TRUNCATE trong PostgreSQL vẫn transactional, nếu chạy trong giao dịch mà
-     * Spring rollback sau đó thì lệnh dọn dẹp bị rollback theo, coi như không làm gì.
+     * Chạy khi test này đã thật sự COMMIT dữ liệu — qua commitCurrentTransactionAndStartNew
+     * (cờ committedDuringTest), HOẶC vì bản thân test chạy propagation NOT_SUPPORTED/không có
+     * giao dịch test nào bao ngoài (TestTransaction.isActive()=false ngay từ đầu @AfterEach —
+     * phát hiện thực tế 2026-08-06: ExerciseAuthoringTest.deliverToClass_V70_boSung_... dùng
+     * @Transactional(NOT_SUPPORTED) để REQUIRES_NEW nhìn thấy fixture, khiến MỌI câu lệnh của
+     * test đó auto-commit thẳng vào container dùng chung, nhưng committedDuringTest vẫn false
+     * vì test không gọi commitCurrentTransactionAndStartNew() — dọn dẹp bị bỏ qua, rò rỉ sang
+     * mọi test class chạy sau, gây duplicate key ở uq_exercise_assignments_active_target và
+     * uq_review_video_assignments_active_target). Đa số test @Transactional bình thường (không
+     * rơi vào 1 trong 2 trường hợp trên) rollback mặc định là đủ, không cần TRUNCATE (tốn thời
+     * gian) sau MỌI test. Phải end() giao dịch còn dở (nếu có) TRƯỚC khi TRUNCATE — TRUNCATE
+     * trong PostgreSQL vẫn transactional, nếu chạy trong giao dịch mà Spring rollback sau đó thì
+     * lệnh dọn dẹp bị rollback theo, coi như không làm gì.
      */
     @AfterEach
     void cleanupCommittedDataIfAny() {
-        if (!committedDuringTest) {
+        if (!committedDuringTest && TestTransaction.isActive()) {
             return;
         }
         committedDuringTest = false;

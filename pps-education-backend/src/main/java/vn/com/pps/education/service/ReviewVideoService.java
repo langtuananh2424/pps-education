@@ -75,12 +75,12 @@ import vn.com.pps.education.repository.UserRepository;
 import vn.com.pps.education.service.integrity.AttemptIntegrityService;
 
 import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -333,6 +333,10 @@ public class ReviewVideoService {
      */
     @Transactional
     public ReviewVideoAssignment deliverToClass(Long setId, Long classId, OffsetDateTime dueAt, Long actorUserId) {
+        // Cắt về độ chính xác microsecond + so theo instant thực (không so cả offset) NGAY từ đầu —
+        // xem giải thích chi tiết ở ExerciseService#deliverToClass/sameDueAt() (bug thật, tái hiện
+        // được cả khi chạy 1 mình với DB sạch, KHÔNG phải lỗi rò rỉ dữ liệu giữa các test).
+        dueAt = dueAt == null ? null : dueAt.truncatedTo(ChronoUnit.MICROS);
         ReviewVideoSet set = getSetOrThrow(setId);
         if (set.getStatus() != ReviewVideoSet.Status.PUBLISHED) {
             throw new IllegalArgumentException("Bộ video id=" + setId + " chưa Publish — không giao lớp được.");
@@ -347,9 +351,10 @@ public class ReviewVideoService {
         }
         User actor = getUserOrThrow(actorUserId);
 
+        OffsetDateTime finalDueAt = dueAt;
         List<ReviewVideoAssignment> activeForSetAndClass = reviewVideoAssignmentRepository
                 .findByReviewVideoSetIdAndSchoolClassIdAndStatus(setId, classId, ReviewVideoAssignment.Status.ACTIVE);
-        var sameSession = activeForSetAndClass.stream().filter(a -> Objects.equals(a.getDueAt(), dueAt)).findFirst();
+        var sameSession = activeForSetAndClass.stream().filter(a -> sameDueAt(a.getDueAt(), finalDueAt)).findFirst();
         if (sameSession.isPresent()) {
             return sameSession.get();
         }
@@ -362,7 +367,7 @@ public class ReviewVideoService {
                 a.setReviewVideoSet(set);
                 a.setSchoolClass(schoolClass);
                 a.setAssignedBy(actor);
-                a.setDueAt(dueAt);
+                a.setDueAt(finalDueAt);
                 return reviewVideoAssignmentRepository.saveAndFlush(a);
             });
         } catch (DataIntegrityViolationException e) {
@@ -373,12 +378,25 @@ public class ReviewVideoService {
             // dịch ngoài không bị ảnh hưởng — đọc lại bản ghi đã thắng, KHÔNG tạo mới/không báo lại.
             return reviewVideoAssignmentRepository
                     .findByReviewVideoSetIdAndSchoolClassIdAndStatus(set.getId(), schoolClass.getId(), ReviewVideoAssignment.Status.ACTIVE)
-                    .stream().filter(a -> Objects.equals(a.getDueAt(), dueAt)).findFirst()
+                    .stream().filter(a -> sameDueAt(a.getDueAt(), finalDueAt)).findFirst()
                     .orElseThrow(() -> e);
         }
 
         notifyAssignedStudents(schoolClass, set, assignment);
         return assignment;
+    }
+
+    /**
+     * So 2 due_at theo INSTANT thực (isEqual), không so cả offset — TIMESTAMPTZ round-trip qua
+     * JDBC trả về offset UTC "Z" trong khi OffsetDateTime.now() ở tầng gọi mang offset hệ thống
+     * (VD "+07:00"); Objects.equals() coi 2 giá trị cùng 1 thời điểm nhưng khác offset là KHÁC
+     * nhau, khiến sameSession không bao giờ khớp dù buổi trùng nhau. Mirror ExerciseService.
+     */
+    private static boolean sameDueAt(OffsetDateTime a, OffsetDateTime b) {
+        if (a == null || b == null) {
+            return a == b;
+        }
+        return a.isEqual(b);
     }
 
     /** Hủy 1 bản giao (VD Giáo viên đổi lựa chọn "BTVN buổi sau" ở Nhận xét khi comment còn DRAFT — V65). */

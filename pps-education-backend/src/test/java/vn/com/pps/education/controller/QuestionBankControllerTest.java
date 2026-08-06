@@ -74,8 +74,16 @@ class QuestionBankControllerTest extends AbstractControllerTest {
                 .andExpect(jsonPath("$.message").value("Tài khoản không có quyền thực hiện thao tác này."));
     }
 
+    /**
+     * V76 (2026-08-04, đã xác nhận với người dùng): Giáo viên soạn/sửa/
+     * import câu hỏi qua Đề (lms.exam-question.*), không còn quản lý Ngân
+     * hàng câu hỏi độc lập — chỉ HEAD_ACADEMIC/SYS_ADMIN/SUPER_ADMIN mới
+     * còn quyền lms.question-bank.*. Test này trước V76 kỳ vọng 200,
+     * nay phải là 403 (sửa 2026-08-06 — kỳ vọng cũ không còn khớp business
+     * rule đã xác nhận).
+     */
     @Test
-    void createBank_allowedForTeacher_returns200() throws Exception {
+    void createBank_deniedForTeacherAfterV76_returns403() throws Exception {
         var teacher = userWithRole("teacher.access", "TEACHER");
 
         mockMvc.perform(post("/api/question-banks")
@@ -83,7 +91,7 @@ class QuestionBankControllerTest extends AbstractControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
                                 new CreateQuestionBankRequest("QB-" + SEQ.incrementAndGet(), "Ngân hàng test", null, null, null))))
-                .andExpect(status().isOk());
+                .andExpect(status().isForbidden());
     }
 
     @Test
@@ -137,8 +145,13 @@ class QuestionBankControllerTest extends AbstractControllerTest {
                 .andExpect(jsonPath("$.message").value("Tài khoản không có quyền thực hiện thao tác này."));
     }
 
+    /**
+     * V76 (2026-08-04, đã xác nhận với người dùng): Giáo viên không còn
+     * lms.question-bank.view — chỉ HEAD_ACADEMIC/SYS_ADMIN/SUPER_ADMIN.
+     * Test này trước V76 kỳ vọng 200, nay phải là 403 (sửa 2026-08-06).
+     */
     @Test
-    void getQuestion_allowedForTeacher_returns200() throws Exception {
+    void getQuestion_deniedForTeacherAfterV76_returns403() throws Exception {
         var teacher = userWithRole("teacher.getq2", "TEACHER");
         var bank = questionBankService.createBank(
                 new CreateQuestionBankRequest("QB-" + SEQ.incrementAndGet(), "Ngân hàng test", null, null, null), teacher.getId());
@@ -149,6 +162,6 @@ class QuestionBankControllerTest extends AbstractControllerTest {
 
         mockMvc.perform(get("/api/questions/" + question.id())
                         .header("Authorization", bearerToken(teacher, "TEACHER")))
-                .andExpect(status().isOk());
+                .andExpect(status().isForbidden());
     }
 }
