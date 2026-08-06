@@ -1020,8 +1020,13 @@ export interface StudentAnswerRow {
   explanation: string | null;
 }
 
+/**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — dùng endpoint riêng cho Giáo
+ * viên (/answers/for-grading, không đòi hỏi actor có hồ sơ học sinh), KHÁC endpoint học sinh tự
+ * xem lại bài của chính mình (/answers) bên app user — 2 endpoint tách để không đụng rào sở hữu.
+ */
 export function getAttemptAnswers(attemptId: number): Promise<StudentAnswerRow[]> {
-  return apiRequest<StudentAnswerRow[]>(`/attempts/${attemptId}/answers`);
+  return apiRequest<StudentAnswerRow[]>(`/attempts/${attemptId}/answers/for-grading`);
 }
 
 /**
