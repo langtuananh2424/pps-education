@@ -39,7 +39,7 @@ import vn.com.pps.education.exception.GradeAlreadyPublishedException;
 import vn.com.pps.education.exception.GradeComponentLockedException;
 import vn.com.pps.education.exception.GradeComponentNotDeletableException;
 import vn.com.pps.education.exception.GradeComponentSetupNotDeletableException;
-import vn.com.pps.education.exception.GradeComponentSetupWeightExceededException;
+import vn.com.pps.education.exception.GradeComponentSetupScaleMismatchException;
 import vn.com.pps.education.exception.GradeNotEditableException;
 import vn.com.pps.education.exception.InvalidGradeScoreException;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
@@ -207,7 +207,7 @@ public class GradeService {
         return setups.stream().map(this::toResponse).toList();
     }
 
-    /** Cấu hình 1 (lớp, kỳ học, Giữa/Cuối kỳ). Tổng weightInFinal của các setup cùng (class, academicTerm) không được vượt 100. */
+    /** V97: không còn tính OVERALL cả kỳ từ Giữa+Cuối kỳ (bỏ weightInFinal) — mỗi setup tự chọn 1 thang điểm (POINT_10/PERCENT/IELTS), ràng buộc maxScore mọi component trong setup. */
     @Transactional
     public GradeComponentSetupResponse createGradeComponentSetup(Long classId, CreateGradeComponentSetupRequest request, Long actorUserId) {
         SchoolClass schoolClass = getClassOrThrow(classId);
@@ -215,17 +215,13 @@ public class GradeService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy kỳ học id=" + request.academicTermId()));
         User actor = getUserOrThrow(actorUserId);
         GradeComponentSetup.EvaluationType evaluationType = GradeComponentSetup.EvaluationType.valueOf(request.evaluationType());
-
-        BigDecimal weight = request.weightInFinal() == null ? BigDecimal.ZERO : request.weightInFinal();
-        if (request.weightInFinal() != null) {
-            requireWeightWithinLimit(classId, request.academicTermId(), null, weight);
-        }
+        GradeComponentSetup.ScaleType scaleType = GradeComponentSetup.ScaleType.valueOf(request.scaleType());
 
         GradeComponentSetup setup = new GradeComponentSetup();
         setup.setSchoolClass(schoolClass);
         setup.setAcademicTerm(academicTerm);
         setup.setEvaluationType(evaluationType);
-        setup.setWeightInFinal(request.weightInFinal());
+        setup.setScaleType(scaleType);
         setup.setRosterAsOfDate(request.rosterAsOfDate());
         setup.setCommentRequired(request.commentRequired());
         setup.setCreatedBy(actor);
@@ -241,11 +237,6 @@ public class GradeService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy setup sổ điểm id=" + id));
         User actor = getUserOrThrow(actorUserId);
 
-        if (request.weightInFinal() != null) {
-            requireWeightWithinLimit(setup.getSchoolClass().getId(), setup.getAcademicTerm().getId(), id, request.weightInFinal());
-        }
-
-        setup.setWeightInFinal(request.weightInFinal());
         setup.setRosterAsOfDate(request.rosterAsOfDate());
         setup.setCommentRequired(request.commentRequired());
         setup.setUpdatedAt(OffsetDateTime.now());
@@ -255,14 +246,21 @@ public class GradeService {
         return toResponse(setup);
     }
 
-    private void requireWeightWithinLimit(Long classId, Long academicTermId, Long excludeSetupId, BigDecimal newWeight) {
-        BigDecimal othersTotal = gradeComponentSetupRepository.findBySchoolClassIdAndAcademicTermId(classId, academicTermId).stream()
-                .filter(s -> excludeSetupId == null || !s.getId().equals(excludeSetupId))
-                .map(s -> s.getWeightInFinal() == null ? BigDecimal.ZERO : s.getWeightInFinal())
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        if (othersTotal.add(newWeight).compareTo(new BigDecimal("100")) > 0) {
-            throw new GradeComponentSetupWeightExceededException(
-                    "Tổng weightInFinal các setup của (lớp id=" + classId + ", kỳ học id=" + academicTermId + ") sẽ vượt quá 100.");
+    /** V97: maxScore của mọi component trong setup phải khớp cận trên thang điểm của setup (POINT_10=10, PERCENT=100, IELTS=9 — band, cho phép nhập lẻ ở grade_entries.score). */
+    private BigDecimal expectedMaxScore(GradeComponentSetup.ScaleType scaleType) {
+        return switch (scaleType) {
+            case POINT_10 -> new BigDecimal("10.00");
+            case PERCENT -> new BigDecimal("100.00");
+            case IELTS -> new BigDecimal("9.00");
+        };
+    }
+
+    private void requireMaxScoreMatchesScale(GradeComponentSetup setup, BigDecimal maxScore) {
+        BigDecimal expected = expectedMaxScore(setup.getScaleType());
+        if (maxScore.compareTo(expected) != 0) {
+            throw new GradeComponentSetupScaleMismatchException(
+                    "maxScore=" + maxScore + " không khớp thang điểm " + setup.getScaleType()
+                            + " của setup id=" + setup.getId() + " (yêu cầu=" + expected + ").");
         }
     }
 
@@ -334,9 +332,9 @@ public class GradeService {
         }
         component.setCode(GradeEvaluationComponent.ComponentCode.valueOf(request.code()));
         component.setName(request.name());
-        if (request.maxScore() != null) {
-            component.setMaxScore(request.maxScore());
-        }
+        BigDecimal maxScore = request.maxScore() == null ? expectedMaxScore(setup.getScaleType()) : request.maxScore();
+        requireMaxScoreMatchesScale(setup, maxScore);
+        component.setMaxScore(maxScore);
         component.setPassThreshold(request.passThreshold());
         if (request.scaleType() != null) {
             component.setScaleType(GradeEvaluationComponent.ScaleType.valueOf(request.scaleType()));
@@ -360,6 +358,9 @@ public class GradeService {
         if (maxScoreChanged && gradeEntryRepository.countByGradeComponentId(id) > 0) {
             throw new GradeComponentLockedException(
                     "Thành phần điểm id=" + id + " đã có điểm nhập — không được sửa maxScore.");
+        }
+        if (maxScoreChanged) {
+            requireMaxScoreMatchesScale(component.getGradeComponentSetup(), newMaxScore);
         }
 
         component.setName(request.name());
@@ -1032,7 +1033,7 @@ public class GradeService {
         Map<String, Object> snapshot = new LinkedHashMap<>();
         snapshot.put("academicTermId", setup.getAcademicTerm().getId());
         snapshot.put("evaluationType", setup.getEvaluationType().name());
-        snapshot.put("weightInFinal", setup.getWeightInFinal());
+        snapshot.put("scaleType", setup.getScaleType().name());
         snapshot.put("rosterAsOfDate", setup.getRosterAsOfDate());
         history.setDetails(snapshot);
         gradeComponentSetupHistoryRepository.save(history);
@@ -1067,7 +1068,7 @@ public class GradeService {
     private GradeComponentSetupResponse toResponse(GradeComponentSetup s) {
         return new GradeComponentSetupResponse(
                 s.getId(), s.getSchoolClass().getId(), s.getAcademicTerm().getId(), s.getAcademicTerm().getName(),
-                s.getEvaluationType().name(), s.getWeightInFinal(), s.getRosterAsOfDate(), s.isCommentRequired());
+                s.getEvaluationType().name(), s.getScaleType().name(), s.getRosterAsOfDate(), s.isCommentRequired());
     }
 
     private GradeEvaluationComponentResponse toResponse(GradeEvaluationComponent c) {

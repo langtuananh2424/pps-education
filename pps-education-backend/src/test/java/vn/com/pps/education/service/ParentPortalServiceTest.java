@@ -214,7 +214,7 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
     @Test
     void listGrades_UC25_A1_onlyOfficialGradesVisible() {
         GradeComponentSetupResponse setup = gradeService.createGradeComponentSetup(schoolClass.id(),
-                new CreateGradeComponentSetupRequest(academicTerm.getId(), "MID_TERM", new BigDecimal("50"), LocalDate.now(), false),
+                new CreateGradeComponentSetupRequest(academicTerm.getId(), "MID_TERM", "POINT_10", LocalDate.now(), false),
                 headAcademic.getId());
         GradeEvaluationComponentResponse component = gradeService.addGradeEvaluationComponent(setup.id(),
                 new CreateGradeEvaluationComponentRequest(null, null, "SPEAKING", "Nói", new BigDecimal("10.00"), null, null, 1),
@@ -241,7 +241,7 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
     @Test
     void getEvaluationResult_UC25_UC53_MainFlow_returnsOfficialOverallLevel() {
         GradeComponentSetupResponse setup = gradeService.createGradeComponentSetup(schoolClass.id(),
-                new CreateGradeComponentSetupRequest(academicTerm.getId(), "MID_TERM", new BigDecimal("50"), LocalDate.now(), false),
+                new CreateGradeComponentSetupRequest(academicTerm.getId(), "MID_TERM", "POINT_10", LocalDate.now(), false),
                 headAcademic.getId());
         var enteredResult = gradeService.enterEvaluationResult(schoolClass.id(), student.getId(), setup.id(),
                 new EnterGradeEvaluationResultRequest(new BigDecimal("7.5"), "BAND", "B2", null, null), teacher.getId());
@@ -259,7 +259,7 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
     @Test
     void getEvaluationResult_UC25_A1_rejectsWhenResultNotPublishedYet() {
         GradeComponentSetupResponse setup = gradeService.createGradeComponentSetup(schoolClass.id(),
-                new CreateGradeComponentSetupRequest(academicTerm.getId(), "MID_TERM", new BigDecimal("50"), LocalDate.now(), false),
+                new CreateGradeComponentSetupRequest(academicTerm.getId(), "MID_TERM", "POINT_10", LocalDate.now(), false),
                 headAcademic.getId());
         gradeService.enterEvaluationResult(schoolClass.id(), student.getId(), setup.id(),
                 new EnterGradeEvaluationResultRequest(new BigDecimal("7.5"), "BAND", "B2", null, null), teacher.getId());

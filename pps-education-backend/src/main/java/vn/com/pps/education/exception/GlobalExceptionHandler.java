@@ -74,7 +74,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler({CurriculumUpdateConfirmationRequiredException.class, ApprovalAlreadyDecidedException.class,
-            GradeComponentSetupWeightExceededException.class, GradeComponentLockedException.class,
+            GradeComponentSetupScaleMismatchException.class, GradeComponentLockedException.class,
             GradeAlreadyPublishedException.class})
     public ResponseEntity<Object> handleConfirmationRequired(RuntimeException ex) {
         return error(HttpStatus.CONFLICT, ex.getMessage());

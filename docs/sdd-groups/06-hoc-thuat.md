@@ -850,7 +850,7 @@ erDiagram
         BIGINT class_id FK
         BIGINT academic_term_id FK
         VARCHAR evaluation_type
-        DECIMAL weight_in_final
+        VARCHAR scale_type
         DATE roster_as_of_date
         BOOLEAN comment_required
         BIGINT created_by FK
@@ -929,10 +929,20 @@ a)  Bảng `grade_component_setups` --- Cấu hình sổ điểm (thay
 
   evaluation_type    VARCHAR(20)      NOT NULL            MID_TERM / END_TERM
 
-  weight_in_final    DECIMAL(5,2)     NULL                Trọng số trong điểm
-                                                            tổng kết (VD
-                                                            MID_TERM=30,
-                                                            END_TERM=70)
+  scale_type         VARCHAR(20)      NOT NULL            Thang điểm áp dụng
+                                                            cho mọi thành phần
+                                                            điểm trong setup —
+                                                            POINT_10 (0-10) /
+                                                            PERCENT (0-100) /
+                                                            IELTS (band
+                                                            1.0-9.0, cho phép
+                                                            nhập lẻ). V97, thay
+                                                            weight_in_final —
+                                                            hệ thống KHÔNG tính
+                                                            OVERALL cả kỳ từ
+                                                            Giữa+Cuối kỳ, hiển
+                                                            thị riêng Overall
+                                                            mỗi setup.
 
   roster_as_of_date  DATE             NOT NULL            Ngày chốt danh
                                                             sách HS —
@@ -956,10 +966,13 @@ Có `grade_component_setups_history`. `UNIQUE(class_id, academic_term_id,
 evaluation_type)` — 1 lớp chỉ có tối đa 1 setup MID_TERM + 1 setup
 END_TERM cho mỗi kỳ học.
 
-*Ràng buộc nghiệp vụ (validate ở service, không SQL):* tổng
-`weight_in_final` của các setup cùng `(class_id, academic_term_id)` phải
-≤ 100 — mirror rule cũ của `grade_periods.weight_in_final` nhưng đổi
-phạm vi từ "theo curriculum" sang "theo (lớp, kỳ)".
+*Ràng buộc nghiệp vụ (validate ở service, không SQL, V97):* `max_score`
+của mọi `grade_evaluation_components` thuộc 1 setup phải khớp cận trên
+`scale_type` của setup đó — POINT_10 → 10, PERCENT → 100, IELTS → 9
+(`GradeService#requireMaxScoreMatchesScale`, ném
+`GradeComponentSetupScaleMismatchException` nếu sai). `scale_type` không
+sửa được sau khi tạo setup (component đã tạo theo maxScore của thang cũ,
+đổi thang sẽ phá tính nhất quán).
 
 *Danh sách học sinh (roster):* KHÔNG phải bảng snapshot riêng — tính
 theo `class_enrollments` lọc `enrolled_date <= roster_as_of_date AND

@@ -142,7 +142,7 @@ export interface GradeComponentSetupResponse {
   academicTermId: number;
   academicTermName: string;
   evaluationType: "MID_TERM" | "END_TERM";
-  weightInFinal: number | null;
+  scaleType: "POINT_10" | "PERCENT" | "IELTS";
   rosterAsOfDate: string;
   commentRequired: boolean;
 }

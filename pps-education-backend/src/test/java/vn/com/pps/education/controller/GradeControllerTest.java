@@ -19,7 +19,6 @@ import vn.com.pps.education.service.ClassService;
 import vn.com.pps.education.service.CurriculumService;
 import vn.com.pps.education.support.AbstractControllerTest;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -96,7 +95,7 @@ class GradeControllerTest extends AbstractControllerTest {
                         .header("Authorization", bearerToken(teacher, "TEACHER"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
-                                new CreateGradeComponentSetupRequest(academicTermId, "MID_TERM", new BigDecimal("50"), LocalDate.now(), false))))
+                                new CreateGradeComponentSetupRequest(academicTermId, "MID_TERM", "POINT_10", LocalDate.now(), false))))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.message").value("Tài khoản không có quyền thực hiện thao tác này."));
     }
@@ -109,7 +108,7 @@ class GradeControllerTest extends AbstractControllerTest {
                         .header("Authorization", bearerToken(headAcademic, "HEAD_ACADEMIC"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
-                                new CreateGradeComponentSetupRequest(academicTermId, "MID_TERM", new BigDecimal("50"), LocalDate.now(), false))))
+                                new CreateGradeComponentSetupRequest(academicTermId, "MID_TERM", "POINT_10", LocalDate.now(), false))))
                 .andExpect(status().isOk());
     }
 }

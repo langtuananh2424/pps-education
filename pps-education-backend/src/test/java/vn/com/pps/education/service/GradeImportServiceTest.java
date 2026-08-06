@@ -124,7 +124,7 @@ class GradeImportServiceTest extends AbstractIntegrationTest {
                 new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now()), headAcademic.getId());
 
         gradeSetup = gradeService.createGradeComponentSetup(schoolClass.id(),
-                new CreateGradeComponentSetupRequest(academicTerm.getId(), "MID_TERM", new BigDecimal("50"), LocalDate.now(), false),
+                new CreateGradeComponentSetupRequest(academicTerm.getId(), "MID_TERM", "POINT_10", LocalDate.now(), false),
                 headAcademic.getId());
         speaking = gradeService.addGradeEvaluationComponent(gradeSetup.id(),
                 new CreateGradeEvaluationComponentRequest(null, null, "SPEAKING", "Nói", new BigDecimal("10.00"), null, null, 1),
