@@ -354,12 +354,19 @@ public class ExerciseService {
         }
 
         OffsetDateTime finalDueAt = dueAt;
-        var sameSession = exerciseAssignmentRepository
-                .findByExerciseIdAndSchoolClassIdAndStatus(exerciseId, classId, ExerciseAssignment.Status.ACTIVE)
-                .stream().filter(a -> sameDueAt(a.getDueAt(), finalDueAt)).findFirst();
+        List<ExerciseAssignment> activeForExerciseAndClass = exerciseAssignmentRepository
+                .findByExerciseIdAndSchoolClassIdAndStatus(exerciseId, classId, ExerciseAssignment.Status.ACTIVE);
+        var sameSession = activeForExerciseAndClass.stream().filter(a -> sameDueAt(a.getDueAt(), finalDueAt)).findFirst();
         if (sameSession.isPresent()) {
             return sameSession.get();
         }
+        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — fix bug thật: giao lại (dueAt
+        // KHÁC lần giao trước) không hủy bản giao ACTIVE cũ, để lại NHIỀU bản giao ACTIVE cùng lúc cho
+        // cùng (Bài, lớp) — học sinh mở "BTVN" thấy điểm/trạng thái của lượt làm CŨ dán nhầm lên bản
+        // giao MỚI (toAssignedResponse lấy "lượt gần nhất" theo exerciseId+studentId, không phân biệt
+        // bản giao nào). Mirror ĐÚNG cơ chế đã có sẵn ở ReviewVideoService#deliverToClass (V69): "giao
+        // lại = 1 lượt MỚI" — hủy mọi bản giao ACTIVE cũ trước khi tạo bản giao mới.
+        activeForExerciseAndClass.forEach(this::cancelAssignment);
 
         ExerciseAssignment assignment;
         try {

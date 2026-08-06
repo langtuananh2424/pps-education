@@ -908,12 +908,20 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         exerciseAttemptService.submitAttempt(attempt.id(), student.getUser().getId());
     }
 
+    /**
+     * V95 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06):
+     * curriculum trên "bộ" giờ CHỈ dùng lọc/tìm kiếm — điều kiện hiển thị
+     * DUY NHẤT cho 1 lớp là gán tường minh qua assignToClass (mirror Kho
+     * đề), nên phải gán trước khi writeComment (gọi deliverToClass bên
+     * trong) mới thành công.
+     */
     private VideoFixture createConnectionVideoAssignedToClass(int durationSeconds) {
         ReviewVideoSetResponse set = reviewVideoService.createSet(
-                new CreateReviewVideoSetRequest(setCode(), "Video V55", "CONNECTION", null, schoolClass.id(), null, 1),
+                new CreateReviewVideoSetRequest(setCode(), "Video V55", "CONNECTION", schoolClass.curriculumId(), "VIETNAMESE", null, 1),
                 teacher.getId());
+        reviewVideoService.assignToClass(set.id(), schoolClass.id(), teacher.getId());
         ReviewVideoSetResponse published = reviewVideoService.updateSet(set.id(),
-                new UpdateReviewVideoSetRequest(set.title(), null, 1, "PUBLISHED"), teacher.getId());
+                new UpdateReviewVideoSetRequest(set.title(), "VIETNAMESE", null, 1, "PUBLISHED"), teacher.getId());
         ReviewVideoResponse video = reviewVideoService.addVideo(set.id(),
                 new AddReviewVideoRequest("R2_VIDEO", "Video", "https://media.pps.edu.vn/lms/review-videos/video/v55.mp4",
                         1_000_000L, durationSeconds, 1, null, null),

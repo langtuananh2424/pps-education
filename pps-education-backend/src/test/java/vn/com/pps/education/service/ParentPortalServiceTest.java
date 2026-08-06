@@ -367,12 +367,20 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
                 headAcademic.getId());
     }
 
+    /**
+     * V95 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06):
+     * curriculum trên "bộ" giờ CHỈ dùng lọc/tìm kiếm — điều kiện hiển thị
+     * DUY NHẤT cho 1 lớp là gán tường minh qua assignToClass (mirror Kho
+     * đề), nên phải gán trước khi writeComment (gọi deliverToClass bên
+     * trong) mới thành công.
+     */
     private ReviewVideoSetResponse createConnectionVideoAssignedToClass() {
         ReviewVideoSetResponse set = reviewVideoService.createSet(
-                new CreateReviewVideoSetRequest(setCode(), "Video homework", "CONNECTION", null, schoolClass.id(), null, 1),
+                new CreateReviewVideoSetRequest(setCode(), "Video homework", "CONNECTION", schoolClass.curriculumId(), "VIETNAMESE", null, 1),
                 teacher.getId());
+        reviewVideoService.assignToClass(set.id(), schoolClass.id(), teacher.getId());
         ReviewVideoSetResponse published = reviewVideoService.updateSet(set.id(),
-                new UpdateReviewVideoSetRequest(set.title(), null, 1, "PUBLISHED"), teacher.getId());
+                new UpdateReviewVideoSetRequest(set.title(), "VIETNAMESE", null, 1, "PUBLISHED"), teacher.getId());
         reviewVideoService.addVideo(set.id(),
                 new AddReviewVideoRequest("R2_VIDEO", "Video", "https://media.pps.edu.vn/lms/review-videos/video/homework.mp4",
                         1_000_000L, 100, 1, null, null),

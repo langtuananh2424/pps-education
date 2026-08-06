@@ -101,6 +101,11 @@ interface SessionFeedbackLog {
   homeworkNextVideoLabel: string | null;
   homeworkNextDueAt: string | null;
   note: string | null;
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — id bản giao đứng sau nhãn (chỉ có
+  // ý nghĩa khi label tương ứng khác null), dùng để bấm nhảy thẳng tới bài làm/kết quả ở tab BTVN
+  // (xem onOpenGrammarHomework/onOpenVideoHomework).
+  homeworkNextExerciseAssignmentId: number | null;
+  homeworkNextReviewVideoAssignmentId: number | null;
 }
 
 interface DailyLearningProgressTabProps {
@@ -109,6 +114,17 @@ interface DailyLearningProgressTabProps {
   classId: number;
   /** UC-64 (2026-07-29) — chỉ set khi xem qua Cổng Phụ huynh (dùng API .../parent/children/{studentId}/...). Không set thì Học sinh tự xem (self-service /students/me/...). */
   parentStudentId?: number;
+  /**
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — bấm vào tên "Bài ngữ pháp/nghe"/
+   * "Video TKN/PX" ở cột BTVN nhảy thẳng tới bài làm/kết quả tương ứng ở tab BTVN, không phải chỉ đọc
+   * tên suông — KHÔNG mở modal làm bài, chỉ cuộn tới + nổi viền đúng card/dòng đó để nhận biết (theo
+   * yêu cầu người dùng). Học sinh tự xem: PortalPage cuộn + highlight đúng card ở AssignmentsTab — dùng
+   * exerciseAssignmentId/reviewVideoAssignmentId. Phụ huynh xem con: PortalPage cuộn + highlight đúng
+   * dòng kết quả ở ParentHomeworkProgressTab — dùng commentId, bỏ qua assignmentId truyền kèm. Không
+   * set (undefined) thì render tên suông như cũ (không phải mọi nơi dùng component này đều cần điều hướng).
+   */
+  onOpenGrammarHomework?: (commentId: number, exerciseAssignmentId: number) => void;
+  onOpenVideoHomework?: (commentId: number, reviewVideoAssignmentId: number) => void;
 }
 
 /**
@@ -123,7 +139,14 @@ interface DailyLearningProgressTabProps {
  * đầu/kết thúc + loại buổi) và điểm danh (để tính KPI "Tình trạng chuyên cần") từ 2 API self-service/
  * phụ huynh tương ứng đã có sẵn.
  */
-export default function DailyLearningProgressTab({ studentName, studentCode, classId, parentStudentId }: DailyLearningProgressTabProps) {
+export default function DailyLearningProgressTab({
+  studentName,
+  studentCode,
+  classId,
+  parentStudentId,
+  onOpenGrammarHomework,
+  onOpenVideoHomework
+}: DailyLearningProgressTabProps) {
   const [comments, setComments] = useState<StudentCommentResponse[]>([]);
   const [sessions, setSessions] = useState<ClassSessionResponse[]>([]);
   const [attendance, setAttendance] = useState<AttendanceMarkResponse[]>([]);
@@ -175,7 +198,9 @@ export default function DailyLearningProgressTab({ studentName, studentCode, cla
             homeworkNextGrammarLabel: c.homeworkNextExerciseTitle,
             homeworkNextVideoLabel: c.homeworkNextReviewVideoSetTitle,
             homeworkNextDueAt: c.homeworkNextDueAt,
-            note: c.note
+            note: c.note,
+            homeworkNextExerciseAssignmentId: c.homeworkNextExerciseAssignmentId,
+            homeworkNextReviewVideoAssignmentId: c.homeworkNextReviewVideoAssignmentId
           };
         }),
     [comments, sessionById]
@@ -379,6 +404,43 @@ export default function DailyLearningProgressTab({ studentName, studentCode, cla
     : null;
 
   if (loading) return <p className="text-sm text-muted font-bold">Đang tải...</p>;
+
+  /**
+   * Bấm tên bài (nếu có id bản giao + có callback tương ứng) nhảy thẳng tới bài làm/kết quả ở tab
+   * BTVN — không phải mọi nơi dùng component đều truyền callback này (chỉ set ở PortalPage), nên vẫn
+   * phải có fallback render tên suông như cũ khi thiếu 1 trong 2 điều kiện.
+   */
+  const renderGrammarLabel = (log: SessionFeedbackLog, className: string) => {
+    if (!log.homeworkNextGrammarLabel) return <span className={className}>—</span>;
+    if (log.homeworkNextExerciseAssignmentId == null || !onOpenGrammarHomework) {
+      return <span className={className}>{log.homeworkNextGrammarLabel}</span>;
+    }
+    return (
+      <button
+        type="button"
+        onClick={() => onOpenGrammarHomework(Number(log.id), log.homeworkNextExerciseAssignmentId!)}
+        className={`${className} text-teal-deep underline decoration-teal/40 hover:decoration-teal underline-offset-2 text-left cursor-pointer`}
+      >
+        {log.homeworkNextGrammarLabel}
+      </button>
+    );
+  };
+
+  const renderVideoLabel = (log: SessionFeedbackLog, className: string) => {
+    if (!log.homeworkNextVideoLabel) return <span className={className}>—</span>;
+    if (log.homeworkNextReviewVideoAssignmentId == null || !onOpenVideoHomework) {
+      return <span className={className}>{log.homeworkNextVideoLabel}</span>;
+    }
+    return (
+      <button
+        type="button"
+        onClick={() => onOpenVideoHomework(Number(log.id), log.homeworkNextReviewVideoAssignmentId!)}
+        className={`${className} text-teal-deep underline decoration-teal/40 hover:decoration-teal underline-offset-2 text-left cursor-pointer`}
+      >
+        {log.homeworkNextVideoLabel}
+      </button>
+    );
+  };
 
   /** Nội dung panel chọn buổi — dùng chung cho nút desktop riêng lẫn dropdown gộp trên mobile. */
   const renderSessionPickerBody = (closeAll: () => void) => (
@@ -661,13 +723,13 @@ export default function DailyLearningProgressTab({ studentName, studentCode, cla
                     </div>
                     <div className="flex items-start justify-between gap-2 text-[11px]">
                       <span className="font-bold text-slate-800 shrink-0">{cardGrammarLabel}:</span>
-                      <span className="font-semibold text-slate-700 text-right">{log.homeworkNextGrammarLabel || "—"}</span>
+                      {renderGrammarLabel(log, "font-semibold text-right")}
                     </div>
                     <div className="flex items-start justify-between gap-2 text-[11px]">
                       <span className="flex items-center gap-1.5 font-bold text-slate-800 shrink-0">
                         <Video size={12} className="text-amber-600 shrink-0" aria-hidden="true" /> {cardVideoLabel}:
                       </span>
-                      <span className="font-semibold text-slate-700 text-right">{log.homeworkNextVideoLabel || "—"}</span>
+                      {renderVideoLabel(log, "font-semibold text-right")}
                     </div>
                     <div className="pt-1 border-t border-line/60 flex items-start justify-between gap-2 text-[11px]">
                       <span className="font-bold text-slate-800 shrink-0">Hạn nộp bài:</span>
@@ -1114,8 +1176,12 @@ export default function DailyLearningProgressTab({ studentName, studentCode, cla
                       <td className="p-3 border-r border-slate-300 font-bold text-slate-800 align-top">{log.homeworkPreviousScore || log.grammarPreviousProgress || "—"}</td>
                       <td className="p-3 border-r border-slate-300 font-bold text-purple-900 align-top">{log.homeworkPreviousSpeakingScore || log.videoPreviousProgress || "—"}</td>
                       <td className="p-3 border-r border-slate-300 align-top">{log.homeworkNextOfflineText || "—"}</td>
-                      <td className="p-3 border-r border-slate-300 text-slate-800 font-semibold align-top">{log.homeworkNextGrammarLabel || "—"}</td>
-                      <td className="p-3 border-r border-slate-300 text-slate-800 font-semibold align-top">{log.homeworkNextVideoLabel || "—"}</td>
+                      <td className="p-3 border-r border-slate-300 text-slate-800 font-semibold align-top">
+                        {renderGrammarLabel(log, "font-semibold")}
+                      </td>
+                      <td className="p-3 border-r border-slate-300 text-slate-800 font-semibold align-top">
+                        {renderVideoLabel(log, "font-semibold")}
+                      </td>
                       <td className="p-3 border-r border-slate-300 whitespace-nowrap align-top">
                         {log.homeworkNextDueAt ? new Date(log.homeworkNextDueAt).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" }) : "—"}
                       </td>

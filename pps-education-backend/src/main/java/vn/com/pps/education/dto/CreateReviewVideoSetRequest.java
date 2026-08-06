@@ -1,18 +1,21 @@
 package vn.com.pps.education.dto;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 
 /**
- * UC-23 Main Flow bước 1: metadata "bộ" video ôn tập. Đúng 1 trong 2
- * curriculumId/classId phải khác NULL (CHECK chk_review_video_set_scope
- * — validate lại ở Service).
+ * UC-23 Main Flow bước 1: metadata "bộ" video ôn tập. V95 (bổ sung ngoài
+ * SDD gốc, đã xác nhận với người dùng 2026-08-06) — curriculumId bắt buộc,
+ * CHỈ dùng lọc/tìm kiếm trong Kho Video (mirror CreateExamRequest); gán
+ * cho lớp cụ thể làm riêng qua {@code assignToClass}, không còn truyền ở
+ * đây. teacherType bắt buộc chọn 1 trong 2 (VIETNAMESE/FOREIGN).
  */
 public record CreateReviewVideoSetRequest(
         @NotBlank String code,
         @NotBlank String title,
         @NotBlank String videoType,
-        Long curriculumId,
-        Long classId,
+        @NotNull Long curriculumId,
+        @NotBlank String teacherType,
         Long subjectId,
         Integer displayOrder
 ) {}

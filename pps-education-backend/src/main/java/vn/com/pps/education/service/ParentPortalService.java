@@ -61,6 +61,7 @@ public class ParentPortalService {
     private final StudentCommentRepository studentCommentRepository;
     private final ClassSessionRepository classSessionRepository;
     private final HomeworkProgressService homeworkProgressService;
+    private final HomeworkAlertSettings homeworkAlertSettings;
 
     public ParentPortalService(ParentRepository parentRepository,
                                 ParentStudentRepository parentStudentRepository,
@@ -71,7 +72,8 @@ public class ParentPortalService {
                                 AttendanceMarkRepository attendanceMarkRepository,
                                 StudentCommentRepository studentCommentRepository,
                                 ClassSessionRepository classSessionRepository,
-                                HomeworkProgressService homeworkProgressService) {
+                                HomeworkProgressService homeworkProgressService,
+                                HomeworkAlertSettings homeworkAlertSettings) {
         this.parentRepository = parentRepository;
         this.parentStudentRepository = parentStudentRepository;
         this.studentRepository = studentRepository;
@@ -82,6 +84,7 @@ public class ParentPortalService {
         this.studentCommentRepository = studentCommentRepository;
         this.classSessionRepository = classSessionRepository;
         this.homeworkProgressService = homeworkProgressService;
+        this.homeworkAlertSettings = homeworkAlertSettings;
     }
 
     /** Main Flow bước 2: nếu Phụ huynh có nhiều con, hiển thị lựa chọn tách riêng dữ liệu. */
@@ -245,9 +248,11 @@ public class ParentPortalService {
                 grammar == null ? null : grammar.getExercise().getTitle(),
                 grammar == null ? c.getHomeworkNext() : null,
                 homeworkProgressService.grammarProgressLabel(grammar, c.getStudent().getId()),
+                grammar == null ? null : homeworkProgressService.grammarPassed(grammar, c.getStudent().getId()),
                 video == null ? null : video.getId(),
                 video == null ? null : video.getReviewVideoSet().getTitle(),
-                homeworkProgressService.videoProgressLabel(video, c.getStudent().getId()));
+                homeworkProgressService.videoProgressLabel(video, c.getStudent().getId()),
+                video == null ? null : homeworkProgressService.videoPassed(video, c.getStudent().getId(), homeworkAlertSettings.reflexPassThresholdPercent()));
     }
 
     private ClassSessionResponse toResponse(ClassSession s) {
