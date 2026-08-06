@@ -15,6 +15,9 @@ import {
 } from "../api";
 import TakeExerciseModal from "./TakeExerciseModal";
 import ReviewVideoTaskModal from "./ReviewVideoTaskModal";
+import Pagination from "@/components/ui/Pagination";
+
+const PAGE_SIZE = 10;
 
 interface AssignmentsTabProps {
   classId: number;
@@ -106,6 +109,15 @@ export default function AssignmentsTab({ classId }: AssignmentsTabProps) {
   const [filterType, setFilterType] = useState<FilterType>("ALL");
   const [takingExercise, setTakingExercise] = useState<AssignedExerciseResponse | null>(null);
   const [openReviewItem, setOpenReviewItem] = useState<ReviewVideoHomeworkItem | null>(null);
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — danh sách BTVN có thể dài (nhiều
+  // Bài ngữ pháp + Video ôn tập cộng lại), phân trang để tránh cuộn quá nhiều. Về trang 1 mỗi khi đổi
+  // bộ lọc trạng thái/loại bài.
+  const [page, setPage] = useState(0);
+  // Bổ sung ngoài SDD gốc — reset về trang 1 khi đổi bộ lọc. PHẢI đặt trước early-return `if (loading)`
+  // bên dưới (Rules of Hooks: mọi hook phải gọi VÔ ĐIỀU KIỆN, không được đặt sau early-return — trước
+  // đây đặt sai chỗ, hook bị bỏ qua lúc loading=true rồi lại gọi khi loading=false, gây lỗi "Rendered
+  // more hooks than during the previous render").
+  useEffect(() => setPage(0), [filterStatus, filterType]);
   // Dropdown icon lọc "loại bài" thay cho hàng nút riêng — đỡ chiếm thêm 1 hàng, gộp chung hàng với
   // 3 nút trạng thái, dùng chung cho mọi kích thước màn hình (theo yêu cầu người dùng, 2026-08-01).
   const [filterTypeOpen, setFilterTypeOpen] = useState(false);
@@ -205,6 +217,14 @@ export default function AssignmentsTab({ classId }: AssignmentsTabProps) {
     if (filterStatus === "PENDING") return !isReflexFullyAnswered(x);
     return isReflexFullyAnswered(x);
   });
+
+  // Gộp 2 danh sách (Bài ngữ pháp + Video ôn tập) thành 1 để phân trang chung — đúng tinh thần "1
+  // danh sách BTVN duy nhất" đã gộp ở tab này (xem Javadoc đầu file), không tách trang riêng từng loại.
+  const feedItems = [
+    ...filteredExercises.map((item) => ({ type: "exercise" as const, key: `ex-${item.assignmentId}`, item })),
+    ...filteredReviewItems.map((item) => ({ type: "video" as const, key: `rv-${item.video.id}`, item }))
+  ];
+  const pageItems = feedItems.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   return (
     <div className="space-y-6">
@@ -322,17 +342,21 @@ export default function AssignmentsTab({ classId }: AssignmentsTabProps) {
         </div>
       </div>
 
-      {filteredExercises.length === 0 && filteredReviewItems.length === 0 ? (
+      {feedItems.length === 0 ? (
         <p className="text-xs text-muted font-bold italic text-center py-10">Không có bài tập nào trong mục này.</p>
       ) : (
-        <div className="space-y-4">
-          {filteredExercises.map((item) => (
-            <ExerciseCard key={`ex-${item.assignmentId}`} item={item} onOpen={() => setTakingExercise(item)} />
-          ))}
-          {filteredReviewItems.map((item) => (
-            <ReviewVideoCard key={`rv-${item.video.id}`} item={item} onOpen={() => setOpenReviewItem(item)} />
-          ))}
-        </div>
+        <>
+          <div className="space-y-4">
+            {pageItems.map((entry) =>
+              entry.type === "exercise" ? (
+                <ExerciseCard key={entry.key} item={entry.item} onOpen={() => setTakingExercise(entry.item)} />
+              ) : (
+                <ReviewVideoCard key={entry.key} item={entry.item} onOpen={() => setOpenReviewItem(entry.item)} />
+              )
+            )}
+          </div>
+          <Pagination page={page} pageSize={PAGE_SIZE} totalElements={feedItems.length} itemLabel="bài" onPageChange={setPage} />
+        </>
       )}
 
       {takingExercise && (

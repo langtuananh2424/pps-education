@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/cn";
 
@@ -36,33 +37,63 @@ function formatDisplay(s: string): string {
   return `${String(date.getDate()).padStart(2, "0")}/${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`;
 }
 
-/** Lịch chọn ngày tự dựng (thay input[type=date] gốc) — trình duyệt không cho CSS style lại popup lịch gốc, nên cần component riêng để đồng bộ giao diện + cho phép nhảy nhanh tới năm bất kỳ (không phải bấm lùi từng tháng). */
+/**
+ * Lịch chọn ngày tự dựng (thay input[type=date] gốc) — trình duyệt không cho CSS style lại popup lịch
+ * gốc, nên cần component riêng để đồng bộ giao diện + cho phép nhảy nhanh tới năm bất kỳ (không phải
+ * bấm lùi từng tháng).
+ *
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — panel lịch trước đây `position:
+ * absolute` bên trong DOM cha, bị cắt mất khi đặt trong khối có `overflow-hidden` (VD Card ở
+ * HomeworkStatsPage.tsx). Render qua Portal vào document.body (mirror Select.tsx — cùng vấn đề dropdown
+ * bị overflow cha cắt), `position: fixed` theo toạ độ nút bấm, không còn bị cắt bởi bất kỳ cha nào.
+ */
 export default function DatePicker({ value, onChange, min, max, placeholder, hasError, disabled, className }: DatePickerProps) {
   const [open, setOpen] = useState(false);
   const selected = parseIso(value);
   const minDate = parseIso(min ?? "");
   const maxDate = parseIso(max ?? "");
   const [viewDate, setViewDate] = useState<Date>(() => selected ?? maxDate ?? new Date());
-  const rootRef = useRef<HTMLDivElement>(null);
+  const [rect, setRect] = useState<{ top: number; left: number; width: number } | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  const updateRect = () => {
+    const el = triggerRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    setRect({ top: r.bottom + 4, left: r.left, width: r.width });
+  };
 
   useEffect(() => {
     if (open) setViewDate(selected ?? maxDate ?? new Date());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  useLayoutEffect(() => {
+    if (open) updateRect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
   useEffect(() => {
     if (!open) return;
     const onClickOutside = (e: MouseEvent) => {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
+      if (triggerRef.current?.contains(e.target as Node)) return;
+      if (panelRef.current?.contains(e.target as Node)) return;
+      setOpen(false);
     };
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };
+    const onReposition = () => updateRect();
     document.addEventListener("mousedown", onClickOutside);
     document.addEventListener("keydown", onKeyDown);
+    window.addEventListener("scroll", onReposition, true);
+    window.addEventListener("resize", onReposition);
     return () => {
       document.removeEventListener("mousedown", onClickOutside);
       document.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("scroll", onReposition, true);
+      window.removeEventListener("resize", onReposition);
     };
   }, [open]);
 
@@ -96,8 +127,9 @@ export default function DatePicker({ value, onChange, min, max, placeholder, has
   };
 
   return (
-    <div ref={rootRef} className="relative">
+    <>
       <button
+        ref={triggerRef}
         type="button"
         disabled={disabled}
         onClick={() => setOpen((v) => !v)}
@@ -111,8 +143,14 @@ export default function DatePicker({ value, onChange, min, max, placeholder, has
         <CalendarDays className="w-3.5 h-3.5 text-slate-400 shrink-0" />
       </button>
 
-      {open && (
-        <div className="absolute z-20 mt-1.5 w-72 bg-white border border-slate-200 rounded-xl shadow-xl p-3 space-y-2.5 animate-in fade-in slide-in-from-top-1 duration-150">
+      {open &&
+        rect &&
+        createPortal(
+          <div
+            ref={panelRef}
+            style={{ position: "fixed", top: rect.top, left: rect.left, width: Math.max(rect.width, 288) }}
+            className="z-[200] bg-white border border-slate-200 rounded-xl shadow-xl p-3 space-y-2.5 animate-in fade-in slide-in-from-top-1 duration-150"
+          >
           <div className="flex items-center gap-1.5">
             <button
               type="button"
@@ -205,8 +243,9 @@ export default function DatePicker({ value, onChange, min, max, placeholder, has
               Hôm nay
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   );
 }

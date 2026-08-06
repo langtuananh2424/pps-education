@@ -277,10 +277,8 @@ export default function DailyCommentPanel() {
           setSelectedSessionId(started.id);
         } else if (todaySessions.length > 0) {
           setNotification(`📅 Buổi học hôm nay (${todaySessions[0].startTime}–${todaySessions[0].endTime}) chưa bắt đầu — chưa thể nhận xét, có thể tự chọn buổi khác ở trên.`);
-          setTimeout(() => setNotification(null), 6000);
         } else {
           setNotification("📅 Hôm nay không có buổi học nào của lớp này — vui lòng tự chọn buổi ở trên.");
-          setTimeout(() => setNotification(null), 6000);
         }
       })
       .catch(() => undefined);
@@ -408,7 +406,6 @@ export default function DailyCommentPanel() {
       const updated = await updateLessonContent(selectedSessionId, lessonContentInput.trim());
       setSessions((prev) => prev.map((s) => (s.id === selectedSessionId ? { ...s, lessonContent: updated.lessonContent } : s)));
       setNotification("✅ Đã lưu Bài học hôm nay.");
-      setTimeout(() => setNotification(null), 4000);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Lưu Bài học hôm nay thất bại.");
     } finally {
@@ -425,7 +422,6 @@ export default function DailyCommentPanel() {
       const updated = await updateActualTeacherName(selectedSessionId, actualTeacherNameInput.trim());
       setSessions((prev) => prev.map((s) => (s.id === selectedSessionId ? { ...s, actualTeacherName: updated.actualTeacherName } : s)));
       setNotification("✅ Đã lưu Tên giáo viên giảng dạy.");
-      setTimeout(() => setNotification(null), 4000);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Lưu Tên giáo viên giảng dạy thất bại.");
     } finally {
@@ -551,8 +547,6 @@ export default function DailyCommentPanel() {
         });
       }
       setNotification(message);
-      // Thông báo có kèm lý do lỗi chi tiết (dài hơn) cần thời gian đọc lâu hơn bình thường.
-      setTimeout(() => setNotification(null), failedCount > 0 ? 12000 : 6000);
       setRows((prev) =>
         prev.map((r) =>
           r.content.trim() ? { ...r, attitude: "", homeworkPreviousScore: "", homeworkPreviousSpeakingScore: "", content: "", ...EMPTY_ROW_HOMEWORK, note: "" } : r
@@ -573,7 +567,6 @@ export default function DailyCommentPanel() {
   /** UC-21 (2026-07-29): học sinh chỉ nhận xét DAILY được 1 lần/buổi — bấm vào dòng đã có nhận xét thì báo rõ thay vì im lặng khoá ô. */
   const notifyAlreadySent = (r: Row, sent: StudentCommentResponse) => {
     setNotification(`⚠️ Học sinh ${r.studentFullName} đã có nhận xét cho buổi này rồi (trạng thái: ${statusLabels[sent.status]}) — xem/sửa ở "Lịch sử nhận xét" bên dưới.`);
-    setTimeout(() => setNotification(null), 6000);
   };
 
   const handleDownloadTemplate = async () => {
@@ -685,8 +678,7 @@ export default function DailyCommentPanel() {
 
         {selectedSessionId && sessionHasSentComment && (
           <div className="px-5 py-2.5 border-b border-slate-100 bg-slate-50 text-[11px] text-slate-500">
-            🔒 Buổi này đã có nhận xét gửi duyệt — khoá Loại giáo viên/Bài học hôm nay/Tên giáo viên
-            giảng dạy. Muốn sửa lại, nhờ Quản lý điểm trường "Từ chối" toàn bộ nhận xét của buổi để mở khoá.
+            🔒 Buổi này đã có nhận xét gửi duyệt. Muốn sửa lại, nhờ Quản lý điểm trường "Từ chối" toàn bộ nhận xét của buổi để mở khoá.
           </div>
         )}
 
@@ -852,10 +844,6 @@ export default function DailyCommentPanel() {
                 Áp dụng cho cả lớp
               </button>
             </div>
-            <p className="text-[10px] text-slate-400">
-              Điền xong bấm "Áp dụng cho cả lớp" để copy vào mọi dòng học sinh chưa gửi — vẫn sửa tay được
-              từng dòng riêng lẻ sau đó, bấm "Gửi nhận xét" ở cuối bảng mới thật sự lưu.
-            </p>
           </div>
         )}
 
