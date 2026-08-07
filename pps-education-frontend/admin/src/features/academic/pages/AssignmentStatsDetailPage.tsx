@@ -406,12 +406,13 @@ function StudentDetailModal({
             </div>
           </div>
 
-          {/* Lịch sử nhiều lượt làm bài — bổ sung ngoài SDD gốc, đã xác nhận với người dùng
-              2026-08-06, chỉ hiện khi có >1 lượt hoặc có lượt bị dừng ép, tránh rối màn với đề
-              chỉ cho làm 1 lần (trường hợp phổ biến nhất). */}
-          {(attempts.length > 1 || attempts.some((a) => a.stoppedByIntegrityViolation)) && (
+          {/* Lịch sử làm bài — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06.
+              Luôn hiển thị để giáo viên có thể chọn lượt làm chính thức, kể cả khi chỉ có 1 lượt. */}
+          {attempts.length > 0 && (
             <div>
-              <h3 className="font-semibold text-sm mb-3 text-slate-900">Lịch sử nhiều lượt làm bài</h3>
+              <h3 className="font-semibold text-sm mb-3 text-slate-900">
+                {attempts.length > 1 ? "Lịch sử nhiều lượt làm bài" : "Lịch sử làm bài"}
+              </h3>
               {attemptsError && (
                 <div className="mb-3 text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{attemptsError}</div>
               )}
@@ -453,7 +454,7 @@ function StudentDetailModal({
           <div>
             <h3 className="font-semibold text-sm mb-3 text-slate-900">
               Lịch sử trả lời câu hỏi
-              {attempts.length > 1 && viewingAttemptId != null && (
+              {viewingAttemptId != null && (
                 <span className="font-normal text-slate-500">
                   {" — Lượt #"}
                   {attempts.find((a) => a.id === viewingAttemptId)?.attemptNumber ?? "?"}
