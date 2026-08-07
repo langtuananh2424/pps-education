@@ -147,7 +147,7 @@ export default function GradeStatsPage({ studentId, classId }: GradeStatsPagePro
                       padding: "8px"
                     }}
                     formatter={(value, name) => {
-                      if (name === "overall") return [`${value.toFixed(2)}`, "Overall"];
+                      if (name === "overall") return [`${typeof value === "number" ? value.toFixed(2) : value}`, "Overall"];
                       return [value, name];
                     }}
                     labelStyle={{ color: "#1e2a45", fontWeight: "600" }}
@@ -178,7 +178,7 @@ export default function GradeStatsPage({ studentId, classId }: GradeStatsPagePro
                       padding: "8px"
                     }}
                     formatter={(value, name) => {
-                      if (name === "overall") return [`${value.toFixed(2)}`, "Overall"];
+                      if (name === "overall") return [`${typeof value === "number" ? value.toFixed(2) : value}`, "Overall"];
                       return [value, name];
                     }}
                     labelStyle={{ color: "#1e2a45", fontWeight: "600" }}
