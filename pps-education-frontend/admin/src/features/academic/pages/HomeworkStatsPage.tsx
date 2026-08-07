@@ -98,12 +98,12 @@ export default function HomeworkStatsPage() {
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Thống kê BTVN theo lớp</h1>
-        <p className="text-xs text-slate-500 mt-1">
+        <p className="text-sm text-slate-500 mt-1">
           Xem tiến độ hoàn thành và tỷ lệ đạt của từng BTVN đã giao cho lớp, kết quả từng học sinh, và phân tích câu hỏi hay bị sai.
         </p>
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       {!selectedClassId ? (
         <Card>
@@ -112,7 +112,7 @@ export default function HomeworkStatsPage() {
       ) : (
         <Card padded={false} className="overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-100 bg-slate-50 space-y-3">
-            <span className="text-xs font-bold text-slate-700 font-display block">
+            <span className="text-sm font-bold text-slate-700 font-display block">
               {selectedClass ? `${selectedClass.classCode} — ${selectedClass.name}` : "Lớp đang chọn"} (
               {hasActiveFilters ? `${filteredAssignments.length}/${assignments.length}` : assignments.length} BTVN)
             </span>
@@ -124,7 +124,7 @@ export default function HomeworkStatsPage() {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Tìm theo tiêu đề / mã BTVN..."
-                    className="w-full bg-white border border-slate-200 text-xs pl-8 pr-3 py-2 rounded-lg focus:outline-none"
+                    className="w-full bg-white border border-slate-200 text-sm pl-8 pr-3 py-2 rounded-lg focus:outline-none"
                   />
                 </div>
                 <div className="sm:w-52">
@@ -137,7 +137,7 @@ export default function HomeworkStatsPage() {
                       setSearchQuery("");
                       setDateFilter("");
                     }}
-                    className="flex items-center gap-1 text-[11px] font-bold text-slate-500 hover:text-slate-700 shrink-0"
+                    className="flex items-center gap-1 text-sm font-bold text-slate-500 hover:text-slate-700 shrink-0"
                   >
                     <X className="w-3.5 h-3.5" /> Xoá lọc
                   </button>
@@ -146,7 +146,7 @@ export default function HomeworkStatsPage() {
             )}
           </div>
           {loading ? (
-            <p className="text-xs text-slate-500 p-5">Đang tải...</p>
+            <p className="text-sm text-slate-500 p-5">Đang tải...</p>
           ) : assignments.length === 0 ? (
             <EmptyState icon={BarChart3} title="Chưa có BTVN nào" description="Lớp này chưa được giao BTVN nào." />
           ) : filteredAssignments.length === 0 ? (
@@ -169,7 +169,7 @@ export default function HomeworkStatsPage() {
                 {pageAssignments.map((a) => (
                   <tr key={a.assignmentId}>
                     <Td className="font-semibold text-slate-900">
-                      {a.exerciseTitle} <span className="text-slate-400 font-mono text-[10px]">({a.exerciseCode})</span>
+                      {a.exerciseTitle} <span className="text-slate-400 font-mono text-sm">({a.exerciseCode})</span>
                     </Td>
                     <Td>
                       <Badge variant="neutral">{exerciseTypeLabels[a.exerciseType]}</Badge>

@@ -41,7 +41,7 @@ export default function ProfilesPage() {
       <div className="border-b border-slate-200 pb-4 flex flex-col sm:flex-row sm:items-end justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Quản lý hồ sơ học sinh</h1>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-sm text-slate-500 mt-1">
             Lưu hồ sơ học sinh, liên kết phụ huynh, theo dõi chuyển lớp/điểm trường và trạng thái học tập — khởi tạo kèm tài khoản đăng nhập.
           </p>
         </div>
@@ -56,7 +56,7 @@ export default function ProfilesPage() {
         />
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         <StudentListPanel
@@ -77,7 +77,7 @@ export default function ProfilesPage() {
             <GraduationCap className="w-12 h-12 text-slate-300" />
             <div>
               <h3 className="text-sm font-bold text-slate-700">Chưa chọn học sinh nào</h3>
-              <p className="text-xs text-slate-400 mt-1">Chọn 1 học sinh bên trái hoặc thêm mới để xem/sửa hồ sơ.</p>
+              <p className="text-sm text-slate-400 mt-1">Chọn 1 học sinh bên trái hoặc thêm mới để xem/sửa hồ sơ.</p>
             </div>
           </div>
         )}

@@ -28,11 +28,11 @@ export default function OverridesTable({ overrides, onRemove }: OverridesTablePr
   return (
     <div className="lg:col-span-3 bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm h-fit">
       <div className="p-4 border-b bg-slate-50/20">
-        <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block">Ngoại lệ đang áp dụng cho tài khoản ({overrides.length})</span>
+        <span className="text-sm font-bold text-slate-800 uppercase tracking-wider block">Ngoại lệ đang áp dụng cho tài khoản ({overrides.length})</span>
       </div>
-      {error && <div className="text-[11px] text-rose-600 bg-rose-50 border-b border-rose-100 p-2.5">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border-b border-rose-100 p-2.5">{error}</div>}
       {overrides.length === 0 ? (
-        <p className="text-xs text-slate-400 italic p-6 text-center">Tài khoản này chưa có ngoại lệ quyền nào.</p>
+        <p className="text-sm text-slate-400 italic p-6 text-center">Tài khoản này chưa có ngoại lệ quyền nào.</p>
       ) : (
         <TableContainer className="rounded-none border-0">
           <thead>
@@ -54,7 +54,7 @@ export default function OverridesTable({ overrides, onRemove }: OverridesTablePr
                 <Td className="text-slate-500 italic max-w-xs truncate" title={ov.reason}>
                   {ov.reason}
                 </Td>
-                <Td className="font-mono text-[10px] text-slate-500">
+                <Td className="font-mono text-sm text-slate-500">
                   {ov.expiresAt ? (
                     <div className="flex items-center gap-1">
                       <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />

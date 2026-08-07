@@ -13,7 +13,7 @@ export default function DepartmentsPositionsPage() {
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Phòng ban & Chức vụ</h1>
-        <p className="text-xs text-slate-500 mt-1">
+        <p className="text-sm text-slate-500 mt-1">
           Cấu hình danh mục Phòng ban, Chức vụ và role mặc định theo chức vụ — cần cấu hình ở đây trước khi chọn được trong hồ sơ nhân sự.
         </p>
       </div>
@@ -28,7 +28,7 @@ export default function DepartmentsPositionsPage() {
           <button
             key={key}
             onClick={() => setTab(key)}
-            className={`pb-2.5 text-xs font-bold border-b-2 flex items-center gap-1.5 transition-all ${
+            className={`pb-2.5 text-sm font-bold border-b-2 flex items-center gap-1.5 transition-all ${
               tab === key ? "border-brand-red text-brand-red" : "border-transparent text-slate-500 hover:text-slate-700"
             }`}
           >

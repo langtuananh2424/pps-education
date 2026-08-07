@@ -12,9 +12,9 @@ import Select from "@/components/ui/Select";
 
 const TODAY_ISO = new Date().toISOString().slice(0, 10);
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
-const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-xs p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
+const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-sm p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
+const labelClass = "text-sm uppercase font-bold text-slate-500 block mb-1";
 
 interface StudentFormModalProps {
   onClose: () => void;
@@ -112,10 +112,10 @@ export default function StudentFormModal({ onClose, onCreated }: StudentFormModa
   return (
     <Modal open onClose={onClose} title="Thêm học sinh mới" size="lg">
       <form onSubmit={handleSubmit} className="space-y-5">
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
         <div className="space-y-2 border-t border-slate-100 pt-4">
-          <span className="text-[10px] font-bold uppercase text-slate-500">Ảnh đại diện</span>
+          <span className="text-sm font-bold uppercase text-slate-500">Ảnh đại diện</span>
           <AvatarUploadField
             value={form.portraitUrl}
             onChange={(url) => setForm({ ...form, portraitUrl: url })}
@@ -125,12 +125,12 @@ export default function StudentFormModal({ onClose, onCreated }: StudentFormModa
         </div>
 
         <div className="space-y-2">
-          <span className="text-[10px] font-bold uppercase text-slate-500">Tài khoản học sinh</span>
+          <span className="text-sm font-bold uppercase text-slate-500">Tài khoản học sinh</span>
           <AccountSelector value={account} onChange={setAccount} submitAttempted={submitAttempted} />
         </div>
 
         <div className="space-y-3 border-t border-slate-100 pt-4">
-          <span className="text-[10px] font-bold uppercase text-slate-500">Thông tin học sinh</span>
+          <span className="text-sm font-bold uppercase text-slate-500">Thông tin học sinh</span>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelClass}>Mã học sinh *</label>
@@ -140,7 +140,7 @@ export default function StudentFormModal({ onClose, onCreated }: StudentFormModa
                 onBlur={() => markTouched("studentCode")}
                 className={`${studentCodeInvalid ? inputErrorClass : inputClass} font-mono`}
               />
-              {studentCodeInvalid && <p className="text-[10px] text-rose-600 mt-1">Vui lòng nhập Mã học sinh.</p>}
+              {studentCodeInvalid && <p className="text-sm text-rose-600 mt-1">Vui lòng nhập Mã học sinh.</p>}
             </div>
             <div>
               <label className={labelClass}>Giới tính</label>
@@ -162,7 +162,7 @@ export default function StudentFormModal({ onClose, onCreated }: StudentFormModa
                 max={TODAY_ISO}
                 hasError={dateOfBirthInvalid}
               />
-              {dateOfBirthInvalid && <p className="text-[10px] text-rose-600 mt-1">Vui lòng chọn Ngày sinh.</p>}
+              {dateOfBirthInvalid && <p className="text-sm text-rose-600 mt-1">Vui lòng chọn Ngày sinh.</p>}
             </div>
             <div>
               <label className={labelClass}>Ngày nhập học *</label>
@@ -174,7 +174,7 @@ export default function StudentFormModal({ onClose, onCreated }: StudentFormModa
                 }}
                 hasError={enrollmentDateInvalid}
               />
-              {enrollmentDateInvalid && <p className="text-[10px] text-rose-600 mt-1">Vui lòng chọn Ngày nhập học.</p>}
+              {enrollmentDateInvalid && <p className="text-sm text-rose-600 mt-1">Vui lòng chọn Ngày nhập học.</p>}
             </div>
             <div>
               <label className={labelClass}>Điểm trường chính</label>
@@ -203,7 +203,7 @@ export default function StudentFormModal({ onClose, onCreated }: StudentFormModa
         </div>
 
         <div className="border-t border-slate-100 pt-4 space-y-3">
-          <label className="flex items-center gap-2 text-xs font-bold text-slate-700 uppercase">
+          <label className="flex items-center gap-2 text-sm font-bold text-slate-700 uppercase">
             <input type="checkbox" checked={addParent} onChange={(e) => setAddParent(e.target.checked)} />
             Liên kết Phụ huynh ngay
           </label>
@@ -220,11 +220,11 @@ export default function StudentFormModal({ onClose, onCreated }: StudentFormModa
                     <option value="OTHER">Khác</option>
                   </Select>
                 </div>
-                <label className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 pb-2.5">
+                <label className="flex items-center gap-1.5 text-sm font-semibold text-slate-700 pb-2.5">
                   <input type="checkbox" checked={parentInfo.isPrimaryContact} onChange={(e) => setParentInfo({ ...parentInfo, isPrimaryContact: e.target.checked })} />
                   Người liên hệ chính
                 </label>
-                <label className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 pb-2.5">
+                <label className="flex items-center gap-1.5 text-sm font-semibold text-slate-700 pb-2.5">
                   <input type="checkbox" checked={parentInfo.isFinancialResponsible} onChange={(e) => setParentInfo({ ...parentInfo, isFinancialResponsible: e.target.checked })} />
                   Chịu trách nhiệm tài chính
                 </label>

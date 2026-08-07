@@ -4,8 +4,8 @@ import { ApiError } from "@/lib/apiClient";
 import Button from "@/components/ui/Button";
 import { QuestionResponse, createExamQuestion } from "../api";
 
-const inputClass = "w-full bg-white border border-slate-200 text-xs px-3.5 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-red";
-const labelClass = "block font-bold text-slate-700 mb-1 uppercase tracking-wider text-[10px]";
+const inputClass = "w-full bg-white border border-slate-200 text-sm px-3.5 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-red";
+const labelClass = "block font-bold text-slate-700 mb-1 uppercase tracking-wider text-sm";
 
 interface PassageRow {
   name: string;
@@ -107,8 +107,8 @@ export default function GridQuestionBuilder({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+    <form onSubmit={handleSubmit} className="space-y-4 text-sm">
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
         <div className="flex items-center gap-1 text-slate-700 font-bold uppercase tracking-wider text-[9px]">
@@ -148,7 +148,7 @@ export default function GridQuestionBuilder({
           {questions.map((q, idx) => (
             <div key={idx} className="p-3 space-y-2">
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold text-slate-500 w-6 shrink-0">{idx + 1}.</span>
+                <span className="text-sm font-bold text-slate-500 w-6 shrink-0">{idx + 1}.</span>
                 <input
                   required
                   value={q.content}
@@ -172,7 +172,7 @@ export default function GridQuestionBuilder({
                     key={pIdx}
                     type="button"
                     onClick={() => updateQuestionAnswer(idx, pIdx)}
-                    className={`px-2.5 py-1 rounded-lg border text-[10px] font-bold transition-all ${
+                    className={`px-2.5 py-1 rounded-lg border text-sm font-bold transition-all ${
                       q.correctIndex === pIdx ? "bg-emerald-500 border-emerald-500 text-white" : "bg-white border-slate-300 text-slate-500 hover:border-slate-400"
                     }`}
                   >

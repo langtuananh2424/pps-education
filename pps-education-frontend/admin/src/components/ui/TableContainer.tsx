@@ -10,7 +10,7 @@ interface TableContainerProps {
 export default function TableContainer({ children, className }: TableContainerProps) {
   return (
     <div className={cn("overflow-x-auto rounded-xl border border-slate-200", className)}>
-      <table className="w-full text-xs text-left border-collapse">{children}</table>
+      <table className="w-full text-sm text-left border-collapse">{children}</table>
     </div>
   );
 }
@@ -19,7 +19,7 @@ export function Th({ children, className, ...props }: React.ThHTMLAttributes<HTM
   return (
     <th
       className={cn(
-        "px-4 py-3 bg-slate-50 text-[10px] font-bold uppercase tracking-wide text-slate-500 whitespace-nowrap",
+        "px-4 py-3 bg-slate-50 text-sm font-bold uppercase tracking-wide text-slate-500 whitespace-nowrap",
         className
       )}
       {...props}

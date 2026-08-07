@@ -39,7 +39,7 @@ import Select from "@/components/ui/Select";
 import DatePicker from "@/components/ui/DatePicker";
 
 const statusLabels: Record<StudentCommentResponse["status"], string> = { DRAFT: "Nháp", PENDING: "Chờ duyệt", APPROVED: "Đã duyệt", REJECTED: "Bị từ chối" };
-const readOnlyFieldClass = "w-full bg-emerald-50/60 border border-emerald-200 text-xs p-2 rounded-lg text-slate-700 min-h-[34px]";
+const readOnlyFieldClass = "w-full bg-emerald-50/60 border border-emerald-200 text-sm p-2 rounded-lg text-slate-700 min-h-[34px]";
 
 /**
  * "Loại giáo viên" của buổi học (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05) — ăn
@@ -612,7 +612,7 @@ export default function DailyCommentPanel() {
   return (
     <div className="space-y-4">
       <NotificationBanner message={notification} onClose={() => setNotification(null)} />
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       {/* Bỏ overflow-hidden ở đây (trước dùng để bo góc rounded-xl cho header bg-slate-50 bên dưới) —
           overflow-hidden trên tổ tiên sẽ VÔ HIỆU HÓA position:sticky của khối "Bài học hôm nay" bên
@@ -621,8 +621,8 @@ export default function DailyCommentPanel() {
       <div className="bg-white rounded-xl border border-slate-200 shadow-soft">
         <div className="px-5 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50 rounded-t-xl">
           <div>
-            <span className="text-xs font-bold text-slate-700 font-display">Nhận xét hàng ngày theo buổi học</span>
-            <p className="text-[10px] text-slate-400 mt-0.5">
+            <span className="text-sm font-bold text-slate-700 font-display">Nhận xét hàng ngày theo buổi học</span>
+            <p className="text-sm text-slate-400 mt-0.5">
               {selectedClass ? `${selectedClass.name} (${selectedClass.classCode})` : "Chưa chọn lớp — chọn ở góc trên bên phải (Header) để bắt đầu."}
             </p>
           </div>
@@ -631,7 +631,7 @@ export default function DailyCommentPanel() {
               <Select
                 value={selectedSessionId ?? ""}
                 onChange={(e) => setSelectedSessionId(e.target.value ? Number(e.target.value) : null)}
-                className="bg-white border text-[10px] font-bold text-slate-700 px-2 py-1 rounded focus:outline-none"
+                className="bg-white border text-sm font-bold text-slate-700 px-2 py-1 rounded focus:outline-none"
               >
                 <option value="">-- Chọn buổi học --</option>
                 {selectableSessions.map((s) => {
@@ -656,7 +656,7 @@ export default function DailyCommentPanel() {
                       disabled={savingTeacherType || sessionHasSentComment}
                       title={sessionHasSentComment ? "Buổi này đã có nhận xét gửi duyệt — không đổi được Loại giáo viên nữa." : undefined}
                       onClick={() => handleChangeTeacherType(type)}
-                      className={`px-2.5 py-1 text-[10px] font-bold whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed ${
+                      className={`px-2.5 py-1 text-sm font-bold whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed ${
                         teacherType === type ? "bg-brand-orange text-white" : "text-slate-600 hover:bg-slate-50"
                       }`}
                     >
@@ -670,13 +670,13 @@ export default function DailyCommentPanel() {
         </div>
 
         {selectedSessionId && !teacherType && (
-          <div className="px-5 py-2.5 border-b border-slate-100 bg-amber-50 text-[11px] text-amber-700">
+          <div className="px-5 py-2.5 border-b border-slate-100 bg-amber-50 text-sm text-amber-700">
             ⚠️ Chưa chọn "Loại giáo viên" ở trên — chọn trước để bảng BTVN buổi sau hiện đúng Bài/Video theo Giáo viên Việt Nam hay nước ngoài.
           </div>
         )}
 
         {selectedSessionId && sessionHasSentComment && (
-          <div className="px-5 py-2.5 border-b border-slate-100 bg-slate-50 text-[11px] text-slate-500">
+          <div className="px-5 py-2.5 border-b border-slate-100 bg-slate-50 text-sm text-slate-500">
             🔒 Buổi này đã có nhận xét gửi duyệt. Muốn sửa lại, nhờ Quản lý điểm trường "Từ chối" toàn bộ nhận xét của buổi để mở khoá.
           </div>
         )}
@@ -687,7 +687,7 @@ export default function DailyCommentPanel() {
               lessonContentMissingError ? "bg-rose-50 border-rose-200" : "bg-amber-50 border-slate-100"
             }`}
           >
-            <label className="text-[11px] font-bold text-slate-600 shrink-0">Bài học hôm nay *</label>
+            <label className="text-sm font-bold text-slate-600 shrink-0">Bài học hôm nay *</label>
             <input
               ref={lessonContentInputRef}
               value={lessonContentInput}
@@ -697,7 +697,7 @@ export default function DailyCommentPanel() {
                 setLessonContentMissingError(false);
               }}
               placeholder="VD: Unit 3 - Free time activities"
-              className={`flex-1 min-w-[220px] bg-white border text-xs p-2 rounded-lg focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed ${
+              className={`flex-1 min-w-[220px] bg-white border text-sm p-2 rounded-lg focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed ${
                 lessonContentMissingError ? "border-rose-400 ring-1 ring-rose-300" : "border-slate-200"
               }`}
             />
@@ -710,28 +710,28 @@ export default function DailyCommentPanel() {
                 !lessonContentInput.trim() ||
                 lessonContentInput.trim() === (selectedSession?.lessonContent ?? "")
               }
-              className="px-3 py-2 bg-brand-orange hover:bg-brand-orange/90 text-white text-[11px] font-bold rounded-lg disabled:opacity-40"
+              className="px-3 py-2 bg-brand-orange hover:bg-brand-orange/90 text-white text-sm font-bold rounded-lg disabled:opacity-40"
             >
               {savingLessonContent ? "Đang lưu..." : "Lưu"}
             </button>
             {lessonContentMissingError ? (
-              <p className="w-full text-[10px] text-rose-600 font-bold">
+              <p className="w-full text-sm text-rose-600 font-bold">
                 ⚠️ Bắt buộc điền + Lưu Bài học hôm nay trước khi Gửi nhận xét — nội dung học sinh bạn đã gõ vẫn còn nguyên, điền xong bấm "Gửi nhận xét" lại là được.
               </p>
             ) : (
               !selectedSession?.lessonContent && (
-                <p className="w-full text-[10px] text-amber-700 italic">
+                <p className="w-full text-sm text-amber-700 italic">
                   Chưa điền bài học hôm nay — bắt buộc điền trước khi Gửi nhận xét (buổi chưa điền sẽ bị từ chối khi gửi duyệt).
                 </p>
               )
             )}
-            <label className="text-[11px] font-bold text-slate-600 shrink-0">Tên giáo viên giảng dạy</label>
+            <label className="text-sm font-bold text-slate-600 shrink-0">Tên giáo viên giảng dạy</label>
             <input
               value={actualTeacherNameInput}
               disabled={sessionHasSentComment}
               onChange={(e) => setActualTeacherNameInput(e.target.value)}
               placeholder="VD: Nguyễn Văn A (điền hộ nếu Giáo viên nước ngoài không tự thao tác)"
-              className="flex-1 min-w-[220px] bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed"
+              className="flex-1 min-w-[220px] bg-white border border-slate-200 text-sm p-2 rounded-lg focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed"
             />
             <button
               type="button"
@@ -742,7 +742,7 @@ export default function DailyCommentPanel() {
                 !actualTeacherNameInput.trim() ||
                 actualTeacherNameInput.trim() === (selectedSession?.actualTeacherName ?? "")
               }
-              className="px-3 py-2 bg-brand-orange hover:bg-brand-orange/90 text-white text-[11px] font-bold rounded-lg disabled:opacity-40"
+              className="px-3 py-2 bg-brand-orange hover:bg-brand-orange/90 text-white text-sm font-bold rounded-lg disabled:opacity-40"
             >
               {savingActualTeacherName ? "Đang lưu..." : "Lưu"}
             </button>
@@ -750,7 +750,7 @@ export default function DailyCommentPanel() {
         )}
 
         {selectedSessionId && blockOnlineHomework && (
-          <div className="px-5 py-2.5 border-b border-slate-100 bg-rose-50/60 text-[11px] text-rose-700">
+          <div className="px-5 py-2.5 border-b border-slate-100 bg-rose-50/60 text-sm text-rose-700">
             ⚠️ Đây là buổi học cuối cùng đã lên lịch của lớp — lớp chưa có buổi kế tiếp nào trong lịch nên
             chưa thể giao BTVN {grammarLabel} (Online)/{videoLabel} buổi sau (cần hạn nộp = buổi kế tiếp).
             Tự chọn hạn nộp ở panel "Gán nhanh cho cả lớp" bên dưới để bỏ qua điều kiện này, hoặc chỉ nhập
@@ -760,7 +760,7 @@ export default function DailyCommentPanel() {
 
         {selectedSessionId && teacherType && (
           <div className="px-5 py-3 border-b border-slate-100 bg-orange-50/40 space-y-2">
-            <span className="text-[10px] font-bold uppercase text-slate-500">
+            <span className="text-sm font-bold uppercase text-slate-500">
               Gán nhanh cho cả lớp — thay vì chọn từng dòng học sinh
             </span>
             <div className="flex flex-wrap items-end gap-2">
@@ -773,7 +773,7 @@ export default function DailyCommentPanel() {
                     if (e.target.value) setQuickExerciseId("");
                   }}
                   placeholder="VD: Unit 2 trang 10"
-                  className="w-full bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
+                  className="w-full bg-white border border-slate-200 text-sm p-2 rounded-lg focus:outline-none"
                 />
               </div>
               <div className="min-w-[200px]">
@@ -786,7 +786,7 @@ export default function DailyCommentPanel() {
                     setQuickExerciseId(value);
                     if (value !== "") setQuickOffline("");
                   }}
-                  className="w-full bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none disabled:opacity-40"
+                  className="w-full bg-white border border-slate-200 text-sm p-2 rounded-lg focus:outline-none disabled:opacity-40"
                 >
                   <option value="">-- Không giao --</option>
                   {filteredGrammarOptions.map((ex) => (
@@ -802,7 +802,7 @@ export default function DailyCommentPanel() {
                   value={quickVideoId}
                   disabled={blockOnlineHomework}
                   onChange={(e) => setQuickVideoId(e.target.value ? Number(e.target.value) : "")}
-                  className="w-full bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none disabled:opacity-40"
+                  className="w-full bg-white border border-slate-200 text-sm p-2 rounded-lg focus:outline-none disabled:opacity-40"
                 >
                   <option value="">-- Không giao --</option>
                   {filteredVideoOptions.map((s) => (
@@ -831,14 +831,14 @@ export default function DailyCommentPanel() {
                   value={dueTime}
                   disabled={!dueDate}
                   onChange={(e) => setDueTime(e.target.value)}
-                  className="w-full bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none disabled:opacity-40"
+                  className="w-full bg-white border border-slate-200 text-sm p-2 rounded-lg focus:outline-none disabled:opacity-40"
                 />
               </div>
               <button
                 type="button"
                 onClick={handleApplyQuickAssign}
                 disabled={!quickOffline && quickExerciseId === "" && quickVideoId === ""}
-                className="px-3 py-2 bg-brand-orange hover:bg-brand-orange/90 text-white text-[11px] font-bold rounded-lg disabled:opacity-40"
+                className="px-3 py-2 bg-brand-orange hover:bg-brand-orange/90 text-white text-sm font-bold rounded-lg disabled:opacity-40"
               >
                 Áp dụng cho cả lớp
               </button>
@@ -852,7 +852,7 @@ export default function DailyCommentPanel() {
               type="button"
               onClick={handleDownloadTemplate}
               disabled={downloadingTemplate}
-              className="flex items-center gap-1.5 border border-dashed border-slate-300 rounded-lg px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-white disabled:opacity-50"
+              className="flex items-center gap-1.5 border border-dashed border-slate-300 rounded-lg px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-white disabled:opacity-50"
             >
               <Download className="w-3.5 h-3.5" />
               {downloadingTemplate ? "Đang tải..." : "Tải mẫu Excel (điền sẵn điểm danh + nhận xét hiện có)"}
@@ -861,7 +861,7 @@ export default function DailyCommentPanel() {
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={importing}
-              className="flex items-center gap-1.5 border-2 border-dashed border-slate-200 rounded-lg px-3 py-2 text-[11px] font-semibold text-slate-600 hover:border-brand-orange hover:bg-orange-50/30 disabled:opacity-50"
+              className="flex items-center gap-1.5 border-2 border-dashed border-slate-200 rounded-lg px-3 py-2 text-sm font-semibold text-slate-600 hover:border-brand-orange hover:bg-orange-50/30 disabled:opacity-50"
             >
               <UploadCloud className="w-3.5 h-3.5 text-brand-orange" />
               {importing ? "Đang nhập..." : "Nhập từ Excel (.xlsx)"}
@@ -869,7 +869,7 @@ export default function DailyCommentPanel() {
             <input ref={fileInputRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => handleImportFile(e.target.files?.[0] ?? null)} />
 
             {importResult && (
-              <div className="w-full flex flex-wrap items-center gap-2 text-[11px] mt-1">
+              <div className="w-full flex flex-wrap items-center gap-2 text-sm mt-1">
                 <span className="bg-slate-100 border border-slate-200 text-slate-700 font-semibold px-2 py-1 rounded-lg">
                   Tổng: {importResult.totalRows ?? "—"}
                 </span>
@@ -924,19 +924,19 @@ export default function DailyCommentPanel() {
           <tbody className="divide-y divide-slate-300">
             {!selectedSessionId ? (
               <tr>
-                <td colSpan={12} className="px-6 py-12 text-center text-xs text-slate-400 italic">
+                <td colSpan={12} className="px-6 py-12 text-center text-sm text-slate-400 italic">
                   {selectedClass ? "Chọn buổi học ở trên để tải danh sách học sinh." : "Chọn 1 lớp ở Header (góc trên bên phải)."}
                 </td>
               </tr>
             ) : loadingRows ? (
               <tr>
-                <td colSpan={12} className="px-6 py-12 text-center text-xs text-slate-400">
+                <td colSpan={12} className="px-6 py-12 text-center text-sm text-slate-400">
                   Đang tải...
                 </td>
               </tr>
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={12} className="px-6 py-12 text-center text-xs text-slate-400 italic">
+                <td colSpan={12} className="px-6 py-12 text-center text-sm text-slate-400 italic">
                   Không tìm thấy học sinh nào thuộc lớp học này.
                 </td>
               </tr>
@@ -972,7 +972,7 @@ export default function DailyCommentPanel() {
                           value={r.homeworkPreviousScore}
                           onChange={(e) => updateRow({ homeworkPreviousScore: e.target.value })}
                           placeholder="VD: Đã thực hiện 90% (chỉ cần điền tay nếu buổi trước giao Offline)"
-                          className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
+                          className="w-full bg-slate-50 border border-slate-200 text-sm p-2 rounded-lg focus:outline-none"
                         />
                       )}
                     </Td>
@@ -984,7 +984,7 @@ export default function DailyCommentPanel() {
                           value={r.homeworkPreviousSpeakingScore}
                           onChange={(e) => updateRow({ homeworkPreviousSpeakingScore: e.target.value })}
                           placeholder="VD: Đã thực hiện 85% (kênh Video luôn Online — % tự động sẽ hiện sau khi Gửi)"
-                          className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
+                          className="w-full bg-slate-50 border border-slate-200 text-sm p-2 rounded-lg focus:outline-none"
                         />
                       )}
                     </Td>
@@ -996,7 +996,7 @@ export default function DailyCommentPanel() {
                           value={r.homeworkNext}
                           onChange={(e) => updateRow({ homeworkNext: e.target.value, ...(e.target.value ? { homeworkNextExerciseId: "" as const } : {}) })}
                           placeholder="VD: Unit 2 trang 10"
-                          className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
+                          className="w-full bg-slate-50 border border-slate-200 text-sm p-2 rounded-lg focus:outline-none"
                         />
                       )}
                     </Td>
@@ -1012,7 +1012,7 @@ export default function DailyCommentPanel() {
                             updateRow({ homeworkNextExerciseId: value, ...(value !== "" ? { homeworkNext: "" } : {}) });
                           }}
                           aria-label={!teacherType ? "Chọn Loại giáo viên ở trên trước." : blockOnlineHomework ? "Lớp chưa có buổi kế tiếp trong lịch — tự chọn hạn nộp để bỏ qua." : undefined}
-                          className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
+                          className="w-full bg-slate-50 border border-slate-200 text-sm p-2 rounded-lg focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           <option value="">-- Chọn đề đã Publish --</option>
                           {filteredGrammarOptions.map((ex) => (
@@ -1032,7 +1032,7 @@ export default function DailyCommentPanel() {
                           onChange={(e) => updateRow({ homeworkNextReviewVideoSetId: e.target.value ? Number(e.target.value) : "" })}
                           disabled={blockOnlineHomework || !teacherType}
                           aria-label={!teacherType ? "Chọn Loại giáo viên ở trên trước." : blockOnlineHomework ? "Lớp chưa có buổi kế tiếp trong lịch — tự chọn hạn nộp để bỏ qua." : undefined}
-                          className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
+                          className="w-full bg-slate-50 border border-slate-200 text-sm p-2 rounded-lg focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           <option value="">-- Không giao --</option>
                           {filteredVideoOptions.map((s) => (
@@ -1059,7 +1059,7 @@ export default function DailyCommentPanel() {
                         <Select
                           value={r.attitude}
                           onChange={(e) => updateRow({ attitude: e.target.value as Row["attitude"] })}
-                          className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
+                          className="w-full bg-slate-50 border border-slate-200 text-sm p-2 rounded-lg focus:outline-none"
                         >
                           <option value="">-- Chưa chọn --</option>
                           {Object.entries(attitudeLabels).map(([value, label]) => (
@@ -1079,7 +1079,7 @@ export default function DailyCommentPanel() {
                           onChange={(e) => updateRow({ content: e.target.value })}
                           placeholder="Viết nhận xét cho học sinh này..."
                           rows={2}
-                          className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
+                          className="w-full bg-slate-50 border border-slate-200 text-sm p-2 rounded-lg focus:outline-none"
                         />
                       )}
                     </Td>
@@ -1090,7 +1090,7 @@ export default function DailyCommentPanel() {
                         <input
                           value={r.note}
                           onChange={(e) => updateRow({ note: e.target.value })}
-                          className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
+                          className="w-full bg-slate-50 border border-slate-200 text-sm p-2 rounded-lg focus:outline-none"
                         />
                       )}
                     </Td>
@@ -1108,7 +1108,7 @@ export default function DailyCommentPanel() {
             <button
               onClick={handleSend}
               disabled={sending || !rows.some((r) => r.content.trim())}
-              className="bg-brand-orange hover:bg-brand-orange/90 text-white font-semibold text-xs px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-soft transition-all disabled:opacity-50"
+              className="bg-brand-orange hover:bg-brand-orange/90 text-white font-semibold text-sm px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-soft transition-all disabled:opacity-50"
             >
               <Send className="w-4 h-4 text-white" />
               <span>{sending ? "Đang gửi..." : rows.some((r) => r.content.trim()) ? "Gửi nhận xét" : "Đã gửi hết nhận xét buổi này"}</span>
@@ -1118,9 +1118,9 @@ export default function DailyCommentPanel() {
 
         {selectedClassId && selectedSessionId && (
           <div className="px-6 py-4 border-t border-slate-100 space-y-2">
-            <span className="text-[10px] font-bold uppercase text-slate-500">Lịch sử nhận xét buổi này</span>
+            <span className="text-sm font-bold uppercase text-slate-500">Lịch sử nhận xét buổi này</span>
             {loadingHistory ? (
-              <p className="text-xs text-slate-400">Đang tải...</p>
+              <p className="text-sm text-slate-400">Đang tải...</p>
             ) : (
               <CommentHistoryList
                 classId={selectedClassId}

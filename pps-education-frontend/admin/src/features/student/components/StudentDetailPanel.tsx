@@ -36,9 +36,9 @@ import Select from "@/components/ui/Select";
 
 const TODAY_ISO = new Date().toISOString().slice(0, 10);
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
-const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-xs p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
+const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-sm p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
+const labelClass = "text-sm uppercase font-bold text-slate-500 block mb-1";
 
 type Tab = "profile" | "parents" | "transfer" | "status";
 
@@ -56,7 +56,7 @@ export default function StudentDetailPanel({ student, onChanged }: StudentDetail
       <div className="p-5 border-b border-slate-200 space-y-3 bg-slate-50/20">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
-            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-brand-red bg-orange-50 border border-orange-100 px-2 py-0.5 rounded-md">
+            <span className="text-sm font-mono font-bold uppercase tracking-wider text-brand-red bg-orange-50 border border-orange-100 px-2 py-0.5 rounded-md">
               {student.studentCode}
             </span>
             <h2 className="text-sm font-bold text-slate-800 mt-1">{student.fullName}</h2>
@@ -76,7 +76,7 @@ export default function StudentDetailPanel({ student, onChanged }: StudentDetail
             <button
               key={key}
               onClick={() => setTab(key)}
-              className={`pb-2.5 text-xs font-bold border-b-2 flex items-center gap-1.5 transition-all whitespace-nowrap ${
+              className={`pb-2.5 text-sm font-bold border-b-2 flex items-center gap-1.5 transition-all whitespace-nowrap ${
                 tab === key ? "border-brand-red text-brand-red" : "border-transparent text-slate-500 hover:text-slate-700"
               }`}
             >
@@ -135,7 +135,7 @@ function ProfileTab({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
       <div>
         <label className={labelClass}>Ảnh đại diện</label>
         <AvatarUploadField
@@ -157,7 +157,7 @@ function ProfileTab({
             max={TODAY_ISO}
             hasError={dateOfBirthInvalid}
           />
-          {dateOfBirthInvalid && <p className="text-[10px] text-rose-600 mt-1">Vui lòng chọn Ngày sinh.</p>}
+          {dateOfBirthInvalid && <p className="text-sm text-rose-600 mt-1">Vui lòng chọn Ngày sinh.</p>}
         </div>
         <div>
           <label className={labelClass}>Giới tính</label>
@@ -181,7 +181,7 @@ function ProfileTab({
           <textarea value={form.notes ?? ""} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2} className={inputClass} />
         </div>
       </div>
-      <p className="text-[10px] text-slate-400 italic">
+      <p className="text-sm text-slate-400 italic">
         Điểm trường chính chỉ đổi được qua tab "Chuyển lớp/điểm trường"; trạng thái học tập đổi qua tab "Trạng thái học tập".
       </p>
       <Button type="submit" variant="primary" size="sm" disabled={saving}>
@@ -274,16 +274,16 @@ function ParentsTab({ studentId, showToast }: { studentId: number; showToast: (m
 
   return (
     <div className="space-y-4">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       {loading ? (
-        <p className="text-xs text-slate-500">Đang tải...</p>
+        <p className="text-sm text-slate-500">Đang tải...</p>
       ) : links.length === 0 ? (
-        <p className="text-xs text-slate-400 italic">Chưa liên kết phụ huynh nào.</p>
+        <p className="text-sm text-slate-400 italic">Chưa liên kết phụ huynh nào.</p>
       ) : (
         <div className="space-y-2">
           {links.map((l) => (
-            <div key={l.id} className="border border-slate-200 rounded-lg p-3 text-xs flex items-center justify-between">
+            <div key={l.id} className="border border-slate-200 rounded-lg p-3 text-sm flex items-center justify-between">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-bold text-slate-800">{l.parentFullName}</span>
                 <Badge variant="info">{relationshipLabels[l.relationship]}</Badge>
@@ -313,11 +313,11 @@ function ParentsTab({ studentId, showToast }: { studentId: number; showToast: (m
               <option value="GUARDIAN">Người giám hộ</option>
               <option value="OTHER">Khác</option>
             </Select>
-            <label className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 pb-2.5">
+            <label className="flex items-center gap-1.5 text-sm font-semibold text-slate-700 pb-2.5">
               <input type="checkbox" checked={info.isPrimaryContact} onChange={(e) => setInfo({ ...info, isPrimaryContact: e.target.checked })} />
               Liên hệ chính
             </label>
-            <label className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 pb-2.5">
+            <label className="flex items-center gap-1.5 text-sm font-semibold text-slate-700 pb-2.5">
               <input type="checkbox" checked={info.isFinancialResponsible} onChange={(e) => setInfo({ ...info, isFinancialResponsible: e.target.checked })} />
               Chịu trách nhiệm tài chính
             </label>
@@ -392,7 +392,7 @@ function TransferTab({ studentId, onChanged, showToast }: { studentId: number; o
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-bold uppercase text-slate-500">Lịch sử chuyển lớp/điểm trường ({history.length})</span>
+        <span className="text-sm font-bold uppercase text-slate-500">Lịch sử chuyển lớp/điểm trường ({history.length})</span>
         <Button size="sm" variant="secondary" onClick={() => setShowForm(true)}>
           <Plus className="w-3.5 h-3.5" />
           Ghi nhận chuyển
@@ -401,7 +401,7 @@ function TransferTab({ studentId, onChanged, showToast }: { studentId: number; o
 
       <Modal open={showForm} onClose={() => setShowForm(false)} title="Ghi nhận chuyển lớp/điểm trường">
         <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-          {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
+          {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
           <Select value={form.transferType} onChange={(e) => setForm({ ...form, transferType: e.target.value })} className={inputClass}>
             <option value="SITE_CHANGE">Chuyển điểm trường</option>
             <option value="CLASS_CHANGE">Chuyển lớp</option>
@@ -447,13 +447,13 @@ function TransferTab({ studentId, onChanged, showToast }: { studentId: number; o
       </Modal>
 
       {loading ? (
-        <p className="text-xs text-slate-500">Đang tải...</p>
+        <p className="text-sm text-slate-500">Đang tải...</p>
       ) : history.length === 0 ? (
-        <p className="text-xs text-slate-400 italic">Chưa có lịch sử chuyển lớp/điểm trường.</p>
+        <p className="text-sm text-slate-400 italic">Chưa có lịch sử chuyển lớp/điểm trường.</p>
       ) : (
         <div className="space-y-2">
           {history.map((h) => (
-            <div key={h.id} className="border border-slate-200 rounded-lg p-3 text-xs">
+            <div key={h.id} className="border border-slate-200 rounded-lg p-3 text-sm">
               <Badge variant="info">{h.transferType}</Badge>
               <span className="text-slate-500 ml-2">{h.effectiveDate}</span>
               {h.reason && <span className="text-slate-400 ml-2">— {h.reason}</span>}
@@ -503,7 +503,7 @@ function StatusTab({ student, onChanged, showToast }: { student: StudentResponse
   return (
     <div className="space-y-4">
       <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
+        {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
         <div className="grid grid-cols-2 gap-3">
           <Select value={form.newStatus} onChange={(e) => setForm({ ...form, newStatus: e.target.value as StudentResponse["status"] })} className={inputClass}>
             {Object.entries(studentStatusLabels).map(([value, label]) => (
@@ -521,13 +521,13 @@ function StatusTab({ student, onChanged, showToast }: { student: StudentResponse
       </form>
 
       {loading ? (
-        <p className="text-xs text-slate-500">Đang tải...</p>
+        <p className="text-sm text-slate-500">Đang tải...</p>
       ) : history.length === 0 ? (
-        <p className="text-xs text-slate-400 italic">Chưa có lịch sử đổi trạng thái.</p>
+        <p className="text-sm text-slate-400 italic">Chưa có lịch sử đổi trạng thái.</p>
       ) : (
         <div className="space-y-2">
           {history.map((h) => (
-            <div key={h.id} className="border border-slate-200 rounded-lg p-3 text-xs">
+            <div key={h.id} className="border border-slate-200 rounded-lg p-3 text-sm">
               <Badge variant={studentStatusVariants[h.oldStatus]}>{studentStatusLabels[h.oldStatus] ?? h.oldStatus}</Badge>
               <span className="mx-1.5 text-slate-400">→</span>
               <Badge variant={studentStatusVariants[h.newStatus]}>{studentStatusLabels[h.newStatus] ?? h.newStatus}</Badge>

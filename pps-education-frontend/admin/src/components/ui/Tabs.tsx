@@ -21,7 +21,7 @@ export default function Tabs({ items, activeId, onChange, className }: TabsProps
           key={item.id}
           onClick={() => onChange(item.id)}
           className={cn(
-            "px-3.5 py-1.5 rounded-full text-[11px] font-semibold whitespace-nowrap transition-all",
+            "px-3.5 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-all",
             activeId === item.id
               ? "bg-brand-gradient text-white shadow-soft"
               : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"

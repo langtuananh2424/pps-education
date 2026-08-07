@@ -38,14 +38,14 @@ export default function PermissionChecklist({ items, selectedIds, onToggle, onTo
             placeholder="Tìm nhanh quyền..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-white border border-slate-200 text-xs pl-8 pr-3 py-1.5 rounded-lg focus:outline-none"
+            className="w-full bg-white border border-slate-200 text-sm pl-8 pr-3 py-1.5 rounded-lg focus:outline-none"
           />
         </div>
 
         <Select
           value={moduleFilter}
           onChange={(e) => setModuleFilter(e.target.value)}
-          className="bg-white border border-slate-200 text-xs px-2 py-1.5 rounded-lg focus:outline-none text-slate-700 font-semibold w-full sm:w-auto cursor-pointer"
+          className="bg-white border border-slate-200 text-sm px-2 py-1.5 rounded-lg focus:outline-none text-slate-700 font-semibold w-full sm:w-auto cursor-pointer"
         >
           <option value="ALL">Tất cả phân hệ nghiệp vụ</option>
           {modules.map((mod) => (
@@ -89,10 +89,10 @@ export default function PermissionChecklist({ items, selectedIds, onToggle, onTo
                     className="rounded border-slate-300 text-brand-red focus:ring-brand-orange h-4 w-4 cursor-pointer"
                   />
 
-                  <span className="text-xs font-bold text-slate-800 font-sans tracking-tight leading-none uppercase">{mod}</span>
+                  <span className="text-sm font-bold text-slate-800 font-sans tracking-tight leading-none uppercase">{mod}</span>
                 </div>
 
-                <span className="text-[10px] font-mono font-bold bg-white text-slate-600 border px-2.5 py-0.5 rounded-full shadow-inner">
+                <span className="text-sm font-mono font-bold bg-white text-slate-600 border px-2.5 py-0.5 rounded-full shadow-inner">
                   {selectedInModule.length} / {filtered.length} selected
                 </span>
               </div>
@@ -125,7 +125,7 @@ export default function PermissionChecklist({ items, selectedIds, onToggle, onTo
                               onChange={() => onToggleModuleAll(groupItems.map((p) => p.permissionId))}
                               className="rounded border-slate-300 text-brand-red focus:ring-brand-orange h-3.5 w-3.5 cursor-pointer"
                             />
-                            <span className="text-[11px] font-bold text-slate-700">{group.label}</span>
+                            <span className="text-sm font-bold text-slate-700">{group.label}</span>
                           </div>
                           <span className="text-[9px] font-mono font-bold bg-white text-slate-500 border border-slate-200 px-2 py-0.5 rounded-full">
                             {selectedInGroup.length}/{groupItems.length}
@@ -174,7 +174,7 @@ function PermissionRow({ item, checked, onToggle }: { item: ChecklistItem; check
       />
       <div className="flex-1 space-y-1">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-bold tracking-tight text-slate-900 block leading-tight">{item.name}</span>
+          <span className="text-sm font-bold tracking-tight text-slate-900 block leading-tight">{item.name}</span>
           <code className="text-[9px] font-mono font-bold text-brand-red bg-orange-50/60 border border-orange-100 px-1.5 py-0.2 rounded shrink-0">
             {item.code}
           </code>

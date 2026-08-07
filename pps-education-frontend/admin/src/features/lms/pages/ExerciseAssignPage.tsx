@@ -40,8 +40,8 @@ import Toast from "@/components/ui/Toast";
 import Pagination from "@/components/ui/Pagination";
 import { useDialog } from "@/components/ui/DialogProvider";
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
+const labelClass = "text-sm uppercase font-bold text-slate-500 block mb-1";
 
 const statusLabels: Record<ExerciseResponse["status"], string> = { DRAFT: "Nháp", PUBLISHED: "Đã publish", ARCHIVED: "Đã gỡ" };
 const statusVariants: Record<ExerciseResponse["status"], "neutral" | "success" | "danger"> = {
@@ -110,7 +110,7 @@ export default function ExerciseAssignPage() {
       <div className="border-b border-slate-200 pb-4 flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Kho đề</h1>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-sm text-slate-500 mt-1">
             Soạn "Đề" (VD IELTS Grade 6) chứa nhiều "Bài" (VD Unit 1), gán Đề cho lớp — Giáo viên chọn Bài đã Publish
             làm "BTVN buổi sau" ở Nhận xét học viên mới thật sự giao cho lớp.
           </p>
@@ -123,7 +123,7 @@ export default function ExerciseAssignPage() {
         )}
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         <div className="lg:col-span-5 bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden flex flex-col">
@@ -155,11 +155,11 @@ export default function ExerciseAssignPage() {
           </div>
 
           {loadingExams ? (
-            <p className="text-xs text-slate-500 p-6 text-center">Đang tải...</p>
+            <p className="text-sm text-slate-500 p-6 text-center">Đang tải...</p>
           ) : exams.length === 0 ? (
             <div className="flex flex-col items-center justify-center p-12 text-center text-slate-400 space-y-3">
               <Layers className="w-12 h-12 text-slate-300" />
-              <p className="text-xs text-slate-400">Chưa có Đề nào{curriculumFilter ? " trong khung chương trình này" : ""}.</p>
+              <p className="text-sm text-slate-400">Chưa có Đề nào{curriculumFilter ? " trong khung chương trình này" : ""}.</p>
             </div>
           ) : (
             <>
@@ -170,9 +170,9 @@ export default function ExerciseAssignPage() {
                     onClick={() => setSelectedExamId(exam.id)}
                     className={`w-full text-left px-4 py-3 hover:bg-slate-50/60 ${selectedExamId === exam.id ? "bg-brand-red/5 border-l-2 border-brand-red" : ""}`}
                   >
-                    <p className="text-xs font-bold text-slate-800">{exam.title}</p>
-                    <p className="text-[10px] text-slate-400 mt-0.5 font-mono">{exam.code} · {exam.curriculumCode}</p>
-                    <p className="text-[10px] text-slate-400 mt-0.5">
+                    <p className="text-sm font-bold text-slate-800">{exam.title}</p>
+                    <p className="text-sm text-slate-400 mt-0.5 font-mono">{exam.code} · {exam.curriculumCode}</p>
+                    <p className="text-sm text-slate-400 mt-0.5">
                       {teacherTypeLabels[exam.teacherType]} · {examTypeLabels[exam.examType]}
                     </p>
                   </button>
@@ -197,7 +197,7 @@ export default function ExerciseAssignPage() {
           {!selectedExam ? (
             <div className="bg-white rounded-xl border border-slate-200 shadow-soft flex flex-col items-center justify-center p-12 text-center text-slate-400 space-y-3">
               <ClipboardList className="w-12 h-12 text-slate-300" />
-              <p className="text-xs text-slate-400">Chọn 1 Đề bên trái để xem chi tiết, hoặc tạo Đề mới.</p>
+              <p className="text-sm text-slate-400">Chọn 1 Đề bên trái để xem chi tiết, hoặc tạo Đề mới.</p>
             </div>
           ) : (
             <ExamDetailPanel
@@ -266,7 +266,7 @@ function CreateExamModal({
 
   return (
     <Modal open onClose={onClose} title="Tạo Đề mới" size="md">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
           <label className={labelClass}>Mã Đề *</label>
@@ -355,7 +355,7 @@ function EditExamModal({
 
   return (
     <Modal open onClose={onClose} title={`Sửa Đề — ${exam.code}`} size="md">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
           <label className={labelClass}>Tên Đề *</label>
@@ -381,7 +381,7 @@ function EditExamModal({
             ))}
           </Select>
         </div>
-        <p className="text-[10px] text-slate-400 italic">
+        <p className="text-sm text-slate-400 italic">
           Mã Đề ({exam.code}) và Khung chương trình ({exam.curriculumCode}) không sửa được sau khi tạo.
         </p>
         <div className="flex justify-end gap-2 pt-2">
@@ -445,7 +445,7 @@ function EditExerciseModal({
 
   return (
     <Modal open onClose={onClose} title={`Sửa Bài — ${exercise.code}`} size="md">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
           <label className={labelClass}>Tên Bài *</label>
@@ -467,13 +467,13 @@ function EditExerciseModal({
           />
         </div>
         <div>
-          <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
+          <label className="flex items-center gap-1.5 text-sm font-bold text-slate-600">
             <input type="checkbox" checked={showCorrectAnswers} onChange={(e) => setShowCorrectAnswers(e.target.checked)} />
             Hiện đáp án đúng sau khi nộp (phần trắc nghiệm)
           </label>
         </div>
         <div>
-          <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
+          <label className="flex items-center gap-1.5 text-sm font-bold text-slate-600">
             <input type="checkbox" checked={allowRetake} onChange={(e) => setAllowRetake(e.target.checked)} />
             Cho phép làm lại
           </label>
@@ -484,7 +484,7 @@ function EditExerciseModal({
             <input type="number" min={1} value={maxAttempts} onChange={(e) => setMaxAttempts(e.target.value)} className={inputClass} />
           </div>
         )}
-        <p className="text-[10px] text-slate-400 italic">Mã Bài ({exercise.code}) không sửa được sau khi tạo.</p>
+        <p className="text-sm text-slate-400 italic">Mã Bài ({exercise.code}) không sửa được sau khi tạo.</p>
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="secondary" size="sm" onClick={onClose}>
             Hủy
@@ -520,7 +520,7 @@ function AddQuestionsModal({
 
   return (
     <Modal open onClose={onClose} title={`Thêm câu hỏi — ${exercise.code}`} size="lg">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
       <ExerciseQuestionsStep exercise={exercise} teacherType={teacherType} onDone={onDone} onError={setError} onClose={onClose} />
     </Modal>
   );
@@ -591,7 +591,7 @@ function ExamDetailPanel({
         <div className="flex items-start justify-between gap-2">
           <div>
             <p className="text-sm font-bold text-slate-800">{exam.title}</p>
-            <p className="text-[10px] text-slate-400 font-mono mt-0.5">{exam.code} · {exam.curriculumCode}</p>
+            <p className="text-sm text-slate-400 font-mono mt-0.5">{exam.code} · {exam.curriculumCode}</p>
           </div>
           {canManage && (
             <div className="flex items-center gap-2 shrink-0">
@@ -607,7 +607,7 @@ function ExamDetailPanel({
         <div className="flex items-center justify-between flex-wrap gap-2">
           <button
             onClick={() => setAssignClassOpen(true)}
-            className="flex items-center gap-1.5 text-[11px] font-bold text-brand-red hover:underline"
+            className="flex items-center gap-1.5 text-sm font-bold text-brand-red hover:underline"
           >
             <Users className="w-3.5 h-3.5" />
             {assignedClassCount == null ? "Đã gán ... lớp" : `Đã gán ${assignedClassCount} lớp`} — quản lý
@@ -633,12 +633,12 @@ function ExamDetailPanel({
         />
       )}
 
-      {error && <p className="px-5 pt-3 text-[11px] text-rose-600">{error}</p>}
+      {error && <p className="px-5 pt-3 text-sm text-rose-600">{error}</p>}
 
       {loadingExercises ? (
-        <p className="text-xs text-slate-500 p-6 text-center">Đang tải...</p>
+        <p className="text-sm text-slate-500 p-6 text-center">Đang tải...</p>
       ) : exercises.length === 0 ? (
-        <p className="text-xs text-slate-400 italic p-6 text-center">Đề này chưa có Bài nào.</p>
+        <p className="text-sm text-slate-400 italic p-6 text-center">Đề này chưa có Bài nào.</p>
       ) : (
         <div className="divide-y divide-slate-100">
           {exercises.map((exercise) => (
@@ -789,10 +789,10 @@ function ExerciseRow({
         <button onClick={toggle} className="flex items-center gap-2 text-left flex-1 min-w-0">
           {expanded ? <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />}
           <div className="min-w-0">
-            <p className="text-xs font-bold text-slate-800">
+            <p className="text-sm font-bold text-slate-800">
               {exercise.title} <span className="font-mono text-slate-400 font-normal">({exercise.code})</span>
             </p>
-            <p className="text-[10px] text-slate-400 mt-0.5">Tổng điểm: {exercise.totalPoints}</p>
+            <p className="text-sm text-slate-400 mt-0.5">Tổng điểm: {exercise.totalPoints}</p>
           </div>
         </button>
         <div className="flex items-center gap-2 shrink-0">
@@ -819,7 +819,7 @@ function ExerciseRow({
                 e.stopPropagation();
                 setAddQuestionsOpen(true);
               }}
-              className="text-[10px] font-bold text-brand-red hover:underline whitespace-nowrap"
+              className="text-sm font-bold text-brand-red hover:underline whitespace-nowrap"
             >
               + Thêm câu hỏi
             </button>
@@ -829,7 +829,7 @@ function ExerciseRow({
               e.stopPropagation();
               setPreviewOpen(true);
             }}
-            className="text-[10px] font-bold text-brand-red hover:underline whitespace-nowrap"
+            className="text-sm font-bold text-brand-red hover:underline whitespace-nowrap"
           >
             Xem trước (có đáp án)
           </button>
@@ -838,7 +838,7 @@ function ExerciseRow({
             <button
               onClick={handlePublish}
               disabled={publishing}
-              className="text-[10px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 px-2.5 py-1 rounded-lg disabled:opacity-50 whitespace-nowrap"
+              className="text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 px-2.5 py-1 rounded-lg disabled:opacity-50 whitespace-nowrap"
             >
               {publishing ? "Đang publish..." : "Publish"}
             </button>
@@ -846,7 +846,7 @@ function ExerciseRow({
         </div>
       </div>
 
-      {error && <p className="px-5 pb-2 text-[11px] text-rose-600">{error}</p>}
+      {error && <p className="px-5 pb-2 text-sm text-rose-600">{error}</p>}
 
       {previewOpen && <ExercisePreviewModal exercise={exercise} onClose={() => setPreviewOpen(false)} />}
 
@@ -905,15 +905,15 @@ function ExerciseRow({
       {expanded && (
         <div className="px-5 pb-3.5 pl-11">
           {loading ? (
-            <p className="text-[11px] text-slate-400">Đang tải câu hỏi...</p>
+            <p className="text-sm text-slate-400">Đang tải câu hỏi...</p>
           ) : !questions || questions.length === 0 ? (
-            <p className="text-[11px] text-slate-400 italic">Bài này chưa gắn câu hỏi nào.</p>
+            <p className="text-sm text-slate-400 italic">Bài này chưa gắn câu hỏi nào.</p>
           ) : (
             <div className="space-y-1.5">
               {questions
                 .sort((a, b) => a.displayOrder - b.displayOrder)
                 .map((q) => (
-                  <div key={q.id} className="text-[11px] text-slate-600 flex items-center justify-between gap-3 border-b border-slate-50 pb-1">
+                  <div key={q.id} className="text-sm text-slate-600 flex items-center justify-between gap-3 border-b border-slate-50 pb-1">
                     <span className="truncate">
                       {q.displayOrder}. {q.questionContent}
                     </span>
@@ -991,19 +991,19 @@ function AssignClassModal({ examId, onClose }: { examId: number; onClose: () => 
 
   return (
     <Modal open onClose={onClose} title="Gán Đề cho lớp" size="md">
-      <p className="text-[11px] text-slate-500 mb-3">
+      <p className="text-sm text-slate-500 mb-3">
         Đề chỉ hiển thị cho học sinh của các lớp đã gán ở đây — Bài trong Đề cần được Giáo viên chọn làm "BTVN buổi sau"
         ở Nhận xét học viên mới thật sự giao cho học sinh làm.
       </p>
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
       {loading ? (
-        <p className="text-xs text-slate-500 p-3 text-center">Đang tải...</p>
+        <p className="text-sm text-slate-500 p-3 text-center">Đang tải...</p>
       ) : classes.length === 0 ? (
-        <p className="text-xs text-slate-400 italic p-3 text-center">Không có lớp nào để gán.</p>
+        <p className="text-sm text-slate-400 italic p-3 text-center">Không có lớp nào để gán.</p>
       ) : (
         <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 max-h-72 overflow-y-auto">
           {classes.map((c) => (
-            <label key={c.id} className="flex items-center gap-2 px-3 py-2 text-xs cursor-pointer hover:bg-slate-50">
+            <label key={c.id} className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-slate-50">
               <input
                 type="checkbox"
                 checked={assignedIds.has(c.id)}
@@ -1011,7 +1011,7 @@ function AssignClassModal({ examId, onClose }: { examId: number; onClose: () => 
                 onChange={() => toggle(c.id)}
               />
               <span className="flex-1">{c.classCode} — {c.name}</span>
-              {pendingId === c.id && <span className="text-[10px] text-slate-400">Đang lưu...</span>}
+              {pendingId === c.id && <span className="text-sm text-slate-400">Đang lưu...</span>}
             </label>
           ))}
         </div>

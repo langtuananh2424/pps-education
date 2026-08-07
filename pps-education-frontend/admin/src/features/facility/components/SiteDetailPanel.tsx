@@ -29,8 +29,8 @@ import { useDialog } from "@/components/ui/DialogProvider";
 import DatePicker from "@/components/ui/DatePicker";
 import Select from "@/components/ui/Select";
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
+const labelClass = "text-sm uppercase font-bold text-slate-500 block mb-1";
 
 type Tab = "profile" | "manager" | "teachers" | "contracts";
 
@@ -52,7 +52,7 @@ export default function SiteDetailPanel({ site, onChanged }: SiteDetailPanelProp
       <div className="p-5 border-b border-slate-200 space-y-3 bg-slate-50/20">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
-            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-brand-red bg-orange-50 border border-orange-100 px-2 py-0.5 rounded-md">
+            <span className="text-sm font-mono font-bold uppercase tracking-wider text-brand-red bg-orange-50 border border-orange-100 px-2 py-0.5 rounded-md">
               {site.code}
             </span>
             <h2 className="text-sm font-bold text-slate-800 mt-1">{site.name}</h2>
@@ -72,7 +72,7 @@ export default function SiteDetailPanel({ site, onChanged }: SiteDetailPanelProp
             <button
               key={key}
               onClick={() => setTab(key)}
-              className={`pb-2.5 text-xs font-bold border-b-2 flex items-center gap-1.5 transition-all whitespace-nowrap ${
+              className={`pb-2.5 text-sm font-bold border-b-2 flex items-center gap-1.5 transition-all whitespace-nowrap ${
                 tab === key ? "border-brand-red text-brand-red" : "border-transparent text-slate-500 hover:text-slate-700"
               }`}
             >
@@ -131,7 +131,7 @@ function ProfileTab({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className={labelClass}>Tên điểm trường *</label>
@@ -168,7 +168,7 @@ function ProfileTab({
 
       {form.siteType === "PARTNER" && (
         <div className="space-y-3 border-t border-slate-100 pt-4">
-          <span className="text-[10px] font-bold uppercase text-slate-500">Liên hệ đầu mối trường liên kết</span>
+          <span className="text-sm font-bold uppercase text-slate-500">Liên hệ đầu mối trường liên kết</span>
           <div className="grid grid-cols-2 gap-3">
             <input
               value={form.partnerInfo?.contactPersonName ?? ""}
@@ -264,19 +264,19 @@ function ManagerTab({
 
   return (
     <div className="space-y-4">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-1">
-        <span className="text-[10px] uppercase font-bold text-slate-500">Quản lý điểm trường hiện tại</span>
+        <span className="text-sm uppercase font-bold text-slate-500">Quản lý điểm trường hiện tại</span>
         {site.currentManagerFullName ? (
           <p className="text-sm font-bold text-slate-800">{site.currentManagerFullName}</p>
         ) : (
-          <p className="text-xs text-slate-400 italic">Chưa gán quản lý điểm trường.</p>
+          <p className="text-sm text-slate-400 italic">Chưa gán quản lý điểm trường.</p>
         )}
       </div>
 
       <div className="space-y-2">
-        <span className="text-[10px] uppercase font-bold text-slate-500">Gán/Đổi quản lý điểm trường</span>
+        <span className="text-sm uppercase font-bold text-slate-500">Gán/Đổi quản lý điểm trường</span>
         <div className="relative max-w-md">
           <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400" />
           <input
@@ -289,7 +289,7 @@ function ManagerTab({
           {results.length > 0 && (
             <div className="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg divide-y divide-slate-100 max-h-56 overflow-y-auto">
               {results.map((u) => (
-                <button key={u.id} type="button" onClick={() => handleAssign(u.id)} className="w-full text-left px-3 py-2 hover:bg-slate-50 text-xs">
+                <button key={u.id} type="button" onClick={() => handleAssign(u.id)} className="w-full text-left px-3 py-2 hover:bg-slate-50 text-sm">
                   {u.fullName} <span className="text-slate-400">({u.username} · {u.email})</span>
                 </button>
               ))}
@@ -367,26 +367,26 @@ function SiteTeachersTab({ siteId, showToast }: { siteId: number; showToast: (ms
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-bold uppercase text-slate-500">Giáo viên phụ trách ({items.length})</span>
+        <span className="text-sm font-bold uppercase text-slate-500">Giáo viên phụ trách ({items.length})</span>
         <Button size="sm" variant="secondary" onClick={() => setShowForm(true)}>
           <Plus className="w-3.5 h-3.5" />
           Gán giáo viên
         </Button>
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       {loading ? (
-        <p className="text-xs text-slate-500">Đang tải...</p>
+        <p className="text-sm text-slate-500">Đang tải...</p>
       ) : items.length === 0 ? (
-        <p className="text-xs text-slate-400 italic">Chưa gán giáo viên nào vào điểm trường này.</p>
+        <p className="text-sm text-slate-400 italic">Chưa gán giáo viên nào vào điểm trường này.</p>
       ) : (
         <div className="space-y-2">
           {items.map((item) => (
             <div key={item.id} className="border border-slate-200 rounded-lg p-3 flex items-center justify-between gap-2">
               <div>
-                <p className="text-xs font-bold text-slate-800">{item.teacherFullName}</p>
-                <p className="text-[10px] text-slate-400 mt-0.5">
+                <p className="text-sm font-bold text-slate-800">{item.teacherFullName}</p>
+                <p className="text-sm text-slate-400 mt-0.5">
                   Từ {item.assignedFrom}
                   {item.assignedTo ? ` — đến ${item.assignedTo}` : ""}
                   {item.notes ? ` · ${item.notes}` : ""}
@@ -418,7 +418,7 @@ function SiteTeachersTab({ siteId, showToast }: { siteId: number; showToast: (ms
               {results.length > 0 && (
                 <div className="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg divide-y divide-slate-100 max-h-56 overflow-y-auto">
                   {results.map((u) => (
-                    <button key={u.id} type="button" onClick={() => handleAssign(u.id)} className="w-full text-left px-3 py-2 hover:bg-slate-50 text-xs">
+                    <button key={u.id} type="button" onClick={() => handleAssign(u.id)} className="w-full text-left px-3 py-2 hover:bg-slate-50 text-sm">
                       {u.fullName} <span className="text-slate-400">({u.username} · {u.email})</span>
                     </button>
                   ))}
@@ -434,7 +434,7 @@ function SiteTeachersTab({ siteId, showToast }: { siteId: number; showToast: (ms
             <label className={labelClass}>Ghi chú</label>
             <input value={notes} onChange={(e) => setNotes(e.target.value)} className={inputClass} placeholder="VD: Phụ trách môn IELTS" />
           </div>
-          <p className="text-[10px] text-slate-400 italic">Bấm chọn 1 giáo viên ở ô tìm kiếm bên trên để gán ngay.</p>
+          <p className="text-sm text-slate-400 italic">Bấm chọn 1 giáo viên ở ô tìm kiếm bên trên để gán ngay.</p>
         </div>
       </Modal>
     </div>
@@ -511,7 +511,7 @@ function ContractsTab({ siteId, showToast }: { siteId: number; showToast: (msg: 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-bold uppercase text-slate-500">Hợp đồng liên kết ({items.length})</span>
+        <span className="text-sm font-bold uppercase text-slate-500">Hợp đồng liên kết ({items.length})</span>
         <Button size="sm" variant="secondary" onClick={() => setShowForm(true)}>
           <Plus className="w-3.5 h-3.5" />
           Thêm hợp đồng
@@ -520,7 +520,7 @@ function ContractsTab({ siteId, showToast }: { siteId: number; showToast: (msg: 
 
       <Modal open={showForm} onClose={() => setShowForm(false)} title="Thêm hợp đồng">
         <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-          {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
+          {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
           <div className="grid grid-cols-2 gap-3">
             <Select value={form.contractType} onChange={(e) => setForm({ ...form, contractType: e.target.value })} className={inputClass}>
               <option value="INITIAL">Hợp đồng gốc</option>
@@ -551,13 +551,13 @@ function ContractsTab({ siteId, showToast }: { siteId: number; showToast: (msg: 
       </Modal>
 
       {loading ? (
-        <p className="text-xs text-slate-500">Đang tải...</p>
+        <p className="text-sm text-slate-500">Đang tải...</p>
       ) : items.length === 0 ? (
-        <p className="text-xs text-slate-400 italic">Chưa có hợp đồng liên kết nào.</p>
+        <p className="text-sm text-slate-400 italic">Chưa có hợp đồng liên kết nào.</p>
       ) : (
         <div className="space-y-2">
           {items.map((c) => (
-            <div key={c.id} className="border border-slate-200 rounded-lg p-3 text-xs space-y-1">
+            <div key={c.id} className="border border-slate-200 rounded-lg p-3 text-sm space-y-1">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-mono font-bold text-slate-800">{c.contractNumber}</span>
@@ -566,7 +566,7 @@ function ContractsTab({ siteId, showToast }: { siteId: number; showToast: (msg: 
                 </div>
                 <div className="flex gap-2">
                   {c.status === "ACTIVE" && (
-                    <button onClick={() => handleTerminate(c)} className="text-rose-500 hover:text-rose-700 text-[11px] font-semibold">
+                    <button onClick={() => handleTerminate(c)} className="text-rose-500 hover:text-rose-700 text-sm font-semibold">
                       Chấm dứt
                     </button>
                   )}

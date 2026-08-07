@@ -16,7 +16,7 @@ export default function ExpensesPage() {
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Quản Lý Tài Chính & Sổ Cái Kế Toán</h1>
-        <p className="text-xs text-slate-500 mt-1">Theo dõi thu chi phân cấp cơ sở.</p>
+        <p className="text-sm text-slate-500 mt-1">Theo dõi thu chi phân cấp cơ sở.</p>
       </div>
 
       <UnderDevelopment title="Chi phí vận hành" />

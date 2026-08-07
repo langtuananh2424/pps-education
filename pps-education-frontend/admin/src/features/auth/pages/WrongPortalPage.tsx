@@ -20,7 +20,7 @@ export default function WrongPortalPage() {
 
         <div className="space-y-2">
           <h2 className="text-lg font-bold text-slate-900 font-display">Tài khoản thuộc ứng dụng Portal</h2>
-          <p className="text-xs text-slate-500 leading-relaxed">
+          <p className="text-sm text-slate-500 leading-relaxed">
             Tài khoản <strong>{currentUser?.fullName}</strong> có vai trò <strong>{roleLabelText}</strong> — thuộc ứng dụng
             Portal Học sinh/Phụ huynh/Trường liên kết, không phải ứng dụng Quản trị này. Vui lòng đăng nhập vào ứng dụng
             Portal để tiếp tục.

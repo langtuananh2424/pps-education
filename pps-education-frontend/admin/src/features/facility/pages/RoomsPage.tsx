@@ -29,8 +29,8 @@ import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import Select from "@/components/ui/Select";
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
+const labelClass = "text-sm uppercase font-bold text-slate-500 block mb-1";
 
 const roomTypeLabels: Record<RoomType, string> = { THEORY: "Lý thuyết", COMPUTER: "Phòng máy", LAB: "Lab/Thực hành", OTHER: "Khác" };
 const roomStatusLabels: Record<RoomStatus, string> = { AVAILABLE: "Khả dụng", MAINTENANCE: "Đang bảo trì", DISABLED: "Ngừng sử dụng" };
@@ -93,21 +93,21 @@ export default function RoomsPage() {
     }
   };
 
-  if (loading) return <p className="text-xs text-slate-500">Đang tải...</p>;
+  if (loading) return <p className="text-sm text-slate-500">Đang tải...</p>;
 
   return (
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Quản Lý Điểm Trường, Phòng Học & Đối Tác</h1>
-        <p className="text-xs text-slate-500 mt-1">Quản lý phòng học và thiết bị dạy học.</p>
+        <p className="text-sm text-slate-500 mt-1">Quản lý phòng học và thiết bị dạy học.</p>
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h3 className="text-sm font-bold text-slate-800 font-display">Sơ đồ phòng học cơ sở</h3>
         <div className="flex items-center gap-3">
-          <span className="text-xs text-slate-400 italic">Nhấp 'Linh hoạt' để loại trừ phòng khỏi ràng buộc kiểm tra trùng giờ dạy.</span>
+          <span className="text-sm text-slate-400 italic">Nhấp 'Linh hoạt' để loại trừ phòng khỏi ràng buộc kiểm tra trùng giờ dạy.</span>
           <Button size="sm" variant="primary" onClick={() => setShowCreateForm(true)}>
             <Plus className="w-3.5 h-3.5" />
             Thêm phòng
@@ -116,7 +116,7 @@ export default function RoomsPage() {
       </div>
 
       {rooms.length === 0 ? (
-        <p className="text-xs text-slate-400 italic text-center py-10">Chưa có phòng học nào được khai báo.</p>
+        <p className="text-sm text-slate-400 italic text-center py-10">Chưa có phòng học nào được khai báo.</p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
           {rooms.map((room) => {
@@ -125,11 +125,11 @@ export default function RoomsPage() {
               <Card key={room.id} className="flex flex-col justify-between">
                 <div>
                   <div className="flex items-start justify-between gap-2 border-b pb-2">
-                    <span className="text-xs font-bold text-slate-900 truncate">{room.name || room.code}</span>
+                    <span className="text-sm font-bold text-slate-900 truncate">{room.name || room.code}</span>
                     <Badge variant={roomStatusVariants[status] ?? "neutral"}>{roomStatusLabels[status] ?? status}</Badge>
                   </div>
 
-                  <div className="text-[11px] text-slate-500 space-y-1.5 mt-3">
+                  <div className="text-sm text-slate-500 space-y-1.5 mt-3">
                     <p>• Cơ sở: {siteName(room.siteId)}</p>
                     <p>• Sức chứa: {room.capacity} học sinh</p>
                     <p>• Loại phòng: {roomTypeLabels[room.roomType as RoomType] ?? room.roomType}</p>
@@ -138,16 +138,16 @@ export default function RoomsPage() {
 
                 <div className="border-t border-slate-100 pt-3 flex items-center justify-between gap-2 flex-wrap">
                   <div className="flex items-center gap-2.5">
-                    <button onClick={() => setEditingRoom(room)} className="text-[10px] font-bold text-slate-500 hover:text-brand-orange flex items-center gap-1">
+                    <button onClick={() => setEditingRoom(room)} className="text-sm font-bold text-slate-500 hover:text-brand-orange flex items-center gap-1">
                       <Pencil className="w-3 h-3" /> Sửa
                     </button>
-                    <button onClick={() => setEquipmentRoom(room)} className="text-[10px] font-bold text-slate-500 hover:text-brand-orange flex items-center gap-1">
+                    <button onClick={() => setEquipmentRoom(room)} className="text-sm font-bold text-slate-500 hover:text-brand-orange flex items-center gap-1">
                       <Wrench className="w-3 h-3" /> Thiết bị
                     </button>
                   </div>
                   <button
                     onClick={() => handleToggleFlexibility(room)}
-                    className={cn("px-3 py-1 rounded text-[10px] font-bold transition-all", room.flexible ? "bg-brand-gradient text-white shadow-soft" : "bg-slate-100 text-slate-600 hover:bg-slate-200")}
+                    className={cn("px-3 py-1 rounded text-sm font-bold transition-all", room.flexible ? "bg-brand-gradient text-white shadow-soft" : "bg-slate-100 text-slate-600 hover:bg-slate-200")}
                   >
                     {room.flexible ? "Linh hoạt (BẬT)" : "Mặc định (TẮT)"}
                   </button>
@@ -243,7 +243,7 @@ function CreateRoomModal({
   return (
     <Modal open onClose={onClose} title="Thêm phòng học mới" size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className={labelClass}>Điểm trường *</label>
@@ -281,11 +281,11 @@ function CreateRoomModal({
           </div>
         </div>
         <div className="flex gap-4">
-          <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+          <label className="flex items-center gap-1.5 text-sm font-semibold text-slate-600">
             <input type="checkbox" checked={form.flexible} onChange={(e) => setForm({ ...form, flexible: e.target.checked })} />
             Phòng linh hoạt (loại khỏi kiểm tra trùng giờ)
           </label>
-          <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+          <label className="flex items-center gap-1.5 text-sm font-semibold text-slate-600">
             <input type="checkbox" checked={form.managedByCenter} onChange={(e) => setForm({ ...form, managedByCenter: e.target.checked })} />
             Trung tâm quản lý phòng này
           </label>
@@ -344,7 +344,7 @@ function EditRoomModal({ room, onClose, onUpdated }: { room: RoomResponse; onClo
   return (
     <Modal open onClose={onClose} title={`Sửa phòng học — ${room.code}`} size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className={labelClass}>Tên phòng</label>
@@ -376,11 +376,11 @@ function EditRoomModal({ room, onClose, onUpdated }: { room: RoomResponse; onClo
           />
         </div>
         <div className="flex gap-4">
-          <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+          <label className="flex items-center gap-1.5 text-sm font-semibold text-slate-600">
             <input type="checkbox" checked={form.flexible} onChange={(e) => setForm({ ...form, flexible: e.target.checked })} />
             Phòng linh hoạt (loại khỏi kiểm tra trùng giờ)
           </label>
-          <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+          <label className="flex items-center gap-1.5 text-sm font-semibold text-slate-600">
             <input type="checkbox" checked={form.managedByCenter} onChange={(e) => setForm({ ...form, managedByCenter: e.target.checked })} />
             Trung tâm quản lý phòng này
           </label>
@@ -454,19 +454,19 @@ function EquipmentModal({ room, onClose }: { room: RoomResponse; onClose: () => 
   return (
     <Modal open onClose={onClose} title={`Thiết bị — ${room.name || room.code}`} size="lg">
       <div className="space-y-4">
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
         {loading ? (
-          <p className="text-xs text-slate-500">Đang tải...</p>
+          <p className="text-sm text-slate-500">Đang tải...</p>
         ) : equipment.length === 0 ? (
-          <p className="text-xs text-slate-400 italic">Phòng này chưa có thiết bị nào.</p>
+          <p className="text-sm text-slate-400 italic">Phòng này chưa có thiết bị nào.</p>
         ) : (
           <div className="space-y-2">
             {equipment.map((item) => (
               <div key={item.id} className="border border-slate-200 rounded-lg p-3 flex items-center justify-between gap-2">
                 <div>
-                  <span className="text-xs font-bold text-slate-800 block">{item.name}</span>
-                  <span className="text-[10px] text-slate-400">{item.code} · {equipmentTypeLabels[item.equipmentType]}</span>
+                  <span className="text-sm font-bold text-slate-800 block">{item.name}</span>
+                  <span className="text-sm text-slate-400">{item.code} · {equipmentTypeLabels[item.equipmentType]}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Badge variant={equipmentStatusVariants[item.status] ?? "neutral"}>{equipmentStatusLabels[item.status] ?? item.status}</Badge>

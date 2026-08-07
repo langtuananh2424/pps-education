@@ -12,9 +12,9 @@ import Select from "@/components/ui/Select";
 
 const TODAY_ISO = new Date().toISOString().slice(0, 10);
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
-const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-xs p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
+const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-sm p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
+const labelClass = "text-sm uppercase font-bold text-slate-500 block mb-1";
 
 interface EmployeeFormModalProps {
   onClose: () => void;
@@ -107,9 +107,9 @@ export default function EmployeeFormModal({ onClose, onCreated }: EmployeeFormMo
   return (
     <Modal open onClose={onClose} title="Thêm nhân sự mới" size="lg">
       <form onSubmit={handleSubmit} className="space-y-5">
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
         <div className="space-y-2 border-t border-slate-100 pt-4">
-          <span className="text-[10px] font-bold uppercase text-slate-500">Ảnh đại diện</span>
+          <span className="text-sm font-bold uppercase text-slate-500">Ảnh đại diện</span>
           <AvatarUploadField
             value={form.portraitUrl}
             onChange={(url) => setForm({ ...form, portraitUrl: url })}
@@ -118,12 +118,12 @@ export default function EmployeeFormModal({ onClose, onCreated }: EmployeeFormMo
           />
         </div>
         <div className="space-y-2">
-          <span className="text-[10px] font-bold uppercase text-slate-500">Tài khoản</span>
+          <span className="text-sm font-bold uppercase text-slate-500">Tài khoản</span>
           <AccountSelector value={account} onChange={setAccount} submitAttempted={submitAttempted} />
         </div>
 
         <div className="space-y-3 border-t border-slate-100 pt-4">
-          <span className="text-[10px] font-bold uppercase text-slate-500">Thông tin nhân sự</span>
+          <span className="text-sm font-bold uppercase text-slate-500">Thông tin nhân sự</span>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelClass}>Mã nhân sự *</label>
@@ -133,7 +133,7 @@ export default function EmployeeFormModal({ onClose, onCreated }: EmployeeFormMo
                 onBlur={() => markTouched("employeeCode")}
                 className={`${employeeCodeInvalid ? inputErrorClass : inputClass} font-mono`}
               />
-              {employeeCodeInvalid && <p className="text-[10px] text-rose-600 mt-1">Vui lòng nhập Mã nhân sự.</p>}
+              {employeeCodeInvalid && <p className="text-sm text-rose-600 mt-1">Vui lòng nhập Mã nhân sự.</p>}
             </div>
             <div>
               <label className={labelClass}>Loại nhân sự *</label>
@@ -154,7 +154,7 @@ export default function EmployeeFormModal({ onClose, onCreated }: EmployeeFormMo
                 max={TODAY_ISO}
                 hasError={dateOfBirthInvalid}
               />
-              {dateOfBirthInvalid && <p className="text-[10px] text-rose-600 mt-1">Vui lòng chọn Ngày sinh.</p>}
+              {dateOfBirthInvalid && <p className="text-sm text-rose-600 mt-1">Vui lòng chọn Ngày sinh.</p>}
             </div>
             <div>
               <label className={labelClass}>Ngày vào làm *</label>
@@ -166,7 +166,7 @@ export default function EmployeeFormModal({ onClose, onCreated }: EmployeeFormMo
                 }}
                 hasError={hireDateInvalid}
               />
-              {hireDateInvalid && <p className="text-[10px] text-rose-600 mt-1">Vui lòng chọn Ngày vào làm.</p>}
+              {hireDateInvalid && <p className="text-sm text-rose-600 mt-1">Vui lòng chọn Ngày vào làm.</p>}
             </div>
             <div>
               <label className={labelClass}>Chức vụ</label>
@@ -179,7 +179,7 @@ export default function EmployeeFormModal({ onClose, onCreated }: EmployeeFormMo
                 ))}
               </Select>
               {positions.length === 0 && (
-                <p className="text-[10px] text-slate-400 mt-1">Chưa có chức vụ nào — tạo tại "Phòng ban & Chức vụ".</p>
+                <p className="text-sm text-slate-400 mt-1">Chưa có chức vụ nào — tạo tại "Phòng ban & Chức vụ".</p>
               )}
             </div>
             <div>
@@ -230,7 +230,7 @@ export default function EmployeeFormModal({ onClose, onCreated }: EmployeeFormMo
               <input value={form.socialInsuranceNumber} onChange={(e) => setForm({ ...form, socialInsuranceNumber: e.target.value })} className={inputClass} />
             </div>
           </div>
-          <label className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+          <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
             <input type="checkbox" checked={form.isManagement} onChange={(e) => setForm({ ...form, isManagement: e.target.checked })} />
             Miễn trừ chấm công (is_management)
           </label>

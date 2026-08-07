@@ -43,10 +43,10 @@ export default function CommentsPage() {
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Nhận xét học viên</h1>
-        <p className="text-xs text-slate-500 mt-1">Giáo viên viết nhận xét hàng ngày/định kỳ, Quản lý điểm trường duyệt trước khi hiển thị Portal phụ huynh.</p>
+        <p className="text-sm text-slate-500 mt-1">Giáo viên viết nhận xét hàng ngày/định kỳ, Quản lý điểm trường duyệt trước khi hiển thị Portal phụ huynh.</p>
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       {isSiteManager ? (
         <>
@@ -60,14 +60,14 @@ export default function CommentsPage() {
               <button
                 key={key}
                 onClick={() => setSiteManagerTab(key)}
-                className={`pb-2.5 text-xs font-bold border-b-2 flex items-center gap-1.5 transition-all ${
+                className={`pb-2.5 text-sm font-bold border-b-2 flex items-center gap-1.5 transition-all ${
                   siteManagerTab === key ? "border-brand-red text-brand-red" : "border-transparent text-slate-500 hover:text-slate-700"
                 }`}
               >
                 <Icon className="w-3.5 h-3.5" />
                 {label}
                 {key === "pending" && pending.length > 0 && (
-                  <span className="bg-brand-red text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">{pending.length}</span>
+                  <span className="bg-brand-red text-white text-sm font-bold px-1.5 py-0.5 rounded-full">{pending.length}</span>
                 )}
               </button>
             ))}
@@ -98,7 +98,7 @@ export default function CommentsPage() {
               <button
                 key={key}
                 onClick={() => setTab(key)}
-                className={`pb-2.5 text-xs font-bold border-b-2 flex items-center gap-1.5 transition-all ${
+                className={`pb-2.5 text-sm font-bold border-b-2 flex items-center gap-1.5 transition-all ${
                   tab === key ? "border-brand-red text-brand-red" : "border-transparent text-slate-500 hover:text-slate-700"
                 }`}
               >

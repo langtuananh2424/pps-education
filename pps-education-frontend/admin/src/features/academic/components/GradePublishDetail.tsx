@@ -111,7 +111,7 @@ export default function GradePublishDetail({ classId, classLabel, teacherName, o
         <ClipboardList className="w-12 h-12 text-slate-300" />
         <div>
           <h3 className="text-sm font-bold text-slate-700">Chưa chọn lớp nào</h3>
-          <p className="text-xs text-slate-400 mt-1">Chọn 1 lớp ở danh sách bên dưới để xem bảng điểm và công bố.</p>
+          <p className="text-sm text-slate-400 mt-1">Chọn 1 lớp ở danh sách bên dưới để xem bảng điểm và công bố.</p>
         </div>
       </div>
     );
@@ -121,14 +121,14 @@ export default function GradePublishDetail({ classId, classLabel, teacherName, o
     <div className="bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden">
       <div className="px-5 py-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between flex-wrap gap-3">
         <div>
-          <span className="text-xs font-bold text-slate-700 font-display">Chi tiết điểm chờ duyệt — {classLabel}</span>
-          <p className="text-[10px] text-slate-400 mt-0.5">GV: {teacherName ?? "Chưa rõ"}</p>
+          <span className="text-sm font-bold text-slate-700 font-display">Chi tiết điểm chờ duyệt — {classLabel}</span>
+          <p className="text-sm text-slate-400 mt-0.5">GV: {teacherName ?? "Chưa rõ"}</p>
         </div>
         {setups.length > 1 && (
           <Select
             value={selectedSetupId ?? ""}
             onChange={(e) => setSelectedSetupId(e.target.value ? Number(e.target.value) : null)}
-            className="bg-white border border-slate-200 text-xs p-1.5 rounded-lg focus:outline-none"
+            className="bg-white border border-slate-200 text-sm p-1.5 rounded-lg focus:outline-none"
           >
             {setups.map((s) => (
               <option key={s.id} value={s.id}>
@@ -139,7 +139,7 @@ export default function GradePublishDetail({ classId, classLabel, teacherName, o
         )}
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 m-4 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 m-4 rounded-lg">{error}</div>}
 
       {selectedSetupId && components.length > 0 ? (
         <GradeSheetTable
@@ -155,7 +155,7 @@ export default function GradePublishDetail({ classId, classLabel, teacherName, o
           }}
         />
       ) : (
-        <p className="text-xs text-slate-400 italic p-6 text-center">Lớp này chưa có đầu điểm nào được cấu hình.</p>
+        <p className="text-sm text-slate-400 italic p-6 text-center">Lớp này chưa có đầu điểm nào được cấu hình.</p>
       )}
 
       <div className="px-5 py-3 border-t border-slate-100 flex justify-end gap-2">
@@ -185,15 +185,15 @@ export default function GradePublishDetail({ classId, classLabel, teacherName, o
         }
       >
         <div className="space-y-2">
-          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Lý do (tuỳ chọn)</label>
+          <label className="text-sm font-bold text-slate-500 uppercase tracking-wide">Lý do (tuỳ chọn)</label>
           <textarea
             value={rejectReason}
             onChange={(e) => setRejectReason(e.target.value)}
             rows={3}
             placeholder="VD: Điểm Speaking chưa khớp với biên bản chấm..."
-            className="w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
+            className="w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none"
           />
-          <p className="text-[10px] text-slate-400">Giáo viên sẽ nhận thông báo kèm lý do (nếu có) và có thể sửa lại rồi gửi duyệt lại.</p>
+          <p className="text-sm text-slate-400">Giáo viên sẽ nhận thông báo kèm lý do (nếu có) và có thể sửa lại rồi gửi duyệt lại.</p>
         </div>
       </Modal>
     </div>

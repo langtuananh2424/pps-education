@@ -48,8 +48,8 @@ function getActionDisplay(log: PermissionAuditLogResponse): { label: string; var
   return { label: actionLabels[log.action] ?? log.action, variant: "danger" };
 }
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
+const labelClass = "text-sm uppercase font-bold text-slate-500 block mb-1";
 
 export default function AuditLogPage() {
   const [allUsers, setAllUsers] = useState<UserListItemResponse[]>([]);
@@ -126,7 +126,7 @@ export default function AuditLogPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div>
           <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider block">Nhật ký thay đổi quyền</h2>
-          <p className="text-[10px] text-slate-400 mt-0.5">Truy vết ai gán/thu hồi vai trò, cấp/tước ngoại lệ quyền, cho ai, khi nào.</p>
+          <p className="text-sm text-slate-400 mt-0.5">Truy vết ai gán/thu hồi vai trò, cấp/tước ngoại lệ quyền, cho ai, khi nào.</p>
         </div>
       </div>
 
@@ -165,7 +165,7 @@ export default function AuditLogPage() {
       </form>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden">
-        {error && <div className="p-4 text-xs text-rose-600 bg-rose-50 border-b border-rose-100">{error}</div>}
+        {error && <div className="p-4 text-sm text-rose-600 bg-rose-50 border-b border-rose-100">{error}</div>}
         {!loading && rows.length === 0 && !error ? (
           <EmptyState icon={Search} title="Không tìm thấy bản ghi phù hợp" description="Thử nới lỏng bộ lọc (A1 — UC-05)." />
         ) : (
@@ -197,7 +197,7 @@ export default function AuditLogPage() {
                     <Td>
                       <Badge variant={actionDisplay.variant}>{actionDisplay.label}</Badge>
                     </Td>
-                    <Td className="text-[11px] leading-relaxed max-w-lg">
+                    <Td className="text-sm leading-relaxed max-w-lg">
                       {role && <code className="font-mono font-bold text-brand-red">{role.code}</code>}
                       {permission && <code className="font-mono font-bold text-brand-red">{permission.code}</code>}
                       {detailReason && <span className="text-slate-500 italic ml-2">— {detailReason}</span>}
@@ -211,7 +211,7 @@ export default function AuditLogPage() {
         )}
 
         {rows.length > 0 && (
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-4 py-3 border-t border-slate-100 text-[11px] text-slate-500">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-4 py-3 border-t border-slate-100 text-sm text-slate-500">
             <div className="flex items-center gap-2">
               <span>Tổng {totalElements} bản ghi</span>
               <span className="text-slate-300">|</span>
@@ -223,7 +223,7 @@ export default function AuditLogPage() {
                     setPageSize(Number(e.target.value));
                     setPage(0);
                   }}
-                  className="bg-slate-50 border border-slate-200 text-[11px] px-1.5 py-1 rounded-md focus:outline-none cursor-pointer"
+                  className="bg-slate-50 border border-slate-200 text-sm px-1.5 py-1 rounded-md focus:outline-none cursor-pointer"
                 >
                   {PAGE_SIZE_OPTIONS.map((size) => (
                     <option key={size} value={size}>
@@ -278,7 +278,7 @@ function UserPicker({
     return (
       <div>
         <label className={labelClass}>{label}</label>
-        <div className="flex items-center justify-between bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg">
+        <div className="flex items-center justify-between bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg">
           <span className="truncate">
             {value.fullName} ({value.username})
           </span>
@@ -304,7 +304,7 @@ function UserPicker({
                 onChange(u);
                 setQuery("");
               }}
-              className="w-full text-left px-3 py-2 hover:bg-slate-50 text-xs"
+              className="w-full text-left px-3 py-2 hover:bg-slate-50 text-sm"
             >
               {u.fullName} <span className="text-slate-400">({u.username})</span>
             </button>

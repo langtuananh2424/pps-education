@@ -45,14 +45,14 @@ export default function FileUploadField({ value, onChange, onUpload, onFileSize,
       {value ? (
         <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
           <Paperclip className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-          <a href={value} target="_blank" rel="noreferrer" className="text-[11px] text-brand-orange font-semibold truncate flex-1 hover:underline">
+          <a href={value} target="_blank" rel="noreferrer" className="text-sm text-brand-orange font-semibold truncate flex-1 hover:underline">
             {value}
           </a>
           <button
             type="button"
             onClick={handlePick}
             disabled={disabled || uploading}
-            className="text-[10px] font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1 shrink-0 disabled:opacity-50"
+            className="text-sm font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1 shrink-0 disabled:opacity-50"
           >
             {uploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <RotateCcw className="w-3 h-3" />}
             Đổi file
@@ -63,13 +63,13 @@ export default function FileUploadField({ value, onChange, onUpload, onFileSize,
           type="button"
           onClick={handlePick}
           disabled={disabled || uploading}
-          className="w-full flex items-center justify-center gap-1.5 border border-dashed border-slate-300 text-slate-500 hover:border-brand-orange hover:text-brand-orange text-xs font-bold py-2.5 rounded-lg disabled:opacity-50"
+          className="w-full flex items-center justify-center gap-1.5 border border-dashed border-slate-300 text-slate-500 hover:border-brand-orange hover:text-brand-orange text-sm font-bold py-2.5 rounded-lg disabled:opacity-50"
         >
           {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Paperclip className="w-3.5 h-3.5" />}
           {uploading ? "Đang upload..." : placeholder ?? "Chọn file"}
         </button>
       )}
-      {error && <p className="text-[10px] text-rose-600 font-semibold">{error}</p>}
+      {error && <p className="text-sm text-rose-600 font-semibold">{error}</p>}
     </div>
   );
 }

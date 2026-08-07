@@ -131,7 +131,7 @@ export default function AssignmentStatsDetailPage() {
 
       <div>
         <h1 className="text-2xl font-bold font-display text-slate-900">{studentStats.assignment.exerciseTitle}</h1>
-        <p className="text-xs text-slate-500 mt-1">{studentStats.assignment.exerciseCode}</p>
+        <p className="text-sm text-slate-500 mt-1">{studentStats.assignment.exerciseCode}</p>
       </div>
 
       {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-lg">{error}</div>}
@@ -171,7 +171,7 @@ export default function AssignmentStatsDetailPage() {
                   {studentStats.students.map((s) => (
                     <tr key={s.studentId}>
                       <Td className="font-semibold text-slate-900">
-                        {s.studentFullName} <span className="text-slate-400 font-mono text-[10px]">({s.studentCode})</span>
+                        {s.studentFullName} <span className="text-slate-400 font-mono text-sm">({s.studentCode})</span>
                       </Td>
                       <Td>
                         <Badge variant={studentStatusVariants[s.status]}>{studentStatusLabels[s.status]}</Badge>
@@ -263,7 +263,7 @@ function QuestionRow({
       >
         <div className="flex items-center gap-2 min-w-0">
           {expanded ? <ChevronDown className="w-3.5 h-3.5 shrink-0 text-slate-400" /> : <ChevronRight className="w-3.5 h-3.5 shrink-0 text-slate-400" />}
-          <span className="text-xs text-slate-700 truncate">
+          <span className="text-sm text-slate-700 truncate">
             Câu {question.displayOrder}: {question.content}
           </span>
         </div>
@@ -285,9 +285,9 @@ function QuestionRow({
       {expanded && (
         <div className="px-4 pb-3 pl-11">
           {question.wrongStudents.length === 0 ? (
-            <p className="text-[11px] text-slate-400 italic">Không có học sinh nào trả lời sai.</p>
+            <p className="text-sm text-slate-400 italic">Không có học sinh nào trả lời sai.</p>
           ) : (
-            <ul className="text-[11px] text-slate-600 space-y-1">
+            <ul className="text-sm text-slate-600 space-y-1">
               {question.wrongStudents.map((s) => (
                 <li key={s.studentId}>
                   {s.studentFullName} <span className="text-slate-400 font-mono">({s.studentCode})</span>
@@ -376,29 +376,29 @@ function StudentDetailModal({
             <h3 className="font-semibold text-sm mb-3 text-slate-900">Thông tin lần làm</h3>
             <div className="grid grid-cols-2 gap-4">
               <div className="border border-slate-200 rounded-lg p-3">
-                <p className="text-xs text-slate-500">Trạng thái</p>
+                <p className="text-sm text-slate-500">Trạng thái</p>
                 <p className="font-semibold text-sm mt-1">{studentStatusLabels[student.status]}</p>
               </div>
               <div className="border border-slate-200 rounded-lg p-3">
-                <p className="text-xs text-slate-500">Điểm số</p>
+                <p className="text-sm text-slate-500">Điểm số</p>
                 <p className="font-semibold text-sm mt-1">{student.totalScore ?? "—"}/{student.totalPoints}</p>
               </div>
               <div className="border border-slate-200 rounded-lg p-3">
-                <p className="text-xs text-slate-500">Tỉ lệ</p>
+                <p className="text-sm text-slate-500">Tỉ lệ</p>
                 <p className="font-semibold text-sm mt-1">{student.percentage ?? "—"}%</p>
               </div>
               <div className="border border-slate-200 rounded-lg p-3">
-                <p className="text-xs text-slate-500">Lần làm</p>
+                <p className="text-sm text-slate-500">Lần làm</p>
                 <p className="font-semibold text-sm mt-1">{student.attemptNumber ?? "—"}</p>
               </div>
               <div className="border border-slate-200 rounded-lg p-3">
-                <p className="text-xs text-slate-500">Nộp lúc</p>
+                <p className="text-sm text-slate-500">Nộp lúc</p>
                 <p className="font-semibold text-sm mt-1 text-[12px]">
                   {student.submittedAt ? new Date(student.submittedAt).toLocaleString("vi-VN") : "—"}
                 </p>
               </div>
               <div className="border border-slate-200 rounded-lg p-3">
-                <p className="text-xs text-slate-500">Kết quả</p>
+                <p className="text-sm text-slate-500">Kết quả</p>
                 <p className="font-semibold text-sm mt-1">
                   {student.passed == null ? "—" : student.passed ? "Đạt" : "Chưa đạt"}
                 </p>
@@ -413,13 +413,13 @@ function StudentDetailModal({
             <div>
               <h3 className="font-semibold text-sm mb-3 text-slate-900">Lịch sử nhiều lượt làm bài</h3>
               {attemptsError && (
-                <div className="mb-3 text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{attemptsError}</div>
+                <div className="mb-3 text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{attemptsError}</div>
               )}
               {loadingAttempts ? (
                 <p className="text-sm text-slate-500">Đang tải...</p>
               ) : (
                 <div className="border border-slate-200 rounded-lg overflow-hidden">
-                  <table className="w-full text-xs">
+                  <table className="w-full text-sm">
                     <thead className="bg-slate-50">
                       <tr>
                         <th className="text-center p-2 border-b border-slate-200 w-14">Lượt</th>
@@ -461,7 +461,7 @@ function StudentDetailModal({
               )}
             </h3>
             {answerError && (
-              <div className="mb-3 text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{answerError}</div>
+              <div className="mb-3 text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{answerError}</div>
             )}
             <div className="border border-slate-200 rounded-lg overflow-hidden">
               {loadingAnswers ? (
@@ -469,7 +469,7 @@ function StudentDetailModal({
               ) : answers.length === 0 ? (
                 <div className="text-center p-4 text-sm text-slate-500">Không có dữ liệu.</div>
               ) : (
-                <table className="w-full text-xs">
+                <table className="w-full text-sm">
                   <thead className="bg-slate-50">
                     <tr>
                       <th className="text-center p-2 border-b border-slate-200 w-12">Câu</th>
@@ -507,7 +507,7 @@ function StudentDetailModal({
                             <span className="text-slate-400">—</span>
                           )}
                           {answer.explanation && (
-                            <p className="text-[10px] text-slate-500 mt-1 italic">
+                            <p className="text-sm text-slate-500 mt-1 italic">
                               {answer.explanation}
                             </p>
                           )}
@@ -588,8 +588,8 @@ function AttemptHistoryRow({
     <React.Fragment>
       <tr className={viewing ? "bg-blue-50/60" : undefined}>
         <td className="text-center p-2 font-semibold text-slate-900">#{attempt.attemptNumber}</td>
-        <td className="p-2 text-slate-600 text-[11px]">{new Date(attempt.startedAt).toLocaleString("vi-VN")}</td>
-        <td className="p-2 text-slate-600 text-[11px]">
+        <td className="p-2 text-slate-600 text-sm">{new Date(attempt.startedAt).toLocaleString("vi-VN")}</td>
+        <td className="p-2 text-slate-600 text-sm">
           {attempt.submittedAt ? new Date(attempt.submittedAt).toLocaleString("vi-VN") : "—"}
         </td>
         <td className="text-center p-2">
@@ -608,7 +608,7 @@ function AttemptHistoryRow({
           {attempt.stoppedByIntegrityViolation ? (
             <button
               onClick={toggleSummary}
-              className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded-md hover:bg-amber-100"
+              className="inline-flex items-center gap-1 text-sm font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded-md hover:bg-amber-100"
             >
               <ShieldAlert className="w-3 h-3" /> Bị dừng do vi phạm giám sát
             </button>
@@ -618,14 +618,14 @@ function AttemptHistoryRow({
         </td>
         <td className="text-center p-2">
           {attempt.selectedForGrading ? (
-            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-md">
+            <span className="inline-flex items-center gap-1 text-sm font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-md">
               <CheckCircle2 className="w-3 h-3" /> Đã chọn
             </span>
           ) : (
             <button
               onClick={handleSelectForGrading}
               disabled={selecting}
-              className="text-[10px] font-medium text-blue-700 bg-blue-50 border border-blue-200 px-2 py-1 rounded-md hover:bg-blue-100 disabled:opacity-50"
+              className="text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 px-2 py-1 rounded-md hover:bg-blue-100 disabled:opacity-50"
             >
               {selecting ? "Đang chọn..." : "Chọn làm điểm"}
             </button>
@@ -633,13 +633,13 @@ function AttemptHistoryRow({
         </td>
         <td className="text-center p-2">
           {viewing ? (
-            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700">
+            <span className="inline-flex items-center gap-1 text-sm font-bold text-blue-700">
               <Eye className="w-3 h-3" /> Đang xem
             </span>
           ) : (
             <button
               onClick={onView}
-              className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-600 bg-slate-50 border border-slate-200 px-2 py-1 rounded-md hover:bg-slate-100"
+              className="inline-flex items-center gap-1 text-sm font-medium text-slate-600 bg-slate-50 border border-slate-200 px-2 py-1 rounded-md hover:bg-slate-100"
             >
               <Eye className="w-3 h-3" /> Xem trả lời
             </button>
@@ -648,7 +648,7 @@ function AttemptHistoryRow({
       </tr>
       {showSummary && (
         <tr>
-          <td colSpan={8} className="p-2 bg-amber-50/60 text-[11px] text-amber-900">
+          <td colSpan={8} className="p-2 bg-amber-50/60 text-sm text-amber-900">
             {loadingSummary ? (
               "Đang tải..."
             ) : summary ? (

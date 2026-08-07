@@ -6,8 +6,8 @@ import Button from "@/components/ui/Button";
 import DatePicker from "@/components/ui/DatePicker";
 import { AcademicTermResponse, createAcademicTerm, listAcademicTerms, updateAcademicTerm } from "../api";
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
+const labelClass = "text-sm uppercase font-bold text-slate-500 block mb-1";
 
 interface AcademicTermManagerModalProps {
   siteId: number;
@@ -41,10 +41,10 @@ export default function AcademicTermManagerModal({ siteId, siteName, onClose }: 
 
   return (
     <Modal open onClose={onClose} title={`Quản lý học kỳ — ${siteName}`} size="lg">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
 
       <div className="flex items-center justify-between mb-3">
-        <span className="text-[10px] font-bold uppercase text-slate-500">Các kỳ đã tạo ({terms.length})</span>
+        <span className="text-sm font-bold uppercase text-slate-500">Các kỳ đã tạo ({terms.length})</span>
         {!showCreate && (
           <Button size="sm" variant="secondary" onClick={() => setShowCreate(true)}>
             <Plus className="w-3.5 h-3.5" />
@@ -54,9 +54,9 @@ export default function AcademicTermManagerModal({ siteId, siteName, onClose }: 
       </div>
 
       {loading ? (
-        <p className="text-xs text-slate-500">Đang tải...</p>
+        <p className="text-sm text-slate-500">Đang tải...</p>
       ) : terms.length === 0 && !showCreate ? (
-        <div className="text-xs text-slate-400 italic text-center py-6 flex flex-col items-center gap-2">
+        <div className="text-sm text-slate-400 italic text-center py-6 flex flex-col items-center gap-2">
           <CalendarRange className="w-8 h-8 text-slate-300" />
           Điểm trường này chưa có kỳ học nào.
         </div>
@@ -75,16 +75,16 @@ export default function AcademicTermManagerModal({ siteId, siteName, onClose }: 
                 }}
               />
             ) : (
-              <div key={t.id} className="border border-slate-200 rounded-lg p-3 text-xs flex items-center justify-between gap-2">
+              <div key={t.id} className="border border-slate-200 rounded-lg p-3 text-sm flex items-center justify-between gap-2">
                 <div>
                   <div className="font-bold text-slate-800">
                     {t.code} — {t.name}
                   </div>
-                  <div className="text-[10px] text-slate-500 mt-0.5">
+                  <div className="text-sm text-slate-500 mt-0.5">
                     {t.startDate} → {t.endDate}
                   </div>
                 </div>
-                <button onClick={() => setEditingId(t.id)} className="text-brand-red font-bold text-[11px] hover:underline shrink-0">
+                <button onClick={() => setEditingId(t.id)} className="text-brand-red font-bold text-sm hover:underline shrink-0">
                   Sửa
                 </button>
               </div>
@@ -155,7 +155,7 @@ function TermForm({
 
   return (
     <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-      {error && <p className="text-xs text-rose-600">{error}</p>}
+      {error && <p className="text-sm text-rose-600">{error}</p>}
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className={labelClass}>Mã kỳ * {isEdit && <span className="normal-case font-normal text-slate-400">(không sửa được)</span>}</label>

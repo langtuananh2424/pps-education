@@ -216,19 +216,19 @@ export default function GradeSheetTable({ classId, setupId, scaleType, component
     }
   };
 
-  if (loading) return <p className="text-xs text-slate-400 italic p-6 text-center">Đang tải bảng điểm...</p>;
+  if (loading) return <p className="text-sm text-slate-400 italic p-6 text-center">Đang tải bảng điểm...</p>;
 
   return (
     <div>
       {editWindow && (
         <div className="px-5 pt-3 space-y-1">
-          <p className="text-[11px] text-slate-400 italic">
+          <p className="text-sm text-slate-400 italic">
             Điểm còn Nháp sửa/xoá tự do, không giới hạn thời gian. Khi sẵn sàng, gửi duyệt để Quản lý điểm trường xét duyệt — chỉ khi Duyệt điểm
             mới hiển thị cho Phụ huynh/Học sinh. Nếu bị Từ chối, sửa lại rồi gửi duyệt lại.
           </p>
         </div>
       )}
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 m-3 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 m-3 rounded-lg">{error}</div>}
       <div className="overflow-x-auto">
         <TableContainer className="rounded-none border-0">
           <thead>
@@ -251,7 +251,7 @@ export default function GradeSheetTable({ classId, setupId, scaleType, component
           <tbody className="divide-y divide-slate-100">
             {activeStudents.length === 0 ? (
               <tr>
-                <td colSpan={components.length + 7} className="px-6 py-12 text-center text-xs text-slate-400 italic">
+                <td colSpan={components.length + 7} className="px-6 py-12 text-center text-sm text-slate-400 italic">
                   Lớp chưa có học sinh nào đang ghi danh.
                 </td>
               </tr>
@@ -272,7 +272,7 @@ export default function GradeSheetTable({ classId, setupId, scaleType, component
                       return (
                         <Td key={c.id} className="text-center">
                           {readOnly || locked ? (
-                            <span className="text-xs font-semibold text-slate-700" title={locked ? "Đang chờ duyệt/đã chính thức — không sửa được nữa." : undefined}>
+                            <span className="text-sm font-semibold text-slate-700" title={locked ? "Đang chờ duyệt/đã chính thức — không sửa được nữa." : undefined}>
                               {existing ? existing.score : "—"}
                             </span>
                           ) : (
@@ -285,7 +285,7 @@ export default function GradeSheetTable({ classId, setupId, scaleType, component
                                 onBlur={() => handleBlurScore(en.studentId, c.id)}
                                 disabled={savingKey === key}
                                 title={rejected ? "Bị từ chối — sửa lại rồi gửi duyệt lại." : undefined}
-                                className={`w-16 bg-slate-50 text-center border rounded py-1 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-brand-orange disabled:opacity-50 ${
+                                className={`w-16 bg-slate-50 text-center border rounded py-1 text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-brand-orange disabled:opacity-50 ${
                                   rejected ? "border-rose-400 ring-1 ring-rose-300" : ""
                                 }`}
                               />
@@ -297,7 +297,7 @@ export default function GradeSheetTable({ classId, setupId, scaleType, component
                     })}
                     <Td className="text-center">
                       {readOnly || resultLocked ? (
-                        <span className="text-xs font-semibold text-slate-700" title={resultLocked ? "Đang chờ duyệt/đã chính thức — không sửa được nữa." : undefined}>
+                        <span className="text-sm font-semibold text-slate-700" title={resultLocked ? "Đang chờ duyệt/đã chính thức — không sửa được nữa." : undefined}>
                           {result?.overallScore ?? "—"}
                         </span>
                       ) : (
@@ -309,7 +309,7 @@ export default function GradeSheetTable({ classId, setupId, scaleType, component
                             onChange={(e) => setOverallInput((prev) => ({ ...prev, [en.studentId]: e.target.value }))}
                             onBlur={() => handleBlurResult(en.studentId)}
                             title={result?.status === "REJECTED" ? "Bị từ chối — sửa lại rồi gửi duyệt lại." : undefined}
-                            className={`w-16 bg-slate-50 text-center border rounded py-1 text-xs font-semibold focus:outline-none ${
+                            className={`w-16 bg-slate-50 text-center border rounded py-1 text-sm font-semibold focus:outline-none ${
                               result?.status === "REJECTED" ? "border-rose-400 ring-1 ring-rose-300" : ""
                             }`}
                           />
@@ -319,7 +319,7 @@ export default function GradeSheetTable({ classId, setupId, scaleType, component
                     </Td>
                     <Td className="text-center">
                       {readOnly || resultLocked ? (
-                        <span className="text-xs font-semibold text-slate-700">{result?.level ?? "—"}</span>
+                        <span className="text-sm font-semibold text-slate-700">{result?.level ?? "—"}</span>
                       ) : (
                         <input
                           type="text"
@@ -327,13 +327,13 @@ export default function GradeSheetTable({ classId, setupId, scaleType, component
                           value={levelInput[en.studentId] ?? ""}
                           onChange={(e) => setLevelInput((prev) => ({ ...prev, [en.studentId]: e.target.value }))}
                           onBlur={() => handleBlurResult(en.studentId)}
-                          className="w-20 bg-slate-50 text-center border rounded py-1 text-xs font-semibold focus:outline-none"
+                          className="w-20 bg-slate-50 text-center border rounded py-1 text-sm font-semibold focus:outline-none"
                         />
                       )}
                     </Td>
                     <Td className="text-center">
                       {readOnly || resultLocked ? (
-                        <span className="text-xs text-slate-700 whitespace-pre-wrap">{result?.comment ?? "—"}</span>
+                        <span className="text-sm text-slate-700 whitespace-pre-wrap">{result?.comment ?? "—"}</span>
                       ) : (
                         <input
                           type="text"
@@ -341,13 +341,13 @@ export default function GradeSheetTable({ classId, setupId, scaleType, component
                           value={commentInput[en.studentId] ?? ""}
                           onChange={(e) => setCommentInput((prev) => ({ ...prev, [en.studentId]: e.target.value }))}
                           onBlur={() => handleBlurResult(en.studentId)}
-                          className="w-32 bg-slate-50 border rounded py-1 px-1.5 text-xs focus:outline-none"
+                          className="w-32 bg-slate-50 border rounded py-1 px-1.5 text-sm focus:outline-none"
                         />
                       )}
                     </Td>
                     <Td className="text-center">
                       {readOnly || resultLocked ? (
-                        <span className="text-xs text-slate-700 whitespace-pre-wrap">{result?.note ?? "—"}</span>
+                        <span className="text-sm text-slate-700 whitespace-pre-wrap">{result?.note ?? "—"}</span>
                       ) : (
                         <input
                           type="text"
@@ -355,18 +355,18 @@ export default function GradeSheetTable({ classId, setupId, scaleType, component
                           value={noteInput[en.studentId] ?? ""}
                           onChange={(e) => setNoteInput((prev) => ({ ...prev, [en.studentId]: e.target.value }))}
                           onBlur={() => handleBlurResult(en.studentId)}
-                          className="w-28 bg-slate-50 border rounded py-1 px-1.5 text-xs focus:outline-none"
+                          className="w-28 bg-slate-50 border rounded py-1 px-1.5 text-sm focus:outline-none"
                         />
                       )}
                     </Td>
                     <Td className="text-center">
-                      {result ? <Badge variant="info">{sourceLabels[result.source]}</Badge> : <span className="text-[10px] text-slate-300 italic">—</span>}
+                      {result ? <Badge variant="info">{sourceLabels[result.source]}</Badge> : <span className="text-sm text-slate-300 italic">—</span>}
                     </Td>
                     <Td className="text-center">
                       {status ? (
                         <Badge variant={statusVariants[status]}>{statusLabels[status]}</Badge>
                       ) : (
-                        <span className="text-[10px] text-slate-300 italic">Chưa nhập</span>
+                        <span className="text-sm text-slate-300 italic">Chưa nhập</span>
                       )}
                     </Td>
                   </tr>

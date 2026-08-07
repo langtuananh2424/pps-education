@@ -36,12 +36,12 @@ export default function CampusesPage() {
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Quản lý Điểm trường & Hợp đồng</h1>
-        <p className="text-xs text-slate-500 mt-1">
+        <p className="text-sm text-slate-500 mt-1">
           Khai báo cơ sở tự vận hành và trường liên kết, gán Quản lý điểm trường, quản lý hợp đồng hợp tác.
         </p>
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         <SiteListPanel sites={sites} loading={loading} selectedId={selectedId} onSelect={setSelectedId} onCreate={() => setCreateOpen(true)} />
@@ -53,7 +53,7 @@ export default function CampusesPage() {
             <Building2 className="w-12 h-12 text-slate-300" />
             <div>
               <h3 className="text-sm font-bold text-slate-700">Chưa chọn điểm trường nào</h3>
-              <p className="text-xs text-slate-400 mt-1">Chọn 1 điểm trường bên trái hoặc thêm mới để xem/sửa.</p>
+              <p className="text-sm text-slate-400 mt-1">Chọn 1 điểm trường bên trái hoặc thêm mới để xem/sửa.</p>
             </div>
           </div>
         )}

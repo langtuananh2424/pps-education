@@ -32,7 +32,7 @@ import Toast from "@/components/ui/Toast";
 import Select from "@/components/ui/Select";
 import DatePicker from "@/components/ui/DatePicker";
 
-const inputClass = "bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none";
+const inputClass = "bg-slate-50 border border-slate-200 text-sm p-2 rounded-lg focus:outline-none";
 
 const evaluationTypeLabel: Record<"MID_TERM" | "END_TERM", string> = { MID_TERM: "Giữa kỳ", END_TERM: "Cuối kỳ" };
 
@@ -85,7 +85,7 @@ export default function ClassGradeSheetPanel({ classId, siteId, readOnly = false
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <span className="text-xs font-bold text-slate-700 font-display">
+        <span className="text-sm font-bold text-slate-700 font-display">
           {showComparison ? "Tổng hợp điểm qua các kỳ" : "Bảng nhập điểm"}
         </span>
         <div className="flex items-center gap-2">
@@ -132,7 +132,7 @@ export default function ClassGradeSheetPanel({ classId, siteId, readOnly = false
           ))}
         </div>
       ) : (
-        <p className="text-xs text-slate-400 italic p-6 text-center">Chọn kỳ học để xem/nhập điểm Giữa kỳ và Cuối kỳ.</p>
+        <p className="text-sm text-slate-400 italic p-6 text-center">Chọn kỳ học để xem/nhập điểm Giữa kỳ và Cuối kỳ.</p>
       )}
 
       <Toast message={toastMessage} />
@@ -238,7 +238,7 @@ function GradeSetupSection({
   return (
     <div className="border border-slate-200 rounded-2xl p-4 space-y-3">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <span className="text-xs font-bold text-slate-700 font-display">
+        <span className="text-sm font-bold text-slate-700 font-display">
           {evaluationTypeLabel[evaluationType]}
           {setup && <span className="ml-2 font-normal text-slate-400">— {scaleTypeLabels[setup.scaleType]}</span>}
         </span>
@@ -265,12 +265,12 @@ function GradeSetupSection({
         )}
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       {canManage && !readOnly && setup && gradeComponents.length > 0 && (
         <div className="flex gap-1.5 flex-wrap">
           {gradeComponents.map((c) => (
-            <span key={c.id} className="flex items-center gap-1 bg-slate-100 border border-slate-200 text-slate-600 text-[11px] font-semibold px-2 py-1 rounded-lg">
+            <span key={c.id} className="flex items-center gap-1 bg-slate-100 border border-slate-200 text-slate-600 text-sm font-semibold px-2 py-1 rounded-lg">
               {c.name} ({c.maxScore})
               <button type="button" onClick={() => handleDeleteComponent(c)} title="Xoá đầu điểm (chỉ khi chưa có điểm nhập)" className="hover:text-rose-600">
                 <X className="w-3 h-3" />
@@ -309,12 +309,12 @@ function GradeSetupSection({
       </Modal>
 
       {!setup ? (
-        <p className="text-xs text-slate-400 italic p-4 text-center">
+        <p className="text-sm text-slate-400 italic p-4 text-center">
           Chưa có setup sổ điểm cho {evaluationTypeLabel[evaluationType]}
           {canManage ? " — dùng nút phía trên để tạo." : "."}
         </p>
       ) : gradeComponents.length === 0 ? (
-        <p className="text-xs text-slate-400 italic p-4 text-center">
+        <p className="text-sm text-slate-400 italic p-4 text-center">
           Setup này chưa có đầu điểm nào được cấu hình{canManage ? " — dùng nút \"Thêm đầu điểm\" ở trên." : "."}
         </p>
       ) : (
@@ -403,7 +403,7 @@ function CreateSetupForm({
 
   return (
     <form onSubmit={handleSubmit} className="bg-white border border-slate-200 rounded-lg p-3 space-y-2">
-      {error && <div className="text-[11px] text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
       <div className="grid grid-cols-2 gap-2">
         <Select
           value={form.scaleType}
@@ -416,7 +416,7 @@ function CreateSetupForm({
         </Select>
         <DatePicker value={form.rosterAsOfDate} onChange={(v) => setForm({ ...form, rosterAsOfDate: v })} />
       </div>
-      <label className="flex items-center gap-2 text-[11px] text-slate-600 cursor-pointer">
+      <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
         <input type="checkbox" checked={form.commentRequired} onChange={(e) => setForm({ ...form, commentRequired: e.target.checked })} className="h-3.5 w-3.5" />
         Bắt buộc nhập Nhận xét khi nhập Overall/Level
       </label>
@@ -472,8 +472,8 @@ function CreateComponentForm({
 
   return (
     <form onSubmit={handleSubmit} className="bg-white border border-slate-200 rounded-lg p-3 space-y-2">
-      {error && <div className="text-[11px] text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
-      <p className="text-[11px] text-slate-500">
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
+      <p className="text-sm text-slate-500">
         Thang điểm: <span className="font-semibold text-slate-700">{scaleTypeLabels[scaleType]}</span> — điểm tối đa tự động theo thang của setup.
       </p>
       <div className="grid grid-cols-2 gap-2">

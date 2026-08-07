@@ -34,9 +34,9 @@ import Select from "@/components/ui/Select";
 
 const TODAY_ISO = new Date().toISOString().slice(0, 10);
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
-const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-xs p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
+const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-sm p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
+const labelClass = "text-sm uppercase font-bold text-slate-500 block mb-1";
 
 type Tab = "profile" | "qualifications" | "commendations" | "contracts";
 
@@ -54,7 +54,7 @@ export default function EmployeeDetailPanel({ employee, onChanged }: EmployeeDet
       <div className="p-5 border-b border-slate-200 space-y-3 bg-slate-50/20">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
-            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-brand-red bg-orange-50 border border-orange-100 px-2 py-0.5 rounded-md">
+            <span className="text-sm font-mono font-bold uppercase tracking-wider text-brand-red bg-orange-50 border border-orange-100 px-2 py-0.5 rounded-md">
               {employee.employeeCode}
             </span>
             <h2 className="text-sm font-bold text-slate-800 mt-1">{employee.fullName}</h2>
@@ -74,7 +74,7 @@ export default function EmployeeDetailPanel({ employee, onChanged }: EmployeeDet
             <button
               key={key}
               onClick={() => setTab(key)}
-              className={`pb-2.5 text-xs font-bold border-b-2 flex items-center gap-1.5 transition-all whitespace-nowrap ${
+              className={`pb-2.5 text-sm font-bold border-b-2 flex items-center gap-1.5 transition-all whitespace-nowrap ${
                 tab === key ? "border-brand-red text-brand-red" : "border-transparent text-slate-500 hover:text-slate-700"
               }`}
             >
@@ -140,7 +140,7 @@ function ProfileTab({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       <AvatarUploadField
         value={form.portraitUrl}
@@ -161,7 +161,7 @@ function ProfileTab({
             max={TODAY_ISO}
             hasError={dateOfBirthInvalid}
           />
-          {dateOfBirthInvalid && <p className="text-[10px] text-rose-600 mt-1">Vui lòng chọn Ngày sinh.</p>}
+          {dateOfBirthInvalid && <p className="text-sm text-rose-600 mt-1">Vui lòng chọn Ngày sinh.</p>}
         </div>
         <div>
           <label className={labelClass}>Loại nhân sự *</label>
@@ -253,11 +253,11 @@ function ProfileTab({
         )}
       </div>
       <div className="flex items-center gap-4">
-        <label className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+        <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
           <input type="checkbox" checked={!!form.isManagement} onChange={(e) => setForm({ ...form, isManagement: e.target.checked })} />
           Miễn trừ chấm công
         </label>
-        <label className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+        <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
           <input type="checkbox" checked={form.isDefaultShiftRequired !== false} onChange={(e) => setForm({ ...form, isDefaultShiftRequired: e.target.checked })} />
           Áp dụng ca mặc định
         </label>
@@ -339,7 +339,7 @@ function QualificationsTab({ employeeId, showToast }: { employeeId: number; show
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-bold uppercase text-slate-500">Bằng cấp/Chứng chỉ ({items.length})</span>
+        <span className="text-sm font-bold uppercase text-slate-500">Bằng cấp/Chứng chỉ ({items.length})</span>
         <Button size="sm" variant="secondary" onClick={() => setShowForm(true)}>
           <Plus className="w-3.5 h-3.5" />
           Thêm bằng cấp/chứng chỉ
@@ -348,7 +348,7 @@ function QualificationsTab({ employeeId, showToast }: { employeeId: number; show
 
       <Modal open={showForm} onClose={() => setShowForm(false)} title="Thêm bằng cấp/chứng chỉ">
         <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-          {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
+          {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
           <div className="grid grid-cols-2 gap-3">
             <Select value={form.qualificationType} onChange={(e) => setForm({ ...form, qualificationType: e.target.value })} className={inputClass}>
               <option value="DEGREE">Bằng cấp</option>
@@ -367,13 +367,13 @@ function QualificationsTab({ employeeId, showToast }: { employeeId: number; show
       </Modal>
 
       {loading ? (
-        <p className="text-xs text-slate-500">Đang tải...</p>
+        <p className="text-sm text-slate-500">Đang tải...</p>
       ) : items.length === 0 ? (
-        <p className="text-xs text-slate-400 italic">Chưa có bằng cấp/chứng chỉ nào.</p>
+        <p className="text-sm text-slate-400 italic">Chưa có bằng cấp/chứng chỉ nào.</p>
       ) : (
         <div className="space-y-2">
           {items.map((q) => (
-            <div key={q.id} className="border border-slate-200 rounded-lg p-3 text-xs">
+            <div key={q.id} className="border border-slate-200 rounded-lg p-3 text-sm">
               <span className="font-bold text-slate-800">{q.title}</span>
               <span className="text-slate-400 ml-2">({q.issuer || "—"})</span>
               {q.issuedDate && <span className="text-slate-400 ml-2">Cấp: {q.issuedDate}</span>}
@@ -430,7 +430,7 @@ function CommendationsTab({ employeeId, showToast }: { employeeId: number; showT
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-bold uppercase text-slate-500">Khen thưởng/Kỷ luật ({items.length})</span>
+        <span className="text-sm font-bold uppercase text-slate-500">Khen thưởng/Kỷ luật ({items.length})</span>
         <Button size="sm" variant="secondary" onClick={() => setShowForm(true)}>
           <Plus className="w-3.5 h-3.5" />
           Ghi nhận mới
@@ -439,13 +439,13 @@ function CommendationsTab({ employeeId, showToast }: { employeeId: number; showT
 
       <Modal open={showForm} onClose={() => setShowForm(false)} title="Ghi nhận khen thưởng/kỷ luật">
         <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-          {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
+          {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
           <div className="grid grid-cols-2 gap-3">
             <div className="grid grid-cols-2 gap-2 col-span-2">
               <button
                 type="button"
                 onClick={() => setForm({ ...form, recordType: "COMMENDATION" })}
-                className={`py-1.5 text-xs font-bold rounded-lg border ${
+                className={`py-1.5 text-sm font-bold rounded-lg border ${
                   form.recordType === "COMMENDATION" ? "bg-emerald-50 text-emerald-600 border-emerald-200" : "bg-white border-slate-200 text-slate-500"
                 }`}
               >
@@ -454,7 +454,7 @@ function CommendationsTab({ employeeId, showToast }: { employeeId: number; showT
               <button
                 type="button"
                 onClick={() => setForm({ ...form, recordType: "DISCIPLINE" })}
-                className={`py-1.5 text-xs font-bold rounded-lg border ${
+                className={`py-1.5 text-sm font-bold rounded-lg border ${
                   form.recordType === "DISCIPLINE" ? "bg-rose-50 text-rose-600 border-rose-200" : "bg-white border-slate-200 text-slate-500"
                 }`}
               >
@@ -472,13 +472,13 @@ function CommendationsTab({ employeeId, showToast }: { employeeId: number; showT
       </Modal>
 
       {loading ? (
-        <p className="text-xs text-slate-500">Đang tải...</p>
+        <p className="text-sm text-slate-500">Đang tải...</p>
       ) : items.length === 0 ? (
-        <p className="text-xs text-slate-400 italic">Chưa có quyết định khen thưởng/kỷ luật nào.</p>
+        <p className="text-sm text-slate-400 italic">Chưa có quyết định khen thưởng/kỷ luật nào.</p>
       ) : (
         <div className="space-y-2">
           {items.map((c) => (
-            <div key={c.id} className="border border-slate-200 rounded-lg p-3 text-xs flex items-center justify-between">
+            <div key={c.id} className="border border-slate-200 rounded-lg p-3 text-sm flex items-center justify-between">
               <div>
                 <Badge variant={c.recordType === "COMMENDATION" ? "success" : "danger"}>{c.recordType === "COMMENDATION" ? "Khen thưởng" : "Kỷ luật"}</Badge>
                 <span className="font-bold text-slate-800 ml-2">{c.title}</span>
@@ -559,7 +559,7 @@ function ContractsTab({ employeeId, showToast }: { employeeId: number; showToast
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-bold uppercase text-slate-500">Hợp đồng lao động ({items.length})</span>
+        <span className="text-sm font-bold uppercase text-slate-500">Hợp đồng lao động ({items.length})</span>
         <Button size="sm" variant="secondary" onClick={() => setShowForm(true)}>
           <Plus className="w-3.5 h-3.5" />
           Thêm hợp đồng
@@ -568,7 +568,7 @@ function ContractsTab({ employeeId, showToast }: { employeeId: number; showToast
 
       <Modal open={showForm} onClose={() => setShowForm(false)} title="Thêm hợp đồng">
         <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-          {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
+          {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
           <div className="grid grid-cols-2 gap-3">
             <input value={form.contractNumber} onChange={(e) => setForm({ ...form, contractNumber: e.target.value })} placeholder="Số hợp đồng *" className={inputClass} />
             <Select value={form.contractType} onChange={(e) => setForm({ ...form, contractType: e.target.value })} className={inputClass}>
@@ -598,13 +598,13 @@ function ContractsTab({ employeeId, showToast }: { employeeId: number; showToast
       </Modal>
 
       {loading ? (
-        <p className="text-xs text-slate-500">Đang tải...</p>
+        <p className="text-sm text-slate-500">Đang tải...</p>
       ) : items.length === 0 ? (
-        <p className="text-xs text-slate-400 italic">Chưa có hợp đồng nào.</p>
+        <p className="text-sm text-slate-400 italic">Chưa có hợp đồng nào.</p>
       ) : (
         <div className="space-y-2">
           {items.map((c) => (
-            <div key={c.id} className="border border-slate-200 rounded-lg p-3 text-xs flex items-center justify-between">
+            <div key={c.id} className="border border-slate-200 rounded-lg p-3 text-sm flex items-center justify-between">
               <div>
                 <span className="font-mono font-bold text-slate-800">{c.contractNumber}</span>
                 <Badge variant={c.status === "ACTIVE" ? "success" : c.status === "TERMINATED" ? "danger" : "neutral"} className="ml-2">
@@ -615,7 +615,7 @@ function ContractsTab({ employeeId, showToast }: { employeeId: number; showToast
                 </span>
               </div>
               {c.status === "ACTIVE" && (
-                <button onClick={() => handleTerminate(c)} className="text-rose-500 hover:text-rose-700 text-[11px] font-semibold">
+                <button onClick={() => handleTerminate(c)} className="text-rose-500 hover:text-rose-700 text-sm font-semibold">
                   Chấm dứt
                 </button>
               )}

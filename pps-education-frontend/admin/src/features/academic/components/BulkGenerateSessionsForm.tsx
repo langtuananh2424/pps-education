@@ -9,8 +9,8 @@ import { BulkCreateClassSessionRequest, BulkCreateClassSessionResponse, bulkCrea
 import DatePicker from "@/components/ui/DatePicker";
 import Select from "@/components/ui/Select";
 
-const inputClass = "w-full bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-white border border-slate-200 text-sm p-2 rounded-lg focus:outline-none";
+const labelClass = "text-sm uppercase font-bold text-slate-500 block mb-1";
 
 const weekdays: { value: string; label: string }[] = [
   { value: "MONDAY", label: "Thứ 2" },
@@ -90,7 +90,7 @@ export default function BulkGenerateSessionsForm({ classId, siteId, onDone, onCa
 
   return (
     <form onSubmit={handleSubmit} className="bg-purple-50/40 border border-purple-200 rounded-xl p-4 space-y-3">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       <div className="grid grid-cols-2 gap-3">
         <div>
@@ -111,7 +111,7 @@ export default function BulkGenerateSessionsForm({ classId, siteId, onDone, onCa
               key={d.value}
               type="button"
               onClick={() => toggleDay(d.value)}
-              className={`text-[11px] font-bold px-2.5 py-1.5 rounded-lg border transition-all ${
+              className={`text-sm font-bold px-2.5 py-1.5 rounded-lg border transition-all ${
                 selectedDays.has(d.value) ? "bg-purple-600 border-purple-600 text-white" : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
               }`}
             >
@@ -170,7 +170,7 @@ export default function BulkGenerateSessionsForm({ classId, siteId, onDone, onCa
       </div>
 
       {result && (
-        <div className="p-3 bg-white border border-slate-200 rounded-lg text-xs space-y-1.5">
+        <div className="p-3 bg-white border border-slate-200 rounded-lg text-sm space-y-1.5">
           <p className="font-bold text-slate-700">
             Đã tạo <span className="text-emerald-600">{result.createdCount}</span> / {result.totalDates} buổi
             {result.skippedCount > 0 && <span className="text-rose-500"> — bỏ qua {result.skippedCount} buổi trùng lịch</span>}
@@ -178,7 +178,7 @@ export default function BulkGenerateSessionsForm({ classId, siteId, onDone, onCa
           {result.skipped.length > 0 && (
             <div className="space-y-0.5 max-h-24 overflow-y-auto">
               {result.skipped.map((s, i) => (
-                <p key={i} className="text-[10px] text-rose-500">
+                <p key={i} className="text-sm text-rose-500">
                   {s.date}: {s.reason}
                 </p>
               ))}

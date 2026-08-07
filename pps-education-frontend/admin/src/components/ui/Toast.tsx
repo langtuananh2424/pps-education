@@ -28,7 +28,7 @@ export default function Toast({ message, position = "bottom-right" }: ToastProps
       ) : (
         <div className="w-2.5 h-2.5 rounded-full bg-brand-orange animate-pulse shrink-0" />
       )}
-      <span className="text-xs font-semibold whitespace-nowrap">{message}</span>
+      <span className="text-sm font-semibold whitespace-nowrap">{message}</span>
     </div>
   );
 }

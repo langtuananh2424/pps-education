@@ -9,12 +9,12 @@ export default function AppShell() {
   const { loginNotice } = useApp();
 
   return (
-    <div className="min-h-screen bg-brand-bg flex overflow-x-hidden">
+    <div className="min-h-screen bg-brand-bg flex">
       <Toast message={loginNotice} position="top-center" />
 
       <Sidebar />
 
-      <div className="flex-1 flex flex-col lg:pl-[288px] min-h-screen lg:pr-4 lg:py-4 overflow-x-hidden">
+      <div className="flex-1 flex flex-col lg:pl-[320px] min-h-screen lg:pr-4 lg:py-4">
         <Header />
 
         <main className="flex-1 bg-white rounded-3xl border border-slate-200/40 shadow-soft p-4 md:p-8 animate-in fade-in duration-300">

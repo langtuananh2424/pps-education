@@ -26,7 +26,7 @@ export default function Sidebar() {
 
       <aside
         className={cn(
-          "fixed top-0 bottom-0 left-0 lg:top-4 lg:bottom-4 lg:left-4 lg:h-[calc(100vh-2rem)] z-40 w-64 bg-white text-slate-700 border-r lg:border border-slate-200/90 lg:rounded-3xl lg:shadow-soft flex flex-col transition-transform duration-300 lg:translate-x-0",
+          "fixed top-0 bottom-0 left-0 lg:top-4 lg:bottom-4 lg:left-4 lg:h-[calc(100vh-2rem)] z-40 w-64 lg:w-72 bg-white text-slate-700 border-r lg:border border-slate-200/90 lg:rounded-3xl lg:shadow-soft flex flex-col transition-transform duration-300 lg:translate-x-0",
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
@@ -34,16 +34,16 @@ export default function Sidebar() {
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-full bg-white p-[2px] flex items-center justify-center shadow-glow relative shrink-0">
               <div className="w-full h-full rounded-full bg-gradient-to-tr from-[#EA580C] via-[#F68B1F] to-[#FB923C] p-[1px] flex items-center justify-center">
-                <div className="w-full h-full rounded-full bg-white flex items-center justify-center text-[#EA580C] font-display font-black text-xs">
+                <div className="w-full h-full rounded-full bg-white flex items-center justify-center text-[#EA580C] font-display font-black text-sm">
                   P
                 </div>
               </div>
             </div>
             <div>
-              <span className="font-display font-bold text-slate-900 text-sm tracking-tight block">
+              <span className="font-display font-bold text-slate-900 text-base tracking-tight block">
                 PPS <span className="text-brand-orange">VIETNAM</span>
               </span>
-              <span className="text-[8px] text-slate-500 font-extrabold tracking-wider block uppercase -mt-0.5">
+              <span className="text-[9px] text-slate-500 font-extrabold tracking-wider block uppercase -mt-0.5">
                 CARING INDIVIDUALS
               </span>
             </div>
@@ -66,7 +66,7 @@ export default function Sidebar() {
               <div key={section.id} className="space-y-1">
                 <button
                   onClick={() => toggleGroup(section.id)}
-                  className="w-full px-2 py-1.5 flex items-center justify-between text-[11px] font-bold font-display tracking-widest text-slate-400 hover:text-slate-600"
+                  className="w-full px-2 py-1.5 flex items-center justify-between text-sm font-bold font-display tracking-widest text-slate-400 hover:text-slate-600"
                 >
                   <span>{section.title}</span>
                   {isExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
@@ -83,7 +83,7 @@ export default function Sidebar() {
                           onClick={closeOnMobile}
                           className={({ isActive }) =>
                             cn(
-                              "w-full px-3 py-2 flex items-center gap-2.5 rounded-md text-xs font-medium transition-all duration-150",
+                              "w-full px-3 py-2.5 flex items-center gap-2.5 rounded-md text-sm font-medium transition-all duration-150",
                               isActive
                                 ? "bg-brand-gradient text-white shadow-soft font-semibold"
                                 : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/80"
@@ -110,16 +110,16 @@ export default function Sidebar() {
           <div className="flex items-center gap-3">
             <Avatar name={currentUser?.fullName || "U"} />
             <div className="flex-1 min-w-0">
-              <span className="text-xs font-bold text-slate-900 block truncate leading-tight">
+              <span className="text-sm font-bold text-slate-900 block truncate leading-tight">
                 {currentUser?.fullName || "Chưa đăng nhập"}
               </span>
-              <span className="text-[10px] text-slate-500 block truncate mt-0.5 font-medium">{currentRoleLabel}</span>
+              <span className="text-sm text-slate-500 block truncate mt-0.5 font-medium">{currentRoleLabel}</span>
             </div>
           </div>
 
           <button
             onClick={logout}
-            className="w-full bg-white border border-slate-200 hover:bg-slate-50 hover:border-slate-300 text-rose-500 hover:text-rose-600 font-bold text-[11px] py-2 rounded-lg flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs"
+            className="w-full bg-white border border-slate-200 hover:bg-slate-50 hover:border-slate-300 text-rose-500 hover:text-rose-600 font-bold text-sm py-2 rounded-lg flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs"
           >
             <LogOut className="w-3.5 h-3.5 shrink-0" />
             <span>Đăng xuất hệ thống</span>

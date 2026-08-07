@@ -21,8 +21,8 @@ import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import Select from "@/components/ui/Select";
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
+const labelClass = "text-sm uppercase font-bold text-slate-500 block mb-1";
 
 type Tab = "profile" | "subjects";
 
@@ -41,7 +41,7 @@ export default function CurriculumDetailPanel({ curriculum, onChanged }: Curricu
       <div className="p-5 border-b border-slate-200 space-y-3 bg-slate-50/20">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
-            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-brand-red bg-orange-50 border border-orange-100 px-2 py-0.5 rounded-md">
+            <span className="text-sm font-mono font-bold uppercase tracking-wider text-brand-red bg-orange-50 border border-orange-100 px-2 py-0.5 rounded-md">
               {curriculum.code}
             </span>
             <h2 className="text-sm font-bold text-slate-800 mt-1">{curriculum.name}</h2>
@@ -59,7 +59,7 @@ export default function CurriculumDetailPanel({ curriculum, onChanged }: Curricu
             <button
               key={key}
               onClick={() => setTab(key)}
-              className={`pb-2.5 text-xs font-bold border-b-2 flex items-center gap-1.5 transition-all ${
+              className={`pb-2.5 text-sm font-bold border-b-2 flex items-center gap-1.5 transition-all ${
                 tab === key ? "border-brand-red text-brand-red" : "border-transparent text-slate-500 hover:text-slate-700"
               }`}
             >
@@ -163,7 +163,7 @@ function ProfileTab({
   return (
     <div className="space-y-5">
       <form onSubmit={handleSubmit} className="space-y-4">
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2">
             <label className={labelClass}>Tên khung chương trình *</label>
@@ -266,7 +266,7 @@ function CreateCustomForm({ parentCurriculumId, onDone, onCancel }: { parentCurr
 
   return (
     <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
       <div className="grid grid-cols-2 gap-2">
         <input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="Mã bản tùy biến" className={`${inputClass} font-mono`} />
         <Select value={form.siteId} onChange={(e) => setForm({ ...form, siteId: e.target.value })} className={inputClass}>
@@ -309,26 +309,26 @@ function SubjectsTab({ curriculumId, showToast }: { curriculumId: number; showTo
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-bold uppercase text-slate-500">Học phần ({subjects.length})</span>
+        <span className="text-sm font-bold uppercase text-slate-500">Học phần ({subjects.length})</span>
         <Button size="sm" variant="secondary" onClick={() => setAdding(true)}>
           <Plus className="w-3.5 h-3.5" />
           Thêm học phần
         </Button>
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       {loading ? (
-        <p className="text-xs text-slate-500">Đang tải...</p>
+        <p className="text-sm text-slate-500">Đang tải...</p>
       ) : subjects.length === 0 ? (
-        <p className="text-xs text-slate-400 italic">Chưa có học phần nào.</p>
+        <p className="text-sm text-slate-400 italic">Chưa có học phần nào.</p>
       ) : (
         <div className="space-y-2">
           {subjects
             .slice()
             .sort((a, b) => a.displayOrder - b.displayOrder)
             .map((s) => (
-              <div key={s.id} className="border border-slate-200 rounded-lg p-3 text-xs flex items-center justify-between">
+              <div key={s.id} className="border border-slate-200 rounded-lg p-3 text-sm flex items-center justify-between">
                 <div>
                   <span className="font-bold text-slate-800">{s.name}</span>
                   <span className="font-mono text-slate-400 ml-2">{s.subjectCode}</span>
@@ -380,7 +380,7 @@ function AddSubjectForm({ curriculumId, onDone, onCancel }: { curriculumId: numb
 
   return (
     <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
       <div className="grid grid-cols-3 gap-2">
         <input value={form.subjectCode} onChange={(e) => setForm({ ...form, subjectCode: e.target.value })} placeholder="Mã học phần" className={`${inputClass} font-mono`} />
         <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Tên học phần" className={`${inputClass} col-span-2`} />

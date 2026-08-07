@@ -116,8 +116,8 @@ export default function CommentHistoryPanel() {
 
   const formatDecidedAt = (cm: StudentCommentResponse) => (cm.approvedAt ? new Date(cm.approvedAt).toLocaleString("vi-VN") : "—");
 
-  if (loadingClasses) return <p className="text-xs text-slate-500 p-4">Đang tải danh sách lớp...</p>;
-  if (classes.length === 0) return <p className="text-xs text-slate-400 italic text-center py-10">Bạn chưa phụ trách lớp nào.</p>;
+  if (loadingClasses) return <p className="text-sm text-slate-500 p-4">Đang tải danh sách lớp...</p>;
+  if (classes.length === 0) return <p className="text-sm text-slate-400 italic text-center py-10">Bạn chưa phụ trách lớp nào.</p>;
 
   return (
     <div className="space-y-4">
@@ -125,7 +125,7 @@ export default function CommentHistoryPanel() {
         <Select
           value={classFilter}
           onChange={(e) => setClassFilter(e.target.value === "ALL" ? "ALL" : Number(e.target.value))}
-          className="bg-white border border-slate-200 text-xs px-2.5 py-2 rounded-lg focus:outline-none"
+          className="bg-white border border-slate-200 text-sm px-2.5 py-2 rounded-lg focus:outline-none"
         >
           <option value="ALL">Tất cả lớp</option>
           {classes.map((c) => (
@@ -137,17 +137,17 @@ export default function CommentHistoryPanel() {
         <Select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
-          className="bg-white border border-slate-200 text-xs px-2.5 py-2 rounded-lg focus:outline-none"
+          className="bg-white border border-slate-200 text-sm px-2.5 py-2 rounded-lg focus:outline-none"
         >
           <option value="ALL">Tất cả trạng thái</option>
           <option value="APPROVED">Đã duyệt</option>
           <option value="REJECTED">Bị từ chối</option>
         </Select>
-        <span className="text-[10px] uppercase font-bold text-slate-400">Từ ngày:</span>
+        <span className="text-sm uppercase font-bold text-slate-400">Từ ngày:</span>
         <div className="w-36">
           <DatePicker value={dateFrom} onChange={setDateFrom} max={dateTo || undefined} />
         </div>
-        <span className="text-xs text-slate-400">đến</span>
+        <span className="text-sm text-slate-400">đến</span>
         <div className="w-36">
           <DatePicker value={dateTo} onChange={setDateTo} min={dateFrom || undefined} />
         </div>
@@ -159,22 +159,22 @@ export default function CommentHistoryPanel() {
               setStatusFilter("ALL");
               setClassFilter("ALL");
             }}
-            className="text-[11px] font-semibold text-brand-red hover:underline"
+            className="text-sm font-semibold text-brand-red hover:underline"
           >
             Xóa lọc
           </button>
         )}
-        <span className="text-[11px] text-slate-400 ml-auto">
+        <span className="text-sm text-slate-400 ml-auto">
           {filtered.length}/{comments.length} nhận xét
         </span>
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       {loading ? (
-        <p className="text-xs text-slate-500 p-4">Đang tải...</p>
+        <p className="text-sm text-slate-500 p-4">Đang tải...</p>
       ) : filtered.length === 0 ? (
-        <p className="text-xs text-slate-400 italic text-center py-10">
+        <p className="text-sm text-slate-400 italic text-center py-10">
           {comments.length === 0 ? "Chưa có nhận xét nào đã duyệt/từ chối." : "Không có nhận xét nào khớp bộ lọc."}
         </p>
       ) : (
@@ -187,7 +187,7 @@ export default function CommentHistoryPanel() {
             return (
               <Card key={classId} padded={false} className="overflow-hidden">
                 <div className="px-5 py-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between flex-wrap gap-2">
-                  <span className="text-xs font-bold text-slate-700 font-display">{cls ? `${cls.name} (${cls.classCode})` : `Lớp #${classId}`}</span>
+                  <span className="text-sm font-bold text-slate-700 font-display">{cls ? `${cls.name} (${cls.classCode})` : `Lớp #${classId}`}</span>
                   <Badge variant="neutral">{classComments.length} nhận xét</Badge>
                 </div>
                 {/* Phân theo buổi (commentDate) trong từng lớp, dạng dropdown thu gọn — cùng cách nhóm
@@ -242,10 +242,10 @@ function SessionGroup({
         className="w-full px-5 py-2 bg-slate-50/60 hover:bg-slate-100/60 flex items-center gap-2 flex-wrap transition-colors"
       >
         {expanded ? <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />}
-        <span className="text-[11px] font-bold text-slate-600">
+        <span className="text-sm font-bold text-slate-600">
           Buổi {date} ({weekday})
         </span>
-        <span className="text-[10px] text-slate-400">{items.length} nhận xét</span>
+        <span className="text-sm text-slate-400">{items.length} nhận xét</span>
       </button>
       {expanded && (
         <TableContainer className="rounded-none border-0">

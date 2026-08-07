@@ -9,8 +9,8 @@ import Select from "@/components/ui/Select";
 
 const TODAY_ISO = new Date().toISOString().slice(0, 10);
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs px-2.5 py-1.5 rounded-lg focus:outline-none";
-const labelClass = "text-[10px] uppercase font-bold tracking-wider text-slate-500";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm px-2.5 py-1.5 rounded-lg focus:outline-none";
+const labelClass = "text-sm uppercase font-bold tracking-wider text-slate-500";
 
 interface CommentFormProps {
   classId: number;
@@ -71,7 +71,7 @@ export default function CommentForm({ classId, studentId, siteId, onSubmitted }:
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3.5">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       <div className="space-y-1">
         <label className={labelClass}>Hình thức nhận xét</label>
@@ -116,14 +116,14 @@ export default function CommentForm({ classId, studentId, siteId, onSubmitted }:
           value={content}
           onChange={(e) => setContent(e.target.value)}
           rows={3}
-          className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none"
+          className="w-full bg-slate-50 border border-slate-200 text-sm px-3 py-2 rounded-lg focus:outline-none"
         />
       </div>
 
       <label className="flex items-center gap-2 cursor-pointer p-2 bg-rose-50/50 border border-rose-100 rounded-lg">
         <input type="checkbox" checked={isWarning} onChange={(e) => setIsWarning(e.target.checked)} className="h-4 w-4 text-brand-red focus:ring-brand-red border-slate-300 rounded" />
         <div>
-          <span className="text-xs font-bold text-rose-600 flex items-center gap-1">
+          <span className="text-sm font-bold text-rose-600 flex items-center gap-1">
             <Flag className="w-3.5 h-3.5 shrink-0" />
             Đánh dấu cảnh báo đặc biệt
           </span>
@@ -134,7 +134,7 @@ export default function CommentForm({ classId, studentId, siteId, onSubmitted }:
       <button
         type="submit"
         disabled={submitting}
-        className="w-full bg-brand-gradient hover:opacity-95 text-white font-semibold text-xs py-2 rounded-lg flex items-center justify-center gap-1.5 disabled:opacity-50"
+        className="w-full bg-brand-gradient hover:opacity-95 text-white font-semibold text-sm py-2 rounded-lg flex items-center justify-center gap-1.5 disabled:opacity-50"
       >
         <Plus className="w-4 h-4 text-white" />
         {submitting ? "Đang lưu..." : "Lưu nhận xét (nháp)"}

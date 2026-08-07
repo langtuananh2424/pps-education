@@ -22,11 +22,11 @@ export default function LoginPage() {
         <div className="md:col-span-6 p-8 md:p-14 flex flex-col justify-between bg-white">
           <div className="flex items-center gap-2.5">
             <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-[#EA580C] to-[#FB923C] p-[1.5px] flex items-center justify-center shadow-sm">
-              <div className="w-full h-full rounded-full bg-white flex items-center justify-center text-[#EA580C] font-display font-black text-xs">
+              <div className="w-full h-full rounded-full bg-white flex items-center justify-center text-[#EA580C] font-display font-black text-sm">
                 P
               </div>
             </div>
-            <span className="font-display font-extrabold text-xs text-slate-800 tracking-wider uppercase">PPS Vietnam</span>
+            <span className="font-display font-extrabold text-sm text-slate-800 tracking-wider uppercase">PPS Vietnam</span>
           </div>
 
           <div className="my-auto py-8 space-y-1">
@@ -38,7 +38,7 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => setShowPublicForm(true)}
-                  className="w-full text-center text-[11px] font-semibold text-slate-400 hover:text-[#EA580C] transition-colors pt-4"
+                  className="w-full text-center text-sm font-semibold text-slate-400 hover:text-[#EA580C] transition-colors pt-4"
                 >
                   Cán bộ/Giáo viên cần nộp đơn nghỉ nhanh không đăng nhập?
                 </button>
@@ -46,7 +46,7 @@ export default function LoginPage() {
             )}
           </div>
 
-          <div className="text-[10px] text-slate-400 font-medium font-sans">PPS Vietnam Education Management System • © 2026</div>
+          <div className="text-sm text-slate-400 font-medium font-sans">PPS Vietnam Education Management System • © 2026</div>
         </div>
 
         <LoginHeroPanel />

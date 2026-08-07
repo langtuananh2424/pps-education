@@ -41,8 +41,8 @@ import Toast from "@/components/ui/Toast";
 import Select from "@/components/ui/Select";
 import Pagination from "@/components/ui/Pagination";
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
+const labelClass = "text-sm uppercase font-bold text-slate-500 block mb-1";
 
 const CONTENT_KINDS = ["VIDEO", "AUDIO"] as const;
 type ContentKind = (typeof CONTENT_KINDS)[number];
@@ -223,7 +223,7 @@ export function ReflexQuestionsBuilder({ value, onChange }: { value: PendingRefl
       {value.length > 0 && (
         <div className="space-y-1.5">
           {value.map((q, i) => (
-            <div key={i} className="flex items-center justify-between gap-2 bg-white border border-slate-200 rounded-lg p-2 text-[11px]">
+            <div key={i} className="flex items-center justify-between gap-2 bg-white border border-slate-200 rounded-lg p-2 text-sm">
               <span className="text-slate-700">
                 Câu {i + 1} · Mốc {Math.floor(Number(q.timestampSeconds) / 60)}:{String(Number(q.timestampSeconds) % 60).padStart(2, "0")} · Ghi âm tối đa{" "}
                 {q.maxRecordingSeconds}s · {q.maxAttempts ? `Tối đa ${q.maxAttempts} lượt nộp` : "Không giới hạn lượt nộp"}
@@ -237,7 +237,7 @@ export function ReflexQuestionsBuilder({ value, onChange }: { value: PendingRefl
         </div>
       )}
 
-      {draftError && <p className="text-[11px] text-rose-600 font-semibold">{draftError}</p>}
+      {draftError && <p className="text-sm text-rose-600 font-semibold">{draftError}</p>}
 
       <div className="grid grid-cols-3 gap-2">
         <input
@@ -348,7 +348,7 @@ function ConnectionQuizBuilder({ value, onChange }: { value: PendingConnectionQu
       {value.length > 0 && (
         <div className="space-y-1.5">
           {value.map((q, i) => (
-            <div key={i} className="flex items-center justify-between gap-2 bg-white border border-slate-200 rounded-lg p-2 text-[11px]">
+            <div key={i} className="flex items-center justify-between gap-2 bg-white border border-slate-200 rounded-lg p-2 text-sm">
               <span className="text-slate-700">
                 Câu {i + 1} · {q.prompt} · {q.choices.length} lựa chọn
               </span>
@@ -360,7 +360,7 @@ function ConnectionQuizBuilder({ value, onChange }: { value: PendingConnectionQu
         </div>
       )}
 
-      {draftError && <p className="text-[11px] text-rose-600 font-semibold">{draftError}</p>}
+      {draftError && <p className="text-sm text-rose-600 font-semibold">{draftError}</p>}
 
       <input value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="Nội dung câu hỏi *" className={inputClass} />
 
@@ -370,7 +370,7 @@ function ConnectionQuizBuilder({ value, onChange }: { value: PendingConnectionQu
             <button
               type="button"
               onClick={() => handleSetCorrect(idx)}
-              className={`w-6 h-6 rounded-full border flex items-center justify-center font-bold shrink-0 text-[10px] transition-all ${
+              className={`w-6 h-6 rounded-full border flex items-center justify-center font-bold shrink-0 text-sm transition-all ${
                 c.isCorrect ? "bg-emerald-500 border-emerald-500 text-white" : "bg-white border-slate-300 text-slate-400 hover:border-slate-400"
               }`}
             >
@@ -475,7 +475,7 @@ export function ContentSourceField({ value, onChange }: { value: ContentSourceVa
               key={k}
               type="button"
               onClick={() => handleKindChange(k)}
-              className={`flex-1 text-xs font-bold py-2.5 rounded-lg border ${
+              className={`flex-1 text-sm font-bold py-2.5 rounded-lg border ${
                 contentKind === k ? "bg-brand-orange border-brand-orange text-white" : "bg-slate-50 border-slate-200 text-slate-500"
               }`}
             >
@@ -492,14 +492,14 @@ export function ContentSourceField({ value, onChange }: { value: ContentSourceVa
             <button
               type="button"
               onClick={() => updateValue({ sourceType: "R2_VIDEO", fileUrl: "", fileSizeBytes: undefined, durationSeconds: null })}
-              className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${videoSourceMode === "upload" ? "bg-brand-orange text-white" : "bg-slate-100 text-slate-500"}`}
+              className={`text-sm font-bold px-2.5 py-1 rounded-full ${videoSourceMode === "upload" ? "bg-brand-orange text-white" : "bg-slate-100 text-slate-500"}`}
             >
               Tải file lên
             </button>
             <button
               type="button"
               onClick={() => updateValue({ sourceType: "YOUTUBE_URL", fileUrl: "", durationSeconds: null })}
-              className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${videoSourceMode === "youtube" ? "bg-brand-orange text-white" : "bg-slate-100 text-slate-500"}`}
+              className={`text-sm font-bold px-2.5 py-1 rounded-full ${videoSourceMode === "youtube" ? "bg-brand-orange text-white" : "bg-slate-100 text-slate-500"}`}
             >
               Dán link YouTube
             </button>
@@ -520,7 +520,7 @@ export function ContentSourceField({ value, onChange }: { value: ContentSourceVa
                 {detecting ? "Đang dò..." : "Dò thời lượng"}
               </Button>
             </div>
-            {detectError && <p className="text-[10px] text-rose-600 font-semibold">{detectError}</p>}
+            {detectError && <p className="text-sm text-rose-600 font-semibold">{detectError}</p>}
           </div>
         ) : (
           <FileUploadField
@@ -538,7 +538,7 @@ export function ContentSourceField({ value, onChange }: { value: ContentSourceVa
         )}
       </div>
 
-      <p className="text-[10px] text-slate-400">
+      <p className="text-sm text-slate-400">
         Thời lượng đã dò: <span className="font-bold text-slate-600">{value.durationSeconds ? `${value.durationSeconds} giây (${Math.round(value.durationSeconds / 60)} phút)` : "— chưa có —"}</span>
       </p>
     </div>
@@ -604,7 +604,7 @@ export default function LecturesPage() {
       <div className="border-b border-slate-200 pb-4 flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Kho Video Ôn tập</h1>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-sm text-slate-500 mt-1">
             2 loại: "Video từ kết nối" (ôn từ vựng buổi học) và "Video phản xạ" (hỏi-đáp luyện nói). Mỗi Bộ gồm nhiều video/audio,
             gán khung chương trình CHỈ để lọc/tìm kiếm — gán tường minh cho (các) lớp cụ thể mới là điều kiện hiển thị. Công bố chỉ
             đánh dấu Bộ đủ điều kiện dùng làm nguồn — Giáo viên chọn Bộ đã công bố làm "BTVN buổi sau" ở Nhận xét học viên mới thật
@@ -617,7 +617,7 @@ export default function LecturesPage() {
         </Button>
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         <div className="lg:col-span-5 bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden flex flex-col">
@@ -649,11 +649,11 @@ export default function LecturesPage() {
           </div>
 
           {loadingSets ? (
-            <p className="text-xs text-slate-500 p-6 text-center">Đang tải...</p>
+            <p className="text-sm text-slate-500 p-6 text-center">Đang tải...</p>
           ) : videoSets.length === 0 ? (
             <div className="flex flex-col items-center justify-center p-12 text-center text-slate-400 space-y-3">
               <Layers className="w-12 h-12 text-slate-300" />
-              <p className="text-xs text-slate-400">Chưa có Bộ video nào{curriculumFilter ? " trong khung chương trình này" : ""}.</p>
+              <p className="text-sm text-slate-400">Chưa có Bộ video nào{curriculumFilter ? " trong khung chương trình này" : ""}.</p>
             </div>
           ) : (
             <>
@@ -665,14 +665,14 @@ export default function LecturesPage() {
                     className={`w-full text-left px-4 py-3 hover:bg-slate-50/60 ${selectedSetId === set.id ? "bg-brand-red/5 border-l-2 border-brand-red" : ""}`}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <p className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                      <p className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
                         <span className="text-brand-orange">{videoTypeIcons[set.videoType]}</span>
                         {set.title}
                       </p>
                       <Badge variant={statusVariants[set.status]}>{statusLabels[set.status]}</Badge>
                     </div>
-                    <p className="text-[10px] text-slate-400 mt-0.5 font-mono">{set.code} · {set.curriculumCode}</p>
-                    <p className="text-[10px] text-slate-400 mt-0.5">
+                    <p className="text-sm text-slate-400 mt-0.5 font-mono">{set.code} · {set.curriculumCode}</p>
+                    <p className="text-sm text-slate-400 mt-0.5">
                       {reviewVideoTeacherTypeLabels[set.teacherType]} · {videoTypeLabels[set.videoType]}
                     </p>
                   </button>
@@ -697,7 +697,7 @@ export default function LecturesPage() {
           {!selectedSet ? (
             <div className="bg-white rounded-xl border border-slate-200 shadow-soft flex flex-col items-center justify-center p-12 text-center text-slate-400 space-y-3">
               <ClipboardList className="w-12 h-12 text-slate-300" />
-              <p className="text-xs text-slate-400">Chọn 1 Bộ video bên trái để xem chi tiết, hoặc tạo Bộ mới.</p>
+              <p className="text-sm text-slate-400">Chọn 1 Bộ video bên trái để xem chi tiết, hoặc tạo Bộ mới.</p>
             </div>
           ) : (
             <SetDetailPanel
@@ -756,14 +756,14 @@ function SetDetailPanel({
         <div className="flex items-start justify-between gap-2">
           <div>
             <p className="text-sm font-bold text-slate-800">{set.title}</p>
-            <p className="text-[10px] text-slate-400 font-mono mt-0.5">{set.code} · {set.curriculumCode}</p>
+            <p className="text-sm text-slate-400 font-mono mt-0.5">{set.code} · {set.curriculumCode}</p>
           </div>
           <Badge variant={statusVariants[set.status]}>{statusLabels[set.status]}</Badge>
         </div>
         <div className="flex items-center justify-between flex-wrap gap-2">
           <button
             onClick={() => setAssignClassOpen(true)}
-            className="flex items-center gap-1.5 text-[11px] font-bold text-brand-red hover:underline"
+            className="flex items-center gap-1.5 text-sm font-bold text-brand-red hover:underline"
           >
             <Users className="w-3.5 h-3.5" />
             {assignedClassCount == null ? "Đã gán ... lớp" : `Đã gán ${assignedClassCount} lớp`} — quản lý
@@ -850,19 +850,19 @@ function AssignClassModal({ setId, onClose }: { setId: number; onClose: () => vo
 
   return (
     <Modal open onClose={onClose} title="Gán Bộ video cho lớp" size="md">
-      <p className="text-[11px] text-slate-500 mb-3">
+      <p className="text-sm text-slate-500 mb-3">
         Bộ chỉ hiển thị cho học sinh của các lớp đã gán ở đây — vẫn cần Giáo viên chọn bộ này làm "BTVN buổi sau" ở Nhận xét học
         viên mới thật sự giao cho học sinh xem.
       </p>
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
       {loading ? (
-        <p className="text-xs text-slate-500 p-3 text-center">Đang tải...</p>
+        <p className="text-sm text-slate-500 p-3 text-center">Đang tải...</p>
       ) : classes.length === 0 ? (
-        <p className="text-xs text-slate-400 italic p-3 text-center">Không có lớp nào để gán.</p>
+        <p className="text-sm text-slate-400 italic p-3 text-center">Không có lớp nào để gán.</p>
       ) : (
         <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 max-h-72 overflow-y-auto">
           {classes.map((c) => (
-            <label key={c.id} className="flex items-center gap-2 px-3 py-2 text-xs cursor-pointer hover:bg-slate-50">
+            <label key={c.id} className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-slate-50">
               <input
                 type="checkbox"
                 checked={assignedIds.has(c.id)}
@@ -870,7 +870,7 @@ function AssignClassModal({ setId, onClose }: { setId: number; onClose: () => vo
                 onChange={() => toggle(c.id)}
               />
               <span className="flex-1">{c.classCode} — {c.name}</span>
-              {pendingId === c.id && <span className="text-[10px] text-slate-400">Đang lưu...</span>}
+              {pendingId === c.id && <span className="text-sm text-slate-400">Đang lưu...</span>}
             </label>
           ))}
         </div>
@@ -1007,7 +1007,7 @@ function CreateSetModal({
   return (
     <Modal open onClose={onClose} title="Tạo bộ video ôn tập mới" size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className={labelClass}>Mã bộ *</label>
@@ -1021,7 +1021,7 @@ function CreateSetModal({
                   key={t}
                   type="button"
                   onClick={() => setForm({ ...form, videoType: t })}
-                  className={`flex-1 text-xs font-bold py-2.5 rounded-lg border ${
+                  className={`flex-1 text-sm font-bold py-2.5 rounded-lg border ${
                     form.videoType === t ? "bg-brand-orange border-brand-orange text-white" : "bg-slate-50 border-slate-200 text-slate-500"
                   }`}
                 >
@@ -1153,7 +1153,7 @@ function EditSetModal({
   return (
     <Modal open onClose={onClose} title={`Sửa bộ video: ${set.code}`} size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
         <div>
           <label className={labelClass}>Tiêu đề *</label>
           <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className={inputClass} required />
@@ -1195,7 +1195,7 @@ function EditSetModal({
           <label className={labelClass}>Thứ tự</label>
           <input type="number" value={form.displayOrder} onChange={(e) => setForm({ ...form, displayOrder: e.target.value })} className={inputClass} />
         </div>
-        <p className="text-[10px] text-slate-400 italic">
+        <p className="text-sm text-slate-400 italic">
           Mã Bộ ({set.code}) và Khung chương trình ({set.curriculumCode}) không sửa được sau khi tạo. Chuyển trạng thái sang "Đã
           công bố" để đủ điều kiện dùng làm nguồn (chỉ set 1 lần thời điểm công bố) — học sinh CHƯA xem được ngay, chỉ xem sau khi
           Giáo viên chọn bộ này làm "BTVN buổi sau" ở Nhận xét học viên. Chuyển "Đã gỡ" (ARCHIVED) để gỡ khỏi kho — không xoá hẳn
@@ -1272,16 +1272,16 @@ function VideosModal({ set, onClose }: { set: ReviewVideoSetResponse; onClose: (
   return (
     <Modal open onClose={onClose} title={`Video — ${set.title}`} size="lg">
       <div className="space-y-4">
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
         {loading ? (
-          <p className="text-xs text-slate-500">Đang tải...</p>
+          <p className="text-sm text-slate-500">Đang tải...</p>
         ) : videos.length === 0 ? (
-          <p className="text-xs text-slate-400 italic">Bộ này chưa có video nào.</p>
+          <p className="text-sm text-slate-400 italic">Bộ này chưa có video nào.</p>
         ) : (
           <div className="space-y-2">
             {videos.map((v) => (
-              <div key={v.id} className="border border-slate-200 rounded-lg p-3 text-xs space-y-1">
+              <div key={v.id} className="border border-slate-200 rounded-lg p-3 text-sm space-y-1">
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-bold text-slate-800 flex items-center gap-1.5">
                     {v.sourceType === "R2_AUDIO" ? <Music className="w-3.5 h-3.5" /> : <Video className="w-3.5 h-3.5" />}
@@ -1387,7 +1387,7 @@ function VideoQuestionsPanel({ videoId }: { videoId: number }) {
 
   return (
     <div className="border-t border-slate-100 mt-2 pt-2 space-y-2">
-      {error && <div className="text-[11px] text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
       {loading ? (
         <p className="text-slate-400">Đang tải câu hỏi...</p>
       ) : questions.length === 0 ? (
@@ -1522,7 +1522,7 @@ function VideoMcqQuestionsPanel({ videoId }: { videoId: number }) {
 
   return (
     <div className="border-t border-slate-100 mt-2 pt-2 space-y-2">
-      {error && <div className="text-[11px] text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
       {loading ? (
         <p className="text-slate-400">Đang tải câu hỏi...</p>
       ) : questions.length === 0 ? (
@@ -1553,7 +1553,7 @@ function VideoMcqQuestionsPanel({ videoId }: { videoId: number }) {
                 <button
                   type="button"
                   onClick={() => handleSetCorrect(idx)}
-                  className={`w-6 h-6 rounded-full border flex items-center justify-center font-bold shrink-0 text-[10px] transition-all ${
+                  className={`w-6 h-6 rounded-full border flex items-center justify-center font-bold shrink-0 text-sm transition-all ${
                     c.isCorrect ? "bg-emerald-500 border-emerald-500 text-white" : "bg-white border-slate-300 text-slate-400 hover:border-slate-400"
                   }`}
                 >
@@ -1639,10 +1639,10 @@ function StatsModal({
   return (
     <Modal open onClose={onClose} title={`Thống kê — ${set.title}`} size="lg">
       <div className="space-y-4">
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
         {assignedClasses.length === 0 ? (
-          <p className="text-xs text-slate-400 italic">Bộ này chưa được gán cho lớp nào — dùng "Đã gán ... lớp" ở chi tiết Bộ để gán trước.</p>
+          <p className="text-sm text-slate-400 italic">Bộ này chưa được gán cho lớp nào — dùng "Đã gán ... lớp" ở chi tiết Bộ để gán trước.</p>
         ) : (
           <div>
             <label className={labelClass}>Xem thống kê theo lớp *</label>
@@ -1658,19 +1658,19 @@ function StatsModal({
         )}
 
         {loading ? (
-          <p className="text-xs text-slate-500">Đang tải...</p>
+          <p className="text-sm text-slate-500">Đang tải...</p>
         ) : !stats || enrollments.length === 0 ? (
-          <p className="text-xs text-slate-400 italic">Chưa có dữ liệu để hiển thị.</p>
+          <p className="text-sm text-slate-400 italic">Chưa có dữ liệu để hiển thị.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-xs border-collapse">
+            <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="bg-slate-50">
                   <th className="text-left p-2 border border-slate-200 sticky left-0 bg-slate-50">Học sinh</th>
                   {stats.videos.map((v) => (
                     <th key={v.videoId} className="text-center p-2 border border-slate-200 font-semibold whitespace-nowrap">
                       {v.title}
-                      <span className="block text-[10px] font-normal text-slate-400">Cần đạt {v.requiredViewCount} lượt</span>
+                      <span className="block text-sm font-normal text-slate-400">Cần đạt {v.requiredViewCount} lượt</span>
                     </th>
                   ))}
                 </tr>
@@ -1679,7 +1679,7 @@ function StatsModal({
                 {enrollments.map((enr) => (
                   <tr key={enr.studentId}>
                     <td className="p-2 border border-slate-200 font-semibold sticky left-0 bg-white whitespace-nowrap">
-                      {enr.studentFullName} <span className="text-slate-400 font-mono text-[10px]">({enr.studentCode})</span>
+                      {enr.studentFullName} <span className="text-slate-400 font-mono text-sm">({enr.studentCode})</span>
                     </td>
                     {stats.videos.map((v) => {
                       const cell = stats.cells.find((c) => c.studentId === enr.studentId && c.videoId === v.videoId);
@@ -1688,7 +1688,7 @@ function StatsModal({
                       const viewCount = cell?.viewCount ?? 0;
                       return (
                         <td key={v.videoId} className={`text-center p-2 border border-slate-200 ${completed ? "bg-emerald-50 text-emerald-700 font-bold" : "text-slate-500"}`}>
-                          {percent}%<span className="block text-[10px] font-normal">{viewCount}/{v.requiredViewCount} lượt</span>
+                          {percent}%<span className="block text-sm font-normal">{viewCount}/{v.requiredViewCount} lượt</span>
                         </td>
                       );
                     })}

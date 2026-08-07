@@ -7,8 +7,8 @@ import { searchUsers, UserListItemResponse } from "@/features/system-admin/api";
 import { CreateTaskRequest, TaskPriority, TaskResponse, TaskType, createTask } from "../api";
 import Select from "@/components/ui/Select";
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
+const labelClass = "text-sm uppercase font-bold text-slate-500 block mb-1";
 
 const TASK_TYPE_LABEL: Record<TaskType, string> = { GENERAL: "Thông thường", URGENT: "Khẩn cấp", RECURRING: "Lặp lại", PROJECT: "Dự án" };
 const TASK_PRIORITY_LABEL: Record<TaskPriority, string> = { LOW: "Thấp", NORMAL: "Bình thường", HIGH: "Cao", URGENT: "Khẩn cấp" };
@@ -102,7 +102,7 @@ export default function CreateTaskModal({ onClose, onCreated }: CreateTaskModalP
   return (
     <Modal open onClose={onClose} title="Giao việc mới" description="Chỉ giao được cho nhân sự trong phạm vi phòng ban mình phụ trách." size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
         <div>
           <label className={labelClass}>Tiêu đề *</label>
@@ -119,7 +119,7 @@ export default function CreateTaskModal({ onClose, onCreated }: CreateTaskModalP
           {assignees.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mb-2">
               {assignees.map((a) => (
-                <span key={a.id} className="flex items-center gap-1 bg-orange-50 border border-orange-200 text-brand-red text-[11px] font-semibold px-2 py-1 rounded-lg">
+                <span key={a.id} className="flex items-center gap-1 bg-orange-50 border border-orange-200 text-brand-red text-sm font-semibold px-2 py-1 rounded-lg">
                   {a.fullName}
                   <button type="button" onClick={() => removeAssignee(a.id)} className="hover:text-rose-600">
                     <X className="w-3 h-3" />
@@ -140,14 +140,14 @@ export default function CreateTaskModal({ onClose, onCreated }: CreateTaskModalP
               spellCheck={false}
               className={inputClass}
             />
-            {searching && <p className="text-[10px] text-slate-400 mt-1">Đang tìm...</p>}
+            {searching && <p className="text-sm text-slate-400 mt-1">Đang tìm...</p>}
             {query.trim() && !searching && (
               <div className="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg divide-y divide-slate-100 max-h-56 overflow-y-auto">
                 {results.length === 0 ? (
-                  <p className="px-3 py-2 text-xs text-slate-400 italic">Không tìm thấy nhân sự phù hợp.</p>
+                  <p className="px-3 py-2 text-sm text-slate-400 italic">Không tìm thấy nhân sự phù hợp.</p>
                 ) : (
                   results.map((u) => (
-                    <button key={u.id} type="button" onClick={() => addAssignee(u)} className="w-full text-left px-3 py-2 hover:bg-slate-50 text-xs flex items-center justify-between gap-2">
+                    <button key={u.id} type="button" onClick={() => addAssignee(u)} className="w-full text-left px-3 py-2 hover:bg-slate-50 text-sm flex items-center justify-between gap-2">
                       <span>
                         {u.fullName} <span className="text-slate-400">({u.username})</span>
                       </span>

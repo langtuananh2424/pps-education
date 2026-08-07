@@ -18,9 +18,9 @@ import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import { useDialog } from "@/components/ui/DialogProvider";
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
-const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-xs p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
+const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-sm p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
+const labelClass = "text-sm uppercase font-bold text-slate-500 block mb-1";
 
 /** UC-08 bổ sung (V36): danh mục Chức vụ + gán role mặc định — chọn chức vụ này khi tạo/sửa nhân sự thì tự gán các role ở đây. */
 export default function PositionsTab() {
@@ -63,14 +63,14 @@ export default function PositionsTab() {
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <span className="text-[10px] font-bold uppercase text-slate-500">Danh mục Chức vụ ({positions.length})</span>
+          <span className="text-sm font-bold uppercase text-slate-500">Danh mục Chức vụ ({positions.length})</span>
           <Button size="sm" variant="secondary" onClick={() => setCreating(true)}>
             <Plus className="w-3.5 h-3.5" />
             Thêm chức vụ
           </Button>
         </div>
 
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
         <Modal open={creating} onClose={() => setCreating(false)} title="Thêm chức vụ">
           <PositionForm
@@ -84,21 +84,21 @@ export default function PositionsTab() {
         </Modal>
 
         {loading ? (
-          <p className="text-xs text-slate-500">Đang tải...</p>
+          <p className="text-sm text-slate-500">Đang tải...</p>
         ) : positions.length === 0 ? (
-          <p className="text-xs text-slate-400 italic">Chưa có chức vụ nào.</p>
+          <p className="text-sm text-slate-400 italic">Chưa có chức vụ nào.</p>
         ) : (
           <div className="space-y-2">
             {positions.map((p) => (
               <button
                 key={p.id}
                 onClick={() => setSelectedId(p.id)}
-                className={`w-full text-left border rounded-lg p-3 text-xs flex items-center justify-between transition-all ${
+                className={`w-full text-left border rounded-lg p-3 text-sm flex items-center justify-between transition-all ${
                   selectedId === p.id ? "border-brand-orange bg-orange-50/40" : "border-slate-200 hover:bg-slate-50"
                 }`}
               >
                 <div>
-                  <span className="font-mono font-bold text-brand-red bg-orange-50 border border-orange-100 px-1.5 py-0.5 rounded text-[10px] mr-2">{p.code}</span>
+                  <span className="font-mono font-bold text-brand-red bg-orange-50 border border-orange-100 px-1.5 py-0.5 rounded text-sm mr-2">{p.code}</span>
                   <span className="font-bold text-slate-800">{p.name}</span>
                 </div>
                 <span onClick={(e) => { e.stopPropagation(); handleDelete(p.id); }} className="text-rose-500 hover:text-rose-700 cursor-pointer">
@@ -114,7 +114,7 @@ export default function PositionsTab() {
         {selected ? (
           <DefaultRolesPanel key={selected.id} position={selected} />
         ) : (
-          <div className="border border-slate-200 rounded-lg p-8 text-center text-xs text-slate-400 italic">Chọn 1 chức vụ bên trái để cấu hình role mặc định.</div>
+          <div className="border border-slate-200 rounded-lg p-8 text-center text-sm text-slate-400 italic">Chọn 1 chức vụ bên trái để cấu hình role mặc định.</div>
         )}
       </div>
 
@@ -149,7 +149,7 @@ function PositionForm({ onDone, onCancel }: { onDone: () => void; onCancel: () =
 
   return (
     <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
       <div className="grid grid-cols-2 gap-2">
         <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Mã chức vụ" className={`${inputClass} font-mono`} />
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Tên chức vụ" className={inputClass} />
@@ -212,23 +212,23 @@ function DefaultRolesPanel({ position }: { position: PositionResponse }) {
   return (
     <div className="border border-slate-200 rounded-lg p-4 space-y-3">
       <div>
-        <span className="text-[10px] font-bold uppercase text-slate-500">Role mặc định cho chức vụ</span>
+        <span className="text-sm font-bold uppercase text-slate-500">Role mặc định cho chức vụ</span>
         <h4 className="text-sm font-bold text-slate-800 mt-0.5">{position.name}</h4>
-        <p className="text-[10px] text-slate-400 mt-1">
+        <p className="text-sm text-slate-400 mt-1">
           Khi 1 nhân sự được gán chức vụ này (lúc tạo hoặc đổi chức vụ), hệ thống tự gán đúng các role được tích dưới đây —
           không cần vào "Nhóm vai trò" gán tay nữa.
         </p>
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
-      {success && <div className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 p-2.5 rounded-lg">Đã lưu.</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {success && <div className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-100 p-2.5 rounded-lg">Đã lưu.</div>}
 
       {loading ? (
-        <p className="text-xs text-slate-500">Đang tải...</p>
+        <p className="text-sm text-slate-500">Đang tải...</p>
       ) : (
         <div className="space-y-1.5 max-h-72 overflow-y-auto">
           {allRoles.map((r) => (
-            <label key={r.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer text-xs">
+            <label key={r.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer text-sm">
               <input type="checkbox" checked={selectedRoleIds.has(r.id)} onChange={() => toggle(r.id)} />
               <span className="font-semibold text-slate-700">{r.name}</span>
               <Badge variant="neutral">{r.code}</Badge>

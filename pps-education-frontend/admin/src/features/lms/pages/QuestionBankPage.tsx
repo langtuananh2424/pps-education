@@ -194,7 +194,7 @@ export default function QuestionBankPage() {
             <Database className="w-5 h-5 text-brand-red" />
             Ngân hàng câu hỏi
           </h1>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-sm text-slate-500 mt-1">
             Soạn sẵn câu hỏi đa phương thức (Trắc nghiệm, Nghe, Tự luận, Speaking) theo khung chương trình — khi giao bài ở "Soạn & giao đề" chỉ cần chọn lại từ đây.
           </p>
         </div>
@@ -216,12 +216,12 @@ export default function QuestionBankPage() {
         )}
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         <div className="lg:col-span-8 space-y-4">
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-            <div className="flex items-center gap-2 text-xs font-bold text-slate-700 uppercase tracking-wider">
+            <div className="flex items-center gap-2 text-sm font-bold text-slate-700 uppercase tracking-wider">
               <Filter className="w-3.5 h-3.5 text-brand-red" />
               Bộ lọc tìm kiếm
             </div>
@@ -232,13 +232,13 @@ export default function QuestionBankPage() {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Tìm theo nội dung câu hỏi, mã ID..."
-                  className="w-full bg-white border border-slate-200 text-xs pl-9 pr-3 py-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-red"
+                  className="w-full bg-white border border-slate-200 text-sm pl-9 pr-3 py-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-red"
                 />
               </div>
               <Select
                 value={typeFilter}
                 onChange={(e) => setTypeFilter(e.target.value as QuestionType | "ALL")}
-                className="w-full bg-white border border-slate-200 text-xs px-3 py-2.5 rounded-lg focus:outline-none"
+                className="w-full bg-white border border-slate-200 text-sm px-3 py-2.5 rounded-lg focus:outline-none"
               >
                 <option value="ALL">Tất cả loại câu hỏi</option>
                 {(Object.entries(typeBadge) as [QuestionType, (typeof typeBadge)[QuestionType]][]).map(([value, meta]) => (
@@ -250,7 +250,7 @@ export default function QuestionBankPage() {
               <Select
                 value={difficultyFilter}
                 onChange={(e) => setDifficultyFilter(e.target.value as QuestionDifficulty | "ALL")}
-                className="w-full bg-white border border-slate-200 text-xs px-3 py-2.5 rounded-lg focus:outline-none"
+                className="w-full bg-white border border-slate-200 text-sm px-3 py-2.5 rounded-lg focus:outline-none"
               >
                 <option value="ALL">Tất cả độ khó</option>
                 {Object.entries(difficultyLabels).map(([value, label]) => (
@@ -263,10 +263,10 @@ export default function QuestionBankPage() {
 
             {levels.length > 0 && (
               <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-200/60">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1">Cấp độ:</span>
+                <span className="text-sm font-bold text-slate-400 uppercase tracking-wider mr-1">Cấp độ:</span>
                 <button
                   onClick={() => setLevelFilter("ALL")}
-                  className={`text-[10px] font-bold px-2.5 py-1 rounded-md transition-all ${
+                  className={`text-sm font-bold px-2.5 py-1 rounded-md transition-all ${
                     levelFilter === "ALL" ? "bg-brand-red text-white" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
                   }`}
                 >
@@ -276,7 +276,7 @@ export default function QuestionBankPage() {
                   <button
                     key={level}
                     onClick={() => setLevelFilter(level)}
-                    className={`text-[10px] font-bold px-2.5 py-1 rounded-md transition-all ${
+                    className={`text-sm font-bold px-2.5 py-1 rounded-md transition-all ${
                       levelFilter === level ? "bg-brand-red text-white" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
                     }`}
                   >
@@ -291,7 +291,7 @@ export default function QuestionBankPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold text-[10px] tracking-widest uppercase">
+                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold text-sm tracking-widest uppercase">
                     <th className="px-4 py-3 text-center w-16">Mã ID</th>
                     <th className="px-4 py-3">Nội dung câu hỏi</th>
                     <th className="px-4 py-3 w-36 text-center">Phân loại</th>
@@ -300,7 +300,7 @@ export default function QuestionBankPage() {
                     <th className="px-4 py-3 w-16 text-center">Thao tác</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 text-xs">
+                <tbody className="divide-y divide-slate-100 text-sm">
                   {loading ? (
                     <tr>
                       <td colSpan={6} className="px-4 py-12 text-center text-slate-400">
@@ -329,11 +329,11 @@ export default function QuestionBankPage() {
                           <td className="px-4 py-3.5">
                             <div className="font-bold text-slate-800 line-clamp-2 leading-relaxed">{question.content}</div>
                             {question.explanation && (
-                              <p className="text-[10px] text-slate-400 font-medium italic truncate mt-1">Hướng dẫn: {question.explanation}</p>
+                              <p className="text-sm text-slate-400 font-medium italic truncate mt-1">Hướng dẫn: {question.explanation}</p>
                             )}
                           </td>
                           <td className="px-4 py-3.5 text-center">
-                            <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md border ${meta.className}`}>
+                            <span className={`inline-flex items-center gap-1 text-sm font-bold px-2 py-0.5 rounded-md border ${meta.className}`}>
                               <Icon className="w-3 h-3" />
                               {meta.label}
                             </span>
@@ -345,12 +345,12 @@ export default function QuestionBankPage() {
                           </td>
                           <td className="px-4 py-3.5 text-center">
                             {question.difficulty && (
-                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${difficultyBadge[question.difficulty]}`}>
+                              <span className={`text-sm font-bold px-2 py-0.5 rounded border ${difficultyBadge[question.difficulty]}`}>
                                 {difficultyLabels[question.difficulty]}
                               </span>
                             )}
                           </td>
-                          <td className="px-4 py-3.5 text-center font-bold text-slate-700 text-[11px]">{bank.level ?? bank.name}</td>
+                          <td className="px-4 py-3.5 text-center font-bold text-slate-700 text-sm">{bank.level ?? bank.name}</td>
                           <td className="px-4 py-3.5 text-center">
                             {canManage && (
                               <div className="flex items-center justify-center gap-1">
@@ -402,18 +402,18 @@ export default function QuestionBankPage() {
 
         <div className="lg:col-span-4 bg-slate-50 border border-slate-200 p-5 rounded-2xl space-y-4 lg:sticky lg:top-4">
           <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-            <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+            <span className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
               <Sparkles className="w-4 h-4 text-brand-red" />
               Xem trước câu hỏi
             </span>
-            <span className="text-[10px] bg-brand-red/10 text-brand-red px-2 py-0.5 rounded-full font-bold uppercase">Có đáp án</span>
+            <span className="text-sm bg-brand-red/10 text-brand-red px-2 py-0.5 rounded-full font-bold uppercase">Có đáp án</span>
           </div>
 
           {!selectedRow ? (
             <div className="py-16 text-center text-slate-400 space-y-2">
               <HelpCircle className="w-12 h-12 text-slate-300 mx-auto" />
-              <p className="text-xs font-bold">Chưa chọn câu hỏi để xem trước</p>
-              <p className="text-[10px] text-slate-500 max-w-[200px] mx-auto leading-relaxed">Nhấp vào 1 dòng trong bảng bên trái để xem chi tiết + đáp án đúng.</p>
+              <p className="text-sm font-bold">Chưa chọn câu hỏi để xem trước</p>
+              <p className="text-sm text-slate-500 max-w-[200px] mx-auto leading-relaxed">Nhấp vào 1 dòng trong bảng bên trái để xem chi tiết + đáp án đúng.</p>
             </div>
           ) : (
             <QuestionPreview row={selectedRow} onEdit={() => setEditingRow(selectedRow)} canManage={canManage} />
@@ -495,13 +495,13 @@ function QuestionPreview({ row, onEdit, canManage }: { row: FlatQuestionRow; onE
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-mono font-bold text-brand-red">Mã số: Q-{question.id}</span>
-        <span className="text-[10px] text-slate-400 font-bold">{row.bank.level ?? row.bank.name}</span>
+        <span className="text-sm font-mono font-bold text-brand-red">Mã số: Q-{question.id}</span>
+        <span className="text-sm text-slate-400 font-bold">{row.bank.level ?? row.bank.name}</span>
       </div>
 
       <div className="bg-white p-4 rounded-xl border border-slate-100 space-y-2">
         <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Nội dung câu hỏi:</p>
-        <p className="text-xs font-bold text-slate-800 leading-relaxed">{question.content}</p>
+        <p className="text-sm font-bold text-slate-800 leading-relaxed">{question.content}</p>
       </div>
 
       {question.imageUrl && (
@@ -515,7 +515,7 @@ function QuestionPreview({ row, onEdit, canManage }: { row: FlatQuestionRow; onE
           <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Mẫu phát âm & transcript:</p>
           <div className="p-3 bg-blue-50/50 border border-blue-100 rounded-lg space-y-2">
             <audio controls src={question.audioUrl} className="w-full h-8" />
-            {question.referencePassage && <p className="text-[10px] text-blue-900 font-medium italic leading-relaxed">{question.referencePassage}</p>}
+            {question.referencePassage && <p className="text-sm text-blue-900 font-medium italic leading-relaxed">{question.referencePassage}</p>}
           </div>
         </div>
       )}
@@ -526,7 +526,7 @@ function QuestionPreview({ row, onEdit, canManage }: { row: FlatQuestionRow; onE
           {question.choices.map((c) => (
             <div
               key={c.id}
-              className={`p-2.5 rounded-lg border text-xs flex items-center justify-between ${
+              className={`p-2.5 rounded-lg border text-sm flex items-center justify-between ${
                 c.isCorrect ? "bg-emerald-50 border-emerald-200 text-emerald-900 font-bold" : "bg-slate-50 border-slate-100 text-slate-700"
               }`}
             >
@@ -541,8 +541,8 @@ function QuestionPreview({ row, onEdit, canManage }: { row: FlatQuestionRow; onE
 
       {question.questionType === "ESSAY" && (
         <div className="bg-white p-4 rounded-xl border border-slate-100 space-y-2">
-          {question.referencePassage && <p className="text-[11px] text-slate-600 bg-slate-50 p-2 rounded-lg">{question.referencePassage}</p>}
-          <p className="text-[10px] text-slate-500 italic bg-amber-50/50 p-2 border border-amber-100 rounded">
+          {question.referencePassage && <p className="text-sm text-slate-600 bg-slate-50 p-2 rounded-lg">{question.referencePassage}</p>}
+          <p className="text-sm text-slate-500 italic bg-amber-50/50 p-2 border border-amber-100 rounded">
             Học viên nộp bài viết/scan để chấm tay ở Hàng chờ chấm bài.
           </p>
         </div>
@@ -551,30 +551,30 @@ function QuestionPreview({ row, onEdit, canManage }: { row: FlatQuestionRow; onE
       {question.questionType === "SPEAKING" && (
         <div className="bg-white p-4 rounded-xl border border-slate-100 space-y-2">
           <div className="p-3 bg-rose-50/40 border border-rose-100 rounded-lg space-y-1.5">
-            <div className="flex items-center gap-1.5 text-[10px] text-rose-700 font-bold uppercase tracking-wider">
+            <div className="flex items-center gap-1.5 text-sm text-rose-700 font-bold uppercase tracking-wider">
               <Mic className="w-3.5 h-3.5" />
               Từ khóa/mục tiêu chấm:
             </div>
-            <p className="text-xs font-bold text-slate-800 leading-relaxed">{question.explanation ?? "Chưa khai báo tiêu chí chấm."}</p>
+            <p className="text-sm font-bold text-slate-800 leading-relaxed">{question.explanation ?? "Chưa khai báo tiêu chí chấm."}</p>
           </div>
         </div>
       )}
 
       {question.questionType === "FILL_IN_BLANK" && question.explanation && (
         <div className="bg-white p-4 rounded-xl border border-slate-100">
-          <p className="text-[11px] text-slate-600">{question.explanation}</p>
+          <p className="text-sm text-slate-600">{question.explanation}</p>
         </div>
       )}
 
       {question.explanation && question.questionType !== "SPEAKING" && (
         <div className="p-3.5 bg-orange-50 border border-orange-100 rounded-xl space-y-1">
           <span className="text-[9px] font-bold text-brand-red uppercase tracking-wider block">Giải thích / tiêu chí chấm:</span>
-          <p className="text-[11px] text-slate-700 leading-relaxed">{question.explanation}</p>
+          <p className="text-sm text-slate-700 leading-relaxed">{question.explanation}</p>
         </div>
       )}
 
       {canManage && (
-        <button onClick={onEdit} className="w-full bg-white hover:bg-slate-100 border border-slate-200 text-slate-800 font-bold py-1.5 rounded-lg text-xs flex items-center justify-center gap-1.5">
+        <button onClick={onEdit} className="w-full bg-white hover:bg-slate-100 border border-slate-200 text-slate-800 font-bold py-1.5 rounded-lg text-sm flex items-center justify-center gap-1.5">
           <Edit3 className="w-3.5 h-3.5" />
           Cập nhật
         </button>
@@ -630,11 +630,11 @@ function CreateQuestionModal({
         <div className="p-6 space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Khung chương trình</label>
+              <label className="text-sm uppercase font-bold text-slate-500 block mb-1">Khung chương trình</label>
               <Select
                 value={curriculumId ?? ""}
                 onChange={(e) => setCurriculumId(e.target.value ? Number(e.target.value) : null)}
-                className="w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
+                className="w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none"
               >
                 {curriculums.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -644,11 +644,11 @@ function CreateQuestionModal({
               </Select>
             </div>
             <div>
-              <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Ngân hàng</label>
+              <label className="text-sm uppercase font-bold text-slate-500 block mb-1">Ngân hàng</label>
               <Select
                 value={bankId ?? ""}
                 onChange={(e) => setBankId(e.target.value ? Number(e.target.value) : null)}
-                className="w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
+                className="w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none"
               >
                 <option value="">-- Chọn --</option>
                 {banks.map((b) => (
@@ -661,7 +661,7 @@ function CreateQuestionModal({
           </div>
 
           {!showNewBankForm ? (
-            <button type="button" onClick={() => setShowNewBankForm(true)} className="text-[11px] font-bold text-brand-red hover:underline">
+            <button type="button" onClick={() => setShowNewBankForm(true)} className="text-sm font-bold text-brand-red hover:underline">
               + Chưa có ngân hàng phù hợp? Tạo mới
             </button>
           ) : (
@@ -679,7 +679,7 @@ function CreateQuestionModal({
           {bankId && curriculum && bank ? (
             <QuestionEditorForm questionBankId={bankId} onCreated={(q) => onCreated(q, bank, curriculum)} onCancel={onClose} />
           ) : (
-            <p className="text-xs text-slate-400 italic py-4 text-center">Chọn hoặc tạo 1 ngân hàng để bắt đầu soạn câu hỏi.</p>
+            <p className="text-sm text-slate-400 italic py-4 text-center">Chọn hoặc tạo 1 ngân hàng để bắt đầu soạn câu hỏi.</p>
           )}
         </div>
       </div>
@@ -731,11 +731,11 @@ function ImportQuestionsModal({ onClose, onImported }: { onClose: () => void; on
         <div className="p-6 space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Khung chương trình</label>
+              <label className="text-sm uppercase font-bold text-slate-500 block mb-1">Khung chương trình</label>
               <Select
                 value={curriculumId ?? ""}
                 onChange={(e) => setCurriculumId(e.target.value ? Number(e.target.value) : null)}
-                className="w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
+                className="w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none"
               >
                 {curriculums.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -745,11 +745,11 @@ function ImportQuestionsModal({ onClose, onImported }: { onClose: () => void; on
               </Select>
             </div>
             <div>
-              <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Ngân hàng</label>
+              <label className="text-sm uppercase font-bold text-slate-500 block mb-1">Ngân hàng</label>
               <Select
                 value={bankId ?? ""}
                 onChange={(e) => setBankId(e.target.value ? Number(e.target.value) : null)}
-                className="w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
+                className="w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none"
               >
                 <option value="">-- Chọn --</option>
                 {banks.map((b) => (
@@ -764,7 +764,7 @@ function ImportQuestionsModal({ onClose, onImported }: { onClose: () => void; on
           {bankId ? (
             <QuestionImportPanel bankId={bankId} onImported={(created) => onImported(created.length)} />
           ) : (
-            <p className="text-xs text-slate-400 italic py-4 text-center">Chọn 1 ngân hàng để bắt đầu nhập câu hỏi.</p>
+            <p className="text-sm text-slate-400 italic py-4 text-center">Chọn 1 ngân hàng để bắt đầu nhập câu hỏi.</p>
           )}
         </div>
       </div>
@@ -814,15 +814,15 @@ function ManageBanksModal({
           </button>
         </div>
         <div className="p-6 space-y-2">
-          {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-2">{error}</div>}
+          {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-2">{error}</div>}
           {banks.length === 0 ? (
-            <p className="text-xs text-slate-400 italic text-center py-6">Chưa có ngân hàng câu hỏi nào.</p>
+            <p className="text-sm text-slate-400 italic text-center py-6">Chưa có ngân hàng câu hỏi nào.</p>
           ) : (
             banks.map(({ bank, curriculum }) => (
               <div key={bank.id} className="border border-slate-200 rounded-lg p-3 flex items-center justify-between gap-2">
                 <div>
-                  <p className="text-xs font-bold text-slate-800">{bank.name}</p>
-                  <p className="text-[10px] text-slate-400 font-mono mt-0.5">
+                  <p className="text-sm font-bold text-slate-800">{bank.name}</p>
+                  <p className="text-sm text-slate-400 font-mono mt-0.5">
                     {bank.code} · {curriculum.code} — {curriculum.name}
                   </p>
                 </div>
@@ -870,11 +870,11 @@ export function QuickBankForm({ curriculumId, onCreated, onCancel }: { curriculu
 
   return (
     <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-2">
-      {error && <p className="text-xs text-rose-600">{error}</p>}
+      {error && <p className="text-sm text-rose-600">{error}</p>}
       <div className="grid grid-cols-3 gap-2">
-        <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Mã" className="bg-white border border-slate-200 text-xs p-2 rounded-lg font-mono" />
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Tên ngân hàng" className="bg-white border border-slate-200 text-xs p-2 rounded-lg" />
-        <input value={level} onChange={(e) => setLevel(e.target.value)} placeholder="Cấp độ (VD: IELTS 5.5+)" className="bg-white border border-slate-200 text-xs p-2 rounded-lg" />
+        <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Mã" className="bg-white border border-slate-200 text-sm p-2 rounded-lg font-mono" />
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Tên ngân hàng" className="bg-white border border-slate-200 text-sm p-2 rounded-lg" />
+        <input value={level} onChange={(e) => setLevel(e.target.value)} placeholder="Cấp độ (VD: IELTS 5.5+)" className="bg-white border border-slate-200 text-sm p-2 rounded-lg" />
       </div>
       <div className="flex gap-2">
         <Button type="button" variant="secondary" size="sm" onClick={onCancel}>

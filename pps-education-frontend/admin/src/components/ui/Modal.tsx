@@ -23,7 +23,7 @@ export default function Modal({ open, onClose, title, description, children, foo
         <div className="sticky top-0 bg-white px-5 py-4 border-b border-slate-100 flex items-start justify-between gap-3">
           <div>
             <h3 className="text-sm font-bold font-display text-slate-900">{title}</h3>
-            {description && <p className="text-[11px] text-slate-500 mt-1">{description}</p>}
+            {description && <p className="text-sm text-slate-500 mt-1">{description}</p>}
           </div>
           <button
             onClick={onClose}

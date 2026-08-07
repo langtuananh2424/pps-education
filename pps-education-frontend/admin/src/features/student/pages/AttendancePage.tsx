@@ -164,17 +164,17 @@ export default function AttendancePage() {
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Điểm Danh Chuyên Cần (SMS)</h1>
-        <p className="text-xs text-slate-500 mt-1">Giảng viên lưu chuyên cần, vắng học tự động cảnh báo phụ huynh.</p>
+        <p className="text-sm text-slate-500 mt-1">Giảng viên lưu chuyên cần, vắng học tự động cảnh báo phụ huynh.</p>
       </div>
 
       <NotificationBanner message={notification} onClose={() => setNotification(null)} />
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50">
             <div>
-              <span className="text-xs font-bold text-slate-700 font-display">Điểm danh Chuyên cần đầu giờ</span>
-              <p className="text-[10px] text-slate-400 mt-0.5">
+              <span className="text-sm font-bold text-slate-700 font-display">Điểm danh Chuyên cần đầu giờ</span>
+              <p className="text-sm text-slate-400 mt-0.5">
                 {selectedClass ? `${selectedClass.name} (${selectedClass.classCode})` : "Chưa chọn lớp — chọn ở góc trên bên phải (Header) để bắt đầu điểm danh."}
               </p>
             </div>
@@ -183,7 +183,7 @@ export default function AttendancePage() {
                 <Select
                   value={selectedSessionId ?? ""}
                   onChange={(e) => pickSession(e.target.value)}
-                  className="bg-white border text-[10px] font-bold text-slate-700 px-2 py-1 rounded focus:outline-none"
+                  className="bg-white border text-sm font-bold text-slate-700 px-2 py-1 rounded focus:outline-none"
                 >
                   <option value="">-- Chọn buổi học --</option>
                   {sessions.filter((s) => hasAttendanceOverride || (hasSessionStarted(s) && isToday(s))).map((s) => (
@@ -197,7 +197,7 @@ export default function AttendancePage() {
                 value={attendanceMode}
                 onChange={(e) => setAttendanceMode(e.target.value as "SESSION_LEVEL" | "PERIOD_LEVEL")}
                 disabled={locked}
-                className="bg-white border text-[10px] font-bold text-slate-700 px-2 py-1 rounded focus:outline-none disabled:opacity-50"
+                className="bg-white border text-sm font-bold text-slate-700 px-2 py-1 rounded focus:outline-none disabled:opacity-50"
               >
                 <option value="SESSION_LEVEL">Mức cả Buổi (SESSION)</option>
                 <option value="PERIOD_LEVEL">Mức từng Tiết (PERIOD)</option>
@@ -206,7 +206,7 @@ export default function AttendancePage() {
           </div>
 
           {locked && (
-            <div className="px-5 py-2.5 bg-amber-50 border-b border-amber-100 text-amber-700 text-[11px] font-semibold">
+            <div className="px-5 py-2.5 bg-amber-50 border-b border-amber-100 text-amber-700 text-sm font-semibold">
               Buổi học ngày {selectedSession?.sessionDate} đã qua — chỉ sửa được trong ngày diễn ra buổi học. Cần quyền quản trị điểm danh để thao tác buổi khác ngày.
             </div>
           )}
@@ -225,19 +225,19 @@ export default function AttendancePage() {
             <tbody className="divide-y divide-slate-100">
               {!selectedSessionId ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-xs text-slate-400 italic">
+                  <td colSpan={6} className="px-6 py-12 text-center text-sm text-slate-400 italic">
                     {selectedClass ? "Chọn buổi học ở trên để tải danh sách học sinh." : "Chọn 1 lớp ở Header (góc trên bên phải)."}
                   </td>
                 </tr>
               ) : loadingRows ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-xs text-slate-400">
+                  <td colSpan={6} className="px-6 py-12 text-center text-sm text-slate-400">
                     Đang tải...
                   </td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-xs text-slate-400 italic">
+                  <td colSpan={6} className="px-6 py-12 text-center text-sm text-slate-400 italic">
                     Không tìm thấy học sinh nào thuộc lớp học này.
                   </td>
                 </tr>
@@ -277,7 +277,7 @@ export default function AttendancePage() {
               <button
                 onClick={handleSaveAttendance}
                 disabled={!selectedSessionId || rows.length === 0 || saving}
-                className="bg-brand-orange hover:bg-brand-orange/90 text-white font-semibold text-xs px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-soft transition-all disabled:opacity-50"
+                className="bg-brand-orange hover:bg-brand-orange/90 text-white font-semibold text-sm px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-soft transition-all disabled:opacity-50"
               >
                 <Save className="w-4 h-4 text-white" />
                 <span>{saving ? "Đang lưu..." : "Xác nhận & Lưu điểm danh"}</span>

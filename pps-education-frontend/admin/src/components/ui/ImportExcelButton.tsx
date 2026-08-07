@@ -163,47 +163,47 @@ export default function ImportExcelButton({
               type="button"
               onClick={handleDownloadTemplate}
               disabled={downloadingTemplate}
-              className="w-full flex items-center justify-center gap-2 border border-dashed border-slate-300 rounded-lg py-3 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-2 border border-dashed border-slate-300 rounded-lg py-3 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
             >
               <Download className="w-4 h-4" />
               {downloadingTemplate ? "Đang tải..." : "Tải file mẫu (.xlsx)"}
             </button>
 
             <div>
-              <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500 block mb-1">Tải lên file đã điền</label>
+              <label className="text-sm uppercase font-bold tracking-wider text-slate-500 block mb-1">Tải lên file đã điền</label>
               <input
                 type="file"
                 accept=".xlsx"
                 onChange={handleFileChange}
-                className="w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none file:mr-3 file:px-2.5 file:py-1 file:rounded-md file:border-0 file:bg-slate-200 file:text-slate-700 file:text-[11px] file:font-semibold"
+                className="w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none file:mr-3 file:px-2.5 file:py-1 file:rounded-md file:border-0 file:bg-slate-200 file:text-slate-700 file:text-sm file:font-semibold"
               />
             </div>
 
-            {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+            {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
             {result && (
               <div className="space-y-3">
                 <div className="grid grid-cols-3 gap-2 text-center">
                   <div className="bg-slate-50 border border-slate-100 rounded-lg py-2">
                     <div className="text-sm font-bold text-slate-800">{result.totalRows ?? "—"}</div>
-                    <div className="text-[10px] text-slate-400">Tổng số dòng</div>
+                    <div className="text-sm text-slate-400">Tổng số dòng</div>
                   </div>
                   <div className="bg-emerald-50 border border-emerald-100 rounded-lg py-2">
                     <div className="text-sm font-bold text-emerald-600">{result.successRows}</div>
-                    <div className="text-[10px] text-emerald-500">Thành công</div>
+                    <div className="text-sm text-emerald-500">Thành công</div>
                   </div>
                   <div className="bg-rose-50 border border-rose-100 rounded-lg py-2">
                     <div className="text-sm font-bold text-rose-600">{result.failedRows}</div>
-                    <div className="text-[10px] text-rose-500">Lỗi</div>
+                    <div className="text-sm text-rose-500">Lỗi</div>
                   </div>
                 </div>
 
                 {result.errorSummary.length > 0 && (
                   <div className="border border-rose-100 rounded-lg overflow-hidden">
-                    <div className="bg-rose-50 px-3 py-1.5 text-[10px] font-bold text-rose-600 uppercase">Chi tiết lỗi từng dòng</div>
+                    <div className="bg-rose-50 px-3 py-1.5 text-sm font-bold text-rose-600 uppercase">Chi tiết lỗi từng dòng</div>
                     <div className="max-h-48 overflow-y-auto divide-y divide-slate-100">
                       {result.errorSummary.map((e, i) => (
-                        <div key={i} className="px-3 py-1.5 text-xs flex gap-2">
+                        <div key={i} className="px-3 py-1.5 text-sm flex gap-2">
                           <span className="font-mono font-bold text-slate-400 shrink-0">Dòng {e.row}</span>
                           <span className="text-slate-600">{e.reason}</span>
                         </div>
@@ -214,7 +214,7 @@ export default function ImportExcelButton({
 
                 {result.generatedCredentials && result.generatedCredentials.length > 0 && (
                   <div className="border border-amber-200 rounded-lg overflow-hidden">
-                    <div className="bg-amber-50 px-3 py-1.5 text-[10px] font-bold text-amber-700 uppercase flex items-center justify-between gap-2">
+                    <div className="bg-amber-50 px-3 py-1.5 text-sm font-bold text-amber-700 uppercase flex items-center justify-between gap-2">
                       <span>Mật khẩu tạm — chỉ hiển thị 1 lần, lưu lại ngay</span>
                       {exportAccounts && (
                         <button
@@ -229,7 +229,7 @@ export default function ImportExcelButton({
                     </div>
                     <div className="max-h-48 overflow-y-auto divide-y divide-slate-100">
                       {result.generatedCredentials.map((c, i) => (
-                        <div key={i} className="px-3 py-1.5 text-xs flex gap-3 font-mono">
+                        <div key={i} className="px-3 py-1.5 text-sm flex gap-3 font-mono">
                           <span className="text-slate-400 shrink-0">Dòng {c.row}</span>
                           <span className="font-bold text-slate-700">{c.username}</span>
                           <span className="text-amber-700">{c.temporaryPassword}</span>

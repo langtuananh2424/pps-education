@@ -114,38 +114,38 @@ export default function AssignmentDetailModal({ assignment, onClose, onChanged }
   return (
     <Modal open onClose={onClose} title={assignment.taskTitle} description={`Mã phân công: #${assignment.id} · Mã việc: ${task?.taskCode ?? "..."}`} size="lg">
       {loading ? (
-        <p className="text-xs text-slate-500">Đang tải...</p>
+        <p className="text-sm text-slate-500">Đang tải...</p>
       ) : (
         <div className="space-y-4">
-          {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+          {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
           <div className="space-y-1">
-            <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block font-display">Mô tả chi tiết</span>
-            <p className="text-xs text-slate-700 leading-relaxed bg-slate-50 p-3 rounded-lg border border-slate-100">
+            <span className="text-sm uppercase font-bold tracking-wider text-slate-400 block font-display">Mô tả chi tiết</span>
+            <p className="text-sm text-slate-700 leading-relaxed bg-slate-50 p-3 rounded-lg border border-slate-100">
               {task?.description || "Không có mô tả."}
             </p>
           </div>
 
-          <div className="grid grid-cols-3 gap-3 bg-slate-50 p-3.5 rounded-lg border border-slate-100 text-xs">
+          <div className="grid grid-cols-3 gap-3 bg-slate-50 p-3.5 rounded-lg border border-slate-100 text-sm">
             <div>
-              <span className="text-[10px] text-slate-400 font-medium block">Trạng thái</span>
-              <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${meta.badge}`}>{meta.label}</span>
+              <span className="text-sm text-slate-400 font-medium block">Trạng thái</span>
+              <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-sm font-bold ${meta.badge}`}>{meta.label}</span>
             </div>
             <div>
-              <span className="text-[10px] text-slate-400 font-medium block">Người giao</span>
+              <span className="text-sm text-slate-400 font-medium block">Người giao</span>
               <span className="font-bold text-slate-800 block mt-0.5">{task?.createdByFullName ?? "—"}</span>
             </div>
             <div>
-              <span className="text-[10px] text-slate-400 font-medium block">Hạn hoàn thành</span>
+              <span className="text-sm text-slate-400 font-medium block">Hạn hoàn thành</span>
               <span className="font-bold text-slate-800 block mt-0.5">{task?.dueAt ? new Date(task.dueAt).toLocaleString("vi-VN") : "Không đặt hạn"}</span>
             </div>
             <div>
-              <span className="text-[10px] text-slate-400 font-medium block">Độ ưu tiên</span>
+              <span className="text-sm text-slate-400 font-medium block">Độ ưu tiên</span>
               <span className="font-bold text-slate-800 block mt-0.5">{task ? PRIORITY_LABEL[task.priority] ?? task.priority : "—"}</span>
             </div>
             {assignment.declineReason && (
               <div className="col-span-2">
-                <span className="text-[10px] text-rose-400 font-medium block">Lý do từ chối</span>
+                <span className="text-sm text-rose-400 font-medium block">Lý do từ chối</span>
                 <span className="font-semibold text-rose-600 block mt-0.5">{assignment.declineReason}</span>
               </div>
             )}
@@ -153,7 +153,7 @@ export default function AssignmentDetailModal({ assignment, onClose, onChanged }
 
           {(allowedTargets.length > 0 || declineTarget) && (
             <div className="space-y-2 border border-slate-100 rounded-lg p-3">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block font-display">Cập nhật tiến độ</span>
+              <span className="text-sm uppercase font-bold tracking-wider text-slate-400 block font-display">Cập nhật tiến độ</span>
               {declineTarget === "DECLINED" ? (
                 <div className="space-y-2">
                   <textarea
@@ -161,13 +161,13 @@ export default function AssignmentDetailModal({ assignment, onClose, onChanged }
                     onChange={(e) => setDeclineReason(e.target.value)}
                     placeholder="Nêu lý do từ chối nhận việc (bắt buộc)..."
                     rows={2}
-                    className="w-full bg-white border border-rose-200 text-xs p-2.5 rounded-lg focus:outline-none"
+                    className="w-full bg-white border border-rose-200 text-sm p-2.5 rounded-lg focus:outline-none"
                   />
                   <div className="flex gap-2">
                     <button
                       type="button"
                       onClick={() => setDeclineTarget(null)}
-                      className="px-3 py-1.5 text-slate-500 hover:bg-slate-100 text-xs font-semibold rounded-lg"
+                      className="px-3 py-1.5 text-slate-500 hover:bg-slate-100 text-sm font-semibold rounded-lg"
                     >
                       Hủy
                     </button>
@@ -175,7 +175,7 @@ export default function AssignmentDetailModal({ assignment, onClose, onChanged }
                       type="button"
                       disabled={submittingStatus}
                       onClick={handleConfirmDecline}
-                      className="bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs px-3.5 py-1.5 rounded-lg"
+                      className="bg-rose-600 hover:bg-rose-700 text-white font-semibold text-sm px-3.5 py-1.5 rounded-lg"
                     >
                       Xác nhận từ chối
                     </button>
@@ -189,7 +189,7 @@ export default function AssignmentDetailModal({ assignment, onClose, onChanged }
                       type="button"
                       disabled={submittingStatus}
                       onClick={() => (target === "DECLINED" ? setDeclineTarget("DECLINED") : handleChangeStatus(target))}
-                      className={`text-xs font-semibold px-3.5 py-1.5 rounded-lg ${
+                      className={`text-sm font-semibold px-3.5 py-1.5 rounded-lg ${
                         target === "DECLINED"
                           ? "bg-rose-50 text-rose-600 hover:bg-rose-100"
                           : "bg-brand-gradient hover:opacity-95 text-white"
@@ -204,7 +204,7 @@ export default function AssignmentDetailModal({ assignment, onClose, onChanged }
           )}
 
           <div className="space-y-2">
-            <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block font-display">Tệp đính kèm</span>
+            <span className="text-sm uppercase font-bold tracking-wider text-slate-400 block font-display">Tệp đính kèm</span>
             <div className="space-y-1.5">
               {attachments.map((a) => (
                 <a
@@ -212,38 +212,38 @@ export default function AssignmentDetailModal({ assignment, onClose, onChanged }
                   href={a.fileUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex items-center gap-1.5 text-xs text-brand-orange hover:underline"
+                  className="flex items-center gap-1.5 text-sm text-brand-orange hover:underline"
                 >
                   <Link2 className="w-3.5 h-3.5" />
                   {a.fileName}
                 </a>
               ))}
-              {attachments.length === 0 && <p className="text-xs text-slate-400 italic">Chưa có tệp đính kèm.</p>}
+              {attachments.length === 0 && <p className="text-sm text-slate-400 italic">Chưa có tệp đính kèm.</p>}
             </div>
             <form onSubmit={handleAddAttachment} className="flex gap-2">
               <input
                 value={attachName}
                 onChange={(e) => setAttachName(e.target.value)}
                 placeholder="Tên tệp"
-                className="flex-1 bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none"
+                className="flex-1 bg-slate-50 border border-slate-200 text-sm px-3 py-2 rounded-lg focus:outline-none"
               />
               <input
                 value={attachUrl}
                 onChange={(e) => setAttachUrl(e.target.value)}
                 placeholder="Đường dẫn tệp (URL)"
-                className="flex-1 bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none"
+                className="flex-1 bg-slate-50 border border-slate-200 text-sm px-3 py-2 rounded-lg focus:outline-none"
               />
-              <button type="submit" className="bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-semibold px-3 py-2 rounded-lg shrink-0">
+              <button type="submit" className="bg-slate-100 hover:bg-slate-200 text-slate-600 text-sm font-semibold px-3 py-2 rounded-lg shrink-0">
                 Thêm
               </button>
             </form>
           </div>
 
           <div className="space-y-3">
-            <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block font-display">Lịch sử trao đổi</span>
+            <span className="text-sm uppercase font-bold tracking-wider text-slate-400 block font-display">Lịch sử trao đổi</span>
             <div className="space-y-2">
               {comments.map((cmt) => (
-                <div key={cmt.id} className="p-2.5 rounded-lg bg-slate-50 border border-slate-100 text-xs">
+                <div key={cmt.id} className="p-2.5 rounded-lg bg-slate-50 border border-slate-100 text-sm">
                   <div className="flex items-center justify-between font-semibold text-slate-700">
                     <span>{cmt.commenterFullName}</span>
                     <span className="text-[9px] text-slate-400 font-mono">{new Date(cmt.createdAt).toLocaleString("vi-VN")}</span>
@@ -251,7 +251,7 @@ export default function AssignmentDetailModal({ assignment, onClose, onChanged }
                   <p className="text-slate-600 mt-1">{cmt.content}</p>
                 </div>
               ))}
-              {comments.length === 0 && <p className="text-xs text-slate-400 italic">Chưa có bình luận nào.</p>}
+              {comments.length === 0 && <p className="text-sm text-slate-400 italic">Chưa có bình luận nào.</p>}
             </div>
 
             <form onSubmit={handleAddComment} className="flex gap-2">
@@ -260,7 +260,7 @@ export default function AssignmentDetailModal({ assignment, onClose, onChanged }
                 placeholder="Viết phản hồi tiến độ..."
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
-                className="flex-1 bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none"
+                className="flex-1 bg-slate-50 border border-slate-200 text-sm px-3 py-2 rounded-lg focus:outline-none"
               />
               <button type="submit" className="bg-brand-gradient hover:opacity-95 text-white p-2 rounded-lg shrink-0">
                 <Send className="w-4 h-4 text-white" />

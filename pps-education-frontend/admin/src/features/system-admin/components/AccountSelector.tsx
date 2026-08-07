@@ -2,9 +2,9 @@ import React, { useMemo, useState } from "react";
 import { UserCheck, X } from "lucide-react";
 import { CreateUserRequest, searchUsers, UserListItemResponse } from "../api";
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
-const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-xs p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-3 rounded-lg focus:outline-none";
+const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-sm p-3 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
+const labelClass = "text-xs uppercase font-bold text-slate-500 block mb-1.5 tracking-wide";
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export interface AccountSelection {
@@ -82,7 +82,7 @@ export default function AccountSelector({ value, onChange, submitAttempted = fal
         <button
           type="button"
           onClick={() => switchMode("new")}
-          className={`py-1.5 text-xs font-bold rounded-lg border text-center transition-all ${
+          className={`py-2.5 text-sm font-bold rounded-lg border text-center transition-all ${
             mode === "new" ? "bg-orange-50 text-brand-red border-orange-200 shadow-sm" : "bg-slate-50 border-slate-200 text-slate-500"
           }`}
         >
@@ -91,7 +91,7 @@ export default function AccountSelector({ value, onChange, submitAttempted = fal
         <button
           type="button"
           onClick={() => switchMode("existing")}
-          className={`py-1.5 text-xs font-bold rounded-lg border text-center transition-all ${
+          className={`py-2.5 text-sm font-bold rounded-lg border text-center transition-all ${
             mode === "existing" ? "bg-orange-50 text-brand-red border-orange-200 shadow-sm" : "bg-slate-50 border-slate-200 text-slate-500"
           }`}
         >
@@ -109,7 +109,7 @@ export default function AccountSelector({ value, onChange, submitAttempted = fal
               onBlur={() => markTouched("username")}
               className={usernameInvalid ? inputErrorClass : inputClass}
             />
-            {usernameInvalid && <p className="text-[10px] text-rose-600 mt-1">Vui lòng nhập Username.</p>}
+            {usernameInvalid && <p className="text-sm text-rose-600 mt-1">Vui lòng nhập Username.</p>}
           </div>
           <div>
             <label className={labelClass}>Email *</label>
@@ -120,8 +120,8 @@ export default function AccountSelector({ value, onChange, submitAttempted = fal
               onBlur={() => markTouched("email")}
               className={emailInvalid ? inputErrorClass : inputClass}
             />
-            {emailEmpty && <p className="text-[10px] text-rose-600 mt-1">Vui lòng nhập Email.</p>}
-            {emailBadFormat && <p className="text-[10px] text-rose-600 mt-1">Email không đúng định dạng.</p>}
+            {emailEmpty && <p className="text-sm text-rose-600 mt-1">Vui lòng nhập Email.</p>}
+            {emailBadFormat && <p className="text-sm text-rose-600 mt-1">Email không đúng định dạng.</p>}
           </div>
           <div>
             <label className={labelClass}>Họ tên *</label>
@@ -131,7 +131,7 @@ export default function AccountSelector({ value, onChange, submitAttempted = fal
               onBlur={() => markTouched("fullName")}
               className={fullNameInvalid ? inputErrorClass : inputClass}
             />
-            {fullNameInvalid && <p className="text-[10px] text-rose-600 mt-1">Vui lòng nhập Họ tên.</p>}
+            {fullNameInvalid && <p className="text-sm text-rose-600 mt-1">Vui lòng nhập Họ tên.</p>}
           </div>
           <div>
             <label className={labelClass}>Số điện thoại</label>
@@ -149,7 +149,7 @@ export default function AccountSelector({ value, onChange, submitAttempted = fal
           </div>
         </div>
       ) : selectedUser ? (
-        <div className="flex items-center justify-between bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs font-semibold px-3 py-2 rounded-lg">
+        <div className="flex items-center justify-between bg-emerald-50 border border-emerald-100 text-emerald-700 text-sm font-semibold px-3 py-2 rounded-lg">
           <span className="flex items-center gap-1.5">
             <UserCheck className="w-4 h-4" />
             {selectedUser.fullName} ({selectedUser.username} · {selectedUser.email})
@@ -173,7 +173,7 @@ export default function AccountSelector({ value, onChange, submitAttempted = fal
             placeholder="Tìm theo email / username / họ tên..."
             className={inputClass}
           />
-          {searching && <p className="text-[10px] text-slate-400 mt-1">Đang tìm...</p>}
+          {searching && <p className="text-sm text-slate-400 mt-1">Đang tìm...</p>}
           {results.length > 0 && (
             <div className="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg divide-y divide-slate-100 max-h-56 overflow-y-auto">
               {results.map((u) => (
@@ -181,7 +181,7 @@ export default function AccountSelector({ value, onChange, submitAttempted = fal
                   key={u.id}
                   type="button"
                   onClick={() => pickUser(u)}
-                  className="w-full text-left px-3 py-2 hover:bg-slate-50 text-xs"
+                  className="w-full text-left px-3 py-2 hover:bg-slate-50 text-sm"
                 >
                   {u.fullName} <span className="text-slate-400">({u.username} · {u.email})</span>
                 </button>

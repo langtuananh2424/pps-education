@@ -109,7 +109,7 @@ export default function Select({ value, onChange, children, className, disabled,
                   onChange({ target: { value: opt.value } });
                   setOpen(false);
                 }}
-                className={`w-full text-left px-3 py-2 text-xs transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                className={`w-full text-left px-3 py-2 text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
                   opt.value === String(value ?? "") ? "bg-brand-orange/10 text-brand-orange font-semibold" : "text-slate-700 hover:bg-slate-50"
                 }`}
               >

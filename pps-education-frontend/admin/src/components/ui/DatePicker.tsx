@@ -134,7 +134,7 @@ export default function DatePicker({ value, onChange, min, max, placeholder, has
         disabled={disabled}
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          "w-full bg-slate-50 border text-xs p-2.5 rounded-lg focus:outline-none flex items-center justify-between gap-2 disabled:opacity-50",
+          "w-full bg-slate-50 border text-sm p-2.5 rounded-lg focus:outline-none flex items-center justify-between gap-2 disabled:opacity-50",
           hasError ? "border-rose-400 focus:ring-1 focus:ring-rose-300" : "border-slate-200 hover:border-slate-300",
           className
         )}
@@ -162,7 +162,7 @@ export default function DatePicker({ value, onChange, min, max, placeholder, has
             <select
               value={viewDate.getMonth()}
               onChange={(e) => setViewDate(new Date(viewDate.getFullYear(), Number(e.target.value), 1))}
-              className="flex-1 bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-700 px-2 py-1.5 rounded-lg focus:outline-none"
+              className="flex-1 bg-slate-50 border border-slate-200 text-sm font-semibold text-slate-700 px-2 py-1.5 rounded-lg focus:outline-none"
             >
               {MONTH_LABELS.map((label, i) => (
                 <option key={label} value={i}>
@@ -173,7 +173,7 @@ export default function DatePicker({ value, onChange, min, max, placeholder, has
             <select
               value={viewDate.getFullYear()}
               onChange={(e) => setViewDate(new Date(Number(e.target.value), viewDate.getMonth(), 1))}
-              className="bg-slate-50 border border-slate-200 text-xs font-bold text-brand-red px-2 py-1.5 rounded-lg focus:outline-none"
+              className="bg-slate-50 border border-slate-200 text-sm font-bold text-brand-red px-2 py-1.5 rounded-lg focus:outline-none"
             >
               {yearRange.map((y) => (
                 <option key={y} value={y}>
@@ -192,7 +192,7 @@ export default function DatePicker({ value, onChange, min, max, placeholder, has
 
           <div className="grid grid-cols-7 gap-0.5 text-center">
             {WEEKDAYS.map((w) => (
-              <span key={w} className="text-[10px] font-bold text-slate-400 py-1">
+              <span key={w} className="text-sm font-bold text-slate-400 py-1">
                 {w}
               </span>
             ))}
@@ -209,7 +209,7 @@ export default function DatePicker({ value, onChange, min, max, placeholder, has
                     disabled={disabledCell}
                     onClick={() => pick(date)}
                     className={cn(
-                      "text-[11px] font-semibold rounded-lg py-1.5 transition-colors",
+                      "text-sm font-semibold rounded-lg py-1.5 transition-colors",
                       !inMonth && "text-slate-300",
                       inMonth && !isSelected && "text-slate-700 hover:bg-orange-50",
                       isSelected && "bg-brand-red text-white shadow-sm hover:bg-brand-red",
@@ -231,14 +231,14 @@ export default function DatePicker({ value, onChange, min, max, placeholder, has
                 onChange("");
                 setOpen(false);
               }}
-              className="text-[11px] font-semibold text-slate-400 hover:text-rose-600 transition-colors"
+              className="text-sm font-semibold text-slate-400 hover:text-rose-600 transition-colors"
             >
               Xoá
             </button>
             <button
               type="button"
               onClick={() => pick(new Date())}
-              className="text-[11px] font-bold text-brand-red hover:underline"
+              className="text-sm font-bold text-brand-red hover:underline"
             >
               Hôm nay
             </button>

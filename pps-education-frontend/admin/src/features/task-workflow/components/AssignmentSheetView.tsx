@@ -27,12 +27,12 @@ export default function AssignmentSheetView({ assignments, onSelect }: Assignmen
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}
           placeholder="Tìm theo tiêu đề công việc..."
-          className="flex-1 bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none max-w-xs"
+          className="flex-1 bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none max-w-xs"
         />
         <Select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
+          className="bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none"
         >
           <option value="ALL">-- Mọi trạng thái --</option>
           {ASSIGNMENT_STATUS_ORDER.map((s) => (
@@ -41,12 +41,12 @@ export default function AssignmentSheetView({ assignments, onSelect }: Assignmen
             </option>
           ))}
         </Select>
-        <span className="text-[11px] text-slate-400 ml-auto">Tổng {filtered.length} việc</span>
+        <span className="text-sm text-slate-400 ml-auto">Tổng {filtered.length} việc</span>
       </div>
 
       <div className="border border-slate-200 rounded-xl overflow-x-auto">
-        <table className="w-full text-xs">
-          <thead className="bg-slate-50 text-[10px] uppercase font-bold text-slate-500">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50 text-sm uppercase font-bold text-slate-500">
             <tr>
               <th className="text-left px-3 py-2.5">Mã PC</th>
               <th className="text-left px-3 py-2.5">Tiêu đề công việc</th>
@@ -64,7 +64,7 @@ export default function AssignmentSheetView({ assignments, onSelect }: Assignmen
                   <td className="px-3 py-2.5 font-mono text-slate-400">#{a.id}</td>
                   <td className="px-3 py-2.5 font-semibold text-slate-800">{a.taskTitle}</td>
                   <td className="px-3 py-2.5">
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${meta.badge}`}>{meta.label}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-sm font-bold ${meta.badge}`}>{meta.label}</span>
                   </td>
                   <td className="px-3 py-2.5 text-slate-500">{a.progressPercent != null ? `${a.progressPercent}%` : "—"}</td>
                   <td className="px-3 py-2.5 text-slate-500">{a.startedAt ? new Date(a.startedAt).toLocaleDateString("vi-VN") : "—"}</td>

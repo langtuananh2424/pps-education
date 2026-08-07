@@ -39,8 +39,8 @@ const statusVariants: Record<string, BadgeVariant> = {
   SUSPENDED: "danger"
 };
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
+const labelClass = "text-sm uppercase font-bold text-slate-500 block mb-1";
 
 export default function UsersPage() {
   const [rows, setRows] = useState<UserListItemResponse[]>([]);
@@ -115,7 +115,7 @@ export default function UsersPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div>
           <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider block">Quản lý người dùng</h2>
-          <p className="text-[10px] text-slate-400 mt-0.5">
+          <p className="text-sm text-slate-400 mt-0.5">
             Danh sách tài khoản toàn hệ thống — tra cứu, cập nhật hồ sơ, khóa/mở khóa. Tài khoản được khởi tạo từ Quản lý nhân sự /
             Quản lý học sinh.
           </p>
@@ -129,10 +129,10 @@ export default function UsersPage() {
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
             placeholder="Tìm theo username / email / họ tên..."
-            className="w-full bg-slate-50 border border-slate-200 text-xs pl-8 pr-3 py-2.5 rounded-lg focus:outline-none"
+            className="w-full bg-slate-50 border border-slate-200 text-sm pl-8 pr-3 py-2.5 rounded-lg focus:outline-none"
           />
         </div>
-        <Select value={status} onChange={(e) => setStatus(e.target.value as typeof status)} className="bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none">
+        <Select value={status} onChange={(e) => setStatus(e.target.value as typeof status)} className="bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none">
           <option value="">-- Mọi trạng thái --</option>
           <option value="ACTIVE">Đang hoạt động</option>
           <option value="INACTIVE">Ngừng hoạt động</option>
@@ -141,7 +141,7 @@ export default function UsersPage() {
         <Select
           value={departmentId}
           onChange={(e) => setDepartmentId(e.target.value)}
-          className="w-48 bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
+          className="w-48 bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none"
         >
           <option value="">-- Mọi phòng ban --</option>
           {departments.map((d) => (
@@ -153,7 +153,7 @@ export default function UsersPage() {
         <Select
           value={roleCode}
           onChange={(e) => setRoleCode(e.target.value)}
-          className="w-48 bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
+          className="w-48 bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none"
         >
           <option value="">-- Mọi vai trò --</option>
           {roles.map((r) => (
@@ -168,7 +168,7 @@ export default function UsersPage() {
       </form>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden">
-        {listError && <div className="p-4 text-xs text-rose-600 bg-rose-50 border-b border-rose-100">{listError}</div>}
+        {listError && <div className="p-4 text-sm text-rose-600 bg-rose-50 border-b border-rose-100">{listError}</div>}
         {!loading && rows.length === 0 && !listError ? (
           <EmptyState icon={UsersIcon} title="Không tìm thấy tài khoản phù hợp" description="Thử nới lỏng từ khóa hoặc bộ lọc." />
         ) : (
@@ -219,7 +219,7 @@ export default function UsersPage() {
         )}
 
         {rows.length > 0 && (
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-4 py-3 border-t border-slate-100 text-[11px] text-slate-500">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-4 py-3 border-t border-slate-100 text-sm text-slate-500">
             <div className="flex items-center gap-2">
               <span>Tổng {totalElements} tài khoản</span>
               <span className="text-slate-300">|</span>
@@ -231,7 +231,7 @@ export default function UsersPage() {
                     setPageSize(Number(e.target.value));
                     setPage(0);
                   }}
-                  className="bg-slate-50 border border-slate-200 text-[11px] px-1.5 py-1 rounded-md focus:outline-none cursor-pointer"
+                  className="bg-slate-50 border border-slate-200 text-sm px-1.5 py-1 rounded-md focus:outline-none cursor-pointer"
                 >
                   {PAGE_SIZE_OPTIONS.map((size) => (
                     <option key={size} value={size}>
@@ -404,8 +404,8 @@ function UserDetailModal({
 
   return (
     <Modal open={userId != null} onClose={onClose} title={detail ? `Tài khoản: ${detail.username}` : "Chi tiết tài khoản"} size="lg">
-      {loading && <p className="text-xs text-slate-500">Đang tải...</p>}
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-4">{error}</div>}
+      {loading && <p className="text-sm text-slate-500">Đang tải...</p>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-4">{error}</div>}
 
       {detail && (
         <div className="space-y-5">
@@ -419,7 +419,7 @@ function UserDetailModal({
             {detail.googleLinked && <Badge variant="brand">Liên kết Google</Badge>}
           </div>
 
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-slate-500">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-slate-500">
             <span>Đăng nhập gần nhất: <span className="font-mono text-slate-700">{detail.lastLoginAt ?? "Chưa từng"}</span></span>
             <span>Số lần đăng nhập sai: <span className="font-mono text-slate-700">{detail.failedLoginCount}</span></span>
             {detail.lockedUntil && <span>Khóa tạm tới: <span className="font-mono text-slate-700">{detail.lockedUntil}</span></span>}
@@ -430,14 +430,14 @@ function UserDetailModal({
               Miễn trừ chấm công: <span className="font-mono text-slate-700">{detail.isManagement ? "Có" : "Không"}</span>
             </span>
           </div>
-          <p className="text-[10px] text-slate-400 italic -mt-3">
+          <p className="text-sm text-slate-400 italic -mt-3">
             Phòng ban / miễn trừ chấm công thuộc hồ sơ nhân sự — sửa tại "Quản lý nhân sự", không sửa được ở đây.
           </p>
 
           <form onSubmit={handleSaveProfile} className="space-y-3 border-t border-slate-100 pt-4">
             <div>
-              <span className="text-[10px] font-bold uppercase text-slate-500">Cập nhật hồ sơ</span>
-              <p className="text-[10px] text-slate-400">Chỉ đổi họ tên/số điện thoại hiển thị của tài khoản này.</p>
+              <span className="text-sm font-bold uppercase text-slate-500">Cập nhật hồ sơ</span>
+              <p className="text-sm text-slate-400">Chỉ đổi họ tên/số điện thoại hiển thị của tài khoản này.</p>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -456,8 +456,8 @@ function UserDetailModal({
 
           <form onSubmit={handleChangeEmail} className="space-y-2 border-t border-slate-100 pt-4">
             <div>
-              <span className="text-[10px] font-bold uppercase text-slate-500">Sửa email</span>
-              <p className="text-[10px] text-slate-400">
+              <span className="text-sm font-bold uppercase text-slate-500">Sửa email</span>
+              <p className="text-sm text-slate-400">
                 Dùng khi email hiện tại chỉ là placeholder (tài khoản Học sinh/Phụ huynh tạo tự động) — đổi sang
                 email Google thật để đăng nhập Google (UC-01) khớp được.
               </p>
@@ -485,10 +485,10 @@ function UserDetailModal({
 
           <form onSubmit={handleChangePassword} className="space-y-2 border-t border-slate-100 pt-4">
             <div>
-              <span className="text-[10px] font-bold uppercase text-slate-500 flex items-center gap-1">
+              <span className="text-sm font-bold uppercase text-slate-500 flex items-center gap-1">
                 <KeyRound className="w-3 h-3" /> Đặt lại mật khẩu
               </span>
-              <p className="text-[10px] text-slate-400">Admin đặt thẳng mật khẩu mới cho tài khoản này, có hiệu lực ngay — không cần biết mật khẩu cũ (dùng khi người dùng quên mật khẩu).</p>
+              <p className="text-sm text-slate-400">Admin đặt thẳng mật khẩu mới cho tài khoản này, có hiệu lực ngay — không cần biết mật khẩu cũ (dùng khi người dùng quên mật khẩu).</p>
             </div>
             <div className="flex gap-2">
               <input
@@ -506,8 +506,8 @@ function UserDetailModal({
 
           <div className="border-t border-slate-100 pt-4 flex flex-wrap gap-2">
             <div className="w-full">
-              <span className="text-[10px] font-bold uppercase text-slate-500">Khóa/Mở khóa</span>
-              <p className="text-[10px] text-slate-400">Đổi trạng thái đăng nhập của tài khoản — ngừng/tạm khóa sẽ chặn đăng nhập ngay.</p>
+              <span className="text-sm font-bold uppercase text-slate-500">Khóa/Mở khóa</span>
+              <p className="text-sm text-slate-400">Đổi trạng thái đăng nhập của tài khoản — ngừng/tạm khóa sẽ chặn đăng nhập ngay.</p>
             </div>
             {detail.status !== "ACTIVE" && (
               <Button size="sm" variant="secondary" disabled={changingStatus} onClick={() => handleToggleStatus("ACTIVE")}>

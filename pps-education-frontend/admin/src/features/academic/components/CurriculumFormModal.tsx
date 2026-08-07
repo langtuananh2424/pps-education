@@ -6,9 +6,9 @@ import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import Select from "@/components/ui/Select";
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
-const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-xs p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
+const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-sm p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
+const labelClass = "text-sm uppercase font-bold text-slate-500 block mb-1";
 
 interface CurriculumFormModalProps {
   onClose: () => void;
@@ -58,7 +58,7 @@ export default function CurriculumFormModal({ onClose, onCreated }: CurriculumFo
   return (
     <Modal open onClose={onClose} title="Thêm khung chương trình mới" size="md">
       <form onSubmit={handleSubmit} className="space-y-4">
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -69,7 +69,7 @@ export default function CurriculumFormModal({ onClose, onCreated }: CurriculumFo
               onBlur={() => setTouched((t) => ({ ...t, code: true }))}
               className={`${invalid.code ? inputErrorClass : inputClass} font-mono`}
             />
-            {invalid.code && <p className="text-[10px] text-rose-600 mt-1">Vui lòng nhập Mã khung.</p>}
+            {invalid.code && <p className="text-sm text-rose-600 mt-1">Vui lòng nhập Mã khung.</p>}
           </div>
           <div>
             <label className={labelClass}>Nhóm lớp *</label>
@@ -88,7 +88,7 @@ export default function CurriculumFormModal({ onClose, onCreated }: CurriculumFo
               onBlur={() => setTouched((t) => ({ ...t, name: true }))}
               className={invalid.name ? inputErrorClass : inputClass}
             />
-            {invalid.name && <p className="text-[10px] text-rose-600 mt-1">Vui lòng nhập Tên khung chương trình.</p>}
+            {invalid.name && <p className="text-sm text-rose-600 mt-1">Vui lòng nhập Tên khung chương trình.</p>}
           </div>
           <div>
             <label className={labelClass}>Cấp độ</label>

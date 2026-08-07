@@ -6,8 +6,8 @@ import FileUploadField from "@/components/ui/FileUploadField";
 import { CreateExamQuestionRequest, CreateQuestionRequest, QuestionChoiceRequest, QuestionDifficulty, QuestionResponse, QuestionType, createExamQuestion, createQuestion, updateExamQuestion, updateQuestion, uploadMedia } from "../api";
 import Select from "@/components/ui/Select";
 
-const inputClass = "w-full bg-white border border-slate-200 text-xs px-3.5 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-red";
-const labelClass = "block font-bold text-slate-700 mb-1 uppercase tracking-wider text-[10px]";
+const inputClass = "w-full bg-white border border-slate-200 text-sm px-3.5 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-red";
+const labelClass = "block font-bold text-slate-700 mb-1 uppercase tracking-wider text-sm";
 
 /**
  * 9 loại — 5 loại gốc (theo bản thiết kế tham chiếu + Điền từ, bổ sung 2026-07-28 sau khi backend
@@ -238,8 +238,8 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+    <form onSubmit={handleSubmit} className="space-y-4 text-sm">
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       <div>
         <label className={labelClass}>Loại câu hỏi tiếng Anh *{isEditing && <span className="text-slate-400 font-normal"> (không sửa được sau khi tạo)</span>}</label>
@@ -313,7 +313,7 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
                 <button
                   type="button"
                   onClick={() => setCorrectIndex(idx)}
-                  className={`w-6 h-6 rounded-full border flex items-center justify-center font-bold shrink-0 text-[10px] transition-all ${
+                  className={`w-6 h-6 rounded-full border flex items-center justify-center font-bold shrink-0 text-sm transition-all ${
                     correctIndex === idx ? "bg-emerald-500 border-emerald-500 text-white" : "bg-white border-slate-300 text-slate-400 hover:border-slate-400"
                   }`}
                 >
@@ -387,7 +387,7 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
           <div className="space-y-2">
             {wordBankBlanks.map((b, idx) => (
               <div key={idx} className="flex items-center gap-2">
-                <span className="text-[10px] font-bold text-slate-500 w-20 shrink-0">Chỗ trống {idx + 1}</span>
+                <span className="text-sm font-bold text-slate-500 w-20 shrink-0">Chỗ trống {idx + 1}</span>
                 <input
                   required
                   value={b}
@@ -426,7 +426,7 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
           <div className="space-y-2">
             {sentenceChunks.map((c, idx) => (
               <div key={idx} className="flex items-center gap-2">
-                <span className="text-[10px] font-bold text-slate-500 w-12 shrink-0">#{idx + 1}</span>
+                <span className="text-sm font-bold text-slate-500 w-12 shrink-0">#{idx + 1}</span>
                 <input
                   value={c}
                   onChange={(e) => setSentenceChunks((prev) => prev.map((x, i) => (i === idx ? e.target.value : x)))}

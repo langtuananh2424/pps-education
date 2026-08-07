@@ -19,8 +19,8 @@ import Badge from "@/components/ui/Badge";
 import Select from "@/components/ui/Select";
 import ClassGradeComparisonTable from "./ClassGradeComparisonTable";
 
-const inputClass = "bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "bg-slate-50 border border-slate-200 text-sm p-2 rounded-lg focus:outline-none";
+const labelClass = "text-sm uppercase font-bold text-slate-500 block mb-1";
 
 const attendanceStatusLabels: Record<string, string> = {
   PRESENT: "Có mặt",
@@ -133,14 +133,14 @@ export default function StudentInfoModal({ enrollment, classId, onClose }: Stude
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
             <p className="text-sm font-bold text-slate-800">{enrollment.studentFullName}</p>
-            <p className="text-[10px] font-mono text-slate-400">{enrollment.studentCode}</p>
+            <p className="text-sm font-mono text-slate-400">{enrollment.studentCode}</p>
           </div>
           <Badge variant={enrollment.status === "ACTIVE" ? "success" : "neutral"}>{enrollment.status}</Badge>
         </div>
 
         <div>
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-bold uppercase text-slate-500">Điểm số</span>
+            <span className="text-sm font-bold uppercase text-slate-500">Điểm số</span>
             {setups.length > 0 && (
               <Select
                 value={selectedSetupId ?? ""}
@@ -156,22 +156,22 @@ export default function StudentInfoModal({ enrollment, classId, onClose }: Stude
             )}
           </div>
           {setups.length === 0 ? (
-            <p className="text-xs text-slate-400 italic">Lớp chưa có setup sổ điểm nào.</p>
+            <p className="text-sm text-slate-400 italic">Lớp chưa có setup sổ điểm nào.</p>
           ) : loadingGrades ? (
-            <p className="text-xs text-slate-500">Đang tải...</p>
+            <p className="text-sm text-slate-500">Đang tải...</p>
           ) : componentScores.length === 0 ? (
-            <p className="text-xs text-slate-400 italic">Setup này chưa có đầu điểm nào.</p>
+            <p className="text-sm text-slate-400 italic">Setup này chưa có đầu điểm nào.</p>
           ) : (
             <div className="space-y-1.5">
               <div className="flex flex-wrap gap-1.5">
                 {componentScores.map(({ component, score }) => (
-                  <span key={component.id} className="bg-slate-100 border border-slate-200 text-slate-700 text-[11px] font-semibold px-2 py-1 rounded-lg">
+                  <span key={component.id} className="bg-slate-100 border border-slate-200 text-slate-700 text-sm font-semibold px-2 py-1 rounded-lg">
                     {component.name}: {score ?? "—"}
                   </span>
                 ))}
               </div>
               {evaluationResult && (
-                <p className="text-xs text-slate-600">
+                <p className="text-sm text-slate-600">
                   Tổng kết kỳ: <span className="font-bold text-slate-800">{evaluationResult.overallScore ?? "—"}</span>
                   {evaluationResult.level && ` (${evaluationResult.level})`}
                   {evaluationResult.comment && <span className="block text-slate-500 mt-0.5">Nhận xét: {evaluationResult.comment}</span>}
@@ -182,7 +182,7 @@ export default function StudentInfoModal({ enrollment, classId, onClose }: Stude
         </div>
 
         <div>
-          <span className="text-[10px] font-bold uppercase text-slate-500 block mb-2">So sánh điểm số qua các kỳ</span>
+          <span className="text-sm font-bold uppercase text-slate-500 block mb-2">So sánh điểm số qua các kỳ</span>
           {/* Tái dùng nguyên bảng tổng hợp cả lớp (ClassGradeSheetPanel dùng để so sánh tiến bộ qua các
               kỳ) nhưng chỉ truyền đúng 1 học sinh này — tránh viết lại logic gộp component theo `code`
               xuyên suốt các kỳ + icon xu hướng tăng/giảm đã có sẵn (2026-07-30). includeAllStatuses để
@@ -193,33 +193,33 @@ export default function StudentInfoModal({ enrollment, classId, onClose }: Stude
         </div>
 
         <div>
-          <span className="text-[10px] font-bold uppercase text-slate-500 block mb-2">Chuyên cần</span>
+          <span className="text-sm font-bold uppercase text-slate-500 block mb-2">Chuyên cần</span>
           {loadingAttendance ? (
-            <p className="text-xs text-slate-500">Đang tải...</p>
+            <p className="text-sm text-slate-500">Đang tải...</p>
           ) : attendanceTotal === 0 ? (
-            <p className="text-xs text-slate-400 italic">Chưa có dữ liệu điểm danh.</p>
+            <p className="text-sm text-slate-400 italic">Chưa có dữ liệu điểm danh.</p>
           ) : (
             <div className="flex flex-wrap gap-1.5">
               {Object.entries(attendanceCounts ?? {}).map(([status, count]) => (
-                <span key={status} className="bg-slate-100 border border-slate-200 text-slate-700 text-[11px] font-semibold px-2 py-1 rounded-lg">
+                <span key={status} className="bg-slate-100 border border-slate-200 text-slate-700 text-sm font-semibold px-2 py-1 rounded-lg">
                   {attendanceStatusLabels[status] ?? status}: {count}
                 </span>
               ))}
-              <span className="text-[11px] text-slate-400 font-semibold px-1 py-1">/ {attendanceTotal} buổi đã điểm danh</span>
+              <span className="text-sm text-slate-400 font-semibold px-1 py-1">/ {attendanceTotal} buổi đã điểm danh</span>
             </div>
           )}
         </div>
 
         <div>
-          <span className="text-[10px] font-bold uppercase text-slate-500 block mb-2">Nhận xét gần đây</span>
+          <span className="text-sm font-bold uppercase text-slate-500 block mb-2">Nhận xét gần đây</span>
           {loadingComments ? (
-            <p className="text-xs text-slate-500">Đang tải...</p>
+            <p className="text-sm text-slate-500">Đang tải...</p>
           ) : comments.length === 0 ? (
-            <p className="text-xs text-slate-400 italic">Chưa có nhận xét nào.</p>
+            <p className="text-sm text-slate-400 italic">Chưa có nhận xét nào.</p>
           ) : (
             <div className="space-y-2">
               {comments.map((c) => (
-                <div key={c.id} className="border border-slate-200 rounded-lg p-2.5 text-xs">
+                <div key={c.id} className="border border-slate-200 rounded-lg p-2.5 text-sm">
                   <div className="flex items-center gap-2 mb-1">
                     <Badge variant="info">{commentTypeLabels[c.commentType]}</Badge>
                     <span className="text-slate-400">{c.commentDate}</span>

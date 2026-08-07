@@ -8,7 +8,7 @@ import CommentForm from "./CommentForm";
 import CommentHistoryList from "./CommentHistoryList";
 import Select from "@/components/ui/Select";
 
-const inputClass = "bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none";
+const inputClass = "bg-slate-50 border border-slate-200 text-sm p-2 rounded-lg focus:outline-none";
 
 /** UC-21 nhánh MID_TERM/END_TERM: chọn lớp + học sinh + kỳ điểm, viết nhận xét định kỳ (không gắn buổi học). */
 export default function PeriodicCommentPanel() {
@@ -38,13 +38,13 @@ export default function PeriodicCommentPanel() {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {error && <div className="lg:col-span-3 text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="lg:col-span-3 text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       <Card className="lg:col-span-1 space-y-4">
-        <h3 className="text-xs font-bold text-slate-400 block uppercase tracking-wider font-display border-b border-slate-100 pb-2">Viết nhận xét định kỳ</h3>
+        <h3 className="text-sm font-bold text-slate-400 block uppercase tracking-wider font-display border-b border-slate-100 pb-2">Viết nhận xét định kỳ</h3>
 
         <div className="space-y-2">
-          <p className="text-xs font-bold text-slate-700">
+          <p className="text-sm font-bold text-slate-700">
             {selectedClass ? `Lớp: ${selectedClass.classCode} — ${selectedClass.name}` : "Chưa chọn lớp — chọn ở góc trên bên phải (Header)"}
           </p>
           <Select
@@ -67,14 +67,14 @@ export default function PeriodicCommentPanel() {
         {selectedClass && selectedStudentId ? (
           <CommentForm classId={selectedClass.id} studentId={selectedStudentId} siteId={selectedClass.siteId} onSubmitted={loadHistory} />
         ) : (
-          <p className="text-xs text-slate-400 italic">Chọn lớp và học sinh để viết nhận xét.</p>
+          <p className="text-sm text-slate-400 italic">Chọn lớp và học sinh để viết nhận xét.</p>
         )}
       </Card>
 
       <Card className="lg:col-span-2 space-y-2">
-        <h3 className="text-xs font-bold text-slate-400 block uppercase tracking-wider font-display border-b border-slate-100 pb-2">Lịch sử nhận xét định kỳ</h3>
+        <h3 className="text-sm font-bold text-slate-400 block uppercase tracking-wider font-display border-b border-slate-100 pb-2">Lịch sử nhận xét định kỳ</h3>
         {!selectedStudentId ? (
-          <p className="text-xs text-slate-400 italic py-6 text-center">Chọn lớp và học sinh để xem lịch sử.</p>
+          <p className="text-sm text-slate-400 italic py-6 text-center">Chọn lớp và học sinh để xem lịch sử.</p>
         ) : (
           selectedClassId && <CommentHistoryList classId={selectedClassId} history={history} onChanged={loadHistory} />
         )}

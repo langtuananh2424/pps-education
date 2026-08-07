@@ -5,8 +5,8 @@ import Button from "@/components/ui/Button";
 import FileUploadField from "@/components/ui/FileUploadField";
 import { QuestionResponse, QuestionType, createExamQuestion, uploadMedia } from "../api";
 
-const inputClass = "w-full bg-white border border-slate-200 text-xs px-3.5 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-red";
-const labelClass = "block font-bold text-slate-700 mb-1 uppercase tracking-wider text-[10px]";
+const inputClass = "w-full bg-white border border-slate-200 text-sm px-3.5 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-red";
+const labelClass = "block font-bold text-slate-700 mb-1 uppercase tracking-wider text-sm";
 
 type ListeningSubKind = "VOICE_MULTIPLE_CHOICE" | "LISTENING_AUDIO_SUBMISSION" | "LISTENING_FILL_IN_BLANK";
 
@@ -145,8 +145,8 @@ export default function ListeningGroupBuilder({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+    <form onSubmit={handleSubmit} className="space-y-4 text-sm">
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       <div>
         <label className={labelClass}>Loại câu hỏi con *</label>
@@ -194,7 +194,7 @@ export default function ListeningGroupBuilder({
           {questions.map((q, idx) => (
             <div key={idx} className="p-3 space-y-2">
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold text-slate-500 w-6 shrink-0">{idx + 1}.</span>
+                <span className="text-sm font-bold text-slate-500 w-6 shrink-0">{idx + 1}.</span>
                 <input
                   required
                   value={q.content}

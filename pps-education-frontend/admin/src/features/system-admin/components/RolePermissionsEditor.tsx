@@ -82,11 +82,11 @@ export default function RolePermissionsEditor({ roleId, roleName }: RolePermissi
     setSaving(false);
   };
 
-  if (loading) return <p className="text-xs text-slate-500">Đang tải ma trận quyền...</p>;
+  if (loading) return <p className="text-sm text-slate-500">Đang tải ma trận quyền...</p>;
 
   return (
     <div className="space-y-6">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       <div className="flex justify-end">
         <Button variant="primary" size="sm" onClick={handleSave} disabled={saving}>
@@ -95,7 +95,7 @@ export default function RolePermissionsEditor({ roleId, roleName }: RolePermissi
         </Button>
       </div>
 
-      <div className="bg-orange-50/60 border border-orange-100 rounded-xl p-3.5 flex items-center gap-2 text-xs text-slate-800 shadow-sm">
+      <div className="bg-orange-50/60 border border-orange-100 rounded-xl p-3.5 flex items-center gap-2 text-sm text-slate-800 shadow-sm">
         <Layers className="w-4.5 h-4.5 text-brand-red shrink-0" />
         <span>
           Đã kích hoạt <strong>{selectedIds.size} / {items.length}</strong> quyền hạt nhân cho vai trò <strong>{roleName}</strong>.

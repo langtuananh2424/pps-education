@@ -173,7 +173,7 @@ export default function Header() {
   const selectedEligibleClass = eligibleClasses.find((cls) => cls.id === selectedClassId) ?? null;
 
   return (
-    <header className="h-16 bg-transparent px-2 md:px-0 flex items-center justify-between z-30 mb-4 shrink-0">
+    <header className="sticky top-0 h-16 bg-brand-bg/85 backdrop-blur-md px-2 md:px-0 flex items-center justify-between z-30 mb-4 shrink-0">
       <div className="flex items-center gap-4">
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -183,13 +183,13 @@ export default function Header() {
         </button>
 
         {showUnassignedWarning ? (
-          <div className="hidden sm:flex items-center gap-2 text-xs font-medium px-4 py-2 rounded-full shadow-soft border bg-amber-50 border-amber-200 text-amber-700">
+          <div className="hidden sm:flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-full shadow-soft border bg-amber-50 border-amber-200 text-amber-700">
             <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
             <span className="font-semibold text-amber-700">Điểm trường:</span>
             <span className="text-amber-700 font-semibold">Chưa được gán điểm trường — liên hệ quản trị viên</span>
           </div>
         ) : lockToManagedSites && managedSites.length === 1 ? (
-          <div className="hidden sm:flex items-center gap-2 text-xs font-medium px-4 py-2 rounded-full shadow-soft border bg-white border-slate-200/50 text-slate-500">
+          <div className="hidden sm:flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-full shadow-soft border bg-white border-slate-200/50 text-slate-500">
             <MapPin className="w-3.5 h-3.5 text-brand-orange shrink-0" />
             <span className="font-semibold text-slate-700">Điểm trường:</span>
             <span className="flex items-center gap-1.5 text-slate-800 font-semibold">
@@ -203,7 +203,7 @@ export default function Header() {
               align="left"
               panelClassName="w-64 py-1.5 max-h-80 overflow-y-auto"
               trigger={
-                <button className="flex items-center gap-2 text-xs font-medium px-4 py-2 rounded-full shadow-soft border bg-white border-slate-200/50 hover:bg-slate-50 hover:border-brand-orange/30 text-slate-500 transition-all cursor-pointer">
+                <button className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-full shadow-soft border bg-white border-slate-200/50 hover:bg-slate-50 hover:border-brand-orange/30 text-slate-500 transition-all cursor-pointer">
                   <MapPin className="w-3.5 h-3.5 text-brand-orange shrink-0" />
                   <span className="font-semibold text-slate-700">Điểm trường:</span>
                   <span className="font-semibold text-slate-800 max-w-[200px] truncate">{currentCampusLabel}</span>
@@ -215,7 +215,7 @@ export default function Header() {
                 {!lockToManagedSites && (
                   <button
                     onClick={() => setSelectedCampusId("ALL")}
-                    className={`w-full px-3 py-2.5 text-left text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+                    className={`w-full px-3 py-2.5 text-left text-sm font-semibold rounded-lg transition-colors cursor-pointer ${
                       selectedCampusId === "ALL" ? "bg-brand-orange/10 text-brand-orange" : "text-slate-700 hover:bg-slate-50"
                     }`}
                   >
@@ -226,7 +226,7 @@ export default function Header() {
                   <button
                     key={site.id}
                     onClick={() => setSelectedCampusId(String(site.id))}
-                    className={`w-full px-3 py-2.5 text-left text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+                    className={`w-full px-3 py-2.5 text-left text-sm font-semibold rounded-lg transition-colors cursor-pointer ${
                       selectedCampusId === String(site.id) ? "bg-brand-orange/10 text-brand-orange" : "text-slate-700 hover:bg-slate-50"
                     }`}
                   >
@@ -244,7 +244,7 @@ export default function Header() {
               align="left"
               panelClassName="w-64 py-1.5 max-h-80 overflow-y-auto"
               trigger={
-                <button className="flex items-center gap-2 text-xs font-medium px-4 py-2 rounded-full shadow-soft border bg-white border-slate-200/50 hover:bg-slate-50 hover:border-brand-orange/30 text-slate-500 transition-all cursor-pointer">
+                <button className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-full shadow-soft border bg-white border-slate-200/50 hover:bg-slate-50 hover:border-brand-orange/30 text-slate-500 transition-all cursor-pointer">
                   <GraduationCap className="w-3.5 h-3.5 text-brand-orange shrink-0" />
                   <span className="font-semibold text-slate-700">Lớp:</span>
                   <span className="font-semibold text-slate-800 max-w-[160px] truncate">
@@ -257,7 +257,7 @@ export default function Header() {
               <div className="p-1.5">
                 <button
                   onClick={() => setSelectedClassId(null)}
-                  className={`w-full px-3 py-2.5 text-left text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+                  className={`w-full px-3 py-2.5 text-left text-sm font-semibold rounded-lg transition-colors cursor-pointer ${
                     !selectedClassId ? "bg-brand-orange/10 text-brand-orange" : "text-slate-700 hover:bg-slate-50"
                   }`}
                 >
@@ -267,7 +267,7 @@ export default function Header() {
                   <button
                     key={cls.id}
                     onClick={() => setSelectedClassId(cls.id)}
-                    className={`w-full px-3 py-2.5 text-left text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+                    className={`w-full px-3 py-2.5 text-left text-sm font-semibold rounded-lg transition-colors cursor-pointer ${
                       selectedClassId === cls.id ? "bg-brand-orange/10 text-brand-orange" : "text-slate-700 hover:bg-slate-50"
                     }`}
                   >
@@ -281,7 +281,7 @@ export default function Header() {
       </div>
 
       <div className="flex items-center gap-3 md:gap-5">
-        <div className="hidden lg:flex items-center gap-1.5 text-slate-600 bg-white border border-slate-200/50 shadow-soft px-3.5 py-2 rounded-full font-mono text-[11px]">
+        <div className="hidden lg:flex items-center gap-1.5 text-slate-600 bg-white border border-slate-200/50 shadow-soft px-3.5 py-2 rounded-full font-mono text-sm">
           <Clock className="w-3.5 h-3.5 text-slate-400" />
           <span>
             {new Date().toLocaleDateString("vi-VN", { year: "numeric", month: "long", day: "numeric" })}
@@ -303,13 +303,13 @@ export default function Header() {
           }
         >
           <div className="px-4 py-3 bg-slate-50 border-b border-slate-100 flex items-center justify-between sticky top-0 z-10">
-            <span className="text-xs font-semibold text-slate-700">Thông báo vận hành</span>
+            <span className="text-sm font-semibold text-slate-700">Thông báo vận hành</span>
             {unreadNotificationCount > 0 && (
-              <span className="text-[10px] bg-brand-gradient text-white px-2 py-0.5 rounded-full font-bold">{unreadNotificationCount} Mới</span>
+              <span className="text-sm bg-brand-gradient text-white px-2 py-0.5 rounded-full font-bold">{unreadNotificationCount} Mới</span>
             )}
           </div>
           {notifications.length === 0 ? (
-            <p className="text-xs text-slate-400 italic p-4">Chưa có thông báo nào.</p>
+            <p className="text-sm text-slate-400 italic p-4">Chưa có thông báo nào.</p>
           ) : (
             <div className="divide-y divide-slate-100">
               {notifications.map((notif) => (
@@ -330,9 +330,9 @@ export default function Header() {
                       }`}
                     />
                     <div className="min-w-0">
-                      <p className={`text-xs leading-normal ${!notif.readAt ? "font-bold text-slate-800" : "font-medium text-slate-500"}`}>{notif.title}</p>
-                      <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-2">{notif.content}</p>
-                      <span className="text-[10px] text-slate-400 block mt-1 font-mono">
+                      <p className={`text-sm leading-normal ${!notif.readAt ? "font-bold text-slate-800" : "font-medium text-slate-500"}`}>{notif.title}</p>
+                      <p className="text-sm text-slate-500 mt-0.5 line-clamp-2">{notif.content}</p>
+                      <span className="text-sm text-slate-400 block mt-1 font-mono">
                         {new Date(notif.createdAt).toLocaleString("vi-VN")}
                       </span>
                     </div>
@@ -348,8 +348,8 @@ export default function Header() {
           trigger={
             <button className="flex items-center gap-3 pl-4 pr-2.5 py-2 bg-white border border-slate-200/50 hover:bg-slate-50 rounded-2xl transition-all shadow-soft">
               <div className="hidden md:block text-left leading-tight">
-                <p className="text-xs font-bold text-slate-800 truncate max-w-[130px]">{currentUser?.fullName || "Cán bộ PPS"}</p>
-                <p className="text-[10px] text-slate-500 truncate max-w-[130px]">{currentRoleLabel}</p>
+                <p className="text-sm font-bold text-slate-800 truncate max-w-[130px]">{currentUser?.fullName || "Cán bộ PPS"}</p>
+                <p className="text-sm text-slate-500 truncate max-w-[130px]">{currentRoleLabel}</p>
               </div>
               <Avatar name={currentUser?.fullName || "U"} size="sm" />
               <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
@@ -359,21 +359,21 @@ export default function Header() {
           <div className="p-1.5">
             <button
               onClick={() => setProfileOpen(true)}
-              className="w-full px-3 py-2.5 flex items-center gap-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer"
+              className="w-full px-3 py-2.5 flex items-center gap-2.5 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer"
             >
               <User className="w-4 h-4 text-slate-400 shrink-0" />
               <span>Hồ sơ cá nhân</span>
             </button>
             <button
               onClick={() => setChangePasswordOpen(true)}
-              className="w-full px-3 py-2.5 flex items-center gap-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer"
+              className="w-full px-3 py-2.5 flex items-center gap-2.5 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer"
             >
               <KeyRound className="w-4 h-4 text-slate-400 shrink-0" />
               <span>Đổi mật khẩu</span>
             </button>
             <button
               onClick={() => alertDialog("Tính năng Cài đặt đang được phát triển.")}
-              className="w-full px-3 py-2.5 flex items-center gap-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer"
+              className="w-full px-3 py-2.5 flex items-center gap-2.5 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer"
             >
               <Settings className="w-4 h-4 text-slate-400 shrink-0" />
               <span>Cài đặt</span>
@@ -382,7 +382,7 @@ export default function Header() {
           <div className="p-1.5 border-t border-slate-100">
             <button
               onClick={logout}
-              className="w-full px-3 py-2.5 flex items-center gap-2.5 text-left text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+              className="w-full px-3 py-2.5 flex items-center gap-2.5 text-left text-sm font-semibold text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
             >
               <LogOut className="w-4 h-4 shrink-0" />
               <span>Đăng xuất</span>

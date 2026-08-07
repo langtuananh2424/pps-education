@@ -6,8 +6,8 @@ import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import Select from "@/components/ui/Select";
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
+const labelClass = "text-sm uppercase font-bold text-slate-500 block mb-1";
 
 interface SiteFormModalProps {
   onClose: () => void;
@@ -71,7 +71,7 @@ export default function SiteFormModal({ onClose, onCreated }: SiteFormModalProps
   return (
     <Modal open onClose={onClose} title="Thêm điểm trường mới" size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className={labelClass}>Mã điểm trường *</label>
@@ -104,7 +104,7 @@ export default function SiteFormModal({ onClose, onCreated }: SiteFormModalProps
 
         {form.siteType === "PARTNER" && (
           <div className="space-y-3 border-t border-slate-100 pt-4">
-            <span className="text-[10px] font-bold uppercase text-slate-500">Liên hệ đầu mối trường liên kết</span>
+            <span className="text-sm font-bold uppercase text-slate-500">Liên hệ đầu mối trường liên kết</span>
             <div className="grid grid-cols-2 gap-3">
               <input value={form.contactPersonName} onChange={(e) => setForm({ ...form, contactPersonName: e.target.value })} placeholder="Tên người liên hệ" className={inputClass} />
               <input value={form.contactPersonTitle} onChange={(e) => setForm({ ...form, contactPersonTitle: e.target.value })} placeholder="Chức danh" className={inputClass} />

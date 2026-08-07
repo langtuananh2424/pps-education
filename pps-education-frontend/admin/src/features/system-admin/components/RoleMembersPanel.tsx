@@ -79,14 +79,14 @@ export default function RoleMembersPanel({ roleId, roleName, canAssign, canRevok
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider block">Thành viên gán vai trò này</h4>
-          <p className="text-[10px] text-slate-400 mt-0.5">Quản lý trực tiếp các tài khoản được áp dụng cấu hình vai trò này.</p>
+          <h4 className="text-sm font-bold text-slate-800 uppercase tracking-wider block">Thành viên gán vai trò này</h4>
+          <p className="text-sm text-slate-400 mt-0.5">Quản lý trực tiếp các tài khoản được áp dụng cấu hình vai trò này.</p>
         </div>
 
         {canAssign && (
           <button
             onClick={() => setShowAssignModal(true)}
-            className="bg-brand-gradient hover:opacity-90 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm"
+            className="bg-brand-gradient hover:opacity-90 text-white px-3.5 py-1.5 rounded-lg text-sm font-bold flex items-center gap-1.5 transition-all shadow-sm"
           >
             <UserPlus className="w-4 h-4" />
             <span>Gán thành viên</span>
@@ -94,7 +94,7 @@ export default function RoleMembersPanel({ roleId, roleName, canAssign, canRevok
         )}
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       <AssignUserModal
         open={showAssignModal}
@@ -105,12 +105,12 @@ export default function RoleMembersPanel({ roleId, roleName, canAssign, canRevok
       />
 
       {loading ? (
-        <p className="text-xs text-slate-500">Đang tải...</p>
+        <p className="text-sm text-slate-500">Đang tải...</p>
       ) : members.length === 0 ? (
         <div className="py-12 border-2 border-dashed border-slate-200 rounded-xl flex flex-col items-center justify-center text-center p-6 space-y-2">
           <Users className="w-8 h-8 text-slate-300" />
           <div>
-            <p className="text-xs font-bold text-slate-700">Chưa có thành viên nào gán vai trò này</p>
+            <p className="text-sm font-bold text-slate-700">Chưa có thành viên nào gán vai trò này</p>
           </div>
         </div>
       ) : (

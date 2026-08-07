@@ -12,9 +12,9 @@ import Badge from "@/components/ui/Badge";
 import Avatar from "@/components/ui/Avatar";
 import AvatarUploadField from "@/components/ui/AvatarUploadField";
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
-const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-xs p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
+const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-sm p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
+const labelClass = "text-sm uppercase font-bold text-slate-500 block mb-1";
 
 interface ProfileModalProps {
   onClose: () => void;
@@ -96,11 +96,11 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
           )}
           <div>
             <h3 className="text-sm font-bold text-slate-900">{currentUser?.fullName}</h3>
-            <p className="text-[11px] text-slate-400 font-mono">@{currentUser?.username}</p>
+            <p className="text-sm text-slate-400 font-mono">@{currentUser?.username}</p>
           </div>
         </div>
 
-        <div className="space-y-2.5 text-xs">
+        <div className="space-y-2.5 text-sm">
           <div className="flex items-center gap-2 text-slate-600">
             <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
             <span>{currentUser?.email}</span>
@@ -131,13 +131,13 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
 
         {!loadingEmployee && employeeProfile && (
           <form onSubmit={handleSaveProfile} className="space-y-3 border-t border-slate-100 pt-4">
-            <span className="text-[10px] font-bold uppercase text-slate-500 flex items-center gap-1.5">
+            <span className="text-sm font-bold uppercase text-slate-500 flex items-center gap-1.5">
               <MapPin className="w-3.5 h-3.5" />
               Cập nhật hồ sơ
             </span>
 
-            {profileError && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{profileError}</div>}
-            {profileSuccess && <div className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 p-2.5 rounded-lg">Đã lưu hồ sơ thành công.</div>}
+            {profileError && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{profileError}</div>}
+            {profileSuccess && <div className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-100 p-2.5 rounded-lg">Đã lưu hồ sơ thành công.</div>}
 
             <div>
               <label className={labelClass}>Địa chỉ thường trú</label>

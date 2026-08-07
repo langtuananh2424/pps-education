@@ -21,7 +21,7 @@ export default function AcademicDashboard({ classrooms }: AcademicDashboardProps
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Cổng Điều Hành Học Thuật & Đào Tạo</h1>
-        <p className="text-xs text-slate-500 mt-1">
+        <p className="text-sm text-slate-500 mt-1">
           Theo dõi phân công lớp học, tiến độ chấm thi trực tuyến và phê duyệt nhận xét định kỳ.
         </p>
       </div>
@@ -32,7 +32,7 @@ export default function AcademicDashboard({ classrooms }: AcademicDashboardProps
             <BookOpen className="w-6 h-6" />
           </div>
           <div>
-            <span className="text-[11px] text-slate-400 font-bold block uppercase tracking-wider font-display">Khóa học hiện hành</span>
+            <span className="text-sm text-slate-400 font-bold block uppercase tracking-wider font-display">Khóa học hiện hành</span>
             <span className="text-xl font-bold text-slate-800 font-display">{classrooms.length} lớp học</span>
           </div>
         </Card>
@@ -42,7 +42,7 @@ export default function AcademicDashboard({ classrooms }: AcademicDashboardProps
             <Award className="w-6 h-6" />
           </div>
           <div>
-            <span className="text-[11px] text-slate-400 font-bold block uppercase tracking-wider font-display">Tỷ lệ chuyên cần trung bình</span>
+            <span className="text-sm text-slate-400 font-bold block uppercase tracking-wider font-display">Tỷ lệ chuyên cần trung bình</span>
             <span className="text-xl font-bold text-emerald-600 font-display">94.8%</span>
           </div>
         </Card>
@@ -52,7 +52,7 @@ export default function AcademicDashboard({ classrooms }: AcademicDashboardProps
             <AlertTriangle className="w-6 h-6" />
           </div>
           <div>
-            <span className="text-[11px] text-slate-400 font-bold block uppercase tracking-wider font-display">Nhận xét chưa duyệt</span>
+            <span className="text-sm text-slate-400 font-bold block uppercase tracking-wider font-display">Nhận xét chưa duyệt</span>
             <span className="text-xl font-bold text-rose-600 font-display">2 nhận xét</span>
           </div>
         </Card>
@@ -65,8 +65,8 @@ export default function AcademicDashboard({ classrooms }: AcademicDashboardProps
             {classrooms.map((cls) => (
               <div key={cls.id} className="py-3 flex items-center justify-between first:pt-0 last:pb-0">
                 <div>
-                  <span className="text-xs font-bold text-slate-800">{cls.name}</span>
-                  <div className="flex items-center gap-1.5 text-[10px] text-slate-500 mt-1">
+                  <span className="text-sm font-bold text-slate-800">{cls.name}</span>
+                  <div className="flex items-center gap-1.5 text-sm text-slate-500 mt-1">
                     <span>Phòng: {cls.roomName}</span>
                     <span>•</span>
                     <span>Lịch: {cls.schedule}</span>
@@ -83,7 +83,7 @@ export default function AcademicDashboard({ classrooms }: AcademicDashboardProps
         <Card className="flex flex-col justify-between">
           <div>
             <h3 className="text-sm font-bold text-slate-800 font-display">Biểu Đồ Phân Phối Điểm Số</h3>
-            <p className="text-[11px] text-slate-400 mt-0.5">Tỷ lệ điểm trung bình học phần học kỳ hiện tại</p>
+            <p className="text-sm text-slate-400 mt-0.5">Tỷ lệ điểm trung bình học phần học kỳ hiện tại</p>
           </div>
 
           <div className="h-44 w-full flex items-end justify-between px-6 mt-4 border-b border-slate-100 pb-1">

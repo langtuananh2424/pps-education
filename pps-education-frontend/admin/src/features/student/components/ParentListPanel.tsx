@@ -31,12 +31,12 @@ export default function ParentListPanel({ parents, loading, selectedId, onSelect
     <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden flex flex-col h-full">
       <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3 bg-slate-50 shrink-0">
         <div className="space-y-0.5">
-          <span className="text-xs font-bold text-slate-700 font-display block">Danh sách Phụ huynh</span>
-          <p className="text-[10px] text-slate-400">Tổng hợp từ danh sách con em đã liên kết</p>
+          <span className="text-sm font-bold text-slate-700 font-display block">Danh sách Phụ huynh</span>
+          <p className="text-sm text-slate-400">Tổng hợp từ danh sách con em đã liên kết</p>
         </div>
         <Button variant="primary" size="sm" onClick={onCreate}>
           <Plus className="w-3.5 h-3.5" />
-          Thêm phụ huynh
+          Thêm p.huynh
         </Button>
       </div>
 
@@ -46,13 +46,13 @@ export default function ParentListPanel({ parents, loading, selectedId, onSelect
           value={query}
           onChange={(e) => onQueryChange(e.target.value)}
           placeholder="Tìm theo họ tên phụ huynh..."
-          className="w-full bg-slate-50 border border-slate-200 text-xs pl-8 pr-3 py-2 rounded-lg focus:outline-none"
+          className="w-full bg-slate-50 border border-slate-200 text-sm pl-8 pr-3 py-2 rounded-lg focus:outline-none"
         />
       </div>
 
       <div className="divide-y divide-slate-100 overflow-y-auto max-h-[620px] lg:max-h-[680px]">
         {loading ? (
-          <div className="p-8 text-center text-slate-400 text-xs">Đang tải...</div>
+          <div className="p-8 text-center text-slate-400 text-sm">Đang tải...</div>
         ) : filtered.length === 0 ? (
           <EmptyState icon={Users} title="Không tìm thấy phụ huynh nào" description="Thử nới lỏng từ khóa, hoặc bấm 'Thêm phụ huynh'." />
         ) : (
@@ -70,8 +70,8 @@ export default function ParentListPanel({ parents, loading, selectedId, onSelect
                     {p.parentFullName.charAt(0)}
                   </div>
                   <div>
-                    <h4 className="text-xs font-bold text-slate-900">{p.parentFullName}</h4>
-                    <div className="flex items-center gap-1.5 text-[10px] text-slate-400 mt-1">
+                    <h4 className="text-sm font-bold text-slate-900">{p.parentFullName}</h4>
+                    <div className="flex items-center gap-1.5 text-sm text-slate-400 mt-1">
                       {p.children.length === 0 ? (
                         <span className="italic">Chưa liên kết con em nào</span>
                       ) : (

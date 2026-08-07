@@ -6,8 +6,8 @@ import { createRole, listPermissions, PermissionCatalogItem, updateRolePermissio
 import Button from "@/components/ui/Button";
 import PermissionChecklist from "./PermissionChecklist";
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
+const labelClass = "text-sm uppercase font-bold text-slate-500 block mb-1";
 
 interface CreateRolePanelProps {
   onCancel: () => void;
@@ -75,7 +75,7 @@ export default function CreateRolePanel({ onCancel, onCreated }: CreateRolePanel
         <label className={labelClass}>Tên vai trò *</label>
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="VD: Trưởng nhóm Marketing" className={inputClass} autoFocus />
         {code && (
-          <p className="text-[10px] text-slate-400 mt-1">
+          <p className="text-sm text-slate-400 mt-1">
             Mã vai trò (tự sinh): <code className="font-mono font-bold text-brand-red">{code}</code>
           </p>
         )}
@@ -85,14 +85,14 @@ export default function CreateRolePanel({ onCancel, onCreated }: CreateRolePanel
         <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} className={inputClass} />
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       <div className="flex items-center justify-between">
-        <span className="text-[10px] uppercase font-bold text-slate-500">Tick chọn quyền ban đầu ({selectedIds.size} đã chọn) — có thể để trống, cấu hình sau</span>
+        <span className="text-sm uppercase font-bold text-slate-500">Tick chọn quyền ban đầu ({selectedIds.size} đã chọn) — có thể để trống, cấu hình sau</span>
       </div>
 
       {loading ? (
-        <p className="text-xs text-slate-500">Đang tải danh mục quyền...</p>
+        <p className="text-sm text-slate-500">Đang tải danh mục quyền...</p>
       ) : (
         <div className="max-h-[360px] overflow-y-auto">
           <PermissionChecklist

@@ -8,8 +8,8 @@ interface AvatarProps {
 }
 
 const sizeClasses = {
-  sm: "w-8 h-8 text-[10px]",
-  md: "w-9 h-9 text-xs",
+  sm: "w-8 h-8 text-sm",
+  md: "w-9 h-9 text-sm",
   lg: "w-14 h-14 text-lg"
 };
 

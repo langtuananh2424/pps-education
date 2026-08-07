@@ -48,9 +48,9 @@ import Toast from "@/components/ui/Toast";
 import DatePicker from "@/components/ui/DatePicker";
 import Select from "@/components/ui/Select";
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
-const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-xs p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
+const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-sm p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
+const labelClass = "text-sm uppercase font-bold text-slate-500 block mb-1";
 
 type Tab = "profile" | "teachers" | "students" | "sessions" | "grades";
 
@@ -87,11 +87,11 @@ export default function ClassDetailPanel({ schoolClass, onChanged }: ClassDetail
       <div className="p-5 border-b border-slate-200 space-y-3 bg-slate-50/20">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
-            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-brand-red bg-orange-50 border border-orange-100 px-2 py-0.5 rounded-md">
+            <span className="text-sm font-mono font-bold uppercase tracking-wider text-brand-red bg-orange-50 border border-orange-100 px-2 py-0.5 rounded-md">
               {schoolClass.classCode}
             </span>
             <h2 className="text-sm font-bold text-slate-800 mt-1">{schoolClass.name}</h2>
-            <p className="text-[10px] text-slate-400 mt-0.5">{schoolClass.siteName} · {schoolClass.curriculumCode}</p>
+            <p className="text-sm text-slate-400 mt-0.5">{schoolClass.siteName} · {schoolClass.curriculumCode}</p>
           </div>
           <Badge variant={classStatusVariants[schoolClass.status]}>{classStatusLabels[schoolClass.status]}</Badge>
         </div>
@@ -109,7 +109,7 @@ export default function ClassDetailPanel({ schoolClass, onChanged }: ClassDetail
             <button
               key={key}
               onClick={() => setTab(key)}
-              className={`pb-2.5 text-xs font-bold border-b-2 flex items-center gap-1.5 transition-all whitespace-nowrap ${
+              className={`pb-2.5 text-sm font-bold border-b-2 flex items-center gap-1.5 transition-all whitespace-nowrap ${
                 tab === key ? "border-brand-red text-brand-red" : "border-transparent text-slate-500 hover:text-slate-700"
               }`}
             >
@@ -199,9 +199,9 @@ function ProfileTab({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
       {!canManage && (
-        <div className="text-[11px] text-slate-500 bg-slate-50 border border-slate-200 p-2.5 rounded-lg">
+        <div className="text-sm text-slate-500 bg-slate-50 border border-slate-200 p-2.5 rounded-lg">
           Tài khoản không có quyền "Xếp lớp & gán khóa học" — chỉ xem, không sửa được hồ sơ lớp.
         </div>
       )}
@@ -214,7 +214,7 @@ function ProfileTab({
             onBlur={() => setNameTouched(true)}
             className={nameInvalid ? inputErrorClass : inputClass}
           />
-          {nameInvalid && <p className="text-[10px] text-rose-600 mt-1">Vui lòng nhập Tên lớp.</p>}
+          {nameInvalid && <p className="text-sm text-rose-600 mt-1">Vui lòng nhập Tên lớp.</p>}
         </div>
         <div>
           <label className={labelClass}>Trạng thái *</label>
@@ -236,7 +236,7 @@ function ProfileTab({
             onBlur={() => setMaxTouched(true)}
             className={maxInvalid ? inputErrorClass : inputClass}
           />
-          {maxInvalid && <p className="text-[10px] text-rose-600 mt-1">Vui lòng nhập Sĩ số tối đa.</p>}
+          {maxInvalid && <p className="text-sm text-rose-600 mt-1">Vui lòng nhập Sĩ số tối đa.</p>}
         </div>
         <div>
           <label className={labelClass}>Sĩ số tối thiểu</label>
@@ -313,7 +313,7 @@ function TeachersTab({ classId, canManage, showToast }: { classId: number; canMa
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-bold uppercase text-slate-500">Giáo viên phụ trách ({teachers.length})</span>
+        <span className="text-sm font-bold uppercase text-slate-500">Giáo viên phụ trách ({teachers.length})</span>
         {canManage && !assigning && (
           <Button size="sm" variant="secondary" onClick={() => setAssigning(true)}>
             <UserPlus className="w-3.5 h-3.5" />
@@ -322,16 +322,16 @@ function TeachersTab({ classId, canManage, showToast }: { classId: number; canMa
         )}
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       {loading ? (
-        <p className="text-xs text-slate-500">Đang tải...</p>
+        <p className="text-sm text-slate-500">Đang tải...</p>
       ) : teachers.length === 0 ? (
-        <p className="text-xs text-slate-400 italic">Chưa gán giáo viên nào.</p>
+        <p className="text-sm text-slate-400 italic">Chưa gán giáo viên nào.</p>
       ) : (
         <div className="space-y-2">
           {teachers.map((t) => (
-            <div key={t.id} className="border border-slate-200 rounded-lg p-3 text-xs flex items-center justify-between">
+            <div key={t.id} className="border border-slate-200 rounded-lg p-3 text-sm flex items-center justify-between">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-bold text-slate-800">{t.teacherFullName}</span>
                 <Badge variant="info">{teacherRoleLabels[t.teacherRole]}</Badge>
@@ -341,7 +341,7 @@ function TeachersTab({ classId, canManage, showToast }: { classId: number; canMa
                 <button
                   onClick={() => handleEndAssignment(t)}
                   disabled={endingId === t.id}
-                  className="text-rose-500 hover:text-rose-700 text-[11px] font-semibold disabled:opacity-50"
+                  className="text-rose-500 hover:text-rose-700 text-sm font-semibold disabled:opacity-50"
                 >
                   {endingId === t.id ? "Đang xử lý..." : "Kết thúc phụ trách"}
                 </button>
@@ -392,7 +392,7 @@ function AssignTeacherForm({ classId, onDone, onCancel }: { classId: number; onD
 
   return (
     <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
       <UserSearchCombobox value={selected} onChange={setSelected} roleFilter="TEACHER" placeholder="Bấm để xem danh sách hoặc gõ để tìm giáo viên..." />
 
       <Select value={teacherRole} onChange={(e) => setTeacherRole(e.target.value as AssignTeacherRequest["teacherRole"])} className={inputClass}>
@@ -501,7 +501,7 @@ function StudentsTab({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <span className="text-[10px] font-bold uppercase text-slate-500">Học sinh đã ghi danh ({enrollments.length})</span>
+        <span className="text-sm font-bold uppercase text-slate-500">Học sinh đã ghi danh ({enrollments.length})</span>
         {canManage && (
           <div className="flex items-center gap-2 flex-wrap">
             <Button size="sm" variant="secondary" onClick={() => setEnrolling(true)}>
@@ -512,7 +512,7 @@ function StudentsTab({
               type="button"
               onClick={handleDownloadTemplate}
               disabled={downloadingTemplate}
-              className="flex items-center gap-1.5 border border-dashed border-slate-300 rounded-lg px-3 py-1.5 text-[11px] font-semibold text-slate-600 hover:bg-white disabled:opacity-50"
+              className="flex items-center gap-1.5 border border-dashed border-slate-300 rounded-lg px-3 py-1.5 text-sm font-semibold text-slate-600 hover:bg-white disabled:opacity-50"
             >
               <Download className="w-3.5 h-3.5" />
               {downloadingTemplate ? "Đang tải..." : "Tải mẫu Excel"}
@@ -521,7 +521,7 @@ function StudentsTab({
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={importing}
-              className="flex items-center gap-1.5 border-2 border-dashed border-slate-200 rounded-lg px-3 py-1.5 text-[11px] font-semibold text-slate-600 hover:border-brand-orange hover:bg-orange-50/30 disabled:opacity-50"
+              className="flex items-center gap-1.5 border-2 border-dashed border-slate-200 rounded-lg px-3 py-1.5 text-sm font-semibold text-slate-600 hover:border-brand-orange hover:bg-orange-50/30 disabled:opacity-50"
             >
               <UploadCloud className="w-3.5 h-3.5 text-brand-orange" />
               {importing ? "Đang nhập..." : "Ghi danh theo lô (.xlsx)"}
@@ -532,7 +532,7 @@ function StudentsTab({
       </div>
 
       {importResult && (
-        <div className="w-full flex flex-wrap items-center gap-2 text-[11px]">
+        <div className="w-full flex flex-wrap items-center gap-2 text-sm">
           <span className="bg-slate-100 border border-slate-200 text-slate-700 font-semibold px-2 py-1 rounded-lg">
             Tổng: {importResult.totalRows ?? "—"}
           </span>
@@ -557,16 +557,16 @@ function StudentsTab({
         </div>
       )}
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       {loading ? (
-        <p className="text-xs text-slate-500">Đang tải...</p>
+        <p className="text-sm text-slate-500">Đang tải...</p>
       ) : enrollments.length === 0 ? (
-        <p className="text-xs text-slate-400 italic">Chưa ghi danh học sinh nào.</p>
+        <p className="text-sm text-slate-400 italic">Chưa ghi danh học sinh nào.</p>
       ) : (
         <div className="space-y-2">
           {enrollments.map((en) => (
-            <div key={en.id} className="border border-slate-200 rounded-lg p-3 text-xs flex items-center justify-between">
+            <div key={en.id} className="border border-slate-200 rounded-lg p-3 text-sm flex items-center justify-between">
               <div className="flex items-center gap-2 flex-wrap">
                 <button
                   type="button"
@@ -695,14 +695,14 @@ function EnrollStudentForm({
 
   return (
     <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       <div className="relative">
         <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400" />
         <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Lọc theo họ tên / mã học sinh..." className={`${inputClass} pl-8`} />
       </div>
 
-      <label className="flex items-center gap-2 text-[11px] text-slate-500">
+      <label className="flex items-center gap-2 text-sm text-slate-500">
         <input type="checkbox" checked={showOtherSites} onChange={(e) => setShowOtherSites(e.target.checked)} />
         Hiện cả học sinh điểm trường khác {siteName ? `(mặc định chỉ hiện học sinh của ${siteName})` : ""}
         {!showOtherSites && otherSitesCount > 0 && <span className="text-slate-400">— đang ẩn {otherSitesCount} em</span>}
@@ -710,18 +710,18 @@ function EnrollStudentForm({
 
       <div className="border border-slate-200 rounded-lg bg-white max-h-64 overflow-y-auto">
         {loadingStudents ? (
-          <p className="text-xs text-slate-500 p-3">Đang tải danh sách học sinh...</p>
+          <p className="text-sm text-slate-500 p-3">Đang tải danh sách học sinh...</p>
         ) : filtered.length === 0 ? (
-          <p className="text-xs text-slate-400 italic p-3">Không còn học sinh nào để ghi danh (đã lọc hết hoặc đã ghi danh đủ).</p>
+          <p className="text-sm text-slate-400 italic p-3">Không còn học sinh nào để ghi danh (đã lọc hết hoặc đã ghi danh đủ).</p>
         ) : (
           <>
-            <label className="flex items-center gap-2 px-3 py-2 border-b border-slate-100 bg-slate-50 text-[11px] font-bold text-slate-600 cursor-pointer">
+            <label className="flex items-center gap-2 px-3 py-2 border-b border-slate-100 bg-slate-50 text-sm font-bold text-slate-600 cursor-pointer">
               <input type="checkbox" checked={allFilteredSelected} onChange={toggleAllFiltered} />
               Chọn tất cả ({filtered.length})
             </label>
             <div className="divide-y divide-slate-100">
               {filtered.map((s) => (
-                <label key={s.id} className="flex items-center gap-2 px-3 py-2 text-xs hover:bg-slate-50 cursor-pointer">
+                <label key={s.id} className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50 cursor-pointer">
                   <input type="checkbox" checked={selectedIds.has(s.id)} onChange={() => toggleOne(s.id)} />
                   <span className="font-bold text-slate-800">{s.fullName}</span>
                   <span className="font-mono text-slate-400">{s.studentCode}</span>
@@ -738,7 +738,7 @@ function EnrollStudentForm({
       </div>
 
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[11px] text-slate-500">Đã chọn: {selectedIds.size}</span>
+        <span className="text-sm text-slate-500">Đã chọn: {selectedIds.size}</span>
         <div className="flex gap-2">
           <Button type="button" variant="secondary" size="sm" onClick={onCancel}>
             Hủy
@@ -834,7 +834,7 @@ function SessionsTab({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <span className="text-[10px] font-bold uppercase text-slate-500">Buổi học ({sessions.length})</span>
+        <span className="text-sm font-bold uppercase text-slate-500">Buổi học ({sessions.length})</span>
         {canCreateSessions && (
           <div className="flex items-center gap-1.5">
             <Button size="sm" variant="secondary" onClick={() => setCreating("single")}>
@@ -853,16 +853,16 @@ function SessionsTab({
         )}
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       {loading ? (
-        <p className="text-xs text-slate-500">Đang tải...</p>
+        <p className="text-sm text-slate-500">Đang tải...</p>
       ) : sessions.length === 0 ? (
-        <p className="text-xs text-slate-400 italic">Chưa xếp buổi học nào.</p>
+        <p className="text-sm text-slate-400 italic">Chưa xếp buổi học nào.</p>
       ) : (
         <div className="space-y-2">
           {sessions.map((s) => (
-            <div key={s.id} className="border border-slate-200 rounded-lg p-3 text-xs space-y-1.5">
+            <div key={s.id} className="border border-slate-200 rounded-lg p-3 text-sm space-y-1.5">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-slate-400 font-mono">Buổi {s.sessionNumber}</span>
@@ -1031,8 +1031,8 @@ function RescheduleSessionForm({
 
   return (
     <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
-      <p className="text-[11px] text-slate-500">
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <p className="text-sm text-slate-500">
         Buổi {session.sessionNumber} — lịch hiện tại: <span className="font-bold text-slate-700">{session.sessionDate} {session.startTime}–{session.endTime}</span>
       </p>
 
@@ -1147,7 +1147,7 @@ function CreateSessionForm({ classId, siteId, onDone, onCancel }: { classId: num
 
   return (
     <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       <div className="grid grid-cols-3 gap-2">
         <div>
@@ -1207,7 +1207,7 @@ function CreateSessionForm({ classId, siteId, onDone, onCancel }: { classId: num
             ))}
           </Select>
           {cancelledPendingMakeup.length === 0 && (
-            <p className="text-[10px] text-slate-400 italic mt-1">Lớp này chưa có buổi nào bị hủy mà chưa có buổi bù.</p>
+            <p className="text-sm text-slate-400 italic mt-1">Lớp này chưa có buổi nào bị hủy mà chưa có buổi bù.</p>
           )}
         </div>
       )}

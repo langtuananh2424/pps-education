@@ -19,8 +19,8 @@ import QuestionImportPanel from "./QuestionImportPanel";
 import GridQuestionBuilder from "./GridQuestionBuilder";
 import ListeningGroupBuilder from "./ListeningGroupBuilder";
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
+const labelClass = "text-sm uppercase font-bold text-slate-500 block mb-1";
 
 type Step = "info" | "questions" | "publish";
 
@@ -62,7 +62,7 @@ export default function CreateAndAssignExerciseModal({ examId, teacherType, onCl
 
   return (
     <Modal open onClose={onClose} title="Soạn Bài mới" size="lg">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
 
       {step === "info" && (
         <ExerciseInfoStep
@@ -173,13 +173,13 @@ function ExerciseInfoStep({
           />
         </div>
         <div>
-          <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
+          <label className="flex items-center gap-1.5 text-sm font-bold text-slate-600">
             <input type="checkbox" checked={showCorrectAnswers} onChange={(e) => setShowCorrectAnswers(e.target.checked)} />
             Hiện đáp án đúng sau khi nộp (phần trắc nghiệm)
           </label>
         </div>
         <div>
-          <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
+          <label className="flex items-center gap-1.5 text-sm font-bold text-slate-600">
             <input type="checkbox" checked={allowRetake} onChange={(e) => setAllowRetake(e.target.checked)} />
             Cho phép làm lại
           </label>
@@ -326,13 +326,13 @@ export function ExerciseQuestionsStep({
   return (
     <div className="space-y-3">
       {exercise.hasEssayOrSpeaking && (
-        <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-100 p-2.5 rounded-lg">
+        <div className="text-sm text-amber-700 bg-amber-50 border border-amber-100 p-2.5 rounded-lg">
           Đề có câu Tự luận/Nói — sau khi học sinh nộp bài sẽ cần chấm tay ở màn "Hàng chờ chấm bài".
         </div>
       )}
 
       {teacherType === "FOREIGN" && (
-        <p className="text-[11px] text-slate-400 italic">
+        <p className="text-sm text-slate-400 italic">
           Cần giao Video phản xạ? Vào{" "}
           <Link to="/lms/lectures" target="_blank" rel="noreferrer" className="text-brand-red font-bold hover:underline">
             Kho Video Ôn tập
@@ -347,7 +347,7 @@ export function ExerciseQuestionsStep({
             key={m}
             type="button"
             onClick={() => setMode(m)}
-            className={`text-[11px] font-bold px-3 py-1.5 rounded-md transition-all ${
+            className={`text-sm font-bold px-3 py-1.5 rounded-md transition-all ${
               mode === m ? "bg-white text-brand-red shadow-xs" : "text-slate-500 hover:text-slate-700"
             }`}
           >
@@ -363,7 +363,7 @@ export function ExerciseQuestionsStep({
               key={m}
               type="button"
               onClick={() => setComposeSubMode(m)}
-              className={`text-[11px] font-bold px-3 py-1.5 rounded-md transition-all ${
+              className={`text-sm font-bold px-3 py-1.5 rounded-md transition-all ${
                 composeSubMode === m ? "bg-white text-brand-red shadow-xs" : "text-slate-500 hover:text-slate-700"
               }`}
             >
@@ -383,7 +383,7 @@ export function ExerciseQuestionsStep({
               key={m}
               type="button"
               onClick={() => setComposeSubMode(m)}
-              className={`text-[11px] font-bold px-3 py-1.5 rounded-md transition-all ${
+              className={`text-sm font-bold px-3 py-1.5 rounded-md transition-all ${
                 composeSubMode === m ? "bg-white text-brand-red shadow-xs" : "text-slate-500 hover:text-slate-700"
               }`}
             >
@@ -420,18 +420,18 @@ export function ExerciseQuestionsStep({
 
       {attached.length > 0 && (
         <div className="border border-emerald-100 bg-emerald-50/50 rounded-lg divide-y divide-emerald-100 max-h-40 overflow-y-auto">
-          <div className="px-3 py-1.5 text-[10px] font-bold text-emerald-700 uppercase">Đã gắn vào đề (soạn mới/nhập file)</div>
+          <div className="px-3 py-1.5 text-sm font-bold text-emerald-700 uppercase">Đã gắn vào đề (soạn mới/nhập file)</div>
           {attached.map((a) => (
-            <div key={a.id} className="px-3 py-1.5 text-xs flex items-center justify-between gap-2">
+            <div key={a.id} className="px-3 py-1.5 text-sm flex items-center justify-between gap-2">
               <span className="flex-1 truncate">{a.content}</span>
-              <span className="text-[10px] text-slate-500 shrink-0">{a.points} đ</span>
+              <span className="text-sm text-slate-500 shrink-0">{a.points} đ</span>
             </div>
           ))}
         </div>
       )}
 
       <div className="flex justify-between items-center pt-2">
-        <span className="text-[11px] text-slate-500">Đã gắn vào Bài: {existingCount + attached.length} câu</span>
+        <span className="text-sm text-slate-500">Đã gắn vào Bài: {existingCount + attached.length} câu</span>
         <Button type="button" variant="primary" size="sm" onClick={handleContinue} disabled={attached.length === 0 && existingCount === 0}>
           Tiếp tục
         </Button>
@@ -473,7 +473,7 @@ function ExercisePublishStep({
     <div className="space-y-4">
       <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 flex items-start gap-3">
         <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
-        <div className="text-xs text-emerald-800">
+        <div className="text-sm text-emerald-800">
           <p className="font-bold">Bài "{exercise.title}" ({exercise.code}) đã soạn xong.</p>
           <p className="mt-1 text-emerald-700">
             Publish để đánh dấu Bài này <strong>đủ điều kiện dùng làm nguồn</strong> — sau đó Giáo viên chọn Bài này làm

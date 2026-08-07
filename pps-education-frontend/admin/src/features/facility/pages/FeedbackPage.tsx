@@ -98,21 +98,21 @@ export default function FeedbackPage() {
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Quản Lý Điểm Trường, Phòng Học & Đối Tác</h1>
-        <p className="text-xs text-slate-500 mt-1">Giải quyết phản hồi kiến nghị từ trường liên kết.</p>
+        <p className="text-sm text-slate-500 mt-1">Giải quyết phản hồi kiến nghị từ trường liên kết.</p>
       </div>
 
-      {error && <div className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-xl">{error}</div>}
+      {error && <div className="text-sm font-bold text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-xl">{error}</div>}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card padded={false} className="lg:col-span-2 overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-100 bg-slate-50">
-            <span className="text-xs font-bold text-slate-700 font-display">Kênh giải quyết ý kiến phản hồi đối tác</span>
+            <span className="text-sm font-bold text-slate-700 font-display">Kênh giải quyết ý kiến phản hồi đối tác</span>
           </div>
 
           {loading ? (
-            <p className="text-xs text-slate-500 font-medium p-5">Đang tải...</p>
+            <p className="text-sm text-slate-500 font-medium p-5">Đang tải...</p>
           ) : tickets.length === 0 ? (
-            <p className="text-xs text-slate-400 italic p-5">
+            <p className="text-sm text-slate-400 italic p-5">
               Chưa có phản hồi nào từ trường liên kết mình phụ trách (chỉ thấy phản hồi của điểm trường bạn đang là Quản lý điểm trường).
             </p>
           ) : (
@@ -128,12 +128,12 @@ export default function FeedbackPage() {
                 >
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <h4 className="text-xs font-bold text-slate-900">{siteName(tkt.siteId)}</h4>
+                      <h4 className="text-sm font-bold text-slate-900">{siteName(tkt.siteId)}</h4>
                       <Badge variant={priorityVariants[tkt.priority]}>{tkt.priority}</Badge>
                       <Badge variant="neutral">{feedbackTypeLabels[tkt.feedbackType]}</Badge>
                     </div>
-                    <span className="text-[11px] text-slate-500 font-medium block">Người gửi: tài khoản #{tkt.submittedBy}</span>
-                    <p className="text-[11px] text-slate-500 line-clamp-2 mt-1">Nội dung: "{tkt.content}"</p>
+                    <span className="text-sm text-slate-500 font-medium block">Người gửi: tài khoản #{tkt.submittedBy}</span>
+                    <p className="text-sm text-slate-500 line-clamp-2 mt-1">Nội dung: "{tkt.content}"</p>
                   </div>
 
                   <Badge variant={statusMeta[tkt.status].variant} className="shrink-0 self-start sm:self-center">
@@ -163,23 +163,23 @@ export default function FeedbackPage() {
             <div className="space-y-4">
               <div className="border-b pb-2.5 flex items-center justify-between">
                 <div>
-                  <span className="text-[10px] font-mono font-bold text-slate-400">TICKET #{selectedTicket.id}</span>
-                  <h3 className="text-xs font-bold text-slate-800 truncate max-w-[150px]">{siteName(selectedTicket.siteId)}</h3>
+                  <span className="text-sm font-mono font-bold text-slate-400">TICKET #{selectedTicket.id}</span>
+                  <h3 className="text-sm font-bold text-slate-800 truncate max-w-[150px]">{siteName(selectedTicket.siteId)}</h3>
                 </div>
-                <button onClick={() => setSelectedId(null)} className="text-xs text-slate-400 hover:text-slate-800">
+                <button onClick={() => setSelectedId(null)} className="text-sm text-slate-400 hover:text-slate-800">
                   Đóng
                 </button>
               </div>
 
               <div className="space-y-1.5">
-                <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block font-display">Nội dung phản hồi</span>
-                <p className="text-[11px] text-slate-600 bg-slate-50 p-2.5 rounded-lg border leading-relaxed">{selectedTicket.content}</p>
+                <span className="text-sm uppercase font-bold tracking-wider text-slate-400 block font-display">Nội dung phản hồi</span>
+                <p className="text-sm text-slate-600 bg-slate-50 p-2.5 rounded-lg border leading-relaxed">{selectedTicket.content}</p>
               </div>
 
               {selectedTicket.resolutionNotes && (
                 <div className="space-y-1.5">
-                  <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block font-display">Phương án đã ghi nhận</span>
-                  <p className="text-[11px] text-emerald-700 bg-emerald-50 p-2.5 rounded-lg border border-emerald-100 leading-relaxed">{selectedTicket.resolutionNotes}</p>
+                  <span className="text-sm uppercase font-bold tracking-wider text-slate-400 block font-display">Phương án đã ghi nhận</span>
+                  <p className="text-sm text-emerald-700 bg-emerald-50 p-2.5 rounded-lg border border-emerald-100 leading-relaxed">{selectedTicket.resolutionNotes}</p>
                 </div>
               )}
 
@@ -187,7 +187,7 @@ export default function FeedbackPage() {
                 <button
                   disabled={submitting}
                   onClick={() => runAction(() => startProcessingPartnerFeedback(selectedTicket.id), "Đã bắt đầu xử lý thành công!")}
-                  className="w-full bg-brand-gradient hover:opacity-95 text-white font-semibold text-xs py-2 rounded-lg disabled:opacity-50"
+                  className="w-full bg-brand-gradient hover:opacity-95 text-white font-semibold text-sm py-2 rounded-lg disabled:opacity-50"
                 >
                   {submitting ? "Đang xử lý..." : "Bắt đầu xử lý"}
                 </button>
@@ -196,21 +196,21 @@ export default function FeedbackPage() {
               {selectedTicket.status === "IN_PROGRESS" && (
                 <form onSubmit={handleResolve} className="space-y-3.5 pt-1">
                   <div className="space-y-1">
-                    <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Phương án khắc phục (Resolution)</label>
+                    <label className="text-sm uppercase font-bold tracking-wider text-slate-500">Phương án khắc phục (Resolution)</label>
                     <textarea
                       required
                       placeholder="Gõ chi tiết phương án giải quyết gửi lại trường liên kết..."
                       value={resolutionText}
                       onChange={(e) => setResolutionText(e.target.value)}
                       rows={3}
-                      className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none"
+                      className="w-full bg-slate-50 border border-slate-200 text-sm px-3 py-2 rounded-lg focus:outline-none"
                     />
                   </div>
 
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="w-full bg-brand-gradient hover:opacity-95 text-white font-semibold text-xs py-2 rounded-lg flex items-center justify-center gap-1.5 shadow-glow disabled:opacity-50"
+                    className="w-full bg-brand-gradient hover:opacity-95 text-white font-semibold text-sm py-2 rounded-lg flex items-center justify-center gap-1.5 shadow-glow disabled:opacity-50"
                   >
                     <Send className="w-3.5 h-3.5 text-brand-yellow shrink-0" />
                     {submitting ? "Đang gửi..." : "Xác nhận Giải Quyết"}
@@ -222,16 +222,16 @@ export default function FeedbackPage() {
                 <button
                   disabled={submitting}
                   onClick={() => runAction(() => closePartnerFeedback(selectedTicket.id), "Đã đóng ticket thành công!")}
-                  className="w-full bg-brand-gradient hover:opacity-95 text-white font-semibold text-xs py-2 rounded-lg disabled:opacity-50"
+                  className="w-full bg-brand-gradient hover:opacity-95 text-white font-semibold text-sm py-2 rounded-lg disabled:opacity-50"
                 >
                   {submitting ? "Đang đóng..." : "Đóng ticket"}
                 </button>
               )}
 
-              {selectedTicket.status === "CLOSED" && <p className="text-[11px] text-slate-400 italic text-center pt-1">Ticket đã đóng — không còn hành động nào.</p>}
+              {selectedTicket.status === "CLOSED" && <p className="text-sm text-slate-400 italic text-center pt-1">Ticket đã đóng — không còn hành động nào.</p>}
             </div>
           ) : (
-            <div className="h-64 border border-dashed rounded-xl flex flex-col items-center justify-center text-slate-400 text-xs italic gap-1.5 text-center p-4">
+            <div className="h-64 border border-dashed rounded-xl flex flex-col items-center justify-center text-slate-400 text-sm italic gap-1.5 text-center p-4">
               <HelpCircle className="w-6 h-6 text-slate-300 animate-bounce" />
               <span>Nhấp chọn một Ticket kiến nghị đối tác từ hàng chờ để rà soát và ghi nội dung khắc phục.</span>
             </div>

@@ -56,7 +56,7 @@ export default function ExercisePreviewModal({ exercise, onClose }: ExercisePrev
       description="Bố cục như học viên sẽ thấy, có tô sáng đáp án đúng để bạn tự đối chiếu."
       size="lg"
     >
-      <div className="space-y-3 text-xs text-slate-600 mb-4 pb-3 border-b border-slate-100">
+      <div className="space-y-3 text-sm text-slate-600 mb-4 pb-3 border-b border-slate-100">
         <div className="flex gap-4">
           <span>
             Tổng điểm: <strong>{exercise.totalPoints}</strong>
@@ -73,9 +73,9 @@ export default function ExercisePreviewModal({ exercise, onClose }: ExercisePrev
       </div>
 
       {loading ? (
-        <p className="text-xs text-slate-500 text-center py-6">Đang tải đề...</p>
+        <p className="text-sm text-slate-500 text-center py-6">Đang tải đề...</p>
       ) : exerciseQuestions.length === 0 ? (
-        <p className="text-xs text-slate-400 italic text-center py-6">Đề này chưa gắn câu hỏi nào.</p>
+        <p className="text-sm text-slate-400 italic text-center py-6">Đề này chưa gắn câu hỏi nào.</p>
       ) : (
         <div className="space-y-5 max-h-[60vh] overflow-y-auto pr-1">
           {exerciseQuestions.map((eq, index) => {
@@ -86,25 +86,25 @@ export default function ExercisePreviewModal({ exercise, onClose }: ExercisePrev
                   <p className="text-sm font-bold text-slate-800">
                     Câu {index + 1}. {q?.content ?? eq.questionContent}
                   </p>
-                  <span className="text-[10px] font-bold uppercase text-slate-400 shrink-0">{eq.points} đ</span>
+                  <span className="text-sm font-bold uppercase text-slate-400 shrink-0">{eq.points} đ</span>
                 </div>
-                <p className="text-[10px] text-slate-400 uppercase font-bold mb-2">{questionTypeLabels[eq.questionType]}</p>
+                <p className="text-sm text-slate-400 uppercase font-bold mb-2">{questionTypeLabels[eq.questionType]}</p>
 
                 {q?.imageUrl && <img src={q.imageUrl} alt="" className="max-h-40 rounded-lg mb-2" />}
                 {q?.audioUrl && <audio controls src={q.audioUrl} className="mb-2 w-full" />}
-                {q?.referencePassage && <p className="text-xs text-slate-500 bg-slate-50 p-2 rounded-lg mb-2">{q.referencePassage}</p>}
+                {q?.referencePassage && <p className="text-sm text-slate-500 bg-slate-50 p-2 rounded-lg mb-2">{q.referencePassage}</p>}
 
                 {choiceTypes.includes(eq.questionType) && q && (
                   <div className="space-y-1.5">
                     {q.choices.map((c) => (
                       <div
                         key={c.id}
-                        className={`flex items-center gap-2 text-xs p-2 rounded-lg border ${
+                        className={`flex items-center gap-2 text-sm p-2 rounded-lg border ${
                           c.isCorrect ? "bg-emerald-50 border-emerald-200 text-emerald-700 font-bold" : "border-slate-100 text-slate-600"
                         }`}
                       >
                         {c.isCorrect && <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />}
-                        <span className="font-mono text-[10px] shrink-0">{c.choiceLabel}.</span>
+                        <span className="font-mono text-sm shrink-0">{c.choiceLabel}.</span>
                         <span>{c.content}</span>
                       </div>
                     ))}
@@ -112,23 +112,23 @@ export default function ExercisePreviewModal({ exercise, onClose }: ExercisePrev
                 )}
 
                 {eq.questionType === "SPEAKING" && (
-                  <p className="text-[11px] text-slate-400 italic">Học viên ghi âm trả lời — chấm tay ở Hàng chờ chấm bài.</p>
+                  <p className="text-sm text-slate-400 italic">Học viên ghi âm trả lời — chấm tay ở Hàng chờ chấm bài.</p>
                 )}
                 {eq.questionType === "ESSAY" && (
-                  <p className="text-[11px] text-slate-400 italic">Học viên trả lời tự luận — chấm tay ở Hàng chờ chấm bài.</p>
+                  <p className="text-sm text-slate-400 italic">Học viên trả lời tự luận — chấm tay ở Hàng chờ chấm bài.</p>
                 )}
                 {eq.questionType === "WORD_BANK" && q?.structuredContent?.blanks && (
-                  <p className="text-[11px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 rounded-lg p-2">
+                  <p className="text-sm text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 rounded-lg p-2">
                     Đáp án đúng theo thứ tự chỗ trống: {q.structuredContent.blanks.join(" — ")}
                   </p>
                 )}
                 {eq.questionType === "SENTENCE_BUILDING" && q?.structuredContent?.chunks && (
-                  <p className="text-[11px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 rounded-lg p-2">
+                  <p className="text-sm text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 rounded-lg p-2">
                     Thứ tự câu đúng: {q.structuredContent.chunks.join(" ")}
                   </p>
                 )}
 
-                {q?.explanation && <p className="text-[11px] text-slate-500 mt-2 italic">Giải thích: {q.explanation}</p>}
+                {q?.explanation && <p className="text-sm text-slate-500 mt-2 italic">Giải thích: {q.explanation}</p>}
               </div>
             );
           })}

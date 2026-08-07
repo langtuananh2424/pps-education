@@ -21,17 +21,17 @@ export default function RoleDetailPanel({ role, canAssignMembers, canRevokeMembe
       <div className="p-6 border-b border-slate-200 space-y-4 bg-slate-50/20">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/60 pb-4">
           <div>
-            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-brand-red bg-orange-50 border border-orange-100 px-2 py-0.5 rounded-md">
+            <span className="text-sm font-mono font-bold uppercase tracking-wider text-brand-red bg-orange-50 border border-orange-100 px-2 py-0.5 rounded-md">
               {role.code}
             </span>
             <h2 className="text-sm font-bold text-slate-800 mt-1">{role.name}</h2>
-            {role.description && <p className="text-xs text-slate-500 mt-1 leading-relaxed max-w-xl">{role.description}</p>}
+            {role.description && <p className="text-sm text-slate-500 mt-1 leading-relaxed max-w-xl">{role.description}</p>}
           </div>
 
           {!role.isSystem && (
             <button
               onClick={onDelete}
-              className="px-3 py-1.5 rounded-lg border border-rose-200 bg-rose-50/40 hover:bg-rose-50 text-rose-600 text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer shrink-0"
+              className="px-3 py-1.5 rounded-lg border border-rose-200 bg-rose-50/40 hover:bg-rose-50 text-rose-600 text-sm font-semibold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer shrink-0"
               title="Xóa vai trò tùy chỉnh này"
             >
               <Trash2 className="w-3.5 h-3.5" />
@@ -43,7 +43,7 @@ export default function RoleDetailPanel({ role, canAssignMembers, canRevokeMembe
         <div className="flex border-b border-slate-200 pt-2 gap-6">
           <button
             onClick={() => onTabChange("permissions")}
-            className={`pb-2.5 text-xs font-bold border-b-2 flex items-center gap-1.5 transition-all ${
+            className={`pb-2.5 text-sm font-bold border-b-2 flex items-center gap-1.5 transition-all ${
               rightActiveTab === "permissions" ? "border-brand-red text-brand-red font-bold" : "border-transparent text-slate-500 hover:text-slate-700"
             }`}
           >
@@ -52,7 +52,7 @@ export default function RoleDetailPanel({ role, canAssignMembers, canRevokeMembe
           </button>
           <button
             onClick={() => onTabChange("members")}
-            className={`pb-2.5 text-xs font-bold border-b-2 flex items-center gap-1.5 transition-all ${
+            className={`pb-2.5 text-sm font-bold border-b-2 flex items-center gap-1.5 transition-all ${
               rightActiveTab === "members" ? "border-brand-red text-brand-red font-bold" : "border-transparent text-slate-500 hover:text-slate-700"
             }`}
           >

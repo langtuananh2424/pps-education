@@ -26,7 +26,7 @@ export default function AssignUserModal({ open, candidates, busyUserId, onClose,
   return (
     <Modal open={open} onClose={onClose} title="Gán tài khoản vào vai trò" size="md">
       <div className="space-y-3">
-        <label className="text-[10px] uppercase font-bold text-slate-500 block flex items-center gap-1.5">
+        <label className="text-sm uppercase font-bold text-slate-500 block flex items-center gap-1.5">
           <UserPlus className="w-3.5 h-3.5 text-brand-red" />
           Tìm tài khoản (username / họ tên / email)
         </label>
@@ -36,19 +36,19 @@ export default function AssignUserModal({ open, candidates, busyUserId, onClose,
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
             placeholder="Nhập để tìm..."
-            className="w-full bg-slate-50 border border-slate-200 text-xs pl-8 pr-3 py-2.5 rounded-lg focus:outline-none"
+            className="w-full bg-slate-50 border border-slate-200 text-sm pl-8 pr-3 py-2.5 rounded-lg focus:outline-none"
           />
         </div>
 
         <div className="max-h-72 overflow-y-auto divide-y divide-slate-100 border border-slate-200 rounded-lg">
           {filtered.length === 0 ? (
-            <p className="text-xs text-slate-400 text-center py-6">Không tìm thấy tài khoản phù hợp.</p>
+            <p className="text-sm text-slate-400 text-center py-6">Không tìm thấy tài khoản phù hợp.</p>
           ) : (
             filtered.map((u) => (
               <div key={u.id} className="flex items-center justify-between gap-3 p-2.5 hover:bg-slate-50/60">
                 <div className="min-w-0">
-                  <p className="text-xs font-bold text-slate-800 truncate">{u.fullName}</p>
-                  <p className="text-[10px] text-slate-400 truncate">
+                  <p className="text-sm font-bold text-slate-800 truncate">{u.fullName}</p>
+                  <p className="text-sm text-slate-400 truncate">
                     {u.username} · {u.email}
                   </p>
                 </div>

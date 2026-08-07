@@ -107,7 +107,7 @@ export default function TaskWorkflowPage() {
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Điều Hành & Luồng Giao Việc</h1>
-        <p className="text-xs text-slate-500 mt-1">Theo dõi tiến độ công việc được giao — xem dạng Kanban hoặc bảng chi tiết.</p>
+        <p className="text-sm text-slate-500 mt-1">Theo dõi tiến độ công việc được giao — xem dạng Kanban hoặc bảng chi tiết.</p>
       </div>
 
       <div className="flex items-center justify-between gap-4">
@@ -121,7 +121,7 @@ export default function TaskWorkflowPage() {
             <button
               key={key}
               onClick={() => setTab(key)}
-              className={`pb-2.5 text-xs font-bold border-b-2 transition-all ${
+              className={`pb-2.5 text-sm font-bold border-b-2 transition-all ${
                 tab === key ? "border-brand-red text-brand-red" : "border-transparent text-slate-500 hover:text-slate-700"
               }`}
             >
@@ -150,7 +150,7 @@ export default function TaskWorkflowPage() {
         ) : (
           <button
             onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-1.5 bg-brand-red hover:bg-brand-red/90 text-white text-xs font-bold px-3.5 py-2 rounded-lg shrink-0"
+            className="flex items-center gap-1.5 bg-brand-red hover:bg-brand-red/90 text-white text-sm font-bold px-3.5 py-2 rounded-lg shrink-0"
           >
             <Plus className="w-4 h-4" /> Giao việc mới
           </button>
@@ -159,14 +159,14 @@ export default function TaskWorkflowPage() {
 
       {tab === "assigned-to-me" ? (
         <>
-          {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+          {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[10px] uppercase font-bold text-slate-400">Lọc theo ngày được giao:</span>
+            <span className="text-sm uppercase font-bold text-slate-400">Lọc theo ngày được giao:</span>
             <div className="w-36">
               <DatePicker value={dateFrom} onChange={setDateFrom} max={dateTo || undefined} />
             </div>
-            <span className="text-xs text-slate-400">đến</span>
+            <span className="text-sm text-slate-400">đến</span>
             <div className="w-36">
               <DatePicker value={dateTo} onChange={setDateTo} min={dateFrom || undefined} />
             </div>
@@ -176,16 +176,16 @@ export default function TaskWorkflowPage() {
                   setDateFrom("");
                   setDateTo("");
                 }}
-                className="text-[11px] font-semibold text-brand-red hover:underline"
+                className="text-sm font-semibold text-brand-red hover:underline"
               >
                 Xóa lọc
               </button>
             )}
-            <span className="text-[11px] text-slate-400 ml-auto">{filteredAssignments.length}/{assignments.length} việc</span>
+            <span className="text-sm text-slate-400 ml-auto">{filteredAssignments.length}/{assignments.length} việc</span>
           </div>
 
           {loading ? (
-            <p className="text-xs text-slate-500">Đang tải...</p>
+            <p className="text-sm text-slate-500">Đang tải...</p>
           ) : view === "kanban" ? (
             <AssignmentKanbanBoard assignments={filteredAssignments} onSelect={setSelected} />
           ) : (
@@ -194,10 +194,10 @@ export default function TaskWorkflowPage() {
         </>
       ) : (
         <>
-          {createdError && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{createdError}</div>}
+          {createdError && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{createdError}</div>}
 
           {!createdLoading && (
-            <p className="text-[11px] text-slate-400 italic">
+            <p className="text-sm text-slate-400 italic">
               {isOverviewScope
                 ? "Đang xem tổng quan toàn bộ việc thuộc phạm vi của bạn (phòng ban mình làm trưởng, hoặc toàn công ty)."
                 : "Chỉ đang xem việc do chính bạn tự giao (chưa được gán làm trưởng phòng nào)."}
@@ -205,9 +205,9 @@ export default function TaskWorkflowPage() {
           )}
 
           {createdLoading ? (
-            <p className="text-xs text-slate-500">Đang tải...</p>
+            <p className="text-sm text-slate-500">Đang tải...</p>
           ) : createdTasks.length === 0 ? (
-            <div className="bg-white border border-slate-200 rounded-xl p-10 text-center text-xs text-slate-400 italic">
+            <div className="bg-white border border-slate-200 rounded-xl p-10 text-center text-sm text-slate-400 italic">
               Chưa giao việc nào — bấm "Giao việc mới" để bắt đầu.
             </div>
           ) : (
@@ -223,10 +223,10 @@ export default function TaskWorkflowPage() {
                     >
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-bold text-slate-800 text-sm">{t.title}</span>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${meta.badge}`}>{meta.label}</span>
+                        <span className={`text-sm font-bold px-2 py-0.5 rounded-full shrink-0 ${meta.badge}`}>{meta.label}</span>
                       </div>
-                      <p className="text-[11px] text-slate-400 font-mono">{t.taskCode}</p>
-                      {t.dueAt && <p className="text-[11px] text-slate-500">Hạn: {new Date(t.dueAt).toLocaleString("vi-VN")}</p>}
+                      <p className="text-sm text-slate-400 font-mono">{t.taskCode}</p>
+                      {t.dueAt && <p className="text-sm text-slate-500">Hạn: {new Date(t.dueAt).toLocaleString("vi-VN")}</p>}
                     </button>
                   );
                 })}

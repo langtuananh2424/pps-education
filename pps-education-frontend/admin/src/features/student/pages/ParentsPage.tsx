@@ -91,7 +91,7 @@ export default function ParentsPage() {
       <div className="border-b border-slate-200 pb-4 flex flex-col sm:flex-row sm:items-end justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Quản lý phụ huynh</h1>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-sm text-slate-500 mt-1">
             Toàn bộ hồ sơ phụ huynh (kể cả chưa liên kết con em) — khởi tạo hồ sơ độc lập, liên kết/gỡ liên kết học sinh.
           </p>
         </div>
@@ -106,7 +106,7 @@ export default function ParentsPage() {
         />
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         <ParentListPanel
@@ -126,7 +126,7 @@ export default function ParentsPage() {
             <Users className="w-12 h-12 text-slate-300" />
             <div>
               <h3 className="text-sm font-bold text-slate-700">Chưa chọn phụ huynh nào</h3>
-              <p className="text-xs text-slate-400 mt-1">Chọn 1 phụ huynh bên trái hoặc thêm mới.</p>
+              <p className="text-sm text-slate-400 mt-1">Chọn 1 phụ huynh bên trái hoặc thêm mới.</p>
             </div>
           </div>
         )}
