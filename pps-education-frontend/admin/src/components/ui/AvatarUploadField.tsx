@@ -56,7 +56,7 @@ export default function AvatarUploadField({ value, onChange, onUpload, fallbackN
           onClick={() => inputRef.current?.click()}
           disabled={disabled || uploading}
           title="Đổi ảnh đại diện"
-          className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-slate-900 hover:bg-slate-800 text-white flex items-center justify-center shadow-md border-2 border-white disabled:opacity-50"
+          className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-brand-red hover:opacity-90 text-white flex items-center justify-center shadow-md border-2 border-white disabled:opacity-50"
         >
           {uploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Camera className="w-3 h-3" />}
         </button>

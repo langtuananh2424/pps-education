@@ -134,9 +134,9 @@ export default function CommentForm({ classId, studentId, siteId, onSubmitted }:
       <button
         type="submit"
         disabled={submitting}
-        className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs py-2 rounded-lg flex items-center justify-center gap-1.5 disabled:opacity-50"
+        className="w-full bg-brand-gradient hover:opacity-95 text-white font-semibold text-xs py-2 rounded-lg flex items-center justify-center gap-1.5 disabled:opacity-50"
       >
-        <Plus className="w-4 h-4 text-brand-yellow" />
+        <Plus className="w-4 h-4 text-white" />
         {submitting ? "Đang lưu..." : "Lưu nhận xét (nháp)"}
       </button>
 

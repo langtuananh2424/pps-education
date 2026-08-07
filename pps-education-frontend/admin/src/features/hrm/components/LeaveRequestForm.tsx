@@ -125,15 +125,16 @@ export default function LeaveRequestForm({ onSubmitted }: LeaveRequestFormProps)
   };
 
   return (
-    <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-soft space-y-4">
-      <h3 className="text-xs font-bold text-slate-400 block uppercase tracking-wider font-display border-b border-slate-100 pb-2">
-        Nộp Đơn Xin Nghỉ
-      </h3>
-      <p className="text-xs text-slate-500">Gửi yêu cầu nghỉ phép, đi muộn hoặc về sớm. Hệ thống sẽ tự động xác định quy trình duyệt 1-2 bước theo chức vụ của bạn.</p>
+    <div className="bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden">
+      <div className="p-5 space-y-4">
+        <h3 className="text-xs font-bold text-slate-400 block uppercase tracking-wider font-display border-b border-slate-100 pb-2">
+          Nộp Đơn Xin Nghỉ
+        </h3>
+        <p className="text-xs text-slate-500">Gửi yêu cầu nghỉ phép, đi muộn hoặc về sớm. Hệ thống sẽ tự động xác định quy trình duyệt 1-2 bước theo chức vụ của bạn.</p>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
-      <form onSubmit={handleSubmit} className="space-y-3.5">
+        <form id="leave-request-form" onSubmit={handleSubmit} className="space-y-3.5">
         <div className="space-y-1">
           <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Hình thức nộp</label>
           <Select
@@ -253,15 +254,20 @@ export default function LeaveRequestForm({ onSubmitted }: LeaveRequestFormProps)
           </div>
         )}
 
+        </form>
+      </div>
+
+      <div className="px-5 py-4 bg-slate-50 border-t border-slate-100 flex justify-end">
         <button
           type="submit"
+          form="leave-request-form"
           disabled={submitting}
-          className="w-full bg-slate-900 hover:bg-slate-800 disabled:opacity-60 text-white font-semibold text-xs py-2 rounded-lg flex items-center justify-center gap-1.5"
+          className="bg-brand-gradient hover:opacity-95 disabled:opacity-60 text-white font-semibold text-xs px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-glow transition-all"
         >
-          <PlusCircle className="w-4 h-4 text-brand-yellow" />
+          <PlusCircle className="w-4 h-4 text-white" />
           {submitting ? "Đang gửi..." : "Gửi đơn chờ duyệt"}
         </button>
-      </form>
+      </div>
     </div>
   );
 }
