@@ -18,7 +18,7 @@ import vn.com.pps.education.service.AcademicYearService;
 
 import java.util.List;
 
-/** V102 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-07) — xem Javadoc AcademicYearService. */
+/** V103 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-07) — xem Javadoc AcademicYearService. */
 @RestController
 public class AcademicYearController {
 

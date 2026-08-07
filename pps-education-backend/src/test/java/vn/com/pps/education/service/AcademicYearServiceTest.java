@@ -19,7 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * V102 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-07) —
+ * V103 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-07) —
  * CRUD danh mục "Năm học" dùng chung toàn hệ thống.
  */
 @Transactional

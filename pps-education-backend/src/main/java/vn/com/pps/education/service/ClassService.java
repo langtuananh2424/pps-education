@@ -519,7 +519,7 @@ public class ClassService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học id=" + id));
     }
 
-    /** academicYearId nullable — CreateClassRequest/UpdateClassRequest vẫn để tùy chọn như trước V102. */
+    /** academicYearId nullable — CreateClassRequest/UpdateClassRequest vẫn để tùy chọn như trước V103. */
     private AcademicYear resolveAcademicYear(Long academicYearId) {
         if (academicYearId == null) {
             return null;

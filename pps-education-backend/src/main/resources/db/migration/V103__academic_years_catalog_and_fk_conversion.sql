@@ -1,10 +1,10 @@
 -- =====================================================================
--- V102: DANH MUC "academic_years" + CHUYEN 5 COT academic_year (VARCHAR)
+-- V103: DANH MUC "academic_years" + CHUYEN 5 COT academic_year (VARCHAR)
 -- SANG FK academic_year_id
 -- Bo sung ngoai SDD goc, da xac nhan voi nguoi dung 2026-08-07.
 -- academic_years la danh muc DUNG CHUNG TOAN HE THONG (khong site-scoped,
 -- khac AcademicTerm). Chuyen doi 5 bang: classes, grade_entries,
--- student_comments, class_enrollments (V101), va teaching_plans (V21).
+-- student_comments, class_enrollments (V102), va teaching_plans (V21).
 -- =====================================================================
 
 CREATE TABLE academic_years (

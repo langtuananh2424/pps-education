@@ -9,7 +9,7 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 /**
- * Bảng academic_years (V102, bổ sung ngoài SDD gốc, đã xác nhận với người
+ * Bảng academic_years (V103, bổ sung ngoài SDD gốc, đã xác nhận với người
  * dùng 2026-08-07) — danh mục "Năm học" DÙNG CHUNG TOÀN HỆ THỐNG (khác
  * {@link AcademicTerm} — Kỳ học, giới hạn theo điểm trường). Là nguồn FK
  * cho {@code classes}/{@code grade_entries}/{@code student_comments}/
@@ -47,7 +47,7 @@ public class AcademicYear extends BaseAuditEntity {
     @Column(nullable = false, length = 20)
     private Status status = Status.PLANNED;
 
-    /** Nullable — dữ liệu backfill từ chuỗi cũ (V102) không có actor thật. */
+    /** Nullable — dữ liệu backfill từ chuỗi cũ (V103) không có actor thật. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by")
     private User createdBy;

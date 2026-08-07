@@ -1,5 +1,5 @@
 -- =====================================================================
--- V101: PHAN HE 6 - ACADEMIC YEAR TREN GRADE_ENTRIES / STUDENT_COMMENTS /
+-- V102: PHAN HE 6 - ACADEMIC YEAR TREN GRADE_ENTRIES / STUDENT_COMMENTS /
 -- CLASS_ENROLLMENTS
 -- Bo sung ngoai SDD goc, da xac nhan voi nguoi dung 2026-08-07.
 -- Denormalize academic_year tu classes.academic_year (copy tai thoi diem

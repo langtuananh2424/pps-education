@@ -71,7 +71,7 @@ public class StudentComment {
     @JoinColumn(name = "academic_term_id")
     private AcademicTerm academicTerm;
 
-    /** Copy từ schoolClass.academicYear tại thời điểm tạo, áp dụng cho cả DAILY lẫn MID_TERM/END_TERM (V101/V102, bổ sung ngoài SDD gốc, đã xác nhận với người dùng). */
+    /** Copy từ schoolClass.academicYear tại thời điểm tạo, áp dụng cho cả DAILY lẫn MID_TERM/END_TERM (V102/V103, bổ sung ngoài SDD gốc, đã xác nhận với người dùng). */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "academic_year_id")
     private AcademicYear academicYear;

@@ -15,7 +15,7 @@ import vn.com.pps.education.repository.UserRepository;
 import java.util.List;
 
 /**
- * V102 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-07) —
+ * V103 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-07) —
  * "Năm học", danh mục DÙNG CHUNG TOÀN HỆ THỐNG (khác {@link
  * vn.com.pps.education.domain.AcademicTerm} — Kỳ học, giới hạn theo điểm
  * trường). Nguồn FK cho academic_year_id trên classes/grade_entries/

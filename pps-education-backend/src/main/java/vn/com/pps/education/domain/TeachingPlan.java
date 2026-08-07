@@ -43,7 +43,7 @@ public class TeachingPlan {
     @Column(name = "plan_type", nullable = false, length = 20)
     private PlanType planType;
 
-    /** Cho YEARLY (SDD). V102 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-07): đổi từ chuỗi tự do sang FK academic_years. */
+    /** Cho YEARLY (SDD). V103 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-07): đổi từ chuỗi tự do sang FK academic_years. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "academic_year_id")
     private AcademicYear academicYear;
