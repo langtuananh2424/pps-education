@@ -1458,14 +1458,17 @@ public class StudentCommentService {
 
     private void notifySiteManagersPending(List<StudentComment> submitted) {
         submitted.stream()
-                .collect(java.util.stream.Collectors.groupingBy(c -> c.getSchoolClass().getSite().getId()))
-                .forEach((siteId, comments) -> {
+                .collect(java.util.stream.Collectors.groupingBy(c -> c.getSchoolClass().getId()))
+                .forEach((schoolClassId, comments) -> {
                     SchoolClass schoolClass = comments.get(0).getSchoolClass();
                     String title = "Nhận xét học sinh chờ duyệt";
                     String content = "Có %d nhận xét học sinh mới (lớp %s) đang chờ bạn duyệt."
                             .formatted(comments.size(), schoolClass.getName());
-                    siteManagerRepository.findBySiteIdAndRoleTypeAndAssignedToIsNull(siteId, SiteManager.RoleType.SITE_MANAGER).forEach(sm ->
-                            notificationService.notify(sm.getUser().getId(), Notification.NotificationType.COMMENT_APPROVED, title, content));
+                    Map<String, Object> metadata = new LinkedHashMap<>();
+                    metadata.put("className", schoolClass.getName());
+                    siteManagerRepository.findBySiteIdAndRoleTypeAndAssignedToIsNull(schoolClass.getSite().getId(), SiteManager.RoleType.SITE_MANAGER).forEach(sm ->
+                            notificationService.notify(sm.getUser().getId(), Notification.NotificationType.COMMENT_PENDING_APPROVAL, title, content,
+                                    metadata, "SCHOOL_CLASS", schoolClassId, Notification.Priority.NORMAL, null));
                 });
     }
 
@@ -1475,7 +1478,11 @@ public class StudentCommentService {
                 .formatted(comment.getStudent().getUser().getFullName(), comment.getSchoolClass().getName(),
                         comment.getCommentDate(),
                         comment.getRejectionReason() == null ? "" : ": " + comment.getRejectionReason());
-        notificationService.notify(comment.getTeacher().getId(), Notification.NotificationType.COMMENT_APPROVED, title, content);
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("studentName", comment.getStudent().getUser().getFullName());
+        metadata.put("className", comment.getSchoolClass().getName());
+        notificationService.notify(comment.getTeacher().getId(), Notification.NotificationType.COMMENT_REJECTED, title, content,
+                metadata, "STUDENT_COMMENT", comment.getId(), Notification.Priority.NORMAL, null);
     }
 
     private void writeHistory(StudentComment comment, User actor, StudentCommentHistory.Action action) {

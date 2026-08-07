@@ -269,7 +269,7 @@ public class ExerciseAttemptService {
 
     /**
      * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05: BTVN dưới
-     * ngưỡng đạt ({@code exercises.pass_threshold_percent}, mặc định 80%,
+     * ngưỡng đạt ({@code exercises.pass_threshold_percent}, mặc định 70% từ V100,
      * cấu hình theo từng Bài) phải làm lại — áp dụng cho MỌI exerciseType học
      * sinh làm (không riêng ASSIGNED). Tính % + đánh dấu passed ngay khi lượt
      * làm bài về FULLY_GRADED (đã chấm xong toàn bộ, kể cả phần chấm tay —

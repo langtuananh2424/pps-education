@@ -120,11 +120,11 @@ export default function LeaveApprovalQueue({ leaveRequests, loading, onDecided }
                     disabled={decidingId === req.id}
                     onClick={() => decide(req, "APPROVED", opinionNotes[req.id]?.trim() || "Đã rà soát, đồng ý duyệt.")}
                     className={cn(
-                      "px-3 py-1 bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-bold rounded flex items-center gap-1",
+                      "px-3 py-1 bg-brand-gradient hover:opacity-95 text-white text-[10px] font-bold rounded flex items-center gap-1",
                       decidingId === req.id && "opacity-50"
                     )}
                   >
-                    <Check className="w-3.5 h-3.5 text-brand-yellow" />
+                    <Check className="w-3.5 h-3.5 text-white" />
                     Phê duyệt cấp hiện tại
                   </button>
                 </div>

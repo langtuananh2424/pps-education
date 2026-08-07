@@ -148,8 +148,8 @@ export default function LeadsPanel({ leads, onAddCallLog, onConvertToStudent }: 
                 />
               </div>
 
-              <button type="submit" className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs py-2 rounded-lg flex items-center justify-center gap-1">
-                <PhoneCall className="w-3.5 h-3.5 text-brand-yellow" />
+              <button type="submit" className="w-full bg-brand-gradient hover:opacity-95 text-white font-semibold text-xs py-2 rounded-lg flex items-center justify-center gap-1">
+                <PhoneCall className="w-3.5 h-3.5 text-white" />
                 Lưu lịch sử gọi
               </button>
             </form>

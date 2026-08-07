@@ -125,8 +125,8 @@ export default function PartnerPortalPage() {
               </div>
             </div>
 
-            <button onClick={handleDownloadReport} className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs py-2 rounded-lg flex items-center justify-center gap-1.5 shadow-soft">
-              <Download className="w-3.5 h-3.5 text-brand-yellow" />
+            <button onClick={handleDownloadReport} className="w-full bg-brand-gradient hover:opacity-95 text-white font-semibold text-xs py-2 rounded-lg flex items-center justify-center gap-1.5 shadow-glow">
+              <Download className="w-3.5 h-3.5 text-white" />
               Xuất báo cáo PDF
             </button>
           </div>

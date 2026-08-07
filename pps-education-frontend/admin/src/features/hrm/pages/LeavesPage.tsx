@@ -4,6 +4,8 @@ import Badge from "@/components/ui/Badge";
 import { ApiError } from "@/lib/apiClient";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
+import { useApp } from "@/context/AppContext";
+import { UserRole } from "@/types";
 import LeaveRequestForm from "../components/LeaveRequestForm";
 import LeaveApprovalQueue from "../components/LeaveApprovalQueue";
 import {
@@ -14,6 +16,13 @@ import {
   listPendingLeaveRequestsForApprover
 } from "../api";
 import { useLeaveTypeLabel } from "../hooks/useLeaveTypeLabel";
+
+/**
+ * Vai trò luôn vừa có thể nộp đơn vừa có thể duyệt đơn người khác (UC-10 bước 4a:
+ * Quản lý vận hành là cấp duyệt thứ 2; SYS_ADMIN/SUPER_ADMIN giữ nguyên đầy đủ để
+ * phục vụ demo/QA) — hiển thị đủ 4 khối như thiết kế gốc, kể cả khi hàng chờ rỗng.
+ */
+const alwaysShowApprovalQueueRoles: UserRole[] = [UserRole.OPS_MANAGER, UserRole.SYS_ADMIN, UserRole.SUPER_ADMIN];
 
 const statusVariant: Record<LeaveRequestResponse["status"], "success" | "danger" | "warning" | "neutral"> = {
   APPROVED: "success",
@@ -30,6 +39,7 @@ const statusLabels: Record<LeaveRequestResponse["status"], string> = {
 };
 
 export default function LeavesPage() {
+  const { currentRole } = useApp();
   const getLeaveTypeLabel = useLeaveTypeLabel();
   const [pending, setPending] = useState<LeaveRequestResponse[]>([]);
   const [pendingLoading, setPendingLoading] = useState(false);
@@ -69,6 +79,18 @@ export default function LeavesPage() {
     loadSubstitutions();
   }, []);
 
+  // Ban giám đốc bị chặn nộp đơn hoàn toàn (UC-10 Precondition/A1) — với họ, đơn từ/lịch sử
+  // dạy thay của "bản thân" không có ý nghĩa vì họ không bao giờ nộp đơn qua hệ thống.
+  const isExecutive = currentRole === UserRole.EXECUTIVE;
+  const showSubmitForm = !isExecutive;
+  const showOwnHistory = !isExecutive;
+
+  // Giáo viên/Nhân viên và 3 role "cấp Quản lý" (Quản lý điểm trường/Trưởng phòng đào tạo/Quản lý
+  // nhân sự) không bao giờ là người duyệt (UC-10 bước 4) nên ẩn khối này theo mặc định. Vẫn hiện
+  // nếu thực sự có đơn chờ duyệt — vì "Trưởng phòng ban" là role tuỳ biến tạo qua UC-03, không nằm
+  // trong enum UserRole cố định nên FE không thể biết chắc 100% ai giữ vai trò đó chỉ từ currentRole.
+  const showApprovalQueue = isExecutive || alwaysShowApprovalQueueRoles.includes(currentRole) || pending.length > 0;
+
   return (
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
@@ -76,24 +98,29 @@ export default function LeavesPage() {
         <p className="text-xs text-slate-500 mt-1">Nộp đơn xin nghỉ phép, đi muộn, về sớm và theo dõi quy trình xét duyệt.</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <LeaveRequestForm
-          onSubmitted={() => {
-            showToast("Đã gửi đơn từ thành công!");
-            loadMine();
-            loadSubstitutions();
-          }}
-        />
-        <LeaveApprovalQueue
-          leaveRequests={pending}
-          loading={pendingLoading}
-          onDecided={() => {
-            loadPending();
-            loadSubstitutions();
-          }}
-        />
+      <div className={showSubmitForm && showApprovalQueue ? "grid grid-cols-1 lg:grid-cols-3 gap-6" : "grid grid-cols-1 gap-6"}>
+        {showSubmitForm && (
+          <LeaveRequestForm
+            onSubmitted={() => {
+              showToast("Đã gửi đơn từ thành công!");
+              loadMine();
+              loadSubstitutions();
+            }}
+          />
+        )}
+        {showApprovalQueue && (
+          <LeaveApprovalQueue
+            leaveRequests={pending}
+            loading={pendingLoading}
+            onDecided={() => {
+              loadPending();
+              loadSubstitutions();
+            }}
+          />
+        )}
       </div>
 
+      {showOwnHistory && (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden">
           <div className="px-5 py-3 border-b border-slate-100 bg-slate-50">
@@ -153,6 +180,7 @@ export default function LeavesPage() {
           </div>
         </div>
       </div>
+      )}
 
       <Toast message={toastMessage} />
     </div>

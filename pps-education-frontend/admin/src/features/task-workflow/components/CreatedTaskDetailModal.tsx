@@ -268,7 +268,7 @@ export default function CreatedTaskDetailModal({ task, onClose, onTaskChanged }:
                       <button
                         type="button"
                         onClick={() => setReassignTarget(a)}
-                        className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white"
+                        className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-brand-gradient hover:opacity-95 text-white"
                       >
                         <RefreshCw className="w-3.5 h-3.5" /> Giao lại (A3)
                       </button>
@@ -395,8 +395,8 @@ export default function CreatedTaskDetailModal({ task, onClose, onTaskChanged }:
                 onChange={(e) => setNewComment(e.target.value)}
                 className="flex-1 bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none"
               />
-              <button type="submit" className="bg-slate-900 hover:bg-slate-800 text-white p-2 rounded-lg shrink-0">
-                <Send className="w-4 h-4 text-brand-yellow" />
+              <button type="submit" className="bg-brand-gradient hover:opacity-95 text-white p-2 rounded-lg shrink-0">
+                <Send className="w-4 h-4 text-white" />
               </button>
             </form>
           </div>

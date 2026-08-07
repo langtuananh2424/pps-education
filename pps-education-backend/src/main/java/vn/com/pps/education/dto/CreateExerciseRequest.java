@@ -22,7 +22,7 @@ public record CreateExerciseRequest(
         boolean allowRetake,
         Integer maxAttempts,
         boolean showCorrectAnswers,
-        /** V89, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05: NULL = dùng mặc định 80% (Exercise.passThresholdPercent). */
+        /** V89/V100, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05: NULL = dùng mặc định 70% (Exercise.passThresholdPercent). */
         BigDecimal passThresholdPercent
 ) {
     public CreateExerciseRequest(String code, String title, Long examId, Long subjectId, String exerciseType,

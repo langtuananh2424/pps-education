@@ -638,7 +638,7 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
 
     /**
      * V89 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05):
-     * BTVN dưới ngưỡng đạt (mặc định 80%) phải làm lại — bản giao vẫn ACTIVE
+     * BTVN dưới ngưỡng đạt (mặc định 70% từ V100) phải làm lại — bản giao vẫn ACTIVE
      * (chưa COMPLETED) nên startAttempt còn cho làm lại lượt tiếp theo.
      */
     @Test
@@ -655,7 +655,7 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         ExerciseAssignment assignment = exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId());
 
         ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
-        answerCorrectly(attempt.id(), mc1); // chỉ đúng 1/2 -> 50%, dưới ngưỡng mặc định 80%
+        answerCorrectly(attempt.id(), mc1); // chỉ đúng 1/2 -> 50%, dưới ngưỡng mặc định 70%
         ExerciseAttemptResponse submitted = exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
 
         assertThat(submitted.percentage()).isEqualByComparingTo("50.00");
@@ -708,7 +708,7 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         ExerciseAssignment assignment = exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId());
 
         ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
-        answerCorrectly(attempt.id(), mc1); // 50% -> dưới 80% mặc định nhưng TRÊN ngưỡng 40% đã cấu hình
+        answerCorrectly(attempt.id(), mc1); // 50% -> dưới 70% mặc định nhưng TRÊN ngưỡng 40% đã cấu hình
         ExerciseAttemptResponse submitted = exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
 
         assertThat(submitted.passed()).isTrue();
@@ -716,14 +716,14 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         assertThat(refreshed.getStatus()).isEqualTo(ExerciseAssignment.Status.COMPLETED);
     }
 
-    /** V89: không truyền passThresholdPercent khi tạo Bài -> mặc định 80%. */
+    /** V89/V100: không truyền passThresholdPercent khi tạo Bài -> mặc định 70%. */
     @Test
-    void createExercise_boSung_defaultsPassThresholdTo80PercentWhenNotSpecified() {
+    void createExercise_boSung_defaultsPassThresholdTo70PercentWhenNotSpecified() {
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "BTVN", defaultExam.id(), null, "SELF_PRACTICE",
                         new BigDecimal("1"), null, true, null, true), teacher.getId());
 
-        assertThat(exercise.passThresholdPercent()).isEqualByComparingTo("80.00");
+        assertThat(exercise.passThresholdPercent()).isEqualByComparingTo("70.00");
     }
 
     private QuestionResponse createMcQuestion() {

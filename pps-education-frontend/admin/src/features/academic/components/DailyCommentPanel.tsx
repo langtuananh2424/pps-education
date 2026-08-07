@@ -710,7 +710,7 @@ export default function DailyCommentPanel() {
                 !lessonContentInput.trim() ||
                 lessonContentInput.trim() === (selectedSession?.lessonContent ?? "")
               }
-              className="px-3 py-2 bg-slate-800 hover:bg-slate-900 text-white text-[11px] font-bold rounded-lg disabled:opacity-40"
+              className="px-3 py-2 bg-brand-orange hover:bg-brand-orange/90 text-white text-[11px] font-bold rounded-lg disabled:opacity-40"
             >
               {savingLessonContent ? "Đang lưu..." : "Lưu"}
             </button>
@@ -742,7 +742,7 @@ export default function DailyCommentPanel() {
                 !actualTeacherNameInput.trim() ||
                 actualTeacherNameInput.trim() === (selectedSession?.actualTeacherName ?? "")
               }
-              className="px-3 py-2 bg-slate-800 hover:bg-slate-900 text-white text-[11px] font-bold rounded-lg disabled:opacity-40"
+              className="px-3 py-2 bg-brand-orange hover:bg-brand-orange/90 text-white text-[11px] font-bold rounded-lg disabled:opacity-40"
             >
               {savingActualTeacherName ? "Đang lưu..." : "Lưu"}
             </button>

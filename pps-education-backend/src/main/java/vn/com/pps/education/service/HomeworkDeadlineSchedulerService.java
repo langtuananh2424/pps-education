@@ -179,9 +179,11 @@ public class HomeworkDeadlineSchedulerService {
                 .collect(Collectors.joining("\n"));
         String content = "Tỷ lệ hoàn thành: %d/%d học sinh (%d%%).\n\nChi tiết từng em:\n%s"
                 .formatted(completedCount, total, ratePercent, detail);
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("className", schoolClass.getName());
 
         notificationService.notify(teacherUserId, Notification.NotificationType.HOMEWORK_DEADLINE_SUMMARY,
-                title, content, null, entityType, entityId, Notification.Priority.NORMAL, null);
+                title, content, metadata, entityType, entityId, Notification.Priority.NORMAL, null);
     }
 
     /**

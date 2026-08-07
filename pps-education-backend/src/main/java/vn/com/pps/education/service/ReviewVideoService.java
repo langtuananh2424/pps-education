@@ -661,11 +661,12 @@ public class ReviewVideoService {
      * mới biết — trước đây không có API nào đọc lại được, chỉ có được qua
      * report tiến độ SỐNG trong lúc đang xem (reportProgress).
      *
-     * V93 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06):
+     * V93/V101 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06,
+     * giảm mặc định 80%→70% ngày 2026-08-07):
      * "đạt" (completed) của video CONNECTION đổi từ "đủ SỐ LƯỢT tuyệt đối"
      * sang TỶ LỆ % (viewCount/requiredViewCount ≥ ngưỡng cấu hình, mặc định
-     * 80%) — xem {@link #recomputeProgress}. Ví dụ: yêu cầu 4 lượt, học sinh
-     * xem+nộp đúng 3 lượt = 75%, CHƯA đạt (cần ≥80%).
+     * 70%) — xem {@link #recomputeProgress}. Ví dụ: yêu cầu 4 lượt, học sinh
+     * xem+nộp đúng 3 lượt = 75%, ĐẠT (≥70%).
      */
     @Transactional(readOnly = true)
     public ReviewVideoProgressResponse getProgress(Long videoId, Long actorUserId) {
@@ -1104,13 +1105,14 @@ public class ReviewVideoService {
      * video khác (REFLEX, nếu có gọi watch-session) giữ nguyên công thức cũ
      * (chỉ cần qualified) — không đổi hành vi REFLEX.
      *
-     * V93 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06):
+     * V93/V101 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06,
+     * giảm mặc định 80%→70% ngày 2026-08-07):
      * "đạt" (completed) của CONNECTION đổi từ đủ SỐ LƯỢT tuyệt đối
      * (viewCount >= requiredViewCount) sang TỶ LỆ %
      * (viewCount/requiredViewCount >= ReviewVideoSettings#completionPassThresholdPercent,
-     * mặc định 80%) — VD yêu cầu 4 lượt, xem+nộp đúng 3 lượt = 75%, CHƯA
-     * đạt. REFLEX giữ nguyên công thức cũ (không đổi hành vi, xem ghi chú
-     * V83 phía trên).
+     * mặc định 70%) — VD yêu cầu 4 lượt, xem+nộp đúng 3 lượt = 75%, ĐẠT.
+     * REFLEX giữ nguyên công thức cũ (không đổi hành vi, xem ghi chú V83
+     * phía trên).
      */
     private ReviewVideoProgress recomputeProgress(ReviewVideo video, Student student) {
         ReviewVideoProgress progress = getOrCreateProgress(video, student);

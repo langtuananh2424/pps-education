@@ -145,9 +145,13 @@ public class AttemptIntegrityService {
         metadata.put("schoolClassId", schoolClassId);
         metadata.put("violationCount", violationCount);
         metadata.put("violationTotalSeconds", violationTotalSeconds);
+        metadata.put("studentName", ctx.student().getUser().getFullName());
+        if (ctx.schoolClass() != null) {
+            metadata.put("className", ctx.schoolClass().getName());
+        }
 
         for (ParentStudent link : parentStudentRepository.findByStudentId(studentId)) {
-            notificationService.notify(link.getParent().getUser().getId(), Notification.NotificationType.EXAM_INTEGRITY_VIOLATION,
+            notificationService.notify(link.getParent().getUser().getId(), Notification.NotificationType.EXAM_INTEGRITY_VIOLATION_PARENT,
                     title, content, metadata, "STUDENT", studentId, Notification.Priority.HIGH, actorUserId);
         }
 
