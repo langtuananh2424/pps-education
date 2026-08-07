@@ -83,6 +83,10 @@ public class GradeEvaluationResult {
     @Column(columnDefinition = "TEXT")
     private String note;
 
+    /** "Lưu ý" — thông tin bổ sung đặc thù cho kỳ đánh giá (VD phạm vi đề thi, điều kiện điều chỉnh), hiển thị ở header UI nhập điểm GV. */
+    @Column(columnDefinition = "TEXT")
+    private String disclaimer;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private Source source = Source.MANUAL;

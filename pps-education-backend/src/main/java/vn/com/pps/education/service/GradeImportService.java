@@ -346,7 +346,7 @@ public class GradeImportService {
         }
         if (overall != null || level != null || comment != null || note != null) {
             gradeService.upsertEvaluationResult(classId, student.getId(), setupId,
-                    new EnterGradeEvaluationResultRequest(overall, null, level, comment, note), actorUserId,
+                    new EnterGradeEvaluationResultRequest(overall, null, level, comment, note, null), actorUserId,
                     GradeEvaluationResult.Source.EXCEL_IMPORT, job);
         }
     }

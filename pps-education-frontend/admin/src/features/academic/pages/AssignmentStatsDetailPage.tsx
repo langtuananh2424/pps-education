@@ -191,7 +191,7 @@ export default function AssignmentStatsDetailPage() {
                           <Badge variant={s.passed ? "success" : "danger"}>{s.passed ? "Đạt" : "Chưa đạt"}</Badge>
                         )}
                       </Td>
-                      <Td className="text-center">{s.attemptNumber ?? "—"}</Td>
+                      <Td className="text-center">{s.numberOfAttempts ?? "—"}</Td>
                       <Td className="text-center">
                         {s.status !== "CHUA_LAM" && (
                           <button
@@ -240,7 +240,17 @@ export default function AssignmentStatsDetailPage() {
       )}
 
       {detailStudent && (
-        <StudentDetailModal student={detailStudent} exerciseId={studentStats.assignment.exerciseId} onClose={() => setDetailStudentId(null)} />
+        <StudentDetailModal
+          student={detailStudent}
+          exerciseId={studentStats.assignment.exerciseId}
+          assignmentId={numAssignmentId}
+          onClose={() => setDetailStudentId(null)}
+          onRefreshStats={() => {
+            if (numAssignmentId) {
+              getExerciseAssignmentStudentStats(numAssignmentId).then(setStudentStats).catch(() => undefined);
+            }
+          }}
+        />
       )}
     </div>
   );
@@ -304,11 +314,15 @@ function QuestionRow({
 function StudentDetailModal({
   student,
   exerciseId,
-  onClose
+  assignmentId,
+  onClose,
+  onRefreshStats
 }: {
   student: ExerciseAssignmentStudentRow;
   exerciseId: number;
+  assignmentId: number | null;
   onClose: () => void;
+  onRefreshStats?: () => void;
 }) {
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — trước đây LUÔN tải câu trả lời
   // của lượt MỚI NHẤT (student.attemptId), dù học sinh có nhiều lượt làm — GV không xem lại được câu
@@ -439,6 +453,7 @@ function StudentDetailModal({
                           key={a.id}
                           attempt={a}
                           onSelected={(updated) => setAttempts(updated)}
+                          onRefreshStats={onRefreshStats}
                           viewing={viewingAttemptId === a.id}
                           onView={() => setViewingAttemptId(a.id)}
                         />
@@ -549,11 +564,13 @@ function StudentDetailModal({
 function AttemptHistoryRow({
   attempt,
   onSelected,
+  onRefreshStats,
   viewing,
   onView
 }: {
   attempt: ExerciseAttemptRow;
   onSelected: (updated: ExerciseAttemptRow[]) => void;
+  onRefreshStats?: () => void;
   viewing: boolean;
   onView: () => void;
 }) {
@@ -582,7 +599,10 @@ function AttemptHistoryRow({
     setSelecting(true);
     setSelectError(null);
     selectAttemptForGrading(attempt.id)
-      .then(onSelected)
+      .then((updated) => {
+        onSelected(updated);
+        onRefreshStats?.();
+      })
       .catch((err) => {
         setSelectError(err instanceof Error ? err.message : "Không chọn được lượt làm này.");
       })

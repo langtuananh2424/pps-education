@@ -160,7 +160,7 @@ export default function HomeworkStatsPage() {
                   <Th>Loại</Th>
                   <Th>Ngày giao</Th>
                   <Th>Hạn nộp</Th>
-                  <Th className="text-center">% hoàn thành</Th>
+                  <Th className="text-center">% Làm bài</Th>
                   <Th className="text-center">% đạt</Th>
                   <Th />
                 </tr>

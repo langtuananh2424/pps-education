@@ -106,7 +106,7 @@ export interface GradeEntryResponse {
   finalizedAt: string | null;
 }
 
-/** UC-53 — Overall/Level/Nhận xét/Ghi chú (V94) theo (kỳ học, Giữa/Cuối kỳ), khác DRAFT mới trả về (BE lọc sẵn — xem GradeEntryResponse). */
+/** UC-53 — Overall/Level/Nhận xét/Ghi chú (V94)/Lưu ý (V100) theo (kỳ học, Giữa/Cuối kỳ), khác DRAFT mới trả về (BE lọc sẵn — xem GradeEntryResponse). */
 export interface GradeEvaluationResultResponse {
   id: number;
   classId: number;
@@ -120,6 +120,7 @@ export interface GradeEvaluationResultResponse {
   level: string | null;
   comment: string | null;
   note: string | null;
+  disclaimer: string | null;
   source: "MANUAL" | "EXCEL_IMPORT";
   importJobId: number | null;
   status: GradeStatus;

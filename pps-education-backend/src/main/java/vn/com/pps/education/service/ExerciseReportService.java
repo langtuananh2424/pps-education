@@ -103,8 +103,13 @@ public class ExerciseReportService {
         // V93: lấy lượt được chọn làm chính thức (nếu có), nếu không thì lấy lượt cuối cùng
         Map<Long, ExerciseAttempt> attemptByStudent = selectedOrLatestAttemptByStudent(assignment.getId());
 
+        // Tính tổng số lần làm cho mỗi học sinh
+        List<ExerciseAttempt> allAttempts = exerciseAttemptRepository.findByExerciseAssignmentIdOrderByAttemptNumberDesc(assignment.getId());
+        Map<Long, Integer> numberOfAttemptsByStudent = allAttempts.stream()
+                .collect(Collectors.groupingBy(a -> a.getStudent().getId(), Collectors.collectingAndThen(Collectors.toList(), list -> list.size())));
+
         List<ExerciseAssignmentStudentStatsResponse.StudentRow> rows = roster.stream()
-                .map(enrollment -> toStudentRow(enrollment.getStudent(), attemptByStudent.get(enrollment.getStudent().getId()), assignment.getExercise()))
+                .map(enrollment -> toStudentRow(enrollment.getStudent(), attemptByStudent.get(enrollment.getStudent().getId()), assignment.getExercise(), numberOfAttemptsByStudent.getOrDefault(enrollment.getStudent().getId(), 0)))
                 .toList();
 
         return new ExerciseAssignmentStudentStatsResponse(toAssignmentStats(assignment, roster), rows);
@@ -189,11 +194,11 @@ public class ExerciseReportService {
                 percentOf(completedCount, totalStudents), passedCount, percentOf(passedCount, totalStudents));
     }
 
-    private ExerciseAssignmentStudentStatsResponse.StudentRow toStudentRow(Student student, ExerciseAttempt latest, Exercise exercise) {
+    private ExerciseAssignmentStudentStatsResponse.StudentRow toStudentRow(Student student, ExerciseAttempt latest, Exercise exercise, int numberOfAttempts) {
         if (latest == null) {
             return new ExerciseAssignmentStudentStatsResponse.StudentRow(
                     student.getId(), student.getStudentCode(), student.getUser().getFullName(),
-                    "CHUA_LAM", null, null, null, null, null, null, null);
+                    "CHUA_LAM", null, null, null, null, null, null, null, 0);
         }
         String status;
         if (latest.getStatus() == ExerciseAttempt.Status.IN_PROGRESS) {
@@ -208,7 +213,7 @@ public class ExerciseReportService {
         return new ExerciseAssignmentStudentStatsResponse.StudentRow(
                 student.getId(), student.getStudentCode(), student.getUser().getFullName(),
                 status, latest.getTotalScore(), exercise.getTotalPoints(), percentage,
-                latest.getPassed(), latest.getSubmittedAt(), latest.getAttemptNumber(), latest.getId());
+                latest.getPassed(), latest.getSubmittedAt(), latest.getAttemptNumber(), latest.getId(), numberOfAttempts);
     }
 
     private ExerciseAssignmentQuestionStatsResponse.QuestionRow toQuestionRow(ExerciseQuestion eq, List<StudentAnswer> answers,
@@ -250,19 +255,23 @@ public class ExerciseReportService {
     private Map<Long, ExerciseAttempt> selectedOrLatestAttemptByStudent(Long assignmentId) {
         List<ExerciseAttempt> attempts = exerciseAttemptRepository.findByExerciseAssignmentIdOrderByAttemptNumberDesc(assignmentId);
         Map<Long, ExerciseAttempt> result = new java.util.LinkedHashMap<>();
+
+        // Pass 1: tìm lượt được chọn (selectedForGrading=true) cho mỗi học sinh
         for (ExerciseAttempt attempt : attempts) {
             Long studentId = attempt.getStudent().getId();
-            if (result.containsKey(studentId)) {
-                continue; // đã có lượt cho học sinh này (từ lượt trước, lượt mới nhất)
-            }
-            // Nếu lượt này được chọn làm chính thức, thêm vào kết quả
             if (attempt.isSelectedForGrading()) {
                 result.put(studentId, attempt);
-            } else if (!result.containsKey(studentId)) {
-                // Nếu chưa có lượt nào cho học sinh này, thêm lượt cuối cùng
-                result.putIfAbsent(studentId, attempt);
             }
         }
+
+        // Pass 2: nếu học sinh chưa có lượt được chọn, thêm lượt cuối cùng (attempt đầu tiên vì sorted DESC)
+        for (ExerciseAttempt attempt : attempts) {
+            Long studentId = attempt.getStudent().getId();
+            if (!result.containsKey(studentId)) {
+                result.put(studentId, attempt);
+            }
+        }
+
         return result;
     }
 
