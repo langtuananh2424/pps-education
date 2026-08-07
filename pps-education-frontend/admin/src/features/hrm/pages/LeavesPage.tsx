@@ -13,15 +13,7 @@ import {
   listMyLeaveRequests,
   listPendingLeaveRequestsForApprover
 } from "../api";
-
-const leaveTypeLabels: Record<LeaveRequestResponse["leaveType"], string> = {
-  ANNUAL: "Nghỉ phép năm",
-  SICK: "Nghỉ ốm",
-  UNPAID: "Nghỉ không lương",
-  PERSONAL: "Nghỉ việc riêng",
-  LATE: "Đi trễ",
-  EARLY_LEAVE: "Về sớm"
-};
+import { useLeaveTypeLabel } from "../hooks/useLeaveTypeLabel";
 
 const statusVariant: Record<LeaveRequestResponse["status"], "success" | "danger" | "warning" | "neutral"> = {
   APPROVED: "success",
@@ -38,6 +30,7 @@ const statusLabels: Record<LeaveRequestResponse["status"], string> = {
 };
 
 export default function LeavesPage() {
+  const getLeaveTypeLabel = useLeaveTypeLabel();
   const [pending, setPending] = useState<LeaveRequestResponse[]>([]);
   const [pendingLoading, setPendingLoading] = useState(false);
   const [mine, setMine] = useState<LeaveRequestResponse[]>([]);
@@ -116,7 +109,7 @@ export default function LeavesPage() {
               mine.map((req) => (
                 <div key={req.id} className="p-3 space-y-1">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-bold text-slate-800">{leaveTypeLabels[req.leaveType]}</span>
+                    <span className="text-xs font-bold text-slate-800">{getLeaveTypeLabel(req.leaveType)}</span>
                     <Badge variant={statusVariant[req.status]}>{statusLabels[req.status]}</Badge>
                   </div>
                   <p className="text-[11px] text-slate-500 italic">"{req.reason}"</p>

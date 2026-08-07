@@ -9,15 +9,7 @@ import UserSearchCombobox from "@/features/system-admin/components/UserSearchCom
 import type { UserListItemResponse } from "@/features/system-admin/api";
 import type { ClassSessionResponse } from "@/features/academic/api";
 import { CreateLeaveRequestRequest, listTeachingSessionsForSubstitution, submitLeaveRequest } from "../api";
-
-const leaveTypeLabels: Record<CreateLeaveRequestRequest["leaveType"], string> = {
-  ANNUAL: "Nghỉ phép năm",
-  SICK: "Nghỉ ốm",
-  UNPAID: "Nghỉ không lương",
-  PERSONAL: "Nghỉ việc riêng",
-  LATE: "Đi trễ có lý do",
-  EARLY_LEAVE: "Về sớm"
-};
+import { useLeaveTypes } from "../hooks/useLeaveTypes";
 
 interface LeaveRequestFormProps {
   onSubmitted: () => void;
@@ -32,6 +24,7 @@ interface LeaveRequestFormProps {
 export default function LeaveRequestForm({ onSubmitted }: LeaveRequestFormProps) {
   const { currentRole } = useApp();
   const isTeacher = currentRole === UserRole.TEACHER;
+  const { leaveTypes, loading: loadingLeaveTypes } = useLeaveTypes();
 
   const [leaveType, setLeaveType] = useState<CreateLeaveRequestRequest["leaveType"]>("ANNUAL");
   const [startDate, setStartDate] = useState("");
@@ -147,13 +140,18 @@ export default function LeaveRequestForm({ onSubmitted }: LeaveRequestFormProps)
           <Select
             value={leaveType}
             onChange={(e) => setLeaveType(e.target.value as CreateLeaveRequestRequest["leaveType"])}
-            className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none"
+            disabled={loadingLeaveTypes}
+            className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none disabled:opacity-50"
           >
-            {Object.entries(leaveTypeLabels).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
+            {loadingLeaveTypes ? (
+              <option>Đang tải...</option>
+            ) : (
+              leaveTypes.map((type) => (
+                <option key={type.code} value={type.code}>
+                  {type.label}
+                </option>
+              ))
+            )}
           </Select>
         </div>
 

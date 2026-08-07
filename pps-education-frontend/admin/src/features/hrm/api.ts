@@ -481,3 +481,14 @@ export interface LeaveSubstitutionResponse {
 export function listLeaveSubstitutionHistory(): Promise<LeaveSubstitutionResponse[]> {
   return apiRequest<LeaveSubstitutionResponse[]>("/leave-substitutions");
 }
+
+/** Loại nghỉ phép — lấy từ backend (tránh hardcode). */
+export interface LeaveTypeResponse {
+  code: string;
+  label: string;
+  sortOrder: number;
+}
+
+export function listLeaveTypes(): Promise<LeaveTypeResponse[]> {
+  return apiRequest<LeaveTypeResponse[]>("/leave-types");
+}
