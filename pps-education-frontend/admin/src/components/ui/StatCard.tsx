@@ -8,19 +8,28 @@ interface StatCardProps {
   label: string;
   value: string;
   trend?: { value: string; direction: "up" | "down" };
-  tone?: "brand" | "slate";
+  /** Chú thích tĩnh (không phải xu hướng tăng/giảm) khi không có số liệu so sánh kỳ trước đáng tin cậy — tránh bịa mũi tên tăng/giảm không có dữ liệu thật. */
+  hint?: string;
+  tone?: "brand" | "slate" | "warning" | "danger";
 }
 
-export default function StatCard({ icon: Icon, label, value, trend, tone = "brand" }: StatCardProps) {
+const toneClasses: Record<NonNullable<StatCardProps["tone"]>, string> = {
+  brand: "bg-brand-gradient text-white shadow-glow",
+  slate: "bg-slate-100 text-slate-500",
+  warning: "bg-amber-50 text-amber-600",
+  danger: "bg-rose-50 text-rose-600"
+};
+
+export default function StatCard({ icon: Icon, label, value, trend, hint, tone = "brand" }: StatCardProps) {
   return (
     <Card className="flex items-start justify-between gap-3">
       <div className="min-w-0">
-        <p className="text-[11px] font-semibold text-slate-500 truncate">{label}</p>
-        <p className="text-xl md:text-2xl font-bold font-display text-slate-900 mt-1 truncate">{value}</p>
+        <p className="text-sm font-bold text-slate-500 uppercase tracking-wide truncate">{label}</p>
+        <p className="text-2xl md:text-3xl font-bold font-display text-slate-900 mt-1.5 truncate">{value}</p>
         {trend && (
           <div
             className={cn(
-              "inline-flex items-center gap-1 mt-2 text-[11px] font-semibold",
+              "inline-flex items-center gap-1 mt-2 text-sm font-semibold",
               trend.direction === "up" ? "text-emerald-600" : "text-rose-500"
             )}
           >
@@ -32,14 +41,10 @@ export default function StatCard({ icon: Icon, label, value, trend, tone = "bran
             <span>{trend.value}</span>
           </div>
         )}
+        {!trend && hint && <p className="text-sm text-slate-400 mt-2 truncate">{hint}</p>}
       </div>
-      <div
-        className={cn(
-          "w-10 h-10 rounded-xl flex items-center justify-center shrink-0",
-          tone === "brand" ? "bg-brand-gradient text-white shadow-glow" : "bg-slate-100 text-slate-500"
-        )}
-      >
-        <Icon className="w-5 h-5" />
+      <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center shrink-0", toneClasses[tone])}>
+        <Icon className="w-6 h-6" />
       </div>
     </Card>
   );
