@@ -117,7 +117,7 @@ export const navSections: NavSection[] = [
       // ngay trong trang) — đã xác nhận với người dùng 2026-07-27: không gate gì ở đây, ai đăng nhập
       // cũng vào được, khớp đúng Javadoc AttendanceController/LeaveRequestController/PayrollController.
       { id: "hrm-attendance", label: "Dữ liệu chấm công", path: "/hrm/attendance", icon: Users },
-      { id: "hrm-leaves", label: "Phê duyệt đơn từ", path: "/hrm/leaves", icon: Users },
+      { id: "hrm-leaves", label: "Xin nghỉ phép", path: "/hrm/leaves", icon: Users },
       { id: "hrm-payroll", label: "Tính toán bảng lương", path: "/hrm/payroll", icon: Users }
     ]
   },
