@@ -11,12 +11,14 @@ import vn.com.pps.education.domain.LeaveRequestApproval;
 import vn.com.pps.education.domain.LeaveRequestHistory;
 import vn.com.pps.education.domain.Notification;
 import vn.com.pps.education.domain.User;
+import vn.com.pps.education.domain.UserRole;
 import vn.com.pps.education.dto.ClassSessionResponse;
 import vn.com.pps.education.dto.CreateLeaveRequestRequest;
 import vn.com.pps.education.dto.DecideLeaveRequestRequest;
 import vn.com.pps.education.dto.LeaveRequestApprovalResponse;
 import vn.com.pps.education.dto.LeaveRequestResponse;
 import vn.com.pps.education.dto.SubstituteAssignmentRequest;
+import vn.com.pps.education.dto.TeacherLookupResponse;
 import vn.com.pps.education.exception.ExecutiveExemptFromLeaveRequestException;
 import vn.com.pps.education.exception.LeaveRequestAlreadyFinalizedException;
 import vn.com.pps.education.exception.NotCurrentApproverException;
@@ -33,6 +35,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -259,6 +262,27 @@ public class LeaveRequestService {
     public List<ClassSessionResponse> findTeachingSessions(
             Long actorUserId, LocalDate startDate, LocalDate endDate) {
         return leaveSubstitutionService.findTeachingSessionResponses(actorUserId, startDate, endDate);
+    }
+
+    /**
+     * UC-10 bước 3 (FE) — gợi ý giáo viên dạy thay khi nộp đơn. Bổ sung
+     * ngoài SDD gốc, đã xác nhận với người dùng 2026-08-07: không lọc theo
+     * site, hiển thị toàn bộ tài khoản ACTIVE mang role TEACHER (self-service,
+     * không đòi hỏi quyền user.view — khác UC-44 dành cho quản trị tài khoản).
+     */
+    @Transactional(readOnly = true)
+    public List<TeacherLookupResponse> listSubstituteTeacherCandidates(String keyword) {
+        String pattern = keyword == null || keyword.isBlank() ? null : keyword.trim().toLowerCase();
+        return userRoleRepository.findByRole_Code("TEACHER").stream()
+                .map(UserRole::getUser)
+                .filter(u -> u.getStatus() == User.Status.ACTIVE)
+                .filter(u -> pattern == null
+                        || u.getFullName().toLowerCase().contains(pattern)
+                        || u.getUsername().toLowerCase().contains(pattern)
+                        || u.getEmail().toLowerCase().contains(pattern))
+                .sorted(Comparator.comparing(User::getFullName))
+                .map(u -> new TeacherLookupResponse(u.getId(), u.getUsername(), u.getEmail(), u.getFullName()))
+                .toList();
     }
 
     /**

@@ -3,14 +3,17 @@ package vn.com.pps.education.domain;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import vn.com.pps.education.common.BaseAuditEntity;
 
 @Entity
 @Table(name = "leave_types")
 @Data
+@EqualsAndHashCode(callSuper = false)
 @NoArgsConstructor
 @AllArgsConstructor
-public class LeaveType {
+public class LeaveType extends BaseAuditEntity {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;

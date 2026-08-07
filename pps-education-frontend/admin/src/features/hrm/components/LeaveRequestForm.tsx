@@ -5,10 +5,9 @@ import Select from "@/components/ui/Select";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import { UserRole } from "@/types";
-import UserSearchCombobox from "@/features/system-admin/components/UserSearchCombobox";
-import type { UserListItemResponse } from "@/features/system-admin/api";
+import SubstituteTeacherCombobox from "./SubstituteTeacherCombobox";
 import type { ClassSessionResponse } from "@/features/academic/api";
-import { CreateLeaveRequestRequest, listTeachingSessionsForSubstitution, submitLeaveRequest } from "../api";
+import { CreateLeaveRequestRequest, listTeachingSessionsForSubstitution, submitLeaveRequest, TeacherLookupResponse } from "../api";
 import { useLeaveTypes } from "../hooks/useLeaveTypes";
 
 interface LeaveRequestFormProps {
@@ -45,7 +44,7 @@ export default function LeaveRequestForm({ onSubmitted }: LeaveRequestFormProps)
   const [teachingSessions, setTeachingSessions] = useState<ClassSessionResponse[]>([]);
   const [loadingSessions, setLoadingSessions] = useState(false);
   const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
-  const [substitutes, setSubstitutes] = useState<Record<number, UserListItemResponse | null>>({});
+  const [substitutes, setSubstitutes] = useState<Record<number, TeacherLookupResponse | null>>({});
 
   useEffect(() => {
     setSelectedClassId(null);
@@ -75,7 +74,7 @@ export default function LeaveRequestForm({ onSubmitted }: LeaveRequestFormProps)
   const needsSubstituteSelection = teachingSessions.length > 0;
   const allSubstitutesChosen = selectedClassSessions.length > 0 && selectedClassSessions.every((s) => substitutes[s.id]);
 
-  const applySameSubstituteToAll = (user: UserListItemResponse | null) => {
+  const applySameSubstituteToAll = (user: TeacherLookupResponse | null) => {
     if (!user) return;
     setSubstitutes((prev) => {
       const next = { ...prev };
@@ -229,7 +228,7 @@ export default function LeaveRequestForm({ onSubmitted }: LeaveRequestFormProps)
                   <button
                     type="button"
                     onClick={() => {
-                      const first = Object.values(substitutes).find((u): u is UserListItemResponse => !!u);
+                      const first = Object.values(substitutes).find((u): u is TeacherLookupResponse => !!u);
                       if (first) applySameSubstituteToAll(first);
                     }}
                     className="text-[10px] font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1"
@@ -242,10 +241,9 @@ export default function LeaveRequestForm({ onSubmitted }: LeaveRequestFormProps)
                     <p className="text-[11px] text-slate-600 font-semibold">
                       {s.sessionDate} · {s.startTime.slice(0, 5)}-{s.endTime.slice(0, 5)}
                     </p>
-                    <UserSearchCombobox
+                    <SubstituteTeacherCombobox
                       value={substitutes[s.id] ?? null}
                       onChange={(u) => setSubstitutes((prev) => ({ ...prev, [s.id]: u }))}
-                      roleFilter="TEACHER"
                       placeholder="Chọn giáo viên dạy thay..."
                     />
                   </div>

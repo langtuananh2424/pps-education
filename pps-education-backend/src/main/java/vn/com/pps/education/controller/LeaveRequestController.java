@@ -16,6 +16,7 @@ import vn.com.pps.education.dto.CreateLeaveRequestRequest;
 import vn.com.pps.education.dto.DecideLeaveRequestRequest;
 import vn.com.pps.education.dto.LeaveRequestApprovalResponse;
 import vn.com.pps.education.dto.LeaveRequestResponse;
+import vn.com.pps.education.dto.TeacherLookupResponse;
 import vn.com.pps.education.security.AuthenticatedUser;
 import vn.com.pps.education.service.LeaveRequestService;
 
@@ -50,6 +51,13 @@ public class LeaveRequestController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(leaveRequestService.findTeachingSessions(actor.userId(), startDate, endDate));
+    }
+
+    /** UC-10 bước 3: gợi ý giáo viên dạy thay (self-service, không cần quyền user.view). */
+    @GetMapping("/substitute-teacher-candidates")
+    public ResponseEntity<List<TeacherLookupResponse>> findSubstituteTeacherCandidates(
+            @RequestParam(required = false) String keyword) {
+        return ResponseEntity.ok(leaveRequestService.listSubstituteTeacherCandidates(keyword));
     }
 
     @GetMapping("/pending-for-me")

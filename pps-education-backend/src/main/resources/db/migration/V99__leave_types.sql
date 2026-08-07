@@ -1,12 +1,12 @@
 -- Create leave_types table
 CREATE TABLE leave_types (
-  id SERIAL PRIMARY KEY,
+  id BIGSERIAL PRIMARY KEY,
   code VARCHAR(50) NOT NULL UNIQUE,
   label VARCHAR(100) NOT NULL,
   sort_order INTEGER NOT NULL,
   is_active BOOLEAN NOT NULL DEFAULT true,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- Insert default leave types
