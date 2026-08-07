@@ -210,6 +210,37 @@ class GradeImportServiceTest extends AbstractIntegrationTest {
                 .extracting(GradeEntryResponse::studentId).containsExactly(student2.getId());
     }
 
+    /**
+     * Bổ sung ngoài SDD gốc: GV tự định dạng ô điểm trong Excel thành "Phần trăm" (setup dùng
+     * thang PERCENT) — Excel/DataFormatter trả về chuỗi có dấu "%" (VD "80,00%", dấu phẩy thập
+     * phân kiểu VN) thay vì số thuần "80.00", parseScore phải bỏ dấu "%" rồi mới parse, không
+     * được coi là điểm không hợp lệ (đã từng bị lỗi thật trên môi trường GV dùng).
+     */
+    @Test
+    void importGrades_UC53_A4_acceptsPercentFormattedScoreCell() throws IOException {
+        GradeComponentSetupResponse percentSetup = gradeService.createGradeComponentSetup(schoolClass.id(),
+                new CreateGradeComponentSetupRequest(gradeSetup.academicTermId(), "END_TERM", "PERCENT", LocalDate.now(), false),
+                headAcademic.getId());
+        GradeEvaluationComponentResponse grammar = gradeService.addGradeEvaluationComponent(percentSetup.id(),
+                new CreateGradeEvaluationComponentRequest(null, null, "GRAMMAR", "Ngữ pháp", new BigDecimal("100.00"), null, null, 1),
+                headAcademic.getId());
+
+        byte[] file = buildWorkbook(
+                new String[]{"Ma hoc vien", "Ngữ pháp"},
+                new String[][]{
+                        {student1.getStudentCode(), "80,00%"},
+                });
+
+        GradeImportResponse result = gradeImportService.importGrades(schoolClass.id(), percentSetup.id(),
+                new MockMultipartFile("file", "diem.xlsx", "application/vnd.openxmlformats", file), teacher.getId());
+
+        assertThat(result.status()).isEqualTo("COMPLETED");
+        assertThat(result.successRows()).isEqualTo(1);
+        assertThat(gradeService.listEntries(schoolClass.id(), grammar.id()))
+                .extracting(GradeEntryResponse::score)
+                .anySatisfy(s -> assertThat(s).isEqualByComparingTo("80.00"));
+    }
+
     @Test
     void importGrades_UC53_A3_marksFailedForCorruptFile() {
         byte[] garbage = "not an excel file".getBytes();

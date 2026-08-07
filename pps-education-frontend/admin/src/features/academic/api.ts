@@ -731,8 +731,9 @@ export function importGrades(classId: number, setupId: number, file: File): Prom
   return apiRequest<GradeImportResponse>(`/classes/${classId}/grade-component-setups/${setupId}/grades/import`, { method: "POST", body: formData });
 }
 
-export function downloadGradeImportTemplateUrl(classId: number, setupId: number): string {
-  return `/classes/${classId}/grade-component-setups/${setupId}/grades/import-template`;
+/** UC-53 (bổ sung): file mẫu điền sẵn theo đúng roster + đầu điểm của setup — gọi thẳng backend (GradeImportService#buildTemplate) thay vì tự dựng phía FE, tránh lệch header. */
+export function downloadGradeImportTemplate(classId: number, setupId: number): Promise<Blob> {
+  return apiRequestBlob(`/classes/${classId}/grade-component-setups/${setupId}/grades/import-template`);
 }
 
 /**
