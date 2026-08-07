@@ -50,8 +50,8 @@ export default function LeaveApprovalQueue({ leaveRequests, loading, onDecided }
     <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden">
       <div className="px-5 py-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between gap-3">
         <div>
-          <span className="text-xs font-bold text-slate-700 font-display block">Hàng chờ duyệt đơn từ</span>
-          <p className="text-[10px] text-slate-400">Xem xét và phê duyệt hoặc từ chối đơn xin nghỉ thuộc thẩm quyền của bạn.</p>
+          <span className="text-xs font-bold text-slate-700 font-display block">Hàng chờ xét duyệt</span>
+          <p className="text-[10px] text-slate-400">Các đơn xin nghỉ chờ xét duyệt thuộc thẩm quyền của bạn.</p>
         </div>
         <span className="px-2 py-1 rounded-full text-[10px] font-bold bg-brand-orange text-white shrink-0">{leaveRequests.length}</span>
       </div>

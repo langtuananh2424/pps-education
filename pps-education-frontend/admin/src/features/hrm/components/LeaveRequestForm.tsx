@@ -135,9 +135,9 @@ export default function LeaveRequestForm({ onSubmitted }: LeaveRequestFormProps)
   return (
     <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-soft space-y-4">
       <h3 className="text-xs font-bold text-slate-400 block uppercase tracking-wider font-display border-b border-slate-100 pb-2">
-        Nộp Đơn Nghỉ Phép / Đi Muộn
+        Nộp Đơn Xin Nghỉ
       </h3>
-      <p className="text-xs text-slate-500">Hệ thống tự tạo quy trình xét duyệt 1-2 bước tương ứng theo phòng ban/chức vụ.</p>
+      <p className="text-xs text-slate-500">Gửi yêu cầu nghỉ phép, đi muộn hoặc về sớm. Hệ thống sẽ tự động xác định quy trình duyệt 1-2 bước theo chức vụ của bạn.</p>
 
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 

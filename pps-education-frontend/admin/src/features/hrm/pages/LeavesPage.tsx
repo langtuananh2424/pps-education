@@ -79,8 +79,8 @@ export default function LeavesPage() {
   return (
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Phân hệ Quản lý Nhân sự & Tiền lương (HRM)</h1>
-        <p className="text-xs text-slate-500 mt-1">Nộp đơn nghỉ phép/đi muộn và xét duyệt theo luồng phân cấp.</p>
+        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Xin Nghỉ Phép / Đi Muộn</h1>
+        <p className="text-xs text-slate-500 mt-1">Nộp đơn xin nghỉ phép, đi muộn, về sớm và theo dõi quy trình xét duyệt.</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -104,8 +104,8 @@ export default function LeavesPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden">
           <div className="px-5 py-3 border-b border-slate-100 bg-slate-50">
-            <span className="text-xs font-bold text-slate-700 font-display block">Đơn từ của tôi</span>
-            <p className="text-[10px] text-slate-400">Lịch sử đơn nghỉ phép/đi muộn bạn đã nộp.</p>
+            <span className="text-xs font-bold text-slate-700 font-display block">Lịch sử đơn của tôi</span>
+            <p className="text-[10px] text-slate-400">Các đơn xin nghỉ bạn đã nộp và trạng thái duyệt.</p>
           </div>
           <div className="divide-y divide-slate-100 max-h-96 overflow-y-auto">
             {mineLoading ? (
@@ -133,8 +133,8 @@ export default function LeavesPage() {
           <div className="px-5 py-3 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
             <History className="w-3.5 h-3.5 text-slate-400 shrink-0" />
             <div>
-              <span className="text-xs font-bold text-slate-700 font-display block">Lịch sử dạy thay</span>
-              <p className="text-[10px] text-slate-400">Giáo viên dạy thay theo đơn nghỉ — tự thu hồi sau 2 ngày kể từ ngày kết thúc nghỉ.</p>
+              <span className="text-xs font-bold text-slate-700 font-display block">Lịch sử giáo viên dạy thay</span>
+              <p className="text-[10px] text-slate-400">Giáo viên dạy thay được gán theo đơn xin nghỉ của bạn.</p>
             </div>
           </div>
           <div className="divide-y divide-slate-100 max-h-96 overflow-y-auto">
