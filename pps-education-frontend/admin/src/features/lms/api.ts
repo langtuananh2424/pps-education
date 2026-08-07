@@ -349,6 +349,8 @@ export interface CreateExerciseRequest {
   allowRetake: boolean;
   maxAttempts?: number;
   showCorrectAnswers: boolean;
+  /** V89/V100 — không truyền = dùng mặc định hệ thống (70%, exercises.pass_threshold_percent). */
+  passThresholdPercent?: number;
 }
 
 export interface ExerciseResponse {
@@ -370,6 +372,8 @@ export interface ExerciseResponse {
   allowRetake: boolean;
   maxAttempts: number | null;
   showCorrectAnswers: boolean;
+  /** V89/V100 — ngưỡng % để tính đạt/chưa đạt (exercises.pass_threshold_percent), mặc định 70. */
+  passThresholdPercent: number;
   status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
   createdBy: number;
   /** true nếu đề có ít nhất 1 câu ESSAY/SPEAKING — cần chấm tay ở UC-41 sau khi học sinh nộp. */
@@ -388,6 +392,8 @@ export interface UpdateExerciseRequest {
   allowRetake: boolean;
   maxAttempts?: number;
   showCorrectAnswers: boolean;
+  /** V89/V100 — không truyền = giữ nguyên giá trị hiện tại (backend chỉ ghi đè khi có giá trị). */
+  passThresholdPercent?: number;
 }
 
 export function updateExercise(id: number, request: UpdateExerciseRequest): Promise<ExerciseResponse> {

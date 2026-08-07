@@ -114,6 +114,7 @@ function ExerciseInfoStep({
   const [allowRetake, setAllowRetake] = useState(false);
   const [maxAttempts, setMaxAttempts] = useState("");
   const [showCorrectAnswers, setShowCorrectAnswers] = useState(true);
+  const [passThresholdPercent, setPassThresholdPercent] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -133,7 +134,8 @@ function ExerciseInfoStep({
         totalPoints: Number(totalPoints),
         allowRetake,
         maxAttempts: allowRetake && maxAttempts ? Number(maxAttempts) : undefined,
-        showCorrectAnswers
+        showCorrectAnswers,
+        passThresholdPercent: passThresholdPercent ? Number(passThresholdPercent) : undefined
       });
       onCreated(created);
     } catch (err) {
@@ -158,6 +160,18 @@ function ExerciseInfoStep({
           <label className={labelClass}>Tên Bài *</label>
           <input value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} />
         </div>
+        <div className="col-span-2">
+          <label className={labelClass}>Ngưỡng đạt (%)</label>
+          <input
+            type="number"
+            min={0}
+            max={100}
+            placeholder="Mặc định 70"
+            value={passThresholdPercent}
+            onChange={(e) => setPassThresholdPercent(e.target.value)}
+            className={inputClass}
+          />
+        </div>
         <div>
           <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
             <input type="checkbox" checked={showCorrectAnswers} onChange={(e) => setShowCorrectAnswers(e.target.checked)} />
@@ -171,7 +185,7 @@ function ExerciseInfoStep({
           </label>
         </div>
         {allowRetake && (
-          <div>
+          <div className="col-span-2">
             <label className={labelClass}>Số lần làm tối đa</label>
             <input type="number" min={1} value={maxAttempts} onChange={(e) => setMaxAttempts(e.target.value)} className={inputClass} />
           </div>

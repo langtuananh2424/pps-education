@@ -412,6 +412,7 @@ function EditExerciseModal({
   const [allowRetake, setAllowRetake] = useState(exercise.allowRetake);
   const [maxAttempts, setMaxAttempts] = useState(exercise.maxAttempts != null ? String(exercise.maxAttempts) : "");
   const [showCorrectAnswers, setShowCorrectAnswers] = useState(exercise.showCorrectAnswers);
+  const [passThresholdPercent, setPassThresholdPercent] = useState(String(exercise.passThresholdPercent));
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -430,7 +431,8 @@ function EditExerciseModal({
         totalPoints: Number(totalPoints),
         allowRetake,
         maxAttempts: allowRetake && maxAttempts ? Number(maxAttempts) : undefined,
-        showCorrectAnswers
+        showCorrectAnswers,
+        passThresholdPercent: passThresholdPercent ? Number(passThresholdPercent) : undefined
       };
       const updated = await updateExercise(exercise.id, request);
       onUpdated(updated);
@@ -452,6 +454,17 @@ function EditExerciseModal({
         <div>
           <label className={labelClass}>Tổng điểm *</label>
           <input type="number" min={0} value={totalPoints} onChange={(e) => setTotalPoints(e.target.value)} className={inputClass} />
+        </div>
+        <div>
+          <label className={labelClass}>Ngưỡng đạt (%)</label>
+          <input
+            type="number"
+            min={0}
+            max={100}
+            value={passThresholdPercent}
+            onChange={(e) => setPassThresholdPercent(e.target.value)}
+            className={inputClass}
+          />
         </div>
         <div>
           <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
