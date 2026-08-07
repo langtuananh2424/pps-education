@@ -193,7 +193,7 @@ class ManualGradingServiceTest extends AbstractIntegrationTest {
                 new GradeAnswerRequest(new BigDecimal("1.5"), new BigDecimal("2.0"), "Khá tốt, cần thêm ví dụ."), teacher.getId());
 
         ExerciseAttemptResponse updated = exerciseAttemptService.getAttempt(attempt.id(), studentUser.getId());
-        // total_score 2.5 / total_points 3 = 83.33% >= ngưỡng mặc định 80% -> đạt.
+        // total_score 2.5 / total_points 3 = 83.33% >= ngưỡng mặc định 70% -> đạt.
         assertThat(updated.percentage()).isEqualByComparingTo("83.33");
         assertThat(updated.passed()).isTrue();
     }
