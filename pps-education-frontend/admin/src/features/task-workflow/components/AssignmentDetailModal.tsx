@@ -192,7 +192,7 @@ export default function AssignmentDetailModal({ assignment, onClose, onChanged }
                       className={`text-xs font-semibold px-3.5 py-1.5 rounded-lg ${
                         target === "DECLINED"
                           ? "bg-rose-50 text-rose-600 hover:bg-rose-100"
-                          : "bg-slate-900 hover:bg-slate-800 text-white"
+                          : "bg-brand-gradient hover:opacity-95 text-white"
                       }`}
                     >
                       {ASSIGNMENT_ACTION_LABEL[target]}
@@ -262,8 +262,8 @@ export default function AssignmentDetailModal({ assignment, onClose, onChanged }
                 onChange={(e) => setNewComment(e.target.value)}
                 className="flex-1 bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none"
               />
-              <button type="submit" className="bg-slate-900 hover:bg-slate-800 text-white p-2 rounded-lg shrink-0">
-                <Send className="w-4 h-4 text-brand-yellow" />
+              <button type="submit" className="bg-brand-gradient hover:opacity-95 text-white p-2 rounded-lg shrink-0">
+                <Send className="w-4 h-4 text-white" />
               </button>
             </form>
           </div>

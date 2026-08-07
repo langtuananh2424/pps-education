@@ -65,9 +65,9 @@ export default function CurriculumApprovalPanel() {
             <button
               onClick={() => handleDecide(a.id, "APPROVED")}
               disabled={decidingId === a.id}
-              className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-bold rounded flex items-center gap-0.5 disabled:opacity-50"
+              className="px-2.5 py-1 bg-brand-gradient hover:opacity-95 text-white text-[10px] font-bold rounded flex items-center gap-0.5 disabled:opacity-50"
             >
-              <Check className="w-3.5 h-3.5 text-brand-yellow" />
+              <Check className="w-3.5 h-3.5 text-white" />
               Duyệt tùy biến
             </button>
           </div>

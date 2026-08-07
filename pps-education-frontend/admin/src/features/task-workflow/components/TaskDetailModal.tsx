@@ -76,8 +76,8 @@ export default function TaskDetailModal({ task, onClose, onChangeStatus, onAddCo
               onChange={(e) => setNewComment(e.target.value)}
               className="flex-1 bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none"
             />
-            <button type="submit" className="bg-slate-900 hover:bg-slate-800 text-white p-2 rounded-lg shrink-0">
-              <Send className="w-4 h-4 text-brand-yellow" />
+            <button type="submit" className="bg-brand-gradient hover:opacity-95 text-white p-2 rounded-lg shrink-0">
+              <Send className="w-4 h-4 text-white" />
             </button>
           </form>
         </div>
