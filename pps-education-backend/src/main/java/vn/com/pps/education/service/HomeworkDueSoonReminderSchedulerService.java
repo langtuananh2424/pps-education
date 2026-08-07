@@ -16,7 +16,9 @@ import vn.com.pps.education.repository.ParentStudentRepository;
 import vn.com.pps.education.repository.ReviewVideoAssignmentRepository;
 
 import java.time.OffsetDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06: nhắc Phụ
@@ -110,9 +112,12 @@ public class HomeworkDueSoonReminderSchedulerService {
         String title = "Sắp tới hạn nộp " + assignmentLabel;
         String content = "Con " + student.getUser().getFullName() + " (lớp " + schoolClass.getName() + ") chưa hoàn thành "
                 + assignmentLabel + ", hạn nộp " + dueAt + " — nhắc con hoàn thành trước hạn nhé.";
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("studentName", student.getUser().getFullName());
+        metadata.put("className", schoolClass.getName());
         for (ParentStudent link : parentStudentRepository.findByStudentId(student.getId())) {
             notificationService.notify(link.getParent().getUser().getId(), Notification.NotificationType.HOMEWORK_DUE_SOON_REMINDER,
-                    title, content, null, "STUDENT", student.getId(), Notification.Priority.NORMAL, null);
+                    title, content, metadata, "STUDENT", student.getId(), Notification.Priority.NORMAL, null);
         }
     }
 }

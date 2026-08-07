@@ -291,6 +291,8 @@ public class StudentAttendanceService {
         metadata.put("classSessionId", classSession.getId());
         metadata.put("studentId", mark.getStudent().getId());
         metadata.put("status", mark.getStatus().name());
+        metadata.put("studentName", mark.getStudent().getUser().getFullName());
+        metadata.put("className", classSession.getSchoolClass().getName());
 
         for (ParentStudent link : links) {
             notificationService.notify(link.getParent().getUser().getId(), Notification.NotificationType.ATTENDANCE_ABSENT,

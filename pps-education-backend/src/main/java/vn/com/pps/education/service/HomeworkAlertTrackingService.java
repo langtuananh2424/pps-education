@@ -14,7 +14,9 @@ import vn.com.pps.education.repository.StudentHomeworkAlertStateRepository;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — cảnh báo
@@ -75,7 +77,7 @@ public class HomeworkAlertTrackingService {
         if (triggered.isEmpty()) {
             return;
         }
-        sendCombinedNotification(student, triggered);
+        sendCombinedNotification(student, schoolClass, triggered);
     }
 
     /** Cập nhật streak/tổng cho 1 kênh không đạt, trả về 0-1 cảnh báo vừa chạm mốc (kiểu 1 ưu tiên hơn kiểu 2 — giả định 5 đã xác nhận). */
@@ -106,19 +108,22 @@ public class HomeworkAlertTrackingService {
         if (!state.isType2AlertSent() && total >= 3) {
             state.setType2AlertSent(true);
             return List.of(new TriggeredAlert(channelLabel + ": thiếu " + total + " buổi không liên tục trong kỳ (Nhắc nhở).",
-                    0, Notification.NotificationType.HOMEWORK_MISS_REMINDER, Notification.Priority.NORMAL));
+                    0, Notification.NotificationType.HOMEWORK_MISS_REMINDER_NON_CONSECUTIVE, Notification.Priority.NORMAL));
         }
         return List.of();
     }
 
-    private void sendCombinedNotification(Student student, List<TriggeredAlert> triggered) {
+    private void sendCombinedNotification(Student student, SchoolClass schoolClass, List<TriggeredAlert> triggered) {
         TriggeredAlert heaviest = triggered.stream().max(java.util.Comparator.comparingInt(TriggeredAlert::rank)).orElseThrow();
         String title = "Cảnh báo BTVN — học sinh " + student.getUser().getFullName();
         String content = triggered.stream().map(TriggeredAlert::line).reduce((a, b) -> a + "\n" + b).orElse("");
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("studentName", student.getUser().getFullName());
+        metadata.put("className", schoolClass.getName());
 
         for (ParentStudent link : parentStudentRepository.findByStudentId(student.getId())) {
             notificationService.notify(link.getParent().getUser().getId(), heaviest.type(), title, content,
-                    null, "STUDENT", student.getId(), heaviest.priority(), null);
+                    metadata, "STUDENT", student.getId(), heaviest.priority(), null);
         }
     }
 
