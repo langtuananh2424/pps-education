@@ -8,13 +8,13 @@ import java.time.LocalDate;
 /**
  * UC-28 Main Flow bước 1-3: chọn lớp + kỳ lập kế hoạch (tuần/năm), nhập
  * nội dung. weekNumber/weekStartDate/weekEndDate bắt buộc khi
- * planType=WEEKLY; academicYear bắt buộc khi planType=YEARLY (CHECK
+ * planType=WEEKLY; academicYearId bắt buộc khi planType=YEARLY (CHECK
  * chk_plan_period — validate lại ở Service).
  */
 public record CreateTeachingPlanRequest(
         @NotNull Long classId,
         @NotBlank String planType,
-        String academicYear,
+        Long academicYearId,
         Integer weekNumber,
         LocalDate weekStartDate,
         LocalDate weekEndDate,

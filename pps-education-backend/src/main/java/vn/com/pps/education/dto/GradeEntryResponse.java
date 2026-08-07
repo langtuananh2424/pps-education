@@ -11,6 +11,8 @@ public record GradeEntryResponse(
         String studentCode,
         Long gradeEvaluationComponentId,
         Long academicTermId,
+        Long academicYearId,
+        String academicYear,
         String evaluationType,
         BigDecimal score,
         boolean absenceFlag,

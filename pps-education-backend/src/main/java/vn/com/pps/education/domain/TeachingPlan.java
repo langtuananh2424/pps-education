@@ -43,9 +43,10 @@ public class TeachingPlan {
     @Column(name = "plan_type", nullable = false, length = 20)
     private PlanType planType;
 
-    /** Cho YEARLY (SDD). */
-    @Column(name = "academic_year", length = 20)
-    private String academicYear;
+    /** Cho YEARLY (SDD). V102 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-07): đổi từ chuỗi tự do sang FK academic_years. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "academic_year_id")
+    private AcademicYear academicYear;
 
     /** Cho WEEKLY (SDD). */
     @Column(name = "week_number")

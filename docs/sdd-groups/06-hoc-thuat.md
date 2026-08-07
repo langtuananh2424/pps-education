@@ -108,6 +108,7 @@ erDiagram
         VARCHAR status
         BIGINT enrolled_by FK
         BIGINT import_job_id FK
+        VARCHAR academic_year
     }
 ```
 
@@ -405,6 +406,21 @@ e)  Bảng class_enrollments --- Học sinh trong lớp
   import_job_id      BIGINT            FK →               Nếu từ import
                                         import_jobs(id),   Excel lớp liên kết
                                         NULL
+
+  academic_year      VARCHAR(20)       NULL               Copy từ
+                                                            classes.
+                                                            academic_year tại
+                                                            thời điểm tạo
+                                                            (V101, bổ sung
+                                                            ngoài SDD gốc, đã
+                                                            xác nhận với
+                                                            người dùng
+                                                            2026-08-07) — để
+                                                            Portal HS/PH lọc
+                                                            lịch sử ghi danh
+                                                            theo năm học
+                                                            không cần join
+                                                            qua classes
   --------------------------------------------------------------------------
 
 Có class_enrollments_history.
@@ -878,6 +894,7 @@ erDiagram
         BIGINT student_id FK
         BIGINT grade_evaluation_component_id FK
         BIGINT academic_term_id FK
+        VARCHAR academic_year
         VARCHAR evaluation_type
         DECIMAL score
         BOOLEAN absence_flag
@@ -1059,6 +1076,20 @@ c)  Bảng `grade_entries` --- Điểm cụ thể của học sinh
                                                                     không cần
                                                                     join qua
                                                                     setup
+
+  academic_year                VARCHAR(20)      NULL                Copy từ
+                                                                    classes.
+                                                                    academic_
+                                                                    year tại
+                                                                    thời điểm
+                                                                    tạo (V101,
+                                                                    bổ sung
+                                                                    ngoài SDD
+                                                                    gốc, đã
+                                                                    xác nhận
+                                                                    với người
+                                                                    dùng
+                                                                    2026-08-07)
 
   evaluation_type             VARCHAR(20)      NOT NULL            MID_TERM /
                                                                     END_TERM
@@ -1282,6 +1313,7 @@ erDiagram
         VARCHAR comment_type
         BIGINT class_session_id FK
         BIGINT academic_term_id FK
+        VARCHAR academic_year
         DATE comment_date
         TEXT content
         JSONB structured_content
@@ -1334,6 +1366,13 @@ a)  Bảng student_comments --- Nhận xét học sinh
                                         academic_terms(id),   comment_type=MID_TERM/END_TERM
                                         NULL                   (V95, đổi từ
                                                                 grade_period_id)
+
+  academic_year           VARCHAR(20)   NULL                  Copy từ classes.academic_year
+                                                                tại thời điểm tạo, áp dụng cho
+                                                                cả DAILY lẫn MID_TERM/END_TERM
+                                                                (V101, bổ sung ngoài SDD gốc,
+                                                                đã xác nhận với người dùng
+                                                                2026-08-07)
 
   comment_date            DATE          NOT NULL
 

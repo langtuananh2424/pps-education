@@ -165,7 +165,10 @@ public class PartnerPortalService {
     private GradeEntryResponse toResponse(GradeEntry e) {
         return new GradeEntryResponse(
                 e.getId(), e.getSchoolClass().getId(), e.getStudent().getId(), e.getStudent().getUser().getFullName(),
-                e.getStudent().getStudentCode(), e.getGradeComponent().getId(), e.getAcademicTerm().getId(), e.getEvaluationType().name(),
+                e.getStudent().getStudentCode(), e.getGradeComponent().getId(), e.getAcademicTerm().getId(),
+                e.getAcademicYear() == null ? null : e.getAcademicYear().getId(),
+                e.getAcademicYear() == null ? null : e.getAcademicYear().getCode(),
+                e.getEvaluationType().name(),
                 e.getScore(), e.isAbsenceFlag(), e.getTeacherNote(), e.getStatus().name(), e.getEnteredBy().getId(),
                 e.getPublishedBy() == null ? null : e.getPublishedBy().getId(), e.getPublishedAt(), e.getFinalizedAt());
     }
@@ -173,7 +176,9 @@ public class PartnerPortalService {
     private TeachingPlanResponse toResponse(TeachingPlan p) {
         return new TeachingPlanResponse(
                 p.getId(), p.getSchoolClass().getId(), p.getTeacher().getId(), p.getPlanType().name(),
-                p.getAcademicYear(), p.getWeekNumber(), p.getWeekStartDate(), p.getWeekEndDate(),
+                p.getAcademicYear() == null ? null : p.getAcademicYear().getId(),
+                p.getAcademicYear() == null ? null : p.getAcademicYear().getCode(),
+                p.getWeekNumber(), p.getWeekStartDate(), p.getWeekEndDate(),
                 p.getSummary(), p.getObjectives(), p.getStatus().name(), p.isVisibleToPartner(), p.getPublishedAt());
     }
 
@@ -183,6 +188,8 @@ public class PartnerPortalService {
                 c.getSchoolClass().getId(), c.getTeacher().getId(), c.getCommentType().name(),
                 c.getClassSession() == null ? null : c.getClassSession().getId(),
                 c.getAcademicTerm() == null ? null : c.getAcademicTerm().getId(),
+                c.getAcademicYear() == null ? null : c.getAcademicYear().getId(),
+                c.getAcademicYear() == null ? null : c.getAcademicYear().getCode(),
                 c.getCommentDate(), c.getContent(), c.getStructuredContent(), c.getSeverity().name(), c.isWarning(),
                 c.getStatus().name(), c.getSubmittedAt(), c.getApprovedAt(),
                 c.getApprovedBy() == null ? null : c.getApprovedBy().getId(), c.getVisibleToParentAt(), c.getRejectionReason(),

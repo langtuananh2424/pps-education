@@ -14,6 +14,8 @@ public record StudentCommentResponse(
         String commentType,
         Long classSessionId,
         Long academicTermId,
+        Long academicYearId,
+        String academicYear,
         LocalDate commentDate,
         String content,
         Map<String, Object> structuredContent,

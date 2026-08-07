@@ -2,6 +2,7 @@ package vn.com.pps.education.service;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.com.pps.education.domain.AcademicYear;
 import vn.com.pps.education.domain.ClassEnrollment;
 import vn.com.pps.education.domain.ClassEnrollmentHistory;
 import vn.com.pps.education.domain.ClassHistory;
@@ -15,6 +16,7 @@ import vn.com.pps.education.domain.SiteManager;
 import vn.com.pps.education.domain.SiteTeacher;
 import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.User;
+import java.util.ArrayList;
 import vn.com.pps.education.dto.AssignTeacherRequest;
 import vn.com.pps.education.dto.ClassEnrollmentResponse;
 import vn.com.pps.education.dto.ClassResponse;
@@ -22,6 +24,8 @@ import vn.com.pps.education.dto.ClassTeacherResponse;
 import vn.com.pps.education.dto.CreateClassRequest;
 import vn.com.pps.education.dto.EndTeacherAssignmentRequest;
 import vn.com.pps.education.dto.EnrollStudentRequest;
+import vn.com.pps.education.dto.PromoteClassRequest;
+import vn.com.pps.education.dto.PromoteClassResponse;
 import vn.com.pps.education.dto.UpdateClassRequest;
 import vn.com.pps.education.dto.WithdrawEnrollmentRequest;
 import vn.com.pps.education.exception.ClassEnrollmentAlreadyActiveException;
@@ -30,6 +34,7 @@ import vn.com.pps.education.exception.CurriculumNotAvailableForSiteException;
 import vn.com.pps.education.exception.DuplicateClassCodeException;
 import vn.com.pps.education.exception.LinkedClassRequiresPartnerSiteException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
+import vn.com.pps.education.repository.AcademicYearRepository;
 import vn.com.pps.education.repository.ClassEnrollmentHistoryRepository;
 import vn.com.pps.education.repository.ClassEnrollmentRepository;
 import vn.com.pps.education.repository.ClassHistoryRepository;
@@ -70,6 +75,7 @@ import java.util.stream.Stream;
 public class ClassService {
 
     private final SchoolClassRepository schoolClassRepository;
+    private final AcademicYearRepository academicYearRepository;
     private final ClassTeacherRepository classTeacherRepository;
     private final ClassEnrollmentRepository classEnrollmentRepository;
     private final ClassHistoryRepository classHistoryRepository;
@@ -85,6 +91,7 @@ public class ClassService {
     private final PermissionEvaluationService permissionEvaluationService;
 
     public ClassService(SchoolClassRepository schoolClassRepository,
+                         AcademicYearRepository academicYearRepository,
                          ClassTeacherRepository classTeacherRepository,
                          ClassEnrollmentRepository classEnrollmentRepository,
                          ClassHistoryRepository classHistoryRepository,
@@ -99,6 +106,7 @@ public class ClassService {
                          UserRepository userRepository,
                          PermissionEvaluationService permissionEvaluationService) {
         this.schoolClassRepository = schoolClassRepository;
+        this.academicYearRepository = academicYearRepository;
         this.classTeacherRepository = classTeacherRepository;
         this.classEnrollmentRepository = classEnrollmentRepository;
         this.classHistoryRepository = classHistoryRepository;
@@ -122,7 +130,8 @@ public class ClassService {
      * đã xác nhận với người dùng — xem docs/sdd-groups/03-co-so-vat-chat-and-diem-truong.md).
      */
     @Transactional(readOnly = true)
-    public List<ClassResponse> search(String query, Long siteId, Long curriculumId, String classCategory, Long actorUserId) {
+    public List<ClassResponse> search(String query, Long siteId, Long curriculumId, String classCategory,
+                                       Long academicYearId, Long actorUserId) {
         List<Long> allowedSiteIds = resolveAllowedSiteIds(actorUserId);
         boolean restrictSites = allowedSiteIds != null;
         // Luôn truyền 1 list cụ thể (không bao giờ null/rỗng) cho tham số IN — tránh
@@ -131,8 +140,8 @@ public class ClassService {
         // truy vấn tự nhiên trả rỗng.
         List<Long> siteIdsForQuery = allowedSiteIds == null || allowedSiteIds.isEmpty() ? List.of(-1L) : allowedSiteIds;
         List<SchoolClass> classes = query == null || query.isBlank()
-                ? schoolClassRepository.search(siteId, curriculumId, classCategory, restrictSites, siteIdsForQuery)
-                : schoolClassRepository.searchByQuery(query.trim(), siteId, curriculumId, classCategory, restrictSites, siteIdsForQuery);
+                ? schoolClassRepository.search(siteId, curriculumId, classCategory, academicYearId, restrictSites, siteIdsForQuery)
+                : schoolClassRepository.searchByQuery(query.trim(), siteId, curriculumId, classCategory, academicYearId, restrictSites, siteIdsForQuery);
         return classes.stream().map(this::toResponse).toList();
     }
 
@@ -212,7 +221,7 @@ public class ClassService {
         schoolClass.setMinStudents(request.minStudents());
         schoolClass.setStartDate(request.startDate());
         schoolClass.setEndDate(request.endDate());
-        schoolClass.setAcademicYear(request.academicYear());
+        schoolClass.setAcademicYear(resolveAcademicYear(request.academicYearId()));
         schoolClass.setCreatedBy(actor);
         schoolClass = schoolClassRepository.save(schoolClass);
 
@@ -232,7 +241,7 @@ public class ClassService {
         schoolClass.setMinStudents(request.minStudents());
         schoolClass.setStartDate(request.startDate());
         schoolClass.setEndDate(request.endDate());
-        schoolClass.setAcademicYear(request.academicYear());
+        schoolClass.setAcademicYear(resolveAcademicYear(request.academicYearId()));
         schoolClass.setStatus(SchoolClass.Status.valueOf(request.status()));
         schoolClass = schoolClassRepository.save(schoolClass);
 
@@ -357,6 +366,7 @@ public class ClassService {
         enrollment.setStudent(student);
         enrollment.setEnrolledDate(request.enrolledDate());
         enrollment.setEnrolledBy(actor);
+        enrollment.setAcademicYear(schoolClass.getAcademicYear());
         enrollment = classEnrollmentRepository.save(enrollment);
 
         writeEnrollmentHistory(enrollment, actor, ClassEnrollmentHistory.Action.CREATED);
@@ -385,6 +395,92 @@ public class ClassService {
     public List<ClassEnrollmentResponse> listEnrollments(Long classId) {
         getClassOrThrow(classId);
         return classEnrollmentRepository.findBySchoolClassId(classId).stream().map(this::toResponse).toList();
+    }
+
+    /**
+     * Chuyển lớp hàng loạt cuối năm học (bổ sung ngoài SDD gốc, đã xác nhận
+     * với người dùng 2026-08-07) — model theo StudentService.recordTransfer
+     * (UC-13 A2: đánh dấu ghi danh cũ TRANSFERRED, tạo ghi danh mới ACTIVE)
+     * áp dụng lặp lại cho toàn bộ học sinh ACTIVE (Student.status=ACTIVE +
+     * ClassEnrollment.status=ACTIVE) của 1 lớp. Lớp mới giữ nguyên site +
+     * classType của lớp cũ; classCode/name/curriculum/academicYear/ngày
+     * tháng/sĩ số nhập tay qua request. Giáo viên KHÔNG copy sang lớp mới.
+     * Học sinh không ở trạng thái ACTIVE bị bỏ lại (skip, ghi rõ lý do).
+     */
+    @Transactional
+    public PromoteClassResponse promoteClass(Long oldClassId, PromoteClassRequest request, Long actorUserId) {
+        SchoolClass oldClass = getClassOrThrow(oldClassId);
+
+        if (schoolClassRepository.findByClassCode(request.classCode()).isPresent()) {
+            throw new DuplicateClassCodeException("Mã lớp đã tồn tại: " + request.classCode());
+        }
+        AcademicYear academicYear = academicYearRepository.findById(request.academicYearId())
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy năm học id=" + request.academicYearId()));
+        Curriculum newCurriculum = curriculumRepository.findByIdAndDeletedAtIsNull(request.curriculumId())
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy khung chương trình id=" + request.curriculumId()));
+        if (newCurriculum.getStatus() != Curriculum.Status.ACTIVE) {
+            throw new CurriculumNotActiveException(
+                    "Khung chương trình id=" + newCurriculum.getId() + " chưa ở trạng thái ACTIVE.");
+        }
+        // UC-17 Postcondition -- khung tùy biến (site_id NOT NULL) chỉ dùng được cho đúng điểm trường đó (site giữ nguyên từ lớp cũ).
+        if (newCurriculum.getSite() != null && !newCurriculum.getSite().getId().equals(oldClass.getSite().getId())) {
+            throw new CurriculumNotAvailableForSiteException(
+                    "Khung chương trình id=" + newCurriculum.getId() + " chỉ áp dụng cho điểm trường id="
+                            + newCurriculum.getSite().getId() + ", không dùng được cho điểm trường id=" + oldClass.getSite().getId() + ".");
+        }
+
+        User actor = userRepository.findById(actorUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
+
+        SchoolClass newClass = new SchoolClass();
+        newClass.setClassCode(request.classCode());
+        newClass.setName(request.name());
+        newClass.setSite(oldClass.getSite());
+        newClass.setCurriculum(newCurriculum);
+        newClass.setClassType(oldClass.getClassType());
+        newClass.setClassCategory(newCurriculum.getClassCategory().name());
+        newClass.setMaxStudents(request.maxStudents());
+        newClass.setMinStudents(request.minStudents());
+        newClass.setStartDate(request.startDate());
+        newClass.setEndDate(request.endDate());
+        newClass.setAcademicYear(academicYear);
+        newClass.setCreatedBy(actor);
+        newClass = schoolClassRepository.save(newClass);
+        writeClassHistory(newClass, actor, ClassHistory.Action.CREATED);
+
+        List<ClassEnrollment> activeEnrollments = classEnrollmentRepository
+                .findBySchoolClassIdAndStatus(oldClassId, ClassEnrollment.Status.ACTIVE);
+
+        int movedCount = 0;
+        List<PromoteClassResponse.SkippedStudentInfo> skipped = new ArrayList<>();
+        for (ClassEnrollment oldEnrollment : activeEnrollments) {
+            Student student = oldEnrollment.getStudent();
+            if (student.getStatus() != Student.Status.ACTIVE) {
+                skipped.add(new PromoteClassResponse.SkippedStudentInfo(
+                        student.getId(), student.getStudentCode(), student.getUser().getFullName(),
+                        "Học sinh không ở trạng thái ACTIVE: " + student.getStatus()));
+                continue;
+            }
+
+            oldEnrollment.setStatus(ClassEnrollment.Status.TRANSFERRED);
+            oldEnrollment.setWithdrawnDate(request.startDate());
+            oldEnrollment.setWithdrawReason("Chuyển lớp hàng loạt lên " + newClass.getClassCode());
+            oldEnrollment = classEnrollmentRepository.save(oldEnrollment);
+            writeEnrollmentHistory(oldEnrollment, actor, ClassEnrollmentHistory.Action.UPDATED);
+
+            ClassEnrollment newEnrollment = new ClassEnrollment();
+            newEnrollment.setSchoolClass(newClass);
+            newEnrollment.setStudent(student);
+            newEnrollment.setEnrolledDate(request.startDate());
+            newEnrollment.setEnrolledBy(actor);
+            newEnrollment.setAcademicYear(newClass.getAcademicYear());
+            newEnrollment = classEnrollmentRepository.save(newEnrollment);
+            writeEnrollmentHistory(newEnrollment, actor, ClassEnrollmentHistory.Action.CREATED);
+
+            movedCount++;
+        }
+
+        return new PromoteClassResponse(toResponse(newClass), oldClassId, movedCount, skipped.size(), skipped);
     }
 
     private void writeClassHistory(SchoolClass schoolClass, User actor, ClassHistory.Action action) {
@@ -423,6 +519,15 @@ public class ClassService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học id=" + id));
     }
 
+    /** academicYearId nullable — CreateClassRequest/UpdateClassRequest vẫn để tùy chọn như trước V102. */
+    private AcademicYear resolveAcademicYear(Long academicYearId) {
+        if (academicYearId == null) {
+            return null;
+        }
+        return academicYearRepository.findById(academicYearId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy năm học id=" + academicYearId));
+    }
+
     private ClassResponse toResponse(SchoolClass c) {
         return new ClassResponse(
                 c.getId(), c.getClassCode(), c.getName(),
@@ -430,7 +535,9 @@ public class ClassService {
                 c.getCurriculum().getId(), c.getCurriculum().getCode(),
                 c.getClassType().name(), c.getClassCategory(),
                 c.getMaxStudents(), c.getMinStudents(), c.getStartDate(), c.getEndDate(),
-                c.getAcademicYear(), c.getStatus().name());
+                c.getAcademicYear() == null ? null : c.getAcademicYear().getId(),
+                c.getAcademicYear() == null ? null : c.getAcademicYear().getCode(),
+                c.getStatus().name());
     }
 
     private ClassTeacherResponse toResponse(ClassTeacher t) {
@@ -444,6 +551,8 @@ public class ClassService {
         return new ClassEnrollmentResponse(
                 e.getId(), e.getSchoolClass().getId(), e.getStudent().getId(), e.getStudent().getUser().getFullName(),
                 e.getStudent().getStudentCode(), e.getStudent().getDateOfBirth(), e.getEnrolledDate(), e.getWithdrawnDate(),
-                e.getStatus().name(), e.getWithdrawReason());
+                e.getStatus().name(), e.getWithdrawReason(),
+                e.getAcademicYear() == null ? null : e.getAcademicYear().getId(),
+                e.getAcademicYear() == null ? null : e.getAcademicYear().getCode());
     }
 }

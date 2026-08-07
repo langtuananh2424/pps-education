@@ -144,6 +144,7 @@ export interface ClassResponse {
   minStudents: number | null;
   startDate: string;
   endDate: string | null;
+  academicYearId: number | null;
   academicYear: string | null;
   status: "PLANNED" | "OPEN_ENROLLMENT" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
 }
@@ -158,7 +159,7 @@ export interface CreateClassRequest {
   minStudents?: number;
   startDate: string;
   endDate?: string;
-  academicYear?: string;
+  academicYearId?: number;
 }
 
 export interface UpdateClassRequest {
@@ -167,19 +168,57 @@ export interface UpdateClassRequest {
   minStudents?: number;
   startDate: string;
   endDate?: string;
-  academicYear?: string;
+  academicYearId?: number;
   status: ClassResponse["status"];
 }
 
-/** UC-18 Main Flow bước 3: dropdown site -> lớp của site đó; lọc thêm theo curriculum. Giáo viên chỉ thấy lớp thuộc site được gán (site_teachers). */
-export function listClasses(params?: { query?: string; siteId?: number; curriculumId?: number; classCategory?: string }): Promise<ClassResponse[]> {
+/** UC-18 Main Flow bước 3: dropdown site -> lớp của site đó; lọc thêm theo curriculum/năm học. Giáo viên chỉ thấy lớp thuộc site được gán (site_teachers). */
+export function listClasses(params?: {
+  query?: string;
+  siteId?: number;
+  curriculumId?: number;
+  classCategory?: string;
+  academicYearId?: number;
+}): Promise<ClassResponse[]> {
   const qs = new URLSearchParams();
   if (params?.query?.trim()) qs.set("query", params.query.trim());
   if (params?.siteId) qs.set("siteId", String(params.siteId));
   if (params?.curriculumId) qs.set("curriculumId", String(params.curriculumId));
   if (params?.classCategory) qs.set("classCategory", params.classCategory);
+  if (params?.academicYearId) qs.set("academicYearId", String(params.academicYearId));
   const suffix = qs.toString() ? `?${qs.toString()}` : "";
   return apiRequest<ClassResponse[]>(`/classes${suffix}`);
+}
+
+/** Chuyển lớp hàng loạt cuối năm học (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-07) — xem ClassService#promoteClass. */
+export interface PromoteClassRequest {
+  classCode: string;
+  name: string;
+  curriculumId: number;
+  academicYearId: number;
+  startDate: string;
+  endDate?: string;
+  maxStudents: number;
+  minStudents?: number;
+}
+
+export interface PromoteClassSkippedStudent {
+  studentId: number;
+  studentCode: string;
+  studentFullName: string;
+  reason: string;
+}
+
+export interface PromoteClassResponse {
+  newClass: ClassResponse;
+  oldClassId: number;
+  movedStudentCount: number;
+  skippedStudentCount: number;
+  skippedStudents: PromoteClassSkippedStudent[];
+}
+
+export function promoteClass(oldClassId: number, request: PromoteClassRequest): Promise<PromoteClassResponse> {
+  return apiRequest<PromoteClassResponse>(`/classes/${oldClassId}/promote`, { method: "POST", body: JSON.stringify(request) });
 }
 
 export function getClass(id: number): Promise<ClassResponse> {
@@ -277,6 +316,45 @@ export function updateAcademicTerm(id: number, request: UpdateAcademicTermReques
   return apiRequest<AcademicTermResponse>(`/academic-terms/${id}`, { method: "PUT", body: JSON.stringify(request) });
 }
 
+// ===================== Năm học (V102, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-07) =====================
+// Danh mục DÙNG CHUNG TOÀN HỆ THỐNG (khác Kỳ học — giới hạn theo điểm trường). Nguồn cho
+// academicYearId trên classes/grade_entries/student_comments/class_enrollments/teaching_plans.
+
+export interface AcademicYearResponse {
+  id: number;
+  code: string;
+  name: string;
+  startDate: string | null;
+  endDate: string | null;
+  status: "PLANNED" | "ACTIVE" | "CLOSED";
+}
+
+export interface CreateAcademicYearRequest {
+  code: string;
+  name: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface UpdateAcademicYearRequest {
+  name: string;
+  startDate?: string;
+  endDate?: string;
+  status: AcademicYearResponse["status"];
+}
+
+export function listAcademicYears(): Promise<AcademicYearResponse[]> {
+  return apiRequest<AcademicYearResponse[]>("/academic-years");
+}
+
+export function createAcademicYear(request: CreateAcademicYearRequest): Promise<AcademicYearResponse> {
+  return apiRequest<AcademicYearResponse>("/academic-years", { method: "POST", body: JSON.stringify(request) });
+}
+
+export function updateAcademicYear(id: number, request: UpdateAcademicYearRequest): Promise<AcademicYearResponse> {
+  return apiRequest<AcademicYearResponse>(`/academic-years/${id}`, { method: "PUT", body: JSON.stringify(request) });
+}
+
 export interface ClassEnrollmentResponse {
   id: number;
   classId: number;
@@ -288,6 +366,8 @@ export interface ClassEnrollmentResponse {
   withdrawnDate: string | null;
   status: string;
   withdrawReason: string | null;
+  academicYearId: number | null;
+  academicYear: string | null;
 }
 
 export interface EnrollStudentRequest {

@@ -426,6 +426,7 @@ public class GradeService {
             entry.setSchoolClass(schoolClass);
             entry.setStudent(student);
             entry.setGradeComponent(component);
+            entry.setAcademicYear(schoolClass.getAcademicYear());
             entry.setAcademicTerm(setup.getAcademicTerm());
             entry.setEvaluationType(setup.getEvaluationType());
             entry.setEnteredBy(actor);
@@ -1083,7 +1084,10 @@ public class GradeService {
     private GradeEntryResponse toResponse(GradeEntry e) {
         return new GradeEntryResponse(
                 e.getId(), e.getSchoolClass().getId(), e.getStudent().getId(), e.getStudent().getUser().getFullName(),
-                e.getStudent().getStudentCode(), e.getGradeComponent().getId(), e.getAcademicTerm().getId(), e.getEvaluationType().name(),
+                e.getStudent().getStudentCode(), e.getGradeComponent().getId(), e.getAcademicTerm().getId(),
+                e.getAcademicYear() == null ? null : e.getAcademicYear().getId(),
+                e.getAcademicYear() == null ? null : e.getAcademicYear().getCode(),
+                e.getEvaluationType().name(),
                 e.getScore(), e.isAbsenceFlag(), e.getTeacherNote(), e.getStatus().name(), e.getEnteredBy().getId(),
                 e.getPublishedBy() == null ? null : e.getPublishedBy().getId(), e.getPublishedAt(), e.getFinalizedAt());
     }

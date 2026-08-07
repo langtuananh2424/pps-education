@@ -62,6 +62,11 @@ public class GradeEntry {
     @JoinColumn(name = "academic_term_id", nullable = false)
     private AcademicTerm academicTerm;
 
+    /** Copy từ schoolClass.academicYear tại thời điểm tạo (V101/V102, bổ sung ngoài SDD gốc, đã xác nhận với người dùng). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "academic_year_id")
+    private AcademicYear academicYear;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "evaluation_type", nullable = false, length = 20)
     private GradeComponentSetup.EvaluationType evaluationType;

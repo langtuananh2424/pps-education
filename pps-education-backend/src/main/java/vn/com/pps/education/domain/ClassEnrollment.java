@@ -51,4 +51,9 @@ public class ClassEnrollment {
 
     @Column(name = "import_job_id")
     private Long importJobId;
+
+    /** Copy từ schoolClass.academicYear tại thời điểm tạo (V101/V102, bổ sung ngoài SDD gốc, đã xác nhận với người dùng). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "academic_year_id")
+    private AcademicYear academicYear;
 }

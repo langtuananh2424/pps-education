@@ -204,7 +204,10 @@ public class ParentPortalService {
     private GradeEntryResponse toResponse(GradeEntry e) {
         return new GradeEntryResponse(
                 e.getId(), e.getSchoolClass().getId(), e.getStudent().getId(), e.getStudent().getUser().getFullName(),
-                e.getStudent().getStudentCode(), e.getGradeComponent().getId(), e.getAcademicTerm().getId(), e.getEvaluationType().name(),
+                e.getStudent().getStudentCode(), e.getGradeComponent().getId(), e.getAcademicTerm().getId(),
+                e.getAcademicYear() == null ? null : e.getAcademicYear().getId(),
+                e.getAcademicYear() == null ? null : e.getAcademicYear().getCode(),
+                e.getEvaluationType().name(),
                 e.getScore(), e.isAbsenceFlag(), e.getTeacherNote(), e.getStatus().name(), e.getEnteredBy().getId(),
                 e.getPublishedBy() == null ? null : e.getPublishedBy().getId(), e.getPublishedAt(), e.getFinalizedAt());
     }
@@ -234,6 +237,8 @@ public class ParentPortalService {
                 c.getSchoolClass().getId(), c.getTeacher().getId(), c.getCommentType().name(),
                 c.getClassSession() == null ? null : c.getClassSession().getId(),
                 c.getAcademicTerm() == null ? null : c.getAcademicTerm().getId(),
+                c.getAcademicYear() == null ? null : c.getAcademicYear().getId(),
+                c.getAcademicYear() == null ? null : c.getAcademicYear().getCode(),
                 c.getCommentDate(), c.getContent(), c.getStructuredContent(), c.getSeverity().name(), c.isWarning(),
                 c.getStatus().name(), c.getSubmittedAt(), c.getApprovedAt(),
                 c.getApprovedBy() == null ? null : c.getApprovedBy().getId(), c.getVisibleToParentAt(), c.getRejectionReason(),
