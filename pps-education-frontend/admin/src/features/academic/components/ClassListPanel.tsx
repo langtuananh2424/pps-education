@@ -1,9 +1,10 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { GraduationCap, Plus, Search } from "lucide-react";
 import Badge, { BadgeVariant } from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import EmptyState from "@/components/ui/EmptyState";
-import type { ClassResponse } from "../api";
+import Select from "@/components/ui/Select";
+import { AcademicYearResponse, listAcademicYears, type ClassResponse } from "../api";
 
 export const classStatusLabels: Record<ClassResponse["status"], string> = {
   PLANNED: "Dự kiến",
@@ -30,9 +31,27 @@ interface ClassListPanelProps {
   query: string;
   onQueryChange: (q: string) => void;
   canManage: boolean;
+  academicYearFilter: string;
+  onAcademicYearFilterChange: (id: string) => void;
 }
 
-export default function ClassListPanel({ classes, loading, selectedId, onSelect, onCreate, query, onQueryChange, canManage }: ClassListPanelProps) {
+export default function ClassListPanel({
+  classes,
+  loading,
+  selectedId,
+  onSelect,
+  onCreate,
+  query,
+  onQueryChange,
+  canManage,
+  academicYearFilter,
+  onAcademicYearFilterChange
+}: ClassListPanelProps) {
+  const [academicYears, setAcademicYears] = useState<AcademicYearResponse[]>([]);
+  useEffect(() => {
+    listAcademicYears().then(setAcademicYears).catch(() => undefined);
+  }, []);
+
   return (
     <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden flex flex-col h-full">
       <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3 bg-slate-50 shrink-0">
@@ -48,7 +67,7 @@ export default function ClassListPanel({ classes, loading, selectedId, onSelect,
         )}
       </div>
 
-      <div className="px-4 py-3 border-b border-slate-100 shrink-0">
+      <div className="px-4 py-3 border-b border-slate-100 shrink-0 space-y-2">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
           <input
@@ -58,6 +77,18 @@ export default function ClassListPanel({ classes, loading, selectedId, onSelect,
             className="w-full bg-slate-50 border border-slate-200 text-xs pl-8 pr-3 py-2 rounded-lg focus:outline-none"
           />
         </div>
+        <Select
+          value={academicYearFilter}
+          onChange={(e) => onAcademicYearFilterChange(e.target.value)}
+          className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none"
+        >
+          <option value="">Tất cả năm học</option>
+          {academicYears.map((y) => (
+            <option key={y.id} value={y.id}>
+              {y.code} — {y.name}
+            </option>
+          ))}
+        </Select>
       </div>
 
       <div className="divide-y divide-slate-100 overflow-y-auto max-h-[560px] lg:max-h-[620px]">

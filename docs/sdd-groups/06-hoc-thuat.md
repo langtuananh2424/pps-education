@@ -33,6 +33,21 @@ erDiagram
 
     users ||--o{ approval_flows : "duyet curriculum"
 
+    academic_years ||--o{ classes : "nam hoc (V102)"
+    academic_years ||--o{ class_enrollments : "nam hoc (V102)"
+    academic_years }o--o| users : "created_by (nullable, V103)"
+
+    academic_years {
+        BIGSERIAL id PK
+        UUID uuid UK
+        VARCHAR code UK
+        VARCHAR name
+        DATE start_date
+        DATE end_date
+        VARCHAR status
+        BIGINT created_by FK
+    }
+
     curriculums {
         BIGSERIAL id PK
         UUID uuid UK
@@ -82,7 +97,7 @@ erDiagram
         INT min_students
         DATE start_date
         DATE end_date
-        VARCHAR academic_year
+        BIGINT academic_year_id FK
         VARCHAR status
         BIGINT created_by FK
         TIMESTAMPTZ deleted_at
@@ -108,6 +123,7 @@ erDiagram
         VARCHAR status
         BIGINT enrolled_by FK
         BIGINT import_job_id FK
+        BIGINT academic_year_id FK
     }
 ```
 
@@ -405,6 +421,23 @@ e)  Bảng class_enrollments --- Học sinh trong lớp
   import_job_id      BIGINT            FK →               Nếu từ import
                                         import_jobs(id),   Excel lớp liên kết
                                         NULL
+
+  academic_year_id   BIGINT            FK →               Copy từ
+                                        academic_years(id), classes.
+                                        NULL                academic_year_id
+                                                            tại thời điểm tạo
+                                                            (V102, đổi từ
+                                                            VARCHAR sang FK ở
+                                                            V103; bổ sung
+                                                            ngoài SDD gốc, đã
+                                                            xác nhận với
+                                                            người dùng
+                                                            2026-08-07) — để
+                                                            Portal HS/PH lọc
+                                                            lịch sử ghi danh
+                                                            theo năm học
+                                                            không cần join
+                                                            qua classes
   --------------------------------------------------------------------------
 
 Có class_enrollments_history.
@@ -423,6 +456,46 @@ g)  Bảng approval_flows
 với entity_type='CURRICULUM', không tạo bảng riêng. V37 bổ sung thêm giá
 trị entity_type='GRADE_PERIOD_RESULT' dùng cho mục Sổ điểm bên dưới —
 chỉ thêm giá trị Java enum, không đổi schema bảng này.)
+
+h)  Bảng academic_years --- Danh mục Năm học (V103, bổ sung ngoài SDD gốc,
+    đã xác nhận với người dùng 2026-08-07)
+
+Danh mục "Năm học" DÙNG CHUNG TOÀN HỆ THỐNG (khác `academic_terms` —
+Kỳ học, giới hạn theo điểm trường). Là nguồn FK cho `academic_year_id`
+trên `classes`, `grade_entries`, `student_comments`, `class_enrollments`
+(V102, thay cho chuỗi tự do trước đây) và `teaching_plans` (V103, thay
+cho chuỗi tự do từ V21).
+
+  -------------------------------------------------------------------------
+  **Cột**       **Kiểu**       **Ràng buộc**            **Ghi chú**
+  ------------- -------------- ------------------------ -------------------
+  id            BIGSERIAL      PK
+
+  uuid          UUID           UNIQUE, NOT NULL, DEFAULT
+                                gen_random_uuid()
+
+  code          VARCHAR(20)    UNIQUE, NOT NULL         VD "2026-2027"
+
+  name          VARCHAR(100)   NOT NULL
+
+  start_date    DATE           NULL
+
+  end_date      DATE           NULL
+
+  status        VARCHAR(20)    NOT NULL, DEFAULT        PLANNED / ACTIVE /
+                                'PLANNED'                CLOSED
+
+  created_by    BIGINT         FK → users(id), NULL     Nullable — dữ liệu
+                                                          backfill từ chuỗi
+                                                          cũ (V103) không có
+                                                          actor thật
+
+  created_at,   TIMESTAMPTZ    NOT NULL
+  updated_at
+  -------------------------------------------------------------------------
+
+Không có DELETE — đóng năm học dùng `status=CLOSED` qua PUT, không xoá
+cứng.
 
 ### Lịch dạy & Điểm danh
 
@@ -878,6 +951,7 @@ erDiagram
         BIGINT student_id FK
         BIGINT grade_evaluation_component_id FK
         BIGINT academic_term_id FK
+        BIGINT academic_year_id FK
         VARCHAR evaluation_type
         DECIMAL score
         BOOLEAN absence_flag
@@ -1059,6 +1133,26 @@ c)  Bảng `grade_entries` --- Điểm cụ thể của học sinh
                                                                     không cần
                                                                     join qua
                                                                     setup
+
+  academic_year_id             BIGINT           NULL                FK →
+                                                                    academic_
+                                                                    years(id),
+                                                                    copy từ
+                                                                    classes.
+                                                                    academic_
+                                                                    year_id tại
+                                                                    thời điểm
+                                                                    tạo (V102,
+                                                                    đổi từ
+                                                                    VARCHAR
+                                                                    sang FK ở
+                                                                    V103; bổ
+                                                                    sung ngoài
+                                                                    SDD gốc,
+                                                                    đã xác
+                                                                    nhận với
+                                                                    người dùng
+                                                                    2026-08-07)
 
   evaluation_type             VARCHAR(20)      NOT NULL            MID_TERM /
                                                                     END_TERM
@@ -1282,6 +1376,7 @@ erDiagram
         VARCHAR comment_type
         BIGINT class_session_id FK
         BIGINT academic_term_id FK
+        BIGINT academic_year_id FK
         DATE comment_date
         TEXT content
         JSONB structured_content
@@ -1334,6 +1429,15 @@ a)  Bảng student_comments --- Nhận xét học sinh
                                         academic_terms(id),   comment_type=MID_TERM/END_TERM
                                         NULL                   (V95, đổi từ
                                                                 grade_period_id)
+
+  academic_year_id        BIGINT        FK →                  Copy từ
+                                        academic_years(id),   classes.academic_year_id tại
+                                        NULL                   thời điểm tạo, áp dụng cho cả
+                                                                DAILY lẫn MID_TERM/END_TERM
+                                                                (V102, đổi từ VARCHAR sang FK
+                                                                ở V103; bổ sung ngoài SDD gốc,
+                                                                đã xác nhận với người dùng
+                                                                2026-08-07)
 
   comment_date            DATE          NOT NULL
 

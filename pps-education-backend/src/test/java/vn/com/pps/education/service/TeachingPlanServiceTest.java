@@ -11,6 +11,7 @@ import vn.com.pps.education.domain.UserRole;
 import vn.com.pps.education.dto.AddTeachingPlanItemRequest;
 import vn.com.pps.education.dto.AssignTeacherRequest;
 import vn.com.pps.education.dto.ClassResponse;
+import vn.com.pps.education.dto.CreateAcademicYearRequest;
 import vn.com.pps.education.dto.CreateClassRequest;
 import vn.com.pps.education.dto.CreateCurriculumRequest;
 import vn.com.pps.education.dto.CreateTeachingPlanRequest;
@@ -51,6 +52,9 @@ class TeachingPlanServiceTest extends AbstractIntegrationTest {
     private CurriculumService curriculumService;
 
     @Autowired
+    private AcademicYearService academicYearService;
+
+    @Autowired
     private UserRepository userRepository;
 
     @Autowired
@@ -65,11 +69,15 @@ class TeachingPlanServiceTest extends AbstractIntegrationTest {
     private User headAcademic;
     private User teacher;
     private ClassResponse schoolClass;
+    private Long academicYearId;
 
     @BeforeEach
     void setUp() {
         headAcademic = newUser("head.academic");
         assignRole(headAcademic, "HEAD_ACADEMIC");
+        academicYearId = academicYearService.create(
+                new CreateAcademicYearRequest("AY-" + SEQ.incrementAndGet(), "2026-2027", null, null),
+                headAcademic.getId()).id();
         CurriculumResponse curriculum = curriculumService.create(
                 new CreateCurriculumRequest(curriculumCode(), "Chuẩn", "MAIN", null, null, null), headAcademic.getId());
         CurriculumResponse activeCurriculum = curriculumService.update(curriculum.id(),
@@ -120,7 +128,7 @@ class TeachingPlanServiceTest extends AbstractIntegrationTest {
         assignRole(outsider, "TEACHER");
 
         assertThatThrownBy(() -> teachingPlanService.createPlan(
-                new CreateTeachingPlanRequest(schoolClass.id(), "YEARLY", "2026-2027", null, null, null, "X", null, true),
+                new CreateTeachingPlanRequest(schoolClass.id(), "YEARLY", academicYearId, null, null, null, "X", null, true),
                 outsider.getId()))
                 .isInstanceOf(NotAssignedTeacherForClassException.class);
     }
@@ -128,7 +136,7 @@ class TeachingPlanServiceTest extends AbstractIntegrationTest {
     @Test
     void updatePlan_UC28_A1_publishingMakesVisibleAndSetsPublishedAt() {
         TeachingPlanResponse plan = teachingPlanService.createPlan(
-                new CreateTeachingPlanRequest(schoolClass.id(), "YEARLY", "2026-2027", null, null, null, "Kế hoạch năm", "Mục tiêu", true),
+                new CreateTeachingPlanRequest(schoolClass.id(), "YEARLY", academicYearId, null, null, null, "Kế hoạch năm", "Mục tiêu", true),
                 teacher.getId());
 
         TeachingPlanResponse published = teachingPlanService.updatePlan(plan.id(),

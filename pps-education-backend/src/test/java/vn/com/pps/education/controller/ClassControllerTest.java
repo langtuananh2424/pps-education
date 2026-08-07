@@ -85,6 +85,6 @@ class ClassControllerTest extends AbstractControllerTest {
 
     private CreateClassRequest newClassRequest() {
         return new CreateClassRequest("CLS-" + SEQ.incrementAndGet(), "Lớp test", siteId, activeCurriculumId,
-                "OPEN", 20, 5, LocalDate.now(), null, "2026");
+                "OPEN", 20, 5, LocalDate.now(), null, null);
     }
 }

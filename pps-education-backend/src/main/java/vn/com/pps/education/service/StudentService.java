@@ -476,6 +476,7 @@ public class StudentService {
             newEnrollment.setStudent(student);
             newEnrollment.setEnrolledDate(request.effectiveDate());
             newEnrollment.setEnrolledBy(actor);
+            newEnrollment.setAcademicYear(toClass.getAcademicYear());
             newEnrollment = classEnrollmentRepository.save(newEnrollment);
             writeEnrollmentHistory(newEnrollment, actor, ClassEnrollmentHistory.Action.CREATED);
         }

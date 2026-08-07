@@ -12,6 +12,6 @@ public record UpdateClassRequest(
         Integer minStudents,
         @NotNull LocalDate startDate,
         LocalDate endDate,
-        String academicYear,
+        Long academicYearId,
         @NotBlank String status
 ) {}

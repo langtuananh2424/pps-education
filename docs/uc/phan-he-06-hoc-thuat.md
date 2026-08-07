@@ -343,6 +343,113 @@ UC-18: Xếp lớp & gán khóa học
 
 ---
 
+UC-18b: Chuyển lớp hàng loạt cuối năm học
+
+> ⚠️ Bổ sung ngoài SDD gốc (mở rộng phạm vi FR-ACA-02, xác nhận với người
+> dùng ngày 2026-08-07) — UC-18 gốc chỉ khởi tạo 1 lớp mới trống. UC-18b bổ
+> sung thao tác "lên lớp" cuối năm học: từ 1 lớp đang có (VD 6A, năm học
+> 2025-2026), tạo 1 lớp MỚI (VD 7A, năm học 2026-2027) và chuyển hàng loạt
+> toàn bộ học sinh đang học (ClassEnrollment ACTIVE + Student.status ACTIVE)
+> sang lớp mới, tái dùng nguyên vẹn cơ chế "đánh dấu ghi danh cũ TRANSFERRED
+> + tạo ghi danh mới ACTIVE" đã có ở UC-13 A2 (`StudentService.recordTransfer`)
+> — áp dụng lặp lại cho cả lớp trong 1 transaction, không đổi bất kỳ điều gì
+> ở UC-18/UC-13.
+
++-----------------+----------------------------------------------------+
+| **Mã Use Case** | UC-18b                                             |
++-----------------+----------------------------------------------------+
+| **Tên Use       | Chuyển lớp hàng loạt cuối năm học                  |
+| Case**          |                                                    |
++-----------------+----------------------------------------------------+
+| **Phân hệ**     | Phân hệ 6                                          |
++-----------------+----------------------------------------------------+
+| **Yêu cầu chức  | FR-ACA-02 (bổ sung)                                |
+| năng gốc**      |                                                    |
++-----------------+----------------------------------------------------+
+| **Tác nhân**    | Nhân viên (Giáo vụ), Trưởng phòng đào tạo          |
++-----------------+----------------------------------------------------+
+| **Mô tả tóm     | Cuối năm học, chuyển toàn bộ học sinh đang học của |
+| tắt**           | 1 lớp sang 1 lớp mới ứng với năm học/cấp học tiếp  |
+|                 | theo (VD 6A 2025-2026 → 7A 2026-2027) trong 1 thao |
+|                 | tác duy nhất, thay vì chuyển tay từng học sinh qua |
+|                 | UC-13. Giáo viên KHÔNG được copy sang lớp mới —    |
+|                 | giáo vụ tự gán lại sau qua UC-18.                  |
++-----------------+----------------------------------------------------+
+| **Sự kiện kích  | Kết thúc năm học, cần "lên lớp" cho học sinh của 1 |
+| hoạt**          | lớp sang lớp/cấp học của năm học kế tiếp.          |
++-----------------+----------------------------------------------------+
+| **Điều kiện     | -   Người thao tác có quyền academic.class.manage  |
+| tiên quyết      |     (khớp đúng quyền UC-18).                       |
+| (               |                                                    |
+| Precondition)** | -   Lớp nguồn đã tồn tại (UC-18).                  |
+|                 |                                                    |
+|                 | -   Khung chương trình cho lớp mới (ứng với cấp    |
+|                 |     học tiếp theo) đã tồn tại và ACTIVE (UC-16/    |
+|                 |     UC-17).                                        |
++-----------------+----------------------------------------------------+
+| **Luồng sự kiện | 1.  Người dùng chọn lớp nguồn cần chuyển, nhập mã  |
+| chính (Main     |     lớp mới, tên lớp mới, khung chương trình mới   |
+| Flow)**         |     (chọn thủ công, KHÔNG tự suy luận từ cấp học), |
+|                 |     năm học mới, ngày bắt đầu/kết thúc, sĩ số tối  |
+|                 |     đa/tối thiểu của lớp mới.                      |
+|                 |                                                    |
+|                 | 2.  Hệ thống khởi tạo lớp mới, kế thừa nguyên Điểm  |
+|                 |     trường (site) và Loại hình lớp (LINKED/OPEN)   |
+|                 |     từ lớp nguồn — không cho đổi trong thao tác    |
+|                 |     này (đổi site/loại hình dùng UC-13/UC-18 riêng).|
+|                 |                                                    |
+|                 | 3.  Với từng học sinh đang ghi danh ACTIVE ở lớp   |
+|                 |     nguồn: nếu Student.status = ACTIVE, hệ thống   |
+|                 |     đánh dấu ghi danh cũ TRANSFERRED (ngày hiệu    |
+|                 |     lực = ngày bắt đầu lớp mới, lý do "Chuyển lớp   |
+|                 |     hàng loạt lên [mã lớp mới]") và tạo ghi danh    |
+|                 |     mới ACTIVE ở lớp mới — đúng cơ chế UC-13 A2,    |
+|                 |     áp dụng lặp lại cho cả lớp trong 1 giao dịch    |
+|                 |     duy nhất.                                      |
+|                 |                                                    |
+|                 | 4.  Hệ thống trả kết quả: lớp mới, số học sinh đã   |
+|                 |     chuyển thành công, danh sách học sinh bị bỏ    |
+|                 |     lại kèm lý do.                                 |
++-----------------+----------------------------------------------------+
+| **Luồng thay    | ***A1 --- Học sinh không ở trạng thái ACTIVE***    |
+| thế / ngoại lệ  |                                                    |
+| (Alternate      | 1.  Học sinh có Student.status khác ACTIVE          |
+| Flow)**         |     (SUSPENDED/EXPELLED/GRADUATED/WITHDRAWN/       |
+|                 |     DEFERRAL) bị bỏ lại — KHÔNG tạo ghi danh mới,   |
+|                 |     ghi danh cũ ở lớp nguồn giữ nguyên không đổi.   |
+|                 |     Hệ thống liệt kê rõ học sinh bị bỏ lại kèm lý   |
+|                 |     do trong kết quả trả về.                        |
+|                 |                                                    |
+|                 | ***A2 --- Mã lớp mới đã tồn tại***                 |
+|                 |                                                    |
+|                 | 1.  Hệ thống từ chối toàn bộ thao tác, không tạo    |
+|                 |     lớp mới, không đổi bất kỳ ghi danh nào ở lớp    |
+|                 |     nguồn (rollback toàn bộ giao dịch).             |
+|                 |                                                    |
+|                 | ***A3 --- Khung chương trình mới không hợp lệ***   |
+|                 |                                                    |
+|                 | 1.  Nếu khung chương trình chưa ACTIVE, hoặc là     |
+|                 |     khung tùy biến của điểm trường khác (không     |
+|                 |     khớp Điểm trường của lớp nguồn), hệ thống từ    |
+|                 |     chối toàn bộ thao tác — không tạo lớp mới, giữ  |
+|                 |     nguyên trạng thái lớp nguồn.                    |
++-----------------+----------------------------------------------------+
+| **Hậu điều kiện | -   Lớp mới được khởi tạo (status PLANNED), sẵn    |
+| (P              |     sàng cho giáo vụ gán giáo viên phụ trách qua    |
+| ostcondition)** |     UC-18.                                          |
+|                 |                                                    |
+|                 | -   Toàn bộ học sinh Student.status=ACTIVE của lớp  |
+|                 |     nguồn có ghi danh ACTIVE mới ở lớp mới; ghi     |
+|                 |     danh cũ chuyển TRANSFERRED — hồ sơ học sinh     |
+|                 |     (điểm, nhận xét, lịch sử ghi danh) xuyên suốt   |
+|                 |     qua các năm học, không mất dữ liệu.             |
+|                 |                                                    |
+|                 | -   Học sinh non-ACTIVE giữ nguyên ghi danh cũ ở    |
+|                 |     lớp nguồn, không bị động tới.                   |
++-----------------+----------------------------------------------------+
+
+---
+
 UC-65: Ghi danh học sinh theo lô
 
 > ⚠️ Bổ sung ngoài SDD gốc (mở rộng phạm vi FR-ACA-02, xác nhận với người

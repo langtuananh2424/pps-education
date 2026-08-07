@@ -1164,7 +1164,9 @@ public class ReviewVideoService {
                 c.getCurriculum().getId(), c.getCurriculum().getCode(),
                 c.getClassType().name(), c.getClassCategory(),
                 c.getMaxStudents(), c.getMinStudents(), c.getStartDate(), c.getEndDate(),
-                c.getAcademicYear(), c.getStatus().name());
+                c.getAcademicYear() == null ? null : c.getAcademicYear().getId(),
+                c.getAcademicYear() == null ? null : c.getAcademicYear().getCode(),
+                c.getStatus().name());
     }
 
     private ReviewVideoResponse toResponse(ReviewVideo v) {

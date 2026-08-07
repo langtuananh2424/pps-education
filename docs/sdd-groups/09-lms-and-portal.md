@@ -1656,6 +1656,7 @@ erDiagram
     teaching_plans ||--o{ teaching_plan_items : "chi tiet tuan/nam"
     teaching_plans ||--o{ teaching_plans_history : ""
     class_sessions ||--o{ teaching_plan_items : "lien ket buoi cu the"
+    academic_years ||--o{ teaching_plans : "nam hoc (V103)"
 
     teaching_plans {
         BIGSERIAL id PK
@@ -1663,7 +1664,7 @@ erDiagram
         BIGINT class_id FK
         BIGINT teacher_user_id FK
         VARCHAR plan_type
-        VARCHAR academic_year
+        BIGINT academic_year_id FK
         INT week_number
         DATE week_start_date
         DATE week_end_date
@@ -1708,7 +1709,13 @@ a)  Bảng teaching_plans --- Kế hoạch giảng dạy
 
   plan_type            VARCHAR(20)          NOT NULL       WEEKLY / YEARLY
 
-  academic_year        VARCHAR(20)          NULL           Cho YEARLY
+  academic_year_id     BIGINT               FK →           Cho YEARLY (V103,
+                                            academic_       đổi từ VARCHAR
+                                            years(id), NULL sang FK, bổ sung
+                                                            ngoài SDD gốc,
+                                                            đã xác nhận với
+                                                            người dùng
+                                                            2026-08-07)
 
   week_number,         INT, DATE, DATE      NULL           Cho WEEKLY
   week_start_date,                                         
@@ -1735,7 +1742,7 @@ ALTER TABLE teaching_plans ADD CONSTRAINT chk_plan_period CHECK (
 (plan_type = \'WEEKLY\' AND week_start_date IS NOT NULL AND
 week_end_date IS NOT NULL) OR
 
-(plan_type = \'YEARLY\' AND academic_year IS NOT NULL));
+(plan_type = \'YEARLY\' AND academic_year_id IS NOT NULL));
 
 b)  Bảng teaching_plan_items --- Chi tiết kế hoạch
 

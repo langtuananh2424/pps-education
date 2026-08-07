@@ -13,6 +13,7 @@ import vn.com.pps.education.domain.User;
 import vn.com.pps.education.domain.UserRole;
 import vn.com.pps.education.dto.AssignTeacherRequest;
 import vn.com.pps.education.dto.ClassResponse;
+import vn.com.pps.education.dto.CreateAcademicYearRequest;
 import vn.com.pps.education.dto.ClassSessionResponse;
 import vn.com.pps.education.dto.CreateClassRequest;
 import vn.com.pps.education.dto.CreateClassSessionRequest;
@@ -84,6 +85,9 @@ class PartnerPortalServiceTest extends AbstractIntegrationTest {
 
     @Autowired
     private TeachingPlanService teachingPlanService;
+
+    @Autowired
+    private AcademicYearService academicYearService;
 
     @Autowired
     private StudentCommentService studentCommentService;
@@ -224,15 +228,19 @@ class PartnerPortalServiceTest extends AbstractIntegrationTest {
 
     @Test
     void getTeachingPlans_UC29_MainFlow_returnsPublishedVisiblePlans() {
+        Long academicYearId = academicYearService.create(
+                new CreateAcademicYearRequest("AY-" + SEQ.incrementAndGet(), "2026-2027", null, null), headAcademic.getId()).id();
+        Long nextAcademicYearId = academicYearService.create(
+                new CreateAcademicYearRequest("AY-" + SEQ.incrementAndGet(), "2027-2028", null, null), headAcademic.getId()).id();
         TeachingPlanResponse plan = teachingPlanService.createPlan(
-                new CreateTeachingPlanRequest(schoolClass.id(), "YEARLY", "2026-2027", null, null, null, "Kế hoạch năm", "Mục tiêu", true),
+                new CreateTeachingPlanRequest(schoolClass.id(), "YEARLY", academicYearId, null, null, null, "Kế hoạch năm", "Mục tiêu", true),
                 teacher.getId());
         teachingPlanService.updatePlan(plan.id(),
                 new UpdateTeachingPlanRequest("Kế hoạch năm", "Mục tiêu", "PUBLISHED", true), teacher.getId());
 
         // Ke hoach khac chua publish -- khong duoc hien thi.
         teachingPlanService.createPlan(
-                new CreateTeachingPlanRequest(schoolClass.id(), "YEARLY", "2027-2028", null, null, null, "Nam sau", null, true),
+                new CreateTeachingPlanRequest(schoolClass.id(), "YEARLY", nextAcademicYearId, null, null, null, "Nam sau", null, true),
                 teacher.getId());
 
         List<TeachingPlanResponse> plans = partnerPortalService.getTeachingPlans(partnerRepUser.getId());

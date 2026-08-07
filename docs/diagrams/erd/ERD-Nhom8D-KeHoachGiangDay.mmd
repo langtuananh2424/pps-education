@@ -4,6 +4,7 @@ erDiagram
     teaching_plans ||--o{ teaching_plan_items : "chi tiet tuan/nam"
     teaching_plans ||--o{ teaching_plans_history : ""
     class_sessions ||--o{ teaching_plan_items : "lien ket buoi cu the"
+    academic_years ||--o{ teaching_plans : "nam hoc (V103)"
 
     teaching_plans {
         BIGSERIAL id PK
@@ -11,7 +12,7 @@ erDiagram
         BIGINT class_id FK
         BIGINT teacher_user_id FK
         VARCHAR plan_type
-        VARCHAR academic_year
+        BIGINT academic_year_id FK
         INT week_number
         DATE week_start_date
         DATE week_end_date

@@ -12,5 +12,7 @@ public record ClassEnrollmentResponse(
         LocalDate enrolledDate,
         LocalDate withdrawnDate,
         String status,
-        String withdrawReason
+        String withdrawReason,
+        Long academicYearId,
+        String academicYear
 ) {}

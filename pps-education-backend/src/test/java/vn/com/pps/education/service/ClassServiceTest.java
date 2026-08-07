@@ -4,6 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
+import vn.com.pps.education.domain.ClassEnrollment;
 import vn.com.pps.education.domain.Role;
 import vn.com.pps.education.domain.Site;
 import vn.com.pps.education.domain.SiteManager;
@@ -12,6 +13,7 @@ import vn.com.pps.education.domain.User;
 import vn.com.pps.education.domain.UserRole;
 import vn.com.pps.education.dto.AssignTeacherRequest;
 import vn.com.pps.education.dto.ClassResponse;
+import vn.com.pps.education.dto.CreateAcademicYearRequest;
 import vn.com.pps.education.dto.CreateClassRequest;
 import vn.com.pps.education.dto.CreateCurriculumRequest;
 import vn.com.pps.education.dto.CreateCustomCurriculumRequest;
@@ -19,12 +21,16 @@ import vn.com.pps.education.dto.CurriculumResponse;
 import vn.com.pps.education.dto.DecideCurriculumApprovalRequest;
 import vn.com.pps.education.dto.EndTeacherAssignmentRequest;
 import vn.com.pps.education.dto.EnrollStudentRequest;
+import vn.com.pps.education.dto.PromoteClassRequest;
+import vn.com.pps.education.dto.PromoteClassResponse;
 import vn.com.pps.education.dto.UpdateCurriculumRequest;
 import vn.com.pps.education.dto.WithdrawEnrollmentRequest;
 import vn.com.pps.education.exception.ClassEnrollmentAlreadyActiveException;
 import vn.com.pps.education.exception.CurriculumNotActiveException;
 import vn.com.pps.education.exception.CurriculumNotAvailableForSiteException;
+import vn.com.pps.education.exception.DuplicateClassCodeException;
 import vn.com.pps.education.exception.LinkedClassRequiresPartnerSiteException;
+import vn.com.pps.education.repository.ClassEnrollmentRepository;
 import vn.com.pps.education.repository.RoleRepository;
 import vn.com.pps.education.repository.SiteManagerRepository;
 import vn.com.pps.education.repository.SiteRepository;
@@ -57,6 +63,9 @@ class ClassServiceTest extends AbstractIntegrationTest {
     private CurriculumService curriculumService;
 
     @Autowired
+    private AcademicYearService academicYearService;
+
+    @Autowired
     private UserRepository userRepository;
 
     @Autowired
@@ -77,6 +86,9 @@ class ClassServiceTest extends AbstractIntegrationTest {
     @Autowired
     private SiteTeacherRepository siteTeacherRepository;
 
+    @Autowired
+    private ClassEnrollmentRepository classEnrollmentRepository;
+
     private User headAcademic;
     private CurriculumResponse activeCurriculum;
 
@@ -96,7 +108,7 @@ class ClassServiceTest extends AbstractIntegrationTest {
 
         ClassResponse response = classService.create(
                 new CreateClassRequest(classCode(), "8A2", site.getId(), activeCurriculum.id(), "OPEN",
-                        25, 10, LocalDate.now(), null, "2026-2027"),
+                        25, 10, LocalDate.now(), null, null),
                 headAcademic.getId());
 
         assertThat(response.id()).isNotNull();
@@ -310,7 +322,7 @@ class ClassServiceTest extends AbstractIntegrationTest {
                 new CreateClassRequest(classCode(), "Lớp B", siteB.getId(), activeCurriculum.id(), "OPEN", 20, null,
                         LocalDate.now(), null, null), headAcademic.getId());
 
-        var result = classService.search(null, siteA.getId(), null, null, headAcademic.getId());
+        var result = classService.search(null, siteA.getId(), null, null, null, headAcademic.getId());
 
         assertThat(result).extracting(ClassResponse::id).containsExactly(classAtA.id());
     }
@@ -326,7 +338,7 @@ class ClassServiceTest extends AbstractIntegrationTest {
                 new CreateClassRequest(classCode(), "Lớp khác", site.getId(), otherCurriculum.id(), "OPEN", 20, null,
                         LocalDate.now(), null, null), headAcademic.getId());
 
-        var result = classService.search(null, null, activeCurriculum.id(), null, headAcademic.getId());
+        var result = classService.search(null, null, activeCurriculum.id(), null, null, headAcademic.getId());
 
         assertThat(result).extracting(ClassResponse::id).containsExactly(classOfActive.id());
     }
@@ -342,7 +354,7 @@ class ClassServiceTest extends AbstractIntegrationTest {
                 new CreateClassRequest(classCode(), "Lớp bổ trợ", site.getId(), supplementaryCurriculum.id(), "OPEN",
                         20, null, LocalDate.now(), null, null), headAcademic.getId());
 
-        var result = classService.search(null, null, null, "MAIN", headAcademic.getId());
+        var result = classService.search(null, null, null, "MAIN", null, headAcademic.getId());
 
         assertThat(result).extracting(ClassResponse::id).containsExactly(mainClass.id());
     }
@@ -356,7 +368,7 @@ class ClassServiceTest extends AbstractIntegrationTest {
         User teacher = newUser("teacher.nosite");
         assignRole(teacher, "TEACHER");
 
-        assertThat(classService.search(null, null, null, null, teacher.getId())).isEmpty();
+        assertThat(classService.search(null, null, null, null, null, teacher.getId())).isEmpty();
     }
 
     @Test
@@ -374,7 +386,7 @@ class ClassServiceTest extends AbstractIntegrationTest {
         classService.assignTeacher(classAtA.id(),
                 new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now()), headAcademic.getId());
 
-        var result = classService.search(null, null, null, null, teacher.getId());
+        var result = classService.search(null, null, null, null, null, teacher.getId());
 
         assertThat(result).extracting(ClassResponse::id).containsExactly(classAtA.id());
     }
@@ -405,7 +417,7 @@ class ClassServiceTest extends AbstractIntegrationTest {
         siteManager.setAssignedBy(siteManagerUser);
         siteManagerRepository.save(siteManager);
 
-        var result = classService.search(null, null, null, null, siteManagerUser.getId());
+        var result = classService.search(null, null, null, null, null, siteManagerUser.getId());
 
         assertThat(result).extracting(ClassResponse::id).containsExactly(classAtA.id());
     }
@@ -431,9 +443,102 @@ class ClassServiceTest extends AbstractIntegrationTest {
         User sysAdminUser = newUser("sysadmin.viewall");
         assignRole(sysAdminUser, "SYS_ADMIN");
 
-        var result = classService.search(null, null, null, null, sysAdminUser.getId());
+        var result = classService.search(null, null, null, null, null, sysAdminUser.getId());
 
         assertThat(result).extracting(ClassResponse::id).containsExactlyInAnyOrder(classAtA.id(), classAtB.id());
+    }
+
+    @Test
+    void promoteClass_UC18b_MainFlow_movesActiveStudentsToNewClassKeepingSiteAndClassType() {
+        Site partnerSite = newSite(Site.SiteType.PARTNER);
+        ClassResponse oldClass = classService.create(
+                new CreateClassRequest(classCode(), "6A", partnerSite.getId(), activeCurriculum.id(), "LINKED", 20, null,
+                        LocalDate.now().minusYears(1), null, null), headAcademic.getId());
+        Student student = newStudent();
+        var oldEnrollment = classService.enroll(oldClass.id(),
+                new EnrollStudentRequest(student.getId(), LocalDate.now().minusYears(1)), headAcademic.getId());
+        CurriculumResponse newCurriculum = activeCurriculumWithCategory("MAIN");
+        String newCode = classCode();
+        LocalDate newStartDate = LocalDate.now();
+        Long newAcademicYearId = newAcademicYear("2026-2027");
+
+        PromoteClassResponse result = classService.promoteClass(oldClass.id(),
+                new PromoteClassRequest(newCode, "7A", newCurriculum.id(), newAcademicYearId, newStartDate, null, 20, null),
+                headAcademic.getId());
+
+        assertThat(result.newClass().classCode()).isEqualTo(newCode);
+        assertThat(result.newClass().siteId()).isEqualTo(partnerSite.getId());
+        assertThat(result.newClass().classType()).isEqualTo("LINKED");
+        assertThat(result.newClass().academicYear()).isEqualTo("2026-2027");
+        assertThat(result.movedStudentCount()).isEqualTo(1);
+        assertThat(result.skippedStudentCount()).isZero();
+
+        var newEnrollments = classService.listEnrollments(result.newClass().id());
+        assertThat(newEnrollments).hasSize(1);
+        assertThat(newEnrollments.get(0).studentId()).isEqualTo(student.getId());
+        assertThat(newEnrollments.get(0).status()).isEqualTo("ACTIVE");
+        assertThat(newEnrollments.get(0).academicYear()).isEqualTo("2026-2027");
+
+        ClassEnrollment reloadedOldEnrollment = classEnrollmentRepository.findById(oldEnrollment.id()).orElseThrow();
+        assertThat(reloadedOldEnrollment.getStatus()).isEqualTo(ClassEnrollment.Status.TRANSFERRED);
+        assertThat(reloadedOldEnrollment.getWithdrawnDate()).isEqualTo(newStartDate);
+    }
+
+    @Test
+    void promoteClass_UC18b_A1_skipsStudentNotActive() {
+        Site site = newSite(Site.SiteType.OWNED);
+        ClassResponse oldClass = classService.create(
+                new CreateClassRequest(classCode(), "6B", site.getId(), activeCurriculum.id(), "OPEN", 20, null,
+                        LocalDate.now().minusYears(1), null, null), headAcademic.getId());
+        Student suspendedStudent = newStudent();
+        suspendedStudent.setStatus(Student.Status.SUSPENDED);
+        studentRepository.save(suspendedStudent);
+        var oldEnrollment = classService.enroll(oldClass.id(),
+                new EnrollStudentRequest(suspendedStudent.getId(), LocalDate.now().minusYears(1)), headAcademic.getId());
+
+        PromoteClassResponse result = classService.promoteClass(oldClass.id(),
+                new PromoteClassRequest(classCode(), "7B", activeCurriculum.id(), newAcademicYear("2026-2027"), LocalDate.now(), null, 20, null),
+                headAcademic.getId());
+
+        assertThat(result.movedStudentCount()).isZero();
+        assertThat(result.skippedStudentCount()).isEqualTo(1);
+        assertThat(result.skippedStudents().get(0).studentId()).isEqualTo(suspendedStudent.getId());
+        assertThat(classService.listEnrollments(result.newClass().id())).isEmpty();
+
+        ClassEnrollment reloadedOldEnrollment = classEnrollmentRepository.findById(oldEnrollment.id()).orElseThrow();
+        assertThat(reloadedOldEnrollment.getStatus()).isEqualTo(ClassEnrollment.Status.ACTIVE);
+    }
+
+    @Test
+    void promoteClass_UC18b_A2_rejectsDuplicateClassCode() {
+        Site site = newSite(Site.SiteType.OWNED);
+        ClassResponse oldClass = classService.create(
+                new CreateClassRequest(classCode(), "6C", site.getId(), activeCurriculum.id(), "OPEN", 20, null,
+                        LocalDate.now().minusYears(1), null, null), headAcademic.getId());
+        String existingCode = classCode();
+        classService.create(
+                new CreateClassRequest(existingCode, "Lớp đã có mã", site.getId(), activeCurriculum.id(), "OPEN", 20, null,
+                        LocalDate.now(), null, null), headAcademic.getId());
+
+        assertThatThrownBy(() -> classService.promoteClass(oldClass.id(),
+                new PromoteClassRequest(existingCode, "7C", activeCurriculum.id(), newAcademicYear("2026-2027"), LocalDate.now(), null, 20, null),
+                headAcademic.getId()))
+                .isInstanceOf(DuplicateClassCodeException.class);
+    }
+
+    @Test
+    void promoteClass_UC18b_A3_rejectsWhenNewCurriculumNotActive() {
+        Site site = newSite(Site.SiteType.OWNED);
+        ClassResponse oldClass = classService.create(
+                new CreateClassRequest(classCode(), "6D", site.getId(), activeCurriculum.id(), "OPEN", 20, null,
+                        LocalDate.now().minusYears(1), null, null), headAcademic.getId());
+        CurriculumResponse draftCurriculum = curriculumService.create(
+                new CreateCurriculumRequest(curriculumCode(), "Chưa duyệt", "MAIN", null, null, null), headAcademic.getId());
+
+        assertThatThrownBy(() -> classService.promoteClass(oldClass.id(),
+                new PromoteClassRequest(classCode(), "7D", draftCurriculum.id(), newAcademicYear("2026-2027"), LocalDate.now(), null, 20, null),
+                headAcademic.getId()))
+                .isInstanceOf(CurriculumNotActiveException.class);
     }
 
     private CurriculumResponse activeCurriculumWithCategory(String classCategory) {
@@ -442,6 +547,11 @@ class ClassServiceTest extends AbstractIntegrationTest {
                 headAcademic.getId());
         return curriculumService.update(curriculum.id(),
                 new UpdateCurriculumRequest(classCategory, null, null, null, "ACTIVE", false), headAcademic.getId());
+    }
+
+    private Long newAcademicYear(String code) {
+        return academicYearService.create(new CreateAcademicYearRequest(code, code, null, null),
+                headAcademic.getId()).id();
     }
 
     private String curriculumCode() {

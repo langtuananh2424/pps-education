@@ -8,6 +8,7 @@ public record TeachingPlanResponse(
         Long classId,
         Long teacherId,
         String planType,
+        Long academicYearId,
         String academicYear,
         Integer weekNumber,
         LocalDate weekStartDate,

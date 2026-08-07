@@ -31,12 +31,14 @@ public interface SchoolClassRepository extends JpaRepository<SchoolClass, Long> 
             AND (:siteId IS NULL OR c.site.id = :siteId)
             AND (:curriculumId IS NULL OR c.curriculum.id = :curriculumId)
             AND (:classCategory IS NULL OR c.classCategory = :classCategory)
+            AND (:academicYearId IS NULL OR c.academicYear.id = :academicYearId)
             AND (:restrictSites = FALSE OR c.site.id IN :allowedSiteIds)
             ORDER BY c.startDate DESC
             """)
     List<SchoolClass> search(@Param("siteId") Long siteId,
                               @Param("curriculumId") Long curriculumId,
                               @Param("classCategory") String classCategory,
+                              @Param("academicYearId") Long academicYearId,
                               @Param("restrictSites") boolean restrictSites,
                               @Param("allowedSiteIds") List<Long> allowedSiteIds);
 
@@ -50,6 +52,7 @@ public interface SchoolClassRepository extends JpaRepository<SchoolClass, Long> 
             AND (:siteId IS NULL OR c.site.id = :siteId)
             AND (:curriculumId IS NULL OR c.curriculum.id = :curriculumId)
             AND (:classCategory IS NULL OR c.classCategory = :classCategory)
+            AND (:academicYearId IS NULL OR c.academicYear.id = :academicYearId)
             AND (:restrictSites = FALSE OR c.site.id IN :allowedSiteIds)
             ORDER BY c.startDate DESC
             """)
@@ -57,6 +60,7 @@ public interface SchoolClassRepository extends JpaRepository<SchoolClass, Long> 
                                      @Param("siteId") Long siteId,
                                      @Param("curriculumId") Long curriculumId,
                                      @Param("classCategory") String classCategory,
+                                     @Param("academicYearId") Long academicYearId,
                                      @Param("restrictSites") boolean restrictSites,
                                      @Param("allowedSiteIds") List<Long> allowedSiteIds);
 

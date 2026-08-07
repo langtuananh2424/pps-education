@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { listSites, SiteResponse } from "@/features/facility/api";
-import { ClassResponse, CreateClassRequest, createClass, CurriculumResponse, listCurriculums } from "../api";
+import { AcademicYearResponse, ClassResponse, CreateClassRequest, createClass, CurriculumResponse, listAcademicYears, listCurriculums } from "../api";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import DatePicker from "@/components/ui/DatePicker";
@@ -21,6 +21,7 @@ interface ClassFormModalProps {
 export default function ClassFormModal({ onClose, onCreated }: ClassFormModalProps) {
   const [sites, setSites] = useState<SiteResponse[]>([]);
   const [curriculums, setCurriculums] = useState<CurriculumResponse[]>([]);
+  const [academicYears, setAcademicYears] = useState<AcademicYearResponse[]>([]);
   const [form, setForm] = useState({
     classCode: "",
     name: "",
@@ -31,7 +32,7 @@ export default function ClassFormModal({ onClose, onCreated }: ClassFormModalPro
     minStudents: "",
     startDate: "",
     endDate: "",
-    academicYear: ""
+    academicYearId: ""
   });
   const [touched, setTouched] = useState({ classCode: false, name: false, siteId: false, curriculumId: false, maxStudents: false, startDate: false });
   const [submitAttempted, setSubmitAttempted] = useState(false);
@@ -41,6 +42,7 @@ export default function ClassFormModal({ onClose, onCreated }: ClassFormModalPro
   useEffect(() => {
     listSites().then(setSites).catch(() => undefined);
     listCurriculums().then(setCurriculums).catch(() => undefined);
+    listAcademicYears().then(setAcademicYears).catch(() => undefined);
   }, []);
 
   const markTouched = (field: keyof typeof touched) => setTouched((t) => ({ ...t, [field]: true }));
@@ -77,7 +79,7 @@ export default function ClassFormModal({ onClose, onCreated }: ClassFormModalPro
         minStudents: form.minStudents ? Number(form.minStudents) : undefined,
         startDate: form.startDate,
         endDate: form.endDate || undefined,
-        academicYear: form.academicYear.trim() || undefined
+        academicYearId: form.academicYearId ? Number(form.academicYearId) : undefined
       };
       const created = await createClass(request);
       onCreated(created);
@@ -202,7 +204,14 @@ export default function ClassFormModal({ onClose, onCreated }: ClassFormModalPro
 
           <div>
             <label className={labelClass}>Năm học</label>
-            <input value={form.academicYear} onChange={(e) => setForm({ ...form, academicYear: e.target.value })} placeholder="VD: 2026-2027" className={inputClass} />
+            <Select value={form.academicYearId} onChange={(e) => setForm({ ...form, academicYearId: e.target.value })} className={inputClass}>
+              <option value="">-- Chưa xác định --</option>
+              {academicYears.map((y) => (
+                <option key={y.id} value={y.id}>
+                  {y.code} — {y.name}
+                </option>
+              ))}
+            </Select>
           </div>
         </div>
 

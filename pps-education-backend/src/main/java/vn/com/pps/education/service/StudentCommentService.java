@@ -315,6 +315,7 @@ public class StudentCommentService {
         comment.setCommentType(commentType);
         comment.setClassSession(classSession);
         comment.setAcademicTerm(academicTerm);
+        comment.setAcademicYear(schoolClass.getAcademicYear());
         comment.setCommentDate(request.commentDate());
 
         ExerciseAssignment grammarAssignment = classSession == null ? null
@@ -1529,6 +1530,8 @@ public class StudentCommentService {
                 c.getSchoolClass().getId(), c.getTeacher().getId(), c.getCommentType().name(),
                 c.getClassSession() == null ? null : c.getClassSession().getId(),
                 c.getAcademicTerm() == null ? null : c.getAcademicTerm().getId(),
+                c.getAcademicYear() == null ? null : c.getAcademicYear().getId(),
+                c.getAcademicYear() == null ? null : c.getAcademicYear().getCode(),
                 c.getCommentDate(), c.getContent(), c.getStructuredContent(), c.getSeverity().name(), c.isWarning(),
                 c.getStatus().name(), c.getSubmittedAt(), c.getApprovedAt(),
                 c.getApprovedBy() == null ? null : c.getApprovedBy().getId(), c.getVisibleToParentAt(), c.getRejectionReason(),
