@@ -439,6 +439,19 @@ export function listTeachingSessionsForSubstitution(startDate: string, endDate: 
   return apiRequest<ClassSessionResponse[]>(`/leave-requests/teaching-sessions?startDate=${startDate}&endDate=${endDate}`);
 }
 
+/** UC-10 bước 3: gợi ý giáo viên dạy thay — self-service, KHÔNG dùng /api/users (đòi quyền user.view mà Giáo viên không có). */
+export interface TeacherLookupResponse {
+  id: number;
+  username: string;
+  email: string;
+  fullName: string;
+}
+
+export function searchSubstituteTeacherCandidates(keyword?: string): Promise<TeacherLookupResponse[]> {
+  const params = keyword?.trim() ? `?keyword=${encodeURIComponent(keyword.trim())}` : "";
+  return apiRequest<TeacherLookupResponse[]>(`/leave-requests/substitute-teacher-candidates${params}`);
+}
+
 /** Self-service: đơn từ đã nộp của chính người gọi. */
 export function listMyLeaveRequests(): Promise<LeaveRequestResponse[]> {
   return apiRequest<LeaveRequestResponse[]>("/leave-requests/mine");
@@ -480,4 +493,15 @@ export interface LeaveSubstitutionResponse {
 
 export function listLeaveSubstitutionHistory(): Promise<LeaveSubstitutionResponse[]> {
   return apiRequest<LeaveSubstitutionResponse[]>("/leave-substitutions");
+}
+
+/** Loại nghỉ phép — lấy từ backend (tránh hardcode). */
+export interface LeaveTypeResponse {
+  code: string;
+  label: string;
+  sortOrder: number;
+}
+
+export function listLeaveTypes(): Promise<LeaveTypeResponse[]> {
+  return apiRequest<LeaveTypeResponse[]>("/leave-types");
 }

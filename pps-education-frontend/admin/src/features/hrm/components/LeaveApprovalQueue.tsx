@@ -5,21 +5,13 @@ import { cn } from "@/lib/cn";
 import { useDialog } from "@/components/ui/DialogProvider";
 import { ApiError } from "@/lib/apiClient";
 import { decideLeaveRequest, LeaveRequestResponse } from "../api";
+import { useLeaveTypeLabel } from "../hooks/useLeaveTypeLabel";
 
 interface LeaveApprovalQueueProps {
   leaveRequests: LeaveRequestResponse[];
   loading: boolean;
   onDecided: () => void;
 }
-
-const leaveTypeLabels: Record<LeaveRequestResponse["leaveType"], string> = {
-  ANNUAL: "Nghỉ phép năm",
-  SICK: "Nghỉ ốm",
-  UNPAID: "Nghỉ không lương",
-  PERSONAL: "Nghỉ việc riêng",
-  LATE: "Đi trễ",
-  EARLY_LEAVE: "Về sớm"
-};
 
 const statusLabels: Record<LeaveRequestResponse["status"], string> = {
   PENDING: "Chờ duyệt",
@@ -30,6 +22,7 @@ const statusLabels: Record<LeaveRequestResponse["status"], string> = {
 
 /** UC-11: Duyệt đơn từ — hàng chờ duyệt thuộc thẩm quyền người gọi (GET /api/leave-requests/pending-for-me). */
 export default function LeaveApprovalQueue({ leaveRequests, loading, onDecided }: LeaveApprovalQueueProps) {
+  const getLeaveTypeLabel = useLeaveTypeLabel();
   const [opinionNotes, setOpinionNotes] = useState<Record<number, string>>({});
   const [decidingId, setDecidingId] = useState<number | null>(null);
   const { alertDialog } = useDialog();
@@ -50,8 +43,8 @@ export default function LeaveApprovalQueue({ leaveRequests, loading, onDecided }
     <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden">
       <div className="px-5 py-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between gap-3">
         <div>
-          <span className="text-xs font-bold text-slate-700 font-display block">Hàng chờ duyệt đơn từ</span>
-          <p className="text-[10px] text-slate-400">Xem xét và phê duyệt hoặc từ chối đơn xin nghỉ thuộc thẩm quyền của bạn.</p>
+          <span className="text-xs font-bold text-slate-700 font-display block">Hàng chờ xét duyệt</span>
+          <p className="text-[10px] text-slate-400">Các đơn xin nghỉ chờ xét duyệt thuộc thẩm quyền của bạn.</p>
         </div>
         <span className="px-2 py-1 rounded-full text-[10px] font-bold bg-brand-orange text-white shrink-0">{leaveRequests.length}</span>
       </div>
@@ -76,7 +69,7 @@ export default function LeaveApprovalQueue({ leaveRequests, loading, onDecided }
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <h4 className="text-xs font-bold text-slate-900">{req.employeeFullName}</h4>
-                    <span className="bg-slate-100 text-slate-600 text-[9px] font-bold px-2 py-0.5 rounded">{leaveTypeLabels[req.leaveType]}</span>
+                    <span className="bg-slate-100 text-slate-600 text-[9px] font-bold px-2 py-0.5 rounded">{getLeaveTypeLabel(req.leaveType)}</span>
                     {req.departmentName && <span className="text-[10px] text-slate-400">{req.departmentName}</span>}
                   </div>
                   <p className="text-[11px] text-slate-500 mt-1">

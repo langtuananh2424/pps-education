@@ -5,19 +5,10 @@ import Select from "@/components/ui/Select";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import { UserRole } from "@/types";
-import UserSearchCombobox from "@/features/system-admin/components/UserSearchCombobox";
-import type { UserListItemResponse } from "@/features/system-admin/api";
+import SubstituteTeacherCombobox from "./SubstituteTeacherCombobox";
 import type { ClassSessionResponse } from "@/features/academic/api";
-import { CreateLeaveRequestRequest, listTeachingSessionsForSubstitution, submitLeaveRequest } from "../api";
-
-const leaveTypeLabels: Record<CreateLeaveRequestRequest["leaveType"], string> = {
-  ANNUAL: "Nghỉ phép năm",
-  SICK: "Nghỉ ốm",
-  UNPAID: "Nghỉ không lương",
-  PERSONAL: "Nghỉ việc riêng",
-  LATE: "Đi trễ có lý do",
-  EARLY_LEAVE: "Về sớm"
-};
+import { CreateLeaveRequestRequest, listTeachingSessionsForSubstitution, submitLeaveRequest, TeacherLookupResponse } from "../api";
+import { useLeaveTypes } from "../hooks/useLeaveTypes";
 
 interface LeaveRequestFormProps {
   onSubmitted: () => void;
@@ -32,6 +23,7 @@ interface LeaveRequestFormProps {
 export default function LeaveRequestForm({ onSubmitted }: LeaveRequestFormProps) {
   const { currentRole } = useApp();
   const isTeacher = currentRole === UserRole.TEACHER;
+  const { leaveTypes, loading: loadingLeaveTypes } = useLeaveTypes();
 
   const [leaveType, setLeaveType] = useState<CreateLeaveRequestRequest["leaveType"]>("ANNUAL");
   const [startDate, setStartDate] = useState("");
@@ -52,7 +44,7 @@ export default function LeaveRequestForm({ onSubmitted }: LeaveRequestFormProps)
   const [teachingSessions, setTeachingSessions] = useState<ClassSessionResponse[]>([]);
   const [loadingSessions, setLoadingSessions] = useState(false);
   const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
-  const [substitutes, setSubstitutes] = useState<Record<number, UserListItemResponse | null>>({});
+  const [substitutes, setSubstitutes] = useState<Record<number, TeacherLookupResponse | null>>({});
 
   useEffect(() => {
     setSelectedClassId(null);
@@ -82,7 +74,7 @@ export default function LeaveRequestForm({ onSubmitted }: LeaveRequestFormProps)
   const needsSubstituteSelection = teachingSessions.length > 0;
   const allSubstitutesChosen = selectedClassSessions.length > 0 && selectedClassSessions.every((s) => substitutes[s.id]);
 
-  const applySameSubstituteToAll = (user: UserListItemResponse | null) => {
+  const applySameSubstituteToAll = (user: TeacherLookupResponse | null) => {
     if (!user) return;
     setSubstitutes((prev) => {
       const next = { ...prev };
@@ -135,9 +127,9 @@ export default function LeaveRequestForm({ onSubmitted }: LeaveRequestFormProps)
   return (
     <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-soft space-y-4">
       <h3 className="text-xs font-bold text-slate-400 block uppercase tracking-wider font-display border-b border-slate-100 pb-2">
-        Nộp Đơn Nghỉ Phép / Đi Muộn
+        Nộp Đơn Xin Nghỉ
       </h3>
-      <p className="text-xs text-slate-500">Hệ thống tự tạo quy trình xét duyệt 1-2 bước tương ứng theo phòng ban/chức vụ.</p>
+      <p className="text-xs text-slate-500">Gửi yêu cầu nghỉ phép, đi muộn hoặc về sớm. Hệ thống sẽ tự động xác định quy trình duyệt 1-2 bước theo chức vụ của bạn.</p>
 
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
@@ -147,13 +139,18 @@ export default function LeaveRequestForm({ onSubmitted }: LeaveRequestFormProps)
           <Select
             value={leaveType}
             onChange={(e) => setLeaveType(e.target.value as CreateLeaveRequestRequest["leaveType"])}
-            className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none"
+            disabled={loadingLeaveTypes}
+            className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none disabled:opacity-50"
           >
-            {Object.entries(leaveTypeLabels).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
+            {loadingLeaveTypes ? (
+              <option>Đang tải...</option>
+            ) : (
+              leaveTypes.map((type) => (
+                <option key={type.code} value={type.code}>
+                  {type.label}
+                </option>
+              ))
+            )}
           </Select>
         </div>
 
@@ -231,7 +228,7 @@ export default function LeaveRequestForm({ onSubmitted }: LeaveRequestFormProps)
                   <button
                     type="button"
                     onClick={() => {
-                      const first = Object.values(substitutes).find((u): u is UserListItemResponse => !!u);
+                      const first = Object.values(substitutes).find((u): u is TeacherLookupResponse => !!u);
                       if (first) applySameSubstituteToAll(first);
                     }}
                     className="text-[10px] font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1"
@@ -244,10 +241,9 @@ export default function LeaveRequestForm({ onSubmitted }: LeaveRequestFormProps)
                     <p className="text-[11px] text-slate-600 font-semibold">
                       {s.sessionDate} · {s.startTime.slice(0, 5)}-{s.endTime.slice(0, 5)}
                     </p>
-                    <UserSearchCombobox
+                    <SubstituteTeacherCombobox
                       value={substitutes[s.id] ?? null}
                       onChange={(u) => setSubstitutes((prev) => ({ ...prev, [s.id]: u }))}
-                      roleFilter="TEACHER"
                       placeholder="Chọn giáo viên dạy thay..."
                     />
                   </div>
