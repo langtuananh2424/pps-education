@@ -5,6 +5,7 @@ import { mockCampuses, mockClassrooms, mockExpenses, mockInvoices, mockStudents 
 import ExecutiveDashboard from "../components/ExecutiveDashboard";
 import AcademicDashboard from "../components/AcademicDashboard";
 import CampusDashboard from "../components/CampusDashboard";
+import TeacherDashboard from "../components/TeacherDashboard";
 
 function filterByCampus<T extends { campusId?: string; campusIds?: string[] }>(list: T[], selectedCampusId: string): T[] {
   if (selectedCampusId === "ALL") return list;
@@ -49,7 +50,11 @@ export default function DashboardPage() {
     );
   }
 
-  if (currentRole === UserRole.HEAD_ACADEMIC || currentRole === UserRole.TEACHER) {
+  if (currentRole === UserRole.TEACHER) {
+    return <TeacherDashboard />;
+  }
+
+  if (currentRole === UserRole.HEAD_ACADEMIC) {
     return <AcademicDashboard classrooms={classrooms} />;
   }
 

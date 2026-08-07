@@ -802,3 +802,39 @@ export function updateCurriculumDocument(id: number, request: UpdateCurriculumDo
 export function listCurriculumDocuments(curriculumId: number): Promise<CurriculumDocumentResponse[]> {
   return apiRequest<CurriculumDocumentResponse[]>(`/curriculums/${curriculumId}/documents`);
 }
+
+// ===================== Chờ chấm thủ công (UC-41/UC-26) — dùng cho Dashboard Giáo viên =====================
+
+/** UC-41 Main Flow bước 1: hàng chờ chấm tay của bài tập/đề (Essay/Speaking) thuộc thẩm quyền GV đang đăng nhập. */
+export interface PendingGradingResponse {
+  studentAnswerId: number;
+  exerciseAttemptId: number;
+  exerciseId: number;
+  exerciseTitle: string;
+  studentId: number;
+  studentFullName: string;
+  questionId: number;
+  questionType: string;
+  questionContent: string;
+  answerText: string | null;
+  audioAnswerUrl: string | null;
+}
+
+export function listPendingGrading(): Promise<PendingGradingResponse[]> {
+  return apiRequest<PendingGradingResponse[]>("/grading/pending");
+}
+
+/** UC-26: hàng chờ chấm tay riêng cho lượt luyện Nói đã nộp — tách khỏi ManualGradingController. */
+export interface PendingListeningGradingResponse {
+  practiceAttemptId: number;
+  practiceItemId: number;
+  practiceItemTitle: string;
+  studentId: number;
+  studentFullName: string;
+  audioAnswerUrl: string | null;
+  scriptText: string | null;
+}
+
+export function listPendingListeningGrading(): Promise<PendingListeningGradingResponse[]> {
+  return apiRequest<PendingListeningGradingResponse[]>("/listening-practice/grading/pending");
+}
