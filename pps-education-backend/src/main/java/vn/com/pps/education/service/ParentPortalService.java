@@ -214,7 +214,7 @@ public class ParentPortalService {
                 r.getId(), r.getSchoolClass().getId(), r.getStudent().getId(),
                 r.getStudent().getUser().getFullName(), r.getStudent().getStudentCode(),
                 r.getAcademicTerm().getId(), r.getEvaluationType().name(), r.getOverallScore(), r.getScaleType().name(),
-                r.getLevel(), r.getComment(), r.getNote(),
+                r.getLevel(), r.getComment(), r.getNote(), r.getDisclaimer(),
                 r.getSource().name(), r.getImportJob() == null ? null : r.getImportJob().getId(),
                 r.getStatus().name(), r.getEnteredBy().getId(),
                 r.getPublishedBy() == null ? null : r.getPublishedBy().getId(), r.getPublishedAt(), r.getFinalizedAt());

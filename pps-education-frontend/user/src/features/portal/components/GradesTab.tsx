@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Award, Minus, TrendingDown, TrendingUp } from "lucide-react";
+import { Award, TrendingDown, TrendingUp } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import {
   GradeComponentSetupResponse,
@@ -61,7 +61,7 @@ function setupLabel(s: GradeComponentSetupResponse): string {
 function TrendIcon({ current, previous }: { current: number; previous: number }) {
   if (current > previous) return <TrendingUp className="w-3 h-3 text-emerald-600 inline ml-1" aria-label="Tăng so với kỳ trước" />;
   if (current < previous) return <TrendingDown className="w-3 h-3 text-rose-600 inline ml-1" aria-label="Giảm so với kỳ trước" />;
-  return <Minus className="w-3 h-3 text-slate-400 inline ml-1" aria-label="Không đổi so với kỳ trước" />;
+  return null;
 }
 
 export default function GradesTab({ studentId, classId }: GradesTabProps) {
@@ -155,7 +155,7 @@ export default function GradesTab({ studentId, classId }: GradesTabProps) {
 
       <div className="bg-white border border-line/80 p-6 rounded-[20px] shadow-[0_8px_30px_rgba(30,42,69,0.03)] space-y-5">
         <h2 className="text-xl font-extrabold text-ink flex items-center gap-2">
-          <Award className="text-teal" /> Bảng điểm tổng hợp qua các kỳ
+          <Award className="text-teal" /> Bảng điểm tổng hợp
         </h2>
         {grades.length === 0 && setupResults.length === 0 ? (
           <p className="text-xs text-muted font-bold italic">Chưa có điểm nào được công bố cho lớp này.</p>
@@ -163,7 +163,7 @@ export default function GradesTab({ studentId, classId }: GradesTabProps) {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-slate-100/80 border-b border-line text-[10px] font-black uppercase text-[#6e7c93] tracking-wider whitespace-nowrap">
+                <tr className="bg-slate-100/80 border-b border-line text-sm font-black uppercase text-[#6e7c93] tracking-wider whitespace-nowrap">
                   <th className="p-3 pl-4">Đầu điểm</th>
                   {sortedSetups.map((s) => (
                     <th key={s.id} className="p-3 text-center border-l border-line/60">
@@ -172,7 +172,7 @@ export default function GradesTab({ studentId, classId }: GradesTabProps) {
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-line/60 text-xs font-bold text-ink">
+              <tbody className="divide-y divide-line/60 text-sm font-bold text-ink">
                 {codeGroups.map((g) => {
                   const scores = sortedSetups.map((s) => {
                     const componentId = g.componentIdBySetup.get(s.id);
@@ -190,11 +190,11 @@ export default function GradesTab({ studentId, classId }: GradesTabProps) {
                               <span className="text-slate-300">—</span>
                             ) : (
                               <div className="inline-flex flex-col items-center gap-0.5">
-                                <span className={`text-sm font-extrabold ${statusTextClasses[entry.status]}`}>
+                                <span className={`text-[17px] font-extrabold ${statusTextClasses[entry.status]}`}>
                                   {entry.absenceFlag ? "—" : entry.score}
                                   {!entry.absenceFlag && prevEntry && !prevEntry.absenceFlag && <TrendIcon current={entry.score} previous={prevEntry.score} />}
                                 </span>
-                                {entry.absenceFlag && <span className="text-[9px] text-coral font-extrabold uppercase">Vắng</span>}
+                                {entry.absenceFlag && <span className="text-[11px] text-coral font-extrabold uppercase">Vắng</span>}
                               </div>
                             )}
                           </td>
@@ -214,14 +214,28 @@ export default function GradesTab({ studentId, classId }: GradesTabProps) {
                           <span className="text-slate-300">—</span>
                         ) : (
                           <div className="inline-flex flex-col items-center gap-0.5">
-                            <span className={`text-sm font-extrabold ${statusTextClasses[result.status]}`}>
+                            <span className={`text-[17px] font-extrabold ${statusTextClasses[result.status]}`}>
                               {result.overallScore ?? "—"}
                               {result.overallScore != null && prevResult?.overallScore != null && (
                                 <TrendIcon current={result.overallScore} previous={prevResult.overallScore} />
                               )}
                             </span>
-                            {result.level && <span className="text-[9px] text-muted font-bold">{result.level}</span>}
                           </div>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+                <tr className="hover:bg-slate-50/80 bg-sky-1">
+                  <td className="p-3 pl-4 font-extrabold text-ink whitespace-nowrap">Level</td>
+                  {sortedSetups.map((s) => {
+                    const result = resultBySetupId.get(s.id);
+                    return (
+                      <td key={s.id} className="p-3 text-center border-l border-line/60">
+                        {!result || !result.level ? (
+                          <span className="text-slate-300">—</span>
+                        ) : (
+                          <span className="text-[22px] font-black text-teal-deep">{result.level}</span>
                         )}
                       </td>
                     );
@@ -232,37 +246,54 @@ export default function GradesTab({ studentId, classId }: GradesTabProps) {
           </div>
         )}
 
-        {/* V94 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng): Nhận xét/Ghi chú tích hợp vào sổ điểm, hiển thị theo từng setup đã công bố. */}
-        {setupResults.filter((sr) => sr.result.comment || sr.result.note).length > 0 && (
+        {/* V94 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng): Nhận xét/Ghi chú tích hợp vào sổ điểm, hiển thị theo từng setup đã công bố. V100: Lưu ý bổ sung. */}
+        {setupResults.filter((sr) => sr.result.disclaimer || sr.result.comment || sr.result.note).length > 0 && (
           <div className="space-y-2 pt-2">
-            <h3 className="text-[11px] font-extrabold text-muted uppercase tracking-wide border-b border-line/60 pb-1.5">Nhận xét theo kỳ</h3>
-            {setupResults
-              .filter((sr) => sr.result.comment || sr.result.note)
-              .map((sr) => (
-                <div key={sr.setup.id} className="border border-line/60 p-4 rounded-[16px] bg-sky-2 space-y-1">
-                  <p className="text-xs font-extrabold text-ink">{setupLabel(sr.setup)}</p>
-                  {sr.result.comment && <p className="text-xs text-ink/80">{sr.result.comment}</p>}
-                  {sr.result.note && <p className="text-[11px] text-muted italic">{sr.result.note}</p>}
-                </div>
-              ))}
+            {setupResults.filter((sr) => sr.result.disclaimer).length > 0 && (
+              <>
+                <h3 className="text-[13px] font-extrabold text-muted uppercase tracking-wide border-b border-line/60 pb-1.5">Lưu ý</h3>
+                {setupResults
+                  .filter((sr) => sr.result.disclaimer)
+                  .map((sr) => (
+                    <div key={`disclaimer-${sr.setup.id}`} className="border border-line/60 p-4 rounded-[16px] bg-amber-50 space-y-1">
+                      <p className="text-sm font-extrabold text-amber-900">{setupLabel(sr.setup)}</p>
+                      <p className="text-sm text-amber-800/90 leading-relaxed">{sr.result.disclaimer}</p>
+                    </div>
+                  ))}
+              </>
+            )}
+            {setupResults.filter((sr) => sr.result.comment || sr.result.note).length > 0 && (
+              <>
+                <h3 className="text-[13px] font-extrabold text-muted uppercase tracking-wide border-b border-line/60 pb-1.5 pt-2">Nhận xét của giáo viên</h3>
+                {setupResults
+                  .filter((sr) => sr.result.comment || sr.result.note)
+                  .map((sr) => (
+                    <div key={sr.setup.id} className="border border-line/60 p-4 rounded-[16px] bg-sky-2 space-y-1">
+                      <p className="text-sm font-extrabold text-ink">{setupLabel(sr.setup)}</p>
+                      {sr.result.comment && <p className="text-sm text-ink/80">{sr.result.comment}</p>}
+                      {sr.result.note && <p className="text-[13px] text-muted italic">{sr.result.note}</p>}
+                    </div>
+                  ))}
+              </>
+            )}
           </div>
         )}
 
         {ungroupedGrades.length > 0 && (
           <div className="space-y-3 pt-2">
-            <h3 className="text-[11px] font-extrabold text-muted uppercase tracking-wide border-b border-line/60 pb-1.5">Khác (chưa xác định kỳ)</h3>
+            <h3 className="text-[13px] font-extrabold text-muted uppercase tracking-wide border-b border-line/60 pb-1.5">Khác (chưa xác định kỳ)</h3>
             {ungroupedGrades.map((g) => (
               <div key={g.id} className="border border-line/60 p-4 rounded-[16px] flex flex-wrap justify-between items-center gap-2 bg-sky-2">
                 <div>
-                  <p className="text-xs font-extrabold text-ink">{componentNames.get(g.gradeEvaluationComponentId) ?? "Đầu điểm"}</p>
-                  {g.teacherNote && <p className="text-[10px] text-muted font-bold mt-0.5">{g.teacherNote}</p>}
-                  {g.absenceFlag && <span className="text-[10px] text-coral font-extrabold uppercase">Vắng — không có điểm</span>}
-                  <span className={`inline-block mt-1 text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full ${statusClasses[g.status]}`}>
+                  <p className="text-sm font-extrabold text-ink">{componentNames.get(g.gradeEvaluationComponentId) ?? "Đầu điểm"}</p>
+                  {g.teacherNote && <p className="text-[12px] text-muted font-bold mt-0.5">{g.teacherNote}</p>}
+                  {g.absenceFlag && <span className="text-[12px] text-coral font-extrabold uppercase">Vắng — không có điểm</span>}
+                  <span className={`inline-block mt-1 text-[12px] font-extrabold uppercase px-2 py-0.5 rounded-full ${statusClasses[g.status]}`}>
                     {statusLabels[g.status]}
                   </span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-lg font-extrabold text-teal-deep">{g.absenceFlag ? "—" : g.score}</span>
+                  <span className="text-[17px] font-extrabold text-teal-deep">{g.absenceFlag ? "—" : g.score}</span>
                 </div>
               </div>
             ))}

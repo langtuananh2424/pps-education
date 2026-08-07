@@ -100,10 +100,16 @@ public class ExerciseReportService {
         requireReportScope(assignment.getSchoolClass().getId(), actorUserId);
 
         List<ClassEnrollment> roster = rosterForAssignment(assignment);
-        Map<Long, ExerciseAttempt> latestByStudent = latestAttemptByStudent(assignment.getId());
+        // V93: lấy lượt được chọn làm chính thức (nếu có), nếu không thì lấy lượt cuối cùng
+        Map<Long, ExerciseAttempt> attemptByStudent = selectedOrLatestAttemptByStudent(assignment.getId());
+
+        // Tính tổng số lần làm cho mỗi học sinh
+        List<ExerciseAttempt> allAttempts = exerciseAttemptRepository.findByExerciseAssignmentIdOrderByAttemptNumberDesc(assignment.getId());
+        Map<Long, Integer> numberOfAttemptsByStudent = allAttempts.stream()
+                .collect(Collectors.groupingBy(a -> a.getStudent().getId(), Collectors.collectingAndThen(Collectors.toList(), list -> list.size())));
 
         List<ExerciseAssignmentStudentStatsResponse.StudentRow> rows = roster.stream()
-                .map(enrollment -> toStudentRow(enrollment.getStudent(), latestByStudent.get(enrollment.getStudent().getId()), assignment.getExercise()))
+                .map(enrollment -> toStudentRow(enrollment.getStudent(), attemptByStudent.get(enrollment.getStudent().getId()), assignment.getExercise(), numberOfAttemptsByStudent.getOrDefault(enrollment.getStudent().getId(), 0)))
                 .toList();
 
         return new ExerciseAssignmentStudentStatsResponse(toAssignmentStats(assignment, roster), rows);
@@ -174,10 +180,11 @@ public class ExerciseReportService {
         int totalStudents = assignment.getTargetStudentIds() != null
                 ? assignment.getTargetStudentIds().size() : roster.size();
 
-        Map<Long, ExerciseAttempt> latestByStudent = latestAttemptByStudent(assignment.getId());
-        int completedCount = (int) latestByStudent.values().stream()
+        // V93: dùng lượt được chọn (nếu có) thay vì lượt cuối cùng
+        Map<Long, ExerciseAttempt> attemptByStudent = selectedOrLatestAttemptByStudent(assignment.getId());
+        int completedCount = (int) attemptByStudent.values().stream()
                 .filter(a -> COMPLETED_ATTEMPT_STATUSES.contains(a.getStatus())).count();
-        int passedCount = (int) latestByStudent.values().stream()
+        int passedCount = (int) attemptByStudent.values().stream()
                 .filter(a -> Boolean.TRUE.equals(a.getPassed())).count();
 
         return new ExerciseAssignmentStatsResponse(
@@ -187,11 +194,11 @@ public class ExerciseReportService {
                 percentOf(completedCount, totalStudents), passedCount, percentOf(passedCount, totalStudents));
     }
 
-    private ExerciseAssignmentStudentStatsResponse.StudentRow toStudentRow(Student student, ExerciseAttempt latest, Exercise exercise) {
+    private ExerciseAssignmentStudentStatsResponse.StudentRow toStudentRow(Student student, ExerciseAttempt latest, Exercise exercise, int numberOfAttempts) {
         if (latest == null) {
             return new ExerciseAssignmentStudentStatsResponse.StudentRow(
                     student.getId(), student.getStudentCode(), student.getUser().getFullName(),
-                    "CHUA_LAM", null, null, null, null, null, null, null);
+                    "CHUA_LAM", null, null, null, null, null, null, null, 0);
         }
         String status;
         if (latest.getStatus() == ExerciseAttempt.Status.IN_PROGRESS) {
@@ -206,7 +213,7 @@ public class ExerciseReportService {
         return new ExerciseAssignmentStudentStatsResponse.StudentRow(
                 student.getId(), student.getStudentCode(), student.getUser().getFullName(),
                 status, latest.getTotalScore(), exercise.getTotalPoints(), percentage,
-                latest.getPassed(), latest.getSubmittedAt(), latest.getAttemptNumber(), latest.getId());
+                latest.getPassed(), latest.getSubmittedAt(), latest.getAttemptNumber(), latest.getId(), numberOfAttempts);
     }
 
     private ExerciseAssignmentQuestionStatsResponse.QuestionRow toQuestionRow(ExerciseQuestion eq, List<StudentAnswer> answers,
@@ -244,6 +251,30 @@ public class ExerciseReportService {
     }
 
     /** Attempt mới nhất mỗi học sinh (attemptNumber lớn nhất) — mirror ReviewVideoService.listSubmissionsForTeacher. */
+    /** V93 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06): lấy lượt được chọn làm chính thức (selectedForGrading=true) nếu có, nếu không thì lấy lượt cuối cùng — tương thích với UC-24/27 khi giáo viên chọn 1 lượt làm "điểm chính thức". */
+    private Map<Long, ExerciseAttempt> selectedOrLatestAttemptByStudent(Long assignmentId) {
+        List<ExerciseAttempt> attempts = exerciseAttemptRepository.findByExerciseAssignmentIdOrderByAttemptNumberDesc(assignmentId);
+        Map<Long, ExerciseAttempt> result = new java.util.LinkedHashMap<>();
+
+        // Pass 1: tìm lượt được chọn (selectedForGrading=true) cho mỗi học sinh
+        for (ExerciseAttempt attempt : attempts) {
+            Long studentId = attempt.getStudent().getId();
+            if (attempt.isSelectedForGrading()) {
+                result.put(studentId, attempt);
+            }
+        }
+
+        // Pass 2: nếu học sinh chưa có lượt được chọn, thêm lượt cuối cùng (attempt đầu tiên vì sorted DESC)
+        for (ExerciseAttempt attempt : attempts) {
+            Long studentId = attempt.getStudent().getId();
+            if (!result.containsKey(studentId)) {
+                result.put(studentId, attempt);
+            }
+        }
+
+        return result;
+    }
+
     private Map<Long, ExerciseAttempt> latestAttemptByStudent(Long assignmentId) {
         List<ExerciseAttempt> attempts = exerciseAttemptRepository.findByExerciseAssignmentIdOrderByAttemptNumberDesc(assignmentId);
         Map<Long, ExerciseAttempt> latest = new java.util.LinkedHashMap<>();

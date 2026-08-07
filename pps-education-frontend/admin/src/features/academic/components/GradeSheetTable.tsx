@@ -76,6 +76,7 @@ export default function GradeSheetTable({ classId, setupId, scaleType, component
   const [levelInput, setLevelInput] = useState<Record<number, string>>({});
   const [commentInput, setCommentInput] = useState<Record<number, string>>({});
   const [noteInput, setNoteInput] = useState<Record<number, string>>({});
+  const [disclaimerInput, setDisclaimerInput] = useState<string>("");
   const [savingKey, setSavingKey] = useState<string | null>(null);
 
   const activeStudents = enrollments.filter((en) => en.status === "ACTIVE");
@@ -94,6 +95,9 @@ export default function GradeSheetTable({ classId, setupId, scaleType, component
         });
         setEntriesByStudent(map);
         setResultsByStudent(new Map(results.map((r) => [r.studentId, r])));
+        if (results.length > 0 && results[0].disclaimer) {
+          setDisclaimerInput(results[0].disclaimer);
+        }
         onLoaded?.(flatEntries, results);
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được bảng điểm."))
@@ -169,6 +173,7 @@ export default function GradeSheetTable({ classId, setupId, scaleType, component
     const level = levelInput[studentId] ?? existing?.level ?? "";
     const comment = commentInput[studentId] ?? existing?.comment ?? "";
     const note = noteInput[studentId] ?? existing?.note ?? "";
+    const disclaimer = disclaimerInput || existing?.disclaimer || "";
     const overallScore = overallRaw.trim() === "" ? undefined : parseFloat(overallRaw);
     if (overallRaw.trim() !== "" && isNaN(Number(overallScore))) {
       setError("Overall không hợp lệ.");
@@ -182,7 +187,8 @@ export default function GradeSheetTable({ classId, setupId, scaleType, component
         scaleType: scale,
         level: level.trim() || undefined,
         comment: comment.trim() || undefined,
-        note: note.trim() || undefined
+        note: note.trim() || undefined,
+        disclaimer: disclaimer.trim() || undefined
       });
       setResultsByStudent((prev) => {
         const next = new Map(prev);
@@ -210,7 +216,40 @@ export default function GradeSheetTable({ classId, setupId, scaleType, component
         return next;
       });
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Lưu Overall/Level/Nhận xét thất bại.");
+      setError(err instanceof ApiError ? err.message : "Lưu Overall/Level/Nhận xét/Lưu ý thất bại.");
+    } finally {
+      setSavingKey(null);
+    }
+  };
+
+  const handleBlurDisclaimer = async () => {
+    if (!disclaimerInput && !resultsByStudent.values().next().value?.disclaimer) return;
+    const key = "disclaimer:all";
+    setSavingKey(key);
+    setError(null);
+    try {
+      const results = Array.from(resultsByStudent.values());
+      await Promise.all(
+        results.map((result) =>
+          enterEvaluationResult(classId, result.studentId, setupId, {
+            overallScore: result.overallScore ?? undefined,
+            scaleType: result.scaleType,
+            level: result.level ?? undefined,
+            comment: result.comment ?? undefined,
+            note: result.note ?? undefined,
+            disclaimer: disclaimerInput.trim() || undefined
+          })
+        )
+      );
+      setResultsByStudent((prev) => {
+        const next = new Map(prev);
+        next.forEach((result) => {
+          next.set(result.studentId, { ...result, disclaimer: disclaimerInput.trim() || null });
+        });
+        return next;
+      });
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Lưu Lưu ý thất bại.");
     } finally {
       setSavingKey(null);
     }
@@ -229,6 +268,20 @@ export default function GradeSheetTable({ classId, setupId, scaleType, component
         </div>
       )}
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 m-3 rounded-lg">{error}</div>}
+      {!readOnly && (
+        <div className="px-5 py-3 space-y-2 border-b border-slate-200">
+          <label className="block text-xs font-semibold text-slate-700">Lưu ý</label>
+          <textarea
+            value={disclaimerInput}
+            onChange={(e) => setDisclaimerInput(e.target.value)}
+            onBlur={handleBlurDisclaimer}
+            disabled={savingKey === "disclaimer:all"}
+            placeholder="Nhập lưu ý cho kỳ đánh giá này (VD: phạm vi đề thi, điều kiện điều chỉnh, ...)"
+            className="w-full text-xs p-2 border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:opacity-50"
+            rows={3}
+          />
+        </div>
+      )}
       <div className="overflow-x-auto">
         <TableContainer className="rounded-none border-0">
           <thead>

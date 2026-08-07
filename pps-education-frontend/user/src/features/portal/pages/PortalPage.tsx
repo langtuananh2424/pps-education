@@ -11,13 +11,14 @@ import AssignmentsTab from "../components/AssignmentsTab";
 import ParentHomeworkProgressTab from "../components/ParentHomeworkProgressTab";
 import NotificationBell from "../components/NotificationBell";
 import GradesTab from "../components/GradesTab";
+import GradeStatsPage from "./GradeStatsPage";
 import BillingTab from "../components/BillingTab";
 import DailyLearningProgressTab from "../components/DailyLearningProgressTab";
 import DocumentLibraryTab from "../components/DocumentLibraryTab";
 import ComingSoon from "../components/ComingSoon";
 import ProfileModal from "../components/ProfileModal";
 
-type Tab = "home" | "schedule" | "learning-progress" | "homework" | "documents" | "grades" | "billing";
+type Tab = "home" | "schedule" | "learning-progress" | "homework" | "documents" | "grades" | "grade-stats" | "billing";
 
 const TABS: { key: Tab; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
   { key: "home", label: "Trang chủ & Bảng tin", icon: Home },
@@ -26,6 +27,7 @@ const TABS: { key: Tab; label: string; icon: React.ComponentType<{ size?: number
   { key: "homework", label: "Bài tập về nhà (BTVN)", icon: ClipboardList },
   { key: "documents", label: "Kho dữ liệu (Sách, TLTK)", icon: FolderOpen },
   { key: "grades", label: "Khảo thí & Điểm số", icon: Award },
+  { key: "grade-stats", label: "Thống kê điểm", icon: Award },
   { key: "billing", label: "Học phí & Dịch vụ", icon: CreditCard }
 ];
 
@@ -431,6 +433,14 @@ export default function PortalPage() {
                       <GradesTab classId={selectedClassId} />
                     ) : (
                       <ComingSoon title="Khảo thí & Điểm số" description="Không có hồ sơ Học sinh hoặc Phụ huynh liên kết với tài khoản này." />
+                    ))}
+                  {activeTab === "grade-stats" &&
+                    (isParent && selectedChild ? (
+                      <GradeStatsPage studentId={selectedChild.studentId} classId={selectedClassId} />
+                    ) : isStudent ? (
+                      <GradeStatsPage classId={selectedClassId} />
+                    ) : (
+                      <ComingSoon title="Thống kê điểm" description="Không có hồ sơ Học sinh hoặc Phụ huynh liên kết với tài khoản này." />
                     ))}
                   {activeTab === "billing" &&
                     (isParent ? (

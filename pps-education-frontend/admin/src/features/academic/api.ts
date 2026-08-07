@@ -671,7 +671,7 @@ export function enterGrade(classId: number, gradeEvaluationComponentId: number, 
 
 // ===================== UC-53: Overall/Level + Nhận xét/Ghi chú (V94) theo (kỳ học, Giữa/Cuối kỳ) + Nhập điểm qua Excel =====================
 
-/** V94 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng): thay GradePeriodResultResponse, thêm comment/note ("Nhận xét"/"Ghi chú") tích hợp vào sổ điểm — hiển thị PH khi status=OFFICIAL. */
+/** V94 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng): thay GradePeriodResultResponse, thêm comment/note ("Nhận xét"/"Ghi chú") tích hợp vào sổ điểm — hiển thị PH khi status=OFFICIAL. V100: thêm disclaimer ("Lưu ý") — thông tin bổ sung đặc thù cho kỳ, hiển thị ở header UI nhập điểm. */
 export interface GradeEvaluationResultResponse {
   id: number;
   classId: number;
@@ -685,6 +685,7 @@ export interface GradeEvaluationResultResponse {
   level: string | null;
   comment: string | null;
   note: string | null;
+  disclaimer: string | null;
   source: "MANUAL" | "EXCEL_IMPORT";
   importJobId: number | null;
   status: GradeStatus;
@@ -700,6 +701,7 @@ export interface EnterGradeEvaluationResultRequest {
   level?: string;
   comment?: string;
   note?: string;
+  disclaimer?: string;
 }
 
 /** UC-53: Overall/Level/Nhận xét/Ghi chú GV đã tính sẵn (nhập tay hoặc từ Excel) — hệ thống chỉ lưu, không tự tính lại. */
@@ -1005,6 +1007,7 @@ export interface ExerciseAssignmentStudentRow {
   submittedAt: string | null;
   attemptNumber: number | null;
   attemptId: number | null;
+  numberOfAttempts: number;
 }
 
 export interface ExerciseAssignmentStudentStatsResponse {

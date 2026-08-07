@@ -191,7 +191,7 @@ export default function AssignmentStatsDetailPage() {
                           <Badge variant={s.passed ? "success" : "danger"}>{s.passed ? "Đạt" : "Chưa đạt"}</Badge>
                         )}
                       </Td>
-                      <Td className="text-center">{s.attemptNumber ?? "—"}</Td>
+                      <Td className="text-center">{s.numberOfAttempts ?? "—"}</Td>
                       <Td className="text-center">
                         {s.status !== "CHUA_LAM" && (
                           <button
@@ -240,7 +240,17 @@ export default function AssignmentStatsDetailPage() {
       )}
 
       {detailStudent && (
-        <StudentDetailModal student={detailStudent} exerciseId={studentStats.assignment.exerciseId} onClose={() => setDetailStudentId(null)} />
+        <StudentDetailModal
+          student={detailStudent}
+          exerciseId={studentStats.assignment.exerciseId}
+          assignmentId={numAssignmentId}
+          onClose={() => setDetailStudentId(null)}
+          onRefreshStats={() => {
+            if (numAssignmentId) {
+              getExerciseAssignmentStudentStats(numAssignmentId).then(setStudentStats).catch(() => undefined);
+            }
+          }}
+        />
       )}
     </div>
   );
@@ -304,11 +314,15 @@ function QuestionRow({
 function StudentDetailModal({
   student,
   exerciseId,
-  onClose
+  assignmentId,
+  onClose,
+  onRefreshStats
 }: {
   student: ExerciseAssignmentStudentRow;
   exerciseId: number;
+  assignmentId: number | null;
   onClose: () => void;
+  onRefreshStats?: () => void;
 }) {
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — trước đây LUÔN tải câu trả lời
   // của lượt MỚI NHẤT (student.attemptId), dù học sinh có nhiều lượt làm — GV không xem lại được câu
@@ -406,12 +420,13 @@ function StudentDetailModal({
             </div>
           </div>
 
-          {/* Lịch sử nhiều lượt làm bài — bổ sung ngoài SDD gốc, đã xác nhận với người dùng
-              2026-08-06, chỉ hiện khi có >1 lượt hoặc có lượt bị dừng ép, tránh rối màn với đề
-              chỉ cho làm 1 lần (trường hợp phổ biến nhất). */}
-          {(attempts.length > 1 || attempts.some((a) => a.stoppedByIntegrityViolation)) && (
+          {/* Lịch sử làm bài — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06.
+              Luôn hiển thị để giáo viên có thể chọn lượt làm chính thức, kể cả khi chỉ có 1 lượt. */}
+          {attempts.length > 0 && (
             <div>
-              <h3 className="font-semibold text-sm mb-3 text-slate-900">Lịch sử nhiều lượt làm bài</h3>
+              <h3 className="font-semibold text-sm mb-3 text-slate-900">
+                {attempts.length > 1 ? "Lịch sử nhiều lượt làm bài" : "Lịch sử làm bài"}
+              </h3>
               {attemptsError && (
                 <div className="mb-3 text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{attemptsError}</div>
               )}
@@ -438,6 +453,7 @@ function StudentDetailModal({
                           key={a.id}
                           attempt={a}
                           onSelected={(updated) => setAttempts(updated)}
+                          onRefreshStats={onRefreshStats}
                           viewing={viewingAttemptId === a.id}
                           onView={() => setViewingAttemptId(a.id)}
                         />
@@ -453,7 +469,7 @@ function StudentDetailModal({
           <div>
             <h3 className="font-semibold text-sm mb-3 text-slate-900">
               Lịch sử trả lời câu hỏi
-              {attempts.length > 1 && viewingAttemptId != null && (
+              {viewingAttemptId != null && (
                 <span className="font-normal text-slate-500">
                   {" — Lượt #"}
                   {attempts.find((a) => a.id === viewingAttemptId)?.attemptNumber ?? "?"}
@@ -548,11 +564,13 @@ function StudentDetailModal({
 function AttemptHistoryRow({
   attempt,
   onSelected,
+  onRefreshStats,
   viewing,
   onView
 }: {
   attempt: ExerciseAttemptRow;
   onSelected: (updated: ExerciseAttemptRow[]) => void;
+  onRefreshStats?: () => void;
   viewing: boolean;
   onView: () => void;
 }) {
@@ -560,6 +578,7 @@ function AttemptHistoryRow({
   const [showSummary, setShowSummary] = React.useState(false);
   const [loadingSummary, setLoadingSummary] = React.useState(false);
   const [selecting, setSelecting] = React.useState(false);
+  const [selectError, setSelectError] = React.useState<string | null>(null);
 
   const toggleSummary = () => {
     if (showSummary) {
@@ -578,9 +597,15 @@ function AttemptHistoryRow({
   const handleSelectForGrading = () => {
     if (selecting || attempt.selectedForGrading) return;
     setSelecting(true);
+    setSelectError(null);
     selectAttemptForGrading(attempt.id)
-      .then(onSelected)
-      .catch(() => undefined)
+      .then((updated) => {
+        onSelected(updated);
+        onRefreshStats?.();
+      })
+      .catch((err) => {
+        setSelectError(err instanceof Error ? err.message : "Không chọn được lượt làm này.");
+      })
       .finally(() => setSelecting(false));
   };
 
@@ -617,19 +642,24 @@ function AttemptHistoryRow({
           )}
         </td>
         <td className="text-center p-2">
-          {attempt.selectedForGrading ? (
-            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-md">
-              <CheckCircle2 className="w-3 h-3" /> Đã chọn
-            </span>
-          ) : (
-            <button
-              onClick={handleSelectForGrading}
-              disabled={selecting}
-              className="text-[10px] font-medium text-blue-700 bg-blue-50 border border-blue-200 px-2 py-1 rounded-md hover:bg-blue-100 disabled:opacity-50"
-            >
-              {selecting ? "Đang chọn..." : "Chọn làm điểm"}
-            </button>
-          )}
+          <div className="flex flex-col items-center gap-1">
+            {attempt.selectedForGrading ? (
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-md">
+                <CheckCircle2 className="w-3 h-3" /> Đã chọn
+              </span>
+            ) : (
+              <button
+                onClick={handleSelectForGrading}
+                disabled={selecting}
+                className="text-[10px] font-medium text-blue-700 bg-blue-50 border border-blue-200 px-2 py-1 rounded-md hover:bg-blue-100 disabled:opacity-50"
+              >
+                {selecting ? "Đang chọn..." : "Chọn làm điểm"}
+              </button>
+            )}
+            {selectError && (
+              <span className="text-[9px] text-red-600 font-medium">{selectError}</span>
+            )}
+          </div>
         </td>
         <td className="text-center p-2">
           {viewing ? (

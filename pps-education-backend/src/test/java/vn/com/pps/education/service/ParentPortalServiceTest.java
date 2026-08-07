@@ -244,7 +244,7 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
                 new CreateGradeComponentSetupRequest(academicTerm.getId(), "MID_TERM", "POINT_10", LocalDate.now(), false),
                 headAcademic.getId());
         var enteredResult = gradeService.enterEvaluationResult(schoolClass.id(), student.getId(), setup.id(),
-                new EnterGradeEvaluationResultRequest(new BigDecimal("7.5"), "BAND", "B2", null, null), teacher.getId());
+                new EnterGradeEvaluationResultRequest(new BigDecimal("7.5"), "BAND", "B2", null, null, null), teacher.getId());
         gradeService.submitGradesForApproval(new SubmitGradesRequest(null, List.of(enteredResult.id())), teacher.getId());
         gradeService.publishGrades(new PublishGradesRequest("APPROVE", null, List.of(enteredResult.id()), null, null, null), siteManagerUser.getId());
 
@@ -262,7 +262,7 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
                 new CreateGradeComponentSetupRequest(academicTerm.getId(), "MID_TERM", "POINT_10", LocalDate.now(), false),
                 headAcademic.getId());
         gradeService.enterEvaluationResult(schoolClass.id(), student.getId(), setup.id(),
-                new EnterGradeEvaluationResultRequest(new BigDecimal("7.5"), "BAND", "B2", null, null), teacher.getId());
+                new EnterGradeEvaluationResultRequest(new BigDecimal("7.5"), "BAND", "B2", null, null, null), teacher.getId());
         // Chưa công bố (còn DRAFT) -- Phụ huynh chưa được xem.
 
         assertThatThrownBy(() -> parentPortalService.getEvaluationResult(

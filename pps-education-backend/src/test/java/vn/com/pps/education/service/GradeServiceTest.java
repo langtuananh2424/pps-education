@@ -248,7 +248,7 @@ class GradeServiceTest extends AbstractIntegrationTest {
                 headAcademic.getId());
         // Điểm tổng kết (Overall/Level) không cần thành phần điểm -> setup có result nhưng không có component.
         gradeService.enterEvaluationResult(schoolClass.id(), student.getId(), emptySetup.id(),
-                new EnterGradeEvaluationResultRequest(new BigDecimal("7.0"), "NUMERIC", null, null, null), teacher.getId());
+                new EnterGradeEvaluationResultRequest(new BigDecimal("7.0"), "NUMERIC", null, null, null, null), teacher.getId());
 
         assertThatThrownBy(() -> gradeService.deleteGradeComponentSetup(emptySetup.id(), headAcademic.getId()))
                 .isInstanceOf(GradeComponentSetupNotDeletableException.class);
@@ -287,7 +287,7 @@ class GradeServiceTest extends AbstractIntegrationTest {
     @Test
     void enterEvaluationResult_UC53_luuOverallLevel_thanhCong() {
         GradeEvaluationResultResponse result = gradeService.enterEvaluationResult(schoolClass.id(), student.getId(), gradeSetup.id(),
-                new EnterGradeEvaluationResultRequest(new BigDecimal("6.5"), "BAND", "B2", "Tiến bộ tốt", null), teacher.getId());
+                new EnterGradeEvaluationResultRequest(new BigDecimal("6.5"), "BAND", "B2", "Tiến bộ tốt", null, null), teacher.getId());
 
         assertThat(result.status()).isEqualTo("DRAFT");
         assertThat(result.overallScore()).isEqualByComparingTo("6.5");
@@ -300,10 +300,10 @@ class GradeServiceTest extends AbstractIntegrationTest {
     @Test
     void enterEvaluationResult_suaLaiTruocKhiCongBo_thanhCong() {
         gradeService.enterEvaluationResult(schoolClass.id(), student.getId(), gradeSetup.id(),
-                new EnterGradeEvaluationResultRequest(new BigDecimal("5.0"), "BAND", "B1", null, null), teacher.getId());
+                new EnterGradeEvaluationResultRequest(new BigDecimal("5.0"), "BAND", "B1", null, null, null), teacher.getId());
 
         GradeEvaluationResultResponse reentered = gradeService.enterEvaluationResult(schoolClass.id(), student.getId(), gradeSetup.id(),
-                new EnterGradeEvaluationResultRequest(new BigDecimal("6.0"), "BAND", "B2", null, null), teacher.getId());
+                new EnterGradeEvaluationResultRequest(new BigDecimal("6.0"), "BAND", "B2", null, null, null), teacher.getId());
 
         assertThat(reentered.status()).isEqualTo("DRAFT");
         assertThat(reentered.overallScore()).isEqualByComparingTo("6.0");
@@ -410,7 +410,7 @@ class GradeServiceTest extends AbstractIntegrationTest {
     @Test
     void deleteEvaluationResult_UC53_MainFlow_deletesDraftResult() {
         GradeEvaluationResultResponse result = gradeService.enterEvaluationResult(schoolClass.id(), student.getId(), gradeSetup.id(),
-                new EnterGradeEvaluationResultRequest(new BigDecimal("6.5"), "BAND", "B2", null, null), teacher.getId());
+                new EnterGradeEvaluationResultRequest(new BigDecimal("6.5"), "BAND", "B2", null, null, null), teacher.getId());
 
         gradeService.deleteEvaluationResult(schoolClass.id(), student.getId(), gradeSetup.id(), teacher.getId());
 
@@ -421,7 +421,7 @@ class GradeServiceTest extends AbstractIntegrationTest {
     @Test
     void deleteEvaluationResult_rejectsWhenNotDraft() {
         GradeEvaluationResultResponse result = gradeService.enterEvaluationResult(schoolClass.id(), student.getId(), gradeSetup.id(),
-                new EnterGradeEvaluationResultRequest(new BigDecimal("6.5"), "BAND", "B2", null, null), teacher.getId());
+                new EnterGradeEvaluationResultRequest(new BigDecimal("6.5"), "BAND", "B2", null, null, null), teacher.getId());
         submitResults(result.id());
 
         assertThatThrownBy(() -> gradeService.deleteEvaluationResult(schoolClass.id(), student.getId(), gradeSetup.id(), teacher.getId()))
@@ -510,7 +510,7 @@ class GradeServiceTest extends AbstractIntegrationTest {
     @Test
     void publishGrades_UC53_approvesEvaluationResultToOfficial() {
         GradeEvaluationResultResponse result = gradeService.enterEvaluationResult(schoolClass.id(), student.getId(), gradeSetup.id(),
-                new EnterGradeEvaluationResultRequest(new BigDecimal("6.5"), "BAND", "B2", null, null), teacher.getId());
+                new EnterGradeEvaluationResultRequest(new BigDecimal("6.5"), "BAND", "B2", null, null, null), teacher.getId());
         submitResults(result.id());
 
         approveResults(siteManagerUser.getId(), result.id());
@@ -524,7 +524,7 @@ class GradeServiceTest extends AbstractIntegrationTest {
     @Test
     void publishGrades_UC94_managerEditsCommentBeforeApproving() {
         GradeEvaluationResultResponse result = gradeService.enterEvaluationResult(schoolClass.id(), student.getId(), gradeSetup.id(),
-                new EnterGradeEvaluationResultRequest(new BigDecimal("6.5"), "BAND", "B2", "Nhận xét gốc của GV", null), teacher.getId());
+                new EnterGradeEvaluationResultRequest(new BigDecimal("6.5"), "BAND", "B2", "Nhận xét gốc của GV", null, null), teacher.getId());
         submitResults(result.id());
 
         gradeService.publishGrades(new PublishGradesRequest("APPROVE", null, List.of(result.id()), null,
@@ -698,7 +698,7 @@ class GradeServiceTest extends AbstractIntegrationTest {
     void getMyEvaluationResult_UC61_MainFlow_returnsOfficialResult() {
         classService.enroll(schoolClass.id(), new EnrollStudentRequest(student.getId(), LocalDate.now()), headAcademic.getId());
         GradeEvaluationResultResponse result = gradeService.enterEvaluationResult(schoolClass.id(), student.getId(), gradeSetup.id(),
-                new EnterGradeEvaluationResultRequest(new BigDecimal("7.5"), "BAND", "B2", null, null), teacher.getId());
+                new EnterGradeEvaluationResultRequest(new BigDecimal("7.5"), "BAND", "B2", null, null, null), teacher.getId());
         submitResults(result.id());
         approveResults(siteManagerUser.getId(), result.id());
 
@@ -714,7 +714,7 @@ class GradeServiceTest extends AbstractIntegrationTest {
     void getMyEvaluationResult_UC61_A_rejectsWhenNotYetPublished() {
         classService.enroll(schoolClass.id(), new EnrollStudentRequest(student.getId(), LocalDate.now()), headAcademic.getId());
         gradeService.enterEvaluationResult(schoolClass.id(), student.getId(), gradeSetup.id(),
-                new EnterGradeEvaluationResultRequest(new BigDecimal("7.5"), "BAND", "B2", null, null), teacher.getId());
+                new EnterGradeEvaluationResultRequest(new BigDecimal("7.5"), "BAND", "B2", null, null, null), teacher.getId());
 
         assertThatThrownBy(() -> gradeService.getMyEvaluationResult(
                 student.getUser().getId(), schoolClass.id(), academicTerm.getId(), gradeSetup.evaluationType()))
@@ -746,7 +746,7 @@ class GradeServiceTest extends AbstractIntegrationTest {
     void getMyEvaluationResult_boSung_stillVisibleAfterTransferToAnotherClass() {
         classService.enroll(schoolClass.id(), new EnrollStudentRequest(student.getId(), LocalDate.now()), headAcademic.getId());
         GradeEvaluationResultResponse result = gradeService.enterEvaluationResult(schoolClass.id(), student.getId(), gradeSetup.id(),
-                new EnterGradeEvaluationResultRequest(new BigDecimal("7.5"), "BAND", "B2", null, null), teacher.getId());
+                new EnterGradeEvaluationResultRequest(new BigDecimal("7.5"), "BAND", "B2", null, null, null), teacher.getId());
         submitResults(result.id());
         approveResults(siteManagerUser.getId(), result.id());
         ClassResponse otherClass = classService.create(
@@ -765,7 +765,7 @@ class GradeServiceTest extends AbstractIntegrationTest {
     @Test
     void getMyEvaluationResult_UC61_rejectsWhenStudentNotEnrolledInClass() {
         GradeEvaluationResultResponse result = gradeService.enterEvaluationResult(schoolClass.id(), student.getId(), gradeSetup.id(),
-                new EnterGradeEvaluationResultRequest(new BigDecimal("7.5"), "BAND", "B2", null, null), teacher.getId());
+                new EnterGradeEvaluationResultRequest(new BigDecimal("7.5"), "BAND", "B2", null, null, null), teacher.getId());
         submitResults(result.id());
         approveResults(siteManagerUser.getId(), result.id());
         // Cố tình KHÔNG gọi classService.enroll -- học sinh chưa ghi danh lớp này.
@@ -805,7 +805,7 @@ class GradeServiceTest extends AbstractIntegrationTest {
         parent = parentRepository.save(parent);
         linkParent(parent, student);
         GradeEvaluationResultResponse result = gradeService.enterEvaluationResult(schoolClass.id(), student.getId(), gradeSetup.id(),
-                new EnterGradeEvaluationResultRequest(new BigDecimal("7.5"), "BAND", "B2", null, null), teacher.getId());
+                new EnterGradeEvaluationResultRequest(new BigDecimal("7.5"), "BAND", "B2", null, null, null), teacher.getId());
         submitResults(result.id());
 
         approveResults(siteManagerUser.getId(), result.id());

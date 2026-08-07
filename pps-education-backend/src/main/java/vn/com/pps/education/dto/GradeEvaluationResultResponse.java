@@ -16,6 +16,7 @@ public record GradeEvaluationResultResponse(
         String level,
         String comment,
         String note,
+        String disclaimer,
         String source,
         Long importJobId,
         String status,
