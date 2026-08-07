@@ -560,6 +560,7 @@ function AttemptHistoryRow({
   const [showSummary, setShowSummary] = React.useState(false);
   const [loadingSummary, setLoadingSummary] = React.useState(false);
   const [selecting, setSelecting] = React.useState(false);
+  const [selectError, setSelectError] = React.useState<string | null>(null);
 
   const toggleSummary = () => {
     if (showSummary) {
@@ -578,9 +579,12 @@ function AttemptHistoryRow({
   const handleSelectForGrading = () => {
     if (selecting || attempt.selectedForGrading) return;
     setSelecting(true);
+    setSelectError(null);
     selectAttemptForGrading(attempt.id)
       .then(onSelected)
-      .catch(() => undefined)
+      .catch((err) => {
+        setSelectError(err instanceof Error ? err.message : "Không chọn được lượt làm này.");
+      })
       .finally(() => setSelecting(false));
   };
 
@@ -617,19 +621,24 @@ function AttemptHistoryRow({
           )}
         </td>
         <td className="text-center p-2">
-          {attempt.selectedForGrading ? (
-            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-md">
-              <CheckCircle2 className="w-3 h-3" /> Đã chọn
-            </span>
-          ) : (
-            <button
-              onClick={handleSelectForGrading}
-              disabled={selecting}
-              className="text-[10px] font-medium text-blue-700 bg-blue-50 border border-blue-200 px-2 py-1 rounded-md hover:bg-blue-100 disabled:opacity-50"
-            >
-              {selecting ? "Đang chọn..." : "Chọn làm điểm"}
-            </button>
-          )}
+          <div className="flex flex-col items-center gap-1">
+            {attempt.selectedForGrading ? (
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-md">
+                <CheckCircle2 className="w-3 h-3" /> Đã chọn
+              </span>
+            ) : (
+              <button
+                onClick={handleSelectForGrading}
+                disabled={selecting}
+                className="text-[10px] font-medium text-blue-700 bg-blue-50 border border-blue-200 px-2 py-1 rounded-md hover:bg-blue-100 disabled:opacity-50"
+              >
+                {selecting ? "Đang chọn..." : "Chọn làm điểm"}
+              </button>
+            )}
+            {selectError && (
+              <span className="text-[9px] text-red-600 font-medium">{selectError}</span>
+            )}
+          </div>
         </td>
         <td className="text-center p-2">
           {viewing ? (
