@@ -112,7 +112,8 @@ class ClassServiceTest extends AbstractIntegrationTest {
                 headAcademic.getId());
 
         assertThat(response.id()).isNotNull();
-        assertThat(response.status()).isEqualTo("PLANNED");
+        // e185328: startDate = hôm nay -> lớp tự động IN_PROGRESS khi tạo (không còn PLANNED).
+        assertThat(response.status()).isEqualTo("IN_PROGRESS");
         assertThat(response.classCategory()).isEqualTo(activeCurriculum.classCategory());
     }
 
