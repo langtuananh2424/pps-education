@@ -12,6 +12,8 @@ import {
   BookOpen,
   PhoneCall,
   School,
+  Send,
+  Settings2,
   ShieldAlert,
   Users
 } from "lucide-react";
@@ -87,7 +89,10 @@ export const navSections: NavSection[] = [
       // trang; nút Tạo/Sửa/Xoá bên trong trang tự ẩn theo đúng quyền con nếu thiếu.
       { id: "sys-roles", label: "Nhóm vai trò", path: "/system-admin/roles", icon: ShieldAlert, requiredPermission: "permission.role.view" },
       { id: "sys-override", label: "Tùy chỉnh tài khoản", path: "/system-admin/overrides", icon: ShieldAlert, requiredPermission: "permission.override.view" },
-      { id: "sys-audit", label: "Nhật ký thay đổi", path: "/system-admin/audit-log", icon: ShieldAlert, requiredPermission: "permission.audit.view" }
+      { id: "sys-audit", label: "Nhật ký thay đổi", path: "/system-admin/audit-log", icon: ShieldAlert, requiredPermission: "permission.audit.view" },
+      // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-08 — chỉ Quản trị viên hệ thống (V105).
+      { id: "sys-settings", label: "Cài đặt hệ thống", path: "/system-admin/settings", icon: Settings2, requiredPermission: "system.settings.manage" },
+      { id: "sys-send-notification", label: "Gửi thông báo", path: "/system-admin/send-notification", icon: Send, requiredPermission: "notification.send.manual" }
     ]
   },
   // Tạm ẩn cả mục "ĐIỀU HÀNH & GIAO VIỆC" theo yêu cầu người dùng (2026-07-23) — đang phát triển

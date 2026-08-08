@@ -55,6 +55,7 @@ import vn.com.pps.education.support.AbstractIntegrationTest;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -425,10 +426,15 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
 
         assertThat(below.completed()).isFalse();
         assertThat(below.watchedPercent()).isEqualTo(79);
-        // Mặc định requiredViewCount=1 — session đạt ngưỡng 80% trong CHÍNH lượt này là đủ "đạt".
-        assertThat(atThreshold.completed()).isTrue();
         assertThat(atThreshold.watchedPercent()).isEqualTo(80);
-        assertThat(atThreshold.viewCount()).isEqualTo(1);
+        // CONNECTION (V83/V93/V101): xem đạt ngưỡng chỉ làm session "qualified" — 1 lượt chỉ tính
+        // vào viewCount/completed sau khi CŨNG nộp đủ câu hỏi (quizCompletedAt khác NULL). Video ở
+        // đây chưa thêm câu hỏi nào (addConnectionQuestion không được gọi) nên nộp danh sách rỗng
+        // vẫn khớp đúng bộ câu hỏi (rỗng = rỗng), đủ để đánh dấu quizCompletedAt.
+        ReviewVideoConnectionQuizResultResponse quizResult = reviewVideoService.submitConnectionAnswers(
+                sessionId, new SubmitConnectionAnswersRequest(List.of()), student.getUser().getId());
+        assertThat(quizResult.progress().completed()).isTrue();
+        assertThat(quizResult.progress().viewCount()).isEqualTo(1);
     }
 
     @Test
@@ -441,7 +447,10 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         ReviewVideoProgressResponse afterLowerReport = reportProgress(video.id(), sessionId, 30, student.getUser().getId());
 
         assertThat(afterLowerReport.watchedSeconds()).isEqualTo(90);
-        assertThat(afterLowerReport.completed()).isTrue();
+        // CONNECTION (V83/V93/V101): "đạt" chỉ tính sau khi nộp đủ câu hỏi (rỗng ở đây) cho lượt đã qualified.
+        ReviewVideoConnectionQuizResultResponse quizResult = reviewVideoService.submitConnectionAnswers(
+                sessionId, new SubmitConnectionAnswersRequest(List.of()), student.getUser().getId());
+        assertThat(quizResult.progress().completed()).isTrue();
     }
 
     @Test
@@ -459,13 +468,22 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         ReviewVideoResponse video = createPublishedSetWithVideo(100, 80, 2);
         Student student = enrollStudent(schoolClass.id());
 
-        ReviewVideoProgressResponse afterFirstSession = reportProgress(video.id(), startSession(video.id(), student.getUser().getId()), 90, student.getUser().getId());
-        assertThat(afterFirstSession.viewCount()).isEqualTo(1);
-        assertThat(afterFirstSession.completed()).isFalse();
+        // CONNECTION (V83/V93/V101): mỗi lượt chỉ tính vào viewCount sau khi CŨNG nộp đủ câu hỏi
+        // (rỗng ở đây, video chưa thêm câu hỏi) cho đúng session đã qualified (xem ghi chú tại
+        // reportProgress_UC23a_MainFlow_upsertsAndComputesCompletionAt80Percent).
+        Long firstSessionId = startSession(video.id(), student.getUser().getId());
+        reportProgress(video.id(), firstSessionId, 90, student.getUser().getId());
+        ReviewVideoConnectionQuizResultResponse afterFirstSession = reviewVideoService.submitConnectionAnswers(
+                firstSessionId, new SubmitConnectionAnswersRequest(List.of()), student.getUser().getId());
+        assertThat(afterFirstSession.progress().viewCount()).isEqualTo(1);
+        assertThat(afterFirstSession.progress().completed()).isFalse();
 
-        ReviewVideoProgressResponse afterSecondSession = reportProgress(video.id(), startSession(video.id(), student.getUser().getId()), 90, student.getUser().getId());
-        assertThat(afterSecondSession.viewCount()).isEqualTo(2);
-        assertThat(afterSecondSession.completed()).isTrue();
+        Long secondSessionId = startSession(video.id(), student.getUser().getId());
+        reportProgress(video.id(), secondSessionId, 90, student.getUser().getId());
+        ReviewVideoConnectionQuizResultResponse afterSecondSession = reviewVideoService.submitConnectionAnswers(
+                secondSessionId, new SubmitConnectionAnswersRequest(List.of()), student.getUser().getId());
+        assertThat(afterSecondSession.progress().viewCount()).isEqualTo(2);
+        assertThat(afterSecondSession.progress().completed()).isTrue();
     }
 
     @Test
@@ -893,7 +911,12 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         assertThat(mine.get(0).reviewVideoSetId()).isEqualTo(video.reviewVideoSetId());
         assertThat(mine.get(0).videoType()).isEqualTo("REFLEX");
         assertThat(mine.get(0).classId()).isEqualTo(schoolClass.id());
-        assertThat(mine.get(0).dueAt()).isEqualToIgnoringNanos(dueAt);
+        // So sánh theo Instant (không phải field giờ/phút thô) — isEqualToIgnoringNanos so trực tiếp
+        // offset+field, chỉ đúng khi JVM chạy cùng múi giờ với offset Hibernate trả về (UTC, xem
+        // hibernate.jdbc.time_zone ở application.yml). CI (Ubuntu runner) mặc định UTC nên không lộ
+        // ra, nhưng máy dev múi giờ +07:00 (VN) luôn fail dù giá trị đúng cùng 1 thời điểm thực.
+        assertThat(mine.get(0).dueAt().toInstant().truncatedTo(ChronoUnit.SECONDS))
+                .isEqualTo(dueAt.toInstant().truncatedTo(ChronoUnit.SECONDS));
         assertThat(mine.get(0).availableFrom()).isNotNull();
     }
 

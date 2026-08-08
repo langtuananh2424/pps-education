@@ -131,8 +131,15 @@ public abstract class AbstractIntegrationTest {
             TestTransaction.end();
         }
         captureSeedSnapshotOnce();
+        // spatial_ref_sys (bảng hệ thống PostGIS chứa định nghĩa SRID, VD 4326 cho GPS UC-09) bị
+        // liệt kê vào đây vì nó cũng nằm trong schema "public" như mọi bảng nghiệp vụ — TRUNCATE
+        // CASCADE xóa sạch, làm mọi test PostGIS chạy SAU trên cùng container dùng chung lỗi
+        // "Cannot find SRID (4326) in spatial_ref_sys" (phát hiện 2026-08-08, không phải lỗi image
+        // postgis/postgis:16-3.4 thiếu SRID — image luôn có sẵn, đã verify). KHÔNG dùng
+        // SEED_REFERENCE_TABLES (danh sách đó có cơ chế restore-from-snapshot riêng cho dữ liệu
+        // nghiệp vụ do Flyway seed) — spatial_ref_sys là dữ liệu hệ thống, không bao giờ được đụng tới.
         List<String> tables = jdbcTemplate.queryForList(
-                "select tablename from pg_tables where schemaname = 'public' and tablename <> 'flyway_schema_history'",
+                "select tablename from pg_tables where schemaname = 'public' and tablename not in ('flyway_schema_history', 'spatial_ref_sys')",
                 String.class);
         tables.removeAll(SEED_REFERENCE_TABLES);
         if (!tables.isEmpty()) {
