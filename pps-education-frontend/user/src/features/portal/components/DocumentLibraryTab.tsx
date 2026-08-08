@@ -95,7 +95,7 @@ export default function DocumentLibraryTab({ classId }: DocumentLibraryTabProps)
     <div className="space-y-6">
       {error && <div className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-xl">{error}</div>}
 
-      <div className="bg-gradient-to-r from-teal to-teal-deep p-6 rounded-[20px] shadow-[0_8px_30px_rgba(30,42,69,0.08)] flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-[linear-gradient(to_right,#17a6a0,#0e8c86)] p-6 rounded-[20px] shadow-[0_8px_30px_rgba(30,42,69,0.08)] flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="w-11 h-11 rounded-2xl bg-white/15 flex items-center justify-center text-white shrink-0">
             <FolderOpen size={22} />

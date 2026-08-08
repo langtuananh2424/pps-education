@@ -73,7 +73,7 @@ export default function HomeTab({ studentName, classId, parentStudentId }: HomeT
 
   return (
     <div className="space-y-6">
-      <div className="bg-gradient-to-r from-teal via-teal-deep to-ink text-white p-8 rounded-[20px] border border-teal-deep/30 shadow-[0_8px_30px_rgba(23,166,160,0.12)] relative overflow-hidden">
+      <div className="bg-[linear-gradient(to_right,#17a6a0,#0e8c86,#1e2a45)] text-white p-8 rounded-[20px] border border-teal-deep/30 shadow-[0_8px_30px_rgba(23,166,160,0.12)] relative overflow-hidden">
         <div className="absolute right-[-40px] bottom-[-40px] w-48 h-48 bg-white/5 rounded-full pointer-events-none" />
         <div className="relative z-10 space-y-3">
           <span className="bg-[#ff7a59] text-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">Bảng tin</span>

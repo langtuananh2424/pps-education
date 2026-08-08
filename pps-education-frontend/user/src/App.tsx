@@ -2,6 +2,7 @@ import React from "react";
 import { AppProvider, useApp } from "@/context/AppContext";
 import LoginPage from "@/features/auth/pages/LoginPage";
 import PortalPage from "@/features/portal/pages/PortalPage";
+import InstallPrompt from "@/components/ui/InstallPrompt";
 
 function Shell() {
   const { isLoggedIn } = useApp();
@@ -12,6 +13,7 @@ export default function App() {
   return (
     <AppProvider>
       <Shell />
+      <InstallPrompt />
     </AppProvider>
   );
 }
