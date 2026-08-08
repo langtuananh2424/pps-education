@@ -37,12 +37,12 @@ function SectionHead({
       <div className="flex items-center gap-3 min-w-0">
         <Icon className="w-[18px] h-[18px] text-slate-400 shrink-0" />
         <div className="min-w-0">
-          <span className="text-sm font-bold text-slate-800 font-display block">{title}</span>
-          <p className="text-sm text-slate-400 truncate mt-0.5">{subtitle}</p>
+          <span className="text-xs font-bold text-slate-800 font-display block">{title}</span>
+          <p className="text-xs text-slate-400 truncate mt-0.5">{subtitle}</p>
         </div>
       </div>
       {action && (
-        <button onClick={action.onClick} className="text-sm font-bold text-brand-red shrink-0 hover:underline">
+        <button onClick={action.onClick} className="text-xs font-bold text-brand-red shrink-0 hover:underline">
           {action.label}
         </button>
       )}
@@ -67,8 +67,8 @@ function InlineEmpty({
       <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-2.5 ${tone === "good" ? "bg-emerald-50 text-emerald-500" : "bg-slate-100 text-slate-400"}`}>
         <Icon className="w-5 h-5" />
       </div>
-      <p className="text-sm font-bold text-slate-600">{title}</p>
-      {description && <p className="text-sm text-slate-400 mt-1 max-w-xs">{description}</p>}
+      <p className="text-xs font-bold text-slate-600">{title}</p>
+      {description && <p className="text-xs text-slate-400 mt-1 max-w-xs">{description}</p>}
     </div>
   );
 }
@@ -213,26 +213,26 @@ export default function TeacherDashboard() {
         <div className="absolute -right-8 -top-12 w-48 h-48 rounded-full bg-white/10 blur-2xl pointer-events-none" />
         <div className="absolute right-20 -bottom-10 w-28 h-28 rounded-full bg-white/10 blur-xl pointer-events-none" />
         <div className="relative z-10">
-          <span className="inline-flex items-center gap-1.5 text-sm font-bold text-white bg-white/15 border border-white/25 rounded-full px-2.5 py-1 mb-3">
+          <span className="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-white/15 border border-white/25 rounded-full px-2.5 py-1 mb-3">
             <Sparkles className="w-3 h-3" />
             PPS VIETNAM · LMS Giáo viên
           </span>
-          <h1 className="text-2xl md:text-3xl font-bold font-display tracking-tight">
+          <h1 className="text-xl font-bold font-display tracking-tight">
             Xin chào, {currentUser?.fullName ?? firstName} 👋
           </h1>
-          <p className="text-sm text-white/80 mt-1.5 max-w-md">Tổng quan hoạt động giảng dạy, việc cần làm và tiến độ bài tập của học sinh hôm nay.</p>
+          <p className="text-xs text-white/80 mt-1.5 max-w-md">Tổng quan hoạt động giảng dạy, việc cần làm và tiến độ bài tập của học sinh hôm nay.</p>
         </div>
         <div className="relative z-10 flex items-center gap-2 flex-wrap">
           <button
             onClick={() => navigate("/academic/homework-stats")}
-            className="text-sm font-bold text-white bg-white/15 hover:bg-white/25 border border-white/25 rounded-xl px-4 py-2.5 flex items-center gap-1.5 transition-all backdrop-blur-sm"
+            className="text-xs font-bold text-white bg-white/15 hover:bg-white/25 border border-white/25 rounded-xl px-4 py-2.5 flex items-center gap-1.5 transition-all backdrop-blur-sm"
           >
             <ClipboardList className="w-4 h-4" />
             Xem bài tập
           </button>
           <button
             onClick={() => navigate("/lms/exercises")}
-            className="text-sm font-bold text-brand-red bg-white hover:bg-white/90 rounded-xl px-4 py-2.5 flex items-center gap-1.5 transition-all shadow-md"
+            className="text-xs font-bold text-brand-red bg-white hover:bg-white/90 rounded-xl px-4 py-2.5 flex items-center gap-1.5 transition-all shadow-md"
           >
             <PlusCircle className="w-4 h-4" />
             Tạo bài tập
@@ -240,29 +240,42 @@ export default function TeacherDashboard() {
         </div>
       </div>
 
-      {/* KPI row — chỉ "Hoàn thành" mang gradient brand (chỉ số tổng kết); Chờ chấm/Quá hạn chuyển màu cảnh báo khi >0; còn lại trung tính */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-        <StatCard icon={GraduationCap} label="Học sinh" value={String(data.totalStudents)} tone="slate" hint={`Qua ${data.totalClasses} lớp`} />
-        <StatCard icon={School} label="Lớp" value={String(data.totalClasses)} tone="slate" hint="Đang phụ trách" />
-        <StatCard
-          icon={PencilLine}
-          label="Chờ chấm"
-          value={String(data.pendingGradingCount)}
-          tone={data.pendingGradingCount > 0 ? "warning" : "slate"}
-          hint={`${data.pendingWritingGradingCount} bài + ${data.pendingSpeakingGradingCount} lượt nói`}
-        />
-        <StatCard
-          icon={AlarmClock}
-          label="Quá hạn"
-          value={String(data.overdueAssignmentCount)}
-          tone={data.overdueAssignmentCount > 0 ? "danger" : "slate"}
-          hint={data.overdueAssignmentCount > 0 ? "Cần xử lý sớm" : "Không có bài quá hạn"}
-        />
-        <StatCard icon={TrendingUp} label="Hoàn thành" value={`${data.avgCompletionPercent}%`} tone="brand" trend={completionTrend} hint={completionTrend ? undefined : "Trung bình các bài đang mở"} />
+      {/* Hàng KPI — luôn 1 dòng 5 cột, tự co giãn theo màn hình thay vì wrap. Chỉ "Hoàn thành" mang gradient brand (chỉ số tổng kết); Chờ chấm/Quá hạn chuyển màu cảnh báo khi >0; còn lại trung tính */}
+      <div className="grid grid-cols-4 gap-2 sm:gap-3 md:gap-4">
+        {(
+          [
+            // { icon: GraduationCap, label: "Học sinh", value: String(data.totalStudents), tone: "slate", hint: `Qua ${data.totalClasses} lớp` },
+            { icon: School, label: "Lớp", value: String(data.totalClasses), tone: "slate", hint: "Đang phụ trách" },
+            {
+              icon: PencilLine,
+              label: "Chờ chấm",
+              value: String(data.pendingGradingCount),
+              tone: data.pendingGradingCount > 0 ? "warning" : "slate",
+              hint: `${data.pendingWritingGradingCount} bài + ${data.pendingSpeakingGradingCount} lượt nói`
+            },
+            {
+              icon: AlarmClock,
+              label: "Quá hạn",
+              value: String(data.overdueAssignmentCount),
+              tone: data.overdueAssignmentCount > 0 ? "danger" : "slate",
+              hint: data.overdueAssignmentCount > 0 ? "Cần xử lý sớm" : "Không có bài quá hạn"
+            },
+            {
+              icon: TrendingUp,
+              label: "Hoàn thành",
+              value: `${data.avgCompletionPercent}%`,
+              tone: "brand",
+              trend: completionTrend,
+              hint: completionTrend ? undefined : "Trung bình các bài đang mở"
+            }
+          ] as React.ComponentProps<typeof StatCard>[]
+        ).map((card, i) => (
+          <StatCard key={i} {...card} />
+        ))}
       </div>
 
       {/* Việc cần làm + Lịch hôm nay */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         <Card padded={false} className="overflow-hidden">
           <SectionHead icon={ClipboardList} title="Việc cần làm" subtitle="Ưu tiên xử lý hôm nay" action={{ label: "Xem tất cả →", onClick: () => navigate("/academic/homework-stats") }} />
           <div className="divide-y divide-slate-100">
@@ -270,8 +283,8 @@ export default function TeacherDashboard() {
               <div className="p-4 flex items-start gap-3">
                 <span className="w-2 h-2 rounded-full bg-rose-500 mt-2 shrink-0" />
                 <div className="min-w-0">
-                  <p className="text-sm font-bold text-slate-800">{data.pendingGradingCount} bài chờ chấm tay</p>
-                  <p className="text-sm text-slate-400 mt-0.5">Essay/Speaking (BTVN) và Luyện Nói — chưa có trang chấm để mở trực tiếp từ đây.</p>
+                  <p className="text-xs font-bold text-slate-800">{data.pendingGradingCount} bài chờ chấm tay</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Essay/Speaking (BTVN) và Luyện Nói — chưa có trang chấm để mở trực tiếp từ đây.</p>
                 </div>
               </div>
             )}
@@ -285,8 +298,8 @@ export default function TeacherDashboard() {
                 >
                   <span className="w-2 h-2 rounded-full bg-amber-500 mt-2 shrink-0" />
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold text-slate-800 truncate">{a.exerciseTitle}</p>
-                    <p className="text-sm text-slate-400 mt-0.5">
+                    <p className="text-xs font-bold text-slate-800 truncate">{a.exerciseTitle}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">
                       Lớp {a.className} · {a.totalStudents - a.completedCount} HS chưa nộp
                     </p>
                   </div>
@@ -314,11 +327,11 @@ export default function TeacherDashboard() {
                   <span className={`w-2.5 h-2.5 rounded-full mt-1.5 shrink-0 ${status.label === "Đang diễn ra" ? "bg-emerald-500 ring-4 ring-emerald-50" : "bg-brand-orange ring-4 ring-orange-50"}`} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-bold text-slate-800 font-mono shrink-0">{s.startTime}</span>
-                      <p className="text-sm font-bold text-slate-800">Lớp {s.className}</p>
+                      <span className="text-xs font-bold text-slate-800 font-mono shrink-0">{s.startTime}</span>
+                      <p className="text-xs font-bold text-slate-800">Lớp {s.className}</p>
                       <Badge variant={status.variant}>{status.label}</Badge>
                     </div>
-                    <p className="text-sm text-slate-400 mt-1">
+                    <p className="text-xs text-slate-400 mt-1">
                       {s.roomName ?? "Chưa gán phòng"}
                       {studentCount != null && ` · ${studentCount} học sinh`}
                     </p>
@@ -328,7 +341,7 @@ export default function TeacherDashboard() {
                       setSelectedClassId(s.classId);
                       navigate("/student/attendance");
                     }}
-                    className="text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg px-3 py-1.5 shrink-0 self-start"
+                    className="text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg px-3 py-1.5 shrink-0 self-start"
                   >
                     Điểm danh
                   </button>
@@ -340,7 +353,8 @@ export default function TeacherDashboard() {
         </Card>
       </div>
 
-      {/* Bài tập gần đây */}
+      {/* Bài tập gần đây + Lớp của tôi — chung 1 hàng */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
       <Card padded={false} className="overflow-hidden">
         <SectionHead icon={ClipboardList} title="Bài tập gần đây" subtitle="8 bài giao gần nhất, qua mọi lớp đang dạy" action={{ label: "Xem tất cả →", onClick: () => navigate("/academic/homework-stats") }} />
         {data.recentAssignments.length > 0 && (
@@ -355,7 +369,7 @@ export default function TeacherDashboard() {
               <button
                 key={key}
                 onClick={() => setAssignmentFilter(key)}
-                className={`text-sm font-bold px-3 py-1.5 rounded-full transition-all ${
+                className={`text-xs font-bold px-3 py-1.5 rounded-full transition-all ${
                   assignmentFilter === key ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"
                 }`}
               >
@@ -380,7 +394,7 @@ export default function TeacherDashboard() {
                 const status = assignmentStatus(a);
                 return (
                   <tr key={a.assignmentId} onClick={() => goToHomeworkStats(a.classId)} className="cursor-pointer hover:bg-slate-50">
-                    <Td className="font-bold text-sm text-slate-800">{a.exerciseTitle}</Td>
+                    <Td className="font-bold text-xs text-slate-800">{a.exerciseTitle}</Td>
                     <Td>{a.className}</Td>
                     <Td className="font-mono">
                       {a.completedCount}/{a.totalStudents}
@@ -411,7 +425,7 @@ export default function TeacherDashboard() {
         )}
       </Card>
 
-      {/* Lớp của tôi — full-width để bảng không bị bó hẹp còn nửa trang */}
+      {/* Lớp của tôi */}
       <Card padded={false} className="overflow-hidden">
         <SectionHead
           icon={School}
@@ -435,7 +449,7 @@ export default function TeacherDashboard() {
                 const note = classNote(c.completionPercent);
                 return (
                   <tr key={c.classId} onClick={() => goToClass(c.classId)} className="cursor-pointer hover:bg-slate-50">
-                    <Td className="font-bold text-sm text-slate-800">{c.className}</Td>
+                    <Td className="font-bold text-xs text-slate-800">{c.className}</Td>
                     <Td className="font-mono">{c.studentCount} HS</Td>
                     <Td>
                       <div className="flex items-center gap-2">
@@ -458,6 +472,7 @@ export default function TeacherDashboard() {
           !loading && <InlineEmpty icon={School} title="Chưa được phân công lớp nào" />
         )}
       </Card>
+      </div>
 
       {/* Xu hướng — full-width để biểu đồ có chiều ngang thoáng hơn thay vì bó trong nửa trang */}
       <Card padded={false} className="overflow-hidden">
