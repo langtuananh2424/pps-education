@@ -64,9 +64,9 @@ export default function PortalPage() {
   const [pendingReviewVideoAssignmentId, setPendingReviewVideoAssignmentId] = useState<number | null>(null);
   const [pendingHighlightCommentId, setPendingHighlightCommentId] = useState<number | null>(null);
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — badge số BTVN "Cần hoàn thành" trên
-  // mục sidebar, do AssignmentsTab báo lên (xem prop onPendingCountChange) — giữ nguyên giá trị lần
-  // tính gần nhất kể cả khi rời tab "homework" (AssignmentsTab unmount thì không tính lại, không phải
-  // là 0 lúc đó).
+  // mục sidebar, do AssignmentsTab báo lên (xem prop onPendingCountChange). AssignmentsTab giờ luôn được
+  // mount cho Học sinh (chỉ ẩn/hiện bằng CSS theo activeTab, xem nhánh render bên dưới — sửa 2026-08-08)
+  // nên effect tính pendingHomeworkCount tự chạy ngay khi vào Portal, không phải đợi bấm vào tab mới có.
   const [pendingHomeworkCount, setPendingHomeworkCount] = useState<number | null>(null);
 
   useEffect(() => {
@@ -400,10 +400,14 @@ export default function PortalPage() {
                     ) : (
                       <ComingSoon title="Quá trình học tập" description="Không có hồ sơ Học sinh hoặc Phụ huynh liên kết với tài khoản này." />
                     ))}
-                  {activeTab === "homework" &&
-                    (isStudent ? (
-                      // GET /students/me/exercises tra theo userId của chính người gọi — chỉ hoạt động cho Học sinh tự
-                      // đăng nhập, Phụ huynh gọi sẽ 404 "không có hồ sơ học sinh".
+                  {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-08 — luôn mount AssignmentsTab
+                      cho Học sinh (ẩn bằng CSS khi không ở tab "homework") thay vì unmount/mount theo
+                      activeTab như trước, để effect tính pendingHomeworkCount bên trong chạy ngay từ lúc
+                      vào Portal (báo badge sidebar sớm) thay vì phải đợi bấm vào tab mới tính lần đầu. */}
+                  {isStudent && (
+                    <div className={activeTab === "homework" ? "" : "hidden"}>
+                      {/* GET /students/me/exercises tra theo userId của chính người gọi — chỉ hoạt động cho Học sinh tự
+                          đăng nhập, Phụ huynh gọi sẽ 404 "không có hồ sơ học sinh". */}
                       <AssignmentsTab
                         classId={selectedClassId}
                         autoOpenExerciseAssignmentId={pendingExerciseAssignmentId}
@@ -414,7 +418,10 @@ export default function PortalPage() {
                         }}
                         onPendingCountChange={setPendingHomeworkCount}
                       />
-                    ) : isParent && selectedChild ? (
+                    </div>
+                  )}
+                  {activeTab === "homework" &&
+                    (isStudent ? null : isParent && selectedChild ? (
                       // UC-64 (2026-07-29): Phụ huynh chỉ XEM tiến độ BTVN của con (không phải giao diện làm bài — con tự làm ở Portal Học sinh).
                       <ParentHomeworkProgressTab
                         studentId={selectedChild.studentId}

@@ -155,7 +155,7 @@ export const navSections: NavSection[] = [
       // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31 — trước đó chỉ vào được qua nút
       // deep-link trong Quản lý lớp học (xem ghi chú "stu-attendance" cũ ở section QUẢN LÝ HỌC SINH).
       // Lọc theo lớp lấy từ lớp đang chọn ở Header (đã có sẵn, không đổi gì ở AttendancePage.tsx).
-      { id: "acad-attendance", label: "Điểm danh (UC-15)", path: "/student/attendance", icon: ClipboardCheck, requiredPermission: "academic.attendance.mark" },
+      { id: "acad-attendance", label: "Điểm danh", path: "/student/attendance", icon: ClipboardCheck, requiredPermission: "academic.attendance.mark" },
       // academic.curriculum.manage đã bị tách nhỏ (hạt nhân hóa V62) thành
       // academic.curriculum.create/update/approve — mã gộp cũ không còn tồn tại. Gate theo
       // .create (thấp nhất) để vào trang; khối duyệt tùy biến (UC-17) bên trong tự gate riêng
