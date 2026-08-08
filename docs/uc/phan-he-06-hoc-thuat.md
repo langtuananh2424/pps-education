@@ -1435,6 +1435,19 @@ DAILY, Giữa/Cuối kỳ giữ nguyên 100% luồng ở trên)
     bỏ qua luôn hạn X ngày ở trên (cùng 1 permission gánh cả 2 "quyền
     quản trị").
 
+**Bổ sung V107 (2026-08-08, đã xác nhận với người dùng) — quản trị viên
+vượt rào phân công dạy khi viết/gửi nhận xét MID_TERM/END_TERM:**
+`StudentCommentService#requireAssignedTeacher` (dùng cho tạo/sửa/gửi nhận
+xét MID_TERM/END_TERM — nhận xét DAILY đã có đường vượt rào riêng qua
+`academic.comment.approve`, xem bullet phía trên) trước đây CHỈ chấp nhận
+Giáo viên được phân công dạy đúng lớp — quản trị viên (SYS_ADMIN) dù đã có
+sẵn `academic.comment.write` ở Controller vẫn bị chặn ở Service. Thêm
+quyền `academic.comment.manage` (gán HEAD_ACADEMIC + SYS_ADMIN, migration
+`V107__admin_manage_permissions_for_class_scoped_lms_features.sql`) để
+vượt rào này — cũng được kiểm tra thêm trong `requireCanWriteDailyComment`
+để quản trị viên vượt rào cả nhận xét DAILY dù không có
+`academic.comment.approve`.
+
 ---
 
 UC-22: Duyệt nhận xét
@@ -1774,5 +1787,15 @@ UC-66: Thống kê BTVN theo lớp
 | (P              |                                                    |
 | ostcondition)** |                                                    |
 +-----------------+----------------------------------------------------+
+
+**Bổ sung V107 (2026-08-08, đã xác nhận với người dùng) — quản trị viên
+vượt rào phân công dạy (mở rộng A2):** trước V107, A2 chỉ chấp nhận đúng 2
+trường hợp (Giáo viên được phân công dạy lớp, Quản lý điểm trường phụ
+trách điểm trường của lớp) — quản trị viên (SYS_ADMIN) dù đã có sẵn
+`lms.exercise.report.view` ở Controller vẫn bị 403 ở Service. Thêm quyền
+`lms.exercise-report.manage` (gán HEAD_ACADEMIC + SYS_ADMIN, migration
+`V107__admin_manage_permissions_for_class_scoped_lms_features.sql`) làm
+trường hợp thứ 3 vượt qua A2 — quản trị viên xem thống kê BTVN của lớp bất
+kỳ.
 
 Phân hệ 7 --- Cổng thông tin và E-Learning (Portal & LMS)

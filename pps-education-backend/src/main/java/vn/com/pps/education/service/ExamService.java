@@ -52,6 +52,9 @@ public class ExamService {
     private final SchoolClassRepository schoolClassRepository;
     private final ClassTeacherRepository classTeacherRepository;
     private final UserRepository userRepository;
+    private final PermissionEvaluationService permissionEvaluationService;
+
+    private static final String PERM_EXAM_MANAGE = "lms.exam.manage";
 
     public ExamService(ExamRepository examRepository,
                         ExamClassAssignmentRepository examClassAssignmentRepository,
@@ -60,7 +63,8 @@ public class ExamService {
                         CurriculumRepository curriculumRepository,
                         SchoolClassRepository schoolClassRepository,
                         ClassTeacherRepository classTeacherRepository,
-                        UserRepository userRepository) {
+                        UserRepository userRepository,
+                        PermissionEvaluationService permissionEvaluationService) {
         this.examRepository = examRepository;
         this.examClassAssignmentRepository = examClassAssignmentRepository;
         this.questionBankRepository = questionBankRepository;
@@ -69,6 +73,7 @@ public class ExamService {
         this.schoolClassRepository = schoolClassRepository;
         this.classTeacherRepository = classTeacherRepository;
         this.userRepository = userRepository;
+        this.permissionEvaluationService = permissionEvaluationService;
     }
 
     @Transactional
@@ -199,7 +204,11 @@ public class ExamService {
 
     // ===================== Helpers =====================
 
+    /** Quyền lms.exam.manage (V107) vượt rào — quản trị viên gán/gỡ Đề cho lớp bất kỳ, không cần được phân công dạy. */
     private void requireAssignedTeacher(Long classId, Long actorUserId) {
+        if (permissionEvaluationService.hasPermission(actorUserId, PERM_EXAM_MANAGE)) {
+            return;
+        }
         if (!classTeacherRepository.existsBySchoolClassIdAndTeacherIdAndAssignedToIsNull(classId, actorUserId)) {
             throw new NotAssignedTeacherForClassException(
                     "Tài khoản id=" + actorUserId + " không được phân công giảng dạy lớp id=" + classId + ".");

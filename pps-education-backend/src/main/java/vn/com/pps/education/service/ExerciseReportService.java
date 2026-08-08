@@ -60,6 +60,9 @@ public class ExerciseReportService {
     private final SiteManagerRepository siteManagerRepository;
     private final SchoolClassRepository schoolClassRepository;
     private final ListeningHintEventRepository listeningHintEventRepository;
+    private final PermissionEvaluationService permissionEvaluationService;
+
+    private static final String PERM_EXERCISE_REPORT_MANAGE = "lms.exercise-report.manage";
 
     public ExerciseReportService(ExerciseAssignmentRepository exerciseAssignmentRepository,
                                   ExerciseAttemptRepository exerciseAttemptRepository,
@@ -69,7 +72,8 @@ public class ExerciseReportService {
                                   ClassTeacherRepository classTeacherRepository,
                                   SiteManagerRepository siteManagerRepository,
                                   SchoolClassRepository schoolClassRepository,
-                                  ListeningHintEventRepository listeningHintEventRepository) {
+                                  ListeningHintEventRepository listeningHintEventRepository,
+                                  PermissionEvaluationService permissionEvaluationService) {
         this.exerciseAssignmentRepository = exerciseAssignmentRepository;
         this.exerciseAttemptRepository = exerciseAttemptRepository;
         this.studentAnswerRepository = studentAnswerRepository;
@@ -79,6 +83,7 @@ public class ExerciseReportService {
         this.siteManagerRepository = siteManagerRepository;
         this.schoolClassRepository = schoolClassRepository;
         this.listeningHintEventRepository = listeningHintEventRepository;
+        this.permissionEvaluationService = permissionEvaluationService;
     }
 
     @Transactional(readOnly = true)
@@ -318,7 +323,11 @@ public class ExerciseReportService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bản giao BTVN id=" + id));
     }
 
+    /** Quyền lms.exercise-report.manage (V107) vượt rào — quản trị viên xem thống kê BTVN của lớp bất kỳ. */
     private void requireReportScope(Long classId, Long actorUserId) {
+        if (permissionEvaluationService.hasPermission(actorUserId, PERM_EXERCISE_REPORT_MANAGE)) {
+            return;
+        }
         if (classTeacherRepository.existsBySchoolClassIdAndTeacherIdAndAssignedToIsNull(classId, actorUserId)) {
             return;
         }

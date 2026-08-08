@@ -330,6 +330,19 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
                 .isInstanceOf(NotAssignedTeacherForClassException.class);
     }
 
+    /** V107: quyền lms.review-video.manage cho phép quản trị viên gán Bộ video cho lớp bất kỳ, không cần được phân công dạy. */
+    @Test
+    void assignToClass_allowsAdminWithManagePermissionBypassingAssignedTeacherCheck() {
+        User admin = newUser("review-video.admin");
+        assignRole(admin, "SYS_ADMIN");
+        ReviewVideoSetResponse set = createSet();
+
+        reviewVideoService.assignToClass(set.id(), schoolClass.id(), admin.getId());
+
+        assertThat(reviewVideoService.listAssignedClasses(set.id(), teacher.getId()))
+                .extracting(ClassResponse::id).containsExactly(schoolClass.id());
+    }
+
     /** Idempotent: gán lại lớp đã gán rồi không lỗi, không tạo dòng trùng (mirror ExamServiceTest). */
     @Test
     void assignToClass_boSung_isIdempotentWhenAlreadyAssigned() {

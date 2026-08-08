@@ -136,10 +136,13 @@ public class ReviewVideoService {
     private final NotificationService notificationService;
     private final AttemptIntegrityService attemptIntegrityService;
     private final ReviewVideoSettings reviewVideoSettings;
+    private final PermissionEvaluationService permissionEvaluationService;
     /** V71: chạy riêng 1 giao dịch lồng (PROPAGATION_REQUIRES_NEW) khi thử tạo bản giao — race thua (bắt
      * DataIntegrityViolationException do UNIQUE index) chỉ rollback đúng giao dịch con này, không kéo
      * theo giao dịch ngoài (đang cần đọc lại bản ghi đã thắng) — xem Javadoc deliverToClass. */
     private final TransactionTemplate requiresNewTransactionTemplate;
+
+    private static final String PERM_REVIEW_VIDEO_MANAGE = "lms.review-video.manage";
 
     public ReviewVideoService(ReviewVideoSetRepository reviewVideoSetRepository,
                                ReviewVideoSetClassAssignmentRepository reviewVideoSetClassAssignmentRepository,
@@ -163,6 +166,7 @@ public class ReviewVideoService {
                                NotificationService notificationService,
                                AttemptIntegrityService attemptIntegrityService,
                                ReviewVideoSettings reviewVideoSettings,
+                               PermissionEvaluationService permissionEvaluationService,
                                PlatformTransactionManager transactionManager) {
         this.reviewVideoSetRepository = reviewVideoSetRepository;
         this.reviewVideoSetClassAssignmentRepository = reviewVideoSetClassAssignmentRepository;
@@ -186,6 +190,7 @@ public class ReviewVideoService {
         this.notificationService = notificationService;
         this.attemptIntegrityService = attemptIntegrityService;
         this.reviewVideoSettings = reviewVideoSettings;
+        this.permissionEvaluationService = permissionEvaluationService;
         this.requiresNewTransactionTemplate = new TransactionTemplate(transactionManager);
         this.requiresNewTransactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
@@ -1028,14 +1033,22 @@ public class ReviewVideoService {
         return classIdParam;
     }
 
+    /** Quyền lms.review-video.manage (V107) vượt rào — quản trị viên gán/gỡ Bộ video của lớp bất kỳ. */
     private void requireAssignedTeacher(Long classId, Long actorUserId) {
+        if (permissionEvaluationService.hasPermission(actorUserId, PERM_REVIEW_VIDEO_MANAGE)) {
+            return;
+        }
         if (!classTeacherRepository.existsBySchoolClassIdAndTeacherIdAndAssignedToIsNull(classId, actorUserId)) {
             throw new NotAssignedTeacherForClassException(
                     "Tài khoản id=" + actorUserId + " không được phân công giảng dạy lớp id=" + classId + ".");
         }
     }
 
+    /** Quyền lms.review-video.manage (V107) vượt rào — quản trị viên sửa Bộ video thuộc khung chương trình bất kỳ. */
     private void requireAssignedTeacherForCurriculum(Long curriculumId, Long actorUserId) {
+        if (permissionEvaluationService.hasPermission(actorUserId, PERM_REVIEW_VIDEO_MANAGE)) {
+            return;
+        }
         if (!classTeacherRepository.existsBySchoolClass_CurriculumIdAndTeacherIdAndAssignedToIsNull(curriculumId, actorUserId)) {
             throw new NotAssignedTeacherForClassException(
                     "Tài khoản id=" + actorUserId + " không dạy lớp nào thuộc khung chương trình id=" + curriculumId + ".");

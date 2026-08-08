@@ -155,6 +155,7 @@ public class StudentCommentService {
      * chú, cộng thêm 3 cột ngữ cảnh buổi học ở đầu (Ngày, Tên bài học, Tên
      * GV giảng dạy) + Điểm danh (chỉ có ở Excel, không có trên UI web).
      */
+    private static final String PERM_COMMENT_MANAGE = "academic.comment.manage";
     private static final int COLUMN_COUNT = 17;
     private static final int COL_DATE = 0;
     private static final int COL_STUDENT_CODE = 1;
@@ -1339,7 +1340,8 @@ public class StudentCommentService {
      * nguyên rào cũ) VÀ còn trong hạn X ngày kể từ ngày buổi học.
      */
     private void requireCanWriteDailyComment(ClassSession classSession, Long actorUserId) {
-        if (permissionEvaluationService.hasPermission(actorUserId, "academic.comment.approve")) {
+        if (permissionEvaluationService.hasPermission(actorUserId, "academic.comment.approve")
+                || permissionEvaluationService.hasPermission(actorUserId, PERM_COMMENT_MANAGE)) {
             return;
         }
         requireAssignedTeacher(classSession.getSchoolClass().getId(), actorUserId);
@@ -1444,7 +1446,11 @@ public class StudentCommentService {
                 job.getSuccessRows(), job.getFailedRows(), job.getStatus().name(), job.getErrorSummary());
     }
 
+    /** Quyền academic.comment.manage (V107) vượt rào — quản trị viên viết/gửi nhận xét của lớp bất kỳ. */
     private void requireAssignedTeacher(Long classId, Long actorUserId) {
+        if (permissionEvaluationService.hasPermission(actorUserId, PERM_COMMENT_MANAGE)) {
+            return;
+        }
         if (!classTeacherRepository.existsBySchoolClassIdAndTeacherIdAndAssignedToIsNull(classId, actorUserId)) {
             throw new NotAssignedTeacherForClassException(
                     "Tài khoản id=" + actorUserId + " không được phân công giảng dạy lớp id=" + classId + ".");

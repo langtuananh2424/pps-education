@@ -2,6 +2,7 @@ package vn.com.pps.education.controller;
 
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -30,12 +31,14 @@ public class TeachingPlanController {
         this.teachingPlanService = teachingPlanService;
     }
 
+    @PreAuthorize("hasPermission(null, 'lms.teaching-plan.mark') or hasPermission(null, 'lms.teaching-plan.manage')")
     @PostMapping("/api/teaching-plans")
     public ResponseEntity<TeachingPlanResponse> createPlan(@Valid @RequestBody CreateTeachingPlanRequest request,
                                                              @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(teachingPlanService.createPlan(request, actor.userId()));
     }
 
+    @PreAuthorize("hasPermission(null, 'lms.teaching-plan.mark') or hasPermission(null, 'lms.teaching-plan.manage')")
     @PutMapping("/api/teaching-plans/{id}")
     public ResponseEntity<TeachingPlanResponse> updatePlan(@PathVariable Long id,
                                                              @Valid @RequestBody UpdateTeachingPlanRequest request,
@@ -53,6 +56,7 @@ public class TeachingPlanController {
         return ResponseEntity.ok(teachingPlanService.getPlan(id));
     }
 
+    @PreAuthorize("hasPermission(null, 'lms.teaching-plan.mark') or hasPermission(null, 'lms.teaching-plan.manage')")
     @PostMapping("/api/teaching-plans/{id}/items")
     public ResponseEntity<TeachingPlanItemResponse> addItem(@PathVariable Long id,
                                                               @Valid @RequestBody AddTeachingPlanItemRequest request,
@@ -65,6 +69,7 @@ public class TeachingPlanController {
         return ResponseEntity.ok(teachingPlanService.listItems(id));
     }
 
+    @PreAuthorize("hasPermission(null, 'lms.teaching-plan.mark') or hasPermission(null, 'lms.teaching-plan.manage')")
     @PutMapping("/api/teaching-plans/{id}/items/{itemId}")
     public ResponseEntity<TeachingPlanItemResponse> updateItem(@PathVariable Long id,
                                                                  @PathVariable Long itemId,

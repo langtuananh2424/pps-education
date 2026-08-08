@@ -165,6 +165,18 @@ class ExerciseReportServiceTest extends AbstractIntegrationTest {
                 .isInstanceOf(NotAssignedTeacherForClassException.class);
     }
 
+    /** V107: quyền lms.exercise-report.manage cho phép quản trị viên xem thống kê BTVN của lớp bất kỳ. */
+    @Test
+    void listAssignmentStats_allowsAdminWithManagePermissionBypassingAssignedTeacherCheck() {
+        User admin = newUser("report.admin");
+        assignRole(admin, "SYS_ADMIN");
+        deliverSelfPracticeExercise("BTVN 1");
+
+        List<ExerciseAssignmentStatsResponse> stats = exerciseReportService.listAssignmentStats(schoolClass.id(), admin.getId());
+
+        assertThat(stats).hasSize(1);
+    }
+
     @Test
     void listAssignmentStats_UC66_MainFlow_allowsSiteManagerOfClassSite() {
         deliverSelfPracticeExercise("BTVN 1");
