@@ -51,6 +51,9 @@ services:
       MAIL_CONTACT_HOTLINE: ${MAIL_CONTACT_HOTLINE:-}
       MAIL_CONTACT_SUPPORT_EMAIL: ${MAIL_CONTACT_SUPPORT_EMAIL:-}
       MAIL_CONTACT_WEBSITE: ${MAIL_CONTACT_WEBSITE:-}
+      # Firebase Admin SDK (kenh PUSH, xem FirebaseConfig.java) - tuy chon, de trong
+      # van chay duoc (PushNotificationSender tu bao loi co kiem soat).
+      FIREBASE_CREDENTIALS_BASE64: ${FIREBASE_CREDENTIALS_BASE64:-}
     ports:
       - "8080:8080"
     depends_on:
