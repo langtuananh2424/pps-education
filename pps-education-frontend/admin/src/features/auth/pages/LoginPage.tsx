@@ -15,8 +15,18 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-[#FFF4EA] flex items-center justify-center p-4 md:p-8 font-sans select-none relative overflow-hidden">
-      <div className="absolute top-[-10%] left-[-10%] w-96 h-96 rounded-full bg-orange-200/20 blur-3xl pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 rounded-full bg-amber-200/20 blur-3xl pointer-events-none" />
+      {/* Quầng màu nền trang trí — dùng radial-gradient thay vì filter:blur() (2026-08-08, đã xác nhận
+          với người dùng: filter:blur()/backdrop-filter khiến Safari mobile (kể cả iPhone XS) phải
+          recomposite vùng blur mỗi khi có repaint lân cận, gây gõ phím ở form đăng nhập bị trễ ~1s).
+          radial-gradient cho hiệu ứng quầng sáng tương tự nhưng không tốn GPU vì không dùng filter. */}
+      <div
+        className="absolute top-[-10%] left-[-10%] w-96 h-96 rounded-full pointer-events-none"
+        style={{ background: "radial-gradient(circle, rgba(254,215,170,0.35) 0%, rgba(254,215,170,0) 70%)" }}
+      />
+      <div
+        className="absolute bottom-[-10%] right-[-10%] w-96 h-96 rounded-full pointer-events-none"
+        style={{ background: "radial-gradient(circle, rgba(252,211,77,0.3) 0%, rgba(252,211,77,0) 70%)" }}
+      />
 
       <div className="w-full max-w-[1000px] bg-white rounded-3xl shadow-[0_20px_50px_rgba(234,88,12,0.06)] border border-slate-100 overflow-hidden grid grid-cols-1 md:grid-cols-12 min-h-[600px] z-10 relative">
         <div className="md:col-span-6 p-8 md:p-14 flex flex-col justify-between bg-white">
