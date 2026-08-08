@@ -40,7 +40,7 @@ const TABS: { key: Tab; label: string; icon: React.ComponentType<{ size?: number
  */
 export default function PortalPage() {
   const { currentUser, isParent, isStudent, logout } = useApp();
-  const [activeTab, setActiveTab] = useState<Tab>(() => (isParent ? "home" : "homework"));
+  const [activeTab, setActiveTab] = useState<Tab>("home");
 
   const [children, setChildren] = useState<ChildResponse[]>([]);
   const [selectedChildId, setSelectedChildId] = useState<number | null>(null);
