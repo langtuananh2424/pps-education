@@ -111,6 +111,14 @@ UC-21) không đổi — vẫn cần thêm điều kiện Bộ đã được gá
 đúng lớp đó (`deliverToClass` kiểm tra qua bảng gán mới trước khi tạo
 bản giao).
 
+**Bổ sung V107 (2026-08-08, đã xác nhận với người dùng) --- quản trị viên
+vượt rào phân công dạy:** trước V107, `assignToClass`/`unassignFromClass`
+CHỈ chấp nhận Giáo viên được phân công dạy đúng lớp qua `class_teachers`
+— quản trị viên (SYS_ADMIN) dù đã có quyền `lms.review-video.assign` ở
+Controller vẫn bị chặn ở Service. Thêm quyền `lms.review-video.manage`
+(gán HEAD_ACADEMIC + SYS_ADMIN) để vượt rào ownership này, quản lý được
+Bộ video của lớp/khung chương trình bất kỳ.
+
 ---
 
 UC-23a: Xem & Theo dõi Kho Video Ôn tập
@@ -1002,6 +1010,23 @@ UC-28: Điền kế hoạch giảng dạy
 | ostcondition)** |                                                    |
 +-----------------+----------------------------------------------------+
 
+> **Ghi chú bổ sung ngoài SDD gốc** (xác nhận với người dùng 2026-08-08,
+> V106__lms_teaching_plan_permission.sql): bổ sung quyền
+> `lms.teaching-plan.mark` (Giáo viên được phân công dạy lớp — vẫn ràng
+> buộc đúng Precondition ở trên) và `lms.teaching-plan.manage` (quản trị,
+> vượt rào ownership — cho phép HEAD_ACADEMIC thao tác kế hoạch giảng dạy
+> của lớp/giáo viên bất kỳ để hỗ trợ/khắc phục khi cần). Trước đây
+> `TeachingPlanController` không có `@PreAuthorize`, chỉ dựa vào ownership
+> check trong Service nên quản trị viên không có cách nào dùng chức năng
+> này.
+>
+> **Sửa lỗ hổng V107 (cùng ngày 2026-08-08):** V106 gán
+> `lms.teaching-plan.manage` cho role `SUPER_ADMIN` — role này KHÔNG tồn
+> tại trong DB thực tế (chỉ là quy ước tạo tay ở 1 số máy dev khác, xem
+> V44/V45), nên chưa có tác dụng thật với tài khoản quản trị đang dùng
+> (`SYS_ADMIN`, username `sysadmin`). V107 gán bổ sung
+> `lms.teaching-plan.manage` cho `SYS_ADMIN` để khắc phục.
+
 ---
 
 UC-29: Xem báo cáo Portal trường liên kết
@@ -1280,6 +1305,19 @@ UC-40: Soạn & giao đề kiểm tra
 >   qua override cá nhân) — sysadmin không tự động có `lms.exam.delete`.
 >   V88 cấp bổ sung `lms.exam.delete` cho MỌI role đã có `lms.exam.create`
 >   qua `role_permissions` (không riêng SYS_ADMIN).
+
+> **Bổ sung V107 (2026-08-08, đã xác nhận với người dùng) — quản trị viên
+> vượt rào phân công dạy khi gán/gỡ Đề cho lớp:** `ExamService#assignToClass`/
+> `unassignFromClass` VÀ `ExerciseService` (danh sách Bài đã giao/Bài đã
+> Publish cho lớp, giao Bài) trước đây CHỈ chấp nhận Giáo viên được phân
+> công dạy đúng lớp qua `class_teachers` làm rào ownership DUY NHẤT — quản
+> trị viên (SYS_ADMIN) dù đã có sẵn `lms.exam.assign`/`lms.exercise.*` ở
+> `@PreAuthorize` Controller vẫn bị chặn ở Service. Thêm quyền
+> `lms.exam.manage` (gán HEAD_ACADEMIC + SYS_ADMIN, migration
+> `V107__admin_manage_permissions_for_class_scoped_lms_features.sql`) dùng
+> chung cho CẢ 2 Service (cùng thuộc Kho đề 2 cấp Đề/Bài) để vượt rào này —
+> quản trị viên thao tác được Đề/Bài của lớp bất kỳ, không cần được phân
+> công dạy.
 
 > **Bổ sung V85 (2026-08-04, đã xác nhận với người dùng) — Đề FOREIGN có
 > thêm lựa chọn thứ 3 (SAU ĐÓ ĐÃ ROLLBACK Ở V86, xem trên — chỉ còn 2 lựa

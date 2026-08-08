@@ -49,6 +49,9 @@ public class TeachingPlanService {
     private final ClassTeacherRepository classTeacherRepository;
     private final UserRepository userRepository;
     private final AcademicYearRepository academicYearRepository;
+    private final PermissionEvaluationService permissionEvaluationService;
+
+    private static final String PERM_TEACHING_PLAN_MANAGE = "lms.teaching-plan.manage";
 
     public TeachingPlanService(TeachingPlanRepository teachingPlanRepository,
                                 TeachingPlanItemRepository teachingPlanItemRepository,
@@ -57,7 +60,8 @@ public class TeachingPlanService {
                                 ClassSessionRepository classSessionRepository,
                                 ClassTeacherRepository classTeacherRepository,
                                 UserRepository userRepository,
-                                AcademicYearRepository academicYearRepository) {
+                                AcademicYearRepository academicYearRepository,
+                                PermissionEvaluationService permissionEvaluationService) {
         this.teachingPlanRepository = teachingPlanRepository;
         this.teachingPlanItemRepository = teachingPlanItemRepository;
         this.teachingPlanHistoryRepository = teachingPlanHistoryRepository;
@@ -66,6 +70,7 @@ public class TeachingPlanService {
         this.classTeacherRepository = classTeacherRepository;
         this.userRepository = userRepository;
         this.academicYearRepository = academicYearRepository;
+        this.permissionEvaluationService = permissionEvaluationService;
     }
 
     /** Main Flow bước 1-3: chọn lớp + kỳ lập kế hoạch, nhập nội dung, lưu (DRAFT). */
@@ -195,7 +200,15 @@ public class TeachingPlanService {
 
     // ===================== Helpers =====================
 
+    /**
+     * UC-28: giáo viên chỉ thao tác kế hoạch của lớp mình được phân công dạy.
+     * Tài khoản có quyền quản trị (lms.teaching-plan.manage) vượt rào ownership
+     * này — thao tác kế hoạch của lớp/giáo viên bất kỳ (V106).
+     */
     private void requireAssignedTeacher(Long classId, Long actorUserId) {
+        if (permissionEvaluationService.hasPermission(actorUserId, PERM_TEACHING_PLAN_MANAGE)) {
+            return;
+        }
         if (!classTeacherRepository.existsBySchoolClassIdAndTeacherIdAndAssignedToIsNull(classId, actorUserId)) {
             throw new NotAssignedTeacherForClassException(
                     "Tài khoản id=" + actorUserId + " không được phân công giảng dạy lớp id=" + classId + ".");

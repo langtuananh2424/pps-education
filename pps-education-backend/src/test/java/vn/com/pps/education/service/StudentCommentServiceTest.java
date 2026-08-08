@@ -313,6 +313,21 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
                 .isInstanceOf(NotAssignedTeacherForClassException.class);
     }
 
+    /** V107: quyền academic.comment.manage cho phép quản trị viên viết nhận xét MID_TERM của lớp bất kỳ. */
+    @Test
+    void writeComment_allowsAdminWithManagePermissionBypassingAssignedTeacherCheck() {
+        User admin = newUser("comment.admin");
+        assignRole(admin, "SYS_ADMIN");
+
+        StudentCommentResponse comment = studentCommentService.writeComment(schoolClass.id(),
+                new CreateStudentCommentRequest(student.getId(), "MID_TERM", null, academicTerm.getId(),
+                        LocalDate.now(), "Nội dung do quản trị viên nhập hộ.", null, null, false, null, null, null, null, null, null, null, null),
+                admin.getId());
+
+        assertThat(comment.status()).isEqualTo("DRAFT");
+        assertThat(comment.commentType()).isEqualTo("MID_TERM");
+    }
+
     @Test
     void writeComment_UC21_dailyCommentBlockedAfterEditWindowForTeacher() {
         Room room = newRoom(siteOf(schoolClass));

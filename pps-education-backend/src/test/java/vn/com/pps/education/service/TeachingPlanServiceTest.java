@@ -134,6 +134,35 @@ class TeachingPlanServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void createPlan_allowsAdminWithManagePermissionBypassingAssignedTeacherCheck() {
+        User admin = newUser("teaching.plan.admin");
+        assignRole(admin, "HEAD_ACADEMIC");
+
+        TeachingPlanResponse plan = teachingPlanService.createPlan(
+                new CreateTeachingPlanRequest(schoolClass.id(), "YEARLY", academicYearId, null, null, null,
+                        "Kế hoạch năm (quản trị nhập hộ)", "Mục tiêu", true),
+                admin.getId());
+
+        assertThat(plan.status()).isEqualTo("DRAFT");
+        assertThat(plan.teacherId()).isEqualTo(admin.getId());
+    }
+
+    /** V107: vá lỗ hổng V106 (gán nhầm role SUPER_ADMIN không tồn tại) — SYS_ADMIN là tài khoản quản trị thực tế đang dùng. */
+    @Test
+    void createPlan_allowsSysAdminBypassingAssignedTeacherCheck() {
+        User sysAdmin = newUser("teaching.plan.sysadmin");
+        assignRole(sysAdmin, "SYS_ADMIN");
+
+        TeachingPlanResponse plan = teachingPlanService.createPlan(
+                new CreateTeachingPlanRequest(schoolClass.id(), "YEARLY", academicYearId, null, null, null,
+                        "Kế hoạch năm (SYS_ADMIN nhập hộ)", "Mục tiêu", true),
+                sysAdmin.getId());
+
+        assertThat(plan.status()).isEqualTo("DRAFT");
+        assertThat(plan.teacherId()).isEqualTo(sysAdmin.getId());
+    }
+
+    @Test
     void updatePlan_UC28_A1_publishingMakesVisibleAndSetsPublishedAt() {
         TeachingPlanResponse plan = teachingPlanService.createPlan(
                 new CreateTeachingPlanRequest(schoolClass.id(), "YEARLY", academicYearId, null, null, null, "Kế hoạch năm", "Mục tiêu", true),
