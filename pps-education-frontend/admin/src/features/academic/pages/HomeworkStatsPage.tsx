@@ -162,6 +162,7 @@ export default function HomeworkStatsPage() {
                   <Th>Hạn nộp</Th>
                   <Th className="text-center">% Làm bài</Th>
                   <Th className="text-center">% đạt</Th>
+                  <Th className="text-center">%HS vi phạm</Th>
                   <Th />
                 </tr>
               </thead>
@@ -181,6 +182,15 @@ export default function HomeworkStatsPage() {
                     </Td>
                     <Td className="text-center">
                       {a.passedCount}/{a.totalStudents} ({a.passRatePercent}%)
+                    </Td>
+                    <Td className="text-center">
+                      {a.violatedStudentCount != null ? (
+                        <span className={a.violatedStudentCount > 0 ? "font-bold text-amber-700" : "text-slate-400"}>
+                          {Math.round((a.violatedStudentCount / a.totalStudents) * 100)}%
+                        </span>
+                      ) : (
+                        <span className="text-slate-300">—</span>
+                      )}
                     </Td>
                     <Td className="text-right">
                       <Button size="sm" onClick={() => navigate(`/academic/homework-stats/${a.assignmentId}`)}>

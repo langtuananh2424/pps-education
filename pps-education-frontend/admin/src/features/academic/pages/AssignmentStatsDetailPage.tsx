@@ -164,6 +164,7 @@ export default function AssignmentStatsDetailPage() {
                     <Th className="text-center">%</Th>
                     <Th className="text-center">Đã hoàn thành</Th>
                     <Th className="text-center">Số lần làm</Th>
+                    <Th className="text-center">Vi phạm</Th>
                     <Th />
                   </tr>
                 </thead>
@@ -192,6 +193,19 @@ export default function AssignmentStatsDetailPage() {
                         )}
                       </Td>
                       <Td className="text-center">{s.numberOfAttempts ?? "—"}</Td>
+                      <Td className="text-center text-xs">
+                        {s.selectedAttemptStoppedByViolation ? (
+                          <span className="inline-flex items-center gap-1 font-bold text-amber-700 bg-amber-50 px-2 py-1 rounded">
+                            <ShieldAlert className="w-3 h-3" /> Vi phạm
+                          </span>
+                        ) : s.latestAttemptViolationCount && s.latestAttemptViolationCount > 0 ? (
+                          <span className="font-bold text-amber-700 bg-amber-50 px-2 py-1 rounded">
+                            {s.latestAttemptViolationCount} lần
+                          </span>
+                        ) : (
+                          <span className="text-slate-300">—</span>
+                        )}
+                      </Td>
                       <Td className="text-center">
                         {s.status !== "CHUA_LAM" && (
                           <button
@@ -215,7 +229,9 @@ export default function AssignmentStatsDetailPage() {
             ) : questionStats.questions.length === 0 ? (
               <p className="text-sm text-slate-400 italic">Chưa có dữ liệu để hiển thị.</p>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-6">
+                <QuestionAnalysisChart questions={questionStats.questions} />
+                <div className="space-y-2">
                 {[...questionStats.questions]
                   .sort((a, b) => b.wrongRatePercent - a.wrongRatePercent)
                   .map((q) => (
@@ -226,6 +242,7 @@ export default function AssignmentStatsDetailPage() {
                       onToggle={() => setExpandedQuestionId(expandedQuestionId === q.questionId ? null : q.questionId)}
                     />
                   ))}
+                </div>
               </div>
             ))}
         </div>
@@ -693,5 +710,63 @@ function AttemptHistoryRow({
         </tr>
       )}
     </React.Fragment>
+  );
+}
+
+/** Biểu đồ phân tích câu hỏi - hiển thị % câu sai của từng câu dưới dạng cột. */
+function QuestionAnalysisChart({ questions }: { questions: ExerciseAssignmentQuestionRow[] }) {
+  const maxRate = Math.max(...questions.map(q => q.wrongRatePercent), 0) || 100;
+
+  return (
+    <div className="border border-slate-200 rounded-lg p-4 bg-slate-50">
+      <h4 className="text-sm font-semibold text-slate-900 mb-4">Phân tích tỉ lệ sai theo câu hỏi</h4>
+      <div className="flex items-end justify-center gap-2 h-80 pt-8 pb-4 px-4 bg-white border border-slate-200 rounded-lg overflow-x-auto">
+        {questions.map((q) => (
+          <div key={q.questionId} className="flex flex-col items-center gap-2 shrink-0" style={{ minWidth: "60px" }}>
+            {/* Tỉ lệ % ở trên cùng */}
+            <div className="text-xs font-bold text-slate-700 h-6 flex items-center">
+              {q.wrongRatePercent}%
+            </div>
+
+            {/* Cột */}
+            <div
+              className={`w-10 rounded-t-lg border border-slate-300 transition-all hover:shadow-md ${
+                q.wrongRatePercent >= 50
+                  ? "bg-red-500 hover:bg-red-600"
+                  : q.wrongRatePercent > 0
+                  ? "bg-amber-400 hover:bg-amber-500"
+                  : "bg-green-500 hover:bg-green-600"
+              }`}
+              style={{ height: `${(q.wrongRatePercent / maxRate) * 240}px` }}
+              title={`Câu ${q.displayOrder}: ${q.wrongCount}/${q.answeredCount} sai`}
+            />
+
+            {/* Nhãn câu hỏi */}
+            <div className="text-xs font-semibold text-slate-700 text-center">Câu {q.displayOrder}</div>
+
+            {/* Chi tiết số lượng */}
+            <div className="text-[10px] text-slate-500 text-center whitespace-nowrap">
+              {q.wrongCount}/{q.answeredCount}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Chú thích màu sắc */}
+      <div className="mt-3 flex items-center justify-center gap-4 text-xs text-slate-600">
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 rounded bg-red-500" />
+          <span>Khó (≥50%)</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 rounded bg-amber-400" />
+          <span>Trung bình (&lt;50%)</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 rounded bg-green-500" />
+          <span>Dễ (0%)</span>
+        </div>
+      </div>
+    </div>
   );
 }

@@ -1073,6 +1073,8 @@ export interface ExerciseAssignmentStatsResponse {
   completionPercent: number;
   passedCount: number;
   passRatePercent: number;
+  /** Bổ sung 2026-08-08: số học sinh có lần làm bị dừng do vi phạm giám sát. */
+  violatedStudentCount?: number;
 }
 
 export interface ExerciseAssignmentStudentRow {
@@ -1088,6 +1090,10 @@ export interface ExerciseAssignmentStudentRow {
   attemptNumber: number | null;
   attemptId: number | null;
   numberOfAttempts: number;
+  /** Bổ sung 2026-08-08: số lần thoát được ghi nhận của lượt làm mới nhất. */
+  latestAttemptViolationCount?: number;
+  /** Bổ sung 2026-08-08: lượt làm chính thức (mới nhất hoặc chọn bởi GV) có bị dừng do vi phạm không. */
+  selectedAttemptStoppedByViolation?: boolean;
 }
 
 export interface ExerciseAssignmentStudentStatsResponse {
