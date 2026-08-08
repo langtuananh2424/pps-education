@@ -5,6 +5,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,6 +20,8 @@ import vn.com.pps.education.dto.DeviceTokenRequest;
 import vn.com.pps.education.dto.NotificationPreferenceRequest;
 import vn.com.pps.education.dto.NotificationPreferenceResponse;
 import vn.com.pps.education.dto.NotificationResponse;
+import vn.com.pps.education.dto.SendNotificationRequest;
+import vn.com.pps.education.dto.SendNotificationResponse;
 import vn.com.pps.education.security.AuthenticatedUser;
 import vn.com.pps.education.service.NotificationService;
 
@@ -76,5 +79,18 @@ public class NotificationController {
                                                         @AuthenticationPrincipal AuthenticatedUser actor) {
         notificationService.deactivateDeviceToken(actor.userId(), token);
         return ResponseEntity.ok().build();
+    }
+
+    /**
+     * Gửi thông báo thủ công tới user được chọn — bổ sung ngoài SDD gốc, đã
+     * xác nhận với người dùng 2026-08-08. Công cụ test/gửi tay của Quản trị
+     * viên hệ thống (permission notification.send.manual, gán riêng cho
+     * SYS_ADMIN — xem V105).
+     */
+    @PreAuthorize("hasPermission(null, 'notification.send.manual')")
+    @PostMapping("/send-manual")
+    public ResponseEntity<SendNotificationResponse> sendManual(@Valid @RequestBody SendNotificationRequest request,
+                                                                  @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(notificationService.sendManual(request, actor.userId()));
     }
 }

@@ -35,6 +35,10 @@ public class SystemSetting {
     @Column(length = 50, nullable = false)
     private String category;
 
+    /** Bổ sung field còn thiếu (cột đã có sẵn trong DB từ V1, chỉ chưa map) — cần cho trang Cài đặt hệ thống (2026-08-08). */
+    @Column(columnDefinition = "text")
+    private String description;
+
     /** V39 — trước đây không map (chưa có API ghi nào); dùng để audit ai đã đổi setting. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "updated_by")
