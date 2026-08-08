@@ -270,3 +270,100 @@ export function searchAuditLogs(filter: AuditLogSearchFilter, page: number, size
   params.set("size", String(size));
   return apiRequest<Page<PermissionAuditLogResponse>>(`/permission-audit-logs?${params.toString()}`);
 }
+
+// ===== Cài đặt hệ thống (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-08) =====
+
+/** Khớp SystemSettingResponse thật của backend. */
+export interface SystemSettingResponse {
+  id: number;
+  settingKey: string;
+  settingValue: boolean | number | string;
+  category: string;
+  description: string | null;
+  updatedByName: string | null;
+  updatedAt: string | null;
+}
+
+/** Khớp SystemSettingHistoryResponse thật của backend. */
+export interface SystemSettingHistoryResponse {
+  id: number;
+  oldValue: boolean | number | string;
+  newValue: boolean | number | string;
+  changedByName: string;
+  createdAt: string;
+}
+
+/** Toàn bộ system_settings, FE tự nhóm theo category. */
+export function listSystemSettings(): Promise<SystemSettingResponse[]> {
+  return apiRequest<SystemSettingResponse[]>("/system-settings");
+}
+
+/** Sửa giá trị 1 setting — backend chặn đổi khác kiểu dữ liệu JSON hiện tại. */
+export function updateSystemSetting(
+  settingKey: string,
+  settingValue: boolean | number | string
+): Promise<SystemSettingResponse> {
+  return apiRequest<SystemSettingResponse>(`/system-settings/${encodeURIComponent(settingKey)}`, {
+    method: "PUT",
+    body: JSON.stringify({ settingValue })
+  });
+}
+
+/** Lịch sử thay đổi của 1 setting, mới nhất trước. */
+export function getSystemSettingHistory(settingKey: string): Promise<SystemSettingHistoryResponse[]> {
+  return apiRequest<SystemSettingHistoryResponse[]>(`/system-settings/${encodeURIComponent(settingKey)}/history`);
+}
+
+// ===== Gửi thông báo thủ công (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-08) =====
+
+/** Khớp đúng enum Notification.NotificationType thật của backend — xem domain/Notification.java. */
+export const NOTIFICATION_TYPES = [
+  "SYSTEM_ANNOUNCEMENT",
+  "OTHER",
+  "ATTENDANCE_ABSENT",
+  "TASK_ASSIGNED",
+  "TASK_COMMENT",
+  "INVOICE_DUE",
+  "GRADE_PUBLISHED",
+  "GRADE_REJECTED",
+  "COMMENT_APPROVED",
+  "COMMENT_PENDING_APPROVAL",
+  "COMMENT_REJECTED",
+  "PARTNER_FEEDBACK",
+  "LEAVE_REQUEST_STATUS",
+  "EXAM_INTEGRITY_VIOLATION",
+  "EXAM_INTEGRITY_VIOLATION_PARENT",
+  "HOMEWORK_DEADLINE_SUMMARY",
+  "HOMEWORK_MISS_REMINDER",
+  "HOMEWORK_MISS_WARNING",
+  "HOMEWORK_MISS_PARENT_MEETING_INVITE",
+  "HOMEWORK_MISS_REMINDER_NON_CONSECUTIVE",
+  "HOMEWORK_DUE_SOON_REMINDER"
+] as const;
+export type NotificationTypeValue = (typeof NOTIFICATION_TYPES)[number];
+
+export interface SendNotificationRequest {
+  recipientUserIds: number[];
+  notificationType: NotificationTypeValue;
+  title: string;
+  content: string;
+}
+
+export interface SendNotificationFailure {
+  recipientUserId: number;
+  reason: string;
+}
+
+export interface SendNotificationResponse {
+  totalRecipients: number;
+  succeeded: number;
+  failures: SendNotificationFailure[];
+}
+
+/** Gửi thông báo thủ công tới danh sách user được chọn — công cụ test/gửi tay của Quản trị viên. */
+export function sendManualNotification(request: SendNotificationRequest): Promise<SendNotificationResponse> {
+  return apiRequest<SendNotificationResponse>("/notifications/send-manual", {
+    method: "POST",
+    body: JSON.stringify(request)
+  });
+}

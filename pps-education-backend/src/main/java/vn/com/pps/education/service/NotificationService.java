@@ -13,6 +13,8 @@ import vn.com.pps.education.dto.DeviceTokenRequest;
 import vn.com.pps.education.dto.NotificationPreferenceRequest;
 import vn.com.pps.education.dto.NotificationPreferenceResponse;
 import vn.com.pps.education.dto.NotificationResponse;
+import vn.com.pps.education.dto.SendNotificationRequest;
+import vn.com.pps.education.dto.SendNotificationResponse;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.repository.DeviceTokenRepository;
 import vn.com.pps.education.repository.NotificationDeliveryRepository;
@@ -24,6 +26,7 @@ import vn.com.pps.education.repository.UserRepository;
 import vn.com.pps.education.service.notification.NotificationChannelSender;
 
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -71,6 +74,32 @@ public class NotificationService {
     public Notification notify(Long recipientUserId, Notification.NotificationType type, String title, String content) {
         return notify(recipientUserId, type, title, content, null, null, null,
                 Notification.Priority.NORMAL, null);
+    }
+
+    /**
+     * Gửi thông báo thủ công tới danh sách user được chọn — công cụ test/gửi
+     * tay của Quản trị viên (bổ sung ngoài SDD gốc, đã xác nhận với người
+     * dùng 2026-08-08). Tái sử dụng đúng notify() + dispatchByPreference()
+     * hiện có (mỗi recipient vẫn tôn trọng notification_preferences của
+     * chính họ) — không tạo luồng gửi riêng. Lỗi ở 1 recipient (VD user id
+     * không tồn tại) không chặn các recipient còn lại — gom vào failures.
+     */
+    @Transactional
+    public SendNotificationResponse sendManual(SendNotificationRequest request, Long triggeredByUserId) {
+        int succeeded = 0;
+        List<SendNotificationResponse.SendNotificationFailure> failures = new ArrayList<>();
+
+        for (Long recipientUserId : request.recipientUserIds()) {
+            try {
+                notify(recipientUserId, request.notificationType(), request.title(), request.content(),
+                        null, null, null, Notification.Priority.NORMAL, triggeredByUserId);
+                succeeded++;
+            } catch (Exception ex) {
+                failures.add(new SendNotificationResponse.SendNotificationFailure(recipientUserId, ex.getMessage()));
+            }
+        }
+
+        return new SendNotificationResponse(request.recipientUserIds().size(), succeeded, failures);
     }
 
     @Transactional
