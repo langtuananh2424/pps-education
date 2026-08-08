@@ -46,6 +46,7 @@ import vn.com.pps.education.dto.QuestionResponse;
 import vn.com.pps.education.dto.RecordTransferRequest;
 import vn.com.pps.education.dto.ReportVideoProgressRequest;
 import vn.com.pps.education.dto.ReviewVideoResponse;
+import vn.com.pps.education.dto.SubmitConnectionAnswersRequest;
 import vn.com.pps.education.dto.ReviewVideoSetResponse;
 import vn.com.pps.education.dto.SaveAnswerRequest;
 import vn.com.pps.education.dto.StudentCommentResponse;
@@ -1015,10 +1016,15 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         writeDailyCommentWithHomeworkNext(student, classSession, null, fixture.set().id());
         Long sessionId = reviewVideoService.startWatchSession(fixture.video().id(), student.getUser().getId()).sessionId();
         reviewVideoService.reportProgress(fixture.video().id(), new ReportVideoProgressRequest(sessionId, 80), student.getUser().getId());
+        // CONNECTION (V83/V93/V101): % hiển thị ở cột này là viewCount/requiredViewCount (không
+        // còn phải % thời lượng đã xem) — xem HomeworkProgressService#connectionPercent. Xem đạt
+        // ngưỡng (80%) mới làm session "qualified", còn cần nộp đủ câu hỏi (rỗng ở đây, video chưa
+        // thêm câu hỏi) mới tính vào viewCount. requiredViewCount mặc định 1 → 1 lượt đạt = 100%.
+        reviewVideoService.submitConnectionAnswers(sessionId, new SubmitConnectionAnswersRequest(List.of()), student.getUser().getId());
 
         byte[] template = studentCommentService.buildTemplate(session2.id(), teacher.getId());
 
-        assertThat(rowForStudent(template, student.getStudentCode(), COL_HOMEWORK_SPEAKING_PREVIOUS)).isEqualTo("80%");
+        assertThat(rowForStudent(template, student.getStudentCode(), COL_HOMEWORK_SPEAKING_PREVIOUS)).isEqualTo("100%");
     }
 
     /** Cột "buổi trước" tra theo nhận xét CỦA CHÍNH học sinh đó ở buổi trước — học sinh không được nhận xét ở buổi đó thì cột tự động để trống. */
