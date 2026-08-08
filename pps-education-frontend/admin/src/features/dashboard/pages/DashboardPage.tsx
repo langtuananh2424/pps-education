@@ -5,6 +5,7 @@ import { mockCampuses, mockClassrooms, mockExpenses, mockInvoices, mockStudents 
 import ExecutiveDashboard from "../components/ExecutiveDashboard";
 import AcademicDashboard from "../components/AcademicDashboard";
 import CampusDashboard from "../components/CampusDashboard";
+import TeacherDashboard from "../components/TeacherDashboard";
 
 function filterByCampus<T extends { campusId?: string; campusIds?: string[] }>(list: T[], selectedCampusId: string): T[] {
   if (selectedCampusId === "ALL") return list;
@@ -24,9 +25,7 @@ export default function DashboardPage() {
   const classrooms = mockClassrooms.filter((c) => selectedCampusId === "ALL" || c.campusId === selectedCampusId);
 
   const billingList = filterByCampus(mockInvoices, selectedCampusId);
-  const totalInvoiced = billingList.reduce((sum, item) => sum + item.finalAmount, 0);
   const totalPaid = billingList.filter((inv) => inv.status === "PAID").reduce((sum, item) => sum + item.finalAmount, 0);
-  const totalOutstanding = totalInvoiced - totalPaid;
 
   const totalExpenses = mockExpenses.reduce((sum, exp) => sum + exp.amount, 0);
   const profit = totalPaid - totalExpenses;
@@ -49,9 +48,13 @@ export default function DashboardPage() {
     );
   }
 
-  if (currentRole === UserRole.HEAD_ACADEMIC || currentRole === UserRole.TEACHER) {
+  if (currentRole === UserRole.TEACHER) {
+    return <TeacherDashboard />;
+  }
+
+  if (currentRole === UserRole.HEAD_ACADEMIC) {
     return <AcademicDashboard classrooms={classrooms} />;
   }
 
-  return <CampusDashboard totalOutstanding={totalOutstanding} />;
+  return <CampusDashboard />;
 }

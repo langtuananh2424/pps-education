@@ -119,10 +119,10 @@ class CurriculumServiceTest extends AbstractIntegrationTest {
         Site site = newSite();
         var schoolClass = classService.create(
                 new CreateClassRequest(classCode(), "Lớp đang chạy", site.getId(), curriculum.id(), "OPEN",
-                        20, null, LocalDate.now(), null, "2026-2027"),
+                        20, null, LocalDate.now(), null, null),
                 headAcademic.getId());
         classService.update(schoolClass.id(),
-                new UpdateClassRequest("Lớp đang chạy", 20, null, LocalDate.now(), null, "2026-2027", "IN_PROGRESS"),
+                new UpdateClassRequest("Lớp đang chạy", 20, null, LocalDate.now(), null, null, "IN_PROGRESS"),
                 headAcademic.getId());
 
         assertThatThrownBy(() -> curriculumService.update(curriculum.id(),

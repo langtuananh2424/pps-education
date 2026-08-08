@@ -19,6 +19,7 @@ import vn.com.pps.education.dto.AssignTeacherRequest;
 import vn.com.pps.education.dto.ClassResponse;
 import vn.com.pps.education.dto.CreateClassRequest;
 import vn.com.pps.education.dto.CreateCurriculumRequest;
+import vn.com.pps.education.dto.CreateExamQuestionRequest;
 import vn.com.pps.education.dto.CreateExamRequest;
 import vn.com.pps.education.dto.CreateExerciseRequest;
 import vn.com.pps.education.dto.CreateQuestionBankRequest;
@@ -77,6 +78,8 @@ class HomeworkDeadlineSchedulerServiceTest extends AbstractIntegrationTest {
     private ExamService examService;
     @Autowired
     private QuestionBankService questionBankService;
+    @Autowired
+    private ExamQuestionService examQuestionService;
     @Autowired
     private ReviewVideoService reviewVideoService;
     @Autowired
@@ -147,6 +150,8 @@ class HomeworkDeadlineSchedulerServiceTest extends AbstractIntegrationTest {
         examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
         // Giao với hạn nộp CÒN Ở TƯƠNG LAI để học sinh nộp bài được bình thường (tránh
         // SubmissionPastDeadlineException) — sau đó dời hạn về quá khứ để giả lập "vừa hết hạn".
+        // V71: deliverToClass dùng PROPAGATION_REQUIRES_NEW — phải commit fixture vừa tạo trước.
+        commitCurrentTransactionAndStartNew();
         ExerciseAssignment assignment = exerciseService.deliverToClass(
                 exercise.id(), schoolClass.id(), OffsetDateTime.now().plusHours(1), teacher.getId());
 
@@ -181,6 +186,8 @@ class HomeworkDeadlineSchedulerServiceTest extends AbstractIntegrationTest {
                         new BigDecimal("1"), null, false, 1, true), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("1.0")), teacher.getId());
         examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
+        // V71: deliverToClass dùng PROPAGATION_REQUIRES_NEW — phải commit fixture vừa tạo trước.
+        commitCurrentTransactionAndStartNew();
         ExerciseAssignment assignment = exerciseService.deliverToClass(
                 exercise.id(), schoolClass.id(), OffsetDateTime.now().minusMinutes(1), teacher.getId());
 
@@ -204,6 +211,8 @@ class HomeworkDeadlineSchedulerServiceTest extends AbstractIntegrationTest {
                         new BigDecimal("1"), null, false, 1, true), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("1.0")), teacher.getId());
         examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
+        // V71: deliverToClass dùng PROPAGATION_REQUIRES_NEW — phải commit fixture vừa tạo trước.
+        commitCurrentTransactionAndStartNew();
         exerciseService.deliverToClass(exercise.id(), schoolClass.id(), OffsetDateTime.now().plusDays(1), teacher.getId());
         long before = notificationRepository.findByRecipientUserIdOrderByCreatedAtDesc(teacher.getId(), PageRequest.of(0, 10))
                 .getTotalElements();
@@ -218,13 +227,18 @@ class HomeworkDeadlineSchedulerServiceTest extends AbstractIntegrationTest {
     @Test
     void runDeadlineScan_MainFlow_notifiesTeacherWithClassCompletionRateForReviewVideo() {
         ReviewVideoSetResponse set = reviewVideoService.createSet(
-                new CreateReviewVideoSetRequest(setCode(), "Bài 1: Video TKN", "CONNECTION", null, schoolClass.id(), null, 1),
+                new CreateReviewVideoSetRequest(setCode(), "Bài 1: Video TKN", "CONNECTION", schoolClass.curriculumId(), "VIETNAMESE", null, 1),
                 teacher.getId());
-        reviewVideoService.updateSet(set.id(), new UpdateReviewVideoSetRequest(set.title(), null, 1, "PUBLISHED"), teacher.getId());
+        // V98 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06): curriculum trên "bộ" giờ
+        // CHỈ dùng lọc/tìm kiếm — phải assignToClass tường minh trước khi deliverToClass mới thành công.
+        reviewVideoService.assignToClass(set.id(), schoolClass.id(), teacher.getId());
+        reviewVideoService.updateSet(set.id(), new UpdateReviewVideoSetRequest(set.title(), "VIETNAMESE", null, 1, "PUBLISHED"), teacher.getId());
         ReviewVideoResponse video = reviewVideoService.addVideo(set.id(),
                 new AddReviewVideoRequest("R2_VIDEO", "Video", "https://media.pps.edu.vn/lms/review-videos/video/x.mp4",
                         1_000_000L, 100, 1, null, null),
                 teacher.getId());
+        // V71: deliverToClass dùng PROPAGATION_REQUIRES_NEW — phải commit set/video vừa tạo trước.
+        commitCurrentTransactionAndStartNew();
         ReviewVideoAssignment assignment = reviewVideoService.deliverToClass(
                 set.id(), schoolClass.id(), OffsetDateTime.now().plusHours(1), teacher.getId());
 
@@ -257,8 +271,11 @@ class HomeworkDeadlineSchedulerServiceTest extends AbstractIntegrationTest {
     }
 
     private QuestionResponse createMcQuestion() {
-        return questionBankService.createQuestion(
-                new CreateQuestionRequest(bank.id(), "MULTIPLE_CHOICE", "GRAMMAR", "EASY",
+        // V75 (Kho đề): mỗi Exam tự sinh 1 QuestionBank nội bộ riêng, không nhận câu hỏi qua
+        // QuestionBankService#createQuestion (chỉ dành cho bank "legacy" độc lập) — phải qua
+        // ExamQuestionService#createQuestion (tự resolve bank nội bộ theo examId).
+        return examQuestionService.createQuestion(defaultExam.id(),
+                new CreateExamQuestionRequest("MULTIPLE_CHOICE", "GRAMMAR", "EASY",
                         "She ___ to school.", null, null, null, null, null, new BigDecimal("1.0"), null,
                         List.of(new QuestionChoiceRequest("A", "go", false, 1), new QuestionChoiceRequest("B", "goes", true, 2)), null, null),
                 teacher.getId());

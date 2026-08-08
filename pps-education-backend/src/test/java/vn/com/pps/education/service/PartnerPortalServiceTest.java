@@ -4,6 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
+import vn.com.pps.education.domain.AcademicTerm;
 import vn.com.pps.education.domain.Role;
 import vn.com.pps.education.domain.Site;
 import vn.com.pps.education.domain.SiteManager;
@@ -12,12 +13,13 @@ import vn.com.pps.education.domain.User;
 import vn.com.pps.education.domain.UserRole;
 import vn.com.pps.education.dto.AssignTeacherRequest;
 import vn.com.pps.education.dto.ClassResponse;
+import vn.com.pps.education.dto.CreateAcademicYearRequest;
 import vn.com.pps.education.dto.ClassSessionResponse;
 import vn.com.pps.education.dto.CreateClassRequest;
 import vn.com.pps.education.dto.CreateClassSessionRequest;
 import vn.com.pps.education.dto.CreateCurriculumRequest;
-import vn.com.pps.education.dto.CreateGradeComponentRequest;
-import vn.com.pps.education.dto.CreateGradePeriodRequest;
+import vn.com.pps.education.dto.CreateGradeComponentSetupRequest;
+import vn.com.pps.education.dto.CreateGradeEvaluationComponentRequest;
 import vn.com.pps.education.dto.CreateStudentCommentRequest;
 import vn.com.pps.education.dto.CreateTeachingPlanRequest;
 import vn.com.pps.education.dto.CurriculumResponse;
@@ -25,9 +27,9 @@ import vn.com.pps.education.dto.DecideCommentsRequest;
 import vn.com.pps.education.dto.EnrollStudentRequest;
 import vn.com.pps.education.dto.EnterAttendanceMarkRequest;
 import vn.com.pps.education.dto.EnterGradeRequest;
-import vn.com.pps.education.dto.GradeComponentResponse;
+import vn.com.pps.education.dto.GradeComponentSetupResponse;
 import vn.com.pps.education.dto.GradeEntryResponse;
-import vn.com.pps.education.dto.GradePeriodResponse;
+import vn.com.pps.education.dto.GradeEvaluationComponentResponse;
 import vn.com.pps.education.dto.MarkAttendanceRequest;
 import vn.com.pps.education.dto.PartnerAttendanceSummaryResponse;
 import vn.com.pps.education.dto.PartnerSiteResponse;
@@ -39,6 +41,7 @@ import vn.com.pps.education.dto.TeachingPlanResponse;
 import vn.com.pps.education.dto.UpdateCurriculumRequest;
 import vn.com.pps.education.dto.UpdateTeachingPlanRequest;
 import vn.com.pps.education.exception.NotAuthorizedForPortalAccessException;
+import vn.com.pps.education.repository.AcademicTermRepository;
 import vn.com.pps.education.repository.RoleRepository;
 import vn.com.pps.education.repository.SiteManagerRepository;
 import vn.com.pps.education.repository.SiteRepository;
@@ -84,6 +87,9 @@ class PartnerPortalServiceTest extends AbstractIntegrationTest {
     private TeachingPlanService teachingPlanService;
 
     @Autowired
+    private AcademicYearService academicYearService;
+
+    @Autowired
     private StudentCommentService studentCommentService;
 
     @Autowired
@@ -103,6 +109,9 @@ class PartnerPortalServiceTest extends AbstractIntegrationTest {
 
     @Autowired
     private StudentRepository studentRepository;
+
+    @Autowired
+    private AcademicTermRepository academicTermRepository;
 
     private User headAcademic;
     private User teacher;
@@ -199,15 +208,17 @@ class PartnerPortalServiceTest extends AbstractIntegrationTest {
 
     @Test
     void getPublishedGrades_UC29_MainFlow_returnsOnlyOfficialGrades() {
-        GradePeriodResponse period = gradeService.createGradePeriod(activeCurriculum.id(),
-                new CreateGradePeriodRequest("MID_1", "Giữa kỳ 1", 1, new BigDecimal("50"), null, null), headAcademic.getId());
-        GradeComponentResponse component = gradeService.addGradeComponent(period.id(),
-                new CreateGradeComponentRequest(null, null, "SPEAKING", "Nói", new BigDecimal("10.00"), null, null, 1),
+        AcademicTerm academicTerm = newAcademicTerm(partnerSite);
+        GradeComponentSetupResponse setup = gradeService.createGradeComponentSetup(schoolClass.id(),
+                new CreateGradeComponentSetupRequest(academicTerm.getId(), "MID_TERM", "POINT_10", LocalDate.now(), false),
+                headAcademic.getId());
+        GradeEvaluationComponentResponse component = gradeService.addGradeEvaluationComponent(setup.id(),
+                new CreateGradeEvaluationComponentRequest(null, null, "SPEAKING", "Nói", new BigDecimal("10.00"), null, null, 1),
                 headAcademic.getId());
         GradeEntryResponse entry = gradeService.enterGrade(schoolClass.id(), component.id(),
                 new EnterGradeRequest(student.getId(), new BigDecimal("9"), false, null), teacher.getId());
         gradeService.submitGradesForApproval(new SubmitGradesRequest(List.of(entry.id()), null), teacher.getId());
-        gradeService.publishGrades(new PublishGradesRequest("APPROVE", List.of(entry.id()), null, null), siteManagerUser.getId());
+        gradeService.publishGrades(new PublishGradesRequest("APPROVE", List.of(entry.id()), null, null, null, null), siteManagerUser.getId());
 
         List<GradeEntryResponse> grades = partnerPortalService.getPublishedGrades(partnerRepUser.getId());
 
@@ -217,15 +228,19 @@ class PartnerPortalServiceTest extends AbstractIntegrationTest {
 
     @Test
     void getTeachingPlans_UC29_MainFlow_returnsPublishedVisiblePlans() {
+        Long academicYearId = academicYearService.create(
+                new CreateAcademicYearRequest("AY-" + SEQ.incrementAndGet(), "2026-2027", null, null), headAcademic.getId()).id();
+        Long nextAcademicYearId = academicYearService.create(
+                new CreateAcademicYearRequest("AY-" + SEQ.incrementAndGet(), "2027-2028", null, null), headAcademic.getId()).id();
         TeachingPlanResponse plan = teachingPlanService.createPlan(
-                new CreateTeachingPlanRequest(schoolClass.id(), "YEARLY", "2026-2027", null, null, null, "Kế hoạch năm", "Mục tiêu", true),
+                new CreateTeachingPlanRequest(schoolClass.id(), "YEARLY", academicYearId, null, null, null, "Kế hoạch năm", "Mục tiêu", true),
                 teacher.getId());
         teachingPlanService.updatePlan(plan.id(),
                 new UpdateTeachingPlanRequest("Kế hoạch năm", "Mục tiêu", "PUBLISHED", true), teacher.getId());
 
         // Ke hoach khac chua publish -- khong duoc hien thi.
         teachingPlanService.createPlan(
-                new CreateTeachingPlanRequest(schoolClass.id(), "YEARLY", "2027-2028", null, null, null, "Nam sau", null, true),
+                new CreateTeachingPlanRequest(schoolClass.id(), "YEARLY", nextAcademicYearId, null, null, null, "Nam sau", null, true),
                 teacher.getId());
 
         List<TeachingPlanResponse> plans = partnerPortalService.getTeachingPlans(partnerRepUser.getId());
@@ -236,11 +251,10 @@ class PartnerPortalServiceTest extends AbstractIntegrationTest {
 
     @Test
     void getApprovedComments_UC29_MainFlow_returnsOnlyApprovedComments() {
-        GradePeriodResponse period = gradeService.createGradePeriod(activeCurriculum.id(),
-                new CreateGradePeriodRequest("MID_1", "Giữa kỳ 1", 1, new BigDecimal("50"), null, null), headAcademic.getId());
+        AcademicTerm academicTerm = newAcademicTerm(partnerSite);
         StudentCommentResponse approvedComment = studentCommentService.writeComment(schoolClass.id(),
-                new CreateStudentCommentRequest(student.getId(), "MID_TERM", null, period.id(),
-                        LocalDate.now(), "Chăm chỉ, tiến bộ rõ rệt.", null, "POSITIVE", false, null, null, null, null, null, null, null),
+                new CreateStudentCommentRequest(student.getId(), "MID_TERM", null, academicTerm.getId(),
+                        LocalDate.now(), "Chăm chỉ, tiến bộ rõ rệt.", null, "POSITIVE", false, null, null, null, null, null, null, null, null),
                 teacher.getId());
         studentCommentService.submitComments(schoolClass.id(), new SubmitCommentsRequest(List.of(approvedComment.id())), teacher.getId());
         studentCommentService.decideComments(
@@ -248,8 +262,8 @@ class PartnerPortalServiceTest extends AbstractIntegrationTest {
 
         // Nhan xet con DRAFT (chua submit/duyet) -- khong duoc hien thi cho Doi tac.
         studentCommentService.writeComment(schoolClass.id(),
-                new CreateStudentCommentRequest(student.getId(), "MID_TERM", null, period.id(),
-                        LocalDate.now(), "Nhận xét nháp chưa gửi duyệt.", null, "NORMAL", false, null, null, null, null, null, null, null),
+                new CreateStudentCommentRequest(student.getId(), "MID_TERM", null, academicTerm.getId(),
+                        LocalDate.now(), "Nhận xét nháp chưa gửi duyệt.", null, "NORMAL", false, null, null, null, null, null, null, null, null),
                 teacher.getId());
 
         List<StudentCommentResponse> comments = partnerPortalService.getApprovedComments(partnerRepUser.getId());
@@ -299,6 +313,17 @@ class PartnerPortalServiceTest extends AbstractIntegrationTest {
         s.setName("Test Site");
         s.setSiteType(siteType);
         return siteRepository.save(s);
+    }
+
+    private AcademicTerm newAcademicTerm(Site site) {
+        AcademicTerm term = new AcademicTerm();
+        term.setSite(site);
+        term.setCode("TERM-" + SEQ.incrementAndGet());
+        term.setName("Kỳ test");
+        term.setStartDate(LocalDate.now().minusMonths(1));
+        term.setEndDate(LocalDate.now().plusMonths(2));
+        term.setCreatedBy(headAcademic);
+        return academicTermRepository.save(term);
     }
 
     private Student newStudent() {

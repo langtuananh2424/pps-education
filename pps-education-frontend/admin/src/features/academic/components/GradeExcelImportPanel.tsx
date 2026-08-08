@@ -1,41 +1,42 @@
 import React, { useRef, useState } from "react";
 import { Download, UploadCloud } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
-import { buildXlsxTemplateBlob, downloadBlob } from "@/lib/xlsxTemplate";
-import { ClassEnrollmentResponse, GradeComponentResponse, GradeImportResponse, importGrades } from "../api";
+import { downloadBlob } from "@/lib/xlsxTemplate";
+import { GradeEvaluationComponentResponse, GradeImportResponse, downloadGradeImportTemplate, importGrades } from "../api";
 
 interface GradeExcelImportPanelProps {
   classId: number;
-  gradePeriodId: number;
-  components: GradeComponentResponse[];
-  enrollments: ClassEnrollmentResponse[];
+  setupId: number;
+  components: GradeEvaluationComponentResponse[];
   onImported: () => void;
 }
 
 /**
  * UC-53: cột header phải khớp CHÍNH XÁC tên thành phần điểm đã cấu hình cho kỳ này
  * (hoặc Overall/Level) — sai 1 ký tự là bị từ chối cả file (xem
- * GradeImportService.mapHeader, không tạo import_job nếu có cột không khớp). Vì vậy
- * "Tải file mẫu" ở đây KHÔNG dùng 1 mẫu cột cố định như các import khác — tự dựng theo
- * đúng components/enrollments đang truyền vào (đúng kỳ + đúng lớp đang chọn), điền sẵn cột
- * A = mã học viên của mọi học viên ACTIVE trong lớp, đảm bảo tải mẫu về rồi nộp lại chắc
- * chắn khớp header ngay từ đầu.
+ * GradeImportService.mapHeader, không tạo import_job nếu có cột không khớp). "Tải file
+ * mẫu" gọi thẳng endpoint backend (GradeImportService#buildTemplate) thay vì tự dựng
+ * phía FE — tránh lệch header giữa 2 nơi sinh file (đã từng thiếu tiêu đề "Họ và tên"
+ * do FE tự dựng riêng một bản khác bản backend).
  */
-export default function GradeExcelImportPanel({ classId, gradePeriodId, components, enrollments, onImported }: GradeExcelImportPanelProps) {
+export default function GradeExcelImportPanel({ classId, setupId, components, onImported }: GradeExcelImportPanelProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [downloadingTemplate, setDownloadingTemplate] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<GradeImportResponse | null>(null);
 
-  const handleDownloadTemplate = () => {
-    // Cột B (họ tên) để trống ở dòng tiêu đề — GradeImportService.mapHeader bỏ qua hẳn cột
-    // không có tiêu đề, chỉ để tham khảo cho dễ điền, không bị BE hiểu nhầm là 1 cột điểm.
-    const headers = ["Mã học viên", "", ...components.map((c) => c.name), "Overall", "Level"];
-    const sampleRows = enrollments
-      .filter((en) => en.status === "ACTIVE")
-      .map((en) => [en.studentCode, en.studentFullName, ...components.map(() => ""), "", ""]);
-    const blob = buildXlsxTemplateBlob(headers, sampleRows);
-    downloadBlob(blob, `mau-nhap-diem-lop-${classId}-ky-${gradePeriodId}.xlsx`);
+  const handleDownloadTemplate = async () => {
+    setDownloadingTemplate(true);
+    setError(null);
+    try {
+      const blob = await downloadGradeImportTemplate(classId, setupId);
+      downloadBlob(blob, `mau-nhap-diem-lop-${classId}-setup-${setupId}.xlsx`);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Tải file mẫu thất bại.");
+    } finally {
+      setDownloadingTemplate(false);
+    }
   };
 
   const handleFile = async (file: File | null) => {
@@ -48,7 +49,7 @@ export default function GradeExcelImportPanel({ classId, gradePeriodId, componen
     setError(null);
     setResult(null);
     try {
-      const res = await importGrades(classId, gradePeriodId, file);
+      const res = await importGrades(classId, setupId, file);
       setResult(res);
       if (res.successRows > 0) onImported();
     } catch (err) {
@@ -74,11 +75,11 @@ export default function GradeExcelImportPanel({ classId, gradePeriodId, componen
         <button
           type="button"
           onClick={handleDownloadTemplate}
-          disabled={components.length === 0}
+          disabled={components.length === 0 || downloadingTemplate}
           className="w-full flex items-center justify-center gap-2 border border-dashed border-slate-300 rounded-lg py-3 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Download className="w-4 h-4" />
-          Tải file mẫu (.xlsx) — đã điền sẵn mã học viên của lớp này
+          {downloadingTemplate ? "Đang tải file mẫu..." : "Tải file mẫu (.xlsx) — đã điền sẵn mã học viên của lớp này"}
         </button>
 
         <button

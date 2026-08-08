@@ -41,6 +41,14 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, Long
             Long primaryTeacherId, LocalDate sessionDate, List<ClassSession.Status> excludedStatuses);
 
     /**
+     * UC-10 bước 3 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+     * 2026-08-05): buổi dạy của 1 Giáo viên trong khoảng nghỉ đã chọn, để
+     * hiển thị cho GV chọn giáo viên dạy thay.
+     */
+    List<ClassSession> findByPrimaryTeacherIdAndSessionDateBetweenAndStatusNotIn(
+            Long primaryTeacherId, LocalDate startDate, LocalDate endDate, List<ClassSession.Status> excludedStatuses);
+
+    /**
      * FR-FAC-03 — kiểm tra trùng phòng: cùng room_id, cùng ngày, khoảng
      * thời gian giao nhau, status không phải CANCELLED/RESCHEDULED, loại
      * trừ chính session đang sửa (editingSessionId=null khi tạo mới).

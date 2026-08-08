@@ -65,8 +65,9 @@ public class SchoolClass extends BaseAuditEntity {
     @Column(name = "end_date")
     private LocalDate endDate;
 
-    @Column(name = "academic_year", length = 20)
-    private String academicYear;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "academic_year_id")
+    private AcademicYear academicYear;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)

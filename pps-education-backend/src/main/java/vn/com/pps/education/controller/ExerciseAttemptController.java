@@ -8,16 +8,21 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import vn.com.pps.education.domain.AttemptIntegrityEvent.AttemptType;
 import vn.com.pps.education.dto.ExerciseAttemptResponse;
 import vn.com.pps.education.dto.IntegrityEventBatchResponse;
 import vn.com.pps.education.dto.IntegritySummaryResponse;
+import vn.com.pps.education.dto.ListeningHintResponse;
+import vn.com.pps.education.dto.ListeningPlayProgressResponse;
 import vn.com.pps.education.dto.RecordIntegrityEventsRequest;
+import vn.com.pps.education.dto.RecordListeningPlayRequest;
 import vn.com.pps.education.dto.SaveAnswerRequest;
 import vn.com.pps.education.dto.StudentAnswerResponse;
 import vn.com.pps.education.security.AuthenticatedUser;
 import vn.com.pps.education.service.ExerciseAttemptService;
+import vn.com.pps.education.service.ListeningHintService;
 import vn.com.pps.education.service.integrity.AttemptIntegrityService;
 
 import java.util.List;
@@ -28,10 +33,13 @@ public class ExerciseAttemptController {
 
     private final ExerciseAttemptService exerciseAttemptService;
     private final AttemptIntegrityService attemptIntegrityService;
+    private final ListeningHintService listeningHintService;
 
-    public ExerciseAttemptController(ExerciseAttemptService exerciseAttemptService, AttemptIntegrityService attemptIntegrityService) {
+    public ExerciseAttemptController(ExerciseAttemptService exerciseAttemptService, AttemptIntegrityService attemptIntegrityService,
+                                      ListeningHintService listeningHintService) {
         this.exerciseAttemptService = exerciseAttemptService;
         this.attemptIntegrityService = attemptIntegrityService;
+        this.listeningHintService = listeningHintService;
     }
 
     @PostMapping("/api/exercises/{exerciseId}/attempts")
@@ -84,5 +92,44 @@ public class ExerciseAttemptController {
     @GetMapping("/api/attempts/{id}/integrity-summary")
     public ResponseEntity<IntegritySummaryResponse> getIntegritySummary(@PathVariable Long id) {
         return ResponseEntity.ok(attemptIntegrityService.getSummary(AttemptType.EXERCISE, id));
+    }
+
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — xem Javadoc ExerciseAttemptService#listAttemptsForGrading. */
+    @PreAuthorize("hasPermission(null, 'lms.grading.manage')")
+    @GetMapping("/api/exercises/{exerciseId}/students/{studentId}/attempts")
+    public ResponseEntity<List<ExerciseAttemptResponse>> listAttemptsForGrading(@PathVariable Long exerciseId,
+                                                                                  @PathVariable Long studentId) {
+        return ResponseEntity.ok(exerciseAttemptService.listAttemptsForGrading(exerciseId, studentId));
+    }
+
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — xem Javadoc ExerciseAttemptService#listAnswersForGrading. */
+    @PreAuthorize("hasPermission(null, 'lms.grading.manage')")
+    @GetMapping("/api/attempts/{id}/answers/for-grading")
+    public ResponseEntity<List<StudentAnswerResponse>> listAnswersForGrading(@PathVariable Long id) {
+        return ResponseEntity.ok(exerciseAttemptService.listAnswersForGrading(id));
+    }
+
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — xem Javadoc ExerciseAttemptService#selectForGrading. */
+    @PreAuthorize("hasPermission(null, 'lms.grading.manage')")
+    @PostMapping("/api/attempts/{id}/select-for-grading")
+    public ResponseEntity<List<ExerciseAttemptResponse>> selectForGrading(@PathVariable Long id,
+                                                                             @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(exerciseAttemptService.selectForGrading(id, actor.userId()));
+    }
+
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — xem Javadoc ListeningHintService#recordPlay. */
+    @PostMapping("/api/attempts/{id}/listening-plays")
+    public ResponseEntity<ListeningPlayProgressResponse> recordListeningPlay(@PathVariable Long id,
+                                                                                @Valid @RequestBody RecordListeningPlayRequest request,
+                                                                                @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(listeningHintService.recordPlay(id, request.questionId(), actor.userId()));
+    }
+
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — xem Javadoc ListeningHintService#getHint. */
+    @GetMapping("/api/attempts/{id}/listening-hint")
+    public ResponseEntity<ListeningHintResponse> getListeningHint(@PathVariable Long id,
+                                                                     @RequestParam Long questionId,
+                                                                     @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(listeningHintService.getHint(id, questionId, actor.userId()));
     }
 }

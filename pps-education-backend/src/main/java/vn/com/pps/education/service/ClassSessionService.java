@@ -575,12 +575,13 @@ public class ClassSessionService {
         int sessionNumber = (int) classSessionRepository.countEarlierSessions(
                 s.getSchoolClass().getId(), s.getSessionDate(), s.getId()) + 1;
         return new ClassSessionResponse(
-                s.getId(), s.getSchoolClass().getId(), s.getSessionDate(), s.getStartTime(), s.getEndTime(),
+                s.getId(), s.getSchoolClass().getId(), s.getSchoolClass().getName(), s.getSessionDate(), s.getStartTime(), s.getEndTime(),
                 s.getRoom() == null ? null : s.getRoom().getId(), s.getRoom() == null ? null : s.getRoom().getName(),
                 s.getPrimaryTeacher().getId(), s.getPrimaryTeacher().getFullName(),
                 s.getSessionType().name(), s.getStatus().name(),
                 s.getCancellationReason(), s.getRescheduledToSession() == null ? null : s.getRescheduledToSession().getId(),
-                s.getLessonContent(), s.getTeacherType() == null ? null : s.getTeacherType().name(), sessionNumber,
+                s.getLessonContent(), s.getTeacherType() == null ? null : s.getTeacherType().name(),
+                s.getActualTeacherName(), sessionNumber,
                 s.getMakeupForSession() == null ? null : s.getMakeupForSession().getId());
     }
 

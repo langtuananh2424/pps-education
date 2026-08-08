@@ -8,6 +8,9 @@ import java.time.OffsetDateTime;
 public record LeaveRequestResponse(
         Long id,
         Long employeeId,
+        String employeeFullName,
+        String employeeCode,
+        String departmentName,
         String leaveType,
         LocalDate startDate,
         LocalDate endDate,

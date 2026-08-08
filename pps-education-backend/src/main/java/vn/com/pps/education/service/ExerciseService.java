@@ -42,12 +42,12 @@ import vn.com.pps.education.repository.UserRepository;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -335,6 +335,15 @@ public class ExerciseService {
      */
     @Transactional
     public ExerciseAssignment deliverToClass(Long exerciseId, Long classId, OffsetDateTime dueAt, Long actorUserId) {
+        // Cắt về độ chính xác microsecond NGAY từ đầu — cột due_at (TIMESTAMPTZ) của Postgres chỉ lưu
+        // tới microsecond, còn OffsetDateTime.now() ở tầng gọi có thể mang độ chính xác nanosecond
+        // (phát hiện thực tế 2026-08-06, tái hiện được cả khi chạy 1 mình với DB sạch — KHÔNG phải
+        // lỗi rò rỉ dữ liệu giữa các test). Kết hợp với sameDueAt() bên dưới (so theo instant thực,
+        // không so cả offset) để so sánh đáng tin cậy giữa dueAt gốc trong bộ nhớ và bản đã
+        // round-trip qua DB (JDBC trả TIMESTAMPTZ về offset UTC "Z", khác offset hệ thống VD
+        // "+07:00" mà OffsetDateTime.now() tạo ra — cùng 1 thời điểm nhưng Objects.equals() coi là
+        // khác nhau vì so cả offset).
+        dueAt = dueAt == null ? null : dueAt.truncatedTo(ChronoUnit.MICROS);
         Exercise exercise = getExerciseOrThrow(exerciseId);
         requireAssignedTeacher(classId, actorUserId);
         SchoolClass schoolClass = getClassOrThrow(classId);
@@ -344,12 +353,20 @@ public class ExerciseService {
                     "Đề của bài id=" + exerciseId + " chưa được gán cho lớp id=" + classId + " — vào Kho đề để gán trước.");
         }
 
-        var sameSession = exerciseAssignmentRepository
-                .findByExerciseIdAndSchoolClassIdAndStatus(exerciseId, classId, ExerciseAssignment.Status.ACTIVE)
-                .stream().filter(a -> Objects.equals(a.getDueAt(), dueAt)).findFirst();
+        OffsetDateTime finalDueAt = dueAt;
+        List<ExerciseAssignment> activeForExerciseAndClass = exerciseAssignmentRepository
+                .findByExerciseIdAndSchoolClassIdAndStatus(exerciseId, classId, ExerciseAssignment.Status.ACTIVE);
+        var sameSession = activeForExerciseAndClass.stream().filter(a -> sameDueAt(a.getDueAt(), finalDueAt)).findFirst();
         if (sameSession.isPresent()) {
             return sameSession.get();
         }
+        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — fix bug thật: giao lại (dueAt
+        // KHÁC lần giao trước) không hủy bản giao ACTIVE cũ, để lại NHIỀU bản giao ACTIVE cùng lúc cho
+        // cùng (Bài, lớp) — học sinh mở "BTVN" thấy điểm/trạng thái của lượt làm CŨ dán nhầm lên bản
+        // giao MỚI (toAssignedResponse lấy "lượt gần nhất" theo exerciseId+studentId, không phân biệt
+        // bản giao nào). Mirror ĐÚNG cơ chế đã có sẵn ở ReviewVideoService#deliverToClass (V69): "giao
+        // lại = 1 lượt MỚI" — hủy mọi bản giao ACTIVE cũ trước khi tạo bản giao mới.
+        activeForExerciseAndClass.forEach(this::cancelAssignment);
 
         ExerciseAssignment assignment;
         try {
@@ -358,7 +375,7 @@ public class ExerciseService {
                 a.setExercise(exercise);
                 a.setSchoolClass(schoolClass);
                 a.setAssignedBy(actor);
-                a.setDueAt(dueAt);
+                a.setDueAt(finalDueAt);
                 return exerciseAssignmentRepository.saveAndFlush(a);
             });
         } catch (DataIntegrityViolationException e) {
@@ -366,7 +383,7 @@ public class ExerciseService {
             // thắng, KHÔNG tạo mới/không báo lại.
             return exerciseAssignmentRepository
                     .findByExerciseIdAndSchoolClassIdAndStatus(exerciseId, classId, ExerciseAssignment.Status.ACTIVE)
-                    .stream().filter(a -> Objects.equals(a.getDueAt(), dueAt)).findFirst()
+                    .stream().filter(a -> sameDueAt(a.getDueAt(), finalDueAt)).findFirst()
                     .orElseThrow(() -> e);
         }
 
@@ -375,6 +392,19 @@ public class ExerciseService {
 
         notifyAssignedStudents(schoolClass, exercise, assignment);
         return assignment;
+    }
+
+    /**
+     * So 2 due_at theo INSTANT thực (isEqual), không so cả offset — TIMESTAMPTZ round-trip qua
+     * JDBC trả về offset UTC "Z" trong khi OffsetDateTime.now() ở tầng gọi mang offset hệ thống
+     * (VD "+07:00"); Objects.equals() coi 2 giá trị cùng 1 thời điểm nhưng khác offset là KHÁC
+     * nhau, khiến sameSession không bao giờ khớp dù buổi trùng nhau.
+     */
+    private static boolean sameDueAt(OffsetDateTime a, OffsetDateTime b) {
+        if (a == null || b == null) {
+            return a == b;
+        }
+        return a.isEqual(b);
     }
 
     /** Hủy 1 bản giao (VD Giáo viên đổi lựa chọn "BTVN buổi sau" ở Nhận xét khi comment còn DRAFT — V65). */
@@ -426,11 +456,17 @@ public class ExerciseService {
         if (exercise.getStatus() != Exercise.Status.PUBLISHED) {
             throw new ResourceNotFoundException("Không tìm thấy đề id=" + exercise.getId());
         }
-        boolean hasActiveAssignment = classEnrollmentRepository.findByStudentId(student.get().getId()).stream()
+        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06: chấp nhận CẢ ACTIVE lẫn
+        // COMPLETED (không chỉ ACTIVE) — mirror ExerciseAttemptService#listMyAssignedExercises (V92).
+        // Trước đây học sinh ĐÃ ĐẠT (bản giao tự đóng COMPLETED, xem applyPassOutcome) bị chặn xem lại
+        // chính đề mình vừa làm/xem đáp án, dù danh sách BTVN vẫn hiện đúng bài đó.
+        boolean hasVisibleAssignment = classEnrollmentRepository.findByStudentId(student.get().getId()).stream()
                 .filter(e -> e.getStatus() == ClassEnrollment.Status.ACTIVE)
                 .anyMatch(e -> !exerciseAssignmentRepository.findByExerciseIdAndSchoolClassIdAndStatus(
-                        exercise.getId(), e.getSchoolClass().getId(), ExerciseAssignment.Status.ACTIVE).isEmpty());
-        if (!hasActiveAssignment) {
+                        exercise.getId(), e.getSchoolClass().getId(), ExerciseAssignment.Status.ACTIVE).isEmpty()
+                        || !exerciseAssignmentRepository.findByExerciseIdAndSchoolClassIdAndStatus(
+                        exercise.getId(), e.getSchoolClass().getId(), ExerciseAssignment.Status.COMPLETED).isEmpty());
+        if (!hasVisibleAssignment) {
             throw new ResourceNotFoundException("Không tìm thấy đề id=" + exercise.getId());
         }
     }
@@ -467,7 +503,7 @@ public class ExerciseService {
                         || eq.getQuestion().getQuestionType() == Question.QuestionType.SPEAKING);
         return new ExerciseResponse(
                 e.getId(), e.getUuid(), e.getCode(), e.getTitle(),
-                e.getExam().getId(), e.getExam().getCode(), e.getExam().getTitle(),
+                e.getExam().getId(), e.getExam().getCode(), e.getExam().getTitle(), e.getExam().getTeacherType().name(),
                 e.getSubject() == null ? null : e.getSubject().getId(),
                 e.getExerciseType().name(), e.getTotalPoints(), e.getTimeLimitMinutes(), e.isAllowRetake(),
                 e.getMaxAttempts(), e.isShowCorrectAnswers(), e.getPassThresholdPercent(), e.getStatus().name(),
@@ -480,12 +516,19 @@ public class ExerciseService {
                 ? questionChoiceRepository.findByQuestionIdOrderByDisplayOrder(question.getId()).stream()
                         .map(this::toChoiceResponse).toList()
                 : List.of();
+        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06: referencePassage của câu Nghe
+        // (skill=LISTENING) là transcript/đáp án gợi ý — trước đây trả không điều kiện ở đây khiến học
+        // sinh đọc được ngay qua DevTools/Network dù FE chưa render ra UI. Giờ chỉ lộ qua endpoint
+        // GET /api/attempts/{id}/listening-hint sau khi đã nghe hết đủ số lần cấu hình (xem
+        // ListeningHintService). Giữ nguyên hành vi cũ cho câu KHÔNG phải LISTENING (VD đoạn văn Đọc
+        // hiểu — Lưới cần hiện ngay, không phải đáp án).
+        String referencePassage = question.getSkill() == Question.Skill.LISTENING ? null : question.getReferencePassage();
         return new ExerciseQuestionResponse(
                 eq.getId(), eq.getExercise().getId(), question.getId(),
                 question.getQuestionType().name(), question.getContent(),
                 eq.getDisplayOrder(), eq.getPoints(), choices,
                 question.getSkill() == null ? null : question.getSkill().name(),
-                question.getAudioUrl(), question.getReferencePassage(),
+                question.getAudioUrl(), referencePassage,
                 shuffledStructuredContent(question), question.getGroupKey());
     }
 

@@ -13,6 +13,7 @@ import vn.com.pps.education.dto.AssignTeacherRequest;
 import vn.com.pps.education.dto.ClassResponse;
 import vn.com.pps.education.dto.CreateClassRequest;
 import vn.com.pps.education.dto.CreateCurriculumRequest;
+import vn.com.pps.education.dto.CreateExamQuestionRequest;
 import vn.com.pps.education.dto.CreateExamRequest;
 import vn.com.pps.education.dto.CreateExerciseRequest;
 import vn.com.pps.education.dto.CreateQuestionBankRequest;
@@ -52,6 +53,9 @@ class ExamServiceTest extends AbstractIntegrationTest {
 
     @Autowired
     private ExerciseService exerciseService;
+
+    @Autowired
+    private ExamQuestionService examQuestionService;
 
     @Autowired
     private QuestionBankService questionBankService;
@@ -250,10 +254,11 @@ class ExamServiceTest extends AbstractIntegrationTest {
     void listExercises_UC40_MainFlow_returnsBaiThuocDe() {
         ExamResponse exam = examService.createExam(
                 new CreateExamRequest(examCode(), "IELTS Grade 6", curriculumA.id(), "VIETNAMESE", "HOMEWORK"), teacher.getId());
-        QuestionBankResponse bank = questionBankService.createBank(
-                new CreateQuestionBankRequest(bankCode(), "Ngân hàng", curriculumA.id(), null, "A1"), teacher.getId());
-        QuestionResponse mc = questionBankService.createQuestion(
-                new CreateQuestionRequest(bank.id(), "MULTIPLE_CHOICE", "GRAMMAR", "EASY", "She ___ to school.",
+        // V75 (Kho đề): mỗi Exam tự sinh 1 QuestionBank nội bộ riêng, không nhận câu hỏi qua
+        // QuestionBankService#createQuestion (chỉ dành cho bank "legacy" độc lập) — phải qua
+        // ExamQuestionService#createQuestion (tự resolve bank nội bộ theo examId).
+        QuestionResponse mc = examQuestionService.createQuestion(exam.id(),
+                new CreateExamQuestionRequest("MULTIPLE_CHOICE", "GRAMMAR", "EASY", "She ___ to school.",
                         null, null, null, null, null, new BigDecimal("1.0"), null,
                         List.of(new QuestionChoiceRequest("A", "go", false, 1), new QuestionChoiceRequest("B", "goes", true, 2)), null, null),
                 teacher.getId());

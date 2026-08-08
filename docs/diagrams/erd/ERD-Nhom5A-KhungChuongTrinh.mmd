@@ -21,6 +21,21 @@ erDiagram
 
     users ||--o{ approval_flows : "duyet curriculum"
 
+    academic_years ||--o{ classes : "nam hoc (V102)"
+    academic_years ||--o{ class_enrollments : "nam hoc (V102)"
+    academic_years }o--o| users : "created_by (nullable, V103)"
+
+    academic_years {
+        BIGSERIAL id PK
+        UUID uuid UK
+        VARCHAR code UK
+        VARCHAR name
+        DATE start_date
+        DATE end_date
+        VARCHAR status
+        BIGINT created_by FK
+    }
+
     curriculums {
         BIGSERIAL id PK
         UUID uuid UK
@@ -70,7 +85,7 @@ erDiagram
         INT min_students
         DATE start_date
         DATE end_date
-        VARCHAR academic_year
+        BIGINT academic_year_id FK
         VARCHAR status
         BIGINT created_by FK
         TIMESTAMPTZ deleted_at
@@ -96,4 +111,5 @@ erDiagram
         VARCHAR status
         BIGINT enrolled_by FK
         BIGINT import_job_id FK
+        BIGINT academic_year_id FK
     }

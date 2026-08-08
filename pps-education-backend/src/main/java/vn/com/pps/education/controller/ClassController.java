@@ -22,6 +22,8 @@ import vn.com.pps.education.dto.ClassTeacherResponse;
 import vn.com.pps.education.dto.CreateClassRequest;
 import vn.com.pps.education.dto.EndTeacherAssignmentRequest;
 import vn.com.pps.education.dto.EnrollStudentRequest;
+import vn.com.pps.education.dto.PromoteClassRequest;
+import vn.com.pps.education.dto.PromoteClassResponse;
 import vn.com.pps.education.dto.UpdateClassRequest;
 import vn.com.pps.education.dto.WithdrawEnrollmentRequest;
 import vn.com.pps.education.security.AuthenticatedUser;
@@ -54,8 +56,9 @@ public class ClassController {
                                                        @RequestParam(required = false) Long siteId,
                                                        @RequestParam(required = false) Long curriculumId,
                                                        @RequestParam(required = false) String classCategory,
+                                                       @RequestParam(required = false) Long academicYearId,
                                                        @AuthenticationPrincipal AuthenticatedUser actor) {
-        return ResponseEntity.ok(classService.search(query, siteId, curriculumId, classCategory, actor.userId()));
+        return ResponseEntity.ok(classService.search(query, siteId, curriculumId, classCategory, academicYearId, actor.userId()));
     }
 
     @GetMapping("/{id}")
@@ -137,5 +140,14 @@ public class ClassController {
     @GetMapping("/{id}/enrollments/import-template")
     public ResponseEntity<byte[]> downloadEnrollmentImportTemplate(@PathVariable Long id) {
         return ExcelHttpResponses.attachment(classEnrollmentBatchImportService.buildTemplate(), "mau-ghi-danh-hoc-sinh.xlsx");
+    }
+
+    /** Chuyển lớp hàng loạt cuối năm học (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-07) — xem ClassService#promoteClass. */
+    @PreAuthorize("hasPermission(null, 'academic.class.manage')")
+    @PostMapping("/{id}/promote")
+    public ResponseEntity<PromoteClassResponse> promoteClass(@PathVariable Long id,
+                                                                 @Valid @RequestBody PromoteClassRequest request,
+                                                                 @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(classService.promoteClass(id, request, actor.userId()));
     }
 }

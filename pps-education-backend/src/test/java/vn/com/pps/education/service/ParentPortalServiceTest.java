@@ -4,6 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
+import vn.com.pps.education.domain.AcademicTerm;
 import vn.com.pps.education.domain.Parent;
 import vn.com.pps.education.domain.ParentStudent;
 import vn.com.pps.education.domain.Role;
@@ -20,10 +21,11 @@ import vn.com.pps.education.dto.ClassSessionResponse;
 import vn.com.pps.education.dto.CreateClassRequest;
 import vn.com.pps.education.dto.CreateClassSessionRequest;
 import vn.com.pps.education.dto.CreateCurriculumRequest;
+import vn.com.pps.education.dto.CreateExamQuestionRequest;
 import vn.com.pps.education.dto.CreateExamRequest;
 import vn.com.pps.education.dto.CreateExerciseRequest;
-import vn.com.pps.education.dto.CreateGradeComponentRequest;
-import vn.com.pps.education.dto.CreateGradePeriodRequest;
+import vn.com.pps.education.dto.CreateGradeComponentSetupRequest;
+import vn.com.pps.education.dto.CreateGradeEvaluationComponentRequest;
 import vn.com.pps.education.dto.CreateQuestionBankRequest;
 import vn.com.pps.education.dto.CreateQuestionRequest;
 import vn.com.pps.education.dto.CreateReviewVideoSetRequest;
@@ -32,13 +34,13 @@ import vn.com.pps.education.dto.CurriculumResponse;
 import vn.com.pps.education.dto.DecideCommentsRequest;
 import vn.com.pps.education.dto.EnrollStudentRequest;
 import vn.com.pps.education.dto.EnterAttendanceMarkRequest;
-import vn.com.pps.education.dto.EnterGradePeriodResultRequest;
+import vn.com.pps.education.dto.EnterGradeEvaluationResultRequest;
 import vn.com.pps.education.dto.EnterGradeRequest;
 import vn.com.pps.education.dto.ExerciseResponse;
-import vn.com.pps.education.dto.GradeComponentResponse;
+import vn.com.pps.education.dto.GradeComponentSetupResponse;
 import vn.com.pps.education.dto.GradeEntryResponse;
-import vn.com.pps.education.dto.GradePeriodResponse;
-import vn.com.pps.education.dto.GradePeriodResultResponse;
+import vn.com.pps.education.dto.GradeEvaluationComponentResponse;
+import vn.com.pps.education.dto.GradeEvaluationResultResponse;
 import vn.com.pps.education.dto.HomeworkProgressResponse;
 import vn.com.pps.education.dto.MarkAttendanceRequest;
 import vn.com.pps.education.dto.PublishGradesRequest;
@@ -54,6 +56,7 @@ import vn.com.pps.education.dto.UpdateCurriculumRequest;
 import vn.com.pps.education.dto.UpdateReviewVideoSetRequest;
 import vn.com.pps.education.exception.NotAuthorizedForPortalAccessException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
+import vn.com.pps.education.repository.AcademicTermRepository;
 import vn.com.pps.education.repository.ParentRepository;
 import vn.com.pps.education.repository.ParentStudentRepository;
 import vn.com.pps.education.repository.RoleRepository;
@@ -107,6 +110,9 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
     private ExerciseService exerciseService;
 
     @Autowired
+    private ExamQuestionService examQuestionService;
+
+    @Autowired
     private ExamService examService;
 
     @Autowired
@@ -136,10 +142,14 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
     @Autowired
     private SiteManagerRepository siteManagerRepository;
 
+    @Autowired
+    private AcademicTermRepository academicTermRepository;
+
     private User headAcademic;
     private User teacher;
     private User siteManagerUser;
     private ClassResponse schoolClass;
+    private AcademicTerm academicTerm;
     private Student student;
     private User parentUser;
     private ClassSessionResponse session;
@@ -154,6 +164,7 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
                 new UpdateCurriculumRequest("Chuẩn", null, null, null, "ACTIVE", false), headAcademic.getId());
 
         Site site = newSite();
+        academicTerm = newAcademicTerm(site);
         schoolClass = classService.create(
                 new CreateClassRequest(classCode(), "8A2", site.getId(), activeCurriculum.id(), "OPEN", 20, null,
                         LocalDate.now(), null, null), headAcademic.getId());
@@ -202,19 +213,20 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
 
     @Test
     void listGrades_UC25_A1_onlyOfficialGradesVisible() {
-        GradePeriodResponse period = gradeService.createGradePeriod(schoolClass.curriculumId(),
-                new CreateGradePeriodRequest("MID_1", "Giữa kỳ 1", 1, new BigDecimal("50"), null, null), headAcademic.getId());
-        GradeComponentResponse component = gradeService.addGradeComponent(period.id(),
-                new CreateGradeComponentRequest(null, null, "SPEAKING", "Nói", new BigDecimal("10.00"), null, null, 1),
+        GradeComponentSetupResponse setup = gradeService.createGradeComponentSetup(schoolClass.id(),
+                new CreateGradeComponentSetupRequest(academicTerm.getId(), "MID_TERM", "POINT_10", LocalDate.now(), false),
+                headAcademic.getId());
+        GradeEvaluationComponentResponse component = gradeService.addGradeEvaluationComponent(setup.id(),
+                new CreateGradeEvaluationComponentRequest(null, null, "SPEAKING", "Nói", new BigDecimal("10.00"), null, null, 1),
                 headAcademic.getId());
         GradeEntryResponse publishedEntry = gradeService.enterGrade(schoolClass.id(), component.id(),
                 new EnterGradeRequest(student.getId(), new BigDecimal("9"), false, null), teacher.getId());
         gradeService.submitGradesForApproval(new SubmitGradesRequest(List.of(publishedEntry.id()), null), teacher.getId());
-        gradeService.publishGrades(new PublishGradesRequest("APPROVE", List.of(publishedEntry.id()), null, null), siteManagerUser.getId());
+        gradeService.publishGrades(new PublishGradesRequest("APPROVE", List.of(publishedEntry.id()), null, null, null, null), siteManagerUser.getId());
 
         // A1 -- 1 bản ghi khác vẫn DRAFT, chưa duyệt.
-        GradeComponentResponse component2 = gradeService.addGradeComponent(period.id(),
-                new CreateGradeComponentRequest(null, null, "WRITING", "Viết", new BigDecimal("10.00"), null, null, 2),
+        GradeEvaluationComponentResponse component2 = gradeService.addGradeEvaluationComponent(setup.id(),
+                new CreateGradeEvaluationComponentRequest(null, null, "WRITING", "Viết", new BigDecimal("10.00"), null, null, 2),
                 headAcademic.getId());
         gradeService.enterGrade(schoolClass.id(), component2.id(),
                 new EnterGradeRequest(student.getId(), new BigDecimal("7"), false, null), teacher.getId());
@@ -227,15 +239,17 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void getPeriodResult_UC25_UC53_MainFlow_returnsOfficialOverallLevel() {
-        GradePeriodResponse period = gradeService.createGradePeriod(schoolClass.curriculumId(),
-                new CreateGradePeriodRequest("MID_1", "Giữa kỳ 1", 1, new BigDecimal("50"), null, null), headAcademic.getId());
-        var enteredResult = gradeService.enterPeriodResult(schoolClass.id(), student.getId(), period.id(),
-                new EnterGradePeriodResultRequest(new BigDecimal("7.5"), "BAND", "B2"), teacher.getId());
+    void getEvaluationResult_UC25_UC53_MainFlow_returnsOfficialOverallLevel() {
+        GradeComponentSetupResponse setup = gradeService.createGradeComponentSetup(schoolClass.id(),
+                new CreateGradeComponentSetupRequest(academicTerm.getId(), "MID_TERM", "POINT_10", LocalDate.now(), false),
+                headAcademic.getId());
+        var enteredResult = gradeService.enterEvaluationResult(schoolClass.id(), student.getId(), setup.id(),
+                new EnterGradeEvaluationResultRequest(new BigDecimal("7.5"), "BAND", "B2", null, null, null), teacher.getId());
         gradeService.submitGradesForApproval(new SubmitGradesRequest(null, List.of(enteredResult.id())), teacher.getId());
-        gradeService.publishGrades(new PublishGradesRequest("APPROVE", null, List.of(enteredResult.id()), null), siteManagerUser.getId());
+        gradeService.publishGrades(new PublishGradesRequest("APPROVE", null, List.of(enteredResult.id()), null, null, null), siteManagerUser.getId());
 
-        GradePeriodResultResponse result = parentPortalService.getPeriodResult(student.getId(), schoolClass.id(), period.id(), parentUser.getId());
+        GradeEvaluationResultResponse result = parentPortalService.getEvaluationResult(
+                student.getId(), schoolClass.id(), academicTerm.getId(), "MID_TERM", parentUser.getId());
 
         assertThat(result.status()).isEqualTo("OFFICIAL");
         assertThat(result.overallScore()).isEqualByComparingTo("7.5");
@@ -243,14 +257,16 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void getPeriodResult_UC25_A1_rejectsWhenResultNotPublishedYet() {
-        GradePeriodResponse period = gradeService.createGradePeriod(schoolClass.curriculumId(),
-                new CreateGradePeriodRequest("MID_1", "Giữa kỳ 1", 1, new BigDecimal("50"), null, null), headAcademic.getId());
-        gradeService.enterPeriodResult(schoolClass.id(), student.getId(), period.id(),
-                new EnterGradePeriodResultRequest(new BigDecimal("7.5"), "BAND", "B2"), teacher.getId());
+    void getEvaluationResult_UC25_A1_rejectsWhenResultNotPublishedYet() {
+        GradeComponentSetupResponse setup = gradeService.createGradeComponentSetup(schoolClass.id(),
+                new CreateGradeComponentSetupRequest(academicTerm.getId(), "MID_TERM", "POINT_10", LocalDate.now(), false),
+                headAcademic.getId());
+        gradeService.enterEvaluationResult(schoolClass.id(), student.getId(), setup.id(),
+                new EnterGradeEvaluationResultRequest(new BigDecimal("7.5"), "BAND", "B2", null, null, null), teacher.getId());
         // Chưa công bố (còn DRAFT) -- Phụ huynh chưa được xem.
 
-        assertThatThrownBy(() -> parentPortalService.getPeriodResult(student.getId(), schoolClass.id(), period.id(), parentUser.getId()))
+        assertThatThrownBy(() -> parentPortalService.getEvaluationResult(
+                student.getId(), schoolClass.id(), academicTerm.getId(), "MID_TERM", parentUser.getId()))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 
@@ -259,14 +275,14 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
         // DAILY dùng chung luồng DRAFT->Gửi->PENDING->duyệt với MID_TERM/END_TERM (2026-07-29).
         StudentCommentResponse approved = studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), "DAILY", session.id(), null,
-                        LocalDate.now(), "Chăm chỉ.", null, null, false, null, null, null, null, null, null, null), teacher.getId());
+                        LocalDate.now(), "Chăm chỉ.", null, null, false, null, null, null, null, null, null, null, null), teacher.getId());
         studentCommentService.submitComments(schoolClass.id(), new SubmitCommentsRequest(List.of(approved.id())), teacher.getId());
         studentCommentService.decideComments(new DecideCommentsRequest(List.of(approved.id()), "APPROVED", null), siteManagerUser.getId());
 
         // A1 -- nhận xét khác vẫn DRAFT (chưa gửi/chưa duyệt).
         studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), "DAILY", session.id(), null,
-                        LocalDate.now(), "Nội dung chưa duyệt.", null, null, false, null, null, null, null, null, null, null), teacher.getId());
+                        LocalDate.now(), "Nội dung chưa duyệt.", null, null, false, null, null, null, null, null, null, null, null), teacher.getId());
 
         List<StudentCommentResponse> comments = parentPortalService.listComments(student.getId(), schoolClass.id(), parentUser.getId());
 
@@ -337,10 +353,11 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
         var exam = examService.createExam(
                 new CreateExamRequest(examCode(), "Đề Ngữ pháp homework", schoolClass.curriculumId(), "VIETNAMESE", "HOMEWORK"), teacher.getId());
         examService.assignToClass(exam.id(), schoolClass.id(), teacher.getId());
-        QuestionBankResponse bank = questionBankService.createBank(
-                new CreateQuestionBankRequest(bankCode(), "Ngân hàng homework", null, null, null), teacher.getId());
-        QuestionResponse question = questionBankService.createQuestion(
-                new CreateQuestionRequest(bank.id(), "MULTIPLE_CHOICE", "GRAMMAR", "EASY", "She ___ to school.",
+        // V75 (Kho đề): mỗi Exam tự sinh 1 QuestionBank nội bộ riêng, không nhận câu hỏi qua
+        // QuestionBankService#createQuestion (chỉ dành cho bank "legacy" độc lập) — phải qua
+        // ExamQuestionService#createQuestion (tự resolve bank nội bộ theo examId).
+        QuestionResponse question = examQuestionService.createQuestion(exam.id(),
+                new CreateExamQuestionRequest("MULTIPLE_CHOICE", "GRAMMAR", "EASY", "She ___ to school.",
                         null, null, null, null, null, new BigDecimal("1.0"), null,
                         List.of(new QuestionChoiceRequest("A", "go", false, 1), new QuestionChoiceRequest("B", "goes", true, 2)), null, null),
                 teacher.getId());
@@ -348,6 +365,9 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
                 new CreateExerciseRequest(exerciseCode(), "Bài ngữ pháp homework", exam.id(), null,
                         "ASSIGNED", new BigDecimal("1"), null, false, 1, true), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(question.id(), 1, new BigDecimal("1.0")), teacher.getId());
+        // V71: writeComment gọi deliverToClass bên trong bằng PROPAGATION_REQUIRES_NEW — phải
+        // commit Đề/Bài vừa tạo trước.
+        commitCurrentTransactionAndStartNew();
         return exercise;
     }
 
@@ -359,16 +379,27 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
                 headAcademic.getId());
     }
 
+    /**
+     * V98 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06):
+     * curriculum trên "bộ" giờ CHỈ dùng lọc/tìm kiếm — điều kiện hiển thị
+     * DUY NHẤT cho 1 lớp là gán tường minh qua assignToClass (mirror Kho
+     * đề), nên phải gán trước khi writeComment (gọi deliverToClass bên
+     * trong) mới thành công.
+     */
     private ReviewVideoSetResponse createConnectionVideoAssignedToClass() {
         ReviewVideoSetResponse set = reviewVideoService.createSet(
-                new CreateReviewVideoSetRequest(setCode(), "Video homework", "CONNECTION", null, schoolClass.id(), null, 1),
+                new CreateReviewVideoSetRequest(setCode(), "Video homework", "CONNECTION", schoolClass.curriculumId(), "VIETNAMESE", null, 1),
                 teacher.getId());
+        reviewVideoService.assignToClass(set.id(), schoolClass.id(), teacher.getId());
         ReviewVideoSetResponse published = reviewVideoService.updateSet(set.id(),
-                new UpdateReviewVideoSetRequest(set.title(), null, 1, "PUBLISHED"), teacher.getId());
+                new UpdateReviewVideoSetRequest(set.title(), "VIETNAMESE", null, 1, "PUBLISHED"), teacher.getId());
         reviewVideoService.addVideo(set.id(),
                 new AddReviewVideoRequest("R2_VIDEO", "Video", "https://media.pps.edu.vn/lms/review-videos/video/homework.mp4",
                         1_000_000L, 100, 1, null, null),
                 teacher.getId());
+        // V71: writeComment gọi deliverToClass bên trong bằng PROPAGATION_REQUIRES_NEW — phải
+        // commit Bộ video vừa tạo trước.
+        commitCurrentTransactionAndStartNew();
         return published;
     }
 
@@ -381,7 +412,7 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
         StudentCommentResponse comment = studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), "DAILY", session.id(), null,
                         session.sessionDate(), "Nội dung buổi.", null, null, false, null, null, null,
-                        homeworkNext, grammarExerciseId, videoSetId, null),
+                        homeworkNext, grammarExerciseId, videoSetId, null, null),
                 teacher.getId());
         studentCommentService.submitComments(schoolClass.id(), new SubmitCommentsRequest(List.of(comment.id())), teacher.getId());
         studentCommentService.decideComments(new DecideCommentsRequest(List.of(comment.id()), "APPROVED", null), siteManagerUser.getId());
@@ -433,7 +464,7 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
     void listHomeworkProgress_skipsSessionsWithNoHomeworkAssigned() {
         studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), "DAILY", session.id(), null,
-                        session.sessionDate(), "Nội dung buổi, không giao BTVN.", null, null, false, null, null, null, null, null, null, null),
+                        session.sessionDate(), "Nội dung buổi, không giao BTVN.", null, null, false, null, null, null, null, null, null, null, null),
                 siteManagerUser.getId());
 
         List<HomeworkProgressResponse> result = parentPortalService.listHomeworkProgress(student.getId(), schoolClass.id(), parentUser.getId());
@@ -502,6 +533,17 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
         s.setName("Test Site");
         s.setSiteType(Site.SiteType.OWNED);
         return siteRepository.save(s);
+    }
+
+    private AcademicTerm newAcademicTerm(Site site) {
+        AcademicTerm term = new AcademicTerm();
+        term.setSite(site);
+        term.setCode("TERM-" + SEQ.incrementAndGet());
+        term.setName("Kỳ test");
+        term.setStartDate(LocalDate.now().minusMonths(1));
+        term.setEndDate(LocalDate.now().plusMonths(2));
+        term.setCreatedBy(headAcademic);
+        return academicTermRepository.save(term);
     }
 
     private Student newStudent() {

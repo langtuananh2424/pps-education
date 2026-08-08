@@ -93,7 +93,9 @@ export interface GradeEntryResponse {
   studentId: number;
   studentFullName: string;
   studentCode: string;
-  gradeComponentId: number;
+  gradeEvaluationComponentId: number;
+  academicTermId: number;
+  evaluationType: "MID_TERM" | "END_TERM";
   score: number;
   absenceFlag: boolean;
   teacherNote: string | null;
@@ -104,17 +106,21 @@ export interface GradeEntryResponse {
   finalizedAt: string | null;
 }
 
-/** UC-53 — Overall/Level theo kỳ đánh giá, khác DRAFT mới trả về (BE lọc sẵn — xem GradeEntryResponse). */
-export interface GradePeriodResultResponse {
+/** UC-53 — Overall/Level/Nhận xét/Ghi chú (V94)/Lưu ý (V100) theo (kỳ học, Giữa/Cuối kỳ), khác DRAFT mới trả về (BE lọc sẵn — xem GradeEntryResponse). */
+export interface GradeEvaluationResultResponse {
   id: number;
   classId: number;
   studentId: number;
   studentFullName: string;
   studentCode: string;
-  gradePeriodId: number;
+  academicTermId: number;
+  evaluationType: "MID_TERM" | "END_TERM";
   overallScore: number | null;
   scaleType: "NUMERIC" | "PERCENTAGE" | "BAND";
   level: string | null;
+  comment: string | null;
+  note: string | null;
+  disclaimer: string | null;
   source: "MANUAL" | "EXCEL_IMPORT";
   importJobId: number | null;
   status: GradeStatus;
@@ -124,24 +130,28 @@ export interface GradePeriodResultResponse {
   finalizedAt: string | null;
 }
 
-/** Chỉ cần đúng field dùng ở Portal (tra curriculumId để lấy danh sách kỳ đánh giá). */
+/** Chỉ cần đúng field dùng ở Portal. */
 export interface PortalClassResponse {
   id: number;
   curriculumId: number;
 }
 
-export interface GradePeriodResponse {
+/** V94 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng — consolidate vào academic_terms): thay GradePeriodResponse, gắn (lớp, kỳ học, Giữa/Cuối kỳ) thay vì theo curriculum. */
+export interface GradeComponentSetupResponse {
   id: number;
-  curriculumId: number;
-  code: string;
-  name: string;
-  displayOrder: number;
+  classId: number;
+  academicTermId: number;
+  academicTermName: string;
+  evaluationType: "MID_TERM" | "END_TERM";
+  scaleType: "POINT_10" | "PERCENT" | "IELTS";
+  rosterAsOfDate: string;
+  commentRequired: boolean;
 }
 
-/** Tên đầu điểm (Listening/Reading/...) — GradeEntryResponse chỉ có gradeComponentId, phải tra tên qua đây để hiện đúng nhãn. */
-export interface GradeComponentResponse {
+/** Tên đầu điểm (Listening/Reading/...) — GradeEntryResponse chỉ có gradeEvaluationComponentId, phải tra tên qua đây để hiện đúng nhãn. */
+export interface GradeEvaluationComponentResponse {
   id: number;
-  gradePeriodId: number;
+  gradeComponentSetupId: number;
   subjectId: number | null;
   skillId: number | null;
   code: string;
@@ -156,18 +166,21 @@ export function getPortalClass(classId: number): Promise<PortalClassResponse> {
   return apiRequest<PortalClassResponse>(`/classes/${classId}`);
 }
 
-/** GET không gate quyền riêng (giống GradePeriodResponse) — Học sinh/Phụ huynh tự gọi được để tra tên đầu điểm. */
-export function listGradeComponents(gradePeriodId: number): Promise<GradeComponentResponse[]> {
-  return apiRequest<GradeComponentResponse[]>(`/grade-periods/${gradePeriodId}/components`);
+/** GET không gate quyền riêng — Học sinh/Phụ huynh tự gọi được để tra danh sách setup sổ điểm của lớp. */
+export function listGradeComponentSetups(classId: number): Promise<GradeComponentSetupResponse[]> {
+  return apiRequest<GradeComponentSetupResponse[]>(`/classes/${classId}/grade-component-setups`);
 }
 
-export function listGradePeriods(curriculumId: number): Promise<GradePeriodResponse[]> {
-  return apiRequest<GradePeriodResponse[]>(`/curriculums/${curriculumId}/grade-periods`);
+/** GET không gate quyền riêng — Học sinh/Phụ huynh tự gọi được để tra tên đầu điểm. */
+export function listGradeEvaluationComponents(setupId: number): Promise<GradeEvaluationComponentResponse[]> {
+  return apiRequest<GradeEvaluationComponentResponse[]>(`/grade-component-setups/${setupId}/components`);
 }
 
-/** UC-53/UC-25: Overall/Level đã duyệt (OFFICIAL) — 404 nếu chưa có/chưa duyệt (bắt ở nơi gọi, không phải lỗi thật). */
-export function getPeriodResult(studentId: number, classId: number, gradePeriodId: number): Promise<GradePeriodResultResponse> {
-  return apiRequest<GradePeriodResultResponse>(`/portal/parent/children/${studentId}/classes/${classId}/periods/${gradePeriodId}/result`);
+/** UC-53/UC-25: Overall/Level/Nhận xét/Ghi chú đã duyệt (OFFICIAL) — 404 nếu chưa có/chưa duyệt (bắt ở nơi gọi, không phải lỗi thật). */
+export function getEvaluationResult(studentId: number, classId: number, academicTermId: number, evaluationType: string): Promise<GradeEvaluationResultResponse> {
+  return apiRequest<GradeEvaluationResultResponse>(
+    `/portal/parent/children/${studentId}/classes/${classId}/academic-terms/${academicTermId}/evaluation/${evaluationType}/result`
+  );
 }
 
 /** UC-61: Học sinh tự xem điểm của chính mình (self-service, khác listGrades — Phụ huynh xem theo con+lớp cụ thể). */
@@ -175,9 +188,9 @@ export function listMyGrades(classId?: number): Promise<GradeEntryResponse[]> {
   return apiRequest<GradeEntryResponse[]>(`/students/me/grades${classId ? `?classId=${classId}` : ""}`);
 }
 
-/** UC-61: Overall/Level của chính mình — 404 nếu chưa có/chưa duyệt (bắt ở nơi gọi, không phải lỗi thật). */
-export function getMyPeriodResult(classId: number, gradePeriodId: number): Promise<GradePeriodResultResponse> {
-  return apiRequest<GradePeriodResultResponse>(`/students/me/classes/${classId}/periods/${gradePeriodId}/result`);
+/** UC-61: Overall/Level/Nhận xét/Ghi chú của chính mình — 404 nếu chưa có/chưa duyệt (bắt ở nơi gọi, không phải lỗi thật). */
+export function getMyEvaluationResult(classId: number, academicTermId: number, evaluationType: string): Promise<GradeEvaluationResultResponse> {
+  return apiRequest<GradeEvaluationResultResponse>(`/students/me/classes/${classId}/academic-terms/${academicTermId}/evaluation/${evaluationType}/result`);
 }
 
 /** UC-15 — khớp AttendanceMarkResponse thật. */
@@ -205,7 +218,7 @@ export interface StudentCommentResponse {
   teacherId: number;
   commentType: "DAILY" | "MID_TERM" | "END_TERM";
   classSessionId: number | null;
-  gradePeriodId: number | null;
+  academicTermId: number | null;
   commentDate: string;
   content: string;
   structuredContent: Record<string, unknown> | null;
@@ -228,10 +241,14 @@ export interface StudentCommentResponse {
   /** V65: id BẢN GIAO (ReviewVideoAssignment, đổi tên từ homeworkNextReviewVideoSetId — trước V65 trỏ thẳng ReviewVideoSet). */
   homeworkNextReviewVideoAssignmentId: number | null;
   homeworkNextReviewVideoSetTitle: string | null;
+  /** Hạn nộp BTVN buổi sau (lấy từ dueAt của bản giao) — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05. */
+  homeworkNextDueAt: string | null;
   /** % tự tính từ exercise_attempts của buổi trước — không nhập tay được. */
   grammarPreviousProgress: string | null;
   /** % tự tính từ review_video_progress/submissions của buổi trước — không nhập tay được. */
   videoPreviousProgress: string | null;
+  /** BTVN buổi trước từng giao Offline (chữ tự do) — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06, phân biệt "BTVN buổi trước" có 3 loại (Offline/kênh Bài/kênh Video). Loại trừ với grammarPreviousProgress. */
+  homeworkPreviousOfflineText: string | null;
   note: string | null;
   /** "Bài học hôm nay" của buổi (chỉ có ý nghĩa khi commentType=DAILY) — bổ sung ngoài SDD gốc, 2026-07-29. */
   lessonContent: string | null;
@@ -246,10 +263,14 @@ export interface HomeworkProgressResponse {
   grammarTitle: string | null;
   grammarOfflineText: string | null;
   grammarProgress: string | null;
+  /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — null khi grammarAssignmentId null (chưa giao/giao offline), phân biệt "đạt"/"chưa đạt" thay vì chỉ nhìn %. */
+  grammarPassed: boolean | null;
   /** V65 (2026-07-30, bổ sung ngoài SDD gốc): đổi tên từ videoSetId — giờ là id bản giao (ReviewVideoAssignment), không phải id ReviewVideoSet nguồn. */
   videoAssignmentId: number | null;
   videoTitle: string | null;
   videoProgress: string | null;
+  /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — mirror grammarPassed. */
+  videoPassed: boolean | null;
 }
 
 /** UC-18 — khớp ClassSessionResponse thật. */
@@ -379,17 +400,18 @@ export function markNotificationRead(id: number): Promise<NotificationResponse> 
 
 /**
  * UC-23a — khớp ReviewVideoSetResponse thật. GET /api/classes/{classId}/review-video-sets tự trả
- * đúng phạm vi nhìn thấy của học sinh (findVisibleForClass — bộ riêng lớp NÀY HOẶC bộ dùng chung
- * theo khung của lớp NÀY, chỉ status=PUBLISHED — BE tự lọc, Portal không cần gọi thêm endpoint
- * theo curriculum). 404 (không 403) nếu học sinh không thuộc lớp — không lộ tồn tại ngoài phạm vi.
+ * đúng phạm vi nhìn thấy của học sinh (V98: bộ đã gán tường minh cho lớp NÀY qua
+ * ReviewVideoSetClassAssignment, chỉ status=PUBLISHED — BE tự lọc, Portal không cần gọi thêm
+ * endpoint theo curriculum). 404 (không 403) nếu học sinh không thuộc lớp — không lộ tồn tại ngoài
+ * phạm vi. curriculumId nay luôn khác null (V98, chỉ dùng lọc/tìm kiếm ở Kho Video, không phải điều
+ * kiện hiển thị) — classId không còn trên response.
  */
 export interface ReviewVideoSetResponse {
   id: number;
   code: string;
   title: string;
   videoType: "CONNECTION" | "REFLEX";
-  curriculumId: number | null;
-  classId: number | null;
+  curriculumId: number;
   subjectId: number | null;
   displayOrder: number;
   status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
@@ -459,6 +481,15 @@ export interface StartWatchSessionResponse {
 
 export function startReviewVideoWatchSession(videoId: number): Promise<StartWatchSessionResponse> {
   return apiRequest<StartWatchSessionResponse>(`/review-videos/${videoId}/watch-sessions`, { method: "POST" });
+}
+
+/**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — đọc lại tiến độ ĐÃ LƯU (không mở
+ * lượt xem mới) — dùng để hiện đúng trạng thái đạt/chưa đạt ngay khi mở modal (không đợi report
+ * sống) và để danh sách "Bài tập về nhà" tính đúng CONNECTION vào bộ đếm Cần hoàn thành/Đã nộp.
+ */
+export function getReviewVideoProgress(videoId: number): Promise<ReviewVideoProgressResponse> {
+  return apiRequest<ReviewVideoProgressResponse>(`/review-videos/${videoId}/progress`);
 }
 
 /** UC-23a Main Flow bước 3 (V59): báo tiến độ xem (giây) cho ĐÚNG 1 lượt xem (watchSessionId) — BE tự lấy max(cũ, mới) trong phạm vi lượt đó, không bao giờ giảm. */
@@ -607,10 +638,31 @@ export interface AssignedExerciseResponse {
   myLatestAttemptId: number | null;
   myLatestAttemptStatus: "IN_PROGRESS" | "AUTO_GRADED" | "FULLY_GRADED" | null;
   myLatestTotalScore: number | null;
+  /** V89, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05: BTVN <ngưỡng đạt phải làm lại — NULL khi chưa chấm xong (totalScore null). */
+  myLatestPercentage: number | null;
+  myLatestPassed: boolean | null;
 }
 
 export function listMyAssignedExercises(classId?: number): Promise<AssignedExerciseResponse[]> {
   return apiRequest<AssignedExerciseResponse[]>(`/students/me/exercises${classId ? `?classId=${classId}` : ""}`);
+}
+
+/**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — chỉ lấy
+ * allowRetake/maxAttempts/passThresholdPercent để hiện popup kết quả sau
+ * khi nộp bài (số lượt còn lại để làm lại). Học sinh xem được đề đã được
+ * giao cho mình (rào requireCanViewExercise ở BE, cùng rào listExerciseQuestions).
+ */
+export interface ExerciseMetaResponse {
+  id: number;
+  title: string;
+  allowRetake: boolean;
+  maxAttempts: number | null;
+  passThresholdPercent: number;
+}
+
+export function getExercise(exerciseId: number): Promise<ExerciseMetaResponse> {
+  return apiRequest<ExerciseMetaResponse>(`/exercises/${exerciseId}`);
 }
 
 /** UC-24/UC-27 (BE bổ sung): phương án chọn cho câu trắc nghiệm — CHỦ Ý không có isCorrect, chỉ lộ qua StudentAnswerResponse.correctChoiceIds sau khi nộp bài. */
@@ -663,6 +715,9 @@ export interface ExerciseAttemptResponse {
   totalScore: number | null;
   status: "IN_PROGRESS" | "AUTO_GRADED" | "FULLY_GRADED";
   isLateSubmission: boolean;
+  /** V89, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05: NULL khi totalScore chưa có (chưa chấm xong). */
+  percentage: number | null;
+  passed: boolean | null;
 }
 
 /** Main Flow bước 1: mở lượt làm mới — LUÔN tạo attempt mới (không tự resume), chỉ gọi khi thật sự chưa có attempt nào hoặc muốn làm lại. */
@@ -689,6 +744,12 @@ export interface SaveAnswerRequest {
  * tự chấm được (ESSAY/SPEAKING, luôn hiện) HOẶC câu tự chấm được nhưng trả lời SAI (isCorrect=false)
  * — V54. structuredAnswer/correctStructuredContent (V78, bổ sung ngoài SDD gốc, đã xác nhận với
  * người dùng 2026-08-04): WORD_BANK/SENTENCE_BUILDING.
+ *
+ * UC-24/A4, UC-27/A2 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05): nếu đề có
+ * exercises.max_attempts, 3 field correctChoiceIds/correctAnswerText/correctStructuredContent (và
+ * explanation cho câu tự chấm) CHỈ được điền từ lượt làm CUỐI CÙNG (attemptNumber == maxAttempts)
+ * trở đi — các lượt trước dù isAutoGradable đã có isCorrect vẫn null hết 3 field trên. Chỉ áp dụng
+ * cho câu tự chấm được (isAutoGradable=true) — ESSAY/SPEAKING không bị gate, giữ hành vi cũ.
  */
 export interface StudentAnswerResponse {
   id: number;
@@ -744,6 +805,8 @@ export interface IntegrityEventBatchResponse {
   totalViolationCount: number;
   totalViolationDurationSeconds: number;
   notifiedByThisBatch: boolean;
+  /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — true = bài làm vừa bị hệ thống dừng ép do vượt ngưỡng vi phạm. */
+  attemptStopped: boolean;
 }
 
 /** Học sinh gửi theo lô các sự kiện thoát ra ngoài khi đang làm 1 lượt Exercise — dùng chung với useIntegrityMonitor. */
@@ -752,6 +815,34 @@ export function recordIntegrityEvents(attemptId: number, request: RecordIntegrit
     method: "POST",
     body: JSON.stringify(request)
   });
+}
+
+// ===================== Gợi ý tapescript khi Nghe (bổ sung ngoài SDD gốc, xác nhận 2026-08-06) =====================
+
+export interface ListeningPlayProgressResponse {
+  playCount: number;
+  hintUnlockThreshold: number;
+  hintUnlocked: boolean;
+}
+
+export interface ListeningHintResponse {
+  transcript: string | null;
+  correctAnswerText: string | null;
+  correctChoiceIds: number[];
+  explanation: string | null;
+}
+
+/** Gọi mỗi khi audio của 1 câu hỏi Nghe phát tới cuối (sự kiện `ended`) — KHÔNG gọi khi chỉ bấm Play/tạm dừng giữa chừng. */
+export function recordListeningPlay(attemptId: number, questionId: number): Promise<ListeningPlayProgressResponse> {
+  return apiRequest<ListeningPlayProgressResponse>(`/attempts/${attemptId}/listening-plays`, {
+    method: "POST",
+    body: JSON.stringify({ questionId })
+  });
+}
+
+/** Chỉ gọi khi hintUnlocked=true (từ recordListeningPlay) — gọi thành công sẽ được backend ghi 1 lượt dùng gợi ý để thống kê. */
+export function getListeningHint(attemptId: number, questionId: number): Promise<ListeningHintResponse> {
+  return apiRequest<ListeningHintResponse>(`/attempts/${attemptId}/listening-hint?questionId=${questionId}`);
 }
 
 /**

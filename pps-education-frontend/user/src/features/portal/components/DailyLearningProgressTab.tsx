@@ -51,6 +51,13 @@ const attitudeLabels: Record<NonNullable<StudentCommentResponse["attitude"]>, st
   GOOD: "Tốt"
 };
 
+/** "Loại giáo viên" của buổi — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06. */
+const teacherTypeLabels: Record<"VIETNAMESE" | "FOREIGN", string> = { VIETNAMESE: "Việt Nam", FOREIGN: "Nước ngoài" };
+const teacherTypeStyles: Record<"VIETNAMESE" | "FOREIGN", string> = {
+  VIETNAMESE: "bg-sky-50 text-sky-800 border-sky-300",
+  FOREIGN: "bg-purple-50 text-purple-800 border-purple-300"
+};
+
 const attitudeStyles: Record<NonNullable<StudentCommentResponse["attitude"]>, string> = {
   GOOD: "bg-emerald-50 text-emerald-800 border-emerald-300",
   FAIR: "bg-teal-50 text-teal-800 border-teal-300",
@@ -76,15 +83,29 @@ interface SessionFeedbackLog {
   sessionNumber: number | null;
   roomName: string | null;
   lessonContent: string | null;
+  /** "Loại giáo viên" của buổi (ClassSession.teacherType) — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06, để phụ huynh/học sinh theo dõi buổi đó GV Việt Nam hay nước ngoài dạy. */
+  teacherType: "VIETNAMESE" | "FOREIGN" | null;
   attitude: StudentCommentResponse["attitude"];
+  // Đồng bộ đúng cấu trúc BTVN với form Giáo viên/màn Quản lý điểm trường (bổ sung ngoài SDD gốc, đã
+  // xác nhận với người dùng 2026-08-06) — "BTVN buổi trước"/"buổi sau" đều tách 3 kênh: Offline/Bài/
+  // Video (trước Offline không tách riêng, giờ có homeworkPreviousOfflineText; "sau" trước gộp chung
+  // homeworkNext+homeworkNextExerciseTitle vào 1 field, giờ tách homeworkNextOfflineText riêng).
+  homeworkPreviousOfflineText: string | null;
   homeworkPreviousScore: string | null;
   homeworkPreviousSpeakingScore: string | null;
   grammarPreviousProgress: string | null;
   videoPreviousProgress: string | null;
   content: string;
+  homeworkNextOfflineText: string | null;
   homeworkNextGrammarLabel: string | null;
   homeworkNextVideoLabel: string | null;
+  homeworkNextDueAt: string | null;
   note: string | null;
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — id bản giao đứng sau nhãn (chỉ có
+  // ý nghĩa khi label tương ứng khác null), dùng để bấm nhảy thẳng tới bài làm/kết quả ở tab BTVN
+  // (xem onOpenGrammarHomework/onOpenVideoHomework).
+  homeworkNextExerciseAssignmentId: number | null;
+  homeworkNextReviewVideoAssignmentId: number | null;
 }
 
 interface DailyLearningProgressTabProps {
@@ -93,6 +114,17 @@ interface DailyLearningProgressTabProps {
   classId: number;
   /** UC-64 (2026-07-29) — chỉ set khi xem qua Cổng Phụ huynh (dùng API .../parent/children/{studentId}/...). Không set thì Học sinh tự xem (self-service /students/me/...). */
   parentStudentId?: number;
+  /**
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — bấm vào tên "Bài ngữ pháp/nghe"/
+   * "Video TKN/PX" ở cột BTVN nhảy thẳng tới bài làm/kết quả tương ứng ở tab BTVN, không phải chỉ đọc
+   * tên suông — KHÔNG mở modal làm bài, chỉ cuộn tới + nổi viền đúng card/dòng đó để nhận biết (theo
+   * yêu cầu người dùng). Học sinh tự xem: PortalPage cuộn + highlight đúng card ở AssignmentsTab — dùng
+   * exerciseAssignmentId/reviewVideoAssignmentId. Phụ huynh xem con: PortalPage cuộn + highlight đúng
+   * dòng kết quả ở ParentHomeworkProgressTab — dùng commentId, bỏ qua assignmentId truyền kèm. Không
+   * set (undefined) thì render tên suông như cũ (không phải mọi nơi dùng component này đều cần điều hướng).
+   */
+  onOpenGrammarHomework?: (commentId: number, exerciseAssignmentId: number) => void;
+  onOpenVideoHomework?: (commentId: number, reviewVideoAssignmentId: number) => void;
 }
 
 /**
@@ -107,7 +139,14 @@ interface DailyLearningProgressTabProps {
  * đầu/kết thúc + loại buổi) và điểm danh (để tính KPI "Tình trạng chuyên cần") từ 2 API self-service/
  * phụ huynh tương ứng đã có sẵn.
  */
-export default function DailyLearningProgressTab({ studentName, studentCode, classId, parentStudentId }: DailyLearningProgressTabProps) {
+export default function DailyLearningProgressTab({
+  studentName,
+  studentCode,
+  classId,
+  parentStudentId,
+  onOpenGrammarHomework,
+  onOpenVideoHomework
+}: DailyLearningProgressTabProps) {
   const [comments, setComments] = useState<StudentCommentResponse[]>([]);
   const [sessions, setSessions] = useState<ClassSessionResponse[]>([]);
   const [attendance, setAttendance] = useState<AttendanceMarkResponse[]>([]);
@@ -147,15 +186,21 @@ export default function DailyLearningProgressTab({ studentName, studentCode, cla
             sessionNumber: session?.sessionNumber ?? null,
             roomName: session?.roomName ?? null,
             lessonContent: c.lessonContent,
+            teacherType: session?.teacherType ?? null,
             attitude: c.attitude,
+            homeworkPreviousOfflineText: c.homeworkPreviousOfflineText,
             homeworkPreviousScore: c.homeworkPreviousScore,
             homeworkPreviousSpeakingScore: c.homeworkPreviousSpeakingScore,
             grammarPreviousProgress: c.grammarPreviousProgress,
             videoPreviousProgress: c.videoPreviousProgress,
             content: c.content,
-            homeworkNextGrammarLabel: c.homeworkNext ?? c.homeworkNextExerciseTitle,
+            homeworkNextOfflineText: c.homeworkNext,
+            homeworkNextGrammarLabel: c.homeworkNextExerciseTitle,
             homeworkNextVideoLabel: c.homeworkNextReviewVideoSetTitle,
-            note: c.note
+            homeworkNextDueAt: c.homeworkNextDueAt,
+            note: c.note,
+            homeworkNextExerciseAssignmentId: c.homeworkNextExerciseAssignmentId,
+            homeworkNextReviewVideoAssignmentId: c.homeworkNextReviewVideoAssignmentId
           };
         }),
     [comments, sessionById]
@@ -360,6 +405,43 @@ export default function DailyLearningProgressTab({ studentName, studentCode, cla
 
   if (loading) return <p className="text-sm text-muted font-bold">Đang tải...</p>;
 
+  /**
+   * Bấm tên bài (nếu có id bản giao + có callback tương ứng) nhảy thẳng tới bài làm/kết quả ở tab
+   * BTVN — không phải mọi nơi dùng component đều truyền callback này (chỉ set ở PortalPage), nên vẫn
+   * phải có fallback render tên suông như cũ khi thiếu 1 trong 2 điều kiện.
+   */
+  const renderGrammarLabel = (log: SessionFeedbackLog, className: string) => {
+    if (!log.homeworkNextGrammarLabel) return <span className={className}>—</span>;
+    if (log.homeworkNextExerciseAssignmentId == null || !onOpenGrammarHomework) {
+      return <span className={className}>{log.homeworkNextGrammarLabel}</span>;
+    }
+    return (
+      <button
+        type="button"
+        onClick={() => onOpenGrammarHomework(Number(log.id), log.homeworkNextExerciseAssignmentId!)}
+        className={`${className} text-teal-deep underline decoration-teal/40 hover:decoration-teal underline-offset-2 text-left cursor-pointer`}
+      >
+        {log.homeworkNextGrammarLabel}
+      </button>
+    );
+  };
+
+  const renderVideoLabel = (log: SessionFeedbackLog, className: string) => {
+    if (!log.homeworkNextVideoLabel) return <span className={className}>—</span>;
+    if (log.homeworkNextReviewVideoAssignmentId == null || !onOpenVideoHomework) {
+      return <span className={className}>{log.homeworkNextVideoLabel}</span>;
+    }
+    return (
+      <button
+        type="button"
+        onClick={() => onOpenVideoHomework(Number(log.id), log.homeworkNextReviewVideoAssignmentId!)}
+        className={`${className} text-teal-deep underline decoration-teal/40 hover:decoration-teal underline-offset-2 text-left cursor-pointer`}
+      >
+        {log.homeworkNextVideoLabel}
+      </button>
+    );
+  };
+
   /** Nội dung panel chọn buổi — dùng chung cho nút desktop riêng lẫn dropdown gộp trên mobile. */
   const renderSessionPickerBody = (closeAll: () => void) => (
     <>
@@ -548,6 +630,10 @@ export default function DailyLearningProgressTab({ studentName, studentCode, cla
         </p>
       ) : (
         filteredLogs.map((log) => {
+          // Đồng bộ đúng cấu trúc BTVN với bảng ở trên (bổ sung ngoài SDD gốc, đã xác nhận với người
+          // dùng 2026-08-06) — giữ nhãn chung chung như bảng (không đổi theo teacherType) để nhất quán.
+          const cardGrammarLabel = "Bài ngữ pháp/nghe";
+          const cardVideoLabel = "Video TKN/PX";
           const prevGrammarDisplay = log.homeworkPreviousScore || log.grammarPreviousProgress;
           const prevSpeakingDisplay = log.homeworkPreviousSpeakingScore || log.videoPreviousProgress;
           const prevGrammarPercent = parseProgressPercent(prevGrammarDisplay ?? null);
@@ -574,12 +660,19 @@ export default function DailyLearningProgressTab({ studentName, studentCode, cla
                   </h3>
                 </div>
 
-                <span
-                  className={`px-2.5 py-0.5 rounded-full text-xs font-bold border shrink-0 ${log.attitude ? attitudeStyles[log.attitude] : "bg-slate-100 text-slate-700 border-slate-200"
-                    }`}
-                >
-                  Thái độ: {log.attitude ? attitudeLabels[log.attitude] : "—"}
-                </span>
+                <div className="flex items-center gap-2 flex-wrap shrink-0">
+                  {log.teacherType && (
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${teacherTypeStyles[log.teacherType]}`}>
+                      GV: {teacherTypeLabels[log.teacherType]}
+                    </span>
+                  )}
+                  <span
+                    className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${log.attitude ? attitudeStyles[log.attitude] : "bg-slate-100 text-slate-700 border-slate-200"
+                      }`}
+                  >
+                    Thái độ: {log.attitude ? attitudeLabels[log.attitude] : "—"}
+                  </span>
+                </div>
               </div>
 
               <div className="p-3.5 bg-slate-50/80 rounded-xl border-l-4 border-teal text-xs text-ink/90 font-medium leading-relaxed italic">
@@ -597,7 +690,11 @@ export default function DailyLearningProgressTab({ studentName, studentCode, cla
 
                   <div className="space-y-1.5 pt-1">
                     <div className="flex justify-between text-[11px]">
-                      <span className="text-slate-600 font-semibold">BTVN Ngữ Pháp:</span>
+                      <span className="text-slate-600 font-semibold">Offline:</span>
+                      <span className="font-bold text-slate-900">{log.homeworkPreviousOfflineText || "—"}</span>
+                    </div>
+                    <div className="flex justify-between text-[11px]">
+                      <span className="text-slate-600 font-semibold">{cardGrammarLabel}:</span>
                       <span className="font-bold text-slate-900">{prevGrammarDisplay || "—"}</span>
                     </div>
                     {prevGrammarPercent != null && (
@@ -606,7 +703,7 @@ export default function DailyLearningProgressTab({ studentName, studentCode, cla
                       </div>
                     )}
                     <div className="flex justify-between text-[11px] pt-1">
-                      <span className="text-slate-600 font-semibold">BTVN Nghe - Nói:</span>
+                      <span className="text-slate-600 font-semibold">{cardVideoLabel}:</span>
                       <span className="font-bold text-purple-900">{prevSpeakingDisplay || "—"}</span>
                     </div>
                   </div>
@@ -621,14 +718,24 @@ export default function DailyLearningProgressTab({ studentName, studentCode, cla
 
                   <div className="space-y-2 pt-1">
                     <div className="flex items-start justify-between gap-2 text-[11px]">
+                      <span className="font-bold text-slate-800 shrink-0">Offline:</span>
+                      <span className="font-semibold text-slate-700 text-right">{log.homeworkNextOfflineText || "—"}</span>
+                    </div>
+                    <div className="flex items-start justify-between gap-2 text-[11px]">
+                      <span className="font-bold text-slate-800 shrink-0">{cardGrammarLabel}:</span>
+                      {renderGrammarLabel(log, "font-semibold text-right")}
+                    </div>
+                    <div className="flex items-start justify-between gap-2 text-[11px]">
                       <span className="flex items-center gap-1.5 font-bold text-slate-800 shrink-0">
-                        <Video size={12} className="text-amber-600 shrink-0" aria-hidden="true" /> Video ôn tập:
+                        <Video size={12} className="text-amber-600 shrink-0" aria-hidden="true" /> {cardVideoLabel}:
                       </span>
-                      <span className="font-semibold text-slate-700 text-right">{log.homeworkNextVideoLabel || "—"}</span>
+                      {renderVideoLabel(log, "font-semibold text-right")}
                     </div>
                     <div className="pt-1 border-t border-line/60 flex items-start justify-between gap-2 text-[11px]">
-                      <span className="font-bold text-slate-800 shrink-0">Ngữ pháp:</span>
-                      <span className="font-semibold text-slate-700 text-right">{log.homeworkNextGrammarLabel || "—"}</span>
+                      <span className="font-bold text-slate-800 shrink-0">Hạn nộp bài:</span>
+                      <span className="font-semibold text-slate-700 text-right">
+                        {log.homeworkNextDueAt ? new Date(log.homeworkNextDueAt).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" }) : "—"}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -1011,23 +1118,37 @@ export default function DailyLearningProgressTab({ studentName, studentCode, cla
                 <thead>
                   {/* Cỡ chữ bảng tăng trên mobile (đọc rõ hơn theo phản hồi người dùng, 2026-07-31) —
                         desktop (md+) giữ nguyên cỡ gốc qua md:text-*. */}
-                  <tr className="bg-slate-100 border-b border-line text-xs md:text-[11px] font-black uppercase text-slate-700 tracking-wider">
-                    <th className="p-3 border-r border-line/60 w-28 whitespace-nowrap">Ngày</th>
-                    <th className="p-3 border-r border-line/60 min-w-[200px]">Bài học hôm nay</th>
-                    <th className="p-3 border-r border-line/60 w-28 whitespace-nowrap text-center">Thái độ</th>
-                    <th className="p-3 border-r border-line/60 w-36 whitespace-nowrap">BTVN Ngữ pháp (Trước)</th>
-                    <th className="p-3 border-r border-line/60 w-40 whitespace-nowrap">BTVN Nghe-nói (Trước)</th>
-                    <th className="p-3 border-r border-line/60 min-w-[220px]">Nhận xét học sinh</th>
-                    <th className="p-3 border-r border-line/60 min-w-[160px]">BTVN Ngữ pháp (Sau)</th>
-                    <th className="p-3 border-r border-line/60 min-w-[160px]">BTVN Video ôn tập (Sau)</th>
-                    <th className="p-3 min-w-[140px]">Ghi chú</th>
+                  {/* Đồng bộ đúng cấu trúc cột với form Giáo viên/màn Quản lý điểm trường (bổ sung
+                      ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06) — "BTVN buổi trước"/"buổi
+                      sau" đều tách 3 kênh Offline/Bài/Video, thêm cột Hạn nộp bài. Nhãn kênh giữ chung
+                      chung "Bài" (không đổi Ngữ pháp/Bài nghe theo Loại giáo viên như bên Admin) vì 1
+                      bảng ở đây gộp nhiều buổi/nhiều ngày có thể khác Loại giáo viên nhau, 1 tiêu đề cột
+                      cố định không phản ánh đúng hết từng dòng. */}
+                  <tr className="bg-slate-100 border-b border-slate-300 [&>th]:text-center text-xs md:text-[11px] font-black uppercase text-slate-700 tracking-wider">
+                    <th rowSpan={2} className="p-3 border-r border-slate-300 w-28 whitespace-nowrap align-bottom">Ngày</th>
+                    <th rowSpan={2} className="p-3 border-r border-slate-300 min-w-[200px] align-bottom">Bài học hôm nay</th>
+                    <th rowSpan={2} className="p-3 border-r border-slate-300 w-28 whitespace-nowrap text-center align-bottom">Giáo viên</th>
+                    <th colSpan={3} className="p-3 border-r border-slate-300 text-center">BTVN buổi trước</th>
+                    <th rowSpan={2} className="p-3 border-r border-slate-300 w-32 whitespace-nowrap align-bottom">BTVN offline</th>
+                    <th colSpan={2} className="p-3 border-r border-slate-300 text-center">BTVN online</th>
+                    <th rowSpan={2} className="p-3 border-r border-slate-300 w-32 whitespace-nowrap align-bottom">Hạn nộp bài</th>
+                    <th rowSpan={2} className="p-3 border-r border-slate-300 w-28 whitespace-nowrap text-center align-bottom">Thái độ</th>
+                    <th rowSpan={2} className="p-3 border-r border-slate-300 min-w-[220px] align-bottom">Nhận xét học sinh</th>
+                    <th rowSpan={2} className="p-3 min-w-[140px] align-bottom">Ghi chú</th>
+                  </tr>
+                  <tr className="bg-slate-100 border-b border-slate-300 [&>th]:text-center text-xs md:text-[11px] font-black uppercase text-slate-700 tracking-wider">
+                    <th className="p-3 border-r border-slate-300 w-28 whitespace-nowrap text-center">Offline</th>
+                    <th className="p-3 border-r border-slate-300 w-32 whitespace-nowrap text-center">Bài ngữ pháp/nghe</th>
+                    <th className="p-3 border-r border-slate-300 w-32 whitespace-nowrap text-center">Video TKN/PX</th>
+                    <th className="p-3 border-r border-slate-300 min-w-[160px] text-center">Bài ngữ pháp/nghe</th>
+                    <th className="p-3 border-r border-slate-300 min-w-[160px] text-center">Video TKN/PX</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-line text-sm md:text-xs font-medium text-ink">
+                <tbody className="divide-y divide-slate-300 text-sm md:text-xs font-medium text-ink">
                   {filteredLogs.map((log) => (
                     <tr key={log.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="p-3 border-r border-line/60 font-mono font-bold text-slate-700 whitespace-nowrap align-top">{log.commentDate}</td>
-                      <td className="p-3 border-r border-line/60 align-top">
+                      <td className="p-3 border-r border-slate-300 font-mono font-bold text-slate-700 whitespace-nowrap align-top">{log.commentDate}</td>
+                      <td className="p-3 border-r border-slate-300 align-top">
                         <div className="font-bold text-teal-deep">
                           {log.sessionNumber != null ? `Buổi ${log.sessionNumber}` : log.sessionTypeLabel ?? "Buổi học"}
                           {log.lessonContent && <span className="font-bold text-teal-deep">: {log.lessonContent}</span>}
@@ -1042,16 +1163,34 @@ export default function DailyLearningProgressTab({ studentName, studentCode, cla
                           )}
                         </div>
                       </td>
-                      <td className="p-3 border-r border-line/60 text-center whitespace-nowrap align-top">
+                      <td className="p-3 border-r border-slate-300 text-center whitespace-nowrap align-top">
+                        {log.teacherType ? (
+                          <span className={`px-2 py-0.5 rounded text-xs md:text-[10px] border font-bold ${teacherTypeStyles[log.teacherType]}`}>
+                            {teacherTypeLabels[log.teacherType]}
+                          </span>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                      <td className="p-3 border-r border-slate-300 align-top">{log.homeworkPreviousOfflineText || "—"}</td>
+                      <td className="p-3 border-r border-slate-300 font-bold text-slate-800 align-top">{log.homeworkPreviousScore || log.grammarPreviousProgress || "—"}</td>
+                      <td className="p-3 border-r border-slate-300 font-bold text-purple-900 align-top">{log.homeworkPreviousSpeakingScore || log.videoPreviousProgress || "—"}</td>
+                      <td className="p-3 border-r border-slate-300 align-top">{log.homeworkNextOfflineText || "—"}</td>
+                      <td className="p-3 border-r border-slate-300 text-slate-800 font-semibold align-top">
+                        {renderGrammarLabel(log, "font-semibold")}
+                      </td>
+                      <td className="p-3 border-r border-slate-300 text-slate-800 font-semibold align-top">
+                        {renderVideoLabel(log, "font-semibold")}
+                      </td>
+                      <td className="p-3 border-r border-slate-300 whitespace-nowrap align-top">
+                        {log.homeworkNextDueAt ? new Date(log.homeworkNextDueAt).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" }) : "—"}
+                      </td>
+                      <td className="p-3 border-r border-slate-300 text-center whitespace-nowrap align-top">
                         <span className={`px-2 py-0.5 rounded text-xs md:text-[10px] border ${log.attitude ? attitudeStyles[log.attitude] : "bg-slate-100 text-slate-700 border-slate-200"}`}>
                           {log.attitude ? attitudeLabels[log.attitude] : "—"}
                         </span>
                       </td>
-                      <td className="p-3 border-r border-line/60 font-bold text-slate-800 align-top">{log.homeworkPreviousScore || log.grammarPreviousProgress || "—"}</td>
-                      <td className="p-3 border-r border-line/60 font-bold text-purple-900 align-top">{log.homeworkPreviousSpeakingScore || log.videoPreviousProgress || "—"}</td>
-                      <td className="p-3 border-r border-line/60 text-slate-700 italic align-top">"{log.content}"</td>
-                      <td className="p-3 border-r border-line/60 text-slate-800 font-semibold align-top">{log.homeworkNextGrammarLabel || "—"}</td>
-                      <td className="p-3 border-r border-line/60 text-slate-800 font-semibold align-top">{log.homeworkNextVideoLabel || "—"}</td>
+                      <td className="p-3 border-r border-slate-300 text-slate-700 italic align-top">"{log.content}"</td>
                       <td className="p-3 text-slate-600 text-xs md:text-[11px] align-top">{log.note || "—"}</td>
                     </tr>
                   ))}

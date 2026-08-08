@@ -3,6 +3,7 @@ import { AlertTriangle, Bell, ChevronDown, Clock, GraduationCap, KeyRound, Lock,
 import { useApp } from "@/context/AppContext";
 import { getMyPartnerSite, listSites, listSiteTeachers, SiteResponse, SiteTeacherResponse } from "@/features/facility/api";
 import { useEligibleClasses } from "@/features/academic/hooks/useEligibleClasses";
+import { listMyNotifications, markNotificationRead, NotificationResponse } from "@/features/notifications/api";
 import { UserRole } from "@/types";
 import Avatar from "@/components/ui/Avatar";
 import Dropdown from "@/components/ui/Dropdown";
@@ -10,11 +11,7 @@ import ProfileModal from "@/features/auth/components/ProfileModal";
 import ChangePasswordModal from "@/features/auth/components/ChangePasswordModal";
 import { useDialog } from "@/components/ui/DialogProvider";
 
-const notifications = [
-  { id: "1", text: "Trường Tiểu học Nghĩa Tân gửi ý kiến đóng góp mới (Cô Hiệu Trưởng)", time: "10 phút trước", type: "urgent" },
-  { id: "2", text: "Đơn nghỉ phép của Đỗ Gia Bảo đang chờ duyệt bước 2", time: "1 giờ trước", type: "pending" },
-  { id: "3", text: "Điểm thi lớp Nghĩa Tân 3A1 vừa được giáo viên Lê Thu Hà submit", time: "2 giờ trước", type: "info" }
-];
+const NOTIFICATION_PAGE_SIZE = 15;
 
 export default function Header() {
   const {
@@ -37,6 +34,23 @@ export default function Header() {
   useEffect(() => {
     listSites().then(setSites).catch(() => undefined);
   }, []);
+
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — nối API thật thay cho mảng
+  // hardcode trước đây, mirror đúng NotificationBell.tsx bên Portal (GET /notifications +
+  // POST /notifications/{id}/read, đánh dấu đã đọc khi bấm vào từng mục).
+  const [notifications, setNotifications] = useState<NotificationResponse[]>([]);
+  useEffect(() => {
+    listMyNotifications(0, NOTIFICATION_PAGE_SIZE)
+      .then((res) => setNotifications(res.content))
+      .catch(() => undefined);
+  }, []);
+  const unreadNotificationCount = notifications.filter((n) => !n.readAt).length;
+  const handleOpenNotification = (n: NotificationResponse) => {
+    if (n.readAt) return;
+    markNotificationRead(n.id)
+      .then((updated) => setNotifications((prev) => prev.map((x) => (x.id === updated.id ? updated : x))))
+      .catch(() => undefined);
+  };
 
   // Bất kỳ vai trò nào gắn với đúng 1 (vài) điểm trường cụ thể — Quản lý điểm trường (site_managers),
   // Đại diện trường liên kết (site_managers role_type=PARTNER_REP, tự resolve qua UC-29), Giáo viên phụ trách
@@ -159,7 +173,7 @@ export default function Header() {
   const selectedEligibleClass = eligibleClasses.find((cls) => cls.id === selectedClassId) ?? null;
 
   return (
-    <header className="h-16 bg-transparent px-2 md:px-0 flex items-center justify-between z-30 mb-4 shrink-0">
+    <header className="sticky top-0 h-16 bg-brand-bg/85 backdrop-blur-md px-2 md:px-0 flex items-center justify-between z-30 mb-4 shrink-0">
       <div className="flex items-center gap-4">
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -275,36 +289,58 @@ export default function Header() {
         </div>
 
         <Dropdown
-          panelClassName="w-80 overflow-hidden"
+          panelClassName="w-80 max-h-[420px] overflow-y-auto"
           trigger={
             <button className="w-9 h-9 flex items-center justify-center rounded-full text-slate-500 hover:text-slate-800 bg-white border border-slate-200/50 hover:bg-slate-50 transition-colors relative shadow-soft">
               <Bell className="w-4 h-4" />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-brand-red animate-ping" />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-brand-red" />
+              {unreadNotificationCount > 0 && (
+                <>
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-brand-red animate-ping" />
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-brand-red" />
+                </>
+              )}
             </button>
           }
         >
-          <div className="px-4 py-3 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+          <div className="px-4 py-3 bg-slate-50 border-b border-slate-100 flex items-center justify-between sticky top-0 z-10">
             <span className="text-xs font-semibold text-slate-700">Thông báo vận hành</span>
-            <span className="text-[10px] bg-brand-gradient text-white px-2 py-0.5 rounded-full font-bold">3 Mới</span>
+            {unreadNotificationCount > 0 && (
+              <span className="text-[10px] bg-brand-gradient text-white px-2 py-0.5 rounded-full font-bold">{unreadNotificationCount} Mới</span>
+            )}
           </div>
-          <div className="divide-y divide-slate-100">
-            {notifications.map((notif) => (
-              <div key={notif.id} className="p-3.5 hover:bg-slate-50/60 transition-colors">
-                <div className="flex items-start gap-2.5">
-                  <div
-                    className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${
-                      notif.type === "urgent" ? "bg-brand-red" : notif.type === "pending" ? "bg-brand-orange" : "bg-sky-500"
-                    }`}
-                  />
-                  <div>
-                    <p className="text-xs text-slate-700 leading-normal font-medium">{notif.text}</p>
-                    <span className="text-[10px] text-slate-400 block mt-1 font-mono">{notif.time}</span>
+          {notifications.length === 0 ? (
+            <p className="text-xs text-slate-400 italic p-4">Chưa có thông báo nào.</p>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {notifications.map((notif) => (
+                <button
+                  key={notif.id}
+                  type="button"
+                  onClick={() => handleOpenNotification(notif)}
+                  className={`w-full text-left p-3.5 hover:bg-slate-50/60 transition-colors ${!notif.readAt ? "bg-brand-orange/5" : ""}`}
+                >
+                  <div className="flex items-start gap-2.5">
+                    <div
+                      className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${
+                        !notif.readAt
+                          ? notif.priority === "URGENT" || notif.priority === "HIGH"
+                            ? "bg-brand-red"
+                            : "bg-brand-orange"
+                          : "bg-transparent"
+                      }`}
+                    />
+                    <div className="min-w-0">
+                      <p className={`text-xs leading-normal ${!notif.readAt ? "font-bold text-slate-800" : "font-medium text-slate-500"}`}>{notif.title}</p>
+                      <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-2">{notif.content}</p>
+                      <span className="text-[10px] text-slate-400 block mt-1 font-mono">
+                        {new Date(notif.createdAt).toLocaleString("vi-VN")}
+                      </span>
+                    </div>
                   </div>
-                </div>
-              </div>
-            ))}
-          </div>
+                </button>
+              ))}
+            </div>
+          )}
         </Dropdown>
 
         <Dropdown

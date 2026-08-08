@@ -10,7 +10,7 @@ interface TableContainerProps {
 export default function TableContainer({ children, className }: TableContainerProps) {
   return (
     <div className={cn("overflow-x-auto rounded-xl border border-slate-200", className)}>
-      <table className="w-full text-xs text-left">{children}</table>
+      <table className="w-full text-xs text-left border-collapse">{children}</table>
     </div>
   );
 }

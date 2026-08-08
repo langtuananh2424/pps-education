@@ -2,17 +2,17 @@ import React, { useEffect, useState } from "react";
 import {
   ClassEnrollmentResponse,
   ClassSessionResponse,
-  GradeComponentResponse,
-  GradePeriodResponse,
-  GradePeriodResultResponse,
+  GradeComponentSetupResponse,
+  GradeEvaluationComponentResponse,
+  GradeEvaluationResultResponse,
   StudentCommentResponse,
   getAttendanceSession,
   listClassSessions,
   listComments,
-  listGradeComponents,
+  listEvaluationResults,
+  listGradeComponentSetups,
   listGradeEntries,
-  listGradePeriods,
-  listPeriodResults
+  listGradeEvaluationComponents
 } from "../api";
 import Modal from "@/components/ui/Modal";
 import Badge from "@/components/ui/Badge";
@@ -39,20 +39,24 @@ const commentTypeLabels: Record<StudentCommentResponse["commentType"], string> =
 interface StudentInfoModalProps {
   enrollment: ClassEnrollmentResponse;
   classId: number;
-  curriculumId: number;
   onClose: () => void;
+}
+
+function setupLabel(s: GradeComponentSetupResponse): string {
+  return `${s.academicTermName} — ${s.evaluationType === "MID_TERM" ? "Giữa kỳ" : "Cuối kỳ"}`;
 }
 
 /**
  * Popup xem nhanh 1 học sinh cho Giáo viên — chỉ dùng API không đòi quyền student.profile.view
  * (đã dính lỗi 403 ở lần trước): điểm theo kỳ, tỉ lệ chuyên cần, nhận xét gần đây — đều là dữ liệu
  * Giáo viên đã có quyền xem/thao tác sẵn ở các tab khác của Quản lý lớp học (UC-18/19/21).
+ * V94: setup sổ điểm gắn thẳng theo lớp (classId), không cần curriculumId nữa.
  */
-export default function StudentInfoModal({ enrollment, classId, curriculumId, onClose }: StudentInfoModalProps) {
-  const [gradePeriods, setGradePeriods] = useState<GradePeriodResponse[]>([]);
-  const [selectedPeriodId, setSelectedPeriodId] = useState<number | null>(null);
-  const [componentScores, setComponentScores] = useState<{ component: GradeComponentResponse; score: number | null }[]>([]);
-  const [periodResult, setPeriodResult] = useState<GradePeriodResultResponse | null>(null);
+export default function StudentInfoModal({ enrollment, classId, onClose }: StudentInfoModalProps) {
+  const [setups, setSetups] = useState<GradeComponentSetupResponse[]>([]);
+  const [selectedSetupId, setSelectedSetupId] = useState<number | null>(null);
+  const [componentScores, setComponentScores] = useState<{ component: GradeEvaluationComponentResponse; score: number | null }[]>([]);
+  const [evaluationResult, setEvaluationResult] = useState<GradeEvaluationResultResponse | null>(null);
   const [loadingGrades, setLoadingGrades] = useState(false);
 
   const [attendanceCounts, setAttendanceCounts] = useState<Record<string, number> | null>(null);
@@ -63,23 +67,23 @@ export default function StudentInfoModal({ enrollment, classId, curriculumId, on
   const [loadingComments, setLoadingComments] = useState(true);
 
   useEffect(() => {
-    listGradePeriods(curriculumId)
-      .then((periods) => {
-        setGradePeriods(periods);
-        const latest = [...periods].sort((a, b) => b.displayOrder - a.displayOrder)[0];
-        setSelectedPeriodId((prev) => prev ?? latest?.id ?? null);
+    listGradeComponentSetups(classId)
+      .then((s) => {
+        setSetups(s);
+        const latest = [...s].sort((a, b) => a.academicTermId - b.academicTermId)[s.length - 1];
+        setSelectedSetupId((prev) => prev ?? latest?.id ?? null);
       })
       .catch(() => undefined);
-  }, [curriculumId]);
+  }, [classId]);
 
   useEffect(() => {
-    if (!selectedPeriodId) {
+    if (!selectedSetupId) {
       setComponentScores([]);
-      setPeriodResult(null);
+      setEvaluationResult(null);
       return;
     }
     setLoadingGrades(true);
-    listGradeComponents(selectedPeriodId)
+    listGradeEvaluationComponents(selectedSetupId)
       .then(async (components) => {
         const entriesByComponent = await Promise.all(components.map((c) => listGradeEntries(classId, c.id).catch(() => [])));
         setComponentScores(
@@ -90,10 +94,10 @@ export default function StudentInfoModal({ enrollment, classId, curriculumId, on
         );
       })
       .finally(() => setLoadingGrades(false));
-    listPeriodResults(classId, selectedPeriodId)
-      .then((results) => setPeriodResult(results.find((r) => r.studentId === enrollment.studentId) ?? null))
-      .catch(() => setPeriodResult(null));
-  }, [selectedPeriodId, classId, enrollment.studentId]);
+    listEvaluationResults(classId, selectedSetupId)
+      .then((results) => setEvaluationResult(results.find((r) => r.studentId === enrollment.studentId) ?? null))
+      .catch(() => setEvaluationResult(null));
+  }, [selectedSetupId, classId, enrollment.studentId]);
 
   useEffect(() => {
     setLoadingAttendance(true);
@@ -137,26 +141,26 @@ export default function StudentInfoModal({ enrollment, classId, curriculumId, on
         <div>
           <div className="flex items-center justify-between mb-2">
             <span className="text-[10px] font-bold uppercase text-slate-500">Điểm số</span>
-            {gradePeriods.length > 0 && (
+            {setups.length > 0 && (
               <Select
-                value={selectedPeriodId ?? ""}
-                onChange={(e) => setSelectedPeriodId(e.target.value ? Number(e.target.value) : null)}
+                value={selectedSetupId ?? ""}
+                onChange={(e) => setSelectedSetupId(e.target.value ? Number(e.target.value) : null)}
                 className={inputClass}
               >
-                {gradePeriods.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
+                {setups.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {setupLabel(s)}
                   </option>
                 ))}
               </Select>
             )}
           </div>
-          {gradePeriods.length === 0 ? (
-            <p className="text-xs text-slate-400 italic">Khung chương trình chưa có kỳ điểm nào.</p>
+          {setups.length === 0 ? (
+            <p className="text-xs text-slate-400 italic">Lớp chưa có setup sổ điểm nào.</p>
           ) : loadingGrades ? (
             <p className="text-xs text-slate-500">Đang tải...</p>
           ) : componentScores.length === 0 ? (
-            <p className="text-xs text-slate-400 italic">Kỳ điểm này chưa có đầu điểm nào.</p>
+            <p className="text-xs text-slate-400 italic">Setup này chưa có đầu điểm nào.</p>
           ) : (
             <div className="space-y-1.5">
               <div className="flex flex-wrap gap-1.5">
@@ -166,10 +170,11 @@ export default function StudentInfoModal({ enrollment, classId, curriculumId, on
                   </span>
                 ))}
               </div>
-              {periodResult && (
+              {evaluationResult && (
                 <p className="text-xs text-slate-600">
-                  Tổng kết kỳ: <span className="font-bold text-slate-800">{periodResult.overallScore ?? "—"}</span>
-                  {periodResult.level && ` (${periodResult.level})`}
+                  Tổng kết kỳ: <span className="font-bold text-slate-800">{evaluationResult.overallScore ?? "—"}</span>
+                  {evaluationResult.level && ` (${evaluationResult.level})`}
+                  {evaluationResult.comment && <span className="block text-slate-500 mt-0.5">Nhận xét: {evaluationResult.comment}</span>}
                 </p>
               )}
             </div>
@@ -183,7 +188,7 @@ export default function StudentInfoModal({ enrollment, classId, curriculumId, on
               xuyên suốt các kỳ + icon xu hướng tăng/giảm đã có sẵn (2026-07-30). includeAllStatuses để
               vẫn hiện được kể cả học sinh đã rút lớp (enrollment.status !== ACTIVE). */}
           <div className="border border-slate-200 rounded-lg overflow-hidden">
-            <ClassGradeComparisonTable classId={classId} curriculumId={curriculumId} enrollments={[enrollment]} includeAllStatuses />
+            <ClassGradeComparisonTable classId={classId} enrollments={[enrollment]} includeAllStatuses />
           </div>
         </div>
 

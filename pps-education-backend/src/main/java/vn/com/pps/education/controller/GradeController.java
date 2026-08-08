@@ -10,19 +10,21 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import vn.com.pps.education.dto.CreateGradeComponentRequest;
-import vn.com.pps.education.dto.CreateGradePeriodRequest;
-import vn.com.pps.education.dto.EnterGradePeriodResultRequest;
+import vn.com.pps.education.dto.CreateGradeComponentSetupRequest;
+import vn.com.pps.education.dto.CreateGradeEvaluationComponentRequest;
+import vn.com.pps.education.dto.EnterGradeEvaluationResultRequest;
 import vn.com.pps.education.dto.EnterGradeRequest;
-import vn.com.pps.education.dto.GradeComponentResponse;
+import vn.com.pps.education.dto.GradeComponentSetupResponse;
 import vn.com.pps.education.dto.GradeEntryResponse;
-import vn.com.pps.education.dto.GradePeriodResponse;
-import vn.com.pps.education.dto.GradePeriodResultResponse;
+import vn.com.pps.education.dto.GradeEvaluationComponentResponse;
+import vn.com.pps.education.dto.GradeEvaluationResultResponse;
 import vn.com.pps.education.dto.PublishGradesRequest;
+import vn.com.pps.education.dto.StudentResponse;
 import vn.com.pps.education.dto.SubmitGradesRequest;
-import vn.com.pps.education.dto.UpdateGradeComponentRequest;
-import vn.com.pps.education.dto.UpdateGradePeriodRequest;
+import vn.com.pps.education.dto.UpdateGradeComponentSetupRequest;
+import vn.com.pps.education.dto.UpdateGradeEvaluationComponentRequest;
 import vn.com.pps.education.security.AuthenticatedUser;
 import vn.com.pps.education.service.GradeService;
 
@@ -38,88 +40,99 @@ public class GradeController {
         this.gradeService = gradeService;
     }
 
-    // ---- Cấu hình sổ điểm (HEAD_ACADEMIC) ----
+    // ---- Cấu hình sổ điểm (HEAD_ACADEMIC/SUPER_ADMIN) — V95, gắn theo (lớp, kỳ học, Giữa/Cuối kỳ) ----
 
-    @GetMapping("/api/curriculums/{curriculumId}/grade-periods")
-    public ResponseEntity<List<GradePeriodResponse>> listGradePeriods(@PathVariable Long curriculumId) {
-        return ResponseEntity.ok(gradeService.listGradePeriods(curriculumId));
+    @GetMapping("/api/classes/{classId}/grade-component-setups")
+    public ResponseEntity<List<GradeComponentSetupResponse>> listGradeComponentSetups(
+            @PathVariable Long classId, @RequestParam(required = false) Long academicTermId) {
+        return ResponseEntity.ok(gradeService.listGradeComponentSetups(classId, academicTermId));
     }
 
-    @PreAuthorize("hasPermission(null, 'academic.grade.period.create')")
-    @PostMapping("/api/curriculums/{curriculumId}/grade-periods")
-    public ResponseEntity<GradePeriodResponse> createGradePeriod(@PathVariable Long curriculumId,
-                                                                     @Valid @RequestBody CreateGradePeriodRequest request,
-                                                                     @AuthenticationPrincipal AuthenticatedUser actor) {
-        return ResponseEntity.ok(gradeService.createGradePeriod(curriculumId, request, actor.userId()));
+    @PreAuthorize("hasPermission(null, 'academic.grade.setup.create')")
+    @PostMapping("/api/classes/{classId}/grade-component-setups")
+    public ResponseEntity<GradeComponentSetupResponse> createGradeComponentSetup(
+            @PathVariable Long classId,
+            @Valid @RequestBody CreateGradeComponentSetupRequest request,
+            @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(gradeService.createGradeComponentSetup(classId, request, actor.userId()));
     }
 
-    @PreAuthorize("hasPermission(null, 'academic.grade.period.update')")
-    @PutMapping("/api/grade-periods/{id}")
-    public ResponseEntity<GradePeriodResponse> updateGradePeriod(@PathVariable Long id,
-                                                                     @Valid @RequestBody UpdateGradePeriodRequest request,
-                                                                     @AuthenticationPrincipal AuthenticatedUser actor) {
-        return ResponseEntity.ok(gradeService.updateGradePeriod(id, request, actor.userId()));
+    @PreAuthorize("hasPermission(null, 'academic.grade.setup.update')")
+    @PutMapping("/api/grade-component-setups/{id}")
+    public ResponseEntity<GradeComponentSetupResponse> updateGradeComponentSetup(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateGradeComponentSetupRequest request,
+            @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(gradeService.updateGradeComponentSetup(id, request, actor.userId()));
     }
 
-    /** UC-19 (bổ sung): xoá kỳ đánh giá rỗng — xem Javadoc GradeService.deleteGradePeriod. */
-    @PreAuthorize("hasPermission(null, 'academic.grade.period.delete')")
-    @DeleteMapping("/api/grade-periods/{id}")
-    public ResponseEntity<Void> deleteGradePeriod(@PathVariable Long id,
-                                                  @AuthenticationPrincipal AuthenticatedUser actor) {
-        gradeService.deleteGradePeriod(id, actor.userId());
+    /** UC-19 (bổ sung): xoá setup sổ điểm rỗng — xem Javadoc GradeService.deleteGradeComponentSetup. */
+    @PreAuthorize("hasPermission(null, 'academic.grade.setup.delete')")
+    @DeleteMapping("/api/grade-component-setups/{id}")
+    public ResponseEntity<Void> deleteGradeComponentSetup(@PathVariable Long id,
+                                                           @AuthenticationPrincipal AuthenticatedUser actor) {
+        gradeService.deleteGradeComponentSetup(id, actor.userId());
         return ResponseEntity.noContent().build();
     }
 
-    @GetMapping("/api/grade-periods/{gradePeriodId}/components")
-    public ResponseEntity<List<GradeComponentResponse>> listGradeComponents(@PathVariable Long gradePeriodId) {
-        return ResponseEntity.ok(gradeService.listGradeComponents(gradePeriodId));
+    /** V95 (mới): danh sách học sinh của 1 setup — TÍNH RA theo rosterAsOfDate, xem Javadoc GradeService.getRoster. */
+    @GetMapping("/api/grade-component-setups/{id}/roster")
+    public ResponseEntity<List<StudentResponse>> getRoster(@PathVariable Long id) {
+        return ResponseEntity.ok(gradeService.getRoster(id));
+    }
+
+    @GetMapping("/api/grade-component-setups/{setupId}/components")
+    public ResponseEntity<List<GradeEvaluationComponentResponse>> listGradeEvaluationComponents(@PathVariable Long setupId) {
+        return ResponseEntity.ok(gradeService.listGradeEvaluationComponents(setupId));
     }
 
     @PreAuthorize("hasPermission(null, 'academic.grade.component.create')")
-    @PostMapping("/api/grade-periods/{gradePeriodId}/components")
-    public ResponseEntity<GradeComponentResponse> addGradeComponent(@PathVariable Long gradePeriodId,
-                                                                        @Valid @RequestBody CreateGradeComponentRequest request,
-                                                                        @AuthenticationPrincipal AuthenticatedUser actor) {
-        return ResponseEntity.ok(gradeService.addGradeComponent(gradePeriodId, request, actor.userId()));
+    @PostMapping("/api/grade-component-setups/{setupId}/components")
+    public ResponseEntity<GradeEvaluationComponentResponse> addGradeEvaluationComponent(
+            @PathVariable Long setupId,
+            @Valid @RequestBody CreateGradeEvaluationComponentRequest request,
+            @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(gradeService.addGradeEvaluationComponent(setupId, request, actor.userId()));
     }
 
     @PreAuthorize("hasPermission(null, 'academic.grade.component.update')")
-    @PutMapping("/api/grade-components/{id}")
-    public ResponseEntity<GradeComponentResponse> updateGradeComponent(@PathVariable Long id,
-                                                                           @Valid @RequestBody UpdateGradeComponentRequest request,
-                                                                           @AuthenticationPrincipal AuthenticatedUser actor) {
-        return ResponseEntity.ok(gradeService.updateGradeComponent(id, request, actor.userId()));
+    @PutMapping("/api/grade-evaluation-components/{id}")
+    public ResponseEntity<GradeEvaluationComponentResponse> updateGradeEvaluationComponent(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateGradeEvaluationComponentRequest request,
+            @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(gradeService.updateGradeEvaluationComponent(id, request, actor.userId()));
     }
 
-    /** UC-19 (bổ sung): xoá thành phần điểm chưa có điểm nhập — xem Javadoc GradeService.deleteGradeComponent. */
+    /** UC-19 (bổ sung): xoá thành phần điểm chưa có điểm nhập — xem Javadoc GradeService.deleteGradeEvaluationComponent. */
     @PreAuthorize("hasPermission(null, 'academic.grade.component.delete')")
-    @DeleteMapping("/api/grade-components/{id}")
-    public ResponseEntity<Void> deleteGradeComponent(@PathVariable Long id,
-                                                     @AuthenticationPrincipal AuthenticatedUser actor) {
-        gradeService.deleteGradeComponent(id, actor.userId());
+    @DeleteMapping("/api/grade-evaluation-components/{id}")
+    public ResponseEntity<Void> deleteGradeEvaluationComponent(@PathVariable Long id,
+                                                                @AuthenticationPrincipal AuthenticatedUser actor) {
+        gradeService.deleteGradeEvaluationComponent(id, actor.userId());
         return ResponseEntity.noContent().build();
     }
 
     // ---- UC-19: Nhập điểm (TEACHER + HEAD_ACADEMIC/SITE_MANAGER hỗ trợ) ----
 
-    @GetMapping("/api/classes/{classId}/grades/components/{gradeComponentId}")
-    public ResponseEntity<List<GradeEntryResponse>> listEntries(@PathVariable Long classId, @PathVariable Long gradeComponentId) {
-        return ResponseEntity.ok(gradeService.listEntries(classId, gradeComponentId));
+    @GetMapping("/api/classes/{classId}/grades/components/{gradeEvaluationComponentId}")
+    public ResponseEntity<List<GradeEntryResponse>> listEntries(@PathVariable Long classId, @PathVariable Long gradeEvaluationComponentId) {
+        return ResponseEntity.ok(gradeService.listEntries(classId, gradeEvaluationComponentId));
     }
 
-    @PostMapping("/api/classes/{classId}/grades/components/{gradeComponentId}")
-    public ResponseEntity<GradeEntryResponse> enterGrade(@PathVariable Long classId, @PathVariable Long gradeComponentId,
+    @PostMapping("/api/classes/{classId}/grades/components/{gradeEvaluationComponentId}")
+    public ResponseEntity<GradeEntryResponse> enterGrade(@PathVariable Long classId, @PathVariable Long gradeEvaluationComponentId,
                                                              @Valid @RequestBody EnterGradeRequest request,
                                                              @AuthenticationPrincipal AuthenticatedUser actor) {
-        return ResponseEntity.ok(gradeService.enterGrade(classId, gradeComponentId, request, actor.userId()));
+        return ResponseEntity.ok(gradeService.enterGrade(classId, gradeEvaluationComponentId, request, actor.userId()));
     }
 
     /** UC-19 (xoá điểm nháp, bổ sung ngoài SDD gốc, đã xác nhận với người dùng) — chỉ xoá được bản ghi DRAFT (hoặc academic.grade.edit.override). */
-    @DeleteMapping("/api/classes/{classId}/grades/components/{gradeComponentId}/students/{studentId}")
-    public ResponseEntity<Void> deleteGradeEntry(@PathVariable Long classId, @PathVariable Long gradeComponentId,
+    @DeleteMapping("/api/classes/{classId}/grades/components/{gradeEvaluationComponentId}/students/{studentId}")
+    public ResponseEntity<Void> deleteGradeEntry(@PathVariable Long classId, @PathVariable Long gradeEvaluationComponentId,
                                                   @PathVariable Long studentId,
                                                   @AuthenticationPrincipal AuthenticatedUser actor) {
-        gradeService.deleteGradeEntry(classId, gradeComponentId, studentId, actor.userId());
+        gradeService.deleteGradeEntry(classId, gradeEvaluationComponentId, studentId, actor.userId());
         return ResponseEntity.noContent().build();
     }
 
@@ -130,29 +143,29 @@ public class GradeController {
         return ResponseEntity.ok(gradeService.submitGradesForApproval(request, actor.userId()));
     }
 
-    // ---- UC-53: Overall/Level theo kỳ đánh giá (TEACHER + HEAD_ACADEMIC/SITE_MANAGER hỗ trợ) ----
+    // ---- UC-53: Overall/Level theo (kỳ học, Giữa/Cuối kỳ) (TEACHER + HEAD_ACADEMIC/SITE_MANAGER hỗ trợ) ----
 
-    @PostMapping("/api/classes/{classId}/grades/students/{studentId}/periods/{gradePeriodId}/result")
-    public ResponseEntity<GradePeriodResultResponse> enterPeriodResult(@PathVariable Long classId,
+    @PostMapping("/api/classes/{classId}/grades/students/{studentId}/setups/{setupId}/result")
+    public ResponseEntity<GradeEvaluationResultResponse> enterEvaluationResult(@PathVariable Long classId,
                                                                        @PathVariable Long studentId,
-                                                                       @PathVariable Long gradePeriodId,
-                                                                       @Valid @RequestBody EnterGradePeriodResultRequest request,
+                                                                       @PathVariable Long setupId,
+                                                                       @Valid @RequestBody EnterGradeEvaluationResultRequest request,
                                                                        @AuthenticationPrincipal AuthenticatedUser actor) {
-        return ResponseEntity.ok(gradeService.enterPeriodResult(classId, studentId, gradePeriodId, request, actor.userId()));
+        return ResponseEntity.ok(gradeService.enterEvaluationResult(classId, studentId, setupId, request, actor.userId()));
     }
 
-    @GetMapping("/api/classes/{classId}/grade-periods/{gradePeriodId}/results")
-    public ResponseEntity<List<GradePeriodResultResponse>> listPeriodResults(@PathVariable Long classId,
-                                                                             @PathVariable Long gradePeriodId) {
-        return ResponseEntity.ok(gradeService.listPeriodResults(classId, gradePeriodId));
+    @GetMapping("/api/classes/{classId}/grade-component-setups/{setupId}/results")
+    public ResponseEntity<List<GradeEvaluationResultResponse>> listEvaluationResults(@PathVariable Long classId,
+                                                                             @PathVariable Long setupId) {
+        return ResponseEntity.ok(gradeService.listEvaluationResults(classId, setupId));
     }
 
     /** UC-53 (xoá điểm tổng kết kỳ nháp, bổ sung ngoài SDD gốc, đã xác nhận với người dùng) — chỉ xoá được bản ghi DRAFT (hoặc academic.grade.edit.override). */
-    @DeleteMapping("/api/classes/{classId}/grades/students/{studentId}/periods/{gradePeriodId}/result")
-    public ResponseEntity<Void> deletePeriodResult(@PathVariable Long classId, @PathVariable Long studentId,
-                                                    @PathVariable Long gradePeriodId,
+    @DeleteMapping("/api/classes/{classId}/grades/students/{studentId}/setups/{setupId}/result")
+    public ResponseEntity<Void> deleteEvaluationResult(@PathVariable Long classId, @PathVariable Long studentId,
+                                                    @PathVariable Long setupId,
                                                     @AuthenticationPrincipal AuthenticatedUser actor) {
-        gradeService.deletePeriodResult(classId, studentId, gradePeriodId, actor.userId());
+        gradeService.deleteEvaluationResult(classId, studentId, setupId, actor.userId());
         return ResponseEntity.noContent().build();
     }
 

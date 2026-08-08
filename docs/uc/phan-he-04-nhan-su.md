@@ -214,7 +214,9 @@ UC-10: Nộp đơn từ
 +-----------------+----------------------------------------------------+
 | **Mô tả tóm     | Nhân sự nộp đơn nghỉ phép/đi muộn/về sớm trực      |
 | tắt**           | tuyến; Ban giám đốc được miễn trừ không thể nộp    |
-|                 | đơn qua hệ thống.                                  |
+|                 | đơn qua hệ thống. Giáo viên có buổi dạy trong       |
+|                 | khoảng thời gian xin nghỉ phải chọn giáo viên dạy   |
+|                 | thay cho từng buổi học bị ảnh hưởng.                |
 +-----------------+----------------------------------------------------+
 | **Sự kiện kích  | Nhân sự cần xin nghỉ phép, đi muộn hoặc về sớm.    |
 | hoạt**          |                                                    |
@@ -222,7 +224,12 @@ UC-10: Nộp đơn từ
 | **Điều kiện     | -   Người dùng không thuộc vai trò Ban giám đốc    |
 | tiên quyết      |     (được miễn trừ hoàn toàn).                     |
 | (               |                                                    |
-| Precondition)** |                                                    |
+| Precondition)** | -   Mẫu đơn hiển thị được hệ thống xác định theo   |
+|                 |     chức vụ (position) của người nộp: Giáo viên có |
+|                 |     thêm bước chọn lớp/buổi học/giáo viên dạy thay; |
+|                 |     nhân sự khác dùng mẫu đơn thường, không có      |
+|                 |     bước này (bổ sung ngoài SDD gốc, đã xác nhận    |
+|                 |     với người dùng 2026-08-05).                     |
 +-----------------+----------------------------------------------------+
 | **Luồng sự kiện | 1.  Người dùng mở màn hình Nộp đơn từ, kiểm tra    |
 | chính (Main     |     is_management và role: nếu là Ban giám đốc, hệ |
@@ -230,9 +237,27 @@ UC-10: Nộp đơn từ
 |                 |     nộp đơn.                                       |
 |                 |                                                    |
 |                 | 2.  Người dùng chọn loại đơn (nghỉ phép/đi muộn/về |
-|                 |     sớm), nhập thời gian, lý do.                   |
+|                 |     sớm), nhập thời gian xin nghỉ (khoảng ngày,    |
+|                 |     hoặc khung giờ cụ thể nếu nghỉ nửa buổi/đi      |
+|                 |     muộn/về sớm --- dùng start_time/end_time có     |
+|                 |     sẵn), lý do.                                   |
 |                 |                                                    |
-|                 | 3.  Hệ thống xác định quy trình duyệt phù hợp: (a) |
+|                 | 3.  Nếu người nộp có chức vụ Giáo viên: hệ thống   |
+|                 |     kiểm tra trong khoảng [start_date, end_date] có |
+|                 |     buổi dạy nào không (class_sessions có           |
+|                 |     primary_teacher_id = người nộp, status không   |
+|                 |     phải CANCELLED/RESCHEDULED). Nếu có, hệ thống  |
+|                 |     hiển thị danh sách buổi học đó theo TỪNG lớp;   |
+|                 |     giáo viên chọn 1 lớp cho đơn hiện tại, sau đó   |
+|                 |     chọn giáo viên dạy thay cho từng buổi học của   |
+|                 |     lớp đó (bắt buộc chọn đủ, không được bỏ trống). |
+|                 |     Nếu giáo viên có buổi dạy thuộc nhiều lớp khác  |
+|                 |     nhau trong cùng khoảng nghỉ, chỉ xử lý 1 lớp    |
+|                 |     trong đơn này; các lớp còn lại nộp đơn riêng    |
+|                 |     (xem A3). (bổ sung ngoài SDD gốc, đã xác nhận   |
+|                 |     với người dùng 2026-08-05).                     |
+|                 |                                                    |
+|                 | 4.  Hệ thống xác định quy trình duyệt phù hợp: (a) |
 |                 |     nhân sự thuộc phòng ban thường → duyệt 2 cấp   |
 |                 |     (Trưởng phòng ban rồi Quản lý vận hành), hoặc  |
 |                 |     1 cấp nếu phòng ban chưa có trưởng phòng       |
@@ -241,9 +266,30 @@ UC-10: Nộp đơn từ
 |                 |     phòng đào tạo/Quản lý vận hành/Quản lý nhân    |
 |                 |     sự) → duyệt 1 cấp bởi Ban giám đốc.            |
 |                 |                                                    |
-|                 | 4.  Người dùng xác nhận Gửi đơn; hệ thống khởi tạo |
+|                 | 5.  Người dùng xác nhận Gửi đơn; hệ thống khởi tạo |
 |                 |     workflow duyệt nhiều bước tương ứng và gửi     |
-|                 |     thông báo tới người duyệt đầu tiên.            |
+|                 |     thông báo tới người duyệt đầu tiên. Nếu đơn có |
+|                 |     kèm lựa chọn dạy thay (bước 3), hệ thống ÁP     |
+|                 |     DỤNG NGAY --- không đợi duyệt xong --- vì buổi  |
+|                 |     dạy có thể diễn ra trước khi quy trình duyệt    |
+|                 |     hoàn tất: với mỗi buổi học đã chọn, (a) ghi 1   |
+|                 |     bản ghi leave_substitutions (buổi học, giáo     |
+|                 |     viên chính hiện tại, giáo viên dạy thay); (b)   |
+|                 |     cập nhật class_sessions.primary_teacher_id của  |
+|                 |     buổi đó thành giáo viên dạy thay; (c) với mỗi   |
+|                 |     cặp (lớp, giáo viên dạy thay) xuất hiện trong    |
+|                 |     đơn, tạo/cập nhật 1 bản ghi class_teachers        |
+|                 |     (teacher_role=SUBSTITUTE, assigned_from=         |
+|                 |     start_date, assigned_to=NULL --- NULL = đang     |
+|                 |     phụ trách, cùng quy ước với PRIMARY/ASSISTANT;   |
+|                 |     chỉ set assigned_to khi thu hồi, xem UC-11 A2/   |
+|                 |     Mở rộng). Giáo viên                              |
+|                 |     dạy thay có quyền điểm danh/nhận xét/giao bài    |
+|                 |     cho buổi đó ngay (UC-15), kể cả khi đơn đang ở   |
+|                 |     trạng thái Chờ duyệt. Nếu đơn sau đó bị Từ chối, |
+|                 |     việc dạy thay bị thu hồi ngay lập tức (xem       |
+|                 |     UC-11 A2). (bổ sung ngoài SDD gốc, đã xác nhận   |
+|                 |     với người dùng 2026-08-05).                      |
 +-----------------+----------------------------------------------------+
 | **Luồng thay    | ***A1 --- Ban giám đốc***                          |
 | thế / ngoại lệ  |                                                    |
@@ -255,12 +301,38 @@ UC-10: Nộp đơn từ
 |                 |                                                    |
 |                 | 1.  Hệ thống bỏ qua bước duyệt Trưởng phòng ban,   |
 |                 |     chuyển thẳng đơn lên Quản lý vận hành duyệt.   |
+|                 |                                                    |
+|                 | ***A3 --- Giáo viên nghỉ trùng nhiều lớp (bổ sung  |
+|                 | ngoài SDD gốc, đã xác nhận với người dùng           |
+|                 | 2026-08-05)***                                      |
+|                 |                                                    |
+|                 | 1.  Giáo viên có buổi dạy thuộc nhiều lớp khác nhau |
+|                 |     trong khoảng nghỉ đã chọn --- hệ thống chỉ cho  |
+|                 |     xử lý dạy thay cho 1 lớp/đơn; giáo viên phải    |
+|                 |     nộp thêm đơn riêng cho từng lớp còn lại.        |
+|                 |                                                    |
+|                 | ***A4 --- Giáo viên không có lịch dạy trong khoảng  |
+|                 | nghỉ (bổ sung ngoài SDD gốc, đã xác nhận với người  |
+|                 | dùng 2026-08-05)***                                 |
+|                 |                                                    |
+|                 | 1.  Không có buổi dạy nào của người nộp rơi vào     |
+|                 |     khoảng [start_date, end_date] --- hệ thống bỏ   |
+|                 |     qua bước 3, xử lý như mẫu đơn thường (không có  |
+|                 |     bước chọn dạy thay).                            |
 +-----------------+----------------------------------------------------+
 | **Hậu điều kiện | -   Đơn từ được tạo với trạng thái Chờ duyệt và    |
 | (P              |     đúng số bước duyệt theo nhóm nhân sự.          |
 | ostcondition)** |                                                    |
 |                 | -   Người duyệt bước đầu tiên nhận được thông báo  |
 |                 |     cần xử lý.                                     |
+|                 |                                                    |
+|                 | -   Nếu đơn có chọn giáo viên dạy thay: buổi học    |
+|                 |     liên quan đã được gán đúng giáo viên dạy thay    |
+|                 |     NGAY (không đợi duyệt --- xem bước 5); việc gán  |
+|                 |     này bị thu hồi ngay nếu đơn sau đó bị Từ chối    |
+|                 |     (UC-11 A2), hoặc tự động thu hồi sau 2 ngày kể   |
+|                 |     từ end_date nếu đơn Đã duyệt (UC-11, mục Mở      |
+|                 |     rộng).                                           |
 +-----------------+----------------------------------------------------+
 
 ---
@@ -322,6 +394,25 @@ UC-11: Duyệt đơn từ
 | Flow)**         |     không được chuyển tiếp lên Quản lý vận hành;   |
 |                 |     quy trình kết thúc ngay với trạng thái Từ      |
 |                 |     chối.                                          |
+|                 |                                                    |
+|                 | ***A2 --- Từ chối đơn đã có giáo viên dạy thay (bổ  |
+|                 | sung ngoài SDD gốc, đã xác nhận với người dùng      |
+|                 | 2026-08-05, xem UC-10 bước 5)***                    |
+|                 |                                                    |
+|                 | 1.  Khi đơn chuyển sang Từ chối (bước 6 Main Flow,  |
+|                 |     ở BẤT KỲ bước duyệt nào) VÀ đơn có bản ghi       |
+|                 |     leave_substitutions đang mở (revoked_at IS      |
+|                 |     NULL, đã được gán ngay từ lúc nộp đơn --- UC-10  |
+|                 |     bước 5): hệ thống thu hồi NGAY LẬP TỨC, không    |
+|                 |     đợi tới chu kỳ 2 ngày --- với mỗi bản ghi: (a)   |
+|                 |     trả class_sessions.primary_teacher_id về đúng    |
+|                 |     giáo viên chính ban đầu (original_teacher_id);   |
+|                 |     (b) đóng bản ghi class_teachers tương ứng         |
+|                 |     (assigned_to = ngày từ chối) nếu không còn        |
+|                 |     leave_substitutions nào khác đang mở cho cùng     |
+|                 |     cặp (lớp, giáo viên dạy thay); (c) ghi nhận        |
+|                 |     revoked_at = thời điểm từ chối --- đây chính là   |
+|                 |     log thu hồi phục vụ tra vết.                      |
 +-----------------+----------------------------------------------------+
 | **Hậu điều kiện | -   Trạng thái đơn từ được cập nhật chính xác theo |
 | (P              |     quyết định của người duyệt ở từng bước.        |
@@ -331,7 +422,36 @@ UC-11: Duyệt đơn từ
 |                 |                                                    |
 |                 | -   Đơn nghỉ phép đã duyệt được dùng làm dữ liệu   |
 |                 |     trừ công khi tính lương (UC-12).               |
+|                 |                                                    |
+|                 | -   Với đơn có dạy thay: nếu APPROVED, việc dạy      |
+|                 |     thay (đã áp dụng từ lúc nộp đơn --- UC-10 bước 5) |
+|                 |     tiếp tục hiệu lực và tự động thu hồi sau 2 ngày   |
+|                 |     kể từ end_date (xem Mở rộng bên dưới); nếu        |
+|                 |     REJECTED, việc dạy thay đã bị thu hồi ngay (A2).  |
 +-----------------+----------------------------------------------------+
+
+Mở rộng --- Tự động thu hồi giáo viên dạy thay + trang lịch sử dạy thay
+(bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05)
+
+-   Tác nhân: Hệ thống (scheduled job chạy hàng ngày).
+-   Điều kiện kích hoạt: bản ghi leave_substitutions có revoked_at IS NULL,
+    thuộc 1 đơn có status = APPROVED (đơn PENDING/REJECTED không thuộc
+    diện job này --- REJECTED đã thu hồi ngay theo A2, PENDING chưa tới
+    hạn), và leave_requests.end_date + 2 ngày <= ngày hiện tại.
+-   Với mỗi bản ghi thỏa điều kiện: (a) trả
+    class_sessions.primary_teacher_id về đúng giáo viên chính ban đầu
+    (original_teacher_id) --- không ảnh hưởng dữ liệu điểm danh/nhận xét
+    giáo viên dạy thay đã ghi nhận trước đó vì các bảng đó độc lập, không
+    phụ thuộc primary_teacher_id tại thời điểm đọc lại; (b) đóng bản ghi
+    class_teachers tương ứng (assigned_to = ngày thu hồi) nếu không còn
+    leave_substitutions nào khác đang mở cho cùng cặp (lớp, giáo viên dạy
+    thay); (c) ghi nhận revoked_at = thời điểm job chạy --- đây chính là
+    log thu hồi phục vụ tra vết.
+-   Trang lịch sử dạy thay: liệt kê leave_substitutions kèm thông tin đơn
+    nghỉ/buổi học/giáo viên, lọc theo lớp/giáo viên/khoảng thời gian, hiển
+    thị trạng thái Đang dạy thay (revoked_at NULL) hoặc Đã thu hồi
+    (revoked_at có giá trị) --- phục vụ Quản lý điểm trường/Trưởng phòng
+    đào tạo/Quản lý nhân sự tra soát.
 
 ---
 

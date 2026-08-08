@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { CalendarRange, GraduationCap } from "lucide-react";
+import { ArrowRightLeft, CalendarRange, GraduationCap } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import { UserRole } from "@/types";
@@ -9,6 +9,8 @@ import ClassListPanel from "../components/ClassListPanel";
 import ClassDetailPanel from "../components/ClassDetailPanel";
 import ClassFormModal from "../components/ClassFormModal";
 import AcademicTermManagerModal from "../components/AcademicTermManagerModal";
+import AcademicYearManagerModal from "../components/AcademicYearManagerModal";
+import ClassPromotionModal from "../components/ClassPromotionModal";
 import Button from "@/components/ui/Button";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
@@ -30,6 +32,9 @@ export default function ClassesPage() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [termsOpen, setTermsOpen] = useState(false);
+  const [academicYearsOpen, setAcademicYearsOpen] = useState(false);
+  const [promotionOpen, setPromotionOpen] = useState(false);
+  const [academicYearFilter, setAcademicYearFilter] = useState("");
   const [sites, setSites] = useState<SiteResponse[]>([]);
   const { message: toastMessage, showToast } = useToast();
   const effectiveSelectedId = isClassAdmin ? selectedId : globalClassId;
@@ -48,7 +53,10 @@ export default function ClassesPage() {
   const load = () => {
     setLoading(true);
     setError(null);
-    listClasses({ siteId: selectedCampusId !== "ALL" ? Number(selectedCampusId) : undefined })
+    listClasses({
+      siteId: selectedCampusId !== "ALL" ? Number(selectedCampusId) : undefined,
+      academicYearId: academicYearFilter ? Number(academicYearFilter) : undefined
+    })
       .then(async (res) => {
         const filtered =
           canManage || !currentUser
@@ -63,7 +71,7 @@ export default function ClassesPage() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(load, [selectedCampusId, canManage, currentUser]);
+  useEffect(load, [selectedCampusId, academicYearFilter, canManage, currentUser]);
 
   const selectedClass = classes.find((c) => c.id === effectiveSelectedId) ?? null;
 
@@ -77,16 +85,26 @@ export default function ClassesPage() {
           </p>
         </div>
         {canManage && (
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => setTermsOpen(true)}
-            disabled={!selectedSite}
-            title={selectedSite ? undefined : "Chọn 1 điểm trường cụ thể ở dropdown trên đầu trang để quản lý học kỳ"}
-          >
-            <CalendarRange className="w-3.5 h-3.5" />
-            Quản lý học kỳ
-          </Button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setTermsOpen(true)}
+              disabled={!selectedSite}
+              title={selectedSite ? undefined : "Chọn 1 điểm trường cụ thể ở dropdown trên đầu trang để quản lý học kỳ"}
+            >
+              <CalendarRange className="w-3.5 h-3.5" />
+              Quản lý học kỳ
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => setAcademicYearsOpen(true)}>
+              <GraduationCap className="w-3.5 h-3.5" />
+              Quản lý năm học
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => setPromotionOpen(true)}>
+              <ArrowRightLeft className="w-3.5 h-3.5" />
+              Chuyển lớp hàng loạt
+            </Button>
+          </div>
         )}
       </div>
 
@@ -103,6 +121,8 @@ export default function ClassesPage() {
             query={query}
             onQueryChange={setQuery}
             canManage={canManage}
+            academicYearFilter={academicYearFilter}
+            onAcademicYearFilterChange={setAcademicYearFilter}
           />
         )}
 
@@ -134,6 +154,21 @@ export default function ClassesPage() {
       )}
 
       {termsOpen && selectedSite && <AcademicTermManagerModal siteId={selectedSite.id} siteName={selectedSite.name} onClose={() => setTermsOpen(false)} />}
+
+      {academicYearsOpen && <AcademicYearManagerModal onClose={() => setAcademicYearsOpen(false)} />}
+
+      {promotionOpen && (
+        <ClassPromotionModal
+          classes={classes}
+          onClose={() => setPromotionOpen(false)}
+          onPromoted={(created) => {
+            setPromotionOpen(false);
+            setSelectedId(created.id);
+            load();
+            showToast("Đã chuyển lớp hàng loạt thành công!");
+          }}
+        />
+      )}
 
       <Toast message={toastMessage} />
     </div>

@@ -37,8 +37,11 @@ UC-23: Quản lý Kho Video Ôn tập
 +-----------------+----------------------------------------------------+
 | **Luồng sự kiện | 1.  Giáo viên mở Kho Video Ôn tập, tạo bộ mới —    |
 | chính (Main     |     nhập tiêu đề, chọn loại (Video từ kết nối/     |
-| Flow)**         |     Video phản xạ), gán vào 1 lớp cụ thể hoặc 1    |
-|                 |     khung chương trình.                            |
+| Flow)**         |     Video phản xạ), gán 1 khung chương trình (V98: |
+|                 |     chỉ dùng lọc/tìm kiếm, không phải điều kiện    |
+|                 |     hiển thị) + chọn Loại giáo viên, rồi gán tường |
+|                 |     minh cho (các) lớp cụ thể (V98: điều kiện      |
+|                 |     hiển thị DUY NHẤT, xem bổ sung V98 dưới đây).  |
 |                 |                                                    |
 |                 | 2.  Giáo viên thêm từng video vào bộ — chọn 1      |
 |                 |     trong 3 nguồn: dán link YouTube, upload file   |
@@ -89,6 +92,25 @@ LỚP đang ghi danh ACTIVE, hạn nộp = buổi kế tiếp). Xem đầy đủ
 lớp không có buổi kế tiếp, chỉ áp dụng DAILY) tại UC-21 (`docs/uc/
 phan-he-06-hoc-thuat.md`).
 
+**Bổ sung V98 (2026-08-06, đã xác nhận với người dùng) --- đổi mô hình
+gán lớp giống hệt Kho đề (UC-40):** trước V98, 1 bộ chỉ chọn được ĐÚNG 1
+trong 2 khi tạo: gán riêng 1 lớp cụ thể (chỉ lớp đó xem được), HOẶC gán
+1 khung chương trình (TỰ ĐỘNG dùng chung cho MỌI lớp thuộc khung đó,
+không chọn được tập con). Từ V98: mọi Bộ LUÔN gán 1 khung chương trình
+nhưng CHỈ để lọc/tìm kiếm trong Kho Video (không còn cấp quyền xem) —
+điều kiện hiển thị DUY NHẤT cho 1 lớp là được Giáo viên gán TƯỜNG MINH
+(chọn nhiều, `assignToClass`/`unassignFromClass`, mirror
+`exam_class_assignments`) — 1 Bộ gán được cho bất kỳ tập con lớp nào,
+không bắt buộc phải là "mọi lớp trong khung". Bổ sung thêm trường
+`teacherType` (VIETNAMESE/FOREIGN, bắt buộc chọn khi tạo, sửa được cùng
+title) dùng lọc khi giao bài — mirror `exams.teacherType` (V74), thay
+thế quy tắc suy diễn cũ (CONNECTION=VIETNAMESE/REFLEX=FOREIGN) từng dùng
+ở `StudentCommentService#matchesSessionTeacherType`. Việc "giao bài
+thật" (V65, `ReviewVideoAssignment` khi GV chọn làm "BTVN buổi sau" ở
+UC-21) không đổi — vẫn cần thêm điều kiện Bộ đã được gán tường minh cho
+đúng lớp đó (`deliverToClass` kiểm tra qua bảng gán mới trước khi tạo
+bản giao).
+
 ---
 
 UC-23a: Xem & Theo dõi Kho Video Ôn tập
@@ -132,14 +154,13 @@ UC-23a: Xem & Theo dõi Kho Video Ôn tập
 | **Luồng sự kiện | 1.  Học sinh chọn 1 lớp đang ghi danh (UC-42), mở  |
 | chính (Main     |     tab "Kho Video Ôn tập".                        |
 | Flow)**         |                                                    |
-|                 | 2.  Hệ thống trả về mọi bộ có status=PUBLISHED,     |
-|                 |     (gắn riêng đúng lớp này HOẶC gắn chung theo    |
-|                 |     khung chương trình của lớp này --- đúng logic  |
-|                 |     OR đã thiết kế trong SDD), VÀ có                |
-|                 |     `ReviewVideoAssignment` ACTIVE cho lớp học sinh |
-|                 |     đang ghi danh ACTIVE (V65, UC-21 --- publish    |
-|                 |     đơn thuần không còn đủ, xem bổ sung V65 ở       |
-|                 |     UC-23).                                        |
+|                 | 2.  Hệ thống trả về mọi bộ có status=PUBLISHED, ĐÃ  |
+|                 |     ĐƯỢC GÁN TƯỜNG MINH cho lớp này (V98 ---        |
+|                 |     `ReviewVideoSetClassAssignment`, thay logic OR  |
+|                 |     curriculum/lớp cũ), VÀ có `ReviewVideoAssignment`|
+|                 |     ACTIVE cho lớp học sinh đang ghi danh ACTIVE    |
+|                 |     (V65, UC-21 --- publish đơn thuần không còn đủ, |
+|                 |     xem bổ sung V65/V98 ở UC-23).                   |
 |                 |                                                    |
 |                 | 3.  Học sinh chọn 1 bộ, xem danh sách video, bắt   |
 |                 |     đầu phát 1 video — hệ thống mở 1 LƯỢT XEM mới  |
@@ -509,6 +530,30 @@ UC-24: Làm bài kiểm tra trực tuyến
 |                 |                                                    |
 |                 | 1.  Không có phần chờ Giáo viên chấm; Học sinh xem |
 |                 |     được điểm tổng kết ngay sau khi nộp.           |
+|                 |                                                    |
+|                 | ***A4 --- Đề có giới hạn số lần làm lại***         |
+|                 | (bổ sung ngoài SDD gốc, đã xác nhận với người dùng |
+|                 | 2026-08-05 --- áp dụng CHUNG cho UC-24/UC-27,      |
+|                 | KHÔNG áp dụng cho câu tự luận/Nói)                 |
+|                 |                                                    |
+|                 | 1.  Nếu đề có cấu hình số lần làm lại tối đa        |
+|                 |     (`exercises.max_attempts` khác NULL), Học sinh |
+|                 |     nút "Xem đáp án" chỉ khả dụng SAU KHI đã nộp   |
+|                 |     đủ số lần bằng đúng `max_attempts` (VD giới    |
+|                 |     hạn 5 lần thì phải nộp đến lượt thứ 5 mới xem  |
+|                 |     được đáp án) — các lượt nộp trước đó chỉ thấy  |
+|                 |     điểm trắc nghiệm, không thấy đáp án đúng/giải  |
+|                 |     thích.                                         |
+|                 |                                                    |
+|                 | 2.  Nếu đề KHÔNG cấu hình số lần làm lại tối đa    |
+|                 |     (`max_attempts` NULL --- không giới hạn), giữ  |
+|                 |     hành vi cũ: đáp án hiện ngay sau khi nộp (theo |
+|                 |     `exercises.show_correct_answers`).             |
+|                 |                                                    |
+|                 | 3.  Quy tắc này chỉ áp dụng cho câu hỏi tự chấm     |
+|                 |     được (trắc nghiệm/điền khuyết...) --- câu tự   |
+|                 |     luận/Nói chưa áp dụng, tiếp tục theo luồng chờ |
+|                 |     Giáo viên chấm thủ công hiện có (UC-41).        |
 +-----------------+----------------------------------------------------+
 | **Hậu điều kiện | -   Bài làm được lưu, phần trắc nghiệm có điểm     |
 | (P              |     ngay; phần tự luận/Nói (nếu có) chờ chấm thủ   |
@@ -516,6 +561,10 @@ UC-24: Làm bài kiểm tra trực tuyến
 |                 |                                                    |
 |                 | -   Kết quả cuối cùng được đồng bộ vào sổ điểm khi |
 |                 |     hoàn tất chấm.                                 |
+|                 |                                                    |
+|                 | -   Nếu đề có giới hạn số lần làm lại, đáp án đúng |
+|                 |     + giải thích chỉ hiển thị từ lượt làm cuối     |
+|                 |     cùng (bằng max_attempts) trở đi.                |
 +-----------------+----------------------------------------------------+
 
 > **Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31 — giám
@@ -881,6 +930,13 @@ UC-27: Làm bài tập/đề ôn tập
 | Flow)**         | 1.  Nếu đề ôn tập được cấu hình tự chấm hoàn toàn  |
 |                 |     (kèm đáp án tham khảo), Học sinh xem kết quả   |
 |                 |     ngay không cần chờ Giáo viên.                  |
+|                 |                                                    |
+|                 | ***A2 --- Đề có giới hạn số lần làm lại*** (áp     |
+|                 |     dụng chung quy tắc UC-24/A4: đáp án đúng +     |
+|                 |     giải thích chỉ hiện từ lượt làm cuối cùng bằng |
+|                 |     max_attempts trở đi; nếu không giới hạn thì    |
+|                 |     hiện ngay sau khi nộp; không áp dụng cho câu   |
+|                 |     tự luận/Nói --- xem chi tiết ở UC-24).          |
 +-----------------+----------------------------------------------------+
 | **Hậu điều kiện | -   Kết quả luyện tập được lưu vào lịch sử làm bài |
 | (P              |     của Học sinh, không ảnh hưởng tới sổ điểm      |

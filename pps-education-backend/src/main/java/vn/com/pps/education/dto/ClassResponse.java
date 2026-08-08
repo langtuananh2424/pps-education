@@ -16,6 +16,7 @@ public record ClassResponse(
         Integer minStudents,
         LocalDate startDate,
         LocalDate endDate,
+        Long academicYearId,
         String academicYear,
         String status
 ) {}

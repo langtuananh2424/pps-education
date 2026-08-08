@@ -24,4 +24,8 @@ public interface ExerciseAssignmentRepository extends JpaRepository<ExerciseAssi
     /** V82: quét job hết hạn — due_at NULL (bài tự luyện) tự động không khớp phép so sánh <=. */
     List<ExerciseAssignment> findByStatusAndDueAtLessThanEqualAndTeacherNotifiedAtIsNull(
             ExerciseAssignment.Status status, OffsetDateTime cutoff);
+
+    /** V92 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06): quét job nhắc Phụ huynh trước hạn nộp. */
+    List<ExerciseAssignment> findByStatusAndDueAtBetweenAndParentReminderSentAtIsNull(
+            ExerciseAssignment.Status status, OffsetDateTime from, OffsetDateTime to);
 }

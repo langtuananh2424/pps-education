@@ -11,12 +11,16 @@ import vn.com.pps.education.domain.Notification;
 import vn.com.pps.education.domain.ReviewVideoAssignment;
 import vn.com.pps.education.domain.SchoolClass;
 import vn.com.pps.education.domain.Student;
+import vn.com.pps.education.domain.StudentHomeworkAlertState;
 import vn.com.pps.education.repository.ClassEnrollmentRepository;
 import vn.com.pps.education.repository.ExerciseAssignmentRepository;
 import vn.com.pps.education.repository.ReviewVideoAssignmentRepository;
 
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -28,6 +32,12 @@ import java.util.stream.Collectors;
  *
  * Quét mỗi 5 phút thay vì lập lịch chính xác theo từng due_at — đơn giản/bền hơn (không mất lịch
  * khi app restart giữa chừng), đủ "gần thời gian thực" theo đúng yêu cầu.
+ *
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06: CÙNG lượt quét này thu thập luôn
+ * đạt/không đạt từng học sinh (2 kênh) để báo Phụ huynh cảnh báo thiếu BTVN theo lộ trình — xem
+ * {@link HomeworkAlertTrackingService}. Vì 2 kênh luôn cùng hạn nộp (đã xác nhận), gom kết quả cả
+ * 2 vòng quét vào 1 map theo (học sinh, lớp) rồi đánh giá 1 LẦN ở cuối {@link #runDeadlineScan()}
+ * để có thể gộp thành 1 thông báo duy nhất khi cả 2 kênh cùng chạm mốc.
  */
 @Service
 public class HomeworkDeadlineSchedulerService {
@@ -40,28 +50,41 @@ public class HomeworkDeadlineSchedulerService {
     private final ClassEnrollmentRepository classEnrollmentRepository;
     private final HomeworkProgressService homeworkProgressService;
     private final NotificationService notificationService;
+    private final HomeworkAlertTrackingService homeworkAlertTrackingService;
+    private final HomeworkAlertSettings homeworkAlertSettings;
 
     public HomeworkDeadlineSchedulerService(ExerciseAssignmentRepository exerciseAssignmentRepository,
                                              ReviewVideoAssignmentRepository reviewVideoAssignmentRepository,
                                              ClassEnrollmentRepository classEnrollmentRepository,
                                              HomeworkProgressService homeworkProgressService,
-                                             NotificationService notificationService) {
+                                             NotificationService notificationService,
+                                             HomeworkAlertTrackingService homeworkAlertTrackingService,
+                                             HomeworkAlertSettings homeworkAlertSettings) {
         this.exerciseAssignmentRepository = exerciseAssignmentRepository;
         this.reviewVideoAssignmentRepository = reviewVideoAssignmentRepository;
         this.classEnrollmentRepository = classEnrollmentRepository;
         this.homeworkProgressService = homeworkProgressService;
         this.notificationService = notificationService;
+        this.homeworkAlertTrackingService = homeworkAlertTrackingService;
+        this.homeworkAlertSettings = homeworkAlertSettings;
     }
 
     @Scheduled(cron = "0 */5 * * * *")
     @Transactional
     public void runDeadlineScan() {
         OffsetDateTime now = OffsetDateTime.now();
-        processExerciseAssignments(now);
-        processReviewVideoAssignments(now);
+        Map<StudentClassKey, MissAccumulator> missByStudentClass = new LinkedHashMap<>();
+        processExerciseAssignments(now, missByStudentClass);
+        processReviewVideoAssignments(now, missByStudentClass);
+
+        if (homeworkAlertSettings.isEnabled()) {
+            for (MissAccumulator acc : missByStudentClass.values()) {
+                homeworkAlertTrackingService.evaluateAndNotify(acc.student, acc.schoolClass, acc.results);
+            }
+        }
     }
 
-    private void processExerciseAssignments(OffsetDateTime now) {
+    private void processExerciseAssignments(OffsetDateTime now, Map<StudentClassKey, MissAccumulator> missByStudentClass) {
         List<ExerciseAssignment> due = exerciseAssignmentRepository
                 .findByStatusAndDueAtLessThanEqualAndTeacherNotifiedAtIsNull(ExerciseAssignment.Status.ACTIVE, now);
         for (ExerciseAssignment assignment : due) {
@@ -73,6 +96,10 @@ public class HomeworkDeadlineSchedulerService {
                 sendSummary(assignment.getAssignedBy().getId(), assignment.getSchoolClass(),
                         "BTVN \"" + assignment.getExercise().getTitle() + "\"", progress,
                         "EXERCISE_ASSIGNMENT", assignment.getId());
+                for (Student s : students) {
+                    boolean passed = homeworkProgressService.grammarPassed(assignment, s.getId());
+                    accumulate(missByStudentClass, s, assignment.getSchoolClass(), StudentHomeworkAlertState.Channel.GRAMMAR, passed);
+                }
             }
             assignment.setTeacherNotifiedAt(now);
             exerciseAssignmentRepository.save(assignment);
@@ -82,7 +109,7 @@ public class HomeworkDeadlineSchedulerService {
         }
     }
 
-    private void processReviewVideoAssignments(OffsetDateTime now) {
+    private void processReviewVideoAssignments(OffsetDateTime now, Map<StudentClassKey, MissAccumulator> missByStudentClass) {
         List<ReviewVideoAssignment> due = reviewVideoAssignmentRepository
                 .findByStatusAndDueAtLessThanEqualAndTeacherNotifiedAtIsNull(ReviewVideoAssignment.Status.ACTIVE, now);
         for (ReviewVideoAssignment assignment : due) {
@@ -94,6 +121,10 @@ public class HomeworkDeadlineSchedulerService {
                 sendSummary(assignment.getAssignedBy().getId(), assignment.getSchoolClass(),
                         "Video Ôn tập \"" + assignment.getReviewVideoSet().getTitle() + "\"", progress,
                         "REVIEW_VIDEO_ASSIGNMENT", assignment.getId());
+                for (Student s : students) {
+                    boolean passed = homeworkProgressService.videoPassed(assignment, s.getId(), homeworkAlertSettings.reflexPassThresholdPercent());
+                    accumulate(missByStudentClass, s, assignment.getSchoolClass(), StudentHomeworkAlertState.Channel.VIDEO, passed);
+                }
             }
             assignment.setTeacherNotifiedAt(now);
             reviewVideoAssignmentRepository.save(assignment);
@@ -103,8 +134,28 @@ public class HomeworkDeadlineSchedulerService {
         }
     }
 
+    private void accumulate(Map<StudentClassKey, MissAccumulator> missByStudentClass, Student student, SchoolClass schoolClass,
+                             StudentHomeworkAlertState.Channel channel, boolean passed) {
+        StudentClassKey key = new StudentClassKey(student.getId(), schoolClass.getId());
+        MissAccumulator acc = missByStudentClass.computeIfAbsent(key, k -> new MissAccumulator(student, schoolClass));
+        acc.results.add(new HomeworkAlertTrackingService.ChannelMissResult(channel, passed));
+    }
+
+    private record StudentClassKey(Long studentId, Long schoolClassId) {}
+
+    private static final class MissAccumulator {
+        private final Student student;
+        private final SchoolClass schoolClass;
+        private final List<HomeworkAlertTrackingService.ChannelMissResult> results = new ArrayList<>();
+
+        private MissAccumulator(Student student, SchoolClass schoolClass) {
+            this.student = student;
+            this.schoolClass = schoolClass;
+        }
+    }
+
     /** targetStudentIds NULL/rỗng = giao cả lớp (SDD) — lấy toàn bộ enrollment ACTIVE hiện tại. */
-    private List<Student> targetStudents(SchoolClass schoolClass, List<Long> targetStudentIds) {
+    List<Student> targetStudents(SchoolClass schoolClass, List<Long> targetStudentIds) {
         List<ClassEnrollment> enrollments = classEnrollmentRepository
                 .findBySchoolClassIdAndStatus(schoolClass.getId(), ClassEnrollment.Status.ACTIVE);
         if (targetStudentIds == null || targetStudentIds.isEmpty()) {
@@ -128,9 +179,11 @@ public class HomeworkDeadlineSchedulerService {
                 .collect(Collectors.joining("\n"));
         String content = "Tỷ lệ hoàn thành: %d/%d học sinh (%d%%).\n\nChi tiết từng em:\n%s"
                 .formatted(completedCount, total, ratePercent, detail);
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("className", schoolClass.getName());
 
         notificationService.notify(teacherUserId, Notification.NotificationType.HOMEWORK_DEADLINE_SUMMARY,
-                title, content, null, entityType, entityId, Notification.Priority.NORMAL, null);
+                title, content, metadata, entityType, entityId, Notification.Priority.NORMAL, null);
     }
 
     /**

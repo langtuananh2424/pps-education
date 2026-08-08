@@ -17,6 +17,11 @@ import java.util.UUID;
  * examTitle denormalize (mirror ExerciseAssignmentResponse.exerciseTitle/
  * exerciseCode) để FE render nhãn "Mã Đề - Tên bài" không cần round-trip
  * thêm.
+ *
+ * Nhận xét học viên (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+ * 2026-08-05): {@code examTeacherType} denormalize từ {@code Exam.teacherType}
+ * (VIETNAMESE/FOREIGN) — để FE lọc dropdown "BTVN buổi sau" theo đúng loại
+ * giáo viên đang chọn ở màn Nhận xét học viên mà không cần gọi thêm listExams().
  */
 public record ExerciseResponse(
         Long id,
@@ -26,6 +31,7 @@ public record ExerciseResponse(
         Long examId,
         String examCode,
         String examTitle,
+        String examTeacherType,
         Long subjectId,
         String exerciseType,
         BigDecimal totalPoints,

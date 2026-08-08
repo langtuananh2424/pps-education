@@ -11,8 +11,14 @@ import java.util.UUID;
 /**
  * Bảng grade_entries (SDD > Học thuật > Sổ điểm & Điểm tổng kết > c) —
  * điểm cụ thể của 1 học sinh cho 1 thành phần điểm (UC-19 nhập điểm,
- * UC-20 duyệt/từ chối điểm). V44 (bổ sung ngoài SDD gốc, đã xác nhận với
- * người dùng — thay hẳn luồng "công bố dự kiến + phúc khảo" UC-62 cũ):
+ * UC-20 duyệt/từ chối điểm). V95 (bổ sung ngoài SDD gốc, đã xác nhận với
+ * người dùng): {@code gradeComponent} trỏ tới {@link GradeEvaluationComponent}
+ * (thay {@code GradeComponent} cũ, gắn theo {@link GradeComponentSetup}
+ * — lớp + kỳ học + Giữa/Cuối kỳ — thay vì theo curriculum dùng chung
+ * nhiều lớp). {@code academicTerm}/{@code evaluationType} denormalize từ
+ * setup để báo cáo/thống kê truy vấn nhanh theo kỳ, không cần join.
+ * V44 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng — thay hẳn luồng
+ * "công bố dự kiến + phúc khảo" UC-62 cũ):
  * luồng 4 trạng thái DRAFT → SUBMITTED → OFFICIAL / REJECTED:
  * <ul>
  *   <li>DRAFT: GV toàn quyền sửa/xoá, không giới hạn thời gian.</li>
@@ -49,8 +55,21 @@ public class GradeEntry {
     private Student student;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "grade_component_id", nullable = false)
-    private GradeComponent gradeComponent;
+    @JoinColumn(name = "grade_evaluation_component_id", nullable = false)
+    private GradeEvaluationComponent gradeComponent;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "academic_term_id", nullable = false)
+    private AcademicTerm academicTerm;
+
+    /** Copy từ schoolClass.academicYear tại thời điểm tạo (V102/V103, bổ sung ngoài SDD gốc, đã xác nhận với người dùng). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "academic_year_id")
+    private AcademicYear academicYear;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "evaluation_type", nullable = false, length = 20)
+    private GradeComponentSetup.EvaluationType evaluationType;
 
     @Column(nullable = false, precision = 5, scale = 2)
     private BigDecimal score;

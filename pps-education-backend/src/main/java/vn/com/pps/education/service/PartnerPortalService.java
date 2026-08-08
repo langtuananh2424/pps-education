@@ -165,15 +165,20 @@ public class PartnerPortalService {
     private GradeEntryResponse toResponse(GradeEntry e) {
         return new GradeEntryResponse(
                 e.getId(), e.getSchoolClass().getId(), e.getStudent().getId(), e.getStudent().getUser().getFullName(),
-                e.getStudent().getStudentCode(), e.getGradeComponent().getId(), e.getScore(), e.isAbsenceFlag(),
-                e.getTeacherNote(), e.getStatus().name(), e.getEnteredBy().getId(),
+                e.getStudent().getStudentCode(), e.getGradeComponent().getId(), e.getAcademicTerm().getId(),
+                e.getAcademicYear() == null ? null : e.getAcademicYear().getId(),
+                e.getAcademicYear() == null ? null : e.getAcademicYear().getCode(),
+                e.getEvaluationType().name(),
+                e.getScore(), e.isAbsenceFlag(), e.getTeacherNote(), e.getStatus().name(), e.getEnteredBy().getId(),
                 e.getPublishedBy() == null ? null : e.getPublishedBy().getId(), e.getPublishedAt(), e.getFinalizedAt());
     }
 
     private TeachingPlanResponse toResponse(TeachingPlan p) {
         return new TeachingPlanResponse(
                 p.getId(), p.getSchoolClass().getId(), p.getTeacher().getId(), p.getPlanType().name(),
-                p.getAcademicYear(), p.getWeekNumber(), p.getWeekStartDate(), p.getWeekEndDate(),
+                p.getAcademicYear() == null ? null : p.getAcademicYear().getId(),
+                p.getAcademicYear() == null ? null : p.getAcademicYear().getCode(),
+                p.getWeekNumber(), p.getWeekStartDate(), p.getWeekEndDate(),
                 p.getSummary(), p.getObjectives(), p.getStatus().name(), p.isVisibleToPartner(), p.getPublishedAt());
     }
 
@@ -182,14 +187,16 @@ public class PartnerPortalService {
                 c.getId(), c.getStudent().getId(), c.getStudent().getUser().getFullName(), c.getStudent().getDateOfBirth(),
                 c.getSchoolClass().getId(), c.getTeacher().getId(), c.getCommentType().name(),
                 c.getClassSession() == null ? null : c.getClassSession().getId(),
-                c.getGradePeriod() == null ? null : c.getGradePeriod().getId(),
+                c.getAcademicTerm() == null ? null : c.getAcademicTerm().getId(),
+                c.getAcademicYear() == null ? null : c.getAcademicYear().getId(),
+                c.getAcademicYear() == null ? null : c.getAcademicYear().getCode(),
                 c.getCommentDate(), c.getContent(), c.getStructuredContent(), c.getSeverity().name(), c.isWarning(),
                 c.getStatus().name(), c.getSubmittedAt(), c.getApprovedAt(),
                 c.getApprovedBy() == null ? null : c.getApprovedBy().getId(), c.getVisibleToParentAt(), c.getRejectionReason(),
                 c.getAttitude() == null ? null : c.getAttitude().name(), c.getHomeworkPreviousScore(),
                 c.getHomeworkPreviousSpeakingScore(),
                 // Portal trường liên kết chưa cần hiển thị chi tiết BTVN online (UC-21 mở rộng, V55) — để trống, bổ sung khi có yêu cầu.
-                c.getHomeworkNext(), null, null, null, null, null, null, c.getNote(),
+                c.getHomeworkNext(), null, null, null, null, null, null, null, null, c.getNote(),
                 c.getClassSession() == null ? null : c.getClassSession().getLessonContent());
     }
 }

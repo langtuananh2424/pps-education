@@ -4,17 +4,22 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.com.pps.education.domain.DeviceToken;
 import vn.com.pps.education.domain.Notification;
 import vn.com.pps.education.domain.NotificationDelivery;
 import vn.com.pps.education.domain.NotificationPreference;
 import vn.com.pps.education.domain.User;
+import vn.com.pps.education.dto.DeviceTokenRequest;
 import vn.com.pps.education.dto.NotificationPreferenceRequest;
 import vn.com.pps.education.dto.NotificationPreferenceResponse;
 import vn.com.pps.education.dto.NotificationResponse;
 import vn.com.pps.education.exception.ResourceNotFoundException;
+import vn.com.pps.education.repository.DeviceTokenRepository;
 import vn.com.pps.education.repository.NotificationDeliveryRepository;
 import vn.com.pps.education.repository.NotificationPreferenceRepository;
 import vn.com.pps.education.repository.NotificationRepository;
+import vn.com.pps.education.repository.ParentRepository;
+import vn.com.pps.education.repository.StudentRepository;
 import vn.com.pps.education.repository.UserRepository;
 import vn.com.pps.education.service.notification.NotificationChannelSender;
 
@@ -38,17 +43,26 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final NotificationDeliveryRepository notificationDeliveryRepository;
     private final NotificationPreferenceRepository notificationPreferenceRepository;
+    private final DeviceTokenRepository deviceTokenRepository;
+    private final ParentRepository parentRepository;
+    private final StudentRepository studentRepository;
     private final List<NotificationChannelSender> senders;
 
     public NotificationService(UserRepository userRepository,
                                 NotificationRepository notificationRepository,
                                 NotificationDeliveryRepository notificationDeliveryRepository,
                                 NotificationPreferenceRepository notificationPreferenceRepository,
+                                DeviceTokenRepository deviceTokenRepository,
+                                ParentRepository parentRepository,
+                                StudentRepository studentRepository,
                                 List<NotificationChannelSender> senders) {
         this.userRepository = userRepository;
         this.notificationRepository = notificationRepository;
         this.notificationDeliveryRepository = notificationDeliveryRepository;
         this.notificationPreferenceRepository = notificationPreferenceRepository;
+        this.deviceTokenRepository = deviceTokenRepository;
+        this.parentRepository = parentRepository;
+        this.studentRepository = studentRepository;
         this.senders = senders;
     }
 
@@ -94,20 +108,36 @@ public class NotificationService {
         }
 
         for (NotificationChannelSender sender : senders) {
-            if (isChannelEnabled(sender.channel(), pref)) {
+            if (isChannelEnabled(sender.channel(), pref, recipientUserId)) {
                 createPendingDelivery(notification, sender.channel());
             }
         }
     }
 
-    private boolean isChannelEnabled(NotificationDelivery.Channel channel, NotificationPreference pref) {
+    /**
+     * Mặc định khi user chưa có notification_preferences (bổ sung ngoài SDD
+     * gốc — SDD chỉ nói mặc định in-app+email=enabled, không phân biệt theo
+     * kênh PUSH/SMS/vai trò — đã xác nhận với người dùng 2026-08-08): PUSH
+     * dùng cho thông báo hàng ngày nên mặc định bật cho MỌI user; EMAIL cho
+     * thông báo quan trọng, giữ nguyên mặc định bật; SMS mặc định chỉ bật
+     * riêng cho Phụ huynh/Học sinh (xem {@link #isParentOrStudent}); ZALO
+     * chưa trong phạm vi, giữ mặc định tắt. User vẫn có thể tự đổi qua
+     * upsertPreference() — chỉ ảnh hưởng khi CHƯA có bản ghi.
+     */
+    private boolean isChannelEnabled(NotificationDelivery.Channel channel, NotificationPreference pref,
+                                      Long recipientUserId) {
         return switch (channel) {
             case EMAIL -> pref == null || pref.isEmailEnabled();
-            case SMS -> pref != null && pref.isSmsEnabled();
+            case PUSH -> pref == null || pref.isPushEnabled();
+            case SMS -> pref != null ? pref.isSmsEnabled() : isParentOrStudent(recipientUserId);
             case ZALO -> pref != null && pref.isZaloEnabled();
-            case PUSH -> pref != null && pref.isPushEnabled();
             case IN_APP -> false; // xử lý riêng ở createInAppDelivery, không qua sender
         };
+    }
+
+    private boolean isParentOrStudent(Long userId) {
+        return parentRepository.findByUserId(userId).isPresent()
+                || studentRepository.findByUserId(userId).isPresent();
     }
 
     private void createInAppDelivery(Notification notification) {
@@ -151,7 +181,8 @@ public class NotificationService {
     public NotificationPreferenceResponse getPreference(Long userId, Notification.NotificationType type) {
         return notificationPreferenceRepository.findByUserIdAndNotificationType(userId, type)
                 .map(this::toResponse)
-                .orElseGet(() -> new NotificationPreferenceResponse(type.name(), true, true, false, false, false));
+                .orElseGet(() -> new NotificationPreferenceResponse(
+                        type.name(), true, true, isParentOrStudent(userId), false, true));
     }
 
     @Transactional
@@ -184,5 +215,35 @@ public class NotificationService {
         return new NotificationPreferenceResponse(
                 p.getNotificationType().name(), p.isInAppEnabled(), p.isEmailEnabled(),
                 p.isSmsEnabled(), p.isZaloEnabled(), p.isPushEnabled());
+    }
+
+    /**
+     * Đăng ký/refresh device token cho kênh PUSH (xem PushNotificationSender,
+     * bổ sung ngoài SDD gốc đã xác nhận 2026-08-08). Token là UNIQUE toàn hệ
+     * thống — nếu client đăng nhập bằng tài khoản khác trên cùng thiết bị,
+     * token cũ được gán lại sang user mới thay vì tạo bản ghi trùng.
+     */
+    @Transactional
+    public void registerDeviceToken(Long userId, DeviceTokenRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + userId));
+        DeviceToken deviceToken = deviceTokenRepository.findByToken(request.token())
+                .orElseGet(DeviceToken::new);
+        deviceToken.setUser(user);
+        deviceToken.setToken(request.token());
+        deviceToken.setPlatform(request.platform());
+        deviceToken.setActive(true);
+        deviceTokenRepository.save(deviceToken);
+    }
+
+    /** Vô hiệu hoá device token (VD lúc logout) — không xoá, giữ lịch sử. */
+    @Transactional
+    public void deactivateDeviceToken(Long userId, String token) {
+        deviceTokenRepository.findByToken(token)
+                .filter(dt -> dt.getUser().getId().equals(userId))
+                .ifPresent(dt -> {
+                    dt.setActive(false);
+                    deviceTokenRepository.save(dt);
+                });
     }
 }

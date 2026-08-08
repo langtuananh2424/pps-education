@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
-import { BarChart3, Check, Link2, MessageCircle, Music, Plus, Upload, Video, X } from "lucide-react";
+import { BarChart3, Check, ClipboardList, Layers, Link2, MessageCircle, Music, Plus, Upload, Users, Video, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
-import { CurriculumResponse, CurriculumSubjectResponse, ClassEnrollmentResponse, listClassEnrollments, listCurriculums, listCurriculumSubjects } from "@/features/academic/api";
+import { ClassResponse, CurriculumResponse, CurriculumSubjectResponse, ClassEnrollmentResponse, listClassEnrollments, listCurriculums, listCurriculumSubjects } from "@/features/academic/api";
 import { useEligibleClasses } from "@/features/academic/hooks/useEligibleClasses";
 import {
   AddReviewVideoRequest,
@@ -14,22 +14,24 @@ import {
   ReviewVideoSetStatsResponse,
   ReviewVideoSetStatus,
   ReviewVideoSourceType,
+  ReviewVideoTeacherType,
   ReviewVideoType,
   UpdateReviewVideoSetRequest,
   addReviewVideo,
   addReviewVideoConnectionQuestion,
   addReviewVideoQuestion,
+  assignReviewVideoSetToClass,
   createReviewVideoSet,
   getReviewVideoSetStats,
   listReviewVideoConnectionQuestions,
   listReviewVideoQuestions,
-  listReviewVideoSetsByClass,
-  listReviewVideoSetsByCurriculum,
+  listReviewVideoSetAssignedClasses,
+  listReviewVideoSets,
   listReviewVideos,
+  unassignReviewVideoSetFromClass,
   updateReviewVideoSet,
   uploadMedia
 } from "../api";
-import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Badge, { BadgeVariant } from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
@@ -37,6 +39,7 @@ import FileUploadField from "@/components/ui/FileUploadField";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import Select from "@/components/ui/Select";
+import Pagination from "@/components/ui/Pagination";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
@@ -542,224 +545,373 @@ export function ContentSourceField({ value, onChange }: { value: ContentSourceVa
   );
 }
 
+const reviewVideoTeacherTypeLabels: Record<ReviewVideoTeacherType, string> = { VIETNAMESE: "Giáo viên Việt Nam", FOREIGN: "Giáo viên nước ngoài" };
+
 /**
- * UC-23/UC-23a: Kho Video Ôn tập — 2 lớp kiểm soát (V63): vào được trang này cần quyền
- * lms.review-video.create/update/view (mặc định chỉ TEACHER); tạo/sửa/xem thống kê cho 1 lớp CỤ THỂ
- * vẫn cần tài khoản có mặt trong class_teachers của đúng lớp/khung đó (requireAssignedTeacher, BE tự
- * chặn 403 theo Precondition UC-23, không phải theo permission).
+ * UC-23/UC-23a: Kho Video Ôn tập — V98 (bổ sung ngoài SDD gốc, đã xác
+ * nhận với người dùng 2026-08-06): đổi bố cục giống hệt "Kho đề" (xem
+ * ExerciseAssignPage.tsx) — danh sách bên trái lọc theo khung chương
+ * trình + loại giáo viên (curriculum CHỈ dùng lọc/tìm kiếm), chi tiết 1
+ * Bộ bên phải kèm "Quản lý lớp đã gán" (gán tường minh nhiều lớp, điều
+ * kiện hiển thị DUY NHẤT cho học sinh — thay hẳn 2 chế độ "lớp cụ thể"/
+ * "khung chương trình dùng chung" cũ).
  *
- * Chọn lớp cho trang này dùng state RIÊNG của trang (localClassId), KHÔNG dùng selectedClassId dùng
- * chung ở Header — đã xác nhận với người dùng 2026-07-27: Header chỉ hiện pill "Lớp" cho tài khoản
- * có phân công thật (Giáo viên đứng lớp/SITE_MANAGER thật); tài khoản chỉ có quyền quản trị rộng
- * (Super Admin/HEAD_ACADEMIC) không thấy pill đó nên cần tự chọn lớp ngay trong trang, giống hệt
- * cách chọn khung chương trình ở tab bên cạnh.
+ * 2 lớp kiểm soát (giữ nguyên từ V63): vào được trang này cần quyền
+ * lms.review-video.create/update/view (mặc định chỉ TEACHER); tạo/sửa 1
+ * Bộ vẫn cần tài khoản dạy 1 lớp thuộc đúng khung chương trình đó
+ * (requireAssignedTeacherForCurriculum); gán/gỡ lớp cần dạy ĐÚNG lớp đó
+ * (requireAssignedTeacher) + quyền lms.review-video.assign.
  */
 export default function LecturesPage() {
-  const [scopeType, setScopeType] = useState<"CLASS" | "CURRICULUM">("CLASS");
-  const { classes } = useEligibleClasses();
-  const [localClassId, setLocalClassId] = useState<number | null>(null);
   const [curriculums, setCurriculums] = useState<CurriculumResponse[]>([]);
-  const [selectedCurriculumId, setSelectedCurriculumId] = useState<number | null>(null);
-
+  const [curriculumFilter, setCurriculumFilter] = useState<number | null>(null);
+  const [teacherTypeFilter, setTeacherTypeFilter] = useState<ReviewVideoTeacherType | null>(null);
   const [videoSets, setVideoSets] = useState<ReviewVideoSetResponse[]>([]);
   const [loadingSets, setLoadingSets] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
+  const [selectedSetId, setSelectedSetId] = useState<number | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [editingSet, setEditingSet] = useState<ReviewVideoSetResponse | null>(null);
-  const [videosSet, setVideosSet] = useState<ReviewVideoSetResponse | null>(null);
-  const [statsSet, setStatsSet] = useState<ReviewVideoSetResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const { message: toastMessage, showToast } = useToast();
-
-  const selectedClass = classes.find((c) => c.id === localClassId) ?? null;
-  const effectiveCurriculumId = scopeType === "CLASS" ? selectedClass?.curriculumId ?? null : selectedCurriculumId;
 
   useEffect(() => {
     listCurriculums().then(setCurriculums).catch(() => undefined);
   }, []);
 
   const loadSets = () => {
-    if (scopeType === "CLASS" && !localClassId) {
-      setVideoSets([]);
-      return;
-    }
-    if (scopeType === "CURRICULUM" && !selectedCurriculumId) {
-      setVideoSets([]);
-      return;
-    }
     setLoadingSets(true);
     setError(null);
-    const request = scopeType === "CLASS" ? listReviewVideoSetsByClass(localClassId!) : listReviewVideoSetsByCurriculum(selectedCurriculumId!);
-    request
-      .then(setVideoSets)
+    listReviewVideoSets(curriculumFilter ?? undefined, teacherTypeFilter ?? undefined)
+      .then((res) => {
+        setVideoSets(res);
+        if (!res.some((s) => s.id === selectedSetId)) setSelectedSetId(res[0]?.id ?? null);
+      })
       .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách bộ video ôn tập."))
       .finally(() => setLoadingSets(false));
   };
 
-  useEffect(loadSets, [scopeType, localClassId, selectedCurriculumId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(loadSets, [curriculumFilter, teacherTypeFilter]);
+
+  const selectedSet = videoSets.find((s) => s.id === selectedSetId) ?? null;
+
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
+  useEffect(() => setPage(0), [videoSets]);
+  const pageSets = videoSets.slice(page * pageSize, (page + 1) * pageSize);
 
   return (
     <div className="space-y-6">
-      <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Tài Liệu & Khảo Thí LMS (E-Learning)</h1>
-        <p className="text-xs text-slate-500 mt-1">
-          Kho Video Ôn tập — 2 loại: "Video từ kết nối" (ôn từ vựng buổi học) và "Video phản xạ" (hỏi-đáp luyện nói). Mỗi bộ gồm
-          nhiều video/audio; Công bố chỉ đánh dấu bộ đủ điều kiện dùng làm nguồn — Giáo viên chọn bộ đã công bố làm "BTVN buổi
-          sau" ở Nhận xét học viên mới thật sự giao cho lớp xem, hệ thống tự theo dõi % đã xem thật.
-        </p>
+      <div className="border-b border-slate-200 pb-4 flex items-start justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Kho Video Ôn tập</h1>
+          <p className="text-xs text-slate-500 mt-1">
+            2 loại: "Video từ kết nối" (ôn từ vựng buổi học) và "Video phản xạ" (hỏi-đáp luyện nói). Mỗi Bộ gồm nhiều video/audio,
+            gán khung chương trình CHỈ để lọc/tìm kiếm — gán tường minh cho (các) lớp cụ thể mới là điều kiện hiển thị. Công bố chỉ
+            đánh dấu Bộ đủ điều kiện dùng làm nguồn — Giáo viên chọn Bộ đã công bố làm "BTVN buổi sau" ở Nhận xét học viên mới thật
+            sự giao cho lớp xem, hệ thống tự theo dõi % đã xem thật.
+          </p>
+        </div>
+        <Button variant="primary" size="sm" onClick={() => setShowCreateForm(true)}>
+          <Plus className="w-3.5 h-3.5" />
+          Tạo Bộ video mới
+        </Button>
       </div>
 
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
-      <Card className="space-y-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex bg-slate-100 rounded-lg p-1 text-xs font-semibold">
-            <button
-              type="button"
-              onClick={() => {
-                setScopeType("CLASS");
-                setSelectedCurriculumId(null);
-              }}
-              className={`px-3 py-1.5 rounded-md transition-all ${scopeType === "CLASS" ? "bg-white shadow-sm text-slate-800" : "text-slate-500"}`}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        <div className="lg:col-span-5 bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden flex flex-col">
+          <div className="px-4 py-3 border-b border-slate-100 bg-slate-50 space-y-2">
+            <Select
+              value={curriculumFilter ?? ""}
+              onChange={(e) => setCurriculumFilter(e.target.value ? Number(e.target.value) : null)}
+              className={inputClass}
             >
-              Theo lớp cụ thể
-            </button>
-            <button
-              type="button"
-              onClick={() => setScopeType("CURRICULUM")}
-              className={`px-3 py-1.5 rounded-md transition-all ${scopeType === "CURRICULUM" ? "bg-white shadow-sm text-slate-800" : "text-slate-500"}`}
-            >
-              Theo khung chương trình (dùng chung)
-            </button>
-          </div>
-
-          {scopeType === "CLASS" ? (
-            <Select value={localClassId ?? ""} onChange={(e) => setLocalClassId(e.target.value ? Number(e.target.value) : null)} className={`${inputClass} w-64`}>
-              <option value="">-- Chọn lớp --</option>
-              {classes.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.classCode} — {c.name}
-                </option>
-              ))}
-            </Select>
-          ) : (
-            <Select value={selectedCurriculumId ?? ""} onChange={(e) => setSelectedCurriculumId(e.target.value ? Number(e.target.value) : null)} className={`${inputClass} w-64`}>
-              <option value="">-- Chọn khung chương trình --</option>
+              <option value="">Tất cả khung chương trình</option>
               {curriculums.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.code} — {c.name}
                 </option>
               ))}
             </Select>
+            <Select
+              value={teacherTypeFilter ?? ""}
+              onChange={(e) => setTeacherTypeFilter(e.target.value ? (e.target.value as ReviewVideoTeacherType) : null)}
+              className={inputClass}
+            >
+              <option value="">Tất cả loại giáo viên</option>
+              {(Object.keys(reviewVideoTeacherTypeLabels) as ReviewVideoTeacherType[]).map((t) => (
+                <option key={t} value={t}>
+                  {reviewVideoTeacherTypeLabels[t]}
+                </option>
+              ))}
+            </Select>
+          </div>
+
+          {loadingSets ? (
+            <p className="text-xs text-slate-500 p-6 text-center">Đang tải...</p>
+          ) : videoSets.length === 0 ? (
+            <div className="flex flex-col items-center justify-center p-12 text-center text-slate-400 space-y-3">
+              <Layers className="w-12 h-12 text-slate-300" />
+              <p className="text-xs text-slate-400">Chưa có Bộ video nào{curriculumFilter ? " trong khung chương trình này" : ""}.</p>
+            </div>
+          ) : (
+            <>
+              <div className="divide-y divide-slate-100 overflow-y-auto">
+                {pageSets.map((set) => (
+                  <button
+                    key={set.id}
+                    onClick={() => setSelectedSetId(set.id)}
+                    className={`w-full text-left px-4 py-3 hover:bg-slate-50/60 ${selectedSetId === set.id ? "bg-brand-red/5 border-l-2 border-brand-red" : ""}`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <span className="text-brand-orange">{videoTypeIcons[set.videoType]}</span>
+                        {set.title}
+                      </p>
+                      <Badge variant={statusVariants[set.status]}>{statusLabels[set.status]}</Badge>
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-0.5 font-mono">{set.code} · {set.curriculumCode}</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">
+                      {reviewVideoTeacherTypeLabels[set.teacherType]} · {videoTypeLabels[set.videoType]}
+                    </p>
+                  </button>
+                ))}
+              </div>
+              <Pagination
+                page={page}
+                pageSize={pageSize}
+                totalElements={videoSets.length}
+                itemLabel="Bộ video"
+                onPageChange={setPage}
+                onPageSizeChange={(size) => {
+                  setPageSize(size);
+                  setPage(0);
+                }}
+              />
+            </>
           )}
-
-          <Button
-            variant="primary"
-            disabled={scopeType === "CLASS" ? !localClassId : !selectedCurriculumId}
-            onClick={() => setShowCreateForm(true)}
-            className="ml-auto"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Tạo bộ video mới</span>
-          </Button>
         </div>
-        <p className="text-[10px] text-slate-400 italic">
-          Chỉ Giáo viên được phân công dạy đúng lớp/khung chương trình mới tạo/sửa được — tài khoản khác chọn được để xem nhưng thao tác sẽ bị hệ
-          thống chặn.
-        </p>
-      </Card>
 
-      {loadingSets ? (
-        <p className="text-xs text-slate-500">Đang tải...</p>
-      ) : !localClassId && !selectedCurriculumId ? (
-        <p className="text-xs text-slate-400 italic text-center py-10">Chọn lớp hoặc khung chương trình ở trên để xem kho video ôn tập.</p>
-      ) : videoSets.length === 0 ? (
-        <p className="text-xs text-slate-400 italic text-center py-10">Chưa có bộ video ôn tập nào trong phạm vi này.</p>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {videoSets.map((set) => (
-            <Card key={set.id} className="flex flex-col justify-between">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="p-2 rounded-lg bg-amber-50 text-brand-orange shrink-0">{videoTypeIcons[set.videoType]}</span>
-                  <Badge variant={statusVariants[set.status]}>{statusLabels[set.status]}</Badge>
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-slate-800 leading-normal">{set.title}</h4>
-                  <span className="text-[10px] text-slate-400 font-mono mt-0.5 block">{set.code}</span>
-                </div>
-                <p className="text-[11px] text-slate-500">{videoTypeLabels[set.videoType]}</p>
-              </div>
-              <div className="border-t border-slate-100 pt-3 mt-3 flex items-center gap-2 flex-wrap">
-                <Button size="sm" variant="secondary" onClick={() => setVideosSet(set)}>
-                  <Upload className="w-3.5 h-3.5" /> Video
-                </Button>
-                <Button size="sm" variant="secondary" onClick={() => setEditingSet(set)}>
-                  Sửa
-                </Button>
-                <Button size="sm" variant="secondary" onClick={() => setStatsSet(set)}>
-                  <BarChart3 className="w-3.5 h-3.5" /> Thống kê
-                </Button>
-              </div>
-            </Card>
-          ))}
+        <div className="lg:col-span-7">
+          {!selectedSet ? (
+            <div className="bg-white rounded-xl border border-slate-200 shadow-soft flex flex-col items-center justify-center p-12 text-center text-slate-400 space-y-3">
+              <ClipboardList className="w-12 h-12 text-slate-300" />
+              <p className="text-xs text-slate-400">Chọn 1 Bộ video bên trái để xem chi tiết, hoặc tạo Bộ mới.</p>
+            </div>
+          ) : (
+            <SetDetailPanel
+              set={selectedSet}
+              showToast={showToast}
+              onUpdated={(updated) => setVideoSets((prev) => prev.map((s) => (s.id === updated.id ? updated : s)))}
+            />
+          )}
         </div>
-      )}
+      </div>
 
       {showCreateForm && (
         <CreateSetModal
-          scopeType={scopeType}
-          classId={localClassId}
-          curriculumId={selectedCurriculumId}
-          curriculumIdForSubjects={effectiveCurriculumId}
+          curriculums={curriculums}
           onClose={() => setShowCreateForm(false)}
-          onCreated={() => {
-            setShowCreateForm(false);
+          onCreated={(set) => {
             loadSets();
-            showToast("Đã tạo bộ video ôn tập thành công!");
+            setSelectedSetId(set.id);
+            showToast("Đã tạo Bộ video thành công!");
           }}
         />
       )}
-
-      {editingSet && (
-        <EditSetModal
-          set={editingSet}
-          curriculumIdForSubjects={editingSet.curriculumId ?? classes.find((c) => c.id === editingSet.classId)?.curriculumId ?? null}
-          onClose={() => setEditingSet(null)}
-          onSaved={() => {
-            setEditingSet(null);
-            loadSets();
-            showToast("Đã lưu bộ video ôn tập thành công!");
-          }}
-        />
-      )}
-
-      {videosSet && <VideosModal set={videosSet} onClose={() => setVideosSet(null)} />}
-
-      {statsSet && <StatsModal set={statsSet} classes={classes} onClose={() => setStatsSet(null)} />}
 
       <Toast message={toastMessage} />
     </div>
   );
 }
 
+function SetDetailPanel({
+  set,
+  showToast,
+  onUpdated
+}: {
+  set: ReviewVideoSetResponse;
+  showToast: (msg: string) => void;
+  onUpdated: (set: ReviewVideoSetResponse) => void;
+}) {
+  const [editingSet, setEditingSet] = useState(false);
+  const [videosOpen, setVideosOpen] = useState(false);
+  const [statsOpen, setStatsOpen] = useState(false);
+  const [assignClassOpen, setAssignClassOpen] = useState(false);
+  const [assignedClassCount, setAssignedClassCount] = useState<number | null>(null);
+
+  const loadAssignedClassCount = () => {
+    listReviewVideoSetAssignedClasses(set.id).then((cls) => setAssignedClassCount(cls.length)).catch(() => undefined);
+  };
+
+  useEffect(() => {
+    loadAssignedClassCount();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [set.id]);
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden">
+      <div className="px-5 py-4 border-b border-slate-100 bg-slate-50 space-y-3">
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <p className="text-sm font-bold text-slate-800">{set.title}</p>
+            <p className="text-[10px] text-slate-400 font-mono mt-0.5">{set.code} · {set.curriculumCode}</p>
+          </div>
+          <Badge variant={statusVariants[set.status]}>{statusLabels[set.status]}</Badge>
+        </div>
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <button
+            onClick={() => setAssignClassOpen(true)}
+            className="flex items-center gap-1.5 text-[11px] font-bold text-brand-red hover:underline"
+          >
+            <Users className="w-3.5 h-3.5" />
+            {assignedClassCount == null ? "Đã gán ... lớp" : `Đã gán ${assignedClassCount} lớp`} — quản lý
+          </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button size="sm" variant="secondary" onClick={() => setVideosOpen(true)}>
+              <Upload className="w-3.5 h-3.5" /> Video
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => setEditingSet(true)}>
+              Sửa
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => setStatsOpen(true)}>
+              <BarChart3 className="w-3.5 h-3.5" /> Thống kê
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {editingSet && (
+        <EditSetModal
+          set={set}
+          onClose={() => setEditingSet(false)}
+          onSaved={(updated) => {
+            setEditingSet(false);
+            onUpdated(updated);
+            showToast("Đã lưu bộ video ôn tập thành công!");
+          }}
+        />
+      )}
+
+      {videosOpen && <VideosModal set={set} onClose={() => setVideosOpen(false)} />}
+
+      {statsOpen && <StatsModal set={set} onClose={() => setStatsOpen(false)} />}
+
+      {assignClassOpen && (
+        <AssignClassModal
+          setId={set.id}
+          onClose={() => {
+            setAssignClassOpen(false);
+            loadAssignedClassCount();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+/** "1 Bộ video sẽ gán được cho nhiều lớp" (V98, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06) — mirror AssignClassModal của Kho đề, toggle gán/gỡ tức thì từng lớp. */
+function AssignClassModal({ setId, onClose }: { setId: number; onClose: () => void }) {
+  const { classes } = useEligibleClasses();
+  const [assignedIds, setAssignedIds] = useState<Set<number>>(new Set());
+  const [loading, setLoading] = useState(true);
+  const [pendingId, setPendingId] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    listReviewVideoSetAssignedClasses(setId)
+      .then((cls) => setAssignedIds(new Set(cls.map((c) => c.id))))
+      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách lớp đã gán."))
+      .finally(() => setLoading(false));
+  }, [setId]);
+
+  const toggle = async (classId: number) => {
+    setError(null);
+    setPendingId(classId);
+    try {
+      if (assignedIds.has(classId)) {
+        await unassignReviewVideoSetFromClass(setId, classId);
+        setAssignedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(classId);
+          return next;
+        });
+      } else {
+        await assignReviewVideoSetToClass(setId, classId);
+        setAssignedIds((prev) => new Set(prev).add(classId));
+      }
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Cập nhật gán lớp thất bại.");
+    } finally {
+      setPendingId(null);
+    }
+  };
+
+  return (
+    <Modal open onClose={onClose} title="Gán Bộ video cho lớp" size="md">
+      <p className="text-[11px] text-slate-500 mb-3">
+        Bộ chỉ hiển thị cho học sinh của các lớp đã gán ở đây — vẫn cần Giáo viên chọn bộ này làm "BTVN buổi sau" ở Nhận xét học
+        viên mới thật sự giao cho học sinh xem.
+      </p>
+      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
+      {loading ? (
+        <p className="text-xs text-slate-500 p-3 text-center">Đang tải...</p>
+      ) : classes.length === 0 ? (
+        <p className="text-xs text-slate-400 italic p-3 text-center">Không có lớp nào để gán.</p>
+      ) : (
+        <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 max-h-72 overflow-y-auto">
+          {classes.map((c) => (
+            <label key={c.id} className="flex items-center gap-2 px-3 py-2 text-xs cursor-pointer hover:bg-slate-50">
+              <input
+                type="checkbox"
+                checked={assignedIds.has(c.id)}
+                disabled={pendingId === c.id}
+                onChange={() => toggle(c.id)}
+              />
+              <span className="flex-1">{c.classCode} — {c.name}</span>
+              {pendingId === c.id && <span className="text-[10px] text-slate-400">Đang lưu...</span>}
+            </label>
+          ))}
+        </div>
+      )}
+      <div className="flex justify-end pt-3">
+        <Button type="button" variant="secondary" size="sm" onClick={onClose}>
+          <X className="w-3.5 h-3.5" />
+          Đóng
+        </Button>
+      </div>
+    </Modal>
+  );
+}
+
 function CreateSetModal({
-  scopeType,
-  classId,
-  curriculumId,
-  curriculumIdForSubjects,
+  curriculums,
   onClose,
   onCreated
 }: {
-  scopeType: "CLASS" | "CURRICULUM";
-  classId: number | null;
-  curriculumId: number | null;
-  curriculumIdForSubjects: number | null;
+  curriculums: CurriculumResponse[];
   onClose: () => void;
-  onCreated: () => void;
+  onCreated: (set: ReviewVideoSetResponse) => void;
 }) {
   const [subjects, setSubjects] = useState<CurriculumSubjectResponse[]>([]);
-  const [form, setForm] = useState({ code: "", title: "", videoType: "CONNECTION" as ReviewVideoType, subjectId: "", displayOrder: "" });
+  const [form, setForm] = useState<{
+    code: string;
+    title: string;
+    videoType: ReviewVideoType;
+    curriculumId: number | "";
+    teacherType: ReviewVideoTeacherType | "";
+    subjectId: string;
+    displayOrder: string;
+  }>({
+    code: "",
+    title: "",
+    videoType: "CONNECTION",
+    curriculumId: curriculums[0]?.id ?? "",
+    teacherType: "",
+    subjectId: "",
+    displayOrder: ""
+  });
   const [content, setContent] = useState<ContentSourceValue>({ sourceType: "R2_VIDEO", fileUrl: "", durationSeconds: null });
   const [connSettings, setConnSettings] = useState<ConnectionThresholdValue>({ completionThresholdPercent: "", requiredViewCount: "" });
   const [pendingQuestions, setPendingQuestions] = useState<PendingReflexQuestion[]>([]);
@@ -768,13 +920,14 @@ function CreateSetModal({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (curriculumIdForSubjects) listCurriculumSubjects(curriculumIdForSubjects).then(setSubjects).catch(() => undefined);
-  }, [curriculumIdForSubjects]);
+    if (form.curriculumId) listCurriculumSubjects(Number(form.curriculumId)).then(setSubjects).catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.curriculumId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.code.trim() || !form.title.trim() || !content.fileUrl.trim() || !content.durationSeconds) {
-      setError("Vui lòng điền mã, tiêu đề, video/audio và chờ dò xong thời lượng.");
+    if (!form.code.trim() || !form.title.trim() || !form.curriculumId || !form.teacherType || !content.fileUrl.trim() || !content.durationSeconds) {
+      setError("Vui lòng điền mã, tiêu đề, chọn Khung chương trình, Loại giáo viên, video/audio và chờ dò xong thời lượng.");
       return;
     }
     if (form.videoType === "REFLEX" && pendingQuestions.length === 0) {
@@ -794,8 +947,8 @@ function CreateSetModal({
         code: form.code.trim(),
         title: form.title.trim(),
         videoType: form.videoType,
-        classId: scopeType === "CLASS" ? classId ?? undefined : undefined,
-        curriculumId: scopeType === "CURRICULUM" ? curriculumId ?? undefined : undefined,
+        curriculumId: Number(form.curriculumId),
+        teacherType: form.teacherType,
         subjectId: form.subjectId ? Number(form.subjectId) : undefined,
         displayOrder: form.displayOrder ? Number(form.displayOrder) : undefined
       };
@@ -835,7 +988,7 @@ function CreateSetModal({
           });
         }
       }
-      onCreated();
+      onCreated(set);
     } catch (err) {
       setError(
         createdVideoId
@@ -882,6 +1035,34 @@ function CreateSetModal({
           <label className={labelClass}>Tiêu đề *</label>
           <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="VD: Unit 1: Greetings and Introduction" className={inputClass} required />
         </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className={labelClass}>Khung chương trình * (chỉ dùng lọc/tìm kiếm)</label>
+            <Select
+              value={form.curriculumId}
+              onChange={(e) => setForm({ ...form, curriculumId: e.target.value ? Number(e.target.value) : "" })}
+              className={inputClass}
+            >
+              <option value="">-- Chọn khung chương trình --</option>
+              {curriculums.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.code} — {c.name}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div>
+            <label className={labelClass}>Loại giáo viên * (dùng lọc khi giao bài)</label>
+            <Select value={form.teacherType} onChange={(e) => setForm({ ...form, teacherType: e.target.value as ReviewVideoTeacherType | "" })} className={inputClass}>
+              <option value="">-- Chọn loại giáo viên --</option>
+              {(Object.keys(reviewVideoTeacherTypeLabels) as ReviewVideoTeacherType[]).map((t) => (
+                <option key={t} value={t}>
+                  {reviewVideoTeacherTypeLabels[t]}
+                </option>
+              ))}
+            </Select>
+          </div>
+        </div>
         <ContentSourceField value={content} onChange={setContent} />
         {form.videoType === "CONNECTION" && (
           <>
@@ -922,18 +1103,17 @@ function CreateSetModal({
 
 function EditSetModal({
   set,
-  curriculumIdForSubjects,
   onClose,
   onSaved
 }: {
   set: ReviewVideoSetResponse;
-  curriculumIdForSubjects: number | null;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (set: ReviewVideoSetResponse) => void;
 }) {
   const [subjects, setSubjects] = useState<CurriculumSubjectResponse[]>([]);
   const [form, setForm] = useState({
     title: set.title,
+    teacherType: set.teacherType,
     subjectId: set.subjectId ? String(set.subjectId) : "",
     displayOrder: String(set.displayOrder),
     status: set.status
@@ -942,8 +1122,8 @@ function EditSetModal({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (curriculumIdForSubjects) listCurriculumSubjects(curriculumIdForSubjects).then(setSubjects).catch(() => undefined);
-  }, [curriculumIdForSubjects]);
+    listCurriculumSubjects(set.curriculumId).then(setSubjects).catch(() => undefined);
+  }, [set.curriculumId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -956,14 +1136,15 @@ function EditSetModal({
     try {
       const request: UpdateReviewVideoSetRequest = {
         title: form.title.trim(),
+        teacherType: form.teacherType,
         subjectId: form.subjectId ? Number(form.subjectId) : undefined,
         displayOrder: form.displayOrder ? Number(form.displayOrder) : undefined,
         status: form.status
       };
-      await updateReviewVideoSet(set.id, request);
-      onSaved();
+      const updated = await updateReviewVideoSet(set.id, request);
+      onSaved(updated);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Cập nhật bộ video ôn tập thất bại — có thể bạn không được phân công giảng dạy lớp/khung này.");
+      setError(err instanceof ApiError ? err.message : "Cập nhật bộ video ôn tập thất bại — có thể bạn không được phân công giảng dạy lớp thuộc khung chương trình này.");
     } finally {
       setSubmitting(false);
     }
@@ -976,6 +1157,16 @@ function EditSetModal({
         <div>
           <label className={labelClass}>Tiêu đề *</label>
           <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className={inputClass} required />
+        </div>
+        <div>
+          <label className={labelClass}>Loại giáo viên * (dùng lọc khi giao bài)</label>
+          <Select value={form.teacherType} onChange={(e) => setForm({ ...form, teacherType: e.target.value as ReviewVideoTeacherType })} className={inputClass}>
+            {(Object.keys(reviewVideoTeacherTypeLabels) as ReviewVideoTeacherType[]).map((t) => (
+              <option key={t} value={t}>
+                {reviewVideoTeacherTypeLabels[t]}
+              </option>
+            ))}
+          </Select>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -1005,9 +1196,10 @@ function EditSetModal({
           <input type="number" value={form.displayOrder} onChange={(e) => setForm({ ...form, displayOrder: e.target.value })} className={inputClass} />
         </div>
         <p className="text-[10px] text-slate-400 italic">
-          Chuyển trạng thái sang "Đã công bố" để đủ điều kiện dùng làm nguồn (chỉ set 1 lần thời điểm công bố) — học sinh CHƯA xem
-          được ngay, chỉ xem sau khi Giáo viên chọn bộ này làm "BTVN buổi sau" ở Nhận xét học viên. Chuyển "Đã gỡ" (ARCHIVED) để gỡ
-          khỏi kho — không xoá hẳn bản ghi.
+          Mã Bộ ({set.code}) và Khung chương trình ({set.curriculumCode}) không sửa được sau khi tạo. Chuyển trạng thái sang "Đã
+          công bố" để đủ điều kiện dùng làm nguồn (chỉ set 1 lần thời điểm công bố) — học sinh CHƯA xem được ngay, chỉ xem sau khi
+          Giáo viên chọn bộ này làm "BTVN buổi sau" ở Nhận xét học viên. Chuyển "Đã gỡ" (ARCHIVED) để gỡ khỏi kho — không xoá hẳn
+          bản ghi.
         </p>
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="secondary" onClick={onClose}>
@@ -1407,27 +1599,35 @@ function VideoMcqQuestionsPanel({ videoId }: { videoId: number }) {
 }
 
 /** UC-23a Main Flow bước 4: ma trận học sinh × video — ghép studentId trong StatsCell với tên/mã học sinh qua listClassEnrollments (BE không trả tên, chỉ trả id). */
+/** V98: bộ không còn "classId cố định" — luôn chọn 1 trong các lớp ĐÃ GÁN tường minh cho bộ (xem AssignClassModal), tải qua listReviewVideoSetAssignedClasses. */
 function StatsModal({
   set,
-  classes,
   onClose
 }: {
   set: ReviewVideoSetResponse;
-  classes: { id: number; classCode: string; name: string; curriculumId: number }[];
   onClose: () => void;
 }) {
-  const classesInCurriculum = set.classId == null ? classes.filter((c) => c.curriculumId === set.curriculumId) : [];
-  const [classId, setClassId] = useState<number | null>(set.classId ?? classesInCurriculum[0]?.id ?? null);
+  const [assignedClasses, setAssignedClasses] = useState<ClassResponse[]>([]);
+  const [classId, setClassId] = useState<number | null>(null);
   const [stats, setStats] = useState<ReviewVideoSetStatsResponse | null>(null);
   const [enrollments, setEnrollments] = useState<ClassEnrollmentResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    listReviewVideoSetAssignedClasses(set.id)
+      .then((cls) => {
+        setAssignedClasses(cls);
+        setClassId(cls[0]?.id ?? null);
+      })
+      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách lớp đã gán."));
+  }, [set.id]);
+
+  useEffect(() => {
     if (!classId) return;
     setLoading(true);
     setError(null);
-    Promise.all([getReviewVideoSetStats(set.id, set.classId == null ? classId : undefined), listClassEnrollments(classId)])
+    Promise.all([getReviewVideoSetStats(set.id, classId), listClassEnrollments(classId)])
       .then(([statsRes, enrollmentRes]) => {
         setStats(statsRes);
         setEnrollments(enrollmentRes.filter((e) => e.status === "ACTIVE"));
@@ -1441,12 +1641,14 @@ function StatsModal({
       <div className="space-y-4">
         {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
-        {set.classId == null && (
+        {assignedClasses.length === 0 ? (
+          <p className="text-xs text-slate-400 italic">Bộ này chưa được gán cho lớp nào — dùng "Đã gán ... lớp" ở chi tiết Bộ để gán trước.</p>
+        ) : (
           <div>
             <label className={labelClass}>Xem thống kê theo lớp *</label>
             <Select value={classId ?? ""} onChange={(e) => setClassId(e.target.value ? Number(e.target.value) : null)} className={`${inputClass} w-64`}>
               <option value="">-- Chọn lớp --</option>
-              {classesInCurriculum.map((c) => (
+              {assignedClasses.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.classCode} — {c.name}
                 </option>

@@ -39,7 +39,6 @@ import vn.com.pps.education.dto.SubmitConnectionAnswersRequest;
 import vn.com.pps.education.dto.SubmitReviewVideoAudioRequest;
 import vn.com.pps.education.dto.UpdateCurriculumRequest;
 import vn.com.pps.education.dto.UpdateReviewVideoSetRequest;
-import vn.com.pps.education.exception.InvalidReviewVideoSetScopeException;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
 import vn.com.pps.education.exception.QuizAlreadyCompletedException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
@@ -71,6 +70,15 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * UC-23b: Nộp & Chấm điểm Audio cho Video Phản xạ — Main Flow, A1 (video
  * không phải REFLEX), A2 (học sinh ngoài phạm vi), A3 (giáo viên không
  * phụ trách), A4 (chấm bài không tồn tại), A5 (nộp lại xoá điểm cũ).
+ *
+ * V98 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06): mô
+ * hình gán lớp đổi giống hệt Kho đề (mirror ExamServiceTest) — curriculum
+ * trên "bộ" giờ CHỈ dùng lọc/tìm kiếm (createSet không còn nhận classId),
+ * điều kiện hiển thị DUY NHẤT cho học sinh của 1 lớp là
+ * ReviewVideoSetClassAssignment (gán tường minh qua assignToClass/
+ * unassignFromClass) — các test cũ về "bộ riêng lớp" XOR "bộ chung khung
+ * tự động hiển thị" (InvalidReviewVideoSetScopeException) được thay bằng
+ * test cho assignToClass/unassignFromClass/listAssignedClasses/listSets.
  */
 @Transactional
 class ReviewVideoServiceTest extends AbstractIntegrationTest {
@@ -129,53 +137,47 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
                 new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now()), headAcademic.getId());
     }
 
+    // ===================== createSet (UC-23) =====================
+
     @Test
-    void createSet_UC23_MainFlow_savesClassScopedSetAsDraft() {
+    void createSet_UC23_MainFlow_savesSetWithCurriculumForFiltering() {
         ReviewVideoSetResponse set = reviewVideoService.createSet(
-                new CreateReviewVideoSetRequest(setCode(), "Video TKN Unit 1", "CONNECTION", null, schoolClass.id(), null, 1),
+                new CreateReviewVideoSetRequest(setCode(), "Video TKN Unit 1", "CONNECTION", activeCurriculum.id(), "VIETNAMESE", null, 1),
                 teacher.getId());
 
         assertThat(set.status()).isEqualTo("DRAFT");
         assertThat(set.videoType()).isEqualTo("CONNECTION");
-        assertThat(set.classId()).isEqualTo(schoolClass.id());
-        assertThat(set.curriculumId()).isNull();
+        assertThat(set.curriculumId()).isEqualTo(activeCurriculum.id());
+        assertThat(set.curriculumCode()).isEqualTo(activeCurriculum.code());
+        assertThat(set.teacherType()).isEqualTo("VIETNAMESE");
     }
 
+    /** V98, mirror createExam_boSung_savesTeacherTypeAndExamType: teacherType bắt buộc chọn 1 trong 2, lưu đúng vào Bộ. */
     @Test
-    void createSet_UC23_MainFlow_savesCurriculumScopedSharedSet() {
+    void createSet_boSung_savesTeacherType() {
         ReviewVideoSetResponse set = reviewVideoService.createSet(
-                new CreateReviewVideoSetRequest(setCode(), "Video phản xạ chung", "REFLEX", activeCurriculum.id(), null, null, 1),
+                new CreateReviewVideoSetRequest(setCode(), "Video phản xạ GV nước ngoài", "REFLEX", activeCurriculum.id(), "FOREIGN", null, 1),
                 teacher.getId());
 
-        assertThat(set.curriculumId()).isEqualTo(activeCurriculum.id());
-        assertThat(set.classId()).isNull();
+        assertThat(set.teacherType()).isEqualTo("FOREIGN");
+        assertThat(set.videoType()).isEqualTo("REFLEX");
     }
 
     @Test
-    void createSet_UC23_A_rejectsWhenBothScopesGiven() {
+    void createSet_boSung_rejectsInvalidTeacherType() {
         assertThatThrownBy(() -> reviewVideoService.createSet(
-                new CreateReviewVideoSetRequest(setCode(), "X", "CONNECTION", activeCurriculum.id(), schoolClass.id(), null, null),
+                new CreateReviewVideoSetRequest(setCode(), "X", "CONNECTION", activeCurriculum.id(), "KHONG_HOP_LE", null, null),
                 teacher.getId()))
-                .isInstanceOf(InvalidReviewVideoSetScopeException.class);
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
+    /** V98: curriculumId giờ bắt buộc (@NotNull ở DTO) VÀ service tự tra cứu — id không tồn tại thì 404, không tạo được bộ "vô chủ". */
     @Test
-    void createSet_UC23_A_rejectsWhenNoScopeGiven() {
+    void createSet_rejectsWhenCurriculumNotFound() {
         assertThatThrownBy(() -> reviewVideoService.createSet(
-                new CreateReviewVideoSetRequest(setCode(), "X", "CONNECTION", null, null, null, null),
+                new CreateReviewVideoSetRequest(setCode(), "X", "CONNECTION", 999_999L, "VIETNAMESE", null, null),
                 teacher.getId()))
-                .isInstanceOf(InvalidReviewVideoSetScopeException.class);
-    }
-
-    @Test
-    void createSet_rejectsWhenActorNotAssignedTeacherForClass() {
-        User outsider = newUser("outsider.teacher");
-        assignRole(outsider, "TEACHER");
-
-        assertThatThrownBy(() -> reviewVideoService.createSet(
-                new CreateReviewVideoSetRequest(setCode(), "X", "CONNECTION", null, schoolClass.id(), null, null),
-                outsider.getId()))
-                .isInstanceOf(NotAssignedTeacherForClassException.class);
+                .isInstanceOf(ResourceNotFoundException.class);
     }
 
     @Test
@@ -184,43 +186,58 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         assignRole(outsider, "TEACHER");
 
         assertThatThrownBy(() -> reviewVideoService.createSet(
-                new CreateReviewVideoSetRequest(setCode(), "X", "REFLEX", activeCurriculum.id(), null, null, null),
+                new CreateReviewVideoSetRequest(setCode(), "X", "REFLEX", activeCurriculum.id(), "VIETNAMESE", null, null),
                 outsider.getId()))
                 .isInstanceOf(NotAssignedTeacherForClassException.class);
     }
 
+    // ===================== updateSet (UC-23) =====================
+
     @Test
     void updateSet_UC23_MainFlow_publishingSetsPublishedAtOnce() {
-        ReviewVideoSetResponse set = createClassScopedSet();
+        ReviewVideoSetResponse set = createSet();
 
         ReviewVideoSetResponse published = reviewVideoService.updateSet(set.id(),
-                new UpdateReviewVideoSetRequest(set.title(), null, 1, "PUBLISHED"), teacher.getId());
+                new UpdateReviewVideoSetRequest(set.title(), "VIETNAMESE", null, 1, "PUBLISHED"), teacher.getId());
         var firstPublishedAt = published.publishedAt();
 
         ReviewVideoSetResponse republished = reviewVideoService.updateSet(set.id(),
-                new UpdateReviewVideoSetRequest("Đổi tiêu đề", null, 1, "PUBLISHED"), teacher.getId());
+                new UpdateReviewVideoSetRequest("Đổi tiêu đề", "VIETNAMESE", null, 1, "PUBLISHED"), teacher.getId());
 
         assertThat(published.status()).isEqualTo("PUBLISHED");
         assertThat(firstPublishedAt).isNotNull();
         assertThat(republished.publishedAt()).isEqualTo(firstPublishedAt);
     }
 
+    /** V98, mirror updateExam_boSung_changesTeacherTypeAndExamTypeAlongWithTitle: teacherType sửa được cùng lúc với title. */
+    @Test
+    void updateSet_boSung_changesTeacherTypeAlongWithTitle() {
+        ReviewVideoSetResponse set = createSet();
+
+        ReviewVideoSetResponse updated = reviewVideoService.updateSet(set.id(),
+                new UpdateReviewVideoSetRequest("Tên mới", "FOREIGN", null, 1, "DRAFT"), teacher.getId());
+
+        assertThat(updated.title()).isEqualTo("Tên mới");
+        assertThat(updated.teacherType()).isEqualTo("FOREIGN");
+    }
+
     @Test
     void updateSet_UC23_MainFlow_archivingDoesNotHardDelete() {
-        ReviewVideoSetResponse set = createClassScopedSet();
+        ReviewVideoSetResponse set = createSet();
+        reviewVideoService.assignToClass(set.id(), schoolClass.id(), teacher.getId());
 
         ReviewVideoSetResponse archived = reviewVideoService.updateSet(set.id(),
-                new UpdateReviewVideoSetRequest(set.title(), null, 1, "ARCHIVED"), teacher.getId());
+                new UpdateReviewVideoSetRequest(set.title(), "VIETNAMESE", null, 1, "ARCHIVED"), teacher.getId());
 
         assertThat(archived.status()).isEqualTo("ARCHIVED");
-        // Postcondition: soft-remove, không xóa cứng -- bản ghi vẫn tồn tại và đọc lại được.
+        // Postcondition: soft-remove, không xóa cứng -- bản ghi vẫn tồn tại và đọc lại được (GV vẫn thấy qua listByClass).
         assertThat(reviewVideoService.listByClass(schoolClass.id(), teacher.getId()))
                 .extracting(ReviewVideoSetResponse::id).contains(archived.id());
     }
 
     @Test
     void addVideo_UC23_MainFlow_savesSourceTypeAndDuration() {
-        ReviewVideoSetResponse set = createClassScopedSet();
+        ReviewVideoSetResponse set = createSet();
 
         ReviewVideoResponse youtube = reviewVideoService.addVideo(set.id(),
                 new AddReviewVideoRequest("YOUTUBE_URL", "Video TKN 1", "https://youtube.com/watch?v=abc123", null, 180, 1, null, null),
@@ -241,28 +258,133 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         assertThat(videos).extracting(ReviewVideoResponse::id).contains(youtube.id(), r2Video.id(), r2Audio.id());
     }
 
+    // ===================== listSets (V98, mirror ExamService#listExams) =====================
+
     @Test
-    void listByClass_UC23a_MainFlow_includesCurriculumWideSetsViaOrLogic() {
-        ReviewVideoSetResponse classScoped = reviewVideoService.createSet(
-                new CreateReviewVideoSetRequest(setCode(), "Bộ riêng lớp", "CONNECTION", null, schoolClass.id(), null, 1),
+    void listSets_UC95_MainFlow_filtersByCurriculum() {
+        ReviewVideoSetResponse setA = createSet();
+        CurriculumResponse curriculumB = createActiveCurriculum();
+        newClassUnderCurriculum(curriculumB.id());
+        ReviewVideoSetResponse setB = reviewVideoService.createSet(
+                new CreateReviewVideoSetRequest(setCode(), "Bộ khung B", "CONNECTION", curriculumB.id(), "VIETNAMESE", null, 1),
                 teacher.getId());
-        reviewVideoService.updateSet(classScoped.id(), new UpdateReviewVideoSetRequest(classScoped.title(), null, 1, "PUBLISHED"), teacher.getId());
-        reviewVideoService.deliverToClass(classScoped.id(), schoolClass.id(), null, teacher.getId());
-        ReviewVideoSetResponse curriculumScoped = reviewVideoService.createSet(
-                new CreateReviewVideoSetRequest(setCode(), "Bộ chung khung", "REFLEX", activeCurriculum.id(), null, null, 2),
+
+        List<ReviewVideoSetResponse> filtered = reviewVideoService.listSets(activeCurriculum.id(), null, teacher.getId());
+
+        assertThat(filtered).extracting(ReviewVideoSetResponse::id).contains(setA.id()).doesNotContain(setB.id());
+    }
+
+    @Test
+    void listSets_boSung_returnsAllWhenFiltersOmitted() {
+        ReviewVideoSetResponse setA = createSet();
+
+        List<ReviewVideoSetResponse> all = reviewVideoService.listSets(null, null, teacher.getId());
+
+        assertThat(all).extracting(ReviewVideoSetResponse::id).contains(setA.id());
+    }
+
+    @Test
+    void listSets_boSung_filtersByTeacherType() {
+        ReviewVideoSetResponse setVn = createSet();
+        ReviewVideoSetResponse setForeign = reviewVideoService.createSet(
+                new CreateReviewVideoSetRequest(setCode(), "Bộ GV nước ngoài", "CONNECTION", activeCurriculum.id(), "FOREIGN", null, 1),
                 teacher.getId());
-        reviewVideoService.updateSet(curriculumScoped.id(), new UpdateReviewVideoSetRequest(curriculumScoped.title(), null, 2, "PUBLISHED"), teacher.getId());
-        reviewVideoService.deliverToClass(curriculumScoped.id(), schoolClass.id(), null, teacher.getId());
-        Student student = enrollStudent(schoolClass.id());
 
-        List<ReviewVideoSetResponse> visible = reviewVideoService.listByClass(schoolClass.id(), student.getUser().getId());
+        List<ReviewVideoSetResponse> filtered = reviewVideoService.listSets(null, "FOREIGN", teacher.getId());
 
-        assertThat(visible).extracting(ReviewVideoSetResponse::id).contains(classScoped.id(), curriculumScoped.id());
+        assertThat(filtered).extracting(ReviewVideoSetResponse::id).contains(setForeign.id()).doesNotContain(setVn.id());
+    }
+
+    @Test
+    void listSets_boSung_filtersByCurriculumAndTeacherTypeCombined() {
+        ReviewVideoSetResponse matching = reviewVideoService.createSet(
+                new CreateReviewVideoSetRequest(setCode(), "Khớp cả 2", "CONNECTION", activeCurriculum.id(), "FOREIGN", null, 1),
+                teacher.getId());
+        ReviewVideoSetResponse wrongTeacherType = createSet();
+
+        List<ReviewVideoSetResponse> filtered = reviewVideoService.listSets(activeCurriculum.id(), "FOREIGN", teacher.getId());
+
+        assertThat(filtered).extracting(ReviewVideoSetResponse::id).contains(matching.id()).doesNotContain(wrongTeacherType.id());
+    }
+
+    // ===================== assignToClass / unassignFromClass / listAssignedClasses (V98, mirror ExamService) =====================
+
+    @Test
+    void assignToClass_UC95_MainFlow_addsClassVisibility() {
+        ReviewVideoSetResponse set = createSet();
+
+        reviewVideoService.assignToClass(set.id(), schoolClass.id(), teacher.getId());
+
+        assertThat(reviewVideoService.listAssignedClasses(set.id(), teacher.getId()))
+                .extracting(ClassResponse::id).containsExactly(schoolClass.id());
+    }
+
+    @Test
+    void assignToClass_rejectsWhenActorNotAssignedTeacherForClass() {
+        User outsider = newUser("outsider.teacher");
+        assignRole(outsider, "TEACHER");
+        ReviewVideoSetResponse set = createSet();
+
+        assertThatThrownBy(() -> reviewVideoService.assignToClass(set.id(), schoolClass.id(), outsider.getId()))
+                .isInstanceOf(NotAssignedTeacherForClassException.class);
+    }
+
+    /** Idempotent: gán lại lớp đã gán rồi không lỗi, không tạo dòng trùng (mirror ExamServiceTest). */
+    @Test
+    void assignToClass_boSung_isIdempotentWhenAlreadyAssigned() {
+        ReviewVideoSetResponse set = createSet();
+
+        reviewVideoService.assignToClass(set.id(), schoolClass.id(), teacher.getId());
+        reviewVideoService.assignToClass(set.id(), schoolClass.id(), teacher.getId());
+
+        assertThat(reviewVideoService.listAssignedClasses(set.id(), teacher.getId())).hasSize(1);
+    }
+
+    @Test
+    void unassignFromClass_UC95_MainFlow_removesClassAssignment() {
+        ReviewVideoSetResponse set = createSet();
+        reviewVideoService.assignToClass(set.id(), schoolClass.id(), teacher.getId());
+
+        reviewVideoService.unassignFromClass(set.id(), schoolClass.id(), teacher.getId());
+
+        assertThat(reviewVideoService.listAssignedClasses(set.id(), teacher.getId())).isEmpty();
+    }
+
+    // ===================== listByClass (UC-23a) =====================
+
+    @Test
+    void listByClass_UC95_MainFlow_showsOnlySetsExplicitlyAssignedToClass() {
+        ReviewVideoSetResponse assignedSet = createSet();
+        reviewVideoService.assignToClass(assignedSet.id(), schoolClass.id(), teacher.getId());
+        ReviewVideoSetResponse notAssignedSet = createSet(); // cùng khung chương trình nhưng chưa gán lớp nào
+
+        List<ReviewVideoSetResponse> visible = reviewVideoService.listByClass(schoolClass.id(), teacher.getId());
+
+        assertThat(visible).extracting(ReviewVideoSetResponse::id)
+                .contains(assignedSet.id())
+                .doesNotContain(notAssignedSet.id());
+    }
+
+    /**
+     * V98: khác hành vi CŨ (curriculum dùng chung tự động hiển thị mọi lớp) — nay curriculum CHỈ
+     * dùng lọc/tìm kiếm, 1 lớp khác dưới CÙNG khung chương trình KHÔNG tự thấy bộ nếu chưa được
+     * assignToClass tường minh cho ĐÚNG lớp đó.
+     */
+    @Test
+    void listByClass_UC95_A_excludesSetsAssignedOnlyToAnotherClassUnderSameCurriculum() {
+        ClassResponse otherClass = newClassUnderCurriculum(activeCurriculum.id());
+        ReviewVideoSetResponse set = createSet();
+        reviewVideoService.assignToClass(set.id(), schoolClass.id(), teacher.getId());
+
+        List<ReviewVideoSetResponse> visibleToOtherClass = reviewVideoService.listByClass(otherClass.id(), teacher.getId());
+
+        assertThat(visibleToOtherClass).extracting(ReviewVideoSetResponse::id).doesNotContain(set.id());
     }
 
     @Test
     void listByClass_UC23a_MainFlow_studentOnlySeesPublishedSets() {
-        ReviewVideoSetResponse draft = createClassScopedSet();
+        ReviewVideoSetResponse draft = createSet();
+        reviewVideoService.assignToClass(draft.id(), schoolClass.id(), teacher.getId());
         Student student = enrollStudent(schoolClass.id());
 
         List<ReviewVideoSetResponse> visibleToStudent = reviewVideoService.listByClass(schoolClass.id(), student.getUser().getId());
@@ -283,8 +405,8 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
 
     @Test
     void listVideos_UC23a_A2_rejectsWhenStudentOutsideScope() {
-        ReviewVideoSetResponse set = createClassScopedSet();
-        reviewVideoService.updateSet(set.id(), new UpdateReviewVideoSetRequest(set.title(), null, 1, "PUBLISHED"), teacher.getId());
+        ReviewVideoSetResponse set = createSet();
+        reviewVideoService.updateSet(set.id(), new UpdateReviewVideoSetRequest(set.title(), "VIETNAMESE", null, 1, "PUBLISHED"), teacher.getId());
         User outsiderStudentUser = newUser("student.outsider2");
         newStudent(outsiderStudentUser);
 
@@ -362,8 +484,11 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
     @Test
     void reportProgress_UC59_MainFlow_sessionsForDifferentVideosTrackIndependently() {
         ReviewVideoResponse videoA = createPublishedSetWithVideo(100);
-        ReviewVideoSetResponse setB = createClassScopedSet();
-        reviewVideoService.updateSet(setB.id(), new UpdateReviewVideoSetRequest(setB.title(), null, 1, "PUBLISHED"), teacher.getId());
+        ReviewVideoSetResponse setB = createSet();
+        reviewVideoService.assignToClass(setB.id(), schoolClass.id(), teacher.getId());
+        reviewVideoService.updateSet(setB.id(), new UpdateReviewVideoSetRequest(setB.title(), "VIETNAMESE", null, 1, "PUBLISHED"), teacher.getId());
+        // V71: deliverToClass dùng PROPAGATION_REQUIRES_NEW — phải commit set vừa tạo trước.
+        commitCurrentTransactionAndStartNew();
         reviewVideoService.deliverToClass(setB.id(), schoolClass.id(), null, teacher.getId());
         ReviewVideoResponse videoB = reviewVideoService.addVideo(setB.id(),
                 new AddReviewVideoRequest("R2_VIDEO", "Video B", "https://media.pps.edu.vn/lms/review-videos/video/b.mp4", 1_000_000L, 100, 1, null, null),
@@ -418,12 +543,19 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void getStats_UC23a_A_requiresClassIdForCurriculumScopedSet() {
-        ReviewVideoSetResponse set = reviewVideoService.createSet(
-                new CreateReviewVideoSetRequest(setCode(), "Bộ chung khung", "REFLEX", activeCurriculum.id(), null, null, 1),
-                teacher.getId());
+    void getStats_A_rejectsWhenClassIdNotProvided() {
+        ReviewVideoSetResponse set = createSet();
 
         assertThatThrownBy(() -> reviewVideoService.getStats(set.id(), null, teacher.getId()))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    /** V98: classId truyền vào phải là 1 lớp ĐÃ được gán tường minh cho bộ (ReviewVideoSetClassAssignment), không chỉ cần cùng khung chương trình. */
+    @Test
+    void getStats_A_rejectsWhenClassNotAssignedToSet() {
+        ReviewVideoSetResponse set = createSet(); // curriculum đúng nhưng chưa assignToClass cho lớp nào
+
+        assertThatThrownBy(() -> reviewVideoService.getStats(set.id(), schoolClass.id(), teacher.getId()))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -626,6 +758,21 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
     }
 
     /**
+     * V98: bộ đã Publish nhưng CHƯA assignToClass cho lớp nào — không giao (deliverToClass) được cho
+     * lớp đó, dù teacher phụ trách đúng lớp. Precondition MỚI, không tồn tại trước V98 (trước đây
+     * curriculum dùng chung hoặc classId lúc tạo là đủ).
+     */
+    @Test
+    void deliverToClass_UC95_A_rejectsWhenSetNotAssignedToClass() {
+        ReviewVideoSetResponse set = createSet();
+        reviewVideoService.updateSet(set.id(), new UpdateReviewVideoSetRequest(set.title(), "VIETNAMESE", null, 1, "PUBLISHED"), teacher.getId());
+        commitCurrentTransactionAndStartNew();
+
+        assertThatThrownBy(() -> reviewVideoService.deliverToClass(set.id(), schoolClass.id(), null, teacher.getId()))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    /**
      * V69 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31) —
      * fix bug thật: "Đã nộp bài" hiện sai khi giao lại đúng bộ REFLEX cho
      * lớp đã từng làm rồi (VD buổi 3 giao, học sinh đã trả lời xong; buổi
@@ -683,8 +830,11 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
      */
     @Test
     void deliverToClass_V69_MainFlow_cancelsPreviousActiveAssignmentForSameSetAndClass() {
-        ReviewVideoSetResponse set = createClassScopedSet();
-        reviewVideoService.updateSet(set.id(), new UpdateReviewVideoSetRequest(set.title(), null, 1, "PUBLISHED"), teacher.getId());
+        ReviewVideoSetResponse set = createSet();
+        reviewVideoService.assignToClass(set.id(), schoolClass.id(), teacher.getId());
+        reviewVideoService.updateSet(set.id(), new UpdateReviewVideoSetRequest(set.title(), "VIETNAMESE", null, 1, "PUBLISHED"), teacher.getId());
+        // V71: deliverToClass dùng PROPAGATION_REQUIRES_NEW — phải commit set vừa tạo trước.
+        commitCurrentTransactionAndStartNew();
 
         ReviewVideoAssignment first = reviewVideoService.deliverToClass(set.id(), schoolClass.id(), OffsetDateTime.now().plusDays(3), teacher.getId());
         ReviewVideoAssignment second = reviewVideoService.deliverToClass(set.id(), schoolClass.id(), OffsetDateTime.now().plusDays(7), teacher.getId());
@@ -704,10 +854,13 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
      */
     @Test
     void deliverToClass_V70_boSung_reusesExistingAssignmentForSameSessionInsteadOfDuplicating() {
-        ReviewVideoSetResponse set = createClassScopedSet();
-        reviewVideoService.updateSet(set.id(), new UpdateReviewVideoSetRequest(set.title(), null, 1, "PUBLISHED"), teacher.getId());
+        ReviewVideoSetResponse set = createSet();
+        reviewVideoService.assignToClass(set.id(), schoolClass.id(), teacher.getId());
+        reviewVideoService.updateSet(set.id(), new UpdateReviewVideoSetRequest(set.title(), "VIETNAMESE", null, 1, "PUBLISHED"), teacher.getId());
         Student student = enrollStudent(schoolClass.id());
         OffsetDateTime dueAt = OffsetDateTime.now().plusDays(2);
+        // V71: deliverToClass dùng PROPAGATION_REQUIRES_NEW — phải commit set vừa tạo trước.
+        commitCurrentTransactionAndStartNew();
 
         // Mô phỏng N=3 request riêng biệt (3 học sinh khác nhau CÙNG chọn video này CÙNG buổi).
         ReviewVideoAssignment first = reviewVideoService.deliverToClass(set.id(), schoolClass.id(), dueAt, teacher.getId());
@@ -748,8 +901,8 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
     @Test
     void listMyAssignments_boSung_A_returnsEmptyWhenSetPublishedButNotYetDelivered() {
         Student student = enrollStudent(schoolClass.id());
-        ReviewVideoSetResponse set = createClassScopedSet();
-        reviewVideoService.updateSet(set.id(), new UpdateReviewVideoSetRequest(set.title(), null, 1, "PUBLISHED"), teacher.getId());
+        ReviewVideoSetResponse set = createSet();
+        reviewVideoService.updateSet(set.id(), new UpdateReviewVideoSetRequest(set.title(), "VIETNAMESE", null, 1, "PUBLISHED"), teacher.getId());
 
         List<MyReviewVideoAssignmentResponse> mine = reviewVideoService.listMyAssignments(student.getUser().getId(), null);
 
@@ -764,7 +917,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
      */
     @Test
     void addConnectionQuestion_MainFlow_savesQuestionWithChoices() {
-        ReviewVideoSetResponse set = createClassScopedSet();
+        ReviewVideoSetResponse set = createSet();
         ReviewVideoResponse video = reviewVideoService.addVideo(set.id(),
                 new AddReviewVideoRequest("R2_VIDEO", "Video", "https://media.pps.edu.vn/lms/review-videos/video/x.mp4",
                         1_000_000L, 100, 1, null, null),
@@ -868,14 +1021,14 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
 
     @Test
     void updateSet_A_rejectsPublishWhenConnectionVideoMissingQuestions() {
-        ReviewVideoSetResponse set = createClassScopedSet();
+        ReviewVideoSetResponse set = createSet();
         reviewVideoService.addVideo(set.id(),
                 new AddReviewVideoRequest("R2_VIDEO", "Video", "https://media.pps.edu.vn/lms/review-videos/video/x.mp4",
                         1_000_000L, 100, 1, null, null),
                 teacher.getId());
 
         assertThatThrownBy(() -> reviewVideoService.updateSet(set.id(),
-                new UpdateReviewVideoSetRequest(set.title(), null, 1, "PUBLISHED"), teacher.getId()))
+                new UpdateReviewVideoSetRequest(set.title(), "VIETNAMESE", null, 1, "PUBLISHED"), teacher.getId()))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -889,14 +1042,19 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
      * Publish giờ chỉ là "đủ điều kiện dùng làm nguồn" — học sinh chỉ xem/
      * làm được khi có thêm 1 ReviewVideoAssignment ACTIVE cho lớp (giao
      * qua deliverToClass, bình thường gọi TỪ StudentCommentService khi GV
-     * chọn làm "BTVN buổi sau"). Test gọi thẳng deliverToClass ở đây để mô
-     * phỏng "đã được giao" mà không cần dựng lại toàn bộ luồng nhận xét.
+     * chọn làm "BTVN buổi sau"). V98: deliverToClass giờ ĐÒI HỎI bộ đã
+     * được assignToClass tường minh cho lớp đó trước — gọi assignToClass ở
+     * đây trước khi publish/deliver, mô phỏng "đã được giao" mà không cần
+     * dựng lại toàn bộ luồng nhận xét.
      */
     private ReviewVideoResponse createPublishedReflexSetWithVideo(int durationSeconds) {
         ReviewVideoSetResponse set = reviewVideoService.createSet(
-                new CreateReviewVideoSetRequest(setCode(), "Bài 1: Video phản xạ", "REFLEX", null, schoolClass.id(), null, 1),
+                new CreateReviewVideoSetRequest(setCode(), "Bài 1: Video phản xạ", "REFLEX", activeCurriculum.id(), "VIETNAMESE", null, 1),
                 teacher.getId());
-        reviewVideoService.updateSet(set.id(), new UpdateReviewVideoSetRequest(set.title(), null, 1, "PUBLISHED"), teacher.getId());
+        reviewVideoService.assignToClass(set.id(), schoolClass.id(), teacher.getId());
+        reviewVideoService.updateSet(set.id(), new UpdateReviewVideoSetRequest(set.title(), "VIETNAMESE", null, 1, "PUBLISHED"), teacher.getId());
+        // V71: deliverToClass dùng PROPAGATION_REQUIRES_NEW — phải commit set vừa tạo trước.
+        commitCurrentTransactionAndStartNew();
         reviewVideoService.deliverToClass(set.id(), schoolClass.id(), null, teacher.getId());
         return reviewVideoService.addVideo(set.id(),
                 new AddReviewVideoRequest("R2_AUDIO", "Audio", "https://media.pps.edu.vn/lms/review-videos/audio/x.mp3", 1_000_000L, durationSeconds, 1, null, null),
@@ -907,10 +1065,13 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         return createPublishedSetWithVideo(durationSeconds, null, null);
     }
 
-    /** V65: xem Javadoc createPublishedReflexSetWithVideo — publish + deliverToClass để học sinh xem/làm được. */
+    /** V98: xem Javadoc createPublishedReflexSetWithVideo — assignToClass + publish + deliverToClass để học sinh xem/làm được. */
     private ReviewVideoResponse createPublishedSetWithVideo(int durationSeconds, Integer completionThresholdPercent, Integer requiredViewCount) {
-        ReviewVideoSetResponse set = createClassScopedSet();
-        reviewVideoService.updateSet(set.id(), new UpdateReviewVideoSetRequest(set.title(), null, 1, "PUBLISHED"), teacher.getId());
+        ReviewVideoSetResponse set = createSet();
+        reviewVideoService.assignToClass(set.id(), schoolClass.id(), teacher.getId());
+        reviewVideoService.updateSet(set.id(), new UpdateReviewVideoSetRequest(set.title(), "VIETNAMESE", null, 1, "PUBLISHED"), teacher.getId());
+        // V71: deliverToClass dùng PROPAGATION_REQUIRES_NEW — phải commit set vừa tạo trước.
+        commitCurrentTransactionAndStartNew();
         reviewVideoService.deliverToClass(set.id(), schoolClass.id(), null, teacher.getId());
         return reviewVideoService.addVideo(set.id(),
                 new AddReviewVideoRequest("R2_VIDEO", "Video", "https://media.pps.edu.vn/lms/review-videos/video/x.mp4", 1_000_000L,
@@ -918,10 +1079,28 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
                 teacher.getId());
     }
 
-    private ReviewVideoSetResponse createClassScopedSet() {
+    /** V98: tạo "bộ" trơn — curriculum bắt buộc + teacherType mặc định VIETNAMESE, CHƯA gán lớp nào (gán qua assignToClass riêng khi cần). */
+    private ReviewVideoSetResponse createSet() {
         return reviewVideoService.createSet(
-                new CreateReviewVideoSetRequest(setCode(), "Bài 1: Video TKN", "CONNECTION", null, schoolClass.id(), null, 1),
+                new CreateReviewVideoSetRequest(setCode(), "Bài 1: Video TKN", "CONNECTION", activeCurriculum.id(), "VIETNAMESE", null, 1),
                 teacher.getId());
+    }
+
+    private CurriculumResponse createActiveCurriculum() {
+        CurriculumResponse raw = curriculumService.create(
+                new CreateCurriculumRequest(curriculumCode(), "Khung khác", "MAIN", null, null, null), headAcademic.getId());
+        return curriculumService.update(raw.id(),
+                new UpdateCurriculumRequest("Khung khác", null, null, null, "ACTIVE", false), headAcademic.getId());
+    }
+
+    /** Tạo 1 lớp mới dưới khung chương trình cho trước + gán `teacher` (fixture) làm GV chủ nhiệm — dùng cho test cần lớp thứ 2. */
+    private ClassResponse newClassUnderCurriculum(Long curriculumId) {
+        ClassResponse cls = classService.create(
+                new CreateClassRequest(classCode(), "Lớp phụ", newSite().getId(), curriculumId, "OPEN", 20, null,
+                        LocalDate.now(), null, null), headAcademic.getId());
+        classService.assignTeacher(cls.id(),
+                new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now()), headAcademic.getId());
+        return cls;
     }
 
     private Long startSession(Long videoId, Long actorUserId) {

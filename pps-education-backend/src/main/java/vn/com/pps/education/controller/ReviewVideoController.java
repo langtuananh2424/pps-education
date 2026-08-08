@@ -11,9 +11,11 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import vn.com.pps.education.dto.AddReviewVideoConnectionQuestionRequest;
 import vn.com.pps.education.dto.AddReviewVideoQuestionRequest;
 import vn.com.pps.education.dto.AddReviewVideoRequest;
+import vn.com.pps.education.dto.ClassResponse;
 import vn.com.pps.education.dto.CreateReviewVideoSetRequest;
 import vn.com.pps.education.dto.GradeReviewVideoSubmissionRequest;
 import vn.com.pps.education.dto.ReportVideoProgressRequest;
@@ -75,10 +77,35 @@ public class ReviewVideoController {
         return ResponseEntity.ok(reviewVideoService.listByClass(classId, actor.userId()));
     }
 
-    @GetMapping("/api/curriculums/{curriculumId}/review-video-sets")
-    public ResponseEntity<List<ReviewVideoSetResponse>> listByCurriculum(@PathVariable Long curriculumId,
-                                                                          @AuthenticationPrincipal AuthenticatedUser actor) {
-        return ResponseEntity.ok(reviewVideoService.listByCurriculum(curriculumId, actor.userId()));
+    /** Kho Video — lọc theo khung chương trình/loại giáo viên (V98, mirror ExamController#listExams). */
+    @GetMapping("/api/review-video-sets")
+    public ResponseEntity<List<ReviewVideoSetResponse>> listSets(@RequestParam(required = false) Long curriculumId,
+                                                                   @RequestParam(required = false) String teacherType,
+                                                                   @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(reviewVideoService.listSets(curriculumId, teacherType, actor.userId()));
+    }
+
+    /** V98 (mirror ExamController#assignToClass) — gán Bộ cho 1 lớp, điều kiện hiển thị DUY NHẤT cho học sinh lớp đó. */
+    @PreAuthorize("hasPermission(null, 'lms.review-video.assign')")
+    @PostMapping("/api/review-video-sets/{id}/classes/{classId}")
+    public ResponseEntity<Void> assignToClass(@PathVariable Long id, @PathVariable Long classId,
+                                               @AuthenticationPrincipal AuthenticatedUser actor) {
+        reviewVideoService.assignToClass(id, classId, actor.userId());
+        return ResponseEntity.ok().build();
+    }
+
+    @PreAuthorize("hasPermission(null, 'lms.review-video.assign')")
+    @DeleteMapping("/api/review-video-sets/{id}/classes/{classId}")
+    public ResponseEntity<Void> unassignFromClass(@PathVariable Long id, @PathVariable Long classId,
+                                                   @AuthenticationPrincipal AuthenticatedUser actor) {
+        reviewVideoService.unassignFromClass(id, classId, actor.userId());
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/api/review-video-sets/{id}/classes")
+    public ResponseEntity<List<ClassResponse>> listAssignedClasses(@PathVariable Long id,
+                                                                     @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(reviewVideoService.listAssignedClasses(id, actor.userId()));
     }
 
     /** V65 — GV xem bản giao ACTIVE của lớp (tra ngược id bản giao → ReviewVideoSet cho FE Nhận xét học viên). */
@@ -129,6 +156,13 @@ public class ReviewVideoController {
     public ResponseEntity<List<ReviewVideoConnectionQuestionResponse>> listConnectionQuestions(
             @PathVariable Long videoId, @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(reviewVideoService.listConnectionQuestions(videoId, actor.userId()));
+    }
+
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — xem Javadoc ReviewVideoService#getProgress. */
+    @GetMapping("/api/review-videos/{videoId}/progress")
+    public ResponseEntity<ReviewVideoProgressResponse> getProgress(@PathVariable Long videoId,
+                                                                      @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(reviewVideoService.getProgress(videoId, actor.userId()));
     }
 
     @PostMapping("/api/review-videos/{videoId}/watch-sessions")

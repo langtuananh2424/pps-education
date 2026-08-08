@@ -4,6 +4,11 @@ erDiagram
     leave_requests ||--o{ leave_requests_history : ""
     users ||--o{ leave_request_approvals : "nguoi duyet"
 
+    leave_requests ||--o{ leave_substitutions : "day thay (neu GV)"
+    class_sessions ||--o{ leave_substitutions : "buoi hoc bi thay"
+    class_teachers ||--o{ leave_substitutions : "dong SUBSTITUTE tuong ung"
+    users ||--o{ leave_substitutions : "GV goc + GV day thay"
+
     leave_requests {
         BIGSERIAL id PK
         UUID uuid UK
@@ -31,4 +36,16 @@ erDiagram
         VARCHAR decision
         TEXT comment
         TIMESTAMPTZ decided_at
+    }
+
+    leave_substitutions {
+        BIGSERIAL id PK
+        UUID uuid UK
+        BIGINT leave_request_id FK
+        BIGINT class_session_id FK
+        BIGINT class_teacher_id FK
+        BIGINT original_teacher_id FK
+        BIGINT substitute_teacher_id FK
+        TIMESTAMPTZ revoked_at
+        TIMESTAMPTZ created_at
     }

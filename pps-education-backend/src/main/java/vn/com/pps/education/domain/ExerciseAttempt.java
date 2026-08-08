@@ -72,4 +72,12 @@ public class ExerciseAttempt {
     /** V89: NULL = chưa chấm xong; xem ExerciseAttemptService#applyPassOutcome (UC-27, BTVN <ngưỡng phải làm lại). */
     @Column(name = "passed")
     private Boolean passed;
+
+    /** V92 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06): lượt bị hệ thống dừng ép do vi phạm giám sát vượt ngưỡng — xem AttemptIntegrityService/ExerciseAttemptService#forceStopByIntegrityViolation. */
+    @Column(name = "stopped_by_integrity_violation", nullable = false)
+    private boolean stoppedByIntegrityViolation = false;
+
+    /** V93 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06): Giáo viên đánh dấu lượt này là kết quả CHÍNH THỨC khi học sinh có nhiều lượt làm — xem ExerciseAttemptService#selectForGrading. Tối đa 1 lượt được chọn/(exercise, student). */
+    @Column(name = "selected_for_grading", nullable = false)
+    private boolean selectedForGrading = false;
 }

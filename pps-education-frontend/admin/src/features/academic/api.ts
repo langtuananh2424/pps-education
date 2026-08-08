@@ -144,6 +144,7 @@ export interface ClassResponse {
   minStudents: number | null;
   startDate: string;
   endDate: string | null;
+  academicYearId: number | null;
   academicYear: string | null;
   status: "PLANNED" | "OPEN_ENROLLMENT" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
 }
@@ -158,7 +159,7 @@ export interface CreateClassRequest {
   minStudents?: number;
   startDate: string;
   endDate?: string;
-  academicYear?: string;
+  academicYearId?: number;
 }
 
 export interface UpdateClassRequest {
@@ -167,19 +168,57 @@ export interface UpdateClassRequest {
   minStudents?: number;
   startDate: string;
   endDate?: string;
-  academicYear?: string;
+  academicYearId?: number;
   status: ClassResponse["status"];
 }
 
-/** UC-18 Main Flow bước 3: dropdown site -> lớp của site đó; lọc thêm theo curriculum. Giáo viên chỉ thấy lớp thuộc site được gán (site_teachers). */
-export function listClasses(params?: { query?: string; siteId?: number; curriculumId?: number; classCategory?: string }): Promise<ClassResponse[]> {
+/** UC-18 Main Flow bước 3: dropdown site -> lớp của site đó; lọc thêm theo curriculum/năm học. Giáo viên chỉ thấy lớp thuộc site được gán (site_teachers). */
+export function listClasses(params?: {
+  query?: string;
+  siteId?: number;
+  curriculumId?: number;
+  classCategory?: string;
+  academicYearId?: number;
+}): Promise<ClassResponse[]> {
   const qs = new URLSearchParams();
   if (params?.query?.trim()) qs.set("query", params.query.trim());
   if (params?.siteId) qs.set("siteId", String(params.siteId));
   if (params?.curriculumId) qs.set("curriculumId", String(params.curriculumId));
   if (params?.classCategory) qs.set("classCategory", params.classCategory);
+  if (params?.academicYearId) qs.set("academicYearId", String(params.academicYearId));
   const suffix = qs.toString() ? `?${qs.toString()}` : "";
   return apiRequest<ClassResponse[]>(`/classes${suffix}`);
+}
+
+/** Chuyển lớp hàng loạt cuối năm học (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-07) — xem ClassService#promoteClass. */
+export interface PromoteClassRequest {
+  classCode: string;
+  name: string;
+  curriculumId: number;
+  academicYearId: number;
+  startDate: string;
+  endDate?: string;
+  maxStudents: number;
+  minStudents?: number;
+}
+
+export interface PromoteClassSkippedStudent {
+  studentId: number;
+  studentCode: string;
+  studentFullName: string;
+  reason: string;
+}
+
+export interface PromoteClassResponse {
+  newClass: ClassResponse;
+  oldClassId: number;
+  movedStudentCount: number;
+  skippedStudentCount: number;
+  skippedStudents: PromoteClassSkippedStudent[];
+}
+
+export function promoteClass(oldClassId: number, request: PromoteClassRequest): Promise<PromoteClassResponse> {
+  return apiRequest<PromoteClassResponse>(`/classes/${oldClassId}/promote`, { method: "POST", body: JSON.stringify(request) });
 }
 
 export function getClass(id: number): Promise<ClassResponse> {
@@ -277,6 +316,45 @@ export function updateAcademicTerm(id: number, request: UpdateAcademicTermReques
   return apiRequest<AcademicTermResponse>(`/academic-terms/${id}`, { method: "PUT", body: JSON.stringify(request) });
 }
 
+// ===================== Năm học (V102, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-07) =====================
+// Danh mục DÙNG CHUNG TOÀN HỆ THỐNG (khác Kỳ học — giới hạn theo điểm trường). Nguồn cho
+// academicYearId trên classes/grade_entries/student_comments/class_enrollments/teaching_plans.
+
+export interface AcademicYearResponse {
+  id: number;
+  code: string;
+  name: string;
+  startDate: string | null;
+  endDate: string | null;
+  status: "PLANNED" | "ACTIVE" | "CLOSED";
+}
+
+export interface CreateAcademicYearRequest {
+  code: string;
+  name: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface UpdateAcademicYearRequest {
+  name: string;
+  startDate?: string;
+  endDate?: string;
+  status: AcademicYearResponse["status"];
+}
+
+export function listAcademicYears(): Promise<AcademicYearResponse[]> {
+  return apiRequest<AcademicYearResponse[]>("/academic-years");
+}
+
+export function createAcademicYear(request: CreateAcademicYearRequest): Promise<AcademicYearResponse> {
+  return apiRequest<AcademicYearResponse>("/academic-years", { method: "POST", body: JSON.stringify(request) });
+}
+
+export function updateAcademicYear(id: number, request: UpdateAcademicYearRequest): Promise<AcademicYearResponse> {
+  return apiRequest<AcademicYearResponse>(`/academic-years/${id}`, { method: "PUT", body: JSON.stringify(request) });
+}
+
 export interface ClassEnrollmentResponse {
   id: number;
   classId: number;
@@ -288,6 +366,8 @@ export interface ClassEnrollmentResponse {
   withdrawnDate: string | null;
   status: string;
   withdrawReason: string | null;
+  academicYearId: number | null;
+  academicYear: string | null;
 }
 
 export interface EnrollStudentRequest {
@@ -340,6 +420,7 @@ export function importClassEnrollments(classId: number, file: File): Promise<Cla
 export interface ClassSessionResponse {
   id: number;
   classId: number;
+  className: string;
   sessionDate: string;
   startTime: string;
   endTime: string;
@@ -354,6 +435,8 @@ export interface ClassSessionResponse {
   // V60 (bổ sung ngoài SDD gốc, 2026-07-29): loại GV (VIETNAMESE/FOREIGN, null nếu chưa xác định) —
   // chỉ ở cấp buổi học, không đụng hồ sơ nhân sự. sessionNumber tính động (1-based, đếm cả CANCELLED).
   teacherType: "VIETNAMESE" | "FOREIGN" | null;
+  /** Tên GV thực tế dạy buổi (nhập tay, khác primaryTeacherName là FK hệ thống — dùng khi GV nước ngoài không tự thao tác hệ thống) — bổ sung ngoài SDD gốc, 2026-08-06. */
+  actualTeacherName: string | null;
   sessionNumber: number;
   /** "Bài học hôm nay" (đã có từ V50, chưa từng lộ ra FE) — nhập ở tab Nhận xét học viên (UC-21), không phải Điểm danh. */
   lessonContent: string | null;
@@ -520,45 +603,69 @@ export function submitAttendance(classSessionId: number): Promise<AttendanceSess
   return apiRequest<AttendanceSessionResponse>(`/class-sessions/${classSessionId}/attendance/submit`, { method: "POST" });
 }
 
-// ===================== Sổ điểm (UC-19/20) =====================
+// ===================== Sổ điểm (UC-19/20, V94 — gắn theo lớp+kỳ học+Giữa/Cuối kỳ) =====================
 
-export interface GradePeriodResponse {
+/** V94 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng — consolidate vào academic_terms): thay GradePeriodResponse, gắn (lớp, kỳ học, Giữa/Cuối kỳ) thay vì theo curriculum dùng chung nhiều lớp. */
+export interface GradeComponentSetupResponse {
   id: number;
-  curriculumId: number;
-  code: string;
-  name: string;
-  displayOrder: number;
-  weightInFinal: number;
-  startDate: string | null;
-  endDate: string | null;
-  status: "ACTIVE" | "ARCHIVED";
+  classId: number;
+  academicTermId: number;
+  academicTermName: string;
+  evaluationType: "MID_TERM" | "END_TERM";
+  scaleType: "POINT_10" | "PERCENT" | "IELTS";
+  rosterAsOfDate: string;
+  commentRequired: boolean;
 }
 
-export interface CreateGradePeriodRequest {
-  code: string;
-  name: string;
-  displayOrder?: number;
-  weightInFinal: number;
-  startDate?: string;
-  endDate?: string;
+export interface CreateGradeComponentSetupRequest {
+  academicTermId: number;
+  evaluationType: GradeComponentSetupResponse["evaluationType"];
+  scaleType: GradeComponentSetupResponse["scaleType"];
+  rosterAsOfDate: string;
+  commentRequired: boolean;
 }
 
-export function listGradePeriods(curriculumId: number): Promise<GradePeriodResponse[]> {
-  return apiRequest<GradePeriodResponse[]>(`/curriculums/${curriculumId}/grade-periods`);
+/** scaleType không sửa được sau khi tạo (V97) — component đã tạo theo maxScore của thang cũ. */
+export interface UpdateGradeComponentSetupRequest {
+  rosterAsOfDate: string;
+  commentRequired: boolean;
 }
 
-export function createGradePeriod(curriculumId: number, request: CreateGradePeriodRequest): Promise<GradePeriodResponse> {
-  return apiRequest<GradePeriodResponse>(`/curriculums/${curriculumId}/grade-periods`, { method: "POST", body: JSON.stringify(request) });
+export function listGradeComponentSetups(classId: number, academicTermId?: number): Promise<GradeComponentSetupResponse[]> {
+  const query = academicTermId ? `?academicTermId=${academicTermId}` : "";
+  return apiRequest<GradeComponentSetupResponse[]>(`/classes/${classId}/grade-component-setups${query}`);
 }
 
-/** UC-19 (bổ sung): chỉ xoá được kỳ RỖNG — chưa có thành phần điểm, chưa có điểm tổng kết, chưa bắt đầu nhập điểm ở lớp nào (BE tự chặn 422 nếu không đủ điều kiện). */
-export function deleteGradePeriod(id: number): Promise<void> {
-  return apiRequest<void>(`/grade-periods/${id}`, { method: "DELETE" });
+export function createGradeComponentSetup(classId: number, request: CreateGradeComponentSetupRequest): Promise<GradeComponentSetupResponse> {
+  return apiRequest<GradeComponentSetupResponse>(`/classes/${classId}/grade-component-setups`, { method: "POST", body: JSON.stringify(request) });
 }
 
-export interface GradeComponentResponse {
+export function updateGradeComponentSetup(id: number, request: UpdateGradeComponentSetupRequest): Promise<GradeComponentSetupResponse> {
+  return apiRequest<GradeComponentSetupResponse>(`/grade-component-setups/${id}`, { method: "PUT", body: JSON.stringify(request) });
+}
+
+/** UC-19 (bổ sung): chỉ xoá được setup RỖNG — chưa có thành phần điểm, chưa có điểm tổng kết, chưa bắt đầu nhập điểm (BE tự chặn 422 nếu không đủ điều kiện). */
+export function deleteGradeComponentSetup(id: number): Promise<void> {
+  return apiRequest<void>(`/grade-component-setups/${id}`, { method: "DELETE" });
+}
+
+/** V94 (mới): 1 dòng roster của setup sổ điểm — chỉ các field cần cho bảng nhập điểm, không import chéo từ features/student. */
+export interface GradeSetupRosterStudentResponse {
   id: number;
-  gradePeriodId: number;
+  userId: number;
+  fullName: string;
+  studentCode: string;
+  dateOfBirth: string;
+}
+
+/** V94 (mới): danh sách học sinh của 1 setup — TÍNH RA theo rosterAsOfDate (class_enrollments active tại đúng ngày này), không phải bảng snapshot riêng. */
+export function getGradeComponentSetupRoster(setupId: number): Promise<GradeSetupRosterStudentResponse[]> {
+  return apiRequest<GradeSetupRosterStudentResponse[]>(`/grade-component-setups/${setupId}/roster`);
+}
+
+export interface GradeEvaluationComponentResponse {
+  id: number;
+  gradeComponentSetupId: number;
   subjectId: number | null;
   skillId: number | null;
   code: string;
@@ -569,28 +676,28 @@ export interface GradeComponentResponse {
   displayOrder: number;
 }
 
-export interface CreateGradeComponentRequest {
+export interface CreateGradeEvaluationComponentRequest {
   subjectId?: number;
   skillId?: number;
   code: string;
   name: string;
   maxScore?: number;
   passThreshold?: number;
-  scaleType?: GradeComponentResponse["scaleType"];
+  scaleType?: GradeEvaluationComponentResponse["scaleType"];
   displayOrder?: number;
 }
 
-export function listGradeComponents(gradePeriodId: number): Promise<GradeComponentResponse[]> {
-  return apiRequest<GradeComponentResponse[]>(`/grade-periods/${gradePeriodId}/components`);
+export function listGradeEvaluationComponents(setupId: number): Promise<GradeEvaluationComponentResponse[]> {
+  return apiRequest<GradeEvaluationComponentResponse[]>(`/grade-component-setups/${setupId}/components`);
 }
 
-export function addGradeComponent(gradePeriodId: number, request: CreateGradeComponentRequest): Promise<GradeComponentResponse> {
-  return apiRequest<GradeComponentResponse>(`/grade-periods/${gradePeriodId}/components`, { method: "POST", body: JSON.stringify(request) });
+export function addGradeEvaluationComponent(setupId: number, request: CreateGradeEvaluationComponentRequest): Promise<GradeEvaluationComponentResponse> {
+  return apiRequest<GradeEvaluationComponentResponse>(`/grade-component-setups/${setupId}/components`, { method: "POST", body: JSON.stringify(request) });
 }
 
 /** UC-19 (bổ sung): chỉ xoá được đầu điểm CHƯA có điểm nhập nào (BE tự chặn 422 nếu đã có điểm). */
-export function deleteGradeComponent(id: number): Promise<void> {
-  return apiRequest<void>(`/grade-components/${id}`, { method: "DELETE" });
+export function deleteGradeEvaluationComponent(id: number): Promise<void> {
+  return apiRequest<void>(`/grade-evaluation-components/${id}`, { method: "DELETE" });
 }
 
 /**
@@ -607,7 +714,9 @@ export interface GradeEntryResponse {
   studentId: number;
   studentFullName: string;
   studentCode: string;
-  gradeComponentId: number;
+  gradeEvaluationComponentId: number;
+  academicTermId: number;
+  evaluationType: "MID_TERM" | "END_TERM";
   score: number;
   absenceFlag: boolean;
   teacherNote: string | null;
@@ -632,26 +741,31 @@ export interface EnterGradeRequest {
  * actor thường — backend trả lỗi rõ (bắt qua ApiError như bình thường), FE không tự
  * đoán trước điều kiện editable, cứ để nhập rồi để BE quyết định.
  */
-export function listGradeEntries(classId: number, gradeComponentId: number): Promise<GradeEntryResponse[]> {
-  return apiRequest<GradeEntryResponse[]>(`/classes/${classId}/grades/components/${gradeComponentId}`);
+export function listGradeEntries(classId: number, gradeEvaluationComponentId: number): Promise<GradeEntryResponse[]> {
+  return apiRequest<GradeEntryResponse[]>(`/classes/${classId}/grades/components/${gradeEvaluationComponentId}`);
 }
 
-export function enterGrade(classId: number, gradeComponentId: number, request: EnterGradeRequest): Promise<GradeEntryResponse> {
-  return apiRequest<GradeEntryResponse>(`/classes/${classId}/grades/components/${gradeComponentId}`, { method: "POST", body: JSON.stringify(request) });
+export function enterGrade(classId: number, gradeEvaluationComponentId: number, request: EnterGradeRequest): Promise<GradeEntryResponse> {
+  return apiRequest<GradeEntryResponse>(`/classes/${classId}/grades/components/${gradeEvaluationComponentId}`, { method: "POST", body: JSON.stringify(request) });
 }
 
-// ===================== UC-53: Overall/Level theo kỳ đánh giá + Nhập điểm qua Excel =====================
+// ===================== UC-53: Overall/Level + Nhận xét/Ghi chú (V94) theo (kỳ học, Giữa/Cuối kỳ) + Nhập điểm qua Excel =====================
 
-export interface GradePeriodResultResponse {
+/** V94 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng): thay GradePeriodResultResponse, thêm comment/note ("Nhận xét"/"Ghi chú") tích hợp vào sổ điểm — hiển thị PH khi status=OFFICIAL. V100: thêm disclaimer ("Lưu ý") — thông tin bổ sung đặc thù cho kỳ, hiển thị ở header UI nhập điểm. */
+export interface GradeEvaluationResultResponse {
   id: number;
   classId: number;
   studentId: number;
   studentFullName: string;
   studentCode: string;
-  gradePeriodId: number;
+  academicTermId: number;
+  evaluationType: "MID_TERM" | "END_TERM";
   overallScore: number | null;
   scaleType: "NUMERIC" | "PERCENTAGE" | "BAND";
   level: string | null;
+  comment: string | null;
+  note: string | null;
+  disclaimer: string | null;
   source: "MANUAL" | "EXCEL_IMPORT";
   importJobId: number | null;
   status: GradeStatus;
@@ -661,22 +775,25 @@ export interface GradePeriodResultResponse {
   finalizedAt: string | null;
 }
 
-export interface EnterGradePeriodResultRequest {
+export interface EnterGradeEvaluationResultRequest {
   overallScore?: number;
-  scaleType: GradePeriodResultResponse["scaleType"];
+  scaleType: GradeEvaluationResultResponse["scaleType"];
   level?: string;
+  comment?: string;
+  note?: string;
+  disclaimer?: string;
 }
 
-/** UC-53: Overall/Level GV đã tính sẵn (nhập tay hoặc từ Excel) — hệ thống chỉ lưu, không tự tính lại. */
-export function enterPeriodResult(classId: number, studentId: number, gradePeriodId: number, request: EnterGradePeriodResultRequest): Promise<GradePeriodResultResponse> {
-  return apiRequest<GradePeriodResultResponse>(`/classes/${classId}/grades/students/${studentId}/periods/${gradePeriodId}/result`, {
+/** UC-53: Overall/Level/Nhận xét/Ghi chú GV đã tính sẵn (nhập tay hoặc từ Excel) — hệ thống chỉ lưu, không tự tính lại. */
+export function enterEvaluationResult(classId: number, studentId: number, setupId: number, request: EnterGradeEvaluationResultRequest): Promise<GradeEvaluationResultResponse> {
+  return apiRequest<GradeEvaluationResultResponse>(`/classes/${classId}/grades/students/${studentId}/setups/${setupId}/result`, {
     method: "POST",
     body: JSON.stringify(request)
   });
 }
 
-export function listPeriodResults(classId: number, gradePeriodId: number): Promise<GradePeriodResultResponse[]> {
-  return apiRequest<GradePeriodResultResponse[]>(`/classes/${classId}/grade-periods/${gradePeriodId}/results`);
+export function listEvaluationResults(classId: number, setupId: number): Promise<GradeEvaluationResultResponse[]> {
+  return apiRequest<GradeEvaluationResultResponse[]>(`/classes/${classId}/grade-component-setups/${setupId}/results`);
 }
 
 export interface GradeImportResponse {
@@ -689,16 +806,21 @@ export interface GradeImportResponse {
   errorSummary: { row: number; reason: string }[];
 }
 
-/** UC-53 Main Flow: tải lên 1 file .xlsx đã hoàn thiện điểm cho đúng lớp + kỳ đánh giá. */
-export function importGrades(classId: number, gradePeriodId: number, file: File): Promise<GradeImportResponse> {
+/** UC-53 Main Flow: tải lên 1 file .xlsx đã hoàn thiện điểm cho đúng lớp + setup sổ điểm. */
+export function importGrades(classId: number, setupId: number, file: File): Promise<GradeImportResponse> {
   const formData = new FormData();
   formData.append("file", file);
-  return apiRequest<GradeImportResponse>(`/classes/${classId}/grade-periods/${gradePeriodId}/grades/import`, { method: "POST", body: formData });
+  return apiRequest<GradeImportResponse>(`/classes/${classId}/grade-component-setups/${setupId}/grades/import`, { method: "POST", body: formData });
+}
+
+/** UC-53 (bổ sung): file mẫu điền sẵn theo đúng roster + đầu điểm của setup — gọi thẳng backend (GradeImportService#buildTemplate) thay vì tự dựng phía FE, tránh lệch header. */
+export function downloadGradeImportTemplate(classId: number, setupId: number): Promise<Blob> {
+  return apiRequestBlob(`/classes/${classId}/grade-component-setups/${setupId}/grades/import-template`);
 }
 
 /**
  * V44: X ngày này giờ CHỈ còn ý nghĩa THÔNG TIN — mốc "lần đầu nhập điểm" cho 1 lớp +
- * kỳ đánh giá, không còn gắn job tự động nào (V43 dùng để tự động "công bố dự kiến",
+ * setup sổ điểm, không còn gắn job tự động nào (V43 dùng để tự động "công bố dự kiến",
  * đã bỏ cùng lúc với luồng phúc khảo UC-62). Hạn sửa/xoá giờ hoàn toàn theo TRẠNG THÁI
  * — xem enterGrade.
  */
@@ -715,7 +837,7 @@ export function updateGradeEditWindow(days: number): Promise<GradeEditWindowResp
 }
 
 /** UC-19 Main Flow bước 4 (V44): Giáo viên gửi duyệt — DRAFT/REJECTED -> SUBMITTED, chờ Quản lý điểm trường duyệt qua UC-20. */
-export function submitGradesForApproval(request: { gradeEntryIds?: number[]; gradePeriodResultIds?: number[] }): Promise<GradeEntryResponse[]> {
+export function submitGradesForApproval(request: { gradeEntryIds?: number[]; gradeEvaluationResultIds?: number[] }): Promise<GradeEntryResponse[]> {
   return apiRequest<GradeEntryResponse[]>("/grades/submit", { method: "POST", body: JSON.stringify(request) });
 }
 
@@ -727,13 +849,20 @@ export function listUnpublishedGrades(): Promise<GradeEntryResponse[]> {
 /**
  * UC-20 Main Flow bước 2-5 (V44): Duyệt (SUBMITTED/REJECTED -> OFFICIAL, hiển thị ngay
  * cho Phụ huynh) hoặc Từ chối (SUBMITTED -> REJECTED, kèm lý do tuỳ chọn) — gradeEntryIds
- * và/hoặc gradePeriodResultIds, ít nhất 1 danh sách phải có phần tử.
+ * và/hoặc gradeEvaluationResultIds, ít nhất 1 danh sách phải có phần tử.
+ *
+ * V94 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng): khi APPROVE, Quản lý điểm
+ * trường được sửa "Nhận xét"/"Ghi chú" NGAY TRƯỚC KHI công bố qua evaluationResultComments/
+ * evaluationResultNotes (id -> nội dung mới) — KHÔNG sửa được điểm/score. Chỉ áp dụng
+ * nhánh APPROVE, chỉ trên GradeEvaluationResult.
  */
 export function publishGrades(request: {
   action: "APPROVE" | "REJECT";
   gradeEntryIds?: number[];
-  gradePeriodResultIds?: number[];
+  gradeEvaluationResultIds?: number[];
   rejectReason?: string;
+  evaluationResultComments?: Record<number, string>;
+  evaluationResultNotes?: Record<number, string>;
 }): Promise<GradeEntryResponse[]> {
   return apiRequest<GradeEntryResponse[]>("/grades/decision", { method: "POST", body: JSON.stringify(request) });
 }
@@ -749,7 +878,7 @@ export interface StudentCommentResponse {
   teacherId: number;
   commentType: "DAILY" | "MID_TERM" | "END_TERM";
   classSessionId: number | null;
-  gradePeriodId: number | null;
+  academicTermId: number | null;
   commentDate: string;
   content: string;
   structuredContent: Record<string, unknown> | null;
@@ -782,8 +911,12 @@ export interface StudentCommentResponse {
   homeworkNextExerciseTitle: string | null;
   homeworkNextReviewVideoAssignmentId: number | null;
   homeworkNextReviewVideoSetTitle: string | null;
+  /** Hạn nộp BTVN buổi sau (lấy từ dueAt của bản giao) — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05. */
+  homeworkNextDueAt: string | null;
   grammarPreviousProgress: string | null;
   videoPreviousProgress: string | null;
+  /** BTVN buổi trước từng giao Offline (chữ tự do) — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06, phân biệt "BTVN buổi trước" có 3 loại (Offline/kênh Bài/kênh Video). Loại trừ với grammarPreviousProgress. */
+  homeworkPreviousOfflineText: string | null;
   note: string | null;
   /** "Bài học hôm nay" của buổi (class_sessions.lesson_content) — null nếu không phải DAILY. Bổ sung ngoài SDD gốc, 2026-07-29 — chuyển từ Điểm danh sang Nhận xét. */
   lessonContent: string | null;
@@ -793,7 +926,7 @@ export interface CreateStudentCommentRequest {
   studentId: number;
   commentType: StudentCommentResponse["commentType"];
   classSessionId?: number;
-  gradePeriodId?: number;
+  academicTermId?: number;
   commentDate: string;
   content: string;
   structuredContent?: Record<string, unknown>;
@@ -813,6 +946,15 @@ export interface CreateStudentCommentRequest {
   homeworkNextExerciseId?: number;
   /** Kênh Video Ôn tập (luôn ONLINE) — id của ReviewVideoSet NGUỒN (đã Publish), tự động giao cả lớp tương tự. Để trống nếu không giao. */
   homeworkNextReviewVideoSetId?: number;
+  /**
+   * Nhận xét học viên (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05, cho phép chọn
+   * GIỜ 2026-08-06): hạn nộp BTVN buổi sau (ngày + giờ, format "yyyy-MM-ddTHH:mm" — khớp value của
+   * <input type="datetime-local">/kết hợp DatePicker + input giờ) do Giáo viên tự chọn — để trống thì
+   * BE giữ hành vi cũ (khoá cứng = ngày buổi kế tiếp). Chỉ có ý nghĩa khi có homeworkNextExerciseId
+   * hoặc homeworkNextReviewVideoSetId. Mọi nhận xét DAILY cùng 1 buổi phải khớp cùng 1 hạn nộp (BE
+   * chặn 409 nếu khác).
+   */
+  homeworkNextDueDate?: string;
   note?: string;
 }
 
@@ -828,6 +970,8 @@ export interface UpdateStudentCommentRequest {
   /** V65 — xem Javadoc CreateStudentCommentRequest.homeworkNextExerciseId. */
   homeworkNextExerciseId?: number;
   homeworkNextReviewVideoSetId?: number;
+  /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05 — xem Javadoc CreateStudentCommentRequest.homeworkNextDueDate. */
+  homeworkNextDueDate?: string;
   note?: string;
 }
 
@@ -872,6 +1016,26 @@ export function updateLessonContent(classSessionId: number, lessonContent: strin
   return apiRequest(`/class-sessions/${classSessionId}/comments/lesson-content`, { method: "PUT", body: JSON.stringify({ lessonContent }) });
 }
 
+/**
+ * "Loại giáo viên" của buổi học (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05) —
+ * Nhận xét học viên dùng để lọc/đổi nhãn BTVN buổi sau theo GV Việt Nam/nước ngoài. Dùng chung rào
+ * ghi nhận xét DAILY (requireCanWriteDailyComment), mirror updateLessonContent.
+ */
+export function updateSessionTeacherType(
+  classSessionId: number,
+  teacherType: "VIETNAMESE" | "FOREIGN"
+): Promise<{ classSessionId: number; teacherType: "VIETNAMESE" | "FOREIGN" }> {
+  return apiRequest(`/class-sessions/${classSessionId}/comments/teacher-type`, { method: "PUT", body: JSON.stringify({ teacherType }) });
+}
+
+/**
+ * "Tên giáo viên giảng dạy" thực tế của buổi (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+ * 2026-08-06) — nhập tay, dùng chung rào ghi nhận xét DAILY, mirror updateLessonContent.
+ */
+export function updateActualTeacherName(classSessionId: number, actualTeacherName: string): Promise<{ classSessionId: number; actualTeacherName: string }> {
+  return apiRequest(`/class-sessions/${classSessionId}/comments/teacher-name`, { method: "PUT", body: JSON.stringify({ actualTeacherName }) });
+}
+
 /** UC-21 (bổ sung): tải mẫu Excel theo buổi học — điền sẵn điểm danh + nhận xét Hàng ngày hiện có của từng học sinh ACTIVE. */
 export function downloadDailyCommentTemplate(classSessionId: number): Promise<Blob> {
   return apiRequestBlob(`/class-sessions/${classSessionId}/comments/template`);
@@ -909,6 +1073,8 @@ export interface ExerciseAssignmentStatsResponse {
   completionPercent: number;
   passedCount: number;
   passRatePercent: number;
+  /** Bổ sung 2026-08-08: số học sinh có lần làm bị dừng do vi phạm giám sát. */
+  violatedStudentCount?: number;
 }
 
 export interface ExerciseAssignmentStudentRow {
@@ -923,6 +1089,11 @@ export interface ExerciseAssignmentStudentRow {
   submittedAt: string | null;
   attemptNumber: number | null;
   attemptId: number | null;
+  numberOfAttempts: number;
+  /** Bổ sung 2026-08-08: số lần thoát được ghi nhận của lượt làm mới nhất. */
+  latestAttemptViolationCount?: number;
+  /** Bổ sung 2026-08-08: lượt làm chính thức (mới nhất hoặc chọn bởi GV) có bị dừng do vi phạm không. */
+  selectedAttemptStoppedByViolation?: boolean;
 }
 
 export interface ExerciseAssignmentStudentStatsResponse {
@@ -946,6 +1117,9 @@ export interface ExerciseAssignmentQuestionRow {
   wrongCount: number;
   wrongRatePercent: number;
   wrongStudents: ExerciseAssignmentWrongStudent[];
+  /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — luôn 0 với câu không phải skill=LISTENING. */
+  hintUsedCount: number;
+  hintUsedStudentCount: number;
 }
 
 export interface ExerciseAssignmentQuestionStatsResponse {
@@ -983,6 +1157,55 @@ export interface StudentAnswerRow {
   explanation: string | null;
 }
 
+/**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — dùng endpoint riêng cho Giáo
+ * viên (/answers/for-grading, không đòi hỏi actor có hồ sơ học sinh), KHÁC endpoint học sinh tự
+ * xem lại bài của chính mình (/answers) bên app user — 2 endpoint tách để không đụng rào sở hữu.
+ */
 export function getAttemptAnswers(attemptId: number): Promise<StudentAnswerRow[]> {
-  return apiRequest<StudentAnswerRow[]>(`/attempts/${attemptId}/answers`);
+  return apiRequest<StudentAnswerRow[]>(`/attempts/${attemptId}/answers/for-grading`);
+}
+
+/**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — Giáo viên xem TOÀN BỘ lịch sử
+ * nhiều lượt làm bài của 1 học sinh (kể cả lượt bị hệ thống dừng ép do vi phạm giám sát) để tự
+ * chọn lượt phù hợp, khác StudentAnswerRow (chỉ trả lời câu hỏi của ĐÚNG 1 lượt).
+ */
+export interface ExerciseAttemptRow {
+  id: number;
+  exerciseId: number;
+  exerciseAssignmentId: number | null;
+  studentId: number;
+  attemptNumber: number;
+  startedAt: string;
+  submittedAt: string | null;
+  autoGradeScore: number | null;
+  manualGradeScore: number | null;
+  totalScore: number | null;
+  status: "IN_PROGRESS" | "AUTO_GRADED" | "FULLY_GRADED" | "EXPIRED";
+  isLateSubmission: boolean;
+  percentage: number | null;
+  passed: boolean | null;
+  stoppedByIntegrityViolation: boolean;
+  /** V93, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06: Giáo viên đã chọn lượt này làm kết quả chính thức chưa. */
+  selectedForGrading: boolean;
+}
+
+export function listStudentExerciseAttempts(exerciseId: number, studentId: number): Promise<ExerciseAttemptRow[]> {
+  return apiRequest<ExerciseAttemptRow[]>(`/exercises/${exerciseId}/students/${studentId}/attempts`);
+}
+
+/** V93, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06: Giáo viên chọn 1 lượt làm điểm chính thức (loại trừ lẫn nhau trong cùng exercise+student). */
+export function selectAttemptForGrading(attemptId: number): Promise<ExerciseAttemptRow[]> {
+  return apiRequest<ExerciseAttemptRow[]>(`/attempts/${attemptId}/select-for-grading`, { method: "POST" });
+}
+
+export interface IntegritySummaryRow {
+  violationCount: number;
+  violationTotalDurationSeconds: number;
+  parentAndTeacherNotified: boolean;
+}
+
+export function getAttemptIntegritySummary(attemptId: number): Promise<IntegritySummaryRow> {
+  return apiRequest<IntegritySummaryRow>(`/attempts/${attemptId}/integrity-summary`);
 }

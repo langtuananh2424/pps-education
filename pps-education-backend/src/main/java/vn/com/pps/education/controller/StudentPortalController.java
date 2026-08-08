@@ -16,7 +16,7 @@ import vn.com.pps.education.dto.AttendanceMarkResponse;
 import vn.com.pps.education.dto.ClassSessionResponse;
 import vn.com.pps.education.dto.CurriculumDocumentResponse;
 import vn.com.pps.education.dto.GradeEntryResponse;
-import vn.com.pps.education.dto.GradePeriodResultResponse;
+import vn.com.pps.education.dto.GradeEvaluationResultResponse;
 import vn.com.pps.education.dto.ListeningPracticeItemResponse;
 import vn.com.pps.education.dto.MyReviewVideoAssignmentResponse;
 import vn.com.pps.education.dto.StudentCommentResponse;
@@ -140,12 +140,12 @@ public class StudentPortalController {
         return ResponseEntity.ok(gradeService.listMyGrades(actor.userId(), classId));
     }
 
-    /** UC-61: Overall/Level đã công bố (PUBLISHED) của 1 kỳ đánh giá. */
-    @GetMapping("/classes/{classId}/periods/{gradePeriodId}/result")
-    public ResponseEntity<GradePeriodResultResponse> getMyPeriodResult(
-            @PathVariable Long classId, @PathVariable Long gradePeriodId,
+    /** UC-61: Overall/Level + Nhận xét/Ghi chú (V95) đã công bố (OFFICIAL) của 1 (kỳ học, Giữa/Cuối kỳ). */
+    @GetMapping("/classes/{classId}/academic-terms/{academicTermId}/evaluation/{evaluationType}/result")
+    public ResponseEntity<GradeEvaluationResultResponse> getMyEvaluationResult(
+            @PathVariable Long classId, @PathVariable Long academicTermId, @PathVariable String evaluationType,
             @AuthenticationPrincipal AuthenticatedUser actor) {
-        return ResponseEntity.ok(gradeService.getMyPeriodResult(actor.userId(), classId, gradePeriodId));
+        return ResponseEntity.ok(gradeService.getMyEvaluationResult(actor.userId(), classId, academicTermId, evaluationType));
     }
 
     /** UC-64: điểm danh của tôi theo lớp — "Xem quá trình học tập". */

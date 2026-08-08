@@ -1,6 +1,7 @@
 package vn.com.pps.education.controller;
 
 import jakarta.validation.Valid;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -8,13 +9,18 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import vn.com.pps.education.dto.ClassSessionResponse;
 import vn.com.pps.education.dto.CreateLeaveRequestRequest;
 import vn.com.pps.education.dto.DecideLeaveRequestRequest;
+import vn.com.pps.education.dto.LeaveRequestApprovalResponse;
 import vn.com.pps.education.dto.LeaveRequestResponse;
+import vn.com.pps.education.dto.TeacherLookupResponse;
 import vn.com.pps.education.security.AuthenticatedUser;
 import vn.com.pps.education.service.LeaveRequestService;
 
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -38,14 +44,41 @@ public class LeaveRequestController {
         return ResponseEntity.ok(leaveRequestService.submit(actor.userId(), request));
     }
 
+    /** UC-10 bước 3: buổi dạy của người gọi trong khoảng nghỉ dự kiến, để chọn giáo viên dạy thay trước khi nộp đơn. */
+    @GetMapping("/teaching-sessions")
+    public ResponseEntity<List<ClassSessionResponse>> findTeachingSessions(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(leaveRequestService.findTeachingSessions(actor.userId(), startDate, endDate));
+    }
+
+    /** UC-10 bước 3: gợi ý giáo viên dạy thay (self-service, không cần quyền user.view). */
+    @GetMapping("/substitute-teacher-candidates")
+    public ResponseEntity<List<TeacherLookupResponse>> findSubstituteTeacherCandidates(
+            @RequestParam(required = false) String keyword) {
+        return ResponseEntity.ok(leaveRequestService.listSubstituteTeacherCandidates(keyword));
+    }
+
     @GetMapping("/pending-for-me")
     public ResponseEntity<List<LeaveRequestResponse>> listPendingForApprover(@AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(leaveRequestService.listPendingForApprover(actor.userId()));
     }
 
+    /** Self-service: đơn từ đã nộp của chính người gọi. */
+    @GetMapping("/mine")
+    public ResponseEntity<List<LeaveRequestResponse>> listMine(@AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(leaveRequestService.listMine(actor.userId()));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<LeaveRequestResponse> getById(@PathVariable Long id) {
         return ResponseEntity.ok(leaveRequestService.getById(id));
+    }
+
+    @GetMapping("/{id}/approvals")
+    public ResponseEntity<List<LeaveRequestApprovalResponse>> listApprovals(@PathVariable Long id) {
+        return ResponseEntity.ok(leaveRequestService.listApprovals(id));
     }
 
     @PostMapping("/{id}/decision")

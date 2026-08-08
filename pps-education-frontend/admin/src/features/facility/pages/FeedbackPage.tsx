@@ -187,7 +187,7 @@ export default function FeedbackPage() {
                 <button
                   disabled={submitting}
                   onClick={() => runAction(() => startProcessingPartnerFeedback(selectedTicket.id), "Đã bắt đầu xử lý thành công!")}
-                  className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs py-2 rounded-lg disabled:opacity-50"
+                  className="w-full bg-brand-gradient hover:opacity-95 text-white font-semibold text-xs py-2 rounded-lg disabled:opacity-50"
                 >
                   {submitting ? "Đang xử lý..." : "Bắt đầu xử lý"}
                 </button>
@@ -210,7 +210,7 @@ export default function FeedbackPage() {
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs py-2 rounded-lg flex items-center justify-center gap-1.5 shadow-soft disabled:opacity-50"
+                    className="w-full bg-brand-gradient hover:opacity-95 text-white font-semibold text-xs py-2 rounded-lg flex items-center justify-center gap-1.5 shadow-glow disabled:opacity-50"
                   >
                     <Send className="w-3.5 h-3.5 text-brand-yellow shrink-0" />
                     {submitting ? "Đang gửi..." : "Xác nhận Giải Quyết"}
@@ -222,7 +222,7 @@ export default function FeedbackPage() {
                 <button
                   disabled={submitting}
                   onClick={() => runAction(() => closePartnerFeedback(selectedTicket.id), "Đã đóng ticket thành công!")}
-                  className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs py-2 rounded-lg disabled:opacity-50"
+                  className="w-full bg-brand-gradient hover:opacity-95 text-white font-semibold text-xs py-2 rounded-lg disabled:opacity-50"
                 >
                   {submitting ? "Đang đóng..." : "Đóng ticket"}
                 </button>

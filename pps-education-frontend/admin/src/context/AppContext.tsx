@@ -2,6 +2,7 @@ import React, { createContext, useContext, useMemo, useState } from "react";
 import { UserRole } from "@/types";
 import { CurrentUserResponse, fetchCurrentUser, login as loginApi, loginWithGoogle as loginWithGoogleApi, logout as logoutApi } from "@/features/auth/api";
 import { getAccessToken } from "@/lib/tokenStorage";
+import { setupPushNotifications, teardownPushNotifications } from "@/lib/pushNotifications";
 import { deriveCurrentRoleLabel, rolePriorityOrder } from "@/constants/roles";
 
 const CURRENT_USER_CACHE_KEY = "pps_current_user";
@@ -69,6 +70,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setIsLoggedIn(true);
     setLoginNotice(`Đăng nhập thành công! Chào mừng trở lại, ${profile.fullName}.`);
     setTimeout(() => setLoginNotice(null), 4000);
+    // Fire-and-forget — không chặn luồng login nếu trình duyệt không hỗ trợ/từ chối
+    // quyền notification (VD Safari iOS chưa "Thêm vào Màn hình chính", xem
+    // pushNotifications.ts). Push chỉ là 1 trong 3 kênh (Email luôn bật sẵn).
+    setupPushNotifications().catch(() => undefined);
   };
 
   const login = async (usernameOrEmail: string, password: string) => {
@@ -82,6 +87,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
+    await teardownPushNotifications();
     await logoutApi();
     sessionStorage.removeItem(CURRENT_USER_CACHE_KEY);
     setIsLoggedIn(false);

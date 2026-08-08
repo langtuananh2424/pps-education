@@ -100,11 +100,32 @@ app:
       jwks-uri: https://www.googleapis.com/oauth2/v3/certs
   mail:
     from-address: ${MAIL_FROM_ADDRESS:no-reply@pps.edu.vn}
+    # Hiển thị trong footer chuẩn của email (NotificationEmailTemplateService) - chưa có
+    # giá trị thật từ PM, để trống thì footer giữ nguyên placeholder dạng "[Hotline PPS]"
+    # thay vì tự bịa số/email/website.
+    hotline: ${MAIL_CONTACT_HOTLINE:}
+    support-email: ${MAIL_CONTACT_SUPPORT_EMAIL:}
+    website: ${MAIL_CONTACT_WEBSITE:}
   notification:
     # Ngưỡng retry cho kênh gửi ngoài (EMAIL...) - SDD không quy định số cụ
     # thể, mặc định hợp lý có thể chỉnh qua env var khi cần.
     max-retry-count: ${NOTIFICATION_MAX_RETRY:3}
     retry-interval-minutes: ${NOTIFICATION_RETRY_INTERVAL_MINUTES:5}
+    # Kênh PUSH (FCM) - bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+    # (2026-08-08). Chưa cấu hình (biến rỗng, mặc định máy dev/CI) thì
+    # FirebaseConfig trả bean null có kiểm soát, PushNotificationSender báo
+    # lỗi + job tự retry, không crash app. Set FIREBASE_CREDENTIALS_BASE64
+    # (base64 của service-account JSON tải từ Firebase Console) khi có
+    # project Firebase thật.
+    firebase:
+      credentials-base64: ${FIREBASE_CREDENTIALS_BASE64:}
+    # Kênh SMS (Twilio) - dành riêng cho Phụ huynh/Học sinh, bổ sung ngoài
+    # SDD gốc, đã xác nhận với người dùng (2026-08-08). Chưa cấu hình thì
+    # SmsNotificationSender báo lỗi có kiểm soát + job tự retry.
+    twilio:
+      account-sid: ${TWILIO_ACCOUNT_SID:}
+      auth-token: ${TWILIO_AUTH_TOKEN:}
+      from-number: ${TWILIO_FROM_NUMBER:}
   finance:
     # UC-30 Main Flow bước 5-6: webhook /api/webhooks/bank-payment không
     # xác thực qua JWT (permitAll, SecurityConfig) vì gọi từ hệ thống ngân

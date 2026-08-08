@@ -10,6 +10,7 @@ import UserSearchCombobox from "@/features/system-admin/components/UserSearchCom
 import { listStudents, StudentResponse } from "@/features/student/api";
 import { RoomResponse, listRoomsBySite } from "@/features/facility/api";
 import {
+  AcademicYearResponse,
   AssignTeacherRequest,
   ClassEnrollmentBatchImportResponse,
   ClassEnrollmentResponse,
@@ -26,6 +27,7 @@ import {
   enrollStudent,
   getAttendanceSession,
   importClassEnrollments,
+  listAcademicYears,
   listCancelledSessionsPendingMakeup,
   listClassEnrollments,
   listClassSessions,
@@ -142,7 +144,7 @@ export default function ClassDetailPanel({ schoolClass, onChanged }: ClassDetail
             showToast={showToast}
           />
         )}
-        {tab === "grades" && <ClassGradeSheetPanel classId={schoolClass.id} curriculumId={schoolClass.curriculumId} readOnly={isSiteManagerRole} />}
+        {tab === "grades" && <ClassGradeSheetPanel classId={schoolClass.id} siteId={schoolClass.siteId} readOnly={isSiteManagerRole} />}
       </div>
 
       <Toast message={toastMessage} />
@@ -162,6 +164,7 @@ function ProfileTab({
   showToast: (msg: string) => void;
 }) {
   const [form, setForm] = useState(() => toForm(schoolClass));
+  const [academicYears, setAcademicYears] = useState<AcademicYearResponse[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [nameTouched, setNameTouched] = useState(false);
@@ -170,6 +173,9 @@ function ProfileTab({
   const maxInvalid = maxTouched && !form.maxStudents;
 
   useEffect(() => setForm(toForm(schoolClass)), [schoolClass]);
+  useEffect(() => {
+    listAcademicYears().then(setAcademicYears).catch(() => undefined);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -185,7 +191,7 @@ function ProfileTab({
         minStudents: form.minStudents ? Number(form.minStudents) : undefined,
         startDate: form.startDate,
         endDate: form.endDate || undefined,
-        academicYear: form.academicYear.trim() || undefined,
+        academicYearId: form.academicYearId ? Number(form.academicYearId) : undefined,
         status: form.status as ClassResponse["status"]
       });
       onChanged();
@@ -252,7 +258,14 @@ function ProfileTab({
         </div>
         <div>
           <label className={labelClass}>Năm học</label>
-          <input value={form.academicYear} onChange={(e) => setForm({ ...form, academicYear: e.target.value })} className={inputClass} />
+          <Select value={form.academicYearId} onChange={(e) => setForm({ ...form, academicYearId: e.target.value })} className={inputClass}>
+            <option value="">-- Chưa xác định --</option>
+            {academicYears.map((y) => (
+              <option key={y.id} value={y.id}>
+                {y.code} — {y.name}
+              </option>
+            ))}
+          </Select>
         </div>
       </fieldset>
       {canManage && (
@@ -272,7 +285,7 @@ function toForm(c: ClassResponse) {
     minStudents: c.minStudents != null ? String(c.minStudents) : "",
     startDate: c.startDate,
     endDate: c.endDate ?? "",
-    academicYear: c.academicYear ?? "",
+    academicYearId: c.academicYearId != null ? String(c.academicYearId) : "",
     status: c.status
   };
 }
@@ -607,7 +620,6 @@ function StudentsTab({
         <StudentInfoModal
           enrollment={viewingEnrollment}
           classId={classId}
-          curriculumId={curriculumId}
           onClose={() => setViewingEnrollment(null)}
         />
       )}

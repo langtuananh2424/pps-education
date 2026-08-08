@@ -11,13 +11,14 @@ import AssignmentsTab from "../components/AssignmentsTab";
 import ParentHomeworkProgressTab from "../components/ParentHomeworkProgressTab";
 import NotificationBell from "../components/NotificationBell";
 import GradesTab from "../components/GradesTab";
+import GradeStatsPage from "./GradeStatsPage";
 import BillingTab from "../components/BillingTab";
 import DailyLearningProgressTab from "../components/DailyLearningProgressTab";
 import DocumentLibraryTab from "../components/DocumentLibraryTab";
 import ComingSoon from "../components/ComingSoon";
 import ProfileModal from "../components/ProfileModal";
 
-type Tab = "home" | "schedule" | "learning-progress" | "homework" | "documents" | "grades" | "billing";
+type Tab = "home" | "schedule" | "learning-progress" | "homework" | "documents" | "grades" | "grade-stats" | "billing";
 
 const TABS: { key: Tab; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
   { key: "home", label: "Trang chủ & Bảng tin", icon: Home },
@@ -26,6 +27,7 @@ const TABS: { key: Tab; label: string; icon: React.ComponentType<{ size?: number
   { key: "homework", label: "Bài tập về nhà (BTVN)", icon: ClipboardList },
   { key: "documents", label: "Kho dữ liệu (Sách, TLTK)", icon: FolderOpen },
   { key: "grades", label: "Khảo thí & Điểm số", icon: Award },
+  { key: "grade-stats", label: "Thống kê điểm", icon: Award },
   { key: "billing", label: "Học phí & Dịch vụ", icon: CreditCard }
 ];
 
@@ -38,7 +40,7 @@ const TABS: { key: Tab; label: string; icon: React.ComponentType<{ size?: number
  */
 export default function PortalPage() {
   const { currentUser, isParent, isStudent, logout } = useApp();
-  const [activeTab, setActiveTab] = useState<Tab>(() => (isParent ? "home" : "homework"));
+  const [activeTab, setActiveTab] = useState<Tab>("home");
 
   const [children, setChildren] = useState<ChildResponse[]>([]);
   const [selectedChildId, setSelectedChildId] = useState<number | null>(null);
@@ -53,6 +55,19 @@ export default function PortalPage() {
   // báo lỗi 2026-08-03). Chỉ áp dụng khi Học sinh tự xem (isStudent) — Phụ huynh xem con thì
   // ChildResponse chưa có portraitUrl, giữ chữ cái như cũ.
   const [viewerPortraitUrl, setViewerPortraitUrl] = useState<string | null>(null);
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — bấm link "Bài ngữ pháp/nghe"/"Video
+  // TKN/PX" ở tab Quá trình học tập nhảy sang tab BTVN + tự mở đúng bài (học sinh) hoặc cuộn/highlight
+  // đúng dòng (phụ huynh). Set ở đây (cha chung của 2 tab) vì 2 tab là 2 component độc lập, không tự
+  // gọi nhau được — PortalPage làm cầu nối, mỗi tab tự clear về null sau khi dùng xong (onAutoOpenHandled/
+  // onHighlightHandled) để không lặp lại hành động mỗi khi re-render.
+  const [pendingExerciseAssignmentId, setPendingExerciseAssignmentId] = useState<number | null>(null);
+  const [pendingReviewVideoAssignmentId, setPendingReviewVideoAssignmentId] = useState<number | null>(null);
+  const [pendingHighlightCommentId, setPendingHighlightCommentId] = useState<number | null>(null);
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — badge số BTVN "Cần hoàn thành" trên
+  // mục sidebar, do AssignmentsTab báo lên (xem prop onPendingCountChange) — giữ nguyên giá trị lần
+  // tính gần nhất kể cả khi rời tab "homework" (AssignmentsTab unmount thì không tính lại, không phải
+  // là 0 lúc đó).
+  const [pendingHomeworkCount, setPendingHomeworkCount] = useState<number | null>(null);
 
   useEffect(() => {
     if (isParent) {
@@ -300,13 +315,20 @@ export default function PortalPage() {
                         setActiveTab(key);
                         setMobileMenuOpen(false);
                       }}
-                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-[16px] font-bold text-sm transition-all border ${
+                      className={`relative w-full flex items-center gap-3 px-4 py-3 rounded-[16px] font-bold text-sm transition-all border ${
                         activeTab === key
                           ? "bg-teal text-white border-teal-deep shadow-[0_4px_12px_rgba(23,166,160,0.2)]"
                           : "bg-slate-50/50 hover:bg-slate-50 text-muted border-line/60"
                       }`}
                     >
                       <Icon size={18} /> {label}
+                      {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — badge số BTVN
+                          "Cần hoàn thành", mirror style badge chưa đọc của NotificationBell. */}
+                      {key === "homework" && isStudent && !!pendingHomeworkCount && (
+                        <span className="ml-auto min-w-[20px] h-5 px-1.5 rounded-full bg-coral text-white text-[11px] font-extrabold flex items-center justify-center border-2 border-white shrink-0">
+                          {pendingHomeworkCount}
+                        </span>
+                      )}
                     </button>
                   ))}
                 </div>
@@ -352,12 +374,28 @@ export default function PortalPage() {
                         studentCode={selectedChild.studentCode}
                         classId={selectedClassId}
                         parentStudentId={selectedChild.studentId}
+                        onOpenGrammarHomework={(commentId) => {
+                          setPendingHighlightCommentId(commentId);
+                          setActiveTab("homework");
+                        }}
+                        onOpenVideoHomework={(commentId) => {
+                          setPendingHighlightCommentId(commentId);
+                          setActiveTab("homework");
+                        }}
                       />
                     ) : isStudent ? (
                       <DailyLearningProgressTab
                         studentName={viewerName}
                         studentCode={currentUser?.studentId ? String(currentUser.studentId) : ""}
                         classId={selectedClassId}
+                        onOpenGrammarHomework={(_commentId, exerciseAssignmentId) => {
+                          setPendingExerciseAssignmentId(exerciseAssignmentId);
+                          setActiveTab("homework");
+                        }}
+                        onOpenVideoHomework={(_commentId, reviewVideoAssignmentId) => {
+                          setPendingReviewVideoAssignmentId(reviewVideoAssignmentId);
+                          setActiveTab("homework");
+                        }}
                       />
                     ) : (
                       <ComingSoon title="Quá trình học tập" description="Không có hồ sơ Học sinh hoặc Phụ huynh liên kết với tài khoản này." />
@@ -366,10 +404,24 @@ export default function PortalPage() {
                     (isStudent ? (
                       // GET /students/me/exercises tra theo userId của chính người gọi — chỉ hoạt động cho Học sinh tự
                       // đăng nhập, Phụ huynh gọi sẽ 404 "không có hồ sơ học sinh".
-                      <AssignmentsTab classId={selectedClassId} />
+                      <AssignmentsTab
+                        classId={selectedClassId}
+                        autoOpenExerciseAssignmentId={pendingExerciseAssignmentId}
+                        autoOpenReviewVideoAssignmentId={pendingReviewVideoAssignmentId}
+                        onAutoOpenHandled={() => {
+                          setPendingExerciseAssignmentId(null);
+                          setPendingReviewVideoAssignmentId(null);
+                        }}
+                        onPendingCountChange={setPendingHomeworkCount}
+                      />
                     ) : isParent && selectedChild ? (
                       // UC-64 (2026-07-29): Phụ huynh chỉ XEM tiến độ BTVN của con (không phải giao diện làm bài — con tự làm ở Portal Học sinh).
-                      <ParentHomeworkProgressTab studentId={selectedChild.studentId} classId={selectedClassId} />
+                      <ParentHomeworkProgressTab
+                        studentId={selectedChild.studentId}
+                        classId={selectedClassId}
+                        highlightCommentId={pendingHighlightCommentId}
+                        onHighlightHandled={() => setPendingHighlightCommentId(null)}
+                      />
                     ) : (
                       <ComingSoon title="Bài tập về nhà (BTVN)" description="Không có hồ sơ Học sinh hoặc Phụ huynh liên kết với tài khoản này." />
                     ))}
@@ -381,6 +433,14 @@ export default function PortalPage() {
                       <GradesTab classId={selectedClassId} />
                     ) : (
                       <ComingSoon title="Khảo thí & Điểm số" description="Không có hồ sơ Học sinh hoặc Phụ huynh liên kết với tài khoản này." />
+                    ))}
+                  {activeTab === "grade-stats" &&
+                    (isParent && selectedChild ? (
+                      <GradeStatsPage studentId={selectedChild.studentId} classId={selectedClassId} />
+                    ) : isStudent ? (
+                      <GradeStatsPage classId={selectedClassId} />
+                    ) : (
+                      <ComingSoon title="Thống kê điểm" description="Không có hồ sơ Học sinh hoặc Phụ huynh liên kết với tài khoản này." />
                     ))}
                   {activeTab === "billing" &&
                     (isParent ? (

@@ -4,13 +4,13 @@ import { useApp } from "@/context/AppContext";
 import { UserRole } from "@/types";
 import {
   ClassEnrollmentResponse,
-  GradeComponentResponse,
-  GradePeriodResponse,
+  GradeComponentSetupResponse,
+  GradeEvaluationComponentResponse,
   getClass,
   listClassEnrollments,
   listClassTeachers,
-  listGradeComponents,
-  listGradePeriods,
+  listGradeComponentSetups,
+  listGradeEvaluationComponents,
   listUnpublishedGrades
 } from "../api";
 import { useEligibleClasses } from "../hooks/useEligibleClasses";
@@ -36,9 +36,9 @@ export default function GradesPage() {
   // theo lớp (UC-19 Precondition: GV chỉ thấy lớp mình dạy; SITE_MANAGER thấy hết lớp thuộc site).
   const { classes } = useEligibleClasses();
   const [enrollments, setEnrollments] = useState<ClassEnrollmentResponse[]>([]);
-  const [gradePeriods, setGradePeriods] = useState<GradePeriodResponse[]>([]);
-  const [selectedPeriodId, setSelectedPeriodId] = useState<number | null>(null);
-  const [gradeComponents, setGradeComponents] = useState<GradeComponentResponse[]>([]);
+  const [setups, setSetups] = useState<GradeComponentSetupResponse[]>([]);
+  const [selectedSetupId, setSelectedSetupId] = useState<number | null>(null);
+  const [gradeComponents, setGradeComponents] = useState<GradeEvaluationComponentResponse[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const [pendingGroups, setPendingGroups] = useState<GradePublishGroup[]>([]);
@@ -87,19 +87,19 @@ export default function GradesPage() {
   }, [selectedClassId]);
 
   useEffect(() => {
-    setSelectedPeriodId(null);
+    setSelectedSetupId(null);
     setGradeComponents([]);
-    if (!selectedClass) return;
-    listGradePeriods(selectedClass.curriculumId).then(setGradePeriods).catch(() => undefined);
-  }, [selectedClass?.curriculumId]);
+    if (!selectedClassId) return;
+    listGradeComponentSetups(selectedClassId).then(setSetups).catch(() => undefined);
+  }, [selectedClassId]);
 
   useEffect(() => {
     setGradeComponents([]);
-    if (!selectedPeriodId) return;
-    listGradeComponents(selectedPeriodId)
+    if (!selectedSetupId) return;
+    listGradeEvaluationComponents(selectedSetupId)
       .then(setGradeComponents)
       .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được đầu điểm."));
-  }, [selectedPeriodId]);
+  }, [selectedSetupId]);
 
   return (
     <div className="space-y-6">
@@ -149,34 +149,35 @@ export default function GradesPage() {
                 {selectedClass ? `Lớp: ${selectedClass.classCode} — ${selectedClass.name}` : "Chưa chọn lớp — chọn ở góc trên bên phải (Header)"}
               </span>
               <Select
-                value={selectedPeriodId ?? ""}
-                onChange={(e) => setSelectedPeriodId(e.target.value ? Number(e.target.value) : null)}
+                value={selectedSetupId ?? ""}
+                onChange={(e) => setSelectedSetupId(e.target.value ? Number(e.target.value) : null)}
                 disabled={!selectedClassId}
                 className={`${inputClass} disabled:opacity-50`}
               >
-                <option value="">-- Chọn kỳ điểm --</option>
-                {gradePeriods.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
+                <option value="">-- Chọn kỳ + Giữa/Cuối kỳ --</option>
+                {setups.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.academicTermName} — {s.evaluationType === "MID_TERM" ? "Giữa kỳ" : "Cuối kỳ"}
                   </option>
                 ))}
               </Select>
             </div>
-            {selectedClassId && selectedPeriodId ? (
+            {selectedClassId && selectedSetupId ? (
               gradeComponents.length === 0 ? (
-                <p className="text-xs text-slate-400 italic p-6 text-center">Kỳ điểm này chưa có đầu điểm nào được cấu hình.</p>
+                <p className="text-xs text-slate-400 italic p-6 text-center">Setup này chưa có đầu điểm nào được cấu hình.</p>
               ) : (
                 <GradeSheetTable
-                  key={`view-${selectedClassId}-${selectedPeriodId}`}
+                  key={`view-${selectedClassId}-${selectedSetupId}`}
                   classId={selectedClassId}
-                  gradePeriodId={selectedPeriodId}
+                  setupId={selectedSetupId}
+                  scaleType={setups.find((s) => s.id === selectedSetupId)?.scaleType ?? "POINT_10"}
                   components={gradeComponents}
                   enrollments={enrollments}
                   readOnly
                 />
               )
             ) : (
-              <p className="text-xs text-slate-400 italic p-6 text-center">Chọn lớp (Header) → kỳ điểm để xem lại điểm (mọi trạng thái).</p>
+              <p className="text-xs text-slate-400 italic p-6 text-center">Chọn lớp (Header) → setup sổ điểm để xem lại điểm (mọi trạng thái).</p>
             )}
           </Card>
         </div>
@@ -191,7 +192,7 @@ export default function GradesPage() {
           </div>
           <div className="p-5">
             {selectedClassId && selectedClass ? (
-              <ClassGradeSheetPanel classId={selectedClassId} curriculumId={selectedClass.curriculumId} />
+              <ClassGradeSheetPanel classId={selectedClassId} siteId={selectedClass.siteId} />
             ) : (
               <p className="text-xs text-slate-400 italic p-6 text-center">Chọn lớp ở Header để bắt đầu nhập điểm.</p>
             )}

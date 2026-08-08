@@ -68,4 +68,8 @@ public class ExerciseAssignment {
     /** V82 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng): NULL = chưa báo GV % hoàn thành khi hết hạn. */
     @Column(name = "teacher_notified_at")
     private OffsetDateTime teacherNotifiedAt;
+
+    /** V92 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06): NULL = chưa nhắc Phụ huynh trước hạn nộp. */
+    @Column(name = "parent_reminder_sent_at")
+    private OffsetDateTime parentReminderSentAt;
 }

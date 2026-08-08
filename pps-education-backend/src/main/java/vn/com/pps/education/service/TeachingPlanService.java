@@ -2,6 +2,7 @@ package vn.com.pps.education.service;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.com.pps.education.domain.AcademicYear;
 import vn.com.pps.education.domain.ClassSession;
 import vn.com.pps.education.domain.SchoolClass;
 import vn.com.pps.education.domain.TeachingPlan;
@@ -17,6 +18,7 @@ import vn.com.pps.education.dto.UpdateTeachingPlanRequest;
 import vn.com.pps.education.exception.InvalidTeachingPlanPeriodException;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
+import vn.com.pps.education.repository.AcademicYearRepository;
 import vn.com.pps.education.repository.ClassSessionRepository;
 import vn.com.pps.education.repository.ClassTeacherRepository;
 import vn.com.pps.education.repository.SchoolClassRepository;
@@ -46,6 +48,7 @@ public class TeachingPlanService {
     private final ClassSessionRepository classSessionRepository;
     private final ClassTeacherRepository classTeacherRepository;
     private final UserRepository userRepository;
+    private final AcademicYearRepository academicYearRepository;
 
     public TeachingPlanService(TeachingPlanRepository teachingPlanRepository,
                                 TeachingPlanItemRepository teachingPlanItemRepository,
@@ -53,7 +56,8 @@ public class TeachingPlanService {
                                 SchoolClassRepository schoolClassRepository,
                                 ClassSessionRepository classSessionRepository,
                                 ClassTeacherRepository classTeacherRepository,
-                                UserRepository userRepository) {
+                                UserRepository userRepository,
+                                AcademicYearRepository academicYearRepository) {
         this.teachingPlanRepository = teachingPlanRepository;
         this.teachingPlanItemRepository = teachingPlanItemRepository;
         this.teachingPlanHistoryRepository = teachingPlanHistoryRepository;
@@ -61,6 +65,7 @@ public class TeachingPlanService {
         this.classSessionRepository = classSessionRepository;
         this.classTeacherRepository = classTeacherRepository;
         this.userRepository = userRepository;
+        this.academicYearRepository = academicYearRepository;
     }
 
     /** Main Flow bước 1-3: chọn lớp + kỳ lập kế hoạch, nhập nội dung, lưu (DRAFT). */
@@ -71,19 +76,23 @@ public class TeachingPlanService {
         User actor = getUserOrThrow(actorUserId);
 
         TeachingPlan.PlanType planType = TeachingPlan.PlanType.valueOf(request.planType());
+        AcademicYear academicYear = null;
         if (planType == TeachingPlan.PlanType.WEEKLY) {
             if (request.weekStartDate() == null || request.weekEndDate() == null) {
                 throw new InvalidTeachingPlanPeriodException("plan_type=WEEKLY phải có weekStartDate và weekEndDate.");
             }
-        } else if (request.academicYear() == null || request.academicYear().isBlank()) {
-            throw new InvalidTeachingPlanPeriodException("plan_type=YEARLY phải có academicYear.");
+        } else if (request.academicYearId() == null) {
+            throw new InvalidTeachingPlanPeriodException("plan_type=YEARLY phải có academicYearId.");
+        } else {
+            academicYear = academicYearRepository.findById(request.academicYearId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy năm học id=" + request.academicYearId()));
         }
 
         TeachingPlan plan = new TeachingPlan();
         plan.setSchoolClass(schoolClass);
         plan.setTeacher(actor);
         plan.setPlanType(planType);
-        plan.setAcademicYear(request.academicYear());
+        plan.setAcademicYear(academicYear);
         plan.setWeekNumber(request.weekNumber());
         plan.setWeekStartDate(request.weekStartDate());
         plan.setWeekEndDate(request.weekEndDate());
@@ -230,7 +239,9 @@ public class TeachingPlanService {
     private TeachingPlanResponse toResponse(TeachingPlan p) {
         return new TeachingPlanResponse(
                 p.getId(), p.getSchoolClass().getId(), p.getTeacher().getId(), p.getPlanType().name(),
-                p.getAcademicYear(), p.getWeekNumber(), p.getWeekStartDate(), p.getWeekEndDate(),
+                p.getAcademicYear() == null ? null : p.getAcademicYear().getId(),
+                p.getAcademicYear() == null ? null : p.getAcademicYear().getCode(),
+                p.getWeekNumber(), p.getWeekStartDate(), p.getWeekEndDate(),
                 p.getSummary(), p.getObjectives(), p.getStatus().name(), p.isVisibleToPartner(), p.getPublishedAt());
     }
 

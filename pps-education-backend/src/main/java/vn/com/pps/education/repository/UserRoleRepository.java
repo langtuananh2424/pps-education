@@ -14,4 +14,7 @@ public interface UserRoleRepository extends JpaRepository<UserRole, Long> {
 
     /** PositionRoleSyncService — role hệ thống từng tự gán theo 1 chức vụ cụ thể (FR-HRM-06). */
     List<UserRole> findByUserIdAndGrantedViaPositionId(Long userId, Long grantedViaPositionId);
+
+    /** UC-10 bước 3 — tra cứu toàn bộ tài khoản mang 1 role (VD "TEACHER") để chọn giáo viên dạy thay. */
+    List<UserRole> findByRole_Code(String roleCode);
 }

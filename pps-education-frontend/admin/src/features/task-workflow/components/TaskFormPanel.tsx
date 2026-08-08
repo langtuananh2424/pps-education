@@ -79,7 +79,7 @@ export default function TaskFormPanel({ employees, onSubmit, onCancel }: TaskFor
           <button type="button" onClick={onCancel} className="px-3.5 py-1.5 text-slate-500 hover:bg-slate-100 text-xs font-semibold rounded-lg">
             Hủy bỏ
           </button>
-          <button type="submit" className="bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs px-4 py-1.5 rounded-lg">
+          <button type="submit" className="bg-brand-gradient hover:opacity-95 text-white font-semibold text-xs px-4 py-1.5 rounded-lg">
             Xác nhận Giao việc
           </button>
         </div>

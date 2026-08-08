@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Flag, Plus } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
-import { CreateStudentCommentRequest, GradePeriodResponse, StudentCommentResponse, listGradePeriods, writeComment } from "../api";
+import { AcademicTermResponse, CreateStudentCommentRequest, StudentCommentResponse, listAcademicTerms, writeComment } from "../api";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import DatePicker from "@/components/ui/DatePicker";
@@ -15,15 +15,15 @@ const labelClass = "text-[10px] uppercase font-bold tracking-wider text-slate-50
 interface CommentFormProps {
   classId: number;
   studentId: number;
-  curriculumId: number;
+  siteId: number;
   onSubmitted: (comment: StudentCommentResponse) => void;
 }
 
-/** UC-21 nhánh MID_TERM/END_TERM — nhận xét hàng ngày theo buổi học đã tách sang DailyCommentPanel (bảng kiểu Điểm danh nhanh). */
-export default function CommentForm({ classId, studentId, curriculumId, onSubmitted }: CommentFormProps) {
+/** UC-21 nhánh MID_TERM/END_TERM — nhận xét hàng ngày theo buổi học đã tách sang DailyCommentPanel (bảng kiểu Điểm danh nhanh). V94: chọn Kỳ học (Academic Term) trực tiếp thay vì Kỳ đánh giá theo curriculum. */
+export default function CommentForm({ classId, studentId, siteId, onSubmitted }: CommentFormProps) {
   const [commentType, setCommentType] = useState<Exclude<CreateStudentCommentRequest["commentType"], "DAILY">>("MID_TERM");
-  const [periods, setPeriods] = useState<GradePeriodResponse[]>([]);
-  const [gradePeriodId, setGradePeriodId] = useState("");
+  const [terms, setTerms] = useState<AcademicTermResponse[]>([]);
+  const [academicTermId, setAcademicTermId] = useState("");
   const [commentDate, setCommentDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [content, setContent] = useState("");
   const [severity, setSeverity] = useState<NonNullable<CreateStudentCommentRequest["severity"]>>("NORMAL");
@@ -33,8 +33,8 @@ export default function CommentForm({ classId, studentId, curriculumId, onSubmit
   const { message: toastMessage, showToast } = useToast();
 
   useEffect(() => {
-    listGradePeriods(curriculumId).then(setPeriods).catch(() => undefined);
-  }, [curriculumId]);
+    listAcademicTerms(siteId).then(setTerms).catch(() => undefined);
+  }, [siteId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,8 +42,8 @@ export default function CommentForm({ classId, studentId, curriculumId, onSubmit
       setError("Vui lòng nhập nội dung nhận xét.");
       return;
     }
-    if (!gradePeriodId) {
-      setError("Nhận xét định kỳ cần chọn kỳ điểm tương ứng.");
+    if (!academicTermId) {
+      setError("Nhận xét định kỳ cần chọn kỳ học tương ứng.");
       return;
     }
     setSubmitting(true);
@@ -52,7 +52,7 @@ export default function CommentForm({ classId, studentId, curriculumId, onSubmit
       const created = await writeComment(classId, {
         studentId,
         commentType,
-        gradePeriodId: Number(gradePeriodId),
+        academicTermId: Number(academicTermId),
         commentDate,
         content: content.trim(),
         severity,
@@ -82,12 +82,12 @@ export default function CommentForm({ classId, studentId, curriculumId, onSubmit
       </div>
 
       <div className="space-y-1">
-        <label className={labelClass}>Kỳ điểm</label>
-        <Select value={gradePeriodId} onChange={(e) => setGradePeriodId(e.target.value)} className={inputClass}>
-          <option value="">-- Chọn kỳ điểm --</option>
-          {periods.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
+        <label className={labelClass}>Kỳ học</label>
+        <Select value={academicTermId} onChange={(e) => setAcademicTermId(e.target.value)} className={inputClass}>
+          <option value="">-- Chọn kỳ học --</option>
+          {terms.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.name}
             </option>
           ))}
         </Select>
@@ -134,9 +134,9 @@ export default function CommentForm({ classId, studentId, curriculumId, onSubmit
       <button
         type="submit"
         disabled={submitting}
-        className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs py-2 rounded-lg flex items-center justify-center gap-1.5 disabled:opacity-50"
+        className="w-full bg-brand-gradient hover:opacity-95 text-white font-semibold text-xs py-2 rounded-lg flex items-center justify-center gap-1.5 disabled:opacity-50"
       >
-        <Plus className="w-4 h-4 text-brand-yellow" />
+        <Plus className="w-4 h-4 text-white" />
         {submitting ? "Đang lưu..." : "Lưu nhận xét (nháp)"}
       </button>
 

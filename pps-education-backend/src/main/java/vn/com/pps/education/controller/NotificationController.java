@@ -6,6 +6,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import vn.com.pps.education.domain.Notification;
+import vn.com.pps.education.dto.DeviceTokenRequest;
 import vn.com.pps.education.dto.NotificationPreferenceRequest;
 import vn.com.pps.education.dto.NotificationPreferenceResponse;
 import vn.com.pps.education.dto.NotificationResponse;
@@ -58,5 +60,21 @@ public class NotificationController {
             @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(notificationService.upsertPreference(
                 actor.userId(), Notification.NotificationType.valueOf(notificationType), request));
+    }
+
+    /** Đăng ký/refresh device token cho kênh PUSH (gọi lúc app mở/login). */
+    @PostMapping("/device-token")
+    public ResponseEntity<Void> registerDeviceToken(@Valid @RequestBody DeviceTokenRequest request,
+                                                      @AuthenticationPrincipal AuthenticatedUser actor) {
+        notificationService.registerDeviceToken(actor.userId(), request);
+        return ResponseEntity.ok().build();
+    }
+
+    /** Vô hiệu hoá device token (gọi lúc logout). */
+    @DeleteMapping("/device-token/{token}")
+    public ResponseEntity<Void> deactivateDeviceToken(@PathVariable String token,
+                                                        @AuthenticationPrincipal AuthenticatedUser actor) {
+        notificationService.deactivateDeviceToken(actor.userId(), token);
+        return ResponseEntity.ok().build();
     }
 }

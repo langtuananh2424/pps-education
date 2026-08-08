@@ -38,7 +38,7 @@ export default function InvoiceQrPanel({ invoice, onSimulatePayment }: InvoiceQr
       {invoice.status !== "PAID" ? (
         <button
           onClick={() => onSimulatePayment(invoice.id)}
-          className="w-full bg-slate-900 hover:bg-slate-800 text-brand-yellow font-bold text-xs py-2 rounded-lg shadow-soft flex items-center justify-center gap-1"
+          className="w-full bg-brand-gradient hover:opacity-95 text-white font-bold text-xs py-2 rounded-lg shadow-glow flex items-center justify-center gap-1"
         >
           <Check className="w-4 h-4" />
           Giả lập webhook Ngân hàng (Xác nhận)

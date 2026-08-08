@@ -19,6 +19,7 @@ public record ExerciseAssignmentStudentStatsResponse(
             Boolean passed,
             OffsetDateTime submittedAt,
             Integer attemptNumber,
-            Long attemptId
+            Long attemptId,
+            Integer numberOfAttempts
     ) {}
 }
