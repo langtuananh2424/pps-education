@@ -283,6 +283,9 @@ public class StudentCommentService {
     @Transactional
     public StudentCommentResponse writeComment(Long classId, CreateStudentCommentRequest request, Long actorUserId) {
         SchoolClass schoolClass = getClassOrThrow(classId);
+        if (schoolClass.getStatus() == SchoolClass.Status.CANCELLED) {
+            throw new IllegalStateException("Lớp học \"" + schoolClass.getName() + "\" đã bị HỦY — không thể viết nhận xét.");
+        }
         User actor = getUserOrThrow(actorUserId);
         StudentComment.CommentType commentType = StudentComment.CommentType.valueOf(request.commentType());
 

@@ -75,7 +75,8 @@ public class PortalClassSelectionService {
         // các bản ghi ACTIVE); nếu không còn lớp nào ACTIVE, pre-select bản ghi enrolled_date
         // gần nhất trong toàn bộ danh sách (đã sort giảm dần -> phần tử đầu tiên).
         ClassEnrollment recommended = enrollments.stream()
-                .filter(e -> e.getStatus() == ClassEnrollment.Status.ACTIVE)
+                .filter(e -> e.getStatus() == ClassEnrollment.Status.ACTIVE
+                        && e.getSchoolClass().getStatus() != SchoolClass.Status.CANCELLED)
                 .findFirst()
                 .orElse(enrollments.get(0));
 

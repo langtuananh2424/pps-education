@@ -444,6 +444,10 @@ public class StudentService {
                     .orElseThrow(() -> new ResourceNotFoundException(
                             "Học sinh id=" + studentId + " không có ghi danh đang hoạt động ở lớp id=" + request.fromClassId() + "."));
             toClass = getSchoolClassOrThrow(request.toClassId());
+            if (toClass.getStatus() != SchoolClass.Status.OPEN_ENROLLMENT && toClass.getStatus() != SchoolClass.Status.IN_PROGRESS) {
+                throw new IllegalStateException("Lớp học đích \"" + toClass.getName() + "\" đang ở trạng thái "
+                        + toClass.getStatus() + " — chỉ cho phép chuyển tới lớp Đang tuyển sinh hoặc Đang học.");
+            }
             if (classEnrollmentRepository
                     .findBySchoolClassIdAndStudentIdAndStatus(request.toClassId(), studentId, ClassEnrollment.Status.ACTIVE)
                     .isPresent()) {
