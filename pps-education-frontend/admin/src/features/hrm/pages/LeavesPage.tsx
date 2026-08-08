@@ -98,7 +98,7 @@ export default function LeavesPage() {
         <p className="text-xs text-slate-500 mt-1">Nộp đơn xin nghỉ phép, đi muộn, về sớm và theo dõi quy trình xét duyệt.</p>
       </div>
 
-      <div className={showSubmitForm && showApprovalQueue ? "grid grid-cols-1 lg:grid-cols-3 gap-6" : "grid grid-cols-1 gap-6"}>
+      <div className={showSubmitForm && showApprovalQueue ? "grid grid-cols-1 lg:grid-cols-2 gap-6" : "grid grid-cols-1 gap-6"}>
         {showSubmitForm && (
           <LeaveRequestForm
             onSubmitted={() => {

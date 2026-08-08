@@ -107,7 +107,7 @@ class NotificationServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void notify_defaultsSmsPendingForStudentRecipient_whenNoPreferenceRecord() {
+    void notify_defaultsSmsPendingAndNoEmailForStudentRecipient_whenNoPreferenceRecord() {
         User studentUser = newUser("notif.student");
         Student student = new Student();
         student.setUser(studentUser);
@@ -127,6 +127,7 @@ class NotificationServiceTest extends AbstractIntegrationTest {
             assertThat(d.getChannel()).isEqualTo(NotificationDelivery.Channel.SMS);
             assertThat(d.getDeliveryStatus()).isEqualTo(NotificationDelivery.DeliveryStatus.PENDING);
         });
+        assertThat(deliveries).noneMatch(d -> d.getChannel() == NotificationDelivery.Channel.EMAIL);
     }
 
     @Test
@@ -177,6 +178,23 @@ class NotificationServiceTest extends AbstractIntegrationTest {
         assertThat(pref.emailEnabled()).isTrue();
         assertThat(pref.pushEnabled()).isTrue();
         assertThat(pref.smsEnabled()).isFalse();
+    }
+
+    @Test
+    void getPreference_defaultsEmailDisabledForStudent_whenNoRecordExists() {
+        User studentUser = newUser("notif.student.pref");
+        Student student = new Student();
+        student.setUser(studentUser);
+        student.setStudentCode("HS-PREF-" + SEQ.incrementAndGet());
+        student.setDateOfBirth(LocalDate.of(2012, 5, 1));
+        student.setEnrollmentDate(LocalDate.now());
+        studentRepository.save(student);
+
+        NotificationPreferenceResponse pref = notificationService.getPreference(
+                studentUser.getId(), Notification.NotificationType.GRADE_PUBLISHED);
+
+        assertThat(pref.emailEnabled()).isFalse();
+        assertThat(pref.smsEnabled()).isTrue();
     }
 
     @Test

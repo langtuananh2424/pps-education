@@ -118,16 +118,17 @@ public class NotificationService {
      * Mặc định khi user chưa có notification_preferences (bổ sung ngoài SDD
      * gốc — SDD chỉ nói mặc định in-app+email=enabled, không phân biệt theo
      * kênh PUSH/SMS/vai trò — đã xác nhận với người dùng 2026-08-08): PUSH
-     * dùng cho thông báo hàng ngày nên mặc định bật cho MỌI user; EMAIL cho
-     * thông báo quan trọng, giữ nguyên mặc định bật; SMS mặc định chỉ bật
-     * riêng cho Phụ huynh/Học sinh (xem {@link #isParentOrStudent}); ZALO
-     * chưa trong phạm vi, giữ mặc định tắt. User vẫn có thể tự đổi qua
+     * dùng cho thông báo hàng ngày nên mặc định bật cho MỌI user; EMAIL mặc
+     * định bật cho MỌI user NGOẠI TRỪ Học sinh (mặc định tắt email cho Học
+     * sinh khi chưa thiết lập preference — đã xác nhận 2026-08-08); SMS mặc
+     * định chỉ bật riêng cho Phụ huynh/Học sinh (xem {@link #isParentOrStudent});
+     * ZALO chưa trong phạm vi, giữ mặc định tắt. User vẫn có thể tự đổi qua
      * upsertPreference() — chỉ ảnh hưởng khi CHƯA có bản ghi.
      */
     private boolean isChannelEnabled(NotificationDelivery.Channel channel, NotificationPreference pref,
                                       Long recipientUserId) {
         return switch (channel) {
-            case EMAIL -> pref == null || pref.isEmailEnabled();
+            case EMAIL -> pref != null ? pref.isEmailEnabled() : !isStudent(recipientUserId);
             case PUSH -> pref == null || pref.isPushEnabled();
             case SMS -> pref != null ? pref.isSmsEnabled() : isParentOrStudent(recipientUserId);
             case ZALO -> pref != null && pref.isZaloEnabled();
@@ -135,9 +136,12 @@ public class NotificationService {
         };
     }
 
+    private boolean isStudent(Long userId) {
+        return studentRepository.findByUserId(userId).isPresent();
+    }
+
     private boolean isParentOrStudent(Long userId) {
-        return parentRepository.findByUserId(userId).isPresent()
-                || studentRepository.findByUserId(userId).isPresent();
+        return parentRepository.findByUserId(userId).isPresent() || isStudent(userId);
     }
 
     private void createInAppDelivery(Notification notification) {
@@ -182,7 +186,7 @@ public class NotificationService {
         return notificationPreferenceRepository.findByUserIdAndNotificationType(userId, type)
                 .map(this::toResponse)
                 .orElseGet(() -> new NotificationPreferenceResponse(
-                        type.name(), true, true, isParentOrStudent(userId), false, true));
+                        type.name(), true, !isStudent(userId), isParentOrStudent(userId), false, true));
     }
 
     @Transactional
