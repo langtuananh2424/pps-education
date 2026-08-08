@@ -13,6 +13,7 @@ import vn.com.pps.education.domain.ParentStudent;
 import vn.com.pps.education.domain.Payment;
 import vn.com.pps.education.domain.PaymentHistory;
 import vn.com.pps.education.domain.Scholarship;
+import vn.com.pps.education.domain.SchoolClass;
 import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.TuitionPlan;
 import vn.com.pps.education.domain.TuitionPlanAssignment;
