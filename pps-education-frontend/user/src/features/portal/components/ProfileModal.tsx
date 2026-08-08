@@ -136,7 +136,7 @@ export default function ProfileModal({
         className="bg-white rounded-[24px] max-w-2xl w-full max-h-[88vh] overflow-y-auto shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="bg-gradient-to-r from-teal via-teal-deep to-ink h-24 relative">
+        <div className="bg-[linear-gradient(to_right,#17a6a0,#0e8c86,#1e2a45)] h-24 relative">
           <button
             onClick={onClose}
             className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-white transition-colors"

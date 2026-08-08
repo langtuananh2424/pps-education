@@ -173,7 +173,7 @@ export default function Header() {
   const selectedEligibleClass = eligibleClasses.find((cls) => cls.id === selectedClassId) ?? null;
 
   return (
-    <header className="h-16 bg-transparent px-2 md:px-0 flex items-center justify-between z-30 mb-4 shrink-0">
+    <header className="sticky top-0 h-16 bg-brand-bg/85 backdrop-blur-md px-2 md:px-0 flex items-center justify-between z-30 mb-4 shrink-0">
       <div className="flex items-center gap-4">
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
