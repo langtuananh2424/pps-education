@@ -4,6 +4,17 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PPS Education — Admin</title>
+
+    <!-- PWA/"Thêm vào Màn hình chính" — bắt buộc trên iOS để Web Push hoạt động
+         (Apple chỉ cho phép Web Push khi chạy standalone, xem pushNotifications.ts).
+         icon-192.png/icon-512.png CHƯA có file thật (chưa có asset thiết kế) - thêm
+         khi có icon chính thức, không ảnh hưởng phần push (chỉ ảnh hưởng icon trên
+         màn hình chính). -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="PPS Admin" />
+    <meta name="theme-color" content="#0e8c86" />
   </head>
   <body>
     <div id="root"></div>

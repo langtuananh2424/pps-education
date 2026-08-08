@@ -127,6 +127,22 @@
             <version>5.3.0</version>
         </dependency>
 
+        <!-- Firebase Admin SDK (kenh PUSH cua module Notification - gui qua FCM)
+             - bo sung ngoai SDD goc, da xac nhan voi nguoi dung (2026-08-08). -->
+        <dependency>
+            <groupId>com.google.firebase</groupId>
+            <artifactId>firebase-admin</artifactId>
+            <version>9.4.1</version>
+        </dependency>
+
+        <!-- Twilio (kenh SMS cua module Notification - danh cho Phu huynh/Hoc sinh)
+             - bo sung ngoai SDD goc, da xac nhan voi nguoi dung (2026-08-08). -->
+        <dependency>
+            <groupId>com.twilio.sdk</groupId>
+            <artifactId>twilio</artifactId>
+            <version>10.6.4</version>
+        </dependency>
+
         <!-- Cloudflare R2 (Object Storage tương thích S3 API) - lưu file audio/ảnh
              cho Question.audioUrl/imageUrl (UC-40), thay thế lưu đĩa cục bộ -
              đã xác nhận với user trước khi thêm (2026-07-22). -->

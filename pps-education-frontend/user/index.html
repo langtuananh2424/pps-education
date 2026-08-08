@@ -9,7 +9,10 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
 
-    <!-- iOS: không đọc manifest.webmanifest, cần khai báo riêng -->
+    <!-- iOS: không đọc manifest.webmanifest, cần khai báo riêng. Các meta tag này cũng
+         là điều kiện bắt buộc để Web Push hoạt động trên iOS (Apple chỉ cho phép Web
+         Push khi chạy standalone qua "Thêm vào Màn hình chính" — xem pushNotifications.ts,
+         PWA Phase 1 đã che luôn phần này nên push không cần thêm gì ở index.html). -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="PPS Portal" />
