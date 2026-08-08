@@ -72,6 +72,9 @@ public class TeachingPlanService {
     @Transactional
     public TeachingPlanResponse createPlan(CreateTeachingPlanRequest request, Long actorUserId) {
         SchoolClass schoolClass = getClassOrThrow(request.classId());
+        if (schoolClass.getStatus() == SchoolClass.Status.CANCELLED) {
+            throw new IllegalStateException("Lớp học \"" + schoolClass.getName() + "\" đã bị HỦY — không thể lập kế hoạch giảng dạy.");
+        }
         requireAssignedTeacher(request.classId(), actorUserId);
         User actor = getUserOrThrow(actorUserId);
 

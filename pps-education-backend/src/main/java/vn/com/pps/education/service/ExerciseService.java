@@ -347,6 +347,11 @@ public class ExerciseService {
         Exercise exercise = getExerciseOrThrow(exerciseId);
         requireAssignedTeacher(classId, actorUserId);
         SchoolClass schoolClass = getClassOrThrow(classId);
+        if (schoolClass.getStatus() != SchoolClass.Status.IN_PROGRESS) {
+            throw new IllegalStateException("Lớp học \"" + schoolClass.getName()
+                    + "\" đang ở trạng thái " + schoolClass.getStatus()
+                    + " — chỉ được phép giao bài cho lớp học đang ở trạng thái Đang học.");
+        }
         User actor = getUserOrThrow(actorUserId);
         if (!examClassAssignmentRepository.existsByExamIdAndSchoolClassId(exercise.getExam().getId(), classId)) {
             throw new IllegalArgumentException(

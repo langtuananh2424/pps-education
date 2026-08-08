@@ -417,6 +417,11 @@ public class StudentAttendanceService {
      * bất kỳ, ngày bất kỳ (bổ sung/khắc phục sai sót).
      */
     private void requireCanWriteAttendance(ClassSession classSession, Long actorUserId, String adminOverridePermission) {
+        if (classSession.getSchoolClass().getStatus() != SchoolClass.Status.IN_PROGRESS) {
+            throw new IllegalStateException("Lớp học \"" + classSession.getSchoolClass().getName()
+                    + "\" đang ở trạng thái " + classSession.getSchoolClass().getStatus()
+                    + " — chỉ được phép điểm danh cho lớp học đang ở trạng thái Đang học.");
+        }
         if (permissionEvaluationService.hasPermission(actorUserId, adminOverridePermission)) {
             return;
         }
@@ -441,6 +446,9 @@ public class StudentAttendanceService {
     @Transactional(readOnly = true)
     public boolean canWriteAttendance(Long classSessionId, Long actorUserId) {
         ClassSession classSession = getClassSessionOrThrow(classSessionId);
+        if (classSession.getSchoolClass().getStatus() != SchoolClass.Status.IN_PROGRESS) {
+            return false;
+        }
         if (permissionEvaluationService.hasPermission(actorUserId, PERM_ATTENDANCE_CREATE)) {
             return true;
         }
