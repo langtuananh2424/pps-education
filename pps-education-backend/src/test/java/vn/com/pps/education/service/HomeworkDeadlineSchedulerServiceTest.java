@@ -34,6 +34,7 @@ import vn.com.pps.education.dto.QuestionBankResponse;
 import vn.com.pps.education.dto.QuestionChoiceRequest;
 import vn.com.pps.education.dto.QuestionResponse;
 import vn.com.pps.education.dto.ReportVideoProgressRequest;
+import vn.com.pps.education.dto.SubmitConnectionAnswersRequest;
 import vn.com.pps.education.dto.ReviewVideoResponse;
 import vn.com.pps.education.dto.ReviewVideoSetResponse;
 import vn.com.pps.education.dto.SaveAnswerRequest;
@@ -244,6 +245,10 @@ class HomeworkDeadlineSchedulerServiceTest extends AbstractIntegrationTest {
 
         Long sessionId = reviewVideoService.startWatchSession(video.id(), studentDoneUser.getId()).sessionId();
         reviewVideoService.reportProgress(video.id(), new ReportVideoProgressRequest(sessionId, 100), studentDoneUser.getId());
+        // CONNECTION (V83/V93/V101): xem đạt ngưỡng chỉ làm session "qualified" — phải nộp đủ câu
+        // hỏi (rỗng ở đây, video chưa thêm câu hỏi) mới tính "đạt" 1 lượt (xem ghi chú tương tự ở
+        // ReviewVideoServiceTest).
+        reviewVideoService.submitConnectionAnswers(sessionId, new SubmitConnectionAnswersRequest(List.of()), studentDoneUser.getId());
         // studentNotDoneUser không xem gì -> 0%.
 
         assignment.setDueAt(OffsetDateTime.now().minusMinutes(1));
