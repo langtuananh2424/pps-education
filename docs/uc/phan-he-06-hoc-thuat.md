@@ -2133,4 +2133,124 @@ evaluationType + label trước khi tính năng xuất TRANSCRIPT/GRADE_REPORT c
 điểm theo kỳ dùng được trên FE (đã xác nhận với người dùng, chưa triển
 khai — theo dõi riêng).
 
+---
+
+UC-69: Thống kê biến động học sinh các lớp theo kỳ (bổ sung ngoài SDD gốc,
+đã xác nhận với người dùng 2026-08-11)
+
++-----------------+----------------------------------------------------+
+| **Mã Use Case** | UC-69                                              |
++-----------------+----------------------------------------------------+
+| **Tên Use       | Thống kê biến động học sinh các lớp theo kỳ         |
+| Case**          |                                                    |
++-----------------+----------------------------------------------------+
+| **Phân hệ**     | Phân hệ 6                                          |
++-----------------+----------------------------------------------------+
+| **Yêu cầu chức  | FR-ACA-09 (bổ sung ngoài SDD gốc, đã xác nhận với  |
+| năng gốc**      | người dùng 2026-08-11)                             |
++-----------------+----------------------------------------------------+
+| **Tác nhân**    | Trưởng phòng đào tạo, Quản lý điểm trường, Quản trị |
+|                 | viên                                               |
++-----------------+----------------------------------------------------+
+| **Mô tả tóm     | Actor chọn 1 Kỳ học (academic_terms) và tuỳ chọn 1  |
+| tắt**           | lớp cụ thể, hệ thống hiển thị sĩ số đầu kỳ/cuối kỳ  |
+|                 | và số lượng biến động (nhập học mới, nghỉ/rút,      |
+|                 | chuyển lớp, hoàn thành) của (các) lớp thuộc điểm    |
+|                 | trường của kỳ đó — xuất được file Excel.            |
++-----------------+----------------------------------------------------+
+| **Sự kiện kích  | Cần đánh giá biến động sĩ số các lớp trong 1 kỳ học |
+| hoạt**          | (VD báo cáo định kỳ cho Ban giám đốc, rà soát sĩ số |
+|                 | trước khi mở kỳ mới).                              |
++-----------------+----------------------------------------------------+
+| **Điều kiện     | -   Actor có quyền report.enrollment-stats.view.    |
+| tiên quyết      | -   Nếu actor là Quản lý điểm trường (có row        |
+| (               |     site_managers, role_type=SITE_MANAGER): kỳ học  |
+| Precondition)** |     đang xem phải thuộc (1 trong) điểm trường mình  |
+|                 |     phụ trách. Trưởng phòng đào tạo/Quản trị viên   |
+|                 |     (không có row site_managers) xem được kỳ học    |
+|                 |     của bất kỳ điểm trường nào.                    |
++-----------------+----------------------------------------------------+
+| **Luồng sự kiện | 1.  Actor chọn 1 Kỳ học (academic_terms — mỗi kỳ    |
+| chính (Main     |     luôn gắn 1 điểm trường cụ thể, xem UC-18).      |
+| Flow)**         |                                                    |
+|                 | 2.  (Tuỳ chọn) Actor chọn thêm 1 lớp cụ thể thuộc   |
+|                 |     điểm trường của kỳ đã chọn để chỉ xem riêng lớp |
+|                 |     đó — nếu không chọn, hệ thống trả về toàn bộ    |
+|                 |     lớp (chưa xoá mềm) của điểm trường đó.          |
+|                 |                                                    |
+|                 | 3.  Với mỗi lớp trong phạm vi, hệ thống tính (không |
+|                 |     có bảng snapshot riêng — TÍNH RA từ             |
+|                 |     class_enrollments theo đúng cơ chế "Hồ sơ lớp/  |
+|                 |     học sinh theo kỳ" đã áp dụng ở UC-18/UC-19):    |
+|                 |     - Sĩ số đầu kỳ: số học sinh "có mặt" tại đúng   |
+|                 |       ngày bắt đầu kỳ (enrolled_date <=              |
+|                 |       start_date AND (withdrawn_date IS NULL OR     |
+|                 |       withdrawn_date >= start_date)).               |
+|                 |     - Nhập học mới: số bản ghi class_enrollments có |
+|                 |       enrolled_date trong [start_date, end_date],   |
+|                 |       bất kể trạng thái hiện tại.                   |
+|                 |     - Nghỉ/rút, Chuyển lớp, Hoàn thành: số bản ghi  |
+|                 |       có status tương ứng (WITHDRAWN/TRANSFERRED/   |
+|                 |       COMPLETED) VÀ withdrawn_date trong             |
+|                 |       [start_date, end_date].                       |
+|                 |     - Sĩ số cuối kỳ: như sĩ số đầu kỳ nhưng tính    |
+|                 |       theo end_date.                                |
+|                 |                                                    |
+|                 | 4.  Hệ thống hiển thị bảng theo từng lớp kèm 1 dòng |
+|                 |     tổng cộng (cộng dồn toàn bộ lớp trong phạm vi). |
+|                 |                                                    |
+|                 | 5.  Actor xuất file Excel bảng đang xem.            |
++-----------------+----------------------------------------------------+
+| **Luồng thay    | ***A1 --- Không tìm thấy kỳ học/lớp***              |
+| thế / ngoại lệ  |                                                    |
+| (Alternate      | 1.  Nếu academicTermId không tồn tại, hoặc classId  |
+| Flow)**         |     không tồn tại (hoặc đã xoá mềm), hệ thống báo   |
+|                 |     lỗi 404.                                        |
+|                 |                                                    |
+|                 | ***A2 --- Lớp không thuộc điểm trường của kỳ đã     |
+|                 | chọn***                                            |
+|                 |                                                    |
+|                 | 1.  Nếu classId được chọn không cùng site_id với kỳ |
+|                 |     học đang xem, hệ thống báo lỗi 404 (không cho   |
+|                 |     xem chéo điểm trường qua tham số classId).      |
+|                 |                                                    |
+|                 | ***A3 --- Quản lý điểm trường xem kỳ học ngoài      |
+|                 | phạm vi phụ trách***                                |
+|                 |                                                    |
+|                 | 1.  Nếu actor có row site_managers (SITE_MANAGER)   |
+|                 |     nhưng không phụ trách điểm trường của kỳ học    |
+|                 |     đang xem, hệ thống từ chối truy cập (403).      |
+|                 |                                                    |
+|                 | ***A4 --- Kỳ/lớp chưa có biến động nào***           |
+|                 |                                                    |
+|                 | 1.  Hệ thống vẫn hiển thị dòng với các cột đều = 0, |
+|                 |     không báo lỗi (khác A1 — lớp/kỳ vẫn tồn tại,    |
+|                 |     chỉ đơn giản chưa phát sinh biến động trong      |
+|                 |     khoảng thời gian đó).                           |
++-----------------+----------------------------------------------------+
+| **Hậu điều kiện | -   Không thay đổi dữ liệu — UC thuần đọc/báo cáo.  |
+| (P              |                                                    |
+| ostcondition)** |                                                    |
++-----------------+----------------------------------------------------+
+
+Ghi chú triển khai: "Toàn hệ thống" (Ban giám đốc/Trưởng phòng đào tạo) hiện
+thực hoá bằng việc actor không có row site_managers thì được chọn kỳ học của
+BẤT KỲ điểm trường nào (không giới hạn) — hệ thống KHÔNG gộp nhiều điểm
+trường vào cùng 1 lần xem, vì academic_terms luôn giới hạn theo đúng 1 điểm
+trường (không có khái niệm "1 kỳ dùng chung toàn chuỗi"); actor muốn xem
+nhiều điểm trường phải chọn lần lượt từng kỳ học tương ứng.
+
+Ghi chú triển khai (2026-08-11, bổ sung theo yêu cầu người dùng — biểu đồ
+đường xem xu hướng theo tháng + so sánh giữa 2 kỳ): thêm endpoint
+`GET /api/academic-terms/{id}/enrollment-movement-trend` (cùng permission
+`report.enrollment-stats.view`, cùng cơ chế `classId` tuỳ chọn như bước 2 ở
+trên) — chia [start_date, end_date] của kỳ thành từng tháng lịch (tháng
+đầu/cuối bị cắt theo đúng ranh giới kỳ), mỗi điểm trả về sĩ số TÍNH RA tại
+đúng ngày cuối đoạn tháng đó (cùng công thức closingHeadcount ở bước 3) và
+số biến động phát sinh TRONG đúng tháng đó — vẫn thuần derived-query, không
+thêm bảng snapshot. FE gọi endpoint này 2 lần (1 lần/kỳ) khi actor chọn "So
+sánh với kỳ khác" để vẽ 2 đường chồng lên nhau theo `monthIndex` (tháng thứ
+mấy của kỳ, không phải tháng lịch tuyệt đối) — cho phép so sánh công bằng 2
+kỳ có độ dài/thời điểm lịch khác nhau.
+
 Phân hệ 7 --- Cổng thông tin và E-Learning (Portal & LMS)

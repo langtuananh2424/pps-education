@@ -44,7 +44,7 @@ import { classStatusLabels, classStatusVariants } from "./ClassListPanel";
 import BulkGenerateSessionsForm from "./BulkGenerateSessionsForm";
 import ImportScheduleForm from "./ImportScheduleForm";
 import ClassGradeSheetPanel from "./ClassGradeSheetPanel";
-import StudentInfoModal from "./StudentInfoModal";
+import StudentNameLink from "@/features/reports/components/StudentNameLink";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import DatePicker from "@/components/ui/DatePicker";
@@ -445,7 +445,6 @@ function StudentsTab({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [enrolling, setEnrolling] = useState(false);
-  const [viewingEnrollment, setViewingEnrollment] = useState<ClassEnrollmentResponse | null>(null);
   const [downloadingTemplate, setDownloadingTemplate] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<ClassEnrollmentBatchImportResponse | null>(null);
@@ -610,13 +609,11 @@ function StudentsTab({
           {enrollments.map((en) => (
             <div key={en.id} className="border border-slate-200 rounded-lg p-3 text-xs flex items-center justify-between">
               <div className="flex items-center gap-2 flex-wrap">
-                <button
-                  type="button"
-                  onClick={() => setViewingEnrollment(en)}
+                <StudentNameLink
+                  studentId={en.studentId}
+                  name={en.studentFullName}
                   className="font-bold text-slate-800 hover:text-brand-red hover:underline"
-                >
-                  {en.studentFullName}
-                </button>
+                />
                 <span className="font-mono text-slate-400">{en.studentCode}</span>
                 <Badge variant={en.status === "ACTIVE" ? "success" : "neutral"}>{en.status}</Badge>
               </div>
@@ -645,13 +642,6 @@ function StudentsTab({
         />
       </Modal>
 
-      {viewingEnrollment && (
-        <StudentInfoModal
-          enrollment={viewingEnrollment}
-          classId={classId}
-          onClose={() => setViewingEnrollment(null)}
-        />
-      )}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 package vn.com.pps.education.repository;
 
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -27,4 +28,21 @@ public interface AttendanceMarkRepository extends JpaRepository<AttendanceMark, 
             ORDER BY m.attendanceSession.classSession.sessionDate DESC
             """)
     List<AttendanceMark> findByStudentIdAndClassId(@Param("studentId") Long studentId, @Param("classId") Long classId);
+
+    /**
+     * Bổ sung ngoài SDD gốc — StudentProfileService (FR-REP-04): JOIN FETCH
+     * buổi điểm danh/buổi học/lớp để tránh N+1 khi gộp điểm danh của 1 học
+     * sinh qua mọi lớp. {@code pageable} giới hạn số buổi gần nhất (tránh
+     * quét toàn bộ lịch sử nhiều năm trong 1 lần) — sắp DESC theo ngày buổi
+     * học nên trang đầu (offset 0) luôn là các buổi gần nhất.
+     */
+    @Query("""
+            SELECT m FROM AttendanceMark m
+            JOIN FETCH m.attendanceSession asess
+            JOIN FETCH asess.classSession cs
+            JOIN FETCH cs.schoolClass sc
+            WHERE m.student.id = :studentId
+            ORDER BY cs.sessionDate DESC
+            """)
+    List<AttendanceMark> findByStudentIdWithContext(@Param("studentId") Long studentId, Pageable pageable);
 }

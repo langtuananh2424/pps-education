@@ -35,6 +35,7 @@ import { useEligibleClasses } from "../hooks/useEligibleClasses";
 import NotificationBanner from "@/features/student/components/NotificationBanner";
 import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
 import CommentHistoryList from "./CommentHistoryList";
+import StudentNameLink from "@/features/reports/components/StudentNameLink";
 import Select from "@/components/ui/Select";
 import DatePicker from "@/components/ui/DatePicker";
 
@@ -958,7 +959,9 @@ export default function DailyCommentPanel() {
                     className={`transition-colors ${locked ? "bg-emerald-50/20 cursor-pointer hover:bg-emerald-50/40" : "hover:bg-slate-50/40"}`}
                   >
                     <Td className="font-mono font-bold text-slate-500 border-r border-slate-300">{r.studentCode}</Td>
-                    <Td className="font-bold text-slate-900 whitespace-nowrap border-r border-slate-300">{r.studentFullName}</Td>
+                    <Td className="font-bold text-slate-900 whitespace-nowrap border-r border-slate-300">
+                      <StudentNameLink studentId={r.studentId} name={r.studentFullName} />
+                    </Td>
                     <Td className="whitespace-nowrap text-slate-500 border-r border-slate-300">{r.studentDateOfBirth ?? "—"}</Td>
                     <Td className="min-w-[130px] border-r border-slate-300">
                       {/* BTVN buổi trước — Offline (bổ sung ngoài SDD gốc, 2026-08-06) — chỉ hiển thị, không nhập được ở đây (khớp cách hiện Ngày sinh — dữ liệu tra ngược từ buổi trước, không phải của buổi đang nhận xét). */}

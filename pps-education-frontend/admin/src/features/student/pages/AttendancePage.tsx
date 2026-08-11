@@ -14,6 +14,7 @@ import {
   submitAttendance
 } from "@/features/academic/api";
 import { useEligibleClasses } from "@/features/academic/hooks/useEligibleClasses";
+import StudentNameLink from "@/features/reports/components/StudentNameLink";
 import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
 import Select from "@/components/ui/Select";
 import Modal from "@/components/ui/Modal";
@@ -256,7 +257,9 @@ export default function AttendancePage() {
                 rows.map((stud) => (
                   <tr key={stud.studentId} className="hover:bg-slate-50/40 transition-colors">
                     <Td className="font-mono font-bold text-slate-500">{stud.studentCode}</Td>
-                    <Td className="font-bold text-slate-900">{stud.studentFullName}</Td>
+                    <Td className="font-bold text-slate-900">
+                      <StudentNameLink studentId={stud.studentId} name={stud.studentFullName} />
+                    </Td>
                     {(["PRESENT", "ABSENT", "EXCUSED", "LATE"] as const).map((statusOption) => (
                       <Td key={statusOption} className="text-center">
                         <input

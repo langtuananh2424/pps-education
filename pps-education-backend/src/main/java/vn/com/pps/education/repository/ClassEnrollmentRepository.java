@@ -44,4 +44,26 @@ public interface ClassEnrollmentRepository extends JpaRepository<ClassEnrollment
             + "AND (ce.withdrawnDate IS NULL OR ce.withdrawnDate >= :asOfDate) "
             + "ORDER BY ce.student.id")
     List<ClassEnrollment> findActiveAsOf(@Param("classId") Long classId, @Param("asOfDate") LocalDate asOfDate);
+
+    /** UC-69: học sinh nhập học mới trong kỳ [start, end] — đếm theo enrolledDate, bất kể status hiện tại. */
+    long countBySchoolClassIdAndEnrolledDateBetween(Long classId, LocalDate start, LocalDate end);
+
+    /** UC-69: học sinh nghỉ/rút (WITHDRAWN) / chuyển lớp (TRANSFERRED) / hoàn thành (COMPLETED) trong kỳ [start, end] — theo withdrawnDate. */
+    long countBySchoolClassIdAndStatusAndWithdrawnDateBetween(Long classId, ClassEnrollment.Status status, LocalDate start, LocalDate end);
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng — dùng cho
+     * StudentProfileService (API tổng hợp hồ sơ học tập, FR-REP-04): JOIN
+     * FETCH lớp/điểm trường/năm học ngay trong 1 truy vấn để tránh
+     * lazy-load N+1 khi duyệt qua toàn bộ lớp đã học của 1 học sinh.
+     */
+    @Query("""
+            SELECT ce FROM ClassEnrollment ce
+            JOIN FETCH ce.schoolClass sc
+            JOIN FETCH sc.site
+            LEFT JOIN FETCH sc.academicYear
+            WHERE ce.student.id = :studentId
+            ORDER BY ce.enrolledDate DESC
+            """)
+    List<ClassEnrollment> findByStudentIdWithClassContext(@Param("studentId") Long studentId);
 }

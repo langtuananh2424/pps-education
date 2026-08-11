@@ -9,8 +9,14 @@ interface ModalProps {
   description?: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
-  size?: "md" | "lg";
+  size?: "md" | "lg" | "xl";
 }
+
+const SIZE_CLASSES: Record<NonNullable<ModalProps["size"]>, string> = {
+  md: "max-w-lg",
+  lg: "max-w-2xl",
+  xl: "max-w-7xl",
+};
 
 export default function Modal({ open, onClose, title, description, children, footer, size = "md" }: ModalProps) {
   if (!open) return null;
@@ -23,7 +29,7 @@ export default function Modal({ open, onClose, title, description, children, foo
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs" onClick={onClose} />
       <div
-        className={`relative w-full ${size === "lg" ? "max-w-2xl" : "max-w-lg"} max-h-[90vh] overflow-y-auto bg-white rounded-2xl border border-slate-200 shadow-xl animate-in fade-in duration-150`}
+        className={`relative w-full ${SIZE_CLASSES[size]} max-h-[95vh] overflow-y-auto bg-white rounded-2xl border border-slate-200 shadow-xl animate-in fade-in duration-150`}
       >
         <div className="sticky top-0 bg-white px-5 py-4 border-b border-slate-100 flex items-start justify-between gap-3">
           <div>

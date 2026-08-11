@@ -17,12 +17,14 @@ import vn.com.pps.education.dto.CreateStudentRequest;
 import vn.com.pps.education.dto.LinkParentRequest;
 import vn.com.pps.education.dto.ParentStudentResponse;
 import vn.com.pps.education.dto.RecordTransferRequest;
+import vn.com.pps.education.dto.StudentProfileResponse;
 import vn.com.pps.education.dto.StudentResponse;
 import vn.com.pps.education.dto.StudentStatusHistoryResponse;
 import vn.com.pps.education.dto.StudentTransferHistoryResponse;
 import vn.com.pps.education.dto.UpdateStudentRequest;
 import vn.com.pps.education.dto.UpdateStudentStatusRequest;
 import vn.com.pps.education.security.AuthenticatedUser;
+import vn.com.pps.education.service.StudentProfileService;
 import vn.com.pps.education.service.StudentService;
 import vn.com.pps.education.service.StudentStatusService;
 
@@ -40,10 +42,13 @@ public class StudentController {
 
     private final StudentService studentService;
     private final StudentStatusService studentStatusService;
+    private final StudentProfileService studentProfileService;
 
-    public StudentController(StudentService studentService, StudentStatusService studentStatusService) {
+    public StudentController(StudentService studentService, StudentStatusService studentStatusService,
+                              StudentProfileService studentProfileService) {
         this.studentService = studentService;
         this.studentStatusService = studentStatusService;
+        this.studentProfileService = studentProfileService;
     }
 
     @PreAuthorize("hasPermission(null, 'student.profile.view')")
@@ -58,6 +63,13 @@ public class StudentController {
     @GetMapping("/{id}")
     public ResponseEntity<StudentResponse> getById(@PathVariable Long id, @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(studentService.getById(id, actor.userId()));
+    }
+
+    /** Bổ sung ngoài SDD gốc (FR-REP-04) — hồ sơ học tập tổng hợp, xem Javadoc StudentProfileService. */
+    @PreAuthorize("hasPermission(null, 'student.profile.view')")
+    @GetMapping("/{id}/profile")
+    public ResponseEntity<StudentProfileResponse> getProfile(@PathVariable Long id, @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(studentProfileService.getProfile(id, actor.userId()));
     }
 
     @PreAuthorize("hasPermission(null, 'student.profile.create')")
