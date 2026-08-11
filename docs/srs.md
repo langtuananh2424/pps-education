@@ -587,6 +587,17 @@ nhân đó mới được thao tác.*
         Báo cáo ngày (bảng động liệt kê học sinh, chỉ .docx/.html), và Hồ
         sơ học sinh. Bảng điểm theo mẫu chưa triển khai.
 
+    -   **FR-ACA-09: Thống kê biến động học sinh các lớp theo kỳ -** (bổ
+        sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-11) Trưởng
+        phòng đào tạo/Quản lý điểm trường/Quản trị viên chọn 1 Kỳ học
+        (`academic_terms`, luôn gắn 1 điểm trường) và tuỳ chọn 1 lớp cụ
+        thể, xem sĩ số đầu kỳ/cuối kỳ và số lượng biến động (nhập học
+        mới, nghỉ/rút, chuyển lớp, hoàn thành — tính ra từ
+        `class_enrollments.status`/`enrolled_date`/`withdrawn_date`, không
+        có bảng snapshot riêng) của (các) lớp thuộc điểm trường đó. Quản
+        lý điểm trường chỉ xem được kỳ học của điểm trường mình phụ
+        trách. Có xuất file Excel (UC-69).
+
 **PHÂN HỆ 7: CỔNG THÔNG TIN VÀ E-LEARNING (PORTAL & LMS - TÍCH HỢP
 CDN)**
 
@@ -923,6 +934,10 @@ CDN)**
 
   UC-68             Xuất báo cáo từ   FR-ACA-08         6
                     mẫu                                 
+
+  UC-69             Thống kê biến     FR-ACA-09         6
+                    động học sinh                       
+                    theo kỳ                             
 
   UC-21             Viết nhận xét học FR-ACA-04         6
                     sinh                                

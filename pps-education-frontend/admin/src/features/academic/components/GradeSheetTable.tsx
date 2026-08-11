@@ -16,6 +16,7 @@ import {
 } from "../api";
 import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
 import Badge, { BadgeVariant } from "@/components/ui/Badge";
+import StudentNameLink from "@/features/reports/components/StudentNameLink";
 
 const statusLabels: Record<GradeStatus, string> = {
   DRAFT: "Nháp",
@@ -316,7 +317,9 @@ export default function GradeSheetTable({ classId, setupId, scaleType, component
                 return (
                   <tr key={en.studentId} className="hover:bg-slate-50/40 transition-colors">
                     <Td className="font-mono font-bold text-slate-500 whitespace-nowrap">{en.studentCode}</Td>
-                    <Td className="font-bold text-slate-900 whitespace-nowrap">{en.studentFullName}</Td>
+                    <Td className="font-bold text-slate-900 whitespace-nowrap">
+                      <StudentNameLink studentId={en.studentId} name={en.studentFullName} />
+                    </Td>
                     {components.map((c) => {
                       const existing = entriesByStudent.get(en.studentId)?.get(c.id);
                       const key = `${en.studentId}:${c.id}`;

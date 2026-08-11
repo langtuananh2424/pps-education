@@ -1,4 +1,5 @@
 import {
+  ArrowLeftRight,
   Award,
   BarChart3,
   Building2,
@@ -205,7 +206,8 @@ export const navSections: NavSection[] = [
       { id: "rep-templates", label: "Mẫu báo cáo tự động", path: "/reports/templates", icon: ClipboardCheck, requiredPermission: "report.template.view" },
       { id: "rep-daily", label: "Thống kê nhận xét", path: "/reports/daily-comments", icon: BarChart3, requiredPermission: "report.daily-comment.view" },
       { id: "rep-grades", label: "Thống kê điểm", path: "/reports/grades", icon: Award, requiredPermission: "report.grade.view" },
-      { id: "rep-student", label: "Hồ sơ học tập", path: "/reports/student-progress", icon: GraduationCap, requiredPermission: "report.student-progress.view" }
+      { id: "rep-student", label: "Hồ sơ học tập", path: "/reports/student-progress", icon: GraduationCap, requiredPermission: "report.student-progress.view" },
+      { id: "rep-enrollment-movement", label: "Biến động học sinh theo kỳ", path: "/reports/enrollment-movement", icon: ArrowLeftRight, requiredPermission: "report.enrollment-stats.view" }
     ]
   },
   {

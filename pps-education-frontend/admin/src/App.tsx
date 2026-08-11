@@ -2,6 +2,7 @@ import React from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AppProvider } from "@/context/AppContext";
 import { DialogProvider } from "@/components/ui/DialogProvider";
+import { StudentProfileModalProvider } from "@/features/reports/context/StudentProfileModalContext";
 import AppShell from "@/components/layout/AppShell";
 import ProtectedRoute from "@/components/layout/ProtectedRoute";
 import LoginPage from "@/features/auth/pages/LoginPage";
@@ -46,10 +47,12 @@ import ReportTemplatesPage from "@/features/reports/pages/ReportTemplatesPage";
 import DailyCommentsAnalyticsPage from "@/features/reports/pages/DailyCommentsAnalyticsPage";
 import GradesAnalyticsPage from "@/features/reports/pages/GradesAnalyticsPage";
 import StudentProgressPage from "@/features/reports/pages/StudentProgressPage";
+import EnrollmentMovementStatsPage from "@/features/reports/pages/EnrollmentMovementStatsPage";
 export default function App() {
   return (
     <AppProvider>
       <DialogProvider>
+      <StudentProfileModalProvider>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
 
@@ -104,12 +107,14 @@ export default function App() {
           <Route path="/reports/daily-comments" element={<DailyCommentsAnalyticsPage />} />
           <Route path="/reports/grades" element={<GradesAnalyticsPage />} />
           <Route path="/reports/student-progress" element={<StudentProgressPage />} />
+          <Route path="/reports/enrollment-movement" element={<EnrollmentMovementStatsPage />} />
 
           <Route index element={<Navigate to="/dashboard" replace />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
+      </StudentProfileModalProvider>
       </DialogProvider>
     </AppProvider>
   );

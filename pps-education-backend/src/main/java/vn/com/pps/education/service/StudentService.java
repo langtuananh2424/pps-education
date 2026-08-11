@@ -161,6 +161,20 @@ public class StudentService {
         return toResponse(student);
     }
 
+    /**
+     * Package-private — dùng bởi StudentProfileService (API tổng hợp hồ sơ
+     * học tập, FR-REP-04, bổ sung ngoài SDD gốc) để tái dùng ĐÚNG rào
+     * site-scope của getById (STAFF/Giáo vụ không giới hạn, Quản lý điểm
+     * trường chỉ xem học sinh thuộc site mình phụ trách) — tránh trùng lặp
+     * logic requireSiteAccessible ở 2 nơi.
+     */
+    @Transactional(readOnly = true)
+    Student getAccessibleStudentOrThrow(Long id, Long actorUserId) {
+        Student student = getStudentOrThrow(id);
+        requireSiteAccessible(student, actorUserId);
+        return student;
+    }
+
     /** UC-63 Main Flow bước 1: học sinh tự xem hồ sơ của chính mình (FR-USR-07). */
     @Transactional(readOnly = true)
     public StudentResponse getMyStudentProfile(Long userId) {
