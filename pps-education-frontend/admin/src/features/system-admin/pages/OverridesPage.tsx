@@ -78,7 +78,7 @@ export default function OverridesPage() {
       <div className="bg-gradient-to-r from-orange-50 to-amber-50/50 border border-orange-200/60 p-4 rounded-xl flex items-start gap-3 shadow-sm">
         <Info className="w-5 h-5 text-brand-red shrink-0 mt-0.5" />
         <div className="space-y-1">
-          <span className="text-xs font-bold text-brand-red uppercase tracking-wider block">TÙY CHỈNH TÀI KHOẢN (USER OVERRIDES - UC-04)</span>
+          <span className="text-xs font-bold text-brand-red uppercase tracking-wider block">TÙY CHỈNH TÀI KHOẢN</span>
           <p className="text-xs text-slate-600 leading-relaxed">
             Cấp thêm hoặc tước bỏ trực tiếp một quyền hạt nhân cho 1 tài khoản cụ thể, có độ ưu tiên cao nhất trong công thức
             quyền hiệu lực — không cần đổi vai trò vĩnh viễn của họ.

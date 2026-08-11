@@ -86,7 +86,9 @@ public class HomeworkDeadlineSchedulerService {
 
     private void processExerciseAssignments(OffsetDateTime now, Map<StudentClassKey, MissAccumulator> missByStudentClass) {
         List<ExerciseAssignment> due = exerciseAssignmentRepository
-                .findByStatusAndDueAtLessThanEqualAndTeacherNotifiedAtIsNull(ExerciseAssignment.Status.ACTIVE, now);
+                .findByStatusAndDueAtLessThanEqualAndTeacherNotifiedAtIsNull(ExerciseAssignment.Status.ACTIVE, now).stream()
+                .filter(a -> a.getSchoolClass().getStatus() != SchoolClass.Status.CANCELLED)
+                .toList();
         for (ExerciseAssignment assignment : due) {
             List<Student> students = targetStudents(assignment.getSchoolClass(), assignment.getTargetStudentIds());
             if (!students.isEmpty()) {
@@ -111,7 +113,9 @@ public class HomeworkDeadlineSchedulerService {
 
     private void processReviewVideoAssignments(OffsetDateTime now, Map<StudentClassKey, MissAccumulator> missByStudentClass) {
         List<ReviewVideoAssignment> due = reviewVideoAssignmentRepository
-                .findByStatusAndDueAtLessThanEqualAndTeacherNotifiedAtIsNull(ReviewVideoAssignment.Status.ACTIVE, now);
+                .findByStatusAndDueAtLessThanEqualAndTeacherNotifiedAtIsNull(ReviewVideoAssignment.Status.ACTIVE, now).stream()
+                .filter(a -> a.getSchoolClass().getStatus() != SchoolClass.Status.CANCELLED)
+                .toList();
         for (ReviewVideoAssignment assignment : due) {
             List<Student> students = targetStudents(assignment.getSchoolClass(), assignment.getTargetStudentIds());
             if (!students.isEmpty()) {

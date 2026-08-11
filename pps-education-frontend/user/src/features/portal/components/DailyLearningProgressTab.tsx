@@ -767,7 +767,7 @@ export default function DailyLearningProgressTab({
           <p className="text-xs text-muted font-bold mt-1">
             Theo dõi thái độ, bài tập &amp; nhận xét từng buổi học của{" "}
             <span className="text-teal font-extrabold">
-              {studentName} ({displayCode})
+              {studentName}
             </span>
           </p>
         </div>

@@ -22,12 +22,12 @@ type Tab = "home" | "schedule" | "learning-progress" | "homework" | "documents" 
 
 const TABS: { key: Tab; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
   { key: "home", label: "Trang chủ & Bảng tin", icon: Home },
+  { key: "grades", label: "Khảo thí & Điểm số", icon: Award },
+  { key: "grade-stats", label: "Thống kê điểm", icon: Award },
   { key: "schedule", label: "Lịch học & Chuyên cần", icon: Calendar },
   { key: "learning-progress", label: "Quá trình học tập", icon: NotebookPen },
   { key: "homework", label: "Bài tập về nhà (BTVN)", icon: ClipboardList },
   { key: "documents", label: "Kho dữ liệu (Sách, TLTK)", icon: FolderOpen },
-  { key: "grades", label: "Khảo thí & Điểm số", icon: Award },
-  { key: "grade-stats", label: "Thống kê điểm", icon: Award },
   { key: "billing", label: "Học phí & Dịch vụ", icon: CreditCard }
 ];
 
