@@ -6,6 +6,7 @@ import { useDialog } from "@/components/ui/DialogProvider";
 import { ApiError } from "@/lib/apiClient";
 import { decideLeaveRequest, LeaveRequestResponse } from "../api";
 import { useLeaveTypeLabel } from "../hooks/useLeaveTypeLabel";
+import NotificationBanner from "@/features/student/components/NotificationBanner";
 
 interface LeaveApprovalQueueProps {
   leaveRequests: LeaveRequestResponse[];
@@ -25,12 +26,18 @@ export default function LeaveApprovalQueue({ leaveRequests, loading, onDecided }
   const getLeaveTypeLabel = useLeaveTypeLabel();
   const [opinionNotes, setOpinionNotes] = useState<Record<number, string>>({});
   const [decidingId, setDecidingId] = useState<number | null>(null);
+  const [decidedMessage, setDecidedMessage] = useState<string | null>(null);
   const { alertDialog } = useDialog();
 
   const decide = async (req: LeaveRequestResponse, decision: "APPROVED" | "REJECTED", comment?: string) => {
     setDecidingId(req.id);
     try {
       await decideLeaveRequest(req.id, { decision, comment });
+      setDecidedMessage(
+        decision === "APPROVED"
+          ? `Đã duyệt đơn nghỉ phép của ${req.employeeFullName}.`
+          : `Đã từ chối đơn nghỉ phép của ${req.employeeFullName}.`
+      );
       onDecided();
     } catch (err) {
       await alertDialog(err instanceof ApiError ? err.message : "Không thực hiện được quyết định, vui lòng thử lại.");
@@ -41,6 +48,11 @@ export default function LeaveApprovalQueue({ leaveRequests, loading, onDecided }
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden">
+      {decidedMessage && (
+        <div className="p-3 border-b border-slate-100">
+          <NotificationBanner message={decidedMessage} onClose={() => setDecidedMessage(null)} />
+        </div>
+      )}
       <div className="px-5 py-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between gap-3">
         <div>
           <span className="text-xs font-bold text-slate-700 font-display block">Hàng chờ xét duyệt</span>

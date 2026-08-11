@@ -15,6 +15,7 @@ import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
 import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
 import { useDialog } from "@/components/ui/DialogProvider";
+import NotificationBanner from "@/features/student/components/NotificationBanner";
 
 const commentTypeLabels: Record<StudentCommentResponse["commentType"], string> = { DAILY: "Hàng ngày", MID_TERM: "Giữa kỳ", END_TERM: "Cuối kỳ" };
 const attitudeLabels: Record<NonNullable<StudentCommentResponse["attitude"]>, string> = {
@@ -55,6 +56,7 @@ export default function CommentApprovalByClass({ items, loading, onDecided }: Co
   const [editingContent, setEditingContent] = useState("");
   const [savingEditId, setSavingEditId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [decidedMessage, setDecidedMessage] = useState<string | null>(null);
   const { promptDialog } = useDialog();
 
   useEffect(() => {
@@ -109,6 +111,11 @@ export default function CommentApprovalByClass({ items, loading, onDecided }: Co
     setError(null);
     try {
       await decideComments([comment.id], decision, reason?.trim());
+      setDecidedMessage(
+        decision === "APPROVED"
+          ? `Đã duyệt nhận xét học sinh ${comment.studentFullName}.`
+          : `Đã từ chối nhận xét học sinh ${comment.studentFullName}.`
+      );
       onDecided();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Duyệt nhận xét thất bại.");
@@ -122,6 +129,7 @@ export default function CommentApprovalByClass({ items, loading, onDecided }: Co
     setError(null);
     try {
       await decideComments(classItems.map((cm) => cm.id), "APPROVED");
+      setDecidedMessage(`Đã duyệt tất cả ${classItems.length} nhận xét của lớp ${classesById[classId]?.name ?? `#${classId}`}.`);
       onDecided();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Duyệt tất cả thất bại.");
@@ -164,6 +172,7 @@ export default function CommentApprovalByClass({ items, loading, onDecided }: Co
 
   return (
     <div className="space-y-4">
+      <NotificationBanner message={decidedMessage} onClose={() => setDecidedMessage(null)} />
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
       {classIdsInOrder.map((classId) => {
         const cls = classesById[classId];

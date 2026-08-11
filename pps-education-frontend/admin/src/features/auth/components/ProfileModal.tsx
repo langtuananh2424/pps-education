@@ -11,6 +11,8 @@ import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import Avatar from "@/components/ui/Avatar";
 import AvatarUploadField from "@/components/ui/AvatarUploadField";
+import Toast from "@/components/ui/Toast";
+import { useToast } from "@/lib/useToast";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-xs p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
@@ -31,7 +33,7 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
   const [employeeForm, setEmployeeForm] = useState({ portraitUrl: "", permanentAddress: "", currentAddress: "" });
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
-  const [profileSuccess, setProfileSuccess] = useState(false);
+  const { message: toastMessage, showToast } = useToast();
 
   useEffect(() => {
     getMyEmployeeProfile()
@@ -63,7 +65,6 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
     e.preventDefault();
     setSavingProfile(true);
     setProfileError(null);
-    setProfileSuccess(false);
     try {
       const updated = await updateMyEmployeeProfile({
         portraitUrl: employeeForm.portraitUrl || undefined,
@@ -71,7 +72,7 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
         currentAddress: employeeForm.currentAddress.trim() || undefined
       });
       setEmployeeProfile(updated);
-      setProfileSuccess(true);
+      showToast("Đã lưu hồ sơ thành công.");
     } catch (err) {
       setProfileError(err instanceof ApiError ? err.message : "Cập nhật hồ sơ thất bại.");
     } finally {
@@ -80,7 +81,8 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
   };
 
   return (
-    <Modal open onClose={onClose} title="Hồ sơ cá nhân" size="md">
+    <>
+      <Modal open onClose={onClose} title="Hồ sơ cá nhân" size="md">
       <div className="space-y-5">
         <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
           {employeeProfile ? (
@@ -137,7 +139,6 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
             </span>
 
             {profileError && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{profileError}</div>}
-            {profileSuccess && <div className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 p-2.5 rounded-lg">Đã lưu hồ sơ thành công.</div>}
 
             <div>
               <label className={labelClass}>Địa chỉ thường trú</label>
@@ -169,6 +170,8 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
           </Button>
         </div>
       </div>
-    </Modal>
+      </Modal>
+      <Toast message={toastMessage} />
+    </>
   );
 }
