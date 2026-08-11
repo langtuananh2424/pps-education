@@ -1798,4 +1798,339 @@ trách điểm trường của lớp) — quản trị viên (SYS_ADMIN) dù đ�
 trường hợp thứ 3 vượt qua A2 — quản trị viên xem thống kê BTVN của lớp bất
 kỳ.
 
+---
+
+UC-67: Quản lý mẫu báo cáo (bổ sung ngoài SDD gốc, đã xác nhận với người
+dùng 2026-08-09, cập nhật theo implementation thực tế 2026-08-09)
+
++-----------------+----------------------------------------------------+
+| **Mã Use Case** | UC-67                                              |
++-----------------+----------------------------------------------------+
+| **Tên Use       | Quản lý mẫu báo cáo                                |
+| Case**          |                                                    |
++-----------------+----------------------------------------------------+
+| **Phân hệ**     | Phân hệ 6                                          |
++-----------------+----------------------------------------------------+
+| **Yêu cầu chức  | FR-ACA-08 (bổ sung ngoài SDD gốc, đã xác nhận với  |
+| năng gốc**      | người dùng 2026-08-09)                             |
++-----------------+----------------------------------------------------+
+| **Tác nhân**    | Trưởng phòng đào tạo, Quản lý điểm trường           |
++-----------------+----------------------------------------------------+
+| **Mô tả tóm     | Actor tải lên mẫu báo cáo (file .docx, .pdf, hoặc  |
+| tắt**           | .html) đã đánh dấu sẵn các trường thông tin bằng    |
+|                 | ký hiệu `[TEN_TRUONG]` (riêng .pdf dùng field       |
+|                 | AcroForm có sẵn thay vì ký hiệu), hệ thống tự phát  |
+|                 | hiện các trường này và cho phép cấu hình ánh xạ tới |
+|                 | dữ liệu thực tế (giống cơ chế Mail Merge của Word)  |
+|                 | để dùng làm cơ sở xuất báo cáo ở UC-68.             |
++-----------------+----------------------------------------------------+
+| **Sự kiện kích  | Cần chuẩn hoá 1 mẫu báo cáo mới (VD Phiếu kết quả  |
+| hoạt**          | lộ trình, Báo cáo ngày, Hồ sơ học sinh, Bảng điểm)  |
+|                 | hoặc cập nhật mẫu đang dùng.                       |
++-----------------+----------------------------------------------------+
+| **Điều kiện     | -   Người dùng có quyền report.template.create (để |
+| tiên quyết      |     tạo mới) hoặc report.template.update/delete    |
+| (               |     (để sửa/xoá) tương ứng với thao tác.            |
+| Precondition)** |                                                    |
++-----------------+----------------------------------------------------+
+| **Luồng sự kiện | 1.  Actor mở màn hình Quản lý mẫu báo cáo, chọn     |
+| chính (Main     |     Tạo mới, chọn loại báo cáo (template_type):    |
+| Flow)**         |     TRANSCRIPT / DAILY_REPORT / STUDENT_PROFILE /  |
+|                 |     GRADE_REPORT / STUDENT_COMMENT (bổ sung         |
+|                 |     2026-08-09 — nhận xét của 1 học sinh trong 1    |
+|                 |     buổi học cụ thể, tách khỏi DAILY_REPORT vì      |
+|                 |     DAILY_REPORT là 1 tài liệu/buổi còn loại này là |
+|                 |     1 tài liệu/học sinh), tải lên file mẫu (.docx,  |
+|                 |     .pdf, hoặc .html) đã đánh dấu sẵn các trường.   |
+|                 |                                                    |
+|                 | 2.  Hệ thống quét nội dung file, tự động phát hiện |
+|                 |     placeholder — cách quét khác nhau theo định     |
+|                 |     dạng file:                                      |
+|                 |     - .docx/.html: quét text thô tìm 3 dạng cú      |
+|                 |       pháp — trường đơn `[STUDENT_NAME]`; công      |
+|                 |       thức `[[[READING]+[LISTENING]+[SPEAKING]+     |
+|                 |       [WRITING]]/4]` (actor tự viết biểu thức với   |
+|                 |       trường con và toán tử +, -, *, /, hệ thống    |
+|                 |       chỉ tính khi xuất báo cáo ở UC-68); bảng động |
+|                 |       (repeat block) `[[TABLE:STUDENTS]] ...        |
+|                 |       [[/TABLE:STUDENTS]]` cho danh sách học sinh   |
+|                 |       trong 1 lớp/buổi học.                         |
+|                 |     - .pdf: đọc tên field trong AcroForm của file   |
+|                 |       (không dùng ký hiệu ngoặc vuông) — mỗi field  |
+|                 |       điền được (VD PDTextField) là 1 placeholder   |
+|                 |       loại trường đơn; KHÔNG hỗ trợ công thức/bảng  |
+|                 |       động (AcroForm không có khái niệm biểu thức   |
+|                 |       hay lặp field) — file .pdf không phải PDF Form|
+|                 |       (không có AcroForm) coi như 0 placeholder.    |
+|                 |     Hệ thống lưu file lên Cloudflare R2 và lưu danh |
+|                 |     sách placeholder phát hiện được vào             |
+|                 |     report_templates.placeholder_keys.              |
+|                 |                                                    |
+|                 | 3.  Actor cấu hình ánh xạ (field mapping) cho từng  |
+|                 |     placeholder loại trường đơn: chọn nguồn dữ liệu |
+|                 |     tương ứng (VD `[STUDENT_NAME]` ->               |
+|                 |     STUDENT_NAME) từ danh sách trường hợp lệ theo   |
+|                 |     đúng template_type đã chọn ở bước 1 -- xem danh |
+|                 |     sách trường theo loại report tại mục "Dữ liệu   |
+|                 |     nguồn theo loại báo cáo" cuối UC này. Với        |
+|                 |     placeholder dạng công thức, hệ thống chỉ        |
+|                 |     validate cú pháp biểu thức (dấu ngoặc khớp,     |
+|                 |     toán tử hợp lệ), không cấu hình data_path riêng;|
+|                 |     với bảng động, không cấu hình data_path (hệ     |
+|                 |     thống tự resolve theo tên bảng ở UC-68).        |
+|                 |                                                    |
+|                 | 4.  Actor lưu lại. Hệ thống ghi 1 bản ghi vào        |
+|                 |     report_templates_history (action=CREATED).     |
+|                 |     Mẫu sẵn sàng dùng ngay để xuất báo cáo (UC-68)  |
+|                 |     -- không qua bước duyệt.                        |
+|                 |                                                    |
+|                 | 5.  (Sửa) Actor có quyền report.template.update mở  |
+|                 |     mẫu đã có, sửa metadata (tên/mô tả) -- KHÔNG hỗ |
+|                 |     trợ thay file mới ở giai đoạn này (muốn đổi file|
+|                 |     phải tạo mẫu mới). Ghi report_templates_history |
+|                 |     (action=UPDATED).                               |
+|                 |                                                    |
+|                 | 6.  (Cấu hình lại field mapping) Actor có quyền     |
+|                 |     report.template.update gọi lại bước 3, GHI ĐÈ   |
+|                 |     toàn bộ danh sách ánh xạ cũ bằng danh sách mới. |
+|                 |     Ghi report_templates_history (action=UPDATED).  |
+|                 |                                                    |
+|                 | 7.  (Xoá) Actor có quyền report.template.delete xoá |
+|                 |     mềm 1 mẫu (is_active=false) -- mẫu không còn    |
+|                 |     xuất hiện trong danh sách chọn ở UC-68 nhưng    |
+|                 |     các generated_reports đã tạo trước đó không bị  |
+|                 |     ảnh hưởng (không xoá cứng, không xoá file trên  |
+|                 |     R2). Ghi report_templates_history               |
+|                 |     (action=DELETED).                              |
++-----------------+----------------------------------------------------+
+| **Luồng thay    | ***A1 --- File tải lên không đúng định dạng***      |
+| thế / ngoại lệ  |                                                    |
+| (Alternate      | 1.  Nếu file không phải .docx/.pdf/.html hoặc vượt |
+| Flow)**         |     quá dung lượng cho phép, hệ thống từ chối và    |
+|                 |     báo lỗi rõ định dạng/dung lượng yêu cầu.        |
+|                 |                                                    |
+|                 | ***A2 --- Không phát hiện placeholder nào trong     |
+|                 | file***                                            |
+|                 |                                                    |
+|                 | 1.  Hệ thống vẫn lưu file (làm mẫu tĩnh không có    |
+|                 |     trường động), placeholder_keys rỗng -- không    |
+|                 |     chặn lưu, không có bước xác nhận riêng (đơn giản|
+|                 |     hoá so với đặc tả gốc dự kiến "hỏi xác nhận" --  |
+|                 |     hệ thống hiện tại là API thuần, không có luồng   |
+|                 |     tương tác nhiều bước cho ca này).               |
+|                 |                                                    |
+|                 | ***A3 --- Biểu thức công thức sai cú pháp***        |
+|                 |     (chỉ áp dụng .docx/.html)                       |
+|                 |                                                    |
+|                 | 1.  Nếu dấu ngoặc không khớp (kể cả dấu ']' thừa    |
+|                 |     hoặc thiếu dấu đóng ở bất kỳ đâu trong file) hoặc|
+|                 |     biểu thức chứa toán tử/ký tự không hợp lệ ngoài |
+|                 |     +, -, *, /, (, ), hệ thống chặn lưu ở bước 2 và  |
+|                 |     báo lỗi rõ vị trí/nội dung sai.                 |
+|                 |                                                    |
+|                 | ***A4 --- Cấu hình field mapping cho placeholder    |
+|                 | không tồn tại trong mẫu***                          |
+|                 |                                                    |
+|                 | 1.  Nếu actor gửi 1 placeholder_key không có trong  |
+|                 |     report_templates.placeholder_keys đã phát hiện  |
+|                 |     ở bước 2, hệ thống từ chối toàn bộ request cấu  |
+|                 |     hình (không lưu 1 phần).                        |
++-----------------+----------------------------------------------------+
+| **Hậu điều kiện | -   1 bản ghi report_templates (và field mappings  |
+| (P              |     tương ứng) được tạo/cập nhật/vô hiệu hoá, sẵn   |
+| ostcondition)** |     sàng (hoặc không còn) làm cơ sở cho UC-68.      |
+|                 | -   report_templates_history ghi lại đầy đủ lịch sử |
+|                 |     thay đổi.                                       |
++-----------------+----------------------------------------------------+
+
+Dữ liệu nguồn theo loại báo cáo (report_template_field_mappings.field_type =
+FIELD, tham chiếu cho bước 3 Main Flow — key công bố bởi resolver tương
+ứng trong code, xem ReportGenerationService/*DataResolver):
+
+-   **TRANSCRIPT** (Phiếu kết quả lộ trình) —
+    TranscriptReportDataResolver: students, users, classes,
+    class_teachers (PRIMARY), grade_entries, grade_evaluation_components
+    (mã kỹ năng), grade_evaluation_results (Overall/Level/Comment do GV
+    tự nhập, hệ thống không tính lại). Điểm/Overall/Level lấy theo 1 hoặc
+    nhiều kỳ đánh giá actor tự chọn khi xuất ở UC-68 (period selector),
+    KHÔNG có quy ước "Kỳ 1/Kỳ 2" cố định trong hệ thống — xem UC-68 bước 2.
+-   **DAILY_REPORT** (Báo cáo ngày) — DailyReportDataResolver: classes,
+    class_sessions, class_enrollments (ACTIVE), attendance_sessions,
+    attendance_marks (điểm danh cấp buổi), student_comments (DAILY). Bảng
+    động `[[TABLE:STUDENTS]]` là tên bảng DUY NHẤT được hỗ trợ, gồm 3
+    field con STUDENT_NAME/ATTENDANCE_STATUS/STUDENT_COMMENT, sắp theo
+    tên học sinh A-Z.
+-   **STUDENT_PROFILE** (Hồ sơ học sinh) — StudentProfileReportDataResolver:
+    students, users, parents, parent_student (is_primary_contact,
+    is_financial_responsible).
+-   **GRADE_REPORT** (Bảng điểm theo kỳ/quá trình/năm, 1 tài liệu/học sinh)
+    — GradeReportDataResolver (cập nhật 2026-08-10): students, users,
+    classes, class_teachers (PRIMARY), grade_entries, grade_evaluation_results
+    (Overall/Level/Comment do GV tự nhập, hệ thống không tính lại) — tái
+    dùng đúng cơ chế period selector của TranscriptReportDataResolver
+    (KHÔNG có quy ước "Kỳ 1/Kỳ 2" cố định — xem UC-68 bước 2). Cần cả
+    studentId lẫn classId (khác TRANSCRIPT chỉ khác tên loại báo cáo).
+-   **STUDENT_COMMENT** (Nhận xét 1 học sinh trong 1 buổi học, bổ sung
+    2026-08-09) — StudentCommentReportDataResolver: students, users,
+    student_comments (lọc theo đúng class_session_id truyền vào). Chỉ
+    dùng scope=SINGLE với CẢ studentId lẫn classSessionId (khác
+    DAILY_REPORT — 1 tài liệu/buổi có bảng động, còn loại này 1 tài
+    liệu/học sinh không có bảng động).
+
+---
+
+UC-68: Xuất báo cáo từ mẫu (bổ sung ngoài SDD gốc, đã xác nhận với người
+dùng 2026-08-09, cập nhật theo implementation thực tế 2026-08-09)
+
++-----------------+----------------------------------------------------+
+| **Mã Use Case** | UC-68                                              |
++-----------------+----------------------------------------------------+
+| **Tên Use       | Xuất báo cáo từ mẫu                                |
+| Case**          |                                                    |
++-----------------+----------------------------------------------------+
+| **Phân hệ**     | Phân hệ 6                                          |
++-----------------+----------------------------------------------------+
+| **Yêu cầu chức  | FR-ACA-08 (bổ sung ngoài SDD gốc, đã xác nhận với  |
+| năng gốc**      | người dùng 2026-08-09)                             |
++-----------------+----------------------------------------------------+
+| **Tác nhân**    | Giáo viên, Trưởng phòng đào tạo, Quản lý điểm       |
+|                 | trường                                             |
++-----------------+----------------------------------------------------+
+| **Mô tả tóm     | Actor chọn 1 mẫu báo cáo đã cấu hình sẵn (UC-67) và |
+| tắt**           | 1 trong 3 phạm vi xuất (1 học sinh / cả lớp / 1     |
+|                 | buổi học), hệ thống điền dữ liệu thực tế vào các    |
+|                 | placeholder và xuất file hoàn chỉnh.                |
++-----------------+----------------------------------------------------+
+| **Sự kiện kích  | Cần xuất báo cáo (phiếu kết quả, báo cáo ngày, hồ   |
+| hoạt**          | sơ học sinh) để gửi phụ huynh/lưu trữ.              |
++-----------------+----------------------------------------------------+
+| **Điều kiện     | -   Người dùng có quyền report.generate.            |
+| tiên quyết      | -   Tồn tại ít nhất 1 report_templates đang active  |
+| (               |     phù hợp loại báo cáo cần xuất.                  |
+| Precondition)** | -   (Ghi chú triển khai) Hiện tại hệ thống CHỈ kiểm |
+|                 |     tra quyền report.generate ở mức toàn cục, CHƯA  |
+|                 |     kiểm tra actor có được phân công dạy lớp/phụ    |
+|                 |     trách điểm trường của đối tượng xuất báo cáo    |
+|                 |     hay không (khác ranh giới UC-66 A2 đã áp dụng   |
+|                 |     cho thống kê BTVN) — cần bổ sung nếu muốn siết  |
+|                 |     chặt hơn.                                       |
++-----------------+----------------------------------------------------+
+| **Luồng sự kiện | 1.  Actor chọn 1 mẫu báo cáo (report_templates)     |
+| chính (Main     |     đang active.                                    |
+| Flow)**         |                                                      |
+|                 | 2.  Actor chọn phạm vi xuất (scope):                |
+|                 |     - SINGLE: 1 học sinh cụ thể (kèm classId/       |
+|                 |       periods nếu loại báo cáo cần dữ liệu theo     |
+|                 |       lớp/kỳ, VD TRANSCRIPT).                        |
+|                 |     - BULK_CLASS: toàn bộ học sinh đang ghi danh    |
+|                 |       (ACTIVE) của 1 lớp, gộp 1 file ZIP.           |
+|                 |     - CLASS_SESSION: 1 tài liệu DUY NHẤT cho cả 1   |
+|                 |       buổi học (VD DAILY_REPORT — dùng bảng động    |
+|                 |       liệt kê học sinh), không phải 1 tài liệu/học  |
+|                 |       sinh.                                         |
+|                 |     Riêng TRANSCRIPT/GRADE_REPORT: actor tự chọn 1  |
+|                 |     hoặc nhiều "period selector" (label tự đặt +    |
+|                 |     academicTermId + evaluationType MID_TERM/       |
+|                 |     END_TERM) để xuất linh hoạt theo giữa kỳ/cuối   |
+|                 |     kỳ/cả kỳ (2 selector cùng academicTermId)/cả năm |
+|                 |     học (nhiều selector) — KHÔNG có quy ước "Kỳ 1/Kỳ|
+|                 |     2" cố định, label phải khớp đúng hậu tố người   |
+|                 |     tạo mẫu đã dùng ở UC-67 (VD placeholder         |
+|                 |     `[READING_END1]` cần label "END1").             |
+|                 |                                                      |
+|                 | 3.  Với mỗi đối tượng (học sinh hoặc buổi học) trong |
+|                 |     phạm vi đã chọn, hệ thống lấy dữ liệu theo field |
+|                 |     mapping đã cấu hình ở UC-67:                    |
+|                 |     - Trường đơn: query trực tiếp theo data_path.   |
+|                 |     - Trường công thức (chỉ .docx/.html): evaluate  |
+|                 |       biểu thức bằng exp4j.                          |
+|                 |     - Bảng động (chỉ .docx/.html — .pdf KHÔNG hỗ    |
+|                 |       trợ, xem A5): nhân bản dòng/khối HTML tương    |
+|                 |       ứng cho mỗi phần tử dữ liệu (VD học sinh),     |
+|                 |       sắp theo tên A-Z.                              |
+|                 |                                                      |
+|                 | 4.  Hệ thống sinh file theo đúng định dạng mẫu:      |
+|                 |     - .docx: merge trực tiếp bằng Apache POI.        |
+|                 |     - .pdf: điền field AcroForm bằng PDFBox, sau đó  |
+|                 |       flatten (khoá thành text tĩnh, không sửa lại  |
+|                 |       được).                                        |
+|                 |     - .html: merge placeholder trên text HTML thô,   |
+|                 |       rồi LUÔN convert sang PDF (openhtmltopdf) —    |
+|                 |       không xuất lại file .html.                     |
+|                 |     Cả 2 luồng .pdf/.html đều ép dùng font Noto Sans |
+|                 |     nhúng sẵn (đảm bảo hiển thị đúng dấu tiếng Việt, |
+|                 |     bất kể font gốc trong mẫu). File được lưu lên    |
+|                 |     Cloudflare R2.                                   |
+|                 |                                                      |
+|                 | 5.  Nếu phạm vi là BULK_CLASS, hệ thống gộp toàn bộ  |
+|                 |     file đã sinh (1 file/học sinh) thành 1 file ZIP  |
+|                 |     duy nhất.                                        |
+|                 |                                                      |
+|                 | 6.  Hệ thống ghi 1 bản ghi generated_reports (loại   |
+|                 |     báo cáo, phạm vi, đối tượng, người tạo, đường    |
+|                 |     dẫn file) và trả về đường dẫn tải (URL từ R2)    |
+|                 |     cho actor.                                       |
++-----------------+----------------------------------------------------+
+| **Luồng thay    | ***A1 --- Thiếu dữ liệu cho 1 field/biến bắt buộc*** |
+| thế / ngoại lệ  |                                                      |
+| (Alternate      | 1.  Nếu 1 đối tượng chưa có dữ liệu cho 1 placeholder|
+| Flow)**         |     (VD chưa nhập điểm dùng trong công thức tổng     |
+|                 |     hợp, hoặc chưa cấu hình period selector đúng),   |
+|                 |     hệ thống KHÔNG tự coi là 0/rỗng -- báo lỗi rõ    |
+|                 |     placeholder/data_path nào thiếu, và bỏ qua đối   |
+|                 |     tượng đó khỏi kết quả (với BULK_CLASS) hoặc chặn |
+|                 |     xuất hẳn (với SINGLE/CLASS_SESSION).             |
+|                 |                                                      |
+|                 | ***A2 --- scope không hợp lệ***                     |
+|                 |                                                      |
+|                 | 1.  Nếu actor gửi scope khác SINGLE/BULK_CLASS/      |
+|                 |     CLASS_SESSION, hệ thống từ chối yêu cầu (400).   |
+|                 |                                                      |
+|                 | ***A3 --- Không tìm thấy mẫu/đối tượng***           |
+|                 |                                                      |
+|                 | 1.  Nếu templateId không tồn tại/không còn active,   |
+|                 |     hoặc studentId/classId/classSessionId không tồn  |
+|                 |     tại, hệ thống báo lỗi 404.                       |
+|                 |                                                      |
+|                 | ***A4 --- BULK_CLASS nhưng lớp không có học sinh    |
+|                 | ACTIVE***                                            |
+|                 |                                                      |
+|                 | 1.  Hệ thống báo không có đối tượng để xuất, không   |
+|                 |     tạo generated_reports rỗng. Nếu TẤT CẢ học sinh  |
+|                 |     trong lớp đều thiếu dữ liệu (rơi vào A1), hệ     |
+|                 |     thống cũng báo lỗi tương tự thay vì trả về 1 file|
+|                 |     ZIP rỗng.                                        |
+|                 |                                                      |
+|                 | ***A5 --- Mẫu .pdf có placeholder bảng động***      |
+|                 |                                                      |
+|                 | 1.  AcroForm không có khái niệm lặp field — nếu mẫu  |
+|                 |     .pdf (lẽ ra không thể xảy ra vì UC-67 không phát |
+|                 |     hiện TABLE cho .pdf) vẫn có field_type=TABLE do  |
+|                 |     cấu hình thủ công sai, hệ thống chặn ngay từ đầu |
+|                 |     bước 3, báo lỗi rõ.                              |
++-----------------+----------------------------------------------------+
+| **Hậu điều kiện | -   1 file báo cáo (.docx, .pdf, hoặc .zip nếu       |
+| (P              |     BULK_CLASS) được sinh ra và lưu trên R2, sẵn sàng|
+| ostcondition)** |     tải về.                                          |
+|                 | -   1 bản ghi generated_reports được tạo, phục vụ    |
+|                 |     tra cứu lịch sử xuất báo cáo sau này.            |
+|                 | -   Không thay đổi dữ liệu nghiệp vụ khác (điểm,     |
+|                 |     nhận xét, hồ sơ học sinh) -- UC thuần đọc + xuất  |
+|                 |     file.                                            |
++-----------------+----------------------------------------------------+
+
+Ghi chú triển khai (2026-08-10): GRADE_REPORT đã có GradeReportDataResolver
+(1 tài liệu/học sinh, dùng period selector giống TRANSCRIPT — xem "Dữ liệu
+nguồn theo loại báo cáo" cuối UC-67).
+
+Ghi chú triển khai (2026-08-10): Cả TRANSCRIPT lẫn GRADE_REPORT cần actor
+truyền `periods` (bước 2) để resolver điền được điểm theo kỳ — hiện 3 trang
+FE (StudentProgressPage, GradesAnalyticsPage) gọi `generateReport()` mà
+KHÔNG có UI chọn period, luôn gửi periods rỗng. Với mẫu có placeholder điểm
+theo kỳ (VD `[READING_MID1]`) đã cấu hình field mapping, request sẽ luôn
+báo lỗi thiếu dữ liệu (UC-68 A1) — cần bổ sung UI chọn academicTermId +
+evaluationType + label trước khi tính năng xuất TRANSCRIPT/GRADE_REPORT có
+điểm theo kỳ dùng được trên FE (đã xác nhận với người dùng, chưa triển
+khai — theo dõi riêng).
+
 Phân hệ 7 --- Cổng thông tin và E-Learning (Portal & LMS)

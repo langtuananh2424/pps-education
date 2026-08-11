@@ -38,7 +38,19 @@
       "Bash(tee /tmp/fe_lint.log)",
       "PowerShell(powercfg /setactive f7682512-e618-4890-8cdc-f28f885f1839)",
       "Bash(mvn -o -q test -Dtest=ExerciseAttemptServiceTest,ManualGradingServiceTest,ExerciseAuthoringTest)",
-      "Bash(perl -0777 -pi -e 's/questionBankService\\\\.createQuestion\\\\\\(\\\\n\\(\\\\s*\\)new CreateQuestionRequest\\\\\\(defaultExam\\\\.questionBankId\\\\\\(\\\\\\), /examQuestionService.createQuestion\\(defaultExam.id\\(\\),\\\\n$1new CreateExamQuestionRequest\\(/g' ExerciseAttemptServiceTest.java)"
+      "Bash(perl -0777 -pi -e 's/questionBankService\\\\.createQuestion\\\\\\(\\\\n\\(\\\\s*\\)new CreateQuestionRequest\\\\\\(defaultExam\\\\.questionBankId\\\\\\(\\\\\\), /examQuestionService.createQuestion\\(defaultExam.id\\(\\),\\\\n$1new CreateExamQuestionRequest\\(/g' ExerciseAttemptServiceTest.java)",
+      "Bash(mvn -o test -Dtest=TranscriptReportGenerationControllerTest,ReportGenerationControllerTest)",
+      "Bash(find ~/.m2 -iname \"poi-ooxml-5.3.0.jar\" 2>/dev/null | head -1)",
+      "Read(//c/Users/LangAnh/.m2/**)",
+      "Bash(where java *)",
+      "Bash(java -version)",
+      "Read(//c/Program Files/Java/**)",
+      "Read(//c/Program Files/**)",
+      "Bash(\"/c/Program Files/Java/jdk-21.0.10/bin/javap.exe\" org/apache/poi/xwpf/usermodel/XWPFTable.class)",
+      "Bash(unzip -o -q /c/Users/LangAnh/.m2/repository/org/apache/poi/poi-ooxml/5.3.0/poi-ooxml-5.3.0.jar org/apache/poi/xwpf/usermodel/XWPFTableRow.class)",
+      "Bash(\"/c/Program Files/Java/jdk-21.0.10/bin/javap.exe\" org/apache/poi/xwpf/usermodel/XWPFTableRow.class)",
+      "Bash(curl -s \"https://repo1.maven.org/maven2/org/apache/pdfbox/pdfbox/maven-metadata.xml\")",
+      "Bash(curl -s -X POST http://localhost:8080/api/auth/login -H \"Content-Type: application/json\" -d '{\"usernameOrEmail\":\"headacademic@pps.edu.vn\",\"password\":\"Dev@123456\"}')"
     ]
   },
   "hooks": {

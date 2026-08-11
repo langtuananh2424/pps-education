@@ -154,6 +154,18 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
+    /** UC-67 A3 — biểu thức công thức placeholder trong mẫu báo cáo sai cú pháp. */
+    @ExceptionHandler(InvalidTemplatePlaceholderException.class)
+    public ResponseEntity<Object> handleInvalidTemplatePlaceholder(InvalidTemplatePlaceholderException ex) {
+        return error(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
+    /** UC-68 A1 — thiếu dữ liệu cho 1 placeholder khi xuất báo cáo. */
+    @ExceptionHandler(MissingReportDataException.class)
+    public ResponseEntity<Object> handleMissingReportData(MissingReportDataException ex) {
+        return error(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
     @ExceptionHandler(NotHrManagerException.class)
     public ResponseEntity<Object> handleNotHrManager(NotHrManagerException ex) {
         return error(HttpStatus.FORBIDDEN, ex.getMessage());
