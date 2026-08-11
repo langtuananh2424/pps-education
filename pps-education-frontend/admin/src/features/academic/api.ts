@@ -316,6 +316,69 @@ export function updateAcademicTerm(id: number, request: UpdateAcademicTermReques
   return apiRequest<AcademicTermResponse>(`/academic-terms/${id}`, { method: "PUT", body: JSON.stringify(request) });
 }
 
+// ===================== UC-69: Thống kê biến động học sinh các lớp theo kỳ (FR-ACA-09) =====================
+
+/** classId=null -- dòng tổng cộng, xem EnrollmentMovementReportService#sumTotals. */
+export interface EnrollmentMovementClassRow {
+  classId: number | null;
+  classCode: string;
+  className: string;
+  openingHeadcount: number;
+  newEnrollments: number;
+  withdrawnCount: number;
+  transferredCount: number;
+  completedCount: number;
+  closingHeadcount: number;
+}
+
+export interface EnrollmentMovementStatsResponse {
+  academicTermId: number;
+  academicTermName: string;
+  startDate: string;
+  endDate: string;
+  siteId: number;
+  siteName: string;
+  classes: EnrollmentMovementClassRow[];
+  totals: EnrollmentMovementClassRow;
+}
+
+export function getEnrollmentMovementStats(academicTermId: number, classId?: number): Promise<EnrollmentMovementStatsResponse> {
+  const query = classId ? `?classId=${classId}` : "";
+  return apiRequest<EnrollmentMovementStatsResponse>(`/academic-terms/${academicTermId}/enrollment-movement-stats${query}`);
+}
+
+export function exportEnrollmentMovementStats(academicTermId: number, classId?: number): Promise<Blob> {
+  const query = classId ? `?classId=${classId}` : "";
+  return apiRequestBlob(`/academic-terms/${academicTermId}/enrollment-movement-stats/export${query}`);
+}
+
+/** monthIndex = tháng thứ mấy CỦA KỲ (1-based), không phải tháng lịch tuyệt đối -- dùng để so sánh 2 kỳ khác độ dài/thời điểm. */
+export interface EnrollmentMovementTrendPoint {
+  monthIndex: number;
+  periodStart: string;
+  periodEnd: string;
+  headcount: number;
+  newEnrollments: number;
+  withdrawnCount: number;
+  transferredCount: number;
+  completedCount: number;
+}
+
+export interface EnrollmentMovementTrendResponse {
+  academicTermId: number;
+  academicTermName: string;
+  startDate: string;
+  endDate: string;
+  siteId: number;
+  siteName: string;
+  points: EnrollmentMovementTrendPoint[];
+}
+
+export function getEnrollmentMovementTrend(academicTermId: number, classId?: number): Promise<EnrollmentMovementTrendResponse> {
+  const query = classId ? `?classId=${classId}` : "";
+  return apiRequest<EnrollmentMovementTrendResponse>(`/academic-terms/${academicTermId}/enrollment-movement-trend${query}`);
+}
+
 // ===================== Năm học (V102, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-07) =====================
 // Danh mục DÙNG CHUNG TOÀN HỆ THỐNG (khác Kỳ học — giới hạn theo điểm trường). Nguồn cho
 // academicYearId trên classes/grade_entries/student_comments/class_enrollments/teaching_plans.
