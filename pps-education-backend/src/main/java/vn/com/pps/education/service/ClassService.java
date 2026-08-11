@@ -223,6 +223,9 @@ public class ClassService {
         schoolClass.setEndDate(request.endDate());
         schoolClass.setAcademicYear(resolveAcademicYear(request.academicYearId()));
         schoolClass.setCreatedBy(actor);
+        if (request.startDate() != null && !LocalDate.now().isBefore(request.startDate())) {
+            schoolClass.setStatus(SchoolClass.Status.IN_PROGRESS);
+        }
         schoolClass = schoolClassRepository.save(schoolClass);
 
         writeClassHistory(schoolClass, actor, ClassHistory.Action.CREATED);
@@ -350,6 +353,10 @@ public class ClassService {
     @Transactional
     public ClassEnrollmentResponse enroll(Long classId, EnrollStudentRequest request, Long actorUserId) {
         SchoolClass schoolClass = getClassOrThrow(classId);
+        if (schoolClass.getStatus() != SchoolClass.Status.OPEN_ENROLLMENT && schoolClass.getStatus() != SchoolClass.Status.IN_PROGRESS) {
+            throw new IllegalStateException("Lớp học \"" + schoolClass.getName() + "\" đang ở trạng thái "
+                    + schoolClass.getStatus() + " — chỉ cho phép ghi danh khi lớp Đang tuyển sinh hoặc Đang học.");
+        }
         Student student = studentRepository.findByIdAndDeletedAtIsNull(request.studentId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy học sinh id=" + request.studentId()));
         if (classEnrollmentRepository

@@ -127,6 +127,47 @@
             <version>5.3.0</version>
         </dependency>
 
+        <!-- UC-67/68: đọc/điền mẫu báo cáo dạng PDF Form (AcroForm) - đã xác
+             nhận với người dùng trước khi thêm (2026-08-09, phương án AcroForm
+             thay vì tự dựng PDF text-replacement). Ghim bản 2.x (không phải
+             3.x mới nhất) - đã xác nhận với người dùng (2026-08-09):
+             openhtmltopdf-pdfbox (convert HTML->PDF) chỉ tương thích PDFBox
+             2.x, chưa có bản Maven Central nào hỗ trợ 3.x - hạ cả project về
+             2.x để tránh 2 phiên bản PDFBox xung đột trên classpath. -->
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>2.0.37</version>
+        </dependency>
+
+        <!-- UC-67/68: convert mẫu báo cáo dạng .html (đã điền dữ liệu) sang PDF
+             phía server - đã xác nhận với người dùng trước khi thêm (2026-08-09).
+             Thuần Java, tự dựng trên PDFBox (đã có sẵn) - không cần binary
+             ngoài (LibreOffice/wkhtmltopdf) như các phương án convert khác. -->
+        <dependency>
+            <groupId>com.openhtmltopdf</groupId>
+            <artifactId>openhtmltopdf-pdfbox</artifactId>
+            <version>1.0.10</version>
+        </dependency>
+
+        <!-- UC-67/68: parse HTML khoan dung (không bắt buộc XHTML chuẩn như
+             openhtmltopdf mặc định yêu cầu) rồi chuyển sang W3C DOM trước khi
+             render PDF - đã xác nhận với người dùng trước khi thêm (2026-08-09). -->
+        <dependency>
+            <groupId>org.jsoup</groupId>
+            <artifactId>jsoup</artifactId>
+            <version>1.18.1</version>
+        </dependency>
+
+        <!-- UC-67/68: evaluate biểu thức công thức placeholder mail-merge
+             (VD [[[READING]+[LISTENING]+[SPEAKING]+[WRITING]]/4]) - đã xác
+             nhận với người dùng trước khi thêm (2026-08-09). -->
+        <dependency>
+            <groupId>net.objecthunter</groupId>
+            <artifactId>exp4j</artifactId>
+            <version>0.4.8</version>
+        </dependency>
+
         <!-- Firebase Admin SDK (kenh PUSH cua module Notification - gui qua FCM)
              - bo sung ngoai SDD goc, da xac nhan voi nguoi dung (2026-08-08). -->
         <dependency>

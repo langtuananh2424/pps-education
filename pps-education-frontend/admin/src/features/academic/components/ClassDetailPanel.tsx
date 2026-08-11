@@ -131,7 +131,7 @@ export default function ClassDetailPanel({ schoolClass, onChanged }: ClassDetail
             curriculumId={schoolClass.curriculumId}
             siteId={schoolClass.siteId}
             siteName={schoolClass.siteName}
-            canManage={canManage}
+            canManage={canManage && schoolClass.status !== "COMPLETED" && schoolClass.status !== "CANCELLED" && schoolClass.status !== "PLANNED"}
             showToast={showToast}
           />
         )}
@@ -140,7 +140,7 @@ export default function ClassDetailPanel({ schoolClass, onChanged }: ClassDetail
             classId={schoolClass.id}
             siteId={schoolClass.siteId}
             canManage={canManage}
-            canCreateSessions={canManage && canScheduleAdminRole}
+            canCreateSessions={canManage && canScheduleAdminRole && schoolClass.status !== "COMPLETED" && schoolClass.status !== "CANCELLED"}
             showToast={showToast}
           />
         )}

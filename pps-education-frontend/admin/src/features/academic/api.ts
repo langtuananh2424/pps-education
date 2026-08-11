@@ -1209,3 +1209,150 @@ export interface IntegritySummaryRow {
 export function getAttemptIntegritySummary(attemptId: number): Promise<IntegritySummaryRow> {
   return apiRequest<IntegritySummaryRow>(`/attempts/${attemptId}/integrity-summary`);
 }
+
+// ===================== Mẫu Báo Cáo (UC-67) & Xuất Báo Cáo (UC-68) =====================
+
+export interface ReportTemplateFieldMappingResponse {
+  id: number;
+  placeholderKey: string;
+  dataPath: string | null;
+  fieldType: "FIELD" | "FORMULA" | "TABLE";
+  description: string | null;
+}
+
+export type ReportTemplateType = "TRANSCRIPT" | "DAILY_REPORT" | "STUDENT_PROFILE" | "GRADE_REPORT" | "STUDENT_COMMENT";
+
+export const REPORT_TEMPLATE_TYPE_LABELS: Record<ReportTemplateType, string> = {
+  TRANSCRIPT: "Học bạ / Bảng điểm",
+  DAILY_REPORT: "Báo cáo ngày lớp học",
+  STUDENT_COMMENT: "Nhận xét học sinh",
+  STUDENT_PROFILE: "Hồ sơ học sinh",
+  GRADE_REPORT: "Báo cáo điểm học kỳ",
+};
+
+export interface ReportTemplateResponse {
+  id: number;
+  name: string;
+  templateType: ReportTemplateType;
+  fileFormat: "DOCX" | "PDF" | "HTML";
+  fileUrl: string;
+  originalFilename: string;
+  fileSizeBytes: number;
+  description: string | null;
+  active: boolean;
+  placeholderKeys: string[];
+  createdBy: number | null;
+  fieldMappings: ReportTemplateFieldMappingResponse[];
+}
+
+export interface CreateReportTemplateRequest {
+  name: string;
+  templateType: ReportTemplateType;
+  description?: string;
+  file: File;
+}
+
+export interface UpdateReportTemplateRequest {
+  name: string;
+  description?: string;
+  status: "ACTIVE" | "ARCHIVED";
+}
+
+export interface FieldMappingItemRequest {
+  placeholderKey: string;
+  dataPath: string | null;
+  fieldType: "FIELD" | "FORMULA" | "TABLE";
+  description?: string;
+}
+
+export interface UpdateFieldMappingsRequest {
+  mappings: FieldMappingItemRequest[];
+}
+
+export interface ReportPeriodSelector {
+  label: string;
+  academicTermId: number;
+  evaluationType: "MID_TERM" | "END_TERM";
+}
+
+export interface GenerateReportRequest {
+  templateId: number;
+  scope: "SINGLE" | "CLASS_SESSION" | "BULK_CLASS";
+  studentId?: number;
+  classId?: number;
+  classSessionId?: number;
+  periods?: ReportPeriodSelector[];
+  outputFormat?: "DOCX" | "PDF";
+}
+
+export interface GeneratedReportResponse {
+  id: number;
+  templateId: number;
+  reportType: string;
+  scope: string;
+  targetId: number;
+  fileUrl: string;
+  generatedBy: number;
+  createdAt: string;
+}
+
+export function listReportTemplates(templateType?: string): Promise<ReportTemplateResponse[]> {
+  const url = templateType ? `/report-templates?templateType=${templateType}` : `/report-templates`;
+  return apiRequest<ReportTemplateResponse[]>(url);
+}
+
+export function getReportTemplate(id: number): Promise<ReportTemplateResponse> {
+  return apiRequest<ReportTemplateResponse>(`/report-templates/${id}`);
+}
+
+export function createReportTemplate(data: CreateReportTemplateRequest): Promise<ReportTemplateResponse> {
+  const formData = new FormData();
+  formData.append("name", data.name);
+  formData.append("templateType", data.templateType);
+  if (data.description) formData.append("description", data.description);
+  formData.append("file", data.file);
+  
+  return apiRequest<ReportTemplateResponse>(`/report-templates`, {
+    method: "POST",
+    body: formData as any, // apiRequest allows FormData if Content-Type is auto-managed
+  });
+}
+
+export function updateReportTemplate(id: number, data: UpdateReportTemplateRequest): Promise<ReportTemplateResponse> {
+  return apiRequest<ReportTemplateResponse>(`/report-templates/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+    headers: { "Content-Type": "application/json" }
+  });
+}
+
+export function updateFieldMappings(id: number, data: UpdateFieldMappingsRequest): Promise<ReportTemplateResponse> {
+  return apiRequest<ReportTemplateResponse>(`/report-templates/${id}/field-mappings`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+    headers: { "Content-Type": "application/json" }
+  });
+}
+
+export function deleteReportTemplate(id: number): Promise<void> {
+  return apiRequest<void>(`/report-templates/${id}`, { method: "DELETE" });
+}
+
+export interface AvailableReportFieldResponse {
+  key: string;
+  label: string;
+  description: string;
+  fieldType: string;
+}
+
+export function getAvailableReportFields(): Promise<Record<string, AvailableReportFieldResponse[]>> {
+  return apiRequest<Record<string, AvailableReportFieldResponse[]>>(`/report-templates/available-fields`);
+}
+
+export function generateReport(data: GenerateReportRequest): Promise<GeneratedReportResponse> {
+  return apiRequest<GeneratedReportResponse>(`/reports/generate`, {
+    method: "POST",
+    body: JSON.stringify(data),
+    headers: { "Content-Type": "application/json" }
+  });
+}

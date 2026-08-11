@@ -82,6 +82,9 @@ public class TuitionPlanService {
     public TuitionPlanAssignmentResponse assignToClass(AssignTuitionPlanRequest request, Long actorUserId) {
         SchoolClass schoolClass = schoolClassRepository.findByIdAndDeletedAtIsNull(request.classId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp id=" + request.classId()));
+        if (schoolClass.getStatus() == SchoolClass.Status.CANCELLED) {
+            throw new IllegalStateException("Lớp học \"" + schoolClass.getName() + "\" đã bị HỦY — không thể gán định mức phí.");
+        }
         TuitionPlan plan = tuitionPlanRepository.findById(request.tuitionPlanId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy định mức phí id=" + request.tuitionPlanId()));
         if (plan.getStatus() != TuitionPlan.Status.ACTIVE) {

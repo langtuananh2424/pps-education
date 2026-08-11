@@ -4,6 +4,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.ClassEnrollment;
 import vn.com.pps.education.domain.Parent;
+import vn.com.pps.education.domain.SchoolClass;
 import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.dto.PortalClassOptionResponse;
 import vn.com.pps.education.exception.NotAuthorizedForPortalAccessException;
@@ -75,7 +76,8 @@ public class PortalClassSelectionService {
         // các bản ghi ACTIVE); nếu không còn lớp nào ACTIVE, pre-select bản ghi enrolled_date
         // gần nhất trong toàn bộ danh sách (đã sort giảm dần -> phần tử đầu tiên).
         ClassEnrollment recommended = enrollments.stream()
-                .filter(e -> e.getStatus() == ClassEnrollment.Status.ACTIVE)
+                .filter(e -> e.getStatus() == ClassEnrollment.Status.ACTIVE
+                        && e.getSchoolClass().getStatus() != SchoolClass.Status.CANCELLED)
                 .findFirst()
                 .orElse(enrollments.get(0));
 

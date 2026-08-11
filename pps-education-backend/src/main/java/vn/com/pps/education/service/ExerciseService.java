@@ -98,9 +98,12 @@ public class ExerciseService {
     private final StudentRepository studentRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final PermissionEvaluationService permissionEvaluationService;
     /** V71: xem Javadoc tương tự ở ReviewVideoService — chạy riêng 1 giao dịch lồng khi thử tạo bản
      * giao, để race thua (bắt DataIntegrityViolationException) chỉ rollback đúng giao dịch con này. */
     private final TransactionTemplate requiresNewTransactionTemplate;
+
+    private static final String PERM_EXAM_MANAGE = "lms.exam.manage";
 
     public ExerciseService(ExerciseRepository exerciseRepository,
                             ExerciseQuestionRepository exerciseQuestionRepository,
@@ -116,6 +119,7 @@ public class ExerciseService {
                             StudentRepository studentRepository,
                             UserRepository userRepository,
                             NotificationService notificationService,
+                            PermissionEvaluationService permissionEvaluationService,
                             PlatformTransactionManager transactionManager) {
         this.exerciseRepository = exerciseRepository;
         this.exerciseQuestionRepository = exerciseQuestionRepository;
@@ -131,6 +135,7 @@ public class ExerciseService {
         this.studentRepository = studentRepository;
         this.userRepository = userRepository;
         this.notificationService = notificationService;
+        this.permissionEvaluationService = permissionEvaluationService;
         this.requiresNewTransactionTemplate = new TransactionTemplate(transactionManager);
         this.requiresNewTransactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
@@ -347,6 +352,11 @@ public class ExerciseService {
         Exercise exercise = getExerciseOrThrow(exerciseId);
         requireAssignedTeacher(classId, actorUserId);
         SchoolClass schoolClass = getClassOrThrow(classId);
+        if (schoolClass.getStatus() != SchoolClass.Status.IN_PROGRESS) {
+            throw new IllegalStateException("Lớp học \"" + schoolClass.getName()
+                    + "\" đang ở trạng thái " + schoolClass.getStatus()
+                    + " — chỉ được phép giao bài cho lớp học đang ở trạng thái Đang học.");
+        }
         User actor = getUserOrThrow(actorUserId);
         if (!examClassAssignmentRepository.existsByExamIdAndSchoolClassId(exercise.getExam().getId(), classId)) {
             throw new IllegalArgumentException(
@@ -429,7 +439,11 @@ public class ExerciseService {
         }
     }
 
+    /** Quyền lms.exam.manage (V107) vượt rào — quản trị viên thao tác Bài của lớp bất kỳ, không cần được phân công dạy. */
     private void requireAssignedTeacher(Long classId, Long actorUserId) {
+        if (permissionEvaluationService.hasPermission(actorUserId, PERM_EXAM_MANAGE)) {
+            return;
+        }
         if (!classTeacherRepository.existsBySchoolClassIdAndTeacherIdAndAssignedToIsNull(classId, actorUserId)) {
             throw new NotAssignedTeacherForClassException(
                     "Tài khoản id=" + actorUserId + " không được phân công giảng dạy lớp id=" + classId + ".");

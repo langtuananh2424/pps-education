@@ -227,6 +227,20 @@ class ExamServiceTest extends AbstractIntegrationTest {
                 .isInstanceOf(NotAssignedTeacherForClassException.class);
     }
 
+    /** V107: quyền lms.exam.manage cho phép quản trị viên gán Đề cho lớp bất kỳ, không cần được phân công dạy. */
+    @Test
+    void assignToClass_allowsAdminWithManagePermissionBypassingAssignedTeacherCheck() {
+        User admin = newUser("exam.admin");
+        assignRole(admin, "SYS_ADMIN");
+        ExamResponse exam = examService.createExam(
+                new CreateExamRequest(examCode(), "IELTS Grade 6", curriculumA.id(), "VIETNAMESE", "HOMEWORK"), teacher.getId());
+
+        examService.assignToClass(exam.id(), schoolClass.id(), admin.getId());
+
+        assertThat(examService.listAssignedClasses(exam.id(), teacher.getId()))
+                .extracting(ClassResponse::id).containsExactly(schoolClass.id());
+    }
+
     /** "Một đề sẽ có thể gán được cho nhiều lớp" — gán lại lớp đã gán rồi không lỗi, không tạo dòng trùng. */
     @Test
     void assignToClass_boSung_isIdempotentWhenAlreadyAssigned() {

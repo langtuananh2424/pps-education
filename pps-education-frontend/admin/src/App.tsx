@@ -42,7 +42,10 @@ import CampusesPage from "@/features/facility/pages/CampusesPage";
 import RoomsPage from "@/features/facility/pages/RoomsPage";
 import FeedbackPage from "@/features/facility/pages/FeedbackPage";
 import PartnerPortalPage from "@/features/partner-portal/pages/PartnerPortalPage";
-
+import ReportTemplatesPage from "@/features/reports/pages/ReportTemplatesPage";
+import DailyCommentsAnalyticsPage from "@/features/reports/pages/DailyCommentsAnalyticsPage";
+import GradesAnalyticsPage from "@/features/reports/pages/GradesAnalyticsPage";
+import StudentProgressPage from "@/features/reports/pages/StudentProgressPage";
 export default function App() {
   return (
     <AppProvider>
@@ -96,6 +99,11 @@ export default function App() {
           <Route path="/facility/feedback" element={<FeedbackPage />} />
           <Route path="/partner/syllabus" element={<PartnerPortalPage />} />
           <Route path="/partner/portal" element={<PartnerPortalPage />} />
+
+          <Route path="/reports/templates" element={<ReportTemplatesPage />} />
+          <Route path="/reports/daily-comments" element={<DailyCommentsAnalyticsPage />} />
+          <Route path="/reports/grades" element={<GradesAnalyticsPage />} />
+          <Route path="/reports/student-progress" element={<StudentProgressPage />} />
 
           <Route index element={<Navigate to="/dashboard" replace />} />
         </Route>
