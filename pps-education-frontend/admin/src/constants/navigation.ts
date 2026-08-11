@@ -199,6 +199,16 @@ export const navSections: NavSection[] = [
     ]
   },
   {
+    id: "reports",
+    title: "BÁO CÁO & THỐNG KÊ",
+    items: [
+      { id: "rep-templates", label: "Mẫu báo cáo tự động", path: "/reports/templates", icon: ClipboardCheck, requiredPermission: "report.template.view" },
+      { id: "rep-daily", label: "Thống kê nhận xét", path: "/reports/daily-comments", icon: BarChart3, requiredPermission: "report.daily-comment.view" },
+      { id: "rep-grades", label: "Thống kê điểm", path: "/reports/grades", icon: Award, requiredPermission: "report.grade.view" },
+      { id: "rep-student", label: "Hồ sơ học tập", path: "/reports/student-progress", icon: GraduationCap, requiredPermission: "report.student-progress.view" }
+    ]
+  },
+  {
     id: "finance",
     title: "QUẢN LÝ TÀI CHÍNH",
     items: [

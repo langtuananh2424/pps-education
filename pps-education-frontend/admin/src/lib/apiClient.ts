@@ -121,3 +121,42 @@ export async function apiRequestBlob(path: string, options: RequestOptions = {})
 
   return res.blob();
 }
+
+/**
+ * Tải file báo cáo đã sinh (GET /api/reports/download/{id}) có kèm Authorization header.
+ * Trình duyệt sẽ tự động lưu file với tên gốc từ Content-Disposition.
+ */
+export async function downloadReport(reportId: number): Promise<void> {
+  const headers: Record<string, string> = {};
+  const accessToken = getAccessToken();
+  if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+
+  const res = await fetch(`${API_BASE}/reports/download/${reportId}`, { headers });
+
+  if (res.status === 401) {
+    const newToken = await refreshAccessToken();
+    if (newToken) return downloadReport(reportId);
+    clearTokens();
+    window.location.href = "/login";
+    throw new ApiError(401, "Phiên đăng nhập đã hết hạn.");
+  }
+
+  if (!res.ok) {
+    const body = await parseBody<BackendErrorBody>(res).catch(() => ({}) as BackendErrorBody);
+    throw new ApiError(res.status, body.message || res.statusText);
+  }
+
+  const blob = await res.blob();
+  const disposition = res.headers.get("Content-Disposition") ?? "";
+  const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+  const filename = match ? match[1].replace(/['"]/g, "") : `bao-cao-${reportId}.docx`;
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}

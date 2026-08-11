@@ -35,6 +35,12 @@ package vn.com.pps.education.service;
  * (Speaking oral gốc lẫn "Nghe & nộp audio" mới, student_answers.
  * audio_answer_url) — tách folder khỏi LMS_QUESTION (audio mẫu GV tạo,
  * questions.audio_url) cùng lý do với REVIEW_VIDEO_SUBMISSION ở trên.
+ *
+ * REPORT_TEMPLATE: bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+ * (2026-08-09, UC-67) - file mẫu báo cáo (DOCX/PDF) đã đánh dấu
+ * placeholder do Trưởng phòng đào tạo/Quản lý điểm trường upload
+ * (report_templates.file_url). Nhận thêm PDF/Word (acceptsOfficeDocuments
+ * =true) vì mẫu chỉ là DOCX/PDF, không nhận video.
  */
 public enum MediaModule {
     LMS_QUESTION("lms/questions", true, true),
@@ -44,7 +50,8 @@ public enum MediaModule {
     EXERCISE_ANSWER_SUBMISSION("lms/exercise-answer-submissions", false, false),
     STUDENT("profiles/students", false, false),
     PARENT("profiles/parents", false, false),
-    EMPLOYEE("profiles/employees", false, false);
+    EMPLOYEE("profiles/employees", false, false),
+    REPORT_TEMPLATE("academic/report-templates", false, true);
 
     private final String folderPrefix;
     private final boolean acceptsVideo;

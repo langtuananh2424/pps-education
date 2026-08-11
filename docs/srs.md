@@ -572,6 +572,21 @@ nhân đó mới được thao tác.*
         Giáo viên chấm tay bị loại khỏi thống kê này). Có xuất file Excel
         (kết quả từng học sinh) (UC-66).
 
+    -   **FR-ACA-08: Quản lý mẫu báo cáo & Xuất báo cáo từ mẫu (Mail
+        Merge) -** (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+        2026-08-09) Trưởng phòng đào tạo/Quản lý điểm trường tải lên mẫu
+        báo cáo (.docx, .pdf dạng PDF Form/AcroForm, hoặc .html) đã đánh
+        dấu sẵn trường thông tin bằng ký hiệu `[TEN_TRUONG]` (riêng .pdf
+        dùng field AcroForm có sẵn), hệ thống tự phát hiện placeholder và
+        cho cấu hình ánh xạ tới dữ liệu thực tế (UC-67). Giáo viên/Trưởng
+        phòng đào tạo/Quản lý điểm trường sau đó chọn 1 mẫu + phạm vi (1
+        học sinh/cả lớp gộp ZIP/1 buổi học) để điền dữ liệu thật và xuất
+        file hoàn chỉnh — mẫu .docx/.pdf giữ nguyên định dạng, mẫu .html
+        luôn xuất PDF (UC-68). Hỗ trợ Phiếu kết quả lộ trình (linh hoạt
+        theo giữa kỳ/cuối kỳ/cả kỳ/cả năm học, không quy ước cố định),
+        Báo cáo ngày (bảng động liệt kê học sinh, chỉ .docx/.html), và Hồ
+        sơ học sinh. Bảng điểm theo mẫu chưa triển khai.
+
 **PHÂN HỆ 7: CỔNG THÔNG TIN VÀ E-LEARNING (PORTAL & LMS - TÍCH HỢP
 CDN)**
 
@@ -902,6 +917,12 @@ CDN)**
 
   UC-66             Thống kê BTVN     FR-ACA-07         6
                     theo lớp                            
+
+  UC-67             Quản lý mẫu báo   FR-ACA-08         6
+                    cáo                                 
+
+  UC-68             Xuất báo cáo từ   FR-ACA-08         6
+                    mẫu                                 
 
   UC-21             Viết nhận xét học FR-ACA-04         6
                     sinh                                
@@ -2019,6 +2040,17 @@ flowchart TD
     B16 -- Không --> End2([Kết thúc -<br/>Không được làm lại])
     B16 -- Có --> B1
 ```
+
+**PHÂN HỆ 11: BÁO CÁO & THỐNG KÊ**
+
+-   **Mô tả tổng quan:** Phân hệ chuyên biệt phục vụ việc xem biểu đồ thống kê, quản lý các mẫu báo cáo và xuất báo cáo tự động (PDF, DOCX, HTML) dựa trên dữ liệu hệ thống.
+-   **Tác nhân tham gia:** Ban giám đốc, Quản lý điểm trường, Trưởng phòng đào tạo, Quản trị viên (hoặc các vai trò được cấp quyền report tương ứng).
+-   **Yêu cầu chức năng:**
+    -   **FR-REP-01 (UC-67): Quản lý mẫu báo cáo** - Cho phép tải lên, cấu hình (mapping) các mẫu báo cáo tự động bằng file Word (.docx), HTML, PDF.
+    -   **FR-REP-02: Thống kê nhận xét ngày** - Hiển thị biểu đồ thái độ học tập tổng quan, bảng dữ liệu theo ngày. Cho phép xuất báo cáo ngày của lớp học và xuất báo cáo nhận xét học sinh.
+    -   **FR-REP-03: Thống kê điểm số** - Cho phép lọc theo lớp, điểm trường, học kỳ. Hiển thị phổ điểm và điểm trung bình. Cho phép xuất báo cáo điểm.
+    -   **FR-REP-04: Thống kê quá trình học sinh** - Hiển thị hồ sơ số học tập của học sinh bao gồm điểm danh, bài tập, điểm số, khen thưởng kỷ luật. Cho phép xuất thành file PDF hồ sơ học sinh.
+    -   **FR-REP-05 (UC-68): Xuất báo cáo tự động** - Core engine xử lý việc render file báo cáo dựa trên mẫu (template) và dữ liệu thực tế (context) truyền vào.
 
 # Các yêu cầu phi chức năng
 
