@@ -72,11 +72,17 @@ export default function ClassGradeSheetPanel({ classId, siteId, readOnly = false
   }, [classId]);
 
   useEffect(() => {
-    listAcademicTerms(siteId).then(setTerms).catch(() => undefined);
+    listAcademicTerms(siteId)
+      .then((tList) => {
+        setTerms(tList);
+        if (tList.length > 0) {
+          setSelectedTermId(tList[0].id);
+        }
+      })
+      .catch(() => undefined);
   }, [siteId]);
 
   useEffect(() => {
-    setSelectedTermId(null);
     listGradeComponentSetups(classId).then(setSetups).catch(() => undefined);
   }, [classId]);
 
