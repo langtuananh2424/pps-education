@@ -1,4 +1,5 @@
 import React from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 interface ModalProps {
@@ -20,7 +21,11 @@ const SIZE_CLASSES: Record<NonNullable<ModalProps["size"]>, string> = {
 export default function Modal({ open, onClose, title, description, children, footer, size = "md" }: ModalProps) {
   if (!open) return null;
 
-  return (
+  // Portal thẳng ra document.body — nếu render lồng trong ancestor có backdrop-filter/filter/transform
+  // (VD Header.tsx có class "backdrop-blur-md"), CSS sẽ biến ancestor đó thành containing block cho mọi
+  // phần tử "fixed" bên trong, khiến "inset-0" bị co lại theo kích thước ancestor thay vì toàn màn hình
+  // (đã xác nhận thực tế: div fixed bị co còn đúng bằng box 64px của header) — modal lệch hẳn lên trên.
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs" onClick={onClose} />
       <div
@@ -41,6 +46,7 @@ export default function Modal({ open, onClose, title, description, children, foo
         <div className="p-5">{children}</div>
         {footer && <div className="px-5 py-4 border-t border-slate-100 flex justify-end gap-2">{footer}</div>}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
