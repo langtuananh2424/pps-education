@@ -19,6 +19,7 @@ import vn.com.pps.education.dto.GradeEntryResponse;
 import vn.com.pps.education.dto.GradeEvaluationResultResponse;
 import vn.com.pps.education.dto.ListeningPracticeItemResponse;
 import vn.com.pps.education.dto.MyReviewVideoAssignmentResponse;
+import vn.com.pps.education.dto.ParentStudentResponse;
 import vn.com.pps.education.dto.StudentCommentResponse;
 import vn.com.pps.education.dto.StudentResponse;
 import vn.com.pps.education.dto.UpdateOwnStudentProfileRequest;
@@ -87,6 +88,12 @@ public class StudentPortalController {
     public ResponseEntity<StudentResponse> updateMine(@AuthenticationPrincipal AuthenticatedUser actor,
                                                         @Valid @RequestBody UpdateOwnStudentProfileRequest request) {
         return ResponseEntity.ok(studentService.updateMyStudentProfile(actor.userId(), request));
+    }
+
+    /** UC-63: học sinh tự tra danh sách phụ huynh liên kết với chính mình (FR-USR-07). */
+    @GetMapping("/parents")
+    public ResponseEntity<List<ParentStudentResponse>> listMyParents(@AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(studentService.listMyParents(actor.userId()));
     }
 
     /** UC-59: lịch học của tôi. */
