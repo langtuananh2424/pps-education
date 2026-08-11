@@ -35,6 +35,23 @@ export function updateMyStudentProfile(request: UpdateOwnStudentProfileRequest):
   return apiRequest<MyStudentProfileResponse>("/students/me", { method: "PUT", body: JSON.stringify(request) });
 }
 
+/** UC-63: Học sinh tự tra danh sách phụ huynh liên kết với chính mình. */
+export interface ParentStudentResponse {
+  id: number;
+  parentId: number;
+  parentFullName: string;
+  parentPhone: string | null;
+  studentId: number;
+  relationship: string;
+  isPrimaryContact: boolean;
+  isFinancialResponsible: boolean;
+  notes: string | null;
+}
+
+export function getMyParents(): Promise<ParentStudentResponse[]> {
+  return apiRequest<ParentStudentResponse[]>("/students/me/parents");
+}
+
 /** UC-63: Phụ huynh tự xem/sửa hồ sơ của chính mình (khác hồ sơ con em — xem ChildResponse). */
 export interface MyParentProfileResponse {
   id: number;

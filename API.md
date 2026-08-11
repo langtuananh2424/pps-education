@@ -680,6 +680,7 @@
 | GET | `/api/students/me/exercises` | JWT | Query: `classId`? | mảng [AssignedExerciseResponse](#assignedexerciseresponse) |
 | GET | `/api/students/me/grades` | JWT | Query: `classId`? | mảng [GradeEntryResponse](#gradeentryresponse) |
 | GET | `/api/students/me/listening-practice` | JWT | Query: `mode`?, `curriculumId`? | mảng [ListeningPracticeItemResponse](#listeningpracticeitemresponse) |
+| GET | `/api/students/me/parents` | JWT | — | mảng [ParentStudentResponse](#parentstudentresponse) |
 | GET | `/api/students/me/sessions` | JWT | Query: `fromDate`?, `toDate`?, `classId`? | mảng [ClassSessionResponse](#classsessionresponse) |
 
 ## task-settings-controller
@@ -2404,6 +2405,7 @@
 | `notes` | string |  |
 | `parentFullName` | string |  |
 | `parentId` | integer (int64) |  |
+| `parentPhone` | string |  |
 | `relationship` | string |  |
 | `studentId` | integer (int64) |  |
 

@@ -419,6 +419,17 @@ public class StudentService {
     }
 
     /**
+     * UC-63: học sinh tự tra danh sách phụ huynh liên kết với chính mình
+     * (FR-USR-07) — self-service, không cần student.parent.view (quyền đó
+     * dành cho STAFF/SITE_MANAGER/SUPER_ADMIN tra cứu học sinh bất kỳ).
+     */
+    @Transactional(readOnly = true)
+    public List<ParentStudentResponse> listMyParents(Long userId) {
+        Student student = getStudentByUserIdOrThrow(userId);
+        return parentStudentRepository.findByStudentId(student.getId()).stream().map(this::toResponse).toList();
+    }
+
+    /**
      * Main Flow bước 4, A1: ghi nhận sự kiện chuyển lớp/chuyển điểm trường.
      * CLASS_CHANGE/BOTH đồng bộ luôn class_enrollments (Phân hệ 6): ghi danh
      * cũ ở fromClassId chuyển TRANSFERRED, tạo ghi danh mới ACTIVE ở
@@ -653,8 +664,8 @@ public class StudentService {
 
     private ParentStudentResponse toResponse(ParentStudent ps) {
         return new ParentStudentResponse(
-                ps.getId(), ps.getParent().getId(), ps.getParent().getUser().getFullName(), ps.getStudent().getId(),
-                ps.getRelationship().name(), ps.isPrimaryContact(), ps.isFinancialResponsible(), ps.getNotes());
+                ps.getId(), ps.getParent().getId(), ps.getParent().getUser().getFullName(), ps.getParent().getUser().getPhone(),
+                ps.getStudent().getId(), ps.getRelationship().name(), ps.isPrimaryContact(), ps.isFinancialResponsible(), ps.getNotes());
     }
 
     private StudentTransferHistoryResponse toResponse(StudentTransferHistory h) {

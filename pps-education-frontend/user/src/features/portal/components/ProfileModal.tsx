@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Award, Camera, GraduationCap, Heart, Loader2, Lock, Phone, Sparkles, User, Users, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
-import { getMyParentProfile, getMyStudentProfile, updateMyParentProfile, updateMyStudentProfile, uploadMedia } from "../api";
+import { getMyParentProfile, getMyParents, getMyStudentProfile, updateMyParentProfile, updateMyStudentProfile, uploadMedia } from "../api";
 
 const STATUS_LABEL: Record<string, string> = {
   ACTIVE: "Đang hoạt động",
@@ -17,11 +17,11 @@ interface ProfileModalProps {
   classCode: string | null;
   enrollmentStatus: string | null;
   /**
-   * Chỉ có giá trị khi Phụ huynh đang xem con mình — chính là thông tin của
+   * Có giá trị khi Phụ huynh đang xem con mình — chính là thông tin của
    * `currentUser` đang đăng nhập (không cần gọi API riêng, Phụ huynh xem con
    * nào thì hiển thị đúng liên hệ của chính họ). `null` khi Học sinh tự xem
-   * hồ sơ của mình — chưa có API self-service tra phụ huynh liên kết (xem
-   * ghi chú trong JSX), giữ khung "Sắp có" như cũ, không tự đoán dữ liệu.
+   * hồ sơ của mình — component tự gọi GET /students/me/parents (xem effect
+   * bên dưới) để lấy phụ huynh liên hệ chính (isPrimaryContact).
    */
   parentName: string | null;
   parentPhone: string | null;
@@ -59,6 +59,9 @@ export default function ProfileModal({
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const studentFileInputRef = useRef<HTMLInputElement>(null);
 
+  /** UC-63: Học sinh tự xem hồ sơ — phụ huynh liên hệ chính (isPrimaryContact), tự tra qua GET /students/me/parents. */
+  const [myParentContact, setMyParentContact] = useState<{ fullName: string; phone: string | null } | null>(null);
+
   const [editingParent, setEditingParent] = useState(false);
   const [parentPortraitUrl, setParentPortraitUrl] = useState<string | null>(null);
   const [parentForm, setParentForm] = useState({ occupation: "", workplace: "", address: "" });
@@ -68,6 +71,12 @@ export default function ProfileModal({
   useEffect(() => {
     if (isStudent) {
       getMyStudentProfile().then((p) => setStudentPortraitUrl(p.portraitUrl)).catch(() => undefined);
+      getMyParents()
+        .then((parents) => {
+          const primary = parents.find((p) => p.isPrimaryContact) ?? parents[0];
+          if (primary) setMyParentContact({ fullName: primary.parentFullName, phone: primary.parentPhone });
+        })
+        .catch(() => undefined);
     } else if (isParent) {
       getMyParentProfile()
         .then((p) => {
@@ -129,6 +138,9 @@ export default function ProfileModal({
       setSavingParent(false);
     }
   };
+
+  const displayParentName = parentName ?? myParentContact?.fullName ?? null;
+  const displayParentPhone = parentPhone ?? myParentContact?.phone ?? null;
 
   return (
     <div className="fixed inset-0 bg-ink/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={onClose}>
@@ -244,18 +256,16 @@ export default function ProfileModal({
                 <span className="text-muted font-bold flex items-center gap-1.5">
                   <User size={12} /> Phụ huynh:
                 </span>
-                <span className={`font-extrabold ${parentName ? "text-ink" : "text-muted/70"}`}>{parentName ?? "—"}</span>
+                <span className={`font-extrabold ${displayParentName ? "text-ink" : "text-muted/70"}`}>{displayParentName ?? "—"}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-muted font-bold flex items-center gap-1.5">
                   <Phone size={12} /> Số điện thoại:
                 </span>
-                <span className={`font-extrabold ${parentPhone ? "text-ink" : "text-muted/70"}`}>{parentPhone ?? "—"}</span>
+                <span className={`font-extrabold ${displayParentPhone ? "text-ink" : "text-muted/70"}`}>{displayParentPhone ?? "—"}</span>
               </div>
-              {!parentName && (
-                <p className="text-[10px] text-gold font-bold pt-1">
-                  Sắp có — đang chờ Backend mở API cho Học sinh tự tra thông tin phụ huynh liên kết với chính mình.
-                </p>
+              {isStudent && !displayParentName && (
+                <p className="text-[10px] text-muted font-bold pt-1">Chưa liên kết phụ huynh nào với hồ sơ này.</p>
               )}
 
               {isParent && editingParent && (
@@ -330,8 +340,7 @@ export default function ProfileModal({
             <div className="bg-gold/5 border border-dashed border-gold/30 rounded-[16px] p-4 flex items-start gap-2.5">
               <Sparkles size={16} className="text-gold shrink-0 mt-0.5" />
               <p className="text-xs text-muted font-bold leading-relaxed">
-                Sắp có — tính năng chưa có trong thiết kế PPS Education hiện tại (không có cột dữ liệu tương ứng, cũng chưa
-                cho phép Học sinh tự chỉnh sửa hồ sơ của mình).
+                Sắp có - đang phát triển
               </p>
             </div>
           </div>
