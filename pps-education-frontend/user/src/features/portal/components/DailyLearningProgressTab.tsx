@@ -753,7 +753,7 @@ export default function DailyLearningProgressTab({
                 <div className="p-3.5 bg-slate-50 rounded-xl border border-line/80 space-y-2">
                   <div className="flex items-center justify-between font-black text-slate-800 uppercase tracking-wider text-[11px]">
                     <span className="flex items-center gap-1">
-                      <BookOpen size={13} className="text-blue-600" aria-hidden="true" /> Chuẩn bị cho buổi học sau
+                      <BookOpen size={13} className="text-blue-600" aria-hidden="true" /> Bài tập về nhà
                     </span>
                   </div>
 
@@ -1168,16 +1168,16 @@ export default function DailyLearningProgressTab({
                       bảng ở đây gộp nhiều buổi/nhiều ngày có thể khác Loại giáo viên nhau, 1 tiêu đề cột
                       cố định không phản ánh đúng hết từng dòng. */}
                   <tr className="bg-slate-100 border-b border-slate-300 [&>th]:text-center text-xs md:text-[11px] font-black uppercase text-slate-700 tracking-wider">
-                    <th rowSpan={2} className="p-3 border-r border-slate-300 w-28 whitespace-nowrap align-bottom">Ngày</th>
-                    <th rowSpan={2} className="p-3 border-r border-slate-300 min-w-[200px] align-bottom">Bài học hôm nay</th>
-                    <th rowSpan={2} className="p-3 border-r border-slate-300 w-28 whitespace-nowrap text-center align-bottom">Giáo viên</th>
+                    <th rowSpan={2} className="p-3 border-r border-slate-300 w-28 whitespace-nowrap">Ngày</th>
+                    <th rowSpan={2} className="p-3 border-r border-slate-300 min-w-[200px]">Bài học hôm nay</th>
+                    <th rowSpan={2} className="p-3 border-r border-slate-300 w-28 whitespace-nowrap text-center">Giáo viên</th>
                     <th colSpan={3} className="p-3 border-r border-slate-300 text-center">BTVN buổi trước</th>
-                    <th rowSpan={2} className="p-3 border-r border-slate-300 w-32 whitespace-nowrap align-bottom">BTVN offline</th>
+                    <th rowSpan={2} className="p-3 border-r border-slate-300 w-32 whitespace-nowrap">BTVN offline</th>
                     <th colSpan={2} className="p-3 border-r border-slate-300 text-center">BTVN online</th>
-                    <th rowSpan={2} className="p-3 border-r border-slate-300 w-32 whitespace-nowrap align-bottom">Hạn nộp bài</th>
-                    <th rowSpan={2} className="p-3 border-r border-slate-300 w-28 whitespace-nowrap text-center align-bottom">Thái độ</th>
-                    <th rowSpan={2} className="p-3 border-r border-slate-300 min-w-[220px] align-bottom">Nhận xét học sinh</th>
-                    <th rowSpan={2} className="p-3 min-w-[140px] align-bottom">Ghi chú</th>
+                    <th rowSpan={2} className="p-3 border-r border-slate-300 w-32 whitespace-nowrap">Hạn nộp bài</th>
+                    <th rowSpan={2} className="p-3 border-r border-slate-300 w-28 whitespace-nowrap text-center">Thái độ</th>
+                    <th rowSpan={2} className="p-3 border-r border-slate-300 min-w-[220px]">Nhận xét học sinh</th>
+                    <th rowSpan={2} className="p-3 min-w-[140px]">Ghi chú</th>
                   </tr>
                   <tr className="bg-slate-100 border-b border-slate-300 [&>th]:text-center text-xs md:text-[11px] font-black uppercase text-slate-700 tracking-wider">
                     <th className="p-3 border-r border-slate-300 w-28 whitespace-nowrap text-center">Offline</th>
