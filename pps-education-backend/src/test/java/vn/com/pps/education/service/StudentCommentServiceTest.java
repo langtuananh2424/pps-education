@@ -1051,10 +1051,11 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         ClassSessionResponse session2 = nextSession();
         writeDailyCommentWithHomeworkNext(student, classSession, null, fixture.set().id());
         Long sessionId = reviewVideoService.startWatchSession(fixture.video().id(), student.getUser().getId()).sessionId();
-        reviewVideoService.reportProgress(fixture.video().id(), new ReportVideoProgressRequest(sessionId, 80), student.getUser().getId());
+        reviewVideoService.reportProgress(fixture.video().id(), new ReportVideoProgressRequest(sessionId, 100), student.getUser().getId());
         // CONNECTION (V83/V93/V101): % hiển thị ở cột này là viewCount/requiredViewCount (không
-        // còn phải % thời lượng đã xem) — xem HomeworkProgressService#connectionPercent. Xem đạt
-        // ngưỡng (80%) mới làm session "qualified", còn cần nộp đủ câu hỏi (rỗng ở đây, video chưa
+        // còn phải % thời lượng đã xem) — xem HomeworkProgressService#connectionPercent. Bổ sung
+        // ngoài SDD gốc, đã xác nhận với người dùng 2026-08-11 — CONNECTION giờ LUÔN yêu cầu xem HẾT
+        // 100% (cố định) mới làm session "qualified", còn cần nộp đủ câu hỏi (rỗng ở đây, video chưa
         // thêm câu hỏi) mới tính vào viewCount. requiredViewCount mặc định 1 → 1 lượt đạt = 100%.
         reviewVideoService.submitConnectionAnswers(sessionId, new SubmitConnectionAnswersRequest(List.of()), student.getUser().getId());
 
