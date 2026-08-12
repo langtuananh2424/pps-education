@@ -10,13 +10,13 @@ import Select from "@/components/ui/Select";
 import DatePicker from "@/components/ui/DatePicker";
 
 const commentTypeLabels: Record<StudentCommentResponse["commentType"], string> = { DAILY: "Hàng ngày", MID_TERM: "Giữa kỳ", END_TERM: "Cuối kỳ" };
+/** Thang thái độ chốt lại 2026-08-12 (StudentComment.Attitude). */
 const attitudeLabels: Record<NonNullable<StudentCommentResponse["attitude"]>, string> = {
-  POOR: "Kém",
   WEAK: "Yếu",
   AVERAGE: "Trung bình",
-  ABOVE_AVERAGE: "Trung bình khá",
   FAIR: "Khá",
-  GOOD: "Tốt"
+  GOOD: "Tốt",
+  EXCELLENT: "Xuất sắc"
 };
 // Đồng bộ đúng bố cục/tên cột với form Giáo viên điền & gửi (DailyCommentPanel.tsx) — bổ sung ngoài
 // SDD gốc, đã xác nhận với người dùng 2026-08-06. Nhãn 2 kênh BTVN ăn theo "Loại giáo viên" của buổi

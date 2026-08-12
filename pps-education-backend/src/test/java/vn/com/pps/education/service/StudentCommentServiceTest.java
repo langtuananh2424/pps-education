@@ -696,7 +696,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
             assertThat(validations).anySatisfy(v -> {
                 assertThat(v.getRegions().getCellRangeAddress(0).getFirstColumn()).isEqualTo(14);
                 assertThat(v.getValidationConstraint().getExplicitListValues())
-                        .containsExactly("Kém", "Yếu", "Trung bình", "Trung bình khá", "Khá", "Tốt");
+                        .containsExactly("Yếu", "Trung bình", "Khá", "Tốt", "Xuất sắc");
             });
         }
     }
@@ -722,6 +722,27 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         assertThat(comments.get(0).status()).isEqualTo("DRAFT");
         assertThat(comments.get(0).attitude()).isEqualTo("GOOD");
         assertThat(comments.get(0).homeworkPreviousScore()).isEqualTo("80%");
+    }
+
+    /** Thang thái độ chốt lại 2026-08-12 (Yếu/Trung bình/Khá/Tốt/Xuất sắc) — "Xuất sắc" là mức mới, phủ riêng 1 test. */
+    @Test
+    void importComments_UC21_MainFlow_parsesExcellentAttitude() throws IOException {
+        studentAttendanceService.markAttendance(classSession.id(),
+                new MarkAttendanceRequest("SESSION_LEVEL", List.of(
+                        new EnterAttendanceMarkRequest(student.getId(), "PRESENT", null, null, null))),
+                teacher.getId());
+        byte[] file = buildCommentWorkbook(new String[][]{
+                commentRow(classSession.sessionDate().toString(), student.getStudentCode(), "", "",
+                        "Có mặt", "", "", "", "Xuất sắc.", "", "", "", "", "Xuất sắc", "")
+        });
+
+        DailyCommentImportResponse result = studentCommentService.importComments(classSession.id(),
+                new MockMultipartFile("file", "nhanxet.xlsx", "application/vnd.openxmlformats", file), teacher.getId());
+
+        assertThat(result.status()).isEqualTo("COMPLETED");
+        assertThat(result.successRows()).isEqualTo(1);
+        List<StudentCommentResponse> comments = studentCommentService.listComments(schoolClass.id(), student.getId());
+        assertThat(comments.get(0).attitude()).isEqualTo("EXCELLENT");
     }
 
     @Test

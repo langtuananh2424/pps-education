@@ -954,9 +954,9 @@ export interface StudentCommentResponse {
   visibleToParentAt: string | null;
   rejectionReason: string | null;
   // Nhận xét Hàng ngày kiểu mới (chỉ có ý nghĩa khi commentType=DAILY) — bổ sung ngoài SDD gốc.
-  // Attitude mở rộng từ 3 lên 6 mức 2026-07-27 (StudentComment.Attitude) — giữ nguyên tên hằng số
-  // POOR/AVERAGE/GOOD của 3 mức cũ, thêm WEAK/ABOVE_AVERAGE/FAIR.
-  attitude: "POOR" | "WEAK" | "AVERAGE" | "ABOVE_AVERAGE" | "FAIR" | "GOOD" | null;
+  // Thang thái độ chốt lại 2026-08-12 (StudentComment.Attitude) — Yếu 20%/Trung bình 50%/Khá 70%/
+  // Tốt 90%/Xuất sắc 100%, thay cho thang 6 mức POOR/WEAK/AVERAGE/ABOVE_AVERAGE/FAIR/GOOD cũ.
+  attitude: "WEAK" | "AVERAGE" | "FAIR" | "GOOD" | "EXCELLENT" | null;
   homeworkPreviousScore: string | null;
   // BTVN Nghe-nói buổi trước (V56, nhập tay, đối xứng với homeworkPreviousScore ở trên) — độc lập với
   // videoPreviousProgress (tự tính) bên dưới.
