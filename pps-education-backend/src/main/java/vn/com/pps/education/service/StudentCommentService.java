@@ -1323,10 +1323,25 @@ public class StudentCommentService {
         return s.getTitle() + " (" + s.getCode() + ")";
     }
 
-    /** Dòng nhận xét của CHÍNH học sinh này ở buổi liền TRƯỚC buổi đang xét, cùng lớp — nguồn tra "đã giao gì cho buổi này". */
+    /**
+     * Dòng nhận xét của CHÍNH học sinh này ở buổi liền TRƯỚC buổi đang xét,
+     * cùng lớp — nguồn tra "đã giao gì cho buổi này". Bổ sung ngoài SDD
+     * gốc, đã xác nhận với người dùng 2026-08-12: nếu buổi đang xét CÓ xác
+     * định {@code teacherType} (VIETNAMESE/FOREIGN), chỉ đối chiếu với
+     * buổi liền trước CÙNG loại giáo viên (VD GVNN buổi 6 đối chiếu GVNN
+     * buổi 3, bỏ qua buổi GVVN xen giữa) — vì 2 mạch bài GVVN/GVNN thường
+     * độc lập nhau, gối theo buổi liền kề tuyệt đối sẽ lẫn lộn tiến độ của
+     * 2 mạch. Buổi không xác định teacherType (giá trị cũ/tùy chọn) vẫn
+     * giữ hành vi cũ — đối chiếu buổi liền kề tuyệt đối.
+     */
     private StudentComment previousComment(ClassSession classSession, Long studentId) {
-        return classSessionRepository.findFirstBySchoolClassIdAndSessionDateLessThanOrderBySessionDateDescIdDesc(
-                        classSession.getSchoolClass().getId(), classSession.getSessionDate())
+        ClassSession.TeacherType teacherType = classSession.getTeacherType();
+        Optional<ClassSession> previousSession = teacherType != null
+                ? classSessionRepository.findFirstBySchoolClassIdAndSessionDateLessThanAndTeacherTypeOrderBySessionDateDescIdDesc(
+                        classSession.getSchoolClass().getId(), classSession.getSessionDate(), teacherType)
+                : classSessionRepository.findFirstBySchoolClassIdAndSessionDateLessThanOrderBySessionDateDescIdDesc(
+                        classSession.getSchoolClass().getId(), classSession.getSessionDate());
+        return previousSession
                 .flatMap(prev -> studentCommentRepository.findByClassSessionIdAndStudentId(prev.getId(), studentId))
                 .orElse(null);
     }

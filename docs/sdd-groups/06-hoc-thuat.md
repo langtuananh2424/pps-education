@@ -629,7 +629,19 @@ a)  Bảng class_sessions --- Buổi học
                                                                      2026-07-29).
                                                                      KHÔNG liên
                                                                      quan hồ sơ
-                                                                     nhân sự.
+                                                                     nhân sự. Từ
+                                                                     2026-08-12
+                                                                     field này
+                                                                     CÓ chi phối
+                                                                     logic "BTVN
+                                                                     buổi trước"
+                                                                     (UC-21) —
+                                                                     xem
+                                                                     StudentCommentService
+                                                                     #previousComment,
+                                                                     không còn
+                                                                     thuần hiển
+                                                                     thị.
 
   cancellation_reason         TEXT             NULL
 

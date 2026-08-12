@@ -102,6 +102,13 @@ interface ReviewVideoHomeworkItem {
   connectionStats?: { viewCount: number; requiredViewCount: number; completed: boolean };
   /** Hạn nộp của bộ (nếu bộ này đang được giao "BTVN buổi sau" ACTIVE cho lớp) — undefined nếu chỉ nằm trong Kho, không phải BTVN đang giao. */
   dueAt?: string;
+  /**
+   * id bản giao (`ReviewVideoAssignment`) nguồn của dueAt trên — undefined nếu chỉ nằm trong Kho
+   * (không đang được giao). Fix 2026-08-12: 1 bộ video có thể bị giao LẶP LẠI ở nhiều buổi khác nhau
+   * (mỗi buổi = 1 ReviewVideoAssignment/hạn nộp riêng, đúng V65) — cần assignmentId để tách thành
+   * NHIỀU card thay vì gộp mất chỉ còn 1 hạn nộp (xem load() bên dưới).
+   */
+  assignmentId?: number;
 }
 
 /**
@@ -168,16 +175,40 @@ export default function AssignmentsTab({
       listMyAssignedExercises(classId),
       Promise.all([listReviewVideoSetsByClass(classId), listMyReviewVideoAssignments(classId).catch(() => [])]).then(async ([sets, assignments]) => {
         setVideoAssignments(assignments);
-        const dueAtBySetId = new Map(assignments.map((a) => [a.reviewVideoSetId, a.dueAt]));
-        const perSet = await Promise.all(
-          sets.map(async (set) => {
-            const videos = await listReviewVideos(set.id);
+        // Fix 2026-08-12: trước đây gộp theo reviewVideoSetId qua 1 Map (key trùng bị ghi đè) — 1 bộ
+        // giao lại ở nhiều buổi khác nhau (nhiều ReviewVideoAssignment ACTIVE cùng setId, đúng V65) chỉ
+        // còn thấy ĐÚNG 1 hạn nộp, mất hẳn (các) bản giao khác không hiện thành card nào cả. Giờ tách 1
+        // "nhóm" / 1 bản giao ACTIVE của bộ đó; bộ KHÔNG đang được giao (chỉ nằm trong Kho) vẫn giữ 1
+        // nhóm duy nhất, dueAt/assignmentId để undefined như cũ.
+        const assignmentsBySetId = new Map<number, MyReviewVideoAssignmentResponse[]>();
+        assignments.forEach((a) => {
+          const list = assignmentsBySetId.get(a.reviewVideoSetId) ?? [];
+          list.push(a);
+          assignmentsBySetId.set(a.reviewVideoSetId, list);
+        });
+        const groups = sets.flatMap((set) => {
+          const setAssignments = assignmentsBySetId.get(set.id);
+          return setAssignments && setAssignments.length > 0
+            ? setAssignments.map((a) => ({ set, dueAt: a.dueAt as string | undefined, assignmentId: a.assignmentId as number | undefined }))
+            : [{ set, dueAt: undefined as string | undefined, assignmentId: undefined as number | undefined }];
+        });
+        // videos của cùng 1 bộ giống hệt nhau dù giao lặp lại nhiều lần — cache theo setId để không gọi
+        // lại API listReviewVideos thừa cho mỗi bản giao trùng bộ.
+        const videosBySetId = new Map<number, Promise<ReviewVideoResponse[]>>();
+        const videosOf = (setId: number) => {
+          if (!videosBySetId.has(setId)) videosBySetId.set(setId, listReviewVideos(setId));
+          return videosBySetId.get(setId)!;
+        };
+        const perGroup = await Promise.all(
+          groups.map(async (g) => {
+            const videos = await videosOf(g.set.id);
             return videos.map(
-              (video) => ({ video, videoType: set.videoType, setTitle: set.title, dueAt: dueAtBySetId.get(set.id) }) as ReviewVideoHomeworkItem
+              (video) =>
+                ({ video, videoType: g.set.videoType, setTitle: g.set.title, dueAt: g.dueAt, assignmentId: g.assignmentId }) as ReviewVideoHomeworkItem
             );
           })
         );
-        const flat = perSet.flat();
+        const flat = perGroup.flat();
         const reflexItems = flat.filter((x) => x.videoType === "REFLEX");
         const reflexStatsList = await Promise.all(
           reflexItems.map(async (x) => {
@@ -244,9 +275,10 @@ export default function AssignmentsTab({
     } else if (autoOpenReviewVideoAssignmentId != null) {
       const assignment = videoAssignments.find((a) => a.assignmentId === autoOpenReviewVideoAssignmentId);
       // 1 bộ có thể gồm nhiều video — chưa có khái niệm "đúng video nào" ứng với 1 lần giao (giao theo
-      // cả BỘ), nên focus vào video ĐẦU của bộ (videos giữ nguyên thứ tự server trả, xem load() ở trên).
-      const match = assignment ? reviewItems.find((x) => x.video.reviewVideoSetId === assignment.reviewVideoSetId) : undefined;
-      if (match) key = `rv-${match.video.id}`;
+      // cả BỘ), nên focus vào video ĐẦU của ĐÚNG bản giao này (khớp assignmentId, không chỉ setId — 1
+      // bộ có thể có nhiều bản giao cùng lúc, xem fix 2026-08-12 ở load()).
+      const match = assignment ? reviewItems.find((x) => x.assignmentId === assignment.assignmentId) : undefined;
+      if (match) key = `rv-${match.assignmentId ?? "lib"}-${match.video.id}`;
     }
     setPendingHighlightKey(key);
     onAutoOpenHandled?.();
@@ -259,7 +291,7 @@ export default function AssignmentsTab({
   useEffect(() => {
     if (loading || !pendingHighlightKey) return;
     // Tính lại feedItems "ALL/ALL" (khớp đúng bộ lọc vừa reset ở effect trên) để tìm đúng vị trí/trang.
-    const allKeys = [...exercises.map((e) => `ex-${e.assignmentId}`), ...reviewItems.map((x) => `rv-${x.video.id}`)];
+    const allKeys = [...exercises.map((e) => `ex-${e.assignmentId}`), ...reviewItems.map((x) => `rv-${x.assignmentId ?? "lib"}-${x.video.id}`)];
     const idx = allKeys.indexOf(pendingHighlightKey);
     if (idx === -1) {
       setPendingHighlightKey(null);
@@ -325,7 +357,7 @@ export default function AssignmentsTab({
   // danh sách BTVN duy nhất" đã gộp ở tab này (xem Javadoc đầu file), không tách trang riêng từng loại.
   const feedItems = [
     ...filteredExercises.map((item) => ({ type: "exercise" as const, key: `ex-${item.assignmentId}`, item })),
-    ...filteredReviewItems.map((item) => ({ type: "video" as const, key: `rv-${item.video.id}`, item }))
+    ...filteredReviewItems.map((item) => ({ type: "video" as const, key: `rv-${item.assignmentId ?? "lib"}-${item.video.id}`, item }))
   ];
   const pageItems = feedItems.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
