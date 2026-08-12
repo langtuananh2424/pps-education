@@ -166,10 +166,13 @@ export default function HomeTab({ studentName, classId, parentStudentId }: HomeT
 
           <div className="bg-white border border-line/80 p-6 rounded-[20px] shadow-[0_8px_30px_rgba(30,42,69,0.03)] space-y-4">
             <h3 className="text-lg font-extrabold text-ink flex items-center gap-2">
-              <MessageSquareCode className="text-teal" /> Nhận xét của giáo viên
+              <MessageSquareCode className="text-teal" /> Nhận xét của giáo viên gần đây
             </h3>
             <div className="space-y-4">
-              {regular.map((c) => (
+              {/* Chỉ hiện 5 nhận xét gần nhất (theo yêu cầu người dùng, 2026-08-12) — comments đã được
+                  backend sắp xếp desc theo commentDate (findBySchoolClassIdAndStudentIdAndStatusOrderByCommentDateDesc),
+                  không có giới hạn số dòng ở API nên phải cắt bớt ở FE để trang chủ không phình to theo thời gian. */}
+              {regular.slice(0, 5).map((c) => (
                 <div key={c.id} className="border-b border-line last:border-0 pb-4 last:pb-0 space-y-1">
                   <div className="flex justify-between items-center">
                     <span className="px-2 py-0.5 bg-teal/10 text-teal-deep text-[10px] font-extrabold rounded-full border border-teal/20">

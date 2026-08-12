@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { AlertCircle, Calendar, CheckCircle2, FileSpreadsheet, XCircle } from "lucide-react";
+import { AlertCircle, Calendar, CheckCircle2, FileSpreadsheet, RotateCcw, XCircle } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { formatHm } from "@/lib/format";
 import { AttendanceMarkResponse, ClassSessionResponse, listMyAttendance, listMySessions } from "../api";
@@ -153,21 +153,31 @@ export default function StudentScheduleTab({ classId, siteId }: StudentScheduleT
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-white border border-line/80 p-6 rounded-[20px] shadow-[0_8px_30px_rgba(30,42,69,0.03)] space-y-4">
+          {/* "Xem tất cả" đặt ngang hàng tiêu đề (theo yêu cầu người dùng 2026-08-12) — trước đây
+              đứng chung hàng với 2 nút lọc bên dưới, trên mobile hàng đó dễ xuống dòng 3 tầng (Học
+              kỳ/Từ→Đến rồi tới Xem tất cả), giờ tách hẳn lên hàng tiêu đề cho gọn. */}
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-xl font-extrabold text-ink flex items-center gap-2">
               <Calendar className="text-teal" /> Lịch buổi học
             </h2>
-            <ScheduleFilterBar
-              fromDate={dateFilter.fromDate}
-              toDate={dateFilter.toDate}
-              onDateRangeChange={dateFilter.setDateRange}
-              terms={dateFilter.terms}
-              selectedTermId={dateFilter.selectedTermId}
-              onSelectTerm={dateFilter.selectTerm}
-              onReset={dateFilter.reset}
-              isActive={dateFilter.isActive}
-            />
+            {dateFilter.isActive && (
+              <button
+                type="button"
+                onClick={dateFilter.reset}
+                className="flex items-center gap-1 text-xs font-extrabold text-teal-deep hover:underline shrink-0"
+              >
+                <RotateCcw size={13} /> Xem tất cả
+              </button>
+            )}
           </div>
+          <ScheduleFilterBar
+            fromDate={dateFilter.fromDate}
+            toDate={dateFilter.toDate}
+            onDateRangeChange={dateFilter.setDateRange}
+            terms={dateFilter.terms}
+            selectedTermId={dateFilter.selectedTermId}
+            onSelectTerm={dateFilter.selectTerm}
+          />
           <div className="space-y-4 max-h-[480px] overflow-y-auto pr-1">
             {filteredSchedule.map((s) => {
               const badge = getSessionStatusBadge(s);
