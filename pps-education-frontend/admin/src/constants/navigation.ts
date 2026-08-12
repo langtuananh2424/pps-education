@@ -4,7 +4,6 @@ import {
   BarChart3,
   Building2,
   CalendarDays,
-  CheckSquare,
   ClipboardCheck,
   DollarSign,
   ExternalLink,
@@ -96,19 +95,10 @@ export const navSections: NavSection[] = [
       { id: "sys-send-notification", label: "Gửi thông báo", path: "/system-admin/send-notification", icon: Send, requiredPermission: "notification.send.manual" }
     ]
   },
-  // Tạm ẩn cả mục "ĐIỀU HÀNH & GIAO VIỆC" theo yêu cầu người dùng (2026-07-23) — đang phát triển
-  // tiếp, chưa muốn hiện lên sidebar. CHỈ ẩn khỏi menu, không xoá route (App.tsx vẫn giữ nguyên
-  // /task-workflow và /schedule/my-timetable, vào thẳng URL vẫn dùng được bình thường).
-  // {
-  //   id: "task",
-  //   title: "ĐIỀU HÀNH & GIAO VIỆC",
-  //   items: [
-  //     // Không gate requiredPermission: mọi nhân sự có thể là người NHẬN việc, không riêng người có task.create — xem "Việc tôi được giao".
-  //     { id: "task-workflow", label: "Giao việc & Kanban (UC-06/07)", path: "/task-workflow", icon: CheckSquare },
-  //     // Self-service (UC-58) — không gate quyền, ai đăng nhập cũng vào được, chỉ có dữ liệu thật với Giáo viên.
-  //     { id: "acad-my-schedule", label: "Lịch của tôi (UC-58)", path: "/schedule/my-timetable", icon: CalendarDays }
-  //   ]
-  // },
+  // "Giao việc & Kanban" tiếp tục ẩn (đang phát triển, theo yêu cầu 2026-07-23) — route /task-workflow
+  // vẫn còn, chỉ không có link sidebar. Riêng "Lịch của tôi" đã xong, đưa lại menu theo yêu cầu người
+  // dùng — gộp vào section Học thuật thay vì tự tạo section riêng.
+  // { id: "task-workflow", label: "Giao việc & Kanban (UC-06/07)", path: "/task-workflow", icon: CheckSquare } — nhớ import lại CheckSquare khi bật lại.
   {
     id: "hrm",
     title: "QUẢN LÝ NHÂN SỰ (HRM)",
@@ -151,6 +141,8 @@ export const navSections: NavSection[] = [
     id: "academic",
     title: "QUẢN LÝ HỌC THUẬT",
     items: [
+      // Self-service (UC-58) — không gate quyền, ai đăng nhập cũng vào được, chỉ có dữ liệu thật với Giáo viên.
+      { id: "acad-my-schedule", label: "Lịch của tôi", path: "/schedule/my-timetable", icon: CalendarDays },
       // academic.class.manage: TEACHER/HEAD_ACADEMIC đều có sẵn permission này (xem UC-18) — không cần gate thêm role.
       { id: "acad-classes", label: "Quản lý lớp học", path: "/academic/classes", icon: GraduationCap, requiredPermission: "academic.class.manage" },
       // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31 — trước đó chỉ vào được qua nút

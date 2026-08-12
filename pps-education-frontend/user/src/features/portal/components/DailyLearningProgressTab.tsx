@@ -399,8 +399,10 @@ export default function DailyLearningProgressTab({
     .filter((v): v is number => v != null);
   const avgHomeworkCompletion = progressValues.length ? Math.round(progressValues.reduce((a, b) => a + b, 0) / progressValues.length) : null;
 
+  // PRESENT/LATE/EARLY_LEAVE đều tính là "có tham dự" (đều có mặt tại buổi học, chỉ khác đúng giờ hay
+  // không/rời sớm hay không) — chỉ ABSENT/EXCUSED mới không tính, 2026-08-11.
   const attendanceRate = attendance.length
-    ? Math.round((attendance.filter((a) => a.status === "PRESENT" || a.status === "LATE").length / attendance.length) * 100)
+    ? Math.round((attendance.filter((a) => a.status === "PRESENT" || a.status === "LATE" || a.status === "EARLY_LEAVE").length / attendance.length) * 100)
     : null;
 
   if (loading) return <p className="text-sm text-muted font-bold">Đang tải...</p>;
