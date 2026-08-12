@@ -1343,6 +1343,23 @@ dùng), `StudentComment.CommentType` nay chỉ còn DAILY.
     chưa từng được chọn: không cần màn theo dõi riêng, chỉ dùng cho
     dropdown ở đây.
 
+-   **Bổ sung 2026-08-12 (đã xác nhận với người dùng) — "BTVN buổi trước"
+    (V55) đối chiếu theo TỪNG LOẠI GIÁO VIÊN, không còn buổi liền kề tuyệt
+    đối:** "Dòng của buổi N lưu sẽ giao gì cho buổi N+1" ở V55 phía trên
+    ngầm hiểu N/N+1 là 2 buổi liên tiếp bất kỳ. Với lớp có xen kẽ GVVN/GVNN
+    (`class_sessions.teacher_type`, xem `docs/sdd-groups/06-hoc-thuat.md`),
+    2 mạch bài của GVVN và GVNN độc lập nhau — đối chiếu theo buổi liền kề
+    tuyệt đối làm lẫn tiến độ 2 mạch (VD GVNN buổi 6 lại đối chiếu với bài
+    GVVN giao ở buổi 5 thay vì bài GVNN giao ở buổi 3). Quy tắc mới: nếu
+    buổi N+1 CÓ xác định `teacher_type`, buổi N dùng để tính "BTVN buổi
+    trước" phải là buổi liền kề gần nhất **cùng `teacher_type`** với buổi
+    N+1 (bỏ qua buổi khác loại xen giữa) — xem
+    `StudentCommentService#previousComment`,
+    `ClassSessionRepository#findFirstBySchoolClassIdAndSessionDateLessThanAndTeacherTypeOrderBySessionDateDescIdDesc`.
+    Buổi N+1 không xác định `teacher_type` (giá trị cũ/tùy chọn, để trống)
+    vẫn giữ nguyên hành vi V55 gốc — đối chiếu buổi liền kề tuyệt đối,
+    không lọc gì thêm.
+
 -   **Bổ sung V70 (2026-07-31, đã xác nhận với người dùng) — fix bug
     thông báo bị gửi lặp nhiều lần cho toàn bộ học sinh trong lớp khi
     "Gửi nhận xét" hàng loạt:** UI "Gửi nhận xét" gửi N request riêng biệt

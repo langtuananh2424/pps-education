@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Calendar, ClipboardList, CreditCard, FolderOpen, Home, LogOut, Award, NotebookPen, School, Users, Menu, X } from "lucide-react";
+import { BarChart3, Calendar, ClipboardList, CreditCard, FolderOpen, Home, LogOut, Award, NotebookPen, School, Users, Menu, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import { ChildResponse, getMyStudentProfile, listClassOptions, listMyChildren, PortalClassOptionResponse } from "../api";
@@ -23,7 +23,7 @@ type Tab = "home" | "schedule" | "learning-progress" | "homework" | "documents" 
 const TABS: { key: Tab; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
   { key: "home", label: "Trang chủ & Bảng tin", icon: Home },
   { key: "grades", label: "Khảo thí & Điểm số", icon: Award },
-  { key: "grade-stats", label: "Thống kê điểm", icon: Award },
+  { key: "grade-stats", label: "Thống kê điểm", icon: BarChart3 },
   { key: "schedule", label: "Lịch học & Chuyên cần", icon: Calendar },
   { key: "learning-progress", label: "Quá trình học tập", icon: NotebookPen },
   { key: "homework", label: "Bài tập về nhà (BTVN)", icon: ClipboardList },
