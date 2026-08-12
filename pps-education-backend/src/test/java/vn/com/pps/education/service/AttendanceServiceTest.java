@@ -296,6 +296,71 @@ class AttendanceServiceTest extends AbstractIntegrationTest {
         assertThat(persisted.getCheckInMatchedSource()).isEqualTo(AttendanceRecord.MatchedSource.SHIFT);
     }
 
+    @Test
+    void listRecords_UC09_Extension_filtersByEmployeeSiteAndDateRange() {
+        assignWideOpenShift();
+        attendanceService.checkIn(user.getId(), new AttendanceCheckRequest("GPS", site.getId(), SITE_LAT, SITE_LNG, null));
+
+        User otherUser = newUser();
+        Employee otherEmployee = newEmployee(otherUser);
+        Site otherSite = newSite();
+        assignWideOpenShift(otherEmployee);
+        attendanceService.checkIn(otherUser.getId(), new AttendanceCheckRequest("GPS", otherSite.getId(), SITE_LAT, SITE_LNG, null));
+
+        var all = attendanceService.listRecords(null, null, LocalDate.now(), LocalDate.now());
+        assertThat(all).extracting("employeeId").contains(employee.getId(), otherEmployee.getId());
+
+        var byEmployee = attendanceService.listRecords(employee.getId(), null, LocalDate.now(), LocalDate.now());
+        assertThat(byEmployee).hasSize(1);
+        assertThat(byEmployee.get(0).employeeId()).isEqualTo(employee.getId());
+        assertThat(byEmployee.get(0).siteId()).isEqualTo(site.getId());
+
+        var bySite = attendanceService.listRecords(null, otherSite.getId(), LocalDate.now(), LocalDate.now());
+        assertThat(bySite).hasSize(1);
+        assertThat(bySite.get(0).employeeId()).isEqualTo(otherEmployee.getId());
+
+        var outsideRange = attendanceService.listRecords(null, null, LocalDate.now().minusDays(10), LocalDate.now().minusDays(9));
+        assertThat(outsideRange).isEmpty();
+    }
+
+    @Test
+    void listRecords_UC09_Extension_rejectsWhenFromAfterTo() {
+        assertThatThrownBy(() -> attendanceService.listRecords(null, null, LocalDate.now(), LocalDate.now().minusDays(1)))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void getMyTodayRecord_UC09_Extension_returnsPlaceholderBeforeCheckIn() {
+        var response = attendanceService.getMyTodayRecord(user.getId());
+
+        assertThat(response).isNotNull();
+        assertThat(response.id()).isNull();
+        assertThat(response.employeeId()).isEqualTo(employee.getId());
+        assertThat(response.checkInAt()).isNull();
+        assertThat(response.status()).isNull();
+    }
+
+    @Test
+    void getMyTodayRecord_UC09_Extension_returnsRecordAfterCheckIn() {
+        assignWideOpenShift();
+        attendanceService.checkIn(user.getId(), new AttendanceCheckRequest("GPS", site.getId(), SITE_LAT, SITE_LNG, null));
+
+        var response = attendanceService.getMyTodayRecord(user.getId());
+
+        assertThat(response).isNotNull();
+        assertThat(response.id()).isNotNull();
+        assertThat(response.checkInAt()).isNotNull();
+        assertThat(response.status()).isNotNull();
+    }
+
+    @Test
+    void getMyTodayRecord_UC09_Extension_returnsNullForManagementExempt() {
+        User manager = newUser();
+        newEmployee(manager, Employee.EmployeeType.STAFF, true);
+
+        assertThat(attendanceService.getMyTodayRecord(manager.getId())).isNull();
+    }
+
     private SchoolClass newSchoolClass(User creator) {
         Curriculum curriculum = new Curriculum();
         curriculum.setCode("CUR-ATT-" + SEQ.incrementAndGet());

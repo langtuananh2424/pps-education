@@ -18,6 +18,7 @@ import TaskWorkflowPage from "@/features/task-workflow/pages/TaskWorkflowPage";
 import HrmProfilesPage from "@/features/hrm/pages/ProfilesPage";
 import DepartmentsPositionsPage from "@/features/hrm/pages/DepartmentsPositionsPage";
 import HrmAttendancePage from "@/features/hrm/pages/AttendancePage";
+import AttendanceSitesPage from "@/features/hrm/pages/AttendanceSitesPage";
 import LeavesPage from "@/features/hrm/pages/LeavesPage";
 import PayrollPage from "@/features/hrm/pages/PayrollPage";
 import CRMPage from "@/features/crm/pages/CRMPage";
@@ -77,6 +78,7 @@ export default function App() {
           <Route path="/hrm/profile" element={<HrmProfilesPage />} />
           <Route path="/hrm/departments-positions" element={<DepartmentsPositionsPage />} />
           <Route path="/hrm/attendance" element={<HrmAttendancePage />} />
+          <Route path="/hrm/attendance-sites" element={<AttendanceSitesPage />} />
           <Route path="/hrm/leaves" element={<LeavesPage />} />
           <Route path="/hrm/payroll" element={<PayrollPage />} />
           <Route path="/crm/leads" element={<CRMPage />} />
