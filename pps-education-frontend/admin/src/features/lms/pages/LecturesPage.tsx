@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { BarChart3, Check, ClipboardList, Layers, Link2, MessageCircle, Music, Plus, Upload, Users, Video, X } from "lucide-react";
+import { BarChart3, Check, ClipboardList, Layers, Link2, MessageCircle, Music, Pencil, Plus, Users, Video, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { ClassResponse, CurriculumResponse, CurriculumSubjectResponse, ClassEnrollmentResponse, listClassEnrollments, listCurriculums, listCurriculumSubjects } from "@/features/academic/api";
 import { useEligibleClasses } from "@/features/academic/hooks/useEligibleClasses";
@@ -16,6 +16,7 @@ import {
   ReviewVideoSourceType,
   ReviewVideoTeacherType,
   ReviewVideoType,
+  UpdateConnectionChoiceRequest,
   UpdateReviewVideoSetRequest,
   addReviewVideo,
   addReviewVideoConnectionQuestion,
@@ -29,6 +30,8 @@ import {
   listReviewVideoSets,
   listReviewVideos,
   unassignReviewVideoSetFromClass,
+  updateReviewVideoConnectionQuestion,
+  updateReviewVideoQuestion,
   updateReviewVideoSet,
   uploadMedia
 } from "../api";
@@ -154,12 +157,19 @@ interface ConnectionThresholdValue {
   requiredViewCount: string;
 }
 
-/** UC-23a (V59) — chỉ có ý nghĩa với video CONNECTION: % ngưỡng xem để 1 lượt được tính "đạt" + số lượt đạt tối thiểu để cả video "đạt". Để trống dùng mặc định BE (80%/1 lượt). */
+/**
+ * UC-23a — chỉ có ý nghĩa với video CONNECTION. Bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+ * 2026-08-11 — completionThresholdPercent đổi ý nghĩa từ "ngưỡng % xem/lượt" sang "ngưỡng % pass"
+ * điểm trắc nghiệm tổng (tổng câu đúng/tổng N câu hỏi, gộp mọi lượt) — xem đủ video luôn bắt buộc
+ * 100% (cố định, không còn cấu hình được). N câu hỏi (soạn ở ConnectionQuizBuilder) được chia đều
+ * ngẫu nhiên riêng theo từng học sinh qua đúng số "lượt đạt tối thiểu" bên dưới (M). Để trống dùng
+ * mặc định BE (80%/1 lượt).
+ */
 function ConnectionThresholdFields({ value, onChange }: { value: ConnectionThresholdValue; onChange: (v: ConnectionThresholdValue) => void }) {
   return (
     <div className="grid grid-cols-2 gap-3 bg-sky-50/60 border border-sky-100 rounded-lg p-3">
       <div>
-        <label className={labelClass}>Ngưỡng % xem / lượt (mặc định 80)</label>
+        <label className={labelClass}>Ngưỡng % pass điểm trắc nghiệm (mặc định 80)</label>
         <input
           type="number"
           min={1}
@@ -171,7 +181,7 @@ function ConnectionThresholdFields({ value, onChange }: { value: ConnectionThres
         />
       </div>
       <div>
-        <label className={labelClass}>Số lượt đạt tối thiểu (mặc định 1)</label>
+        <label className={labelClass}>Số lượt xem bắt buộc — câu hỏi chia đều qua các lượt (mặc định 1)</label>
         <input
           type="number"
           min={1}
@@ -736,7 +746,6 @@ function SetDetailPanel({
   onUpdated: (set: ReviewVideoSetResponse) => void;
 }) {
   const [editingSet, setEditingSet] = useState(false);
-  const [videosOpen, setVideosOpen] = useState(false);
   const [statsOpen, setStatsOpen] = useState(false);
   const [assignClassOpen, setAssignClassOpen] = useState(false);
   const [assignedClassCount, setAssignedClassCount] = useState<number | null>(null);
@@ -769,9 +778,6 @@ function SetDetailPanel({
             {assignedClassCount == null ? "Đã gán ... lớp" : `Đã gán ${assignedClassCount} lớp`} — quản lý
           </button>
           <div className="flex items-center gap-2 flex-wrap">
-            <Button size="sm" variant="secondary" onClick={() => setVideosOpen(true)}>
-              <Upload className="w-3.5 h-3.5" /> Video
-            </Button>
             <Button size="sm" variant="secondary" onClick={() => setEditingSet(true)}>
               Sửa
             </Button>
@@ -781,6 +787,10 @@ function SetDetailPanel({
           </div>
         </div>
       </div>
+
+      {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-12 — danh sách video hiện thẳng
+          ra ngoài panel (trước đây ẩn sau nút "Video" + modal riêng), không cần bấm mở modal mới thấy. */}
+      <VideoListSection set={set} />
 
       {editingSet && (
         <EditSetModal
@@ -793,8 +803,6 @@ function SetDetailPanel({
           }}
         />
       )}
-
-      {videosOpen && <VideosModal set={set} onClose={() => setVideosOpen(false)} />}
 
       {statsOpen && <StatsModal set={set} onClose={() => setStatsOpen(false)} />}
 
@@ -1214,7 +1222,8 @@ function EditSetModal({
   );
 }
 
-function VideosModal({ set, onClose }: { set: ReviewVideoSetResponse; onClose: () => void }) {
+/** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-12 — hiện danh sách video TRỰC TIẾP trong panel chi tiết bộ (trước đây là VideosModal, ẩn sau nút "Video" + modal riêng). */
+function VideoListSection({ set }: { set: ReviewVideoSetResponse }) {
   const [videos, setVideos] = useState<ReviewVideoResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1270,7 +1279,8 @@ function VideosModal({ set, onClose }: { set: ReviewVideoSetResponse; onClose: (
   };
 
   return (
-    <Modal open onClose={onClose} title={`Video — ${set.title}`} size="lg">
+    <div className="px-5 py-4 border-b border-slate-100 space-y-4">
+      <p className="text-xs font-bold text-slate-700 uppercase tracking-wide">Video</p>
       <div className="space-y-4">
         {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
@@ -1292,7 +1302,7 @@ function VideosModal({ set, onClose }: { set: ReviewVideoSetResponse; onClose: (
                 <p className="text-slate-400 break-all">{v.fileUrl}</p>
                 <p className="text-slate-400">
                   {v.fileSizeBytes ? `${(v.fileSizeBytes / 1024 / 1024).toFixed(1)} MB` : "—"} · {Math.round(v.durationSeconds / 60)} phút
-                  {set.videoType === "CONNECTION" && ` · Ngưỡng ${v.completionThresholdPercent}%/lượt · Cần đạt ${v.requiredViewCount} lượt`}
+                  {set.videoType === "CONNECTION" && ` · Ngưỡng pass ${v.completionThresholdPercent}% · Chia đều qua ${v.requiredViewCount} lượt`}
                 </p>
                 {(set.videoType === "REFLEX" || set.videoType === "CONNECTION") && (
                   <button
@@ -1335,18 +1345,67 @@ function VideosModal({ set, onClose }: { set: ReviewVideoSetResponse; onClose: (
       </div>
 
       <Toast message={toastMessage} />
-    </Modal>
+    </div>
   );
 }
 
-/** UC-23b (V57): quản lý câu hỏi gắn mốc thời gian của 1 video REFLEX — mỗi câu tự có thời lượng ghi âm/số lần nộp lại riêng. BE hiện chỉ có thêm mới + xem danh sách (chưa có sửa/xoá câu hỏi). */
+type ReflexQuestionFormValue = { timestampSeconds: string; prompt: string; maxRecordingSeconds: string; maxAttempts: string };
+
+/** Dùng chung cho form "Thêm câu hỏi" VÀ form "Sửa câu hỏi" REFLEX — tránh lặp 2 lần y hệt nhau. */
+function ReflexQuestionFields({ value, onChange }: { value: ReflexQuestionFormValue; onChange: (v: ReflexQuestionFormValue) => void }) {
+  return (
+    <>
+      <div className="grid grid-cols-3 gap-2">
+        <input
+          type="number"
+          min={0}
+          value={value.timestampSeconds}
+          onChange={(e) => onChange({ ...value, timestampSeconds: e.target.value })}
+          placeholder="Mốc giây *"
+          className={inputClass}
+        />
+        <input
+          type="number"
+          min={1}
+          value={value.maxRecordingSeconds}
+          onChange={(e) => onChange({ ...value, maxRecordingSeconds: e.target.value })}
+          placeholder="Ghi âm tối đa (s) *"
+          className={inputClass}
+        />
+        <input
+          type="number"
+          min={1}
+          value={value.maxAttempts}
+          onChange={(e) => onChange({ ...value, maxAttempts: e.target.value })}
+          placeholder="Số lượt nộp lại (để trống = không giới hạn)"
+          className={inputClass}
+        />
+      </div>
+      <textarea
+        value={value.prompt}
+        onChange={(e) => onChange({ ...value, prompt: e.target.value })}
+        placeholder="Nội dung câu hỏi (tuỳ chọn)"
+        rows={2}
+        className={inputClass}
+      />
+    </>
+  );
+}
+
+/** UC-23b (V57): quản lý câu hỏi gắn mốc thời gian của 1 video REFLEX — mỗi câu tự có thời lượng ghi âm/số lần nộp lại riêng. */
 function VideoQuestionsPanel({ videoId }: { videoId: number }) {
   const [questions, setQuestions] = useState<ReviewVideoQuestionResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [form, setForm] = useState({ timestampSeconds: "", prompt: "", maxRecordingSeconds: "60", maxAttempts: "" });
+  const [form, setForm] = useState<ReflexQuestionFormValue>({ timestampSeconds: "", prompt: "", maxRecordingSeconds: "60", maxAttempts: "" });
   const [submitting, setSubmitting] = useState(false);
+
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-12 — sửa câu hỏi đã có (trước đây chỉ thêm mới được).
+  const [editingQuestionId, setEditingQuestionId] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState<ReflexQuestionFormValue>({ timestampSeconds: "", prompt: "", maxRecordingSeconds: "60", maxAttempts: "" });
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
 
   const load = () => {
     setLoading(true);
@@ -1385,6 +1444,43 @@ function VideoQuestionsPanel({ videoId }: { videoId: number }) {
     }
   };
 
+  const startEdit = (q: ReviewVideoQuestionResponse) => {
+    setShowAddForm(false);
+    setEditError(null);
+    setEditForm({
+      timestampSeconds: String(q.timestampSeconds),
+      prompt: q.prompt ?? "",
+      maxRecordingSeconds: String(q.maxRecordingSeconds),
+      maxAttempts: q.maxAttempts != null ? String(q.maxAttempts) : ""
+    });
+    setEditingQuestionId(q.id);
+  };
+
+  const handleUpdate = async (e: React.FormEvent, questionId: number, displayOrder: number) => {
+    e.preventDefault();
+    if (!editForm.timestampSeconds || !editForm.maxRecordingSeconds) {
+      setEditError("Vui lòng điền mốc thời gian và thời lượng ghi âm tối đa.");
+      return;
+    }
+    setEditSubmitting(true);
+    setEditError(null);
+    try {
+      await updateReviewVideoQuestion(questionId, {
+        timestampSeconds: Number(editForm.timestampSeconds),
+        prompt: editForm.prompt.trim() || undefined,
+        maxRecordingSeconds: Number(editForm.maxRecordingSeconds),
+        maxAttempts: editForm.maxAttempts ? Number(editForm.maxAttempts) : undefined,
+        displayOrder
+      });
+      setEditingQuestionId(null);
+      load();
+    } catch (err) {
+      setEditError(err instanceof ApiError ? err.message : "Sửa câu hỏi thất bại.");
+    } finally {
+      setEditSubmitting(false);
+    }
+  };
+
   return (
     <div className="border-t border-slate-100 mt-2 pt-2 space-y-2">
       {error && <div className="text-[11px] text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
@@ -1394,53 +1490,50 @@ function VideoQuestionsPanel({ videoId }: { videoId: number }) {
         <p className="text-slate-400 italic">Chưa có câu hỏi nào — học sinh sẽ không nộp được bài cho tới khi có ít nhất 1 câu.</p>
       ) : (
         <div className="space-y-1.5">
-          {questions.map((q, i) => (
-            <div key={q.id} className="bg-slate-50 border border-slate-200 rounded-lg p-2">
-              <p className="font-bold text-slate-700">
-                Câu {i + 1} · Mốc {Math.floor(q.timestampSeconds / 60)}:{String(q.timestampSeconds % 60).padStart(2, "0")} · Ghi âm tối đa {q.maxRecordingSeconds}s ·{" "}
-                {q.maxAttempts != null ? `Tối đa ${q.maxAttempts} lượt nộp` : "Không giới hạn lượt nộp"}
-              </p>
-              {q.prompt && <p className="text-slate-500 mt-0.5">{q.prompt}</p>}
-            </div>
-          ))}
+          {questions.map((q, i) =>
+            editingQuestionId === q.id ? (
+              <form
+                key={q.id}
+                onSubmit={(e) => handleUpdate(e, q.id, q.displayOrder)}
+                className="bg-white border border-brand-red/30 rounded-lg p-2.5 space-y-2"
+              >
+                {editError && <div className="text-[11px] text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{editError}</div>}
+                <ReflexQuestionFields value={editForm} onChange={setEditForm} />
+                <div className="flex justify-end gap-2">
+                  <Button type="button" variant="secondary" size="sm" onClick={() => setEditingQuestionId(null)}>
+                    Hủy
+                  </Button>
+                  <Button type="submit" variant="primary" size="sm" disabled={editSubmitting}>
+                    {editSubmitting ? "Đang lưu..." : "Lưu câu hỏi"}
+                  </Button>
+                </div>
+              </form>
+            ) : (
+              <div key={q.id} className="bg-slate-50 border border-slate-200 rounded-lg p-2">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="font-bold text-slate-700">
+                    Câu {i + 1} · Mốc {Math.floor(q.timestampSeconds / 60)}:{String(q.timestampSeconds % 60).padStart(2, "0")} · Ghi âm tối đa {q.maxRecordingSeconds}s ·{" "}
+                    {q.maxAttempts != null ? `Tối đa ${q.maxAttempts} lượt nộp` : "Không giới hạn lượt nộp"}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => startEdit(q)}
+                    className="shrink-0 text-slate-400 hover:text-brand-red transition-colors"
+                    title="Sửa câu hỏi"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                {q.prompt && <p className="text-slate-500 mt-0.5">{q.prompt}</p>}
+              </div>
+            )
+          )}
         </div>
       )}
 
       {showAddForm ? (
         <form onSubmit={handleAdd} className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-2">
-          <div className="grid grid-cols-3 gap-2">
-            <input
-              type="number"
-              min={0}
-              value={form.timestampSeconds}
-              onChange={(e) => setForm({ ...form, timestampSeconds: e.target.value })}
-              placeholder="Mốc giây *"
-              className={inputClass}
-            />
-            <input
-              type="number"
-              min={1}
-              value={form.maxRecordingSeconds}
-              onChange={(e) => setForm({ ...form, maxRecordingSeconds: e.target.value })}
-              placeholder="Ghi âm tối đa (s) *"
-              className={inputClass}
-            />
-            <input
-              type="number"
-              min={1}
-              value={form.maxAttempts}
-              onChange={(e) => setForm({ ...form, maxAttempts: e.target.value })}
-              placeholder="Số lượt nộp lại (để trống = không giới hạn)"
-              className={inputClass}
-            />
-          </div>
-          <textarea
-            value={form.prompt}
-            onChange={(e) => setForm({ ...form, prompt: e.target.value })}
-            placeholder="Nội dung câu hỏi (tuỳ chọn)"
-            rows={2}
-            className={inputClass}
-          />
+          <ReflexQuestionFields value={form} onChange={setForm} />
           <div className="flex justify-end gap-2">
             <Button type="button" variant="secondary" size="sm" onClick={() => setShowAddForm(false)}>
               Hủy
@@ -1459,11 +1552,17 @@ function VideoQuestionsPanel({ videoId }: { videoId: number }) {
   );
 }
 
+/** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-12 — sửa 1 đáp án đã có (khác PendingConnectionChoice — LUÔN mang choiceId, không thêm/bớt số lượng được). */
+interface EditingConnectionChoice {
+  choiceId: number;
+  content: string;
+  isCorrect: boolean;
+}
+
 /**
  * V76 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04) —
  * quản lý câu hỏi trắc nghiệm tự chấm của 1 video CONNECTION, mirror
- * VideoQuestionsPanel (REFLEX). BE hiện chỉ có thêm mới + xem danh sách
- * (chưa có sửa/xoá). Bắt buộc ≥ 1 câu trước khi Publish được cả bộ.
+ * VideoQuestionsPanel (REFLEX). Bắt buộc ≥ 1 câu trước khi Publish được cả bộ.
  */
 function VideoMcqQuestionsPanel({ videoId }: { videoId: number }) {
   const [questions, setQuestions] = useState<ReviewVideoConnectionQuestionResponse[]>([]);
@@ -1473,6 +1572,14 @@ function VideoMcqQuestionsPanel({ videoId }: { videoId: number }) {
   const [prompt, setPrompt] = useState("");
   const [choices, setChoices] = useState<PendingConnectionChoice[]>(EMPTY_CONNECTION_CHOICES);
   const [submitting, setSubmitting] = useState(false);
+
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-12 — sửa câu hỏi đã có (trước đây chỉ
+  // thêm mới được). KHÔNG cho thêm/bớt số lượng đáp án khi sửa (xem UpdateConnectionChoiceRequest ở BE).
+  const [editingQuestionId, setEditingQuestionId] = useState<number | null>(null);
+  const [editPrompt, setEditPrompt] = useState("");
+  const [editChoices, setEditChoices] = useState<EditingConnectionChoice[]>([]);
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
 
   const load = () => {
     setLoading(true);
@@ -1520,6 +1627,38 @@ function VideoMcqQuestionsPanel({ videoId }: { videoId: number }) {
     }
   };
 
+  const startEdit = (q: ReviewVideoConnectionQuestionResponse) => {
+    setShowAddForm(false);
+    setEditError(null);
+    setEditPrompt(q.prompt);
+    setEditChoices(q.choices.map((c) => ({ choiceId: c.id, content: c.content, isCorrect: !!c.isCorrect })));
+    setEditingQuestionId(q.id);
+  };
+
+  const handleUpdate = async (e: React.FormEvent, questionId: number, displayOrder: number) => {
+    e.preventDefault();
+    if (!editPrompt.trim() || editChoices.some((c) => !c.content.trim())) {
+      setEditError("Vui lòng điền nội dung câu hỏi và mọi đáp án.");
+      return;
+    }
+    setEditSubmitting(true);
+    setEditError(null);
+    try {
+      const request: { prompt: string; displayOrder: number; choices: UpdateConnectionChoiceRequest[] } = {
+        prompt: editPrompt.trim(),
+        displayOrder,
+        choices: editChoices.map((c) => ({ choiceId: c.choiceId, content: c.content.trim(), isCorrect: c.isCorrect }))
+      };
+      await updateReviewVideoConnectionQuestion(questionId, request);
+      setEditingQuestionId(null);
+      load();
+    } catch (err) {
+      setEditError(err instanceof ApiError ? err.message : "Sửa câu hỏi thất bại.");
+    } finally {
+      setEditSubmitting(false);
+    }
+  };
+
   return (
     <div className="border-t border-slate-100 mt-2 pt-2 space-y-2">
       {error && <div className="text-[11px] text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
@@ -1529,18 +1668,69 @@ function VideoMcqQuestionsPanel({ videoId }: { videoId: number }) {
         <p className="text-slate-400 italic">Chưa có câu hỏi nào — bộ này KHÔNG Publish được tới khi có ít nhất 1 câu.</p>
       ) : (
         <div className="space-y-1.5">
-          {questions.map((q, i) => (
-            <div key={q.id} className="bg-slate-50 border border-slate-200 rounded-lg p-2">
-              <p className="font-bold text-slate-700">Câu {i + 1} · {q.prompt}</p>
-              <div className="mt-1 space-y-0.5">
-                {q.choices.map((c) => (
-                  <p key={c.id} className={c.isCorrect ? "text-emerald-600 font-semibold" : "text-slate-500"}>
-                    {c.choiceLabel}. {c.content} {c.isCorrect ? "✓" : ""}
-                  </p>
-                ))}
+          {questions.map((q, i) =>
+            editingQuestionId === q.id ? (
+              <form
+                key={q.id}
+                onSubmit={(e) => handleUpdate(e, q.id, q.displayOrder)}
+                className="bg-white border border-brand-red/30 rounded-lg p-2.5 space-y-2"
+              >
+                {editError && <div className="text-[11px] text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{editError}</div>}
+                <input value={editPrompt} onChange={(e) => setEditPrompt(e.target.value)} placeholder="Nội dung câu hỏi *" className={inputClass} />
+                <div className="space-y-1.5">
+                  {editChoices.map((c, idx) => (
+                    <div key={c.choiceId} className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setEditChoices((prev) => prev.map((x, i) => ({ ...x, isCorrect: i === idx })))}
+                        className={`w-6 h-6 rounded-full border flex items-center justify-center font-bold shrink-0 text-[10px] transition-all ${
+                          c.isCorrect ? "bg-emerald-500 border-emerald-500 text-white" : "bg-white border-slate-300 text-slate-400 hover:border-slate-400"
+                        }`}
+                      >
+                        {c.isCorrect ? <Check className="w-3.5 h-3.5 stroke-[3]" /> : String.fromCharCode(65 + idx)}
+                      </button>
+                      <input
+                        value={c.content}
+                        onChange={(e) => setEditChoices((prev) => prev.map((x, i) => (i === idx ? { ...x, content: e.target.value } : x)))}
+                        placeholder={`Đáp án ${String.fromCharCode(65 + idx)}...`}
+                        className={`flex-1 ${inputClass}`}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[10px] text-slate-400 italic">Không đổi được số lượng đáp án khi sửa — tạo câu hỏi mới nếu cần thêm/bớt.</p>
+                <div className="flex justify-end gap-2">
+                  <Button type="button" variant="secondary" size="sm" onClick={() => setEditingQuestionId(null)}>
+                    Hủy
+                  </Button>
+                  <Button type="submit" variant="primary" size="sm" disabled={editSubmitting}>
+                    {editSubmitting ? "Đang lưu..." : "Lưu câu hỏi"}
+                  </Button>
+                </div>
+              </form>
+            ) : (
+              <div key={q.id} className="bg-slate-50 border border-slate-200 rounded-lg p-2">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="font-bold text-slate-700">Câu {i + 1} · {q.prompt}</p>
+                  <button
+                    type="button"
+                    onClick={() => startEdit(q)}
+                    className="shrink-0 text-slate-400 hover:text-brand-red transition-colors"
+                    title="Sửa câu hỏi"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <div className="mt-1 space-y-0.5">
+                  {q.choices.map((c) => (
+                    <p key={c.id} className={c.isCorrect ? "text-emerald-600 font-semibold" : "text-slate-500"}>
+                      {c.choiceLabel}. {c.content} {c.isCorrect ? "✓" : ""}
+                    </p>
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          )}
         </div>
       )}
 

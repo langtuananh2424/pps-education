@@ -12,6 +12,9 @@ public interface StudentCommentRepository extends JpaRepository<StudentComment, 
 
     List<StudentComment> findBySchoolClassIdAndStudentIdOrderByCommentDateDesc(Long classId, Long studentId);
 
+    /** Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-12) — TOÀN BỘ nhận xét của CẢ LỚP trong 1 lần gọi, thay N request/học sinh (StudentCommentResponse đã có studentId để FE tự gom theo học sinh). */
+    List<StudentComment> findBySchoolClassIdOrderByCommentDateDesc(Long classId);
+
     /** UC-21 (bổ sung — nhận xét Hàng ngày kiểu mới): 1 học sinh chỉ có tối đa 1 nhận xét DAILY / buổi học. */
     Optional<StudentComment> findByClassSessionIdAndStudentId(Long classSessionId, Long studentId);
 

@@ -618,6 +618,14 @@ export function listReviewVideoConnectionQuestions(videoId: number): Promise<Rev
   return apiRequest<ReviewVideoConnectionQuestionResponse[]>(`/review-videos/${videoId}/connection-questions`);
 }
 
+/**
+ * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-11) — chỉ trả về NHÓM câu hỏi đã gán cho
+ * đúng lượt xem này (khác listReviewVideoConnectionQuestions trả toàn bộ ngân hàng câu hỏi của video).
+ */
+export function listReviewVideoConnectionQuestionsForSession(watchSessionId: number): Promise<ReviewVideoConnectionQuestionResponse[]> {
+  return apiRequest<ReviewVideoConnectionQuestionResponse[]>(`/review-video-watch-sessions/${watchSessionId}/connection-questions`);
+}
+
 export interface ConnectionAnswerItem {
   questionId: number;
   selectedChoiceId: number;

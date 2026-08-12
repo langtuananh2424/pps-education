@@ -270,6 +270,36 @@ UC-23a: Xem & Theo dõi Kho Video Ôn tập
 > quả, giống `startAttempt` bên Exercise vẫn mở được, chỉ `submitAttempt`
 > mới chặn). Không đổi cách tính `reflexPercent`/`connectionPercent` —
 > câu đã nộp trước hạn (kể cả đang "chờ chấm") vẫn tính đủ vào %.
+>
+> **Bổ sung V115 (2026-08-11, đã xác nhận với người dùng) — chia câu hỏi
+> trắc nghiệm CONNECTION theo TỪNG lượt xem + điểm pass thay cho ngưỡng %
+> xem:** thay đổi 2 phần của V83 ở trên:
+>
+> 1. **"Bộ câu hỏi" (bước 2 blockquote V83) không còn là TOÀN BỘ N câu hỏi
+>    mỗi lượt** — giáo viên soạn N câu hỏi cho video, hệ thống **chia đều
+>    ngẫu nhiên N câu hỏi thành M nhóm** (M = số lượt đạt tối thiểu đã cấu
+>    hình), **RIÊNG theo từng học sinh** (chống hỏi bài nhau) — sinh 1 lần
+>    duy nhất lúc học sinh mở lượt xem ĐẦU TIÊN, lưu cố định vào bảng mới
+>    `review_video_connection_question_slots`; xem lại đúng lượt nào nhận
+>    lại đúng nhóm câu hỏi đó (không random lại). N không chia hết M → chia
+>    đều nhất có thể, NHÓM ĐẦU nhận số câu dư (VD 10 câu/3 lượt = 4,3,3).
+>    Xem quá M lượt → nhóm câu hỏi lặp lại theo chu kỳ (modulo M), không
+>    sinh phân bổ mới. Cột mới `slot_index` trên `review_video_watch_sessions`
+>    ghi nhận lượt đó ứng với nhóm số mấy.
+> 2. **Điều kiện "xem đạt % ngưỡng" (bước 1 blockquote V83) đổi thành CỐ
+>    ĐỊNH xem HẾT 100%** (không còn cấu hình được nữa cho CONNECTION).
+>    `completionThresholdPercent` (field đã có trên `review_videos`) đổi
+>    hẳn Ý NGHĨA cho CONNECTION — không còn là ngưỡng % xem, mà là **ngưỡng
+>    % pass điểm trắc nghiệm tổng**: tổng số câu trả lời ĐÚNG (lấy bản mới
+>    nhất mỗi câu hỏi nếu bị hỏi lại do lặp chu kỳ) / TỔNG N câu hỏi của
+>    video, gộp MỌI lượt — dùng để tính "% đạt" ở UC-66 (thống kê BTVN theo
+>    lớp) cho bộ CONNECTION. REFLEX không đụng tới field này (giữ nguyên ý
+>    nghĩa cũ, ngưỡng % xem, không đổi gì).
+>
+> "Đạt yêu cầu"/"hoàn thành" (viewCount/requiredViewCount, bước 4-5 gốc)
+> **không đổi công thức** — vẫn tính trên số lượt hợp lệ như V83, hoàn toàn
+> độc lập với điểm pass mới (2 khái niệm tách biệt: "hoàn thành" = đã xem
+> đủ lượt; "đạt/pass" = điểm trắc nghiệm đủ ngưỡng).
 
 ---
 

@@ -1800,6 +1800,40 @@ trách điểm trường của lớp) — quản trị viên (SYS_ADMIN) dù đ�
 trường hợp thứ 3 vượt qua A2 — quản trị viên xem thống kê BTVN của lớp bất
 kỳ.
 
+**Bổ sung 2026-08-11 (đã xác nhận với người dùng) — gộp thêm BTVN Video Ôn
+tập (REFLEX/CONNECTION, UC-23a/UC-23b):** Precondition mở rộng, ngoài
+`exercise_assignments` còn tính cả `review_video_assignments` ACTIVE/
+COMPLETED (loại CANCELLED, mirror cách lọc của Exercise). Main Flow bước 1
+gộp chung 2 nguồn vào 1 danh sách, phân biệt bằng cột "Loại" (badge riêng
+cho Video phản xạ/Video từ kết nối). Với dòng Video Ôn tập:
+- "% hoàn thành" = học sinh có `review_video_progress.completed = true`
+  cho TẤT CẢ video trong bộ (mirror logic đã có ở UC-23a, KHÔNG đổi cách
+  tính `completed` hiện tại).
+- **"% đạt"**: từ V115 (2026-08-11) — CÓ giá trị thật cho bộ CONNECTION
+  (điểm trắc nghiệm tổng ≥ ngưỡng % pass của video, xem
+  `ReviewVideoService#isConnectionVideoPassed`, chi tiết cơ chế ở UC-23a
+  blockquote V115). Bộ REFLEX **vẫn "—"** — chưa có khái niệm điểm/ngưỡng
+  đạt nào trong schema cho REFLEX. "%HS vi phạm" vẫn "—" cho cả 2 loại
+  Video Ôn tập (không có khái niệm giám sát khi xem video).
+- **Bổ sung 2026-08-12 (đã xác nhận với người dùng) — nút "Xem chi tiết"
+  cho dòng Video Ôn tập:** điều hướng sang trang riêng
+  `/academic/homework-stats/review-video/:assignmentId`
+  (`ReviewVideoAssignmentStatsDetailPage.tsx`, BE
+  `ReviewVideoReportService`/`ReviewVideoReportController`, KHÔNG dùng
+  chung route `:assignmentId` của Exercise — 2 bảng ID độc lập, trùng số
+  nhưng khác nguồn). Khác Exercise (đủ 4 bước Main Flow + xuất Excel):
+  - CONNECTION: có tab "Kết quả học sinh" (đã xem lượt, điểm trắc nghiệm,
+    Đạt/Chưa đạt — mirror `passedCount`/`passRatePercent` ở danh sách
+    tổng hợp) + tab "Phân tích câu hỏi" (câu hay sai + danh sách học sinh
+    sai, mirror UC-66 Exercise) — vì đã có sẵn dữ liệu đúng/sai thật.
+  - REFLEX: CHỈ có bảng tổng hợp mỗi học sinh (đã xem lượt, đã nộp bao
+    nhiêu câu hỏi, điểm trung bình nếu đã chấm) — KHÔNG có tab phân tích
+    câu hỏi (không có khái niệm đúng/sai tự chấm), KHÔNG nghe lại
+    audio/chấm điểm ngay tại trang này — việc chấm audio vẫn làm ở trang
+    "Chấm bài Video phản xạ" (UC-23b, ExamsPage) như cũ.
+  - KHÔNG có nút "Xuất Excel" cho Video Ôn tập (chỉ Exercise có, chưa yêu
+    cầu cho review-video).
+
 ---
 
 UC-67: Quản lý mẫu báo cáo (bổ sung ngoài SDD gốc, đã xác nhận với người

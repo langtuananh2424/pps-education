@@ -12,7 +12,7 @@ import {
   importDailyComments,
   listClassEnrollments,
   listClassSessions,
-  listComments,
+  listCommentsForClass,
   listTodaySessions,
   submitComments,
   updateComment,
@@ -221,29 +221,26 @@ export default function DailyCommentPanel() {
     .sort((a, b) => a.rank - b.rank || a.index - b.index)
     .map((x) => x.s);
 
-  // Tính "buổi nào đã nhận xét" cho CẢ LỚP (không chỉ buổi đang chọn) — tái dùng listComments(classId,
-  // studentId) đã trả về TOÀN BỘ comment của học sinh đó (mọi buổi/mọi loại), lọc DAILY rồi gom theo
-  // classSessionId, không cần thêm endpoint mới bên BE. Gọi lại sau khi gửi/nhập Excel để dropdown cập
-  // nhật ngay dấu ✓/◐ của buổi vừa nhận xét, không phải đổi lớp mới thấy (2026-07-30).
+  // Tính "buổi nào đã nhận xét" cho CẢ LỚP (không chỉ buổi đang chọn) — dùng listCommentsForClass(classId)
+  // (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-12 — thay N request/học sinh bằng 1
+  // request duy nhất, lọc DAILY rồi gom theo classSessionId. Gọi lại sau khi gửi/nhập Excel để dropdown
+  // cập nhật ngay dấu ✓/◐ của buổi vừa nhận xét, không phải đổi lớp mới thấy (2026-07-30).
   const refreshSessionCommentStats = (classId: number) => {
     listClassEnrollments(classId)
       .then((enrollments) => {
-        const activeIds = enrollments.filter((en) => en.status === "ACTIVE").map((en) => en.studentId);
-        if (activeIds.length === 0) return;
-        return Promise.allSettled(activeIds.map((studentId) => listComments(classId, studentId))).then((results) => {
+        const activeIds = new Set(enrollments.filter((en) => en.status === "ACTIVE").map((en) => en.studentId));
+        if (activeIds.size === 0) return;
+        return listCommentsForClass(classId).then((all) => {
           const commentedBySession: Record<number, Set<number>> = {};
-          results.forEach((r) => {
-            if (r.status !== "fulfilled") return;
-            r.value
-              .filter((c) => c.commentType === "DAILY" && c.classSessionId != null)
-              .forEach((c) => {
-                const sessionId = c.classSessionId as number;
-                (commentedBySession[sessionId] ??= new Set()).add(c.studentId);
-              });
-          });
+          all
+            .filter((c) => c.commentType === "DAILY" && c.classSessionId != null && activeIds.has(c.studentId))
+            .forEach((c) => {
+              const sessionId = c.classSessionId as number;
+              (commentedBySession[sessionId] ??= new Set()).add(c.studentId);
+            });
           const stats: Record<number, { commented: number; total: number }> = {};
           Object.entries(commentedBySession).forEach(([sessionId, studentSet]) => {
-            stats[Number(sessionId)] = { commented: studentSet.size, total: activeIds.length };
+            stats[Number(sessionId)] = { commented: studentSet.size, total: activeIds.size };
           });
           setSessionCommentStats(stats);
         });
@@ -345,10 +342,13 @@ export default function DailyCommentPanel() {
   const loadHistory = async (classId: number, sessionId: number, studentIds: number[]) => {
     setLoadingHistory(true);
     try {
-      const results = await Promise.allSettled(studentIds.map((studentId) => listComments(classId, studentId)));
-      const all = results.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
+      // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-12 — 1 request duy nhất cho cả lớp
+      // thay N request/học sinh (xem listCommentsForClass), lọc lại theo studentIds (chỉ học sinh ACTIVE
+      // truyền vào) để giữ đúng phạm vi như trước.
+      const studentIdSet = new Set(studentIds);
+      const all = await listCommentsForClass(classId);
       const filtered = all
-        .filter((c) => c.commentType === "DAILY" && c.classSessionId === sessionId)
+        .filter((c) => c.commentType === "DAILY" && c.classSessionId === sessionId && studentIdSet.has(c.studentId))
         .sort((a, b) => (a.studentFullName > b.studentFullName ? 1 : -1));
       setHistory(filtered);
       // Prefill hạn nộp (ngày + giờ) từ 1 nhận xét DRAFT/REJECTED đã có sẵn (VD nhập từ Excel, hoặc mở

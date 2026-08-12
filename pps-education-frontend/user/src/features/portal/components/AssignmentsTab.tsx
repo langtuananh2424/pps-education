@@ -16,6 +16,7 @@ import {
 } from "../api";
 import TakeExerciseModal from "./TakeExerciseModal";
 import ReviewVideoTaskModal from "./ReviewVideoTaskModal";
+import ReflexVideoTaskPage from "../pages/ReflexVideoTaskPage";
 import Pagination from "@/components/ui/Pagination";
 
 const PAGE_SIZE = 10;
@@ -493,10 +494,21 @@ export default function AssignmentsTab({
         />
       )}
 
-      {openReviewItem && (
+      {/* REFLEX (UC-23b) chuyển sang trang riêng từ 2026-08-11 (không phải popup — video khóa hoàn
+          toàn + ghi âm tự động theo mốc thời gian, cần toàn màn hình để giám sát chặt). CONNECTION
+          (UC-23a) vẫn giữ dạng popup như cũ. */}
+      {openReviewItem && openReviewItem.videoType === "REFLEX" && (
+        <ReflexVideoTaskPage
+          video={openReviewItem.video}
+          onClose={() => {
+            setOpenReviewItem(null);
+            load();
+          }}
+        />
+      )}
+      {openReviewItem && openReviewItem.videoType === "CONNECTION" && (
         <ReviewVideoTaskModal
           video={openReviewItem.video}
-          videoType={openReviewItem.videoType}
           // Chỉ tải lại danh sách khi ĐÓNG popup (không phải mỗi lần nộp 1 câu) — trước đây gọi load()
           // ngay sau khi nộp khiến cả tab set loading=true và unmount luôn cả popup đang mở, nhìn như
           // trang bị tải lại giữa chừng. Trạng thái "vừa nộp" giờ tự hiện ngay trong popup (justSubmitted).

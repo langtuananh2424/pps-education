@@ -428,6 +428,12 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
     void listByClass_UC13_showsSetsForWithdrawnEnrollmentOldClass() {
         ReviewVideoSetResponse set = createSet();
         reviewVideoService.assignToClass(set.id(), schoolClass.id(), teacher.getId());
+        reviewVideoService.updateSet(set.id(), new UpdateReviewVideoSetRequest(set.title(), "VIETNAMESE", null, 1, "PUBLISHED"), teacher.getId());
+        // V71: deliverToClass dùng PROPAGATION_REQUIRES_NEW — phải commit set vừa tạo trước. Thiếu
+        // publish+deliverToClass thì KHÔNG học sinh nào (kể cả đang ACTIVE) thấy được bộ này — bug ở
+        // bản test gốc khiến test luôn fail bất kể sửa requireStudentEnrolledInClass đúng hay sai.
+        commitCurrentTransactionAndStartNew();
+        reviewVideoService.deliverToClass(set.id(), schoolClass.id(), null, teacher.getId());
         Student student = enrollStudent(schoolClass.id());
         var enrollment = classService.listEnrollments(schoolClass.id()).stream()
                 .filter(e -> e.studentId().equals(student.getId())).findFirst().orElseThrow();
@@ -451,17 +457,19 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void reportProgress_UC23a_MainFlow_upsertsAndComputesCompletionAt80Percent() {
+    void reportProgress_UC23a_MainFlow_upsertsAndComputesCompletionAt100Percent() {
         ReviewVideoResponse video = createPublishedSetWithVideo(100);
         Student student = enrollStudent(schoolClass.id());
         Long sessionId = startSession(video.id(), student.getUser().getId());
 
-        ReviewVideoProgressResponse below = reportProgress(video.id(), sessionId, 79, student.getUser().getId());
-        ReviewVideoProgressResponse atThreshold = reportProgress(video.id(), sessionId, 80, student.getUser().getId());
+        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-11 — CONNECTION giờ LUÔN yêu cầu
+        // xem HẾT 100% (cố định, không còn cấu hình được) mới được làm câu hỏi/tính "qualified".
+        ReviewVideoProgressResponse below = reportProgress(video.id(), sessionId, 99, student.getUser().getId());
+        ReviewVideoProgressResponse atThreshold = reportProgress(video.id(), sessionId, 100, student.getUser().getId());
 
         assertThat(below.completed()).isFalse();
-        assertThat(below.watchedPercent()).isEqualTo(79);
-        assertThat(atThreshold.watchedPercent()).isEqualTo(80);
+        assertThat(below.watchedPercent()).isEqualTo(99);
+        assertThat(atThreshold.watchedPercent()).isEqualTo(100);
         // CONNECTION (V83/V93/V101): xem đạt ngưỡng chỉ làm session "qualified" — 1 lượt chỉ tính
         // vào viewCount/completed sau khi CŨNG nộp đủ câu hỏi (quizCompletedAt khác NULL). Video ở
         // đây chưa thêm câu hỏi nào (addConnectionQuestion không được gọi) nên nộp danh sách rỗng
@@ -482,6 +490,9 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         ReviewVideoProgressResponse afterLowerReport = reportProgress(video.id(), sessionId, 30, student.getUser().getId());
 
         assertThat(afterLowerReport.watchedSeconds()).isEqualTo(90);
+        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-11 — CONNECTION giờ LUÔN yêu cầu
+        // xem HẾT 100% (cố định) mới "qualified" — phải báo tiếp tới 100 mới nộp được câu hỏi.
+        reportProgress(video.id(), sessionId, 100, student.getUser().getId());
         // CONNECTION (V83/V93/V101): "đạt" chỉ tính sau khi nộp đủ câu hỏi (rỗng ở đây) cho lượt đã qualified.
         ReviewVideoConnectionQuizResultResponse quizResult = reviewVideoService.submitConnectionAnswers(
                 sessionId, new SubmitConnectionAnswersRequest(List.of()), student.getUser().getId());
@@ -522,16 +533,17 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
 
         // CONNECTION (V83/V93/V101): mỗi lượt chỉ tính vào viewCount sau khi CŨNG nộp đủ câu hỏi
         // (rỗng ở đây, video chưa thêm câu hỏi) cho đúng session đã qualified (xem ghi chú tại
-        // reportProgress_UC23a_MainFlow_upsertsAndComputesCompletionAt80Percent).
+        // reportProgress_UC23a_MainFlow_upsertsAndComputesCompletionAt100Percent). Bổ sung ngoài SDD
+        // gốc, đã xác nhận với người dùng 2026-08-11 — CONNECTION giờ LUÔN yêu cầu xem HẾT 100%.
         Long firstSessionId = startSession(video.id(), student.getUser().getId());
-        reportProgress(video.id(), firstSessionId, 90, student.getUser().getId());
+        reportProgress(video.id(), firstSessionId, 100, student.getUser().getId());
         ReviewVideoConnectionQuizResultResponse afterFirstSession = reviewVideoService.submitConnectionAnswers(
                 firstSessionId, new SubmitConnectionAnswersRequest(List.of()), student.getUser().getId());
         assertThat(afterFirstSession.progress().viewCount()).isEqualTo(1);
         assertThat(afterFirstSession.progress().completed()).isFalse();
 
         Long secondSessionId = startSession(video.id(), student.getUser().getId());
-        reportProgress(video.id(), secondSessionId, 90, student.getUser().getId());
+        reportProgress(video.id(), secondSessionId, 100, student.getUser().getId());
         ReviewVideoConnectionQuizResultResponse afterSecondSession = reviewVideoService.submitConnectionAnswers(
                 secondSessionId, new SubmitConnectionAnswersRequest(List.of()), student.getUser().getId());
         assertThat(afterSecondSession.progress().viewCount()).isEqualTo(2);

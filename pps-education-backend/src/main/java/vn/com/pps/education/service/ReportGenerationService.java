@@ -26,7 +26,6 @@ import vn.com.pps.education.repository.UserRepository;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.zip.ZipEntry;
@@ -110,10 +109,11 @@ public class ReportGenerationService {
         ReportTemplate template = templateOrThrow(templateId);
         List<ReportTemplateFieldMapping> mappings = fieldMappingRepository.findByTemplateIdOrderById(templateId);
         User actor = userOrThrow(actorUserId);
+        Student student = studentOrThrow(studentId);
 
         Map<String, Object> context = reportGeneratorFactory.getResolver(template.getTemplateType())
                 .buildContext(new ReportGenerationParams(studentId, classId, periods, classSessionId));
-        byte[] merged = mergeTemplate(template, mappings, context, outputFormat);
+        byte[] merged = mergeWithContext(template, mappings, context, outputFormat, describeStudent(student));
 
         boolean isPdf = isPdfOutput(template, outputFormat);
         String ext = isPdf ? ".pdf" : outputExtension(template);
@@ -125,7 +125,7 @@ public class ReportGenerationService {
         GeneratedReport report = new GeneratedReport();
         report.setTemplate(template);
         report.setScope(GeneratedReport.Scope.SINGLE);
-        report.setStudent(studentOrThrow(studentId));
+        report.setStudent(student);
         report.setFileUrl(fileUrl);
         report.setFileFormat(isPdf ? GeneratedReport.FileFormat.PDF : outputFileFormat(template));
         report.setFileSizeBytes(merged.length);
@@ -160,7 +160,8 @@ public class ReportGenerationService {
         }
 
         ReportDataResolver resolver = reportGeneratorFactory.getResolver(template.getTemplateType());
-        List<String> skippedStudentCodes = new ArrayList<>();
+        // studentCode -> ly do bi bo qua (giu nguyen message goc tu merge engine/resolver de de chan doan).
+        Map<String, String> skippedReasons = new java.util.LinkedHashMap<>();
         boolean isPdf = isPdfOutput(template, outputFormat);
         String itemExt = isPdf ? ".pdf" : outputExtension(template);
         byte[] zipBytes;
@@ -175,7 +176,7 @@ public class ReportGenerationService {
                     zip.write(merged);
                     zip.closeEntry();
                 } catch (MissingReportDataException ex) {
-                    skippedStudentCodes.add(enrollment.getStudent().getStudentCode());
+                    skippedReasons.put(enrollment.getStudent().getStudentCode(), ex.getMessage());
                 }
             }
             zip.finish();
@@ -183,10 +184,10 @@ public class ReportGenerationService {
         } catch (IOException ex) {
             throw new UncheckedIOException("Không tạo được file ZIP báo cáo.", ex);
         }
-        if (skippedStudentCodes.size() == activeEnrollments.size()) {
+        if (skippedReasons.size() == activeEnrollments.size()) {
             throw new MissingReportDataException(
-                    "Không xuất được báo cáo cho bất kỳ học sinh nào trong lớp — thiếu dữ liệu ở toàn bộ "
-                            + activeEnrollments.size() + " học sinh.");
+                    "Không xuất được báo cáo cho bất kỳ học sinh nào trong lớp (" + activeEnrollments.size()
+                            + " học sinh) — chi tiết:\n" + formatSkippedReasons(skippedReasons));
         }
 
         String fileUrl = mediaStorageService.storeGeneratedFile(
@@ -219,7 +220,7 @@ public class ReportGenerationService {
 
         Map<String, Object> context = reportGeneratorFactory.getResolver(template.getTemplateType())
                 .buildContext(new ReportGenerationParams(null, null, List.of(), classSessionId));
-        byte[] merged = mergeTemplate(template, mappings, context, outputFormat);
+        byte[] merged = mergeWithContext(template, mappings, context, outputFormat, describeSession(classSession));
 
         boolean isPdf = isPdfOutput(template, outputFormat);
         String ext = isPdf ? ".pdf" : outputExtension(template);
@@ -240,6 +241,37 @@ public class ReportGenerationService {
         report = generatedReportRepository.save(report);
 
         return toResponse(report);
+    }
+
+    /**
+     * UC-68 A1: bọc {@link #mergeTemplate} để gắn thêm đối tượng đang xuất
+     * (học sinh/buổi học) vào message lỗi khi thiếu dữ liệu — tránh actor
+     * phải tự suy luận "thiếu dữ liệu ở đâu, cho ai" chỉ từ tên placeholder.
+     * Dùng cho SINGLE/CLASS_SESSION (1 đối tượng/lần gọi); BULK_CLASS tự
+     * gắn student_code khi gom skippedReasons, không dùng helper này.
+     */
+    private byte[] mergeWithContext(ReportTemplate template, List<ReportTemplateFieldMapping> mappings,
+                                     Map<String, Object> context, String outputFormat, String targetDescription) {
+        try {
+            return mergeTemplate(template, mappings, context, outputFormat);
+        } catch (MissingReportDataException ex) {
+            throw new MissingReportDataException(targetDescription + " — " + ex.getMessage());
+        }
+    }
+
+    private String describeStudent(Student student) {
+        return "Học sinh " + student.getStudentCode() + " (" + student.getUser().getFullName() + ")";
+    }
+
+    private String describeSession(ClassSession session) {
+        return "Buổi học " + session.getSessionDate() + " — lớp " + session.getSchoolClass().getName();
+    }
+
+    /** Gom message lỗi của từng học sinh bị bỏ qua (BULK_CLASS) thành danh sách dễ đọc, kèm mã học sinh. */
+    private String formatSkippedReasons(Map<String, String> skippedReasons) {
+        StringBuilder sb = new StringBuilder();
+        skippedReasons.forEach((studentCode, reason) -> sb.append("- ").append(studentCode).append(": ").append(reason).append('\n'));
+        return sb.toString().stripTrailing();
     }
 
     private byte[] mergeTemplate(ReportTemplate template, List<ReportTemplateFieldMapping> mappings, Map<String, Object> context, String outputFormat) {

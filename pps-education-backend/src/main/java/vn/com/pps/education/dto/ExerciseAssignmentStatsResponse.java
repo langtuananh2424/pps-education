@@ -9,6 +9,8 @@ public record ExerciseAssignmentStatsResponse(
         String exerciseCode,
         String exerciseTitle,
         String exerciseType,
+        /** Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-11) — lấy qua Đề cha (exercise.exam.teacherType), Exercise không tự có field này. Dùng lọc GV Việt Nam/nước ngoài ở UC-66. */
+        String teacherType,
         OffsetDateTime availableFrom,
         OffsetDateTime dueAt,
         String status,

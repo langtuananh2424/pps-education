@@ -48,4 +48,13 @@ public class ReviewVideoWatchSession extends BaseAuditEntity {
     /** V83 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng): NULL = chưa trả lời đủ bộ câu hỏi CONNECTION cho lượt này. */
     @Column(name = "quiz_completed_at")
     private OffsetDateTime quizCompletedAt;
+
+    /**
+     * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-11) — CHỈ có ý nghĩa với video
+     * CONNECTION: lượt này ứng với nhóm câu hỏi số mấy (1..M, xem {@link ReviewVideoConnectionQuestionSlot}),
+     * tính 1 lần lúc tạo session (xem ReviewVideoService#startWatchSession), lặp lại theo chu kỳ
+     * modulo M nếu học sinh xem quá M lượt. NULL với video REFLEX (không có khái niệm nhóm câu hỏi).
+     */
+    @Column(name = "slot_index")
+    private Integer slotIndex;
 }

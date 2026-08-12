@@ -385,6 +385,17 @@ public class StudentCommentService {
     }
 
     /**
+     * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-12) — TOÀN BỘ nhận xét của cả lớp
+     * trong 1 lần gọi, thay cho việc FE gọi {@link #listComments(Long, Long)} N lần (1 lần/học sinh)
+     * — mỗi dòng đã có studentId nên FE tự gom theo học sinh, không cần tách theo studentId ở BE.
+     */
+    @Transactional(readOnly = true)
+    public List<StudentCommentResponse> listCommentsForClass(Long classId) {
+        return studentCommentRepository.findBySchoolClassIdOrderByCommentDateDesc(classId)
+                .stream().map(this::toResponse).toList();
+    }
+
+    /**
      * UC-64 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-29):
      * học sinh tự xem nhận xét đã duyệt (APPROVED — UC-22) của chính mình
      * theo lớp đang/đã ghi danh — mirror ParentPortalService.listComments,

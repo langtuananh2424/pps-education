@@ -194,7 +194,8 @@ public class ExerciseReportService {
 
         return new ExerciseAssignmentStatsResponse(
                 assignment.getId(), exercise.getId(), exercise.getCode(), exercise.getTitle(),
-                exercise.getExerciseType().name(), assignment.getAvailableFrom(), assignment.getDueAt(),
+                exercise.getExerciseType().name(), exercise.getExam().getTeacherType().name(),
+                assignment.getAvailableFrom(), assignment.getDueAt(),
                 assignment.getStatus().name(), totalStudents, completedCount,
                 percentOf(completedCount, totalStudents), passedCount, percentOf(passedCount, totalStudents));
     }

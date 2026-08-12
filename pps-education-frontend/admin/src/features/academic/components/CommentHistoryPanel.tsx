@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
-import { ClassResponse, ClassSessionResponse, StudentCommentResponse, listClassEnrollments, listClassSessions, listComments } from "../api";
+import { ClassResponse, ClassSessionResponse, StudentCommentResponse, listClassEnrollments, listClassSessions, listCommentsForClass } from "../api";
 import { useEligibleClasses } from "../hooks/useEligibleClasses";
 import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
@@ -30,11 +30,12 @@ const videoChannelLabel: Record<TeacherType, string> = { VIETNAMESE: "Từ Vựn
  * đã quyết định (APPROVED/REJECTED), PHÂN THEO LỚP — trước đây "Nhận xét học viên" chỉ có hàng chờ
  * duyệt (listPendingComments), duyệt/từ chối xong là mất dấu, không tra cứu lại được.
  *
- * Backend CHƯA có endpoint "toàn bộ nhận xét của 1 site/lớp" (chỉ có GET /classes/{id}/comments?
- * studentId= theo TỪNG học sinh) — gom bằng N+1 giống pattern CommentApprovalByClass/ParentsPage:
- * dùng useEligibleClasses() để lấy đúng các lớp Quản lý điểm trường phụ trách (đã tự scope theo site),
- * với MỖI lớp liệt kê học sinh ACTIVE rồi gọi listComments cho từng em, lọc còn APPROVED/REJECTED
- * (DRAFT/PENDING không phải "lịch sử", đã có ở tab Chờ duyệt), gom nhóm hiển thị theo lớp.
+ * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-12) — trước đây gom bằng N×M request
+ * (N lớp × M học sinh/lớp, GET /classes/{id}/comments?studentId= theo TỪNG học sinh) do BE chưa có
+ * endpoint "toàn bộ nhận xét của 1 lớp". Giờ dùng listCommentsForClass(classId) — 1 request/LỚP (N
+ * request, không còn nhân thêm số học sinh) — dùng useEligibleClasses() để lấy đúng các lớp Quản lý
+ * điểm trường phụ trách (đã tự scope theo site), lọc còn APPROVED/REJECTED (DRAFT/PENDING không phải
+ * "lịch sử", đã có ở tab Chờ duyệt), gom nhóm hiển thị theo lớp.
  *
  * "Ngày duyệt" chỉ có giá trị với nhận xét ĐÃ DUYỆT — BE chỉ set approvedAt ở nhánh APPROVED (xem
  * StudentCommentService.decideComments), REJECTED không có mốc thời gian quyết định nào được trả về
@@ -63,13 +64,14 @@ export default function CommentHistoryPanel() {
     setError(null);
     Promise.all(
       classes.map((cls) =>
-        listClassEnrollments(cls.id)
-          .then((enrollments) => {
+        Promise.all([listClassEnrollments(cls.id), listCommentsForClass(cls.id)])
+          .then(([enrollments, allComments]) => {
             const active = enrollments.filter((en) => en.status === "ACTIVE");
-            return Promise.allSettled(active.map((en) => listComments(cls.id, en.studentId))).then((results) => ({
-              comments: results.flatMap((r) => (r.status === "fulfilled" ? r.value : [])),
+            const activeIds = new Set(active.map((en) => en.studentId));
+            return {
+              comments: allComments.filter((c) => activeIds.has(c.studentId)),
               studentCodeByStudent: Object.fromEntries(active.map((en) => [en.studentId, en.studentCode]))
-            }));
+            };
           })
           .catch(() => ({ comments: [] as StudentCommentResponse[], studentCodeByStudent: {} as Record<number, string> }))
       )

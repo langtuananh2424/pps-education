@@ -30,6 +30,13 @@ export interface UseIntegrityMonitorOptions {
   /** Có truyền thì hook tự gửi theo lô định kỳ; không truyền thì chỉ đệm, gọi flush() thủ công. */
   autoFlushIntervalMs?: number;
   onFlush?: (events: IntegrityEventInput[]) => void;
+  /**
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-11 — gọi ngay sau khi ghi nhận
+   * FULLSCREEN_EXITED, để nơi gọi (VD ReflexVideoTaskPage) tự yêu cầu lại fullscreen ngay lập tức
+   * (auto re-enter, best-effort). KHÔNG thể chặn thật việc thoát fullscreen — trình duyệt luôn cho
+   * phép người dùng nhấn Esc, đây chỉ giảm ma sát chứ không khóa cứng (xem ghi chú đầu file).
+   */
+  onFullscreenExit?: () => void;
 }
 
 export interface UseIntegrityMonitorResult {
@@ -46,7 +53,7 @@ const DEFAULT_MIN_VIOLATION_DURATION_MS = 1000;
 const JUST_VIOLATED_MS = 3500;
 
 export function useIntegrityMonitor(options: UseIntegrityMonitorOptions): UseIntegrityMonitorResult {
-  const { enabled, minViolationDurationMs = DEFAULT_MIN_VIOLATION_DURATION_MS, autoFlushIntervalMs, onFlush } = options;
+  const { enabled, minViolationDurationMs = DEFAULT_MIN_VIOLATION_DURATION_MS, autoFlushIntervalMs, onFlush, onFullscreenExit } = options;
   const [violationCount, setViolationCount] = useState(0);
   const [isMonitoringActive, setIsMonitoringActive] = useState(false);
   const [justViolated, setJustViolated] = useState(false);
@@ -57,6 +64,8 @@ export function useIntegrityMonitor(options: UseIntegrityMonitorOptions): UseInt
   const justViolatedTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const onFlushRef = useRef(onFlush);
   onFlushRef.current = onFlush;
+  const onFullscreenExitRef = useRef(onFullscreenExit);
+  onFullscreenExitRef.current = onFullscreenExit;
 
   const flush = (): IntegrityEventInput[] => {
     const events = pendingEventsRef.current;
@@ -123,6 +132,7 @@ export function useIntegrityMonitor(options: UseIntegrityMonitorOptions): UseInt
       // Chỉ có ý nghĩa nếu trước đó THỰC SỰ đã vào được fullscreen (tránh bắn sai trên iOS chưa từng vào).
       if (everEnteredFullscreenRef.current && !document.fullscreenElement && document.visibilityState === "visible") {
         queueEvent("FULLSCREEN_EXITED", Date.now(), Date.now() + minViolationDurationMs);
+        onFullscreenExitRef.current?.();
       }
     };
 
