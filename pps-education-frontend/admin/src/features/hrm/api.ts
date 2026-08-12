@@ -505,3 +505,71 @@ export interface LeaveTypeResponse {
 export function listLeaveTypes(): Promise<LeaveTypeResponse[]> {
   return apiRequest<LeaveTypeResponse[]>("/leave-types");
 }
+
+// ===================== UC-09: Chấm công (FR-HRM-02) =====================
+
+/** Khớp AttendanceRecordResponse thật của backend — chấm công của chính mình (tự phục vụ). */
+export interface AttendanceRecordResponse {
+  id: number;
+  employeeId: number;
+  workDate: string;
+  checkInAt: string | null;
+  checkOutAt: string | null;
+  checkInMethod: "FINGERPRINT" | "FACE" | "GPS" | "MANUAL" | null;
+  checkOutMethod: "FINGERPRINT" | "FACE" | "GPS" | "MANUAL" | null;
+  siteId: number | null;
+  status: "NORMAL" | "LATE" | "EARLY_LEAVE" | "MISSING";
+}
+
+/** Khớp AttendanceCheckRequest thật — siteId/latitude/longitude bắt buộc với method=GPS. */
+export interface AttendanceCheckRequest {
+  method: "FINGERPRINT" | "FACE" | "GPS" | "MANUAL";
+  siteId?: number;
+  latitude?: number;
+  longitude?: number;
+  biometricVerified?: boolean;
+}
+
+export function checkIn(request: AttendanceCheckRequest): Promise<AttendanceRecordResponse> {
+  return apiRequest<AttendanceRecordResponse>("/attendance/check-in", { method: "POST", body: JSON.stringify(request) });
+}
+
+export function checkOut(request: AttendanceCheckRequest): Promise<AttendanceRecordResponse> {
+  return apiRequest<AttendanceRecordResponse>("/attendance/check-out", { method: "POST", body: JSON.stringify(request) });
+}
+
+/**
+ * Khớp AttendanceRecordAdminResponse thật — bổ sung ngoài UC-09 gốc, xác nhận
+ * với người dùng 2026-08-12. Xem GET /api/attendance/records (AttendanceController.java),
+ * gate quyền hrm.attendance.view-all.
+ */
+export interface AttendanceRecordAdminResponse {
+  id: number;
+  employeeId: number;
+  employeeFullName: string;
+  employeeCode: string;
+  workDate: string;
+  checkInAt: string | null;
+  checkOutAt: string | null;
+  checkInMethod: "FINGERPRINT" | "FACE" | "GPS" | "MANUAL" | null;
+  checkOutMethod: "FINGERPRINT" | "FACE" | "GPS" | "MANUAL" | null;
+  siteId: number | null;
+  siteName: string | null;
+  status: "NORMAL" | "LATE" | "EARLY_LEAVE" | "MISSING";
+}
+
+export interface ListAttendanceRecordsParams {
+  employeeId?: number;
+  siteId?: number;
+  from: string;
+  to: string;
+}
+
+export function listAttendanceRecords(params: ListAttendanceRecordsParams): Promise<AttendanceRecordAdminResponse[]> {
+  const query = new URLSearchParams();
+  query.set("from", params.from);
+  query.set("to", params.to);
+  if (params.employeeId != null) query.set("employeeId", String(params.employeeId));
+  if (params.siteId != null) query.set("siteId", String(params.siteId));
+  return apiRequest<AttendanceRecordAdminResponse[]>(`/attendance/records?${query.toString()}`);
+}

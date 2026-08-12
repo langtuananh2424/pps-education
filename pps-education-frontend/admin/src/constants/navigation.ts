@@ -10,6 +10,7 @@ import {
   GraduationCap,
   LayoutDashboard,
   BookOpen,
+  MapPin,
   PhoneCall,
   School,
   Send,
@@ -113,6 +114,9 @@ export const navSections: NavSection[] = [
       // ngay trong trang) — đã xác nhận với người dùng 2026-07-27: không gate gì ở đây, ai đăng nhập
       // cũng vào được, khớp đúng Javadoc AttendanceController/LeaveRequestController/PayrollController.
       { id: "hrm-attendance", label: "Dữ liệu chấm công", path: "/hrm/attendance", icon: Users },
+      // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-12 — setup toạ độ GPS cho
+      // Site (UC-36) dùng cho chấm công UC-09 A2. Gate theo đúng quyền Site đã có sẵn.
+      { id: "hrm-attendance-sites", label: "Địa điểm chấm công", path: "/hrm/attendance-sites", icon: MapPin, requiredPermission: "facility.site.update" },
       { id: "hrm-leaves", label: "Xin nghỉ phép", path: "/hrm/leaves", icon: Users },
       { id: "hrm-payroll", label: "Tính toán bảng lương", path: "/hrm/payroll", icon: Users }
     ]

@@ -12,6 +12,7 @@ import vn.com.pps.education.domain.Site;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.domain.WorkCalendar;
 import vn.com.pps.education.dto.AttendanceCheckRequest;
+import vn.com.pps.education.dto.AttendanceRecordAdminResponse;
 import vn.com.pps.education.dto.AttendanceRecordResponse;
 import vn.com.pps.education.exception.AttendanceMethodNotAvailableException;
 import vn.com.pps.education.exception.ManagementExemptFromAttendanceException;
@@ -104,6 +105,20 @@ public class AttendanceService {
     @Transactional
     public AttendanceRecordResponse checkOut(Long actorUserId, AttendanceCheckRequest request) {
         return process(actorUserId, request, false);
+    }
+
+    /**
+     * UC-09 — bổ sung ngoài Main Flow gốc, xác nhận với người dùng 2026-08-12.
+     * Danh sách tổng hợp chấm công cho HR/Điều hành, gate bằng quyền
+     * hrm.attendance.view-all (xem AttendanceController).
+     */
+    public List<AttendanceRecordAdminResponse> listRecords(Long employeeId, Long siteId, LocalDate from, LocalDate to) {
+        if (from.isAfter(to)) {
+            throw new IllegalArgumentException("Khoảng ngày không hợp lệ: from phải trước hoặc bằng to.");
+        }
+        return attendanceRecordRepository.search(employeeId, siteId, from, to).stream()
+                .map(this::toAdminResponse)
+                .toList();
     }
 
     private AttendanceRecordResponse process(Long actorUserId, AttendanceCheckRequest request, boolean isCheckIn) {
@@ -304,6 +319,22 @@ public class AttendanceService {
         details.put("checkOutMethod", r.getCheckOutMethod() == null ? null : r.getCheckOutMethod().name());
         details.put("status", r.getStatus().name());
         return details;
+    }
+
+    private AttendanceRecordAdminResponse toAdminResponse(AttendanceRecord r) {
+        return new AttendanceRecordAdminResponse(
+                r.getId(),
+                r.getEmployee().getId(),
+                r.getEmployee().getUser().getFullName(),
+                r.getEmployee().getEmployeeCode(),
+                r.getWorkDate(),
+                r.getCheckInAt(),
+                r.getCheckOutAt(),
+                r.getCheckInMethod() == null ? null : r.getCheckInMethod().name(),
+                r.getCheckOutMethod() == null ? null : r.getCheckOutMethod().name(),
+                r.getSite() == null ? null : r.getSite().getId(),
+                r.getSite() == null ? null : r.getSite().getName(),
+                r.getStatus().name());
     }
 
     private AttendanceRecordResponse toResponse(AttendanceRecord r) {

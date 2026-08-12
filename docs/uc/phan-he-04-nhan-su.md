@@ -193,6 +193,12 @@ UC-09: Chấm công
 |                 |     công nào được tạo.                             |
 +-----------------+----------------------------------------------------+
 
+> **Bổ sung 2026-08-12 (ngoài Main Flow gốc, đã xác nhận với người dùng):**
+> quyền `hrm.attendance.view-all` (GET /api/attendance/records) cho phép
+> HR/Điều hành xem tổng hợp log chấm công toàn trung tâm theo khoảng
+> ngày/nhân sự/điểm trường — không thay đổi Main Flow/Alternate Flow tự
+> phục vụ ở trên.
+
 ---
 
 UC-10: Nộp đơn từ
