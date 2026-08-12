@@ -219,7 +219,7 @@ export interface AttendanceMarkResponse {
   studentId: number;
   studentFullName: string;
   studentCode: string;
-  status: "PRESENT" | "ABSENT" | "LATE" | "EXCUSED";
+  status: "PRESENT" | "ABSENT" | "LATE" | "EXCUSED" | "EARLY_LEAVE";
   minutesLate: number | null;
   minutesEarlyLeave: number | null;
   absenceReason: string | null;
