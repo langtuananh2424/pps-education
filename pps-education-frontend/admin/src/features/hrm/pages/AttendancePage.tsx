@@ -14,14 +14,16 @@ import {
   listEmployees
 } from "../api";
 
-const statusVariant: Record<AttendanceRecordResponse["status"], "success" | "danger" | "warning" | "neutral"> = {
+type AttendanceStatus = Exclude<AttendanceRecordResponse["status"], null>;
+
+const statusVariant: Record<AttendanceStatus, "success" | "danger" | "warning" | "neutral"> = {
   NORMAL: "success",
   LATE: "warning",
   EARLY_LEAVE: "warning",
   MISSING: "danger"
 };
 
-const statusLabels: Record<AttendanceRecordResponse["status"], string> = {
+const statusLabels: Record<AttendanceStatus, string> = {
   NORMAL: "Đúng giờ",
   LATE: "Đi muộn",
   EARLY_LEAVE: "Về sớm",
@@ -143,7 +145,7 @@ export default function AttendancePage() {
             <span>
               Giờ vào: <strong>{formatTime(lastRecord.checkInAt)}</strong> · Giờ ra: <strong>{formatTime(lastRecord.checkOutAt)}</strong>
             </span>
-            <Badge variant={statusVariant[lastRecord.status]}>{statusLabels[lastRecord.status]}</Badge>
+            {lastRecord.status && <Badge variant={statusVariant[lastRecord.status]}>{statusLabels[lastRecord.status]}</Badge>}
           </div>
         )}
       </div>

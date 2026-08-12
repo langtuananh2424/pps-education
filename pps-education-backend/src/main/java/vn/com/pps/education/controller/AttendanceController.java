@@ -49,6 +49,20 @@ public class AttendanceController {
 
     /**
      * UC-09 — bổ sung ngoài Main Flow gốc, xác nhận với người dùng 2026-08-12.
+     * Trạng thái chấm công hôm nay của chính người dùng (hiển thị ở Header) —
+     * tự phục vụ như check-in/check-out, không cần permission riêng. Trả về
+     * body rỗng (204) nếu thuộc diện miễn trừ (is_management=TRUE, Main Flow
+     * bước 2) hoặc không có hồ sơ nhân sự — khác với "có hồ sơ nhưng chưa
+     * chấm công hôm nay" (200, id=null). Xem AttendanceService.getMyTodayRecord.
+     */
+    @GetMapping("/records/me")
+    public ResponseEntity<AttendanceRecordResponse> getMyTodayRecord(@AuthenticationPrincipal AuthenticatedUser actor) {
+        AttendanceRecordResponse response = attendanceService.getMyTodayRecord(actor.userId());
+        return response == null ? ResponseEntity.noContent().build() : ResponseEntity.ok(response);
+    }
+
+    /**
+     * UC-09 — bổ sung ngoài Main Flow gốc, xác nhận với người dùng 2026-08-12.
      * Xem AttendanceService.listRecords.
      */
     @GetMapping("/records")

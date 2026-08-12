@@ -510,7 +510,8 @@ export function listLeaveTypes(): Promise<LeaveTypeResponse[]> {
 
 /** Khớp AttendanceRecordResponse thật của backend — chấm công của chính mình (tự phục vụ). */
 export interface AttendanceRecordResponse {
-  id: number;
+  /** null khi GET /attendance/records/me trả về "có hồ sơ nhân sự nhưng chưa chấm công hôm nay". */
+  id: number | null;
   employeeId: number;
   workDate: string;
   checkInAt: string | null;
@@ -518,7 +519,7 @@ export interface AttendanceRecordResponse {
   checkInMethod: "FINGERPRINT" | "FACE" | "GPS" | "MANUAL" | null;
   checkOutMethod: "FINGERPRINT" | "FACE" | "GPS" | "MANUAL" | null;
   siteId: number | null;
-  status: "NORMAL" | "LATE" | "EARLY_LEAVE" | "MISSING";
+  status: "NORMAL" | "LATE" | "EARLY_LEAVE" | "MISSING" | null;
 }
 
 /** Khớp AttendanceCheckRequest thật — siteId/latitude/longitude bắt buộc với method=GPS. */
@@ -536,6 +537,15 @@ export function checkIn(request: AttendanceCheckRequest): Promise<AttendanceReco
 
 export function checkOut(request: AttendanceCheckRequest): Promise<AttendanceRecordResponse> {
   return apiRequest<AttendanceRecordResponse>("/attendance/check-out", { method: "POST", body: JSON.stringify(request) });
+}
+
+/**
+ * Trạng thái chấm công hôm nay của chính người dùng (Header) — bổ sung
+ * ngoài UC-09 gốc, xác nhận với người dùng 2026-08-12. undefined nếu chưa
+ * chấm công hôm nay / thuộc diện miễn trừ / không có hồ sơ nhân sự (BE trả 204).
+ */
+export function getMyTodayAttendance(): Promise<AttendanceRecordResponse | undefined> {
+  return apiRequest<AttendanceRecordResponse | undefined>("/attendance/records/me");
 }
 
 /**

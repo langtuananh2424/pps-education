@@ -121,6 +121,24 @@ public class AttendanceService {
                 .toList();
     }
 
+    /**
+     * UC-09 — bổ sung ngoài Main Flow gốc, xác nhận với người dùng 2026-08-12.
+     * Trạng thái chấm công hôm nay của chính người dùng (Header). Trả về null
+     * (204, ẩn hẳn pill ở FE) khi thuộc diện miễn trừ (Main Flow bước 2) hoặc
+     * tài khoản không có hồ sơ nhân sự (không phải Giáo viên/Nhân viên); trả
+     * về response với id=null/status=null khi có hồ sơ nhưng CHƯA chấm công
+     * hôm nay (khác với 204, để FE phân biệt "không áp dụng" và "chưa làm").
+     */
+    public AttendanceRecordResponse getMyTodayRecord(Long actorUserId) {
+        return employeeRepository.findByUserId(actorUserId)
+                .filter(e -> !e.isManagement())
+                .map(e -> attendanceRecordRepository.findByEmployeeIdAndWorkDate(e.getId(), LocalDate.now())
+                        .map(this::toResponse)
+                        .orElseGet(() -> new AttendanceRecordResponse(
+                                null, e.getId(), LocalDate.now(), null, null, null, null, null, null)))
+                .orElse(null);
+    }
+
     private AttendanceRecordResponse process(Long actorUserId, AttendanceCheckRequest request, boolean isCheckIn) {
         User actor = userRepository.findById(actorUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));

@@ -329,6 +329,38 @@ class AttendanceServiceTest extends AbstractIntegrationTest {
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
+    @Test
+    void getMyTodayRecord_UC09_Extension_returnsPlaceholderBeforeCheckIn() {
+        var response = attendanceService.getMyTodayRecord(user.getId());
+
+        assertThat(response).isNotNull();
+        assertThat(response.id()).isNull();
+        assertThat(response.employeeId()).isEqualTo(employee.getId());
+        assertThat(response.checkInAt()).isNull();
+        assertThat(response.status()).isNull();
+    }
+
+    @Test
+    void getMyTodayRecord_UC09_Extension_returnsRecordAfterCheckIn() {
+        assignWideOpenShift();
+        attendanceService.checkIn(user.getId(), new AttendanceCheckRequest("GPS", site.getId(), SITE_LAT, SITE_LNG, null));
+
+        var response = attendanceService.getMyTodayRecord(user.getId());
+
+        assertThat(response).isNotNull();
+        assertThat(response.id()).isNotNull();
+        assertThat(response.checkInAt()).isNotNull();
+        assertThat(response.status()).isNotNull();
+    }
+
+    @Test
+    void getMyTodayRecord_UC09_Extension_returnsNullForManagementExempt() {
+        User manager = newUser();
+        newEmployee(manager, Employee.EmployeeType.STAFF, true);
+
+        assertThat(attendanceService.getMyTodayRecord(manager.getId())).isNull();
+    }
+
     private SchoolClass newSchoolClass(User creator) {
         Curriculum curriculum = new Curriculum();
         curriculum.setCode("CUR-ATT-" + SEQ.incrementAndGet());
