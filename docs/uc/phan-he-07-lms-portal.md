@@ -254,6 +254,23 @@ UC-23a: Xem & Theo dõi Kho Video Ôn tập
 > video). REFLEX không thay đổi gì. Bảng mới: `review_video_connection_
 > questions`/`_choices`/`_answers` — xem `docs/sdd-groups/09-lms-and-portal.md`.
 
+> **Bổ sung 2026-08-12, đã xác nhận với người dùng — A3 (MỚI): chặn ghi
+> nhận kết quả sau khi lần giao (`ReviewVideoAssignment`) đã quá hạn nộp
+> (`dueAt`, cùng cột dùng để nhắc hạn qua thông báo/email):** trước đây
+> `reportProgress`/`submitConnectionAnswers` (UC-23a) và `submitQuestionAudio`
+> (UC-23b) KHÔNG hề kiểm tra `dueAt` — khác hẳn Bài Ngữ pháp online
+> (`ExerciseAttemptService#submitAttempt` đã chặn từ trước qua
+> `SubmissionPastDeadlineException`), khiến "% BTVN buổi trước" hiện ở
+> Nhận xét hàng ngày (UC-21) không bao giờ thật sự "đóng" — học sinh vẫn
+> xem/nộp muộn được vô thời hạn, số % có thể đổi tiếp sau khi Giáo viên
+> đã viết/duyệt nhận xét buổi kế tiếp dựa trên số cũ. Đã sửa: mirror đúng
+> `SubmissionPastDeadlineException` của Exercise — quá `dueAt` thì 3 hàm
+> trên từ chối (409), không có cờ kiểu "cho nộp trễ" như Exercise (chặn
+> cứng). `startWatchSession` KHÔNG bị chặn (chỉ chặn bước GHI NHẬN kết
+> quả, giống `startAttempt` bên Exercise vẫn mở được, chỉ `submitAttempt`
+> mới chặn). Không đổi cách tính `reflexPercent`/`connectionPercent` —
+> câu đã nộp trước hạn (kể cả đang "chờ chấm") vẫn tính đủ vào %.
+
 ---
 
 UC-23b: Nộp & Chấm điểm Audio cho Video Phản xạ

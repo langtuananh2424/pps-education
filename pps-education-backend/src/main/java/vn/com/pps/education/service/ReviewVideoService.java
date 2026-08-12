@@ -54,6 +54,7 @@ import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
 import vn.com.pps.education.exception.QuizAlreadyCompletedException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.exception.RetakeNotAllowedException;
+import vn.com.pps.education.exception.SubmissionPastDeadlineException;
 import vn.com.pps.education.exception.VideoNotYetQualifiedException;
 import vn.com.pps.education.repository.ClassEnrollmentRepository;
 import vn.com.pps.education.repository.ClassTeacherRepository;
@@ -710,7 +711,9 @@ public class ReviewVideoService {
     @Transactional
     public ReviewVideoProgressResponse reportProgress(Long videoId, ReportVideoProgressRequest request, Long actorUserId) {
         ReviewVideo video = getVideoOrThrow(videoId);
-        Student student = requireStudentCanViewSet(video.getReviewVideoSet(), actorUserId);
+        StudentAccess access = resolveStudentAccess(video.getReviewVideoSet(), actorUserId);
+        Student student = access.student();
+        requireNotPastDeadline(access.assignment());
 
         ReviewVideoWatchSession session = reviewVideoWatchSessionRepository.findById(request.watchSessionId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lượt xem id=" + request.watchSessionId()));
@@ -743,10 +746,12 @@ public class ReviewVideoService {
         ReviewVideoWatchSession session = reviewVideoWatchSessionRepository.findById(watchSessionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lượt xem id=" + watchSessionId));
         ReviewVideo video = session.getReviewVideo();
-        Student student = requireStudentCanViewSet(video.getReviewVideoSet(), actorUserId);
+        StudentAccess access = resolveStudentAccess(video.getReviewVideoSet(), actorUserId);
+        Student student = access.student();
         if (!session.getStudent().getId().equals(student.getId())) {
             throw new ResourceNotFoundException("Không tìm thấy lượt xem id=" + watchSessionId);
         }
+        requireNotPastDeadline(access.assignment());
         if (!session.isQualified()) {
             throw new VideoNotYetQualifiedException(
                     "Lượt xem id=" + watchSessionId + " chưa xem đạt ngưỡng — chưa thể làm câu hỏi.");
@@ -817,6 +822,7 @@ public class ReviewVideoService {
         ReviewVideo video = question.getReviewVideo();
         StudentAccess access = resolveStudentAccess(video.getReviewVideoSet(), actorUserId);
         Student student = access.student();
+        requireNotPastDeadline(access.assignment());
         if (video.getReviewVideoSet().getVideoType() != ReviewVideoSet.VideoType.REFLEX) {
             throw new IllegalArgumentException("Video id=" + video.getId() + " không phải loại Video phản xạ (REFLEX) — không nhận nộp audio.");
         }
@@ -1014,9 +1020,22 @@ public class ReviewVideoService {
         return new StudentAccess(student, matched);
     }
 
-    /** Wrapper cho các nơi chỉ cần Student, không cần biết lần giao cụ thể (listVideos/listQuestions/startWatchSession/reportProgress). */
+    /** Wrapper cho các nơi chỉ cần Student, không cần biết lần giao cụ thể (listVideos/listQuestions/startWatchSession). */
     private Student requireStudentCanViewSet(ReviewVideoSet set, Long actorUserId) {
         return resolveStudentAccess(set, actorUserId).student();
+    }
+
+    /**
+     * Chặn ghi nhận kết quả (xem tiến độ/nộp đáp án/nộp audio) sau khi lần giao đã quá hạn nộp — mirror
+     * đúng ExerciseAttemptService#submitAttempt (đã xác nhận với người dùng 2026-08-12, sửa lỗ hổng
+     * Video Ôn tập trước đây KHÔNG hề chặn theo dueAt, khác Bài Ngữ pháp). Cố tình KHÔNG có cờ kiểu
+     * lateSubmissionAllowed như Exercise — chặn cứng, chưa cần tùy chọn nộp trễ cho Video.
+     */
+    private void requireNotPastDeadline(ReviewVideoAssignment assignment) {
+        if (assignment.getDueAt() != null && OffsetDateTime.now().isAfter(assignment.getDueAt())) {
+            throw new SubmissionPastDeadlineException(
+                    "Bản giao Video Ôn tập id=" + assignment.getId() + " đã quá hạn nộp (" + assignment.getDueAt() + ").");
+        }
     }
 
     /** V98: curriculum luôn khác NULL — không còn nhánh schoolClass (xem Javadoc lớp ReviewVideoSet). */

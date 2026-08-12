@@ -31,6 +31,15 @@ const RESULT_STATUS_LABELS: Record<string, string> = {
   APPROVED: "Đã duyệt",
 };
 
+/** Thang thái độ chốt lại 2026-08-12 (StudentComment.Attitude) — trước đây in thẳng giá trị enum thô (VD "GOOD") không qua nhãn. */
+const ATTITUDE_LABELS: Record<string, string> = {
+  WEAK: "Yếu",
+  AVERAGE: "Trung bình",
+  FAIR: "Khá",
+  GOOD: "Tốt",
+  EXCELLENT: "Xuất sắc",
+};
+
 type TabKey = "overview" | "grades" | "comments" | "attendance";
 
 /** Cùng 1 chiều cao cho cả 4 tab (cuộn riêng bên trong) — đổi tab không làm popup co giãn theo nội dung. */
@@ -588,7 +597,7 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
                     onChange={(e) => setCommentTypeFilter(e.target.value)}
                     className="border border-slate-300 rounded-lg text-xs px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
                   >
-                    <option value="ALL">Mọi loại</option>
+                    <option value="ALL">Tất cả</option>
                     <option value="DAILY">Hàng ngày</option>
                     <option value="MID_TERM">Giữa kỳ</option>
                     <option value="END_TERM">Cuối kỳ</option>
@@ -598,7 +607,7 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
                     onChange={(e) => { setCommentYearFilter(e.target.value); setCommentTermFilter("ALL"); }}
                     className="border border-slate-300 rounded-lg text-xs px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
                   >
-                    <option value="ALL">Mọi năm học</option>
+                    <option value="ALL">Tất cả</option>
                     {commentYears.map((y) => (
                       <option key={y} value={y}>{y}</option>
                     ))}
@@ -608,7 +617,7 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
                     onChange={(e) => setCommentTermFilter(e.target.value)}
                     className="border border-slate-300 rounded-lg text-xs px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
                   >
-                    <option value="ALL">Mọi kỳ học</option>
+                    <option value="ALL">Tất cả</option>
                     {commentTermOptions.map((t) => (
                       <option key={t.name} value={t.name}>{t.name}</option>
                     ))}
@@ -619,7 +628,7 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
                       onChange={(e) => setCommentSessionFilter(e.target.value)}
                       className="border border-slate-300 rounded-lg text-xs px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
                     >
-                      <option value="ALL">Mọi buổi học</option>
+                      <option value="ALL">Tất cả</option>
                       {commentSessionOptions.map((s) => (
                         <option key={s} value={s}>{s}</option>
                       ))}
@@ -664,7 +673,7 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
                       </span>
                     </div>
                     <p className="text-sm text-slate-700">{c.content || "(không có nội dung)"}</p>
-                    {c.attitude && <p className="text-xs text-slate-400 mt-1">Thái độ: {c.attitude}</p>}
+                    {c.attitude && <p className="text-xs text-slate-400 mt-1">Thái độ: {ATTITUDE_LABELS[c.attitude] ?? c.attitude}</p>}
                   </div>
                 ))
               )}
@@ -682,7 +691,7 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
                     onChange={(e) => { setAttYearFilter(e.target.value); setAttTermFilter("ALL"); }}
                     className="border border-slate-300 rounded-lg text-xs px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
                   >
-                    <option value="ALL">Mọi năm học</option>
+                    <option value="ALL">Tất cả</option>
                     {attYears.map((y) => (
                       <option key={y} value={y}>{y}</option>
                     ))}
@@ -692,7 +701,7 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
                     onChange={(e) => setAttTermFilter(e.target.value)}
                     className="border border-slate-300 rounded-lg text-xs px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
                   >
-                    <option value="ALL">Mọi kỳ học</option>
+                    <option value="ALL">Tất cả</option>
                     {attTermOptions.map((t) => (
                       <option key={t.name} value={t.name}>{t.name}</option>
                     ))}

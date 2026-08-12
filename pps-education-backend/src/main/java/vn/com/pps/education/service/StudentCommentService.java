@@ -1385,25 +1385,23 @@ public class StudentCommentService {
 
     private StudentComment.Attitude parseAttitude(String text) {
         return switch (text.toLowerCase()) {
-            case "kém", "kem", "poor" -> StudentComment.Attitude.POOR;
             case "yếu", "yeu", "weak" -> StudentComment.Attitude.WEAK;
             case "trung bình", "trung binh", "average" -> StudentComment.Attitude.AVERAGE;
-            case "trung bình khá", "trung binh kha", "above average" -> StudentComment.Attitude.ABOVE_AVERAGE;
             case "khá", "kha", "fair" -> StudentComment.Attitude.FAIR;
             case "tốt", "tot", "good" -> StudentComment.Attitude.GOOD;
+            case "xuất sắc", "xuat sac", "excellent" -> StudentComment.Attitude.EXCELLENT;
             default -> throw new IllegalArgumentException(
-                    "Thái độ học tập không hợp lệ (cần Kém/Yếu/Trung bình/Trung bình khá/Khá/Tốt): " + text);
+                    "Thái độ học tập không hợp lệ (cần Yếu/Trung bình/Khá/Tốt/Xuất sắc): " + text);
         };
     }
 
     private String attitudeLabel(StudentComment.Attitude attitude) {
         return switch (attitude) {
-            case POOR -> "Kém";
             case WEAK -> "Yếu";
             case AVERAGE -> "Trung bình";
-            case ABOVE_AVERAGE -> "Trung bình khá";
             case FAIR -> "Khá";
             case GOOD -> "Tốt";
+            case EXCELLENT -> "Xuất sắc";
         };
     }
 

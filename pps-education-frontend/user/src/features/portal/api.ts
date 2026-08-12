@@ -260,8 +260,10 @@ export interface StudentCommentResponse {
   approvedBy: number | null;
   visibleToParentAt: string | null;
   rejectionReason: string | null;
-  /** Nhận xét Hàng ngày kiểu mới (chỉ có ý nghĩa khi commentType=DAILY) — bổ sung ngoài SDD gốc. */
-  attitude: "POOR" | "WEAK" | "AVERAGE" | "ABOVE_AVERAGE" | "FAIR" | "GOOD" | null;
+  /** Nhận xét Hàng ngày kiểu mới (chỉ có ý nghĩa khi commentType=DAILY) — bổ sung ngoài SDD gốc.
+   * Thang thái độ chốt lại 2026-08-12 (StudentComment.Attitude) — Yếu 20%/Trung bình 50%/Khá 70%/
+   * Tốt 90%/Xuất sắc 100%. */
+  attitude: "WEAK" | "AVERAGE" | "FAIR" | "GOOD" | "EXCELLENT" | null;
   homeworkPreviousScore: string | null;
   homeworkPreviousSpeakingScore: string | null;
   homeworkNext: string | null;

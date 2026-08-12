@@ -88,13 +88,13 @@ const isRowBlank = (r: Row) =>
   r.homeworkNextReviewVideoSetId === "" &&
   !r.note.trim();
 
+/** Thang thái độ chốt lại 2026-08-12 — % đi kèm là quy đổi dùng tính "Thái độ học tập" trung bình ở Portal (StudentComment.Attitude). */
 const attitudeLabels: Record<NonNullable<StudentCommentResponse["attitude"]>, string> = {
-  POOR: "Kém",
-  WEAK: "Yếu",
-  AVERAGE: "Trung bình",
-  ABOVE_AVERAGE: "Trung bình khá",
-  FAIR: "Khá",
-  GOOD: "Tốt"
+  WEAK: "Yếu (20%)",
+  AVERAGE: "Trung bình (50%)",
+  FAIR: "Khá (70%)",
+  GOOD: "Tốt (90%)",
+  EXCELLENT: "Xuất sắc (100%)"
 };
 
 /**

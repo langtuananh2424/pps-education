@@ -1261,9 +1261,11 @@ DAILY, Giữa/Cuối kỳ giữ nguyên 100% luồng ở trên)
     mà buổi chưa có `lesson_content` thì bị từ chối (422,
     "chưa điền bài học hôm nay").
 -   4 cột mới trên `student_comments` (chỉ có ý nghĩa khi comment_type=
-    DAILY): `attitude` (VARCHAR(20), enum Kém/Yếu/Trung bình/Trung bình
-    khá/Khá/Tốt — mở rộng từ 3 lên 6 mức 2026-07-27),
-    `homework_previous_score` (VARCHAR(10), VD "80%" —
+    DAILY): `attitude` (VARCHAR(20), enum Yếu 20%/Trung bình 50%/Khá
+    70%/Tốt 90%/Xuất sắc 100% — chốt lại 2026-08-12, thay cho thang 6
+    mức Kém/Yếu/Trung bình/Trung bình khá/Khá/Tốt ngày 2026-07-27; %
+    dùng để tính "Thái độ học tập" trung bình ở Portal, xem
+    `StudentComment.Attitude`), `homework_previous_score` (VARCHAR(10), VD "80%" —
     chấm BTVN buổi TRƯỚC ngay trong dòng của buổi này, nay chỉ còn dùng
     khi kênh ngữ pháp OFFLINE — xem bổ sung V55 dưới), `homework_next`
     (TEXT, VD "Unit 4 Trang 18" — giao BTVN ngữ pháp OFFLINE cho buổi

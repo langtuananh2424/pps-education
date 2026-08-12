@@ -1472,11 +1472,15 @@ a)  Bảng student_comments --- Nhận xét học sinh
   attitude                 VARCHAR(20)   NULL                  Chỉ dùng khi comment_type=
                                                                 DAILY (V50, bổ sung ngoài SDD
                                                                 gốc, đã xác nhận với người
-                                                                dùng 2026-07-24) — Kém/Yếu/
-                                                                Trung bình/Trung bình khá/
-                                                                Khá/Tốt (mở rộng từ 3 lên 6
-                                                                mức 2026-07-27), cột phẳng
-                                                                RIÊNG với structured_content.
+                                                                dùng 2026-07-24) — Yếu 20%/
+                                                                Trung bình 50%/Khá 70%/Tốt
+                                                                90%/Xuất sắc 100% (chốt lại
+                                                                2026-08-12, thay thang 6 mức
+                                                                Kém/.../Trung bình khá/...
+                                                                ngày 2026-07-27; % dùng tính
+                                                                "Thái độ học tập" trung bình
+                                                                ở Portal), cột phẳng RIÊNG
+                                                                với structured_content.
                                                                 attitude (JSONB, chỉ dùng cho
                                                                 Giữa/Cuối kỳ) — 2 cơ chế khác
                                                                 nhau cho 2 nhóm biểu mẫu khác
