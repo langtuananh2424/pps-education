@@ -13,6 +13,7 @@ import {
 } from "../api";
 import { useIntegrityMonitor } from "../hooks/useIntegrityMonitor";
 import { extractYouTubeVideoId, formatTimestamp, loadYouTubeIframeApi } from "../lib/youtubePlayer";
+import MonitoringBadge from "../components/MonitoringBadge";
 
 /**
  * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-11 (sau 2 vòng test thực tế) — CHỈ dùng
@@ -425,6 +426,7 @@ export default function ReflexVideoTaskPage({ video, onClose }: ReflexVideoTaskP
       {showExitConfirm && (
         <div className="fixed inset-0 bg-ink/60 z-[130] flex items-center justify-center p-4">
           <div className="bg-white rounded-[20px] max-w-sm w-full shadow-2xl p-6 space-y-4 text-center">
+            <ShieldAlert size={36} className="text-amber-600 mx-auto" />
             <h3 className="text-base font-extrabold text-ink">Thoát khi chưa nộp bài?</h3>
             <p className="text-xs font-bold text-muted">Bạn có bản ghi âm chưa nộp — thoát ra sẽ mất toàn bộ bản ghi này.</p>
             <div className="flex gap-2">
@@ -448,28 +450,26 @@ export default function ReflexVideoTaskPage({ video, onClose }: ReflexVideoTaskP
         </div>
       )}
 
-      <div className="max-w-2xl w-full mx-auto p-6 space-y-4 flex-1">
+      <div className="max-w-2xl lg:max-w-3xl w-full mx-auto p-4 sm:p-6 space-y-4 flex-1">
         <div className="flex items-start justify-between gap-3">
-          <div>
+          <div className="min-w-0">
             <span className="text-[10px] font-extrabold uppercase text-teal-deep tracking-wide">Video phản xạ</span>
-            <h3 className="text-lg font-extrabold text-ink">{video.title}</h3>
+            <h3 className="text-lg sm:text-xl lg:text-2xl font-extrabold text-ink truncate">{video.title}</h3>
           </div>
-          <button
-            onClick={handleExit}
-            className="px-3 py-1.5 rounded-full bg-sky-2 hover:bg-sky text-ink text-xs font-extrabold transition-colors"
-          >
-            Thoát
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Chip ghim góc (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-12) — đồng bộ
+                với TakeExerciseModal, thay banner amber căng hết chiều rộng trước đây. */}
+            {isMonitoringActive && <MonitoringBadge violationCount={violationCount} exitNote="đổi tab/thu nhỏ/thoát toàn màn hình" />}
+            <button
+              onClick={handleExit}
+              // Làm nổi bật (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-12) — đồng bộ màu
+              // sắc với nút Đóng của TakeExerciseModal, dễ nhận biết hành động thoát.
+              className="shrink-0 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 text-xs sm:text-sm font-extrabold transition-colors"
+            >
+              Thoát
+            </button>
+          </div>
         </div>
-
-        {isMonitoringActive && (
-          <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2">
-            <ShieldAlert size={13} className="text-amber-600 shrink-0" />
-            <span className="text-[11px] font-bold text-amber-800">
-              Đang giám sát quá trình làm bài — thoát ra ngoài (đổi tab/thu nhỏ/thoát toàn màn hình) sẽ được ghi nhận.
-            </span>
-          </div>
-        )}
 
         <div className="relative aspect-video w-full rounded-[12px] overflow-hidden bg-ink" onContextMenu={(e) => e.preventDefault()}>
           {isYouTube && youTubeVideoId ? (
@@ -520,18 +520,18 @@ export default function ReflexVideoTaskPage({ video, onClose }: ReflexVideoTaskP
               return (
                 <div
                   key={q.id}
-                  className={`bg-sky-2 border rounded-[14px] p-4 space-y-2 transition-opacity ${
+                  className={`bg-sky-2 border rounded-[14px] p-4 sm:p-5 space-y-2 lg:space-y-3 transition-opacity ${
                     wasTriggered ? "border-teal/20 opacity-100" : "border-teal/10 opacity-50"
                   }`}
                 >
-                  <div className="flex items-center justify-between gap-2 text-[10px] font-extrabold text-teal-deep uppercase tracking-wide">
+                  <div className="flex items-center justify-between gap-2 text-[10px] sm:text-[11px] font-extrabold text-teal-deep uppercase tracking-wide">
                     <span className="flex items-center gap-1.5">
                       Câu hỏi {i + 1}
                       <span className="px-1.5 py-0.5 rounded-md bg-white/70 text-teal-deep normal-case font-bold">{formatTimestamp(q.timestampSeconds)}</span>
                     </span>
                     {q.maxAttempts != null && <span className="text-muted normal-case">{attemptsUsed(q.id)}/{q.maxAttempts} lượt nộp</span>}
                   </div>
-                  {q.prompt && <p className="text-sm font-bold text-ink">{q.prompt}</p>}
+                  {q.prompt && <p className="text-sm sm:text-base lg:text-lg font-bold text-ink">{q.prompt}</p>}
 
                   {isActive ? (
                     <div className="flex items-center gap-1.5 px-3.5 py-2 bg-coral text-white rounded-xl text-xs font-extrabold animate-pulse w-fit">
@@ -558,9 +558,9 @@ export default function ReflexVideoTaskPage({ video, onClose }: ReflexVideoTaskP
 
       {videoEnded && !questionsError && (
         <div className="sticky bottom-0 bg-white border-t border-line p-4">
-          <div className="max-w-2xl w-full mx-auto flex gap-3">
+          <div className="max-w-2xl lg:max-w-3xl w-full mx-auto flex gap-3">
             {submitted ? (
-              <div className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-700 text-sm font-extrabold">
+              <div className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-700 text-sm sm:text-base font-extrabold">
                 <CheckCircle2 size={16} /> Đã nộp bài thành công!
               </div>
             ) : (
@@ -568,14 +568,14 @@ export default function ReflexVideoTaskPage({ video, onClose }: ReflexVideoTaskP
                 <button
                   onClick={handleRetry}
                   disabled={submitting}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-4 py-3 bg-white hover:bg-slate-100 border border-line rounded-xl text-sm font-extrabold text-ink disabled:opacity-50"
+                  className="flex-1 flex items-center justify-center gap-1.5 px-4 py-3 sm:py-3.5 bg-white hover:bg-slate-100 border border-line rounded-xl text-sm sm:text-base font-extrabold text-ink disabled:opacity-50"
                 >
                   <RotateCcw size={15} /> Làm lại
                 </button>
                 <button
                   onClick={handleSubmit}
                   disabled={submitting || !hasDrafts}
-                  className="flex-1 px-4 py-3 bg-teal hover:bg-teal-deep text-white rounded-xl text-sm font-extrabold disabled:opacity-50"
+                  className="flex-1 px-4 py-3 sm:py-3.5 bg-teal hover:bg-teal-deep text-white rounded-xl text-sm sm:text-base font-extrabold disabled:opacity-50"
                 >
                   {submitting ? "Đang nộp..." : "Nộp bài"}
                 </button>
@@ -583,8 +583,8 @@ export default function ReflexVideoTaskPage({ video, onClose }: ReflexVideoTaskP
             )}
           </div>
           {submitted && (
-            <div className="max-w-2xl w-full mx-auto mt-3">
-              <button onClick={onClose} className="w-full px-4 py-2.5 bg-sky-2 hover:bg-sky text-ink rounded-xl text-xs font-extrabold">
+            <div className="max-w-2xl lg:max-w-3xl w-full mx-auto mt-3">
+              <button onClick={onClose} className="w-full px-4 py-2.5 bg-sky-2 hover:bg-sky text-ink rounded-xl text-xs sm:text-sm font-extrabold">
                 Quay lại danh sách bài tập
               </button>
             </div>

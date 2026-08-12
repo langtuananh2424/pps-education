@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Check, CheckCircle2, Play, X } from "lucide-react";
+import { Check, CheckCircle2, Play, ShieldAlert, X } from "lucide-react";
 import { friendlyApiErrorMessage } from "@/lib/apiClient";
 import {
   ConnectionAnswerResult,
@@ -446,6 +446,7 @@ export default function ReviewVideoTaskModal({ video, onClose }: ReviewVideoTask
       {showExitConfirm && (
         <div className="fixed inset-0 bg-ink/60 z-[130] flex items-center justify-center p-4">
           <div className="bg-white rounded-[20px] max-w-sm w-full shadow-2xl p-5 sm:p-6 space-y-4 text-center">
+            <ShieldAlert size={36} className="text-amber-600 mx-auto" />
             <h3 className="text-base font-extrabold text-ink">Thoát khi chưa hoàn thành lượt xem?</h3>
             <p className="text-xs font-bold text-muted">Bạn chưa trả lời xong câu hỏi của lượt xem này — thoát ra sẽ không tính lượt.</p>
             <div className="flex flex-col sm:flex-row gap-2">
@@ -507,7 +508,7 @@ export default function ReviewVideoTaskModal({ video, onClose }: ReviewVideoTask
                 {/* Popup này chỉ hiện khi CHƯA nộp (quizResult == null — xem điều kiện render ở trên) nên không cần nhánh hiển thị kết quả đúng/sai ở đây. */}
                 {connectionQuestions.map((q, i) => (
                   <div key={q.id} className="space-y-2">
-                    <p className="text-sm font-bold text-ink">
+                    <p className="text-sm sm:text-base font-bold text-ink">
                       Câu {i + 1}. {q.prompt}
                     </p>
                     <div className="space-y-1.5">
@@ -518,7 +519,7 @@ export default function ReviewVideoTaskModal({ video, onClose }: ReviewVideoTask
                             key={c.id}
                             type="button"
                             onClick={() => setSelectedAnswers((prev) => ({ ...prev, [q.id]: c.id }))}
-                            className={`w-full flex items-center gap-2 text-left px-3 py-2 rounded-xl border text-xs font-bold transition-colors ${
+                            className={`w-full flex items-center gap-2 text-left px-3 py-2 sm:py-2.5 rounded-xl border text-xs sm:text-sm font-bold transition-colors ${
                               picked ? "bg-teal text-white border-teal" : "bg-white border-line text-ink hover:border-teal/50"
                             }`}
                           >
@@ -535,7 +536,7 @@ export default function ReviewVideoTaskModal({ video, onClose }: ReviewVideoTask
                   type="button"
                   onClick={handleSubmitConnectionQuiz}
                   disabled={submittingQuiz || connectionQuestions.some((q) => selectedAnswers[q.id] == null)}
-                  className="w-full px-3 py-2 bg-teal hover:bg-teal-deep text-white rounded-xl text-xs font-extrabold disabled:opacity-50"
+                  className="w-full px-3 py-2.5 sm:py-3 bg-teal hover:bg-teal-deep text-white rounded-xl text-xs sm:text-sm font-extrabold disabled:opacity-50"
                 >
                   {submittingQuiz ? "Đang nộp..." : "Nộp câu trả lời"}
                 </button>
@@ -549,11 +550,13 @@ export default function ReviewVideoTaskModal({ video, onClose }: ReviewVideoTask
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <span className="text-[10px] font-extrabold uppercase text-teal-deep tracking-wide">Video từ kết nối</span>
-            <h3 className="text-base sm:text-lg font-extrabold text-ink truncate">{video.title}</h3>
+            <h3 className="text-lg sm:text-xl lg:text-2xl font-extrabold text-ink truncate">{video.title}</h3>
           </div>
           <button
             onClick={handleExit}
-            className="shrink-0 px-3 py-1.5 rounded-full bg-sky-2 hover:bg-sky text-ink text-xs font-extrabold transition-colors"
+            // Làm nổi bật (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-12) — đồng bộ màu
+            // sắc với nút Đóng của TakeExerciseModal/ReflexVideoTaskPage.
+            className="shrink-0 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 text-xs sm:text-sm font-extrabold transition-colors"
           >
             Thoát
           </button>
