@@ -18,6 +18,17 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, Long
     Optional<ClassSession> findFirstBySchoolClassIdAndSessionDateLessThanOrderBySessionDateDescIdDesc(Long classId, LocalDate sessionDate);
 
     /**
+     * UC-21 mở rộng (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+     * 2026-08-12): buổi học liền TRƯỚC 1 buổi, cùng lớp VÀ cùng
+     * teacher_type — dùng khi buổi đang xét CÓ xác định loại giáo viên
+     * (VIETNAMESE/FOREIGN), để "BTVN buổi trước" đối chiếu đúng mạch bài
+     * của cùng loại GV (VD GVNN buổi 6 đối chiếu GVNN buổi 3, bỏ qua buổi
+     * GVVN xen giữa) thay vì buổi liền kề tuyệt đối bất kể ai dạy.
+     */
+    Optional<ClassSession> findFirstBySchoolClassIdAndSessionDateLessThanAndTeacherTypeOrderBySessionDateDescIdDesc(
+            Long classId, LocalDate sessionDate, ClassSession.TeacherType teacherType);
+
+    /**
      * V65 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng): buổi học
      * liền SAU 1 buổi, cùng lớp — dùng tính hạn nộp (dueAt) khi Giáo viên
      * chọn 1 đề/video làm "BTVN buổi sau" ở Nhận xét. Loại trừ
