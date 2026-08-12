@@ -939,9 +939,8 @@ export interface StudentCommentResponse {
   studentDateOfBirth: string | null;
   classId: number;
   teacherId: number;
-  commentType: "DAILY" | "MID_TERM" | "END_TERM";
-  classSessionId: number | null;
-  academicTermId: number | null;
+  commentType: "DAILY";
+  classSessionId: number;
   commentDate: string;
   content: string;
   structuredContent: Record<string, unknown> | null;
@@ -987,9 +986,7 @@ export interface StudentCommentResponse {
 
 export interface CreateStudentCommentRequest {
   studentId: number;
-  commentType: StudentCommentResponse["commentType"];
-  classSessionId?: number;
-  academicTermId?: number;
+  classSessionId: number;
   commentDate: string;
   content: string;
   structuredContent?: Record<string, unknown>;

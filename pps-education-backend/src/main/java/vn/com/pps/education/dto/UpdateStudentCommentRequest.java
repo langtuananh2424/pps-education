@@ -7,9 +7,7 @@ import java.util.Map;
 
 /**
  * UC-21 Main Flow bước 2, A1 (sửa lại sau khi bị từ chối) — chỉ sửa nội
- * dung, không đổi comment_type/liên kết ngữ cảnh. attitude/
- * homeworkPreviousScore/homeworkNext/note chỉ có ý nghĩa khi commentType=
- * DAILY (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-24).
+ * dung, không đổi liên kết ngữ cảnh (classSessionId).
  *
  * V65 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30):
  * đổi lựa chọn {@code homeworkNextExerciseId}/{@code homeworkNextReviewVideoSetId}

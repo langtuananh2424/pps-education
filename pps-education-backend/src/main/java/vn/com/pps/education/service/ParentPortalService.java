@@ -235,8 +235,7 @@ public class ParentPortalService {
         return new StudentCommentResponse(
                 c.getId(), c.getStudent().getId(), c.getStudent().getUser().getFullName(), c.getStudent().getDateOfBirth(),
                 c.getSchoolClass().getId(), c.getTeacher().getId(), c.getCommentType().name(),
-                c.getClassSession() == null ? null : c.getClassSession().getId(),
-                c.getAcademicTerm() == null ? null : c.getAcademicTerm().getId(),
+                c.getClassSession().getId(),
                 c.getAcademicYear() == null ? null : c.getAcademicYear().getId(),
                 c.getAcademicYear() == null ? null : c.getAcademicYear().getCode(),
                 c.getCommentDate(), c.getContent(), c.getStructuredContent(), c.getSeverity().name(), c.isWarning(),
@@ -246,7 +245,7 @@ public class ParentPortalService {
                 c.getHomeworkPreviousSpeakingScore(),
                 // Portal Phụ huynh chưa cần hiển thị chi tiết BTVN online (UC-21 mở rộng, V55) — để trống, bổ sung khi có yêu cầu.
                 c.getHomeworkNext(), null, null, null, null, null, null, null, null, c.getNote(),
-                c.getClassSession() == null ? null : c.getClassSession().getLessonContent());
+                c.getClassSession().getLessonContent());
     }
 
     private HomeworkProgressResponse toHomeworkProgressResponse(StudentComment c) {

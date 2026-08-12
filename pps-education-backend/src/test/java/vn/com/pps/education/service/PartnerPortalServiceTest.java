@@ -251,9 +251,12 @@ class PartnerPortalServiceTest extends AbstractIntegrationTest {
 
     @Test
     void getApprovedComments_UC29_MainFlow_returnsOnlyApprovedComments() {
-        AcademicTerm academicTerm = newAcademicTerm(partnerSite);
+        ClassSessionResponse session = classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(LocalDate.now(), LocalTime.of(8, 0), LocalTime.of(9, 40), null, teacher.getId(), "REGULAR", null, null),
+                headAcademic.getId());
+        studentCommentService.updateLessonContent(session.id(), "Unit 1: Present simple tense.", teacher.getId());
         StudentCommentResponse approvedComment = studentCommentService.writeComment(schoolClass.id(),
-                new CreateStudentCommentRequest(student.getId(), "MID_TERM", null, academicTerm.getId(),
+                new CreateStudentCommentRequest(student.getId(), session.id(),
                         LocalDate.now(), "Chăm chỉ, tiến bộ rõ rệt.", null, "POSITIVE", false, null, null, null, null, null, null, null, null),
                 teacher.getId());
         studentCommentService.submitComments(schoolClass.id(), new SubmitCommentsRequest(List.of(approvedComment.id())), teacher.getId());
@@ -262,7 +265,7 @@ class PartnerPortalServiceTest extends AbstractIntegrationTest {
 
         // Nhan xet con DRAFT (chua submit/duyet) -- khong duoc hien thi cho Doi tac.
         studentCommentService.writeComment(schoolClass.id(),
-                new CreateStudentCommentRequest(student.getId(), "MID_TERM", null, academicTerm.getId(),
+                new CreateStudentCommentRequest(student.getId(), session.id(),
                         LocalDate.now(), "Nhận xét nháp chưa gửi duyệt.", null, "NORMAL", false, null, null, null, null, null, null, null, null),
                 teacher.getId());
 

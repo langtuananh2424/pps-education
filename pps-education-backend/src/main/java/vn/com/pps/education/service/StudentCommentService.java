@@ -15,7 +15,6 @@ import vn.com.pps.education.domain.ClassEnrollment;
 import vn.com.pps.education.domain.ClassSession;
 import vn.com.pps.education.domain.Exercise;
 import vn.com.pps.education.domain.ExerciseAssignment;
-import vn.com.pps.education.domain.AcademicTerm;
 import vn.com.pps.education.domain.ImportJob;
 import vn.com.pps.education.domain.Notification;
 import vn.com.pps.education.domain.ReviewVideoAssignment;
@@ -40,7 +39,6 @@ import vn.com.pps.education.dto.UpdateStudentCommentContentRequest;
 import vn.com.pps.education.dto.UpdateStudentCommentRequest;
 import vn.com.pps.education.exception.ApprovalAlreadyDecidedException;
 import vn.com.pps.education.exception.HomeworkNextConflictException;
-import vn.com.pps.education.exception.InvalidCommentContextException;
 import vn.com.pps.education.exception.MissingLessonContentException;
 import vn.com.pps.education.exception.NoUpcomingClassSessionException;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
@@ -93,24 +91,25 @@ import java.util.function.Function;
  * UC-19/20 (GradeService) — mỗi nhận xét submit riêng lẻ có 1 approval_flow
  * riêng, submit theo lô chia sẻ 1 batchId.
  *
- * <p><b>Nhận xét Hàng ngày (comment_type=DAILY) — bổ sung ngoài SDD gốc:</b>
- * quyết định 2026-07-24 (bỏ hẳn bước Nháp, ghi xong tự động chuyển
- * PENDING/APPROVED ngay) đã bị THAY THẾ bởi quyết định 2026-07-29 sau khi
- * dùng thực tế thấy thiếu bước xem lại trước khi gửi duyệt:</p>
+ * <p><b>Nhận xét Hàng ngày (comment_type=DAILY, biểu mẫu DUY NHẤT còn lại —
+ * bỏ hẳn MID_TERM/END_TERM ngày 2026-08-12, đã xác nhận với người dùng, xem
+ * Javadoc {@link vn.com.pps.education.domain.StudentComment}) — bổ sung
+ * ngoài SDD gốc:</b> quyết định 2026-07-24 (bỏ hẳn bước Nháp, ghi xong tự
+ * động chuyển PENDING/APPROVED ngay) đã bị THAY THẾ bởi quyết định
+ * 2026-07-29 sau khi dùng thực tế thấy thiếu bước xem lại trước khi gửi
+ * duyệt:</p>
  * <ul>
- *   <li>DAILY nay dùng chung 100% luồng DRAFT→submit (UC-21 Main Flow bước
- *       4, {@code submitComments})→PENDING→duyệt (UC-22) với MID_TERM/
- *       END_TERM — {@code writeComment}/{@code updateComment}/
- *       {@code importComments} (Excel) chỉ tạo/sửa ở trạng thái DRAFT,
- *       không còn tự động route trạng thái nào. Actor có
- *       {@code academic.comment.approve} không còn được ghi/sửa thẳng ra
- *       APPROVED bỏ qua chờ duyệt nữa — muốn Gửi phải qua đúng
- *       {@code submitComments()}, vốn luôn yêu cầu actor là GV được phân
- *       công lớp ({@code requireAssignedTeacher}, không đổi) — Quản lý
- *       điểm trường không kiêm GV lớp đó tự viết 1 nhận xét DAILY thì
- *       không tự Gửi được, phải nhờ đúng GV lớp Gửi (đánh đổi đã xác nhận
- *       với người dùng, giữ code đơn giản/đồng nhất với MID_TERM/END_TERM
- *       thay vì mở lại rào riêng cho DAILY).</li>
+ *   <li>Dùng luồng DRAFT→submit (UC-21 Main Flow bước 4,
+ *       {@code submitComments})→PENDING→duyệt (UC-22) —
+ *       {@code writeComment}/{@code updateComment}/{@code importComments}
+ *       (Excel) chỉ tạo/sửa ở trạng thái DRAFT, không còn tự động route
+ *       trạng thái nào. Actor có {@code academic.comment.approve} không
+ *       còn được ghi/sửa thẳng ra APPROVED bỏ qua chờ duyệt nữa — muốn Gửi
+ *       phải qua đúng {@code submitComments()}, vốn luôn yêu cầu actor là
+ *       GV được phân công lớp ({@code requireAssignedTeacher}, không đổi)
+ *       — Quản lý điểm trường không kiêm GV lớp đó tự viết 1 nhận xét
+ *       DAILY thì không tự Gửi được, phải nhờ đúng GV lớp Gửi (đánh đổi đã
+ *       xác nhận với người dùng, giữ code đơn giản).</li>
  *   <li>Excel import (importRow): dòng ứng với nhận xét đang DRAFT/REJECTED
  *       thì sửa được (về lại DRAFT); dòng ứng với nhận xét đã PENDING/
  *       APPROVED thì báo lỗi riêng dòng đó (không chặn dòng khác, đúng
@@ -137,11 +136,8 @@ import java.util.function.Function;
  *       ({@code requireNoHomeworkConflict}, 409 nếu khác); sửa lựa chọn
  *       khi còn DRAFT hủy bản cũ + tạo bản mới ngay; comment bị từ chối
  *       (REJECTED, UC-22) KHÔNG ảnh hưởng bài đã giao (2 việc độc lập,
- *       không đổi). CHỈ áp dụng commentType=DAILY — MID_TERM/END_TERM
- *       không có "buổi kế tiếp" nên không cho chọn (xem
- *       requireNoHomeworkNextForNonDaily). "Soạn & Giao đề" (UC-40) và
- *       "Kho Video Ôn tập" (UC-23) không còn tự giao lớp — xem Javadoc
- *       ExerciseService/ReviewVideoService.</li>
+ *       không đổi). "Soạn & Giao đề" (UC-40) và "Kho Video Ôn tập" (UC-23)
+ *       không còn tự giao lớp — xem Javadoc ExerciseService/ReviewVideoService.</li>
  * </ul>
  */
 @Service
@@ -209,7 +205,6 @@ public class StudentCommentService {
     private final SchoolClassRepository schoolClassRepository;
     private final StudentRepository studentRepository;
     private final ClassSessionRepository classSessionRepository;
-    private final AcademicTermRepository academicTermRepository;
     private final ClassTeacherRepository classTeacherRepository;
     private final SiteManagerRepository siteManagerRepository;
     private final UserRepository userRepository;
@@ -234,7 +229,6 @@ public class StudentCommentService {
                                   SchoolClassRepository schoolClassRepository,
                                   StudentRepository studentRepository,
                                   ClassSessionRepository classSessionRepository,
-                                  AcademicTermRepository academicTermRepository,
                                   ClassTeacherRepository classTeacherRepository,
                                   SiteManagerRepository siteManagerRepository,
                                   UserRepository userRepository,
@@ -258,7 +252,6 @@ public class StudentCommentService {
         this.schoolClassRepository = schoolClassRepository;
         this.studentRepository = studentRepository;
         this.classSessionRepository = classSessionRepository;
-        this.academicTermRepository = academicTermRepository;
         this.classTeacherRepository = classTeacherRepository;
         this.siteManagerRepository = siteManagerRepository;
         this.userRepository = userRepository;
@@ -280,7 +273,7 @@ public class StudentCommentService {
 
     // ===================== UC-21: Viết nhận xét (TEACHER) =====================
 
-    /** Main Flow bước 1-3: lưu nháp DRAFT — dùng chung cho cả DAILY/MID_TERM/END_TERM (xem Javadoc lớp). */
+    /** Main Flow bước 1-3: lưu nháp DRAFT. */
     @Transactional
     public StudentCommentResponse writeComment(Long classId, CreateStudentCommentRequest request, Long actorUserId) {
         SchoolClass schoolClass = getClassOrThrow(classId);
@@ -288,27 +281,9 @@ public class StudentCommentService {
             throw new IllegalStateException("Lớp học \"" + schoolClass.getName() + "\" đã bị HỦY — không thể viết nhận xét.");
         }
         User actor = getUserOrThrow(actorUserId);
-        StudentComment.CommentType commentType = StudentComment.CommentType.valueOf(request.commentType());
 
-        ClassSession classSession = null;
-        AcademicTerm academicTerm = null;
-        if (commentType == StudentComment.CommentType.DAILY) {
-            if (request.classSessionId() == null || request.academicTermId() != null) {
-                throw new InvalidCommentContextException(
-                        "commentType=DAILY phải có classSessionId và không được có academicTermId.");
-            }
-            classSession = getClassSessionOrThrow(request.classSessionId());
-            requireCanWriteDailyComment(classSession, actorUserId);
-        } else {
-            if (request.academicTermId() == null || request.classSessionId() != null) {
-                throw new InvalidCommentContextException(
-                        "commentType=" + commentType + " phải có academicTermId và không được có classSessionId.");
-            }
-            requireNoHomeworkNextForNonDaily(request.homeworkNextExerciseId(), request.homeworkNextReviewVideoSetId());
-            academicTerm = academicTermRepository.findById(request.academicTermId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy kỳ học id=" + request.academicTermId()));
-            requireAssignedTeacher(classId, actorUserId);
-        }
+        ClassSession classSession = getClassSessionOrThrow(request.classSessionId());
+        requireCanWriteDailyComment(classSession, actorUserId);
         Student student = studentRepository.findByIdAndDeletedAtIsNull(request.studentId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy học sinh id=" + request.studentId()));
 
@@ -316,18 +291,15 @@ public class StudentCommentService {
         comment.setStudent(student);
         comment.setSchoolClass(schoolClass);
         comment.setTeacher(actor);
-        comment.setCommentType(commentType);
+        comment.setCommentType(StudentComment.CommentType.DAILY);
         comment.setClassSession(classSession);
-        comment.setAcademicTerm(academicTerm);
         comment.setAcademicYear(schoolClass.getAcademicYear());
         comment.setCommentDate(request.commentDate());
 
-        ExerciseAssignment grammarAssignment = classSession == null ? null
-                : resolveExerciseHomework(classSession, null, request.homeworkNextExerciseId(), null,
-                        request.homeworkNextDueDate(), actorUserId);
-        ReviewVideoAssignment videoAssignment = classSession == null ? null
-                : resolveVideoHomework(classSession, null, request.homeworkNextReviewVideoSetId(), null,
-                        request.homeworkNextDueDate(), actorUserId);
+        ExerciseAssignment grammarAssignment = resolveExerciseHomework(classSession, null, request.homeworkNextExerciseId(), null,
+                request.homeworkNextDueDate(), actorUserId);
+        ReviewVideoAssignment videoAssignment = resolveVideoHomework(classSession, null, request.homeworkNextReviewVideoSetId(), null,
+                request.homeworkNextDueDate(), actorUserId);
         applyContent(comment, request.content(), request.structuredContent(), request.severity(), request.isWarning(),
                 request.attitude(), request.homeworkPreviousScore(), request.homeworkPreviousSpeakingScore(),
                 request.homeworkNext(), grammarAssignment, videoAssignment, request.note());
@@ -338,36 +310,23 @@ public class StudentCommentService {
 
     /**
      * Main Flow bước 2, A1: sửa nội dung khi đang DRAFT hoặc sau khi bị
-     * REJECTED (quay lại DRAFT để submit lại) — dùng chung cho cả 3 biểu
-     * mẫu (DAILY/MID_TERM/END_TERM, xem Javadoc lớp). DAILY khác ở chỗ
-     * rào ghi/sửa dùng requireCanWriteDailyComment (hạn X ngày) thay vì
-     * requireAssignedTeacher thuần.
+     * REJECTED (quay lại DRAFT để submit lại).
      */
     @Transactional
     public StudentCommentResponse updateComment(Long id, UpdateStudentCommentRequest request, Long actorUserId) {
         StudentComment comment = getCommentOrThrow(id);
         User actor = getUserOrThrow(actorUserId);
-        boolean isDaily = comment.getCommentType() == StudentComment.CommentType.DAILY;
 
-        if (isDaily) {
-            requireCanWriteDailyComment(comment.getClassSession(), actorUserId);
-        } else {
-            requireNoHomeworkNextForNonDaily(request.homeworkNextExerciseId(), request.homeworkNextReviewVideoSetId());
-            requireAssignedTeacher(comment.getSchoolClass().getId(), actorUserId);
-        }
+        requireCanWriteDailyComment(comment.getClassSession(), actorUserId);
         if (comment.getStatus() != StudentComment.Status.DRAFT && comment.getStatus() != StudentComment.Status.REJECTED) {
             throw new StudentCommentNotEditableException(
                     "Nhận xét id=" + id + " đang ở trạng thái " + comment.getStatus() + " — chỉ sửa được khi DRAFT hoặc REJECTED.");
         }
 
-        ExerciseAssignment grammarAssignment = isDaily
-                ? resolveExerciseHomework(comment.getClassSession(), comment.getId(), request.homeworkNextExerciseId(),
-                        comment.getHomeworkNextExerciseAssignment(), request.homeworkNextDueDate(), actorUserId)
-                : null;
-        ReviewVideoAssignment videoAssignment = isDaily
-                ? resolveVideoHomework(comment.getClassSession(), comment.getId(), request.homeworkNextReviewVideoSetId(),
-                        comment.getHomeworkNextReviewVideoAssignment(), request.homeworkNextDueDate(), actorUserId)
-                : null;
+        ExerciseAssignment grammarAssignment = resolveExerciseHomework(comment.getClassSession(), comment.getId(), request.homeworkNextExerciseId(),
+                comment.getHomeworkNextExerciseAssignment(), request.homeworkNextDueDate(), actorUserId);
+        ReviewVideoAssignment videoAssignment = resolveVideoHomework(comment.getClassSession(), comment.getId(), request.homeworkNextReviewVideoSetId(),
+                comment.getHomeworkNextReviewVideoAssignment(), request.homeworkNextDueDate(), actorUserId);
         comment.setApprovalFlow(null);
         applyContent(comment, request.content(), request.structuredContent(), request.severity(), request.isWarning(),
                 request.attitude(), request.homeworkPreviousScore(), request.homeworkPreviousSpeakingScore(),
@@ -422,7 +381,7 @@ public class StudentCommentService {
         }
     }
 
-    /** Main Flow bước 4-5: Gửi (submit) — dùng chung cho cả DAILY/MID_TERM/END_TERM (xem Javadoc lớp). */
+    /** Main Flow bước 4-5: Gửi (submit). */
     @Transactional
     public List<StudentCommentResponse> submitComments(Long classId, SubmitCommentsRequest request, Long actorUserId) {
         requireAssignedTeacher(classId, actorUserId);
@@ -442,8 +401,7 @@ public class StudentCommentService {
                 throw new StudentCommentNotEditableException(
                         "Nhận xét id=" + comment.getId() + " đang ở trạng thái " + comment.getStatus() + " — chỉ submit được khi DRAFT.");
             }
-            if (comment.getCommentType() == StudentComment.CommentType.DAILY
-                    && (comment.getClassSession().getLessonContent() == null || comment.getClassSession().getLessonContent().isBlank())) {
+            if (comment.getClassSession().getLessonContent() == null || comment.getClassSession().getLessonContent().isBlank()) {
                 throw new MissingLessonContentException("Buổi học id=" + comment.getClassSession().getId()
                         + " chưa điền bài học hôm nay — không thể gửi duyệt.");
             }
@@ -1123,14 +1081,6 @@ public class StudentCommentService {
     // Thay thế cơ chế "chọn lại 1 bản đã giao sẵn" (V55) — chọn 1 Exercise/
     // ReviewVideoSet ở đây giờ TỰ ĐỘNG giao cho cả lớp, xem Javadoc lớp.
 
-    private void requireNoHomeworkNextForNonDaily(Long exerciseId, Long videoSetId) {
-        if (exerciseId != null || videoSetId != null) {
-            throw new InvalidCommentContextException(
-                    "BTVN buổi sau (Ngữ pháp/Video Ôn tập) chỉ áp dụng cho nhận xét Hàng ngày (DAILY) — "
-                            + "không có khái niệm \"buổi kế tiếp\" cho nhận xét theo kỳ (MID_TERM/END_TERM).");
-        }
-    }
-
     /**
      * V65: chọn 1 Exercise làm "BTVN Ngữ pháp buổi sau" — tự động giao đề
      * cho TOÀN BỘ học sinh ACTIVE của lớp (không chỉ học sinh đang được
@@ -1539,15 +1489,13 @@ public class StudentCommentService {
     }
 
     private StudentCommentResponse toResponse(StudentComment c) {
-        StudentComment previous = c.getCommentType() == StudentComment.CommentType.DAILY && c.getClassSession() != null
-                ? previousComment(c.getClassSession(), c.getStudent().getId()) : null;
+        StudentComment previous = previousComment(c.getClassSession(), c.getStudent().getId());
         ExerciseAssignment grammarNext = c.getHomeworkNextExerciseAssignment();
         ReviewVideoAssignment videoNext = c.getHomeworkNextReviewVideoAssignment();
         return new StudentCommentResponse(
                 c.getId(), c.getStudent().getId(), c.getStudent().getUser().getFullName(), c.getStudent().getDateOfBirth(),
                 c.getSchoolClass().getId(), c.getTeacher().getId(), c.getCommentType().name(),
-                c.getClassSession() == null ? null : c.getClassSession().getId(),
-                c.getAcademicTerm() == null ? null : c.getAcademicTerm().getId(),
+                c.getClassSession().getId(),
                 c.getAcademicYear() == null ? null : c.getAcademicYear().getId(),
                 c.getAcademicYear() == null ? null : c.getAcademicYear().getCode(),
                 c.getCommentDate(), c.getContent(), c.getStructuredContent(), c.getSeverity().name(), c.isWarning(),
@@ -1563,6 +1511,6 @@ public class StudentCommentService {
                 grammarNext != null ? grammarNext.getDueAt() : videoNext != null ? videoNext.getDueAt() : null,
                 grammarPreviousProgressLabel(previous), videoPreviousProgressLabel(previous),
                 resolvedOfflinePrevious(previous),
-                c.getNote(), c.getClassSession() == null ? null : c.getClassSession().getLessonContent());
+                c.getNote(), c.getClassSession().getLessonContent());
     }
 }

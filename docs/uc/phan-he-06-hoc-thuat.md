@@ -1194,20 +1194,24 @@ UC-21: Viết nhận xét học sinh
 +-----------------+----------------------------------------------------+
 | **Tác nhân**    | Giáo viên                                          |
 +-----------------+----------------------------------------------------+
-| **Mô tả tóm     | Giáo viên viết nhận xét cho học sinh theo 3 biểu   |
-| tắt**           | mẫu: Hàng ngày (thái độ), Giữa kỳ, Cuối kỳ (tổng   |
-|                 | kết năng lực).                                     |
+| **Mô tả tóm     | Giáo viên viết nhận xét Hàng ngày (thái độ) cho    |
+| tắt**           | học sinh theo buổi học. Chốt lại 2026-08-12 (đã    |
+|                 | xác nhận với người dùng) — bỏ hẳn 2 biểu mẫu Giữa  |
+|                 | kỳ/Cuối kỳ từng có trước đây; nhận xét theo kỳ     |
+|                 | đánh giá nay dùng field "Nhận xét" trong Sổ điểm   |
+|                 | (UC-19/53, `GradeEvaluationResult.comment`) thay   |
+|                 | thế.                                               |
 +-----------------+----------------------------------------------------+
-| **Sự kiện kích  | Giáo viên cần ghi nhận xét định kỳ hoặc theo ngày  |
-| hoạt**          | cho học sinh.                                      |
+| **Sự kiện kích  | Giáo viên cần ghi nhận xét theo ngày cho học sinh. |
+| hoạt**          |                                                    |
 +-----------------+----------------------------------------------------+
 | **Điều kiện     | -   Giáo viên được phân công giảng dạy lớp có học  |
 | tiên quyết      |     sinh cần nhận xét.                             |
 | (               |                                                    |
 | Precondition)** |                                                    |
 +-----------------+----------------------------------------------------+
-| **Luồng sự kiện | 1.  Giáo viên mở màn hình Nhận xét, chọn biểu mẫu: |
-| chính (Main     |     Hàng ngày/Giữa kỳ/Cuối kỳ.                     |
+| **Luồng sự kiện | 1.  Giáo viên mở màn hình Nhận xét hàng ngày của   |
+| chính (Main     |     buổi học.                                      |
 | Flow)**         |                                                    |
 |                 | 2.  Giáo viên viết nội dung nhận xét cho từng học  |
 |                 |     sinh; có thể viết rải rác nhiều lần trước khi  |
@@ -1237,8 +1241,10 @@ UC-21: Viết nhận xét học sinh
 +-----------------+----------------------------------------------------+
 
 Mở rộng --- Nhận xét Hàng ngày kiểu mới (bổ sung ngoài SDD gốc, đã xác
-nhận với người dùng 2026-07-24, kết luận họp — CHỈ áp dụng comment_type=
-DAILY, Giữa/Cuối kỳ giữ nguyên 100% luồng ở trên)
+nhận với người dùng 2026-07-24, kết luận họp). Các đoạn bên dưới còn nhắc
+tới MID_TERM/END_TERM là dấu vết lịch sử quyết định (giữ lại để đối
+chiếu) — 2 biểu mẫu này ĐÃ BỊ BỎ HẲN từ 2026-08-12 (đã xác nhận với người
+dùng), `StudentComment.CommentType` nay chỉ còn DAILY.
 
 -   Luồng thao tác: Giáo viên điểm danh buổi học (UC-15) → nhận xét từng
     học sinh của buổi đó. Học sinh Vắng/Có phép thì không cần điền các
@@ -1326,9 +1332,11 @@ DAILY, Giữa/Cuối kỳ giữ nguyên 100% luồng ở trên)
     4.  **Lớp chưa có buổi kế tiếp**: chặn hẳn, báo lỗi rõ
         (`NoUpcomingClassSessionException`) — không cho chọn đề/video làm
         BTVN buổi sau.
-    5.  **Chỉ áp dụng DAILY**: MID_TERM/END_TERM (gắn `gradePeriod`,
-        không có "buổi kế tiếp") điền 1 trong 2 field này bị chặn ngay
-        (`InvalidCommentContextException`) — phải để trống.
+    5.  ~~Chỉ áp dụng DAILY: MID_TERM/END_TERM (gắn `gradePeriod`, không
+        có "buổi kế tiếp") điền 1 trong 2 field này bị chặn ngay
+        (`InvalidCommentContextException`) — phải để trống.~~ Từ
+        2026-08-12, `student_comments` chỉ còn DAILY nên rào này đã bỏ
+        (không còn nhánh non-daily để chặn).
 
     Kênh Video áp dụng cho CẢ `CONNECTION` lẫn `REFLEX` (không chỉ REFLEX
     dù tên gọi "Video phản xạ" gợi ý — xem UC-23). Đề/video Publish nhưng
@@ -1438,10 +1446,12 @@ DAILY, Giữa/Cuối kỳ giữ nguyên 100% luồng ở trên)
     quản trị").
 
 **Bổ sung V107 (2026-08-08, đã xác nhận với người dùng) — quản trị viên
-vượt rào phân công dạy khi viết/gửi nhận xét MID_TERM/END_TERM:**
-`StudentCommentService#requireAssignedTeacher` (dùng cho tạo/sửa/gửi nhận
-xét MID_TERM/END_TERM — nhận xét DAILY đã có đường vượt rào riêng qua
-`academic.comment.approve`, xem bullet phía trên) trước đây CHỈ chấp nhận
+vượt rào phân công dạy khi viết/gửi nhận xét:** (ban đầu áp dụng cho
+MID_TERM/END_TERM — 2 biểu mẫu này đã bị bỏ từ 2026-08-12, nay
+`requireAssignedTeacher` chỉ còn dùng cho DAILY, xem đầu mục)
+`StudentCommentService#requireAssignedTeacher` (nhận xét DAILY đã có
+đường vượt rào riêng qua `academic.comment.approve`, xem bullet phía
+trên) trước đây CHỈ chấp nhận
 Giáo viên được phân công dạy đúng lớp — quản trị viên (SYS_ADMIN) dù đã có
 sẵn `academic.comment.write` ở Controller vẫn bị chặn ở Service. Thêm
 quyền `academic.comment.manage` (gán HEAD_ACADEMIC + SYS_ADMIN, migration
