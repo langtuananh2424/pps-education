@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { CheckCircle2, HelpCircle, Loader2, Lock, PartyPopper, RotateCcw, ShieldAlert, XCircle } from "lucide-react";
+import { CheckCircle2, HelpCircle, Loader2, Lock, PartyPopper, RotateCcw, ShieldAlert, X, XCircle } from "lucide-react";
 import { friendlyApiErrorMessage } from "@/lib/apiClient";
 import {
   AssignedExerciseResponse,
@@ -24,6 +24,7 @@ import {
   uploadMedia
 } from "../api";
 import { useIntegrityMonitor } from "../hooks/useIntegrityMonitor";
+import MonitoringBadge from "./MonitoringBadge";
 
 interface TakeExerciseModalProps {
   item: AssignedExerciseResponse;
@@ -117,8 +118,17 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
   // lượt làm lại (allowRetake/maxAttempts) để hiện đúng câu "bạn còn N lần để làm lại".
   const [justSubmitted, setJustSubmitted] = useState(false);
   const [exerciseMeta, setExerciseMeta] = useState<ExerciseMetaResponse | null>(null);
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-12 — bấm "Đóng" khi đang có lượt làm
+  // IN_PROGRESS phải hỏi lại (dễ đóng nhầm khi đang giám sát chống gian lận) — không hỏi khi chỉ đang
+  // xem lại 1 lượt đã chấm (không có gì để "thoát dở dang").
+  const [confirmingClose, setConfirmingClose] = useState(false);
 
   const readOnly = attempt != null && attempt.status !== "IN_PROGRESS";
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-12 — tách riêng khỏi readOnly (readOnly
+  // vẫn false khi attempt == null, vốn đúng cho việc khoá ô nhập vì chưa render câu hỏi nào cả, nhưng
+  // KHÔNG được dùng để quyết định hiện nút "Nộp bài": trước đây !readOnly cũng đúng khi attempt == null
+  // (VD load lỗi/hết lượt) nên vẫn hiện nhầm nút "Nộp bài" dù chẳng có lượt IN_PROGRESS nào để nộp.
+  const hasActiveAttempt = attempt != null && attempt.status === "IN_PROGRESS";
   /**
    * UC-24/A4, UC-27/A2: đề có giới hạn số lần làm lại (exerciseMeta.maxAttempts khác NULL) — số lượt
    * CÒN LẠI trước khi đáp án được mở khóa (mirror công thức BE: revealAnswer khi attemptNumber >=
@@ -147,25 +157,41 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
     openedRef.current = true;
     setLoading(true);
     setError(null);
-    // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05 — lượt gần nhất đã chấm xong
-    // (FULLY_GRADED) nhưng dưới ngưỡng đạt (myLatestPassed=false) thì mở LƯỢT MỚI (startAttempt,
-    // attemptNumber+1) thay vì xem lại lượt cũ đã chấm — khác các trạng thái khác (IN_PROGRESS/
-    // AUTO_GRADED/đã đạt) vẫn resume/xem lại lượt hiện có như cũ.
-    const needsRetake = item.myLatestAttemptStatus === "FULLY_GRADED" && item.myLatestPassed === false;
-    const openAttempt =
-      item.myLatestAttemptId != null && !needsRetake ? getAttempt(item.myLatestAttemptId) : startAttempt(item.exerciseId);
-    Promise.all([openAttempt, listExerciseQuestions(item.exerciseId)])
-      .then(([attemptRes, questionRes]) => {
-        setAttempt(attemptRes);
-        setQuestions([...questionRes].sort((a, b) => a.displayOrder - b.displayOrder));
-        loadAnswers(attemptRes.id);
-      })
+
+    const load = async () => {
+      // Cần exerciseMeta (maxAttempts) TRƯỚC khi quyết định có mở lượt mới hay không (đảo thứ tự so
+      // với trước — trước đây gọi song song, không chờ được).
+      const meta = await getExercise(item.exerciseId);
+      setExerciseMeta(meta);
+
+      let attemptRes: ExerciseAttemptResponse;
+      if (item.myLatestAttemptId == null) {
+        attemptRes = await startAttempt(item.exerciseId);
+      } else {
+        const latest = await getAttempt(item.myLatestAttemptId);
+        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05 — lượt gần nhất đã chấm xong
+        // (FULLY_GRADED) nhưng dưới ngưỡng đạt (myLatestPassed=false) thì mở LƯỢT MỚI (startAttempt,
+        // attemptNumber+1) thay vì xem lại lượt cũ đã chấm — khác các trạng thái khác (IN_PROGRESS/
+        // AUTO_GRADED/đã đạt) vẫn resume/xem lại lượt hiện có như cũ. SỬA 2026-08-12 (đã xác nhận với
+        // người dùng, fix bug thật): CHỈ mở lượt mới khi CÒN lượt (maxAttempts null hoặc attemptNumber
+        // < maxAttempts) — trước đây bỏ qua điều kiện còn lượt nên hết lượt vẫn cố startAttempt(),
+        // backend chặn 422 (RetakeNotAllowedException) khiến modal hiện lỗi + không có attempt nào
+        // đang IN_PROGRESS nhưng vẫn hiện nhầm nút "Nộp bài", đồng thời học sinh không bao giờ xem lại
+        // được lượt cuối cùng (lượt duy nhất đã lộ đáp án theo rào maxAttempts ở BE).
+        const stillHasRetake = meta.maxAttempts == null || latest.attemptNumber < meta.maxAttempts;
+        const needsRetake = latest.status === "FULLY_GRADED" && latest.passed === false && stillHasRetake;
+        attemptRes = needsRetake ? await startAttempt(item.exerciseId) : latest;
+      }
+
+      const questionRes = await listExerciseQuestions(item.exerciseId);
+      setAttempt(attemptRes);
+      setQuestions([...questionRes].sort((a, b) => a.displayOrder - b.displayOrder));
+      loadAnswers(attemptRes.id);
+    };
+
+    load()
       .catch((err) => setError(friendlyApiErrorMessage(err, "Không mở được đề để làm bài.")))
       .finally(() => setLoading(false));
-    // Không chặn màn làm bài nếu lỗi — dùng cho cả popup kết quả (allowRetake/passThresholdPercent)
-    // LẪN khóa đáp án theo số lần làm lại (maxAttempts, UC-24/A4-UC-27/A2) — 1 API duy nhất, thay vì
-    // gọi thêm getExerciseAttemptLimit() riêng (2 endpoint từng đọc cùng 1 field maxAttempts).
-    getExercise(item.exerciseId).then(setExerciseMeta).catch(() => undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item.exerciseId, item.myLatestAttemptId]);
 
@@ -286,15 +312,19 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+    // Lớp phủ toàn màn hình (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-12) — thay cho
+    // popup căn giữa cũ, mirror đúng pattern ReviewVideoTaskModal (fixed inset-0 bg-white z-[100]) để
+    // đồng nhất mọi dạng bài tập (trắc nghiệm/điền từ/nghe/nói/sắp xếp câu) và tận dụng hết chiều cao
+    // màn hình trên mobile lẫn desktop, không bị bó hẹp trong khung max-h-[85vh] như trước.
+    <div className="fixed inset-0 bg-white z-[100] flex flex-col">
       {/* Popup cảnh báo tức thời — hiện ngay lúc phát hiện vi phạm mới, tự mờ dần sau ~3.5s, khác banner
-          tĩnh bên dưới (chỉ đổi số đếm, học sinh dễ không để ý). Neo "fixed" ở gốc modal để luôn nổi
+          tĩnh bên dưới (chỉ đổi số đếm, học sinh dễ không để ý). Neo "fixed" ở gốc màn hình để luôn nổi
           trên cùng bất kể đang cuộn tới đâu bên trong nội dung đề. */}
       {justViolated && !stoppedByViolation && (
         <div
           key={violationCount}
           role="alert"
-          className="fixed top-6 left-1/2 z-[60] flex items-center gap-2 bg-rose-600 text-white pl-3 pr-4 py-2.5 rounded-2xl shadow-xl animate-alert-pop"
+          className="fixed top-4 sm:top-6 left-1/2 -translate-x-1/2 z-[110] flex items-center gap-2 bg-rose-600 text-white pl-3 pr-4 py-2.5 rounded-2xl shadow-xl animate-alert-pop max-w-[92vw]"
         >
           <ShieldAlert size={18} className="shrink-0" />
           <span className="text-xs font-black">Đã ghi nhận: bạn vừa thoát ra ngoài khi đang làm bài!</span>
@@ -303,7 +333,7 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
 
       {/* Cảnh báo mạnh — chặn tương tác, khác hẳn toast nhỏ ở trên — hiện đúng 1 lần khi vừa bị dừng ép. */}
       {stoppedByViolation && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[70]">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[120]">
           <div className="bg-white rounded-[20px] w-full max-w-md p-6 space-y-4 text-center shadow-xl">
             <ShieldAlert size={40} className="text-rose-600 mx-auto" />
             <h3 className="text-base font-black text-ink">Bài làm đã bị dừng</h3>
@@ -339,34 +369,71 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
         />
       )}
 
-      <div className="bg-white rounded-[20px] w-full max-w-2xl max-h-[85vh] flex flex-col shadow-xl">
-        <div className="p-6 border-b border-line/60 flex items-center justify-between gap-3 shrink-0">
-          <div>
-            <h3 className="text-lg font-extrabold text-ink">{item.title}</h3>
+      <div className="border-b border-line/60 shrink-0">
+        <div className="max-w-2xl lg:max-w-3xl w-full mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h3 className="text-lg sm:text-xl lg:text-2xl font-extrabold text-ink truncate">{item.title}</h3>
             {attempt && (
-              <p className="text-[10px] text-muted font-bold mt-0.5">
+              <p className="text-[10px] sm:text-xs text-muted font-bold mt-0.5">
                 Lượt làm #{attempt.attemptNumber} ·{" "}
                 {attempt.status === "IN_PROGRESS" ? "Đang làm" : attempt.status === "FULLY_GRADED" ? "Đã có điểm" : "Đã nộp — chờ chấm tự luận/nói"}
                 {attempt.totalScore != null && ` · Điểm: ${attempt.totalScore}`}
               </p>
             )}
           </div>
-          <button onClick={onClose} className="text-xs font-extrabold text-muted hover:text-ink px-3 py-1.5 rounded-lg hover:bg-sky-2">
-            Đóng
-          </button>
-        </div>
-
-        {isMonitoringActive && (
-          <div className="px-6 py-2 bg-amber-50 border-b border-amber-100 flex items-center gap-1.5 shrink-0">
-            <ShieldAlert size={13} className="text-amber-600 shrink-0" />
-            <span className="text-[11px] font-bold text-amber-800">
-              Đang giám sát quá trình làm bài — thoát ra ngoài (đổi tab/thu nhỏ) sẽ được ghi nhận.
-              {violationCount > 0 && ` Đã ghi nhận ${violationCount} lần.`}
-            </span>
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Chip ghim góc (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-12) — thay cho
+                banner amber căng hết chiều rộng trước đây, gọn lại thành 1 badge nhỏ ngay cạnh nút Đóng,
+                bấm/hover mới hiện đủ dòng cảnh báo. */}
+            {isMonitoringActive && <MonitoringBadge violationCount={violationCount} />}
+            <button
+              onClick={() => (hasActiveAttempt ? setConfirmingClose(true) : onClose())}
+              aria-label="Đóng"
+              // Làm nổi bật (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-12) — trước đây
+              // chỉ là link chữ mờ dễ bỏ sót, giờ là nút tròn viền đỏ nhạt, dễ nhận biết hành động thoát.
+              className="shrink-0 flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 transition-colors"
+            >
+              <X size={18} className="sm:w-5 sm:h-5" />
+            </button>
           </div>
-        )}
+        </div>
+      </div>
 
-        <div className="p-6 overflow-y-auto flex-1 space-y-5">
+      {/* Cảnh báo trước khi đóng (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-12) — chỉ
+          hỏi khi đang có lượt IN_PROGRESS (dễ đóng nhầm lúc đang bị giám sát chống gian lận); xem lại
+          1 lượt đã chấm thì đóng thẳng, không cần hỏi. */}
+      {confirmingClose && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[120]">
+          <div className="bg-white rounded-[20px] w-full max-w-sm p-6 space-y-4 text-center shadow-xl">
+            <ShieldAlert size={36} className="text-amber-600 mx-auto" />
+            <h3 className="text-base font-black text-ink">Đóng bài đang làm?</h3>
+            <p className="text-xs font-bold text-muted leading-relaxed">
+              Bạn vẫn đang làm bài này. Câu trả lời đã lưu sẽ được giữ nguyên và bạn có thể tiếp tục sau,
+              nhưng thoát giữa chừng khi đang bị giám sát có thể bị ghi nhận là rời khỏi bài làm.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <button
+                onClick={() => setConfirmingClose(false)}
+                className="flex-1 px-4 py-2.5 bg-white hover:bg-slate-100 border border-line rounded-xl text-xs font-extrabold text-ink"
+              >
+                Ở lại làm bài
+              </button>
+              <button
+                onClick={() => {
+                  setConfirmingClose(false);
+                  onClose();
+                }}
+                className="flex-1 px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-extrabold"
+              >
+                Vẫn đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-2xl lg:max-w-3xl w-full mx-auto p-4 sm:p-6 space-y-5">
           {error && <div className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-xl">{error}</div>}
 
           {loading ? (
@@ -416,9 +483,11 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
             )
           )}
         </div>
+      </div>
 
-        {!readOnly && confirmingSubmit && (
-          <div className="px-4 py-3 border-t border-line/60 bg-amber-50 flex flex-wrap items-center justify-between gap-2 shrink-0">
+      {hasActiveAttempt && confirmingSubmit && (
+        <div className="border-t border-line/60 bg-amber-50 shrink-0">
+          <div className="max-w-2xl lg:max-w-3xl w-full mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-2">
             <span className="text-xs font-bold text-amber-800">Nộp bài ngay? Sau khi nộp sẽ không sửa được câu trả lời nữa.</span>
             <div className="flex gap-2 shrink-0">
               <button
@@ -439,20 +508,35 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
               </button>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {!readOnly && !confirmingSubmit && (
-          <div className="p-4 border-t border-line/60 flex justify-end shrink-0">
+      {hasActiveAttempt && !confirmingSubmit && (
+        <div className="border-t border-line/60 shrink-0">
+          <div className="max-w-2xl lg:max-w-3xl w-full mx-auto px-4 sm:px-6 py-3 sm:py-4 flex justify-end">
             <button
               onClick={() => setConfirmingSubmit(true)}
               disabled={submitting || loading}
-              className="text-xs font-extrabold text-white bg-teal px-5 py-2.5 rounded-xl disabled:opacity-50"
+              className="text-sm sm:text-base font-extrabold text-white bg-teal px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl disabled:opacity-50"
             >
               {submitting ? "Đang nộp..." : "Nộp bài"}
             </button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-12 — không còn lượt IN_PROGRESS nào
+          để nộp (đang xem lại lượt đã chấm, hoặc hết lượt làm lại) thì thanh dưới cùng phải là "Thoát",
+          không phải "Nộp bài" — trước đây thiếu nhánh này nên khi hết lượt vẫn hiện nhầm "Nộp bài". */}
+      {!hasActiveAttempt && !loading && (
+        <div className="border-t border-line/60 shrink-0">
+          <div className="max-w-2xl lg:max-w-3xl w-full mx-auto px-4 sm:px-6 py-3 sm:py-4 flex justify-end">
+            <button onClick={onClose} className="text-xs font-extrabold text-white bg-slate-600 hover:bg-slate-700 px-5 py-2.5 rounded-xl">
+              Thoát
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -496,7 +580,7 @@ function SubmitResultPopup({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[70]">
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[110]">
       <div className="bg-white rounded-[20px] w-full max-w-md p-6 space-y-4 text-center shadow-xl">
         {!fullyGraded ? (
           <>
@@ -594,9 +678,9 @@ function QuestionBlock({
   };
 
   return (
-    <div className="border border-line/60 rounded-[16px] p-4 space-y-3">
+    <div className="border border-line/60 rounded-[16px] p-4 sm:p-5 lg:p-6 space-y-3 lg:space-y-4">
       <div className="flex items-start justify-between gap-3">
-        <p className="text-sm font-bold text-ink">
+        <p className="text-sm sm:text-base lg:text-lg font-bold text-ink">
           {question.displayOrder}. {question.questionContent}
         </p>
         <div className="flex items-center gap-2 shrink-0">
@@ -609,14 +693,14 @@ function QuestionBlock({
               readOnly={readOnly}
             />
           )}
-          <span className="text-[10px] text-muted font-bold">{question.points} đ</span>
+          <span className="text-[10px] sm:text-xs text-muted font-bold">{question.points} đ</span>
         </div>
       </div>
 
       <ListeningAudioBlock question={question} onEnded={() => onListeningEnded(question)} />
 
       {isChoiceQuestion ? (
-        <div className="space-y-2">
+        <div className="space-y-2 lg:space-y-2.5">
           {question.choices.map((c) => {
             const isSelected = selected.has(c.id);
             const isCorrectChoice = correctIds.has(c.id);
@@ -633,7 +717,7 @@ function QuestionBlock({
                 type="button"
                 disabled={readOnly || saving}
                 onClick={() => toggleChoice(c.id)}
-                className={`w-full text-left text-xs font-bold px-3 py-2.5 rounded-xl border transition-colors flex items-center justify-between gap-2 ${stateClass} disabled:cursor-default`}
+                className={`w-full text-left text-xs sm:text-sm lg:text-base font-bold px-3 py-2.5 sm:px-4 sm:py-3 rounded-xl border transition-colors flex items-center justify-between gap-2 ${stateClass} disabled:cursor-default`}
               >
                 <span>
                   <span className="text-muted mr-1.5">{c.choiceLabel}.</span>
@@ -687,7 +771,7 @@ function QuestionBlock({
             disabled={readOnly || saving}
             rows={isFillInBlank ? 1 : 3}
             placeholder="Nhập câu trả lời..."
-            className="w-full bg-sky-2 border border-line/70 text-xs p-3 rounded-xl focus:outline-none disabled:opacity-70"
+            className="w-full bg-sky-2 border border-line/70 text-xs sm:text-sm lg:text-base p-3 sm:p-4 rounded-xl focus:outline-none disabled:opacity-70"
           />
           {isFillInBlank && showFeedback && (
             <div className={`flex items-center gap-1.5 text-xs font-bold ${answer?.isCorrect ? "text-teal-deep" : "text-coral"}`}>
@@ -941,7 +1025,7 @@ function WordBankBlock({
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-x-1.5 gap-y-2 text-sm font-bold text-ink leading-8">
+    <div className="flex flex-wrap items-center gap-x-1.5 gap-y-2 text-sm sm:text-base lg:text-lg font-bold text-ink leading-8 lg:leading-10">
       {parts.map((part, idx) => (
         <React.Fragment key={idx}>
           {part && <span>{part}</span>}
@@ -950,7 +1034,7 @@ function WordBankBlock({
               value={selections[idx]}
               disabled={readOnly || saving}
               onChange={(e) => handleSelect(idx, e.target.value)}
-              className="bg-sky-2 border border-line/70 text-xs font-bold px-2 py-1.5 rounded-lg focus:outline-none disabled:opacity-70"
+              className="bg-sky-2 border border-line/70 text-xs sm:text-sm lg:text-base font-bold px-2 py-1.5 sm:px-3 sm:py-2 rounded-lg focus:outline-none disabled:opacity-70"
             >
               <option value="">— chọn —</option>
               {wordPool
@@ -1089,8 +1173,10 @@ function GridQuestionGroup({
     return a != null && a.isAutoGradable && a.isCorrect != null && !isAnswerRevealed(a);
   });
   return (
-    <div className="border border-line/60 rounded-[16px] p-4 space-y-3">
-      {block.referencePassage && <p className="text-xs text-ink whitespace-pre-wrap bg-sky-2 rounded-xl p-3">{block.referencePassage}</p>}
+    <div className="border border-line/60 rounded-[16px] p-4 sm:p-5 lg:p-6 space-y-3 lg:space-y-4">
+      {block.referencePassage && (
+        <p className="text-xs sm:text-sm lg:text-base text-ink whitespace-pre-wrap bg-sky-2 rounded-xl p-3 sm:p-4">{block.referencePassage}</p>
+      )}
       {block.audioUrl && (
         // eslint-disable-next-line jsx-a11y/media-has-caption
         <audio controls src={block.audioUrl} className="w-full" onEnded={() => onListeningEnded(block.questions[0])} />
@@ -1106,9 +1192,9 @@ function GridQuestionGroup({
           const isFillInBlankRow = q.questionType === "FILL_IN_BLANK";
           const isSpeakingRow = q.questionType === "SPEAKING";
           return (
-            <div key={q.id} className="py-2.5 space-y-2">
+            <div key={q.id} className="py-2.5 lg:py-3.5 space-y-2">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-bold text-ink flex-1 min-w-[160px]">
+                <span className="text-xs sm:text-sm lg:text-base font-bold text-ink flex-1 min-w-[160px]">
                   {q.displayOrder}. {q.questionContent}
                 </span>
                 {q.skill === "LISTENING" && attemptId != null && (
@@ -1138,7 +1224,7 @@ function GridQuestionGroup({
                           type="button"
                           disabled={readOnly || saving}
                           onClick={() => onChoiceToggle(q.questionId, [c.id])}
-                          className={`w-8 h-8 rounded-lg border text-[11px] font-bold transition-colors disabled:cursor-default ${cls}`}
+                          className={`w-8 h-8 sm:w-9 sm:h-9 lg:w-10 lg:h-10 rounded-lg border text-[11px] sm:text-xs lg:text-sm font-bold transition-colors disabled:cursor-default ${cls}`}
                         >
                           {c.choiceLabel}
                         </button>
@@ -1156,7 +1242,7 @@ function GridQuestionGroup({
                     onBlur={() => onTextBlur(q.questionId)}
                     disabled={readOnly || saving}
                     placeholder="Nhập câu trả lời..."
-                    className="w-full bg-sky-2 border border-line/70 text-xs p-2.5 rounded-xl focus:outline-none disabled:opacity-70"
+                    className="w-full bg-sky-2 border border-line/70 text-xs sm:text-sm lg:text-base p-2.5 sm:p-3 rounded-xl focus:outline-none disabled:opacity-70"
                   />
                   {showFeedback && (
                     <div className={`flex items-center gap-1.5 text-xs font-bold ${answer?.isCorrect ? "text-teal-deep" : "text-coral"}`}>

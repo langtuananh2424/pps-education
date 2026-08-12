@@ -1215,10 +1215,10 @@ export default function DailyLearningProgressTab({
                           "—"
                         )}
                       </td>
-                      <td className="p-3 border-r border-slate-300 align-top">{log.homeworkPreviousOfflineText || "—"}</td>
-                      <td className="p-3 border-r border-slate-300 font-bold text-slate-800 align-top">{log.homeworkPreviousScore || log.grammarPreviousProgress || "—"}</td>
-                      <td className="p-3 border-r border-slate-300 font-bold text-purple-900 align-top">{log.homeworkPreviousSpeakingScore || log.videoPreviousProgress || "—"}</td>
-                      <td className="p-3 border-r border-slate-300 align-top">{log.homeworkNextOfflineText || "—"}</td>
+                      <td className="p-3 border-r border-slate-300 align-top">{log.homeworkPreviousOfflineText + "%" || "—"}</td>
+                      <td className="p-3 border-r border-slate-300 font-bold text-slate-800 align-top">{log.homeworkPreviousScore || log.grammarPreviousProgress + "%" || "—"}</td>
+                      <td className="p-3 border-r border-slate-300 font-bold text-purple-900 align-top">{log.homeworkPreviousSpeakingScore || log.videoPreviousProgress + "%" || "—"}</td>
+                      <td className="p-3 border-r border-slate-300 align-top">{log.homeworkNextOfflineText + "%" || "—"}</td>
                       <td className="p-3 border-r border-slate-300 text-slate-800 font-semibold align-top">
                         {renderGrammarLabel(log, "font-semibold")}
                       </td>
