@@ -220,7 +220,7 @@ export interface StudentProfileComment {
   id: number;
   classId: number;
   className: string;
-  commentType: "DAILY" | "MID_TERM" | "END_TERM";
+  commentType: "DAILY";
   commentDate: string;
   content: string;
   severity: string;

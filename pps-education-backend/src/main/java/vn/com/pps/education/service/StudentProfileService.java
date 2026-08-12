@@ -181,16 +181,14 @@ public class StudentProfileService {
 
     private StudentProfileCommentResponse toCommentDto(StudentComment c, Map<Long, List<AcademicTerm>> termsBySite,
                                                          Map<Long, Integer> sessionNumberBySessionId) {
-        AcademicTerm term = c.getAcademicTerm() != null ? c.getAcademicTerm()
-                : resolveTermForDate(c.getSchoolClass().getSite().getId(), c.getCommentDate(), termsBySite);
-        Long classSessionId = c.getClassSession() == null ? null : c.getClassSession().getId();
+        AcademicTerm term = resolveTermForDate(c.getSchoolClass().getSite().getId(), c.getCommentDate(), termsBySite);
+        Long classSessionId = c.getClassSession().getId();
         return new StudentProfileCommentResponse(
                 c.getId(), c.getSchoolClass().getId(), c.getSchoolClass().getName(), c.getCommentType().name(), c.getCommentDate(),
                 c.getContent(), c.getSeverity().name(), c.isWarning(), c.getAttitude() == null ? null : c.getAttitude().name(),
                 c.getStatus().name(), term == null ? null : term.getId(), term == null ? null : term.getName(),
                 c.getAcademicYear() == null ? null : c.getAcademicYear().getName(),
-                classSessionId, classSessionId == null ? null : sessionNumberBySessionId.get(classSessionId),
-                c.getClassSession() == null ? null : c.getClassSession().getSessionDate());
+                classSessionId, sessionNumberBySessionId.get(classSessionId), c.getClassSession().getSessionDate());
     }
 
     private StudentProfileAttendanceResponse toAttendanceDto(AttendanceMark m, Map<Long, List<AcademicTerm>> termsBySite,

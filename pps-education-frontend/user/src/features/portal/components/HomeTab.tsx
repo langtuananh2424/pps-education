@@ -4,8 +4,6 @@ import { ApiError } from "@/lib/apiClient";
 import { clampLines } from "@/lib/textClamp";
 import { listComments, listMyComments, listMyNotifications, NotificationResponse, StudentCommentResponse } from "../api";
 
-const COMMENT_TYPE_LABEL: Record<string, string> = { DAILY: "Hàng ngày", MID_TERM: "Giữa kỳ", END_TERM: "Cuối kỳ" };
-
 interface HomeTabProps {
   studentName: string;
   classId: number | null;
@@ -175,7 +173,7 @@ export default function HomeTab({ studentName, classId, parentStudentId }: HomeT
                 <div key={c.id} className="border-b border-line last:border-0 pb-4 last:pb-0 space-y-1">
                   <div className="flex justify-between items-center">
                     <span className="px-2 py-0.5 bg-teal/10 text-teal-deep text-[10px] font-extrabold rounded-full border border-teal/20">
-                      {COMMENT_TYPE_LABEL[c.commentType] ?? c.commentType}
+                      Hàng ngày
                     </span>
                     <span className="text-xs text-muted font-semibold">{c.commentDate}</span>
                   </div>

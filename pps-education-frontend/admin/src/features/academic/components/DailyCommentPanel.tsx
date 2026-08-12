@@ -503,7 +503,6 @@ export default function DailyCommentPanel() {
             ? updateComment(existing.id, payload)
             : writeComment(selectedClassId, {
                 studentId: r.studentId,
-                commentType: "DAILY",
                 classSessionId: selectedSession.id,
                 commentDate: selectedSession.sessionDate,
                 ...payload

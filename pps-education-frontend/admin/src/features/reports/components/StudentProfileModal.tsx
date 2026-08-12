@@ -208,8 +208,7 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
 
   const dailyComments = profile.allComments.filter((c) => c.commentType === "DAILY");
 
-  // Lọc ở tab Nhận xét: loại / năm học / kỳ / buổi / khoảng ngày.
-  const [commentTypeFilter, setCommentTypeFilter] = useState<string>("ALL");
+  // Lọc ở tab Nhận xét: năm học / kỳ / buổi / khoảng ngày.
   const [commentYearFilter, setCommentYearFilter] = useState<string>("ALL");
   const [commentTermFilter, setCommentTermFilter] = useState<string>("ALL");
   const [commentSessionFilter, setCommentSessionFilter] = useState<string>("ALL");
@@ -241,19 +240,17 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
     () =>
       profile.allComments.filter(
         (c) =>
-          (commentTypeFilter === "ALL" || c.commentType === commentTypeFilter) &&
           (commentYearFilter === "ALL" || c.academicYear === commentYearFilter) &&
           (commentTermFilter === "ALL" || c.academicTermName === commentTermFilter) &&
           (commentSessionFilter === "ALL" || commentSessionLabel(c) === commentSessionFilter) &&
           (!commentDateFrom || c.commentDate >= commentDateFrom) &&
           (!commentDateTo || c.commentDate <= commentDateTo)
       ),
-    [profile.allComments, commentTypeFilter, commentYearFilter, commentTermFilter, commentSessionFilter, commentDateFrom, commentDateTo]
+    [profile.allComments, commentYearFilter, commentTermFilter, commentSessionFilter, commentDateFrom, commentDateTo]
   );
   const hasCommentFilter =
-    commentTypeFilter !== "ALL" || commentYearFilter !== "ALL" || commentTermFilter !== "ALL" || commentSessionFilter !== "ALL" || !!commentDateFrom || !!commentDateTo;
+    commentYearFilter !== "ALL" || commentTermFilter !== "ALL" || commentSessionFilter !== "ALL" || !!commentDateFrom || !!commentDateTo;
   const clearCommentFilters = () => {
-    setCommentTypeFilter("ALL");
     setCommentYearFilter("ALL");
     setCommentTermFilter("ALL");
     setCommentSessionFilter("ALL");
@@ -593,16 +590,6 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
                 <div className="bg-white border border-slate-200/60 rounded-xl p-3 shadow-sm flex flex-wrap items-center gap-3 sticky top-0 z-10">
                   <span className="text-xs font-semibold text-slate-500">Lọc:</span>
                   <select
-                    value={commentTypeFilter}
-                    onChange={(e) => setCommentTypeFilter(e.target.value)}
-                    className="border border-slate-300 rounded-lg text-xs px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
-                  >
-                    <option value="ALL">Tất cả</option>
-                    <option value="DAILY">Hàng ngày</option>
-                    <option value="MID_TERM">Giữa kỳ</option>
-                    <option value="END_TERM">Cuối kỳ</option>
-                  </select>
-                  <select
                     value={commentYearFilter}
                     onChange={(e) => { setCommentYearFilter(e.target.value); setCommentTermFilter("ALL"); }}
                     className="border border-slate-300 rounded-lg text-xs px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
@@ -662,9 +649,7 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
                     <div className="flex items-center justify-between gap-2 mb-2">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xs text-slate-500">{c.commentDate}</span>
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${c.commentType === "DAILY" ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"}`}>
-                          {c.commentType === "DAILY" ? "Hàng ngày" : c.commentType === "MID_TERM" ? "Giữa kỳ" : "Cuối kỳ"}
-                        </span>
+                        <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-blue-100 text-blue-700">Hàng ngày</span>
                         {commentSessionLabel(c) && <span className="text-xs text-slate-400">{commentSessionLabel(c)}</span>}
                         {c.academicTermName && <span className="text-xs text-slate-400">{c.academicTermName}{c.academicYear ? ` · ${c.academicYear}` : ""}</span>}
                       </div>

@@ -17,7 +17,7 @@ import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
 import { useDialog } from "@/components/ui/DialogProvider";
 import NotificationBanner from "@/features/student/components/NotificationBanner";
 
-const commentTypeLabels: Record<StudentCommentResponse["commentType"], string> = { DAILY: "Hàng ngày", MID_TERM: "Giữa kỳ", END_TERM: "Cuối kỳ" };
+const commentTypeLabels: Record<StudentCommentResponse["commentType"], string> = { DAILY: "Hàng ngày" };
 /** Thang thái độ chốt lại 2026-08-12 (StudentComment.Attitude). */
 const attitudeLabels: Record<NonNullable<StudentCommentResponse["attitude"]>, string> = {
   WEAK: "Yếu",

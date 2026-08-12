@@ -13,8 +13,12 @@ import java.util.UUID;
 
 /**
  * Bảng student_comments (SDD > Học thuật > Nhận xét định kỳ > a) — nhận
- * xét học sinh theo 3 biểu mẫu (UC-21 Viết nhận xét, UC-22 Duyệt nhận
- * xét). Workflow DRAFT→PENDING(submit)→APPROVED/REJECTED, dùng chung
+ * xét học sinh hàng ngày theo buổi học (UC-21 Viết nhận xét, UC-22 Duyệt
+ * nhận xét). Chốt lại 2026-08-12 (đã xác nhận với người dùng) — bỏ hẳn 2
+ * biểu mẫu MID_TERM/END_TERM (nhận xét theo kỳ đánh giá), nay chỉ còn 1
+ * biểu mẫu DAILY; nhận xét theo kỳ đánh giá dùng field {@code comment}
+ * trong {@link GradeEvaluationResult} (sổ điểm, UC-19/53) thay thế.
+ * Workflow DRAFT→PENDING(submit)→APPROVED/REJECTED, dùng chung
  * ApprovalFlow (entity_type=STUDENT_COMMENT) — xem Javadoc StudentCommentService.
  */
 @Getter
@@ -23,7 +27,8 @@ import java.util.UUID;
 @Table(name = "student_comments")
 public class StudentComment {
 
-    public enum CommentType { DAILY, MID_TERM, END_TERM }
+    /** Chốt lại 2026-08-12 (đã xác nhận với người dùng) — bỏ hẳn MID_TERM/END_TERM (nhận xét theo kỳ đánh giá), thay bằng field {@code comment} trong {@link GradeEvaluationResult} (sổ điểm, UC-19/53). Chỉ còn DAILY. */
+    public enum CommentType { DAILY }
 
     public enum Severity { POSITIVE, NORMAL, CONCERN, WARNING }
 
@@ -37,8 +42,8 @@ public class StudentComment {
      * mức quy đổi 1 tỷ lệ % cố định, dùng để tính "Thái độ học tập"
      * trung bình (Portal): WEAK=Yếu 20%, AVERAGE=Trung bình 50%,
      * FAIR=Khá 70%, GOOD=Tốt 90%, EXCELLENT=Xuất sắc 100%. Cột DB chỉ là
-     * VARCHAR(20) thường (không CHECK constraint) — dữ liệu thật trước
-     * đổi chỉ dùng mỗi GOOD nên đổi enum không cần migration backfill.
+     * VARCHAR(20) thường (không CHECK constraint) — dữ liệu cũ có
+     * ABOVE_AVERAGE đã được backfill sang FAIR bởi V116 (xem migration).
      */
     public enum Attitude { WEAK, AVERAGE, FAIR, GOOD, EXCELLENT }
 
@@ -65,17 +70,11 @@ public class StudentComment {
     @Column(name = "comment_type", nullable = false, length = 20)
     private CommentType commentType;
 
-    /** Chỉ set khi commentType=DAILY (SDD). */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "class_session_id")
+    @JoinColumn(name = "class_session_id", nullable = false)
     private ClassSession classSession;
 
-    /** Chỉ set khi commentType=MID_TERM/END_TERM. V95 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng): đổi từ GradePeriod (theo curriculum) sang AcademicTerm (theo kỳ học). */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "academic_term_id")
-    private AcademicTerm academicTerm;
-
-    /** Copy từ schoolClass.academicYear tại thời điểm tạo, áp dụng cho cả DAILY lẫn MID_TERM/END_TERM (V102/V103, bổ sung ngoài SDD gốc, đã xác nhận với người dùng). */
+    /** Copy từ schoolClass.academicYear tại thời điểm tạo (V102/V103, bổ sung ngoài SDD gốc, đã xác nhận với người dùng). */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "academic_year_id")
     private AcademicYear academicYear;
