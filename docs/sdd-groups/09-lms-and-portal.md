@@ -343,6 +343,18 @@ nào của review_video_progress ban đầu)
                                                                 lượt này
                                                                 (NULL = chưa)
 
+  slot_index             INT                     NULL           V115, bổ sung
+                                                                ngoài SDD gốc
+                                                                (2026-08-11) —
+                                                                CHỈ có ý nghĩa
+                                                                với CONNECTION:
+                                                                lượt này ứng
+                                                                với nhóm câu
+                                                                hỏi số mấy
+                                                                (1..M, xem
+                                                                bảng d3). NULL
+                                                                với REFLEX.
+
   started_at,             TIMESTAMPTZ             NOT NULL       BaseAuditEntity
   updated_at
   --------------------------------------------------------------------------
@@ -447,6 +459,59 @@ nộp được 1 lần (`quiz_completed_at` set xong thì khoá, không cho nộ
 Publish 1 bộ CONNECTION giờ chặn nếu còn video chưa có ≥ 1 câu hỏi (xem
 `ReviewVideoService#requireConnectionVideosHaveQuestions`, gọi từ
 `updateSet`).
+
+**V115 (2026-08-11, đã xác nhận với người dùng) — không còn phải trả lời
+TOÀN BỘ N câu hỏi mỗi lượt:** `is_qualified=true` giờ nghĩa là xem HẾT
+100% (cố định, không còn đọc `completion_threshold_percent` cho CONNECTION
+nữa — field đó đổi ý nghĩa, xem bảng d3). Học sinh chỉ cần trả lời ĐÚNG
+nhóm câu hỏi đã gán cho `slot_index` của lượt đó (không phải toàn bộ N câu)
+— xem `ReviewVideoService#submitConnectionAnswers`/`ensureConnectionQuestionSlotsAssigned`.
+
+d3) Bảng review_video_connection_question_slots --- Phân bổ câu hỏi
+CONNECTION theo nhóm/lượt, RIÊNG từng học sinh (MỚI HOÀN TOÀN, V115,
+2026-08-11, bổ sung ngoài SDD gốc đã xác nhận với người dùng)
+
+  --------------------------------------------------------------------------
+  **Cột**                              **Kiểu**      **Ràng buộc**   **Ghi chú**
+  ------------------------------------ ------------- --------------- --------
+  id                                    BIGSERIAL     PK
+
+  review_video_connection_question_id   BIGINT        FK →
+                                                       review_video_
+                                                       connection_
+                                                       questions(id),
+                                                       NOT NULL
+
+  student_id                            BIGINT        FK →
+                                                       students(id),
+                                                       NOT NULL
+
+  slot_index                            INT           NOT NULL        Nhóm số
+                                                                       mấy
+                                                                       (1..M)
+
+  created_at, updated_at                TIMESTAMPTZ   NOT NULL        BaseAuditEntity
+  --------------------------------------------------------------------------
+
+  UNIQUE (review_video_connection_question_id, student_id) — 1 câu hỏi chỉ
+  thuộc ĐÚNG 1 nhóm cho 1 học sinh.
+
+Sinh 1 LẦN DUY NHẤT lúc học sinh mở lượt xem đầu tiên của video
+(`startWatchSession`): N câu hỏi được xáo trộn ngẫu nhiên rồi chia đều
+nhất có thể vào M nhóm (M = `review_videos.required_view_count`) — NHÓM
+ĐẦU nhận số câu dư nếu N không chia hết M (VD 10 câu/3 lượt = 4,3,3). Xem
+lại đúng lượt nào (theo `slot_index` trên watch session, chu kỳ modulo M
+nếu xem quá M lượt) nhận lại đúng nhóm câu hỏi đó, không random lại — xem
+`ReviewVideoService#ensureConnectionQuestionSlotsAssigned`.
+
+**`review_videos.completion_threshold_percent` đổi ý nghĩa CHO CONNECTION**
+(V115) — từ "ngưỡng % xem để 1 lượt được tính hợp lệ" (ý nghĩa GỐC, REFLEX
+vẫn dùng y hệt, không đổi) sang **"ngưỡng % pass điểm trắc nghiệm tổng"**:
+tổng số câu trả lời ĐÚNG (bản mới nhất mỗi câu hỏi, xem
+`review_video_connection_answers.answered_at`) / TỔNG N câu hỏi của video,
+gộp MỌI lượt — dùng tính "% đạt" cho BTVN CONNECTION ở UC-66 (xem
+`ReviewVideoService#isConnectionVideoPassed`,
+`ReviewVideoAssignmentStatsResponse.passedCount/passRatePercent`).
 
 e)  Bảng review_video_question_submissions --- Audio Học sinh nộp cho 1
 câu hỏi + Giáo viên chấm điểm (thay thế review_video_submissions cũ, V57)

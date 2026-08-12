@@ -1042,6 +1042,14 @@ export function listComments(classId: number, studentId: number): Promise<Studen
   return apiRequest<StudentCommentResponse[]>(`/classes/${classId}/comments?studentId=${studentId}`);
 }
 
+/**
+ * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-12) — TOÀN BỘ nhận xét của cả lớp trong 1
+ * lần gọi, thay N request/học sinh (StudentCommentResponse đã có studentId, tự gom theo học sinh ở FE).
+ */
+export function listCommentsForClass(classId: number): Promise<StudentCommentResponse[]> {
+  return apiRequest<StudentCommentResponse[]>(`/classes/${classId}/comments`);
+}
+
 export function writeComment(classId: number, request: CreateStudentCommentRequest): Promise<StudentCommentResponse> {
   return apiRequest<StudentCommentResponse>(`/classes/${classId}/comments`, { method: "POST", body: JSON.stringify(request) });
 }
@@ -1128,6 +1136,8 @@ export interface ExerciseAssignmentStatsResponse {
   exerciseCode: string;
   exerciseTitle: string;
   exerciseType: "SELF_PRACTICE" | "ASSIGNED" | "MOCK_TEST" | "SKILL_PRACTICE";
+  /** Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-11) — lấy qua Đề cha (exam.teacherType). */
+  teacherType: "VIETNAMESE" | "FOREIGN";
   availableFrom: string;
   dueAt: string | null;
   status: "ACTIVE" | "COMPLETED";

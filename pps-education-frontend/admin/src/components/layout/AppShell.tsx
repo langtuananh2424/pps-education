@@ -18,10 +18,16 @@ export default function AppShell() {
 
       <Sidebar />
 
-      <div className="flex-1 flex flex-col lg:pl-[288px] min-h-screen lg:pr-4 lg:py-4">
+      {/* min-w-0 bắt buộc trên CẢ 2 cấp flex item (div này VÀ <main> bên trong) — flex item mặc định
+          min-width:auto (không co nhỏ hơn nội dung con), nếu chỉ đặt ở 1 cấp thì cấp còn lại vẫn tự
+          giãn theo bảng rộng, kéo theo toàn bộ cột này giãn rộng chứ không bị giới hạn theo viewport —
+          khiến overflow-x-hidden ở <main> không bao giờ thật sự kích hoạt (main giãn theo đúng bề rộng
+          nội dung nên "clip" 0px), TableContainer bên trong cũng không cuộn ngang được vì cha nó đã đủ
+          rộng để chứa hết bảng rồi. */}
+      <div className="flex-1 min-w-0 flex flex-col lg:pl-[288px] min-h-screen lg:pr-4 lg:py-4">
         <Header />
 
-        <main className="flex-1 bg-white rounded-3xl border border-slate-200/40 shadow-soft p-4 md:p-8 animate-in fade-in duration-300 overflow-x-hidden">
+        <main className="flex-1 min-w-0 bg-white rounded-3xl border border-slate-200/40 shadow-soft p-4 md:p-8 animate-in fade-in duration-300 overflow-x-hidden">
           <Outlet />
         </main>
       </div>
