@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Award, TrendingDown, TrendingUp } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import {
+  AcademicTermResponse,
   GradeComponentSetupResponse,
   GradeEntryResponse,
   GradeEvaluationComponentResponse,
@@ -9,6 +10,7 @@ import {
   GradeStatus,
   getMyEvaluationResult,
   getEvaluationResult,
+  listAcademicTerms,
   listGradeComponentSetups,
   listGradeEvaluationComponents,
   listGrades,
@@ -20,6 +22,8 @@ interface GradesTabProps {
   /** Không truyền = tự xem điểm của chính mình (UC-61, Học sinh). Có truyền = Phụ huynh xem theo con cụ thể (UC-25). */
   studentId?: number;
   classId: number;
+  /** Site của lớp đang chọn — dùng để xác định "kỳ hiện tại" (GET /academic-terms?siteId=...) cho toggle Bảng điểm kỳ/năm. */
+  siteId: number | null;
 }
 
 const scaleLabels: Record<GradeEvaluationResultResponse["scaleType"], string> = {
@@ -64,8 +68,12 @@ function TrendIcon({ current, previous }: { current: number; previous: number })
   return null;
 }
 
-export default function GradesTab({ studentId, classId }: GradesTabProps) {
+export default function GradesTab({ studentId, classId, siteId }: GradesTabProps) {
   const [grades, setGrades] = useState<GradeEntryResponse[]>([]);
+  const [terms, setTerms] = useState<AcademicTermResponse[]>([]);
+  /** "Bảng điểm kỳ" (mặc định, chỉ hiện kỳ hiện tại) vs "Bảng điểm năm" (hiện đủ mọi kỳ, header gộp
+   * theo học kỳ) — bổ sung theo yêu cầu người dùng 2026-08-12. */
+  const [scope, setScope] = useState<"TERM" | "YEAR">("TERM");
   const [setups, setSetups] = useState<GradeComponentSetupResponse[]>([]);
   const [setupResults, setSetupResults] = useState<{ setup: GradeComponentSetupResponse; result: GradeEvaluationResultResponse }[]>([]);
   const [componentNames, setComponentNames] = useState<Map<number, string>>(new Map());
@@ -120,10 +128,29 @@ export default function GradesTab({ studentId, classId }: GradesTabProps) {
 
   useEffect(load, [studentId, classId]);
 
+  useEffect(() => {
+    setTerms([]);
+    if (!siteId) return;
+    listAcademicTerms(siteId).then(setTerms).catch(() => undefined);
+  }, [siteId]);
+
   const sortedSetups = useMemo(
     () => [...setups].sort((a, b) => a.academicTermId - b.academicTermId || a.evaluationType.localeCompare(b.evaluationType)),
     [setups]
   );
+
+  /** Nhóm cột theo học kỳ (header cha) để bảng điểm hiện đúng cấu trúc "Học kỳ > Giữa kỳ/Cuối kỳ"
+   * (theo yêu cầu người dùng 2026-08-12) — giữ nguyên thứ tự đã sort ở trên, chỉ gom nhóm hiển thị,
+   * không đổi dữ liệu/logic tính điểm. */
+  const termGroups = useMemo(() => {
+    const groups: { academicTermId: number; academicTermName: string; setups: GradeComponentSetupResponse[] }[] = [];
+    for (const s of sortedSetups) {
+      const last = groups[groups.length - 1];
+      if (last && last.academicTermId === s.academicTermId) last.setups.push(s);
+      else groups.push({ academicTermId: s.academicTermId, academicTermName: s.academicTermName, setups: [s] });
+    }
+    return groups;
+  }, [sortedSetups]);
 
   /** Gộp đầu điểm theo `code` xuyên suốt các setup (mỗi setup tự có bản ghi riêng, không dùng chung id) — dựng bảng Đầu điểm × Kỳ để xem tiến bộ, cùng hướng với bảng tổng hợp UC-19 phía Giáo viên (2026-07-29). */
   const codeGroups = useMemo(() => {
@@ -147,6 +174,27 @@ export default function GradesTab({ studentId, classId }: GradesTabProps) {
   /** Điểm không tra được đúng đầu điểm/setup nào (hiếm — VD đầu điểm gốc đã bị xoá sau khi điểm đã nhập) — không lên được bảng gộp, liệt kê riêng bên dưới để không mất dữ liệu. */
   const ungroupedGrades = grades.filter((g) => !componentSetupId.has(g.gradeEvaluationComponentId));
 
+  /** "Kỳ hiện tại" = kỳ mà hôm nay nằm trong [startDate, endDate] (dữ liệu thật từ academic_terms,
+   * không tự bịa "Kỳ 1/Kỳ 2" theo tháng cố định). Nếu không có kỳ nào khớp (VD giữa 2 kỳ) thì lấy kỳ
+   * đã bắt đầu gần nhất; nếu chưa kỳ nào bắt đầu thì lấy kỳ sắp tới gần nhất. Nếu site chưa cấu hình
+   * academic_terms (terms rỗng) thì fallback về kỳ có setup điểm gần nhất (academicTermId lớn nhất
+   * trong dữ liệu đã có) để "Bảng điểm kỳ" vẫn có gì đó để hiện thay vì trống trơn. */
+  const effectiveCurrentTermId = useMemo(() => {
+    if (terms.length > 0) {
+      const today = new Date().toISOString().slice(0, 10);
+      const withinRange = terms.find((t) => t.startDate <= today && today <= t.endDate);
+      if (withinRange) return withinRange.id;
+      const started = [...terms].filter((t) => t.startDate <= today).sort((a, b) => b.startDate.localeCompare(a.startDate))[0];
+      if (started) return started.id;
+      const upcoming = [...terms].sort((a, b) => a.startDate.localeCompare(b.startDate))[0];
+      if (upcoming) return upcoming.id;
+    }
+    return sortedSetups.length > 0 ? sortedSetups[sortedSetups.length - 1].academicTermId : null;
+  }, [terms, sortedSetups]);
+
+  const visibleSetups = scope === "YEAR" ? sortedSetups : sortedSetups.filter((s) => s.academicTermId === effectiveCurrentTermId);
+  const visibleSetupResults = scope === "YEAR" ? setupResults : setupResults.filter((sr) => sr.setup.academicTermId === effectiveCurrentTermId);
+
   if (loading) return <p className="text-sm text-muted font-bold">Đang tải...</p>;
 
   return (
@@ -154,34 +202,80 @@ export default function GradesTab({ studentId, classId }: GradesTabProps) {
       {error && <div className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-xl">{error}</div>}
 
       <div className="bg-white border border-line/80 p-6 rounded-[20px] shadow-[0_8px_30px_rgba(30,42,69,0.03)] space-y-5">
-        <h2 className="text-xl font-extrabold text-ink flex items-center gap-2">
-          <Award className="text-teal" /> Bảng điểm tổng hợp
-        </h2>
-        {grades.length === 0 && setupResults.length === 0 ? (
-          <p className="text-xs text-muted font-bold italic">Chưa có điểm nào được công bố cho lớp này.</p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-xl font-extrabold text-ink flex items-center gap-2">
+            <Award className="text-teal" /> Bảng điểm tổng hợp
+          </h2>
+          <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1">
+            <button
+              type="button"
+              onClick={() => setScope("TERM")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-colors ${
+                scope === "TERM" ? "bg-white text-teal-deep shadow-sm" : "text-muted hover:text-ink"
+              }`}
+            >
+              Bảng điểm kỳ
+            </button>
+            <button
+              type="button"
+              onClick={() => setScope("YEAR")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-colors ${
+                scope === "YEAR" ? "bg-white text-teal-deep shadow-sm" : "text-muted hover:text-ink"
+              }`}
+            >
+              Bảng điểm năm
+            </button>
+          </div>
+        </div>
+        {visibleSetups.length === 0 && visibleSetupResults.length === 0 ? (
+          <p className="text-xs text-muted font-bold italic">
+            {scope === "TERM" ? "Chưa có điểm nào được công bố cho kỳ hiện tại." : "Chưa có điểm nào được công bố cho lớp này."}
+          </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-slate-100/80 border-b border-line text-sm font-black uppercase text-[#6e7c93] tracking-wider whitespace-nowrap">
-                  <th className="p-3 pl-4">Đầu điểm</th>
-                  {sortedSetups.map((s) => (
-                    <th key={s.id} className="p-3 text-center border-l border-line/60">
-                      {setupLabel(s)}
-                    </th>
-                  ))}
-                </tr>
+                {scope === "YEAR" ? (
+                  <>
+                    <tr className="bg-slate-100/80 border-b border-line/60 text-sm font-black uppercase text-[#6e7c93] tracking-wider whitespace-nowrap">
+                      <th className="p-3 pl-4 border-b border-line" rowSpan={2}>
+                        Đầu điểm
+                      </th>
+                      {termGroups.map((g) => (
+                        <th key={g.academicTermId} colSpan={g.setups.length} className="p-3 text-center border-l border-line/60">
+                          {g.academicTermName}
+                        </th>
+                      ))}
+                    </tr>
+                    <tr className="bg-slate-100/80 border-b border-line text-xs font-black uppercase text-[#6e7c93] tracking-wider whitespace-nowrap">
+                      {visibleSetups.map((s) => (
+                        <th key={s.id} className="p-2.5 text-center border-l border-t border-line/60">
+                          {s.evaluationType === "MID_TERM" ? "Giữa kỳ" : "Cuối kỳ"}
+                        </th>
+                      ))}
+                    </tr>
+                  </>
+                ) : (
+                  <tr className="bg-slate-100/80 border-b border-line text-sm font-black uppercase text-[#6e7c93] tracking-wider whitespace-nowrap">
+                    <th className="p-3 pl-4">Đầu điểm</th>
+                    {visibleSetups.map((s) => (
+                      <th key={s.id} className="p-3 text-center border-l border-line/60">
+                        {setupLabel(s)}
+                      </th>
+                    ))}
+                  </tr>
+                )}
               </thead>
               <tbody className="divide-y divide-line/60 text-sm font-bold text-ink">
                 {codeGroups.map((g) => {
-                  const scores = sortedSetups.map((s) => {
+                  const scores = visibleSetups.map((s) => {
                     const componentId = g.componentIdBySetup.get(s.id);
                     return componentId != null ? entryByComponentId.get(componentId) : undefined;
                   });
                   return (
                     <tr key={g.code} className="hover:bg-slate-50/80">
                       <td className="p-3 pl-4 font-extrabold text-ink whitespace-nowrap">{g.label}</td>
-                      {sortedSetups.map((s, i) => {
+                      {visibleSetups.map((s, i) => {
                         const entry = scores[i];
                         const prevEntry = i > 0 ? scores[i - 1] : undefined;
                         return (
@@ -205,9 +299,9 @@ export default function GradesTab({ studentId, classId }: GradesTabProps) {
                 })}
                 <tr className="hover:bg-slate-50/80 bg-gold/5">
                   <td className="p-3 pl-4 font-extrabold text-ink whitespace-nowrap">Overall</td>
-                  {sortedSetups.map((s, i) => {
+                  {visibleSetups.map((s, i) => {
                     const result = resultBySetupId.get(s.id);
-                    const prevResult = i > 0 ? resultBySetupId.get(sortedSetups[i - 1].id) : undefined;
+                    const prevResult = i > 0 ? resultBySetupId.get(visibleSetups[i - 1].id) : undefined;
                     return (
                       <td key={s.id} className="p-3 text-center border-l border-line/60">
                         {!result ? (
@@ -228,7 +322,7 @@ export default function GradesTab({ studentId, classId }: GradesTabProps) {
                 </tr>
                 <tr className="hover:bg-slate-50/80 bg-sky-1">
                   <td className="p-3 pl-4 font-extrabold text-ink whitespace-nowrap">Level</td>
-                  {sortedSetups.map((s) => {
+                  {visibleSetups.map((s) => {
                     const result = resultBySetupId.get(s.id);
                     return (
                       <td key={s.id} className="p-3 text-center border-l border-line/60">
@@ -247,12 +341,12 @@ export default function GradesTab({ studentId, classId }: GradesTabProps) {
         )}
 
         {/* V94 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng): Nhận xét/Ghi chú tích hợp vào sổ điểm, hiển thị theo từng setup đã công bố. V100: Lưu ý bổ sung. */}
-        {setupResults.filter((sr) => sr.result.disclaimer || sr.result.comment || sr.result.note).length > 0 && (
+        {visibleSetupResults.filter((sr) => sr.result.disclaimer || sr.result.comment || sr.result.note).length > 0 && (
           <div className="space-y-2 pt-2">
-            {setupResults.filter((sr) => sr.result.disclaimer).length > 0 && (
+            {visibleSetupResults.filter((sr) => sr.result.disclaimer).length > 0 && (
               <>
                 <h3 className="text-[13px] font-extrabold text-muted uppercase tracking-wide border-b border-line/60 pb-1.5">Lưu ý</h3>
-                {setupResults
+                {visibleSetupResults
                   .filter((sr) => sr.result.disclaimer)
                   .map((sr) => (
                     <div key={`disclaimer-${sr.setup.id}`} className="border border-line/60 p-4 rounded-[16px] bg-amber-50 space-y-1">
@@ -262,10 +356,10 @@ export default function GradesTab({ studentId, classId }: GradesTabProps) {
                   ))}
               </>
             )}
-            {setupResults.filter((sr) => sr.result.comment || sr.result.note).length > 0 && (
+            {visibleSetupResults.filter((sr) => sr.result.comment || sr.result.note).length > 0 && (
               <>
                 <h3 className="text-[13px] font-extrabold text-muted uppercase tracking-wide border-b border-line/60 pb-1.5 pt-2">Nhận xét của giáo viên</h3>
-                {setupResults
+                {visibleSetupResults
                   .filter((sr) => sr.result.comment || sr.result.note)
                   .map((sr) => (
                     <div key={sr.setup.id} className="border border-line/60 p-4 rounded-[16px] bg-sky-2 space-y-1">

@@ -115,6 +115,7 @@ public class PortalClassSelectionService {
     private PortalClassOptionResponse toResponse(ClassEnrollment e, boolean recommended) {
         return new PortalClassOptionResponse(
                 e.getId(), e.getSchoolClass().getId(), e.getSchoolClass().getName(), e.getSchoolClass().getClassCode(),
-                e.getEnrolledDate(), e.getWithdrawnDate(), e.getStatus().name(), recommended);
+                e.getEnrolledDate(), e.getWithdrawnDate(), e.getStatus().name(), recommended,
+                e.getSchoolClass().getSite().getId());
     }
 }

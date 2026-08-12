@@ -7,6 +7,12 @@ import java.time.LocalDate;
  * class_enrollments của học sinh. recommended=true đánh dấu mục nên
  * pre-select (status=ACTIVE gần nhất, hoặc A2: enrolled_date gần nhất nếu
  * không còn lớp ACTIVE nào).
+ *
+ * siteId: bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-12) —
+ * để Portal tự lọc "Lịch học & Chuyên cần" theo học kỳ, cần gọi
+ * GET /api/academic-terms?siteId=... (academic_terms độc lập với classes,
+ * chỉ gắn theo site — xem docs/sdd-groups/06-hoc-thuat.md mục c-bis).
+ * Portal trước đây không có siteId của lớp đang chọn ở bất kỳ response nào.
  */
 public record PortalClassOptionResponse(
         Long classEnrollmentId,
@@ -16,5 +22,6 @@ public record PortalClassOptionResponse(
         LocalDate enrolledDate,
         LocalDate withdrawnDate,
         String status,
-        boolean recommended
+        boolean recommended,
+        Long siteId
 ) {}

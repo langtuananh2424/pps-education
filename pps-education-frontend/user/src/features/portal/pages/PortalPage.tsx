@@ -9,7 +9,7 @@ import ScheduleTab from "../components/ScheduleTab";
 import StudentScheduleTab from "../components/StudentScheduleTab";
 import AssignmentsTab from "../components/AssignmentsTab";
 import ParentHomeworkProgressTab from "../components/ParentHomeworkProgressTab";
-import NotificationBell from "../components/NotificationBell";
+import NotificationBell, { NotificationNavTarget } from "../components/NotificationBell";
 import GradesTab from "../components/GradesTab";
 import GradeStatsPage from "./GradeStatsPage";
 import BillingTab from "../components/BillingTab";
@@ -108,6 +108,14 @@ export default function PortalPage() {
       .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách lớp."));
   }, [selectedChildId]);
 
+  /** Bấm 1 thông báo ở NotificationBell — chuyển đúng tab, mở đúng bài (BTVN) hoặc đúng con (Phụ huynh nhiều con). */
+  const handleNotificationNavigate = (target: NotificationNavTarget) => {
+    if (isParent && target.studentId != null) setSelectedChildId(target.studentId);
+    if (target.exerciseAssignmentId != null) setPendingExerciseAssignmentId(target.exerciseAssignmentId);
+    if (target.reviewVideoAssignmentId != null) setPendingReviewVideoAssignmentId(target.reviewVideoAssignmentId);
+    setActiveTab(target.tab);
+  };
+
   const selectedChild = children.find((c) => c.studentId === selectedChildId) ?? null;
   const noViewerData = isParent ? children.length === 0 : !selectedChildId;
   const currentClass = classOptions.find((c) => c.classId === selectedClassId) ?? null;
@@ -183,7 +191,7 @@ export default function PortalPage() {
             )}
           </div>
           <div className="flex items-center gap-4">
-            {!noViewerData && !loading && <NotificationBell />}
+            {!noViewerData && !loading && <NotificationBell onNavigate={handleNotificationNavigate} />}
             {/* Bản đầy đủ (avatar + nhãn vai trò + tên) chỉ còn ở desktop (nền trắng, giữ nguyên màu
                 gốc) — mobile đã có bản gọn nền teal-deep ở bên trái (lời chào) để không lặp 2 avatar
                 cùng mở chung 1 ProfileModal. */}
@@ -361,9 +369,9 @@ export default function PortalPage() {
                     ))}
                   {activeTab === "schedule" &&
                     (isParent && selectedChild ? (
-                      <ScheduleTab studentId={selectedChild.studentId} classId={selectedClassId} />
+                      <ScheduleTab studentId={selectedChild.studentId} classId={selectedClassId} siteId={currentClass?.siteId ?? null} />
                     ) : isStudent ? (
-                      <StudentScheduleTab classId={selectedClassId} />
+                      <StudentScheduleTab classId={selectedClassId} siteId={currentClass?.siteId ?? null} />
                     ) : (
                       <ComingSoon title="Lịch học & Chuyên cần" description="Không có hồ sơ Học sinh hoặc Phụ huynh liên kết với tài khoản này." />
                     ))}
@@ -435,9 +443,9 @@ export default function PortalPage() {
                   {activeTab === "documents" && isStudent && <DocumentLibraryTab classId={selectedClassId} />}
                   {activeTab === "grades" &&
                     (isParent && selectedChild ? (
-                      <GradesTab studentId={selectedChild.studentId} classId={selectedClassId} />
+                      <GradesTab studentId={selectedChild.studentId} classId={selectedClassId} siteId={currentClass?.siteId ?? null} />
                     ) : isStudent ? (
-                      <GradesTab classId={selectedClassId} />
+                      <GradesTab classId={selectedClassId} siteId={currentClass?.siteId ?? null} />
                     ) : (
                       <ComingSoon title="Khảo thí & Điểm số" description="Không có hồ sơ Học sinh hoặc Phụ huynh liên kết với tài khoản này." />
                     ))}

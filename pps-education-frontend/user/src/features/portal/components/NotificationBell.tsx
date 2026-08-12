@@ -5,6 +5,56 @@ import { clampLines } from "@/lib/textClamp";
 
 const PAGE_SIZE = 15;
 
+export type NotificationTab = "homework" | "schedule" | "grades" | "billing";
+
+/** Đích chuyển trang khi bấm 1 thông báo — PortalPage nhận rồi tự set activeTab + các state "pending" liên quan. */
+export interface NotificationNavTarget {
+  tab: NotificationTab;
+  exerciseAssignmentId?: number;
+  reviewVideoAssignmentId?: number;
+  /** entityId khi entityType=STUDENT — PortalPage dùng để chuyển đúng con (Phụ huynh nhiều con). */
+  studentId?: number;
+}
+
+/**
+ * Map entityType/entityId (Notification.java: "Loại object liên quan để click chuyển trang") sang
+ * đúng tab Portal. Chỉ map những entityType đã có backend gán thật (xem các nơi gọi
+ * NotificationService.notify() với entityType) VÀ có trang tương ứng ở Portal — entityType "STUDENT"
+ * của EXAM_INTEGRITY_VIOLATION_PARENT chưa có trang xem cho Phụ huynh (chỉ Giáo viên xem qua
+ * integrity-summary, quyền lms.grading.manage) nên cố tình không map, trả null.
+ */
+function resolveNotificationTarget(n: NotificationResponse): NotificationNavTarget | null {
+  switch (n.entityType) {
+    case "EXERCISE_ASSIGNMENT":
+      return n.entityId != null ? { tab: "homework", exerciseAssignmentId: n.entityId } : { tab: "homework" };
+    case "REVIEW_VIDEO_ASSIGNMENT":
+      return n.entityId != null ? { tab: "homework", reviewVideoAssignmentId: n.entityId } : { tab: "homework" };
+    case "ATTENDANCE_MARK":
+      return { tab: "schedule" };
+    case "GRADE_ENTRY":
+    case "GRADE_PERIOD_RESULT":
+      return { tab: "grades" };
+    case "STUDENT":
+      switch (n.notificationType) {
+        case "HOMEWORK_DUE_SOON_REMINDER":
+        case "HOMEWORK_MISS_REMINDER":
+        case "HOMEWORK_MISS_WARNING":
+        case "HOMEWORK_MISS_PARENT_MEETING_INVITE":
+        case "HOMEWORK_MISS_REMINDER_NON_CONSECUTIVE":
+          return { tab: "homework", studentId: n.entityId ?? undefined };
+        default:
+          return null;
+      }
+    default:
+      return n.notificationType === "INVOICE_DUE" ? { tab: "billing" } : null;
+  }
+}
+
+interface NotificationBellProps {
+  /** Gọi khi bấm 1 thông báo có đích chuyển trang xác định — PortalPage tự set activeTab tương ứng. */
+  onNavigate?: (target: NotificationNavTarget) => void;
+}
+
 /**
  * Chuông thông báo ở header Portal — tái dùng GET /notifications đã có (HomeTab đã dùng để hiện ở
  * "Bảng tin"), thêm mark-as-read qua POST /notifications/{id}/read.
@@ -14,7 +64,7 @@ const PAGE_SIZE = 15;
  * chấp nhận được vì mỗi lần chỉ tối đa PAGE_SIZE mục chưa đọc). Xóa thông báo KHÔNG làm được (không có
  * API), không tự chế giả — đã báo lại người phụ trách backend.
  */
-export default function NotificationBell() {
+export default function NotificationBell({ onNavigate }: NotificationBellProps) {
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationResponse[]>([]);
   const [loading, setLoading] = useState(false);
@@ -55,6 +105,11 @@ export default function NotificationBell() {
       markNotificationRead(n.id)
         .then((updated) => setNotifications((prev) => prev.map((x) => (x.id === updated.id ? updated : x))))
         .catch(() => undefined);
+    }
+    const target = resolveNotificationTarget(n);
+    if (target) {
+      onNavigate?.(target);
+      setOpen(false);
     }
   };
 

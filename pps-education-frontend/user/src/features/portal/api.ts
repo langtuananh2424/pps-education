@@ -94,6 +94,19 @@ export interface PortalClassOptionResponse {
   withdrawnDate: string | null;
   status: "ACTIVE" | "COMPLETED" | "SUSPENDED" | "WITHDRAWN";
   recommended: boolean;
+  /** Bổ sung 2026-08-12 — dùng để gọi GET /academic-terms?siteId=... lọc "Lịch học & Chuyên cần" theo học kỳ. */
+  siteId: number;
+}
+
+/** Khớp AcademicTermResponse thật (academic_terms độc lập với classes, chỉ gắn theo site). */
+export interface AcademicTermResponse {
+  id: number;
+  siteId: number;
+  siteName: string;
+  code: string;
+  name: string;
+  startDate: string;
+  endDate: string;
 }
 
 /**
@@ -360,6 +373,11 @@ export function listMyChildren(): Promise<ChildResponse[]> {
 
 export function listClassOptions(studentId: number): Promise<PortalClassOptionResponse[]> {
   return apiRequest<PortalClassOptionResponse[]>(`/portal/students/${studentId}/class-options`);
+}
+
+/** Dùng cho dropdown "Học kỳ" ở tab Lịch học & Chuyên cần — lọc buổi học/điểm danh theo [startDate, endDate] của kỳ chọn. */
+export function listAcademicTerms(siteId: number): Promise<AcademicTermResponse[]> {
+  return apiRequest<AcademicTermResponse[]>(`/academic-terms?siteId=${siteId}`);
 }
 
 export function listGrades(studentId: number, classId: number): Promise<GradeEntryResponse[]> {

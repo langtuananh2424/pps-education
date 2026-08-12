@@ -39,6 +39,7 @@ import vn.com.pps.education.dto.SubmitConnectionAnswersRequest;
 import vn.com.pps.education.dto.SubmitReviewVideoAudioRequest;
 import vn.com.pps.education.dto.UpdateCurriculumRequest;
 import vn.com.pps.education.dto.UpdateReviewVideoSetRequest;
+import vn.com.pps.education.dto.WithdrawEnrollmentRequest;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
 import vn.com.pps.education.exception.QuizAlreadyCompletedException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
@@ -415,6 +416,26 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
 
         assertThatThrownBy(() -> reviewVideoService.listByClass(schoolClass.id(), outsiderStudentUser.getId()))
                 .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    /**
+     * UC-13 (2026-07-29): học sinh xem lớp cũ (đã chuyển đi, enrollment WITHDRAWN) vẫn phải xem
+     * được Kho Video Ôn tập của lớp đó — trước đây requireStudentEnrolledInClass chỉ chấp nhận
+     * ACTIVE nên bị 404 sai (bug đã báo lại người dùng, sửa 2026-08-12).
+     */
+    @Test
+    void listByClass_UC13_showsSetsForWithdrawnEnrollmentOldClass() {
+        ReviewVideoSetResponse set = createSet();
+        reviewVideoService.assignToClass(set.id(), schoolClass.id(), teacher.getId());
+        Student student = enrollStudent(schoolClass.id());
+        var enrollment = classService.listEnrollments(schoolClass.id()).stream()
+                .filter(e -> e.studentId().equals(student.getId())).findFirst().orElseThrow();
+        classService.withdraw(schoolClass.id(), enrollment.id(),
+                new WithdrawEnrollmentRequest(LocalDate.now(), "Chuyển lớp"), headAcademic.getId());
+
+        List<ReviewVideoSetResponse> visible = reviewVideoService.listByClass(schoolClass.id(), student.getUser().getId());
+
+        assertThat(visible).extracting(ReviewVideoSetResponse::id).contains(set.id());
     }
 
     @Test
