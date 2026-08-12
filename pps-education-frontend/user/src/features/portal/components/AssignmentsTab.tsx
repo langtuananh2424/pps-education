@@ -568,13 +568,18 @@ function ExerciseCard({
             <span className={`px-2.5 py-0.5 rounded-lg text-[11px] font-black flex items-center gap-1 ${attemptMeta.className}`}>
               <CheckCircle2 size={12} /> {attemptMeta.label}
             </span>
-          ) : (
+          ) : null}
+          {/* Fix 2026-08-12: hạn nộp/quá hạn phải hiện độc lập với badge trạng thái attempt ở trên —
+              trước đây nằm chung 1 chuỗi if/else nên bài "Đang làm dở"/"Cần làm lại" (retake) không
+              bao giờ lộ ra badge quá hạn dù isOverdue=true. Chỉ hiện khi bài còn "pending" (chưa nộp
+              xong hẳn) — bài đã AUTO_GRADED/FULLY_GRADED(đạt) thì hạn nộp không còn ý nghĩa. */}
+          {pending && (
             <span
               className={`px-2.5 py-0.5 rounded-lg border text-[11px] font-black flex items-center gap-1 ${
                 isOverdue ? "bg-coral/10 text-coral border-coral/20" : "bg-amber-100 text-amber-800 border-amber-300"
               }`}
             >
-              <Clock size={12} /> {isOverdue ? "Đã quá hạn — chưa làm" : `Hạn nộp: ${item.dueAt ? formatDateTimeHm(item.dueAt) : "Không giới hạn"}`}
+              <Clock size={12} /> {isOverdue ? "Đã quá hạn nộp" : `Hạn nộp: ${item.dueAt ? formatDateTimeHm(item.dueAt) : "Không giới hạn"}`}
             </span>
           )}
         </div>
