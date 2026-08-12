@@ -961,10 +961,18 @@ public class ReviewVideoService {
         return studentRepository.findByUserId(actorUserId).isPresent();
     }
 
+    /**
+     * UC-13 (2026-07-29): học sinh/phụ huynh xem được cả lớp cũ (đã chuyển đi) — không giới hạn
+     * ACTIVE, chỉ cần đã TỪNG ghi danh lớp này (bất kỳ status), mirror đúng cách
+     * ExerciseAttemptService#listMyAssignedExercises đang làm. Trước đây chỉ chấp nhận ACTIVE khiến
+     * học sinh chọn lớp cũ ở dropdown "Lớp đang học" bị lỗi 404 "Không tìm thấy lớp học" khi mở tab
+     * BTVN (bug đã báo lại, sửa 2026-08-12) — đi ngược đúng quy tắc UC-13 đã xác nhận từ trước.
+     */
     private void requireStudentEnrolledInClass(Long classId, Long actorUserId) {
         var student = studentRepository.findByUserId(actorUserId).orElseThrow();
-        if (classEnrollmentRepository.findBySchoolClassIdAndStudentIdAndStatus(
-                classId, student.getId(), ClassEnrollment.Status.ACTIVE).isEmpty()) {
+        boolean everEnrolled = classEnrollmentRepository.findByStudentId(student.getId()).stream()
+                .anyMatch(e -> e.getSchoolClass().getId().equals(classId));
+        if (!everEnrolled) {
             throw new ResourceNotFoundException("Không tìm thấy lớp học id=" + classId);
         }
     }
