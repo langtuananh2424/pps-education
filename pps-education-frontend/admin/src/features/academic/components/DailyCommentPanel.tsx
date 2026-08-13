@@ -33,6 +33,7 @@ import {
 } from "@/features/lms/api";
 import { useEligibleClasses } from "../hooks/useEligibleClasses";
 import NotificationBanner from "@/features/student/components/NotificationBanner";
+import AttendanceReminderBanner from "@/features/hrm/components/AttendanceReminderBanner";
 import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
 import CommentHistoryList from "./CommentHistoryList";
 import StudentNameLink from "@/features/reports/components/StudentNameLink";
@@ -613,6 +614,7 @@ export default function DailyCommentPanel() {
     <div className="space-y-4">
       <NotificationBanner message={notification} onClose={() => setNotification(null)} />
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <AttendanceReminderBanner />
 
       {/* Bỏ overflow-hidden ở đây (trước dùng để bo góc rounded-xl cho header bg-slate-50 bên dưới) —
           overflow-hidden trên tổ tiên sẽ VÔ HIỆU HÓA position:sticky của khối "Bài học hôm nay" bên
