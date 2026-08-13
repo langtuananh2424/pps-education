@@ -1107,7 +1107,7 @@ export default function DailyLearningProgressTab({
             </div>
             <div>
               <p className="text-[11px] text-muted font-extrabold uppercase tracking-wider">BTVN Hoàn thành</p>
-              <p className="text-sm font-black text-amber-800 tabular-nums">{avgHomeworkCompletion != null ? `${avgHomeworkCompletion}% Trung bình` : "Chưa có dữ liệu"}</p>
+              <p className="text-sm font-black text-amber-800 tabular-nums">{avgHomeworkCompletion != null ? `${avgHomeworkCompletion}%` : "Chưa có dữ liệu"}</p>
             </div>
           </div>
         </div>
