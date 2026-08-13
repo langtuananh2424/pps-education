@@ -284,6 +284,7 @@ public class StudentCommentService {
 
         ClassSession classSession = getClassSessionOrThrow(request.classSessionId());
         requireCanWriteDailyComment(classSession, actorUserId);
+        requireSessionEndedAndAttendanceTaken(classSession, actorUserId);
         Student student = studentRepository.findByIdAndDeletedAtIsNull(request.studentId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy học sinh id=" + request.studentId()));
 
@@ -318,6 +319,7 @@ public class StudentCommentService {
         User actor = getUserOrThrow(actorUserId);
 
         requireCanWriteDailyComment(comment.getClassSession(), actorUserId);
+        requireSessionEndedAndAttendanceTaken(comment.getClassSession(), actorUserId);
         if (comment.getStatus() != StudentComment.Status.DRAFT && comment.getStatus() != StudentComment.Status.REJECTED) {
             throw new StudentCommentNotEditableException(
                     "Nhận xét id=" + id + " đang ở trạng thái " + comment.getStatus() + " — chỉ sửa được khi DRAFT hoặc REJECTED.");
@@ -776,6 +778,7 @@ public class StudentCommentService {
     public DailyCommentImportResponse importComments(Long classSessionId, MultipartFile file, Long actorUserId) {
         ClassSession classSession = getClassSessionOrThrow(classSessionId);
         requireCanWriteDailyComment(classSession, actorUserId);
+        requireSessionEndedAndAttendanceTaken(classSession, actorUserId);
         User actor = getUserOrThrow(actorUserId);
 
         ImportJob job = new ImportJob();
@@ -1314,6 +1317,13 @@ public class StudentCommentService {
      * — quyền quản trị độc lập với chuyện nhận xét route trạng thái gì,
      * xem Javadoc lớp). Ngược lại: phải là GV được phân công lớp (giữ
      * nguyên rào cũ) VÀ còn trong hạn X ngày kể từ ngày buổi học.
+     *
+     * <p>Rào "buổi đã điểm danh xong + đã kết thúc" (xem
+     * {@link #requireSessionEndedAndAttendanceTaken}) KHÔNG đặt chung ở đây — chỉ áp dụng riêng
+     * ở {@link #writeComment}/{@link #updateComment}/{@link #importComments} (nơi ghi nội dung
+     * nhận xét thật), không chặn buildTemplate (chỉ tải mẫu) hay
+     * updateLessonContent/updateSessionTeacherType/updateActualTeacherName (metadata buổi học GV
+     * có thể cần điền ngay trong lúc dạy, trước khi điểm danh) — cùng dùng chung rào này.</p>
      */
     private void requireCanWriteDailyComment(ClassSession classSession, Long actorUserId) {
         if (permissionEvaluationService.hasPermission(actorUserId, "academic.comment.approve")
@@ -1327,6 +1337,33 @@ public class StudentCommentService {
             throw new StudentCommentNotEditableException(
                     "Chỉ nhập/sửa nhận xét trong vòng " + windowDays + " ngày kể từ ngày buổi học ("
                             + classSession.getSessionDate() + "); hạn đã hết ngày " + deadline + ".");
+        }
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-13 — nội dung nhận xét (UC-21)
+     * chỉ ghi nhận được SAU khi buổi học đã điểm danh xong (UC-15, attendance_sessions.status
+     * khác DRAFT) VÀ đã qua giờ kết thúc buổi (tránh nhận xét buổi học chưa/đang diễn ra). Gọi
+     * riêng ở writeComment/updateComment/importComments — KHÔNG gộp vào requireCanWriteDailyComment
+     * dùng chung (xem Javadoc ở đó), nên tự kiểm tra bypass quyền quản trị riêng ở đây (không dựa
+     * vào early-return của requireCanWriteDailyComment — 2 hàm độc lập nhau).
+     */
+    private void requireSessionEndedAndAttendanceTaken(ClassSession classSession, Long actorUserId) {
+        if (permissionEvaluationService.hasPermission(actorUserId, "academic.comment.approve")
+                || permissionEvaluationService.hasPermission(actorUserId, PERM_COMMENT_MANAGE)) {
+            return;
+        }
+        OffsetDateTime sessionEnd = classSession.getSessionDate().atTime(classSession.getEndTime())
+                .atZone(ZoneId.systemDefault()).toOffsetDateTime();
+        if (OffsetDateTime.now().isBefore(sessionEnd)) {
+            throw new StudentCommentNotEditableException(
+                    "Buổi học ngày " + classSession.getSessionDate() + " (" + classSession.getStartTime() + "–"
+                            + classSession.getEndTime() + ") chưa kết thúc — chỉ viết nhận xét sau khi buổi học kết thúc.");
+        }
+        Optional<AttendanceSession> attendanceSession = attendanceSessionRepository.findByClassSessionId(classSession.getId());
+        if (attendanceSession.isEmpty() || attendanceSession.get().getStatus() == AttendanceSession.Status.DRAFT) {
+            throw new StudentCommentNotEditableException(
+                    "Buổi học id=" + classSession.getId() + " chưa điểm danh xong — vui lòng điểm danh (UC-15) và Lưu điểm danh trước khi viết nhận xét.");
         }
     }
 

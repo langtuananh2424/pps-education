@@ -1249,6 +1249,20 @@ dùng), `StudentComment.CommentType` nay chỉ còn DAILY.
 -   Luồng thao tác: Giáo viên điểm danh buổi học (UC-15) → nhận xét từng
     học sinh của buổi đó. Học sinh Vắng/Có phép thì không cần điền các
     trường nhận xét.
+-   **Ràng buộc thứ tự (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+    2026-08-13) — thứ tự ở trên nay là BẮT BUỘC, không chỉ là gợi ý luồng
+    thao tác:** ghi/sửa nội dung nhận xét (`writeComment`/`updateComment`)
+    và nhập nhận xét qua Excel (`importComments`) đều bị chặn (422) nếu
+    buổi học (1) **chưa qua giờ kết thúc** (`class_sessions.end_time`) HOẶC
+    (2) **chưa điểm danh xong** (`attendance_sessions.status` khác DRAFT —
+    tức đã "Lưu điểm danh" UC-15 bước 4, không chỉ mới nhập nháp). Không áp
+    dụng cho tài khoản có quyền `academic.comment.approve`/quản lý nhận xét
+    (dùng để bổ sung/khắc phục sai sót, không ràng buộc theo tiến độ buổi
+    học thật). KHÔNG áp dụng cho `buildTemplate` (chỉ tải mẫu Excel) hay 3
+    endpoint metadata cấp buổi (`updateLessonContent`/
+    `updateSessionTeacherType`/`updateActualTeacherName`) — GV vẫn điền
+    được các trường này trong lúc đang dạy, trước khi điểm danh. Xem
+    `StudentCommentService.requireSessionEndedAndAttendanceTaken`.
 -   **Sửa lại 2026-07-29 (đã xác nhận với người dùng) — "bài học hôm nay"
     chuyển từ Điểm danh sang Nhận xét:** `class_sessions.lesson_content`
     (TEXT, dùng chung cả lớp, không đổi) nay điền qua
