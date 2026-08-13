@@ -1,14 +1,15 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { AlertTriangle, Bell, CheckCircle2, ChevronDown, Clock, GraduationCap, KeyRound, Lock, LogOut, Menu, MapPin, Settings, User } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { getMyPartnerSite, listSites, listSiteTeachers, SiteResponse, SiteTeacherResponse } from "@/features/facility/api";
 import { useEligibleClasses } from "@/features/academic/hooks/useEligibleClasses";
 import { listMyNotifications, markNotificationRead, NotificationResponse } from "@/features/notifications/api";
 import { AttendanceRecordResponse, getMyTodayAttendance } from "@/features/hrm/api";
+import SelfAttendanceCard from "@/features/hrm/components/SelfAttendanceCard";
 import { UserRole } from "@/types";
 import Avatar from "@/components/ui/Avatar";
 import Dropdown from "@/components/ui/Dropdown";
+import Modal from "@/components/ui/Modal";
 import ProfileModal from "@/features/auth/components/ProfileModal";
 import ChangePasswordModal from "@/features/auth/components/ChangePasswordModal";
 import { useDialog } from "@/components/ui/DialogProvider";
@@ -36,8 +37,8 @@ export default function Header() {
   const [sites, setSites] = useState<SiteResponse[]>([]);
   const [profileOpen, setProfileOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+  const [attendanceModalOpen, setAttendanceModalOpen] = useState(false);
   const { alertDialog } = useDialog();
-  const navigate = useNavigate();
 
   useEffect(() => {
     listSites().then(setSites).catch(() => undefined);
@@ -301,16 +302,23 @@ export default function Header() {
       <div className="flex items-center gap-3 md:gap-5">
         {myAttendance && (
           <button
-            onClick={() => navigate("/hrm/attendance")}
+            onClick={() => setAttendanceModalOpen(true)}
             className={`hidden sm:flex items-center gap-1.5 text-xs font-medium px-3.5 py-2 rounded-full shadow-soft border transition-all cursor-pointer ${
               myAttendance.id == null
                 ? "bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100"
                 : "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
             }`}
           >
-            {myAttendance.id == null ? <Clock className="w-3.5 h-3.5 shrink-0" /> : <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />}
             {myAttendance.id == null ? (
-              <span className="font-semibold">Chưa chấm công hôm nay</span>
+              <span className="relative flex w-2.5 h-2.5 shrink-0">
+                <span className="animate-ping absolute inline-flex w-full h-full rounded-full bg-amber-400 opacity-75" />
+                <span className="relative inline-flex w-2.5 h-2.5 rounded-full bg-amber-500" />
+              </span>
+            ) : (
+              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+            )}
+            {myAttendance.id == null ? (
+              <span className="font-semibold">Chấm công</span>
             ) : myAttendance.checkOutAt ? (
               <span className="font-semibold">
                 Đã chấm công {formatTimeHm(myAttendance.checkInAt)} – {formatTimeHm(myAttendance.checkOutAt)}
@@ -433,6 +441,17 @@ export default function Header() {
 
       {profileOpen && <ProfileModal onClose={() => setProfileOpen(false)} />}
       {changePasswordOpen && <ChangePasswordModal onClose={() => setChangePasswordOpen(false)} />}
+      {attendanceModalOpen && (
+        <Modal
+          open
+          onClose={() => setAttendanceModalOpen(false)}
+          title="Chấm công của tôi"
+          description="Chọn điểm trường và bấm chấm công vào/ra — hệ thống dùng vị trí GPS hiện tại."
+          size="lg"
+        >
+          <SelfAttendanceCard sites={sites} onChecked={setMyAttendance} />
+        </Modal>
+      )}
     </header>
   );
 }

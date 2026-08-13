@@ -1,101 +1,25 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, Clock3, LogIn, LogOut, MapPin, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
-import { Badge, Button, TableContainer, Td, Th } from "@/components/ui";
+import { Badge, TableContainer, Td, Th } from "@/components/ui";
+import Select from "@/components/ui/Select";
 import { listSites, SiteResponse } from "@/features/facility/api";
-import {
-  AttendanceRecordAdminResponse,
-  AttendanceRecordResponse,
-  checkIn,
-  checkOut,
-  EmployeeResponse,
-  listAttendanceRecords,
-  listEmployees
-} from "../api";
-
-type AttendanceStatus = Exclude<AttendanceRecordResponse["status"], null>;
-
-const statusVariant: Record<AttendanceStatus, "success" | "danger" | "warning" | "neutral"> = {
-  NORMAL: "success",
-  LATE: "warning",
-  EARLY_LEAVE: "warning",
-  MISSING: "danger"
-};
-
-const statusLabels: Record<AttendanceStatus, string> = {
-  NORMAL: "Đúng giờ",
-  LATE: "Đi muộn",
-  EARLY_LEAVE: "Về sớm",
-  MISSING: "Thiếu chấm công"
-};
-
-const methodLabels: Record<string, string> = {
-  GPS: "GPS",
-  FINGERPRINT: "Vân tay",
-  FACE: "Khuôn mặt",
-  MANUAL: "Thủ công"
-};
-
-function formatTime(value: string | null): string {
-  if (!value) return "—";
-  return new Date(value).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
-}
-
-function getCurrentPosition(): Promise<GeolocationPosition> {
-  return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) {
-      reject(new Error("Trình duyệt không hỗ trợ định vị GPS."));
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(resolve, (err) => reject(err), { enableHighAccuracy: true, timeout: 10000 });
-  });
-}
+import { AttendanceRecordAdminResponse, EmployeeResponse, listAttendanceRecords, listEmployees } from "../api";
+import { attendanceMethodLabels, attendanceStatusLabels, attendanceStatusVariant, formatAttendanceTime } from "../attendanceFormat";
+import SelfAttendanceCard from "../components/SelfAttendanceCard";
 
 export default function AttendancePage() {
   const { hasPermission } = useApp();
   const canViewAll = hasPermission("hrm.attendance.view-all");
 
   const [sites, setSites] = useState<SiteResponse[]>([]);
-  const [selectedSiteId, setSelectedSiteId] = useState<number | "">("");
-  const [processing, setProcessing] = useState<"in" | "out" | null>(null);
-  const [selfError, setSelfError] = useState<string | null>(null);
-  const [lastRecord, setLastRecord] = useState<AttendanceRecordResponse | null>(null);
 
   useEffect(() => {
     listSites()
-      .then((res) => {
-        setSites(res);
-        if (res.length > 0) setSelectedSiteId(res[0].id);
-      })
+      .then(setSites)
       .catch(() => setSites([]));
   }, []);
-
-  const handleCheck = async (kind: "in" | "out") => {
-    setProcessing(kind);
-    setSelfError(null);
-    try {
-      const position = await getCurrentPosition();
-      const request = {
-        method: "GPS" as const,
-        siteId: selectedSiteId === "" ? undefined : selectedSiteId,
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude
-      };
-      const result = await (kind === "in" ? checkIn(request) : checkOut(request));
-      setLastRecord(result);
-    } catch (err) {
-      if (err instanceof ApiError) {
-        setSelfError(err.message);
-      } else if (typeof err === "object" && err !== null && "code" in err && "message" in err) {
-        setSelfError("Không lấy được vị trí GPS — vui lòng cho phép quyền định vị trên trình duyệt.");
-      } else {
-        setSelfError(err instanceof Error ? err.message : "Chấm công thất bại.");
-      }
-    } finally {
-      setProcessing(null);
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -104,50 +28,8 @@ export default function AttendancePage() {
         <p className="text-xs text-slate-500 mt-1">Dữ liệu chấm công thực tế đa phương thức (vân tay, khuôn mặt, GPS).</p>
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-soft p-5 space-y-4">
-        <div className="flex items-center gap-2">
-          <Clock3 className="w-4 h-4 text-slate-400" />
-          <span className="text-xs font-bold text-slate-700 font-display">Chấm công của tôi</span>
-        </div>
-
-        {selfError && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{selfError}</div>}
-
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-1.5 text-xs text-slate-500">
-            <MapPin className="w-3.5 h-3.5 text-slate-400" />
-            <select
-              value={selectedSiteId}
-              onChange={(e) => setSelectedSiteId(e.target.value === "" ? "" : Number(e.target.value))}
-              className="bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
-            >
-              {sites.length === 0 && <option value="">Chưa có điểm trường</option>}
-              {sites.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <Button variant="primary" disabled={processing !== null} onClick={() => handleCheck("in")}>
-            <LogIn className="w-3.5 h-3.5" />
-            {processing === "in" ? "Đang xử lý..." : "Chấm công vào"}
-          </Button>
-          <Button variant="secondary" disabled={processing !== null} onClick={() => handleCheck("out")}>
-            <LogOut className="w-3.5 h-3.5" />
-            {processing === "out" ? "Đang xử lý..." : "Chấm công ra"}
-          </Button>
-        </div>
-
-        {lastRecord && (
-          <div className="flex items-center gap-4 text-xs text-slate-600 bg-slate-50 border border-slate-100 rounded-lg p-3">
-            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-            <span>
-              Giờ vào: <strong>{formatTime(lastRecord.checkInAt)}</strong> · Giờ ra: <strong>{formatTime(lastRecord.checkOutAt)}</strong>
-            </span>
-            {lastRecord.status && <Badge variant={statusVariant[lastRecord.status]}>{statusLabels[lastRecord.status]}</Badge>}
-          </div>
-        )}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-soft p-5">
+        <SelfAttendanceCard sites={sites} />
       </div>
 
       {canViewAll && <AttendanceAdminSummary sites={sites} />}
@@ -210,7 +92,7 @@ function AttendanceAdminSummary({ sites }: { sites: SiteResponse[] }) {
           <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none" />
           <span className="text-[10px] text-slate-400">đến</span>
           <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none" />
-          <select
+          <Select
             value={employeeId}
             onChange={(e) => setEmployeeId(e.target.value === "" ? "" : Number(e.target.value))}
             className="bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none max-w-[160px]"
@@ -221,8 +103,8 @@ function AttendanceAdminSummary({ sites }: { sites: SiteResponse[] }) {
                 {e.fullName}
               </option>
             ))}
-          </select>
-          <select
+          </Select>
+          <Select
             value={siteId}
             onChange={(e) => setSiteId(e.target.value === "" ? "" : Number(e.target.value))}
             className="bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none max-w-[160px]"
@@ -233,7 +115,7 @@ function AttendanceAdminSummary({ sites }: { sites: SiteResponse[] }) {
                 {s.name}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
       </div>
 
@@ -275,12 +157,12 @@ function AttendanceAdminSummary({ sites }: { sites: SiteResponse[] }) {
                   <div className="text-[10px] text-slate-400 font-normal">{r.employeeCode}</div>
                 </Td>
                 <Td>{r.workDate}</Td>
-                <Td>{formatTime(r.checkInAt)}</Td>
-                <Td>{formatTime(r.checkOutAt)}</Td>
-                <Td>{methodLabels[r.checkInMethod ?? ""] ?? "—"}</Td>
+                <Td>{formatAttendanceTime(r.checkInAt)}</Td>
+                <Td>{formatAttendanceTime(r.checkOutAt)}</Td>
+                <Td>{attendanceMethodLabels[r.checkInMethod ?? ""] ?? "—"}</Td>
                 <Td>{r.siteName ?? siteLabel.get(r.siteId ?? -1) ?? "—"}</Td>
                 <Td>
-                  <Badge variant={statusVariant[r.status]}>{statusLabels[r.status]}</Badge>
+                  <Badge variant={attendanceStatusVariant[r.status]}>{attendanceStatusLabels[r.status]}</Badge>
                 </Td>
               </tr>
             ))
