@@ -69,7 +69,7 @@ public class GlobalExceptionHandler {
             DuplicatePositionCodeException.class, DuplicateSkillCodeException.class,
             TaskAssigneeAlreadyAssignedException.class, MakeupSessionAlreadyLinkedException.class,
             DuplicateQuestionContentException.class, DuplicateAcademicYearCodeException.class,
-            ReviewVideoQuestionOverlapException.class})
+            ReviewVideoQuestionOverlapException.class, DuplicateShiftCodeException.class})
     public ResponseEntity<Object> handleConflict(RuntimeException ex) {
         return error(HttpStatus.CONFLICT, ex.getMessage());
     }

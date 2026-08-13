@@ -199,6 +199,36 @@ UC-09: Chấm công
 > ngày/nhân sự/điểm trường — không thay đổi Main Flow/Alternate Flow tự
 > phục vụ ở trên.
 
+> **Bổ sung 2026-08-13 (ngoài Main Flow gốc, đã xác nhận với người dùng):**
+> quản lý danh mục ca & gán ca cho nhân sự — dữ liệu đầu vào cho bước 3-4
+> Main Flow (xác định ngày làm việc/cửa sổ chấm công theo ca) ở trên,
+> trước đây bảng `shifts`/`employee_shifts` (V7) chưa có Controller/Service
+> nào ghi dữ liệu. Không thay đổi Main Flow/Alternate Flow UC-09.
+>
+> 1.  **Danh mục ca** (`GET/POST/PUT/DELETE /api/shifts`) — GET chỉ cần đã
+>     đăng nhập, không gate permission riêng (dữ liệu tra cứu dùng chung,
+>     giống danh mục chức vụ UC-52); POST cần `hrm.shift.create`; PUT và
+>     DELETE (deactivate, set
+>     `is_active = FALSE`, không xoá cứng vì có FK từ `employee_shifts`/
+>     `work_calendar`) cần `hrm.shift.update`. Mỗi lần tạo/sửa ghi 1 dòng
+>     vào `shifts_history` (JSONB diff-log, cùng pattern `employees_history`).
+> 2.  **Gán ca cho 1 nhân sự** (`POST /api/employee-shifts/assign`, quyền
+>     `hrm.employee-shift.assign`) — đóng bản ghi `employee_shifts` đang
+>     active (`effective_to = effective_from mới - 1 ngày`) rồi tạo bản ghi
+>     mới `effective_to = NULL`; từ chối nếu `effective_from` mới không sau
+>     `effective_from` của bản ghi đang active (không cho lùi ngày đè lên ca
+>     đang áp dụng).
+> 3.  **Gán ca hàng loạt** (`POST /api/employee-shifts/bulk-assign`, cùng
+>     quyền `hrm.employee-shift.assign`) — áp dụng lại đúng logic mục 2 cho
+>     từng `employeeId` trong danh sách, trong 1 transaction; lỗi của 1
+>     nhân sự (không tồn tại, effective_from không hợp lệ) không làm rollback
+>     những người còn lại — trả về danh sách lỗi theo từng người, cùng cách
+>     `EmployeeBatchImportService` báo lỗi theo dòng.
+> 4.  **Xem ca hiện tại/lịch sử của 1 nhân sự**
+>     (`GET /api/employee-shifts/employee/{employeeId}`, quyền
+>     `hrm.employee.view`) — phục vụ hồ sơ nhân sự (UC-08) hiển thị ca đang
+>     áp dụng.
+
 ---
 
 UC-10: Nộp đơn từ

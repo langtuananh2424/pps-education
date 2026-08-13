@@ -17,6 +17,7 @@ import SendNotificationPage from "@/features/system-admin/pages/SendNotification
 import TaskWorkflowPage from "@/features/task-workflow/pages/TaskWorkflowPage";
 import HrmProfilesPage from "@/features/hrm/pages/ProfilesPage";
 import DepartmentsPositionsPage from "@/features/hrm/pages/DepartmentsPositionsPage";
+import ShiftsPage from "@/features/hrm/pages/ShiftsPage";
 import HrmAttendancePage from "@/features/hrm/pages/AttendancePage";
 import AttendanceSitesPage from "@/features/hrm/pages/AttendanceSitesPage";
 import LeavesPage from "@/features/hrm/pages/LeavesPage";
@@ -77,6 +78,7 @@ export default function App() {
           <Route path="/task-workflow" element={<TaskWorkflowPage />} />
           <Route path="/hrm/profile" element={<HrmProfilesPage />} />
           <Route path="/hrm/departments-positions" element={<DepartmentsPositionsPage />} />
+          <Route path="/hrm/shifts" element={<ShiftsPage />} />
           <Route path="/hrm/attendance" element={<HrmAttendancePage />} />
           <Route path="/hrm/attendance-sites" element={<AttendanceSitesPage />} />
           <Route path="/hrm/leaves" element={<LeavesPage />} />

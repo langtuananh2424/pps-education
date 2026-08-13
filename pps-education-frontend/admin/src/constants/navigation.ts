@@ -8,6 +8,7 @@ import {
   BookOpenCheck,
   BookUser,
   Calculator,
+  CalendarClock,
   CalendarDays,
   CalendarX,
   ClipboardCheck,
@@ -131,6 +132,9 @@ export const navSections: NavSection[] = [
       // quyền gần nhất đại diện "thuộc nhóm quản trị nhân sự" cho 2 mục hồ sơ/danh mục dùng chung.
       { id: "hrm-profile", label: "Hồ sơ cán bộ", path: "/hrm/profile", icon: IdCard, requiredPermission: "hrm.employee.view" },
       { id: "hrm-departments-positions", label: "Phòng ban & Chức vụ", path: "/hrm/departments-positions", icon: Network, requiredPermission: "hrm.employee.view" },
+      // Bổ sung 2026-08-13: danh mục ca & gán ca cho nhân sự (dưới UC-09/FR-HRM-02) — GET /api/shifts chỉ cần đăng
+      // nhập, gate nav bằng hrm.employee.view cho nhất quán với các mục quản trị nhân sự khác ở section này.
+      { id: "hrm-shifts", label: "Ca làm việc", path: "/hrm/shifts", icon: CalendarClock, requiredPermission: "hrm.employee.view" },
       // UC-09/UC-11/UC-12: backend KHÔNG dùng permission code (tự phục vụ — ai cũng chấm công/nộp
       // đơn/xem lương của chính mình được; người duyệt/HR tự thấy thêm dữ liệu quản trị theo role
       // ngay trong trang) — đã xác nhận với người dùng 2026-07-27: không gate gì ở đây, ai đăng nhập

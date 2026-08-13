@@ -583,3 +583,114 @@ export function listAttendanceRecords(params: ListAttendanceRecordsParams): Prom
   if (params.siteId != null) query.set("siteId", String(params.siteId));
   return apiRequest<AttendanceRecordAdminResponse[]>(`/attendance/records?${query.toString()}`);
 }
+
+// ===================== Bổ sung 2026-08-13: Quản lý ca & gán ca cho nhân sự (dưới UC-09/FR-HRM-02) =====================
+
+/** Khớp ShiftResponse thật của backend. */
+export interface ShiftResponse {
+  id: number;
+  code: string;
+  name: string;
+  checkInTime: string;
+  checkOutTime: string;
+  checkInWindowBeforeMinutes: number;
+  checkInWindowAfterMinutes: number;
+  checkOutWindowBeforeMinutes: number;
+  checkOutWindowAfterMinutes: number;
+  /** CSV 1=T2...7=CN, VD "1,2,3,4,5,6". */
+  appliesToWeekdays: string;
+  weekParity: "ALL" | "ODD" | "EVEN";
+  active: boolean;
+}
+
+export interface CreateShiftRequest {
+  code: string;
+  name: string;
+  checkInTime: string;
+  checkOutTime: string;
+  checkInWindowBeforeMinutes?: number;
+  checkInWindowAfterMinutes?: number;
+  checkOutWindowBeforeMinutes?: number;
+  checkOutWindowAfterMinutes?: number;
+  appliesToWeekdays?: string;
+  weekParity?: "ALL" | "ODD" | "EVEN";
+}
+
+/** Khớp UpdateShiftRequest thật — code bất biến, không sửa qua đây. */
+export interface UpdateShiftRequest {
+  name: string;
+  checkInTime: string;
+  checkOutTime: string;
+  checkInWindowBeforeMinutes?: number;
+  checkInWindowAfterMinutes?: number;
+  checkOutWindowBeforeMinutes?: number;
+  checkOutWindowAfterMinutes?: number;
+  appliesToWeekdays?: string;
+  weekParity?: "ALL" | "ODD" | "EVEN";
+  active: boolean;
+}
+
+export function listShifts(): Promise<ShiftResponse[]> {
+  return apiRequest<ShiftResponse[]>("/shifts");
+}
+
+export function getShift(id: number): Promise<ShiftResponse> {
+  return apiRequest<ShiftResponse>(`/shifts/${id}`);
+}
+
+export function createShift(request: CreateShiftRequest): Promise<ShiftResponse> {
+  return apiRequest<ShiftResponse>("/shifts", { method: "POST", body: JSON.stringify(request) });
+}
+
+export function updateShift(id: number, request: UpdateShiftRequest): Promise<ShiftResponse> {
+  return apiRequest<ShiftResponse>(`/shifts/${id}`, { method: "PUT", body: JSON.stringify(request) });
+}
+
+/** Tắt ca (is_active = FALSE) — không xóa cứng vì employee_shifts/work_calendar tham chiếu qua FK. */
+export function deactivateShift(id: number): Promise<void> {
+  return apiRequest<void>(`/shifts/${id}`, { method: "DELETE" });
+}
+
+/** Khớp EmployeeShiftResponse thật của backend. */
+export interface EmployeeShiftResponse {
+  id: number;
+  employeeId: number;
+  employeeFullName: string;
+  shiftId: number;
+  shiftCode: string;
+  shiftName: string;
+  effectiveFrom: string;
+  /** null = đang áp dụng. */
+  effectiveTo: string | null;
+}
+
+export interface AssignShiftRequest {
+  employeeId: number;
+  shiftId: number;
+  effectiveFrom: string;
+}
+
+export interface BulkAssignShiftRequest {
+  employeeIds: number[];
+  shiftId: number;
+  effectiveFrom: string;
+}
+
+export interface BulkAssignShiftResponse {
+  successCount: number;
+  failures: { employeeId: number; reason: string }[];
+}
+
+/** Ca hiện tại (effectiveTo == null) + lịch sử của 1 nhân sự, sắp xếp mới nhất trước. */
+export function getEmployeeShiftHistory(employeeId: number): Promise<EmployeeShiftResponse[]> {
+  return apiRequest<EmployeeShiftResponse[]>(`/employee-shifts/employee/${employeeId}`);
+}
+
+export function assignEmployeeShift(request: AssignShiftRequest): Promise<EmployeeShiftResponse> {
+  return apiRequest<EmployeeShiftResponse>("/employee-shifts/assign", { method: "POST", body: JSON.stringify(request) });
+}
+
+/** Gán 1 ca cho nhiều nhân sự cùng lúc — lỗi của 1 người không chặn những người còn lại, xem BulkAssignShiftResponse.failures. */
+export function bulkAssignEmployeeShift(request: BulkAssignShiftRequest): Promise<BulkAssignShiftResponse> {
+  return apiRequest<BulkAssignShiftResponse>("/employee-shifts/bulk-assign", { method: "POST", body: JSON.stringify(request) });
+}

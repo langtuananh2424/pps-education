@@ -5,17 +5,22 @@ import {
   addCommendation,
   addContract,
   addQualification,
+  assignEmployeeShift,
   CommendationResponse,
   DepartmentResponse,
   EmployeeResponse,
+  EmployeeShiftResponse,
   EmploymentContractResponse,
+  getEmployeeShiftHistory,
   listCommendations,
   listContracts,
   listDepartments,
   listPositions,
   listQualifications,
+  listShifts,
   PositionResponse,
   QualificationResponse,
+  ShiftResponse,
   updateContract,
   updateEmployee,
   UpdateEmployeeRequest
@@ -139,7 +144,10 @@ function ProfileTab({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <div className="space-y-4">
+      <CurrentShiftCard employeeId={employee.id} showToast={showToast} />
+
+      <form onSubmit={handleSubmit} className="space-y-4">
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       <AvatarUploadField
@@ -266,6 +274,126 @@ function ProfileTab({
         <Save className="w-3.5 h-3.5" />
         {saving ? "Đang lưu..." : "Lưu hồ sơ"}
       </Button>
+      </form>
+    </div>
+  );
+}
+
+/** Bổ sung 2026-08-13 — xem ca hiện tại + đổi ca cho 1 nhân sự (dưới UC-09/FR-HRM-02). */
+function CurrentShiftCard({ employeeId, showToast }: { employeeId: number; showToast: (msg: string) => void }) {
+  const [history, setHistory] = useState<EmployeeShiftResponse[] | null>(null);
+  const [shifts, setShifts] = useState<ShiftResponse[]>([]);
+  const [changing, setChanging] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = () => {
+    getEmployeeShiftHistory(employeeId)
+      .then(setHistory)
+      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được ca làm việc."));
+  };
+  useEffect(load, [employeeId]);
+
+  const current = history?.find((h) => h.effectiveTo == null) ?? null;
+
+  return (
+    <div className="border border-slate-200 rounded-lg p-3 flex items-center justify-between text-xs">
+      <div>
+        <span className={labelClass}>Ca làm việc hiện tại</span>
+        {error ? (
+          <p className="text-rose-600">{error}</p>
+        ) : history === null ? (
+          <p className="text-slate-400">Đang tải...</p>
+        ) : current ? (
+          <p className="font-bold text-slate-800">{current.shiftName} <span className="font-normal text-slate-400">(từ {current.effectiveFrom})</span></p>
+        ) : (
+          <p className="text-slate-400 italic">Chưa gán ca.</p>
+        )}
+      </div>
+      <Button type="button" size="sm" variant="secondary" onClick={() => setChanging(true)}>
+        Đổi ca
+      </Button>
+
+      <Modal open={changing} onClose={() => setChanging(false)} title="Đổi ca làm việc">
+        <ChangeShiftForm
+          employeeId={employeeId}
+          shifts={shifts}
+          onOpen={() => listShifts().then((res) => setShifts(res.filter((s) => s.active))).catch(() => undefined)}
+          onDone={() => {
+            setChanging(false);
+            load();
+            showToast("Đã đổi ca làm việc.");
+          }}
+          onCancel={() => setChanging(false)}
+        />
+      </Modal>
+    </div>
+  );
+}
+
+function ChangeShiftForm({
+  employeeId,
+  shifts,
+  onOpen,
+  onDone,
+  onCancel
+}: {
+  employeeId: number;
+  shifts: ShiftResponse[];
+  onOpen: () => void;
+  onDone: () => void;
+  onCancel: () => void;
+}) {
+  const [shiftId, setShiftId] = useState<number | "">("");
+  const [effectiveFrom, setEffectiveFrom] = useState(TODAY_ISO);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(onOpen, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!shiftId) {
+      setError("Chọn 1 ca làm việc.");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      await assignEmployeeShift({ employeeId, shiftId, effectiveFrom });
+      onDone();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Đổi ca thất bại.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <div>
+        <label className={labelClass}>Ca làm việc *</label>
+        <Select value={shiftId} onChange={(e) => setShiftId(e.target.value ? Number(e.target.value) : "")} className={inputClass}>
+          <option value="">-- Chọn ca --</option>
+          {shifts.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name} ({s.checkInTime.slice(0, 5)}–{s.checkOutTime.slice(0, 5)})
+            </option>
+          ))}
+        </Select>
+      </div>
+      <div>
+        <label className={labelClass}>Ngày hiệu lực *</label>
+        <DatePicker value={effectiveFrom} onChange={setEffectiveFrom} min={TODAY_ISO} />
+      </div>
+      <div className="flex gap-2">
+        <Button type="button" variant="secondary" size="sm" onClick={onCancel}>
+          Hủy
+        </Button>
+        <Button type="submit" variant="primary" size="sm" disabled={submitting}>
+          {submitting ? "Đang lưu..." : "Đổi ca"}
+        </Button>
+      </div>
     </form>
   );
 }
