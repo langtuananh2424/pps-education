@@ -3,6 +3,7 @@ import { Clock3, Plus, UserPlus } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import { Badge, Button, TableContainer, Td, Th } from "@/components/ui";
+import Select from "@/components/ui/Select";
 import Toast from "@/components/ui/Toast";
 import { useToast } from "@/lib/useToast";
 import {
@@ -234,7 +235,7 @@ function AssignShiftPanel({ shifts, onAssigned }: { shifts: ShiftResponse[]; onA
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       <div className="flex flex-wrap items-center gap-2">
-        <select
+        <Select
           value={employeeId}
           onChange={(e) => setEmployeeId(e.target.value === "" ? "" : Number(e.target.value))}
           className="bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none min-w-[200px]"
@@ -245,8 +246,8 @@ function AssignShiftPanel({ shifts, onAssigned }: { shifts: ShiftResponse[]; onA
               {emp.fullName} ({emp.employeeCode})
             </option>
           ))}
-        </select>
-        <select
+        </Select>
+        <Select
           value={shiftId}
           onChange={(e) => setShiftId(e.target.value === "" ? "" : Number(e.target.value))}
           className="bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none min-w-[160px]"
@@ -257,7 +258,7 @@ function AssignShiftPanel({ shifts, onAssigned }: { shifts: ShiftResponse[]; onA
               {s.name}
             </option>
           ))}
-        </select>
+        </Select>
         <input
           type="date"
           value={effectiveFrom}

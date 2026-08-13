@@ -4,6 +4,7 @@ import { ApiError } from "@/lib/apiClient";
 import { createSite, CreateSiteRequest, SiteResponse, updateSite, UpdateSiteRequest } from "@/features/facility/api";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
+import Select from "@/components/ui/Select";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
@@ -121,14 +122,14 @@ export default function AttendanceSiteFormModal({ site, onClose, onSaved }: Atte
           </div>
           <div>
             <label className={labelClass}>Loại hình *</label>
-            <select
+            <Select
               value={form.siteType}
               onChange={(e) => setForm({ ...form, siteType: e.target.value as "OWNED" | "PARTNER" })}
               className={inputClass}
             >
               <option value="OWNED">Cơ sở tự vận hành (Trung tâm)</option>
               <option value="PARTNER">Trường liên kết</option>
-            </select>
+            </Select>
           </div>
           <div className="col-span-2">
             <label className={labelClass}>Tên địa điểm *</label>
@@ -149,7 +150,7 @@ export default function AttendanceSiteFormModal({ site, onClose, onSaved }: Atte
           {isEdit && (
             <div>
               <label className={labelClass}>Trạng thái</label>
-              <select
+              <Select
                 value={form.status}
                 onChange={(e) => setForm({ ...form, status: e.target.value as "ACTIVE" | "INACTIVE" | "PENDING" })}
                 className={inputClass}
@@ -157,7 +158,7 @@ export default function AttendanceSiteFormModal({ site, onClose, onSaved }: Atte
                 <option value="ACTIVE">Đang hoạt động</option>
                 <option value="INACTIVE">Ngừng hoạt động</option>
                 <option value="PENDING">Chờ kích hoạt</option>
-              </select>
+              </Select>
             </div>
           )}
         </div>

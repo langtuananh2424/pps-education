@@ -10,6 +10,7 @@ import {
   UserListItemResponse
 } from "../api";
 import { Button } from "@/components/ui";
+import Select from "@/components/ui/Select";
 
 const RESULT_LIMIT = 50;
 
@@ -195,7 +196,7 @@ export default function SendNotificationPage() {
 
         <div>
           <label className={labelClass}>Loại thông báo</label>
-          <select
+          <Select
             value={notificationType}
             onChange={(e) => setNotificationType(e.target.value as NotificationTypeValue)}
             className={inputClass}
@@ -205,7 +206,7 @@ export default function SendNotificationPage() {
                 {TYPE_LABELS[t]} ({t})
               </option>
             ))}
-          </select>
+          </Select>
         </div>
 
         <div>

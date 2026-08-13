@@ -3,6 +3,7 @@ import { CalendarPlus, Trash2 } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import { Badge, Button, Modal, TableContainer, Td, Th } from "@/components/ui";
+import Select from "@/components/ui/Select";
 import Toast from "@/components/ui/Toast";
 import { useToast } from "@/lib/useToast";
 import {
@@ -239,16 +240,16 @@ function WorkCalendarFormModal({ onClose, onSaved }: { onClose: () => void; onSa
           </div>
           <div>
             <label className={labelClass}>Loại *</label>
-            <select value={dayType} onChange={(e) => setDayType(e.target.value as WorkCalendarResponse["dayType"])} className={inputClass}>
+            <Select value={dayType} onChange={(e) => setDayType(e.target.value as WorkCalendarResponse["dayType"])} className={inputClass}>
               <option value="HOLIDAY">Nghỉ lễ</option>
               <option value="OFF">Nghỉ</option>
               <option value="WORKING">Làm bù</option>
               <option value="COMPENSATORY">Làm bù (lễ)</option>
-            </select>
+            </Select>
           </div>
           <div className="col-span-2">
             <label className={labelClass}>Phạm vi áp dụng *</label>
-            <select
+            <Select
               value={scope}
               onChange={(e) => {
                 setScope(e.target.value as WorkCalendarResponse["appliesToScope"]);
@@ -260,32 +261,32 @@ function WorkCalendarFormModal({ onClose, onSaved }: { onClose: () => void; onSa
               <option value="ALL">Toàn trung tâm</option>
               <option value="SHIFT">Theo ca làm việc</option>
               <option value="EMPLOYEE">Theo nhân sự</option>
-            </select>
+            </Select>
           </div>
           {scope === "SHIFT" && (
             <div className="col-span-2">
               <label className={labelClass}>Ca làm việc *</label>
-              <select value={shiftId} onChange={(e) => setShiftId(e.target.value === "" ? "" : Number(e.target.value))} className={inputClass}>
+              <Select value={shiftId} onChange={(e) => setShiftId(e.target.value === "" ? "" : Number(e.target.value))} className={inputClass}>
                 <option value="">-- Chọn ca --</option>
                 {shifts.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
           )}
           {scope === "EMPLOYEE" && (
             <div className="col-span-2">
               <label className={labelClass}>Nhân sự *</label>
-              <select value={employeeId} onChange={(e) => setEmployeeId(e.target.value === "" ? "" : Number(e.target.value))} className={inputClass}>
+              <Select value={employeeId} onChange={(e) => setEmployeeId(e.target.value === "" ? "" : Number(e.target.value))} className={inputClass}>
                 <option value="">-- Chọn nhân sự --</option>
                 {employees.map((emp) => (
                   <option key={emp.id} value={emp.id}>
                     {emp.fullName} ({emp.employeeCode})
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
           )}
           <div className="col-span-2">

@@ -4,6 +4,7 @@ import { ApiError } from "@/lib/apiClient";
 import { createShift, CreateShiftRequest, ShiftResponse, updateShift, UpdateShiftRequest } from "../api";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
+import Select from "@/components/ui/Select";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
@@ -214,7 +215,7 @@ export default function ShiftFormModal({ shift, onClose, onSaved }: ShiftFormMod
           </div>
           <div>
             <label className={labelClass}>Tuần áp dụng</label>
-            <select
+            <Select
               value={form.weekParity}
               onChange={(e) => setForm({ ...form, weekParity: e.target.value as "ALL" | "ODD" | "EVEN" })}
               className={`${inputClass} max-w-[200px]`}
@@ -222,7 +223,7 @@ export default function ShiftFormModal({ shift, onClose, onSaved }: ShiftFormMod
               <option value="ALL">Mọi tuần</option>
               <option value="ODD">Tuần lẻ</option>
               <option value="EVEN">Tuần chẵn</option>
-            </select>
+            </Select>
           </div>
         </div>
 

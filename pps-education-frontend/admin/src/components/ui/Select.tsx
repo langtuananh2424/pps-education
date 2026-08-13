@@ -41,17 +41,35 @@ function extractOptions(children: React.ReactNode): SelectOptionData[] {
  */
 export default function Select({ value, onChange, children, className, disabled, id, name, ...aria }: SelectProps) {
   const [open, setOpen] = useState(false);
-  const [rect, setRect] = useState<{ top: number; left: number; width: number } | null>(null);
+  const [rect, setRect] = useState<{ top?: number; bottom?: number; left: number; width: number; maxHeight: number; openUp: boolean } | null>(
+    null
+  );
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const options = useMemo(() => extractOptions(children), [children]);
   const selected = options.find((o) => o.value === String(value ?? ""));
 
+  // Tự lật panel lên trên trigger khi không đủ chỗ bên dưới (VD dropdown "Dòng/trang" ở
+  // thanh phân trang cuối bảng, sát mép dưới màn hình) — trước đây luôn ép mở xuống dưới
+  // (top: r.bottom + 4), panel bị tràn ra ngoài viewport không bấm chọn được.
   const updateRect = () => {
     const el = triggerRef.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
-    setRect({ top: r.bottom + 4, left: r.left, width: r.width });
+    const margin = 8;
+    const preferredMax = 256; // khớp max-h-64 cũ
+    const spaceBelow = window.innerHeight - r.bottom - margin;
+    const spaceAbove = r.top - margin;
+    const openUp = spaceBelow < preferredMax && spaceAbove > spaceBelow;
+    const maxHeight = Math.max(120, Math.min(preferredMax, openUp ? spaceAbove : spaceBelow));
+    setRect({
+      left: r.left,
+      width: r.width,
+      maxHeight,
+      openUp,
+      top: openUp ? undefined : r.bottom + 4,
+      bottom: openUp ? window.innerHeight - r.top + 4 : undefined
+    });
   };
 
   useLayoutEffect(() => {
@@ -97,8 +115,15 @@ export default function Select({ value, onChange, children, className, disabled,
         createPortal(
           <div
             ref={panelRef}
-            style={{ position: "fixed", top: rect.top, left: rect.left, width: Math.max(rect.width, 160) }}
-            className="z-[200] max-h-64 overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-lg py-1 animate-in fade-in duration-100"
+            style={{
+              position: "fixed",
+              top: rect.top,
+              bottom: rect.bottom,
+              left: rect.left,
+              width: Math.max(rect.width, 160),
+              maxHeight: rect.maxHeight
+            }}
+            className="z-[200] overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-lg py-1 animate-in fade-in duration-100"
           >
             {options.map((opt, i) => (
               <button

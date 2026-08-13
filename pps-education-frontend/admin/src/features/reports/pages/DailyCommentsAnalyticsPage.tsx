@@ -9,6 +9,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import Button from "@/components/ui/Button";
+import Select from "@/components/ui/Select";
 import { useApp } from "@/context/AppContext";
 import {
   ClassResponse,
@@ -270,7 +271,7 @@ export default function DailyCommentsAnalyticsPage() {
           <div className="flex flex-wrap gap-3">
             <div className="flex-1 min-w-[240px]">
               <label className="block text-xs text-slate-500 mb-1">Buổi học</label>
-              <select
+              <Select
                 value={selectedSessionId}
                 onChange={(e) => setSelectedSessionId(e.target.value ? Number(e.target.value) : "")}
                 disabled={loadingSessions}
@@ -282,7 +283,7 @@ export default function DailyCommentsAnalyticsPage() {
                     Buổi {s.sessionNumber} — {s.sessionDate} ({s.status})
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
           </div>
         </div>

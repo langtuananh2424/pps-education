@@ -9,6 +9,7 @@ import {
   updateSystemSetting
 } from "../api";
 import { Button, EmptyState, Modal, TableContainer, Td, Th } from "@/components/ui";
+import Select from "@/components/ui/Select";
 
 const CATEGORY_LABELS: Record<string, string> = {
   ATTENDANCE: "Chấm công",
@@ -208,14 +209,14 @@ export default function SystemSettingsPage() {
               <p className="text-xs font-mono text-slate-400 mb-2">{String(editing.settingValue)}</p>
 
               {kindOf(editing.settingValue) === "boolean" ? (
-                <select
+                <Select
                   value={draftValue}
                   onChange={(e) => setDraftValue(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
                 >
                   <option value="true">Bật (true)</option>
                   <option value="false">Tắt (false)</option>
-                </select>
+                </Select>
               ) : (
                 <input
                   type={kindOf(editing.settingValue) === "number" ? "number" : "text"}
