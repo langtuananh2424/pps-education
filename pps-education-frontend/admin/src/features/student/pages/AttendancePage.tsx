@@ -19,6 +19,7 @@ import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
 import Select from "@/components/ui/Select";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
+import AttendanceReminderBanner from "@/features/hrm/components/AttendanceReminderBanner";
 
 type SimpleStatus = "PRESENT" | "ABSENT" | "EXCUSED" | "LATE";
 
@@ -181,6 +182,7 @@ export default function AttendancePage() {
         </Modal>
       )}
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <AttendanceReminderBanner />
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50">
