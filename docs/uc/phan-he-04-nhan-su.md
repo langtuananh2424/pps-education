@@ -201,6 +201,33 @@ UC-09: Chấm công
 
 ---
 
+UC-70: Quản lý Ca làm việc & Lịch làm việc/nghỉ lễ (bổ sung HOÀN TOÀN
+ngoài SDD/SRS gốc, đã xác nhận với người dùng 2026-08-13)
+
+Bối cảnh: `shifts`/`employee_shifts`/`work_calendar` (V7) chỉ được
+`AttendanceService` (UC-09, Main Flow bước 3-4) **đọc** để xác định ngày
+làm việc/cửa sổ chấm công — SRS gốc chưa từng đặc tả UC/FR nào quản trị
+(tạo/sửa) 3 bảng này, khiến không có ca làm việc nào có thể được gán cho
+nhân sự và mọi lượt chấm công thật đều bị từ chối "không phải ngày làm
+việc". UC này bổ sung 3 nhóm API quản trị:
+
+- **Ca làm việc** (`POST/PUT /api/shifts`, `PUT /api/shifts/{id}/deactivate`)
+  — quyền `hrm.shift.create`/`hrm.shift.update`. Vô hiệu hoá là soft-delete
+  (`is_active=false`), không xoá cứng.
+- **Gán ca cho nhân sự** (`POST /api/employee-shifts`) — quyền
+  `hrm.employee-shift.assign`. Gán ca mới tự đóng bản ghi active cũ (nếu
+  có) theo đúng ràng buộc "1 nhân sự chỉ 1 ca active tại 1 thời điểm".
+- **Lịch làm việc/nghỉ lễ** (`POST/DELETE /api/work-calendar`) — quyền
+  `hrm.work-calendar.create`/`hrm.work-calendar.delete`. Kèm vá 1 thiếu
+  sót thiết kế gốc: `work_calendar` (V7) không có ràng buộc unique, có thể
+  tạo trùng override cùng ngày/phạm vi — đã thêm unique index (V120) chặn
+  từ DB.
+
+GET (danh sách) của cả 3 nhóm không gate quyền — dữ liệu tra cứu dùng
+chung, đúng pattern `SiteController`/`DepartmentController`.
+
+---
+
 UC-10: Nộp đơn từ
 
 +-----------------+----------------------------------------------------+
