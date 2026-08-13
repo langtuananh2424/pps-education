@@ -41,10 +41,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     sessionStorage.setItem(CURRENT_USER_CACHE_KEY, JSON.stringify(profile));
     setCurrentUser(profile);
     setIsLoggedIn(true);
-    // Fire-and-forget — không chặn luồng login nếu trình duyệt không hỗ trợ/từ chối
-    // quyền notification (VD Safari iOS chưa "Thêm vào Màn hình chính", xem
-    // pushNotifications.ts). Push chỉ là 1 trong 3 kênh (Email luôn bật sẵn).
-    setupPushNotifications().catch(() => undefined);
+    // Huỷ token FCM cũ (nếu thiết bị này vừa đăng nhập tài khoản khác mà chưa
+    // logout) trước khi đăng ký token mới — ép Firebase cấp token mới thay vì
+    // tái sử dụng token cache, tránh 1 thiết bị nhận push của nhiều tài khoản
+    // cùng lúc. Fire-and-forget — không chặn luồng login nếu trình duyệt không
+    // hỗ trợ/từ chối quyền notification (VD Safari iOS chưa "Thêm vào Màn hình
+    // chính", xem pushNotifications.ts). Push chỉ là 1 trong 3 kênh (Email
+    // luôn bật sẵn).
+    teardownPushNotifications()
+      .then(() => setupPushNotifications())
+      .catch(() => undefined);
   };
 
   const login = async (usernameOrEmail: string, password: string) => {

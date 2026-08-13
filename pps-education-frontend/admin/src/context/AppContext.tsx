@@ -73,7 +73,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // Fire-and-forget — không chặn luồng login nếu trình duyệt không hỗ trợ/từ chối
     // quyền notification (VD Safari iOS chưa "Thêm vào Màn hình chính", xem
     // pushNotifications.ts). Push chỉ là 1 trong 3 kênh (Email luôn bật sẵn).
-    setupPushNotifications().catch(() => undefined);
+    teardownPushNotifications()
+      .then(() => setupPushNotifications())
+      .catch(() => undefined);
   };
 
   const login = async (usernameOrEmail: string, password: string) => {
