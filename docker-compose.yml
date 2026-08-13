@@ -29,6 +29,13 @@ services:
     restart: unless-stopped
     environment:
       SPRING_PROFILES_ACTIVE: dev
+      # JDK image (eclipse-temurin) đọc biến TZ chuẩn để set múi giờ mặc định JVM lúc khởi động -
+      # thiếu biến này JVM chạy theo UTC (giờ mặc định của base image), lệch 7 tiếng so với giờ VN
+      # mà admin nhập cho shifts.check_in_time/class_sessions.start_time (LocalTime, không kèm
+      # timezone) -- phát hiện qua UC-09: OffsetDateTime.now().toLocalTime() (server) so sánh với
+      # giờ ca/lịch dạy (VN) sai lệch múi giờ, mọi chấm công đúng giờ thực tế bị từ chối nhầm thành
+      # "ngoài cửa sổ chấm công". Xem comment liên quan ở application.yml (hibernate.jdbc.time_zone).
+      TZ: Asia/Ho_Chi_Minh
       DB_URL: jdbc:postgresql://postgres:5432/pps_education
       DB_USERNAME: pps_app
       DB_PASSWORD: root123456
