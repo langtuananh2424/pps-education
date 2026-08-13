@@ -22,13 +22,13 @@ import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
 type GrammarMode = "OFFLINE" | "ONLINE";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none";
+/** Thang thái độ chốt lại 2026-08-12 (StudentComment.Attitude). */
 const attitudeLabels: Record<NonNullable<StudentCommentResponse["attitude"]>, string> = {
-  POOR: "Kém",
   WEAK: "Yếu",
   AVERAGE: "Trung bình",
-  ABOVE_AVERAGE: "Trung bình khá",
   FAIR: "Khá",
-  GOOD: "Tốt"
+  GOOD: "Tốt",
+  EXCELLENT: "Xuất sắc"
 };
 const statusLabels: Record<StudentCommentResponse["status"], string> = { DRAFT: "Nháp", PENDING: "Chờ duyệt", APPROVED: "Đã duyệt", REJECTED: "Bị từ chối" };
 const statusVariants: Record<StudentCommentResponse["status"], "success" | "warning" | "danger" | "neutral"> = {

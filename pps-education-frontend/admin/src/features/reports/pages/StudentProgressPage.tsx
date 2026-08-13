@@ -5,7 +5,6 @@ import {
   Download,
   ChevronRight,
   Award,
-  BarChart3,
   BookOpen,
   Users,
   Calendar,
@@ -16,22 +15,9 @@ import {
 import Button from "@/components/ui/Button";
 import { useApp } from "@/context/AppContext";
 import {
-  ClassEnrollmentResponse,
-  GradeEvaluationResultResponse,
-  StudentCommentResponse,
-  listClassEnrollments,
-  listGradeComponentSetups,
-  listEvaluationResults,
-  listComments,
   listReportTemplates,
   generateReport,
   ReportTemplateResponse,
-  ClassResponse,
-  listClasses,
-  listClassSessions,
-  ClassSessionResponse,
-  AttendanceSessionResponse,
-  getAttendanceSession,
   AcademicTermResponse,
   listAcademicTerms,
   ReportPeriodSelector,
@@ -41,6 +27,7 @@ import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import { ApiError, downloadReport } from "@/lib/apiClient";
 import SelectReportTemplateModal from "../components/SelectReportTemplateModal";
+import { useStudentProfileData } from "../hooks/useStudentProfileData";
 
 const STATUS_LABELS: Record<string, string> = {
   ACTIVE: "Đang học",
@@ -85,15 +72,10 @@ export default function StudentProgressPage() {
   const [students, setStudents] = useState<StudentResponse[]>([]);
   const [search, setSearch] = useState("");
   const [searching, setSearching] = useState(false);
-  const [selectedStudent, setSelectedStudent] = useState<StudentResponse | null>(null);
+  const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
 
-  const [enrollments, setEnrollments] = useState<ClassEnrollmentResponse[]>([]);
-  const [allGrades, setAllGrades] = useState<GradeEvaluationResultResponse[]>([]);
-  const [allComments, setAllComments] = useState<StudentCommentResponse[]>([]);
-  const [classes, setClasses] = useState<ClassResponse[]>([]);
-  const [attendanceSessions, setAttendanceSessions] = useState<AttendanceSessionResponse[]>([]);
+  const profile = useStudentProfileData(selectedStudentId);
 
-  const [loadingProfile, setLoadingProfile] = useState(false);
   const [templates, setTemplates] = useState<ReportTemplateResponse[]>([]);
   const [academicTerms, setAcademicTerms] = useState<AcademicTermResponse[]>([]);
   const [exporting, setExporting] = useState(false);
@@ -125,111 +107,39 @@ export default function StudentProgressPage() {
 
   // TRANSCRIPT cần period selector (UC-68 bước 2) — tải kỳ đánh giá theo điểm trường chính của học sinh.
   useEffect(() => {
-    if (!selectedStudent?.primarySiteId) { setAcademicTerms([]); return; }
-    listAcademicTerms(selectedStudent.primarySiteId).then(setAcademicTerms).catch(() => setAcademicTerms([]));
-  }, [selectedStudent]);
+    if (!profile.student?.primarySiteId) { setAcademicTerms([]); return; }
+    listAcademicTerms(profile.student.primarySiteId).then(setAcademicTerms).catch(() => setAcademicTerms([]));
+  }, [profile.student]);
 
-  // Load hồ sơ học tập khi chọn học sinh
-  const loadStudentProfile = async (student: StudentResponse) => {
-    setSelectedStudent(student);
+  const selectStudent = (student: StudentResponse) => {
+    setSelectedStudentId(student.id);
     setActiveTab("overview");
-    setLoadingProfile(true);
-    setEnrollments([]);
-    setAllGrades([]);
-    setAllComments([]);
-    setAttendanceSessions([]);
     setStudents([]);
     setSearch("");
-
-    try {
-      // Lấy tất cả lớp đã và đang học
-      const allClasses = await listClasses({
-        siteId: selectedCampusId !== "ALL" ? Number(selectedCampusId) : undefined,
-      });
-      setClasses(allClasses);
-
-      // Tìm các lớp học sinh đã ghi danh (kiểm tra từng lớp)
-      const enrollmentChecks = await Promise.all(
-        allClasses.map((c) =>
-          listClassEnrollments(c.id)
-            .then((enrs) => enrs.filter((e) => e.studentId === student.id))
-            .catch(() => [] as ClassEnrollmentResponse[])
-        )
-      );
-      const studentEnrollments = enrollmentChecks.flat();
-      setEnrollments(studentEnrollments);
-
-      const enrolledClassIds = studentEnrollments.map((e) => e.classId);
-
-      // Lấy điểm tổng kết từ các lớp
-      const gradeResults = await Promise.all(
-        enrolledClassIds.map(async (classId) => {
-          const setups = await listGradeComponentSetups(classId).catch(() => []);
-          const grades = await Promise.all(
-            setups.map((s) =>
-              listEvaluationResults(classId, s.id)
-                .then((rs) => rs.filter((r) => r.studentId === student.id))
-                .catch(() => [] as GradeEvaluationResultResponse[])
-            )
-          );
-          return grades.flat();
-        })
-      );
-      setAllGrades(gradeResults.flat());
-
-      // Lấy nhận xét từ các lớp
-      const commentResults = await Promise.all(
-        enrolledClassIds.map((classId) =>
-          listComments(classId, student.id).catch(() => [] as StudentCommentResponse[])
-        )
-      );
-      setAllComments(commentResults.flat());
-
-      // Lấy điểm danh: lấy sessions của từng lớp, rồi lấy attendance của từng session
-      const sessionsPerClass = await Promise.all(
-        enrolledClassIds.map((classId) =>
-          listClassSessions(classId).catch(() => [] as ClassSessionResponse[])
-        )
-      );
-      const allSessions = sessionsPerClass.flat().filter((s) => s.status !== "CANCELLED");
-      // Giới hạn 20 session gần nhất để tránh quá nhiều request
-      const recentSessions = allSessions.slice(-20);
-      const attendanceData = await Promise.all(
-        recentSessions.map((s) => getAttendanceSession(s.id).catch(() => null))
-      );
-      setAttendanceSessions(attendanceData.filter(Boolean) as AttendanceSessionResponse[]);
-    } catch (err) {
-      showToast("Không tải được hồ sơ học tập");
-    } finally {
-      setLoadingProfile(false);
-    }
   };
 
   // Tính thống kê điểm danh
   const attendanceStats = useMemo(() => {
-    const myMarks = attendanceSessions.flatMap((s) =>
-      s.marks.filter((m) => m.studentId === selectedStudent?.id)
-    );
-    const present = myMarks.filter((m) => m.status === "PRESENT" || m.status === "LATE" || m.status === "EARLY_LEAVE").length;
-    const absent = myMarks.filter((m) => m.status === "ABSENT").length;
-    const excused = myMarks.filter((m) => m.status === "EXCUSED").length;
-    return { total: myMarks.length, present, absent, excused };
-  }, [attendanceSessions, selectedStudent]);
+    const present = profile.attendance.filter((m) => m.status === "PRESENT" || m.status === "LATE" || m.status === "EARLY_LEAVE").length;
+    const absent = profile.attendance.filter((m) => m.status === "ABSENT").length;
+    const excused = profile.attendance.filter((m) => m.status === "EXCUSED").length;
+    return { total: profile.attendance.length, present, absent, excused };
+  }, [profile.attendance]);
 
   // Tính điểm trung bình
   const avgScore = useMemo(() => {
-    const numericGrades = allGrades.filter((g) => g.overallScore !== null);
+    const numericGrades = profile.allGrades.filter((g) => g.overallScore !== null);
     if (!numericGrades.length) return null;
     return (numericGrades.reduce((s, g) => s + (g.overallScore as number), 0) / numericGrades.length).toFixed(2);
-  }, [allGrades]);
+  }, [profile.allGrades]);
 
   const handleExportReport = async (templateId: number, outputFormat: "DOCX" | "PDF", periods: ReportPeriodSelector[]) => {
-    if (!selectedStudent) return;
+    if (!profile.student) return;
     setExporting(true);
     try {
       // TRANSCRIPT cần classId (điểm số gắn theo lớp) — lấy từ lớp đang học (hoặc gần nhất) của học sinh.
       const template = templates.find((t) => t.id === templateId);
-      const primaryEnrollment = enrollments.find((e) => e.status === "ENROLLED") ?? enrollments[0];
+      const primaryEnrollment = profile.enrollments.find((e) => e.status === "ACTIVE") ?? profile.enrollments[0];
       const classId = template?.templateType === "TRANSCRIPT" ? primaryEnrollment?.classId : undefined;
       if (template?.templateType === "TRANSCRIPT" && !classId) {
         showToast("Học sinh chưa ghi danh lớp nào — không thể xuất Phiếu kết quả lộ trình.");
@@ -239,7 +149,7 @@ export default function StudentProgressPage() {
       const result = await generateReport({
         templateId,
         scope: "SINGLE",
-        studentId: selectedStudent.id,
+        studentId: profile.student.id,
         classId,
         periods,
         outputFormat,
@@ -258,8 +168,7 @@ export default function StudentProgressPage() {
     }
   };
 
-  const dailyComments = allComments.filter((c) => c.commentType === "DAILY");
-  const termComments = allComments.filter((c) => c.commentType !== "DAILY");
+  const dailyComments = profile.allComments.filter((c) => c.commentType === "DAILY");
 
   return (
     <div className="space-y-6">
@@ -270,7 +179,7 @@ export default function StudentProgressPage() {
       </div>
 
       {/* Tìm kiếm học sinh */}
-      {!selectedStudent && (
+      {!selectedStudentId && (
         <div className="bg-white border border-slate-200/60 rounded-xl shadow-sm p-6">
           <div className="relative max-w-lg mx-auto">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -292,7 +201,7 @@ export default function StudentProgressPage() {
               {students.map((s) => (
                 <button
                   key={s.id}
-                  onClick={() => loadStudentProfile(s)}
+                  onClick={() => selectStudent(s)}
                   className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-slate-200 hover:border-brand-orange hover:bg-orange-50 transition-all text-left"
                 >
                   <div className="flex items-center gap-3">
@@ -333,31 +242,33 @@ export default function StudentProgressPage() {
       )}
 
       {/* Hồ sơ học sinh đã chọn */}
-      {selectedStudent && (
+      {selectedStudentId && (
         <div className="space-y-4">
           {/* Header học sinh */}
           <div className="bg-gradient-to-r from-violet-500 to-purple-700 rounded-xl p-5 text-white flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              {selectedStudent.portraitUrl ? (
-                <img src={selectedStudent.portraitUrl} alt={selectedStudent.fullName} className="w-14 h-14 rounded-full object-cover ring-2 ring-white/50" />
+              {profile.student?.portraitUrl ? (
+                <img src={profile.student.portraitUrl} alt={profile.student.fullName} className="w-14 h-14 rounded-full object-cover ring-2 ring-white/50" />
               ) : (
                 <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center text-2xl font-bold">
-                  {selectedStudent.fullName.charAt(0)}
+                  {profile.student?.fullName.charAt(0) ?? "?"}
                 </div>
               )}
               <div>
-                <h2 className="text-lg font-bold">{selectedStudent.fullName}</h2>
-                <p className="text-sm opacity-75">{selectedStudent.studentCode} · {selectedStudent.primarySiteName ?? "—"}</p>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-semibold mt-1 inline-block ${STATUS_COLORS[selectedStudent.status] ?? ""}`}>
-                  {STATUS_LABELS[selectedStudent.status]}
-                </span>
+                <h2 className="text-lg font-bold">{profile.student?.fullName ?? "..."}</h2>
+                <p className="text-sm opacity-75">{profile.student?.studentCode} · {profile.student?.primarySiteName ?? "—"}</p>
+                {profile.student && (
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-semibold mt-1 inline-block ${STATUS_COLORS[profile.student.status] ?? ""}`}>
+                    {STATUS_LABELS[profile.student.status] ?? profile.student.status}
+                  </span>
+                )}
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
               <Button
                 size="sm"
                 variant="secondary"
-                onClick={() => { setSelectedStudent(null); setSearch(""); }}
+                onClick={() => { setSelectedStudentId(null); setSearch(""); }}
                 className="bg-white/20 text-white border-white/30 hover:bg-white/30"
               >
                 Đổi học sinh
@@ -366,7 +277,7 @@ export default function StudentProgressPage() {
                 <Button
                   size="sm"
                   variant="secondary"
-                  disabled={exporting || loadingProfile}
+                  disabled={exporting || profile.loading}
                   onClick={() => setShowExportModal(true)}
                   className="bg-white/20 text-white border-white/30 hover:bg-white/30"
                 >
@@ -377,9 +288,13 @@ export default function StudentProgressPage() {
             </div>
           </div>
 
-          {loadingProfile ? (
+          {profile.loading ? (
             <div className="bg-white rounded-xl border border-slate-200 p-10 text-center text-slate-400 text-sm">
               Đang tải hồ sơ học tập...
+            </div>
+          ) : profile.error ? (
+            <div className="bg-white rounded-xl border border-slate-200 p-10 text-center text-rose-500 text-sm">
+              {profile.error}
             </div>
           ) : (
             <>
@@ -409,7 +324,7 @@ export default function StudentProgressPage() {
                       <Users className="w-4 h-4 text-indigo-500" />
                       <span className="text-xs font-semibold text-slate-600">Lớp đã học</span>
                     </div>
-                    <p className="text-3xl font-bold text-indigo-600">{enrollments.length}</p>
+                    <p className="text-3xl font-bold text-indigo-600">{profile.enrollments.length}</p>
                     <p className="text-xs text-slate-400 mt-1">lớp</p>
                   </div>
                   <div className="bg-white border border-slate-200/60 rounded-xl p-4 shadow-sm">
@@ -418,7 +333,7 @@ export default function StudentProgressPage() {
                       <span className="text-xs font-semibold text-slate-600">Điểm TB</span>
                     </div>
                     <p className="text-3xl font-bold text-amber-600">{avgScore ?? "—"}</p>
-                    <p className="text-xs text-slate-400 mt-1">qua {allGrades.length} kỳ</p>
+                    <p className="text-xs text-slate-400 mt-1">qua {profile.allGrades.length} kỳ</p>
                   </div>
                   <div className="bg-white border border-slate-200/60 rounded-xl p-4 shadow-sm">
                     <div className="flex items-center gap-2 mb-2">
@@ -444,24 +359,21 @@ export default function StudentProgressPage() {
                   {/* Danh sách lớp đã học */}
                   <div className="col-span-2 md:col-span-4 bg-white border border-slate-200/60 rounded-xl p-4 shadow-sm">
                     <h3 className="text-sm font-semibold text-slate-700 mb-3">Lịch sử ghi danh</h3>
-                    {enrollments.length === 0 ? (
+                    {profile.enrollments.length === 0 ? (
                       <p className="text-sm text-slate-400">Chưa có lớp nào</p>
                     ) : (
                       <div className="divide-y divide-slate-100">
-                        {enrollments.map((e) => {
-                          const cls = classes.find((c) => c.id === e.classId);
-                          return (
-                            <div key={e.id} className="py-2 flex items-center justify-between gap-3">
-                              <div>
-                                <p className="text-sm font-medium text-slate-700">{e.classId} — {cls?.name ?? `Lớp #${e.classId}`}</p>
-                                <p className="text-xs text-slate-400">Ghi danh: {e.enrolledDate}{e.withdrawnDate ? ` · Rút: ${e.withdrawnDate}` : ""}</p>
-                              </div>
-                              <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${e.status === "ENROLLED" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
-                                {e.status === "ENROLLED" ? "Đang học" : e.status}
-                              </span>
+                        {profile.enrollments.map((e) => (
+                          <div key={e.id} className="py-2 flex items-center justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-medium text-slate-700">{e.className}</p>
+                              <p className="text-xs text-slate-400">Ghi danh: {e.enrolledDate}{e.withdrawnDate ? ` · Rút: ${e.withdrawnDate}` : ""}</p>
                             </div>
-                          );
-                        })}
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${e.status === "ACTIVE" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
+                              {e.status === "ACTIVE" ? "Đang học" : e.status}
+                            </span>
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
@@ -474,7 +386,7 @@ export default function StudentProgressPage() {
                   <div className="px-4 py-3 border-b border-slate-100">
                     <h3 className="text-sm font-semibold text-slate-700">Kết quả học kỳ</h3>
                   </div>
-                  {allGrades.length === 0 ? (
+                  {profile.allGrades.length === 0 ? (
                     <div className="py-10 text-center text-sm text-slate-400">Chưa có điểm số nào</div>
                   ) : (
                     <table className="w-full text-sm text-left">
@@ -488,9 +400,12 @@ export default function StudentProgressPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
-                        {allGrades.map((g) => (
+                        {profile.allGrades.map((g) => (
                           <tr key={g.id} className="hover:bg-slate-50/50">
-                            <td className="px-4 py-3 text-slate-700">Kỳ #{g.academicTermId}</td>
+                            <td className="px-4 py-3 text-slate-700">
+                              {g.academicTermName}
+                              <span className="block text-[11px] text-slate-400">{g.className}</span>
+                            </td>
                             <td className="px-4 py-3 text-slate-500 text-xs">
                               {g.evaluationType === "MID_TERM" ? "Giữa kỳ" : "Cuối kỳ"}
                             </td>
@@ -514,10 +429,10 @@ export default function StudentProgressPage() {
               {/* Tab: Nhận xét */}
               {activeTab === "comments" && (
                 <div className="space-y-3">
-                  {allComments.length === 0 ? (
+                  {profile.allComments.length === 0 ? (
                     <div className="bg-white rounded-xl border border-slate-200 py-10 text-center text-sm text-slate-400">Chưa có nhận xét nào</div>
                   ) : (
-                    allComments.slice(0, 30).map((c) => (
+                    profile.allComments.slice(0, 30).map((c) => (
                       <div key={c.id} className="bg-white border border-slate-200/60 rounded-xl p-4 shadow-sm">
                         <div className="flex items-center justify-between gap-2 mb-2">
                           <div className="flex items-center gap-2">
@@ -557,34 +472,34 @@ export default function StudentProgressPage() {
                       <p className="text-xs text-amber-600 mt-1">Vắng có phép</p>
                     </div>
                   </div>
-                  <p className="text-xs text-slate-400 text-center">Hiển thị từ 20 buổi học gần nhất</p>
+                  <p className="text-xs text-slate-400 text-center">Hiển thị từ 150 buổi học gần nhất</p>
 
-                  {attendanceSessions.length === 0 && (
+                  {profile.attendance.length === 0 && (
                     <div className="bg-white rounded-xl border border-slate-200 py-10 text-center text-sm text-slate-400">Chưa có dữ liệu điểm danh</div>
                   )}
                   <div className="space-y-2">
-                    {attendanceSessions.map((sess) => {
-                      const myMark = sess.marks.find((m) => m.studentId === selectedStudent?.id);
-                      if (!myMark) return null;
-                      const isPresent = myMark.status === "PRESENT" || myMark.status === "LATE" || myMark.status === "EARLY_LEAVE";
-                      const isAbsent = myMark.status === "ABSENT";
+                    {profile.attendance.map((entry) => {
+                      const isPresent = entry.status === "PRESENT" || entry.status === "LATE" || entry.status === "EARLY_LEAVE";
+                      const isAbsent = entry.status === "ABSENT";
                       return (
-                        <div key={sess.id} className="bg-white border border-slate-200/60 rounded-lg px-4 py-2.5 flex items-center justify-between gap-3">
+                        <div key={entry.id} className="bg-white border border-slate-200/60 rounded-lg px-4 py-2.5 flex items-center justify-between gap-3">
                           <div className="flex items-center gap-3">
                             {isPresent ? <CheckCircle className="w-4 h-4 text-emerald-500" /> :
                              isAbsent ? <XCircle className="w-4 h-4 text-rose-500" /> :
                              <Clock className="w-4 h-4 text-amber-500" />}
-                            <span className="text-sm text-slate-700">Buổi học #{sess.classSessionId}</span>
+                            <span className="text-sm text-slate-700">
+                              {entry.sessionNumber ? `Buổi ${entry.sessionNumber}` : `Buổi học #${entry.classSessionId}`} — {entry.sessionDate}
+                            </span>
                           </div>
                           <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
                             isPresent ? "bg-emerald-100 text-emerald-700" :
                             isAbsent ? "bg-rose-100 text-rose-700" :
                             "bg-amber-100 text-amber-700"
                           }`}>
-                            {myMark.status === "PRESENT" ? "Có mặt" :
-                             myMark.status === "LATE" ? "Đi muộn" :
-                             myMark.status === "EARLY_LEAVE" ? "Về sớm" :
-                             myMark.status === "ABSENT" ? "Vắng" : "Có phép"}
+                            {entry.status === "PRESENT" ? "Có mặt" :
+                             entry.status === "LATE" ? "Đi muộn" :
+                             entry.status === "EARLY_LEAVE" ? "Về sớm" :
+                             entry.status === "ABSENT" ? "Vắng" : "Có phép"}
                           </span>
                         </div>
                       );
@@ -597,12 +512,12 @@ export default function StudentProgressPage() {
         </div>
       )}
 
-      {selectedStudent && (
+      {selectedStudentId && profile.student && (
         <SelectReportTemplateModal
           open={showExportModal}
           onClose={() => setShowExportModal(false)}
           title="Xuất hồ sơ học sinh"
-          description={`${selectedStudent.fullName} (${selectedStudent.studentCode})`}
+          description={`${profile.student.fullName} (${profile.student.studentCode})`}
           templates={templates}
           academicTerms={academicTerms}
           exporting={exporting}

@@ -40,4 +40,15 @@ public interface GradeEntryRepository extends JpaRepository<GradeEntry, Long> {
 
     /** UC-20 (mở rộng, bổ sung ngoài SDD gốc): HEAD_ACADEMIC xem danh sách chờ duyệt của MỌI site, không giới hạn theo site_managers. */
     List<GradeEntry> findByStatusOrderByEnteredAtAsc(GradeEntry.Status status);
+
+    /** Bổ sung ngoài SDD gốc — StudentProfileService (FR-REP-04): JOIN FETCH thành phần điểm/lớp/kỳ học để tránh N+1 khi gộp điểm từng kỹ năng của 1 học sinh qua mọi lớp/kỳ. */
+    @Query("""
+            SELECT e FROM GradeEntry e
+            JOIN FETCH e.gradeComponent gc
+            JOIN FETCH e.schoolClass sc
+            JOIN FETCH e.academicTerm t
+            WHERE e.student.id = :studentId
+            ORDER BY t.startDate ASC, e.evaluationType ASC
+            """)
+    List<GradeEntry> findByStudentIdWithContext(@Param("studentId") Long studentId);
 }

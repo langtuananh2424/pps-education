@@ -12,6 +12,9 @@ public interface StudentCommentRepository extends JpaRepository<StudentComment, 
 
     List<StudentComment> findBySchoolClassIdAndStudentIdOrderByCommentDateDesc(Long classId, Long studentId);
 
+    /** Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-12) — TOÀN BỘ nhận xét của CẢ LỚP trong 1 lần gọi, thay N request/học sinh (StudentCommentResponse đã có studentId để FE tự gom theo học sinh). */
+    List<StudentComment> findBySchoolClassIdOrderByCommentDateDesc(Long classId);
+
     /** UC-21 (bổ sung — nhận xét Hàng ngày kiểu mới): 1 học sinh chỉ có tối đa 1 nhận xét DAILY / buổi học. */
     Optional<StudentComment> findByClassSessionIdAndStudentId(Long classSessionId, Long studentId);
 
@@ -29,4 +32,14 @@ public interface StudentCommentRepository extends JpaRepository<StudentComment, 
             ORDER BY c.submittedAt ASC
             """)
     List<StudentComment> findByStatusAndSiteId(@Param("status") StudentComment.Status status, @Param("siteId") Long siteId);
+
+    /** Bổ sung ngoài SDD gốc — StudentProfileService (FR-REP-04): JOIN FETCH lớp/buổi học để tránh N+1 khi gộp toàn bộ nhận xét của 1 học sinh qua mọi lớp. */
+    @Query("""
+            SELECT c FROM StudentComment c
+            JOIN FETCH c.schoolClass sc
+            JOIN FETCH c.classSession cs
+            WHERE c.student.id = :studentId
+            ORDER BY c.commentDate DESC
+            """)
+    List<StudentComment> findByStudentIdWithContext(@Param("studentId") Long studentId);
 }

@@ -4,6 +4,8 @@ import { ApiError } from "@/lib/apiClient";
 import { changeOwnPassword } from "../api";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
+import Toast from "@/components/ui/Toast";
+import { useToast } from "@/lib/useToast";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-xs p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
@@ -20,7 +22,7 @@ export default function ChangePasswordModal({ onClose }: ChangePasswordModalProp
   const [confirmPassword, setConfirmPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const { message: toastMessage, showToast } = useToast();
 
   const newPasswordInvalid = newPassword.length > 0 && newPassword.length < 8;
   const confirmMismatch = confirmPassword.length > 0 && confirmPassword !== newPassword;
@@ -41,10 +43,9 @@ export default function ChangePasswordModal({ onClose }: ChangePasswordModalProp
     }
     setSubmitting(true);
     setError(null);
-    setSuccess(false);
     try {
       await changeOwnPassword(currentPassword, newPassword);
-      setSuccess(true);
+      showToast("Đã đổi mật khẩu thành công.");
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
@@ -56,7 +57,8 @@ export default function ChangePasswordModal({ onClose }: ChangePasswordModalProp
   };
 
   return (
-    <Modal open onClose={onClose} title="Đổi mật khẩu" size="md">
+    <>
+      <Modal open onClose={onClose} title="Đổi mật khẩu" size="md">
       <form onSubmit={handleSubmit} className="space-y-3">
         <span className="text-[10px] font-bold uppercase text-slate-500 flex items-center gap-1.5">
           <KeyRound className="w-3.5 h-3.5" />
@@ -64,7 +66,6 @@ export default function ChangePasswordModal({ onClose }: ChangePasswordModalProp
         </span>
 
         {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
-        {success && <div className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 p-2.5 rounded-lg">Đã đổi mật khẩu thành công.</div>}
 
         <div>
           <label className={labelClass}>Mật khẩu hiện tại</label>
@@ -106,6 +107,8 @@ export default function ChangePasswordModal({ onClose }: ChangePasswordModalProp
           </Button>
         </div>
       </form>
-    </Modal>
+      </Modal>
+      <Toast message={toastMessage} />
+    </>
   );
 }

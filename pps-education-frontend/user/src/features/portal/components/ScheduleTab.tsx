@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { AlertCircle, Calendar, CheckCircle2, FileSpreadsheet, XCircle } from "lucide-react";
+import { AlertCircle, Calendar, CheckCircle2, FileSpreadsheet, RotateCcw, XCircle } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { formatHm } from "@/lib/format";
 import { AttendanceMarkResponse, ClassSessionResponse, listAttendance, listSchedule } from "../api";
+import ScheduleFilterBar from "./ScheduleFilterBar";
+import { inDateRange, useScheduleDateFilter } from "../hooks/useScheduleDateFilter";
 
 const teacherTypeLabels: Record<string, string> = { VIETNAMESE: "GV Việt Nam", FOREIGN: "GV nước ngoài" };
 
@@ -59,13 +61,16 @@ function sortSessionsForDisplay(sessions: ClassSessionResponse[]): ClassSessionR
 interface ScheduleTabProps {
   studentId: number;
   classId: number;
+  /** Site của lớp đang chọn — dùng để nạp danh sách học kỳ (GET /academic-terms?siteId=...) cho bộ lọc. */
+  siteId: number | null;
 }
 
-export default function ScheduleTab({ studentId, classId }: ScheduleTabProps) {
+export default function ScheduleTab({ studentId, classId, siteId }: ScheduleTabProps) {
   const [schedule, setSchedule] = useState<ClassSessionResponse[]>([]);
   const [attendance, setAttendance] = useState<AttendanceMarkResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const dateFilter = useScheduleDateFilter(siteId);
 
   useEffect(() => {
     setLoading(true);
@@ -78,17 +83,28 @@ export default function ScheduleTab({ studentId, classId }: ScheduleTabProps) {
       .finally(() => setLoading(false));
   }, [studentId, classId]);
 
-  const total = attendance.length;
-  const present = attendance.filter((a) => a.status === "PRESENT").length;
-  const late = attendance.filter((a) => a.status === "LATE").length;
-  const absent = attendance.filter((a) => a.status === "ABSENT").length;
+  // Tra ngược classSessionId -> buổi học cụ thể (ngày/giờ/số buổi) để hiện rõ trong "Nhật ký chuyên
+  // cần" — trước đây chỉ hiện mỗi trạng thái (Đi học/Vắng mặt), không rõ của buổi nào (2026-07-31).
+  // Dựng từ schedule ĐẦY ĐỦ (chưa lọc) để luôn tra được đúng ngày buổi học của mọi điểm danh.
+  const sessionById = new Map(schedule.map((s) => [s.id, s]));
+
+  // Bổ sung 2026-08-12: lọc theo khoảng thời gian/học kỳ (client-side, dữ liệu đã tải hết 1 lần —
+  // xem useScheduleDateFilter.ts). schedule/attendance đã lọc chỉ dùng để hiển thị + tính 4 card,
+  // KHÔNG dùng để tra sessionById (giữ nguyên bản đầy đủ ở trên).
+  const filteredSchedule = schedule.filter((s) => inDateRange(s.sessionDate, dateFilter.fromDate, dateFilter.toDate));
+  const filteredAttendance = attendance.filter((a) => {
+    const session = sessionById.get(a.classSessionId);
+    return session != null && inDateRange(session.sessionDate, dateFilter.fromDate, dateFilter.toDate);
+  });
+
+  const total = filteredAttendance.length;
+  const present = filteredAttendance.filter((a) => a.status === "PRESENT").length;
+  const late = filteredAttendance.filter((a) => a.status === "LATE").length;
+  const absent = filteredAttendance.filter((a) => a.status === "ABSENT").length;
   // Đi trễ vẫn tính là đi học (nghiệp vụ xác nhận 2026-08-04) — cộng nguyên late vào rate, không nhân 0.5.
   const rate = total > 0 ? (((present + late) / total) * 100).toFixed(0) : "0";
 
-  // Tra ngược classSessionId -> buổi học cụ thể (ngày/giờ/số buổi) để hiện rõ trong "Nhật ký chuyên
-  // cần" — trước đây chỉ hiện mỗi trạng thái (Đi học/Vắng mặt), không rõ của buổi nào (2026-07-31).
-  const sessionById = new Map(schedule.map((s) => [s.id, s]));
-  const sortedAttendance = [...attendance].sort((a, b) => {
+  const sortedAttendance = [...filteredAttendance].sort((a, b) => {
     const sa = sessionById.get(a.classSessionId);
     const sb = sessionById.get(b.classSessionId);
     if (!sa || !sb) return 0;
@@ -125,11 +141,33 @@ export default function ScheduleTab({ studentId, classId }: ScheduleTabProps) {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-white border border-line/80 p-6 rounded-[20px] shadow-[0_8px_30px_rgba(30,42,69,0.03)] space-y-4">
-          <h2 className="text-xl font-extrabold text-ink flex items-center gap-2">
-            <Calendar className="text-teal" /> Lịch buổi học
-          </h2>
+          {/* "Xem tất cả" đặt ngang hàng tiêu đề (theo yêu cầu người dùng 2026-08-12) — trước đây
+              đứng chung hàng với 2 nút lọc bên dưới, trên mobile hàng đó dễ xuống dòng 3 tầng (Học
+              kỳ/Từ→Đến rồi tới Xem tất cả), giờ tách hẳn lên hàng tiêu đề cho gọn. */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-xl font-extrabold text-ink flex items-center gap-2">
+              <Calendar className="text-teal" /> Lịch buổi học
+            </h2>
+            {dateFilter.isActive && (
+              <button
+                type="button"
+                onClick={dateFilter.reset}
+                className="flex items-center gap-1 text-xs font-extrabold text-teal-deep hover:underline shrink-0"
+              >
+                <RotateCcw size={13} /> Xem tất cả
+              </button>
+            )}
+          </div>
+          <ScheduleFilterBar
+            fromDate={dateFilter.fromDate}
+            toDate={dateFilter.toDate}
+            onDateRangeChange={dateFilter.setDateRange}
+            terms={dateFilter.terms}
+            selectedTermId={dateFilter.selectedTermId}
+            onSelectTerm={dateFilter.selectTerm}
+          />
           <div className="space-y-4 max-h-[480px] overflow-y-auto pr-1">
-            {schedule.map((s) => {
+            {filteredSchedule.map((s) => {
               const badge = getSessionStatusBadge(s);
               return (
               <div
@@ -172,7 +210,11 @@ export default function ScheduleTab({ studentId, classId }: ScheduleTabProps) {
               </div>
               );
             })}
-            {schedule.length === 0 && <p className="text-xs text-muted font-bold italic">Chưa có buổi học nào.</p>}
+            {filteredSchedule.length === 0 && (
+              <p className="text-xs text-muted font-bold italic">
+                {dateFilter.isActive ? "Không có buổi học nào trong khoảng đã lọc." : "Chưa có buổi học nào."}
+              </p>
+            )}
           </div>
         </div>
 
@@ -200,7 +242,11 @@ export default function ScheduleTab({ studentId, classId }: ScheduleTabProps) {
                 </div>
               );
             })}
-            {attendance.length === 0 && <p className="text-xs text-muted font-bold italic">Chưa có dữ liệu chuyên cần.</p>}
+            {filteredAttendance.length === 0 && (
+              <p className="text-xs text-muted font-bold italic">
+                {dateFilter.isActive ? "Không có dữ liệu chuyên cần trong khoảng đã lọc." : "Chưa có dữ liệu chuyên cần."}
+              </p>
+            )}
           </div>
         </div>
       </div>

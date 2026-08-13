@@ -39,10 +39,12 @@ import vn.com.pps.education.dto.SubmitConnectionAnswersRequest;
 import vn.com.pps.education.dto.SubmitReviewVideoAudioRequest;
 import vn.com.pps.education.dto.UpdateCurriculumRequest;
 import vn.com.pps.education.dto.UpdateReviewVideoSetRequest;
+import vn.com.pps.education.dto.WithdrawEnrollmentRequest;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
 import vn.com.pps.education.exception.QuizAlreadyCompletedException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.exception.RetakeNotAllowedException;
+import vn.com.pps.education.exception.SubmissionPastDeadlineException;
 import vn.com.pps.education.exception.VideoNotYetQualifiedException;
 import vn.com.pps.education.repository.NotificationRepository;
 import vn.com.pps.education.repository.RoleRepository;
@@ -417,6 +419,32 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 
+    /**
+     * UC-13 (2026-07-29): học sinh xem lớp cũ (đã chuyển đi, enrollment WITHDRAWN) vẫn phải xem
+     * được Kho Video Ôn tập của lớp đó — trước đây requireStudentEnrolledInClass chỉ chấp nhận
+     * ACTIVE nên bị 404 sai (bug đã báo lại người dùng, sửa 2026-08-12).
+     */
+    @Test
+    void listByClass_UC13_showsSetsForWithdrawnEnrollmentOldClass() {
+        ReviewVideoSetResponse set = createSet();
+        reviewVideoService.assignToClass(set.id(), schoolClass.id(), teacher.getId());
+        reviewVideoService.updateSet(set.id(), new UpdateReviewVideoSetRequest(set.title(), "VIETNAMESE", null, 1, "PUBLISHED"), teacher.getId());
+        // V71: deliverToClass dùng PROPAGATION_REQUIRES_NEW — phải commit set vừa tạo trước. Thiếu
+        // publish+deliverToClass thì KHÔNG học sinh nào (kể cả đang ACTIVE) thấy được bộ này — bug ở
+        // bản test gốc khiến test luôn fail bất kể sửa requireStudentEnrolledInClass đúng hay sai.
+        commitCurrentTransactionAndStartNew();
+        reviewVideoService.deliverToClass(set.id(), schoolClass.id(), null, teacher.getId());
+        Student student = enrollStudent(schoolClass.id());
+        var enrollment = classService.listEnrollments(schoolClass.id()).stream()
+                .filter(e -> e.studentId().equals(student.getId())).findFirst().orElseThrow();
+        classService.withdraw(schoolClass.id(), enrollment.id(),
+                new WithdrawEnrollmentRequest(LocalDate.now(), "Chuyển lớp"), headAcademic.getId());
+
+        List<ReviewVideoSetResponse> visible = reviewVideoService.listByClass(schoolClass.id(), student.getUser().getId());
+
+        assertThat(visible).extracting(ReviewVideoSetResponse::id).contains(set.id());
+    }
+
     @Test
     void listVideos_UC23a_A2_rejectsWhenStudentOutsideScope() {
         ReviewVideoSetResponse set = createSet();
@@ -429,17 +457,19 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void reportProgress_UC23a_MainFlow_upsertsAndComputesCompletionAt80Percent() {
+    void reportProgress_UC23a_MainFlow_upsertsAndComputesCompletionAt100Percent() {
         ReviewVideoResponse video = createPublishedSetWithVideo(100);
         Student student = enrollStudent(schoolClass.id());
         Long sessionId = startSession(video.id(), student.getUser().getId());
 
-        ReviewVideoProgressResponse below = reportProgress(video.id(), sessionId, 79, student.getUser().getId());
-        ReviewVideoProgressResponse atThreshold = reportProgress(video.id(), sessionId, 80, student.getUser().getId());
+        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-11 — CONNECTION giờ LUÔN yêu cầu
+        // xem HẾT 100% (cố định, không còn cấu hình được) mới được làm câu hỏi/tính "qualified".
+        ReviewVideoProgressResponse below = reportProgress(video.id(), sessionId, 99, student.getUser().getId());
+        ReviewVideoProgressResponse atThreshold = reportProgress(video.id(), sessionId, 100, student.getUser().getId());
 
         assertThat(below.completed()).isFalse();
-        assertThat(below.watchedPercent()).isEqualTo(79);
-        assertThat(atThreshold.watchedPercent()).isEqualTo(80);
+        assertThat(below.watchedPercent()).isEqualTo(99);
+        assertThat(atThreshold.watchedPercent()).isEqualTo(100);
         // CONNECTION (V83/V93/V101): xem đạt ngưỡng chỉ làm session "qualified" — 1 lượt chỉ tính
         // vào viewCount/completed sau khi CŨNG nộp đủ câu hỏi (quizCompletedAt khác NULL). Video ở
         // đây chưa thêm câu hỏi nào (addConnectionQuestion không được gọi) nên nộp danh sách rỗng
@@ -460,6 +490,9 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         ReviewVideoProgressResponse afterLowerReport = reportProgress(video.id(), sessionId, 30, student.getUser().getId());
 
         assertThat(afterLowerReport.watchedSeconds()).isEqualTo(90);
+        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-11 — CONNECTION giờ LUÔN yêu cầu
+        // xem HẾT 100% (cố định) mới "qualified" — phải báo tiếp tới 100 mới nộp được câu hỏi.
+        reportProgress(video.id(), sessionId, 100, student.getUser().getId());
         // CONNECTION (V83/V93/V101): "đạt" chỉ tính sau khi nộp đủ câu hỏi (rỗng ở đây) cho lượt đã qualified.
         ReviewVideoConnectionQuizResultResponse quizResult = reviewVideoService.submitConnectionAnswers(
                 sessionId, new SubmitConnectionAnswersRequest(List.of()), student.getUser().getId());
@@ -476,6 +509,23 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 
+    /**
+     * 2026-08-12 (đã xác nhận với người dùng): Video Ôn tập trước đây KHÔNG hề chặn ghi nhận tiến độ
+     * sau khi lần giao đã quá hạn nộp (khác Bài Ngữ pháp — ExerciseAttemptService#submitAttempt đã
+     * chặn từ trước) — mirror lại đúng cơ chế đó. startWatchSession KHÔNG bị chặn (giống
+     * startAttempt bên Exercise), chỉ chặn ở bước GHI NHẬN kết quả (reportProgress).
+     */
+    @Test
+    void reportProgress_UC23a_A3_rejectsPastDeadline() {
+        ReviewVideoResponse video = createPublishedSetWithVideo(100);
+        Student student = enrollStudent(schoolClass.id());
+        Long sessionId = startSession(video.id(), student.getUser().getId());
+        reviewVideoService.deliverToClass(video.reviewVideoSetId(), schoolClass.id(), OffsetDateTime.now().minusDays(1), teacher.getId());
+
+        assertThatThrownBy(() -> reportProgress(video.id(), sessionId, 50, student.getUser().getId()))
+                .isInstanceOf(SubmissionPastDeadlineException.class);
+    }
+
     @Test
     void reportProgress_UC59_MainFlow_requiresConfiguredViewCountBeforeCompleted() {
         ReviewVideoResponse video = createPublishedSetWithVideo(100, 80, 2);
@@ -483,16 +533,17 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
 
         // CONNECTION (V83/V93/V101): mỗi lượt chỉ tính vào viewCount sau khi CŨNG nộp đủ câu hỏi
         // (rỗng ở đây, video chưa thêm câu hỏi) cho đúng session đã qualified (xem ghi chú tại
-        // reportProgress_UC23a_MainFlow_upsertsAndComputesCompletionAt80Percent).
+        // reportProgress_UC23a_MainFlow_upsertsAndComputesCompletionAt100Percent). Bổ sung ngoài SDD
+        // gốc, đã xác nhận với người dùng 2026-08-11 — CONNECTION giờ LUÔN yêu cầu xem HẾT 100%.
         Long firstSessionId = startSession(video.id(), student.getUser().getId());
-        reportProgress(video.id(), firstSessionId, 90, student.getUser().getId());
+        reportProgress(video.id(), firstSessionId, 100, student.getUser().getId());
         ReviewVideoConnectionQuizResultResponse afterFirstSession = reviewVideoService.submitConnectionAnswers(
                 firstSessionId, new SubmitConnectionAnswersRequest(List.of()), student.getUser().getId());
         assertThat(afterFirstSession.progress().viewCount()).isEqualTo(1);
         assertThat(afterFirstSession.progress().completed()).isFalse();
 
         Long secondSessionId = startSession(video.id(), student.getUser().getId());
-        reportProgress(video.id(), secondSessionId, 90, student.getUser().getId());
+        reportProgress(video.id(), secondSessionId, 100, student.getUser().getId());
         ReviewVideoConnectionQuizResultResponse afterSecondSession = reviewVideoService.submitConnectionAnswers(
                 secondSessionId, new SubmitConnectionAnswersRequest(List.of()), student.getUser().getId());
         assertThat(afterSecondSession.progress().viewCount()).isEqualTo(2);
@@ -639,6 +690,19 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         assertThatThrownBy(() -> reviewVideoService.submitQuestionAudio(question.id(),
                 new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/a.mp3", null), outsiderStudentUser.getId()))
                 .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    /** 2026-08-12 (đã xác nhận với người dùng) — mirror reportProgress_UC23a_A3_rejectsPastDeadline cho REFLEX. */
+    @Test
+    void submitQuestionAudio_UC23b_A3_rejectsPastDeadline() {
+        ReviewVideoResponse video = createPublishedReflexSetWithVideo(100);
+        ReviewVideoQuestionResponse question = addQuestion(video.id(), 53, 15, null);
+        Student student = enrollStudent(schoolClass.id());
+        reviewVideoService.deliverToClass(video.reviewVideoSetId(), schoolClass.id(), OffsetDateTime.now().minusDays(1), teacher.getId());
+
+        assertThatThrownBy(() -> reviewVideoService.submitQuestionAudio(question.id(),
+                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/late.mp3", null), student.getUser().getId()))
+                .isInstanceOf(SubmissionPastDeadlineException.class);
     }
 
     @Test
@@ -1010,6 +1074,28 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         assertThat(result.results().get(0).correct()).isTrue();
         assertThat(result.progress().viewCount()).isEqualTo(1);
         assertThat(result.progress().completed()).isTrue();
+    }
+
+    /** 2026-08-12 (đã xác nhận với người dùng) — mirror reportProgress_UC23a_A3_rejectsPastDeadline cho CONNECTION. */
+    @Test
+    void submitConnectionAnswers_A_rejectsPastDeadline() {
+        ReviewVideoResponse video = createPublishedSetWithVideo(100, 80, 1);
+        ReviewVideoConnectionQuestionResponse question = reviewVideoService.addConnectionQuestion(video.id(),
+                new AddReviewVideoConnectionQuestionRequest("2+2 = ?", 1, List.of(
+                        new ConnectionChoiceRequest("A", "3", false, 1),
+                        new ConnectionChoiceRequest("B", "4", true, 2))),
+                teacher.getId());
+        Long correctChoiceId = question.choices().stream().filter(c -> Boolean.TRUE.equals(c.isCorrect()))
+                .findFirst().orElseThrow().id();
+        Student student = enrollStudent(schoolClass.id());
+        Long sessionId = startSession(video.id(), student.getUser().getId());
+        reportProgress(video.id(), sessionId, 100, student.getUser().getId());
+        reviewVideoService.deliverToClass(video.reviewVideoSetId(), schoolClass.id(), OffsetDateTime.now().minusDays(1), teacher.getId());
+
+        assertThatThrownBy(() -> reviewVideoService.submitConnectionAnswers(sessionId,
+                new SubmitConnectionAnswersRequest(List.of(new ConnectionAnswerItem(question.id(), correctChoiceId))),
+                student.getUser().getId()))
+                .isInstanceOf(SubmissionPastDeadlineException.class);
     }
 
     @Test

@@ -74,7 +74,9 @@ public class HomeworkDueSoonReminderSchedulerService {
 
     private void processExerciseAssignments(OffsetDateTime now, OffsetDateTime cutoff) {
         List<ExerciseAssignment> dueSoon = exerciseAssignmentRepository
-                .findByStatusAndDueAtBetweenAndParentReminderSentAtIsNull(ExerciseAssignment.Status.ACTIVE, now, cutoff);
+                .findByStatusAndDueAtBetweenAndParentReminderSentAtIsNull(ExerciseAssignment.Status.ACTIVE, now, cutoff).stream()
+                .filter(a -> a.getSchoolClass().getStatus() != SchoolClass.Status.CANCELLED)
+                .toList();
         for (ExerciseAssignment assignment : dueSoon) {
             List<Student> students = homeworkDeadlineSchedulerService.targetStudents(assignment.getSchoolClass(), assignment.getTargetStudentIds());
             for (Student s : students) {
@@ -92,7 +94,9 @@ public class HomeworkDueSoonReminderSchedulerService {
 
     private void processReviewVideoAssignments(OffsetDateTime now, OffsetDateTime cutoff) {
         List<ReviewVideoAssignment> dueSoon = reviewVideoAssignmentRepository
-                .findByStatusAndDueAtBetweenAndParentReminderSentAtIsNull(ReviewVideoAssignment.Status.ACTIVE, now, cutoff);
+                .findByStatusAndDueAtBetweenAndParentReminderSentAtIsNull(ReviewVideoAssignment.Status.ACTIVE, now, cutoff).stream()
+                .filter(a -> a.getSchoolClass().getStatus() != SchoolClass.Status.CANCELLED)
+                .toList();
         for (ReviewVideoAssignment assignment : dueSoon) {
             List<Student> students = homeworkDeadlineSchedulerService.targetStudents(assignment.getSchoolClass(), assignment.getTargetStudentIds());
             for (Student s : students) {

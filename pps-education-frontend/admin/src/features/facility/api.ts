@@ -13,6 +13,9 @@ export interface SiteResponse {
   partnerInfo: PartnerSchoolInfo | null;
   currentManagerUserId: number | null;
   currentManagerFullName: string | null;
+  /** sites.geo_location (PostGIS) — dùng validate bán kính GPS chấm công UC-09 A2. null nếu chưa cấu hình. */
+  latitude: number | null;
+  longitude: number | null;
 }
 
 export interface PartnerSchoolInfo {
@@ -33,6 +36,8 @@ export interface CreateSiteRequest {
   phone?: string;
   partnerInfo?: PartnerSchoolInfo;
   managerUserId?: number;
+  latitude?: number;
+  longitude?: number;
 }
 
 /** Khớp UpdateSiteRequest thật — đổi siteType sang OWNED sẽ xóa cứng partnerInfo phía BE. */
@@ -44,6 +49,8 @@ export interface UpdateSiteRequest {
   phone?: string;
   status?: "ACTIVE" | "INACTIVE" | "PENDING";
   partnerInfo?: PartnerSchoolInfo;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface PartnerContractResponse {

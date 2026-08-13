@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Calendar, ClipboardList, CreditCard, FolderOpen, Home, LogOut, Award, NotebookPen, School, Users, Menu, X } from "lucide-react";
+import { BarChart3, Calendar, ClipboardList, CreditCard, FolderOpen, Home, LogOut, Award, NotebookPen, School, Users, Menu, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import { ChildResponse, getMyStudentProfile, listClassOptions, listMyChildren, PortalClassOptionResponse } from "../api";
@@ -9,7 +9,7 @@ import ScheduleTab from "../components/ScheduleTab";
 import StudentScheduleTab from "../components/StudentScheduleTab";
 import AssignmentsTab from "../components/AssignmentsTab";
 import ParentHomeworkProgressTab from "../components/ParentHomeworkProgressTab";
-import NotificationBell from "../components/NotificationBell";
+import NotificationBell, { NotificationNavTarget } from "../components/NotificationBell";
 import GradesTab from "../components/GradesTab";
 import GradeStatsPage from "./GradeStatsPage";
 import BillingTab from "../components/BillingTab";
@@ -22,12 +22,12 @@ type Tab = "home" | "schedule" | "learning-progress" | "homework" | "documents" 
 
 const TABS: { key: Tab; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
   { key: "home", label: "Trang chủ & Bảng tin", icon: Home },
+  { key: "grades", label: "Khảo thí & Điểm số", icon: Award },
+  { key: "grade-stats", label: "Thống kê điểm", icon: BarChart3 },
   { key: "schedule", label: "Lịch học & Chuyên cần", icon: Calendar },
   { key: "learning-progress", label: "Quá trình học tập", icon: NotebookPen },
   { key: "homework", label: "Bài tập về nhà (BTVN)", icon: ClipboardList },
   { key: "documents", label: "Kho dữ liệu (Sách, TLTK)", icon: FolderOpen },
-  { key: "grades", label: "Khảo thí & Điểm số", icon: Award },
-  { key: "grade-stats", label: "Thống kê điểm", icon: Award },
   { key: "billing", label: "Học phí & Dịch vụ", icon: CreditCard }
 ];
 
@@ -108,6 +108,14 @@ export default function PortalPage() {
       .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách lớp."));
   }, [selectedChildId]);
 
+  /** Bấm 1 thông báo ở NotificationBell — chuyển đúng tab, mở đúng bài (BTVN) hoặc đúng con (Phụ huynh nhiều con). */
+  const handleNotificationNavigate = (target: NotificationNavTarget) => {
+    if (isParent && target.studentId != null) setSelectedChildId(target.studentId);
+    if (target.exerciseAssignmentId != null) setPendingExerciseAssignmentId(target.exerciseAssignmentId);
+    if (target.reviewVideoAssignmentId != null) setPendingReviewVideoAssignmentId(target.reviewVideoAssignmentId);
+    setActiveTab(target.tab);
+  };
+
   const selectedChild = children.find((c) => c.studentId === selectedChildId) ?? null;
   const noViewerData = isParent ? children.length === 0 : !selectedChildId;
   const currentClass = classOptions.find((c) => c.classId === selectedClassId) ?? null;
@@ -183,7 +191,7 @@ export default function PortalPage() {
             )}
           </div>
           <div className="flex items-center gap-4">
-            {!noViewerData && !loading && <NotificationBell />}
+            {!noViewerData && !loading && <NotificationBell onNavigate={handleNotificationNavigate} />}
             {/* Bản đầy đủ (avatar + nhãn vai trò + tên) chỉ còn ở desktop (nền trắng, giữ nguyên màu
                 gốc) — mobile đã có bản gọn nền teal-deep ở bên trái (lời chào) để không lặp 2 avatar
                 cùng mở chung 1 ProfileModal. */}
@@ -361,9 +369,9 @@ export default function PortalPage() {
                     ))}
                   {activeTab === "schedule" &&
                     (isParent && selectedChild ? (
-                      <ScheduleTab studentId={selectedChild.studentId} classId={selectedClassId} />
+                      <ScheduleTab studentId={selectedChild.studentId} classId={selectedClassId} siteId={currentClass?.siteId ?? null} />
                     ) : isStudent ? (
-                      <StudentScheduleTab classId={selectedClassId} />
+                      <StudentScheduleTab classId={selectedClassId} siteId={currentClass?.siteId ?? null} />
                     ) : (
                       <ComingSoon title="Lịch học & Chuyên cần" description="Không có hồ sơ Học sinh hoặc Phụ huynh liên kết với tài khoản này." />
                     ))}
@@ -435,9 +443,9 @@ export default function PortalPage() {
                   {activeTab === "documents" && isStudent && <DocumentLibraryTab classId={selectedClassId} />}
                   {activeTab === "grades" &&
                     (isParent && selectedChild ? (
-                      <GradesTab studentId={selectedChild.studentId} classId={selectedClassId} />
+                      <GradesTab studentId={selectedChild.studentId} classId={selectedClassId} siteId={currentClass?.siteId ?? null} />
                     ) : isStudent ? (
-                      <GradesTab classId={selectedClassId} />
+                      <GradesTab classId={selectedClassId} siteId={currentClass?.siteId ?? null} />
                     ) : (
                       <ComingSoon title="Khảo thí & Điểm số" description="Không có hồ sơ Học sinh hoặc Phụ huynh liên kết với tài khoản này." />
                     ))}

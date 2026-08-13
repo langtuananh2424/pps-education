@@ -2,6 +2,7 @@ import React from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AppProvider } from "@/context/AppContext";
 import { DialogProvider } from "@/components/ui/DialogProvider";
+import { StudentProfileModalProvider } from "@/features/reports/context/StudentProfileModalContext";
 import AppShell from "@/components/layout/AppShell";
 import ProtectedRoute from "@/components/layout/ProtectedRoute";
 import LoginPage from "@/features/auth/pages/LoginPage";
@@ -17,6 +18,7 @@ import TaskWorkflowPage from "@/features/task-workflow/pages/TaskWorkflowPage";
 import HrmProfilesPage from "@/features/hrm/pages/ProfilesPage";
 import DepartmentsPositionsPage from "@/features/hrm/pages/DepartmentsPositionsPage";
 import HrmAttendancePage from "@/features/hrm/pages/AttendancePage";
+import AttendanceSitesPage from "@/features/hrm/pages/AttendanceSitesPage";
 import LeavesPage from "@/features/hrm/pages/LeavesPage";
 import PayrollPage from "@/features/hrm/pages/PayrollPage";
 import CRMPage from "@/features/crm/pages/CRMPage";
@@ -30,6 +32,7 @@ import GradesPage from "@/features/academic/pages/GradesPage";
 import CommentsPage from "@/features/academic/pages/CommentsPage";
 import HomeworkStatsPage from "@/features/academic/pages/HomeworkStatsPage";
 import AssignmentStatsDetailPage from "@/features/academic/pages/AssignmentStatsDetailPage";
+import ReviewVideoAssignmentStatsDetailPage from "@/features/academic/pages/ReviewVideoAssignmentStatsDetailPage";
 import QuestionBankPage from "@/features/lms/pages/QuestionBankPage";
 import ExerciseAssignPage from "@/features/lms/pages/ExerciseAssignPage";
 import LecturesPage from "@/features/lms/pages/LecturesPage";
@@ -46,10 +49,12 @@ import ReportTemplatesPage from "@/features/reports/pages/ReportTemplatesPage";
 import DailyCommentsAnalyticsPage from "@/features/reports/pages/DailyCommentsAnalyticsPage";
 import GradesAnalyticsPage from "@/features/reports/pages/GradesAnalyticsPage";
 import StudentProgressPage from "@/features/reports/pages/StudentProgressPage";
+import EnrollmentMovementStatsPage from "@/features/reports/pages/EnrollmentMovementStatsPage";
 export default function App() {
   return (
     <AppProvider>
       <DialogProvider>
+      <StudentProfileModalProvider>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
 
@@ -73,6 +78,7 @@ export default function App() {
           <Route path="/hrm/profile" element={<HrmProfilesPage />} />
           <Route path="/hrm/departments-positions" element={<DepartmentsPositionsPage />} />
           <Route path="/hrm/attendance" element={<HrmAttendancePage />} />
+          <Route path="/hrm/attendance-sites" element={<AttendanceSitesPage />} />
           <Route path="/hrm/leaves" element={<LeavesPage />} />
           <Route path="/hrm/payroll" element={<PayrollPage />} />
           <Route path="/crm/leads" element={<CRMPage />} />
@@ -85,6 +91,7 @@ export default function App() {
           <Route path="/academic/grades" element={<GradesPage />} />
           <Route path="/academic/comments" element={<CommentsPage />} />
           <Route path="/academic/homework-stats" element={<HomeworkStatsPage />} />
+          <Route path="/academic/homework-stats/review-video/:assignmentId" element={<ReviewVideoAssignmentStatsDetailPage />} />
           <Route path="/academic/homework-stats/:assignmentId" element={<AssignmentStatsDetailPage />} />
           <Route path="/lms/question-banks" element={<QuestionBankPage />} />
           <Route path="/lms/exercises" element={<ExerciseAssignPage />} />
@@ -104,12 +111,14 @@ export default function App() {
           <Route path="/reports/daily-comments" element={<DailyCommentsAnalyticsPage />} />
           <Route path="/reports/grades" element={<GradesAnalyticsPage />} />
           <Route path="/reports/student-progress" element={<StudentProgressPage />} />
+          <Route path="/reports/enrollment-movement" element={<EnrollmentMovementStatsPage />} />
 
           <Route index element={<Navigate to="/dashboard" replace />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
+      </StudentProfileModalProvider>
       </DialogProvider>
     </AppProvider>
   );

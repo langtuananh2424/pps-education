@@ -14,9 +14,11 @@ import {
   submitAttendance
 } from "@/features/academic/api";
 import { useEligibleClasses } from "@/features/academic/hooks/useEligibleClasses";
-import NotificationBanner from "../components/NotificationBanner";
+import StudentNameLink from "@/features/reports/components/StudentNameLink";
 import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
 import Select from "@/components/ui/Select";
+import Modal from "@/components/ui/Modal";
+import Button from "@/components/ui/Button";
 
 type SimpleStatus = "PRESENT" | "ABSENT" | "EXCUSED" | "LATE";
 
@@ -152,7 +154,6 @@ export default function AttendancePage() {
         message = "✅ Điểm danh thành công! Toàn bộ học sinh trong lớp đã có mặt đầy đủ.";
       }
       setNotification(message);
-      setTimeout(() => setNotification(null), 6000);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Lưu điểm danh thất bại.");
     } finally {
@@ -167,7 +168,18 @@ export default function AttendancePage() {
         <p className="text-xs text-slate-500 mt-1">Giảng viên lưu chuyên cần, vắng học tự động cảnh báo phụ huynh.</p>
       </div>
 
-      <NotificationBanner message={notification} onClose={() => setNotification(null)} />
+      {notification && (
+        <Modal open onClose={() => setNotification(null)} title="Báo cáo chuyên cần" size="md">
+          <div className="space-y-4">
+            <div className="text-xs text-slate-700 leading-relaxed whitespace-pre-line">{notification}</div>
+            <div className="flex justify-end">
+              <Button type="button" variant="primary" onClick={() => setNotification(null)}>
+                Đã hiểu
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden">
@@ -245,7 +257,9 @@ export default function AttendancePage() {
                 rows.map((stud) => (
                   <tr key={stud.studentId} className="hover:bg-slate-50/40 transition-colors">
                     <Td className="font-mono font-bold text-slate-500">{stud.studentCode}</Td>
-                    <Td className="font-bold text-slate-900">{stud.studentFullName}</Td>
+                    <Td className="font-bold text-slate-900">
+                      <StudentNameLink studentId={stud.studentId} name={stud.studentFullName} />
+                    </Td>
                     {(["PRESENT", "ABSENT", "EXCUSED", "LATE"] as const).map((statusOption) => (
                       <Td key={statusOption} className="text-center">
                         <input

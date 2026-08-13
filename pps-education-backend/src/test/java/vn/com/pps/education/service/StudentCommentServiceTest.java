@@ -8,7 +8,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.transaction.annotation.Transactional;
-import vn.com.pps.education.domain.AcademicTerm;
 import vn.com.pps.education.domain.ExerciseAssignment;
 import vn.com.pps.education.domain.ReviewVideoAssignment;
 import vn.com.pps.education.domain.Role;
@@ -57,14 +56,12 @@ import vn.com.pps.education.dto.UpdateStudentCommentContentRequest;
 import vn.com.pps.education.dto.UpdateStudentCommentRequest;
 import vn.com.pps.education.exception.ApprovalAlreadyDecidedException;
 import vn.com.pps.education.exception.HomeworkNextConflictException;
-import vn.com.pps.education.exception.InvalidCommentContextException;
 import vn.com.pps.education.exception.MissingLessonContentException;
 import vn.com.pps.education.exception.NoUpcomingClassSessionException;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
 import vn.com.pps.education.exception.NotSiteManagerForSiteException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.exception.StudentCommentNotEditableException;
-import vn.com.pps.education.repository.AcademicTermRepository;
 import vn.com.pps.education.repository.ExerciseAssignmentRepository;
 import vn.com.pps.education.repository.ReviewVideoAssignmentRepository;
 import vn.com.pps.education.repository.RoleRepository;
@@ -139,9 +136,6 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
     private CurriculumService curriculumService;
 
     @Autowired
-    private AcademicTermRepository academicTermRepository;
-
-    @Autowired
     private ExerciseService exerciseService;
 
     @Autowired
@@ -195,7 +189,6 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
     private ClassResponse schoolClass;
     private Student student;
     private ClassSessionResponse classSession;
-    private AcademicTerm academicTerm;
 
     @BeforeEach
     void setUp() {
@@ -237,19 +230,6 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         // dùng 2026-07-29) trừ khi 1 test cụ thể cố tình test thiếu bài học.
         studentCommentService.updateLessonContent(classSession.id(), "Unit 1: Present simple tense.", teacher.getId());
         classService.enroll(schoolClass.id(), new EnrollStudentRequest(student.getId(), LocalDate.now()), headAcademic.getId());
-
-        academicTerm = newAcademicTerm(site);
-    }
-
-    private AcademicTerm newAcademicTerm(Site site) {
-        AcademicTerm term = new AcademicTerm();
-        term.setSite(site);
-        term.setCode("TERM-" + SEQ.incrementAndGet());
-        term.setName("Kỳ test");
-        term.setStartDate(LocalDate.now().minusMonths(1));
-        term.setEndDate(LocalDate.now().plusMonths(2));
-        term.setCreatedBy(headAcademic);
-        return academicTermRepository.save(term);
     }
 
     @Test
@@ -273,38 +253,6 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void writeComment_UC21_MainFlow_savesMidTermCommentWithWarningFlag() {
-        StudentCommentResponse comment = studentCommentService.writeComment(schoolClass.id(),
-                new CreateStudentCommentRequest(student.getId(), "MID_TERM", null, academicTerm.getId(),
-                        LocalDate.now(), "Cần cải thiện kỹ năng nghe.", null, "CONCERN", true, null, null, null, null, null, null, null, null),
-                teacher.getId());
-
-        assertThat(comment.status()).isEqualTo("DRAFT");
-        assertThat(comment.commentType()).isEqualTo("MID_TERM");
-        assertThat(comment.academicTermId()).isEqualTo(academicTerm.getId());
-        assertThat(comment.severity()).isEqualTo("CONCERN");
-        assertThat(comment.isWarning()).isTrue();
-    }
-
-    @Test
-    void writeComment_rejectsInvalidContextForDailyWithoutSession() {
-        assertThatThrownBy(() -> studentCommentService.writeComment(schoolClass.id(),
-                new CreateStudentCommentRequest(student.getId(), "DAILY", null, null,
-                        LocalDate.now(), "Nội dung", null, null, false, null, null, null, null, null, null, null, null),
-                teacher.getId()))
-                .isInstanceOf(InvalidCommentContextException.class);
-    }
-
-    @Test
-    void writeComment_rejectsInvalidContextForMidTermWithSessionInsteadOfPeriod() {
-        assertThatThrownBy(() -> studentCommentService.writeComment(schoolClass.id(),
-                new CreateStudentCommentRequest(student.getId(), "MID_TERM", classSession.id(), null,
-                        LocalDate.now(), "Nội dung", null, null, false, null, null, null, null, null, null, null, null),
-                teacher.getId()))
-                .isInstanceOf(InvalidCommentContextException.class);
-    }
-
-    @Test
     void writeComment_rejectsWhenActorNotAssignedTeacherNorApprover() {
         User outsider = newUser("outsider.teacher");
         assignRole(outsider, "TEACHER");
@@ -313,19 +261,19 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
                 .isInstanceOf(NotAssignedTeacherForClassException.class);
     }
 
-    /** V107: quyền academic.comment.manage cho phép quản trị viên viết nhận xét MID_TERM của lớp bất kỳ. */
+    /** V107: quyền academic.comment.manage cho phép quản trị viên viết nhận xét của lớp bất kỳ (không cần là GV được phân công). */
     @Test
     void writeComment_allowsAdminWithManagePermissionBypassingAssignedTeacherCheck() {
         User admin = newUser("comment.admin");
         assignRole(admin, "SYS_ADMIN");
 
         StudentCommentResponse comment = studentCommentService.writeComment(schoolClass.id(),
-                new CreateStudentCommentRequest(student.getId(), "MID_TERM", null, academicTerm.getId(),
+                new CreateStudentCommentRequest(student.getId(), classSession.id(),
                         LocalDate.now(), "Nội dung do quản trị viên nhập hộ.", null, null, false, null, null, null, null, null, null, null, null),
                 admin.getId());
 
         assertThat(comment.status()).isEqualTo("DRAFT");
-        assertThat(comment.commentType()).isEqualTo("MID_TERM");
+        assertThat(comment.commentType()).isEqualTo("DAILY");
     }
 
     @Test
@@ -337,7 +285,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
                 headAcademic.getId());
 
         assertThatThrownBy(() -> studentCommentService.writeComment(schoolClass.id(),
-                new CreateStudentCommentRequest(student.getId(), "DAILY", oldSession.id(), null,
+                new CreateStudentCommentRequest(student.getId(), oldSession.id(),
                         oldSession.sessionDate(), "Nội dung", null, null, false, null, null, null, null, null, null, null, null),
                 teacher.getId()))
                 .isInstanceOf(StudentCommentNotEditableException.class);
@@ -352,7 +300,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
                 headAcademic.getId());
 
         StudentCommentResponse comment = studentCommentService.writeComment(schoolClass.id(),
-                new CreateStudentCommentRequest(student.getId(), "DAILY", oldSession.id(), null,
+                new CreateStudentCommentRequest(student.getId(), oldSession.id(),
                         oldSession.sessionDate(), "Nội dung do quản lý nhập ngoài hạn.", null, null, false, null, null, null, null, null, null, null, null),
                 siteManagerUser.getId());
 
@@ -401,8 +349,8 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void submitComments_UC21_MainFlow_midTermTransitionsToPendingAndNotifiesSiteManager() {
-        StudentCommentResponse comment = writeMidTermComment();
+    void submitComments_UC21_MainFlow_dailyTransitionsToPendingAndNotifiesSiteManager() {
+        StudentCommentResponse comment = writeDailyComment(teacher, "Nội dung nhận xét.");
 
         List<StudentCommentResponse> submitted = studentCommentService.submitComments(schoolClass.id(),
                 new SubmitCommentsRequest(List.of(comment.id())), teacher.getId());
@@ -415,7 +363,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
 
     @Test
     void submitComments_rejectsWhenNotDraft() {
-        StudentCommentResponse comment = writeMidTermComment();
+        StudentCommentResponse comment = writeDailyComment(teacher, "Nội dung nhận xét.");
         studentCommentService.submitComments(schoolClass.id(), new SubmitCommentsRequest(List.of(comment.id())), teacher.getId());
 
         assertThatThrownBy(() -> studentCommentService.submitComments(schoolClass.id(),
@@ -456,7 +404,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         Student student2 = newStudent();
         StudentCommentResponse comment1 = writeDailyComment(teacher, "Nhận xét HS1.");
         StudentCommentResponse comment2 = studentCommentService.writeComment(schoolClass.id(),
-                new CreateStudentCommentRequest(student2.getId(), "DAILY", classSession.id(), null,
+                new CreateStudentCommentRequest(student2.getId(), classSession.id(),
                         LocalDate.now(), "Nhận xét HS2.", null, null, false, null, null, null, null, null, null, null, null),
                 teacher.getId());
         studentCommentService.submitComments(schoolClass.id(),
@@ -485,17 +433,6 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
                 new UpdateStudentCommentRequest("Nội dung đã sửa lại.", null, null, false, null, null, null, null, null, null, null, null),
                 teacher.getId());
         assertThat(edited.status()).isEqualTo("DRAFT");
-    }
-
-    @Test
-    void updateComment_midTerm_rejectsWhenPending() {
-        StudentCommentResponse comment = writeMidTermComment();
-        studentCommentService.submitComments(schoolClass.id(), new SubmitCommentsRequest(List.of(comment.id())), teacher.getId());
-
-        assertThatThrownBy(() -> studentCommentService.updateComment(comment.id(),
-                new UpdateStudentCommentRequest("Sửa khi đang chờ duyệt.", null, null, false, null, null, null, null, null, null, null, null),
-                teacher.getId()))
-                .isInstanceOf(StudentCommentNotEditableException.class);
     }
 
     @Test
@@ -647,7 +584,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
                         room.getId(), teacher.getId(), "REGULAR", null, null),
                 headAcademic.getId());
         StudentCommentResponse comment = studentCommentService.writeComment(schoolClass.id(),
-                new CreateStudentCommentRequest(student.getId(), "DAILY", sessionWithoutLesson.id(), null,
+                new CreateStudentCommentRequest(student.getId(), sessionWithoutLesson.id(),
                         sessionWithoutLesson.sessionDate(), "Nội dung.", null, null, false, null, null, null, null, null, null, null, null),
                 teacher.getId());
 
@@ -696,7 +633,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
             assertThat(validations).anySatisfy(v -> {
                 assertThat(v.getRegions().getCellRangeAddress(0).getFirstColumn()).isEqualTo(14);
                 assertThat(v.getValidationConstraint().getExplicitListValues())
-                        .containsExactly("Kém", "Yếu", "Trung bình", "Trung bình khá", "Khá", "Tốt");
+                        .containsExactly("Yếu", "Trung bình", "Khá", "Tốt", "Xuất sắc");
             });
         }
     }
@@ -722,6 +659,27 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         assertThat(comments.get(0).status()).isEqualTo("DRAFT");
         assertThat(comments.get(0).attitude()).isEqualTo("GOOD");
         assertThat(comments.get(0).homeworkPreviousScore()).isEqualTo("80%");
+    }
+
+    /** Thang thái độ chốt lại 2026-08-12 (Yếu/Trung bình/Khá/Tốt/Xuất sắc) — "Xuất sắc" là mức mới, phủ riêng 1 test. */
+    @Test
+    void importComments_UC21_MainFlow_parsesExcellentAttitude() throws IOException {
+        studentAttendanceService.markAttendance(classSession.id(),
+                new MarkAttendanceRequest("SESSION_LEVEL", List.of(
+                        new EnterAttendanceMarkRequest(student.getId(), "PRESENT", null, null, null))),
+                teacher.getId());
+        byte[] file = buildCommentWorkbook(new String[][]{
+                commentRow(classSession.sessionDate().toString(), student.getStudentCode(), "", "",
+                        "Có mặt", "", "", "", "Xuất sắc.", "", "", "", "", "Xuất sắc", "")
+        });
+
+        DailyCommentImportResponse result = studentCommentService.importComments(classSession.id(),
+                new MockMultipartFile("file", "nhanxet.xlsx", "application/vnd.openxmlformats", file), teacher.getId());
+
+        assertThat(result.status()).isEqualTo("COMPLETED");
+        assertThat(result.successRows()).isEqualTo(1);
+        List<StudentCommentResponse> comments = studentCommentService.listComments(schoolClass.id(), student.getId());
+        assertThat(comments.get(0).attitude()).isEqualTo("EXCELLENT");
     }
 
     @Test
@@ -961,7 +919,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
     private StudentCommentResponse writeDailyCommentWithHomeworkNext(Student targetStudent, ClassSessionResponse session,
                                                                       Long grammarExerciseId, Long videoSetId) {
         return studentCommentService.writeComment(schoolClass.id(),
-                new CreateStudentCommentRequest(targetStudent.getId(), "DAILY", session.id(), null,
+                new CreateStudentCommentRequest(targetStudent.getId(), session.id(),
                         session.sessionDate(), "Nội dung buổi.", null, null, false, null, null, null, null,
                         grammarExerciseId, videoSetId, null, null),
                 teacher.getId());
@@ -1030,10 +988,11 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         ClassSessionResponse session2 = nextSession();
         writeDailyCommentWithHomeworkNext(student, classSession, null, fixture.set().id());
         Long sessionId = reviewVideoService.startWatchSession(fixture.video().id(), student.getUser().getId()).sessionId();
-        reviewVideoService.reportProgress(fixture.video().id(), new ReportVideoProgressRequest(sessionId, 80), student.getUser().getId());
+        reviewVideoService.reportProgress(fixture.video().id(), new ReportVideoProgressRequest(sessionId, 100), student.getUser().getId());
         // CONNECTION (V83/V93/V101): % hiển thị ở cột này là viewCount/requiredViewCount (không
-        // còn phải % thời lượng đã xem) — xem HomeworkProgressService#connectionPercent. Xem đạt
-        // ngưỡng (80%) mới làm session "qualified", còn cần nộp đủ câu hỏi (rỗng ở đây, video chưa
+        // còn phải % thời lượng đã xem) — xem HomeworkProgressService#connectionPercent. Bổ sung
+        // ngoài SDD gốc, đã xác nhận với người dùng 2026-08-11 — CONNECTION giờ LUÔN yêu cầu xem HẾT
+        // 100% (cố định) mới làm session "qualified", còn cần nộp đủ câu hỏi (rỗng ở đây, video chưa
         // thêm câu hỏi) mới tính vào viewCount. requiredViewCount mặc định 1 → 1 lượt đạt = 100%.
         reviewVideoService.submitConnectionAnswers(sessionId, new SubmitConnectionAnswersRequest(List.of()), student.getUser().getId());
 
@@ -1185,19 +1144,6 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         assertThat(assignment.getStatus()).isEqualTo(ExerciseAssignment.Status.ACTIVE);
     }
 
-    /** Câu hỏi mở #7 (đã chốt 2026-07-30): BTVN buổi sau chỉ áp dụng DAILY -- MID_TERM/END_TERM không có "buổi kế tiếp", chặn hẳn nếu điền. */
-    @Test
-    void writeComment_V65_A_rejectsHomeworkNextForMidTerm() {
-        GrammarFixture fixture = createGrammarOnlineExercise();
-
-        assertThatThrownBy(() -> studentCommentService.writeComment(schoolClass.id(),
-                new CreateStudentCommentRequest(student.getId(), "MID_TERM", null, academicTerm.getId(),
-                        LocalDate.now(), "Nội dung.", null, null, false, null, null, null, null,
-                        fixture.exercise().id(), null, null, null),
-                teacher.getId()))
-                .isInstanceOf(InvalidCommentContextException.class);
-    }
-
     @Test
     void buildTemplate_V55_MainFlow_dropdownOnlyListsAssignmentsForThisClass() throws IOException {
         GrammarFixture fixture = createGrammarOnlineExercise();
@@ -1309,7 +1255,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
     @Test
     void buildTemplate_V56_MainFlow_exportsHomeworkPreviousSpeakingScoreIndependentlyFromGrammarScore() throws IOException {
         studentCommentService.writeComment(schoolClass.id(),
-                new CreateStudentCommentRequest(student.getId(), "DAILY", classSession.id(), null,
+                new CreateStudentCommentRequest(student.getId(), classSession.id(),
                         classSession.sessionDate(), "Nội dung.", null, null, false, null, "80%", "60%", null, null, null, null, null),
                 teacher.getId());
 
@@ -1383,14 +1329,14 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
     void listMyComments_UC64_MainFlow_onlyReturnsApprovedForOwnClass() {
         // DAILY nay dùng chung luồng DRAFT->Gửi->PENDING->duyệt (2026-07-29) -- ghi rồi phải Gửi+duyệt mới APPROVED.
         StudentCommentResponse toApprove = studentCommentService.writeComment(schoolClass.id(),
-                new CreateStudentCommentRequest(student.getId(), "DAILY", classSession.id(), null,
+                new CreateStudentCommentRequest(student.getId(), classSession.id(),
                         classSession.sessionDate(), "Nội dung đã duyệt.", null, null, false, null, null, null, null, null, null, null, null),
                 teacher.getId());
         studentCommentService.submitComments(schoolClass.id(), new SubmitCommentsRequest(List.of(toApprove.id())), teacher.getId());
         studentCommentService.decideComments(new DecideCommentsRequest(List.of(toApprove.id()), "APPROVED", null), siteManagerUser.getId());
         ClassSessionResponse session2 = nextSession();
         studentCommentService.writeComment(schoolClass.id(),
-                new CreateStudentCommentRequest(student.getId(), "DAILY", session2.id(), null,
+                new CreateStudentCommentRequest(student.getId(), session2.id(),
                         session2.sessionDate(), "Nội dung chờ duyệt.", null, null, false, null, null, null, null, null, null, null, null),
                 teacher.getId());
 
@@ -1415,7 +1361,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
     @Test
     void listMyComments_boSung_stillVisibleAfterTransferToAnotherClass() {
         StudentCommentResponse toApprove = studentCommentService.writeComment(schoolClass.id(),
-                new CreateStudentCommentRequest(student.getId(), "DAILY", classSession.id(), null,
+                new CreateStudentCommentRequest(student.getId(), classSession.id(),
                         classSession.sessionDate(), "Nội dung đã duyệt.", null, null, false, null, null, null, null, null, null, null, null),
                 teacher.getId());
         studentCommentService.submitComments(schoolClass.id(), new SubmitCommentsRequest(List.of(toApprove.id())), teacher.getId());
@@ -1434,7 +1380,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
 
     private void writeDailyCommentWithHomeworkPrevious(Student targetStudent, ClassSessionResponse session, String homeworkPreviousScore) {
         studentCommentService.writeComment(schoolClass.id(),
-                new CreateStudentCommentRequest(targetStudent.getId(), "DAILY", session.id(), null,
+                new CreateStudentCommentRequest(targetStudent.getId(), session.id(),
                         session.sessionDate(), "Nội dung buổi.", null, null, false, null, homeworkPreviousScore, null, null, null, null, null, null),
                 teacher.getId());
     }
@@ -1521,16 +1467,9 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
 
     private StudentCommentResponse writeDailyComment(User actor, String content) {
         return studentCommentService.writeComment(schoolClass.id(),
-                new CreateStudentCommentRequest(student.getId(), "DAILY", classSession.id(), null,
+                new CreateStudentCommentRequest(student.getId(), classSession.id(),
                         LocalDate.now(), content, null, null, false, null, null, null, null, null, null, null, null),
                 actor.getId());
-    }
-
-    private StudentCommentResponse writeMidTermComment() {
-        return studentCommentService.writeComment(schoolClass.id(),
-                new CreateStudentCommentRequest(student.getId(), "MID_TERM", null, academicTerm.getId(),
-                        LocalDate.now(), "Nội dung nhận xét giữa kỳ.", null, null, false, null, null, null, null, null, null, null, null),
-                teacher.getId());
     }
 
     private Site siteOf(ClassResponse classResponse) {

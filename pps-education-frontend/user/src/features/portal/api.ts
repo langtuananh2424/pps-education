@@ -35,6 +35,23 @@ export function updateMyStudentProfile(request: UpdateOwnStudentProfileRequest):
   return apiRequest<MyStudentProfileResponse>("/students/me", { method: "PUT", body: JSON.stringify(request) });
 }
 
+/** UC-63: Học sinh tự tra danh sách phụ huynh liên kết với chính mình. */
+export interface ParentStudentResponse {
+  id: number;
+  parentId: number;
+  parentFullName: string;
+  parentPhone: string | null;
+  studentId: number;
+  relationship: string;
+  isPrimaryContact: boolean;
+  isFinancialResponsible: boolean;
+  notes: string | null;
+}
+
+export function getMyParents(): Promise<ParentStudentResponse[]> {
+  return apiRequest<ParentStudentResponse[]>("/students/me/parents");
+}
+
 /** UC-63: Phụ huynh tự xem/sửa hồ sơ của chính mình (khác hồ sơ con em — xem ChildResponse). */
 export interface MyParentProfileResponse {
   id: number;
@@ -77,6 +94,19 @@ export interface PortalClassOptionResponse {
   withdrawnDate: string | null;
   status: "ACTIVE" | "COMPLETED" | "SUSPENDED" | "WITHDRAWN";
   recommended: boolean;
+  /** Bổ sung 2026-08-12 — dùng để gọi GET /academic-terms?siteId=... lọc "Lịch học & Chuyên cần" theo học kỳ. */
+  siteId: number;
+}
+
+/** Khớp AcademicTermResponse thật (academic_terms độc lập với classes, chỉ gắn theo site). */
+export interface AcademicTermResponse {
+  id: number;
+  siteId: number;
+  siteName: string;
+  code: string;
+  name: string;
+  startDate: string;
+  endDate: string;
 }
 
 /**
@@ -202,7 +232,7 @@ export interface AttendanceMarkResponse {
   studentId: number;
   studentFullName: string;
   studentCode: string;
-  status: "PRESENT" | "ABSENT" | "LATE" | "EXCUSED";
+  status: "PRESENT" | "ABSENT" | "LATE" | "EXCUSED" | "EARLY_LEAVE";
   minutesLate: number | null;
   minutesEarlyLeave: number | null;
   absenceReason: string | null;
@@ -216,9 +246,8 @@ export interface StudentCommentResponse {
   studentFullName: string;
   classId: number;
   teacherId: number;
-  commentType: "DAILY" | "MID_TERM" | "END_TERM";
-  classSessionId: number | null;
-  academicTermId: number | null;
+  commentType: "DAILY";
+  classSessionId: number;
   commentDate: string;
   content: string;
   structuredContent: Record<string, unknown> | null;
@@ -230,8 +259,10 @@ export interface StudentCommentResponse {
   approvedBy: number | null;
   visibleToParentAt: string | null;
   rejectionReason: string | null;
-  /** Nhận xét Hàng ngày kiểu mới (chỉ có ý nghĩa khi commentType=DAILY) — bổ sung ngoài SDD gốc. */
-  attitude: "POOR" | "WEAK" | "AVERAGE" | "ABOVE_AVERAGE" | "FAIR" | "GOOD" | null;
+  /** Nhận xét Hàng ngày kiểu mới (chỉ có ý nghĩa khi commentType=DAILY) — bổ sung ngoài SDD gốc.
+   * Thang thái độ chốt lại 2026-08-12 (StudentComment.Attitude) — Yếu 20%/Trung bình 50%/Khá 70%/
+   * Tốt 90%/Xuất sắc 100%. */
+  attitude: "WEAK" | "AVERAGE" | "FAIR" | "GOOD" | "EXCELLENT" | null;
   homeworkPreviousScore: string | null;
   homeworkPreviousSpeakingScore: string | null;
   homeworkNext: string | null;
@@ -343,6 +374,11 @@ export function listMyChildren(): Promise<ChildResponse[]> {
 
 export function listClassOptions(studentId: number): Promise<PortalClassOptionResponse[]> {
   return apiRequest<PortalClassOptionResponse[]>(`/portal/students/${studentId}/class-options`);
+}
+
+/** Dùng cho dropdown "Học kỳ" ở tab Lịch học & Chuyên cần — lọc buổi học/điểm danh theo [startDate, endDate] của kỳ chọn. */
+export function listAcademicTerms(siteId: number): Promise<AcademicTermResponse[]> {
+  return apiRequest<AcademicTermResponse[]>(`/academic-terms?siteId=${siteId}`);
 }
 
 export function listGrades(studentId: number, classId: number): Promise<GradeEntryResponse[]> {
@@ -579,6 +615,14 @@ export interface ReviewVideoConnectionQuestionResponse {
 
 export function listReviewVideoConnectionQuestions(videoId: number): Promise<ReviewVideoConnectionQuestionResponse[]> {
   return apiRequest<ReviewVideoConnectionQuestionResponse[]>(`/review-videos/${videoId}/connection-questions`);
+}
+
+/**
+ * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-11) — chỉ trả về NHÓM câu hỏi đã gán cho
+ * đúng lượt xem này (khác listReviewVideoConnectionQuestions trả toàn bộ ngân hàng câu hỏi của video).
+ */
+export function listReviewVideoConnectionQuestionsForSession(watchSessionId: number): Promise<ReviewVideoConnectionQuestionResponse[]> {
+  return apiRequest<ReviewVideoConnectionQuestionResponse[]>(`/review-video-watch-sessions/${watchSessionId}/connection-questions`);
 }
 
 export interface ConnectionAnswerItem {

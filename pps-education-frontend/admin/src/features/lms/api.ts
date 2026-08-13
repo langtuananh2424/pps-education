@@ -608,6 +608,93 @@ export function listReviewVideoAssignmentsForClass(classId: number): Promise<Rev
   return apiRequest<ReviewVideoAssignmentResponse[]>(`/classes/${classId}/review-video-assignments`);
 }
 
+/**
+ * UC-66 bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-11) — 1 dòng "BTVN Video Ôn tập" cho
+ * trang "Thống kê BTVN theo lớp" (gộp cùng ExerciseAssignmentStatsResponse ở features/academic/api.ts).
+ * Không có passedCount/passRatePercent — Video Ôn tập chưa có khái niệm ngưỡng điểm đạt/rớt trong schema.
+ */
+export interface ReviewVideoAssignmentStatsResponse {
+  assignmentId: number;
+  reviewVideoSetId: number;
+  reviewVideoSetCode: string;
+  reviewVideoSetTitle: string;
+  videoType: ReviewVideoType;
+  /** Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-11) — dùng lọc GV Việt Nam/nước ngoài ở UC-66. */
+  teacherType: ReviewVideoTeacherType;
+  availableFrom: string;
+  dueAt: string | null;
+  status: "ACTIVE" | "CANCELLED" | "COMPLETED";
+  totalStudents: number;
+  completedCount: number;
+  completionPercent: number;
+  /** Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-11) — chỉ có giá trị cho bộ CONNECTION (điểm trắc nghiệm ≥ ngưỡng % pass). NULL cho bộ REFLEX — chưa có khái niệm đạt/rớt. */
+  passedCount: number | null;
+  passRatePercent: number | null;
+}
+
+export function listReviewVideoAssignmentStatsForClass(classId: number): Promise<ReviewVideoAssignmentStatsResponse[]> {
+  return apiRequest<ReviewVideoAssignmentStatsResponse[]>(`/classes/${classId}/review-video-assignments/stats`);
+}
+
+/**
+ * UC-66 bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-12) — trang "Xem chi tiết" 1
+ * BTVN Video Ôn tập cụ thể (mirror ExerciseAssignmentStudentStatsResponse ở features/academic/api.ts).
+ * Field CONNECTION-only/REFLEX-only null ở nhóm còn lại — 1 response luôn cùng 1 videoType.
+ */
+export interface ReviewVideoAssignmentStudentRow {
+  studentId: number;
+  studentCode: string;
+  studentFullName: string;
+  viewCount: number;
+  requiredViewCount: number;
+  completed: boolean;
+  /** CONNECTION only */
+  correctCount: number | null;
+  totalQuestions: number | null;
+  passed: boolean | null;
+  /** REFLEX only */
+  answeredQuestionCount: number | null;
+  totalReflexQuestions: number | null;
+  averageScore: number | null;
+  averageMaxScore: number | null;
+}
+
+export interface ReviewVideoAssignmentStudentStatsResponse {
+  assignment: ReviewVideoAssignmentStatsResponse;
+  students: ReviewVideoAssignmentStudentRow[];
+}
+
+export function getReviewVideoAssignmentStudentStats(assignmentId: number): Promise<ReviewVideoAssignmentStudentStatsResponse> {
+  return apiRequest<ReviewVideoAssignmentStudentStatsResponse>(`/review-video-assignments/${assignmentId}/stats/students`);
+}
+
+/** CONNECTION only — phân tích câu hay bị sai, mirror ExerciseAssignmentQuestionStatsResponse. Rỗng cho assignment REFLEX. */
+export interface ReviewVideoAssignmentWrongStudent {
+  studentId: number;
+  studentCode: string;
+  studentFullName: string;
+}
+
+export interface ReviewVideoAssignmentQuestionRow {
+  questionId: number;
+  reviewVideoId: number;
+  reviewVideoTitle: string;
+  displayOrder: number;
+  prompt: string;
+  answeredCount: number;
+  wrongCount: number;
+  wrongRatePercent: number;
+  wrongStudents: ReviewVideoAssignmentWrongStudent[];
+}
+
+export interface ReviewVideoAssignmentQuestionStatsResponse {
+  questions: ReviewVideoAssignmentQuestionRow[];
+}
+
+export function getReviewVideoAssignmentQuestionStats(assignmentId: number): Promise<ReviewVideoAssignmentQuestionStatsResponse> {
+  return apiRequest<ReviewVideoAssignmentQuestionStatsResponse>(`/review-video-assignments/${assignmentId}/stats/questions`);
+}
+
 /** Khớp ReviewVideo.SourceType thật. */
 export type ReviewVideoSourceType = "YOUTUBE_URL" | "R2_VIDEO" | "R2_AUDIO";
 
@@ -706,6 +793,49 @@ export function listReviewVideoQuestions(videoId: number): Promise<ReviewVideoQu
   return apiRequest<ReviewVideoQuestionResponse[]>(`/review-videos/${videoId}/questions`);
 }
 
+/** Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-12) — sửa 1 câu hỏi REFLEX đã có (trước đây chỉ thêm mới được). */
+export type UpdateReviewVideoQuestionRequest = AddReviewVideoQuestionRequest;
+
+export function updateReviewVideoQuestion(questionId: number, request: UpdateReviewVideoQuestionRequest): Promise<ReviewVideoQuestionResponse> {
+  return apiRequest<ReviewVideoQuestionResponse>(`/review-video-questions/${questionId}`, { method: "PUT", body: JSON.stringify(request) });
+}
+
+// ===================== Kho Video Ôn tập — Chấm bài Video phản xạ (UC-23b Main Flow bước 3-4) =====================
+
+/** UC-23b: dùng chung cho cả Học sinh xem bài của mình và Giáo viên xem danh sách/chấm điểm. 1 dòng = 1 attempt (giữ lịch sử). */
+export interface ReviewVideoSubmissionResponse {
+  id: number;
+  reviewVideoQuestionId: number;
+  attemptNumber: number;
+  studentId: number;
+  studentFullName: string;
+  audioUrl: string;
+  submittedAt: string;
+  score: number | null;
+  maxScore: number | null;
+  feedback: string | null;
+  gradedByUserId: number | null;
+  gradedAt: string | null;
+}
+
+/** Giáo viên xem danh sách bài audio đã nộp theo bộ + lớp cụ thể — chỉ attempt MỚI NHẤT mỗi (câu hỏi, học sinh). classId bắt buộc (BE từ chối nếu thiếu). */
+export function listReviewVideoSubmissionsForGrading(setId: number, classId: number): Promise<ReviewVideoSubmissionResponse[]> {
+  return apiRequest<ReviewVideoSubmissionResponse[]>(`/review-video-sets/${setId}/submissions?classId=${classId}`);
+}
+
+export interface GradeReviewVideoSubmissionRequest {
+  score: number;
+  maxScore: number;
+  feedback?: string;
+}
+
+export function gradeReviewVideoSubmission(submissionId: number, request: GradeReviewVideoSubmissionRequest): Promise<ReviewVideoSubmissionResponse> {
+  return apiRequest<ReviewVideoSubmissionResponse>(`/review-video-submissions/${submissionId}/grade`, {
+    method: "POST",
+    body: JSON.stringify(request)
+  });
+}
+
 // ===================== Kho Video Ôn tập — Câu hỏi trắc nghiệm Video Kết nối (V76) =====================
 
 export interface ConnectionChoiceRequest {
@@ -750,6 +880,33 @@ export function addReviewVideoConnectionQuestion(
 
 export function listReviewVideoConnectionQuestions(videoId: number): Promise<ReviewVideoConnectionQuestionResponse[]> {
   return apiRequest<ReviewVideoConnectionQuestionResponse[]>(`/review-videos/${videoId}/connection-questions`);
+}
+
+/**
+ * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-12) — sửa nội dung câu hỏi + nội dung/đáp
+ * án đúng của từng đáp án ĐÃ CÓ (trước đây chỉ thêm mới được). choiceId bắt buộc khớp đúng đáp án đang
+ * sửa — KHÔNG thêm/bớt số lượng đáp án qua đường này (xem UpdateConnectionChoiceRequest phía backend).
+ */
+export interface UpdateConnectionChoiceRequest {
+  choiceId: number;
+  content: string;
+  isCorrect: boolean;
+}
+
+export interface UpdateReviewVideoConnectionQuestionRequest {
+  prompt: string;
+  displayOrder?: number;
+  choices: UpdateConnectionChoiceRequest[];
+}
+
+export function updateReviewVideoConnectionQuestion(
+  questionId: number,
+  request: UpdateReviewVideoConnectionQuestionRequest
+): Promise<ReviewVideoConnectionQuestionResponse> {
+  return apiRequest<ReviewVideoConnectionQuestionResponse>(`/review-video-connection-questions/${questionId}`, {
+    method: "PUT",
+    body: JSON.stringify(request)
+  });
 }
 
 // ===================== Kho tài liệu tham khảo (UC-60) =====================

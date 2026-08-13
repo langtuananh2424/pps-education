@@ -1,72 +1,29 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Check, CheckCircle2, Clock, History, Mic, ShieldAlert, Square, Upload, X } from "lucide-react";
+import { Check, CheckCircle2, Play, ShieldAlert, X } from "lucide-react";
 import { friendlyApiErrorMessage } from "@/lib/apiClient";
 import {
   ConnectionAnswerResult,
-  IntegrityEventInput,
   ReviewVideoConnectionQuestionResponse,
-  ReviewVideoQuestionResponse,
   ReviewVideoResponse,
-  ReviewVideoSubmissionResponse,
-  getMyLatestReviewVideoSubmission,
   getReviewVideoProgress,
-  listMyReviewVideoSubmissionHistory,
-  listReviewVideoConnectionQuestions,
-  listReviewVideoQuestions,
+  listReviewVideoConnectionQuestionsForSession,
   reportReviewVideoProgress,
   startReviewVideoWatchSession,
-  submitReviewVideoConnectionAnswers,
-  submitReviewVideoQuestionAudio,
-  uploadMedia
+  submitReviewVideoConnectionAnswers
 } from "../api";
-import { useIntegrityMonitor } from "../hooks/useIntegrityMonitor";
+import { extractYouTubeVideoId, loadYouTubeIframeApi } from "../lib/youtubePlayer";
 
 const SEEK_TOLERANCE_SECONDS = 2;
 const PROGRESS_REPORT_INTERVAL_SECONDS = 5;
 
-function extractYouTubeVideoId(url: string): string | null {
-  try {
-    const parsed = new URL(url);
-    const host = parsed.hostname.replace(/^www\./, "").replace(/^m\./, "");
-    if (host === "youtu.be") return parsed.pathname.slice(1);
-    if (host === "youtube.com") {
-      if (parsed.pathname === "/watch") return parsed.searchParams.get("v");
-      if (parsed.pathname.startsWith("/embed/")) return parsed.pathname.slice("/embed/".length);
-      if (parsed.pathname.startsWith("/shorts/")) return parsed.pathname.slice("/shorts/".length);
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-function buildYouTubeEmbedSrc(videoId: string): string {
-  return `https://www.youtube.com/embed/${videoId}?enablejsapi=1&rel=0&disablekb=1`;
-}
-
-function formatTimestamp(totalSeconds: number): string {
-  const m = Math.floor(totalSeconds / 60);
-  const s = totalSeconds % 60;
-  return `${m}:${String(s).padStart(2, "0")}`;
-}
-
-let youTubeIframeApiPromise: Promise<void> | null = null;
-
-function loadYouTubeIframeApi(): Promise<void> {
-  const w = window as any;
-  if (w.YT?.Player) return Promise.resolve();
-  if (youTubeIframeApiPromise) return youTubeIframeApiPromise;
-  youTubeIframeApiPromise = new Promise((resolve) => {
-    const previousCallback = w.onYouTubeIframeAPIReady;
-    w.onYouTubeIframeAPIReady = () => {
-      previousCallback?.();
-      resolve();
-    };
-    const script = document.createElement("script");
-    script.src = "https://www.youtube.com/iframe_api";
-    document.head.appendChild(script);
-  });
-  return youTubeIframeApiPromise;
+/**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-12 — khóa video hoàn toàn (không pause/tua
+ * được), mirror `buildLockedYouTubeEmbedSrc` của ReflexVideoTaskPage: CHỈ dùng `controls=0` để ẩn thanh
+ * điều khiển gốc — không thêm `fs=0&modestbranding=1&playsinline=1` (đã thử ở Reflex, khiến request iframe
+ * bị trình duyệt hủy giữa chừng).
+ */
+function buildLockedYouTubeEmbedSrc(videoId: string): string {
+  return `https://www.youtube.com/embed/${videoId}?enablejsapi=1&rel=0&disablekb=1&controls=0`;
 }
 
 /**
@@ -74,28 +31,51 @@ function loadYouTubeIframeApi(): Promise<void> {
  * dùng cho CONNECTION. V59: mỗi lần mở video là 1 "lượt xem" (watchSessionId) riêng — phải startWatchSession
  * lấy sessionId TRƯỚC khi report, không còn ghi thẳng vào watermark suốt đời như cũ.
  */
-function useYouTubeWatchProgress(video: ReviewVideoResponse | null, watchSessionId: number | null, onProgress: (r: Awaited<ReturnType<typeof reportReviewVideoProgress>>) => void) {
+function useYouTubeWatchProgress(
+  video: ReviewVideoResponse | null,
+  watchSessionId: number | null,
+  started: boolean,
+  onProgress: (r: Awaited<ReturnType<typeof reportReviewVideoProgress>>) => void
+) {
   const iframeId = "homework-review-video-frame";
   const [watchedPercent, setWatchedPercent] = useState(0);
   const playerRef = useRef<any>(null);
+  const playerReadyRef = useRef(false);
   const maxWatchedSecondsRef = useRef(0);
   const lastReportedSecondsRef = useRef(0);
   const pollRef = useRef<number | null>(null);
+  /** Bản ref đồng bộ của `started`/đã kết thúc — đọc trong callback YouTube IFrame API (đóng gói 1 lần lúc tạo Player). */
+  const startedRef = useRef(started);
+  startedRef.current = started;
+  const endedRef = useRef(false);
+  const watchSessionIdRef = useRef(watchSessionId);
+  watchSessionIdRef.current = watchSessionId;
 
   const reportProgress = (force: boolean) => {
-    if (!video || watchSessionId == null) return;
+    const sessionId = watchSessionIdRef.current;
+    if (!video || sessionId == null) return;
     const watched = maxWatchedSecondsRef.current;
     if (!force && watched - lastReportedSecondsRef.current < PROGRESS_REPORT_INTERVAL_SECONDS) return;
     lastReportedSecondsRef.current = watched;
-    reportReviewVideoProgress(video.id, watchSessionId, Math.round(watched)).then(onProgress).catch(() => undefined);
+    reportReviewVideoProgress(video.id, sessionId, Math.round(watched)).then(onProgress).catch(() => undefined);
   };
+  /** Callback bên trong YouTube IFrame API (đóng gói 1 LẦN lúc tạo Player, không theo watchSessionId nữa
+      — xem lý do ở effect tạo Player bên dưới) luôn cần đọc bản `reportProgress` MỚI NHẤT (đóng đúng
+      watchSessionId hiện tại qua watchSessionIdRef) — mirror handleTimeUpdateRef của ReflexVideoTaskPage. */
+  const reportProgressRef = useRef(reportProgress);
+  reportProgressRef.current = reportProgress;
 
+  /**
+   * Tạo YT.Player 1 LẦN duy nhất theo VIDEO (KHÔNG theo watchSessionId) — bổ sung ngoài SDD gốc, đã xác
+   * nhận với người dùng 2026-08-12. `player.destroy()` gỡ HẲN <iframe> khỏi DOM; nếu effect này còn phụ
+   * thuộc watchSessionId (đổi mỗi khi mở lượt xem MỚI để tự động sang lượt kế tiếp sau khi nộp câu hỏi —
+   * xem startNextSession ở component), mỗi lần đổi lượt sẽ hủy rồi cố tạo lại Player trên 1 iframe ĐÃ BỊ
+   * GỠ KHỎI DOM → thất bại êm, video không phát lại được. Chuyển "lượt xem mới" (effect kế tiếp) sang chỉ
+   * seekTo(0)+playVideo() trên CÙNG 1 Player, không đụng vòng đời Player.
+   */
   useEffect(() => {
-    maxWatchedSecondsRef.current = 0;
-    lastReportedSecondsRef.current = 0;
-    setWatchedPercent(0);
     const youTubeVideoId = video && video.sourceType === "YOUTUBE_URL" ? extractYouTubeVideoId(video.fileUrl) : null;
-    if (!youTubeVideoId || watchSessionId == null) return;
+    if (!youTubeVideoId) return;
 
     let cancelled = false;
     loadYouTubeIframeApi().then(() => {
@@ -103,6 +83,12 @@ function useYouTubeWatchProgress(video: ReviewVideoResponse | null, watchSession
       const YT = (window as any).YT;
       playerRef.current = new YT.Player(iframeId, {
         events: {
+          // Chưa tự playVideo() nếu học sinh chưa bấm "Bắt đầu xem" — chờ handleStart gọi, tránh trình
+          // duyệt chặn autoplay có tiếng (lệnh không nằm trong 1 user gesture thật).
+          onReady: (e: any) => {
+            playerReadyRef.current = true;
+            if (startedRef.current) e.target.playVideo();
+          },
           onStateChange: (event: any) => {
             if (event.data === YT.PlayerState.PLAYING) {
               if (pollRef.current) window.clearInterval(pollRef.current);
@@ -118,14 +104,28 @@ function useYouTubeWatchProgress(video: ReviewVideoResponse | null, watchSession
                 }
                 maxWatchedSecondsRef.current = Math.max(maxWatchedSecondsRef.current, current);
                 setWatchedPercent(Math.min(100, Math.round((maxWatchedSecondsRef.current / duration) * 100)));
-                reportProgress(false);
+                reportProgressRef.current(false);
               }, 500);
             } else {
               if (pollRef.current) {
                 window.clearInterval(pollRef.current);
                 pollRef.current = null;
               }
-              reportProgress(true);
+              if (event.data === YT.PlayerState.ENDED) {
+                endedRef.current = true;
+                // getCurrentTime() lúc ENDED thường KHÔNG chạm đúng getDuration() (làm tròn xuống, VD
+                // 99% thay vì 100%) — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-12, ép về
+                // đúng 100% giống hệt handleEnded của native media (useMediaElementWatchProgress), tránh
+                // sessionQualified (watchedPercent >= 100) không bao giờ đúng dù video đã xem hết.
+                const duration = playerRef.current?.getDuration?.();
+                if (duration) maxWatchedSecondsRef.current = duration;
+                setWatchedPercent(100);
+              }
+              reportProgressRef.current(true);
+              if (event.data === YT.PlayerState.PAUSED && startedRef.current && !endedRef.current) {
+                // Khóa: chặn tạm dừng ngoài ý muốn — tự phát lại ngay (mirror ReflexVideoTaskPage).
+                playerRef.current?.playVideo?.();
+              }
             }
           }
         }
@@ -135,25 +135,53 @@ function useYouTubeWatchProgress(video: ReviewVideoResponse | null, watchSession
     return () => {
       cancelled = true;
       if (pollRef.current) window.clearInterval(pollRef.current);
-      reportProgress(true);
+      reportProgressRef.current(true);
       try {
         playerRef.current?.destroy?.();
       } catch {
         // Iframe cũ có thể đã bị gỡ khỏi DOM — bỏ qua lỗi cleanup.
       }
       playerRef.current = null;
+      playerReadyRef.current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [video?.id, video?.sourceType, video?.fileUrl, watchSessionId]);
+  }, [video?.id, video?.sourceType, video?.fileUrl]);
+
+  // Học sinh vừa bấm "Bắt đầu xem" SAU KHI Player đã sẵn sàng (onReady lỡ chạy trước với startedRef=false).
+  useEffect(() => {
+    if (started) playerRef.current?.playVideo?.();
+  }, [started]);
+
+  /**
+   * Mỗi lượt xem MỚI (watchSessionId đổi — kể cả lượt 2, 3... tự mở ngay sau khi nộp xong câu hỏi của
+   * lượt trước, xem startNextSession) — reset bộ đếm % xem về 0 + tự tua video về đầu + tự phát lại nếu
+   * đã "Bắt đầu xem" (không cần học sinh bấm lại). Bổ sung ngoài SDD gốc, đã xác nhận 2026-08-12.
+   */
+  useEffect(() => {
+    maxWatchedSecondsRef.current = 0;
+    lastReportedSecondsRef.current = 0;
+    endedRef.current = false;
+    setWatchedPercent(0);
+    if (watchSessionId == null || !playerReadyRef.current) return;
+    playerRef.current?.seekTo?.(0, true);
+    if (startedRef.current) playerRef.current?.playVideo?.();
+  }, [watchSessionId]);
 
   return { iframeId, watchedPercent };
 }
 
-function useMediaElementWatchProgress(video: ReviewVideoResponse | null, watchSessionId: number | null, onProgress: (r: Awaited<ReturnType<typeof reportReviewVideoProgress>>) => void) {
+function useMediaElementWatchProgress(
+  video: ReviewVideoResponse | null,
+  watchSessionId: number | null,
+  started: boolean,
+  onProgress: (r: Awaited<ReturnType<typeof reportReviewVideoProgress>>) => void
+) {
   const mediaRef = useRef<HTMLMediaElement | null>(null);
   const [watchedPercent, setWatchedPercent] = useState(0);
   const maxWatchedSecondsRef = useRef(0);
   const lastReportedSecondsRef = useRef(0);
+  const startedRef = useRef(started);
+  startedRef.current = started;
 
   const reportProgress = (force: boolean) => {
     if (!video || watchSessionId == null) return;
@@ -174,6 +202,12 @@ function useMediaElementWatchProgress(video: ReviewVideoResponse | null, watchSe
     if (!media) return;
     const duration = video!.durationSeconds;
 
+    // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-12 — mỗi khi mở lượt xem MỚI (kể cả lượt
+    // 2, 3... tự mở ngay sau khi nộp xong câu hỏi lượt trước, xem startNextSession), tự tua về đầu + tự
+    // phát lại nếu đã "Bắt đầu xem" (không cần học sinh bấm lại nút Start).
+    media.currentTime = 0;
+    if (startedRef.current) media.play?.().catch(() => undefined);
+
     const handleTimeUpdate = () => {
       const current = media.currentTime;
       const allowedMax = maxWatchedSecondsRef.current + SEEK_TOLERANCE_SECONDS;
@@ -190,7 +224,11 @@ function useMediaElementWatchProgress(video: ReviewVideoResponse | null, watchSe
       setWatchedPercent(100);
       reportProgress(true);
     };
-    const handlePause = () => reportProgress(true);
+    const handlePause = () => {
+      reportProgress(true);
+      // Khóa: chặn tạm dừng ngoài ý muốn — tự phát lại ngay nếu đã bắt đầu và video chưa kết thúc.
+      if (startedRef.current && !media.ended) media.play?.().catch(() => undefined);
+    };
 
     media.addEventListener("timeupdate", handleTimeUpdate);
     media.addEventListener("ended", handleEnded);
@@ -207,146 +245,48 @@ function useMediaElementWatchProgress(video: ReviewVideoResponse | null, watchSe
   return { mediaRef, watchedPercent };
 }
 
-/**
- * Player YouTube CHỈ để tua tới mốc thời gian khi bấm vào câu hỏi REFLEX — không theo dõi/báo tiến độ
- * xem (REFLEX không có khái niệm "đạt" theo % xem như CONNECTION). Dùng chung cùng cơ chế nạp iframe
- * API với useYouTubeWatchProgress, nhưng chỉ tạo player để gọi seekTo, không đăng ký onStateChange.
- */
-function useYouTubeSeekPlayer(iframeId: string, enabled: boolean) {
-  const playerRef = useRef<any>(null);
-  const readyRef = useRef(false);
-
-  useEffect(() => {
-    readyRef.current = false;
-    if (!enabled) return;
-    let cancelled = false;
-    loadYouTubeIframeApi().then(() => {
-      if (cancelled) return;
-      const YT = (window as any).YT;
-      playerRef.current = new YT.Player(iframeId, {
-        events: {
-          onReady: () => {
-            readyRef.current = true;
-          }
-        }
-      });
-    });
-    return () => {
-      cancelled = true;
-      readyRef.current = false;
-      try {
-        playerRef.current?.destroy?.();
-      } catch {
-        // Iframe cũ có thể đã bị gỡ khỏi DOM — bỏ qua lỗi cleanup.
-      }
-      playerRef.current = null;
-    };
-  }, [iframeId, enabled]);
-
-  const seekTo = (seconds: number) => {
-    if (!readyRef.current) return;
-    playerRef.current?.seekTo?.(seconds, true);
-    playerRef.current?.playVideo?.();
-  };
-
-  return { seekTo };
-}
-
-/** Ghi âm trực tiếp qua microphone trình duyệt (MediaRecorder API) — dùng cho nộp audio trả lời REFLEX (UC-23b). maxSeconds: tự dừng khi chạm giới hạn thời lượng riêng của câu hỏi. */
-function useAudioRecorder(maxSeconds: number) {
-  const [recording, setRecording] = useState(false);
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const recorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const streamRef = useRef<MediaStream | null>(null);
-  const timerRef = useRef<number | null>(null);
-
-  const stop = () => {
-    recorderRef.current?.stop();
-    setRecording(false);
-    if (timerRef.current) {
-      window.clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-  };
-
-  const start = async () => {
-    setError(null);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
-      chunksRef.current = [];
-      const recorder = new MediaRecorder(stream);
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
-      };
-      recorder.onstop = () => {
-        setAudioBlob(new Blob(chunksRef.current, { type: recorder.mimeType || "audio/webm" }));
-        streamRef.current?.getTracks().forEach((t) => t.stop());
-        streamRef.current = null;
-      };
-      recorder.start();
-      recorderRef.current = recorder;
-      setRecording(true);
-      setElapsedSeconds(0);
-      const startedAt = Date.now();
-      timerRef.current = window.setInterval(() => {
-        const elapsed = Math.round((Date.now() - startedAt) / 1000);
-        setElapsedSeconds(elapsed);
-        if (elapsed >= maxSeconds) stop();
-      }, 500);
-    } catch {
-      setError("Không truy cập được microphone — kiểm tra quyền trình duyệt rồi thử lại.");
-    }
-  };
-
-  const reset = () => setAudioBlob(null);
-
-  useEffect(
-    () => () => {
-      streamRef.current?.getTracks().forEach((t) => t.stop());
-      if (timerRef.current) window.clearInterval(timerRef.current);
-    },
-    []
-  );
-
-  return { recording, elapsedSeconds, audioBlob, error, start, stop, reset };
-}
-
 interface ReviewVideoTaskModalProps {
   video: ReviewVideoResponse;
-  videoType: "CONNECTION" | "REFLEX";
   onClose: () => void;
-  onSubmitted?: () => void;
 }
 
 /**
- * UC-23a (CONNECTION — xem video, theo dõi từng LƯỢT xem, V59) + UC-23b (REFLEX — nhiều câu hỏi gắn
- * mốc thời gian trong 1 video, mỗi câu ghi âm/nộp riêng, V57). Mở từ tab "Bài tập về nhà" (đã gộp Kho
+ * UC-23a (CONNECTION — xem video, theo dõi từng LƯỢT xem, V59). Mở từ tab "Bài tập về nhà" (đã gộp Kho
  * Video Ôn tập vào đây theo yêu cầu người dùng 2026-07-27 — không còn hiển thị riêng ở E-Learning & LMS).
+ *
+ * REFLEX (UC-23b) đã tách sang trang riêng `ReflexVideoTaskPage` (2026-08-11) — không còn dùng modal
+ * này nữa (video khóa hoàn toàn + ghi âm tự động theo mốc thời gian không phù hợp dạng popup dễ
+ * bấm-ra-ngoài-là-mất bản ghi nháp).
  */
-export default function ReviewVideoTaskModal({ video, videoType, onClose, onSubmitted }: ReviewVideoTaskModalProps) {
+export default function ReviewVideoTaskModal({ video, onClose }: ReviewVideoTaskModalProps) {
   const isYouTube = video.sourceType === "YOUTUBE_URL";
   const youTubeVideoId = isYouTube ? extractYouTubeVideoId(video.fileUrl) : null;
 
-  // V59: phải mở 1 "lượt xem" mới TRƯỚC khi báo tiến độ — chỉ áp dụng CONNECTION.
+  // V59: phải mở 1 "lượt xem" mới TRƯỚC khi báo tiến độ.
   const [watchSessionId, setWatchSessionId] = useState<number | null>(null);
   const [progressSummary, setProgressSummary] = useState<{ viewCount: number; requiredViewCount: number; completed: boolean } | null>(null);
 
-  // V76: câu hỏi trắc nghiệm cuối mỗi lượt xem CONNECTION — bắt buộc trả lời khớp ĐÚNG lượt vừa mở
+  // V76: câu hỏi trắc nghiệm cuối mỗi lượt xem — bắt buộc trả lời khớp ĐÚNG lượt vừa mở
   // (watchSessionId) mới tính vào viewCount. Reset khi mở lượt xem mới, giống watchSessionId/progressSummary.
   const [connectionQuestions, setConnectionQuestions] = useState<ReviewVideoConnectionQuestionResponse[]>([]);
-  const [loadingConnectionQuestions, setLoadingConnectionQuestions] = useState(videoType === "CONNECTION");
+  const [loadingConnectionQuestions, setLoadingConnectionQuestions] = useState(true);
   const [connectionQuestionsError, setConnectionQuestionsError] = useState<string | null>(null);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number>>({});
   const [quizResult, setQuizResult] = useState<ConnectionAnswerResult[] | null>(null);
   const [submittingQuiz, setSubmittingQuiz] = useState(false);
   const [quizError, setQuizError] = useState<string | null>(null);
 
+  /**
+   * Guard bằng ref (không phải chỉ dựa vào dependency array) — startReviewVideoWatchSession là POST tạo
+   * bản ghi thật (không idempotent), React 18 StrictMode tự double-invoke useEffect ở môi trường dev sẽ
+   * gọi 2 lần gần như cùng lúc nếu không chặn, tạo 2 lượt xem (watchSessionId) khác nhau cho 1 lần mở
+   * video — watchSessionId đổi 2 lần khiến YT.Player bị hủy giữa chừng rồi tạo lại (xem ghi chú tương tự
+   * ở ReflexVideoTaskPage), làm video không tải được khi thoát ra rồi mở lại (đã xác nhận với người dùng
+   * 2026-08-12, mirror đúng cách chặn ở TakeExerciseModal). */
+  const openedRef = useRef(false);
   useEffect(() => {
-    if (videoType !== "CONNECTION") return;
+    if (openedRef.current) return;
+    openedRef.current = true;
     setWatchSessionId(null);
     setProgressSummary(null);
     setSelectedAnswers({});
@@ -361,20 +301,72 @@ export default function ReviewVideoTaskModal({ video, videoType, onClose, onSubm
     getReviewVideoProgress(video.id)
       .then((p) => setProgressSummary({ viewCount: p.viewCount, requiredViewCount: p.requiredViewCount, completed: p.completed }))
       .catch(() => undefined);
-  }, [video.id, videoType]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [video.id]);
 
+  /**
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-12 — chặn màn hình "Bắt đầu xem" (giống
+   * ReflexVideoTaskPage): fullscreen/play video CHỈ thật sự gọi trong handleStart (user gesture trực
+   * tiếp), KHÔNG tự động lúc mount — tránh trình duyệt chặn autoplay có tiếng (NotAllowedError).
+   */
+  const [started, setStarted] = useState(false);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
+
+  /**
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-12 — vào toàn màn hình NGAY khi bấm
+   * "Bắt đầu xem", best-effort tự vào lại nếu học sinh thoát fullscreen (Esc/vuốt) giữa chừng. Không
+   * hỗ trợ trên iOS Safari (`document.fullscreenEnabled === false`) — tự bỏ qua êm. Thoát fullscreen
+   * thật khi đóng trang (cleanup).
+   */
   useEffect(() => {
-    if (videoType !== "CONNECTION") return;
+    if (!started) return;
+    if (document.fullscreenEnabled) {
+      document.documentElement.requestFullscreen().catch(() => undefined);
+    }
+    const handleFullscreenChange = () => {
+      if (document.fullscreenEnabled && !document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => undefined);
+      }
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      if (document.fullscreenElement) document.exitFullscreen().catch(() => undefined);
+    };
+  }, [started]);
+
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-11 — phụ thuộc watchSessionId (không phải
+  // video.id) vì mỗi lượt xem giờ chỉ nhận ĐÚNG nhóm câu hỏi đã gán riêng cho lượt đó (chia đều ngẫu
+  // nhiên theo từng học sinh), không còn là toàn bộ ngân hàng câu hỏi của video như trước.
+  useEffect(() => {
+    if (watchSessionId == null) return;
     setLoadingConnectionQuestions(true);
     setConnectionQuestionsError(null);
-    listReviewVideoConnectionQuestions(video.id)
+    listReviewVideoConnectionQuestionsForSession(watchSessionId)
       .then((qs) => setConnectionQuestions(qs.slice().sort((a, b) => a.displayOrder - b.displayOrder)))
       .catch((err) => setConnectionQuestionsError(friendlyApiErrorMessage(err, "Không tải được câu hỏi.")))
       .finally(() => setLoadingConnectionQuestions(false));
-  }, [video.id, videoType]);
+  }, [watchSessionId]);
 
   const handleProgress = (r: { viewCount: number; requiredViewCount: number; completed: boolean }) =>
     setProgressSummary({ viewCount: r.viewCount, requiredViewCount: r.requiredViewCount, completed: r.completed });
+
+  /**
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-12 — mở NGAY 1 "lượt xem" mới sau khi nộp
+   * xong câu hỏi lượt trước (nếu CHƯA đủ số lượt yêu cầu): video tự tua về đầu + tự phát lại (xem effect
+   * theo watchSessionId trong 2 hook useYouTubeWatchProgress/useMediaElementWatchProgress), bộ đếm
+   * "Tổng số lượt đã đạt" đã tăng lên (handleProgress ở handleSubmitConnectionQuiz gọi trước đó) — học
+   * sinh không cần tự đóng/mở lại trang để sang lượt kế tiếp.
+   */
+  const startNextSession = () => {
+    setQuizPopupOpen(false);
+    setSelectedAnswers({});
+    setQuizResult(null);
+    setQuizError(null);
+    startReviewVideoWatchSession(video.id)
+      .then((r) => setWatchSessionId(r.sessionId))
+      .catch(() => undefined);
+  };
 
   const handleSubmitConnectionQuiz = async () => {
     if (!watchSessionId || connectionQuestions.some((q) => selectedAnswers[q.id] == null)) return;
@@ -385,6 +377,7 @@ export default function ReviewVideoTaskModal({ video, videoType, onClose, onSubm
       const result = await submitReviewVideoConnectionAnswers(watchSessionId, answers);
       setQuizResult(result.results);
       handleProgress(result.progress);
+      if (!result.progress.completed) startNextSession();
     } catch (err) {
       setQuizError(friendlyApiErrorMessage(err, "Nộp câu trả lời thất bại — thử lại."));
     } finally {
@@ -392,18 +385,13 @@ export default function ReviewVideoTaskModal({ video, videoType, onClose, onSubm
     }
   };
 
-  const { iframeId, watchedPercent: youTubeWatchedPercent } = useYouTubeWatchProgress(
-    videoType === "CONNECTION" && isYouTube ? video : null,
-    watchSessionId,
-    handleProgress
-  );
-  const { mediaRef, watchedPercent: mediaWatchedPercent } = useMediaElementWatchProgress(
-    videoType === "CONNECTION" && !isYouTube ? video : null,
-    watchSessionId,
-    handleProgress
-  );
+  const { iframeId, watchedPercent: youTubeWatchedPercent } = useYouTubeWatchProgress(isYouTube ? video : null, watchSessionId, started, handleProgress);
+  const { mediaRef, watchedPercent: mediaWatchedPercent } = useMediaElementWatchProgress(!isYouTube ? video : null, watchSessionId, started, handleProgress);
   const watchedPercent = isYouTube ? youTubeWatchedPercent : mediaWatchedPercent;
-  const sessionQualified = watchedPercent >= video.completionThresholdPercent;
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-11 — Video từ kết nối giờ LUÔN yêu cầu
+  // xem HẾT (100%, cố định) mới được làm câu hỏi; completionThresholdPercent đổi ý nghĩa thành "ngưỡng
+  // % pass" điểm trắc nghiệm (không còn liên quan gì tới việc xem đủ hay chưa) — xem ReviewVideoService.
+  const sessionQualified = watchedPercent >= 100;
 
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — câu hỏi cuối lượt xem hiện dạng
   // popup đè lên (thay vì nằm ở cuối, phải cuộn xuống mới thấy) — tự bật NGAY khi lượt xem vừa đạt
@@ -415,62 +403,77 @@ export default function ReviewVideoTaskModal({ video, videoType, onClose, onSubm
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionQualified]);
 
-  const [questions, setQuestions] = useState<ReviewVideoQuestionResponse[]>([]);
-  const [loadingQuestions, setLoadingQuestions] = useState(videoType === "REFLEX");
-  const [questionsError, setQuestionsError] = useState<string | null>(null);
-  const reflexMediaRef = useRef<HTMLMediaElement | null>(null);
+  const handleStart = () => {
+    setStarted(true);
+    if (!isYouTube) mediaRef.current?.play?.().catch(() => undefined);
+    // YouTube: playVideo() được gọi trong useYouTubeWatchProgress (effect theo dõi `started`).
+  };
 
-  useEffect(() => {
-    if (videoType !== "REFLEX") return;
-    setLoadingQuestions(true);
-    setQuestionsError(null);
-    listReviewVideoQuestions(video.id)
-      .then((qs) => setQuestions(qs.slice().sort((a, b) => a.displayOrder - b.displayOrder)))
-      .catch((err) => setQuestionsError(friendlyApiErrorMessage(err, "Không tải được danh sách câu hỏi.")))
-      .finally(() => setLoadingQuestions(false));
-  }, [video.id, videoType]);
-
-  const { seekTo: seekYouTubeReflex } = useYouTubeSeekPlayer(iframeId, videoType === "REFLEX" && isYouTube);
-
-  /**
-   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31 — chỉ áp dụng REFLEX (có câu trả lời để
-   * chấm, khác CONNECTION chỉ xem không có "attempt"). 1 hook dùng chung cho CẢ modal (không phải mỗi
-   * câu hỏi 1 hook riêng) để tránh nhiều listener/yêu cầu fullscreen trùng lặp khi video có nhiều câu hỏi
-   * cùng hiển thị — flush() truyền xuống từng ReflexQuestionCard, gọi ngay trước khi nộp (xem
-   * useIntegrityMonitor — UC-23b không có "phiên bắt đầu ghi âm" ở backend để gửi real-time).
-   */
-  const { violationCount, isMonitoringActive, justViolated, flush: flushIntegrityEvents } = useIntegrityMonitor({
-    enabled: videoType === "REFLEX"
-  });
-
-  const handleSeekReflexMedia = (timestampSeconds: number) => {
-    if (isYouTube) {
-      seekYouTubeReflex(timestampSeconds);
-    } else if (reflexMediaRef.current) {
-      reflexMediaRef.current.currentTime = timestampSeconds;
-      reflexMediaRef.current.play?.().catch(() => undefined);
+  /** Cảnh báo khi thoát giữa chừng (đã bắt đầu xem nhưng lượt này chưa nộp xong câu hỏi) — mirror ReflexVideoTaskPage. */
+  const handleExit = () => {
+    if (started && !quizResult) {
+      setShowExitConfirm(true);
+      return;
     }
+    onClose();
   };
 
   return (
-    <div className="fixed inset-0 bg-ink/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={onClose}>
-      {/* Popup cảnh báo tức thời — xem Javadoc tương tự ở TakeExerciseModal.tsx. */}
-      {justViolated && (
-        <div
-          key={violationCount}
-          role="alert"
-          className="fixed top-6 left-1/2 z-[110] flex items-center gap-2 bg-rose-600 text-white pl-3 pr-4 py-2.5 rounded-2xl shadow-xl animate-alert-pop"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <ShieldAlert size={18} className="shrink-0" />
-          <span className="text-xs font-black">Đã ghi nhận: bạn vừa thoát ra ngoài khi đang làm bài!</span>
+    <div className="fixed inset-0 bg-white z-[100] flex flex-col overflow-y-auto">
+      {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-12 — chặn màn hình "Bắt đầu xem"
+          (mirror ReflexVideoTaskPage): bấm nút mới thật sự play()/requestFullscreen() ngay trong
+          handler click, tránh trình duyệt chặn autoplay có tiếng. */}
+      {!started && (
+        <div className="fixed inset-0 bg-ink/70 backdrop-blur-sm z-[120] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[20px] max-w-sm w-full shadow-2xl p-5 sm:p-6 space-y-4 text-center">
+            <h3 className="text-lg font-extrabold text-ink">{video.title}</h3>
+            <p className="text-xs font-bold text-muted">
+              Video sẽ tự phát toàn màn hình — không tạm dừng/tua lại được. Xem hết video để mở khoá câu hỏi trắc nghiệm của lượt này.
+            </p>
+            <button
+              onClick={handleStart}
+              className="w-full flex items-center justify-center gap-1.5 px-4 py-3 bg-teal hover:bg-teal-deep text-white rounded-xl text-sm font-extrabold"
+            >
+              <Play size={16} /> Bắt đầu xem
+            </button>
+            <button onClick={handleExit} className="w-full px-4 py-2 text-xs font-extrabold text-muted hover:text-ink">
+              Thoát
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showExitConfirm && (
+        <div className="fixed inset-0 bg-ink/60 z-[130] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[20px] max-w-sm w-full shadow-2xl p-5 sm:p-6 space-y-4 text-center">
+            <ShieldAlert size={36} className="text-amber-600 mx-auto" />
+            <h3 className="text-base font-extrabold text-ink">Thoát khi chưa hoàn thành lượt xem?</h3>
+            <p className="text-xs font-bold text-muted">Bạn chưa trả lời xong câu hỏi của lượt xem này — thoát ra sẽ không tính lượt.</p>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <button
+                onClick={() => setShowExitConfirm(false)}
+                className="flex-1 px-4 py-2.5 bg-white hover:bg-slate-100 border border-line rounded-xl text-xs font-extrabold text-ink"
+              >
+                Ở lại xem tiếp
+              </button>
+              <button
+                onClick={() => {
+                  setShowExitConfirm(false);
+                  onClose();
+                }}
+                className="flex-1 px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-extrabold"
+              >
+                Vẫn thoát
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
       {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — câu hỏi cuối lượt xem hiện
           dạng popup đè lên video/modal, thay vì nằm cuối luồng phải cuộn mới thấy. Đóng được (không
           mất tiến độ xem) — banner ở luồng chính cho mở lại. */}
-      {videoType === "CONNECTION" && quizPopupOpen && !quizResult && (
+      {quizPopupOpen && !quizResult && (
         <div
           className="fixed inset-0 bg-ink/60 z-[105] flex items-center justify-center p-4"
           onClick={(e) => {
@@ -479,7 +482,7 @@ export default function ReviewVideoTaskModal({ video, videoType, onClose, onSubm
           }}
         >
           <div
-            className="bg-white rounded-[20px] max-w-lg w-full max-h-[85vh] overflow-y-auto shadow-2xl p-6 space-y-3"
+            className="bg-white rounded-[20px] max-w-lg w-full max-h-[85vh] overflow-y-auto shadow-2xl p-4 sm:p-6 space-y-3"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-3">
@@ -505,7 +508,7 @@ export default function ReviewVideoTaskModal({ video, videoType, onClose, onSubm
                 {/* Popup này chỉ hiện khi CHƯA nộp (quizResult == null — xem điều kiện render ở trên) nên không cần nhánh hiển thị kết quả đúng/sai ở đây. */}
                 {connectionQuestions.map((q, i) => (
                   <div key={q.id} className="space-y-2">
-                    <p className="text-sm font-bold text-ink">
+                    <p className="text-sm sm:text-base font-bold text-ink">
                       Câu {i + 1}. {q.prompt}
                     </p>
                     <div className="space-y-1.5">
@@ -516,7 +519,7 @@ export default function ReviewVideoTaskModal({ video, videoType, onClose, onSubm
                             key={c.id}
                             type="button"
                             onClick={() => setSelectedAnswers((prev) => ({ ...prev, [q.id]: c.id }))}
-                            className={`w-full flex items-center gap-2 text-left px-3 py-2 rounded-xl border text-xs font-bold transition-colors ${
+                            className={`w-full flex items-center gap-2 text-left px-3 py-2 sm:py-2.5 rounded-xl border text-xs sm:text-sm font-bold transition-colors ${
                               picked ? "bg-teal text-white border-teal" : "bg-white border-line text-ink hover:border-teal/50"
                             }`}
                           >
@@ -533,7 +536,7 @@ export default function ReviewVideoTaskModal({ video, videoType, onClose, onSubm
                   type="button"
                   onClick={handleSubmitConnectionQuiz}
                   disabled={submittingQuiz || connectionQuestions.some((q) => selectedAnswers[q.id] == null)}
-                  className="w-full px-3 py-2 bg-teal hover:bg-teal-deep text-white rounded-xl text-xs font-extrabold disabled:opacity-50"
+                  className="w-full px-3 py-2.5 sm:py-3 bg-teal hover:bg-teal-deep text-white rounded-xl text-xs sm:text-sm font-extrabold disabled:opacity-50"
                 >
                   {submittingQuiz ? "Đang nộp..." : "Nộp câu trả lời"}
                 </button>
@@ -543,84 +546,83 @@ export default function ReviewVideoTaskModal({ video, videoType, onClose, onSubm
         </div>
       )}
 
-      <div className="bg-white rounded-[24px] max-w-2xl w-full max-h-[92vh] overflow-y-auto shadow-2xl p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+      <div className="max-w-4xl w-full mx-auto p-4 sm:p-6 space-y-3 sm:space-y-4 flex-1">
         <div className="flex items-start justify-between gap-3">
-          <div>
-            <span className="text-[10px] font-extrabold uppercase text-teal-deep tracking-wide">
-              {videoType === "CONNECTION" ? "Video từ kết nối" : "Video phản xạ"}
-            </span>
-            <h3 className="text-lg font-extrabold text-ink">{video.title}</h3>
+          <div className="min-w-0 flex-1">
+            <span className="text-[10px] font-extrabold uppercase text-teal-deep tracking-wide">Video từ kết nối</span>
+            <h3 className="text-lg sm:text-xl lg:text-2xl font-extrabold text-ink truncate">{video.title}</h3>
           </div>
-          <button onClick={onClose} className="w-8 h-8 shrink-0 rounded-full bg-sky-2 hover:bg-sky flex items-center justify-center text-ink transition-colors" aria-label="Đóng">
-            <X size={16} />
+          <button
+            onClick={handleExit}
+            // Làm nổi bật (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-12) — đồng bộ màu
+            // sắc với nút Đóng của TakeExerciseModal/ReflexVideoTaskPage.
+            className="shrink-0 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 text-xs sm:text-sm font-extrabold transition-colors"
+          >
+            Thoát
           </button>
         </div>
 
-        <div className="aspect-video w-full rounded-[12px] overflow-hidden bg-ink">
+        {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-12 — khóa hoàn toàn không cho
+            pause/tua (mirror ReflexVideoTaskPage): ẩn controls gốc + chặn tương tác chuột/bàn phím, chỉ
+            cho tự phát theo mốc thời gian đã xem tối đa (chặn tua tới ở tầng theo dõi % xem phía trên). */}
+        <div className="relative aspect-video w-full rounded-[12px] overflow-hidden bg-ink" onContextMenu={(e) => e.preventDefault()}>
           {isYouTube && youTubeVideoId ? (
-            <iframe
-              key={video.id}
-              id={iframeId}
-              src={buildYouTubeEmbedSrc(youTubeVideoId)}
-              title={video.title}
-              className="w-full h-full"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-            />
-          ) : video.sourceType === "R2_AUDIO" ? (
-            <div className="w-full h-full flex items-center justify-center p-6">
-              <audio
+            <>
+              <iframe
                 key={video.id}
-                ref={(videoType === "CONNECTION" ? mediaRef : reflexMediaRef) as React.RefObject<HTMLAudioElement>}
-                src={video.fileUrl}
-                controls
-                className="w-full"
+                id={iframeId}
+                src={buildLockedYouTubeEmbedSrc(youTubeVideoId)}
+                title={video.title}
+                className="w-full h-full pointer-events-none"
+                allow="autoplay; encrypted-media"
               />
+              {/* Chặn hẳn tương tác chuột lên iframe (disablekb/controls=0 của YouTube không chặn được double-click/kéo) — API vẫn gọi được vì không đi qua overlay này. */}
+              <div className="absolute inset-0" />
+            </>
+          ) : video.sourceType === "R2_AUDIO" ? (
+            <div className="w-full h-full flex items-center justify-center p-4 sm:p-6">
+              <audio key={video.id} ref={mediaRef as React.RefObject<HTMLAudioElement>} src={video.fileUrl} tabIndex={-1} className="w-full pointer-events-none" />
             </div>
           ) : (
             <video
               key={video.id}
-              ref={(videoType === "CONNECTION" ? mediaRef : reflexMediaRef) as React.RefObject<HTMLVideoElement>}
+              ref={mediaRef as React.RefObject<HTMLVideoElement>}
               src={video.fileUrl}
-              controls
-              controlsList="nodownload"
-              className="w-full h-full"
+              tabIndex={-1}
+              className="w-full h-full pointer-events-none"
+              playsInline
             />
           )}
         </div>
 
-        {videoType === "CONNECTION" && (
-          <div className="bg-sky-2 border border-teal/20 rounded-[14px] p-4 space-y-3">
-            <p className="text-[10px] font-extrabold text-teal-deep uppercase tracking-wide">Lượt xem hiện tại</p>
-            <div className="space-y-1">
-              <div className="flex items-center justify-between text-[10px] font-extrabold text-teal-deep">
-                <span>Đã xem tối đa</span>
-                <span>{watchedPercent}%</span>
-              </div>
-              <div className="h-1.5 w-full rounded-full bg-white overflow-hidden">
-                <div
-                  className={`h-full rounded-full transition-all ${sessionQualified ? "bg-emerald-500" : "bg-teal-deep"}`}
-                  style={{ width: `${watchedPercent}%` }}
-                />
-              </div>
-              <p className={`text-[10px] font-extrabold ${sessionQualified ? "text-emerald-600" : "text-amber-600"}`}>
-                {sessionQualified
-                  ? `✓ Lượt này đã đạt (đã xem ≥ ${video.completionThresholdPercent}%)`
-                  : `Cần xem ít nhất ${video.completionThresholdPercent}% trong lượt này để được tính "đạt"`}
-              </p>
+        <div className="bg-sky-2 border border-teal/20 rounded-[14px] p-4 space-y-3">
+          <p className="text-[10px] font-extrabold text-teal-deep uppercase tracking-wide">Lượt xem hiện tại</p>
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-[10px] font-extrabold text-teal-deep">
+              <span>Đã xem tối đa</span>
+              <span>{watchedPercent}%</span>
             </div>
-            <div className="pt-2 border-t border-teal/20 flex items-center justify-between">
-              <span className="text-[10px] font-extrabold text-teal-deep uppercase">Tổng số lượt đã đạt</span>
-              <span className={`text-xs font-black ${progressSummary?.completed ? "text-emerald-600" : "text-ink"}`}>
-                {progressSummary ? `${progressSummary.viewCount}/${progressSummary.requiredViewCount}` : `—/${video.requiredViewCount}`} lượt
-                {progressSummary?.completed && " ✓"}
-              </span>
+            <div className="h-1.5 w-full rounded-full bg-white overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${sessionQualified ? "bg-emerald-500" : "bg-teal-deep"}`}
+                style={{ width: `${watchedPercent}%` }}
+              />
             </div>
+            <p className={`text-[10px] font-extrabold ${sessionQualified ? "text-emerald-600" : "text-amber-600"}`}>
+              {sessionQualified ? "✓ Đã xem hết video — làm câu hỏi bên dưới" : "Cần xem HẾT video để làm câu hỏi của lượt này"}
+            </p>
           </div>
-        )}
+          <div className="pt-2 border-t border-teal/20 flex items-center justify-between">
+            <span className="text-[10px] font-extrabold text-teal-deep uppercase">Tổng số lượt đã đạt</span>
+            <span className={`text-xs font-black ${progressSummary?.completed ? "text-emerald-600" : "text-ink"}`}>
+              {progressSummary ? `${progressSummary.viewCount}/${progressSummary.requiredViewCount}` : `—/${video.requiredViewCount}`} lượt
+              {progressSummary?.completed && " ✓"}
+            </span>
+          </div>
+        </div>
 
         {/* V76: câu hỏi trắc nghiệm cuối lượt xem — SAU KHI nộp xong, chỉ còn lại xác nhận gọn trong luồng chính (popup đã tự đóng vì quizResult != null). */}
-        {videoType === "CONNECTION" && quizResult && (
+        {quizResult && (
           <div className="flex items-center gap-1.5 text-xs font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 p-3 rounded-[14px]">
             <CheckCircle2 size={14} className="shrink-0" />
             Đã nộp — {quizResult.filter((r) => r.correct).length}/{quizResult.length} câu đúng. Lượt này đã được tính.
@@ -628,7 +630,7 @@ export default function ReviewVideoTaskModal({ video, videoType, onClose, onSubm
         )}
 
         {/* Banner nhắc mở lại popup — chỉ hiện khi đã đạt ngưỡng, chưa trả lời, VÀ học sinh vừa tự đóng popup. */}
-        {videoType === "CONNECTION" && sessionQualified && !quizResult && !quizPopupOpen && (
+        {sessionQualified && !quizResult && !quizPopupOpen && (
           <button
             type="button"
             onClick={() => setQuizPopupOpen(true)}
@@ -638,224 +640,7 @@ export default function ReviewVideoTaskModal({ video, videoType, onClose, onSubm
             <span className="text-xs font-black text-emerald-700 shrink-0">Trả lời ngay →</span>
           </button>
         )}
-
-        {videoType === "REFLEX" && (
-          <div className="space-y-3">
-            {isMonitoringActive && (
-              <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2">
-                <ShieldAlert size={13} className="text-amber-600 shrink-0" />
-                <span className="text-[11px] font-bold text-amber-800">
-                  Đang giám sát quá trình làm bài — thoát ra ngoài (đổi tab/thu nhỏ) sẽ được ghi nhận.
-                </span>
-              </div>
-            )}
-            {questionsError && <div className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-xl">{questionsError}</div>}
-            {loadingQuestions ? (
-              <p className="text-xs text-muted font-bold">Đang tải câu hỏi...</p>
-            ) : questions.length === 0 ? (
-              <p className="text-xs text-muted font-bold italic">Video này chưa có câu hỏi nào.</p>
-            ) : (
-              questions.map((q, i) => (
-                <ReflexQuestionCard key={q.id} index={i + 1} question={q} onSeek={handleSeekReflexMedia} flushIntegrityEvents={flushIntegrityEvents} />
-              ))
-            )}
-          </div>
-        )}
       </div>
-    </div>
-  );
-}
-
-function ReflexQuestionCard({
-  index,
-  question,
-  onSeek,
-  flushIntegrityEvents
-}: {
-  index: number;
-  question: ReviewVideoQuestionResponse;
-  onSeek: (timestampSeconds: number) => void;
-  flushIntegrityEvents: () => IntegrityEventInput[];
-}) {
-  const [submission, setSubmission] = useState<ReviewVideoSubmissionResponse | undefined>(undefined);
-  const [loadingSubmission, setLoadingSubmission] = useState(true);
-  const [history, setHistory] = useState<ReviewVideoSubmissionResponse[] | null>(null);
-  const [showHistory, setShowHistory] = useState(false);
-  const [pickedFile, setPickedFile] = useState<File | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [justSubmitted, setJustSubmitted] = useState(false);
-  const recorder = useAudioRecorder(question.maxRecordingSeconds);
-
-  useEffect(() => {
-    if (!justSubmitted) return;
-    const timer = window.setTimeout(() => setJustSubmitted(false), 3000);
-    return () => window.clearTimeout(timer);
-  }, [justSubmitted]);
-
-  useEffect(() => {
-    setLoadingSubmission(true);
-    getMyLatestReviewVideoSubmission(question.id)
-      .then(setSubmission)
-      .catch(() => setSubmission(undefined))
-      .finally(() => setLoadingSubmission(false));
-  }, [question.id]);
-
-  const attemptsUsed = submission?.attemptNumber ?? 0;
-  const attemptsExhausted = question.maxAttempts != null && attemptsUsed >= question.maxAttempts;
-
-  const answerBlob = recorder.audioBlob ?? pickedFile;
-  const answerPreviewUrl = answerBlob ? URL.createObjectURL(answerBlob) : null;
-  useEffect(() => () => { if (answerPreviewUrl) URL.revokeObjectURL(answerPreviewUrl); }, [answerPreviewUrl]);
-
-  const handleDiscardDraft = () => {
-    recorder.reset();
-    setPickedFile(null);
-  };
-
-  const handleToggleHistory = () => {
-    if (!showHistory && history == null) {
-      listMyReviewVideoSubmissionHistory(question.id).then(setHistory).catch(() => setHistory([]));
-    }
-    setShowHistory((v) => !v);
-  };
-
-  const handleSubmitAnswer = async () => {
-    if (!answerBlob) return;
-    setSubmitting(true);
-    setError(null);
-    try {
-      const file = answerBlob instanceof File ? answerBlob : new File([answerBlob], "reflex-answer.webm", { type: answerBlob.type || "audio/webm" });
-      const { url } = await uploadMedia(file, "REVIEW_VIDEO_SUBMISSION");
-      const events = flushIntegrityEvents();
-      const updated = await submitReviewVideoQuestionAudio(question.id, url, events.length > 0 ? { events } : undefined);
-      setSubmission(updated);
-      setHistory(null);
-      setShowHistory(false);
-      handleDiscardDraft();
-      setJustSubmitted(true);
-    } catch (err) {
-      setError(friendlyApiErrorMessage(err, "Nộp bài thất bại — thử lại."));
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <div className="bg-sky-2 border border-teal/20 rounded-[14px] p-4 space-y-3">
-      <button
-        type="button"
-        onClick={() => onSeek(question.timestampSeconds)}
-        title="Bấm để tua video/audio tới mốc câu hỏi này"
-        className="w-full flex items-start justify-between gap-2 text-left cursor-pointer group"
-      >
-        <div className="flex items-center gap-1.5 text-[10px] font-extrabold text-teal-deep uppercase tracking-wide">
-          <span>Câu hỏi {index}</span>
-          <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white/70 group-hover:bg-white text-teal-deep normal-case font-bold transition-colors">
-            <Clock size={11} /> {formatTimestamp(question.timestampSeconds)}
-          </span>
-        </div>
-        {question.maxAttempts != null && (
-          <span className="text-[10px] font-bold text-muted shrink-0">
-            {attemptsUsed}/{question.maxAttempts} lượt nộp
-          </span>
-        )}
-      </button>
-
-      {question.prompt && <p className="text-sm font-bold text-ink">{question.prompt}</p>}
-
-      {justSubmitted && (
-        <div className="flex items-center gap-1.5 text-xs font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 p-2.5 rounded-xl animate-in fade-in duration-150">
-          <CheckCircle2 size={14} className="text-emerald-600 shrink-0" /> Đã nộp bài thành công!
-        </div>
-      )}
-
-      {error && <div className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-xl">{error}</div>}
-      {recorder.error && <div className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-xl">{recorder.error}</div>}
-
-      {loadingSubmission ? (
-        <p className="text-xs text-muted font-bold">Đang tải bài nộp...</p>
-      ) : (
-        <div className="space-y-3">
-          {submission && (
-            <div className="space-y-2">
-              <p className="text-[10px] text-muted font-bold">Bài trả lời gần nhất (lượt {submission.attemptNumber})</p>
-              <audio src={submission.audioUrl} controls className="w-full" />
-              <p className="text-[10px] text-muted font-bold">Đã nộp lúc {new Date(submission.submittedAt).toLocaleString("vi-VN")}</p>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 size={14} className="text-emerald-600" />
-                <span className="text-sm font-black text-emerald-700">Đã nộp bài</span>
-              </div>
-
-              {attemptsUsed > 1 && (
-                <button type="button" onClick={handleToggleHistory} className="flex items-center gap-1 text-[10px] font-extrabold text-teal-deep hover:underline">
-                  <History size={11} /> {showHistory ? "Ẩn lịch sử các lần nộp trước" : `Xem ${attemptsUsed - 1} lần nộp trước`}
-                </button>
-              )}
-              {showHistory && history && (
-                <div className="space-y-2 pl-3 border-l-2 border-teal/30">
-                  {history
-                    .filter((h) => h.id !== submission.id)
-                    .map((h) => (
-                      <div key={h.id} className="space-y-1">
-                        <p className="text-[10px] text-muted font-bold">
-                          Lượt {h.attemptNumber} — {new Date(h.submittedAt).toLocaleString("vi-VN")}
-                        </p>
-                        <audio src={h.audioUrl} controls className="w-full h-8" />
-                      </div>
-                    ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {attemptsExhausted ? (
-            <p className="text-[10px] font-extrabold text-rose-600 uppercase pt-2 border-t border-teal/20">Đã hết lượt nộp lại cho câu hỏi này.</p>
-          ) : answerBlob ? (
-            <div className="space-y-2 pt-2 border-t border-teal/20">
-              <p className="text-[10px] font-extrabold text-teal-deep uppercase">Bản ghi mới — nghe lại trước khi nộp</p>
-              {answerPreviewUrl && <audio src={answerPreviewUrl} controls className="w-full" />}
-              <div className="flex gap-2">
-                <button onClick={handleDiscardDraft} className="flex-1 px-3 py-2 bg-white hover:bg-slate-100 border border-line rounded-xl text-xs font-bold text-ink">
-                  Ghi lại
-                </button>
-                <button
-                  onClick={handleSubmitAnswer}
-                  disabled={submitting}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-teal hover:bg-teal-deep text-white rounded-xl text-xs font-extrabold disabled:opacity-50"
-                >
-                  {submitting ? "Đang nộp..." : submission ? "Nộp lại bài" : "Nộp bài"}
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-teal/20">
-              {recorder.recording ? (
-                <button onClick={recorder.stop} className="flex items-center gap-1.5 px-3.5 py-2 bg-coral text-white rounded-xl text-xs font-extrabold animate-pulse">
-                  <Square size={13} /> Dừng ({recorder.elapsedSeconds}s/{question.maxRecordingSeconds}s)
-                </button>
-              ) : (
-                <button onClick={recorder.start} className="flex items-center gap-1.5 px-3.5 py-2 bg-teal hover:bg-teal-deep text-white rounded-xl text-xs font-extrabold">
-                  <Mic size={13} /> Ghi âm trả lời (tối đa {question.maxRecordingSeconds}s)
-                </button>
-              )}
-              <label className="flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-100 border border-line rounded-xl text-xs font-bold text-ink cursor-pointer">
-                <Upload size={13} className="text-teal" /> Tải file ghi âm lên
-                <input
-                  type="file"
-                  accept="audio/*"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    e.target.value = "";
-                    if (file) setPickedFile(file);
-                  }}
-                />
-              </label>
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }

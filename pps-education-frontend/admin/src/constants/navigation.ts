@@ -1,21 +1,44 @@
 import {
+  ArrowLeftRight,
   Award,
   BarChart3,
   Building2,
-  CalendarDays,
-  CheckSquare,
-  ClipboardCheck,
-  DollarSign,
-  ExternalLink,
-  GraduationCap,
-  LayoutDashboard,
+  BookMarked,
   BookOpen,
+  BookOpenCheck,
+  BookUser,
+  Calculator,
+  CalendarDays,
+  CalendarX,
+  ClipboardCheck,
+  ClipboardList,
+  Clock,
+  Contact,
+  CreditCard,
+  DoorOpen,
+  ExternalLink,
+  FileCheck2,
+  FileEdit,
+  FileSpreadsheet,
+  GraduationCap,
+  History,
+  IdCard,
+  LayoutDashboard,
+  MapPin,
+  Megaphone,
+  MessageSquare,
+  Network,
   PhoneCall,
-  School,
+  PieChart,
+  Receipt,
   Send,
   Settings2,
-  ShieldAlert,
-  Users
+  ShieldCheck,
+  UserCog,
+  UserRound,
+  Users,
+  Video,
+  Wallet
 } from "lucide-react";
 import type { ComponentType } from "react";
 import { UserRole } from "@/types";
@@ -87,27 +110,18 @@ export const navSections: NavSection[] = [
       // có 2 mã cũ) và code backend RoleController/UserPermissionOverrideController (chỉ check các
       // mã .view/.create/.update/.delete/.set). Gate theo .view (quyền xem, thấp nhất) để vào được
       // trang; nút Tạo/Sửa/Xoá bên trong trang tự ẩn theo đúng quyền con nếu thiếu.
-      { id: "sys-roles", label: "Nhóm vai trò", path: "/system-admin/roles", icon: ShieldAlert, requiredPermission: "permission.role.view" },
-      { id: "sys-override", label: "Tùy chỉnh tài khoản", path: "/system-admin/overrides", icon: ShieldAlert, requiredPermission: "permission.override.view" },
-      { id: "sys-audit", label: "Nhật ký thay đổi", path: "/system-admin/audit-log", icon: ShieldAlert, requiredPermission: "permission.audit.view" },
+      { id: "sys-roles", label: "Nhóm vai trò", path: "/system-admin/roles", icon: ShieldCheck, requiredPermission: "permission.role.view" },
+      { id: "sys-override", label: "Tùy chỉnh tài khoản", path: "/system-admin/overrides", icon: UserCog, requiredPermission: "permission.override.view" },
+      { id: "sys-audit", label: "Nhật ký thay đổi", path: "/system-admin/audit-log", icon: History, requiredPermission: "permission.audit.view" },
       // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-08 — chỉ Quản trị viên hệ thống (V105).
       { id: "sys-settings", label: "Cài đặt hệ thống", path: "/system-admin/settings", icon: Settings2, requiredPermission: "system.settings.manage" },
       { id: "sys-send-notification", label: "Gửi thông báo", path: "/system-admin/send-notification", icon: Send, requiredPermission: "notification.send.manual" }
     ]
   },
-  // Tạm ẩn cả mục "ĐIỀU HÀNH & GIAO VIỆC" theo yêu cầu người dùng (2026-07-23) — đang phát triển
-  // tiếp, chưa muốn hiện lên sidebar. CHỈ ẩn khỏi menu, không xoá route (App.tsx vẫn giữ nguyên
-  // /task-workflow và /schedule/my-timetable, vào thẳng URL vẫn dùng được bình thường).
-  // {
-  //   id: "task",
-  //   title: "ĐIỀU HÀNH & GIAO VIỆC",
-  //   items: [
-  //     // Không gate requiredPermission: mọi nhân sự có thể là người NHẬN việc, không riêng người có task.create — xem "Việc tôi được giao".
-  //     { id: "task-workflow", label: "Giao việc & Kanban (UC-06/07)", path: "/task-workflow", icon: CheckSquare },
-  //     // Self-service (UC-58) — không gate quyền, ai đăng nhập cũng vào được, chỉ có dữ liệu thật với Giáo viên.
-  //     { id: "acad-my-schedule", label: "Lịch của tôi (UC-58)", path: "/schedule/my-timetable", icon: CalendarDays }
-  //   ]
-  // },
+  // "Giao việc & Kanban" tiếp tục ẩn (đang phát triển, theo yêu cầu 2026-07-23) — route /task-workflow
+  // vẫn còn, chỉ không có link sidebar. Riêng "Lịch của tôi" đã xong, đưa lại menu theo yêu cầu người
+  // dùng — gộp vào section Học thuật thay vì tự tạo section riêng.
+  // { id: "task-workflow", label: "Giao việc & Kanban (UC-06/07)", path: "/task-workflow", icon: CheckSquare } — nhớ import lại CheckSquare khi bật lại.
   {
     id: "hrm",
     title: "QUẢN LÝ NHÂN SỰ (HRM)",
@@ -115,15 +129,18 @@ export const navSections: NavSection[] = [
       // hrm.manage đã bị tách nhỏ (hạt nhân hóa) thành hrm.employee.*/hrm.department.*/hrm.position.*
       // — mã gộp cũ không còn tồn tại, ẩn mất cả section này với mọi tài khoản. hrm.employee.view là
       // quyền gần nhất đại diện "thuộc nhóm quản trị nhân sự" cho 2 mục hồ sơ/danh mục dùng chung.
-      { id: "hrm-profile", label: "Hồ sơ cán bộ", path: "/hrm/profile", icon: Users, requiredPermission: "hrm.employee.view" },
-      { id: "hrm-departments-positions", label: "Phòng ban & Chức vụ", path: "/hrm/departments-positions", icon: Users, requiredPermission: "hrm.employee.view" },
+      { id: "hrm-profile", label: "Hồ sơ cán bộ", path: "/hrm/profile", icon: IdCard, requiredPermission: "hrm.employee.view" },
+      { id: "hrm-departments-positions", label: "Phòng ban & Chức vụ", path: "/hrm/departments-positions", icon: Network, requiredPermission: "hrm.employee.view" },
       // UC-09/UC-11/UC-12: backend KHÔNG dùng permission code (tự phục vụ — ai cũng chấm công/nộp
       // đơn/xem lương của chính mình được; người duyệt/HR tự thấy thêm dữ liệu quản trị theo role
       // ngay trong trang) — đã xác nhận với người dùng 2026-07-27: không gate gì ở đây, ai đăng nhập
       // cũng vào được, khớp đúng Javadoc AttendanceController/LeaveRequestController/PayrollController.
-      { id: "hrm-attendance", label: "Dữ liệu chấm công", path: "/hrm/attendance", icon: Users },
-      { id: "hrm-leaves", label: "Xin nghỉ phép", path: "/hrm/leaves", icon: Users },
-      { id: "hrm-payroll", label: "Tính toán bảng lương", path: "/hrm/payroll", icon: Users }
+      { id: "hrm-attendance", label: "Dữ liệu chấm công", path: "/hrm/attendance", icon: Clock },
+      // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-12 — setup toạ độ GPS cho
+      // Site (UC-36) dùng cho chấm công UC-09 A2. Gate theo đúng quyền Site đã có sẵn.
+      { id: "hrm-attendance-sites", label: "Địa điểm chấm công", path: "/hrm/attendance-sites", icon: MapPin, requiredPermission: "facility.site.update" },
+      { id: "hrm-leaves", label: "Xin nghỉ phép", path: "/hrm/leaves", icon: CalendarX },
+      { id: "hrm-payroll", label: "Tính toán bảng lương", path: "/hrm/payroll", icon: Wallet }
     ]
   },
   {
@@ -138,8 +155,8 @@ export const navSections: NavSection[] = [
     id: "student",
     title: "QUẢN LÝ HỌC SINH",
     items: [
-      { id: "stu-profile", label: "Hồ sơ học sinh", path: "/student/profile", icon: Users, requiredPermission: "student.profile.view" },
-      { id: "stu-parents", label: "Quản lý phụ huynh", path: "/student/parents", icon: Users, requiredPermission: "student.parent.view" }
+      { id: "stu-profile", label: "Hồ sơ học sinh", path: "/student/profile", icon: UserRound, requiredPermission: "student.profile.view" },
+      { id: "stu-parents", label: "Quản lý phụ huynh", path: "/student/parents", icon: Contact, requiredPermission: "student.parent.view" }
       // Mục "Điểm danh nhanh" đã chuyển sang section QUẢN LÝ HỌC THUẬT bên dưới (yêu cầu người dùng
       // 2026-07-31, đảo lại quyết định ẩn hẳn khỏi sidebar ngày 2026-07-24) — xem "acad-attendance".
       // Vẫn giữ nguyên nút "Điểm danh" deep-link kèm classId/sessionId ở tab "Buổi học & Điểm danh"
@@ -150,6 +167,8 @@ export const navSections: NavSection[] = [
     id: "academic",
     title: "QUẢN LÝ HỌC THUẬT",
     items: [
+      // Self-service (UC-58) — không gate quyền, ai đăng nhập cũng vào được, chỉ có dữ liệu thật với Giáo viên.
+      { id: "acad-my-schedule", label: "Lịch của tôi", path: "/schedule/my-timetable", icon: CalendarDays },
       // academic.class.manage: TEACHER/HEAD_ACADEMIC đều có sẵn permission này (xem UC-18) — không cần gate thêm role.
       { id: "acad-classes", label: "Quản lý lớp học", path: "/academic/classes", icon: GraduationCap, requiredPermission: "academic.class.manage" },
       // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31 — trước đó chỉ vào được qua nút
@@ -160,14 +179,14 @@ export const navSections: NavSection[] = [
       // academic.curriculum.create/update/approve — mã gộp cũ không còn tồn tại. Gate theo
       // .create (thấp nhất) để vào trang; khối duyệt tùy biến (UC-17) bên trong tự gate riêng
       // theo .approve (xem SyllabusPage.tsx).
-      { id: "acad-syllabus", label: "Khung chương trình", path: "/academic/syllabus", icon: GraduationCap, requiredPermission: "academic.curriculum.create" },
+      { id: "acad-syllabus", label: "Khung chương trình", path: "/academic/syllabus", icon: BookMarked, requiredPermission: "academic.curriculum.create" },
       // GV thuần giờ nhập điểm ngay ở tab "Sổ điểm" trong Quản lý lớp học (UC-18, ClassDetailPanel) nên
       // KHÔNG còn hiện mục này với TEACHER nữa — chỉ gate theo role quản trị (không dùng requiredPermission
       // academic.grade.manage vì TEACHER cũng có permission đó, sẽ lại lọt vào nếu gate theo permission).
       // Trang GradesPage vẫn giữ cho HEAD_ACADEMIC/SYS_ADMIN xem tổng quan + SITE_MANAGER công bố điểm (UC-20).
-      { id: "acad-grades", label: "Sổ điểm hệ thống", path: "/academic/grades", icon: Award, requiredRoleAny: [UserRole.HEAD_ACADEMIC, UserRole.SYS_ADMIN, UserRole.SITE_MANAGER] },
+      { id: "acad-grades", label: "Sổ điểm hệ thống", path: "/academic/grades", icon: ClipboardList, requiredRoleAny: [UserRole.HEAD_ACADEMIC, UserRole.SYS_ADMIN, UserRole.SITE_MANAGER] },
       // academic.comment.write: TEACHER có sẵn (viết nhận xét). SITE_MANAGER duyệt nhận xét qua role check nội bộ trang, không có permission riêng.
-      { id: "acad-comments", label: "Nhận xét học viên", path: "/academic/comments", icon: Award, requiredPermission: "academic.comment.write", requiredRoleAny: [UserRole.SITE_MANAGER] },
+      { id: "acad-comments", label: "Nhận xét học viên", path: "/academic/comments", icon: MessageSquare, requiredPermission: "academic.comment.write", requiredRoleAny: [UserRole.SITE_MANAGER] },
       // UC-66/FR-ACA-07: lms.exercise.report.view (V90) chỉ gán TEACHER + SITE_MANAGER — tự gate đúng audience, không cần requiredRoleAny.
       { id: "acad-homework-stats", label: "Thống kê BTVN theo lớp", path: "/academic/homework-stats", icon: BarChart3, requiredPermission: "lms.exercise.report.view" }
     ]
@@ -184,28 +203,29 @@ export const navSections: NavSection[] = [
       // hỏi" khỏi sidebar cho MỌI role (kể cả HEAD_ACADEMIC/SYS_ADMIN/SUPER_ADMIN, trước đó vẫn còn
       // thấy) — câu hỏi giờ soạn thẳng theo Đề (examId), trang bank legacy không còn cần thiết. Route
       // /lms/question-banks vẫn còn (chưa xóa hẳn) để không phá link cũ, chỉ không còn hiện ở menu.
-      { id: "lms-exercises", label: "Soạn & giao đề", path: "/lms/exercises", icon: BookOpen, requiredPermission: "lms.exercise.create" },
+      { id: "lms-exercises", label: "Soạn & giao đề", path: "/lms/exercises", icon: FileEdit, requiredPermission: "lms.exercise.create" },
       // ReviewVideoController có permission từ V63 (bổ sung, trước đó không hề gate permission nào —
       // đã fix bug 2026-07-30: cấp "full quyền" cho sysadmin không có tác dụng vì quyền chưa tồn tại
       // trong catalog). Gate theo .create (thấp nhất trong 3 quyền TEACHER được gán mặc định), giống
       // cách "Soạn & giao đề" bên dưới. Lưu ý: có quyền chỉ vào được trang — thao tác tạo/sửa cho 1
       // lớp cụ thể vẫn cần tài khoản có mặt trong class_teachers của lớp đó (requireAssignedTeacher,
       // Precondition UC-23, backend tự chặn 403 nếu không đúng phân công).
-      { id: "lms-lectures", label: "Kho Video Ôn tập", path: "/lms/lectures", icon: BookOpen, requiredPermission: "lms.review-video.create" },
+      { id: "lms-lectures", label: "Kho Video Ôn tập", path: "/lms/lectures", icon: Video, requiredPermission: "lms.review-video.create" },
       // lms.document.manage đã bị tách nhỏ (hạt nhân hóa V62) thành lms.document.create/update/
       // view — mã gộp cũ không còn tồn tại. Gate theo .view (thấp nhất) để vào trang.
       { id: "lms-documents", label: "Kho tài liệu tham khảo", path: "/lms/documents", icon: BookOpen, requiredPermission: "lms.document.view" },
-      { id: "lms-exams", label: "Hàng chờ chấm bài", path: "/lms/exams", icon: BookOpen, requiredPermission: "lms.grading.manage" }
+      { id: "lms-exams", label: "Hàng chờ chấm bài", path: "/lms/exams", icon: FileCheck2, requiredPermission: "lms.grading.manage" }
     ]
   },
   {
     id: "reports",
     title: "BÁO CÁO & THỐNG KÊ",
     items: [
-      { id: "rep-templates", label: "Mẫu báo cáo tự động", path: "/reports/templates", icon: ClipboardCheck, requiredPermission: "report.template.view" },
-      { id: "rep-daily", label: "Thống kê nhận xét", path: "/reports/daily-comments", icon: BarChart3, requiredPermission: "report.daily-comment.view" },
+      { id: "rep-templates", label: "Mẫu báo cáo tự động", path: "/reports/templates", icon: FileSpreadsheet, requiredPermission: "report.template.view" },
+      { id: "rep-daily", label: "Thống kê nhận xét", path: "/reports/daily-comments", icon: PieChart, requiredPermission: "report.daily-comment.view" },
       { id: "rep-grades", label: "Thống kê điểm", path: "/reports/grades", icon: Award, requiredPermission: "report.grade.view" },
-      { id: "rep-student", label: "Hồ sơ học tập", path: "/reports/student-progress", icon: GraduationCap, requiredPermission: "report.student-progress.view" }
+      { id: "rep-student", label: "Hồ sơ học tập", path: "/reports/student-progress", icon: BookUser, requiredPermission: "report.student-progress.view" },
+      { id: "rep-enrollment-movement", label: "Biến động học sinh theo kỳ", path: "/reports/enrollment-movement", icon: ArrowLeftRight, requiredPermission: "report.enrollment-stats.view" }
     ]
   },
   {
@@ -216,13 +236,13 @@ export const navSections: NavSection[] = [
       // finance.tuition-plan.* — mã gộp cũ không còn tồn tại. finance.invoice.manage (V51) tự nó lại
       // bị tách tiếp (V62) thành finance.invoice.generate/payment.record — không có mã .view riêng
       // vì GET /api/finance/invoices/* chưa từng gate quyền ở backend.
-      { id: "fin-billing", label: "Thu phí & hóa đơn", path: "/finance/billing", icon: DollarSign, requiredPermission: "finance.invoice.generate" },
+      { id: "fin-billing", label: "Thu phí & hóa đơn", path: "/finance/billing", icon: Receipt, requiredPermission: "finance.invoice.generate" },
       // finance.expense.create (STAFF, người tạo) và finance.expense.approve (EXECUTIVE, người duyệt)
       // là 2 role KHÁC nhau hoàn toàn (không có 1 permission chung nào) — OperatingExpenseController
       // GET dùng "finance.expense.create' or 'finance.expense.approve'". requiredPermission không hỗ
       // trợ OR 2 mã nên gate theo requiredRoleAny cả 2 role thay vì bỏ sót 1 bên.
-      { id: "fin-expenses", label: "Chi phí vận hành", path: "/finance/expenses", icon: DollarSign, requiredRoleAny: [UserRole.STAFF, UserRole.EXECUTIVE] },
-      { id: "fin-reports", label: "Báo cáo kế toán", path: "/finance/reports", icon: DollarSign, requiredPermission: "finance.report.view" }
+      { id: "fin-expenses", label: "Chi phí vận hành", path: "/finance/expenses", icon: CreditCard, requiredRoleAny: [UserRole.STAFF, UserRole.EXECUTIVE] },
+      { id: "fin-reports", label: "Báo cáo kế toán", path: "/finance/reports", icon: Calculator, requiredPermission: "finance.report.view" }
     ]
   },
   {
@@ -235,9 +255,9 @@ export const navSections: NavSection[] = [
       // facility.room.manage đã bị tách nhỏ (hạt nhân hóa V62) thành facility.room.create/update
       // (phòng học) và facility.equipment.create/update (thiết bị) — cùng gán cho STAFF+HEAD_ACADEMIC
       // nên gate theo 1 mã đại diện (facility.room.create) là đủ, không có vấn đề role-split.
-      { id: "fac-rooms", label: "Phòng học & thiết bị", path: "/facility/rooms", icon: Building2, requiredPermission: "facility.room.create" },
+      { id: "fac-rooms", label: "Phòng học & thiết bị", path: "/facility/rooms", icon: DoorOpen, requiredPermission: "facility.room.create" },
       // Không có permission riêng — quyền xem/xử lý được backend tính qua bảng site_managers (đúng site đang phụ trách), không qua permission nào.
-      { id: "fac-feedback", label: "Ý kiến phản hồi", path: "/facility/feedback", icon: Building2, requiredRoleAny: [UserRole.SITE_MANAGER] }
+      { id: "fac-feedback", label: "Ý kiến phản hồi", path: "/facility/feedback", icon: Megaphone, requiredRoleAny: [UserRole.SITE_MANAGER] }
     ]
   },
   {
@@ -245,7 +265,7 @@ export const navSections: NavSection[] = [
     title: "PORTAL TRƯỜNG LIÊN KẾT",
     items: [
       // PARTNER_REP không có permission riêng — quyền xem được backend tính qua bảng site_managers (role_type=PARTNER_REP).
-      { id: "part-syllabus", label: "Kế hoạch giảng dạy", path: "/partner/syllabus", icon: ExternalLink, requiredRoleAny: [UserRole.PARTNER_REP] },
+      { id: "part-syllabus", label: "Kế hoạch giảng dạy", path: "/partner/syllabus", icon: BookOpenCheck, requiredRoleAny: [UserRole.PARTNER_REP] },
       { id: "part-portal", label: "Báo cáo liên kết", path: "/partner/portal", icon: ExternalLink, requiredRoleAny: [UserRole.PARTNER_REP] }
     ]
   }

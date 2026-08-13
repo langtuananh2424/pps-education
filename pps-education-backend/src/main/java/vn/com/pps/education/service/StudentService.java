@@ -161,6 +161,20 @@ public class StudentService {
         return toResponse(student);
     }
 
+    /**
+     * Package-private — dùng bởi StudentProfileService (API tổng hợp hồ sơ
+     * học tập, FR-REP-04, bổ sung ngoài SDD gốc) để tái dùng ĐÚNG rào
+     * site-scope của getById (STAFF/Giáo vụ không giới hạn, Quản lý điểm
+     * trường chỉ xem học sinh thuộc site mình phụ trách) — tránh trùng lặp
+     * logic requireSiteAccessible ở 2 nơi.
+     */
+    @Transactional(readOnly = true)
+    Student getAccessibleStudentOrThrow(Long id, Long actorUserId) {
+        Student student = getStudentOrThrow(id);
+        requireSiteAccessible(student, actorUserId);
+        return student;
+    }
+
     /** UC-63 Main Flow bước 1: học sinh tự xem hồ sơ của chính mình (FR-USR-07). */
     @Transactional(readOnly = true)
     public StudentResponse getMyStudentProfile(Long userId) {
@@ -405,6 +419,17 @@ public class StudentService {
     }
 
     /**
+     * UC-63: học sinh tự tra danh sách phụ huynh liên kết với chính mình
+     * (FR-USR-07) — self-service, không cần student.parent.view (quyền đó
+     * dành cho STAFF/SITE_MANAGER/SUPER_ADMIN tra cứu học sinh bất kỳ).
+     */
+    @Transactional(readOnly = true)
+    public List<ParentStudentResponse> listMyParents(Long userId) {
+        Student student = getStudentByUserIdOrThrow(userId);
+        return parentStudentRepository.findByStudentId(student.getId()).stream().map(this::toResponse).toList();
+    }
+
+    /**
      * Main Flow bước 4, A1: ghi nhận sự kiện chuyển lớp/chuyển điểm trường.
      * CLASS_CHANGE/BOTH đồng bộ luôn class_enrollments (Phân hệ 6): ghi danh
      * cũ ở fromClassId chuyển TRANSFERRED, tạo ghi danh mới ACTIVE ở
@@ -639,8 +664,8 @@ public class StudentService {
 
     private ParentStudentResponse toResponse(ParentStudent ps) {
         return new ParentStudentResponse(
-                ps.getId(), ps.getParent().getId(), ps.getParent().getUser().getFullName(), ps.getStudent().getId(),
-                ps.getRelationship().name(), ps.isPrimaryContact(), ps.isFinancialResponsible(), ps.getNotes());
+                ps.getId(), ps.getParent().getId(), ps.getParent().getUser().getFullName(), ps.getParent().getUser().getPhone(),
+                ps.getStudent().getId(), ps.getRelationship().name(), ps.isPrimaryContact(), ps.isFinancialResponsible(), ps.getNotes());
     }
 
     private StudentTransferHistoryResponse toResponse(StudentTransferHistory h) {

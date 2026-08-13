@@ -43,10 +43,13 @@ public class StudentCommentController {
 
     // ---- UC-21: Viết nhận xét (TEACHER) ----
 
+    /** studentId bỏ trống (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-12) — trả về TOÀN BỘ nhận xét của cả lớp trong 1 lần gọi, thay N request/học sinh (xem StudentCommentService#listCommentsForClass). */
     @GetMapping("/api/classes/{classId}/comments")
     public ResponseEntity<List<StudentCommentResponse>> listComments(@PathVariable Long classId,
-                                                                       @RequestParam Long studentId) {
-        return ResponseEntity.ok(studentCommentService.listComments(classId, studentId));
+                                                                       @RequestParam(required = false) Long studentId) {
+        return ResponseEntity.ok(studentId != null
+                ? studentCommentService.listComments(classId, studentId)
+                : studentCommentService.listCommentsForClass(classId));
     }
 
     @PreAuthorize("hasPermission(null, 'academic.comment.write')")

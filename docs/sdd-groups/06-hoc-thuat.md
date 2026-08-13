@@ -629,7 +629,19 @@ a)  Bảng class_sessions --- Buổi học
                                                                      2026-07-29).
                                                                      KHÔNG liên
                                                                      quan hồ sơ
-                                                                     nhân sự.
+                                                                     nhân sự. Từ
+                                                                     2026-08-12
+                                                                     field này
+                                                                     CÓ chi phối
+                                                                     logic "BTVN
+                                                                     buổi trước"
+                                                                     (UC-21) —
+                                                                     xem
+                                                                     StudentCommentService
+                                                                     #previousComment,
+                                                                     không còn
+                                                                     thuần hiển
+                                                                     thị.
 
   cancellation_reason         TEXT             NULL
 
@@ -1361,8 +1373,7 @@ erDiagram
     students ||--o{ student_comments : "duoc nhan xet"
     users ||--o{ student_comments : "GV viet"
     classes ||--o{ student_comments : "trong lop"
-    class_sessions ||--o{ student_comments : "buoi cu the (neu Hang ngay)"
-    academic_terms ||--o{ student_comments : "ky hoc cu the (neu Giua/Cuoi ky, V95)"
+    class_sessions ||--o{ student_comments : "buoi cu the"
 
     student_comments ||--o{ student_comments_history : ""
     approval_flows ||--o{ student_comments : "duyet (entity_type=STUDENT_COMMENT)"
@@ -1375,7 +1386,6 @@ erDiagram
         BIGINT teacher_user_id FK
         VARCHAR comment_type
         BIGINT class_session_id FK
-        BIGINT academic_term_id FK
         BIGINT academic_year_id FK
         DATE comment_date
         TEXT content
@@ -1397,9 +1407,13 @@ erDiagram
     }
 ```
 
-Xử lý FR-ACA-04 (Sổ nhận xét 3 biểu mẫu: Hàng ngày/Giữa kỳ/Cuối kỳ) và
-FR-LMS-09 (cơ chế duyệt trước khi hiển thị PH). Chỉ 1 bảng duy nhất cho
-cả 3 biểu mẫu, phân biệt qua comment_type.
+Xử lý FR-ACA-04 (Sổ nhận xét Hàng ngày) và FR-LMS-09 (cơ chế duyệt trước
+khi hiển thị PH). Chốt lại 2026-08-12 (đã xác nhận với người dùng) — bỏ
+hẳn 2 biểu mẫu Giữa kỳ/Cuối kỳ từng có trước đây (comment_type
+MID_TERM/END_TERM); nhận xét theo kỳ đánh giá nay dùng field `comment`
+trong `grade_evaluation_results` (UC-19/53, mục c bên trên) thay thế.
+`comment_type` trong bảng dưới nay chỉ còn 1 giá trị DAILY (giữ cột lại
+để không phải đổi kiểu dữ liệu, không phải vì còn nhiều biểu mẫu).
 
 a)  Bảng student_comments --- Nhận xét học sinh
 
@@ -1419,33 +1433,30 @@ a)  Bảng student_comments --- Nhận xét học sinh
   teacher_user_id        BIGINT        FK → users(id), NOT
                                         NULL
 
-  comment_type           VARCHAR(20)   NOT NULL              DAILY / MID_TERM / END_TERM
+  comment_type           VARCHAR(20)   NOT NULL, CHECK       Chỉ còn DAILY (V117, 2026-08-12
+                                        (= 'DAILY')            — bỏ hẳn MID_TERM/END_TERM)
 
-  class_session_id       BIGINT        FK →                  Chỉ set khi comment_type=DAILY
-                                        class_sessions(id),
-                                        NULL
-
-  academic_term_id        BIGINT        FK →                  Chỉ set khi
-                                        academic_terms(id),   comment_type=MID_TERM/END_TERM
-                                        NULL                   (V95, đổi từ
-                                                                grade_period_id)
+  class_session_id       BIGINT        FK →                  NOT NULL (V117 — trước đó chỉ
+                                        class_sessions(id),   bắt buộc khi comment_type=DAILY,
+                                        NOT NULL               nay là biểu mẫu duy nhất)
 
   academic_year_id        BIGINT        FK →                  Copy từ
                                         academic_years(id),   classes.academic_year_id tại
-                                        NULL                   thời điểm tạo, áp dụng cho cả
-                                                                DAILY lẫn MID_TERM/END_TERM
-                                                                (V102, đổi từ VARCHAR sang FK
-                                                                ở V103; bổ sung ngoài SDD gốc,
-                                                                đã xác nhận với người dùng
-                                                                2026-08-07)
+                                        NULL                   thời điểm tạo (V102, đổi từ
+                                                                VARCHAR sang FK ở V103; bổ
+                                                                sung ngoài SDD gốc, đã xác
+                                                                nhận với người dùng 2026-08-07)
 
   comment_date            DATE          NOT NULL
 
   content                 TEXT          NOT NULL              Nội dung tự do
 
-  structured_content      JSONB         NULL                  Cấu trúc cho biểu mẫu Giữa/Cuối
-                                                               kỳ (attitude, participation,
-                                                               skills...)
+  structured_content      JSONB         NULL                  Không dùng cho DAILY hiện tại
+                                                               (dữ liệu thái độ dùng cột phẳng
+                                                               attitude bên dưới) — giữ cột lại
+                                                               phòng khi cần nội dung có cấu
+                                                               trúc, không xoá vì tốn công đổi
+                                                               kiểu dữ liệu
 
   severity                VARCHAR(20)   NOT NULL, DEFAULT     POSITIVE / NORMAL / CONCERN /
                                         'NORMAL'               WARNING
@@ -1469,18 +1480,15 @@ a)  Bảng student_comments --- Nhận xét học sinh
 
   rejection_reason         TEXT          NULL
 
-  attitude                 VARCHAR(20)   NULL                  Chỉ dùng khi comment_type=
-                                                                DAILY (V50, bổ sung ngoài SDD
-                                                                gốc, đã xác nhận với người
-                                                                dùng 2026-07-24) — Kém/Yếu/
-                                                                Trung bình/Trung bình khá/
-                                                                Khá/Tốt (mở rộng từ 3 lên 6
-                                                                mức 2026-07-27), cột phẳng
-                                                                RIÊNG với structured_content.
-                                                                attitude (JSONB, chỉ dùng cho
-                                                                Giữa/Cuối kỳ) — 2 cơ chế khác
-                                                                nhau cho 2 nhóm biểu mẫu khác
-                                                                nhau
+  attitude                 VARCHAR(20)   NULL                  (V50, bổ sung ngoài SDD gốc, đã
+                                                                xác nhận với người dùng
+                                                                2026-07-24) — Yếu 20%/Trung
+                                                                bình 50%/Khá 70%/Tốt 90%/Xuất
+                                                                sắc 100% (chốt lại 2026-08-12,
+                                                                thay thang 6 mức Kém/.../Trung
+                                                                bình khá/... ngày 2026-07-27;
+                                                                % dùng tính "Thái độ học tập"
+                                                                trung bình ở Portal)
 
   homework_previous_score  VARCHAR(30)   NULL                  Chỉ DAILY (V50) — VD "80%",
                                                                 chấm BTVN Ngữ pháp buổi TRƯỚC
@@ -1557,16 +1565,11 @@ tay (không FK, không dropdown), không liên quan tới
 
 Có student_comments_history.
 
-Ràng buộc:
+Ràng buộc (V117, 2026-08-12 — thay `chk_comment_context` gốc V15/V95, đã
+bỏ MID_TERM/END_TERM và cột academic_term_id):
 
-ALTER TABLE student_comments ADD CONSTRAINT chk_comment_context CHECK (
-
-(comment_type = 'DAILY' AND class_session_id IS NOT NULL AND
-academic_term_id IS NULL) OR
-
-(comment_type IN ('MID_TERM', 'END_TERM') AND academic_term_id IS NOT
-NULL AND class_session_id IS NULL)
-
+ALTER TABLE student_comments ADD CONSTRAINT chk_comment_type_daily CHECK (
+comment_type = 'DAILY'
 );
 
 Chỉ số:
@@ -1579,7 +1582,9 @@ comment_date DESC)
 
 WHERE is_warning = TRUE AND status = 'APPROVED';
 
-Format structured_content (JSONB) --- biểu mẫu Giữa/Cuối kỳ:
+~~Format structured_content (JSONB) --- biểu mẫu Giữa/Cuối kỳ~~ (ví dụ
+lịch sử, không còn áp dụng từ V117 2026-08-12 — biểu mẫu Giữa/Cuối kỳ đã
+bỏ, structured_content hiện không có format chuẩn nào đang dùng):
 
 {
 

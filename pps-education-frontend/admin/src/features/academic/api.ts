@@ -316,6 +316,69 @@ export function updateAcademicTerm(id: number, request: UpdateAcademicTermReques
   return apiRequest<AcademicTermResponse>(`/academic-terms/${id}`, { method: "PUT", body: JSON.stringify(request) });
 }
 
+// ===================== UC-69: Thống kê biến động học sinh các lớp theo kỳ (FR-ACA-09) =====================
+
+/** classId=null -- dòng tổng cộng, xem EnrollmentMovementReportService#sumTotals. */
+export interface EnrollmentMovementClassRow {
+  classId: number | null;
+  classCode: string;
+  className: string;
+  openingHeadcount: number;
+  newEnrollments: number;
+  withdrawnCount: number;
+  transferredCount: number;
+  completedCount: number;
+  closingHeadcount: number;
+}
+
+export interface EnrollmentMovementStatsResponse {
+  academicTermId: number;
+  academicTermName: string;
+  startDate: string;
+  endDate: string;
+  siteId: number;
+  siteName: string;
+  classes: EnrollmentMovementClassRow[];
+  totals: EnrollmentMovementClassRow;
+}
+
+export function getEnrollmentMovementStats(academicTermId: number, classId?: number): Promise<EnrollmentMovementStatsResponse> {
+  const query = classId ? `?classId=${classId}` : "";
+  return apiRequest<EnrollmentMovementStatsResponse>(`/academic-terms/${academicTermId}/enrollment-movement-stats${query}`);
+}
+
+export function exportEnrollmentMovementStats(academicTermId: number, classId?: number): Promise<Blob> {
+  const query = classId ? `?classId=${classId}` : "";
+  return apiRequestBlob(`/academic-terms/${academicTermId}/enrollment-movement-stats/export${query}`);
+}
+
+/** monthIndex = tháng thứ mấy CỦA KỲ (1-based), không phải tháng lịch tuyệt đối -- dùng để so sánh 2 kỳ khác độ dài/thời điểm. */
+export interface EnrollmentMovementTrendPoint {
+  monthIndex: number;
+  periodStart: string;
+  periodEnd: string;
+  headcount: number;
+  newEnrollments: number;
+  withdrawnCount: number;
+  transferredCount: number;
+  completedCount: number;
+}
+
+export interface EnrollmentMovementTrendResponse {
+  academicTermId: number;
+  academicTermName: string;
+  startDate: string;
+  endDate: string;
+  siteId: number;
+  siteName: string;
+  points: EnrollmentMovementTrendPoint[];
+}
+
+export function getEnrollmentMovementTrend(academicTermId: number, classId?: number): Promise<EnrollmentMovementTrendResponse> {
+  const query = classId ? `?classId=${classId}` : "";
+  return apiRequest<EnrollmentMovementTrendResponse>(`/academic-terms/${academicTermId}/enrollment-movement-trend${query}`);
+}
+
 // ===================== Năm học (V102, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-07) =====================
 // Danh mục DÙNG CHUNG TOÀN HỆ THỐNG (khác Kỳ học — giới hạn theo điểm trường). Nguồn cho
 // academicYearId trên classes/grade_entries/student_comments/class_enrollments/teaching_plans.
@@ -876,9 +939,8 @@ export interface StudentCommentResponse {
   studentDateOfBirth: string | null;
   classId: number;
   teacherId: number;
-  commentType: "DAILY" | "MID_TERM" | "END_TERM";
-  classSessionId: number | null;
-  academicTermId: number | null;
+  commentType: "DAILY";
+  classSessionId: number;
   commentDate: string;
   content: string;
   structuredContent: Record<string, unknown> | null;
@@ -891,9 +953,9 @@ export interface StudentCommentResponse {
   visibleToParentAt: string | null;
   rejectionReason: string | null;
   // Nhận xét Hàng ngày kiểu mới (chỉ có ý nghĩa khi commentType=DAILY) — bổ sung ngoài SDD gốc.
-  // Attitude mở rộng từ 3 lên 6 mức 2026-07-27 (StudentComment.Attitude) — giữ nguyên tên hằng số
-  // POOR/AVERAGE/GOOD của 3 mức cũ, thêm WEAK/ABOVE_AVERAGE/FAIR.
-  attitude: "POOR" | "WEAK" | "AVERAGE" | "ABOVE_AVERAGE" | "FAIR" | "GOOD" | null;
+  // Thang thái độ chốt lại 2026-08-12 (StudentComment.Attitude) — Yếu 20%/Trung bình 50%/Khá 70%/
+  // Tốt 90%/Xuất sắc 100%, thay cho thang 6 mức POOR/WEAK/AVERAGE/ABOVE_AVERAGE/FAIR/GOOD cũ.
+  attitude: "WEAK" | "AVERAGE" | "FAIR" | "GOOD" | "EXCELLENT" | null;
   homeworkPreviousScore: string | null;
   // BTVN Nghe-nói buổi trước (V56, nhập tay, đối xứng với homeworkPreviousScore ở trên) — độc lập với
   // videoPreviousProgress (tự tính) bên dưới.
@@ -924,9 +986,7 @@ export interface StudentCommentResponse {
 
 export interface CreateStudentCommentRequest {
   studentId: number;
-  commentType: StudentCommentResponse["commentType"];
-  classSessionId?: number;
-  academicTermId?: number;
+  classSessionId: number;
   commentDate: string;
   content: string;
   structuredContent?: Record<string, unknown>;
@@ -977,6 +1037,14 @@ export interface UpdateStudentCommentRequest {
 
 export function listComments(classId: number, studentId: number): Promise<StudentCommentResponse[]> {
   return apiRequest<StudentCommentResponse[]>(`/classes/${classId}/comments?studentId=${studentId}`);
+}
+
+/**
+ * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-12) — TOÀN BỘ nhận xét của cả lớp trong 1
+ * lần gọi, thay N request/học sinh (StudentCommentResponse đã có studentId, tự gom theo học sinh ở FE).
+ */
+export function listCommentsForClass(classId: number): Promise<StudentCommentResponse[]> {
+  return apiRequest<StudentCommentResponse[]>(`/classes/${classId}/comments`);
 }
 
 export function writeComment(classId: number, request: CreateStudentCommentRequest): Promise<StudentCommentResponse> {
@@ -1065,6 +1133,8 @@ export interface ExerciseAssignmentStatsResponse {
   exerciseCode: string;
   exerciseTitle: string;
   exerciseType: "SELF_PRACTICE" | "ASSIGNED" | "MOCK_TEST" | "SKILL_PRACTICE";
+  /** Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-11) — lấy qua Đề cha (exam.teacherType). */
+  teacherType: "VIETNAMESE" | "FOREIGN";
   availableFrom: string;
   dueAt: string | null;
   status: "ACTIVE" | "COMPLETED";

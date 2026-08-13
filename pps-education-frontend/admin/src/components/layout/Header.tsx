@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { AlertTriangle, Bell, ChevronDown, Clock, GraduationCap, KeyRound, Lock, LogOut, Menu, MapPin, Settings, User } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { AlertTriangle, Bell, CheckCircle2, ChevronDown, Clock, GraduationCap, KeyRound, Lock, LogOut, Menu, MapPin, Settings, User } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { getMyPartnerSite, listSites, listSiteTeachers, SiteResponse, SiteTeacherResponse } from "@/features/facility/api";
 import { useEligibleClasses } from "@/features/academic/hooks/useEligibleClasses";
 import { listMyNotifications, markNotificationRead, NotificationResponse } from "@/features/notifications/api";
+import { AttendanceRecordResponse, getMyTodayAttendance } from "@/features/hrm/api";
 import { UserRole } from "@/types";
 import Avatar from "@/components/ui/Avatar";
 import Dropdown from "@/components/ui/Dropdown";
@@ -12,6 +14,11 @@ import ChangePasswordModal from "@/features/auth/components/ChangePasswordModal"
 import { useDialog } from "@/components/ui/DialogProvider";
 
 const NOTIFICATION_PAGE_SIZE = 15;
+
+function formatTimeHm(value: string | null): string {
+  if (!value) return "—";
+  return new Date(value).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+}
 
 export default function Header() {
   const {
@@ -30,9 +37,20 @@ export default function Header() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const { alertDialog } = useDialog();
+  const navigate = useNavigate();
 
   useEffect(() => {
     listSites().then(setSites).catch(() => undefined);
+  }, []);
+
+  // Bổ sung ngoài UC-09 gốc, đã xác nhận với người dùng 2026-08-12 — trạng thái chấm công hôm
+  // nay của chính người dùng, hiển thị pill ở Header (giống pattern "Điểm trường"/"Lớp" bên
+  // trái). undefined = không áp dụng (thuộc diện miễn trừ is_management hoặc không có hồ sơ
+  // nhân sự, BE trả 204) -- ẩn hẳn pill, không phân biệt được 2 trường hợp này ở FE và cũng
+  // không cần thiết (cả 2 đều "không chấm công qua hệ thống").
+  const [myAttendance, setMyAttendance] = useState<AttendanceRecordResponse | undefined>(undefined);
+  useEffect(() => {
+    getMyTodayAttendance().then(setMyAttendance).catch(() => setMyAttendance(undefined));
   }, []);
 
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — nối API thật thay cho mảng
@@ -281,6 +299,28 @@ export default function Header() {
       </div>
 
       <div className="flex items-center gap-3 md:gap-5">
+        {myAttendance && (
+          <button
+            onClick={() => navigate("/hrm/attendance")}
+            className={`hidden sm:flex items-center gap-1.5 text-xs font-medium px-3.5 py-2 rounded-full shadow-soft border transition-all cursor-pointer ${
+              myAttendance.id == null
+                ? "bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100"
+                : "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
+            }`}
+          >
+            {myAttendance.id == null ? <Clock className="w-3.5 h-3.5 shrink-0" /> : <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />}
+            {myAttendance.id == null ? (
+              <span className="font-semibold">Chưa chấm công hôm nay</span>
+            ) : myAttendance.checkOutAt ? (
+              <span className="font-semibold">
+                Đã chấm công {formatTimeHm(myAttendance.checkInAt)} – {formatTimeHm(myAttendance.checkOutAt)}
+              </span>
+            ) : (
+              <span className="font-semibold">Đã chấm công vào lúc {formatTimeHm(myAttendance.checkInAt)}</span>
+            )}
+          </button>
+        )}
+
         <div className="hidden lg:flex items-center gap-1.5 text-slate-600 bg-white border border-slate-200/50 shadow-soft px-3.5 py-2 rounded-full font-mono text-[11px]">
           <Clock className="w-3.5 h-3.5 text-slate-400" />
           <span>

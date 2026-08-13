@@ -42,14 +42,35 @@ const sessionTypeLabels: Record<string, string> = {
   MAKEUP: "Học bù"
 };
 
+/** Thang thái độ chốt lại 2026-08-12 (StudentComment.Attitude), thay cho thang 6 mức cũ. */
 const attitudeLabels: Record<NonNullable<StudentCommentResponse["attitude"]>, string> = {
-  POOR: "Kém",
   WEAK: "Yếu",
   AVERAGE: "Trung bình",
-  ABOVE_AVERAGE: "Trung bình khá",
   FAIR: "Khá",
-  GOOD: "Tốt"
+  GOOD: "Tốt",
+  EXCELLENT: "Xuất sắc"
 };
+
+/** % quy đổi cố định theo mức (đã xác nhận với người dùng 2026-08-12) — dùng để tính "Thái độ học
+ * tập" trung bình = trung bình cộng % của mọi buổi đã chấm trong khoảng đang xem. */
+const attitudePercent: Record<NonNullable<StudentCommentResponse["attitude"]>, number> = {
+  WEAK: 20,
+  AVERAGE: 50,
+  FAIR: 70,
+  GOOD: 90,
+  EXCELLENT: 100
+};
+
+/** Suy ngược % trung bình về đúng 1 mức để hiện "Đạt loại X" — lấy mức CAO NHẤT mà % trung bình đã
+ * đạt/vượt ngưỡng (floor), mirror cách quy đổi %-sang-xếp loại thông thường (VD 82% đã vượt Khá 70%
+ * nhưng chưa tới Tốt 90% → "Khá"). Nhất quán với đúng 1 con số % đang hiển thị, không dùng "mức phổ
+ * biến nhất" (mode) như trước — 2 chỉ số có thể lệch nhau (VD 3 buổi Khá + 1 buổi Xuất sắc: mode là
+ * Khá nhưng trung bình 77.5% cũng vẫn rơi vào Khá nên trùng, nhưng không phải lúc nào cũng trùng).
+ */
+function attitudeLevelFromPercent(percent: number): NonNullable<StudentCommentResponse["attitude"]> {
+  const levels: NonNullable<StudentCommentResponse["attitude"]>[] = ["EXCELLENT", "GOOD", "FAIR", "AVERAGE", "WEAK"];
+  return levels.find((level) => percent >= attitudePercent[level]) ?? "WEAK";
+}
 
 /** "Loại giáo viên" của buổi — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06. */
 const teacherTypeLabels: Record<"VIETNAMESE" | "FOREIGN", string> = { VIETNAMESE: "Việt Nam", FOREIGN: "Nước ngoài" };
@@ -59,12 +80,11 @@ const teacherTypeStyles: Record<"VIETNAMESE" | "FOREIGN", string> = {
 };
 
 const attitudeStyles: Record<NonNullable<StudentCommentResponse["attitude"]>, string> = {
+  EXCELLENT: "bg-violet-50 text-violet-800 border-violet-300",
   GOOD: "bg-emerald-50 text-emerald-800 border-emerald-300",
   FAIR: "bg-teal-50 text-teal-800 border-teal-300",
-  ABOVE_AVERAGE: "bg-sky-50 text-sky-800 border-sky-300",
   AVERAGE: "bg-amber-50 text-amber-800 border-amber-300",
-  WEAK: "bg-orange-50 text-orange-800 border-orange-300",
-  POOR: "bg-rose-50 text-rose-800 border-rose-300"
+  WEAK: "bg-orange-50 text-orange-800 border-orange-300"
 };
 
 /** "NN%" -> NN; "Chưa làm bài" -> 0 (chưa làm, tính vào tỷ lệ); null/"Đang chờ chấm" -> null (chưa rõ, không tính vào trung bình). */
@@ -231,6 +251,20 @@ export default function DailyLearningProgressTab({
   const displayCode = studentCode || "";
   const selectedLog = logs.find((log) => log.id === selectedSessionId) ?? null;
 
+  // Đồng bộ "Chuyên cần" với đúng bộ lọc "Các buổi"/"Từ → Đến" của bảng Nhật ký học tập (đã xác nhận
+  // với người dùng 2026-08-12, cùng hướng với "Thái độ học tập" ở dưới) — attendance là dữ liệu tải
+  // riêng (không đi qua comments), nên lọc lại theo đúng ngày buổi qua sessionById thay vì gộp thẳng
+  // vào filteredLogs (tránh vô tình loại attendance của buổi CHƯA có nhận xét khi không lọc gì).
+  // Không áp dụng attitudeFilter ở đây — điểm danh không có khái niệm "thái độ".
+  const filteredAttendance = attendance.filter((a) => {
+    const session = sessionById.get(a.classSessionId);
+    if (!session) return false;
+    if (selectedSessionId !== "ALL") return selectedLog != null && session.sessionDate === selectedLog.commentDate;
+    if (dateFrom && session.sessionDate < dateFrom) return false;
+    if (dateTo && session.sessionDate > dateTo) return false;
+    return true;
+  });
+
   useEffect(() => {
     if (!attitudeOpen) return;
     const handleClickOutside = (e: MouseEvent) => {
@@ -379,28 +413,35 @@ export default function DailyLearningProgressTab({
   }, [mobileFilterOpen]);
 
   // ===== KPI: tính từ dữ liệu thật =====
-  const ratedLogs = logs.filter((l) => l.attitude);
-  const attitudeFrequency = new Map<NonNullable<StudentCommentResponse["attitude"]>, number>();
-  ratedLogs.forEach((l) => attitudeFrequency.set(l.attitude!, (attitudeFrequency.get(l.attitude!) ?? 0) + 1));
-  let mostCommonAttitude: NonNullable<StudentCommentResponse["attitude"]> | null = null;
-  let mostCommonCount = 0;
-  attitudeFrequency.forEach((count, key) => {
-    if (count > mostCommonCount) {
-      mostCommonCount = count;
-      mostCommonAttitude = key;
-    }
-  });
-  const positiveAttitudeShare = ratedLogs.length
-    ? Math.round((ratedLogs.filter((l) => l.attitude === "GOOD" || l.attitude === "FAIR").length / ratedLogs.length) * 100)
+  // Thang thái độ chốt lại 2026-08-12 (đã xác nhận với người dùng) — "Thái độ học tập" = trung bình
+  // cộng % quy đổi (attitudePercent) của mọi buổi đã chấm trong khoảng đang xem, KHÔNG còn dùng
+  // "mức phổ biến nhất" (mode) + "tỷ lệ buổi Khá/Tốt" như trước. Nhãn "Đạt loại X" suy ngược từ chính
+  // % trung bình này (attitudeLevelFromPercent) để luôn khớp nhau, không lệch giữa 2 chỉ số.
+  // Dùng filteredLogs (đã qua bộ lọc "Các buổi"/"Từ → Đến" có sẵn của trang, xem dòng ~244) thay vì
+  // logs thô — đã xác nhận với người dùng 2026-08-12: mặc định (chưa lọc gì) vẫn hiện trung bình toàn
+  // bộ buổi, nhưng hễ chọn 1 khoảng ngày (VD đúng 1 kỳ) thì card tự thu hẹp theo đúng khoảng đó,
+  // khớp với đúng những buổi đang hiện trong bảng bên dưới thay vì lệch nhau như trước.
+  const ratedLogs = filteredLogs.filter((l) => l.attitude);
+  const averageAttitudePercent = ratedLogs.length
+    ? Math.round(ratedLogs.reduce((sum, l) => sum + attitudePercent[l.attitude!], 0) / ratedLogs.length)
     : null;
+  const averageAttitudeLevel = averageAttitudePercent != null ? attitudeLevelFromPercent(averageAttitudePercent) : null;
 
-  const progressValues = logs
+  // Đồng bộ "BTVN hoàn thành"/"Số buổi đã học" theo đúng bộ lọc hiện có (dùng filteredLogs thay vì
+  // logs — đã xác nhận với người dùng 2026-08-12, cùng hướng với "Thái độ học tập").
+  const progressValues = filteredLogs
     .flatMap((l) => [parseProgressPercent(l.grammarPreviousProgress), parseProgressPercent(l.videoPreviousProgress)])
     .filter((v): v is number => v != null);
   const avgHomeworkCompletion = progressValues.length ? Math.round(progressValues.reduce((a, b) => a + b, 0) / progressValues.length) : null;
 
-  const attendanceRate = attendance.length
-    ? Math.round((attendance.filter((a) => a.status === "PRESENT" || a.status === "LATE").length / attendance.length) * 100)
+  // PRESENT/LATE/EARLY_LEAVE đều tính là "có tham dự" (đều có mặt tại buổi học, chỉ khác đúng giờ hay
+  // không/rời sớm hay không) — chỉ ABSENT/EXCUSED mới không tính, 2026-08-11.
+  const attendanceRate = filteredAttendance.length
+    ? Math.round(
+        (filteredAttendance.filter((a) => a.status === "PRESENT" || a.status === "LATE" || a.status === "EARLY_LEAVE").length /
+          filteredAttendance.length) *
+          100
+      )
     : null;
 
   if (loading) return <p className="text-sm text-muted font-bold">Đang tải...</p>;
@@ -712,7 +753,7 @@ export default function DailyLearningProgressTab({
                 <div className="p-3.5 bg-slate-50 rounded-xl border border-line/80 space-y-2">
                   <div className="flex items-center justify-between font-black text-slate-800 uppercase tracking-wider text-[11px]">
                     <span className="flex items-center gap-1">
-                      <BookOpen size={13} className="text-blue-600" aria-hidden="true" /> Chuẩn bị cho buổi học sau
+                      <BookOpen size={13} className="text-blue-600" aria-hidden="true" /> Bài tập về nhà
                     </span>
                   </div>
 
@@ -767,7 +808,7 @@ export default function DailyLearningProgressTab({
           <p className="text-xs text-muted font-bold mt-1">
             Theo dõi thái độ, bài tập &amp; nhận xét từng buổi học của{" "}
             <span className="text-teal font-extrabold">
-              {studentName} ({displayCode})
+              {studentName}
             </span>
           </p>
         </div>
@@ -1016,10 +1057,10 @@ export default function DailyLearningProgressTab({
               </div>
               <p className="text-[11px] text-muted font-extrabold uppercase tracking-wider whitespace-nowrap">Thái độ</p>
             </div>
-            {mostCommonAttitude && positiveAttitudeShare != null ? (
+            {averageAttitudeLevel && averageAttitudePercent != null ? (
               <div>
-                <p className="text-xl font-black text-ink tabular-nums leading-tight">{positiveAttitudeShare}%</p>
-                <p className="text-xs text-muted font-bold truncate">Đạt loại {attitudeLabels[mostCommonAttitude]}</p>
+                <p className="text-xl font-black text-ink tabular-nums leading-tight">{averageAttitudePercent}%</p>
+                <p className="text-xs text-muted font-bold truncate">Đạt loại {attitudeLabels[averageAttitudeLevel]}</p>
               </div>
             ) : (
               <p className="text-xs text-muted font-bold">Chưa có dữ liệu</p>
@@ -1033,7 +1074,9 @@ export default function DailyLearningProgressTab({
             <div>
               <p className="text-[11px] text-muted font-extrabold uppercase tracking-wider">Thái độ học tập</p>
               <p className="text-sm font-black text-ink tabular-nums">
-                {mostCommonAttitude && positiveAttitudeShare != null ? `Đạt loại ${attitudeLabels[mostCommonAttitude]} (${positiveAttitudeShare}%)` : "Chưa có dữ liệu"}
+                {averageAttitudeLevel && averageAttitudePercent != null
+                  ? `Đạt loại ${attitudeLabels[averageAttitudeLevel]} (${averageAttitudePercent}%)`
+                  : "Chưa có dữ liệu"}
               </p>
             </div>
           </div>
@@ -1079,7 +1122,7 @@ export default function DailyLearningProgressTab({
               <p className="text-[11px] text-muted font-extrabold uppercase tracking-wider whitespace-nowrap">Số buổi</p>
             </div>
             <div>
-              <p className="text-xl font-black text-purple-800 tabular-nums leading-tight">{logs.length}</p>
+              <p className="text-xl font-black text-purple-800 tabular-nums leading-tight">{filteredLogs.length}</p>
               <p className="text-xs text-muted font-bold truncate">Đã ghi nhận</p>
             </div>
           </div>
@@ -1090,7 +1133,7 @@ export default function DailyLearningProgressTab({
             </div>
             <div>
               <p className="text-[10px] text-muted font-extrabold uppercase tracking-wider">Số buổi đã học</p>
-              <p className="text-sm font-black text-purple-800">{logs.length} Buổi ghi nhận</p>
+              <p className="text-sm font-black text-purple-800">{filteredLogs.length} Buổi ghi nhận</p>
             </div>
           </div>
         </div>
@@ -1125,16 +1168,16 @@ export default function DailyLearningProgressTab({
                       bảng ở đây gộp nhiều buổi/nhiều ngày có thể khác Loại giáo viên nhau, 1 tiêu đề cột
                       cố định không phản ánh đúng hết từng dòng. */}
                   <tr className="bg-slate-100 border-b border-slate-300 [&>th]:text-center text-xs md:text-[11px] font-black uppercase text-slate-700 tracking-wider">
-                    <th rowSpan={2} className="p-3 border-r border-slate-300 w-28 whitespace-nowrap align-bottom">Ngày</th>
-                    <th rowSpan={2} className="p-3 border-r border-slate-300 min-w-[200px] align-bottom">Bài học hôm nay</th>
-                    <th rowSpan={2} className="p-3 border-r border-slate-300 w-28 whitespace-nowrap text-center align-bottom">Giáo viên</th>
+                    <th rowSpan={2} className="p-3 border-r border-slate-300 w-28 whitespace-nowrap">Ngày</th>
+                    <th rowSpan={2} className="p-3 border-r border-slate-300 min-w-[200px]">Bài học hôm nay</th>
+                    <th rowSpan={2} className="p-3 border-r border-slate-300 w-28 whitespace-nowrap text-center">Giáo viên</th>
                     <th colSpan={3} className="p-3 border-r border-slate-300 text-center">BTVN buổi trước</th>
-                    <th rowSpan={2} className="p-3 border-r border-slate-300 w-32 whitespace-nowrap align-bottom">BTVN offline</th>
+                    <th rowSpan={2} className="p-3 border-r border-slate-300 w-32 whitespace-nowrap">BTVN offline</th>
                     <th colSpan={2} className="p-3 border-r border-slate-300 text-center">BTVN online</th>
-                    <th rowSpan={2} className="p-3 border-r border-slate-300 w-32 whitespace-nowrap align-bottom">Hạn nộp bài</th>
-                    <th rowSpan={2} className="p-3 border-r border-slate-300 w-28 whitespace-nowrap text-center align-bottom">Thái độ</th>
-                    <th rowSpan={2} className="p-3 border-r border-slate-300 min-w-[220px] align-bottom">Nhận xét học sinh</th>
-                    <th rowSpan={2} className="p-3 min-w-[140px] align-bottom">Ghi chú</th>
+                    <th rowSpan={2} className="p-3 border-r border-slate-300 w-32 whitespace-nowrap">Hạn nộp bài</th>
+                    <th rowSpan={2} className="p-3 border-r border-slate-300 w-28 whitespace-nowrap text-center">Thái độ</th>
+                    <th rowSpan={2} className="p-3 border-r border-slate-300 min-w-[220px]">Nhận xét học sinh</th>
+                    <th rowSpan={2} className="p-3 min-w-[140px]">Ghi chú</th>
                   </tr>
                   <tr className="bg-slate-100 border-b border-slate-300 [&>th]:text-center text-xs md:text-[11px] font-black uppercase text-slate-700 tracking-wider">
                     <th className="p-3 border-r border-slate-300 w-28 whitespace-nowrap text-center">Offline</th>
@@ -1172,10 +1215,10 @@ export default function DailyLearningProgressTab({
                           "—"
                         )}
                       </td>
-                      <td className="p-3 border-r border-slate-300 align-top">{log.homeworkPreviousOfflineText || "—"}</td>
-                      <td className="p-3 border-r border-slate-300 font-bold text-slate-800 align-top">{log.homeworkPreviousScore || log.grammarPreviousProgress || "—"}</td>
-                      <td className="p-3 border-r border-slate-300 font-bold text-purple-900 align-top">{log.homeworkPreviousSpeakingScore || log.videoPreviousProgress || "—"}</td>
-                      <td className="p-3 border-r border-slate-300 align-top">{log.homeworkNextOfflineText || "—"}</td>
+                      <td className="p-3 border-r border-slate-300 align-top">{log.homeworkPreviousOfflineText + "%" || "—"}</td>
+                      <td className="p-3 border-r border-slate-300 font-bold text-slate-800 align-top">{log.homeworkPreviousScore || log.grammarPreviousProgress + "%" || "—"}</td>
+                      <td className="p-3 border-r border-slate-300 font-bold text-purple-900 align-top">{log.homeworkPreviousSpeakingScore || log.videoPreviousProgress + "%" || "—"}</td>
+                      <td className="p-3 border-r border-slate-300 align-top">{log.homeworkNextOfflineText + "%" || "—"}</td>
                       <td className="p-3 border-r border-slate-300 text-slate-800 font-semibold align-top">
                         {renderGrammarLabel(log, "font-semibold")}
                       </td>

@@ -160,6 +160,108 @@ export function getStudent(id: number): Promise<StudentResponse> {
   return apiRequest<StudentResponse>(`/students/${id}`);
 }
 
+// ===================== Hồ sơ học tập tổng hợp (FR-REP-04, bổ sung ngoài SDD gốc) =====================
+// Khớp StudentProfileResponse thật ở BE (StudentProfileService) -- 1 API gộp thay cho việc FE tự
+// fan-out ~200-300 request nhỏ để dựng cùng dữ liệu (chậm không chấp nhận được khi deploy thật).
+
+export interface StudentProfileStudent {
+  id: number;
+  fullName: string;
+  studentCode: string;
+  dateOfBirth: string;
+  gender: string | null;
+  portraitUrl: string | null;
+  primarySiteId: number | null;
+  primarySiteName: string | null;
+  status: string;
+  enrollmentDate: string;
+}
+
+export interface StudentProfileEnrollment {
+  id: number;
+  classId: number;
+  className: string;
+  classCode: string;
+  enrolledDate: string;
+  withdrawnDate: string | null;
+  status: string;
+}
+
+export interface StudentProfileGradeResult {
+  id: number;
+  classId: number;
+  className: string;
+  academicTermId: number;
+  academicTermName: string;
+  academicYear: string | null;
+  evaluationType: "MID_TERM" | "END_TERM";
+  overallScore: number | null;
+  scaleType: string;
+  level: string | null;
+  comment: string | null;
+  note: string | null;
+  status: string;
+}
+
+export interface StudentProfileSkillScore {
+  classId: number;
+  className: string;
+  academicTermId: number;
+  academicTermName: string;
+  academicYear: string | null;
+  evaluationType: "MID_TERM" | "END_TERM";
+  skillCode: string;
+  skillName: string;
+  score: number;
+  maxScore: number | null;
+}
+
+export interface StudentProfileComment {
+  id: number;
+  classId: number;
+  className: string;
+  commentType: "DAILY";
+  commentDate: string;
+  content: string;
+  severity: string;
+  isWarning: boolean;
+  attitude: string | null;
+  status: string;
+  academicTermId: number | null;
+  academicTermName: string | null;
+  academicYear: string | null;
+  classSessionId: number | null;
+  sessionNumber: number | null;
+  sessionDate: string | null;
+}
+
+export interface StudentProfileAttendanceEntry {
+  id: number;
+  classSessionId: number;
+  classId: number;
+  className: string;
+  sessionDate: string;
+  sessionNumber: number | null;
+  academicTermName: string | null;
+  academicYear: string | null;
+  status: "PRESENT" | "ABSENT" | "EXCUSED" | "LATE" | "EARLY_LEAVE";
+  minutesLate: number | null;
+  minutesEarlyLeave: number | null;
+}
+
+export interface StudentProfileResponseDto {
+  student: StudentProfileStudent;
+  enrollments: StudentProfileEnrollment[];
+  gradeResults: StudentProfileGradeResult[];
+  skillScores: StudentProfileSkillScore[];
+  comments: StudentProfileComment[];
+  attendance: StudentProfileAttendanceEntry[];
+}
+
+export function getStudentProfile(id: number): Promise<StudentProfileResponseDto> {
+  return apiRequest<StudentProfileResponseDto>(`/students/${id}/profile`);
+}
+
 /** UC-13 Main Flow bước 1-3: khởi tạo hồ sơ học sinh (kèm tài khoản mới hoặc gắn tài khoản có sẵn). */
 export function createStudent(request: CreateStudentRequest): Promise<StudentResponse> {
   return apiRequest<StudentResponse>("/students", { method: "POST", body: JSON.stringify(request) });

@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Calendar, CalendarClock, Download, FileSpreadsheet, FileText, Save, Search, Sparkles, UploadCloud, UserPlus, Users, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
-import { downloadBlob } from "@/lib/xlsxTemplate";
+import { buildXlsxTemplateBlob, downloadBlob } from "@/lib/xlsxTemplate";
 import { useApp } from "@/context/AppContext";
 import { UserRole } from "@/types";
 import { UserListItemResponse } from "@/features/system-admin/api";
@@ -44,7 +44,7 @@ import { classStatusLabels, classStatusVariants } from "./ClassListPanel";
 import BulkGenerateSessionsForm from "./BulkGenerateSessionsForm";
 import ImportScheduleForm from "./ImportScheduleForm";
 import ClassGradeSheetPanel from "./ClassGradeSheetPanel";
-import StudentInfoModal from "./StudentInfoModal";
+import StudentNameLink from "@/features/reports/components/StudentNameLink";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import DatePicker from "@/components/ui/DatePicker";
@@ -445,7 +445,6 @@ function StudentsTab({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [enrolling, setEnrolling] = useState(false);
-  const [viewingEnrollment, setViewingEnrollment] = useState<ClassEnrollmentResponse | null>(null);
   const [downloadingTemplate, setDownloadingTemplate] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<ClassEnrollmentBatchImportResponse | null>(null);
@@ -487,6 +486,23 @@ function StudentsTab({
     }
   };
 
+  /** Xuất danh sách học sinh đang ghi danh (đúng danh sách đang hiển thị bên dưới) ra Excel. */
+  const handleExportStudents = () => {
+    const headers = ["STT", "Mã học sinh", "Họ và tên", "Ngày sinh", "Ngày ghi danh", "Ngày rút lớp", "Trạng thái", "Năm học"];
+    const rows = enrollments.map((en, idx) => [
+      String(idx + 1),
+      en.studentCode,
+      en.studentFullName,
+      en.studentDateOfBirth ?? "",
+      en.enrolledDate,
+      en.withdrawnDate ?? "",
+      en.status,
+      en.academicYear ?? ""
+    ]);
+    const blob = buildXlsxTemplateBlob(headers, rows);
+    downloadBlob(blob, `danh-sach-hoc-sinh-lop-${classId}.xlsx`);
+  };
+
   const handleImportFile = async (file: File | null) => {
     if (!file) return;
     if (!file.name.toLowerCase().endsWith(".xlsx")) {
@@ -515,33 +531,45 @@ function StudentsTab({
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <span className="text-[10px] font-bold uppercase text-slate-500">Học sinh đã ghi danh ({enrollments.length})</span>
-        {canManage && (
-          <div className="flex items-center gap-2 flex-wrap">
-            <Button size="sm" variant="secondary" onClick={() => setEnrolling(true)}>
-              <UserPlus className="w-3.5 h-3.5" />
-              Ghi danh học sinh
-            </Button>
-            <button
-              type="button"
-              onClick={handleDownloadTemplate}
-              disabled={downloadingTemplate}
-              className="flex items-center gap-1.5 border border-dashed border-slate-300 rounded-lg px-3 py-1.5 text-[11px] font-semibold text-slate-600 hover:bg-white disabled:opacity-50"
-            >
-              <Download className="w-3.5 h-3.5" />
-              {downloadingTemplate ? "Đang tải..." : "Tải mẫu Excel"}
-            </button>
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={importing}
-              className="flex items-center gap-1.5 border-2 border-dashed border-slate-200 rounded-lg px-3 py-1.5 text-[11px] font-semibold text-slate-600 hover:border-brand-orange hover:bg-orange-50/30 disabled:opacity-50"
-            >
-              <UploadCloud className="w-3.5 h-3.5 text-brand-orange" />
-              {importing ? "Đang nhập..." : "Ghi danh theo lô (.xlsx)"}
-            </button>
-            <input ref={fileInputRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => handleImportFile(e.target.files?.[0] ?? null)} />
-          </div>
-        )}
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={handleExportStudents}
+            disabled={enrollments.length === 0}
+            title="Tải danh sách học sinh đang hiển thị ra Excel"
+            className="flex items-center gap-1.5 border border-dashed border-slate-300 rounded-lg px-3 py-1.5 text-[11px] font-semibold text-slate-600 hover:bg-white disabled:opacity-50"
+          >
+            <Download className="w-3.5 h-3.5" />
+            Tải danh sách học sinh
+          </button>
+          {canManage && (
+            <>
+              <Button size="sm" variant="secondary" onClick={() => setEnrolling(true)}>
+                <UserPlus className="w-3.5 h-3.5" />
+                Ghi danh học sinh
+              </Button>
+              <button
+                type="button"
+                onClick={handleDownloadTemplate}
+                disabled={downloadingTemplate}
+                className="flex items-center gap-1.5 border border-dashed border-slate-300 rounded-lg px-3 py-1.5 text-[11px] font-semibold text-slate-600 hover:bg-white disabled:opacity-50"
+              >
+                <Download className="w-3.5 h-3.5" />
+                {downloadingTemplate ? "Đang tải..." : "Tải mẫu Excel"}
+              </button>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={importing}
+                className="flex items-center gap-1.5 border-2 border-dashed border-slate-200 rounded-lg px-3 py-1.5 text-[11px] font-semibold text-slate-600 hover:border-brand-orange hover:bg-orange-50/30 disabled:opacity-50"
+              >
+                <UploadCloud className="w-3.5 h-3.5 text-brand-orange" />
+                {importing ? "Đang nhập..." : "Ghi danh theo lô (.xlsx)"}
+              </button>
+              <input ref={fileInputRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => handleImportFile(e.target.files?.[0] ?? null)} />
+            </>
+          )}
+        </div>
       </div>
 
       {importResult && (
@@ -581,13 +609,11 @@ function StudentsTab({
           {enrollments.map((en) => (
             <div key={en.id} className="border border-slate-200 rounded-lg p-3 text-xs flex items-center justify-between">
               <div className="flex items-center gap-2 flex-wrap">
-                <button
-                  type="button"
-                  onClick={() => setViewingEnrollment(en)}
+                <StudentNameLink
+                  studentId={en.studentId}
+                  name={en.studentFullName}
                   className="font-bold text-slate-800 hover:text-brand-red hover:underline"
-                >
-                  {en.studentFullName}
-                </button>
+                />
                 <span className="font-mono text-slate-400">{en.studentCode}</span>
                 <Badge variant={en.status === "ACTIVE" ? "success" : "neutral"}>{en.status}</Badge>
               </div>
@@ -616,13 +642,6 @@ function StudentsTab({
         />
       </Modal>
 
-      {viewingEnrollment && (
-        <StudentInfoModal
-          enrollment={viewingEnrollment}
-          classId={classId}
-          onClose={() => setViewingEnrollment(null)}
-        />
-      )}
     </div>
   );
 }

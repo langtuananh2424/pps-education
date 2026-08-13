@@ -13,7 +13,6 @@ public record StudentCommentResponse(
         Long teacherId,
         String commentType,
         Long classSessionId,
-        Long academicTermId,
         Long academicYearId,
         String academicYear,
         LocalDate commentDate,

@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { GraduationCap, Plus, Search } from "lucide-react";
+import { Download, GraduationCap, Plus, Search } from "lucide-react";
 import Badge, { BadgeVariant } from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import EmptyState from "@/components/ui/EmptyState";
 import Select from "@/components/ui/Select";
+import { buildXlsxTemplateBlob, downloadBlob } from "@/lib/xlsxTemplate";
 import { AcademicYearResponse, listAcademicYears, type ClassResponse } from "../api";
 
 export const classStatusLabels: Record<ClassResponse["status"], string> = {
@@ -52,6 +53,38 @@ export default function ClassListPanel({
     listAcademicYears().then(setAcademicYears).catch(() => undefined);
   }, []);
 
+  /** Xuất đúng danh sách lớp đang hiển thị (đã áp bộ lọc điểm trường/năm học/tìm kiếm ở trên) ra Excel. */
+  const handleExport = () => {
+    const headers = [
+      "Mã lớp",
+      "Tên lớp",
+      "Điểm trường",
+      "Loại lớp",
+      "Khung chương trình",
+      "Sĩ số tối đa",
+      "Sĩ số tối thiểu",
+      "Ngày khai giảng",
+      "Ngày kết thúc",
+      "Năm học",
+      "Trạng thái"
+    ];
+    const rows = classes.map((c) => [
+      c.classCode,
+      c.name,
+      c.siteName,
+      c.classType === "LINKED" ? "Liên kết" : "Mở tại trung tâm",
+      c.curriculumCode,
+      String(c.maxStudents),
+      c.minStudents != null ? String(c.minStudents) : "",
+      c.startDate,
+      c.endDate ?? "",
+      c.academicYear ?? "",
+      classStatusLabels[c.status]
+    ]);
+    const blob = buildXlsxTemplateBlob(headers, rows);
+    downloadBlob(blob, `danh-sach-lop-hoc-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
   return (
     <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden flex flex-col h-full">
       <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3 bg-slate-50 shrink-0">
@@ -59,12 +92,24 @@ export default function ClassListPanel({
           <span className="text-xs font-bold text-slate-700 font-display block">Danh sách Lớp học</span>
           <p className="text-[10px] text-slate-400">Xếp lớp & gán khóa học</p>
         </div>
-        {canManage && (
-          <Button variant="primary" size="sm" onClick={onCreate}>
-            <Plus className="w-3.5 h-3.5" />
-            Thêm lớp
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleExport}
+            disabled={classes.length === 0}
+            title="Tải danh sách lớp đang hiển thị ra Excel"
+            className="flex items-center gap-1.5 border border-dashed border-slate-300 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold text-slate-600 hover:bg-white disabled:opacity-50"
+          >
+            <Download className="w-3.5 h-3.5" />
+            Tải danh sách lớp
+          </button>
+          {canManage && (
+            <Button variant="primary" size="sm" onClick={onCreate}>
+              <Plus className="w-3.5 h-3.5" />
+              Thêm lớp
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="px-4 py-3 border-b border-slate-100 shrink-0 space-y-2">

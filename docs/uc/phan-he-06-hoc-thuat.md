@@ -1194,20 +1194,24 @@ UC-21: Viết nhận xét học sinh
 +-----------------+----------------------------------------------------+
 | **Tác nhân**    | Giáo viên                                          |
 +-----------------+----------------------------------------------------+
-| **Mô tả tóm     | Giáo viên viết nhận xét cho học sinh theo 3 biểu   |
-| tắt**           | mẫu: Hàng ngày (thái độ), Giữa kỳ, Cuối kỳ (tổng   |
-|                 | kết năng lực).                                     |
+| **Mô tả tóm     | Giáo viên viết nhận xét Hàng ngày (thái độ) cho    |
+| tắt**           | học sinh theo buổi học. Chốt lại 2026-08-12 (đã    |
+|                 | xác nhận với người dùng) — bỏ hẳn 2 biểu mẫu Giữa  |
+|                 | kỳ/Cuối kỳ từng có trước đây; nhận xét theo kỳ     |
+|                 | đánh giá nay dùng field "Nhận xét" trong Sổ điểm   |
+|                 | (UC-19/53, `GradeEvaluationResult.comment`) thay   |
+|                 | thế.                                               |
 +-----------------+----------------------------------------------------+
-| **Sự kiện kích  | Giáo viên cần ghi nhận xét định kỳ hoặc theo ngày  |
-| hoạt**          | cho học sinh.                                      |
+| **Sự kiện kích  | Giáo viên cần ghi nhận xét theo ngày cho học sinh. |
+| hoạt**          |                                                    |
 +-----------------+----------------------------------------------------+
 | **Điều kiện     | -   Giáo viên được phân công giảng dạy lớp có học  |
 | tiên quyết      |     sinh cần nhận xét.                             |
 | (               |                                                    |
 | Precondition)** |                                                    |
 +-----------------+----------------------------------------------------+
-| **Luồng sự kiện | 1.  Giáo viên mở màn hình Nhận xét, chọn biểu mẫu: |
-| chính (Main     |     Hàng ngày/Giữa kỳ/Cuối kỳ.                     |
+| **Luồng sự kiện | 1.  Giáo viên mở màn hình Nhận xét hàng ngày của   |
+| chính (Main     |     buổi học.                                      |
 | Flow)**         |                                                    |
 |                 | 2.  Giáo viên viết nội dung nhận xét cho từng học  |
 |                 |     sinh; có thể viết rải rác nhiều lần trước khi  |
@@ -1237,8 +1241,10 @@ UC-21: Viết nhận xét học sinh
 +-----------------+----------------------------------------------------+
 
 Mở rộng --- Nhận xét Hàng ngày kiểu mới (bổ sung ngoài SDD gốc, đã xác
-nhận với người dùng 2026-07-24, kết luận họp — CHỈ áp dụng comment_type=
-DAILY, Giữa/Cuối kỳ giữ nguyên 100% luồng ở trên)
+nhận với người dùng 2026-07-24, kết luận họp). Các đoạn bên dưới còn nhắc
+tới MID_TERM/END_TERM là dấu vết lịch sử quyết định (giữ lại để đối
+chiếu) — 2 biểu mẫu này ĐÃ BỊ BỎ HẲN từ 2026-08-12 (đã xác nhận với người
+dùng), `StudentComment.CommentType` nay chỉ còn DAILY.
 
 -   Luồng thao tác: Giáo viên điểm danh buổi học (UC-15) → nhận xét từng
     học sinh của buổi đó. Học sinh Vắng/Có phép thì không cần điền các
@@ -1261,9 +1267,11 @@ DAILY, Giữa/Cuối kỳ giữ nguyên 100% luồng ở trên)
     mà buổi chưa có `lesson_content` thì bị từ chối (422,
     "chưa điền bài học hôm nay").
 -   4 cột mới trên `student_comments` (chỉ có ý nghĩa khi comment_type=
-    DAILY): `attitude` (VARCHAR(20), enum Kém/Yếu/Trung bình/Trung bình
-    khá/Khá/Tốt — mở rộng từ 3 lên 6 mức 2026-07-27),
-    `homework_previous_score` (VARCHAR(10), VD "80%" —
+    DAILY): `attitude` (VARCHAR(20), enum Yếu 20%/Trung bình 50%/Khá
+    70%/Tốt 90%/Xuất sắc 100% — chốt lại 2026-08-12, thay cho thang 6
+    mức Kém/Yếu/Trung bình/Trung bình khá/Khá/Tốt ngày 2026-07-27; %
+    dùng để tính "Thái độ học tập" trung bình ở Portal, xem
+    `StudentComment.Attitude`), `homework_previous_score` (VARCHAR(10), VD "80%" —
     chấm BTVN buổi TRƯỚC ngay trong dòng của buổi này, nay chỉ còn dùng
     khi kênh ngữ pháp OFFLINE — xem bổ sung V55 dưới), `homework_next`
     (TEXT, VD "Unit 4 Trang 18" — giao BTVN ngữ pháp OFFLINE cho buổi
@@ -1324,14 +1332,33 @@ DAILY, Giữa/Cuối kỳ giữ nguyên 100% luồng ở trên)
     4.  **Lớp chưa có buổi kế tiếp**: chặn hẳn, báo lỗi rõ
         (`NoUpcomingClassSessionException`) — không cho chọn đề/video làm
         BTVN buổi sau.
-    5.  **Chỉ áp dụng DAILY**: MID_TERM/END_TERM (gắn `gradePeriod`,
-        không có "buổi kế tiếp") điền 1 trong 2 field này bị chặn ngay
-        (`InvalidCommentContextException`) — phải để trống.
+    5.  ~~Chỉ áp dụng DAILY: MID_TERM/END_TERM (gắn `gradePeriod`, không
+        có "buổi kế tiếp") điền 1 trong 2 field này bị chặn ngay
+        (`InvalidCommentContextException`) — phải để trống.~~ Từ
+        2026-08-12, `student_comments` chỉ còn DAILY nên rào này đã bỏ
+        (không còn nhánh non-daily để chặn).
 
     Kênh Video áp dụng cho CẢ `CONNECTION` lẫn `REFLEX` (không chỉ REFLEX
     dù tên gọi "Video phản xạ" gợi ý — xem UC-23). Đề/video Publish nhưng
     chưa từng được chọn: không cần màn theo dõi riêng, chỉ dùng cho
     dropdown ở đây.
+
+-   **Bổ sung 2026-08-12 (đã xác nhận với người dùng) — "BTVN buổi trước"
+    (V55) đối chiếu theo TỪNG LOẠI GIÁO VIÊN, không còn buổi liền kề tuyệt
+    đối:** "Dòng của buổi N lưu sẽ giao gì cho buổi N+1" ở V55 phía trên
+    ngầm hiểu N/N+1 là 2 buổi liên tiếp bất kỳ. Với lớp có xen kẽ GVVN/GVNN
+    (`class_sessions.teacher_type`, xem `docs/sdd-groups/06-hoc-thuat.md`),
+    2 mạch bài của GVVN và GVNN độc lập nhau — đối chiếu theo buổi liền kề
+    tuyệt đối làm lẫn tiến độ 2 mạch (VD GVNN buổi 6 lại đối chiếu với bài
+    GVVN giao ở buổi 5 thay vì bài GVNN giao ở buổi 3). Quy tắc mới: nếu
+    buổi N+1 CÓ xác định `teacher_type`, buổi N dùng để tính "BTVN buổi
+    trước" phải là buổi liền kề gần nhất **cùng `teacher_type`** với buổi
+    N+1 (bỏ qua buổi khác loại xen giữa) — xem
+    `StudentCommentService#previousComment`,
+    `ClassSessionRepository#findFirstBySchoolClassIdAndSessionDateLessThanAndTeacherTypeOrderBySessionDateDescIdDesc`.
+    Buổi N+1 không xác định `teacher_type` (giá trị cũ/tùy chọn, để trống)
+    vẫn giữ nguyên hành vi V55 gốc — đối chiếu buổi liền kề tuyệt đối,
+    không lọc gì thêm.
 
 -   **Bổ sung V70 (2026-07-31, đã xác nhận với người dùng) — fix bug
     thông báo bị gửi lặp nhiều lần cho toàn bộ học sinh trong lớp khi
@@ -1436,10 +1463,12 @@ DAILY, Giữa/Cuối kỳ giữ nguyên 100% luồng ở trên)
     quản trị").
 
 **Bổ sung V107 (2026-08-08, đã xác nhận với người dùng) — quản trị viên
-vượt rào phân công dạy khi viết/gửi nhận xét MID_TERM/END_TERM:**
-`StudentCommentService#requireAssignedTeacher` (dùng cho tạo/sửa/gửi nhận
-xét MID_TERM/END_TERM — nhận xét DAILY đã có đường vượt rào riêng qua
-`academic.comment.approve`, xem bullet phía trên) trước đây CHỈ chấp nhận
+vượt rào phân công dạy khi viết/gửi nhận xét:** (ban đầu áp dụng cho
+MID_TERM/END_TERM — 2 biểu mẫu này đã bị bỏ từ 2026-08-12, nay
+`requireAssignedTeacher` chỉ còn dùng cho DAILY, xem đầu mục)
+`StudentCommentService#requireAssignedTeacher` (nhận xét DAILY đã có
+đường vượt rào riêng qua `academic.comment.approve`, xem bullet phía
+trên) trước đây CHỈ chấp nhận
 Giáo viên được phân công dạy đúng lớp — quản trị viên (SYS_ADMIN) dù đã có
 sẵn `academic.comment.write` ở Controller vẫn bị chặn ở Service. Thêm
 quyền `academic.comment.manage` (gán HEAD_ACADEMIC + SYS_ADMIN, migration
@@ -1798,6 +1827,40 @@ trách điểm trường của lớp) — quản trị viên (SYS_ADMIN) dù đ�
 trường hợp thứ 3 vượt qua A2 — quản trị viên xem thống kê BTVN của lớp bất
 kỳ.
 
+**Bổ sung 2026-08-11 (đã xác nhận với người dùng) — gộp thêm BTVN Video Ôn
+tập (REFLEX/CONNECTION, UC-23a/UC-23b):** Precondition mở rộng, ngoài
+`exercise_assignments` còn tính cả `review_video_assignments` ACTIVE/
+COMPLETED (loại CANCELLED, mirror cách lọc của Exercise). Main Flow bước 1
+gộp chung 2 nguồn vào 1 danh sách, phân biệt bằng cột "Loại" (badge riêng
+cho Video phản xạ/Video từ kết nối). Với dòng Video Ôn tập:
+- "% hoàn thành" = học sinh có `review_video_progress.completed = true`
+  cho TẤT CẢ video trong bộ (mirror logic đã có ở UC-23a, KHÔNG đổi cách
+  tính `completed` hiện tại).
+- **"% đạt"**: từ V115 (2026-08-11) — CÓ giá trị thật cho bộ CONNECTION
+  (điểm trắc nghiệm tổng ≥ ngưỡng % pass của video, xem
+  `ReviewVideoService#isConnectionVideoPassed`, chi tiết cơ chế ở UC-23a
+  blockquote V115). Bộ REFLEX **vẫn "—"** — chưa có khái niệm điểm/ngưỡng
+  đạt nào trong schema cho REFLEX. "%HS vi phạm" vẫn "—" cho cả 2 loại
+  Video Ôn tập (không có khái niệm giám sát khi xem video).
+- **Bổ sung 2026-08-12 (đã xác nhận với người dùng) — nút "Xem chi tiết"
+  cho dòng Video Ôn tập:** điều hướng sang trang riêng
+  `/academic/homework-stats/review-video/:assignmentId`
+  (`ReviewVideoAssignmentStatsDetailPage.tsx`, BE
+  `ReviewVideoReportService`/`ReviewVideoReportController`, KHÔNG dùng
+  chung route `:assignmentId` của Exercise — 2 bảng ID độc lập, trùng số
+  nhưng khác nguồn). Khác Exercise (đủ 4 bước Main Flow + xuất Excel):
+  - CONNECTION: có tab "Kết quả học sinh" (đã xem lượt, điểm trắc nghiệm,
+    Đạt/Chưa đạt — mirror `passedCount`/`passRatePercent` ở danh sách
+    tổng hợp) + tab "Phân tích câu hỏi" (câu hay sai + danh sách học sinh
+    sai, mirror UC-66 Exercise) — vì đã có sẵn dữ liệu đúng/sai thật.
+  - REFLEX: CHỈ có bảng tổng hợp mỗi học sinh (đã xem lượt, đã nộp bao
+    nhiêu câu hỏi, điểm trung bình nếu đã chấm) — KHÔNG có tab phân tích
+    câu hỏi (không có khái niệm đúng/sai tự chấm), KHÔNG nghe lại
+    audio/chấm điểm ngay tại trang này — việc chấm audio vẫn làm ở trang
+    "Chấm bài Video phản xạ" (UC-23b, ExamsPage) như cũ.
+  - KHÔNG có nút "Xuất Excel" cho Video Ôn tập (chỉ Exercise có, chưa yêu
+    cầu cho review-video).
+
 ---
 
 UC-67: Quản lý mẫu báo cáo (bổ sung ngoài SDD gốc, đã xác nhận với người
@@ -2132,5 +2195,125 @@ báo lỗi thiếu dữ liệu (UC-68 A1) — cần bổ sung UI chọn academic
 evaluationType + label trước khi tính năng xuất TRANSCRIPT/GRADE_REPORT có
 điểm theo kỳ dùng được trên FE (đã xác nhận với người dùng, chưa triển
 khai — theo dõi riêng).
+
+---
+
+UC-69: Thống kê biến động học sinh các lớp theo kỳ (bổ sung ngoài SDD gốc,
+đã xác nhận với người dùng 2026-08-11)
+
++-----------------+----------------------------------------------------+
+| **Mã Use Case** | UC-69                                              |
++-----------------+----------------------------------------------------+
+| **Tên Use       | Thống kê biến động học sinh các lớp theo kỳ         |
+| Case**          |                                                    |
++-----------------+----------------------------------------------------+
+| **Phân hệ**     | Phân hệ 6                                          |
++-----------------+----------------------------------------------------+
+| **Yêu cầu chức  | FR-ACA-09 (bổ sung ngoài SDD gốc, đã xác nhận với  |
+| năng gốc**      | người dùng 2026-08-11)                             |
++-----------------+----------------------------------------------------+
+| **Tác nhân**    | Trưởng phòng đào tạo, Quản lý điểm trường, Quản trị |
+|                 | viên                                               |
++-----------------+----------------------------------------------------+
+| **Mô tả tóm     | Actor chọn 1 Kỳ học (academic_terms) và tuỳ chọn 1  |
+| tắt**           | lớp cụ thể, hệ thống hiển thị sĩ số đầu kỳ/cuối kỳ  |
+|                 | và số lượng biến động (nhập học mới, nghỉ/rút,      |
+|                 | chuyển lớp, hoàn thành) của (các) lớp thuộc điểm    |
+|                 | trường của kỳ đó — xuất được file Excel.            |
++-----------------+----------------------------------------------------+
+| **Sự kiện kích  | Cần đánh giá biến động sĩ số các lớp trong 1 kỳ học |
+| hoạt**          | (VD báo cáo định kỳ cho Ban giám đốc, rà soát sĩ số |
+|                 | trước khi mở kỳ mới).                              |
++-----------------+----------------------------------------------------+
+| **Điều kiện     | -   Actor có quyền report.enrollment-stats.view.    |
+| tiên quyết      | -   Nếu actor là Quản lý điểm trường (có row        |
+| (               |     site_managers, role_type=SITE_MANAGER): kỳ học  |
+| Precondition)** |     đang xem phải thuộc (1 trong) điểm trường mình  |
+|                 |     phụ trách. Trưởng phòng đào tạo/Quản trị viên   |
+|                 |     (không có row site_managers) xem được kỳ học    |
+|                 |     của bất kỳ điểm trường nào.                    |
++-----------------+----------------------------------------------------+
+| **Luồng sự kiện | 1.  Actor chọn 1 Kỳ học (academic_terms — mỗi kỳ    |
+| chính (Main     |     luôn gắn 1 điểm trường cụ thể, xem UC-18).      |
+| Flow)**         |                                                    |
+|                 | 2.  (Tuỳ chọn) Actor chọn thêm 1 lớp cụ thể thuộc   |
+|                 |     điểm trường của kỳ đã chọn để chỉ xem riêng lớp |
+|                 |     đó — nếu không chọn, hệ thống trả về toàn bộ    |
+|                 |     lớp (chưa xoá mềm) của điểm trường đó.          |
+|                 |                                                    |
+|                 | 3.  Với mỗi lớp trong phạm vi, hệ thống tính (không |
+|                 |     có bảng snapshot riêng — TÍNH RA từ             |
+|                 |     class_enrollments theo đúng cơ chế "Hồ sơ lớp/  |
+|                 |     học sinh theo kỳ" đã áp dụng ở UC-18/UC-19):    |
+|                 |     - Sĩ số đầu kỳ: số học sinh "có mặt" tại đúng   |
+|                 |       ngày bắt đầu kỳ (enrolled_date <=              |
+|                 |       start_date AND (withdrawn_date IS NULL OR     |
+|                 |       withdrawn_date >= start_date)).               |
+|                 |     - Nhập học mới: số bản ghi class_enrollments có |
+|                 |       enrolled_date trong [start_date, end_date],   |
+|                 |       bất kể trạng thái hiện tại.                   |
+|                 |     - Nghỉ/rút, Chuyển lớp, Hoàn thành: số bản ghi  |
+|                 |       có status tương ứng (WITHDRAWN/TRANSFERRED/   |
+|                 |       COMPLETED) VÀ withdrawn_date trong             |
+|                 |       [start_date, end_date].                       |
+|                 |     - Sĩ số cuối kỳ: như sĩ số đầu kỳ nhưng tính    |
+|                 |       theo end_date.                                |
+|                 |                                                    |
+|                 | 4.  Hệ thống hiển thị bảng theo từng lớp kèm 1 dòng |
+|                 |     tổng cộng (cộng dồn toàn bộ lớp trong phạm vi). |
+|                 |                                                    |
+|                 | 5.  Actor xuất file Excel bảng đang xem.            |
++-----------------+----------------------------------------------------+
+| **Luồng thay    | ***A1 --- Không tìm thấy kỳ học/lớp***              |
+| thế / ngoại lệ  |                                                    |
+| (Alternate      | 1.  Nếu academicTermId không tồn tại, hoặc classId  |
+| Flow)**         |     không tồn tại (hoặc đã xoá mềm), hệ thống báo   |
+|                 |     lỗi 404.                                        |
+|                 |                                                    |
+|                 | ***A2 --- Lớp không thuộc điểm trường của kỳ đã     |
+|                 | chọn***                                            |
+|                 |                                                    |
+|                 | 1.  Nếu classId được chọn không cùng site_id với kỳ |
+|                 |     học đang xem, hệ thống báo lỗi 404 (không cho   |
+|                 |     xem chéo điểm trường qua tham số classId).      |
+|                 |                                                    |
+|                 | ***A3 --- Quản lý điểm trường xem kỳ học ngoài      |
+|                 | phạm vi phụ trách***                                |
+|                 |                                                    |
+|                 | 1.  Nếu actor có row site_managers (SITE_MANAGER)   |
+|                 |     nhưng không phụ trách điểm trường của kỳ học    |
+|                 |     đang xem, hệ thống từ chối truy cập (403).      |
+|                 |                                                    |
+|                 | ***A4 --- Kỳ/lớp chưa có biến động nào***           |
+|                 |                                                    |
+|                 | 1.  Hệ thống vẫn hiển thị dòng với các cột đều = 0, |
+|                 |     không báo lỗi (khác A1 — lớp/kỳ vẫn tồn tại,    |
+|                 |     chỉ đơn giản chưa phát sinh biến động trong      |
+|                 |     khoảng thời gian đó).                           |
++-----------------+----------------------------------------------------+
+| **Hậu điều kiện | -   Không thay đổi dữ liệu — UC thuần đọc/báo cáo.  |
+| (P              |                                                    |
+| ostcondition)** |                                                    |
++-----------------+----------------------------------------------------+
+
+Ghi chú triển khai: "Toàn hệ thống" (Ban giám đốc/Trưởng phòng đào tạo) hiện
+thực hoá bằng việc actor không có row site_managers thì được chọn kỳ học của
+BẤT KỲ điểm trường nào (không giới hạn) — hệ thống KHÔNG gộp nhiều điểm
+trường vào cùng 1 lần xem, vì academic_terms luôn giới hạn theo đúng 1 điểm
+trường (không có khái niệm "1 kỳ dùng chung toàn chuỗi"); actor muốn xem
+nhiều điểm trường phải chọn lần lượt từng kỳ học tương ứng.
+
+Ghi chú triển khai (2026-08-11, bổ sung theo yêu cầu người dùng — biểu đồ
+đường xem xu hướng theo tháng + so sánh giữa 2 kỳ): thêm endpoint
+`GET /api/academic-terms/{id}/enrollment-movement-trend` (cùng permission
+`report.enrollment-stats.view`, cùng cơ chế `classId` tuỳ chọn như bước 2 ở
+trên) — chia [start_date, end_date] của kỳ thành từng tháng lịch (tháng
+đầu/cuối bị cắt theo đúng ranh giới kỳ), mỗi điểm trả về sĩ số TÍNH RA tại
+đúng ngày cuối đoạn tháng đó (cùng công thức closingHeadcount ở bước 3) và
+số biến động phát sinh TRONG đúng tháng đó — vẫn thuần derived-query, không
+thêm bảng snapshot. FE gọi endpoint này 2 lần (1 lần/kỳ) khi actor chọn "So
+sánh với kỳ khác" để vẽ 2 đường chồng lên nhau theo `monthIndex` (tháng thứ
+mấy của kỳ, không phải tháng lịch tuyệt đối) — cho phép so sánh công bằng 2
+kỳ có độ dài/thời điểm lịch khác nhau.
 
 Phân hệ 7 --- Cổng thông tin và E-Learning (Portal & LMS)

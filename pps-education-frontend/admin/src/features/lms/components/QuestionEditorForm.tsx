@@ -114,7 +114,7 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  /** Chuyển loại: reset số lựa chọn cho đúng (INLINE_CHOICE=2, MULTIPLE_CHOICE/VOICE=4) khi tạo mới. */
+  /** Chuyển loại: reset số lựa chọn cho đúng (INLINE_CHOICE=2, MULTIPLE_CHOICE/VOICE=4 mặc định) khi tạo mới. */
   const handleSelectKind = (value: UiQuestionKind) => {
     setKind(value);
     if (isEditing) return;
@@ -125,6 +125,23 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
       setOptions(["", "", "", ""]);
       setCorrectIndex(0);
     }
+  };
+
+  /**
+   * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-12) — Trắc nghiệm/Trắc nghiệm Voice mặc
+   * định 4 đáp án nhưng cho thêm/bớt (đề nghe có thể cần nhiều hơn 4 lựa chọn) — KHÔNG áp dụng cho
+   * INLINE_CHOICE (cơ chế chọn từ trong câu luôn đúng 2 lựa chọn, không đổi được). Backend đã nhận số
+   * lượng choices tuỳ ý từ trước (không có ràng buộc @Size) nên chỉ cần mở khoá ở FE.
+   */
+  const MAX_CHOICES = 8;
+  const handleAddOption = () => {
+    if (options.length >= MAX_CHOICES) return;
+    setOptions((prev) => [...prev, ""]);
+  };
+  const handleRemoveOption = (idx: number) => {
+    if (options.length <= 2) return;
+    setOptions((prev) => prev.filter((_, i) => i !== idx));
+    setCorrectIndex((prev) => (prev === idx ? 0 : prev > idx ? prev - 1 : prev));
   };
 
   const isVoiceOrListeningAudio = kind === "VOICE_MULTIPLE_CHOICE" || kind === "LISTENING_AUDIO_SUBMISSION" || kind === "LISTENING_FILL_IN_BLANK";
@@ -326,9 +343,19 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
                   placeholder={`Đáp án ${String.fromCharCode(65 + idx)}...`}
                   className={`flex-1 ${inputClass}`}
                 />
+                {kind !== "INLINE_CHOICE" && options.length > 2 && (
+                  <button type="button" onClick={() => handleRemoveOption(idx)} className="text-slate-400 hover:text-rose-600 shrink-0">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
             ))}
           </div>
+          {kind !== "INLINE_CHOICE" && options.length < MAX_CHOICES && (
+            <Button type="button" variant="secondary" size="sm" onClick={handleAddOption}>
+              + Thêm đáp án
+            </Button>
+          )}
         </div>
       )}
 

@@ -29,13 +29,14 @@ import { ApiError, downloadReport } from "@/lib/apiClient";
 import SelectReportTemplateModal from "../components/SelectReportTemplateModal";
 
 
+/** Thang thái độ chốt lại 2026-08-12 (StudentComment.Attitude) — trước đây map này bị lệch 1 bậc
+ * (GOOD nhầm thành "Xuất sắc", FAIR nhầm thành "Tốt"...), đã sửa khớp đúng 5 file admin còn lại. */
 const ATTITUDE_LABEL: Record<string, string> = {
-  POOR: "Kém",
   WEAK: "Yếu",
-  AVERAGE: "TB",
-  ABOVE_AVERAGE: "Khá",
-  FAIR: "Tốt",
-  GOOD: "Xuất sắc",
+  AVERAGE: "Trung bình",
+  FAIR: "Khá",
+  GOOD: "Tốt",
+  EXCELLENT: "Xuất sắc",
 };
 
 const SEVERITY_COLOR: Record<string, string> = {

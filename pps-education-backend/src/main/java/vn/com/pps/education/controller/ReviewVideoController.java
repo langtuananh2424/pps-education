@@ -20,6 +20,7 @@ import vn.com.pps.education.dto.CreateReviewVideoSetRequest;
 import vn.com.pps.education.dto.GradeReviewVideoSubmissionRequest;
 import vn.com.pps.education.dto.ReportVideoProgressRequest;
 import vn.com.pps.education.dto.ReviewVideoAssignmentResponse;
+import vn.com.pps.education.dto.ReviewVideoAssignmentStatsResponse;
 import vn.com.pps.education.dto.ReviewVideoConnectionQuestionResponse;
 import vn.com.pps.education.dto.ReviewVideoConnectionQuizResultResponse;
 import vn.com.pps.education.dto.ReviewVideoProgressResponse;
@@ -31,6 +32,8 @@ import vn.com.pps.education.dto.ReviewVideoSubmissionResponse;
 import vn.com.pps.education.dto.StartWatchSessionResponse;
 import vn.com.pps.education.dto.SubmitConnectionAnswersRequest;
 import vn.com.pps.education.dto.SubmitReviewVideoAudioRequest;
+import vn.com.pps.education.dto.UpdateReviewVideoConnectionQuestionRequest;
+import vn.com.pps.education.dto.UpdateReviewVideoQuestionRequest;
 import vn.com.pps.education.dto.UpdateReviewVideoSetRequest;
 import vn.com.pps.education.security.AuthenticatedUser;
 import vn.com.pps.education.service.ReviewVideoService;
@@ -143,6 +146,14 @@ public class ReviewVideoController {
         return ResponseEntity.ok(reviewVideoService.listQuestions(videoId, actor.userId()));
     }
 
+    @PreAuthorize("hasPermission(null, 'lms.review-video.update')")
+    @PutMapping("/api/review-video-questions/{questionId}")
+    public ResponseEntity<ReviewVideoQuestionResponse> updateQuestion(@PathVariable Long questionId,
+                                                                         @Valid @RequestBody UpdateReviewVideoQuestionRequest request,
+                                                                         @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(reviewVideoService.updateQuestion(questionId, request, actor.userId()));
+    }
+
     /** V83 — mirror addQuestion/listQuestions của REFLEX, dành cho câu hỏi trắc nghiệm của video CONNECTION. */
     @PreAuthorize("hasPermission(null, 'lms.review-video.update')")
     @PostMapping("/api/review-videos/{videoId}/connection-questions")
@@ -156,6 +167,14 @@ public class ReviewVideoController {
     public ResponseEntity<List<ReviewVideoConnectionQuestionResponse>> listConnectionQuestions(
             @PathVariable Long videoId, @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(reviewVideoService.listConnectionQuestions(videoId, actor.userId()));
+    }
+
+    @PreAuthorize("hasPermission(null, 'lms.review-video.update')")
+    @PutMapping("/api/review-video-connection-questions/{questionId}")
+    public ResponseEntity<ReviewVideoConnectionQuestionResponse> updateConnectionQuestion(
+            @PathVariable Long questionId, @Valid @RequestBody UpdateReviewVideoConnectionQuestionRequest request,
+            @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(reviewVideoService.updateConnectionQuestion(questionId, request, actor.userId()));
     }
 
     /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — xem Javadoc ReviewVideoService#getProgress. */
@@ -178,6 +197,13 @@ public class ReviewVideoController {
         return ResponseEntity.ok(reviewVideoService.reportProgress(videoId, request, actor.userId()));
     }
 
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-11 — chỉ trả về NHÓM câu hỏi của đúng lượt xem này (khác endpoint listConnectionQuestions trả toàn bộ ngân hàng, dùng cho giáo viên soạn). */
+    @GetMapping("/api/review-video-watch-sessions/{watchSessionId}/connection-questions")
+    public ResponseEntity<List<ReviewVideoConnectionQuestionResponse>> listConnectionQuestionsForSession(
+            @PathVariable Long watchSessionId, @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(reviewVideoService.listConnectionQuestionsForSession(watchSessionId, actor.userId()));
+    }
+
     /** V83 — học sinh nộp toàn bộ câu trả lời trắc nghiệm cho 1 lượt xem cụ thể (khớp cặp 1-1 qua watchSessionId). */
     @PutMapping("/api/review-video-watch-sessions/{watchSessionId}/connection-answers")
     public ResponseEntity<ReviewVideoConnectionQuizResultResponse> submitConnectionAnswers(
@@ -192,6 +218,14 @@ public class ReviewVideoController {
                                                                   @RequestParam(required = false) Long classId,
                                                                   @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(reviewVideoService.getStats(setId, classId, actor.userId()));
+    }
+
+    /** UC-66 bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-11) — gộp BTVN Video Ôn tập vào trang "Thống kê BTVN theo lớp". */
+    @PreAuthorize("hasPermission(null, 'lms.review-video.view')")
+    @GetMapping("/api/classes/{classId}/review-video-assignments/stats")
+    public ResponseEntity<List<ReviewVideoAssignmentStatsResponse>> listAssignmentStats(@PathVariable Long classId,
+                                                                                          @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(reviewVideoService.listAssignmentStatsForClass(classId, actor.userId()));
     }
 
     @PutMapping("/api/review-video-questions/{questionId}/submissions")
