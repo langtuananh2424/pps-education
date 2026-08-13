@@ -2,8 +2,6 @@ import React, { useEffect, useState } from "react";
 import { Sparkles } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import Button from "@/components/ui/Button";
-import { UserListItemResponse } from "@/features/system-admin/api";
-import UserSearchCombobox from "@/features/system-admin/components/UserSearchCombobox";
 import { RoomResponse, listRoomsBySite } from "@/features/facility/api";
 import { BulkCreateClassSessionRequest, BulkCreateClassSessionResponse, bulkCreateClassSessions } from "../api";
 import DatePicker from "@/components/ui/DatePicker";
@@ -40,7 +38,6 @@ export default function BulkGenerateSessionsForm({ classId, siteId, onDone, onCa
   const [roomId, setRoomId] = useState("");
   const [sessionType, setSessionType] = useState("REGULAR");
   const [teacherType, setTeacherType] = useState("");
-  const [teacher, setTeacher] = useState<UserListItemResponse | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<BulkCreateClassSessionResponse | null>(null);
@@ -61,8 +58,12 @@ export default function BulkGenerateSessionsForm({ classId, siteId, onDone, onCa
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!startDate || !endDate || selectedDays.size === 0 || !teacher) {
-      setError("Vui lòng chọn khoảng ngày, tối thiểu 1 ngày trong tuần, và giáo viên phụ trách.");
+    if (!startDate || !endDate || selectedDays.size === 0) {
+      setError("Vui lòng chọn khoảng ngày và tối thiểu 1 ngày trong tuần.");
+      return;
+    }
+    if (!teacherType) {
+      setError("Vui lòng chọn loại giáo viên — hệ thống sẽ tự lấy đúng giáo viên chính của lớp theo loại này.");
       return;
     }
     setSubmitting(true);
@@ -74,9 +75,8 @@ export default function BulkGenerateSessionsForm({ classId, siteId, onDone, onCa
         startTime,
         endTime,
         roomId: roomId ? Number(roomId) : undefined,
-        primaryTeacherId: teacher.id,
         sessionType,
-        teacherType: teacherType ? (teacherType as "VIETNAMESE" | "FOREIGN") : undefined
+        teacherType: teacherType as "VIETNAMESE" | "FOREIGN"
       };
       const res = await bulkCreateClassSessions(classId, request);
       setResult(res);
@@ -156,17 +156,17 @@ export default function BulkGenerateSessionsForm({ classId, siteId, onDone, onCa
       </div>
 
       <div>
-        <label className={labelClass}>Loại giáo viên (áp dụng chung cho cả lô buổi)</label>
+        <label className={labelClass}>Loại giáo viên (áp dụng chung cho cả lô buổi) *</label>
         <Select value={teacherType} onChange={(e) => setTeacherType(e.target.value)} className={inputClass}>
-          <option value="">-- Chưa xác định --</option>
+          <option value="">-- Chọn loại giáo viên --</option>
           <option value="VIETNAMESE">GV Việt Nam</option>
           <option value="FOREIGN">GV nước ngoài</option>
         </Select>
-      </div>
-
-      <div>
-        <label className={labelClass}>Giáo viên phụ trách *</label>
-        <UserSearchCombobox value={teacher} onChange={setTeacher} roleFilter="TEACHER" placeholder="Bấm để xem danh sách hoặc gõ để tìm giáo viên..." />
+        {/* Bổ sung ngoài SDD gốc, xác nhận 2026-08-13: giáo viên phụ trách KHÔNG còn chọn tay — hệ
+            thống tự động lấy giáo viên chính (PRIMARY) đang phụ trách lớp cùng loại giáo viên đã chọn. */}
+        <p className="text-[10px] text-slate-400 italic mt-1">
+          Giáo viên phụ trách cả lô buổi sẽ tự động lấy theo giáo viên chính của lớp đúng loại giáo viên đã chọn.
+        </p>
       </div>
 
       {result && (

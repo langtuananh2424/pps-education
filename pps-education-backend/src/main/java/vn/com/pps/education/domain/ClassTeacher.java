@@ -17,7 +17,7 @@ import java.time.LocalDate;
 @Table(name = "class_teachers")
 public class ClassTeacher {
 
-    public enum TeacherRole { PRIMARY, ASSISTANT, SUBSTITUTE }
+    public enum TeacherRole { PRIMARY, ASSISTANT, SUBSTITUTE, CM }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -38,6 +38,16 @@ public class ClassTeacher {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "subject_id")
     private CurriculumSubject subject;
+
+    /**
+     * Loại giáo viên (Việt Nam/nước ngoài) — bổ sung ngoài SDD gốc, xác
+     * nhận 2026-08-13, chỉ có ý nghĩa khi teacherRole=PRIMARY (1 lớp có
+     * đồng thời tối đa 1 PRIMARY active loại VIETNAMESE + 1 PRIMARY active
+     * loại FOREIGN). Tái dùng {@link ClassSession.TeacherType}.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "teacher_type", length = 20)
+    private ClassSession.TeacherType teacherType;
 
     @Column(name = "assigned_from")
     private LocalDate assignedFrom;

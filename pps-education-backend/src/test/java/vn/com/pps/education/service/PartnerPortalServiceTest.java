@@ -139,7 +139,7 @@ class PartnerPortalServiceTest extends AbstractIntegrationTest {
         teacher = newUser("teacher");
         assignRole(teacher, "TEACHER");
         classService.assignTeacher(schoolClass.id(),
-                new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now()), headAcademic.getId());
+                new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now(), "VIETNAMESE"), headAcademic.getId());
 
         siteManagerUser = newUser("site.manager");
         assignRole(siteManagerUser, "SITE_MANAGER");
@@ -183,7 +183,7 @@ class PartnerPortalServiceTest extends AbstractIntegrationTest {
     @Test
     void getAttendanceSummary_UC29_MainFlow_computesAttendanceRate() {
         ClassSessionResponse session = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(LocalDate.now(), LocalTime.of(8, 0), LocalTime.of(9, 40), null, teacher.getId(), "REGULAR", null, null),
+                new CreateClassSessionRequest(LocalDate.now(), LocalTime.of(8, 0), LocalTime.of(9, 40), null, "REGULAR", "VIETNAMESE", null),
                 headAcademic.getId());
         studentAttendanceService.markAttendance(session.id(),
                 new MarkAttendanceRequest("SESSION_LEVEL", List.of(
@@ -252,7 +252,7 @@ class PartnerPortalServiceTest extends AbstractIntegrationTest {
     @Test
     void getApprovedComments_UC29_MainFlow_returnsOnlyApprovedComments() {
         ClassSessionResponse session = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(LocalDate.now(), LocalTime.of(8, 0), LocalTime.of(9, 40), null, teacher.getId(), "REGULAR", null, null),
+                new CreateClassSessionRequest(LocalDate.now(), LocalTime.of(8, 0), LocalTime.of(9, 40), null, "REGULAR", "VIETNAMESE", null),
                 headAcademic.getId());
         studentCommentService.updateLessonContent(session.id(), "Unit 1: Present simple tense.", teacher.getId());
         StudentCommentResponse approvedComment = studentCommentService.writeComment(schoolClass.id(),

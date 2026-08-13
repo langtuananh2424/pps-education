@@ -6,6 +6,8 @@ import vn.com.pps.education.domain.AcademicYear;
 import vn.com.pps.education.domain.ClassEnrollment;
 import vn.com.pps.education.domain.ClassEnrollmentHistory;
 import vn.com.pps.education.domain.ClassHistory;
+import vn.com.pps.education.domain.ClassSession;
+import vn.com.pps.education.domain.ClassSessionHistory;
 import vn.com.pps.education.domain.ClassTeacher;
 import vn.com.pps.education.domain.ClassTeacherHistory;
 import vn.com.pps.education.domain.Curriculum;
@@ -18,8 +20,10 @@ import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.User;
 import java.util.ArrayList;
 import vn.com.pps.education.dto.AssignTeacherRequest;
+import vn.com.pps.education.dto.ChangeTeacherRequest;
 import vn.com.pps.education.dto.ClassEnrollmentResponse;
 import vn.com.pps.education.dto.ClassResponse;
+import vn.com.pps.education.dto.ClassTeacherHistoryResponse;
 import vn.com.pps.education.dto.ClassTeacherResponse;
 import vn.com.pps.education.dto.CreateClassRequest;
 import vn.com.pps.education.dto.EndTeacherAssignmentRequest;
@@ -38,10 +42,13 @@ import vn.com.pps.education.repository.AcademicYearRepository;
 import vn.com.pps.education.repository.ClassEnrollmentHistoryRepository;
 import vn.com.pps.education.repository.ClassEnrollmentRepository;
 import vn.com.pps.education.repository.ClassHistoryRepository;
+import vn.com.pps.education.repository.ClassSessionHistoryRepository;
+import vn.com.pps.education.repository.ClassSessionRepository;
 import vn.com.pps.education.repository.ClassTeacherHistoryRepository;
 import vn.com.pps.education.repository.ClassTeacherRepository;
 import vn.com.pps.education.repository.CurriculumRepository;
 import vn.com.pps.education.repository.CurriculumSubjectRepository;
+import vn.com.pps.education.repository.LeaveSubstitutionRepository;
 import vn.com.pps.education.repository.SchoolClassRepository;
 import vn.com.pps.education.repository.SiteManagerRepository;
 import vn.com.pps.education.repository.SiteRepository;
@@ -89,6 +96,9 @@ public class ClassService {
     private final StudentRepository studentRepository;
     private final UserRepository userRepository;
     private final PermissionEvaluationService permissionEvaluationService;
+    private final ClassSessionRepository classSessionRepository;
+    private final ClassSessionHistoryRepository classSessionHistoryRepository;
+    private final LeaveSubstitutionRepository leaveSubstitutionRepository;
 
     public ClassService(SchoolClassRepository schoolClassRepository,
                          AcademicYearRepository academicYearRepository,
@@ -104,7 +114,10 @@ public class ClassService {
                          SiteManagerRepository siteManagerRepository,
                          StudentRepository studentRepository,
                          UserRepository userRepository,
-                         PermissionEvaluationService permissionEvaluationService) {
+                         PermissionEvaluationService permissionEvaluationService,
+                         ClassSessionRepository classSessionRepository,
+                         ClassSessionHistoryRepository classSessionHistoryRepository,
+                         LeaveSubstitutionRepository leaveSubstitutionRepository) {
         this.schoolClassRepository = schoolClassRepository;
         this.academicYearRepository = academicYearRepository;
         this.classTeacherRepository = classTeacherRepository;
@@ -120,6 +133,9 @@ public class ClassService {
         this.studentRepository = studentRepository;
         this.userRepository = userRepository;
         this.permissionEvaluationService = permissionEvaluationService;
+        this.classSessionRepository = classSessionRepository;
+        this.classSessionHistoryRepository = classSessionHistoryRepository;
+        this.leaveSubstitutionRepository = leaveSubstitutionRepository;
     }
 
     /**
@@ -261,16 +277,105 @@ public class ClassService {
         User actor = userRepository.findById(actorUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
 
+        ClassTeacher.TeacherRole teacherRole = request.teacherRole() == null
+                ? ClassTeacher.TeacherRole.PRIMARY
+                : ClassTeacher.TeacherRole.valueOf(request.teacherRole());
+        ClassSession.TeacherType teacherType = request.teacherType() == null
+                ? null
+                : ClassSession.TeacherType.valueOf(request.teacherType());
+        CurriculumSubject subject = request.subjectId() == null ? null : curriculumSubjectOrThrow(request.subjectId());
+
+        ClassTeacher classTeacher = createTeacherAssignmentInternal(
+                schoolClass, teacher, teacherRole, teacherType, subject, request.assignedFrom(), actor);
+
+        ensureTeacherAssignedToSite(schoolClass.getSite(), teacher, actor);
+        return toResponse(classTeacher);
+    }
+
+    /**
+     * UC-18 (bổ sung ngoài SDD gốc, xác nhận 2026-08-13): đổi giáo viên
+     * chính (PRIMARY) đang phụ trách 1 lớp — kết thúc phân công cũ, gán
+     * phân công mới cùng loại giáo viên/học phần, và cascade cập nhật
+     * giáo viên phụ trách cho các buổi học SCHEDULED từ hôm nay trở đi
+     * cùng loại giáo viên, TRỪ buổi đang có giáo viên dạy thay (leave
+     * substitution) active che phủ — để không phá vỡ luồng UC-10/UC-11.
+     * Toàn bộ trong 1 transaction (1 UC = 1 transaction boundary).
+     */
+    @Transactional
+    public ClassTeacherResponse changeTeacher(Long classId, Long classTeacherId, ChangeTeacherRequest request, Long actorUserId) {
+        getClassOrThrow(classId);
+        User newTeacher = userRepository.findById(request.newTeacherUserId())
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + request.newTeacherUserId()));
+        User actor = userRepository.findById(actorUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
+        ClassTeacher oldAssignment = classTeacherRepository.findById(classTeacherId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phân công giáo viên id=" + classTeacherId));
+        if (!oldAssignment.getSchoolClass().getId().equals(classId)) {
+            throw new ResourceNotFoundException("Không tìm thấy phân công giáo viên id=" + classTeacherId + " trong lớp id=" + classId);
+        }
+        if (oldAssignment.getAssignedTo() != null) {
+            throw new IllegalArgumentException("Phân công giáo viên id=" + classTeacherId + " đã kết thúc từ " + oldAssignment.getAssignedTo());
+        }
+        if (oldAssignment.getTeacherRole() != ClassTeacher.TeacherRole.PRIMARY) {
+            throw new IllegalArgumentException(
+                    "changeTeacher chỉ áp dụng cho giáo viên chính (PRIMARY) — phân công id=" + classTeacherId
+                            + " hiện có vai trò " + oldAssignment.getTeacherRole() + ". Dùng assignTeacher/endTeacherAssignment cho CM/trợ giảng.");
+        }
+
+        SchoolClass schoolClass = oldAssignment.getSchoolClass();
+        ClassSession.TeacherType teacherType = oldAssignment.getTeacherType();
+        CurriculumSubject subject = oldAssignment.getSubject();
+
+        endTeacherAssignmentInternal(oldAssignment, request.effectiveDate(), actor);
+        ClassTeacher newAssignment = createTeacherAssignmentInternal(
+                schoolClass, newTeacher, ClassTeacher.TeacherRole.PRIMARY, teacherType, subject, request.effectiveDate(), actor);
+        ensureTeacherAssignedToSite(schoolClass.getSite(), newTeacher, actor);
+
+        if (teacherType != null) {
+            cascadeTeacherChangeToSessions(schoolClass.getId(), teacherType, newTeacher, actor);
+        }
+
+        return toResponse(newAssignment);
+    }
+
+    /**
+     * Cập nhật giáo viên phụ trách cho các buổi SCHEDULED từ hôm nay trở
+     * đi, cùng loại giáo viên — bỏ qua buổi đang có dạy thay active (không
+     * ghi đè quyết định dạy thay của UC-10/UC-11).
+     */
+    private void cascadeTeacherChangeToSessions(Long classId, ClassSession.TeacherType teacherType, User newTeacher, User actor) {
+        List<ClassSession> futureSessions = classSessionRepository
+                .findBySchoolClassIdAndTeacherTypeAndStatusAndSessionDateGreaterThanEqual(
+                        classId, teacherType, ClassSession.Status.SCHEDULED, LocalDate.now());
+        for (ClassSession session : futureSessions) {
+            if (leaveSubstitutionRepository.findByClassSessionIdAndRevokedAtIsNull(session.getId()).isPresent()) {
+                continue;
+            }
+            session.setPrimaryTeacher(newTeacher);
+            session = classSessionRepository.save(session);
+
+            ClassSessionHistory history = new ClassSessionHistory();
+            history.setClassSession(session);
+            history.setChangedBy(actor);
+            history.setAction(ClassSessionHistory.Action.UPDATED);
+            Map<String, Object> snapshot = new LinkedHashMap<>();
+            snapshot.put("primaryTeacherId", newTeacher.getId());
+            snapshot.put("reason", "changeTeacher cascade");
+            history.setDetails(snapshot);
+            classSessionHistoryRepository.save(history);
+        }
+    }
+
+    private ClassTeacher createTeacherAssignmentInternal(SchoolClass schoolClass, User teacher, ClassTeacher.TeacherRole teacherRole,
+                                                           ClassSession.TeacherType teacherType, CurriculumSubject subject,
+                                                           LocalDate assignedFrom, User actor) {
         ClassTeacher classTeacher = new ClassTeacher();
         classTeacher.setSchoolClass(schoolClass);
         classTeacher.setTeacher(teacher);
-        classTeacher.setTeacherRole(request.teacherRole() == null
-                ? ClassTeacher.TeacherRole.PRIMARY
-                : ClassTeacher.TeacherRole.valueOf(request.teacherRole()));
-        if (request.subjectId() != null) {
-            classTeacher.setSubject(curriculumSubjectOrThrow(request.subjectId()));
-        }
-        classTeacher.setAssignedFrom(request.assignedFrom());
+        classTeacher.setTeacherRole(teacherRole);
+        classTeacher.setTeacherType(teacherType);
+        classTeacher.setSubject(subject);
+        classTeacher.setAssignedFrom(assignedFrom);
         classTeacher.setAssignedBy(actor);
         classTeacher = classTeacherRepository.save(classTeacher);
 
@@ -281,11 +386,28 @@ public class ClassService {
         Map<String, Object> snapshot = new LinkedHashMap<>();
         snapshot.put("teacherUserId", teacher.getId());
         snapshot.put("teacherRole", classTeacher.getTeacherRole().name());
+        snapshot.put("teacherType", teacherType == null ? null : teacherType.name());
         history.setDetails(snapshot);
         classTeacherHistoryRepository.save(history);
 
-        ensureTeacherAssignedToSite(schoolClass.getSite(), teacher, actor);
-        return toResponse(classTeacher);
+        return classTeacher;
+    }
+
+    private void endTeacherAssignmentInternal(ClassTeacher classTeacher, LocalDate assignedTo, User actor) {
+        classTeacher.setAssignedTo(assignedTo);
+        // flush ngay -- changeTeacher tạo PRIMARY mới ngay sau lệnh gọi này trong cùng transaction;
+        // idx_class_teacher_primary_active (partial unique, WHERE assigned_to IS NULL) cần thấy UPDATE
+        // này trước INSERT kế tiếp, nếu không sẽ báo trùng khóa dù bản ghi cũ đã "kết thúc" về mặt logic.
+        classTeacherRepository.saveAndFlush(classTeacher);
+
+        ClassTeacherHistory history = new ClassTeacherHistory();
+        history.setClassTeacher(classTeacher);
+        history.setChangedBy(actor);
+        history.setAction(ClassTeacherHistory.Action.UPDATED);
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("assignedTo", classTeacher.getAssignedTo().toString());
+        history.setDetails(snapshot);
+        classTeacherHistoryRepository.save(history);
     }
 
     /**
@@ -328,18 +450,7 @@ public class ClassService {
             throw new IllegalArgumentException("Phân công giáo viên id=" + classTeacherId + " đã kết thúc từ " + classTeacher.getAssignedTo());
         }
 
-        classTeacher.setAssignedTo(request.assignedTo());
-        classTeacher = classTeacherRepository.save(classTeacher);
-
-        ClassTeacherHistory history = new ClassTeacherHistory();
-        history.setClassTeacher(classTeacher);
-        history.setChangedBy(actor);
-        history.setAction(ClassTeacherHistory.Action.UPDATED);
-        Map<String, Object> snapshot = new LinkedHashMap<>();
-        snapshot.put("assignedTo", classTeacher.getAssignedTo().toString());
-        history.setDetails(snapshot);
-        classTeacherHistoryRepository.save(history);
-
+        endTeacherAssignmentInternal(classTeacher, request.assignedTo(), actor);
         return toResponse(classTeacher);
     }
 
@@ -347,6 +458,19 @@ public class ClassService {
     public List<ClassTeacherResponse> listTeachers(Long classId) {
         getClassOrThrow(classId);
         return classTeacherRepository.findBySchoolClassId(classId).stream().map(this::toResponse).toList();
+    }
+
+    /**
+     * UC-18 (bổ sung ngoài SDD gốc, xác nhận 2026-08-13): lịch sử thay đổi
+     * giáo viên phụ trách của cả lớp — gộp lịch sử mọi phân công
+     * (class_teachers) từng/đang gắn với lớp, mới nhất trước.
+     */
+    @Transactional(readOnly = true)
+    public List<ClassTeacherHistoryResponse> listTeacherHistory(Long classId) {
+        getClassOrThrow(classId);
+        return classTeacherHistoryRepository.findByClassTeacher_SchoolClass_IdOrderByCreatedAtDesc(classId).stream()
+                .map(this::toResponse)
+                .toList();
     }
 
     /** Ghi danh 1 học sinh vào lớp — nền tảng cho UC-42 (chọn lớp đang xem). */
@@ -550,8 +674,17 @@ public class ClassService {
     private ClassTeacherResponse toResponse(ClassTeacher t) {
         return new ClassTeacherResponse(
                 t.getId(), t.getSchoolClass().getId(), t.getTeacher().getId(), t.getTeacher().getFullName(),
-                t.getTeacherRole().name(), t.getSubject() == null ? null : t.getSubject().getId(),
+                t.getTeacherRole().name(), t.getTeacherType() == null ? null : t.getTeacherType().name(),
+                t.getSubject() == null ? null : t.getSubject().getId(),
                 t.getAssignedFrom(), t.getAssignedTo());
+    }
+
+    private ClassTeacherHistoryResponse toResponse(ClassTeacherHistory h) {
+        return new ClassTeacherHistoryResponse(
+                h.getId(), h.getClassTeacher().getId(), h.getClassTeacher().getTeacher().getId(),
+                h.getClassTeacher().getTeacher().getFullName(), h.getClassTeacher().getTeacherRole().name(),
+                h.getAction().name(), h.getChangedBy().getId(), h.getChangedBy().getFullName(),
+                h.getDetails(), h.getCreatedAt());
     }
 
     private ClassEnrollmentResponse toResponse(ClassEnrollment e) {

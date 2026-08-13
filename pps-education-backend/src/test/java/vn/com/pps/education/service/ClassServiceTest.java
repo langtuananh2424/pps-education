@@ -187,7 +187,7 @@ class ClassServiceTest extends AbstractIntegrationTest {
         assignRole(teacher, "TEACHER");
 
         var assignment = classService.assignTeacher(schoolClass.id(),
-                new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now()), headAcademic.getId());
+                new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now(), "VIETNAMESE"), headAcademic.getId());
 
         assertThat(classService.listTeachers(schoolClass.id())).containsExactly(assignment);
     }
@@ -203,7 +203,7 @@ class ClassServiceTest extends AbstractIntegrationTest {
         assertThat(siteTeacherRepository.existsBySiteIdAndTeacherIdAndAssignedToIsNull(site.getId(), teacher.getId())).isFalse();
 
         classService.assignTeacher(schoolClass.id(),
-                new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now()), headAcademic.getId());
+                new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now(), "VIETNAMESE"), headAcademic.getId());
 
         assertThat(siteTeacherRepository.existsBySiteIdAndTeacherIdAndAssignedToIsNull(site.getId(), teacher.getId())).isTrue();
     }
@@ -220,13 +220,124 @@ class ClassServiceTest extends AbstractIntegrationTest {
         User teacher = newUser("teacher.samesite");
         assignRole(teacher, "TEACHER");
         classService.assignTeacher(class1.id(),
-                new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now()), headAcademic.getId());
+                new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now(), "VIETNAMESE"), headAcademic.getId());
 
         classService.assignTeacher(class2.id(),
-                new AssignTeacherRequest(teacher.getId(), "ASSISTANT", null, LocalDate.now()), headAcademic.getId());
+                new AssignTeacherRequest(teacher.getId(), "ASSISTANT", null, LocalDate.now(), null), headAcademic.getId());
 
         assertThat(siteTeacherRepository.findByTeacherIdAndAssignedToIsNull(teacher.getId()))
                 .hasSize(1); // khong tao ban ghi trung cho cung 1 site
+    }
+
+    /** Bổ sung ngoài SDD gốc, xác nhận 2026-08-13 (UC-18): 1 lớp cho phép đồng thời 1 PRIMARY VIETNAMESE + 1 PRIMARY FOREIGN. */
+    @Test
+    void assignTeacher_UC18_AllowsConcurrentPrimaryVietnameseAndForeign() {
+        Site site = newSite(Site.SiteType.OWNED);
+        ClassResponse schoolClass = classService.create(
+                new CreateClassRequest(classCode(), "2 GV chính", site.getId(), activeCurriculum.id(), "OPEN", 20, null,
+                        LocalDate.now(), null, null), headAcademic.getId());
+        User vnTeacher = newUser("teacher.vn");
+        assignRole(vnTeacher, "TEACHER");
+        User foreignTeacher = newUser("teacher.foreign");
+        assignRole(foreignTeacher, "TEACHER");
+
+        classService.assignTeacher(schoolClass.id(),
+                new AssignTeacherRequest(vnTeacher.getId(), "PRIMARY", null, LocalDate.now(), "VIETNAMESE"), headAcademic.getId());
+        var foreignAssignment = classService.assignTeacher(schoolClass.id(),
+                new AssignTeacherRequest(foreignTeacher.getId(), "PRIMARY", null, LocalDate.now(), "FOREIGN"), headAcademic.getId());
+
+        assertThat(classService.listTeachers(schoolClass.id())).hasSize(2);
+        assertThat(foreignAssignment.teacherType()).isEqualTo("FOREIGN");
+    }
+
+    /** Bổ sung ngoài SDD gốc, xác nhận 2026-08-13 (UC-18): không cho 2 PRIMARY active cùng loại giáo viên trong 1 lớp. */
+    @Test
+    void assignTeacher_UC18_RejectsDuplicatePrimarySameTeacherType() {
+        Site site = newSite(Site.SiteType.OWNED);
+        ClassResponse schoolClass = classService.create(
+                new CreateClassRequest(classCode(), "Trùng loại GV chính", site.getId(), activeCurriculum.id(), "OPEN", 20, null,
+                        LocalDate.now(), null, null), headAcademic.getId());
+        User teacher1 = newUser("teacher.dup1");
+        assignRole(teacher1, "TEACHER");
+        User teacher2 = newUser("teacher.dup2");
+        assignRole(teacher2, "TEACHER");
+        classService.assignTeacher(schoolClass.id(),
+                new AssignTeacherRequest(teacher1.getId(), "PRIMARY", null, LocalDate.now(), "VIETNAMESE"), headAcademic.getId());
+
+        assertThatThrownBy(() -> classService.assignTeacher(schoolClass.id(),
+                new AssignTeacherRequest(teacher2.getId(), "PRIMARY", null, LocalDate.now(), "VIETNAMESE"), headAcademic.getId()))
+                .isInstanceOf(RuntimeException.class);
+    }
+
+    /** UC-18 (bổ sung ngoài SDD gốc, xác nhận 2026-08-13): đổi GV chính gộp end+assign trong 1 transaction. */
+    @Test
+    void changeTeacher_UC18_MainFlow_endsOldAssignsNewInSingleTransaction() {
+        Site site = newSite(Site.SiteType.OWNED);
+        ClassResponse schoolClass = classService.create(
+                new CreateClassRequest(classCode(), "Đổi GV chính", site.getId(), activeCurriculum.id(), "OPEN", 20, null,
+                        LocalDate.now(), null, null), headAcademic.getId());
+        User oldTeacher = newUser("teacher.change.old");
+        assignRole(oldTeacher, "TEACHER");
+        User newTeacher = newUser("teacher.change.new");
+        assignRole(newTeacher, "TEACHER");
+        var oldAssignment = classService.assignTeacher(schoolClass.id(),
+                new AssignTeacherRequest(oldTeacher.getId(), "PRIMARY", null, LocalDate.now(), "VIETNAMESE"), headAcademic.getId());
+
+        var newAssignment = classService.changeTeacher(schoolClass.id(), oldAssignment.id(),
+                new vn.com.pps.education.dto.ChangeTeacherRequest(newTeacher.getId(), LocalDate.now()), headAcademic.getId());
+
+        assertThat(newAssignment.teacherUserId()).isEqualTo(newTeacher.getId());
+        assertThat(newAssignment.teacherType()).isEqualTo("VIETNAMESE");
+        var reloadedOld = classService.listTeachers(schoolClass.id()).stream()
+                .filter(t -> t.id().equals(oldAssignment.id())).findFirst().orElseThrow();
+        assertThat(reloadedOld.assignedTo()).isEqualTo(LocalDate.now());
+    }
+
+    /** UC-18 (bổ sung ngoài SDD gốc, xác nhận 2026-08-13): lịch sử thay đổi GV phụ trách gộp mọi phân công của cả lớp, mới nhất trước. */
+    @Test
+    void listTeacherHistory_UC18_returnsHistoryAcrossAssignmentsNewestFirst() {
+        Site site = newSite(Site.SiteType.OWNED);
+        ClassResponse schoolClass = classService.create(
+                new CreateClassRequest(classCode(), "Lịch sử GV", site.getId(), activeCurriculum.id(), "OPEN", 20, null,
+                        LocalDate.now(), null, null), headAcademic.getId());
+        User oldTeacher = newUser("teacher.history.old");
+        assignRole(oldTeacher, "TEACHER");
+        User newTeacher = newUser("teacher.history.new");
+        assignRole(newTeacher, "TEACHER");
+        var oldAssignment = classService.assignTeacher(schoolClass.id(),
+                new AssignTeacherRequest(oldTeacher.getId(), "PRIMARY", null, LocalDate.now(), "VIETNAMESE"), headAcademic.getId());
+        var newAssignment = classService.changeTeacher(schoolClass.id(), oldAssignment.id(),
+                new vn.com.pps.education.dto.ChangeTeacherRequest(newTeacher.getId(), LocalDate.now()), headAcademic.getId());
+
+        var history = classService.listTeacherHistory(schoolClass.id());
+
+        assertThat(history).hasSize(3); // CREATED (oldTeacher) -> UPDATED (kết thúc oldTeacher) -> CREATED (newTeacher)
+        assertThat(history.get(0).classTeacherId()).isEqualTo(newAssignment.id());
+        assertThat(history.get(0).action()).isEqualTo("CREATED");
+        assertThat(history.get(0).details().get("teacherUserId")).isEqualTo(newTeacher.getId());
+        assertThat(history.get(1).classTeacherId()).isEqualTo(oldAssignment.id());
+        assertThat(history.get(1).action()).isEqualTo("UPDATED");
+        assertThat(history.get(2).classTeacherId()).isEqualTo(oldAssignment.id());
+        assertThat(history.get(2).action()).isEqualTo("CREATED");
+    }
+
+    /** UC-18 changeTeacher: chỉ áp dụng cho phân công PRIMARY, từ chối CM/ASSISTANT/SUBSTITUTE. */
+    @Test
+    void changeTeacher_UC18_rejectsWhenAssignmentIsNotPrimaryRole() {
+        Site site = newSite(Site.SiteType.OWNED);
+        ClassResponse schoolClass = classService.create(
+                new CreateClassRequest(classCode(), "Đổi CM", site.getId(), activeCurriculum.id(), "OPEN", 20, null,
+                        LocalDate.now(), null, null), headAcademic.getId());
+        User cm = newUser("teacher.cm");
+        assignRole(cm, "TEACHER");
+        User newCm = newUser("teacher.cm.new");
+        assignRole(newCm, "TEACHER");
+        var cmAssignment = classService.assignTeacher(schoolClass.id(),
+                new AssignTeacherRequest(cm.getId(), "CM", null, LocalDate.now(), null), headAcademic.getId());
+
+        assertThatThrownBy(() -> classService.changeTeacher(schoolClass.id(), cmAssignment.id(),
+                new vn.com.pps.education.dto.ChangeTeacherRequest(newCm.getId(), LocalDate.now()), headAcademic.getId()))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
@@ -238,7 +349,7 @@ class ClassServiceTest extends AbstractIntegrationTest {
         User teacher = newUser("teacher.ended");
         assignRole(teacher, "TEACHER");
         var assignment = classService.assignTeacher(schoolClass.id(),
-                new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now().minusMonths(1)), headAcademic.getId());
+                new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now().minusMonths(1), "VIETNAMESE"), headAcademic.getId());
         LocalDate endDate = LocalDate.now();
 
         var ended = classService.endTeacherAssignment(schoolClass.id(), assignment.id(),
@@ -257,7 +368,7 @@ class ClassServiceTest extends AbstractIntegrationTest {
         User teacher = newUser("teacher.doubleend");
         assignRole(teacher, "TEACHER");
         var assignment = classService.assignTeacher(schoolClass.id(),
-                new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now().minusMonths(1)), headAcademic.getId());
+                new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now().minusMonths(1), "VIETNAMESE"), headAcademic.getId());
         classService.endTeacherAssignment(schoolClass.id(), assignment.id(),
                 new EndTeacherAssignmentRequest(LocalDate.now()), headAcademic.getId());
 
@@ -385,7 +496,7 @@ class ClassServiceTest extends AbstractIntegrationTest {
         User teacher = newUser("teacher.ownsite");
         assignRole(teacher, "TEACHER");
         classService.assignTeacher(classAtA.id(),
-                new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now()), headAcademic.getId());
+                new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now(), "VIETNAMESE"), headAcademic.getId());
 
         var result = classService.search(null, null, null, null, null, teacher.getId());
 

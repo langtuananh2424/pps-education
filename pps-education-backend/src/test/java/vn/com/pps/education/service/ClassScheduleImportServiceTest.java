@@ -13,6 +13,7 @@ import vn.com.pps.education.domain.Room;
 import vn.com.pps.education.domain.Site;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.domain.UserRole;
+import vn.com.pps.education.dto.AssignTeacherRequest;
 import vn.com.pps.education.dto.ClassResponse;
 import vn.com.pps.education.dto.ClassScheduleImportResponse;
 import vn.com.pps.education.dto.ClassSessionResponse;
@@ -39,8 +40,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * UC-57: Nhập lịch học qua Excel — Main Flow (tạo đúng buổi cho dòng hợp
- * lệ), A2 (dòng thiếu GV bị bỏ qua, ghi lỗi, không chặn dòng khác), A3
- * (file sai định dạng → FAILED ngay). Xem docs/uc/phan-he-06-hoc-thuat.md.
+ * lệ, giáo viên phụ trách tự derive từ cột "Loại giáo viên" + giáo viên
+ * chính của lớp), A2 (dòng lỗi bị bỏ qua, ghi lỗi, không chặn dòng khác),
+ * A3 (file sai định dạng → FAILED ngay). Xem docs/uc/phan-he-06-hoc-thuat.md.
+ *
+ * Cột E đổi ý nghĩa từ "Username GV phụ trách" sang "Loại giáo viên"
+ * (VIETNAMESE/FOREIGN) — bổ sung ngoài SDD gốc, xác nhận 2026-08-13.
  */
 @Transactional
 class ClassScheduleImportServiceTest extends AbstractIntegrationTest {
@@ -100,17 +105,21 @@ class ClassScheduleImportServiceTest extends AbstractIntegrationTest {
         teacher = newUser("teacher");
         assignRole(teacher, "TEACHER");
         room = newRoom(site);
+
+        // Giáo viên chính (PRIMARY) VIETNAMESE của lớp — điều kiện bắt buộc để resolvePrimaryTeacher suy ra GV khi import (UC-57).
+        classService.assignTeacher(schoolClass.id(),
+                new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now(), "VIETNAMESE"), headAcademic.getId());
     }
 
     @Test
-    void importSchedule_UC57_MainFlow_createsSessionsForValidRows() throws IOException {
+    void importSchedule_UC57_MainFlow_derivesTeacherFromTeacherTypeColumn() throws IOException {
         LocalDate date1 = LocalDate.now().plusDays(10);
         LocalDate date2 = LocalDate.now().plusDays(11);
         byte[] file = buildWorkbook(
-                new String[]{"Ngay", "Gio bat dau", "Gio ket thuc", "Loai buoi", "Username GV", "Ma phong"},
+                new String[]{"Ngay", "Gio bat dau", "Gio ket thuc", "Loai buoi", "Loai giao vien", "Ma phong"},
                 new String[][]{
-                        {date1.format(DATE_FORMAT), "08:00", "09:40", "", teacher.getUsername(), room.getCode()},
-                        {date2.format(DATE_FORMAT), "10:00", "11:40", "MAKEUP", teacher.getUsername(), ""},
+                        {date1.format(DATE_FORMAT), "08:00", "09:40", "", "VIETNAMESE", room.getCode()},
+                        {date2.format(DATE_FORMAT), "10:00", "11:40", "MAKEUP", "VIETNAMESE", ""},
                 });
 
         ClassScheduleImportResponse result = classScheduleImportService.importSchedule(schoolClass.id(),
@@ -126,20 +135,23 @@ class ClassScheduleImportServiceTest extends AbstractIntegrationTest {
         ClassSessionResponse created1 = sessions.stream().filter(s -> s.sessionDate().equals(date1)).findFirst().orElseThrow();
         assertThat(created1.roomId()).isEqualTo(room.getId());
         assertThat(created1.sessionType()).isEqualTo("REGULAR");
+        assertThat(created1.primaryTeacherId()).isEqualTo(teacher.getId());
+        assertThat(created1.teacherType()).isEqualTo("VIETNAMESE");
         ClassSessionResponse created2 = sessions.stream().filter(s -> s.sessionDate().equals(date2)).findFirst().orElseThrow();
         assertThat(created2.sessionType()).isEqualTo("MAKEUP");
         assertThat(created2.roomId()).isNull();
+        assertThat(created2.primaryTeacherId()).isEqualTo(teacher.getId());
     }
 
     @Test
-    void importSchedule_UC57_A2_rowMissingTeacherUsernameDoesNotBlockOthers() throws IOException {
+    void importSchedule_UC57_A2_rowMissingTeacherTypeDoesNotBlockOthers() throws IOException {
         LocalDate date1 = LocalDate.now().plusDays(15);
         LocalDate date2 = LocalDate.now().plusDays(16);
         byte[] file = buildWorkbook(
-                new String[]{"Ngay", "Gio bat dau", "Gio ket thuc", "Loai buoi", "Username GV", "Ma phong"},
+                new String[]{"Ngay", "Gio bat dau", "Gio ket thuc", "Loai buoi", "Loai giao vien", "Ma phong"},
                 new String[][]{
                         {date1.format(DATE_FORMAT), "08:00", "09:40", "", "", ""},
-                        {date2.format(DATE_FORMAT), "08:00", "09:40", "", teacher.getUsername(), ""},
+                        {date2.format(DATE_FORMAT), "08:00", "09:40", "", "VIETNAMESE", ""},
                 });
 
         ClassScheduleImportResponse result = classScheduleImportService.importSchedule(schoolClass.id(),
@@ -150,6 +162,48 @@ class ClassScheduleImportServiceTest extends AbstractIntegrationTest {
         assertThat(result.successRows()).isEqualTo(1);
         assertThat(result.failedRows()).isEqualTo(1);
         assertThat(result.errorSummary()).hasSize(1);
+
+        List<ClassSessionResponse> sessions = classSessionService.listSessions(schoolClass.id(), headAcademic.getId());
+        assertThat(sessions).extracting(ClassSessionResponse::sessionDate).containsExactly(date2);
+    }
+
+    @Test
+    void importSchedule_UC57_A2_rowInvalidTeacherTypeDoesNotBlockOthers() throws IOException {
+        LocalDate date1 = LocalDate.now().plusDays(17);
+        LocalDate date2 = LocalDate.now().plusDays(18);
+        byte[] file = buildWorkbook(
+                new String[]{"Ngay", "Gio bat dau", "Gio ket thuc", "Loai buoi", "Loai giao vien", "Ma phong"},
+                new String[][]{
+                        {date1.format(DATE_FORMAT), "08:00", "09:40", "", "KHONG_HOP_LE", ""},
+                        {date2.format(DATE_FORMAT), "08:00", "09:40", "", "VIETNAMESE", ""},
+                });
+
+        ClassScheduleImportResponse result = classScheduleImportService.importSchedule(schoolClass.id(),
+                new MockMultipartFile("file", "lich.xlsx", "application/vnd.openxmlformats", file), headAcademic.getId());
+
+        assertThat(result.status()).isEqualTo("PARTIAL_SUCCESS");
+        assertThat(result.successRows()).isEqualTo(1);
+        assertThat(result.failedRows()).isEqualTo(1);
+    }
+
+    @Test
+    void importSchedule_UC57_A2_rowMissingPrimaryTeacherOfTypeDoesNotBlockOthers() throws IOException {
+        LocalDate date1 = LocalDate.now().plusDays(19);
+        LocalDate date2 = LocalDate.now().plusDays(20);
+        // Lớp chỉ có PRIMARY VIETNAMESE (xem setUp) -- dòng FOREIGN phải lỗi, dòng VIETNAMESE vẫn thành công.
+        byte[] file = buildWorkbook(
+                new String[]{"Ngay", "Gio bat dau", "Gio ket thuc", "Loai buoi", "Loai giao vien", "Ma phong"},
+                new String[][]{
+                        {date1.format(DATE_FORMAT), "08:00", "09:40", "", "FOREIGN", ""},
+                        {date2.format(DATE_FORMAT), "08:00", "09:40", "", "VIETNAMESE", ""},
+                });
+
+        ClassScheduleImportResponse result = classScheduleImportService.importSchedule(schoolClass.id(),
+                new MockMultipartFile("file", "lich.xlsx", "application/vnd.openxmlformats", file), headAcademic.getId());
+
+        assertThat(result.status()).isEqualTo("PARTIAL_SUCCESS");
+        assertThat(result.successRows()).isEqualTo(1);
+        assertThat(result.failedRows()).isEqualTo(1);
 
         List<ClassSessionResponse> sessions = classSessionService.listSessions(schoolClass.id(), headAcademic.getId());
         assertThat(sessions).extracting(ClassSessionResponse::sessionDate).containsExactly(date2);
@@ -169,9 +223,9 @@ class ClassScheduleImportServiceTest extends AbstractIntegrationTest {
     void getJob_UC57_returnsSameResultAsImport() throws IOException {
         LocalDate date1 = LocalDate.now().plusDays(25);
         byte[] file = buildWorkbook(
-                new String[]{"Ngay", "Gio bat dau", "Gio ket thuc", "Loai buoi", "Username GV", "Ma phong"},
+                new String[]{"Ngay", "Gio bat dau", "Gio ket thuc", "Loai buoi", "Loai giao vien", "Ma phong"},
                 new String[][]{
-                        {date1.format(DATE_FORMAT), "08:00", "09:40", "", teacher.getUsername(), ""},
+                        {date1.format(DATE_FORMAT), "08:00", "09:40", "", "VIETNAMESE", ""},
                 });
 
         ClassScheduleImportResponse imported = classScheduleImportService.importSchedule(schoolClass.id(),

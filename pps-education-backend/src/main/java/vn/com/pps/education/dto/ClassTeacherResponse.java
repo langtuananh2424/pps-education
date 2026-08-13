@@ -8,6 +8,7 @@ public record ClassTeacherResponse(
         Long teacherUserId,
         String teacherFullName,
         String teacherRole,
+        String teacherType,
         Long subjectId,
         LocalDate assignedFrom,
         LocalDate assignedTo

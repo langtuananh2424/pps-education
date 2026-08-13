@@ -165,7 +165,7 @@ class DailyReportGenerationControllerTest extends AbstractControllerTest {
         teacher = newUser("teacher.daily");
         assignRole(teacher, "TEACHER");
         classService.assignTeacher(schoolClass.id(),
-                new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now()), headAcademic.getId());
+                new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now(), "VIETNAMESE"), headAcademic.getId());
     }
 
     @Test

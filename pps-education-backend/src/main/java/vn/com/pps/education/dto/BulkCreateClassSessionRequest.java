@@ -22,8 +22,13 @@ public record BulkCreateClassSessionRequest(
         @NotNull LocalTime startTime,
         @NotNull LocalTime endTime,
         Long roomId,
-        @NotNull Long primaryTeacherId,
         @NotBlank String sessionType,
-        /** Loại giáo viên (VIETNAMESE/FOREIGN) — tùy chọn, dùng chung cho cả lô buổi tạo trong lời gọi này. */
-        String teacherType
+        /**
+         * Loại giáo viên (VIETNAMESE/FOREIGN) — bắt buộc, dùng chung cho
+         * cả lô buổi tạo trong lời gọi này. Giáo viên phụ trách được hệ
+         * thống tự động suy ra từ giáo viên chính (PRIMARY) đang active
+         * của lớp cùng loại này (bổ sung ngoài SDD gốc, xác nhận
+         * 2026-08-13).
+         */
+        @NotBlank String teacherType
 ) {}
