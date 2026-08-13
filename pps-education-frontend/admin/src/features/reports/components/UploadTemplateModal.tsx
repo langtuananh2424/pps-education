@@ -1,6 +1,7 @@
 import React, { useState, useRef } from "react";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
+import Select from "@/components/ui/Select";
 import { UploadCloud, FileText, X } from "lucide-react";
 import {
   CreateReportTemplateRequest,
@@ -135,7 +136,7 @@ export default function UploadTemplateModal({ onClose, onSuccess }: Props) {
           <label className="block text-xs font-semibold text-slate-700 mb-1">
             Loại báo cáo <span className="text-rose-500">*</span>
           </label>
-          <select
+          <Select
             value={templateType}
             onChange={(e) => setTemplateType(e.target.value as ReportTemplateType)}
             className="w-full border border-slate-300 rounded-lg text-sm p-2.5 focus:outline-none focus:ring-2 focus:ring-brand-orange/50 focus:border-brand-orange"
@@ -144,7 +145,7 @@ export default function UploadTemplateModal({ onClose, onSuccess }: Props) {
             {(Object.entries(REPORT_TEMPLATE_TYPE_LABELS) as [ReportTemplateType, string][]).map(([key, label]) => (
               <option key={key} value={key}>{label}</option>
             ))}
-          </select>
+          </Select>
           <p className="text-xs text-slate-400 mt-1">
             Loại báo cáo giúp hệ thống biết mẫu này dùng cho chức năng nào (xuất báo cáo ngày, hồ sơ học sinh...).
           </p>

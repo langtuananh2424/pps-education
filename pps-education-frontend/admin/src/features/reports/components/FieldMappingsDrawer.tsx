@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
+import Select from "@/components/ui/Select";
 import { X, Tag } from "lucide-react";
 import {
   ReportTemplateResponse,
@@ -316,7 +317,7 @@ export default function FieldMappingsDrawer({ template, onClose, onSuccess }: Pr
                       <span className="text-xs text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">Mới</span>
                     )}
                   </div>
-                  <select
+                  <Select
                     value={row.fieldType}
                     onChange={(e) => updateRow(index, "fieldType", e.target.value)}
                     className={`text-xs font-semibold px-2 py-1 rounded border-0 cursor-pointer ${FIELD_TYPE_COLORS[row.fieldType]}`}
@@ -324,7 +325,7 @@ export default function FieldMappingsDrawer({ template, onClose, onSuccess }: Pr
                     {(Object.entries(FIELD_TYPE_LABELS) as [FieldType, string][]).map(([k, v]) => (
                       <option key={k} value={k}>{v}</option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
 
                 <div>
@@ -339,7 +340,7 @@ export default function FieldMappingsDrawer({ template, onClose, onSuccess }: Pr
                     />
                   ) : (
                     <div className="space-y-1.5">
-                      <select
+                      <Select
                         value={row.dataPath}
                         onChange={(e) => {
                           if (e.target.value !== "CUSTOM") {
@@ -355,7 +356,7 @@ export default function FieldMappingsDrawer({ template, onClose, onSuccess }: Pr
                           <option key={s.value} value={s.value}>{s.label}</option>
                         ))}
                         <option value="CUSTOM">✏️ Tự nhập giá trị tùy chỉnh...</option>
-                      </select>
+                      </Select>
 
                       {(!hasExactOption || row.dataPath === "") && (
                         <input

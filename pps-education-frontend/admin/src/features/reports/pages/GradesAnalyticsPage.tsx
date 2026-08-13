@@ -10,6 +10,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import Button from "@/components/ui/Button";
+import Select from "@/components/ui/Select";
 import { useApp } from "@/context/AppContext";
 import {
   ClassResponse,
@@ -315,7 +316,7 @@ export default function GradesAnalyticsPage() {
           <div className="flex flex-wrap gap-3">
             <div className="flex-1 min-w-[240px]">
               <label className="block text-xs text-slate-500 mb-1">Sổ điểm (kỳ & loại)</label>
-              <select
+              <Select
                 value={selectedSetupId}
                 onChange={(e) => setSelectedSetupId(e.target.value ? Number(e.target.value) : "")}
                 disabled={loadingSetups}
@@ -327,7 +328,7 @@ export default function GradesAnalyticsPage() {
                     {s.academicTermName} — {EVAL_TYPE_LABELS[s.evaluationType]} ({SCALE_TYPE_LABELS[s.scaleType]})
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
           </div>
         </div>

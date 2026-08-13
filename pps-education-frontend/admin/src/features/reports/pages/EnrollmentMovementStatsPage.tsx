@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { ArrowLeftRight, Download, Filter, LogOut, TrendingDown, TrendingUp, UserPlus, Users } from "lucide-react";
 import Button from "@/components/ui/Button";
+import Select from "@/components/ui/Select";
 import { useApp } from "@/context/AppContext";
 import {
   AcademicTermResponse,
@@ -244,7 +245,7 @@ export default function EnrollmentMovementStatsPage() {
           <div className="flex flex-wrap gap-3">
             <div className="flex-1 min-w-[260px]">
               <label className="block text-xs text-slate-500 mb-1">Kỳ học</label>
-              <select
+              <Select
                 value={selectedTermId}
                 onChange={(e) => setSelectedTermId(e.target.value ? Number(e.target.value) : "")}
                 disabled={loadingTerms}
@@ -256,12 +257,12 @@ export default function EnrollmentMovementStatsPage() {
                     {t.name} ({t.startDate} - {t.endDate})
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
             {selectedTermId && comparableTerms.length > 0 && (
               <div className="flex-1 min-w-[260px]">
                 <label className="block text-xs text-slate-500 mb-1">So sánh với kỳ khác (tuỳ chọn)</label>
-                <select
+                <Select
                   value={comparisonTermId}
                   onChange={(e) => setComparisonTermId(e.target.value ? Number(e.target.value) : "")}
                   className="w-full border border-slate-300 rounded-lg text-sm p-2 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
@@ -272,7 +273,7 @@ export default function EnrollmentMovementStatsPage() {
                       {t.name} ({t.startDate} - {t.endDate})
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
             )}
           </div>

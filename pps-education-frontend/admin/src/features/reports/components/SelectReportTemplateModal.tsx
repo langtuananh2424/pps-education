@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import Modal from "../../../components/ui/Modal";
 import Button from "../../../components/ui/Button";
+import Select from "../../../components/ui/Select";
 import { ReportTemplateResponse, AcademicTermResponse, ReportPeriodSelector } from "../../academic/api";
 import { Download, FileText, CheckCircle2, AlertCircle, FileType, Filter, Plus, X, CalendarRange } from "lucide-react";
 
@@ -329,7 +330,7 @@ export default function SelectReportTemplateModal({
                       placeholder="Nhãn (VD: MID1)"
                       className="w-28 border border-slate-300 rounded-lg text-xs p-1.5 focus:outline-none focus:ring-1 focus:ring-brand-orange"
                     />
-                    <select
+                    <Select
                       value={row.academicTermId}
                       onChange={(e) => updatePeriodRow(idx, { academicTermId: e.target.value ? Number(e.target.value) : "" })}
                       className="flex-1 border border-slate-300 rounded-lg text-xs p-1.5 focus:outline-none focus:ring-1 focus:ring-brand-orange"
@@ -338,8 +339,8 @@ export default function SelectReportTemplateModal({
                       {academicTerms.map((t) => (
                         <option key={t.id} value={t.id}>{t.name}</option>
                       ))}
-                    </select>
-                    <select
+                    </Select>
+                    <Select
                       value={row.evaluationType}
                       onChange={(e) => updatePeriodRow(idx, { evaluationType: e.target.value as PeriodRow["evaluationType"] })}
                       className="w-28 border border-slate-300 rounded-lg text-xs p-1.5 focus:outline-none focus:ring-1 focus:ring-brand-orange"
@@ -348,7 +349,7 @@ export default function SelectReportTemplateModal({
                       {Object.entries(EVAL_TYPE_LABELS).map(([key, label]) => (
                         <option key={key} value={key}>{label}</option>
                       ))}
-                    </select>
+                    </Select>
                     <button
                       type="button"
                       onClick={() => removePeriodRow(idx)}
