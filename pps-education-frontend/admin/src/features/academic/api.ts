@@ -238,7 +238,9 @@ export interface ClassTeacherResponse {
   classId: number;
   teacherUserId: number;
   teacherFullName: string;
-  teacherRole: "PRIMARY" | "ASSISTANT" | "SUBSTITUTE";
+  teacherRole: "PRIMARY" | "ASSISTANT" | "SUBSTITUTE" | "CM";
+  /** Bổ sung ngoài SDD gốc, xác nhận 2026-08-13 — chỉ có ý nghĩa khi teacherRole=PRIMARY (1 lớp có tối đa 1 PRIMARY active loại VIETNAMESE + 1 PRIMARY active loại FOREIGN). */
+  teacherType: "VIETNAMESE" | "FOREIGN" | null;
   subjectId: number | null;
   assignedFrom: string | null;
   assignedTo: string | null;
@@ -249,6 +251,8 @@ export interface AssignTeacherRequest {
   teacherRole?: ClassTeacherResponse["teacherRole"];
   subjectId?: number;
   assignedFrom?: string;
+  /** Chỉ có ý nghĩa khi teacherRole=PRIMARY — bổ sung ngoài SDD gốc, xác nhận 2026-08-13. */
+  teacherType?: "VIETNAMESE" | "FOREIGN";
 }
 
 export function listClassTeachers(classId: number): Promise<ClassTeacherResponse[]> {
@@ -274,6 +278,46 @@ export function endClassTeacherAssignment(
     method: "PUT",
     body: JSON.stringify(request)
   });
+}
+
+export interface ChangeTeacherRequest {
+  newTeacherUserId: number;
+  effectiveDate: string;
+}
+
+/**
+ * UC-18 (bổ sung ngoài SDD gốc, xác nhận 2026-08-13) — đổi giáo viên chính (PRIMARY) đang phụ trách:
+ * kết thúc phân công cũ + gán phân công mới trong 1 transaction, cascade cập nhật giáo viên phụ trách
+ * các buổi học SCHEDULED tương lai cùng loại giáo viên (trừ buổi đang có GV dạy thay).
+ */
+export function changeClassTeacher(classId: number, classTeacherId: number, request: ChangeTeacherRequest): Promise<ClassTeacherResponse> {
+  return apiRequest<ClassTeacherResponse>(`/classes/${classId}/teachers/${classTeacherId}/change`, {
+    method: "PUT",
+    body: JSON.stringify(request)
+  });
+}
+
+/**
+ * UC-18 (bổ sung ngoài SDD gốc, xác nhận 2026-08-13): 1 dòng lịch sử thay đổi giáo viên phụ trách.
+ * `details` giữ nguyên snapshot đã ghi ở backend — 2 dạng tuỳ action: CREATED = {teacherUserId,
+ * teacherRole, teacherType}, UPDATED = {assignedTo}.
+ */
+export interface ClassTeacherHistoryResponse {
+  id: number;
+  classTeacherId: number;
+  teacherUserId: number;
+  teacherFullName: string;
+  teacherRole: ClassTeacherResponse["teacherRole"];
+  action: "CREATED" | "UPDATED";
+  changedByUserId: number;
+  changedByName: string;
+  details: Record<string, unknown>;
+  createdAt: string;
+}
+
+/** Lịch sử thay đổi giáo viên phụ trách của cả lớp (gộp mọi phân công từng/đang gắn với lớp), mới nhất trước. */
+export function listClassTeacherHistory(classId: number): Promise<ClassTeacherHistoryResponse[]> {
+  return apiRequest<ClassTeacherHistoryResponse[]>(`/classes/${classId}/teachers/history`);
 }
 
 // ===================== Giai đoạn/Học kỳ (UC-18, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31) =====================
@@ -512,9 +556,13 @@ export interface CreateClassSessionRequest {
   startTime: string;
   endTime: string;
   roomId?: number;
-  primaryTeacherId: number;
   sessionType: string;
-  teacherType?: "VIETNAMESE" | "FOREIGN";
+  /**
+   * Bắt buộc (bổ sung ngoài SDD gốc, xác nhận 2026-08-13) — giáo viên phụ trách buổi được hệ
+   * thống TỰ ĐỘNG suy ra từ giáo viên chính (PRIMARY) đang active của lớp cùng loại này, không
+   * còn nhập tay.
+   */
+  teacherType: "VIETNAMESE" | "FOREIGN";
   /** Bắt buộc khi sessionType=MAKEUP (buổi này bù cho buổi nào) — phải để trống với loại khác. Chỉ áp dụng tạo 1 buổi lẻ, không áp dụng bulk/Excel. */
   makeupForSessionId?: number;
 }
@@ -524,7 +572,6 @@ export interface RescheduleClassSessionRequest {
   newStartTime: string;
   newEndTime: string;
   newRoomId?: number;
-  newPrimaryTeacherId: number;
   reason?: string;
 }
 
@@ -564,10 +611,13 @@ export interface BulkCreateClassSessionRequest {
   startTime: string;
   endTime: string;
   roomId?: number;
-  primaryTeacherId: number;
   sessionType: string;
-  /** Dùng chung cho cả lô buổi tạo trong lời gọi này — muốn khác nhau theo thứ thì gọi bulkCreateClassSessions nhiều lần. */
-  teacherType?: "VIETNAMESE" | "FOREIGN";
+  /**
+   * Bắt buộc (bổ sung ngoài SDD gốc, xác nhận 2026-08-13), dùng chung cho cả lô buổi tạo trong
+   * lời gọi này — muốn khác nhau theo thứ thì gọi bulkCreateClassSessions nhiều lần. Giáo viên
+   * phụ trách được hệ thống tự động suy ra từ giáo viên chính của lớp cùng loại này.
+   */
+  teacherType: "VIETNAMESE" | "FOREIGN";
 }
 
 export interface BulkCreateClassSessionResponse {

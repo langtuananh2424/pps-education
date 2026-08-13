@@ -126,7 +126,7 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         teacher = newUser("teacher");
         assignRole(teacher, "TEACHER");
         classService.assignTeacher(schoolClass.id(),
-                new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now()), headAcademic.getId());
+                new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now(), "VIETNAMESE"), headAcademic.getId());
 
         studentUser = newUser("student");
         student = new Student();
@@ -582,7 +582,7 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         ClassResponse otherClass = classService.create(new CreateClassRequest(classCode(), "9B1", otherSite.getId(),
                 activeCurriculum.id(), "OPEN", 20, null, LocalDate.now(), null, null), headAcademic.getId());
         classService.assignTeacher(otherClass.id(),
-                new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now()), headAcademic.getId());
+                new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now(), "VIETNAMESE"), headAcademic.getId());
         examService.assignToClass(defaultExam.id(), otherClass.id(), teacher.getId());
         commitCurrentTransactionAndStartNew();
         exerciseService.deliverToClass(exercise.id(), otherClass.id(), null, teacher.getId());

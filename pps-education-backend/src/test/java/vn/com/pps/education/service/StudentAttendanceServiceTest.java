@@ -145,8 +145,10 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
 
         teacher = newUser("teacher");
         assignRole(teacher, "TEACHER");
+        classService.assignTeacher(schoolClass.id(),
+                new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now(), "VIETNAMESE"), headAcademic.getId());
         session = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(LocalDate.now(), LocalTime.of(8, 0), LocalTime.of(9, 40), null, teacher.getId(), "REGULAR", null, null),
+                new CreateClassSessionRequest(LocalDate.now(), LocalTime.of(8, 0), LocalTime.of(9, 40), null, "REGULAR", "VIETNAMESE", null),
                 headAcademic.getId());
 
         student1 = newStudent();
@@ -374,12 +376,11 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
 
     @Test
     void getAttendanceSession_teacherWithSiteAssignment_returnsSession() {
+        // setUp() đã gán teacher làm PRIMARY VIETNAMESE cho lớp, tự động liên kết site_teachers.
         studentAttendanceService.markAttendance(session.id(),
                 new MarkAttendanceRequest("SESSION_LEVEL", List.of(
                         new EnterAttendanceMarkRequest(student1.getId(), "PRESENT", null, null, null))),
                 teacher.getId());
-        classService.assignTeacher(session.classId(),
-                new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now()), headAcademic.getId());
 
         AttendanceSessionResponse result = studentAttendanceService.getAttendanceSession(session.id(), teacher.getId());
 
@@ -424,8 +425,10 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
         // ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30), không liên quan gì tới UC-15b đang test.
         User siteTeacher = newUser("teacher.site.summary");
         assignRole(siteTeacher, "TEACHER");
+        classService.assignTeacher(schoolClass.id(),
+                new AssignTeacherRequest(siteTeacher.getId(), "PRIMARY", null, LocalDate.now(), "VIETNAMESE"), headAcademic.getId());
         ClassSessionResponse newSession = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(LocalDate.now(), LocalTime.of(8, 0), LocalTime.of(9, 40), null, siteTeacher.getId(), "REGULAR", null, null),
+                new CreateClassSessionRequest(LocalDate.now(), LocalTime.of(8, 0), LocalTime.of(9, 40), null, "REGULAR", "VIETNAMESE", null),
                 headAcademic.getId());
         studentAttendanceService.markAttendance(newSession.id(),
                 new MarkAttendanceRequest("SESSION_LEVEL", List.of(
@@ -458,8 +461,10 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
         classService.enroll(schoolClass.id(), new EnrollStudentRequest(student1.getId(), LocalDate.now()), headAcademic.getId());
         User siteTeacher = newUser("teacher.site.rate");
         assignRole(siteTeacher, "TEACHER");
+        classService.assignTeacher(schoolClass.id(),
+                new AssignTeacherRequest(siteTeacher.getId(), "PRIMARY", null, LocalDate.now(), "VIETNAMESE"), headAcademic.getId());
         ClassSessionResponse newSession = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(LocalDate.now(), LocalTime.of(8, 0), LocalTime.of(9, 40), null, siteTeacher.getId(), "REGULAR", null, null),
+                new CreateClassSessionRequest(LocalDate.now(), LocalTime.of(8, 0), LocalTime.of(9, 40), null, "REGULAR", "VIETNAMESE", null),
                 headAcademic.getId());
         studentAttendanceService.markAttendance(newSession.id(),
                 new MarkAttendanceRequest("SESSION_LEVEL", List.of(

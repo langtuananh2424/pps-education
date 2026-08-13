@@ -5,6 +5,7 @@ import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.ClassEnrollment;
 import vn.com.pps.education.domain.ClassSession;
 import vn.com.pps.education.domain.ClassSessionHistory;
+import vn.com.pps.education.domain.ClassTeacher;
 import vn.com.pps.education.domain.Room;
 import vn.com.pps.education.domain.SchoolClass;
 import vn.com.pps.education.domain.SessionPeriod;
@@ -27,6 +28,7 @@ import vn.com.pps.education.exception.TeacherScheduleConflictException;
 import vn.com.pps.education.repository.ClassEnrollmentRepository;
 import vn.com.pps.education.repository.ClassSessionHistoryRepository;
 import vn.com.pps.education.repository.ClassSessionRepository;
+import vn.com.pps.education.repository.ClassTeacherRepository;
 import vn.com.pps.education.repository.RoomRepository;
 import vn.com.pps.education.repository.SchoolClassRepository;
 import vn.com.pps.education.repository.SessionPeriodHistoryRepository;
@@ -81,6 +83,7 @@ public class ClassSessionService {
     private final PermissionEvaluationService permissionEvaluationService;
     private final ClassEnrollmentRepository classEnrollmentRepository;
     private final StudentRepository studentRepository;
+    private final ClassTeacherRepository classTeacherRepository;
 
     public ClassSessionService(ClassSessionRepository classSessionRepository,
                                 SessionPeriodRepository sessionPeriodRepository,
@@ -94,7 +97,8 @@ public class ClassSessionService {
                                 SiteManagerRepository siteManagerRepository,
                                 PermissionEvaluationService permissionEvaluationService,
                                 ClassEnrollmentRepository classEnrollmentRepository,
-                                StudentRepository studentRepository) {
+                                StudentRepository studentRepository,
+                                ClassTeacherRepository classTeacherRepository) {
         this.classSessionRepository = classSessionRepository;
         this.sessionPeriodRepository = sessionPeriodRepository;
         this.classSessionHistoryRepository = classSessionHistoryRepository;
@@ -108,6 +112,7 @@ public class ClassSessionService {
         this.permissionEvaluationService = permissionEvaluationService;
         this.classEnrollmentRepository = classEnrollmentRepository;
         this.studentRepository = studentRepository;
+        this.classTeacherRepository = classTeacherRepository;
     }
 
     /** Giáo viên (không có academic.class.manage) chỉ thấy buổi học thuộc site được gán — xem ClassService.resolveAllowedSiteIds. */
@@ -186,16 +191,33 @@ public class ClassSessionService {
         if (!request.endTime().isAfter(request.startTime())) {
             throw new IllegalArgumentException("endTime phải sau startTime.");
         }
-        User teacher = getUserOrThrow(request.primaryTeacherId());
+        ClassSession.TeacherType teacherType = parseTeacherType(request.teacherType());
+        User teacher = resolvePrimaryTeacher(classId, teacherType);
         User actor = getUserOrThrow(actorUserId);
         Room room = request.roomId() == null ? null : getRoomOrThrow(request.roomId());
         ClassSession.SessionType sessionType = ClassSession.SessionType.valueOf(request.sessionType());
         ClassSession makeupForSession = resolveMakeupForSession(sessionType, request.makeupForSessionId(), classId);
 
         ClassSession session = createSessionEntity(schoolClass, request.sessionDate(), request.startTime(), request.endTime(),
-                room, teacher, sessionType, actor, parseTeacherType(request.teacherType()), makeupForSession);
+                room, teacher, sessionType, actor, teacherType, makeupForSession);
 
         return toResponse(session);
+    }
+
+    /**
+     * UC-48/UC-56/UC-57 (bổ sung ngoài SDD gốc, xác nhận 2026-08-13): suy
+     * ra giáo viên phụ trách buổi học từ giáo viên chính (PRIMARY) đang
+     * active của lớp cùng loại giáo viên (VIETNAMESE/FOREIGN) đã chọn —
+     * không nhập tay.
+     */
+    private User resolvePrimaryTeacher(Long classId, ClassSession.TeacherType teacherType) {
+        ClassTeacher classTeacher = classTeacherRepository
+                .findBySchoolClassIdAndTeacherRoleAndTeacherTypeAndSubjectIdIsNullAndAssignedToIsNull(
+                        classId, ClassTeacher.TeacherRole.PRIMARY, teacherType)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Lớp id=" + classId + " chưa có giáo viên chính loại " + teacherType
+                                + " đang phụ trách — vui lòng gán qua UC-18 trước khi xếp lịch."));
+        return classTeacher.getTeacher();
     }
 
     /**
@@ -254,11 +276,11 @@ public class ClassSessionService {
             throw new IllegalArgumentException("endDate phải sau hoặc bằng startDate.");
         }
         Set<DayOfWeek> daysOfWeek = request.daysOfWeek().stream().map(DayOfWeek::valueOf).collect(Collectors.toSet());
-        User teacher = getUserOrThrow(request.primaryTeacherId());
+        ClassSession.TeacherType teacherType = parseTeacherType(request.teacherType());
+        User teacher = resolvePrimaryTeacher(classId, teacherType);
         User actor = getUserOrThrow(actorUserId);
         Room room = request.roomId() == null ? null : getRoomOrThrow(request.roomId());
         ClassSession.SessionType sessionType = ClassSession.SessionType.valueOf(request.sessionType());
-        ClassSession.TeacherType teacherType = parseTeacherType(request.teacherType());
 
         int totalDates = 0;
         List<ClassSessionResponse> created = new ArrayList<>();
@@ -297,18 +319,19 @@ public class ClassSessionService {
      * dịch bao ngoài).
      */
     ClassSessionResponse createSessionForImport(Long classId, LocalDate sessionDate, LocalTime startTime, LocalTime endTime,
-                                                 Long roomId, Long teacherId, String sessionType, Long actorUserId) {
+                                                 Long roomId, String teacherType, String sessionType, Long actorUserId) {
         SchoolClass schoolClass = getSchoolClassOrThrow(classId);
         if (!endTime.isAfter(startTime)) {
             throw new IllegalArgumentException("endTime phải sau startTime.");
         }
-        User teacher = getUserOrThrow(teacherId);
+        ClassSession.TeacherType parsedTeacherType = parseTeacherType(teacherType);
+        User teacher = resolvePrimaryTeacher(classId, parsedTeacherType);
         User actor = getUserOrThrow(actorUserId);
         Room room = roomId == null ? null : getRoomOrThrow(roomId);
 
-        // teacherType/makeupForSessionId chưa có trong luồng Excel import (UC-57) — ngoài phạm vi yêu cầu bổ sung này.
+        // makeupForSessionId chưa có trong luồng Excel import (UC-57) — ngoài phạm vi yêu cầu bổ sung này.
         ClassSession session = createSessionEntity(schoolClass, sessionDate, startTime, endTime, room, teacher,
-                ClassSession.SessionType.valueOf(sessionType), actor, null, null);
+                ClassSession.SessionType.valueOf(sessionType), actor, parsedTeacherType, null);
         return toResponse(session);
     }
 
@@ -376,7 +399,6 @@ public class ClassSessionService {
         return session;
     }
 
-    /** teacherType tùy chọn (nullable) — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-29. */
     private ClassSession.TeacherType parseTeacherType(String teacherType) {
         return teacherType == null ? null : ClassSession.TeacherType.valueOf(teacherType);
     }
@@ -409,7 +431,7 @@ public class ClassSessionService {
         if (!request.newEndTime().isAfter(request.newStartTime())) {
             throw new IllegalArgumentException("newEndTime phải sau newStartTime.");
         }
-        User newTeacher = getUserOrThrow(request.newPrimaryTeacherId());
+        User newTeacher = resolvePrimaryTeacher(oldSession.getSchoolClass().getId(), oldSession.getTeacherType());
         User actor = getUserOrThrow(actorUserId);
 
         Room newRoom = null;

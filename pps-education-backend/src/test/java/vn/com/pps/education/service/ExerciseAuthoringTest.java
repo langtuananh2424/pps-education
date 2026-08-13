@@ -135,7 +135,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
         teacher = newUser("teacher");
         assignRole(teacher, "TEACHER");
         classService.assignTeacher(schoolClass.id(),
-                new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now()), headAcademic.getId());
+                new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now(), "VIETNAMESE"), headAcademic.getId());
 
         bank = questionBankService.createBank(
                 new CreateQuestionBankRequest(bankCode(), "Ngân hàng Ngữ pháp", activeCurriculum.id(), null, "A1"),

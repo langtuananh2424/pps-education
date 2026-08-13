@@ -12,15 +12,18 @@ import { RoomResponse, listRoomsBySite } from "@/features/facility/api";
 import {
   AcademicYearResponse,
   AssignTeacherRequest,
+  ChangeTeacherRequest,
   ClassEnrollmentBatchImportResponse,
   ClassEnrollmentResponse,
   ClassResponse,
   ClassSessionResponse,
+  ClassTeacherHistoryResponse,
   ClassTeacherResponse,
   CreateClassSessionRequest,
   RescheduleClassSessionRequest,
   assignClassTeacher,
   cancelClassSession,
+  changeClassTeacher,
   createClassSession,
   downloadEnrollmentImportTemplate,
   endClassTeacherAssignment,
@@ -31,6 +34,7 @@ import {
   listCancelledSessionsPendingMakeup,
   listClassEnrollments,
   listClassSessions,
+  listClassTeacherHistory,
   listClassTeachers,
   rescheduleClassSession,
   updateClass,
@@ -290,7 +294,12 @@ function toForm(c: ClassResponse) {
   };
 }
 
-const teacherRoleLabels: Record<ClassTeacherResponse["teacherRole"], string> = { PRIMARY: "Chính", ASSISTANT: "Trợ giảng", SUBSTITUTE: "Dạy thay" };
+const teacherRoleLabels: Record<ClassTeacherResponse["teacherRole"], string> = {
+  PRIMARY: "Chính",
+  ASSISTANT: "Trợ giảng",
+  SUBSTITUTE: "Dạy thay",
+  CM: "Quản lý lớp (CM)"
+};
 
 function TeachersTab({ classId, canManage, showToast }: { classId: number; canManage: boolean; showToast: (msg: string) => void }) {
   const [teachers, setTeachers] = useState<ClassTeacherResponse[]>([]);
@@ -298,6 +307,8 @@ function TeachersTab({ classId, canManage, showToast }: { classId: number; canMa
   const [error, setError] = useState<string | null>(null);
   const [assigning, setAssigning] = useState(false);
   const [endingId, setEndingId] = useState<number | null>(null);
+  const [changingId, setChangingId] = useState<number | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
   const { confirmDialog } = useDialog();
 
   const load = () => {
@@ -327,12 +338,17 @@ function TeachersTab({ classId, canManage, showToast }: { classId: number; canMa
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <span className="text-[10px] font-bold uppercase text-slate-500">Giáo viên phụ trách ({teachers.length})</span>
-        {canManage && !assigning && (
-          <Button size="sm" variant="secondary" onClick={() => setAssigning(true)}>
-            <UserPlus className="w-3.5 h-3.5" />
-            Gán giáo viên
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="secondary" onClick={() => setShowHistory(true)}>
+            Lịch sử thay đổi
           </Button>
-        )}
+          {canManage && !assigning && (
+            <Button size="sm" variant="secondary" onClick={() => setAssigning(true)}>
+              <UserPlus className="w-3.5 h-3.5" />
+              Gán giáo viên
+            </Button>
+          )}
+        </div>
       </div>
 
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
@@ -344,20 +360,45 @@ function TeachersTab({ classId, canManage, showToast }: { classId: number; canMa
       ) : (
         <div className="space-y-2">
           {teachers.map((t) => (
-            <div key={t.id} className="border border-slate-200 rounded-lg p-3 text-xs flex items-center justify-between">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-bold text-slate-800">{t.teacherFullName}</span>
-                <Badge variant="info">{teacherRoleLabels[t.teacherRole]}</Badge>
-                {t.assignedTo && <Badge variant="neutral">Đã kết thúc {t.assignedTo}</Badge>}
+            <div key={t.id} className="border border-slate-200 rounded-lg p-3 text-xs">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-bold text-slate-800">{t.teacherFullName}</span>
+                  <Badge variant="info">{teacherRoleLabels[t.teacherRole]}</Badge>
+                  {t.teacherType && <Badge variant="neutral">{teacherTypeLabels[t.teacherType]}</Badge>}
+                  {t.assignedTo && <Badge variant="neutral">Đã kết thúc {t.assignedTo}</Badge>}
+                </div>
+                {canManage && !t.assignedTo && (
+                  <div className="flex items-center gap-3">
+                    {t.teacherRole === "PRIMARY" && (
+                      <button
+                        onClick={() => setChangingId(changingId === t.id ? null : t.id)}
+                        className="text-sky-600 hover:text-sky-800 text-[11px] font-semibold"
+                      >
+                        Đổi giáo viên
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleEndAssignment(t)}
+                      disabled={endingId === t.id}
+                      className="text-rose-500 hover:text-rose-700 text-[11px] font-semibold disabled:opacity-50"
+                    >
+                      {endingId === t.id ? "Đang xử lý..." : "Kết thúc phụ trách"}
+                    </button>
+                  </div>
+                )}
               </div>
-              {canManage && !t.assignedTo && (
-                <button
-                  onClick={() => handleEndAssignment(t)}
-                  disabled={endingId === t.id}
-                  className="text-rose-500 hover:text-rose-700 text-[11px] font-semibold disabled:opacity-50"
-                >
-                  {endingId === t.id ? "Đang xử lý..." : "Kết thúc phụ trách"}
-                </button>
+              {changingId === t.id && (
+                <ChangeTeacherForm
+                  classId={classId}
+                  classTeacherId={t.id}
+                  onDone={() => {
+                    setChangingId(null);
+                    load();
+                    showToast("Đã đổi giáo viên chính thành công!");
+                  }}
+                  onCancel={() => setChangingId(null)}
+                />
               )}
             </div>
           ))}
@@ -375,6 +416,54 @@ function TeachersTab({ classId, canManage, showToast }: { classId: number; canMa
           onCancel={() => setAssigning(false)}
         />
       )}
+
+      <Modal open={showHistory} onClose={() => setShowHistory(false)} title="Lịch sử thay đổi giáo viên phụ trách" size="lg">
+        <TeacherHistoryPanel classId={classId} />
+      </Modal>
+    </div>
+  );
+}
+
+/** UC-18 (bổ sung ngoài SDD gốc, xác nhận 2026-08-13): timeline lịch sử thay đổi giáo viên phụ trách của cả lớp. */
+function TeacherHistoryPanel({ classId }: { classId: number }) {
+  const [history, setHistory] = useState<ClassTeacherHistoryResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLoading(true);
+    listClassTeacherHistory(classId)
+      .then(setHistory)
+      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được lịch sử."))
+      .finally(() => setLoading(false));
+  }, [classId]);
+
+  const describe = (h: ClassTeacherHistoryResponse) => {
+    if (h.action === "CREATED") {
+      const role = h.details.teacherRole ? teacherRoleLabels[h.details.teacherRole as ClassTeacherResponse["teacherRole"]] : "?";
+      const type = h.details.teacherType ? ` (${teacherTypeLabels[h.details.teacherType as "VIETNAMESE" | "FOREIGN"]})` : "";
+      return `Gán ${h.teacherFullName} làm ${role}${type}`;
+    }
+    return `Kết thúc phụ trách của ${h.teacherFullName} từ ngày ${h.details.assignedTo ?? "?"}`;
+  };
+
+  if (loading) return <p className="text-xs text-slate-500">Đang tải...</p>;
+  if (error) return <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>;
+  if (history.length === 0) return <p className="text-xs text-slate-400 italic">Chưa có lịch sử thay đổi giáo viên phụ trách.</p>;
+
+  return (
+    <div className="space-y-2 max-h-96 overflow-y-auto">
+      {history.map((h) => (
+        <div key={h.id} className="border border-slate-200 rounded-lg p-3 text-xs flex items-center justify-between gap-2">
+          <div>
+            <p className="text-slate-800">{describe(h)}</p>
+            <p className="text-[10px] text-slate-400 mt-0.5">
+              bởi {h.changedByName} · {new Date(h.createdAt).toLocaleString("vi-VN")}
+            </p>
+          </div>
+          <Badge variant={h.action === "CREATED" ? "success" : "neutral"}>{h.action === "CREATED" ? "Gán mới" : "Kết thúc"}</Badge>
+        </div>
+      ))}
     </div>
   );
 }
@@ -382,6 +471,7 @@ function TeachersTab({ classId, canManage, showToast }: { classId: number; canMa
 function AssignTeacherForm({ classId, onDone, onCancel }: { classId: number; onDone: () => void; onCancel: () => void }) {
   const [selected, setSelected] = useState<UserListItemResponse | null>(null);
   const [teacherRole, setTeacherRole] = useState<AssignTeacherRequest["teacherRole"]>("PRIMARY");
+  const [teacherType, setTeacherType] = useState<"" | "VIETNAMESE" | "FOREIGN">("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -391,10 +481,18 @@ function AssignTeacherForm({ classId, onDone, onCancel }: { classId: number; onD
       setError("Vui lòng chọn tài khoản giáo viên.");
       return;
     }
+    if (teacherRole === "PRIMARY" && !teacherType) {
+      setError("Giáo viên chính bắt buộc chọn loại giáo viên (Việt Nam/nước ngoài).");
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
-      await assignClassTeacher(classId, { teacherUserId: selected.id, teacherRole });
+      await assignClassTeacher(classId, {
+        teacherUserId: selected.id,
+        teacherRole,
+        teacherType: teacherRole === "PRIMARY" ? (teacherType as "VIETNAMESE" | "FOREIGN") : undefined
+      });
       onDone();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Gán giáo viên thất bại.");
@@ -408,11 +506,30 @@ function AssignTeacherForm({ classId, onDone, onCancel }: { classId: number; onD
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
       <UserSearchCombobox value={selected} onChange={setSelected} roleFilter="TEACHER" placeholder="Bấm để xem danh sách hoặc gõ để tìm giáo viên..." />
 
-      <Select value={teacherRole} onChange={(e) => setTeacherRole(e.target.value as AssignTeacherRequest["teacherRole"])} className={inputClass}>
-        <option value="PRIMARY">Giáo viên chính</option>
-        <option value="ASSISTANT">Trợ giảng</option>
-        <option value="SUBSTITUTE">Dạy thay</option>
-      </Select>
+      <div className="grid grid-cols-2 gap-2">
+        <Select
+          value={teacherRole}
+          onChange={(e) => setTeacherRole(e.target.value as AssignTeacherRequest["teacherRole"])}
+          className={inputClass}
+        >
+          <option value="PRIMARY">Giáo viên chính</option>
+          <option value="CM">Quản lý lớp (CM)</option>
+          <option value="ASSISTANT">Trợ giảng</option>
+          <option value="SUBSTITUTE">Dạy thay</option>
+        </Select>
+        {teacherRole === "PRIMARY" && (
+          <Select value={teacherType} onChange={(e) => setTeacherType(e.target.value as "" | "VIETNAMESE" | "FOREIGN")} className={inputClass}>
+            <option value="">-- Chọn loại giáo viên --</option>
+            <option value="VIETNAMESE">GV Việt Nam</option>
+            <option value="FOREIGN">GV nước ngoài</option>
+          </Select>
+        )}
+      </div>
+      {teacherRole === "PRIMARY" && (
+        <p className="text-[10px] text-slate-400 italic">
+          Lớp có thể có đồng thời 1 giáo viên chính người Việt Nam + 1 giáo viên chính người nước ngoài.
+        </p>
+      )}
 
       <div className="flex gap-2">
         <Button type="button" variant="secondary" size="sm" onClick={onCancel}>
@@ -420,6 +537,65 @@ function AssignTeacherForm({ classId, onDone, onCancel }: { classId: number; onD
         </Button>
         <Button type="submit" variant="primary" size="sm" disabled={submitting}>
           {submitting ? "Đang lưu..." : "Gán giáo viên"}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+/** UC-18 (bổ sung ngoài SDD gốc, xác nhận 2026-08-13): đổi giáo viên chính — cascade tự động sang các buổi SCHEDULED tương lai cùng loại giáo viên. */
+function ChangeTeacherForm({
+  classId,
+  classTeacherId,
+  onDone,
+  onCancel
+}: {
+  classId: number;
+  classTeacherId: number;
+  onDone: () => void;
+  onCancel: () => void;
+}) {
+  const [selected, setSelected] = useState<UserListItemResponse | null>(null);
+  const [effectiveDate, setEffectiveDate] = useState(new Date().toISOString().slice(0, 10));
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selected || !effectiveDate) {
+      setError("Vui lòng chọn giáo viên mới và ngày hiệu lực.");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      const request: ChangeTeacherRequest = { newTeacherUserId: selected.id, effectiveDate };
+      await changeClassTeacher(classId, classTeacherId, request);
+      onDone();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Đổi giáo viên chính thất bại.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="bg-sky-50 border border-sky-200 rounded-lg p-3 mt-2 space-y-2">
+      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
+      <p className="text-[10px] text-slate-500">
+        Các buổi học SCHEDULED từ ngày hiệu lực trở đi, cùng loại giáo viên, sẽ tự động đổi giáo viên phụ trách (trừ buổi đang có GV dạy thay).
+      </p>
+      <UserSearchCombobox value={selected} onChange={setSelected} roleFilter="TEACHER" placeholder="Bấm để xem danh sách hoặc gõ để tìm giáo viên mới..." />
+      <div>
+        <label className={labelClass}>Ngày hiệu lực</label>
+        <DatePicker value={effectiveDate} onChange={setEffectiveDate} />
+      </div>
+      <div className="flex gap-2">
+        <Button type="button" variant="secondary" size="sm" onClick={onCancel}>
+          Hủy
+        </Button>
+        <Button type="submit" variant="primary" size="sm" disabled={submitting}>
+          {submitting ? "Đang lưu..." : "Đổi giáo viên"}
         </Button>
       </div>
     </form>
@@ -1021,10 +1197,6 @@ function RescheduleSessionForm({
   onDone: () => void;
   onCancel: () => void;
 }) {
-  // UserSearchCombobox cần cả username (không chỉ id/fullName) để hiện đúng — ClassSessionResponse
-  // không trả username của GV phụ trách, nên không dựng sẵn được object giả — để trống, GV/GV vụ tự
-  // chọn lại (kể cả không đổi người, chỉ đổi ngày/giờ/phòng) thay vì hiện sai "undefined".
-  const [teacher, setTeacher] = useState<UserListItemResponse | null>(null);
   const [rooms, setRooms] = useState<RoomResponse[]>([]);
   const [roomId, setRoomId] = useState(session.roomId != null ? String(session.roomId) : "");
   const [form, setForm] = useState({ sessionDate: session.sessionDate, startTime: session.startTime, endTime: session.endTime, reason: "" });
@@ -1037,8 +1209,8 @@ function RescheduleSessionForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!teacher || !form.sessionDate || !form.startTime || !form.endTime) {
-      setError("Vui lòng điền đủ ngày/giờ mới và chọn giáo viên phụ trách.");
+    if (!form.sessionDate || !form.startTime || !form.endTime) {
+      setError("Vui lòng điền đủ ngày/giờ mới.");
       return;
     }
     setSubmitting(true);
@@ -1049,7 +1221,6 @@ function RescheduleSessionForm({
         newStartTime: form.startTime,
         newEndTime: form.endTime,
         newRoomId: roomId ? Number(roomId) : undefined,
-        newPrimaryTeacherId: teacher.id,
         reason: form.reason.trim() || undefined
       };
       await rescheduleClassSession(classId, session.id, request);
@@ -1083,23 +1254,24 @@ function RescheduleSessionForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <label className={labelClass}>Phòng học mới</label>
-          <Select value={roomId} onChange={(e) => setRoomId(e.target.value)} className={inputClass}>
-            <option value="">-- Không gán --</option>
-            {rooms.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.code} — {r.name}
-              </option>
-            ))}
-          </Select>
-        </div>
-        <div>
-          <label className={labelClass}>Giáo viên phụ trách mới (hiện tại: {session.primaryTeacherName})</label>
-          <UserSearchCombobox value={teacher} onChange={setTeacher} roleFilter="TEACHER" placeholder="Bấm để chọn lại giáo viên (kể cả giữ nguyên người cũ)..." />
-        </div>
+      <div>
+        <label className={labelClass}>Phòng học mới</label>
+        <Select value={roomId} onChange={(e) => setRoomId(e.target.value)} className={inputClass}>
+          <option value="">-- Không gán --</option>
+          {rooms.map((r) => (
+            <option key={r.id} value={r.id}>
+              {r.code} — {r.name}
+            </option>
+          ))}
+        </Select>
       </div>
+      {/* Bổ sung ngoài SDD gốc, xác nhận 2026-08-13: giáo viên phụ trách buổi mới KHÔNG còn chọn tay
+          — hệ thống tự động suy ra lại từ giáo viên chính đang phụ trách lớp cùng loại giáo viên
+          (VN/nước ngoài) của buổi cũ. */}
+      <p className="text-[11px] text-slate-500">
+        Giáo viên phụ trách buổi mới: tự động theo giáo viên chính hiện tại của lớp (hiện tại buổi này: {session.primaryTeacherName}
+        {session.teacherType && ` — ${teacherTypeLabels[session.teacherType]}`}).
+      </p>
 
       <div>
         <label className={labelClass}>Lý do dời lịch (không bắt buộc)</label>
@@ -1119,7 +1291,6 @@ function RescheduleSessionForm({
 }
 
 function CreateSessionForm({ classId, siteId, onDone, onCancel }: { classId: number; siteId: number; onDone: () => void; onCancel: () => void }) {
-  const [teacher, setTeacher] = useState<UserListItemResponse | null>(null);
   const [rooms, setRooms] = useState<RoomResponse[]>([]);
   const [roomId, setRoomId] = useState("");
   const [form, setForm] = useState({ sessionDate: "", startTime: "", endTime: "", sessionType: "REGULAR", teacherType: "" });
@@ -1147,8 +1318,12 @@ function CreateSessionForm({ classId, siteId, onDone, onCancel }: { classId: num
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!teacher || !form.sessionDate || !form.startTime || !form.endTime) {
-      setError("Vui lòng điền đủ ngày/giờ và chọn giáo viên phụ trách.");
+    if (!form.sessionDate || !form.startTime || !form.endTime) {
+      setError("Vui lòng điền đủ ngày/giờ.");
+      return;
+    }
+    if (!form.teacherType) {
+      setError("Vui lòng chọn loại giáo viên — hệ thống sẽ tự lấy đúng giáo viên chính của lớp theo loại này.");
       return;
     }
     if (form.sessionType === "MAKEUP" && !makeupForSessionId) {
@@ -1163,9 +1338,8 @@ function CreateSessionForm({ classId, siteId, onDone, onCancel }: { classId: num
         startTime: form.startTime,
         endTime: form.endTime,
         roomId: roomId ? Number(roomId) : undefined,
-        primaryTeacherId: teacher.id,
         sessionType: form.sessionType,
-        teacherType: form.teacherType ? (form.teacherType as "VIETNAMESE" | "FOREIGN") : undefined,
+        teacherType: form.teacherType as "VIETNAMESE" | "FOREIGN",
         makeupForSessionId: form.sessionType === "MAKEUP" ? Number(makeupForSessionId) : undefined
       };
       await createClassSession(classId, request);
@@ -1207,9 +1381,9 @@ function CreateSessionForm({ classId, siteId, onDone, onCancel }: { classId: num
           </Select>
         </div>
         <div>
-          <label className={labelClass}>Loại giáo viên</label>
+          <label className={labelClass}>Loại giáo viên *</label>
           <Select value={form.teacherType} onChange={(e) => setForm({ ...form, teacherType: e.target.value })} className={inputClass}>
-            <option value="">-- Chưa xác định --</option>
+            <option value="">-- Chọn loại giáo viên --</option>
             <option value="VIETNAMESE">GV Việt Nam</option>
             <option value="FOREIGN">GV nước ngoài</option>
           </Select>
@@ -1244,10 +1418,11 @@ function CreateSessionForm({ classId, siteId, onDone, onCancel }: { classId: num
         </div>
       )}
 
-      <div>
-        <label className={labelClass}>Giáo viên phụ trách buổi này</label>
-        <UserSearchCombobox value={teacher} onChange={setTeacher} roleFilter="TEACHER" placeholder="Bấm để xem danh sách hoặc gõ để tìm giáo viên..." />
-      </div>
+      {/* Bổ sung ngoài SDD gốc, xác nhận 2026-08-13: giáo viên phụ trách KHÔNG còn chọn tay — hệ
+          thống tự động lấy giáo viên chính (PRIMARY) đang phụ trách lớp cùng loại giáo viên đã chọn. */}
+      <p className="text-[11px] text-slate-500">
+        Giáo viên phụ trách buổi này sẽ tự động lấy theo giáo viên chính của lớp đúng loại giáo viên đã chọn ở trên.
+      </p>
 
       <div className="flex gap-2">
         <Button type="button" variant="secondary" size="sm" onClick={onCancel}>

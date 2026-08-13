@@ -137,7 +137,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         teacher = newUser("teacher");
         assignRole(teacher, "TEACHER");
         classService.assignTeacher(schoolClass.id(),
-                new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now()), headAcademic.getId());
+                new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now(), "VIETNAMESE"), headAcademic.getId());
     }
 
     // ===================== createSet (UC-23) =====================
@@ -1221,7 +1221,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
                 new CreateClassRequest(classCode(), "Lớp phụ", newSite().getId(), curriculumId, "OPEN", 20, null,
                         LocalDate.now(), null, null), headAcademic.getId());
         classService.assignTeacher(cls.id(),
-                new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now()), headAcademic.getId());
+                new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now(), "VIETNAMESE"), headAcademic.getId());
         return cls;
     }
 

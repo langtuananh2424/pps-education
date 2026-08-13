@@ -157,7 +157,7 @@ class TranscriptReportGenerationControllerTest extends AbstractControllerTest {
         teacher = newUser("teacher.transcript");
         assignRole(teacher, "TEACHER");
         classService.assignTeacher(schoolClass.id(),
-                new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now()), headAcademic.getId());
+                new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now(), "VIETNAMESE"), headAcademic.getId());
 
         student = newStudent();
     }

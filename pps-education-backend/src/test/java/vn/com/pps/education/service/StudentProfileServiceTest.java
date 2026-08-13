@@ -111,7 +111,7 @@ class StudentProfileServiceTest extends AbstractIntegrationTest {
                 new CreateClassRequest(classCode(), "8A2", site.getId(), activeCurriculum.id(), "OPEN", 20, null,
                         LocalDate.now().minusMonths(1), null, null), headAcademic.getId());
         classService.assignTeacher(schoolClass.id(),
-                new vn.com.pps.education.dto.AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now().minusMonths(1)),
+                new vn.com.pps.education.dto.AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now().minusMonths(1), "VIETNAMESE"),
                 headAcademic.getId());
 
         termStart = LocalDate.now().minusMonths(1);

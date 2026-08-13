@@ -207,7 +207,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         teacher = newUser("teacher");
         assignRole(teacher, "TEACHER");
         classService.assignTeacher(schoolClass.id(),
-                new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now()), headAcademic.getId());
+                new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now(), "VIETNAMESE"), headAcademic.getId());
 
         siteManagerUser = newUser("site.manager");
         assignRole(siteManagerUser, "SITE_MANAGER");
@@ -222,8 +222,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
 
         Room room = newRoom(site);
         classSession = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(LocalDate.now(), LocalTime.of(8, 0), LocalTime.of(9, 40),
-                        room.getId(), teacher.getId(), "REGULAR", null, null),
+                new CreateClassSessionRequest(LocalDate.now(), LocalTime.of(8, 0), LocalTime.of(9, 40), room.getId(), "REGULAR", "VIETNAMESE", null),
                 headAcademic.getId());
         // Bài học hôm nay mặc định đã điền — bắt buộc để submitComments() cho DAILY không bị
         // chặn bởi MissingLessonContentException (bổ sung ngoài SDD gốc, đã xác nhận với người
@@ -280,8 +279,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
     void writeComment_UC21_dailyCommentBlockedAfterEditWindowForTeacher() {
         Room room = newRoom(siteOf(schoolClass));
         ClassSessionResponse oldSession = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(LocalDate.now().minusDays(8), LocalTime.of(8, 0), LocalTime.of(9, 40),
-                        room.getId(), teacher.getId(), "REGULAR", null, null),
+                new CreateClassSessionRequest(LocalDate.now().minusDays(8), LocalTime.of(8, 0), LocalTime.of(9, 40), room.getId(), "REGULAR", "VIETNAMESE", null),
                 headAcademic.getId());
 
         assertThatThrownBy(() -> studentCommentService.writeComment(schoolClass.id(),
@@ -295,8 +293,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
     void writeComment_UC21_approverBypassesEditWindow() {
         Room room = newRoom(siteOf(schoolClass));
         ClassSessionResponse oldSession = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(LocalDate.now().minusDays(8), LocalTime.of(8, 0), LocalTime.of(9, 40),
-                        room.getId(), teacher.getId(), "REGULAR", null, null),
+                new CreateClassSessionRequest(LocalDate.now().minusDays(8), LocalTime.of(8, 0), LocalTime.of(9, 40), room.getId(), "REGULAR", "VIETNAMESE", null),
                 headAcademic.getId());
 
         StudentCommentResponse comment = studentCommentService.writeComment(schoolClass.id(),
@@ -580,8 +577,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
     void submitComments_boSung_rejectsDailyCommentWhenLessonContentMissing() throws IOException {
         Room room = newRoom(siteOf(schoolClass));
         ClassSessionResponse sessionWithoutLesson = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(LocalDate.now().plusDays(1), LocalTime.of(8, 0), LocalTime.of(9, 40),
-                        room.getId(), teacher.getId(), "REGULAR", null, null),
+                new CreateClassSessionRequest(LocalDate.now().plusDays(1), LocalTime.of(8, 0), LocalTime.of(9, 40), room.getId(), "REGULAR", "VIETNAMESE", null),
                 headAcademic.getId());
         StudentCommentResponse comment = studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), sessionWithoutLesson.id(),
@@ -616,7 +612,9 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
             assertThat(groupHeader.getCell(7).getStringCellValue()).isEqualTo("BTVN buổi trước");
             assertThat(groupHeader.getCell(11).getStringCellValue()).isEqualTo("BTVN online");
             assertThat(subHeader.getCell(7).getStringCellValue()).isEqualTo("Offline");
-            assertThat(subHeader.getCell(11).getStringCellValue()).isEqualTo("Bài");
+            // classSession giờ luôn có teacherType=VIETNAMESE (bắt buộc, xác nhận 2026-08-13) -- nhãn kênh
+            // "Ngữ pháp" thay vì fallback "Bài" (chỉ áp dụng buổi cũ chưa xác định teacherType).
+            assertThat(subHeader.getCell(11).getStringCellValue()).isEqualTo("Ngữ pháp");
             assertThat(sheet.getLastRowNum()).isEqualTo(2);
             Row row = sheet.getRow(2);
             assertThat(row.getCell(1).getStringCellValue()).isEqualTo(student.getStudentCode());
@@ -928,8 +926,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
     private ClassSessionResponse nextSession() {
         Room room2 = newRoom(siteOf(schoolClass));
         return classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(classSession.sessionDate().plusDays(1), LocalTime.of(8, 0), LocalTime.of(9, 40),
-                        room2.getId(), teacher.getId(), "REGULAR", null, null),
+                new CreateClassSessionRequest(classSession.sessionDate().plusDays(1), LocalTime.of(8, 0), LocalTime.of(9, 40), room2.getId(), "REGULAR", "VIETNAMESE", null),
                 headAcademic.getId());
     }
 

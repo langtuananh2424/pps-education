@@ -41,8 +41,12 @@ import java.util.Map;
  * Định dạng file .xlsx: dòng 1 = header, dữ liệu từ dòng 2 — cột tự định
  * nghĩa (không có mẫu trong SRS/SDD, giống tiền lệ UC-35/50/51): A=Ngày
  * (dd/MM/yyyy), B=Giờ bắt đầu (HH:mm), C=Giờ kết thúc (HH:mm), D=Loại
- * buổi (để trống = REGULAR), E=Username giáo viên phụ trách (bắt buộc),
- * F=Mã phòng (tùy chọn, tra theo đúng điểm trường của lớp).
+ * buổi (để trống = REGULAR), E=Loại giáo viên (VIETNAMESE/FOREIGN, bắt
+ * buộc — bổ sung ngoài SDD gốc, xác nhận 2026-08-13: giáo viên phụ trách
+ * KHÔNG còn nhập username, hệ thống tự suy ra từ giáo viên chính của lớp
+ * cùng loại này, đây là THAY ĐỔI ĐỊNH DẠNG so với bản trước đó dùng
+ * username GV ở cột E), F=Mã phòng (tùy chọn, tra theo đúng điểm trường
+ * của lớp).
  *
  * Transaction: 1 @Transactional bọc toàn bộ vòng lặp, giống hệt pattern
  * GradeImportService/ParentBatchImportService — 1 dòng lỗi (thiếu GV,
@@ -150,7 +154,7 @@ public class ClassScheduleImportService {
         String startTimeText = cell(row, formatter, 1);
         String endTimeText = cell(row, formatter, 2);
         String sessionTypeText = cell(row, formatter, 3);
-        String teacherUsername = cell(row, formatter, 4);
+        String teacherTypeText = cell(row, formatter, 4);
         String roomCode = cell(row, formatter, 5);
 
         if (dateText == null || dateText.isBlank()) {
@@ -162,8 +166,8 @@ public class ClassScheduleImportService {
         if (endTimeText == null || endTimeText.isBlank()) {
             throw new IllegalArgumentException("Thiếu giờ kết thúc (cột C).");
         }
-        if (teacherUsername == null || teacherUsername.isBlank()) {
-            throw new IllegalArgumentException("Thiếu username giáo viên phụ trách (cột E).");
+        if (teacherTypeText == null || teacherTypeText.isBlank()) {
+            throw new IllegalArgumentException("Thiếu loại giáo viên (cột E, cần VIETNAMESE/FOREIGN).");
         }
 
         LocalDate sessionDate = parseDate(dateText);
@@ -171,9 +175,7 @@ public class ClassScheduleImportService {
         LocalTime endTime = parseTime(endTimeText, "giờ kết thúc");
         String sessionType = (sessionTypeText == null || sessionTypeText.isBlank())
                 ? ClassSession.SessionType.REGULAR.name() : parseSessionType(sessionTypeText.trim());
-
-        User teacher = userRepository.findByUsername(teacherUsername.trim())
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy giáo viên username=" + teacherUsername.trim()));
+        String teacherType = parseTeacherType(teacherTypeText.trim());
 
         Long roomId = null;
         if (roomCode != null && !roomCode.isBlank()) {
@@ -184,7 +186,7 @@ public class ClassScheduleImportService {
         }
 
         classSessionService.createSessionForImport(
-                classId, sessionDate, startTime, endTime, roomId, teacher.getId(), sessionType, actorUserId);
+                classId, sessionDate, startTime, endTime, roomId, teacherType, sessionType, actorUserId);
     }
 
     private LocalDate parseDate(String text) {
@@ -208,6 +210,14 @@ public class ClassScheduleImportService {
             return ClassSession.SessionType.valueOf(text.toUpperCase()).name();
         } catch (IllegalArgumentException ex) {
             throw new IllegalArgumentException("Loại buổi không hợp lệ (cần REGULAR/MAKEUP/EXAM/SPECIAL): " + text);
+        }
+    }
+
+    private String parseTeacherType(String text) {
+        try {
+            return ClassSession.TeacherType.valueOf(text.toUpperCase()).name();
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException("Loại giáo viên không hợp lệ (cần VIETNAMESE/FOREIGN): " + text);
         }
     }
 

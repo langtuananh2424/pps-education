@@ -173,4 +173,13 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, Long
 
     /** "1 buổi hủy — đúng 1 buổi bù": true nếu đã có buổi MAKEUP nào liên kết tới buổi này. */
     boolean existsByMakeupForSessionId(Long sessionId);
+
+    /**
+     * UC-18 changeTeacher (bổ sung ngoài SDD gốc, xác nhận 2026-08-13):
+     * các buổi học tương lai còn SCHEDULED, cùng loại giáo viên vừa đổi —
+     * ứng viên để cascade cập nhật giáo viên phụ trách (Service tự loại
+     * trừ buổi đang có dạy thay active qua LeaveSubstitutionRepository).
+     */
+    List<ClassSession> findBySchoolClassIdAndTeacherTypeAndStatusAndSessionDateGreaterThanEqual(
+            Long classId, ClassSession.TeacherType teacherType, ClassSession.Status status, LocalDate fromDate);
 }
