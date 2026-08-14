@@ -1016,6 +1016,8 @@
 | `myLatestPassed` | boolean |  |
 | `myLatestPercentage` | number |  |
 | `myLatestTotalScore` | number |  |
+| `sessionDate` | string (date) |  |
+| `teacherType` | string |  |
 | `title` | string |  |
 
 ### AttendanceCheckRequest
@@ -2779,6 +2781,7 @@ _(không có trường — object rỗng hoặc kiểu đặc biệt)_
 | `dueAt` | string (date-time) |  |
 | `reviewVideoSetId` | integer (int64) |  |
 | `reviewVideoSetTitle` | string |  |
+| `sessionDate` | string (date) |  |
 | `videoType` | string |  |
 
 ### NotificationPreferenceRequest

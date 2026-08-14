@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
-import { AlertCircle, Bell, BookOpen, Check, CheckCircle2, ChevronRight, Clock, Filter, Link2, MessageCircle, Play, Video } from "lucide-react";
+import { AlertCircle, Bell, BookOpen, CalendarDays, Check, CheckCircle2, ChevronRight, Clock, Filter, GraduationCap, Link2, MessageCircle, Play, Video } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
-import { formatDateTimeHm } from "@/lib/format";
+import { formatDate, formatDateTimeHm } from "@/lib/format";
 import {
   AssignedExerciseResponse,
   MyReviewVideoAssignmentResponse,
@@ -109,6 +109,10 @@ interface ReviewVideoHomeworkItem {
    * NHIỀU card thay vì gộp mất chỉ còn 1 hạn nộp (xem load() bên dưới).
    */
   assignmentId?: number;
+  /** V123 — GV Việt Nam/nước ngoài phụ trách bộ này (ReviewVideoSetResponse.teacherType, luôn có). */
+  teacherType: "VIETNAMESE" | "FOREIGN";
+  /** V123 — ngày buổi học GV đã giao BTVN này — undefined nếu chỉ nằm trong Kho hoặc bản giao TRƯỚC V123. */
+  sessionDate?: string | null;
 }
 
 /**
@@ -189,8 +193,13 @@ export default function AssignmentsTab({
         const groups = sets.flatMap((set) => {
           const setAssignments = assignmentsBySetId.get(set.id);
           return setAssignments && setAssignments.length > 0
-            ? setAssignments.map((a) => ({ set, dueAt: a.dueAt as string | undefined, assignmentId: a.assignmentId as number | undefined }))
-            : [{ set, dueAt: undefined as string | undefined, assignmentId: undefined as number | undefined }];
+            ? setAssignments.map((a) => ({
+                set,
+                dueAt: a.dueAt as string | undefined,
+                assignmentId: a.assignmentId as number | undefined,
+                sessionDate: a.sessionDate
+              }))
+            : [{ set, dueAt: undefined as string | undefined, assignmentId: undefined as number | undefined, sessionDate: undefined as string | null | undefined }];
         });
         // videos của cùng 1 bộ giống hệt nhau dù giao lặp lại nhiều lần — cache theo setId để không gọi
         // lại API listReviewVideos thừa cho mỗi bản giao trùng bộ.
@@ -204,7 +213,15 @@ export default function AssignmentsTab({
             const videos = await videosOf(g.set.id);
             return videos.map(
               (video) =>
-                ({ video, videoType: g.set.videoType, setTitle: g.set.title, dueAt: g.dueAt, assignmentId: g.assignmentId }) as ReviewVideoHomeworkItem
+                ({
+                  video,
+                  videoType: g.set.videoType,
+                  setTitle: g.set.title,
+                  dueAt: g.dueAt,
+                  assignmentId: g.assignmentId,
+                  teacherType: g.set.teacherType,
+                  sessionDate: g.sessionDate
+                }) as ReviewVideoHomeworkItem
             );
           })
         );
@@ -611,7 +628,20 @@ function ExerciseCard({
                 isOverdue ? "bg-coral/10 text-coral border-coral/20" : "bg-amber-100 text-amber-800 border-amber-300"
               }`}
             >
-              <Clock size={12} /> {isOverdue ? "Đã quá hạn nộp" : `Hạn nộp: ${item.dueAt ? formatDateTimeHm(item.dueAt) : "Không giới hạn"}`}
+              <Clock size={12} />
+              {isOverdue ? "Đã quá hạn nộp — " : "Hạn nộp: "}
+              {item.dueAt ? formatDateTimeHm(item.dueAt) : "Không giới hạn"}
+            </span>
+          )}
+          {/* V123, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-14 — GV Việt Nam/nước
+              ngoài phụ trách (đọc thật từ Exam.teacherType) + buổi đã giao BTVN này, hiện cho MỌI
+              trạng thái (không chỉ khi còn "pending" như hạn nộp ở trên) theo yêu cầu người dùng. */}
+          <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-muted border border-line text-[11px] font-black flex items-center gap-1">
+            <GraduationCap size={12} /> {item.teacherType === "VIETNAMESE" ? "Giáo viên Việt Nam phụ trách" : "Giáo viên nước ngoài phụ trách"}
+          </span>
+          {item.sessionDate && (
+            <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-muted border border-line text-[11px] font-black flex items-center gap-1">
+              <CalendarDays size={12} /> Giao trong buổi {formatDate(item.sessionDate)}
             </span>
           )}
         </div>
@@ -735,7 +765,21 @@ function ReviewVideoCard({
                 isOverdue ? "bg-coral/10 text-coral border-coral/20" : "bg-amber-100 text-amber-800 border-amber-300"
               }`}
             >
-              <Clock size={12} /> {isOverdue ? "Đã quá hạn nộp" : `Hạn nộp: ${formatDateTimeHm(dueAt)}`}
+              <Clock size={12} />
+              {isOverdue ? "Đã quá hạn nộp — " : "Hạn nộp: "}
+              {formatDateTimeHm(dueAt)}
+            </span>
+          )}
+          {/* V123, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-14 — GV Việt Nam/nước
+              ngoài phụ trách (đọc thật từ ReviewVideoSet.teacherType) + buổi đã giao BTVN này, hiện
+              cho MỌI trạng thái theo yêu cầu người dùng. teacherType luôn có (thuộc tính của Bộ, kể
+              cả video chỉ nằm trong Kho chưa được giao) — chỉ sessionDate cần bản giao thật. */}
+          <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-muted border border-line text-[11px] font-black flex items-center gap-1">
+            <GraduationCap size={12} /> {item.teacherType === "VIETNAMESE" ? "Giáo viên Việt Nam phụ trách" : "Giáo viên nước ngoài phụ trách"}
+          </span>
+          {item.sessionDate && (
+            <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-muted border border-line text-[11px] font-black flex items-center gap-1">
+              <CalendarDays size={12} /> Giao trong buổi {formatDate(item.sessionDate)}
             </span>
           )}
         </div>
