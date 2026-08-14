@@ -544,7 +544,9 @@ public class ExerciseAttemptService {
                 assignment.getAvailableFrom(), assignment.getDueAt(), assignment.isLateSubmissionAllowed(),
                 latest == null ? null : latest.getId(), latest == null ? null : latest.getStatus().name(),
                 latest == null ? null : latest.getTotalScore(), latestPercentage,
-                latest == null ? null : latest.getPassed());
+                latest == null ? null : latest.getPassed(),
+                exercise.getExam().getTeacherType().name(),
+                assignment.getSourceClassSession() == null ? null : assignment.getSourceClassSession().getSessionDate());
     }
 
     private StudentAnswerResponse toResponse(StudentAnswer a) {

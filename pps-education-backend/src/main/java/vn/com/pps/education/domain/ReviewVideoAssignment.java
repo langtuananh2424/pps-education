@@ -68,4 +68,13 @@ public class ReviewVideoAssignment {
     /** V92 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06): NULL = chưa nhắc Phụ huynh trước hạn nộp. */
     @Column(name = "parent_reminder_sent_at")
     private OffsetDateTime parentReminderSentAt;
+
+    /**
+     * V123 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-14) — mirror
+     * {@link ExerciseAssignment#getSourceClassSession()}: buổi học mà Giáo viên đang viết Nhận xét lúc
+     * chọn Bộ video này làm "BTVN buổi sau". NULL với bản giao tạo TRƯỚC V123.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "source_class_session_id")
+    private ClassSession sourceClassSession;
 }

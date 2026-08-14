@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 import vn.com.pps.education.domain.AttemptIntegrityEvent;
 import vn.com.pps.education.domain.ClassEnrollment;
+import vn.com.pps.education.domain.ClassSession;
 import vn.com.pps.education.domain.Curriculum;
 import vn.com.pps.education.domain.CurriculumSubject;
 import vn.com.pps.education.domain.Notification;
@@ -382,6 +383,16 @@ public class ReviewVideoService {
      */
     @Transactional
     public ReviewVideoAssignment deliverToClass(Long setId, Long classId, OffsetDateTime dueAt, Long actorUserId) {
+        return deliverToClass(setId, classId, dueAt, actorUserId, null);
+    }
+
+    /**
+     * V123 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-14): overload nhận thêm buổi
+     * học nguồn — mirror {@link ExerciseService#deliverToClass(Long, Long, OffsetDateTime, Long, ClassSession)}.
+     */
+    @Transactional
+    public ReviewVideoAssignment deliverToClass(Long setId, Long classId, OffsetDateTime dueAt, Long actorUserId,
+                                                 ClassSession sourceClassSession) {
         // Cắt về độ chính xác microsecond + so theo instant thực (không so cả offset) NGAY từ đầu —
         // xem giải thích chi tiết ở ExerciseService#deliverToClass/sameDueAt() (bug thật, tái hiện
         // được cả khi chạy 1 mình với DB sạch, KHÔNG phải lỗi rò rỉ dữ liệu giữa các test).
@@ -415,6 +426,7 @@ public class ReviewVideoService {
                 a.setSchoolClass(schoolClass);
                 a.setAssignedBy(actor);
                 a.setDueAt(finalDueAt);
+                a.setSourceClassSession(sourceClassSession);
                 return reviewVideoAssignmentRepository.saveAndFlush(a);
             });
         } catch (DataIntegrityViolationException e) {
@@ -499,7 +511,8 @@ public class ReviewVideoService {
                 result.add(new MyReviewVideoAssignmentResponse(
                         assignment.getId(), set.getId(), set.getTitle(), set.getVideoType().name(),
                         schoolClass.getId(), schoolClass.getName(),
-                        assignment.getAvailableFrom(), assignment.getDueAt()));
+                        assignment.getAvailableFrom(), assignment.getDueAt(),
+                        assignment.getSourceClassSession() == null ? null : assignment.getSourceClassSession().getSessionDate()));
             }
         }
         return result;

@@ -1,5 +1,6 @@
 package vn.com.pps.education.dto;
 
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 
 /**
@@ -19,5 +20,7 @@ public record MyReviewVideoAssignmentResponse(
         Long classId,
         String className,
         OffsetDateTime availableFrom,
-        OffsetDateTime dueAt
+        OffsetDateTime dueAt,
+        /** V123, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-14: ngày buổi học mà Giáo viên đã giao BTVN này (xem ReviewVideoAssignment#getSourceClassSession()) — NULL với bản giao tạo TRƯỚC V123. */
+        LocalDate sessionDate
 ) {}
