@@ -113,6 +113,8 @@ export default function StudentScheduleTab({ classId, siteId }: StudentScheduleT
   const present = filteredAttendance.filter((a) => a.status === "PRESENT").length;
   const late = filteredAttendance.filter((a) => a.status === "LATE").length;
   const absent = filteredAttendance.filter((a) => a.status === "ABSENT").length;
+  const excusedCount = attendance.filter((a) => a.status === "EXCUSED").length;
+
   // Đi trễ vẫn tính là đi học (nghiệp vụ xác nhận 2026-08-04) — cộng nguyên late vào rate, không nhân 0.5.
   const rate = total > 0 ? (((present + late) / total) * 100).toFixed(0) : "0";
 
@@ -132,7 +134,7 @@ export default function StudentScheduleTab({ classId, siteId }: StudentScheduleT
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-white border border-line/80 p-5 rounded-[20px] shadow-[0_8px_30px_rgba(30,42,69,0.03)] space-y-2">
           <span className="text-[10px] font-extrabold text-muted uppercase tracking-wider block">Tỷ lệ đi học</span>
-          <p className="text-2xl font-extrabold text-teal">{rate}%</p>
+          <p className="text-2xl font-extrabold text-teal">{rate}% {total > 0 && (<span className="pl-3 text-lg text-muted">{(present + late)} / {total} buổi</span>)}</p>
           <div className="w-full bg-sky h-1.5 rounded-full overflow-hidden border border-line/40">
             <div className="bg-teal h-full" style={{ width: `${rate}%` }} />
           </div>
@@ -147,7 +149,7 @@ export default function StudentScheduleTab({ classId, siteId }: StudentScheduleT
         </div>
         <div className="bg-white border border-line/80 p-5 rounded-[20px] shadow-[0_8px_30px_rgba(30,42,69,0.03)] space-y-1">
           <span className="text-[10px] font-extrabold text-muted uppercase tracking-wider block">Vắng mặt</span>
-          <p className="text-2xl font-extrabold text-coral">{absent} buổi</p>
+          <p className="text-2xl font-extrabold text-coral">{absent + excusedCount} buổi {excusedCount > 0 && (<span className="text-lg text-muted">({excusedCount} có phép)</span>)}</p>
         </div>
       </div>
 
