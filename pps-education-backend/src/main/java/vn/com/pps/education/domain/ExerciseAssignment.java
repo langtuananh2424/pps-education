@@ -72,4 +72,13 @@ public class ExerciseAssignment {
     /** V92 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06): NULL = chưa nhắc Phụ huynh trước hạn nộp. */
     @Column(name = "parent_reminder_sent_at")
     private OffsetDateTime parentReminderSentAt;
+
+    /**
+     * V123 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-14) — buổi học (UC-21) mà Giáo
+     * viên đang viết Nhận xét lúc chọn Bài này làm "BTVN buổi sau", để Portal học sinh hiển thị được
+     * "giao trong buổi nào". NULL với bản giao tạo TRƯỚC V123 (không backfill được).
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "source_class_session_id")
+    private ClassSession sourceClassSession;
 }

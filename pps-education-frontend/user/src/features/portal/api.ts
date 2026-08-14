@@ -453,6 +453,8 @@ export interface ReviewVideoSetResponse {
   status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
   publishedAt: string | null;
   createdBy: number;
+  /** V98 — GV Việt Nam/nước ngoài phụ trách bộ video này. */
+  teacherType: "VIETNAMESE" | "FOREIGN";
 }
 
 export interface ReviewVideoResponse {
@@ -500,6 +502,8 @@ export interface MyReviewVideoAssignmentResponse {
   className: string;
   availableFrom: string;
   dueAt: string;
+  /** V123 — ngày buổi học GV đã giao BTVN này — null với bản giao TRƯỚC V123. */
+  sessionDate: string | null;
 }
 
 export function listMyReviewVideoAssignments(classId?: number): Promise<MyReviewVideoAssignmentResponse[]> {
@@ -685,6 +689,10 @@ export interface AssignedExerciseResponse {
   /** V89, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05: BTVN <ngưỡng đạt phải làm lại — NULL khi chưa chấm xong (totalScore null). */
   myLatestPercentage: number | null;
   myLatestPassed: boolean | null;
+  /** V123 — GV Việt Nam/nước ngoài phụ trách Đề chứa Bài này (Exam.teacherType). */
+  teacherType: "VIETNAMESE" | "FOREIGN";
+  /** V123 — ngày buổi học GV đã giao BTVN này (chọn ở Nhận xét học viên UC-21) — null với bản giao TRƯỚC V123. */
+  sessionDate: string | null;
 }
 
 export function listMyAssignedExercises(classId?: number): Promise<AssignedExerciseResponse[]> {

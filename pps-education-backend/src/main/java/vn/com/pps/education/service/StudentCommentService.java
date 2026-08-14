@@ -1241,7 +1241,7 @@ public class StudentCommentService {
                 exerciseId, exercise.getTitle());
         OffsetDateTime dueAt = resolveDueAt(session, customDueDate);
         requireNoDueDateConflict(session, excludeCommentId, dueAt);
-        ExerciseAssignment assignment = exerciseService.deliverToClass(exerciseId, session.getSchoolClass().getId(), dueAt, actorUserId);
+        ExerciseAssignment assignment = exerciseService.deliverToClass(exerciseId, session.getSchoolClass().getId(), dueAt, actorUserId, session);
         if (previous != null) {
             exerciseService.cancelAssignment(previous);
         }
@@ -1268,7 +1268,7 @@ public class StudentCommentService {
                 videoSetId, set.getTitle());
         OffsetDateTime dueAt = resolveDueAt(session, customDueDate);
         requireNoDueDateConflict(session, excludeCommentId, dueAt);
-        ReviewVideoAssignment assignment = reviewVideoService.deliverToClass(videoSetId, session.getSchoolClass().getId(), dueAt, actorUserId);
+        ReviewVideoAssignment assignment = reviewVideoService.deliverToClass(videoSetId, session.getSchoolClass().getId(), dueAt, actorUserId, session);
         if (previous != null) {
             reviewVideoService.cancelAssignment(previous);
         }
