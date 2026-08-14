@@ -223,14 +223,36 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         student = newStudent();
 
         Room room = newRoom(site);
+        // Cửa sổ "1 giờ trước tới 1 phút trước NGAY LÚC NÀY" (thay vì giờ cố định 08:00-09:40) -- bổ
+        // sung 2026-08-14, sửa CI fail: StudentCommentService.requireSessionEndedAndAttendanceTaken
+        // (thêm ở "chan cung nhan xet truoc khi buoi hoc ket thuc", chưa từng cập nhật test khi merge)
+        // đòi buổi học ĐÃ KẾT THÚC theo OffsetDateTime.now() thật -- giờ cố định khiến kết quả phụ
+        // thuộc múi giờ/thời điểm chạy CI (VD JVM UTC ở GitHub Actions >< máy dev Asia/Ho_Chi_Minh).
+        // Tính theo LocalTime.now() của CHÍNH JVM đang chạy test loại bỏ phụ thuộc múi giờ (cùng 1 JVM
+        // set up dữ liệu lẫn check điều kiện). KHÔNG dùng LocalTime.MIN (00:00) làm mốc bắt đầu -- phát
+        // hiện thực tế 2026-08-14: hibernate.jdbc.time_zone=UTC (application.yml, cố định để né lỗi
+        // DateTimeException giờ gần nửa đêm khác) khiến LocalTime lưu xuống DB bị quy đổi qua UTC theo
+        // offset JVM, 00:00 giờ VN (+07:00) "lùi" thành 17:00 UTC hôm TRƯỚC -- start_time > end_time vi
+        // phạm CHECK chk_session_time. Cửa sổ hẹp 1 giờ (thay vì cả ngày) giảm hẳn rủi ro tương tự (chỉ
+        // còn xảy ra nếu test chạy đúng lúc 00:00-01:00 giờ VN). Vẫn giữ sessionDate = hôm nay (không
+        // lùi ngày) vì điểm danh bên dưới chỉ ghi được cho GV thường (không có quyền quản trị điểm danh
+        // nào cấp sẵn ở môi trường dev -- xem V45__granular_attendance_admin_permissions.sql) đúng NGÀY
+        // buổi học.
         classSession = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(LocalDate.now(), LocalTime.of(8, 0), LocalTime.of(9, 40), room.getId(), "REGULAR", "VIETNAMESE", null),
+                new CreateClassSessionRequest(LocalDate.now(), LocalTime.now().minusHours(1), LocalTime.now().minusMinutes(1), room.getId(), "REGULAR", "VIETNAMESE", null),
                 headAcademic.getId());
         // Bài học hôm nay mặc định đã điền — bắt buộc để submitComments() cho DAILY không bị
         // chặn bởi MissingLessonContentException (bổ sung ngoài SDD gốc, đã xác nhận với người
         // dùng 2026-07-29) trừ khi 1 test cụ thể cố tình test thiếu bài học.
         studentCommentService.updateLessonContent(classSession.id(), "Unit 1: Present simple tense.", teacher.getId());
         classService.enroll(schoolClass.id(), new EnrollStudentRequest(student.getId(), LocalDate.now()), headAcademic.getId());
+        // Điểm danh + Lưu điểm danh xong (2026-08-14, cùng lý do nêu trên) -- vế thứ 2 của
+        // requireSessionEndedAndAttendanceTaken, chặn writeComment/updateComment/importComments nếu
+        // AttendanceSession chưa tồn tại hoặc còn DRAFT.
+        studentAttendanceService.markAttendance(classSession.id(),
+                new MarkAttendanceRequest("SESSION_LEVEL", List.of(new EnterAttendanceMarkRequest(student.getId(), "PRESENT", null, null, null))),
+                teacher.getId());
+        studentAttendanceService.submitAttendance(classSession.id(), teacher.getId());
     }
 
     @Test
@@ -581,10 +603,16 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         ClassSessionResponse sessionWithoutLesson = classSessionService.createSession(schoolClass.id(),
                 new CreateClassSessionRequest(LocalDate.now().plusDays(1), LocalTime.of(8, 0), LocalTime.of(9, 40), room.getId(), "REGULAR", "VIETNAMESE", null),
                 headAcademic.getId());
+        // siteManagerUser (có academic.comment.approve) thay vì teacher -- bổ sung 2026-08-14, sửa CI
+        // fail: sessionWithoutLesson cố tình ở TƯƠNG LAI (plusDays(1), chưa "kết thúc") để tách biệt với
+        // classSession của setUp() đã có sẵn lesson content; requireSessionEndedAndAttendanceTaken chặn
+        // GV thường viết nhận xét buổi chưa kết thúc, nhưng actor có quyền duyệt thì bỏ qua rào này
+        // (đúng như đã bỏ qua rào hạn 7 ngày/GV được phân công) -- không ảnh hưởng gì tới điều đang test
+        // (MissingLessonContentException ở submitComments(), method không gọi rào này).
         StudentCommentResponse comment = studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), sessionWithoutLesson.id(),
                         sessionWithoutLesson.sessionDate(), "Nội dung.", null, null, false, null, null, null, null, null, null, null, null),
-                teacher.getId());
+                siteManagerUser.getId());
 
         assertThatThrownBy(() -> studentCommentService.submitComments(schoolClass.id(),
                 new SubmitCommentsRequest(List.of(comment.id())), teacher.getId()))
@@ -1388,10 +1416,13 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         studentCommentService.submitComments(schoolClass.id(), new SubmitCommentsRequest(List.of(toApprove.id())), teacher.getId());
         studentCommentService.decideComments(new DecideCommentsRequest(List.of(toApprove.id()), "APPROVED", null), siteManagerUser.getId());
         ClassSessionResponse session2 = nextSession();
+        // siteManagerUser thay vì teacher -- bổ sung 2026-08-14: session2 (nextSession(), cố tình ở
+        // TƯƠNG LAI) chưa "kết thúc" nên GV thường bị requireSessionEndedAndAttendanceTaken chặn; actor
+        // có quyền duyệt bỏ qua rào này, không ảnh hưởng gì tới điều đang test (danh sách chỉ APPROVED).
         studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), session2.id(),
                         session2.sessionDate(), "Nội dung chờ duyệt.", null, null, false, null, null, null, null, null, null, null, null),
-                teacher.getId());
+                siteManagerUser.getId());
 
         List<StudentCommentResponse> result = studentCommentService.listMyComments(schoolClass.id(), student.getUser().getId());
 
@@ -1431,11 +1462,17 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         assertThat(result).extracting(StudentCommentResponse::id).contains(toApprove.id());
     }
 
+    /**
+     * siteManagerUser (có academic.comment.approve) thay vì teacher -- bổ sung 2026-08-14: `session`
+     * truyền vào đây luôn là nextSession() (cố tình ở TƯƠNG LAI so với classSession, để test đúng luồng
+     * "buổi trước") nên chưa "kết thúc" -- requireSessionEndedAndAttendanceTaken sẽ chặn GV thường,
+     * nhưng actor có quyền duyệt thì bỏ qua rào này, không ảnh hưởng gì tới điều đang test.
+     */
     private void writeDailyCommentWithHomeworkPrevious(Student targetStudent, ClassSessionResponse session, String homeworkPreviousScore) {
         studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(targetStudent.getId(), session.id(),
                         session.sessionDate(), "Nội dung buổi.", null, null, false, null, homeworkPreviousScore, null, null, null, null, null, null),
-                teacher.getId());
+                siteManagerUser.getId());
     }
 
     private String exerciseCode() {
