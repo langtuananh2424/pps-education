@@ -79,6 +79,8 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -923,6 +925,14 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
                 teacher.getId());
     }
 
+    /** Gán 1 giáo viên chính loại FOREIGN cho lớp -- ClassSessionService.createSession() bắt buộc lớp phải có giáo viên đúng loại đang phụ trách mới cho xếp buổi loại đó (UC-18). */
+    private void assignForeignTeacher() {
+        User foreignTeacher = newUser("foreign.teacher");
+        assignRole(foreignTeacher, "TEACHER");
+        classService.assignTeacher(schoolClass.id(),
+                new AssignTeacherRequest(foreignTeacher.getId(), "PRIMARY", null, LocalDate.now(), "FOREIGN"), headAcademic.getId());
+    }
+
     private ClassSessionResponse nextSession() {
         Room room2 = newRoom(siteOf(schoolClass));
         return classSessionService.createSession(schoolClass.id(),
@@ -1086,6 +1096,52 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
 
         assertThatThrownBy(() -> writeDailyCommentWithHomeworkNext(student, classSession, fixture.exercise().id(), null))
                 .isInstanceOf(NoUpcomingClassSessionException.class);
+    }
+
+    /**
+     * Sửa lại 2026-08-14 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng -- phát hiện khi lớp có
+     * buổi VIETNAMESE/FOREIGN xen kẽ nhau): "buổi kế tiếp" dùng tính hạn nộp mặc định phải CÙNG loại
+     * giáo viên với buổi đang nhận xét -- buổi kế tiếp KHÁC loại GV xen giữa (VD classSession=VIETNAMESE,
+     * buổi liền sau=FOREIGN) không được coi là "buổi kế tiếp", vẫn chặn NoUpcomingClassSessionException
+     * dù về lịch có buổi sau đó. Mirror đúng cách previousComment() tra "buổi trước" (cùng loại GV).
+     */
+    @Test
+    void writeComment_V117_A2_rejectsGrammarChoiceWhenUpcomingSessionIsDifferentTeacherType() {
+        GrammarFixture fixture = createGrammarOnlineExercise();
+        assignForeignTeacher();
+        Room room = newRoom(siteOf(schoolClass));
+        classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(classSession.sessionDate().plusDays(1), LocalTime.of(8, 0), LocalTime.of(9, 40), room.getId(), "REGULAR", "FOREIGN", null),
+                headAcademic.getId());
+        // classSession (setUp) = VIETNAMESE; buổi kế tiếp vừa tạo = FOREIGN -- khác loại GV, không tính.
+
+        assertThatThrownBy(() -> writeDailyCommentWithHomeworkNext(student, classSession, fixture.exercise().id(), null))
+                .isInstanceOf(NoUpcomingClassSessionException.class);
+    }
+
+    /**
+     * Mirror test trên -- buổi kế tiếp CÙNG loại GV (VIETNAMESE) nằm SAU buổi khác loại (FOREIGN) xen
+     * giữa vẫn phải được dùng làm hạn nộp mặc định (bỏ qua buổi FOREIGN ở giữa), khớp đúng nơi điểm/%
+     * của bài giao này sẽ hiển thị (previousComment() cũng bỏ qua buổi FOREIGN khi tra ngược).
+     */
+    @Test
+    void writeComment_V117_MainFlow_defaultDueDateSkipsUpcomingSessionOfDifferentTeacherType() {
+        GrammarFixture fixture = createGrammarOnlineExercise();
+        assignForeignTeacher();
+        Room foreignRoom = newRoom(siteOf(schoolClass));
+        classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(classSession.sessionDate().plusDays(1), LocalTime.of(8, 0), LocalTime.of(9, 40), foreignRoom.getId(), "REGULAR", "FOREIGN", null),
+                headAcademic.getId());
+        Room vietnameseRoom = newRoom(siteOf(schoolClass));
+        ClassSessionResponse nextVietnameseSession = classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(classSession.sessionDate().plusDays(2), LocalTime.of(8, 0), LocalTime.of(9, 40), vietnameseRoom.getId(), "REGULAR", "VIETNAMESE", null),
+                headAcademic.getId());
+
+        StudentCommentResponse comment = writeDailyCommentWithHomeworkNext(student, classSession, fixture.exercise().id(), null);
+
+        OffsetDateTime expectedDueAt = nextVietnameseSession.sessionDate().atTime(nextVietnameseSession.startTime())
+                .atZone(ZoneId.systemDefault()).toOffsetDateTime();
+        assertThat(comment.homeworkNextDueAt()).isEqualTo(expectedDueAt);
     }
 
     /** Câu hỏi mở #2 (đã chốt 2026-07-30): đổi lựa chọn khi comment còn DRAFT -- hủy bản giao cũ (CANCELLED), tạo bản mới ngay. */

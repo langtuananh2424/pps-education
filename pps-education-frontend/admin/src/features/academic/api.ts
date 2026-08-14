@@ -1159,11 +1159,47 @@ export function downloadDailyCommentTemplate(classSessionId: number): Promise<Bl
   return apiRequestBlob(`/class-sessions/${classSessionId}/comments/template`);
 }
 
-/** UC-21 (bổ sung): nhập lại file đã sửa — cập nhật cả điểm danh lẫn nhận xét Hàng ngày trong 1 lần. */
+/** UC-21 (bổ sung): nhập lại file đã sửa — cập nhật cả điểm danh lẫn nhận xét Hàng ngày trong 1 lần. Không còn dùng ở UI (xem previewImportDailyComments), giữ lại cho tương thích ngược. */
 export function importDailyComments(classSessionId: number, file: File): Promise<DailyCommentImportResponse> {
   const formData = new FormData();
   formData.append("file", file);
   return apiRequest<DailyCommentImportResponse>(`/class-sessions/${classSessionId}/comments/import`, { method: "POST", body: formData });
+}
+
+export interface DailyCommentImportPreviewRow {
+  studentId: number;
+  attitude: StudentCommentResponse["attitude"];
+  homeworkPreviousScore: string | null;
+  homeworkPreviousSpeakingScore: string | null;
+  content: string | null;
+  homeworkNext: string | null;
+  homeworkNextExerciseId: number | null;
+  homeworkNextReviewVideoSetId: number | null;
+  note: string | null;
+}
+
+export interface DailyCommentImportPreviewResponse {
+  totalRows: number;
+  successRows: number;
+  failedRows: number;
+  errorSummary: { row: number; reason: string }[];
+  lessonContent: string | null;
+  teacherName: string | null;
+  /** "yyyy-MM-ddTHH:mm:ss" (LocalDateTime BE) — cắt về "yyyy-MM-ddTHH:mm" khi tách ngày/giờ ở FE. */
+  dueDate: string | null;
+  rows: DailyCommentImportPreviewRow[];
+}
+
+/**
+ * UC-21 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-14): xem trước file Excel BTVN —
+ * CHỈ parse & trả về dữ liệu để fill vào bảng nhận xét trên UI, KHÔNG ghi StudentComment/Bài học hôm
+ * nay/Tên GV giảng dạy/Hạn nộp vào DB (điểm danh vẫn ghi ngay — nghiệp vụ độc lập). Giáo viên phải tự
+ * bấm "Lưu" (hoặc chờ autosave) để thật sự ghi DRAFT — khác importDailyComments cũ (ghi thẳng DB).
+ */
+export function previewImportDailyComments(classSessionId: number, file: File): Promise<DailyCommentImportPreviewResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return apiRequest<DailyCommentImportPreviewResponse>(`/class-sessions/${classSessionId}/comments/import-preview`, { method: "POST", body: formData });
 }
 
 /** UC-22: Quản lý điểm trường duyệt nhận xét — hàng chờ của (các) site mình phụ trách. */

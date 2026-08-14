@@ -1,15 +1,15 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Download, Send, UploadCloud } from "lucide-react";
+import { ChevronDown, ChevronUp, Download, Save, Send, UploadCloud } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { downloadBlob } from "@/lib/xlsxTemplate";
 import { useApp } from "@/context/AppContext";
 import {
   ClassEnrollmentResponse,
   ClassSessionResponse,
-  DailyCommentImportResponse,
   StudentCommentResponse,
   downloadDailyCommentTemplate,
-  importDailyComments,
+  previewImportDailyComments,
+  DailyCommentImportPreviewResponse,
   listClassEnrollments,
   listClassSessions,
   listCommentsForClass,
@@ -42,6 +42,22 @@ import DatePicker from "@/components/ui/DatePicker";
 
 const statusLabels: Record<StudentCommentResponse["status"], string> = { DRAFT: "Nháp", PENDING: "Chờ duyệt", APPROVED: "Đã duyệt", REJECTED: "Bị từ chối" };
 const readOnlyFieldClass = "w-full bg-emerald-50/60 border border-emerald-200 text-xs p-2 rounded-lg text-slate-700 min-h-[34px]";
+/**
+ * Cố định 3 cột đầu (Mã học viên/Họ và tên/Ngày sinh, bổ sung ngoài SDD gốc, 2026-08-14) — cần width
+ * CỐ ĐỊNH để tính đúng left offset cộng dồn cho position:sticky. Phải ép CẢ width/minWidth/maxWidth
+ * bằng nhau (không chỉ width) — table-layout auto (mặc định) vẫn co giãn cột theo nội dung nếu chỉ đặt
+ * width; table-layout:fixed + <colgroup> đã thử nhưng position:sticky trên ô có rowSpan không tôn
+ * trọng width khai báo ở đó (đo thực tế bằng DevTools 2026-08-14, giới hạn/bug trình duyệt) — ép cứng
+ * min/max trực tiếp trên từng ô là cách duy nhất buộc trình duyệt giữ đúng width.
+ */
+const STICKY_COL_WIDTHS = [110, 170, 110];
+const STICKY_COL_LEFT = [0, STICKY_COL_WIDTHS[0], STICKY_COL_WIDTHS[0] + STICKY_COL_WIDTHS[1]];
+const STICKY_COL_STYLE: React.CSSProperties[] = STICKY_COL_WIDTHS.map((w, i) => ({
+  width: w,
+  minWidth: w,
+  maxWidth: w,
+  left: STICKY_COL_LEFT[i]
+}));
 
 /**
  * "Loại giáo viên" của buổi học (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05) — ăn
@@ -131,7 +147,18 @@ export default function DailyCommentPanel() {
   const [error, setError] = useState<string | null>(null);
   const [downloadingTemplate, setDownloadingTemplate] = useState(false);
   const [importing, setImporting] = useState(false);
-  const [importResult, setImportResult] = useState<DailyCommentImportResponse | null>(null);
+  const [importResult, setImportResult] = useState<DailyCommentImportPreviewResponse | null>(null);
+  // "Lưu nháp"/autosave (2026-08-14, bổ sung ngoài SDD gốc, đã xác nhận với người dùng) — phòng giáo
+  // viên vô tình thoát khi chưa "Gửi nhận xét". dirty=true bất cứ lúc nào rows đổi do người dùng gõ
+  // (updateRow/Áp dụng cho cả lớp) hoặc do nhập Excel fill vào bảng — KHÔNG bật lại khi loadHistory tự
+  // patch rows từ dữ liệu server (tránh autosave lặp vô ích ngay sau khi vừa lưu/gửi xong).
+  const [dirty, setDirty] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  // "Lịch sử nhận xét buổi này" có thể ẩn/hiện (2026-08-14, bổ sung ngoài SDD gốc) — mặc định hiện
+  // (giữ hành vi cũ), giáo viên tự ẩn bớt khi bảng nhận xét chính đã đủ dài, đỡ phải cuộn qua khối lặp
+  // lại gần như y hệt dữ liệu ở bảng trên.
+  const [showHistory, setShowHistory] = useState(true);
   /** V65: nguồn khả dụng cho dropdown "BTVN Ngữ pháp buổi sau" — Exercise đã Publish (không phải bản giao). */
   const [grammarOptions, setGrammarOptions] = useState<ExerciseResponse[]>([]);
   const [videoOptions, setVideoOptions] = useState<ReviewVideoSetResponse[]>([]);
@@ -186,10 +213,19 @@ export default function DailyCommentPanel() {
   // Mirror đúng điều kiện findUpcomingSessions() bên BE (ClassSessionRepository) — buổi có sessionDate
   // SAU buổi đang chọn, loại CANCELLED/RESCHEDULED — để báo TRƯỚC cho Giáo viên biết lớp chưa có buổi
   // kế tiếp trong lịch (thay vì để họ chọn Online/Video xong bấm Gửi mới gặp lỗi 422, đã xác nhận với
-  // người dùng 2026-07-31: đây là buổi học CUỐI CÙNG đã lên lịch của lớp).
+  // người dùng 2026-07-31: đây là buổi học CUỐI CÙNG đã lên lịch của lớp). Sửa lại 2026-08-14: khi buổi
+  // đang chọn CÓ xác định teacherType, chỉ tính buổi kế tiếp CÙNG loại GV (BE cũng đã sửa tương tự —
+  // xem ClassSessionRepository#findUpcomingSessions) — tránh báo "còn buổi kế tiếp" (buổi khác loại GV
+  // xen giữa) trong khi BE thật ra chặn 422 vì không có buổi kế tiếp CÙNG loại.
   const hasUpcomingSession =
     !!selectedSession &&
-    sessions.some((s) => s.sessionDate > selectedSession.sessionDate && s.status !== "CANCELLED" && s.status !== "RESCHEDULED");
+    sessions.some(
+      (s) =>
+        s.sessionDate > selectedSession.sessionDate &&
+        s.status !== "CANCELLED" &&
+        s.status !== "RESCHEDULED" &&
+        (!selectedSession.teacherType || s.teacherType === selectedSession.teacherType)
+    );
   const isLastScheduledSession = !!selectedSession && !hasUpcomingSession;
   // Lớp chưa có buổi kế tiếp CHỈ còn chặn khi chưa tự chọn hạn nộp (dueDate) — có hạn nộp tùy chỉnh thì
   // BE bỏ qua điều kiện "phải có buổi kế tiếp" (2026-08-05, xem StudentCommentService#resolveDueAt).
@@ -302,6 +338,8 @@ export default function DailyCommentPanel() {
     setQuickOffline("");
     setQuickExerciseId("");
     setQuickVideoId("");
+    setDirty(false);
+    setLastSavedAt(null);
   }, [selectedSession?.id, selectedSession?.lessonContent, selectedSession?.actualTeacherName, selectedSession?.teacherType]);
 
   useEffect(() => {
@@ -461,7 +499,96 @@ export default function DailyCommentPanel() {
             }
       )
     );
+    setDirty(true);
   };
+
+  /** Payload dùng chung cho "Lưu nháp"/autosave/"Gửi nhận xét" — xem buildPayload+saveFilledRows bên dưới. */
+  const buildCommentPayload = (r: Row) => ({
+    content: r.content.trim(),
+    severity: "NORMAL" as const,
+    isWarning: false,
+    attitude: r.attitude || undefined,
+    homeworkPreviousScore: r.homeworkPreviousScore.trim() || undefined,
+    homeworkPreviousSpeakingScore: r.homeworkPreviousSpeakingScore.trim() || undefined,
+    // offline (chữ tự do) và chọn Exercise loại trừ lẫn nhau ngay từ lúc nhập (xem updateRow ở bảng/quick-assign) — chỉ 1 trong 2 khác rỗng.
+    homeworkNext: r.homeworkNextExerciseId === "" ? r.homeworkNext.trim() || undefined : undefined,
+    homeworkNextExerciseId: r.homeworkNextExerciseId !== "" ? r.homeworkNextExerciseId : undefined,
+    homeworkNextReviewVideoSetId: r.homeworkNextReviewVideoSetId !== "" ? r.homeworkNextReviewVideoSetId : undefined,
+    // Hạn nộp buổi sau (ngày + giờ) — 1 giá trị chung cho cả buổi (xem dueDateTime), để trống thì BE tự tính = buổi kế tiếp.
+    homeworkNextDueDate: dueDateTime || undefined,
+    note: r.note.trim() || undefined
+  });
+
+  /**
+   * Ghi DRAFT cho các dòng đã có nội dung — dùng chung cho "Lưu nháp"/autosave/"Gửi nhận xét" (bổ sung
+   * ngoài SDD gốc, 2026-08-14). Dòng đã có nhận xét DRAFT/REJECTED (gõ tay lưu dở hoặc nhập Excel) —
+   * SỬA bản ghi đã có qua updateComment(), không tạo mới qua writeComment() (tránh sinh 2 bản ghi trùng
+   * cùng 1 buổi+học sinh — đúng bug 500 đã gặp trước đây, backend hiện chưa tự chặn trùng ở writeComment()).
+   */
+  const saveFilledRows = (filled: Row[], classId: number, session: ClassSessionResponse) =>
+    Promise.allSettled(
+      filled.map((r) => {
+        const payload = buildCommentPayload(r);
+        const existing = history.find((h) => h.studentId === r.studentId && (h.status === "DRAFT" || h.status === "REJECTED"));
+        return existing
+          ? updateComment(existing.id, payload)
+          : writeComment(classId, {
+              studentId: r.studentId,
+              classSessionId: session.id,
+              commentDate: session.sessionDate,
+              ...payload
+            });
+      })
+    );
+
+  /**
+   * "Lưu nháp" (2026-08-14, bổ sung ngoài SDD gốc, đã xác nhận với người dùng) — phòng giáo viên vô
+   * tình thoát khi chưa "Gửi nhận xét" (chỉ ghi DRAFT, KHÔNG gọi submitComments). Không bắt buộc điền
+   * "Bài học hôm nay"/đủ học sinh — lưu được dở dang, chỉ cần có ít nhất 1 dòng đã gõ nội dung (ràng
+   * buộc @NotBlank content ở BE). `silent=true` dùng cho autosave — không hiện banner/lỗi làm phiền.
+   */
+  const handleSaveDraft = async (silent: boolean) => {
+    if (!selectedClassId || !selectedSession) return;
+    const filled = rows.filter((r) => r.content.trim());
+    if (filled.length === 0) {
+      if (!silent) setError("Vui lòng nhập nhận xét cho ít nhất 1 học sinh trước khi lưu.");
+      return;
+    }
+    setSavingDraft(true);
+    if (!silent) setError(null);
+    try {
+      const results = await saveFilledRows(filled, selectedClassId, selectedSession);
+      const failedCount = results.filter((r) => r.status === "rejected").length;
+      setDirty(false);
+      setLastSavedAt(new Date());
+      if (!silent) {
+        setNotification(
+          failedCount > 0
+            ? `⚠️ Đã lưu nháp ${filled.length - failedCount}/${filled.length} nhận xét — ${failedCount} học sinh lỗi, thử lại sau.`
+            : `💾 Đã lưu nháp ${filled.length} nhận xét (chưa gửi duyệt).`
+        );
+      }
+      await loadHistory(selectedClassId, selectedSession.id, rows.map((r) => r.studentId));
+      refreshSessionCommentStats(selectedClassId);
+      listAssignmentsForClass(selectedClassId).then(setGrammarAssignments).catch(() => undefined);
+      listReviewVideoAssignmentsForClass(selectedClassId).then(setVideoAssignments).catch(() => undefined);
+    } catch (err) {
+      if (!silent) setError(err instanceof ApiError ? err.message : "Lưu nháp thất bại.");
+    } finally {
+      setSavingDraft(false);
+    }
+  };
+
+  // Autosave (2026-08-14, bổ sung ngoài SDD gốc, đã xác nhận với người dùng) — debounce ~18s sau lần gõ
+  // cuối, dùng chung handleSaveDraft(silent=true) nên không hiện banner/lỗi làm phiền. Chỉ chạy khi có
+  // thay đổi thật (dirty) và không đang lưu/gửi tay — effect re-tạo timer mỗi lần `rows` đổi (gõ phím)
+  // nên tự nhiên có hành vi debounce (huỷ timer cũ, đặt timer mới).
+  useEffect(() => {
+    if (!dirty || !selectedSessionId || sending || savingDraft) return;
+    const timer = setTimeout(() => handleSaveDraft(true), 18000);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dirty, rows, selectedSessionId]);
 
   const handleSend = async () => {
     if (!selectedClassId || !selectedSession) return;
@@ -479,37 +606,7 @@ export default function DailyCommentPanel() {
     setSending(true);
     setError(null);
     try {
-      const created = await Promise.allSettled(
-        filled.map((r) => {
-          const payload = {
-            content: r.content.trim(),
-            severity: "NORMAL" as const,
-            isWarning: false,
-            attitude: r.attitude || undefined,
-            homeworkPreviousScore: r.homeworkPreviousScore.trim() || undefined,
-            homeworkPreviousSpeakingScore: r.homeworkPreviousSpeakingScore.trim() || undefined,
-            // offline (chữ tự do) và chọn Exercise loại trừ lẫn nhau ngay từ lúc nhập (xem updateRow ở bảng/quick-assign) — chỉ 1 trong 2 khác rỗng.
-            homeworkNext: r.homeworkNextExerciseId === "" ? r.homeworkNext.trim() || undefined : undefined,
-            homeworkNextExerciseId: r.homeworkNextExerciseId !== "" ? r.homeworkNextExerciseId : undefined,
-            homeworkNextReviewVideoSetId: r.homeworkNextReviewVideoSetId !== "" ? r.homeworkNextReviewVideoSetId : undefined,
-            // Hạn nộp buổi sau (ngày + giờ) — 1 giá trị chung cho cả buổi (xem dueDateTime), để trống thì BE tự tính = buổi kế tiếp.
-            homeworkNextDueDate: dueDateTime || undefined,
-            note: r.note.trim() || undefined
-          };
-          // Dòng này đã có nhận xét DRAFT/REJECTED (gõ tay lưu dở hoặc nhập từ Excel) — SỬA bản ghi đã
-          // có qua updateComment(), không tạo mới qua writeComment() (tránh sinh 2 bản ghi trùng cùng
-          // 1 buổi+học sinh — đúng bug 500 đã gặp trước đây, backend hiện chưa tự chặn trùng ở writeComment()).
-          const existing = history.find((h) => h.studentId === r.studentId && (h.status === "DRAFT" || h.status === "REJECTED"));
-          return existing
-            ? updateComment(existing.id, payload)
-            : writeComment(selectedClassId, {
-                studentId: r.studentId,
-                classSessionId: selectedSession.id,
-                commentDate: selectedSession.sessionDate,
-                ...payload
-              });
-        })
-      );
+      const created = await saveFilledRows(filled, selectedClassId, selectedSession);
       const succeededIds = created.filter((r): r is PromiseFulfilledResult<Awaited<ReturnType<typeof writeComment>>> => r.status === "fulfilled").map((r) => r.value.id);
       // Gom lý do lỗi thật từ từng promise bị reject (VD 422 "Lớp id=X chưa có buổi học kế tiếp...")
       // theo đúng học sinh — trước đây chỉ đếm failedCount, không hiện rõ NGUYÊN NHÂN khiến Giáo viên
@@ -552,6 +649,8 @@ export default function DailyCommentPanel() {
           r.content.trim() ? { ...r, attitude: "", homeworkPreviousScore: "", homeworkPreviousSpeakingScore: "", content: "", ...EMPTY_ROW_HOMEWORK, note: "" } : r
         )
       );
+      setDirty(false);
+      setLastSavedAt(new Date());
       await loadHistory(selectedClassId, selectedSession.id, rows.map((r) => r.studentId));
       refreshSessionCommentStats(selectedClassId);
       // Gửi xong có thể vừa tạo bản giao mới (chọn đề/video Online) — tải lại map tra ngược để lần sửa kế tiếp resolve đúng.
@@ -583,6 +682,13 @@ export default function DailyCommentPanel() {
     }
   };
 
+  /**
+   * Nhập Excel (sửa lại luồng 2026-08-14, đã xác nhận với người dùng) — CHỈ parse & fill vào bảng nhận
+   * xét trên UI (previewImportDailyComments, KHÔNG ghi StudentComment/Bài học hôm nay/Tên GV/Hạn nộp
+   * vào DB — điểm danh vẫn ghi ngay ở BE, nghiệp vụ độc lập). Trước đây ghi thẳng DRAFT vào DB khiến dữ
+   * liệu chỉ hiện ở "Lịch sử nhận xét" thay vì fill vào bảng để giáo viên xem/sửa tiếp — giờ giáo viên
+   * tự bấm "Lưu" (hoặc chờ autosave) mới thật sự ghi DRAFT, sau đó "Gửi nhận xét" mới gửi duyệt.
+   */
   const handleImportFile = async (file: File | null) => {
     if (!file || !selectedClassId || !selectedSessionId) return;
     if (!file.name.toLowerCase().endsWith(".xlsx")) {
@@ -593,14 +699,40 @@ export default function DailyCommentPanel() {
     setError(null);
     setImportResult(null);
     try {
-      const res = await importDailyComments(selectedSessionId, file);
+      const res = await previewImportDailyComments(selectedSessionId, file);
       setImportResult(res);
-      if (res.successRows > 0) {
-        const active = rows.map((r) => r.studentId);
-        await loadHistory(selectedClassId, selectedSessionId, active);
-        refreshSessionCommentStats(selectedClassId);
-        listAssignmentsForClass(selectedClassId).then(setGrammarAssignments).catch(() => undefined);
-        listReviewVideoAssignmentsForClass(selectedClassId).then(setVideoAssignments).catch(() => undefined);
+
+      // "Bài học hôm nay"/"Tên GV giảng dạy"/"Hạn nộp" chỉ fill vào ô nhập ở đầu trang — giáo viên tự
+      // bấm nút "Lưu" riêng của từng ô (đã có sẵn) để ghi DB, giống hệt khi gõ tay. Không đè lên nếu
+      // giáo viên đã tự gõ trước khi nhập Excel.
+      if (res.lessonContent) setLessonContentInput((prev) => prev || res.lessonContent!);
+      if (res.teacherName) setActualTeacherNameInput((prev) => prev || res.teacherName!);
+      if (res.dueDate) {
+        setDueDate((prev) => prev || res.dueDate!.slice(0, 10));
+        setDueTime((prev) => prev || res.dueDate!.slice(11, 16));
+      }
+
+      if (res.rows.length > 0) {
+        const parsedByStudent = new Map(res.rows.map((row) => [row.studentId, row]));
+        setRows((prev) =>
+          prev.map((r) => {
+            const parsed = parsedByStudent.get(r.studentId);
+            // Chỉ fill dòng còn trống — không đè lên nội dung giáo viên đang gõ dở (mirror loadHistory).
+            if (!parsed || !isRowBlank(r)) return r;
+            return {
+              ...r,
+              attitude: (parsed.attitude ?? "") as Row["attitude"],
+              homeworkPreviousScore: parsed.homeworkPreviousScore ?? "",
+              homeworkPreviousSpeakingScore: parsed.homeworkPreviousSpeakingScore ?? "",
+              content: parsed.content ?? "",
+              homeworkNext: parsed.homeworkNext ?? "",
+              homeworkNextExerciseId: parsed.homeworkNextExerciseId ?? "",
+              homeworkNextReviewVideoSetId: parsed.homeworkNextReviewVideoSetId ?? "",
+              note: parsed.note ?? ""
+            };
+          })
+        );
+        setDirty(true);
       }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Nhập từ Excel thất bại.");
@@ -685,69 +817,74 @@ export default function DailyCommentPanel() {
 
         {selectedSessionId && (
           <div
-            className={`sticky top-0 z-20 px-5 py-3 border-b flex flex-wrap items-center gap-2 shadow-sm ${
+            className={`sticky top-0 z-20 px-5 py-3 border-b shadow-sm ${
               lessonContentMissingError ? "bg-rose-50 border-rose-200" : "bg-amber-50 border-slate-100"
             }`}
           >
-            <label className="text-[11px] font-bold text-slate-600 shrink-0">Bài học hôm nay *</label>
-            <input
-              ref={lessonContentInputRef}
-              value={lessonContentInput}
-              disabled={sessionHasSentComment}
-              onChange={(e) => {
-                setLessonContentInput(e.target.value);
-                setLessonContentMissingError(false);
-              }}
-              placeholder="VD: Unit 3 - Free time activities"
-              className={`flex-1 min-w-[220px] bg-white border text-xs p-2 rounded-lg focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed ${
-                lessonContentMissingError ? "border-rose-400 ring-1 ring-rose-300" : "border-slate-200"
-              }`}
-            />
-            <button
-              type="button"
-              onClick={handleSaveLessonContent}
-              disabled={
-                sessionHasSentComment ||
-                savingLessonContent ||
-                !lessonContentInput.trim() ||
-                lessonContentInput.trim() === (selectedSession?.lessonContent ?? "")
-              }
-              className="px-3 py-2 bg-brand-orange hover:bg-brand-orange/90 text-white text-[11px] font-bold rounded-lg disabled:opacity-40"
-            >
-              {savingLessonContent ? "Đang lưu..." : "Lưu"}
-            </button>
+            {/* 2 nhóm "Bài học hôm nay"/"Tên giáo viên giảng dạy" LUÔN cùng 1 hàng (bổ sung ngoài SDD gốc,
+                2026-08-14) — dòng cảnh báo thiếu bài học tách RIÊNG ra bên dưới (w-full ở đây trước đây
+                nằm CHUNG hàng flex-wrap, tự ép 2 nhóm xuống 2 hàng khác nhau khi cảnh báo hiện ra). */}
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="text-[11px] font-bold text-slate-600 shrink-0">Bài học hôm nay *</label>
+              <input
+                ref={lessonContentInputRef}
+                value={lessonContentInput}
+                disabled={sessionHasSentComment}
+                onChange={(e) => {
+                  setLessonContentInput(e.target.value);
+                  setLessonContentMissingError(false);
+                }}
+                placeholder="VD: Unit 3 - Free time activities"
+                className={`flex-1 min-w-[220px] bg-white border text-xs p-2 rounded-lg focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed ${
+                  lessonContentMissingError ? "border-rose-400 ring-1 ring-rose-300" : "border-slate-200"
+                }`}
+              />
+              <button
+                type="button"
+                onClick={handleSaveLessonContent}
+                disabled={
+                  sessionHasSentComment ||
+                  savingLessonContent ||
+                  !lessonContentInput.trim() ||
+                  lessonContentInput.trim() === (selectedSession?.lessonContent ?? "")
+                }
+                className="px-3 py-2 bg-brand-orange hover:bg-brand-orange/90 text-white text-[11px] font-bold rounded-lg disabled:opacity-40"
+              >
+                {savingLessonContent ? "Đang lưu..." : "Lưu"}
+              </button>
+              <label className="text-[11px] font-bold text-slate-600 shrink-0">Tên giáo viên giảng dạy</label>
+              <input
+                value={actualTeacherNameInput}
+                disabled={sessionHasSentComment}
+                onChange={(e) => setActualTeacherNameInput(e.target.value)}
+                placeholder="VD: Nguyễn Văn A (điền hộ nếu Giáo viên nước ngoài không tự thao tác)"
+                className="flex-1 min-w-[220px] bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed"
+              />
+              <button
+                type="button"
+                onClick={handleSaveActualTeacherName}
+                disabled={
+                  sessionHasSentComment ||
+                  savingActualTeacherName ||
+                  !actualTeacherNameInput.trim() ||
+                  actualTeacherNameInput.trim() === (selectedSession?.actualTeacherName ?? "")
+                }
+                className="px-3 py-2 bg-brand-orange hover:bg-brand-orange/90 text-white text-[11px] font-bold rounded-lg disabled:opacity-40"
+              >
+                {savingActualTeacherName ? "Đang lưu..." : "Lưu"}
+              </button>
+            </div>
             {lessonContentMissingError ? (
-              <p className="w-full text-[10px] text-rose-600 font-bold">
+              <p className="mt-1.5 text-[10px] text-rose-600 font-bold">
                 ⚠️ Bắt buộc điền + Lưu Bài học hôm nay trước khi Gửi nhận xét — nội dung học sinh bạn đã gõ vẫn còn nguyên, điền xong bấm "Gửi nhận xét" lại là được.
               </p>
             ) : (
               !selectedSession?.lessonContent && (
-                <p className="w-full text-[10px] text-amber-700 italic">
+                <p className="mt-1.5 text-[10px] text-amber-700 italic">
                   Chưa điền bài học hôm nay — bắt buộc điền trước khi Gửi nhận xét (buổi chưa điền sẽ bị từ chối khi gửi duyệt).
                 </p>
               )
             )}
-            <label className="text-[11px] font-bold text-slate-600 shrink-0">Tên giáo viên giảng dạy</label>
-            <input
-              value={actualTeacherNameInput}
-              disabled={sessionHasSentComment}
-              onChange={(e) => setActualTeacherNameInput(e.target.value)}
-              placeholder="VD: Nguyễn Văn A (điền hộ nếu Giáo viên nước ngoài không tự thao tác)"
-              className="flex-1 min-w-[220px] bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed"
-            />
-            <button
-              type="button"
-              onClick={handleSaveActualTeacherName}
-              disabled={
-                sessionHasSentComment ||
-                savingActualTeacherName ||
-                !actualTeacherNameInput.trim() ||
-                actualTeacherNameInput.trim() === (selectedSession?.actualTeacherName ?? "")
-              }
-              className="px-3 py-2 bg-brand-orange hover:bg-brand-orange/90 text-white text-[11px] font-bold rounded-lg disabled:opacity-40"
-            >
-              {savingActualTeacherName ? "Đang lưu..." : "Lưu"}
-            </button>
           </div>
         )}
 
@@ -763,7 +900,7 @@ export default function DailyCommentPanel() {
         {selectedSessionId && teacherType && (
           <div className="px-5 py-3 border-b border-slate-100 bg-orange-50/40 space-y-2">
             <span className="text-[10px] font-bold uppercase text-slate-500">
-              Gán nhanh cho cả lớp — thay vì chọn từng dòng học sinh
+              Gán nhanh cho cả lớp
             </span>
             <div className="flex flex-wrap items-end gap-2">
               <div className="min-w-[160px]">
@@ -857,7 +994,7 @@ export default function DailyCommentPanel() {
               className="flex items-center gap-1.5 border border-dashed border-slate-300 rounded-lg px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-white disabled:opacity-50"
             >
               <Download className="w-3.5 h-3.5" />
-              {downloadingTemplate ? "Đang tải..." : "Tải mẫu Excel (điền sẵn điểm danh + nhận xét hiện có)"}
+              {downloadingTemplate ? "Đang tải..." : "Tải mẫu Excel"}
             </button>
             <button
               type="button"
@@ -866,9 +1003,29 @@ export default function DailyCommentPanel() {
               className="flex items-center gap-1.5 border-2 border-dashed border-slate-200 rounded-lg px-3 py-2 text-[11px] font-semibold text-slate-600 hover:border-brand-orange hover:bg-orange-50/30 disabled:opacity-50"
             >
               <UploadCloud className="w-3.5 h-3.5 text-brand-orange" />
-              {importing ? "Đang nhập..." : "Nhập từ Excel (.xlsx)"}
+              {importing ? "Đang nhập..." : "Nhập từ Excel"}
             </button>
             <input ref={fileInputRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => handleImportFile(e.target.files?.[0] ?? null)} />
+
+            {/* "Lưu nháp" (2026-08-14) — phòng giáo viên vô tình thoát khi chưa "Gửi nhận xét" (chỉ ghi
+                DRAFT, không gửi duyệt). Cùng hàng với 2 nút Excel nhưng đẩy sang PHẢI (ml-auto) — tách
+                nhóm "nhập liệu" (trái) khỏi nhóm "lưu" (phải) theo đúng yêu cầu. */}
+            <div className="ml-auto flex items-center gap-2">
+              {lastSavedAt && (
+                <span className="text-[10px] text-slate-400">
+                  Đã lưu lúc {lastSavedAt.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => handleSaveDraft(false)}
+                disabled={savingDraft || !rows.some((r) => r.content.trim())}
+                className="flex items-center gap-1.5 border border-dashed border-slate-300 rounded-lg px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-white disabled:opacity-50"
+              >
+                <Save className="w-3.5 h-3.5" />
+                {savingDraft ? "Đang lưu..." : "Lưu nháp"}
+              </button>
+            </div>
 
             {importResult && (
               <div className="w-full flex flex-wrap items-center gap-2 text-[11px] mt-1">
@@ -898,15 +1055,33 @@ export default function DailyCommentPanel() {
           </div>
         )}
 
-        <TableContainer className="rounded-none border-0">
-          <thead>
+        {/* Cố định 3 cột đầu (Mã học viên/Họ và tên/Ngày sinh) + 2 hàng header (bổ sung ngoài SDD gốc,
+            đã xác nhận với người dùng 2026-08-14) — kéo bảng sang phải/xuống dưới vẫn biết đang nhận
+            xét học sinh nào. Bọc thêm max-h + overflow-y-auto (khác các TableContainer khác trong repo,
+            vốn chỉ cuộn ngang) để sticky top có 1 scroll container CỐ ĐỊNH ngay trong bảng.
+            KHÔNG dùng <TableContainer> chung (table border-collapse) ở đây — border-collapse phá vỡ
+            position:sticky trên từng <td>/<th> riêng lẻ. Table riêng dùng border-separate +
+            border-spacing-0 để sticky định vị đúng, viền vẫn liền mạch như border-collapse (spacing=0).
+            KHÔNG dùng table-fixed + <colgroup> (đã thử, vẫn lệch) — đo thực tế bằng DevTools phát hiện
+            position:sticky trên <td>/<th> có rowSpan không tôn trọng width khai báo ở colgroup/hàng đầu
+            (giới hạn/bug trình duyệt), khiến cột lệch vị trí. Cách ĐÚNG: ép cứng width+minWidth+maxWidth
+            BẰNG NHAU trực tiếp trên từng ô CỦA MỌI DÒNG (không qua colgroup) — buộc trình duyệt không co
+            giãn cột đó bất kể nội dung, làm việc ổn định với sticky. Các cột KHÔNG sticky vẫn giữ auto
+            layout + min-w như cũ, không ảnh hưởng. */}
+        <div className="overflow-x-auto overflow-y-auto max-h-[65vh]">
+          <table className="text-xs text-left border-separate border-spacing-0">
+          {/* sticky trực tiếp trên <thead> (thay vì tính top offset riêng cho từng <tr>) — trình duyệt tự
+              ghim NGUYÊN CẢ 2 dòng header làm 1 khối, không cần đoán chiều cao dòng 1 để lệch dòng 2. 3 ô
+              góc (Mã học viên/Họ và tên/Ngày sinh) cần thêm sticky left riêng (trục ngang, độc lập với
+              trục dọc đã ghim ở thead) để vừa dính trên vừa dính trái khi cuộn cả 2 chiều. */}
+          <thead className="sticky top-0 z-20 bg-slate-50">
             {/* Border rõ giữa các cột/dòng header (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
                 2026-08-06) — Th mặc định không có border, bảng nhóm cột (BTVN buổi trước/online) khó
                 phân biệt ranh giới nếu không kẻ thêm. */}
             <tr className="border-b border-slate-300 [&>th]:text-center">
-              <Th rowSpan={2} className="min-w-[120px] border-r border-slate-300">Mã học viên</Th>
-              <Th rowSpan={2} className="border-r border-slate-300">Họ và tên</Th>
-              <Th rowSpan={2} className="border-r border-slate-300">Ngày sinh</Th>
+              <Th rowSpan={2} style={STICKY_COL_STYLE[0]} className="sticky left-0 z-30 bg-slate-50 border-r border-slate-300">Mã học viên</Th>
+              <Th rowSpan={2} style={STICKY_COL_STYLE[1]} className="sticky z-30 bg-slate-50 border-r border-slate-300">Họ và tên</Th>
+              <Th rowSpan={2} style={STICKY_COL_STYLE[2]} className="sticky z-30 bg-slate-50 border-r border-slate-300">Ngày sinh</Th>
               <Th colSpan={3} className="text-center border-r border-slate-300">BTVN buổi trước</Th>
               <Th rowSpan={2} className="border-r border-slate-300">BTVN offline</Th>
               <Th colSpan={2} className="text-center border-r border-slate-300">BTVN online</Th>
@@ -944,8 +1119,10 @@ export default function DailyCommentPanel() {
               </tr>
             ) : (
               rows.map((r) => {
-                const updateRow = (patch: Partial<Row>) =>
+                const updateRow = (patch: Partial<Row>) => {
                   setRows((prev) => prev.map((row) => (row.studentId === r.studentId ? { ...row, ...patch } : row)));
+                  setDirty(true);
+                };
                 // Học sinh này đã CÓ nhận xét DAILY cho đúng buổi đang chọn (gửi tay hoặc nhập Excel).
                 // Chỉ khoá read-only khi đã PENDING/APPROVED (không còn sửa được ở đây nữa — backend chỉ
                 // cho sửa khi DRAFT/REJECTED) — DRAFT/REJECTED vẫn hiện ô nhập bình thường (đã điền sẵn
@@ -953,32 +1130,42 @@ export default function DailyCommentPanel() {
                 // nhận với người dùng 2026-07-29).
                 const sent = history.find((h) => h.studentId === r.studentId);
                 const locked = !!sent && (sent.status === "PENDING" || sent.status === "APPROVED");
+                // Nền đặc cho 3 cột cố định (khác Td mặc định trong suốt) — cuộn ngang thì nội dung cột
+                // sau không được lộ ra qua cột cố định phía trên (bổ sung ngoài SDD gốc, 2026-08-14).
+                const stickyBg = locked ? "bg-emerald-50" : "bg-white";
                 return (
                   <tr
                     key={r.studentId}
                     onClick={locked ? () => notifyAlreadySent(r, sent) : undefined}
                     className={`transition-colors ${locked ? "bg-emerald-50/20 cursor-pointer hover:bg-emerald-50/40" : "hover:bg-slate-50/40"}`}
                   >
-                    <Td className="font-mono font-bold text-slate-500 border-r border-slate-300">{r.studentCode}</Td>
-                    <Td className="font-bold text-slate-900 whitespace-nowrap border-r border-slate-300">
+                    <Td style={STICKY_COL_STYLE[0]} className={`sticky left-0 z-10 ${stickyBg} font-mono font-bold text-slate-500 border-r border-slate-300`}>{r.studentCode}</Td>
+                    <Td style={STICKY_COL_STYLE[1]} className={`sticky z-10 ${stickyBg} font-bold text-slate-900 whitespace-nowrap border-r border-slate-300`}>
                       <StudentNameLink studentId={r.studentId} name={r.studentFullName} />
                     </Td>
-                    <Td className="whitespace-nowrap text-slate-500 border-r border-slate-300">{r.studentDateOfBirth ?? "—"}</Td>
+                    <Td style={STICKY_COL_STYLE[2]} className={`sticky z-10 ${stickyBg} whitespace-nowrap text-slate-500 border-r border-slate-300`}>{r.studentDateOfBirth ?? "—"}</Td>
                     <Td className="min-w-[130px] border-r border-slate-300">
-                      {/* BTVN buổi trước — Offline (bổ sung ngoài SDD gốc, 2026-08-06) — chỉ hiển thị, không nhập được ở đây (khớp cách hiện Ngày sinh — dữ liệu tra ngược từ buổi trước, không phải của buổi đang nhận xét). */}
-                      <div className={readOnlyFieldClass}>{sent?.homeworkPreviousOfflineText || "—"}</div>
-                    </Td>
-                    <Td className="min-w-[150px] border-r border-slate-300">
+                      {/* BTVN buổi trước — Offline (sửa lại 2026-08-14, đúng luồng đã xác nhận với người dùng): ô để
+                          GIÁO VIÊN NHẬP ĐIỂM % tự chấm tay cho BTVN offline (giao làm trên giấy ở buổi trước — không có
+                          cách nào tính % tự động, BE không track được bài làm trên giấy). Dùng chung field
+                          homeworkPreviousScore với cột "{grammarLabel}" bên phải (backend không phân biệt 2 cột — cùng
+                          là điểm chấm tay cho kênh Ngữ pháp/Bài nghe buổi trước, chỉ khác chỗ hiển thị trên UI). */}
                       {locked ? (
-                        <PreviousProgressCell auto={sent!.grammarPreviousProgress} manual={sent!.homeworkPreviousScore} />
+                        <div className={readOnlyFieldClass}>{sent!.homeworkPreviousScore || "—"}</div>
                       ) : (
                         <input
                           value={r.homeworkPreviousScore}
                           onChange={(e) => updateRow({ homeworkPreviousScore: e.target.value })}
-                          placeholder="VD: Đã thực hiện 90% (chỉ cần điền tay nếu buổi trước giao Offline)"
+                          placeholder="VD: 80%"
                           className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
                         />
                       )}
+                    </Td>
+                    <Td className="min-w-[150px] border-r border-slate-300">
+                      {/* {grammarLabel} buổi trước — CHỈ hiện % TỰ ĐỘNG (buổi trước giao Online, BE tính từ
+                          exercise_attempts) — nhập tay đã chuyển hẳn sang cột "Offline" bên trái, không còn fallback
+                          nhập tay ở đây nữa (tránh 2 cột cùng nhập được 1 giá trị gây nhầm lẫn cho giáo viên). */}
+                      <PreviousProgressCell auto={sent?.grammarPreviousProgress ?? null} manual={null} />
                     </Td>
                     <Td className="min-w-[150px] border-r border-slate-300">
                       {locked ? (
@@ -1103,7 +1290,8 @@ export default function DailyCommentPanel() {
               })
             )}
           </tbody>
-        </TableContainer>
+          </table>
+        </div>
 
         {selectedSessionId && rows.length > 0 && (
           <div className="px-6 py-4 bg-slate-50 border-t flex justify-end">
@@ -1122,8 +1310,15 @@ export default function DailyCommentPanel() {
 
         {selectedClassId && selectedSessionId && (
           <div className="px-6 py-4 border-t border-slate-100 space-y-2">
-            <span className="text-[10px] font-bold uppercase text-slate-500">Lịch sử nhận xét buổi này</span>
-            {loadingHistory ? (
+            <button
+              type="button"
+              onClick={() => setShowHistory((v) => !v)}
+              className="flex items-center gap-1.5 text-[10px] font-bold uppercase text-slate-500 hover:text-slate-700"
+            >
+              {showHistory ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+              Lịch sử nhận xét buổi này{!showHistory && history.length > 0 ? ` (${history.length})` : ""}
+            </button>
+            {showHistory && (loadingHistory ? (
               <p className="text-xs text-slate-400">Đang tải...</p>
             ) : (
               <CommentHistoryList
@@ -1135,7 +1330,7 @@ export default function DailyCommentPanel() {
                 grammarLabel={grammarLabel}
                 videoLabel={videoLabel}
               />
-            )}
+            ))}
           </div>
         )}
       </div>
