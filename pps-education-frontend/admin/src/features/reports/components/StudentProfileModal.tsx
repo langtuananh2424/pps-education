@@ -1,9 +1,10 @@
 import React, { useMemo, useState } from "react";
-import { Award, BookOpen, Calendar, CheckCircle, Clock, GraduationCap, Users, XCircle } from "lucide-react";
+import { Award, BookOpen, Calendar, CheckCircle, ChevronDown, ChevronUp, Clock, ClipboardList, GraduationCap, Users, XCircle } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import DatePicker from "@/components/ui/DatePicker";
 import Select from "@/components/ui/Select";
 import { SkillTrendSeries, useStudentProfileData } from "../hooks/useStudentProfileData";
+import HomeworkAttemptDetail from "./HomeworkAttemptDetail";
 
 const STATUS_LABELS: Record<string, string> = {
   ACTIVE: "Đang học",
@@ -41,9 +42,9 @@ const ATTITUDE_LABELS: Record<string, string> = {
   EXCELLENT: "Xuất sắc",
 };
 
-type TabKey = "overview" | "grades" | "comments" | "attendance";
+type TabKey = "overview" | "grades" | "comments" | "attendance" | "homework";
 
-/** Cùng 1 chiều cao cho cả 4 tab (cuộn riêng bên trong) — đổi tab không làm popup co giãn theo nội dung. */
+/** Cùng 1 chiều cao cho cả 5 tab (cuộn riêng bên trong) — đổi tab không làm popup co giãn theo nội dung. */
 const TAB_BODY_CLASS = "h-[620px] overflow-y-auto pr-1";
 
 const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
@@ -51,7 +52,16 @@ const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
   { key: "grades", label: "Điểm số", icon: <Award className="w-3.5 h-3.5" /> },
   { key: "comments", label: "Nhận xét", icon: <BookOpen className="w-3.5 h-3.5" /> },
   { key: "attendance", label: "Điểm danh", icon: <Calendar className="w-3.5 h-3.5" /> },
+  { key: "homework", label: "Bài tập về nhà", icon: <ClipboardList className="w-3.5 h-3.5" /> },
 ];
+
+const HOMEWORK_STATUS_LABELS: Record<string, string> = {
+  IN_PROGRESS: "Đang làm",
+  SUBMITTED: "Đã nộp",
+  AUTO_GRADED: "Đã chấm tự động",
+  FULLY_GRADED: "Đã chấm xong",
+  EXPIRED: "Hết hạn",
+};
 
 /** Chuỗi màu cố định theo THỨ TỰ (không đổi theo dữ liệu) — đủ dùng cho tối đa 6 kỹ năng phổ biến (Nghe/Nói/Đọc/Viết/Ngữ pháp/Dự án). */
 const SKILL_COLORS = ["#6366f1", "#f59e0b", "#10b981", "#ec4899", "#0ea5e9", "#a855f7"];
@@ -303,6 +313,33 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
     setAttTermFilter("ALL");
     setAttDateFrom("");
     setAttDateTo("");
+  };
+
+  // Lọc ở tab Bài tập về nhà: lớp / kết quả đạt-chưa đạt.
+  const [hwClassFilter, setHwClassFilter] = useState<string>("ALL");
+  const [hwResultFilter, setHwResultFilter] = useState<string>("ALL");
+  const [expandedHomeworkAttemptId, setExpandedHomeworkAttemptId] = useState<number | null>(null);
+
+  const hwClasses = useMemo(
+    () => Array.from(new Set(profile.homeworkResults.map((h) => h.className))).sort(),
+    [profile.homeworkResults]
+  );
+  const filteredHomework = useMemo(
+    () =>
+      profile.homeworkResults.filter(
+        (h) =>
+          (hwClassFilter === "ALL" || h.className === hwClassFilter) &&
+          (hwResultFilter === "ALL" ||
+            (hwResultFilter === "PASSED" && h.passed === true) ||
+            (hwResultFilter === "FAILED" && h.passed === false) ||
+            (hwResultFilter === "UNGRADED" && h.passed === null))
+      ),
+    [profile.homeworkResults, hwClassFilter, hwResultFilter]
+  );
+  const hasHwFilter = hwClassFilter !== "ALL" || hwResultFilter !== "ALL";
+  const clearHwFilters = () => {
+    setHwClassFilter("ALL");
+    setHwResultFilter("ALL");
   };
 
   const student = profile.student;
@@ -757,6 +794,96 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
                         >
                           {entry.status === "PRESENT" ? "Có mặt" : entry.status === "LATE" ? "Đi muộn" : entry.status === "EARLY_LEAVE" ? "Về sớm" : entry.status === "ABSENT" ? "Vắng" : "Có phép"}
                         </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Bài tập về nhà -- lọc theo lớp/kết quả, xem điểm và chi tiết câu sai từng lượt làm */}
+          {activeTab === "homework" && (
+            <div className={`${TAB_BODY_CLASS} space-y-3`}>
+              {profile.homeworkResults.length > 0 && (
+                <div className="bg-white border border-slate-200/60 rounded-xl p-3 shadow-sm flex flex-wrap items-center gap-3 sticky top-0 z-10">
+                  <span className="text-xs font-semibold text-slate-500">Lọc:</span>
+                  <Select
+                    value={hwClassFilter}
+                    onChange={(e) => setHwClassFilter(e.target.value)}
+                    className="border border-slate-300 rounded-lg text-xs px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
+                  >
+                    <option value="ALL">Tất cả lớp</option>
+                    {hwClasses.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </Select>
+                  <Select
+                    value={hwResultFilter}
+                    onChange={(e) => setHwResultFilter(e.target.value)}
+                    className="border border-slate-300 rounded-lg text-xs px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
+                  >
+                    <option value="ALL">Tất cả kết quả</option>
+                    <option value="PASSED">Đạt</option>
+                    <option value="FAILED">Chưa đạt</option>
+                    <option value="UNGRADED">Chưa chấm</option>
+                  </Select>
+                  {hasHwFilter && (
+                    <button type="button" onClick={clearHwFilters} className="text-xs text-brand-orange font-semibold hover:underline">
+                      Xoá lọc
+                    </button>
+                  )}
+                  <span className="text-xs text-slate-400 ml-auto">{filteredHomework.length} bài</span>
+                </div>
+              )}
+
+              {filteredHomework.length === 0 ? (
+                <div className="bg-white rounded-xl border border-slate-200 py-10 text-center text-sm text-slate-400">
+                  {profile.homeworkResults.length === 0 ? "Chưa có bài tập về nhà nào được giao" : "Không có bài nào khớp bộ lọc đang chọn"}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {filteredHomework.map((h) => {
+                    const isExpanded = expandedHomeworkAttemptId === h.attemptId;
+                    return (
+                      <div key={h.attemptId} className="bg-white border border-slate-200/60 rounded-xl shadow-sm overflow-hidden">
+                        <button
+                          type="button"
+                          onClick={() => setExpandedHomeworkAttemptId(isExpanded ? null : h.attemptId)}
+                          className="w-full text-left px-4 py-3 flex items-center justify-between gap-3 hover:bg-slate-50/50"
+                        >
+                          <div>
+                            <p className="text-sm font-medium text-slate-700">{h.exerciseTitle}</p>
+                            <p className="text-[11px] text-slate-400">
+                              {h.className}
+                              {h.attemptNumber > 1 ? ` · Lượt ${h.attemptNumber}` : ""}
+                              {h.submittedAt ? ` · Nộp: ${new Date(h.submittedAt).toLocaleString("vi-VN")}` : " · Chưa nộp"}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-sm font-bold text-slate-800">
+                              {h.totalScore ?? "—"}/{h.totalPoints}
+                              {h.percentage !== null && <span className="text-xs text-slate-400 font-normal"> ({h.percentage}%)</span>}
+                            </span>
+                            <span
+                              className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+                                h.passed === true
+                                  ? "bg-emerald-100 text-emerald-700"
+                                  : h.passed === false
+                                  ? "bg-rose-100 text-rose-700"
+                                  : "bg-slate-100 text-slate-500"
+                              }`}
+                            >
+                              {h.passed === true ? "Đạt" : h.passed === false ? "Chưa đạt" : HOMEWORK_STATUS_LABELS[h.status] ?? h.status}
+                            </span>
+                            {isExpanded ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+                          </div>
+                        </button>
+                        {isExpanded && (
+                          <div className="px-4 pb-4 border-t border-slate-100 pt-3">
+                            <HomeworkAttemptDetail attemptId={h.attemptId} exerciseId={h.exerciseId} />
+                          </div>
+                        )}
                       </div>
                     );
                   })}

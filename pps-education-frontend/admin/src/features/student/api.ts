@@ -249,6 +249,25 @@ export interface StudentProfileAttendanceEntry {
   minutesEarlyLeave: number | null;
 }
 
+export interface StudentProfileHomework {
+  attemptId: number;
+  exerciseId: number;
+  exerciseCode: string;
+  exerciseTitle: string;
+  exerciseAssignmentId: number;
+  classId: number;
+  className: string;
+  dueAt: string | null;
+  attemptNumber: number;
+  startedAt: string;
+  submittedAt: string | null;
+  totalScore: number | null;
+  totalPoints: number;
+  percentage: number | null;
+  passed: boolean | null;
+  status: "IN_PROGRESS" | "SUBMITTED" | "AUTO_GRADED" | "FULLY_GRADED" | "EXPIRED";
+}
+
 export interface StudentProfileResponseDto {
   student: StudentProfileStudent;
   enrollments: StudentProfileEnrollment[];
@@ -256,6 +275,7 @@ export interface StudentProfileResponseDto {
   skillScores: StudentProfileSkillScore[];
   comments: StudentProfileComment[];
   attendance: StudentProfileAttendanceEntry[];
+  homeworkResults: StudentProfileHomework[];
 }
 
 export function getStudentProfile(id: number): Promise<StudentProfileResponseDto> {
