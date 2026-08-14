@@ -7,6 +7,7 @@ import vn.com.pps.education.domain.AcademicTerm;
 import vn.com.pps.education.domain.AttendanceMark;
 import vn.com.pps.education.domain.ClassEnrollment;
 import vn.com.pps.education.domain.ClassSession;
+import vn.com.pps.education.domain.ExerciseAttempt;
 import vn.com.pps.education.domain.GradeEntry;
 import vn.com.pps.education.domain.GradeEvaluationResult;
 import vn.com.pps.education.domain.Student;
@@ -15,6 +16,7 @@ import vn.com.pps.education.dto.StudentProfileAttendanceResponse;
 import vn.com.pps.education.dto.StudentProfileCommentResponse;
 import vn.com.pps.education.dto.StudentProfileEnrollmentResponse;
 import vn.com.pps.education.dto.StudentProfileGradeResultResponse;
+import vn.com.pps.education.dto.StudentProfileHomeworkResponse;
 import vn.com.pps.education.dto.StudentProfileResponse;
 import vn.com.pps.education.dto.StudentProfileSkillScoreResponse;
 import vn.com.pps.education.dto.StudentProfileStudentResponse;
@@ -22,10 +24,12 @@ import vn.com.pps.education.repository.AcademicTermRepository;
 import vn.com.pps.education.repository.AttendanceMarkRepository;
 import vn.com.pps.education.repository.ClassEnrollmentRepository;
 import vn.com.pps.education.repository.ClassSessionRepository;
+import vn.com.pps.education.repository.ExerciseAttemptRepository;
 import vn.com.pps.education.repository.GradeEntryRepository;
 import vn.com.pps.education.repository.GradeEvaluationResultRepository;
 import vn.com.pps.education.repository.StudentCommentRepository;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -63,6 +67,7 @@ public class StudentProfileService {
     private final AttendanceMarkRepository attendanceMarkRepository;
     private final ClassSessionRepository classSessionRepository;
     private final AcademicTermRepository academicTermRepository;
+    private final ExerciseAttemptRepository exerciseAttemptRepository;
 
     public StudentProfileService(StudentService studentService,
                                   ClassEnrollmentRepository classEnrollmentRepository,
@@ -71,7 +76,8 @@ public class StudentProfileService {
                                   StudentCommentRepository studentCommentRepository,
                                   AttendanceMarkRepository attendanceMarkRepository,
                                   ClassSessionRepository classSessionRepository,
-                                  AcademicTermRepository academicTermRepository) {
+                                  AcademicTermRepository academicTermRepository,
+                                  ExerciseAttemptRepository exerciseAttemptRepository) {
         this.studentService = studentService;
         this.classEnrollmentRepository = classEnrollmentRepository;
         this.gradeEvaluationResultRepository = gradeEvaluationResultRepository;
@@ -80,6 +86,7 @@ public class StudentProfileService {
         this.attendanceMarkRepository = attendanceMarkRepository;
         this.classSessionRepository = classSessionRepository;
         this.academicTermRepository = academicTermRepository;
+        this.exerciseAttemptRepository = exerciseAttemptRepository;
     }
 
     @Transactional(readOnly = true)
@@ -92,6 +99,7 @@ public class StudentProfileService {
         List<StudentComment> comments = studentCommentRepository.findByStudentIdWithContext(studentId);
         List<AttendanceMark> attendanceMarks =
                 attendanceMarkRepository.findByStudentIdWithContext(studentId, PageRequest.of(0, ATTENDANCE_LIMIT));
+        List<ExerciseAttempt> homeworkAttempts = exerciseAttemptRepository.findByStudentIdWithContext(studentId);
 
         Map<Long, List<AcademicTerm>> termsBySite = new HashMap<>();
         Map<Long, Integer> sessionNumberBySessionId = computeSessionNumbers(comments, attendanceMarks);
@@ -105,8 +113,10 @@ public class StudentProfileService {
         List<StudentProfileAttendanceResponse> attendanceDtos = attendanceMarks.stream()
                 .map(m -> toAttendanceDto(m, termsBySite, sessionNumberBySessionId))
                 .toList();
+        List<StudentProfileHomeworkResponse> homeworkDtos = homeworkAttempts.stream().map(this::toHomeworkDto).toList();
 
-        return new StudentProfileResponse(toStudentDto(student), enrollmentDtos, gradeResultDtos, skillScoreDtos, commentDtos, attendanceDtos);
+        return new StudentProfileResponse(
+                toStudentDto(student), enrollmentDtos, gradeResultDtos, skillScoreDtos, commentDtos, attendanceDtos, homeworkDtos);
     }
 
     // ===================== Helpers =====================
@@ -201,5 +211,17 @@ public class StudentProfileService {
                 term == null ? null : term.getName(),
                 session.getSchoolClass().getAcademicYear() == null ? null : session.getSchoolClass().getAcademicYear().getName(),
                 m.getStatus().name(), m.getMinutesLate(), m.getMinutesEarlyLeave());
+    }
+
+    /** Tính % giống hệt ExerciseAttemptService (dùng lại static helper cùng package) để không lệch công thức làm tròn/ngưỡng đạt. */
+    private StudentProfileHomeworkResponse toHomeworkDto(ExerciseAttempt a) {
+        BigDecimal percentage = a.getTotalScore() == null ? null
+                : ExerciseAttemptService.percentageOf(a.getTotalScore(), a.getExercise().getTotalPoints());
+        return new StudentProfileHomeworkResponse(
+                a.getId(), a.getExercise().getId(), a.getExercise().getCode(), a.getExercise().getTitle(),
+                a.getExerciseAssignment().getId(), a.getExerciseAssignment().getSchoolClass().getId(),
+                a.getExerciseAssignment().getSchoolClass().getName(), a.getExerciseAssignment().getDueAt(),
+                a.getAttemptNumber(), a.getStartedAt(), a.getSubmittedAt(),
+                a.getTotalScore(), a.getExercise().getTotalPoints(), percentage, a.getPassed(), a.getStatus().name());
     }
 }
