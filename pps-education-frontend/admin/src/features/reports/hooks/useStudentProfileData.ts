@@ -4,6 +4,7 @@ import {
   StudentProfileComment,
   StudentProfileEnrollment,
   StudentProfileGradeResult,
+  StudentProfileHomework,
   StudentProfileStudent,
   getStudentProfile,
 } from "@/features/student/api";
@@ -30,6 +31,7 @@ export interface StudentProfileData {
   skillTrends: SkillTrendSeries[];
   allComments: StudentProfileComment[];
   attendance: StudentProfileAttendanceEntry[];
+  homeworkResults: StudentProfileHomework[];
   loading: boolean;
   error: string | null;
 }
@@ -41,13 +43,14 @@ const EMPTY: StudentProfileData = {
   skillTrends: [],
   allComments: [],
   attendance: [],
+  homeworkResults: [],
   loading: false,
   error: null,
 };
 
 /**
  * Tải toàn bộ hồ sơ học tập của 1 học sinh (lớp đã học, điểm tổng kết + điểm
- * từng kỹ năng theo kỳ, nhận xét, điểm danh) — dùng chung cho popup Hồ sơ
+ * từng kỹ năng theo kỳ, nhận xét, điểm danh, BTVN đã giao) — dùng chung cho popup Hồ sơ
  * học sinh (StudentProfileModal) và trang Hồ sơ học tập (StudentProgressPage).
  * <p>
  * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng — trước đây hook này tự
@@ -95,6 +98,7 @@ export function useStudentProfileData(studentId: number | null): StudentProfileD
           skillTrends: Array.from(bySkill.values()),
           allComments: profile.comments,
           attendance: profile.attendance,
+          homeworkResults: profile.homeworkResults,
           loading: false,
           error: null,
         });
