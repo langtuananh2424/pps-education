@@ -1,5 +1,6 @@
 import React from "react";
 import { GoogleLogin } from "@react-oauth/google";
+import { useTranslation } from "react-i18next";
 import { useApp } from "@/context/AppContext";
 import { ApiError } from "@/lib/apiClient";
 
@@ -10,6 +11,7 @@ interface GoogleSignInButtonProps {
 
 /** UC-01 Main Flow bước 4 — Sign in with Google, trả về id_token (credential) gửi thẳng cho backend verify. */
 export default function GoogleSignInButton({ onSuccess, onError }: GoogleSignInButtonProps) {
+  const { t } = useTranslation("auth");
   const { loginWithGoogle } = useApp();
 
   return (
@@ -29,17 +31,17 @@ export default function GoogleSignInButton({ onSuccess, onError }: GoogleSignInB
         use_fedcm_for_button
         onSuccess={async (credentialResponse) => {
           if (!credentialResponse.credential) {
-            onError("Không nhận được thông tin xác thực từ Google.");
+            onError(t("errors.googleNoCredential"));
             return;
           }
           try {
             await loginWithGoogle(credentialResponse.credential);
             onSuccess();
           } catch (err) {
-            onError(err instanceof ApiError ? err.message : "Đăng nhập Google thất bại. Vui lòng thử lại.");
+            onError(err instanceof ApiError ? err.message : t("errors.googleFailed"));
           }
         }}
-        onError={() => onError("Đăng nhập Google thất bại. Vui lòng thử lại.")}
+        onError={() => onError(t("errors.googleFailed"))}
       />
     </div>
   );

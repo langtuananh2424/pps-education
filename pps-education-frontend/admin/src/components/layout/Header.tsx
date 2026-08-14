@@ -9,6 +9,7 @@ import SelfAttendanceCard from "@/features/hrm/components/SelfAttendanceCard";
 import { UserRole } from "@/types";
 import Avatar from "@/components/ui/Avatar";
 import Dropdown from "@/components/ui/Dropdown";
+import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
 import Modal from "@/components/ui/Modal";
 import ProfileModal from "@/features/auth/components/ProfileModal";
 import ChangePasswordModal from "@/features/auth/components/ChangePasswordModal";
@@ -335,6 +336,8 @@ export default function Header() {
             {new Date().toLocaleDateString("vi-VN", { year: "numeric", month: "long", day: "numeric" })}
           </span>
         </div>
+
+        <LanguageSwitcher />
 
         <Dropdown
           panelClassName="w-80 max-h-[420px] overflow-y-auto"

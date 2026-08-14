@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useApp } from "@/context/AppContext";
 import { ApiError } from "@/lib/apiClient";
 import GoogleSignInButton from "./GoogleSignInButton";
@@ -14,6 +15,7 @@ interface LoginFormProps {
 }
 
 export default function LoginForm({ usernameOrEmail, onUsernameOrEmailChange, onLoginSuccess }: LoginFormProps) {
+  const { t } = useTranslation("auth");
   const { login } = useApp();
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -27,11 +29,11 @@ export default function LoginForm({ usernameOrEmail, onUsernameOrEmailChange, on
     setError(null);
 
     if (!usernameOrEmail.trim()) {
-      setError("Vui lòng điền tài khoản hoặc email đăng nhập.");
+      setError(t("errors.usernameRequired"));
       return;
     }
     if (!password) {
-      setError("Vui lòng điền mật khẩu.");
+      setError(t("errors.passwordRequired"));
       return;
     }
 
@@ -43,7 +45,7 @@ export default function LoginForm({ usernameOrEmail, onUsernameOrEmailChange, on
       if (err instanceof ApiError) {
         setError(err.message);
       } else {
-        setError("Không thể kết nối tới hệ thống. Vui lòng thử lại.");
+        setError(t("errors.connectionFailed"));
       }
     } finally {
       setLoading(false);
@@ -53,8 +55,8 @@ export default function LoginForm({ usernameOrEmail, onUsernameOrEmailChange, on
   return (
     <>
       <div className="space-y-2">
-        <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight font-display uppercase leading-none">WELCOME BACK</h2>
-        <p className="text-xs text-slate-400 font-medium">Welcome back! Please enter your details.</p>
+        <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight font-display uppercase leading-none">{t("welcomeBack")}</h2>
+        <p className="text-xs text-slate-400 font-medium">{t("welcomeBackSub")}</p>
       </div>
 
       {error && (
@@ -66,11 +68,11 @@ export default function LoginForm({ usernameOrEmail, onUsernameOrEmailChange, on
 
       <form onSubmit={handleSubmit} className="space-y-4 mt-6">
         <div className="space-y-1.5">
-          <label className="text-xs font-bold text-slate-700 tracking-wide block pl-0.5">Tài khoản hoặc Email</label>
+          <label className="text-xs font-bold text-slate-700 tracking-wide block pl-0.5">{t("usernameOrEmailLabel")}</label>
           <input
             type="text"
             required
-            placeholder="username hoặc email@pps.edu.vn"
+            placeholder={t("usernameOrEmailPlaceholder")}
             value={usernameOrEmail}
             onChange={(e) => {
               onUsernameOrEmailChange(e.target.value);
@@ -81,7 +83,7 @@ export default function LoginForm({ usernameOrEmail, onUsernameOrEmailChange, on
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-xs font-bold text-slate-700 tracking-wide block pl-0.5">Mật khẩu</label>
+          <label className="text-xs font-bold text-slate-700 tracking-wide block pl-0.5">{t("passwordLabel")}</label>
           <div className="relative">
             <input
               type={showPassword ? "text" : "password"}
@@ -118,17 +120,17 @@ export default function LoginForm({ usernameOrEmail, onUsernameOrEmailChange, on
                 </svg>
               )}
             </div>
-            <span className="font-medium text-slate-600">Remember me</span>
+            <span className="font-medium text-slate-600">{t("rememberMe")}</span>
           </label>
           <a
             href="#forgot"
             onClick={(e) => {
               e.preventDefault();
-              alertDialog("Tính năng Khôi phục mật khẩu đang khóa. Vui lòng liên hệ Admin qua admin@pps.edu.vn.");
+              alertDialog(t("forgotPasswordAlert"));
             }}
             className="text-xs font-semibold text-slate-500 hover:text-[#EA580C] transition-colors"
           >
-            Forgot password
+            {t("forgotPassword")}
           </a>
         </div>
 
@@ -140,10 +142,10 @@ export default function LoginForm({ usernameOrEmail, onUsernameOrEmailChange, on
           {loading ? (
             <>
               <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              <span>Sign-in...</span>
+              <span>{t("signingIn")}</span>
             </>
           ) : (
-            <span>Sign in</span>
+            <span>{t("signIn")}</span>
           )}
         </button>
       </form>
@@ -152,7 +154,7 @@ export default function LoginForm({ usernameOrEmail, onUsernameOrEmailChange, on
         <>
           <div className="flex items-center gap-3 mt-5">
             <div className="flex-1 h-px bg-slate-100" />
-            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Hoặc</span>
+            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">{t("or")}</span>
             <div className="flex-1 h-px bg-slate-100" />
           </div>
 

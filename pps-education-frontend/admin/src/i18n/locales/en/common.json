@@ -1,0 +1,7 @@
+{
+  "language": {
+    "vi": "Vietnamese",
+    "en": "English",
+    "switchTo": "Switch to {{language}}"
+  }
+}
