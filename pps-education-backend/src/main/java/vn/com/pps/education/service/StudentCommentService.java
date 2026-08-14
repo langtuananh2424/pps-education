@@ -29,6 +29,8 @@ import vn.com.pps.education.dto.ClassSessionLessonContentResponse;
 import vn.com.pps.education.dto.ClassSessionTeacherNameResponse;
 import vn.com.pps.education.dto.ClassSessionTeacherTypeResponse;
 import vn.com.pps.education.dto.CreateStudentCommentRequest;
+import vn.com.pps.education.dto.DailyCommentImportPreviewResponse;
+import vn.com.pps.education.dto.DailyCommentImportPreviewRow;
 import vn.com.pps.education.dto.DailyCommentImportResponse;
 import vn.com.pps.education.dto.DecideCommentsRequest;
 import vn.com.pps.education.dto.EnterAttendanceMarkRequest;
@@ -284,6 +286,7 @@ public class StudentCommentService {
 
         ClassSession classSession = getClassSessionOrThrow(request.classSessionId());
         requireCanWriteDailyComment(classSession, actorUserId);
+        requireSessionEndedAndAttendanceTaken(classSession, actorUserId);
         Student student = studentRepository.findByIdAndDeletedAtIsNull(request.studentId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy học sinh id=" + request.studentId()));
 
@@ -318,6 +321,7 @@ public class StudentCommentService {
         User actor = getUserOrThrow(actorUserId);
 
         requireCanWriteDailyComment(comment.getClassSession(), actorUserId);
+        requireSessionEndedAndAttendanceTaken(comment.getClassSession(), actorUserId);
         if (comment.getStatus() != StudentComment.Status.DRAFT && comment.getStatus() != StudentComment.Status.REJECTED) {
             throw new StudentCommentNotEditableException(
                     "Nhận xét id=" + id + " đang ở trạng thái " + comment.getStatus() + " — chỉ sửa được khi DRAFT hoặc REJECTED.");
@@ -776,6 +780,7 @@ public class StudentCommentService {
     public DailyCommentImportResponse importComments(Long classSessionId, MultipartFile file, Long actorUserId) {
         ClassSession classSession = getClassSessionOrThrow(classSessionId);
         requireCanWriteDailyComment(classSession, actorUserId);
+        requireSessionEndedAndAttendanceTaken(classSession, actorUserId);
         User actor = getUserOrThrow(actorUserId);
 
         ImportJob job = new ImportJob();
@@ -787,89 +792,20 @@ public class StudentCommentService {
         job.setStartedAt(OffsetDateTime.now());
         job = importJobRepository.save(job);
 
-        Long classId = classSession.getSchoolClass().getId();
-        ClassSession.TeacherType sessionTeacherType = classSession.getTeacherType();
-        Map<String, Exercise> grammarByLabel = exerciseRepository
-                .findAvailableForClass(classId, Exercise.Status.PUBLISHED).stream()
-                .filter(e -> matchesSessionTeacherType(e, sessionTeacherType))
-                .collect(java.util.stream.Collectors.toMap(this::grammarLabel, e -> e, (a, b) -> a));
-        Map<String, ReviewVideoSet> videoByLabel = reviewVideoSetRepository.findAvailableForClass(classId, ReviewVideoSet.Status.PUBLISHED).stream()
-                .filter(s -> matchesSessionTeacherType(s, sessionTeacherType))
-                .collect(java.util.stream.Collectors.toMap(this::videoLabel, s -> s, (a, b) -> a));
+        try {
+            ParsedImportFile parsedFile = parseImportWorkbook(file, classSession);
+            List<ParsedRow> parsedRows = parsedFile.rows();
+            List<Map<String, Object>> errors = new ArrayList<>(parsedFile.errors());
 
-        List<Map<String, Object>> errors = new ArrayList<>();
-        try (InputStream inputStream = file.getInputStream();
-             XSSFWorkbook workbook = new XSSFWorkbook(inputStream)) {
-            Sheet sheet = workbook.getSheetAt(0);
-            if (sheet.getRow(0) == null) {
-                return failJob(job, "File rỗng hoặc thiếu dòng tiêu đề.");
-            }
-            DataFormatter formatter = new DataFormatter();
-
-            // File mẫu giờ có 2 DÒNG header (dòng nhóm "BTVN buổi trước"/"BTVN online" merge + dòng
-            // tên cột con) — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06, mirror đúng
-            // headerRowIndex+1 dùng khi buildTemplate() gọi ExcelExportHelper.buildWorkbook(headerGroups).
-            // Dữ liệu học sinh bắt đầu từ dòng 3 (index 2), không phải dòng 2 (index 1) như trước.
-            List<ParsedRow> parsedRows = new ArrayList<>();
-            int totalRows = 0;
-            for (int rowIndex = 2; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
-                Row row = sheet.getRow(rowIndex);
-                if (row == null || isBlankRow(row, formatter)) {
-                    continue;
-                }
-                totalRows++;
-                try {
-                    parsedRows.add(parseRow(row, formatter, rowIndex, classSession, grammarByLabel, videoByLabel));
-                } catch (RuntimeException ex) {
-                    errors.add(rowError(rowIndex + 1, ex.getMessage()));
-                }
-            }
-
-            // "Bài học hôm nay" dùng CHUNG cả buổi (không phải theo từng học sinh) — mọi dòng có
-            // điền phải khớp giá trị nhau, dòng để trống bỏ qua (case 3: chưa điền cả UI lẫn Excel,
-            // validate ở submitComments). Khác 0/khác nhau → chặn TOÀN BỘ file, không import dòng
-            // nào (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-29).
-            Set<String> lessonContentValues = parsedRows.stream()
-                    .map(ParsedRow::lessonContent).filter(v -> v != null && !v.isBlank())
-                    .collect(java.util.stream.Collectors.toSet());
-            if (lessonContentValues.size() > 1) {
-                return failJob(job, "Bài học hôm nay không đồng nhất giữa các học sinh trong lớp — mọi học sinh phải học cùng 1 bài.");
-            }
-            if (lessonContentValues.size() == 1) {
-                classSession.setLessonContent(lessonContentValues.iterator().next());
+            if (parsedFile.lessonContent() != null) {
+                classSession.setLessonContent(parsedFile.lessonContent());
                 classSessionRepository.save(classSession);
             }
-
-            // "Tên giáo viên giảng dạy" dùng CHUNG cả buổi, mirror lessonContentValues (bổ sung ngoài
-            // SDD gốc, đã xác nhận với người dùng 2026-08-06).
-            Set<String> teacherNameValues = parsedRows.stream()
-                    .map(ParsedRow::teacherName).filter(v -> v != null && !v.isBlank())
-                    .collect(java.util.stream.Collectors.toSet());
-            if (teacherNameValues.size() > 1) {
-                return failJob(job, "Tên giáo viên giảng dạy không đồng nhất giữa các học sinh trong lớp — mọi học sinh trong buổi phải chung 1 GV dạy.");
-            }
-            if (teacherNameValues.size() == 1) {
-                classSession.setActualTeacherName(teacherNameValues.iterator().next());
+            if (parsedFile.teacherName() != null) {
+                classSession.setActualTeacherName(parsedFile.teacherName());
                 classSessionRepository.save(classSession);
             }
-
-            // "Hạn nộp bài" dùng CHUNG cả buổi, mirror lessonContentValues (bổ sung ngoài SDD gốc, đã
-            // xác nhận với người dùng 2026-08-06) — để trống thì BE tự tính = buổi kế tiếp (hành vi cũ).
-            Set<String> dueDateValues = parsedRows.stream()
-                    .map(ParsedRow::dueDateText).filter(v -> v != null && !v.isBlank())
-                    .collect(java.util.stream.Collectors.toSet());
-            if (dueDateValues.size() > 1) {
-                return failJob(job, "Hạn nộp bài không đồng nhất giữa các học sinh trong lớp — mọi học sinh trong buổi phải chung 1 hạn nộp.");
-            }
-            LocalDateTime customDueDate = null;
-            if (dueDateValues.size() == 1) {
-                String rawDueDate = dueDateValues.iterator().next();
-                try {
-                    customDueDate = LocalDateTime.parse(rawDueDate, DUE_DATE_FORMAT);
-                } catch (DateTimeParseException ex) {
-                    return failJob(job, "Hạn nộp bài sai định dạng (cần yyyy-MM-dd HH:mm): " + rawDueDate);
-                }
-            }
+            LocalDateTime customDueDate = parsedFile.customDueDate();
 
             // Gom các dòng có điểm danh KHÁC giá trị hiện có thành 1 lần gọi markAttendance
             // duy nhất — tái dùng nguyên rào UC-15 (chỉ trong ngày diễn ra buổi học, trừ khi
@@ -920,7 +856,7 @@ public class StudentCommentService {
                 }
             }
 
-            job.setTotalRows(totalRows);
+            job.setTotalRows(parsedFile.totalRows());
             job.setSuccessRows(successRows);
             job.setFailedRows(errors.size());
             job.setErrorSummary(errors);
@@ -928,8 +864,197 @@ public class StudentCommentService {
             job.setFinishedAt(OffsetDateTime.now());
             job = importJobRepository.save(job);
             return toImportResponse(job);
+        } catch (ImportValidationFailed ex) {
+            return failJob(job, ex.getMessage());
         } catch (IOException | RuntimeException ex) {
             return failJob(job, "File sai định dạng Excel (.xlsx): " + ex.getMessage());
+        }
+    }
+
+    /**
+     * UC-21 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-14):
+     * xem trước file Excel BTVN — CHỈ trả về dữ liệu đã parse để Giáo viên
+     * fill vào bảng nhận xét trên UI (nút "Lưu"/autosave sẽ ghi DRAFT sau),
+     * KHÔNG ghi StudentComment/Bài học hôm nay/Tên GV giảng dạy/Hạn nộp vào
+     * DB — khác {@link #importComments} (ghi thẳng DB, giữ lại cho tương
+     * thích ngược, không còn dùng ở UI nhập Excel nữa). Điểm danh vẫn ghi
+     * NGAY như importComments (nghiệp vụ độc lập, không thuộc quy trình
+     * soạn/duyệt nhận xét — đã xác nhận với người dùng).
+     */
+    @Transactional
+    public DailyCommentImportPreviewResponse previewImportComments(Long classSessionId, MultipartFile file, Long actorUserId) {
+        ClassSession classSession = getClassSessionOrThrow(classSessionId);
+        requireCanWriteDailyComment(classSession, actorUserId);
+
+        try {
+            ParsedImportFile parsedFile = parseImportWorkbook(file, classSession);
+            List<ParsedRow> parsedRows = parsedFile.rows();
+            List<Map<String, Object>> errors = new ArrayList<>(parsedFile.errors());
+
+            // Mirror nguyên khối ghi điểm danh của importComments — điểm danh vẫn ghi NGAY dù nhận
+            // xét/Bài học hôm nay/Tên GV/Hạn nộp chỉ fill ra FE, chưa ghi DB (đã xác nhận với người dùng).
+            Map<Long, AttendanceMark.Status> attendanceBeforeImport = currentAttendanceByStudent(classSessionId);
+            List<ParsedRow> attendanceChanged = parsedRows.stream()
+                    .filter(r -> attendanceBeforeImport.get(r.student().getId()) != r.attendance())
+                    .toList();
+            boolean attendanceWriteFailed = false;
+            String attendanceWriteFailedReason = null;
+            if (!attendanceChanged.isEmpty()) {
+                if (studentAttendanceService.canWriteAttendance(classSessionId, actorUserId)) {
+                    List<EnterAttendanceMarkRequest> marks = attendanceChanged.stream()
+                            .map(r -> new EnterAttendanceMarkRequest(r.student().getId(), r.attendance().name(), null, null, null))
+                            .toList();
+                    studentAttendanceService.markAttendance(classSessionId,
+                            new MarkAttendanceRequest("SESSION_LEVEL", marks), actorUserId);
+                } else {
+                    attendanceWriteFailed = true;
+                    attendanceWriteFailedReason = "chỉ điểm danh/sửa được trong ngày diễn ra buổi học "
+                            + "hoặc cần được phân công giảng dạy buổi này (quyền quản trị điểm danh mới vượt được rào này).";
+                }
+            }
+            Map<Long, AttendanceMark.Status> currentAttendance = currentAttendanceByStudent(classSessionId);
+
+            // Mirror điều kiện importRow() (bỏ qua Vắng/Có phép mà mọi cột nhận xét đều trống, bắt
+            // buộc có nội dung nếu không) — không ghi comment, chỉ dựng preview row trả về FE.
+            List<DailyCommentImportPreviewRow> previewRows = new ArrayList<>();
+            int successRows = 0;
+            for (ParsedRow parsed : parsedRows) {
+                try {
+                    AttendanceMark.Status effectiveAttendance = currentAttendance.getOrDefault(
+                            parsed.student().getId(), parsed.attendance());
+                    if (attendanceWriteFailed && parsed.attendance() != effectiveAttendance) {
+                        throw new IllegalArgumentException(
+                                "Không sửa được điểm danh: " + attendanceWriteFailedReason);
+                    }
+                    boolean absent = effectiveAttendance == AttendanceMark.Status.ABSENT
+                            || effectiveAttendance == AttendanceMark.Status.EXCUSED;
+                    boolean allBlank = parsed.attitude() == null && parsed.homeworkPrevious() == null
+                            && parsed.content() == null && parsed.homeworkNext() == null
+                            && parsed.grammarExercise() == null && parsed.videoSet() == null
+                            && parsed.note() == null && parsed.homeworkPreviousSpeaking() == null;
+                    if (!(absent && allBlank)) {
+                        if (parsed.content() == null || parsed.content().isBlank()) {
+                            throw new IllegalArgumentException(
+                                    "Thiếu nhận xét (cột P) — bắt buộc trừ khi học sinh vắng/có phép.");
+                        }
+                        previewRows.add(new DailyCommentImportPreviewRow(
+                                parsed.student().getId(), parsed.attitude(), parsed.homeworkPrevious(),
+                                parsed.homeworkPreviousSpeaking(), parsed.content(), parsed.homeworkNext(),
+                                parsed.grammarExercise() == null ? null : parsed.grammarExercise().getId(),
+                                parsed.videoSet() == null ? null : parsed.videoSet().getId(), parsed.note()));
+                    }
+                    successRows++;
+                } catch (RuntimeException ex) {
+                    errors.add(rowError(parsed.rowNumber() + 1, ex.getMessage()));
+                }
+            }
+
+            return new DailyCommentImportPreviewResponse(parsedFile.totalRows(), successRows, errors.size(), errors,
+                    parsedFile.lessonContent(), parsedFile.teacherName(), parsedFile.customDueDate(), previewRows);
+        } catch (ImportValidationFailed ex) {
+            return new DailyCommentImportPreviewResponse(0, 0, 1, List.of(rowError(0, ex.getMessage())), null, null, null, List.of());
+        } catch (IOException | RuntimeException ex) {
+            return new DailyCommentImportPreviewResponse(0, 0, 1,
+                    List.of(rowError(0, "File sai định dạng Excel (.xlsx): " + ex.getMessage())), null, null, null, List.of());
+        }
+    }
+
+    /** Báo hiệu 1 lỗi validate CHẶN TOÀN BỘ file (khác lỗi riêng 1 dòng, gom vào errorSummary) — dùng trong {@link #parseImportWorkbook}, bắt riêng ở 2 method gọi để giữ đúng nguyên văn thông báo lỗi (không bị bọc thêm "File sai định dạng Excel"). */
+    private static final class ImportValidationFailed extends RuntimeException {
+        ImportValidationFailed(String message) {
+            super(message);
+        }
+    }
+
+    private record ParsedImportFile(List<ParsedRow> rows, int totalRows, List<Map<String, Object>> errors,
+                                     String lessonContent, String teacherName, LocalDateTime customDueDate) {}
+
+    /**
+     * Parse file Excel BTVN thành danh sách {@link ParsedRow} + 3 giá trị dùng CHUNG cả buổi (Bài học
+     * hôm nay/Tên GV giảng dạy/Hạn nộp bài) — dùng chung cho {@link #importComments} (ghi thẳng DB) và
+     * {@link #previewImportComments} (chỉ trả về FE). Tách ra 2026-08-14 để 2 luồng không lặp lại logic
+     * parse (đối chiếu {@code solid.md} — Open/Closed, thêm luồng mới không sửa lại luồng cũ).
+     */
+    private ParsedImportFile parseImportWorkbook(MultipartFile file, ClassSession classSession) throws IOException {
+        Long classId = classSession.getSchoolClass().getId();
+        ClassSession.TeacherType sessionTeacherType = classSession.getTeacherType();
+        Map<String, Exercise> grammarByLabel = exerciseRepository
+                .findAvailableForClass(classId, Exercise.Status.PUBLISHED).stream()
+                .filter(e -> matchesSessionTeacherType(e, sessionTeacherType))
+                .collect(java.util.stream.Collectors.toMap(this::grammarLabel, e -> e, (a, b) -> a));
+        Map<String, ReviewVideoSet> videoByLabel = reviewVideoSetRepository.findAvailableForClass(classId, ReviewVideoSet.Status.PUBLISHED).stream()
+                .filter(s -> matchesSessionTeacherType(s, sessionTeacherType))
+                .collect(java.util.stream.Collectors.toMap(this::videoLabel, s -> s, (a, b) -> a));
+
+        List<Map<String, Object>> errors = new ArrayList<>();
+        try (InputStream inputStream = file.getInputStream();
+             XSSFWorkbook workbook = new XSSFWorkbook(inputStream)) {
+            Sheet sheet = workbook.getSheetAt(0);
+            if (sheet.getRow(0) == null) {
+                throw new ImportValidationFailed("File rỗng hoặc thiếu dòng tiêu đề.");
+            }
+            DataFormatter formatter = new DataFormatter();
+
+            // File mẫu giờ có 2 DÒNG header (dòng nhóm "BTVN buổi trước"/"BTVN online" merge + dòng
+            // tên cột con) — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06, mirror đúng
+            // headerRowIndex+1 dùng khi buildTemplate() gọi ExcelExportHelper.buildWorkbook(headerGroups).
+            // Dữ liệu học sinh bắt đầu từ dòng 3 (index 2), không phải dòng 2 (index 1) như trước.
+            List<ParsedRow> parsedRows = new ArrayList<>();
+            int totalRows = 0;
+            for (int rowIndex = 2; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
+                Row row = sheet.getRow(rowIndex);
+                if (row == null || isBlankRow(row, formatter)) {
+                    continue;
+                }
+                totalRows++;
+                try {
+                    parsedRows.add(parseRow(row, formatter, rowIndex, classSession, grammarByLabel, videoByLabel));
+                } catch (RuntimeException ex) {
+                    errors.add(rowError(rowIndex + 1, ex.getMessage()));
+                }
+            }
+
+            // "Bài học hôm nay" dùng CHUNG cả buổi (không phải theo từng học sinh) — mọi dòng có
+            // điền phải khớp giá trị nhau, dòng để trống bỏ qua (case 3: chưa điền cả UI lẫn Excel,
+            // validate ở submitComments). Khác 0/khác nhau → chặn TOÀN BỘ file, không import dòng
+            // nào (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-29).
+            Set<String> lessonContentValues = parsedRows.stream()
+                    .map(ParsedRow::lessonContent).filter(v -> v != null && !v.isBlank())
+                    .collect(java.util.stream.Collectors.toSet());
+            if (lessonContentValues.size() > 1) {
+                throw new ImportValidationFailed("Bài học hôm nay không đồng nhất giữa các học sinh trong lớp — mọi học sinh phải học cùng 1 bài.");
+            }
+            String lessonContent = lessonContentValues.size() == 1 ? lessonContentValues.iterator().next() : null;
+
+            // "Tên giáo viên giảng dạy" dùng CHUNG cả buổi, mirror lessonContentValues (bổ sung ngoài
+            // SDD gốc, đã xác nhận với người dùng 2026-08-06).
+            Set<String> teacherNameValues = parsedRows.stream()
+                    .map(ParsedRow::teacherName).filter(v -> v != null && !v.isBlank())
+                    .collect(java.util.stream.Collectors.toSet());
+            if (teacherNameValues.size() > 1) {
+                throw new ImportValidationFailed("Tên giáo viên giảng dạy không đồng nhất giữa các học sinh trong lớp — mọi học sinh trong buổi phải chung 1 GV dạy.");
+            }
+            String teacherName = teacherNameValues.size() == 1 ? teacherNameValues.iterator().next() : null;
+
+            // "Hạn nộp bài" dùng CHUNG cả buổi, mirror lessonContentValues (bổ sung ngoài SDD gốc, đã
+            // xác nhận với người dùng 2026-08-06) — để trống thì BE tự tính = buổi kế tiếp (hành vi cũ).
+            Set<String> dueDateValues = parsedRows.stream()
+                    .map(ParsedRow::dueDateText).filter(v -> v != null && !v.isBlank())
+                    .collect(java.util.stream.Collectors.toSet());
+            if (dueDateValues.size() > 1) {
+                throw new ImportValidationFailed("Hạn nộp bài không đồng nhất giữa các học sinh trong lớp — mọi học sinh trong buổi phải chung 1 hạn nộp.");
+            }
+            LocalDateTime customDueDate = null;
+            if (dueDateValues.size() == 1) {
+                String rawDueDate = dueDateValues.iterator().next();
+                try {
+                    customDueDate = LocalDateTime.parse(rawDueDate, DUE_DATE_FORMAT);
+                } catch (DateTimeParseException ex) {
+                    throw new ImportValidationFailed("Hạn nộp bài sai định dạng (cần yyyy-MM-dd HH:mm): " + rawDueDate);
+                }
+            }
+
+            return new ParsedImportFile(parsedRows, totalRows, errors, lessonContent, teacherName, customDueDate);
         }
     }
 
@@ -1179,15 +1304,24 @@ public class StudentCommentService {
      * buổi sau = ngày/giờ buổi học KẾ TIẾP của lớp (tính từ sessionDate
      * của buổi đang nhận xét, không phải "hôm nay" — GV có thể nhập bù
      * buổi cũ). Lớp chưa có buổi kế tiếp → chặn hẳn, không cho giao.
+     *
+     * Sửa lại 2026-08-14: "buổi kế tiếp" phải CÙNG loại giáo viên với
+     * buổi đang nhận xét khi buổi đó có xác định teacherType — mirror
+     * đúng cách previousComment() tra "buổi trước" (chỉ đối chiếu buổi
+     * cùng loại GV, bỏ qua buổi khác loại xen giữa). Trước đây due date
+     * mặc định tính theo buổi kế tiếp TUYỆT ĐỐI (bất kể loại GV), lệch
+     * với nơi điểm/% thực sự hiển thị — xem Javadoc
+     * ClassSessionRepository#findUpcomingSessions.
      */
     private OffsetDateTime resolveNextSessionDueAt(ClassSession session) {
         List<ClassSession> upcoming = classSessionRepository.findUpcomingSessions(
                 session.getSchoolClass().getId(), session.getSessionDate(),
-                List.of(ClassSession.Status.CANCELLED, ClassSession.Status.RESCHEDULED));
+                List.of(ClassSession.Status.CANCELLED, ClassSession.Status.RESCHEDULED), session.getTeacherType());
         if (upcoming.isEmpty()) {
             throw new NoUpcomingClassSessionException(
-                    "Lớp id=" + session.getSchoolClass().getId() + " chưa có buổi học kế tiếp trong lịch — "
-                            + "không thể đặt hạn nộp cho BTVN buổi sau.");
+                    "Lớp id=" + session.getSchoolClass().getId() + " chưa có buổi học kế tiếp"
+                            + (session.getTeacherType() != null ? " cùng loại giáo viên (" + session.getTeacherType() + ")" : "")
+                            + " trong lịch — không thể đặt hạn nộp cho BTVN buổi sau.");
         }
         ClassSession next = upcoming.get(0);
         return next.getSessionDate().atTime(next.getStartTime()).atZone(ZoneId.systemDefault()).toOffsetDateTime();
@@ -1314,6 +1448,13 @@ public class StudentCommentService {
      * — quyền quản trị độc lập với chuyện nhận xét route trạng thái gì,
      * xem Javadoc lớp). Ngược lại: phải là GV được phân công lớp (giữ
      * nguyên rào cũ) VÀ còn trong hạn X ngày kể từ ngày buổi học.
+     *
+     * <p>Rào "buổi đã điểm danh xong + đã kết thúc" (xem
+     * {@link #requireSessionEndedAndAttendanceTaken}) KHÔNG đặt chung ở đây — chỉ áp dụng riêng
+     * ở {@link #writeComment}/{@link #updateComment}/{@link #importComments} (nơi ghi nội dung
+     * nhận xét thật), không chặn buildTemplate (chỉ tải mẫu) hay
+     * updateLessonContent/updateSessionTeacherType/updateActualTeacherName (metadata buổi học GV
+     * có thể cần điền ngay trong lúc dạy, trước khi điểm danh) — cùng dùng chung rào này.</p>
      */
     private void requireCanWriteDailyComment(ClassSession classSession, Long actorUserId) {
         if (permissionEvaluationService.hasPermission(actorUserId, "academic.comment.approve")
@@ -1327,6 +1468,33 @@ public class StudentCommentService {
             throw new StudentCommentNotEditableException(
                     "Chỉ nhập/sửa nhận xét trong vòng " + windowDays + " ngày kể từ ngày buổi học ("
                             + classSession.getSessionDate() + "); hạn đã hết ngày " + deadline + ".");
+        }
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-13 — nội dung nhận xét (UC-21)
+     * chỉ ghi nhận được SAU khi buổi học đã điểm danh xong (UC-15, attendance_sessions.status
+     * khác DRAFT) VÀ đã qua giờ kết thúc buổi (tránh nhận xét buổi học chưa/đang diễn ra). Gọi
+     * riêng ở writeComment/updateComment/importComments — KHÔNG gộp vào requireCanWriteDailyComment
+     * dùng chung (xem Javadoc ở đó), nên tự kiểm tra bypass quyền quản trị riêng ở đây (không dựa
+     * vào early-return của requireCanWriteDailyComment — 2 hàm độc lập nhau).
+     */
+    private void requireSessionEndedAndAttendanceTaken(ClassSession classSession, Long actorUserId) {
+        if (permissionEvaluationService.hasPermission(actorUserId, "academic.comment.approve")
+                || permissionEvaluationService.hasPermission(actorUserId, PERM_COMMENT_MANAGE)) {
+            return;
+        }
+        OffsetDateTime sessionEnd = classSession.getSessionDate().atTime(classSession.getEndTime())
+                .atZone(ZoneId.systemDefault()).toOffsetDateTime();
+        if (OffsetDateTime.now().isBefore(sessionEnd)) {
+            throw new StudentCommentNotEditableException(
+                    "Buổi học ngày " + classSession.getSessionDate() + " (" + classSession.getStartTime() + "–"
+                            + classSession.getEndTime() + ") chưa kết thúc — chỉ viết nhận xét sau khi buổi học kết thúc.");
+        }
+        Optional<AttendanceSession> attendanceSession = attendanceSessionRepository.findByClassSessionId(classSession.getId());
+        if (attendanceSession.isEmpty() || attendanceSession.get().getStatus() == AttendanceSession.Status.DRAFT) {
+            throw new StudentCommentNotEditableException(
+                    "Buổi học id=" + classSession.getId() + " chưa điểm danh xong — vui lòng điểm danh (UC-15) và Lưu điểm danh trước khi viết nhận xét.");
         }
     }
 

@@ -15,6 +15,7 @@ import vn.com.pps.education.domain.UserRole;
 import vn.com.pps.education.dto.ClassResponse;
 import vn.com.pps.education.dto.ClassSessionResponse;
 import vn.com.pps.education.dto.CreateClassRequest;
+import vn.com.pps.education.dto.AssignTeacherRequest;
 import vn.com.pps.education.dto.CreateClassSessionRequest;
 import vn.com.pps.education.dto.CreateCurriculumRequest;
 import vn.com.pps.education.dto.CreateLeaveRequestRequest;
@@ -396,10 +397,11 @@ class LeaveRequestServiceTest extends AbstractIntegrationTest {
                 new CreateClassRequest(classCode(), "Test Class", site.getId(), activeCurriculum.id(), "OPEN", 20, null,
                         LocalDate.now(), null, null), headAcademic.getId());
         Room room = newRoom(site);
+        classService.assignTeacher(schoolClass.id(),
+                new AssignTeacherRequest(teacherUser.getId(), "PRIMARY", null, LocalDate.now(), "VIETNAMESE"), headAcademic.getId());
 
         return classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(sessionDate, startTime, startTime.plusMinutes(100),
-                        room.getId(), teacherUser.getId(), "REGULAR", null, null), headAcademic.getId());
+                new CreateClassSessionRequest(sessionDate, startTime, startTime.plusMinutes(100), room.getId(), "REGULAR", "VIETNAMESE", null), headAcademic.getId());
     }
 
     private String curriculumCode() {

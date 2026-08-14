@@ -139,6 +139,10 @@ export const navSections: NavSection[] = [
       // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-12 — setup toạ độ GPS cho
       // Site (UC-36) dùng cho chấm công UC-09 A2. Gate theo đúng quyền Site đã có sẵn.
       { id: "hrm-attendance-sites", label: "Địa điểm chấm công", path: "/hrm/attendance-sites", icon: MapPin, requiredPermission: "facility.site.update" },
+      // UC-70, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-13 — đầu vào bắt buộc
+      // để AttendanceService xác định "ngày làm việc" (UC-09), trước đây không có trang nào.
+      { id: "hrm-shifts", label: "Ca làm việc", path: "/hrm/shifts", icon: Clock, requiredPermission: "hrm.shift.create" },
+      { id: "hrm-work-calendar", label: "Lịch làm việc/Nghỉ lễ", path: "/hrm/work-calendar", icon: CalendarDays, requiredPermission: "hrm.work-calendar.create" },
       { id: "hrm-leaves", label: "Xin nghỉ phép", path: "/hrm/leaves", icon: CalendarX },
       { id: "hrm-payroll", label: "Tính toán bảng lương", path: "/hrm/payroll", icon: Wallet }
     ]

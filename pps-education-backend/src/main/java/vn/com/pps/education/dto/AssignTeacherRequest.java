@@ -9,5 +9,7 @@ public record AssignTeacherRequest(
         @NotNull Long teacherUserId,
         String teacherRole,
         Long subjectId,
-        LocalDate assignedFrom
+        LocalDate assignedFrom,
+        /** Loại giáo viên (VIETNAMESE/FOREIGN) — chỉ có ý nghĩa khi teacherRole=PRIMARY. */
+        String teacherType
 ) {}

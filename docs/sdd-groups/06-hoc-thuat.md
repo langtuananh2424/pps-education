@@ -108,6 +108,7 @@ erDiagram
         BIGINT class_id FK
         BIGINT teacher_user_id FK
         VARCHAR teacher_role
+        VARCHAR teacher_type
         BIGINT subject_id FK
         DATE assigned_from
         DATE assigned_to
@@ -372,7 +373,19 @@ d)  Bảng class_teachers --- Gán GV cho lớp
 
   teacher_role      VARCHAR(20)      NOT NULL, DEFAULT          PRIMARY /
                                       'PRIMARY'                  ASSISTANT /
-                                                                 SUBSTITUTE
+                                                                 SUBSTITUTE /
+                                                                 CM (bổ sung
+                                                                 ngoài SDD
+                                                                 gốc, xác
+                                                                 nhận
+                                                                 2026-08-13)
+
+  teacher_type      VARCHAR(20)      NULL (bổ sung ngoài SDD    VIETNAMESE /
+                                      gốc, xác nhận 2026-08-13,  FOREIGN,
+                                      V121)                      chỉ có ý
+                                                                 nghĩa khi
+                                                                 teacher_role
+                                                                 =PRIMARY
 
   subject_id        BIGINT           FK →
                                       curriculum_subjects(id),
@@ -390,9 +403,17 @@ Ràng buộc:
 
 CREATE UNIQUE INDEX idx_class_teacher_primary_active
 
-ON class_teachers(class_id, COALESCE(subject_id, 0))
+ON class_teachers(class_id, COALESCE(subject_id, 0), COALESCE(teacher_type,
+'NONE'))
 
 WHERE teacher_role = 'PRIMARY' AND assigned_to IS NULL;
+
+(Bổ sung ngoài SDD gốc, xác nhận 2026-08-13, V121 — trước đây index chỉ có
+`(class_id, COALESCE(subject_id, 0))`, giờ thêm `teacher_type` để cho phép
+đồng thời 1 PRIMARY active loại VIETNAMESE + 1 PRIMARY active loại FOREIGN
+cho cùng lớp/học phần — xem docs/uc/phan-he-06-hoc-thuat.md UC-18 để biết
+đầy đủ bối cảnh, cùng use case "đổi giáo viên chính" mới có cascade sang
+class_sessions.)
 
 e)  Bảng class_enrollments --- Học sinh trong lớp
 

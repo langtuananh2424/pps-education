@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { Award, BookOpen, Calendar, CheckCircle, Clock, GraduationCap, Users, XCircle } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import DatePicker from "@/components/ui/DatePicker";
+import Select from "@/components/ui/Select";
 import { SkillTrendSeries, useStudentProfileData } from "../hooks/useStudentProfileData";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -423,7 +424,7 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
               {profile.allGrades.length > 0 && (
                 <div className="bg-white border border-slate-200/60 rounded-xl p-3 shadow-sm flex flex-wrap items-center gap-3">
                   <span className="text-xs font-semibold text-slate-500">Lọc:</span>
-                  <select
+                  <Select
                     value={yearFilter}
                     onChange={(e) => { setYearFilter(e.target.value); setTermFilter("ALL"); }}
                     className="border border-slate-300 rounded-lg text-xs px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
@@ -432,8 +433,8 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
                     {academicYears.map((y) => (
                       <option key={y} value={y}>{y}</option>
                     ))}
-                  </select>
-                  <select
+                  </Select>
+                  <Select
                     value={termFilter}
                     onChange={(e) => setTermFilter(e.target.value)}
                     className="border border-slate-300 rounded-lg text-xs px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
@@ -442,7 +443,7 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
                     {termOptions.map((t) => (
                       <option key={t.id} value={t.id}>{t.name}</option>
                     ))}
-                  </select>
+                  </Select>
                   {(yearFilter !== "ALL" || termFilter !== "ALL") && (
                     <button
                       type="button"
@@ -519,7 +520,7 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
                 <div className="bg-white border border-slate-200/60 rounded-xl p-4 shadow-sm">
                   <h3 className="text-sm font-semibold text-slate-700 mb-3">So sánh điểm giữa 2 kỳ</h3>
                   <div className="flex flex-wrap items-center gap-3 mb-3">
-                    <select
+                    <Select
                       value={compareA}
                       onChange={(e) => setCompareA(e.target.value)}
                       className="border border-slate-300 rounded-lg text-xs px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
@@ -528,9 +529,9 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
                       {comparableTerms.map((t) => (
                         <option key={t} value={t}>{t}</option>
                       ))}
-                    </select>
+                    </Select>
                     <span className="text-xs text-slate-400">so với</span>
-                    <select
+                    <Select
                       value={compareB}
                       onChange={(e) => setCompareB(e.target.value)}
                       className="border border-slate-300 rounded-lg text-xs px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
@@ -539,7 +540,7 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
                       {comparableTerms.map((t) => (
                         <option key={t} value={t}>{t}</option>
                       ))}
-                    </select>
+                    </Select>
                   </div>
                   {!compareA || !compareB ? (
                     <p className="text-xs text-slate-400">Chọn 2 kỳ để so sánh điểm từng kỹ năng.</p>
@@ -589,7 +590,7 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
               {profile.allComments.length > 0 && (
                 <div className="bg-white border border-slate-200/60 rounded-xl p-3 shadow-sm flex flex-wrap items-center gap-3 sticky top-0 z-10">
                   <span className="text-xs font-semibold text-slate-500">Lọc:</span>
-                  <select
+                  <Select
                     value={commentYearFilter}
                     onChange={(e) => { setCommentYearFilter(e.target.value); setCommentTermFilter("ALL"); }}
                     className="border border-slate-300 rounded-lg text-xs px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
@@ -598,8 +599,8 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
                     {commentYears.map((y) => (
                       <option key={y} value={y}>{y}</option>
                     ))}
-                  </select>
-                  <select
+                  </Select>
+                  <Select
                     value={commentTermFilter}
                     onChange={(e) => setCommentTermFilter(e.target.value)}
                     className="border border-slate-300 rounded-lg text-xs px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
@@ -608,9 +609,9 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
                     {commentTermOptions.map((t) => (
                       <option key={t.name} value={t.name}>{t.name}</option>
                     ))}
-                  </select>
+                  </Select>
                   {commentSessionOptions.length > 0 && (
-                    <select
+                    <Select
                       value={commentSessionFilter}
                       onChange={(e) => setCommentSessionFilter(e.target.value)}
                       className="border border-slate-300 rounded-lg text-xs px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
@@ -619,7 +620,7 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
                       {commentSessionOptions.map((s) => (
                         <option key={s} value={s}>{s}</option>
                       ))}
-                    </select>
+                    </Select>
                   )}
                   <div className="flex items-center gap-1.5">
                     <div className="w-32">
@@ -671,7 +672,7 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
               {profile.attendance.length > 0 && (
                 <div className="bg-white border border-slate-200/60 rounded-xl p-3 shadow-sm flex flex-wrap items-center gap-3 sticky top-0 z-10">
                   <span className="text-xs font-semibold text-slate-500">Lọc:</span>
-                  <select
+                  <Select
                     value={attYearFilter}
                     onChange={(e) => { setAttYearFilter(e.target.value); setAttTermFilter("ALL"); }}
                     className="border border-slate-300 rounded-lg text-xs px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
@@ -680,8 +681,8 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
                     {attYears.map((y) => (
                       <option key={y} value={y}>{y}</option>
                     ))}
-                  </select>
-                  <select
+                  </Select>
+                  <Select
                     value={attTermFilter}
                     onChange={(e) => setAttTermFilter(e.target.value)}
                     className="border border-slate-300 rounded-lg text-xs px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
@@ -690,7 +691,7 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
                     {attTermOptions.map((t) => (
                       <option key={t.name} value={t.name}>{t.name}</option>
                     ))}
-                  </select>
+                  </Select>
                   <div className="flex items-center gap-1.5">
                     <div className="w-32">
                       <DatePicker value={attDateFrom} onChange={setAttDateFrom} max={attDateTo || undefined} placeholder="Từ ngày" />

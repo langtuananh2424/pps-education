@@ -15,7 +15,9 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import vn.com.pps.education.common.ExcelHttpResponses;
 import vn.com.pps.education.dto.AssignTeacherRequest;
+import vn.com.pps.education.dto.ChangeTeacherRequest;
 import vn.com.pps.education.dto.ClassEnrollmentBatchImportResponse;
+import vn.com.pps.education.dto.ClassTeacherHistoryResponse;
 import vn.com.pps.education.dto.ClassEnrollmentResponse;
 import vn.com.pps.education.dto.ClassResponse;
 import vn.com.pps.education.dto.ClassTeacherResponse;
@@ -86,6 +88,12 @@ public class ClassController {
         return ResponseEntity.ok(classService.listTeachers(id));
     }
 
+    /** UC-18 (bổ sung ngoài SDD gốc, xác nhận 2026-08-13): lịch sử thay đổi giáo viên phụ trách của cả lớp. */
+    @GetMapping("/{id}/teachers/history")
+    public ResponseEntity<List<ClassTeacherHistoryResponse>> listTeacherHistory(@PathVariable Long id) {
+        return ResponseEntity.ok(classService.listTeacherHistory(id));
+    }
+
     @PreAuthorize("hasPermission(null, 'academic.class.manage')")
     @PostMapping("/{id}/teachers")
     public ResponseEntity<ClassTeacherResponse> assignTeacher(@PathVariable Long id,
@@ -102,6 +110,21 @@ public class ClassController {
                                                                         @Valid @RequestBody EndTeacherAssignmentRequest request,
                                                                         @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(classService.endTeacherAssignment(id, classTeacherId, request, actor.userId()));
+    }
+
+    /**
+     * UC-18 (bổ sung ngoài SDD gốc, xác nhận 2026-08-13): đổi giáo viên
+     * chính (PRIMARY) của lớp — kết thúc phân công cũ + gán phân công
+     * mới trong 1 transaction, cascade cập nhật giáo viên phụ trách các
+     * buổi học SCHEDULED tương lai cùng loại giáo viên.
+     */
+    @PreAuthorize("hasPermission(null, 'academic.class.manage')")
+    @PutMapping("/{id}/teachers/{classTeacherId}/change")
+    public ResponseEntity<ClassTeacherResponse> changeTeacher(@PathVariable Long id,
+                                                                  @PathVariable Long classTeacherId,
+                                                                  @Valid @RequestBody ChangeTeacherRequest request,
+                                                                  @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(classService.changeTeacher(id, classTeacherId, request, actor.userId()));
     }
 
     @GetMapping("/{id}/enrollments")

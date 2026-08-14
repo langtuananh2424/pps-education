@@ -36,16 +36,32 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, Long
      * buổi thay thế nó mới là buổi thật, tự nhiên nằm trong kết quả vì có
      * sessionDate riêng), mirror cách loại trừ trạng thái ở
      * findOverlappingForClass.
+     *
+     * Sửa lại 2026-08-14 (bổ sung ngoài SDD gốc, đã xác nhận với người
+     * dùng — phát hiện lệch logic khi lớp có buổi VIETNAMESE/FOREIGN xen
+     * kẽ nhau): teacherType khác null thì CHỈ tính buổi kế tiếp CÙNG loại
+     * giáo viên — mirror đúng
+     * findFirstBySchoolClassIdAndSessionDateLessThanAndTeacherTypeOrderBySessionDateDescIdDesc
+     * (dùng để tra "buổi trước" khi hiển thị điểm/%). Trước đây 2 chiều
+     * (hạn nộp mặc định vs. nơi hiển thị điểm buổi trước) dùng 2 tiêu chí
+     * khác nhau (buổi kế tiếp tuyệt đối vs. buổi kế tiếp cùng loại GV) —
+     * VD lớp Buổi 1=VN/2=Nước ngoài/3=VN xen kẽ: giao BTVN ở Buổi 1 (VN)
+     * mặc định hạn nộp = Buổi 2 (Nước ngoài) nhưng điểm chỉ hiện ở Buổi 3
+     * (VN) — học sinh phải nộp trước Buổi 2 dù giáo viên VN không thấy
+     * điểm cho tới tận Buổi 3. teacherType=null giữ nguyên hành vi cũ
+     * (buổi kế tiếp tuyệt đối, không lọc).
      */
     @Query("""
             SELECT cs FROM ClassSession cs
             WHERE cs.schoolClass.id = :classId
             AND cs.sessionDate > :sessionDate
             AND cs.status NOT IN (:excludedStatuses)
+            AND (:teacherType IS NULL OR cs.teacherType = :teacherType)
             ORDER BY cs.sessionDate ASC, cs.startTime ASC
             """)
     List<ClassSession> findUpcomingSessions(@Param("classId") Long classId, @Param("sessionDate") LocalDate sessionDate,
-                                             @Param("excludedStatuses") List<ClassSession.Status> excludedStatuses);
+                                             @Param("excludedStatuses") List<ClassSession.Status> excludedStatuses,
+                                             @Param("teacherType") ClassSession.TeacherType teacherType);
 
     /** UC-09 A12/A13 (Chấm công GV — cửa sổ theo lịch dạy): tiết dạy trong ngày của 1 GV. */
     List<ClassSession> findByPrimaryTeacherIdAndSessionDateAndStatusNotIn(
@@ -173,4 +189,13 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, Long
 
     /** "1 buổi hủy — đúng 1 buổi bù": true nếu đã có buổi MAKEUP nào liên kết tới buổi này. */
     boolean existsByMakeupForSessionId(Long sessionId);
+
+    /**
+     * UC-18 changeTeacher (bổ sung ngoài SDD gốc, xác nhận 2026-08-13):
+     * các buổi học tương lai còn SCHEDULED, cùng loại giáo viên vừa đổi —
+     * ứng viên để cascade cập nhật giáo viên phụ trách (Service tự loại
+     * trừ buổi đang có dạy thay active qua LeaveSubstitutionRepository).
+     */
+    List<ClassSession> findBySchoolClassIdAndTeacherTypeAndStatusAndSessionDateGreaterThanEqual(
+            Long classId, ClassSession.TeacherType teacherType, ClassSession.Status status, LocalDate fromDate);
 }

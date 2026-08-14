@@ -583,3 +583,125 @@ export function listAttendanceRecords(params: ListAttendanceRecordsParams): Prom
   if (params.siteId != null) query.set("siteId", String(params.siteId));
   return apiRequest<AttendanceRecordAdminResponse[]>(`/attendance/records?${query.toString()}`);
 }
+
+// ===================== UC-70: Ca làm việc + Lịch làm việc/nghỉ lễ =====================
+// Bổ sung HOÀN TOÀN ngoài SDD/SRS gốc, đã xác nhận với người dùng 2026-08-13 — xem
+// ShiftController/WorkCalendarController.java và docs/uc/phan-he-04-nhan-su.md (ghi chú UC-70).
+
+/** Khớp ShiftResponse thật của backend. */
+export interface ShiftResponse {
+  id: number;
+  code: string;
+  name: string;
+  checkInTime: string;
+  checkOutTime: string;
+  checkInWindowBeforeMinutes: number;
+  checkInWindowAfterMinutes: number;
+  checkOutWindowBeforeMinutes: number;
+  checkOutWindowAfterMinutes: number;
+  /** CSV 1=T2...7=CN, VD "1,2,3,4,5,6". */
+  appliesToWeekdays: string;
+  weekParity: "ALL" | "ODD" | "EVEN";
+  active: boolean;
+}
+
+export interface CreateShiftRequest {
+  code: string;
+  name: string;
+  checkInTime: string;
+  checkOutTime: string;
+  checkInWindowBeforeMinutes?: number;
+  checkInWindowAfterMinutes?: number;
+  checkOutWindowBeforeMinutes?: number;
+  checkOutWindowAfterMinutes?: number;
+  appliesToWeekdays?: string;
+  weekParity?: "ALL" | "ODD" | "EVEN";
+}
+
+/** Không có "code" -- bất biến sau khi tạo. */
+export interface UpdateShiftRequest {
+  name: string;
+  checkInTime: string;
+  checkOutTime: string;
+  checkInWindowBeforeMinutes?: number;
+  checkInWindowAfterMinutes?: number;
+  checkOutWindowBeforeMinutes?: number;
+  checkOutWindowAfterMinutes?: number;
+  appliesToWeekdays?: string;
+  weekParity?: "ALL" | "ODD" | "EVEN";
+}
+
+export function listShifts(): Promise<ShiftResponse[]> {
+  return apiRequest<ShiftResponse[]>("/shifts");
+}
+
+export function createShift(request: CreateShiftRequest): Promise<ShiftResponse> {
+  return apiRequest<ShiftResponse>("/shifts", { method: "POST", body: JSON.stringify(request) });
+}
+
+export function updateShift(id: number, request: UpdateShiftRequest): Promise<ShiftResponse> {
+  return apiRequest<ShiftResponse>(`/shifts/${id}`, { method: "PUT", body: JSON.stringify(request) });
+}
+
+/** Soft-delete (is_active=false) -- không xoá cứng, khớp AttendanceService.matchesShiftPattern. */
+export function deactivateShift(id: number): Promise<ShiftResponse> {
+  return apiRequest<ShiftResponse>(`/shifts/${id}/deactivate`, { method: "PUT" });
+}
+
+export interface EmployeeShiftResponse {
+  id: number;
+  employeeId: number;
+  shiftId: number;
+  shiftName: string;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+}
+
+export interface AssignEmployeeShiftRequest {
+  employeeId: number;
+  shiftId: number;
+  effectiveFrom: string;
+}
+
+/** Gán ca mới tự đóng bản ghi active cũ (nếu có) -- xem EmployeeShiftService.assignShift. */
+export function assignEmployeeShift(request: AssignEmployeeShiftRequest): Promise<EmployeeShiftResponse> {
+  return apiRequest<EmployeeShiftResponse>("/employee-shifts", { method: "POST", body: JSON.stringify(request) });
+}
+
+export function listEmployeeShiftHistory(employeeId: number): Promise<EmployeeShiftResponse[]> {
+  return apiRequest<EmployeeShiftResponse[]>(`/employees/${employeeId}/shifts`);
+}
+
+export interface WorkCalendarResponse {
+  id: number;
+  calendarDate: string;
+  dayType: "WORKING" | "OFF" | "HOLIDAY" | "COMPENSATORY";
+  appliesToScope: "ALL" | "SHIFT" | "EMPLOYEE";
+  shiftId: number | null;
+  shiftName: string | null;
+  employeeId: number | null;
+  employeeFullName: string | null;
+  description: string | null;
+}
+
+/** shiftId bắt buộc khi appliesToScope=SHIFT, employeeId bắt buộc khi appliesToScope=EMPLOYEE. */
+export interface CreateWorkCalendarRequest {
+  calendarDate: string;
+  dayType: "WORKING" | "OFF" | "HOLIDAY" | "COMPENSATORY";
+  appliesToScope: "ALL" | "SHIFT" | "EMPLOYEE";
+  shiftId?: number;
+  employeeId?: number;
+  description?: string;
+}
+
+export function listWorkCalendar(from: string, to: string): Promise<WorkCalendarResponse[]> {
+  return apiRequest<WorkCalendarResponse[]>(`/work-calendar?from=${from}&to=${to}`);
+}
+
+export function createWorkCalendarOverride(request: CreateWorkCalendarRequest): Promise<WorkCalendarResponse> {
+  return apiRequest<WorkCalendarResponse>("/work-calendar", { method: "POST", body: JSON.stringify(request) });
+}
+
+export function deleteWorkCalendarOverride(id: number): Promise<void> {
+  return apiRequest<void>(`/work-calendar/${id}`, { method: "DELETE" });
+}

@@ -1107,7 +1107,7 @@ export default function DailyLearningProgressTab({
             </div>
             <div>
               <p className="text-[11px] text-muted font-extrabold uppercase tracking-wider">BTVN Hoàn thành</p>
-              <p className="text-sm font-black text-amber-800 tabular-nums">{avgHomeworkCompletion != null ? `${avgHomeworkCompletion}% Trung bình` : "Chưa có dữ liệu"}</p>
+              <p className="text-sm font-black text-amber-800 tabular-nums">{avgHomeworkCompletion != null ? `${avgHomeworkCompletion}%` : "Chưa có dữ liệu"}</p>
             </div>
           </div>
         </div>
@@ -1215,10 +1215,10 @@ export default function DailyLearningProgressTab({
                           "—"
                         )}
                       </td>
-                      <td className="p-3 border-r border-slate-300 align-top">{log.homeworkPreviousOfflineText + "%" || "—"}</td>
-                      <td className="p-3 border-r border-slate-300 font-bold text-slate-800 align-top">{log.homeworkPreviousScore || log.grammarPreviousProgress + "%" || "—"}</td>
-                      <td className="p-3 border-r border-slate-300 font-bold text-purple-900 align-top">{log.homeworkPreviousSpeakingScore || log.videoPreviousProgress + "%" || "—"}</td>
-                      <td className="p-3 border-r border-slate-300 align-top">{log.homeworkNextOfflineText + "%" || "—"}</td>
+                      <td className="p-3 border-r border-slate-300 align-top">{log.homeworkPreviousOfflineText == null ? "—" : log.homeworkPreviousOfflineText + "%"}</td>
+                      <td className="p-3 border-r border-slate-300 font-bold text-slate-800 align-top">{(log.homeworkPreviousScore || log.grammarPreviousProgress) ?? "—"}</td>
+                      <td className="p-3 border-r border-slate-300 font-bold text-purple-900 align-top">{(log.homeworkPreviousSpeakingScore || log.videoPreviousProgress) ?? "—"}</td>
+                      <td className="p-3 border-r border-slate-300 align-top">{log.homeworkNextOfflineText == null ? "—" : log.homeworkNextOfflineText + "%"}</td>
                       <td className="p-3 border-r border-slate-300 text-slate-800 font-semibold align-top">
                         {renderGrammarLabel(log, "font-semibold")}
                       </td>

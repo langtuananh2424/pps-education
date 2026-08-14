@@ -139,7 +139,7 @@ class PartnerPortalServiceTest extends AbstractIntegrationTest {
         teacher = newUser("teacher");
         assignRole(teacher, "TEACHER");
         classService.assignTeacher(schoolClass.id(),
-                new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now()), headAcademic.getId());
+                new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now(), "VIETNAMESE"), headAcademic.getId());
 
         siteManagerUser = newUser("site.manager");
         assignRole(siteManagerUser, "SITE_MANAGER");
@@ -183,7 +183,7 @@ class PartnerPortalServiceTest extends AbstractIntegrationTest {
     @Test
     void getAttendanceSummary_UC29_MainFlow_computesAttendanceRate() {
         ClassSessionResponse session = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(LocalDate.now(), LocalTime.of(8, 0), LocalTime.of(9, 40), null, teacher.getId(), "REGULAR", null, null),
+                new CreateClassSessionRequest(LocalDate.now(), LocalTime.of(8, 0), LocalTime.of(9, 40), null, "REGULAR", "VIETNAMESE", null),
                 headAcademic.getId());
         studentAttendanceService.markAttendance(session.id(),
                 new MarkAttendanceRequest("SESSION_LEVEL", List.of(
@@ -251,10 +251,18 @@ class PartnerPortalServiceTest extends AbstractIntegrationTest {
 
     @Test
     void getApprovedComments_UC29_MainFlow_returnsOnlyApprovedComments() {
+        // Cửa sổ "1 giờ trước tới 1 phút trước NGAY LÚC NÀY" (không phải giờ cố định, không dùng
+        // LocalTime.MIN) -- bổ sung 2026-08-14, mirror đúng StudentCommentServiceTest.setUp() (xem
+        // Javadoc ở đó -- requireSessionEndedAndAttendanceTaken đòi buổi ĐÃ KẾT THÚC + đã điểm danh
+        // xong; LocalTime.MIN bị hibernate.jdbc.time_zone=UTC quy đổi lệch, vi phạm chk_session_time).
         ClassSessionResponse session = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(LocalDate.now(), LocalTime.of(8, 0), LocalTime.of(9, 40), null, teacher.getId(), "REGULAR", null, null),
+                new CreateClassSessionRequest(LocalDate.now(), LocalTime.now().minusHours(1), LocalTime.now().minusMinutes(1), null, "REGULAR", "VIETNAMESE", null),
                 headAcademic.getId());
         studentCommentService.updateLessonContent(session.id(), "Unit 1: Present simple tense.", teacher.getId());
+        studentAttendanceService.markAttendance(session.id(),
+                new MarkAttendanceRequest("SESSION_LEVEL", List.of(new EnterAttendanceMarkRequest(student.getId(), "PRESENT", null, null, null))),
+                teacher.getId());
+        studentAttendanceService.submitAttendance(session.id(), teacher.getId());
         StudentCommentResponse approvedComment = studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), session.id(),
                         LocalDate.now(), "Chăm chỉ, tiến bộ rõ rệt.", null, "POSITIVE", false, null, null, null, null, null, null, null, null),

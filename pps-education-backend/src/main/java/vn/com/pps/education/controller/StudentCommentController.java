@@ -17,6 +17,7 @@ import vn.com.pps.education.dto.ClassSessionLessonContentResponse;
 import vn.com.pps.education.dto.ClassSessionTeacherNameResponse;
 import vn.com.pps.education.dto.ClassSessionTeacherTypeResponse;
 import vn.com.pps.education.dto.CreateStudentCommentRequest;
+import vn.com.pps.education.dto.DailyCommentImportPreviewResponse;
 import vn.com.pps.education.dto.DailyCommentImportResponse;
 import vn.com.pps.education.dto.DecideCommentsRequest;
 import vn.com.pps.education.dto.StudentCommentResponse;
@@ -142,5 +143,14 @@ public class StudentCommentController {
                                                                        @RequestParam("file") MultipartFile file,
                                                                        @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(studentCommentService.importComments(classSessionId, file, actor.userId()));
+    }
+
+    /** UC-21 (bổ sung ngoài SDD gốc, 2026-08-14): xem trước file Excel BTVN — chỉ parse & trả về, chưa ghi DB (trừ điểm danh). */
+    @PreAuthorize("hasPermission(null, 'academic.comment.write') or hasPermission(null, 'academic.comment.approve')")
+    @PostMapping(value = "/api/class-sessions/{classSessionId}/comments/import-preview", consumes = "multipart/form-data")
+    public ResponseEntity<DailyCommentImportPreviewResponse> previewImportComments(@PathVariable Long classSessionId,
+                                                                                     @RequestParam("file") MultipartFile file,
+                                                                                     @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(studentCommentService.previewImportComments(classSessionId, file, actor.userId()));
     }
 }

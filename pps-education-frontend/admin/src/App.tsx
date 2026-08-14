@@ -19,6 +19,8 @@ import HrmProfilesPage from "@/features/hrm/pages/ProfilesPage";
 import DepartmentsPositionsPage from "@/features/hrm/pages/DepartmentsPositionsPage";
 import HrmAttendancePage from "@/features/hrm/pages/AttendancePage";
 import AttendanceSitesPage from "@/features/hrm/pages/AttendanceSitesPage";
+import ShiftsPage from "@/features/hrm/pages/ShiftsPage";
+import WorkCalendarPage from "@/features/hrm/pages/WorkCalendarPage";
 import LeavesPage from "@/features/hrm/pages/LeavesPage";
 import PayrollPage from "@/features/hrm/pages/PayrollPage";
 import CRMPage from "@/features/crm/pages/CRMPage";
@@ -79,6 +81,8 @@ export default function App() {
           <Route path="/hrm/departments-positions" element={<DepartmentsPositionsPage />} />
           <Route path="/hrm/attendance" element={<HrmAttendancePage />} />
           <Route path="/hrm/attendance-sites" element={<AttendanceSitesPage />} />
+          <Route path="/hrm/shifts" element={<ShiftsPage />} />
+          <Route path="/hrm/work-calendar" element={<WorkCalendarPage />} />
           <Route path="/hrm/leaves" element={<LeavesPage />} />
           <Route path="/hrm/payroll" element={<PayrollPage />} />
           <Route path="/crm/leads" element={<CRMPage />} />
