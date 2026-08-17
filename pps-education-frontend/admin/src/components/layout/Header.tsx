@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { AlertTriangle, Bell, CheckCircle2, ChevronDown, Clock, GraduationCap, KeyRound, Lock, LogOut, Menu, MapPin, Settings, User } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { getMyPartnerSite, listSites, listSiteTeachers, SiteResponse, SiteTeacherResponse } from "@/features/facility/api";
@@ -15,6 +16,16 @@ import ChangePasswordModal from "@/features/auth/components/ChangePasswordModal"
 import { useDialog } from "@/components/ui/DialogProvider";
 
 const NOTIFICATION_PAGE_SIZE = 15;
+
+// Yêu cầu người dùng 2026-08-17 — pill "Lớp" trước đây hiện ở MỌI route một khi tài khoản đứng lớp
+// thật (myAssignedClassCount > 0), gây rối mắt ở các màn không lọc theo lớp (Lịch của tôi, Soạn &
+// giao đề, Kho Video Ôn tập, Kho tài liệu...). Với Giáo viên thuần, giới hạn chỉ hiện đúng 4 màn
+// thật sự dùng lớp đang chọn ở Header: Quản lý lớp học (UC-18, gồm cả tab Sổ điểm/Nhận xét dạng
+// panel), Điểm danh (UC-15), Nhận xét học viên (UC-21/22), Thống kê BTVN theo lớp. KHÔNG gồm "Hàng
+// chờ chấm bài" (/lms/exams) — trang đó đã có bộ chọn Bộ Video + Lớp riêng ngay trong trang, không
+// đọc selectedClassId từ Header. KHÔNG áp cho nhánh Site Manager/admin academic.class.view-all — 2
+// nhóm đó vẫn cần "Lớp" ở các trang báo cáo như trước, người dùng chưa yêu cầu đổi.
+const TEACHER_CLASS_SELECTOR_PATHS = ["/academic/classes", "/student/attendance", "/academic/comments", "/academic/homework-stats"];
 
 function formatTimeHm(value: string | null): string {
   if (!value) return "—";
@@ -34,6 +45,7 @@ export default function Header() {
     logout,
     hasPermission
   } = useApp();
+  const location = useLocation();
   const [sites, setSites] = useState<SiteResponse[]>([]);
   const [profileOpen, setProfileOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
@@ -186,8 +198,12 @@ export default function Header() {
   // Admin" demo KHÔNG hiện pill này ở Header theo quyết định 2026-07-27 — nhưng tài khoản được cấp
   // RIÊNG academic.class.view-all (2026-07-30) thì có, xem eligibleClasses (đã unrestricted qua
   // ClassService.resolveAllowedSiteIds khi có quyền này).
+  // Chỉ Giáo viên thuần (đứng lớp thật, không phải Site Manager/admin view-all) mới bị giới hạn theo
+  // route — xem TEACHER_CLASS_SELECTOR_PATHS ở đầu file.
+  const isTeacherRouteAllowed = TEACHER_CLASS_SELECTOR_PATHS.includes(location.pathname);
   const showClassSelector =
-    loadingEligibleClasses || myAssignedClassCount > 0 || (isGenuineSiteManager && eligibleClasses.length > 0) ||
+    loadingEligibleClasses || (myAssignedClassCount > 0 && isTeacherRouteAllowed) ||
+    (isGenuineSiteManager && eligibleClasses.length > 0) ||
     (canViewAllClasses && eligibleClasses.length > 0);
   const selectedEligibleClass = eligibleClasses.find((cls) => cls.id === selectedClassId) ?? null;
 
