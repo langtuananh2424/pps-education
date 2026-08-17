@@ -182,6 +182,18 @@ public class StudentCommentService {
     private static final DateTimeFormatter DUE_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
     /**
+     * Cố định múi giờ Việt Nam thay vì {@code ZoneId.systemDefault()} — session_date/start_time/
+     * end_time lưu DB là giờ VN thuần (không kèm zone) nên phải quy đổi đúng zone VN khi so sánh
+     * với {@code OffsetDateTime.now()}, không phụ thuộc múi giờ JVM đang chạy (biến môi trường TZ
+     * của container). Bug thật: TZ chỉ được set qua docker-compose.yml (local dev) — môi trường
+     * deploy khác (Railway...) không tự có TZ=Asia/Ho_Chi_Minh, JVM về UTC mặc định của base image,
+     * lệch 7 tiếng khiến buổi học đã kết thúc theo giờ VN vẫn bị coi là "chưa kết thúc". Đã từng
+     * gặp bug cùng gốc ở UC-09 chấm công (xem comment TZ trong docker-compose.yml) — cố định zone
+     * ngay trong code để không còn phụ thuộc cấu hình đúng ở MỌI môi trường chạy sau này.
+     */
+    private static final ZoneId APP_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
+
+    /**
      * Nhãn 2 kênh BTVN theo Loại giáo viên (bổ sung ngoài SDD gốc, đã xác
      * nhận với người dùng 2026-08-05/06) — mirror ĐÚNG object
      * grammarChannelLabel/videoChannelLabel ở FE (DailyCommentPanel.tsx).
@@ -764,7 +776,7 @@ public class StudentCommentService {
                 ? existing.getHomeworkNextExerciseAssignment().getDueAt()
                 : existing.getHomeworkNextReviewVideoAssignment() != null
                         ? existing.getHomeworkNextReviewVideoAssignment().getDueAt() : null;
-        return dueAt == null ? null : dueAt.atZoneSameInstant(ZoneId.systemDefault()).toLocalDateTime().format(DUE_DATE_FORMAT);
+        return dueAt == null ? null : dueAt.atZoneSameInstant(APP_ZONE).toLocalDateTime().format(DUE_DATE_FORMAT);
     }
 
     /**
@@ -1323,7 +1335,7 @@ public class StudentCommentService {
                             + " trong lịch — không thể đặt hạn nộp cho BTVN buổi sau.");
         }
         ClassSession next = upcoming.get(0);
-        return next.getSessionDate().atTime(next.getStartTime()).atZone(ZoneId.systemDefault()).toOffsetDateTime();
+        return next.getSessionDate().atTime(next.getStartTime()).atZone(APP_ZONE).toOffsetDateTime();
     }
 
     /**
@@ -1336,7 +1348,7 @@ public class StudentCommentService {
      */
     private OffsetDateTime resolveDueAt(ClassSession session, LocalDateTime customDueDate) {
         if (customDueDate != null) {
-            return customDueDate.atZone(ZoneId.systemDefault()).toOffsetDateTime();
+            return customDueDate.atZone(APP_ZONE).toOffsetDateTime();
         }
         return resolveNextSessionDueAt(session);
     }
@@ -1484,7 +1496,7 @@ public class StudentCommentService {
             return;
         }
         OffsetDateTime sessionEnd = classSession.getSessionDate().atTime(classSession.getEndTime())
-                .atZone(ZoneId.systemDefault()).toOffsetDateTime();
+                .atZone(APP_ZONE).toOffsetDateTime();
         if (OffsetDateTime.now().isBefore(sessionEnd)) {
             throw new StudentCommentNotEditableException(
                     "Buổi học ngày " + classSession.getSessionDate() + " (" + classSession.getStartTime() + "–"
