@@ -816,11 +816,36 @@ export interface ReviewVideoSubmissionResponse {
   feedback: string | null;
   gradedByUserId: number | null;
   gradedAt: string | null;
+  /** Bổ sung ngoài SDD gốc, xác nhận 2026-08-17 — chỉ có giá trị khi trả về từ listReviewVideoSubmissionsForClass (hàng chờ chấm gộp nhiều Bộ theo lớp), null ở mọi nơi khác. */
+  reviewVideoSetId: number | null;
+  reviewVideoSetTitle: string | null;
+  reviewVideoId: number | null;
+  reviewVideoTitle: string | null;
+  reviewVideoDisplayOrder: number | null;
+  questionPrompt: string | null;
+  timestampSeconds: number | null;
 }
 
 /** Giáo viên xem danh sách bài audio đã nộp theo bộ + lớp cụ thể — chỉ attempt MỚI NHẤT mỗi (câu hỏi, học sinh). classId bắt buộc (BE từ chối nếu thiếu). */
 export function listReviewVideoSubmissionsForGrading(setId: number, classId: number): Promise<ReviewVideoSubmissionResponse[]> {
   return apiRequest<ReviewVideoSubmissionResponse[]>(`/review-video-sets/${setId}/submissions?classId=${classId}`);
+}
+
+/** Bổ sung ngoài SDD gốc, xác nhận 2026-08-17 — tóm tắt số bài chưa chấm theo TỪNG lớp giáo viên đang đứng lớp thật, dùng cho badge Sidebar + landing "Hàng chờ chấm bài". */
+export interface PendingGradingClassSummaryResponse {
+  classId: number;
+  classCode: string;
+  className: string;
+  pendingSubmissionCount: number;
+}
+
+export function listPendingGradingClasses(): Promise<PendingGradingClassSummaryResponse[]> {
+  return apiRequest<PendingGradingClassSummaryResponse[]>("/review-video-submissions/pending-grading");
+}
+
+/** Bổ sung ngoài SDD gốc, xác nhận 2026-08-17 — hàng chờ chấm GỘP mọi Bộ REFLEX đã gán cho 1 lớp, không cần tự chọn Bộ trước. */
+export function listReviewVideoSubmissionsForClass(classId: number): Promise<ReviewVideoSubmissionResponse[]> {
+  return apiRequest<ReviewVideoSubmissionResponse[]>(`/classes/${classId}/review-video-submissions`);
 }
 
 export interface GradeReviewVideoSubmissionRequest {

@@ -18,6 +18,7 @@ import vn.com.pps.education.dto.AddReviewVideoRequest;
 import vn.com.pps.education.dto.ClassResponse;
 import vn.com.pps.education.dto.CreateReviewVideoSetRequest;
 import vn.com.pps.education.dto.GradeReviewVideoSubmissionRequest;
+import vn.com.pps.education.dto.PendingGradingClassSummaryResponse;
 import vn.com.pps.education.dto.ReportVideoProgressRequest;
 import vn.com.pps.education.dto.ReviewVideoAssignmentResponse;
 import vn.com.pps.education.dto.ReviewVideoAssignmentStatsResponse;
@@ -262,5 +263,21 @@ public class ReviewVideoController {
                                                                             @Valid @RequestBody GradeReviewVideoSubmissionRequest request,
                                                                             @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(reviewVideoService.gradeSubmission(submissionId, request, actor.userId()));
+    }
+
+    /** Bổ sung ngoài SDD gốc, xác nhận 2026-08-17 — badge Sidebar + landing "Hàng chờ chấm bài". */
+    @PreAuthorize("hasPermission(null, 'lms.grading.manage')")
+    @GetMapping("/api/review-video-submissions/pending-grading")
+    public ResponseEntity<List<PendingGradingClassSummaryResponse>> listPendingGradingClasses(
+            @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(reviewVideoService.getPendingGradingSummaryForTeacher(actor.userId()));
+    }
+
+    /** Bổ sung ngoài SDD gốc, xác nhận 2026-08-17 — hàng chờ chấm gộp mọi Bộ REFLEX đã gán cho 1 lớp. */
+    @PreAuthorize("hasPermission(null, 'lms.grading.manage')")
+    @GetMapping("/api/classes/{classId}/review-video-submissions")
+    public ResponseEntity<List<ReviewVideoSubmissionResponse>> listSubmissionsForClass(
+            @PathVariable Long classId, @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(reviewVideoService.listSubmissionsForTeacherByClass(classId, actor.userId()));
     }
 }

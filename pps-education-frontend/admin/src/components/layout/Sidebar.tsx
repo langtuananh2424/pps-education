@@ -1,21 +1,61 @@
 import React, { useState } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { ChevronDown, ChevronRight, LogOut, X } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { isNavItemAllowed, navSections } from "@/constants/navigation";
+import { usePendingGradingCount } from "@/features/lms/hooks/usePendingGradingCount";
 import Avatar from "@/components/ui/Avatar";
+import CountBadge from "@/components/ui/CountBadge";
+import Modal from "@/components/ui/Modal";
 import { cn } from "@/lib/cn";
 
 export default function Sidebar() {
-  const { currentRoleLabel, currentUser, sidebarOpen, setSidebarOpen, hasPermission, logout } = useApp();
+  const { currentRoleLabel, currentUser, sidebarOpen, setSidebarOpen, hasPermission, logout, hasUnsavedChanges, saveUnsavedChanges } = useApp();
+  const navigate = useNavigate();
+  // Bổ sung ngoài SDD gốc, xác nhận 2026-08-17 — số lớp đang có bài Video phản xạ chưa chấm, hiện cạnh
+  // mục "Hàng chờ chấm bài" (lms-exams) để GV biết ngay có việc cần làm, không phải tự mò từng Bộ+Lớp.
+  const pendingGradingCount = usePendingGradingCount();
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(
     Object.fromEntries(navSections.map((section) => [section.id, true]))
   );
+  // "Rời trang khi chưa lưu" (2026-08-15, bổ sung ngoài SDD gốc, theo yêu cầu người dùng) — trang đang
+  // dở (VD Nhận xét học viên) đăng ký hasUnsavedChanges=true qua AppContext; bấm mục Sidebar khác thì
+  // chặn điều hướng (preventDefault ở onClick NavLink), giữ lại đường dẫn đích để hỏi xác nhận, chỉ
+  // navigate() thật khi người dùng chọn 1 trong 2: lưu tạm rồi đi, hoặc bỏ qua rồi đi.
+  const [pendingPath, setPendingPath] = useState<string | null>(null);
+  const [savingBeforeLeave, setSavingBeforeLeave] = useState(false);
 
   const toggleGroup = (group: string) => setExpandedGroups((prev) => ({ ...prev, [group]: !prev[group] }));
 
   const closeOnMobile = () => {
     if (window.innerWidth < 1024) setSidebarOpen(false);
+  };
+
+  const handleNavClick = (e: React.MouseEvent, path: string) => {
+    if (hasUnsavedChanges) {
+      e.preventDefault();
+      setPendingPath(path);
+      return;
+    }
+    closeOnMobile();
+  };
+
+  const leaveToPendingPath = () => {
+    if (!pendingPath) return;
+    const path = pendingPath;
+    setPendingPath(null);
+    closeOnMobile();
+    navigate(path);
+  };
+
+  const handleSaveAndLeave = async () => {
+    setSavingBeforeLeave(true);
+    try {
+      await saveUnsavedChanges();
+    } finally {
+      setSavingBeforeLeave(false);
+      leaveToPendingPath();
+    }
   };
 
   return (
@@ -80,7 +120,7 @@ export default function Sidebar() {
                         <NavLink
                           key={item.id}
                           to={item.path}
-                          onClick={closeOnMobile}
+                          onClick={(e) => handleNavClick(e, item.path)}
                           className={({ isActive }) =>
                             cn(
                               "w-full px-3 py-2 flex items-center gap-2.5 rounded-md text-xs font-medium transition-all duration-150",
@@ -94,6 +134,7 @@ export default function Sidebar() {
                             <>
                               <Icon className={cn("w-4 h-4 shrink-0", isActive ? "text-white" : "text-slate-400")} />
                               <span className="truncate">{item.label}</span>
+                              {item.id === "lms-exams" && <CountBadge count={pendingGradingCount} />}
                             </>
                           )}
                         </NavLink>
@@ -126,6 +167,42 @@ export default function Sidebar() {
           </button>
         </div>
       </aside>
+
+      <Modal
+        open={!!pendingPath}
+        onClose={() => setPendingPath(null)}
+        title="Dữ liệu chưa hoàn tất"
+        description="Bạn đang nhập dở dữ liệu ở trang hiện tại. Bạn có muốn lưu tạm trước khi rời đi không?"
+        size="md"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setPendingPath(null)}
+              className="px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-100 rounded-lg"
+            >
+              Ở lại trang
+            </button>
+            <button
+              type="button"
+              onClick={leaveToPendingPath}
+              className="px-3 py-2 text-[11px] font-semibold text-rose-600 hover:bg-rose-50 rounded-lg"
+            >
+              Rời đi, không lưu
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveAndLeave}
+              disabled={savingBeforeLeave}
+              className="px-3 py-2 bg-brand-orange hover:bg-brand-orange/90 text-white text-[11px] font-bold rounded-lg disabled:opacity-50"
+            >
+              {savingBeforeLeave ? "Đang lưu..." : "Lưu tạm & rời đi"}
+            </button>
+          </>
+        }
+      >
+        <p className="text-[11px] text-slate-500">Nếu không lưu, phần đang gõ dở sẽ mất khi rời khỏi trang này.</p>
+      </Modal>
     </>
   );
 }
