@@ -29,7 +29,11 @@ function parseWeekdays(csv: string): Set<number> {
   return new Set(csv.split(",").map((s) => Number(s.trim())).filter((n) => !Number.isNaN(n)));
 }
 
-/** UC-70 (bổ sung ngoài SDD gốc, xác nhận 2026-08-13) — tạo/sửa Ca làm việc. */
+/**
+ * UC-70 (bổ sung ngoài SDD gốc, xác nhận 2026-08-13) — tạo/sửa Ca làm việc.
+ * "T7 xen kẽ": tạo 2 ca riêng (VD 1 ca weekParity=ODD + 1 ca weekParity=EVEN)
+ * rồi gán cả 2 cho cùng 1 nhân sự qua màn Gán ca (EmployeeShiftFormModal).
+ */
 export default function ShiftFormModal({ shift, onClose, onSaved }: ShiftFormModalProps) {
   const isEdit = shift != null;
   const [form, setForm] = useState({

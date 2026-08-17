@@ -8,8 +8,9 @@ import java.time.LocalDate;
 
 /**
  * Bảng employee_shifts (SDD > Nhân sự > Chấm công > b) — gán ca cho nhân
- * sự. Ràng buộc: mỗi nhân sự 1 thời điểm chỉ 1 ca đang active
- * (effective_to NULL) — unique partial index ở V7.
+ * sự. V124 (2026-08-14): 1 nhân sự có thể có NHIỀU ca active song song
+ * (effective_to NULL) — bỏ ràng buộc "1 ca active" gốc ở V7, thay bằng
+ * validate chống chồng chéo lịch ở EmployeeShiftService.
  */
 @Getter
 @Setter

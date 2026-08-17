@@ -70,7 +70,8 @@ public class GlobalExceptionHandler {
             TaskAssigneeAlreadyAssignedException.class, MakeupSessionAlreadyLinkedException.class,
             DuplicateQuestionContentException.class, DuplicateAcademicYearCodeException.class,
             ReviewVideoQuestionOverlapException.class, DuplicateShiftCodeException.class,
-            WorkCalendarOverrideAlreadyExistsException.class})
+            WorkCalendarOverrideAlreadyExistsException.class, ShiftAssignmentOverlapException.class,
+            EmployeeShiftAlreadyEndedException.class})
     public ResponseEntity<Object> handleConflict(RuntimeException ex) {
         return error(HttpStatus.CONFLICT, ex.getMessage());
     }
