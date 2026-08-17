@@ -25,6 +25,7 @@ import vn.com.pps.education.dto.EnrollStudentRequest;
 import vn.com.pps.education.domain.ReviewVideoAssignment;
 import vn.com.pps.education.dto.GradeReviewVideoSubmissionRequest;
 import vn.com.pps.education.dto.MyReviewVideoAssignmentResponse;
+import vn.com.pps.education.dto.PendingGradingClassSummaryResponse;
 import vn.com.pps.education.dto.ReportVideoProgressRequest;
 import vn.com.pps.education.dto.ReviewVideoAssignmentResponse;
 import vn.com.pps.education.dto.ReviewVideoConnectionQuestionResponse;
@@ -808,6 +809,97 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         assignRole(outsider, "TEACHER");
 
         assertThatThrownBy(() -> reviewVideoService.listSubmissionsForTeacher(setId, schoolClass.id(), outsider.getId()))
+                .isInstanceOf(NotAssignedTeacherForClassException.class);
+    }
+
+    // ===================== getPendingGradingSummaryForTeacher / listSubmissionsForTeacherByClass (bổ sung ngoài SDD gốc, 2026-08-17) =====================
+
+    @Test
+    void getPendingGradingSummaryForTeacher_boSung_sumsUngradedAcrossMultipleReflexSets() {
+        ReviewVideoResponse video1 = createPublishedReflexSetWithVideo(100);
+        ReviewVideoQuestionResponse question1 = addQuestion(video1.id(), 53, 15, null);
+        ReviewVideoResponse video2 = createPublishedReflexSetWithVideo(100);
+        ReviewVideoQuestionResponse question2 = addQuestion(video2.id(), 53, 15, null);
+        Student student = enrollStudent(schoolClass.id());
+        reviewVideoService.submitQuestionAudio(question1.id(),
+                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/a.mp3", null), student.getUser().getId());
+        reviewVideoService.submitQuestionAudio(question2.id(),
+                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/b.mp3", null), student.getUser().getId());
+
+        List<PendingGradingClassSummaryResponse> summary = reviewVideoService.getPendingGradingSummaryForTeacher(teacher.getId());
+
+        assertThat(summary).hasSize(1);
+        assertThat(summary.get(0).classId()).isEqualTo(schoolClass.id());
+        assertThat(summary.get(0).pendingSubmissionCount()).isEqualTo(2);
+    }
+
+    @Test
+    void getPendingGradingSummaryForTeacher_boSung_excludesClassAlreadyFullyGraded() {
+        ReviewVideoResponse video = createPublishedReflexSetWithVideo(100);
+        ReviewVideoQuestionResponse question = addQuestion(video.id(), 53, 15, null);
+        Student student = enrollStudent(schoolClass.id());
+        ReviewVideoSubmissionResponse submission = reviewVideoService.submitQuestionAudio(question.id(),
+                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/a.mp3", null), student.getUser().getId());
+        reviewVideoService.gradeSubmission(submission.id(),
+                new GradeReviewVideoSubmissionRequest(new BigDecimal("9.00"), new BigDecimal("10.00"), "Tốt"), teacher.getId());
+
+        List<PendingGradingClassSummaryResponse> summary = reviewVideoService.getPendingGradingSummaryForTeacher(teacher.getId());
+
+        assertThat(summary).extracting(PendingGradingClassSummaryResponse::classId).doesNotContain(schoolClass.id());
+    }
+
+    /** Khớp quyết định 2026-08-17: chỉ tính lớp đứng tên thật (class_teachers) — dùng CHUNG khung chương trình không đủ. */
+    @Test
+    void getPendingGradingSummaryForTeacher_boSung_excludesClassesTeacherDoesNotTeach() {
+        ReviewVideoResponse video = createPublishedReflexSetWithVideo(100);
+        ReviewVideoQuestionResponse question = addQuestion(video.id(), 53, 15, null);
+        Student student = enrollStudent(schoolClass.id());
+        reviewVideoService.submitQuestionAudio(question.id(),
+                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/a.mp3", null), student.getUser().getId());
+        User outsider = newUser("outsider.summary");
+        assignRole(outsider, "TEACHER");
+        ClassResponse otherClass = classService.create(
+                new CreateClassRequest(classCode(), "Lớp khác", newSite().getId(), activeCurriculum.id(), "OPEN", 20, null,
+                        LocalDate.now(), null, null), headAcademic.getId());
+        classService.assignTeacher(otherClass.id(),
+                new AssignTeacherRequest(outsider.getId(), "PRIMARY", null, LocalDate.now(), "VIETNAMESE"), headAcademic.getId());
+
+        List<PendingGradingClassSummaryResponse> summary = reviewVideoService.getPendingGradingSummaryForTeacher(outsider.getId());
+
+        assertThat(summary).isEmpty();
+    }
+
+    @Test
+    void listSubmissionsForTeacherByClass_boSung_returnsCombinedAcrossMultipleReflexSets() {
+        ReviewVideoResponse video1 = createPublishedReflexSetWithVideo(100);
+        ReviewVideoQuestionResponse question1 = addQuestion(video1.id(), 53, 15, null);
+        ReviewVideoResponse video2 = createPublishedReflexSetWithVideo(100);
+        ReviewVideoQuestionResponse question2 = addQuestion(video2.id(), 53, 15, null);
+        Student student = enrollStudent(schoolClass.id());
+        reviewVideoService.submitQuestionAudio(question1.id(),
+                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/a.mp3", null), student.getUser().getId());
+        reviewVideoService.submitQuestionAudio(question2.id(),
+                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/b.mp3", null), student.getUser().getId());
+
+        List<ReviewVideoSubmissionResponse> combined = reviewVideoService.listSubmissionsForTeacherByClass(schoolClass.id(), teacher.getId());
+
+        assertThat(combined).hasSize(2);
+        assertThat(combined).extracting(ReviewVideoSubmissionResponse::reviewVideoSetId)
+                .containsExactlyInAnyOrder(video1.reviewVideoSetId(), video2.reviewVideoSetId());
+        assertThat(combined).allSatisfy(s -> {
+            assertThat(s.reviewVideoTitle()).isNotNull();
+            assertThat(s.questionPrompt()).isNull(); // addQuestion() ở test này không set prompt -- xem xác nhận field có gắn đúng (null truyền qua nguyên vẹn)
+        });
+    }
+
+    @Test
+    void listSubmissionsForTeacherByClass_boSung_A3_rejectsForNonAssignedTeacher() {
+        ReviewVideoResponse video = createPublishedReflexSetWithVideo(100);
+        addQuestion(video.id(), 53, 15, null);
+        User outsider = newUser("outsider.byclass");
+        assignRole(outsider, "TEACHER");
+
+        assertThatThrownBy(() -> reviewVideoService.listSubmissionsForTeacherByClass(schoolClass.id(), outsider.getId()))
                 .isInstanceOf(NotAssignedTeacherForClassException.class);
     }
 

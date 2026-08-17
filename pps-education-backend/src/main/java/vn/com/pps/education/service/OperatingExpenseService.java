@@ -93,7 +93,7 @@ public class OperatingExpenseService {
         OperatingExpense expense = getExpenseOrThrow(id);
         if (expense.getStatus() != OperatingExpense.Status.RECORDED) {
             throw new OperatingExpenseAlreadyDecidedException(
-                    "Khoản chi id=" + id + " đã được quyết định (" + expense.getStatus() + "), không thể duyệt lại.");
+                    "Khoản chi này đã được quyết định (" + expense.getStatus() + "), không thể duyệt lại.");
         }
         OperatingExpense.Status decision = OperatingExpense.Status.valueOf(request.decision());
         if (decision != OperatingExpense.Status.APPROVED && decision != OperatingExpense.Status.REJECTED) {

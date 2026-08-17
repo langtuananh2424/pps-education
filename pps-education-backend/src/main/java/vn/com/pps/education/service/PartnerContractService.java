@@ -120,7 +120,7 @@ public class PartnerContractService {
                     .filter(existing -> !existing.getId().equals(currentContractId))
                     .ifPresent(existing -> {
                         throw new ActivePartnerContractAlreadyExistsException(
-                                "Điểm trường id=" + siteId + " đã có hợp đồng ACTIVE khác (id=" + existing.getId() + ").");
+                                "Điểm trường này đã có hợp đồng đang hoạt động (ACTIVE) khác rồi.");
                     });
         }
 
@@ -183,8 +183,8 @@ public class PartnerContractService {
         PartnerContract contract = getContractOrThrow(contractId);
         if (contract.getStatus() != PartnerContract.Status.DRAFT) {
             throw new PartnerContractNotDeletableException(
-                    "Chỉ xóa được hợp đồng đang DRAFT; hợp đồng id=" + contractId + " đang " + contract.getStatus()
-                            + " — dùng chức năng chấm dứt (terminate) thay thế.");
+                    "Chỉ xóa được hợp đồng đang ở trạng thái Nháp (DRAFT); hợp đồng này đang " + contract.getStatus()
+                            + " — dùng chức năng chấm dứt thay thế.");
         }
         User actor = getUserOrThrow(actorUserId);
 

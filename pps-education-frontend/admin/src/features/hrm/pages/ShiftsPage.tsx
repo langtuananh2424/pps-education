@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { Clock3, Plus, UserPlus } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import { Clock3, Plus, Users } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import { Badge, Button, TableContainer, Td, Th } from "@/components/ui";
@@ -9,10 +9,10 @@ import { useToast } from "@/lib/useToast";
 import {
   assignEmployeeShift,
   deactivateShift,
+  DepartmentResponse,
   EmployeeResponse,
-  EmployeeShiftResponse,
+  listDepartments,
   listEmployees,
-  listEmployeeShiftHistory,
   listShifts,
   ShiftResponse
 } from "../api";
@@ -162,7 +162,12 @@ export default function ShiftsPage() {
         </tbody>
       </TableContainer>
 
-      {canAssign && <AssignShiftPanel shifts={shifts.filter((s) => s.active)} onAssigned={() => showToast("Đã gán ca làm việc thành công!")} />}
+      {canAssign && (
+        <BulkAssignShiftPanel
+          shifts={shifts.filter((s) => s.active)}
+          onAssigned={(count) => showToast(`Đã gán ca cho ${count} nhân sự thành công!`)}
+        />
+      )}
 
       {formOpen && (
         <ShiftFormModal
@@ -181,69 +186,130 @@ export default function ShiftsPage() {
   );
 }
 
-function AssignShiftPanel({ shifts, onAssigned }: { shifts: ShiftResponse[]; onAssigned: () => void }) {
+interface BulkAssignResult {
+  employeeId: number;
+  employeeName: string;
+  ok: boolean;
+  message?: string;
+}
+
+/**
+ * Gán 1 ca cho NHIỀU nhân sự cùng lúc, lọc theo phòng ban -- gọi lặp lại
+ * assignEmployeeShift (mỗi nhân sự 1 transaction riêng ở backend, xem
+ * EmployeeShiftService.assignShift) nên 1 nhân sự bị chồng chéo lịch
+ * (409) không chặn các nhân sự còn lại; kết quả từng người hiện ở bảng
+ * bên dưới sau khi gán.
+ */
+function BulkAssignShiftPanel({ shifts, onAssigned }: { shifts: ShiftResponse[]; onAssigned: (count: number) => void }) {
   const [employees, setEmployees] = useState<EmployeeResponse[]>([]);
-  const [employeeId, setEmployeeId] = useState<number | "">("");
+  const [departments, setDepartments] = useState<DepartmentResponse[]>([]);
+  const [departmentId, setDepartmentId] = useState<number | "">("");
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [shiftId, setShiftId] = useState<number | "">("");
   const [effectiveFrom, setEffectiveFrom] = useState(new Date().toISOString().slice(0, 10));
-  const [history, setHistory] = useState<EmployeeShiftResponse[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [results, setResults] = useState<BulkAssignResult[]>([]);
 
   useEffect(() => {
     listEmployees()
       .then(setEmployees)
       .catch(() => setEmployees([]));
+    listDepartments()
+      .then(setDepartments)
+      .catch(() => setDepartments([]));
   }, []);
 
-  useEffect(() => {
-    if (employeeId === "") {
-      setHistory([]);
-      return;
-    }
-    listEmployeeShiftHistory(employeeId)
-      .then(setHistory)
-      .catch(() => setHistory([]));
-  }, [employeeId]);
+  const filteredEmployees = useMemo(
+    () => (departmentId === "" ? employees : employees.filter((e) => e.departmentId === departmentId)),
+    [employees, departmentId]
+  );
 
-  const handleAssign = async () => {
-    if (employeeId === "" || shiftId === "") {
-      setError("Vui lòng chọn nhân sự và ca làm việc.");
+  // Đổi phòng ban thì bỏ chọn những nhân sự không còn nằm trong danh sách lọc hiện tại.
+  useEffect(() => {
+    setSelectedIds((prev) => new Set(Array.from(prev).filter((id) => filteredEmployees.some((e) => e.id === id))));
+  }, [filteredEmployees]);
+
+  const allFilteredSelected = filteredEmployees.length > 0 && filteredEmployees.every((e) => selectedIds.has(e.id));
+
+  const toggleEmployee = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    setSelectedIds((prev) => {
+      if (allFilteredSelected) {
+        const next = new Set(prev);
+        filteredEmployees.forEach((e) => next.delete(e.id));
+        return next;
+      }
+      const next = new Set(prev);
+      filteredEmployees.forEach((e) => next.add(e.id));
+      return next;
+    });
+  };
+
+  const handleBulkAssign = async () => {
+    if (selectedIds.size === 0 || shiftId === "") {
+      setError("Vui lòng chọn ít nhất 1 nhân sự và 1 ca làm việc.");
       return;
     }
     setSubmitting(true);
     setError(null);
-    try {
-      await assignEmployeeShift({ employeeId, shiftId, effectiveFrom });
-      const refreshed = await listEmployeeShiftHistory(employeeId);
-      setHistory(refreshed);
-      onAssigned();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Gán ca thất bại.");
-    } finally {
-      setSubmitting(false);
+    setResults([]);
+
+    const targets = employees.filter((e) => selectedIds.has(e.id));
+    const outcomes = await Promise.all(
+      targets.map(async (emp): Promise<BulkAssignResult> => {
+        try {
+          await assignEmployeeShift({ employeeId: emp.id, shiftId, effectiveFrom });
+          return { employeeId: emp.id, employeeName: emp.fullName, ok: true };
+        } catch (err) {
+          return {
+            employeeId: emp.id,
+            employeeName: emp.fullName,
+            ok: false,
+            message: err instanceof ApiError ? err.message : "Gán ca thất bại."
+          };
+        }
+      })
+    );
+
+    setResults(outcomes);
+    setSubmitting(false);
+    const successCount = outcomes.filter((r) => r.ok).length;
+    if (successCount > 0) {
+      onAssigned(successCount);
+    }
+    if (outcomes.some((r) => !r.ok)) {
+      setError(`${outcomes.filter((r) => !r.ok).length}/${outcomes.length} nhân sự gán thất bại -- xem chi tiết bên dưới.`);
     }
   };
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-soft p-5 space-y-4">
       <div className="flex items-center gap-2">
-        <UserPlus className="w-4 h-4 text-slate-400" />
-        <span className="text-xs font-bold text-slate-700 font-display">Gán ca cho nhân sự</span>
+        <Users className="w-4 h-4 text-slate-400" />
+        <span className="text-xs font-bold text-slate-700 font-display">Gán ca cho nhiều nhân sự</span>
       </div>
 
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       <div className="flex flex-wrap items-center gap-2">
         <Select
-          value={employeeId}
-          onChange={(e) => setEmployeeId(e.target.value === "" ? "" : Number(e.target.value))}
-          className="bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none min-w-[200px]"
+          value={departmentId}
+          onChange={(e) => setDepartmentId(e.target.value === "" ? "" : Number(e.target.value))}
+          className="bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none min-w-[180px]"
         >
-          <option value="">-- Chọn nhân sự --</option>
-          {employees.map((emp) => (
-            <option key={emp.id} value={emp.id}>
-              {emp.fullName} ({emp.employeeCode})
+          <option value="">-- Tất cả phòng ban --</option>
+          {departments.map((d) => (
+            <option key={d.id} value={d.id}>
+              {d.name}
             </option>
           ))}
         </Select>
@@ -265,30 +331,43 @@ function AssignShiftPanel({ shifts, onAssigned }: { shifts: ShiftResponse[]; onA
           onChange={(e) => setEffectiveFrom(e.target.value)}
           className="bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
         />
-        <Button variant="primary" disabled={submitting} onClick={handleAssign}>
+        <Button variant="primary" disabled={submitting} onClick={handleBulkAssign}>
           <Clock3 className="w-3.5 h-3.5" />
-          {submitting ? "Đang gán..." : "Gán ca"}
+          {submitting ? "Đang gán..." : `Gán ca cho ${selectedIds.size || ""} nhân sự`.trim()}
         </Button>
       </div>
 
-      {employeeId !== "" && (
-        <div className="pt-2">
-          <span className="text-[10px] font-bold uppercase text-slate-500">Lịch sử gán ca</span>
-          {history.length === 0 ? (
-            <p className="text-xs text-slate-400 italic mt-1">Nhân sự này chưa được gán ca nào.</p>
-          ) : (
-            <div className="divide-y divide-slate-100 mt-1">
-              {history.map((h) => (
-                <div key={h.id} className="flex items-center justify-between py-2 text-xs">
-                  <span className="font-semibold text-slate-700">{h.shiftName}</span>
-                  <span className="text-slate-400">
-                    {h.effectiveFrom} → {h.effectiveTo ?? "hiện tại"}
-                  </span>
-                  {h.effectiveTo == null && <Badge variant="success">Đang áp dụng</Badge>}
-                </div>
-              ))}
-            </div>
-          )}
+      <div className="border border-slate-200 rounded-lg max-h-64 overflow-y-auto">
+        <label className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-slate-600 bg-slate-50 border-b border-slate-200 sticky top-0 cursor-pointer">
+          <input type="checkbox" checked={allFilteredSelected} onChange={toggleSelectAll} />
+          Chọn tất cả ({filteredEmployees.length} nhân sự{departmentId !== "" ? " trong phòng ban đã lọc" : ""})
+        </label>
+        {filteredEmployees.length === 0 ? (
+          <p className="text-xs text-slate-400 italic p-3">Không có nhân sự nào khớp bộ lọc.</p>
+        ) : (
+          <div className="divide-y divide-slate-100">
+            {filteredEmployees.map((emp) => (
+              <label key={emp.id} className="flex items-center gap-2 px-3 py-2 text-xs hover:bg-slate-50 cursor-pointer">
+                <input type="checkbox" checked={selectedIds.has(emp.id)} onChange={() => toggleEmployee(emp.id)} />
+                <span className="font-semibold text-slate-700">{emp.fullName}</span>
+                <span className="text-slate-400">({emp.employeeCode})</span>
+              </label>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {results.length > 0 && (
+        <div className="pt-1">
+          <span className="text-[10px] font-bold uppercase text-slate-500">Kết quả gán ca</span>
+          <div className="divide-y divide-slate-100 mt-1">
+            {results.map((r) => (
+              <div key={r.employeeId} className="flex items-center justify-between py-1.5 text-xs">
+                <span className="font-semibold text-slate-700">{r.employeeName}</span>
+                {r.ok ? <Badge variant="success">Thành công</Badge> : <span className="text-rose-600">{r.message}</span>}
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

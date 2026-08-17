@@ -1167,8 +1167,10 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
 
         StudentCommentResponse comment = writeDailyCommentWithHomeworkNext(student, classSession, fixture.exercise().id(), null);
 
+        // Khớp APP_ZONE (Asia/Ho_Chi_Minh) cố định trong StudentCommentService — không dùng ZoneId.systemDefault()
+        // vì múi giờ JVM chạy test (CI/local) có thể khác múi giờ nghiệp vụ, gây lệch giả (xem StudentCommentService).
         OffsetDateTime expectedDueAt = nextVietnameseSession.sessionDate().atTime(nextVietnameseSession.startTime())
-                .atZone(ZoneId.systemDefault()).toOffsetDateTime();
+                .atZone(ZoneId.of("Asia/Ho_Chi_Minh")).toOffsetDateTime();
         assertThat(comment.homeworkNextDueAt()).isEqualTo(expectedDueAt);
     }
 

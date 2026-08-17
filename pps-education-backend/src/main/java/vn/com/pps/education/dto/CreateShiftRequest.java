@@ -8,7 +8,10 @@ import java.time.LocalTime;
 /**
  * UC-70 (bổ sung ngoài SDD gốc, xác nhận 2026-08-13). appliesToWeekdays:
  * CSV các số 1-7 (1=T2...7=CN, khớp quy ước Shift.java/AttendanceService),
- * để trống dùng mặc định "1,2,3,4,5,6". weekParity: ALL/ODD/EVEN.
+ * để trống dùng mặc định "1,2,3,4,5,6". weekParity: ALL/ODD/EVEN. Với
+ * "T7 xen kẽ" (bổ sung 2026-08-14): gán 2 shift riêng (VD 1 shift
+ * weekParity=ODD + 1 shift weekParity=EVEN) cho cùng nhân sự qua
+ * AssignEmployeeShiftRequest, thay vì mã hoá ngày xen kẽ trong 1 shift.
  */
 public record CreateShiftRequest(
         @NotBlank String code,

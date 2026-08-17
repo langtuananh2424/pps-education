@@ -212,8 +212,7 @@ public class TaskService {
                 .map(Department::getId).collect(Collectors.toSet());
         if (headedDeptIds.isEmpty()) {
             throw new NotAuthorizedForTaskOverviewException(
-                    "Tài khoản id=" + actorUserId + " không có quyền xem tổng quan công việc"
-                            + " (task.overview.company) và không làm trưởng phòng nào.");
+                    "Bạn không có quyền xem tổng quan công việc và không làm trưởng phòng nào.");
         }
         return taskRepository.findByDepartmentIdInOrderByIdDesc(headedDeptIds).stream().map(this::toResponse).toList();
     }
@@ -251,7 +250,7 @@ public class TaskService {
         Task task = assignment.getTask();
         if (task.getStatus() == Task.Status.CANCELLED) {
             throw new InvalidTaskStatusTransitionException(
-                    "Công việc id=" + task.getId() + " đã bị hủy (CANCELLED) — không thể cập nhật phân công.");
+                    "Công việc này đã bị hủy (CANCELLED) — không thể cập nhật phân công.");
         }
         User actor = getUserOrThrow(actorUserId);
         TaskAssignment.Status current = assignment.getStatus();
@@ -261,14 +260,14 @@ public class TaskService {
         boolean isAssigner = task.getCreatedBy().getId().equals(actorUserId);
         if (!isAssignee && !isAssigner) {
             throw new NotTaskParticipantException(
-                    "Tài khoản id=" + actorUserId + " không phải người giao hoặc người nhận công việc id=" + task.getId() + ".");
+                    "Bạn không phải người giao hoặc người nhận công việc này.");
         }
         boolean validAsAssignee = isAssignee && ASSIGNEE_TRANSITIONS.getOrDefault(current, Set.of()).contains(target);
         boolean isAssignerReject = current == TaskAssignment.Status.PENDING_REVIEW && target == TaskAssignment.Status.IN_PROGRESS;
         boolean validAsAssigner = isAssigner && ASSIGNER_TRANSITIONS.getOrDefault(current, Set.of()).contains(target);
         if (!validAsAssignee && !validAsAssigner) {
             throw new InvalidTaskStatusTransitionException(
-                    "Không thể chuyển phân công id=" + assignmentId + " từ " + current + " sang " + target + ".");
+                    "Không thể chuyển phân công này từ " + current + " sang " + target + ".");
         }
         boolean commentRequired = target == TaskAssignment.Status.DECLINED || (validAsAssigner && isAssignerReject);
         if (commentRequired && (request.comment() == null || request.comment().isBlank())) {
@@ -327,7 +326,7 @@ public class TaskService {
 
         if (task.getStatus() == Task.Status.COMPLETED || task.getStatus() == Task.Status.CANCELLED) {
             throw new InvalidTaskStatusTransitionException(
-                    "Không thể giao lại công việc id=" + taskId + " đang ở trạng thái " + task.getStatus() + ".");
+                    "Không thể giao lại công việc này đang ở trạng thái " + task.getStatus() + ".");
         }
 
         TaskAssignment declined = taskAssignmentRepository.findById(request.fromAssignmentId())
@@ -335,7 +334,7 @@ public class TaskService {
                         "Không tìm thấy phân công công việc id=" + request.fromAssignmentId()));
         if (!declined.getTask().getId().equals(taskId)) {
             throw new IllegalArgumentException(
-                    "Phân công id=" + request.fromAssignmentId() + " không thuộc công việc id=" + taskId + ".");
+                    "Phân công bạn chọn không thuộc công việc này.");
         }
         if (declined.getStatus() != TaskAssignment.Status.DECLINED) {
             throw new InvalidTaskStatusTransitionException(
@@ -350,7 +349,7 @@ public class TaskService {
 
         if (taskAssignmentRepository.findByTaskIdAndAssigneeId(taskId, newAssignee.getId()).isPresent()) {
             throw new TaskAssigneeAlreadyAssignedException(
-                    "Người nhận mới id=" + newAssignee.getId() + " đã có phân công trong công việc id=" + taskId + ".");
+                    "Người nhận mới đã có phân công trong công việc này rồi.");
         }
 
         TaskAssignment fresh = new TaskAssignment();
@@ -391,12 +390,11 @@ public class TaskService {
         boolean isManager = permissionEvaluationService.hasPermission(actorUserId, "task.manage");
         if (!isCreator && !isManager) {
             throw new NotTaskCreatorException(
-                    "Tài khoản id=" + actorUserId + " không phải người giao công việc id=" + taskId
-                            + " và không có quyền quản trị công việc (task.manage).");
+                    "Bạn không phải người giao công việc này và không có quyền quản trị công việc.");
         }
         if (task.getStatus() == Task.Status.COMPLETED || task.getStatus() == Task.Status.CANCELLED) {
             throw new InvalidTaskStatusTransitionException(
-                    "Không thể hủy công việc id=" + taskId + " đang ở trạng thái " + task.getStatus() + ".");
+                    "Không thể hủy công việc này đang ở trạng thái " + task.getStatus() + ".");
         }
         task.setStatus(Task.Status.CANCELLED);
         task.setCancelledAt(OffsetDateTime.now());
@@ -481,8 +479,7 @@ public class TaskService {
                     ? null : assigneeEmployee.getDepartment().getId();
             if (assigneeDeptId == null || !headedDeptIds.contains(assigneeDeptId)) {
                 throw new AssigneeOutsideDepartmentException(
-                        "Người nhận việc id=" + assignee.getId() + " không thuộc phòng ban do người giao id="
-                                + actorUserId + " làm trưởng phòng.");
+                        "Người nhận việc không thuộc phòng ban do bạn làm trưởng phòng.");
             }
         }
     }
@@ -498,7 +495,7 @@ public class TaskService {
             return;
         }
         throw new NotTaskCreatorException(
-                "Tài khoản id=" + actorUserId + " không phải người giao công việc id=" + task.getId() + ".");
+                "Bạn không phải người giao công việc này.");
     }
 
     private void requireParticipant(Task task, Long actorUserId) {
@@ -509,7 +506,7 @@ public class TaskService {
             return;
         }
         throw new NotTaskParticipantException(
-                "Tài khoản id=" + actorUserId + " không phải người giao hoặc người nhận công việc id=" + task.getId() + ".");
+                "Bạn không phải người giao hoặc người nhận công việc này.");
     }
 
     /** Main Flow bước 4: thông báo người giao việc khi có phản hồi mới HOẶC khi chuyển sang Chờ duyệt/Hoàn thành. */

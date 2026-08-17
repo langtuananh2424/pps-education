@@ -195,7 +195,7 @@ public class ExamService {
         Exam exam = getExamOrThrow(id);
         if (!exerciseService.listByExam(id, actorUserId).isEmpty()) {
             throw new IllegalArgumentException(
-                    "Đề id=" + id + " còn Bài chưa lưu trữ — lưu trữ (xóa) hết Bài trước khi xóa Đề.");
+                    "Đề này còn Bài chưa lưu trữ — lưu trữ (xóa) hết Bài trước khi xóa Đề.");
         }
         examClassAssignmentRepository.deleteAll(examClassAssignmentRepository.findByExamId(id));
         exam.setDeletedAt(OffsetDateTime.now());
@@ -211,7 +211,7 @@ public class ExamService {
         }
         if (!classTeacherRepository.existsBySchoolClassIdAndTeacherIdAndAssignedToIsNull(classId, actorUserId)) {
             throw new NotAssignedTeacherForClassException(
-                    "Tài khoản id=" + actorUserId + " không được phân công giảng dạy lớp id=" + classId + ".");
+                    "Bạn không được phân công giảng dạy lớp này.");
         }
     }
 

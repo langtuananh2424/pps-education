@@ -12,18 +12,21 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.multipart.MultipartFile;
 import vn.com.pps.education.dto.AddReviewVideoConnectionQuestionRequest;
 import vn.com.pps.education.dto.AddReviewVideoQuestionRequest;
 import vn.com.pps.education.dto.AddReviewVideoRequest;
 import vn.com.pps.education.dto.ClassResponse;
 import vn.com.pps.education.dto.CreateReviewVideoSetRequest;
 import vn.com.pps.education.dto.GradeReviewVideoSubmissionRequest;
+import vn.com.pps.education.dto.PendingGradingClassSummaryResponse;
 import vn.com.pps.education.dto.ReportVideoProgressRequest;
 import vn.com.pps.education.dto.ReviewVideoAssignmentResponse;
 import vn.com.pps.education.dto.ReviewVideoAssignmentStatsResponse;
 import vn.com.pps.education.dto.ReviewVideoConnectionQuestionResponse;
 import vn.com.pps.education.dto.ReviewVideoConnectionQuizResultResponse;
 import vn.com.pps.education.dto.ReviewVideoProgressResponse;
+import vn.com.pps.education.dto.ReviewVideoQuestionImportResponse;
 import vn.com.pps.education.dto.ReviewVideoQuestionResponse;
 import vn.com.pps.education.dto.ReviewVideoResponse;
 import vn.com.pps.education.dto.ReviewVideoSetResponse;
@@ -36,6 +39,7 @@ import vn.com.pps.education.dto.UpdateReviewVideoConnectionQuestionRequest;
 import vn.com.pps.education.dto.UpdateReviewVideoQuestionRequest;
 import vn.com.pps.education.dto.UpdateReviewVideoSetRequest;
 import vn.com.pps.education.security.AuthenticatedUser;
+import vn.com.pps.education.service.ReviewVideoQuestionImportService;
 import vn.com.pps.education.service.ReviewVideoService;
 
 import java.util.List;
@@ -54,9 +58,12 @@ import java.util.List;
 public class ReviewVideoController {
 
     private final ReviewVideoService reviewVideoService;
+    private final ReviewVideoQuestionImportService reviewVideoQuestionImportService;
 
-    public ReviewVideoController(ReviewVideoService reviewVideoService) {
+    public ReviewVideoController(ReviewVideoService reviewVideoService,
+                                  ReviewVideoQuestionImportService reviewVideoQuestionImportService) {
         this.reviewVideoService = reviewVideoService;
+        this.reviewVideoQuestionImportService = reviewVideoQuestionImportService;
     }
 
     @PreAuthorize("hasPermission(null, 'lms.review-video.create')")
@@ -140,6 +147,15 @@ public class ReviewVideoController {
         return ResponseEntity.ok(reviewVideoService.addQuestion(videoId, request, actor.userId()));
     }
 
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng — soạn hàng loạt câu hỏi REFLEX bằng file mẫu Excel (.xlsx), mirror QuestionImportController. */
+    @PreAuthorize("hasPermission(null, 'lms.review-video.update')")
+    @PostMapping(value = "/api/review-videos/{videoId}/questions/import", consumes = "multipart/form-data")
+    public ResponseEntity<ReviewVideoQuestionImportResponse> importQuestions(@PathVariable Long videoId,
+                                                                               @RequestParam("file") MultipartFile file,
+                                                                               @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(reviewVideoQuestionImportService.importReflexQuestions(videoId, file, actor.userId()));
+    }
+
     @GetMapping("/api/review-videos/{videoId}/questions")
     public ResponseEntity<List<ReviewVideoQuestionResponse>> listQuestions(@PathVariable Long videoId,
                                                                              @AuthenticationPrincipal AuthenticatedUser actor) {
@@ -161,6 +177,15 @@ public class ReviewVideoController {
             @PathVariable Long videoId, @Valid @RequestBody AddReviewVideoConnectionQuestionRequest request,
             @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(reviewVideoService.addConnectionQuestion(videoId, request, actor.userId()));
+    }
+
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng — soạn hàng loạt câu hỏi CONNECTION bằng file mẫu Excel (.xlsx), mirror importQuestions (REFLEX). */
+    @PreAuthorize("hasPermission(null, 'lms.review-video.update')")
+    @PostMapping(value = "/api/review-videos/{videoId}/connection-questions/import", consumes = "multipart/form-data")
+    public ResponseEntity<ReviewVideoQuestionImportResponse> importConnectionQuestions(@PathVariable Long videoId,
+                                                                                          @RequestParam("file") MultipartFile file,
+                                                                                          @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(reviewVideoQuestionImportService.importConnectionQuestions(videoId, file, actor.userId()));
     }
 
     @GetMapping("/api/review-videos/{videoId}/connection-questions")
@@ -262,5 +287,21 @@ public class ReviewVideoController {
                                                                             @Valid @RequestBody GradeReviewVideoSubmissionRequest request,
                                                                             @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(reviewVideoService.gradeSubmission(submissionId, request, actor.userId()));
+    }
+
+    /** Bổ sung ngoài SDD gốc, xác nhận 2026-08-17 — badge Sidebar + landing "Hàng chờ chấm bài". */
+    @PreAuthorize("hasPermission(null, 'lms.grading.manage')")
+    @GetMapping("/api/review-video-submissions/pending-grading")
+    public ResponseEntity<List<PendingGradingClassSummaryResponse>> listPendingGradingClasses(
+            @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(reviewVideoService.getPendingGradingSummaryForTeacher(actor.userId()));
+    }
+
+    /** Bổ sung ngoài SDD gốc, xác nhận 2026-08-17 — hàng chờ chấm gộp mọi Bộ REFLEX đã gán cho 1 lớp. */
+    @PreAuthorize("hasPermission(null, 'lms.grading.manage')")
+    @GetMapping("/api/classes/{classId}/review-video-submissions")
+    public ResponseEntity<List<ReviewVideoSubmissionResponse>> listSubmissionsForClass(
+            @PathVariable Long classId, @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(reviewVideoService.listSubmissionsForTeacherByClass(classId, actor.userId()));
     }
 }

@@ -43,6 +43,7 @@ import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import Select from "@/components/ui/Select";
 import Pagination from "@/components/ui/Pagination";
+import ReviewVideoQuestionImportPanel from "../components/ReviewVideoQuestionImportPanel";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
@@ -926,6 +927,13 @@ function CreateSetModal({
   const [pendingConnectionQuestions, setPendingConnectionQuestions] = useState<PendingConnectionQuestion[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng — cho phép nhập câu hỏi hàng loạt bằng Excel ngay
+  // lúc tạo bộ mới: video chưa có id thật lúc soạn form nên KHÔNG parse Excel phía client — chỉ chuyển
+  // sang bước "import" (videoId thật) sau khi tạo xong bộ+video, dùng lại nguyên ReviewVideoQuestionImportPanel.
+  const [questionSourceMode, setQuestionSourceMode] = useState<"manual" | "excel">("manual");
+  const [stage, setStage] = useState<"form" | "import">("form");
+  const [createdSetForImport, setCreatedSetForImport] = useState<ReviewVideoSetResponse | null>(null);
+  const [createdVideoIdForImport, setCreatedVideoIdForImport] = useState<number | null>(null);
 
   useEffect(() => {
     if (form.curriculumId) listCurriculumSubjects(Number(form.curriculumId)).then(setSubjects).catch(() => undefined);
@@ -938,11 +946,11 @@ function CreateSetModal({
       setError("Vui lòng điền mã, tiêu đề, chọn Khung chương trình, Loại giáo viên, video/audio và chờ dò xong thời lượng.");
       return;
     }
-    if (form.videoType === "REFLEX" && pendingQuestions.length === 0) {
+    if (questionSourceMode === "manual" && form.videoType === "REFLEX" && pendingQuestions.length === 0) {
       setError("Video phản xạ cần ít nhất 1 câu hỏi — dùng \"Thêm câu\" ở khung câu hỏi bên dưới.");
       return;
     }
-    if (form.videoType === "CONNECTION" && pendingConnectionQuestions.length === 0) {
+    if (questionSourceMode === "manual" && form.videoType === "CONNECTION" && pendingConnectionQuestions.length === 0) {
       setError("Video kết nối bắt buộc có ít nhất 1 câu hỏi trắc nghiệm — dùng \"Thêm câu hỏi\" ở khung câu hỏi bên dưới.");
       return;
     }
@@ -974,6 +982,15 @@ function CreateSetModal({
       };
       const video = await addReviewVideo(set.id, videoRequest);
       createdVideoId = video.id;
+      if (questionSourceMode === "excel") {
+        // Chuyển sang bước "import" ngay trong modal — video đã có id thật, dùng nguyên
+        // ReviewVideoQuestionImportPanel để tải file/xem kết quả trước khi đóng modal.
+        setCreatedSetForImport(set);
+        setCreatedVideoIdForImport(video.id);
+        setStage("import");
+        setSubmitting(false);
+        return;
+      }
       if (form.videoType === "REFLEX") {
         for (let i = 0; i < pendingQuestions.length; i++) {
           const q = pendingQuestions[i];
@@ -1011,6 +1028,29 @@ function CreateSetModal({
       setSubmitting(false);
     }
   };
+
+  if (stage === "import" && createdSetForImport && createdVideoIdForImport) {
+    return (
+      <Modal open onClose={() => onCreated(createdSetForImport)} title="Nhập câu hỏi từ Excel" size="lg">
+        <div className="space-y-4">
+          <p className="text-xs text-slate-500">
+            Đã tạo bộ &amp; video — tải file mẫu, điền câu hỏi rồi nhập lại bên dưới. Bấm "Xong" để đóng khi hoàn tất
+            (có thể mở lại bộ này sau để nhập tiếp nếu cần).
+          </p>
+          <ReviewVideoQuestionImportPanel
+            videoId={createdVideoIdForImport}
+            videoType={form.videoType}
+            onImported={() => undefined}
+          />
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="primary" onClick={() => onCreated(createdSetForImport)}>
+              Xong
+            </Button>
+          </div>
+        </div>
+      </Modal>
+    );
+  }
 
   return (
     <Modal open onClose={onClose} title="Tạo bộ video ôn tập mới" size="lg">
@@ -1072,13 +1112,37 @@ function CreateSetModal({
           </div>
         </div>
         <ContentSourceField value={content} onChange={setContent} />
-        {form.videoType === "CONNECTION" && (
-          <>
-            <ConnectionThresholdFields value={connSettings} onChange={setConnSettings} />
-            <ConnectionQuizBuilder value={pendingConnectionQuestions} onChange={setPendingConnectionQuestions} />
-          </>
+        {form.videoType === "CONNECTION" && <ConnectionThresholdFields value={connSettings} onChange={setConnSettings} />}
+
+        <div>
+          <label className={labelClass}>Nguồn câu hỏi</label>
+          <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-lg w-fit">
+            {(["manual", "excel"] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setQuestionSourceMode(m)}
+                className={`text-[11px] font-bold px-3 py-1.5 rounded-md transition-all ${
+                  questionSourceMode === m ? "bg-white text-brand-red shadow-xs" : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                {m === "manual" ? "Nhập tay" : "Nhập Excel"}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {questionSourceMode === "manual" && form.videoType === "CONNECTION" && (
+          <ConnectionQuizBuilder value={pendingConnectionQuestions} onChange={setPendingConnectionQuestions} />
         )}
-        {form.videoType === "REFLEX" && <ReflexQuestionsBuilder value={pendingQuestions} onChange={setPendingQuestions} />}
+        {questionSourceMode === "manual" && form.videoType === "REFLEX" && (
+          <ReflexQuestionsBuilder value={pendingQuestions} onChange={setPendingQuestions} />
+        )}
+        {questionSourceMode === "excel" && (
+          <p className="text-[11px] text-slate-500 bg-slate-50 border border-slate-200 rounded-lg p-2.5">
+            Tạo bộ + video trước — sau khi tạo xong, màn nhập câu hỏi từ Excel sẽ mở ra ngay (dùng videoId thật vừa tạo).
+          </p>
+        )}
         <div className="grid grid-cols-2 gap-3 items-end">
           <div>
             <label className={labelClass}>Học phần (tùy chọn)</label>
@@ -1398,6 +1462,7 @@ function VideoQuestionsPanel({ videoId }: { videoId: number }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showImportPanel, setShowImportPanel] = useState(false);
   const [form, setForm] = useState<ReflexQuestionFormValue>({ timestampSeconds: "", prompt: "", maxRecordingSeconds: "60", maxAttempts: "" });
   const [submitting, setSubmitting] = useState(false);
 
@@ -1543,10 +1608,25 @@ function VideoQuestionsPanel({ videoId }: { videoId: number }) {
             </Button>
           </div>
         </form>
+      ) : showImportPanel ? (
+        <div className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] font-bold text-slate-600">Nhập câu hỏi từ Excel</p>
+            <Button type="button" variant="secondary" size="sm" onClick={() => setShowImportPanel(false)}>
+              Đóng
+            </Button>
+          </div>
+          <ReviewVideoQuestionImportPanel videoId={videoId} videoType="REFLEX" onImported={() => { setShowImportPanel(false); load(); }} />
+        </div>
       ) : (
-        <Button type="button" variant="secondary" size="sm" onClick={() => setShowAddForm(true)}>
-          <Plus className="w-3.5 h-3.5" /> Thêm câu hỏi
-        </Button>
+        <div className="flex gap-2">
+          <Button type="button" variant="secondary" size="sm" onClick={() => setShowAddForm(true)}>
+            <Plus className="w-3.5 h-3.5" /> Thêm câu hỏi
+          </Button>
+          <Button type="button" variant="ghost" size="sm" onClick={() => setShowImportPanel(true)}>
+            Nhập Excel
+          </Button>
+        </div>
       )}
     </div>
   );
@@ -1569,6 +1649,7 @@ function VideoMcqQuestionsPanel({ videoId }: { videoId: number }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showImportPanel, setShowImportPanel] = useState(false);
   const [prompt, setPrompt] = useState("");
   const [choices, setChoices] = useState<PendingConnectionChoice[]>(EMPTY_CONNECTION_CHOICES);
   const [submitting, setSubmitting] = useState(false);
@@ -1779,10 +1860,25 @@ function VideoMcqQuestionsPanel({ videoId }: { videoId: number }) {
             </div>
           </div>
         </form>
+      ) : showImportPanel ? (
+        <div className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] font-bold text-slate-600">Nhập câu hỏi từ Excel</p>
+            <Button type="button" variant="secondary" size="sm" onClick={() => setShowImportPanel(false)}>
+              Đóng
+            </Button>
+          </div>
+          <ReviewVideoQuestionImportPanel videoId={videoId} videoType="CONNECTION" onImported={() => { setShowImportPanel(false); load(); }} />
+        </div>
       ) : (
-        <Button type="button" variant="secondary" size="sm" onClick={() => setShowAddForm(true)}>
-          <Plus className="w-3.5 h-3.5" /> Thêm câu hỏi
-        </Button>
+        <div className="flex gap-2">
+          <Button type="button" variant="secondary" size="sm" onClick={() => setShowAddForm(true)}>
+            <Plus className="w-3.5 h-3.5" /> Thêm câu hỏi
+          </Button>
+          <Button type="button" variant="ghost" size="sm" onClick={() => setShowImportPanel(true)}>
+            Nhập Excel
+          </Button>
+        </div>
       )}
     </div>
   );

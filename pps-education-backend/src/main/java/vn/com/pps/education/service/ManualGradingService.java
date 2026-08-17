@@ -72,7 +72,7 @@ public class ManualGradingService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy câu trả lời id=" + studentAnswerId));
         if (answer.isAutoGradable()) {
             throw new AnswerNotManuallyGradableException(
-                    "Câu trả lời id=" + studentAnswerId + " thuộc câu hỏi tự chấm được — không chấm thủ công.");
+                    "Câu trả lời này thuộc câu hỏi tự chấm được — không chấm thủ công.");
         }
 
         // saveAndFlush bắt buộc — nếu chỉ save(), Hibernate có thể flush INSERT bản ghi

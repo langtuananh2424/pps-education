@@ -697,6 +697,7 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
                     </div>
                     <p className="text-sm text-slate-700">{c.content || "(không có nội dung)"}</p>
                     {c.attitude && <p className="text-xs text-slate-400 mt-1">Thái độ: {ATTITUDE_LABELS[c.attitude] ?? c.attitude}</p>}
+                    {c.note && <p className="text-xs text-slate-400 mt-1">Ghi chú: {c.note}</p>}
                   </div>
                 ))
               )}

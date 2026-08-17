@@ -12,4 +12,7 @@ public interface ReviewVideoSetClassAssignmentRepository extends JpaRepository<R
     Optional<ReviewVideoSetClassAssignment> findByReviewVideoSetIdAndSchoolClassId(Long reviewVideoSetId, Long classId);
 
     List<ReviewVideoSetClassAssignment> findByReviewVideoSetId(Long reviewVideoSetId);
+
+    /** Bổ sung ngoài SDD gốc, xác nhận 2026-08-17 — tóm tắt/hàng chờ chấm gộp theo lớp (xem ReviewVideoService). */
+    List<ReviewVideoSetClassAssignment> findBySchoolClassId(Long classId);
 }

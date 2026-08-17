@@ -663,9 +663,22 @@ export interface AssignEmployeeShiftRequest {
   effectiveFrom: string;
 }
 
-/** Gán ca mới tự đóng bản ghi active cũ (nếu có) -- xem EmployeeShiftService.assignShift. */
+/**
+ * V124 (2026-08-14): 1 nhân sự có thể có NHIỀU ca active song song (VD "T7 xen
+ * kẽ" = 2 ca weekParity ODD/EVEN). Không còn tự đóng ca active cũ -- bị từ chối
+ * (409) nếu ca mới chồng chéo lịch với 1 ca đang active khác của nhân sự đó.
+ */
 export function assignEmployeeShift(request: AssignEmployeeShiftRequest): Promise<EmployeeShiftResponse> {
   return apiRequest<EmployeeShiftResponse>("/employee-shifts", { method: "POST", body: JSON.stringify(request) });
+}
+
+export interface EndEmployeeShiftRequest {
+  effectiveTo: string;
+}
+
+/** V124 (2026-08-14): chủ động kết thúc 1 ca đang active. */
+export function endEmployeeShift(id: number, request: EndEmployeeShiftRequest): Promise<EmployeeShiftResponse> {
+  return apiRequest<EmployeeShiftResponse>(`/employee-shifts/${id}/end`, { method: "PUT", body: JSON.stringify(request) });
 }
 
 export function listEmployeeShiftHistory(employeeId: number): Promise<EmployeeShiftResponse[]> {

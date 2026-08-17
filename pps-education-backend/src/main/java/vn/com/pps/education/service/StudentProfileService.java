@@ -196,6 +196,7 @@ public class StudentProfileService {
         return new StudentProfileCommentResponse(
                 c.getId(), c.getSchoolClass().getId(), c.getSchoolClass().getName(), c.getCommentType().name(), c.getCommentDate(),
                 c.getContent(), c.getSeverity().name(), c.isWarning(), c.getAttitude() == null ? null : c.getAttitude().name(),
+                c.getNote(),
                 c.getStatus().name(), term == null ? null : term.getId(), term == null ? null : term.getName(),
                 c.getAcademicYear() == null ? null : c.getAcademicYear().getName(),
                 classSessionId, sessionNumberBySessionId.get(classSessionId), c.getClassSession().getSessionDate());

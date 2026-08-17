@@ -211,7 +211,7 @@ public class StudentService {
         List<Long> allowedSiteIds = resolveAllowedSiteIds(actorUserId);
         if (allowedSiteIds != null && (request.primarySiteId() == null || !allowedSiteIds.contains(request.primarySiteId()))) {
             throw new NotSiteManagerForSiteException(
-                    "Tài khoản id=" + actorUserId + " không được gán phụ trách điểm trường id=" + request.primarySiteId() + ".");
+                    "Bạn không được gán phụ trách điểm trường này.");
         }
         User user;
         if (request.userId() != null) {
@@ -222,7 +222,7 @@ public class StudentService {
             assignRole(user, "STUDENT", actorUserId);
         }
         if (studentRepository.findByUserId(user.getId()).isPresent()) {
-            throw new StudentAlreadyExistsException("Tài khoản id=" + user.getId() + " đã có hồ sơ học sinh.");
+            throw new StudentAlreadyExistsException("Tài khoản này đã có hồ sơ học sinh.");
         }
 
         // A-mới -- mã học sinh do người dùng tự nhập, phải duy nhất (đổi từ tự sinh sang nhập tay, theo yêu cầu).
@@ -286,7 +286,7 @@ public class StudentService {
             assignRole(user, "PARENT", actorUserId);
         }
         if (parentRepository.findByUserId(user.getId()).isPresent()) {
-            throw new ParentAlreadyExistsException("Tài khoản id=" + user.getId() + " đã có hồ sơ phụ huynh.");
+            throw new ParentAlreadyExistsException("Tài khoản này đã có hồ sơ phụ huynh.");
         }
 
         Parent parent = new Parent();
@@ -364,7 +364,7 @@ public class StudentService {
 
         if (parentStudentRepository.findByParentIdAndStudentId(parent.getId(), student.getId()).isPresent()) {
             throw new ParentStudentLinkAlreadyExistsException(
-                    "Phụ huynh id=" + parent.getId() + " đã liên kết với học sinh id=" + student.getId());
+                    "Phụ huynh này đã liên kết với học sinh này rồi.");
         }
         assertContactRoleAvailable(student.getId(), request.isPrimaryContact(), request.isFinancialResponsible());
 
@@ -395,11 +395,11 @@ public class StudentService {
         List<ParentStudent> existingLinks = parentStudentRepository.findByStudentId(studentId);
         if (primaryContact && existingLinks.stream().anyMatch(ParentStudent::isPrimaryContact)) {
             throw new StudentContactRoleConflictException(
-                    "Học sinh id=" + studentId + " đã có người liên hệ chính (primary contact).");
+                    "Học sinh này đã có người liên hệ chính (primary contact).");
         }
         if (financialResponsible && existingLinks.stream().anyMatch(ParentStudent::isFinancialResponsible)) {
             throw new StudentContactRoleConflictException(
-                    "Học sinh id=" + studentId + " đã có người chịu trách nhiệm tài chính.");
+                    "Học sinh này đã có người chịu trách nhiệm tài chính.");
         }
     }
 
@@ -477,7 +477,7 @@ public class StudentService {
                     .findBySchoolClassIdAndStudentIdAndStatus(request.toClassId(), studentId, ClassEnrollment.Status.ACTIVE)
                     .isPresent()) {
                 throw new ClassEnrollmentAlreadyActiveException(
-                        "Học sinh id=" + studentId + " đã ghi danh ACTIVE trong lớp id=" + request.toClassId() + ".");
+                        "Học sinh này đã ghi danh ACTIVE trong lớp rồi.");
             }
         }
 

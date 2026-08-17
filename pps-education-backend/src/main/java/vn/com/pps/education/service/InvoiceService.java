@@ -324,7 +324,7 @@ public class InvoiceService {
     private Parent parentOrThrow(Long actorUserId) {
         return parentRepository.findByUserId(actorUserId)
                 .orElseThrow(() -> new NotAuthorizedForPortalAccessException(
-                        "Tài khoản id=" + actorUserId + " không có hồ sơ phụ huynh."));
+                        "Tài khoản của bạn không có hồ sơ phụ huynh."));
     }
 
     /** NFR-SEC-03: Phụ huynh chỉ xem được hóa đơn của con mình (parent_student), không giới hạn chỉ payer_parent. */
@@ -332,7 +332,7 @@ public class InvoiceService {
         Parent parent = parentOrThrow(actorUserId);
         if (parentStudentRepository.findByParentIdAndStudentId(parent.getId(), studentId).isEmpty()) {
             throw new NotAuthorizedForPortalAccessException(
-                    "Tài khoản id=" + actorUserId + " không phải phụ huynh liên kết với học sinh id=" + studentId + ".");
+                    "Tài khoản của bạn không phải phụ huynh liên kết với học sinh này.");
         }
     }
 

@@ -211,7 +211,7 @@ public class TeachingPlanService {
         }
         if (!classTeacherRepository.existsBySchoolClassIdAndTeacherIdAndAssignedToIsNull(classId, actorUserId)) {
             throw new NotAssignedTeacherForClassException(
-                    "Tài khoản id=" + actorUserId + " không được phân công giảng dạy lớp id=" + classId + ".");
+                    "Bạn không được phân công giảng dạy lớp này.");
         }
     }
 

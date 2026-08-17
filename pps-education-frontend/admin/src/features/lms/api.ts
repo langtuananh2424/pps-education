@@ -800,6 +800,31 @@ export function updateReviewVideoQuestion(questionId: number, request: UpdateRev
   return apiRequest<ReviewVideoQuestionResponse>(`/review-video-questions/${questionId}`, { method: "PUT", body: JSON.stringify(request) });
 }
 
+// ===================== Kho Video Ôn tập — Import Excel câu hỏi (bổ sung ngoài SDD gốc, đã xác nhận với người dùng) =====================
+
+export interface ReviewVideoQuestionImportedRow {
+  id: number;
+  summary: string;
+}
+
+export interface ReviewVideoQuestionImportResponse {
+  jobId: number;
+  sourceFileName: string;
+  totalRows: number | null;
+  successRows: number;
+  failedRows: number;
+  status: string;
+  errorSummary: { row: number; reason: string }[];
+  createdQuestions: ReviewVideoQuestionImportedRow[];
+}
+
+/** Soạn hàng loạt câu hỏi REFLEX (mốc thời gian + ghi âm) qua file .xlsx theo mẫu — mirror importQuestions (Kho đề, UC-40). */
+export function importReviewVideoQuestions(videoId: number, file: File): Promise<ReviewVideoQuestionImportResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return apiRequest<ReviewVideoQuestionImportResponse>(`/review-videos/${videoId}/questions/import`, { method: "POST", body: formData });
+}
+
 // ===================== Kho Video Ôn tập — Chấm bài Video phản xạ (UC-23b Main Flow bước 3-4) =====================
 
 /** UC-23b: dùng chung cho cả Học sinh xem bài của mình và Giáo viên xem danh sách/chấm điểm. 1 dòng = 1 attempt (giữ lịch sử). */
@@ -816,11 +841,36 @@ export interface ReviewVideoSubmissionResponse {
   feedback: string | null;
   gradedByUserId: number | null;
   gradedAt: string | null;
+  /** Bổ sung ngoài SDD gốc, xác nhận 2026-08-17 — chỉ có giá trị khi trả về từ listReviewVideoSubmissionsForClass (hàng chờ chấm gộp nhiều Bộ theo lớp), null ở mọi nơi khác. */
+  reviewVideoSetId: number | null;
+  reviewVideoSetTitle: string | null;
+  reviewVideoId: number | null;
+  reviewVideoTitle: string | null;
+  reviewVideoDisplayOrder: number | null;
+  questionPrompt: string | null;
+  timestampSeconds: number | null;
 }
 
 /** Giáo viên xem danh sách bài audio đã nộp theo bộ + lớp cụ thể — chỉ attempt MỚI NHẤT mỗi (câu hỏi, học sinh). classId bắt buộc (BE từ chối nếu thiếu). */
 export function listReviewVideoSubmissionsForGrading(setId: number, classId: number): Promise<ReviewVideoSubmissionResponse[]> {
   return apiRequest<ReviewVideoSubmissionResponse[]>(`/review-video-sets/${setId}/submissions?classId=${classId}`);
+}
+
+/** Bổ sung ngoài SDD gốc, xác nhận 2026-08-17 — tóm tắt số bài chưa chấm theo TỪNG lớp giáo viên đang đứng lớp thật, dùng cho badge Sidebar + landing "Hàng chờ chấm bài". */
+export interface PendingGradingClassSummaryResponse {
+  classId: number;
+  classCode: string;
+  className: string;
+  pendingSubmissionCount: number;
+}
+
+export function listPendingGradingClasses(): Promise<PendingGradingClassSummaryResponse[]> {
+  return apiRequest<PendingGradingClassSummaryResponse[]>("/review-video-submissions/pending-grading");
+}
+
+/** Bổ sung ngoài SDD gốc, xác nhận 2026-08-17 — hàng chờ chấm GỘP mọi Bộ REFLEX đã gán cho 1 lớp, không cần tự chọn Bộ trước. */
+export function listReviewVideoSubmissionsForClass(classId: number): Promise<ReviewVideoSubmissionResponse[]> {
+  return apiRequest<ReviewVideoSubmissionResponse[]>(`/classes/${classId}/review-video-submissions`);
 }
 
 export interface GradeReviewVideoSubmissionRequest {
@@ -876,6 +926,13 @@ export function addReviewVideoConnectionQuestion(
     method: "POST",
     body: JSON.stringify(request)
   });
+}
+
+/** Soạn hàng loạt câu hỏi trắc nghiệm CONNECTION qua file .xlsx theo mẫu — mirror importReviewVideoQuestions (REFLEX). */
+export function importReviewVideoConnectionQuestions(videoId: number, file: File): Promise<ReviewVideoQuestionImportResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return apiRequest<ReviewVideoQuestionImportResponse>(`/review-videos/${videoId}/connection-questions/import`, { method: "POST", body: formData });
 }
 
 export function listReviewVideoConnectionQuestions(videoId: number): Promise<ReviewVideoConnectionQuestionResponse[]> {

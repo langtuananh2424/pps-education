@@ -421,7 +421,7 @@ a)  Bảng shifts --- Ca làm việc chuẩn
                                                    \'ALL\'            --- xử lý pattern
                                                                       thứ 7 xen kẽ
 
-  is_active                         BOOLEAN        NOT NULL, DEFAULT   
+  is_active                         BOOLEAN        NOT NULL, DEFAULT   
                                                    TRUE               
 
   import_job_id                     BIGINT         FK →               Nếu tạo qua
@@ -452,7 +452,17 @@ b)  Bảng employee_shifts --- Gán ca cho nhân sự
                                            NULL                   
   -----------------------------------------------------------------------
 
-Ràng buộc: mỗi nhân sự 1 thời điểm chỉ 1 ca đang active.
+Ràng buộc gốc (V7): mỗi nhân sự 1 thời điểm chỉ 1 ca đang active (unique
+partial index `idx_employee_shifts_active`). **V124 (bổ sung 2026-08-14,
+xác nhận với người dùng)**: gỡ bỏ ràng buộc này — cho phép 1 nhân sự có
+NHIỀU ca active song song, để mô hình hoá pattern "T7 xen kẽ" bằng cách
+gán 2 ca độc lập (VD ca A `week_parity=EVEN` gồm cả T7, ca B
+`week_parity=ODD` không có T7) thay vì mã hoá ngày xen kẽ trong 1 ca. Việc
+chống chồng chéo lịch giữa các ca active cùng 1 nhân sự (cùng ngày trong
+tuần + parity giao nhau) do `EmployeeShiftService` validate ở tầng
+application, không diễn đạt được bằng CHECK constraint đơn giản vì phải so
+sánh giữa nhiều bản ghi khác nhau. Xem
+`docs/uc/phan-he-04-nhan-su.md` > UC-70 > "T7 xen kẽ...".
 
 c)  Bảng work_calendar -- Lịch làm việc override theo ngày cụ thể
 

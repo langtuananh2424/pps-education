@@ -215,8 +215,8 @@ public class ClassSessionService {
                 .findBySchoolClassIdAndTeacherRoleAndTeacherTypeAndSubjectIdIsNullAndAssignedToIsNull(
                         classId, ClassTeacher.TeacherRole.PRIMARY, teacherType)
                 .orElseThrow(() -> new IllegalArgumentException(
-                        "Lớp id=" + classId + " chưa có giáo viên chính loại " + teacherType
-                                + " đang phụ trách — vui lòng gán qua UC-18 trước khi xếp lịch."));
+                        "Lớp này chưa có giáo viên chính loại " + teacherType
+                                + " đang phụ trách — vui lòng gán giáo viên ở Quản lý lớp học trước khi xếp lịch."));
         return classTeacher.getTeacher();
     }
 
@@ -249,7 +249,7 @@ public class ClassSessionService {
                     + makeupForSessionId + " hiện tại: " + cancelledSession.getStatus() + ").");
         }
         if (classSessionRepository.existsByMakeupForSessionId(makeupForSessionId)) {
-            throw new MakeupSessionAlreadyLinkedException("Buổi hủy id=" + makeupForSessionId + " đã có buổi bù khác liên kết.");
+            throw new MakeupSessionAlreadyLinkedException("Buổi học đã hủy này đã có buổi bù khác liên kết rồi.");
         }
         return cancelledSession;
     }
@@ -485,7 +485,7 @@ public class ClassSessionService {
                 room.getId(), date, startTime, endTime, editingSessionId,
                 List.of(ClassSession.Status.CANCELLED, ClassSession.Status.RESCHEDULED));
         if (!overlapping.isEmpty()) {
-            throw new RoomConflictException("Phòng id=" + room.getId() + " đã có buổi học khác trùng khung giờ ngày " + date + ".");
+            throw new RoomConflictException("Phòng học này đã có buổi học khác trùng khung giờ ngày " + date + ".");
         }
     }
 
@@ -500,7 +500,7 @@ public class ClassSessionService {
                 teacher.getId(), date, startTime, endTime, editingSessionId,
                 List.of(ClassSession.Status.CANCELLED, ClassSession.Status.RESCHEDULED));
         if (!overlapping.isEmpty()) {
-            throw new TeacherScheduleConflictException("Giáo viên id=" + teacher.getId() + " đã có buổi dạy khác trùng khung giờ ngày " + date + ".");
+            throw new TeacherScheduleConflictException("Giáo viên này đã có buổi dạy khác trùng khung giờ ngày " + date + ".");
         }
     }
 
@@ -515,7 +515,7 @@ public class ClassSessionService {
                 classId, date, startTime, endTime, editingSessionId,
                 List.of(ClassSession.Status.CANCELLED, ClassSession.Status.RESCHEDULED));
         if (!overlapping.isEmpty()) {
-            throw new ClassScheduleConflictException("Lớp id=" + classId + " đã có buổi học khác trùng khung giờ ngày " + date + ".");
+            throw new ClassScheduleConflictException("Lớp này đã có buổi học khác trùng khung giờ ngày " + date + ".");
         }
     }
 
