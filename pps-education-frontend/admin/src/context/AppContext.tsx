@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useMemo, useState } from "react";
+import React, { createContext, useContext, useMemo, useRef, useState } from "react";
 import { UserRole } from "@/types";
 import { CurrentUserResponse, fetchCurrentUser, login as loginApi, loginWithGoogle as loginWithGoogleApi, logout as logoutApi } from "@/features/auth/api";
 import { getAccessToken } from "@/lib/tokenStorage";
@@ -25,6 +25,12 @@ interface AppContextValue {
   loginWithGoogle: (idToken: string) => Promise<void>;
   logout: () => Promise<void>;
   hasPermission: (requiredPermission?: string) => boolean;
+  /** Trang hiện tại (VD Nhận xét học viên) đang có dữ liệu nhập dở chưa lưu — Sidebar dùng để chặn điều hướng + hỏi xác nhận. */
+  hasUnsavedChanges: boolean;
+  /** Trang có dữ liệu dở gọi khi bắt đầu/kết thúc trạng thái dirty; truyền kèm hàm lưu tạm (silent) để Sidebar gọi khi người dùng chọn "Lưu tạm & rời đi". */
+  setUnsavedChanges: (active: boolean, onSaveDraft?: (() => Promise<void>) | null) => void;
+  /** Sidebar gọi khi người dùng xác nhận lưu tạm trước khi rời trang — không làm gì nếu trang hiện tại không đăng ký hàm lưu. */
+  saveUnsavedChanges: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -61,6 +67,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setSelectedClassId(null);
   };
   const [loginNotice, setLoginNotice] = useState<string | null>(null);
+
+  // "Cảnh báo rời trang khi chưa lưu" (2026-08-15, bổ sung ngoài SDD gốc) — dùng chung cho mọi trang có
+  // form dở dang (hiện chỉ Nhận xét học viên đăng ký). Hàm lưu tạm giữ ở ref (không phải state) vì nó
+  // đổi theo từng lần gõ phím của trang con — không cần re-render Sidebar mỗi lần đổi, chỉ cần đọc đúng
+  // bản mới nhất tại thời điểm người dùng bấm "Lưu tạm & rời đi".
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const saveUnsavedChangesRef = useRef<(() => Promise<void>) | null>(null);
+  const setUnsavedChanges = (active: boolean, onSaveDraft?: (() => Promise<void>) | null) => {
+    saveUnsavedChangesRef.current = active ? onSaveDraft ?? null : null;
+    setHasUnsavedChanges(active);
+  };
+  const saveUnsavedChanges = async () => {
+    await saveUnsavedChangesRef.current?.();
+  };
 
   const completeLogin = async () => {
     const profile = await fetchCurrentUser();
@@ -122,9 +142,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       login,
       loginWithGoogle,
       logout,
-      hasPermission
+      hasPermission,
+      hasUnsavedChanges,
+      setUnsavedChanges,
+      saveUnsavedChanges
     }),
-    [isLoggedIn, currentUser, currentRole, currentRoleLabel, selectedCampusId, selectedClassId, sidebarOpen, loginNotice]
+    [isLoggedIn, currentUser, currentRole, currentRoleLabel, selectedCampusId, selectedClassId, sidebarOpen, loginNotice, hasUnsavedChanges]
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
