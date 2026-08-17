@@ -197,7 +197,7 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
 
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31 — xem Javadoc useIntegrityMonitor.
   const attemptId = attempt?.id;
-  const { violationCount, isMonitoringActive, justViolated } = useIntegrityMonitor({
+  const { violationCount, isMonitoringActive, justViolated, suppressForFilePicker } = useIntegrityMonitor({
     enabled: !readOnly && attemptId != null && !stoppedByViolation,
     autoFlushIntervalMs: 20000,
     onFlush: (events) => {
@@ -457,6 +457,7 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
                   onTextChange={(questionId, v) => setTextDraft((prev) => ({ ...prev, [questionId]: v }))}
                   onTextBlur={handleTextBlur}
                   onAudioUpload={handleAudioAnswer}
+                  onFilePickerOpen={suppressForFilePicker}
                   attemptId={attempt?.id}
                   listeningProgress={listeningProgress}
                   onListeningEnded={handleListeningEnded}
@@ -475,6 +476,7 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
                   onChoiceToggle={(choiceIds) => handleChoiceAnswer(block.question.questionId, choiceIds)}
                   onStructuredAnswer={(values) => handleStructuredAnswer(block.question.questionId, values)}
                   onAudioUpload={(file) => handleAudioAnswer(block.question.questionId, file)}
+                  onFilePickerOpen={suppressForFilePicker}
                   attemptId={attempt?.id}
                   listeningProgress={listeningProgress}
                   onListeningEnded={handleListeningEnded}
@@ -629,6 +631,7 @@ function QuestionBlock({
   onChoiceToggle,
   onStructuredAnswer,
   onAudioUpload,
+  onFilePickerOpen,
   attemptId,
   listeningProgress,
   onListeningEnded
@@ -644,6 +647,7 @@ function QuestionBlock({
   onChoiceToggle: (choiceIds: number[]) => void;
   onStructuredAnswer: (values: string[]) => void;
   onAudioUpload: (file: File) => void;
+  onFilePickerOpen: () => void;
   attemptId: number | undefined;
   listeningProgress: Map<string, ListeningPlayProgressResponse>;
   onListeningEnded: (q: ExerciseQuestionResponse) => void;
@@ -737,6 +741,7 @@ function QuestionBlock({
               type="file"
               accept="audio/*"
               disabled={readOnly || saving}
+              onClick={onFilePickerOpen}
               onChange={(e) => {
                 const file = e.target.files?.[0];
                 if (file) onAudioUpload(file);
@@ -1149,6 +1154,7 @@ function GridQuestionGroup({
   onTextChange,
   onTextBlur,
   onAudioUpload,
+  onFilePickerOpen,
   attemptId,
   listeningProgress,
   onListeningEnded
@@ -1163,6 +1169,7 @@ function GridQuestionGroup({
   onTextChange: (questionId: number, value: string) => void;
   onTextBlur: (questionId: number) => void;
   onAudioUpload: (questionId: number, file: File) => void;
+  onFilePickerOpen: () => void;
   attemptId: number | undefined;
   listeningProgress: Map<string, ListeningPlayProgressResponse>;
   onListeningEnded: (q: ExerciseQuestionResponse) => void;
@@ -1259,6 +1266,7 @@ function GridQuestionGroup({
                     type="file"
                     accept="audio/*"
                     disabled={readOnly || saving}
+                    onClick={onFilePickerOpen}
                     onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (file) onAudioUpload(q.questionId, file);
