@@ -200,7 +200,7 @@ public class EnrollmentMovementReportService {
         boolean managesThisSite = managedSites.stream().anyMatch(sm -> sm.getSite().getId().equals(siteId));
         if (!managesThisSite) {
             throw new NotSiteManagerForSiteException(
-                    "Tài khoản id=" + actorUserId + " không phụ trách điểm trường id=" + siteId + ".");
+                    "Bạn không phụ trách điểm trường này.");
         }
     }
 }

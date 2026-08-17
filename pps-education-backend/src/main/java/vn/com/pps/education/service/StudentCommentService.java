@@ -324,7 +324,7 @@ public class StudentCommentService {
         requireSessionEndedAndAttendanceTaken(comment.getClassSession(), actorUserId);
         if (comment.getStatus() != StudentComment.Status.DRAFT && comment.getStatus() != StudentComment.Status.REJECTED) {
             throw new StudentCommentNotEditableException(
-                    "Nhận xét id=" + id + " đang ở trạng thái " + comment.getStatus() + " — chỉ sửa được khi DRAFT hoặc REJECTED.");
+                    "Nhận xét này đang ở trạng thái " + comment.getStatus() + " — chỉ sửa được khi Nháp (DRAFT) hoặc Bị từ chối (REJECTED).");
         }
 
         ExerciseAssignment grammarAssignment = resolveExerciseHomework(comment.getClassSession(), comment.getId(), request.homeworkNextExerciseId(),
@@ -403,11 +403,10 @@ public class StudentCommentService {
             }
             if (comment.getStatus() != StudentComment.Status.DRAFT) {
                 throw new StudentCommentNotEditableException(
-                        "Nhận xét id=" + comment.getId() + " đang ở trạng thái " + comment.getStatus() + " — chỉ submit được khi DRAFT.");
+                        "Nhận xét này đang ở trạng thái " + comment.getStatus() + " — chỉ gửi duyệt được khi còn Nháp (DRAFT).");
             }
             if (comment.getClassSession().getLessonContent() == null || comment.getClassSession().getLessonContent().isBlank()) {
-                throw new MissingLessonContentException("Buổi học id=" + comment.getClassSession().getId()
-                        + " chưa điền bài học hôm nay — không thể gửi duyệt.");
+                throw new MissingLessonContentException("Buổi học này chưa điền bài học hôm nay — không thể gửi duyệt.");
             }
             ApprovalFlow flow = new ApprovalFlow();
             flow.setEntityType(ApprovalFlow.EntityType.STUDENT_COMMENT);
@@ -459,7 +458,7 @@ public class StudentCommentService {
             requireSiteManagerForSite(comment.getSchoolClass().getSite().getId(), actorUserId);
             if (comment.getStatus() != StudentComment.Status.PENDING) {
                 throw new ApprovalAlreadyDecidedException(
-                        "Nhận xét id=" + comment.getId() + " đã được quyết định (" + comment.getStatus() + ").");
+                        "Nhận xét này đã được quyết định (" + comment.getStatus() + ").");
             }
             ApprovalFlow flow = comment.getApprovalFlow();
             flow.setDecision(decision);
@@ -506,7 +505,7 @@ public class StudentCommentService {
 
         if (comment.getStatus() != StudentComment.Status.PENDING) {
             throw new StudentCommentNotEditableException(
-                    "Nhận xét id=" + id + " đang ở trạng thái " + comment.getStatus() + " — chỉ quản lý mới được sửa khi PENDING.");
+                    "Nhận xét này đang ở trạng thái " + comment.getStatus() + " — chỉ quản lý mới được sửa khi đang Chờ duyệt (PENDING).");
         }
 
         comment.setContent(request.content());
@@ -582,7 +581,7 @@ public class StudentCommentService {
                 .anyMatch(c -> c.getStatus() == StudentComment.Status.PENDING || c.getStatus() == StudentComment.Status.APPROVED);
         if (hasSent) {
             throw new StudentCommentNotEditableException(
-                    "Buổi học id=" + session.getId() + " đã có nhận xét đang chờ duyệt/đã duyệt — không sửa được "
+                    "Buổi học này đã có nhận xét đang chờ duyệt/đã duyệt — không sửa được "
                             + "Loại giáo viên/Bài học hôm nay/Tên giáo viên giảng dạy nữa. Muốn sửa lại, nhờ Quản lý "
                             + "điểm trường từ chối toàn bộ nhận xét của buổi để mở khoá.");
         }
@@ -1319,7 +1318,7 @@ public class StudentCommentService {
                 List.of(ClassSession.Status.CANCELLED, ClassSession.Status.RESCHEDULED), session.getTeacherType());
         if (upcoming.isEmpty()) {
             throw new NoUpcomingClassSessionException(
-                    "Lớp id=" + session.getSchoolClass().getId() + " chưa có buổi học kế tiếp"
+                    "Lớp này chưa có buổi học kế tiếp"
                             + (session.getTeacherType() != null ? " cùng loại giáo viên (" + session.getTeacherType() + ")" : "")
                             + " trong lịch — không thể đặt hạn nộp cho BTVN buổi sau.");
         }
@@ -1380,7 +1379,7 @@ public class StudentCommentService {
         UUID uuid = tryParseUuid(text);
         if (uuid != null) {
             return byUuid.apply(uuid)
-                    .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy " + kindLabel + " với uuid=" + text));
+                    .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy " + kindLabel + " tương ứng."));
         }
         T match = byLabel.get(text);
         if (match == null) {
@@ -1494,7 +1493,7 @@ public class StudentCommentService {
         Optional<AttendanceSession> attendanceSession = attendanceSessionRepository.findByClassSessionId(classSession.getId());
         if (attendanceSession.isEmpty() || attendanceSession.get().getStatus() == AttendanceSession.Status.DRAFT) {
             throw new StudentCommentNotEditableException(
-                    "Buổi học id=" + classSession.getId() + " chưa điểm danh xong — vui lòng điểm danh (UC-15) và Lưu điểm danh trước khi viết nhận xét.");
+                    "Buổi học này chưa điểm danh xong — vui lòng điểm danh và lưu điểm danh trước khi viết nhận xét.");
         }
     }
 
@@ -1595,7 +1594,7 @@ public class StudentCommentService {
         }
         if (!classTeacherRepository.existsBySchoolClassIdAndTeacherIdAndAssignedToIsNull(classId, actorUserId)) {
             throw new NotAssignedTeacherForClassException(
-                    "Tài khoản id=" + actorUserId + " không được phân công giảng dạy lớp id=" + classId + ".");
+                    "Bạn không được phân công giảng dạy lớp này.");
         }
     }
 
@@ -1603,7 +1602,7 @@ public class StudentCommentService {
         if (!siteManagerRepository.existsBySiteIdAndUserIdAndRoleTypeAndAssignedToIsNull(
                 siteId, actorUserId, SiteManager.RoleType.SITE_MANAGER)) {
             throw new NotSiteManagerForSiteException(
-                    "Tài khoản id=" + actorUserId + " không được gán phụ trách điểm trường id=" + siteId + ".");
+                    "Bạn không được gán phụ trách điểm trường này.");
         }
     }
 

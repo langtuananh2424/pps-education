@@ -119,8 +119,8 @@ public class LeadService {
     public LeadResponse createLead(CreateLeadRequest request, Long actorUserId) {
         leadRepository.findByPhoneAndDeletedAtIsNull(request.phone()).ifPresent(existing -> {
             throw new DuplicateLeadPhoneException(
-                    "Số điện thoại " + request.phone() + " đã tồn tại ở lead id=" + existing.getId()
-                            + " (" + existing.getLeadCode() + "), trạng thái " + existing.getStatus()
+                    "Số điện thoại " + request.phone() + " đã tồn tại ở lead " + existing.getLeadCode()
+                            + ", trạng thái " + existing.getStatus()
                             + ". Vui lòng cập nhật lead hiện có thay vì tạo mới.");
         });
 
@@ -181,7 +181,7 @@ public class LeadService {
         Lead lead = getLeadOrThrow(leadId);
         if (isFinalStatus(lead.getStatus())) {
             throw new InvalidLeadStatusTransitionException(
-                    "Lead id=" + leadId + " đang ở trạng thái cuối (" + lead.getStatus() + "), không thể cập nhật tiếp.");
+                    "Lead này đang ở trạng thái cuối (" + lead.getStatus() + "), không thể cập nhật tiếp.");
         }
         Lead.Status newStatus = Lead.Status.valueOf(request.status());
         if (newStatus == Lead.Status.WON) {
@@ -219,11 +219,11 @@ public class LeadService {
         Lead lead = getLeadOrThrow(leadId);
         if (lead.getStatus() != Lead.Status.QUALIFIED) {
             throw new LeadNotQualifiedException(
-                    "Lead id=" + leadId + " phải ở trạng thái QUALIFIED để chuyển đổi (hiện tại: " + lead.getStatus() + ").");
+                    "Lead này phải ở trạng thái Đủ điều kiện (QUALIFIED) để chuyển đổi (hiện tại: " + lead.getStatus() + ").");
         }
         if (lead.getStudentName() == null || lead.getStudentName().isBlank() || lead.getStudentDob() == null) {
             throw new IncompleteLeadDataException(
-                    "Lead id=" + leadId + " thiếu student_name hoặc student_dob — cập nhật đầy đủ thông tin học sinh trước khi chuyển đổi.");
+                    "Lead này thiếu tên hoặc ngày sinh học sinh — cập nhật đầy đủ thông tin học sinh trước khi chuyển đổi.");
         }
         if (studentRepository.findByStudentCode(request.studentCode()).isPresent()) {
             throw new DuplicateStudentCodeException("Mã học sinh đã tồn tại: " + request.studentCode());

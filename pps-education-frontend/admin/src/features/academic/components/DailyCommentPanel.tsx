@@ -134,7 +134,7 @@ function PreviousProgressCell({ auto, manual }: { auto: string | null; manual: s
 
 /** UC-21 Main Flow (nhánh DAILY): viết nhận xét hàng ngày theo buổi học — cùng khuôn thao tác với Điểm danh nhanh. */
 export default function DailyCommentPanel() {
-  const { selectedClassId } = useApp();
+  const { selectedClassId, setUnsavedChanges } = useApp();
   const { classes } = useEligibleClasses();
   const [sessions, setSessions] = useState<ClassSessionResponse[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState<number | null>(null);
@@ -589,6 +589,34 @@ export default function DailyCommentPanel() {
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dirty, rows, selectedSessionId]);
+
+  // Cảnh báo rời trang khi dữ liệu chưa lưu (2026-08-15, bổ sung ngoài SDD gốc, theo yêu cầu người
+  // dùng) — 2 kênh song song với autosave 18s ở trên (autosave không đủ vì có khoảng trống trước khi
+  // timer chạy): (1) đóng tab/reload trình duyệt qua beforeunload (nội dung hộp thoại do trình duyệt tự
+  // quyết, không tùy biến được — mọi trình duyệt hiện đại đều vậy); (2) điều hướng TRONG app (bấm mục
+  // khác ở Sidebar) qua AppContext.setUnsavedChanges — Sidebar sẽ chặn điều hướng + hỏi "Lưu tạm trước
+  // khi rời đi?" khi cờ này bật.
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (!dirty) return;
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [dirty]);
+
+  // handleSaveDraft đổi theo từng lần gõ phím (đóng rows/selectedSession trong closure) — giữ bản mới
+  // nhất qua ref để hàm đăng ký với AppContext (có thể được Sidebar gọi rất lâu sau khi effect dưới
+  // chạy lần cuối, VD gõ thêm nhiều dòng sau khi dirty đã lên true) luôn lưu đúng dữ liệu hiện tại,
+  // không lưu nhầm bản cũ tại thời điểm dirty vừa bật.
+  const handleSaveDraftRef = useRef(handleSaveDraft);
+  handleSaveDraftRef.current = handleSaveDraft;
+
+  useEffect(() => {
+    setUnsavedChanges(dirty, dirty ? () => handleSaveDraftRef.current(true) : null);
+    return () => setUnsavedChanges(false, null);
+  }, [dirty]);
 
   const handleSend = async () => {
     if (!selectedClassId || !selectedSession) return;

@@ -103,7 +103,7 @@ public class PortalClassSelectionService {
             }
         }
         throw new NotAuthorizedForPortalAccessException(
-                "Tài khoản id=" + actorUserId + " không phải học sinh id=" + studentId + " hoặc phụ huynh liên kết.");
+                "Tài khoản của bạn không phải học sinh này hoặc phụ huynh liên kết với học sinh này.");
     }
 
     private Set<String> roleCodesOf(Long userId) {

@@ -125,7 +125,7 @@ public class ListeningHintService {
     /** Chặn gọi thẳng API sau khi đã nộp bài — trước đây chỉ FE ẩn nút "?" khi readOnly, gọi thẳng API vẫn mở được gợi ý cho lượt đã nộp (kể cả khi exercise.showCorrectAnswers=false không muốn lộ đáp án sau khi nộp). */
     private void requireInProgress(ExerciseAttempt attempt) {
         if (attempt.getStatus() != ExerciseAttempt.Status.IN_PROGRESS) {
-            throw new AttemptNotEditableException("Lượt làm bài id=" + attempt.getId() + " không còn ở trạng thái IN_PROGRESS.");
+            throw new AttemptNotEditableException("Lượt làm bài này không còn ở trạng thái đang làm (IN_PROGRESS).");
         }
     }
 
