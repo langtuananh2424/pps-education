@@ -800,6 +800,31 @@ export function updateReviewVideoQuestion(questionId: number, request: UpdateRev
   return apiRequest<ReviewVideoQuestionResponse>(`/review-video-questions/${questionId}`, { method: "PUT", body: JSON.stringify(request) });
 }
 
+// ===================== Kho Video Ôn tập — Import Excel câu hỏi (bổ sung ngoài SDD gốc, đã xác nhận với người dùng) =====================
+
+export interface ReviewVideoQuestionImportedRow {
+  id: number;
+  summary: string;
+}
+
+export interface ReviewVideoQuestionImportResponse {
+  jobId: number;
+  sourceFileName: string;
+  totalRows: number | null;
+  successRows: number;
+  failedRows: number;
+  status: string;
+  errorSummary: { row: number; reason: string }[];
+  createdQuestions: ReviewVideoQuestionImportedRow[];
+}
+
+/** Soạn hàng loạt câu hỏi REFLEX (mốc thời gian + ghi âm) qua file .xlsx theo mẫu — mirror importQuestions (Kho đề, UC-40). */
+export function importReviewVideoQuestions(videoId: number, file: File): Promise<ReviewVideoQuestionImportResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return apiRequest<ReviewVideoQuestionImportResponse>(`/review-videos/${videoId}/questions/import`, { method: "POST", body: formData });
+}
+
 // ===================== Kho Video Ôn tập — Chấm bài Video phản xạ (UC-23b Main Flow bước 3-4) =====================
 
 /** UC-23b: dùng chung cho cả Học sinh xem bài của mình và Giáo viên xem danh sách/chấm điểm. 1 dòng = 1 attempt (giữ lịch sử). */
@@ -876,6 +901,13 @@ export function addReviewVideoConnectionQuestion(
     method: "POST",
     body: JSON.stringify(request)
   });
+}
+
+/** Soạn hàng loạt câu hỏi trắc nghiệm CONNECTION qua file .xlsx theo mẫu — mirror importReviewVideoQuestions (REFLEX). */
+export function importReviewVideoConnectionQuestions(videoId: number, file: File): Promise<ReviewVideoQuestionImportResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return apiRequest<ReviewVideoQuestionImportResponse>(`/review-videos/${videoId}/connection-questions/import`, { method: "POST", body: formData });
 }
 
 export function listReviewVideoConnectionQuestions(videoId: number): Promise<ReviewVideoConnectionQuestionResponse[]> {
