@@ -98,7 +98,7 @@ public class GlobalExceptionHandler {
             TuitionPlanNotActiveException.class, RoleNotDeletableException.class,
             DepartmentNotDeletableException.class, PositionNotDeletableException.class,
             GradeComponentNotDeletableException.class, GradeComponentSetupNotDeletableException.class,
-            MissingLessonContentException.class, HomeworkNextConflictException.class,
+            MissingLessonContentException.class, MissingCommentContentException.class, HomeworkNextConflictException.class,
             NoUpcomingClassSessionException.class, VideoNotYetQualifiedException.class,
             QuizAlreadyCompletedException.class, ListeningHintNotUnlockedException.class})
     public ResponseEntity<Object> handleClassSetupRejected(RuntimeException ex) {

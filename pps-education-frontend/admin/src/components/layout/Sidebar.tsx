@@ -24,6 +24,10 @@ export default function Sidebar() {
   // navigate() thật khi người dùng chọn 1 trong 2: lưu tạm rồi đi, hoặc bỏ qua rồi đi.
   const [pendingPath, setPendingPath] = useState<string | null>(null);
   const [savingBeforeLeave, setSavingBeforeLeave] = useState(false);
+  // Bổ sung 2026-08-17 — lý do KHÔNG lưu được (nếu có), hiện ngay trong popup xác nhận (luôn nổi giữa
+  // màn hình qua Modal/portal, không phụ thuộc vị trí cuộn trang — khác banner lỗi tĩnh trên từng trang
+  // dễ bị bỏ lỡ khi đang cuộn xuống làm việc). Reset mỗi lần mở popup mới / đóng popup.
+  const [saveFailureMessage, setSaveFailureMessage] = useState<string | null>(null);
 
   const toggleGroup = (group: string) => setExpandedGroups((prev) => ({ ...prev, [group]: !prev[group] }));
 
@@ -34,27 +38,41 @@ export default function Sidebar() {
   const handleNavClick = (e: React.MouseEvent, path: string) => {
     if (hasUnsavedChanges) {
       e.preventDefault();
+      setSaveFailureMessage(null);
       setPendingPath(path);
       return;
     }
     closeOnMobile();
   };
 
+  const closePendingPathModal = () => {
+    setPendingPath(null);
+    setSaveFailureMessage(null);
+  };
+
   const leaveToPendingPath = () => {
     if (!pendingPath) return;
     const path = pendingPath;
-    setPendingPath(null);
+    closePendingPathModal();
     closeOnMobile();
     navigate(path);
   };
 
   const handleSaveAndLeave = async () => {
     setSavingBeforeLeave(true);
+    setSaveFailureMessage(null);
     try {
-      await saveUnsavedChanges();
+      const result = await saveUnsavedChanges();
+      if (result.ok) {
+        leaveToPendingPath();
+      } else {
+        // Bug đã xác nhận 2026-08-17 — trước đây điều hướng đi bất kể kết quả, làm mất âm thầm dữ liệu
+        // không lưu được (VD chỉ điền Thái độ/BTVN mà chưa gõ Nhận xét). Giờ GIỮ NGUYÊN popup, hiện lý
+        // do ngay trong đó (luôn nổi giữa màn hình, không cần cuộn trang mới thấy như banner tĩnh cũ).
+        setSaveFailureMessage(result.message ?? "Không lưu được dữ liệu — vui lòng kiểm tra lại trước khi rời trang.");
+      }
     } finally {
       setSavingBeforeLeave(false);
-      leaveToPendingPath();
     }
   };
 
@@ -170,7 +188,7 @@ export default function Sidebar() {
 
       <Modal
         open={!!pendingPath}
-        onClose={() => setPendingPath(null)}
+        onClose={closePendingPathModal}
         title="Dữ liệu chưa hoàn tất"
         description="Bạn đang nhập dở dữ liệu ở trang hiện tại. Bạn có muốn lưu tạm trước khi rời đi không?"
         size="md"
@@ -178,7 +196,7 @@ export default function Sidebar() {
           <>
             <button
               type="button"
-              onClick={() => setPendingPath(null)}
+              onClick={closePendingPathModal}
               className="px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-100 rounded-lg"
             >
               Ở lại trang
@@ -201,7 +219,14 @@ export default function Sidebar() {
           </>
         }
       >
-        <p className="text-[11px] text-slate-500">Nếu không lưu, phần đang gõ dở sẽ mất khi rời khỏi trang này.</p>
+        <div className="space-y-2.5">
+          <p className="text-[11px] text-slate-500">Nếu không lưu, phần đang gõ dở sẽ mất khi rời khỏi trang này.</p>
+          {saveFailureMessage && (
+            <div className="text-[11px] font-semibold text-rose-700 bg-rose-50 border border-rose-100 rounded-lg p-2.5">
+              {saveFailureMessage}
+            </div>
+          )}
+        </div>
       </Modal>
     </>
   );
