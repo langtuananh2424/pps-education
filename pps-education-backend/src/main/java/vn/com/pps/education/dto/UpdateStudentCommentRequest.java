@@ -1,7 +1,5 @@
 package vn.com.pps.education.dto;
 
-import jakarta.validation.constraints.NotBlank;
-
 import java.time.LocalDateTime;
 import java.util.Map;
 
@@ -15,7 +13,8 @@ import java.util.Map;
  * Javadoc CreateStudentCommentRequest + StudentCommentService.
  */
 public record UpdateStudentCommentRequest(
-        @NotBlank String content,
+        // Bổ sung ngoài SDD gốc, xác nhận 2026-08-17 — bỏ @NotBlank, xem Javadoc CreateStudentCommentRequest.content.
+        String content,
         Map<String, Object> structuredContent,
         String severity,
         boolean isWarning,
