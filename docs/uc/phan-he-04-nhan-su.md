@@ -226,6 +226,32 @@ việc". UC này bổ sung 3 nhóm API quản trị:
 GET (danh sách) của cả 3 nhóm không gate quyền — dữ liệu tra cứu dùng
 chung, đúng pattern `SiteController`/`DepartmentController`.
 
+**"T7 xen kẽ" — 1 nhân sự có nhiều ca active cùng lúc** (bổ sung ngoài
+SDD/SRS gốc, xác nhận với người dùng 2026-08-14, thay thế hướng thiết kế
+ban đầu "1 ca có ngày xen kẽ"): ràng buộc gốc (V7) chỉ cho 1 nhân sự có
+tối đa 1 bản ghi `employee_shifts` active tại 1 thời điểm (unique partial
+index `idx_employee_shifts_active`). V124 gỡ bỏ ràng buộc này, cho phép
+gán NHIỀU ca active song song cho cùng 1 nhân sự — mỗi ca dùng lại nguyên
+cặp `applies_to_weekdays`/`week_parity` đã có (không thêm cột mới):
+
+- VD "T2-T6 mọi tuần + T7 chỉ tuần chẵn": gán 2 ca cho cùng nhân sự — ca A
+  (`applies_to_weekdays="1,2,3,4,5,6"`, `week_parity=EVEN`) áp dụng các
+  tuần ISO số chẵn (kể cả T7), ca B (`applies_to_weekdays="1,2,3,4,5"`,
+  `week_parity=ODD`) áp dụng các tuần ISO số lẻ (không có T7). Parity vẫn
+  tính theo tuần ISO của năm (`WeekFields.ISO.weekOfWeekBasedYear()`) như
+  cũ.
+- `EmployeeShiftService.assignShift` không còn tự đóng ca active cũ khi
+  gán ca mới — thay vào đó validate KHÔNG cho gán nếu ca mới chồng chéo
+  lịch (cùng ngày trong tuần + parity giao nhau, ALL giao với mọi parity)
+  với bất kỳ ca nào đang active của nhân sự đó
+  (`ShiftAssignmentOverlapException`). Muốn đổi ca phải chủ động kết thúc
+  ca cũ trước qua `PUT /api/employee-shifts/{id}/end` (mới, cùng quyền
+  `hrm.employee-shift.assign`) rồi mới gán ca mới.
+- `AttendanceService`: đọc TẤT CẢ ca active của nhân sự (không còn 1 ca
+  duy nhất); mỗi lượt chấm công, `isWorkingDay`/cửa sổ chấm công dùng ca
+  nào trong số đó khớp `applies_to_weekdays`/`week_parity` với ngày hôm
+  nay (nhờ validate chống chồng chéo ở trên, tối đa 1 ca khớp mỗi ngày).
+
 ---
 
 UC-10: Nộp đơn từ

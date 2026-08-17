@@ -655,6 +655,13 @@ dưới) --- KHÔNG có `late_submission_allowed`/`late_penalty_percent` (không
                                                                chưa báo GV %
                                                                hoàn thành khi
                                                                hết hạn
+
+  source_class_session_id   BIGINT            FK →             V123: buổi học
+                                              class_sessions   mà GV đang viết
+                                              (id), NULL       Nhận xét lúc
+                                                               chọn bộ này ---
+                                                               NULL với bản
+                                                               giao TRƯỚC V123
   ----------------------------------------------------------------------------
 
 **Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (V65, 2026-07-30):**
@@ -1243,6 +1250,22 @@ ASSIGNED (có deadline).
                                                                chưa báo GV %
                                                                hoàn thành khi
                                                                hết hạn
+
+  source_class_session_id   BIGINT            FK →             V123, bổ sung
+                                              class_sessions   ngoài SDD gốc,
+                                              (id), NULL       đã xác nhận với
+                                                               người dùng
+                                                               2026-08-14: buổi
+                                                               học mà GV đang
+                                                               viết Nhận xét
+                                                               (UC-21) lúc chọn
+                                                               Bài này làm
+                                                               "BTVN buổi sau"
+                                                               --- mirror
+                                                               review_video_
+                                                               assignments,
+                                                               NULL với bản
+                                                               giao TRƯỚC V123
   ----------------------------------------------------------------------------
 
 g)  Bảng exercise_attempts --- Lượt học sinh làm bài

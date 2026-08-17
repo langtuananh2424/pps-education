@@ -37,6 +37,7 @@ import vn.com.pps.education.support.AbstractIntegrationTest;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.temporal.WeekFields;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -262,6 +263,40 @@ class AttendanceServiceTest extends AbstractIntegrationTest {
         assertThat(persisted.getCheckInMatchedSource()).isEqualTo(AttendanceRecord.MatchedSource.TEACHING_SCHEDULE);
     }
 
+    /**
+     * "T7 xen kẽ" (V124, 2026-08-14): 1 nhân sự có 2 ca active song song (VD ca
+     * A weekParity=EVEN, ca B weekParity=ODD) -- checkIn phải chọn đúng ca khớp
+     * parity tuần ISO hiện tại để xét cửa sổ chấm công, không dùng nhầm ca kia.
+     * Xem docs/uc/phan-he-04-nhan-su.md > UC-70 > "T7 xen kẽ...".
+     */
+    @Test
+    void checkIn_UC09_MultipleActiveShifts_MainFlow_usesShiftMatchingCurrentWeekParity() {
+        Shift.WeekParity matchingParity = currentWeekParity();
+        Shift.WeekParity otherParity = matchingParity == Shift.WeekParity.ODD ? Shift.WeekParity.EVEN : Shift.WeekParity.ODD;
+
+        // Ca khớp tuần hiện tại: cửa sổ rộng, phải được chọn để chấm công thành công.
+        assignShift(newShiftWithParity(LocalTime.now(), LocalTime.now().plusHours(8), 600, 600, 600, 600, matchingParity));
+        // Ca active song song còn lại: sai parity tuần này + cửa sổ hẹp không khớp giờ hiện tại -- nếu
+        // code lỡ chọn nhầm ca này thì test sẽ fail bằng OutsideAttendanceWindowException.
+        assignShift(newShiftWithParity(LocalTime.now().minusHours(6), LocalTime.now().minusHours(5), 0, 0, 0, 0, otherParity));
+
+        AttendanceRecordResponse response = attendanceService.checkIn(user.getId(),
+                new AttendanceCheckRequest("GPS", site.getId(), SITE_LAT, SITE_LNG, null));
+
+        assertThat(response.checkInAt()).isNotNull();
+    }
+
+    @Test
+    void checkIn_UC09_MultipleActiveShifts_A1_rejectsWhenNoActiveShiftMatchesCurrentWeekParity() {
+        Shift.WeekParity otherParity = currentWeekParity() == Shift.WeekParity.ODD ? Shift.WeekParity.EVEN : Shift.WeekParity.ODD;
+
+        assignShift(newShiftWithParity(LocalTime.now(), LocalTime.now().plusHours(8), 600, 600, 600, 600, otherParity));
+
+        assertThatThrownBy(() -> attendanceService.checkIn(user.getId(),
+                new AttendanceCheckRequest("GPS", site.getId(), SITE_LAT, SITE_LNG, null)))
+                .isInstanceOf(NotAWorkingDayException.class);
+    }
+
     @Test
     void checkIn_UC09_A1_rejectsWhenWorkCalendarMarksHolidayEvenWithTeachingSessionToday() {
         User teacher = newUser();
@@ -459,6 +494,18 @@ class AttendanceServiceTest extends AbstractIntegrationTest {
         shift.setAppliesToWeekdays(String.valueOf(LocalDate.now().getDayOfWeek().getValue()));
         shift.setWeekParity(Shift.WeekParity.ALL);
         shift.setActive(true);
+        return shiftRepository.save(shift);
+    }
+
+    private Shift.WeekParity currentWeekParity() {
+        boolean oddWeek = LocalDate.now().get(WeekFields.ISO.weekOfWeekBasedYear()) % 2 != 0;
+        return oddWeek ? Shift.WeekParity.ODD : Shift.WeekParity.EVEN;
+    }
+
+    private Shift newShiftWithParity(LocalTime checkIn, LocalTime checkOut, int inBefore, int inAfter, int outBefore,
+                                      int outAfter, Shift.WeekParity weekParity) {
+        Shift shift = newShift(checkIn, checkOut, inBefore, inAfter, outBefore, outAfter);
+        shift.setWeekParity(weekParity);
         return shiftRepository.save(shift);
     }
 

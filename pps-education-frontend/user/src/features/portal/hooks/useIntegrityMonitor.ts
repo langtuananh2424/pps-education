@@ -47,10 +47,22 @@ export interface UseIntegrityMonitorResult {
   justViolated: boolean;
   /** Lấy + xóa hàng đợi hiện có, đồng thời gọi onFlush (nếu có) — dùng ở chế độ "đệm rồi gửi tay". */
   flush: () => IntegrityEventInput[];
+  /**
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-17 — gọi NGAY TRƯỚC KHI mở dialog chọn
+   * file hệ điều hành (input[type=file], câu ESSAY/SPEAKING nộp audio). Mở dialog này luôn bắn
+   * `window blur` y hệt đổi tab thật (trình duyệt không phân biệt được 2 trường hợp), nếu không có
+   * "vùng ân hạn" thì học sinh chọn file hơi lâu 1 chút cũng bị tính nhầm vi phạm. KHÔNG tắt hẳn giám
+   * sát — chỉ bỏ qua ĐÚNG 1 lần blur→focus kế tiếp trong FILE_PICKER_GRACE_MS, dùng 1 lần rồi tự xoá
+   * (không rò rỉ sang lần đổi tab thật sau đó); nếu học sinh lợi dụng nút này để rời tab lâu hơn
+   * ngưỡng, hết hạn ân hạn vẫn bị tính vi phạm như bình thường.
+   */
+  suppressForFilePicker: () => void;
 }
 
 const DEFAULT_MIN_VIOLATION_DURATION_MS = 1000;
 const JUST_VIOLATED_MS = 3500;
+/** Đủ thời gian học sinh duyệt thư mục chọn file audio đã ghi âm sẵn, không quá dài để tránh bị lợi dụng làm "vé thoát tab" miễn phí. */
+const FILE_PICKER_GRACE_MS = 90_000;
 
 export function useIntegrityMonitor(options: UseIntegrityMonitorOptions): UseIntegrityMonitorResult {
   const { enabled, minViolationDurationMs = DEFAULT_MIN_VIOLATION_DURATION_MS, autoFlushIntervalMs, onFlush, onFullscreenExit } = options;
@@ -60,12 +72,17 @@ export function useIntegrityMonitor(options: UseIntegrityMonitorOptions): UseInt
 
   const pendingEventsRef = useRef<IntegrityEventInput[]>([]);
   const outOfFocusSinceRef = useRef<number | null>(null);
+  const filePickerGraceUntilRef = useRef<number | null>(null);
   const everEnteredFullscreenRef = useRef(false);
   const justViolatedTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const onFlushRef = useRef(onFlush);
   onFlushRef.current = onFlush;
   const onFullscreenExitRef = useRef(onFullscreenExit);
   onFullscreenExitRef.current = onFullscreenExit;
+
+  const suppressForFilePicker = () => {
+    filePickerGraceUntilRef.current = Date.now() + FILE_PICKER_GRACE_MS;
+  };
 
   const flush = (): IntegrityEventInput[] => {
     const events = pendingEventsRef.current;
@@ -117,7 +134,11 @@ export function useIntegrityMonitor(options: UseIntegrityMonitorOptions): UseInt
     };
     const markBackInFocus = () => {
       if (outOfFocusSinceRef.current != null && document.visibilityState === "visible" && document.hasFocus()) {
-        queueEvent("OUT_OF_FOCUS", outOfFocusSinceRef.current, Date.now());
+        const withinFilePickerGrace = filePickerGraceUntilRef.current != null && Date.now() <= filePickerGraceUntilRef.current;
+        filePickerGraceUntilRef.current = null; // dùng 1 lần — không rò rỉ sang lần blur không liên quan sau đó
+        if (!withinFilePickerGrace) {
+          queueEvent("OUT_OF_FOCUS", outOfFocusSinceRef.current, Date.now());
+        }
         outOfFocusSinceRef.current = null;
       }
     };
@@ -162,5 +183,5 @@ export function useIntegrityMonitor(options: UseIntegrityMonitorOptions): UseInt
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled]);
 
-  return { violationCount, isMonitoringActive, justViolated, flush };
+  return { violationCount, isMonitoringActive, justViolated, flush, suppressForFilePicker };
 }

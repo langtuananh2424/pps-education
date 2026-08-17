@@ -136,7 +136,7 @@ public class LeaveRequestService {
                     ClassSession session = teachingSessionsById.get(sub.classSessionId());
                     if (session == null) {
                         throw new IllegalArgumentException(
-                                "Buổi học id=" + sub.classSessionId() + " không thuộc lịch dạy của bạn trong khoảng nghỉ.");
+                                "Buổi học này không thuộc lịch dạy của bạn trong khoảng nghỉ.");
                     }
                     if (chosenClassId == null) {
                         chosenClassId = session.getSchoolClass().getId();
@@ -293,7 +293,7 @@ public class LeaveRequestService {
         User actor = getUserOrThrow(actorUserId);
         LeaveRequest lr = getLeaveRequestOrThrow(leaveRequestId);
         if (lr.getStatus() != LeaveRequest.Status.PENDING) {
-            throw new LeaveRequestAlreadyFinalizedException("Đơn từ id=" + leaveRequestId + " đã ở trạng thái cuối.");
+            throw new LeaveRequestAlreadyFinalizedException("Đơn từ này đã ở trạng thái cuối.");
         }
         LeaveRequestApproval currentApproval = leaveRequestApprovalRepository
                 .findByLeaveRequestIdAndStepOrder(lr.getId(), lr.getCurrentStep())
@@ -305,7 +305,7 @@ public class LeaveRequestService {
                 ? lr.getCurrentApprover().getId().equals(actorUserId)
                 : approverRoleMatchesRoleCodes(currentApproval.getApproverRole(), roleCodes);
         if (!authorized) {
-            throw new NotCurrentApproverException("Bạn không có thẩm quyền duyệt bước hiện tại của đơn id=" + leaveRequestId);
+            throw new NotCurrentApproverException("Bạn không có thẩm quyền duyệt bước hiện tại của đơn từ này.");
         }
 
         LeaveRequestApproval.Decision decision = LeaveRequestApproval.Decision.valueOf(request.decision());

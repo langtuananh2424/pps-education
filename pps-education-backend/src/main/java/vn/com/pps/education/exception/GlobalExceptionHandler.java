@@ -70,7 +70,8 @@ public class GlobalExceptionHandler {
             TaskAssigneeAlreadyAssignedException.class, MakeupSessionAlreadyLinkedException.class,
             DuplicateQuestionContentException.class, DuplicateAcademicYearCodeException.class,
             ReviewVideoQuestionOverlapException.class, DuplicateShiftCodeException.class,
-            WorkCalendarOverrideAlreadyExistsException.class})
+            WorkCalendarOverrideAlreadyExistsException.class, ShiftAssignmentOverlapException.class,
+            EmployeeShiftAlreadyEndedException.class})
     public ResponseEntity<Object> handleConflict(RuntimeException ex) {
         return error(HttpStatus.CONFLICT, ex.getMessage());
     }
@@ -97,7 +98,7 @@ public class GlobalExceptionHandler {
             TuitionPlanNotActiveException.class, RoleNotDeletableException.class,
             DepartmentNotDeletableException.class, PositionNotDeletableException.class,
             GradeComponentNotDeletableException.class, GradeComponentSetupNotDeletableException.class,
-            MissingLessonContentException.class, HomeworkNextConflictException.class,
+            MissingLessonContentException.class, MissingCommentContentException.class, HomeworkNextConflictException.class,
             NoUpcomingClassSessionException.class, VideoNotYetQualifiedException.class,
             QuizAlreadyCompletedException.class, ListeningHintNotUnlockedException.class})
     public ResponseEntity<Object> handleClassSetupRejected(RuntimeException ex) {

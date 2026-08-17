@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 import vn.com.pps.education.dto.AssignEmployeeShiftRequest;
 import vn.com.pps.education.dto.CreateShiftRequest;
 import vn.com.pps.education.dto.EmployeeShiftResponse;
+import vn.com.pps.education.dto.EndEmployeeShiftRequest;
 import vn.com.pps.education.dto.ShiftResponse;
 import vn.com.pps.education.dto.UpdateShiftRequest;
 import vn.com.pps.education.security.AuthenticatedUser;
@@ -64,6 +65,14 @@ public class ShiftController {
     @PreAuthorize("hasPermission(null, 'hrm.employee-shift.assign')")
     public ResponseEntity<EmployeeShiftResponse> assignEmployeeShift(@Valid @RequestBody AssignEmployeeShiftRequest request) {
         return ResponseEntity.ok(employeeShiftService.assignShift(request));
+    }
+
+    /** V124 (2026-08-14): chủ động kết thúc 1 ca active, dùng cùng quyền gán ca. */
+    @PutMapping("/api/employee-shifts/{id}/end")
+    @PreAuthorize("hasPermission(null, 'hrm.employee-shift.assign')")
+    public ResponseEntity<EmployeeShiftResponse> endEmployeeShift(@PathVariable Long id,
+                                                                    @Valid @RequestBody EndEmployeeShiftRequest request) {
+        return ResponseEntity.ok(employeeShiftService.endShift(id, request));
     }
 
     @GetMapping("/api/employees/{id}/shifts")

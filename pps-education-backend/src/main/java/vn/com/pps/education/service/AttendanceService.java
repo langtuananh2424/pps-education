@@ -152,8 +152,9 @@ public class AttendanceService {
 
         OffsetDateTime now = OffsetDateTime.now();
         LocalDate workDate = now.toLocalDate();
-        EmployeeShift activeShift = employeeShiftRepository.findByEmployeeIdAndEffectiveToIsNull(employee.getId())
-                .orElse(null);
+        // V124 (2026-08-14): 1 nhân sự có thể có NHIỀU ca active song song (VD "T7 xen kẽ" =
+        // 2 ca weekParity ODD/EVEN cùng active) -- không còn 1 activeShift duy nhất.
+        List<EmployeeShift> activeShifts = employeeShiftRepository.findByEmployeeIdAndEffectiveToIsNull(employee.getId());
         List<ClassSession> todaySessions = employee.getEmployeeType() == Employee.EmployeeType.TEACHER
                 ? classSessionRepository.findByPrimaryTeacherIdAndSessionDateAndStatusNotIn(
                         actorUserId, workDate, TEACHING_WINDOW_EXCLUDED_STATUSES)
@@ -162,15 +163,19 @@ public class AttendanceService {
         // Main Flow bước 3 -- xác định ngày D có phải ngày làm việc. GV có tiết dạy hôm nay cũng được
         // coi là ngày làm việc, nhưng CHỈ khi không có work_calendar override tường minh nào (mọi scope)
         // -- không bao giờ ghi đè quyết định HOLIDAY/OFF đã khai báo (xác nhận với PM, xem UC-09 A2 mới).
-        if (!isWorkingDay(workDate, employee.getId(), activeShift, !todaySessions.isEmpty())) {
+        if (!isWorkingDay(workDate, employee.getId(), activeShifts, !todaySessions.isEmpty())) {
             throw new NotAWorkingDayException("Ngày " + workDate + " không phải ngày làm việc.");
         }
+
+        // Ca khớp đúng pattern ngày hôm nay trong số các ca active (chống chồng chéo đã được
+        // EmployeeShiftService đảm bảo tối đa 1 ca khớp mỗi ngày -- xem overlaps()).
+        EmployeeShift matchedShift = resolveApplicableShift(activeShifts, workDate);
 
         // Main Flow bước 4-5 -- xác định cửa sổ hợp lệ: A12/A13 cửa sổ theo lịch dạy
         // (GV có tiết dạy hôm nay) ưu tiên trước, A14/A15 cửa sổ ca cố định xét sau.
         WindowMatch windowMatch = resolveTeachingScheduleWindow(todaySessions, now, isCheckIn);
         if (windowMatch == null) {
-            windowMatch = resolveShiftWindow(activeShift, employee.isDefaultShiftRequired(), now, isCheckIn);
+            windowMatch = resolveShiftWindow(matchedShift, employee.isDefaultShiftRequired(), now, isCheckIn);
         }
         if (windowMatch == null) {
             throw new OutsideAttendanceWindowException(
@@ -230,12 +235,17 @@ public class AttendanceService {
         return toResponse(record);
     }
 
-    private boolean isWorkingDay(LocalDate date, Long employeeId, EmployeeShift activeShift, boolean hasTeachingSessionToday) {
+    private boolean isWorkingDay(LocalDate date, Long employeeId, List<EmployeeShift> activeShifts, boolean hasTeachingSessionToday) {
         Optional<WorkCalendar> override = workCalendarRepository
                 .findByCalendarDateAndAppliesToScopeAndEmployeeId(date, WorkCalendar.Scope.EMPLOYEE, employeeId);
-        if (override.isEmpty() && activeShift != null) {
-            override = workCalendarRepository.findByCalendarDateAndAppliesToScopeAndShiftId(
-                    date, WorkCalendar.Scope.SHIFT, activeShift.getShift().getId());
+        if (override.isEmpty()) {
+            for (EmployeeShift activeShift : activeShifts) {
+                override = workCalendarRepository.findByCalendarDateAndAppliesToScopeAndShiftId(
+                        date, WorkCalendar.Scope.SHIFT, activeShift.getShift().getId());
+                if (override.isPresent()) {
+                    break;
+                }
+            }
         }
         if (override.isEmpty()) {
             override = workCalendarRepository.findByCalendarDateAndAppliesToScope(date, WorkCalendar.Scope.ALL);
@@ -244,9 +254,18 @@ public class AttendanceService {
             WorkCalendar.DayType dayType = override.get().getDayType();
             return dayType == WorkCalendar.DayType.WORKING || dayType == WorkCalendar.DayType.COMPENSATORY;
         }
-        // Không có override tường minh nào -- fallback theo pattern ca cố định, hoặc (mới) GV có
-        // tiết dạy hôm nay. Chỉ áp dụng ở fallback cuối cùng này, không ghi đè HOLIDAY/OFF đã khai báo.
-        return (activeShift != null && matchesShiftPattern(activeShift.getShift(), date)) || hasTeachingSessionToday;
+        // Không có override tường minh nào -- fallback theo pattern của bất kỳ ca active nào, hoặc
+        // (mới) GV có tiết dạy hôm nay. Chỉ áp dụng ở fallback cuối cùng này, không ghi đè HOLIDAY/OFF
+        // đã khai báo.
+        return activeShifts.stream().anyMatch(es -> matchesShiftPattern(es.getShift(), date)) || hasTeachingSessionToday;
+    }
+
+    /** V124 (2026-08-14): trong số các ca active, ca nào khớp pattern ngày hôm nay (nếu có). */
+    private EmployeeShift resolveApplicableShift(List<EmployeeShift> activeShifts, LocalDate date) {
+        return activeShifts.stream()
+                .filter(es -> matchesShiftPattern(es.getShift(), date))
+                .findFirst()
+                .orElse(null);
     }
 
     private boolean matchesShiftPattern(Shift shift, LocalDate date) {

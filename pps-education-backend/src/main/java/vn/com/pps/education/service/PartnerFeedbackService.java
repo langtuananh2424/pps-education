@@ -116,7 +116,7 @@ public class PartnerFeedbackService {
         requireSiteManagerForFeedback(feedback, actorUserId);
         if (feedback.getStatus() != PartnerFeedback.Status.NEW) {
             throw new InvalidFeedbackStatusTransitionException(
-                    "Phản hồi id=" + feedbackId + " phải ở trạng thái Mới để chuyển Đang xử lý (hiện tại: " + feedback.getStatus() + ").");
+                    "Phản hồi này phải ở trạng thái Mới để chuyển Đang xử lý (hiện tại: " + feedback.getStatus() + ").");
         }
         feedback.setStatus(PartnerFeedback.Status.IN_PROGRESS);
         feedback = partnerFeedbackRepository.save(feedback);
@@ -134,7 +134,7 @@ public class PartnerFeedbackService {
         PartnerFeedback feedback = getFeedbackOrThrow(feedbackId);
         requireParticipant(feedback, actorUserId);
         if (feedback.getStatus() == PartnerFeedback.Status.CLOSED) {
-            throw new InvalidFeedbackStatusTransitionException("Phản hồi id=" + feedbackId + " đã Đóng, không thể trao đổi thêm.");
+            throw new InvalidFeedbackStatusTransitionException("Phản hồi này đã Đóng, không thể trao đổi thêm.");
         }
         writeHistory(feedback, getUserOrThrow(actorUserId), PartnerFeedbackHistory.Action.EXCHANGE, Map.of("note", request.note()));
         return toResponse(feedback);
@@ -147,7 +147,7 @@ public class PartnerFeedbackService {
         requireSiteManagerForFeedback(feedback, actorUserId);
         if (feedback.getStatus() != PartnerFeedback.Status.IN_PROGRESS) {
             throw new InvalidFeedbackStatusTransitionException(
-                    "Phản hồi id=" + feedbackId + " phải ở trạng thái Đang xử lý để giải quyết (hiện tại: " + feedback.getStatus() + ").");
+                    "Phản hồi này phải ở trạng thái Đang xử lý để giải quyết (hiện tại: " + feedback.getStatus() + ").");
         }
         feedback.setResolutionNotes(request.resolutionNotes());
         feedback.setStatus(PartnerFeedback.Status.RESOLVED);
@@ -168,7 +168,7 @@ public class PartnerFeedbackService {
         requireSiteManagerForFeedback(feedback, actorUserId);
         if (feedback.getStatus() != PartnerFeedback.Status.RESOLVED) {
             throw new InvalidFeedbackStatusTransitionException(
-                    "Phản hồi id=" + feedbackId + " phải ở trạng thái Đã giải quyết để Đóng (hiện tại: " + feedback.getStatus() + ").");
+                    "Phản hồi này phải ở trạng thái Đã giải quyết để Đóng (hiện tại: " + feedback.getStatus() + ").");
         }
         feedback.setStatus(PartnerFeedback.Status.CLOSED);
         feedback = partnerFeedbackRepository.save(feedback);
@@ -185,7 +185,7 @@ public class PartnerFeedbackService {
                 .filter(site -> site.getSiteType() == Site.SiteType.PARTNER)
                 .findFirst()
                 .orElseThrow(() -> new NotAuthorizedForPortalAccessException(
-                        "Tài khoản id=" + actorUserId + " chưa được gán vào điểm trường liên kết (loại PARTNER) nào."));
+                        "Tài khoản của bạn chưa được gán vào điểm trường liên kết (loại PARTNER) nào."));
     }
 
     private void requireSiteManagerForFeedback(PartnerFeedback feedback, Long actorUserId) {
@@ -193,7 +193,7 @@ public class PartnerFeedbackService {
                 feedback.getSite().getId(), actorUserId, SiteManager.RoleType.SITE_MANAGER);
         if (!isManager) {
             throw new NotAuthorizedForFeedbackException(
-                    "Tài khoản id=" + actorUserId + " không phụ trách điểm trường id=" + feedback.getSite().getId() + ".");
+                    "Bạn không phụ trách điểm trường liên quan tới phản hồi này.");
         }
     }
 
@@ -203,7 +203,7 @@ public class PartnerFeedbackService {
                 feedback.getSite().getId(), actorUserId, SiteManager.RoleType.SITE_MANAGER);
         if (!isSubmitter && !isManager) {
             throw new NotAuthorizedForFeedbackException(
-                    "Tài khoản id=" + actorUserId + " không liên quan tới phản hồi id=" + feedback.getId() + ".");
+                    "Bạn không liên quan tới phản hồi này.");
         }
     }
 

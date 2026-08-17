@@ -141,7 +141,7 @@ public class EmployeeService {
                         .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + request.userId()))
                 : userAccountService.createAccount(request.newAccount());
         if (employeeRepository.findByUserId(user.getId()).isPresent()) {
-            throw new EmployeeAlreadyExistsException("Tài khoản id=" + user.getId() + " đã có hồ sơ nhân sự.");
+            throw new EmployeeAlreadyExistsException("Tài khoản này đã có hồ sơ nhân sự.");
         }
         if (employeeRepository.findByEmployeeCode(request.employeeCode()).isPresent()) {
             throw new DuplicateEmployeeCodeException("Mã nhân sự đã tồn tại: " + request.employeeCode());
@@ -359,7 +359,7 @@ public class EmployeeService {
                 .findByEmployeeIdAndStatusAndDeletedAtIsNull(employeeId, EmploymentContract.Status.ACTIVE)
                 .isPresent()) {
             throw new ActiveContractAlreadyExistsException(
-                    "Nhân sự id=" + employeeId + " đã có hợp đồng ACTIVE — chấm dứt/kết thúc hợp đồng cũ trước.");
+                    "Nhân sự này đã có hợp đồng đang hoạt động (ACTIVE) — chấm dứt/kết thúc hợp đồng cũ trước.");
         }
     }
 

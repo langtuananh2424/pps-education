@@ -7,6 +7,7 @@ import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 import vn.com.pps.education.domain.ClassEnrollment;
+import vn.com.pps.education.domain.ClassSession;
 import vn.com.pps.education.domain.CurriculumSubject;
 import vn.com.pps.education.domain.Exam;
 import vn.com.pps.education.domain.Exercise;
@@ -210,10 +211,10 @@ public class ExerciseService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy câu hỏi id=" + request.questionId()));
         if (!question.getQuestionBank().getId().equals(exercise.getExam().getQuestionBank().getId())) {
             throw new IllegalArgumentException(
-                    "Câu hỏi id=" + request.questionId() + " không thuộc Đề id=" + exercise.getExam().getId() + ".");
+                    "Câu hỏi này không thuộc Đề đang chọn.");
         }
         if (exerciseQuestionRepository.existsByExerciseIdAndQuestionId(exerciseId, request.questionId())) {
-            throw new IllegalArgumentException("Câu hỏi id=" + request.questionId() + " đã có trong đề id=" + exerciseId + ".");
+            throw new IllegalArgumentException("Câu hỏi này đã có trong đề rồi.");
         }
 
         ExerciseQuestion eq = new ExerciseQuestion();
@@ -236,7 +237,7 @@ public class ExerciseService {
         Exercise exercise = getExerciseOrThrow(exerciseId);
         if (exercise.getStatus() != Exercise.Status.DRAFT) {
             throw new IllegalArgumentException(
-                    "Đề id=" + exerciseId + " đã Publish — không gỡ câu hỏi được nữa, chỉ gỡ được khi còn Nháp (DRAFT).");
+                    "Đề này đã Publish — không gỡ câu hỏi được nữa, chỉ gỡ được khi còn Nháp (DRAFT).");
         }
         ExerciseQuestion eq = exerciseQuestionRepository.findById(exerciseQuestionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy câu hỏi id=" + exerciseQuestionId + " trong đề."));
@@ -340,6 +341,18 @@ public class ExerciseService {
      */
     @Transactional
     public ExerciseAssignment deliverToClass(Long exerciseId, Long classId, OffsetDateTime dueAt, Long actorUserId) {
+        return deliverToClass(exerciseId, classId, dueAt, actorUserId, null);
+    }
+
+    /**
+     * V123 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-14): overload nhận thêm buổi
+     * học nguồn (xem Javadoc {@link ExerciseAssignment#getSourceClassSession()}) — chỉ
+     * StudentCommentService (đường "BTVN buổi sau", có sẵn ClassSession trong scope) truyền vào;
+     * mọi caller khác (test, tương lai nếu có endpoint giao thủ công lại) dùng overload 4 tham số ở
+     * trên, sourceClassSession để NULL.
+     */
+    public ExerciseAssignment deliverToClass(Long exerciseId, Long classId, OffsetDateTime dueAt, Long actorUserId,
+                                              ClassSession sourceClassSession) {
         // Cắt về độ chính xác microsecond NGAY từ đầu — cột due_at (TIMESTAMPTZ) của Postgres chỉ lưu
         // tới microsecond, còn OffsetDateTime.now() ở tầng gọi có thể mang độ chính xác nanosecond
         // (phát hiện thực tế 2026-08-06, tái hiện được cả khi chạy 1 mình với DB sạch — KHÔNG phải
@@ -360,7 +373,7 @@ public class ExerciseService {
         User actor = getUserOrThrow(actorUserId);
         if (!examClassAssignmentRepository.existsByExamIdAndSchoolClassId(exercise.getExam().getId(), classId)) {
             throw new IllegalArgumentException(
-                    "Đề của bài id=" + exerciseId + " chưa được gán cho lớp id=" + classId + " — vào Kho đề để gán trước.");
+                    "Đề của bài này chưa được gán cho lớp — vào Kho đề để gán trước.");
         }
 
         OffsetDateTime finalDueAt = dueAt;
@@ -386,6 +399,7 @@ public class ExerciseService {
                 a.setSchoolClass(schoolClass);
                 a.setAssignedBy(actor);
                 a.setDueAt(finalDueAt);
+                a.setSourceClassSession(sourceClassSession);
                 return exerciseAssignmentRepository.saveAndFlush(a);
             });
         } catch (DataIntegrityViolationException e) {
@@ -446,7 +460,7 @@ public class ExerciseService {
         }
         if (!classTeacherRepository.existsBySchoolClassIdAndTeacherIdAndAssignedToIsNull(classId, actorUserId)) {
             throw new NotAssignedTeacherForClassException(
-                    "Tài khoản id=" + actorUserId + " không được phân công giảng dạy lớp id=" + classId + ".");
+                    "Bạn không được phân công giảng dạy lớp này.");
         }
     }
 

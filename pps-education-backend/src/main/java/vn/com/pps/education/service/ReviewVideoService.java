@@ -8,6 +8,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 import vn.com.pps.education.domain.AttemptIntegrityEvent;
 import vn.com.pps.education.domain.ClassEnrollment;
+import vn.com.pps.education.domain.ClassSession;
+import vn.com.pps.education.domain.ClassTeacher;
 import vn.com.pps.education.domain.Curriculum;
 import vn.com.pps.education.domain.CurriculumSubject;
 import vn.com.pps.education.domain.Notification;
@@ -36,6 +38,7 @@ import vn.com.pps.education.dto.ConnectionChoiceRequest;
 import vn.com.pps.education.dto.CreateReviewVideoSetRequest;
 import vn.com.pps.education.dto.GradeReviewVideoSubmissionRequest;
 import vn.com.pps.education.dto.MyReviewVideoAssignmentResponse;
+import vn.com.pps.education.dto.PendingGradingClassSummaryResponse;
 import vn.com.pps.education.dto.ReportVideoProgressRequest;
 import vn.com.pps.education.dto.ReviewVideoAssignmentResponse;
 import vn.com.pps.education.dto.ReviewVideoAssignmentStatsResponse;
@@ -88,6 +91,7 @@ import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -382,19 +386,29 @@ public class ReviewVideoService {
      */
     @Transactional
     public ReviewVideoAssignment deliverToClass(Long setId, Long classId, OffsetDateTime dueAt, Long actorUserId) {
+        return deliverToClass(setId, classId, dueAt, actorUserId, null);
+    }
+
+    /**
+     * V123 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-14): overload nhận thêm buổi
+     * học nguồn — mirror {@link ExerciseService#deliverToClass(Long, Long, OffsetDateTime, Long, ClassSession)}.
+     */
+    @Transactional
+    public ReviewVideoAssignment deliverToClass(Long setId, Long classId, OffsetDateTime dueAt, Long actorUserId,
+                                                 ClassSession sourceClassSession) {
         // Cắt về độ chính xác microsecond + so theo instant thực (không so cả offset) NGAY từ đầu —
         // xem giải thích chi tiết ở ExerciseService#deliverToClass/sameDueAt() (bug thật, tái hiện
         // được cả khi chạy 1 mình với DB sạch, KHÔNG phải lỗi rò rỉ dữ liệu giữa các test).
         dueAt = dueAt == null ? null : dueAt.truncatedTo(ChronoUnit.MICROS);
         ReviewVideoSet set = getSetOrThrow(setId);
         if (set.getStatus() != ReviewVideoSet.Status.PUBLISHED) {
-            throw new IllegalArgumentException("Bộ video id=" + setId + " chưa Publish — không giao lớp được.");
+            throw new IllegalArgumentException("Bộ video này chưa Publish — không giao lớp được.");
         }
         requireAssignedTeacher(classId, actorUserId);
         SchoolClass schoolClass = getClassOrThrow(classId);
         // V98: thay logic OR curriculum/lớp cũ bằng kiểm tra đã gán tường minh (ReviewVideoSetClassAssignment).
         if (!reviewVideoSetClassAssignmentRepository.existsByReviewVideoSetIdAndSchoolClassId(setId, classId)) {
-            throw new IllegalArgumentException("Bộ video id=" + setId + " không thuộc phạm vi lớp id=" + classId + ".");
+            throw new IllegalArgumentException("Bộ video này không thuộc phạm vi lớp đang chọn.");
         }
         User actor = getUserOrThrow(actorUserId);
 
@@ -415,6 +429,7 @@ public class ReviewVideoService {
                 a.setSchoolClass(schoolClass);
                 a.setAssignedBy(actor);
                 a.setDueAt(finalDueAt);
+                a.setSourceClassSession(sourceClassSession);
                 return reviewVideoAssignmentRepository.saveAndFlush(a);
             });
         } catch (DataIntegrityViolationException e) {
@@ -499,7 +514,8 @@ public class ReviewVideoService {
                 result.add(new MyReviewVideoAssignmentResponse(
                         assignment.getId(), set.getId(), set.getTitle(), set.getVideoType().name(),
                         schoolClass.getId(), schoolClass.getName(),
-                        assignment.getAvailableFrom(), assignment.getDueAt()));
+                        assignment.getAvailableFrom(), assignment.getDueAt(),
+                        assignment.getSourceClassSession() == null ? null : assignment.getSourceClassSession().getSessionDate()));
             }
         }
         return result;
@@ -591,7 +607,7 @@ public class ReviewVideoService {
         ReviewVideo video = getVideoOrThrow(videoId);
         requireOwnerScope(video.getReviewVideoSet(), actorUserId);
         if (video.getReviewVideoSet().getVideoType() != ReviewVideoSet.VideoType.REFLEX) {
-            throw new IllegalArgumentException("Video id=" + videoId + " không phải loại Video phản xạ (REFLEX) — không nhận câu hỏi.");
+            throw new IllegalArgumentException("Video này không phải loại Video phản xạ (REFLEX) — không nhận câu hỏi.");
         }
         requireNoOverlap(videoId, request.timestampSeconds(), request.maxRecordingSeconds());
 
@@ -647,7 +663,7 @@ public class ReviewVideoService {
             int siblingEnd = sibling.getTimestampSeconds() + sibling.getMaxRecordingSeconds();
             if (sibling.getTimestampSeconds() < newEnd && newStart < siblingEnd) {
                 throw new ReviewVideoQuestionOverlapException(
-                        "Khoảng ghi âm câu hỏi mới (giây " + newStart + "-" + newEnd + ") chồng lấn câu hỏi id=" + sibling.getId()
+                        "Khoảng ghi âm câu hỏi mới (giây " + newStart + "-" + newEnd + ") chồng lấn 1 câu hỏi khác"
                                 + " (giây " + sibling.getTimestampSeconds() + "-" + siblingEnd + ") — video chỉ ghi âm được 1 câu tại 1 thời điểm,"
                                 + " hãy đặt mốc thời gian cách nhau xa hơn hoặc giảm thời lượng ghi âm tối đa.");
             }
@@ -677,7 +693,7 @@ public class ReviewVideoService {
         requireOwnerScope(video.getReviewVideoSet(), actorUserId);
         if (video.getReviewVideoSet().getVideoType() != ReviewVideoSet.VideoType.CONNECTION) {
             throw new IllegalArgumentException(
-                    "Video id=" + videoId + " không phải loại Video kết nối (CONNECTION) — không nhận câu hỏi trắc nghiệm.");
+                    "Video này không phải loại Video kết nối (CONNECTION) — không nhận câu hỏi trắc nghiệm.");
         }
 
         ReviewVideoConnectionQuestion question = new ReviewVideoConnectionQuestion();
@@ -718,7 +734,7 @@ public class ReviewVideoService {
                 .findByReviewVideoConnectionQuestionIdOrderByDisplayOrder(questionId);
         if (request.choices().size() != existingChoices.size()) {
             throw new IllegalArgumentException(
-                    "Câu hỏi id=" + questionId + " đang có " + existingChoices.size() + " đáp án — không thể sửa thành "
+                    "Câu hỏi này đang có " + existingChoices.size() + " đáp án — không thể sửa thành "
                             + request.choices().size() + " đáp án (không hỗ trợ thêm/bớt đáp án khi sửa, chỉ sửa nội dung/đáp án đúng).");
         }
         Map<Long, ReviewVideoConnectionChoice> existingById = existingChoices.stream()
@@ -733,7 +749,7 @@ public class ReviewVideoService {
             ReviewVideoConnectionChoice choice = existingById.get(c.choiceId());
             if (choice == null) {
                 throw new IllegalArgumentException(
-                        "Đáp án id=" + c.choiceId() + " không thuộc câu hỏi id=" + questionId + " — không sửa được.");
+                        "Một đáp án bạn gửi lên không thuộc câu hỏi này — không sửa được.");
             }
             choice.setContent(c.content());
             choice.setCorrect(c.isCorrect());
@@ -860,7 +876,7 @@ public class ReviewVideoService {
             throw new ResourceNotFoundException("Không tìm thấy lượt xem id=" + watchSessionId);
         }
         if (video.getReviewVideoSet().getVideoType() != ReviewVideoSet.VideoType.CONNECTION) {
-            throw new IllegalArgumentException("Video id=" + video.getId() + " không phải loại Video từ kết nối (CONNECTION).");
+            throw new IllegalArgumentException("Video này không phải loại Video kết nối (CONNECTION).");
         }
         Set<Long> assignedQuestionIds = reviewVideoConnectionQuestionSlotRepository
                 .findByReviewVideoConnectionQuestion_ReviewVideoIdAndStudentId(video.getId(), student.getId())
@@ -944,11 +960,11 @@ public class ReviewVideoService {
         requireNotPastDeadline(access.assignment());
         if (!session.isQualified()) {
             throw new VideoNotYetQualifiedException(
-                    "Lượt xem id=" + watchSessionId + " chưa xem đạt ngưỡng — chưa thể làm câu hỏi.");
+                    "Lượt xem này chưa xem đạt ngưỡng — chưa thể làm câu hỏi.");
         }
         if (session.getQuizCompletedAt() != null) {
             throw new QuizAlreadyCompletedException(
-                    "Lượt xem id=" + watchSessionId + " đã nộp đủ câu hỏi rồi, không thể nộp lại.");
+                    "Lượt xem này đã nộp đủ câu hỏi rồi, không thể nộp lại.");
         }
 
         List<ReviewVideoConnectionQuestion> questions = reviewVideoConnectionQuestionRepository
@@ -965,7 +981,7 @@ public class ReviewVideoService {
         Set<Long> answeredQuestionIds = request.answers().stream().map(a -> a.questionId()).collect(Collectors.toSet());
         if (!questionIds.equals(answeredQuestionIds)) {
             throw new IllegalArgumentException(
-                    "Phải trả lời đúng nhóm câu hỏi của lượt xem id=" + watchSessionId + " — không thiếu, không thừa.");
+                    "Phải trả lời đúng nhóm câu hỏi của lượt xem này — không thiếu, không thừa.");
         }
 
         List<ConnectionAnswerResult> results = new ArrayList<>();
@@ -977,7 +993,7 @@ public class ReviewVideoService {
             ReviewVideoConnectionChoice selected = choices.stream()
                     .filter(c -> c.getId().equals(item.selectedChoiceId())).findFirst()
                     .orElseThrow(() -> new IllegalArgumentException(
-                            "Lựa chọn id=" + item.selectedChoiceId() + " không thuộc câu hỏi id=" + question.getId() + "."));
+                            "Một lựa chọn bạn gửi lên không thuộc câu hỏi tương ứng."));
             ReviewVideoConnectionChoice correctChoice = choices.stream().filter(ReviewVideoConnectionChoice::isCorrect)
                     .findFirst().orElse(null);
 
@@ -1022,14 +1038,14 @@ public class ReviewVideoService {
         Student student = access.student();
         requireNotPastDeadline(access.assignment());
         if (video.getReviewVideoSet().getVideoType() != ReviewVideoSet.VideoType.REFLEX) {
-            throw new IllegalArgumentException("Video id=" + video.getId() + " không phải loại Video phản xạ (REFLEX) — không nhận nộp audio.");
+            throw new IllegalArgumentException("Video này không phải loại Video phản xạ (REFLEX) — không nhận nộp audio.");
         }
 
         int previousAttempts = reviewVideoQuestionSubmissionRepository
                 .countByReviewVideoQuestionIdAndStudentIdAndReviewVideoAssignmentId(questionId, student.getId(), access.assignment().getId());
         if (question.getMaxAttempts() != null && previousAttempts >= question.getMaxAttempts()) {
             throw new RetakeNotAllowedException(
-                    "Câu hỏi id=" + questionId + " đã hết lượt nộp lại (tối đa " + question.getMaxAttempts() + ").");
+                    "Câu hỏi này đã hết lượt nộp lại (tối đa " + question.getMaxAttempts() + ").");
         }
 
         ReviewVideoQuestionSubmission submission = new ReviewVideoQuestionSubmission();
@@ -1224,10 +1240,18 @@ public class ReviewVideoService {
         ReviewVideoSet set = getSetOrThrow(setId);
         requireOwnerScope(set, actorUserId);
         Long classId = resolveClassIdForSet(set, classIdParam);
+        return latestSubmissionsForSetAndClass(set, classId).stream().map(this::toResponse).toList();
+    }
 
+    /**
+     * Attempt mới nhất mỗi (câu hỏi, học sinh) cho 1 (Bộ REFLEX, lớp) — tách ra từ
+     * listSubmissionsForTeacher (2026-08-17) để dùng chung với hàng chờ chấm GỘP
+     * theo lớp (getPendingGradingSummaryForTeacher/listSubmissionsForTeacherByClass).
+     */
+    private List<ReviewVideoQuestionSubmission> latestSubmissionsForSetAndClass(ReviewVideoSet set, Long classId) {
         List<Long> studentIds = classEnrollmentRepository.findBySchoolClassIdAndStatus(classId, ClassEnrollment.Status.ACTIVE)
                 .stream().map(e -> e.getStudent().getId()).toList();
-        List<Long> questionIds = reviewVideoRepository.findByReviewVideoSetIdOrderByDisplayOrder(setId).stream()
+        List<Long> questionIds = reviewVideoRepository.findByReviewVideoSetIdOrderByDisplayOrder(set.getId()).stream()
                 .flatMap(v -> reviewVideoQuestionRepository.findByReviewVideoIdOrderByDisplayOrder(v.getId()).stream())
                 .map(ReviewVideoQuestion::getId).toList();
         if (studentIds.isEmpty() || questionIds.isEmpty()) {
@@ -1239,8 +1263,70 @@ public class ReviewVideoService {
                         s -> s.getReviewVideoQuestion().getId() + ":" + s.getStudent().getId(),
                         s -> s,
                         (a, b) -> a.getAttemptNumber() >= b.getAttemptNumber() ? a : b))
-                .values().stream()
-                .map(this::toResponse).toList();
+                .values().stream().toList();
+    }
+
+    /**
+     * UC-23b (bổ sung ngoài SDD gốc, xác nhận 2026-08-17) — tóm tắt số bài Video
+     * phản xạ chưa chấm theo TỪNG lớp giáo viên ĐANG ĐỨNG TÊN THẬT (class_teachers,
+     * assignedTo IS NULL), gộp mọi Bộ REFLEX đã gán cho lớp đó. Phạm vi HẸP HƠN
+     * requireOwnerScope theo khung chương trình mà listSubmissionsForTeacher/
+     * gradeSubmission đang dùng (2 method đó giữ nguyên, không đổi) — cố tình chỉ
+     * tính lớp đứng tên thật, đúng tinh thần "lớp của tôi", mirror UC-62 hàng chờ
+     * phúc khảo (ClassTeacherRepository#findByTeacherIdAndAssignedToIsNull). Dùng
+     * để hiện badge số LỚP ở Sidebar + landing "Hàng chờ chấm bài".
+     */
+    @Transactional(readOnly = true)
+    public List<PendingGradingClassSummaryResponse> getPendingGradingSummaryForTeacher(Long actorUserId) {
+        List<SchoolClass> myClasses = classTeacherRepository.findByTeacherIdAndAssignedToIsNull(actorUserId).stream()
+                .map(ClassTeacher::getSchoolClass)
+                .distinct()
+                .toList();
+        List<PendingGradingClassSummaryResponse> result = new ArrayList<>();
+        for (SchoolClass schoolClass : myClasses) {
+            List<ReviewVideoSet> reflexSets = reviewVideoSetClassAssignmentRepository.findBySchoolClassId(schoolClass.getId())
+                    .stream()
+                    .map(ReviewVideoSetClassAssignment::getReviewVideoSet)
+                    .filter(s -> s.getVideoType() == ReviewVideoSet.VideoType.REFLEX)
+                    .distinct()
+                    .toList();
+            int pendingCount = 0;
+            for (ReviewVideoSet set : reflexSets) {
+                pendingCount += (int) latestSubmissionsForSetAndClass(set, schoolClass.getId()).stream()
+                        .filter(s -> s.getScore() == null)
+                        .count();
+            }
+            if (pendingCount > 0) {
+                result.add(new PendingGradingClassSummaryResponse(
+                        schoolClass.getId(), schoolClass.getClassCode(), schoolClass.getName(), pendingCount));
+            }
+        }
+        result.sort(Comparator.comparing(PendingGradingClassSummaryResponse::className, Comparator.nullsLast(String::compareTo)));
+        return result;
+    }
+
+    /**
+     * UC-23b (bổ sung ngoài SDD gốc, xác nhận 2026-08-17) — hàng chờ chấm GỘP mọi
+     * Bộ REFLEX đã gán cho 1 lớp, để giáo viên không phải tự chọn Bộ trước. Mỗi
+     * dòng trả kèm thông tin Bộ/Video/câu hỏi để FE gắn nhãn nguồn (xem
+     * ReviewVideoSubmissionResponse). Auth theo requireAssignedTeacher (lớp cụ
+     * thể) — KHÁC requireOwnerScope theo khung chương trình mà endpoint Bộ→Lớp cũ
+     * (listSubmissionsForTeacher) vẫn dùng, giữ nguyên song song làm lối xem phụ.
+     */
+    @Transactional(readOnly = true)
+    public List<ReviewVideoSubmissionResponse> listSubmissionsForTeacherByClass(Long classId, Long actorUserId) {
+        requireAssignedTeacher(classId, actorUserId);
+        List<ReviewVideoSet> reflexSets = reviewVideoSetClassAssignmentRepository.findBySchoolClassId(classId)
+                .stream()
+                .map(ReviewVideoSetClassAssignment::getReviewVideoSet)
+                .filter(s -> s.getVideoType() == ReviewVideoSet.VideoType.REFLEX)
+                .distinct()
+                .toList();
+        List<ReviewVideoSubmissionResponse> result = new ArrayList<>();
+        for (ReviewVideoSet set : reflexSets) {
+            latestSubmissionsForSetAndClass(set, classId).forEach(s -> result.add(toResponseWithVideoInfo(s, set)));
+        }
+        return result;
     }
 
     /** UC-23b Main Flow bước 4: giáo viên chấm điểm + nhận xét cho 1 attempt đã nộp (A3 nếu không phụ trách lớp, A4 nếu không tồn tại). */
@@ -1333,7 +1419,7 @@ public class ReviewVideoService {
     private void requireNotPastDeadline(ReviewVideoAssignment assignment) {
         if (assignment.getDueAt() != null && OffsetDateTime.now().isAfter(assignment.getDueAt())) {
             throw new SubmissionPastDeadlineException(
-                    "Bản giao Video Ôn tập id=" + assignment.getId() + " đã quá hạn nộp (" + assignment.getDueAt() + ").");
+                    "Bản giao Video Ôn tập này đã quá hạn nộp (" + assignment.getDueAt() + ").");
         }
     }
 
@@ -1350,11 +1436,11 @@ public class ReviewVideoService {
     private Long resolveClassIdForSet(ReviewVideoSet set, Long classIdParam) {
         if (classIdParam == null) {
             throw new IllegalArgumentException(
-                    "Bộ video id=" + set.getId() + " — bắt buộc truyền classId để xem theo đúng 1 lớp.");
+                    "Bộ video này bắt buộc chọn đúng 1 lớp để xem.");
         }
         getClassOrThrow(classIdParam);
         if (!reviewVideoSetClassAssignmentRepository.existsByReviewVideoSetIdAndSchoolClassId(set.getId(), classIdParam)) {
-            throw new IllegalArgumentException("Lớp id=" + classIdParam + " chưa được gán cho bộ video id=" + set.getId() + ".");
+            throw new IllegalArgumentException("Lớp bạn chọn chưa được gán cho bộ video này.");
         }
         return classIdParam;
     }
@@ -1366,7 +1452,7 @@ public class ReviewVideoService {
         }
         if (!classTeacherRepository.existsBySchoolClassIdAndTeacherIdAndAssignedToIsNull(classId, actorUserId)) {
             throw new NotAssignedTeacherForClassException(
-                    "Tài khoản id=" + actorUserId + " không được phân công giảng dạy lớp id=" + classId + ".");
+                    "Bạn không được phân công giảng dạy lớp này.");
         }
     }
 
@@ -1377,7 +1463,7 @@ public class ReviewVideoService {
         }
         if (!classTeacherRepository.existsBySchoolClass_CurriculumIdAndTeacherIdAndAssignedToIsNull(curriculumId, actorUserId)) {
             throw new NotAssignedTeacherForClassException(
-                    "Tài khoản id=" + actorUserId + " không dạy lớp nào thuộc khung chương trình id=" + curriculumId + ".");
+                    "Bạn không dạy lớp nào thuộc khung chương trình này.");
         }
     }
 
@@ -1425,7 +1511,7 @@ public class ReviewVideoService {
         for (ReviewVideo video : videos) {
             if (!reviewVideoConnectionQuestionRepository.existsByReviewVideoId(video.getId())) {
                 throw new IllegalArgumentException(
-                        "Video \"" + video.getTitle() + "\" (id=" + video.getId() + ") chưa có câu hỏi trắc nghiệm — " +
+                        "Video \"" + video.getTitle() + "\" chưa có câu hỏi trắc nghiệm — " +
                         "video Kết nối bắt buộc có câu hỏi trước khi Publish.");
             }
         }
@@ -1548,6 +1634,21 @@ public class ReviewVideoService {
                 s.getId(), s.getReviewVideoQuestion().getId(), s.getAttemptNumber(),
                 s.getStudent().getId(), s.getStudent().getUser().getFullName(),
                 s.getAudioUrl(), s.getSubmittedAt(), s.getScore(), s.getMaxScore(), s.getFeedback(),
-                s.getGradedBy() == null ? null : s.getGradedBy().getId(), s.getGradedAt());
+                s.getGradedBy() == null ? null : s.getGradedBy().getId(), s.getGradedAt(),
+                null, null, null, null, null, null, null);
+    }
+
+    /** Bổ sung ngoài SDD gốc, xác nhận 2026-08-17 — như toResponse(ReviewVideoQuestionSubmission), kèm thêm
+     *  thông tin Bộ/Video/câu hỏi để FE gắn nhãn nguồn khi gộp nhiều Bộ trong hàng chờ chấm theo lớp. */
+    private ReviewVideoSubmissionResponse toResponseWithVideoInfo(ReviewVideoQuestionSubmission s, ReviewVideoSet set) {
+        ReviewVideoQuestion q = s.getReviewVideoQuestion();
+        ReviewVideo video = q.getReviewVideo();
+        return new ReviewVideoSubmissionResponse(
+                s.getId(), q.getId(), s.getAttemptNumber(),
+                s.getStudent().getId(), s.getStudent().getUser().getFullName(),
+                s.getAudioUrl(), s.getSubmittedAt(), s.getScore(), s.getMaxScore(), s.getFeedback(),
+                s.getGradedBy() == null ? null : s.getGradedBy().getId(), s.getGradedAt(),
+                set.getId(), set.getTitle(), video.getId(), video.getTitle(), video.getDisplayOrder(),
+                q.getPrompt(), q.getTimestampSeconds());
     }
 }

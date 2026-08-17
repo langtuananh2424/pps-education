@@ -1,6 +1,5 @@
 package vn.com.pps.education.dto;
 
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 import java.time.LocalDate;
@@ -31,7 +30,10 @@ public record CreateStudentCommentRequest(
         @NotNull Long studentId,
         @NotNull Long classSessionId,
         @NotNull LocalDate commentDate,
-        @NotBlank String content,
+        // Bổ sung ngoài SDD gốc, xác nhận 2026-08-17 — bỏ @NotBlank: cho phép lưu nháp (DRAFT) chỉ với
+        // Thái độ/BTVN/Ghi chú mà chưa gõ Nhận xét. Nhận xét chỉ bắt buộc khi Gửi duyệt, xem
+        // StudentCommentService#submitComments (MissingCommentContentException).
+        String content,
         Map<String, Object> structuredContent,
         String severity,
         boolean isWarning,

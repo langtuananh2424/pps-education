@@ -449,6 +449,9 @@ export default function StudentProgressPage() {
                         {c.attitude && (
                           <p className="text-xs text-slate-400 mt-1">Thái độ: {c.attitude}</p>
                         )}
+                        {c.note && (
+                          <p className="text-xs text-slate-400 mt-1">Ghi chú: {c.note}</p>
+                        )}
                       </div>
                     ))
                   )}

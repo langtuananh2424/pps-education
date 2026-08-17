@@ -179,7 +179,7 @@ public class SiteService {
         User actor = getUserOrThrow(actorUserId);
         if (siteTeacherRepository.existsBySiteIdAndTeacherIdAndAssignedToIsNull(site.getId(), teacher.getId())) {
             throw new SiteTeacherAlreadyAssignedException(
-                    "Giáo viên id=" + teacher.getId() + " đã được gán vào điểm trường id=" + site.getId());
+                    "Giáo viên này đã được gán vào điểm trường này rồi.");
         }
 
         SiteTeacher assignment = new SiteTeacher();

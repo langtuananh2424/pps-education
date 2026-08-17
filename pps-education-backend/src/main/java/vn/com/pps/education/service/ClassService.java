@@ -204,23 +204,22 @@ public class ClassService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy khung chương trình id=" + request.curriculumId()));
         if (curriculum.getStatus() != Curriculum.Status.ACTIVE) {
             throw new CurriculumNotActiveException(
-                    "Khung chương trình id=" + curriculum.getId() + " chưa ở trạng thái ACTIVE.");
+                    "Khung chương trình này chưa ở trạng thái ACTIVE.");
         }
         Site site = siteRepository.findById(request.siteId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy điểm trường id=" + request.siteId()));
         // UC-17 Postcondition -- khung tùy biến (site_id NOT NULL) chỉ dùng được cho đúng điểm trường đó.
         if (curriculum.getSite() != null && !curriculum.getSite().getId().equals(site.getId())) {
             throw new CurriculumNotAvailableForSiteException(
-                    "Khung chương trình id=" + curriculum.getId() + " chỉ áp dụng cho điểm trường id="
-                            + curriculum.getSite().getId() + ", không dùng được cho điểm trường id=" + site.getId() + ".");
+                    "Khung chương trình này chỉ áp dụng cho điểm trường đã gán sẵn, không dùng được cho điểm trường bạn vừa chọn.");
         }
         SchoolClass.ClassType classType = SchoolClass.ClassType.valueOf(request.classType());
 
         // A2 -- Lớp liên kết bắt buộc gán Điểm trường loại Trường liên kết (PARTNER).
         if (classType == SchoolClass.ClassType.LINKED && site.getSiteType() != Site.SiteType.PARTNER) {
             throw new LinkedClassRequiresPartnerSiteException(
-                    "Lớp liên kết (LINKED) bắt buộc gán Điểm trường loại PARTNER — điểm trường id=" + site.getId()
-                            + " hiện là " + site.getSiteType() + ".");
+                    "Lớp liên kết (LINKED) bắt buộc gán Điểm trường loại PARTNER — điểm trường bạn chọn hiện là "
+                            + site.getSiteType() + ".");
         }
 
         User actor = userRepository.findById(actorUserId)
@@ -314,12 +313,12 @@ public class ClassService {
             throw new ResourceNotFoundException("Không tìm thấy phân công giáo viên id=" + classTeacherId + " trong lớp id=" + classId);
         }
         if (oldAssignment.getAssignedTo() != null) {
-            throw new IllegalArgumentException("Phân công giáo viên id=" + classTeacherId + " đã kết thúc từ " + oldAssignment.getAssignedTo());
+            throw new IllegalArgumentException("Phân công giáo viên này đã kết thúc từ " + oldAssignment.getAssignedTo());
         }
         if (oldAssignment.getTeacherRole() != ClassTeacher.TeacherRole.PRIMARY) {
             throw new IllegalArgumentException(
-                    "changeTeacher chỉ áp dụng cho giáo viên chính (PRIMARY) — phân công id=" + classTeacherId
-                            + " hiện có vai trò " + oldAssignment.getTeacherRole() + ". Dùng assignTeacher/endTeacherAssignment cho CM/trợ giảng.");
+                    "Chỉ đổi được giáo viên chính (PRIMARY) qua chức năng này — phân công đang chọn hiện có vai trò "
+                            + oldAssignment.getTeacherRole() + ". Dùng chức năng gán/kết thúc phân công cho CM/trợ giảng.");
         }
 
         SchoolClass schoolClass = oldAssignment.getSchoolClass();
@@ -447,7 +446,7 @@ public class ClassService {
             throw new ResourceNotFoundException("Không tìm thấy phân công giáo viên id=" + classTeacherId + " trong lớp id=" + classId);
         }
         if (classTeacher.getAssignedTo() != null) {
-            throw new IllegalArgumentException("Phân công giáo viên id=" + classTeacherId + " đã kết thúc từ " + classTeacher.getAssignedTo());
+            throw new IllegalArgumentException("Phân công giáo viên này đã kết thúc từ " + classTeacher.getAssignedTo());
         }
 
         endTeacherAssignmentInternal(classTeacher, request.assignedTo(), actor);
@@ -487,7 +486,7 @@ public class ClassService {
                 .findBySchoolClassIdAndStudentIdAndStatus(classId, request.studentId(), ClassEnrollment.Status.ACTIVE)
                 .isPresent()) {
             throw new ClassEnrollmentAlreadyActiveException(
-                    "Học sinh id=" + request.studentId() + " đã ghi danh ACTIVE trong lớp id=" + classId + ".");
+                    "Học sinh này đã ghi danh ACTIVE trong lớp rồi.");
         }
         User actor = userRepository.findById(actorUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
@@ -551,13 +550,12 @@ public class ClassService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy khung chương trình id=" + request.curriculumId()));
         if (newCurriculum.getStatus() != Curriculum.Status.ACTIVE) {
             throw new CurriculumNotActiveException(
-                    "Khung chương trình id=" + newCurriculum.getId() + " chưa ở trạng thái ACTIVE.");
+                    "Khung chương trình này chưa ở trạng thái ACTIVE.");
         }
         // UC-17 Postcondition -- khung tùy biến (site_id NOT NULL) chỉ dùng được cho đúng điểm trường đó (site giữ nguyên từ lớp cũ).
         if (newCurriculum.getSite() != null && !newCurriculum.getSite().getId().equals(oldClass.getSite().getId())) {
             throw new CurriculumNotAvailableForSiteException(
-                    "Khung chương trình id=" + newCurriculum.getId() + " chỉ áp dụng cho điểm trường id="
-                            + newCurriculum.getSite().getId() + ", không dùng được cho điểm trường id=" + oldClass.getSite().getId() + ".");
+                    "Khung chương trình này chỉ áp dụng cho điểm trường đã gán sẵn, không dùng được cho điểm trường bạn vừa chọn.");
         }
 
         User actor = userRepository.findById(actorUserId)

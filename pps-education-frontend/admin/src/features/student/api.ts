@@ -226,6 +226,7 @@ export interface StudentProfileComment {
   severity: string;
   isWarning: boolean;
   attitude: string | null;
+  note: string | null;
   status: string;
   academicTermId: number | null;
   academicTermName: string | null;

@@ -452,6 +452,24 @@ UC-23b: Nộp & Chấm điểm Audio cho Video Phản xạ
 > gì để giáo viên chấm trong trường hợp đó. Xem đầy đủ cơ chế (bao gồm
 > ngưỡng báo, khác biệt real-time vs đệm-rồi-gửi) tại UC-24 bên dưới.
 
+> **Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-17 — hàng chờ
+> chấm gộp theo lớp + badge Sidebar:** trước đây Giáo viên phải chọn 1 Bộ
+> Video phản xạ rồi mới chọn 1 lớp mới thấy bài chờ chấm — không biết trước
+> lớp nào đang tồn đọng. Nay thêm: (1) badge số LỚP (không phải số bài/học
+> sinh) đang có ≥1 bài Video phản xạ chưa chấm, hiện cạnh mục "Hàng chờ chấm
+> bài" ở Sidebar; (2) vào trang mặc định thấy ngay danh sách các lớp đó kèm
+> số bài tồn đọng, bấm vào 1 lớp xem GỘP mọi Bộ REFLEX đã gán cho lớp đó
+> (nhóm theo học sinh như cũ) thay vì phải tự chọn lại từng Bộ. 2 endpoint
+> mới: `GET /api/review-video-submissions/pending-grading` (tóm tắt theo
+> lớp) và `GET /api/classes/{classId}/review-video-submissions` (danh sách
+> gộp). Auth theo `requireAssignedTeacher` (lớp cụ thể, mirror UC-62 hàng
+> chờ phúc khảo) — CHẶT HƠN `requireOwnerScope` theo khung chương trình mà
+> endpoint cũ `/api/review-video-sets/{setId}/submissions` vẫn dùng —
+> endpoint cũ giữ nguyên không đổi, chuyển thành lối xem phụ "Xem theo Bộ +
+> Lớp" để giáo viên tra cứu lại lớp đã chấm hết (không còn ở landing/badge)
+> hoặc lớp chung khung chương trình nhưng không trực tiếp đứng lớp.
+> Landing/badge chỉ tính lớp CHƯA CHẤM HẾT (còn ≥1 bài score IS NULL).
+
 ---
 
 UC-60: Kho tài liệu tham khảo

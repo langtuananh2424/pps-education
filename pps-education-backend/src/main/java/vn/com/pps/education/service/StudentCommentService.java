@@ -41,6 +41,7 @@ import vn.com.pps.education.dto.UpdateStudentCommentContentRequest;
 import vn.com.pps.education.dto.UpdateStudentCommentRequest;
 import vn.com.pps.education.exception.ApprovalAlreadyDecidedException;
 import vn.com.pps.education.exception.HomeworkNextConflictException;
+import vn.com.pps.education.exception.MissingCommentContentException;
 import vn.com.pps.education.exception.MissingLessonContentException;
 import vn.com.pps.education.exception.NoUpcomingClassSessionException;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
@@ -180,6 +181,18 @@ public class StudentCommentService {
     private static final int COL_NOTE = 16;
 
     private static final DateTimeFormatter DUE_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+
+    /**
+     * Cố định múi giờ Việt Nam thay vì {@code ZoneId.systemDefault()} — session_date/start_time/
+     * end_time lưu DB là giờ VN thuần (không kèm zone) nên phải quy đổi đúng zone VN khi so sánh
+     * với {@code OffsetDateTime.now()}, không phụ thuộc múi giờ JVM đang chạy (biến môi trường TZ
+     * của container). Bug thật: TZ chỉ được set qua docker-compose.yml (local dev) — môi trường
+     * deploy khác (Railway...) không tự có TZ=Asia/Ho_Chi_Minh, JVM về UTC mặc định của base image,
+     * lệch 7 tiếng khiến buổi học đã kết thúc theo giờ VN vẫn bị coi là "chưa kết thúc". Đã từng
+     * gặp bug cùng gốc ở UC-09 chấm công (xem comment TZ trong docker-compose.yml) — cố định zone
+     * ngay trong code để không còn phụ thuộc cấu hình đúng ở MỌI môi trường chạy sau này.
+     */
+    private static final ZoneId APP_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
 
     /**
      * Nhãn 2 kênh BTVN theo Loại giáo viên (bổ sung ngoài SDD gốc, đã xác
@@ -324,7 +337,7 @@ public class StudentCommentService {
         requireSessionEndedAndAttendanceTaken(comment.getClassSession(), actorUserId);
         if (comment.getStatus() != StudentComment.Status.DRAFT && comment.getStatus() != StudentComment.Status.REJECTED) {
             throw new StudentCommentNotEditableException(
-                    "Nhận xét id=" + id + " đang ở trạng thái " + comment.getStatus() + " — chỉ sửa được khi DRAFT hoặc REJECTED.");
+                    "Nhận xét này đang ở trạng thái " + comment.getStatus() + " — chỉ sửa được khi Nháp (DRAFT) hoặc Bị từ chối (REJECTED).");
         }
 
         ExerciseAssignment grammarAssignment = resolveExerciseHomework(comment.getClassSession(), comment.getId(), request.homeworkNextExerciseId(),
@@ -403,11 +416,18 @@ public class StudentCommentService {
             }
             if (comment.getStatus() != StudentComment.Status.DRAFT) {
                 throw new StudentCommentNotEditableException(
-                        "Nhận xét id=" + comment.getId() + " đang ở trạng thái " + comment.getStatus() + " — chỉ submit được khi DRAFT.");
+                        "Nhận xét này đang ở trạng thái " + comment.getStatus() + " — chỉ gửi duyệt được khi còn Nháp (DRAFT).");
+            }
+            // Bổ sung ngoài SDD gốc, xác nhận 2026-08-17 — content không còn @NotBlank ở DTO (lưu nháp
+            // được mà chưa cần Nhận xét), nên đây là chốt chặn DUY NHẤT còn lại đảm bảo Nhận xét ở
+            // trạng thái Chờ duyệt/Đã duyệt (Phụ huynh xem được) luôn có nội dung.
+            if (comment.getContent() == null || comment.getContent().isBlank()) {
+                throw new MissingCommentContentException(
+                        "Học sinh " + comment.getStudent().getUser().getFullName()
+                                + " chưa có nội dung Nhận xét — cần nhập Nhận xét trước khi gửi duyệt.");
             }
             if (comment.getClassSession().getLessonContent() == null || comment.getClassSession().getLessonContent().isBlank()) {
-                throw new MissingLessonContentException("Buổi học id=" + comment.getClassSession().getId()
-                        + " chưa điền bài học hôm nay — không thể gửi duyệt.");
+                throw new MissingLessonContentException("Buổi học này chưa điền bài học hôm nay — không thể gửi duyệt.");
             }
             ApprovalFlow flow = new ApprovalFlow();
             flow.setEntityType(ApprovalFlow.EntityType.STUDENT_COMMENT);
@@ -459,7 +479,7 @@ public class StudentCommentService {
             requireSiteManagerForSite(comment.getSchoolClass().getSite().getId(), actorUserId);
             if (comment.getStatus() != StudentComment.Status.PENDING) {
                 throw new ApprovalAlreadyDecidedException(
-                        "Nhận xét id=" + comment.getId() + " đã được quyết định (" + comment.getStatus() + ").");
+                        "Nhận xét này đã được quyết định (" + comment.getStatus() + ").");
             }
             ApprovalFlow flow = comment.getApprovalFlow();
             flow.setDecision(decision);
@@ -506,7 +526,7 @@ public class StudentCommentService {
 
         if (comment.getStatus() != StudentComment.Status.PENDING) {
             throw new StudentCommentNotEditableException(
-                    "Nhận xét id=" + id + " đang ở trạng thái " + comment.getStatus() + " — chỉ quản lý mới được sửa khi PENDING.");
+                    "Nhận xét này đang ở trạng thái " + comment.getStatus() + " — chỉ quản lý mới được sửa khi đang Chờ duyệt (PENDING).");
         }
 
         comment.setContent(request.content());
@@ -582,7 +602,7 @@ public class StudentCommentService {
                 .anyMatch(c -> c.getStatus() == StudentComment.Status.PENDING || c.getStatus() == StudentComment.Status.APPROVED);
         if (hasSent) {
             throw new StudentCommentNotEditableException(
-                    "Buổi học id=" + session.getId() + " đã có nhận xét đang chờ duyệt/đã duyệt — không sửa được "
+                    "Buổi học này đã có nhận xét đang chờ duyệt/đã duyệt — không sửa được "
                             + "Loại giáo viên/Bài học hôm nay/Tên giáo viên giảng dạy nữa. Muốn sửa lại, nhờ Quản lý "
                             + "điểm trường từ chối toàn bộ nhận xét của buổi để mở khoá.");
         }
@@ -765,7 +785,7 @@ public class StudentCommentService {
                 ? existing.getHomeworkNextExerciseAssignment().getDueAt()
                 : existing.getHomeworkNextReviewVideoAssignment() != null
                         ? existing.getHomeworkNextReviewVideoAssignment().getDueAt() : null;
-        return dueAt == null ? null : dueAt.atZoneSameInstant(ZoneId.systemDefault()).toLocalDateTime().format(DUE_DATE_FORMAT);
+        return dueAt == null ? null : dueAt.atZoneSameInstant(APP_ZONE).toLocalDateTime().format(DUE_DATE_FORMAT);
     }
 
     /**
@@ -1187,7 +1207,10 @@ public class StudentCommentService {
                                String homeworkPreviousSpeakingScore, String homeworkNext,
                                ExerciseAssignment homeworkNextExerciseAssignment,
                                ReviewVideoAssignment homeworkNextReviewVideoAssignment, String note) {
-        comment.setContent(content);
+        // Bổ sung ngoài SDD gốc, xác nhận 2026-08-17 — content không còn @NotBlank ở DTO (cho lưu nháp
+        // độc lập Thái độ/BTVN/Ghi chú), nhưng cột DB student_comments.content vẫn NOT NULL (V15,
+        // không ALTER) — ghi "" thay vì null khi FE gửi thiếu, tránh vi phạm ràng buộc DB.
+        comment.setContent(content == null ? "" : content);
         comment.setStructuredContent(structuredContent);
         if (severity != null) {
             comment.setSeverity(StudentComment.Severity.valueOf(severity));
@@ -1241,7 +1264,7 @@ public class StudentCommentService {
                 exerciseId, exercise.getTitle());
         OffsetDateTime dueAt = resolveDueAt(session, customDueDate);
         requireNoDueDateConflict(session, excludeCommentId, dueAt);
-        ExerciseAssignment assignment = exerciseService.deliverToClass(exerciseId, session.getSchoolClass().getId(), dueAt, actorUserId);
+        ExerciseAssignment assignment = exerciseService.deliverToClass(exerciseId, session.getSchoolClass().getId(), dueAt, actorUserId, session);
         if (previous != null) {
             exerciseService.cancelAssignment(previous);
         }
@@ -1268,7 +1291,7 @@ public class StudentCommentService {
                 videoSetId, set.getTitle());
         OffsetDateTime dueAt = resolveDueAt(session, customDueDate);
         requireNoDueDateConflict(session, excludeCommentId, dueAt);
-        ReviewVideoAssignment assignment = reviewVideoService.deliverToClass(videoSetId, session.getSchoolClass().getId(), dueAt, actorUserId);
+        ReviewVideoAssignment assignment = reviewVideoService.deliverToClass(videoSetId, session.getSchoolClass().getId(), dueAt, actorUserId, session);
         if (previous != null) {
             reviewVideoService.cancelAssignment(previous);
         }
@@ -1319,12 +1342,12 @@ public class StudentCommentService {
                 List.of(ClassSession.Status.CANCELLED, ClassSession.Status.RESCHEDULED), session.getTeacherType());
         if (upcoming.isEmpty()) {
             throw new NoUpcomingClassSessionException(
-                    "Lớp id=" + session.getSchoolClass().getId() + " chưa có buổi học kế tiếp"
+                    "Lớp này chưa có buổi học kế tiếp"
                             + (session.getTeacherType() != null ? " cùng loại giáo viên (" + session.getTeacherType() + ")" : "")
                             + " trong lịch — không thể đặt hạn nộp cho BTVN buổi sau.");
         }
         ClassSession next = upcoming.get(0);
-        return next.getSessionDate().atTime(next.getStartTime()).atZone(ZoneId.systemDefault()).toOffsetDateTime();
+        return next.getSessionDate().atTime(next.getStartTime()).atZone(APP_ZONE).toOffsetDateTime();
     }
 
     /**
@@ -1337,7 +1360,7 @@ public class StudentCommentService {
      */
     private OffsetDateTime resolveDueAt(ClassSession session, LocalDateTime customDueDate) {
         if (customDueDate != null) {
-            return customDueDate.atZone(ZoneId.systemDefault()).toOffsetDateTime();
+            return customDueDate.atZone(APP_ZONE).toOffsetDateTime();
         }
         return resolveNextSessionDueAt(session);
     }
@@ -1380,7 +1403,7 @@ public class StudentCommentService {
         UUID uuid = tryParseUuid(text);
         if (uuid != null) {
             return byUuid.apply(uuid)
-                    .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy " + kindLabel + " với uuid=" + text));
+                    .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy " + kindLabel + " tương ứng."));
         }
         T match = byLabel.get(text);
         if (match == null) {
@@ -1485,7 +1508,7 @@ public class StudentCommentService {
             return;
         }
         OffsetDateTime sessionEnd = classSession.getSessionDate().atTime(classSession.getEndTime())
-                .atZone(ZoneId.systemDefault()).toOffsetDateTime();
+                .atZone(APP_ZONE).toOffsetDateTime();
         if (OffsetDateTime.now().isBefore(sessionEnd)) {
             throw new StudentCommentNotEditableException(
                     "Buổi học ngày " + classSession.getSessionDate() + " (" + classSession.getStartTime() + "–"
@@ -1494,7 +1517,7 @@ public class StudentCommentService {
         Optional<AttendanceSession> attendanceSession = attendanceSessionRepository.findByClassSessionId(classSession.getId());
         if (attendanceSession.isEmpty() || attendanceSession.get().getStatus() == AttendanceSession.Status.DRAFT) {
             throw new StudentCommentNotEditableException(
-                    "Buổi học id=" + classSession.getId() + " chưa điểm danh xong — vui lòng điểm danh (UC-15) và Lưu điểm danh trước khi viết nhận xét.");
+                    "Buổi học này chưa điểm danh xong — vui lòng điểm danh và lưu điểm danh trước khi viết nhận xét.");
         }
     }
 
@@ -1595,7 +1618,7 @@ public class StudentCommentService {
         }
         if (!classTeacherRepository.existsBySchoolClassIdAndTeacherIdAndAssignedToIsNull(classId, actorUserId)) {
             throw new NotAssignedTeacherForClassException(
-                    "Tài khoản id=" + actorUserId + " không được phân công giảng dạy lớp id=" + classId + ".");
+                    "Bạn không được phân công giảng dạy lớp này.");
         }
     }
 
@@ -1603,7 +1626,7 @@ public class StudentCommentService {
         if (!siteManagerRepository.existsBySiteIdAndUserIdAndRoleTypeAndAssignedToIsNull(
                 siteId, actorUserId, SiteManager.RoleType.SITE_MANAGER)) {
             throw new NotSiteManagerForSiteException(
-                    "Tài khoản id=" + actorUserId + " không được gán phụ trách điểm trường id=" + siteId + ".");
+                    "Bạn không được gán phụ trách điểm trường này.");
         }
     }
 

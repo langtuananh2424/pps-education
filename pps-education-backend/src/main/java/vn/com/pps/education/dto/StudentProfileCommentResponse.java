@@ -13,6 +13,7 @@ public record StudentProfileCommentResponse(
         String severity,
         boolean isWarning,
         String attitude,
+        String note,
         String status,
         Long academicTermId,
         String academicTermName,

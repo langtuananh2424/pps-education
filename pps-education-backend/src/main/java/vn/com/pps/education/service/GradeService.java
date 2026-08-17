@@ -259,8 +259,8 @@ public class GradeService {
         BigDecimal expected = expectedMaxScore(setup.getScaleType());
         if (maxScore.compareTo(expected) != 0) {
             throw new GradeComponentSetupScaleMismatchException(
-                    "maxScore=" + maxScore + " không khớp thang điểm " + setup.getScaleType()
-                            + " của setup id=" + setup.getId() + " (yêu cầu=" + expected + ").");
+                    "Điểm tối đa (" + maxScore + ") không khớp thang điểm " + setup.getScaleType()
+                            + " của setup sổ điểm này (yêu cầu " + expected + ").");
         }
     }
 
@@ -276,16 +276,16 @@ public class GradeService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy setup sổ điểm id=" + id));
         if (gradeEvaluationComponentRepository.countByGradeComponentSetupId(id) > 0) {
             throw new GradeComponentSetupNotDeletableException(
-                    "Setup sổ điểm id=" + id + " còn thành phần điểm — xoá từng thành phần trước khi xoá setup.");
+                    "Setup sổ điểm này còn thành phần điểm — xoá từng thành phần trước khi xoá setup.");
         }
         if (gradeEvaluationResultRepository.countBySchoolClassIdAndAcademicTermIdAndEvaluationType(
                 setup.getSchoolClass().getId(), setup.getAcademicTerm().getId(), setup.getEvaluationType()) > 0) {
             throw new GradeComponentSetupNotDeletableException(
-                    "Setup sổ điểm id=" + id + " đã có điểm tổng kết — không thể xoá.");
+                    "Setup sổ điểm này đã có điểm tổng kết — không thể xoá.");
         }
         if (gradePeriodEditWindowRepository.existsByGradeComponentSetupId(id)) {
             throw new GradeComponentSetupNotDeletableException(
-                    "Setup sổ điểm id=" + id + " đã bắt đầu nhập điểm — không thể xoá.");
+                    "Setup sổ điểm này đã bắt đầu nhập điểm — không thể xoá.");
         }
         gradeComponentSetupHistoryRepository.deleteByGradeComponentSetupId(id);
         gradeComponentSetupRepository.delete(setup);
@@ -357,7 +357,7 @@ public class GradeService {
         boolean maxScoreChanged = component.getMaxScore().compareTo(newMaxScore) != 0;
         if (maxScoreChanged && gradeEntryRepository.countByGradeComponentId(id) > 0) {
             throw new GradeComponentLockedException(
-                    "Thành phần điểm id=" + id + " đã có điểm nhập — không được sửa maxScore.");
+                    "Thành phần điểm này đã có điểm nhập — không được sửa điểm tối đa.");
         }
         if (maxScoreChanged) {
             requireMaxScoreMatchesScale(component.getGradeComponentSetup(), newMaxScore);
@@ -383,7 +383,7 @@ public class GradeService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thành phần điểm id=" + id));
         if (gradeEntryRepository.countByGradeComponentId(id) > 0) {
             throw new GradeComponentNotDeletableException(
-                    "Thành phần điểm id=" + id + " đã có điểm nhập — không thể xoá.");
+                    "Thành phần điểm này đã có điểm nhập — không thể xoá.");
         }
         gradeEvaluationComponentHistoryRepository.deleteByGradeEvaluationComponentId(id);
         gradeEvaluationComponentRepository.delete(component);
@@ -855,7 +855,7 @@ public class GradeService {
     private void requireSubmittable(String statusName, Long entityId) {
         if (!"DRAFT".equals(statusName) && !"REJECTED".equals(statusName)) {
             throw new GradeAlreadyPublishedException(
-                    "Bản ghi điểm id=" + entityId + " ở trạng thái " + statusName + " không thể gửi duyệt.");
+                    "Bản ghi điểm này ở trạng thái " + statusName + " không thể gửi duyệt.");
         }
     }
 
@@ -884,7 +884,7 @@ public class GradeService {
                 : "SUBMITTED".equals(statusName);
         if (!validSource) {
             throw new GradeAlreadyPublishedException(
-                    "Bản ghi điểm id=" + entityId + " ở trạng thái " + statusName
+                    "Bản ghi điểm này ở trạng thái " + statusName
                             + " không thể " + (decision == ApprovalFlow.Decision.APPROVED ? "duyệt" : "từ chối") + ".");
         }
         ApprovalFlow flow = approvalFlowRepository
@@ -925,8 +925,8 @@ public class GradeService {
             return;
         }
         throw new NotAssignedTeacherForClassException(
-                "Tài khoản id=" + actorUserId + " không được phân công giảng dạy lớp id=" + classId
-                        + ", không có quyền academic.grade.manage, và cũng không phải Quản lý điểm trường phụ trách lớp này.");
+                "Bạn không được phân công giảng dạy lớp này, không có quyền quản lý sổ điểm,"
+                        + " và cũng không phải Quản lý điểm trường phụ trách lớp này.");
     }
 
     /**
@@ -954,7 +954,7 @@ public class GradeService {
             return;
         }
         throw new GradeNotEditableException(
-                "Bản ghi điểm id=" + entityId + " ở trạng thái " + statusName + " không thể sửa/xoá.");
+                "Bản ghi điểm này ở trạng thái " + statusName + " không thể sửa/xoá.");
     }
 
     /**
@@ -995,7 +995,7 @@ public class GradeService {
         if (!siteManagerRepository.existsBySiteIdAndUserIdAndRoleTypeAndAssignedToIsNull(
                 siteId, actorUserId, SiteManager.RoleType.SITE_MANAGER)) {
             throw new NotSiteManagerForSiteException(
-                    "Tài khoản id=" + actorUserId + " không được gán phụ trách điểm trường id=" + siteId + ".");
+                    "Bạn không được gán phụ trách điểm trường này.");
         }
     }
 
@@ -1003,7 +1003,7 @@ public class GradeService {
     private void requireGradeApprovePermission(Long actorUserId) {
         if (!permissionEvaluationService.hasPermission(actorUserId, "academic.grade.approve")) {
             throw new NotSiteManagerForSiteException(
-                    "Tài khoản id=" + actorUserId + " không có quyền academic.grade.approve.");
+                    "Bạn không có quyền duyệt điểm.");
         }
     }
 

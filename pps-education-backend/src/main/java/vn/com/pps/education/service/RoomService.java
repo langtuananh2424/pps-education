@@ -65,7 +65,7 @@ public class RoomService {
     public RoomResponse createRoom(CreateRoomRequest request, Long actorUserId) {
         Site site = getSiteOrThrow(request.siteId());
         if (roomRepository.existsBySiteIdAndCode(request.siteId(), request.code())) {
-            throw new DuplicateRoomCodeException("Mã phòng " + request.code() + " đã tồn tại tại điểm trường id=" + request.siteId());
+            throw new DuplicateRoomCodeException("Mã phòng " + request.code() + " đã tồn tại tại điểm trường này.");
         }
         User actor = getUserOrThrow(actorUserId);
 

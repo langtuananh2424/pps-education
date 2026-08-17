@@ -56,6 +56,7 @@ import vn.com.pps.education.dto.UpdateStudentCommentContentRequest;
 import vn.com.pps.education.dto.UpdateStudentCommentRequest;
 import vn.com.pps.education.exception.ApprovalAlreadyDecidedException;
 import vn.com.pps.education.exception.HomeworkNextConflictException;
+import vn.com.pps.education.exception.MissingCommentContentException;
 import vn.com.pps.education.exception.MissingLessonContentException;
 import vn.com.pps.education.exception.NoUpcomingClassSessionException;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
@@ -406,6 +407,55 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         assertThatThrownBy(() -> studentCommentService.submitComments(schoolClass.id(),
                 new SubmitCommentsRequest(List.of(comment.id())), siteManagerUser.getId()))
                 .isInstanceOf(NotAssignedTeacherForClassException.class);
+    }
+
+    // ===================== Nới lỏng content bắt buộc lúc lưu nháp (bổ sung ngoài SDD gốc, 2026-08-17) =====================
+
+    @Test
+    void writeComment_boSung_savesDraftWithoutContent() {
+        StudentCommentResponse comment = studentCommentService.writeComment(schoolClass.id(),
+                new CreateStudentCommentRequest(student.getId(), classSession.id(),
+                        LocalDate.now(), "", null, null, false, "GOOD", null, null, null, null, null, null, null),
+                teacher.getId());
+
+        assertThat(comment.status()).isEqualTo("DRAFT");
+        assertThat(comment.content()).isEmpty();
+        assertThat(comment.attitude()).isEqualTo("GOOD");
+    }
+
+    /** applyContent phải ghi "" thay vì null khi FE gửi content=null — content cột DB vẫn NOT NULL (V15). */
+    @Test
+    void writeComment_boSung_coercesNullContentToEmptyString() {
+        StudentCommentResponse comment = studentCommentService.writeComment(schoolClass.id(),
+                new CreateStudentCommentRequest(student.getId(), classSession.id(),
+                        LocalDate.now(), null, null, null, false, null, null, null, null, null, null, null, "Chỉ ghi chú"),
+                teacher.getId());
+
+        assertThat(comment.status()).isEqualTo("DRAFT");
+        assertThat(comment.content()).isEmpty();
+        assertThat(comment.note()).isEqualTo("Chỉ ghi chú");
+    }
+
+    @Test
+    void updateComment_boSung_savesDraftWithoutContent() {
+        StudentCommentResponse comment = writeDailyComment(teacher, "Nội dung ban đầu.");
+
+        StudentCommentResponse edited = studentCommentService.updateComment(comment.id(),
+                new UpdateStudentCommentRequest("", null, null, false, "EXCELLENT", null, null, null, null, null, null, null),
+                teacher.getId());
+
+        assertThat(edited.status()).isEqualTo("DRAFT");
+        assertThat(edited.content()).isEmpty();
+        assertThat(edited.attitude()).isEqualTo("EXCELLENT");
+    }
+
+    @Test
+    void submitComments_boSung_rejectsWhenContentBlank() {
+        StudentCommentResponse comment = writeDailyComment(teacher, "");
+
+        assertThatThrownBy(() -> studentCommentService.submitComments(schoolClass.id(),
+                new SubmitCommentsRequest(List.of(comment.id())), teacher.getId()))
+                .isInstanceOf(MissingCommentContentException.class);
     }
 
     @Test
@@ -1167,8 +1217,10 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
 
         StudentCommentResponse comment = writeDailyCommentWithHomeworkNext(student, classSession, fixture.exercise().id(), null);
 
+        // Khớp APP_ZONE (Asia/Ho_Chi_Minh) cố định trong StudentCommentService — không dùng ZoneId.systemDefault()
+        // vì múi giờ JVM chạy test (CI/local) có thể khác múi giờ nghiệp vụ, gây lệch giả (xem StudentCommentService).
         OffsetDateTime expectedDueAt = nextVietnameseSession.sessionDate().atTime(nextVietnameseSession.startTime())
-                .atZone(ZoneId.systemDefault()).toOffsetDateTime();
+                .atZone(ZoneId.of("Asia/Ho_Chi_Minh")).toOffsetDateTime();
         assertThat(comment.homeworkNextDueAt()).isEqualTo(expectedDueAt);
     }
 
