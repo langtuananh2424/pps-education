@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronUp, Download, Save, Send, UploadCloud } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { downloadBlob } from "@/lib/xlsxTemplate";
-import { useApp } from "@/context/AppContext";
+import { useApp, UnsavedSaveResult } from "@/context/AppContext";
 import {
   ClassEnrollmentResponse,
   ClassSessionResponse,
@@ -86,6 +86,21 @@ interface Row {
   /** id của ReviewVideoSet NGUỒN đã Publish — không đổi tên qua V65 (request field vẫn nhận thẳng set id). */
   homeworkNextReviewVideoSetId: number | "";
   note: string;
+}
+
+/** Bổ sung ngoài SDD gốc, xác nhận 2026-08-17 — dùng cho "Lưu nháp": khác handleSend (chỉ cần content),
+ *  lưu nháp chấp nhận BẤT KỲ trường nào đã điền (Thái độ/BTVN/Ghi chú...), không bắt buộc đã gõ Nhận xét. */
+function rowHasAnyData(r: Row): boolean {
+  return !!(
+    r.content.trim() ||
+    r.attitude ||
+    r.homeworkPreviousScore.trim() ||
+    r.homeworkPreviousSpeakingScore.trim() ||
+    r.homeworkNext.trim() ||
+    r.homeworkNextExerciseId !== "" ||
+    r.homeworkNextReviewVideoSetId !== "" ||
+    r.note.trim()
+  );
 }
 
 const EMPTY_ROW_HOMEWORK: Pick<Row, "homeworkNext" | "homeworkNextExerciseId" | "homeworkNextReviewVideoSetId"> = {
@@ -544,27 +559,43 @@ export default function DailyCommentPanel() {
   /**
    * "Lưu nháp" (2026-08-14, bổ sung ngoài SDD gốc, đã xác nhận với người dùng) — phòng giáo viên vô
    * tình thoát khi chưa "Gửi nhận xét" (chỉ ghi DRAFT, KHÔNG gọi submitComments). Không bắt buộc điền
-   * "Bài học hôm nay"/đủ học sinh — lưu được dở dang, chỉ cần có ít nhất 1 dòng đã gõ nội dung (ràng
-   * buộc @NotBlank content ở BE). `silent=true` dùng cho autosave — không hiện banner/lỗi làm phiền.
+   * "Bài học hôm nay"/đủ học sinh — lưu được dở dang, chỉ cần có ít nhất 1 dòng có dữ liệu (xem
+   * rowHasAnyData — bổ sung 2026-08-17: KHÔNG còn bắt buộc đã gõ Nhận xét, chỉ điền Thái độ/BTVN/Ghi
+   * chú vẫn lưu được, khác `handleSend` "Gửi nhận xét" vẫn cần content). `silent=true` dùng cho
+   * autosave — không hiện banner/lỗi làm phiền.
+   *
+   * Trả về UnsavedSaveResult (bổ sung 2026-08-17, sửa bug mất dữ liệu âm thầm khi bấm "Lưu tạm & rời
+   * đi" ở Sidebar) — ok=true CHỈ khi thực sự lưu xong hết (an toàn để điều hướng đi); ok=false kèm
+   * message cụ thể nếu không lưu được gì hoặc lưu lỗi/lỗi từng phần — Sidebar hiện message này thẳng
+   * trong popup xác nhận. Trước đây luôn coi như thành công (không trả gì, Sidebar cứ điều hướng đi
+   * bất kể), khiến dữ liệu dở bị mất mà người dùng tưởng đã lưu.
    */
-  const handleSaveDraft = async (silent: boolean) => {
-    if (!selectedClassId || !selectedSession) return;
-    const filled = rows.filter((r) => r.content.trim());
+  const handleSaveDraft = async (silent: boolean): Promise<UnsavedSaveResult> => {
+    if (!selectedClassId || !selectedSession) return { ok: true };
+    const filled = rows.filter(rowHasAnyData);
     if (filled.length === 0) {
-      if (!silent) setError("Vui lòng nhập nhận xét cho ít nhất 1 học sinh trước khi lưu.");
-      return;
+      const message = "Chưa có dữ liệu nào để lưu.";
+      if (!silent) setError(message);
+      return { ok: false, message };
     }
     setSavingDraft(true);
     if (!silent) setError(null);
     try {
       const results = await saveFilledRows(filled, selectedClassId, selectedSession);
-      const failedCount = results.filter((r) => r.status === "rejected").length;
+      const failed = results
+        .map((r, i) => ({ result: r, row: filled[i] }))
+        .filter((x): x is { result: PromiseRejectedResult; row: Row } => x.result.status === "rejected");
+      const failedCount = failed.length;
+      // Lộ ĐÚNG lý do lỗi thật của học sinh đầu tiên thất bại (bổ sung 2026-08-17) — trước đây chỉ đếm
+      // số lượng, vứt bỏ nội dung lỗi thật (reason của Promise.allSettled), khiến không biết vì sao lỗi.
+      const firstFailedReason = failed[0]?.result.reason;
+      const firstFailedMessage = firstFailedReason instanceof ApiError ? firstFailedReason.message : "lỗi không xác định";
       setDirty(false);
       setLastSavedAt(new Date());
       if (!silent) {
         setNotification(
           failedCount > 0
-            ? `⚠️ Đã lưu nháp ${filled.length - failedCount}/${filled.length} nhận xét — ${failedCount} học sinh lỗi, thử lại sau.`
+            ? `⚠️ Đã lưu nháp ${filled.length - failedCount}/${filled.length} nhận xét — ${failed[0].row.studentFullName}${failedCount > 1 ? ` (+${failedCount - 1} học sinh khác)` : ""} lỗi: ${firstFailedMessage}`
             : `💾 Đã lưu nháp ${filled.length} nhận xét (chưa gửi duyệt).`
         );
       }
@@ -572,8 +603,16 @@ export default function DailyCommentPanel() {
       refreshSessionCommentStats(selectedClassId);
       listAssignmentsForClass(selectedClassId).then(setGrammarAssignments).catch(() => undefined);
       listReviewVideoAssignmentsForClass(selectedClassId).then(setVideoAssignments).catch(() => undefined);
+      return failedCount > 0
+        ? {
+            ok: false,
+            message: `Đã lưu ${filled.length - failedCount}/${filled.length} nhận xét — ${failed[0].row.studentFullName}${failedCount > 1 ? ` (+${failedCount - 1} học sinh khác)` : ""} lỗi: ${firstFailedMessage}`
+          }
+        : { ok: true };
     } catch (err) {
-      if (!silent) setError(err instanceof ApiError ? err.message : "Lưu nháp thất bại.");
+      const message = err instanceof ApiError ? err.message : "Lưu nháp thất bại.";
+      if (!silent) setError(message);
+      return { ok: false, message };
     } finally {
       setSavingDraft(false);
     }
@@ -614,7 +653,9 @@ export default function DailyCommentPanel() {
   handleSaveDraftRef.current = handleSaveDraft;
 
   useEffect(() => {
-    setUnsavedChanges(dirty, dirty ? () => handleSaveDraftRef.current(true) : null);
+    // silent=false (khác autosave 18s ở trên) — bấm "Lưu tạm & rời đi" là hành động chủ động, nếu
+    // không lưu được phải hiện lỗi cụ thể ngay trên trang (Sidebar sẽ ở lại trang khi hàm này trả false).
+    setUnsavedChanges(dirty, dirty ? () => handleSaveDraftRef.current(false) : null);
     return () => setUnsavedChanges(false, null);
   }, [dirty]);
 
