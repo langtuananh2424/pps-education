@@ -351,7 +351,7 @@ public class StudentAttendanceService {
         if (!siteManagerRepository.existsBySiteIdAndUserIdAndRoleTypeAndAssignedToIsNull(
                 siteId, actorUserId, SiteManager.RoleType.SITE_MANAGER)) {
             throw new NotSiteManagerForSiteException(
-                    "Tài khoản id=" + actorUserId + " không được gán phụ trách điểm trường id=" + siteId + ".");
+                    "Bạn không được gán phụ trách điểm trường này.");
         }
         List<SchoolClass> classes = schoolClassRepository.findBySiteIdAndDeletedAtIsNull(siteId);
         return classes.stream()
@@ -403,7 +403,7 @@ public class StudentAttendanceService {
     private void requireAssignedTeacher(ClassSession classSession, Long actorUserId) {
         if (!classSession.getPrimaryTeacher().getId().equals(actorUserId)) {
             throw new NotAssignedTeacherForSessionException(
-                    "Tài khoản id=" + actorUserId + " không được phân công giảng dạy buổi id=" + classSession.getId() + ".");
+                    "Bạn không được phân công giảng dạy buổi học này.");
         }
     }
 

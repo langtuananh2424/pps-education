@@ -149,8 +149,8 @@ public class CurriculumService {
                 .countByCurriculumIdAndStatus(id, SchoolClass.Status.IN_PROGRESS) > 0;
         if (inUseByRunningClass && !request.confirm()) {
             throw new CurriculumUpdateConfirmationRequiredException(
-                    "Khung chương trình id=" + id + " đang được lớp IN_PROGRESS sử dụng. "
-                            + "Xác nhận lại (confirm=true) để tiếp tục lưu.");
+                    "Khung chương trình này đang được lớp IN_PROGRESS sử dụng. "
+                            + "Xác nhận lại để tiếp tục lưu.");
         }
 
         curriculum.setName(request.name());
@@ -221,7 +221,7 @@ public class CurriculumService {
         Curriculum parent = getCurriculumOrThrow(request.parentCurriculumId());
         if (parent.getSite() != null) {
             throw new CurriculumNotEditableException(
-                    "Khung chương trình id=" + parent.getId() + " không phải khung chuẩn (đã là bản tùy biến), không thể làm gốc.");
+                    "Khung chương trình được chọn không phải khung chuẩn (đã là bản tùy biến), không thể dùng làm khung gốc.");
         }
         if (curriculumRepository.findByCode(request.code()).isPresent()) {
             throw new DuplicateCurriculumCodeException("Mã khung chương trình đã tồn tại: " + request.code());
@@ -254,8 +254,8 @@ public class CurriculumService {
         requireSiteManagerForSite(curriculum.getSite().getId(), actorUserId);
         if (curriculum.getStatus() != Curriculum.Status.DRAFT) {
             throw new CurriculumNotEditableException(
-                    "Khung chương trình tùy biến id=" + id + " đang ở trạng thái " + curriculum.getStatus()
-                            + " — chỉ chỉnh sửa được khi DRAFT.");
+                    "Khung chương trình tùy biến này đang ở trạng thái " + curriculum.getStatus()
+                            + " — chỉ chỉnh sửa được khi còn ở trạng thái Nháp (DRAFT).");
         }
         User actor = userRepository.findById(actorUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
@@ -284,8 +284,8 @@ public class CurriculumService {
         requireSiteManagerForSite(curriculum.getSite().getId(), actorUserId);
         if (curriculum.getStatus() != Curriculum.Status.DRAFT) {
             throw new CurriculumNotEditableException(
-                    "Khung chương trình tùy biến id=" + id + " đang ở trạng thái " + curriculum.getStatus()
-                            + " — chỉ submit được khi DRAFT.");
+                    "Khung chương trình tùy biến này đang ở trạng thái " + curriculum.getStatus()
+                            + " — chỉ gửi duyệt được khi còn ở trạng thái Nháp (DRAFT).");
         }
         User actor = userRepository.findById(actorUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
@@ -327,7 +327,7 @@ public class CurriculumService {
             throw new ResourceNotFoundException("Không tìm thấy đề xuất khung chương trình id=" + approvalFlowId);
         }
         if (flow.getStatus() != ApprovalFlow.Status.PENDING) {
-            throw new ApprovalAlreadyDecidedException("Đề xuất id=" + approvalFlowId + " đã được quyết định (" + flow.getStatus() + ").");
+            throw new ApprovalAlreadyDecidedException("Đề xuất này đã được quyết định (" + flow.getStatus() + ").");
         }
         Curriculum curriculum = getCurriculumOrThrow(flow.getEntityId());
         User actor = userRepository.findById(actorUserId)
@@ -363,7 +363,7 @@ public class CurriculumService {
     private void requireCustomCopy(Curriculum curriculum) {
         if (curriculum.getSite() == null) {
             throw new CurriculumNotEditableException(
-                    "Khung chương trình id=" + curriculum.getId() + " là khung chuẩn, không phải bản tùy biến.");
+                    "Khung chương trình này là khung chuẩn, không phải bản tùy biến.");
         }
     }
 
@@ -371,7 +371,7 @@ public class CurriculumService {
         if (!siteManagerRepository.existsBySiteIdAndUserIdAndRoleTypeAndAssignedToIsNull(
                 siteId, actorUserId, SiteManager.RoleType.SITE_MANAGER)) {
             throw new NotSiteManagerForSiteException(
-                    "Tài khoản id=" + actorUserId + " không được gán phụ trách điểm trường id=" + siteId + ".");
+                    "Bạn không được gán phụ trách điểm trường này.");
         }
     }
 

@@ -40,7 +40,7 @@ public class GpsAttendanceMethodValidator implements AttendanceMethodValidator {
                 context.siteId(), context.latitude(), context.longitude(), settings.gpsRadiusMeters());
         if (!Boolean.TRUE.equals(withinRadius)) {
             throw new OutsideGpsRadiusException(
-                    "Vị trí GPS ngoài bán kính cho phép quanh điểm trường id=" + context.siteId());
+                    "Vị trí GPS ngoài bán kính cho phép quanh điểm trường.");
         }
     }
 }

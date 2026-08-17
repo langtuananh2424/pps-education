@@ -243,7 +243,7 @@ public class GradeImportService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy setup sổ điểm id=" + setupId));
         if (!setup.getSchoolClass().getId().equals(schoolClass.getId())) {
             throw new IllegalArgumentException(
-                    "Setup sổ điểm id=" + setupId + " không thuộc lớp id=" + classId + ".");
+                    "Setup sổ điểm này không thuộc lớp đang chọn.");
         }
         return setup;
     }
@@ -291,9 +291,9 @@ public class GradeImportService {
         }
         if (!unmatched.isEmpty()) {
             throw new GradeImportColumnMismatchException(
-                    "Các cột không khớp thành phần điểm nào của setup sổ điểm id=" + setupId + ": "
+                    "Các cột không khớp thành phần điểm nào của setup sổ điểm này: "
                             + String.join(", ", unmatched)
-                            + ". Bổ sung thành phần điểm (UC-16/A2) hoặc sửa lại tên cột rồi import lại.");
+                            + ". Bổ sung thành phần điểm hoặc sửa lại tên cột rồi import lại.");
         }
         return new ColumnMapping(componentByColumn, overallColumn, levelColumn, commentColumn, noteColumn, lastCell);
     }

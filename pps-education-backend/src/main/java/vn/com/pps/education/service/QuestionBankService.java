@@ -208,7 +208,7 @@ public class QuestionBankService {
                 || !Objects.equals(question.getStructuredContent(), request.structuredContent());
         if (changesContent && studentAnswerRepository.existsByQuestionId(id)) {
             throw new QuestionLockedException(
-                    "Câu hỏi id=" + id + " đã có học sinh trả lời — không sửa được nội dung/đáp án. Hãy tạo câu hỏi mới rồi archive câu này.");
+                    "Câu hỏi này đã có học sinh trả lời — không sửa được nội dung/đáp án. Hãy tạo câu hỏi mới rồi lưu trữ (archive) câu này.");
         }
         requireStructuredContentIfNeeded(question.getQuestionType(), request.structuredContent());
 

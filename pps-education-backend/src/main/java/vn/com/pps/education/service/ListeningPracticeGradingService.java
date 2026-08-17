@@ -62,7 +62,7 @@ public class ListeningPracticeGradingService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lượt luyện id=" + attemptId));
         if (attempt.getPracticeItem().getMode() != ListeningPracticeItem.Mode.SPEAKING) {
             throw new AnswerNotManuallyGradableException(
-                    "Lượt luyện id=" + attemptId + " không thuộc chế độ Nói — không chấm thủ công.");
+                    "Lượt luyện này không thuộc chế độ Nói — không chấm thủ công.");
         }
 
         ListeningPracticeGrading grading = practiceGradingRepository.findByPracticeAttemptId(attemptId)
