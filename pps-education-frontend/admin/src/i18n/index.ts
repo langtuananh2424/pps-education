@@ -14,6 +14,7 @@ import lmsQuestionAuthoringEn from "./locales/en/lms-question-authoring.json";
 import lmsGradingEn from "./locales/en/lms-grading.json";
 import lmsReviewVideoEn from "./locales/en/lms-review-video.json";
 import lmsDocumentsEn from "./locales/en/lms-documents.json";
+import taskWorkflowEn from "./locales/en/task-workflow.json";
 import commonVi from "./locales/vi/common.json";
 import authVi from "./locales/vi/auth.json";
 import dashboardVi from "./locales/vi/dashboard.json";
@@ -27,6 +28,7 @@ import lmsQuestionAuthoringVi from "./locales/vi/lms-question-authoring.json";
 import lmsGradingVi from "./locales/vi/lms-grading.json";
 import lmsReviewVideoVi from "./locales/vi/lms-review-video.json";
 import lmsDocumentsVi from "./locales/vi/lms-documents.json";
+import taskWorkflowVi from "./locales/vi/task-workflow.json";
 
 export const LANGUAGE_STORAGE_KEY = "pps_language";
 
@@ -47,7 +49,8 @@ i18n.use(initReactI18next).init({
       "lms-question-authoring": lmsQuestionAuthoringVi,
       "lms-grading": lmsGradingVi,
       "lms-review-video": lmsReviewVideoVi,
-      "lms-documents": lmsDocumentsVi
+      "lms-documents": lmsDocumentsVi,
+      "task-workflow": taskWorkflowVi
     },
     en: {
       common: commonEn,
@@ -62,7 +65,8 @@ i18n.use(initReactI18next).init({
       "lms-question-authoring": lmsQuestionAuthoringEn,
       "lms-grading": lmsGradingEn,
       "lms-review-video": lmsReviewVideoEn,
-      "lms-documents": lmsDocumentsEn
+      "lms-documents": lmsDocumentsEn,
+      "task-workflow": taskWorkflowEn
     }
   },
   lng: storedLanguage === "en" ? "en" : "vi",
@@ -81,7 +85,8 @@ i18n.use(initReactI18next).init({
     "lms-question-authoring",
     "lms-grading",
     "lms-review-video",
-    "lms-documents"
+    "lms-documents",
+    "task-workflow"
   ],
   interpolation: { escapeValue: false },
   returnEmptyString: false
