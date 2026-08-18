@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 import vn.com.pps.education.dto.AttendanceCheckRequest;
 import vn.com.pps.education.dto.AttendanceRecordAdminResponse;
 import vn.com.pps.education.dto.AttendanceRecordResponse;
+import vn.com.pps.education.dto.DetectedSiteResponse;
 import vn.com.pps.education.security.AuthenticatedUser;
 import vn.com.pps.education.service.AttendanceService;
 
@@ -58,6 +59,20 @@ public class AttendanceController {
     @GetMapping("/records/me")
     public ResponseEntity<AttendanceRecordResponse> getMyTodayRecord(@AuthenticationPrincipal AuthenticatedUser actor) {
         AttendanceRecordResponse response = attendanceService.getMyTodayRecord(actor.userId());
+        return response == null ? ResponseEntity.noContent().build() : ResponseEntity.ok(response);
+    }
+
+    /**
+     * UC-09 — bổ sung ngoài Main Flow gốc, xác nhận với người dùng 2026-08-17.
+     * Tự nhận diện điểm chấm công theo GPS trước khi check-in/check-out — tự
+     * phục vụ như các endpoint trên, không cần permission riêng. 204 khi
+     * không có điểm trường nào trong bán kính cho phép quanh vị trí hiện tại
+     * (FE fallback sang dropdown chọn thủ công).
+     */
+    @GetMapping("/detect-site")
+    public ResponseEntity<DetectedSiteResponse> detectSite(@RequestParam double latitude,
+                                                              @RequestParam double longitude) {
+        DetectedSiteResponse response = attendanceService.detectSite(latitude, longitude);
         return response == null ? ResponseEntity.noContent().build() : ResponseEntity.ok(response);
     }
 
