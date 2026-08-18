@@ -126,7 +126,8 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler({OutsideAttendanceWindowException.class, OutsideGpsRadiusException.class,
             BiometricVerificationFailedException.class, NotAWorkingDayException.class,
-            AttendanceMethodNotAvailableException.class})
+            AttendanceMethodNotAvailableException.class, AlreadyCheckedInException.class,
+            AlreadyCheckedOutException.class})
     public ResponseEntity<Object> handleAttendanceRejected(RuntimeException ex) {
         return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
     }

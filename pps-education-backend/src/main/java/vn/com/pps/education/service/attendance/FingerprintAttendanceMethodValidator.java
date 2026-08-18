@@ -29,9 +29,10 @@ public class FingerprintAttendanceMethodValidator implements AttendanceMethodVal
     }
 
     @Override
-    public void validate(AttendanceCheckContext context) {
+    public Long validate(AttendanceCheckContext context) {
         if (!Boolean.TRUE.equals(context.biometricVerified())) {
             throw new BiometricVerificationFailedException("Xác thực vân tay thất bại — thử lại.");
         }
+        return context.siteId();
     }
 }

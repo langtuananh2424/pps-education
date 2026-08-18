@@ -1,12 +1,12 @@
 import React, { useEffect, useRef, useState } from "react";
-import { CheckCircle2, Clock3, LogIn, LogOut, MapPin } from "lucide-react";
+import { CheckCircle2, LogIn, LogOut, MapPin } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { Badge, Button } from "@/components/ui";
 import Select from "@/components/ui/Select";
 import Toast from "@/components/ui/Toast";
 import { useToast } from "@/lib/useToast";
 import { SiteResponse } from "@/features/facility/api";
-import { AttendanceRecordResponse, checkIn, checkOut } from "../api";
+import { AttendanceRecordResponse, checkIn, checkOut, detectAttendanceSite } from "../api";
 import { attendanceStatusLabels, attendanceStatusVariant, formatAttendanceTime } from "../attendanceFormat";
 
 function getCurrentPosition(): Promise<GeolocationPosition> {
@@ -57,6 +57,8 @@ export default function SelfAttendanceCard({ sites, onChecked }: SelfAttendanceC
   const [processing, setProcessing] = useState<"in" | "out" | null>(null);
   const [selfError, setSelfError] = useState<string | null>(null);
   const [lastRecord, setLastRecord] = useState<AttendanceRecordResponse | null>(null);
+  /** Tên điểm trường vừa được tự nhận diện theo GPS (null = chưa nhận diện được, dùng dropdown thủ công). */
+  const [detectedSiteName, setDetectedSiteName] = useState<string | null>(null);
   // Chặn gọi chồng lấn khi bấm nhanh 2 lần liên tiếp — `processing` (state) chỉ cập nhật
   // disabled sau khi React re-render (có độ trễ, nhất là ở dev/HMR), nên riêng nó không đủ
   // nhanh để chặn click thứ 2 lọt qua trước khi nút kịp vô hiệu hoá; cờ ref này đồng bộ tức thời.
@@ -74,11 +76,26 @@ export default function SelfAttendanceCard({ sites, onChecked }: SelfAttendanceC
     busyRef.current = true;
     setProcessing(kind);
     setSelfError(null);
+    setDetectedSiteName(null);
     try {
       const position = await getCurrentPosition();
+      // Tự nhận diện điểm chấm công theo GPS trước — nếu không nhận diện được (không có
+      // điểm trường nào trong bán kính, hoặc lỗi gọi API) thì fallback dùng điểm đang chọn
+      // ở dropdown thủ công (selectedSiteId), không chặn luồng chấm công.
+      let siteId = selectedSiteId === "" ? undefined : selectedSiteId;
+      try {
+        const detected = await detectAttendanceSite(position.coords.latitude, position.coords.longitude);
+        if (detected) {
+          siteId = detected.siteId;
+          setSelectedSiteId(detected.siteId);
+          setDetectedSiteName(detected.siteName);
+        }
+      } catch {
+        // Bỏ qua lỗi nhận diện tự động -- vẫn tiếp tục chấm công bằng lựa chọn thủ công.
+      }
       const request = {
         method: "GPS" as const,
-        siteId: selectedSiteId === "" ? undefined : selectedSiteId,
+        siteId,
         latitude: position.coords.latitude,
         longitude: position.coords.longitude
       };
@@ -111,43 +128,62 @@ export default function SelfAttendanceCard({ sites, onChecked }: SelfAttendanceC
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <Clock3 className="w-4 h-4 text-slate-400" />
-        <span className="text-xs font-bold text-slate-700 font-display">Chấm công của tôi</span>
-      </div>
-
-      {selfError && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{selfError}</div>}
-
-      <div className="flex flex-nowrap items-center gap-2 overflow-x-auto">
-        <div className="flex items-center gap-1.5 text-xs text-slate-500 shrink-0">
-          <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-          <Select
-            value={selectedSiteId}
-            onChange={(e) => setSelectedSiteId(e.target.value === "" ? "" : Number(e.target.value))}
-            className="bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none max-w-[160px]"
-          >
-            {sites.length === 0 && <option value="">Chưa có điểm trường</option>}
-            {sites.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </Select>
+      {selfError && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-lg">{selfError}</div>}
+      {detectedSiteName && !selfError && (
+        <div className="text-sm text-emerald-600 bg-emerald-50 border border-emerald-100 p-3 rounded-lg">
+          Đã tự nhận diện điểm chấm công: <strong>{detectedSiteName}</strong>.
         </div>
+      )}
 
-        <Button variant="primary" disabled={processing !== null} onClick={() => handleCheck("in")} className="shrink-0 whitespace-nowrap">
-          <LogIn className="w-3.5 h-3.5 shrink-0" />
+      {/* Xếp dọc từng dòng (dropdown điểm trường / nút vào / nút ra) -- yêu cầu người dùng
+          2026-08-18, thay cho hàng ngang cũ bị tràn + phải cuộn ngang trong modal ở mobile.
+          Cỡ chữ + nút phóng to theo yêu cầu tiếp theo cùng ngày -- className override riêng
+          ở đây (không đổi size chuẩn "sm"/"md" của component Button dùng chung toàn app). */}
+      <div className="flex flex-col gap-3">
+        {/* Bình thường ẩn -- chấm công đã tự nhận diện điểm trường theo GPS (detectAttendanceSite ở
+            handleCheck). Chỉ hiện dropdown chọn thủ công khi chấm công lỗi (selfError), để người
+            dùng tự chọn đúng điểm trường rồi thử lại -- yêu cầu người dùng 2026-08-18. */}
+        {selfError && (
+          <div className="flex items-center gap-2 text-sm text-slate-500">
+            <MapPin className="w-5 h-5 text-slate-400 shrink-0" />
+            <Select
+              value={selectedSiteId}
+              onChange={(e) => setSelectedSiteId(e.target.value === "" ? "" : Number(e.target.value))}
+              className="bg-slate-50 border border-slate-200 text-sm p-3 rounded-lg focus:outline-none w-full"
+            >
+              {sites.length === 0 && <option value="">Chưa có điểm trường</option>}
+              {sites.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </Select>
+          </div>
+        )}
+
+        <Button
+          variant="primary"
+          disabled={processing !== null}
+          onClick={() => handleCheck("in")}
+          className="w-full justify-center text-base py-4 gap-2.5"
+        >
+          <LogIn className="w-5 h-5 shrink-0" />
           {processing === "in" ? "Đang xử lý..." : "Chấm công vào"}
         </Button>
-        <Button variant="secondary" disabled={processing !== null} onClick={() => handleCheck("out")} className="shrink-0 whitespace-nowrap">
-          <LogOut className="w-3.5 h-3.5 shrink-0" />
+        <Button
+          variant="secondary"
+          disabled={processing !== null}
+          onClick={() => handleCheck("out")}
+          className="w-full justify-center text-base py-4 gap-2.5"
+        >
+          <LogOut className="w-5 h-5 shrink-0" />
           {processing === "out" ? "Đang xử lý..." : "Chấm công ra"}
         </Button>
       </div>
 
       {lastRecord && (
-        <div className="flex items-center gap-4 text-xs text-slate-600 bg-slate-50 border border-slate-100 rounded-lg p-3">
-          <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+        <div className="flex items-center gap-4 text-sm text-slate-600 bg-slate-50 border border-slate-100 rounded-lg p-3.5">
+          <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
           <span>
             Giờ vào: <strong>{formatAttendanceTime(lastRecord.checkInAt)}</strong> · Giờ ra: <strong>{formatAttendanceTime(lastRecord.checkOutAt)}</strong>
           </span>

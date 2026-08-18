@@ -548,6 +548,25 @@ export function getMyTodayAttendance(): Promise<AttendanceRecordResponse | undef
   return apiRequest<AttendanceRecordResponse | undefined>("/attendance/records/me");
 }
 
+/** Khớp DetectedSiteResponse thật của backend. */
+export interface DetectedSiteResponse {
+  siteId: number;
+  siteName: string;
+  distanceMeters: number;
+}
+
+/**
+ * Tự nhận diện điểm chấm công theo GPS — bổ sung ngoài UC-09 gốc, xác nhận
+ * với người dùng 2026-08-17. undefined nếu không có điểm trường nào trong
+ * bán kính cho phép quanh vị trí hiện tại (BE trả 204) — khi đó FE fallback
+ * sang dropdown chọn thủ công (đã có sẵn ở SelfAttendanceCard).
+ */
+export function detectAttendanceSite(latitude: number, longitude: number): Promise<DetectedSiteResponse | undefined> {
+  return apiRequest<DetectedSiteResponse | undefined>(
+    `/attendance/detect-site?latitude=${latitude}&longitude=${longitude}`
+  );
+}
+
 /**
  * Khớp AttendanceRecordAdminResponse thật — bổ sung ngoài UC-09 gốc, xác nhận
  * với người dùng 2026-08-12. Xem GET /api/attendance/records (AttendanceController.java),
@@ -717,4 +736,49 @@ export function createWorkCalendarOverride(request: CreateWorkCalendarRequest): 
 
 export function deleteWorkCalendarOverride(id: number): Promise<void> {
   return apiRequest<void>(`/work-calendar/${id}`, { method: "DELETE" });
+}
+
+/**
+ * V125 (bổ sung ngoài UC-58/UC-70 gốc, xác nhận 2026-08-17): HR/Điều hành
+ * xem lịch dạy của 1 nhân viên bất kỳ — dùng cho tab "Lịch làm việc" trong
+ * hồ sơ nhân sự. Gate bằng quyền hrm.employee-schedule.view.
+ */
+export function getEmployeeTeachingSessions(employeeId: number, fromDate?: string, toDate?: string): Promise<ClassSessionResponse[]> {
+  const params = new URLSearchParams();
+  if (fromDate) params.set("fromDate", fromDate);
+  if (toDate) params.set("toDate", toDate);
+  const qs = params.toString();
+  return apiRequest<ClassSessionResponse[]>(`/employees/${employeeId}/teaching-sessions${qs ? `?${qs}` : ""}`);
+}
+
+/**
+ * Bổ sung ngoài SDD gốc, xác nhận 2026-08-17: trang "Lịch làm việc" (roster
+ * toàn công ty) cho HR/Điều hành — gộp ca làm cố định + lịch dạy + lịch
+ * nghỉ lễ của TOÀN BỘ nhân viên, lọc theo phòng ban/điểm trường/lớp/nhân
+ * viên. Gate bằng quyền hrm.employee-schedule.view.
+ */
+export interface EmployeeScheduleOverviewResponse {
+  employees: EmployeeResponse[];
+  shiftDefinitions: ShiftResponse[];
+  employeeShifts: EmployeeShiftResponse[];
+  sessions: ClassSessionResponse[];
+  workCalendarOverrides: WorkCalendarResponse[];
+}
+
+export function getEmployeeScheduleOverview(params: {
+  from: string;
+  to: string;
+  departmentId?: number;
+  siteId?: number;
+  classId?: number;
+  employeeId?: number;
+}): Promise<EmployeeScheduleOverviewResponse> {
+  const qs = new URLSearchParams();
+  qs.set("from", params.from);
+  qs.set("to", params.to);
+  if (params.departmentId) qs.set("departmentId", String(params.departmentId));
+  if (params.siteId) qs.set("siteId", String(params.siteId));
+  if (params.classId) qs.set("classId", String(params.classId));
+  if (params.employeeId) qs.set("employeeId", String(params.employeeId));
+  return apiRequest<EmployeeScheduleOverviewResponse>(`/hrm/employee-schedules?${qs.toString()}`);
 }

@@ -17,6 +17,8 @@ import vn.com.pps.education.domain.User;
 import vn.com.pps.education.domain.WorkCalendar;
 import vn.com.pps.education.dto.AttendanceCheckRequest;
 import vn.com.pps.education.dto.AttendanceRecordResponse;
+import vn.com.pps.education.exception.AlreadyCheckedInException;
+import vn.com.pps.education.exception.AlreadyCheckedOutException;
 import vn.com.pps.education.exception.AttendanceMethodNotAvailableException;
 import vn.com.pps.education.exception.BiometricVerificationFailedException;
 import vn.com.pps.education.exception.ManagementExemptFromAttendanceException;
@@ -58,6 +60,11 @@ class AttendanceServiceTest extends AbstractIntegrationTest {
     // TP.HCM -- cách xa hơn nhiều lần bán kính cho phép (200m mặc định)
     private static final double FAR_LAT = 10.8231;
     private static final double FAR_LNG = 106.6297;
+    // Cùng Hà Nội nhưng lệch ~1.1km so với SITE_LAT/LNG (ngoài bán kính 200m mặc định, không chồng
+    // lấn) -- dùng cho các test cần 2 điểm trường KHÁC vị trí thật (từ khi GpsAttendanceMethodValidator
+    // tự phân giải lại điểm trường theo toạ độ thực tế thay vì tin siteId FE gửi, xem bổ sung 2026-08-18).
+    private static final double OTHER_SITE_LAT = 21.0185;
+    private static final double OTHER_SITE_LNG = 105.8542;
 
     @Autowired
     private AttendanceService attendanceService;
@@ -133,6 +140,30 @@ class AttendanceServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void checkIn_UC09_Extension_rejectsWhenAlreadyCheckedInToday() {
+        assignWideOpenShift();
+        attendanceService.checkIn(user.getId(),
+                new AttendanceCheckRequest("GPS", site.getId(), SITE_LAT, SITE_LNG, null));
+
+        assertThatThrownBy(() -> attendanceService.checkIn(user.getId(),
+                new AttendanceCheckRequest("GPS", site.getId(), SITE_LAT, SITE_LNG, null)))
+                .isInstanceOf(AlreadyCheckedInException.class);
+    }
+
+    @Test
+    void checkOut_UC09_Extension_rejectsWhenAlreadyCheckedOutToday() {
+        assignWideOpenShift();
+        attendanceService.checkIn(user.getId(),
+                new AttendanceCheckRequest("GPS", site.getId(), SITE_LAT, SITE_LNG, null));
+        attendanceService.checkOut(user.getId(),
+                new AttendanceCheckRequest("GPS", site.getId(), SITE_LAT, SITE_LNG, null));
+
+        assertThatThrownBy(() -> attendanceService.checkOut(user.getId(),
+                new AttendanceCheckRequest("GPS", site.getId(), SITE_LAT, SITE_LNG, null)))
+                .isInstanceOf(AlreadyCheckedOutException.class);
+    }
+
+    @Test
     void checkIn_UC09_managementExempt_rejectsWhenIsManagementTrue() {
         User manager = newUser();
         newEmployee(manager, Employee.EmployeeType.STAFF, true);
@@ -160,6 +191,22 @@ class AttendanceServiceTest extends AbstractIntegrationTest {
         assertThatThrownBy(() -> attendanceService.checkIn(user.getId(),
                 new AttendanceCheckRequest("GPS", site.getId(), FAR_LAT, FAR_LNG, null)))
                 .isInstanceOf(OutsideGpsRadiusException.class);
+    }
+
+    @Test
+    void checkIn_UC09_Extension_resolvesActualSiteByGpsPositionRegardlessOfRequestedSiteId() {
+        // Bổ sung ngoài Main Flow gốc, xác nhận với người dùng 2026-08-18 -- sửa lỗi chấm công
+        // GPS bị chặn/ghi nhầm điểm trường khi 2 điểm trường có bán kính chồng lấn hoặc FE gửi
+        // siteId lệch: hệ thống phải tự phân giải lại đúng điểm trường theo toạ độ GPS thực tế,
+        // KHÔNG tin siteId do client gửi lên.
+        assignWideOpenShift();
+        Site otherSite = newSiteAt(OTHER_SITE_LAT, OTHER_SITE_LNG);
+
+        // Gửi siteId của otherSite (sai/lệch) nhưng toạ độ GPS thực tế lại khớp site (đúng).
+        AttendanceRecordResponse response = attendanceService.checkIn(user.getId(),
+                new AttendanceCheckRequest("GPS", otherSite.getId(), SITE_LAT, SITE_LNG, null));
+
+        assertThat(response.siteId()).isEqualTo(site.getId());
     }
 
     @Test
@@ -338,9 +385,9 @@ class AttendanceServiceTest extends AbstractIntegrationTest {
 
         User otherUser = newUser();
         Employee otherEmployee = newEmployee(otherUser);
-        Site otherSite = newSite();
+        Site otherSite = newSiteAt(OTHER_SITE_LAT, OTHER_SITE_LNG);
         assignWideOpenShift(otherEmployee);
-        attendanceService.checkIn(otherUser.getId(), new AttendanceCheckRequest("GPS", otherSite.getId(), SITE_LAT, SITE_LNG, null));
+        attendanceService.checkIn(otherUser.getId(), new AttendanceCheckRequest("GPS", otherSite.getId(), OTHER_SITE_LAT, OTHER_SITE_LNG, null));
 
         var all = attendanceService.listRecords(null, null, LocalDate.now(), LocalDate.now());
         assertThat(all).extracting("employeeId").contains(employee.getId(), otherEmployee.getId());
@@ -394,6 +441,27 @@ class AttendanceServiceTest extends AbstractIntegrationTest {
         newEmployee(manager, Employee.EmployeeType.STAFF, true);
 
         assertThat(attendanceService.getMyTodayRecord(manager.getId())).isNull();
+    }
+
+    @Test
+    void detectSite_UC09_Extension_returnsNearestSiteWithinRadius() {
+        var response = attendanceService.detectSite(SITE_LAT, SITE_LNG);
+
+        assertThat(response).isNotNull();
+        assertThat(response.siteId()).isEqualTo(site.getId());
+        assertThat(response.siteName()).isEqualTo(site.getName());
+    }
+
+    @Test
+    void detectSite_UC09_Extension_returnsNullWhenNoSiteWithinRadius() {
+        assertThat(attendanceService.detectSite(FAR_LAT, FAR_LNG)).isNull();
+    }
+
+    @Test
+    void detectSite_UC09_Extension_ignoresInactiveSite() {
+        jdbcTemplate.update("UPDATE sites SET status = 'INACTIVE' WHERE id = ?", site.getId());
+
+        assertThat(attendanceService.detectSite(SITE_LAT, SITE_LNG)).isNull();
     }
 
     private SchoolClass newSchoolClass(User creator) {
@@ -547,6 +615,10 @@ class AttendanceServiceTest extends AbstractIntegrationTest {
     }
 
     private Site newSite() {
+        return newSiteAt(SITE_LAT, SITE_LNG);
+    }
+
+    private Site newSiteAt(double lat, double lng) {
         Site newSite = new Site();
         newSite.setCode("SITE-" + SEQ.incrementAndGet());
         newSite.setName("Test Site");
@@ -554,7 +626,7 @@ class AttendanceServiceTest extends AbstractIntegrationTest {
         newSite = siteRepository.save(newSite);
         jdbcTemplate.update(
                 "UPDATE sites SET geo_location = ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography WHERE id = ?",
-                SITE_LNG, SITE_LAT, newSite.getId());
+                lng, lat, newSite.getId());
         return newSite;
     }
 }

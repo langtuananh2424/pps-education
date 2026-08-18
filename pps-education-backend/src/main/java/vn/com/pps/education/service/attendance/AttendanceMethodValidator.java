@@ -15,8 +15,11 @@ public interface AttendanceMethodValidator {
     boolean isEnabled();
 
     /**
-     * Xác thực phương thức. Không trả về gì nếu hợp lệ; throw exception cụ
-     * thể theo đúng Alternate Flow (A2/A3) nếu không hợp lệ.
+     * Xác thực phương thức, trả về id điểm trường THỰC SỰ áp dụng cho bản ghi chấm công (thường
+     * là context.siteId() giữ nguyên; riêng GPS tự phân giải lại điểm trường gần nhất khớp vị trí
+     * thực tế — xem GpsAttendanceMethodValidator, bổ sung 2026-08-18 để tự sửa trường hợp FE gửi
+     * sai/lệch site do 2 điểm trường có bán kính chấm công chồng lấn). Throw exception cụ thể theo
+     * đúng Alternate Flow (A2/A3) nếu không hợp lệ.
      */
-    void validate(AttendanceCheckContext context);
+    Long validate(AttendanceCheckContext context);
 }

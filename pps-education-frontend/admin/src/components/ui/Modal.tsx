@@ -7,6 +7,10 @@ interface ModalProps {
   onClose: () => void;
   title: string;
   description?: string;
+  /** Override cỡ chữ tiêu đề -- mặc định "text-sm" (khá nhỏ), dùng khi 1 modal cụ thể cần tiêu đề nổi bật hơn. */
+  titleClassName?: string;
+  /** Override cỡ chữ mô tả -- mặc định "text-[11px]". */
+  descriptionClassName?: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
   size?: "md" | "lg" | "xl";
@@ -18,7 +22,17 @@ const SIZE_CLASSES: Record<NonNullable<ModalProps["size"]>, string> = {
   xl: "max-w-7xl",
 };
 
-export default function Modal({ open, onClose, title, description, children, footer, size = "md" }: ModalProps) {
+export default function Modal({
+  open,
+  onClose,
+  title,
+  description,
+  titleClassName = "text-sm",
+  descriptionClassName = "text-[11px]",
+  children,
+  footer,
+  size = "md"
+}: ModalProps) {
   if (!open) return null;
 
   // Portal thẳng ra document.body — nếu render lồng trong ancestor có backdrop-filter/filter/transform
@@ -33,8 +47,8 @@ export default function Modal({ open, onClose, title, description, children, foo
       >
         <div className="sticky top-0 bg-white px-5 py-4 border-b border-slate-100 flex items-start justify-between gap-3">
           <div>
-            <h3 className="text-sm font-bold font-display text-slate-900">{title}</h3>
-            {description && <p className="text-[11px] text-slate-500 mt-1">{description}</p>}
+            <h3 className={`${titleClassName} font-bold font-display text-slate-900`}>{title}</h3>
+            {description && <p className={`${descriptionClassName} text-slate-500 mt-1`}>{description}</p>}
           </div>
           <button
             onClick={onClose}
