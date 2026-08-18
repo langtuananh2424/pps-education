@@ -7,9 +7,9 @@ import { matchesShiftPattern } from "@/lib/shiftPattern";
 import { useApp } from "@/context/AppContext";
 import { Badge, Modal, TableContainer, Th, Td } from "@/components/ui";
 import Select from "@/components/ui/Select";
-import { sessionStatusVariants } from "@/features/academic/components/ClassDetailPanel";
+import { checkInStatusLabels, checkInStatusVariants, sessionStatusVariants } from "@/features/academic/components/ClassDetailPanel";
 import { listSites, SiteResponse } from "@/features/facility/api";
-import { listClasses, ClassResponse, ClassSessionResponse } from "@/features/academic/api";
+import { listClasses, ClassResponse, ClassSessionCheckInStatusResponse, ClassSessionResponse } from "@/features/academic/api";
 import {
   DepartmentResponse,
   EmployeeResponse,
@@ -169,6 +169,11 @@ export default function EmployeeSchedulePage() {
   }, []);
 
   const shiftById = useMemo(() => new Map((overview?.shiftDefinitions ?? []).map((s) => [s.id, s])), [overview]);
+  /** UC-71 (bổ sung ngoài SDD gốc, xác nhận 2026-08-18) — trạng thái nhận lớp TÍNH RA theo classSessionId. */
+  const checkInStatusBySessionId = useMemo(
+    () => new Map((overview?.classSessionCheckIns ?? []).map((c) => [c.classSessionId, c])),
+    [overview]
+  );
   const dateRange = useMemo(() => datesBetween(from, to), [from, to]);
   const showDailyColumns = dateRange.length <= MAX_DAILY_COLUMNS;
 
@@ -191,6 +196,18 @@ export default function EmployeeSchedulePage() {
   function sessionsForEmployeeOnDate(employee: EmployeeResponse, date: Date): ClassSessionResponse[] {
     const dateStr = toISODate(date);
     return (overview?.sessions ?? []).filter((s) => s.primaryTeacherId === employee.userId && s.sessionDate === dateStr);
+  }
+
+  /** UC-71 — số buổi dạy của nhân viên trong khoảng ngày đã thực sự nhận lớp (ON_TIME/LATE). */
+  function checkedInSessionCount(employee: EmployeeResponse): number {
+    return dateRange.reduce((acc, d) => {
+      const daySessions = sessionsForEmployeeOnDate(employee, d);
+      const checkedIn = daySessions.filter((s) => {
+        const status = checkInStatusBySessionId.get(s.id)?.effectiveStatus;
+        return status === "ON_TIME" || status === "LATE";
+      });
+      return acc + checkedIn.length;
+    }, 0);
   }
 
   const employees = overview?.employees ?? [];
@@ -270,14 +287,15 @@ export default function EmployeeSchedulePage() {
                   <Th>Loại</Th>
                   <Th>Số ca làm khớp lịch</Th>
                   <Th>Số buổi dạy</Th>
+                  <Th>Số buổi đã nhận lớp</Th>
                   <Th>Số ngày nghỉ lễ/ghi đè</Th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
-                  <tr><Td colSpan={5} className="text-center text-slate-400">Đang tải...</Td></tr>
+                  <tr><Td colSpan={6} className="text-center text-slate-400">Đang tải...</Td></tr>
                 ) : employees.length === 0 ? (
-                  <tr><Td colSpan={5} className="text-center text-slate-400">Không có nhân viên nào khớp bộ lọc.</Td></tr>
+                  <tr><Td colSpan={6} className="text-center text-slate-400">Không có nhân viên nào khớp bộ lọc.</Td></tr>
                 ) : (
                   employees.map((emp) => {
                     const shiftDayCount = dateRange.filter((d) => shiftsForEmployeeOnDate(emp, d).length > 0).length;
@@ -292,6 +310,7 @@ export default function EmployeeSchedulePage() {
                         <Td>{employeeTypeLabels[emp.employeeType]}</Td>
                         <Td>{shiftDayCount}</Td>
                         <Td>{sessionCount}</Td>
+                        <Td>{sessionCount > 0 ? `${checkedInSessionCount(emp)}/${sessionCount}` : "—"}</Td>
                         <Td>{overrideCount}</Td>
                       </tr>
                     );
@@ -359,6 +378,14 @@ export default function EmployeeSchedulePage() {
                                     {sessions.length} buổi dạy
                                   </span>
                                 )}
+                                {sessions.length > 0 && (
+                                  <span className="text-[9px] text-slate-500 font-semibold">
+                                    {sessions.filter((s) => {
+                                      const st = checkInStatusBySessionId.get(s.id)?.effectiveStatus;
+                                      return st === "ON_TIME" || st === "LATE";
+                                    }).length}/{sessions.length} đã nhận lớp
+                                  </span>
+                                )}
                               </button>
                             </td>
                           );
@@ -386,6 +413,7 @@ export default function EmployeeSchedulePage() {
             shifts={shiftsForEmployeeOnDate(detail.employee, new Date(`${detail.date}T00:00:00`))}
             override={overrideForEmployeeOnDate(detail.employee, new Date(`${detail.date}T00:00:00`))}
             sessions={sessionsForEmployeeOnDate(detail.employee, new Date(`${detail.date}T00:00:00`))}
+            checkInStatusBySessionId={checkInStatusBySessionId}
           />
         )}
       </Modal>
@@ -396,13 +424,15 @@ export default function EmployeeSchedulePage() {
 function ScheduleDayDetail({
   shifts,
   override,
-  sessions
+  sessions,
+  checkInStatusBySessionId
 }: {
   employee: EmployeeResponse;
   date: string;
   shifts: { shift: ShiftResponse; es: EmployeeShiftResponse }[];
   override: WorkCalendarResponse | undefined;
   sessions: ClassSessionResponse[];
+  checkInStatusBySessionId: Map<number, ClassSessionCheckInStatusResponse>;
 }) {
   return (
     <div className="space-y-3">
@@ -437,15 +467,27 @@ function ScheduleDayDetail({
           <p className="text-xs text-slate-400 italic">Không có buổi dạy trong ngày này.</p>
         ) : (
           <div className="space-y-1.5">
-            {sessions.map((s) => (
-              <div key={s.id} className="border border-slate-150 rounded-lg p-2 text-xs space-y-1">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-mono text-slate-500">{s.startTime}–{s.endTime}</span>
-                  <Badge variant={sessionStatusVariants[s.status] ?? "neutral"}>{s.status}</Badge>
+            {sessions.map((s) => {
+              const checkInStatus = checkInStatusBySessionId.get(s.id);
+              return (
+                <div key={s.id} className="border border-slate-150 rounded-lg p-2 text-xs space-y-1">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <span className="font-mono text-slate-500">{s.startTime}–{s.endTime}</span>
+                    <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                      <Badge variant={sessionStatusVariants[s.status] ?? "neutral"}>{s.status}</Badge>
+                      {checkInStatus && s.status !== "CANCELLED" && s.status !== "RESCHEDULED" && (
+                        <Badge variant={checkInStatusVariants[checkInStatus.effectiveStatus] ?? "neutral"}>
+                          {checkInStatusLabels[checkInStatus.effectiveStatus] ?? checkInStatus.effectiveStatus}
+                          {checkInStatus.checkInTime &&
+                            ` (${new Date(checkInStatus.checkInTime).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })})`}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  <p className="font-bold text-slate-800">{s.className}</p>
                 </div>
-                <p className="font-bold text-slate-800">{s.className}</p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

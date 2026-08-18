@@ -362,12 +362,12 @@ public class ClassSessionService {
      * docs/uc/phan-he-04-nhan-su.md (UC-70).
      */
     @Transactional(readOnly = true)
-    public List<ClassSessionResponse> listForScheduleOverview(List<Long> teacherUserIds, Long siteId, Long classId,
+    public List<ClassSessionResponse> listForScheduleOverview(List<Long> teacherUserIds, List<Long> siteIds, Long classId,
                                                                 LocalDate fromDate, LocalDate toDate) {
         if (teacherUserIds.isEmpty()) {
             return List.of();
         }
-        return classSessionRepository.findByPrimaryTeacherIdInAndFiltersAndDateRange(teacherUserIds, siteId, classId, fromDate, toDate)
+        return classSessionRepository.findByPrimaryTeacherIdInAndFiltersAndDateRange(teacherUserIds, siteIds, classId, fromDate, toDate)
                 .stream().map(this::toResponse).toList();
     }
 

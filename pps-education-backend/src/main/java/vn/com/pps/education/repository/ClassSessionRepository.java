@@ -173,18 +173,22 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, Long
      * roster "Lịch làm việc" toàn công ty (EmployeeScheduleService) —
      * teacherIds LUÔN non-null/non-empty (Service tự chặn danh sách rỗng
      * trước khi gọi, xem ClassSessionService.listForScheduleOverview).
-     * siteId/classId optional (null = không lọc).
+     * siteIds/classId optional (null = không lọc). siteIds đổi từ Long đơn
+     * sang List (UC-71, bổ sung ngoài SDD gốc, đã xác nhận với người dùng)
+     * để hỗ trợ Quản lý điểm trường phụ trách NHIỀU điểm trường cùng lúc
+     * (site_managers cho phép N site/1 người) khi site-scoping trang "Lịch
+     * làm việc" — xem EmployeeScheduleService.resolveAllowedSiteIds.
      */
     @Query("""
             SELECT cs FROM ClassSession cs
             WHERE cs.primaryTeacher.id IN :teacherIds
-            AND (:siteId IS NULL OR cs.schoolClass.site.id = :siteId)
+            AND (:siteIds IS NULL OR cs.schoolClass.site.id IN :siteIds)
             AND (:classId IS NULL OR cs.schoolClass.id = :classId)
             AND cs.sessionDate BETWEEN :fromDate AND :toDate
             ORDER BY cs.sessionDate ASC, cs.startTime ASC
             """)
     List<ClassSession> findByPrimaryTeacherIdInAndFiltersAndDateRange(@Param("teacherIds") List<Long> teacherIds,
-                                                                       @Param("siteId") Long siteId,
+                                                                       @Param("siteIds") List<Long> siteIds,
                                                                        @Param("classId") Long classId,
                                                                        @Param("fromDate") LocalDate fromDate,
                                                                        @Param("toDate") LocalDate toDate);
