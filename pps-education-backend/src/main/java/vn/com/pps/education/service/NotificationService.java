@@ -107,7 +107,9 @@ public class NotificationService {
                                 Map<String, Object> metadata, String entityType, Long entityId,
                                 Notification.Priority priority, Long triggeredByUserId) {
         User recipient = userRepository.findById(recipientUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + recipientUserId));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.notification.accountNotFound", new Object[]{recipientUserId},
+                        "Không tìm thấy tài khoản id=" + recipientUserId));
         User triggeredBy = triggeredByUserId == null ? null : userRepository.findById(triggeredByUserId).orElse(null);
 
         Notification notification = new Notification();

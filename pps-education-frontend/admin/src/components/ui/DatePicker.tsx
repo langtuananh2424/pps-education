@@ -1,6 +1,7 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/cn";
 
 interface DatePickerProps {
@@ -13,9 +14,6 @@ interface DatePickerProps {
   disabled?: boolean;
   className?: string;
 }
-
-const WEEKDAYS = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
-const MONTH_LABELS = Array.from({ length: 12 }, (_, i) => `Tháng ${i + 1}`);
 
 function parseIso(s: string): Date | null {
   if (!s) return null;
@@ -48,6 +46,9 @@ function formatDisplay(s: string): string {
  * bị overflow cha cắt), `position: fixed` theo toạ độ nút bấm, không còn bị cắt bởi bất kỳ cha nào.
  */
 export default function DatePicker({ value, onChange, min, max, placeholder, hasError, disabled, className }: DatePickerProps) {
+  const { t } = useTranslation("layout");
+  const WEEKDAYS = t("datePicker.weekdays", { returnObjects: true }) as string[];
+  const MONTH_LABELS = t("datePicker.months", { returnObjects: true }) as string[];
   const [open, setOpen] = useState(false);
   const selected = parseIso(value);
   const minDate = parseIso(min ?? "");
@@ -139,7 +140,7 @@ export default function DatePicker({ value, onChange, min, max, placeholder, has
           className
         )}
       >
-        <span className={value ? "text-slate-800 font-medium" : "text-slate-400"}>{value ? formatDisplay(value) : placeholder ?? "-- Chọn ngày --"}</span>
+        <span className={value ? "text-slate-800 font-medium" : "text-slate-400"}>{value ? formatDisplay(value) : placeholder ?? t("datePicker.placeholder")}</span>
         <CalendarDays className="w-3.5 h-3.5 text-slate-400 shrink-0" />
       </button>
 
@@ -233,14 +234,14 @@ export default function DatePicker({ value, onChange, min, max, placeholder, has
               }}
               className="text-[11px] font-semibold text-slate-400 hover:text-rose-600 transition-colors"
             >
-              Xoá
+              {t("datePicker.clear")}
             </button>
             <button
               type="button"
               onClick={() => pick(new Date())}
               className="text-[11px] font-bold text-brand-red hover:underline"
             >
-              Hôm nay
+              {t("datePicker.today")}
             </button>
           </div>
         </div>,

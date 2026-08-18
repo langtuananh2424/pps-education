@@ -1,15 +1,17 @@
 import React from "react";
 import { LogOut, School } from "lucide-react";
+import { Trans, useTranslation } from "react-i18next";
 import { useApp } from "@/context/AppContext";
-import { roleLabels } from "@/constants/roles";
+import { roleLabel } from "@/constants/roles";
 import { UserRole } from "@/types";
 import Button from "@/components/ui/Button";
 
 /** Chặn tài khoản STUDENT/PARENT/PARTNER_REP đăng nhập nhầm vào app Admin — 3 role này thuộc app Portal (`user/`), xem plan kiến trúc 2 app. */
 export default function WrongPortalPage() {
   const { currentUser, logout } = useApp();
+  const { t } = useTranslation(["auth", "layout"]);
 
-  const roleLabelText = currentUser?.roleCodes.map((code) => roleLabels[code as UserRole] ?? code).join(", ") ?? "";
+  const roleLabelText = currentUser?.roleCodes.map((code) => roleLabel(t, code as UserRole) ?? code).join(", ") ?? "";
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-brand-bg p-6">
@@ -19,17 +21,20 @@ export default function WrongPortalPage() {
         </div>
 
         <div className="space-y-2">
-          <h2 className="text-lg font-bold text-slate-900 font-display">Tài khoản thuộc ứng dụng Portal</h2>
+          <h2 className="text-lg font-bold text-slate-900 font-display">{t("wrongPortal.title")}</h2>
           <p className="text-xs text-slate-500 leading-relaxed">
-            Tài khoản <strong>{currentUser?.fullName}</strong> có vai trò <strong>{roleLabelText}</strong> — thuộc ứng dụng
-            Portal Học sinh/Phụ huynh/Trường liên kết, không phải ứng dụng Quản trị này. Vui lòng đăng nhập vào ứng dụng
-            Portal để tiếp tục.
+            <Trans
+              i18nKey="wrongPortal.description"
+              t={t}
+              values={{ fullName: currentUser?.fullName, roleLabels: roleLabelText }}
+              components={{ b1: <strong />, b2: <strong /> }}
+            />
           </p>
         </div>
 
         <Button variant="dark" onClick={logout} className="mx-auto">
           <LogOut className="w-4 h-4" />
-          <span>Đăng xuất</span>
+          <span>{t("wrongPortal.logout")}</span>
         </Button>
       </div>
     </div>

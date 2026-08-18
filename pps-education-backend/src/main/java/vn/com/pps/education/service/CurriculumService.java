@@ -324,7 +324,9 @@ public class CurriculumService {
         ApprovalFlow flow = approvalFlowRepository.findById(approvalFlowId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đề xuất id=" + approvalFlowId));
         if (flow.getEntityType() != ApprovalFlow.EntityType.CURRICULUM) {
-            throw new ResourceNotFoundException("Không tìm thấy đề xuất khung chương trình id=" + approvalFlowId);
+            throw new ResourceNotFoundException(
+                    "error.curriculum.approvalFlowNotFound", new Object[]{approvalFlowId},
+                    "Không tìm thấy đề xuất khung chương trình id=" + approvalFlowId);
         }
         if (flow.getStatus() != ApprovalFlow.Status.PENDING) {
             throw new ApprovalAlreadyDecidedException("Đề xuất này đã được quyết định (" + flow.getStatus() + ").");

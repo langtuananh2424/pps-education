@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { BookOpen, ListTree, Plus, Save, Send } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { listSites, SiteResponse } from "@/features/facility/api";
 import {
@@ -16,7 +17,7 @@ import {
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
-import { curriculumStatusLabels, curriculumStatusVariants } from "./CurriculumListPanel";
+import { curriculumStatusLabel, curriculumStatusVariants } from "./CurriculumListPanel";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import Select from "@/components/ui/Select";
@@ -32,6 +33,7 @@ interface CurriculumDetailPanelProps {
 }
 
 export default function CurriculumDetailPanel({ curriculum, onChanged }: CurriculumDetailPanelProps) {
+  const { t } = useTranslation("academic-curriculum");
   const [tab, setTab] = useState<Tab>("profile");
   const isCustom = curriculum.siteId != null;
   const { message: toastMessage, showToast } = useToast();
@@ -46,14 +48,14 @@ export default function CurriculumDetailPanel({ curriculum, onChanged }: Curricu
             </span>
             <h2 className="text-sm font-bold text-slate-800 mt-1">{curriculum.name}</h2>
           </div>
-          <Badge variant={curriculumStatusVariants[curriculum.status] ?? "neutral"}>{curriculumStatusLabels[curriculum.status] ?? curriculum.status}</Badge>
+          <Badge variant={curriculumStatusVariants[curriculum.status] ?? "neutral"}>{curriculumStatusLabel(t, curriculum.status)}</Badge>
         </div>
 
         <div className="flex border-b border-slate-200 pt-1 gap-5">
           {(
             [
-              ["profile", "Hồ sơ", BookOpen],
-              ["subjects", "Học phần", ListTree]
+              ["profile", t("detail.tabs.profile"), BookOpen],
+              ["subjects", t("detail.tabs.subjects"), ListTree]
             ] as const
           ).map(([key, label, Icon]) => (
             <button
@@ -91,6 +93,7 @@ function ProfileTab({
   onChanged: () => void;
   showToast: (msg: string) => void;
 }) {
+  const { t } = useTranslation("academic-curriculum");
   const [form, setForm] = useState({
     name: curriculum.name,
     level: curriculum.level ?? "",
@@ -117,7 +120,7 @@ function ProfileTab({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name.trim()) {
-      setError("Vui lòng nhập tên khung chương trình.");
+      setError(t("detail.profile.nameRequiredError"));
       return;
     }
     setSaving(true);
@@ -141,9 +144,9 @@ function ProfileTab({
         });
       }
       onChanged();
-      showToast("Đã lưu hồ sơ khung chương trình thành công!");
+      showToast(t("detail.profile.savedToast"));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Cập nhật thất bại.");
+      setError(err instanceof ApiError ? err.message : t("detail.profile.updateFailedFallback"));
     } finally {
       setSaving(false);
     }
@@ -154,9 +157,9 @@ function ProfileTab({
     try {
       await submitCurriculumForApproval(curriculum.id);
       onChanged();
-      showToast("Đã nộp duyệt thành công!");
+      showToast(t("detail.profile.submittedToast"));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Nộp duyệt thất bại.");
+      setError(err instanceof ApiError ? err.message : t("detail.profile.submitForApprovalFailedFallback"));
     }
   };
 
@@ -166,19 +169,19 @@ function ProfileTab({
         {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2">
-            <label className={labelClass}>Tên khung chương trình *</label>
+            <label className={labelClass}>{t("detail.profile.nameLabel")}</label>
             <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={inputClass} required />
           </div>
           <div>
-            <label className={labelClass}>Cấp độ</label>
+            <label className={labelClass}>{t("detail.profile.levelLabel")}</label>
             <input value={form.level} onChange={(e) => setForm({ ...form, level: e.target.value })} className={inputClass} />
           </div>
           <div>
-            <label className={labelClass}>Tổng số tiết</label>
+            <label className={labelClass}>{t("detail.profile.totalPeriodsLabel")}</label>
             <input type="number" min={0} value={form.totalPeriods} onChange={(e) => setForm({ ...form, totalPeriods: e.target.value })} className={inputClass} />
           </div>
           <div>
-            <label className={labelClass}>Ngưỡng điểm đạt</label>
+            <label className={labelClass}>{t("detail.profile.passThresholdLabel")}</label>
             <input
               type="number"
               step="0.1"
@@ -189,18 +192,18 @@ function ProfileTab({
           </div>
           {!isCustom && (
             <div>
-              <label className={labelClass}>Trạng thái</label>
+              <label className={labelClass}>{t("detail.profile.statusLabel")}</label>
               <Select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className={inputClass}>
-                <option value="DRAFT">Nháp</option>
-                <option value="ACTIVE">Đang áp dụng</option>
-                <option value="ARCHIVED">Lưu trữ</option>
+                <option value="DRAFT">{t("status.DRAFT")}</option>
+                <option value="ACTIVE">{t("status.ACTIVE")}</option>
+                <option value="ARCHIVED">{t("status.ARCHIVED")}</option>
               </Select>
             </div>
           )}
         </div>
         <Button type="submit" variant="primary" size="sm" disabled={saving}>
           <Save className="w-3.5 h-3.5" />
-          {saving ? "Đang lưu..." : "Lưu"}
+          {saving ? t("detail.profile.saving") : t("detail.profile.saveButton")}
         </Button>
       </form>
 
@@ -208,7 +211,7 @@ function ProfileTab({
         <div className="border-t border-slate-100 pt-4">
           <Button type="button" variant="dark" size="sm" onClick={handleSubmitForApproval}>
             <Send className="w-3.5 h-3.5" />
-            Nộp duyệt tùy biến lên Trưởng phòng đào tạo
+            {t("detail.profile.submitForApprovalButton")}
           </Button>
         </div>
       )}
@@ -217,15 +220,15 @@ function ProfileTab({
         <div className="border-t border-slate-100 pt-4 space-y-3">
           <Button type="button" variant="secondary" size="sm" onClick={() => setShowCustomForm(true)}>
             <Plus className="w-3.5 h-3.5" />
-            Tạo bản tùy biến cho điểm trường
+            {t("detail.profile.createCustomButton")}
           </Button>
-          <Modal open={showCustomForm} onClose={() => setShowCustomForm(false)} title="Tạo bản tùy biến cho điểm trường">
+          <Modal open={showCustomForm} onClose={() => setShowCustomForm(false)} title={t("detail.profile.createCustomModalTitle")}>
             <CreateCustomForm
               parentCurriculumId={curriculum.id}
               onDone={() => {
                 setShowCustomForm(false);
                 onChanged();
-                showToast("Đã tạo bản tùy biến thành công!");
+                showToast(t("detail.profile.createdCustomToast"));
               }}
               onCancel={() => setShowCustomForm(false)}
             />
@@ -237,6 +240,7 @@ function ProfileTab({
 }
 
 function CreateCustomForm({ parentCurriculumId, onDone, onCancel }: { parentCurriculumId: number; onDone: () => void; onCancel: () => void }) {
+  const { t } = useTranslation("academic-curriculum");
   const [sites, setSites] = useState<SiteResponse[]>([]);
   const [form, setForm] = useState({ code: "", siteId: "", name: "" });
   const [submitting, setSubmitting] = useState(false);
@@ -249,7 +253,7 @@ function CreateCustomForm({ parentCurriculumId, onDone, onCancel }: { parentCurr
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.code.trim() || !form.siteId) {
-      setError("Vui lòng điền mã bản tùy biến và chọn điểm trường liên kết.");
+      setError(t("detail.customForm.validationError"));
       return;
     }
     setSubmitting(true);
@@ -258,7 +262,7 @@ function CreateCustomForm({ parentCurriculumId, onDone, onCancel }: { parentCurr
       await createCustomCurriculum({ code: form.code.trim(), parentCurriculumId, siteId: Number(form.siteId), name: form.name.trim() || undefined });
       onDone();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Tạo bản tùy biến thất bại.");
+      setError(err instanceof ApiError ? err.message : t("detail.customForm.createFailedFallback"));
     } finally {
       setSubmitting(false);
     }
@@ -268,9 +272,9 @@ function CreateCustomForm({ parentCurriculumId, onDone, onCancel }: { parentCurr
     <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
       <div className="grid grid-cols-2 gap-2">
-        <input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="Mã bản tùy biến" className={`${inputClass} font-mono`} />
+        <input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder={t("detail.customForm.codePlaceholder")} className={`${inputClass} font-mono`} />
         <Select value={form.siteId} onChange={(e) => setForm({ ...form, siteId: e.target.value })} className={inputClass}>
-          <option value="">-- Chọn điểm trường liên kết --</option>
+          <option value="">{t("detail.customForm.sitePlaceholder")}</option>
           {sites.map((s) => (
             <option key={s.id} value={s.id}>
               {s.name}
@@ -278,13 +282,13 @@ function CreateCustomForm({ parentCurriculumId, onDone, onCancel }: { parentCurr
           ))}
         </Select>
       </div>
-      <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Tên riêng (không bắt buộc, mặc định lấy theo bản gốc)" className={inputClass} />
+      <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder={t("detail.customForm.namePlaceholder")} className={inputClass} />
       <div className="flex gap-2">
         <Button type="button" variant="secondary" size="sm" onClick={onCancel}>
-          Hủy
+          {t("detail.customForm.cancelButton")}
         </Button>
         <Button type="submit" variant="primary" size="sm" disabled={submitting}>
-          {submitting ? "Đang tạo..." : "Tạo bản tùy biến"}
+          {submitting ? t("detail.customForm.creating") : t("detail.customForm.createButton")}
         </Button>
       </div>
     </form>
@@ -292,6 +296,7 @@ function CreateCustomForm({ parentCurriculumId, onDone, onCancel }: { parentCurr
 }
 
 function SubjectsTab({ curriculumId, showToast }: { curriculumId: number; showToast: (msg: string) => void }) {
+  const { t } = useTranslation("academic-curriculum");
   const [subjects, setSubjects] = useState<CurriculumSubjectResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -301,7 +306,7 @@ function SubjectsTab({ curriculumId, showToast }: { curriculumId: number; showTo
     setLoading(true);
     listCurriculumSubjects(curriculumId)
       .then(setSubjects)
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách học phần."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("detail.subjects.loadFailedFallback")))
       .finally(() => setLoading(false));
   };
   useEffect(load, [curriculumId]);
@@ -309,19 +314,19 @@ function SubjectsTab({ curriculumId, showToast }: { curriculumId: number; showTo
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-bold uppercase text-slate-500">Học phần ({subjects.length})</span>
+        <span className="text-[10px] font-bold uppercase text-slate-500">{t("detail.subjects.countLabel", { count: subjects.length })}</span>
         <Button size="sm" variant="secondary" onClick={() => setAdding(true)}>
           <Plus className="w-3.5 h-3.5" />
-          Thêm học phần
+          {t("detail.subjects.addButton")}
         </Button>
       </div>
 
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       {loading ? (
-        <p className="text-xs text-slate-500">Đang tải...</p>
+        <p className="text-xs text-slate-500">{t("detail.subjects.loading")}</p>
       ) : subjects.length === 0 ? (
-        <p className="text-xs text-slate-400 italic">Chưa có học phần nào.</p>
+        <p className="text-xs text-slate-400 italic">{t("detail.subjects.empty")}</p>
       ) : (
         <div className="space-y-2">
           {subjects
@@ -333,19 +338,19 @@ function SubjectsTab({ curriculumId, showToast }: { curriculumId: number; showTo
                   <span className="font-bold text-slate-800">{s.name}</span>
                   <span className="font-mono text-slate-400 ml-2">{s.subjectCode}</span>
                 </div>
-                {s.periodCount != null && <span className="text-slate-400">{s.periodCount} tiết</span>}
+                {s.periodCount != null && <span className="text-slate-400">{t("detail.subjects.periodCount", { count: s.periodCount })}</span>}
               </div>
             ))}
         </div>
       )}
 
-      <Modal open={adding} onClose={() => setAdding(false)} title="Thêm học phần">
+      <Modal open={adding} onClose={() => setAdding(false)} title={t("detail.subjects.modalTitle")}>
         <AddSubjectForm
           curriculumId={curriculumId}
           onDone={() => {
             setAdding(false);
             load();
-            showToast("Đã thêm học phần thành công!");
+            showToast(t("detail.subjects.addedToast"));
           }}
           onCancel={() => setAdding(false)}
         />
@@ -355,6 +360,7 @@ function SubjectsTab({ curriculumId, showToast }: { curriculumId: number; showTo
 }
 
 function AddSubjectForm({ curriculumId, onDone, onCancel }: { curriculumId: number; onDone: () => void; onCancel: () => void }) {
+  const { t } = useTranslation("academic-curriculum");
   const [form, setForm] = useState({ subjectCode: "", name: "", periodCount: "" });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -362,7 +368,7 @@ function AddSubjectForm({ curriculumId, onDone, onCancel }: { curriculumId: numb
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.subjectCode.trim() || !form.name.trim()) {
-      setError("Vui lòng điền mã và tên học phần.");
+      setError(t("detail.addSubjectForm.validationError"));
       return;
     }
     setSubmitting(true);
@@ -372,7 +378,7 @@ function AddSubjectForm({ curriculumId, onDone, onCancel }: { curriculumId: numb
       await addCurriculumSubject(curriculumId, request);
       onDone();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Thêm học phần thất bại.");
+      setError(err instanceof ApiError ? err.message : t("detail.addSubjectForm.createFailedFallback"));
     } finally {
       setSubmitting(false);
     }
@@ -382,16 +388,16 @@ function AddSubjectForm({ curriculumId, onDone, onCancel }: { curriculumId: numb
     <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
       <div className="grid grid-cols-3 gap-2">
-        <input value={form.subjectCode} onChange={(e) => setForm({ ...form, subjectCode: e.target.value })} placeholder="Mã học phần" className={`${inputClass} font-mono`} />
-        <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Tên học phần" className={`${inputClass} col-span-2`} />
+        <input value={form.subjectCode} onChange={(e) => setForm({ ...form, subjectCode: e.target.value })} placeholder={t("detail.addSubjectForm.codePlaceholder")} className={`${inputClass} font-mono`} />
+        <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder={t("detail.addSubjectForm.namePlaceholder")} className={`${inputClass} col-span-2`} />
       </div>
-      <input type="number" min={0} value={form.periodCount} onChange={(e) => setForm({ ...form, periodCount: e.target.value })} placeholder="Số tiết" className={inputClass} />
+      <input type="number" min={0} value={form.periodCount} onChange={(e) => setForm({ ...form, periodCount: e.target.value })} placeholder={t("detail.addSubjectForm.periodCountPlaceholder")} className={inputClass} />
       <div className="flex gap-2">
         <Button type="button" variant="secondary" size="sm" onClick={onCancel}>
-          Hủy
+          {t("detail.addSubjectForm.cancelButton")}
         </Button>
         <Button type="submit" variant="primary" size="sm" disabled={submitting}>
-          {submitting ? "Đang lưu..." : "Thêm học phần"}
+          {submitting ? t("detail.addSubjectForm.saving") : t("detail.addSubjectForm.submitButton")}
         </Button>
       </div>
     </form>

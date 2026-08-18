@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { BookOpen } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import { CurriculumResponse, listCurriculums } from "../api";
@@ -12,6 +13,7 @@ import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 
 export default function SyllabusPage() {
+  const { t } = useTranslation("academic-curriculum");
   const { hasPermission } = useApp();
   // Duyệt tùy biến (UC-17) yêu cầu academic.curriculum.approve ở backend (@PreAuthorize —
   // academic.curriculum.manage đã bị tách nhỏ ở V62) — ẩn hẳn khối này với tài khoản không có
@@ -33,7 +35,7 @@ export default function SyllabusPage() {
         setCurriculums(res);
         if (selectedId == null && res.length > 0) setSelectedId(res[0].id);
       })
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách khung chương trình."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("page.loadFailedFallback")))
       .finally(() => setLoading(false));
   };
 
@@ -44,9 +46,9 @@ export default function SyllabusPage() {
   return (
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Khung chương trình</h1>
+        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("page.title")}</h1>
         <p className="text-xs text-slate-500 mt-1">
-          Quản lý khung chương trình chuẩn, học phần, và bản tùy biến theo điểm trường liên kết.
+          {t("page.description")}
         </p>
       </div>
 
@@ -69,8 +71,8 @@ export default function SyllabusPage() {
           <div className="lg:col-span-3 bg-white rounded-xl border border-slate-200 shadow-soft flex flex-col items-center justify-center p-12 text-center text-slate-400 space-y-3">
             <BookOpen className="w-12 h-12 text-slate-300" />
             <div>
-              <h3 className="text-sm font-bold text-slate-700">Chưa chọn khung chương trình nào</h3>
-              <p className="text-xs text-slate-400 mt-1">Chọn 1 khung bên trái hoặc thêm mới.</p>
+              <h3 className="text-sm font-bold text-slate-700">{t("page.emptyTitle")}</h3>
+              <p className="text-xs text-slate-400 mt-1">{t("page.emptyDescription")}</p>
             </div>
           </div>
         )}
@@ -79,7 +81,7 @@ export default function SyllabusPage() {
       {canApproveCurriculum && (
         <Card className="space-y-4">
           <h3 className="text-xs font-bold text-slate-400 block uppercase tracking-wider font-display border-b border-slate-100 pb-2">
-            Duyệt tùy biến khung chương trình
+            {t("page.approvalSectionTitle")}
           </h3>
           <CurriculumApprovalPanel />
         </Card>
@@ -92,7 +94,7 @@ export default function SyllabusPage() {
             setCreateOpen(false);
             setSelectedId(created.id);
             load();
-            showToast("Đã tạo khung chương trình thành công!");
+            showToast(t("page.createdToast"));
           }}
         />
       )}

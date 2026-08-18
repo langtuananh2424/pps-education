@@ -1,0 +1,297 @@
+{
+  "shared": {
+    "commentType": {
+      "DAILY": "Hàng ngày"
+    },
+    "attitude": {
+      "WEAK": "Yếu",
+      "AVERAGE": "Trung bình",
+      "FAIR": "Khá",
+      "GOOD": "Tốt",
+      "EXCELLENT": "Xuất sắc"
+    },
+    "attitudeWithPercent": {
+      "WEAK": "Yếu (20%)",
+      "AVERAGE": "Trung bình (50%)",
+      "FAIR": "Khá (70%)",
+      "GOOD": "Tốt (90%)",
+      "EXCELLENT": "Xuất sắc (100%)"
+    },
+    "status": {
+      "DRAFT": "Nháp",
+      "PENDING": "Chờ duyệt",
+      "APPROVED": "Đã duyệt",
+      "REJECTED": "Bị từ chối"
+    },
+    "teacherType": {
+      "VIETNAMESE": "Giáo viên Việt Nam",
+      "FOREIGN": "Giáo viên nước ngoài"
+    },
+    "grammarChannel": {
+      "VIETNAMESE": "Ngữ pháp",
+      "FOREIGN": "Bài nghe"
+    },
+    "videoChannel": {
+      "VIETNAMESE": "Từ Vựng (TKN)",
+      "FOREIGN": "Clip phản xạ"
+    },
+    "grammarChannelFallback": "Bài",
+    "videoChannelFallback": "Video"
+  },
+  "approvalByClass": {
+    "loading": "Đang tải...",
+    "empty": "Chưa có nhận xét nào chờ duyệt.",
+    "classFallback": "Lớp #{{id}}",
+    "decideAllButton": "Duyệt tất cả",
+    "decidingAll": "Đang duyệt...",
+    "pendingBadge": "{{count}} chờ duyệt",
+    "sessionLabel": "Buổi {{date}} ({{weekday}})",
+    "studentCount": "{{count}} học sinh",
+    "lessonContentPrefix": "· Bài học hôm nay: {{content}}",
+    "columns": {
+      "studentCode": "Mã học viên",
+      "fullName": "Họ và tên",
+      "type": "Loại",
+      "dateOfBirth": "Ngày sinh",
+      "homeworkPrevious": "BTVN buổi trước",
+      "homeworkOffline": "BTVN offline",
+      "homeworkOnline": "BTVN online",
+      "dueDate": "Hạn nộp bài",
+      "attitude": "Thái độ học tập",
+      "studentComment": "Nhận xét học sinh",
+      "note": "Ghi chú",
+      "action": "Hành động",
+      "offline": "Offline"
+    },
+    "cancel": "Hủy",
+    "saveEdit": "Lưu sửa",
+    "savingEdit": "Đang lưu...",
+    "actionEdit": "Sửa",
+    "actionReject": "Từ chối",
+    "actionApprove": "Duyệt",
+    "deciding": "...",
+    "rejectReasonPrompt": "Lý do từ chối (bắt buộc — giáo viên sẽ dựa vào đây để sửa lại):",
+    "decidedApproved": "Đã duyệt nhận xét học sinh {{name}}.",
+    "decidedRejected": "Đã từ chối nhận xét học sinh {{name}}.",
+    "decidedAll": "Đã duyệt tất cả {{count}} nhận xét của lớp {{className}}.",
+    "errors": {
+      "decideFailed": "Duyệt nhận xét thất bại.",
+      "decideAllFailed": "Duyệt tất cả thất bại.",
+      "emptyContent": "Nội dung nhận xét không được để trống.",
+      "saveEditFailed": "Sửa nội dung thất bại."
+    }
+  },
+  "historyList": {
+    "placeholders": {
+      "attitude": "-- Thái độ học tập --",
+      "homeworkPreviousScore": "BTVN Ngữ pháp buổi trước",
+      "homeworkPreviousSpeakingScore": "BTVN Nghe-nói buổi trước",
+      "homeworkNextOffline": "VD: Unit 2 trang 10",
+      "chooseExercise": "-- Chọn đề đã Publish --",
+      "noVideoAssign": "-- Không giao Video ôn tập --",
+      "note": "Ghi chú"
+    },
+    "grammarModeOfflineButton": "BTVN Ngữ pháp: Offline",
+    "grammarModeOnlineButton": "Online",
+    "severity": {
+      "POSITIVE": "Tích cực",
+      "NORMAL": "Bình thường",
+      "CONCERN": "Cần lưu ý",
+      "WARNING": "Cảnh báo"
+    },
+    "specialWarningLabel": "Cảnh báo đặc biệt",
+    "cancel": "Hủy",
+    "sendAgain": "Gửi lại",
+    "sending": "Đang gửi...",
+    "empty": "Chưa có nhận xét nào.",
+    "readOnlyExtras": {
+      "attitude": "Thái độ: {{value}}",
+      "homeworkPreviousScore": "BTVN Ngữ pháp buổi trước: {{value}}",
+      "homeworkPreviousSpeakingScore": "BTVN Nghe-nói buổi trước: {{value}}",
+      "grammarPreviousProgress": "% Ngữ pháp (tự động): {{value}}",
+      "videoPreviousProgress": "% Video (tự động): {{value}}",
+      "homeworkNextOffline": "BTVN Ngữ pháp buổi sau (offline): {{value}}",
+      "homeworkNextOnline": "BTVN Ngữ pháp buổi sau (online): {{value}}",
+      "homeworkNextVideo": "Video ôn tập buổi sau: {{value}}",
+      "note": "Ghi chú: {{value}}"
+    },
+    "rejectionReason": "Lý do từ chối: {{reason}}",
+    "submitDraft": "Nộp duyệt",
+    "submitting": "Đang nộp...",
+    "editAndResend": "Sửa & Gửi lại",
+    "columns": {
+      "studentCode": "Mã học viên",
+      "fullName": "Họ và tên",
+      "dateOfBirth": "Ngày sinh",
+      "homeworkPrevious": "BTVN buổi trước",
+      "homeworkOffline": "BTVN offline",
+      "homeworkOnline": "BTVN online",
+      "dueDate": "Hạn nộp bài",
+      "attitude": "Thái độ học tập",
+      "studentComment": "Nhận xét học sinh",
+      "note": "Ghi chú",
+      "status": "Trạng thái",
+      "offline": "Offline"
+    },
+    "errors": {
+      "emptyContent": "Vui lòng nhập nội dung nhận xét.",
+      "submitFailed": "Nộp nhận xét thất bại.",
+      "resendFailed": "Gửi lại nhận xét thất bại."
+    },
+    "toasts": {
+      "submitted": "Đã nộp duyệt nhận xét thành công!",
+      "resent": "Đã gửi lại nhận xét thành công!"
+    }
+  },
+  "historyPanel": {
+    "loadingClasses": "Đang tải danh sách lớp...",
+    "noClasses": "Bạn chưa phụ trách lớp nào.",
+    "errors": {
+      "loadFailed": "Không tải được lịch sử nhận xét."
+    },
+    "allClasses": "Tất cả lớp",
+    "allStatuses": "Tất cả trạng thái",
+    "fromDateLabel": "Từ ngày:",
+    "toDateConnector": "đến",
+    "clearFilter": "Xóa lọc",
+    "countSummary": "{{filtered}}/{{total}} nhận xét",
+    "loading": "Đang tải...",
+    "emptyNoHistory": "Chưa có nhận xét nào đã duyệt/từ chối.",
+    "emptyNoMatch": "Không có nhận xét nào khớp bộ lọc.",
+    "classFallback": "Lớp #{{id}}",
+    "commentCountBadge": "{{count}} nhận xét",
+    "sessionLabel": "Buổi {{date}} ({{weekday}})",
+    "sessionItemCount": "{{count}} nhận xét",
+    "columns": {
+      "studentCode": "Mã học viên",
+      "fullName": "Họ và tên",
+      "type": "Loại",
+      "dateOfBirth": "Ngày sinh",
+      "homeworkPrevious": "BTVN buổi trước",
+      "homeworkOffline": "BTVN offline",
+      "homeworkOnline": "BTVN online",
+      "dueDate": "Hạn nộp bài",
+      "attitude": "Thái độ học tập",
+      "comment": "Nhận xét",
+      "note": "Ghi chú",
+      "status": "Trạng thái",
+      "decidedAt": "Ngày duyệt",
+      "rejectionReason": "Lý do từ chối",
+      "offline": "Offline"
+    }
+  },
+  "dailyCommentPanel": {
+    "title": "Nhận xét hàng ngày theo buổi học",
+    "noClassSelected": "Chưa chọn lớp — chọn ở góc trên bên phải (Header) để bắt đầu.",
+    "sessionSelectPlaceholder": "-- Chọn buổi học --",
+    "sessionOptionLabel": "Buổi {{number}} — {{date}} ({{start}}–{{end}})",
+    "sessionOptionPartialCount": " ({{commented}}/{{total}})",
+    "teacherTypeLockedTitle": "Buổi này đã có nhận xét gửi duyệt — không đổi được Loại giáo viên nữa.",
+    "teacherTypeMissingWarning": "⚠️ Chưa chọn \"Loại giáo viên\" ở trên — chọn trước để bảng BTVN buổi sau hiện đúng Bài/Video theo Giáo viên Việt Nam hay nước ngoài.",
+    "sessionLockedNotice": "🔒 Buổi này đã có nhận xét gửi duyệt. Muốn sửa lại, nhờ Quản lý điểm trường \"Từ chối\" toàn bộ nhận xét của buổi để mở khoá.",
+    "lessonContentLabel": "Bài học hôm nay *",
+    "lessonContentPlaceholder": "VD: Unit 3 - Free time activities",
+    "actualTeacherNameLabel": "Tên giáo viên giảng dạy",
+    "actualTeacherNamePlaceholder": "VD: Nguyễn Văn A (điền hộ nếu Giáo viên nước ngoài không tự thao tác)",
+    "saveButton": "Lưu",
+    "savingButton": "Đang lưu...",
+    "lessonContentMissingError": "⚠️ Bắt buộc điền + Lưu Bài học hôm nay trước khi Gửi nhận xét — nội dung học sinh bạn đã gõ vẫn còn nguyên, điền xong bấm \"Gửi nhận xét\" lại là được.",
+    "lessonContentMissingHint": "Chưa điền bài học hôm nay — bắt buộc điền trước khi Gửi nhận xét (buổi chưa điền sẽ bị từ chối khi gửi duyệt).",
+    "blockOnlineHomeworkWarning": "⚠️ Đây là buổi học cuối cùng đã lên lịch của lớp — lớp chưa có buổi kế tiếp nào trong lịch nên chưa thể giao BTVN {{grammarLabel}} (Online)/{{videoLabel}} buổi sau (cần hạn nộp = buổi kế tiếp). Tự chọn hạn nộp ở panel \"Gán nhanh cho cả lớp\" bên dưới để bỏ qua điều kiện này, hoặc chỉ nhập BTVN offline (chữ tự do, không cần hạn nộp).",
+    "quickAssign": {
+      "title": "Gán nhanh cho cả lớp",
+      "offlineLabel": "BTVN offline",
+      "offlinePlaceholder": "VD: Unit 2 trang 10",
+      "onlineGrammarLabel": "BTVN online — {{grammarLabel}}",
+      "onlineVideoLabel": "BTVN online — {{videoLabel}}",
+      "noAssign": "-- Không giao --",
+      "dueDateLabel": "Hạn nộp bài — ngày",
+      "dueTimeLabel": "Hạn nộp bài — giờ",
+      "applyButton": "Áp dụng cho cả lớp"
+    },
+    "downloadTemplateButton": "Tải mẫu Excel",
+    "downloadingTemplate": "Đang tải...",
+    "importExcelButton": "Nhập từ Excel",
+    "importing": "Đang nhập...",
+    "savedAt": "Đã lưu lúc {{time}}",
+    "saveDraftButton": "Lưu nháp",
+    "savingDraft": "Đang lưu...",
+    "importResult": {
+      "total": "Tổng: {{count}}",
+      "success": "Thành công: {{count}}",
+      "failed": "Lỗi: {{count}}",
+      "row": "Dòng {{row}}"
+    },
+    "columns": {
+      "studentCode": "Mã học viên",
+      "fullName": "Họ và tên",
+      "dateOfBirth": "Ngày sinh",
+      "homeworkPrevious": "BTVN buổi trước",
+      "homeworkOffline": "BTVN offline",
+      "homeworkOnline": "BTVN online",
+      "dueDate": "Hạn nộp bài",
+      "attitude": "Thái độ học tập",
+      "studentComment": "Nhận xét học sinh *",
+      "note": "Ghi chú",
+      "offline": "Offline"
+    },
+    "emptyNoSession": "Chọn buổi học ở trên để tải danh sách học sinh.",
+    "emptyNoClass": "Chọn 1 lớp ở Header (góc trên bên phải).",
+    "loadingRows": "Đang tải...",
+    "emptyNoStudents": "Không tìm thấy học sinh nào thuộc lớp học này.",
+    "homeworkPreviousOfflinePlaceholder": "VD: 80%",
+    "homeworkPreviousSpeakingPlaceholder": "VD: Đã thực hiện 85% (kênh Video luôn Online — % tự động sẽ hiện sau khi Gửi)",
+    "autoBadge": "Tự động",
+    "chooseExercisePlaceholder": "-- Chọn đề đã Publish --",
+    "attitudePlaceholder": "-- Chưa chọn --",
+    "contentPlaceholder": "Viết nhận xét cho học sinh này...",
+    "ariaChooseTeacherTypeFirst": "Chọn Loại giáo viên ở trên trước.",
+    "ariaNoUpcomingSession": "Lớp chưa có buổi kế tiếp trong lịch — tự chọn hạn nộp để bỏ qua.",
+    "sendButton": "Gửi nhận xét",
+    "sending": "Đang gửi...",
+    "sendButtonDoneAll": "Đã gửi hết nhận xét buổi này",
+    "historyToggle": "Lịch sử nhận xét buổi này",
+    "historyToggleCount": "Lịch sử nhận xét buổi này ({{count}})",
+    "loadingHistory": "Đang tải...",
+    "notifications": {
+      "todayNotStarted": "📅 Buổi học hôm nay ({{start}}–{{end}}) chưa bắt đầu — chưa thể nhận xét, có thể tự chọn buổi khác ở trên.",
+      "noTodaySession": "📅 Hôm nay không có buổi học nào của lớp này — vui lòng tự chọn buổi ở trên.",
+      "lessonContentSaved": "✅ Đã lưu Bài học hôm nay.",
+      "actualTeacherNameSaved": "✅ Đã lưu Tên giáo viên giảng dạy.",
+      "draftSavedFailurePart": "⚠️ Đã lưu nháp {{saved}}/{{total}} nhận xét — {{studentName}}{{extra}} lỗi: {{reason}}",
+      "draftSavedSuccess": "💾 Đã lưu nháp {{count}} nhận xét (chưa gửi duyệt).",
+      "extraStudents": " (+{{count}} học sinh khác)",
+      "sentSuccess": "🔔 Đã gửi nhận xét {{count}} học sinh lên Quản lý điểm trường rà soát duyệt.",
+      "sentButSubmitFailed": "⚠️ Đã lưu nháp {{count}} nhận xét nhưng gửi duyệt thất bại: {{reason}} — vào \"Lịch sử nhận xét\" bên dưới bấm \"Nộp duyệt\" để thử lại.",
+      "alreadySent": "⚠️ Học sinh {{name}} đã có nhận xét cho buổi này rồi (trạng thái: {{status}}) — xem/sửa ở \"Lịch sử nhận xét\" bên dưới."
+    },
+    "errors": {
+      "loadSessionsFailed": "Không tải được danh sách buổi học.",
+      "lessonContentSaveFailed": "Lưu Bài học hôm nay thất bại.",
+      "actualTeacherNameSaveFailed": "Lưu Tên giáo viên giảng dạy thất bại.",
+      "teacherTypeSaveFailed": "Lưu loại giáo viên thất bại.",
+      "loadStudentsFailed": "Không tải được danh sách học sinh.",
+      "noDataToSave": "Chưa có dữ liệu nào để lưu.",
+      "saveDraftFailed": "Lưu nháp thất bại.",
+      "unknownReason": "lỗi không xác định",
+      "unknownError": "Lỗi không xác định.",
+      "enterAtLeastOneComment": "Vui lòng nhập nhận xét cho ít nhất 1 học sinh.",
+      "submitFailed": "Gửi duyệt thất bại.",
+      "sendFailed": "Gửi nhận xét thất bại.",
+      "downloadTemplateFailed": "Tải file mẫu thất bại.",
+      "xlsxOnly": "Chỉ hỗ trợ file .xlsx.",
+      "importFailed": "Nhập từ Excel thất bại."
+    }
+  },
+  "commentsPage": {
+    "title": "Nhận xét học viên",
+    "subtitle": "Giáo viên viết nhận xét hàng ngày, Quản lý điểm trường duyệt trước khi hiển thị Portal phụ huynh.",
+    "tabs": {
+      "pending": "Chờ duyệt",
+      "history": "Lịch sử nhận xét cũ"
+    },
+    "errors": {
+      "loadPendingFailed": "Không tải được hàng chờ duyệt nhận xét."
+    }
+  }
+}

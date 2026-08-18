@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { UserRole } from "@/types";
 import { CurrentUserResponse, fetchCurrentUser, login as loginApi, loginWithGoogle as loginWithGoogleApi, logout as logoutApi } from "@/features/auth/api";
 import { getAccessToken } from "@/lib/tokenStorage";
@@ -65,6 +66,10 @@ function deriveCurrentRole(roleCodes: string[]): UserRole {
 }
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
+  // useTranslation() ở đây (dù AppProvider không render text gì trực tiếp) để component re-render khi
+  // đổi ngôn ngữ — currentRoleLabel/loginNotice bên dưới cần tính lại theo t() mới nhất, không chỉ tính
+  // 1 lần lúc mount.
+  const { t } = useTranslation(["layout", "auth"]);
   const [isLoggedIn, setIsLoggedIn] = useState(() => !!getAccessToken());
   const [currentUser, setCurrentUser] = useState<CurrentUserResponse | null>(() => readCachedUser());
   const [currentRole, setCurrentRole] = useState<UserRole>(() => {
@@ -103,7 +108,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setCurrentUser(profile);
     setCurrentRole(deriveCurrentRole(profile.roleCodes));
     setIsLoggedIn(true);
-    setLoginNotice(`Đăng nhập thành công! Chào mừng trở lại, ${profile.fullName}.`);
+    setLoginNotice(t("auth:loginSuccessNotice", { name: profile.fullName }));
     setTimeout(() => setLoginNotice(null), 4000);
     // Fire-and-forget — không chặn luồng login nếu trình duyệt không hỗ trợ/từ chối
     // quyền notification (VD Safari iOS chưa "Thêm vào Màn hình chính", xem
@@ -139,7 +144,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return currentUser?.permissions?.includes(requiredPermission) ?? false;
   };
 
-  const currentRoleLabel = currentUser ? deriveCurrentRoleLabel(currentUser.roleCodes) : deriveCurrentRoleLabel([]);
+  const currentRoleLabel = currentUser ? deriveCurrentRoleLabel(currentUser.roleCodes, t) : deriveCurrentRoleLabel([], t);
 
   const value = useMemo<AppContextValue>(
     () => ({

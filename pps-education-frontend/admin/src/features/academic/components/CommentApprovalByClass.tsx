@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Edit3, Check, CheckCheck, Flag, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import {
   ClassResponse,
@@ -16,22 +17,12 @@ import Card from "@/components/ui/Card";
 import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
 import { useDialog } from "@/components/ui/DialogProvider";
 import NotificationBanner from "@/features/student/components/NotificationBanner";
+import { toLocaleTag } from "@/lib/i18nFormat";
 
-const commentTypeLabels: Record<StudentCommentResponse["commentType"], string> = { DAILY: "Hàng ngày" };
-/** Thang thái độ chốt lại 2026-08-12 (StudentComment.Attitude). */
-const attitudeLabels: Record<NonNullable<StudentCommentResponse["attitude"]>, string> = {
-  WEAK: "Yếu",
-  AVERAGE: "Trung bình",
-  FAIR: "Khá",
-  GOOD: "Tốt",
-  EXCELLENT: "Xuất sắc"
-};
 // Đồng bộ đúng bố cục/tên cột với form Giáo viên điền & gửi (DailyCommentPanel.tsx) — bổ sung ngoài
 // SDD gốc, đã xác nhận với người dùng 2026-08-06. Nhãn 2 kênh BTVN ăn theo "Loại giáo viên" của buổi
-// (ClassSession.teacherType) — mirror đúng object grammarChannelLabel/videoChannelLabel ở DailyCommentPanel.
+// (ClassSession.teacherType) — mirror đúng key shared.grammarChannel/shared.videoChannel (i18n) ở DailyCommentPanel.
 type TeacherType = "VIETNAMESE" | "FOREIGN";
-const grammarChannelLabel: Record<TeacherType, string> = { VIETNAMESE: "Ngữ pháp", FOREIGN: "Bài nghe" };
-const videoChannelLabel: Record<TeacherType, string> = { VIETNAMESE: "Từ Vựng (TKN)", FOREIGN: "Clip phản xạ" };
 
 interface CommentApprovalByClassProps {
   items: StudentCommentResponse[];
@@ -45,6 +36,7 @@ interface CommentApprovalByClassProps {
  * hiển thị từng tên rời rạc không ổn khi số lượng nhiều). Duyệt/Từ chối làm trực tiếp ngay tại dòng.
  */
 export default function CommentApprovalByClass({ items, loading, onDecided }: CommentApprovalByClassProps) {
+  const { t, i18n } = useTranslation("academic-comments");
   const [classesById, setClassesById] = useState<Record<number, ClassResponse>>({});
   // "Loại giáo viên" của từng buổi (ClassSession.teacherType) — để đổi nhãn 2 kênh BTVN đúng như
   // DailyCommentPanel (Ngữ pháp/Bài nghe, Từ Vựng (TKN)/Clip phản xạ), 2026-08-06.
@@ -104,7 +96,7 @@ export default function CommentApprovalByClass({ items, loading, onDecided }: Co
   const handleDecide = async (comment: StudentCommentResponse, decision: "APPROVED" | "REJECTED") => {
     let reason: string | undefined;
     if (decision === "REJECTED") {
-      reason = (await promptDialog("Lý do từ chối (bắt buộc — giáo viên sẽ dựa vào đây để sửa lại):", { required: true, multiline: true })) ?? undefined;
+      reason = (await promptDialog(t("approvalByClass.rejectReasonPrompt"), { required: true, multiline: true })) ?? undefined;
       if (!reason?.trim()) return;
     }
     setDecidingId(comment.id);
@@ -113,12 +105,12 @@ export default function CommentApprovalByClass({ items, loading, onDecided }: Co
       await decideComments([comment.id], decision, reason?.trim());
       setDecidedMessage(
         decision === "APPROVED"
-          ? `Đã duyệt nhận xét học sinh ${comment.studentFullName}.`
-          : `Đã từ chối nhận xét học sinh ${comment.studentFullName}.`
+          ? t("approvalByClass.decidedApproved", { name: comment.studentFullName })
+          : t("approvalByClass.decidedRejected", { name: comment.studentFullName })
       );
       onDecided();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Duyệt nhận xét thất bại.");
+      setError(err instanceof ApiError ? err.message : t("approvalByClass.errors.decideFailed"));
     } finally {
       setDecidingId(null);
     }
@@ -129,10 +121,15 @@ export default function CommentApprovalByClass({ items, loading, onDecided }: Co
     setError(null);
     try {
       await decideComments(classItems.map((cm) => cm.id), "APPROVED");
-      setDecidedMessage(`Đã duyệt tất cả ${classItems.length} nhận xét của lớp ${classesById[classId]?.name ?? `#${classId}`}.`);
+      setDecidedMessage(
+        t("approvalByClass.decidedAll", {
+          count: classItems.length,
+          className: classesById[classId]?.name ?? `#${classId}`
+        })
+      );
       onDecided();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Duyệt tất cả thất bại.");
+      setError(err instanceof ApiError ? err.message : t("approvalByClass.errors.decideAllFailed"));
     } finally {
       setDecidingAllClassId(null);
     }
@@ -145,7 +142,7 @@ export default function CommentApprovalByClass({ items, loading, onDecided }: Co
 
   const handleSaveEdit = async (id: number) => {
     if (!editingContent.trim()) {
-      setError("Nội dung nhận xét không được để trống.");
+      setError(t("approvalByClass.errors.emptyContent"));
       return;
     }
     setSavingEditId(id);
@@ -155,14 +152,14 @@ export default function CommentApprovalByClass({ items, loading, onDecided }: Co
       setEditingId(null);
       onDecided();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Sửa nội dung thất bại.");
+      setError(err instanceof ApiError ? err.message : t("approvalByClass.errors.saveEditFailed"));
     } finally {
       setSavingEditId(null);
     }
   };
 
-  if (loading) return <p className="text-xs text-slate-500 p-4">Đang tải...</p>;
-  if (items.length === 0) return <p className="text-xs text-slate-400 italic text-center py-6">Chưa có nhận xét nào chờ duyệt.</p>;
+  if (loading) return <p className="text-xs text-slate-500 p-4">{t("approvalByClass.loading")}</p>;
+  if (items.length === 0) return <p className="text-xs text-slate-400 italic text-center py-6">{t("approvalByClass.empty")}</p>;
 
   const classIdsInOrder = Array.from(new Set(items.map((it) => it.classId))).sort((a, b) => {
     const nameA = classesById[a]?.name ?? "";
@@ -185,7 +182,7 @@ export default function CommentApprovalByClass({ items, loading, onDecided }: Co
           <Card key={classId} padded={false} className="overflow-hidden">
             <div className="px-5 py-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between flex-wrap gap-2">
               <span className="text-xs font-bold text-slate-700 font-display">
-                {cls ? `${cls.name} (${cls.classCode})` : `Lớp #${classId}`}
+                {cls ? `${cls.name} (${cls.classCode})` : t("approvalByClass.classFallback", { id: classId })}
               </span>
               <div className="flex items-center gap-2">
                 <button
@@ -194,29 +191,31 @@ export default function CommentApprovalByClass({ items, loading, onDecided }: Co
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded-lg disabled:opacity-50"
                 >
                   <CheckCheck className="w-3.5 h-3.5" />
-                  {decidingAllClassId === classId ? "Đang duyệt..." : "Duyệt tất cả"}
+                  {decidingAllClassId === classId ? t("approvalByClass.decidingAll") : t("approvalByClass.decideAllButton")}
                 </button>
-                <Badge variant="warning">{classItems.length} chờ duyệt</Badge>
+                <Badge variant="warning">{t("approvalByClass.pendingBadge", { count: classItems.length })}</Badge>
               </div>
             </div>
             {datesInOrder.map((date) => {
               const dateItems = classItems.filter((it) => it.commentDate === date);
-              const weekday = new Date(date).toLocaleDateString("vi-VN", { weekday: "long" }).replace(/^./, (c) => c.toUpperCase());
+              const weekday = new Date(date).toLocaleDateString(toLocaleTag(i18n.language), { weekday: "long" }).replace(/^./, (c) => c.toUpperCase());
               // Cả buổi chung 1 Loại giáo viên (ClassSession.teacherType) — lấy từ dòng đầu, mirror cách lessonContent đang lấy.
               const sessionId = dateItems[0]?.classSessionId;
               const sessionTeacherType = (sessionId != null ? sessionsById[sessionId]?.teacherType : null) ?? null;
-              const grammarLabel = sessionTeacherType ? grammarChannelLabel[sessionTeacherType] : "Bài";
-              const videoLabel = sessionTeacherType ? videoChannelLabel[sessionTeacherType] : "Video";
+              const grammarLabel = sessionTeacherType ? t(`shared.grammarChannel.${sessionTeacherType}`) : t("shared.grammarChannelFallback");
+              const videoLabel = sessionTeacherType ? t(`shared.videoChannel.${sessionTeacherType}`) : t("shared.videoChannelFallback");
               return (
                 <div key={date} className="border-b border-slate-100 last:border-b-0">
                   <div className="px-5 py-2 bg-slate-50/60 flex items-center gap-2 flex-wrap">
                     <span className="text-[11px] font-bold text-slate-600">
-                      Buổi {date} ({weekday})
+                      {t("approvalByClass.sessionLabel", { date, weekday })}
                     </span>
-                    <span className="text-[10px] text-slate-400">{dateItems.length} học sinh</span>
+                    <span className="text-[10px] text-slate-400">{t("approvalByClass.studentCount", { count: dateItems.length })}</span>
                     {/* lessonContent giống nhau cho cả buổi (class_sessions.lesson_content) — chỉ cần lấy từ dòng đầu, 2026-07-30. */}
                     {dateItems[0]?.lessonContent && (
-                      <span className="text-[10px] text-amber-700 font-semibold">· Bài học hôm nay: {dateItems[0].lessonContent}</span>
+                      <span className="text-[10px] text-amber-700 font-semibold">
+                        {t("approvalByClass.lessonContentPrefix", { content: dateItems[0].lessonContent })}
+                      </span>
                     )}
                   </div>
                   <TableContainer className="rounded-none border-0">
@@ -224,21 +223,21 @@ export default function CommentApprovalByClass({ items, loading, onDecided }: Co
                       {/* Border rõ giữa các cột/dòng header (bổ sung ngoài SDD gốc, đã xác nhận với
                           người dùng 2026-08-06) — Th mặc định không có border. */}
                       <tr className="border-b border-slate-300 [&>th]:text-center">
-                        <Th rowSpan={2} className="min-w-[110px] border-r border-slate-300">Mã học viên</Th>
-                        <Th rowSpan={2} className="border-r border-slate-300">Họ và tên</Th>
-                        <Th rowSpan={2} className="border-r border-slate-300">Loại</Th>
-                        <Th rowSpan={2} className="border-r border-slate-300">Ngày sinh</Th>
-                        <Th colSpan={3} className="text-center border-r border-slate-300">BTVN buổi trước</Th>
-                        <Th rowSpan={2} className="border-r border-slate-300">BTVN offline</Th>
-                        <Th colSpan={2} className="text-center border-r border-slate-300">BTVN online</Th>
-                        <Th rowSpan={2} className="border-r border-slate-300">Hạn nộp bài</Th>
-                        <Th rowSpan={2} className="border-r border-slate-300">Thái độ học tập</Th>
-                        <Th rowSpan={2} className="border-r border-slate-300">Nhận xét học sinh</Th>
-                        <Th rowSpan={2} className="border-r border-slate-300">Ghi chú</Th>
-                        <Th rowSpan={2}>Hành động</Th>
+                        <Th rowSpan={2} className="min-w-[110px] border-r border-slate-300">{t("approvalByClass.columns.studentCode")}</Th>
+                        <Th rowSpan={2} className="border-r border-slate-300">{t("approvalByClass.columns.fullName")}</Th>
+                        <Th rowSpan={2} className="border-r border-slate-300">{t("approvalByClass.columns.type")}</Th>
+                        <Th rowSpan={2} className="border-r border-slate-300">{t("approvalByClass.columns.dateOfBirth")}</Th>
+                        <Th colSpan={3} className="text-center border-r border-slate-300">{t("approvalByClass.columns.homeworkPrevious")}</Th>
+                        <Th rowSpan={2} className="border-r border-slate-300">{t("approvalByClass.columns.homeworkOffline")}</Th>
+                        <Th colSpan={2} className="text-center border-r border-slate-300">{t("approvalByClass.columns.homeworkOnline")}</Th>
+                        <Th rowSpan={2} className="border-r border-slate-300">{t("approvalByClass.columns.dueDate")}</Th>
+                        <Th rowSpan={2} className="border-r border-slate-300">{t("approvalByClass.columns.attitude")}</Th>
+                        <Th rowSpan={2} className="border-r border-slate-300">{t("approvalByClass.columns.studentComment")}</Th>
+                        <Th rowSpan={2} className="border-r border-slate-300">{t("approvalByClass.columns.note")}</Th>
+                        <Th rowSpan={2}>{t("approvalByClass.columns.action")}</Th>
                       </tr>
                       <tr className="border-b border-slate-300 [&>th]:text-center">
-                        <Th className="border-r border-slate-300 text-center">Offline</Th>
+                        <Th className="border-r border-slate-300 text-center">{t("approvalByClass.columns.offline")}</Th>
                         <Th className="border-r border-slate-300 text-center">{grammarLabel}</Th>
                         <Th className="border-r border-slate-300 text-center">{videoLabel}</Th>
                         <Th className="border-r border-slate-300 text-center">{grammarLabel}</Th>
@@ -254,7 +253,7 @@ export default function CommentApprovalByClass({ items, loading, onDecided }: Co
                             {cm.isWarning && <Flag className="w-3 h-3 text-rose-500 inline ml-1.5" />}
                           </Td>
                           <Td className="border-r border-slate-300">
-                            <Badge variant="info">{commentTypeLabels[cm.commentType]}</Badge>
+                            <Badge variant="info">{t(`shared.commentType.${cm.commentType}`)}</Badge>
                           </Td>
                           <Td className="whitespace-nowrap text-slate-500 border-r border-slate-300">{cm.studentDateOfBirth ?? "—"}</Td>
                           <Td className="min-w-[110px] border-r border-slate-300">{cm.homeworkPreviousOfflineText || "—"}</Td>
@@ -264,9 +263,9 @@ export default function CommentApprovalByClass({ items, loading, onDecided }: Co
                           <Td className="min-w-[180px] border-r border-slate-300">{cm.homeworkNextExerciseTitle || "—"}</Td>
                           <Td className="min-w-[180px] border-r border-slate-300">{cm.homeworkNextReviewVideoSetTitle || "—"}</Td>
                           <Td className="min-w-[120px] whitespace-nowrap border-r border-slate-300">
-                            {cm.homeworkNextDueAt ? new Date(cm.homeworkNextDueAt).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" }) : "—"}
+                            {cm.homeworkNextDueAt ? new Date(cm.homeworkNextDueAt).toLocaleString(toLocaleTag(i18n.language), { dateStyle: "short", timeStyle: "short" }) : "—"}
                           </Td>
-                          <Td className="min-w-[110px] border-r border-slate-300">{cm.attitude ? attitudeLabels[cm.attitude] : "—"}</Td>
+                          <Td className="min-w-[110px] border-r border-slate-300">{cm.attitude ? t(`shared.attitude.${cm.attitude}`) : "—"}</Td>
                           <Td className="min-w-[260px] border-r border-slate-300">
                             {editingId === cm.id ? (
                               <div className="space-y-2">
@@ -281,14 +280,14 @@ export default function CommentApprovalByClass({ items, loading, onDecided }: Co
                                     onClick={() => setEditingId(null)}
                                     className="px-2 py-1 text-slate-500 hover:bg-slate-100 text-[10px] font-bold rounded-lg"
                                   >
-                                    Hủy
+                                    {t("approvalByClass.cancel")}
                                   </button>
                                   <button
                                     onClick={() => handleSaveEdit(cm.id)}
                                     disabled={savingEditId === cm.id}
                                     className="px-2 py-1 bg-brand-red hover:bg-red-700 text-white text-[10px] font-bold rounded-lg disabled:opacity-50"
                                   >
-                                    {savingEditId === cm.id ? "Đang lưu..." : "Lưu sửa"}
+                                    {savingEditId === cm.id ? t("approvalByClass.savingEdit") : t("approvalByClass.saveEdit")}
                                   </button>
                                 </div>
                               </div>
@@ -305,7 +304,7 @@ export default function CommentApprovalByClass({ items, loading, onDecided }: Co
                                 className="px-2 py-1 text-slate-600 hover:bg-slate-100 border border-slate-200 text-[11px] font-bold rounded-lg disabled:opacity-50"
                               >
                                 <Edit3 className="w-3 h-3 inline mr-0.5" />
-                                Sửa
+                                {t("approvalByClass.actionEdit")}
                               </button>
                               <button
                                 onClick={() => handleDecide(cm, "REJECTED")}
@@ -313,7 +312,7 @@ export default function CommentApprovalByClass({ items, loading, onDecided }: Co
                                 className="px-2 py-1 text-rose-600 hover:bg-rose-50 border border-rose-200 text-[11px] font-bold rounded-lg disabled:opacity-50"
                               >
                                 <X className="w-3 h-3 inline mr-0.5" />
-                                Từ chối
+                                {t("approvalByClass.actionReject")}
                               </button>
                               <button
                                 onClick={() => handleDecide(cm, "APPROVED")}
@@ -321,7 +320,7 @@ export default function CommentApprovalByClass({ items, loading, onDecided }: Co
                                 className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded-lg disabled:opacity-50"
                               >
                                 <Check className="w-3 h-3 inline mr-0.5" />
-                                {decidingId === cm.id ? "..." : "Duyệt"}
+                                {decidingId === cm.id ? t("approvalByClass.deciding") : t("approvalByClass.actionApprove")}
                               </button>
                             </div>
                           </Td>

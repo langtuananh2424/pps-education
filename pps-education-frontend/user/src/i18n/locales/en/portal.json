@@ -1,0 +1,47 @@
+{
+  "brandSubtitleParent": "PARENT PORTAL",
+  "brandSubtitleStudent": "STUDENT PORTAL",
+  "openMenu": "Open menu",
+  "closeMenu": "Close menu",
+  "welcome": "Welcome,",
+  "you": "You",
+  "logout": "Log out",
+  "unsupportedAccount": {
+    "title": "This account doesn't support the Portal",
+    "description": "The Portal currently only serves Parent and Student accounts.",
+    "logout": "Sign out"
+  },
+  "loading": "Loading...",
+  "noViewerData": {
+    "parent": "No student is linked to your account yet.",
+    "student": "No student record found for this account."
+  },
+  "roleLabel": {
+    "parent": "Student",
+    "student": "Student"
+  },
+  "studentDropdownLabel": "Student",
+  "classDropdownLabel": "Current class",
+  "oldClassSuffix": "{{name}} (Past class)",
+  "noClassAssigned": "This student hasn't been assigned to a class yet.",
+  "tabs": {
+    "home": "Home & Updates",
+    "grades": "Assessments & Grades",
+    "grade-stats": "Grade Statistics",
+    "schedule": "Schedule & Attendance",
+    "learning-progress": "Learning Progress",
+    "homework": "Homework",
+    "documents": "Document Library",
+    "billing": "Billing & Services"
+  },
+  "comingSoon": {
+    "notLinkedDescription": "No Student or Parent record is linked to this account.",
+    "billingDescription": "Waiting for the backend to open the API for students to view their own tuition (currently parents only).",
+    "badge": "Coming soon"
+  },
+  "loadErrors": {
+    "children": "Couldn't load your children's list.",
+    "classOptions": "Couldn't load the class list."
+  },
+  "footer": "© 2026 PPS Education. All rights reserved."
+}

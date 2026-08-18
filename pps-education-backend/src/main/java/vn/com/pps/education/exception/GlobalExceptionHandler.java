@@ -1,8 +1,12 @@
 package vn.com.pps.education.exception;
 
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authorization.AuthorizationDeniedException;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -11,6 +15,12 @@ import java.util.Map;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private final MessageSource messageSource;
+
+    public GlobalExceptionHandler(MessageSource messageSource) {
+        this.messageSource = messageSource;
+    }
 
     /** @PreAuthorize("hasPermission(...)") từ chối — Hybrid PBAC (UC-02..05), giữ format lỗi nhất quán với các Not*Exception khác. */
     @ExceptionHandler(AuthorizationDeniedException.class)
@@ -50,7 +60,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<Object> handleResourceNotFound(ResourceNotFoundException ex) {
-        return error(HttpStatus.NOT_FOUND, ex.getMessage());
+        return error(HttpStatus.NOT_FOUND, ex);
     }
 
     @ExceptionHandler({DuplicateEmployeeCodeException.class, DuplicateContractNumberException.class,
@@ -185,11 +195,40 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.FORBIDDEN, ex.getMessage());
     }
 
+    /**
+     * Bean Validation (@Valid) từ chối — trước đây KHÔNG có handler riêng nên rơi vào shape lỗi mặc
+     * định của Spring Boot (khác hẳn {timestamp,status,message} dùng ở mọi handler khác trong class
+     * này), FE không đọc được message thống nhất. Gộp field error đầu tiên (đủ dùng cho form 1 lỗi
+     * tại 1 thời điểm, khớp cách hiển thị lỗi hiện có ở FE) làm message chính.
+     */
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<Object> handleValidation(MethodArgumentNotValidException ex) {
+        String message = ex.getBindingResult().getFieldErrors().stream()
+                .findFirst()
+                .map(FieldError::getDefaultMessage)
+                .orElse("Dữ liệu không hợp lệ.");
+        return error(HttpStatus.BAD_REQUEST, message);
+    }
+
     private ResponseEntity<Object> error(HttpStatus status, String message) {
         return ResponseEntity.status(status).body(Map.of(
                 "timestamp", OffsetDateTime.now().toString(),
                 "status", status.value(),
                 "message", message
         ));
+    }
+
+    /**
+     * Overload dịch song ngữ — chỉ áp dụng cho exception đã migrate sang LocalizedMessage (messageKey
+     * != null); exception chưa migrate (đa số, ~260 throw site hiện có) rơi vào nhánh else, giữ
+     * NGUYÊN hành vi cũ (ex.getMessage() tiếng Việt cứng), không đổi gì cho tới khi chủ động migrate
+     * từng cái theo từng phase phân hệ (xem kế hoạch đồng bộ song ngữ).
+     */
+    private ResponseEntity<Object> error(HttpStatus status, RuntimeException ex) {
+        String message = ex.getMessage();
+        if (ex instanceof LocalizedMessage lm && lm.messageKey() != null) {
+            message = messageSource.getMessage(lm.messageKey(), lm.messageArgs(), message, LocaleContextHolder.getLocale());
+        }
+        return error(status, message);
     }
 }

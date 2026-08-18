@@ -1,0 +1,171 @@
+{
+  "status": {
+    "DRAFT": "Draft",
+    "PENDING_APPROVAL": "Pending approval",
+    "ACTIVE": "Active",
+    "ARCHIVED": "Archived"
+  },
+  "list": {
+    "title": "Curricula",
+    "subtitle": "Standard curricula + site-specific customizations",
+    "addButton": "Add curriculum",
+    "searchPlaceholder": "Search by name / code...",
+    "loading": "Loading...",
+    "emptyTitle": "No curricula found",
+    "emptyDescription": "Try loosening your search, or click 'Add curriculum'.",
+    "customBadge": "Custom",
+    "unknownValue": "—"
+  },
+  "detail": {
+    "tabs": {
+      "profile": "Profile",
+      "subjects": "Subjects"
+    },
+    "profile": {
+      "nameLabel": "Curriculum name *",
+      "levelLabel": "Level",
+      "totalPeriodsLabel": "Total periods",
+      "passThresholdLabel": "Pass threshold",
+      "statusLabel": "Status",
+      "saveButton": "Save",
+      "saving": "Saving...",
+      "nameRequiredError": "Please enter a curriculum name.",
+      "updateFailedFallback": "Update failed.",
+      "savedToast": "Curriculum profile saved successfully!",
+      "submitForApprovalButton": "Submit customization for Head of Academic Affairs approval",
+      "submitForApprovalFailedFallback": "Failed to submit for approval.",
+      "submittedToast": "Submitted for approval successfully!",
+      "createCustomButton": "Create site customization",
+      "createCustomModalTitle": "Create site customization",
+      "createdCustomToast": "Customization created successfully!"
+    },
+    "customForm": {
+      "codePlaceholder": "Customization code",
+      "sitePlaceholder": "-- Select a partner site --",
+      "namePlaceholder": "Custom name (optional, defaults to the original name)",
+      "cancelButton": "Cancel",
+      "creating": "Creating...",
+      "createButton": "Create customization",
+      "validationError": "Please fill in the customization code and select a partner site.",
+      "createFailedFallback": "Failed to create the customization."
+    },
+    "subjects": {
+      "countLabel": "Subjects ({{count}})",
+      "addButton": "Add subject",
+      "loading": "Loading...",
+      "empty": "No subjects yet.",
+      "periodCount": "{{count}} periods",
+      "loadFailedFallback": "Failed to load the subject list.",
+      "modalTitle": "Add subject",
+      "addedToast": "Subject added successfully!"
+    },
+    "addSubjectForm": {
+      "codePlaceholder": "Subject code",
+      "namePlaceholder": "Subject name",
+      "periodCountPlaceholder": "Number of periods",
+      "cancelButton": "Cancel",
+      "saving": "Saving...",
+      "submitButton": "Add subject",
+      "validationError": "Please fill in the subject code and name.",
+      "createFailedFallback": "Failed to add the subject."
+    }
+  },
+  "approval": {
+    "loading": "Loading...",
+    "loadFailedFallback": "Failed to load the approval queue.",
+    "rejectReasonPrompt": "Rejection reason (optional):",
+    "decideFailedFallback": "Decision failed.",
+    "approvedToast": "Customization approved successfully!",
+    "rejectedToast": "Customization rejected successfully!",
+    "rejectButton": "Reject",
+    "approveButton": "Approve customization",
+    "empty": "No customizations pending approval."
+  },
+  "form": {
+    "modalTitle": "Add new curriculum",
+    "codeLabel": "Curriculum code *",
+    "codeRequiredError": "Please enter the curriculum code.",
+    "classCategoryLabel": "Class category *",
+    "classCategoryOptions": {
+      "MAIN": "Main program",
+      "SUPPLEMENTARY": "Supplementary",
+      "EXAM_PREP": "Exam prep",
+      "OTHER": "Other"
+    },
+    "nameLabel": "Curriculum name *",
+    "nameRequiredError": "Please enter the curriculum name.",
+    "levelLabel": "Level",
+    "totalPeriodsLabel": "Total periods",
+    "passThresholdLabel": "Default pass threshold",
+    "cancelButton": "Cancel",
+    "creating": "Creating...",
+    "createButton": "Create curriculum",
+    "validationError": "Please fill in both the curriculum code and name.",
+    "createFailedFallback": "Failed to create the curriculum."
+  },
+  "page": {
+    "title": "Curriculum Framework",
+    "description": "Manage standard curricula, subjects, and site-specific customizations for partner schools.",
+    "loadFailedFallback": "Failed to load the curriculum list.",
+    "emptyTitle": "No curriculum selected",
+    "emptyDescription": "Select a curriculum on the left, or add a new one.",
+    "approvalSectionTitle": "Curriculum customization approvals",
+    "createdToast": "Curriculum created successfully!"
+  },
+  "termManager": {
+    "modalTitle": "Manage terms — {{siteName}}",
+    "loadFailedFallback": "Failed to load the term list.",
+    "createdCountLabel": "Terms created ({{count}})",
+    "addButton": "Add term",
+    "loading": "Loading...",
+    "empty": "This site has no terms yet.",
+    "editButton": "Edit",
+    "form": {
+      "codeLabel": "Term code *",
+      "codeNotEditable": "(not editable)",
+      "codePlaceholder": "e.g. GK1-2627",
+      "nameLabel": "Term name *",
+      "namePlaceholder": "e.g. Midterm 1 (2026-2027)",
+      "startDateLabel": "Start date *",
+      "endDateLabel": "End date *",
+      "cancelButton": "Cancel",
+      "saving": "Saving...",
+      "saveChangesButton": "Save changes",
+      "createButton": "Create term",
+      "validationError": "Please fill in all required fields.",
+      "dateOrderError": "The end date must be on or after the start date.",
+      "saveFailedFallback": "Failed to save the term."
+    }
+  },
+  "yearManager": {
+    "modalTitle": "Manage academic years",
+    "status": {
+      "PLANNED": "Planned",
+      "ACTIVE": "Active",
+      "CLOSED": "Closed"
+    },
+    "loadFailedFallback": "Failed to load the academic year list.",
+    "createdCountLabel": "Academic years created ({{count}})",
+    "addButton": "Add academic year",
+    "loading": "Loading...",
+    "empty": "No academic years yet.",
+    "editButton": "Edit",
+    "form": {
+      "codeLabel": "Academic year code *",
+      "codeNotEditable": "(not editable)",
+      "codePlaceholder": "e.g. 2026-2027",
+      "nameLabel": "Academic year name *",
+      "namePlaceholder": "e.g. Academic Year 2026-2027",
+      "startDateLabel": "Start date",
+      "endDateLabel": "End date",
+      "statusLabel": "Status",
+      "cancelButton": "Cancel",
+      "saving": "Saving...",
+      "saveChangesButton": "Save changes",
+      "createButton": "Create academic year",
+      "validationError": "Please fill in all required fields.",
+      "dateOrderError": "The end date must be on or after the start date.",
+      "saveFailedFallback": "Failed to save the academic year."
+    }
+  }
+}

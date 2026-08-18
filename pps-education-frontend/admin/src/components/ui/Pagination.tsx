@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import Button from "./Button";
 import Select from "./Select";
 
@@ -20,17 +21,16 @@ interface PaginationProps {
  * ví dụ StudentListPanel.tsx. Cùng khuôn UI "Trước / Trang X/Y / Sau" đã có sẵn ở UsersPage.tsx.
  */
 export default function Pagination({ page, pageSize, totalElements, itemLabel, onPageChange, onPageSizeChange }: PaginationProps) {
+  const { t } = useTranslation("layout");
   const totalPages = Math.max(1, Math.ceil(totalElements / pageSize));
 
   return (
     <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-4 py-3 border-t border-slate-100 text-[11px] text-slate-500">
       <div className="flex items-center gap-2">
-        <span>
-          Tổng {totalElements} {itemLabel}
-        </span>
+        <span>{t("pagination.total", { count: totalElements, itemLabel })}</span>
         <span className="text-slate-300">|</span>
         <label className="flex items-center gap-1.5">
-          Dòng/trang:
+          {t("pagination.pageSize")}
           <Select
             value={pageSize}
             onChange={(e) => onPageSizeChange(Number(e.target.value))}
@@ -47,13 +47,11 @@ export default function Pagination({ page, pageSize, totalElements, itemLabel, o
       {totalPages > 1 && (
         <div className="flex items-center gap-2">
           <Button size="sm" variant="secondary" disabled={page <= 0} onClick={() => onPageChange(page - 1)}>
-            Trước
+            {t("pagination.previous")}
           </Button>
-          <span className="font-mono">
-            Trang {page + 1}/{totalPages}
-          </span>
+          <span className="font-mono">{t("pagination.page", { current: page + 1, total: totalPages })}</span>
           <Button size="sm" variant="secondary" disabled={page + 1 >= totalPages} onClick={() => onPageChange(page + 1)}>
-            Sau
+            {t("pagination.next")}
           </Button>
         </div>
       )}

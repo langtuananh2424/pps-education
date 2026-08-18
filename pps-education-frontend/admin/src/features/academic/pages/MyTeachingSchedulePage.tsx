@@ -1,17 +1,20 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Building2, CalendarDays, CalendarRange, ChevronLeft, ChevronRight, MapPin } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { cn } from "@/lib/cn";
+import { toLocaleTag } from "@/lib/i18nFormat";
 import Badge from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
-import { sessionStatusVariants } from "../components/ClassDetailPanel";
+import { sessionStatusVariants, teacherTypeLabel } from "../components/ClassDetailPanel";
 import { ClassSessionResponse, getMyTeachingSchedule, listClasses } from "../api";
 
-const weekdayLabels = ["Chủ nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
-const weekdayShortLabels = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
-const teacherTypeLabels: Record<string, string> = { VIETNAMESE: "GV Việt Nam", FOREIGN: "GV nước ngoài" };
-const sessionTypeLabels: Record<string, string> = { REGULAR: "Buổi học thường", MAKEUP: "Học bù", EXAM: "Kiểm tra", SPECIAL: "Buổi đặc biệt" };
+/** Thứ tự enum DayOfWeek dùng để tra nhãn qua `enums.weekday.<value>` / `enums.weekdayShort.<value>`
+ * (namespace "academic-classes") — weekdayOrderSunFirst khớp Date.getDay() (0=CN), weekdayOrderMonFirst
+ * dùng cho header lưới tháng (Thứ 2 → Chủ nhật), dùng chung với BulkGenerateSessionsForm.tsx. */
+const weekdayOrderSunFirst = ["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"] as const;
+const weekdayOrderMonFirst = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"] as const;
 
 function toISODate(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -41,6 +44,7 @@ function getMonthGridDates(refDate: Date): Date[] {
 }
 
 function SessionCard({ session, siteName }: { session: ClassSessionResponse; siteName?: string }) {
+  const { t } = useTranslation("academic-classes");
   return (
     <div className="border border-slate-150 rounded-lg p-2.5 space-y-1 text-xs">
       <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -50,26 +54,30 @@ function SessionCard({ session, siteName }: { session: ClassSessionResponse; sit
       <p className="font-bold text-slate-800">{session.className}</p>
       <p className="text-[11px] text-slate-500 flex items-center gap-1">
         <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
-        {siteName ?? "Đang tải điểm trường..."}
+        {siteName ?? t("myTeachingSchedule.loadingSite")}
       </p>
       <p className="text-[11px] text-slate-500 flex items-center gap-1">
         <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
-        {session.roomName ?? "Chưa gán phòng"}
+        {session.roomName ?? t("myTeachingSchedule.unassignedRoom")}
       </p>
       <p className="text-[11px] text-slate-400">
-        GV: {session.primaryTeacherName}
-        {session.teacherType && ` (${teacherTypeLabels[session.teacherType]})`} · {sessionTypeLabels[session.sessionType] ?? session.sessionType}
+        {t("myTeachingSchedule.teacherLine", {
+          teacher: session.primaryTeacherName,
+          type: session.teacherType ? ` (${teacherTypeLabel(t, session.teacherType)})` : "",
+          sessionType: t(`enums.sessionType.${session.sessionType}`, { defaultValue: session.sessionType })
+        })}
       </p>
       {session.status === "CANCELLED" && session.cancellationReason && (
-        <p className="text-rose-500">Lý do hủy: {session.cancellationReason}</p>
+        <p className="text-rose-500">{t("myTeachingSchedule.cancellationReason", { reason: session.cancellationReason })}</p>
       )}
-      {session.lessonContent && <p className="text-slate-500">Bài học: {session.lessonContent}</p>}
+      {session.lessonContent && <p className="text-slate-500">{t("myTeachingSchedule.lessonContent", { content: session.lessonContent })}</p>}
     </div>
   );
 }
 
 /** UC-58: Xem lịch dạy tổng hợp ("Lịch của tôi") — self-service, chỉ hiện buổi dạy của chính tài khoản Giáo viên đang đăng nhập. */
 export default function MyTeachingSchedulePage() {
+  const { t, i18n } = useTranslation("academic-classes");
   const [viewMode, setViewMode] = useState<"week" | "month">("week");
   const [refDate, setRefDate] = useState(new Date());
   const [sessions, setSessions] = useState<ClassSessionResponse[]>([]);
@@ -102,7 +110,7 @@ export default function MyTeachingSchedulePage() {
     setError(null);
     getMyTeachingSchedule(rangeStart, rangeEnd)
       .then(setSessions)
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được lịch dạy."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("myTeachingSchedule.loadError")))
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rangeStart, rangeEnd]);
@@ -131,8 +139,8 @@ export default function MyTeachingSchedulePage() {
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4 flex items-start justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Lịch của tôi</h1>
-          <p className="text-xs text-slate-500 mt-1">Tổng hợp mọi buổi dạy của bạn qua tất cả các lớp đang phụ trách.</p>
+          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("myTeachingSchedule.title")}</h1>
+          <p className="text-xs text-slate-500 mt-1">{t("myTeachingSchedule.description")}</p>
         </div>
         <div className="flex items-center gap-1 bg-slate-100 border border-slate-200 rounded-xl p-1">
           <button
@@ -143,7 +151,7 @@ export default function MyTeachingSchedulePage() {
             )}
           >
             <CalendarRange className="w-3.5 h-3.5" />
-            Tuần
+            {t("myTeachingSchedule.weekButton")}
           </button>
           <button
             onClick={() => setViewMode("month")}
@@ -153,7 +161,7 @@ export default function MyTeachingSchedulePage() {
             )}
           >
             <CalendarDays className="w-3.5 h-3.5" />
-            Tháng
+            {t("myTeachingSchedule.monthButton")}
           </button>
         </div>
       </div>
@@ -169,11 +177,11 @@ export default function MyTeachingSchedulePage() {
           <span className="text-sm font-bold font-display text-white tracking-tight text-center flex items-center gap-2">
             <CalendarDays className="w-4 h-4 text-white/80 hidden sm:inline-block" />
             {viewMode === "week"
-              ? `Tuần: ${weekDates[0].toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" })} — ${weekDates[6].toLocaleDateString(
-                  "vi-VN",
-                  { day: "2-digit", month: "2-digit", year: "numeric" }
-                )}`
-              : `Tháng ${refDate.getMonth() + 1}, ${refDate.getFullYear()}`}
+              ? t("myTeachingSchedule.weekRange", {
+                  start: weekDates[0].toLocaleDateString(toLocaleTag(i18n.language), { day: "2-digit", month: "2-digit", year: "numeric" }),
+                  end: weekDates[6].toLocaleDateString(toLocaleTag(i18n.language), { day: "2-digit", month: "2-digit", year: "numeric" })
+                })
+              : t("myTeachingSchedule.monthRange", { month: refDate.getMonth() + 1, year: refDate.getFullYear() })}
           </span>
           <button
             onClick={() => navigate("next")}
@@ -187,7 +195,7 @@ export default function MyTeachingSchedulePage() {
 
         <div className="p-5">
         {loading ? (
-          <p className="text-xs text-slate-500 text-center py-8">Đang tải...</p>
+          <p className="text-xs text-slate-500 text-center py-8">{t("common.loading")}</p>
         ) : viewMode === "week" ? (
           <div className="grid grid-cols-1 md:grid-cols-7 gap-3">
             {weekDates.map((dateObj, idx) => {
@@ -204,14 +212,14 @@ export default function MyTeachingSchedulePage() {
                 >
                   <div>
                     <div className="flex items-center justify-between border-b border-slate-150 pb-1.5 mb-2">
-                      <span className="text-[11px] font-bold text-slate-800">{weekdayLabels[dateObj.getDay()]}</span>
+                      <span className="text-[11px] font-bold text-slate-800">{t(`enums.weekday.${weekdayOrderSunFirst[dateObj.getDay()]}`)}</span>
                       <span className={`text-[10px] font-mono font-bold ${isToday ? "text-brand-red" : "text-slate-400"}`}>
                         {dateObj.getDate()}/{dateObj.getMonth() + 1}
                       </span>
                     </div>
                     <div className="space-y-2">
                       {daySessions.length === 0 ? (
-                        <p className="py-6 text-center text-[10px] text-slate-400 italic">Trống lịch dạy</p>
+                        <p className="py-6 text-center text-[10px] text-slate-400 italic">{t("myTeachingSchedule.emptyDay")}</p>
                       ) : (
                         daySessions.map((s) => (
                           <div
@@ -229,11 +237,11 @@ export default function MyTeachingSchedulePage() {
                             </div>
                             <p className="text-[10px] font-bold text-slate-800 flex items-center gap-0.5">
                               <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
-                              <span className="truncate">{s.className ?? "Chưa gán lớp"}</span>
+                              <span className="truncate">{s.className ?? t("myTeachingSchedule.unassignedClass")}</span>
                             </p>
                             <p className="text-[9px] text-slate-400 flex items-center gap-0.5">
                               <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
-                              <span className="truncate">{siteNameByClassId[s.classId] ?? "Đang tải điểm trường..."}</span>
+                              <span className="truncate">{siteNameByClassId[s.classId] ?? t("myTeachingSchedule.loadingSite")}</span>
                             </p>
                             <div className="flex items-center justify-between">
                               {s.status !== "SCHEDULED" && <span className="text-[9px] text-rose-500 font-bold">{s.status}</span>}
@@ -246,7 +254,7 @@ export default function MyTeachingSchedulePage() {
                   {daySessions.length > 0 && (
                     <span className="text-[9px] bg-brand-red/10 text-brand-red px-1.5 py-0.5 rounded-md font-bold text-center uppercase flex items-center justify-center gap-1">
                       <CalendarDays className="w-3 h-3" />
-                      {daySessions.length} ca dạy
+                      {t("myTeachingSchedule.sessionCount", { count: daySessions.length })}
                     </span>
                   )}
                 </div>
@@ -256,9 +264,9 @@ export default function MyTeachingSchedulePage() {
         ) : (
           <div className="rounded-2xl border-2 border-slate-300 overflow-hidden">
             <div className="grid grid-cols-7 bg-orange-50/70 border-b-2 border-slate-300">
-              {weekdayShortLabels.map((w) => (
-                <div key={w} className="text-center text-[10px] font-bold text-brand-red uppercase tracking-wide py-2.5">
-                  {w}
+              {weekdayOrderMonFirst.map((day) => (
+                <div key={day} className="text-center text-[10px] font-bold text-brand-red uppercase tracking-wide py-2.5">
+                  {t(`enums.weekdayShort.${day}`)}
                 </div>
               ))}
             </div>
@@ -300,7 +308,7 @@ export default function MyTeachingSchedulePage() {
                         </span>
                         {hasSessions && (
                           <span className="text-[9px] bg-brand-gradient text-white px-1.5 py-0.5 rounded-full font-bold shadow-xs shrink-0">
-                            {daySessions.length} ca
+                            {t("myTeachingSchedule.monthDayBadge", { count: daySessions.length })}
                           </span>
                         )}
                       </div>
@@ -321,7 +329,7 @@ export default function MyTeachingSchedulePage() {
                           ))}
                           {daySessions.length > visibleSessions.length && (
                             <span className="text-[9px] text-brand-red/70 font-semibold pl-0.5">
-                              +{daySessions.length - visibleSessions.length} ca khác
+                              {t("myTeachingSchedule.moreSessions", { count: daySessions.length - visibleSessions.length })}
                             </span>
                           )}
                         </div>
@@ -343,7 +351,7 @@ export default function MyTeachingSchedulePage() {
             className="pointer-events-none max-w-[210px] bg-slate-900 text-white text-[10px] rounded-lg px-2.5 py-1.5 shadow-xl space-y-0.5"
           >
             <p className="font-bold truncate">{hoverInfo.session.className}</p>
-            <p className="text-slate-300 truncate">{siteNameByClassId[hoverInfo.session.classId] ?? "Đang tải điểm trường..."}</p>
+            <p className="text-slate-300 truncate">{siteNameByClassId[hoverInfo.session.classId] ?? t("myTeachingSchedule.loadingSite")}</p>
           </div>,
           document.body
         )}
@@ -351,8 +359,17 @@ export default function MyTeachingSchedulePage() {
       <Modal
         open={!!selectedDate}
         onClose={() => setSelectedDate(null)}
-        title={selectedDate ? new Date(`${selectedDate}T00:00:00`).toLocaleDateString("vi-VN", { weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" }) : ""}
-        description={`${selectedSessions.length} ca dạy trong ngày`}
+        title={
+          selectedDate
+            ? new Date(`${selectedDate}T00:00:00`).toLocaleDateString(toLocaleTag(i18n.language), {
+                weekday: "long",
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric"
+              })
+            : ""
+        }
+        description={t("myTeachingSchedule.modalDescription", { count: selectedSessions.length })}
       >
         <div className="space-y-2.5">
           {selectedSessions.map((s) => (

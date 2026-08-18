@@ -1,0 +1,47 @@
+{
+  "brandSubtitleParent": "PORTAL PHỤ HUYNH",
+  "brandSubtitleStudent": "PORTAL HỌC SINH",
+  "openMenu": "Mở menu",
+  "closeMenu": "Đóng menu",
+  "welcome": "Chào mừng,",
+  "you": "Bạn",
+  "logout": "Thoát",
+  "unsupportedAccount": {
+    "title": "Tài khoản chưa hỗ trợ xem Portal",
+    "description": "Portal hiện chỉ phục vụ tài khoản Phụ huynh và Học sinh.",
+    "logout": "Đăng xuất"
+  },
+  "loading": "Đang tải...",
+  "noViewerData": {
+    "parent": "Chưa có học sinh nào được liên kết với tài khoản của bạn.",
+    "student": "Không tìm thấy hồ sơ học sinh gắn với tài khoản này."
+  },
+  "roleLabel": {
+    "parent": "Học viên",
+    "student": "Học sinh"
+  },
+  "studentDropdownLabel": "Học viên",
+  "classDropdownLabel": "Lớp đang học",
+  "oldClassSuffix": "{{name}} (Lớp cũ)",
+  "noClassAssigned": "Học sinh chưa được xếp vào lớp nào.",
+  "tabs": {
+    "home": "Trang chủ & Bảng tin",
+    "grades": "Khảo thí & Điểm số",
+    "grade-stats": "Thống kê điểm",
+    "schedule": "Lịch học & Chuyên cần",
+    "learning-progress": "Quá trình học tập",
+    "homework": "Bài tập về nhà (BTVN)",
+    "documents": "Kho dữ liệu (Sách, TLTK)",
+    "billing": "Học phí & Dịch vụ"
+  },
+  "comingSoon": {
+    "notLinkedDescription": "Không có hồ sơ Học sinh hoặc Phụ huynh liên kết với tài khoản này.",
+    "billingDescription": "Đang chờ Backend mở API cho Học sinh tự xem học phí của chính mình (hiện chỉ Phụ huynh xem được).",
+    "badge": "Sắp ra mắt"
+  },
+  "loadErrors": {
+    "children": "Không tải được danh sách con.",
+    "classOptions": "Không tải được danh sách lớp."
+  },
+  "footer": "© 2026 PPS Education. All rights reserved."
+}

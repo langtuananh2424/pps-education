@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { CheckCircle2, ClipboardList, XCircle } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import {
   ClassEnrollmentResponse,
@@ -24,12 +25,16 @@ interface GradePublishDetailProps {
   onPublished: () => void;
 }
 
-function setupLabel(s: GradeComponentSetupResponse): string {
-  return `${s.academicTermName} — ${s.evaluationType === "MID_TERM" ? "Giữa kỳ" : "Cuối kỳ"}`;
+function setupLabel(t: (key: string, options?: Record<string, unknown>) => string, s: GradeComponentSetupResponse): string {
+  return t("publishDetail.setupLabel", {
+    term: s.academicTermName,
+    label: t(`common.evaluationType.${s.evaluationType}`)
+  });
 }
 
 /** UC-20 bước 2-5 (V44): chi tiết 1 lớp đã chọn từ danh sách — cùng bảng điểm như màn Giáo viên nhập, Duyệt hoặc Từ chối tất cả bản ghi Chờ duyệt (SUBMITTED) trong 1 lần. */
 export default function GradePublishDetail({ classId, classLabel, teacherName, onPublished }: GradePublishDetailProps) {
+  const { t } = useTranslation("academic-grades");
   const [enrollments, setEnrollments] = useState<ClassEnrollmentResponse[]>([]);
   const [setups, setSetups] = useState<GradeComponentSetupResponse[]>([]);
   const [selectedSetupId, setSelectedSetupId] = useState<number | null>(null);
@@ -55,7 +60,7 @@ export default function GradePublishDetail({ classId, classLabel, teacherName, o
         setSetups(s);
         if (s.length > 0) setSelectedSetupId(s[0].id);
       })
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được setup sổ điểm của lớp."));
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("publishDetail.loadSetupsError")));
   }, [classId]);
 
   useEffect(() => {
@@ -77,7 +82,7 @@ export default function GradePublishDetail({ classId, classLabel, teacherName, o
       setSheetVersion((v) => v + 1);
       onPublished();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Duyệt điểm thất bại.");
+      setError(err instanceof ApiError ? err.message : t("publishDetail.approveError"));
     } finally {
       setDeciding(false);
     }
@@ -99,7 +104,7 @@ export default function GradePublishDetail({ classId, classLabel, teacherName, o
       setRejectReason("");
       onPublished();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Từ chối điểm thất bại.");
+      setError(err instanceof ApiError ? err.message : t("publishDetail.rejectError"));
     } finally {
       setDeciding(false);
     }
@@ -110,8 +115,8 @@ export default function GradePublishDetail({ classId, classLabel, teacherName, o
       <div className="bg-white rounded-xl border border-slate-200 shadow-soft flex flex-col items-center justify-center p-12 text-center text-slate-400 space-y-3">
         <ClipboardList className="w-12 h-12 text-slate-300" />
         <div>
-          <h3 className="text-sm font-bold text-slate-700">Chưa chọn lớp nào</h3>
-          <p className="text-xs text-slate-400 mt-1">Chọn 1 lớp ở danh sách bên dưới để xem bảng điểm và công bố.</p>
+          <h3 className="text-sm font-bold text-slate-700">{t("publishDetail.emptyTitle")}</h3>
+          <p className="text-xs text-slate-400 mt-1">{t("publishDetail.emptyDescription")}</p>
         </div>
       </div>
     );
@@ -121,8 +126,8 @@ export default function GradePublishDetail({ classId, classLabel, teacherName, o
     <div className="bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden">
       <div className="px-5 py-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between flex-wrap gap-3">
         <div>
-          <span className="text-xs font-bold text-slate-700 font-display">Chi tiết điểm chờ duyệt — {classLabel}</span>
-          <p className="text-[10px] text-slate-400 mt-0.5">GV: {teacherName ?? "Chưa rõ"}</p>
+          <span className="text-xs font-bold text-slate-700 font-display">{t("publishDetail.detailTitle", { classLabel })}</span>
+          <p className="text-[10px] text-slate-400 mt-0.5">{t("publishDetail.teacherPrefix", { teacherName: teacherName ?? t("common.unknownTeacher") })}</p>
         </div>
         {setups.length > 1 && (
           <Select
@@ -132,7 +137,7 @@ export default function GradePublishDetail({ classId, classLabel, teacherName, o
           >
             {setups.map((s) => (
               <option key={s.id} value={s.id}>
-                {setupLabel(s)}
+                {setupLabel(t, s)}
               </option>
             ))}
           </Select>
@@ -155,45 +160,45 @@ export default function GradePublishDetail({ classId, classLabel, teacherName, o
           }}
         />
       ) : (
-        <p className="text-xs text-slate-400 italic p-6 text-center">Lớp này chưa có đầu điểm nào được cấu hình.</p>
+        <p className="text-xs text-slate-400 italic p-6 text-center">{t("publishDetail.noComponents")}</p>
       )}
 
       <div className="px-5 py-3 border-t border-slate-100 flex justify-end gap-2">
         <Button variant="danger" size="sm" disabled={deciding || submittedCount === 0} onClick={() => setShowRejectModal(true)}>
           <XCircle className="w-3.5 h-3.5" />
-          Từ chối tất cả
+          {t("publishDetail.rejectAll")}
         </Button>
         <Button variant="dark" size="sm" disabled={deciding || submittedCount === 0} onClick={handleApproveAll}>
           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-          {deciding ? "Đang xử lý..." : submittedCount === 0 ? "Không còn điểm chờ duyệt" : `Duyệt tất cả (${submittedCount})`}
+          {deciding ? t("publishDetail.processing") : submittedCount === 0 ? t("publishDetail.noneToApprove") : t("publishDetail.approveCount", { count: submittedCount })}
         </Button>
       </div>
 
       <Modal
         open={showRejectModal}
         onClose={() => setShowRejectModal(false)}
-        title={`Từ chối ${submittedCount} bản ghi điểm chờ duyệt`}
+        title={t("publishDetail.rejectModalTitle", { count: submittedCount })}
         footer={
           <>
             <Button variant="secondary" size="sm" onClick={() => setShowRejectModal(false)}>
-              Huỷ
+              {t("publishDetail.cancel")}
             </Button>
             <Button variant="danger" size="sm" disabled={deciding} onClick={handleRejectAll}>
-              {deciding ? "Đang từ chối..." : "Xác nhận từ chối"}
+              {deciding ? t("publishDetail.rejecting") : t("publishDetail.confirmReject")}
             </Button>
           </>
         }
       >
         <div className="space-y-2">
-          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Lý do (tuỳ chọn)</label>
+          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">{t("publishDetail.rejectReasonLabel")}</label>
           <textarea
             value={rejectReason}
             onChange={(e) => setRejectReason(e.target.value)}
             rows={3}
-            placeholder="VD: Điểm Speaking chưa khớp với biên bản chấm..."
+            placeholder={t("publishDetail.rejectReasonPlaceholder")}
             className="w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
           />
-          <p className="text-[10px] text-slate-400">Giáo viên sẽ nhận thông báo kèm lý do (nếu có) và có thể sửa lại rồi gửi duyệt lại.</p>
+          <p className="text-[10px] text-slate-400">{t("publishDetail.rejectReasonHint")}</p>
         </div>
       </Modal>
     </div>

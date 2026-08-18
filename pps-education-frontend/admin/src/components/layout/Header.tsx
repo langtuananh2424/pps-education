@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { AlertTriangle, Bell, CheckCircle2, ChevronDown, Clock, GraduationCap, KeyRound, Lock, LogOut, Menu, MapPin, Settings, User } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useApp } from "@/context/AppContext";
 import { getMyPartnerSite, listSites, listSiteTeachers, SiteResponse, SiteTeacherResponse } from "@/features/facility/api";
 import { useEligibleClasses } from "@/features/academic/hooks/useEligibleClasses";
@@ -15,6 +16,7 @@ import Modal from "@/components/ui/Modal";
 import ProfileModal from "@/features/auth/components/ProfileModal";
 import ChangePasswordModal from "@/features/auth/components/ChangePasswordModal";
 import { useDialog } from "@/components/ui/DialogProvider";
+import { formatDateLong, formatDateTime, formatTimeHm } from "@/lib/i18nFormat";
 
 const NOTIFICATION_PAGE_SIZE = 15;
 
@@ -28,12 +30,8 @@ const NOTIFICATION_PAGE_SIZE = 15;
 // nhóm đó vẫn cần "Lớp" ở các trang báo cáo như trước, người dùng chưa yêu cầu đổi.
 const TEACHER_CLASS_SELECTOR_PATHS = ["/academic/classes", "/student/attendance", "/academic/comments", "/academic/homework-stats"];
 
-function formatTimeHm(value: string | null): string {
-  if (!value) return "—";
-  return new Date(value).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
-}
-
 export default function Header() {
+  const { t, i18n } = useTranslation("layout");
   const {
     currentRoleLabel,
     currentUser,
@@ -165,8 +163,8 @@ export default function Header() {
   const showUnassignedWarning = !managedSitesLoading && isSiteScopedRole && managedSites.length === 0;
   const currentCampusLabel =
     !lockToManagedSites && selectedCampusId === "ALL"
-      ? "Tất cả cơ sở & Trường liên kết"
-      : (lockToManagedSites ? managedSites : sites).find((s) => String(s.id) === selectedCampusId)?.name ?? "-- Chọn điểm trường --";
+      ? t("header.site.allSites")
+      : (lockToManagedSites ? managedSites : sites).find((s) => String(s.id) === selectedCampusId)?.name ?? t("header.site.placeholder");
 
   // Chỉ hiện "Lớp" cho vai trò thật sự cần lọc theo lớp ở 1 trong các màn: Sổ điểm (UC-19/20,
   // SITE_MANAGER không có permission điểm nhưng vẫn cần lọc lớp để "xem lại sổ điểm"), Điểm danh
@@ -221,13 +219,13 @@ export default function Header() {
         {showUnassignedWarning ? (
           <div className="hidden sm:flex items-center gap-2 text-xs font-medium px-4 py-2 rounded-full shadow-soft border bg-amber-50 border-amber-200 text-amber-700">
             <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-            <span className="font-semibold text-amber-700">Điểm trường:</span>
-            <span className="text-amber-700 font-semibold">Chưa được gán điểm trường — liên hệ quản trị viên</span>
+            <span className="font-semibold text-amber-700">{t("header.site.label")}</span>
+            <span className="text-amber-700 font-semibold">{t("header.site.unassignedWarning")}</span>
           </div>
         ) : lockToManagedSites && managedSites.length === 1 ? (
           <div className="hidden sm:flex items-center gap-2 text-xs font-medium px-4 py-2 rounded-full shadow-soft border bg-white border-slate-200/50 text-slate-500">
             <MapPin className="w-3.5 h-3.5 text-brand-orange shrink-0" />
-            <span className="font-semibold text-slate-700">Điểm trường:</span>
+            <span className="font-semibold text-slate-700">{t("header.site.label")}</span>
             <span className="flex items-center gap-1.5 text-slate-800 font-semibold">
               {managedSites[0].name}
               <Lock className="w-3 h-3 text-slate-400" />
@@ -241,7 +239,7 @@ export default function Header() {
               trigger={
                 <button className="flex items-center gap-2 text-xs font-medium px-4 py-2 rounded-full shadow-soft border bg-white border-slate-200/50 hover:bg-slate-50 hover:border-brand-orange/30 text-slate-500 transition-all cursor-pointer">
                   <MapPin className="w-3.5 h-3.5 text-brand-orange shrink-0" />
-                  <span className="font-semibold text-slate-700">Điểm trường:</span>
+                  <span className="font-semibold text-slate-700">{t("header.site.label")}</span>
                   <span className="font-semibold text-slate-800 max-w-[200px] truncate">{currentCampusLabel}</span>
                   <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                 </button>
@@ -255,7 +253,7 @@ export default function Header() {
                       selectedCampusId === "ALL" ? "bg-brand-orange/10 text-brand-orange" : "text-slate-700 hover:bg-slate-50"
                     }`}
                   >
-                    Tất cả cơ sở & Trường liên kết
+                    {t("header.site.allSites")}
                   </button>
                 )}
                 {(lockToManagedSites ? managedSites : sites).map((site) => (
@@ -282,9 +280,9 @@ export default function Header() {
               trigger={
                 <button className="flex items-center gap-2 text-xs font-medium px-4 py-2 rounded-full shadow-soft border bg-white border-slate-200/50 hover:bg-slate-50 hover:border-brand-orange/30 text-slate-500 transition-all cursor-pointer">
                   <GraduationCap className="w-3.5 h-3.5 text-brand-orange shrink-0" />
-                  <span className="font-semibold text-slate-700">Lớp:</span>
+                  <span className="font-semibold text-slate-700">{t("header.class.label")}</span>
                   <span className="font-semibold text-slate-800 max-w-[160px] truncate">
-                    {selectedEligibleClass ? `${selectedEligibleClass.classCode} — ${selectedEligibleClass.name}` : "-- Chọn lớp --"}
+                    {selectedEligibleClass ? `${selectedEligibleClass.classCode} — ${selectedEligibleClass.name}` : t("header.class.placeholder")}
                   </span>
                   <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                 </button>
@@ -297,7 +295,7 @@ export default function Header() {
                     !selectedClassId ? "bg-brand-orange/10 text-brand-orange" : "text-slate-700 hover:bg-slate-50"
                   }`}
                 >
-                  -- Chọn lớp --
+                  {t("header.class.placeholder")}
                 </button>
                 {eligibleClasses.map((cls) => (
                   <button
@@ -335,22 +333,25 @@ export default function Header() {
               <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
             )}
             {myAttendance.id == null ? (
-              <span className="font-semibold">Chấm công</span>
+              <span className="font-semibold">{t("header.attendance.checkIn")}</span>
             ) : myAttendance.checkOutAt ? (
               <span className="font-semibold">
-                Đã chấm công {formatTimeHm(myAttendance.checkInAt)} – {formatTimeHm(myAttendance.checkOutAt)}
+                {t("header.attendance.checkedInOut", {
+                  checkIn: formatTimeHm(myAttendance.checkInAt, i18n.language),
+                  checkOut: formatTimeHm(myAttendance.checkOutAt, i18n.language)
+                })}
               </span>
             ) : (
-              <span className="font-semibold">Đã chấm công vào lúc {formatTimeHm(myAttendance.checkInAt)}</span>
+              <span className="font-semibold">
+                {t("header.attendance.checkedInOnly", { checkIn: formatTimeHm(myAttendance.checkInAt, i18n.language) })}
+              </span>
             )}
           </button>
         )}
 
         <div className="hidden lg:flex items-center gap-1.5 text-slate-600 bg-white border border-slate-200/50 shadow-soft px-3.5 py-2 rounded-full font-mono text-[11px]">
           <Clock className="w-3.5 h-3.5 text-slate-400" />
-          <span>
-            {new Date().toLocaleDateString("vi-VN", { year: "numeric", month: "long", day: "numeric" })}
-          </span>
+          <span>{formatDateLong(new Date(), i18n.language)}</span>
         </div>
 
         <LanguageSwitcher />
@@ -370,13 +371,15 @@ export default function Header() {
           }
         >
           <div className="px-4 py-3 bg-slate-50 border-b border-slate-100 flex items-center justify-between sticky top-0 z-10">
-            <span className="text-xs font-semibold text-slate-700">Thông báo vận hành</span>
+            <span className="text-xs font-semibold text-slate-700">{t("header.notifications.title")}</span>
             {unreadNotificationCount > 0 && (
-              <span className="text-[10px] bg-brand-gradient text-white px-2 py-0.5 rounded-full font-bold">{unreadNotificationCount} Mới</span>
+              <span className="text-[10px] bg-brand-gradient text-white px-2 py-0.5 rounded-full font-bold">
+                {t("header.notifications.newCount", { count: unreadNotificationCount })}
+              </span>
             )}
           </div>
           {notifications.length === 0 ? (
-            <p className="text-xs text-slate-400 italic p-4">Chưa có thông báo nào.</p>
+            <p className="text-xs text-slate-400 italic p-4">{t("header.notifications.empty")}</p>
           ) : (
             <div className="divide-y divide-slate-100">
               {notifications.map((notif) => (
@@ -400,7 +403,7 @@ export default function Header() {
                       <p className={`text-xs leading-normal ${!notif.readAt ? "font-bold text-slate-800" : "font-medium text-slate-500"}`}>{notif.title}</p>
                       <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-2">{notif.content}</p>
                       <span className="text-[10px] text-slate-400 block mt-1 font-mono">
-                        {new Date(notif.createdAt).toLocaleString("vi-VN")}
+                        {formatDateTime(notif.createdAt, i18n.language)}
                       </span>
                     </div>
                   </div>
@@ -415,7 +418,7 @@ export default function Header() {
           trigger={
             <button className="flex items-center gap-3 pl-4 pr-2.5 py-2 bg-white border border-slate-200/50 hover:bg-slate-50 rounded-2xl transition-all shadow-soft">
               <div className="hidden md:block text-left leading-tight">
-                <p className="text-xs font-bold text-slate-800 truncate max-w-[130px]">{currentUser?.fullName || "Cán bộ PPS"}</p>
+                <p className="text-xs font-bold text-slate-800 truncate max-w-[130px]">{currentUser?.fullName || t("header.profileMenu.fallbackName")}</p>
                 <p className="text-[10px] text-slate-500 truncate max-w-[130px]">{currentRoleLabel}</p>
               </div>
               <Avatar name={currentUser?.fullName || "U"} size="sm" />
@@ -429,21 +432,21 @@ export default function Header() {
               className="w-full px-3 py-2.5 flex items-center gap-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer"
             >
               <User className="w-4 h-4 text-slate-400 shrink-0" />
-              <span>Hồ sơ cá nhân</span>
+              <span>{t("header.profileMenu.profile")}</span>
             </button>
             <button
               onClick={() => setChangePasswordOpen(true)}
               className="w-full px-3 py-2.5 flex items-center gap-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer"
             >
               <KeyRound className="w-4 h-4 text-slate-400 shrink-0" />
-              <span>Đổi mật khẩu</span>
+              <span>{t("header.profileMenu.changePassword")}</span>
             </button>
             <button
-              onClick={() => alertDialog("Tính năng Cài đặt đang được phát triển.")}
+              onClick={() => alertDialog(t("header.profileMenu.settingsComingSoon"))}
               className="w-full px-3 py-2.5 flex items-center gap-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer"
             >
               <Settings className="w-4 h-4 text-slate-400 shrink-0" />
-              <span>Cài đặt</span>
+              <span>{t("header.profileMenu.settings")}</span>
             </button>
           </div>
           <div className="p-1.5 border-t border-slate-100">
@@ -452,7 +455,7 @@ export default function Header() {
               className="w-full px-3 py-2.5 flex items-center gap-2.5 text-left text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
             >
               <LogOut className="w-4 h-4 shrink-0" />
-              <span>Đăng xuất</span>
+              <span>{t("header.profileMenu.logout")}</span>
             </button>
           </div>
         </Dropdown>
@@ -464,8 +467,8 @@ export default function Header() {
         <Modal
           open
           onClose={() => setAttendanceModalOpen(false)}
-          title="Chấm công của tôi"
-          description="Chọn điểm trường và bấm chấm công vào/ra — hệ thống dùng vị trí GPS hiện tại."
+          title={t("header.attendance.modalTitle")}
+          description={t("header.attendance.modalDescription")}
           size="lg"
         >
           <SelfAttendanceCard sites={sites} onChecked={setMyAttendance} />

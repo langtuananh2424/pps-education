@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import { UserRole } from "@/types";
@@ -26,6 +27,7 @@ import Select from "@/components/ui/Select";
 const inputClass = "bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none";
 
 export default function GradesPage() {
+  const { t } = useTranslation("academic-grades");
   const { hasPermission, currentUser, selectedClassId } = useApp();
   const canManage = hasPermission("academic.grade.manage");
   // Hàng chờ duyệt (UC-20) chỉ có ý nghĩa với Quản lý điểm trường — API tự scope theo site được gán,
@@ -72,7 +74,7 @@ export default function GradesPage() {
         );
         setPendingGroups(groups);
       })
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách lớp chờ duyệt."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("gradesPage.loadPendingGroupsError")))
       .finally(() => setLoadingPendingGroups(false));
   };
 
@@ -98,17 +100,14 @@ export default function GradesPage() {
     if (!selectedSetupId) return;
     listGradeEvaluationComponents(selectedSetupId)
       .then(setGradeComponents)
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được đầu điểm."));
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("sheetPanel.loadComponentsError")));
   }, [selectedSetupId]);
 
   return (
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Sổ điểm hệ thống</h1>
-        <p className="text-xs text-slate-500 mt-1">
-          Giáo viên nhập điểm theo lớp, sửa/xoá tự do khi còn Nháp, gửi duyệt khi sẵn sàng. Quản lý điểm trường duyệt hoặc từ chối — chỉ khi
-          Duyệt điểm mới hiển thị cho Phụ huynh xem. Bị từ chối thì sửa lại rồi gửi/duyệt lại.
-        </p>
+        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("gradesPage.title")}</h1>
+        <p className="text-xs text-slate-500 mt-1">{t("gradesPage.description")}</p>
       </div>
 
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
@@ -116,7 +115,7 @@ export default function GradesPage() {
       {isSiteManager && (
         <div className="space-y-4">
           <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider font-display border-b border-slate-200 pb-2">
-            Duyệt/Từ chối điểm học phần
+            {t("gradesPage.approveRejectSectionTitle")}
           </h2>
           <GradePublishDetail
             classId={selectedPendingClassId}
@@ -125,12 +124,14 @@ export default function GradesPage() {
             onPublished={() => {
               setSelectedPendingClassId(null);
               loadPendingGroups();
-              showToast("Đã xử lý điểm thành công!");
+              showToast(t("gradesPage.processedSuccess"));
             }}
           />
           <Card padded={false} className="overflow-hidden">
             <div className="px-5 py-4 border-b border-slate-100 bg-slate-50">
-              <span className="text-xs font-bold text-slate-700 font-display">Danh sách lớp chờ duyệt ({pendingGroups.length})</span>
+              <span className="text-xs font-bold text-slate-700 font-display">
+                {t("gradesPage.pendingListTitle", { count: pendingGroups.length })}
+              </span>
             </div>
             <GradePublishGroupList
               groups={pendingGroups}
@@ -141,12 +142,14 @@ export default function GradesPage() {
           </Card>
 
           <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider font-display border-b border-slate-200 pb-2 pt-2">
-            Xem lại sổ điểm theo lớp
+            {t("gradesPage.reviewSectionTitle")}
           </h2>
           <Card padded={false} className="overflow-hidden">
             <div className="px-5 py-4 border-b border-slate-100 bg-slate-50 grid grid-cols-1 sm:grid-cols-2 gap-2 items-center">
               <span className="text-xs font-bold text-slate-700">
-                {selectedClass ? `Lớp: ${selectedClass.classCode} — ${selectedClass.name}` : "Chưa chọn lớp — chọn ở góc trên bên phải (Header)"}
+                {selectedClass
+                  ? t("gradesPage.classLabel", { classCode: selectedClass.classCode, className: selectedClass.name })
+                  : t("gradesPage.noClassSelected")}
               </span>
               <Select
                 value={selectedSetupId ?? ""}
@@ -154,17 +157,17 @@ export default function GradesPage() {
                 disabled={!selectedClassId}
                 className={`${inputClass} disabled:opacity-50`}
               >
-                <option value="">-- Chọn kỳ + Giữa/Cuối kỳ --</option>
+                <option value="">{t("gradesPage.selectSetupPlaceholder")}</option>
                 {setups.map((s) => (
                   <option key={s.id} value={s.id}>
-                    {s.academicTermName} — {s.evaluationType === "MID_TERM" ? "Giữa kỳ" : "Cuối kỳ"}
+                    {s.academicTermName} — {t(`common.evaluationType.${s.evaluationType}`)}
                   </option>
                 ))}
               </Select>
             </div>
             {selectedClassId && selectedSetupId ? (
               gradeComponents.length === 0 ? (
-                <p className="text-xs text-slate-400 italic p-6 text-center">Setup này chưa có đầu điểm nào được cấu hình.</p>
+                <p className="text-xs text-slate-400 italic p-6 text-center">{t("gradesPage.noComponents")}</p>
               ) : (
                 <GradeSheetTable
                   key={`view-${selectedClassId}-${selectedSetupId}`}
@@ -177,7 +180,7 @@ export default function GradesPage() {
                 />
               )
             ) : (
-              <p className="text-xs text-slate-400 italic p-6 text-center">Chọn lớp (Header) → setup sổ điểm để xem lại điểm (mọi trạng thái).</p>
+              <p className="text-xs text-slate-400 italic p-6 text-center">{t("gradesPage.selectClassAndSetupPrompt")}</p>
             )}
           </Card>
         </div>
@@ -187,14 +190,16 @@ export default function GradesPage() {
         <Card padded={false} className="overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-100 bg-slate-50">
             <span className="text-xs font-bold text-slate-700 font-display">
-              {selectedClass ? `Lớp: ${selectedClass.classCode} — ${selectedClass.name}` : "Chưa chọn lớp — chọn ở góc trên bên phải (Header)"}
+              {selectedClass
+                ? t("gradesPage.classLabel", { classCode: selectedClass.classCode, className: selectedClass.name })
+                : t("gradesPage.noClassSelected")}
             </span>
           </div>
           <div className="p-5">
             {selectedClassId && selectedClass ? (
               <ClassGradeSheetPanel classId={selectedClassId} siteId={selectedClass.siteId} />
             ) : (
-              <p className="text-xs text-slate-400 italic p-6 text-center">Chọn lớp ở Header để bắt đầu nhập điểm.</p>
+              <p className="text-xs text-slate-400 italic p-6 text-center">{t("gradesPage.selectClassPrompt")}</p>
             )}
           </div>
         </Card>

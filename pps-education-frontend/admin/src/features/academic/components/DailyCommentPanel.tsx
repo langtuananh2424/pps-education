@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronUp, Download, Save, Send, UploadCloud } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { downloadBlob } from "@/lib/xlsxTemplate";
 import { useApp, UnsavedSaveResult } from "@/context/AppContext";
@@ -39,8 +40,8 @@ import CommentHistoryList from "./CommentHistoryList";
 import StudentNameLink from "@/features/reports/components/StudentNameLink";
 import Select from "@/components/ui/Select";
 import DatePicker from "@/components/ui/DatePicker";
+import { formatTimeHm, toLocaleTag } from "@/lib/i18nFormat";
 
-const statusLabels: Record<StudentCommentResponse["status"], string> = { DRAFT: "Nháp", PENDING: "Chờ duyệt", APPROVED: "Đã duyệt", REJECTED: "Bị từ chối" };
 const readOnlyFieldClass = "w-full bg-emerald-50/60 border border-emerald-200 text-xs p-2 rounded-lg text-slate-700 min-h-[34px]";
 /**
  * Cố định 3 cột đầu (Mã học viên/Họ và tên/Ngày sinh, bổ sung ngoài SDD gốc, 2026-08-14) — cần width
@@ -62,13 +63,11 @@ const STICKY_COL_STYLE: React.CSSProperties[] = STICKY_COL_WIDTHS.map((w, i) => 
 /**
  * "Loại giáo viên" của buổi học (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05) — ăn
  * theo để lọc + đổi nhãn 2 kênh BTVN buổi sau (Ngữ pháp/Bài nghe ở Soạn & giao đề, Video ở Kho Video
- * Ôn tập). Mirror ClassSession.TeacherType/Exam.TeacherType/ReviewVideoSet.VideoType (BE).
+ * Ôn tập). Mirror ClassSession.TeacherType/Exam.TeacherType/ReviewVideoSet.VideoType (BE). Nhãn hiển
+ * thị lấy qua i18n key shared.teacherType/shared.grammarChannel/shared.videoChannel — KHÔNG dùng lại
+ * "Video từ kết nối"/"Video phản xạ" của Kho Video Ôn tập (LecturesPage.tsx), 2 bộ nhãn độc lập.
  */
 type TeacherType = "VIETNAMESE" | "FOREIGN";
-const teacherTypeLabels: Record<TeacherType, string> = { VIETNAMESE: "Giáo viên Việt Nam", FOREIGN: "Giáo viên nước ngoài" };
-/** Đúng y nhãn cột đã chốt với người dùng 2026-08-05 — KHÔNG dùng lại "Video từ kết nối"/"Video phản xạ" của Kho Video Ôn tập (LecturesPage.tsx), 2 bộ nhãn độc lập. */
-const grammarChannelLabel: Record<TeacherType, string> = { VIETNAMESE: "Ngữ pháp", FOREIGN: "Bài nghe" };
-const videoChannelLabel: Record<TeacherType, string> = { VIETNAMESE: "Từ Vựng (TKN)", FOREIGN: "Clip phản xạ" };
 
 interface Row {
   studentId: number;
@@ -120,27 +119,18 @@ const isRowBlank = (r: Row) =>
   r.homeworkNextReviewVideoSetId === "" &&
   !r.note.trim();
 
-/** Thang thái độ chốt lại 2026-08-12 — % đi kèm là quy đổi dùng tính "Thái độ học tập" trung bình ở Portal (StudentComment.Attitude). */
-const attitudeLabels: Record<NonNullable<StudentCommentResponse["attitude"]>, string> = {
-  WEAK: "Yếu (20%)",
-  AVERAGE: "Trung bình (50%)",
-  FAIR: "Khá (70%)",
-  GOOD: "Tốt (90%)",
-  EXCELLENT: "Xuất sắc (100%)"
-};
-
 /**
  * Ô hiện "BTVN buổi trước" cho dòng ĐÃ GỬI (locked) — ưu tiên % TỰ ĐỘNG (grammarPreviousProgress/
  * videoPreviousProgress, backend tính từ exercise_attempts/review_video_progress|submissions thật —
  * xem HomeworkProgressService), chỉ fallback về giá trị nhập tay khi tự động = null (VD BTVN Ngữ pháp
  * giao Offline thì không có gì để tự tính, video luôn Online nên hầu như luôn có % tự động).
  */
-function PreviousProgressCell({ auto, manual }: { auto: string | null; manual: string | null }) {
+function PreviousProgressCell({ auto, manual, autoLabel }: { auto: string | null; manual: string | null; autoLabel: string }) {
   if (auto) {
     return (
       <div className={`${readOnlyFieldClass} flex items-center justify-between gap-1.5`}>
         <span>{auto}</span>
-        <span className="text-[9px] font-bold text-emerald-600 uppercase tracking-wide shrink-0">Tự động</span>
+        <span className="text-[9px] font-bold text-emerald-600 uppercase tracking-wide shrink-0">{autoLabel}</span>
       </div>
     );
   }
@@ -149,6 +139,7 @@ function PreviousProgressCell({ auto, manual }: { auto: string | null; manual: s
 
 /** UC-21 Main Flow (nhánh DAILY): viết nhận xét hàng ngày theo buổi học — cùng khuôn thao tác với Điểm danh nhanh. */
 export default function DailyCommentPanel() {
+  const { t, i18n } = useTranslation("academic-comments");
   const { selectedClassId, setUnsavedChanges } = useApp();
   const { classes } = useEligibleClasses();
   const [sessions, setSessions] = useState<ClassSessionResponse[]>([]);
@@ -247,8 +238,8 @@ export default function DailyCommentPanel() {
   const blockOnlineHomework = isLastScheduledSession && !dueDateTime;
   const filteredGrammarOptions = teacherType ? grammarOptions.filter((ex) => ex.examTeacherType === teacherType) : [];
   const filteredVideoOptions = teacherType ? videoOptions.filter((s) => s.teacherType === teacherType) : [];
-  const grammarLabel = teacherType ? grammarChannelLabel[teacherType] : "Bài";
-  const videoLabel = teacherType ? videoChannelLabel[teacherType] : "Video";
+  const grammarLabel = teacherType ? t(`shared.grammarChannel.${teacherType}`) : t("shared.grammarChannelFallback");
+  const videoLabel = teacherType ? t(`shared.videoChannel.${teacherType}`) : t("shared.videoChannelFallback");
   // Buổi đã có ít nhất 1 nhận xét ĐANG chờ duyệt/ĐÃ duyệt (bổ sung ngoài SDD gốc, đã xác nhận với
   // người dùng 2026-08-06) — khoá 3 thông tin dùng CHUNG cả buổi (Loại giáo viên/Bài học hôm nay/Tên
   // giáo viên giảng dạy) để không đổi ngược sau khi đã gửi, gây lệch với nội dung đã duyệt. Chỉ mở lại
@@ -314,7 +305,7 @@ export default function DailyCommentPanel() {
     }
     listClassSessions(selectedClassId)
       .then(setSessions)
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách buổi học."));
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("dailyCommentPanel.errors.loadSessionsFailed")));
     refreshSessionCommentStats(selectedClassId);
     // UC-48 (2026-07-29): tự chọn buổi hôm nay khi vào tab, đỡ GV phải tự tìm trong dropdown — chỉ tự
     // chọn nếu buổi đã tới giờ bắt đầu (đúng nguyên tắc "đến giờ học mới nhận xét" ở dưới), buổi hôm
@@ -325,9 +316,11 @@ export default function DailyCommentPanel() {
         if (started) {
           setSelectedSessionId(started.id);
         } else if (todaySessions.length > 0) {
-          setNotification(`📅 Buổi học hôm nay (${todaySessions[0].startTime}–${todaySessions[0].endTime}) chưa bắt đầu — chưa thể nhận xét, có thể tự chọn buổi khác ở trên.`);
+          setNotification(
+            t("dailyCommentPanel.notifications.todayNotStarted", { start: todaySessions[0].startTime, end: todaySessions[0].endTime })
+          );
         } else {
-          setNotification("📅 Hôm nay không có buổi học nào của lớp này — vui lòng tự chọn buổi ở trên.");
+          setNotification(t("dailyCommentPanel.notifications.noTodaySession"));
         }
       })
       .catch(() => undefined);
@@ -389,7 +382,7 @@ export default function DailyCommentPanel() {
         );
         return loadHistory(selectedClassId, selectedSessionId, active.map((en) => en.studentId));
       })
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách học sinh."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("dailyCommentPanel.errors.loadStudentsFailed")))
       .finally(() => setLoadingRows(false));
   }, [selectedClassId, selectedSessionId]);
 
@@ -459,9 +452,9 @@ export default function DailyCommentPanel() {
     try {
       const updated = await updateLessonContent(selectedSessionId, lessonContentInput.trim());
       setSessions((prev) => prev.map((s) => (s.id === selectedSessionId ? { ...s, lessonContent: updated.lessonContent } : s)));
-      setNotification("✅ Đã lưu Bài học hôm nay.");
+      setNotification(t("dailyCommentPanel.notifications.lessonContentSaved"));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Lưu Bài học hôm nay thất bại.");
+      setError(err instanceof ApiError ? err.message : t("dailyCommentPanel.errors.lessonContentSaveFailed"));
     } finally {
       setSavingLessonContent(false);
     }
@@ -475,9 +468,9 @@ export default function DailyCommentPanel() {
     try {
       const updated = await updateActualTeacherName(selectedSessionId, actualTeacherNameInput.trim());
       setSessions((prev) => prev.map((s) => (s.id === selectedSessionId ? { ...s, actualTeacherName: updated.actualTeacherName } : s)));
-      setNotification("✅ Đã lưu Tên giáo viên giảng dạy.");
+      setNotification(t("dailyCommentPanel.notifications.actualTeacherNameSaved"));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Lưu Tên giáo viên giảng dạy thất bại.");
+      setError(err instanceof ApiError ? err.message : t("dailyCommentPanel.errors.actualTeacherNameSaveFailed"));
     } finally {
       setSavingActualTeacherName(false);
     }
@@ -493,7 +486,7 @@ export default function DailyCommentPanel() {
       setSessions((prev) => prev.map((s) => (s.id === selectedSessionId ? { ...s, teacherType: type } : s)));
       setTeacherType(type);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Lưu loại giáo viên thất bại.");
+      setError(err instanceof ApiError ? err.message : t("dailyCommentPanel.errors.teacherTypeSaveFailed"));
     } finally {
       setSavingTeacherType(false);
     }
@@ -574,7 +567,7 @@ export default function DailyCommentPanel() {
     if (!selectedClassId || !selectedSession) return { ok: true };
     const filled = rows.filter(rowHasAnyData);
     if (filled.length === 0) {
-      const message = "Chưa có dữ liệu nào để lưu.";
+      const message = t("dailyCommentPanel.errors.noDataToSave");
       if (!silent) setError(message);
       return { ok: false, message };
     }
@@ -589,14 +582,21 @@ export default function DailyCommentPanel() {
       // Lộ ĐÚNG lý do lỗi thật của học sinh đầu tiên thất bại (bổ sung 2026-08-17) — trước đây chỉ đếm
       // số lượng, vứt bỏ nội dung lỗi thật (reason của Promise.allSettled), khiến không biết vì sao lỗi.
       const firstFailedReason = failed[0]?.result.reason;
-      const firstFailedMessage = firstFailedReason instanceof ApiError ? firstFailedReason.message : "lỗi không xác định";
+      const firstFailedMessage = firstFailedReason instanceof ApiError ? firstFailedReason.message : t("dailyCommentPanel.errors.unknownReason");
+      const extraStudents = failedCount > 1 ? t("dailyCommentPanel.notifications.extraStudents", { count: failedCount - 1 }) : "";
       setDirty(false);
       setLastSavedAt(new Date());
       if (!silent) {
         setNotification(
           failedCount > 0
-            ? `⚠️ Đã lưu nháp ${filled.length - failedCount}/${filled.length} nhận xét — ${failed[0].row.studentFullName}${failedCount > 1 ? ` (+${failedCount - 1} học sinh khác)` : ""} lỗi: ${firstFailedMessage}`
-            : `💾 Đã lưu nháp ${filled.length} nhận xét (chưa gửi duyệt).`
+            ? t("dailyCommentPanel.notifications.draftSavedFailurePart", {
+                saved: filled.length - failedCount,
+                total: filled.length,
+                studentName: failed[0].row.studentFullName,
+                extra: extraStudents,
+                reason: firstFailedMessage
+              })
+            : t("dailyCommentPanel.notifications.draftSavedSuccess", { count: filled.length })
         );
       }
       await loadHistory(selectedClassId, selectedSession.id, rows.map((r) => r.studentId));
@@ -606,11 +606,17 @@ export default function DailyCommentPanel() {
       return failedCount > 0
         ? {
             ok: false,
-            message: `Đã lưu ${filled.length - failedCount}/${filled.length} nhận xét — ${failed[0].row.studentFullName}${failedCount > 1 ? ` (+${failedCount - 1} học sinh khác)` : ""} lỗi: ${firstFailedMessage}`
+            message: t("dailyCommentPanel.notifications.draftSavedFailurePart", {
+              saved: filled.length - failedCount,
+              total: filled.length,
+              studentName: failed[0].row.studentFullName,
+              extra: extraStudents,
+              reason: firstFailedMessage
+            })
           }
         : { ok: true };
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : "Lưu nháp thất bại.";
+      const message = err instanceof ApiError ? err.message : t("dailyCommentPanel.errors.saveDraftFailed");
       if (!silent) setError(message);
       return { ok: false, message };
     } finally {
@@ -669,7 +675,7 @@ export default function DailyCommentPanel() {
     }
     const filled = rows.filter((r) => r.content.trim());
     if (filled.length === 0) {
-      setError("Vui lòng nhập nhận xét cho ít nhất 1 học sinh.");
+      setError(t("dailyCommentPanel.errors.enterAtLeastOneComment"));
       return;
     }
     setSending(true);
@@ -684,7 +690,7 @@ export default function DailyCommentPanel() {
       const failedByMessage = new Map<string, string[]>();
       created.forEach((r, i) => {
         if (r.status !== "rejected") return;
-        const msg = r.reason instanceof ApiError ? r.reason.message : "Lỗi không xác định.";
+        const msg = r.reason instanceof ApiError ? r.reason.message : t("dailyCommentPanel.errors.unknownError");
         const studentName = filled[i]?.studentFullName ?? "?";
         failedByMessage.set(msg, [...(failedByMessage.get(msg) ?? []), studentName]);
       });
@@ -700,13 +706,13 @@ export default function DailyCommentPanel() {
         try {
           await submitComments(selectedClassId, succeededIds);
         } catch (err) {
-          submitFailedMessage = err instanceof ApiError ? err.message : "Gửi duyệt thất bại.";
+          submitFailedMessage = err instanceof ApiError ? err.message : t("dailyCommentPanel.errors.submitFailed");
         }
       }
 
       let message = submitFailedMessage
-        ? `⚠️ Đã lưu nháp ${succeededIds.length} nhận xét nhưng gửi duyệt thất bại: ${submitFailedMessage} — vào "Lịch sử nhận xét" bên dưới bấm "Nộp duyệt" để thử lại.`
-        : `🔔 Đã gửi nhận xét ${succeededIds.length} học sinh lên Quản lý điểm trường rà soát duyệt.`;
+        ? t("dailyCommentPanel.notifications.sentButSubmitFailed", { count: succeededIds.length, reason: submitFailedMessage })
+        : t("dailyCommentPanel.notifications.sentSuccess", { count: succeededIds.length });
       if (failedCount > 0) {
         failedByMessage.forEach((students, msg) => {
           message += `\n- ${msg} (${students.join(", ")})`;
@@ -726,7 +732,7 @@ export default function DailyCommentPanel() {
       listAssignmentsForClass(selectedClassId).then(setGrammarAssignments).catch(() => undefined);
       listReviewVideoAssignmentsForClass(selectedClassId).then(setVideoAssignments).catch(() => undefined);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Gửi nhận xét thất bại.");
+      setError(err instanceof ApiError ? err.message : t("dailyCommentPanel.errors.sendFailed"));
     } finally {
       setSending(false);
     }
@@ -734,7 +740,7 @@ export default function DailyCommentPanel() {
 
   /** UC-21 (2026-07-29): học sinh chỉ nhận xét DAILY được 1 lần/buổi — bấm vào dòng đã có nhận xét thì báo rõ thay vì im lặng khoá ô. */
   const notifyAlreadySent = (r: Row, sent: StudentCommentResponse) => {
-    setNotification(`⚠️ Học sinh ${r.studentFullName} đã có nhận xét cho buổi này rồi (trạng thái: ${statusLabels[sent.status]}) — xem/sửa ở "Lịch sử nhận xét" bên dưới.`);
+    setNotification(t("dailyCommentPanel.notifications.alreadySent", { name: r.studentFullName, status: t(`shared.status.${sent.status}`) }));
   };
 
   const handleDownloadTemplate = async () => {
@@ -745,7 +751,7 @@ export default function DailyCommentPanel() {
       const blob = await downloadDailyCommentTemplate(selectedSessionId);
       downloadBlob(blob, `mau-nhan-xet-buoi-${selectedSessionId}.xlsx`);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Tải file mẫu thất bại.");
+      setError(err instanceof ApiError ? err.message : t("dailyCommentPanel.errors.downloadTemplateFailed"));
     } finally {
       setDownloadingTemplate(false);
     }
@@ -761,7 +767,7 @@ export default function DailyCommentPanel() {
   const handleImportFile = async (file: File | null) => {
     if (!file || !selectedClassId || !selectedSessionId) return;
     if (!file.name.toLowerCase().endsWith(".xlsx")) {
-      setError("Chỉ hỗ trợ file .xlsx.");
+      setError(t("dailyCommentPanel.errors.xlsxOnly"));
       return;
     }
     setImporting(true);
@@ -804,7 +810,7 @@ export default function DailyCommentPanel() {
         setDirty(true);
       }
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Nhập từ Excel thất bại.");
+      setError(err instanceof ApiError ? err.message : t("dailyCommentPanel.errors.importFailed"));
     } finally {
       setImporting(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -824,9 +830,9 @@ export default function DailyCommentPanel() {
       <div className="bg-white rounded-xl border border-slate-200 shadow-soft">
         <div className="px-5 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50 rounded-t-xl">
           <div>
-            <span className="text-xs font-bold text-slate-700 font-display">Nhận xét hàng ngày theo buổi học</span>
+            <span className="text-xs font-bold text-slate-700 font-display">{t("dailyCommentPanel.title")}</span>
             <p className="text-[10px] text-slate-400 mt-0.5">
-              {selectedClass ? `${selectedClass.name} (${selectedClass.classCode})` : "Chưa chọn lớp — chọn ở góc trên bên phải (Header) để bắt đầu."}
+              {selectedClass ? `${selectedClass.name} (${selectedClass.classCode})` : t("dailyCommentPanel.noClassSelected")}
             </p>
           </div>
           {selectedClass && (
@@ -836,15 +842,15 @@ export default function DailyCommentPanel() {
                 onChange={(e) => setSelectedSessionId(e.target.value ? Number(e.target.value) : null)}
                 className="bg-white border text-[10px] font-bold text-slate-700 px-2 py-1 rounded focus:outline-none"
               >
-                <option value="">-- Chọn buổi học --</option>
+                <option value="">{t("dailyCommentPanel.sessionSelectPlaceholder")}</option>
                 {selectableSessions.map((s) => {
                   const status = getSessionCommentStatus(s.id);
                   const stat = sessionCommentStats[s.id];
                   return (
                     <option key={s.id} value={s.id}>
                       {status === "DONE" ? "✓ " : status === "PARTIAL" ? "◐ " : ""}
-                      Buổi {s.sessionNumber} — {s.sessionDate} ({s.startTime}–{s.endTime})
-                      {status === "PARTIAL" && stat ? ` (${stat.commented}/${stat.total})` : ""}
+                      {t("dailyCommentPanel.sessionOptionLabel", { number: s.sessionNumber, date: s.sessionDate, start: s.startTime, end: s.endTime })}
+                      {status === "PARTIAL" && stat ? t("dailyCommentPanel.sessionOptionPartialCount", { commented: stat.commented, total: stat.total }) : ""}
                     </option>
                   );
                 })}
@@ -852,18 +858,18 @@ export default function DailyCommentPanel() {
               {/* "Loại giáo viên" (2026-08-05) — ăn theo để lọc/đổi nhãn BTVN buổi sau (Ngữ pháp/Bài nghe, Từ Vựng (TKN)/Clip phản xạ). */}
               {selectedSessionId && (
                 <div className="flex items-center rounded-lg border border-slate-200 bg-white overflow-hidden shrink-0">
-                  {(Object.keys(teacherTypeLabels) as TeacherType[]).map((type) => (
+                  {(["VIETNAMESE", "FOREIGN"] as TeacherType[]).map((type) => (
                     <button
                       key={type}
                       type="button"
                       disabled={savingTeacherType || sessionHasSentComment}
-                      title={sessionHasSentComment ? "Buổi này đã có nhận xét gửi duyệt — không đổi được Loại giáo viên nữa." : undefined}
+                      title={sessionHasSentComment ? t("dailyCommentPanel.teacherTypeLockedTitle") : undefined}
                       onClick={() => handleChangeTeacherType(type)}
                       className={`px-2.5 py-1 text-[10px] font-bold whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed ${
                         teacherType === type ? "bg-brand-orange text-white" : "text-slate-600 hover:bg-slate-50"
                       }`}
                     >
-                      {teacherTypeLabels[type]}
+                      {t(`shared.teacherType.${type}`)}
                     </button>
                   ))}
                 </div>
@@ -874,13 +880,13 @@ export default function DailyCommentPanel() {
 
         {selectedSessionId && !teacherType && (
           <div className="px-5 py-2.5 border-b border-slate-100 bg-amber-50 text-[11px] text-amber-700">
-            ⚠️ Chưa chọn "Loại giáo viên" ở trên — chọn trước để bảng BTVN buổi sau hiện đúng Bài/Video theo Giáo viên Việt Nam hay nước ngoài.
+            {t("dailyCommentPanel.teacherTypeMissingWarning")}
           </div>
         )}
 
         {selectedSessionId && sessionHasSentComment && (
           <div className="px-5 py-2.5 border-b border-slate-100 bg-slate-50 text-[11px] text-slate-500">
-            🔒 Buổi này đã có nhận xét gửi duyệt. Muốn sửa lại, nhờ Quản lý điểm trường "Từ chối" toàn bộ nhận xét của buổi để mở khoá.
+            {t("dailyCommentPanel.sessionLockedNotice")}
           </div>
         )}
 
@@ -894,7 +900,7 @@ export default function DailyCommentPanel() {
                 2026-08-14) — dòng cảnh báo thiếu bài học tách RIÊNG ra bên dưới (w-full ở đây trước đây
                 nằm CHUNG hàng flex-wrap, tự ép 2 nhóm xuống 2 hàng khác nhau khi cảnh báo hiện ra). */}
             <div className="flex flex-wrap items-center gap-2">
-              <label className="text-[11px] font-bold text-slate-600 shrink-0">Bài học hôm nay *</label>
+              <label className="text-[11px] font-bold text-slate-600 shrink-0">{t("dailyCommentPanel.lessonContentLabel")}</label>
               <input
                 ref={lessonContentInputRef}
                 value={lessonContentInput}
@@ -903,7 +909,7 @@ export default function DailyCommentPanel() {
                   setLessonContentInput(e.target.value);
                   setLessonContentMissingError(false);
                 }}
-                placeholder="VD: Unit 3 - Free time activities"
+                placeholder={t("dailyCommentPanel.lessonContentPlaceholder")}
                 className={`flex-1 min-w-[220px] bg-white border text-xs p-2 rounded-lg focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed ${
                   lessonContentMissingError ? "border-rose-400 ring-1 ring-rose-300" : "border-slate-200"
                 }`}
@@ -919,14 +925,14 @@ export default function DailyCommentPanel() {
                 }
                 className="px-3 py-2 bg-brand-orange hover:bg-brand-orange/90 text-white text-[11px] font-bold rounded-lg disabled:opacity-40"
               >
-                {savingLessonContent ? "Đang lưu..." : "Lưu"}
+                {savingLessonContent ? t("dailyCommentPanel.savingButton") : t("dailyCommentPanel.saveButton")}
               </button>
-              <label className="text-[11px] font-bold text-slate-600 shrink-0">Tên giáo viên giảng dạy</label>
+              <label className="text-[11px] font-bold text-slate-600 shrink-0">{t("dailyCommentPanel.actualTeacherNameLabel")}</label>
               <input
                 value={actualTeacherNameInput}
                 disabled={sessionHasSentComment}
                 onChange={(e) => setActualTeacherNameInput(e.target.value)}
-                placeholder="VD: Nguyễn Văn A (điền hộ nếu Giáo viên nước ngoài không tự thao tác)"
+                placeholder={t("dailyCommentPanel.actualTeacherNamePlaceholder")}
                 className="flex-1 min-w-[220px] bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed"
               />
               <button
@@ -940,17 +946,17 @@ export default function DailyCommentPanel() {
                 }
                 className="px-3 py-2 bg-brand-orange hover:bg-brand-orange/90 text-white text-[11px] font-bold rounded-lg disabled:opacity-40"
               >
-                {savingActualTeacherName ? "Đang lưu..." : "Lưu"}
+                {savingActualTeacherName ? t("dailyCommentPanel.savingButton") : t("dailyCommentPanel.saveButton")}
               </button>
             </div>
             {lessonContentMissingError ? (
               <p className="mt-1.5 text-[10px] text-rose-600 font-bold">
-                ⚠️ Bắt buộc điền + Lưu Bài học hôm nay trước khi Gửi nhận xét — nội dung học sinh bạn đã gõ vẫn còn nguyên, điền xong bấm "Gửi nhận xét" lại là được.
+                {t("dailyCommentPanel.lessonContentMissingError")}
               </p>
             ) : (
               !selectedSession?.lessonContent && (
                 <p className="mt-1.5 text-[10px] text-amber-700 italic">
-                  Chưa điền bài học hôm nay — bắt buộc điền trước khi Gửi nhận xét (buổi chưa điền sẽ bị từ chối khi gửi duyệt).
+                  {t("dailyCommentPanel.lessonContentMissingHint")}
                 </p>
               )
             )}
@@ -959,33 +965,32 @@ export default function DailyCommentPanel() {
 
         {selectedSessionId && blockOnlineHomework && (
           <div className="px-5 py-2.5 border-b border-slate-100 bg-rose-50/60 text-[11px] text-rose-700">
-            ⚠️ Đây là buổi học cuối cùng đã lên lịch của lớp — lớp chưa có buổi kế tiếp nào trong lịch nên
-            chưa thể giao BTVN {grammarLabel} (Online)/{videoLabel} buổi sau (cần hạn nộp = buổi kế tiếp).
-            Tự chọn hạn nộp ở panel "Gán nhanh cho cả lớp" bên dưới để bỏ qua điều kiện này, hoặc chỉ nhập
-            BTVN offline (chữ tự do, không cần hạn nộp).
+            {t("dailyCommentPanel.blockOnlineHomeworkWarning", { grammarLabel, videoLabel })}
           </div>
         )}
 
         {selectedSessionId && teacherType && (
           <div className="px-5 py-3 border-b border-slate-100 bg-orange-50/40 space-y-2">
             <span className="text-[10px] font-bold uppercase text-slate-500">
-              Gán nhanh cho cả lớp
+              {t("dailyCommentPanel.quickAssign.title")}
             </span>
             <div className="flex flex-wrap items-end gap-2">
               <div className="min-w-[160px]">
-                <label className="text-[9px] font-bold uppercase text-slate-400 block mb-0.5">BTVN offline</label>
+                <label className="text-[9px] font-bold uppercase text-slate-400 block mb-0.5">{t("dailyCommentPanel.quickAssign.offlineLabel")}</label>
                 <input
                   value={quickOffline}
                   onChange={(e) => {
                     setQuickOffline(e.target.value);
                     if (e.target.value) setQuickExerciseId("");
                   }}
-                  placeholder="VD: Unit 2 trang 10"
+                  placeholder={t("dailyCommentPanel.quickAssign.offlinePlaceholder")}
                   className="w-full bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
                 />
               </div>
               <div className="min-w-[200px]">
-                <label className="text-[9px] font-bold uppercase text-slate-400 block mb-0.5">BTVN online — {grammarLabel}</label>
+                <label className="text-[9px] font-bold uppercase text-slate-400 block mb-0.5">
+                  {t("dailyCommentPanel.quickAssign.onlineGrammarLabel", { grammarLabel })}
+                </label>
                 <Select
                   value={quickExerciseId}
                   disabled={blockOnlineHomework}
@@ -996,7 +1001,7 @@ export default function DailyCommentPanel() {
                   }}
                   className="w-full bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none disabled:opacity-40"
                 >
-                  <option value="">-- Không giao --</option>
+                  <option value="">{t("dailyCommentPanel.quickAssign.noAssign")}</option>
                   {filteredGrammarOptions.map((ex) => (
                     <option key={ex.id} value={ex.id}>
                       {ex.examCode} - {ex.title}
@@ -1005,14 +1010,16 @@ export default function DailyCommentPanel() {
                 </Select>
               </div>
               <div className="min-w-[200px]">
-                <label className="text-[9px] font-bold uppercase text-slate-400 block mb-0.5">BTVN online — {videoLabel}</label>
+                <label className="text-[9px] font-bold uppercase text-slate-400 block mb-0.5">
+                  {t("dailyCommentPanel.quickAssign.onlineVideoLabel", { videoLabel })}
+                </label>
                 <Select
                   value={quickVideoId}
                   disabled={blockOnlineHomework}
                   onChange={(e) => setQuickVideoId(e.target.value ? Number(e.target.value) : "")}
                   className="w-full bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none disabled:opacity-40"
                 >
-                  <option value="">-- Không giao --</option>
+                  <option value="">{t("dailyCommentPanel.quickAssign.noAssign")}</option>
                   {filteredVideoOptions.map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.title} ({s.code})
@@ -1021,7 +1028,7 @@ export default function DailyCommentPanel() {
                 </Select>
               </div>
               <div className="min-w-[150px]">
-                <label className="text-[9px] font-bold uppercase text-slate-400 block mb-0.5">Hạn nộp bài — ngày</label>
+                <label className="text-[9px] font-bold uppercase text-slate-400 block mb-0.5">{t("dailyCommentPanel.quickAssign.dueDateLabel")}</label>
                 <DatePicker
                   value={dueDate}
                   min={selectedSession?.sessionDate}
@@ -1033,7 +1040,7 @@ export default function DailyCommentPanel() {
                 />
               </div>
               <div className="min-w-[110px]">
-                <label className="text-[9px] font-bold uppercase text-slate-400 block mb-0.5">Hạn nộp bài — giờ</label>
+                <label className="text-[9px] font-bold uppercase text-slate-400 block mb-0.5">{t("dailyCommentPanel.quickAssign.dueTimeLabel")}</label>
                 <input
                   type="time"
                   value={dueTime}
@@ -1048,7 +1055,7 @@ export default function DailyCommentPanel() {
                 disabled={!quickOffline && quickExerciseId === "" && quickVideoId === ""}
                 className="px-3 py-2 bg-brand-orange hover:bg-brand-orange/90 text-white text-[11px] font-bold rounded-lg disabled:opacity-40"
               >
-                Áp dụng cho cả lớp
+                {t("dailyCommentPanel.quickAssign.applyButton")}
               </button>
             </div>
           </div>
@@ -1063,7 +1070,7 @@ export default function DailyCommentPanel() {
               className="flex items-center gap-1.5 border border-dashed border-slate-300 rounded-lg px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-white disabled:opacity-50"
             >
               <Download className="w-3.5 h-3.5" />
-              {downloadingTemplate ? "Đang tải..." : "Tải mẫu Excel"}
+              {downloadingTemplate ? t("dailyCommentPanel.downloadingTemplate") : t("dailyCommentPanel.downloadTemplateButton")}
             </button>
             <button
               type="button"
@@ -1072,7 +1079,7 @@ export default function DailyCommentPanel() {
               className="flex items-center gap-1.5 border-2 border-dashed border-slate-200 rounded-lg px-3 py-2 text-[11px] font-semibold text-slate-600 hover:border-brand-orange hover:bg-orange-50/30 disabled:opacity-50"
             >
               <UploadCloud className="w-3.5 h-3.5 text-brand-orange" />
-              {importing ? "Đang nhập..." : "Nhập từ Excel"}
+              {importing ? t("dailyCommentPanel.importing") : t("dailyCommentPanel.importExcelButton")}
             </button>
             <input ref={fileInputRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => handleImportFile(e.target.files?.[0] ?? null)} />
 
@@ -1082,7 +1089,7 @@ export default function DailyCommentPanel() {
             <div className="ml-auto flex items-center gap-2">
               {lastSavedAt && (
                 <span className="text-[10px] text-slate-400">
-                  Đã lưu lúc {lastSavedAt.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
+                  {t("dailyCommentPanel.savedAt", { time: formatTimeHm(lastSavedAt.toISOString(), i18n.language) })}
                 </span>
               )}
               <button
@@ -1092,27 +1099,27 @@ export default function DailyCommentPanel() {
                 className="flex items-center gap-1.5 border border-dashed border-slate-300 rounded-lg px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-white disabled:opacity-50"
               >
                 <Save className="w-3.5 h-3.5" />
-                {savingDraft ? "Đang lưu..." : "Lưu nháp"}
+                {savingDraft ? t("dailyCommentPanel.savingDraft") : t("dailyCommentPanel.saveDraftButton")}
               </button>
             </div>
 
             {importResult && (
               <div className="w-full flex flex-wrap items-center gap-2 text-[11px] mt-1">
                 <span className="bg-slate-100 border border-slate-200 text-slate-700 font-semibold px-2 py-1 rounded-lg">
-                  Tổng: {importResult.totalRows ?? "—"}
+                  {t("dailyCommentPanel.importResult.total", { count: importResult.totalRows ?? "—" })}
                 </span>
                 <span className="bg-emerald-50 border border-emerald-100 text-emerald-600 font-semibold px-2 py-1 rounded-lg">
-                  Thành công: {importResult.successRows}
+                  {t("dailyCommentPanel.importResult.success", { count: importResult.successRows })}
                 </span>
                 <span className="bg-rose-50 border border-rose-100 text-rose-600 font-semibold px-2 py-1 rounded-lg">
-                  Lỗi: {importResult.failedRows}
+                  {t("dailyCommentPanel.importResult.failed", { count: importResult.failedRows })}
                 </span>
                 {importResult.errorSummary.length > 0 && (
                   <div className="w-full border border-rose-100 rounded-lg overflow-hidden mt-1">
                     <div className="max-h-40 overflow-y-auto divide-y divide-slate-100">
                       {importResult.errorSummary.map((e, i) => (
                         <div key={i} className="px-3 py-1.5 flex gap-2 bg-white">
-                          <span className="font-mono font-bold text-slate-400 shrink-0">Dòng {e.row}</span>
+                          <span className="font-mono font-bold text-slate-400 shrink-0">{t("dailyCommentPanel.importResult.row", { row: e.row })}</span>
                           <span className="text-slate-600">{e.reason}</span>
                         </div>
                       ))}
@@ -1148,19 +1155,19 @@ export default function DailyCommentPanel() {
                 2026-08-06) — Th mặc định không có border, bảng nhóm cột (BTVN buổi trước/online) khó
                 phân biệt ranh giới nếu không kẻ thêm. */}
             <tr className="border-b border-slate-300 [&>th]:text-center">
-              <Th rowSpan={2} style={STICKY_COL_STYLE[0]} className="sticky left-0 z-30 bg-slate-50 border-r border-slate-300">Mã học viên</Th>
-              <Th rowSpan={2} style={STICKY_COL_STYLE[1]} className="sticky z-30 bg-slate-50 border-r border-slate-300">Họ và tên</Th>
-              <Th rowSpan={2} style={STICKY_COL_STYLE[2]} className="sticky z-30 bg-slate-50 border-r border-slate-300">Ngày sinh</Th>
-              <Th colSpan={3} className="text-center border-r border-slate-300">BTVN buổi trước</Th>
-              <Th rowSpan={2} className="border-r border-slate-300">BTVN offline</Th>
-              <Th colSpan={2} className="text-center border-r border-slate-300">BTVN online</Th>
-              <Th rowSpan={2} className="border-r border-slate-300">Hạn nộp bài</Th>
-              <Th rowSpan={2} className="border-r border-slate-300">Thái độ học tập</Th>
-              <Th rowSpan={2} className="border-r border-slate-300">Nhận xét học sinh *</Th>
-              <Th rowSpan={2}>Ghi chú</Th>
+              <Th rowSpan={2} style={STICKY_COL_STYLE[0]} className="sticky left-0 z-30 bg-slate-50 border-r border-slate-300">{t("dailyCommentPanel.columns.studentCode")}</Th>
+              <Th rowSpan={2} style={STICKY_COL_STYLE[1]} className="sticky z-30 bg-slate-50 border-r border-slate-300">{t("dailyCommentPanel.columns.fullName")}</Th>
+              <Th rowSpan={2} style={STICKY_COL_STYLE[2]} className="sticky z-30 bg-slate-50 border-r border-slate-300">{t("dailyCommentPanel.columns.dateOfBirth")}</Th>
+              <Th colSpan={3} className="text-center border-r border-slate-300">{t("dailyCommentPanel.columns.homeworkPrevious")}</Th>
+              <Th rowSpan={2} className="border-r border-slate-300">{t("dailyCommentPanel.columns.homeworkOffline")}</Th>
+              <Th colSpan={2} className="text-center border-r border-slate-300">{t("dailyCommentPanel.columns.homeworkOnline")}</Th>
+              <Th rowSpan={2} className="border-r border-slate-300">{t("dailyCommentPanel.columns.dueDate")}</Th>
+              <Th rowSpan={2} className="border-r border-slate-300">{t("dailyCommentPanel.columns.attitude")}</Th>
+              <Th rowSpan={2} className="border-r border-slate-300">{t("dailyCommentPanel.columns.studentComment")}</Th>
+              <Th rowSpan={2}>{t("dailyCommentPanel.columns.note")}</Th>
             </tr>
             <tr className="border-b border-slate-300 [&>th]:text-center">
-              <Th className="border-r border-slate-300 text-center">Offline</Th>
+              <Th className="border-r border-slate-300 text-center">{t("dailyCommentPanel.columns.offline")}</Th>
               <Th className="border-r border-slate-300 text-center">{grammarLabel}</Th>
               <Th className="border-r border-slate-300 text-center">{videoLabel}</Th>
               <Th className="border-r border-slate-300 text-center">{grammarLabel}</Th>
@@ -1171,19 +1178,19 @@ export default function DailyCommentPanel() {
             {!selectedSessionId ? (
               <tr>
                 <td colSpan={12} className="px-6 py-12 text-center text-xs text-slate-400 italic">
-                  {selectedClass ? "Chọn buổi học ở trên để tải danh sách học sinh." : "Chọn 1 lớp ở Header (góc trên bên phải)."}
+                  {selectedClass ? t("dailyCommentPanel.emptyNoSession") : t("dailyCommentPanel.emptyNoClass")}
                 </td>
               </tr>
             ) : loadingRows ? (
               <tr>
                 <td colSpan={12} className="px-6 py-12 text-center text-xs text-slate-400">
-                  Đang tải...
+                  {t("dailyCommentPanel.loadingRows")}
                 </td>
               </tr>
             ) : rows.length === 0 ? (
               <tr>
                 <td colSpan={12} className="px-6 py-12 text-center text-xs text-slate-400 italic">
-                  Không tìm thấy học sinh nào thuộc lớp học này.
+                  {t("dailyCommentPanel.emptyNoStudents")}
                 </td>
               </tr>
             ) : (
@@ -1225,7 +1232,7 @@ export default function DailyCommentPanel() {
                         <input
                           value={r.homeworkPreviousScore}
                           onChange={(e) => updateRow({ homeworkPreviousScore: e.target.value })}
-                          placeholder="VD: 80%"
+                          placeholder={t("dailyCommentPanel.homeworkPreviousOfflinePlaceholder")}
                           className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
                         />
                       )}
@@ -1234,16 +1241,16 @@ export default function DailyCommentPanel() {
                       {/* {grammarLabel} buổi trước — CHỈ hiện % TỰ ĐỘNG (buổi trước giao Online, BE tính từ
                           exercise_attempts) — nhập tay đã chuyển hẳn sang cột "Offline" bên trái, không còn fallback
                           nhập tay ở đây nữa (tránh 2 cột cùng nhập được 1 giá trị gây nhầm lẫn cho giáo viên). */}
-                      <PreviousProgressCell auto={sent?.grammarPreviousProgress ?? null} manual={null} />
+                      <PreviousProgressCell auto={sent?.grammarPreviousProgress ?? null} manual={null} autoLabel={t("dailyCommentPanel.autoBadge")} />
                     </Td>
                     <Td className="min-w-[150px] border-r border-slate-300">
                       {locked ? (
-                        <PreviousProgressCell auto={sent!.videoPreviousProgress} manual={sent!.homeworkPreviousSpeakingScore} />
+                        <PreviousProgressCell auto={sent!.videoPreviousProgress} manual={sent!.homeworkPreviousSpeakingScore} autoLabel={t("dailyCommentPanel.autoBadge")} />
                       ) : (
                         <input
                           value={r.homeworkPreviousSpeakingScore}
                           onChange={(e) => updateRow({ homeworkPreviousSpeakingScore: e.target.value })}
-                          placeholder="VD: Đã thực hiện 85% (kênh Video luôn Online — % tự động sẽ hiện sau khi Gửi)"
+                          placeholder={t("dailyCommentPanel.homeworkPreviousSpeakingPlaceholder")}
                           className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
                         />
                       )}
@@ -1255,7 +1262,7 @@ export default function DailyCommentPanel() {
                         <input
                           value={r.homeworkNext}
                           onChange={(e) => updateRow({ homeworkNext: e.target.value, ...(e.target.value ? { homeworkNextExerciseId: "" as const } : {}) })}
-                          placeholder="VD: Unit 2 trang 10"
+                          placeholder={t("dailyCommentPanel.quickAssign.offlinePlaceholder")}
                           className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
                         />
                       )}
@@ -1271,10 +1278,10 @@ export default function DailyCommentPanel() {
                             const value = e.target.value ? Number(e.target.value) : "";
                             updateRow({ homeworkNextExerciseId: value, ...(value !== "" ? { homeworkNext: "" } : {}) });
                           }}
-                          aria-label={!teacherType ? "Chọn Loại giáo viên ở trên trước." : blockOnlineHomework ? "Lớp chưa có buổi kế tiếp trong lịch — tự chọn hạn nộp để bỏ qua." : undefined}
+                          aria-label={!teacherType ? t("dailyCommentPanel.ariaChooseTeacherTypeFirst") : blockOnlineHomework ? t("dailyCommentPanel.ariaNoUpcomingSession") : undefined}
                           className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
                         >
-                          <option value="">-- Chọn đề đã Publish --</option>
+                          <option value="">{t("dailyCommentPanel.chooseExercisePlaceholder")}</option>
                           {filteredGrammarOptions.map((ex) => (
                             <option key={ex.id} value={ex.id}>
                               {ex.examCode} - {ex.title}
@@ -1291,10 +1298,10 @@ export default function DailyCommentPanel() {
                           value={r.homeworkNextReviewVideoSetId}
                           onChange={(e) => updateRow({ homeworkNextReviewVideoSetId: e.target.value ? Number(e.target.value) : "" })}
                           disabled={blockOnlineHomework || !teacherType}
-                          aria-label={!teacherType ? "Chọn Loại giáo viên ở trên trước." : blockOnlineHomework ? "Lớp chưa có buổi kế tiếp trong lịch — tự chọn hạn nộp để bỏ qua." : undefined}
+                          aria-label={!teacherType ? t("dailyCommentPanel.ariaChooseTeacherTypeFirst") : blockOnlineHomework ? t("dailyCommentPanel.ariaNoUpcomingSession") : undefined}
                           className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
                         >
-                          <option value="">-- Không giao --</option>
+                          <option value="">{t("dailyCommentPanel.quickAssign.noAssign")}</option>
                           {filteredVideoOptions.map((s) => (
                             <option key={s.id} value={s.id}>
                               {s.title} ({s.code})
@@ -1306,25 +1313,25 @@ export default function DailyCommentPanel() {
                     <Td className="min-w-[120px] whitespace-nowrap border-r border-slate-300">
                       {locked
                         ? sent!.homeworkNextDueAt
-                          ? new Date(sent!.homeworkNextDueAt).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })
+                          ? new Date(sent!.homeworkNextDueAt).toLocaleString(toLocaleTag(i18n.language), { dateStyle: "short", timeStyle: "short" })
                           : "—"
                         : dueDateTime
-                          ? new Date(dueDateTime).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })
+                          ? new Date(dueDateTime).toLocaleString(toLocaleTag(i18n.language), { dateStyle: "short", timeStyle: "short" })
                           : "—"}
                     </Td>
                     <Td className="min-w-[130px] border-r border-slate-300">
                       {locked ? (
-                        <div className={readOnlyFieldClass}>{sent!.attitude ? attitudeLabels[sent!.attitude!] : "—"}</div>
+                        <div className={readOnlyFieldClass}>{sent!.attitude ? t(`shared.attitudeWithPercent.${sent!.attitude}`) : "—"}</div>
                       ) : (
                         <Select
                           value={r.attitude}
                           onChange={(e) => updateRow({ attitude: e.target.value as Row["attitude"] })}
                           className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
                         >
-                          <option value="">-- Chưa chọn --</option>
-                          {Object.entries(attitudeLabels).map(([value, label]) => (
+                          <option value="">{t("dailyCommentPanel.attitudePlaceholder")}</option>
+                          {(["WEAK", "AVERAGE", "FAIR", "GOOD", "EXCELLENT"] as const).map((value) => (
                             <option key={value} value={value}>
-                              {label}
+                              {t(`shared.attitudeWithPercent.${value}`)}
                             </option>
                           ))}
                         </Select>
@@ -1337,7 +1344,7 @@ export default function DailyCommentPanel() {
                         <textarea
                           value={r.content}
                           onChange={(e) => updateRow({ content: e.target.value })}
-                          placeholder="Viết nhận xét cho học sinh này..."
+                          placeholder={t("dailyCommentPanel.contentPlaceholder")}
                           rows={2}
                           className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
                         />
@@ -1372,7 +1379,13 @@ export default function DailyCommentPanel() {
               className="bg-brand-orange hover:bg-brand-orange/90 text-white font-semibold text-xs px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-soft transition-all disabled:opacity-50"
             >
               <Send className="w-4 h-4 text-white" />
-              <span>{sending ? "Đang gửi..." : rows.some((r) => r.content.trim()) ? "Gửi nhận xét" : "Đã gửi hết nhận xét buổi này"}</span>
+              <span>
+                {sending
+                  ? t("dailyCommentPanel.sending")
+                  : rows.some((r) => r.content.trim())
+                    ? t("dailyCommentPanel.sendButton")
+                    : t("dailyCommentPanel.sendButtonDoneAll")}
+              </span>
             </button>
           </div>
         )}
@@ -1385,10 +1398,12 @@ export default function DailyCommentPanel() {
               className="flex items-center gap-1.5 text-[10px] font-bold uppercase text-slate-500 hover:text-slate-700"
             >
               {showHistory ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-              Lịch sử nhận xét buổi này{!showHistory && history.length > 0 ? ` (${history.length})` : ""}
+              {!showHistory && history.length > 0
+                ? t("dailyCommentPanel.historyToggleCount", { count: history.length })
+                : t("dailyCommentPanel.historyToggle")}
             </button>
             {showHistory && (loadingHistory ? (
-              <p className="text-xs text-slate-400">Đang tải...</p>
+              <p className="text-xs text-slate-400">{t("dailyCommentPanel.loadingHistory")}</p>
             ) : (
               <CommentHistoryList
                 classId={selectedClassId}

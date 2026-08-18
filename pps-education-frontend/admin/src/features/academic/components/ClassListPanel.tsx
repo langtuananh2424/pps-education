@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Download, GraduationCap, Plus, Search } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import Badge, { BadgeVariant } from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import EmptyState from "@/components/ui/EmptyState";
@@ -7,13 +8,15 @@ import Select from "@/components/ui/Select";
 import { buildXlsxTemplateBlob, downloadBlob } from "@/lib/xlsxTemplate";
 import { AcademicYearResponse, listAcademicYears, type ClassResponse } from "../api";
 
-export const classStatusLabels: Record<ClassResponse["status"], string> = {
-  PLANNED: "Dự kiến",
-  OPEN_ENROLLMENT: "Đang tuyển sinh",
-  IN_PROGRESS: "Đang học",
-  COMPLETED: "Đã kết thúc",
-  CANCELLED: "Đã hủy"
-};
+/** Nhãn trạng thái lớp dịch qua i18next namespace "academic-classes" (key `enums.classStatus.<status>`) —
+ * dùng `classStatusLabel(t, status)` thay vì tra map tĩnh cũ, để tự đổi theo ngôn ngữ đang chọn. Dùng chung
+ * ở ClassListPanel.tsx và ClassDetailPanel.tsx (cùng import từ đây, khớp pattern roleLabel ở constants/roles.ts). */
+export function classStatusLabel(t: (key: string, options?: Record<string, unknown>) => string, status: ClassResponse["status"]): string {
+  return t(`enums.classStatus.${status}`, { defaultValue: status });
+}
+
+/** Danh sách đủ 5 giá trị enum trạng thái lớp, dùng để dựng option cho <Select> (thay Object.entries(classStatusLabels) cũ). */
+export const classStatusValues: ClassResponse["status"][] = ["PLANNED", "OPEN_ENROLLMENT", "IN_PROGRESS", "COMPLETED", "CANCELLED"];
 
 export const classStatusVariants: Record<ClassResponse["status"], BadgeVariant> = {
   PLANNED: "neutral",
@@ -48,6 +51,7 @@ export default function ClassListPanel({
   academicYearFilter,
   onAcademicYearFilterChange
 }: ClassListPanelProps) {
+  const { t } = useTranslation("academic-classes");
   const [academicYears, setAcademicYears] = useState<AcademicYearResponse[]>([]);
   useEffect(() => {
     listAcademicYears().then(setAcademicYears).catch(() => undefined);
@@ -56,57 +60,57 @@ export default function ClassListPanel({
   /** Xuất đúng danh sách lớp đang hiển thị (đã áp bộ lọc điểm trường/năm học/tìm kiếm ở trên) ra Excel. */
   const handleExport = () => {
     const headers = [
-      "Mã lớp",
-      "Tên lớp",
-      "Điểm trường",
-      "Loại lớp",
-      "Khung chương trình",
-      "Sĩ số tối đa",
-      "Sĩ số tối thiểu",
-      "Ngày khai giảng",
-      "Ngày kết thúc",
-      "Năm học",
-      "Trạng thái"
+      t("classList.exportHeaders.classCode"),
+      t("classList.exportHeaders.name"),
+      t("classList.exportHeaders.site"),
+      t("classList.exportHeaders.classType"),
+      t("classList.exportHeaders.curriculum"),
+      t("classList.exportHeaders.maxStudents"),
+      t("classList.exportHeaders.minStudents"),
+      t("classList.exportHeaders.startDate"),
+      t("classList.exportHeaders.endDate"),
+      t("classList.exportHeaders.academicYear"),
+      t("classList.exportHeaders.status")
     ];
     const rows = classes.map((c) => [
       c.classCode,
       c.name,
       c.siteName,
-      c.classType === "LINKED" ? "Liên kết" : "Mở tại trung tâm",
+      c.classType === "LINKED" ? t("enums.classType.LINKED") : t("enums.classType.OPEN"),
       c.curriculumCode,
       String(c.maxStudents),
       c.minStudents != null ? String(c.minStudents) : "",
       c.startDate,
       c.endDate ?? "",
       c.academicYear ?? "",
-      classStatusLabels[c.status]
+      classStatusLabel(t, c.status)
     ]);
     const blob = buildXlsxTemplateBlob(headers, rows);
-    downloadBlob(blob, `danh-sach-lop-hoc-${new Date().toISOString().slice(0, 10)}.xlsx`);
+    downloadBlob(blob, `${t("classList.exportFileName")}-${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
   return (
     <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden flex flex-col h-full">
       <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3 bg-slate-50 shrink-0">
         <div className="space-y-0.5">
-          <span className="text-xs font-bold text-slate-700 font-display block">Danh sách Lớp học</span>
-          <p className="text-[10px] text-slate-400">Xếp lớp & gán khóa học</p>
+          <span className="text-xs font-bold text-slate-700 font-display block">{t("classList.title")}</span>
+          <p className="text-[10px] text-slate-400">{t("classList.subtitle")}</p>
         </div>
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={handleExport}
             disabled={classes.length === 0}
-            title="Tải danh sách lớp đang hiển thị ra Excel"
+            title={t("classList.exportButtonTitle")}
             className="flex items-center gap-1.5 border border-dashed border-slate-300 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold text-slate-600 hover:bg-white disabled:opacity-50"
           >
             <Download className="w-3.5 h-3.5" />
-            Tải danh sách lớp
+            {t("classList.exportButton")}
           </button>
           {canManage && (
             <Button variant="primary" size="sm" onClick={onCreate}>
               <Plus className="w-3.5 h-3.5" />
-              Thêm lớp
+              {t("classList.addButton")}
             </Button>
           )}
         </div>
@@ -118,7 +122,7 @@ export default function ClassListPanel({
           <input
             value={query}
             onChange={(e) => onQueryChange(e.target.value)}
-            placeholder="Tìm theo tên / mã lớp..."
+            placeholder={t("classList.searchPlaceholder")}
             className="w-full bg-slate-50 border border-slate-200 text-xs pl-8 pr-3 py-2 rounded-lg focus:outline-none"
           />
         </div>
@@ -127,7 +131,7 @@ export default function ClassListPanel({
           onChange={(e) => onAcademicYearFilterChange(e.target.value)}
           className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none"
         >
-          <option value="">Tất cả năm học</option>
+          <option value="">{t("classList.allAcademicYears")}</option>
           {academicYears.map((y) => (
             <option key={y.id} value={y.id}>
               {y.code} — {y.name}
@@ -138,12 +142,12 @@ export default function ClassListPanel({
 
       <div className="divide-y divide-slate-100 overflow-y-auto max-h-[560px] lg:max-h-[620px]">
         {loading ? (
-          <div className="p-8 text-center text-slate-400 text-xs">Đang tải...</div>
+          <div className="p-8 text-center text-slate-400 text-xs">{t("common.loading")}</div>
         ) : classes.length === 0 ? (
           <EmptyState
             icon={GraduationCap}
-            title="Không tìm thấy lớp học nào"
-            description={canManage ? "Thử nới lỏng bộ lọc, hoặc bấm 'Thêm lớp'." : "Bạn chưa được phân công vào lớp nào, hoặc thử nới lỏng bộ lọc."}
+            title={t("classList.emptyTitle")}
+            description={canManage ? t("classList.emptyDescriptionManage") : t("classList.emptyDescriptionNoManage")}
           />
         ) : (
           classes.map((c) => {
@@ -161,10 +165,12 @@ export default function ClassListPanel({
                     <span className="text-[10px] font-mono font-bold uppercase text-brand-red bg-orange-50 border border-orange-100 px-1.5 py-0.5 rounded">
                       {c.classCode}
                     </span>
-                    <Badge variant={classStatusVariants[c.status]}>{classStatusLabels[c.status]}</Badge>
+                    <Badge variant={classStatusVariants[c.status]}>{classStatusLabel(t, c.status)}</Badge>
                   </div>
                   <h4 className="text-xs font-bold text-slate-900 mt-1.5">{c.name}</h4>
-                  <p className="text-[10px] text-slate-400 mt-1">{c.siteName} · {c.classType === "LINKED" ? "Liên kết" : "Mở tại trung tâm"}</p>
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    {c.siteName} · {c.classType === "LINKED" ? t("enums.classType.LINKED") : t("enums.classType.OPEN")}
+                  </p>
                 </div>
               </button>
             );

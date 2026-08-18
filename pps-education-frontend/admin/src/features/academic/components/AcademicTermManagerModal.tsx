@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { CalendarRange, Plus } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
@@ -24,6 +25,7 @@ interface AcademicTermManagerModalProps {
  * có ngày tháng sẵn (ghi danh, phân công giáo viên, điểm danh, nhận xét).
  */
 export default function AcademicTermManagerModal({ siteId, siteName, onClose }: AcademicTermManagerModalProps) {
+  const { t } = useTranslation("academic-curriculum");
   const [terms, setTerms] = useState<AcademicTermResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -34,58 +36,58 @@ export default function AcademicTermManagerModal({ siteId, siteName, onClose }: 
     setLoading(true);
     listAcademicTerms(siteId)
       .then(setTerms)
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách kỳ học."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("termManager.loadFailedFallback")))
       .finally(() => setLoading(false));
   };
   useEffect(load, [siteId]);
 
   return (
-    <Modal open onClose={onClose} title={`Quản lý học kỳ — ${siteName}`} size="lg">
+    <Modal open onClose={onClose} title={t("termManager.modalTitle", { siteName })} size="lg">
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
 
       <div className="flex items-center justify-between mb-3">
-        <span className="text-[10px] font-bold uppercase text-slate-500">Các kỳ đã tạo ({terms.length})</span>
+        <span className="text-[10px] font-bold uppercase text-slate-500">{t("termManager.createdCountLabel", { count: terms.length })}</span>
         {!showCreate && (
           <Button size="sm" variant="secondary" onClick={() => setShowCreate(true)}>
             <Plus className="w-3.5 h-3.5" />
-            Thêm kỳ
+            {t("termManager.addButton")}
           </Button>
         )}
       </div>
 
       {loading ? (
-        <p className="text-xs text-slate-500">Đang tải...</p>
+        <p className="text-xs text-slate-500">{t("termManager.loading")}</p>
       ) : terms.length === 0 && !showCreate ? (
         <div className="text-xs text-slate-400 italic text-center py-6 flex flex-col items-center gap-2">
           <CalendarRange className="w-8 h-8 text-slate-300" />
-          Điểm trường này chưa có kỳ học nào.
+          {t("termManager.empty")}
         </div>
       ) : (
         <div className="space-y-2 mb-3">
-          {terms.map((t) =>
-            editingId === t.id ? (
+          {terms.map((term) =>
+            editingId === term.id ? (
               <TermForm
-                key={t.id}
-                initial={t}
+                key={term.id}
+                initial={term}
                 onCancel={() => setEditingId(null)}
                 onSubmit={async (values) => {
-                  await updateAcademicTerm(t.id, values);
+                  await updateAcademicTerm(term.id, values);
                   setEditingId(null);
                   load();
                 }}
               />
             ) : (
-              <div key={t.id} className="border border-slate-200 rounded-lg p-3 text-xs flex items-center justify-between gap-2">
+              <div key={term.id} className="border border-slate-200 rounded-lg p-3 text-xs flex items-center justify-between gap-2">
                 <div>
                   <div className="font-bold text-slate-800">
-                    {t.code} — {t.name}
+                    {term.code} — {term.name}
                   </div>
                   <div className="text-[10px] text-slate-500 mt-0.5">
-                    {t.startDate} → {t.endDate}
+                    {term.startDate} → {term.endDate}
                   </div>
                 </div>
-                <button onClick={() => setEditingId(t.id)} className="text-brand-red font-bold text-[11px] hover:underline shrink-0">
-                  Sửa
+                <button onClick={() => setEditingId(term.id)} className="text-brand-red font-bold text-[11px] hover:underline shrink-0">
+                  {t("termManager.editButton")}
                 </button>
               </div>
             )
@@ -123,6 +125,7 @@ function TermForm({
   onCancel: () => void;
   onSubmit: (values: TermFormValues) => Promise<void>;
 }) {
+  const { t } = useTranslation("academic-curriculum");
   const [code, setCode] = useState(initial?.code ?? "");
   const [name, setName] = useState(initial?.name ?? "");
   const [startDate, setStartDate] = useState(initial?.startDate ?? "");
@@ -134,11 +137,11 @@ function TermForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if ((!isEdit && !code.trim()) || !name.trim() || !startDate || !endDate) {
-      setError("Vui lòng điền đủ các trường bắt buộc.");
+      setError(t("termManager.form.validationError"));
       return;
     }
     if (endDate < startDate) {
-      setError("Ngày kết thúc phải sau hoặc bằng ngày bắt đầu.");
+      setError(t("termManager.form.dateOrderError"));
       return;
     }
     setSubmitting(true);
@@ -147,7 +150,7 @@ function TermForm({
       const values: TermFormValues = { code: code.trim(), name: name.trim(), startDate, endDate };
       await onSubmit(values);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Lưu kỳ học thất bại.");
+      setError(err instanceof ApiError ? err.message : t("termManager.form.saveFailedFallback"));
     } finally {
       setSubmitting(false);
     }
@@ -158,28 +161,28 @@ function TermForm({
       {error && <p className="text-xs text-rose-600">{error}</p>}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className={labelClass}>Mã kỳ * {isEdit && <span className="normal-case font-normal text-slate-400">(không sửa được)</span>}</label>
-          <input value={code} onChange={(e) => setCode(e.target.value)} disabled={isEdit} placeholder="VD: GK1-2627" className={`${inputClass} font-mono`} />
+          <label className={labelClass}>{t("termManager.form.codeLabel")} {isEdit && <span className="normal-case font-normal text-slate-400">{t("termManager.form.codeNotEditable")}</span>}</label>
+          <input value={code} onChange={(e) => setCode(e.target.value)} disabled={isEdit} placeholder={t("termManager.form.codePlaceholder")} className={`${inputClass} font-mono`} />
         </div>
         <div>
-          <label className={labelClass}>Tên kỳ *</label>
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="VD: Giữa kỳ 1 (2026-2027)" className={inputClass} />
+          <label className={labelClass}>{t("termManager.form.nameLabel")}</label>
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("termManager.form.namePlaceholder")} className={inputClass} />
         </div>
         <div>
-          <label className={labelClass}>Ngày bắt đầu *</label>
+          <label className={labelClass}>{t("termManager.form.startDateLabel")}</label>
           <DatePicker value={startDate} onChange={setStartDate} max={endDate || undefined} />
         </div>
         <div>
-          <label className={labelClass}>Ngày kết thúc *</label>
+          <label className={labelClass}>{t("termManager.form.endDateLabel")}</label>
           <DatePicker value={endDate} onChange={setEndDate} min={startDate || undefined} />
         </div>
       </div>
       <div className="flex gap-2">
         <Button type="button" variant="secondary" size="sm" onClick={onCancel}>
-          Hủy
+          {t("termManager.form.cancelButton")}
         </Button>
         <Button type="submit" variant="primary" size="sm" disabled={submitting}>
-          {submitting ? "Đang lưu..." : isEdit ? "Lưu thay đổi" : "Tạo kỳ học"}
+          {submitting ? t("termManager.form.saving") : isEdit ? t("termManager.form.saveChangesButton") : t("termManager.form.createButton")}
         </Button>
       </div>
     </form>

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { LineChart, Plus, Send, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import {
@@ -34,14 +35,21 @@ import DatePicker from "@/components/ui/DatePicker";
 
 const inputClass = "bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none";
 
-const evaluationTypeLabel: Record<"MID_TERM" | "END_TERM", string> = { MID_TERM: "Giữa kỳ", END_TERM: "Cuối kỳ" };
+type TFunc = (key: string, options?: Record<string, unknown>) => string;
+
+function evaluationTypeLabel(t: TFunc, type: "MID_TERM" | "END_TERM"): string {
+  return t(`common.evaluationType.${type}`);
+}
 
 /** V97: hệ thống không tính OVERALL cả kỳ (bỏ trọng số) — mỗi setup Giữa/Cuối kỳ tự chọn 1 thang điểm riêng, hiển thị song song 2 section. */
-const scaleTypeLabels: Record<GradeComponentSetupResponse["scaleType"], string> = {
-  POINT_10: "Điểm 10 (thang 0–10)",
-  PERCENT: "Điểm % (thang 0–100)",
-  IELTS: "Thang IELTS (band 1.0–9.0)"
-};
+function scaleTypeLabel(t: TFunc, scaleType: GradeComponentSetupResponse["scaleType"]): string {
+  const map: Record<GradeComponentSetupResponse["scaleType"], string> = {
+    POINT_10: t("sheetPanel.scaleLabelPoint10"),
+    PERCENT: t("sheetPanel.scaleLabelPercent"),
+    IELTS: t("sheetPanel.scaleLabelIelts")
+  };
+  return map[scaleType];
+}
 
 interface ClassGradeSheetPanelProps {
   classId: number;
@@ -58,6 +66,7 @@ interface ClassGradeSheetPanelProps {
  * cả kỳ từ 2 phần này -- mỗi setup có Overall riêng theo thang điểm riêng).
  */
 export default function ClassGradeSheetPanel({ classId, siteId, readOnly = false }: ClassGradeSheetPanelProps) {
+  const { t } = useTranslation("academic-grades");
   const { hasPermission } = useApp();
   const canManage = hasPermission("academic.grade.setup.create") || hasPermission("academic.grade.manage");
   const [enrollments, setEnrollments] = useState<ClassEnrollmentResponse[]>([]);
@@ -92,7 +101,7 @@ export default function ClassGradeSheetPanel({ classId, siteId, readOnly = false
     <div className="space-y-3">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <span className="text-xs font-bold text-slate-700 font-display">
-          {showComparison ? "Tổng hợp điểm qua các kỳ" : "Bảng nhập điểm"}
+          {showComparison ? t("sheetPanel.titleComparison") : t("sheetPanel.titleEntry")}
         </span>
         <div className="flex items-center gap-2">
           {!showComparison && (
@@ -101,17 +110,17 @@ export default function ClassGradeSheetPanel({ classId, siteId, readOnly = false
               onChange={(e) => setSelectedTermId(e.target.value ? Number(e.target.value) : null)}
               className={inputClass}
             >
-              <option value="">-- Chọn kỳ học --</option>
-              {terms.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
+              <option value="">{t("sheetPanel.selectTermPlaceholder")}</option>
+              {terms.map((term) => (
+                <option key={term.id} value={term.id}>
+                  {term.name}
                 </option>
               ))}
             </Select>
           )}
           <Button type="button" size="sm" variant="secondary" onClick={() => setShowComparison((v) => !v)}>
             <LineChart className="w-3.5 h-3.5" />
-            {showComparison ? "Quay lại nhập điểm" : "Xem tổng hợp qua các kỳ"}
+            {showComparison ? t("sheetPanel.backToEntry") : t("sheetPanel.viewComparison")}
           </Button>
         </div>
       </div>
@@ -138,7 +147,7 @@ export default function ClassGradeSheetPanel({ classId, siteId, readOnly = false
           ))}
         </div>
       ) : (
-        <p className="text-xs text-slate-400 italic p-6 text-center">Chọn kỳ học để xem/nhập điểm Giữa kỳ và Cuối kỳ.</p>
+        <p className="text-xs text-slate-400 italic p-6 text-center">{t("sheetPanel.selectTermPrompt")}</p>
       )}
 
       <Toast message={toastMessage} />
@@ -182,19 +191,20 @@ function GradeSetupSection({
   const [loadedResults, setLoadedResults] = useState<GradeEvaluationResultResponse[]>([]);
   const [submittingGrades, setSubmittingGrades] = useState(false);
   const { confirmDialog } = useDialog();
+  const { t } = useTranslation("academic-grades");
 
   useEffect(() => {
     setGradeComponents([]);
     if (!setup) return;
     listGradeEvaluationComponents(setup.id)
       .then(setGradeComponents)
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được đầu điểm."));
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("sheetPanel.loadComponentsError")));
   }, [setup?.id]);
 
   const handleDeleteSetup = async () => {
     if (!setup) return;
     if (
-      !(await confirmDialog(`Xoá setup "${evaluationTypeLabel[evaluationType]}"? Chỉ xoá được khi setup này còn rỗng (chưa có đầu điểm/điểm tổng kết).`, {
+      !(await confirmDialog(t("sheetPanel.confirmDeleteSetup", { label: evaluationTypeLabel(t, evaluationType) }), {
         danger: true
       }))
     )
@@ -203,21 +213,21 @@ function GradeSetupSection({
     try {
       await deleteGradeComponentSetup(setup.id);
       onSetupDeleted(setup.id);
-      showToast("Đã xoá setup sổ điểm thành công!");
+      showToast(t("sheetPanel.deleteSetupSuccess"));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Xoá setup sổ điểm thất bại.");
+      setError(err instanceof ApiError ? err.message : t("sheetPanel.deleteSetupError"));
     }
   };
 
   const handleDeleteComponent = async (component: GradeEvaluationComponentResponse) => {
-    if (!(await confirmDialog(`Xoá đầu điểm "${component.name}"? Chỉ xoá được khi đầu điểm này chưa có điểm nhập nào.`, { danger: true }))) return;
+    if (!(await confirmDialog(t("sheetPanel.confirmDeleteComponent", { name: component.name }), { danger: true }))) return;
     setError(null);
     try {
       await deleteGradeEvaluationComponent(component.id);
       setGradeComponents((prev) => prev.filter((c) => c.id !== component.id));
-      showToast("Đã xoá đầu điểm thành công!");
+      showToast(t("sheetPanel.deleteComponentSuccess"));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Xoá đầu điểm thất bại.");
+      setError(err instanceof ApiError ? err.message : t("sheetPanel.deleteComponentError"));
     }
   };
 
@@ -233,9 +243,9 @@ function GradeSetupSection({
     try {
       await submitGradesForApproval({ gradeEntryIds: submittableEntryIds, gradeEvaluationResultIds: submittableResultIds });
       setSheetVersion((v) => v + 1);
-      showToast("Đã gửi duyệt điểm thành công!");
+      showToast(t("sheetPanel.submitSuccess"));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Gửi duyệt điểm thất bại.");
+      setError(err instanceof ApiError ? err.message : t("sheetPanel.submitError"));
     } finally {
       setSubmittingGrades(false);
     }
@@ -245,25 +255,25 @@ function GradeSetupSection({
     <div className="border border-slate-200 rounded-2xl p-4 space-y-3">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <span className="text-xs font-bold text-slate-700 font-display">
-          {evaluationTypeLabel[evaluationType]}
-          {setup && <span className="ml-2 font-normal text-slate-400">— {scaleTypeLabels[setup.scaleType]}</span>}
+          {evaluationTypeLabel(t, evaluationType)}
+          {setup && <span className="ml-2 font-normal text-slate-400">— {scaleTypeLabel(t, setup.scaleType)}</span>}
         </span>
         {canManage && !readOnly && (
           <div className="flex gap-2 flex-wrap items-center">
             {!setup ? (
               <Button type="button" size="sm" variant="secondary" onClick={() => setShowSetupForm((v) => !v)}>
                 <Plus className="w-3.5 h-3.5" />
-                Tạo setup {evaluationTypeLabel[evaluationType]}
+                {t("sheetPanel.createSetupButton", { label: evaluationTypeLabel(t, evaluationType) })}
               </Button>
             ) : (
               <>
                 <Button type="button" size="sm" variant="secondary" onClick={() => setShowComponentForm((v) => !v)}>
                   <Plus className="w-3.5 h-3.5" />
-                  Thêm đầu điểm
+                  {t("sheetPanel.addComponentButton")}
                 </Button>
                 <Button type="button" size="sm" variant="secondary" onClick={handleDeleteSetup} className="text-rose-600 hover:bg-rose-50">
                   <X className="w-3.5 h-3.5" />
-                  Xoá setup này
+                  {t("sheetPanel.deleteSetupButton")}
                 </Button>
               </>
             )}
@@ -278,7 +288,7 @@ function GradeSetupSection({
           {gradeComponents.map((c) => (
             <span key={c.id} className="flex items-center gap-1 bg-slate-100 border border-slate-200 text-slate-600 text-[11px] font-semibold px-2 py-1 rounded-lg">
               {c.name} ({c.maxScore})
-              <button type="button" onClick={() => handleDeleteComponent(c)} title="Xoá đầu điểm (chỉ khi chưa có điểm nhập)" className="hover:text-rose-600">
+              <button type="button" onClick={() => handleDeleteComponent(c)} title={t("sheetPanel.deleteComponentTitle")} className="hover:text-rose-600">
                 <X className="w-3 h-3" />
               </button>
             </span>
@@ -286,7 +296,11 @@ function GradeSetupSection({
         </div>
       )}
 
-      <Modal open={showSetupForm} onClose={() => setShowSetupForm(false)} title={`Tạo setup sổ điểm — ${evaluationTypeLabel[evaluationType]}`}>
+      <Modal
+        open={showSetupForm}
+        onClose={() => setShowSetupForm(false)}
+        title={t("sheetPanel.createSetupModalTitle", { label: evaluationTypeLabel(t, evaluationType) })}
+      >
         <CreateSetupForm
           classId={classId}
           academicTermId={academicTermId}
@@ -294,12 +308,12 @@ function GradeSetupSection({
           onDone={(s) => {
             onSetupCreated(s);
             setShowSetupForm(false);
-            showToast("Đã tạo setup sổ điểm thành công!");
+            showToast(t("sheetPanel.createSetupSuccess"));
           }}
           onCancel={() => setShowSetupForm(false)}
         />
       </Modal>
-      <Modal open={showComponentForm && !!setup} onClose={() => setShowComponentForm(false)} title="Thêm đầu điểm">
+      <Modal open={showComponentForm && !!setup} onClose={() => setShowComponentForm(false)} title={t("sheetPanel.addComponentModalTitle")}>
         {setup && (
           <CreateComponentForm
             setupId={setup.id}
@@ -307,7 +321,7 @@ function GradeSetupSection({
             onDone={(c) => {
               setGradeComponents((prev) => [...prev, c]);
               setShowComponentForm(false);
-              showToast("Đã tạo đầu điểm thành công!");
+              showToast(t("sheetPanel.createComponentSuccess"));
             }}
             onCancel={() => setShowComponentForm(false)}
           />
@@ -316,12 +330,13 @@ function GradeSetupSection({
 
       {!setup ? (
         <p className="text-xs text-slate-400 italic p-4 text-center">
-          Chưa có setup sổ điểm cho {evaluationTypeLabel[evaluationType]}
-          {canManage ? " — dùng nút phía trên để tạo." : "."}
+          {t("sheetPanel.noSetupPrefix", { label: evaluationTypeLabel(t, evaluationType) })}
+          {canManage ? t("sheetPanel.noSetupWithPermission") : t("sheetPanel.noSetupWithoutPermission")}
         </p>
       ) : gradeComponents.length === 0 ? (
         <p className="text-xs text-slate-400 italic p-4 text-center">
-          Setup này chưa có đầu điểm nào được cấu hình{canManage ? " — dùng nút \"Thêm đầu điểm\" ở trên." : "."}
+          {t("sheetPanel.noComponentsPrefix")}
+          {canManage ? t("sheetPanel.noComponentsWithPermission") : t("sheetPanel.noComponentsWithoutPermission")}
         </p>
       ) : (
         <>
@@ -343,7 +358,11 @@ function GradeSetupSection({
             <div className="flex justify-end">
               <Button type="button" size="sm" variant="primary" disabled={submittingGrades || submittableCount === 0} onClick={handleSubmitForApproval}>
                 <Send className="w-3.5 h-3.5" />
-                {submittingGrades ? "Đang gửi duyệt..." : submittableCount === 0 ? "Không còn điểm cần gửi duyệt" : `Gửi duyệt (${submittableCount})`}
+                {submittingGrades
+                  ? t("sheetPanel.submitting")
+                  : submittableCount === 0
+                    ? t("sheetPanel.noneToSubmit")
+                    : t("sheetPanel.submitCount", { count: submittableCount })}
               </Button>
             </div>
           )}
@@ -355,7 +374,7 @@ function GradeSetupSection({
               components={gradeComponents}
               onImported={() => {
                 setSheetVersion((v) => v + 1);
-                showToast("Đã nhập điểm từ Excel thành công!");
+                showToast(t("sheetPanel.importSuccess"));
               }}
             />
           )}
@@ -385,6 +404,7 @@ function CreateSetupForm({
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { t } = useTranslation("academic-grades");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -401,7 +421,7 @@ function CreateSetupForm({
       const created = await createGradeComponentSetup(classId, request);
       onDone(created);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Tạo setup sổ điểm thất bại.");
+      setError(err instanceof ApiError ? err.message : t("sheetPanel.createSetupError"));
     } finally {
       setSubmitting(false);
     }
@@ -416,22 +436,22 @@ function CreateSetupForm({
           onChange={(e) => setForm({ ...form, scaleType: e.target.value as CreateGradeComponentSetupRequest["scaleType"] })}
           className={inputClass}
         >
-          <option value="POINT_10">Điểm 10</option>
-          <option value="PERCENT">Điểm %</option>
-          <option value="IELTS">Thang IELTS</option>
+          <option value="POINT_10">{t("sheetPanel.scaleOptionPoint10")}</option>
+          <option value="PERCENT">{t("sheetPanel.scaleOptionPercent")}</option>
+          <option value="IELTS">{t("sheetPanel.scaleOptionIelts")}</option>
         </Select>
         <DatePicker value={form.rosterAsOfDate} onChange={(v) => setForm({ ...form, rosterAsOfDate: v })} />
       </div>
       <label className="flex items-center gap-2 text-[11px] text-slate-600 cursor-pointer">
         <input type="checkbox" checked={form.commentRequired} onChange={(e) => setForm({ ...form, commentRequired: e.target.checked })} className="h-3.5 w-3.5" />
-        Bắt buộc nhập Nhận xét khi nhập Overall/Level
+        {t("sheetPanel.commentRequiredCheckbox")}
       </label>
       <div className="flex gap-2">
         <Button type="button" size="sm" variant="secondary" onClick={onCancel}>
-          Hủy
+          {t("common.cancel")}
         </Button>
         <Button type="submit" size="sm" variant="primary" disabled={submitting}>
-          {submitting ? "Đang lưu..." : "Tạo setup"}
+          {submitting ? t("common.saving") : t("sheetPanel.createSetupButtonLabel")}
         </Button>
       </div>
     </form>
@@ -453,11 +473,12 @@ function CreateComponentForm({
   const [form, setForm] = useState({ code: "OTHER", name: "" });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { t } = useTranslation("academic-grades");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name.trim()) {
-      setError("Vui lòng điền tên đầu điểm.");
+      setError(t("sheetPanel.componentNameRequired"));
       return;
     }
     setSubmitting(true);
@@ -470,7 +491,7 @@ function CreateComponentForm({
       const created = await addGradeEvaluationComponent(setupId, request);
       onDone(created);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Tạo đầu điểm thất bại.");
+      setError(err instanceof ApiError ? err.message : t("sheetPanel.createComponentError"));
     } finally {
       setSubmitting(false);
     }
@@ -480,26 +501,31 @@ function CreateComponentForm({
     <form onSubmit={handleSubmit} className="bg-white border border-slate-200 rounded-lg p-3 space-y-2">
       {error && <div className="text-[11px] text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
       <p className="text-[11px] text-slate-500">
-        Thang điểm: <span className="font-semibold text-slate-700">{scaleTypeLabels[scaleType]}</span> — điểm tối đa tự động theo thang của setup.
+        {t("sheetPanel.scaleInfo", { scale: scaleTypeLabel(t, scaleType) })}
       </p>
       <div className="grid grid-cols-2 gap-2">
         <Select value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} className={inputClass}>
-          <option value="SPEAKING">Speaking</option>
-          <option value="WRITING">Writing</option>
-          <option value="LISTENING">Listening</option>
-          <option value="READING">Reading</option>
-          <option value="GRAMMAR">Grammar</option>
-          <option value="PROJECT">Project</option>
-          <option value="OTHER">Khác</option>
+          <option value="SPEAKING">{t("sheetPanel.componentCodeSpeaking")}</option>
+          <option value="WRITING">{t("sheetPanel.componentCodeWriting")}</option>
+          <option value="LISTENING">{t("sheetPanel.componentCodeListening")}</option>
+          <option value="READING">{t("sheetPanel.componentCodeReading")}</option>
+          <option value="GRAMMAR">{t("sheetPanel.componentCodeGrammar")}</option>
+          <option value="PROJECT">{t("sheetPanel.componentCodeProject")}</option>
+          <option value="OTHER">{t("sheetPanel.componentCodeOther")}</option>
         </Select>
-        <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Tên đầu điểm" className={inputClass} />
+        <input
+          value={form.name}
+          onChange={(e) => setForm({ ...form, name: e.target.value })}
+          placeholder={t("sheetPanel.componentNamePlaceholder")}
+          className={inputClass}
+        />
       </div>
       <div className="flex gap-2">
         <Button type="button" size="sm" variant="secondary" onClick={onCancel}>
-          Hủy
+          {t("common.cancel")}
         </Button>
         <Button type="submit" size="sm" variant="primary" disabled={submitting}>
-          {submitting ? "Đang lưu..." : "Tạo đầu điểm"}
+          {submitting ? t("common.saving") : t("sheetPanel.createComponentButtonLabel")}
         </Button>
       </div>
     </form>
