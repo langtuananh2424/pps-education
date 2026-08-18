@@ -66,6 +66,149 @@ function workCalendarAppliesToEmployee(
   return employeeShifts.some((es) => es.employeeId === employee.id && es.shiftId === override.shiftId);
 }
 
+// ===================== Dòng thời gian theo giờ (UC-71, yêu cầu người dùng 2026-08-19) =====================
+
+const TIMELINE_PIXELS_PER_HOUR = 64;
+const TIMELINE_MIN_BLOCK_HEIGHT = 30;
+
+/** Màu khối trên timeline theo trạng thái nhận lớp TÍNH RA — cùng bảng màu với Badge (checkInStatusVariants) để nhất quán. */
+const timelineBlockClasses: Record<string, string> = {
+  NOT_YET_OPEN: "bg-slate-50 border-slate-300 text-slate-600",
+  PENDING: "bg-amber-50 border-amber-300 text-amber-700",
+  ON_TIME: "bg-emerald-50 border-emerald-300 text-emerald-700",
+  LATE: "bg-amber-50 border-amber-300 text-amber-700",
+  ABSENT: "bg-rose-50 border-rose-300 text-rose-700"
+};
+
+function timeToMinutes(hhmm: string): number {
+  const [h, m] = hhmm.split(":").map(Number);
+  return h * 60 + (m || 0);
+}
+
+/** Xếp buổi dạy trùng giờ (khác GV) vào các "làn" song song, kiểu Google Calendar — thuật toán greedy: buổi nào bắt đầu sau khi 1 làn đã trống thì dùng lại làn đó, không thì mở làn mới. */
+function assignTimelineLanes(sessions: ClassSessionResponse[]): { session: ClassSessionResponse; lane: number; laneCount: number }[] {
+  const sorted = [...sessions].sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
+  const laneEndMinutes: number[] = [];
+  const placed: { session: ClassSessionResponse; lane: number }[] = [];
+  sorted.forEach((s) => {
+    const start = timeToMinutes(s.startTime);
+    const end = timeToMinutes(s.endTime);
+    let lane = laneEndMinutes.findIndex((endMin) => endMin <= start);
+    if (lane === -1) {
+      lane = laneEndMinutes.length;
+      laneEndMinutes.push(end);
+    } else {
+      laneEndMinutes[lane] = end;
+    }
+    placed.push({ session: s, lane });
+  });
+  const laneCount = Math.max(1, laneEndMinutes.length);
+  return placed.map((p) => ({ ...p, laneCount }));
+}
+
+interface DailyTimelineProps {
+  sessions: ClassSessionResponse[];
+  checkInStatusBySessionId: Map<number, ClassSessionCheckInStatusResponse>;
+  siteNameByClassId: Record<number, string>;
+  loading: boolean;
+}
+
+/** Dòng thời gian trực quan (kiểu lịch theo ngày) cho khoảng lọc đúng 1 ngày — thay bảng phẳng để "xem rõ theo từng giờ". */
+function DailyTimeline({ sessions, checkInStatusBySessionId, siteNameByClassId, loading }: DailyTimelineProps) {
+  const { startMin, endMin } = useMemo(() => {
+    if (sessions.length === 0) return { startMin: 7 * 60, endMin: 21 * 60 };
+    const starts = sessions.map((s) => timeToMinutes(s.startTime));
+    const ends = sessions.map((s) => timeToMinutes(s.endTime));
+    return {
+      startMin: Math.max(0, Math.floor(Math.min(...starts) / 60) * 60 - 60),
+      endMin: Math.min(24 * 60, Math.ceil(Math.max(...ends) / 60) * 60 + 60)
+    };
+  }, [sessions]);
+
+  const hourMarks = useMemo(() => {
+    const marks: number[] = [];
+    for (let m = startMin; m <= endMin; m += 60) marks.push(m);
+    return marks;
+  }, [startMin, endMin]);
+
+  const laid = useMemo(() => assignTimelineLanes(sessions), [sessions]);
+  const containerHeight = ((endMin - startMin) / 60) * TIMELINE_PIXELS_PER_HOUR;
+
+  if (loading) {
+    return <p className="text-xs text-slate-400 text-center py-10">Đang tải...</p>;
+  }
+  if (sessions.length === 0) {
+    return <p className="text-xs text-slate-400 text-center py-10">Không có buổi dạy nào trong ngày này.</p>;
+  }
+
+  return (
+    <div className="p-4 overflow-x-auto">
+      <div className="flex" style={{ height: containerHeight }}>
+        <div className="relative w-14 shrink-0">
+          {hourMarks.map((m) => (
+            <div
+              key={m}
+              className="absolute left-0 right-2 text-right text-[10px] font-mono text-slate-400 -translate-y-1/2"
+              style={{ top: ((m - startMin) / 60) * TIMELINE_PIXELS_PER_HOUR }}
+            >
+              {String(Math.floor(m / 60)).padStart(2, "0")}:00
+            </div>
+          ))}
+        </div>
+        <div className="relative flex-1 border-l border-slate-200 min-w-[420px]">
+          {hourMarks.map((m) => (
+            <div
+              key={m}
+              className="absolute left-0 right-0 border-t border-slate-100"
+              style={{ top: ((m - startMin) / 60) * TIMELINE_PIXELS_PER_HOUR }}
+            />
+          ))}
+          {laid.map(({ session: s, lane, laneCount }) => {
+            const checkInStatus = checkInStatusBySessionId.get(s.id);
+            const isCancelled = s.status === "CANCELLED" || s.status === "RESCHEDULED";
+            const top = ((timeToMinutes(s.startTime) - startMin) / 60) * TIMELINE_PIXELS_PER_HOUR;
+            const height = Math.max(
+              TIMELINE_MIN_BLOCK_HEIGHT,
+              ((timeToMinutes(s.endTime) - timeToMinutes(s.startTime)) / 60) * TIMELINE_PIXELS_PER_HOUR
+            );
+            const statusLabel = isCancelled
+              ? s.status
+              : checkInStatus
+              ? checkInStatusLabels[checkInStatus.effectiveStatus] ?? checkInStatus.effectiveStatus
+              : "—";
+            const siteName = siteNameByClassId[s.classId] ?? "";
+            return (
+              <div
+                key={s.id}
+                title={`${s.startTime}–${s.endTime} · ${s.primaryTeacherName} · ${s.className}${siteName ? ` · ${siteName}` : ""} · ${statusLabel}`}
+                className={cn(
+                  "absolute rounded-md border-l-4 px-2 py-1 overflow-hidden shadow-xs",
+                  isCancelled ? "bg-slate-50 border-slate-300 text-slate-400 border-dashed" : timelineBlockClasses[checkInStatus?.effectiveStatus ?? "NOT_YET_OPEN"]
+                )}
+                style={{
+                  top,
+                  height,
+                  left: `calc(${(lane / laneCount) * 100}% + 2px)`,
+                  width: `calc(${100 / laneCount}% - 4px)`
+                }}
+              >
+                <p className="text-[10px] font-mono font-bold leading-tight">{s.startTime}–{s.endTime}</p>
+                <p className="text-[10px] font-bold truncate leading-tight">{s.primaryTeacherName}</p>
+                <p className="text-[10px] truncate leading-tight">{s.className}{siteName && ` · ${siteName}`}</p>
+                {isCancelled ? (
+                  <p className="text-[9px] italic truncate leading-tight">{statusLabel}</p>
+                ) : (
+                  <p className="text-[9px] font-semibold truncate leading-tight">{statusLabel}</p>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /**
  * Bổ sung ngoài SDD gốc, xác nhận 2026-08-17: trang "Lịch làm việc" (roster
  * toàn công ty) cho HR/Điều hành — thay thế tab đơn-nhân-viên cũ, gộp ca
@@ -90,6 +233,8 @@ export default function EmployeeSchedulePage() {
   const [sites, setSites] = useState<SiteResponse[]>([]);
   const [classes, setClasses] = useState<ClassResponse[]>([]);
   const [allEmployees, setAllEmployees] = useState<EmployeeResponse[]>([]);
+  /** UC-71 — map classId -> tên điểm trường, tải KHÔNG lọc theo site (khác `classes` ở trên chỉ phục vụ dropdown lọc). */
+  const [siteNameByClassId, setSiteNameByClassId] = useState<Record<number, string>>({});
 
   const [overview, setOverview] = useState<EmployeeScheduleOverviewResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -99,6 +244,15 @@ export default function EmployeeSchedulePage() {
   useEffect(() => {
     listDepartments().then(setDepartments).catch(() => setDepartments([]));
     listSites().then(setSites).catch(() => setSites([]));
+    listClasses()
+      .then((allClasses) => {
+        const map: Record<number, string> = {};
+        allClasses.forEach((c) => {
+          map[c.id] = c.siteName;
+        });
+        setSiteNameByClassId(map);
+      })
+      .catch(() => undefined);
   }, []);
 
   // classId phụ thuộc site đã chọn -- reset khi đổi site để tránh giữ lại lớp thuộc site cũ.
@@ -176,6 +330,16 @@ export default function EmployeeSchedulePage() {
   );
   const dateRange = useMemo(() => datesBetween(from, to), [from, to]);
   const showDailyColumns = dateRange.length <= MAX_DAILY_COLUMNS;
+  // Yêu cầu người dùng 2026-08-19 -- lọc đúng 1 ngày cụ thể thì xem rõ theo TỪNG GIỜ (bảng phẳng
+  // sắp theo giờ bắt đầu, không gộp theo nhân viên) thay vì ô tổng hợp 1 cột như trước.
+  const showHourlyTable = dateRange.length === 1;
+  const hourlyRows = useMemo(
+    () =>
+      [...(overview?.sessions ?? [])].sort(
+        (a, b) => a.startTime.localeCompare(b.startTime) || a.className.localeCompare(b.className)
+      ),
+    [overview]
+  );
 
   function shiftsForEmployeeOnDate(employee: EmployeeResponse, date: Date): { shift: ShiftResponse; es: EmployeeShiftResponse }[] {
     const dateStr = toISODate(date);
@@ -279,7 +443,14 @@ export default function EmployeeSchedulePage() {
 
           {error && <div className="m-4 text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
-          {!showDailyColumns ? (
+          {showHourlyTable ? (
+            <DailyTimeline
+              sessions={hourlyRows}
+              checkInStatusBySessionId={checkInStatusBySessionId}
+              siteNameByClassId={siteNameByClassId}
+              loading={loading}
+            />
+          ) : !showDailyColumns ? (
             <TableContainer className="rounded-none border-0">
               <thead>
                 <tr>
