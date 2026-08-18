@@ -224,21 +224,13 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         student = newStudent();
 
         Room room = newRoom(site);
-        // Cửa sổ "1 giờ trước tới 1 phút trước NGAY LÚC NÀY" (thay vì giờ cố định 08:00-09:40) -- bổ
-        // sung 2026-08-14, sửa CI fail: StudentCommentService.requireSessionEndedAndAttendanceTaken
-        // (thêm ở "chan cung nhan xet truoc khi buoi hoc ket thuc", chưa từng cập nhật test khi merge)
-        // đòi buổi học ĐÃ KẾT THÚC theo OffsetDateTime.now() thật -- giờ cố định khiến kết quả phụ
-        // thuộc múi giờ/thời điểm chạy CI (VD JVM UTC ở GitHub Actions >< máy dev Asia/Ho_Chi_Minh).
-        // Tính theo LocalTime.now() của CHÍNH JVM đang chạy test loại bỏ phụ thuộc múi giờ (cùng 1 JVM
-        // set up dữ liệu lẫn check điều kiện). KHÔNG dùng LocalTime.MIN (00:00) làm mốc bắt đầu -- phát
-        // hiện thực tế 2026-08-14: hibernate.jdbc.time_zone=UTC (application.yml, cố định để né lỗi
-        // DateTimeException giờ gần nửa đêm khác) khiến LocalTime lưu xuống DB bị quy đổi qua UTC theo
-        // offset JVM, 00:00 giờ VN (+07:00) "lùi" thành 17:00 UTC hôm TRƯỚC -- start_time > end_time vi
-        // phạm CHECK chk_session_time. Cửa sổ hẹp 1 giờ (thay vì cả ngày) giảm hẳn rủi ro tương tự (chỉ
-        // còn xảy ra nếu test chạy đúng lúc 00:00-01:00 giờ VN). Vẫn giữ sessionDate = hôm nay (không
-        // lùi ngày) vì điểm danh bên dưới chỉ ghi được cho GV thường (không có quyền quản trị điểm danh
-        // nào cấp sẵn ở môi trường dev -- xem V45__granular_attendance_admin_permissions.sql) đúng NGÀY
-        // buổi học.
+        // Giữ nguyên cửa sổ "1 giờ trước tới 1 phút trước NGAY LÚC NÀY" (thay vì giờ cố định
+        // 08:00-09:40) từ 2026-08-14 để né lệch múi giờ CI (JVM UTC ở GitHub Actions >< máy dev
+        // Asia/Ho_Chi_Minh) và vi phạm CHECK chk_session_time gần nửa đêm (xem lịch sử PR).
+        // requireSessionEndedAndAttendanceTaken (yêu cầu buổi đã kết thúc + đã điểm danh xong
+        // trước khi viết nhận xét) đã bị BỎ HẲN 2026-08-18 (xem docs/uc/phan-he-06-hoc-thuat.md,
+        // UC-21) — buổi/điểm danh dưới đây không còn là điều kiện bắt buộc, chỉ giữ lại vì nhiều
+        // test khác vẫn tiện dùng dữ liệu buổi đã điểm danh sẵn.
         classSession = classSessionService.createSession(schoolClass.id(),
                 new CreateClassSessionRequest(LocalDate.now(), LocalTime.now().minusHours(1), LocalTime.now().minusMinutes(1), room.getId(), "REGULAR", "VIETNAMESE", null),
                 headAcademic.getId());
@@ -247,9 +239,6 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         // dùng 2026-07-29) trừ khi 1 test cụ thể cố tình test thiếu bài học.
         studentCommentService.updateLessonContent(classSession.id(), "Unit 1: Present simple tense.", teacher.getId());
         classService.enroll(schoolClass.id(), new EnrollStudentRequest(student.getId(), LocalDate.now()), headAcademic.getId());
-        // Điểm danh + Lưu điểm danh xong (2026-08-14, cùng lý do nêu trên) -- vế thứ 2 của
-        // requireSessionEndedAndAttendanceTaken, chặn writeComment/updateComment/importComments nếu
-        // AttendanceSession chưa tồn tại hoặc còn DRAFT.
         studentAttendanceService.markAttendance(classSession.id(),
                 new MarkAttendanceRequest("SESSION_LEVEL", List.of(new EnterAttendanceMarkRequest(student.getId(), "PRESENT", null, null, null))),
                 teacher.getId());
