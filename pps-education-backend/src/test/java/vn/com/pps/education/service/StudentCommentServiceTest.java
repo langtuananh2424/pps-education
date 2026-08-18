@@ -224,15 +224,18 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         student = newStudent();
 
         Room room = newRoom(site);
-        // Giữ nguyên cửa sổ "1 giờ trước tới 1 phút trước NGAY LÚC NÀY" (thay vì giờ cố định
-        // 08:00-09:40) từ 2026-08-14 để né lệch múi giờ CI (JVM UTC ở GitHub Actions >< máy dev
-        // Asia/Ho_Chi_Minh) và vi phạm CHECK chk_session_time gần nửa đêm (xem lịch sử PR).
-        // requireSessionEndedAndAttendanceTaken (yêu cầu buổi đã kết thúc + đã điểm danh xong
-        // trước khi viết nhận xét) đã bị BỎ HẲN 2026-08-18 (xem docs/uc/phan-he-06-hoc-thuat.md,
-        // UC-21) — buổi/điểm danh dưới đây không còn là điều kiện bắt buộc, chỉ giữ lại vì nhiều
-        // test khác vẫn tiện dùng dữ liệu buổi đã điểm danh sẵn.
+        // Cửa sổ bao quanh NGAY LÚC NÀY (thay vì giờ cố định 08:00-09:40) từ 2026-08-14 để né lệch
+        // múi giờ CI (JVM UTC ở GitHub Actions >< máy dev Asia/Ho_Chi_Minh) và vi phạm CHECK
+        // chk_session_time gần nửa đêm (xem lịch sử PR). requireSessionEndedAndAttendanceTaken (yêu
+        // cầu buổi đã kết thúc + đã điểm danh xong trước khi viết nhận xét) đã bị BỎ HẲN 2026-08-18
+        // (xem docs/uc/phan-he-06-hoc-thuat.md, UC-21) — buổi/điểm danh dưới đây không còn là điều
+        // kiện bắt buộc, chỉ giữ lại vì nhiều test khác vẫn tiện dùng dữ liệu buổi đã điểm danh sẵn.
+        // SỬA LẠI 2026-08-18: đổi từ cửa sổ ĐÃ KẾT THÚC (now-1h..now-1min) sang cửa sổ BAO QUANH now
+        // (now-1min..now+1h), vì markAttendance() ở dưới giờ đòi buổi đang TRONG khung giờ diễn ra
+        // (UC-15, sửa đổi nghiệp vụ 2026-08-18) — buổi đã kết thúc sẽ bị StudentAttendanceService
+        // từ chối ngay tại đây.
         classSession = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(LocalDate.now(), LocalTime.now().minusHours(1), LocalTime.now().minusMinutes(1), room.getId(), "REGULAR", "VIETNAMESE", null),
+                new CreateClassSessionRequest(LocalDate.now(), LocalTime.now().minusMinutes(1), LocalTime.now().plusHours(1), room.getId(), "REGULAR", "VIETNAMESE", null),
                 headAcademic.getId());
         // Bài học hôm nay mặc định đã điền — bắt buộc để submitComments() cho DAILY không bị
         // chặn bởi MissingLessonContentException (bổ sung ngoài SDD gốc, đã xác nhận với người
