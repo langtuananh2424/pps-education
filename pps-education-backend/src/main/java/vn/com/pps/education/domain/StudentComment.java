@@ -136,14 +136,25 @@ public class StudentComment {
     @Column(name = "homework_previous_speaking_score", length = 30)
     private String homeworkPreviousSpeakingScore;
 
-    /** VD "Unit 4 Trang 18" — BTVN giao cho buổi SAU, hạn nộp ngầm hiểu là ngày buổi học kế tiếp. Chỉ còn dùng cho kênh ngữ pháp OFFLINE (V55) — kênh ONLINE dùng homeworkNextExerciseAssignment. */
+    /**
+     * VD "Unit 4 Trang 18" — BTVN ngữ pháp OFFLINE giao cho buổi SAU, hạn
+     * nộp ngầm hiểu là ngày buổi học kế tiếp (V55).
+     *
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-18 — GIAO
+     * ĐỒNG THỜI với homeworkNextExerciseAssignment (kênh ONLINE): trước
+     * đây 2 field này loại trừ lẫn nhau (chỉ 1 khác NULL), nay độc lập
+     * hoàn toàn — 1 buổi có thể vừa giao BTVN offline (chữ tự do) vừa
+     * giao 1 Exercise online cho cùng kênh Ngữ pháp.
+     */
     @Column(name = "homework_next", columnDefinition = "TEXT")
     private String homeworkNext;
 
     /**
-     * BTVN ngữ pháp ONLINE giao cho buổi sau — NULL = kênh này đang
-     * OFFLINE (dùng homeworkNext) hoặc không giao gì. Bổ sung ngoài SDD
-     * gốc, đã xác nhận với người dùng — xem V55.
+     * BTVN ngữ pháp ONLINE giao cho buổi sau — NULL = không giao gì qua
+     * kênh này. Bổ sung ngoài SDD gốc, đã xác nhận với người dùng — xem
+     * V55. Từ 2026-08-18 (đã xác nhận với người dùng), field này KHÔNG
+     * còn loại trừ với homeworkNext (offline) — cả 2 giao được đồng thời,
+     * xem Javadoc homeworkNext.
      *
      * V65 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30):
      * việc set field này giờ là ĐIỂM PHÁT SINH giao bài — chọn 1 Exercise

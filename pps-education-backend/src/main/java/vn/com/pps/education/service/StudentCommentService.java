@@ -1127,13 +1127,13 @@ public class StudentCommentService {
         // BTVN offline/online giờ TÁCH 2 CỘT riêng biệt (bổ sung ngoài SDD gốc, đã xác nhận với người
         // dùng 2026-08-06, khớp UI web) — cột online dùng resolveByUuidOrLabel CHẶT (khớp dropdown/uuid
         // thì nhận, không khớp thì báo lỗi luôn, không còn âm thầm fallback về offline như trước).
+        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-18 — bỏ ràng buộc loại trừ lẫn
+        // nhau: 1 buổi giờ được giao ĐỒNG THỜI cả BTVN offline (chữ tự do) VÀ online (Exercise) cho
+        // kênh Ngữ pháp, khớp hành vi đã có sẵn ở writeComment/updateComment (API JSON chưa từng chặn
+        // tổ hợp này — chỉ luồng Excel import còn chặn, nay gỡ bỏ cho nhất quán).
         String homeworkNext = blankToNull(homeworkOfflineText);
         Exercise grammarExercise = resolveByUuidOrLabel(blankToNull(grammarNextText), grammarByLabel,
                 exerciseRepository::findByUuid, "đề");
-        if (homeworkNext != null && grammarExercise != null) {
-            throw new IllegalArgumentException(
-                    "Chỉ điền 1 trong 2 cột \"BTVN offline\" hoặc \"BTVN online\" — không điền cả hai.");
-        }
         ReviewVideoSet videoSet = resolveByUuidOrLabel(blankToNull(videoText), videoByLabel,
                 reviewVideoSetRepository::findByUuid, "bộ video");
         return new ParsedRow(rowIndex, student, attendance, attitude,
