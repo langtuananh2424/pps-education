@@ -51,18 +51,11 @@ export default function LoginPage() {
             ) : (
               <>
                 <LoginForm usernameOrEmail={usernameOrEmail} onUsernameOrEmailChange={setUsernameOrEmail} onLoginSuccess={handleLoginSuccess} />
-                <button
-                  type="button"
-                  onClick={() => setShowPublicForm(true)}
-                  className="w-full text-center text-[11px] font-semibold text-slate-400 hover:text-[#EA580C] transition-colors pt-4"
-                >
-                  {t("publicLeaveCta")}
-                </button>
               </>
             )}
           </div>
 
-          <div className="text-[10px] text-slate-400 font-medium font-sans">{t("footer")}</div>
+          <div className="text-[10px] text-slate-400 font-medium font-sans text-center">{t("footer")}</div>
         </div>
 
         <LoginHeroPanel />
