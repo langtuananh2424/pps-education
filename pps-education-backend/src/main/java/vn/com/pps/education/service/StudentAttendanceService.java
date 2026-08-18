@@ -42,6 +42,7 @@ import vn.com.pps.education.repository.UserRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -119,10 +120,10 @@ public class StudentAttendanceService {
 
     /**
      * Main Flow bước 1-2: điểm danh cả lớp. Giáo viên chỉ điểm danh buổi mình
-     * được phân công dạy và trong ngày diễn ra buổi học; được gọi lại nhiều
-     * lần để SỬA (kể cả sau khi submit) cho tới hết ngày hôm đó (xem
-     * requireCanWriteAttendance). Quyền quản trị academic.attendance.create
-     * vượt cả 2 ràng buộc này.
+     * được phân công dạy và trong đúng khung giờ buổi học [start_time,
+     * end_time] (xem requireCanWriteAttendance) — được gọi lại nhiều lần để
+     * SỬA (kể cả sau khi submit) miễn còn trong khung giờ đó. Quyền quản trị
+     * academic.attendance.create vượt cả 2 ràng buộc này.
      */
     @Transactional
     public AttendanceSessionResponse markAttendance(Long classSessionId, MarkAttendanceRequest request, Long actorUserId) {
@@ -408,13 +409,17 @@ public class StudentAttendanceService {
     }
 
     /**
-     * UC-15 (quy tắc bổ sung, xác nhận với người dùng 2026-07-22): Giáo viên
-     * tự điểm danh chỉ được thao tác buổi MÌNH được phân công dạy
-     * (primary_teacher) và CHỈ trong ngày diễn ra buổi học — được sửa lại (kể
-     * cả sau khi Lưu/submit) cho tới hết ngày hôm đó, sang ngày sau thì khóa.
-     * Tài khoản có quyền quản trị tương ứng (adminOverridePermission —
-     * academic.attendance.create/update) vượt cả 2 ràng buộc: thao tác buổi
-     * bất kỳ, ngày bất kỳ (bổ sung/khắc phục sai sót).
+     * UC-15 (quy tắc bổ sung, xác nhận với người dùng 2026-07-22, SỬA ĐỔI
+     * 2026-08-18 — thay thế ràng buộc "tới hết ngày" bằng khung giờ buổi
+     * học): Giáo viên tự điểm danh chỉ được thao tác buổi MÌNH được phân
+     * công dạy (primary_teacher) và CHỈ trong đúng khung giờ buổi học
+     * [class_sessions.start_time, class_sessions.end_time] của đúng ngày
+     * diễn ra buổi học — được sửa lại (kể cả sau khi Lưu/submit) miễn còn
+     * trong khung giờ đó; trước start_time hoặc sau end_time (cùng ngày hay
+     * khác ngày) đều bị khóa. Tài khoản có quyền quản trị tương ứng
+     * (adminOverridePermission — academic.attendance.create/update) vượt cả
+     * 2 ràng buộc: thao tác buổi bất kỳ, giờ bất kỳ (bổ sung/khắc phục sai
+     * sót).
      */
     private void requireCanWriteAttendance(ClassSession classSession, Long actorUserId, String adminOverridePermission) {
         if (classSession.getSchoolClass().getStatus() != SchoolClass.Status.IN_PROGRESS) {
@@ -426,12 +431,30 @@ public class StudentAttendanceService {
             return;
         }
         requireAssignedTeacher(classSession, actorUserId);
-        LocalDate today = LocalDate.now();
-        if (!today.equals(classSession.getSessionDate())) {
+        requireWithinSessionWindow(classSession);
+    }
+
+    /**
+     * Khung giờ điểm danh của Giáo viên thường = [start_time, end_time] của
+     * đúng ngày diễn ra buổi học (xem requireCanWriteAttendance). Tách riêng
+     * để dùng chung với canWriteAttendance (bản không throw).
+     */
+    private void requireWithinSessionWindow(ClassSession classSession) {
+        if (!isWithinSessionWindow(classSession)) {
             throw new AttendanceSessionNotEditableException(
-                    "Chỉ điểm danh/sửa được trong ngày diễn ra buổi học (" + classSession.getSessionDate()
-                            + "); hôm nay là " + today + ". Cần quyền quản trị điểm danh để thao tác buổi khác ngày.");
+                    "Chỉ điểm danh/sửa được trong khung giờ buổi học (" + classSession.getSessionDate() + " "
+                            + classSession.getStartTime() + "-" + classSession.getEndTime()
+                            + "); hiện tại là " + LocalDate.now() + " " + LocalTime.now()
+                            + ". Cần quyền quản trị điểm danh để thao tác ngoài khung giờ này.");
         }
+    }
+
+    private boolean isWithinSessionWindow(ClassSession classSession) {
+        LocalDate today = LocalDate.now();
+        LocalTime now = LocalTime.now();
+        return today.equals(classSession.getSessionDate())
+                && !now.isBefore(classSession.getStartTime())
+                && !now.isAfter(classSession.getEndTime());
     }
 
     /**
@@ -455,7 +478,7 @@ public class StudentAttendanceService {
         if (!classSession.getPrimaryTeacher().getId().equals(actorUserId)) {
             return false;
         }
-        return LocalDate.now().equals(classSession.getSessionDate());
+        return isWithinSessionWindow(classSession);
     }
 
     private ClassSession getClassSessionOrThrow(Long id) {

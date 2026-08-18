@@ -228,12 +228,25 @@ UC-15: Điểm danh học sinh
 > `StudentAttendanceService` + migration V45):
 >
 > - **Phạm vi Giáo viên:** Giáo viên chỉ điểm danh/sửa buổi **mình được
->   phân công dạy** (`class_sessions.primary_teacher`) và **chỉ trong ngày
->   diễn ra buổi học**. Được sửa lại **kể cả sau khi Lưu/submit**, cho tới
->   **hết ngày hôm đó**; sang ngày hôm sau thì khóa (không sửa được nữa qua
->   quyền `academic.attendance.mark`). Submit lại trong ngày là idempotent —
+>   phân công dạy** (`class_sessions.primary_teacher`). Được sửa lại **kể cả
+>   sau khi Lưu/submit**, miễn còn trong khung giờ cho phép thao tác (xem
+>   mục "Sửa đổi nghiệp vụ ngày 2026-08-18" bên dưới — đã thay thế ràng buộc
+>   "tới hết ngày" ban đầu). Submit lại trong khung giờ đó là idempotent —
 >   không gửi trùng thông báo cho Phụ huynh (chỉ gửi cho học sinh ABSENT
 >   chưa từng được thông báo).
+>
+> - **Sửa đổi nghiệp vụ ngày 2026-08-18 (đã xác nhận với người dùng) — thay
+>   thế ràng buộc "tới hết ngày" ở trên:** Giáo viên (quyền
+>   `academic.attendance.mark`, không có quyền quản trị điểm danh) chỉ được
+>   điểm danh/sửa/submit **trong đúng khung giờ buổi học**
+>   `[class_sessions.start_time, class_sessions.end_time]` của đúng ngày
+>   diễn ra buổi học — không còn được thao tác tới hết ngày hôm đó như quy
+>   tắc 2026-07-22 ở trên. Trước `start_time` hoặc sau `end_time` (cùng
+>   ngày hay khác ngày) đều bị từ chối — chặn cả ở API
+>   (`StudentAttendanceService.requireWithinSessionWindow`) lẫn ở UI (nút
+>   "Xác nhận & Lưu điểm danh" làm mờ/disable, xem `AttendancePage.tsx`).
+>   Tài khoản có quyền quản trị điểm danh (`academic.attendance.create/
+>   update`) không bị ảnh hưởng — vẫn thao tác được buổi bất kỳ, giờ bất kỳ.
 >
 > - **Sửa đổi nghiệp vụ ngày 2026-08-04 (đã xác nhận với người dùng):**
 >   1. **LATE (đi muộn) được tính là đi học đầy đủ** trong tỷ lệ chuyên cần

@@ -981,9 +981,13 @@ function hasSessionStarted(s: ClassSessionResponse): boolean {
   return new Date(`${s.sessionDate}T${s.startTime}`) <= new Date();
 }
 
-/** V45: GV chỉ điểm danh/sửa đúng NGÀY diễn ra buổi học (StudentAttendanceService.requireCanWriteAttendance). */
-function isToday(s: ClassSessionResponse): boolean {
-  return s.sessionDate === new Date().toISOString().slice(0, 10);
+/**
+ * Sửa đổi 2026-08-18 (thay thế rule V45 "đúng ngày"): GV thường chỉ điểm
+ * danh/sửa được TRONG khung giờ buổi học [startTime, endTime] — đồng bộ
+ * StudentAttendanceService.isWithinSessionWindow / AttendancePage.tsx.
+ */
+function hasSessionEnded(s: ClassSessionResponse): boolean {
+  return new Date(`${s.sessionDate}T${s.endTime}`) < new Date();
 }
 
 function SessionsTab({
@@ -1087,12 +1091,12 @@ function SessionsTab({
                 </div>
                 <div className="flex items-center gap-2">
                   {!attendanceStatusBySession[s.id] && !hasSessionStarted(s) ? (
-                    <Button size="sm" variant="secondary" disabled title="Chưa tới giờ học — chỉ điểm danh được từ khi buổi học bắt đầu.">
+                    <Button size="sm" variant="secondary" disabled title="Chưa tới giờ học — chỉ điểm danh được trong khung giờ buổi học.">
                       Chưa tới giờ học
                     </Button>
-                  ) : !attendanceStatusBySession[s.id] && !hasAttendanceOverride && !isToday(s) ? (
-                    <Button size="sm" variant="secondary" disabled title="Chỉ điểm danh được trong ngày diễn ra buổi học — cần quyền quản trị điểm danh để điểm danh buổi khác ngày.">
-                      Đã qua ngày điểm danh
+                  ) : !attendanceStatusBySession[s.id] && !hasAttendanceOverride && hasSessionEnded(s) ? (
+                    <Button size="sm" variant="secondary" disabled title="Buổi học đã kết thúc — chỉ điểm danh được trong khung giờ buổi học. Cần quyền quản trị điểm danh để bổ sung sau giờ.">
+                      Đã hết giờ điểm danh
                     </Button>
                   ) : (
                     <Button size="sm" variant="secondary" onClick={() => navigate(`/student/attendance?classId=${classId}&sessionId=${s.id}`)}>
