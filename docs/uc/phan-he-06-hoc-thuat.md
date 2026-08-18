@@ -1428,6 +1428,21 @@ dùng), `StudentComment.CommentType` nay chỉ còn DAILY.
     chưa từng được chọn: không cần màn theo dõi riêng, chỉ dùng cho
     dropdown ở đây.
 
+-   **Bổ sung 2026-08-18 (đã xác nhận với người dùng) — bỏ ràng buộc loại
+    trừ lẫn nhau giữa `homeworkNext` (offline) và
+    `homeworkNextExerciseAssignment` (online) của kênh Ngữ pháp:** trước
+    đây 1 dòng DAILY chỉ được điền ĐÚNG 1 trong 2 (chặn 400 nếu điền cả
+    hai). Từ nay 2 field hoàn toàn ĐỘC LẬP — 1 buổi giao được ĐỒNG THỜI cả
+    3 loại BTVN cho 1 học sinh: offline (chữ tự do), online Ngữ pháp
+    (Exercise) và Video Ôn tập (kênh riêng, không đổi). API JSON
+    (`writeComment`/`updateComment`) thực ra chưa từng chặn tổ hợp này —
+    chỉ luồng Excel import (`StudentCommentService#parseRow`) còn chặn,
+    nay gỡ bỏ cho nhất quán 2 luồng. FE (`DailyCommentPanel.tsx`) bỏ hành
+    vi tự xoá ô kia khi điền 1 ô (cả bảng nhập từng dòng lẫn "Gán nhanh
+    cho cả lớp"). Kênh Video KHÔNG đổi — 1 buổi vẫn chỉ chọn 1 bộ video
+    (CONNECTION cho GVVN/REFLEX cho GVNN theo `teacherType`, đã phân biệt
+    sẵn qua dropdown lọc theo Loại giáo viên — không cần 2 slot song song).
+
 -   **Bổ sung 2026-08-12 (đã xác nhận với người dùng) — "BTVN buổi trước"
     (V55) đối chiếu theo TỪNG LOẠI GIÁO VIÊN, không còn buổi liền kề tuyệt
     đối:** "Dòng của buổi N lưu sẽ giao gì cho buổi N+1" ở V55 phía trên

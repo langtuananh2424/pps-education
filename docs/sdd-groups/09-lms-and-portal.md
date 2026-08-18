@@ -1203,6 +1203,13 @@ e)  Bảng exercise_questions --- Câu hỏi thuộc đề
                                              question_id)
   ------------------------------------------------------------------------
 
+Bổ sung (2026-08-18, đã xác nhận với người dùng): tổng `points` của mọi
+câu hỏi thuộc 1 Bài không được vượt quá `exercises.total_points` của
+chính Bài đó — validate ở `ExerciseService#addQuestion`/`updateQuestionPoints`
+(endpoint `PUT /api/exercises/{id}/questions/{exerciseQuestionId}/points`,
+chỉ sửa được khi `exercises.status=DRAFT`), xem UC-40
+(`docs/uc/phan-he-07-lms-portal.md`).
+
 f)  Bảng exercise_assignments --- Giao đề cho lớp
 
 Phân biệt SELF_PRACTICE (luôn mở, có thể không cần assignment) và

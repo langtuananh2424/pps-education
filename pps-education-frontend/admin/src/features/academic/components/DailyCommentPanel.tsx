@@ -79,7 +79,7 @@ interface Row {
   homeworkPreviousScore: string;
   homeworkPreviousSpeakingScore: string;
   content: string;
-  /** Chữ tự do (BTVN offline) — loại trừ lẫn nhau với homeworkNextExerciseId (chọn cái này thì cái kia rỗng). */
+  /** Chữ tự do (BTVN offline) — bổ sung ngoài SDD gốc, xác nhận 2026-08-18: giao ĐỒNG THỜI được với homeworkNextExerciseId (không còn loại trừ lẫn nhau). */
   homeworkNext: string;
   /** V65: id của Exercise NGUỒN đã Publish (không phải id bản giao như trước V65) — chọn từ grammarOptions đã lọc theo teacherType. */
   homeworkNextExerciseId: number | "";
@@ -218,7 +218,7 @@ export default function DailyCommentPanel() {
   /** yyyy-MM-ddTHH:mm gửi lên BE — chỉ có giá trị khi đã chọn cả ngày lẫn giờ. */
   const dueDateTime = dueDate && dueTime ? `${dueDate}T${dueTime}` : "";
   // "Gán nhanh cho cả lớp" (2026-08-05) — điền 1 lần, áp dụng cho mọi dòng chưa khoá thay vì phải chọn
-  // từng dòng học sinh; offline/exerciseId loại trừ lẫn nhau giống ô nhập từng dòng.
+  // từng dòng học sinh; offline/exerciseId ĐỘC LẬP (giao đồng thời được cả 2, xem 2026-08-18).
   const [quickOffline, setQuickOffline] = useState("");
   const [quickExerciseId, setQuickExerciseId] = useState<number | "">("");
   const [quickVideoId, setQuickVideoId] = useState<number | "">("");
@@ -508,7 +508,7 @@ export default function DailyCommentPanel() {
           ? r
           : {
               ...r,
-              homeworkNext: quickExerciseId === "" ? quickOffline : "",
+              homeworkNext: quickOffline,
               homeworkNextExerciseId: quickExerciseId,
               homeworkNextReviewVideoSetId: quickVideoId
             }
@@ -525,8 +525,8 @@ export default function DailyCommentPanel() {
     attitude: r.attitude || undefined,
     homeworkPreviousScore: r.homeworkPreviousScore.trim() || undefined,
     homeworkPreviousSpeakingScore: r.homeworkPreviousSpeakingScore.trim() || undefined,
-    // offline (chữ tự do) và chọn Exercise loại trừ lẫn nhau ngay từ lúc nhập (xem updateRow ở bảng/quick-assign) — chỉ 1 trong 2 khác rỗng.
-    homeworkNext: r.homeworkNextExerciseId === "" ? r.homeworkNext.trim() || undefined : undefined,
+    // Bổ sung ngoài SDD gốc, xác nhận 2026-08-18 — offline (chữ tự do) và Exercise online giờ ĐỘC LẬP, gửi cả 2 nếu đã điền.
+    homeworkNext: r.homeworkNext.trim() || undefined,
     homeworkNextExerciseId: r.homeworkNextExerciseId !== "" ? r.homeworkNextExerciseId : undefined,
     homeworkNextReviewVideoSetId: r.homeworkNextReviewVideoSetId !== "" ? r.homeworkNextReviewVideoSetId : undefined,
     // Hạn nộp buổi sau (ngày + giờ) — 1 giá trị chung cho cả buổi (xem dueDateTime), để trống thì BE tự tính = buổi kế tiếp.
@@ -976,10 +976,7 @@ export default function DailyCommentPanel() {
                 <label className="text-[9px] font-bold uppercase text-slate-400 block mb-0.5">BTVN offline</label>
                 <input
                   value={quickOffline}
-                  onChange={(e) => {
-                    setQuickOffline(e.target.value);
-                    if (e.target.value) setQuickExerciseId("");
-                  }}
+                  onChange={(e) => setQuickOffline(e.target.value)}
                   placeholder="VD: Unit 2 trang 10"
                   className="w-full bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
                 />
@@ -989,11 +986,7 @@ export default function DailyCommentPanel() {
                 <Select
                   value={quickExerciseId}
                   disabled={blockOnlineHomework}
-                  onChange={(e) => {
-                    const value = e.target.value ? Number(e.target.value) : "";
-                    setQuickExerciseId(value);
-                    if (value !== "") setQuickOffline("");
-                  }}
+                  onChange={(e) => setQuickExerciseId(e.target.value ? Number(e.target.value) : "")}
                   className="w-full bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none disabled:opacity-40"
                 >
                   <option value="">-- Không giao --</option>
@@ -1254,7 +1247,7 @@ export default function DailyCommentPanel() {
                       ) : (
                         <input
                           value={r.homeworkNext}
-                          onChange={(e) => updateRow({ homeworkNext: e.target.value, ...(e.target.value ? { homeworkNextExerciseId: "" as const } : {}) })}
+                          onChange={(e) => updateRow({ homeworkNext: e.target.value })}
                           placeholder="VD: Unit 2 trang 10"
                           className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
                         />
@@ -1267,10 +1260,7 @@ export default function DailyCommentPanel() {
                         <Select
                           value={r.homeworkNextExerciseId}
                           disabled={blockOnlineHomework || !teacherType}
-                          onChange={(e) => {
-                            const value = e.target.value ? Number(e.target.value) : "";
-                            updateRow({ homeworkNextExerciseId: value, ...(value !== "" ? { homeworkNext: "" } : {}) });
-                          }}
+                          onChange={(e) => updateRow({ homeworkNextExerciseId: e.target.value ? Number(e.target.value) : "" })}
                           aria-label={!teacherType ? "Chọn Loại giáo viên ở trên trước." : blockOnlineHomework ? "Lớp chưa có buổi kế tiếp trong lịch — tự chọn hạn nộp để bỏ qua." : undefined}
                           className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
                         >

@@ -1354,6 +1354,52 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         assertThat(saved.homeworkNextExerciseAssignmentId()).isNull();
     }
 
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-18 — bỏ ràng buộc loại trừ lẫn nhau
+     * giữa cột "BTVN offline" và "BTVN online": trước đây import báo lỗi "Chỉ điền 1 trong 2 cột" nếu
+     * điền cả hai, nay 1 dòng Excel giao được ĐỒNG THỜI cả 2 cho kênh Ngữ pháp.
+     */
+    @Test
+    void importComments_boSung_MainFlow_allowsBothOfflineAndOnlineGrammarHomeworkTogether() throws IOException {
+        GrammarFixture fixture = createGrammarOnlineExercise();
+        nextSession();
+        studentAttendanceService.markAttendance(classSession.id(),
+                new MarkAttendanceRequest("SESSION_LEVEL", List.of(
+                        new EnterAttendanceMarkRequest(student.getId(), "PRESENT", null, null, null))),
+                teacher.getId());
+        byte[] file = buildCommentWorkbook(new String[][]{
+                commentRow(classSession.sessionDate().toString(), student.getStudentCode(), "", "",
+                        "Có mặt", "", "", "", "Nội dung.", "Ôn lại Unit 3 ở nhà",
+                        fixture.exercise().uuid().toString(), "", "", "", "")
+        });
+
+        DailyCommentImportResponse result = studentCommentService.importComments(classSession.id(),
+                new MockMultipartFile("file", "nhanxet.xlsx", "application/vnd.openxmlformats", file), teacher.getId());
+
+        assertThat(result.status()).isEqualTo("COMPLETED");
+        StudentCommentResponse saved = studentCommentService.listComments(schoolClass.id(), student.getId()).get(0);
+        assertThat(saved.homeworkNext()).isEqualTo("Ôn lại Unit 3 ở nhà");
+        assertThat(saved.homeworkNextExerciseAssignmentId()).isNotNull();
+        ExerciseAssignment created = exerciseAssignmentRepository.findById(saved.homeworkNextExerciseAssignmentId()).orElseThrow();
+        assertThat(created.getExercise().getId()).isEqualTo(fixture.exercise().id());
+    }
+
+    /** Cùng quy tắc 2026-08-18 ở trên nhưng qua API JSON trực tiếp (writeComment) — luồng chưa từng bị chặn, chốt lại hành vi bằng test riêng. */
+    @Test
+    void writeComment_boSung_MainFlow_allowsBothOfflineAndOnlineGrammarHomeworkTogether() {
+        GrammarFixture fixture = createGrammarOnlineExercise();
+        nextSession();
+
+        StudentCommentResponse saved = studentCommentService.writeComment(schoolClass.id(),
+                new CreateStudentCommentRequest(student.getId(), classSession.id(), classSession.sessionDate(),
+                        "Nội dung.", null, null, false, null, null, null,
+                        "Ôn lại Unit 3 ở nhà", fixture.exercise().id(), null, null, null),
+                teacher.getId());
+
+        assertThat(saved.homeworkNext()).isEqualTo("Ôn lại Unit 3 ở nhà");
+        assertThat(saved.homeworkNextExerciseAssignmentId()).isNotNull();
+    }
+
     /** Cột "BTVN Nghe-nói buổi sau" (chỉ đổi tên, vẫn thuần online) — vẫn báo lỗi khi không khớp, không fallback text như cột Ngữ pháp. */
     @Test
     void importComments_V55_A_rejectsUnmatchedVideoSelectionWithRowError() throws IOException {
