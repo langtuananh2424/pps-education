@@ -15,6 +15,7 @@ import vn.com.pps.education.repository.EmployeeRepository;
 import vn.com.pps.education.repository.EmployeeShiftRepository;
 import vn.com.pps.education.repository.ShiftRepository;
 
+import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -99,6 +100,22 @@ public class EmployeeShiftService {
     @Transactional(readOnly = true)
     public List<EmployeeShiftResponse> listByEmployee(Long employeeId) {
         return employeeShiftRepository.findByEmployeeIdOrderByEffectiveFromDesc(employeeId).stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, xác nhận 2026-08-17: batch nhiều nhân viên cho
+     * trang roster "Lịch làm việc" toàn công ty (EmployeeScheduleService).
+     * employeeIds rỗng nghĩa là "không có nhân viên nào trong phạm vi lọc
+     * hiện tại" -- trả về rỗng ngay, không gọi query.
+     */
+    @Transactional(readOnly = true)
+    public List<EmployeeShiftResponse> listForScheduleOverview(List<Long> employeeIds, LocalDate fromDate, LocalDate toDate) {
+        if (employeeIds.isEmpty()) {
+            return List.of();
+        }
+        return employeeShiftRepository.findByEmployeeIdInAndDateRangeOverlap(employeeIds, fromDate, toDate).stream()
                 .map(this::toResponse)
                 .toList();
     }
