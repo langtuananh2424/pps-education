@@ -1561,6 +1561,21 @@ vượt rào này — cũng được kiểm tra thêm trong `requireCanWriteDail
 để quản trị viên vượt rào cả nhận xét DAILY dù không có
 `academic.comment.approve`.
 
+**Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-17 — Nhận xét
+(content) không còn bắt buộc lúc lưu nháp (DRAFT):** trước đây bắt buộc
+content ngay từ lúc lưu nháp (`@NotBlank` ở
+`CreateStudentCommentRequest`/`UpdateStudentCommentRequest`) khiến Giáo
+viên chỉ điền Thái độ học tập/BTVN buổi trước/BTVN buổi sau/Ghi chú mà
+chưa viết Nhận xét thì KHÔNG lưu được gì — mất dữ liệu nếu bận việc phải
+rời trang giữa chừng. Nay bỏ `@NotBlank` ở 2 DTO trên (DB `content TEXT
+NOT NULL` từ V15 vẫn giữ nguyên, không ALTER — Service tự ghi `""` thay
+vì `NULL` khi FE gửi thiếu content), cho phép lưu nháp (DRAFT) độc lập
+từng trường mà không cần Nhận xét đi kèm. Nhận xét CHỈ bắt buộc khi thực
+sự **Gửi duyệt** (`submitComments`) — thêm check tường minh ngay tại đó
+(`MissingCommentContentException`, nêu rõ tên học sinh thiếu Nhận xét),
+vì đây là chốt chặn DUY NHẤT còn lại đảm bảo Nhận xét ở trạng thái Chờ
+duyệt/Đã duyệt (Phụ huynh xem được) luôn có nội dung.
+
 ---
 
 UC-22: Duyệt nhận xét

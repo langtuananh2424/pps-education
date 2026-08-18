@@ -43,8 +43,38 @@ public interface SiteRepository extends JpaRepository<Site, Long> {
             """, nativeQuery = true)
     Optional<GeoPoint> findGeoLocation(@Param("id") Long id);
 
+    // UC-09 bổ sung ngoài Main Flow gốc (tự nhận diện điểm chấm công theo GPS,
+    // xác nhận với người dùng 2026-08-17) -- điểm trường ACTIVE gần nhất trong
+    // bán kính attendance.gps_radius_meters quanh vị trí hiện tại.
+    @Query(value = """
+            SELECT s.id AS id, s.name AS name,
+                   ST_Distance(
+                       s.geo_location,
+                       ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography
+                   ) AS distanceMeters
+            FROM sites s
+            WHERE s.status = 'ACTIVE'
+              AND s.geo_location IS NOT NULL
+              AND ST_DWithin(
+                  s.geo_location,
+                  ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography,
+                  :radiusMeters
+              )
+            ORDER BY distanceMeters ASC
+            LIMIT 1
+            """, nativeQuery = true)
+    Optional<NearestSite> findNearestWithinRadius(@Param("latitude") double latitude,
+                                                    @Param("longitude") double longitude,
+                                                    @Param("radiusMeters") double radiusMeters);
+
     interface GeoPoint {
         Double getLatitude();
         Double getLongitude();
+    }
+
+    interface NearestSite {
+        Long getId();
+        String getName();
+        Double getDistanceMeters();
     }
 }

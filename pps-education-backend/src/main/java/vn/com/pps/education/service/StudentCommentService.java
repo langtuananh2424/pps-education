@@ -41,6 +41,7 @@ import vn.com.pps.education.dto.UpdateStudentCommentContentRequest;
 import vn.com.pps.education.dto.UpdateStudentCommentRequest;
 import vn.com.pps.education.exception.ApprovalAlreadyDecidedException;
 import vn.com.pps.education.exception.HomeworkNextConflictException;
+import vn.com.pps.education.exception.MissingCommentContentException;
 import vn.com.pps.education.exception.MissingLessonContentException;
 import vn.com.pps.education.exception.NoUpcomingClassSessionException;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
@@ -416,6 +417,14 @@ public class StudentCommentService {
             if (comment.getStatus() != StudentComment.Status.DRAFT) {
                 throw new StudentCommentNotEditableException(
                         "Nhận xét này đang ở trạng thái " + comment.getStatus() + " — chỉ gửi duyệt được khi còn Nháp (DRAFT).");
+            }
+            // Bổ sung ngoài SDD gốc, xác nhận 2026-08-17 — content không còn @NotBlank ở DTO (lưu nháp
+            // được mà chưa cần Nhận xét), nên đây là chốt chặn DUY NHẤT còn lại đảm bảo Nhận xét ở
+            // trạng thái Chờ duyệt/Đã duyệt (Phụ huynh xem được) luôn có nội dung.
+            if (comment.getContent() == null || comment.getContent().isBlank()) {
+                throw new MissingCommentContentException(
+                        "Học sinh " + comment.getStudent().getUser().getFullName()
+                                + " chưa có nội dung Nhận xét — cần nhập Nhận xét trước khi gửi duyệt.");
             }
             if (comment.getClassSession().getLessonContent() == null || comment.getClassSession().getLessonContent().isBlank()) {
                 throw new MissingLessonContentException("Buổi học này chưa điền bài học hôm nay — không thể gửi duyệt.");
@@ -1198,7 +1207,10 @@ public class StudentCommentService {
                                String homeworkPreviousSpeakingScore, String homeworkNext,
                                ExerciseAssignment homeworkNextExerciseAssignment,
                                ReviewVideoAssignment homeworkNextReviewVideoAssignment, String note) {
-        comment.setContent(content);
+        // Bổ sung ngoài SDD gốc, xác nhận 2026-08-17 — content không còn @NotBlank ở DTO (cho lưu nháp
+        // độc lập Thái độ/BTVN/Ghi chú), nhưng cột DB student_comments.content vẫn NOT NULL (V15,
+        // không ALTER) — ghi "" thay vì null khi FE gửi thiếu, tránh vi phạm ràng buộc DB.
+        comment.setContent(content == null ? "" : content);
         comment.setStructuredContent(structuredContent);
         if (severity != null) {
             comment.setSeverity(StudentComment.Severity.valueOf(severity));

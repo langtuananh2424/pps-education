@@ -343,6 +343,35 @@ public class ClassSessionService {
     }
 
     /**
+     * Bổ sung ngoài SDD gốc, xác nhận 2026-08-17: HR/Điều hành xem lịch dạy
+     * của 1 giáo viên bất kỳ (khác UC-58 self-service). Gate quyền
+     * hrm.employee-schedule.view ở Controller — Service chỉ nhận thẳng
+     * teacherUserId đã resolve. Xem docs/uc/phan-he-04-nhan-su.md (UC-70).
+     */
+    @Transactional(readOnly = true)
+    public List<ClassSessionResponse> listSessionsByTeacher(Long teacherUserId, LocalDate fromDate, LocalDate toDate) {
+        return classSessionRepository.findByPrimaryTeacherAndDateRange(teacherUserId, fromDate, toDate).stream()
+                .map(this::toResponse).toList();
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, xác nhận 2026-08-17: nguồn dữ liệu lịch dạy cho
+     * trang roster "Lịch làm việc" toàn công ty (EmployeeScheduleService).
+     * teacherUserIds rỗng nghĩa là "không có Giáo viên nào trong phạm vi lọc
+     * hiện tại" — trả về rỗng ngay, không gọi query. Xem
+     * docs/uc/phan-he-04-nhan-su.md (UC-70).
+     */
+    @Transactional(readOnly = true)
+    public List<ClassSessionResponse> listForScheduleOverview(List<Long> teacherUserIds, Long siteId, Long classId,
+                                                                LocalDate fromDate, LocalDate toDate) {
+        if (teacherUserIds.isEmpty()) {
+            return List.of();
+        }
+        return classSessionRepository.findByPrimaryTeacherIdInAndFiltersAndDateRange(teacherUserIds, siteId, classId, fromDate, toDate)
+                .stream().map(this::toResponse).toList();
+    }
+
+    /**
      * UC-59: "Lịch học của tôi" (Học sinh, bổ sung ngoài SDD gốc, đã xác
      * nhận với người dùng) — self-service, không cần permission đặc
      * biệt, trả đúng buổi học của mọi lớp học sinh đang ghi danh ACTIVE.

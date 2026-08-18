@@ -169,6 +169,27 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, Long
                                                           @Param("toDate") LocalDate toDate);
 
     /**
+     * Bổ sung ngoài SDD gốc, xác nhận 2026-08-17: nguồn lịch dạy cho trang
+     * roster "Lịch làm việc" toàn công ty (EmployeeScheduleService) —
+     * teacherIds LUÔN non-null/non-empty (Service tự chặn danh sách rỗng
+     * trước khi gọi, xem ClassSessionService.listForScheduleOverview).
+     * siteId/classId optional (null = không lọc).
+     */
+    @Query("""
+            SELECT cs FROM ClassSession cs
+            WHERE cs.primaryTeacher.id IN :teacherIds
+            AND (:siteId IS NULL OR cs.schoolClass.site.id = :siteId)
+            AND (:classId IS NULL OR cs.schoolClass.id = :classId)
+            AND cs.sessionDate BETWEEN :fromDate AND :toDate
+            ORDER BY cs.sessionDate ASC, cs.startTime ASC
+            """)
+    List<ClassSession> findByPrimaryTeacherIdInAndFiltersAndDateRange(@Param("teacherIds") List<Long> teacherIds,
+                                                                       @Param("siteId") Long siteId,
+                                                                       @Param("classId") Long classId,
+                                                                       @Param("fromDate") LocalDate fromDate,
+                                                                       @Param("toDate") LocalDate toDate);
+
+    /**
      * "Buổi N" hiển thị FE: đếm số buổi đứng TRƯỚC buổi này (theo
      * sessionDate rồi id), kể cả CANCELLED — bổ sung ngoài SDD gốc, đã
      * xác nhận với người dùng 2026-07-29.

@@ -29,7 +29,8 @@ public class ManualAttendanceMethodValidator implements AttendanceMethodValidato
     }
 
     @Override
-    public void validate(AttendanceCheckContext context) {
+    public Long validate(AttendanceCheckContext context) {
         // Không cần kiểm tra thêm -- bỏ qua xác thực vị trí/sinh trắc (A6).
+        return context.siteId();
     }
 }

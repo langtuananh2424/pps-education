@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { Building2, CalendarDays, CalendarRange, ChevronLeft, ChevronRight, MapPin } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { cn } from "@/lib/cn";
+import { getMonthGridDates, getWeekDates, toISODate } from "@/lib/calendarDates";
 import Badge from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
 import { sessionStatusVariants } from "../components/ClassDetailPanel";
@@ -12,33 +13,6 @@ const weekdayLabels = ["Chủ nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5
 const weekdayShortLabels = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
 const teacherTypeLabels: Record<string, string> = { VIETNAMESE: "GV Việt Nam", FOREIGN: "GV nước ngoài" };
 const sessionTypeLabels: Record<string, string> = { REGULAR: "Buổi học thường", MAKEUP: "Học bù", EXAM: "Kiểm tra", SPECIAL: "Buổi đặc biệt" };
-
-function toISODate(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-}
-
-function getWeekDates(refDate: Date): Date[] {
-  const day = refDate.getDay();
-  const diff = refDate.getDate() - day + (day === 0 ? -6 : 1);
-  const monday = new Date(refDate);
-  monday.setDate(diff);
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(monday);
-    d.setDate(monday.getDate() + i);
-    return d;
-  });
-}
-
-/** Lưới 6 tuần x 7 ngày (bắt đầu Thứ 2) phủ trọn tháng chứa refDate — kể cả ngày tháng trước/sau để lấp đầy hàng. */
-function getMonthGridDates(refDate: Date): Date[] {
-  const year = refDate.getFullYear();
-  const month = refDate.getMonth();
-  const firstOfMonth = new Date(year, month, 1);
-  const firstDay = firstOfMonth.getDay();
-  const startOffset = firstDay === 0 ? 6 : firstDay - 1;
-  const gridStart = new Date(year, month, 1 - startOffset);
-  return Array.from({ length: 42 }, (_, i) => new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + i));
-}
 
 function SessionCard({ session, siteName }: { session: ClassSessionResponse; siteName?: string }) {
   return (

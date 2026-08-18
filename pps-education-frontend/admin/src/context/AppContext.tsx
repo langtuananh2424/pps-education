@@ -7,6 +7,15 @@ import { deriveCurrentRoleLabel, rolePriorityOrder } from "@/constants/roles";
 
 const CURRENT_USER_CACHE_KEY = "pps_current_user";
 
+/** Bổ sung 2026-08-17 — kết quả gọi "Lưu tạm & rời đi": Sidebar cần biết CÓ lưu được không (điều
+ *  hướng đi hay ở lại) và VÌ SAO nếu không (hiện thẳng trong popup xác nhận — luôn nổi giữa màn hình
+ *  qua portal, không phụ thuộc vị trí cuộn trang, khác banner lỗi tĩnh trên trang dễ bị bỏ lỡ). */
+export interface UnsavedSaveResult {
+  ok: boolean;
+  /** Lý do cụ thể khi ok=false — Sidebar hiện trực tiếp trong popup. Bỏ trống thì Sidebar tự hiện câu chung chung. */
+  message?: string;
+}
+
 interface AppContextValue {
   isLoggedIn: boolean;
   currentUser: CurrentUserResponse | null;
@@ -27,10 +36,15 @@ interface AppContextValue {
   hasPermission: (requiredPermission?: string) => boolean;
   /** Trang hiện tại (VD Nhận xét học viên) đang có dữ liệu nhập dở chưa lưu — Sidebar dùng để chặn điều hướng + hỏi xác nhận. */
   hasUnsavedChanges: boolean;
-  /** Trang có dữ liệu dở gọi khi bắt đầu/kết thúc trạng thái dirty; truyền kèm hàm lưu tạm (silent) để Sidebar gọi khi người dùng chọn "Lưu tạm & rời đi". */
-  setUnsavedChanges: (active: boolean, onSaveDraft?: (() => Promise<void>) | null) => void;
-  /** Sidebar gọi khi người dùng xác nhận lưu tạm trước khi rời trang — không làm gì nếu trang hiện tại không đăng ký hàm lưu. */
-  saveUnsavedChanges: () => Promise<void>;
+  /** Trang có dữ liệu dở gọi khi bắt đầu/kết thúc trạng thái dirty; truyền kèm hàm lưu tạm để Sidebar gọi khi người dùng chọn "Lưu tạm & rời đi" — xem UnsavedSaveResult. */
+  setUnsavedChanges: (active: boolean, onSaveDraft?: (() => Promise<UnsavedSaveResult>) | null) => void;
+  /**
+   * Sidebar gọi khi người dùng xác nhận lưu tạm trước khi rời trang. ok=true thì an toàn điều hướng
+   * đi (lưu thành công, hoặc trang không đăng ký hàm lưu nào); ok=false thì Sidebar PHẢI ở lại popup
+   * và hiện message cho người dùng thấy ngay — không tự điều hướng đi (bug đã xác nhận 2026-08-17,
+   * trước đây luôn điều hướng bất kể kết quả, làm mất âm thầm dữ liệu không lưu được).
+   */
+  saveUnsavedChanges: () => Promise<UnsavedSaveResult>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -73,13 +87,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // đổi theo từng lần gõ phím của trang con — không cần re-render Sidebar mỗi lần đổi, chỉ cần đọc đúng
   // bản mới nhất tại thời điểm người dùng bấm "Lưu tạm & rời đi".
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const saveUnsavedChangesRef = useRef<(() => Promise<void>) | null>(null);
-  const setUnsavedChanges = (active: boolean, onSaveDraft?: (() => Promise<void>) | null) => {
+  const saveUnsavedChangesRef = useRef<(() => Promise<UnsavedSaveResult>) | null>(null);
+  const setUnsavedChanges = (active: boolean, onSaveDraft?: (() => Promise<UnsavedSaveResult>) | null) => {
     saveUnsavedChangesRef.current = active ? onSaveDraft ?? null : null;
     setHasUnsavedChanges(active);
   };
-  const saveUnsavedChanges = async () => {
-    await saveUnsavedChangesRef.current?.();
+  const saveUnsavedChanges = async (): Promise<UnsavedSaveResult> => {
+    // Không có hàm nào đăng ký (hiếm, race giữa lúc dirty vừa tắt) — không có gì để chặn, cho điều hướng đi.
+    return (await saveUnsavedChangesRef.current?.()) ?? { ok: true };
   };
 
   const completeLogin = async () => {

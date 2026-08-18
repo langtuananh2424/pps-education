@@ -319,7 +319,12 @@ export default function Header() {
         {myAttendance && (
           <button
             onClick={() => setAttendanceModalOpen(true)}
-            className={`hidden sm:flex items-center gap-1.5 text-xs font-medium px-3.5 py-2 rounded-full shadow-soft border transition-all cursor-pointer ${
+            aria-label="Chấm công của tôi"
+            // Trước đây "hidden sm:flex" -- ẩn hoàn toàn trên mobile (<640px), yêu cầu người dùng
+            // 2026-08-18: luôn hiện trên mọi kích thước màn hình, chỉ thu gọn còn icon/chấm trạng
+            // thái + ẩn phần chữ mô tả (span "hidden sm:inline" bên dưới) trên mobile để không vỡ
+            // layout Header (đã chật chỗ với nút menu + các pill khác) — chạm vào vẫn mở modal đầy đủ.
+            className={`flex items-center gap-1.5 text-xs font-medium px-3 sm:px-3.5 py-2 rounded-full shadow-soft border transition-all cursor-pointer ${
               myAttendance.id == null
                 ? "bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100"
                 : "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
@@ -334,13 +339,13 @@ export default function Header() {
               <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
             )}
             {myAttendance.id == null ? (
-              <span className="font-semibold">Chấm công</span>
+              <span className="hidden sm:inline font-semibold">Chấm công</span>
             ) : myAttendance.checkOutAt ? (
-              <span className="font-semibold">
+              <span className="hidden sm:inline font-semibold">
                 Đã chấm công {formatTimeHm(myAttendance.checkInAt)} – {formatTimeHm(myAttendance.checkOutAt)}
               </span>
             ) : (
-              <span className="font-semibold">Đã chấm công vào lúc {formatTimeHm(myAttendance.checkInAt)}</span>
+              <span className="hidden sm:inline font-semibold">Đã chấm công vào lúc {formatTimeHm(myAttendance.checkInAt)}</span>
             )}
           </button>
         )}
@@ -461,8 +466,10 @@ export default function Header() {
         <Modal
           open
           onClose={() => setAttendanceModalOpen(false)}
-          title="Chấm công của tôi"
+          title="Chấm công"
           description="Chọn điểm trường và bấm chấm công vào/ra — hệ thống dùng vị trí GPS hiện tại."
+          titleClassName="text-lg"
+          descriptionClassName="text-sm"
           size="lg"
         >
           <SelfAttendanceCard sites={sites} onChecked={setMyAttendance} />
