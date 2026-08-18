@@ -1,6 +1,6 @@
 import { apiRequest, apiRequestBlob } from "@/lib/apiClient";
 import type { CreateUserRequest } from "@/features/system-admin/api";
-import type { ClassSessionResponse } from "@/features/academic/api";
+import type { ClassSessionCheckInStatusResponse, ClassSessionResponse } from "@/features/academic/api";
 
 /** Khớp EmployeeResponse thật của backend — xem UC-08 (Quản lý hồ sơ nhân sự). */
 export interface EmployeeResponse {
@@ -753,9 +753,11 @@ export function getEmployeeTeachingSessions(employeeId: number, fromDate?: strin
 
 /**
  * Bổ sung ngoài SDD gốc, xác nhận 2026-08-17: trang "Lịch làm việc" (roster
- * toàn công ty) cho HR/Điều hành — gộp ca làm cố định + lịch dạy + lịch
- * nghỉ lễ của TOÀN BỘ nhân viên, lọc theo phòng ban/điểm trường/lớp/nhân
- * viên. Gate bằng quyền hrm.employee-schedule.view.
+ * toàn công ty) cho HR/Điều hành/Quản lý điểm trường — gộp ca làm cố định +
+ * lịch dạy + lịch nghỉ lễ + trạng thái nhận lớp (UC-71) của nhân viên, lọc
+ * theo phòng ban/điểm trường/lớp/nhân viên. Gate bằng quyền
+ * hrm.employee-schedule.view — Quản lý điểm trường tự động chỉ thấy roster
+ * của điểm trường mình phụ trách (site-scoping ở Service, không cần FE tự lọc).
  */
 export interface EmployeeScheduleOverviewResponse {
   employees: EmployeeResponse[];
@@ -763,6 +765,7 @@ export interface EmployeeScheduleOverviewResponse {
   employeeShifts: EmployeeShiftResponse[];
   sessions: ClassSessionResponse[];
   workCalendarOverrides: WorkCalendarResponse[];
+  classSessionCheckIns: ClassSessionCheckInStatusResponse[];
 }
 
 export function getEmployeeScheduleOverview(params: {

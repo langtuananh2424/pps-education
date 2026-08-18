@@ -967,6 +967,27 @@ export const sessionStatusVariants: Record<string, "success" | "warning" | "dang
   RESCHEDULED: "warning"
 };
 
+/**
+ * UC-71 "Nhận lớp" (bổ sung ngoài SDD gốc, xác nhận 2026-08-18) — nhãn/màu
+ * trạng thái nhận lớp TÍNH RA (ClassSessionCheckInService#listEffectiveStatus).
+ * Dùng chung cho MyTeachingSchedulePage (GV tự xem) và EmployeeSchedulePage
+ * (roster HR/Quản lý điểm trường).
+ */
+export const checkInStatusLabels: Record<string, string> = {
+  NOT_YET_OPEN: "Chưa tới giờ nhận lớp",
+  PENDING: "Chưa nhận lớp",
+  ON_TIME: "Đã nhận lớp — đúng giờ",
+  LATE: "Đã nhận lớp — muộn",
+  ABSENT: "Vắng — không nhận lớp"
+};
+export const checkInStatusVariants: Record<string, "success" | "warning" | "danger" | "info" | "neutral" | "brand"> = {
+  NOT_YET_OPEN: "neutral",
+  PENDING: "warning",
+  ON_TIME: "success",
+  LATE: "warning",
+  ABSENT: "danger"
+};
+
 const teacherTypeLabels: Record<string, string> = { VIETNAMESE: "GV Việt Nam", FOREIGN: "GV nước ngoài" };
 
 const attendanceStatusLabels: Record<string, string> = { DRAFT: "Đã lưu nháp", SUBMITTED: "Đã nộp", LOCKED: "Đã khóa" };
