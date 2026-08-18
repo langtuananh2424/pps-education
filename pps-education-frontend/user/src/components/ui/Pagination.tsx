@@ -1,5 +1,6 @@
 import React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface PaginationProps {
   page: number;
@@ -16,20 +17,21 @@ interface PaginationProps {
  * (cố định 1 mức, giữ giao diện gọn cho mobile) và đổi màu theo đúng bảng màu Portal (teal/ink/muted).
  */
 export default function Pagination({ page, pageSize, totalElements, itemLabel, onPageChange }: PaginationProps) {
+  const { t } = useTranslation("common");
   const totalPages = Math.max(1, Math.ceil(totalElements / pageSize));
   if (totalPages <= 1) return null;
 
   return (
     <div className="flex items-center justify-between gap-3 pt-1">
       <span className="text-[11px] font-bold text-muted">
-        Tổng {totalElements} {itemLabel}
+        {t("pagination.total", { count: totalElements, itemLabel })}
       </span>
       <div className="flex items-center gap-2">
         <button
           type="button"
           disabled={page <= 0}
           onClick={() => onPageChange(page - 1)}
-          aria-label="Trang trước"
+          aria-label={t("pagination.previous")}
           className="w-8 h-8 rounded-lg border border-line flex items-center justify-center text-muted hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
           <ChevronLeft size={14} />
@@ -41,7 +43,7 @@ export default function Pagination({ page, pageSize, totalElements, itemLabel, o
           type="button"
           disabled={page + 1 >= totalPages}
           onClick={() => onPageChange(page + 1)}
-          aria-label="Trang sau"
+          aria-label={t("pagination.next")}
           className="w-8 h-8 rounded-lg border border-line flex items-center justify-center text-muted hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
           <ChevronRight size={14} />

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Award, TrendingDown, TrendingUp } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import {
   AcademicTermResponse,
@@ -26,24 +27,6 @@ interface GradesTabProps {
   siteId: number | null;
 }
 
-const scaleLabels: Record<GradeEvaluationResultResponse["scaleType"], string> = {
-  NUMERIC: "Số (0–10)",
-  PERCENTAGE: "Phần trăm (%)",
-  BAND: "Thang chữ (Band)"
-};
-
-/**
- * V44: Portal chỉ trả về bản ghi đã OFFICIAL (Quản lý điểm trường duyệt) — DRAFT/
- * SUBMITTED/REJECTED không bao giờ hiển thị ở đây (BE tự lọc), nhưng vẫn khai đủ map
- * theo đúng GradeStatus để không thiếu nhánh nếu type mở rộng sau này.
- */
-const statusLabels: Record<GradeStatus, string> = {
-  DRAFT: "Nháp",
-  SUBMITTED: "Chờ duyệt",
-  OFFICIAL: "Chính thức",
-  REJECTED: "Bị từ chối"
-};
-
 const statusClasses: Record<GradeStatus, string> = {
   DRAFT: "bg-slate-100 text-slate-500",
   SUBMITTED: "bg-gold/10 text-gold",
@@ -58,17 +41,40 @@ const statusTextClasses: Record<GradeStatus, string> = {
   REJECTED: "text-coral"
 };
 
-function setupLabel(s: GradeComponentSetupResponse): string {
-  return `${s.academicTermName} — ${s.evaluationType === "MID_TERM" ? "Giữa kỳ" : "Cuối kỳ"}`;
-}
-
 function TrendIcon({ current, previous }: { current: number; previous: number }) {
-  if (current > previous) return <TrendingUp className="w-3 h-3 text-emerald-600 inline ml-1" aria-label="Tăng so với kỳ trước" />;
-  if (current < previous) return <TrendingDown className="w-3 h-3 text-rose-600 inline ml-1" aria-label="Giảm so với kỳ trước" />;
+  const { t } = useTranslation("portal-grades");
+  if (current > previous) return <TrendingUp className="w-3 h-3 text-emerald-600 inline ml-1" aria-label={t("trend.increase")} />;
+  if (current < previous) return <TrendingDown className="w-3 h-3 text-rose-600 inline ml-1" aria-label={t("trend.decrease")} />;
   return null;
 }
 
 export default function GradesTab({ studentId, classId, siteId }: GradesTabProps) {
+  const { t } = useTranslation("portal-grades");
+
+  const scaleLabels: Record<GradeEvaluationResultResponse["scaleType"], string> = {
+    NUMERIC: t("scaleLabels.NUMERIC"),
+    PERCENTAGE: t("scaleLabels.PERCENTAGE"),
+    BAND: t("scaleLabels.BAND")
+  };
+
+  /**
+   * V44: Portal chỉ trả về bản ghi đã OFFICIAL (Quản lý điểm trường duyệt) — DRAFT/
+   * SUBMITTED/REJECTED không bao giờ hiển thị ở đây (BE tự lọc), nhưng vẫn khai đủ map
+   * theo đúng GradeStatus để không thiếu nhánh nếu type mở rộng sau này.
+   */
+  const statusLabels: Record<GradeStatus, string> = {
+    DRAFT: t("statusLabels.DRAFT"),
+    SUBMITTED: t("statusLabels.SUBMITTED"),
+    OFFICIAL: t("statusLabels.OFFICIAL"),
+    REJECTED: t("statusLabels.REJECTED")
+  };
+
+  const setupLabel = (s: GradeComponentSetupResponse): string =>
+    t("setupLabel", {
+      term: s.academicTermName,
+      evaluation: s.evaluationType === "MID_TERM" ? t("evaluationLabels.midTerm") : t("evaluationLabels.finalTerm")
+    });
+
   const [grades, setGrades] = useState<GradeEntryResponse[]>([]);
   const [terms, setTerms] = useState<AcademicTermResponse[]>([]);
   /** "Bảng điểm kỳ" (mặc định, chỉ hiện kỳ hiện tại) vs "Bảng điểm năm" (hiện đủ mọi kỳ, header gộp
@@ -122,7 +128,7 @@ export default function GradesTab({ studentId, classId, siteId }: GradesTabProps
         setComponentSetupId(new Map(flatComponents.map((c) => [c.id, c.gradeComponentSetupId])));
         setAllComponents(flatComponents);
       })
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được điểm số."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("summary.loadError")))
       .finally(() => setLoading(false));
   };
 
@@ -195,7 +201,7 @@ export default function GradesTab({ studentId, classId, siteId }: GradesTabProps
   const visibleSetups = scope === "YEAR" ? sortedSetups : sortedSetups.filter((s) => s.academicTermId === effectiveCurrentTermId);
   const visibleSetupResults = scope === "YEAR" ? setupResults : setupResults.filter((sr) => sr.setup.academicTermId === effectiveCurrentTermId);
 
-  if (loading) return <p className="text-sm text-muted font-bold">Đang tải...</p>;
+  if (loading) return <p className="text-sm text-muted font-bold">{t("loading")}</p>;
 
   return (
     <div className="space-y-6">
@@ -204,7 +210,7 @@ export default function GradesTab({ studentId, classId, siteId }: GradesTabProps
       <div className="bg-white border border-line/80 p-6 rounded-[20px] shadow-[0_8px_30px_rgba(30,42,69,0.03)] space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-xl font-extrabold text-ink flex items-center gap-2">
-            <Award className="text-teal" /> Bảng điểm tổng hợp
+            <Award className="text-teal" /> {t("summary.title")}
           </h2>
           <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1">
             <button
@@ -214,7 +220,7 @@ export default function GradesTab({ studentId, classId, siteId }: GradesTabProps
                 scope === "TERM" ? "bg-white text-teal-deep shadow-sm" : "text-muted hover:text-ink"
               }`}
             >
-              Bảng điểm kỳ
+              {t("summary.scopeTerm")}
             </button>
             <button
               type="button"
@@ -223,13 +229,13 @@ export default function GradesTab({ studentId, classId, siteId }: GradesTabProps
                 scope === "YEAR" ? "bg-white text-teal-deep shadow-sm" : "text-muted hover:text-ink"
               }`}
             >
-              Bảng điểm năm
+              {t("summary.scopeYear")}
             </button>
           </div>
         </div>
         {visibleSetups.length === 0 && visibleSetupResults.length === 0 ? (
           <p className="text-xs text-muted font-bold italic">
-            {scope === "TERM" ? "Chưa có điểm nào được công bố cho kỳ hiện tại." : "Chưa có điểm nào được công bố cho lớp này."}
+            {scope === "TERM" ? t("summary.emptyTerm") : t("summary.emptyYear")}
           </p>
         ) : (
           <div className="overflow-x-auto">
@@ -239,7 +245,7 @@ export default function GradesTab({ studentId, classId, siteId }: GradesTabProps
                   <>
                     <tr className="bg-slate-100/80 border-b border-line/60 text-sm font-black uppercase text-[#6e7c93] tracking-wider whitespace-nowrap">
                       <th className="p-3 pl-4 border-b border-line" rowSpan={2}>
-                        Đầu điểm
+                        {t("summary.componentHeader")}
                       </th>
                       {termGroups.map((g) => (
                         <th key={g.academicTermId} colSpan={g.setups.length} className="p-3 text-center border-l border-line/60">
@@ -250,14 +256,14 @@ export default function GradesTab({ studentId, classId, siteId }: GradesTabProps
                     <tr className="bg-slate-100/80 border-b border-line text-xs font-black uppercase text-[#6e7c93] tracking-wider whitespace-nowrap">
                       {visibleSetups.map((s) => (
                         <th key={s.id} className="p-2.5 text-center border-l border-t border-line/60">
-                          {s.evaluationType === "MID_TERM" ? "Giữa kỳ" : "Cuối kỳ"}
+                          {s.evaluationType === "MID_TERM" ? t("evaluationLabels.midTerm") : t("evaluationLabels.finalTerm")}
                         </th>
                       ))}
                     </tr>
                   </>
                 ) : (
                   <tr className="bg-slate-100/80 border-b border-line text-sm font-black uppercase text-[#6e7c93] tracking-wider whitespace-nowrap">
-                    <th className="p-3 pl-4">Đầu điểm</th>
+                    <th className="p-3 pl-4">{t("summary.componentHeader")}</th>
                     {visibleSetups.map((s) => (
                       <th key={s.id} className="p-3 text-center border-l border-line/60">
                         {setupLabel(s)}
@@ -288,7 +294,7 @@ export default function GradesTab({ studentId, classId, siteId }: GradesTabProps
                                   {entry.absenceFlag ? "—" : entry.score}
                                   {!entry.absenceFlag && prevEntry && !prevEntry.absenceFlag && <TrendIcon current={entry.score} previous={prevEntry.score} />}
                                 </span>
-                                {entry.absenceFlag && <span className="text-[11px] text-coral font-extrabold uppercase">Vắng</span>}
+                                {entry.absenceFlag && <span className="text-[11px] text-coral font-extrabold uppercase">{t("summary.absentBadge")}</span>}
                               </div>
                             )}
                           </td>
@@ -345,7 +351,7 @@ export default function GradesTab({ studentId, classId, siteId }: GradesTabProps
           <div className="space-y-2 pt-2">
             {visibleSetupResults.filter((sr) => sr.result.disclaimer).length > 0 && (
               <>
-                <h3 className="text-[13px] font-extrabold text-muted uppercase tracking-wide border-b border-line/60 pb-1.5">Lưu ý</h3>
+                <h3 className="text-[13px] font-extrabold text-muted uppercase tracking-wide border-b border-line/60 pb-1.5">{t("summary.notesHeading")}</h3>
                 {visibleSetupResults
                   .filter((sr) => sr.result.disclaimer)
                   .map((sr) => (
@@ -358,7 +364,7 @@ export default function GradesTab({ studentId, classId, siteId }: GradesTabProps
             )}
             {visibleSetupResults.filter((sr) => sr.result.comment || sr.result.note).length > 0 && (
               <>
-                <h3 className="text-[13px] font-extrabold text-muted uppercase tracking-wide border-b border-line/60 pb-1.5 pt-2">Nhận xét của giáo viên</h3>
+                <h3 className="text-[13px] font-extrabold text-muted uppercase tracking-wide border-b border-line/60 pb-1.5 pt-2">{t("summary.teacherCommentsHeading")}</h3>
                 {visibleSetupResults
                   .filter((sr) => sr.result.comment || sr.result.note)
                   .map((sr) => (
@@ -375,13 +381,13 @@ export default function GradesTab({ studentId, classId, siteId }: GradesTabProps
 
         {ungroupedGrades.length > 0 && (
           <div className="space-y-3 pt-2">
-            <h3 className="text-[13px] font-extrabold text-muted uppercase tracking-wide border-b border-line/60 pb-1.5">Khác (chưa xác định kỳ)</h3>
+            <h3 className="text-[13px] font-extrabold text-muted uppercase tracking-wide border-b border-line/60 pb-1.5">{t("summary.ungroupedHeading")}</h3>
             {ungroupedGrades.map((g) => (
               <div key={g.id} className="border border-line/60 p-4 rounded-[16px] flex flex-wrap justify-between items-center gap-2 bg-sky-2">
                 <div>
-                  <p className="text-sm font-extrabold text-ink">{componentNames.get(g.gradeEvaluationComponentId) ?? "Đầu điểm"}</p>
+                  <p className="text-sm font-extrabold text-ink">{componentNames.get(g.gradeEvaluationComponentId) ?? t("summary.componentHeader")}</p>
                   {g.teacherNote && <p className="text-[12px] text-muted font-bold mt-0.5">{g.teacherNote}</p>}
-                  {g.absenceFlag && <span className="text-[12px] text-coral font-extrabold uppercase">Vắng — không có điểm</span>}
+                  {g.absenceFlag && <span className="text-[12px] text-coral font-extrabold uppercase">{t("summary.absentNoScore")}</span>}
                   <span className={`inline-block mt-1 text-[12px] font-extrabold uppercase px-2 py-0.5 rounded-full ${statusClasses[g.status]}`}>
                     {statusLabels[g.status]}
                   </span>
@@ -396,8 +402,8 @@ export default function GradesTab({ studentId, classId, siteId }: GradesTabProps
       </div>
 
       <ComingSoon
-        title="Làm bài kiểm tra trực tuyến"
-        description="Đang trong quá trình phát triển"
+        title={t("onlineTest.title")}
+        description={t("onlineTest.description")}
       />
     </div>
   );

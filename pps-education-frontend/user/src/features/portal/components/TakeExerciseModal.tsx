@@ -1,5 +1,6 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
 import { CheckCircle2, HelpCircle, Loader2, Lock, PartyPopper, RotateCcw, ShieldAlert, X, XCircle } from "lucide-react";
 import { friendlyApiErrorMessage } from "@/lib/apiClient";
 import {
@@ -91,6 +92,7 @@ function isAnswerRevealed(answer: StudentAnswerResponse): boolean {
  * còn 1 lượt IN_PROGRESS (backend không tự resume, startAttempt luôn tạo attempt mới).
  */
 export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExerciseModalProps) {
+  const { t } = useTranslation("portal-exercises");
   const [attempt, setAttempt] = useState<ExerciseAttemptResponse | null>(null);
   const [questions, setQuestions] = useState<ExerciseQuestionResponse[]>([]);
   const [answersByQuestion, setAnswersByQuestion] = useState<Map<number, StudentAnswerResponse>>(new Map());
@@ -190,7 +192,7 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
     };
 
     load()
-      .catch((err) => setError(friendlyApiErrorMessage(err, "Không mở được đề để làm bài.")))
+      .catch((err) => setError(friendlyApiErrorMessage(err, t("takeExercise.loadError"))))
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item.exerciseId, item.myLatestAttemptId]);
@@ -223,7 +225,7 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
       const res = await saveAnswer(attempt.id, { questionId, selectedChoiceIds: choiceIds });
       setAnswersByQuestion((prev) => new Map(prev).set(questionId, res));
     } catch (err) {
-      setError(friendlyApiErrorMessage(err, "Lưu câu trả lời thất bại."));
+      setError(friendlyApiErrorMessage(err, t("takeExercise.saveAnswerError")));
     } finally {
       setSavingQuestionId(null);
     }
@@ -238,7 +240,7 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
       const res = await saveAnswer(attempt.id, { questionId, structuredAnswer: values });
       setAnswersByQuestion((prev) => new Map(prev).set(questionId, res));
     } catch (err) {
-      setError(friendlyApiErrorMessage(err, "Lưu câu trả lời thất bại."));
+      setError(friendlyApiErrorMessage(err, t("takeExercise.saveAnswerError")));
     } finally {
       setSavingQuestionId(null);
     }
@@ -258,7 +260,7 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
       const res = await saveAnswer(attempt.id, { questionId, audioAnswerUrl: url });
       setAnswersByQuestion((prev) => new Map(prev).set(questionId, res));
     } catch (err) {
-      setError(friendlyApiErrorMessage(err, "Nộp audio thất bại."));
+      setError(friendlyApiErrorMessage(err, t("takeExercise.submitAudioError")));
     } finally {
       setSavingQuestionId(null);
     }
@@ -285,7 +287,7 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
       const res = await saveAnswer(attempt.id, { questionId, answerText: text });
       setAnswersByQuestion((prev) => new Map(prev).set(questionId, res));
     } catch (err) {
-      setError(friendlyApiErrorMessage(err, "Lưu câu trả lời thất bại."));
+      setError(friendlyApiErrorMessage(err, t("takeExercise.saveAnswerError")));
     } finally {
       setSavingQuestionId(null);
     }
@@ -305,7 +307,7 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
       // sinh kịp đọc. Dời sang lúc bấm "Đã hiểu" đóng popup (xem onClose của SubmitResultPopup).
       setJustSubmitted(true);
     } catch (err) {
-      setError(friendlyApiErrorMessage(err, "Nộp bài thất bại."));
+      setError(friendlyApiErrorMessage(err, t("takeExercise.submitError")));
     } finally {
       setSubmitting(false);
     }
@@ -327,7 +329,7 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
           className="fixed top-4 sm:top-6 left-1/2 -translate-x-1/2 z-[110] flex items-center gap-2 bg-rose-600 text-white pl-3 pr-4 py-2.5 rounded-2xl shadow-xl animate-alert-pop max-w-[92vw]"
         >
           <ShieldAlert size={18} className="shrink-0" />
-          <span className="text-xs font-black">Đã ghi nhận: bạn vừa thoát ra ngoài khi đang làm bài!</span>
+          <span className="text-xs font-black">{t("monitoring.violationToast")}</span>
         </div>
       )}
 
@@ -336,11 +338,8 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[120]">
           <div className="bg-white rounded-[20px] w-full max-w-md p-6 space-y-4 text-center shadow-xl">
             <ShieldAlert size={40} className="text-rose-600 mx-auto" />
-            <h3 className="text-base font-black text-ink">Bài làm đã bị dừng</h3>
-            <p className="text-xs font-bold text-muted leading-relaxed">
-              Bạn đã thoát ra ngoài quá số lần cho phép khi đang làm bài. Kết quả đã được ghi nhận theo phần đã trả lời.
-              Bạn có thể làm lại từ màn danh sách đề.
-            </p>
+            <h3 className="text-base font-black text-ink">{t("takeExercise.stoppedByViolation.title")}</h3>
+            <p className="text-xs font-bold text-muted leading-relaxed">{t("takeExercise.stoppedByViolation.description")}</p>
             <button
               onClick={() => {
                 setStoppedByViolation(false);
@@ -348,7 +347,7 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
               }}
               className="text-xs font-extrabold text-white bg-teal px-5 py-2.5 rounded-xl"
             >
-              Đã hiểu
+              {t("takeExercise.stoppedByViolation.understood")}
             </button>
           </div>
         </div>
@@ -375,9 +374,13 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
             <h3 className="text-lg sm:text-xl lg:text-2xl font-extrabold text-ink truncate">{item.title}</h3>
             {attempt && (
               <p className="text-[10px] sm:text-xs text-muted font-bold mt-0.5">
-                Lượt làm #{attempt.attemptNumber} ·{" "}
-                {attempt.status === "IN_PROGRESS" ? "Đang làm" : attempt.status === "FULLY_GRADED" ? "Đã có điểm" : "Đã nộp — chờ chấm tự luận/nói"}
-                {attempt.totalScore != null && ` · Điểm: ${attempt.totalScore}`}
+                {t("takeExercise.attemptNumber", { number: attempt.attemptNumber })} ·{" "}
+                {attempt.status === "IN_PROGRESS"
+                  ? t("takeExercise.status.inProgress")
+                  : attempt.status === "FULLY_GRADED"
+                    ? t("takeExercise.status.fullyGraded")
+                    : t("takeExercise.status.submittedPendingGrading")}
+                {attempt.totalScore != null && t("takeExercise.scoreSuffix", { score: attempt.totalScore })}
               </p>
             )}
           </div>
@@ -388,7 +391,7 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
             {isMonitoringActive && <MonitoringBadge violationCount={violationCount} />}
             <button
               onClick={() => (hasActiveAttempt ? setConfirmingClose(true) : onClose())}
-              aria-label="Đóng"
+              aria-label={t("takeExercise.closeAriaLabel")}
               // Làm nổi bật (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-12) — trước đây
               // chỉ là link chữ mờ dễ bỏ sót, giờ là nút tròn viền đỏ nhạt, dễ nhận biết hành động thoát.
               className="shrink-0 flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 transition-colors"
@@ -406,17 +409,14 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[120]">
           <div className="bg-white rounded-[20px] w-full max-w-sm p-6 space-y-4 text-center shadow-xl">
             <ShieldAlert size={36} className="text-amber-600 mx-auto" />
-            <h3 className="text-base font-black text-ink">Đóng bài đang làm?</h3>
-            <p className="text-xs font-bold text-muted leading-relaxed">
-              Bạn vẫn đang làm bài này. Câu trả lời đã lưu sẽ được giữ nguyên và bạn có thể tiếp tục sau,
-              nhưng thoát giữa chừng khi đang bị giám sát có thể bị ghi nhận là rời khỏi bài làm.
-            </p>
+            <h3 className="text-base font-black text-ink">{t("takeExercise.confirmClose.title")}</h3>
+            <p className="text-xs font-bold text-muted leading-relaxed">{t("takeExercise.confirmClose.description")}</p>
             <div className="flex flex-col sm:flex-row gap-2">
               <button
                 onClick={() => setConfirmingClose(false)}
                 className="flex-1 px-4 py-2.5 bg-white hover:bg-slate-100 border border-line rounded-xl text-xs font-extrabold text-ink"
               >
-                Ở lại làm bài
+                {t("takeExercise.confirmClose.stay")}
               </button>
               <button
                 onClick={() => {
@@ -425,7 +425,7 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
                 }}
                 className="flex-1 px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-extrabold"
               >
-                Vẫn đóng
+                {t("takeExercise.confirmClose.stillClose")}
               </button>
             </div>
           </div>
@@ -438,10 +438,10 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
 
           {loading ? (
             <p className="text-xs text-muted font-bold flex items-center gap-2">
-              <Loader2 size={14} className="animate-spin" /> Đang tải đề...
+              <Loader2 size={14} className="animate-spin" /> {t("takeExercise.loadingExam")}
             </p>
           ) : questions.length === 0 ? (
-            <p className="text-xs text-muted font-bold italic">Đề này chưa có câu hỏi nào.</p>
+            <p className="text-xs text-muted font-bold italic">{t("takeExercise.noQuestions")}</p>
           ) : (
             groupQuestionsByGroupKey(questions).map((block) =>
               block.type === "grid" ? (
@@ -490,13 +490,13 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
       {hasActiveAttempt && confirmingSubmit && (
         <div className="border-t border-line/60 bg-amber-50 shrink-0">
           <div className="max-w-2xl lg:max-w-3xl w-full mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-2">
-            <span className="text-xs font-bold text-amber-800">Nộp bài ngay? Sau khi nộp sẽ không sửa được câu trả lời nữa.</span>
+            <span className="text-xs font-bold text-amber-800">{t("takeExercise.confirmSubmit.message")}</span>
             <div className="flex gap-2 shrink-0">
               <button
                 onClick={() => setConfirmingSubmit(false)}
                 className="text-xs font-extrabold text-slate-600 bg-white border border-slate-200 px-4 py-2 rounded-xl"
               >
-                Hủy
+                {t("takeExercise.confirmSubmit.cancel")}
               </button>
               <button
                 onClick={() => {
@@ -506,7 +506,7 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
                 disabled={submitting}
                 className="text-xs font-extrabold text-white bg-teal px-4 py-2 rounded-xl disabled:opacity-50"
               >
-                {submitting ? "Đang nộp..." : "Xác nhận nộp"}
+                {submitting ? t("takeExercise.submitting") : t("takeExercise.confirmSubmit.confirmButton")}
               </button>
             </div>
           </div>
@@ -521,7 +521,7 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
               disabled={submitting || loading}
               className="text-sm sm:text-base font-extrabold text-white bg-teal px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl disabled:opacity-50"
             >
-              {submitting ? "Đang nộp..." : "Nộp bài"}
+              {submitting ? t("takeExercise.submitting") : t("takeExercise.submitButton")}
             </button>
           </div>
         </div>
@@ -534,7 +534,7 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
         <div className="border-t border-line/60 shrink-0">
           <div className="max-w-2xl lg:max-w-3xl w-full mx-auto px-4 sm:px-6 py-3 sm:py-4 flex justify-end">
             <button onClick={onClose} className="text-xs font-extrabold text-white bg-slate-600 hover:bg-slate-700 px-5 py-2.5 rounded-xl">
-              Thoát
+              {t("takeExercise.exitButton")}
             </button>
           </div>
         </div>
@@ -563,21 +563,22 @@ function SubmitResultPopup({
   exerciseMeta: ExerciseMetaResponse | null;
   onClose: () => void;
 }) {
+  const { t } = useTranslation("portal-exercises");
   const fullyGraded = attempt.status === "FULLY_GRADED";
   const passed = fullyGraded ? attempt.passed : null;
 
   let remainingText: string | null = null;
   if (fullyGraded && passed === false && exerciseMeta) {
     if (!exerciseMeta.allowRetake) {
-      remainingText = "Đề này không cho làm lại — đây là kết quả cuối cùng.";
+      remainingText = t("takeExercise.resultPopup.retakeNotAllowed");
     } else if (exerciseMeta.maxAttempts == null) {
-      remainingText = "Bạn có thể làm lại bài tập này khi sẵn sàng.";
+      remainingText = t("takeExercise.resultPopup.retakeAnytime");
     } else {
       const remaining = Math.max(0, exerciseMeta.maxAttempts - attempt.attemptNumber);
       remainingText =
         remaining > 0
-          ? `Bạn còn ${remaining} lần để làm lại bài tập này.`
-          : "Bạn đã dùng hết số lần làm lại cho phép của bài tập này.";
+          ? t("takeExercise.resultPopup.retakeRemaining", { count: remaining })
+          : t("takeExercise.resultPopup.retakeExhausted");
     }
   }
 
@@ -587,32 +588,32 @@ function SubmitResultPopup({
         {!fullyGraded ? (
           <>
             <CheckCircle2 size={40} className="text-teal mx-auto" />
-            <h3 className="text-base font-black text-ink">Đã nộp bài "{exerciseTitle}"!</h3>
-            <p className="text-xs font-bold text-muted leading-relaxed">
-              Phần trắc nghiệm đã được chấm tự động. Bài còn câu tự luận/nói cần giáo viên chấm tay — điểm cuối cùng sẽ có sau.
-            </p>
+            <h3 className="text-base font-black text-ink">{t("takeExercise.resultPopup.submittedTitle", { title: exerciseTitle })}</h3>
+            <p className="text-xs font-bold text-muted leading-relaxed">{t("takeExercise.resultPopup.submittedDescription")}</p>
           </>
         ) : passed ? (
           <>
             <PartyPopper size={40} className="text-teal mx-auto" />
-            <h3 className="text-base font-black text-ink">Chúc mừng bạn đã hoàn thành bài "{exerciseTitle}"!</h3>
+            <h3 className="text-base font-black text-ink">{t("takeExercise.resultPopup.passedTitle", { title: exerciseTitle })}</h3>
             <p className="text-xs font-bold text-teal-deep leading-relaxed">
-              Kết quả: {attempt.percentage ?? "—"}% — Đạt yêu cầu.
+              {t("takeExercise.resultPopup.passedDescription", { percentage: attempt.percentage ?? "—" })}
             </p>
           </>
         ) : (
           <>
             <RotateCcw size={40} className="text-coral mx-auto" />
-            <h3 className="text-base font-black text-ink">Bạn đã hoàn thành bài "{exerciseTitle}"</h3>
+            <h3 className="text-base font-black text-ink">{t("takeExercise.resultPopup.failedTitle", { title: exerciseTitle })}</h3>
             <p className="text-xs font-bold text-coral leading-relaxed">
-              Kết quả: {attempt.percentage ?? "—"}% — Chưa đạt yêu cầu
-              {exerciseMeta ? ` (cần ≥${exerciseMeta.passThresholdPercent}%)` : ""}, cần làm lại bài tập.
+              {t("takeExercise.resultPopup.failedDescription", {
+                percentage: attempt.percentage ?? "—",
+                threshold: exerciseMeta ? t("takeExercise.resultPopup.thresholdSuffix", { percent: exerciseMeta.passThresholdPercent }) : ""
+              })}
             </p>
             {remainingText && <p className="text-xs font-bold text-muted leading-relaxed">{remainingText}</p>}
           </>
         )}
         <button onClick={onClose} className="text-xs font-extrabold text-white bg-teal px-5 py-2.5 rounded-xl">
-          Đã hiểu
+          {t("takeExercise.resultPopup.understood")}
         </button>
       </div>
     </div>
@@ -652,6 +653,7 @@ function QuestionBlock({
   listeningProgress: Map<string, ListeningPlayProgressResponse>;
   onListeningEnded: (q: ExerciseQuestionResponse) => void;
 }) {
+  const { t } = useTranslation("portal-exercises");
   const isChoiceQuestion = CHOICE_TYPES.has(question.questionType) && question.choices.length > 0;
   const isFillInBlank = question.questionType === "FILL_IN_BLANK";
   const isMultiSelect = question.questionType === "MULTIPLE_ANSWER";
@@ -697,7 +699,7 @@ function QuestionBlock({
               readOnly={readOnly}
             />
           )}
-          <span className="text-[10px] sm:text-xs text-muted font-bold">{question.points} đ</span>
+          <span className="text-[10px] sm:text-xs text-muted font-bold">{t("takeExercise.question.pointsSuffix", { points: question.points })}</span>
         </div>
       </div>
 
@@ -736,7 +738,7 @@ function QuestionBlock({
       ) : question.questionType === "SPEAKING" ? (
         <div className="space-y-2">
           <div className="space-y-1">
-            <p className="text-[10px] text-muted font-bold uppercase">Ghi âm câu trả lời của bạn</p>
+            <p className="text-[10px] text-muted font-bold uppercase">{t("takeExercise.question.recordAnswerLabel")}</p>
             <input
               type="file"
               accept="audio/*"
@@ -754,7 +756,7 @@ function QuestionBlock({
               <audio controls src={answer.audioAnswerUrl} className="w-full mt-1" />
             )}
           </div>
-          <p className="text-[10px] text-muted italic">Câu này sẽ được giáo viên chấm tay sau khi nộp bài.</p>
+          <p className="text-[10px] text-muted italic">{t("takeExercise.question.manualGradingNote")}</p>
         </div>
       ) : question.questionType === "WORD_BANK" && question.structuredContent?.blanks ? (
         <WordBankBlock
@@ -775,13 +777,15 @@ function QuestionBlock({
             onBlur={onTextBlur}
             disabled={readOnly || saving}
             rows={isFillInBlank ? 1 : 3}
-            placeholder="Nhập câu trả lời..."
+            placeholder={t("takeExercise.question.answerPlaceholder")}
             className="w-full bg-sky-2 border border-line/70 text-xs sm:text-sm lg:text-base p-3 sm:p-4 rounded-xl focus:outline-none disabled:opacity-70"
           />
           {isFillInBlank && showFeedback && (
             <div className={`flex items-center gap-1.5 text-xs font-bold ${answer?.isCorrect ? "text-teal-deep" : "text-coral"}`}>
               {answer?.isCorrect ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
-              {answer?.isCorrect ? "Chính xác" : `Đáp án đúng: ${answer?.correctAnswerText ?? "—"}`}
+              {answer?.isCorrect
+                ? t("takeExercise.question.correct")
+                : t("takeExercise.question.correctAnswerPrefix", { answer: answer?.correctAnswerText ?? "—" })}
             </div>
           )}
         </div>
@@ -791,12 +795,21 @@ function QuestionBlock({
         <div className={`flex items-center gap-1.5 text-xs font-bold ${answer?.isCorrect ? "text-teal-deep" : "text-coral"}`}>
           {answer?.isCorrect ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
           {answer?.isCorrect
-            ? "Chính xác"
-            : `Đáp án đúng: ${(question.questionType === "WORD_BANK" ? answer?.correctStructuredContent?.blanks : answer?.correctStructuredContent?.chunks)?.join(" — ") ?? "—"}`}
+            ? t("takeExercise.question.correct")
+            : t("takeExercise.question.correctAnswerPrefix", {
+                answer:
+                  (question.questionType === "WORD_BANK" ? answer?.correctStructuredContent?.blanks : answer?.correctStructuredContent?.chunks)?.join(
+                    " — "
+                  ) ?? "—"
+              })}
         </div>
       )}
 
-      {answer?.explanation && showFeedback && <p className="text-[11px] text-muted font-bold italic border-t border-line/50 pt-2">Giải thích: {answer.explanation}</p>}
+      {answer?.explanation && showFeedback && (
+        <p className="text-[11px] text-muted font-bold italic border-t border-line/50 pt-2">
+          {t("takeExercise.question.explanationPrefix", { text: answer.explanation })}
+        </p>
+      )}
 
       {answerLockedByRetake && <LockedAnswerBanner attemptsRemainingBeforeAnswer={attemptsRemainingBeforeAnswer} />}
     </div>
@@ -805,15 +818,16 @@ function QuestionBlock({
 
 /** UC-24/A4, UC-27/A2: nút "Xem đáp án" luôn hiện — chỉ khóa (disabled) khi backend chưa lộ đáp án vì còn lượt làm lại. */
 function LockedAnswerBanner({ attemptsRemainingBeforeAnswer }: { attemptsRemainingBeforeAnswer: number | null }) {
+  const { t } = useTranslation("portal-exercises");
   return (
     <div className="flex items-center justify-between gap-2 text-xs font-bold text-amber-800 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2">
       <span>
         {attemptsRemainingBeforeAnswer != null && attemptsRemainingBeforeAnswer > 0
-          ? `Còn ${attemptsRemainingBeforeAnswer} lượt làm — hoàn thành hết lượt để xem đáp án.`
-          : "Đáp án sẽ mở khóa ở lượt làm cuối cùng."}
+          ? t("takeExercise.locked.remaining", { count: attemptsRemainingBeforeAnswer })
+          : t("takeExercise.locked.lastAttemptOnly")}
       </span>
       <button type="button" disabled className="flex items-center gap-1 text-[11px] font-extrabold text-amber-700 bg-amber-100 px-2.5 py-1 rounded-lg opacity-70 cursor-not-allowed">
-        <Lock size={11} /> Xem đáp án
+        <Lock size={11} /> {t("takeExercise.locked.viewAnswer")}
       </button>
     </div>
   );
@@ -828,10 +842,11 @@ function LockedAnswerBanner({ attemptsRemainingBeforeAnswer }: { attemptsRemaini
  * bất kể questionType, KHÔNG lặp lại trong nhánh SPEAKING nữa.
  */
 function ListeningAudioBlock({ question, onEnded }: { question: ExerciseQuestionResponse; onEnded: () => void }) {
+  const { t } = useTranslation("portal-exercises");
   if (question.skill !== "LISTENING" || !question.audioUrl) return null;
   return (
     <div className="space-y-1.5">
-      <p className="text-[10px] text-muted font-bold uppercase">Audio bài nghe</p>
+      <p className="text-[10px] text-muted font-bold uppercase">{t("takeExercise.listening.audioLabel")}</p>
       {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
       <audio controls src={question.audioUrl} className="w-full" onEnded={onEnded} />
     </div>
@@ -869,6 +884,7 @@ function ListeningHintButton({
   // tự lật lên trên khi không đủ chỗ bên dưới viewport.
   const [placement, setPlacement] = useState<{ top?: number; bottom?: number; right: number; flipped: boolean } | null>(null);
   const triggerRef = useRef<HTMLDivElement>(null);
+  const { t } = useTranslation("portal-exercises");
 
   const threshold = progress?.hintUnlockThreshold ?? 3;
   const unlocked = progress?.hintUnlocked ?? false;
@@ -915,7 +931,7 @@ function ListeningHintButton({
     try {
       setHint(await getListeningHint(attemptId, questionId));
     } catch (err) {
-      setError(friendlyApiErrorMessage(err, "Chưa xem được gợi ý."));
+      setError(friendlyApiErrorMessage(err, t("takeExercise.hintError")));
     } finally {
       setLoading(false);
     }
@@ -937,7 +953,7 @@ function ListeningHintButton({
         type="button"
         disabled={readOnly}
         onClick={handleOpen}
-        aria-label="Gợi ý"
+        aria-label={t("takeExercise.listening.hintAriaLabel")}
         className="w-5 h-5 rounded-full border border-teal/50 bg-teal/10 text-teal-deep flex items-center justify-center disabled:opacity-60"
       >
         <HelpCircle size={12} />
@@ -951,7 +967,7 @@ function ListeningHintButton({
             <div style={{ position: "fixed", top: placement.top, bottom: placement.bottom, right: placement.right }} className="z-[200]">
               <div className={`absolute right-3 w-3 h-3 bg-teal-deep rotate-45 ${placement.flipped ? "-bottom-1.5" : "-top-1.5"}`} />
               <div className="relative bg-teal-deep text-white text-[11px] font-bold rounded-lg px-3 py-2 max-w-[220px] shadow-lg">
-                Đã nghe {playCount}/{threshold} lần — còn {remaining} lần nữa để xem gợi ý
+                {t("takeExercise.listening.locked", { playCount, threshold, remaining })}
               </div>
             </div>
           ) : (
@@ -961,7 +977,7 @@ function ListeningHintButton({
             >
               {loading ? (
                 <p className="font-bold text-muted flex items-center gap-1.5">
-                  <Loader2 size={12} className="animate-spin" /> Đang tải gợi ý...
+                  <Loader2 size={12} className="animate-spin" /> {t("takeExercise.listening.loadingHint")}
                 </p>
               ) : error ? (
                 <p className="font-bold text-coral">{error}</p>
@@ -969,25 +985,25 @@ function ListeningHintButton({
                 <>
                   {hint.transcript && (
                     <p>
-                      <span className="font-bold">Transcript: </span>
+                      <span className="font-bold">{t("takeExercise.listening.transcriptLabel")}</span>
                       {hint.transcript}
                     </p>
                   )}
                   {hint.correctAnswerText && (
                     <p>
-                      <span className="font-bold">Đáp án đúng: </span>
+                      <span className="font-bold">{t("takeExercise.listening.correctAnswerLabel")}</span>
                       {hint.correctAnswerText}
                     </p>
                   )}
                   {correctChoiceContents.length > 0 && (
                     <p>
-                      <span className="font-bold">Đáp án đúng: </span>
+                      <span className="font-bold">{t("takeExercise.listening.correctAnswerLabel")}</span>
                       {correctChoiceContents.join(", ")}
                     </p>
                   )}
                   {hint.explanation && (
                     <p>
-                      <span className="font-bold">Giải thích: </span>
+                      <span className="font-bold">{t("takeExercise.listening.explanationLabel")}</span>
                       {hint.explanation}
                     </p>
                   )}
@@ -1017,6 +1033,7 @@ function WordBankBlock({
   saving: boolean;
   onChange: (values: string[]) => void;
 }) {
+  const { t } = useTranslation("portal-exercises");
   const parts = content.split("___");
   const blankCount = parts.length - 1;
   const [selections, setSelections] = useState<string[]>(
@@ -1041,7 +1058,7 @@ function WordBankBlock({
               onChange={(e) => handleSelect(idx, e.target.value)}
               className="bg-sky-2 border border-line/70 text-xs sm:text-sm lg:text-base font-bold px-2 py-1.5 sm:px-3 sm:py-2 rounded-lg focus:outline-none disabled:opacity-70"
             >
-              <option value="">— chọn —</option>
+              <option value="">{t("takeExercise.wordBank.choosePlaceholder")}</option>
               {wordPool
                 .filter((w) => w === selections[idx] || !selections.includes(w))
                 .map((w, wIdx) => (
@@ -1076,6 +1093,7 @@ function SentenceBuildingBlock({
   saving: boolean;
   onChange: (values: string[]) => void;
 }) {
+  const { t } = useTranslation("portal-exercises");
   const shuffled = useMemo(() => {
     const arr = chunkPool.map((text, idx) => ({ text, idx }));
     for (let i = arr.length - 1; i > 0; i--) {
@@ -1106,7 +1124,7 @@ function SentenceBuildingBlock({
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap gap-1.5 min-h-[38px] p-2 bg-sky-2 rounded-xl border border-dashed border-line/70">
-        {built.length === 0 && <span className="text-[11px] text-muted italic px-1">Chạm các khối bên dưới theo đúng thứ tự để dựng câu...</span>}
+        {built.length === 0 && <span className="text-[11px] text-muted italic px-1">{t("takeExercise.sentenceBuilding.instructions")}</span>}
         {built.map((text, position) => (
           <button
             key={position}
@@ -1174,6 +1192,7 @@ function GridQuestionGroup({
   listeningProgress: Map<string, ListeningPlayProgressResponse>;
   onListeningEnded: (q: ExerciseQuestionResponse) => void;
 }) {
+  const { t } = useTranslation("portal-exercises");
   // UC-24/A4, UC-27/A2: mọi câu trong 1 nhóm lưới đều thuộc cùng 1 lượt làm — chỉ cần 1 banner khóa chung.
   const anyLockedByRetake = block.questions.some((q) => {
     const a = answersByQuestion.get(q.questionId);
@@ -1248,13 +1267,15 @@ function GridQuestionGroup({
                     onChange={(e) => onTextChange(q.questionId, e.target.value)}
                     onBlur={() => onTextBlur(q.questionId)}
                     disabled={readOnly || saving}
-                    placeholder="Nhập câu trả lời..."
+                    placeholder={t("takeExercise.question.answerPlaceholder")}
                     className="w-full bg-sky-2 border border-line/70 text-xs sm:text-sm lg:text-base p-2.5 sm:p-3 rounded-xl focus:outline-none disabled:opacity-70"
                   />
                   {showFeedback && (
                     <div className={`flex items-center gap-1.5 text-xs font-bold ${answer?.isCorrect ? "text-teal-deep" : "text-coral"}`}>
                       {answer?.isCorrect ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
-                      {answer?.isCorrect ? "Chính xác" : `Đáp án đúng: ${answer?.correctAnswerText ?? "—"}`}
+                      {answer?.isCorrect
+                        ? t("takeExercise.question.correct")
+                        : t("takeExercise.question.correctAnswerPrefix", { answer: answer?.correctAnswerText ?? "—" })}
                     </div>
                   )}
                 </div>
@@ -1278,7 +1299,7 @@ function GridQuestionGroup({
                     // eslint-disable-next-line jsx-a11y/media-has-caption
                     <audio controls src={answer.audioAnswerUrl} className="w-full mt-1" />
                   )}
-                  <p className="text-[10px] text-muted italic">Câu này sẽ được giáo viên chấm tay sau khi nộp bài.</p>
+                  <p className="text-[10px] text-muted italic">{t("takeExercise.question.manualGradingNote")}</p>
                 </div>
               )}
             </div>

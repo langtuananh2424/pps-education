@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight, Clock } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { toLocaleTag } from "@/lib/format";
 
-const WEEKDAY_LABELS = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
 export const formatDateVN = (dateStr: string) => {
@@ -31,6 +32,8 @@ interface RangeCalendarBodyProps {
  * khi popup đang mở nên tự nhiên remount mỗi lần mở lại).
  */
 export function RangeCalendarBody({ fromDate, toDate, onChange, onDone }: RangeCalendarBodyProps) {
+  const { t, i18n } = useTranslation("portal-schedule");
+  const weekdayLabels = t("dateRangePicker.weekdays", { returnObjects: true }) as string[];
   const [viewMonth, setViewMonth] = useState<Date>(() => new Date(fromDate || toDate || Date.now()));
 
   /** Bấm 1: đặt Từ ngày. Bấm 2 (sau ngày Từ): đặt Đến ngày. Bấm khi đã đủ cặp hoặc bấm ngày trước "Từ": bắt đầu chọn lại từ đầu. */
@@ -53,7 +56,11 @@ export function RangeCalendarBody({ fromDate, toDate, onChange, onDone }: RangeC
   return (
     <>
       <p className="text-[11px] font-bold text-muted">
-        {!fromDate ? "Chọn ngày bắt đầu" : !toDate ? "Chọn ngày kết thúc" : `${formatDateVN(fromDate)} → ${formatDateVN(toDate)}`}
+        {!fromDate
+          ? t("dateRangePicker.selectStartDate")
+          : !toDate
+            ? t("dateRangePicker.selectEndDate")
+            : `${formatDateVN(fromDate)} → ${formatDateVN(toDate)}`}
       </p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -68,16 +75,18 @@ export function RangeCalendarBody({ fromDate, toDate, onChange, onDone }: RangeC
                 <button
                   type="button"
                   onClick={() => setViewMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}
-                  aria-label="Tháng trước"
+                  aria-label={t("dateRangePicker.prevMonth")}
                   className={`w-7 h-7 flex items-center justify-center rounded-lg hover:bg-sky-2 text-muted ${offset === 1 ? "invisible" : ""}`}
                 >
                   <ChevronLeft size={15} aria-hidden="true" />
                 </button>
-                <span className="text-xs font-black text-ink capitalize">{panelDate.toLocaleDateString("vi-VN", { month: "long", year: "numeric" })}</span>
+                <span className="text-xs font-black text-ink capitalize">
+                  {panelDate.toLocaleDateString(toLocaleTag(i18n.language), { month: "long", year: "numeric" })}
+                </span>
                 <button
                   type="button"
                   onClick={() => setViewMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}
-                  aria-label="Tháng sau"
+                  aria-label={t("dateRangePicker.nextMonth")}
                   className={`w-7 h-7 flex items-center justify-center rounded-lg hover:bg-sky-2 text-muted ${offset === 0 ? "invisible" : ""}`}
                 >
                   <ChevronRight size={15} aria-hidden="true" />
@@ -85,7 +94,7 @@ export function RangeCalendarBody({ fromDate, toDate, onChange, onDone }: RangeC
               </div>
 
               <div className="grid grid-cols-7 gap-1 text-center">
-                {WEEKDAY_LABELS.map((w) => (
+                {weekdayLabels.map((w) => (
                   <span key={w} className="text-[10px] font-bold text-muted py-1">
                     {w}
                   </span>
@@ -99,7 +108,7 @@ export function RangeCalendarBody({ fromDate, toDate, onChange, onDone }: RangeC
                       key={day}
                       type="button"
                       onClick={() => handleDayClick(dateStr)}
-                      aria-label={`Chọn ngày ${day}/${pMonth + 1}`}
+                      aria-label={t("dateRangePicker.selectDay", { day, month: pMonth + 1 })}
                       className={`relative w-8 h-8 mx-auto flex items-center justify-center text-xs font-bold transition-colors cursor-pointer ${
                         state === "start" || state === "end" || state === "single"
                           ? "bg-teal text-white rounded-full"
@@ -120,10 +129,10 @@ export function RangeCalendarBody({ fromDate, toDate, onChange, onDone }: RangeC
 
       <div className="flex items-center justify-between gap-2 pt-1 border-t border-line/60">
         <button type="button" onClick={() => onChange("", "")} className="text-[11px] font-bold text-muted hover:text-ink">
-          Xóa lọc
+          {t("dateRangePicker.clearFilter")}
         </button>
         <button type="button" onClick={onDone} className="px-3 py-1.5 bg-teal text-white text-[11px] font-bold rounded-lg hover:bg-teal-deep">
-          Xong
+          {t("dateRangePicker.done")}
         </button>
       </div>
     </>
@@ -162,7 +171,9 @@ interface DateRangePickerProps {
  * xuống — không còn phụ thuộc bề rộng nút cha nữa. Từ sm trở lên vẫn dùng
  * đúng popup nổi neo theo nút như cũ (khối riêng, ẩn ở mobile).
  */
-export default function DateRangePicker({ fromDate, toDate, onChange, label = "Lọc theo khoảng thời gian" }: DateRangePickerProps) {
+export default function DateRangePicker({ fromDate, toDate, onChange, label }: DateRangePickerProps) {
+  const { t } = useTranslation("portal-schedule");
+  const resolvedLabel = label ?? t("dateRangePicker.filterByDateRange");
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   // Panel mobile giờ là 1 khối ANH EM với nút (không lồng trong "ref" phía trên) — cần ref riêng để
@@ -187,16 +198,16 @@ export default function DateRangePicker({ fromDate, toDate, onChange, label = "L
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          aria-label={label}
+          aria-label={resolvedLabel}
           aria-haspopup="dialog"
           aria-expanded={open}
           className="flex items-center gap-2 min-h-[44px] bg-white border border-line rounded-xl pl-3.5 pr-3 py-2.5 text-xs font-bold text-ink focus:outline-none focus:ring-2 focus:ring-teal/50 shadow-sm cursor-pointer"
         >
           <Clock size={14} className="text-teal shrink-0" aria-hidden="true" />
           <span className="max-w-[110px] min-w-0 truncate sm:max-w-none sm:whitespace-nowrap">
-            <span className={fromDate ? "text-ink" : "text-muted"}>{fromDate ? formatDateVN(fromDate) : "Từ"}</span>
+            <span className={fromDate ? "text-ink" : "text-muted"}>{fromDate ? formatDateVN(fromDate) : t("dateRangePicker.from")}</span>
             <span className="text-muted mx-1">→</span>
-            <span className={toDate ? "text-ink" : "text-muted"}>{toDate ? formatDateVN(toDate) : "Đến"}</span>
+            <span className={toDate ? "text-ink" : "text-muted"}>{toDate ? formatDateVN(toDate) : t("dateRangePicker.to")}</span>
           </span>
           <ChevronDown size={14} className={`text-muted shrink-0 transition-transform ${open ? "rotate-180" : ""}`} aria-hidden="true" />
         </button>
@@ -205,7 +216,7 @@ export default function DateRangePicker({ fromDate, toDate, onChange, label = "L
         {open && (
           <div
             role="dialog"
-            aria-label="Chọn khoảng thời gian"
+            aria-label={t("dateRangePicker.selectDateRangeDialog")}
             className="hidden sm:block absolute right-0 top-full mt-2 z-30 w-[min(92vw,580px)] bg-white border border-line rounded-2xl shadow-lg p-4 space-y-3"
           >
             <RangeCalendarBody fromDate={fromDate} toDate={toDate} onChange={onChange} onDone={() => setOpen(false)} />
@@ -220,7 +231,7 @@ export default function DateRangePicker({ fromDate, toDate, onChange, label = "L
         <div
           ref={mobilePanelRef}
           role="dialog"
-          aria-label="Chọn khoảng thời gian"
+          aria-label={t("dateRangePicker.selectDateRangeDialog")}
           className="sm:hidden w-full mt-2 z-30 bg-white border border-line rounded-2xl shadow-lg p-4 space-y-3"
         >
           <RangeCalendarBody fromDate={fromDate} toDate={toDate} onChange={onChange} onDone={() => setOpen(false)} />

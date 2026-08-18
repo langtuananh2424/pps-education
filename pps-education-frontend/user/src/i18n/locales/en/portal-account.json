@@ -1,0 +1,98 @@
+{
+  "profile": {
+    "status": {
+      "ACTIVE": "Active",
+      "COMPLETED": "Completed",
+      "SUSPENDED": "Suspended",
+      "WITHDRAWN": "Withdrawn"
+    },
+    "changeAvatar": "Change avatar (UC-63)",
+    "studentBadge": "Student",
+    "systemId": "System ID: {{id}}",
+    "unknownValue": "—",
+    "academicInfo": "Academic Info",
+    "classLabel": "Class:",
+    "statusLabel": "Status:",
+    "achievements": "Achievements & Rewards",
+    "learningProgressLocked": "Learning progress",
+    "comingSoon": "Coming soon",
+    "rewardWallet": "Reward coins",
+    "learningStreak": "Learning streak",
+    "familyContact": "Family Contact",
+    "editMyProfile": "Edit my profile (UC-63)",
+    "parentLabel": "Parent:",
+    "phoneLabel": "Phone number:",
+    "noParentLinked": "No parent is linked to this record yet.",
+    "changeMyAvatarHint": "Click the photo to change your own avatar.",
+    "occupationPlaceholder": "Occupation",
+    "workplacePlaceholder": "Workplace",
+    "addressPlaceholder": "Address",
+    "cancel": "Cancel",
+    "save": "Save",
+    "saving": "Saving...",
+    "shareGoals": "Sharing & Learning Goals",
+    "shareGoalsComingSoon": "Coming soon - in development",
+    "errors": {
+      "avatarUpdateFailed": "Failed to change avatar.",
+      "avatarUploadFailed": "Failed to upload photo.",
+      "profileUpdateFailed": "Failed to update profile."
+    }
+  },
+  "notifications": {
+    "bellLabel": "Notifications",
+    "listLabel": "Notification list",
+    "title": "Notifications",
+    "unreadCount": "{{count}} unread",
+    "markAllRead": "Mark all read",
+    "markingAll": "Processing...",
+    "loading": "Loading...",
+    "empty": "No notifications yet.",
+    "loadOlder": "View older notifications"
+  },
+  "billing": {
+    "loading": "Loading...",
+    "loadInvoicesFailed": "Couldn't load tuition invoices.",
+    "outstandingAmount": "Tuition due",
+    "completed": "Completed",
+    "invoiceCount": "{{count}} invoices",
+    "unpaidInvoicesTitle": "Invoices due",
+    "noUnpaidInvoices": "No outstanding invoices.",
+    "overdue": "Overdue",
+    "unpaid": "Unpaid",
+    "dueDate": "Due date:",
+    "viewTransfer": "View transfer details",
+    "paidHistoryTitle": "Payment history",
+    "due": "Due:",
+    "transferContentTitle": "Transfer content",
+    "amountToTransfer": "Amount to transfer:",
+    "copied": "Copied!",
+    "copyContent": "Copy content",
+    "transferHint": "Transfer with the exact content above — the system automatically records payment once the bank confirms it, no need to report separately.",
+    "selectInvoicePrompt": "Select an invoice to view its transfer details"
+  },
+  "documents": {
+    "type": {
+      "VIDEO": "Video",
+      "PDF": "PDF",
+      "AUDIO": "Audio",
+      "SLIDE": "Slide",
+      "IMAGE": "Image",
+      "OTHER": "Other"
+    },
+    "categoryFilters": {
+      "ALL": "All documents",
+      "DOCUMENT": "Books & Documents",
+      "MEDIA": "Video & Audio",
+      "OTHER": "Images & Other"
+    },
+    "loading": "Loading...",
+    "loadFailed": "Couldn't load the document library.",
+    "heroTitle": "Document Library & Reference Materials",
+    "heroSubtitle": "Shared curriculum materials for extra self-study.",
+    "searchPlaceholder": "Search documents, books...",
+    "noResults": "No matching documents found.",
+    "watchVideo": "Watch video",
+    "readAndDownload": "Read & Download {{type}}",
+    "close": "Close"
+  }
+}

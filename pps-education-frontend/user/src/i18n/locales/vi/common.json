@@ -3,5 +3,17 @@
     "vi": "Tiếng Việt",
     "en": "Tiếng Anh",
     "switchTo": "Chuyển sang {{language}}"
+  },
+  "pagination": {
+    "total": "Tổng {{count}} {{itemLabel}}",
+    "previous": "Trang trước",
+    "next": "Trang sau"
+  },
+  "installPrompt": {
+    "title": "Cài đặt PPS Portal",
+    "iosHint": "Nhấn nút Chia sẻ rồi chọn “Thêm vào MH chính” để dùng như app.",
+    "androidHint": "Thêm vào màn hình chính để mở nhanh như một ứng dụng.",
+    "installButton": "Cài đặt",
+    "close": "Đóng"
   }
 }

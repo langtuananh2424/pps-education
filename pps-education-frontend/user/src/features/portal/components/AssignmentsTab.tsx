@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { AlertCircle, Bell, BookOpen, CalendarDays, Check, CheckCircle2, ChevronRight, Clock, Filter, GraduationCap, Link2, MessageCircle, Play, Video } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { formatDate, formatDateTimeHm } from "@/lib/format";
@@ -41,11 +42,19 @@ interface AssignmentsTabProps {
   onPendingCountChange?: (count: number) => void;
 }
 
-const attemptStatusLabels: Record<string, { label: string; className: string }> = {
-  IN_PROGRESS: { label: "Đang làm dở", className: "bg-gold/10 text-gold" },
-  AUTO_GRADED: { label: "Đã nộp — chờ chấm tự luận/nói", className: "bg-sky text-teal-deep" },
-  FULLY_GRADED: { label: "Đã có điểm", className: "bg-teal/10 text-teal-deep" }
-};
+/** PATTERN — map nhãn theo t() live (không còn Record tĩnh ở module scope) vì cần đổi ngôn ngữ theo i18next. */
+function attemptStatusMeta(t: (key: string) => string, status: string): { label: string; className: string } | null {
+  switch (status) {
+    case "IN_PROGRESS":
+      return { label: t("assignments.attemptStatus.inProgress"), className: "bg-gold/10 text-gold" };
+    case "AUTO_GRADED":
+      return { label: t("assignments.attemptStatus.autoGraded"), className: "bg-sky text-teal-deep" };
+    case "FULLY_GRADED":
+      return { label: t("assignments.attemptStatus.fullyGraded"), className: "bg-teal/10 text-teal-deep" };
+    default:
+      return null;
+  }
+}
 
 /**
  * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05 (backend V89
@@ -136,6 +145,7 @@ export default function AssignmentsTab({
   onAutoOpenHandled,
   onPendingCountChange
 }: AssignmentsTabProps) {
+  const { t } = useTranslation("portal-exercises");
   const [exercises, setExercises] = useState<AssignedExerciseResponse[]>([]);
   const [reviewItems, setReviewItems] = useState<ReviewVideoHomeworkItem[]>([]);
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — giữ lại danh sách bản giao Video Ôn
@@ -261,7 +271,7 @@ export default function AssignmentsTab({
         setExercises(exerciseRes);
         setReviewItems(reviewRes);
       })
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách bài tập."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("assignments.loadError")))
       .finally(() => setLoading(false));
   };
 
@@ -341,7 +351,7 @@ export default function AssignmentsTab({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, exercises, reviewItems]);
 
-  if (loading) return <p className="text-sm text-muted font-bold">Đang tải...</p>;
+  if (loading) return <p className="text-sm text-muted font-bold">{t("assignments.loading")}</p>;
 
   const pendingCount =
     exercises.filter(isExercisePending).length +
@@ -389,25 +399,29 @@ export default function AssignmentsTab({
               <Bell size={24} className="text-amber-600" />
             </div>
             <div>
-              <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-black uppercase tracking-wider">Thông Báo BTVN</span>
+              <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-black uppercase tracking-wider">
+                {t("assignments.banner.label")}
+              </span>
               <h3 className="text-base md:text-lg font-black font-display mt-0.5 text-amber-900">
-                Bạn có <span className=" decoration-wavy underline-offset-4">{pendingCount} bài tập về nhà</span> chưa hoàn thành!
+                {t("assignments.banner.titlePrefix")}{" "}
+                <span className=" decoration-wavy underline-offset-4">{t("assignments.banner.titleCount", { count: pendingCount })}</span>{" "}
+                {t("assignments.banner.titleSuffix")}
               </h3>
-              <p className="text-xs text-amber-800/80 font-semibold mt-0.5">Hãy làm bài sớm trước hạn nộp để duy trì kết quả học tập tốt nhé.</p>
+              <p className="text-xs text-amber-800/80 font-semibold mt-0.5">{t("assignments.banner.description")}</p>
             </div>
           </div>
           <button
             onClick={() => setFilterStatus("PENDING")}
             className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-xs rounded-xl shadow-sm transition-all shrink-0 cursor-pointer"
           >
-            Làm bài ngay
+            {t("assignments.banner.actionButton")}
           </button>
         </div>
       ) : (
         <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-800 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <CheckCircle2 size={20} className="text-emerald-600" />
-            <span className="text-xs font-black">Tuyệt vời! Bạn đã hoàn thành tất cả bài tập về nhà được giao.</span>
+            <span className="text-xs font-black">{t("assignments.allDone")}</span>
           </div>
         </div>
       )}
@@ -424,7 +438,7 @@ export default function AssignmentsTab({
                 filterStatus === "ALL" ? "bg-teal text-white shadow-sm" : "bg-slate-100 hover:bg-slate-200 text-muted"
               }`}
             >
-              Tất cả bài tập ({exercises.length + reviewItems.length})
+              {t("assignments.filters.all", { count: exercises.length + reviewItems.length })}
             </button>
             <button
               onClick={() => setFilterStatus("PENDING")}
@@ -432,7 +446,7 @@ export default function AssignmentsTab({
                 filterStatus === "PENDING" ? "bg-orange-500 text-white shadow-sm" : "bg-slate-100 hover:bg-slate-200 text-muted"
               }`}
             >
-              <Clock size={14} /> Cần hoàn thành ({pendingCount})
+              <Clock size={14} /> {t("assignments.filters.pending", { count: pendingCount })}
             </button>
             <button
               onClick={() => setFilterStatus("GRADED")}
@@ -440,7 +454,7 @@ export default function AssignmentsTab({
                 filterStatus === "GRADED" ? "bg-teal text-white shadow-sm" : "bg-slate-100 hover:bg-slate-200 text-muted"
               }`}
             >
-              <CheckCircle2 size={14} /> Đã nộp &amp; Đã chấm ({gradedCount})
+              <CheckCircle2 size={14} /> {t("assignments.filters.graded", { count: gradedCount })}
             </button>
           </div>
 
@@ -448,7 +462,7 @@ export default function AssignmentsTab({
             <button
               type="button"
               onClick={() => setFilterTypeOpen((v) => !v)}
-              aria-label="Lọc theo loại bài"
+              aria-label={t("assignments.filters.typeAriaLabel")}
               aria-haspopup="dialog"
               aria-expanded={filterTypeOpen}
               className={`w-10 h-10 rounded-xl border flex items-center justify-center transition-all cursor-pointer ${
@@ -461,14 +475,14 @@ export default function AssignmentsTab({
             {filterTypeOpen && (
               <div
                 role="dialog"
-                aria-label="Chọn loại bài"
+                aria-label={t("assignments.filters.typeDialogAriaLabel")}
                 className="absolute right-0 top-full mt-2 z-30 w-56 bg-white border border-line rounded-2xl shadow-lg p-1.5 space-y-0.5"
               >
                 {(
                   [
-                    ["ALL", "Tất cả loại bài", null] as const,
-                    ["EXERCISE", `Bài ngữ pháp (${exercises.length})`, BookOpen] as const,
-                    ["VIDEO", `Video Kết nối - Phản xạ (${reviewItems.length})`, Video] as const
+                    ["ALL", t("assignments.filters.typeAll"), null] as const,
+                    ["EXERCISE", t("assignments.filters.typeExercise", { count: exercises.length }), BookOpen] as const,
+                    ["VIDEO", t("assignments.filters.typeVideo", { count: reviewItems.length }), Video] as const
                   ]
                 ).map(([value, label, Icon]) => (
                   <button
@@ -495,7 +509,7 @@ export default function AssignmentsTab({
       </div>
 
       {feedItems.length === 0 ? (
-        <p className="text-xs text-muted font-bold italic text-center py-10">Không có bài tập nào trong mục này.</p>
+        <p className="text-xs text-muted font-bold italic text-center py-10">{t("assignments.empty")}</p>
       ) : (
         <>
           <div className="space-y-4">
@@ -519,7 +533,7 @@ export default function AssignmentsTab({
               )
             )}
           </div>
-          <Pagination page={page} pageSize={PAGE_SIZE} totalElements={feedItems.length} itemLabel="bài" onPageChange={setPage} />
+          <Pagination page={page} pageSize={PAGE_SIZE} totalElements={feedItems.length} itemLabel={t("assignments.itemLabel")} onPageChange={setPage} />
         </>
       )}
 
@@ -582,21 +596,22 @@ function ExerciseCard({
   domId?: string;
   highlighted?: boolean;
 }) {
+  const { t, i18n } = useTranslation("portal-exercises");
   const isOverdue = item.dueAt != null && new Date(item.dueAt) < new Date();
   const retake = needsRetake(item);
-  const attemptMeta = retake ? null : item.myLatestAttemptStatus ? attemptStatusLabels[item.myLatestAttemptStatus] : null;
+  const attemptMeta = retake ? null : item.myLatestAttemptStatus ? attemptStatusMeta(t, item.myLatestAttemptStatus) : null;
   const isFullyGraded = item.myLatestAttemptStatus === "FULLY_GRADED";
   const pending = isExercisePending(item);
 
   const actionLabel = retake
-    ? "Làm lại bài"
+    ? t("assignments.exercise.action.retake")
     : item.myLatestAttemptStatus == null
-      ? "Làm bài ngay"
+      ? t("assignments.exercise.action.start")
       : item.myLatestAttemptStatus === "IN_PROGRESS"
-        ? "Tiếp tục làm bài"
+        ? t("assignments.exercise.action.continue")
         : isFullyGraded
-          ? "Xem lại bài đã làm"
-          : "Xem lại bài đã nộp";
+          ? t("assignments.exercise.action.reviewGraded")
+          : t("assignments.exercise.action.reviewSubmitted");
 
   return (
     <div
@@ -611,7 +626,8 @@ function ExerciseCard({
           <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-muted text-[11px] font-bold">{item.className}</span>
           {retake ? (
             <span className="px-2.5 py-0.5 rounded-lg bg-coral/10 text-coral border border-coral/20 text-[11px] font-black flex items-center gap-1">
-              <Clock size={12} /> Chưa đạt {item.myLatestPercentage != null ? `(${item.myLatestPercentage}%)` : ""} — cần làm lại
+              <Clock size={12} />{" "}
+              {t("assignments.exercise.needsRetake", { percent: item.myLatestPercentage != null ? `(${item.myLatestPercentage}%)` : "" })}
             </span>
           ) : attemptMeta ? (
             <span className={`px-2.5 py-0.5 rounded-lg text-[11px] font-black flex items-center gap-1 ${attemptMeta.className}`}>
@@ -629,19 +645,20 @@ function ExerciseCard({
               }`}
             >
               <Clock size={12} />
-              {isOverdue ? "Đã quá hạn nộp — " : "Hạn nộp: "}
-              {item.dueAt ? formatDateTimeHm(item.dueAt) : "Không giới hạn"}
+              {isOverdue ? t("assignments.exercise.overduePrefix") : t("assignments.exercise.duePrefix")}
+              {item.dueAt ? formatDateTimeHm(item.dueAt, i18n.language) : t("assignments.exercise.noDeadline")}
             </span>
           )}
           {/* V123, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-14 — GV Việt Nam/nước
               ngoài phụ trách (đọc thật từ Exam.teacherType) + buổi đã giao BTVN này, hiện cho MỌI
               trạng thái (không chỉ khi còn "pending" như hạn nộp ở trên) theo yêu cầu người dùng. */}
           <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-muted border border-line text-[11px] font-black flex items-center gap-1">
-            <GraduationCap size={12} /> {item.teacherType === "VIETNAMESE" ? "Giáo viên Việt Nam phụ trách" : "Giáo viên nước ngoài phụ trách"}
+            <GraduationCap size={12} />{" "}
+            {item.teacherType === "VIETNAMESE" ? t("assignments.exercise.teacherVietnamese") : t("assignments.exercise.teacherForeign")}
           </span>
           {item.sessionDate && (
             <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-muted border border-line text-[11px] font-black flex items-center gap-1">
-              <CalendarDays size={12} /> Giao trong buổi {formatDate(item.sessionDate)}
+              <CalendarDays size={12} /> {t("assignments.exercise.assignedInSession", { date: formatDate(item.sessionDate, i18n.language) })}
             </span>
           )}
         </div>
@@ -663,13 +680,14 @@ function ExerciseCard({
             }`}
           >
             <span>
-              Điểm: <span className="font-black">{item.myLatestTotalScore}</span>
+              {t("assignments.exercise.scoreLabel")}
+              <span className="font-black">{item.myLatestTotalScore}</span>
             </span>
             {item.myLatestPercentage != null && <span className="font-black">({item.myLatestPercentage}%)</span>}
             {item.myLatestPassed != null && (
               <span className="flex items-center gap-1 font-black">
                 {item.myLatestPassed ? <CheckCircle2 size={13} aria-hidden="true" /> : <AlertCircle size={13} aria-hidden="true" />}
-                {item.myLatestPassed ? "Đạt" : "Chưa đạt"}
+                {item.myLatestPassed ? t("assignments.exercise.passed") : t("assignments.exercise.notPassed")}
               </span>
             )}
           </div>
@@ -701,6 +719,7 @@ function ReviewVideoCard({
   domId?: string;
   highlighted?: boolean;
 }) {
+  const { t, i18n } = useTranslation("portal-exercises");
   const { video, videoType, setTitle, reflexStats, dueAt } = item;
   const isConnection = videoType === "CONNECTION";
   const answerable = isConnection ? isConnectionAnswerable(item) : isReflexAnswerable(item);
@@ -711,39 +730,47 @@ function ReviewVideoCard({
   if (isConnection) {
     statusBadge = !item.connectionStats ? (
       <span className="px-2.5 py-0.5 rounded-lg bg-sky text-teal-deep text-[11px] font-black flex items-center gap-1">
-        <Play size={12} /> Xem để ôn tập
+        <Play size={12} /> {t("assignments.video.watchToReview")}
       </span>
     ) : fullyAnswered ? (
       <span className="px-2.5 py-0.5 rounded-lg bg-teal/10 text-teal-deep text-[11px] font-black flex items-center gap-1">
-        <CheckCircle2 size={12} /> Đã đạt {item.connectionStats.viewCount}/{item.connectionStats.requiredViewCount} lượt
+        <CheckCircle2 size={12} />{" "}
+        {t("assignments.video.achievedViews", { count: item.connectionStats.viewCount, required: item.connectionStats.requiredViewCount })}
       </span>
     ) : (
       <span className="px-2.5 py-0.5 rounded-lg bg-amber-100 text-amber-800 border border-amber-300 text-[11px] font-black flex items-center gap-1">
-        <Clock size={12} /> Đã đạt {item.connectionStats.viewCount}/{item.connectionStats.requiredViewCount} lượt
+        <Clock size={12} />{" "}
+        {t("assignments.video.achievedViews", { count: item.connectionStats.viewCount, required: item.connectionStats.requiredViewCount })}
       </span>
     );
   } else if (!answerable) {
     statusBadge = (
       <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-muted text-[11px] font-black flex items-center gap-1">
-        <Clock size={12} /> Chưa có câu hỏi
+        <Clock size={12} /> {t("assignments.video.noQuestions")}
       </span>
     );
   } else if (fullyAnswered) {
     statusBadge = (
       <span className="px-2.5 py-0.5 rounded-lg bg-teal/10 text-teal-deep text-[11px] font-black flex items-center gap-1">
-        <CheckCircle2 size={12} /> Đã nộp bài
+        <CheckCircle2 size={12} /> {t("assignments.video.submitted")}
       </span>
     );
   } else {
     statusBadge = (
       <span className="px-2.5 py-0.5 rounded-lg bg-amber-100 text-amber-800 border border-amber-300 text-[11px] font-black flex items-center gap-1">
-        <Clock size={12} /> Đã nộp {reflexStats!.answeredQuestions}/{reflexStats!.totalQuestions} câu
+        <Clock size={12} /> {t("assignments.video.answeredCount", { answered: reflexStats!.answeredQuestions, total: reflexStats!.totalQuestions })}
       </span>
     );
   }
 
   const pending = answerable && !fullyAnswered;
-  const actionLabel = isConnection ? "Xem video" : !answerable ? "Xem video" : fullyAnswered ? "Xem bài đã nộp" : "Trả lời câu hỏi";
+  const actionLabel = isConnection
+    ? t("assignments.video.action.watch")
+    : !answerable
+      ? t("assignments.video.action.watch")
+      : fullyAnswered
+        ? t("assignments.video.action.reviewSubmitted")
+        : t("assignments.video.action.answer");
 
   return (
     <div
@@ -755,7 +782,8 @@ function ReviewVideoCard({
       <div className="space-y-2 flex-1 min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <span className="px-2.5 py-0.5 rounded-lg bg-teal/10 text-teal border border-teal/20 text-[11px] font-black flex items-center gap-1">
-            {isConnection ? <Link2 size={12} /> : <MessageCircle size={12} />} {isConnection ? "Video từ kết nối" : "Video phản xạ"}
+            {isConnection ? <Link2 size={12} /> : <MessageCircle size={12} />}{" "}
+            {isConnection ? t("assignments.video.connectionType") : t("assignments.video.reflexType")}
           </span>
           <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-muted text-[11px] font-bold truncate max-w-[200px]">{setTitle}</span>
           {statusBadge}
@@ -766,8 +794,8 @@ function ReviewVideoCard({
               }`}
             >
               <Clock size={12} />
-              {isOverdue ? "Đã quá hạn nộp — " : "Hạn nộp: "}
-              {formatDateTimeHm(dueAt)}
+              {isOverdue ? t("assignments.exercise.overduePrefix") : t("assignments.exercise.duePrefix")}
+              {formatDateTimeHm(dueAt, i18n.language)}
             </span>
           )}
           {/* V123, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-14 — GV Việt Nam/nước
@@ -775,11 +803,12 @@ function ReviewVideoCard({
               cho MỌI trạng thái theo yêu cầu người dùng. teacherType luôn có (thuộc tính của Bộ, kể
               cả video chỉ nằm trong Kho chưa được giao) — chỉ sessionDate cần bản giao thật. */}
           <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-muted border border-line text-[11px] font-black flex items-center gap-1">
-            <GraduationCap size={12} /> {item.teacherType === "VIETNAMESE" ? "Giáo viên Việt Nam phụ trách" : "Giáo viên nước ngoài phụ trách"}
+            <GraduationCap size={12} />{" "}
+            {item.teacherType === "VIETNAMESE" ? t("assignments.exercise.teacherVietnamese") : t("assignments.exercise.teacherForeign")}
           </span>
           {item.sessionDate && (
             <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-muted border border-line text-[11px] font-black flex items-center gap-1">
-              <CalendarDays size={12} /> Giao trong buổi {formatDate(item.sessionDate)}
+              <CalendarDays size={12} /> {t("assignments.exercise.assignedInSession", { date: formatDate(item.sessionDate, i18n.language) })}
             </span>
           )}
         </div>

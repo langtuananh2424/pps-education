@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { CheckCircle2, Lock, Mic, Play, RotateCcw, ShieldAlert } from "lucide-react";
 import { friendlyApiErrorMessage } from "@/lib/apiClient";
 import {
@@ -33,6 +34,7 @@ function buildLockedYouTubeEmbedSrc(videoId: string): string {
  * gian, không cho học sinh tự chọn). maxSeconds truyền vào lúc start() vì mỗi câu hỏi có giới hạn riêng.
  */
 function useAudioRecorder() {
+  const { t } = useTranslation("portal-exercises");
   const [recording, setRecording] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [maxSeconds, setMaxSeconds] = useState(0);
@@ -79,7 +81,7 @@ function useAudioRecorder() {
         if (elapsed >= limitSeconds) stop();
       }, 500);
     } catch {
-      setError("Không truy cập được microphone — kiểm tra quyền trình duyệt rồi thử lại.");
+      setError(t("reflexVideoTask.micAccessError"));
     }
   };
 
@@ -108,6 +110,7 @@ interface ReflexVideoTaskPageProps {
  * duyệt cho tới khi bấm "Nộp bài" mới đẩy lên backend — "Làm lại" xóa sạch bản ghi tạm, không tính lượt.
  */
 export default function ReflexVideoTaskPage({ video, onClose }: ReflexVideoTaskPageProps) {
+  const { t } = useTranslation("portal-exercises");
   const isYouTube = video.sourceType === "YOUTUBE_URL";
   const youTubeVideoId = isYouTube ? extractYouTubeVideoId(video.fileUrl) : null;
   const iframeId = "reflex-locked-video-frame";
@@ -130,7 +133,7 @@ export default function ReflexVideoTaskPage({ video, onClose }: ReflexVideoTaskP
         );
         setLatestSubmissions(Object.fromEntries(entries));
       })
-      .catch((err) => setQuestionsError(friendlyApiErrorMessage(err, "Không tải được danh sách câu hỏi.")))
+      .catch((err) => setQuestionsError(friendlyApiErrorMessage(err, t("reflexVideoTask.questionsLoadError"))))
       .finally(() => setLoadingQuestions(false));
   }, [video.id]);
 
@@ -346,7 +349,7 @@ export default function ReflexVideoTaskPage({ video, onClose }: ReflexVideoTaskP
       setDraftBlobs({});
       setSubmitted(true);
     } catch (err) {
-      setSubmitError(friendlyApiErrorMessage(err, "Nộp bài thất bại — thử lại."));
+      setSubmitError(friendlyApiErrorMessage(err, t("reflexVideoTask.submitError")));
     } finally {
       setSubmitting(false);
     }
@@ -366,7 +369,7 @@ export default function ReflexVideoTaskPage({ video, onClose }: ReflexVideoTaskP
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       stream.getTracks().forEach((t) => t.stop());
     } catch {
-      setMicError("Cần cấp quyền micro để làm bài — vui lòng cho phép truy cập microphone (biểu tượng khóa trên thanh địa chỉ) rồi bấm lại.");
+      setMicError(t("reflexVideoTask.micPermissionError"));
       setRequestingMic(false);
       return;
     }
@@ -396,7 +399,7 @@ export default function ReflexVideoTaskPage({ video, onClose }: ReflexVideoTaskP
           className="fixed top-6 left-1/2 -translate-x-1/2 z-[110] flex items-center gap-2 bg-rose-600 text-white pl-3 pr-4 py-2.5 rounded-2xl shadow-xl animate-alert-pop"
         >
           <ShieldAlert size={18} className="shrink-0" />
-          <span className="text-xs font-black">Đã ghi nhận: bạn vừa thoát ra ngoài khi đang làm bài!</span>
+          <span className="text-xs font-black">{t("monitoring.violationToast")}</span>
         </div>
       )}
 
@@ -404,20 +407,17 @@ export default function ReflexVideoTaskPage({ video, onClose }: ReflexVideoTaskP
         <div className="fixed inset-0 bg-ink/70 backdrop-blur-sm z-[120] flex items-center justify-center p-4">
           <div className="bg-white rounded-[20px] max-w-sm w-full shadow-2xl p-6 space-y-4 text-center">
             <h3 className="text-lg font-extrabold text-ink">{video.title}</h3>
-            <p className="text-xs font-bold text-muted">
-              Video sẽ tự phát toàn màn hình — không tua/tạm dừng được. Đến đúng mốc thời gian, hệ thống sẽ tự động ghi âm
-              câu trả lời của bạn.
-            </p>
+            <p className="text-xs font-bold text-muted">{t("reflexVideoTask.startScreen.description")}</p>
             {micError && <div className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-xl text-left">{micError}</div>}
             <button
               onClick={handleStart}
               disabled={requestingMic}
               className="w-full flex items-center justify-center gap-1.5 px-4 py-3 bg-teal hover:bg-teal-deep text-white rounded-xl text-sm font-extrabold disabled:opacity-50"
             >
-              <Play size={16} /> {requestingMic ? "Đang xin quyền micro..." : "Bắt đầu làm bài"}
+              <Play size={16} /> {requestingMic ? t("reflexVideoTask.startScreen.requestingMic") : t("reflexVideoTask.startScreen.startButton")}
             </button>
             <button onClick={handleExit} className="w-full px-4 py-2 text-xs font-extrabold text-muted hover:text-ink">
-              Thoát
+              {t("reflexVideoTask.startScreen.exitButton")}
             </button>
           </div>
         </div>
@@ -427,14 +427,14 @@ export default function ReflexVideoTaskPage({ video, onClose }: ReflexVideoTaskP
         <div className="fixed inset-0 bg-ink/60 z-[130] flex items-center justify-center p-4">
           <div className="bg-white rounded-[20px] max-w-sm w-full shadow-2xl p-6 space-y-4 text-center">
             <ShieldAlert size={36} className="text-amber-600 mx-auto" />
-            <h3 className="text-base font-extrabold text-ink">Thoát khi chưa nộp bài?</h3>
-            <p className="text-xs font-bold text-muted">Bạn có bản ghi âm chưa nộp — thoát ra sẽ mất toàn bộ bản ghi này.</p>
+            <h3 className="text-base font-extrabold text-ink">{t("reflexVideoTask.exitConfirm.title")}</h3>
+            <p className="text-xs font-bold text-muted">{t("reflexVideoTask.exitConfirm.description")}</p>
             <div className="flex gap-2">
               <button
                 onClick={() => setShowExitConfirm(false)}
                 className="flex-1 px-4 py-2.5 bg-white hover:bg-slate-100 border border-line rounded-xl text-xs font-extrabold text-ink"
               >
-                Ở lại làm bài
+                {t("reflexVideoTask.exitConfirm.stay")}
               </button>
               <button
                 onClick={() => {
@@ -443,7 +443,7 @@ export default function ReflexVideoTaskPage({ video, onClose }: ReflexVideoTaskP
                 }}
                 className="flex-1 px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-extrabold"
               >
-                Vẫn thoát
+                {t("reflexVideoTask.exitConfirm.stillExit")}
               </button>
             </div>
           </div>
@@ -453,20 +453,20 @@ export default function ReflexVideoTaskPage({ video, onClose }: ReflexVideoTaskP
       <div className="max-w-2xl lg:max-w-3xl w-full mx-auto p-4 sm:p-6 space-y-4 flex-1">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <span className="text-[10px] font-extrabold uppercase text-teal-deep tracking-wide">Video phản xạ</span>
+            <span className="text-[10px] font-extrabold uppercase text-teal-deep tracking-wide">{t("reflexVideoTask.badge")}</span>
             <h3 className="text-lg sm:text-xl lg:text-2xl font-extrabold text-ink truncate">{video.title}</h3>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {/* Chip ghim góc (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-12) — đồng bộ
                 với TakeExerciseModal, thay banner amber căng hết chiều rộng trước đây. */}
-            {isMonitoringActive && <MonitoringBadge violationCount={violationCount} exitNote="đổi tab/thu nhỏ/thoát toàn màn hình" />}
+            {isMonitoringActive && <MonitoringBadge violationCount={violationCount} exitNote={t("monitoring.reflexExitNote")} />}
             <button
               onClick={handleExit}
               // Làm nổi bật (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-12) — đồng bộ màu
               // sắc với nút Đóng của TakeExerciseModal, dễ nhận biết hành động thoát.
               className="shrink-0 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 text-xs sm:text-sm font-extrabold transition-colors"
             >
-              Thoát
+              {t("reflexVideoTask.exitButton")}
             </button>
           </div>
         </div>
@@ -506,9 +506,9 @@ export default function ReflexVideoTaskPage({ video, onClose }: ReflexVideoTaskP
         {submitError && <div className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-xl">{submitError}</div>}
 
         {loadingQuestions ? (
-          <p className="text-xs text-muted font-bold">Đang tải câu hỏi...</p>
+          <p className="text-xs text-muted font-bold">{t("reflexVideoTask.loadingQuestions")}</p>
         ) : questions.length === 0 ? (
-          <p className="text-xs text-muted font-bold italic">Video này chưa có câu hỏi nào.</p>
+          <p className="text-xs text-muted font-bold italic">{t("reflexVideoTask.noQuestions")}</p>
         ) : (
           <div className="space-y-3">
             {questions.map((q, i) => {
@@ -526,27 +526,29 @@ export default function ReflexVideoTaskPage({ video, onClose }: ReflexVideoTaskP
                 >
                   <div className="flex items-center justify-between gap-2 text-[10px] sm:text-[11px] font-extrabold text-teal-deep uppercase tracking-wide">
                     <span className="flex items-center gap-1.5">
-                      Câu hỏi {i + 1}
+                      {t("reflexVideoTask.question.label", { index: i + 1 })}
                       <span className="px-1.5 py-0.5 rounded-md bg-white/70 text-teal-deep normal-case font-bold">{formatTimestamp(q.timestampSeconds)}</span>
                     </span>
-                    {q.maxAttempts != null && <span className="text-muted normal-case">{attemptsUsed(q.id)}/{q.maxAttempts} lượt nộp</span>}
+                    {q.maxAttempts != null && (
+                      <span className="text-muted normal-case">{t("reflexVideoTask.question.attemptsUsed", { used: attemptsUsed(q.id), max: q.maxAttempts })}</span>
+                    )}
                   </div>
                   {q.prompt && <p className="text-sm sm:text-base lg:text-lg font-bold text-ink">{q.prompt}</p>}
 
                   {isActive ? (
                     <div className="flex items-center gap-1.5 px-3.5 py-2 bg-coral text-white rounded-xl text-xs font-extrabold animate-pulse w-fit">
-                      <Mic size={13} /> Đang ghi âm ({recorder.elapsedSeconds}s/{recorder.maxSeconds}s)
+                      <Mic size={13} /> {t("reflexVideoTask.question.recording", { elapsed: recorder.elapsedSeconds, max: recorder.maxSeconds })}
                     </div>
                   ) : hasDraft ? (
-                    <p className="text-[11px] font-bold text-emerald-700">✓ Đã ghi âm — nộp bài để lưu lại.</p>
+                    <p className="text-[11px] font-bold text-emerald-700">{t("reflexVideoTask.question.draftSaved")}</p>
                   ) : exhausted ? (
-                    <p className="text-[10px] font-extrabold text-rose-600 uppercase">Đã hết lượt nộp lại cho câu hỏi này.</p>
+                    <p className="text-[10px] font-extrabold text-rose-600 uppercase">{t("reflexVideoTask.question.attemptsExhausted")}</p>
                   ) : alreadySubmitted ? (
-                    <p className="text-[11px] font-bold text-emerald-700">✓ Đã nộp.</p>
+                    <p className="text-[11px] font-bold text-emerald-700">{t("reflexVideoTask.question.alreadySubmitted")}</p>
                   ) : wasTriggered ? (
-                    <p className="text-[11px] font-bold text-muted">Không ghi âm được lúc này.</p>
+                    <p className="text-[11px] font-bold text-muted">{t("reflexVideoTask.question.cannotRecordNow")}</p>
                   ) : (
-                    <p className="text-[11px] font-bold text-muted">Sẽ tự động ghi âm khi video chạy tới mốc thời gian này.</p>
+                    <p className="text-[11px] font-bold text-muted">{t("reflexVideoTask.question.waitingForTimestamp")}</p>
                   )}
                   {recorder.error && isActive && <p className="text-[11px] font-bold text-rose-600">{recorder.error}</p>}
                 </div>
@@ -561,7 +563,7 @@ export default function ReflexVideoTaskPage({ video, onClose }: ReflexVideoTaskP
           <div className="max-w-2xl lg:max-w-3xl w-full mx-auto flex gap-3">
             {submitted ? (
               <div className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-700 text-sm sm:text-base font-extrabold">
-                <CheckCircle2 size={16} /> Đã nộp bài thành công!
+                <CheckCircle2 size={16} /> {t("reflexVideoTask.submittedSuccess")}
               </div>
             ) : (
               <>
@@ -570,14 +572,14 @@ export default function ReflexVideoTaskPage({ video, onClose }: ReflexVideoTaskP
                   disabled={submitting}
                   className="flex-1 flex items-center justify-center gap-1.5 px-4 py-3 sm:py-3.5 bg-white hover:bg-slate-100 border border-line rounded-xl text-sm sm:text-base font-extrabold text-ink disabled:opacity-50"
                 >
-                  <RotateCcw size={15} /> Làm lại
+                  <RotateCcw size={15} /> {t("reflexVideoTask.retryButton")}
                 </button>
                 <button
                   onClick={handleSubmit}
                   disabled={submitting || !hasDrafts}
                   className="flex-1 px-4 py-3 sm:py-3.5 bg-teal hover:bg-teal-deep text-white rounded-xl text-sm sm:text-base font-extrabold disabled:opacity-50"
                 >
-                  {submitting ? "Đang nộp..." : "Nộp bài"}
+                  {submitting ? t("reflexVideoTask.submitting") : t("reflexVideoTask.submitButton")}
                 </button>
               </>
             )}
@@ -585,7 +587,7 @@ export default function ReflexVideoTaskPage({ video, onClose }: ReflexVideoTaskP
           {submitted && (
             <div className="max-w-2xl lg:max-w-3xl w-full mx-auto mt-3">
               <button onClick={onClose} className="w-full px-4 py-2.5 bg-sky-2 hover:bg-sky text-ink rounded-xl text-xs sm:text-sm font-extrabold">
-                Quay lại danh sách bài tập
+                {t("reflexVideoTask.backToList")}
               </button>
             </div>
           )}

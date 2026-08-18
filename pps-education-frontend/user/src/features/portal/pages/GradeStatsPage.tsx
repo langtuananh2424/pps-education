@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from "recharts";
 import { Award } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import {
   GradeComponentSetupResponse,
@@ -24,6 +25,7 @@ function parseTermInfo(academicTermName: string): { termNumber: string; year: st
 }
 
 export default function GradeStatsPage({ studentId, classId }: GradeStatsPageProps) {
+  const { t } = useTranslation("portal-grades");
   const [setupResults, setSetupResults] = useState<{ setup: GradeComponentSetupResponse; result: GradeEvaluationResultResponse }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -54,7 +56,7 @@ export default function GradeStatsPage({ studentId, classId }: GradeStatsPagePro
         const filtered = rows.filter((r): r is { setup: GradeComponentSetupResponse; result: GradeEvaluationResultResponse } => r !== null);
         setSetupResults(filtered);
       })
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được dữ liệu thống kê."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("stats.loadError")))
       .finally(() => setLoading(false));
   }, [studentId, classId]);
 
@@ -62,17 +64,17 @@ export default function GradeStatsPage({ studentId, classId }: GradeStatsPagePro
     return setupResults
       .map((sr) => {
         const { termNumber, year } = parseTermInfo(sr.setup.academicTermName);
-        const evaluationLabel = sr.setup.evaluationType === "MID_TERM" ? "Giữa kỳ" : "Cuối kỳ";
+        const evaluationLabel = sr.setup.evaluationType === "MID_TERM" ? t("evaluationLabels.midTerm") : t("evaluationLabels.finalTerm");
         return {
-          name: `HK${termNumber} (${year}) — ${evaluationLabel}`,
+          name: t("stats.termLabel", { termNumber, year, evaluation: evaluationLabel }),
           overall: sr.result.overallScore ? parseFloat(sr.result.overallScore.toString()) : null,
           level: sr.result.level || "N/A"
         };
       })
       .filter((d) => d.overall !== null);
-  }, [setupResults]);
+  }, [setupResults, t]);
 
-  if (loading) return <p className="text-sm text-muted font-bold">Đang tải...</p>;
+  if (loading) return <p className="text-sm text-muted font-bold">{t("loading")}</p>;
 
   if (error) {
     return (
@@ -85,7 +87,7 @@ export default function GradeStatsPage({ studentId, classId }: GradeStatsPagePro
   if (setupResults.length === 0) {
     return (
       <div className="bg-white border border-line/80 p-6 rounded-[20px] shadow-[0_8px_30px_rgba(30,42,69,0.03)]">
-        <p className="text-xs text-muted font-bold italic">Chưa có điểm nào để thống kê.</p>
+        <p className="text-xs text-muted font-bold italic">{t("stats.empty")}</p>
       </div>
     );
   }
@@ -95,7 +97,7 @@ export default function GradeStatsPage({ studentId, classId }: GradeStatsPagePro
       <div className="bg-white border border-line/80 p-6 rounded-[20px] shadow-[0_8px_30px_rgba(30,42,69,0.03)] space-y-5">
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-extrabold text-ink flex items-center gap-2">
-            <Award className="text-teal" /> Thống kê điểm qua từng kỳ
+            <Award className="text-teal" /> {t("stats.title")}
           </h2>
           <div className="flex gap-2">
             <button
@@ -106,7 +108,7 @@ export default function GradeStatsPage({ studentId, classId }: GradeStatsPagePro
                   : "text-teal-deep hover:bg-teal/5"
               }`}
             >
-              Biểu đồ cột
+              {t("stats.chartTypeBar")}
             </button>
             <button
               onClick={() => setChartType("line")}
@@ -116,7 +118,7 @@ export default function GradeStatsPage({ studentId, classId }: GradeStatsPagePro
                   : "text-teal-deep hover:bg-teal/5"
               }`}
             >
-              Biểu đồ đoạn
+              {t("stats.chartTypeLine")}
             </button>
           </div>
         </div>
@@ -137,7 +139,7 @@ export default function GradeStatsPage({ studentId, classId }: GradeStatsPagePro
                   <YAxis
                     domain={[0, 100]}
                     tick={{ fontSize: 12 }}
-                    label={{ value: "Điểm Overall (0-100)", angle: -90, position: "insideLeft" }}
+                    label={{ value: t("stats.yAxisLabel"), angle: -90, position: "insideLeft" }}
                   />
                   <Tooltip
                     contentStyle={{
@@ -147,13 +149,13 @@ export default function GradeStatsPage({ studentId, classId }: GradeStatsPagePro
                       padding: "8px"
                     }}
                     formatter={(value, name) => {
-                      if (name === "overall") return [`${typeof value === "number" ? value.toFixed(2) : value}`, "Overall"];
+                      if (name === t("stats.overallSeries")) return [`${typeof value === "number" ? value.toFixed(2) : value}`, t("stats.overallSeries")];
                       return [value, name];
                     }}
                     labelStyle={{ color: "#1e2a45", fontWeight: "600" }}
                   />
                   <Legend wrapperStyle={{ fontSize: "12px" }} />
-                  <Bar dataKey="overall" fill="#0ea5a5" radius={[8, 8, 0, 0]} />
+                  <Bar dataKey="overall" name={t("stats.overallSeries")} fill="#0ea5a5" radius={[8, 8, 0, 0]} />
                 </BarChart>
               ) : (
                 <LineChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 60 }}>
@@ -168,7 +170,7 @@ export default function GradeStatsPage({ studentId, classId }: GradeStatsPagePro
                   <YAxis
                     domain={[0, 100]}
                     tick={{ fontSize: 12 }}
-                    label={{ value: "Điểm Overall (0-100)", angle: -90, position: "insideLeft" }}
+                    label={{ value: t("stats.yAxisLabel"), angle: -90, position: "insideLeft" }}
                   />
                   <Tooltip
                     contentStyle={{
@@ -178,7 +180,7 @@ export default function GradeStatsPage({ studentId, classId }: GradeStatsPagePro
                       padding: "8px"
                     }}
                     formatter={(value, name) => {
-                      if (name === "overall") return [`${typeof value === "number" ? value.toFixed(2) : value}`, "Overall"];
+                      if (name === t("stats.overallSeries")) return [`${typeof value === "number" ? value.toFixed(2) : value}`, t("stats.overallSeries")];
                       return [value, name];
                     }}
                     labelStyle={{ color: "#1e2a45", fontWeight: "600" }}
@@ -187,6 +189,7 @@ export default function GradeStatsPage({ studentId, classId }: GradeStatsPagePro
                   <Line
                     type="monotone"
                     dataKey="overall"
+                    name={t("stats.overallSeries")}
                     stroke="#0ea5a5"
                     dot={{ fill: "#0ea5a5", r: 4 }}
                     activeDot={{ r: 6 }}
@@ -198,19 +201,19 @@ export default function GradeStatsPage({ studentId, classId }: GradeStatsPagePro
           </div>
         ) : (
           <p className="text-xs text-muted font-bold italic text-center py-8">
-            Không có dữ liệu để vẽ biểu đồ.
+            {t("stats.noChartData")}
           </p>
         )}
       </div>
 
       {/* Bảng thống kê chi tiết */}
       <div className="bg-white border border-line/80 p-6 rounded-[20px] shadow-[0_8px_30px_rgba(30,42,69,0.03)]">
-        <h3 className="text-sm font-extrabold text-ink mb-4">Chi tiết từng kỳ</h3>
+        <h3 className="text-sm font-extrabold text-ink mb-4">{t("stats.detailsHeading")}</h3>
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-100/80 border-b border-line text-sm font-black uppercase text-[#6e7c93] tracking-wider">
-                <th className="p-3 pl-4">Kỳ học</th>
+                <th className="p-3 pl-4">{t("stats.termHeader")}</th>
                 <th className="p-3 text-center">Overall</th>
                 <th className="p-3 text-center">Level</th>
               </tr>
@@ -218,11 +221,11 @@ export default function GradeStatsPage({ studentId, classId }: GradeStatsPagePro
             <tbody className="divide-y divide-line/60 text-sm font-bold text-ink">
               {setupResults.map((sr) => {
                 const { termNumber, year } = parseTermInfo(sr.setup.academicTermName);
-                const evaluationLabel = sr.setup.evaluationType === "MID_TERM" ? "Giữa kỳ" : "Cuối kỳ";
+                const evaluationLabel = sr.setup.evaluationType === "MID_TERM" ? t("evaluationLabels.midTerm") : t("evaluationLabels.finalTerm");
                 return (
                   <tr key={sr.setup.id} className="hover:bg-slate-50/80">
                     <td className="p-3 pl-4 font-extrabold">
-                      HK{termNumber} ({year}) — {evaluationLabel}
+                      {t("stats.termLabel", { termNumber, year, evaluation: evaluationLabel })}
                     </td>
                     <td className="p-3 text-center text-[17px] font-extrabold text-teal-deep">
                       {sr.result.overallScore ?? "—"}

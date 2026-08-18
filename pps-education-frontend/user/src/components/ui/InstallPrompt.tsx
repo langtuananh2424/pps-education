@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Download, Share, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 const DISMISSED_KEY = "pps-install-prompt-dismissed";
 
@@ -28,6 +29,7 @@ function isIos(): boolean {
  * nên chỉ hướng dẫn thao tác thủ công (Chia sẻ → Thêm vào MH chính).
  */
 export default function InstallPrompt() {
+  const { t } = useTranslation("common");
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [showIosHint, setShowIosHint] = useState(false);
   const [dismissed, setDismissed] = useState(() => localStorage.getItem(DISMISSED_KEY) === "1");
@@ -70,22 +72,20 @@ export default function InstallPrompt() {
         {showIosHint ? <Share size={18} /> : <Download size={18} />}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-black text-ink">Cài đặt PPS Portal</p>
+        <p className="text-sm font-black text-ink">{t("installPrompt.title")}</p>
         <p className="text-xs text-muted">
-          {showIosHint
-            ? "Nhấn nút Chia sẻ rồi chọn “Thêm vào MH chính” để dùng như app."
-            : "Thêm vào màn hình chính để mở nhanh như một ứng dụng."}
+          {showIosHint ? t("installPrompt.iosHint") : t("installPrompt.androidHint")}
         </p>
       </div>
       {!showIosHint && (
         <button type="button" onClick={handleInstall} className="btn-geometric-active shrink-0 !px-3 !py-2 text-xs">
-          Cài đặt
+          {t("installPrompt.installButton")}
         </button>
       )}
       <button
         type="button"
         onClick={dismiss}
-        aria-label="Đóng"
+        aria-label={t("installPrompt.close")}
         className="shrink-0 text-muted hover:text-ink"
       >
         <X size={16} />
