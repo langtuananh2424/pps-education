@@ -1428,6 +1428,21 @@ dùng), `StudentComment.CommentType` nay chỉ còn DAILY.
     chưa từng được chọn: không cần màn theo dõi riêng, chỉ dùng cho
     dropdown ở đây.
 
+-   **Bổ sung 2026-08-18 (đã xác nhận với người dùng) — bỏ ràng buộc loại
+    trừ lẫn nhau giữa `homeworkNext` (offline) và
+    `homeworkNextExerciseAssignment` (online) của kênh Ngữ pháp:** trước
+    đây 1 dòng DAILY chỉ được điền ĐÚNG 1 trong 2 (chặn 400 nếu điền cả
+    hai). Từ nay 2 field hoàn toàn ĐỘC LẬP — 1 buổi giao được ĐỒNG THỜI cả
+    3 loại BTVN cho 1 học sinh: offline (chữ tự do), online Ngữ pháp
+    (Exercise) và Video Ôn tập (kênh riêng, không đổi). API JSON
+    (`writeComment`/`updateComment`) thực ra chưa từng chặn tổ hợp này —
+    chỉ luồng Excel import (`StudentCommentService#parseRow`) còn chặn,
+    nay gỡ bỏ cho nhất quán 2 luồng. FE (`DailyCommentPanel.tsx`) bỏ hành
+    vi tự xoá ô kia khi điền 1 ô (cả bảng nhập từng dòng lẫn "Gán nhanh
+    cho cả lớp"). Kênh Video KHÔNG đổi — 1 buổi vẫn chỉ chọn 1 bộ video
+    (CONNECTION cho GVVN/REFLEX cho GVNN theo `teacherType`, đã phân biệt
+    sẵn qua dropdown lọc theo Loại giáo viên — không cần 2 slot song song).
+
 -   **Bổ sung 2026-08-12 (đã xác nhận với người dùng) — "BTVN buổi trước"
     (V55) đối chiếu theo TỪNG LOẠI GIÁO VIÊN, không còn buổi liền kề tuyệt
     đối:** "Dòng của buổi N lưu sẽ giao gì cho buổi N+1" ở V55 phía trên
@@ -2415,5 +2430,115 @@ thêm bảng snapshot. FE gọi endpoint này 2 lần (1 lần/kỳ) khi actor c
 sánh với kỳ khác" để vẽ 2 đường chồng lên nhau theo `monthIndex` (tháng thứ
 mấy của kỳ, không phải tháng lịch tuyệt đối) — cho phép so sánh công bằng 2
 kỳ có độ dài/thời điểm lịch khác nhau.
+
+---
+
+UC-71: Nhận lớp (bổ sung HOÀN TOÀN ngoài SDD/SRS gốc, đã xác nhận với người
+dùng 2026-08-18)
+
++-----------------+----------------------------------------------------+
+| **Mã Use Case** | UC-71                                              |
++-----------------+----------------------------------------------------+
+| **Tên Use       | Nhận lớp                                           |
+| Case**          |                                                    |
++-----------------+----------------------------------------------------+
+| **Phân hệ**     | Phân hệ 6                                          |
++-----------------+----------------------------------------------------+
+| **Yêu cầu chức  | Bổ sung ngoài SDD/SRS gốc, xác nhận 2026-08-18      |
+| năng gốc**      |                                                    |
++-----------------+----------------------------------------------------+
+| **Tác nhân**    | Giáo viên                                          |
++-----------------+----------------------------------------------------+
+| **Mô tả tóm     | Giáo viên xác nhận có mặt để dạy TỪNG buổi học      |
+| tắt**           | (class_sessions) — độc lập với chấm công ca hành    |
+|                 | chính (UC-09), áp dụng cho MỌI giáo viên (full-time |
+|                 | lẫn part-time) có buổi dạy. Không có check-out; hệ  |
+|                 | thống chỉ ghi nhận đã có mặt để dạy buổi đó hay      |
+|                 | chưa. Ví dụ 2 ca chiều (1-2h, 3-4h) của cùng 1 GV    |
+|                 | cần 2 lượt nhận lớp riêng biệt.                     |
++-----------------+----------------------------------------------------+
+| **Sự kiện kích  | Giáo viên đến điểm trường chuẩn bị dạy 1 buổi học   |
+| hoạt**          | đã được xếp lịch (UC-48).                           |
++-----------------+----------------------------------------------------+
+| **Điều kiện     | -   Buổi học (class_sessions) tồn tại, trạng thái   |
+| tiên quyết      |     KHÔNG phải CANCELLED/RESCHEDULED.               |
+| (               |                                                    |
+| Precondition)** | -   Giáo viên thao tác là primary_teacher_id của    |
+|                 |     đúng buổi học đó tại thời điểm nhận lớp (tự     |
+|                 |     động đúng cả trường hợp dạy thay — UC-10 cập    |
+|                 |     nhật primary_teacher_id theo từng buổi).        |
++-----------------+----------------------------------------------------+
+| **Luồng sự kiện | 1.  Giáo viên mở buổi học cần nhận lớp (từ "Lịch    |
+| chính (Main     |     của tôi" — UC-58), bấm "Nhận lớp".              |
+| Flow)**         |                                                    |
+|                 | 2.  Hệ thống xác định điểm trường của buổi học qua  |
+|                 |     class_sessions.class_id → classes.site_id (KHÔNG |
+|                 |     qua ca/điểm trường gán cho nhân sự như UC-09).  |
+|                 |                                                    |
+|                 | 3.  Hệ thống tính cửa sổ nhận lớp hợp lệ: [giờ bắt  |
+|                 |     đầu buổi học - 15 phút, giờ kết thúc buổi học]. |
+|                 |                                                    |
+|                 | 4.  Hệ thống kiểm tra thời điểm nhận lớp T có thuộc |
+|                 |     cửa sổ hợp lệ hay không (A1, A2).               |
+|                 |                                                    |
+|                 | 5.  Hệ thống kiểm tra buổi học này đã có lượt nhận  |
+|                 |     lớp nào chưa (A3 — chỉ 1 lượt/buổi học).        |
+|                 |                                                    |
+|                 | 6.  Hệ thống kiểm tra vị trí GPS gửi lên có nằm     |
+|                 |     trong bán kính cho phép (system_settings.       |
+|                 |     attendance.gps_radius_meters — DÙNG CHUNG cấu   |
+|                 |     hình bán kính với UC-09, không tạo setting mới) |
+|                 |     quanh điểm trường đã xác định ở bước 2 hay      |
+|                 |     không (A4).                                     |
+|                 |                                                    |
+|                 | 7.  Nếu hợp lệ, hệ thống xác định trạng thái: T <   |
+|                 |     giờ bắt đầu buổi học → ON_TIME (đúng giờ); T ≥  |
+|                 |     giờ bắt đầu (nhưng vẫn trong giờ học, theo cửa  |
+|                 |     sổ bước 3) → LATE (muộn).                       |
+|                 |                                                    |
+|                 | 8.  Hệ thống ghi nhận bản ghi nhận lớp thành công   |
+|                 |     (class_session_check_ins) cho buổi học đó.      |
++-----------------+----------------------------------------------------+
+| **Luồng thay    | ***A1 --- Chưa tới giờ nhận lớp***                  |
+| thế / ngoại lệ  |                                                    |
+| (Alternate      | 1.  T sớm hơn (giờ bắt đầu - 15 phút), hệ thống từ  |
+| Flow)**         |     chối, thông báo chưa tới giờ nhận lớp.          |
+|                 |                                                    |
+|                 | ***A2 --- Hết giờ nhận lớp***                       |
+|                 |                                                    |
+|                 | 1.  T muộn hơn giờ kết thúc buổi học, hệ thống từ   |
+|                 |     chối. Buổi học được coi là "vắng/không nhận     |
+|                 |     lớp" — trạng thái này TÍNH RA khi đọc (không có |
+|                 |     bản ghi trong class_session_check_ins và đã qua |
+|                 |     giờ kết thúc), không cần ghi thêm dữ liệu nào.  |
+|                 |                                                    |
+|                 | ***A3 --- Đã nhận lớp rồi***                        |
+|                 |                                                    |
+|                 | 1.  Buổi học đã có 1 bản ghi nhận lớp (bất kể ai    |
+|                 |     nhận), hệ thống từ chối, không tạo bản ghi mới  |
+|                 |     (idempotent — không có "nhận lại").             |
+|                 |                                                    |
+|                 | ***A4 --- GPS ngoài bán kính***                     |
+|                 |                                                    |
+|                 | 1.  Hệ thống từ chối, yêu cầu giáo viên di chuyển   |
+|                 |     vào phạm vi cho phép quanh điểm trường của buổi |
+|                 |     học rồi thử lại.                                |
++-----------------+----------------------------------------------------+
+| **Hậu điều kiện | -   Bản ghi nhận lớp hợp lệ được lưu (ON_TIME/      |
+| (P              |     LATE), làm đầu vào cho trang thống kê "Lịch làm |
+| ostcondition)** |     việc" (UC-70) và (nếu áp dụng) tính lương giáo  |
+|                 |     viên part-time theo giờ dạy thực tế.            |
+|                 |                                                    |
+|                 | -   Trường hợp bị từ chối (A1-A4): không có bản ghi |
+|                 |     nào được tạo.                                   |
++-----------------+----------------------------------------------------+
+
+**Trạng thái nhận lớp TÍNH RA (không lưu DB) khi hiển thị danh sách buổi
+học** — dùng chung cho "Lịch của tôi" (GV tự xem) và "Lịch làm việc" (UC-70,
+xem ghi chú dưới UC-70 ở docs/uc/phan-he-04-nhan-su.md): `NOT_YET_OPEN`
+(chưa tới giờ mở cửa sổ), `PENDING` (cửa sổ đang mở, chưa nhận), `ON_TIME`/
+`LATE` (đã nhận, lấy nguyên trạng thái đã lưu), `ABSENT` (đã qua giờ kết
+thúc, không có bản ghi). Buổi CANCELLED/RESCHEDULED không tính trạng thái
+này (không cần nhận lớp). Xem `ClassSessionCheckInService#listEffectiveStatus`.
 
 Phân hệ 7 --- Cổng thông tin và E-Learning (Portal & LMS)

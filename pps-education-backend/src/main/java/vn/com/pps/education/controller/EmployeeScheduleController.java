@@ -3,11 +3,13 @@ package vn.com.pps.education.controller;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import vn.com.pps.education.dto.EmployeeScheduleOverviewResponse;
+import vn.com.pps.education.security.AuthenticatedUser;
 import vn.com.pps.education.service.EmployeeScheduleService;
 
 import java.time.LocalDate;
@@ -38,7 +40,8 @@ public class EmployeeScheduleController {
             @RequestParam(required = false) Long departmentId,
             @RequestParam(required = false) Long siteId,
             @RequestParam(required = false) Long classId,
-            @RequestParam(required = false) Long employeeId) {
-        return ResponseEntity.ok(employeeScheduleService.getOverview(from, to, departmentId, siteId, classId, employeeId));
+            @RequestParam(required = false) Long employeeId,
+            @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(employeeScheduleService.getOverview(from, to, departmentId, siteId, classId, employeeId, actor.userId()));
     }
 }

@@ -252,6 +252,19 @@ cặp `applies_to_weekdays`/`week_parity` đã có (không thêm cột mới):
   nào trong số đó khớp `applies_to_weekdays`/`week_parity` với ngày hôm
   nay (nhờ validate chống chồng chéo ở trên, tối đa 1 ca khớp mỗi ngày).
 
+> **Bổ sung 2026-08-18 (ngoài Main Flow gốc, đã xác nhận với người dùng,
+> migration V126) — gộp UC-71 "Nhận lớp" vào trang "Lịch làm việc":**
+> `GET /api/hrm/employee-schedules` trả thêm `classSessionCheckIns` (trạng
+> thái nhận lớp TÍNH RA của mỗi buổi dạy trong `sessions` — xem UC-71,
+> `docs/uc/phan-he-06-hoc-thuat.md`). Đồng thời mở rộng quyền
+> `hrm.employee-schedule.view` cho vai trò `SITE_MANAGER` (trước chỉ
+> `HR_MANAGER/EXECUTIVE/SUPER_ADMIN/SYS_ADMIN` — V125): Quản lý điểm trường
+> giờ xem được trang này nhưng bị site-scope tự động theo `site_managers`
+> của chính actor (`EmployeeScheduleService.resolveEffectiveSiteIds`) — chỉ
+> thấy roster (ca làm + lịch dạy + nhận lớp) của (các) điểm trường mình phụ
+> trách; nhóm vai trò cũ (không có row `site_managers`) không bị ảnh hưởng,
+> vẫn xem toàn trung tâm như trước.
+
 ---
 
 UC-10: Nộp đơn từ

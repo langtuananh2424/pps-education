@@ -24,6 +24,7 @@ import vn.com.pps.education.dto.ExerciseAssignmentResponse;
 import vn.com.pps.education.dto.ExerciseQuestionChoiceResponse;
 import vn.com.pps.education.dto.ExerciseQuestionResponse;
 import vn.com.pps.education.dto.ExerciseResponse;
+import vn.com.pps.education.dto.UpdateExerciseQuestionPointsRequest;
 import vn.com.pps.education.dto.UpdateExerciseRequest;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
@@ -216,6 +217,8 @@ public class ExerciseService {
         if (exerciseQuestionRepository.existsByExerciseIdAndQuestionId(exerciseId, request.questionId())) {
             throw new IllegalArgumentException("Câu hỏi này đã có trong đề rồi.");
         }
+        requireWithinTotalPoints(exercise, exerciseQuestionRepository.findByExerciseIdOrderByDisplayOrder(exerciseId),
+                null, request.points());
 
         ExerciseQuestion eq = new ExerciseQuestion();
         eq.setExercise(exercise);
@@ -224,6 +227,49 @@ public class ExerciseService {
         eq.setPoints(request.points());
         eq = exerciseQuestionRepository.save(eq);
         return toResponse(eq);
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-18 — cho phép Giáo viên sửa lại điểm
+     * của 1 câu hỏi ĐÃ gắn vào Bài (trước đây chỉ set 1 lần lúc gắn, không sửa lại được). Mirror
+     * removeQuestion: chỉ sửa được khi Bài còn DRAFT (tránh đổi điểm sau khi đã Publish/học sinh có
+     * thể đã làm bài, ảnh hưởng ngược lại điểm đã chấm).
+     */
+    @Transactional
+    public ExerciseQuestionResponse updateQuestionPoints(Long exerciseId, Long exerciseQuestionId,
+                                                           UpdateExerciseQuestionPointsRequest request, Long actorUserId) {
+        Exercise exercise = getExerciseOrThrow(exerciseId);
+        if (exercise.getStatus() != Exercise.Status.DRAFT) {
+            throw new IllegalArgumentException(
+                    "Đề này đã Publish — không sửa điểm câu hỏi được nữa, chỉ sửa được khi còn Nháp (DRAFT).");
+        }
+        List<ExerciseQuestion> questions = exerciseQuestionRepository.findByExerciseIdOrderByDisplayOrder(exerciseId);
+        ExerciseQuestion eq = questions.stream().filter(q -> q.getId().equals(exerciseQuestionId)).findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Không tìm thấy câu hỏi id=" + exerciseQuestionId + " trong đề id=" + exerciseId));
+        requireWithinTotalPoints(exercise, questions, exerciseQuestionId, request.points());
+        eq.setPoints(request.points());
+        eq = exerciseQuestionRepository.save(eq);
+        return toResponse(eq);
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-18 — tổng điểm các câu hỏi trong 1
+     * Bài không được vượt quá {@code exercises.total_points} đã setup lúc tạo/sửa Bài.
+     * {@code excludeQuestionId} dùng khi SỬA điểm 1 câu đã có sẵn — loại điểm cũ của chính câu đó ra
+     * khỏi tổng trước khi cộng điểm mới vào, tránh đếm trùng.
+     */
+    private void requireWithinTotalPoints(Exercise exercise, List<ExerciseQuestion> existingQuestions,
+                                           Long excludeQuestionId, BigDecimal newPoints) {
+        BigDecimal currentTotal = existingQuestions.stream()
+                .filter(q -> excludeQuestionId == null || !q.getId().equals(excludeQuestionId))
+                .map(ExerciseQuestion::getPoints)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal newTotal = currentTotal.add(newPoints);
+        if (newTotal.compareTo(exercise.getTotalPoints()) > 0) {
+            throw new IllegalArgumentException(
+                    "Tổng điểm câu hỏi (" + newTotal + ") vượt quá điểm tổng đã setup cho Bài (" + exercise.getTotalPoints() + ").");
+        }
     }
 
     /**

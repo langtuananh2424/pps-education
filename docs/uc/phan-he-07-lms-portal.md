@@ -1277,6 +1277,26 @@ UC-40: Soạn & giao đề kiểm tra
 > với bất kỳ vai trò nào. Không chuyển bank/xóa/clone câu cũ; các liên kết
 > `exercise_questions`/`student_answers` cũ giữ nguyên.
 
+> **Bổ sung điểm từng câu hỏi (2026-08-18, đã xác nhận với người dùng) —
+> ràng buộc tổng điểm + sửa lại được sau khi gắn:** `exercise_questions.
+> points` đã có sẵn từ đầu (mỗi câu 1 điểm riêng, độc lập với `questions.
+> default_points` — điểm mặc định khi câu còn ở ngân hàng) nhưng trước đây
+> (1) FE luôn tự set = `defaultPoints`, GV không sửa được lúc soạn, và (2)
+> BE không validate tổng điểm — có thể gắn câu hỏi vượt quá
+> `exercises.total_points` đã setup mà không báo lỗi. Từ nay:
+> 1. `addQuestion` chặn (400) nếu tổng điểm (câu đã có + câu mới) vượt
+>    `exercises.total_points` — xem `ExerciseService#requireWithinTotalPoints`.
+> 2. Endpoint MỚI `PUT /api/exercises/{id}/questions/{exerciseQuestionId}/points`
+>    (quyền `lms.exercise.update`, `ExerciseService#updateQuestionPoints`)
+>    cho sửa lại điểm 1 câu ĐÃ gắn — mirror `removeQuestion`: chỉ sửa được
+>    khi Bài còn DRAFT, cũng validate tổng điểm (loại điểm cũ của chính câu
+>    đó ra trước khi cộng điểm mới).
+> 3. FE (`CreateAndAssignExerciseModal.tsx`/`ExerciseAssignPage.tsx`) hiện
+>    input điểm sửa được cho từng câu (thay vì chỉ hiển thị), cộng hiển thị
+>    tổng điểm đã gắn so với `exercises.total_points`.
+> 4. Giới hạn ở cấp Bài (`exercises.total_points`), KHÔNG phải cấp Đề
+>    (`exams` chưa có field tổng điểm, 1 Đề chứa nhiều Bài).
+
 > **Bổ sung V84 (2026-08-04, đã xác nhận với người dùng) — Soạn Bài đổi
 > hẳn theo `teacher_type` của Đề, thêm loại Bài "Video phản xạ":**
 > `teacher_type` (V74) từ chỗ chỉ là filter tìm kiếm, nay quyết định luôn

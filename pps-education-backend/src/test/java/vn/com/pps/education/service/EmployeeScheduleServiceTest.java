@@ -11,6 +11,7 @@ import vn.com.pps.education.domain.EmployeeShift;
 import vn.com.pps.education.domain.SchoolClass;
 import vn.com.pps.education.domain.Shift;
 import vn.com.pps.education.domain.Site;
+import vn.com.pps.education.domain.SiteManager;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.domain.ClassSession;
 import vn.com.pps.education.dto.EmployeeScheduleOverviewResponse;
@@ -21,6 +22,7 @@ import vn.com.pps.education.repository.EmployeeRepository;
 import vn.com.pps.education.repository.EmployeeShiftRepository;
 import vn.com.pps.education.repository.SchoolClassRepository;
 import vn.com.pps.education.repository.ShiftRepository;
+import vn.com.pps.education.repository.SiteManagerRepository;
 import vn.com.pps.education.repository.SiteRepository;
 import vn.com.pps.education.repository.UserRepository;
 import vn.com.pps.education.support.AbstractIntegrationTest;
@@ -76,6 +78,9 @@ class EmployeeScheduleServiceTest extends AbstractIntegrationTest {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    @Autowired
+    private SiteManagerRepository siteManagerRepository;
+
     @Test
     void getOverview_UC70_MainFlow_returnsAllEmployeesShiftsAndSessionsInRange() {
         Department department = newDepartment();
@@ -90,7 +95,7 @@ class EmployeeScheduleServiceTest extends AbstractIntegrationTest {
         newSession(schoolClass, teacherUser);
 
         EmployeeScheduleOverviewResponse response = employeeScheduleService.getOverview(
-                LocalDate.now(), LocalDate.now(), null, null, null, null);
+                LocalDate.now(), LocalDate.now(), null, null, null, null, staffUser.getId());
 
         assertThat(response.employees()).extracting("id")
                 .contains(staffEmployee.getId(), teacherEmployee.getId());
@@ -117,7 +122,7 @@ class EmployeeScheduleServiceTest extends AbstractIntegrationTest {
         newSession(classAtSiteB, teacherBUser);
 
         EmployeeScheduleOverviewResponse response = employeeScheduleService.getOverview(
-                LocalDate.now(), LocalDate.now(), null, siteA.getId(), null, null);
+                LocalDate.now(), LocalDate.now(), null, siteA.getId(), null, null, staffUser.getId());
 
         assertThat(response.employees()).extracting("id").containsExactly(teacherAEmployee.getId());
         assertThat(response.employees()).extracting("id").doesNotContain(staffEmployee.getId());
@@ -131,18 +136,72 @@ class EmployeeScheduleServiceTest extends AbstractIntegrationTest {
         Employee empInDeptA1 = newEmployee(newUser(), Employee.EmployeeType.STAFF, deptA);
         Employee empInDeptA2 = newEmployee(newUser(), Employee.EmployeeType.STAFF, deptA);
         newEmployee(newUser(), Employee.EmployeeType.STAFF, deptB);
+        User actorUser = newUser();
 
         EmployeeScheduleOverviewResponse response = employeeScheduleService.getOverview(
-                LocalDate.now(), LocalDate.now(), deptA.getId(), null, null, empInDeptA1.getId());
+                LocalDate.now(), LocalDate.now(), deptA.getId(), null, null, empInDeptA1.getId(), actorUser.getId());
 
         assertThat(response.employees()).extracting("id").containsExactly(empInDeptA1.getId());
         assertThat(response.employees()).extracting("id").doesNotContain(empInDeptA2.getId());
     }
 
+    /**
+     * UC-71 site-scoping (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+     * 2026-08-18): Quản lý điểm trường chỉ thấy roster của điểm trường mình
+     * phụ trách, kể cả khi KHÔNG truyền siteId — không cần biết trước ID
+     * điểm trường của chính mình.
+     */
+    @Test
+    void getOverview_UC71_siteManagerSeesOnlyManagedSiteEvenWithoutSiteIdParam() {
+        Department department = newDepartment();
+
+        Site managedSite = newSite();
+        User managerUser = newUser();
+        assignSiteManager(managedSite, managerUser);
+        User teacherAtManagedSiteUser = newUser();
+        Employee teacherAtManagedSite = newEmployee(teacherAtManagedSiteUser, Employee.EmployeeType.TEACHER, department);
+        newSession(newSchoolClass(managedSite, teacherAtManagedSiteUser), teacherAtManagedSiteUser);
+
+        Site otherSite = newSite();
+        User teacherAtOtherSiteUser = newUser();
+        newEmployee(teacherAtOtherSiteUser, Employee.EmployeeType.TEACHER, department);
+        newSession(newSchoolClass(otherSite, teacherAtOtherSiteUser), teacherAtOtherSiteUser);
+
+        EmployeeScheduleOverviewResponse response = employeeScheduleService.getOverview(
+                LocalDate.now(), LocalDate.now(), null, null, null, null, managerUser.getId());
+
+        assertThat(response.employees()).extracting("id").containsExactly(teacherAtManagedSite.getId());
+        assertThat(response.sessions()).extracting("primaryTeacherId").containsOnly(teacherAtManagedSiteUser.getId());
+    }
+
+    /**
+     * UC-71 — Quản lý điểm trường yêu cầu siteId nằm ngoài phạm vi phụ
+     * trách -> không thấy gì (không throw lỗi, giữ UX report đơn giản).
+     */
+    @Test
+    void getOverview_UC71_siteManagerRequestingOutsideSiteSeesNothing() {
+        Department department = newDepartment();
+
+        Site managedSite = newSite();
+        User managerUser = newUser();
+        assignSiteManager(managedSite, managerUser);
+
+        Site otherSite = newSite();
+        User teacherAtOtherSiteUser = newUser();
+        newEmployee(teacherAtOtherSiteUser, Employee.EmployeeType.TEACHER, department);
+        newSession(newSchoolClass(otherSite, teacherAtOtherSiteUser), teacherAtOtherSiteUser);
+
+        EmployeeScheduleOverviewResponse response = employeeScheduleService.getOverview(
+                LocalDate.now(), LocalDate.now(), null, otherSite.getId(), null, null, managerUser.getId());
+
+        assertThat(response.employees()).isEmpty();
+        assertThat(response.sessions()).isEmpty();
+    }
+
     @Test
     void getOverview_UC70_rejectsInvalidDateRange() {
         assertThatThrownBy(() -> employeeScheduleService.getOverview(
-                LocalDate.now(), LocalDate.now().minusDays(1), null, null, null, null))
+                LocalDate.now(), LocalDate.now().minusDays(1), null, null, null, null, 1L))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -239,5 +298,14 @@ class EmployeeScheduleServiceTest extends AbstractIntegrationTest {
         employeeShift.setShift(shift);
         employeeShift.setEffectiveFrom(LocalDate.now().minusYears(1));
         employeeShiftRepository.save(employeeShift);
+    }
+
+    private void assignSiteManager(Site site, User managerUser) {
+        SiteManager siteManager = new SiteManager();
+        siteManager.setSite(site);
+        siteManager.setUser(managerUser);
+        siteManager.setAssignedFrom(LocalDate.now().minusMonths(1));
+        siteManager.setAssignedBy(managerUser);
+        siteManagerRepository.save(siteManager);
     }
 }

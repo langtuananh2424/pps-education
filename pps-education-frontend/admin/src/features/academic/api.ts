@@ -665,6 +665,42 @@ export function getMyTeachingSchedule(fromDate?: string, toDate?: string): Promi
   return apiRequest<ClassSessionResponse[]>(`/teachers/me/sessions${query ? `?${query}` : ""}`);
 }
 
+// ===================== Nhận lớp — Giáo viên (UC-71, bổ sung ngoài SDD gốc, xác nhận 2026-08-18) =====================
+
+export interface ClassSessionCheckInResponse {
+  id: number;
+  classSessionId: number;
+  teacherId: number;
+  teacherName: string;
+  checkInTime: string;
+  /** ON_TIME | LATE */
+  status: string;
+}
+
+export interface ClassSessionCheckInStatusResponse {
+  classSessionId: number;
+  /** NOT_YET_OPEN | PENDING | ON_TIME | LATE | ABSENT — tính khi đọc, xem ClassSessionCheckInService#listEffectiveStatus. */
+  effectiveStatus: string;
+  checkInTime: string | null;
+}
+
+/** GV nhận lớp (xác nhận có mặt dạy) cho 1 buổi học cụ thể — cửa sổ [giờ bắt đầu - 15p, giờ kết thúc]. */
+export function checkInClassSession(classSessionId: number, latitude: number, longitude: number): Promise<ClassSessionCheckInResponse> {
+  return apiRequest<ClassSessionCheckInResponse>(`/class-sessions/${classSessionId}/check-in`, {
+    method: "POST",
+    body: JSON.stringify({ latitude, longitude })
+  });
+}
+
+/** Trạng thái nhận lớp (tính ra) của chính GV trong khoảng ngày — dùng cho "Lịch của tôi". */
+export function getMyClassSessionCheckInStatus(fromDate?: string, toDate?: string): Promise<ClassSessionCheckInStatusResponse[]> {
+  const params = new URLSearchParams();
+  if (fromDate) params.set("from", fromDate);
+  if (toDate) params.set("to", toDate);
+  const query = params.toString();
+  return apiRequest<ClassSessionCheckInStatusResponse[]>(`/class-sessions/my-check-in-status${query ? `?${query}` : ""}`);
+}
+
 // ===================== Điểm danh (UC-15) =====================
 
 export interface AttendanceMarkResponse {

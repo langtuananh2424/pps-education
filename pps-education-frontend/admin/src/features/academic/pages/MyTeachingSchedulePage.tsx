@@ -6,41 +6,12 @@ import { cn } from "@/lib/cn";
 import { getMonthGridDates, getWeekDates, toISODate } from "@/lib/calendarDates";
 import Badge from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
-import { sessionStatusVariants } from "../components/ClassDetailPanel";
-import { ClassSessionResponse, getMyTeachingSchedule, listClasses } from "../api";
+import SessionCard from "../components/SessionCard";
+import { checkInStatusLabels, checkInStatusVariants } from "../components/ClassDetailPanel";
+import { ClassSessionCheckInStatusResponse, ClassSessionResponse, getMyClassSessionCheckInStatus, getMyTeachingSchedule, listClasses } from "../api";
 
 const weekdayLabels = ["Chủ nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
 const weekdayShortLabels = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
-const teacherTypeLabels: Record<string, string> = { VIETNAMESE: "GV Việt Nam", FOREIGN: "GV nước ngoài" };
-const sessionTypeLabels: Record<string, string> = { REGULAR: "Buổi học thường", MAKEUP: "Học bù", EXAM: "Kiểm tra", SPECIAL: "Buổi đặc biệt" };
-
-function SessionCard({ session, siteName }: { session: ClassSessionResponse; siteName?: string }) {
-  return (
-    <div className="border border-slate-150 rounded-lg p-2.5 space-y-1 text-xs">
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <span className="font-mono text-[10px] text-slate-500">{session.startTime}–{session.endTime}</span>
-        <Badge variant={sessionStatusVariants[session.status] ?? "neutral"}>{session.status}</Badge>
-      </div>
-      <p className="font-bold text-slate-800">{session.className}</p>
-      <p className="text-[11px] text-slate-500 flex items-center gap-1">
-        <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
-        {siteName ?? "Đang tải điểm trường..."}
-      </p>
-      <p className="text-[11px] text-slate-500 flex items-center gap-1">
-        <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
-        {session.roomName ?? "Chưa gán phòng"}
-      </p>
-      <p className="text-[11px] text-slate-400">
-        GV: {session.primaryTeacherName}
-        {session.teacherType && ` (${teacherTypeLabels[session.teacherType]})`} · {sessionTypeLabels[session.sessionType] ?? session.sessionType}
-      </p>
-      {session.status === "CANCELLED" && session.cancellationReason && (
-        <p className="text-rose-500">Lý do hủy: {session.cancellationReason}</p>
-      )}
-      {session.lessonContent && <p className="text-slate-500">Bài học: {session.lessonContent}</p>}
-    </div>
-  );
-}
 
 /** UC-58: Xem lịch dạy tổng hợp ("Lịch của tôi") — self-service, chỉ hiện buổi dạy của chính tài khoản Giáo viên đang đăng nhập. */
 export default function MyTeachingSchedulePage() {
@@ -52,6 +23,8 @@ export default function MyTeachingSchedulePage() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [siteNameByClassId, setSiteNameByClassId] = useState<Record<number, string>>({});
   const [hoverInfo, setHoverInfo] = useState<{ session: ClassSessionResponse; top: number; left: number } | null>(null);
+  /** UC-71 (bổ sung ngoài SDD gốc, xác nhận 2026-08-18) — trạng thái nhận lớp TÍNH RA theo classSessionId. */
+  const [checkInStatusBySessionId, setCheckInStatusBySessionId] = useState<Record<number, ClassSessionCheckInStatusResponse>>({});
 
   useEffect(() => {
     listClasses()
@@ -78,8 +51,22 @@ export default function MyTeachingSchedulePage() {
       .then(setSessions)
       .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được lịch dạy."))
       .finally(() => setLoading(false));
+    getMyClassSessionCheckInStatus(rangeStart, rangeEnd)
+      .then((statuses) => {
+        const map: Record<number, ClassSessionCheckInStatusResponse> = {};
+        statuses.forEach((s) => {
+          map[s.classSessionId] = s;
+        });
+        setCheckInStatusBySessionId(map);
+      })
+      .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rangeStart, rangeEnd]);
+
+  /** Cập nhật ngay trạng thái vừa nhận lớp thành công — khỏi phải refetch cả khoảng ngày. */
+  const handleCheckedIn = (status: ClassSessionCheckInStatusResponse) => {
+    setCheckInStatusBySessionId((prev) => ({ ...prev, [status.classSessionId]: status }));
+  };
 
   const sessionsByDate = useMemo(() => {
     const map = new Map<string, ClassSessionResponse[]>();
@@ -187,33 +174,42 @@ export default function MyTeachingSchedulePage() {
                       {daySessions.length === 0 ? (
                         <p className="py-6 text-center text-[10px] text-slate-400 italic">Trống lịch dạy</p>
                       ) : (
-                        daySessions.map((s) => (
-                          <div
-                            key={s.id}
-                            onMouseEnter={(e) => {
-                              const rect = e.currentTarget.getBoundingClientRect();
-                              setHoverInfo({ session: s, top: rect.bottom + 6, left: rect.left });
-                            }}
-                            onMouseLeave={() => setHoverInfo(null)}
-                            className="bg-white border border-slate-150 rounded-lg p-2 space-y-1 hover:border-brand-red/50 hover:bg-orange-50/40 transition-colors cursor-default"
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="text-[9px] text-slate-400 font-mono">{s.startTime}–{s.endTime}</span>
-                              
-                            </div>
-                            <p className="text-[10px] font-bold text-slate-800 flex items-center gap-0.5">
-                              <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
-                              <span className="truncate">{s.className ?? "Chưa gán lớp"}</span>
-                            </p>
-                            <p className="text-[9px] text-slate-400 flex items-center gap-0.5">
-                              <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
-                              <span className="truncate">{siteNameByClassId[s.classId] ?? "Đang tải điểm trường..."}</span>
-                            </p>
-                            <div className="flex items-center justify-between">
-                              {s.status !== "SCHEDULED" && <span className="text-[9px] text-rose-500 font-bold">{s.status}</span>}
+                        daySessions.map((s) => {
+                          const checkInStatus = checkInStatusBySessionId[s.id];
+                          return (
+                            <button
+                              type="button"
+                              key={s.id}
+                              onClick={() => setSelectedDate(dateStr)}
+                              onMouseEnter={(e) => {
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                setHoverInfo({ session: s, top: rect.bottom + 6, left: rect.left });
+                              }}
+                              onMouseLeave={() => setHoverInfo(null)}
+                              className="w-full text-left bg-white border border-slate-150 rounded-lg p-2 space-y-1 hover:border-brand-red/50 hover:bg-orange-50/40 transition-colors"
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="text-[9px] text-slate-400 font-mono">{s.startTime}–{s.endTime}</span>
                               </div>
-                          </div>
-                        ))
+                              <p className="text-[10px] font-bold text-slate-800 flex items-center gap-0.5">
+                                <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+                                <span className="truncate">{s.className ?? "Chưa gán lớp"}</span>
+                              </p>
+                              <p className="text-[9px] text-slate-400 flex items-center gap-0.5">
+                                <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
+                                <span className="truncate">{siteNameByClassId[s.classId] ?? "Đang tải điểm trường..."}</span>
+                              </p>
+                              <div className="flex items-center justify-between gap-1 flex-wrap">
+                                {s.status !== "SCHEDULED" && <span className="text-[9px] text-rose-500 font-bold">{s.status}</span>}
+                                {checkInStatus && s.status !== "CANCELLED" && s.status !== "RESCHEDULED" && (
+                                  <Badge variant={checkInStatusVariants[checkInStatus.effectiveStatus] ?? "neutral"} className="text-[8px]">
+                                    {checkInStatusLabels[checkInStatus.effectiveStatus] ?? checkInStatus.effectiveStatus}
+                                  </Badge>
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })
                       )}
                     </div>
                   </div>
@@ -330,7 +326,13 @@ export default function MyTeachingSchedulePage() {
       >
         <div className="space-y-2.5">
           {selectedSessions.map((s) => (
-            <SessionCard key={s.id} session={s} siteName={siteNameByClassId[s.classId]} />
+            <SessionCard
+              key={s.id}
+              session={s}
+              siteName={siteNameByClassId[s.classId]}
+              checkInStatus={checkInStatusBySessionId[s.id]}
+              onCheckedIn={handleCheckedIn}
+            />
           ))}
         </div>
       </Modal>

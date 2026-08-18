@@ -147,8 +147,11 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
         assignRole(teacher, "TEACHER");
         classService.assignTeacher(schoolClass.id(),
                 new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now(), "VIETNAMESE"), headAcademic.getId());
+        // Cửa sổ bao quanh NGAY LÚC NÀY (không phải giờ cố định 08:00-09:40) -- bổ sung 2026-08-18:
+        // markAttendance() giờ đòi buổi đang TRONG khung giờ diễn ra [startTime, endTime] (xem
+        // requireWithinSessionWindow), giờ cố định làm phần lớn test ở file này flaky theo giờ chạy CI.
         session = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(LocalDate.now(), LocalTime.of(8, 0), LocalTime.of(9, 40), null, "REGULAR", "VIETNAMESE", null),
+                new CreateClassSessionRequest(LocalDate.now(), LocalTime.now().minusMinutes(1), LocalTime.now().plusHours(2), null, "REGULAR", "VIETNAMESE", null),
                 headAcademic.getId());
 
         student1 = newStudent();
@@ -265,15 +268,17 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
                 .getTotalElements()).isGreaterThan(0);
     }
 
+    /** Sửa đổi nghiệp vụ 2026-08-18 (đã xác nhận với người dùng, xem UC-15): thay thế rule "sửa được
+     * tới hết ngày" -- GV vẫn sửa được sau khi submit, nhưng chỉ MIỄN CÒN trong khung giờ buổi học. */
     @Test
-    void markAttendance_UC15_editableUntilEndOfDay_afterSubmit() {
+    void markAttendance_UC15_editableWithinSessionWindow_afterSubmit() {
         studentAttendanceService.markAttendance(session.id(),
                 new MarkAttendanceRequest("SESSION_LEVEL", List.of(
                         new EnterAttendanceMarkRequest(student1.getId(), "PRESENT", null, null, null))),
                 teacher.getId());
         studentAttendanceService.submitAttendance(session.id(), teacher.getId());
 
-        // Sửa lại trong ngày (session.sessionDate = hôm nay) sau khi Lưu -> được phép
+        // Sửa lại trong khung giờ buổi học (session bao quanh "now", xem setUp()) sau khi Lưu -> được phép
         AttendanceSessionResponse edited = studentAttendanceService.markAttendance(session.id(),
                 new MarkAttendanceRequest("SESSION_LEVEL", List.of(
                         new EnterAttendanceMarkRequest(student1.getId(), "ABSENT", null, null, "Sửa sau khi Lưu"))),
@@ -287,6 +292,32 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
     @Test
     void markAttendance_UC15_rejectsWhenSessionNotToday() {
         setSessionDate(session.id(), LocalDate.now().minusDays(1));
+
+        assertThatThrownBy(() -> studentAttendanceService.markAttendance(session.id(),
+                new MarkAttendanceRequest("SESSION_LEVEL", List.of(
+                        new EnterAttendanceMarkRequest(student1.getId(), "PRESENT", null, null, null))),
+                teacher.getId()))
+                .isInstanceOf(AttendanceSessionNotEditableException.class);
+    }
+
+    /** Sửa đổi nghiệp vụ 2026-08-18 (đã xác nhận với người dùng, xem UC-15): GV thao tác TRƯỚC
+     * start_time của buổi học (dù cùng ngày) bị từ chối -- chỉ điểm danh được trong khung giờ buổi học. */
+    @Test
+    void markAttendance_UC15_rejectsWhenBeforeSessionStartTime() {
+        setSessionTimes(session.id(), LocalTime.now().plusMinutes(30), LocalTime.now().plusHours(2));
+
+        assertThatThrownBy(() -> studentAttendanceService.markAttendance(session.id(),
+                new MarkAttendanceRequest("SESSION_LEVEL", List.of(
+                        new EnterAttendanceMarkRequest(student1.getId(), "PRESENT", null, null, null))),
+                teacher.getId()))
+                .isInstanceOf(AttendanceSessionNotEditableException.class);
+    }
+
+    /** Sửa đổi nghiệp vụ 2026-08-18 (đã xác nhận với người dùng, xem UC-15): GV thao tác SAU
+     * end_time của buổi học (dù cùng ngày) bị từ chối -- không còn "sửa được tới hết ngày" như trước. */
+    @Test
+    void markAttendance_UC15_rejectsWhenAfterSessionEndTime() {
+        setSessionTimes(session.id(), LocalTime.now().minusHours(2), LocalTime.now().minusMinutes(30));
 
         assertThatThrownBy(() -> studentAttendanceService.markAttendance(session.id(),
                 new MarkAttendanceRequest("SESSION_LEVEL", List.of(
@@ -428,7 +459,7 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
         classService.assignTeacher(schoolClass.id(),
                 new AssignTeacherRequest(siteTeacher.getId(), "PRIMARY", null, LocalDate.now(), "VIETNAMESE"), headAcademic.getId());
         ClassSessionResponse newSession = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(LocalDate.now(), LocalTime.of(8, 0), LocalTime.of(9, 40), null, "REGULAR", "VIETNAMESE", null),
+                new CreateClassSessionRequest(LocalDate.now(), LocalTime.now().minusMinutes(1), LocalTime.now().plusHours(2), null, "REGULAR", "VIETNAMESE", null),
                 headAcademic.getId());
         studentAttendanceService.markAttendance(newSession.id(),
                 new MarkAttendanceRequest("SESSION_LEVEL", List.of(
@@ -464,7 +495,7 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
         classService.assignTeacher(schoolClass.id(),
                 new AssignTeacherRequest(siteTeacher.getId(), "PRIMARY", null, LocalDate.now(), "VIETNAMESE"), headAcademic.getId());
         ClassSessionResponse newSession = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(LocalDate.now(), LocalTime.of(8, 0), LocalTime.of(9, 40), null, "REGULAR", "VIETNAMESE", null),
+                new CreateClassSessionRequest(LocalDate.now(), LocalTime.now().minusMinutes(1), LocalTime.now().plusHours(2), null, "REGULAR", "VIETNAMESE", null),
                 headAcademic.getId());
         studentAttendanceService.markAttendance(newSession.id(),
                 new MarkAttendanceRequest("SESSION_LEVEL", List.of(
@@ -558,6 +589,13 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
     private void setSessionDate(Long classSessionId, LocalDate date) {
         ClassSession classSession = classSessionRepository.findById(classSessionId).orElseThrow();
         classSession.setSessionDate(date);
+        classSessionRepository.save(classSession);
+    }
+
+    private void setSessionTimes(Long classSessionId, LocalTime startTime, LocalTime endTime) {
+        ClassSession classSession = classSessionRepository.findById(classSessionId).orElseThrow();
+        classSession.setStartTime(startTime);
+        classSession.setEndTime(endTime);
         classSessionRepository.save(classSession);
     }
 

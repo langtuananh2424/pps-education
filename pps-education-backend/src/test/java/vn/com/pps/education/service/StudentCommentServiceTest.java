@@ -224,15 +224,18 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         student = newStudent();
 
         Room room = newRoom(site);
-        // Giữ nguyên cửa sổ "1 giờ trước tới 1 phút trước NGAY LÚC NÀY" (thay vì giờ cố định
-        // 08:00-09:40) từ 2026-08-14 để né lệch múi giờ CI (JVM UTC ở GitHub Actions >< máy dev
-        // Asia/Ho_Chi_Minh) và vi phạm CHECK chk_session_time gần nửa đêm (xem lịch sử PR).
-        // requireSessionEndedAndAttendanceTaken (yêu cầu buổi đã kết thúc + đã điểm danh xong
-        // trước khi viết nhận xét) đã bị BỎ HẲN 2026-08-18 (xem docs/uc/phan-he-06-hoc-thuat.md,
-        // UC-21) — buổi/điểm danh dưới đây không còn là điều kiện bắt buộc, chỉ giữ lại vì nhiều
-        // test khác vẫn tiện dùng dữ liệu buổi đã điểm danh sẵn.
+        // Cửa sổ bao quanh NGAY LÚC NÀY (thay vì giờ cố định 08:00-09:40) từ 2026-08-14 để né lệch
+        // múi giờ CI (JVM UTC ở GitHub Actions >< máy dev Asia/Ho_Chi_Minh) và vi phạm CHECK
+        // chk_session_time gần nửa đêm (xem lịch sử PR). requireSessionEndedAndAttendanceTaken (yêu
+        // cầu buổi đã kết thúc + đã điểm danh xong trước khi viết nhận xét) đã bị BỎ HẲN 2026-08-18
+        // (xem docs/uc/phan-he-06-hoc-thuat.md, UC-21) — buổi/điểm danh dưới đây không còn là điều
+        // kiện bắt buộc, chỉ giữ lại vì nhiều test khác vẫn tiện dùng dữ liệu buổi đã điểm danh sẵn.
+        // SỬA LẠI 2026-08-18: đổi từ cửa sổ ĐÃ KẾT THÚC (now-1h..now-1min) sang cửa sổ BAO QUANH now
+        // (now-1min..now+1h), vì markAttendance() ở dưới giờ đòi buổi đang TRONG khung giờ diễn ra
+        // (UC-15, sửa đổi nghiệp vụ 2026-08-18) — buổi đã kết thúc sẽ bị StudentAttendanceService
+        // từ chối ngay tại đây.
         classSession = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(LocalDate.now(), LocalTime.now().minusHours(1), LocalTime.now().minusMinutes(1), room.getId(), "REGULAR", "VIETNAMESE", null),
+                new CreateClassSessionRequest(LocalDate.now(), LocalTime.now().minusMinutes(1), LocalTime.now().plusHours(1), room.getId(), "REGULAR", "VIETNAMESE", null),
                 headAcademic.getId());
         // Bài học hôm nay mặc định đã điền — bắt buộc để submitComments() cho DAILY không bị
         // chặn bởi MissingLessonContentException (bổ sung ngoài SDD gốc, đã xác nhận với người
@@ -1352,6 +1355,52 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         StudentCommentResponse saved = studentCommentService.listComments(schoolClass.id(), student.getId()).get(0);
         assertThat(saved.homeworkNext()).isEqualTo("Ôn lại Unit 3 ở nhà");
         assertThat(saved.homeworkNextExerciseAssignmentId()).isNull();
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-18 — bỏ ràng buộc loại trừ lẫn nhau
+     * giữa cột "BTVN offline" và "BTVN online": trước đây import báo lỗi "Chỉ điền 1 trong 2 cột" nếu
+     * điền cả hai, nay 1 dòng Excel giao được ĐỒNG THỜI cả 2 cho kênh Ngữ pháp.
+     */
+    @Test
+    void importComments_boSung_MainFlow_allowsBothOfflineAndOnlineGrammarHomeworkTogether() throws IOException {
+        GrammarFixture fixture = createGrammarOnlineExercise();
+        nextSession();
+        studentAttendanceService.markAttendance(classSession.id(),
+                new MarkAttendanceRequest("SESSION_LEVEL", List.of(
+                        new EnterAttendanceMarkRequest(student.getId(), "PRESENT", null, null, null))),
+                teacher.getId());
+        byte[] file = buildCommentWorkbook(new String[][]{
+                commentRow(classSession.sessionDate().toString(), student.getStudentCode(), "", "",
+                        "Có mặt", "", "", "", "Nội dung.", "Ôn lại Unit 3 ở nhà",
+                        fixture.exercise().uuid().toString(), "", "", "", "")
+        });
+
+        DailyCommentImportResponse result = studentCommentService.importComments(classSession.id(),
+                new MockMultipartFile("file", "nhanxet.xlsx", "application/vnd.openxmlformats", file), teacher.getId());
+
+        assertThat(result.status()).isEqualTo("COMPLETED");
+        StudentCommentResponse saved = studentCommentService.listComments(schoolClass.id(), student.getId()).get(0);
+        assertThat(saved.homeworkNext()).isEqualTo("Ôn lại Unit 3 ở nhà");
+        assertThat(saved.homeworkNextExerciseAssignmentId()).isNotNull();
+        ExerciseAssignment created = exerciseAssignmentRepository.findById(saved.homeworkNextExerciseAssignmentId()).orElseThrow();
+        assertThat(created.getExercise().getId()).isEqualTo(fixture.exercise().id());
+    }
+
+    /** Cùng quy tắc 2026-08-18 ở trên nhưng qua API JSON trực tiếp (writeComment) — luồng chưa từng bị chặn, chốt lại hành vi bằng test riêng. */
+    @Test
+    void writeComment_boSung_MainFlow_allowsBothOfflineAndOnlineGrammarHomeworkTogether() {
+        GrammarFixture fixture = createGrammarOnlineExercise();
+        nextSession();
+
+        StudentCommentResponse saved = studentCommentService.writeComment(schoolClass.id(),
+                new CreateStudentCommentRequest(student.getId(), classSession.id(), classSession.sessionDate(),
+                        "Nội dung.", null, null, false, null, null, null,
+                        "Ôn lại Unit 3 ở nhà", fixture.exercise().id(), null, null, null),
+                teacher.getId());
+
+        assertThat(saved.homeworkNext()).isEqualTo("Ôn lại Unit 3 ở nhà");
+        assertThat(saved.homeworkNextExerciseAssignmentId()).isNotNull();
     }
 
     /** Cột "BTVN Nghe-nói buổi sau" (chỉ đổi tên, vẫn thuần online) — vẫn báo lỗi khi không khớp, không fallback text như cột Ngữ pháp. */

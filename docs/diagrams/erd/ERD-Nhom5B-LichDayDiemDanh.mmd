@@ -16,6 +16,10 @@ erDiagram
     session_periods ||--o{ attendance_period_marks : "diem danh theo tiet"
     attendance_marks ||--o{ attendance_period_marks : ""
 
+    class_sessions ||--o| class_session_check_ins : "nhan lop (UC-71)"
+    class_session_check_ins }o--|| users : "GV nhan"
+    class_session_check_ins }o--|| sites : ""
+
     class_sessions {
         BIGSERIAL id PK
         UUID uuid UK
@@ -70,4 +74,16 @@ erDiagram
         BIGINT session_period_id FK
         VARCHAR status
         TEXT note
+    }
+
+    class_session_check_ins {
+        BIGSERIAL id PK
+        UUID uuid UK
+        BIGINT class_session_id FK
+        BIGINT teacher_id FK
+        TIMESTAMPTZ check_in_time
+        VARCHAR status
+        DOUBLE latitude
+        DOUBLE longitude
+        BIGINT site_id FK
     }

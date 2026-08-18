@@ -745,6 +745,63 @@ nghĩa ở `docs/sdd-groups/02-nen-tang.md` mục l — giá trị enum này có
 sẵn từ đầu nhưng trước giờ chưa có code nào dùng, nay chính là lần đầu
 dùng thật, không cần migration vì import_type là VARCHAR(50) tự do).
 
+a-bis)  Bảng class_session_check_ins --- Nhận lớp (UC-71, bổ sung HOÀN
+TOÀN ngoài SDD/SRS gốc, đã xác nhận với người dùng 2026-08-18, migration
+V126)
+
+1 record = 1 giáo viên đã có mặt để dạy 1 buổi học cụ thể. Không có
+check-out — khác hẳn `attendance_records` (UC-09, ca hành chính).
+
+  ---------------------------------------------------------------------------
+  **Cột**            **Kiểu**             **Ràng buộc**       **Ghi chú**
+  ------------------ -------------------- ------------------- --------------
+  id                 BIGSERIAL            PK
+
+  uuid               UUID                 UNIQUE, NOT NULL
+
+  class_session_id   BIGINT               FK →                UNIQUE — 1
+                                           class_sessions(id), buổi học chỉ
+                                           NOT NULL            1 lượt nhận
+                                                                lớp
+
+  teacher_id         BIGINT               FK → users(id),     Phải khớp
+                                           NOT NULL            class_sessions.
+                                                                primary_teacher_id
+                                                                tại thời
+                                                                điểm nhận —
+                                                                validate ở
+                                                                Service
+
+  check_in_time      TIMESTAMPTZ          NOT NULL
+
+  status             VARCHAR(20)          NOT NULL            ON_TIME |
+                                                                LATE
+
+  latitude,          DOUBLE PRECISION     NOT NULL
+
+  longitude
+
+  site_id            BIGINT               FK → sites(id),     Resolve qua
+                                           NOT NULL            class_sessions.
+                                                                class_id →
+                                                                classes.
+                                                                site_id, lưu
+                                                                lại để
+                                                                audit/query
+
+  created_at,        TIMESTAMPTZ
+  updated_at
+  ---------------------------------------------------------------------------
+
+Không có cột/trạng thái "ABSENT" và không có scheduled job quét — buổi học
+đã qua giờ kết thúc (`session_date + end_time < now`) mà KHÔNG có row ở
+bảng này được coi là "vắng/không nhận lớp", tính TÍNH RA khi đọc (cùng tinh
+thần dữ liệu derived đã áp dụng cho `academic_terms`, mục c-bis bên dưới).
+Bán kính GPS dùng chung `system_settings.attendance.gps_radius_meters` với
+UC-09 (không thêm setting riêng) — kiểm tra qua `SiteRepository.isWithinRadius`
+(native `ST_DWithin`) đã có sẵn từ UC-09, không tạo cơ chế mới. Xem
+docs/uc/phan-he-06-hoc-thuat.md (UC-71).
+
 b)  Bảng session_periods --- Tiết học trong buổi
 
 Tự động sinh (mặc định 2 tiết/buổi theo system_settings) khi tạo
