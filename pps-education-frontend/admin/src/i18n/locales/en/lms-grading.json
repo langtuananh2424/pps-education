@@ -1,0 +1,73 @@
+{
+  "gradingWorkshop": {
+    "emptyState": "Select a student from the queue to review their speaking recording and grade it manually.",
+    "header": {
+      "idLabel": "GRADING SPEAKING SUBMISSION: {{id}}"
+    },
+    "closeButton": "Close",
+    "audio": {
+      "sectionLabel": "Student's pronunciation practice recording",
+      "playToast": "🔈 Playing the student's pronunciation recording..."
+    },
+    "scoreLabel": "Speaking score (0 - 10)",
+    "feedbackLabel": "Detailed pronunciation feedback (Teacher Feedback)",
+    "feedbackPlaceholder": "Note accurate vocabulary pronunciation, intonation and linking sound corrections...",
+    "submitButton": "Save grading result"
+  },
+  "reviewVideoGradingPanel": {
+    "emptyState": "Select a submission from the queue to listen to and grade.",
+    "header": {
+      "attemptLabel": "GRADING REFLEX VIDEO SUBMISSION — ATTEMPT {{attemptNumber}}",
+      "gradedBadge": "Graded"
+    },
+    "videoFallback": "Reflex video",
+    "submittedAt": "Submitted at {{time}}",
+    "scoreLabel": "Score",
+    "maxScoreLabel": "Max score",
+    "feedbackLabel": "Feedback (optional)",
+    "feedbackPlaceholder": "Feedback on pronunciation, intonation, answer content...",
+    "saveButton": "Save grade",
+    "saving": "Saving...",
+    "errors": {
+      "saveFailed": "Failed to save the grade — please try again."
+    }
+  },
+  "examsPage": {
+    "title": "LMS Materials & Assessment (E-Learning)",
+    "subtitle": "Grade Reflex Video submissions (UC-23b) — listen to students' audio answers, score them, and leave feedback.",
+    "note": "Grading essay/speaking answers for Exercises assigned by Vietnamese teachers (UC-24/27) isn't implemented here yet — it will be added separately.",
+    "tabs": {
+      "queue": "Grading Queue",
+      "legacy": "View by Set + Class"
+    },
+    "toasts": {
+      "saved": "Grade saved!"
+    },
+    "errors": {
+      "loadLandingFailed": "Failed to load the list of classes pending grading.",
+      "loadSubmissionsFailed": "Failed to load the list of submissions.",
+      "loadSetsFailed": "Failed to load the list of Reflex Video sets.",
+      "loadAssignedClassesFailed": "Failed to load the list of assigned classes."
+    },
+    "queue": {
+      "loadingLanding": "Loading the list of classes pending grading...",
+      "emptyLanding": "No classes are currently waiting for Reflex Video grading.",
+      "backToClasses": "Class list"
+    },
+    "shared": {
+      "loadingQueue": "Loading the grading queue...",
+      "emptySubmissions": "No submissions yet for this class.",
+      "gradedCount": "{{graded}}/{{total}} graded",
+      "selectStudentPrompt": "Select a student from the list to listen to and grade each answer.",
+      "studentSubmittedCount": "{{name}} — {{count}} submitted answers"
+    },
+    "legacy": {
+      "setLabel": "Reflex Video set *",
+      "setPlaceholder": "-- Select a set --",
+      "classLabel": "Class *",
+      "noAssignedClass": "This set hasn't been assigned to any class.",
+      "classPlaceholder": "-- Select a class --",
+      "selectSetPrompt": "Select a Reflex Video set to start grading."
+    }
+  }
+}

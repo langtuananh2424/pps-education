@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { BookOpen, Plus, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import Button from "@/components/ui/Button";
 import { QuestionResponse, createExamQuestion } from "../api";
@@ -37,6 +38,7 @@ export default function GridQuestionBuilder({
   onCreated: (questions: QuestionResponse[]) => void;
   onCancel: () => void;
 }) {
+  const { t } = useTranslation("lms-question-authoring");
   const [passages, setPassages] = useState<PassageRow[]>([{ ...EMPTY_PASSAGE }, { ...EMPTY_PASSAGE }, { ...EMPTY_PASSAGE }]);
   const [questions, setQuestions] = useState<QuestionRow[]>([emptyQuestion(), emptyQuestion()]);
   const [submitting, setSubmitting] = useState(false);
@@ -59,15 +61,15 @@ export default function GridQuestionBuilder({
     setError(null);
 
     if (passages.some((p) => !p.name.trim() || !p.text.trim())) {
-      setError("Vui lòng điền đủ tên nhân vật và nội dung đoạn văn cho mọi đoạn.");
+      setError(t("gridQuestionBuilder.errors.fillAllPassages"));
       return;
     }
     if (questions.some((q) => !q.content.trim())) {
-      setError("Vui lòng điền đủ nội dung cho mọi câu hỏi.");
+      setError(t("gridQuestionBuilder.errors.fillAllQuestions"));
       return;
     }
     if (questions.length === 0) {
-      setError("Cần ít nhất 1 câu hỏi.");
+      setError(t("gridQuestionBuilder.errors.needAtLeastOne"));
       return;
     }
 
@@ -96,10 +98,10 @@ export default function GridQuestionBuilder({
     } catch (err) {
       setError(
         created.length > 0
-          ? `Đã tạo được ${created.length}/${questions.length} câu thì lỗi — các câu đã tạo vẫn nằm trong ngân hàng câu hỏi, kiểm tra lại nếu cần.`
+          ? t("gridQuestionBuilder.errors.partialFailure", { created: created.length, total: questions.length })
           : err instanceof ApiError
             ? err.message
-            : "Tạo bài đọc hiểu thất bại."
+            : t("gridQuestionBuilder.errors.createFailed")
       );
     } finally {
       setSubmitting(false);
@@ -113,7 +115,7 @@ export default function GridQuestionBuilder({
       <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
         <div className="flex items-center gap-1 text-slate-700 font-bold uppercase tracking-wider text-[9px]">
           <BookOpen className="w-4 h-4 text-slate-500" />
-          <span>Các đoạn văn ngắn (mỗi đoạn 1 nhân vật/lựa chọn)</span>
+          <span>{t("gridQuestionBuilder.passagesSectionTitle")}</span>
         </div>
         {passages.map((p, idx) => (
           <div key={idx} className="grid grid-cols-1 md:grid-cols-4 gap-2 items-start">
@@ -121,7 +123,7 @@ export default function GridQuestionBuilder({
               required
               value={p.name}
               onChange={(e) => updatePassage(idx, "name", e.target.value)}
-              placeholder={`Tên nhân vật ${idx + 1} (VD: Tom)`}
+              placeholder={t("gridQuestionBuilder.passageNamePlaceholder", { index: idx + 1 })}
               className={inputClass}
             />
             <textarea
@@ -129,19 +131,19 @@ export default function GridQuestionBuilder({
               rows={2}
               value={p.text}
               onChange={(e) => updatePassage(idx, "text", e.target.value)}
-              placeholder="Nội dung đoạn văn..."
+              placeholder={t("gridQuestionBuilder.passageTextPlaceholder")}
               className={`md:col-span-3 ${inputClass}`}
             />
           </div>
         ))}
-        <p className="text-[9px] text-slate-400">Cố định 3 đoạn (khớp bảng đáp án A/B/C bên dưới) — đổi tên nhân vật tùy ý.</p>
+        <p className="text-[9px] text-slate-400">{t("gridQuestionBuilder.passagesHint")}</p>
       </div>
 
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <span className="font-bold text-slate-700 uppercase tracking-wider text-[9px]">Danh sách câu hỏi — chọn đáp án đúng cho từng câu</span>
+          <span className="font-bold text-slate-700 uppercase tracking-wider text-[9px]">{t("gridQuestionBuilder.questionsSectionTitle")}</span>
           <Button type="button" variant="secondary" size="sm" onClick={() => setQuestions((prev) => [...prev, emptyQuestion()])}>
-            <Plus className="w-3.5 h-3.5" /> Thêm câu hỏi
+            <Plus className="w-3.5 h-3.5" /> {t("common.addQuestionButton")}
           </Button>
         </div>
         <div className="border border-slate-200 rounded-lg divide-y divide-slate-100">
@@ -153,7 +155,7 @@ export default function GridQuestionBuilder({
                   required
                   value={q.content}
                   onChange={(e) => updateQuestionContent(idx, e.target.value)}
-                  placeholder="Nội dung câu hỏi..."
+                  placeholder={t("common.questionContentPlaceholder")}
                   className={`flex-1 ${inputClass}`}
                 />
                 {questions.length > 1 && (
@@ -187,10 +189,10 @@ export default function GridQuestionBuilder({
 
       <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200">
         <Button type="button" variant="secondary" onClick={onCancel}>
-          Hủy bỏ
+          {t("common.cancel")}
         </Button>
         <Button type="submit" variant="primary" disabled={submitting}>
-          {submitting ? "Đang tạo..." : `Tạo ${questions.length} câu hỏi`}
+          {submitting ? t("common.creating") : t("gridQuestionBuilder.submitCreate", { count: questions.length })}
         </Button>
       </div>
     </form>

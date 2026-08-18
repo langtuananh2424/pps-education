@@ -10,6 +10,10 @@ import academicGradesEn from "./locales/en/academic-grades.json";
 import academicCommentsEn from "./locales/en/academic-comments.json";
 import academicCurriculumEn from "./locales/en/academic-curriculum.json";
 import academicHomeworkEn from "./locales/en/academic-homework.json";
+import lmsQuestionAuthoringEn from "./locales/en/lms-question-authoring.json";
+import lmsGradingEn from "./locales/en/lms-grading.json";
+import lmsReviewVideoEn from "./locales/en/lms-review-video.json";
+import lmsDocumentsEn from "./locales/en/lms-documents.json";
 import commonVi from "./locales/vi/common.json";
 import authVi from "./locales/vi/auth.json";
 import dashboardVi from "./locales/vi/dashboard.json";
@@ -19,6 +23,10 @@ import academicGradesVi from "./locales/vi/academic-grades.json";
 import academicCommentsVi from "./locales/vi/academic-comments.json";
 import academicCurriculumVi from "./locales/vi/academic-curriculum.json";
 import academicHomeworkVi from "./locales/vi/academic-homework.json";
+import lmsQuestionAuthoringVi from "./locales/vi/lms-question-authoring.json";
+import lmsGradingVi from "./locales/vi/lms-grading.json";
+import lmsReviewVideoVi from "./locales/vi/lms-review-video.json";
+import lmsDocumentsVi from "./locales/vi/lms-documents.json";
 
 export const LANGUAGE_STORAGE_KEY = "pps_language";
 
@@ -35,7 +43,11 @@ i18n.use(initReactI18next).init({
       "academic-grades": academicGradesVi,
       "academic-comments": academicCommentsVi,
       "academic-curriculum": academicCurriculumVi,
-      "academic-homework": academicHomeworkVi
+      "academic-homework": academicHomeworkVi,
+      "lms-question-authoring": lmsQuestionAuthoringVi,
+      "lms-grading": lmsGradingVi,
+      "lms-review-video": lmsReviewVideoVi,
+      "lms-documents": lmsDocumentsVi
     },
     en: {
       common: commonEn,
@@ -46,7 +58,11 @@ i18n.use(initReactI18next).init({
       "academic-grades": academicGradesEn,
       "academic-comments": academicCommentsEn,
       "academic-curriculum": academicCurriculumEn,
-      "academic-homework": academicHomeworkEn
+      "academic-homework": academicHomeworkEn,
+      "lms-question-authoring": lmsQuestionAuthoringEn,
+      "lms-grading": lmsGradingEn,
+      "lms-review-video": lmsReviewVideoEn,
+      "lms-documents": lmsDocumentsEn
     }
   },
   lng: storedLanguage === "en" ? "en" : "vi",
@@ -61,7 +77,11 @@ i18n.use(initReactI18next).init({
     "academic-grades",
     "academic-comments",
     "academic-curriculum",
-    "academic-homework"
+    "academic-homework",
+    "lms-question-authoring",
+    "lms-grading",
+    "lms-review-video",
+    "lms-documents"
   ],
   interpolation: { escapeValue: false },
   returnEmptyString: false

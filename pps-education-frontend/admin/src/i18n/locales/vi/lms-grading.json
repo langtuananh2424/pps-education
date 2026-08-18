@@ -1,0 +1,73 @@
+{
+  "gradingWorkshop": {
+    "emptyState": "Nhấp chọn một học sinh trong hàng chờ bên cạnh để kiểm tra bài ghi âm kỹ năng Nói và chấm điểm thủ công.",
+    "header": {
+      "idLabel": "CHẤM BÀI PHÁT ÂM: {{id}}"
+    },
+    "closeButton": "Đóng",
+    "audio": {
+      "sectionLabel": "Bản ghi âm phản xạ phát âm học viên",
+      "playToast": "🔈 Đang phát audio ghi âm phản xạ của học sinh..."
+    },
+    "scoreLabel": "Cho điểm kỹ năng nói (0 - 10)",
+    "feedbackLabel": "Nhận xét chi tiết phát âm (Teacher Feedback)",
+    "feedbackPlaceholder": "Ghi nhận từ vựng phát âm chuẩn, sửa ngữ điệu luyến âm...",
+    "submitButton": "Lưu kết quả chấm thi"
+  },
+  "reviewVideoGradingPanel": {
+    "emptyState": "Chọn 1 bài trong hàng chờ bên cạnh để nghe và chấm điểm.",
+    "header": {
+      "attemptLabel": "CHẤM BÀI VIDEO PHẢN XẠ — LƯỢT {{attemptNumber}}",
+      "gradedBadge": "Đã chấm"
+    },
+    "videoFallback": "Video phản xạ",
+    "submittedAt": "Nộp lúc {{time}}",
+    "scoreLabel": "Điểm",
+    "maxScoreLabel": "Điểm tối đa",
+    "feedbackLabel": "Nhận xét (tùy chọn)",
+    "feedbackPlaceholder": "Nhận xét phát âm, ngữ điệu, nội dung câu trả lời...",
+    "saveButton": "Lưu kết quả chấm",
+    "saving": "Đang lưu...",
+    "errors": {
+      "saveFailed": "Lưu điểm thất bại — thử lại."
+    }
+  },
+  "examsPage": {
+    "title": "Tài Liệu & Khảo Thí LMS (E-Learning)",
+    "subtitle": "Chấm bài Video phản xạ (UC-23b) — nghe audio học sinh trả lời, cho điểm và nhận xét.",
+    "note": "Chấm câu tự luận/nói của Bài tập (Exercise) do giáo viên Việt Nam giao (UC-24/27) chưa triển khai ở đây — sẽ bổ sung riêng.",
+    "tabs": {
+      "queue": "Hàng chờ chấm bài",
+      "legacy": "Xem theo Bộ + Lớp"
+    },
+    "toasts": {
+      "saved": "Đã lưu kết quả chấm!"
+    },
+    "errors": {
+      "loadLandingFailed": "Không tải được danh sách lớp cần chấm.",
+      "loadSubmissionsFailed": "Không tải được danh sách bài nộp.",
+      "loadSetsFailed": "Không tải được danh sách Bộ Video phản xạ.",
+      "loadAssignedClassesFailed": "Không tải được danh sách lớp đã gán."
+    },
+    "queue": {
+      "loadingLanding": "Đang tải danh sách lớp cần chấm...",
+      "emptyLanding": "Không có lớp nào đang chờ chấm bài Video phản xạ.",
+      "backToClasses": "Danh sách lớp"
+    },
+    "shared": {
+      "loadingQueue": "Đang tải hàng chờ chấm bài...",
+      "emptySubmissions": "Chưa có bài nộp nào cho lớp này.",
+      "gradedCount": "{{graded}}/{{total}} đã chấm",
+      "selectStudentPrompt": "Chọn 1 học sinh trong danh sách bên cạnh để nghe và chấm từng câu.",
+      "studentSubmittedCount": "{{name}} — {{count}} câu đã nộp"
+    },
+    "legacy": {
+      "setLabel": "Bộ Video phản xạ *",
+      "setPlaceholder": "-- Chọn bộ --",
+      "classLabel": "Lớp *",
+      "noAssignedClass": "Bộ này chưa được gán cho lớp nào.",
+      "classPlaceholder": "-- Chọn lớp --",
+      "selectSetPrompt": "Chọn 1 Bộ Video phản xạ để bắt đầu chấm bài."
+    }
+  }
+}

@@ -17,6 +17,7 @@ import {
   Volume2,
   X
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useApp } from "@/context/AppContext";
 import { CurriculumResponse, listCurriculums } from "@/features/academic/api";
 import {
@@ -46,15 +47,15 @@ interface FlatQuestionRow {
   curriculum: CurriculumResponse;
 }
 
-const typeBadge: Record<QuestionType, { label: string; icon: typeof CheckSquare; className: string }> = {
-  MULTIPLE_CHOICE: { label: "Trắc nghiệm", icon: CheckSquare, className: "text-emerald-700 bg-emerald-50 border-emerald-100" },
-  MULTIPLE_ANSWER: { label: "Trắc nghiệm nhiều đáp án", icon: CheckSquare, className: "text-teal-700 bg-teal-50 border-teal-100" },
-  TRUE_FALSE: { label: "Đúng — Sai", icon: CheckSquare, className: "text-cyan-700 bg-cyan-50 border-cyan-100" },
-  ESSAY: { label: "Tự luận", icon: Edit3, className: "text-purple-700 bg-purple-50 border-purple-100" },
-  SPEAKING: { label: "Speaking", icon: Mic, className: "text-rose-700 bg-rose-50 border-rose-100" },
-  FILL_IN_BLANK: { label: "Điền từ", icon: TypeIcon, className: "text-amber-700 bg-amber-50 border-amber-100" },
-  WORD_BANK: { label: "Điền từ - Hộp từ vựng", icon: Blocks, className: "text-orange-700 bg-orange-50 border-orange-100" },
-  SENTENCE_BUILDING: { label: "Sắp xếp câu", icon: ListOrdered, className: "text-cyan-700 bg-cyan-50 border-cyan-100" }
+const typeBadge: Record<QuestionType, { icon: typeof CheckSquare; className: string }> = {
+  MULTIPLE_CHOICE: { icon: CheckSquare, className: "text-emerald-700 bg-emerald-50 border-emerald-100" },
+  MULTIPLE_ANSWER: { icon: CheckSquare, className: "text-teal-700 bg-teal-50 border-teal-100" },
+  TRUE_FALSE: { icon: CheckSquare, className: "text-cyan-700 bg-cyan-50 border-cyan-100" },
+  ESSAY: { icon: Edit3, className: "text-purple-700 bg-purple-50 border-purple-100" },
+  SPEAKING: { icon: Mic, className: "text-rose-700 bg-rose-50 border-rose-100" },
+  FILL_IN_BLANK: { icon: TypeIcon, className: "text-amber-700 bg-amber-50 border-amber-100" },
+  WORD_BANK: { icon: Blocks, className: "text-orange-700 bg-orange-50 border-orange-100" },
+  SENTENCE_BUILDING: { icon: ListOrdered, className: "text-cyan-700 bg-cyan-50 border-cyan-100" }
 };
 
 const difficultyBadge: Record<QuestionDifficulty, string> = {
@@ -62,7 +63,6 @@ const difficultyBadge: Record<QuestionDifficulty, string> = {
   MEDIUM: "text-amber-600 bg-amber-50 border-amber-100",
   HARD: "text-rose-600 bg-rose-50 border-rose-100"
 };
-const difficultyLabels: Record<QuestionDifficulty, string> = { EASY: "Dễ (Easy)", MEDIUM: "Trung bình", HARD: "Khó (Hard)" };
 
 /**
  * UC-40 bước 1: soạn ngân hàng câu hỏi TRƯỚC, độc lập với việc giao bài — thiết
@@ -71,6 +71,7 @@ const difficultyLabels: Record<QuestionDifficulty, string> = { EASY: "Dễ (Easy
  * lấy từ QuestionBankResponse.level thay cho field "grade" tự do không có thật).
  */
 export default function QuestionBankPage() {
+  const { t } = useTranslation("lms-question-authoring");
   const { hasPermission } = useApp();
   // lms.exercise.manage đã bị tách nhỏ (hạt nhân hóa V62) thành lms.question-bank.create/update/view
   // — trang này thao tác cả tạo (ngân hàng/câu hỏi) lẫn sửa (trạng thái ngân hàng/câu hỏi).
@@ -116,7 +117,7 @@ export default function QuestionBankPage() {
         setRows(perCurriculum.flatMap((x) => x.rows));
         setAllBanks(perCurriculum.flatMap((x) => x.banks));
       })
-      .catch(() => setError("Không tải được ngân hàng câu hỏi."))
+      .catch(() => setError(t("bankPage.loadFailed")))
       .finally(() => setLoading(false));
   };
 
@@ -158,12 +159,7 @@ export default function QuestionBankPage() {
    * trang này chưa có bộ lọc "xem câu đã ẩn" nào để khôi phục lại qua UI, nên cảnh báo rõ trước khi ẩn.
    */
   const handleArchive = async (row: FlatQuestionRow) => {
-    if (
-      !(await confirmDialog(
-        `Ẩn câu hỏi Q-${row.question.id}? Câu hỏi sẽ biến mất khỏi danh sách này (không ảnh hưởng Bài đã dùng câu hỏi này trước đó) — hiện chưa có cách khôi phục lại qua giao diện.`,
-        { danger: true }
-      ))
-    ) {
+    if (!(await confirmDialog(t("bankPage.archiveConfirm", { id: row.question.id }), { danger: true }))) {
       return;
     }
     try {
@@ -180,9 +176,9 @@ export default function QuestionBankPage() {
       });
       setRows((prev) => prev.filter((r) => r.question.id !== row.question.id));
       if (selectedQuestionId === row.question.id) setSelectedQuestionId(null);
-      showToast("Đã ẩn câu hỏi thành công!");
+      showToast(t("bankPage.archivedToast"));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Ẩn câu hỏi thất bại.");
+      setError(err instanceof ApiError ? err.message : t("bankPage.archiveFailed"));
     }
   };
 
@@ -192,25 +188,23 @@ export default function QuestionBankPage() {
         <div>
           <h1 className="text-xl font-bold font-display tracking-tight text-slate-900 flex items-center gap-2">
             <Database className="w-5 h-5 text-brand-red" />
-            Ngân hàng câu hỏi
+            {t("bankPage.title")}
           </h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Soạn sẵn câu hỏi đa phương thức (Trắc nghiệm, Nghe, Tự luận, Speaking) theo khung chương trình — khi giao bài ở "Soạn & giao đề" chỉ cần chọn lại từ đây.
-          </p>
+          <p className="text-xs text-slate-500 mt-1">{t("bankPage.description")}</p>
         </div>
         {canManage && (
           <div className="flex items-center gap-2">
             <Button variant="secondary" size="sm" onClick={() => setShowManageBanksModal(true)}>
               <Archive className="w-3.5 h-3.5" />
-              Quản lý ngân hàng
+              {t("bankPage.manageBanks")}
             </Button>
             <Button variant="secondary" size="sm" onClick={() => setShowImportModal(true)}>
               <UploadCloud className="w-3.5 h-3.5" />
-              Nhập câu hỏi hàng loạt
+              {t("bankPage.bulkImport")}
             </Button>
             <Button variant="primary" size="sm" onClick={() => setShowCreateModal(true)}>
               <Plus className="w-3.5 h-3.5" />
-              Thêm câu hỏi mới
+              {t("bankPage.addQuestion")}
             </Button>
           </div>
         )}
@@ -223,7 +217,7 @@ export default function QuestionBankPage() {
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
             <div className="flex items-center gap-2 text-xs font-bold text-slate-700 uppercase tracking-wider">
               <Filter className="w-3.5 h-3.5 text-brand-red" />
-              Bộ lọc tìm kiếm
+              {t("bankPage.filters.title")}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
               <div className="relative md:col-span-2">
@@ -231,7 +225,7 @@ export default function QuestionBankPage() {
                 <input
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Tìm theo nội dung câu hỏi, mã ID..."
+                  placeholder={t("bankPage.filters.searchPlaceholder")}
                   className="w-full bg-white border border-slate-200 text-xs pl-9 pr-3 py-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-red"
                 />
               </div>
@@ -240,10 +234,10 @@ export default function QuestionBankPage() {
                 onChange={(e) => setTypeFilter(e.target.value as QuestionType | "ALL")}
                 className="w-full bg-white border border-slate-200 text-xs px-3 py-2.5 rounded-lg focus:outline-none"
               >
-                <option value="ALL">Tất cả loại câu hỏi</option>
-                {(Object.entries(typeBadge) as [QuestionType, (typeof typeBadge)[QuestionType]][]).map(([value, meta]) => (
+                <option value="ALL">{t("bankPage.filters.allTypes")}</option>
+                {(Object.keys(typeBadge) as QuestionType[]).map((value) => (
                   <option key={value} value={value}>
-                    {meta.label}
+                    {t(`bankPage.typeBadge.${value}`)}
                   </option>
                 ))}
               </Select>
@@ -252,10 +246,10 @@ export default function QuestionBankPage() {
                 onChange={(e) => setDifficultyFilter(e.target.value as QuestionDifficulty | "ALL")}
                 className="w-full bg-white border border-slate-200 text-xs px-3 py-2.5 rounded-lg focus:outline-none"
               >
-                <option value="ALL">Tất cả độ khó</option>
-                {Object.entries(difficultyLabels).map(([value, label]) => (
+                <option value="ALL">{t("bankPage.filters.allDifficulties")}</option>
+                {(["EASY", "MEDIUM", "HARD"] as QuestionDifficulty[]).map((value) => (
                   <option key={value} value={value}>
-                    {label}
+                    {t(`bankPage.difficultyLabels.${value}`)}
                   </option>
                 ))}
               </Select>
@@ -263,14 +257,14 @@ export default function QuestionBankPage() {
 
             {levels.length > 0 && (
               <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-200/60">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1">Cấp độ:</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1">{t("bankPage.filters.levelLabel")}</span>
                 <button
                   onClick={() => setLevelFilter("ALL")}
                   className={`text-[10px] font-bold px-2.5 py-1 rounded-md transition-all ${
                     levelFilter === "ALL" ? "bg-brand-red text-white" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
                   }`}
                 >
-                  Tất cả cấp độ
+                  {t("bankPage.filters.allLevels")}
                 </button>
                 {levels.map((level) => (
                   <button
@@ -292,25 +286,25 @@ export default function QuestionBankPage() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold text-[10px] tracking-widest uppercase">
-                    <th className="px-4 py-3 text-center w-16">Mã ID</th>
-                    <th className="px-4 py-3">Nội dung câu hỏi</th>
-                    <th className="px-4 py-3 w-36 text-center">Phân loại</th>
-                    <th className="px-4 py-3 w-24 text-center">Độ khó</th>
-                    <th className="px-4 py-3 w-28 text-center">Ngân hàng</th>
-                    <th className="px-4 py-3 w-16 text-center">Thao tác</th>
+                    <th className="px-4 py-3 text-center w-16">{t("bankPage.table.columnId")}</th>
+                    <th className="px-4 py-3">{t("bankPage.table.columnContent")}</th>
+                    <th className="px-4 py-3 w-36 text-center">{t("bankPage.table.columnType")}</th>
+                    <th className="px-4 py-3 w-24 text-center">{t("bankPage.table.columnDifficulty")}</th>
+                    <th className="px-4 py-3 w-28 text-center">{t("bankPage.table.columnBank")}</th>
+                    <th className="px-4 py-3 w-16 text-center">{t("bankPage.table.columnActions")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs">
                   {loading ? (
                     <tr>
                       <td colSpan={6} className="px-4 py-12 text-center text-slate-400">
-                        Đang tải...
+                        {t("bankPage.table.loading")}
                       </td>
                     </tr>
                   ) : filteredRows.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="px-4 py-12 text-center text-slate-400 font-medium">
-                        Không tìm thấy câu hỏi nào khớp bộ lọc.
+                        {t("bankPage.table.empty")}
                       </td>
                     </tr>
                   ) : (
@@ -329,24 +323,26 @@ export default function QuestionBankPage() {
                           <td className="px-4 py-3.5">
                             <div className="font-bold text-slate-800 line-clamp-2 leading-relaxed">{question.content}</div>
                             {question.explanation && (
-                              <p className="text-[10px] text-slate-400 font-medium italic truncate mt-1">Hướng dẫn: {question.explanation}</p>
+                              <p className="text-[10px] text-slate-400 font-medium italic truncate mt-1">
+                                {t("bankPage.table.explanationPrefix", { text: question.explanation })}
+                              </p>
                             )}
                           </td>
                           <td className="px-4 py-3.5 text-center">
                             <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md border ${meta.className}`}>
                               <Icon className="w-3 h-3" />
-                              {meta.label}
+                              {t(`bankPage.typeBadge.${question.questionType}`)}
                             </span>
                             {question.skill === "LISTENING" && (
                               <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-blue-600 mt-1">
-                                <Volume2 className="w-2.5 h-2.5" /> Nghe
+                                <Volume2 className="w-2.5 h-2.5" /> {t("bankPage.table.listeningTag")}
                               </span>
                             )}
                           </td>
                           <td className="px-4 py-3.5 text-center">
                             {question.difficulty && (
                               <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${difficultyBadge[question.difficulty]}`}>
-                                {difficultyLabels[question.difficulty]}
+                                {t(`bankPage.difficultyLabels.${question.difficulty}`)}
                               </span>
                             )}
                           </td>
@@ -360,7 +356,7 @@ export default function QuestionBankPage() {
                                     setEditingRow(row);
                                   }}
                                   className="p-1 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded transition-all"
-                                  title="Chỉnh sửa câu hỏi"
+                                  title={t("bankPage.table.editTooltip")}
                                 >
                                   <Edit3 className="w-3.5 h-3.5" />
                                 </button>
@@ -370,7 +366,7 @@ export default function QuestionBankPage() {
                                     handleArchive(row);
                                   }}
                                   className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-all"
-                                  title="Ẩn câu hỏi"
+                                  title={t("bankPage.table.archiveTooltip")}
                                 >
                                   <Archive className="w-3.5 h-3.5" />
                                 </button>
@@ -389,7 +385,7 @@ export default function QuestionBankPage() {
                 page={page}
                 pageSize={pageSize}
                 totalElements={filteredRows.length}
-                itemLabel="câu hỏi"
+                itemLabel={t("bankPage.questionItemLabel")}
                 onPageChange={setPage}
                 onPageSizeChange={(size) => {
                   setPageSize(size);
@@ -404,16 +400,16 @@ export default function QuestionBankPage() {
           <div className="flex items-center justify-between border-b border-slate-200 pb-2">
             <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
               <Sparkles className="w-4 h-4 text-brand-red" />
-              Xem trước câu hỏi
+              {t("bankPage.preview.title")}
             </span>
-            <span className="text-[10px] bg-brand-red/10 text-brand-red px-2 py-0.5 rounded-full font-bold uppercase">Có đáp án</span>
+            <span className="text-[10px] bg-brand-red/10 text-brand-red px-2 py-0.5 rounded-full font-bold uppercase">{t("bankPage.preview.hasAnswerBadge")}</span>
           </div>
 
           {!selectedRow ? (
             <div className="py-16 text-center text-slate-400 space-y-2">
               <HelpCircle className="w-12 h-12 text-slate-300 mx-auto" />
-              <p className="text-xs font-bold">Chưa chọn câu hỏi để xem trước</p>
-              <p className="text-[10px] text-slate-500 max-w-[200px] mx-auto leading-relaxed">Nhấp vào 1 dòng trong bảng bên trái để xem chi tiết + đáp án đúng.</p>
+              <p className="text-xs font-bold">{t("bankPage.preview.emptyTitle")}</p>
+              <p className="text-[10px] text-slate-500 max-w-[200px] mx-auto leading-relaxed">{t("bankPage.preview.emptyDescription")}</p>
             </div>
           ) : (
             <QuestionPreview row={selectedRow} onEdit={() => setEditingRow(selectedRow)} canManage={canManage} />
@@ -427,7 +423,7 @@ export default function QuestionBankPage() {
           onCreated={(question, bank, curriculum) => {
             upsertRow(question, bank, curriculum);
             setShowCreateModal(false);
-            showToast("Đã tạo câu hỏi thành công!");
+            showToast(t("bankPage.questionCreatedToast"));
           }}
         />
       )}
@@ -437,7 +433,7 @@ export default function QuestionBankPage() {
           onClose={() => setShowImportModal(false)}
           onImported={(count) => {
             loadAll();
-            showToast(`Đã nhập ${count} câu hỏi thành công!`);
+            showToast(t("bankPage.questionsImportedToast", { count }));
           }}
         />
       )}
@@ -449,7 +445,7 @@ export default function QuestionBankPage() {
           onChanged={(updated) => {
             setAllBanks((prev) => prev.map((x) => (x.bank.id === updated.id ? { ...x, bank: updated } : x)));
             setRows((prev) => prev.map((r) => (r.bank.id === updated.id ? { ...r, bank: updated } : r)));
-            showToast(updated.isActive ? "Đã kích hoạt lại ngân hàng câu hỏi!" : "Đã ẩn ngân hàng câu hỏi!");
+            showToast(updated.isActive ? t("bankPage.bankReactivatedToast") : t("bankPage.bankHiddenToast"));
           }}
         />
       )}
@@ -461,7 +457,7 @@ export default function QuestionBankPage() {
             <div className="sticky top-0 bg-white px-6 py-4 border-b border-slate-200 flex items-center justify-between">
               <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
                 <Database className="w-4 h-4 text-brand-red" />
-                Sửa câu hỏi Q-{editingRow.question.id}
+                {t("bankPage.editModalTitle", { id: editingRow.question.id })}
               </h3>
               <button onClick={() => setEditingRow(null)} className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100">
                 <X className="w-5 h-5" />
@@ -474,7 +470,7 @@ export default function QuestionBankPage() {
                 onCreated={(updated) => {
                   upsertRow(updated, editingRow.bank, editingRow.curriculum);
                   setEditingRow(null);
-                  showToast("Đã lưu câu hỏi thành công!");
+                  showToast(t("bankPage.questionSavedToast"));
                 }}
                 onCancel={() => setEditingRow(null)}
               />
@@ -489,18 +485,19 @@ export default function QuestionBankPage() {
 }
 
 function QuestionPreview({ row, onEdit, canManage }: { row: FlatQuestionRow; onEdit: () => void; canManage: boolean }) {
+  const { t } = useTranslation("lms-question-authoring");
   const { question } = row;
   const needsChoices: QuestionType[] = ["MULTIPLE_CHOICE", "MULTIPLE_ANSWER", "TRUE_FALSE"];
 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-mono font-bold text-brand-red">Mã số: Q-{question.id}</span>
+        <span className="text-xs font-mono font-bold text-brand-red">{t("bankPage.questionPreview.idLabel", { id: question.id })}</span>
         <span className="text-[10px] text-slate-400 font-bold">{row.bank.level ?? row.bank.name}</span>
       </div>
 
       <div className="bg-white p-4 rounded-xl border border-slate-100 space-y-2">
-        <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Nội dung câu hỏi:</p>
+        <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">{t("bankPage.questionPreview.contentLabel")}</p>
         <p className="text-xs font-bold text-slate-800 leading-relaxed">{question.content}</p>
       </div>
 
@@ -512,7 +509,7 @@ function QuestionPreview({ row, onEdit, canManage }: { row: FlatQuestionRow; onE
 
       {question.skill === "LISTENING" && question.audioUrl && (
         <div className="bg-white p-4 rounded-xl border border-slate-100 space-y-2">
-          <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Mẫu phát âm & transcript:</p>
+          <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">{t("bankPage.questionPreview.audioSampleLabel")}</p>
           <div className="p-3 bg-blue-50/50 border border-blue-100 rounded-lg space-y-2">
             <audio controls src={question.audioUrl} className="w-full h-8" />
             {question.referencePassage && <p className="text-[10px] text-blue-900 font-medium italic leading-relaxed">{question.referencePassage}</p>}
@@ -522,7 +519,7 @@ function QuestionPreview({ row, onEdit, canManage }: { row: FlatQuestionRow; onE
 
       {needsChoices.includes(question.questionType) && (
         <div className="bg-white p-4 rounded-xl border border-slate-100 space-y-1.5">
-          <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1">Phương án lựa chọn:</p>
+          <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1">{t("bankPage.questionPreview.choicesLabel")}</p>
           {question.choices.map((c) => (
             <div
               key={c.id}
@@ -543,7 +540,7 @@ function QuestionPreview({ row, onEdit, canManage }: { row: FlatQuestionRow; onE
         <div className="bg-white p-4 rounded-xl border border-slate-100 space-y-2">
           {question.referencePassage && <p className="text-[11px] text-slate-600 bg-slate-50 p-2 rounded-lg">{question.referencePassage}</p>}
           <p className="text-[10px] text-slate-500 italic bg-amber-50/50 p-2 border border-amber-100 rounded">
-            Học viên nộp bài viết/scan để chấm tay ở Hàng chờ chấm bài.
+            {t("bankPage.questionPreview.essayHint")}
           </p>
         </div>
       )}
@@ -553,9 +550,9 @@ function QuestionPreview({ row, onEdit, canManage }: { row: FlatQuestionRow; onE
           <div className="p-3 bg-rose-50/40 border border-rose-100 rounded-lg space-y-1.5">
             <div className="flex items-center gap-1.5 text-[10px] text-rose-700 font-bold uppercase tracking-wider">
               <Mic className="w-3.5 h-3.5" />
-              Từ khóa/mục tiêu chấm:
+              {t("bankPage.questionPreview.speakingKeywordsLabel")}
             </div>
-            <p className="text-xs font-bold text-slate-800 leading-relaxed">{question.explanation ?? "Chưa khai báo tiêu chí chấm."}</p>
+            <p className="text-xs font-bold text-slate-800 leading-relaxed">{question.explanation ?? t("bankPage.questionPreview.speakingNoCriteria")}</p>
           </div>
         </div>
       )}
@@ -568,7 +565,7 @@ function QuestionPreview({ row, onEdit, canManage }: { row: FlatQuestionRow; onE
 
       {question.explanation && question.questionType !== "SPEAKING" && (
         <div className="p-3.5 bg-orange-50 border border-orange-100 rounded-xl space-y-1">
-          <span className="text-[9px] font-bold text-brand-red uppercase tracking-wider block">Giải thích / tiêu chí chấm:</span>
+          <span className="text-[9px] font-bold text-brand-red uppercase tracking-wider block">{t("bankPage.questionPreview.explanationLabel")}</span>
           <p className="text-[11px] text-slate-700 leading-relaxed">{question.explanation}</p>
         </div>
       )}
@@ -576,7 +573,7 @@ function QuestionPreview({ row, onEdit, canManage }: { row: FlatQuestionRow; onE
       {canManage && (
         <button onClick={onEdit} className="w-full bg-white hover:bg-slate-100 border border-slate-200 text-slate-800 font-bold py-1.5 rounded-lg text-xs flex items-center justify-center gap-1.5">
           <Edit3 className="w-3.5 h-3.5" />
-          Cập nhật
+          {t("bankPage.questionPreview.updateButton")}
         </button>
       )}
     </div>
@@ -590,6 +587,7 @@ function CreateQuestionModal({
   onClose: () => void;
   onCreated: (question: QuestionResponse, bank: QuestionBankResponse, curriculum: CurriculumResponse) => void;
 }) {
+  const { t } = useTranslation("lms-question-authoring");
   const [curriculums, setCurriculums] = useState<CurriculumResponse[]>([]);
   const [curriculumId, setCurriculumId] = useState<number | null>(null);
   const [banks, setBanks] = useState<QuestionBankResponse[]>([]);
@@ -621,7 +619,7 @@ function CreateQuestionModal({
         <div className="sticky top-0 bg-white px-6 py-4 border-b border-slate-200 flex items-center justify-between">
           <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
             <Database className="w-4 h-4 text-brand-red" />
-            Thêm câu hỏi mới vào ngân hàng
+            {t("bankPage.createQuestionModal.title")}
           </h3>
           <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100">
             <X className="w-5 h-5" />
@@ -630,7 +628,7 @@ function CreateQuestionModal({
         <div className="p-6 space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Khung chương trình</label>
+              <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">{t("bankPage.createQuestionModal.curriculumLabel")}</label>
               <Select
                 value={curriculumId ?? ""}
                 onChange={(e) => setCurriculumId(e.target.value ? Number(e.target.value) : null)}
@@ -644,13 +642,13 @@ function CreateQuestionModal({
               </Select>
             </div>
             <div>
-              <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Ngân hàng</label>
+              <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">{t("bankPage.createQuestionModal.bankLabel")}</label>
               <Select
                 value={bankId ?? ""}
                 onChange={(e) => setBankId(e.target.value ? Number(e.target.value) : null)}
                 className="w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
               >
-                <option value="">-- Chọn --</option>
+                <option value="">{t("bankPage.createQuestionModal.bankPlaceholder")}</option>
                 {banks.map((b) => (
                   <option key={b.id} value={b.id}>
                     {b.name}
@@ -662,7 +660,7 @@ function CreateQuestionModal({
 
           {!showNewBankForm ? (
             <button type="button" onClick={() => setShowNewBankForm(true)} className="text-[11px] font-bold text-brand-red hover:underline">
-              + Chưa có ngân hàng phù hợp? Tạo mới
+              {t("bankPage.createQuestionModal.createBankLink")}
             </button>
           ) : (
             <QuickBankForm
@@ -679,7 +677,7 @@ function CreateQuestionModal({
           {bankId && curriculum && bank ? (
             <QuestionEditorForm questionBankId={bankId} onCreated={(q) => onCreated(q, bank, curriculum)} onCancel={onClose} />
           ) : (
-            <p className="text-xs text-slate-400 italic py-4 text-center">Chọn hoặc tạo 1 ngân hàng để bắt đầu soạn câu hỏi.</p>
+            <p className="text-xs text-slate-400 italic py-4 text-center">{t("bankPage.createQuestionModal.noBankSelected")}</p>
           )}
         </div>
       </div>
@@ -695,6 +693,7 @@ function CreateQuestionModal({
  * khác nhau khi hoàn tất).
  */
 function ImportQuestionsModal({ onClose, onImported }: { onClose: () => void; onImported: (count: number) => void }) {
+  const { t } = useTranslation("lms-question-authoring");
   const [curriculums, setCurriculums] = useState<CurriculumResponse[]>([]);
   const [curriculumId, setCurriculumId] = useState<number | null>(null);
   const [banks, setBanks] = useState<QuestionBankResponse[]>([]);
@@ -722,7 +721,7 @@ function ImportQuestionsModal({ onClose, onImported }: { onClose: () => void; on
         <div className="sticky top-0 bg-white px-6 py-4 border-b border-slate-200 flex items-center justify-between">
           <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
             <Database className="w-4 h-4 text-brand-red" />
-            Nhập câu hỏi hàng loạt (UC-40)
+            {t("bankPage.importQuestionsModal.title")}
           </h3>
           <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100">
             <X className="w-5 h-5" />
@@ -731,7 +730,7 @@ function ImportQuestionsModal({ onClose, onImported }: { onClose: () => void; on
         <div className="p-6 space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Khung chương trình</label>
+              <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">{t("bankPage.importQuestionsModal.curriculumLabel")}</label>
               <Select
                 value={curriculumId ?? ""}
                 onChange={(e) => setCurriculumId(e.target.value ? Number(e.target.value) : null)}
@@ -745,13 +744,13 @@ function ImportQuestionsModal({ onClose, onImported }: { onClose: () => void; on
               </Select>
             </div>
             <div>
-              <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Ngân hàng</label>
+              <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">{t("bankPage.importQuestionsModal.bankLabel")}</label>
               <Select
                 value={bankId ?? ""}
                 onChange={(e) => setBankId(e.target.value ? Number(e.target.value) : null)}
                 className="w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
               >
-                <option value="">-- Chọn --</option>
+                <option value="">{t("bankPage.importQuestionsModal.bankPlaceholder")}</option>
                 {banks.map((b) => (
                   <option key={b.id} value={b.id}>
                     {b.name}
@@ -764,7 +763,7 @@ function ImportQuestionsModal({ onClose, onImported }: { onClose: () => void; on
           {bankId ? (
             <QuestionImportPanel bankId={bankId} onImported={(created) => onImported(created.length)} />
           ) : (
-            <p className="text-xs text-slate-400 italic py-4 text-center">Chọn 1 ngân hàng để bắt đầu nhập câu hỏi.</p>
+            <p className="text-xs text-slate-400 italic py-4 text-center">{t("bankPage.importQuestionsModal.noBankSelected")}</p>
           )}
         </div>
       </div>
@@ -784,6 +783,7 @@ function ManageBanksModal({
   onClose: () => void;
   onChanged: (bank: QuestionBankResponse) => void;
 }) {
+  const { t } = useTranslation("lms-question-authoring");
   const [error, setError] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<number | null>(null);
 
@@ -794,7 +794,7 @@ function ManageBanksModal({
       const updated = await updateQuestionBankStatus(bank.id, !bank.isActive);
       onChanged(updated);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Cập nhật trạng thái ngân hàng thất bại.");
+      setError(err instanceof ApiError ? err.message : t("bankPage.manageBanksModal.updateStatusFailed"));
     } finally {
       setTogglingId(null);
     }
@@ -807,7 +807,7 @@ function ManageBanksModal({
         <div className="sticky top-0 bg-white px-6 py-4 border-b border-slate-200 flex items-center justify-between">
           <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
             <Archive className="w-4 h-4 text-brand-red" />
-            Quản lý ngân hàng câu hỏi
+            {t("bankPage.manageBanksModal.title")}
           </h3>
           <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100">
             <X className="w-5 h-5" />
@@ -816,7 +816,7 @@ function ManageBanksModal({
         <div className="p-6 space-y-2">
           {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-2">{error}</div>}
           {banks.length === 0 ? (
-            <p className="text-xs text-slate-400 italic text-center py-6">Chưa có ngân hàng câu hỏi nào.</p>
+            <p className="text-xs text-slate-400 italic text-center py-6">{t("bankPage.manageBanksModal.empty")}</p>
           ) : (
             banks.map(({ bank, curriculum }) => (
               <div key={bank.id} className="border border-slate-200 rounded-lg p-3 flex items-center justify-between gap-2">
@@ -832,7 +832,7 @@ function ManageBanksModal({
                   disabled={togglingId === bank.id}
                   onClick={() => handleToggle(bank)}
                 >
-                  {togglingId === bank.id ? "Đang lưu..." : bank.isActive ? "Ẩn ngân hàng" : "Kích hoạt lại"}
+                  {togglingId === bank.id ? t("common.saving") : bank.isActive ? t("bankPage.manageBanksModal.hideBank") : t("bankPage.manageBanksModal.reactivateBank")}
                 </Button>
               </div>
             ))
@@ -844,6 +844,7 @@ function ManageBanksModal({
 }
 
 export function QuickBankForm({ curriculumId, onCreated, onCancel }: { curriculumId: number | null; onCreated: (bank: QuestionBankResponse) => void; onCancel: () => void }) {
+  const { t } = useTranslation("lms-question-authoring");
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
   const [level, setLevel] = useState("");
@@ -853,7 +854,7 @@ export function QuickBankForm({ curriculumId, onCreated, onCancel }: { curriculu
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!code.trim() || !name.trim()) {
-      setError("Vui lòng nhập Mã và Tên ngân hàng.");
+      setError(t("bankPage.quickBankForm.requiredFields"));
       return;
     }
     setSubmitting(true);
@@ -862,7 +863,7 @@ export function QuickBankForm({ curriculumId, onCreated, onCancel }: { curriculu
       const created = await createQuestionBank({ code: code.trim(), name: name.trim(), curriculumId: curriculumId ?? undefined, level: level.trim() || undefined });
       onCreated(created);
     } catch {
-      setError("Tạo ngân hàng thất bại.");
+      setError(t("bankPage.quickBankForm.createFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -872,16 +873,16 @@ export function QuickBankForm({ curriculumId, onCreated, onCancel }: { curriculu
     <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-2">
       {error && <p className="text-xs text-rose-600">{error}</p>}
       <div className="grid grid-cols-3 gap-2">
-        <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Mã" className="bg-white border border-slate-200 text-xs p-2 rounded-lg font-mono" />
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Tên ngân hàng" className="bg-white border border-slate-200 text-xs p-2 rounded-lg" />
-        <input value={level} onChange={(e) => setLevel(e.target.value)} placeholder="Cấp độ (VD: IELTS 5.5+)" className="bg-white border border-slate-200 text-xs p-2 rounded-lg" />
+        <input value={code} onChange={(e) => setCode(e.target.value)} placeholder={t("bankPage.quickBankForm.codePlaceholder")} className="bg-white border border-slate-200 text-xs p-2 rounded-lg font-mono" />
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("bankPage.quickBankForm.namePlaceholder")} className="bg-white border border-slate-200 text-xs p-2 rounded-lg" />
+        <input value={level} onChange={(e) => setLevel(e.target.value)} placeholder={t("bankPage.quickBankForm.levelPlaceholder")} className="bg-white border border-slate-200 text-xs p-2 rounded-lg" />
       </div>
       <div className="flex gap-2">
         <Button type="button" variant="secondary" size="sm" onClick={onCancel}>
-          Hủy
+          {t("common.cancelShort")}
         </Button>
         <Button type="submit" variant="primary" size="sm" disabled={submitting}>
-          {submitting ? "Đang tạo..." : "Tạo ngân hàng"}
+          {submitting ? t("common.creating") : t("bankPage.quickBankForm.submit")}
         </Button>
       </div>
     </form>

@@ -1,0 +1,436 @@
+{
+  "common": {
+    "cancel": "Cancel",
+    "cancelShort": "Cancel",
+    "close": "Close",
+    "saving": "Saving...",
+    "creating": "Creating...",
+    "loading": "Loading...",
+    "missingExamOrBankContext": "Missing Exam/Question bank context.",
+    "needAtLeastOneQuestion": "At least 1 question is required.",
+    "fillAllQuestionContent": "Please fill in the content for every question.",
+    "audioFileLabel": "Listening audio file *",
+    "chooseAudioFile": "Choose audio file...",
+    "transcriptLabel": "Pronunciation notes / Transcript",
+    "transcriptPlaceholder": "Transcript of the audio file, used for review...",
+    "questionContentPlaceholder": "Question content...",
+    "answerOptionPlaceholder": "Answer {{letter}}...",
+    "addQuestionButton": "Add question",
+    "pointsSuffix": "pts"
+  },
+  "questionKind": {
+    "MULTIPLE_CHOICE": "Multiple choice",
+    "VOICE_MULTIPLE_CHOICE": "Voice multiple choice",
+    "INLINE_CHOICE": "Choose the word in the sentence",
+    "FILL_IN_BLANK": "Fill in the blank",
+    "WORD_BANK": "Fill in the blank - Word bank",
+    "SENTENCE_BUILDING": "Sentence building",
+    "ESSAY": "Essay (file/image)",
+    "SPEAKING": "Speaking (oral)",
+    "LISTENING_AUDIO_SUBMISSION": "Listen & submit audio",
+    "LISTENING_FILL_IN_BLANK": "Listening fill in the blank"
+  },
+  "difficulty": {
+    "EASY": "Easy",
+    "MEDIUM": "Medium",
+    "HARD": "Hard"
+  },
+  "questionEditorForm": {
+    "kindLabel": "English question type *",
+    "kindLockedHint": "(cannot be changed after creation)",
+    "difficultyLabel": "Assessment difficulty *",
+    "contentLabel": "Question content / instructions *",
+    "contentPlaceholder": "Enter the essay prompt, fill-in-the-blank question, or reading passage in detail...",
+    "choicesSectionTitle": "Set up {{count}} answers & mark 1 correct answer",
+    "choicesHint": "Click the check button to mark the correct answer",
+    "inlineChoiceHint": "Write the full sentence in \"Question content\" above, mark the position to choose with ___ (e.g. \"We/Us saw ___ yesterday.\" → write \"___ saw him yesterday.\"), then enter the 2 options below.",
+    "addOption": "+ Add answer",
+    "audioSectionTitle": "Audio file / Transcript setup",
+    "listeningAudioSubmissionHint": "Students will listen to this audio file and record their own answer to submit (graded manually in \"Grading Queue\") — different from Voice multiple choice (students only pick from the given options).",
+    "listeningFillInBlankHint": "Students will listen to this audio file and type their answer — the system auto-grades based on the \"Correct answer\" below.",
+    "wordBankSectionTitle": "Word bank — correct answers in blank order",
+    "wordBankHint": "Write the passage with blanks in \"Question content\" above, mark each blank with ___ in the EXACT order of the words below — students choose via dropdown, each word used exactly once.",
+    "blankLabel": "Blank {{index}}",
+    "blankPlaceholder": "e.g. went",
+    "addBlank": "+ Add blank",
+    "sentenceBuildingSectionTitle": "Word/phrase chunks — in the EXACT order of the complete sentence",
+    "sentenceBuildingHint": "Enter the word/phrase chunks in the EXACT order that forms the complete sentence — students will see these chunks shuffled and must reorder them for the system to auto-grade (exact order match).",
+    "chunkPlaceholder": "e.g. This is",
+    "addChunk": "+ Add chunk",
+    "fillInBlankSectionTitle": "Correct answer (auto-graded)",
+    "correctAnswerLabel": "Correct answer *",
+    "correctAnswerPlaceholder": "e.g. went",
+    "correctAnswerHint": "Matching is case-insensitive, leading/trailing whitespace is trimmed automatically when grading — only 1 accepted answer.",
+    "essaySectionTitle": "Attach image / scanned prompt file",
+    "essayImageLabel": "Sample image/scanned document",
+    "essayImagePlaceholder": "Choose an image or PDF file...",
+    "speakingSectionTitle": "English pronunciation analysis",
+    "speakingKeywordsLabel": "Key phonemes / vocabulary the student must pronounce accurately *",
+    "speakingKeywordsPlaceholder": "Example: Target pronunciation sounds: 'enthusiasm', 'literature', 'variety'...",
+    "explanationLabel": "Answer explanation / Academic rubric",
+    "explanationPlaceholder": "Enter the detailed explanation (for multiple choice) or the detailed grading rubric (for essay/speaking)...",
+    "submitCreate": "Create question",
+    "submitUpdate": "Save changes",
+    "errors": {
+      "contentRequired": "Please enter the question content.",
+      "fillAllOptions": "Please fill in all {{count}} answers.",
+      "audioRequiredVoice": "Voice multiple choice requires a sample audio URL.",
+      "audioRequiredListeningFillInBlank": "Listening fill in the blank requires a listening audio URL.",
+      "audioRequiredListeningSubmission": "Listen & submit audio requires a listening audio URL.",
+      "correctAnswerRequired": "Fill in the blank requires a correct answer for the system to auto-grade.",
+      "wordBankBlanksRequired": "Fill in the blank - Word bank requires a correct answer for every blank.",
+      "sentenceBuildingMinChunks": "Sentence building requires at least 2 word/phrase chunks in the correct sentence order.",
+      "lockedAfterSubmission": "This question already has student submissions — it can no longer be edited; please create a new question instead.",
+      "saveFailed": "Failed to save the question."
+    }
+  },
+  "questionImportPanel": {
+    "excelHeaders": [
+      "Question type", "Difficulty", "Content", "Answer A", "Answer B", "Answer C", "Answer D",
+      "Correct answer", "Audio URL", "Image URL", "Transcript/Pronunciation keywords", "Points", "Explanation", "Tags"
+    ],
+    "excelSampleExplanations": {
+      "geo": "Paris is the capital of France.",
+      "presentSimple": "Present simple, third person singular.",
+      "essayRubric": "Graded on content/grammar/vocabulary rubric."
+    },
+    "formatExcel": "Excel (.xlsx)",
+    "formatWord": "Word (.docx)",
+    "downloadTemplate": "Download template (.{{format}})",
+    "downloadTemplateFailed": "Failed to download the template.",
+    "clickToChooseFile": "Click to choose a file (.{{format}})",
+    "invalidFileType": "Only .xlsx or .docx files are supported.",
+    "importFailed": "Import failed.",
+    "totalRows": "Total rows",
+    "successRows": "Succeeded",
+    "failedRows": "Failed",
+    "errorDetailTitle": "Row/block error details"
+  },
+  "gridQuestionBuilder": {
+    "passagesSectionTitle": "Short passages (1 character/option per passage)",
+    "passageNamePlaceholder": "Character {{index}} name (e.g. Tom)",
+    "passageTextPlaceholder": "Passage content...",
+    "passagesHint": "Fixed at 3 passages (matching the A/B/C answer table below) — rename characters as needed.",
+    "questionsSectionTitle": "Question list — pick the correct answer for each question",
+    "submitCreate": "Create {{count}} questions",
+    "errors": {
+      "fillAllPassages": "Please fill in the character name and passage content for every passage.",
+      "fillAllQuestions": "Please fill in the content for every question.",
+      "needAtLeastOne": "At least 1 question is required.",
+      "partialFailure": "Created {{created}}/{{total}} questions before an error occurred — the created questions remain in the question bank; please review if needed.",
+      "createFailed": "Failed to create the reading comprehension set."
+    }
+  },
+  "listeningGroupBuilder": {
+    "subKindLabel": "Sub question type *",
+    "audioSectionTitle": "Audio file shared by the whole question group",
+    "questionsSectionTitle": "Question list for the listening passage above",
+    "correctAnswerPlaceholder": "Correct answer (auto-graded by the system)...",
+    "explanationPlaceholder": "Explanation (used for the tapescript hint after students finish listening 3 times)...",
+    "audioSubmissionHint": "Listen & submit audio has no sample answer — each question waits for the teacher to grade manually in \"Grading Queue\".",
+    "submitCreate": "Create {{count}} questions",
+    "errors": {
+      "audioRequired": "An audio file shared by the whole question group is required.",
+      "needAtLeastOne": "At least 1 question is required.",
+      "fillAllContent": "Please fill in the content for every question.",
+      "fillAllOptions": "Please fill in all 4 answers for every multiple choice question.",
+      "fillAllCorrectAnswers": "Please fill in the correct answer for every fill-in-the-blank question.",
+      "partialFailure": "Created {{created}}/{{total}} questions before an error occurred — the created questions remain in the question bank; please review if needed.",
+      "createFailed": "Failed to create the listening question group."
+    }
+  },
+  "exercisePreviewModal": {
+    "questionTypeLabels": {
+      "MULTIPLE_CHOICE": "Single-answer multiple choice",
+      "MULTIPLE_ANSWER": "Multi-answer multiple choice",
+      "TRUE_FALSE": "True — False",
+      "ESSAY": "Essay",
+      "SPEAKING": "Speaking (recording)",
+      "FILL_IN_BLANK": "Fill in the blank",
+      "WORD_BANK": "Fill in the blank - Word bank",
+      "SENTENCE_BUILDING": "Sentence building"
+    },
+    "modalTitle": "Preview exercise — {{title}}",
+    "modalDescription": "The layout students will see, with the correct answers highlighted for your own review.",
+    "totalPoints": "Total points:",
+    "timeLimit": "Time limit:",
+    "timeLimitMinutes": "{{minutes}} minutes",
+    "showCorrectAnswers": "Show correct answers to students after submission:",
+    "yes": "Yes",
+    "no": "No",
+    "loading": "Loading exercise...",
+    "empty": "This exercise has no questions attached yet.",
+    "questionNumber": "Question {{index}}.",
+    "speakingHint": "Students record their answer — graded manually in Grading Queue.",
+    "essayHint": "Students submit an essay answer — graded manually in Grading Queue.",
+    "wordBankAnswerOrder": "Correct answers in blank order: {{answers}}",
+    "sentenceBuildingOrder": "Correct sentence order: {{order}}",
+    "explanationPrefix": "Explanation: {{text}}"
+  },
+  "assignModal": {
+    "modalTitle": "Compose new exercise",
+    "infoStep": {
+      "codeLabel": "Exercise code *",
+      "totalPointsLabel": "Total points *",
+      "titleLabel": "Exercise title *",
+      "passThresholdLabel": "Pass threshold (%)",
+      "passThresholdPlaceholder": "Default 70",
+      "showCorrectAnswersCheckbox": "Show correct answers after submission (multiple choice section)",
+      "allowRetakeCheckbox": "Allow retakes",
+      "maxAttemptsLabel": "Maximum attempts",
+      "submit": "Create exercise — continue to attach questions",
+      "errors": {
+        "requiredFields": "Please fill in the exercise code, title, and total points.",
+        "createFailed": "Failed to create the exercise."
+      }
+    },
+    "questionsStep": {
+      "essayOrSpeakingWarning": "The exam has an Essay/Speaking question — after students submit, it will need manual grading in the \"Grading Queue\" screen.",
+      "foreignReflexPart1": "Need to assign a Reflex Video? Go to",
+      "foreignReflexLinkLabel": "Review Video Library",
+      "foreignReflexPart2": "— create/assign to a class directly there, same as Connect Video.",
+      "modeCompose": "Compose new questions",
+      "modeImport": "Import Excel/Word",
+      "subModeSingle": "Single question",
+      "subModeGrid": "Reading comprehension — Grid",
+      "subModeListeningGroup": "Multiple questions — 1 listening audio",
+      "attachedSectionTitle": "Attached to the exercise (newly composed/imported)",
+      "attachedCount": "Attached to exercise: {{count}} questions",
+      "continue": "Continue",
+      "errors": {
+        "attachAtLeastOne": "At least 1 question must be attached to the exercise.",
+        "attachComposedFailed": "Failed to attach the newly composed question to the exercise.",
+        "attachCompositeFailed": "Failed to attach the newly composed questions to the exercise.",
+        "attachImportedFailed": "Failed to attach the newly imported question to the exercise."
+      }
+    },
+    "publishStep": {
+      "readyBanner": "Exercise \"{{title}}\" ({{code}}) is ready.",
+      "readyDescriptionPart1": "Publish to mark this exercise as",
+      "readyDescriptionStrong": "eligible to be used as a source",
+      "readyDescriptionPart2": "— teachers can then select this exercise as \"next session's homework\" in Student Comments (UC-21), which automatically assigns it to the whole class with a due date of the next session. If not published, the exercise stays as a draft and cannot be selected in Comments.",
+      "draftLater": "Keep as draft, publish later",
+      "publishNow": "Publish now",
+      "publishing": "Publishing...",
+      "errors": {
+        "publishFailed": "Failed to publish the exercise."
+      }
+    }
+  },
+  "assignPage": {
+    "statusLabels": {
+      "DRAFT": "Draft",
+      "PUBLISHED": "Published",
+      "ARCHIVED": "Removed"
+    },
+    "teacherTypeLabels": {
+      "VIETNAMESE": "Vietnamese teacher",
+      "FOREIGN": "Foreign teacher"
+    },
+    "examTypeLabels": {
+      "REVIEW": "Review",
+      "HOMEWORK": "Homework"
+    },
+    "title": "Exam Bank",
+    "description": "Compose an \"Exam\" (e.g. IELTS Grade 6) containing multiple \"Exercises\" (e.g. Unit 1), assign the Exam to classes — teachers selecting a Published exercise as \"next session's homework\" in Student Comments is what actually assigns it to a class.",
+    "createExam": "Create new exam",
+    "loadExamsFailed": "Failed to load the exam list.",
+    "allCurriculums": "All curricula",
+    "allTeacherTypes": "All teacher types",
+    "noExamsAll": "No exams yet.",
+    "noExamsFiltered": "No exams yet in this curriculum.",
+    "selectExamPrompt": "Select an exam on the left to view details, or create a new exam.",
+    "examCreatedToast": "Exam created successfully!",
+    "createExamModal": {
+      "title": "Create new exam",
+      "requiredFields": "Please fill in the exam code, title, and select the curriculum, teacher type, and exam type.",
+      "createFailed": "Failed to create the exam.",
+      "examCodeLabel": "Exam code *",
+      "examCodePlaceholder": "e.g. IELTS6",
+      "examTitleLabel": "Exam title *",
+      "examTitlePlaceholder": "e.g. IELTS Grade 6",
+      "curriculumLabel": "Curriculum * (used for filtering/search only)",
+      "curriculumPlaceholder": "-- Select a curriculum --",
+      "teacherTypeLabel": "Teacher type * (used for filtering when assigning)",
+      "teacherTypePlaceholder": "-- Select teacher type --",
+      "examTypeLabel": "Exam type *",
+      "examTypePlaceholder": "-- Select exam type --",
+      "submit": "Create exam"
+    },
+    "editExamModal": {
+      "titleRequired": "Please fill in the exam title.",
+      "updateFailed": "Failed to update the exam.",
+      "modalTitle": "Edit exam — {{code}}",
+      "examTitleLabel": "Exam title *",
+      "examTitlePlaceholder": "e.g. IELTS Grade 6",
+      "teacherTypeLabel": "Teacher type * (used for filtering when assigning)",
+      "examTypeLabel": "Exam type *",
+      "immutableHint": "The exam code ({{code}}) and curriculum ({{curriculumCode}}) cannot be changed after creation."
+    },
+    "editExerciseModal": {
+      "requiredFields": "Please fill in the exercise title and total points.",
+      "updateFailed": "Failed to update the exercise.",
+      "modalTitle": "Edit exercise — {{code}}",
+      "exerciseTitleLabel": "Exercise title *",
+      "totalPointsLabel": "Total points *",
+      "passThresholdLabel": "Pass threshold (%)",
+      "showCorrectAnswersCheckbox": "Show correct answers after submission (multiple choice section)",
+      "allowRetakeCheckbox": "Allow retakes",
+      "maxAttemptsLabel": "Maximum attempts",
+      "immutableHint": "The exercise code ({{code}}) cannot be changed after creation."
+    },
+    "addQuestionsModal": {
+      "modalTitle": "Add questions — {{code}}"
+    },
+    "examDetail": {
+      "loadExercisesFailed": "Failed to load the exercise list.",
+      "deleteExamConfirm": "Delete exam \"{{title}}\" ({{code}})? This can only be deleted once every exercise in the exam has been archived.",
+      "examDeletedToast": "Exam deleted successfully!",
+      "deleteExamFailed": "Failed to delete the exam.",
+      "editExamTooltip": "Edit exam title",
+      "deleteExamTooltip": "Delete exam",
+      "assignedClassLoading": "Assigned to ... classes",
+      "assignedClassCount": "Assigned to {{count}} classes",
+      "manageSuffix": "— manage",
+      "examUpdatedToast": "Exam updated successfully!",
+      "createExercise": "Compose new exercise",
+      "noExercises": "This exam has no exercises yet.",
+      "exerciseSavedToast": "Exercise saved successfully!"
+    },
+    "exerciseRow": {
+      "loadQuestionForEditFailed": "Failed to load the question for editing.",
+      "exerciseUpdatedToast": "Exercise updated successfully!",
+      "removeQuestionConfirm": "Remove question \"{{content}}\" from this exercise?",
+      "removeQuestionFailed": "Failed to remove the question.",
+      "questionRemovedToast": "Question removed from the exercise!",
+      "publishFailed": "Failed to publish the exercise.",
+      "publishedToast": "Exercise published successfully!",
+      "deleteExerciseConfirm": "Delete exercise \"{{title}}\" ({{code}})?",
+      "deleteExerciseFailed": "Failed to delete the exercise.",
+      "exerciseDeletedToast": "Exercise deleted successfully!",
+      "totalPoints": "Total points: {{points}}",
+      "editExerciseTooltip": "Edit exercise",
+      "deleteExerciseTooltip": "Delete exercise",
+      "addQuestions": "+ Add questions",
+      "previewWithAnswers": "Preview (with answers)",
+      "publishing": "Publishing...",
+      "publish": "Publish",
+      "editQuestionModalTitle": "Edit question Q-{{id}}",
+      "questionsAddedToast": "Questions added to the exercise!",
+      "loadingQuestions": "Loading questions...",
+      "noQuestions": "This exercise has no questions attached yet.",
+      "editQuestionTooltip": "Edit question",
+      "removeQuestionTooltip": "Remove question (only while still Draft)"
+    },
+    "assignClassModal": {
+      "title": "Assign exam to classes",
+      "description": "The exam is only visible to students in the classes assigned here — a teacher must select an exercise in the exam as \"next session's homework\" in Student Comments for it to actually be assigned to students.",
+      "loadAssignedFailed": "Failed to load the list of assigned classes.",
+      "updateAssignmentFailed": "Failed to update the class assignment.",
+      "noClasses": "No classes available to assign.",
+      "savingLabel": "Saving..."
+    }
+  },
+  "bankPage": {
+    "typeBadge": {
+      "MULTIPLE_CHOICE": "Multiple choice",
+      "MULTIPLE_ANSWER": "Multi-answer multiple choice",
+      "TRUE_FALSE": "True — False",
+      "ESSAY": "Essay",
+      "SPEAKING": "Speaking",
+      "FILL_IN_BLANK": "Fill in the blank",
+      "WORD_BANK": "Fill in the blank - Word bank",
+      "SENTENCE_BUILDING": "Sentence building"
+    },
+    "difficultyLabels": {
+      "EASY": "Easy",
+      "MEDIUM": "Medium",
+      "HARD": "Hard"
+    },
+    "title": "Question Bank",
+    "questionItemLabel": "questions",
+    "description": "Pre-compose multi-modal questions (Multiple choice, Listening, Essay, Speaking) by curriculum — when assigning in \"Exam Bank\" you just pick from here again.",
+    "manageBanks": "Manage banks",
+    "bulkImport": "Bulk import questions",
+    "addQuestion": "Add new question",
+    "loadFailed": "Failed to load the question bank.",
+    "archiveConfirm": "Hide question Q-{{id}}? The question will disappear from this list (it will not affect exercises that already used this question) — there is currently no way to restore it through the UI.",
+    "archivedToast": "Question hidden successfully!",
+    "archiveFailed": "Failed to hide the question.",
+    "filters": {
+      "title": "Search filters",
+      "searchPlaceholder": "Search by question content, ID...",
+      "allTypes": "All question types",
+      "allDifficulties": "All difficulty levels",
+      "levelLabel": "Level:",
+      "allLevels": "All levels"
+    },
+    "table": {
+      "columnId": "ID",
+      "columnContent": "Question content",
+      "columnType": "Type",
+      "columnDifficulty": "Difficulty",
+      "columnBank": "Bank",
+      "columnActions": "Actions",
+      "loading": "Loading...",
+      "empty": "No questions match the filters.",
+      "explanationPrefix": "Guidance: {{text}}",
+      "listeningTag": "Listening",
+      "editTooltip": "Edit question",
+      "archiveTooltip": "Hide question"
+    },
+    "preview": {
+      "title": "Question preview",
+      "hasAnswerBadge": "With answer",
+      "emptyTitle": "No question selected for preview",
+      "emptyDescription": "Click a row in the table on the left to see details + the correct answer."
+    },
+    "questionCreatedToast": "Question created successfully!",
+    "questionsImportedToast": "Imported {{count}} questions successfully!",
+    "bankReactivatedToast": "Question bank reactivated!",
+    "bankHiddenToast": "Question bank hidden!",
+    "editModalTitle": "Edit question Q-{{id}}",
+    "questionSavedToast": "Question saved successfully!",
+    "questionPreview": {
+      "idLabel": "ID: Q-{{id}}",
+      "contentLabel": "Question content:",
+      "audioSampleLabel": "Audio sample & transcript:",
+      "choicesLabel": "Answer options:",
+      "essayHint": "Students submit a written/scanned answer — graded manually in Grading Queue.",
+      "speakingKeywordsLabel": "Grading keywords/targets:",
+      "speakingNoCriteria": "No grading criteria specified yet.",
+      "explanationLabel": "Explanation / grading criteria:",
+      "updateButton": "Update"
+    },
+    "createQuestionModal": {
+      "title": "Add a new question to the bank",
+      "curriculumLabel": "Curriculum",
+      "bankLabel": "Bank",
+      "bankPlaceholder": "-- Select --",
+      "createBankLink": "+ No suitable bank yet? Create one",
+      "noBankSelected": "Select or create a bank to start composing questions."
+    },
+    "importQuestionsModal": {
+      "title": "Bulk import questions (UC-40)",
+      "curriculumLabel": "Curriculum",
+      "bankLabel": "Bank",
+      "bankPlaceholder": "-- Select --",
+      "noBankSelected": "Select a bank to start importing questions."
+    },
+    "manageBanksModal": {
+      "title": "Manage question banks",
+      "updateStatusFailed": "Failed to update the bank status.",
+      "empty": "No question banks yet.",
+      "hideBank": "Hide bank",
+      "reactivateBank": "Reactivate"
+    },
+    "quickBankForm": {
+      "requiredFields": "Please enter the bank code and name.",
+      "createFailed": "Failed to create the bank.",
+      "codePlaceholder": "Code",
+      "namePlaceholder": "Bank name",
+      "levelPlaceholder": "Level (e.g. IELTS 5.5+)",
+      "submit": "Create bank"
+    }
+  }
+}

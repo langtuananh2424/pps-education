@@ -1,0 +1,222 @@
+{
+  "importPanel": {
+    "reflexHeaders": ["Timestamp (seconds)", "Question content", "Max recording duration (seconds)", "Max submission attempts", "Display order"],
+    "connectionHeaders": ["Question content", "Answer A", "Answer B", "Answer C", "Answer D", "Answer E", "Correct answer", "Display order"],
+    "reflexTemplateFileName": "reflex-video-question-template.xlsx",
+    "connectionTemplateFileName": "connection-video-question-template.xlsx",
+    "onlyXlsx": "Only .xlsx files are supported.",
+    "importFailed": "Import failed.",
+    "downloadTemplate": "Download template (.xlsx)",
+    "importing": "Importing...",
+    "clickToChoose": "Click to choose a file (.xlsx)",
+    "stats": {
+      "totalRows": "Total rows",
+      "successRows": "Succeeded",
+      "failedRows": "Failed"
+    },
+    "errorDetailTitle": "Row-by-row error details"
+  },
+  "lectures": {
+    "labels": {
+      "contentKind": { "VIDEO": "Video", "AUDIO": "Audio" },
+      "videoType": { "CONNECTION": "Connection video", "REFLEX": "Reflex video" },
+      "teacherType": { "VIETNAMESE": "Vietnamese teacher", "FOREIGN": "Foreign teacher" },
+      "status": { "DRAFT": "Draft", "PUBLISHED": "Published", "ARCHIVED": "Removed" }
+    },
+    "common": {
+      "cancel": "Cancel",
+      "close": "Close",
+      "saving": "Saving...",
+      "loading": "Loading...",
+      "editQuestionTooltip": "Edit question",
+      "save": "Save question",
+      "addQuestion": "Add question",
+      "importExcel": "Import Excel",
+      "importFromExcelTitle": "Import questions from Excel",
+      "loadingQuestions": "Loading questions...",
+      "loadQuestionsFailed": "Couldn't load the question list.",
+      "addQuestionFailed": "Failed to add the question.",
+      "editQuestionFailed": "Failed to edit the question.",
+      "timestampAndDurationRequired": "Please fill in the timestamp and max recording duration.",
+      "promptPlaceholder": "Question content *",
+      "choicePlaceholder": "Answer {{letter}}...",
+      "addChoice": "Add choice"
+    },
+    "mediaErrors": {
+      "durationDetectFailed": "Couldn't read the file's duration — try choosing a different file.",
+      "youtubeDurationFailed": "Couldn't read the duration — check the YouTube link.",
+      "youtubeInvalidLink": "Invalid YouTube link, or embedding is blocked for this video."
+    },
+    "connectionThreshold": {
+      "passPercentLabel": "Quiz pass threshold % (default 80)",
+      "requiredViewsLabel": "Required view count — questions are split evenly across attempts (default 1)"
+    },
+    "reflexBuilder": {
+      "label": "Questions (timestamps) — at least 1 question required *",
+      "itemSummary": "Question {{index}} · Timestamp {{minutes}}:{{seconds}} · Max recording {{maxRecording}}s · {{attempts}}",
+      "maxAttemptsLabel": "Up to {{count}} submissions",
+      "unlimitedAttempts": "Unlimited submissions",
+      "timestampPlaceholder": "Timestamp (s) *",
+      "maxRecordingPlaceholder": "Max recording (s) *",
+      "maxAttemptsPlaceholder": "Resubmission limit (blank = unlimited)",
+      "promptPlaceholder": "Question content (optional)",
+      "addButton": "Add question"
+    },
+    "connectionBuilder": {
+      "promptRequired": "Please enter the question content.",
+      "choicesRequired": "Please fill in the content of every choice.",
+      "label": "Multiple-choice questions (2-5 choices) — at least 1 question required *",
+      "itemSummary": "Question {{index}} · {{prompt}} · {{count}} choices"
+    },
+    "contentSource": {
+      "kindLabel": "Content type *",
+      "videoLabel": "Video *",
+      "audioLabel": "Audio *",
+      "uploadFile": "Upload file",
+      "pasteYoutube": "Paste YouTube link",
+      "detecting": "Detecting...",
+      "detectDuration": "Detect duration",
+      "chooseVideoFile": "Choose a video file...",
+      "chooseAudioFile": "Choose an audio file...",
+      "durationDetectedLabel": "Duration detected:",
+      "durationValue": "{{seconds}} seconds ({{minutes}} min)",
+      "durationNone": "— not detected yet —"
+    },
+    "page": {
+      "title": "Review Video Library",
+      "subtitle": "2 types: \"Connection video\" (reviewing in-class vocabulary) and \"Reflex video\" (Q&A speaking practice). Each set contains multiple videos/audio clips, and the curriculum framework assignment is ONLY for filtering/search — explicitly assigning to specific class(es) is what controls visibility. Publishing only marks a set as eligible to be used as a source — a teacher must pick a published set as \"next session's homework\" in Student Comments before it's actually assigned to a class; the system then tracks the actual watch percentage.",
+      "createButton": "Create new video set",
+      "loadSetsFailed": "Couldn't load the review video set list."
+    },
+    "filter": {
+      "allCurriculums": "All curriculum frameworks",
+      "allTeacherTypes": "All teacher types"
+    },
+    "list": {
+      "empty": "No video sets yet.",
+      "emptyInCurriculum": "No video sets yet in this curriculum framework.",
+      "itemLabel": "video sets"
+    },
+    "detail": {
+      "selectPrompt": "Select a video set on the left to view details, or create a new one.",
+      "assignedClassesPending": "Assigned to ... classes",
+      "assignedClassesCount": "Assigned to {{count}} classes",
+      "manageSuffix": " — manage",
+      "editButton": "Edit",
+      "statsButton": "Stats"
+    },
+    "toast": {
+      "setCreated": "Video set created successfully!",
+      "setSaved": "Review video set saved successfully!",
+      "videoAdded": "Video added successfully!"
+    },
+    "assignClass": {
+      "title": "Assign video set to classes",
+      "description": "This set is only visible to students of the classes assigned here — the teacher must still pick this set as \"next session's homework\" in Student Comments before it's actually assigned to students.",
+      "loadFailed": "Couldn't load the list of assigned classes.",
+      "updateFailed": "Failed to update the class assignment.",
+      "empty": "No classes available to assign."
+    },
+    "createSet": {
+      "title": "Create new review video set",
+      "fields": {
+        "code": "Set code *",
+        "codePlaceholder": "e.g. RV-U1-CONN-01",
+        "videoType": "Video type *",
+        "title": "Title *",
+        "titlePlaceholder": "e.g. Unit 1: Greetings and Introduction",
+        "curriculum": "Curriculum framework * (used for filtering/search only)",
+        "curriculumPlaceholder": "-- Select a curriculum framework --",
+        "teacherType": "Teacher type * (used to filter when assigning)",
+        "teacherTypePlaceholder": "-- Select a teacher type --",
+        "subject": "Subject (optional)",
+        "subjectPlaceholder": "-- Not assigned --",
+        "displayOrder": "Display order"
+      },
+      "questionSource": {
+        "label": "Question source",
+        "manual": "Manual entry",
+        "excel": "Import Excel"
+      },
+      "excelHint": "Create the set + video first — once created, the Excel import screen opens right away (using the real video ID just created).",
+      "submit": "Create video set",
+      "errors": {
+        "requiredFields": "Please fill in the code, title, select a curriculum framework, teacher type, video/audio, and wait for the duration to be detected.",
+        "reflexQuestionRequired": "A reflex video needs at least 1 question — use \"Add question\" in the questions section below.",
+        "connectionQuestionRequired": "A connection video requires at least 1 multiple-choice question — use \"Add question\" in the questions section below.",
+        "questionsFailedAfterVideo": "The set and video were created but attaching questions failed — reopen this set, click \"Video\" → \"Manage questions\" to add them again.",
+        "videoFailedAfterSet": "The set was created but attaching the video/audio failed — reopen this set, click \"Video\" to add it again.",
+        "createFailed": "Failed to create the review video set."
+      },
+      "importStage": {
+        "title": "Import questions from Excel",
+        "description": "Set & video created — download the template, fill in the questions, then import below. Click \"Done\" to close once finished (you can reopen this set later to continue importing if needed).",
+        "done": "Done"
+      }
+    },
+    "editSet": {
+      "title": "Edit video set: {{code}}",
+      "fields": {
+        "title": "Title *",
+        "teacherType": "Teacher type * (used to filter when assigning)",
+        "subject": "Subject (optional)",
+        "subjectPlaceholder": "-- Not assigned --",
+        "status": "Status",
+        "displayOrder": "Display order"
+      },
+      "hint": "The set code ({{code}}) and curriculum framework ({{curriculumCode}}) cannot be changed after creation. Switch the status to \"Published\" to make it eligible as a source (only set once, at publish time) — students CANNOT view it immediately; they can only view it after a teacher picks this set as \"next session's homework\" in Student Comments. Switch to \"Removed\" (ARCHIVED) to remove it from the library — this does not delete the record.",
+      "errors": {
+        "titleRequired": "Please fill in the title.",
+        "updateFailed": "Failed to update the review video set — you may not be assigned to teach a class in this curriculum framework."
+      },
+      "submit": "Save changes"
+    },
+    "videoList": {
+      "heading": "Video",
+      "empty": "This set has no videos yet.",
+      "sizeUnknown": "—",
+      "durationMinutes": "{{minutes}} min",
+      "connectionMeta": " · Pass threshold {{percent}}% · Split evenly across {{count}} attempts",
+      "closeQuestions": "Close questions",
+      "manageQuestions": "Manage questions",
+      "fields": { "title": "Title *" },
+      "addButton": "Add video",
+      "errors": {
+        "loadFailed": "Couldn't load the video list.",
+        "requiredFields": "Please fill in the title, video/audio, and wait for the duration to be detected.",
+        "addFailed": "Failed to add the video — you may not be assigned to teach this class/framework."
+      }
+    },
+    "reflexFields": {
+      "timestampPlaceholder": "Timestamp (s) *",
+      "maxRecordingPlaceholder": "Max recording (s) *",
+      "maxAttemptsPlaceholder": "Resubmission limit (blank = unlimited)",
+      "promptPlaceholder": "Question content (optional)"
+    },
+    "reflexQuestions": {
+      "empty": "No questions yet — students won't be able to submit until there's at least 1 question.",
+      "itemSummary": "Question {{index}} · Timestamp {{minutes}}:{{seconds}} · Max recording {{maxRecording}}s ·",
+      "maxAttemptsLabel": "Up to {{count}} submissions",
+      "unlimitedAttempts": "Unlimited submissions"
+    },
+    "connectionQuestions": {
+      "empty": "No questions yet — this set CANNOT be published until there's at least 1 question.",
+      "itemSummary": "Question {{index}} · {{prompt}}",
+      "choiceUnchangeableHint": "The number of choices cannot be changed when editing — create a new question if you need to add/remove choices.",
+      "promptAndChoicesRequired": "Please fill in the question content and every choice.",
+      "promptAndAnswersRequired": "Please fill in the question content and every answer."
+    },
+    "stats": {
+      "title": "Stats — {{title}}",
+      "loadAssignedFailed": "Couldn't load the list of assigned classes.",
+      "loadStatsFailed": "Couldn't load the stats.",
+      "notAssigned": "This set hasn't been assigned to any class yet — use \"Assigned to ... classes\" in the set detail to assign it first.",
+      "selectClassLabel": "View stats by class *",
+      "selectClassPlaceholder": "-- Select a class --",
+      "empty": "No data to display yet.",
+      "studentColumn": "Student",
+      "requiredViewsLabel": "Requires {{count}} views",
+      "viewsFraction": "{{viewCount}}/{{required}} views"
+    }
+  }
+}

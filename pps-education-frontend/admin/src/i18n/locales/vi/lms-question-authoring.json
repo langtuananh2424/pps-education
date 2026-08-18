@@ -1,0 +1,436 @@
+{
+  "common": {
+    "cancel": "Hủy bỏ",
+    "cancelShort": "Hủy",
+    "close": "Đóng",
+    "saving": "Đang lưu...",
+    "creating": "Đang tạo...",
+    "loading": "Đang tải...",
+    "missingExamOrBankContext": "Thiếu ngữ cảnh Đề/Ngân hàng câu hỏi.",
+    "needAtLeastOneQuestion": "Cần ít nhất 1 câu hỏi.",
+    "fillAllQuestionContent": "Vui lòng điền đủ nội dung cho mọi câu hỏi.",
+    "audioFileLabel": "File Audio bài nghe *",
+    "chooseAudioFile": "Chọn file audio...",
+    "transcriptLabel": "Ghi chú phát âm / Transcript",
+    "transcriptPlaceholder": "Nội dung đọc trong tệp audio giúp kiểm tra...",
+    "questionContentPlaceholder": "Nội dung câu hỏi...",
+    "answerOptionPlaceholder": "Đáp án {{letter}}...",
+    "addQuestionButton": "Thêm câu hỏi",
+    "pointsSuffix": "đ"
+  },
+  "questionKind": {
+    "MULTIPLE_CHOICE": "Trắc nghiệm",
+    "VOICE_MULTIPLE_CHOICE": "Trắc nghiệm Voice",
+    "INLINE_CHOICE": "Chọn từ trong câu",
+    "FILL_IN_BLANK": "Điền từ",
+    "WORD_BANK": "Điền từ - Hộp từ vựng",
+    "SENTENCE_BUILDING": "Sắp xếp câu",
+    "ESSAY": "Tự luận file/ảnh",
+    "SPEAKING": "Speaking oral",
+    "LISTENING_AUDIO_SUBMISSION": "Nghe & nộp audio",
+    "LISTENING_FILL_IN_BLANK": "Nghe điền từ"
+  },
+  "difficulty": {
+    "EASY": "Dễ (Easy)",
+    "MEDIUM": "Trung bình (Medium)",
+    "HARD": "Khó (Hard)"
+  },
+  "questionEditorForm": {
+    "kindLabel": "Loại câu hỏi tiếng Anh *",
+    "kindLockedHint": "(không sửa được sau khi tạo)",
+    "difficultyLabel": "Độ khó khảo thí *",
+    "contentLabel": "Nội dung câu hỏi / câu lệnh chỉ dẫn *",
+    "contentPlaceholder": "Nhập chi tiết đề bài viết luận, câu hỏi điền từ vào chỗ trống, hoặc văn bản đọc...",
+    "choicesSectionTitle": "Thiết lập {{count}} đáp án & chọn 1 câu trả lời đúng",
+    "choicesHint": "Hãy nhấp nút check để chọn đáp án đúng",
+    "inlineChoiceHint": "Viết câu đầy đủ ở \"Nội dung câu hỏi\" bên trên, đánh dấu vị trí cần chọn bằng dấu ___ (VD: \"We/Us saw ___ yesterday.\" → viết \"___ saw him yesterday.\"), rồi nhập 2 lựa chọn bên dưới.",
+    "addOption": "+ Thêm đáp án",
+    "audioSectionTitle": "Cấu hình file âm thanh / Transcript",
+    "listeningAudioSubmissionHint": "Học sinh sẽ nghe file audio này rồi tự ghi âm nộp lại câu trả lời (chấm tay ở \"Hàng chờ chấm bài\") — khác Trắc nghiệm Voice (học sinh chỉ chọn đáp án có sẵn).",
+    "listeningFillInBlankHint": "Học sinh sẽ nghe file audio này rồi gõ đáp án — hệ thống tự chấm theo \"Đáp án đúng\" bên dưới.",
+    "wordBankSectionTitle": "Hộp từ vựng — đáp án đúng theo thứ tự chỗ trống",
+    "wordBankHint": "Viết đoạn văn có chỗ trống ở \"Nội dung câu hỏi\" bên trên, đánh dấu mỗi chỗ trống bằng dấu ___ theo ĐÚNG thứ tự các từ bên dưới — học sinh chọn qua dropdown, mỗi từ chỉ dùng đúng 1 lần.",
+    "blankLabel": "Chỗ trống {{index}}",
+    "blankPlaceholder": "VD: went",
+    "addBlank": "+ Thêm chỗ trống",
+    "sentenceBuildingSectionTitle": "Khối từ/cụm — theo ĐÚNG thứ tự câu hoàn chỉnh",
+    "sentenceBuildingHint": "Nhập các khối từ/cụm theo ĐÚNG thứ tự tạo thành câu hoàn chỉnh — học sinh sẽ thấy các khối này bị xáo trộn, chọn lại theo đúng thứ tự để hệ thống tự chấm (so khớp chính xác thứ tự).",
+    "chunkPlaceholder": "VD: This is",
+    "addChunk": "+ Thêm khối",
+    "fillInBlankSectionTitle": "Đáp án đúng (hệ thống tự chấm)",
+    "correctAnswerLabel": "Đáp án đúng *",
+    "correctAnswerPlaceholder": "VD: went",
+    "correctAnswerHint": "So khớp không phân biệt hoa/thường, tự bỏ khoảng trắng thừa đầu-cuối khi chấm — chỉ nhận đúng 1 đáp án.",
+    "essaySectionTitle": "Đính kèm hình ảnh / File scan đề bài",
+    "essayImageLabel": "Hình ảnh/Tài liệu scan mẫu",
+    "essayImagePlaceholder": "Chọn ảnh hoặc file PDF...",
+    "speakingSectionTitle": "Bộ phân tích phát âm tiếng Anh",
+    "speakingKeywordsLabel": "Các âm vị / Từ vựng trọng điểm cần học viên phát âm chính xác *",
+    "speakingKeywordsPlaceholder": "Ví dụ: Target pronunciation sounds: 'enthusiasm', 'literature', 'variety'...",
+    "explanationLabel": "Đáp án giải thích / Tiêu chuẩn thang điểm học thuật (Rubrics)",
+    "explanationPlaceholder": "Ghi rõ lời giải chi tiết (cho trắc nghiệm) hoặc thang điểm chấm chi tiết (cho tự luận/speaking)...",
+    "submitCreate": "Tạo câu hỏi",
+    "submitUpdate": "Lưu thay đổi",
+    "errors": {
+      "contentRequired": "Vui lòng nhập nội dung câu hỏi.",
+      "fillAllOptions": "Vui lòng điền đủ {{count}} đáp án.",
+      "audioRequiredVoice": "Trắc nghiệm Voice cần có URL audio mẫu.",
+      "audioRequiredListeningFillInBlank": "Nghe điền từ cần có URL audio bài nghe.",
+      "audioRequiredListeningSubmission": "Nghe & nộp audio cần có URL audio bài nghe.",
+      "correctAnswerRequired": "Điền từ cần có đáp án đúng để hệ thống tự chấm.",
+      "wordBankBlanksRequired": "Điền từ - Hộp từ vựng cần điền đủ đáp án đúng cho mọi chỗ trống.",
+      "sentenceBuildingMinChunks": "Sắp xếp câu cần ít nhất 2 khối từ/cụm theo đúng thứ tự câu hoàn chỉnh.",
+      "lockedAfterSubmission": "Câu hỏi này đã có học viên nộp bài — không sửa được nữa, hãy soạn câu hỏi mới thay thế.",
+      "saveFailed": "Lưu câu hỏi thất bại."
+    }
+  },
+  "questionImportPanel": {
+    "excelHeaders": [
+      "Loại câu hỏi", "Độ khó", "Nội dung", "Đáp án A", "Đáp án B", "Đáp án C", "Đáp án D",
+      "Đáp án đúng", "URL Audio", "URL Hình ảnh", "Transcript/Từ khóa phát âm", "Điểm", "Giải thích", "Tags"
+    ],
+    "excelSampleExplanations": {
+      "geo": "Paris là thủ đô nước Pháp.",
+      "presentSimple": "Hiện tại đơn, ngôi thứ 3 số ít.",
+      "essayRubric": "Chấm theo thang điểm nội dung/ngữ pháp/từ vựng."
+    },
+    "formatExcel": "Excel (.xlsx)",
+    "formatWord": "Word (.docx)",
+    "downloadTemplate": "Tải file mẫu (.{{format}})",
+    "downloadTemplateFailed": "Tải file mẫu thất bại.",
+    "clickToChooseFile": "Click để chọn file (.{{format}})",
+    "invalidFileType": "Chỉ hỗ trợ file .xlsx hoặc .docx.",
+    "importFailed": "Import thất bại.",
+    "totalRows": "Tổng số dòng",
+    "successRows": "Thành công",
+    "failedRows": "Lỗi",
+    "errorDetailTitle": "Chi tiết lỗi từng dòng/block"
+  },
+  "gridQuestionBuilder": {
+    "passagesSectionTitle": "Các đoạn văn ngắn (mỗi đoạn 1 nhân vật/lựa chọn)",
+    "passageNamePlaceholder": "Tên nhân vật {{index}} (VD: Tom)",
+    "passageTextPlaceholder": "Nội dung đoạn văn...",
+    "passagesHint": "Cố định 3 đoạn (khớp bảng đáp án A/B/C bên dưới) — đổi tên nhân vật tùy ý.",
+    "questionsSectionTitle": "Danh sách câu hỏi — chọn đáp án đúng cho từng câu",
+    "submitCreate": "Tạo {{count}} câu hỏi",
+    "errors": {
+      "fillAllPassages": "Vui lòng điền đủ tên nhân vật và nội dung đoạn văn cho mọi đoạn.",
+      "fillAllQuestions": "Vui lòng điền đủ nội dung cho mọi câu hỏi.",
+      "needAtLeastOne": "Cần ít nhất 1 câu hỏi.",
+      "partialFailure": "Đã tạo được {{created}}/{{total}} câu thì lỗi — các câu đã tạo vẫn nằm trong ngân hàng câu hỏi, kiểm tra lại nếu cần.",
+      "createFailed": "Tạo bài đọc hiểu thất bại."
+    }
+  },
+  "listeningGroupBuilder": {
+    "subKindLabel": "Loại câu hỏi con *",
+    "audioSectionTitle": "File audio dùng chung cho cả nhóm câu hỏi",
+    "questionsSectionTitle": "Danh sách câu hỏi theo bài nghe trên",
+    "correctAnswerPlaceholder": "Đáp án đúng (hệ thống tự chấm)...",
+    "explanationPlaceholder": "Giải thích (phục vụ gợi ý tapescript sau khi học sinh nghe hết 3 lần)...",
+    "audioSubmissionHint": "Nghe & nộp audio không có đáp án mẫu — mỗi câu sẽ chờ giáo viên chấm tay ở \"Hàng chờ chấm bài\".",
+    "submitCreate": "Tạo {{count}} câu hỏi",
+    "errors": {
+      "audioRequired": "Cần có 1 file audio dùng chung cho cả nhóm câu hỏi.",
+      "needAtLeastOne": "Cần ít nhất 1 câu hỏi.",
+      "fillAllContent": "Vui lòng điền đủ nội dung cho mọi câu hỏi.",
+      "fillAllOptions": "Vui lòng điền đủ 4 đáp án cho mọi câu hỏi trắc nghiệm.",
+      "fillAllCorrectAnswers": "Vui lòng điền đáp án đúng cho mọi câu hỏi điền từ.",
+      "partialFailure": "Đã tạo được {{created}}/{{total}} câu thì lỗi — các câu đã tạo vẫn nằm trong ngân hàng câu hỏi, kiểm tra lại nếu cần.",
+      "createFailed": "Tạo nhóm câu hỏi nghe thất bại."
+    }
+  },
+  "exercisePreviewModal": {
+    "questionTypeLabels": {
+      "MULTIPLE_CHOICE": "Trắc nghiệm 1 đáp án",
+      "MULTIPLE_ANSWER": "Trắc nghiệm nhiều đáp án",
+      "TRUE_FALSE": "Đúng — Sai",
+      "ESSAY": "Tự luận",
+      "SPEAKING": "Nói (ghi âm)",
+      "FILL_IN_BLANK": "Điền vào chỗ trống",
+      "WORD_BANK": "Điền từ - Hộp từ vựng",
+      "SENTENCE_BUILDING": "Sắp xếp câu"
+    },
+    "modalTitle": "Xem trước đề — {{title}}",
+    "modalDescription": "Bố cục như học viên sẽ thấy, có tô sáng đáp án đúng để bạn tự đối chiếu.",
+    "totalPoints": "Tổng điểm:",
+    "timeLimit": "Thời gian:",
+    "timeLimitMinutes": "{{minutes}} phút",
+    "showCorrectAnswers": "Hiện đáp án cho học viên sau nộp:",
+    "yes": "Có",
+    "no": "Không",
+    "loading": "Đang tải đề...",
+    "empty": "Đề này chưa gắn câu hỏi nào.",
+    "questionNumber": "Câu {{index}}.",
+    "speakingHint": "Học viên ghi âm trả lời — chấm tay ở Hàng chờ chấm bài.",
+    "essayHint": "Học viên trả lời tự luận — chấm tay ở Hàng chờ chấm bài.",
+    "wordBankAnswerOrder": "Đáp án đúng theo thứ tự chỗ trống: {{answers}}",
+    "sentenceBuildingOrder": "Thứ tự câu đúng: {{order}}",
+    "explanationPrefix": "Giải thích: {{text}}"
+  },
+  "assignModal": {
+    "modalTitle": "Soạn Bài mới",
+    "infoStep": {
+      "codeLabel": "Mã Bài *",
+      "totalPointsLabel": "Tổng điểm *",
+      "titleLabel": "Tên Bài *",
+      "passThresholdLabel": "Ngưỡng đạt (%)",
+      "passThresholdPlaceholder": "Mặc định 70",
+      "showCorrectAnswersCheckbox": "Hiện đáp án đúng sau khi nộp (phần trắc nghiệm)",
+      "allowRetakeCheckbox": "Cho phép làm lại",
+      "maxAttemptsLabel": "Số lần làm tối đa",
+      "submit": "Tạo Bài — tiếp tục gắn câu hỏi",
+      "errors": {
+        "requiredFields": "Vui lòng điền Mã Bài, Tên Bài và Tổng điểm.",
+        "createFailed": "Tạo Bài thất bại."
+      }
+    },
+    "questionsStep": {
+      "essayOrSpeakingWarning": "Đề có câu Tự luận/Nói — sau khi học sinh nộp bài sẽ cần chấm tay ở màn \"Hàng chờ chấm bài\".",
+      "foreignReflexPart1": "Cần giao Video phản xạ? Vào",
+      "foreignReflexLinkLabel": "Kho Video Ôn tập",
+      "foreignReflexPart2": "— tạo/giao lớp trực tiếp ở đó, giống Video kết nối.",
+      "modeCompose": "Soạn câu hỏi mới",
+      "modeImport": "Nhập Excel/Word",
+      "subModeSingle": "Câu hỏi đơn",
+      "subModeGrid": "Bài đọc hiểu — Lưới",
+      "subModeListeningGroup": "Nhiều câu — 1 audio nghe",
+      "attachedSectionTitle": "Đã gắn vào đề (soạn mới/nhập file)",
+      "attachedCount": "Đã gắn vào Bài: {{count}} câu",
+      "continue": "Tiếp tục",
+      "errors": {
+        "attachAtLeastOne": "Cần gắn tối thiểu 1 câu hỏi vào đề.",
+        "attachComposedFailed": "Gắn câu hỏi vừa soạn vào đề thất bại.",
+        "attachCompositeFailed": "Gắn các câu hỏi vừa soạn vào đề thất bại.",
+        "attachImportedFailed": "Gắn câu hỏi vừa nhập vào đề thất bại."
+      }
+    },
+    "publishStep": {
+      "readyBanner": "Bài \"{{title}}\" ({{code}}) đã soạn xong.",
+      "readyDescriptionPart1": "Publish để đánh dấu Bài này",
+      "readyDescriptionStrong": "đủ điều kiện dùng làm nguồn",
+      "readyDescriptionPart2": "— sau đó Giáo viên chọn Bài này làm \"BTVN buổi sau\" ở Nhận xét học viên (UC-21) sẽ tự động giao cho cả lớp, hạn nộp = buổi học kế tiếp. Chưa Publish thì Bài vẫn ở dạng nháp, không chọn được ở Nhận xét.",
+      "draftLater": "Để nháp, publish sau",
+      "publishNow": "Publish ngay",
+      "publishing": "Đang publish...",
+      "errors": {
+        "publishFailed": "Publish Bài thất bại."
+      }
+    }
+  },
+  "assignPage": {
+    "statusLabels": {
+      "DRAFT": "Nháp",
+      "PUBLISHED": "Đã publish",
+      "ARCHIVED": "Đã gỡ"
+    },
+    "teacherTypeLabels": {
+      "VIETNAMESE": "Giáo viên Việt Nam",
+      "FOREIGN": "Giáo viên nước ngoài"
+    },
+    "examTypeLabels": {
+      "REVIEW": "Ôn tập",
+      "HOMEWORK": "Bài tập về nhà"
+    },
+    "title": "Kho đề",
+    "description": "Soạn \"Đề\" (VD IELTS Grade 6) chứa nhiều \"Bài\" (VD Unit 1), gán Đề cho lớp — Giáo viên chọn Bài đã Publish làm \"BTVN buổi sau\" ở Nhận xét học viên mới thật sự giao cho lớp.",
+    "createExam": "Tạo Đề mới",
+    "loadExamsFailed": "Không tải được danh sách Đề.",
+    "allCurriculums": "Tất cả khung chương trình",
+    "allTeacherTypes": "Tất cả loại giáo viên",
+    "noExamsAll": "Chưa có Đề nào.",
+    "noExamsFiltered": "Chưa có Đề nào trong khung chương trình này.",
+    "selectExamPrompt": "Chọn 1 Đề bên trái để xem chi tiết, hoặc tạo Đề mới.",
+    "examCreatedToast": "Đã tạo Đề thành công!",
+    "createExamModal": {
+      "title": "Tạo Đề mới",
+      "requiredFields": "Vui lòng điền Mã Đề, Tên Đề, chọn Khung chương trình, Loại giáo viên và Loại đề.",
+      "createFailed": "Tạo Đề thất bại.",
+      "examCodeLabel": "Mã Đề *",
+      "examCodePlaceholder": "VD: IELTS6",
+      "examTitleLabel": "Tên Đề *",
+      "examTitlePlaceholder": "VD: IELTS Grade 6",
+      "curriculumLabel": "Khung chương trình * (chỉ dùng lọc/tìm kiếm)",
+      "curriculumPlaceholder": "-- Chọn khung chương trình --",
+      "teacherTypeLabel": "Loại giáo viên * (dùng lọc khi giao bài)",
+      "teacherTypePlaceholder": "-- Chọn loại giáo viên --",
+      "examTypeLabel": "Loại đề *",
+      "examTypePlaceholder": "-- Chọn loại đề --",
+      "submit": "Tạo Đề"
+    },
+    "editExamModal": {
+      "titleRequired": "Vui lòng điền Tên Đề.",
+      "updateFailed": "Cập nhật Đề thất bại.",
+      "modalTitle": "Sửa Đề — {{code}}",
+      "examTitleLabel": "Tên Đề *",
+      "examTitlePlaceholder": "VD: IELTS Grade 6",
+      "teacherTypeLabel": "Loại giáo viên * (dùng lọc khi giao bài)",
+      "examTypeLabel": "Loại đề *",
+      "immutableHint": "Mã Đề ({{code}}) và Khung chương trình ({{curriculumCode}}) không sửa được sau khi tạo."
+    },
+    "editExerciseModal": {
+      "requiredFields": "Vui lòng điền Tên Bài và Tổng điểm.",
+      "updateFailed": "Cập nhật Bài thất bại.",
+      "modalTitle": "Sửa Bài — {{code}}",
+      "exerciseTitleLabel": "Tên Bài *",
+      "totalPointsLabel": "Tổng điểm *",
+      "passThresholdLabel": "Ngưỡng đạt (%)",
+      "showCorrectAnswersCheckbox": "Hiện đáp án đúng sau khi nộp (phần trắc nghiệm)",
+      "allowRetakeCheckbox": "Cho phép làm lại",
+      "maxAttemptsLabel": "Số lần làm tối đa",
+      "immutableHint": "Mã Bài ({{code}}) không sửa được sau khi tạo."
+    },
+    "addQuestionsModal": {
+      "modalTitle": "Thêm câu hỏi — {{code}}"
+    },
+    "examDetail": {
+      "loadExercisesFailed": "Không tải được danh sách Bài.",
+      "deleteExamConfirm": "Xóa Đề \"{{title}}\" ({{code}})? Chỉ xóa được khi mọi Bài thuộc Đề đã được lưu trữ.",
+      "examDeletedToast": "Đã xóa Đề thành công!",
+      "deleteExamFailed": "Xóa Đề thất bại.",
+      "editExamTooltip": "Sửa tên Đề",
+      "deleteExamTooltip": "Xóa Đề",
+      "assignedClassLoading": "Đã gán ... lớp",
+      "assignedClassCount": "Đã gán {{count}} lớp",
+      "manageSuffix": "— quản lý",
+      "examUpdatedToast": "Đã cập nhật Đề thành công!",
+      "createExercise": "Soạn Bài mới",
+      "noExercises": "Đề này chưa có Bài nào.",
+      "exerciseSavedToast": "Đã lưu Bài thành công!"
+    },
+    "exerciseRow": {
+      "loadQuestionForEditFailed": "Không tải được câu hỏi để sửa.",
+      "exerciseUpdatedToast": "Đã cập nhật Bài thành công!",
+      "removeQuestionConfirm": "Gỡ câu hỏi \"{{content}}\" khỏi Bài này?",
+      "removeQuestionFailed": "Gỡ câu hỏi thất bại.",
+      "questionRemovedToast": "Đã gỡ câu hỏi khỏi Bài!",
+      "publishFailed": "Publish Bài thất bại.",
+      "publishedToast": "Đã Publish Bài thành công!",
+      "deleteExerciseConfirm": "Xóa Bài \"{{title}}\" ({{code}})?",
+      "deleteExerciseFailed": "Xóa Bài thất bại.",
+      "exerciseDeletedToast": "Đã xóa Bài thành công!",
+      "totalPoints": "Tổng điểm: {{points}}",
+      "editExerciseTooltip": "Sửa Bài",
+      "deleteExerciseTooltip": "Xóa Bài",
+      "addQuestions": "+ Thêm câu hỏi",
+      "previewWithAnswers": "Xem trước (có đáp án)",
+      "publishing": "Đang publish...",
+      "publish": "Publish",
+      "editQuestionModalTitle": "Sửa câu hỏi Q-{{id}}",
+      "questionsAddedToast": "Đã thêm câu hỏi vào Bài!",
+      "loadingQuestions": "Đang tải câu hỏi...",
+      "noQuestions": "Bài này chưa gắn câu hỏi nào.",
+      "editQuestionTooltip": "Sửa câu hỏi",
+      "removeQuestionTooltip": "Gỡ câu hỏi (chỉ khi còn Nháp)"
+    },
+    "assignClassModal": {
+      "title": "Gán Đề cho lớp",
+      "description": "Đề chỉ hiển thị cho học sinh của các lớp đã gán ở đây — Bài trong Đề cần được Giáo viên chọn làm \"BTVN buổi sau\" ở Nhận xét học viên mới thật sự giao cho học sinh làm.",
+      "loadAssignedFailed": "Không tải được danh sách lớp đã gán.",
+      "updateAssignmentFailed": "Cập nhật gán lớp thất bại.",
+      "noClasses": "Không có lớp nào để gán.",
+      "savingLabel": "Đang lưu..."
+    }
+  },
+  "bankPage": {
+    "typeBadge": {
+      "MULTIPLE_CHOICE": "Trắc nghiệm",
+      "MULTIPLE_ANSWER": "Trắc nghiệm nhiều đáp án",
+      "TRUE_FALSE": "Đúng — Sai",
+      "ESSAY": "Tự luận",
+      "SPEAKING": "Speaking",
+      "FILL_IN_BLANK": "Điền từ",
+      "WORD_BANK": "Điền từ - Hộp từ vựng",
+      "SENTENCE_BUILDING": "Sắp xếp câu"
+    },
+    "difficultyLabels": {
+      "EASY": "Dễ (Easy)",
+      "MEDIUM": "Trung bình",
+      "HARD": "Khó (Hard)"
+    },
+    "title": "Ngân hàng câu hỏi",
+    "questionItemLabel": "câu hỏi",
+    "description": "Soạn sẵn câu hỏi đa phương thức (Trắc nghiệm, Nghe, Tự luận, Speaking) theo khung chương trình — khi giao bài ở \"Soạn & giao đề\" chỉ cần chọn lại từ đây.",
+    "manageBanks": "Quản lý ngân hàng",
+    "bulkImport": "Nhập câu hỏi hàng loạt",
+    "addQuestion": "Thêm câu hỏi mới",
+    "loadFailed": "Không tải được ngân hàng câu hỏi.",
+    "archiveConfirm": "Ẩn câu hỏi Q-{{id}}? Câu hỏi sẽ biến mất khỏi danh sách này (không ảnh hưởng Bài đã dùng câu hỏi này trước đó) — hiện chưa có cách khôi phục lại qua giao diện.",
+    "archivedToast": "Đã ẩn câu hỏi thành công!",
+    "archiveFailed": "Ẩn câu hỏi thất bại.",
+    "filters": {
+      "title": "Bộ lọc tìm kiếm",
+      "searchPlaceholder": "Tìm theo nội dung câu hỏi, mã ID...",
+      "allTypes": "Tất cả loại câu hỏi",
+      "allDifficulties": "Tất cả độ khó",
+      "levelLabel": "Cấp độ:",
+      "allLevels": "Tất cả cấp độ"
+    },
+    "table": {
+      "columnId": "Mã ID",
+      "columnContent": "Nội dung câu hỏi",
+      "columnType": "Phân loại",
+      "columnDifficulty": "Độ khó",
+      "columnBank": "Ngân hàng",
+      "columnActions": "Thao tác",
+      "loading": "Đang tải...",
+      "empty": "Không tìm thấy câu hỏi nào khớp bộ lọc.",
+      "explanationPrefix": "Hướng dẫn: {{text}}",
+      "listeningTag": "Nghe",
+      "editTooltip": "Chỉnh sửa câu hỏi",
+      "archiveTooltip": "Ẩn câu hỏi"
+    },
+    "preview": {
+      "title": "Xem trước câu hỏi",
+      "hasAnswerBadge": "Có đáp án",
+      "emptyTitle": "Chưa chọn câu hỏi để xem trước",
+      "emptyDescription": "Nhấp vào 1 dòng trong bảng bên trái để xem chi tiết + đáp án đúng."
+    },
+    "questionCreatedToast": "Đã tạo câu hỏi thành công!",
+    "questionsImportedToast": "Đã nhập {{count}} câu hỏi thành công!",
+    "bankReactivatedToast": "Đã kích hoạt lại ngân hàng câu hỏi!",
+    "bankHiddenToast": "Đã ẩn ngân hàng câu hỏi!",
+    "editModalTitle": "Sửa câu hỏi Q-{{id}}",
+    "questionSavedToast": "Đã lưu câu hỏi thành công!",
+    "questionPreview": {
+      "idLabel": "Mã số: Q-{{id}}",
+      "contentLabel": "Nội dung câu hỏi:",
+      "audioSampleLabel": "Mẫu phát âm & transcript:",
+      "choicesLabel": "Phương án lựa chọn:",
+      "essayHint": "Học viên nộp bài viết/scan để chấm tay ở Hàng chờ chấm bài.",
+      "speakingKeywordsLabel": "Từ khóa/mục tiêu chấm:",
+      "speakingNoCriteria": "Chưa khai báo tiêu chí chấm.",
+      "explanationLabel": "Giải thích / tiêu chí chấm:",
+      "updateButton": "Cập nhật"
+    },
+    "createQuestionModal": {
+      "title": "Thêm câu hỏi mới vào ngân hàng",
+      "curriculumLabel": "Khung chương trình",
+      "bankLabel": "Ngân hàng",
+      "bankPlaceholder": "-- Chọn --",
+      "createBankLink": "+ Chưa có ngân hàng phù hợp? Tạo mới",
+      "noBankSelected": "Chọn hoặc tạo 1 ngân hàng để bắt đầu soạn câu hỏi."
+    },
+    "importQuestionsModal": {
+      "title": "Nhập câu hỏi hàng loạt (UC-40)",
+      "curriculumLabel": "Khung chương trình",
+      "bankLabel": "Ngân hàng",
+      "bankPlaceholder": "-- Chọn --",
+      "noBankSelected": "Chọn 1 ngân hàng để bắt đầu nhập câu hỏi."
+    },
+    "manageBanksModal": {
+      "title": "Quản lý ngân hàng câu hỏi",
+      "updateStatusFailed": "Cập nhật trạng thái ngân hàng thất bại.",
+      "empty": "Chưa có ngân hàng câu hỏi nào.",
+      "hideBank": "Ẩn ngân hàng",
+      "reactivateBank": "Kích hoạt lại"
+    },
+    "quickBankForm": {
+      "requiredFields": "Vui lòng nhập Mã và Tên ngân hàng.",
+      "createFailed": "Tạo ngân hàng thất bại.",
+      "codePlaceholder": "Mã",
+      "namePlaceholder": "Tên ngân hàng",
+      "levelPlaceholder": "Cấp độ (VD: IELTS 5.5+)",
+      "submit": "Tạo ngân hàng"
+    }
+  }
+}
