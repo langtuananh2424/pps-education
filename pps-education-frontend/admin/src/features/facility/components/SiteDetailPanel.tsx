@@ -83,7 +83,7 @@ export default function SiteDetailPanel({ site, onChanged }: SiteDetailPanelProp
         </div>
       </div>
 
-      <div className="flex-1 p-5 overflow-y-auto max-h-[560px]">
+      <div className="flex-1 p-5 overflow-y-auto max-h-[620px] lg:max-h-[680px]">
         {tab === "profile" && <ProfileTab site={site} onChanged={onChanged} showToast={showToast} />}
         {tab === "manager" && <ManagerTab site={site} onChanged={onChanged} showToast={showToast} />}
         {tab === "teachers" && <SiteTeachersTab siteId={site.id} showToast={showToast} />}
