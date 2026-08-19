@@ -42,4 +42,13 @@ public class ReviewVideoProgress extends BaseAuditEntity {
     /** V59: số lượt xem (ReviewVideoWatchSession) đã đạt completionThresholdPercent — rollup, tính lại mỗi lần có session mới. */
     @Column(name = "view_count", nullable = false)
     private int viewCount = 0;
+
+    /**
+     * V129 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-19) — rollup viewCount/completed
+     * này thuộc về ĐÚNG lần giao nào — mirror {@link ReviewVideoWatchSession#getReviewVideoAssignment()},
+     * xem Javadoc field đó để hiểu lý do. NULL cho dữ liệu cũ trước migration.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "review_video_assignment_id")
+    private ReviewVideoAssignment reviewVideoAssignment;
 }

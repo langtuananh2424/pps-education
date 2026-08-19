@@ -14,8 +14,20 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, Long
 
     List<ClassSession> findBySchoolClassIdOrderBySessionDateAsc(Long classId);
 
-    /** UC-21 mở rộng (BTVN theo buổi, V55): buổi học liền TRƯỚC 1 buổi, cùng lớp — tra lại FK "sẽ giao gì" đã ghi ở dòng student_comments của buổi trước. */
-    Optional<ClassSession> findFirstBySchoolClassIdAndSessionDateLessThanOrderBySessionDateDescIdDesc(Long classId, LocalDate sessionDate);
+    /**
+     * UC-21 mở rộng (BTVN theo buổi, V55): buổi học liền TRƯỚC 1 buổi,
+     * cùng lớp — tra lại FK "sẽ giao gì" đã ghi ở dòng student_comments
+     * của buổi trước. Loại CANCELLED/RESCHEDULED (bổ sung ngoài SDD gốc,
+     * đã xác nhận với người dùng 2026-08-19, fix lỗ hổng thật: bản gốc
+     * không lọc status, chỉ đúng ngẫu nhiên nhờ tiebreak idDesc khi 1 buổi
+     * CANCELLED trùng ngày với 1 buổi SCHEDULED có id lớn hơn — nếu buổi
+     * CANCELLED có id LỚN hơn thì bị chọn nhầm làm "buổi trước", trong khi
+     * buổi đó chưa từng dạy nên chưa từng có student_comments, dẫn tới bỏ
+     * sót buổi THẬT SỰ dạy gần nhất trước đó). Mirror
+     * findUpcomingSessions (dùng cùng excludedStatuses ở call site).
+     */
+    Optional<ClassSession> findFirstBySchoolClassIdAndSessionDateLessThanAndStatusNotInOrderBySessionDateDescIdDesc(
+            Long classId, LocalDate sessionDate, List<ClassSession.Status> excludedStatuses);
 
     /**
      * UC-21 mở rộng (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
@@ -23,10 +35,11 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, Long
      * teacher_type — dùng khi buổi đang xét CÓ xác định loại giáo viên
      * (VIETNAMESE/FOREIGN), để "BTVN buổi trước" đối chiếu đúng mạch bài
      * của cùng loại GV (VD GVNN buổi 6 đối chiếu GVNN buổi 3, bỏ qua buổi
-     * GVVN xen giữa) thay vì buổi liền kề tuyệt đối bất kể ai dạy.
+     * GVVN xen giữa) thay vì buổi liền kề tuyệt đối bất kể ai dạy. Loại
+     * CANCELLED/RESCHEDULED — cùng lý do đã ghi ở method phía trên.
      */
-    Optional<ClassSession> findFirstBySchoolClassIdAndSessionDateLessThanAndTeacherTypeOrderBySessionDateDescIdDesc(
-            Long classId, LocalDate sessionDate, ClassSession.TeacherType teacherType);
+    Optional<ClassSession> findFirstBySchoolClassIdAndSessionDateLessThanAndTeacherTypeAndStatusNotInOrderBySessionDateDescIdDesc(
+            Long classId, LocalDate sessionDate, ClassSession.TeacherType teacherType, List<ClassSession.Status> excludedStatuses);
 
     /**
      * V65 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng): buổi học

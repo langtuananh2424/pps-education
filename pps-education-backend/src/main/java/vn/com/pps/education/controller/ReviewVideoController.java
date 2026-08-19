@@ -202,17 +202,22 @@ public class ReviewVideoController {
         return ResponseEntity.ok(reviewVideoService.updateConnectionQuestion(questionId, request, actor.userId()));
     }
 
+    // V128/V129 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-19) — assignmentId bắt
+    // buộc: 1 bộ video có thể có nhiều lần giao ACTIVE song song, không còn suy được "lần giao nào"
+    // chỉ từ videoId. FE (mỗi thẻ BTVN) đã có sẵn assignmentId, chỉ cần truyền kèm.
     /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — xem Javadoc ReviewVideoService#getProgress. */
     @GetMapping("/api/review-videos/{videoId}/progress")
     public ResponseEntity<ReviewVideoProgressResponse> getProgress(@PathVariable Long videoId,
+                                                                      @RequestParam Long assignmentId,
                                                                       @AuthenticationPrincipal AuthenticatedUser actor) {
-        return ResponseEntity.ok(reviewVideoService.getProgress(videoId, actor.userId()));
+        return ResponseEntity.ok(reviewVideoService.getProgress(videoId, assignmentId, actor.userId()));
     }
 
     @PostMapping("/api/review-videos/{videoId}/watch-sessions")
     public ResponseEntity<StartWatchSessionResponse> startWatchSession(@PathVariable Long videoId,
+                                                                          @RequestParam Long assignmentId,
                                                                           @AuthenticationPrincipal AuthenticatedUser actor) {
-        return ResponseEntity.ok(reviewVideoService.startWatchSession(videoId, actor.userId()));
+        return ResponseEntity.ok(reviewVideoService.startWatchSession(videoId, assignmentId, actor.userId()));
     }
 
     @PutMapping("/api/review-videos/{videoId}/progress")
@@ -255,22 +260,25 @@ public class ReviewVideoController {
 
     @PutMapping("/api/review-video-questions/{questionId}/submissions")
     public ResponseEntity<ReviewVideoSubmissionResponse> submitQuestionAudio(@PathVariable Long questionId,
+                                                                        @RequestParam Long assignmentId,
                                                                         @Valid @RequestBody SubmitReviewVideoAudioRequest request,
                                                                         @AuthenticationPrincipal AuthenticatedUser actor) {
-        return ResponseEntity.ok(reviewVideoService.submitQuestionAudio(questionId, request, actor.userId()));
+        return ResponseEntity.ok(reviewVideoService.submitQuestionAudio(questionId, assignmentId, request, actor.userId()));
     }
 
     @GetMapping("/api/review-video-questions/{questionId}/submissions/latest")
     public ResponseEntity<ReviewVideoSubmissionResponse> getMyLatestSubmission(@PathVariable Long questionId,
+                                                                            @RequestParam Long assignmentId,
                                                                             @AuthenticationPrincipal AuthenticatedUser actor) {
-        ReviewVideoSubmissionResponse response = reviewVideoService.getMyLatestSubmission(questionId, actor.userId());
+        ReviewVideoSubmissionResponse response = reviewVideoService.getMyLatestSubmission(questionId, assignmentId, actor.userId());
         return response == null ? ResponseEntity.noContent().build() : ResponseEntity.ok(response);
     }
 
     @GetMapping("/api/review-video-questions/{questionId}/submissions/history")
     public ResponseEntity<List<ReviewVideoSubmissionResponse>> listMySubmissionHistory(@PathVariable Long questionId,
+                                                                            @RequestParam Long assignmentId,
                                                                             @AuthenticationPrincipal AuthenticatedUser actor) {
-        return ResponseEntity.ok(reviewVideoService.listMySubmissionHistory(questionId, actor.userId()));
+        return ResponseEntity.ok(reviewVideoService.listMySubmissionHistory(questionId, assignmentId, actor.userId()));
     }
 
     @PreAuthorize("hasPermission(null, 'lms.grading.manage')")

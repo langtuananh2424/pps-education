@@ -423,9 +423,20 @@ public class ExerciseService {
         }
 
         OffsetDateTime finalDueAt = dueAt;
+        Long sourceSessionId = sourceClassSession == null ? null : sourceClassSession.getId();
         List<ExerciseAssignment> activeForExerciseAndClass = exerciseAssignmentRepository
                 .findByExerciseIdAndSchoolClassIdAndStatus(exerciseId, classId, ExerciseAssignment.Status.ACTIVE);
-        var sameSession = activeForExerciseAndClass.stream().filter(a -> sameDueAt(a.getDueAt(), finalDueAt)).findFirst();
+        // V128 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-19) — đảo ngược 1 phần quyết
+        // định 2026-08-06 ngay bên dưới: "giao lại = huỷ bản cũ + giao bản mới" giờ CHỈ áp dụng khi giao
+        // lại từ ĐÚNG CÙNG buổi Nhận xét nguồn (sourceClassSession) — sửa lựa chọn trong lúc còn soạn 1
+        // buổi vẫn hành xử như cũ. Giao CÙNG 1 Bài từ 2 buổi Nhận xét KHÁC NHAU (VD buổi trước + buổi
+        // sau đều chọn lại đúng Bài đó) giờ là 2 bài tập ĐỘC LẬP, chấm điểm riêng — không đụng bản giao
+        // của buổi kia. Lọc về đúng phạm vi buổi nguồn TRƯỚC khi áp toàn bộ logic sameSession/cancel bên
+        // dưới, các bản giao từ buổi khác coi như không tồn tại ở đây.
+        List<ExerciseAssignment> activeFromSameSession = activeForExerciseAndClass.stream()
+                .filter(a -> java.util.Objects.equals(a.getSourceClassSession() == null ? null : a.getSourceClassSession().getId(), sourceSessionId))
+                .toList();
+        var sameSession = activeFromSameSession.stream().filter(a -> sameDueAt(a.getDueAt(), finalDueAt)).findFirst();
         if (sameSession.isPresent()) {
             return sameSession.get();
         }
@@ -434,8 +445,9 @@ public class ExerciseService {
         // cùng (Bài, lớp) — học sinh mở "BTVN" thấy điểm/trạng thái của lượt làm CŨ dán nhầm lên bản
         // giao MỚI (toAssignedResponse lấy "lượt gần nhất" theo exerciseId+studentId, không phân biệt
         // bản giao nào). Mirror ĐÚNG cơ chế đã có sẵn ở ReviewVideoService#deliverToClass (V69): "giao
-        // lại = 1 lượt MỚI" — hủy mọi bản giao ACTIVE cũ trước khi tạo bản giao mới.
-        activeForExerciseAndClass.forEach(this::cancelAssignment);
+        // lại = 1 lượt MỚI" — hủy mọi bản giao ACTIVE cũ CÙNG buổi nguồn trước khi tạo bản giao mới
+        // (V128: chỉ còn "cùng buổi nguồn" — xem ghi chú ở activeFromSameSession).
+        activeFromSameSession.forEach(this::cancelAssignment);
 
         ExerciseAssignment assignment;
         try {
@@ -450,10 +462,13 @@ public class ExerciseService {
             });
         } catch (DataIntegrityViolationException e) {
             // Race condition (V71) — xem Javadoc ReviewVideoService#deliverToClass. Đọc lại bản ghi đã
-            // thắng, KHÔNG tạo mới/không báo lại.
+            // thắng, KHÔNG tạo mới/không báo lại. V128: lọc thêm theo đúng buổi nguồn, tránh vô tình
+            // khớp nhầm bản giao (Bài, lớp, dueAt trùng ngẫu nhiên) của 1 buổi Nhận xét khác.
             return exerciseAssignmentRepository
                     .findByExerciseIdAndSchoolClassIdAndStatus(exerciseId, classId, ExerciseAssignment.Status.ACTIVE)
-                    .stream().filter(a -> sameDueAt(a.getDueAt(), finalDueAt)).findFirst()
+                    .stream()
+                    .filter(a -> java.util.Objects.equals(a.getSourceClassSession() == null ? null : a.getSourceClassSession().getId(), sourceSessionId))
+                    .filter(a -> sameDueAt(a.getDueAt(), finalDueAt)).findFirst()
                     .orElseThrow(() -> e);
         }
 

@@ -202,7 +202,7 @@ class ExerciseReportServiceTest extends AbstractIntegrationTest {
     void listAssignmentStats_UC66_boSung_includesCompletedAssignmentAfterStudentPasses() {
         QuestionResponse mc = createMcQuestion();
         ExerciseAssignment assignment = deliverSelfPracticeExerciseWithQuestion("BTVN đạt", mc);
-        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(assignment.getExercise().getId(), studentUser.getId());
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(assignment.getExercise().getId(), assignment.getId(), studentUser.getId());
         answerCorrectly(attempt.id(), mc);
         exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
 
@@ -232,7 +232,7 @@ class ExerciseReportServiceTest extends AbstractIntegrationTest {
         QuestionResponse mc1 = createMcQuestion();
         QuestionResponse mc2 = createMcQuestion();
         ExerciseAssignment assignment = deliverSelfPracticeExerciseWithQuestions("BTVN 2 câu", List.of(mc1, mc2));
-        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(assignment.getExercise().getId(), studentUser.getId());
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(assignment.getExercise().getId(), assignment.getId(), studentUser.getId());
         answerCorrectly(attempt.id(), mc1);
         exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
 
@@ -254,7 +254,7 @@ class ExerciseReportServiceTest extends AbstractIntegrationTest {
                         null, null, new BigDecimal("1.0"), null, null, null, null),
                 teacher.getId());
         ExerciseAssignment assignment = deliverSelfPracticeExerciseWithQuestions("BTVN phân tích câu", List.of(mc, essay));
-        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(assignment.getExercise().getId(), studentUser.getId());
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(assignment.getExercise().getId(), assignment.getId(), studentUser.getId());
         Long wrongChoiceId = mc.choices().stream().filter(c -> !c.isCorrect()).findFirst().orElseThrow().id();
         exerciseAttemptService.saveAnswer(attempt.id(),
                 new SaveAnswerRequest(mc.id(), null, List.of(wrongChoiceId), null, null), studentUser.getId());
@@ -291,7 +291,7 @@ class ExerciseReportServiceTest extends AbstractIntegrationTest {
         QuestionResponse mc1 = createMcQuestion();
         QuestionResponse mc2 = createMcQuestion();
         ExerciseAssignment assignment = deliverSelfPracticeExerciseWithQuestions("BTVN Test Lịch sử trả lời", List.of(mc1, mc2));
-        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(assignment.getExercise().getId(), studentUser.getId());
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(assignment.getExercise().getId(), assignment.getId(), studentUser.getId());
 
         // Trả lời câu 1 đúng
         answerCorrectly(attempt.id(), mc1);

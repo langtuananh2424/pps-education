@@ -57,4 +57,15 @@ public class ReviewVideoWatchSession extends BaseAuditEntity {
      */
     @Column(name = "slot_index")
     private Integer slotIndex;
+
+    /**
+     * V129 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-19) — lượt xem này thuộc về ĐÚNG
+     * lần giao (bản giao) nào — trước V129, lượt xem chỉ gắn với (video, học sinh), khiến 1 bộ video
+     * CONNECTION được giao ĐỘC LẬP từ 2 buổi Nhận xét khác nhau bị TRỘN CHUNG 1 rollup viewCount (xem
+     * {@link ReviewVideoProgress}), không tách được điểm/tiến độ theo từng lần giao. NULL cho dữ liệu cũ
+     * trước migration (không suy ngược được bản giao gốc, mirror tinh thần source_class_session_id V123).
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "review_video_assignment_id")
+    private ReviewVideoAssignment reviewVideoAssignment;
 }
