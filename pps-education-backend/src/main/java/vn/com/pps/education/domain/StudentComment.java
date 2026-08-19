@@ -7,6 +7,7 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.Map;
 import java.util.UUID;
@@ -157,12 +158,17 @@ public class StudentComment {
      * xem Javadoc homeworkNext.
      *
      * V65 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30):
-     * việc set field này giờ là ĐIỂM PHÁT SINH giao bài — chọn 1 Exercise
-     * ở đây khiến {@code StudentCommentService} tự tạo/tái dùng 1
-     * {@link ExerciseAssignment} giao cho TOÀN BỘ học sinh ACTIVE của
+     * chọn 1 Exercise khiến {@code StudentCommentService} tự tạo/tái dùng
+     * 1 {@link ExerciseAssignment} giao cho TOÀN BỘ học sinh ACTIVE của
      * lớp (không chỉ học sinh đang được nhận xét — đảo ngược ý "theo từng
      * học sinh" của V55), hạn nộp = buổi học kế tiếp. Xem
      * StudentCommentService#resolveExerciseHomework.
+     *
+     * V127 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-19)
+     * — field này KHÔNG còn là điểm phát sinh giao bài: chỉ có giá trị
+     * SAU KHI Giáo viên bấm "Gửi nhận xét" (submitComments() thật sự gọi
+     * resolveExerciseHomework). Lựa chọn CHƯA giao (còn DRAFT/REJECTED)
+     * nằm ở {@link #pendingHomeworkNextExerciseId} — xem Javadoc field đó.
      */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "homework_next_exercise_assignment_id")
@@ -175,6 +181,9 @@ public class StudentComment {
      * {@link ReviewVideoAssignment} — cùng cơ chế giao cả lớp + hạn nộp =
      * buổi kế tiếp như kênh Ngữ pháp ở trên, xem
      * StudentCommentService#resolveVideoHomework.
+     *
+     * V127 — mirror {@link #homeworkNextExerciseAssignment}: chỉ có giá
+     * trị SAU submit, lựa chọn CHƯA giao ở {@link #pendingHomeworkNextReviewVideoSetId}.
      */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "homework_next_review_video_assignment_id")
@@ -182,4 +191,25 @@ public class StudentComment {
 
     @Column(columnDefinition = "TEXT")
     private String note;
+
+    // ===== BTVN buổi sau CHƯA giao (còn DRAFT/REJECTED) — V127 =====
+    // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-19 — trước V127,
+    // homeworkNextExerciseAssignment/homeworkNextReviewVideoAssignment ở trên vừa lưu
+    // LỰA CHỌN vừa là ĐIỂM GIAO BÀI (chọn xong là giao ngay, kể cả lúc Lưu nháp — trước cả khi
+    // Gửi nhận xét/được duyệt). Giờ 3 field dưới đây lưu TẠM lựa chọn thô (id nguồn, không phải
+    // id bản giao) trong lúc còn DRAFT/REJECTED; StudentCommentService#submitComments() mới
+    // thật sự materialize sang 2 field FK ở trên (gọi lại đúng resolveExerciseHomework/
+    // resolveVideoHomework, không đổi logic) — xem Javadoc submitComments.
+
+    /** Id Exercise (nguồn, không phải id bản giao) Giáo viên vừa chọn nhưng CHƯA Gửi nhận xét. */
+    @Column(name = "pending_homework_next_exercise_id")
+    private Long pendingHomeworkNextExerciseId;
+
+    /** Id ReviewVideoSet (nguồn) Giáo viên vừa chọn nhưng CHƯA Gửi nhận xét — mirror {@link #pendingHomeworkNextExerciseId}. */
+    @Column(name = "pending_homework_next_review_video_set_id")
+    private Long pendingHomeworkNextReviewVideoSetId;
+
+    /** Hạn nộp tự chọn (giờ tường thuật thô, chưa quy đổi múi giờ) đi kèm lựa chọn CHƯA giao ở trên — quy đổi thật ở resolveDueAt() lúc Gửi. */
+    @Column(name = "pending_homework_next_due_date")
+    private LocalDateTime pendingHomeworkNextDueDate;
 }

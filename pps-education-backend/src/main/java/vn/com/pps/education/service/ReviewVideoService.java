@@ -413,13 +413,20 @@ public class ReviewVideoService {
         User actor = getUserOrThrow(actorUserId);
 
         OffsetDateTime finalDueAt = dueAt;
+        Long sourceSessionId = sourceClassSession == null ? null : sourceClassSession.getId();
         List<ReviewVideoAssignment> activeForSetAndClass = reviewVideoAssignmentRepository
                 .findByReviewVideoSetIdAndSchoolClassIdAndStatus(setId, classId, ReviewVideoAssignment.Status.ACTIVE);
-        var sameSession = activeForSetAndClass.stream().filter(a -> sameDueAt(a.getDueAt(), finalDueAt)).findFirst();
+        // V128 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-19) — mirror ĐÚNG
+        // ExerciseService#deliverToClass: "giao lại = huỷ bản cũ" giờ CHỈ áp dụng khi giao lại từ ĐÚNG
+        // CÙNG buổi Nhận xét nguồn — giao cùng 1 bộ video từ 2 buổi khác nhau giờ là 2 bài tập độc lập.
+        List<ReviewVideoAssignment> activeFromSameSession = activeForSetAndClass.stream()
+                .filter(a -> java.util.Objects.equals(a.getSourceClassSession() == null ? null : a.getSourceClassSession().getId(), sourceSessionId))
+                .toList();
+        var sameSession = activeFromSameSession.stream().filter(a -> sameDueAt(a.getDueAt(), finalDueAt)).findFirst();
         if (sameSession.isPresent()) {
             return sameSession.get();
         }
-        activeForSetAndClass.forEach(this::cancelAssignment);
+        activeFromSameSession.forEach(this::cancelAssignment);
 
         ReviewVideoAssignment assignment;
         try {
@@ -437,10 +444,13 @@ public class ReviewVideoService {
             // trong lúc request này đang xử lý — "Gửi nhận xét" hàng loạt cho nhiều học sinh CÙNG buổi,
             // CÙNG chọn 1 nguồn gửi N request đồng thời (Promise.allSettled ở FE). Chạy trong giao dịch
             // lồng REQUIRES_NEW để chỉ giao dịch con này rollback khi thua race (UNIQUE index chặn), giao
-            // dịch ngoài không bị ảnh hưởng — đọc lại bản ghi đã thắng, KHÔNG tạo mới/không báo lại.
+            // dịch ngoài không bị ảnh hưởng — đọc lại bản ghi đã thắng, KHÔNG tạo mới/không báo lại. V128:
+            // lọc thêm theo đúng buổi nguồn, tránh khớp nhầm bản giao của 1 buổi Nhận xét khác.
             return reviewVideoAssignmentRepository
                     .findByReviewVideoSetIdAndSchoolClassIdAndStatus(set.getId(), schoolClass.getId(), ReviewVideoAssignment.Status.ACTIVE)
-                    .stream().filter(a -> sameDueAt(a.getDueAt(), finalDueAt)).findFirst()
+                    .stream()
+                    .filter(a -> java.util.Objects.equals(a.getSourceClassSession() == null ? null : a.getSourceClassSession().getId(), sourceSessionId))
+                    .filter(a -> sameDueAt(a.getDueAt(), finalDueAt)).findFirst()
                     .orElseThrow(() -> e);
         }
 
@@ -799,23 +809,38 @@ public class ReviewVideoService {
      * 70%) — xem {@link #recomputeProgress}. Ví dụ: yêu cầu 4 lượt, học sinh
      * xem+nộp đúng 3 lượt = 75%, ĐẠT (≥70%).
      */
+    /** V129 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-19) — thêm assignmentId bắt buộc, mirror Javadoc resolveStudentAccessForAssignment. */
     @Transactional(readOnly = true)
-    public ReviewVideoProgressResponse getProgress(Long videoId, Long actorUserId) {
+    public ReviewVideoProgressResponse getProgress(Long videoId, Long assignmentId, Long actorUserId) {
         ReviewVideo video = getVideoOrThrow(videoId);
-        Student student = requireStudentCanViewSet(video.getReviewVideoSet(), actorUserId);
-        return toResponse(getOrCreateProgress(video, student), video);
+        StudentAccess access = resolveStudentAccessForAssignment(video.getReviewVideoSet(), assignmentId, actorUserId);
+        return toResponse(getOrCreateProgress(video, access.student(), access.assignment()), video);
     }
 
+    /**
+     * V128/V129 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-19) — assignmentId bắt
+     * buộc: từ khi 1 bộ video có thể có NHIỀU bản giao ACTIVE song song (giao độc lập từ nhiều buổi
+     * Nhận xét khác nhau, xem {@link #deliverToClass}), không thể suy ra "bản giao nào" chỉ từ videoId
+     * nữa. Lượt xem giờ gắn thẳng với đúng bản giao (xem {@link ReviewVideoWatchSession#getReviewVideoAssignment()})
+     * — mọi report/submit tiếp theo trên lượt này (reportProgress/submitConnectionAnswers) tự suy ra
+     * đúng bản giao từ chính session, không cần truyền lại assignmentId.
+     */
     @Transactional
-    public StartWatchSessionResponse startWatchSession(Long videoId, Long actorUserId) {
+    public StartWatchSessionResponse startWatchSession(Long videoId, Long assignmentId, Long actorUserId) {
         ReviewVideo video = getVideoOrThrow(videoId);
-        Student student = requireStudentCanViewSet(video.getReviewVideoSet(), actorUserId);
+        StudentAccess access = resolveStudentAccessForAssignment(video.getReviewVideoSet(), assignmentId, actorUserId);
+        Student student = access.student();
 
         ReviewVideoWatchSession session = new ReviewVideoWatchSession();
         session.setReviewVideo(video);
         session.setStudent(student);
+        session.setReviewVideoAssignment(access.assignment());
         if (video.getReviewVideoSet().getVideoType() == ReviewVideoSet.VideoType.CONNECTION) {
             ensureConnectionQuestionSlotsAssigned(video, student);
+            // Cố tình vẫn đếm TOÀN CỤC (video, học sinh), KHÔNG lọc theo assignment — bộ câu hỏi random
+            // (ensureConnectionQuestionSlotsAssigned) là 1 lần duy nhất cho cả đời học sinh+video, chu
+            // kỳ slotIndex tiếp tục xuyên suốt qua các lần giao khác nhau, không reset lại (đã xác nhận
+            // với người dùng — khác hẳn viewCount/completed, LUÔN tách riêng theo từng bản giao).
             int priorSessionCount = reviewVideoWatchSessionRepository.countByReviewVideoIdAndStudentId(videoId, student.getId());
             session.setSlotIndex((priorSessionCount % video.getRequiredViewCount()) + 1);
         }
@@ -910,15 +935,18 @@ public class ReviewVideoService {
     @Transactional
     public ReviewVideoProgressResponse reportProgress(Long videoId, ReportVideoProgressRequest request, Long actorUserId) {
         ReviewVideo video = getVideoOrThrow(videoId);
-        StudentAccess access = resolveStudentAccess(video.getReviewVideoSet(), actorUserId);
-        Student student = access.student();
-        requireNotPastDeadline(access.assignment());
-
+        // V129 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-19) — không còn gọi
+        // resolveStudentAccess (tự đoán "1 bản giao ACTIVE", VỠ khi có nhiều bản song song) — lượt xem
+        // (session) đã gắn CHÍNH XÁC đúng bản giao từ lúc startWatchSession, dùng thẳng từ đó.
+        Student student = studentRepository.findByUserId(actorUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lượt xem id=" + request.watchSessionId()));
         ReviewVideoWatchSession session = reviewVideoWatchSessionRepository.findById(request.watchSessionId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lượt xem id=" + request.watchSessionId()));
         if (!session.getReviewVideo().getId().equals(videoId) || !session.getStudent().getId().equals(student.getId())) {
             throw new ResourceNotFoundException("Không tìm thấy lượt xem id=" + request.watchSessionId());
         }
+        ReviewVideoAssignment assignment = session.getReviewVideoAssignment();
+        requireNotPastDeadline(assignment);
         int sessionWatchedSeconds = Math.max(session.getWatchedSeconds(), request.watchedSeconds());
         session.setWatchedSeconds(sessionWatchedSeconds);
         // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-11 — CONNECTION giờ luôn yêu cầu
@@ -931,10 +959,10 @@ public class ReviewVideoService {
         session.setQualified(qualified);
         reviewVideoWatchSessionRepository.save(session);
 
-        ReviewVideoProgress progress = getOrCreateProgress(video, student);
+        ReviewVideoProgress progress = getOrCreateProgress(video, student, assignment);
         progress.setWatchedSeconds(Math.max(progress.getWatchedSeconds(), sessionWatchedSeconds));
         reviewVideoProgressRepository.save(progress);
-        progress = recomputeProgress(video, student);
+        progress = recomputeProgress(video, student, assignment);
         return toResponse(progress, video);
     }
 
@@ -952,12 +980,15 @@ public class ReviewVideoService {
         ReviewVideoWatchSession session = reviewVideoWatchSessionRepository.findById(watchSessionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lượt xem id=" + watchSessionId));
         ReviewVideo video = session.getReviewVideo();
-        StudentAccess access = resolveStudentAccess(video.getReviewVideoSet(), actorUserId);
-        Student student = access.student();
+        // V129 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-19) — mirror reportProgress:
+        // dùng thẳng bản giao đã gắn sẵn trên session, không tự đoán lại qua resolveStudentAccess.
+        Student student = studentRepository.findByUserId(actorUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lượt xem id=" + watchSessionId));
         if (!session.getStudent().getId().equals(student.getId())) {
             throw new ResourceNotFoundException("Không tìm thấy lượt xem id=" + watchSessionId);
         }
-        requireNotPastDeadline(access.assignment());
+        ReviewVideoAssignment assignment = session.getReviewVideoAssignment();
+        requireNotPastDeadline(assignment);
         if (!session.isQualified()) {
             throw new VideoNotYetQualifiedException(
                     "Lượt xem này chưa xem đạt ngưỡng — chưa thể làm câu hỏi.");
@@ -1011,7 +1042,7 @@ public class ReviewVideoService {
 
         session.setQuizCompletedAt(OffsetDateTime.now());
         reviewVideoWatchSessionRepository.save(session);
-        ReviewVideoProgress progress = recomputeProgress(video, student);
+        ReviewVideoProgress progress = recomputeProgress(video, student, assignment);
         return new ReviewVideoConnectionQuizResultResponse(results, toResponse(progress, video));
     }
 
@@ -1029,12 +1060,16 @@ public class ReviewVideoService {
      * đếm lượt đã nộp + gắn attempt mới SCOPED theo ĐÚNG lần giao hiện tại
      * (không tính lượt đã nộp ở các lần giao TRƯỚC đó) — "giao lại = 1
      * lượt MỚI", maxAttempts vì vậy áp dụng lại từ đầu mỗi lần giao.
+     *
+     * V128 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-19) — assignmentId bắt buộc:
+     * mirror ExerciseAttemptService#startAttempt/resolveActiveAssignmentForStudent, không còn tự đoán
+     * "lần giao ACTIVE duy nhất" (có thể có nhiều lần giao song song).
      */
     @Transactional
-    public ReviewVideoSubmissionResponse submitQuestionAudio(Long questionId, SubmitReviewVideoAudioRequest request, Long actorUserId) {
+    public ReviewVideoSubmissionResponse submitQuestionAudio(Long questionId, Long assignmentId, SubmitReviewVideoAudioRequest request, Long actorUserId) {
         ReviewVideoQuestion question = getQuestionOrThrow(questionId);
         ReviewVideo video = question.getReviewVideo();
-        StudentAccess access = resolveStudentAccess(video.getReviewVideoSet(), actorUserId);
+        StudentAccess access = resolveStudentAccessForAssignment(video.getReviewVideoSet(), assignmentId, actorUserId);
         Student student = access.student();
         requireNotPastDeadline(access.assignment());
         if (video.getReviewVideoSet().getVideoType() != ReviewVideoSet.VideoType.REFLEX) {
@@ -1066,22 +1101,22 @@ public class ReviewVideoService {
         return toResponse(submission);
     }
 
-    /** UC-23b (V57): học sinh xem attempt MỚI NHẤT mình đã nộp cho 1 câu hỏi — null nếu chưa nộp lần nào. V69: chỉ tính trong phạm vi ĐÚNG lần giao hiện tại (xem Javadoc submitQuestionAudio). */
+    /** UC-23b (V57): học sinh xem attempt MỚI NHẤT mình đã nộp cho 1 câu hỏi — null nếu chưa nộp lần nào. V69: chỉ tính trong phạm vi ĐÚNG lần giao hiện tại (xem Javadoc submitQuestionAudio). V128: assignmentId bắt buộc, mirror submitQuestionAudio. */
     @Transactional(readOnly = true)
-    public ReviewVideoSubmissionResponse getMyLatestSubmission(Long questionId, Long actorUserId) {
+    public ReviewVideoSubmissionResponse getMyLatestSubmission(Long questionId, Long assignmentId, Long actorUserId) {
         ReviewVideoQuestion question = getQuestionOrThrow(questionId);
-        StudentAccess access = resolveStudentAccess(question.getReviewVideo().getReviewVideoSet(), actorUserId);
+        StudentAccess access = resolveStudentAccessForAssignment(question.getReviewVideo().getReviewVideoSet(), assignmentId, actorUserId);
         List<ReviewVideoQuestionSubmission> attempts = reviewVideoQuestionSubmissionRepository
                 .findByReviewVideoQuestionIdAndStudentIdAndReviewVideoAssignmentIdOrderByAttemptNumberDesc(
                         questionId, access.student().getId(), access.assignment().getId());
         return attempts.isEmpty() ? null : toResponse(attempts.get(0));
     }
 
-    /** UC-23b (V57): học sinh xem TOÀN BỘ lịch sử các lần đã nộp cho 1 câu hỏi (mới nhất trước) — giữ lịch sử thì phải xem lại được. V69: chỉ tính trong phạm vi ĐÚNG lần giao hiện tại (xem Javadoc submitQuestionAudio). */
+    /** UC-23b (V57): học sinh xem TOÀN BỘ lịch sử các lần đã nộp cho 1 câu hỏi (mới nhất trước) — giữ lịch sử thì phải xem lại được. V69: chỉ tính trong phạm vi ĐÚNG lần giao hiện tại (xem Javadoc submitQuestionAudio). V128: assignmentId bắt buộc, mirror submitQuestionAudio. */
     @Transactional(readOnly = true)
-    public List<ReviewVideoSubmissionResponse> listMySubmissionHistory(Long questionId, Long actorUserId) {
+    public List<ReviewVideoSubmissionResponse> listMySubmissionHistory(Long questionId, Long assignmentId, Long actorUserId) {
         ReviewVideoQuestion question = getQuestionOrThrow(questionId);
-        StudentAccess access = resolveStudentAccess(question.getReviewVideo().getReviewVideoSet(), actorUserId);
+        StudentAccess access = resolveStudentAccessForAssignment(question.getReviewVideo().getReviewVideoSet(), assignmentId, actorUserId);
         return reviewVideoQuestionSubmissionRepository
                 .findByReviewVideoQuestionIdAndStudentIdAndReviewVideoAssignmentIdOrderByAttemptNumberDesc(
                         questionId, access.student().getId(), access.assignment().getId())
@@ -1103,10 +1138,15 @@ public class ReviewVideoService {
         List<ClassEnrollment> roster = classEnrollmentRepository.findBySchoolClassIdAndStatus(classId, ClassEnrollment.Status.ACTIVE);
         List<ReviewVideo> videos = reviewVideoRepository.findByReviewVideoSetIdOrderByDisplayOrder(setId);
         List<Long> videoIds = videos.stream().map(ReviewVideo::getId).toList();
+        // V129 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-19) — 1 học sinh giờ có thể có
+        // NHIỀU dòng tiến độ cho CÙNG 1 video (1 dòng/lần giao độc lập) — ma trận tổng quan theo cả BỘ
+        // này (khác toAssignmentStats bên dưới, scope đúng 1 lần giao) cố tình gộp merge (a, b) -> a để
+        // tránh vỡ (Collectors.toMap ném lỗi trùng khóa nếu không có merge function) — chưa tách hiển
+        // thị riêng từng lần giao ở màn tổng quan này, ngoài phạm vi thay đổi hôm nay.
         List<ReviewVideoProgress> progressRows = videoIds.isEmpty()
                 ? List.of() : reviewVideoProgressRepository.findByReviewVideoIdIn(videoIds);
         Map<String, ReviewVideoProgress> progressByKey = progressRows.stream()
-                .collect(Collectors.toMap(p -> p.getReviewVideo().getId() + ":" + p.getStudent().getId(), p -> p));
+                .collect(Collectors.toMap(p -> p.getReviewVideo().getId() + ":" + p.getStudent().getId(), p -> p, (a, b) -> a));
 
         List<ReviewVideoSetStatsResponse.VideoHeader> headers = videos.stream()
                 .map(v -> new ReviewVideoSetStatsResponse.VideoHeader(v.getId(), v.getTitle(), v.getDurationSeconds(), v.getRequiredViewCount()))
@@ -1159,8 +1199,11 @@ public class ReviewVideoService {
         ReviewVideoSet set = assignment.getReviewVideoSet();
         List<ReviewVideo> videos = reviewVideoRepository.findByReviewVideoSetIdOrderByDisplayOrder(set.getId());
         List<Long> videoIds = videos.stream().map(ReviewVideo::getId).toList();
+        // V129 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-19) — lọc đúng lần giao đang
+        // xem ("mỗi ReviewVideoAssignment" — xem Javadoc method), khớp đúng cách toán homeworkNextDueAt/
+        // targetStudentIds ở dưới cũng scope theo assignment này, không gộp lẫn lần giao khác.
         List<ReviewVideoProgress> progressRows = videoIds.isEmpty()
-                ? List.of() : reviewVideoProgressRepository.findByReviewVideoIdIn(videoIds);
+                ? List.of() : reviewVideoProgressRepository.findByReviewVideoIdInAndReviewVideoAssignmentId(videoIds, assignment.getId());
         Map<String, ReviewVideoProgress> progressByKey = progressRows.stream()
                 .collect(Collectors.toMap(p -> p.getReviewVideo().getId() + ":" + p.getStudent().getId(), p -> p));
 
@@ -1405,9 +1448,35 @@ public class ReviewVideoService {
         return new StudentAccess(student, matched);
     }
 
-    /** Wrapper cho các nơi chỉ cần Student, không cần biết lần giao cụ thể (listVideos/listQuestions/startWatchSession). */
+    /** Wrapper cho các nơi chỉ cần Student, không cần biết lần giao cụ thể (listVideos/listQuestions). */
     private Student requireStudentCanViewSet(ReviewVideoSet set, Long actorUserId) {
         return resolveStudentAccess(set, actorUserId).student();
+    }
+
+    /**
+     * V128/V129 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-19) — mirror
+     * {@link #resolveStudentAccess} nhưng nhận thẳng {@code assignmentId} thay vì tự đoán "lần giao
+     * ACTIVE duy nhất" (không còn đúng từ khi 1 bộ có thể có NHIỀU lần giao ACTIVE song song, giao độc
+     * lập từ nhiều buổi Nhận xét khác nhau — xem {@link #deliverToClass}). Dùng cho mọi thao tác cần
+     * biết CHÍNH XÁC đang thao tác trên lần giao nào: startWatchSession, submitQuestionAudio,
+     * getMyLatestSubmission, listMySubmissionHistory, getProgress. Mirror
+     * {@code ExerciseAttemptService#resolveActiveAssignmentForStudent}.
+     */
+    private StudentAccess resolveStudentAccessForAssignment(ReviewVideoSet set, Long assignmentId, Long actorUserId) {
+        if (set.getStatus() != ReviewVideoSet.Status.PUBLISHED) {
+            throw new ResourceNotFoundException("Không tìm thấy bộ video id=" + set.getId());
+        }
+        Student student = studentRepository.findByUserId(actorUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bộ video id=" + set.getId()));
+        ReviewVideoAssignment assignment = reviewVideoAssignmentRepository.findById(assignmentId)
+                .filter(a -> a.getReviewVideoSet().getId().equals(set.getId()))
+                .filter(a -> a.getStatus() == ReviewVideoAssignment.Status.ACTIVE)
+                .filter(a -> a.getTargetStudentIds() == null || a.getTargetStudentIds().contains(student.getId()))
+                .filter(a -> classEnrollmentRepository
+                        .findBySchoolClassIdAndStudentIdAndStatus(a.getSchoolClass().getId(), student.getId(), ClassEnrollment.Status.ACTIVE)
+                        .isPresent())
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bộ video id=" + set.getId()));
+        return new StudentAccess(student, assignment);
     }
 
     /**
@@ -1517,12 +1586,19 @@ public class ReviewVideoService {
         }
     }
 
-    private ReviewVideoProgress getOrCreateProgress(ReviewVideo video, Student student) {
-        return reviewVideoProgressRepository.findByReviewVideoIdAndStudentId(video.getId(), student.getId())
+    /**
+     * V129 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-19) — thêm tham số
+     * {@code assignment}: rollup viewCount/completed giờ tách riêng theo TỪNG lần giao (trước đây gộp
+     * chung 1 rollup theo (video, học sinh) — xem Javadoc {@link ReviewVideoProgress#getReviewVideoAssignment()}).
+     */
+    private ReviewVideoProgress getOrCreateProgress(ReviewVideo video, Student student, ReviewVideoAssignment assignment) {
+        return reviewVideoProgressRepository
+                .findByReviewVideoIdAndStudentIdAndReviewVideoAssignmentId(video.getId(), student.getId(), assignment.getId())
                 .orElseGet(() -> {
                     ReviewVideoProgress p = new ReviewVideoProgress();
                     p.setReviewVideo(video);
                     p.setStudent(student);
+                    p.setReviewVideoAssignment(assignment);
                     return p;
                 });
     }
@@ -1544,13 +1620,14 @@ public class ReviewVideoService {
      * REFLEX giữ nguyên công thức cũ (không đổi hành vi, xem ghi chú V83
      * phía trên).
      */
-    private ReviewVideoProgress recomputeProgress(ReviewVideo video, Student student) {
-        ReviewVideoProgress progress = getOrCreateProgress(video, student);
+    private ReviewVideoProgress recomputeProgress(ReviewVideo video, Student student, ReviewVideoAssignment assignment) {
+        ReviewVideoProgress progress = getOrCreateProgress(video, student, assignment);
         boolean requiresQuiz = video.getReviewVideoSet().getVideoType() == ReviewVideoSet.VideoType.CONNECTION;
         int viewCount = requiresQuiz
-                ? reviewVideoWatchSessionRepository.countByReviewVideoIdAndStudentIdAndQualifiedTrueAndQuizCompletedAtIsNotNull(
-                        video.getId(), student.getId())
-                : reviewVideoWatchSessionRepository.countByReviewVideoIdAndStudentIdAndQualifiedTrue(video.getId(), student.getId());
+                ? reviewVideoWatchSessionRepository.countByReviewVideoIdAndStudentIdAndReviewVideoAssignmentIdAndQualifiedTrueAndQuizCompletedAtIsNotNull(
+                        video.getId(), student.getId(), assignment.getId())
+                : reviewVideoWatchSessionRepository.countByReviewVideoIdAndStudentIdAndReviewVideoAssignmentIdAndQualifiedTrue(
+                        video.getId(), student.getId(), assignment.getId());
         progress.setViewCount(viewCount);
         boolean completed = requiresQuiz
                 ? viewCount * 100.0 / video.getRequiredViewCount() >= reviewVideoSettings.completionPassThresholdPercent()

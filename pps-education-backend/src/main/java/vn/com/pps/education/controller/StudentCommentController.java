@@ -20,6 +20,7 @@ import vn.com.pps.education.dto.CreateStudentCommentRequest;
 import vn.com.pps.education.dto.DailyCommentImportPreviewResponse;
 import vn.com.pps.education.dto.DailyCommentImportResponse;
 import vn.com.pps.education.dto.DecideCommentsRequest;
+import vn.com.pps.education.dto.StudentCommentHistoryResponse;
 import vn.com.pps.education.dto.StudentCommentResponse;
 import vn.com.pps.education.dto.SubmitCommentsRequest;
 import vn.com.pps.education.dto.UpdateActualTeacherNameRequest;
@@ -51,6 +52,18 @@ public class StudentCommentController {
         return ResponseEntity.ok(studentId != null
                 ? studentCommentService.listComments(classId, studentId)
                 : studentCommentService.listCommentsForClass(classId));
+    }
+
+    /** Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-19) — version history kiểu Google Sheets: xem lại từng lần Lưu nháp/Gửi/Duyệt/Từ chối của 1 nhận xét, kèm nội dung đầy đủ tại mỗi thời điểm. */
+    @GetMapping("/api/student-comments/{id}/history")
+    public ResponseEntity<List<StudentCommentHistoryResponse>> listHistory(@PathVariable Long id) {
+        return ResponseEntity.ok(studentCommentService.listHistory(id));
+    }
+
+    /** Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-19) — mirror listHistory nhưng gộp CẢ BUỔI (mọi học sinh) — dùng cho nút "Lịch sử phiên bản" ở đầu bảng Nhận xét hàng ngày. */
+    @GetMapping("/api/class-sessions/{sessionId}/comments/history")
+    public ResponseEntity<List<StudentCommentHistoryResponse>> listHistoryForSession(@PathVariable Long sessionId) {
+        return ResponseEntity.ok(studentCommentService.listHistoryForSession(sessionId));
     }
 
     @PreAuthorize("hasPermission(null, 'academic.comment.write')")

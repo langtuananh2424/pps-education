@@ -92,7 +92,7 @@ public class HomeworkProgressService {
         int total = 0;
         for (ReviewVideo v : videos) {
             total += set.getVideoType() == ReviewVideoSet.VideoType.CONNECTION
-                    ? connectionPercent(v, studentId) : reflexPercent(v, studentId, assignment.getId());
+                    ? connectionPercent(v, studentId, assignment.getId()) : reflexPercent(v, studentId, assignment.getId());
         }
         return Math.round(total / (float) videos.size()) + "%";
     }
@@ -134,7 +134,7 @@ public class HomeworkProgressService {
         }
         if (set.getVideoType() == ReviewVideoSet.VideoType.CONNECTION) {
             return videos.stream().allMatch(v -> reviewVideoProgressRepository
-                    .findByReviewVideoIdAndStudentId(v.getId(), studentId)
+                    .findByReviewVideoIdAndStudentIdAndReviewVideoAssignmentId(v.getId(), studentId, assignment.getId())
                     .map(ReviewVideoProgress::isCompleted).orElse(false));
         }
         String label = videoProgressLabel(assignment, studentId);
@@ -158,11 +158,11 @@ public class HomeworkProgressService {
      * chia cho số lượt YÊU CẦU của video (requiredViewCount). VD yêu cầu 3
      * lượt, mới đạt 1 lượt → 33%, không phải % thời lượng đã xem.
      */
-    private int connectionPercent(ReviewVideo v, Long studentId) {
+    private int connectionPercent(ReviewVideo v, Long studentId, Long assignmentId) {
         if (v.getRequiredViewCount() <= 0) {
             return 0;
         }
-        return reviewVideoProgressRepository.findByReviewVideoIdAndStudentId(v.getId(), studentId)
+        return reviewVideoProgressRepository.findByReviewVideoIdAndStudentIdAndReviewVideoAssignmentId(v.getId(), studentId, assignmentId)
                 .map(p -> Math.min(100, Math.round(p.getViewCount() * 100f / v.getRequiredViewCount())))
                 .orElse(0);
     }

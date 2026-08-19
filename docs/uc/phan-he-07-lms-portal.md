@@ -436,6 +436,43 @@ UC-23b: Nộp & Chấm điểm Audio cho Video Phản xạ
 > đầy đủ (áp dụng cho cả kênh Ngữ pháp Online) xem UC-21
 > (`docs/uc/phan-he-06-hoc-thuat.md`).
 
+> **Đảo ngược 1 phần V69/V70 — V128/V129 (bổ sung ngoài SDD gốc, đã xác
+> nhận với người dùng 2026-08-19) — giao CÙNG 1 bộ/đề từ 2 BUỔI KHÁC NHAU
+> nay là 2 lần giao ĐỘC LẬP, không còn hủy-cũ-tạo-mới:** Giáo viên xác
+> nhận qua test UI thật — giao lại ở buổi sau (`dueAt` khác) trước đây hủy
+> hẳn lần giao buổi trước (`status=CANCELLED`), học sinh mất dấu vết bài
+> đã làm; về bản chất 2 lần giao từ 2 buổi khác nhau là **2 bài tập độc
+> lập, mỗi bài 1 kết quả/điểm số chấm riêng**, không phải "sửa/giao lại 1
+> bài". Áp dụng cho cả 3 loại: Ngữ pháp Online (`ExerciseAssignment`),
+> Video REFLEX, Video CONNECTION. Cơ chế:
+> 1. Khoá "cùng 1 lần giao hay khác" đổi từ `(bộ/đề, lớp, dueAt)` sang
+>    thêm `source_class_session_id` (cột đã có sẵn từ V123 — buổi Nhận xét
+>    học viên UC-21 đã chọn "BTVN buổi sau"): `deliverToClass` (cả
+>    `ExerciseService`/`ReviewVideoService`) chỉ hủy-cũ-tạo-mới (quy tắc
+>    V69) khi lần giao mới CÙNG buổi nguồn với lần ACTIVE cũ (sửa lựa chọn
+>    trong cùng 1 buổi đang viết nhận xét — hành vi V69 GIỮ NGUYÊN cho case
+>    này). Giao từ buổi KHÁC: bản giao cũ vẫn ACTIVE nguyên vẹn, tạo thêm 1
+>    bản giao mới song song — học sinh thấy 2 thẻ BTVN, làm/nộp/xem điểm
+>    độc lập từng thẻ. Unique index đổi tương ứng (migration V128).
+> 2. Ngữ pháp Online + Video REFLEX vốn đã chấm theo `exercise_attempts`/
+>    `review_video_question_submissions` gắn `..._assignment_id` (REFLEX từ
+>    V69 ở trên) nên không cần đổi schema — chỉ đổi chỗ học sinh bấm "Làm
+>    bài"/"Trả lời": phải truyền đúng `assignmentId` của thẻ đang mở (Portal
+>    đã tách sẵn 1 thẻ/1 lần giao), không còn để Backend tự đoán "lần giao
+>    ACTIVE duy nhất" (vỡ ngay khi có ≥2 lần giao ACTIVE song song).
+> 3. Video CONNECTION (chấm qua `review_video_watch_sessions`/
+>    `review_video_progress`, rollup viewCount toàn cục theo (video, học
+>    sinh), CHƯA từng scope theo lần giao như REFLEX) — thêm cột
+>    `review_video_assignment_id` vào cả 2 bảng (migration V129, NULL cho
+>    dữ liệu trước migration), viết lại toàn bộ pipeline chấm % lượt xem
+>    theo đúng lần giao. Bộ câu hỏi trắc nghiệm cuối mỗi lượt xem
+>    (`slotIndex` cycling, ngẫu nhiên 1 lần duy nhất cho cả đời học
+>    sinh+video) CỐ TÌNH không đổi — vẫn dùng chung giữa các lần giao, chỉ
+>    riêng viewCount/completed mới tách theo lần giao.
+> 4. Hệ quả với mục 2 (`deliverToClass`) ở trên: "quy tắc hủy-cũ-tạo-mới
+>    của V69" từ nay chỉ áp dụng trong phạm vi CÙNG buổi nguồn, không còn
+>    áp dụng xuyên buổi như mô tả gốc.
+
 > **Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31 — giám
 > sát học sinh thoát ra ngoài khi làm bài (khóa màn hình thật không khả
 > thi trên web, xem UC-24):** bảng mới `attempt_integrity_events`
