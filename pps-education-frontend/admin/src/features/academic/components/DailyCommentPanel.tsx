@@ -743,7 +743,8 @@ export default function DailyCommentPanel() {
     setError(null);
     try {
       const blob = await downloadDailyCommentTemplate(selectedSessionId);
-      downloadBlob(blob, `mau-nhan-xet-buoi-${selectedSessionId}.xlsx`);
+      const sessionNumber = sessions.find((s) => s.id === selectedSessionId)?.sessionNumber ?? selectedSessionId;
+      downloadBlob(blob, `mau-nhan-xet-buoi-${sessionNumber}.xlsx`);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Tải file mẫu thất bại.");
     } finally {

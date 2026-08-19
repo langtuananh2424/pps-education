@@ -1651,6 +1651,22 @@ public class StudentCommentService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy buổi học id=" + id));
     }
 
+    /** "Buổi N" hiển thị FE — cùng công thức {@link ClassSessionRepository#countEarlierSessions}. */
+    @Transactional(readOnly = true)
+    public int sessionNumberOf(Long classSessionId) {
+        ClassSession classSession = getClassSessionOrThrow(classSessionId);
+        return (int) classSessionRepository.countEarlierSessions(
+                classSession.getSchoolClass().getId(), classSession.getSessionDate(), classSession.getId()) + 1;
+    }
+
+    /** "Buổi N" hiển thị FE — cùng công thức {@link ClassSessionRepository#countEarlierSessions}, dùng để đặt tên file mẫu Excel. */
+    @Transactional(readOnly = true)
+    public int sessionNumberOf(Long classSessionId) {
+        ClassSession classSession = getClassSessionOrThrow(classSessionId);
+        return (int) classSessionRepository.countEarlierSessions(
+                classSession.getSchoolClass().getId(), classSession.getSessionDate(), classSession.getId()) + 1;
+    }
+
     private User getUserOrThrow(Long id) {
         return userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + id));
