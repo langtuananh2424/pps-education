@@ -147,7 +147,8 @@ public class StudentCommentController {
     public ResponseEntity<byte[]> downloadTemplate(@PathVariable Long classSessionId,
                                                     @AuthenticationPrincipal AuthenticatedUser actor) {
         byte[] content = studentCommentService.buildTemplate(classSessionId, actor.userId());
-        return ExcelHttpResponses.attachment(content, "mau-nhan-xet-buoi-" + classSessionId + ".xlsx");
+        int sessionNumber = studentCommentService.sessionNumberOf(classSessionId);
+        return ExcelHttpResponses.attachment(content, "mau-nhan-xet-buoi-" + sessionNumber + ".xlsx");
     }
 
     @PreAuthorize("hasPermission(null, 'academic.comment.write') or hasPermission(null, 'academic.comment.approve')")

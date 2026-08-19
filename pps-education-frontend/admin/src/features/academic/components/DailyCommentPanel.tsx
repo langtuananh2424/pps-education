@@ -783,7 +783,9 @@ export default function DailyCommentPanel() {
       const blob = await downloadDailyCommentTemplate(selectedSessionId);
       // Sửa 2026-08-19 (đã xác nhận với người dùng, fix bug thật): trước đây đặt tên file theo
       // selectedSessionId (id kỹ thuật trong DB, VD 27) — không khớp "Buổi 7" giáo viên thấy trên dropdown
-      // ngay phía trên, gây nhầm lẫn. Đổi sang sessionNumber (đúng số buổi hiển thị trên UI) + ngày buổi học.
+      // ngay phía trên, gây nhầm lẫn. Đổi sang sessionNumber (đúng số buổi hiển thị trên UI) + ngày buổi học
+      // (yêu cầu format mau-nhan-xet-buoi-(...)-(ngày).xlsx — origin/develop có 1 fix độc lập cho cùng bug
+      // này qua PR #244 nhưng KHÔNG kèm ngày, giữ lại bản đầy đủ hơn ở đây khi merge 2026-08-19).
       const fileSuffix = selectedSession ? `${selectedSession.sessionNumber}-${selectedSession.sessionDate}` : selectedSessionId;
       downloadBlob(blob, `mau-nhan-xet-buoi-${fileSuffix}.xlsx`);
     } catch (err) {
