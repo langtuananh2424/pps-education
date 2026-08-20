@@ -25,37 +25,37 @@ public class GlobalExceptionHandler {
     /** @PreAuthorize("hasPermission(...)") từ chối — Hybrid PBAC (UC-02..05), giữ format lỗi nhất quán với các Not*Exception khác. */
     @ExceptionHandler(AuthorizationDeniedException.class)
     public ResponseEntity<Object> handleAuthorizationDenied(AuthorizationDeniedException ex) {
-        return error(HttpStatus.FORBIDDEN, "Tài khoản không có quyền thực hiện thao tác này.");
+        return errorByKey(HttpStatus.FORBIDDEN, "error.auth.accessDenied", "Tài khoản không có quyền thực hiện thao tác này.");
     }
 
     @ExceptionHandler(InvalidCredentialsException.class)
     public ResponseEntity<Object> handleInvalidCredentials(InvalidCredentialsException ex) {
-        return error(HttpStatus.UNAUTHORIZED, ex.getMessage());
+        return error(HttpStatus.UNAUTHORIZED, ex);
     }
 
     @ExceptionHandler(AccountLockedException.class)
     public ResponseEntity<Object> handleAccountLocked(AccountLockedException ex) {
-        return error(HttpStatus.LOCKED, ex.getMessage());
+        return error(HttpStatus.LOCKED, ex);
     }
 
     @ExceptionHandler(AccountInactiveException.class)
     public ResponseEntity<Object> handleAccountInactive(AccountInactiveException ex) {
-        return error(HttpStatus.FORBIDDEN, ex.getMessage());
+        return error(HttpStatus.FORBIDDEN, ex);
     }
 
     @ExceptionHandler(InvalidGoogleTokenException.class)
     public ResponseEntity<Object> handleInvalidGoogleToken(InvalidGoogleTokenException ex) {
-        return error(HttpStatus.UNAUTHORIZED, ex.getMessage());
+        return error(HttpStatus.UNAUTHORIZED, ex);
     }
 
     @ExceptionHandler(GoogleAccountNotProvisionedException.class)
     public ResponseEntity<Object> handleGoogleAccountNotProvisioned(GoogleAccountNotProvisionedException ex) {
-        return error(HttpStatus.FORBIDDEN, ex.getMessage());
+        return error(HttpStatus.FORBIDDEN, ex);
     }
 
     @ExceptionHandler(InvalidRefreshTokenException.class)
     public ResponseEntity<Object> handleInvalidRefreshToken(InvalidRefreshTokenException ex) {
-        return error(HttpStatus.UNAUTHORIZED, ex.getMessage());
+        return error(HttpStatus.UNAUTHORIZED, ex);
     }
 
     @ExceptionHandler(ResourceNotFoundException.class)
@@ -83,14 +83,14 @@ public class GlobalExceptionHandler {
             WorkCalendarOverrideAlreadyExistsException.class, ShiftAssignmentOverlapException.class,
             EmployeeShiftAlreadyEndedException.class})
     public ResponseEntity<Object> handleConflict(RuntimeException ex) {
-        return error(HttpStatus.CONFLICT, ex.getMessage());
+        return error(HttpStatus.CONFLICT, ex);
     }
 
     @ExceptionHandler({CurriculumUpdateConfirmationRequiredException.class, ApprovalAlreadyDecidedException.class,
             GradeComponentSetupScaleMismatchException.class, GradeComponentLockedException.class,
             GradeAlreadyPublishedException.class})
     public ResponseEntity<Object> handleConfirmationRequired(RuntimeException ex) {
-        return error(HttpStatus.CONFLICT, ex.getMessage());
+        return error(HttpStatus.CONFLICT, ex);
     }
 
     @ExceptionHandler({CurriculumNotActiveException.class, LinkedClassRequiresPartnerSiteException.class,
@@ -113,7 +113,7 @@ public class GlobalExceptionHandler {
             QuizAlreadyCompletedException.class, ListeningHintNotUnlockedException.class,
             ClassSessionNotCheckableException.class})
     public ResponseEntity<Object> handleClassSetupRejected(RuntimeException ex) {
-        return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
+        return error(HttpStatus.UNPROCESSABLE_ENTITY, ex);
     }
 
     @ExceptionHandler({NotAuthorizedForPortalAccessException.class, NotSiteManagerForSiteException.class,
@@ -122,17 +122,17 @@ public class GlobalExceptionHandler {
             NotTaskParticipantException.class, NotTaskCreatorException.class, NotAuthorizedForFeedbackException.class,
             NotAuthorizedForTaskOverviewException.class})
     public ResponseEntity<Object> handleAcademicAuthorization(RuntimeException ex) {
-        return error(HttpStatus.FORBIDDEN, ex.getMessage());
+        return error(HttpStatus.FORBIDDEN, ex);
     }
 
     @ExceptionHandler(InvalidStudentStatusTransitionException.class)
     public ResponseEntity<Object> handleInvalidStudentStatusTransition(InvalidStudentStatusTransitionException ex) {
-        return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
+        return error(HttpStatus.UNPROCESSABLE_ENTITY, ex);
     }
 
     @ExceptionHandler(ManagementExemptFromAttendanceException.class)
     public ResponseEntity<Object> handleManagementExempt(ManagementExemptFromAttendanceException ex) {
-        return error(HttpStatus.FORBIDDEN, ex.getMessage());
+        return error(HttpStatus.FORBIDDEN, ex);
     }
 
     @ExceptionHandler({OutsideAttendanceWindowException.class, OutsideGpsRadiusException.class,
@@ -140,61 +140,61 @@ public class GlobalExceptionHandler {
             AttendanceMethodNotAvailableException.class, AlreadyCheckedInException.class,
             AlreadyCheckedOutException.class})
     public ResponseEntity<Object> handleAttendanceRejected(RuntimeException ex) {
-        return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
+        return error(HttpStatus.UNPROCESSABLE_ENTITY, ex);
     }
 
     @ExceptionHandler(ExecutiveExemptFromLeaveRequestException.class)
     public ResponseEntity<Object> handleExecutiveExempt(ExecutiveExemptFromLeaveRequestException ex) {
-        return error(HttpStatus.FORBIDDEN, ex.getMessage());
+        return error(HttpStatus.FORBIDDEN, ex);
     }
 
     @ExceptionHandler(NotCurrentApproverException.class)
     public ResponseEntity<Object> handleNotCurrentApprover(NotCurrentApproverException ex) {
-        return error(HttpStatus.FORBIDDEN, ex.getMessage());
+        return error(HttpStatus.FORBIDDEN, ex);
     }
 
     @ExceptionHandler(LeaveRequestAlreadyFinalizedException.class)
     public ResponseEntity<Object> handleLeaveRequestFinalized(LeaveRequestAlreadyFinalizedException ex) {
-        return error(HttpStatus.CONFLICT, ex.getMessage());
+        return error(HttpStatus.CONFLICT, ex);
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Object> handleIllegalArgument(IllegalArgumentException ex) {
-        return error(HttpStatus.BAD_REQUEST, ex.getMessage());
+        return error(HttpStatus.BAD_REQUEST, ex);
     }
 
     /** UC-53 A1 — cột Excel không khớp cấu hình kỳ đánh giá, dừng toàn bộ import. */
     @ExceptionHandler(GradeImportColumnMismatchException.class)
     public ResponseEntity<Object> handleGradeImportColumnMismatch(GradeImportColumnMismatchException ex) {
-        return error(HttpStatus.BAD_REQUEST, ex.getMessage());
+        return error(HttpStatus.BAD_REQUEST, ex);
     }
 
     /** UC-67 A3 — biểu thức công thức placeholder trong mẫu báo cáo sai cú pháp. */
     @ExceptionHandler(InvalidTemplatePlaceholderException.class)
     public ResponseEntity<Object> handleInvalidTemplatePlaceholder(InvalidTemplatePlaceholderException ex) {
-        return error(HttpStatus.BAD_REQUEST, ex.getMessage());
+        return error(HttpStatus.BAD_REQUEST, ex);
     }
 
     /** UC-68 A1 — thiếu dữ liệu cho 1 placeholder khi xuất báo cáo. */
     @ExceptionHandler(MissingReportDataException.class)
     public ResponseEntity<Object> handleMissingReportData(MissingReportDataException ex) {
-        return error(HttpStatus.BAD_REQUEST, ex.getMessage());
+        return error(HttpStatus.BAD_REQUEST, ex);
     }
 
     @ExceptionHandler(NotHrManagerException.class)
     public ResponseEntity<Object> handleNotHrManager(NotHrManagerException ex) {
-        return error(HttpStatus.FORBIDDEN, ex.getMessage());
+        return error(HttpStatus.FORBIDDEN, ex);
     }
 
     @ExceptionHandler(InvalidWebhookSecretException.class)
     public ResponseEntity<Object> handleInvalidWebhookSecret(InvalidWebhookSecretException ex) {
-        return error(HttpStatus.UNAUTHORIZED, ex.getMessage());
+        return error(HttpStatus.UNAUTHORIZED, ex);
     }
 
     /** UC-47 / A2 — không thể tự khóa tài khoản của chính mình. */
     @ExceptionHandler(SelfAccountLockException.class)
     public ResponseEntity<Object> handleSelfAccountLock(SelfAccountLockException ex) {
-        return error(HttpStatus.FORBIDDEN, ex.getMessage());
+        return error(HttpStatus.FORBIDDEN, ex);
     }
 
     /**
@@ -203,12 +203,21 @@ public class GlobalExceptionHandler {
      * này), FE không đọc được message thống nhất. Gộp field error đầu tiên (đủ dùng cho form 1 lỗi
      * tại 1 thời điểm, khớp cách hiển thị lỗi hiện có ở FE) làm message chính.
      */
+    /**
+     * Bean Validation (@NotBlank/@Size/...) đa số KHÔNG set `message=` tường minh nên rơi vào message
+     * mặc định tiếng Anh của Hibernate Validator — khác mảng exception nghiệp vụ (tiếng Việt cứng, xử
+     * lý qua LocalizedMessage). Đây là vấn đề riêng, cần `ValidationMessages_vi.properties`/`_en` để xử
+     * lý đúng, KHÔNG thuộc phạm vi đợt này — chỉ dịch câu fallback dùng khi không có field error nào.
+     */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Object> handleValidation(MethodArgumentNotValidException ex) {
         String message = ex.getBindingResult().getFieldErrors().stream()
                 .findFirst()
                 .map(FieldError::getDefaultMessage)
-                .orElse("Dữ liệu không hợp lệ.");
+                .orElse(null);
+        if (message == null) {
+            return errorByKey(HttpStatus.BAD_REQUEST, "error.validation.invalidData", "Dữ liệu không hợp lệ.");
+        }
         return error(HttpStatus.BAD_REQUEST, message);
     }
 
@@ -222,15 +231,22 @@ public class GlobalExceptionHandler {
 
     /**
      * Overload dịch song ngữ — chỉ áp dụng cho exception đã migrate sang LocalizedMessage (messageKey
-     * != null); exception chưa migrate (đa số, ~260 throw site hiện có) rơi vào nhánh else, giữ
-     * NGUYÊN hành vi cũ (ex.getMessage() tiếng Việt cứng), không đổi gì cho tới khi chủ động migrate
-     * từng cái theo từng phase phân hệ (xem kế hoạch đồng bộ song ngữ).
+     * != null); exception chưa migrate rơi vào nhánh else, giữ NGUYÊN hành vi cũ (ex.getMessage()
+     * tiếng Việt cứng), không đổi gì cho tới khi chủ động migrate từng cái (xem kế hoạch đồng bộ song
+     * ngữ). An toàn để áp dụng cho MỌI exception (kể cả JDK như IllegalArgumentException) — nhánh
+     * `instanceof LocalizedMessage` chỉ đơn giản là false với exception chưa/không migrate được.
      */
     private ResponseEntity<Object> error(HttpStatus status, RuntimeException ex) {
         String message = ex.getMessage();
         if (ex instanceof LocalizedMessage lm && lm.messageKey() != null) {
             message = messageSource.getMessage(lm.messageKey(), lm.messageArgs(), message, LocaleContextHolder.getLocale());
         }
+        return error(status, message);
+    }
+
+    /** Dịch trực tiếp qua message key — dùng cho lỗi KHÔNG gắn với 1 exception cụ thể (literal cũ trong handler, không phải ex.getMessage()). */
+    private ResponseEntity<Object> errorByKey(HttpStatus status, String messageKey, String fallbackVi) {
+        String message = messageSource.getMessage(messageKey, null, fallbackVi, LocaleContextHolder.getLocale());
         return error(status, message);
     }
 }
