@@ -3,5 +3,13 @@
     "vi": "Vietnamese",
     "en": "English",
     "switchTo": "Switch to {{language}}"
+  },
+  "geolocation": {
+    "unsupported": "Your browser doesn't support GPS location.",
+    "permissionDenied": "Your browser is BLOCKING location access for this page — click the lock/location icon in the address bar, set Location = Allow, then reload the page and try again.",
+    "positionUnavailable": "Couldn't determine your current location — check that Location Services is enabled on your device/OS, then try again.",
+    "timeout": "GPS location timed out — try again somewhere with a better GPS/Wi-Fi signal.",
+    "unknownWithDetail": "Couldn't get your GPS location ({{detail}}) — please try again.",
+    "unknown": "Couldn't get your GPS location — please try again."
   }
 }

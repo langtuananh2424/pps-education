@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Search, UserCheck, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { searchSubstituteTeacherCandidates, TeacherLookupResponse } from "../api";
 
 const RESULT_LIMIT = 50;
@@ -18,6 +19,7 @@ interface SubstituteTeacherComboboxProps {
  * khi đây là luồng self-service của Giáo viên khi tự nộp đơn xin nghỉ.
  */
 export default function SubstituteTeacherCombobox({ value, onChange, placeholder }: SubstituteTeacherComboboxProps) {
+  const { t } = useTranslation("hrm-employees");
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<TeacherLookupResponse[]>([]);
   const [open, setOpen] = useState(false);
@@ -77,30 +79,30 @@ export default function SubstituteTeacherCombobox({ value, onChange, placeholder
             setQuery(e.target.value);
             setOpen(true);
           }}
-          placeholder={placeholder ?? "Bấm để xem danh sách hoặc gõ để tìm giáo viên..."}
+          placeholder={placeholder ?? t("substituteCombobox.placeholder")}
           className="w-full bg-white border border-slate-200 text-xs p-2 pl-8 rounded-lg focus:outline-none"
         />
       </div>
       {open && (
         <div className="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg max-h-80 overflow-y-auto">
           {loading ? (
-            <p className="px-3 py-2 text-xs text-slate-400">Đang tải...</p>
+            <p className="px-3 py-2 text-xs text-slate-400">{t("substituteCombobox.loading")}</p>
           ) : results.length === 0 ? (
-            <p className="px-3 py-2 text-xs text-slate-400 italic">Không tìm thấy giáo viên nào.</p>
+            <p className="px-3 py-2 text-xs text-slate-400 italic">{t("substituteCombobox.empty")}</p>
           ) : (
             <div className="divide-y divide-slate-100">
-              {results.map((t) => (
+              {results.map((candidate) => (
                 <button
-                  key={t.id}
+                  key={candidate.id}
                   type="button"
                   onClick={() => {
-                    onChange(t);
+                    onChange(candidate);
                     setQuery("");
                     setOpen(false);
                   }}
                   className="w-full text-left px-3 py-2 hover:bg-slate-50 text-xs"
                 >
-                  {t.fullName} <span className="text-slate-400">({t.username} · {t.email})</span>
+                  {candidate.fullName} <span className="text-slate-400">({candidate.username} · {candidate.email})</span>
                 </button>
               ))}
             </div>

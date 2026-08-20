@@ -1,0 +1,73 @@
+{
+  "departmentsPositionsPage": {
+    "title": "Phòng ban & Chức vụ",
+    "description": "Cấu hình danh mục Phòng ban, Chức vụ và role mặc định theo chức vụ — cần cấu hình ở đây trước khi chọn được trong hồ sơ nhân sự.",
+    "tabs": {
+      "departments": "Phòng ban",
+      "positions": "Chức vụ"
+    }
+  },
+  "departmentsTab": {
+    "sectionTitle": "Sơ đồ tổ chức — Phòng ban ({{count}})",
+    "addButton": "Thêm phòng ban",
+    "loadError": "Không tải được danh sách phòng ban.",
+    "deleteConfirm": "Xóa phòng ban này? Chỉ xóa được nếu chưa có nhân sự nào gán vào.",
+    "deleteError": "Xóa phòng ban thất bại.",
+    "deletedToast": "Đã xóa phòng ban thành công!",
+    "createdToast": "Đã tạo phòng ban thành công!",
+    "savedToast": "Đã lưu phòng ban thành công!",
+    "modalTitle": "Thêm phòng ban",
+    "loading": "Đang tải...",
+    "empty": "Chưa có phòng ban nào.",
+    "headLabel": "Trưởng phòng: {{name}}",
+    "noHead": "Chưa có trưởng phòng",
+    "editButton": "Sửa"
+  },
+  "departmentForm": {
+    "codeLabel": "Mã phòng ban *",
+    "codeImmutableHint": "Không sửa được mã sau khi tạo.",
+    "nameLabel": "Tên phòng ban *",
+    "parentLabel": "Phòng ban cấp trên",
+    "parentNoneOption": "-- Không có (phòng ban gốc) --",
+    "headLabel": "Trưởng phòng",
+    "headSearchPlaceholder": "Tìm theo họ tên / email...",
+    "cancelButton": "Hủy",
+    "saving": "Đang lưu...",
+    "createButton": "Tạo phòng ban",
+    "saveButton": "Lưu thay đổi",
+    "validationError": "Vui lòng điền đủ mã và tên phòng ban.",
+    "saveError": "Lưu phòng ban thất bại."
+  },
+  "positionsTab": {
+    "sectionTitle": "Danh mục Chức vụ ({{count}})",
+    "addButton": "Thêm chức vụ",
+    "loadError": "Không tải được danh sách chức vụ.",
+    "deleteConfirm": "Xóa chức vụ này? Chỉ xóa được nếu chưa có nhân sự nào gán vào.",
+    "deleteError": "Xóa chức vụ thất bại.",
+    "deletedToast": "Đã xóa chức vụ thành công!",
+    "createdToast": "Đã tạo chức vụ thành công!",
+    "modalTitle": "Thêm chức vụ",
+    "loading": "Đang tải...",
+    "empty": "Chưa có chức vụ nào.",
+    "selectHint": "Chọn 1 chức vụ bên trái để cấu hình role mặc định."
+  },
+  "positionForm": {
+    "codePlaceholder": "Mã chức vụ",
+    "namePlaceholder": "Tên chức vụ",
+    "cancelButton": "Hủy",
+    "saving": "Đang lưu...",
+    "createButton": "Tạo chức vụ",
+    "validationError": "Vui lòng điền đủ mã và tên chức vụ.",
+    "saveError": "Tạo chức vụ thất bại."
+  },
+  "defaultRolesPanel": {
+    "sectionTitle": "Role mặc định cho chức vụ",
+    "hint": "Khi 1 nhân sự được gán chức vụ này (lúc tạo hoặc đổi chức vụ), hệ thống tự gán đúng các role được tích dưới đây — không cần vào \"Nhóm vai trò\" gán tay nữa.",
+    "loadError": "Không tải được role mặc định.",
+    "saveError": "Lưu role mặc định thất bại.",
+    "savedSuccess": "Đã lưu.",
+    "loading": "Đang tải...",
+    "saveButton": "Lưu role mặc định",
+    "saving": "Đang lưu..."
+  }
+}

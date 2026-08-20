@@ -1,0 +1,191 @@
+{
+  "employeeStatus": {
+    "ACTIVE": "Đang làm việc",
+    "ON_LEAVE": "Đang nghỉ phép dài hạn",
+    "TERMINATED": "Đã nghỉ việc"
+  },
+  "employeeType": {
+    "TEACHER": "Giáo viên",
+    "STAFF": "Nhân viên",
+    "MANAGER": "Quản lý"
+  },
+  "qualificationType": {
+    "DEGREE": "Bằng cấp",
+    "PEDAGOGY_CERT": "Chứng chỉ nghiệp vụ sư phạm",
+    "LANGUAGE_CERT": "Chứng chỉ ngoại ngữ",
+    "OTHER": "Khác"
+  },
+  "commendationType": {
+    "COMMENDATION": "Khen thưởng",
+    "DISCIPLINE": "Kỷ luật"
+  },
+  "contractType": {
+    "PROBATION": "Thử việc",
+    "FIXED_TERM": "Xác định thời hạn",
+    "INDEFINITE": "Không xác định thời hạn",
+    "SEASONAL": "Thời vụ"
+  },
+  "salaryType": {
+    "MONTHLY": "Theo tháng",
+    "HOURLY": "Theo giờ"
+  },
+  "profilesPage": {
+    "title": "Quản lý hồ sơ nhân sự",
+    "description": "Lưu hồ sơ cán bộ, bằng cấp/chứng chỉ, hợp đồng lao động, khen thưởng/kỷ luật — khởi tạo kèm tài khoản đăng nhập.",
+    "importTitle": "Nhập nhân sự theo lô",
+    "importTemplateFileName": "mau-import-nhan-su.xlsx",
+    "importAccountsFileName": "tai-khoan-nhan-su.xlsx",
+    "importHeaders": [
+      "Họ và tên *",
+      "Username *",
+      "Email",
+      "Ngày sinh (dd/MM/yyyy) *",
+      "Mã nhân sự *",
+      "Loại nhân sự (Giáo viên/Nhân viên/Quản lý) *",
+      "Mã chức vụ",
+      "Mã phòng ban",
+      "Miễn chấm công/duyệt đơn (Có/Không)",
+      "Ngày vào làm (dd/MM/yyyy) *"
+    ],
+    "importSampleRow": ["Nguyễn Văn A", "nguyenvana", "a@pps.edu.vn", "01/01/1995", "NV-001", "Nhân viên", "", "", "Không", "01/07/2026"],
+    "loadError": "Không tải được danh sách nhân sự.",
+    "emptyTitle": "Chưa chọn nhân sự nào",
+    "emptyDescription": "Chọn 1 nhân sự bên trái hoặc thêm mới để xem/sửa hồ sơ.",
+    "createdToast": "Đã tạo hồ sơ nhân sự thành công!"
+  },
+  "employeeList": {
+    "title": "Danh sách Cán bộ - Giảng viên",
+    "subtitle": "Nhấp chọn nhân sự để xem chi tiết & điều phối hợp đồng",
+    "addButton": "Thêm nhân sự",
+    "searchPlaceholder": "Tìm theo họ tên / mã nhân sự...",
+    "loading": "Đang tải...",
+    "emptyTitle": "Không tìm thấy nhân sự nào",
+    "emptyDescription": "Thử nới lỏng từ khóa tìm kiếm.",
+    "itemLabel": "nhân sự"
+  },
+  "employeeDetail": {
+    "tabs": {
+      "profile": "Hồ sơ",
+      "qualifications": "Bằng cấp",
+      "commendations": "Khen thưởng/Kỷ luật",
+      "contracts": "Hợp đồng"
+    },
+    "profile": {
+      "dobLabel": "Ngày sinh *",
+      "dobRequired": "Vui lòng chọn Ngày sinh.",
+      "employeeTypeLabel": "Loại nhân sự *",
+      "idCardNumberLabel": "Số CCCD",
+      "idCardIssuedDateLabel": "Ngày cấp CCCD",
+      "idCardIssuedPlaceLabel": "Nơi cấp CCCD",
+      "permanentAddressLabel": "Địa chỉ thường trú",
+      "currentAddressLabel": "Địa chỉ hiện tại",
+      "bankAccountNumberLabel": "Số tài khoản ngân hàng",
+      "bankNameLabel": "Ngân hàng",
+      "taxCodeLabel": "Mã số thuế",
+      "socialInsuranceNumberLabel": "Số BHXH",
+      "positionLabel": "Chức vụ",
+      "positionUnassigned": "-- Chưa gán --",
+      "departmentLabel": "Phòng ban",
+      "departmentUnassigned": "-- Chưa gán --",
+      "statusLabel": "Trạng thái *",
+      "terminationDateLabel": "Ngày nghỉ việc",
+      "managementExemptCheckbox": "Miễn trừ chấm công",
+      "defaultShiftCheckbox": "Áp dụng ca mặc định",
+      "saving": "Đang lưu...",
+      "saveButton": "Lưu hồ sơ",
+      "savedToast": "Đã lưu hồ sơ nhân sự thành công!",
+      "saveError": "Cập nhật hồ sơ thất bại."
+    },
+    "qualifications": {
+      "sectionTitle": "Bằng cấp/Chứng chỉ ({{count}})",
+      "addButton": "Thêm bằng cấp/chứng chỉ",
+      "modalTitle": "Thêm bằng cấp/chứng chỉ",
+      "titlePlaceholder": "Tên bằng cấp/chứng chỉ *",
+      "issuerPlaceholder": "Đơn vị cấp",
+      "titleRequired": "Vui lòng nhập tên bằng cấp/chứng chỉ.",
+      "saving": "Đang lưu...",
+      "submitButton": "Thêm bằng cấp/chứng chỉ",
+      "addedToast": "Đã thêm bằng cấp/chứng chỉ thành công!",
+      "addError": "Thêm thất bại.",
+      "loading": "Đang tải...",
+      "empty": "Chưa có bằng cấp/chứng chỉ nào.",
+      "issuedPrefix": "Cấp:"
+    },
+    "commendations": {
+      "sectionTitle": "Khen thưởng/Kỷ luật ({{count}})",
+      "addButton": "Ghi nhận mới",
+      "modalTitle": "Ghi nhận khen thưởng/kỷ luật",
+      "amountPlaceholder": "Số tiền (nếu có)",
+      "titlePlaceholder": "Tiêu đề quyết định *",
+      "requiredError": "Vui lòng nhập tiêu đề và ngày ghi nhận.",
+      "saving": "Đang lưu...",
+      "submitButton": "Ghi nhận",
+      "addedToast": "Đã ghi nhận khen thưởng/kỷ luật thành công!",
+      "addError": "Thêm thất bại.",
+      "loading": "Đang tải...",
+      "empty": "Chưa có quyết định khen thưởng/kỷ luật nào."
+    },
+    "contracts": {
+      "sectionTitle": "Hợp đồng lao động ({{count}})",
+      "addButton": "Thêm hợp đồng",
+      "modalTitle": "Thêm hợp đồng",
+      "numberPlaceholder": "Số hợp đồng *",
+      "startDateLabel": "Ngày bắt đầu *",
+      "endDateLabel": "Ngày kết thúc (bỏ trống nếu vô thời hạn)",
+      "baseSalaryPlaceholder": "Lương cơ bản *",
+      "requiredError": "Vui lòng nhập đủ số hợp đồng, ngày bắt đầu, lương cơ bản.",
+      "saving": "Đang lưu...",
+      "submitButton": "Thêm hợp đồng",
+      "addedToast": "Đã thêm hợp đồng thành công!",
+      "addError": "Thêm hợp đồng thất bại.",
+      "loading": "Đang tải...",
+      "empty": "Chưa có hợp đồng nào.",
+      "terminateConfirm": "Chấm dứt hợp đồng {{number}}?",
+      "terminateButton": "Chấm dứt",
+      "terminatedToast": "Đã chấm dứt hợp đồng thành công!",
+      "updateError": "Cập nhật thất bại.",
+      "monthUnit": "tháng",
+      "hourUnit": "giờ"
+    }
+  },
+  "employeeForm": {
+    "modalTitle": "Thêm nhân sự mới",
+    "avatarLabel": "Ảnh đại diện",
+    "avatarFallback": "Nhân sự",
+    "accountSectionTitle": "Tài khoản",
+    "infoSectionTitle": "Thông tin nhân sự",
+    "codeLabel": "Mã nhân sự *",
+    "codeRequired": "Vui lòng nhập Mã nhân sự.",
+    "employeeTypeLabel": "Loại nhân sự *",
+    "dobLabel": "Ngày sinh *",
+    "dobRequired": "Vui lòng chọn Ngày sinh.",
+    "hireDateLabel": "Ngày vào làm *",
+    "hireDateRequired": "Vui lòng chọn Ngày vào làm.",
+    "positionLabel": "Chức vụ",
+    "positionUnassigned": "-- Chưa gán --",
+    "positionEmptyHint": "Chưa có chức vụ nào — tạo tại \"Phòng ban & Chức vụ\".",
+    "departmentLabel": "Phòng ban",
+    "departmentUnassigned": "-- Chưa gán --",
+    "idCardNumberLabel": "Số CCCD",
+    "idCardIssuedDateLabel": "Ngày cấp CCCD",
+    "idCardIssuedPlaceLabel": "Nơi cấp CCCD",
+    "permanentAddressLabel": "Địa chỉ thường trú",
+    "currentAddressLabel": "Địa chỉ hiện tại",
+    "bankAccountNumberLabel": "Số tài khoản ngân hàng",
+    "bankNameLabel": "Ngân hàng",
+    "taxCodeLabel": "Mã số thuế",
+    "socialInsuranceNumberLabel": "Số BHXH",
+    "managementExemptCheckbox": "Miễn trừ chấm công (is_management)",
+    "cancel": "Hủy",
+    "creating": "Đang tạo...",
+    "createButton": "Tạo hồ sơ nhân sự",
+    "requiredFieldsError": "Vui lòng điền đủ các trường bắt buộc được đánh dấu đỏ.",
+    "accountError": "Vui lòng chọn tài khoản có sẵn, hoặc điền đủ Username/Email/Họ tên cho tài khoản mới.",
+    "createError": "Tạo hồ sơ nhân sự thất bại."
+  },
+  "substituteCombobox": {
+    "placeholder": "Bấm để xem danh sách hoặc gõ để tìm giáo viên...",
+    "loading": "Đang tải...",
+    "empty": "Không tìm thấy giáo viên nào."
+  }
+}

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Plus, Trash2 } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { listRoles, RoleResponse } from "@/features/system-admin/api";
@@ -24,6 +25,7 @@ const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
 
 /** UC-08 bổ sung (V36): danh mục Chức vụ + gán role mặc định — chọn chức vụ này khi tạo/sửa nhân sự thì tự gán các role ở đây. */
 export default function PositionsTab() {
+  const { t } = useTranslation("hrm-org");
   const [positions, setPositions] = useState<PositionResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -39,7 +41,7 @@ export default function PositionsTab() {
         setPositions(res);
         if (selectedId == null && res.length > 0) setSelectedId(res[0].id);
       })
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách chức vụ."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("positionsTab.loadError")))
       .finally(() => setLoading(false));
   };
   useEffect(load, []);
@@ -47,15 +49,15 @@ export default function PositionsTab() {
   const selected = positions.find((p) => p.id === selectedId) ?? null;
 
   const handleDelete = async (id: number) => {
-    if (!(await confirmDialog("Xóa chức vụ này? Chỉ xóa được nếu chưa có nhân sự nào gán vào.", { danger: true }))) return;
+    if (!(await confirmDialog(t("positionsTab.deleteConfirm"), { danger: true }))) return;
     setError(null);
     try {
       await deletePosition(id);
       if (selectedId === id) setSelectedId(null);
       load();
-      showToast("Đã xóa chức vụ thành công!");
+      showToast(t("positionsTab.deletedToast"));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Xóa chức vụ thất bại.");
+      setError(err instanceof ApiError ? err.message : t("positionsTab.deleteError"));
     }
   };
 
@@ -63,30 +65,30 @@ export default function PositionsTab() {
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <span className="text-[10px] font-bold uppercase text-slate-500">Danh mục Chức vụ ({positions.length})</span>
+          <span className="text-[10px] font-bold uppercase text-slate-500">{t("positionsTab.sectionTitle", { count: positions.length })}</span>
           <Button size="sm" variant="secondary" onClick={() => setCreating(true)}>
             <Plus className="w-3.5 h-3.5" />
-            Thêm chức vụ
+            {t("positionsTab.addButton")}
           </Button>
         </div>
 
         {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
-        <Modal open={creating} onClose={() => setCreating(false)} title="Thêm chức vụ">
+        <Modal open={creating} onClose={() => setCreating(false)} title={t("positionsTab.modalTitle")}>
           <PositionForm
             onDone={() => {
               setCreating(false);
               load();
-              showToast("Đã tạo chức vụ thành công!");
+              showToast(t("positionsTab.createdToast"));
             }}
             onCancel={() => setCreating(false)}
           />
         </Modal>
 
         {loading ? (
-          <p className="text-xs text-slate-500">Đang tải...</p>
+          <p className="text-xs text-slate-500">{t("positionsTab.loading")}</p>
         ) : positions.length === 0 ? (
-          <p className="text-xs text-slate-400 italic">Chưa có chức vụ nào.</p>
+          <p className="text-xs text-slate-400 italic">{t("positionsTab.empty")}</p>
         ) : (
           <div className="space-y-2">
             {positions.map((p) => (
@@ -114,7 +116,7 @@ export default function PositionsTab() {
         {selected ? (
           <DefaultRolesPanel key={selected.id} position={selected} />
         ) : (
-          <div className="border border-slate-200 rounded-lg p-8 text-center text-xs text-slate-400 italic">Chọn 1 chức vụ bên trái để cấu hình role mặc định.</div>
+          <div className="border border-slate-200 rounded-lg p-8 text-center text-xs text-slate-400 italic">{t("positionsTab.selectHint")}</div>
         )}
       </div>
 
@@ -124,6 +126,7 @@ export default function PositionsTab() {
 }
 
 function PositionForm({ onDone, onCancel }: { onDone: () => void; onCancel: () => void }) {
+  const { t } = useTranslation("hrm-org");
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -132,7 +135,7 @@ function PositionForm({ onDone, onCancel }: { onDone: () => void; onCancel: () =
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!code.trim() || !name.trim()) {
-      setError("Vui lòng điền đủ mã và tên chức vụ.");
+      setError(t("positionForm.validationError"));
       return;
     }
     setSubmitting(true);
@@ -141,7 +144,7 @@ function PositionForm({ onDone, onCancel }: { onDone: () => void; onCancel: () =
       await createPosition({ code: code.trim(), name: name.trim() });
       onDone();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Tạo chức vụ thất bại.");
+      setError(err instanceof ApiError ? err.message : t("positionForm.saveError"));
     } finally {
       setSubmitting(false);
     }
@@ -151,15 +154,15 @@ function PositionForm({ onDone, onCancel }: { onDone: () => void; onCancel: () =
     <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
       <div className="grid grid-cols-2 gap-2">
-        <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Mã chức vụ" className={`${inputClass} font-mono`} />
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Tên chức vụ" className={inputClass} />
+        <input value={code} onChange={(e) => setCode(e.target.value)} placeholder={t("positionForm.codePlaceholder")} className={`${inputClass} font-mono`} />
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("positionForm.namePlaceholder")} className={inputClass} />
       </div>
       <div className="flex gap-2">
         <Button type="button" variant="secondary" size="sm" onClick={onCancel}>
-          Hủy
+          {t("positionForm.cancelButton")}
         </Button>
         <Button type="submit" variant="primary" size="sm" disabled={submitting}>
-          {submitting ? "Đang lưu..." : "Tạo chức vụ"}
+          {submitting ? t("positionForm.saving") : t("positionForm.createButton")}
         </Button>
       </div>
     </form>
@@ -167,6 +170,7 @@ function PositionForm({ onDone, onCancel }: { onDone: () => void; onCancel: () =
 }
 
 function DefaultRolesPanel({ position }: { position: PositionResponse }) {
+  const { t } = useTranslation("hrm-org");
   const [allRoles, setAllRoles] = useState<RoleResponse[]>([]);
   const [selectedRoleIds, setSelectedRoleIds] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -182,7 +186,7 @@ function DefaultRolesPanel({ position }: { position: PositionResponse }) {
         setAllRoles(roles);
         setSelectedRoleIds(new Set(defaults.defaultRoles.map((r) => r.id)));
       })
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được role mặc định."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("defaultRolesPanel.loadError")))
       .finally(() => setLoading(false));
   }, [position.id]);
 
@@ -203,7 +207,7 @@ function DefaultRolesPanel({ position }: { position: PositionResponse }) {
       await updatePositionDefaultRoles(position.id, Array.from(selectedRoleIds));
       setSuccess(true);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Lưu role mặc định thất bại.");
+      setError(err instanceof ApiError ? err.message : t("defaultRolesPanel.saveError"));
     } finally {
       setSaving(false);
     }
@@ -212,19 +216,16 @@ function DefaultRolesPanel({ position }: { position: PositionResponse }) {
   return (
     <div className="border border-slate-200 rounded-lg p-4 space-y-3">
       <div>
-        <span className="text-[10px] font-bold uppercase text-slate-500">Role mặc định cho chức vụ</span>
+        <span className="text-[10px] font-bold uppercase text-slate-500">{t("defaultRolesPanel.sectionTitle")}</span>
         <h4 className="text-sm font-bold text-slate-800 mt-0.5">{position.name}</h4>
-        <p className="text-[10px] text-slate-400 mt-1">
-          Khi 1 nhân sự được gán chức vụ này (lúc tạo hoặc đổi chức vụ), hệ thống tự gán đúng các role được tích dưới đây —
-          không cần vào "Nhóm vai trò" gán tay nữa.
-        </p>
+        <p className="text-[10px] text-slate-400 mt-1">{t("defaultRolesPanel.hint")}</p>
       </div>
 
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
-      {success && <div className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 p-2.5 rounded-lg">Đã lưu.</div>}
+      {success && <div className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 p-2.5 rounded-lg">{t("defaultRolesPanel.savedSuccess")}</div>}
 
       {loading ? (
-        <p className="text-xs text-slate-500">Đang tải...</p>
+        <p className="text-xs text-slate-500">{t("defaultRolesPanel.loading")}</p>
       ) : (
         <div className="space-y-1.5 max-h-72 overflow-y-auto">
           {allRoles.map((r) => (
@@ -238,7 +239,7 @@ function DefaultRolesPanel({ position }: { position: PositionResponse }) {
       )}
 
       <Button variant="primary" size="sm" onClick={handleSave} disabled={saving || loading}>
-        {saving ? "Đang lưu..." : "Lưu role mặc định"}
+        {saving ? t("defaultRolesPanel.saving") : t("defaultRolesPanel.saveButton")}
       </Button>
     </div>
   );

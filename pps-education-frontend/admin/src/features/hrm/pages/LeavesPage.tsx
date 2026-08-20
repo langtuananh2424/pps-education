@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { History, Repeat } from "lucide-react";
 import Badge from "@/components/ui/Badge";
 import { ApiError } from "@/lib/apiClient";
@@ -31,14 +32,13 @@ const statusVariant: Record<LeaveRequestResponse["status"], "success" | "danger"
   CANCELLED: "neutral"
 };
 
-const statusLabels: Record<LeaveRequestResponse["status"], string> = {
-  PENDING: "Chờ duyệt",
-  APPROVED: "Đã duyệt",
-  REJECTED: "Từ chối",
-  CANCELLED: "Đã huỷ"
-};
+/** Nhãn trạng thái dịch qua i18next namespace "hrm-leaves" — xem src/i18n/locales/{vi,en}/hrm-leaves.json. */
+function leaveRequestStatusLabel(t: (key: string) => string, status: LeaveRequestResponse["status"]): string {
+  return t(`leaveRequestStatus.${status}`);
+}
 
 export default function LeavesPage() {
+  const { t } = useTranslation("hrm-leaves");
   const { currentRole } = useApp();
   const getLeaveTypeLabel = useLeaveTypeLabel();
   const [pending, setPending] = useState<LeaveRequestResponse[]>([]);
@@ -94,15 +94,15 @@ export default function LeavesPage() {
   return (
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Xin Nghỉ Phép / Đi Muộn</h1>
-        <p className="text-xs text-slate-500 mt-1">Nộp đơn xin nghỉ phép, đi muộn, về sớm và theo dõi quy trình xét duyệt.</p>
+        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("leavesPage.title")}</h1>
+        <p className="text-xs text-slate-500 mt-1">{t("leavesPage.subtitle")}</p>
       </div>
 
       <div className={showSubmitForm && showApprovalQueue ? "grid grid-cols-1 lg:grid-cols-2 gap-6" : "grid grid-cols-1 gap-6"}>
         {showSubmitForm && (
           <LeaveRequestForm
             onSubmitted={() => {
-              showToast("Đã gửi đơn từ thành công!");
+              showToast(t("leavesPage.submittedToast"));
               loadMine();
               loadSubstitutions();
             }}
@@ -124,24 +124,24 @@ export default function LeavesPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden">
           <div className="px-5 py-3 border-b border-slate-100 bg-slate-50">
-            <span className="text-xs font-bold text-slate-700 font-display block">Lịch sử đơn của tôi</span>
-            <p className="text-[10px] text-slate-400">Các đơn xin nghỉ bạn đã nộp và trạng thái duyệt.</p>
+            <span className="text-xs font-bold text-slate-700 font-display block">{t("leavesPage.myHistory.title")}</span>
+            <p className="text-[10px] text-slate-400">{t("leavesPage.myHistory.subtitle")}</p>
           </div>
           <div className="divide-y divide-slate-100 max-h-96 overflow-y-auto">
             {mineLoading ? (
-              <div className="p-6 text-center text-xs text-slate-400">Đang tải...</div>
+              <div className="p-6 text-center text-xs text-slate-400">{t("leavesPage.myHistory.loading")}</div>
             ) : mine.length === 0 ? (
-              <div className="p-6 text-center text-xs text-slate-400">Bạn chưa nộp đơn nào.</div>
+              <div className="p-6 text-center text-xs text-slate-400">{t("leavesPage.myHistory.empty")}</div>
             ) : (
               mine.map((req) => (
                 <div key={req.id} className="p-3 space-y-1">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-xs font-bold text-slate-800">{getLeaveTypeLabel(req.leaveType)}</span>
-                    <Badge variant={statusVariant[req.status]}>{statusLabels[req.status]}</Badge>
+                    <Badge variant={statusVariant[req.status]}>{leaveRequestStatusLabel(t, req.status)}</Badge>
                   </div>
                   <p className="text-[11px] text-slate-500 italic">"{req.reason}"</p>
                   <p className="text-[10px] text-slate-400">
-                    {req.startDate} đến {req.endDate} · {req.totalDays} ngày
+                    {t("leavesPage.myHistory.dateRange", { startDate: req.startDate, endDate: req.endDate, totalDays: req.totalDays })}
                   </p>
                 </div>
               ))
@@ -153,13 +153,13 @@ export default function LeavesPage() {
           <div className="px-5 py-3 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
             <History className="w-3.5 h-3.5 text-slate-400 shrink-0" />
             <div>
-              <span className="text-xs font-bold text-slate-700 font-display block">Lịch sử giáo viên dạy thay</span>
-              <p className="text-[10px] text-slate-400">Giáo viên dạy thay được gán theo đơn xin nghỉ của bạn.</p>
+              <span className="text-xs font-bold text-slate-700 font-display block">{t("leavesPage.substituteHistory.title")}</span>
+              <p className="text-[10px] text-slate-400">{t("leavesPage.substituteHistory.subtitle")}</p>
             </div>
           </div>
           <div className="divide-y divide-slate-100 max-h-96 overflow-y-auto">
             {substitutions.length === 0 ? (
-              <div className="p-6 text-center text-xs text-slate-400">Chưa có lượt dạy thay nào.</div>
+              <div className="p-6 text-center text-xs text-slate-400">{t("leavesPage.substituteHistory.empty")}</div>
             ) : (
               substitutions.map((s) => (
                 <div key={s.id} className="p-3 space-y-1">
@@ -168,12 +168,14 @@ export default function LeavesPage() {
                       <Repeat className="w-3 h-3 text-slate-400" />
                       {s.className}
                     </span>
-                    <Badge variant={s.revokedAt ? "neutral" : "success"}>{s.revokedAt ? "Đã thu hồi" : "Đang dạy thay"}</Badge>
+                    <Badge variant={s.revokedAt ? "neutral" : "success"}>
+                      {s.revokedAt ? t("substitutionStatus.revoked") : t("substitutionStatus.active")}
+                    </Badge>
                   </div>
                   <p className="text-[11px] text-slate-500">
-                    {s.substituteTeacherName} <span className="text-slate-400">dạy thay cho</span> {s.originalTeacherName}
+                    {s.substituteTeacherName} <span className="text-slate-400">{t("leavesPage.substituteHistory.substituteFor")}</span> {s.originalTeacherName}
                   </p>
-                  <p className="text-[10px] text-slate-400">Buổi ngày {s.sessionDate}</p>
+                  <p className="text-[10px] text-slate-400">{t("leavesPage.substituteHistory.sessionDate", { date: s.sessionDate })}</p>
                 </div>
               ))
             )}

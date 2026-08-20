@@ -17,6 +17,11 @@ import lmsDocumentsEn from "./locales/en/lms-documents.json";
 import taskWorkflowEn from "./locales/en/task-workflow.json";
 import facilityEn from "./locales/en/facility.json";
 import studentEn from "./locales/en/student.json";
+import hrmAttendanceEn from "./locales/en/hrm-attendance.json";
+import hrmEmployeesEn from "./locales/en/hrm-employees.json";
+import hrmLeavesEn from "./locales/en/hrm-leaves.json";
+import hrmShiftsEn from "./locales/en/hrm-shifts.json";
+import hrmOrgEn from "./locales/en/hrm-org.json";
 import commonVi from "./locales/vi/common.json";
 import authVi from "./locales/vi/auth.json";
 import dashboardVi from "./locales/vi/dashboard.json";
@@ -33,6 +38,11 @@ import lmsDocumentsVi from "./locales/vi/lms-documents.json";
 import taskWorkflowVi from "./locales/vi/task-workflow.json";
 import facilityVi from "./locales/vi/facility.json";
 import studentVi from "./locales/vi/student.json";
+import hrmAttendanceVi from "./locales/vi/hrm-attendance.json";
+import hrmEmployeesVi from "./locales/vi/hrm-employees.json";
+import hrmLeavesVi from "./locales/vi/hrm-leaves.json";
+import hrmShiftsVi from "./locales/vi/hrm-shifts.json";
+import hrmOrgVi from "./locales/vi/hrm-org.json";
 
 export const LANGUAGE_STORAGE_KEY = "pps_language";
 
@@ -56,7 +66,12 @@ i18n.use(initReactI18next).init({
       "lms-documents": lmsDocumentsVi,
       "task-workflow": taskWorkflowVi,
       facility: facilityVi,
-      student: studentVi
+      student: studentVi,
+      "hrm-attendance": hrmAttendanceVi,
+      "hrm-employees": hrmEmployeesVi,
+      "hrm-leaves": hrmLeavesVi,
+      "hrm-shifts": hrmShiftsVi,
+      "hrm-org": hrmOrgVi
     },
     en: {
       common: commonEn,
@@ -74,7 +89,12 @@ i18n.use(initReactI18next).init({
       "lms-documents": lmsDocumentsEn,
       "task-workflow": taskWorkflowEn,
       facility: facilityEn,
-      student: studentEn
+      student: studentEn,
+      "hrm-attendance": hrmAttendanceEn,
+      "hrm-employees": hrmEmployeesEn,
+      "hrm-leaves": hrmLeavesEn,
+      "hrm-shifts": hrmShiftsEn,
+      "hrm-org": hrmOrgEn
     }
   },
   lng: storedLanguage === "en" ? "en" : "vi",
@@ -96,7 +116,12 @@ i18n.use(initReactI18next).init({
     "lms-documents",
     "task-workflow",
     "facility",
-    "student"
+    "student",
+    "hrm-attendance",
+    "hrm-employees",
+    "hrm-leaves",
+    "hrm-shifts",
+    "hrm-org"
   ],
   interpolation: { escapeValue: false },
   returnEmptyString: false

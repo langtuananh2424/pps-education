@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { PlusCircle, Repeat } from "lucide-react";
 import DatePicker from "@/components/ui/DatePicker";
 import Select from "@/components/ui/Select";
@@ -21,6 +22,7 @@ interface LeaveRequestFormProps {
  * Việc dạy thay được hệ thống áp dụng NGAY khi nộp đơn, không đợi duyệt.
  */
 export default function LeaveRequestForm({ onSubmitted }: LeaveRequestFormProps) {
+  const { t } = useTranslation("hrm-leaves");
   const { currentRole } = useApp();
   const isTeacher = currentRole === UserRole.TEACHER;
   const { leaveTypes, loading: loadingLeaveTypes } = useLeaveTypes();
@@ -96,7 +98,7 @@ export default function LeaveRequestForm({ onSubmitted }: LeaveRequestFormProps)
     e.preventDefault();
     if (!reason.trim() || !startDate || !endDate) return;
     if (needsSubstituteSelection && (!selectedClassId || !allSubstitutesChosen)) {
-      setError("Bạn có buổi dạy trong khoảng nghỉ này — cần chọn 1 lớp và đủ giáo viên dạy thay cho từng buổi.");
+      setError(t("leaveRequestForm.errors.missingSubstitutes"));
       return;
     }
 
@@ -118,7 +120,7 @@ export default function LeaveRequestForm({ onSubmitted }: LeaveRequestFormProps)
       resetForm();
       onSubmitted();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Không nộp được đơn từ, vui lòng thử lại.");
+      setError(err instanceof ApiError ? err.message : t("leaveRequestForm.errors.genericSubmitError"));
     } finally {
       setSubmitting(false);
     }
@@ -128,15 +130,15 @@ export default function LeaveRequestForm({ onSubmitted }: LeaveRequestFormProps)
     <div className="bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden">
       <div className="p-5 space-y-4">
         <h3 className="text-xs font-bold text-slate-400 block uppercase tracking-wider font-display border-b border-slate-100 pb-2">
-          Nộp Đơn Xin Nghỉ
+          {t("leaveRequestForm.title")}
         </h3>
-        <p className="text-xs text-slate-500">Gửi yêu cầu nghỉ phép, đi muộn hoặc về sớm. Hệ thống sẽ tự động xác định quy trình duyệt 1-2 bước theo chức vụ của bạn.</p>
+        <p className="text-xs text-slate-500">{t("leaveRequestForm.description")}</p>
 
         {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
         <form id="leave-request-form" onSubmit={handleSubmit} className="space-y-3.5">
         <div className="space-y-1">
-          <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Hình thức nộp</label>
+          <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">{t("leaveRequestForm.leaveTypeLabel")}</label>
           <Select
             value={leaveType}
             onChange={(e) => setLeaveType(e.target.value as CreateLeaveRequestRequest["leaveType"])}
@@ -144,7 +146,7 @@ export default function LeaveRequestForm({ onSubmitted }: LeaveRequestFormProps)
             className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none disabled:opacity-50"
           >
             {loadingLeaveTypes ? (
-              <option>Đang tải...</option>
+              <option>{t("leaveRequestForm.loadingLeaveTypes")}</option>
             ) : (
               leaveTypes.map((type) => (
                 <option key={type.code} value={type.code}>
@@ -157,11 +159,11 @@ export default function LeaveRequestForm({ onSubmitted }: LeaveRequestFormProps)
 
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1">
-            <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Từ ngày</label>
+            <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">{t("leaveRequestForm.startDateLabel")}</label>
             <DatePicker value={startDate} onChange={setStartDate} max={partialDay ? startDate : endDate || undefined} />
           </div>
           <div className="space-y-1">
-            <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Đến ngày</label>
+            <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">{t("leaveRequestForm.endDateLabel")}</label>
             <DatePicker value={endDate} onChange={setEndDate} min={startDate || undefined} disabled={partialDay} />
           </div>
         </div>
@@ -169,55 +171,51 @@ export default function LeaveRequestForm({ onSubmitted }: LeaveRequestFormProps)
         {partialDay && (
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Giờ bắt đầu</label>
+              <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">{t("leaveRequestForm.startTimeLabel")}</label>
               <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none" />
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Giờ kết thúc</label>
+              <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">{t("leaveRequestForm.endTimeLabel")}</label>
               <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none" />
             </div>
           </div>
         )}
 
         <div className="space-y-1">
-          <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Lý do nghỉ</label>
+          <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">{t("leaveRequestForm.reasonLabel")}</label>
           <textarea
             required
             rows={2}
-            placeholder="Ví dụ: Đi tái khám răng, bị ốm sốt..."
+            placeholder={t("leaveRequestForm.reasonPlaceholder")}
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none"
           />
         </div>
 
-        {isTeacher && loadingSessions && <p className="text-[11px] text-slate-400 italic">Đang kiểm tra lịch dạy trong khoảng nghỉ...</p>}
+        {isTeacher && loadingSessions && <p className="text-[11px] text-slate-400 italic">{t("leaveRequestForm.checkingSchedule")}</p>}
 
         {isTeacher && !loadingSessions && needsSubstituteSelection && (
           <div className="space-y-2.5 border border-amber-200 bg-amber-50/60 rounded-lg p-3">
-            <p className="text-[11px] font-bold text-amber-800">
-              Bạn có buổi dạy trong khoảng nghỉ này — hãy chọn 1 lớp và giáo viên dạy thay cho từng buổi. Việc dạy thay có hiệu lực
-              ngay khi nộp đơn (không đợi duyệt).
-            </p>
+            <p className="text-[11px] font-bold text-amber-800">{t("leaveRequestForm.substituteNotice")}</p>
 
             <div className="space-y-1">
-              <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Chọn lớp cần dạy thay</label>
+              <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">{t("leaveRequestForm.selectClassLabel")}</label>
               <Select
                 value={selectedClassId ?? ""}
                 onChange={(e) => setSelectedClassId(e.target.value ? Number(e.target.value) : null)}
                 className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none"
               >
-                <option value="">-- Chọn lớp --</option>
+                <option value="">{t("leaveRequestForm.selectClassPlaceholder")}</option>
                 {Array.from(sessionsByClass.entries()).map(([classId, { className, sessions }]) => (
                   <option key={classId} value={classId}>
-                    {className} ({sessions.length} buổi)
+                    {className} ({t("leaveRequestForm.sessionsCount", { count: sessions.length })})
                   </option>
                 ))}
               </Select>
               {sessionsByClass.size > 1 && (
                 <p className="text-[10px] text-amber-700 italic">
-                  Bạn có buổi dạy ở {sessionsByClass.size} lớp khác nhau — mỗi đơn chỉ xử lý dạy thay cho 1 lớp, hãy nộp thêm đơn
-                  riêng cho các lớp còn lại.
+                  {t("leaveRequestForm.multiClassWarning", { count: sessionsByClass.size })}
                 </p>
               )}
             </div>
@@ -225,7 +223,7 @@ export default function LeaveRequestForm({ onSubmitted }: LeaveRequestFormProps)
             {selectedClassId != null && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Giáo viên dạy thay từng buổi</label>
+                  <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">{t("leaveRequestForm.substituteTeacherLabel")}</label>
                   <button
                     type="button"
                     onClick={() => {
@@ -234,18 +232,22 @@ export default function LeaveRequestForm({ onSubmitted }: LeaveRequestFormProps)
                     }}
                     className="text-[10px] font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1"
                   >
-                    <Repeat className="w-3 h-3" /> Áp dụng cho tất cả
+                    <Repeat className="w-3 h-3" /> {t("leaveRequestForm.applyToAll")}
                   </button>
                 </div>
                 {selectedClassSessions.map((s) => (
                   <div key={s.id} className="bg-white border border-slate-200 rounded-lg p-2 space-y-1.5">
                     <p className="text-[11px] text-slate-600 font-semibold">
-                      {s.sessionDate} · {s.startTime.slice(0, 5)}-{s.endTime.slice(0, 5)}
+                      {t("leaveRequestForm.sessionTime", {
+                        date: s.sessionDate,
+                        startTime: s.startTime.slice(0, 5),
+                        endTime: s.endTime.slice(0, 5)
+                      })}
                     </p>
                     <SubstituteTeacherCombobox
                       value={substitutes[s.id] ?? null}
                       onChange={(u) => setSubstitutes((prev) => ({ ...prev, [s.id]: u }))}
-                      placeholder="Chọn giáo viên dạy thay..."
+                      placeholder={t("leaveRequestForm.substitutePlaceholder")}
                     />
                   </div>
                 ))}
@@ -265,7 +267,7 @@ export default function LeaveRequestForm({ onSubmitted }: LeaveRequestFormProps)
           className="bg-brand-gradient hover:opacity-95 disabled:opacity-60 text-white font-semibold text-xs px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-glow transition-all"
         >
           <PlusCircle className="w-4 h-4 text-white" />
-          {submitting ? "Đang gửi..." : "Gửi đơn chờ duyệt"}
+          {submitting ? t("leaveRequestForm.submitting") : t("leaveRequestForm.submitButton")}
         </button>
       </div>
     </div>

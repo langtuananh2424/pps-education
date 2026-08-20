@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { CalendarPlus, Trash2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import { Badge, Button, Modal, TableContainer, Td, Th } from "@/components/ui";
@@ -20,12 +21,9 @@ import {
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
 
-const dayTypeLabels: Record<WorkCalendarResponse["dayType"], string> = {
-  WORKING: "Làm bù",
-  OFF: "Nghỉ",
-  HOLIDAY: "Nghỉ lễ",
-  COMPENSATORY: "Làm bù (lễ)"
-};
+function dayTypeLabel(t: (key: string) => string, dayType: WorkCalendarResponse["dayType"]): string {
+  return t(`workCalendarPage.dayType.${dayType}`);
+}
 
 const dayTypeVariant: Record<WorkCalendarResponse["dayType"], "success" | "danger" | "warning" | "neutral"> = {
   WORKING: "success",
@@ -34,11 +32,9 @@ const dayTypeVariant: Record<WorkCalendarResponse["dayType"], "success" | "dange
   COMPENSATORY: "success"
 };
 
-const scopeLabels: Record<WorkCalendarResponse["appliesToScope"], string> = {
-  ALL: "Toàn trung tâm",
-  SHIFT: "Theo ca",
-  EMPLOYEE: "Theo nhân sự"
-};
+function scopeLabel(t: (key: string) => string, scope: WorkCalendarResponse["appliesToScope"]): string {
+  return t(`workCalendarPage.scope.${scope}`);
+}
 
 function firstDayOfMonth(): string {
   const d = new Date();
@@ -55,6 +51,7 @@ function lastDayOfMonth(): string {
  * lễ (work_calendar), override theo ngày cho UC-09 Main Flow bước 3.
  */
 export default function WorkCalendarPage() {
+  const { t } = useTranslation("hrm-shifts");
   const { hasPermission } = useApp();
   const canCreate = hasPermission("hrm.work-calendar.create");
   const canDelete = hasPermission("hrm.work-calendar.delete");
@@ -72,7 +69,7 @@ export default function WorkCalendarPage() {
     setError(null);
     listWorkCalendar(from, to)
       .then(setOverrides)
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được lịch làm việc."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("workCalendarPage.loadError")))
       .finally(() => setLoading(false));
   };
 
@@ -81,10 +78,10 @@ export default function WorkCalendarPage() {
   const handleDelete = async (id: number) => {
     try {
       await deleteWorkCalendarOverride(id);
-      showToast("Đã xoá override.");
+      showToast(t("workCalendarPage.deleteSuccess"));
       load();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Xoá thất bại.");
+      setError(err instanceof ApiError ? err.message : t("workCalendarPage.deleteError"));
     }
   };
 
@@ -92,22 +89,20 @@ export default function WorkCalendarPage() {
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4 flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Lịch làm việc / Nghỉ lễ</h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Khai báo ngoại lệ so với ca làm việc mặc định (nghỉ lễ, làm bù T7) — dùng khi xác định "ngày làm việc" lúc chấm công (UC-09).
-          </p>
+          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("workCalendarPage.title")}</h1>
+          <p className="text-xs text-slate-500 mt-1">{t("workCalendarPage.description")}</p>
         </div>
         {canCreate && (
           <Button variant="primary" onClick={() => setFormOpen(true)}>
             <CalendarPlus className="w-3.5 h-3.5" />
-            Thêm override
+            {t("workCalendarPage.addButton")}
           </Button>
         )}
       </div>
 
       <div className="flex items-center gap-2">
         <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className={`${inputClass} max-w-[160px]`} />
-        <span className="text-[10px] text-slate-400">đến</span>
+        <span className="text-[10px] text-slate-400">{t("workCalendarPage.rangeSeparator")}</span>
         <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className={`${inputClass} max-w-[160px]`} />
       </div>
 
@@ -116,10 +111,10 @@ export default function WorkCalendarPage() {
       <TableContainer>
         <thead>
           <tr>
-            <Th>Ngày</Th>
-            <Th>Loại</Th>
-            <Th>Phạm vi</Th>
-            <Th>Mô tả</Th>
+            <Th>{t("workCalendarPage.columns.date")}</Th>
+            <Th>{t("workCalendarPage.columns.type")}</Th>
+            <Th>{t("workCalendarPage.columns.scope")}</Th>
+            <Th>{t("workCalendarPage.columns.description")}</Th>
             <Th />
           </tr>
         </thead>
@@ -127,13 +122,13 @@ export default function WorkCalendarPage() {
           {loading ? (
             <tr>
               <Td colSpan={5} className="text-center text-slate-400">
-                Đang tải...
+                {t("workCalendarPage.loading")}
               </Td>
             </tr>
           ) : overrides.length === 0 ? (
             <tr>
               <Td colSpan={5} className="text-center text-slate-400">
-                Không có override nào trong khoảng đã chọn.
+                {t("workCalendarPage.empty")}
               </Td>
             </tr>
           ) : (
@@ -141,14 +136,14 @@ export default function WorkCalendarPage() {
               <tr key={o.id} className="hover:bg-slate-50/50 transition-colors">
                 <Td className="font-mono font-bold text-slate-700">{o.calendarDate}</Td>
                 <Td>
-                  <Badge variant={dayTypeVariant[o.dayType]}>{dayTypeLabels[o.dayType]}</Badge>
+                  <Badge variant={dayTypeVariant[o.dayType]}>{dayTypeLabel(t, o.dayType)}</Badge>
                 </Td>
                 <Td>
-                  {scopeLabels[o.appliesToScope]}
+                  {scopeLabel(t, o.appliesToScope)}
                   {o.shiftName && <span className="text-slate-400"> — {o.shiftName}</span>}
                   {o.employeeFullName && <span className="text-slate-400"> — {o.employeeFullName}</span>}
                 </Td>
-                <Td className="text-slate-500">{o.description ?? "—"}</Td>
+                <Td className="text-slate-500">{o.description ?? t("workCalendarPage.noDescription")}</Td>
                 <Td>
                   {canDelete && (
                     <Button size="sm" variant="danger" onClick={() => handleDelete(o.id)}>
@@ -168,7 +163,7 @@ export default function WorkCalendarPage() {
           onSaved={() => {
             setFormOpen(false);
             load();
-            showToast("Đã tạo override lịch làm việc thành công!");
+            showToast(t("workCalendarPage.createSuccess"));
           }}
         />
       )}
@@ -179,6 +174,7 @@ export default function WorkCalendarPage() {
 }
 
 function WorkCalendarFormModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+  const { t } = useTranslation("hrm-shifts");
   const [calendarDate, setCalendarDate] = useState(new Date().toISOString().slice(0, 10));
   const [dayType, setDayType] = useState<WorkCalendarResponse["dayType"]>("HOLIDAY");
   const [scope, setScope] = useState<WorkCalendarResponse["appliesToScope"]>("ALL");
@@ -202,11 +198,11 @@ function WorkCalendarFormModal({ onClose, onSaved }: { onClose: () => void; onSa
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (scope === "SHIFT" && shiftId === "") {
-      setError("Vui lòng chọn ca làm việc.");
+      setError(t("workCalendarPage.form.selectShiftRequired"));
       return;
     }
     if (scope === "EMPLOYEE" && employeeId === "") {
-      setError("Vui lòng chọn nhân sự.");
+      setError(t("workCalendarPage.form.selectEmployeeRequired"));
       return;
     }
     setSubmitting(true);
@@ -222,33 +218,33 @@ function WorkCalendarFormModal({ onClose, onSaved }: { onClose: () => void; onSa
       });
       onSaved();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Tạo override thất bại.");
+      setError(err instanceof ApiError ? err.message : t("workCalendarPage.form.createError"));
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <Modal open onClose={onClose} title="Thêm override lịch làm việc" size="lg">
+    <Modal open onClose={onClose} title={t("workCalendarPage.form.title")} size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className={labelClass}>Ngày *</label>
+            <label className={labelClass}>{t("workCalendarPage.form.dateLabel")}</label>
             <input type="date" value={calendarDate} onChange={(e) => setCalendarDate(e.target.value)} className={inputClass} />
           </div>
           <div>
-            <label className={labelClass}>Loại *</label>
+            <label className={labelClass}>{t("workCalendarPage.form.typeLabel")}</label>
             <Select value={dayType} onChange={(e) => setDayType(e.target.value as WorkCalendarResponse["dayType"])} className={inputClass}>
-              <option value="HOLIDAY">Nghỉ lễ</option>
-              <option value="OFF">Nghỉ</option>
-              <option value="WORKING">Làm bù</option>
-              <option value="COMPENSATORY">Làm bù (lễ)</option>
+              <option value="HOLIDAY">{t("workCalendarPage.dayType.HOLIDAY")}</option>
+              <option value="OFF">{t("workCalendarPage.dayType.OFF")}</option>
+              <option value="WORKING">{t("workCalendarPage.dayType.WORKING")}</option>
+              <option value="COMPENSATORY">{t("workCalendarPage.dayType.COMPENSATORY")}</option>
             </Select>
           </div>
           <div className="col-span-2">
-            <label className={labelClass}>Phạm vi áp dụng *</label>
+            <label className={labelClass}>{t("workCalendarPage.form.scopeLabel")}</label>
             <Select
               value={scope}
               onChange={(e) => {
@@ -258,16 +254,16 @@ function WorkCalendarFormModal({ onClose, onSaved }: { onClose: () => void; onSa
               }}
               className={inputClass}
             >
-              <option value="ALL">Toàn trung tâm</option>
-              <option value="SHIFT">Theo ca làm việc</option>
-              <option value="EMPLOYEE">Theo nhân sự</option>
+              <option value="ALL">{t("workCalendarPage.form.scopeOptionAll")}</option>
+              <option value="SHIFT">{t("workCalendarPage.form.scopeOptionShift")}</option>
+              <option value="EMPLOYEE">{t("workCalendarPage.form.scopeOptionEmployee")}</option>
             </Select>
           </div>
           {scope === "SHIFT" && (
             <div className="col-span-2">
-              <label className={labelClass}>Ca làm việc *</label>
+              <label className={labelClass}>{t("workCalendarPage.form.shiftLabel")}</label>
               <Select value={shiftId} onChange={(e) => setShiftId(e.target.value === "" ? "" : Number(e.target.value))} className={inputClass}>
-                <option value="">-- Chọn ca --</option>
+                <option value="">{t("workCalendarPage.form.selectShiftPlaceholder")}</option>
                 {shifts.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
@@ -278,9 +274,9 @@ function WorkCalendarFormModal({ onClose, onSaved }: { onClose: () => void; onSa
           )}
           {scope === "EMPLOYEE" && (
             <div className="col-span-2">
-              <label className={labelClass}>Nhân sự *</label>
+              <label className={labelClass}>{t("workCalendarPage.form.employeeLabel")}</label>
               <Select value={employeeId} onChange={(e) => setEmployeeId(e.target.value === "" ? "" : Number(e.target.value))} className={inputClass}>
-                <option value="">-- Chọn nhân sự --</option>
+                <option value="">{t("workCalendarPage.form.selectEmployeePlaceholder")}</option>
                 {employees.map((emp) => (
                   <option key={emp.id} value={emp.id}>
                     {emp.fullName} ({emp.employeeCode})
@@ -290,17 +286,22 @@ function WorkCalendarFormModal({ onClose, onSaved }: { onClose: () => void; onSa
             </div>
           )}
           <div className="col-span-2">
-            <label className={labelClass}>Mô tả</label>
-            <input value={description} onChange={(e) => setDescription(e.target.value)} className={inputClass} placeholder="VD: Nghỉ Quốc khánh 2/9" />
+            <label className={labelClass}>{t("workCalendarPage.form.descriptionLabel")}</label>
+            <input
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className={inputClass}
+              placeholder={t("workCalendarPage.form.descriptionPlaceholder")}
+            />
           </div>
         </div>
 
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="secondary" onClick={onClose}>
-            Hủy
+            {t("workCalendarPage.form.cancel")}
           </Button>
           <Button type="submit" variant="primary" disabled={submitting}>
-            {submitting ? "Đang lưu..." : "Tạo override"}
+            {submitting ? t("workCalendarPage.form.saving") : t("workCalendarPage.form.submit")}
           </Button>
         </div>
       </form>
