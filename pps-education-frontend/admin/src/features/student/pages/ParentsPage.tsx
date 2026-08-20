@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Users } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import ImportExcelButton from "@/components/ui/ImportExcelButton";
 import { downloadParentImportTemplate, exportParentAccounts, importParents, listStudentParents, listStudents, ParentStudentResponse, searchParents } from "../api";
@@ -60,6 +61,7 @@ async function buildChildrenMap(): Promise<Map<number, ParentAggregateChild[]>> 
 }
 
 export default function ParentsPage() {
+  const { t } = useTranslation("student");
   const [parents, setParents] = useState<ParentAggregate[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -78,7 +80,7 @@ export default function ParentsPage() {
           .sort((a, b) => a.parentFullName.localeCompare(b.parentFullName));
         setParents(aggregates);
       })
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách phụ huynh."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("parentsPage.loadError")))
       .finally(() => setLoading(false));
   };
 
@@ -90,18 +92,16 @@ export default function ParentsPage() {
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4 flex flex-col sm:flex-row sm:items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Quản lý phụ huynh</h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Toàn bộ hồ sơ phụ huynh (kể cả chưa liên kết con em) — khởi tạo hồ sơ độc lập, liên kết/gỡ liên kết học sinh.
-          </p>
+          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("parentsPage.title")}</h1>
+          <p className="text-xs text-slate-500 mt-1">{t("parentsPage.description")}</p>
         </div>
         <ImportExcelButton
-          title="Nhập phụ huynh theo lô"
-          templateFileName="mau-import-phu-huynh.xlsx"
+          title={t("parentsPage.importTitle")}
+          templateFileName={t("parentsPage.importTemplateFileName")}
           fetchTemplate={downloadParentImportTemplate}
           uploadFn={importParents}
           exportAccounts={exportParentAccounts}
-          accountsExportFileName="tai-khoan-phu-huynh.xlsx"
+          accountsExportFileName={t("parentsPage.importAccountsFileName")}
           onImported={load}
         />
       </div>
@@ -125,8 +125,8 @@ export default function ParentsPage() {
           <div className="lg:col-span-3 bg-white rounded-xl border border-slate-200 shadow-soft flex flex-col items-center justify-center p-12 text-center text-slate-400 space-y-3">
             <Users className="w-12 h-12 text-slate-300" />
             <div>
-              <h3 className="text-sm font-bold text-slate-700">Chưa chọn phụ huynh nào</h3>
-              <p className="text-xs text-slate-400 mt-1">Chọn 1 phụ huynh bên trái hoặc thêm mới.</p>
+              <h3 className="text-sm font-bold text-slate-700">{t("parentsPage.emptyTitle")}</h3>
+              <p className="text-xs text-slate-400 mt-1">{t("parentsPage.emptyDescription")}</p>
             </div>
           </div>
         )}
@@ -139,7 +139,7 @@ export default function ParentsPage() {
             setCreateOpen(false);
             setSelectedId(parent.id);
             load();
-            showToast("Đã tạo hồ sơ phụ huynh thành công!");
+            showToast(t("parentsPage.createdToast"));
           }}
         />
       )}

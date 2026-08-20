@@ -16,6 +16,7 @@ import lmsReviewVideoEn from "./locales/en/lms-review-video.json";
 import lmsDocumentsEn from "./locales/en/lms-documents.json";
 import taskWorkflowEn from "./locales/en/task-workflow.json";
 import facilityEn from "./locales/en/facility.json";
+import studentEn from "./locales/en/student.json";
 import commonVi from "./locales/vi/common.json";
 import authVi from "./locales/vi/auth.json";
 import dashboardVi from "./locales/vi/dashboard.json";
@@ -31,6 +32,7 @@ import lmsReviewVideoVi from "./locales/vi/lms-review-video.json";
 import lmsDocumentsVi from "./locales/vi/lms-documents.json";
 import taskWorkflowVi from "./locales/vi/task-workflow.json";
 import facilityVi from "./locales/vi/facility.json";
+import studentVi from "./locales/vi/student.json";
 
 export const LANGUAGE_STORAGE_KEY = "pps_language";
 
@@ -53,7 +55,8 @@ i18n.use(initReactI18next).init({
       "lms-review-video": lmsReviewVideoVi,
       "lms-documents": lmsDocumentsVi,
       "task-workflow": taskWorkflowVi,
-      facility: facilityVi
+      facility: facilityVi,
+      student: studentVi
     },
     en: {
       common: commonEn,
@@ -70,7 +73,8 @@ i18n.use(initReactI18next).init({
       "lms-review-video": lmsReviewVideoEn,
       "lms-documents": lmsDocumentsEn,
       "task-workflow": taskWorkflowEn,
-      facility: facilityEn
+      facility: facilityEn,
+      student: studentEn
     }
   },
   lng: storedLanguage === "en" ? "en" : "vi",
@@ -91,7 +95,8 @@ i18n.use(initReactI18next).init({
     "lms-review-video",
     "lms-documents",
     "task-workflow",
-    "facility"
+    "facility",
+    "student"
   ],
   interpolation: { escapeValue: false },
   returnEmptyString: false

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Plus, Search, Users } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import EmptyState from "@/components/ui/EmptyState";
@@ -17,6 +18,7 @@ interface ParentListPanelProps {
 }
 
 export default function ParentListPanel({ parents, loading, selectedId, onSelect, onCreate, query, onQueryChange }: ParentListPanelProps) {
+  const { t } = useTranslation("student");
   const filtered = parents.filter((p) => p.parentFullName.toLowerCase().includes(query.toLowerCase()));
 
   // Backend GET /parents chưa hỗ trợ phân trang (trả nguyên mảng, lại còn tổng hợp con em bằng N+1
@@ -31,12 +33,12 @@ export default function ParentListPanel({ parents, loading, selectedId, onSelect
     <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden flex flex-col h-full">
       <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3 bg-slate-50 shrink-0">
         <div className="space-y-0.5">
-          <span className="text-xs font-bold text-slate-700 font-display block">Danh sách Phụ huynh</span>
-          <p className="text-[10px] text-slate-400">Tổng hợp từ danh sách con em đã liên kết</p>
+          <span className="text-xs font-bold text-slate-700 font-display block">{t("parentList.title")}</span>
+          <p className="text-[10px] text-slate-400">{t("parentList.subtitle")}</p>
         </div>
         <Button variant="primary" size="sm" onClick={onCreate}>
           <Plus className="w-3.5 h-3.5" />
-          Thêm phụ huynh
+          {t("parentList.addButton")}
         </Button>
       </div>
 
@@ -45,16 +47,16 @@ export default function ParentListPanel({ parents, loading, selectedId, onSelect
         <input
           value={query}
           onChange={(e) => onQueryChange(e.target.value)}
-          placeholder="Tìm theo họ tên phụ huynh..."
+          placeholder={t("parentList.searchPlaceholder")}
           className="w-full bg-slate-50 border border-slate-200 text-xs pl-8 pr-3 py-2 rounded-lg focus:outline-none"
         />
       </div>
 
       <div className="divide-y divide-slate-100 overflow-y-auto max-h-[620px] lg:max-h-[680px]">
         {loading ? (
-          <div className="p-8 text-center text-slate-400 text-xs">Đang tải...</div>
+          <div className="p-8 text-center text-slate-400 text-xs">{t("parentList.loading")}</div>
         ) : filtered.length === 0 ? (
-          <EmptyState icon={Users} title="Không tìm thấy phụ huynh nào" description="Thử nới lỏng từ khóa, hoặc bấm 'Thêm phụ huynh'." />
+          <EmptyState icon={Users} title={t("parentList.emptyTitle")} description={t("parentList.emptyDescription")} />
         ) : (
           pageFiltered.map((p) => {
             const isSelected = p.parentId === selectedId;
@@ -73,9 +75,9 @@ export default function ParentListPanel({ parents, loading, selectedId, onSelect
                     <h4 className="text-xs font-bold text-slate-900">{p.parentFullName}</h4>
                     <div className="flex items-center gap-1.5 text-[10px] text-slate-400 mt-1">
                       {p.children.length === 0 ? (
-                        <span className="italic">Chưa liên kết con em nào</span>
+                        <span className="italic">{t("parentList.noChildren")}</span>
                       ) : (
-                        <Badge variant="info">{p.children.length} con em</Badge>
+                        <Badge variant="info">{t("parentList.childrenCount", { count: p.children.length })}</Badge>
                       )}
                     </div>
                   </div>
@@ -91,7 +93,7 @@ export default function ParentListPanel({ parents, loading, selectedId, onSelect
           page={page}
           pageSize={pageSize}
           totalElements={filtered.length}
-          itemLabel="p.huynh"
+          itemLabel={t("parentList.itemLabel")}
           onPageChange={setPage}
           onPageSizeChange={(size) => {
             setPageSize(size);
