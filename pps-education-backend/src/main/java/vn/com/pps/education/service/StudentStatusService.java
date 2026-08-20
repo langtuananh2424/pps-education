@@ -51,9 +51,9 @@ public class StudentStatusService {
     @Transactional
     public StudentStatusHistoryResponse updateStatus(Long studentId, UpdateStudentStatusRequest request, Long actorUserId) {
         Student student = studentRepository.findByIdAndDeletedAtIsNull(studentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy học sinh id=" + studentId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.studentStatus.notFoundById", new Object[]{studentId}, "Không tìm thấy học sinh id=" + studentId));
         User actor = userRepository.findById(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.studentStatus.accountNotFoundById", new Object[]{actorUserId}, "Không tìm thấy tài khoản id=" + actorUserId));
 
         Student.Status oldStatus = student.getStatus();
         Student.Status newStatus = Student.Status.valueOf(request.newStatus());
@@ -89,7 +89,7 @@ public class StudentStatusService {
     @Transactional(readOnly = true)
     public List<StudentStatusHistoryResponse> listStatusHistory(Long studentId) {
         if (!studentRepository.existsById(studentId)) {
-            throw new ResourceNotFoundException("Không tìm thấy học sinh id=" + studentId);
+            throw new ResourceNotFoundException("error.studentStatus.notFoundById", new Object[]{studentId}, "Không tìm thấy học sinh id=" + studentId);
         }
         return statusHistoryRepository.findByStudentIdOrderByChangedAtDesc(studentId).stream()
                 .map(this::toResponse)

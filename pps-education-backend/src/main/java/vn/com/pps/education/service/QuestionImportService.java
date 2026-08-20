@@ -89,9 +89,11 @@ public class QuestionImportService {
     @Transactional
     public QuestionImportResponse importQuestions(Long bankId, MultipartFile file, Long actorUserId) {
         QuestionBank bank = questionBankRepository.findById(bankId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ngân hàng câu hỏi id=" + bankId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.questionImport.bankNotFound",
+                        new Object[]{bankId}, "Không tìm thấy ngân hàng câu hỏi id=" + bankId));
         if (examRepository.existsByQuestionBankId(bankId)) {
-            throw new ResourceNotFoundException("Không tìm thấy ngân hàng câu hỏi id=" + bankId);
+            throw new ResourceNotFoundException("error.questionImport.bankNotFound",
+                    new Object[]{bankId}, "Không tìm thấy ngân hàng câu hỏi id=" + bankId);
         }
         return importQuestionsIntoBank(bank, file, actorUserId, true);
     }
@@ -101,7 +103,8 @@ public class QuestionImportService {
     QuestionImportResponse importQuestionsIntoBank(QuestionBank bank, MultipartFile file,
                                                    Long actorUserId, boolean rejectActiveDuplicate) {
         User actor = userRepository.findById(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.questionImport.userNotFound",
+                        new Object[]{actorUserId}, "Không tìm thấy tài khoản id=" + actorUserId));
         QuestionRowParser parser = parsers.stream()
                 .filter(p -> p.supports(file.getOriginalFilename()))
                 .findFirst()
@@ -151,7 +154,8 @@ public class QuestionImportService {
     @Transactional(readOnly = true)
     public QuestionImportResponse getJob(Long id) {
         ImportJob job = importJobRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy import job id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.questionImport.jobNotFound",
+                        new Object[]{id}, "Không tìm thấy import job id=" + id));
         return toResponse(job);
     }
 

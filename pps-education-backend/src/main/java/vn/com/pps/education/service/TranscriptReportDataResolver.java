@@ -80,9 +80,11 @@ public class TranscriptReportDataResolver implements ReportDataResolver {
             throw new IllegalArgumentException("TRANSCRIPT cần classId (điểm số gắn theo lớp).");
         }
         Student student = studentRepository.findById(params.studentId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy học sinh id=" + params.studentId()));
+                .orElseThrow(() -> new ResourceNotFoundException("error.transcriptReport.studentNotFound",
+                        new Object[]{params.studentId()}, "Không tìm thấy học sinh id=" + params.studentId()));
         SchoolClass schoolClass = schoolClassRepository.findById(params.classId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp id=" + params.classId()));
+                .orElseThrow(() -> new ResourceNotFoundException("error.transcriptReport.classNotFound",
+                        new Object[]{params.classId()}, "Không tìm thấy lớp id=" + params.classId()));
 
         Map<String, Object> context = new HashMap<>();
         context.put("STUDENT_NAME", student.getUser().getFullName());

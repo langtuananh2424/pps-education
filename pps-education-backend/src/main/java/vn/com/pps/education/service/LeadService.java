@@ -125,7 +125,7 @@ public class LeadService {
         });
 
         LeadSource source = leadSourceRepository.findByCode(request.leadSourceCode())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy nguồn lead code=" + request.leadSourceCode()));
+                .orElseThrow(() -> new ResourceNotFoundException("error.lead.sourceNotFoundByCode", new Object[]{request.leadSourceCode()}, "Không tìm thấy nguồn lead code=" + request.leadSourceCode()));
         User actor = getUserOrThrow(actorUserId);
 
         Lead lead = new Lead();
@@ -391,22 +391,22 @@ public class LeadService {
 
     private Lead getLeadOrThrow(Long id) {
         return leadRepository.findByIdAndDeletedAtIsNull(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lead id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.lead.notFoundById", new Object[]{id}, "Không tìm thấy lead id=" + id));
     }
 
     private User getUserOrThrow(Long id) {
         return userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy user id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.lead.userNotFound", new Object[]{id}, "Không tìm thấy user id=" + id));
     }
 
     private Site getSiteOrThrow(Long id) {
         return siteRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy điểm trường id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.lead.siteNotFound", new Object[]{id}, "Không tìm thấy điểm trường id=" + id));
     }
 
     private Curriculum getCurriculumOrThrow(Long id) {
         return curriculumRepository.findByIdAndDeletedAtIsNull(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy khung chương trình id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.lead.curriculumNotFound", new Object[]{id}, "Không tìm thấy khung chương trình id=" + id));
     }
 
     private LeadResponse toResponse(Lead l) {

@@ -45,7 +45,7 @@ public class PayrollService {
     @Transactional(readOnly = true)
     public PayrollEntryResponse getMyPayroll(Long actorUserId, String periodCode) {
         Employee employee = employeeRepository.findByUserId(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản chưa có hồ sơ nhân sự."));
+                .orElseThrow(() -> new ResourceNotFoundException("error.payroll.employeeProfileMissing", new Object[]{}, "Tài khoản chưa có hồ sơ nhân sự."));
 
         Optional<PayrollPeriod> requestedPeriod = periodCode == null
                 ? payrollPeriodRepository.findTopByOrderByStartDateDesc()
@@ -62,7 +62,7 @@ public class PayrollService {
         }
 
         PayrollEntry found = entry.orElseThrow(
-                () -> new ResourceNotFoundException("Chưa có dữ liệu bảng lương nào cho nhân sự này."));
+                () -> new ResourceNotFoundException("error.payroll.noPayrollData", new Object[]{}, "Chưa có dữ liệu bảng lương nào cho nhân sự này."));
         return toResponse(found, fallback);
     }
 
@@ -72,7 +72,7 @@ public class PayrollService {
         requireHrManager(actorUserId);
 
         PayrollPeriod period = payrollPeriodRepository.findById(periodId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy kỳ lương id=" + periodId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.payroll.periodNotFound", new Object[]{periodId}, "Không tìm thấy kỳ lương id=" + periodId));
 
         return payrollEntryRepository.findByPayrollPeriodId(period.getId()).stream()
                 .filter(e -> employeeId == null || e.getEmployee().getId().equals(employeeId))

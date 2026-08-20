@@ -212,7 +212,7 @@ public class GradeService {
     public GradeComponentSetupResponse createGradeComponentSetup(Long classId, CreateGradeComponentSetupRequest request, Long actorUserId) {
         SchoolClass schoolClass = getClassOrThrow(classId);
         AcademicTerm academicTerm = academicTermRepository.findById(request.academicTermId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy kỳ học id=" + request.academicTermId()));
+                .orElseThrow(() -> new ResourceNotFoundException("error.grade.academicTermNotFound", new Object[]{request.academicTermId()}, "Không tìm thấy kỳ học id=" + request.academicTermId()));
         User actor = getUserOrThrow(actorUserId);
         GradeComponentSetup.EvaluationType evaluationType = GradeComponentSetup.EvaluationType.valueOf(request.evaluationType());
         GradeComponentSetup.ScaleType scaleType = GradeComponentSetup.ScaleType.valueOf(request.scaleType());
@@ -234,7 +234,7 @@ public class GradeService {
     @Transactional
     public GradeComponentSetupResponse updateGradeComponentSetup(Long id, UpdateGradeComponentSetupRequest request, Long actorUserId) {
         GradeComponentSetup setup = gradeComponentSetupRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy setup sổ điểm id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.grade.componentSetupNotFound", new Object[]{id}, "Không tìm thấy setup sổ điểm id=" + id));
         User actor = getUserOrThrow(actorUserId);
 
         setup.setRosterAsOfDate(request.rosterAsOfDate());
@@ -273,7 +273,7 @@ public class GradeService {
     @Transactional
     public void deleteGradeComponentSetup(Long id, Long actorUserId) {
         GradeComponentSetup setup = gradeComponentSetupRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy setup sổ điểm id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.grade.componentSetupNotFound", new Object[]{id}, "Không tìm thấy setup sổ điểm id=" + id));
         if (gradeEvaluationComponentRepository.countByGradeComponentSetupId(id) > 0) {
             throw new GradeComponentSetupNotDeletableException(
                     "Setup sổ điểm này còn thành phần điểm — xoá từng thành phần trước khi xoá setup.");
@@ -299,7 +299,7 @@ public class GradeService {
     @Transactional(readOnly = true)
     public List<StudentResponse> getRoster(Long setupId) {
         GradeComponentSetup setup = gradeComponentSetupRepository.findById(setupId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy setup sổ điểm id=" + setupId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.grade.componentSetupNotFound", new Object[]{setupId}, "Không tìm thấy setup sổ điểm id=" + setupId));
         List<ClassEnrollment> enrollments = classEnrollmentRepository
                 .findActiveAsOf(setup.getSchoolClass().getId(), setup.getRosterAsOfDate());
         return enrollments.stream().map(ce -> toResponse(ce.getStudent())).toList();
@@ -319,7 +319,7 @@ public class GradeService {
     @Transactional
     public GradeEvaluationComponentResponse addGradeEvaluationComponent(Long setupId, CreateGradeEvaluationComponentRequest request, Long actorUserId) {
         GradeComponentSetup setup = gradeComponentSetupRepository.findById(setupId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy setup sổ điểm id=" + setupId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.grade.componentSetupNotFound", new Object[]{setupId}, "Không tìm thấy setup sổ điểm id=" + setupId));
         User actor = getUserOrThrow(actorUserId);
 
         GradeEvaluationComponent component = new GradeEvaluationComponent();
@@ -350,7 +350,7 @@ public class GradeService {
     @Transactional
     public GradeEvaluationComponentResponse updateGradeEvaluationComponent(Long id, UpdateGradeEvaluationComponentRequest request, Long actorUserId) {
         GradeEvaluationComponent component = gradeEvaluationComponentRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thành phần điểm id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.grade.componentNotFound", new Object[]{id}, "Không tìm thấy thành phần điểm id=" + id));
         User actor = getUserOrThrow(actorUserId);
 
         BigDecimal newMaxScore = request.maxScore() == null ? component.getMaxScore() : request.maxScore();
@@ -380,7 +380,7 @@ public class GradeService {
     @Transactional
     public void deleteGradeEvaluationComponent(Long id, Long actorUserId) {
         GradeEvaluationComponent component = gradeEvaluationComponentRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thành phần điểm id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.grade.componentNotFound", new Object[]{id}, "Không tìm thấy thành phần điểm id=" + id));
         if (gradeEntryRepository.countByGradeComponentId(id) > 0) {
             throw new GradeComponentNotDeletableException(
                     "Thành phần điểm này đã có điểm nhập — không thể xoá.");
@@ -405,9 +405,9 @@ public class GradeService {
         SchoolClass schoolClass = getClassOrThrow(classId);
         requireCanEnterGrades(classId, actorUserId);
         GradeEvaluationComponent component = gradeEvaluationComponentRepository.findById(gradeEvaluationComponentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thành phần điểm id=" + gradeEvaluationComponentId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.grade.componentNotFound", new Object[]{gradeEvaluationComponentId}, "Không tìm thấy thành phần điểm id=" + gradeEvaluationComponentId));
         Student student = studentRepository.findByIdAndDeletedAtIsNull(request.studentId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy học sinh id=" + request.studentId()));
+                .orElseThrow(() -> new ResourceNotFoundException("error.grade.studentNotFoundById", new Object[]{request.studentId()}, "Không tìm thấy học sinh id=" + request.studentId()));
 
         // A1 -- score ngoài [0, max_score], chặn lưu ngay, không để lọt xuống DB.
         if (request.score().signum() < 0 || request.score().compareTo(component.getMaxScore()) > 0) {
@@ -456,6 +456,7 @@ public class GradeService {
         GradeEntry entry = gradeEntryRepository
                 .findBySchoolClassIdAndStudentIdAndGradeComponentId(classId, studentId, gradeEvaluationComponentId)
                 .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.grade.entryNotFoundForStudentAndComponent", new Object[]{studentId, gradeEvaluationComponentId},
                         "Không tìm thấy điểm của học sinh id=" + studentId + " cho thành phần id=" + gradeEvaluationComponentId));
         requireEditableState(entry.getStatus(), entry.getId(), actorUserId);
         gradeEntryHistoryRepository.deleteByGradeEntryId(entry.getId());
@@ -492,9 +493,9 @@ public class GradeService {
                                                          GradeEvaluationResult.Source source, ImportJob importJob) {
         SchoolClass schoolClass = getClassOrThrow(classId);
         Student student = studentRepository.findByIdAndDeletedAtIsNull(studentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy học sinh id=" + studentId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.grade.studentNotFoundById", new Object[]{studentId}, "Không tìm thấy học sinh id=" + studentId));
         GradeComponentSetup setup = gradeComponentSetupRepository.findById(setupId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy setup sổ điểm id=" + setupId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.grade.componentSetupNotFound", new Object[]{setupId}, "Không tìm thấy setup sổ điểm id=" + setupId));
         User actor = getUserOrThrow(actorUserId);
 
         GradeEvaluationResult result = gradeEvaluationResultRepository
@@ -537,11 +538,12 @@ public class GradeService {
     public void deleteEvaluationResult(Long classId, Long studentId, Long setupId, Long actorUserId) {
         requireCanEnterGrades(classId, actorUserId);
         GradeComponentSetup setup = gradeComponentSetupRepository.findById(setupId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy setup sổ điểm id=" + setupId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.grade.componentSetupNotFound", new Object[]{setupId}, "Không tìm thấy setup sổ điểm id=" + setupId));
         GradeEvaluationResult result = gradeEvaluationResultRepository
                 .findBySchoolClassIdAndStudentIdAndAcademicTermIdAndEvaluationType(
                         classId, studentId, setup.getAcademicTerm().getId(), setup.getEvaluationType())
                 .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.grade.evaluationResultNotFoundForStudentAndSetup", new Object[]{studentId, setupId},
                         "Không tìm thấy điểm tổng kết của học sinh id=" + studentId + " cho setup id=" + setupId));
         requireEditableState(result.getStatus(), result.getId(), actorUserId);
         gradeEvaluationResultRepository.delete(result);
@@ -550,7 +552,7 @@ public class GradeService {
     @Transactional(readOnly = true)
     public List<GradeEvaluationResultResponse> listEvaluationResults(Long classId, Long setupId) {
         GradeComponentSetup setup = gradeComponentSetupRepository.findById(setupId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy setup sổ điểm id=" + setupId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.grade.componentSetupNotFound", new Object[]{setupId}, "Không tìm thấy setup sổ điểm id=" + setupId));
         return gradeEvaluationResultRepository.findBySchoolClassIdAndAcademicTermIdAndEvaluationTypeOrderByStudentId(
                         classId, setup.getAcademicTerm().getId(), setup.getEvaluationType())
                 .stream().map(this::toResponse).toList();
@@ -590,20 +592,21 @@ public class GradeService {
     public GradeEvaluationResultResponse getMyEvaluationResult(Long actorUserId, Long classId, Long academicTermId, String evaluationType) {
         Student student = studentOrThrow(actorUserId);
         if (!classEnrollmentRepository.existsByStudentIdAndSchoolClassId(student.getId(), classId)) {
-            throw new ResourceNotFoundException("Không tìm thấy lớp học id=" + classId);
+            throw new ResourceNotFoundException("error.grade.classNotFound", new Object[]{classId}, "Không tìm thấy lớp học id=" + classId);
         }
         GradeEvaluationResult result = gradeEvaluationResultRepository
                 .findBySchoolClassIdAndStudentIdAndAcademicTermIdAndEvaluationType(
                         classId, student.getId(), academicTermId, GradeComponentSetup.EvaluationType.valueOf(evaluationType))
                 .filter(r -> r.getStatus() == GradeEvaluationResult.Status.OFFICIAL)
                 .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.grade.evaluationResultNotApprovedForTerm", new Object[]{academicTermId},
                         "Chưa có điểm tổng kết đã duyệt cho kỳ học id=" + academicTermId + "."));
         return toResponse(result);
     }
 
     private Student studentOrThrow(Long actorUserId) {
         return studentRepository.findByUserId(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản id=" + actorUserId + " không có hồ sơ học sinh."));
+                .orElseThrow(() -> new ResourceNotFoundException("error.grade.accountHasNoStudentProfile", new Object[]{actorUserId}, "Tài khoản id=" + actorUserId + " không có hồ sơ học sinh."));
     }
 
     // ===================== UC-19/20: Gửi duyệt + Duyệt/Từ chối điểm (V44) =====================
@@ -627,11 +630,11 @@ public class GradeService {
         }
         List<GradeEntry> entries = gradeEntryRepository.findAllById(entryIds);
         if (entries.size() != entryIds.size()) {
-            throw new ResourceNotFoundException("Có bản ghi điểm không tồn tại trong danh sách gradeEntryIds.");
+            throw new ResourceNotFoundException("error.grade.someGradeEntriesNotFound", new Object[]{}, "Có bản ghi điểm không tồn tại trong danh sách gradeEntryIds.");
         }
         List<GradeEvaluationResult> results = gradeEvaluationResultRepository.findAllById(resultIds);
         if (results.size() != resultIds.size()) {
-            throw new ResourceNotFoundException("Có bản ghi Overall/Level không tồn tại trong danh sách gradeEvaluationResultIds.");
+            throw new ResourceNotFoundException("error.grade.someEvaluationResultsNotFound", new Object[]{}, "Có bản ghi Overall/Level không tồn tại trong danh sách gradeEvaluationResultIds.");
         }
 
         for (GradeEntry entry : entries) {
@@ -703,11 +706,11 @@ public class GradeService {
         }
         List<GradeEntry> entries = gradeEntryRepository.findAllById(entryIds);
         if (entries.size() != entryIds.size()) {
-            throw new ResourceNotFoundException("Có bản ghi điểm không tồn tại trong danh sách gradeEntryIds.");
+            throw new ResourceNotFoundException("error.grade.someGradeEntriesNotFound", new Object[]{}, "Có bản ghi điểm không tồn tại trong danh sách gradeEntryIds.");
         }
         List<GradeEvaluationResult> results = gradeEvaluationResultRepository.findAllById(resultIds);
         if (results.size() != resultIds.size()) {
-            throw new ResourceNotFoundException("Có bản ghi Overall/Level không tồn tại trong danh sách gradeEvaluationResultIds.");
+            throw new ResourceNotFoundException("error.grade.someEvaluationResultsNotFound", new Object[]{}, "Có bản ghi Overall/Level không tồn tại trong danh sách gradeEvaluationResultIds.");
         }
 
         requireGradeApprovePermission(actorUserId);
@@ -1009,22 +1012,22 @@ public class GradeService {
 
     private User getUserOrThrow(Long id) {
         return userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.grade.accountNotFound", new Object[]{id}, "Không tìm thấy tài khoản id=" + id));
     }
 
     private SchoolClass getClassOrThrow(Long id) {
         return schoolClassRepository.findByIdAndDeletedAtIsNull(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.grade.classNotFound", new Object[]{id}, "Không tìm thấy lớp học id=" + id));
     }
 
     private CurriculumSubject curriculumSubjectOrThrow(Long id) {
         return curriculumSubjectRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy học phần id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.grade.subjectNotFound", new Object[]{id}, "Không tìm thấy học phần id=" + id));
     }
 
     private Skill skillOrThrow(Long id) {
         return skillRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy kỹ năng id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.grade.skillNotFound", new Object[]{id}, "Không tìm thấy kỹ năng id=" + id));
     }
 
     private void writeGradeComponentSetupHistory(GradeComponentSetup setup, User actor, GradeComponentSetupHistory.Action action) {

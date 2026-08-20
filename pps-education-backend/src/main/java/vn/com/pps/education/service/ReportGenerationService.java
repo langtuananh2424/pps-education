@@ -156,7 +156,8 @@ public class ReportGenerationService {
         List<ClassEnrollment> activeEnrollments =
                 classEnrollmentRepository.findBySchoolClassIdAndStatus(classId, ClassEnrollment.Status.ACTIVE);
         if (activeEnrollments.isEmpty()) {
-            throw new ResourceNotFoundException("Lớp id=" + classId + " không có học sinh đang ghi danh (ACTIVE).");
+            throw new ResourceNotFoundException("error.reportGeneration.classNoActiveEnrollment", new Object[]{classId},
+                    "Lớp id=" + classId + " không có học sinh đang ghi danh (ACTIVE).");
         }
 
         ReportDataResolver resolver = reportGeneratorFactory.getResolver(template.getTemplateType());
@@ -343,33 +344,39 @@ public class ReportGenerationService {
 
     private ReportTemplate templateOrThrow(Long id) {
         return reportTemplateRepository.findByIdAndActiveTrue(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy mẫu báo cáo id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.reportGeneration.templateNotFound",
+                        new Object[]{id}, "Không tìm thấy mẫu báo cáo id=" + id));
     }
 
     private SchoolClass classOrThrow(Long id) {
         return schoolClassRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.reportGeneration.classNotFound",
+                        new Object[]{id}, "Không tìm thấy lớp id=" + id));
     }
 
     private Student studentOrThrow(Long id) {
         return studentRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy học sinh id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.reportGeneration.studentNotFound",
+                        new Object[]{id}, "Không tìm thấy học sinh id=" + id));
     }
 
     private ClassSession classSessionOrThrow(Long id) {
         return classSessionRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy buổi học id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.reportGeneration.classSessionNotFound",
+                        new Object[]{id}, "Không tìm thấy buổi học id=" + id));
     }
 
     private User userOrThrow(Long id) {
         return userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.reportGeneration.accountNotFound",
+                        new Object[]{id}, "Không tìm thấy tài khoản id=" + id));
     }
 
     @Transactional(readOnly = true)
     public org.springframework.http.ResponseEntity<byte[]> downloadReportFile(Long reportId) {
         GeneratedReport report = generatedReportRepository.findById(reportId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy báo cáo id=" + reportId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.reportGeneration.reportNotFound",
+                        new Object[]{reportId}, "Không tìm thấy báo cáo id=" + reportId));
         byte[] bytes = mediaStorageService.download(report.getFileUrl());
         String ext = report.getFileFormat() == GeneratedReport.FileFormat.ZIP ? ".zip"
                 : (report.getFileFormat() == GeneratedReport.FileFormat.PDF ? ".pdf" : ".docx");

@@ -96,7 +96,7 @@ public class LeaveRequestService {
     public LeaveRequestResponse submit(Long actorUserId, CreateLeaveRequestRequest request) {
         User actor = getUserOrThrow(actorUserId);
         Employee employee = employeeRepository.findByUserId(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản chưa có hồ sơ nhân sự."));
+                .orElseThrow(() -> new ResourceNotFoundException("error.leaveRequest.employeeProfileMissing", new Object[]{}, "Tài khoản chưa có hồ sơ nhân sự."));
         Set<String> roleCodes = roleCodesOf(actorUserId);
 
         // Main Flow bước 1 / A1 -- Ban giám đốc miễn trừ hoàn toàn.
@@ -298,6 +298,7 @@ public class LeaveRequestService {
         LeaveRequestApproval currentApproval = leaveRequestApprovalRepository
                 .findByLeaveRequestIdAndStepOrder(lr.getId(), lr.getCurrentStep())
                 .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.leaveRequest.approvalStepNotFound", new Object[]{leaveRequestId},
                         "Không tìm thấy bước duyệt hiện tại cho đơn id=" + leaveRequestId));
 
         Set<String> roleCodes = roleCodesOf(actorUserId);
@@ -421,12 +422,12 @@ public class LeaveRequestService {
 
     private User getUserOrThrow(Long userId) {
         return userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + userId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.leaveRequest.userNotFound", new Object[]{userId}, "Không tìm thấy tài khoản id=" + userId));
     }
 
     private LeaveRequest getLeaveRequestOrThrow(Long id) {
         return leaveRequestRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn từ id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.leaveRequest.notFoundById", new Object[]{id}, "Không tìm thấy đơn từ id=" + id));
     }
 
     private LeaveRequestResponse toResponse(LeaveRequest lr) {

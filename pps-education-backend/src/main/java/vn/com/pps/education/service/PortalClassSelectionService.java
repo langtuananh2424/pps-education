@@ -86,7 +86,7 @@ public class PortalClassSelectionService {
 
     private void requireOwnerOrLinkedParent(Long studentId, Long actorUserId) {
         if (!studentRepository.existsById(studentId)) {
-            throw new ResourceNotFoundException("Không tìm thấy học sinh id=" + studentId);
+            throw new ResourceNotFoundException("error.portalClassSelection.studentNotFound", new Object[]{studentId}, "Không tìm thấy học sinh id=" + studentId);
         }
         Set<String> roleCodes = roleCodesOf(actorUserId);
 

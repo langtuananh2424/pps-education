@@ -69,7 +69,8 @@ public class ManualGradingService {
     public StudentAnswerGradingResponse gradeAnswer(Long studentAnswerId, GradeAnswerRequest request, Long actorUserId) {
         User actor = getUserOrThrow(actorUserId);
         StudentAnswer answer = studentAnswerRepository.findById(studentAnswerId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy câu trả lời id=" + studentAnswerId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.manualGrading.answerNotFound",
+                        new Object[]{studentAnswerId}, "Không tìm thấy câu trả lời id=" + studentAnswerId));
         if (answer.isAutoGradable()) {
             throw new AnswerNotManuallyGradableException(
                     "Câu trả lời này thuộc câu hỏi tự chấm được — không chấm thủ công.");
@@ -139,7 +140,8 @@ public class ManualGradingService {
 
     private User getUserOrThrow(Long id) {
         return userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.manualGrading.userNotFound",
+                        new Object[]{id}, "Không tìm thấy tài khoản id=" + id));
     }
 
     private PendingGradingResponse toPendingResponse(StudentAnswer a) {

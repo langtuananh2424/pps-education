@@ -93,7 +93,9 @@ public class TeachingPlanService {
             throw new InvalidTeachingPlanPeriodException("plan_type=YEARLY phải có academicYearId.");
         } else {
             academicYear = academicYearRepository.findById(request.academicYearId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy năm học id=" + request.academicYearId()));
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "error.teachingPlan.academicYearNotFound", new Object[]{request.academicYearId()},
+                            "Không tìm thấy năm học id=" + request.academicYearId()));
         }
 
         TeachingPlan plan = new TeachingPlan();
@@ -161,7 +163,9 @@ public class TeachingPlanService {
         item.setHomeworkNote(request.homeworkNote());
         if (request.classSessionId() != null) {
             ClassSession session = classSessionRepository.findById(request.classSessionId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy buổi học id=" + request.classSessionId()));
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "error.teachingPlan.classSessionNotFound", new Object[]{request.classSessionId()},
+                            "Không tìm thấy buổi học id=" + request.classSessionId()));
             item.setClassSession(session);
         }
         item = teachingPlanItemRepository.save(item);
@@ -191,7 +195,9 @@ public class TeachingPlanService {
             item.setClassSession(null);
         } else {
             ClassSession session = classSessionRepository.findById(request.classSessionId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy buổi học id=" + request.classSessionId()));
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "error.teachingPlan.classSessionNotFound", new Object[]{request.classSessionId()},
+                            "Không tìm thấy buổi học id=" + request.classSessionId()));
             item.setClassSession(session);
         }
         item = teachingPlanItemRepository.save(item);
@@ -217,24 +223,34 @@ public class TeachingPlanService {
 
     private User getUserOrThrow(Long id) {
         return userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.teachingPlan.actorNotFound", new Object[]{id},
+                        "Không tìm thấy tài khoản id=" + id));
     }
 
     private SchoolClass getClassOrThrow(Long id) {
         return schoolClassRepository.findByIdAndDeletedAtIsNull(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.teachingPlan.classNotFound", new Object[]{id},
+                        "Không tìm thấy lớp học id=" + id));
     }
 
     private TeachingPlan getPlanOrThrow(Long id) {
         return teachingPlanRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy kế hoạch giảng dạy id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.teachingPlan.notFound", new Object[]{id},
+                        "Không tìm thấy kế hoạch giảng dạy id=" + id));
     }
 
     private TeachingPlanItem getItemOrThrow(Long planId, Long itemId) {
         TeachingPlanItem item = teachingPlanItemRepository.findById(itemId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy mục kế hoạch id=" + itemId));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.teachingPlan.itemNotFound", new Object[]{itemId},
+                        "Không tìm thấy mục kế hoạch id=" + itemId));
         if (!item.getTeachingPlan().getId().equals(planId)) {
-            throw new ResourceNotFoundException("Không tìm thấy mục kế hoạch id=" + itemId + " thuộc kế hoạch id=" + planId);
+            throw new ResourceNotFoundException(
+                    "error.teachingPlan.itemNotFoundInPlan", new Object[]{itemId, planId},
+                    "Không tìm thấy mục kế hoạch id=" + itemId + " thuộc kế hoạch id=" + planId);
         }
         return item;
     }

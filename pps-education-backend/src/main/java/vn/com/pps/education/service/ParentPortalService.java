@@ -121,6 +121,7 @@ public class ParentPortalService {
                         classId, studentId, academicTermId, GradeComponentSetup.EvaluationType.valueOf(evaluationType))
                 .filter(r -> r.getStatus() == GradeEvaluationResult.Status.OFFICIAL)
                 .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.parentPortal.officialResultNotFound", new Object[]{studentId, academicTermId},
                         "Chưa có điểm tổng kết đã duyệt cho học sinh id=" + studentId + ", kỳ học id=" + academicTermId + "."));
         return toResponse(result);
     }
@@ -180,13 +181,13 @@ public class ParentPortalService {
         boolean everEnrolled = classEnrollmentRepository.findByStudentId(studentId).stream()
                 .anyMatch(e -> e.getSchoolClass().getId().equals(classId));
         if (!everEnrolled) {
-            throw new ResourceNotFoundException("Học sinh id=" + studentId + " chưa từng học lớp id=" + classId + ".");
+            throw new ResourceNotFoundException("error.parentPortal.studentNeverEnrolledInClass", new Object[]{studentId, classId}, "Học sinh id=" + studentId + " chưa từng học lớp id=" + classId + ".");
         }
     }
 
     private void requireLinkedParent(Long studentId, Long actorUserId) {
         if (!studentRepository.existsById(studentId)) {
-            throw new ResourceNotFoundException("Không tìm thấy học sinh id=" + studentId);
+            throw new ResourceNotFoundException("error.parentPortal.studentNotFoundById", new Object[]{studentId}, "Không tìm thấy học sinh id=" + studentId);
         }
         Parent parent = parentRepository.findByUserId(actorUserId).orElse(null);
         if (parent == null || parentStudentRepository.findByParentIdAndStudentId(parent.getId(), studentId).isEmpty()) {

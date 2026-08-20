@@ -150,7 +150,7 @@ public class StudentService {
         }
         Long siteId = student.getPrimarySite() == null ? null : student.getPrimarySite().getId();
         if (siteId == null || !allowedSiteIds.contains(siteId)) {
-            throw new ResourceNotFoundException("Không tìm thấy học sinh id=" + student.getId());
+            throw new ResourceNotFoundException("error.student.notFoundById", new Object[]{student.getId()}, "Không tìm thấy học sinh id=" + student.getId());
         }
     }
 
@@ -216,7 +216,7 @@ public class StudentService {
         User user;
         if (request.userId() != null) {
             user = userRepository.findById(request.userId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + request.userId()));
+                    .orElseThrow(() -> new ResourceNotFoundException("error.student.accountNotFoundById", new Object[]{request.userId()}, "Không tìm thấy tài khoản id=" + request.userId()));
         } else {
             user = userAccountService.createAccount(request.newAccount());
             assignRole(user, "STUDENT", actorUserId);
@@ -280,7 +280,7 @@ public class StudentService {
         User user;
         if (request.userId() != null) {
             user = userRepository.findById(request.userId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + request.userId()));
+                    .orElseThrow(() -> new ResourceNotFoundException("error.student.accountNotFoundById", new Object[]{request.userId()}, "Không tìm thấy tài khoản id=" + request.userId()));
         } else {
             user = userAccountService.createAccount(request.newAccount());
             assignRole(user, "PARENT", actorUserId);
@@ -408,7 +408,7 @@ public class StudentService {
     public void unlinkParent(Long studentId, Long parentStudentId) {
         ParentStudent link = parentStudentRepository.findById(parentStudentId)
                 .filter(ps -> ps.getStudent().getId().equals(studentId))
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy liên kết phụ huynh id=" + parentStudentId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.student.parentLinkNotFoundById", new Object[]{parentStudentId}, "Không tìm thấy liên kết phụ huynh id=" + parentStudentId));
         parentStudentRepository.delete(link);
     }
 
@@ -457,7 +457,7 @@ public class StudentService {
             throw new IllegalArgumentException("transferType=" + type + " yêu cầu fromClassId.");
         }
         User actor = userRepository.findById(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.student.accountNotFoundById", new Object[]{actorUserId}, "Không tìm thấy tài khoản id=" + actorUserId));
 
         Site toSite = changesSite ? getSiteOrThrow(request.toSiteId()) : null;
 
@@ -467,6 +467,7 @@ public class StudentService {
             fromEnrollment = classEnrollmentRepository
                     .findBySchoolClassIdAndStudentIdAndStatus(request.fromClassId(), studentId, ClassEnrollment.Status.ACTIVE)
                     .orElseThrow(() -> new ResourceNotFoundException(
+                            "error.student.enrollmentNotFoundForTransfer", new Object[]{studentId, request.fromClassId()},
                             "Học sinh id=" + studentId + " không có ghi danh đang hoạt động ở lớp id=" + request.fromClassId() + "."));
             toClass = getSchoolClassOrThrow(request.toClassId());
             if (toClass.getStatus() != SchoolClass.Status.OPEN_ENROLLMENT && toClass.getStatus() != SchoolClass.Status.IN_PROGRESS) {
@@ -539,7 +540,7 @@ public class StudentService {
 
     private void writeStudentHistory(Student student, Long actorUserId, StudentHistory.Action action) {
         User actor = userRepository.findById(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.student.accountNotFoundById", new Object[]{actorUserId}, "Không tìm thấy tài khoản id=" + actorUserId));
         StudentHistory history = new StudentHistory();
         history.setStudent(student);
         history.setChangedBy(actor);
@@ -550,7 +551,7 @@ public class StudentService {
 
     private void writeParentHistory(Parent parent, Long actorUserId, ParentHistory.Action action) {
         User actor = userRepository.findById(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.student.accountNotFoundById", new Object[]{actorUserId}, "Không tìm thấy tài khoản id=" + actorUserId));
         ParentHistory history = new ParentHistory();
         history.setParent(parent);
         history.setChangedBy(actor);
@@ -563,7 +564,7 @@ public class StudentService {
     private void assignRole(User user, String roleCode, Long actorUserId) {
         Role role = roleRepository.findByCode(roleCode).orElseThrow();
         User actor = userRepository.findById(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.student.accountNotFoundById", new Object[]{actorUserId}, "Không tìm thấy tài khoản id=" + actorUserId));
         UserRole userRole = new UserRole();
         userRole.setUser(user);
         userRole.setRole(role);
@@ -594,35 +595,35 @@ public class StudentService {
 
     private Student getStudentOrThrow(Long id) {
         return studentRepository.findByIdAndDeletedAtIsNull(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy học sinh id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.student.notFoundById", new Object[]{id}, "Không tìm thấy học sinh id=" + id));
     }
 
     /** UC-63 A1: tài khoản chưa có hồ sơ học sinh tương ứng. */
     private Student getStudentByUserIdOrThrow(Long userId) {
         return studentRepository.findByUserId(userId)
                 .filter(s -> s.getDeletedAt() == null)
-                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản id=" + userId + " không có hồ sơ học sinh."));
+                .orElseThrow(() -> new ResourceNotFoundException("error.student.userHasNoStudentProfile", new Object[]{userId}, "Tài khoản id=" + userId + " không có hồ sơ học sinh."));
     }
 
     private Parent getParentOrThrow(Long id) {
         return parentRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hồ sơ phụ huynh id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.student.parentNotFoundById", new Object[]{id}, "Không tìm thấy hồ sơ phụ huynh id=" + id));
     }
 
     /** UC-63 A1: tài khoản chưa có hồ sơ phụ huynh tương ứng. */
     private Parent getParentByUserIdOrThrow(Long userId) {
         return parentRepository.findByUserId(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản id=" + userId + " không có hồ sơ phụ huynh."));
+                .orElseThrow(() -> new ResourceNotFoundException("error.student.userHasNoParentProfile", new Object[]{userId}, "Tài khoản id=" + userId + " không có hồ sơ phụ huynh."));
     }
 
     private Site getSiteOrThrow(Long id) {
         return siteRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy điểm trường id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.student.siteNotFoundById", new Object[]{id}, "Không tìm thấy điểm trường id=" + id));
     }
 
     private SchoolClass getSchoolClassOrThrow(Long id) {
         return schoolClassRepository.findByIdAndDeletedAtIsNull(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.student.classNotFoundById", new Object[]{id}, "Không tìm thấy lớp học id=" + id));
     }
 
     private void writeEnrollmentHistory(ClassEnrollment enrollment, User actor, ClassEnrollmentHistory.Action action) {

@@ -340,7 +340,8 @@ public class UserAccountService {
 
     private User getUserOrThrow(Long userId) {
         return userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + userId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.userAccount.notFoundById",
+                        new Object[]{userId}, "Không tìm thấy tài khoản id=" + userId));
     }
 
     private UserResponse toResponse(User u) {

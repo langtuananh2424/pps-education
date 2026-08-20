@@ -58,7 +58,7 @@ public class TuitionPlanService {
     @Transactional
     public TuitionPlanResponse createPlan(CreateTuitionPlanRequest request, Long actorUserId) {
         Curriculum curriculum = curriculumRepository.findByIdAndDeletedAtIsNull(request.curriculumId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy khung chương trình id=" + request.curriculumId()));
+                .orElseThrow(() -> new ResourceNotFoundException("error.tuitionPlan.curriculumNotFound", new Object[]{request.curriculumId()}, "Không tìm thấy khung chương trình id=" + request.curriculumId()));
         User actor = getUserOrThrow(actorUserId);
 
         TuitionPlan plan = new TuitionPlan();
@@ -81,12 +81,12 @@ public class TuitionPlanService {
     @Transactional
     public TuitionPlanAssignmentResponse assignToClass(AssignTuitionPlanRequest request, Long actorUserId) {
         SchoolClass schoolClass = schoolClassRepository.findByIdAndDeletedAtIsNull(request.classId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp id=" + request.classId()));
+                .orElseThrow(() -> new ResourceNotFoundException("error.tuitionPlan.classNotFound", new Object[]{request.classId()}, "Không tìm thấy lớp id=" + request.classId()));
         if (schoolClass.getStatus() == SchoolClass.Status.CANCELLED) {
             throw new IllegalStateException("Lớp học \"" + schoolClass.getName() + "\" đã bị HỦY — không thể gán định mức phí.");
         }
         TuitionPlan plan = tuitionPlanRepository.findById(request.tuitionPlanId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy định mức phí id=" + request.tuitionPlanId()));
+                .orElseThrow(() -> new ResourceNotFoundException("error.tuitionPlan.notFoundById", new Object[]{request.tuitionPlanId()}, "Không tìm thấy định mức phí id=" + request.tuitionPlanId()));
         if (plan.getStatus() != TuitionPlan.Status.ACTIVE) {
             throw new TuitionPlanNotActiveException(
                     "Định mức phí này đã ngừng áp dụng (INACTIVE), không thể gán cho lớp mới.");
@@ -112,7 +112,7 @@ public class TuitionPlanService {
     @Transactional(readOnly = true)
     public TuitionPlanResponse getPlan(Long id) {
         return toResponse(tuitionPlanRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy định mức phí id=" + id)));
+                .orElseThrow(() -> new ResourceNotFoundException("error.tuitionPlan.notFoundById", new Object[]{id}, "Không tìm thấy định mức phí id=" + id)));
     }
 
     /**
@@ -124,7 +124,7 @@ public class TuitionPlanService {
     @Transactional
     public TuitionPlanResponse updateStatus(Long id, UpdateTuitionPlanStatusRequest request, Long actorUserId) {
         TuitionPlan plan = tuitionPlanRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy định mức phí id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.tuitionPlan.notFoundById", new Object[]{id}, "Không tìm thấy định mức phí id=" + id));
         plan.setStatus(TuitionPlan.Status.valueOf(request.status()));
         plan = tuitionPlanRepository.save(plan);
         return toResponse(plan);
@@ -134,7 +134,7 @@ public class TuitionPlanService {
 
     private User getUserOrThrow(Long userId) {
         return userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy user id=" + userId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.tuitionPlan.userNotFound", new Object[]{userId}, "Không tìm thấy user id=" + userId));
     }
 
     private TuitionPlanResponse toResponse(TuitionPlan p) {

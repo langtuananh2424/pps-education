@@ -57,9 +57,11 @@ public class UserPermissionOverrideService {
                                 Long actorUserId, HttpServletRequest httpRequest) {
         User targetUser = getActiveUserOrThrow(targetUserId);
         Permission permission = permissionRepository.findById(permissionId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy quyền id=" + permissionId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.userPermissionOverride.permissionNotFound",
+                        new Object[]{permissionId}, "Không tìm thấy quyền id=" + permissionId));
         User actor = userRepository.findById(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản thực hiện id=" + actorUserId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.userPermissionOverride.actorNotFound",
+                        new Object[]{actorUserId}, "Không tìm thấy tài khoản thực hiện id=" + actorUserId));
 
         // UNIQUE(user_id, permission_id) -- đã tồn tại thì cập nhật thay vì insert trùng
         UserPermissionOverride override = userPermissionOverrideRepository
@@ -89,10 +91,12 @@ public class UserPermissionOverrideService {
     public void removeOverride(Long targetUserId, Long permissionId, Long actorUserId, HttpServletRequest httpRequest) {
         UserPermissionOverride override = userPermissionOverrideRepository
                 .findByUserIdAndPermissionId(targetUserId, permissionId)
-                .orElseThrow(() -> new ResourceNotFoundException(
+                .orElseThrow(() -> new ResourceNotFoundException("error.userPermissionOverride.overrideNotFound",
+                        new Object[]{targetUserId, permissionId},
                         "Không tìm thấy override cho user=%d, permission=%d".formatted(targetUserId, permissionId)));
         User actor = userRepository.findById(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản thực hiện id=" + actorUserId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.userPermissionOverride.actorNotFound",
+                        new Object[]{actorUserId}, "Không tìm thấy tài khoản thực hiện id=" + actorUserId));
 
         Map<String, Object> details = new HashMap<>();
         details.put("overrideType", override.getOverrideType().name());
@@ -119,7 +123,8 @@ public class UserPermissionOverrideService {
 
     private User getActiveUserOrThrow(Long userId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + userId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.userPermissionOverride.accountNotFound",
+                        new Object[]{userId}, "Không tìm thấy tài khoản id=" + userId));
         if (user.getStatus() != User.Status.ACTIVE) {
             throw new AccountInactiveException("Tài khoản không hoạt động.");
         }

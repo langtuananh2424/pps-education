@@ -41,7 +41,9 @@ public class AcademicYearService {
             throw new IllegalArgumentException("endDate phải sau hoặc bằng startDate.");
         }
         User actor = userRepository.findById(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.academicYear.actorNotFound", new Object[]{actorUserId},
+                        "Không tìm thấy tài khoản id=" + actorUserId));
 
         AcademicYear year = new AcademicYear();
         year.setCode(request.code());
@@ -79,7 +81,9 @@ public class AcademicYearService {
 
     private AcademicYear getOrThrow(Long id) {
         return academicYearRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy năm học id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.academicYear.notFound", new Object[]{id},
+                        "Không tìm thấy năm học id=" + id));
     }
 
     private AcademicYearResponse toResponse(AcademicYear y) {

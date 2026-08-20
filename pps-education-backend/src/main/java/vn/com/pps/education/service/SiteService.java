@@ -201,7 +201,7 @@ public class SiteService {
         Site site = getSiteOrThrow(siteId);
         SiteTeacher assignment = siteTeacherRepository.findById(siteTeacherId)
                 .filter(st -> st.getSite().getId().equals(siteId))
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phân công giáo viên id=" + siteTeacherId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.site.teacherAssignmentNotFound", new Object[]{siteTeacherId}, "Không tìm thấy phân công giáo viên id=" + siteTeacherId));
         User actor = getUserOrThrow(actorUserId);
 
         assignment.setAssignedTo(LocalDate.now());
@@ -312,12 +312,12 @@ public class SiteService {
 
     private Site getSiteOrThrow(Long id) {
         return siteRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy điểm trường id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.site.notFoundById", new Object[]{id}, "Không tìm thấy điểm trường id=" + id));
     }
 
     private User getUserOrThrow(Long id) {
         return userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.site.accountNotFound", new Object[]{id}, "Không tìm thấy tài khoản id=" + id));
     }
 
     private SiteResponse toResponse(Site site) {

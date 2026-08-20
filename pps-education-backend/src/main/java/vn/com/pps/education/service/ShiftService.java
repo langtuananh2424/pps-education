@@ -169,11 +169,11 @@ public class ShiftService {
 
     private Shift getShiftOrThrow(Long id) {
         return shiftRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ca làm việc id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.shift.notFoundById", new Object[]{id}, "Không tìm thấy ca làm việc id=" + id));
     }
 
     private User getUserOrThrow(Long userId) {
         return userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + userId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.shift.userNotFound", new Object[]{userId}, "Không tìm thấy tài khoản id=" + userId));
     }
 }

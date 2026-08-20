@@ -120,7 +120,7 @@ public class StudentBatchImportService {
     @Transactional
     public StudentBatchImportResponse importStudents(MultipartFile file, Long actorUserId) {
         User actor = userRepository.findById(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy user id=" + actorUserId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.studentBatchImport.userNotFoundById", new Object[]{actorUserId}, "Không tìm thấy user id=" + actorUserId));
 
         ImportJob job = new ImportJob();
         job.setImportType(ImportJob.ImportType.STUDENTS);
@@ -179,7 +179,7 @@ public class StudentBatchImportService {
     @Transactional(readOnly = true)
     public StudentBatchImportResponse getJob(Long id) {
         ImportJob job = importJobRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy import job id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.studentBatchImport.jobNotFoundById", new Object[]{id}, "Không tìm thấy import job id=" + id));
         return toResponse(job, List.of());
     }
 

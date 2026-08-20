@@ -62,7 +62,7 @@ public class ClassSessionCheckInService {
     @Transactional
     public ClassSessionCheckInResponse checkIn(Long classSessionId, Long actorUserId, ClassSessionCheckInRequest request) {
         ClassSession session = classSessionRepository.findById(classSessionId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy buổi học id=" + classSessionId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.classSessionCheckIn.classSessionNotFound", new Object[]{classSessionId}, "Không tìm thấy buổi học id=" + classSessionId));
 
         if (session.getStatus() == ClassSession.Status.CANCELLED || session.getStatus() == ClassSession.Status.RESCHEDULED) {
             throw new ClassSessionNotCheckableException("Buổi học đã bị hủy/dời lịch, không thể nhận lớp.");

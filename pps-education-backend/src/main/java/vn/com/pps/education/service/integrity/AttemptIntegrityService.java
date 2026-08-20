@@ -165,6 +165,7 @@ public class AttemptIntegrityService {
 
     private AttemptIntegrityContextResolver resolverFor(AttemptType type) {
         return resolvers.stream().filter(r -> r.supports(type)).findFirst()
-                .orElseThrow(() -> new ResourceNotFoundException("Không hỗ trợ giám sát cho loại bài làm: " + type));
+                .orElseThrow(() -> new ResourceNotFoundException("error.attemptIntegrity.unsupportedType",
+                        new Object[]{type}, "Không hỗ trợ giám sát cho loại bài làm: " + type));
     }
 }

@@ -57,7 +57,7 @@ public class SkillService {
     @Transactional
     public SkillResponse update(Long id, UpdateSkillRequest request) {
         Skill skill = skillRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy kỹ năng id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.skill.notFoundById", new Object[]{id}, "Không tìm thấy kỹ năng id=" + id));
         skill.setName(request.name().trim());
         skill.setDescription(request.description());
         skill.setActive(request.active());

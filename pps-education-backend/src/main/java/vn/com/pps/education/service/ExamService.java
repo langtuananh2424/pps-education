@@ -217,22 +217,26 @@ public class ExamService {
 
     private User getUserOrThrow(Long id) {
         return userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.exam.userNotFound",
+                        new Object[]{id}, "Không tìm thấy tài khoản id=" + id));
     }
 
     private Curriculum curriculumOrThrow(Long id) {
         return curriculumRepository.findByIdAndDeletedAtIsNull(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy khung chương trình id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.exam.curriculumNotFound",
+                        new Object[]{id}, "Không tìm thấy khung chương trình id=" + id));
     }
 
     private SchoolClass getClassOrThrow(Long id) {
         return schoolClassRepository.findByIdAndDeletedAtIsNull(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.exam.classNotFound",
+                        new Object[]{id}, "Không tìm thấy lớp học id=" + id));
     }
 
     private Exam getExamOrThrow(Long id) {
         return examRepository.findByIdAndDeletedAtIsNull(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Đề id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.exam.notFoundById",
+                        new Object[]{id}, "Không tìm thấy Đề id=" + id));
     }
 
     private ExamResponse toResponse(Exam exam) {

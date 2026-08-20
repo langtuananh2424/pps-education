@@ -117,7 +117,7 @@ public class DepartmentService {
             return null;
         }
         return userRepository.findById(headUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + headUserId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.department.headUserNotFound", new Object[]{headUserId}, "Không tìm thấy tài khoản id=" + headUserId));
     }
 
     private Department resolveParentDepartment(Long parentDepartmentId, Long selfId) {
@@ -128,12 +128,12 @@ public class DepartmentService {
             throw new IllegalArgumentException("Phòng ban không thể là phòng ban cha của chính nó.");
         }
         return departmentRepository.findById(parentDepartmentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phòng ban cha id=" + parentDepartmentId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.department.parentNotFound", new Object[]{parentDepartmentId}, "Không tìm thấy phòng ban cha id=" + parentDepartmentId));
     }
 
     private Department getDepartmentOrThrow(Long id) {
         return departmentRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phòng ban id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.department.notFoundById", new Object[]{id}, "Không tìm thấy phòng ban id=" + id));
     }
 
     private DepartmentResponse toResponse(Department department) {

@@ -312,7 +312,7 @@ public class StudentCommentService {
         ClassSession classSession = getClassSessionOrThrow(request.classSessionId());
         requireCanWriteDailyComment(classSession, actorUserId);
         Student student = studentRepository.findByIdAndDeletedAtIsNull(request.studentId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy học sinh id=" + request.studentId()));
+                .orElseThrow(() -> new ResourceNotFoundException("error.studentComment.studentNotFoundById", new Object[]{request.studentId()}, "Không tìm thấy học sinh id=" + request.studentId()));
 
         StudentComment existing = studentCommentRepository
                 .findByClassSessionIdAndStudentId(classSession.getId(), student.getId()).orElse(null);
@@ -414,13 +414,13 @@ public class StudentCommentService {
 
     private Student studentOrThrow(Long actorUserId) {
         return studentRepository.findByUserId(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản id=" + actorUserId + " không có hồ sơ học sinh."));
+                .orElseThrow(() -> new ResourceNotFoundException("error.studentComment.userHasNoStudentProfile", new Object[]{actorUserId}, "Tài khoản id=" + actorUserId + " không có hồ sơ học sinh."));
     }
 
     /** Đã TỪNG ghi danh lớp này (kể cả đã chuyển lớp) — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-29. */
     private void requireEnrolled(Long studentId, Long classId) {
         if (!classEnrollmentRepository.existsByStudentIdAndSchoolClassId(studentId, classId)) {
-            throw new ResourceNotFoundException("Không tìm thấy lớp học id=" + classId);
+            throw new ResourceNotFoundException("error.studentComment.classNotFoundById", new Object[]{classId}, "Không tìm thấy lớp học id=" + classId);
         }
     }
 
@@ -452,13 +452,13 @@ public class StudentCommentService {
         User actor = getUserOrThrow(actorUserId);
         List<StudentComment> comments = studentCommentRepository.findAllById(request.commentIds());
         if (comments.size() != request.commentIds().size()) {
-            throw new ResourceNotFoundException("Có nhận xét không tồn tại trong danh sách commentIds.");
+            throw new ResourceNotFoundException("error.studentComment.commentIdsNotFound", new Object[]{}, "Có nhận xét không tồn tại trong danh sách commentIds.");
         }
 
         // Vòng 1: validate toàn bộ, không side effect nào (xem Javadoc trên).
         for (StudentComment comment : comments) {
             if (!comment.getSchoolClass().getId().equals(classId)) {
-                throw new ResourceNotFoundException("Nhận xét id=" + comment.getId() + " không thuộc lớp id=" + classId);
+                throw new ResourceNotFoundException("error.studentComment.commentNotInClass", new Object[]{comment.getId(), classId}, "Nhận xét id=" + comment.getId() + " không thuộc lớp id=" + classId);
             }
             if (comment.getStatus() != StudentComment.Status.DRAFT) {
                 throw new StudentCommentNotEditableException(
@@ -537,7 +537,7 @@ public class StudentCommentService {
         ApprovalFlow.Decision decision = ApprovalFlow.Decision.valueOf(request.decision());
         List<StudentComment> comments = studentCommentRepository.findAllById(request.commentIds());
         if (comments.size() != request.commentIds().size()) {
-            throw new ResourceNotFoundException("Có nhận xét không tồn tại trong danh sách commentIds.");
+            throw new ResourceNotFoundException("error.studentComment.commentIdsNotFound", new Object[]{}, "Có nhận xét không tồn tại trong danh sách commentIds.");
         }
 
         OffsetDateTime now = OffsetDateTime.now();
@@ -1399,7 +1399,7 @@ public class StudentCommentService {
 
     private ExerciseChoiceValidation validateExerciseChoiceAndConflicts(ClassSession session, Long excludeCommentId, Long exerciseId, LocalDateTime customDueDate) {
         Exercise exercise = exerciseRepository.findById(exerciseId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đề id=" + exerciseId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.studentComment.exerciseNotFoundById", new Object[]{exerciseId}, "Không tìm thấy đề id=" + exerciseId));
         requireNoHomeworkConflict(session, excludeCommentId, "Ngữ pháp",
                 this::effectiveExerciseChoiceId, this::effectiveExerciseChoiceLabel, exerciseId, exercise.getTitle());
         OffsetDateTime dueAt = resolveDueAt(session, customDueDate);
@@ -1412,7 +1412,7 @@ public class StudentCommentService {
 
     private VideoChoiceValidation validateVideoChoiceAndConflicts(ClassSession session, Long excludeCommentId, Long videoSetId, LocalDateTime customDueDate) {
         ReviewVideoSet set = reviewVideoSetRepository.findById(videoSetId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bộ video id=" + videoSetId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.studentComment.videoSetNotFoundById", new Object[]{videoSetId}, "Không tìm thấy bộ video id=" + videoSetId));
         requireNoHomeworkConflict(session, excludeCommentId, "Video Ôn tập",
                 this::effectiveVideoChoiceId, this::effectiveVideoChoiceLabel, videoSetId, set.getTitle());
         OffsetDateTime dueAt = resolveDueAt(session, customDueDate);
@@ -1936,17 +1936,17 @@ public class StudentCommentService {
 
     private StudentComment getCommentOrThrow(Long id) {
         return studentCommentRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy nhận xét id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.studentComment.notFoundById", new Object[]{id}, "Không tìm thấy nhận xét id=" + id));
     }
 
     private SchoolClass getClassOrThrow(Long id) {
         return schoolClassRepository.findByIdAndDeletedAtIsNull(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.studentComment.classNotFoundById", new Object[]{id}, "Không tìm thấy lớp học id=" + id));
     }
 
     private ClassSession getClassSessionOrThrow(Long id) {
         return classSessionRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy buổi học id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.studentComment.sessionNotFoundById", new Object[]{id}, "Không tìm thấy buổi học id=" + id));
     }
 
     /** "Buổi N" hiển thị FE — cùng công thức {@link ClassSessionRepository#countEarlierSessions}. */
@@ -1959,7 +1959,7 @@ public class StudentCommentService {
 
     private User getUserOrThrow(Long id) {
         return userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.studentComment.accountNotFoundById", new Object[]{id}, "Không tìm thấy tài khoản id=" + id));
     }
 
     private StudentCommentResponse toResponse(StudentComment c) {

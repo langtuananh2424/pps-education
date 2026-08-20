@@ -51,7 +51,7 @@ public class StudentProfileReportDataResolver implements ReportDataResolver {
     @Override
     public Map<String, Object> buildContext(ReportGenerationParams params) {
         Student student = studentRepository.findById(params.studentId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy học sinh id=" + params.studentId()));
+                .orElseThrow(() -> new ResourceNotFoundException("error.studentProfileReportData.studentNotFoundById", new Object[]{params.studentId()}, "Không tìm thấy học sinh id=" + params.studentId()));
 
         Map<String, Object> context = new HashMap<>();
         context.put("STUDENT_NAME", student.getUser().getFullName());

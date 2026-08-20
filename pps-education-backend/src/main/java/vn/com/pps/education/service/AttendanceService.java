@@ -163,9 +163,9 @@ public class AttendanceService {
 
     private AttendanceRecordResponse process(Long actorUserId, AttendanceCheckRequest request, boolean isCheckIn) {
         User actor = userRepository.findById(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.attendance.userNotFound", new Object[]{actorUserId}, "Không tìm thấy tài khoản id=" + actorUserId));
         Employee employee = employeeRepository.findByUserId(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản chưa có hồ sơ nhân sự."));
+                .orElseThrow(() -> new ResourceNotFoundException("error.attendance.employeeProfileMissing", new Object[]{}, "Tài khoản chưa có hồ sơ nhân sự."));
 
         // Main Flow bước 2 -- cấp quản lý miễn trừ hoàn toàn.
         if (employee.isManagement()) {

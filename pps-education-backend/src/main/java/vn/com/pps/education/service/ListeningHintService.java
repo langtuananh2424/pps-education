@@ -131,12 +131,16 @@ public class ListeningHintService {
 
     private Question requireListeningQuestionInAttempt(ExerciseAttempt attempt, Long questionId) {
         if (!exerciseQuestionRepository.existsByExerciseIdAndQuestionId(attempt.getExercise().getId(), questionId)) {
-            throw new ResourceNotFoundException("Câu hỏi id=" + questionId + " không thuộc đề id=" + attempt.getExercise().getId());
+            throw new ResourceNotFoundException("error.listeningHint.questionNotInExercise",
+                    new Object[]{questionId, attempt.getExercise().getId()},
+                    "Câu hỏi id=" + questionId + " không thuộc đề id=" + attempt.getExercise().getId());
         }
         Question question = questionRepository.findById(questionId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy câu hỏi id=" + questionId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.listeningHint.questionNotFound",
+                        new Object[]{questionId}, "Không tìm thấy câu hỏi id=" + questionId));
         if (question.getSkill() != Question.Skill.LISTENING || question.getAudioUrl() == null) {
-            throw new ResourceNotFoundException("Câu hỏi id=" + questionId + " không phải câu hỏi Nghe có audio.");
+            throw new ResourceNotFoundException("error.listeningHint.notListeningQuestion",
+                    new Object[]{questionId}, "Câu hỏi id=" + questionId + " không phải câu hỏi Nghe có audio.");
         }
         return question;
     }

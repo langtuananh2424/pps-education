@@ -108,7 +108,8 @@ public class EnrollmentMovementReportService {
 
     private AcademicTerm getTermInScope(Long academicTermId, Long actorUserId) {
         AcademicTerm term = academicTermRepository.findById(academicTermId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy kỳ học id=" + academicTermId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.enrollmentMovementReport.termNotFound",
+                        new Object[]{academicTermId}, "Không tìm thấy kỳ học id=" + academicTermId));
         requireSiteScope(term.getSite().getId(), actorUserId);
         return term;
     }
@@ -116,9 +117,11 @@ public class EnrollmentMovementReportService {
     private List<SchoolClass> resolveClasses(AcademicTerm term, Long classId) {
         if (classId != null) {
             SchoolClass schoolClass = schoolClassRepository.findByIdAndDeletedAtIsNull(classId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học id=" + classId));
+                    .orElseThrow(() -> new ResourceNotFoundException("error.enrollmentMovementReport.classNotFound",
+                            new Object[]{classId}, "Không tìm thấy lớp học id=" + classId));
             if (!schoolClass.getSite().getId().equals(term.getSite().getId())) {
-                throw new ResourceNotFoundException(
+                throw new ResourceNotFoundException("error.enrollmentMovementReport.classNotInTermSite",
+                        new Object[]{classId, term.getId()},
                         "Lớp id=" + classId + " không thuộc điểm trường của kỳ học id=" + term.getId() + ".");
             }
             return List.of(schoolClass);

@@ -115,10 +115,10 @@ public class TaskService {
     public TaskResponse createTask(CreateTaskRequest request, Long actorUserId) {
         User actor = getUserOrThrow(actorUserId);
         Employee actorEmployee = employeeRepository.findByUserId(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản chưa có hồ sơ nhân sự."));
+                .orElseThrow(() -> new ResourceNotFoundException("error.task.employeeProfileMissing", new Object[]{}, "Tài khoản chưa có hồ sơ nhân sự."));
         List<User> assignees = userRepository.findAllById(request.assigneeUserIds());
         if (assignees.size() != request.assigneeUserIds().size()) {
-            throw new ResourceNotFoundException("Có người nhận việc không tồn tại trong danh sách assigneeUserIds.");
+            throw new ResourceNotFoundException("error.task.assigneeNotFound", new Object[]{}, "Có người nhận việc không tồn tại trong danh sách assigneeUserIds.");
         }
         Map<Long, Employee> assigneeEmployeesByUserId = employeeRepository.findByUserIdIn(request.assigneeUserIds()).stream()
                 .collect(Collectors.toMap(e -> e.getUser().getId(), e -> e));
@@ -246,7 +246,7 @@ public class TaskService {
     @Transactional
     public TaskAssignmentResponse updateAssignmentStatus(Long assignmentId, UpdateAssignmentStatusRequest request, Long actorUserId) {
         TaskAssignment assignment = taskAssignmentRepository.findById(assignmentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phân công công việc id=" + assignmentId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.task.assignmentNotFound", new Object[]{assignmentId}, "Không tìm thấy phân công công việc id=" + assignmentId));
         Task task = assignment.getTask();
         if (task.getStatus() == Task.Status.CANCELLED) {
             throw new InvalidTaskStatusTransitionException(
@@ -330,7 +330,7 @@ public class TaskService {
         }
 
         TaskAssignment declined = taskAssignmentRepository.findById(request.fromAssignmentId())
-                .orElseThrow(() -> new ResourceNotFoundException(
+                .orElseThrow(() -> new ResourceNotFoundException("error.task.assignmentNotFound", new Object[]{request.fromAssignmentId()},
                         "Không tìm thấy phân công công việc id=" + request.fromAssignmentId()));
         if (!declined.getTask().getId().equals(taskId)) {
             throw new IllegalArgumentException(
@@ -573,12 +573,12 @@ public class TaskService {
 
     private User getUserOrThrow(Long id) {
         return userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.task.accountNotFound", new Object[]{id}, "Không tìm thấy tài khoản id=" + id));
     }
 
     private Task getTaskOrThrow(Long id) {
         return taskRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy công việc id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.task.notFoundById", new Object[]{id}, "Không tìm thấy công việc id=" + id));
     }
 
     private void writeTaskHistory(Task task, User actor, TaskHistory.Action action) {

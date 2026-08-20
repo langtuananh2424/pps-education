@@ -240,9 +240,13 @@ public class ClassSessionService {
             throw new IllegalArgumentException("sessionType=MAKEUP phải có makeupForSessionId (bù cho buổi nào).");
         }
         ClassSession cancelledSession = classSessionRepository.findById(makeupForSessionId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy buổi học id=" + makeupForSessionId));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.classSession.sessionNotFound", new Object[]{makeupForSessionId},
+                        "Không tìm thấy buổi học id=" + makeupForSessionId));
         if (!cancelledSession.getSchoolClass().getId().equals(classId)) {
-            throw new ResourceNotFoundException("Không tìm thấy buổi học id=" + makeupForSessionId + " thuộc lớp id=" + classId);
+            throw new ResourceNotFoundException(
+                    "error.classSession.sessionNotFoundInClass", new Object[]{makeupForSessionId, classId},
+                    "Không tìm thấy buổi học id=" + makeupForSessionId + " thuộc lớp id=" + classId);
         }
         if (cancelledSession.getStatus() != ClassSession.Status.CANCELLED) {
             throw new InvalidClassSessionStatusTransitionException("Chỉ có thể chọn buổi đang CANCELLED để bù (buổi id="
@@ -382,7 +386,9 @@ public class ClassSessionService {
     public List<ClassSessionResponse> listMySessionsForStudent(Long actorUserId, LocalDate fromDate, LocalDate toDate,
                                                                  Long classIdFilter) {
         var student = studentRepository.findByUserId(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản id=" + actorUserId + " không có hồ sơ học sinh."));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.classSession.studentProfileNotFound", new Object[]{actorUserId},
+                        "Tài khoản id=" + actorUserId + " không có hồ sơ học sinh."));
         List<Long> classIds = classEnrollmentRepository.findByStudentIdAndStatus(student.getId(), ClassEnrollment.Status.ACTIVE)
                 .stream()
                 .map(e -> e.getSchoolClass().getId())
@@ -434,7 +440,9 @@ public class ClassSessionService {
 
     private SchoolClass getSchoolClassOrThrow(Long classId) {
         return schoolClassRepository.findByIdAndDeletedAtIsNull(classId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học id=" + classId));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.classSession.classNotFound", new Object[]{classId},
+                        "Không tìm thấy lớp học id=" + classId));
     }
 
     /** UC-48 A2: hủy 1 buổi đang SCHEDULED, giải phóng phòng khỏi ràng buộc trùng lịch. */
@@ -557,27 +565,37 @@ public class ClassSessionService {
 
     private ClassSession getSessionOrThrow(Long classId, Long sessionId) {
         ClassSession session = classSessionRepository.findById(sessionId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy buổi học id=" + sessionId));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.classSession.sessionNotFound", new Object[]{sessionId},
+                        "Không tìm thấy buổi học id=" + sessionId));
         if (!session.getSchoolClass().getId().equals(classId)) {
-            throw new ResourceNotFoundException("Không tìm thấy buổi học id=" + sessionId + " thuộc lớp id=" + classId);
+            throw new ResourceNotFoundException(
+                    "error.classSession.sessionNotFoundInClass", new Object[]{sessionId, classId},
+                    "Không tìm thấy buổi học id=" + sessionId + " thuộc lớp id=" + classId);
         }
         return session;
     }
 
     private Room getRoomOrThrow(Long roomId) {
         return roomRepository.findById(roomId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phòng học id=" + roomId));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.classSession.roomNotFound", new Object[]{roomId},
+                        "Không tìm thấy phòng học id=" + roomId));
     }
 
     private User getUserOrThrow(Long userId) {
         return userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + userId));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.classSession.actorNotFound", new Object[]{userId},
+                        "Không tìm thấy tài khoản id=" + userId));
     }
 
     private void generateDefaultPeriods(ClassSession session, User actor) {
         int count = systemSettingRepository.findBySettingKey(DEFAULT_PERIODS_SETTING_KEY)
                 .map(s -> s.getSettingValue().asInt())
-                .orElseThrow(() -> new ResourceNotFoundException("Thiếu cấu hình system_settings: " + DEFAULT_PERIODS_SETTING_KEY));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.classSession.systemSettingMissing", new Object[]{DEFAULT_PERIODS_SETTING_KEY},
+                        "Thiếu cấu hình system_settings: " + DEFAULT_PERIODS_SETTING_KEY));
 
         long totalMinutes = ChronoUnit.MINUTES.between(session.getStartTime(), session.getEndTime());
         long minutesPerPeriod = totalMinutes / count;

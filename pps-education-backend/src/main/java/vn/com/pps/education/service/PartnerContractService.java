@@ -84,7 +84,7 @@ public class PartnerContractService {
         User actor = getUserOrThrow(actorUserId);
         PartnerContract parent = request.parentContractId() == null ? null
                 : partnerContractRepository.findByIdAndDeletedAtIsNull(request.parentContractId())
-                        .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hợp đồng gốc id=" + request.parentContractId()));
+                        .orElseThrow(() -> new ResourceNotFoundException("error.partnerContract.parentNotFound", new Object[]{request.parentContractId()}, "Không tìm thấy hợp đồng gốc id=" + request.parentContractId()));
 
         PartnerContract contract = new PartnerContract();
         contract.setSite(site);
@@ -240,17 +240,17 @@ public class PartnerContractService {
 
     private PartnerContract getContractOrThrow(Long id) {
         return partnerContractRepository.findByIdAndDeletedAtIsNull(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hợp đồng id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.partnerContract.notFoundById", new Object[]{id}, "Không tìm thấy hợp đồng id=" + id));
     }
 
     private Site getSiteOrThrow(Long id) {
         return siteRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy điểm trường id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.partnerContract.siteNotFound", new Object[]{id}, "Không tìm thấy điểm trường id=" + id));
     }
 
     private User getUserOrThrow(Long id) {
         return userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.partnerContract.accountNotFound", new Object[]{id}, "Không tìm thấy tài khoản id=" + id));
     }
 
     private PartnerContractResponse toResponse(PartnerContract c) {

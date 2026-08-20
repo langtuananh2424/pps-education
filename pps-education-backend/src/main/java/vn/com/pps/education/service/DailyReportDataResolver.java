@@ -78,7 +78,8 @@ public class DailyReportDataResolver implements ReportDataResolver {
             throw new IllegalArgumentException("DAILY_REPORT cần classSessionId (báo cáo gắn theo 1 buổi học).");
         }
         ClassSession session = classSessionRepository.findById(params.classSessionId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy buổi học id=" + params.classSessionId()));
+                .orElseThrow(() -> new ResourceNotFoundException("error.dailyReport.classSessionNotFound",
+                        new Object[]{params.classSessionId()}, "Không tìm thấy buổi học id=" + params.classSessionId()));
 
         Map<String, Object> context = new HashMap<>();
         context.put("CLASS_NAME", session.getSchoolClass().getName());

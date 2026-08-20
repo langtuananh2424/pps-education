@@ -219,12 +219,12 @@ public class PartnerFeedbackService {
 
     private PartnerFeedback getFeedbackOrThrow(Long id) {
         return partnerFeedbackRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phản hồi id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.partnerFeedback.notFoundById", new Object[]{id}, "Không tìm thấy phản hồi id=" + id));
     }
 
     private User getUserOrThrow(Long id) {
         return userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.partnerFeedback.accountNotFound", new Object[]{id}, "Không tìm thấy tài khoản id=" + id));
     }
 
     private PartnerFeedbackResponse toResponse(PartnerFeedback f) {

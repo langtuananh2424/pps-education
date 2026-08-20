@@ -172,7 +172,9 @@ public class ExerciseAttemptService {
             throw new AttemptNotEditableException("Lượt làm bài này không còn ở trạng thái đang làm (IN_PROGRESS).");
         }
         if (!exerciseQuestionRepository.existsByExerciseIdAndQuestionId(attempt.getExercise().getId(), request.questionId())) {
-            throw new ResourceNotFoundException("Câu hỏi id=" + request.questionId() + " không thuộc đề id=" + attempt.getExercise().getId());
+            throw new ResourceNotFoundException("error.exerciseAttempt.answerQuestionMismatch",
+                    new Object[]{request.questionId(), attempt.getExercise().getId()},
+                    "Câu hỏi id=" + request.questionId() + " không thuộc đề id=" + attempt.getExercise().getId());
         }
 
         StudentAnswer answer = studentAnswerRepository.findByExerciseAttemptIdAndQuestionId(attemptId, request.questionId())
@@ -182,7 +184,8 @@ public class ExerciseAttemptService {
                 .map(ExerciseQuestion::getQuestion)
                 .filter(q -> q.getId().equals(request.questionId()))
                 .findFirst()
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy câu hỏi id=" + request.questionId()));
+                .orElseThrow(() -> new ResourceNotFoundException("error.exerciseAttempt.questionNotFound",
+                        new Object[]{request.questionId()}, "Không tìm thấy câu hỏi id=" + request.questionId()));
         answer.setQuestion(question);
         answer.setAutoGradable(AUTO_GRADABLE_TYPES.contains(question.getQuestionType()));
         answer.setAnswerText(request.answerText());
@@ -228,7 +231,8 @@ public class ExerciseAttemptService {
     @Transactional
     public ExerciseAttempt forceStopByIntegrityViolation(Long attemptId) {
         ExerciseAttempt attempt = exerciseAttemptRepository.findById(attemptId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lượt làm bài id=" + attemptId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.exerciseAttempt.notFoundById",
+                        new Object[]{attemptId}, "Không tìm thấy lượt làm bài id=" + attemptId));
         if (attempt.getStatus() != ExerciseAttempt.Status.IN_PROGRESS) {
             return attempt;
         }
@@ -365,7 +369,8 @@ public class ExerciseAttemptService {
     @Transactional(readOnly = true)
     public List<StudentAnswerResponse> listAnswersForGrading(Long attemptId) {
         if (!exerciseAttemptRepository.existsById(attemptId)) {
-            throw new ResourceNotFoundException("Không tìm thấy lượt làm bài id=" + attemptId);
+            throw new ResourceNotFoundException("error.exerciseAttempt.notFoundById",
+                    new Object[]{attemptId}, "Không tìm thấy lượt làm bài id=" + attemptId);
         }
         return studentAnswerRepository.findByExerciseAttemptId(attemptId).stream().map(this::toResponse).toList();
     }
@@ -382,7 +387,8 @@ public class ExerciseAttemptService {
     @Transactional
     public List<ExerciseAttemptResponse> selectForGrading(Long attemptId, Long actorUserId) {
         ExerciseAttempt attempt = exerciseAttemptRepository.findById(attemptId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lượt làm bài id=" + attemptId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.exerciseAttempt.notFoundById",
+                        new Object[]{attemptId}, "Không tìm thấy lượt làm bài id=" + attemptId));
         List<ExerciseAttempt> siblings = exerciseAttemptRepository.findByExerciseIdAndStudentIdOrderByAttemptNumberDesc(
                 attempt.getExercise().getId(), attempt.getStudent().getId());
         for (ExerciseAttempt sibling : siblings) {
@@ -505,21 +511,25 @@ public class ExerciseAttemptService {
     ExerciseAttempt attemptOwnedByActor(Long attemptId, Long actorUserId) {
         Student student = studentOrThrow(actorUserId);
         ExerciseAttempt attempt = exerciseAttemptRepository.findById(attemptId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lượt làm bài id=" + attemptId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.exerciseAttempt.notFoundById",
+                        new Object[]{attemptId}, "Không tìm thấy lượt làm bài id=" + attemptId));
         if (!attempt.getStudent().getId().equals(student.getId())) {
-            throw new ResourceNotFoundException("Không tìm thấy lượt làm bài id=" + attemptId);
+            throw new ResourceNotFoundException("error.exerciseAttempt.notFoundById",
+                    new Object[]{attemptId}, "Không tìm thấy lượt làm bài id=" + attemptId);
         }
         return attempt;
     }
 
     private Student studentOrThrow(Long actorUserId) {
         return studentRepository.findByUserId(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản id=" + actorUserId + " không có hồ sơ học sinh."));
+                .orElseThrow(() -> new ResourceNotFoundException("error.exerciseAttempt.studentProfileNotFound",
+                        new Object[]{actorUserId}, "Tài khoản id=" + actorUserId + " không có hồ sơ học sinh."));
     }
 
     private Exercise exerciseOrThrow(Long id) {
         return exerciseRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đề id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.exerciseAttempt.exerciseNotFound",
+                        new Object[]{id}, "Không tìm thấy đề id=" + id));
     }
 
     private void writeHistory(ExerciseAttempt attempt, Long actorUserId, ExerciseAttemptHistory.Action action) {

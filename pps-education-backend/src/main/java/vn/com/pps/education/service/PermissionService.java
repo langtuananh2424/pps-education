@@ -71,7 +71,8 @@ public class PermissionService {
     @Transactional
     public PermissionResponse update(Long id, UpdatePermissionRequest request) {
         Permission permission = permissionRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy quyền id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.permission.notFoundById",
+                        new Object[]{id}, "Không tìm thấy quyền id=" + id));
         // code bất biến khi đã tồn tại -- không nằm trong UpdatePermissionRequest
         permission.setName(request.name());
         permission.setDescription(request.description());
@@ -81,7 +82,8 @@ public class PermissionService {
     @Transactional
     public void delete(Long id) {
         Permission permission = permissionRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy quyền id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.permission.notFoundById",
+                        new Object[]{id}, "Không tìm thấy quyền id=" + id));
 
         // A2 -- không xóa quyền đang được role hoặc tài khoản tham chiếu
         List<RolePermission> referencingRoles = rolePermissionRepository.findByPermissionId(id);

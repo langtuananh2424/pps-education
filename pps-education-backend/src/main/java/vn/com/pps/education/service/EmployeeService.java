@@ -155,7 +155,7 @@ public class EmployeeService {
         }
         User user = request.userId() != null
                 ? userRepository.findById(request.userId())
-                        .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + request.userId()))
+                        .orElseThrow(() -> new ResourceNotFoundException("error.employee.userNotFound", new Object[]{request.userId()}, "Không tìm thấy tài khoản id=" + request.userId()))
                 : userAccountService.createAccount(request.newAccount());
         if (employeeRepository.findByUserId(user.getId()).isPresent()) {
             throw new EmployeeAlreadyExistsException("Tài khoản này đã có hồ sơ nhân sự.");
@@ -184,6 +184,7 @@ public class EmployeeService {
         if (request.departmentId() != null) {
             Department department = departmentRepository.findById(request.departmentId())
                     .orElseThrow(() -> new ResourceNotFoundException(
+                            "error.employee.departmentNotFound", new Object[]{request.departmentId()},
                             "Không tìm thấy phòng ban id=" + request.departmentId()));
             employee.setDepartment(department);
         }
@@ -222,6 +223,7 @@ public class EmployeeService {
         if (request.departmentId() != null) {
             Department department = departmentRepository.findById(request.departmentId())
                     .orElseThrow(() -> new ResourceNotFoundException(
+                            "error.employee.departmentNotFound", new Object[]{request.departmentId()},
                             "Không tìm thấy phòng ban id=" + request.departmentId()));
             employee.setDepartment(department);
         } else {
@@ -267,7 +269,7 @@ public class EmployeeService {
     public CommendationResponse addCommendation(Long employeeId, CreateCommendationRequest request, Long actorUserId) {
         Employee employee = getEmployeeOrThrow(employeeId);
         User decidedBy = userRepository.findById(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.employee.userNotFound", new Object[]{actorUserId}, "Không tìm thấy tài khoản id=" + actorUserId));
 
         Commendation commendation = new Commendation();
         commendation.setEmployee(employee);
@@ -298,7 +300,7 @@ public class EmployeeService {
             assertNoActiveContract(employeeId);
         }
         User actor = userRepository.findById(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.employee.userNotFound", new Object[]{actorUserId}, "Không tìm thấy tài khoản id=" + actorUserId));
 
         EmploymentContract contract = new EmploymentContract();
         contract.setEmployee(employee);
@@ -323,14 +325,14 @@ public class EmployeeService {
                                                        UpdateEmploymentContractRequest request, Long actorUserId) {
         EmploymentContract contract = employmentContractRepository.findByIdAndDeletedAtIsNull(contractId)
                 .filter(c -> c.getEmployee().getId().equals(employeeId))
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hợp đồng id=" + contractId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.employee.contractNotFound", new Object[]{contractId}, "Không tìm thấy hợp đồng id=" + contractId));
 
         EmploymentContract.Status newStatus = EmploymentContract.Status.valueOf(request.status());
         if (newStatus == EmploymentContract.Status.ACTIVE && contract.getStatus() != EmploymentContract.Status.ACTIVE) {
             assertNoActiveContract(employeeId);
         }
         User actor = userRepository.findById(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.employee.userNotFound", new Object[]{actorUserId}, "Không tìm thấy tài khoản id=" + actorUserId));
 
         contract.setContractType(EmploymentContract.ContractType.valueOf(request.contractType()));
         contract.setStartDate(request.startDate());
@@ -382,7 +384,7 @@ public class EmployeeService {
 
     private void writeEmployeeHistory(Employee employee, Long actorUserId, EmployeeHistory.Action action) {
         User actor = userRepository.findById(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.employee.userNotFound", new Object[]{actorUserId}, "Không tìm thấy tài khoản id=" + actorUserId));
         EmployeeHistory history = new EmployeeHistory();
         history.setEmployee(employee);
         history.setChangedBy(actor);
@@ -427,14 +429,14 @@ public class EmployeeService {
 
     private Employee getEmployeeOrThrow(Long id) {
         return employeeRepository.findByIdAndDeletedAtIsNull(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy nhân sự id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.employee.notFoundById", new Object[]{id}, "Không tìm thấy nhân sự id=" + id));
     }
 
     /** UC-63 A1: tài khoản chưa có hồ sơ nhân sự tương ứng. */
     private Employee getEmployeeByUserIdOrThrow(Long userId) {
         return employeeRepository.findByUserId(userId)
                 .filter(e -> e.getDeletedAt() == null)
-                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản id=" + userId + " không có hồ sơ nhân sự."));
+                .orElseThrow(() -> new ResourceNotFoundException("error.employee.profileNotFoundForUser", new Object[]{userId}, "Tài khoản id=" + userId + " không có hồ sơ nhân sự."));
     }
 
     private Position resolvePosition(Long positionId) {
@@ -442,7 +444,7 @@ public class EmployeeService {
             return null;
         }
         return positionRepository.findById(positionId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy chức vụ id=" + positionId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.employee.positionNotFound", new Object[]{positionId}, "Không tìm thấy chức vụ id=" + positionId));
     }
 
     private EmployeeResponse toResponse(Employee e) {

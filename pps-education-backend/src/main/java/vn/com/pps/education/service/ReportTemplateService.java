@@ -271,12 +271,14 @@ public class ReportTemplateService {
 
     private ReportTemplate templateOrThrow(Long id) {
         return reportTemplateRepository.findByIdAndActiveTrue(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy mẫu báo cáo id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.reportTemplate.notFoundById",
+                        new Object[]{id}, "Không tìm thấy mẫu báo cáo id=" + id));
     }
 
     private User userOrThrow(Long id) {
         return userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.reportTemplate.accountNotFound",
+                        new Object[]{id}, "Không tìm thấy tài khoản id=" + id));
     }
 
     private ReportTemplateResponse toResponse(ReportTemplate t, List<ReportTemplateFieldMapping> mappings) {

@@ -118,7 +118,8 @@ public class GradeImportService {
         // UC-53 Precondition (mở rộng, xem GradeService#requireCanEnterGrades) — dùng chung logic với UC-19, không lặp lại.
         gradeService.requireCanEnterGrades(classId, actorUserId);
         User actor = userRepository.findById(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.gradeImport.userNotFound",
+                        new Object[]{actorUserId}, "Không tìm thấy tài khoản id=" + actorUserId));
 
         List<GradeEvaluationComponent> components = gradeEvaluationComponentRepository.findByGradeComponentSetupIdOrderByDisplayOrder(setupId);
 
@@ -173,7 +174,8 @@ public class GradeImportService {
     @Transactional(readOnly = true)
     public GradeImportResponse getJob(Long id) {
         ImportJob job = importJobRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy import job id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.gradeImport.jobNotFound",
+                        new Object[]{id}, "Không tìm thấy import job id=" + id));
         return toResponse(job);
     }
 
@@ -238,9 +240,11 @@ public class GradeImportService {
     /** Dùng chung cho importGrades() và buildTemplate() — tránh lặp lại lookup + check khớp lớp. */
     private GradeComponentSetup loadAndValidate(Long classId, Long setupId) {
         SchoolClass schoolClass = schoolClassRepository.findByIdAndDeletedAtIsNull(classId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học id=" + classId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.gradeImport.classNotFound",
+                        new Object[]{classId}, "Không tìm thấy lớp học id=" + classId));
         GradeComponentSetup setup = gradeComponentSetupRepository.findById(setupId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy setup sổ điểm id=" + setupId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.gradeImport.setupNotFound",
+                        new Object[]{setupId}, "Không tìm thấy setup sổ điểm id=" + setupId));
         if (!setup.getSchoolClass().getId().equals(schoolClass.getId())) {
             throw new IllegalArgumentException(
                     "Setup sổ điểm này không thuộc lớp đang chọn.");

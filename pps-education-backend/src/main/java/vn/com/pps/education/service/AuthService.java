@@ -228,7 +228,8 @@ public class AuthService {
      */
     public CurrentUserResponse getCurrentUser(Long userId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + userId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.auth.accountNotFound",
+                        new Object[]{userId}, "Không tìm thấy tài khoản id=" + userId));
         String departmentName = employeeRepository.findByUserId(userId)
                 .map(e -> e.getDepartment() == null ? null : e.getDepartment().getName())
                 .orElse(null);

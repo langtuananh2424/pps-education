@@ -78,7 +78,7 @@ public class ClassEnrollmentBatchImportService {
         // để ném thẳng ra ngoài (404), không nuốt vào errorSummary.
         classService.getById(classId);
         User actor = userRepository.findById(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.classEnrollmentBatchImport.accountNotFound", new Object[]{actorUserId}, "Không tìm thấy tài khoản id=" + actorUserId));
 
         ImportJob job = new ImportJob();
         job.setImportType(ImportJob.ImportType.CLASS_ENROLLMENTS);
@@ -130,7 +130,7 @@ public class ClassEnrollmentBatchImportService {
     @Transactional(readOnly = true)
     public ClassEnrollmentBatchImportResponse getJob(Long id) {
         ImportJob job = importJobRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy import job id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.classEnrollmentBatchImport.importJobNotFound", new Object[]{id}, "Không tìm thấy import job id=" + id));
         return toResponse(job);
     }
 

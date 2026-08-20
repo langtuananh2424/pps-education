@@ -168,7 +168,8 @@ public class RoleService {
 
         List<RolePermission> newRows = toAdd.stream().map(permissionId -> {
             Permission permission = permissionRepository.findById(permissionId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy quyền id=" + permissionId));
+                    .orElseThrow(() -> new ResourceNotFoundException("error.role.permissionNotFound",
+                            new Object[]{permissionId}, "Không tìm thấy quyền id=" + permissionId));
             RolePermission rp = new RolePermission();
             rp.setRole(role);
             rp.setPermission(permission);
@@ -185,12 +186,14 @@ public class RoleService {
 
     private Role getRoleOrThrow(Long roleId) {
         return roleRepository.findById(roleId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy role id=" + roleId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.role.notFoundById",
+                        new Object[]{roleId}, "Không tìm thấy role id=" + roleId));
     }
 
     private User getUserOrThrow(Long userId) {
         return userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + userId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.role.accountNotFound",
+                        new Object[]{userId}, "Không tìm thấy tài khoản id=" + userId));
     }
 
     private void writeHistory(Role role, User actor, RoleHistory.Action action) {

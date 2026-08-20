@@ -133,7 +133,8 @@ public class ListeningPracticeService {
         Student student = studentOrThrow(actorUserId);
         ListeningPracticeItem item = itemOrThrow(practiceItemId);
         if (item.getStatus() != ListeningPracticeItem.Status.PUBLISHED) {
-            throw new ResourceNotFoundException("Không tìm thấy bài luyện id=" + practiceItemId);
+            throw new ResourceNotFoundException("error.listeningPractice.itemNotFound",
+                    new Object[]{practiceItemId}, "Không tìm thấy bài luyện id=" + practiceItemId);
         }
         long previousAttempts = practiceAttemptRepository.countByPracticeItemIdAndStudentId(practiceItemId, student.getId());
 
@@ -227,31 +228,37 @@ public class ListeningPracticeService {
     private ListeningPracticeAttempt attemptOwnedByActor(Long attemptId, Long actorUserId) {
         Student student = studentOrThrow(actorUserId);
         ListeningPracticeAttempt attempt = practiceAttemptRepository.findById(attemptId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lượt luyện id=" + attemptId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.listeningPractice.attemptNotFound",
+                        new Object[]{attemptId}, "Không tìm thấy lượt luyện id=" + attemptId));
         if (!attempt.getStudent().getId().equals(student.getId())) {
-            throw new ResourceNotFoundException("Không tìm thấy lượt luyện id=" + attemptId);
+            throw new ResourceNotFoundException("error.listeningPractice.attemptNotFound",
+                    new Object[]{attemptId}, "Không tìm thấy lượt luyện id=" + attemptId);
         }
         return attempt;
     }
 
     private Student studentOrThrow(Long actorUserId) {
         return studentRepository.findByUserId(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản id=" + actorUserId + " không có hồ sơ học sinh."));
+                .orElseThrow(() -> new ResourceNotFoundException("error.listeningPractice.studentProfileNotFound",
+                        new Object[]{actorUserId}, "Tài khoản id=" + actorUserId + " không có hồ sơ học sinh."));
     }
 
     private Curriculum curriculumOrThrow(Long id) {
         return curriculumRepository.findByIdAndDeletedAtIsNull(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy khung chương trình id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.listeningPractice.curriculumNotFound",
+                        new Object[]{id}, "Không tìm thấy khung chương trình id=" + id));
     }
 
     private ListeningPracticeItem itemOrThrow(Long id) {
         return practiceItemRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bài luyện id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.listeningPractice.itemNotFound",
+                        new Object[]{id}, "Không tìm thấy bài luyện id=" + id));
     }
 
     private User userOrThrow(Long id) {
         return userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.listeningPractice.userNotFound",
+                        new Object[]{id}, "Không tìm thấy tài khoản id=" + id));
     }
 
     private ListeningPracticeItemResponse toResponse(ListeningPracticeItem i) {

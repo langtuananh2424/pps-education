@@ -119,7 +119,9 @@ public class CurriculumService {
             throw new DuplicateCurriculumCodeException("Mã khung chương trình đã tồn tại: " + request.code());
         }
         User actor = userRepository.findById(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.curriculum.actorNotFound", new Object[]{actorUserId},
+                        "Không tìm thấy tài khoản id=" + actorUserId));
 
         Curriculum curriculum = new Curriculum();
         curriculum.setCode(request.code());
@@ -142,7 +144,9 @@ public class CurriculumService {
     public CurriculumResponse update(Long id, UpdateCurriculumRequest request, Long actorUserId) {
         Curriculum curriculum = getCurriculumOrThrow(id);
         User actor = userRepository.findById(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.curriculum.actorNotFound", new Object[]{actorUserId},
+                        "Không tìm thấy tài khoản id=" + actorUserId));
 
         // A1 -- khung đang dùng bởi lớp IN_PROGRESS, cần xác nhận lại trước khi lưu.
         boolean inUseByRunningClass = schoolClassRepository
@@ -176,14 +180,18 @@ public class CurriculumService {
     public CurriculumSubjectResponse addSubject(Long curriculumId, CreateCurriculumSubjectRequest request, Long actorUserId) {
         Curriculum curriculum = getCurriculumOrThrow(curriculumId);
         User actor = userRepository.findById(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.curriculum.actorNotFound", new Object[]{actorUserId},
+                        "Không tìm thấy tài khoản id=" + actorUserId));
 
         CurriculumSubject subject = new CurriculumSubject();
         subject.setCurriculum(curriculum);
         subject.setSubjectCode(CurriculumSubject.SubjectCode.valueOf(request.subjectCode()));
         if (request.skillId() != null) {
             subject.setSkill(skillRepository.findById(request.skillId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy kỹ năng id=" + request.skillId())));
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "error.curriculum.skillNotFound", new Object[]{request.skillId()},
+                            "Không tìm thấy kỹ năng id=" + request.skillId())));
         }
         subject.setName(request.name());
         subject.setPeriodCount(request.periodCount());
@@ -216,7 +224,9 @@ public class CurriculumService {
     @Transactional
     public CurriculumResponse createCustomCopy(CreateCustomCurriculumRequest request, Long actorUserId) {
         Site site = siteRepository.findById(request.siteId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy điểm trường id=" + request.siteId()));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.curriculum.siteNotFound", new Object[]{request.siteId()},
+                        "Không tìm thấy điểm trường id=" + request.siteId()));
         requireSiteManagerForSite(site.getId(), actorUserId);
         Curriculum parent = getCurriculumOrThrow(request.parentCurriculumId());
         if (parent.getSite() != null) {
@@ -227,7 +237,9 @@ public class CurriculumService {
             throw new DuplicateCurriculumCodeException("Mã khung chương trình đã tồn tại: " + request.code());
         }
         User actor = userRepository.findById(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.curriculum.actorNotFound", new Object[]{actorUserId},
+                        "Không tìm thấy tài khoản id=" + actorUserId));
 
         // Main Flow bước 2 -- tạo bản sao, sao chép nội dung từ bản gốc.
         Curriculum copy = new Curriculum();
@@ -258,7 +270,9 @@ public class CurriculumService {
                             + " — chỉ chỉnh sửa được khi còn ở trạng thái Nháp (DRAFT).");
         }
         User actor = userRepository.findById(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.curriculum.actorNotFound", new Object[]{actorUserId},
+                        "Không tìm thấy tài khoản id=" + actorUserId));
 
         curriculum.setName(request.name());
         curriculum.setLevel(request.level());
@@ -288,7 +302,9 @@ public class CurriculumService {
                             + " — chỉ gửi duyệt được khi còn ở trạng thái Nháp (DRAFT).");
         }
         User actor = userRepository.findById(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.curriculum.actorNotFound", new Object[]{actorUserId},
+                        "Không tìm thấy tài khoản id=" + actorUserId));
 
         curriculum.setStatus(Curriculum.Status.PENDING_APPROVAL);
         curriculum = curriculumRepository.save(curriculum);
@@ -322,7 +338,9 @@ public class CurriculumService {
     @Transactional
     public CurriculumApprovalResponse decideApproval(Long approvalFlowId, DecideCurriculumApprovalRequest request, Long actorUserId) {
         ApprovalFlow flow = approvalFlowRepository.findById(approvalFlowId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đề xuất id=" + approvalFlowId));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.curriculum.approvalNotFound", new Object[]{approvalFlowId},
+                        "Không tìm thấy đề xuất id=" + approvalFlowId));
         if (flow.getEntityType() != ApprovalFlow.EntityType.CURRICULUM) {
             throw new ResourceNotFoundException(
                     "error.curriculum.approvalFlowNotFound", new Object[]{approvalFlowId},
@@ -333,7 +351,9 @@ public class CurriculumService {
         }
         Curriculum curriculum = getCurriculumOrThrow(flow.getEntityId());
         User actor = userRepository.findById(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.curriculum.actorNotFound", new Object[]{actorUserId},
+                        "Không tìm thấy tài khoản id=" + actorUserId));
         ApprovalFlow.Decision decision = ApprovalFlow.Decision.valueOf(request.decision());
 
         flow.setDecision(decision);
@@ -409,7 +429,9 @@ public class CurriculumService {
 
     private Curriculum getCurriculumOrThrow(Long id) {
         return curriculumRepository.findByIdAndDeletedAtIsNull(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy khung chương trình id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.curriculum.notFound", new Object[]{id},
+                        "Không tìm thấy khung chương trình id=" + id));
     }
 
     private CurriculumResponse toResponse(Curriculum c) {

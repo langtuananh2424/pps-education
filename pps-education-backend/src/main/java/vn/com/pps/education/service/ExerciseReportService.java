@@ -321,7 +321,8 @@ public class ExerciseReportService {
 
     private ExerciseAssignment getAssignmentOrThrow(Long id) {
         return exerciseAssignmentRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bản giao BTVN id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.exerciseReport.assignmentNotFound",
+                        new Object[]{id}, "Không tìm thấy bản giao BTVN id=" + id));
     }
 
     /** Quyền lms.exercise-report.manage (V107) vượt rào — quản trị viên xem thống kê BTVN của lớp bất kỳ. */
@@ -333,7 +334,8 @@ public class ExerciseReportService {
             return;
         }
         SchoolClass schoolClass = schoolClassRepository.findByIdAndDeletedAtIsNull(classId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học id=" + classId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.exerciseReport.classNotFound",
+                        new Object[]{classId}, "Không tìm thấy lớp học id=" + classId));
         if (!siteManagerRepository.existsBySiteIdAndUserIdAndRoleTypeAndAssignedToIsNull(
                 schoolClass.getSite().getId(), actorUserId, SiteManager.RoleType.SITE_MANAGER)) {
             throw new NotAssignedTeacherForClassException(

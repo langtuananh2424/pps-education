@@ -134,7 +134,7 @@ public class PositionService {
         toAdd.removeAll(currentRoleIds);
         List<PositionDefaultRole> newRows = toAdd.stream().map(roleId -> {
             Role role = roleRepository.findById(roleId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy role id=" + roleId));
+                    .orElseThrow(() -> new ResourceNotFoundException("error.position.roleNotFound", new Object[]{roleId}, "Không tìm thấy role id=" + roleId));
             PositionDefaultRole pdr = new PositionDefaultRole();
             pdr.setPosition(position);
             pdr.setRole(role);
@@ -150,7 +150,7 @@ public class PositionService {
 
     private Position getPositionOrThrow(Long id) {
         return positionRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy chức vụ id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.position.notFoundById", new Object[]{id}, "Không tìm thấy chức vụ id=" + id));
     }
 
     private PositionResponse toResponse(Position position) {
