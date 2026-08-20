@@ -1,5 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { AlertTriangle, ArrowRight, ClipboardCheck, FileWarning, GraduationCap, Inbox, School, Wallet } from "lucide-react";
 import Card from "@/components/ui/Card";
 import Badge, { BadgeVariant } from "@/components/ui/Badge";
@@ -57,25 +58,11 @@ const feedbackPriorityVariant: Record<PartnerFeedbackPriority, BadgeVariant> = {
   LOW: "neutral"
 };
 
-const feedbackPriorityLabel: Record<PartnerFeedbackPriority, string> = {
-  URGENT: "Khẩn cấp",
-  HIGH: "Cao",
-  NORMAL: "Trung bình",
-  LOW: "Thấp"
-};
-
 const feedbackStatusVariant: Record<PartnerFeedbackStatus, BadgeVariant> = {
   NEW: "danger",
   IN_PROGRESS: "warning",
   RESOLVED: "success",
   CLOSED: "neutral"
-};
-
-const feedbackStatusLabel: Record<PartnerFeedbackStatus, string> = {
-  NEW: "Mới tiếp nhận",
-  IN_PROGRESS: "Đang xử lý",
-  RESOLVED: "Đã giải quyết",
-  CLOSED: "Đã đóng"
 };
 
 /**
@@ -87,6 +74,7 @@ const feedbackStatusLabel: Record<PartnerFeedbackStatus, string> = {
  * (business-fidelity.md), đã báo lại gap này cho người dùng thay vì âm thầm bỏ qua.
  */
 export default function CampusDashboard() {
+  const { t } = useTranslation("dashboard");
   const navigate = useNavigate();
   const { data, loading } = useSiteManagerDashboardData();
 
@@ -95,54 +83,52 @@ export default function CampusDashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Quản Lý Vận Hành Cơ Sở & Điểm Trường</h1>
-        <p className="text-xs text-slate-500 mt-1">
-          Giám sát phản hồi đối tác trường liên kết, tình hình lớp học và các hàng chờ duyệt tại (các) điểm trường bạn phụ trách.
-        </p>
+        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("campus.title")}</h1>
+        <p className="text-xs text-slate-500 mt-1">{t("campus.subtitle")}</p>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         <StatCard
           icon={Inbox}
-          label="Ý kiến đối tác mới"
+          label={t("campus.kpi.newFeedback")}
           value={String(data.newFeedbackCount)}
           tone={data.newFeedbackCount > 0 ? "warning" : "slate"}
-          hint={`${data.totalFeedbackCount} phản hồi đang theo dõi`}
+          hint={t("campus.kpi.newFeedbackHint", { count: data.totalFeedbackCount })}
         />
         <StatCard
           icon={School}
-          label="Hợp đồng liên kết hoạt động"
+          label={t("campus.kpi.activeContracts")}
           value={String(data.activeContractsCount)}
           tone="slate"
-          hint={`${data.mySites.length} điểm trường phụ trách`}
+          hint={t("campus.kpi.activeContractsHint", { count: data.mySites.length })}
         />
         <StatCard
           icon={AlertTriangle}
-          label="Cảnh báo ý thức"
+          label={t("campus.kpi.attitudeWarning")}
           value={String(data.pendingWarningCommentCount)}
           tone={data.pendingWarningCommentCount > 0 ? "danger" : "slate"}
-          hint="Nhận xét mức Cảnh báo chờ duyệt"
+          hint={t("campus.kpi.attitudeWarningHint")}
         />
         <StatCard
           icon={ClipboardCheck}
-          label="Đơn chờ duyệt"
+          label={t("campus.kpi.pendingApproval")}
           value={String(data.pendingGradeCount + data.pendingLeaveCount)}
           tone={data.pendingGradeCount + data.pendingLeaveCount > 0 ? "warning" : "slate"}
-          hint={`${data.pendingGradeCount} điểm + ${data.pendingLeaveCount} nghỉ phép`}
+          hint={t("campus.kpi.pendingApprovalHint", { grades: data.pendingGradeCount, leaves: data.pendingLeaveCount })}
         />
-        <StatCard icon={Wallet} label="Công nợ học phí cơ sở" value="—" tone="slate" hint="Chưa có báo cáo theo điểm trường" />
+        <StatCard icon={Wallet} label={t("campus.kpi.tuitionDebt")} value="—" tone="slate" hint={t("campus.kpi.tuitionDebtHint")} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         <Card padded={false} className="overflow-hidden">
-          <SectionHead icon={ClipboardCheck} title="Đơn chờ duyệt" subtitle="Nghỉ phép nhân sự + điểm chờ duyệt tại điểm trường" />
+          <SectionHead icon={ClipboardCheck} title={t("campus.pendingApproval.title")} subtitle={t("campus.pendingApproval.subtitle")} />
           <div className="divide-y divide-slate-100">
             {data.pendingGradeCount > 0 && (
               <div className="p-4 flex items-start gap-3">
                 <span className="w-2 h-2 rounded-full bg-amber-500 mt-2 shrink-0" />
                 <div className="min-w-0">
-                  <p className="text-xs font-bold text-slate-800">{data.pendingGradeCount} bảng điểm chờ duyệt</p>
-                  <p className="text-xs text-slate-400 mt-0.5">Giáo viên đã nộp, cần Quản lý điểm trường xét duyệt trước khi công bố.</p>
+                  <p className="text-xs font-bold text-slate-800">{t("campus.pendingApproval.pendingGrades", { count: data.pendingGradeCount })}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">{t("campus.pendingApproval.pendingGradesDesc")}</p>
                 </div>
               </div>
             )}
@@ -151,7 +137,7 @@ export default function CampusDashboard() {
                 <span className="w-2 h-2 rounded-full bg-sky-500 mt-2 shrink-0" />
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-bold text-slate-800 truncate">
-                    {r.employeeFullName} · {r.totalDays} ngày
+                    {t("campus.pendingApproval.leaveDaysLabel", { name: r.employeeFullName, days: r.totalDays })}
                   </p>
                   <p className="text-xs text-slate-400 mt-0.5">
                     {r.startDate} → {r.endDate} {r.departmentName ? `· ${r.departmentName}` : ""}
@@ -160,13 +146,13 @@ export default function CampusDashboard() {
               </div>
             ))}
             {data.pendingGradeCount === 0 && data.pendingLeaveRequests.length === 0 && !loading && (
-              <InlineEmpty icon={ClipboardCheck} title="Không có gì chờ duyệt" description="Điểm và đơn nghỉ phép đều đã được xử lý." />
+              <InlineEmpty icon={ClipboardCheck} title={t("campus.pendingApproval.emptyTitle")} description={t("campus.pendingApproval.emptyDescription")} />
             )}
           </div>
         </Card>
 
         <Card padded={false} className="overflow-hidden">
-          <SectionHead icon={FileWarning} title="Hợp đồng sắp hết hạn" subtitle="Hợp đồng liên kết trong 30 ngày tới" />
+          <SectionHead icon={FileWarning} title={t("campus.expiringContracts.title")} subtitle={t("campus.expiringContracts.subtitle")} />
           <div className="divide-y divide-slate-100">
             {data.expiringContracts.map((c) => (
               <div key={c.contractId} className="p-4 flex items-start gap-3">
@@ -175,12 +161,12 @@ export default function CampusDashboard() {
                   <p className="text-xs font-bold text-slate-800 truncate">
                     {c.siteName} · {c.contractNumber}
                   </p>
-                  <p className="text-xs text-slate-400 mt-0.5">Hết hạn {c.endDate}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">{t("campus.expiringContracts.expiresOn", { date: c.endDate })}</p>
                 </div>
               </div>
             ))}
             {data.expiringContracts.length === 0 && !loading && (
-              <InlineEmpty icon={FileWarning} title="Không có hợp đồng sắp hết hạn" />
+              <InlineEmpty icon={FileWarning} title={t("campus.expiringContracts.emptyTitle")} />
             )}
           </div>
         </Card>
@@ -189,18 +175,22 @@ export default function CampusDashboard() {
       <Card padded={false} className="overflow-hidden">
         <SectionHead
           icon={GraduationCap}
-          title="Lớp đang hoạt động tại điểm trường"
-          subtitle={`${data.totalActiveClasses} lớp · ${data.totalStudents} học sinh · hoàn thành BTVN trung bình ${data.avgCompletionPercent}%`}
-          action={{ label: "Xem lớp học →", onClick: () => navigate("/academic/classes") }}
+          title={t("campus.activeClasses.title")}
+          subtitle={t("campus.activeClasses.subtitle", {
+            classes: data.totalActiveClasses,
+            students: data.totalStudents,
+            percent: data.avgCompletionPercent
+          })}
+          action={{ label: t("campus.activeClasses.viewClasses"), onClick: () => navigate("/academic/classes") }}
         />
         {data.myClasses.length > 0 ? (
           <TableContainer className="border-0 rounded-none">
             <thead>
               <tr>
-                <Th>Lớp</Th>
-                <Th>Điểm trường</Th>
-                <Th>Sĩ số</Th>
-                <Th>Hoàn thành BTVN</Th>
+                <Th>{t("campus.activeClasses.columns.class")}</Th>
+                <Th>{t("campus.activeClasses.columns.site")}</Th>
+                <Th>{t("campus.activeClasses.columns.size")}</Th>
+                <Th>{t("campus.activeClasses.columns.completion")}</Th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -222,15 +212,15 @@ export default function CampusDashboard() {
             </tbody>
           </TableContainer>
         ) : (
-          !loading && <InlineEmpty icon={GraduationCap} title="Chưa có lớp đang hoạt động" />
+          !loading && <InlineEmpty icon={GraduationCap} title={t("campus.activeClasses.emptyTitle")} />
         )}
       </Card>
 
       <Card>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-bold text-slate-800 font-display">Hòm thư phản hồi đối tác liên kết mới nhất</h3>
+          <h3 className="text-sm font-bold text-slate-800 font-display">{t("campus.feedbackInbox.title")}</h3>
           <button onClick={goToFeedback} className="text-xs text-brand-orange hover:text-brand-red font-bold">
-            Xem tất cả phản hồi
+            {t("campus.feedbackInbox.viewAll")}
           </button>
         </div>
         {data.feedbackInbox.length > 0 ? (
@@ -243,13 +233,13 @@ export default function CampusDashboard() {
                 <div className="space-y-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-xs font-bold text-slate-800">{tkt.siteName}</span>
-                    <Badge variant={feedbackPriorityVariant[tkt.priority]}>{feedbackPriorityLabel[tkt.priority]}</Badge>
+                    <Badge variant={feedbackPriorityVariant[tkt.priority]}>{t(`campus.feedbackPriority.${tkt.priority}`)}</Badge>
                   </div>
                   <p className="text-xs text-slate-600 line-clamp-2">{tkt.content}</p>
                 </div>
 
                 <div className="flex items-center gap-3 shrink-0">
-                  <Badge variant={feedbackStatusVariant[tkt.status]}>{feedbackStatusLabel[tkt.status]}</Badge>
+                  <Badge variant={feedbackStatusVariant[tkt.status]}>{t(`campus.feedbackStatus.${tkt.status}`)}</Badge>
                   <button onClick={goToFeedback} className="p-1 rounded bg-white hover:bg-slate-100 text-slate-500 border border-slate-200">
                     <ArrowRight className="w-3.5 h-3.5" />
                   </button>
@@ -258,7 +248,7 @@ export default function CampusDashboard() {
             ))}
           </div>
         ) : (
-          !loading && <InlineEmpty icon={Inbox} title="Chưa có phản hồi nào từ đối tác liên kết" />
+          !loading && <InlineEmpty icon={Inbox} title={t("campus.feedbackInbox.emptyTitle")} />
         )}
       </Card>
     </div>
