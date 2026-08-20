@@ -775,11 +775,26 @@ export default function DailyCommentPanel() {
     setNotification(`⚠️ Học sinh ${r.studentFullName} đã có nhận xét cho buổi này rồi (trạng thái: ${statusLabels[sent.status]}) — xem/sửa ở "Lịch sử nhận xét" bên dưới.`);
   };
 
+  /**
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-20 — buildTemplate() ở BE đọc thẳng từ DB
+   * (student_comments đã lưu), không biết gì về `rows` đang gõ dở trên UI. Từ khi bỏ autosave
+   * (2026-08-19, xem handleSaveDraft), gõ xong bấm "Tải mẫu Excel" ngay mà chưa bấm "Lưu nháp" sẽ ra
+   * file THIẾU đúng dữ liệu vừa gõ. Tự gọi handleSaveDraft() trước khi tải nếu đang dirty (có dữ liệu
+   * chưa lưu) — gộp "Lưu nháp" + "Tải mẫu Excel" thành 1 lần bấm, Excel luôn khớp UI. Lỗi lưu thì DỪNG
+   * hẳn, không tải file (tránh tải nhầm bản DB cũ trong khi tưởng đã có dữ liệu mới).
+   */
   const handleDownloadTemplate = async () => {
     if (!selectedSessionId) return;
     setDownloadingTemplate(true);
     setError(null);
     try {
+      if (dirty && rows.some(rowHasAnyData)) {
+        const saveResult = await handleSaveDraft();
+        if (!saveResult.ok) {
+          setError(`Chưa lưu được nháp nên không tải file — ${saveResult.message}`);
+          return;
+        }
+      }
       const blob = await downloadDailyCommentTemplate(selectedSessionId);
       // Sửa 2026-08-19 (đã xác nhận với người dùng, fix bug thật): trước đây đặt tên file theo
       // selectedSessionId (id kỹ thuật trong DB, VD 27) — không khớp "Buổi 7" giáo viên thấy trên dropdown
@@ -1100,7 +1115,7 @@ export default function DailyCommentPanel() {
               className="flex items-center gap-1.5 border border-dashed border-slate-300 rounded-lg px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-white disabled:opacity-50"
             >
               <Download className="w-3.5 h-3.5" />
-              {downloadingTemplate ? "Đang tải..." : "Tải mẫu Excel"}
+              {downloadingTemplate ? "Đang lưu & tải..." : "Tải mẫu Excel"}
             </button>
             <button
               type="button"
