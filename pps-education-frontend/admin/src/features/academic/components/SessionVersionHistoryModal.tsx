@@ -1,22 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { History, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { StudentCommentHistoryResponse, listStudentCommentHistoryForSession } from "../api";
 import Badge from "@/components/ui/Badge";
+import { toLocaleTag } from "@/lib/i18nFormat";
 
-const attitudeLabels: Record<NonNullable<StudentCommentHistoryResponse["details"]["attitude"]>, string> = {
-  WEAK: "Yếu",
-  AVERAGE: "Trung bình",
-  FAIR: "Khá",
-  GOOD: "Tốt",
-  EXCELLENT: "Xuất sắc"
-};
-const statusLabels: Record<StudentCommentHistoryResponse["details"]["status"], string> = {
-  DRAFT: "Nháp",
-  PENDING: "Chờ duyệt",
-  APPROVED: "Đã duyệt",
-  REJECTED: "Bị từ chối"
-};
 const statusVariants: Record<StudentCommentHistoryResponse["details"]["status"], "success" | "warning" | "danger" | "neutral"> = {
   DRAFT: "neutral",
   PENDING: "warning",
@@ -112,6 +101,7 @@ interface SessionVersionHistoryModalProps {
  * đang xem lịch sử NHIỀU trạng thái khác nhau theo thời gian).
  */
 export default function SessionVersionHistoryModal({ classSessionId, students, grammarLabel, videoLabel, onClose }: SessionVersionHistoryModalProps) {
+  const { t, i18n } = useTranslation("academic-comments");
   const [history, setHistory] = useState<StudentCommentHistoryResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -126,7 +116,7 @@ export default function SessionVersionHistoryModal({ classSessionId, students, g
         const buckets = buildBuckets(res);
         setSelectedBucketKey(buckets[0]?.key ?? null);
       })
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được lịch sử phiên bản."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("sessionVersionHistoryModal.loadError")))
       .finally(() => setLoading(false));
   }, [classSessionId]);
 
@@ -144,8 +134,8 @@ export default function SessionVersionHistoryModal({ classSessionId, students, g
           <div className="flex items-center gap-2">
             <History className="w-4 h-4 text-slate-500 shrink-0" />
             <div>
-              <h3 className="text-sm font-bold font-display text-slate-900">Lịch sử phiên bản — cả buổi</h3>
-              <p className="text-[11px] text-slate-500 mt-0.5">Mỗi mốc là 1 đợt Lưu nháp/Gửi/Duyệt/Từ chối — chọn 1 mốc để xem lại toàn bộ bảng lúc đó.</p>
+              <h3 className="text-sm font-bold font-display text-slate-900">{t("sessionVersionHistoryModal.title")}</h3>
+              <p className="text-[11px] text-slate-500 mt-0.5">{t("sessionVersionHistoryModal.subtitle")}</p>
             </div>
           </div>
           <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-600 shrink-0">
@@ -156,9 +146,9 @@ export default function SessionVersionHistoryModal({ classSessionId, students, g
         {error && <div className="mx-5 mt-3 text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg shrink-0">{error}</div>}
 
         {loading ? (
-          <p className="p-5 text-xs text-slate-400">Đang tải...</p>
+          <p className="p-5 text-xs text-slate-400">{t("sessionVersionHistoryModal.loading")}</p>
         ) : buckets.length === 0 ? (
-          <p className="p-5 text-xs text-slate-400 italic">Buổi này chưa có lịch sử chỉnh sửa nào.</p>
+          <p className="p-5 text-xs text-slate-400 italic">{t("sessionVersionHistoryModal.empty")}</p>
         ) : (
           <div className="flex-1 flex min-h-0">
             {/* Timeline bên trái — mirror layout "Version history" của Google Sheets. */}
@@ -176,14 +166,14 @@ export default function SessionVersionHistoryModal({ classSessionId, students, g
                   >
                     <div className="flex items-center gap-1.5">
                       <span className="text-[11px] font-bold text-slate-800">
-                        {new Date(b.timestamp).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })}
+                        {new Date(b.timestamp).toLocaleString(toLocaleTag(i18n.language), { dateStyle: "short", timeStyle: "short" })}
                       </span>
                       {index === 0 && (
-                        <span className="px-1.5 py-0.5 rounded bg-teal/10 text-teal-deep text-[9px] font-black uppercase tracking-wide shrink-0">Mới nhất</span>
+                        <span className="px-1.5 py-0.5 rounded bg-teal/10 text-teal-deep text-[9px] font-black uppercase tracking-wide shrink-0">{t("sessionVersionHistoryModal.latestBadge")}</span>
                       )}
                     </div>
                     <p className="text-[10px] text-slate-400 mt-0.5 truncate">{b.actors.join(", ")}</p>
-                    <p className="text-[10px] text-slate-400">{b.studentIds.size} học sinh</p>
+                    <p className="text-[10px] text-slate-400">{t("sessionVersionHistoryModal.studentsCount", { count: b.studentIds.size })}</p>
                   </button>
                 );
               })}
@@ -193,41 +183,41 @@ export default function SessionVersionHistoryModal({ classSessionId, students, g
                 <thead className="sticky top-0 z-20 bg-white shadow-sm">
                   <tr className="[&>th]:text-center">
                     <th rowSpan={2} style={STICKY_COL_STYLE[0]} className={`${thClass} sticky left-0 z-30`}>
-                      Mã HV
+                      {t("sessionVersionHistoryModal.columns.studentCode")}
                     </th>
                     <th rowSpan={2} style={STICKY_COL_STYLE[1]} className={`${thClass} sticky z-30`}>
-                      Họ và tên
+                      {t("sessionVersionHistoryModal.columns.fullName")}
                     </th>
                     <th rowSpan={2} style={STICKY_COL_STYLE[2]} className={`${thClass} sticky z-30`}>
-                      Ngày sinh
+                      {t("sessionVersionHistoryModal.columns.dateOfBirth")}
                     </th>
                     <th colSpan={3} className={thClass}>
-                      BTVN buổi trước
+                      {t("sessionVersionHistoryModal.columns.homeworkPrevious")}
                     </th>
                     <th rowSpan={2} className={`${thClass} min-w-[140px]`}>
-                      BTVN offline
+                      {t("sessionVersionHistoryModal.columns.homeworkOffline")}
                     </th>
                     <th colSpan={2} className={thClass}>
-                      BTVN online
+                      {t("sessionVersionHistoryModal.columns.homeworkOnline")}
                     </th>
                     <th rowSpan={2} className={`${thClass} min-w-[120px]`}>
-                      Hạn nộp bài
+                      {t("sessionVersionHistoryModal.columns.dueDate")}
                     </th>
                     <th rowSpan={2} className={`${thClass} min-w-[110px]`}>
-                      Thái độ học tập
+                      {t("sessionVersionHistoryModal.columns.attitude")}
                     </th>
                     <th rowSpan={2} className={`${thClass} min-w-[260px]`}>
-                      Nhận xét học sinh
+                      {t("sessionVersionHistoryModal.columns.studentComment")}
                     </th>
                     <th rowSpan={2} className={`${thClass} min-w-[140px]`}>
-                      Ghi chú
+                      {t("sessionVersionHistoryModal.columns.note")}
                     </th>
                     <th rowSpan={2} className={`${thClass} min-w-[110px] border-r-0`}>
-                      Trạng thái
+                      {t("sessionVersionHistoryModal.columns.status")}
                     </th>
                   </tr>
                   <tr className="[&>th]:text-center">
-                    <th className={`${thClass} min-w-[100px]`}>Offline</th>
+                    <th className={`${thClass} min-w-[100px]`}>{t("sessionVersionHistoryModal.columns.offline")}</th>
                     <th className={`${thClass} min-w-[110px]`}>{grammarLabel}</th>
                     <th className={`${thClass} min-w-[110px]`}>{videoLabel}</th>
                     <th className={`${thClass} min-w-[160px]`}>{grammarLabel}</th>
@@ -258,13 +248,13 @@ export default function SessionVersionHistoryModal({ classSessionId, students, g
                         <td className={`${tdClass} text-slate-500`}>{d?.homeworkNextExerciseTitle || "—"}</td>
                         <td className={`${tdClass} text-slate-500`}>{d?.homeworkNextReviewVideoSetTitle || "—"}</td>
                         <td className={`${tdClass} whitespace-nowrap text-slate-500`}>
-                          {d?.homeworkNextDueAt ? new Date(d.homeworkNextDueAt).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" }) : "—"}
+                          {d?.homeworkNextDueAt ? new Date(d.homeworkNextDueAt).toLocaleString(toLocaleTag(i18n.language), { dateStyle: "short", timeStyle: "short" }) : "—"}
                         </td>
-                        <td className={`${tdClass} text-slate-500`}>{d?.attitude ? attitudeLabels[d.attitude] : "—"}</td>
+                        <td className={`${tdClass} text-slate-500`}>{d?.attitude ? t(`shared.attitude.${d.attitude}`) : "—"}</td>
                         <td className={`${tdClass} max-w-[260px] whitespace-pre-wrap text-slate-700`}>{d?.content || "—"}</td>
                         <td className={`${tdClass} text-slate-500`}>{d?.note || "—"}</td>
                         <td className={`px-2 py-2 border-b border-slate-100 ${rowBg ?? ""}`}>
-                          {d ? <Badge variant={statusVariants[d.status]}>{statusLabels[d.status]}</Badge> : "—"}
+                          {d ? <Badge variant={statusVariants[d.status]}>{t(`shared.status.${d.status}`)}</Badge> : "—"}
                         </td>
                       </tr>
                     );

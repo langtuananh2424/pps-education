@@ -298,5 +298,52 @@
     "errors": {
       "loadPendingFailed": "Không tải được hàng chờ duyệt nhận xét."
     }
+  },
+  "commentVersionHistoryModal": {
+    "title": "Lịch sử phiên bản",
+    "subtitle": "{{name}} — mỗi mốc là 1 lần Lưu nháp/Gửi/Duyệt/Từ chối.",
+    "loadError": "Không tải được lịch sử phiên bản.",
+    "loading": "Đang tải...",
+    "empty": "Chưa có lịch sử nào.",
+    "latestBadge": "Mới nhất",
+    "actionByLabel": "{{action}} bởi {{name}}",
+    "action": {
+      "CREATED": "Tạo mới",
+      "UPDATED": "Cập nhật"
+    },
+    "noContent": "—",
+    "attitudeLabel": "Thái độ: {{value}}",
+    "homeworkPreviousGrammar": "BTVN Ngữ pháp buổi trước: {{value}}",
+    "homeworkPreviousListening": "BTVN Nghe-nói buổi trước: {{value}}",
+    "homeworkNextGrammarOffline": "BTVN Ngữ pháp buổi sau (offline): {{value}}",
+    "homeworkNextGrammarOnline": "BTVN Ngữ pháp buổi sau (online): {{value}}",
+    "homeworkNextVideo": "Video ôn tập buổi sau: {{value}}",
+    "homeworkNextDueSuffix": " (hạn {{date}})",
+    "pendingChoicesLabel": "Lựa chọn CHƯA gửi lúc này: {{value}}",
+    "noteLabel": "Ghi chú: {{value}}",
+    "rejectionReasonLabel": "Lý do từ chối: {{value}}"
+  },
+  "sessionVersionHistoryModal": {
+    "title": "Lịch sử phiên bản — cả buổi",
+    "subtitle": "Mỗi mốc là 1 đợt Lưu nháp/Gửi/Duyệt/Từ chối — chọn 1 mốc để xem lại toàn bộ bảng lúc đó.",
+    "loadError": "Không tải được lịch sử phiên bản.",
+    "loading": "Đang tải...",
+    "empty": "Buổi này chưa có lịch sử chỉnh sửa nào.",
+    "latestBadge": "Mới nhất",
+    "studentsCount": "{{count}} học sinh",
+    "columns": {
+      "studentCode": "Mã HV",
+      "fullName": "Họ và tên",
+      "dateOfBirth": "Ngày sinh",
+      "homeworkPrevious": "BTVN buổi trước",
+      "homeworkOffline": "BTVN offline",
+      "homeworkOnline": "BTVN online",
+      "dueDate": "Hạn nộp bài",
+      "attitude": "Thái độ học tập",
+      "studentComment": "Nhận xét học sinh",
+      "note": "Ghi chú",
+      "status": "Trạng thái",
+      "offline": "Offline"
+    }
   }
 }

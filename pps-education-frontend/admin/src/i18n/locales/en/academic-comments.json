@@ -298,5 +298,52 @@
     "errors": {
       "loadPendingFailed": "Failed to load the comment review queue."
     }
+  },
+  "commentVersionHistoryModal": {
+    "title": "Version History",
+    "subtitle": "{{name}} — each point in time is one Save draft/Send/Approve/Reject.",
+    "loadError": "Couldn't load the version history.",
+    "loading": "Loading...",
+    "empty": "No history yet.",
+    "latestBadge": "Latest",
+    "actionByLabel": "{{action}} by {{name}}",
+    "action": {
+      "CREATED": "Created",
+      "UPDATED": "Updated"
+    },
+    "noContent": "—",
+    "attitudeLabel": "Attitude: {{value}}",
+    "homeworkPreviousGrammar": "Previous grammar homework: {{value}}",
+    "homeworkPreviousListening": "Previous listening/speaking homework: {{value}}",
+    "homeworkNextGrammarOffline": "Next grammar homework (offline): {{value}}",
+    "homeworkNextGrammarOnline": "Next grammar homework (online): {{value}}",
+    "homeworkNextVideo": "Next review video: {{value}}",
+    "homeworkNextDueSuffix": " (due {{date}})",
+    "pendingChoicesLabel": "Not yet sent selections: {{value}}",
+    "noteLabel": "Note: {{value}}",
+    "rejectionReasonLabel": "Rejection reason: {{value}}"
+  },
+  "sessionVersionHistoryModal": {
+    "title": "Version History — whole session",
+    "subtitle": "Each point in time is one Save draft/Send/Approve/Reject — pick one to view the whole table as it was then.",
+    "loadError": "Couldn't load the version history.",
+    "loading": "Loading...",
+    "empty": "This session has no edit history yet.",
+    "latestBadge": "Latest",
+    "studentsCount": "{{count}} students",
+    "columns": {
+      "studentCode": "Student ID",
+      "fullName": "Full name",
+      "dateOfBirth": "Date of birth",
+      "homeworkPrevious": "Previous homework",
+      "homeworkOffline": "Offline homework",
+      "homeworkOnline": "Online homework",
+      "dueDate": "Due date",
+      "attitude": "Attitude",
+      "studentComment": "Student comment",
+      "note": "Note",
+      "status": "Status",
+      "offline": "Offline"
+    }
   }
 }
