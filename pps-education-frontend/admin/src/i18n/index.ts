@@ -26,6 +26,10 @@ import reportsTemplatesEn from "./locales/en/reports-templates.json";
 import reportsStudentProfileEn from "./locales/en/reports-student-profile.json";
 import reportsProgressEn from "./locales/en/reports-progress.json";
 import reportsOperationsEn from "./locales/en/reports-operations.json";
+import systemAdminRolesEn from "./locales/en/system-admin-roles.json";
+import systemAdminUsersEn from "./locales/en/system-admin-users.json";
+import systemAdminOverridesEn from "./locales/en/system-admin-overrides.json";
+import systemAdminSettingsEn from "./locales/en/system-admin-settings.json";
 import commonVi from "./locales/vi/common.json";
 import authVi from "./locales/vi/auth.json";
 import dashboardVi from "./locales/vi/dashboard.json";
@@ -51,6 +55,10 @@ import reportsTemplatesVi from "./locales/vi/reports-templates.json";
 import reportsStudentProfileVi from "./locales/vi/reports-student-profile.json";
 import reportsProgressVi from "./locales/vi/reports-progress.json";
 import reportsOperationsVi from "./locales/vi/reports-operations.json";
+import systemAdminRolesVi from "./locales/vi/system-admin-roles.json";
+import systemAdminUsersVi from "./locales/vi/system-admin-users.json";
+import systemAdminOverridesVi from "./locales/vi/system-admin-overrides.json";
+import systemAdminSettingsVi from "./locales/vi/system-admin-settings.json";
 
 export const LANGUAGE_STORAGE_KEY = "pps_language";
 
@@ -83,7 +91,11 @@ i18n.use(initReactI18next).init({
       "reports-templates": reportsTemplatesVi,
       "reports-student-profile": reportsStudentProfileVi,
       "reports-progress": reportsProgressVi,
-      "reports-operations": reportsOperationsVi
+      "reports-operations": reportsOperationsVi,
+      "system-admin-roles": systemAdminRolesVi,
+      "system-admin-users": systemAdminUsersVi,
+      "system-admin-overrides": systemAdminOverridesVi,
+      "system-admin-settings": systemAdminSettingsVi
     },
     en: {
       common: commonEn,
@@ -110,7 +122,11 @@ i18n.use(initReactI18next).init({
       "reports-templates": reportsTemplatesEn,
       "reports-student-profile": reportsStudentProfileEn,
       "reports-progress": reportsProgressEn,
-      "reports-operations": reportsOperationsEn
+      "reports-operations": reportsOperationsEn,
+      "system-admin-roles": systemAdminRolesEn,
+      "system-admin-users": systemAdminUsersEn,
+      "system-admin-overrides": systemAdminOverridesEn,
+      "system-admin-settings": systemAdminSettingsEn
     }
   },
   lng: storedLanguage === "en" ? "en" : "vi",
@@ -141,7 +157,11 @@ i18n.use(initReactI18next).init({
     "reports-templates",
     "reports-student-profile",
     "reports-progress",
-    "reports-operations"
+    "reports-operations",
+    "system-admin-roles",
+    "system-admin-users",
+    "system-admin-overrides",
+    "system-admin-settings"
   ],
   interpolation: { escapeValue: false },
   returnEmptyString: false

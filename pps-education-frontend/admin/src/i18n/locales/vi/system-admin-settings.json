@@ -1,0 +1,88 @@
+{
+  "settingCategory": {
+    "ATTENDANCE": "Chấm công",
+    "SECURITY": "Bảo mật",
+    "NOTIFICATION": "Thông báo",
+    "FEATURE_FLAG": "Cờ tính năng",
+    "ACADEMIC": "Học thuật",
+    "FINANCE": "Tài chính",
+    "TASK": "Công việc"
+  },
+  "systemSettingsPage": {
+    "title": "Cài đặt hệ thống",
+    "description": "Bật/tắt tính năng, chỉnh ngưỡng số/cấu hình runtime — không cần deploy lại. Chỉ sửa giá trị key có sẵn.",
+    "loadError": "Không tải được danh sách cấu hình.",
+    "emptyTitle": "Chưa có cấu hình nào",
+    "emptyDescription": "Bảng system_settings hiện đang trống.",
+    "columns": {
+      "key": "Key",
+      "description": "Mô tả",
+      "value": "Giá trị",
+      "lastUpdated": "Cập nhật lần cuối"
+    },
+    "noDescription": "—",
+    "noLastUpdated": "—",
+    "historyButtonTitle": "Lịch sử thay đổi",
+    "editButton": "Sửa",
+    "editModal": {
+      "title": "Sửa cấu hình: {{key}}",
+      "currentValueLabel": "Giá trị hiện tại",
+      "booleanOn": "Bật (true)",
+      "booleanOff": "Tắt (false)",
+      "cancel": "Hủy",
+      "saving": "Đang lưu...",
+      "saveButton": "Lưu",
+      "invalidNumberError": "Giá trị phải là số hợp lệ.",
+      "saveErrorDefault": "Lưu thất bại."
+    },
+    "historyModal": {
+      "title": "Lịch sử: {{key}}",
+      "loading": "Đang tải...",
+      "empty": "Chưa có lần thay đổi nào."
+    }
+  },
+  "notificationType": {
+    "SYSTEM_ANNOUNCEMENT": "Thông báo hệ thống",
+    "OTHER": "Khác",
+    "ATTENDANCE_ABSENT": "Vắng học/vắng làm",
+    "TASK_ASSIGNED": "Giao việc mới",
+    "TASK_COMMENT": "Bình luận công việc",
+    "INVOICE_DUE": "Hóa đơn đến hạn",
+    "GRADE_PUBLISHED": "Công bố điểm",
+    "GRADE_REJECTED": "Điểm bị từ chối",
+    "COMMENT_APPROVED": "Nhận xét được duyệt",
+    "COMMENT_PENDING_APPROVAL": "Nhận xét chờ duyệt",
+    "COMMENT_REJECTED": "Nhận xét bị từ chối",
+    "PARTNER_FEEDBACK": "Phản hồi đối tác",
+    "LEAVE_REQUEST_STATUS": "Trạng thái đơn nghỉ phép",
+    "EXAM_INTEGRITY_VIOLATION": "Vi phạm giám sát thi",
+    "EXAM_INTEGRITY_VIOLATION_PARENT": "Vi phạm giám sát thi (Phụ huynh)",
+    "HOMEWORK_DEADLINE_SUMMARY": "Tổng hợp hạn BTVN",
+    "HOMEWORK_MISS_REMINDER": "Nhắc thiếu BTVN",
+    "HOMEWORK_MISS_WARNING": "Cảnh báo thiếu BTVN",
+    "HOMEWORK_MISS_PARENT_MEETING_INVITE": "Mời họp phụ huynh (thiếu BTVN)",
+    "HOMEWORK_MISS_REMINDER_NON_CONSECUTIVE": "Nhắc thiếu BTVN (không liên tiếp)",
+    "HOMEWORK_DUE_SOON_REMINDER": "Sắp tới hạn BTVN"
+  },
+  "sendNotificationPage": {
+    "title": "Gửi thông báo",
+    "description": "Gửi thông báo thủ công tới user được chọn — dùng để test kênh Push/Email/SMS hoặc gửi thông báo tay. Mỗi người vẫn nhận đúng theo kênh họ đã cấu hình (Cài đặt thông báo cá nhân).",
+    "recipient": {
+      "label": "Người nhận",
+      "searchPlaceholder": "Tìm theo tên/username/email để thêm...",
+      "searching": "Đang tải...",
+      "noResults": "Không tìm thấy tài khoản nào.",
+      "alreadySelected": "✓ đã chọn"
+    },
+    "notificationTypeLabel": "Loại thông báo",
+    "titleLabel": "Tiêu đề",
+    "contentLabel": "Nội dung",
+    "sendErrorDefault": "Gửi thất bại.",
+    "result": {
+      "summary": "Đã gửi {{succeeded}}/{{total}} người nhận.",
+      "failureItem": "User #{{userId}}: {{reason}}"
+    },
+    "sending": "Đang gửi...",
+    "sendButton": "Gửi tới {{count}} người"
+  }
+}

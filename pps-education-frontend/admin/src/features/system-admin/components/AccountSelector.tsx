@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { UserCheck, X } from "lucide-react";
 import { CreateUserRequest, searchUsers, UserListItemResponse } from "../api";
 
@@ -26,13 +27,14 @@ interface AccountSelectorProps {
  * khoản mới trong cùng transaction — CreateUserRequest).
  */
 export default function AccountSelector({ value, onChange, submitAttempted = false }: AccountSelectorProps) {
+  const { t } = useTranslation("system-admin-users");
   const [mode, setMode] = useState<"new" | "existing">(value.userId ? "existing" : "new");
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<UserListItemResponse[]>([]);
   const [searching, setSearching] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserListItemResponse | null>(null);
   const [touched, setTouched] = useState({ username: false, email: false, fullName: false });
-  const markTouched = (field: keyof typeof touched) => setTouched((t) => ({ ...t, [field]: true }));
+  const markTouched = (field: keyof typeof touched) => setTouched((prev) => ({ ...prev, [field]: true }));
 
   const [newAccount, setNewAccount] = useState<CreateUserRequest>({ username: "", email: "", fullName: "", phone: "", password: "" });
   const usernameInvalid = (touched.username || submitAttempted) && !newAccount.username.trim();
@@ -86,7 +88,7 @@ export default function AccountSelector({ value, onChange, submitAttempted = fal
             mode === "new" ? "bg-orange-50 text-brand-red border-orange-200 shadow-sm" : "bg-slate-50 border-slate-200 text-slate-500"
           }`}
         >
-          Tạo tài khoản mới
+          {t("accountSelector.modeNew")}
         </button>
         <button
           type="button"
@@ -95,24 +97,24 @@ export default function AccountSelector({ value, onChange, submitAttempted = fal
             mode === "existing" ? "bg-orange-50 text-brand-red border-orange-200 shadow-sm" : "bg-slate-50 border-slate-200 text-slate-500"
           }`}
         >
-          Gán tài khoản có sẵn
+          {t("accountSelector.modeExisting")}
         </button>
       </div>
 
       {mode === "new" ? (
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className={labelClass}>Username *</label>
+            <label className={labelClass}>{t("accountSelector.usernameLabel")}</label>
             <input
               value={newAccount.username}
               onChange={(e) => updateNewAccount({ username: e.target.value })}
               onBlur={() => markTouched("username")}
               className={usernameInvalid ? inputErrorClass : inputClass}
             />
-            {usernameInvalid && <p className="text-[10px] text-rose-600 mt-1">Vui lòng nhập Username.</p>}
+            {usernameInvalid && <p className="text-[10px] text-rose-600 mt-1">{t("accountSelector.usernameRequired")}</p>}
           </div>
           <div>
-            <label className={labelClass}>Email *</label>
+            <label className={labelClass}>{t("accountSelector.emailLabel")}</label>
             <input
               type="email"
               value={newAccount.email}
@@ -120,31 +122,31 @@ export default function AccountSelector({ value, onChange, submitAttempted = fal
               onBlur={() => markTouched("email")}
               className={emailInvalid ? inputErrorClass : inputClass}
             />
-            {emailEmpty && <p className="text-[10px] text-rose-600 mt-1">Vui lòng nhập Email.</p>}
-            {emailBadFormat && <p className="text-[10px] text-rose-600 mt-1">Email không đúng định dạng.</p>}
+            {emailEmpty && <p className="text-[10px] text-rose-600 mt-1">{t("accountSelector.emailRequired")}</p>}
+            {emailBadFormat && <p className="text-[10px] text-rose-600 mt-1">{t("accountSelector.emailInvalidFormat")}</p>}
           </div>
           <div>
-            <label className={labelClass}>Họ tên *</label>
+            <label className={labelClass}>{t("accountSelector.fullNameLabel")}</label>
             <input
               value={newAccount.fullName}
               onChange={(e) => updateNewAccount({ fullName: e.target.value })}
               onBlur={() => markTouched("fullName")}
               className={fullNameInvalid ? inputErrorClass : inputClass}
             />
-            {fullNameInvalid && <p className="text-[10px] text-rose-600 mt-1">Vui lòng nhập Họ tên.</p>}
+            {fullNameInvalid && <p className="text-[10px] text-rose-600 mt-1">{t("accountSelector.fullNameRequired")}</p>}
           </div>
           <div>
-            <label className={labelClass}>Số điện thoại</label>
+            <label className={labelClass}>{t("accountSelector.phoneLabel")}</label>
             <input value={newAccount.phone ?? ""} onChange={(e) => updateNewAccount({ phone: e.target.value })} className={inputClass} />
           </div>
           <div className="col-span-2">
-            <label className={labelClass}>Mật khẩu ban đầu</label>
+            <label className={labelClass}>{t("accountSelector.passwordLabel")}</label>
             <input
               type="password"
               value={newAccount.password ?? ""}
               onChange={(e) => updateNewAccount({ password: e.target.value })}
               className={inputClass}
-              placeholder="Để trống nếu chỉ đăng nhập Google (tối thiểu 8 ký tự nếu nhập)"
+              placeholder={t("accountSelector.passwordPlaceholder")}
             />
           </div>
         </div>
@@ -170,10 +172,10 @@ export default function AccountSelector({ value, onChange, submitAttempted = fal
           <input
             value={query}
             onChange={(e) => handleSearch(e.target.value)}
-            placeholder="Tìm theo email / username / họ tên..."
+            placeholder={t("accountSelector.searchPlaceholder")}
             className={inputClass}
           />
-          {searching && <p className="text-[10px] text-slate-400 mt-1">Đang tìm...</p>}
+          {searching && <p className="text-[10px] text-slate-400 mt-1">{t("accountSelector.searching")}</p>}
           {results.length > 0 && (
             <div className="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg divide-y divide-slate-100 max-h-56 overflow-y-auto">
               {results.map((u) => (

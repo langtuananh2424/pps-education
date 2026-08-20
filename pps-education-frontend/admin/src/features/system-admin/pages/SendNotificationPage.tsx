@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Search, Send, UserCheck, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import {
@@ -17,30 +18,10 @@ const RESULT_LIMIT = 50;
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
 
-/** Nhãn tiếng Việt cho dropdown loại thông báo — chỉ để hiển thị, giá trị gửi lên vẫn đúng enum backend. */
-const TYPE_LABELS: Record<NotificationTypeValue, string> = {
-  SYSTEM_ANNOUNCEMENT: "Thông báo hệ thống",
-  OTHER: "Khác",
-  ATTENDANCE_ABSENT: "Vắng học/vắng làm",
-  TASK_ASSIGNED: "Giao việc mới",
-  TASK_COMMENT: "Bình luận công việc",
-  INVOICE_DUE: "Hóa đơn đến hạn",
-  GRADE_PUBLISHED: "Công bố điểm",
-  GRADE_REJECTED: "Điểm bị từ chối",
-  COMMENT_APPROVED: "Nhận xét được duyệt",
-  COMMENT_PENDING_APPROVAL: "Nhận xét chờ duyệt",
-  COMMENT_REJECTED: "Nhận xét bị từ chối",
-  PARTNER_FEEDBACK: "Phản hồi đối tác",
-  LEAVE_REQUEST_STATUS: "Trạng thái đơn nghỉ phép",
-  EXAM_INTEGRITY_VIOLATION: "Vi phạm giám sát thi",
-  EXAM_INTEGRITY_VIOLATION_PARENT: "Vi phạm giám sát thi (Phụ huynh)",
-  HOMEWORK_DEADLINE_SUMMARY: "Tổng hợp hạn BTVN",
-  HOMEWORK_MISS_REMINDER: "Nhắc thiếu BTVN",
-  HOMEWORK_MISS_WARNING: "Cảnh báo thiếu BTVN",
-  HOMEWORK_MISS_PARENT_MEETING_INVITE: "Mời họp phụ huynh (thiếu BTVN)",
-  HOMEWORK_MISS_REMINDER_NON_CONSECUTIVE: "Nhắc thiếu BTVN (không liên tiếp)",
-  HOMEWORK_DUE_SOON_REMINDER: "Sắp tới hạn BTVN"
-};
+/** Nhãn loại thông báo dịch qua i18next namespace "system-admin-settings" — chỉ để hiển thị, giá trị gửi lên vẫn đúng enum backend. */
+function notificationTypeLabel(t: (key: string) => string, type: NotificationTypeValue): string {
+  return t(`notificationType.${type}`);
+}
 
 /**
  * Gửi thông báo thủ công — bổ sung ngoài SDD gốc, đã xác nhận với người
@@ -49,6 +30,7 @@ const TYPE_LABELS: Record<NotificationTypeValue, string> = {
  * backend — mỗi recipient vẫn nhận đúng theo cấu hình kênh của chính họ.
  */
 export default function SendNotificationPage() {
+  const { t } = useTranslation("system-admin-settings");
   const [selectedUsers, setSelectedUsers] = useState<UserListItemResponse[]>([]);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<UserListItemResponse[]>([]);
@@ -115,23 +97,22 @@ export default function SendNotificationPage() {
           setContent("");
         }
       })
-      .catch((err) => setSendError(err instanceof ApiError ? err.message : "Gửi thất bại."))
+      .catch((err) => setSendError(err instanceof ApiError ? err.message : t("sendNotificationPage.sendErrorDefault")))
       .finally(() => setSending(false));
   };
 
   return (
     <div className="space-y-4 animate-in fade-in duration-200 max-w-3xl">
       <div>
-        <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider block">Gửi thông báo</h2>
-        <p className="text-[10px] text-slate-400 mt-0.5">
-          Gửi thông báo thủ công tới user được chọn — dùng để test kênh Push/Email/SMS hoặc gửi thông báo tay.
-          Mỗi người vẫn nhận đúng theo kênh họ đã cấu hình (Cài đặt thông báo cá nhân).
-        </p>
+        <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider block">
+          {t("sendNotificationPage.title")}
+        </h2>
+        <p className="text-[10px] text-slate-400 mt-0.5">{t("sendNotificationPage.description")}</p>
       </div>
 
       <form onSubmit={handleSend} className="bg-white p-4 rounded-xl border border-slate-200 shadow-soft space-y-4">
         <div ref={rootRef} className="relative">
-          <label className={labelClass}>Người nhận</label>
+          <label className={labelClass}>{t("sendNotificationPage.recipient.label")}</label>
 
           {selectedUsers.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mb-2">
@@ -160,7 +141,7 @@ export default function SendNotificationPage() {
                 setQuery(e.target.value);
                 setSearchOpen(true);
               }}
-              placeholder="Tìm theo tên/username/email để thêm..."
+              placeholder={t("sendNotificationPage.recipient.searchPlaceholder")}
               className={`${inputClass} pl-8`}
             />
           </div>
@@ -168,9 +149,11 @@ export default function SendNotificationPage() {
           {searchOpen && (
             <div className="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg max-h-64 overflow-y-auto">
               {searching ? (
-                <p className="px-3 py-2 text-xs text-slate-400">Đang tải...</p>
+                <p className="px-3 py-2 text-xs text-slate-400">{t("sendNotificationPage.recipient.searching")}</p>
               ) : results.length === 0 ? (
-                <p className="px-3 py-2 text-xs text-slate-400 italic">Không tìm thấy tài khoản nào.</p>
+                <p className="px-3 py-2 text-xs text-slate-400 italic">
+                  {t("sendNotificationPage.recipient.noResults")}
+                </p>
               ) : (
                 <div className="divide-y divide-slate-100">
                   {results.map((u) => {
@@ -184,7 +167,9 @@ export default function SendNotificationPage() {
                         className="w-full text-left px-3 py-2 hover:bg-slate-50 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
                       >
                         {u.fullName} <span className="text-slate-400">({u.username} · {u.email})</span>
-                        {alreadyAdded && <span className="text-emerald-600 ml-2">✓ đã chọn</span>}
+                        {alreadyAdded && (
+                          <span className="text-emerald-600 ml-2">{t("sendNotificationPage.recipient.alreadySelected")}</span>
+                        )}
                       </button>
                     );
                   })}
@@ -195,27 +180,27 @@ export default function SendNotificationPage() {
         </div>
 
         <div>
-          <label className={labelClass}>Loại thông báo</label>
+          <label className={labelClass}>{t("sendNotificationPage.notificationTypeLabel")}</label>
           <Select
             value={notificationType}
             onChange={(e) => setNotificationType(e.target.value as NotificationTypeValue)}
             className={inputClass}
           >
-            {NOTIFICATION_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {TYPE_LABELS[t]} ({t})
+            {NOTIFICATION_TYPES.map((nt) => (
+              <option key={nt} value={nt}>
+                {notificationTypeLabel(t, nt)} ({nt})
               </option>
             ))}
           </Select>
         </div>
 
         <div>
-          <label className={labelClass}>Tiêu đề</label>
+          <label className={labelClass}>{t("sendNotificationPage.titleLabel")}</label>
           <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={500} className={inputClass} />
         </div>
 
         <div>
-          <label className={labelClass}>Nội dung</label>
+          <label className={labelClass}>{t("sendNotificationPage.contentLabel")}</label>
           <textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
@@ -234,12 +219,18 @@ export default function SendNotificationPage() {
                 : "text-amber-700 bg-amber-50 border-amber-100"
             }`}
           >
-            Đã gửi {result.succeeded}/{result.totalRecipients} người nhận.
+            {t("sendNotificationPage.result.summary", {
+              succeeded: result.succeeded,
+              total: result.totalRecipients
+            })}
             {result.failures.length > 0 && (
               <ul className="mt-1.5 space-y-0.5">
                 {result.failures.map((f) => (
                   <li key={f.recipientUserId} className="text-[11px]">
-                    User #{f.recipientUserId}: {f.reason}
+                    {t("sendNotificationPage.result.failureItem", {
+                      userId: f.recipientUserId,
+                      reason: f.reason
+                    })}
                   </li>
                 ))}
               </ul>
@@ -250,7 +241,9 @@ export default function SendNotificationPage() {
         <div className="flex justify-end">
           <Button type="submit" variant="dark" disabled={!canSend}>
             <Send className="w-3.5 h-3.5" />
-            {sending ? "Đang gửi..." : `Gửi tới ${selectedUsers.length || 0} người`}
+            {sending
+              ? t("sendNotificationPage.sending")
+              : t("sendNotificationPage.sendButton", { count: selectedUsers.length || 0 })}
           </Button>
         </div>
       </form>

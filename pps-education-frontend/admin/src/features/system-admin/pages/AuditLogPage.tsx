@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Search, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import {
@@ -17,17 +18,13 @@ import Button from "@/components/ui/Button";
 import EmptyState from "@/components/ui/EmptyState";
 import DatePicker from "@/components/ui/DatePicker";
 import Select from "@/components/ui/Select";
+import { formatDateTime } from "@/lib/i18nFormat";
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 const TODAY_ISO = new Date().toISOString().slice(0, 10);
 
 /** Dùng cho dropdown lọc "Hành động" — không đổi (vẫn đúng 4 giá trị enum Action thật của backend). */
-const actionLabels: Record<string, string> = {
-  ROLE_GRANTED: "Cấp vai trò",
-  ROLE_REVOKED: "Thu hồi vai trò",
-  PERM_OVERRIDE_ADDED: "Cấp ngoại lệ",
-  PERM_OVERRIDE_REMOVED: "Hủy ngoại lệ"
-};
+const ACTION_CODES = ["ROLE_GRANTED", "ROLE_REVOKED", "PERM_OVERRIDE_ADDED", "PERM_OVERRIDE_REMOVED"] as const;
 
 /**
  * Nhãn hiện trong bảng — với PERM_OVERRIDE_ADDED, backend nay đã ghi kèm
@@ -36,22 +33,25 @@ const actionLabels: Record<string, string> = {
  * override thực chất đang TƯỚC quyền). Log cũ trước khi backend vá (details
  * = null) vẫn fallback về nhãn chung — không tự suy đoán loại override.
  */
-function getActionDisplay(log: PermissionAuditLogResponse): { label: string; variant: BadgeVariant } {
+function getActionDisplay(t: (key: string) => string, log: PermissionAuditLogResponse): { label: string; variant: BadgeVariant } {
   const overrideType = (log.details as { overrideType?: string } | null)?.overrideType;
 
   if (log.action === "PERM_OVERRIDE_ADDED") {
-    if (overrideType === "GRANT") return { label: "Cấp thêm quyền", variant: "success" };
-    if (overrideType === "REVOKE") return { label: "Tước bỏ quyền", variant: "danger" };
-    return { label: actionLabels.PERM_OVERRIDE_ADDED, variant: "success" };
+    if (overrideType === "GRANT") return { label: t("auditLogPage.actionType.PERM_OVERRIDE_ADDED_GRANT"), variant: "success" };
+    if (overrideType === "REVOKE") return { label: t("auditLogPage.actionType.PERM_OVERRIDE_ADDED_REVOKE"), variant: "danger" };
+    return { label: t("auditLogPage.actionType.PERM_OVERRIDE_ADDED"), variant: "success" };
   }
-  if (log.action === "ROLE_GRANTED") return { label: actionLabels.ROLE_GRANTED, variant: "success" };
-  return { label: actionLabels[log.action] ?? log.action, variant: "danger" };
+  if (log.action === "ROLE_GRANTED") return { label: t("auditLogPage.actionType.ROLE_GRANTED"), variant: "success" };
+  if (log.action === "ROLE_REVOKED") return { label: t("auditLogPage.actionType.ROLE_REVOKED"), variant: "danger" };
+  if (log.action === "PERM_OVERRIDE_REMOVED") return { label: t("auditLogPage.actionType.PERM_OVERRIDE_REMOVED"), variant: "danger" };
+  return { label: log.action, variant: "danger" };
 }
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
 
 export default function AuditLogPage() {
+  const { t, i18n } = useTranslation("system-admin-overrides");
   const [allUsers, setAllUsers] = useState<UserListItemResponse[]>([]);
   const [allRoles, setAllRoles] = useState<RoleResponse[]>([]);
   const [allPermissions, setAllPermissions] = useState<PermissionCatalogItem[]>([]);
@@ -99,7 +99,7 @@ export default function AuditLogPage() {
         setTotalPages(res.totalPages);
         setTotalElements(res.totalElements);
       })
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được nhật ký."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("auditLogPage.loadError")))
       .finally(() => setLoading(false));
   };
 
@@ -125,41 +125,41 @@ export default function AuditLogPage() {
     <div className="space-y-4 animate-in fade-in duration-200">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div>
-          <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider block">Nhật ký thay đổi quyền</h2>
-          <p className="text-[10px] text-slate-400 mt-0.5">Truy vết ai gán/thu hồi vai trò, cấp/tước ngoại lệ quyền, cho ai, khi nào.</p>
+          <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider block">{t("auditLogPage.title")}</h2>
+          <p className="text-[10px] text-slate-400 mt-0.5">{t("auditLogPage.description")}</p>
         </div>
       </div>
 
       <form onSubmit={handleSearch} className="bg-white p-4 rounded-xl border border-slate-200 shadow-soft grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-        <UserPicker label="Người thực hiện" value={actorUser} onChange={setActorUser} candidates={allUsers} />
-        <UserPicker label="Đối tượng bị ảnh hưởng" value={targetUser} onChange={setTargetUser} candidates={allUsers} />
+        <UserPicker label={t("auditLogPage.filters.actorLabel")} value={actorUser} onChange={setActorUser} candidates={allUsers} />
+        <UserPicker label={t("auditLogPage.filters.targetLabel")} value={targetUser} onChange={setTargetUser} candidates={allUsers} />
         <div>
-          <label className={labelClass}>Hành động</label>
+          <label className={labelClass}>{t("auditLogPage.filters.actionLabel")}</label>
           <Select value={action} onChange={(e) => setAction(e.target.value)} className={inputClass}>
-            <option value="">-- Tất cả --</option>
-            {Object.entries(actionLabels).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
+            <option value="">{t("auditLogPage.filters.actionAll")}</option>
+            {ACTION_CODES.map((code) => (
+              <option key={code} value={code}>
+                {t(`auditLogPage.actionType.${code}`)}
               </option>
             ))}
           </Select>
         </div>
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className={labelClass}>Từ ngày</label>
+            <label className={labelClass}>{t("auditLogPage.filters.fromDateLabel")}</label>
             <DatePicker value={fromDate} onChange={setFromDate} max={toDate || TODAY_ISO} />
           </div>
           <div>
-            <label className={labelClass}>Đến ngày</label>
+            <label className={labelClass}>{t("auditLogPage.filters.toDateLabel")}</label>
             <DatePicker value={toDate} onChange={setToDate} min={fromDate || undefined} max={TODAY_ISO} />
           </div>
         </div>
         <div className="lg:col-span-4 flex justify-end gap-2">
           <Button type="button" variant="secondary" onClick={handleClearFilters}>
-            Xóa bộ lọc
+            {t("auditLogPage.filters.clearButton")}
           </Button>
           <Button type="submit" variant="dark">
-            Tìm kiếm
+            {t("auditLogPage.filters.searchButton")}
           </Button>
         </div>
       </form>
@@ -167,16 +167,16 @@ export default function AuditLogPage() {
       <div className="bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden">
         {error && <div className="p-4 text-xs text-rose-600 bg-rose-50 border-b border-rose-100">{error}</div>}
         {!loading && rows.length === 0 && !error ? (
-          <EmptyState icon={Search} title="Không tìm thấy bản ghi phù hợp" description="Thử nới lỏng bộ lọc (A1 — UC-05)." />
+          <EmptyState icon={Search} title={t("auditLogPage.emptyTitle")} description={t("auditLogPage.emptyDescription")} />
         ) : (
           <TableContainer className="rounded-none border-0">
             <thead>
               <tr>
-                <Th>Thời gian</Th>
-                <Th>Người thực hiện</Th>
-                <Th>Đối tượng chịu tác động</Th>
-                <Th>Tác vụ</Th>
-                <Th>Thông tin chi tiết</Th>
+                <Th>{t("auditLogPage.columns.createdAt")}</Th>
+                <Th>{t("auditLogPage.columns.actor")}</Th>
+                <Th>{t("auditLogPage.columns.target")}</Th>
+                <Th>{t("auditLogPage.columns.action")}</Th>
+                <Th>{t("auditLogPage.columns.details")}</Th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -186,12 +186,12 @@ export default function AuditLogPage() {
                 const role = log.targetRoleId != null ? rolesById.get(log.targetRoleId) : undefined;
                 const permission = log.targetPermissionId != null ? permissionsById.get(log.targetPermissionId) : undefined;
 
-                const actionDisplay = getActionDisplay(log);
+                const actionDisplay = getActionDisplay(t, log);
                 const detailReason = (log.details as { reason?: string } | null)?.reason;
 
                 return (
                   <tr key={log.id} className="hover:bg-slate-50/50 transition-colors">
-                    <Td className="font-mono whitespace-nowrap">{new Date(log.createdAt).toLocaleString("vi-VN")}</Td>
+                    <Td className="font-mono whitespace-nowrap">{formatDateTime(log.createdAt, i18n.language)}</Td>
                     <Td className="font-bold text-slate-800">{actor?.fullName ?? `#${log.actorUserId}`}</Td>
                     <Td className="font-semibold">{target?.fullName ?? `#${log.targetUserId}`}</Td>
                     <Td>
@@ -201,7 +201,7 @@ export default function AuditLogPage() {
                       {role && <code className="font-mono font-bold text-brand-red">{role.code}</code>}
                       {permission && <code className="font-mono font-bold text-brand-red">{permission.code}</code>}
                       {detailReason && <span className="text-slate-500 italic ml-2">— {detailReason}</span>}
-                      {log.ipAddress && <span className="text-slate-400 ml-2">IP: {log.ipAddress}</span>}
+                      {log.ipAddress && <span className="text-slate-400 ml-2">{t("auditLogPage.ipLabel", { ip: log.ipAddress })}</span>}
                     </Td>
                   </tr>
                 );
@@ -213,10 +213,10 @@ export default function AuditLogPage() {
         {rows.length > 0 && (
           <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-4 py-3 border-t border-slate-100 text-[11px] text-slate-500">
             <div className="flex items-center gap-2">
-              <span>Tổng {totalElements} bản ghi</span>
+              <span>{t("auditLogPage.pagination.totalRecords", { count: totalElements })}</span>
               <span className="text-slate-300">|</span>
               <label className="flex items-center gap-1.5">
-                Dòng/trang:
+                {t("auditLogPage.pagination.pageSizeLabel")}
                 <Select
                   value={pageSize}
                   onChange={(e) => {
@@ -236,13 +236,13 @@ export default function AuditLogPage() {
             {totalPages > 1 && (
               <div className="flex items-center gap-2">
                 <Button size="sm" variant="secondary" disabled={page <= 0} onClick={() => setPage((p) => p - 1)}>
-                  Trước
+                  {t("auditLogPage.pagination.prev")}
                 </Button>
                 <span className="font-mono">
-                  Trang {page + 1}/{totalPages}
+                  {t("auditLogPage.pagination.pageIndicator", { current: page + 1, total: totalPages })}
                 </span>
                 <Button size="sm" variant="secondary" disabled={page + 1 >= totalPages} onClick={() => setPage((p) => p + 1)}>
-                  Sau
+                  {t("auditLogPage.pagination.next")}
                 </Button>
               </div>
             )}
@@ -264,6 +264,7 @@ function UserPicker({
   onChange: (u: UserListItemResponse | null) => void;
   candidates: UserListItemResponse[];
 }) {
+  const { t } = useTranslation("system-admin-overrides");
   const [query, setQuery] = useState("");
 
   const matches = useMemo(() => {
@@ -293,7 +294,7 @@ function UserPicker({
   return (
     <div className="relative">
       <label className={labelClass}>{label}</label>
-      <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Tìm username/họ tên..." className={inputClass} />
+      <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("auditLogPage.filters.userPickerPlaceholder")} className={inputClass} />
       {matches.length > 0 && (
         <div className="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg divide-y divide-slate-100 max-h-56 overflow-y-auto">
           {matches.map((u) => (

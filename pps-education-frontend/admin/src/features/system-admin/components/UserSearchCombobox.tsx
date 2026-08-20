@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Search, UserCheck, X } from "lucide-react";
 import { searchUsers, UserListItemResponse } from "../api";
 
@@ -22,6 +23,7 @@ interface UserSearchComboboxProps {
  * mới thấy gì (đã xác nhận với người dùng 2026-07-30, dùng cho các màn Xếp buổi học/Sinh lịch hàng loạt).
  */
 export default function UserSearchCombobox({ value, onChange, placeholder, roleFilter }: UserSearchComboboxProps) {
+  const { t } = useTranslation("system-admin-users");
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<UserListItemResponse[]>([]);
   const [truncated, setTruncated] = useState(false);
@@ -94,16 +96,16 @@ export default function UserSearchCombobox({ value, onChange, placeholder, roleF
             setQuery(e.target.value);
             setOpen(true);
           }}
-          placeholder={placeholder ?? "Bấm để xem danh sách hoặc gõ để tìm..."}
+          placeholder={placeholder ?? t("userSearchCombobox.defaultPlaceholder")}
           className="w-full bg-white border border-slate-200 text-xs p-2 pl-8 rounded-lg focus:outline-none"
         />
       </div>
       {open && (
         <div className="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg max-h-80 overflow-y-auto">
           {loading ? (
-            <p className="px-3 py-2 text-xs text-slate-400">Đang tải...</p>
+            <p className="px-3 py-2 text-xs text-slate-400">{t("userSearchCombobox.loading")}</p>
           ) : results.length === 0 ? (
-            <p className="px-3 py-2 text-xs text-slate-400 italic">Không tìm thấy tài khoản nào.</p>
+            <p className="px-3 py-2 text-xs text-slate-400 italic">{t("userSearchCombobox.empty")}</p>
           ) : (
             <div className="divide-y divide-slate-100">
               {results.map((u) => (
@@ -124,7 +126,7 @@ export default function UserSearchCombobox({ value, onChange, placeholder, roleF
           )}
           {!loading && truncated && (
             <p className="px-3 py-1.5 text-[10px] text-amber-600 bg-amber-50 border-t border-amber-100 italic">
-              Còn nhiều tài khoản hơn — gõ thêm để lọc chính xác.
+              {t("userSearchCombobox.truncatedHint")}
             </p>
           )}
         </div>

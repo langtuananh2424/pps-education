@@ -1,0 +1,127 @@
+{
+  "userStatus": {
+    "ACTIVE": "Đang hoạt động",
+    "INACTIVE": "Ngừng hoạt động",
+    "SUSPENDED": "Tạm khóa"
+  },
+  "usersPage": {
+    "title": "Quản lý người dùng",
+    "description": "Danh sách tài khoản toàn hệ thống — tra cứu, cập nhật hồ sơ, khóa/mở khóa. Tài khoản được khởi tạo từ Quản lý nhân sự / Quản lý học sinh.",
+    "loadError": "Không tải được danh sách tài khoản.",
+    "search": {
+      "placeholder": "Tìm theo username / email / họ tên...",
+      "allStatuses": "-- Mọi trạng thái --",
+      "allDepartments": "-- Mọi phòng ban --",
+      "allRoles": "-- Mọi vai trò --",
+      "submit": "Tìm kiếm"
+    },
+    "table": {
+      "username": "Username",
+      "fullName": "Họ tên",
+      "email": "Email",
+      "department": "Phòng ban",
+      "role": "Vai trò",
+      "status": "Trạng thái",
+      "noRoles": "Chưa gán",
+      "viewEdit": "Xem/Sửa"
+    },
+    "empty": {
+      "title": "Không tìm thấy tài khoản phù hợp",
+      "description": "Thử nới lỏng từ khóa hoặc bộ lọc."
+    },
+    "pagination": {
+      "total": "Tổng {{count}} tài khoản",
+      "rowsPerPage": "Dòng/trang:",
+      "prev": "Trước",
+      "pageOf": "Trang {{page}}/{{total}}",
+      "next": "Sau"
+    },
+    "detail": {
+      "loading": "Đang tải...",
+      "loadError": "Không tải được chi tiết tài khoản.",
+      "titleWithUsername": "Tài khoản: {{username}}",
+      "titleFallback": "Chi tiết tài khoản",
+      "googleLinked": "Liên kết Google",
+      "lastLogin": "Đăng nhập gần nhất:",
+      "neverLoggedIn": "Chưa từng",
+      "failedLoginCount": "Số lần đăng nhập sai:",
+      "lockedUntil": "Khóa tạm tới:",
+      "department": "Phòng ban:",
+      "departmentFallback": "—",
+      "attendanceExempt": "Miễn trừ chấm công:",
+      "yes": "Có",
+      "no": "Không",
+      "hint": "Phòng ban / miễn trừ chấm công thuộc hồ sơ nhân sự — sửa tại \"Quản lý nhân sự\", không sửa được ở đây.",
+      "profile": {
+        "sectionTitle": "Cập nhật hồ sơ",
+        "sectionDescription": "Chỉ đổi họ tên/số điện thoại hiển thị của tài khoản này.",
+        "fullNameLabel": "Họ tên *",
+        "phoneLabel": "Số điện thoại",
+        "saving": "Đang lưu...",
+        "save": "Lưu hồ sơ",
+        "savedToast": "Đã lưu hồ sơ thành công!",
+        "saveError": "Cập nhật hồ sơ thất bại."
+      },
+      "email": {
+        "sectionTitle": "Sửa email",
+        "sectionDescription": "Dùng khi email hiện tại chỉ là placeholder (tài khoản Học sinh/Phụ huynh tạo tự động) — đổi sang email Google thật để đăng nhập Google (UC-01) khớp được.",
+        "placeholder": "email@example.com",
+        "saving": "Đang lưu...",
+        "save": "Lưu email",
+        "savedToast": "Đã cập nhật email thành công!",
+        "saveError": "Cập nhật email thất bại."
+      },
+      "password": {
+        "sectionTitle": "Đặt lại mật khẩu",
+        "sectionDescription": "Admin đặt thẳng mật khẩu mới cho tài khoản này, có hiệu lực ngay — không cần biết mật khẩu cũ (dùng khi người dùng quên mật khẩu).",
+        "placeholder": "Mật khẩu mới (tối thiểu 8 ký tự)",
+        "validationError": "Mật khẩu mới phải từ 8 ký tự trở lên.",
+        "confirmMessage": "Xác nhận đặt mật khẩu mới cho tài khoản \"{{username}}\"? Tài khoản này có thể đăng nhập ngay bằng mật khẩu mới, mật khẩu cũ sẽ không còn dùng được.",
+        "saving": "Đang lưu...",
+        "save": "Đặt lại mật khẩu",
+        "savedToast": "Đã đặt lại mật khẩu thành công!",
+        "saveError": "Đặt lại mật khẩu thất bại."
+      },
+      "status": {
+        "sectionTitle": "Khóa/Mở khóa",
+        "sectionDescription": "Đổi trạng thái đăng nhập của tài khoản — ngừng/tạm khóa sẽ chặn đăng nhập ngay.",
+        "unlock": "Mở khóa (ACTIVE)",
+        "deactivate": "Ngừng hoạt động",
+        "suspend": "Tạm khóa",
+        "confirmMessage": "Xác nhận chuyển tài khoản \"{{username}}\" sang trạng thái {{statusLabel}}?",
+        "changedToast": "Đã chuyển tài khoản sang trạng thái \"{{statusLabel}}\"!",
+        "saveError": "Đổi trạng thái thất bại."
+      }
+    }
+  },
+  "accountSelector": {
+    "modeNew": "Tạo tài khoản mới",
+    "modeExisting": "Gán tài khoản có sẵn",
+    "usernameLabel": "Username *",
+    "usernameRequired": "Vui lòng nhập Username.",
+    "emailLabel": "Email *",
+    "emailRequired": "Vui lòng nhập Email.",
+    "emailInvalidFormat": "Email không đúng định dạng.",
+    "fullNameLabel": "Họ tên *",
+    "fullNameRequired": "Vui lòng nhập Họ tên.",
+    "phoneLabel": "Số điện thoại",
+    "passwordLabel": "Mật khẩu ban đầu",
+    "passwordPlaceholder": "Để trống nếu chỉ đăng nhập Google (tối thiểu 8 ký tự nếu nhập)",
+    "searchPlaceholder": "Tìm theo email / username / họ tên...",
+    "searching": "Đang tìm..."
+  },
+  "userSearchCombobox": {
+    "defaultPlaceholder": "Bấm để xem danh sách hoặc gõ để tìm...",
+    "loading": "Đang tải...",
+    "empty": "Không tìm thấy tài khoản nào.",
+    "truncatedHint": "Còn nhiều tài khoản hơn — gõ thêm để lọc chính xác."
+  },
+  "assignUserModal": {
+    "title": "Gán tài khoản vào vai trò",
+    "searchLabel": "Tìm tài khoản (username / họ tên / email)",
+    "searchPlaceholder": "Nhập để tìm...",
+    "empty": "Không tìm thấy tài khoản phù hợp.",
+    "assign": "Gán",
+    "close": "Đóng"
+  }
+}

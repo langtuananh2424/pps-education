@@ -1,0 +1,127 @@
+{
+  "userStatus": {
+    "ACTIVE": "Active",
+    "INACTIVE": "Inactive",
+    "SUSPENDED": "Suspended"
+  },
+  "usersPage": {
+    "title": "User Management",
+    "description": "System-wide account list — look up, update profiles, lock/unlock. Accounts are created from HR Management / Student Management.",
+    "loadError": "Failed to load the account list.",
+    "search": {
+      "placeholder": "Search by username / email / full name...",
+      "allStatuses": "-- All statuses --",
+      "allDepartments": "-- All departments --",
+      "allRoles": "-- All roles --",
+      "submit": "Search"
+    },
+    "table": {
+      "username": "Username",
+      "fullName": "Full Name",
+      "email": "Email",
+      "department": "Department",
+      "role": "Role",
+      "status": "Status",
+      "noRoles": "Not assigned",
+      "viewEdit": "View/Edit"
+    },
+    "empty": {
+      "title": "No matching accounts found",
+      "description": "Try broadening your keyword or filters."
+    },
+    "pagination": {
+      "total": "{{count}} accounts total",
+      "rowsPerPage": "Rows/page:",
+      "prev": "Previous",
+      "pageOf": "Page {{page}}/{{total}}",
+      "next": "Next"
+    },
+    "detail": {
+      "loading": "Loading...",
+      "loadError": "Failed to load account details.",
+      "titleWithUsername": "Account: {{username}}",
+      "titleFallback": "Account Details",
+      "googleLinked": "Google Linked",
+      "lastLogin": "Last login:",
+      "neverLoggedIn": "Never",
+      "failedLoginCount": "Failed login attempts:",
+      "lockedUntil": "Locked until:",
+      "department": "Department:",
+      "departmentFallback": "—",
+      "attendanceExempt": "Attendance exempt:",
+      "yes": "Yes",
+      "no": "No",
+      "hint": "Department / attendance exemption belong to the HR profile — edit them in \"HR Management\", not here.",
+      "profile": {
+        "sectionTitle": "Update Profile",
+        "sectionDescription": "Only changes this account's displayed full name/phone number.",
+        "fullNameLabel": "Full Name *",
+        "phoneLabel": "Phone Number",
+        "saving": "Saving...",
+        "save": "Save Profile",
+        "savedToast": "Profile saved successfully!",
+        "saveError": "Failed to update profile."
+      },
+      "email": {
+        "sectionTitle": "Edit Email",
+        "sectionDescription": "Use this when the current email is just a placeholder (auto-created Student/Parent account) — switch to a real Google email so Google sign-in (UC-01) can match it.",
+        "placeholder": "email@example.com",
+        "saving": "Saving...",
+        "save": "Save Email",
+        "savedToast": "Email updated successfully!",
+        "saveError": "Failed to update email."
+      },
+      "password": {
+        "sectionTitle": "Reset Password",
+        "sectionDescription": "Admin sets a new password directly for this account, effective immediately — no need to know the old password (use when a user forgets their password).",
+        "placeholder": "New password (at least 8 characters)",
+        "validationError": "The new password must be at least 8 characters.",
+        "confirmMessage": "Confirm setting a new password for account \"{{username}}\"? This account can log in immediately with the new password; the old password will no longer work.",
+        "saving": "Saving...",
+        "save": "Reset Password",
+        "savedToast": "Password reset successfully!",
+        "saveError": "Failed to reset password."
+      },
+      "status": {
+        "sectionTitle": "Lock/Unlock",
+        "sectionDescription": "Change the account's login status — deactivating/suspending blocks login immediately.",
+        "unlock": "Unlock (ACTIVE)",
+        "deactivate": "Deactivate",
+        "suspend": "Suspend",
+        "confirmMessage": "Confirm switching account \"{{username}}\" to status {{statusLabel}}?",
+        "changedToast": "Account switched to status \"{{statusLabel}}\"!",
+        "saveError": "Failed to change status."
+      }
+    }
+  },
+  "accountSelector": {
+    "modeNew": "Create New Account",
+    "modeExisting": "Assign Existing Account",
+    "usernameLabel": "Username *",
+    "usernameRequired": "Please enter a username.",
+    "emailLabel": "Email *",
+    "emailRequired": "Please enter an email.",
+    "emailInvalidFormat": "Invalid email format.",
+    "fullNameLabel": "Full Name *",
+    "fullNameRequired": "Please enter a full name.",
+    "phoneLabel": "Phone Number",
+    "passwordLabel": "Initial Password",
+    "passwordPlaceholder": "Leave blank for Google sign-in only (min. 8 characters if entered)",
+    "searchPlaceholder": "Search by email / username / full name...",
+    "searching": "Searching..."
+  },
+  "userSearchCombobox": {
+    "defaultPlaceholder": "Click to browse the list or type to search...",
+    "loading": "Loading...",
+    "empty": "No accounts found.",
+    "truncatedHint": "More accounts available — type to narrow the results."
+  },
+  "assignUserModal": {
+    "title": "Assign Account to Role",
+    "searchLabel": "Search account (username / full name / email)",
+    "searchPlaceholder": "Type to search...",
+    "empty": "No matching accounts found.",
+    "assign": "Assign",
+    "close": "Close"
+  }
+}
