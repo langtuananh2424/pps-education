@@ -4,6 +4,21 @@
     "en": "English",
     "switchTo": "Switch to {{language}}"
   },
+  "underDevelopment": {
+    "badge": "In development",
+    "defaultDescription": "This feature is being developed for a later phase and isn't ready for use yet."
+  },
+  "select": {
+    "searchPlaceholder": "Search...",
+    "noResults": "No results found."
+  },
+  "checkInStatus": {
+    "NOT_YET_OPEN": "Not open yet",
+    "PENDING": "Not checked in",
+    "ON_TIME": "Checked in — on time",
+    "LATE": "Checked in — late",
+    "ABSENT": "Absent — not checked in"
+  },
   "geolocation": {
     "unsupported": "Your browser doesn't support GPS location.",
     "permissionDenied": "Your browser is BLOCKING location access for this page — click the lock/location icon in the address bar, set Location = Allow, then reload the page and try again.",

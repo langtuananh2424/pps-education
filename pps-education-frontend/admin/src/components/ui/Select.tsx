@@ -1,6 +1,7 @@
 import React, { isValidElement, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/cn";
 
 interface SelectOptionData {
@@ -52,6 +53,7 @@ const SEARCH_THRESHOLD = 8;
  * trong DOM cha, sẽ bị overflow-x-auto của bảng cắt theo cả trục dọc.
  */
 export default function Select({ value, onChange, children, className, disabled, id, name, ...aria }: SelectProps) {
+  const { t } = useTranslation("common");
   const [open, setOpen] = useState(false);
   const [rect, setRect] = useState<{ top?: number; bottom?: number; left: number; width: number; maxHeight: number; openUp: boolean } | null>(
     null
@@ -155,14 +157,14 @@ export default function Select({ value, onChange, children, className, disabled,
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   onClick={(e) => e.stopPropagation()}
-                  placeholder="Tìm kiếm..."
+                  placeholder={t("select.searchPlaceholder")}
                   className="w-full text-xs px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:border-brand-orange"
                 />
               </div>
             )}
             <div className="flex-1 min-h-0 overflow-y-auto py-1">
               {filteredOptions.length === 0 ? (
-                <p className="px-3 py-2 text-xs text-slate-400 italic">Không tìm thấy kết quả.</p>
+                <p className="px-3 py-2 text-xs text-slate-400 italic">{t("select.noResults")}</p>
               ) : (
                 filteredOptions.map((opt, i) => (
                   <button

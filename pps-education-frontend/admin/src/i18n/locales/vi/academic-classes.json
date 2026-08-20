@@ -396,5 +396,11 @@
     "modalDescription": "{{count}} ca dạy trong ngày",
     "cancellationReason": "Lý do hủy: {{reason}}",
     "lessonContent": "Bài học: {{content}}"
+  },
+  "sessionCard": {
+    "checkingIn": "Đang nhận lớp...",
+    "checkInButton": "Nhận lớp",
+    "checkInFailedGeneric": "Nhận lớp thất bại — vui lòng thử lại.",
+    "checkedInAt": "Đã nhận lớp lúc {{time}}"
   }
 }

@@ -27,6 +27,7 @@
       "hrm-attendance-sites": "Địa điểm chấm công",
       "hrm-shifts": "Ca làm việc",
       "hrm-work-calendar": "Lịch làm việc/Nghỉ lễ",
+      "hrm-employee-schedule": "Lịch làm việc",
       "hrm-leaves": "Xin nghỉ phép",
       "hrm-payroll": "Tính toán bảng lương",
       "crm-leads": "Khách hàng tiềm năng",
@@ -103,6 +104,13 @@
       "checkedInOnly": "Đã chấm công vào lúc {{checkIn}}",
       "modalTitle": "Chấm công của tôi",
       "modalDescription": "Chọn điểm trường và bấm chấm công vào/ra — hệ thống dùng vị trí GPS hiện tại."
+    },
+    "classCheckIn": {
+      "ariaLabel": "Nhận lớp hôm nay",
+      "pendingCount": "Nhận lớp ({{count}} buổi)",
+      "doneCount": "{{done}}/{{total}} đã nhận lớp",
+      "modalTitle": "Nhận lớp hôm nay",
+      "modalDescription": "Xác nhận có mặt để dạy từng buổi học — hệ thống dùng vị trí GPS hiện tại, chỉ nhận được trong bán kính cho phép của điểm trường."
     },
     "notifications": {
       "title": "Thông báo vận hành",

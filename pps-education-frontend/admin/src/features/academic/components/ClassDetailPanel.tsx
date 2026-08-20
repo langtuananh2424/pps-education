@@ -1018,13 +1018,10 @@ export const sessionStatusVariants: Record<string, "success" | "warning" | "dang
  * Dùng chung cho MyTeachingSchedulePage (GV tự xem) và EmployeeSchedulePage
  * (roster HR/Quản lý điểm trường).
  */
-export const checkInStatusLabels: Record<string, string> = {
-  NOT_YET_OPEN: "Chưa tới giờ nhận lớp",
-  PENDING: "Chưa nhận lớp",
-  ON_TIME: "Đã nhận lớp — đúng giờ",
-  LATE: "Đã nhận lớp — muộn",
-  ABSENT: "Vắng — không nhận lớp"
-};
+/** `t` dịch qua i18next namespace "common" (key `checkInStatus.*`) — xem src/i18n/locales/{vi,en}/common.json. */
+export function checkInStatusLabel(t: (key: string) => string, status: string): string {
+  return t(`checkInStatus.${status}`);
+}
 export const checkInStatusVariants: Record<string, "success" | "warning" | "danger" | "info" | "neutral" | "brand"> = {
   NOT_YET_OPEN: "neutral",
   PENDING: "warning",

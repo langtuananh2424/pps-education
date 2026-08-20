@@ -4,6 +4,21 @@
     "en": "Tiếng Anh",
     "switchTo": "Chuyển sang {{language}}"
   },
+  "underDevelopment": {
+    "badge": "Đang phát triển",
+    "defaultDescription": "Tính năng đang được phát triển ở giai đoạn sau, chưa sẵn sàng sử dụng."
+  },
+  "select": {
+    "searchPlaceholder": "Tìm kiếm...",
+    "noResults": "Không tìm thấy kết quả."
+  },
+  "checkInStatus": {
+    "NOT_YET_OPEN": "Chưa tới giờ nhận lớp",
+    "PENDING": "Chưa nhận lớp",
+    "ON_TIME": "Đã nhận lớp — đúng giờ",
+    "LATE": "Đã nhận lớp — muộn",
+    "ABSENT": "Vắng — không nhận lớp"
+  },
   "geolocation": {
     "unsupported": "Trình duyệt không hỗ trợ định vị GPS.",
     "permissionDenied": "Trình duyệt đang CHẶN quyền định vị cho trang này — bấm vào biểu tượng khoá/vị trí trên thanh địa chỉ, chọn Vị trí = Cho phép, rồi tải lại trang và thử lại.",

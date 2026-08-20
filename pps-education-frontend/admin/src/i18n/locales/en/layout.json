@@ -27,6 +27,7 @@
       "hrm-attendance-sites": "Attendance Locations",
       "hrm-shifts": "Work Shifts",
       "hrm-work-calendar": "Work Calendar / Holidays",
+      "hrm-employee-schedule": "Staff Schedule",
       "hrm-leaves": "Leave Requests",
       "hrm-payroll": "Payroll Calculation",
       "crm-leads": "Leads",
@@ -103,6 +104,13 @@
       "checkedInOnly": "Checked in at {{checkIn}}",
       "modalTitle": "My attendance",
       "modalDescription": "Select a site and tap check-in/check-out — the system uses your current GPS location."
+    },
+    "classCheckIn": {
+      "ariaLabel": "Check in to today's classes",
+      "pendingCount": "Check in ({{count}} sessions)",
+      "doneCount": "{{done}}/{{total}} checked in",
+      "modalTitle": "Check in to today's classes",
+      "modalDescription": "Confirm your presence to teach each session — the system uses your current GPS location and only accepts check-in within the site's allowed radius."
     },
     "notifications": {
       "title": "Operational notifications",

@@ -9,7 +9,7 @@ import { toLocaleTag } from "@/lib/i18nFormat";
 import Badge from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
 import SessionCard from "../components/SessionCard";
-import { checkInStatusLabels, checkInStatusVariants } from "../components/ClassDetailPanel";
+import { checkInStatusLabel, checkInStatusVariants } from "../components/ClassDetailPanel";
 import { ClassSessionCheckInStatusResponse, ClassSessionResponse, getMyClassSessionCheckInStatus, getMyTeachingSchedule, listClasses } from "../api";
 
 /** Thứ tự enum DayOfWeek dùng để tra nhãn qua `enums.weekday.<value>` / `enums.weekdayShort.<value>`
@@ -21,6 +21,7 @@ const weekdayOrderMonFirst = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRI
 /** UC-58: Xem lịch dạy tổng hợp ("Lịch của tôi") — self-service, chỉ hiện buổi dạy của chính tài khoản Giáo viên đang đăng nhập. */
 export default function MyTeachingSchedulePage() {
   const { t, i18n } = useTranslation("academic-classes");
+  const { t: tc } = useTranslation("common");
   const [viewMode, setViewMode] = useState<"week" | "month">("week");
   const [refDate, setRefDate] = useState(new Date());
   const [sessions, setSessions] = useState<ClassSessionResponse[]>([]);
@@ -209,7 +210,7 @@ export default function MyTeachingSchedulePage() {
                                 {s.status !== "SCHEDULED" && <span className="text-[9px] text-rose-500 font-bold">{s.status}</span>}
                                 {checkInStatus && s.status !== "CANCELLED" && s.status !== "RESCHEDULED" && (
                                   <Badge variant={checkInStatusVariants[checkInStatus.effectiveStatus] ?? "neutral"} className="text-[8px]">
-                                    {checkInStatusLabels[checkInStatus.effectiveStatus] ?? checkInStatus.effectiveStatus}
+                                    {checkInStatusLabel(tc, checkInStatus.effectiveStatus)}
                                   </Badge>
                                 )}
                               </div>

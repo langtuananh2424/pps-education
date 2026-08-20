@@ -396,5 +396,11 @@
     "modalDescription": "{{count}} sessions this day",
     "cancellationReason": "Cancellation reason: {{reason}}",
     "lessonContent": "Lesson: {{content}}"
+  },
+  "sessionCard": {
+    "checkingIn": "Checking in...",
+    "checkInButton": "Check in",
+    "checkInFailedGeneric": "Check-in failed — please try again.",
+    "checkedInAt": "Checked in at {{time}}"
   }
 }

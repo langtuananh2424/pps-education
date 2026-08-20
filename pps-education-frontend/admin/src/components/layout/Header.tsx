@@ -372,7 +372,7 @@ export default function Header() {
         {myAttendance && (
           <button
             onClick={() => setAttendanceModalOpen(true)}
-            aria-label="Chấm công của tôi"
+            aria-label={t("header.attendance.modalTitle")}
             // Trước đây "hidden sm:flex" -- ẩn hoàn toàn trên mobile (<640px), yêu cầu người dùng
             // 2026-08-18: luôn hiện trên mọi kích thước màn hình, chỉ thu gọn còn icon/chấm trạng
             // thái + ẩn phần chữ mô tả (span "hidden sm:inline" bên dưới) trên mobile để không vỡ
@@ -411,7 +411,7 @@ export default function Header() {
         {todaySessions.length > 0 && (
           <button
             onClick={() => setCheckInModalOpen(true)}
-            aria-label="Nhận lớp hôm nay"
+            aria-label={t("header.classCheckIn.ariaLabel")}
             className={`flex items-center gap-1.5 text-xs font-medium px-3 sm:px-3.5 py-2 rounded-full shadow-soft border transition-all cursor-pointer ${
               pendingCheckInCount > 0
                 ? "bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100"
@@ -427,7 +427,9 @@ export default function Header() {
               <MapPinCheck className="w-3.5 h-3.5 shrink-0" />
             )}
             <span className="hidden sm:inline font-semibold">
-              {pendingCheckInCount > 0 ? `Nhận lớp (${pendingCheckInCount} buổi)` : `${doneCheckInCount}/${todaySessions.length} đã nhận lớp`}
+              {pendingCheckInCount > 0
+                ? t("header.classCheckIn.pendingCount", { count: pendingCheckInCount })
+                : t("header.classCheckIn.doneCount", { done: doneCheckInCount, total: todaySessions.length })}
             </span>
           </button>
         )}
@@ -563,8 +565,8 @@ export default function Header() {
         <Modal
           open
           onClose={() => setCheckInModalOpen(false)}
-          title="Nhận lớp hôm nay"
-          description="Xác nhận có mặt để dạy từng buổi học — hệ thống dùng vị trí GPS hiện tại, chỉ nhận được trong bán kính cho phép của điểm trường."
+          title={t("header.classCheckIn.modalTitle")}
+          description={t("header.classCheckIn.modalDescription")}
           titleClassName="text-lg"
           descriptionClassName="text-sm"
           size="lg"

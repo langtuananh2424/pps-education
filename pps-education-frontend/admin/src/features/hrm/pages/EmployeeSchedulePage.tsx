@@ -9,7 +9,7 @@ import { toLocaleTag, formatTimeHm } from "@/lib/i18nFormat";
 import { useApp } from "@/context/AppContext";
 import { Badge, Modal, TableContainer, Th, Td } from "@/components/ui";
 import Select from "@/components/ui/Select";
-import { checkInStatusLabels, checkInStatusVariants, sessionStatusVariants } from "@/features/academic/components/ClassDetailPanel";
+import { checkInStatusLabel, checkInStatusVariants, sessionStatusVariants } from "@/features/academic/components/ClassDetailPanel";
 import { listSites, SiteResponse } from "@/features/facility/api";
 import { listClasses, ClassResponse, ClassSessionCheckInStatusResponse, ClassSessionResponse } from "@/features/academic/api";
 import {
@@ -113,6 +113,7 @@ interface DailyTimelineProps {
 /** Dòng thời gian trực quan (kiểu lịch theo ngày) cho khoảng lọc đúng 1 ngày — thay bảng phẳng để "xem rõ theo từng giờ". */
 function DailyTimeline({ sessions, checkInStatusBySessionId, siteNameByClassId, loading }: DailyTimelineProps) {
   const { t } = useTranslation("hrm-shifts");
+  const { t: tc } = useTranslation("common");
   const { startMin, endMin } = useMemo(() => {
     if (sessions.length === 0) return { startMin: 7 * 60, endMin: 21 * 60 };
     const starts = sessions.map((s) => timeToMinutes(s.startTime));
@@ -172,7 +173,7 @@ function DailyTimeline({ sessions, checkInStatusBySessionId, siteNameByClassId, 
             const statusLabel = isCancelled
               ? s.status
               : checkInStatus
-              ? checkInStatusLabels[checkInStatus.effectiveStatus] ?? checkInStatus.effectiveStatus
+              ? checkInStatusLabel(tc, checkInStatus.effectiveStatus)
               : "—";
             const siteName = siteNameByClassId[s.classId] ?? "";
             return (
@@ -618,6 +619,7 @@ function ScheduleDayDetail({
   checkInStatusBySessionId: Map<number, ClassSessionCheckInStatusResponse>;
 }) {
   const { t, i18n } = useTranslation("hrm-shifts");
+  const { t: tc } = useTranslation("common");
   const language = i18n.language;
   return (
     <div className="space-y-3">
@@ -666,7 +668,7 @@ function ScheduleDayDetail({
                       <Badge variant={sessionStatusVariants[s.status] ?? "neutral"}>{s.status}</Badge>
                       {checkInStatus && s.status !== "CANCELLED" && s.status !== "RESCHEDULED" && (
                         <Badge variant={checkInStatusVariants[checkInStatus.effectiveStatus] ?? "neutral"}>
-                          {checkInStatusLabels[checkInStatus.effectiveStatus] ?? checkInStatus.effectiveStatus}
+                          {checkInStatusLabel(tc, checkInStatus.effectiveStatus)}
                           {checkInStatus.checkInTime && ` (${formatTimeHm(checkInStatus.checkInTime, language)})`}
                         </Badge>
                       )}
