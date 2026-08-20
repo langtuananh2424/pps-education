@@ -9,6 +9,7 @@ import vn.com.pps.education.domain.Parent;
 import vn.com.pps.education.domain.ParentStudent;
 import vn.com.pps.education.domain.Role;
 import vn.com.pps.education.domain.Site;
+import vn.com.pps.education.domain.SitePeriodTemplate;
 import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.domain.UserRole;
@@ -131,6 +132,9 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
     private SiteRepository siteRepository;
 
     @Autowired
+    private vn.com.pps.education.repository.SitePeriodTemplateRepository sitePeriodTemplateRepository;
+
+    @Autowired
     private StudentRepository studentRepository;
 
     @Autowired
@@ -203,8 +207,11 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
         // markAttendance() giờ lại đòi buổi đang TRONG khung giờ diễn ra (UC-15, sửa đổi nghiệp vụ
         // 2026-08-18) nên buổi phải bao quanh "now" thay vì đã kết thúc. LocalTime.MIN vẫn không
         // dùng được vì bị hibernate.jdbc.time_zone=UTC quy đổi lệch, vi phạm CHECK chk_session_time.
+        seedPeriod(site, 1, LocalTime.now().minusMinutes(1), LocalTime.now().plusHours(1), headAcademic);
+        seedPeriod(site, 2, LocalTime.of(8, 0), LocalTime.of(9, 40), headAcademic);
         session = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(LocalDate.now(), LocalTime.now().minusMinutes(1), LocalTime.now().plusHours(1), null, "REGULAR", "VIETNAMESE", null),
+                new CreateClassSessionRequest(LocalDate.now(), "MORNING", List.of(1), null, "REGULAR", "VIETNAMESE",
+                        teacher.getId(), null, null, null),
                 headAcademic.getId());
         // Bắt buộc để submitComments() cho DAILY không bị chặn bởi MissingLessonContentException
         // (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-29).
@@ -329,7 +336,8 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
         classService.assignTeacher(schoolClass.id(),
                 new AssignTeacherRequest(foreignTeacher.getId(), "PRIMARY", null, LocalDate.now(), "FOREIGN"), headAcademic.getId());
         ClassSessionResponse foreignSession = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(LocalDate.now().plusDays(1), LocalTime.of(8, 0), LocalTime.of(9, 40), null, "REGULAR", "FOREIGN", null),
+                new CreateClassSessionRequest(LocalDate.now().plusDays(1), "MORNING", List.of(2), null, "REGULAR", "FOREIGN",
+                        foreignTeacher.getId(), null, null, null),
                 headAcademic.getId());
 
         List<ClassSessionResponse> schedule = parentPortalService.listSchedule(student.getId(), schoolClass.id(), parentUser.getId());
@@ -342,7 +350,8 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
     @Test
     void listSchedule_boSung_includesSessionNumber() {
         ClassSessionResponse secondSession = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(session.sessionDate().plusDays(2), LocalTime.of(8, 0), LocalTime.of(9, 40), null, "REGULAR", "VIETNAMESE", null),
+                new CreateClassSessionRequest(session.sessionDate().plusDays(2), "MORNING", List.of(2), null, "REGULAR", "VIETNAMESE",
+                        teacher.getId(), null, null, null),
                 headAcademic.getId());
 
         List<ClassSessionResponse> schedule = parentPortalService.listSchedule(student.getId(), schoolClass.id(), parentUser.getId());
@@ -387,7 +396,8 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
     /** V65: hạn nộp BTVN buổi sau = buổi kế tiếp — cần 1 buổi trong tương lai để resolveNextSessionDueAt không chặn. */
     private void createNextSession() {
         classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(session.sessionDate().plusDays(2), LocalTime.of(8, 0), LocalTime.of(9, 40), null, "REGULAR", "VIETNAMESE", null),
+                new CreateClassSessionRequest(session.sessionDate().plusDays(2), "MORNING", List.of(2), null, "REGULAR", "VIETNAMESE",
+                        teacher.getId(), null, null, null),
                 headAcademic.getId());
     }
 
@@ -545,6 +555,17 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
         s.setName("Test Site");
         s.setSiteType(Site.SiteType.OWNED);
         return siteRepository.save(s);
+    }
+
+    /** Bổ sung ngoài SDD gốc, xác nhận 2026-08-19 — session_periods giờ sinh từ site_period_templates thay vì chia đều theo phút. */
+    private void seedPeriod(Site site, int periodNumber, LocalTime start, LocalTime end, User createdBy) {
+        SitePeriodTemplate template = new SitePeriodTemplate();
+        template.setSite(site);
+        template.setPeriodNumber(periodNumber);
+        template.setStartTime(start);
+        template.setEndTime(end);
+        template.setCreatedBy(createdBy);
+        sitePeriodTemplateRepository.save(template);
     }
 
     private AcademicTerm newAcademicTerm(Site site) {

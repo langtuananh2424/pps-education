@@ -601,29 +601,35 @@ UC-48: Xếp lịch buổi học
 | Precondition)** |                                                    |
 |                 | - Nếu có chỉ định phòng: phòng đã tồn tại (UC-37). |
 +-----------------+----------------------------------------------------+
-| **Luồng sự kiện | 1. Người dùng chọn lớp học, nhập ngày, khung giờ   |
-| chính (Main     | bắt đầu/kết thúc, loại buổi                        |
-| Flow)**         | (REGULAR/MAKEUP/EXAM/SPECIAL), phòng học (tùy      |
-|                 | chọn), và BẮT BUỘC chọn loại giáo viên              |
+| **Luồng sự kiện | 1. Người dùng chọn lớp học, nhập ngày, CHỌN TIẾT   |
+| chính (Main     | (1 hoặc nhiều periodNumber liên tiếp, tra theo     |
+| Flow)**         | site_period_templates của điểm trường lớp này —    |
+|                 | ĐẢO NGƯỢC lại nhập giờ tự do, xác nhận với người   |
+|                 | dùng 2026-08-19), loại buổi                        |
+|                 | (REGULAR/MAKEUP/EXAM/SPECIAL), phòng học (tùy      |
+|                 | chọn), BẮT BUỘC chọn loại giáo viên                 |
 |                 | (VIETNAMESE/FOREIGN — dùng để hiển thị cho Học     |
 |                 | sinh/Phụ huynh biết buổi này GV Việt Nam hay nước  |
 |                 | ngoài dạy, KHÔNG liên quan hồ sơ nhân sự — bổ sung |
 |                 | ngoài SDD gốc, đã xác nhận với người dùng          |
-|                 | 2026-07-29). Hệ thống TỰ ĐỘNG suy ra giáo viên phụ |
-|                 | trách buổi từ giáo viên chính (PRIMARY) đang phụ   |
-|                 | trách lớp cùng loại giáo viên đã chọn — KHÔNG còn  |
-|                 | nhập tay giáo viên phụ trách (bổ sung ngoài SDD    |
-|                 | gốc, đã xác nhận với người dùng 2026-08-13, xem    |
-|                 | UC-18).                                            |
+|                 | 2026-07-29), và CHỌN TAY giáo viên chính           |
+|                 | (primaryTeacherId, bắt buộc), giáo viên phụ/CM     |
+|                 | (assistantTeacherId/cmTeacherId, tùy chọn) — ĐẢO   |
+|                 | NGƯỢC quyết định 2026-08-13 (trước đây tự động suy |
+|                 | ra từ class_teachers PRIMARY của lớp): nay chọn tay|
+|                 | riêng từng buổi, không còn ràng buộc phải là       |
+|                 | PRIMARY của lớp, gán trực tiếp trên class_sessions |
+|                 | (xác nhận lại với người dùng 2026-08-19).          |
 |                 |                                                    |
 |                 | 2. Nếu có chỉ định phòng và phòng không đánh dấu   |
 |                 | linh hoạt: hệ thống kiểm tra trùng khung giờ với   |
 |                 | các buổi khác cùng ngày tại phòng đó (FR-FAC-03).  |
 |                 |                                                    |
 |                 | 3. Hệ thống lưu buổi học với trạng thái SCHEDULED, |
-|                 | tự sinh các tiết học (session_periods) theo số     |
-|                 | lượng mặc định cấu hình sẵn trong system_settings, |
-|                 | chia đều khung giờ của buổi.                       |
+|                 | sinh các tiết học (session_periods) TRỰC TIẾP theo |
+|                 | từng periodNumber đã chọn ở bước 1 (copy giờ bắt   |
+|                 | đầu/kết thúc từ site_period_templates tương ứng) — |
+|                 | không còn chia đều theo phút của system_settings.  |
 +-----------------+----------------------------------------------------+
 | **Luồng thay    | ***A1 --- Trùng phòng***                           |
 | thế / ngoại lệ  |                                                    |
@@ -644,27 +650,17 @@ UC-48: Xếp lịch buổi học
 |                 | ***A3 --- Dời lịch buổi đã xếp***                  |
 |                 |                                                    |
 |                 | 1. Người dùng chọn dời 1 buổi đang SCHEDULED sang  |
-|                 | ngày/khung giờ mới, có thể đổi phòng. Giáo viên    |
-|                 | phụ trách buổi mới được hệ thống TỰ ĐỘNG suy ra    |
-|                 | lại từ giáo viên chính đang phụ trách lớp cùng     |
-|                 | loại giáo viên của buổi cũ — KHÔNG cho chọn tay    |
-|                 | (bổ sung ngoài SDD gốc, đã xác nhận với người dùng |
-|                 | 2026-08-13). Hệ thống kiểm tra trùng phòng cho     |
-|                 | khung giờ mới (như bước 2), tạo 1 buổi học mới ở   |
-|                 | trạng thái SCHEDULED với thông tin mới; đồng thời  |
-|                 | chuyển buổi cũ sang trạng thái RESCHEDULED và liên |
-|                 | kết sang buổi mới vừa tạo. Chỉ áp dụng cho buổi    |
-|                 | đang SCHEDULED.                                    |
-|                 |                                                    |
-|                 | ***A5 --- Lớp chưa có đủ giáo viên chính theo loại |
-|                 | đã chọn (bổ sung ngoài SDD gốc, đã xác nhận với    |
-|                 | người dùng 2026-08-13)***                          |
-|                 |                                                    |
-|                 | 1. Nếu lớp chưa có giáo viên chính (PRIMARY) đang  |
-|                 | active đúng loại giáo viên (VIETNAMESE/FOREIGN) đã |
-|                 | chọn, hệ thống từ chối tạo/dời buổi, báo rõ cần    |
-|                 | gán giáo viên chính loại đó cho lớp qua UC-18       |
-|                 | trước.                                             |
+|                 | ngày mới + CHỌN TIẾT mới, có thể đổi phòng. Giáo   |
+|                 | viên chính/phụ/CM GIỮ NGUYÊN từ buổi cũ (KHÔNG còn |
+|                 | re-derive như trước 2026-08-13 — sửa GV thì dùng   |
+|                 | PATCH .../assignment riêng — xem "Sửa nhanh tại    |
+|                 | chỗ" cuối UC-48, xác nhận lại 2026-08-19). Hệ thống|
+|                 | kiểm tra                                           |
+|                 | trùng phòng cho khung giờ mới (như bước 2), tạo 1  |
+|                 | buổi học mới ở trạng thái SCHEDULED với thông tin  |
+|                 | mới; đồng thời chuyển buổi cũ sang trạng thái      |
+|                 | RESCHEDULED và liên kết sang buổi mới vừa tạo. Chỉ |
+|                 | áp dụng cho buổi đang SCHEDULED.                   |
 |                 |                                                    |
 |                 | ***A4 --- Tạo buổi bù cho 1 buổi đã hủy (bổ sung   |
 |                 | ngoài SDD gốc, đã xác nhận với người dùng          |
@@ -704,6 +700,30 @@ UC-48: Xếp lịch buổi học
 |                 | người dùng 2026-07-29.                             |
 +-----------------+----------------------------------------------------+
 
+> **Tiết học theo điểm trường + sửa nhanh tại chỗ (bổ sung ngoài SDD gốc,
+> xác nhận với người dùng 2026-08-19):** bảng mới `site_period_templates`
+> (V127, `SitePeriodTemplateService`/`Controller`, CRUD ở Cơ sở vật chất &
+> Đối tác > Điểm trường, permission `facility.site.update`) — mỗi điểm
+> trường tự định nghĩa danh sách tiết cố định (periodNumber, label,
+> startTime, endTime), thay hẳn cơ chế chia đều theo phút của
+> `system_settings.academic.default_periods_per_session` (đã bỏ). UC-48/56/
+> 57 đều "chọn tiết" (`periodNumbers`) thay vì nhập giờ tự do —
+> `session_periods` copy trực tiếp giờ từ template tương ứng.
+>
+> Thêm `PATCH /api/classes/{classId}/sessions/{sessionId}/assignment`
+> (`ClassSessionService.updateAssignment`, quyền `academic.class.manage`) —
+> sửa phòng/loại GV/GV chính-phụ-CM/tiết CÙNG NGÀY cho 1 buổi đang
+> SCHEDULED tại chỗ, không tạo buổi mới (khác reschedule — đổi ngày vẫn
+> phải qua UC-48 A3 để giữ đúng ngữ nghĩa RESCHEDULED + audit trail). Phục
+> vụ click-thẻ trên lưới thời khóa biểu dạng lưới (hàng=thứ, cột=tiết) ở
+> trang "Lịch làm việc" mới (`/academic/timetable`).
+>
+> `class_sessions` thêm cột `assistant_teacher_id`/`cm_teacher_id` (V128,
+> nullable, FK `users`) — GV phụ/CM gán RIÊNG THEO TỪNG BUỔI, khác hẳn
+> `class_teachers` ASSISTANT/CM (cấp lớp, xem UC-18). `checkTeacherConflict`
+> (trùng giờ) chỉ áp dụng `primaryTeacher` — GV phụ/CM không trực tiếp
+> đứng lớp nên không chặn trùng giờ.
+
 ---
 
 UC-56: Sinh lịch học hàng loạt theo mẫu lặp
@@ -742,20 +762,23 @@ UC-56: Sinh lịch học hàng loạt theo mẫu lặp
 +-----------------+----------------------------------------------------+
 | **Luồng sự kiện | 1.  Người dùng chọn lớp học, nhập khoảng ngày (từ  |
 | chính (Main     |     ngày, đến ngày), danh sách thứ trong tuần lặp  |
-| Flow)**         |     lại (VD Thứ 2/4/6), khung giờ bắt đầu/kết thúc |
-|                 |     chung, loại buổi, phòng học (tùy chọn), và BẮT |
-|                 |     BUỘC chọn loại giáo viên (VIETNAMESE/FOREIGN — |
-|                 |     dùng chung cho cả lô; muốn 1 tuần có ngày GV   |
-|                 |     Việt Nam, ngày GV nước ngoài thì gọi UC-56     |
-|                 |     riêng cho từng nhóm thứ, VD Thứ 2 gọi 1 lần    |
-|                 |     với FOREIGN, Thứ 5 gọi 1 lần khác với          |
-|                 |     VIETNAMESE — bổ sung ngoài SDD gốc, đã xác     |
-|                 |     nhận với người dùng 2026-07-29). Hệ thống TỰ   |
-|                 |     ĐỘNG suy ra giáo viên phụ trách cho cả lô từ   |
-|                 |     giáo viên chính đang phụ trách lớp cùng loại   |
-|                 |     giáo viên đã chọn — KHÔNG còn nhập tay (bổ     |
-|                 |     sung ngoài SDD gốc, đã xác nhận với người dùng |
-|                 |     2026-08-13, xem UC-18).                        |
+| Flow)**         |     lại (VD Thứ 2/4/6), CHỌN TIẾT chung (1 hoặc    |
+|                 |     nhiều periodNumber liên tiếp, tra theo         |
+|                 |     site_period_templates của điểm trường lớp này  |
+|                 |     — đảo ngược nhập giờ tự do, xác nhận lại với   |
+|                 |     người dùng 2026-08-19), loại buổi, phòng học   |
+|                 |     (tùy chọn), BẮT BUỘC chọn loại giáo viên        |
+|                 |     (VIETNAMESE/FOREIGN — dùng chung cho cả lô;    |
+|                 |     muốn 1 tuần có ngày GV Việt Nam, ngày GV nước  |
+|                 |     ngoài thì gọi UC-56 riêng cho từng nhóm thứ, VD|
+|                 |     Thứ 2 gọi 1 lần với FOREIGN, Thứ 5 gọi 1 lần   |
+|                 |     khác với VIETNAMESE — bổ sung ngoài SDD gốc,   |
+|                 |     đã xác nhận với người dùng 2026-07-29), và CHỌN|
+|                 |     TAY giáo viên chính (bắt buộc)/phụ/CM (tùy     |
+|                 |     chọn) dùng chung cho cả lô — ĐẢO NGƯỢC quyết   |
+|                 |     định 2026-08-13 (không còn tự động suy ra từ   |
+|                 |     class_teachers PRIMARY, xác nhận lại với người |
+|                 |     dùng 2026-08-19).                              |
 |                 |                                                    |
 |                 | 2.  Với mỗi ngày trong khoảng khớp 1 trong các thứ |
 |                 |     đã chọn, hệ thống thử tạo 1 buổi học — áp dụng |
@@ -774,16 +797,6 @@ UC-56: Sinh lịch học hàng loạt theo mẫu lặp
 |                 |     lô vẫn tiếp tục xử lý bình thường, không dừng  |
 |                 |     cả lô (bổ sung ngoài SDD gốc, đã xác nhận với  |
 |                 |     người dùng).                                   |
-|                 |                                                    |
-|                 | ***A2 --- Lớp chưa có đủ giáo viên chính theo loại |
-|                 | đã chọn (bổ sung ngoài SDD gốc, đã xác nhận với    |
-|                 | người dùng 2026-08-13, xem UC-48/A5)***            |
-|                 |                                                    |
-|                 | 1.  Nếu lớp chưa có giáo viên chính (PRIMARY) đang |
-|                 |     active đúng loại giáo viên đã chọn, hệ thống   |
-|                 |     từ chối toàn bộ lô ngay từ đầu (không thử tạo  |
-|                 |     ngày nào), báo rõ cần gán giáo viên chính loại |
-|                 |     đó cho lớp qua UC-18 trước.                    |
 +-----------------+----------------------------------------------------+
 | **Hậu điều kiện | -   Mỗi ngày khớp mẫu lặp và không trùng phòng có  |
 | (P              |     1 class_session mới (SCHEDULED) +              |
@@ -835,27 +848,30 @@ UC-57: Nhập lịch học qua Excel
 +-----------------+----------------------------------------------------+
 | **Luồng sự kiện | 1.  Người dùng chọn lớp học, tải lên file .xlsx    |
 | chính (Main     |     theo định dạng cột quy định (dòng 1 = tiêu đề, |
-| Flow)**         |     dữ liệu từ dòng 2): A=Ngày (dd/MM/yyyy), B=Giờ |
-|                 |     bắt đầu (HH:mm), C=Giờ kết thúc (HH:mm),       |
-|                 |     D=Loại buổi (để trống = REGULAR), E=Loại giáo  |
-|                 |     viên (VIETNAMESE/FOREIGN, bắt buộc), F=Mã      |
-|                 |     phòng (tùy chọn, tra theo đúng điểm trường của |
-|                 |     lớp). Cột E TRƯỚC ĐÂY là username giáo viên    |
-|                 |     phụ trách — ĐỔI Ý NGHĨA sang loại giáo viên từ |
-|                 |     2026-08-13 (bổ sung ngoài SDD gốc, đã xác nhận |
-|                 |     với người dùng): giáo viên phụ trách không còn |
-|                 |     nhập tay, hệ thống tự suy ra từ giáo viên chính |
-|                 |     của lớp cùng loại giáo viên ở cột E, giống      |
-|                 |     UC-48/UC-56.                                    |
+| Flow)**         |     dữ liệu từ dòng 2, ĐỔI LẦN 2 — đảo ngược       |
+|                 |     2026-08-13, xác nhận lại với người dùng        |
+|                 |     2026-08-19): A=Ngày (dd/MM/yyyy), B=Tiết (VD   |
+|                 |     "1-2" hoặc "1,3", tra theo site_period_templates|
+|                 |     của điểm trường lớp này), C=Loại buổi (để trống|
+|                 |     = REGULAR), D=Loại giáo viên (VIETNAMESE/      |
+|                 |     FOREIGN, bắt buộc), E=Username GV chính (bắt   |
+|                 |     buộc), F=Username GV phụ (tùy chọn), G=Username|
+|                 |     CM (tùy chọn), H=Mã phòng (tùy chọn, tra theo  |
+|                 |     đúng điểm trường của lớp). Giáo viên chính/phụ/|
+|                 |     CM CHỌN TAY bằng username, KHÔNG còn tự suy ra |
+|                 |     từ class_teachers PRIMARY (khác bản 2026-08-13 |
+|                 |     — lúc đó cột E đổi thành loại giáo viên, giờ   |
+|                 |     tách riêng D=loại GV và E/F/G=username từng    |
+|                 |     vai trò).                                      |
 |                 |                                                    |
 |                 | 2.  Hệ thống tạo bản ghi import_jobs               |
 |                 |     (import_type=TEACHING_SCHEDULE), xử lý từng    |
-|                 |     dòng: parse ngày/giờ, parse loại giáo viên,    |
-|                 |     suy ra giáo viên chính (PRIMARY) đang phụ trách |
-|                 |     lớp cùng loại đó, tìm phòng theo mã (nếu có),  |
-|                 |     áp dụng đúng bước 2-3 của UC-48 (kiểm tra trùng |
-|                 |     phòng, lưu SCHEDULED, tự sinh session_periods) |
-|                 |     cho mỗi dòng hợp lệ.                            |
+|                 |     dòng: parse ngày/tiết/loại giáo viên, tra tài  |
+|                 |     khoản theo username ở cột E/F/G, tìm phòng theo|
+|                 |     mã (nếu có), áp dụng đúng bước 2-3 của UC-48    |
+|                 |     (kiểm tra trùng phòng, lưu SCHEDULED, sinh      |
+|                 |     session_periods từ site_period_templates) cho  |
+|                 |     mỗi dòng hợp lệ.                                |
 |                 |                                                    |
 |                 | 3.  Hệ thống trả về kết quả tổng hợp: tổng số      |
 |                 |     dòng, số dòng thành công, số dòng lỗi, chi     |
@@ -864,12 +880,12 @@ UC-57: Nhập lịch học qua Excel
 | **Luồng thay    | ***A2 --- 1 dòng lỗi không chặn dòng khác***       |
 | thế / ngoại lệ  |                                                    |
 | (Alternate      | 1.  Dòng thiếu/sai loại giáo viên, sai định dạng   |
-| Flow)**         |     ngày/giờ, lớp chưa có giáo viên chính active   |
-|                 |     đúng loại giáo viên của dòng, không tìm thấy   |
-|                 |     phòng theo mã, hoặc trùng phòng: dòng đó bị bỏ |
-|                 |     qua, ghi lý do vào error_summary; các dòng     |
-|                 |     khác trong file vẫn tiếp tục xử lý bình        |
-|                 |     thường, không dừng cả file.                    |
+| Flow)**         |     ngày/tiết, không tìm thấy tài khoản theo       |
+|                 |     username ở cột E/F/G, site chưa cấu hình tiết  |
+|                 |     đã chọn, không tìm thấy phòng theo mã, hoặc    |
+|                 |     trùng phòng: dòng đó bị bỏ qua, ghi lý do vào  |
+|                 |     error_summary; các dòng khác trong file vẫn    |
+|                 |     tiếp tục xử lý bình thường, không dừng cả file.|
 |                 |                                                    |
 |                 | ***A3 --- File sai định dạng***                    |
 |                 |                                                    |

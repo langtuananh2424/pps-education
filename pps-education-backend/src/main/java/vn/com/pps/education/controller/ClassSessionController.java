@@ -5,6 +5,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -17,6 +18,7 @@ import vn.com.pps.education.dto.ClassSessionResponse;
 import vn.com.pps.education.dto.CreateClassSessionRequest;
 import vn.com.pps.education.dto.RescheduleClassSessionRequest;
 import vn.com.pps.education.dto.SessionPeriodResponse;
+import vn.com.pps.education.dto.UpdateSessionAssignmentRequest;
 import vn.com.pps.education.security.AuthenticatedUser;
 import vn.com.pps.education.service.ClassSessionService;
 
@@ -92,5 +94,15 @@ public class ClassSessionController {
                                                                     @Valid @RequestBody RescheduleClassSessionRequest request,
                                                                     @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(classSessionService.rescheduleSession(classId, classSessionId, request, actor.userId()));
+    }
+
+    /** Sửa nhanh tại chỗ (phòng/loại GV/GV chính-phụ-CM/tiết) — phục vụ click-thẻ trên lưới thời khóa biểu, bổ sung ngoài SDD gốc, xác nhận 2026-08-19. */
+    @PreAuthorize("hasPermission(null, 'academic.class.manage')")
+    @PatchMapping("/{classSessionId}/assignment")
+    public ResponseEntity<ClassSessionResponse> updateAssignment(@PathVariable Long classId,
+                                                                    @PathVariable Long classSessionId,
+                                                                    @Valid @RequestBody UpdateSessionAssignmentRequest request,
+                                                                    @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(classSessionService.updateAssignment(classId, classSessionId, request, actor.userId()));
     }
 }

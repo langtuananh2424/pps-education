@@ -8,7 +8,7 @@ import { UserRole } from "@/types";
 import { UserListItemResponse } from "@/features/system-admin/api";
 import UserSearchCombobox from "@/features/system-admin/components/UserSearchCombobox";
 import { listStudents, StudentResponse } from "@/features/student/api";
-import { RoomResponse, listRoomsBySite } from "@/features/facility/api";
+import { DayPart, RoomResponse, listRoomsBySite } from "@/features/facility/api";
 import {
   AcademicYearResponse,
   AssignTeacherRequest,
@@ -47,6 +47,8 @@ import { useDialog } from "@/components/ui/DialogProvider";
 import { classStatusLabels, classStatusVariants } from "./ClassListPanel";
 import BulkGenerateSessionsForm from "./BulkGenerateSessionsForm";
 import ImportScheduleForm from "./ImportScheduleForm";
+import PeriodMultiSelect from "./PeriodMultiSelect";
+import TeacherSearchSelect from "./TeacherSearchSelect";
 import ClassGradeSheetPanel from "./ClassGradeSheetPanel";
 import StudentNameLink from "@/features/reports/components/StudentNameLink";
 import { useToast } from "@/lib/useToast";
@@ -1224,7 +1226,10 @@ function RescheduleSessionForm({
 }) {
   const [rooms, setRooms] = useState<RoomResponse[]>([]);
   const [roomId, setRoomId] = useState(session.roomId != null ? String(session.roomId) : "");
-  const [form, setForm] = useState({ sessionDate: session.sessionDate, startTime: session.startTime, endTime: session.endTime, reason: "" });
+  const [sessionDate, setSessionDate] = useState(session.sessionDate);
+  const [dayPart, setDayPart] = useState<DayPart>(session.dayPart ?? "MORNING");
+  const [selectedPeriods, setSelectedPeriods] = useState<Set<number>>(new Set(session.periodNumbers));
+  const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -1234,19 +1239,19 @@ function RescheduleSessionForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.sessionDate || !form.startTime || !form.endTime) {
-      setError("Vui lòng điền đủ ngày/giờ mới.");
+    if (!sessionDate || selectedPeriods.size === 0) {
+      setError("Vui lòng chọn ngày mới và tối thiểu 1 tiết mới.");
       return;
     }
     setSubmitting(true);
     setError(null);
     try {
       const request: RescheduleClassSessionRequest = {
-        newSessionDate: form.sessionDate,
-        newStartTime: form.startTime,
-        newEndTime: form.endTime,
+        newSessionDate: sessionDate,
+        newDayPart: dayPart,
+        newPeriodNumbers: Array.from(selectedPeriods),
         newRoomId: roomId ? Number(roomId) : undefined,
-        reason: form.reason.trim() || undefined
+        reason: reason.trim() || undefined
       };
       await rescheduleClassSession(classId, session.id, request);
       onDone();
@@ -1264,20 +1269,20 @@ function RescheduleSessionForm({
         Buổi {session.sessionNumber} — lịch hiện tại: <span className="font-bold text-slate-700">{session.sessionDate} {session.startTime}–{session.endTime}</span>
       </p>
 
-      <div className="grid grid-cols-3 gap-2">
-        <div>
-          <label className={labelClass}>Ngày học mới</label>
-          <DatePicker value={form.sessionDate} onChange={(v) => setForm({ ...form, sessionDate: v })} />
-        </div>
-        <div>
-          <label className={labelClass}>Giờ bắt đầu mới</label>
-          <input type="time" value={form.startTime} onChange={(e) => setForm({ ...form, startTime: e.target.value })} className={inputClass} required />
-        </div>
-        <div>
-          <label className={labelClass}>Giờ kết thúc mới</label>
-          <input type="time" value={form.endTime} onChange={(e) => setForm({ ...form, endTime: e.target.value })} className={inputClass} required />
-        </div>
+      <div>
+        <label className={labelClass}>Ngày học mới</label>
+        <DatePicker value={sessionDate} onChange={setSessionDate} />
       </div>
+
+      <PeriodMultiSelect
+        siteId={siteId}
+        label="Tiết mới"
+        required
+        dayPart={dayPart}
+        onDayPartChange={setDayPart}
+        selected={selectedPeriods}
+        onChange={setSelectedPeriods}
+      />
 
       <div>
         <label className={labelClass}>Phòng học mới</label>
@@ -1290,17 +1295,16 @@ function RescheduleSessionForm({
           ))}
         </Select>
       </div>
-      {/* Bổ sung ngoài SDD gốc, xác nhận 2026-08-13: giáo viên phụ trách buổi mới KHÔNG còn chọn tay
-          — hệ thống tự động suy ra lại từ giáo viên chính đang phụ trách lớp cùng loại giáo viên
-          (VN/nước ngoài) của buổi cũ. */}
+      {/* Đảo ngược 2026-08-13 (xác nhận lại 2026-08-19): giáo viên chính/phụ/CM GIỮ NGUYÊN từ buổi
+          cũ khi dời lịch — sửa GV thì dùng nút "Sửa nhanh" (updateSessionAssignment) riêng. */}
       <p className="text-[11px] text-slate-500">
-        Giáo viên phụ trách buổi mới: tự động theo giáo viên chính hiện tại của lớp (hiện tại buổi này: {session.primaryTeacherName}
-        {session.teacherType && ` — ${teacherTypeLabels[session.teacherType]}`}).
+        Giáo viên chính giữ nguyên: {session.primaryTeacherName}
+        {session.teacherType && ` — ${teacherTypeLabels[session.teacherType]}`}.
       </p>
 
       <div>
         <label className={labelClass}>Lý do dời lịch (không bắt buộc)</label>
-        <input value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} className={inputClass} placeholder="VD: Phòng học bị trùng lịch" />
+        <input value={reason} onChange={(e) => setReason(e.target.value)} className={inputClass} placeholder="VD: Phòng học bị trùng lịch" />
       </div>
 
       <div className="flex justify-end gap-2 pt-1">
@@ -1318,7 +1322,15 @@ function RescheduleSessionForm({
 function CreateSessionForm({ classId, siteId, onDone, onCancel }: { classId: number; siteId: number; onDone: () => void; onCancel: () => void }) {
   const [rooms, setRooms] = useState<RoomResponse[]>([]);
   const [roomId, setRoomId] = useState("");
-  const [form, setForm] = useState({ sessionDate: "", startTime: "", endTime: "", sessionType: "REGULAR", teacherType: "" });
+  const [form, setForm] = useState({ sessionDate: "", sessionType: "REGULAR", teacherType: "" });
+  const [dayPart, setDayPart] = useState<DayPart>("MORNING");
+  const [selectedPeriods, setSelectedPeriods] = useState<Set<number>>(new Set());
+  const [primaryTeacherId, setPrimaryTeacherId] = useState<number | null>(null);
+  const [primaryTeacherName, setPrimaryTeacherName] = useState<string | null>(null);
+  const [assistantTeacherId, setAssistantTeacherId] = useState<number | null>(null);
+  const [assistantTeacherName, setAssistantTeacherName] = useState<string | null>(null);
+  const [cmTeacherId, setCmTeacherId] = useState<number | null>(null);
+  const [cmTeacherName, setCmTeacherName] = useState<string | null>(null);
   const [makeupForSessionId, setMakeupForSessionId] = useState("");
   const [cancelledPendingMakeup, setCancelledPendingMakeup] = useState<ClassSessionResponse[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -1343,12 +1355,16 @@ function CreateSessionForm({ classId, siteId, onDone, onCancel }: { classId: num
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.sessionDate || !form.startTime || !form.endTime) {
-      setError("Vui lòng điền đủ ngày/giờ.");
+    if (!form.sessionDate || selectedPeriods.size === 0) {
+      setError("Vui lòng chọn ngày học và tối thiểu 1 tiết.");
       return;
     }
     if (!form.teacherType) {
-      setError("Vui lòng chọn loại giáo viên — hệ thống sẽ tự lấy đúng giáo viên chính của lớp theo loại này.");
+      setError("Vui lòng chọn loại giáo viên.");
+      return;
+    }
+    if (!primaryTeacherId) {
+      setError("Vui lòng chọn giáo viên chính.");
       return;
     }
     if (form.sessionType === "MAKEUP" && !makeupForSessionId) {
@@ -1360,11 +1376,14 @@ function CreateSessionForm({ classId, siteId, onDone, onCancel }: { classId: num
     try {
       const request: CreateClassSessionRequest = {
         sessionDate: form.sessionDate,
-        startTime: form.startTime,
-        endTime: form.endTime,
+        dayPart,
+        periodNumbers: Array.from(selectedPeriods),
         roomId: roomId ? Number(roomId) : undefined,
         sessionType: form.sessionType,
         teacherType: form.teacherType as "VIETNAMESE" | "FOREIGN",
+        primaryTeacherId,
+        assistantTeacherId: assistantTeacherId ?? undefined,
+        cmTeacherId: cmTeacherId ?? undefined,
         makeupForSessionId: form.sessionType === "MAKEUP" ? Number(makeupForSessionId) : undefined
       };
       await createClassSession(classId, request);
@@ -1380,20 +1399,19 @@ function CreateSessionForm({ classId, siteId, onDone, onCancel }: { classId: num
     <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
-      <div className="grid grid-cols-3 gap-2">
-        <div>
-          <label className={labelClass}>Ngày học</label>
-          <DatePicker value={form.sessionDate} onChange={(v) => setForm({ ...form, sessionDate: v })} />
-        </div>
-        <div>
-          <label className={labelClass}>Giờ bắt đầu</label>
-          <input type="time" value={form.startTime} onChange={(e) => setForm({ ...form, startTime: e.target.value })} className={inputClass} required />
-        </div>
-        <div>
-          <label className={labelClass}>Giờ kết thúc</label>
-          <input type="time" value={form.endTime} onChange={(e) => setForm({ ...form, endTime: e.target.value })} className={inputClass} required />
-        </div>
+      <div>
+        <label className={labelClass}>Ngày học</label>
+        <DatePicker value={form.sessionDate} onChange={(v) => setForm({ ...form, sessionDate: v })} />
       </div>
+
+      <PeriodMultiSelect
+        siteId={siteId}
+        required
+        dayPart={dayPart}
+        onDayPartChange={setDayPart}
+        selected={selectedPeriods}
+        onChange={setSelectedPeriods}
+      />
 
       <div className="grid grid-cols-3 gap-2">
         <div>
@@ -1443,11 +1461,34 @@ function CreateSessionForm({ classId, siteId, onDone, onCancel }: { classId: num
         </div>
       )}
 
-      {/* Bổ sung ngoài SDD gốc, xác nhận 2026-08-13: giáo viên phụ trách KHÔNG còn chọn tay — hệ
-          thống tự động lấy giáo viên chính (PRIMARY) đang phụ trách lớp cùng loại giáo viên đã chọn. */}
-      <p className="text-[11px] text-slate-500">
-        Giáo viên phụ trách buổi này sẽ tự động lấy theo giáo viên chính của lớp đúng loại giáo viên đã chọn ở trên.
-      </p>
+      <TeacherSearchSelect
+        label="Giáo viên chính"
+        required
+        value={primaryTeacherId}
+        valueName={primaryTeacherName}
+        onChange={(id, name) => {
+          setPrimaryTeacherId(id);
+          setPrimaryTeacherName(name);
+        }}
+      />
+      <TeacherSearchSelect
+        label="Giáo viên phụ (tuỳ chọn)"
+        value={assistantTeacherId}
+        valueName={assistantTeacherName}
+        onChange={(id, name) => {
+          setAssistantTeacherId(id);
+          setAssistantTeacherName(name);
+        }}
+      />
+      <TeacherSearchSelect
+        label="CM (tuỳ chọn)"
+        value={cmTeacherId}
+        valueName={cmTeacherName}
+        onChange={(id, name) => {
+          setCmTeacherId(id);
+          setCmTeacherName(name);
+        }}
+      />
 
       <div className="flex gap-2">
         <Button type="button" variant="secondary" size="sm" onClick={onCancel}>

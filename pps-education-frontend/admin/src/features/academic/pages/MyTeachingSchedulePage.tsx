@@ -92,7 +92,7 @@ export default function MyTeachingSchedulePage() {
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4 flex items-start justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Lịch của tôi</h1>
+          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Lịch dạy</h1>
           <p className="text-xs text-slate-500 mt-1">Tổng hợp mọi buổi dạy của bạn qua tất cả các lớp đang phụ trách.</p>
         </div>
         <div className="flex items-center gap-1 bg-slate-100 border border-slate-200 rounded-xl p-1">

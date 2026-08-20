@@ -13,6 +13,7 @@ import vn.com.pps.education.domain.Permission;
 import vn.com.pps.education.domain.Role;
 import vn.com.pps.education.domain.Site;
 import vn.com.pps.education.domain.SiteManager;
+import vn.com.pps.education.domain.SitePeriodTemplate;
 import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.domain.UserPermissionOverride;
@@ -97,6 +98,9 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
     private SiteRepository siteRepository;
 
     @Autowired
+    private vn.com.pps.education.repository.SitePeriodTemplateRepository sitePeriodTemplateRepository;
+
+    @Autowired
     private StudentRepository studentRepository;
 
     @Autowired
@@ -151,7 +155,8 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
         // markAttendance() giờ đòi buổi đang TRONG khung giờ diễn ra [startTime, endTime] (xem
         // requireWithinSessionWindow), giờ cố định làm phần lớn test ở file này flaky theo giờ chạy CI.
         session = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(LocalDate.now(), LocalTime.now().minusMinutes(1), LocalTime.now().plusHours(2), null, "REGULAR", "VIETNAMESE", null),
+                new CreateClassSessionRequest(LocalDate.now(), "MORNING", List.of(1), null, "REGULAR", "VIETNAMESE",
+                        teacher.getId(), null, null, null),
                 headAcademic.getId());
 
         student1 = newStudent();
@@ -459,7 +464,8 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
         classService.assignTeacher(schoolClass.id(),
                 new AssignTeacherRequest(siteTeacher.getId(), "PRIMARY", null, LocalDate.now(), "VIETNAMESE"), headAcademic.getId());
         ClassSessionResponse newSession = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(LocalDate.now(), LocalTime.now().minusMinutes(1), LocalTime.now().plusHours(2), null, "REGULAR", "VIETNAMESE", null),
+                new CreateClassSessionRequest(LocalDate.now(), "MORNING", List.of(1), null, "REGULAR", "VIETNAMESE",
+                        siteTeacher.getId(), null, null, null),
                 headAcademic.getId());
         studentAttendanceService.markAttendance(newSession.id(),
                 new MarkAttendanceRequest("SESSION_LEVEL", List.of(
@@ -495,7 +501,8 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
         classService.assignTeacher(schoolClass.id(),
                 new AssignTeacherRequest(siteTeacher.getId(), "PRIMARY", null, LocalDate.now(), "VIETNAMESE"), headAcademic.getId());
         ClassSessionResponse newSession = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(LocalDate.now(), LocalTime.now().minusMinutes(1), LocalTime.now().plusHours(2), null, "REGULAR", "VIETNAMESE", null),
+                new CreateClassSessionRequest(LocalDate.now(), "MORNING", List.of(1), null, "REGULAR", "VIETNAMESE",
+                        siteTeacher.getId(), null, null, null),
                 headAcademic.getId());
         studentAttendanceService.markAttendance(newSession.id(),
                 new MarkAttendanceRequest("SESSION_LEVEL", List.of(
@@ -621,7 +628,17 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
         s.setCode("SITE-" + SEQ.incrementAndGet());
         s.setName("Test Site");
         s.setSiteType(Site.SiteType.OWNED);
-        return siteRepository.save(s);
+        s = siteRepository.save(s);
+        // Bổ sung ngoài SDD gốc, xác nhận 2026-08-19 — tiết 1 bao quanh NGAY LÚC NÀY rộng rãi (khớp
+        // mọi biến thể now-1min..now+2h dùng trong file này), thay cho chia đều theo phút cũ.
+        SitePeriodTemplate template = new SitePeriodTemplate();
+        template.setSite(s);
+        template.setPeriodNumber(1);
+        template.setStartTime(LocalTime.now().minusMinutes(5));
+        template.setEndTime(LocalTime.now().plusHours(3));
+        template.setCreatedBy(headAcademic);
+        sitePeriodTemplateRepository.save(template);
+        return s;
     }
 
     private Student newStudent() {

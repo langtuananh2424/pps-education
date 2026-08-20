@@ -71,7 +71,7 @@ public class GlobalExceptionHandler {
             DuplicateQuestionContentException.class, DuplicateAcademicYearCodeException.class,
             ReviewVideoQuestionOverlapException.class, DuplicateShiftCodeException.class,
             WorkCalendarOverrideAlreadyExistsException.class, ShiftAssignmentOverlapException.class,
-            EmployeeShiftAlreadyEndedException.class})
+            EmployeeShiftAlreadyEndedException.class, DuplicateSitePeriodNumberException.class})
     public ResponseEntity<Object> handleConflict(RuntimeException ex) {
         return error(HttpStatus.CONFLICT, ex.getMessage());
     }
@@ -101,7 +101,7 @@ public class GlobalExceptionHandler {
             MissingLessonContentException.class, MissingCommentContentException.class, HomeworkNextConflictException.class,
             NoUpcomingClassSessionException.class, VideoNotYetQualifiedException.class,
             QuizAlreadyCompletedException.class, ListeningHintNotUnlockedException.class,
-            ClassSessionNotCheckableException.class})
+            ClassSessionNotCheckableException.class, SitePeriodTemplateNotDeletableException.class})
     public ResponseEntity<Object> handleClassSetupRejected(RuntimeException ex) {
         return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
     }

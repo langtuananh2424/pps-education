@@ -6,8 +6,12 @@ import vn.com.pps.education.common.ExcelExportHelper;
 import vn.com.pps.education.domain.AcademicTerm;
 import vn.com.pps.education.domain.ClassEnrollment;
 import vn.com.pps.education.domain.SchoolClass;
+import vn.com.pps.education.domain.Site;
 import vn.com.pps.education.domain.SiteManager;
 import vn.com.pps.education.dto.EnrollmentMovementClassRow;
+import vn.com.pps.education.dto.EnrollmentMovementGridColumn;
+import vn.com.pps.education.dto.EnrollmentMovementGridResponse;
+import vn.com.pps.education.dto.EnrollmentMovementGridRow;
 import vn.com.pps.education.dto.EnrollmentMovementStatsResponse;
 import vn.com.pps.education.dto.EnrollmentMovementTrendPoint;
 import vn.com.pps.education.dto.EnrollmentMovementTrendResponse;
@@ -17,10 +21,14 @@ import vn.com.pps.education.repository.AcademicTermRepository;
 import vn.com.pps.education.repository.ClassEnrollmentRepository;
 import vn.com.pps.education.repository.SchoolClassRepository;
 import vn.com.pps.education.repository.SiteManagerRepository;
+import vn.com.pps.education.repository.SiteRepository;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * UC-69: Thống kê biến động học sinh các lớp theo kỳ (FR-ACA-09, bổ sung
@@ -28,45 +36,59 @@ import java.util.List;
  * docs/uc/phan-he-06-hoc-thuat.md.
  * <p>
  * Thuần đọc/báo cáo — dữ liệu TÍNH RA (derived) từ {@code class_enrollments}
- * lọc theo [startDate, endDate] của {@code academic_terms} (kỳ luôn gắn 1
- * điểm trường), giống cách "Hồ sơ lớp/học sinh theo kỳ" đã mô tả ở
- * docs/sdd-groups/06-hoc-thuat.md mục c) — không có bảng snapshot riêng.
+ * lọc theo [startDate, endDate], giống cách "Hồ sơ lớp/học sinh theo kỳ" đã
+ * mô tả ở docs/sdd-groups/06-hoc-thuat.md mục c) — không có bảng snapshot
+ * riêng.
+ * <p>
+ * Mở rộng ngoài SDD gốc (xác nhận với người dùng 2026-08-20): ngoài "theo
+ * kỳ" (gắn 1 {@code academic_terms}) giờ còn xem được "theo tháng"/"theo
+ * năm" — {@link #getStatsForRange}/{@link #getTrendForRange} tổng quát hoá
+ * cùng logic tính toán (computeRow/sumTotals) cho BẤT KỲ khoảng ngày nào
+ * thuộc 1 điểm trường, không còn bắt buộc phải khớp đúng 1 academic_term.
+ * "theo kỳ" (getStats/getTrend) giữ nguyên, chỉ là 1 lớp mỏng gọi lại
+ * getStatsForRange/getTrendForRange với khoảng ngày của kỳ đó.
  */
 @Service
 public class EnrollmentMovementReportService {
 
-    private static final String PERM_ENROLLMENT_STATS_VIEW = "report.enrollment-stats.view";
-
     private final AcademicTermRepository academicTermRepository;
     private final SchoolClassRepository schoolClassRepository;
     private final ClassEnrollmentRepository classEnrollmentRepository;
+    private final SiteRepository siteRepository;
     private final SiteManagerRepository siteManagerRepository;
-    private final PermissionEvaluationService permissionEvaluationService;
 
     public EnrollmentMovementReportService(AcademicTermRepository academicTermRepository,
                                             SchoolClassRepository schoolClassRepository,
                                             ClassEnrollmentRepository classEnrollmentRepository,
-                                            SiteManagerRepository siteManagerRepository,
-                                            PermissionEvaluationService permissionEvaluationService) {
+                                            SiteRepository siteRepository,
+                                            SiteManagerRepository siteManagerRepository) {
         this.academicTermRepository = academicTermRepository;
         this.schoolClassRepository = schoolClassRepository;
         this.classEnrollmentRepository = classEnrollmentRepository;
+        this.siteRepository = siteRepository;
         this.siteManagerRepository = siteManagerRepository;
-        this.permissionEvaluationService = permissionEvaluationService;
     }
 
     @Transactional(readOnly = true)
     public EnrollmentMovementStatsResponse getStats(Long academicTermId, Long classId, Long actorUserId) {
         AcademicTerm term = getTermInScope(academicTermId, actorUserId);
-        List<SchoolClass> classes = resolveClasses(term, classId);
+        return getStatsForRange(term.getSite().getId(), term.getStartDate(), term.getEndDate(), classId,
+                actorUserId, "TERM", term.getId(), term.getName());
+    }
+
+    @Transactional(readOnly = true)
+    public EnrollmentMovementStatsResponse getStatsForRange(Long siteId, LocalDate start, LocalDate end, Long classId,
+                                                              Long actorUserId, String periodType, Long academicTermId,
+                                                              String periodLabel) {
+        Site site = getSiteInScope(siteId, actorUserId);
+        List<SchoolClass> classes = resolveClasses(site, classId);
 
         List<EnrollmentMovementClassRow> rows = classes.stream()
-                .map(sc -> computeRow(sc, term.getStartDate(), term.getEndDate()))
+                .map(sc -> computeRow(sc, start, end))
                 .toList();
 
         return new EnrollmentMovementStatsResponse(
-                term.getId(), term.getName(), term.getStartDate(), term.getEndDate(),
-                term.getSite().getId(), term.getSite().getName(), rows, sumTotals(rows));
+                periodType, academicTermId, periodLabel, start, end, site.getId(), site.getName(), rows, sumTotals(rows));
     }
 
     /**
@@ -80,15 +102,24 @@ public class EnrollmentMovementReportService {
     @Transactional(readOnly = true)
     public EnrollmentMovementTrendResponse getTrend(Long academicTermId, Long classId, Long actorUserId) {
         AcademicTerm term = getTermInScope(academicTermId, actorUserId);
-        List<SchoolClass> classes = resolveClasses(term, classId);
+        return getTrendForRange(term.getSite().getId(), term.getStartDate(), term.getEndDate(), classId,
+                actorUserId, "TERM", term.getId(), term.getName());
+    }
+
+    @Transactional(readOnly = true)
+    public EnrollmentMovementTrendResponse getTrendForRange(Long siteId, LocalDate start, LocalDate end, Long classId,
+                                                              Long actorUserId, String periodType, Long academicTermId,
+                                                              String periodLabel) {
+        Site site = getSiteInScope(siteId, actorUserId);
+        List<SchoolClass> classes = resolveClasses(site, classId);
 
         List<EnrollmentMovementTrendPoint> points = new ArrayList<>();
-        LocalDate cursor = term.getStartDate();
+        LocalDate cursor = start;
         int monthIndex = 1;
-        while (!cursor.isAfter(term.getEndDate())) {
+        while (!cursor.isAfter(end)) {
             LocalDate periodStart = cursor;
             LocalDate monthEnd = cursor.withDayOfMonth(cursor.lengthOfMonth());
-            LocalDate periodEnd = monthEnd.isAfter(term.getEndDate()) ? term.getEndDate() : monthEnd;
+            LocalDate periodEnd = monthEnd.isAfter(end) ? end : monthEnd;
 
             EnrollmentMovementClassRow aggregate = sumTotals(classes.stream()
                     .map(sc -> computeRow(sc, periodStart, periodEnd))
@@ -102,8 +133,64 @@ public class EnrollmentMovementReportService {
             cursor = periodEnd.plusDays(1);
         }
 
-        return new EnrollmentMovementTrendResponse(term.getId(), term.getName(), term.getStartDate(), term.getEndDate(),
-                term.getSite().getId(), term.getSite().getName(), points);
+        return new EnrollmentMovementTrendResponse(
+                periodType, academicTermId, periodLabel, start, end, site.getId(), site.getName(), points);
+    }
+
+    /**
+     * Lưới tổng quan "biến động học sinh" (bổ sung ngoài SDD gốc, xác nhận
+     * với người dùng 2026-08-20) — hàng đầu là các tháng/kỳ/năm (theo
+     * periodType), cột đầu là từng lớp, mỗi ô là sĩ số cuối đoạn
+     * (closingHeadcount) của đúng lớp đó tại đúng cột đó. periodType=MONTH
+     * cần thêm year (mặc định năm hiện tại) để biết hiển thị 12 tháng của
+     * năm nào; periodType=YEAR hiển thị 6 năm gần nhất (năm hiện tại và 5
+     * năm trước); periodType=TERM hiển thị TẤT CẢ kỳ học của điểm trường,
+     * sắp theo startDate tăng dần.
+     */
+    @Transactional(readOnly = true)
+    public EnrollmentMovementGridResponse getGrid(Long siteId, String periodType, Integer year, Long classId, Long actorUserId) {
+        Site site = getSiteInScope(siteId, actorUserId);
+        List<SchoolClass> classes = resolveClasses(site, classId);
+        List<EnrollmentMovementGridColumn> columns = buildGridColumns(periodType, year, site);
+
+        List<EnrollmentMovementGridRow> rows = classes.stream()
+                .map(sc -> {
+                    Map<String, Integer> headcountByColumnKey = new LinkedHashMap<>();
+                    for (EnrollmentMovementGridColumn column : columns) {
+                        headcountByColumnKey.put(column.key(), computeRow(sc, column.startDate(), column.endDate()).closingHeadcount());
+                    }
+                    return new EnrollmentMovementGridRow(sc.getId(), sc.getClassCode(), sc.getName(), headcountByColumnKey);
+                })
+                .toList();
+
+        return new EnrollmentMovementGridResponse(periodType, site.getId(), site.getName(), columns, rows);
+    }
+
+    private List<EnrollmentMovementGridColumn> buildGridColumns(String periodType, Integer year, Site site) {
+        if ("MONTH".equals(periodType)) {
+            int y = year != null ? year : LocalDate.now().getYear();
+            List<EnrollmentMovementGridColumn> columns = new ArrayList<>();
+            for (int m = 1; m <= 12; m++) {
+                LocalDate start = LocalDate.of(y, m, 1);
+                LocalDate end = start.withDayOfMonth(start.lengthOfMonth());
+                columns.add(new EnrollmentMovementGridColumn(String.format("%04d-%02d", y, m), "T" + m, start, end));
+            }
+            return columns;
+        }
+        if ("YEAR".equals(periodType)) {
+            int currentYear = LocalDate.now().getYear();
+            List<EnrollmentMovementGridColumn> columns = new ArrayList<>();
+            for (int y = currentYear - 5; y <= currentYear; y++) {
+                columns.add(new EnrollmentMovementGridColumn(String.valueOf(y), String.valueOf(y),
+                        LocalDate.of(y, 1, 1), LocalDate.of(y, 12, 31)));
+            }
+            return columns;
+        }
+        // TERM — tất cả kỳ học của điểm trường, sắp tăng dần theo startDate để đọc trái->phải theo thời gian.
+        return academicTermRepository.findBySiteIdOrderByStartDateDesc(site.getId()).stream()
+                .sorted(Comparator.comparing(AcademicTerm::getStartDate))
+                .map(t -> new EnrollmentMovementGridColumn(String.valueOf(t.getId()), t.getName(), t.getStartDate(), t.getEndDate()))
+                .toList();
     }
 
     private AcademicTerm getTermInScope(Long academicTermId, Long actorUserId) {
@@ -113,23 +200,41 @@ public class EnrollmentMovementReportService {
         return term;
     }
 
-    private List<SchoolClass> resolveClasses(AcademicTerm term, Long classId) {
+    private Site getSiteInScope(Long siteId, Long actorUserId) {
+        Site site = siteRepository.findById(siteId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy điểm trường id=" + siteId));
+        requireSiteScope(siteId, actorUserId);
+        return site;
+    }
+
+    private List<SchoolClass> resolveClasses(Site site, Long classId) {
         if (classId != null) {
             SchoolClass schoolClass = schoolClassRepository.findByIdAndDeletedAtIsNull(classId)
                     .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học id=" + classId));
-            if (!schoolClass.getSite().getId().equals(term.getSite().getId())) {
+            if (!schoolClass.getSite().getId().equals(site.getId())) {
                 throw new ResourceNotFoundException(
-                        "Lớp id=" + classId + " không thuộc điểm trường của kỳ học id=" + term.getId() + ".");
+                        "Lớp id=" + classId + " không thuộc điểm trường id=" + site.getId() + ".");
             }
             return List.of(schoolClass);
         }
-        return schoolClassRepository.findBySiteIdAndDeletedAtIsNull(term.getSite().getId());
+        return schoolClassRepository.findBySiteIdAndDeletedAtIsNull(site.getId());
     }
 
     @Transactional(readOnly = true)
     public byte[] exportStatsExcel(Long academicTermId, Long classId, Long actorUserId) {
         EnrollmentMovementStatsResponse stats = getStats(academicTermId, classId, actorUserId);
+        return exportStatsExcel(stats);
+    }
 
+    @Transactional(readOnly = true)
+    public byte[] exportStatsExcelForRange(Long siteId, LocalDate start, LocalDate end, Long classId, Long actorUserId,
+                                            String periodType, String periodLabel) {
+        EnrollmentMovementStatsResponse stats = getStatsForRange(siteId, start, end, classId, actorUserId,
+                periodType, null, periodLabel);
+        return exportStatsExcel(stats);
+    }
+
+    private byte[] exportStatsExcel(EnrollmentMovementStatsResponse stats) {
         List<String> headers = List.of("Mã lớp", "Tên lớp", "Sĩ số đầu kỳ", "Nhập học mới",
                 "Nghỉ/rút", "Chuyển lớp", "Hoàn thành", "Sĩ số cuối kỳ");
         List<List<Object>> rows = stats.classes().stream()
@@ -139,7 +244,7 @@ public class EnrollmentMovementReportService {
 
         EnrollmentMovementClassRow totals = stats.totals();
         List<String> notes = List.of(
-                "Kỳ: " + stats.academicTermName() + " (" + stats.startDate() + " - " + stats.endDate() + ")",
+                "Kỳ: " + stats.periodLabel() + " (" + stats.startDate() + " - " + stats.endDate() + ")",
                 "Điểm trường: " + stats.siteName(),
                 "Tổng sĩ số đầu kỳ: " + totals.openingHeadcount(),
                 "Tổng nhập học mới: " + totals.newEnrollments(),
@@ -148,7 +253,7 @@ public class EnrollmentMovementReportService {
                 "Tổng hoàn thành: " + totals.completedCount(),
                 "Tổng sĩ số cuối kỳ: " + totals.closingHeadcount());
 
-        return ExcelExportHelper.buildWorkbook("Biến động học sinh theo kỳ", headers, rows, notes);
+        return ExcelExportHelper.buildWorkbook("Biến động học sinh", headers, rows, notes);
     }
 
     // ===================== Helpers =====================

@@ -6,6 +6,7 @@ import { setupPushNotifications, teardownPushNotifications } from "@/lib/pushNot
 import { deriveCurrentRoleLabel, rolePriorityOrder } from "@/constants/roles";
 
 const CURRENT_USER_CACHE_KEY = "pps_current_user";
+const SIDEBAR_COLLAPSED_CACHE_KEY = "pps_sidebar_collapsed";
 
 /** Bổ sung 2026-08-17 — kết quả gọi "Lưu tạm & rời đi": Sidebar cần biết CÓ lưu được không (điều
  *  hướng đi hay ở lại) và VÌ SAO nếu không (hiện thẳng trong popup xác nhận — luôn nổi giữa màn hình
@@ -26,9 +27,14 @@ interface AppContextValue {
   /** Lớp đang chọn ở Header (cạnh Điểm trường) — dùng chung cho mọi trang cần lọc theo lớp (Sổ điểm, Điểm danh, Giao đề, Nhận xét, Kho bài giảng...), không phải chọn lại mỗi trang. */
   selectedClassId: number | null;
   sidebarOpen: boolean;
+  /** Thu gọn Sidebar thành dải icon dọc (bổ sung ngoài SDD gốc, xác nhận 2026-08-20) — bấm vào logo để
+   *  bật/tắt, khác sidebarOpen (chỉ dùng cho drawer overlay trên mobile). Logo đổi thành icon Pin khi
+   *  đang thu gọn. Lưu localStorage để nhớ lựa chọn qua các lần tải lại trang. */
+  sidebarCollapsed: boolean;
   setSelectedCampusId: (id: string) => void;
   setSelectedClassId: (id: number | null) => void;
   setSidebarOpen: (open: boolean) => void;
+  setSidebarCollapsed: (collapsed: boolean) => void;
   loginNotice: string | null;
   login: (usernameOrEmail: string, password: string) => Promise<void>;
   loginWithGoogle: (idToken: string) => Promise<void>;
@@ -74,6 +80,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [selectedCampusId, setSelectedCampusIdState] = useState("ALL");
   const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsedState] = useState(() => localStorage.getItem(SIDEBAR_COLLAPSED_CACHE_KEY) === "true");
+  const setSidebarCollapsed = (collapsed: boolean) => {
+    setSidebarCollapsedState(collapsed);
+    localStorage.setItem(SIDEBAR_COLLAPSED_CACHE_KEY, String(collapsed));
+  };
 
   // Đổi điểm trường thì lớp đang chọn (thuộc site cũ) không còn hợp lệ — reset để tránh lọc nhầm.
   const setSelectedCampusId = (id: string) => {
@@ -150,9 +161,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       selectedCampusId,
       selectedClassId,
       sidebarOpen,
+      sidebarCollapsed,
       setSelectedCampusId,
       setSelectedClassId,
       setSidebarOpen,
+      setSidebarCollapsed,
       loginNotice,
       login,
       loginWithGoogle,
@@ -162,7 +175,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setUnsavedChanges,
       saveUnsavedChanges
     }),
-    [isLoggedIn, currentUser, currentRole, currentRoleLabel, selectedCampusId, selectedClassId, sidebarOpen, loginNotice, hasUnsavedChanges]
+    [
+      isLoggedIn,
+      currentUser,
+      currentRole,
+      currentRoleLabel,
+      selectedCampusId,
+      selectedClassId,
+      sidebarOpen,
+      sidebarCollapsed,
+      loginNotice,
+      hasUnsavedChanges
+    ]
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

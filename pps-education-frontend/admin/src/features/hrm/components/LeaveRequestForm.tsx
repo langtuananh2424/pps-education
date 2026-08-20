@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { PlusCircle, Repeat } from "lucide-react";
 import DatePicker from "@/components/ui/DatePicker";
 import Select from "@/components/ui/Select";
+import Time24Input from "@/components/ui/Time24Input";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import { UserRole } from "@/types";
@@ -170,11 +171,11 @@ export default function LeaveRequestForm({ onSubmitted }: LeaveRequestFormProps)
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Giờ bắt đầu</label>
-              <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none" />
+              <Time24Input value={startTime} onChange={setStartTime} className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none" />
             </div>
             <div className="space-y-1">
               <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Giờ kết thúc</label>
-              <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none" />
+              <Time24Input value={endTime} onChange={setEndTime} className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none" />
             </div>
           </div>
         )}

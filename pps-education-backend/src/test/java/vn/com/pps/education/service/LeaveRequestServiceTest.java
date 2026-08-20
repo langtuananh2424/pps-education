@@ -10,6 +10,7 @@ import vn.com.pps.education.domain.Employee;
 import vn.com.pps.education.domain.Role;
 import vn.com.pps.education.domain.Room;
 import vn.com.pps.education.domain.Site;
+import vn.com.pps.education.domain.SitePeriodTemplate;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.domain.UserRole;
 import vn.com.pps.education.dto.ClassResponse;
@@ -33,6 +34,7 @@ import vn.com.pps.education.repository.EmployeeRepository;
 import vn.com.pps.education.repository.LeaveSubstitutionRepository;
 import vn.com.pps.education.repository.RoleRepository;
 import vn.com.pps.education.repository.RoomRepository;
+import vn.com.pps.education.repository.SitePeriodTemplateRepository;
 import vn.com.pps.education.repository.SiteRepository;
 import vn.com.pps.education.repository.UserRepository;
 import vn.com.pps.education.repository.UserRoleRepository;
@@ -71,6 +73,9 @@ class LeaveRequestServiceTest extends AbstractIntegrationTest {
 
     @Autowired
     private SiteRepository siteRepository;
+
+    @Autowired
+    private SitePeriodTemplateRepository sitePeriodTemplateRepository;
 
     @Autowired
     private RoomRepository roomRepository;
@@ -399,9 +404,22 @@ class LeaveRequestServiceTest extends AbstractIntegrationTest {
         Room room = newRoom(site);
         classService.assignTeacher(schoolClass.id(),
                 new AssignTeacherRequest(teacherUser.getId(), "PRIMARY", null, LocalDate.now(), "VIETNAMESE"), headAcademic.getId());
+        seedPeriod(site, 1, startTime, startTime.plusMinutes(100), headAcademic);
 
         return classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(sessionDate, startTime, startTime.plusMinutes(100), room.getId(), "REGULAR", "VIETNAMESE", null), headAcademic.getId());
+                new CreateClassSessionRequest(sessionDate, "MORNING", List.of(1), room.getId(), "REGULAR", "VIETNAMESE",
+                        teacherUser.getId(), null, null, null), headAcademic.getId());
+    }
+
+    /** Bổ sung ngoài SDD gốc, xác nhận 2026-08-19 — session_periods giờ sinh từ site_period_templates thay vì chia đều theo phút. */
+    private void seedPeriod(Site site, int periodNumber, LocalTime start, LocalTime end, User createdBy) {
+        SitePeriodTemplate template = new SitePeriodTemplate();
+        template.setSite(site);
+        template.setPeriodNumber(periodNumber);
+        template.setStartTime(start);
+        template.setEndTime(end);
+        template.setCreatedBy(createdBy);
+        sitePeriodTemplateRepository.save(template);
     }
 
     private String curriculumCode() {
