@@ -673,9 +673,14 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         assertThat(retry.attemptNumber()).isEqualTo(2);
     }
 
-    /** V89: đạt ngưỡng -> đóng bản giao (COMPLETED), không còn hiện "cần làm lại". */
+    /**
+     * V89 (điều chỉnh 2026-08-19): đạt ngưỡng nhưng ĐỀ CÒN LƯỢT làm lại
+     * (allowRetake=true, maxAttempts=null = không giới hạn) -> bản giao vẫn
+     * ACTIVE, học sinh tự nguyện làm lại được để thử điểm cao hơn (VD đạt
+     * 80% muốn thử lại lấy 100%) — không còn tự đóng bản giao ngay khi đạt.
+     */
     @Test
-    void submitAttempt_boSung_atOrAboveThresholdMarksPassedAndCompletesAssignment() {
+    void submitAttempt_boSung_atOrAboveThresholdKeepsAssignmentActiveWhenRetakeAvailable() {
         QuestionResponse mc1 = createMcQuestion();
         QuestionResponse mc2 = createMcQuestion();
         ExerciseResponse exercise = exerciseService.createExercise(
@@ -693,6 +698,37 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         ExerciseAttemptResponse submitted = exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
 
         assertThat(submitted.percentage()).isEqualByComparingTo("100.00");
+        assertThat(submitted.passed()).isTrue();
+        ExerciseAssignment refreshed = exerciseAssignmentRepository.findById(assignment.getId()).orElseThrow();
+        assertThat(refreshed.getStatus()).isEqualTo(ExerciseAssignment.Status.ACTIVE);
+
+        ExerciseAttemptResponse retry = exerciseAttemptService.startAttempt(exercise.id(), assignment.getId(), studentUser.getId());
+        assertThat(retry.attemptNumber()).isEqualTo(2);
+    }
+
+    /**
+     * V89 (điều chỉnh 2026-08-19): đạt ngưỡng và ĐÃ HẾT lượt làm lại
+     * (maxAttempts=1) -> đóng bản giao (COMPLETED) như cũ, vì không còn lượt
+     * nào để làm lại nữa (khác trường hợp còn lượt ở test phía trên).
+     */
+    @Test
+    void submitAttempt_boSung_atOrAboveThresholdCompletesAssignmentWhenNoAttemptsLeft() {
+        QuestionResponse mc1 = createMcQuestion();
+        QuestionResponse mc2 = createMcQuestion();
+        ExerciseResponse exercise = exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "BTVN", defaultExam.id(), null, "SELF_PRACTICE",
+                        new BigDecimal("2"), null, true, 1, true), teacher.getId());
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc1.id(), 1, new BigDecimal("1.0")), teacher.getId());
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc2.id(), 2, new BigDecimal("1.0")), teacher.getId());
+        examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
+        commitCurrentTransactionAndStartNew();
+        ExerciseAssignment assignment = exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId());
+
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), assignment.getId(), studentUser.getId());
+        answerCorrectly(attempt.id(), mc1);
+        answerCorrectly(attempt.id(), mc2);
+        ExerciseAttemptResponse submitted = exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
+
         assertThat(submitted.passed()).isTrue();
         ExerciseAssignment refreshed = exerciseAssignmentRepository.findById(assignment.getId()).orElseThrow();
         assertThat(refreshed.getStatus()).isEqualTo(ExerciseAssignment.Status.COMPLETED);
@@ -718,8 +754,10 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         ExerciseAttemptResponse submitted = exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
 
         assertThat(submitted.passed()).isTrue();
+        // Đề còn lượt làm lại (allowRetake=true, maxAttempts=null) -> bản giao vẫn ACTIVE, xem
+        // submitAttempt_boSung_atOrAboveThresholdKeepsAssignmentActiveWhenRetakeAvailable ở trên.
         ExerciseAssignment refreshed = exerciseAssignmentRepository.findById(assignment.getId()).orElseThrow();
-        assertThat(refreshed.getStatus()).isEqualTo(ExerciseAssignment.Status.COMPLETED);
+        assertThat(refreshed.getStatus()).isEqualTo(ExerciseAssignment.Status.ACTIVE);
     }
 
     /** V89/V100: không truyền passThresholdPercent khi tạo Bài -> mặc định 70%. */

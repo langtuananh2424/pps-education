@@ -274,17 +274,24 @@ public class ExerciseAttemptService {
     }
 
     /**
-     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05: BTVN dưới
-     * ngưỡng đạt ({@code exercises.pass_threshold_percent}, mặc định 70% từ V100,
-     * cấu hình theo từng Bài) phải làm lại — áp dụng cho MỌI exerciseType học
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05 (điều
+     * chỉnh lại 2026-08-19): BTVN dưới ngưỡng đạt
+     * ({@code exercises.pass_threshold_percent}, mặc định 70% từ V100, cấu
+     * hình theo từng Bài) phải làm lại — áp dụng cho MỌI exerciseType học
      * sinh làm (không riêng ASSIGNED). Tính % + đánh dấu passed ngay khi lượt
      * làm bài về FULLY_GRADED (đã chấm xong toàn bộ, kể cả phần chấm tay —
-     * gọi lại từ ManualGradingService#recomputeAttemptTotals). Nếu ĐẠT: đóng
-     * bản giao ({@link ExerciseAssignment.Status#COMPLETED}) — học sinh không
-     * cần làm lại nữa; nếu CHƯA ĐẠT: giữ bản giao ACTIVE để học sinh vẫn thấy
-     * "cần làm lại" trong listMyAssignedExercises — chỉ giới hạn bởi
-     * allowRetake/maxAttempts giáo viên đã cấu hình sẵn (không tự nới thêm
-     * lượt để "ép" làm lại bằng mọi giá, xem RetakeNotAllowedException).
+     * gọi lại từ ManualGradingService#recomputeAttemptTotals). Nếu ĐẠT
+     * NHƯNG vẫn còn lượt làm lại (allowRetake=true và chưa hết maxAttempts):
+     * giữ bản giao ACTIVE — học sinh có thể tự nguyện làm lại để thử điểm
+     * cao hơn (KHÔNG bắt buộc, chỉ là còn quyền truy cập). Nếu ĐẠT và đã hết
+     * lượt (allowRetake=false hoặc đã dùng hết maxAttempts): đóng bản giao
+     * ({@link ExerciseAssignment.Status#COMPLETED}). Nếu CHƯA ĐẠT: luôn giữ
+     * bản giao ACTIVE để học sinh vẫn thấy "cần làm lại" trong
+     * listMyAssignedExercises — chỉ giới hạn bởi allowRetake/maxAttempts
+     * giáo viên đã cấu hình sẵn (không tự nới thêm lượt để "ép" làm lại bằng
+     * mọi giá, xem RetakeNotAllowedException).
+     * Trước 2026-08-19, ĐẠT luôn đóng bản giao ngay cả khi còn lượt, khiến
+     * học sinh đạt 80% (trên ngưỡng) không thể tự làm lại để thử đạt 100%.
      */
     ExerciseAttempt applyPassOutcome(ExerciseAttempt attempt) {
         if (attempt.getStatus() != ExerciseAttempt.Status.FULLY_GRADED || attempt.getTotalScore() == null) {
@@ -298,8 +305,12 @@ public class ExerciseAttemptService {
 
         ExerciseAssignment assignment = attempt.getExerciseAssignment();
         if (passed && assignment != null && assignment.getStatus() == ExerciseAssignment.Status.ACTIVE) {
-            assignment.setStatus(ExerciseAssignment.Status.COMPLETED);
-            exerciseAssignmentRepository.save(assignment);
+            boolean hasRetakeLeft = exercise.isAllowRetake()
+                    && (exercise.getMaxAttempts() == null || attempt.getAttemptNumber() < exercise.getMaxAttempts());
+            if (!hasRetakeLeft) {
+                assignment.setStatus(ExerciseAssignment.Status.COMPLETED);
+                exerciseAssignmentRepository.save(assignment);
+            }
         }
         return attempt;
     }

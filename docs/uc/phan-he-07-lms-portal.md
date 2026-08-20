@@ -664,6 +664,32 @@ UC-24: Làm bài kiểm tra trực tuyến
 |                 |     được (trắc nghiệm/điền khuyết...) --- câu tự   |
 |                 |     luận/Nói chưa áp dụng, tiếp tục theo luồng chờ |
 |                 |     Giáo viên chấm thủ công hiện có (UC-41).        |
+|                 |                                                    |
+|                 | ***A5 --- Ngưỡng đạt (pass threshold)*** (bổ sung  |
+|                 | ngoài SDD gốc, đã xác nhận với người dùng          |
+|                 | 2026-08-05, điều chỉnh lại 2026-08-19 --- áp dụng   |
+|                 | CHUNG cho UC-24/UC-27)                              |
+|                 |                                                    |
+|                 | 1.  Ngay khi 1 lượt làm được chấm xong toàn bộ, hệ |
+|                 |     thống tính % điểm và so với ngưỡng đạt         |
+|                 |     (`exercises.pass_threshold_percent`, mặc định  |
+|                 |     70%, cấu hình theo từng Bài); đánh dấu lượt làm |
+|                 |     đó ĐẠT/CHƯA ĐẠT.                                |
+|                 |                                                    |
+|                 | 2.  Nếu ĐẠT và đề CÒN lượt làm lại (cho phép làm   |
+|                 |     lại + chưa dùng hết `max_attempts`), bản giao   |
+|                 |     vẫn giữ mở --- Học sinh có thể TỰ NGUYỆN làm    |
+|                 |     lại thêm để thử đạt điểm cao hơn (không bắt     |
+|                 |     buộc).                                          |
+|                 |                                                    |
+|                 | 3.  Nếu ĐẠT và đề đã HẾT lượt làm lại (không cho    |
+|                 |     làm lại, hoặc đã dùng hết `max_attempts`), hệ   |
+|                 |     thống đóng bản giao --- Học sinh không làm lại  |
+|                 |     được nữa.                                       |
+|                 |                                                    |
+|                 | 4.  Nếu CHƯA ĐẠT, bản giao luôn giữ mở để Học sinh  |
+|                 |     làm lại, chỉ giới hạn bởi cho phép làm lại/     |
+|                 |     `max_attempts` đã cấu hình (xem A2).            |
 +-----------------+----------------------------------------------------+
 | **Hậu điều kiện | -   Bài làm được lưu, phần trắc nghiệm có điểm     |
 | (P              |     ngay; phần tự luận/Nói (nếu có) chờ chấm thủ   |
@@ -675,6 +701,10 @@ UC-24: Làm bài kiểm tra trực tuyến
 |                 | -   Nếu đề có giới hạn số lần làm lại, đáp án đúng |
 |                 |     + giải thích chỉ hiển thị từ lượt làm cuối     |
 |                 |     cùng (bằng max_attempts) trở đi.                |
+|                 |                                                    |
+|                 | -   Nếu ĐẠT ngưỡng và còn lượt làm lại, bản giao    |
+|                 |     vẫn ACTIVE (xem A5); chỉ đóng khi ĐẠT VÀ hết    |
+|                 |     lượt làm lại.                                   |
 +-----------------+----------------------------------------------------+
 
 > **Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31 — giám
@@ -1047,6 +1077,12 @@ UC-27: Làm bài tập/đề ôn tập
 |                 |     max_attempts trở đi; nếu không giới hạn thì    |
 |                 |     hiện ngay sau khi nộp; không áp dụng cho câu   |
 |                 |     tự luận/Nói --- xem chi tiết ở UC-24).          |
+|                 |                                                    |
+|                 | ***A3 --- Ngưỡng đạt (pass threshold)*** (áp dụng  |
+|                 |     chung quy tắc UC-24/A5: đạt ngưỡng mà còn lượt |
+|                 |     làm lại thì vẫn cho tự nguyện làm lại để thử   |
+|                 |     điểm cao hơn; chỉ khoá khi đạt VÀ hết lượt ---  |
+|                 |     xem chi tiết ở UC-24).                          |
 +-----------------+----------------------------------------------------+
 | **Hậu điều kiện | -   Kết quả luyện tập được lưu vào lịch sử làm bài |
 | (P              |     của Học sinh, không ảnh hưởng tới sổ điểm      |

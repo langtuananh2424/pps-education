@@ -199,15 +199,18 @@ class ExerciseReportServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void listAssignmentStats_UC66_boSung_includesCompletedAssignmentAfterStudentPasses() {
+    void listAssignmentStats_UC66_boSung_includesPassedAssignmentAfterStudentPasses() {
         QuestionResponse mc = createMcQuestion();
         ExerciseAssignment assignment = deliverSelfPracticeExerciseWithQuestion("BTVN đạt", mc);
         ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(assignment.getExercise().getId(), assignment.getId(), studentUser.getId());
         answerCorrectly(attempt.id(), mc);
         exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
 
+        // Đề còn lượt làm lại (allowRetake=true, maxAttempts=null) -> bản giao vẫn ACTIVE (điều
+        // chỉnh 2026-08-19, xem ExerciseAttemptService#applyPassOutcome); report vẫn đọc đúng
+        // passedCount/completionPercent từ attempt.passed, không phụ thuộc assignment.status.
         ExerciseAssignment refreshed = exerciseAssignmentRepository.findById(assignment.getId()).orElseThrow();
-        assertThat(refreshed.getStatus()).isEqualTo(ExerciseAssignment.Status.COMPLETED);
+        assertThat(refreshed.getStatus()).isEqualTo(ExerciseAssignment.Status.ACTIVE);
 
         List<ExerciseAssignmentStatsResponse> stats = exerciseReportService.listAssignmentStats(schoolClass.id(), teacher.getId());
 
