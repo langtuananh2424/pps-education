@@ -337,7 +337,7 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
   const handleSubmit = async () => {
     if (!hasDrafts) return;
     if (assignmentId == null) {
-      setSubmitError("Video này chưa được giao thành BTVN cho bạn — không thể nộp bài.");
+      setSubmitError(t("reflexVideoTask.notAssignedError"));
       return;
     }
     setSubmitting(true);

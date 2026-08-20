@@ -119,6 +119,8 @@
     "submitDraft": "Submit for review",
     "submitting": "Submitting...",
     "editAndResend": "Edit & resend",
+    "versionHistoryTitle": "View version history",
+    "versionHistoryLabel": "History",
     "columns": {
       "studentCode": "Student ID",
       "fullName": "Full name",
@@ -182,6 +184,7 @@
   },
   "dailyCommentPanel": {
     "title": "Daily comments by session",
+    "versionHistoryButton": "Version history",
     "noClassSelected": "No class selected — pick one from the top right (Header) to get started.",
     "sessionSelectPlaceholder": "-- Select a session --",
     "sessionOptionLabel": "Session {{number}} — {{date}} ({{start}}–{{end}})",
@@ -272,6 +275,7 @@
       "teacherTypeSaveFailed": "Failed to save the teacher type.",
       "loadStudentsFailed": "Failed to load the student list.",
       "noDataToSave": "There's no data to save yet.",
+      "savingDraftInProgress": "Saving draft, please wait.",
       "saveDraftFailed": "Failed to save the draft.",
       "unknownReason": "unknown error",
       "unknownError": "Unknown error.",

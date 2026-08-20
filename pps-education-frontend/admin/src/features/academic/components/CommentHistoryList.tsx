@@ -344,11 +344,11 @@ export default function CommentHistoryList({
       <button
         type="button"
         onClick={() => setHistoryFor(h)}
-        title="Xem lịch sử phiên bản"
+        title={t("historyList.versionHistoryTitle")}
         className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-slate-600"
       >
         <History className="w-3.5 h-3.5" />
-        Lịch sử
+        {t("historyList.versionHistoryLabel")}
       </button>
     </>
   );

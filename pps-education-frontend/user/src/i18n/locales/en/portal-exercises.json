@@ -127,6 +127,7 @@
     "micAccessError": "Couldn't access the microphone — check your browser permissions and try again.",
     "questionsLoadError": "Couldn't load the question list.",
     "submitError": "Couldn't submit — please try again.",
+    "notAssignedError": "This video hasn't been assigned to you as homework — you can't submit.",
     "micPermissionError": "Microphone access is required — please allow microphone access (the lock icon in your address bar) and try again.",
     "loadingQuestions": "Loading questions...",
     "noQuestions": "This video doesn't have any questions yet.",

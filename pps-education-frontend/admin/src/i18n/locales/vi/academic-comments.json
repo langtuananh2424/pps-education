@@ -119,6 +119,8 @@
     "submitDraft": "Nộp duyệt",
     "submitting": "Đang nộp...",
     "editAndResend": "Sửa & Gửi lại",
+    "versionHistoryTitle": "Xem lịch sử phiên bản",
+    "versionHistoryLabel": "Lịch sử",
     "columns": {
       "studentCode": "Mã học viên",
       "fullName": "Họ và tên",
@@ -182,6 +184,7 @@
   },
   "dailyCommentPanel": {
     "title": "Nhận xét hàng ngày theo buổi học",
+    "versionHistoryButton": "Lịch sử phiên bản",
     "noClassSelected": "Chưa chọn lớp — chọn ở góc trên bên phải (Header) để bắt đầu.",
     "sessionSelectPlaceholder": "-- Chọn buổi học --",
     "sessionOptionLabel": "Buổi {{number}} — {{date}} ({{start}}–{{end}})",
@@ -272,6 +275,7 @@
       "teacherTypeSaveFailed": "Lưu loại giáo viên thất bại.",
       "loadStudentsFailed": "Không tải được danh sách học sinh.",
       "noDataToSave": "Chưa có dữ liệu nào để lưu.",
+      "savingDraftInProgress": "Đang lưu nháp, vui lòng đợi.",
       "saveDraftFailed": "Lưu nháp thất bại.",
       "unknownReason": "lỗi không xác định",
       "unknownError": "Lỗi không xác định.",

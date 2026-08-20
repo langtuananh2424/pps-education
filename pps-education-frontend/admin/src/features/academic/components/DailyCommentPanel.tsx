@@ -612,7 +612,7 @@ export default function DailyCommentPanel() {
     if (!selectedClassId || !selectedSession) return { ok: true };
     // Chặn bấm chồng (VD double-click nhanh trước khi React kịp render lại nút disabled) — cùng cơ chế
     // idempotent với handleSend bên dưới, phòng race tạo trùng StudentComment (2026-08-19).
-    if (savingDraft) return { ok: false, message: "Đang lưu nháp, vui lòng đợi." };
+    if (savingDraft) return { ok: false, message: t("dailyCommentPanel.errors.savingDraftInProgress") };
     const filled = rows.filter(rowHasAnyData);
     if (filled.length === 0) {
       const message = t("dailyCommentPanel.errors.noDataToSave");
@@ -1144,7 +1144,7 @@ export default function DailyCommentPanel() {
               className="flex items-center gap-1.5 border border-dashed border-slate-300 rounded-lg px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-white"
             >
               <History className="w-3.5 h-3.5" />
-              Lịch sử phiên bản
+              {t("dailyCommentPanel.versionHistoryButton")}
             </button>
 
             {/* "Lưu nháp" (2026-08-14) — phòng giáo viên vô tình thoát khi chưa "Gửi nhận xét" (chỉ ghi
