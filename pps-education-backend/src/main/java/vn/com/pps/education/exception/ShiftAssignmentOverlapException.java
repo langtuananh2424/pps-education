@@ -5,8 +5,30 @@ package vn.com.pps.education.exception;
  * trong tuần + week_parity giao nhau) với 1 ca đang active khác của cùng
  * nhân sự đó.
  */
-public class ShiftAssignmentOverlapException extends RuntimeException {
+public class ShiftAssignmentOverlapException extends RuntimeException implements LocalizedMessage {
+
+    private final String messageKey;
+    private final Object[] messageArgs;
+
     public ShiftAssignmentOverlapException(String message) {
         super(message);
+        this.messageKey = null;
+        this.messageArgs = null;
+    }
+
+    public ShiftAssignmentOverlapException(String messageKey, Object[] messageArgs, String fallbackVi) {
+        super(fallbackVi);
+        this.messageKey = messageKey;
+        this.messageArgs = messageArgs;
+    }
+
+    @Override
+    public String messageKey() {
+        return messageKey;
+    }
+
+    @Override
+    public Object[] messageArgs() {
+        return messageArgs;
     }
 }

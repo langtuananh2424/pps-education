@@ -6,8 +6,30 @@ package vn.com.pps.education.exception;
  * lớp — ném khi lớp chưa có buổi kế tiếp nào trong lịch (buổi cuối
  * khóa/chưa sinh lịch).
  */
-public class NoUpcomingClassSessionException extends RuntimeException {
+public class NoUpcomingClassSessionException extends RuntimeException implements LocalizedMessage {
+
+    private final String messageKey;
+    private final Object[] messageArgs;
+
     public NoUpcomingClassSessionException(String message) {
         super(message);
+        this.messageKey = null;
+        this.messageArgs = null;
+    }
+
+    public NoUpcomingClassSessionException(String messageKey, Object[] messageArgs, String fallbackVi) {
+        super(fallbackVi);
+        this.messageKey = messageKey;
+        this.messageArgs = messageArgs;
+    }
+
+    @Override
+    public String messageKey() {
+        return messageKey;
+    }
+
+    @Override
+    public Object[] messageArgs() {
+        return messageArgs;
     }
 }

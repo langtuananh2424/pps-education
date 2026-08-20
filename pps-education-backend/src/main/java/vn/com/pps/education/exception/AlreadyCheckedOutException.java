@@ -6,8 +6,30 @@ package vn.com.pps.education.exception;
  * bằng lần chấm công ra tiếp theo trong ngày (đối xứng với check-in, sau
  * khi cân nhắc lại — ban đầu định cho phép ghi đè check-out).
  */
-public class AlreadyCheckedOutException extends RuntimeException {
+public class AlreadyCheckedOutException extends RuntimeException implements LocalizedMessage {
+
+    private final String messageKey;
+    private final Object[] messageArgs;
+
     public AlreadyCheckedOutException(String message) {
         super(message);
+        this.messageKey = null;
+        this.messageArgs = null;
+    }
+
+    public AlreadyCheckedOutException(String messageKey, Object[] messageArgs, String fallbackVi) {
+        super(fallbackVi);
+        this.messageKey = messageKey;
+        this.messageArgs = messageArgs;
+    }
+
+    @Override
+    public String messageKey() {
+        return messageKey;
+    }
+
+    @Override
+    public Object[] messageArgs() {
+        return messageArgs;
     }
 }
