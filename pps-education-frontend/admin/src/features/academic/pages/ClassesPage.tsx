@@ -62,7 +62,7 @@ export default function ClassesPage() {
           canManage || !currentUser
             ? res
             : await Promise.all(res.map((c) => listClassTeachers(c.id).catch(() => []))).then((teacherLists) =>
-                res.filter((_, i) => teacherLists[i].some((t) => t.teacherUserId === currentUser.id))
+                res.filter((_, i) => teacherLists[i].some((t) => t.teacherUserId === currentUser.id && !t.assignedTo))
               );
         setClasses(filtered);
         if (isClassAdmin && selectedId == null && filtered.length > 0) setSelectedId(filtered[0].id);

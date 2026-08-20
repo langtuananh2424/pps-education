@@ -183,7 +183,7 @@ export default function Header() {
               .filter(
                 (r): r is PromiseFulfilledResult<{ site: SiteResponse; list: SiteTeacherResponse[] }> => r.status === "fulfilled"
               )
-              .filter((r) => r.value.list.some((t) => t.teacherUserId === currentUser.id))
+              .filter((r) => r.value.list.some((t) => t.teacherUserId === currentUser.id && !t.assignedTo))
               .map((r) => r.value.site)
           )
       );
